@@ -34,12 +34,17 @@
     "trial_interruption_boundaries": 16,
     "lint": "manager library passed"
   },
-  "native_linux_ci": "pending",
+  "native_linux_ci": {
+    "first_run": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37103580319",
+    "first_head": "4da4ca1c6c499ba212f2867a1f3372ce6a382460",
+    "first_result": "one outdated UI-text assertion; corrected; rerun pending"
+  },
   "prior_attempts": [
     "New test initially used Registry equality without equality/debug traits; corrected to compare serialized state.",
     "A shared test fixture needed test-only crate visibility.",
     "An initial restore assertion included the monotonically increasing registry revision; corrected to require exact class/publication restoration and an increased history revision.",
-    "The macOS binary compilation reaches the existing Linux-only scheduler/device APIs; no macOS manager executable pass is claimed."
+    "The macOS binary compilation reaches the existing Linux-only scheduler/device APIs; no macOS manager executable pass is claimed.",
+    "First native Linux run passed 218 library tests and 293 binary tests but failed one old assertion expecting the phrase previous working configuration. Restoration can now target an unqualified predecessor, so the truthful wording and its assertion are previous configuration. The two new manager workflow tests passed in that run."
   ],
   "not_performed": [
     "Deck installation or modification",
@@ -65,11 +70,11 @@
     "bridge-manager/src/preparation/mod.rs": "0ef2679f51fd519ed3894eaab4adeae87bb769566b9dc50e056c6c2307616bb6",
     "bridge-manager/src/preparation/model.rs": "060832ec08f1bf98073a7c5aafd7e84e0bbbcc5c64c9292633d182209150bf2c",
     "bridge-manager/src/preparation/tests.rs": "57f804e9e23f16f5d3100b1e2f7c4d49e49920d34cbbfce84bd99cc6e2b05ccc",
-    "bridge-manager/src/preparation_cli.rs": "2a69bddf865f75a5ec1e8ee88f3cfc39eff64d7e1cd4bdc5c0125cfe545e0d1c",
+    "bridge-manager/src/preparation_cli.rs": "4bb8ffc8b06cdec1330a3f06bc0bbbf580b256e4ff5d69751ab65fb0017f58e5",
     "bridge-manager/src/profiles.rs": "55723bd2f34dddadf97836dd61e4260905c560f405046e3a4706ad91984b025a",
     "bridge-manager/src/test_fixture.rs": "d31e60e919fef0cb6c83f6a25c11a6fc2b37a43ec6041b7df89c27f1cf1b4aa1",
     "manager-ui/src/library.rs": "e090f307685d20a8fd710f7e1d9a033129ecb8c214db815e9e0463e0374bbbdb",
     "manager-ui/src/operator.rs": "2293b2cffc1681e62fe250b3db38a22ea6bdb80afc6d6ae26cdff537f1d5c8d6",
-    "bridge-manager/src/preparation/configuration.rs": "f853ff1d930022ea37fef41d92b3818653479a99685429a14b8cee6a32ee8487"
+    "bridge-manager/src/preparation/configuration.rs": "cf24527e00a5b0792a3ff3db4b37e7c44830b4827c5eb98c0d1747fda3c08a4f"
   }
 }

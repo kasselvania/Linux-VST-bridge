@@ -36,6 +36,9 @@ pub fn prepare(m: &Manager, base: &Candidate, backend: Option<GraphicsBackend>,
         "settings_trial_baseline_changed")?;
     let next = successor(base, backend, expected)?;
     verify_candidate(m, &next, &base.selection.scanner, &base.selection.scanner_source)?;
+    // Retain ancestry before exposing the candidate, as ordinary preparation
+    // does. A crash must not let readback invent a predecessor-free lineage.
+    retain_lineage(m, &next, &next.id()?, Some(&base.id()?))?;
     record_candidate_with_predecessor(m, &next, Some(&base.id()?))?;
     Ok(next)
 }

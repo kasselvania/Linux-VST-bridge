@@ -675,7 +675,8 @@ fn guided_result_disposition(
     if state == "removed" {
         let db = m.registry()?;
         require(db.classes.get(&c.selection.class.id).is_some_and(|entry|
-            entry.publication == Publication::Removed),
+            entry.publication == Publication::Removed
+                && entry.managed_revision.as_ref() == Some(&publication_reference(expected))),
             "guided_result_removed_readback")?;
         return Ok(GuidedDisposition::Removed);
     }
@@ -1672,6 +1673,29 @@ pub(crate) mod tests {
         assert!(products[0].actions.iter().filter(|a| matches!(a.action,
             ui::Action::CandidateGraphicsAssess { .. } | ui::Action::CandidateGraphicsPrepare { .. }))
             .all(|a| a.disabled_reason.is_some()));
+    }
+
+    #[test]
+    fn graphics_trial_removal_cannot_adopt_a_later_removed_generation() {
+        let (f, base) = projection_fixture();
+        let sw = projection_software(&base);
+        prep::record_candidate(&f.m, &base).unwrap();
+        let next = prep::configuration::prepare(&f.m, &base, Some(ui::GraphicsBackend::WineD3d11), None).unwrap();
+        let publication = prep::enable(&f.m, &next, false).unwrap();
+        let expected = publication_identity(&publication);
+        let operation = random_id().unwrap();
+        let action = ui::Action::CompatibilityResult { candidate: next.id().unwrap(),
+            expected_current: expected.clone(),
+            result: ui::TestResultKind::Problem { category: ui::ProblemCategory::BlankEditor },
+            passed: vec![], failed_area: None, note: "Editor did not render".into() };
+        guided_result(&f.m, &sw, &action, &operation, || f.m.lock("registry.lock")).unwrap();
+        prep::review(&f.m, &next, &operation, prep::ReviewChoice::NeedsWork, "Editor did not render").unwrap();
+        prep::disable_exact(&f.m, &next, &publication).unwrap();
+        assert_eq!(guided_result_disposition(&f.m, &next, &expected, &operation).unwrap(), GuidedDisposition::Removed);
+        let later = prep::enable(&f.m, &base, false).unwrap();
+        prep::disable_exact(&f.m, &base, &later).unwrap();
+        assert!(guided_result_disposition(&f.m, &next, &expected, &operation).is_err(),
+            "a later removed generation is not proof that this result finished");
     }
     #[test]
     fn effect_offers_explicit_stereo_inspection_without_changing_default_action_shape() {
@@ -2724,7 +2748,7 @@ pub(crate) mod tests {
         let pending = products[0].compatibility.as_ref().unwrap();
         assert_eq!(pending.current_candidate.as_deref(), Some(a.id().unwrap().as_str()));
         assert_eq!(pending.phase, ui::CompatibilityPhase::TestResultIncomplete);
-        assert!(pending.summary.contains("previous working configuration is selected"));
+        assert!(pending.summary.contains("previous configuration is selected"));
         assert!(matches!(&pending.primary.as_ref().unwrap().action,
             ui::Action::CompatibilityFinishResult { operation: source } if source == &operation));
         assert_eq!(pending.primary.as_ref().unwrap().disabled_reason, None);
