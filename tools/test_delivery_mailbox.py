@@ -45,6 +45,19 @@ int main(){
   ap1::put(v+68,16385,4);InterlockedExchange(reinterpret_cast<volatile LONG*>(v+64),1);
   refused=false;try{mailbox.receive(got,7);}catch(...){refused=true;}assert(refused);
   InterlockedExchange(reinterpret_cast<volatile LONG*>(v+64),0);
+  // An idle mailbox must wake when its owner fails, without a new native
+  // request or unmapping storage still borrowed by the delivery thread.
+  std::atomic<bool> cancelled{false};bool cancelled_wait=false;
+  auto start=std::chrono::steady_clock::now();
+  std::thread waiting([&]{try{mailbox.receive(got,7,&cancelled);}catch(const std::exception& e){cancelled_wait=std::string(e.what())=="owner service failed";}});
+  std::this_thread::sleep_for(std::chrono::milliseconds(20));cancelled.store(true,std::memory_order_release);
+  waiting.join();assert(cancelled_wait&&std::chrono::steady_clock::now()-start<std::chrono::seconds(1));
+  // Cancellation also refuses a request already published, preserving it for
+  // the failed session's supervisor instead of admitting more DSP work.
+  InterlockedExchange(reinterpret_cast<volatile LONG*>(v+64),1);
+  refused=false;try{mailbox.receive(got,7,&cancelled);}catch(...){refused=true;}assert(refused);
+  assert(InterlockedCompareExchange(reinterpret_cast<volatile LONG*>(v+64),0,0)==1);
+  InterlockedExchange(reinterpret_cast<volatile LONG*>(v+64),0);
  }
  // The new mapping is identity-bound, even when its directory is private.
  id[0]=4;bool refused=false;try{wf0::DeliveryMailbox wrong(dir.wstring(),id);}catch(...){refused=true;}assert(refused);

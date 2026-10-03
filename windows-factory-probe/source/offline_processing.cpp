@@ -251,10 +251,27 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
             catch (...) {if(!primary_error)primary_error=std::current_exception();stopped=false;ok=false;}
             worker_done.store(true,std::memory_order_release);
         });
-        if(stateful)while(!worker_done.load(std::memory_order_acquire)){
-            external->service_owner();std::this_thread::sleep_for(std::chrono::microseconds(50));
+        std::exception_ptr owner_error;
+        try {
+            if(stateful)while(!worker_done.load(std::memory_order_acquire)){
+                external->service_owner();std::this_thread::sleep_for(std::chrono::microseconds(50));
+            }
+        } catch (...) {
+            // Do not unwind a joinable std::thread, detach a borrower of our
+            // buffers, or race the worker's error/result fields. Ask the owned
+            // transport to stop, then join before touching shared results.
+            owner_error=std::current_exception();
+            external->owner_failed();
+            if(WaitForSingleObject(worker.native_handle(),5000)!=WAIT_OBJECT_0) {
+                // A vendor process/setProcessing call may never return. The
+                // outer supervisor owns the failed instance; no DLL detach or
+                // vendor destruction is safe while this worker remains live.
+                TerminateProcess(GetCurrentProcess(),93);
+                std::terminate();
+            }
         }
         worker.join();joined=true;
+        if(owner_error){primary_error=owner_error;ok=false;}
     } catch (...) {if(!primary_error)primary_error=std::current_exception();ok=false;}
     events.lifecycle("ap0_thread_joined",",\"joined\":"+std::string(joined?"true":"false")+
         ",\"processing_stopped\":"+(stopped?"true":"false")+

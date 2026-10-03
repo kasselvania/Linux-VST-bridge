@@ -23,6 +23,7 @@ public:
     bool stateful() const override;
     void bind_component(Steinberg::Vst::IComponent*) override;
     void service_owner() override;
+    void owner_failed() noexcept override;
     void retire_vendor_process(bool) override;
     bool initial_transition() override;
     uint32_t process_mode() const override;

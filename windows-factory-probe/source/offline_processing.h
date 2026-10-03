@@ -31,6 +31,9 @@ public:
     virtual bool stateful() const { return false; }
     virtual void bind_component(Steinberg::Vst::IComponent*) {}
     virtual void service_owner() {}
+    // Owner thread only, after service_owner throws. Wake transport/state
+    // waits without touching vendor objects or releasing worker-owned storage.
+    virtual void owner_failed() noexcept {}
     virtual void retire_vendor_process(bool) {}
     virtual bool initial_transition() {return true;}
     virtual uint32_t process_mode() const {return 0;}

@@ -40,7 +40,7 @@ int main(){
 #ifdef _WIN32
  WSADATA data{};require(WSAStartup(MAKEWORD(2,2),&data)==0,"WSAStartup");
 #endif
- for(int fast=0;fast<2;++fast)for(int scenario=0;scenario<5;++scenario){
+ for(int fast=0;fast<2;++fast)for(int scenario=0;scenario<6;++scenario){
   SOCKET listener=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
   sockaddr_in a{};a.sin_family=AF_INET;a.sin_addr.s_addr=htonl(INADDR_LOOPBACK);
   require(bind(listener,reinterpret_cast<sockaddr*>(&a),sizeof(a))==0,"bind");
@@ -63,6 +63,7 @@ int main(){
    }else if(scenario==1){shutdown(sender.value,2);}
    else if(scenario==2){char byte='L';send(sender.value,&byte,1,0);}
    else if(scenario==3){auto b=encode(Frame{Hello,{},0,{1,2,3}});send(sender.value,reinterpret_cast<const char*>(b.data()),int(header_bytes),0);}
+   else if(scenario==5){std::this_thread::sleep_for(std::chrono::milliseconds(20));shutdown(receiver.value,2);}
   });
   try{
    auto f=receiver.receive(scenario!=4);
@@ -73,8 +74,8 @@ int main(){
   auto seconds=std::chrono::duration<double>(std::chrono::steady_clock::now()-started).count();
   require(failed==(scenario!=0),"idle versus failure result");
   if(scenario==0)require(seconds>=6&&seconds<9,"idle survival");
-  if(scenario==1)require(seconds<2,"disconnect detection");
-  if(scenario>=2)require(seconds>=4.5&&seconds<8,"bounded message/reply deadline");
+  if(scenario==1||scenario==5)require(seconds<2,"disconnect/owned cancellation detection");
+  if(scenario>=2&&scenario<=4)require(seconds>=4.5&&seconds<8,"bounded message/reply deadline");
   std::cout<<"socket scenario "<<scenario<<" passed\n";
  }
 }

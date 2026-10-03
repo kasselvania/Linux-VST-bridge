@@ -1,6 +1,7 @@
 #pragma once
 #include <windows.h>
 #include <chrono>
+#include <atomic>
 #include <thread>
 #include "ap1_protocol.h"
 namespace linux_vst_bridge::wf0 {
@@ -40,9 +41,9 @@ public:
  // Idle has no issued-request deadline, as on the existing socket path. The
  // outer owner contains a vanished native peer. Linux waits at most five seconds
  // for an issued request, counts gaps meanwhile, then fails the instance.
- bool receive(ap1::Frame& out,uint16_t minor){
+ bool receive(ap1::Frame& out,uint16_t minor,const std::atomic<bool>* cancelled=nullptr){
   using namespace ap1;
-  for(;;){auto state=flag(64);
+  for(;;){require(!cancelled||!cancelled->load(std::memory_order_acquire),"owner service failed");auto state=flag(64);
    if(state==1){auto n=get(view+68,4);require(n>=header_bytes&&n<=request_cap&&n-header_bytes<=out.payload.capacity(),"delivery request extent");
     decode_into(view+request_offset,size_t(n),minor,out);
     require(out.kind==Process,"delivery request kind");flag(64,0);return true;

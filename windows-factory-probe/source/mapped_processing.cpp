@@ -102,6 +102,7 @@ struct MappedSession::Impl {
  std::atomic<bool> capture_active{false},capture_failed{false};
  ControllerUpdates controller_updates;
  std::atomic<bool> controller_update_failed{false};
+ std::atomic<bool> owner_failure{false};
  uint64_t controller_updates_applied=0;
  void update_controller(){
   if(!commercial||controller_update_failed.load())return;
@@ -111,7 +112,7 @@ struct MappedSession::Impl {
     if(editor?!editor->host_value(id,value,revision):controller->setParamNormalized(id,value)!=Steinberg::kResultOk)return false;
     ++controller_updates_applied;return true;
    });
-   if(!ok)controller_update_failed.store(true);
+   if(!ok){if(fault)fault->terminal.editor_fatal(1);controller_update_failed.store(true);}
   }catch(...){if(fault)fault->terminal.editor_fatal(1);controller_update_failed.store(true);}
  }
  explicit Impl(EventWriter&e):events(e){process_request.payload.reserve(8352);base_request.payload.reserve(32);process_reply.payload.reserve(10312);}
@@ -181,13 +182,24 @@ struct MappedSession::Impl {
   if(f.kind==SetState)require(output.bytes==f.payload,"Windows restored state readback differs");
   socket.write(frame(uint16_t(f.kind+1),f.sequence,output.bytes));completed();
  }
+ bool wait_state(std::unique_lock<std::mutex>& lock){
+  const auto end=std::chrono::steady_clock::now()+std::chrono::seconds(10);
+  while(!serviced&&!owner_failure.load()){
+   const auto now=std::chrono::steady_clock::now();if(now>=end)return false;
+   // Cancellation cannot acquire this mutex or depend on a notification
+   // racing predicate-check/wait. A lost notification costs at most 4 ms.
+   condition.wait_until(lock,std::min(end,now+std::chrono::milliseconds(4)));
+  }
+  return serviced&&!owner_failure.load();
+ }
  void dispatch(Frame f){
   if(std::this_thread::get_id()==owner){state_call(std::move(f));return;}
   FaultStatus::Scope activity(fault.get(),1,7,f.kind);
   std::unique_lock lock(mutex);
   // A completed response may reach Linux just before the owner finishes its
   // bookkeeping. Reclaim that slot before admitting the next control request.
-  if(waiting){require(condition.wait_for(lock,std::chrono::seconds(10),[&]{return serviced;}),"previous owner state service timeout");waiting=false;if(state_error)std::rethrow_exception(state_error);}
+  if(waiting){require(wait_state(lock),"previous owner state service timeout/failure");waiting=false;if(state_error)std::rethrow_exception(state_error);}
+  require(!owner_failure.load(),"owner service failed");
   const bool concurrent=socket.minor>=12&&mailbox&&timeline.running&&f.kind==GetState;
   if(concurrent){
    require(!state.failed&&!state.outstanding&&f.session==state.session&&f.sequence==state.next&&f.payload.empty()&&state.next<UINT64_MAX,"active capture correlation/ownership");
@@ -195,7 +207,7 @@ struct MappedSession::Impl {
   }
   state_frame=std::move(f);waiting=true;serviced=false;concurrent_capture=concurrent;state_error=nullptr;capture_active.store(concurrent);condition.notify_all();
   if(concurrent)return;
-  require(condition.wait_for(lock,std::chrono::seconds(10),[&]{return serviced;}),"owner state service timeout");
+  require(wait_state(lock),"owner state service timeout/failure");
   waiting=false;if(state_error)std::rethrow_exception(state_error);
  }
  void configure(const Frame& f){
@@ -232,7 +244,9 @@ struct MappedSession::Impl {
   f=socket.receive(true);if(f.kind==Configure){configure(f);continue;}if(stateful&&(f.kind==GetState||f.kind==SetState)){dispatch(std::move(f));continue;}return f;}}
  void receive_audio(Frame& f){for(;;){last_fast=false;
   if(capture_failed.load(std::memory_order_acquire)){std::lock_guard lock(mutex);std::rethrow_exception(state_error);}
-  if(mailbox){last_fast=mailbox->receive(f,socket.minor);if(!last_fast)socket.receive_audio(f);}else socket.receive_audio(f);
+  require(!owner_failure.load(),"owner service failed");
+  if(mailbox){last_fast=mailbox->receive(f,socket.minor,&owner_failure);if(!last_fast)socket.receive_audio(f);}else socket.receive_audio(f);
+  require(!owner_failure.load(),"owner service failed");
   if(f.kind==Configure){configure(f);continue;}
   if(stateful&&(f.kind==GetState||f.kind==SetState)){dispatch(std::move(f));f.payload.reserve(8352);continue;}
   return;
@@ -350,6 +364,15 @@ void MappedSession::service_owner(){auto& x=*impl_;
   lock.lock();x.state_error=error;x.serviced=true;
   if(error&&concurrent){x.capture_failed.store(true,std::memory_order_release);shutdown(x.socket.value,SD_BOTH);}
   x.capture_active.store(false);x.condition.notify_all();}}
+
+void MappedSession::owner_failed() noexcept {auto& x=*impl_;
+ if(x.fault)x.fault->terminal.editor_fatal(2);
+ x.owner_failure.store(true,std::memory_order_release);
+ // Cancellation never closes the mapping/socket or edits delivery-owned
+ // sequence state. Worker completion precedes their ordinary destruction.
+ if(x.socket.value!=INVALID_SOCKET)shutdown(x.socket.value,SD_BOTH);
+ x.condition.notify_all();
+}
 
 #ifdef LVB_LC1_TEST
 void MappedSession::lc1_seed(){auto& x=*impl_;require(x.state.next==1&&!x.timeline.running&&!x.has_pending,"LC1 seed before lifecycle");x.state.next=104684;}
