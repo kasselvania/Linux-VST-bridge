@@ -10,6 +10,7 @@ import json
 import os
 import pathlib
 import re
+import selectors
 import socket
 import struct
 import subprocess
@@ -49,6 +50,7 @@ parser.add_argument('--restore-mode', choices=('recall','recall-disconnected','m
 parser.add_argument('--expect-restore-refusal', action='store_true')
 parser.add_argument('--invalid-state', choices=('wrong-class','corrupt','oversized'))
 parser.add_argument('--abrupt-exit', action='store_true')
+parser.add_argument('--sibling-module-sha256', help='Keep the other exact first-party class processing during a failure test')
 parser.add_argument('--pairs', type=int, choices=(1, 4), default=4,
                     help='One initial probe or the complete predeclared four-pair workload')
 args = parser.parse_args()
@@ -58,6 +60,7 @@ assert not args.expect_restore_refusal or (args.recall_from and args.state_updat
 assert not args.invalid_state or args.expect_restore_refusal
 assert not args.abrupt_exit or (args.state_update and not args.recall_from)
 assert not (args.expect_restore_refusal and args.restore_mode.startswith('migrate'))
+assert not args.sibling_module_sha256 or (args.role and args.state_update and (args.expect_restore_refusal or args.abrupt_exit) and re.fullmatch('[0-9a-f]{64}',args.sibling_module_sha256))
 
 root = pathlib.Path.home()/'.local/share/linux-vst-bridge/managed'
 os.umask(0o077)
@@ -159,9 +162,9 @@ def capacity():
                 ('dsp', 'maintenance', 'keepers', 'cleanup_unconfirmed')}
 
 
-def idle():
+def idle(expected_dsp=0):
     value = capacity()
-    assert value['dsp'] == value['maintenance'] == 0, 'existing work must finish'
+    assert value['dsp'] == expected_dsp and value['maintenance'] == 0, 'existing work must finish'
     assert not value['cleanup_unconfirmed'], 'unconfirmed cleanup'
     assert not (root/'operator/resume.json').exists(), 'existing recovery must finish'
     return value
@@ -257,6 +260,73 @@ for line in subprocess.check_output(['systemctl', '--user', 'show-environment'],
     if key in ('DISPLAY', 'XAUTHORITY', 'WAYLAND_DISPLAY', 'DBUS_SESSION_BUS_ADDRESS'):
         environment[key] = value
 environment['LD_PRELOAD'] = str(args.audit.resolve(strict=True))
+class HealthySibling:
+    def __init__(self,role):
+        self.role=role;self.child=None;self.events=[];self.sessions=set()
+    def __enter__(self):
+        if not args.sibling_module_sha256:return self
+        idle()
+        key,_=FIXTURES[self.role]
+        entry=registry['classes'][key];registration=entry['registration']
+        assert entry['publication']=='Published' and registration['module']['sha256']==args.sibling_module_sha256
+        assert registration['native']['sha256']==selected['engine_sha256'], 'sibling must use the frozen repaired engine'
+        for name in ('module','native','host'):
+            artifact=registration[name]
+            assert sha(pathlib.Path(artifact['path']))==artifact['sha256']
+        bundle=pathlib.Path.home()/'.vst3'/('LVB_'+key+'.vst3')
+        before={p.stem for p in (root/'runtime/leases').glob('*.json')}
+        command=[str(args.host),str(bundle),self.role,'sibling',str(args.output/'sibling-state'),'1024',*NATIVE_IDS[self.role]]
+        self.child=subprocess.Popen(command,env=environment,stdout=subprocess.PIPE,stderr=subprocess.PIPE,bufsize=0)
+        try:
+            with selectors.DefaultSelector() as poll:
+                poll.register(self.child.stdout,selectors.EVENT_READ)
+                until=time.monotonic()+60
+                while time.monotonic()<until:
+                    if not poll.select(.2):continue
+                    line=self.child.stdout.readline()
+                    assert line, 'sibling exited before processing'
+                    row=json.loads(line);self.events.append(row)
+                    if row['event']=='processing_state':break
+                else:raise TimeoutError('sibling processing readiness')
+            self.sessions={p.stem for p in (root/'runtime/leases').glob('*.json')}-before
+            assert len(self.sessions)==1 and self.child.poll() is None, 'one live exact sibling required'
+            idle(1)
+            emit('sibling_processing',role=self.role,class_id=key,module_sha256=args.sibling_module_sha256,
+                 native_sha256=registration['native']['sha256'],sessions=sorted(self.sessions))
+            return self
+        except BaseException:
+            self.stop();raise
+    def stop(self):
+        self.child.terminate()
+        try:return self.child.communicate(timeout=15)
+        except subprocess.TimeoutExpired:
+            self.child.kill()
+            return self.child.communicate(timeout=5)
+    def __exit__(self,kind,value,trace):
+        if self.child is None:return False
+        try:
+            try:stdout,stderr=self.child.communicate(timeout=80)
+            except subprocess.TimeoutExpired:
+                stdout,stderr=self.stop()
+                raise AssertionError('sibling timed out')
+            self.events += [json.loads(line) for line in stdout.splitlines() if line.strip()]
+            emit('sibling_result',role=self.role,exit_code=self.child.returncode,host_events=self.events,
+                 omitted_stderr_bytes=len(stderr),stderr_sha256=hashlib.sha256(stderr).hexdigest())
+            assert self.child.returncode==0 and self.events[-1]['event']=='passed', 'healthy sibling audio/state failed'
+            until=time.monotonic()+20
+            while time.monotonic()<until:
+                if not any((root/'runtime/leases'/(sid+'.json')).exists() for sid in self.sessions):break
+                time.sleep(.1)
+            for sid in self.sessions:
+                report=read(root/'runtime/results'/('windows-'+sid+'.json'))
+                assert report['cleanup_confirmed'] and report['transport_retired']
+                assert not (root/'runtime/leases'/(sid+'.json')).exists()
+            idle()
+        except BaseException as error:
+            emit('sibling_failure',reason=str(error))
+            if kind is None:raise
+        return False
+
 roles = [args.role] if args.role else list(FIXTURES)
 saved = None
 if args.recall_from is not None:
@@ -315,111 +385,114 @@ for role in roles:
             damaged.with_suffix('.component').write_bytes(component)
             damaged.with_suffix('.controller').write_bytes(prefix.with_suffix('.controller').read_bytes())
             prefix=damaged
-        modes=('abrupt',) if args.abrupt_exit else ((args.restore_mode,'recall') if args.restore_mode.startswith('migrate') else (args.restore_mode,)) if saved is not None else ('record','recall')
-        for mode in modes:
-            before = idle()
-            known = session_reports()
-            started = time.monotonic()
-            command=[str(args.host),str(bundle),role,mode,str(prefix),str(frames),*NATIVE_IDS[role]]
-            migrated=args.output/(role+'-'+str(pair))
-            if mode.startswith('migrate'):command.append(str(migrated))
-            child = subprocess.Popen(command,env=environment,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-            try:
-                stdout, stderr = child.communicate(timeout=95)
-            except subprocess.TimeoutExpired:
-                # Retire this test-owned consumer only. Product DSP retirement
-                # must still be confirmed; this can never count as a pass.
-                child.terminate()
-                stdout, stderr = child.communicate(timeout=10)
-                emit('test_timeout', role=role, pair=pair, mode=mode,
-                     intervention='terminated_test_owned_consumer')
-            events = []
-            for line in stdout.splitlines():
-                if line.strip():
-                    events.append(json.loads(line))
-            attempted = any(e['event'] in ('initialized_state', 'activated', 'host_retired')
-                            for e in events)
-            reports = []
-            retirement_readback_failed = False
-            retirement_observations = []
-            until = time.monotonic()+20
-            while time.monotonic() < until:
+        with HealthySibling('instrument' if role=='effect' else 'effect') as sibling:
+            modes=('abrupt',) if args.abrupt_exit else ((args.restore_mode,'recall') if args.restore_mode.startswith('migrate') else (args.restore_mode,)) if saved is not None else ('record','recall')
+            for mode in modes:
+                before = idle(1 if sibling.child else 0)
+                known = session_reports()
+                started = time.monotonic()
+                command=[str(args.host),str(bundle),role,mode,str(prefix),str(frames),*NATIVE_IDS[role]]
+                migrated=args.output/(role+'-'+str(pair))
+                if mode.startswith('migrate'):command.append(str(migrated))
+                child = subprocess.Popen(command,env=environment,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+                try:
+                    stdout, stderr = child.communicate(timeout=95)
+                except subprocess.TimeoutExpired:
+                    # Retire this test-owned consumer only. Product DSP retirement
+                    # must still be confirmed; this can never count as a pass.
+                    child.terminate()
+                    stdout, stderr = child.communicate(timeout=10)
+                    emit('test_timeout', role=role, pair=pair, mode=mode,
+                         intervention='terminated_test_owned_consumer')
+                events = []
+                for line in stdout.splitlines():
+                    if line.strip():
+                        events.append(json.loads(line))
+                attempted = any(e['event'] in ('initialized_state', 'activated', 'host_retired')
+                                for e in events)
                 reports = []
-                for path in session_reports()-known:
-                    report = read(path)
-                    reports.append({k:report.get(k) for k in
-                                    ('session', 'cleanup_confirmed', 'transport_retired', 'gated', 'raw_exit','native_retirement_basis')})
-                remaining = [r['session'] for r in reports
-                             if (root/'runtime/leases'/(r['session']+'.json')).exists()]
-                if reports and not remaining and all(r['cleanup_confirmed'] is True
-                        and r['transport_retired'] is True for r in reports):
-                    break
-                if not attempted and child.returncode != 0:
-                    break
-                if reports and not retirement_readback_failed:
-                    try:
-                        observed = capacity()
-                        row = {'leases_remaining':remaining, 'capacity':observed}
-                        if not retirement_observations or row != retirement_observations[-1]:
-                            assert len(retirement_observations) < 64, 'retirement observation extent'
-                            retirement_observations.append(row)
-                    except (CapacityUnavailable, OSError, AssertionError):
-                        retirement_readback_failed = True
-                time.sleep(.1)
-            phases = []
-            for report in reports:
-                diagnostic = root/'runtime/results'/('native-'+report['session']+'.jsonl')
-                if diagnostic.exists():
-                    assert diagnostic.stat().st_size <= 131072, 'native diagnostic extent'
-                    for phase in sanitized_phases(diagnostic.read_bytes()):
-                        phases.append(dict(session=report['session'], **phase))
-            try:
-                after = capacity()
-            except (CapacityUnavailable, OSError, AssertionError):
-                # Keep the actual consumer and retirement results even when
-                # global readback fails. The required readback still fails the run.
-                after = {'unavailable':True}
-            emit('run', role=role, pair=pair, mode=mode, frames=frames,
-                 duration_ms=round((time.monotonic()-started)*1000, 3),
-                 exit_code=child.returncode, host_events=events, audio_phases=phases,
-                 dsp_retirement=reports, capacity_before=before, capacity_after=after,
-                 retirement_readback_failed=retirement_readback_failed,
-                 retirement_observations=retirement_observations,
-                 omitted_stderr_bytes=len(stderr), stderr_sha256=hashlib.sha256(stderr).hexdigest())
-            if args.abrupt_exit:
-                assert child.returncode==23 and events[-1]['event']=='abrupt_exit', 'declared abrupt loss missing'
-                assert not any(e['event']=='host_retired' for e in events), 'consumer unexpectedly performed SDK teardown'
-                assert any(r.get('native_retirement_basis')=='authenticated_process_generation_ended' for r in reports), 'independent native-death proof missing'
-            elif args.expect_restore_refusal:
-                assert child.returncode==1 and events[-1]['event']=='failed' and events[-1]['stage']=='restore', 'explicit restore refusal missing'
-                assert any(e['event']=='host_retired' and e['module_unloaded'] for e in events), 'orderly SDK teardown missing'
-                assert not any(e['event'] in ('activated','audio') for e in events), 'failed restore must not substitute playable default state'
-            else:
-                assert child.returncode == 0 and events[-1]['event'] == 'passed', 'installed lifecycle failed'
-            assert reports and not remaining and all(r['cleanup_confirmed'] is True
-                and r['transport_retired'] is True for r in reports), 'positive retirement missing'
-            assert not retirement_readback_failed, 'retirement capacity readback refused'
-            assert after.get('dsp') == 0 and after.get('cleanup_unconfirmed') is False, 'fresh capacity readback missing'
-            assert phases or args.abrupt_exit, 'phase attribution missing'
-            for report in reports:
-                session_phases = [p for p in phases if p['session'] == report['session']]
-                if not args.abrupt_exit:
-                    assert session_phases and session_phases[-1]['phase'] == 'retired', 'native retirement missing'
-            assert all(p.get('processing', {}).get('missing_frames', 0) == 0 for p in phases), 'processing audio gap'
-            if original_hashes:
-                assert all(sha(original_prefix.with_suffix('.'+part))==value for part,value in original_hashes.items()), 'original saved object changed'
-            if mode.startswith('migrate'):
-                old=original_prefix.with_suffix('.component').read_bytes()
-                new=migrated.with_suffix('.component').read_bytes()
-                assert old[16:32]==new[16:32]==bytes.fromhex(key), 'logical class changed'
-                assert old[32:64]==bytes.fromhex(prior['module_sha256']), 'historical producing identity changed'
-                assert new[32:64]==bytes.fromhex(module_sha), 'new producing identity is false'
-                assert hashlib.sha256(new[104:]).digest()==new[72:104], 'new payload integrity'
-                emit('state_migration',role=role,old_module_sha256=old[32:64].hex(),new_module_sha256=new[32:64].hex(),
-                     old_parameter_count=int.from_bytes(old[112:116],'little'),new_parameter_count=int.from_bytes(new[112:116],'little'),
-                     old_component_bytes=int.from_bytes(old[104:108],'little'),new_component_bytes=int.from_bytes(new[104:108],'little'),
-                     original_sha256=original_hashes['component'],migrated_sha256=sha(migrated.with_suffix('.component')))
-                prefix=migrated
+                retirement_readback_failed = False
+                retirement_observations = []
+                until = time.monotonic()+20
+                while time.monotonic() < until:
+                    reports = []
+                    for path in session_reports()-known:
+                        if path.stem.removeprefix('windows-') in sibling.sessions:continue
+                        report = read(path)
+                        reports.append({k:report.get(k) for k in
+                                        ('session', 'cleanup_confirmed', 'transport_retired', 'gated', 'raw_exit','native_retirement_basis')})
+                    remaining = [r['session'] for r in reports
+                                 if (root/'runtime/leases'/(r['session']+'.json')).exists()]
+                    if reports and not remaining and all(r['cleanup_confirmed'] is True
+                            and r['transport_retired'] is True for r in reports):
+                        break
+                    if not attempted and child.returncode != 0:
+                        break
+                    if reports and not retirement_readback_failed:
+                        try:
+                            observed = capacity()
+                            row = {'leases_remaining':remaining, 'capacity':observed}
+                            if not retirement_observations or row != retirement_observations[-1]:
+                                assert len(retirement_observations) < 64, 'retirement observation extent'
+                                retirement_observations.append(row)
+                        except (CapacityUnavailable, OSError, AssertionError):
+                            retirement_readback_failed = True
+                    time.sleep(.1)
+                phases = []
+                for report in reports:
+                    diagnostic = root/'runtime/results'/('native-'+report['session']+'.jsonl')
+                    if diagnostic.exists():
+                        assert diagnostic.stat().st_size <= 131072, 'native diagnostic extent'
+                        for phase in sanitized_phases(diagnostic.read_bytes()):
+                            phases.append(dict(session=report['session'], **phase))
+                try:
+                    after = capacity()
+                except (CapacityUnavailable, OSError, AssertionError):
+                    # Keep the actual consumer and retirement results even when
+                    # global readback fails. The required readback still fails the run.
+                    after = {'unavailable':True}
+                emit('run', role=role, pair=pair, mode=mode, frames=frames,
+                     duration_ms=round((time.monotonic()-started)*1000, 3),
+                     exit_code=child.returncode, host_events=events, audio_phases=phases,
+                     dsp_retirement=reports, capacity_before=before, capacity_after=after,
+                     retirement_readback_failed=retirement_readback_failed,
+                     retirement_observations=retirement_observations,
+                     omitted_stderr_bytes=len(stderr), stderr_sha256=hashlib.sha256(stderr).hexdigest())
+                if args.abrupt_exit:
+                    assert child.returncode==23 and events[-1]['event']=='abrupt_exit', 'declared abrupt loss missing'
+                    assert not any(e['event']=='host_retired' for e in events), 'consumer unexpectedly performed SDK teardown'
+                    assert any(r.get('native_retirement_basis')=='authenticated_process_generation_ended' for r in reports), 'independent native-death proof missing'
+                elif args.expect_restore_refusal:
+                    assert child.returncode==1 and events[-1]['event']=='failed' and events[-1]['stage']=='restore', 'explicit restore refusal missing'
+                    assert any(e['event']=='host_retired' and e['module_unloaded'] for e in events), 'orderly SDK teardown missing'
+                    assert not any(e['event'] in ('activated','audio') for e in events), 'failed restore must not substitute playable default state'
+                else:
+                    assert child.returncode == 0 and events[-1]['event'] == 'passed', 'installed lifecycle failed'
+                assert reports and not remaining and all(r['cleanup_confirmed'] is True
+                    and r['transport_retired'] is True for r in reports), 'positive retirement missing'
+                assert not retirement_readback_failed, 'retirement capacity readback refused'
+                assert after.get('dsp') == (1 if sibling.child else 0) and after.get('cleanup_unconfirmed') is False, 'fresh capacity readback missing'
+                if sibling.child:assert sibling.child.poll() is None, 'sibling must remain processing through failure retirement'
+                assert phases or args.abrupt_exit, 'phase attribution missing'
+                for report in reports:
+                    session_phases = [p for p in phases if p['session'] == report['session']]
+                    if not args.abrupt_exit:
+                        assert session_phases and session_phases[-1]['phase'] == 'retired', 'native retirement missing'
+                assert all(p.get('processing', {}).get('missing_frames', 0) == 0 for p in phases), 'processing audio gap'
+                if original_hashes:
+                    assert all(sha(original_prefix.with_suffix('.'+part))==value for part,value in original_hashes.items()), 'original saved object changed'
+                if mode.startswith('migrate'):
+                    old=original_prefix.with_suffix('.component').read_bytes()
+                    new=migrated.with_suffix('.component').read_bytes()
+                    assert old[16:32]==new[16:32]==bytes.fromhex(key), 'logical class changed'
+                    assert old[32:64]==bytes.fromhex(prior['module_sha256']), 'historical producing identity changed'
+                    assert new[32:64]==bytes.fromhex(module_sha), 'new producing identity is false'
+                    assert hashlib.sha256(new[104:]).digest()==new[72:104], 'new payload integrity'
+                    emit('state_migration',role=role,old_module_sha256=old[32:64].hex(),new_module_sha256=new[32:64].hex(),
+                         old_parameter_count=int.from_bytes(old[112:116],'little'),new_parameter_count=int.from_bytes(new[112:116],'little'),
+                         old_component_bytes=int.from_bytes(old[104:108],'little'),new_component_bytes=int.from_bytes(new[104:108],'little'),
+                         original_sha256=original_hashes['component'],migrated_sha256=sha(migrated.with_suffix('.component')))
+                    prefix=migrated
         if args.abrupt_exit or args.expect_restore_refusal:continue
         emit('state_roundtrip', role=role, pair=pair, frames=frames,
              component_sha256=sha(prefix.with_suffix('.component')),

@@ -106,13 +106,14 @@ void synchronize(IEditController& controller,LVBState::Stream& state,double gain
 }
 int main(int argc,char** argv) {
     try {
-        need(argc==8||argc==9,"usage: lifecycle-host BUNDLE instrument|effect record|recall|migrate|recall-disconnected|migrate-disconnected|abrupt STATE_PREFIX FRAMES NATIVE_PROCESSOR_ID NATIVE_CONTROLLER_ID [CAPTURE_PREFIX]");
-        bool instrument=std::string(argv[2])=="instrument",record=std::string(argv[3])=="record";
+        need(argc==8||argc==9,"usage: lifecycle-host BUNDLE instrument|effect record|sibling|recall|migrate|recall-disconnected|migrate-disconnected|abrupt STATE_PREFIX FRAMES NATIVE_PROCESSOR_ID NATIVE_CONTROLLER_ID [CAPTURE_PREFIX]");
+        bool instrument=std::string(argv[2])=="instrument",record=std::string(argv[3])=="record"||std::string(argv[3])=="sibling";
         need(instrument||std::string(argv[2])=="effect","fixture role");
         const std::string mode=argv[3];
         const bool migrate=mode=="migrate"||mode=="migrate-disconnected";
         const bool disconnected=mode=="recall-disconnected"||mode=="migrate-disconnected";
         const bool abrupt=mode=="abrupt";
+        const bool sibling=mode=="sibling";
         need(record||mode=="recall"||mode=="recall-disconnected"||migrate||abrupt,"fixture mode");
         need(!migrate||argc==9,"migration needs a separate capture destination");
         const int frames=std::stoi(argv[5]);need(frames==1008||frames==1024,"declared callback sizes");
@@ -187,11 +188,12 @@ int main(int argc,char** argv) {
         std::cout<<"{\"event\":\"activated\",\"latency_samples\":"<<latency<<",\"elapsed_ms\":"<<std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now()-at).count()<<"}"<<std::endl;
         std::atomic<int> blocks{0};std::atomic<bool> audioDone{false};std::exception_ptr audioFailure;
         uint64_t mismatches=0,nonfinite=0,nonzero=0,rejected=0,overruns=0,maxNs=0;double maxError=0.;
-        constexpr int count=480;
+        const int count=sibling?2400:480;
+        const int releaseBlock=sibling?count-30:350;
         // Bounded independent-host observations. No logging or allocation is
         // added inside process(); all rows are emitted after the audio join.
         struct Timing {uint64_t scheduledNs{},startedNs{},durationNs{},mismatches{};};
-        std::array<Timing,count> timing{};
+        std::array<Timing,2400> timing{};
         Clock::time_point audioBegin;
         uint64_t audioBeginUnixNs=0;
         std::jthread audio([&]{ProcessingStop stop{*processor,audioFailure};try {
@@ -224,7 +226,7 @@ int main(int argc,char** argv) {
                     ok(parameters.addParameterData(1,index)->addPoint(49,.125,point),"colour automation");
                     if(parameterCount==3) ok(parameters.addParameterData(17,index)->addPoint(49,.75,point),"added parameter automation");
                 }
-                if(instrument&&(b==3||b==350)) {
+                if(instrument&&(b==3||b==releaseBlock)) {
                     Event event{};event.busIndex=0;event.sampleOffset=b==3?7:43;
                     event.type=b==3?Event::kNoteOnEvent:Event::kNoteOffEvent;
                     if(b==3) event.noteOn={2,69,0.f,.8f,0,42};else event.noteOff={2,69,0.f,42,0.f};
@@ -234,7 +236,7 @@ int main(int argc,char** argv) {
                     if(record&&b==4) {if(i==7) gain=.75;if(i==37) gain=.5;if(i==1007) gain=.625;}
                     if(record&&b==5&&i==49) {colour=.125;trim=.75;}
                     if(instrument&&b==3&&i==7) {voice=true;phase=0.;}
-                    if(instrument&&b==350&&i==43) voice=false;
+                    if(instrument&&b==releaseBlock&&i==43) voice=false;
                     double signal=voice?double(.8f)*(std::sin(phase)+colour*.5*std::sin(phase*2.)):0.;
                     if(voice) phase=std::fmod(phase+increment,tau);
                     auto& e=expected[size_t(b*frames+i+latency)];
