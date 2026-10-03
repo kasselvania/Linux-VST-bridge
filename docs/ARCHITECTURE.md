@@ -4,11 +4,12 @@
 **Primary target:** Native Linux DAW loading an exact native proxy for a supervised Windows VST3 module.  
 **First real fixture:** Serum 2 VST3 in Bitwig Studio Flatpak on the maintainer's Steam Deck.
 
-The operator selected the audio recovery roadmap on 2026-10-02. Section 18
-records its current production decisions and takes precedence over provisional
-choices below where specified. The original proof questions remain historical
-design context; their current implementation and qualification are recorded in
-[the recovery review](AUDIO_RECOVERY_REVIEW.md) and SUPPORT_MATRIX.md.
+The operator selected audio recovery on 2026-10-02 and a whole-platform assessment
+on 2026-10-03. Section 18 records the current production design and takes precedence
+over provisional choices below where specified. The original proof questions remain
+historical context. The [platform assessment](PLATFORM_ARCHITECTURE_REVIEW.md) traces
+current implementation gaps; SUPPORT_MATRIX.md and retained evidence bound observed
+support. A selected design is not an implementation or qualification claim.
 
 ## 1. Architectural ruling
 
@@ -974,8 +975,8 @@ Until answered, later architecture remains bounded intention rather than impleme
 
 These decisions implement the operator's recovery direction at the design level.
 They do not claim a new installed implementation. The [roadmap](AUDIO_RECOVERY_ROADMAP.md)
-sets the sequence, the [source review](AUDIO_RECOVERY_REVIEW.md) identifies current
-code and gaps, and [Integrated beta delivery](INTEGRATED_BETA_DELIVERY.md#acceptance-method)
+sets the sequence, the [platform assessment](PLATFORM_ARCHITECTURE_REVIEW.md) identifies
+current code and gaps, and [Integrated beta delivery](INTEGRATED_BETA_DELIVERY.md#acceptance-method)
 owns the release acceptance contract.
 
 ### 18.1 Product ownership
@@ -1060,7 +1061,7 @@ Its target is no added bridge presentation delay (`D = 0`): return the current
 block's result in that callback, retaining any vendor latency `L`. Transport and
 processing still consume time; this is not a zero-overhead claim. Merely accepting
 64-frame host calls while retaining a 512-frame bridge delay does not meet it.
-Select and measure the wake mechanism before promoting it. This is a stage 4
+Select and measure the wake mechanism before promoting it. This is a DAW-execution
 qualification target, not an implemented or accepted fast path. Keep queued mode
 as an explicit buffered compatibility option only if it proves independent value.
 
@@ -1246,9 +1247,11 @@ need evidence from the actual conditions being claimed. Reuse observations when
 their inputs remain valid and rerun affected checks when module, runtime,
 dependency, driver or host conditions change.
 
-#### Source connections and the first repair
+#### Preparation history and current integration gap
 
-At source `9a0766afbf71fbb336c897c98b003b9e4bdda737`:
+The following assessment describes source
+`9a0766afbf71fbb336c897c98b003b9e4bdda737`, before reusable preparation. It is retained
+for the origin of these decisions, not as a new instruction to repeat completed work:
 
 | Existing component | Required treatment |
 | --- | --- |
@@ -1258,11 +1261,12 @@ At source `9a0766afbf71fbb336c897c98b003b9e4bdda737`:
 | `bridge-manager/src/profiles.rs`, runtime and installer owners | Separate exact support claims from permission to try; provide typed runtime/dependency/override operations without name-based policies or arbitrary command hooks. |
 | `bridge-manager/src/preparation_cli.rs` and manager UI | Present recommended setup, advanced differences, trial results and keep/restore through the same owner. Replace the late generic missing-proxy refusal with a working general preparation path. |
 
-The first repair is the unseen-plug-in preparation/publication path carrying this
-configuration, with the reusable graphics assessment and a reversible settings
-comparison. It must not become a Nibbi-specific build or a second host engine.
-Dependency changes and alternate-runtime trials extend that same path. The
-full acceptance journey is specified in
+The reusable engine, unfamiliar-class preparation, graphics settings restoration
+and state-update recovery now have bounded installed reference evidence. They do
+not yet provide a complete resolved configuration, generic runtime/dependency
+workflow or dependable physical audio. The [2026-10-03 assessment](PLATFORM_ARCHITECTURE_REVIEW.md)
+records current source and dispositions. Dependency changes and alternate-runtime
+trials extend the same candidate/history path. The full acceptance journey is specified in
 [Integrated beta delivery](INTEGRATED_BETA_DELIVERY.md#unfamiliar-plug-ins-and-advanced-compatibility).
 Removing the catalogue refusal alone does not complete that journey.
 
@@ -1271,3 +1275,116 @@ describes per-game runtime overrides, restoring defaults by removing overrides,
 and selection of locally built compatibility tools. Those concepts inform the
 user workflow; their game launch commands are not the bridge protocol, and
 runtime options do not establish audio correctness.
+
+### 18.7 Platform execution convergence
+
+Selected engineering direction from the 2026-10-03 whole-platform assessment,
+recorded in D-028. These are implementation requirements. They do not reclassify
+current support, the failed Deck run or PR #204.
+
+#### Shared configuration, separate facts
+
+Use existing candidate/history, registration, environment and class-preference
+owners. Do not create another configuration database, transaction engine or support
+registry. Their shared resolution contract distinguishes:
+
+| Fact | Authority and use |
+| --- | --- |
+| Observed capability | Bounded observation with consuming context, relevant input identities, freshness and an explicit unknown result. It neither modifies licensed machine identity nor establishes support. |
+| Declared requirement | A required or optional implemented interface, runtime, resource or integration capability. Missing required capability refuses the affected operation specifically; missing optional evidence does not become a global refusal. |
+| Configuration choice | Implemented defaults, applicable advice and explicit user overrides, in that precedence. Retain source/reason, affected scope, predecessor and whether application needs processing to stop. Required constraints are checked separately. |
+| Resolved launch configuration | Exact module/class, descriptor, engine/host/protocol, coherent runner, environment revision/dependencies and applied editor/graphics/process options. Admission and launch consume this same prepared result. |
+| Live processing configuration | The DAW's negotiated and actual format under section 18.3. Installation cannot invent it; legal inactive reconfiguration does not require republishing. |
+| Effective behavior | Readback of actual worker policies, applied launch options, actual editor observations and measured workload results. Requested settings and independent probes cannot impersonate it. |
+| Qualification | A bounded support claim for observed versions and conditions. It is advice/status, not a closed permission list for trying eligible unfamiliar inputs. |
+
+The manager, CLI, admission service, supervisor and native publication must agree
+on the resolved configuration and its schema. Keep strict executable binding without
+binding mutable presets or parameters to an installation digest. Update/restore
+checks its affected inputs and supported capacities, preserves explicit unrelated
+preferences, and uses retained predecessors rather than guessing another build.
+Migrate existing records without changing class IDs or saved objects.
+
+Cache observations by their actual dependencies. Module changes invalidate module
+inspection; runtime/dependency changes invalidate affected runtime and compatibility
+observations; driver/display/host changes invalidate affected consuming-context
+checks. Unchanged evidence can remain reusable. Do not rebuild the engine or recreate
+a prefix merely because support prose, an observation or a user preference changed.
+
+#### Capability and ownership scope
+
+Host integration is an adapter contract for native and sandboxed DAWs: observable
+loader/architecture, publication visibility, IPC/audio/display access, storage and
+resources in the actual consuming context. Distro/DAW names identify evidence and
+select a relevant adapter, not universal eligibility. Report adapter absence as
+such. Require a display only for an operation or runtime route that needs one.
+
+Maintenance and admission scope follows affected publication, shared environment,
+runner/service and host resources. Distinguish structural capacity bounds from
+configured limits and tested workload recommendations. Preserve finite reservations
+and exact generation/ownership checks. Independent instances must not be stopped
+merely because a current implementation uses a global inactivity shortcut; shared
+mutations must not proceed until their actual affected owners are inactive.
+
+Advanced runtime/dependency operations apply through those same owners. An imported
+runner must satisfy an implemented coherent-runtime adapter; a new name does not
+need a new permission list. Environment mutations expose affected siblings, stable
+identity implications and a truthful recovery route before application. OS driver
+changes are outside automatic plug-in setup. No arbitrary command or profile-script
+interface replaces typed, supervised operations.
+
+#### DAW and editor execution contracts
+
+Implement event-driven request and completion notification over the existing owned
+transport. Notification is a hint to inspect authoritative queue/mailbox state;
+missed or raced notifications must not lose requests. Preserve epochs, positions,
+buffer ownership and bounded data. Compare effective wake/service tails on the
+actual threads, not requested sleep intervals or launcher priority.
+
+Real-time completion has an explicit local budget and failure policy; measure whole
+SDK callback duration and serial chains before claiming a supported workload.
+Offline completion uses bounded interruptible waits with its own progress,
+cancellation and containment policy, allowing valid work slower than real time.
+It must return the ordered results required by the declared latency/tail contract
+through the final host-supplied blocks, or an explicit failure. It must not invent
+extra host calls or report success with timeout-substituted silence.
+These requirements do not permit an unbounded real-time callback wait. Cover legal
+real-time/prefetch mode switches without inactive setup; offline transitions follow
+the SDK setup sequence. Advertise current support truthfully until implemented.
+
+Discovery, descriptor, native interface exposure and Windows implementation must
+agree on supported buses, parameters, events and host callbacks. Preserve vendor
+parameter conversions and reentrant/thread-affine behavior where implemented;
+report unsupported required contracts specifically. Generic engine reuse does not
+prove full VST3 coverage. Add contracts through both SDK edges and their consumers,
+not only by widening parser limits or returning placeholder interfaces.
+
+Failure severity belongs to the operation that can establish it:
+
+| Failure | Required policy |
+| --- | --- |
+| Optional view operation refused or bounded GUI channel overloaded, with valid owner/transport | Return an editor/control result; safely close/reset that facility where supported. Preserve DSP only when its safety is established. Do not automatically classify it as corrupted audio. |
+| Invalid identity/protocol, unsafe vendor state or vendor process crash | Contain the affected instance under existing ownership; preserve saved state and healthy independent siblings. A shared-process editor crash cannot be promised independent containment. |
+| Vendor state restore refused or partially applied | Preserve the original error and saved object; safely retire the affected instance and offer the retained predecessor. Never silently use defaults. |
+| Native consumer disappears | Reconcile exact process and transport ownership independently of polite SDK teardown. Unproven cleanup remains visible. |
+| Audio deadline missed | Record its stage/position and apply the declared processing-mode failure result. A counter, process exit and observer disappearance are different signals. |
+
+Use existing terminal records and control/result protocols; version them when their
+semantics change. Product policy belongs in Rust with narrow SDK/OS adapters.
+Consolidate production Python/C++ policy as affected owners change, preserving
+verified custody and without making a language rewrite the delivery objective.
+
+#### Integrated completion
+
+The next capability is one managed unfamiliar-plug-in configuration from preparation
+through ordinary use, meaningful recall and settings restoration. Runtime/dependency
+operations and DAW execution then extend that contract; rendering and resource
+requirements inform it from the start. The [implementation programme](PLATFORM_ARCHITECTURE_REVIEW.md#implementation-programme-and-completion)
+states owner changes and representative acceptance. A new type, probe, narrowly
+passing fixture or source-only report does not finish an integrated capability.
+
+Keep the existing commercial catalogue, platform and low-latency goals. Use shared
+contract fixtures for unfamiliar identities, SDK semantics, rendering/refusal,
+state evolution and owned failures, then validate combined installed workflows on
+frozen artifacts. Required release interaction/soak duration, project persistence,
+update/recovery and distribution remain governed by Integrated beta delivery.

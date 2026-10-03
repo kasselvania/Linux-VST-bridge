@@ -1,61 +1,63 @@
-# Current work: compatibility-platform engineering reset
+# Current work: compatibility-platform architecture assessment
 
-Selected by the operator on 2026-10-03. The immediate job is to replace the
-repository's execution instructions so work is designed and completed as a
-portability and compatibility platform, rather than an accumulation of isolated
-plug-in repairs. This is a documentation and working-method change.
+Selected by the operator on 2026-10-03 after the execution-rule reset.
+Status: assessment complete for source `01590fa05f99c71b141664becd7d9fadf7fa94a7`,
+tree `b4625b53a7df4eb89287ad0c65e8a12d509b9d4e`, on
+`codex/graphics-runtime-investigation`. Product implementation and physical
+acceptance remain open. Physical testing remains stopped.
 
-Status: the instruction rewrite is complete and its document references and diff
-have been checked. Platform architecture assessment is the next engineering work;
-it has not been completed by changing these instructions.
+## Completed outcome
 
-## Deliverable
+The [platform assessment](docs/PLATFORM_ARCHITECTURE_REVIEW.md) traces production
+configuration, host capabilities, runtime/dependencies, discovery, SDK/audio,
+editors, state, supervision and ordinary delivery/recovery. It distinguishes
+implemented behavior from intended contracts and retained observations, records
+retain/repair/replace/retire decisions, and supplies owner changes plus representative
+acceptance. [Architecture section 18.7](docs/ARCHITECTURE.md#187-platform-execution-convergence),
+D-028 and the [roadmap](docs/AUDIO_RECOVERY_ROADMAP.md) now agree on that direction.
+This documentation change contains no new runtime implementation or hardware claim.
 
-Rewrite `AGENTS.md` and reconcile governance and work allocation. Establish shared
-capability design, proactive architecture review, general preparation and reversible
-experimentation, representative contract coverage, installed user-journey completion,
-truthful measurement and clear engineering ownership. Keep safety, licensing,
-real-time, project-preservation and resource protections. Remove obsolete active
-task directions; history remains in Git. Commit and push an independently reviewable
-policy change without merging or approving the unfinished beta implementation.
+## Next implementation endpoint
 
-## Engineering direction after this reset
+Prepare, explain, run and restore an unfamiliar plug-in through one managed
+configuration. Extend existing candidate/history and registration owners; connect
+profile advice, explicit preferences, capability assessment, normal controls,
+admission, launch and affected-owner recovery. Separate eligibility, liveness and
+qualification. Preserve exact execution bindings, class identity, saved objects,
+licensed environment identity and independent siblings.
 
-The next engineering plan must evaluate the whole relevant compatibility workflow:
-machine/runtime capabilities, discovery and reusable preparation, recommended and
-advanced configuration, DAW/audio contracts, editor/rendering/control boundaries,
-state/update compatibility, supervision, recovery and ordinary manager operations.
-Use the current implementation and retained failures to identify shared architectural
-gaps, their affected users, and components to retain, repair, replace or retire.
+Complete this as an integrated capability, not a new configuration type followed
+by another handoff. Both a new class and an existing publication must reach ordinary
+preparation, actual execution, meaningful recall, a settings trial and keep/restore;
+missing required capabilities and genuine shared-resource conflicts must produce
+specific recovery actions. Use native/sandbox host contexts and representative
+multiple-instance/shared-environment cases. The assessment names the source owners
+and fuller acceptance; there is no new policy database or approval sequence.
 
-Choose capability increments with the required owner changes, representative tests
-and installed completion criteria. Preserve useful engine and audio repairs where
-they satisfy the contracts. Do not automatically select the latest Pure LoFi incident
-as the next product task, defer portability until after audio, or assume an engine
-rewrite is required. The operator should not have to assemble these connections.
+Runtime/dependency operations and DAW execution extend the same contract next.
+Graphics and portability inform it from the start. Do not automatically choose the
+latest Pure LoFi symptom as the task, postpone platform design behind one vendor,
+or start a second host/lifecycle architecture. Routine engineering choices belong
+to the engineer; physical execution continues to respect current machine custody.
 
-This instruction reset does not resume physical testing or launch another runtime,
-GUI, vendor or engine experiment. Source/architecture work must follow the rewritten
-method; further execution follows the operator's selected outcome and machine custody.
+## Retained physical state
 
-## Current physical state and evidence boundary
-
-The latest Deck test was stopped and Bitwig exited. Package `0.12.0general5deck`
-and its Pure LoFi/FRAGMENTS publications remain installed. Installation and changed
-control recall passed short checks; the interaction run ended in a terminal instance
-failure and did not reach its planned soak. Disappearing session status was initially
-misreported as missing audio. Terminal records showed zero queued underruns before
-failure. That report is corrected; the underlying trigger is not yet attributed.
+Package `0.12.0general5deck` and paired Pure LoFi/FRAGMENTS publications remain on
+the Deck. Installation and short changed-control recall passed; the interaction run
+ended in terminal instance failure and never reached its planned soak. Disappearing
+session status was initially misreported as missing audio. Terminal records showed
+zero queued underruns before failure; the trigger remains unattributed.
 
 The exact raw result, saved projects and predecessors are preserved privately.
-The repair/evidence branch is [PR #204](https://github.com/kasselvania/Linux-VST-bridge/pull/204),
-which remains draft and unmerged. This branch retains that implementation and the
+[PR #204](https://github.com/kasselvania/Linux-VST-bridge/pull/204) remains draft and
+unmerged; it retains the implementation and
 [corrected physical result](evidence/audio-recovery/2026-10-03-general5-deck-installation.json).
-The instruction rewrite is independently reviewable from main; adopting it here
-does not approve the beta implementation or change the installed machine.
+The instruction rewrite is separately reviewable from main in
+[PR #205](https://github.com/kasselvania/Linux-VST-bridge/pull/205). Neither this
+assessment nor policy adoption approves the beta or changes the installed machine.
 
-Resource limits remain one VM or builder at a time, at most two CPUs, 4 GiB memory
-and 4 GiB combined memory/swap, and 256 processes on the declared build fixture.
-Reserve host CPU 0–1 and capacity for Audiobookshelf. Builders/VMs used by the stopped
-run are off; no fresh physical test is selected here. Other independently authorized
-owners retain their work and machine-custody boundaries.
+No fresh physical test is selected here. Builders/VMs from the stopped run are off.
+Retain one VM or builder at a time, at most two CPUs, 4 GiB memory and 4 GiB combined
+memory/swap, and 256 processes on the declared build fixture. Reserve host CPU 0–1
+and capacity for Audiobookshelf. Other independently authorized owners retain their
+work and machine-custody boundaries.
