@@ -634,8 +634,13 @@ class Run:
         self.check_original(prefix)
         self.capacity(0)
         self.detail(self.target, "final")
+        buffering = self.performance(self.target)
+        sibling_buffering = self.performance(self.sibling)
+        need(buffering == {"schema": 1, "added_frames": 1024}, "final_target_buffering_required")
+        need(sibling_buffering == {"schema": 1, "added_frames": 1024}, "final_sibling_buffering_required")
         save(self.out / "final-state.json", {"target": self.entry(self.target), "sibling": self.entry(self.sibling),
-                                           "buffering": self.performance(self.target), "original_state_sha256": self.original})
+                                           "buffering": buffering, "sibling_buffering": sibling_buffering,
+                                           "original_state_sha256": self.original})
         self.event("passed", source_head=self.c["source_head"], package=self.c["package"], trials=len(self.trials),
                    target_class=self.target["class_id"], sibling_class=self.sibling["class_id"],
                    subset=self.single, audio_runs=len(self.audio_runs), compared_samples=sum(self.audio_runs), mismatches=0,
