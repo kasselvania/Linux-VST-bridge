@@ -58,6 +58,19 @@ The correction allows an inactive failed instance to terminate only after positi
 backend cleanup. These failed installed runs remain retained; final installed
 refusal, abrupt-loss and normal-manager predecessor acceptance remain open.
 
+The frozen `0.12.0general4` package then passed same-version recall, both
+migration/connection sequences and migrated reopen, malformed/oversized-state
+refusal, and abrupt native loss with a healthy processing sibling. Its vendor
+restore-refusal test failed: Windows cleanup completed, but the native worker
+could consume an outstanding `F` failure notice as if it were the final `R`
+retirement acknowledgement, closing the socket before the supervisor's reply.
+The focused owner-channel regression reproduces this interleaving. Its repair
+accepts at most one pending failure notice while still requiring `R` within the
+original completion deadline. It does not clear the failed musical operation.
+General4 remains failed; its original reports, uncertain lease and VM checkpoint
+are retained. Repeat the complete required comparison on the next frozen engine;
+no reboot or manual record deletion may count as a passing case's recovery.
+
 
 ## General preparation and compatibility experimentation
 
