@@ -8,12 +8,12 @@ The 2026-10-02 [graphics/runtime source investigation](GRAPHICS_RUNTIME_REVIEW.m
 retains FC-GFX-001's exact rendering claim. BEAM's reported editor-open crackling
 has no assigned cause: its historical V4 rendering/input result is not an audio
 or acceleration qualification. Source inspection identifies controller-update
-failure propagation to audio and an owner-exception/thread-retirement hazard;
-neither has been reproduced in the production Windows host in this investigation
-or assigned to a commercial incident. They are separate proposed fixture tests,
-not new causal failure classes or deployed repairs. Missing effective graphics
-readback and rendering-cost measurements are recorded as implementation/evidence
-gaps. No physical support posture is widened.
+failure propagation to audio and an owner-exception/thread-retirement hazard.
+Subsequent Windows SDK fixtures reproduce those boundaries; FC-UI-009 below
+records the owner repair and explicit controller failure custody. Neither is
+assigned to a commercial incident. Requested-policy and native diagnostic
+readback are now implemented, while effective Windows renderer observation and
+rendering-cost measurements remain gaps. No physical support posture is widened.
 
 ## Status vocabulary
 
@@ -2292,3 +2292,39 @@ recall, reboot, lower-buffer or reconfiguration result. The earlier reference
 and internal57 control retain real gaps; FC-AUDIO-001 stays open. Exact artifacts,
 whole-session counts, private-output hashes and limitations are retained in the
 [physical comparison](../evidence/audio-recovery/2026-10-02-late-note-off.json).
+
+## FC-UI-009 — Owner exception unwinds a live processing thread
+
+### Boundary, understanding and repair
+
+Causal at the production Windows processing-owner boundary. The pinned-SDK
+fixture captures correct output, throws from `service_owner()` while the worker
+is live, and reproduces `std::terminate` before controlled shutdown on source
+`30859670dca8f654e7c31befc8d5172398dc3bb3`. This is generated instrumentation,
+not a commercial incident or a GPU diagnosis.
+
+The owner now catches before unwinding the joinable thread, requests cancellation,
+and waits up to five seconds before deliberate process containment. Socket and
+mailbox storage remain owned until join. State waits observe cancellation even
+if notification is missed. Windows testing also established that local socket
+shutdown alone did not reliably end an idle receive; explicit cancellation
+checks now cover idle, partial-message and reply waits while preserving their
+normal deadlines. Vendor exception text is replaced by a fixed failure message.
+
+The separate production `MappedSession` fixture holds, refuses or throws from
+controller synchronization while SDK processing runs. Refusal now publishes
+explicit controller terminal status. Its existing audio-stop and state-save
+refusal remain intentional in this repair; safe continued audio after a display
+synchronization failure remains a distinct open decision.
+
+### Fix stage and support posture
+
+Source repair and generated Windows SDK tests only. The exact test/build outcomes,
+including the failed socket attempt, are in the
+[source-repair evidence](../evidence/graphics-runtime/2026-10-02-source-repair.json).
+No installed generation or commercial physical result. BEAM, Pure LoFi and
+FRAGMENTS retain their existing support rows. No attribution of earlier crackling,
+no graphics qualification and no beta-ready claim.
+
+Tracking: [PR #204](https://github.com/kasselvania/Linux-VST-bridge/pull/204).
+Last reviewed: 2026-10-02.

@@ -49,9 +49,12 @@ The operator requested a separate graphics/editor/runtime investigation while
 using the Deck on 2026-10-02. Its [source review](GRAPHICS_RUNTIME_REVIEW.md)
 separates effective rendering capability, editor/controller failure isolation
 and graphics performance from their final coexistence test with audio. Local
-source checks passed; no Deck access or production change occurred. The proposed
-follow-ups are independently bounded and do not modify the frozen audio candidate
-or qualify any graphics path through an audio-only result.
+source checks passed. The subsequently authorized work adds requested/observed
+graphics reporting, optional native diagnostics and controlled owner-exception
+retirement with SDK fixtures. [Implementation results](GRAPHICS_RUNTIME_REVIEW.md#implemented-follow-up-readback-and-failure-containment)
+remain separate from selected-runtime renderer observation and physical
+coexistence tests. There has been no Deck access or change to the frozen audio
+candidate, and no graphics path is qualified through an audio-only result.
 
 Complete, review, commit and push bounded jobs. Keep the failure cards and support
 matrix consistent with their evidence. Do not launch unrelated ARM, Windows DAW,

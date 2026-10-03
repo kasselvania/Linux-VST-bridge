@@ -5,7 +5,9 @@ Source assessment completed 2026-10-02 at commit
 `78d5081c79999360344625cc11bf15b5387d7f86`. The operator requested this work
 while retaining the physical Deck for personal testing. This investigation made
 no Deck connection, observation, launch, installation or configuration change.
-Production source and dependencies are unchanged.
+That initial assessment left production source and dependencies unchanged.
+The subsequently authorized source work is recorded below; the Deck and frozen
+audio candidate remain untouched.
 
 The bridge already separates its GUI transport and Windows owner thread from
 audio delivery. The unfinished work is effective graphics capability detection,
@@ -13,6 +15,58 @@ verification of selected rendering paths, narrower failure propagation and
 measured coexistence under editor load. The retained BEAM rendering repair does
 not establish that its editor-open crackling is fixed. No rendering backend,
 CPU affinity or runtime replacement is selected by this review.
+
+## Implemented follow-up: readback and failure containment
+
+Requested Windows graphics now comes from the exact registered runner policy
+in both current and detailed manager projections. Per-product facts explicitly
+leave the actual Windows renderer and acceleration unknown. Selecting WineD3D
+does not assert software rendering, and leaving runner defaults does not assert
+DXVK. No graphics policy, runner or profile identity is changed.
+
+An explicit support export can run the fixed optional `/usr/bin/glxinfo -B`
+helper in the manager's native Linux context. It has the existing three-second,
+4-KiB helper/cohort bounds. Only allowlisted vendor, renderer, OpenGL version
+and acceleration fields survive parsing; raw display names and extension lists
+are discarded. Missing helpers, malformed/contradictory results and timeouts
+stay unavailable. Recognized software renderers and an explicit acceleration
+refusal are recorded as software; direct rendering alone is insufficient.
+This probe does not run during ordinary selection and cannot change readiness
+or qualify a Windows editor. Observation inside the exact selected Windows
+runtime, including browser children, remains a separate unperformed job.
+
+The owner-exception reproduction executes the production processing loop and a
+pinned-SDK processor, captures and verifies both output channels, then throws
+on the owner while the worker is still live. Before the repair, Windows CI
+observed the test's distinct `std::terminate` exit 96. The repair catches the
+failure before thread destruction, requests cancellation through the existing
+session, and joins before accessing worker-owned results or releasing storage.
+An unresponsive worker causes deliberate process containment after five seconds
+(exit 93), without vendor destruction. Only a fixed owner-failure description
+is logged; arbitrary vendor exception text is not exported.
+
+Cancellation wakes the existing socket, is checked by the existing mailbox,
+and interrupts owner-state waits. State waits request four-millisecond intervals,
+so a lost notification does not request the remaining ten-second normal service
+wait; actual wake latency remains scheduler-dependent. Cancellation stays within
+the existing owner and delivery worker. Queue ownership, transport versions,
+epochs and vendor thread affinity are preserved.
+
+The separate controller fixture uses actual `MappedSession`, pinned-SDK
+processor/controller objects, generated protocol-5 packets, shared samples and
+terminal status. It distinguishes a held controller update from a rejected or
+throwing update, both at audio admission and during state capture. Controller
+refusal now publishes the same explicit controller failure custody as an
+exception. Its existing audio-stop/state-refusal policy is preserved: continuing
+audio safely after such a failure needs a separate justified repair. The fixture
+does not exercise a commercial view, browser child or the installed protocol-14
+path. The mailbox and socket cancellation tests cover those transport primitives
+separately.
+
+Exact source, test results and limitations are retained in the
+[implementation evidence](../evidence/graphics-runtime/2026-10-02-source-repair.json).
+BEAM crackling remains unattributed. No installed graphics/audio performance,
+commercial recovery or beta claim follows from these source tests.
 
 ## Basis and claim boundary
 
@@ -52,7 +106,7 @@ Source owners: [native queue](../native-vst3-proxy/backend/src/queued.rs),
 [profiles](../bridge-manager/src/profiles.rs), and
 [readiness](../bridge-manager/src/readiness.rs).
 
-## Concrete gaps
+## Concrete gaps at the assessed source
 
 ### 1. Requested graphics policy is not observed acceleration
 
@@ -160,10 +214,11 @@ Other references: [Blackhole](BLACKHOLE_EDITOR.md),
 [AP11 comparison](AP11_REVIEW_FOLLOWUP.md), and
 [Native Access A/B/A](../evidence/naui2/restored-inherited-observation/README.md).
 
-## Next bounded jobs
+## Original follow-up proposals
 
-These are proposed experiments, not completed changes or permission to access
-the Deck while it remains with the operator.
+These were the original source review's proposed experiments. The implementation
+section above records subsequent source work on the first two. Physical access
+and the third comparison remain deferred; no Deck access was part of this work.
 
 1. **Effective graphics readback.** Extend the existing capability/profile owner
    with separate requested and observed renderer facts. First exercise parsing,
@@ -190,7 +245,7 @@ requires correct UI/audio thread use and limits distributing components to
 plug-ins that support it. A separate editor process is not a universal retrofit.
 Vendor-internal synchronization remains a measured compatibility constraint.
 
-## Local verification and completion
+## Initial source review validation
 
 - Fifteen Python tests passed: graphical endpoint/identity projection plus the
   closed graphics-policy selection test, using temporary generated fixtures.
@@ -200,7 +255,7 @@ Vendor-internal synchronization remains a measured compatibility constraint.
 - The existing C++ controller-update test passed, including 100,001 concurrent
   publications, final-value preservation and a refused application callback.
 
-These checks preserve the useful existing boundaries; they do not reproduce the
-newly identified Windows owner/controller failure paths. Windows SDK and physical
-graphics tests remain unperformed here. The first source investigation is
-complete. No production repair, hardware qualification or beta claim is added.
+Those initial checks preserved the useful existing boundaries without reproducing
+the Windows owner/controller failures. Windows SDK testing was unperformed at
+that assessment; subsequent results are recorded above. The original source
+investigation itself added no production repair, hardware or beta claim.

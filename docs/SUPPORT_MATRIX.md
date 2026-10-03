@@ -11,6 +11,12 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+The graphics/owner source follow-up adds truthful policy/native diagnostic facts
+and controlled Windows owner-failure retirement, with generated SDK tests
+([FC-UI-009](FAILURE_CLASSES.md#fc-ui-009--owner-exception-unwinds-a-live-processing-thread)).
+No Deck access, installed change or commercial coverage follows. In particular,
+the effective Windows renderer and BEAM editor-open continuity remain unqualified.
+
 Audio recovery on 2026-10-02 froze PR #200 and preserved its internal57 evidence
 and private diagnostics outside the checkout. The retained earlier Pure LoFi /
 FRAGMENTS pair restores sound, editor interaction and project recall on the

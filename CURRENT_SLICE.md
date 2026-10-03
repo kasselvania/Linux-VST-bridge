@@ -25,6 +25,25 @@ BEAM crackle attribution. Preserve the frozen audio worktree and existing
 evidence. Source rollback is ordinary commit reversion; no installed rollback is
 needed. Commit and push the reviewed changes to draft PR #204.
 
+Result: these two bounded source jobs are complete at
+`84d4c91f50c3ecfbc24ed4ed3b6fdd8fc8d94c1f`, tree
+`6b54a2f1df6e3d0b4ae63b8bcc8b57145b696982`. The Windows CI merge checkout has
+the identical tree. The owner regression reproduced exit 96 on the prior loop;
+the repaired SDK fixture joins a cancellable worker and contains an unresponsive
+one at the five-second wait. Five real-MappedSession controller cases, mailbox
+cancellation, two state-wait cases and sixteen Windows socket cases pass. The
+first Windows socket attempt and intermediate harness compilation failure remain
+recorded. Linux validation passes 496 manager Rust tests (two existing ignored),
+352 runtime tests, frontend checks and lint. Graphics observations remain scoped
+to configured policy and an explicitly requested native diagnostic.
+
+[Retained evidence and artifact hashes](evidence/graphics-runtime/2026-10-02-source-repair.json)
+distinguish source/SDK results from the unperformed Windows-renderer probe,
+commercial graphics/audio comparison and frozen audio interaction/soak. The Deck
+and audio recovery worktree were not changed. Controller synchronization failure
+still stops processing and refuses state capture; relaxing that safely is not
+part of this repair. No beta or new physical support claim is made.
+
 ## Graphics, editor and runtime source investigation
 
 On 2026-10-02 the operator requested investigation of the non-audio layers while

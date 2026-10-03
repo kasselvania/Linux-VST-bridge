@@ -1,0 +1,166 @@
+{
+  "schema": 1,
+  "date": "2026-10-02",
+  "pr": "https://github.com/kasselvania/Linux-VST-bridge/pull/204",
+  "claim": "Requested graphics and scoped native diagnostic facts; reproduced Windows owner failure and controlled cancellation/containment under generated SDK fixtures.",
+  "source": {
+    "base": "ad7287440b7beed668e2a89fd8aa71add59f4439",
+    "tested_head": "84d4c91f50c3ecfbc24ed4ed3b6fdd8fc8d94c1f",
+    "tree": "6b54a2f1df6e3d0b4ae63b8bcc8b57145b696982",
+    "windows_ci_checkout": "05b87846d307bc3fced9d783481bc7232ef901f0",
+    "windows_ci_tree_verified_equal": true,
+    "sha256": {
+      ".github/workflows/ap8-windows.yml": "45251df5dcffdfd77a19c1f8ce0905fe08de33e601dcb6e45f0e0ad2a66e6288",
+      "bridge-manager/src/audio_scheduling.rs": "00ca67f1cb43b932e2c8ffcf53d7e9f0010209949e18925ad482bddd801194b7",
+      "bridge-manager/src/graphics.rs": "687b16ba3d948c5ddf99feecb74225efca165f0e685a8b565daa7778f032bf87",
+      "bridge-manager/src/lib.rs": "e17c40eee0ded00850a012e4a5819a849def6e045979746471aad783436b695b",
+      "bridge-manager/src/operator_cli.rs": "b4232a60b9eafd55b2c17cc87cac926bb31ff0784649eb55b808bd7151ca03b5",
+      "bridge-manager/src/operator_cli/current.rs": "3bdcf4c765243f76da725436df95d3b155f9e9ad147248a3f45e64aed633f888",
+      "bridge-manager/src/readiness.rs": "484c166f8a027a36451aeac4ee0dd901565581835124eab0377d98312db43f93",
+      "tools/ap11-tests/controller_failure.cpp": "bb30bea7929cc98c5ca1a7ce434fe5e83b565cfeeb25ece4ca7c0ffface64ed3",
+      "tools/ap11-tests/controller_failure_test.py": "e512c972fe3df2c1ba2bc33d90df680e957262a0b1dc003db663f63ee793e5f3",
+      "tools/ap11-tests/owner_failure.cpp": "b1aa9d01f08355b0aa06150a19dc917a404f4e6b17bd3528770276298c04c1d7",
+      "tools/ap11-tests/owner_failure_test.py": "fd4190d4b568aa20cd1a9291cc7e198d54a383dba69884415b3f5eb61ebde132",
+      "tools/test_ap4_socket.py": "230ec362b713aec3916a2b51baf9b75ecfb61b092837bfb9d0e039f3f734d248",
+      "tools/test_delivery_mailbox.py": "64565efad4006e4dbf9ef5e6dbb8d82df305ae429fe1820246bb78ca823efd44",
+      "windows-factory-probe/CMakeLists.txt": "ee8dcdfe0d0fca0799fd20e97f04d7b66cf00da45f49fc65574988162ea3731f",
+      "windows-factory-probe/source/delivery_mailbox.h": "f1acf7e55c6961acd2e3cd27a01b9ebbf741f7c0562cca683b32a8c087ea53cf",
+      "windows-factory-probe/source/mapped_processing.cpp": "239bc8e4718a5b89660dfab8e25c80980ee97914c7289353eb21f46af04eb752",
+      "windows-factory-probe/source/mapped_processing.h": "fa914124479893edd3f5a6cc61079259b6a30c26585deb1026a1f48c92414e3d",
+      "windows-factory-probe/source/offline_processing.cpp": "f614c5cacdc64b2534ec81678b400f8dac30defe3ebfb235bf5e56bc3b59a190",
+      "windows-factory-probe/source/offline_processing.h": "0cb68717864f8671ae74a2d34d9e100612e07435e06638f04d8763de24d6f6e5"
+    }
+  },
+  "fixture": {
+    "windows": "GitHub windows-2022; native MSVC v143, Visual Studio 17 2022; Windows SDK 10.0.19041.0",
+    "vst3_sdk_commit": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "linux": "GitHub ubuntu-24.04",
+    "local": "macOS arm64; serial local compilation",
+    "controller_peer": "generated protocol 5 socket peer and shared audio/terminal mappings; real MappedSession and SDK objects",
+    "audio": {
+      "rate": 48000,
+      "frames": 256,
+      "input_channels": [
+        0.25,
+        -0.5
+      ],
+      "expected_output_channels": [
+        0.125,
+        -0.25
+      ]
+    }
+  },
+  "checks": {
+    "windows": {
+      "run": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37088035969",
+      "outcome": "passed",
+      "owner_cancellable": {
+        "exit": 0,
+        "elapsed_seconds": 0.047,
+        "captured_output": "all 256 samples on each channel exact; one block",
+        "result": "failed session, quiescent worker, no successful retirement claim"
+      },
+      "owner_unresponsive": {
+        "exit": 93,
+        "elapsed_seconds": 5.015,
+        "result": "deliberate process containment; scripted worker deliberately ignores cancellation"
+      },
+      "controller": {
+        "slow": "10 exact output blocks, at least 8 while controller blocked; clean completion",
+        "refuse-state": "explicit controller terminal status; failed session; no vendor state calls",
+        "throw-state": "explicit controller terminal status; failed session; no vendor state calls",
+        "refuse-audio": "explicit failure; at most one already-admitted additional block",
+        "throw-audio": "explicit failure; at most one already-admitted additional block"
+      },
+      "mailbox": "existing identity/extent/ownership/allocation checks plus idle and already-published request cancellation passed",
+      "socket": "16 cases: eager/non-eager idle survival, peer disconnect, partial header/payload deadlines, reply deadline, owned cancellation of idle/partial/reply waits",
+      "state_wait": "normal service and cancellation with deliberately omitted notification passed",
+      "privacy": "injected vendor exception marker absent from output"
+    },
+    "linux": {
+      "run": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37088035980",
+      "outcome": "passed all jobs",
+      "manager_library": 204,
+      "manager_binary": 292,
+      "pre_existing_ignored": 2,
+      "runtime_python": 352,
+      "example_tests": 5,
+      "clippy": "passed",
+      "frontend_and_release_builds": "passed"
+    },
+    "native": {
+      "run": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37088035984",
+      "outcome": "passed"
+    },
+    "local": {
+      "graphics_library": "3 passed",
+      "transport": "16 socket cases and 2 state-wait cases passed with POSIX syscall shim; this is not Windows equivalence",
+      "graphics_data": "generated hardware/software/missing/ambiguous/oversized fields; no live GPU renderer observed"
+    }
+  },
+  "retained_failed_attempts": [
+    {
+      "source": "30859670dca8f654e7c31befc8d5172398dc3bb3",
+      "run": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37087237330",
+      "result": "Unmodified owner loop reproduced std::terminate exit 96 after captured valid output, 0.031 seconds."
+    },
+    {
+      "source": "30859670dca8f654e7c31befc8d5172398dc3bb3",
+      "run": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37087237316",
+      "result": "496 Rust tests passed; pre-existing items_after_test_module lint failed in audio_scheduling.rs. Moved unchanged function before tests."
+    },
+    {
+      "source": "37c975cb54d7b2f7be8b7747cd065e81842f5de0",
+      "run": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37087507986",
+      "result": "Owner/controller SDK and mailbox tests passed. Windows socket cancellation by shutdown alone did not complete; test killed at 60 seconds. Added explicit cancellation checks."
+    },
+    {
+      "source": "f0ba2bd7d2f1b8854311fd2b0dbd44a319573ae5",
+      "run": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37087780865",
+      "result": "Owner/controller SDK and mailbox tests passed. Extracted state-wait test compile failed C2589 due to missing NOMINMAX; aligned test compile with production CMake definition."
+    },
+    {
+      "fixture": "local macOS full manager binary build",
+      "result": "Cannot compile existing Linux-specific audio_scheduling libc calls on Darwin. No portability claim or workaround added; library tests ran locally and full manager validation ran on Linux."
+    }
+  ],
+  "artifact": {
+    "id": 11261283618,
+    "name": "ap8-windows-host-05b87846d307bc3fced9d783481bc7232ef901f0",
+    "archive_sha256": "4dd2511cf683f2622cee59ada607cd5e35a5f41ed16eff9f34bc94f9dbffabd6",
+    "binaries": {
+      "wf0-factory-probe.exe": {
+        "sha256": "030581a1ae18074c945805f3c6834e9727d8397097d428a4dd0b6e74793e099f",
+        "bytes": 970240
+      },
+      "ap11-owner-failure-tests.exe": {
+        "sha256": "02dda263082d5a9d8427cde013e358a79270cffc30a9d18aeb4c603a991d8c25",
+        "bytes": 597504
+      },
+      "ap11-controller-failure-tests.exe": {
+        "sha256": "3fab9641ad091bff14faa5cb7ed1cbc488069b674ebbf4b248a42f365771d7cf",
+        "bytes": 793088
+      },
+      "ap11-editor-tests.exe": {
+        "sha256": "85219162e4e543c1725f12fd68e59fd3a22bb96aeb0c0c6eac0a5ef6ca01ff44",
+        "bytes": 772096
+      }
+    },
+    "installed": false
+  },
+  "scope": {
+    "deck_access": false,
+    "deployment": false,
+    "graphics_policy_changes": false,
+    "frozen_audio_worktree_changed": false,
+    "frozen_audio_source": "764af9ca5380f14a8b8967acb462dcb9814e7e17",
+    "beta_ready": false
+  },
+  "remaining": [
+    "Actual renderer/driver observation inside the selected Windows runtime and browser children is not implemented or qualified by the native GLX probe.",
+    "The controller fixture uses protocol 5; installed protocol-14 and commercial editor failure acceptance remain unperformed.",
+    "Controller synchronization refusal still stops audio and refuses state capture; safe continued processing after that failure remains separate work.",
+    "No Proton/Wine, physical GPU, BEAM editor-open crackle, musical latency or continuity acceptance was performed.",
+    "The frozen audio candidate still needs its separate interaction and soak acceptance."
+  ]
+}
