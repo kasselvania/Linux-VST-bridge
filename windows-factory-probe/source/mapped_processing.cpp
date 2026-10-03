@@ -31,6 +31,8 @@ void barrier(){_ReadWriteBarrier();MemoryBarrier();_ReadWriteBarrier();}
 struct Socket {
  SOCKET value=INVALID_SOCKET; uint16_t minor=1; bool eager=false;
  std::vector<uint8_t> audio_wire;
+ const std::atomic<bool>* cancelled=nullptr;
+ void check_cancelled(){require(!cancelled||!cancelled->load(std::memory_order_acquire),"owner service failed");}
  Socket(){audio_wire.reserve(16384);}
  std::thread::id ui_owner;void(*service_ui)(void*)=nullptr;void* ui_context=nullptr;
  bool owner_wait(){return service_ui&&ui_owner==std::this_thread::get_id();}
@@ -40,6 +42,7 @@ struct Socket {
  // path every already-ready read/write still made a select round trip.
  void transfer(uint8_t* p,size_t n,bool writing,std::chrono::steady_clock::time_point end){
   while(n){
+   check_cancelled();
    auto us=std::chrono::duration_cast<std::chrono::microseconds>(end-std::chrono::steady_clock::now()).count();require(us>0,"control deadline");
    if(eager){
     int k=writing?send(value,reinterpret_cast<const char*>(p),int(n),0):recv(value,reinterpret_cast<char*>(p),int(n),0);
@@ -47,9 +50,10 @@ struct Socket {
     require(k==SOCKET_ERROR&&WSAGetLastError()==WSAEWOULDBLOCK,"control disconnected/IO");
    }
    if(owner_wait()){pump();us=std::min<int64_t>(us,4000);}
+   else if(cancelled)us=std::min<int64_t>(us,1000000);
    fd_set f;FD_ZERO(&f);FD_SET(value,&f);timeval t{};t.tv_sec=static_cast<decltype(t.tv_sec)>(us/1000000);t.tv_usec=static_cast<decltype(t.tv_usec)>(us%1000000);
    auto ready=select(0,writing?nullptr:&f,writing?&f:nullptr,nullptr,&t);require(ready!=SOCKET_ERROR,"control timeout/select");
-   if(!ready){require(owner_wait(),"control timeout/select");continue;}
+   if(!ready){require(owner_wait()||cancelled,"control timeout/select");continue;}
    if(!eager){
     int k=writing?send(value,reinterpret_cast<const char*>(p),int(n),0):recv(value,reinterpret_cast<char*>(p),int(n),0);
     if(k==SOCKET_ERROR&&WSAGetLastError()==WSAEWOULDBLOCK)continue;require(k>0,"control disconnected/IO");p+=k;n-=size_t(k);
@@ -61,6 +65,7 @@ struct Socket {
   // Idle has no issued-request deadline. The first received byte starts one
   // five-second deadline shared by the rest of the header and payload.
   if(command)for(;;){
+   check_cancelled();
    pump();
    if(eager){
     int n=recv(value,reinterpret_cast<char*>(b.data()),int(header_bytes),0);
@@ -187,7 +192,8 @@ struct MappedSession::Impl {
   while(!serviced&&!owner_failure.load()){
    const auto now=std::chrono::steady_clock::now();if(now>=end)return false;
    // Cancellation cannot acquire this mutex or depend on a notification
-   // racing predicate-check/wait. A lost notification costs at most 4 ms.
+   // racing predicate-check/wait. Request at most 4 ms before checking again;
+   // actual wake latency is scheduler-dependent.
    condition.wait_until(lock,std::min(end,now+std::chrono::milliseconds(4)));
   }
   return serviced&&!owner_failure.load();
@@ -262,7 +268,7 @@ struct MappedSession::Impl {
  Frame frame(uint16_t kind,uint64_t sequence,std::vector<uint8_t> p={}){return {kind,state.session,sequence,std::move(p)};}
 };
 MappedSession::MappedSession(const std::wstring& directory,const std::string& session,EventWriter& events,bool hosted,bool sustained,bool stateful,bool commercial,bool performance):impl_(std::make_unique<Impl>(events)){
- auto& x=*impl_;x.directory=directory;x.hosted=hosted||sustained;x.sustained=sustained;x.stateful=stateful;x.commercial=commercial;x.performance=performance;x.socket.eager=performance;x.socket.minor=performance?(commercial?12:6):commercial?5:stateful?4:sustained?3:(hosted?2:1);
+ auto& x=*impl_;x.directory=directory;x.hosted=hosted||sustained;x.sustained=sustained;x.stateful=stateful;x.commercial=commercial;x.performance=performance;x.socket.eager=performance;x.socket.cancelled=&x.owner_failure;x.socket.minor=performance?(commercial?12:6):commercial?5:stateful?4:sustained?3:(hosted?2:1);
  try {
   require(session.size()==32,"session syntax");for(size_t i=0;i<16;++i)x.state.session[i]=uint8_t(std::stoul(session.substr(i*2,2),nullptr,16));
   x.result_status=std::make_unique<ResultStatus>(directory,x.state.session);
