@@ -300,16 +300,19 @@ class LaunchTests(unittest.TestCase):
                     runtime.spawn = Mock(return_value=root)
                     tracker = SimpleNamespace(update=lambda: set())
                     visibility = Mock(); visibility.suspect = None; visibility.snapshot.return_value = {}
-                    with patch.object(s, 'session_directories', return_value=(directory, directory)), \
-                         patch.object(s, 'command', return_value=([], b'fixture')), patch.object(s, 'verify'), \
-                         patch.object(s, 'environment', return_value={}), patch.object(s, 'managed_home'), \
-                         patch.object(s, 'transport_environment'), patch.object(s, 'delivery_trace'), \
-                         patch.object(s.signal, 'signal'), patch.object(s.ResultStatus, 'create'), \
-                         patch.object(s, 'FaultStatus', return_value=visibility), patch.object(s, 'AudioScheduling', return_value=None), \
-                         patch.object(s.NativeProtonSession, 'selected', return_value=runtime), \
-                         patch.object(s, 'ProcessTracker', return_value=tracker), \
-                         patch.object(s, 'cleanup_process', return_value={'owned_descendants_zero': True, 'process_group_empty': True}), \
-                         patch.object(s, 'retire_native_transport') as retire:
+                    with ExitStack() as mocks:
+                        for override in (
+                            patch.object(s, 'session_directories', return_value=(directory, directory)),
+                            patch.object(s, 'command', return_value=([], b'fixture')), patch.object(s, 'verify'),
+                            patch.object(s, 'environment', return_value={}), patch.object(s, 'managed_home'),
+                            patch.object(s, 'transport_environment'), patch.object(s, 'delivery_trace'),
+                            patch.object(s.signal, 'signal'), patch.object(s.ResultStatus, 'create'),
+                            patch.object(s, 'FaultStatus', return_value=visibility), patch.object(s, 'AudioScheduling', return_value=None),
+                            patch.object(s.NativeProtonSession, 'selected', return_value=runtime),
+                            patch.object(s, 'ProcessTracker', return_value=tracker),
+                            patch.object(s, 'cleanup_process', return_value={'owned_descendants_zero': True, 'process_group_empty': True})):
+                            mocks.enter_context(override)
+                        retire = mocks.enter_context(patch.object(s, 'retire_native_transport'))
                         outcome = s.run_owned(spec, None, [False])
                     self.assertFalse(outcome['cleanup_confirmed'])
                     self.assertIn('custody incomplete', outcome['error'])
@@ -350,17 +353,20 @@ class LaunchTests(unittest.TestCase):
                 selector = Mock(); selector.select.return_value = [(SimpleNamespace(data='host', fileobj=runtime.control), 1)]
                 visibility = Mock(); visibility.suspect = None; visibility.snapshot.return_value = {}
                 scheduling = Mock(); scheduling.pending = 0; scheduling.value.return_value = {'requests': 0}
-                with patch.object(s, 'session_directories', return_value=(directory, directory)), \
-                     patch.object(s, 'command', return_value=([], b'fixture')), patch.object(s, 'verify'), \
-                     patch.object(s, 'environment', return_value={}), patch.object(s, 'managed_home'), \
-                     patch.object(s, 'transport_environment'), patch.object(s, 'delivery_trace'), \
-                     patch.object(s.signal, 'signal'), patch.object(s.ResultStatus, 'create'), \
-                     patch.object(s, 'FaultStatus', return_value=visibility), patch.object(s, 'AudioScheduling', return_value=scheduling), \
-                     patch.object(s.NativeProtonSession, 'selected', return_value=runtime), \
-                     patch.object(s, 'ProcessTracker', return_value=tracker), patch.object(s.selectors, 'DefaultSelector', return_value=selector), \
-                     patch.object(s, 'receive_host_writer', side_effect=receive), patch.object(s, 'cleanup_process', side_effect=cleanup), \
-                     patch.object(o.signal, 'pidfd_send_signal', create=True) as send, \
-                     patch.object(s, 'retire_native_transport', return_value={'transport_retired': True}) as retire:
+                with ExitStack() as mocks:
+                    for override in (
+                        patch.object(s, 'session_directories', return_value=(directory, directory)),
+                        patch.object(s, 'command', return_value=([], b'fixture')), patch.object(s, 'verify'),
+                        patch.object(s, 'environment', return_value={}), patch.object(s, 'managed_home'),
+                        patch.object(s, 'transport_environment'), patch.object(s, 'delivery_trace'),
+                        patch.object(s.signal, 'signal'), patch.object(s.ResultStatus, 'create'),
+                        patch.object(s, 'FaultStatus', return_value=visibility), patch.object(s, 'AudioScheduling', return_value=scheduling),
+                        patch.object(s.NativeProtonSession, 'selected', return_value=runtime),
+                        patch.object(s, 'ProcessTracker', return_value=tracker), patch.object(s.selectors, 'DefaultSelector', return_value=selector),
+                        patch.object(s, 'receive_host_writer', side_effect=receive), patch.object(s, 'cleanup_process', side_effect=cleanup)):
+                        mocks.enter_context(override)
+                    send = mocks.enter_context(patch.object(o.signal, 'pidfd_send_signal', create=True))
+                    retire = mocks.enter_context(patch.object(s, 'retire_native_transport', return_value={'transport_retired': True}))
                     outcome = s.run_owned(spec, None, stop_requested)
                 self.assertTrue(outcome['cleanup_confirmed'], outcome['error'])
                 self.assertEqual(set(retired), {(999, 5), (123, 456)})
