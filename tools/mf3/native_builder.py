@@ -61,6 +61,33 @@ def prebuilt(request, generator, archive, recipe):
             descriptor_sha256=selected['descriptor_sha256'],dropped_bytes=0,sdk=SDK,
             sdk_runtime=None,delivery='prebuilt',prebuilt_index_sha256=digest(index_bytes))
 
+def reusable_engine(request, generator, archive, recipe):
+    source = pathlib.Path(request['directory'])
+    source.mkdir(mode=0o700)
+    with zipfile.ZipFile(archive) as z:
+        names = z.namelist()
+        assert len(names) == len(set(names)) and set(names) == set(recipe['files']) | {'recipe.json'}
+        assert z.getinfo('prebuilt/index.json').file_size <= 1024*1024
+        index_bytes = z.read('prebuilt/index.json')
+        assert digest(index_bytes) == recipe['files']['prebuilt/index.json']
+        index = json.loads(index_bytes)
+        assert index['schema'] == 3 and index['descriptor_schema'] == 1
+        assert index['maximum_bridge_frames'] == 1024
+        name = index['engine']
+        assert name == 'prebuilt/engine.so'
+        info = z.getinfo(name)
+        assert not info.is_dir() and info.file_size <= 128*1024*1024
+        data = z.read(name)
+        assert data[:4] == b'\x7fELF' and digest(data) == recipe['files'][name] == index['engine_sha256']
+        records = json.loads(pathlib.Path(request['inspection']).read_text())['records']
+        descriptor = generator(records, request['class_id'], request['module_sha256'], index['engine_sha256']).encode()
+        assert len(descriptor) <= 8*1024*1024
+        (source/'plugin-descriptor.json').write_bytes(descriptor)
+        (source/'native.so').write_bytes(data)
+        return dict(schema=1,source_commit=recipe['source_commit'],native_sha256=index['engine_sha256'],
+            descriptor_sha256=digest(descriptor),dropped_bytes=0,sdk=SDK,sdk_runtime=None,
+            delivery='reusable_engine',prebuilt_index_sha256=digest(index_bytes))
+
 def build(request, generator):
     source=pathlib.Path(request['directory'])
     archive=pathlib.Path(request['kit'])
@@ -69,6 +96,7 @@ def build(request, generator):
     with zipfile.ZipFile(archive) as z:
         assert z.getinfo('recipe.json').file_size<=65536
         recipe=json.loads(z.read('recipe.json'))
+    if recipe['schema']==4:return reusable_engine(request,generator,archive,recipe)
     if recipe['schema']==3:return prebuilt(request,generator,archive,recipe)
     source.mkdir(mode=0o700)
     with zipfile.ZipFile(archive) as z:

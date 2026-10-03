@@ -470,8 +470,23 @@ fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
             sha256: digest(&path)?,
         };
         let r = m.load_revision(key, &reference)?;
-        let ordinary =
-            r.qualification.is_none() && r.profile.claim == profiles::Claim::VerifiedExactFixture;
+        let retained_user_selection =
+            (r.qualification.is_none() && r.profile.claim == profiles::Claim::VerifiedExactFixture)
+            || r.qualification == Some(publication::Qualification::ManagedExperimental);
+        let buffering = m.performance(key)?.added_frames;
+        let rollback_unavailable = if buffering == 1024 {
+            match preparation::build::revision_maximum_bridge_frames(m, &r) {
+                Ok(Some(1024)) => None,
+                Ok(_) => Some("This version cannot retain the selected 1024-frame buffering. Select supported buffering before restoring it.".into()),
+                Err(_) => Some("The retained version's buffering capability could not be verified.".into()),
+            }
+        } else { None };
+        let graphics = if r.registration.compatibility.graphics.is_some() {
+            "Wine D3D11 graphics"
+        } else { "default graphics" };
+        let description = format!("{} · version {} · {} · {}-frame bridge buffering{}",
+            r.profile.class.name, r.profile.class.version, graphics, buffering,
+            if rollback_unavailable.is_none() { " retained" } else { " unavailable" });
         result.push(ui::History {
             revision: r.profile.revision,
             claim: serde_json::to_value(r.profile.claim)?
@@ -481,7 +496,8 @@ fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
             publication: r.id.clone(),
             active: entry.publication == Publication::Published
                 && entry.managed_revision.as_ref() == Some(&reference),
-            rollback_allowed: ordinary && ancestors.contains(&r.id),
+            rollback_allowed: retained_user_selection && ancestors.contains(&r.id),
+            description, rollback_unavailable,
         });
     }
     result.sort_by_key(|r| r.revision);
@@ -768,9 +784,9 @@ fn project_current_product(m: &Manager, captured: &current::CurrentOverviewConte
         product.history = history(m, class, entry)?;
         for prior in &product.history {
             if prior.rollback_allowed && !prior.active {
-                product.actions.push(action(&format!("Roll back to revision {}",prior.revision),
+                product.actions.push(action(&format!("Restore {}",prior.description),
                     ui::Action::OrdinaryRollback {class_id:class.into(),
-                        publication:prior.publication.clone()}, captured.busy));
+                        publication:prior.publication.clone()}, captured.busy.or(prior.rollback_unavailable.as_deref())));
             }
         }
         if captured.profiles.iter().any(|profile|
@@ -978,12 +994,12 @@ fn snapshot_readonly_depth(
         for h in &hist {
             if h.rollback_allowed && !h.active {
                 actions.push(action(
-                    &format!("Roll back to revision {}", h.revision),
+                    &format!("Restore {}", h.description),
                     ui::Action::OrdinaryRollback {
                         class_id: p.class_id.clone(),
                         publication: h.publication.clone(),
                     },
-                    busy,
+                    busy.or(h.rollback_unavailable.as_deref()),
                 ));
             }
         }
@@ -1008,7 +1024,7 @@ fn snapshot_readonly_depth(
                 None
             },
         ));
-        products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid && p.publication == Publication::Published {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,compatibility:None,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"environment_valid":p.environment_valid,"environment_revision":p.environment_revision,"runner_valid":p.runner_valid,"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"publication_valid":p.publication_valid,"publication_selected":p.publication == Publication::Published,"host_sha256":entry.registration.host.sha256,"host_source_sha256":entry.registration.host_source_sha256,"native_sha256":entry.registration.native.sha256,"qualification":p.qualification,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
+        products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid && p.publication == Publication::Published {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,compatibility:None,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"environment_valid":p.environment_valid,"environment_revision":p.environment_revision,"runner_valid":p.runner_valid,"runner_policy":entry.registration.environment.runner.policy,"requested_graphics":linux_vst_bridge::graphics::requested_backend(entry.registration.environment.runner.policy.as_ref()),"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"publication_valid":p.publication_valid,"publication_selected":p.publication == Publication::Published,"host_sha256":entry.registration.host.sha256,"host_source_sha256":entry.registration.host_source_sha256,"native_sha256":entry.registration.native.sha256,"qualification":p.qualification,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
     }
     let catalogue = operator_catalogue(m, &sw, &db)?;
     let managed_bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
@@ -1852,7 +1868,8 @@ fn execute_with_receipt_policy(
         let owner = operation.ok_or("operator_operation_identity")?;
         if matches!(
             a,
-            ui::Action::PluginReinspect { .. }
+            ui::Action::CandidateGraphicsAssess { .. }
+                | ui::Action::PluginReinspect { .. }
                 | ui::Action::PluginInspect { .. }
                 | ui::Action::CompatibilityCheck { .. }
                 | ui::Action::CompatibilityResumeCheck { .. }
@@ -1924,7 +1941,9 @@ fn execute_with_receipt_policy(
             drop(projection.take());
             daw_workspace::execute_action(m, action, operation.ok_or("operator_operation_identity")?)
         }
-        ui::Action::PluginReinspect { .. }
+        ui::Action::CandidateGraphicsAssess { .. }
+        | ui::Action::CandidateGraphicsPrepare { .. }
+        | ui::Action::PluginReinspect { .. }
         | ui::Action::PluginInspect { .. }
         | ui::Action::PluginPrepare { .. }
         | ui::Action::CompatibilityCheck { .. }
@@ -2531,6 +2550,7 @@ fn resume_interrupted_with(
                 | ui::Action::PluginReinspect { .. }
                 | ui::Action::PluginInspect { .. }
                 | ui::Action::PluginPrepare { .. }
+                | ui::Action::CandidateGraphicsAssess { .. }
                 | ui::Action::CompatibilityCheck { .. }
                 | ui::Action::CompatibilityResumeCheck { .. }
         ),
@@ -3536,7 +3556,7 @@ mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 15);
+        assert_eq!(ui::OPERATOR_SCHEMA, 16);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();

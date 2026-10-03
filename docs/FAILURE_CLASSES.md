@@ -4,6 +4,19 @@ This ledger is the current map from reusable failure mechanisms to fixes, artifa
 
 Historical AP/UIO/UIR/IF documents remain authoritative for what a particular experiment observed. This ledger is authoritative for the project's current cross-plug-in understanding.
 
+The 2026-10-02 [graphics/runtime source investigation](GRAPHICS_RUNTIME_REVIEW.md)
+retains FC-GFX-001's exact rendering claim. BEAM's reported editor-open crackling
+has no assigned cause: its historical V4 rendering/input result is not an audio
+or acceleration qualification. Source inspection identifies controller-update
+failure propagation to audio and an owner-exception/thread-retirement hazard.
+Subsequent Windows SDK fixtures reproduce those boundaries; FC-UI-009 below
+records the owner repair and explicit controller failure custody. Neither is
+assigned to a commercial incident. The shared explicit graphics assessment now
+adds module dependency hints, editor-time library observations and independent
+Windows context probes through the existing inspector. The editor's own device,
+child renderers and rendering-cost measurements remain gaps. No physical support
+posture is widened.
+
 ## Status vocabulary
 
 **Understanding**
@@ -80,6 +93,8 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-PLAT-001](#fc-plat-001--nativewindows-transport-requires-shared-private-loopback) | Native/Windows transport needs shared loopback | Platform namespace adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Regression gate for new adapters |
 | [FC-MGMT-004](#fc-mgmt-004--managed-publication-is-mistaken-for-a-static-catalogue-fixture) | Managed publication is mistaken for a static catalogue fixture | Catalogue/publication ownership | causal | installed | Ubuntu internal22 normal status and product controls passed | resolved at publication readback | DAW use remains untested |
 | [FC-MGMT-005](#fc-mgmt-005--partial-installation-retry-omitted-from-setup) | Partial installation retry omitted from Setup | Existing installer offers to Setup projection | causal | installed | Ubuntu internal56: two partial-stop and isolated-retry repetitions | resolved for the recorded partial retry | Remaining recovery cases and platform qualification |
+| [FC-MGMT-006](#fc-mgmt-006--exact-prebuilt-catalogue-blocks-unfamiliar-plug-ins) | Exact prebuilt catalogue blocks unfamiliar plug-ins | Preparation/descriptor/publication | causal in source; Nibbi user report | installed Ubuntu unfamiliar Windows processing, state migration and restoration | No repaired Deck/Nibbi result | Deck blocked; reference candidate unqualified | Actual DAW workflow, dependency and runtime trials |
+| [FC-STATE-001](#fc-state-001--saved-state-rejects-an-explicitly-selected-module-update) | Updated module rejects earlier saved state | Native state envelope / selected execution identity | causal for reference fixtures | installed reference repair passed | Ubuntu SDK instrument/effect; normal manager rollback | reference regression resolved; real DAW/commercial unqualified | Physical DAW update/recall and declared interaction/soak |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
@@ -861,6 +876,34 @@ processes, confirmed cleanup and durable files classified installed. This is
 an engineering recovery, not a self-service recovery pass. The vendor hang's
 cause remains unproved and its earlier result is retained.
 
+### State-update failure follow-up
+
+The general4 reference restore-refusal test exposed a distinct transport race:
+the native owner consumed an outstanding `F` failure notice where it expected
+the final `R` retirement acknowledgement, then closed before the supervisor
+could reply. Windows process cleanup succeeded, transport cleanup remained
+unconfirmed, and the native consumer was still alive at that decision. That
+failed result and its offline VM checkpoint remain retained. A subsequent VM
+restart is not counted as successful recovery of the case.
+
+The general5 correction at `9da4dc66` accepts at most one pending `F` while still
+requiring `R` within the original deadline. Separately, the supervisor can prove
+the authenticated native process generation ended and retire its exact owned
+resources without requiring acknowledgement from a dead process. Unknown
+identity, a live peer with a failed handshake or incomplete cleanup still
+refuses; neither positive path hides the original processing/restore failure.
+
+Installed malformed-state, vendor-refusal and partial-restore cases now complete
+SDK teardown and unload. A deliberately abrupt SDK consumer exit independently
+passes exact process/transport retirement, with the authenticated generation-death
+basis recorded. A healthy sibling keeps producing correct samples throughout
+each failed-instance retirement. No passing general5 case uses reboot or manual
+record deletion. The normal manager then restores exact retained predecessors.
+See [FC-STATE-001](#fc-state-001--saved-state-rejects-an-explicitly-selected-module-update)
+and the [installed comparison](../evidence/preparation/2026-10-03-state-update-installed.json).
+This covers the declared Ubuntu first-party fixture; commercial and physical
+DAW failure recovery remain unqualified.
+
 ### Claim limit
 
 Abrupt power-loss recovery with active owners is not universally automatic.
@@ -875,7 +918,8 @@ Provide an everyday manager recovery/panic workflow that preserves evidence and 
 
 ### Evidence and historical sources
 
-[PLUGIN_RELIABILITY_FOLLOWUP](PLUGIN_RELIABILITY_FOLLOWUP.md), Ubuntu-lab PR #5 history.
+[PLUGIN_RELIABILITY_FOLLOWUP](PLUGIN_RELIABILITY_FOLLOWUP.md), Ubuntu-lab PR #5 history,
+and the installed state-update comparison above.
 
 ### Tracking issue
 
@@ -883,7 +927,7 @@ No dedicated shared issue yet.
 
 ### Last reviewed
 
-2026-09-23.
+2026-10-03.
 
 ---
 
@@ -930,6 +974,20 @@ physical product result is claimed.
 ---
 
 ## FC-AUDIO-001 — Residual audio deadline misses
+
+The [2026-10-03 general5 Deck interaction](../evidence/audio-recovery/2026-10-03-general5-deck-installation.json)
+is a separate terminal-instance failure, not another established queued-dropout
+reproduction. Pure LoFi's status mapping disappeared during a combined transport
+and editor/resize-menu test. The private observer called that delivery failure;
+initial narration incorrectly called it missing audio. Final native records show
+zero underruns and rejections for both plug-ins, an explicit terminal failure for
+Pure LoFi, and confirmed retirement for both. Bitwig refused temporary state saving
+for the failed instrument before normal exit. Editor failure was sampled, but the
+trigger and responsible shared boundary are not attributed. The 30-minute window
+stopped after 497.630 seconds; its planned engineering soak never began. Do not
+assign this incident to the historical deadline mechanism or count it as a pass.
+The operator selected a platform architecture/method reassessment, not another
+automatically selected vendor workaround.
 
 ### Shared boundary
 
@@ -2073,6 +2131,171 @@ sound, editor and persistence remain open.
 [PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200).
 Last reviewed: 2026-09-29.
 
+## FC-MGMT-006 — Exact prebuilt catalogue blocks unfamiliar plug-ins
+
+The operator reported a missing exact prebuilt proxy while preparing newly
+installed Nibbi. Source `9a0766afbf71fbb336c897c98b003b9e4bdda737` confirms the
+shared refusal: `tools/mf3/native_builder.py::prebuilt` requires exactly one
+shipped class-ID/module-digest match before it generates or validates the
+descriptor. An absent entry raises
+`prebuilt_proxy_unavailable_for_exact_plugin_build`. This is not evidence of
+a Nibbi DSP, graphics or authorization defect.
+
+`tools/ap8_descriptor.py` embeds discovery metadata in generated C++ constants;
+some initial parameter observations also participate in the exact prebuilt
+descriptor match. Stable native class IDs already derive from the logical
+vendor class independently of the module digest and must be preserved.
+`preparation_cli.rs` offers preparation when a kit and inspection are available,
+without resolving the missing exact entry. The refusal arrives after that offer.
+
+The selected repair replaces module-specific compiled metadata with validated
+data for a reusable native engine. Assessment, local advanced settings and
+candidate publication must share the configuration described in
+[architecture section 18.6](ARCHITECTURE.md#186-general-preparation-and-compatibility-experimentation).
+Existing candidate observations, experimental publication and history are
+retained; exact qualification is not a prerequisite for a supervised local trial.
+
+Understanding: causal in the selected source. First implementation: kit schema 4
+uses one reusable engine with Rust-validated discovery data, carried by existing
+candidate/publication records. Generated classes chosen after compilation load
+simultaneously through an independent Linux SDK consumer; a simulated module
+update preserves DAW IDs. Actual manager preparation and publication, malformed
+data, exact rollback and all 16 interrupted-publication boundaries pass source
+tests. The graphics source step binds assessment to a candidate's requested
+and applied launch settings, offers a typed process-only Wine D3D11/DXGI trial,
+and restores its exact previous publication through the existing transaction
+owner. Refresh retains local settings without rebuilding an identical engine.
+Trial interruption, stale baseline, optional-editor, launch compatibility and
+cleanup cases pass native Linux source checks, including manager dispatch and
+the full runtime suite. Older supervisors refuse a graphics trial before Windows
+launch, while retained capable generations remain usable across updates. Those
+source checks did not establish Windows processing or installed runtime behavior;
+the subsequent comparison is recorded below. Physical Deck/Nibbi repaired
+coverage: none. Posture: still blocked in the unchanged Deck package for builds
+missing from its index. This is distinct
+from FC-MGMT-004, which repaired readback after an existing proxy was published.
+No cause is assigned to the separately reported Deck input pauses or readiness
+changes. The installed work below uses only a disposable Ubuntu fixture.
+
+The subsequent installed comparison reproduced an additional packaging caller:
+`tools/beta/candidate_inputs.py` still read the retired `proxies` list and failed
+with `KeyError: proxies` on the reusable kit. It now verifies and stages the
+schema-4 engine under a generic name. The real input-builder/roster regression
+passes without any exact plug-in entry. The repaired path assembled both
+packages used in the installed comparison below.
+
+The `0.12.0general1` installed comparison then processed both post-freeze Windows
+fixtures through the unchanged reusable engine, including automation, state
+recall and retirement. The Wine D3D11 trial also processed correctly, but restore
+refused with `rollback_performance_mismatch` after an explicit 512-to-1024 buffer
+change. The publication snapshot was incorrectly used as authority over the
+independent current preference. The focused regression reproduced the installed
+failure. The source repair preserves current buffering while checking the target
+engine's exact capacity, including retained-kit capacity after a package update;
+unknown capacity refuses without changing publication or buffering. All 213
+macOS library tests pass. At `6bbd6178`, native Linux checks also pass: 218 library,
+297 manager (two existing ignored), five example, 356 runtime, 86 frontend and
+23 package tests; native, Windows, portability and policy workflows pass.
+Installed `0.12.0general2` restored the exact graphics predecessor with 1024
+buffering retained and the sibling entry unchanged. Both original saved states
+then recalled and processed after the restart and manager update. Both packages
+have the same engine digest. Default and Wine D3D11 probes ran in the selected
+Proton runtime; the fixtures have no editor and no actual GPU device was
+observed, so editor coexistence and acceleration remain unqualified.
+
+Both 1.0.2 modules also installed, prepared, replaced the publications, processed
+and recalled their own state with stable DAW IDs and no new engine. The effect's
+1.0.1 state was rejected by the native module-digest check; see FC-STATE-001.
+The [installed evidence](../evidence/preparation/2026-10-03-unfamiliar-installed.json)
+retains these partial results and the original graphics-restore failure.
+The subsequent [state-update comparison](../evidence/preparation/2026-10-03-state-update-installed.json)
+repairs and passes reference cross-version recall and normal-manager restoration
+of both exact original publications. Next check: the actual DAW workflow.
+No repaired Nibbi/Deck claim follows.
+The [beta contract](INTEGRATED_BETA_DELIVERY.md#unfamiliar-plug-ins-and-advanced-compatibility)
+also requires dependency and alternate-runtime experiments and failed-trial
+recovery. Last reviewed: 2026-10-03.
+
+## FC-STATE-001 — Saved state rejects an explicitly selected module update
+
+Installed `0.12.0general2` on the disposable Ubuntu 26.04.1 fixture reproduced
+this with LVB Unfamiliar Effect 1.0.1 to 1.0.2. Both revisions have the same
+logical class and unchanged first-party DSP/state implementation. Both pass
+their own SDK processing and state round trip through the same frozen native
+engine. Loading the intact 1.0.1 state after explicitly publishing 1.0.2 fails
+at `IComponent::setState`, before activation or vendor state restore.
+
+At that failing head, `native-vst3-proxy/backend/src/state.rs::payload_for`
+required equality of both class and module digest. `Processor::setState` called
+`ap8_validate` before the state session and marked the instance failed on refusal.
+The retained envelope's
+class and payload hash match; its module digest identifies the original build.
+This establishes a bridge refusal, not vendor state incompatibility. The
+controller mirror and worker restore boundaries must be included in the repair;
+silently changing saved bytes or simply deleting all identity checks is not a
+repair. Actual execution must still use the explicitly selected exact module.
+
+The consumer exited through its failure path. Windows ownership cleanup was
+confirmed, but transport retirement failed with a broken pipe and the manager
+retained one uncertain DSP lease. No recovery action was offered in that state.
+A normal disposable-VM restart reconciled the ended kernel generation and
+preserved `successful_session: false`; no lease or registry was hand-edited.
+This is a separate cleanup/recovery observation under FC-LIFE-002, not proof that
+the same failure occurs after a DAW's orderly rejection handling. Instrument
+cross-version recall was not attempted after the failed effect run.
+Existing managed rollback commands restored both original publications exactly;
+both original states then recalled and processed correctly with clean retirement.
+Normal history controls did not offer experimental ancestors. Their CLI
+restoration is not a complete frontend rollback pass.
+
+Understanding: causal at the native restore boundary for this exact fixture.
+The coordinated source repair now distinguishes historical same-class restore
+from exact-snapshot/readback validation, leaves saved objects unchanged, and
+synchronizes the native controller from selected current readback. The SDK
+consumer unwinds completed lifecycle steps and uses a separate migration oracle.
+The supervisor proves exact native-generation death independently of its final
+acknowledgement, and manager history offers retained experimental predecessors.
+The controller regression fails with the prior controller and passes with the
+repair in all four state/connection-order combinations. Linux runtime tests pass
+(359). Installed testing then found and repaired two additional cleanup defects:
+an inactive failed processor returned termination failure despite positive
+backend cleanup, and a pending owner failure notice was mistaken for the final
+retirement acknowledgement. Their focused regressions fail on the prior code;
+actual cleanup refusal and missing acknowledgement still refuse.
+
+Frozen `0.12.0general5`, source `9da4dc66`, passes ten installed Ubuntu SDK cases
+at 48 kHz/1024 frames. Both reference roles restore 1.0.1 opaque state into
+1.0.3's changed schema (24 to 32 bytes) and parameter inventory (two to three).
+The migrated added parameter is .75 rather than its .25 default and affects
+the sample oracle. Connected and preconnection restore, truthful current capture
+and reopen pass. Same-version recall remains exact. Wrong-class, corrupt and
+oversized envelopes refuse; complete and partial vendor restore refusals and
+abrupt native loss retire without reboot or record deletion. Six healthy-sibling
+comparisons pass during those failures. Original saved objects remain unchanged.
+
+The normal manager restores both exact original 1.0.1 publications and retains
+1024 buffering. Their original saved states then pass SDK audio comparison and
+retirement through the restored original engine. In total the final ten cases
+contain 18 separate audio comparisons and 41,287,680 checked samples with zero
+mismatches; this is functional coverage, not a soak. General3/general4 failures
+and the failed general4 VM checkpoint remain retained. Manager refresh briefly
+showed unavailable status before returning ready; that UI observation is open.
+
+Fix stage: installed reference repair passed. The later
+[general5 Deck installation](../evidence/audio-recovery/2026-10-03-general5-deck-installation.json)
+adds real Bitwig recall with unchanged commercial binaries and a saved/reopened
+Macro2 change. It does not test a commercial vendor-version migration. That
+physical interaction later fails in terminal instance handling; both transports
+retire, but temporary state saving fails for the terminal instrument. The reference
+migration regression remains resolved at its declared scope; commercial updates
+and the complete musician workflow remain unqualified. Further engineering follows
+the platform reassessment in CURRENT_SLICE.md rather than automatic soak retries.
+The original
+[failure](../evidence/preparation/2026-10-03-unfamiliar-installed.json) and final
+[comparison](../evidence/preparation/2026-10-03-state-update-installed.json) remain
+separate evidence. #204 remains draft and unmerged.
+Last reviewed: 2026-10-03.
+
 ## FC-UI-008 — Vendor editor removal crashes the Windows host
 
 ### Shared boundary and understanding
@@ -2281,3 +2504,39 @@ recall, reboot, lower-buffer or reconfiguration result. The earlier reference
 and internal57 control retain real gaps; FC-AUDIO-001 stays open. Exact artifacts,
 whole-session counts, private-output hashes and limitations are retained in the
 [physical comparison](../evidence/audio-recovery/2026-10-02-late-note-off.json).
+
+## FC-UI-009 — Owner exception unwinds a live processing thread
+
+### Boundary, understanding and repair
+
+Causal at the production Windows processing-owner boundary. The pinned-SDK
+fixture captures correct output, throws from `service_owner()` while the worker
+is live, and reproduces `std::terminate` before controlled shutdown on source
+`30859670dca8f654e7c31befc8d5172398dc3bb3`. This is generated instrumentation,
+not a commercial incident or a GPU diagnosis.
+
+The owner now catches before unwinding the joinable thread, requests cancellation,
+and waits up to five seconds before deliberate process containment. Socket and
+mailbox storage remain owned until join. State waits observe cancellation even
+if notification is missed. Windows testing also established that local socket
+shutdown alone did not reliably end an idle receive; explicit cancellation
+checks now cover idle, partial-message and reply waits while preserving their
+normal deadlines. Vendor exception text is replaced by a fixed failure message.
+
+The separate production `MappedSession` fixture holds, refuses or throws from
+controller synchronization while SDK processing runs. Refusal now publishes
+explicit controller terminal status. Its existing audio-stop and state-save
+refusal remain intentional in this repair; safe continued audio after a display
+synchronization failure remains a distinct open decision.
+
+### Fix stage and support posture
+
+Source repair and generated Windows SDK tests only. The exact test/build outcomes,
+including the failed socket attempt, are in the
+[source-repair evidence](../evidence/graphics-runtime/2026-10-02-source-repair.json).
+No installed generation or commercial physical result. BEAM, Pure LoFi and
+FRAGMENTS retain their existing support rows. No attribution of earlier crackling,
+no graphics qualification and no beta-ready claim.
+
+Tracking: [PR #204](https://github.com/kasselvania/Linux-VST-bridge/pull/204).
+Last reviewed: 2026-10-02.

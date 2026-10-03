@@ -113,10 +113,16 @@ pub struct NativeArtifact {
     pub artifact: Artifact,
     pub source_commit: String,
     pub descriptor_sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub descriptor: Option<Artifact>,
     pub external_ids: [String; 2],
 }
 impl NativeArtifact {
     pub fn matches(&self, p: &Profile) -> Result<()> {
+        if let Some(descriptor) = &self.descriptor {
+            require(descriptor.sha256 == self.descriptor_sha256, "native_descriptor_digest")?;
+            verify_native_descriptor(&self.artifact, descriptor, &self.class, &self.module_sha256)?;
+        }
         require(
             self.class == p.class
                 && self.module_sha256 == p.module_sha256
@@ -381,6 +387,7 @@ pub fn adoption(m: &Manager, profiles: &[Profile]) -> Result<Catalogue> {
             artifact: r.native.clone(),
             source_commit: p.requirements.native_source_commit.clone(),
             descriptor_sha256: p.requirements.descriptor_sha256.clone(),
+            descriptor: r.descriptor.clone(),
             external_ids: external_ids(&r.key())?,
         };
         n.matches(p)?;
@@ -410,7 +417,7 @@ pub fn adoption(m: &Manager, profiles: &[Profile]) -> Result<Catalogue> {
             if revision.qualification.is_none() && revision.profile.claim == Claim::VerifiedExactFixture {
                 let p = &revision.profile;
                 let r = &revision.registration;
-                let n = NativeArtifact {class:r.metadata.clone(),module_sha256:r.module.sha256.clone(),artifact:r.native.clone(),source_commit:p.requirements.native_source_commit.clone(),descriptor_sha256:p.requirements.descriptor_sha256.clone(),external_ids:external_ids(&r.key())?};
+                let n = NativeArtifact {class:r.metadata.clone(),module_sha256:r.module.sha256.clone(),artifact:r.native.clone(),source_commit:p.requirements.native_source_commit.clone(),descriptor_sha256:p.requirements.descriptor_sha256.clone(),descriptor:r.descriptor.clone(),external_ids:external_ids(&r.key())?};
                 n.artifact.verify()?;
                 n.matches(p)?;
                 retain_native(&mut natives,n)?;

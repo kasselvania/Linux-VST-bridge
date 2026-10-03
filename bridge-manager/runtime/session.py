@@ -224,6 +224,16 @@ def environment(reg,graphical=None):
         env.update(PROTON_USE_WINED3D='1',PROTON_DISABLE_NVAPI='1',PROTON_DLL_COPY='*')
     elif runner_policy not in (None,'x11_touch_release_v1','x11_touch_routing_v2'):
         raise RuntimeError('unsupported runner policy')
+    graphics=reg['compatibility'].get('graphics')
+    if graphics is not None:
+        if graphics!='wine_d3d11':raise RuntimeError('unsupported graphics backend')
+        # Per-host DLL selection only. Do not set PROTON_USE_WINED3D/DLL_COPY:
+        # those can change the shared prefix. Preserve the runner's other DLL
+        # choices and accessibility policy. The inherited DComp policy already
+        # selects these exact builtins and needs no duplicate override.
+        if runner_policy!='dcomp_wine_builtins_reference_v1':
+            prior=env.get('WINEDLLOVERRIDES')
+            env['WINEDLLOVERRIDES']='d3d11,dxgi=b'+(';' + prior if prior else '')
     policy=reg['compatibility'].get('event_output')
     if policy is not None:
         if policy!='reported_zero_event_channels_unspecified':raise RuntimeError('unsupported event output policy')
@@ -257,6 +267,10 @@ def command(spec):
         if spec['inspect'] is not True or spec.get('keeper') or spec.get('vendor_access'):
             raise RuntimeError('bus lifecycle probe requires isolated inspection')
         mode='ap18-bus-lifecycle'
+    if spec.get('graphics_assessment'):
+        if spec['inspect'] is not True or spec.get('keeper') or spec.get('vendor_access') or spec.get('bus_lifecycle_probe') or spec.get('first_audio'):
+            raise RuntimeError('graphics assessment requires exact inactive inspection')
+        mode='graphics-assessment'
     case='first-audio' if spec.get('first_audio') else 'class:'+reg['metadata']['class_id']
     handshake_directory=prefix/'drive_c/bridge/sessions'/sid
     pairs=[('session',sid),('scanner-sha256',reg['host']['sha256']),('implementation-source-manifest-sha256',reg['host_source_sha256']),
@@ -1002,36 +1016,72 @@ def session_preflight(spec):
     command(spec);env=environment(reg,spec.get('graphical_session'))
     managed_home(spec,env);transport_environment(spec,env);delivery_trace(spec,env)
 
-def prelaunch_owned_failure(spec,peer,error):
-    """Retire an exposed native transport when Windows ownership never began."""
-    sid=spec['session'];report=pathlib.Path(spec['report']);released=peer is None
-    directories_retired=False;retirement_error=None
+def native_generation_ended(spec,proc_root=pathlib.Path('/proc')):
+    """Positive kernel evidence for the socket-authenticated native generation.
+
+    Missing/denied/malformed ownership is unknown, never permission to erase a
+    reservation. A vanished PID, reused PID or zombie proves the original
+    process no longer owns an address space. Socket EOF is checked separately.
+    """
+    peer=spec.get('graphical_session') or {}
+    pid,start=peer.get('peer_pid'),peer.get('peer_start_ticks')
+    if type(pid) is not int or pid<=0 or type(start) is not int or start<=0:return False
     try:
-        session_directories(spec)
+        raw=(proc_root/str(pid)/'stat').read_text()
+        actual,separator,_=raw.partition(' (');fields=raw.rsplit(')',1)[1].split()
+        if not separator or int(actual)!=pid:return False
+        return int(fields[19])!=start or fields[0]=='Z'
+    except (FileNotFoundError,ProcessLookupError):return True
+    except (OSError,ValueError,IndexError):return False
+
+def retire_native_transport(spec,peer,failure=False):
+    """Windows owners must already be retired. Release only this session.
+
+    A live consumer must half-close and receive R. A dead authenticated native
+    generation cannot receive R: EOF plus kernel death and retired directories
+    establishes containment independently of polite SDK teardown.
+    """
+    result={'transport_retired':False}
+    try:
         if peer is not None:
             peer.setblocking(False)
-            peer.sendall(b'F')
+            if failure:
+                try:peer.sendall(b'F')
+                except (BrokenPipeError,ConnectionResetError):pass
             end=time.monotonic()+10
-            while time.monotonic()<end:
+            while True:
                 try:
-                    if peer.recv(1)==b'':released=True;break
+                    if peer.recv(1)==b'':break
                     raise RuntimeError('unexpected native owner bytes')
-                except BlockingIOError:time.sleep(.02)
-            if not released:raise TimeoutError('native owner release deadline')
-        retire_directories(spec);directories_retired=True
+                except BlockingIOError:
+                    if time.monotonic()>=end:raise TimeoutError('native owner release deadline')
+                    time.sleep(.02)
+                except ConnectionResetError:
+                    if native_generation_ended(spec):break
+                    raise
+        retire_directories(spec)
         if peer is not None:
-            peer.settimeout(5);peer.sendall(b'R')
-    except Exception as exc:
-        retirement_error=type(exc).__name__+': '+str(exc)[:256]
-    retired=directories_retired and (peer is None or retirement_error is None)
+            try:peer.settimeout(5);peer.sendall(b'R')
+            except OSError as error:
+                if not native_generation_ended(spec):raise
+                result['native_retirement_basis']='authenticated_process_generation_ended'
+                result['retirement_ack_error']=type(error).__name__+': '+str(error)[:256]
+        result['transport_retired']=True
+    except Exception as error:
+        result['retirement_error']=type(error).__name__+': '+str(error)[:256]
+    return result
+
+def prelaunch_owned_failure(spec,peer,error):
+    """Retire an exposed native transport when Windows ownership never began."""
+    sid=spec['session'];report=pathlib.Path(spec['report'])
+    retirement=retire_native_transport(spec,peer,True)
     outcome={'vendor_retirement':None,'transport_storage':spec.get('transport'),
       'fault_status':None,'fault_reporting_error':None,'ownership_schema':1,
       'session':sid,'records':[],'exit_before_cleanup':None,'raw_exit':None,
       'error':'prelaunch_owner_failure: '+type(error).__name__+': '+str(error)[:256],
       'cleanup_confirmed':True,'gated':False,
       'discarded_diagnostic_bytes':{'vendor':0,'stderr':0},'vendor_stdout':'','stderr':'',
-      'transport_retired':retired}
-    if retirement_error is not None:outcome['retirement_error']=retirement_error
+      **retirement}
     atomic(report,outcome)
     receipt={k:outcome.get(k,False) for k in ('session','cleanup_confirmed','transport_retired')}
     receipt['reporting_error']=None
@@ -1291,7 +1341,8 @@ def run(spec,peer=None):
         stop_requested[0]=True
     signal.signal(signal.SIGTERM,before_owner_stop);signal.signal(signal.SIGINT,before_owner_stop)
     try:
-        print('LVO0 '+spec['session']+' ready',flush=True)
+        graphics=spec['registration'].get('compatibility',{}).get('graphics')
+        print('LVO0 '+spec['session']+' ready'+(' graphics-v1' if graphics is not None else ''),flush=True)
         if stop_requested[0]:raise InterruptedError('supervisor interrupted after readiness')
         # Lock refusal is still a prelaunch owner failure. No Windows child
         # exists yet, so the same finalizer must retain the refusal and retire
@@ -1385,6 +1436,9 @@ def run_owned(spec,peer,stop_requested):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
     cmd,binding=command(spec);env=environment(reg,spec.get('graphical_session'))
+    graphics_configuration={'requested_backend':reg.get('compatibility',{}).get('graphics'),
+        'dll_overrides':env.get('WINEDLLOVERRIDES'),'scope':'host_process_and_children',
+        'renderer_observed':False}
     managed_home(spec,env)
     transport_environment(spec,env);delivery_trace(spec,env)
     capture=None;capture_error=None
@@ -1562,37 +1616,14 @@ def run_owned(spec,peer,stop_requested):
         if command_session is not None:command_session.close()
         sel.close()
         for stream in (root.stdout,root.stderr):stream.close()
-        outcome={'vendor_retirement':retirement_ready,'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
+        outcome={'graphics_configuration':graphics_configuration,'vendor_retirement':retirement_ready,'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
         if audio_scheduling:outcome['audio_scheduling']=audio_scheduling.value()
         if command_session is not None:outcome['native_command_child']=command_session.remote_identity
         # Diagnostic persistence cannot skip physical cleanup or peer retirement.
         try:atomic(report,outcome)
         except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
     if clean:
-        retired=peer is None or disconnected is not None
-        if peer is not None and not retired:
-            # Wake the native transport accept/worker on early Windows failure.
-            # Never acknowledge retirement until the native owner releases it.
-            try:
-                if failure:peer.sendall(b'F')
-                end=time.monotonic()+10
-                while time.monotonic()<end:
-                    if native_released():retired=True;break
-                    time.sleep(.02)
-            except OSError:pass
-        outcome['transport_retired']=retired
-        if retired:
-            # Only this random, private session is removed. Reports live outside
-            # it; no environment, vendor, publication or sibling path is touched.
-            try:retire_directories(spec)
-            except (OSError,RuntimeError) as e:
-                outcome['transport_retired']=False
-                outcome['retirement_error']=type(e).__name__+': '+str(e)[:256]
-            if outcome['transport_retired'] and peer is not None:
-                try:peer.settimeout(5);peer.sendall(b'R')
-                except OSError as e:
-                    outcome['transport_retired']=False
-                    outcome['retirement_error']=type(e).__name__+': '+str(e)[:256]
+        outcome.update(retire_native_transport(spec,peer,bool(failure)))
         try:atomic(report,outcome)
         except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
     if retirement_ready is not None and clean and outcome.get('transport_retired') and not failure:
@@ -4609,7 +4640,11 @@ if __name__=='__main__':
     os.umask(0o077)
     if sys.argv[1]=='--install':sys.exit(0 if install(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
     if sys.argv[1]=='--vendor-application':sys.exit(0 if vendor_application(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
-    spec=json.loads(pathlib.Path(sys.argv[1]).read_text());peer=None if spec['inspect'] or spec.get('vendor_access') else socket.socket(fileno=0)
+    graphics_entry=sys.argv[1]=='--graphics-settings-v1'
+    spec=json.loads(pathlib.Path(sys.argv[2 if graphics_entry else 1]).read_text())
+    if graphics_entry and (spec.get('keeper') or spec['registration'].get('compatibility',{}).get('graphics')!='wine_d3d11'):
+        raise RuntimeError('graphics settings entry requires a supported process-scoped choice')
+    peer=None if spec['inspect'] or spec.get('vendor_access') else socket.socket(fileno=0)
     operation=None
     try:
         if spec.get('keeper'):

@@ -42,9 +42,10 @@ exact identities and notices retained. Profiles remain declarative.
 Retain working generation components side by side. A changed host/proxy must not
 silently replace a publication's exact pairing. Software restoration must not
 restore or erase user projects or vendor authorization. No customer compiler,
-SDK, preinstalled Wine/Proton or Steam-client prerequisite for the supported
-prebuilt catalogue. No invented empty vendor state, licensing bypass, arbitrary
-process termination, root filesystem unlock, or unrelated visual rewrite.
+SDK, preinstalled Wine/Proton or Steam-client prerequisite for general preparation
+within the implemented format/ABI boundary. No invented empty vendor state,
+licensing bypass, arbitrary process termination, root filesystem unlock, or
+unrelated visual rewrite.
 
 ## Platforms and catalogue
 
@@ -61,8 +62,11 @@ The initial useful beta subset must include an instrument and effect from at
 least two vendors with a common qualified Ubuntu/CachyOS subset. Exact versions,
 module/class identities, runner, host, proxy, license channel and capability
 results determine the matrix. BEAM-specific graphics work is nonblocking for
-other qualified combinations. Unmatched module bytes receive a useful catalogue
-explanation without a source-build fallback.
+other qualified combinations. This catalogue bounds tested compatibility claims;
+it does not bound which unfamiliar modules users may install, assess and try.
+The earlier rule accepting a catalogue explanation for unmatched module bytes
+is withdrawn by the operator's 2026-10-02 correction. General publication uses a
+reusable precompiled engine and locally prepared data, without a customer build.
 
 ## Acceptance method
 
@@ -87,6 +91,43 @@ plug-in. Exercise Pure LoFi alone, FRAGMENTS alone and their real chain on the
 Deck, then the declared commercial catalogue. Use working project copies and
 lawful save-capable configurations. Save-disabled demos cannot establish recall;
 normal vendor login, EULA and device selection remain user actions.
+
+### Unfamiliar plug-ins and advanced compatibility
+
+Use the workflow in [architecture section 18.6](ARCHITECTURE.md#186-general-preparation-and-compatibility-experimentation).
+These are required acceptance cases, not results:
+
+- Build the bridge package before generating the independent test modules.
+  With no module/class entry or exact profile in that package,
+  install, discover, assess, prepare, publish, process and save/reopen it through
+  normal controls. Repeat with an instrument and an effect. Capture engine
+  hashes and verify that preparation invokes no compiler or remote proxy build.
+- Update the module while retaining its logical class; refresh metadata and
+  assessment, preserve the DAW class ID and exercise saved-project recall. A
+  changed digest must invalidate stale observations without demanding a new
+  bridge release. Restore the retained predecessor and check project behavior.
+- Try a reversible graphics/runtime option using the same configuration owner.
+  Compare requested/effective settings, editor behavior and captured audio with
+  the editor closed and active; keep the trial and restore the predecessor.
+- Exercise a missing dependency with a distributable reference installer. Show
+  the reason, add the dependency through supervised installation, re-assess and
+  process. Repeat an interrupted/failed attempt and verify recovery and affected
+  sibling behavior. Separate DLL hints from demonstrated loader requirements.
+- Select an alternate coherent runtime, including an imported unqualified
+  fixture accepted by the existing adapter contract. Retain exact identities,
+  show the trial as unqualified and prove keep/restore. A maintainer plug-in or
+  runner catalogue entry must not substitute for the required capability checks.
+- Reject malformed descriptor data, an unsupported required interface, stale
+  trial inputs and incompatible ABI/protocol pairs with specific reasons. A
+  missing optional editor, unknown product name or absent historical support
+  profile is not an equivalent failure. Verify cleanup and interrupted trial
+  recovery without losing the working predecessor.
+
+Advanced controls must show scope, effective configuration and differences,
+preserve explicit local overrides across profile refresh, and keep support claims
+separate from local results. A machine capability refresh must preserve licensed
+environment identity. No new physical audio/GPU claim follows from these source
+or reference tests; commercial and platform acceptance below still applies.
 
 ### Audio and reconfiguration
 

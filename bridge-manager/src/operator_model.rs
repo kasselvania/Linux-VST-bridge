@@ -2,7 +2,13 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 15;
+pub const OPERATOR_SCHEMA: u32 = 16;
+/// A launch-only DLL selection, never a Proton prefix conversion or driver install.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GraphicsBackend {
+    WineD3d11,
+}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AudioLayoutPolicy {
@@ -44,6 +50,12 @@ pub struct PublicationIdentity {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    CandidateGraphicsAssess { candidate: String },
+    CandidateGraphicsPrepare {
+        candidate: String,
+        backend: Option<GraphicsBackend>,
+        expected_current: Option<PublicationIdentity>,
+    },
     /// Explicit fixed-source runtime download; no caller path or URL.
     RuntimeInstall {},
     /// Explicit local allowlisted support report; no caller-selected path.
@@ -245,6 +257,10 @@ pub struct History {
     pub publication: String,
     pub active: bool,
     pub rollback_allowed: bool,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub rollback_unavailable: Option<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -627,6 +643,8 @@ impl Action {
         matches!(
             self,
             Self::RuntimeInstall {}
+                | Self::CandidateGraphicsAssess { .. }
+                | Self::CandidateGraphicsPrepare { .. }
                 | Self::DependencyPrepare {}
                 | Self::RendererDiscover {}
                 | Self::RendererOpen { .. }

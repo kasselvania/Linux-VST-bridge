@@ -1,6 +1,19 @@
 name: AP8 Windows host
 on:
   workflow_dispatch:
+    inputs:
+      frozen_package_sha256:
+        description: 'Optional frozen package digest for independent unfamiliar fixture generation'
+        type: string
+        default: ''
+      evolve_generation:
+        description: 'Optional existing first-party generation for state-schema migration and refusal successors'
+        type: string
+        default: ''
+      frozen_engine_sha256:
+        description: 'Reusable engine digest paired with that frozen package'
+        type: string
+        default: ''
   pull_request:
     paths:
       - 'tools/mf2/**'
@@ -16,8 +29,13 @@ on:
       - 'vst-state/**'
       - 'windows-fixtures/ap10/**'
       - 'windows-fixtures/beta/**'
+      - 'windows-fixtures/graphics/**'
+      - 'tools/graphics/**'
+      - 'bridge-manager/src/graphics/**'
+      - 'bridge-manager/examples/graphics_assessment_report.rs'
       - 'tools/beta/reference_installer.rs'
       - 'tools/beta/build_reference.py'
+      - 'tools/beta/build_unfamiliar.py'
       - 'native-vst3-proxy/include/ap10*'
       - 'native-vst3-proxy/source/output_results.h'
       - 'tools/ap10-tests/**'
@@ -36,7 +54,35 @@ on:
 permissions:
   contents: read
 jobs:
+  unfamiliar-fixtures:
+    if: github.event_name == 'workflow_dispatch' && inputs.frozen_package_sha256 != ''
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Acquire pinned official SDK
+        run: python tools/wf0-factory-census/build.py acquire --sdk-root "${{ runner.temp }}/unfamiliar-sdk"
+      - name: Build fixtures after package freeze
+        shell: pwsh
+        env:
+          EVOLVE_GENERATION: ${{ inputs.evolve_generation }}
+          FROZEN_PACKAGE_SHA256: ${{ inputs.frozen_package_sha256 }}
+          FROZEN_ENGINE_SHA256: ${{ inputs.frozen_engine_sha256 }}
+        run: |
+          $extra = @()
+          if ($env:EVOLVE_GENERATION) { $extra = @('--evolve-generation', $env:EVOLVE_GENERATION) }
+          python tools/beta/build_unfamiliar.py @extra --sdk "${{ runner.temp }}/unfamiliar-sdk" --output "${{ runner.temp }}/unfamiliar-fixtures" --frozen-package-sha256 $env:FROZEN_PACKAGE_SHA256 --frozen-engine-sha256 $env:FROZEN_ENGINE_SHA256
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: unfamiliar-windows-fixtures
+          path: ${{ runner.temp }}/unfamiliar-fixtures/
+          if-no-files-found: error
+          retention-days: 7
   host:
+    if: github.event_name != 'workflow_dispatch' || inputs.frozen_package_sha256 == ''
     runs-on: windows-2022
     timeout-minutes: 30
     steps:
@@ -50,7 +96,13 @@ jobs:
         run: |
           cmake -S . -B "${{ runner.temp }}/ap8-build" -G "Visual Studio 17 2022" -A x64 -T v143 "-DCMAKE_SYSTEM_VERSION=10.0.19041.0" -DWF0_BUILD_ONLY=ON "-DWF0_VST3_SDK_ROOT:PATH=${{ runner.temp }}/ap8-sdk"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build "${{ runner.temp }}/ap8-build" --config Release --target wf0-factory-probe wf0-loader-adapter-tests ap10-return-fixture lvb-reference-instrument lvb-reference-effect lvb-reference-instrument-tests lvb-reference-effect-tests ap10-results-tests ap11-editor-tests ap11-state-tests ap12-path-tests ap12-fault-tests ap13-state-delivery-tests ap14-environment-tests ap18-result-custody-tests ap18-bus-census-tests ap18-whole-block-tests ap18-crash-capture ap18-lc1-session uio1-tests uir1-input-fixture uio2-popup-fixture uio2-uia-disconnect uir2-touch-fixture mf2-bootstrap-ready is1-bootstrapper is1-direct-msi is2-launch is2-fixture is2-admin-fixture is3-capability naui2-application nad1-service-fixture nad1-service-adapter nad1-application-fixture --parallel 4
+          cmake --build "${{ runner.temp }}/ap8-build" --config Release --target graphics-reference-1 graphics-reference-2 graphics-reference-3 graphics-reference-4 wf0-factory-probe ap10-return-fixture --parallel 4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/mf3/windows_inspection_test.py "${{ runner.temp }}/ap8-build/wf0/bin/Release"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/graphics/assessment_test.py "${{ runner.temp }}/ap8-build/wf0/bin/Release"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build "${{ runner.temp }}/ap8-build" --config Release --target graphics-reference-1 graphics-reference-2 graphics-reference-3 graphics-reference-4 wf0-factory-probe wf0-loader-adapter-tests ap10-return-fixture lvb-reference-instrument lvb-reference-effect lvb-reference-instrument-tests lvb-reference-effect-tests ap10-results-tests ap11-editor-tests ap11-state-tests ap11-owner-failure-tests ap11-controller-failure-tests ap12-path-tests ap12-fault-tests ap13-state-delivery-tests ap14-environment-tests ap18-result-custody-tests ap18-bus-census-tests ap18-whole-block-tests ap18-crash-capture ap18-lc1-session uio1-tests uir1-input-fixture uio2-popup-fixture uio2-uia-disconnect uir2-touch-fixture mf2-bootstrap-ready is1-bootstrapper is1-direct-msi is2-launch is2-fixture is2-admin-fixture is3-capability naui2-application nad1-service-fixture nad1-service-adapter nad1-application-fixture --parallel 4
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap18-crash-capture.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -59,6 +111,10 @@ jobs:
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap10-results-tests.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap11-editor-tests.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/ap11-tests/owner_failure_test.py "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap11-owner-failure-tests.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/ap11-tests/controller_failure_test.py "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap11-controller-failure-tests.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap11-state-tests.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -106,8 +162,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/is2/windows_launch_test.py "${{ runner.temp }}/ap8-build/wf0/bin/Release"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python tools/mf3/windows_inspection_test.py "${{ runner.temp }}/ap8-build/wf0/bin/Release"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build first-party delivered reference installers
         shell: pwsh
         run: |
@@ -147,4 +201,29 @@ jobs:
         with:
           name: ap8-windows-host-${{ github.sha }}
           path: ${{ runner.temp }}/ap8-build/wf0/bin/Release/
+          if-no-files-found: error
+  graphics-report:
+    needs: host
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ap8-windows-host-${{ github.sha }}
+          path: ${{ runner.temp }}/graphics-reference
+      - name: Join actual PE imports and Windows observations with production Rust
+        env:
+          GRAPHICS_REFERENCE_ROOT: ${{ runner.temp }}/graphics-reference
+          CARGO_BUILD_JOBS: 2
+        run: |
+          for kind in 1 2 3 4; do
+            cargo run --quiet --locked --manifest-path bridge-manager/Cargo.toml --example graphics_assessment_report -- "$GRAPHICS_REFERENCE_ROOT/graphics-reference-$kind.vst3" "$GRAPHICS_REFERENCE_ROOT/graphics-reference-$kind.json" > "$GRAPHICS_REFERENCE_ROOT/assessment-$kind.json"
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: graphics-assessments-${{ github.sha }}
+          path: ${{ runner.temp }}/graphics-reference/assessment-*.json
           if-no-files-found: error

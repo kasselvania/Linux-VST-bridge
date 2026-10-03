@@ -204,6 +204,25 @@ fn apply(target: &Target, native: bool) -> Result<serde_json::Value> {
         "rttime_soft_us":bounded_limits.rlim_cur,"rttime_hard_us":bounded_limits.rlim_max}))
 }
 
+pub fn run() -> Result<()> {
+    let mut bytes = Vec::new(); std::io::stdin().take(32_769).read_to_end(&mut bytes)?;
+    require(bytes.len() <= 32_768, "scheduling_request_extent")?;
+    let result = (|| -> Result<_> {
+        let request: Request = serde_json::from_slice(&bytes)?;
+        let target = select(&request, Path::new("/proc"), unsafe { libc::getuid() })?;
+        apply(&target, request.native_peer.is_some())
+    })();
+    // Fixed failure classes only: raw errors can contain private paths.
+    let value = result.unwrap_or_else(|error| {
+        let message = error.to_string();
+        let reason = if message.starts_with("scheduling_") { message }
+            else { "scheduling_capability_unavailable".into() };
+        serde_json::json!({"outcome":"unavailable","reason":reason})
+    });
+    println!("{}", serde_json::to_string(&value)?);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -296,22 +315,4 @@ mod tests {
         f.request.native_peer=Some((100,902));assert!(f.select().is_err());
         f.request.native_peer=Some((100,900));fs::write(process.join("maps"),b"").unwrap();assert!(f.select().is_err());
     }
-}
-pub fn run() -> Result<()> {
-    let mut bytes = Vec::new(); std::io::stdin().take(32_769).read_to_end(&mut bytes)?;
-    require(bytes.len() <= 32_768, "scheduling_request_extent")?;
-    let result = (|| -> Result<_> {
-        let request: Request = serde_json::from_slice(&bytes)?;
-        let target = select(&request, Path::new("/proc"), unsafe { libc::getuid() })?;
-        apply(&target, request.native_peer.is_some())
-    })();
-    // Fixed failure classes only: raw errors can contain private paths.
-    let value = result.unwrap_or_else(|error| {
-        let message = error.to_string();
-        let reason = if message.starts_with("scheduling_") { message }
-            else { "scheduling_capability_unavailable".into() };
-        serde_json::json!({"outcome":"unavailable","reason":reason})
-    });
-    println!("{}", serde_json::to_string(&value)?);
-    Ok(())
 }

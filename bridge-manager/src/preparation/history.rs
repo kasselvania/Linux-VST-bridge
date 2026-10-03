@@ -590,6 +590,7 @@ pub fn preparation_basis(m: &Manager, predecessor: Option<&Candidate>) -> Result
         .transpose()?)
 }
 pub fn bind_preparation_basis(c: Candidate, basis: Option<String>) -> Result<Candidate> {
+    let graphics = c.profile.capabilities.graphics;
     let mut result = prepared(
         c.selection,
         c.inspection,
@@ -598,6 +599,10 @@ pub fn bind_preparation_basis(c: Candidate, basis: Option<String>) -> Result<Can
         c.source_manifest,
         c.recipe_sha256,
     )?;
+    if graphics.is_some() {
+        result.profile.capabilities.graphics = graphics;
+        result.profile.id = format!("managed.{}", key(&(&result.profile.id, graphics))?);
+    }
     if let Some(basis) = basis {
         require(valid_hex(&basis, 64), "preparation_evidence_basis")?;
         result.profile.id = format!("managed.{}", key(&(&result.profile.id, &basis))?);

@@ -1,4 +1,4 @@
-//! Fixed offline recipe. Compilation is non-RT and never owns registry.lock.
+//! Offline preparation from the installed kit, outside the audio path and registry lock.
 use super::*;
 use std::{
     process::{Command, Stdio},
@@ -6,7 +6,7 @@ use std::{
 };
 pub fn recipe_available(m: &Manager) -> Result<Artifact> {
     let sw: crate::catalogue::Software = read_json(&m.root.join("software.json"))?;
-    let kit=sw.preparation_kit.ok_or("Preparation tools are not installed. Install the manager package with its pinned build tools")?;
+    let kit=sw.preparation_kit.ok_or("Preparation support is missing. Install the complete manager package")?;
     require(
         kit.path.starts_with(m.root.join("software"))
             && kit.path.canonicalize()? == kit.path
@@ -27,12 +27,7 @@ pub fn recipe(m: &Manager) -> Result<Artifact> {
 /// A verified kit must bind this exact native binary as well as module/class.
 /// An older proxy cannot acquire a larger envelope from a newer manager alone.
 pub fn maximum_bridge_frames(m: &Manager, r: &Registration) -> Result<Option<u32>> {
-    let software: crate::catalogue::Software = read_json(&m.root.join("software.json"))?;
-    r.native.verify()?;
-    if software.preparation_kit.is_some() {
-        let maximum = maximum_from_kit(&recipe(m)?, r)?;
-        if maximum.is_some() { return Ok(maximum); }
-    }
+    if let Some(maximum) = current_kit_maximum(m, r)? { return Ok(Some(maximum)); }
     // A changed kit describes its own proxies, not the capacity of a retained
     // publication. Follow that publication's exact candidate recipe, never an
     // ambient kit search or the successor's module/class match alone.
@@ -41,12 +36,27 @@ pub fn maximum_bridge_frames(m: &Manager, r: &Registration) -> Result<Option<u32
         .filter(|entry| entry.registration == *r) else { return Ok(None); };
     let Some(reference) = &entry.managed_revision else { return Ok(None); };
     let revision = m.load_revision(&r.metadata.class_id, reference)?;
-    let candidate = super::publication_candidate(m, &revision.profile, r)?;
+    retained_maximum(m, &revision)
+}
+/// Rollback validates the target ancestor's capacity before selecting it. The
+/// currently selected revision cannot stand in for that ancestor's recipe.
+pub fn revision_maximum_bridge_frames(m: &Manager, r: &Revision) -> Result<Option<u32>> {
+    if let Some(maximum) = current_kit_maximum(m, &r.registration)? { return Ok(Some(maximum)); }
+    retained_maximum(m, r)
+}
+fn current_kit_maximum(m: &Manager, r: &Registration) -> Result<Option<u32>> {
+    let software: crate::catalogue::Software = read_json(&m.root.join("software.json"))?;
+    r.native.verify()?;
+    if software.preparation_kit.is_some() { maximum_from_kit(&recipe(m)?, r) }
+    else { Ok(None) }
+}
+fn retained_maximum(m: &Manager, r: &Revision) -> Result<Option<u32>> {
+    let candidate = super::publication_candidate(m, &r.profile, &r.registration)?;
     if !valid_hex(&candidate.recipe_sha256, 64) { return Ok(None); }
     let retained = existing_runtime(m, &candidate.recipe_sha256)?;
     require(candidate.host == retained.host && candidate.source_manifest == retained.source_manifest,
         "candidate_runtime_changed")?;
-    maximum_from_kit(&retained.kit, r)
+    maximum_from_kit(&retained.kit, &r.registration)
 }
 fn maximum_from_kit(kit: &Artifact, r: &Registration) -> Result<Option<u32>> {
     kit.verify()?;
@@ -138,7 +148,16 @@ pub fn construct(
         status.success(),
         reply["error"].as_str().unwrap_or("native_build_failed"),
     )?;
+    let descriptor = if reply["delivery"] == "reusable_engine" {
+        let artifact = Artifact { path: dir.join(lvb_plugin_descriptor::FILE_NAME),
+            sha256: reply["descriptor_sha256"].as_str().ok_or("build_descriptor")?.into() };
+        artifact.verify()?;
+        fs::set_permissions(&artifact.path, fs::Permissions::from_mode(0o400))?;
+        file(&artifact.path)?.sync_all()?;
+        Some(artifact)
+    } else { None };
     let native = NativeArtifact {
+        descriptor,
         class: i.census()?.selected,
         module_sha256: s.module.sha256.clone(),
         artifact: Artifact {
@@ -165,6 +184,10 @@ pub fn construct(
         "build_recipe_identity",
     )?;
     native.artifact.verify()?;
+    if let Some(descriptor) = &native.descriptor {
+        crate::verify_native_descriptor(&native.artifact, descriptor,
+            &native.class, &native.module_sha256)?;
+    }
     fs::set_permissions(&native.artifact.path, fs::Permissions::from_mode(0o500))?;
     file(&native.artifact.path)?.sync_all()?;
     immutable(&dir.join("build.json"), &reply)?;
@@ -232,9 +255,9 @@ pub fn stage_runtime(m: &Manager) -> Result<Runtime> {
 kit,out=sys.argv[1:];out=pathlib.Path(out)
 with zipfile.ZipFile(kit) as z:
  assert z.getinfo('recipe.json').file_size<=65536
- recipe=json.loads(z.read('recipe.json'));assert recipe['schema'] in (1,2,3)
+ recipe=json.loads(z.read('recipe.json'));assert recipe['schema'] in (1,2,3,4)
  names=[('runtime/host.exe','host.exe'),('runtime/host-source-manifest.json','host-source-manifest.json')]
- if recipe['schema'] in (2,3):names += [('tools/mf3/native_builder.py','native_builder.py'),('tools/ap8_descriptor.py','ap8_descriptor.py')]
+ if recipe['schema'] in (2,3,4):names += [('tools/mf3/native_builder.py','native_builder.py'),('tools/ap8_descriptor.py','ap8_descriptor.py')]
  for key,name in names:
   i=z.getinfo(key);assert not i.is_dir() and i.file_size<=64*1024*1024
   b=z.read(i);assert hashlib.sha256(b).hexdigest()==recipe['files'][key]
@@ -359,7 +382,7 @@ pub fn cleanup_work(m: &Manager, operation: &str) -> Result<()> {
         let path = entry?.path();
         if matches!(
             path.file_name().and_then(|n| n.to_str()),
-            Some("native.so" | "build.json")
+            Some("native.so" | "build.json" | "plugin-descriptor.json")
         ) {
             continue;
         }
@@ -410,21 +433,16 @@ pub fn reusable(
             "retained_build_identity",
         )?;
         verify_candidate(m, &c, &s.scanner, &s.scanner_source)?;
-        require(
-            bind_preparation_basis(
-                prepared(
-                    s.clone(),
-                    i.clone(),
-                    c.native.clone(),
-                    i.host.clone(),
-                    i.source_manifest.clone(),
-                    kit.into(),
-                )?,
-                c.preparation_basis.clone(),
-            )? == c,
-            "retained_build_policy_changed",
-        )?;
-        let technical = bind_preparation_basis(c, None)?;
+        let technical = prepared(s.clone(), i.clone(), c.native.clone(),
+            i.host.clone(), i.source_manifest.clone(), kit.into())?;
+        // A settings trial was verified against its exact predecessor above.
+        // It reuses the same artifact; launch settings cannot make matching
+        // native bytes ambiguous or force a customer compilation.
+        if c.settings_trial.is_none() {
+            require(bind_preparation_basis(
+                configuration::carry_settings(technical.clone(), Some(&c))?,
+                c.preparation_basis.clone())? == c, "retained_build_policy_changed")?;
+        }
         if !found.contains(&technical) {
             found.push(technical);
         }

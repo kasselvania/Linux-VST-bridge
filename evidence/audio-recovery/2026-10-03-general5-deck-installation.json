@@ -1,0 +1,762 @@
+{
+  "schema": 1,
+  "date": "2026-10-03",
+  "claim": "Physical Steam Deck installation, paired reusable publications, real Bitwig state recall and measured interaction on the repaired candidate",
+  "summary": {
+    "installation": "completed",
+    "native_publications": "completed_for_declared_pair",
+    "same_vendor_version_project_recall": "passed_smoke",
+    "meaningful_changed_control_recall": "passed_smoke",
+    "interaction_soak": "failed_terminal_instance_during_interaction_soak_not_started",
+    "beta_ready": false
+  },
+  "frozen_candidate": {
+    "schema": 1,
+    "source_head": "9da4dc66111c500d4ca7bada5f0fad06ab19f93d",
+    "source_tree": "4a15329cb9183bb5259c13be56e8e50b00f8b6a5",
+    "version": "0.12.0general5deck",
+    "frozen_at_utc": "2026-10-03T14:59:02.931572+00:00",
+    "engine_sha256": "cc442e4a98018977aad3b97dddf3433abf6f18b157a99b628f5f760d91b12d0f",
+    "installer_sha256": "7e53917a2039a0b54a15f25751be12af97e582190afa609f110c74fd23857193",
+    "installer_bytes": 51288736,
+    "release_manifest_sha256": "c0b6ec8fcb4aa519a878a94b6384f000d6cfea1808518bb7b5356523415378f3",
+    "supervisor_python_minor": "3.13",
+    "key_class": "internal_test"
+  },
+  "fixture": {
+    "physical_hardware": "Steam Deck",
+    "os": "SteamOS 3.8.16",
+    "os_build": "20260716.1",
+    "kernel": "6.16.12-valve24.5-1-neptune-616-gb2f7cfe85e45",
+    "session": "KDE Wayland",
+    "daw": "Bitwig Studio 6.1 Flatpak",
+    "flatpak_runtime_branch": "org.freedesktop.Platform 25.08",
+    "python_minor": "3.13",
+    "pipewire": "1.6.4",
+    "sample_rate": 48000,
+    "observed_and_maximum_block_frames": 512,
+    "bridge_delay_frames": 512,
+    "sample_trace_enabled": false,
+    "runtime": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+    "runtime_changed": false,
+    "runtime_note": "Existing retained runtime used for the comparison; no runtime migration or fresh-machine delivery claim."
+  },
+  "preservation": {
+    "before_selection": "f2a17b9133c66554c6bf75b41ff19e617d594b7f84fd68313b25e67d48d59d52",
+    "files": 214,
+    "bytes": 70356457,
+    "project_files": 98,
+    "original_timestamps_and_modes_retained": true,
+    "selected_runtime_file_hash_mismatches": 0,
+    "manifest_sha256": "ad57ec315e09bc43c9bf7139fcaa79e2175abab922b5d10ff14a0671277ebad4",
+    "archive": "deck-before.tar.gz",
+    "archive_sha256": "433d3c6546f8cf89dc8361ec3ec6b01f60b852348bac2777dc4ff8e6e5f0528a",
+    "all_archived_file_sizes_and_hashes_verified": true,
+    "durable_copies": "Private evidence store on the Deck and independent development host, outside both checkouts",
+    "scope": "Selected first-party package/hosts/publications, configuration, links and project copies. No whole prefix, licensing state or proprietary installers/modules copied."
+  },
+  "deployment": {
+    "selected_generation": "57f2ea85200016a7eb29a6986c56d48fe5aceba1ae29ec539892e76908e8f7a1",
+    "software_record_sha256": "b0415b386dde20700ae47cdb9620dd7c9c24a0e47b5d96840725297c1a9488fc",
+    "installer_ui": "Verified version and signature, installed application files, opened Setup",
+    "selection": "Supported package stop-for-repair, adopt and activate CLI actions under operator authorization",
+    "selection_result": "active 0.12.0general5deck",
+    "package_selection_preserved_registry_bytes": true,
+    "publication_route": "Fresh normal offered inspect, prepare and compatibility_publish_test actions; no registry edits",
+    "deck_compiler_required": false,
+    "windows_host_sha256": "94e605bf10c9f3cc4c31485f2842d0f92579ca80838840eaa06e0d534924d5f9",
+    "windows_host_source_sha256": "cba6b0af80d5ed77e44dc148e606460c8fbdb614266829045fc1f3f9f174cc61",
+    "preparation_kit_sha256": "d50cef5a47f330f1e09ab44e20a632aaeda70b35ed8db55ab8bfe7d48daf853e",
+    "publications": {
+      "publications": [
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "publication": {
+            "id": "b8b74187bbba9b73fd52c2568ee9973f",
+            "sha256": "589f160be06445a8199c137e0769c66d80937f038cbbc49fe7d531f69ad925fb"
+          },
+          "native_sha256": "cc442e4a98018977aad3b97dddf3433abf6f18b157a99b628f5f760d91b12d0f",
+          "host_sha256": "94e605bf10c9f3cc4c31485f2842d0f92579ca80838840eaa06e0d534924d5f9",
+          "buffer": {
+            "schema": 1,
+            "added_frames": 512
+          },
+          "preserved": [
+            "module",
+            "environment",
+            "compatibility"
+          ]
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "publication": {
+            "id": "f7ab13009bb491b5a4c31bb639b75fcc",
+            "sha256": "4d69e2e60bbb916ecd6e2aad193d2fd31d62b530398898a12f320cad95f1fc3b"
+          },
+          "native_sha256": "cc442e4a98018977aad3b97dddf3433abf6f18b157a99b628f5f760d91b12d0f",
+          "host_sha256": "94e605bf10c9f3cc4c31485f2842d0f92579ca80838840eaa06e0d534924d5f9",
+          "buffer": {
+            "schema": 1,
+            "added_frames": 512
+          },
+          "preserved": [
+            "module",
+            "environment",
+            "compatibility"
+          ]
+        }
+      ],
+      "other_six_unchanged": true
+    },
+    "rollback": "Exact package predecessor and original publications retained; supported rollback available, not newly exercised on this Deck candidate."
+  },
+  "plugins": [
+    {
+      "name": "Pure LoFi",
+      "version": "1.0.0.6121",
+      "class_id": "417274754156495350724C4650726F63",
+      "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+      "before_publication": "90b164371f317f4cd341cfbff726af86",
+      "before_native_sha256": "cfde3eaf63b0033e63670fb0af80394fe3075ae2f3dc7fa38f8d030e5db85feb",
+      "vendor_latency_frames": 48,
+      "total_reported_latency_frames": 560
+    },
+    {
+      "name": "Efx FRAGMENTS",
+      "version": "1.0.0.2925",
+      "class_id": "41727475415649536772616E50726F63",
+      "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+      "before_publication": "cd806641a49f2f59f53ac3fca7f52ce6",
+      "before_native_sha256": "af208f0842ae29c84e2b169324453bb72e36912fde3743cf96092f10a837251c",
+      "vendor_latency_frames": 192,
+      "total_reported_latency_frames": 704
+    }
+  ],
+  "project": {
+    "original_sha256": "e9dff88b3310d46ff86db354c88494182c4debd428c33b6a0c643fa1e950e0b9",
+    "original_preserved": true,
+    "separate_baseline_and_candidate_copies": true,
+    "changed_save_sha256": "49f92f0bd86b360cfc6162957fd4656b951dbd34f34e330152daade813ef41f0",
+    "macro2_before": 0.208,
+    "macro2_saved_and_reopened": 0.375,
+    "macro4_unchanged": 0.292,
+    "gui_recall_observed": true,
+    "automation": "Existing Pure LoFi Master Volume curve; visibly varying readback during loop",
+    "test_loop": "Existing four-note clip C3 E3 G3 E3, loop limited to bars 1-2 in Candidate only; note lengths preserve short intended rests"
+  },
+  "baseline": {
+    "sessions": [
+      {
+        "session": "3acdc69856645a957fb5d77c567d2b5a",
+        "lifecycle": {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 7749120,
+          "blocks": 15135,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 7748608,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        "final_phase": {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 79193544814892,
+          "startup": {
+            "admitted_frames": 512,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 512
+          },
+          "processing": {
+            "admitted_frames": 7748608,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 7748608,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "record_files": [
+          {
+            "name": "native-3acdc69856645a957fb5d77c567d2b5a.jsonl",
+            "sha256": "38fd4b798c3771e7caf9596679a5ccd2835db466486814eb19947c9876b76234",
+            "bytes": 4023
+          },
+          {
+            "name": "windows-3acdc69856645a957fb5d77c567d2b5a.json",
+            "sha256": "5b8598e30f808e66c7e3ea603e2371987621e85d15760e875a70b984cedfca03",
+            "bytes": 161308
+          }
+        ]
+      },
+      {
+        "session": "7f5d673447d2e249e18f4da078a0aafc",
+        "lifecycle": {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 7953408,
+          "blocks": 15534,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "late_note_offs": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 512,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 1,
+          "expired_output_frames": 512,
+          "delivered_frames": 7952384,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        "final_phase": {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 79193323046105,
+          "startup": {
+            "admitted_frames": 512,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 512
+          },
+          "processing": {
+            "admitted_frames": 7952896,
+            "missing_frames": 512,
+            "gaps": 1,
+            "expired_frames": 512,
+            "delivered_frames": 7952384,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "record_files": [
+          {
+            "name": "native-7f5d673447d2e249e18f4da078a0aafc.jsonl",
+            "sha256": "b6c27154b9c27cd9b1caced0d15b1bd7a084cd68cabb051ecf1ac16aa7c50fcc",
+            "bytes": 4221
+          },
+          {
+            "name": "windows-7f5d673447d2e249e18f4da078a0aafc.json",
+            "sha256": "3b102d516f82b9f25beeb20464ab8deac9abc1190bbb8fbf4203ee9b848615de",
+            "bytes": 213375
+          }
+        ]
+      }
+    ],
+    "final_capacity": {
+      "dsp": 0,
+      "keepers": 1,
+      "maintenance": 0,
+      "cleanup_unconfirmed": false
+    }
+  },
+  "candidate_first_lifetime": {
+    "sessions": [
+      {
+        "session": "36ce6da59eb345c331573b146eb2d201",
+        "lifecycle": {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 7340032,
+          "blocks": 14336,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "late_note_offs": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 7339520,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        "final_phase": {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 80217197949438,
+          "startup": {
+            "admitted_frames": 512,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 512
+          },
+          "processing": {
+            "admitted_frames": 7339520,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 7339520,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "record_files": [
+          {
+            "name": "native-36ce6da59eb345c331573b146eb2d201.jsonl",
+            "sha256": "ff7190e850955bf11c7ca3ff20d73c689faf51c973540579ca1304a03715f0df",
+            "bytes": 5627
+          },
+          {
+            "name": "windows-36ce6da59eb345c331573b146eb2d201.json",
+            "sha256": "24bf9f01e1205dcb9bfa035851992eb2d2a5bc79b4577d77ee988f666e653c3d",
+            "bytes": 214340
+          }
+        ]
+      },
+      {
+        "session": "79d40ffbf6180659b30721c440915593",
+        "lifecycle": {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 7131648,
+          "blocks": 13929,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "late_note_offs": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 7131136,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        "final_phase": {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 80217430459135,
+          "startup": {
+            "admitted_frames": 512,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 512
+          },
+          "processing": {
+            "admitted_frames": 7131136,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 7131136,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "record_files": [
+          {
+            "name": "native-79d40ffbf6180659b30721c440915593.jsonl",
+            "sha256": "75070576df512ce172c1f90f9144fc6b836f6a4b2483bc82a0b7263844fe509a",
+            "bytes": 5631
+          },
+          {
+            "name": "windows-79d40ffbf6180659b30721c440915593.json",
+            "sha256": "4deab7d9423db3a91054f67fe82f259c998a0fac5afb9afe279f8264201a1921",
+            "bytes": 162785
+          }
+        ]
+      }
+    ],
+    "final_capacity": {
+      "dsp": 0,
+      "keepers": 1,
+      "maintenance": 0,
+      "cleanup_unconfirmed": false
+    }
+  },
+  "candidate_second_lifetime": {
+    "sessions": [
+      {
+        "session": "0fdc63366851a8b8bc6b7224797f65c0",
+        "lifecycle": {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 8573440,
+          "blocks": 16745,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "late_note_offs": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 8572928,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        "final_phase": {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 80538887807843,
+          "startup": {
+            "admitted_frames": 512,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 512
+          },
+          "processing": {
+            "admitted_frames": 8572928,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 8572928,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "record_files": [
+          {
+            "name": "native-0fdc63366851a8b8bc6b7224797f65c0.jsonl",
+            "sha256": "c33c10e44bd9dec50cc373f9f36353b6371b87384d4d8c23682e063d375a57ca",
+            "bytes": 5788
+          },
+          {
+            "name": "windows-0fdc63366851a8b8bc6b7224797f65c0.json",
+            "sha256": "5bce5aa30e1254685ff45ad349de90d895da827924a7f23124b1c0db75f87dca",
+            "bytes": 214895
+          }
+        ]
+      },
+      {
+        "session": "25a1a3b448a5275a7a44b68cae05de15",
+        "lifecycle": {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 8368640,
+          "blocks": 16345,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "late_note_offs": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 8368128,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        "final_phase": {
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 80539131372412,
+          "startup": {
+            "admitted_frames": 512,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 512
+          },
+          "processing": {
+            "admitted_frames": 8368128,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 8368128,
+            "priming_frames": 0
+          },
+          "omitted_phase_markers": 0
+        },
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "record_files": [
+          {
+            "name": "native-25a1a3b448a5275a7a44b68cae05de15.jsonl",
+            "sha256": "96e862066acf0dfbea0b2213419c78c96742bd3881e9c03d90f5ef53924b6cb8",
+            "bytes": 5632
+          },
+          {
+            "name": "windows-25a1a3b448a5275a7a44b68cae05de15.json",
+            "sha256": "5451c82fd3753651914bbdc9cefec9bba1037902f67d86342824a137826e8995",
+            "bytes": 162785
+          }
+        ]
+      }
+    ],
+    "final_capacity": {
+      "dsp": 0,
+      "keepers": 1,
+      "maintenance": 0,
+      "cleanup_unconfirmed": false
+    }
+  },
+  "capture_fixture": {
+    "initial_disk_recorder": "Confounded: recorder node ERR 164 while sampled speaker and Bitwig counters were zero. Output retained, not accepted as clean continuity evidence.",
+    "independent_idle_check": {
+      "dsp_owners": 0,
+      "seconds": 30,
+      "recorder_errors": 15,
+      "speaker_errors": 0
+    },
+    "tmpfs_comparison": {
+      "seconds": 30,
+      "recorder_errors": 0,
+      "speaker_errors": 0,
+      "daw_errors": 0,
+      "interpretation": "Valid bounded recorder observation, not proof that all historical output gaps were recorder faults; DAW state differed from idle check."
+    },
+    "current_run": "Private memory-backed recording with monitored recorder/DAW/speaker counters, verified durable copy after stop",
+    "documentation": [
+      "https://docs.pipewire.org/page_man_pw-top_1.html",
+      "https://raw.githubusercontent.com/PipeWire/pipewire/1.6.4/src/tools/pw-cat.c"
+    ],
+    "silence_rule": "Exact zero samples alone are not dropouts. Preserve intended rests, automation and declared transport stops."
+  },
+  "run_plan": {
+    "interaction_seconds": 1800,
+    "continuous_soak_seconds": 3600,
+    "begin_utc": "2026-10-03T15:40:01.814735+00:00",
+    "stop_on": "Bridge missing/expired frames, recorder/DAW/speaker errors, child exit, capacity bound or explicit stop",
+    "effective_scheduler_readback": "Both actual ap3-transport native workers and both lvb-audio Windows render threads observed SCHED_RR priority 5; no scheduler changes made",
+    "acceptance_limit": "The planned 60-minute soak was a shorter engineering comparison, not the existing two-hour beta acceptance gate. It never started; no release duration was reduced."
+  },
+  "resource_posture": {
+    "builder_cpuset": "2,3",
+    "builder_cpus": 2,
+    "builder_memory_bytes": 4294967296,
+    "builder_memory_and_swap_bytes": 4294967296,
+    "builder_pids_limit": 256,
+    "one_builder_or_vm_at_a_time": true,
+    "builder_and_vm_stopped_after_build": true,
+    "audiobookshelf_running": true
+  },
+  "nonclaims": [
+    "Beta readiness or merge approval",
+    "New vendor-version state migration on the commercial Deck pair",
+    "Nibbi, BEAM, other plug-ins or other distributions qualified by this run",
+    "Lower latency, 256/128/64-frame operation or offline rendering",
+    "Graphics acceleration or actual vendor renderer attribution",
+    "Operator listening or subjective musician acceptance",
+    "Reboot recall on this candidate until separately performed"
+  ],
+  "interaction_result": {
+    "result": "failed",
+    "stop_elapsed_seconds": 497.6300189189933,
+    "retained_monitor_reason": "bridge_delivery_failure",
+    "actual_monitor_trigger": "Pure LoFi status mapping disappeared; not a measured queued underrun",
+    "reporting_correction": "Initial narration called this missing audio before checking terminal records. That claim is withdrawn. Preserve the monitor label as an instrumentation classification error, not a transport diagnosis.",
+    "observed_failure": "Pure LoFi terminal_instance_failure; sampled editor failure flag; subsequent Bitwig temporary-state save refused",
+    "cause": "Unattributed. Stop/restart, seek, editor size-menu interactions and dismissal occurred in the same test; no single action or shared root cause is established.",
+    "gui_actions": [
+      "Both editors opened for approximately 30 seconds and closed during loop playback",
+      "Existing Master Volume automation visibly ran",
+      "Saved Macro2 0.3750 and Macro4 0.2920 recalled",
+      "Five-second transport stop, restart and one seek within bar 1",
+      "Pure LoFi size menu remained at 70 percent despite attempted selections; actual resize unverified",
+      "Bitwig quit normally after declining unsaved Candidate changes and acknowledging failure to save temporary plug-in state"
+    ],
+    "soak_started": false,
+    "recorder_daw_speaker_errors_during_recording": [],
+    "capture": {
+      "bytes": 111364140,
+      "sha256": "9b5cc9722841715b11c4eb03cee363f57ed790fcddfef198a3b620fc65476289",
+      "verified_durable_copy": true
+    },
+    "capture_limit": "Recording stops on observation loss. Complete musical continuity is not claimed; raw output and terminal records are retained.",
+    "sessions": [
+      {
+        "session": "27638f0d6a8ae524a2753e88912f4057",
+        "lifecycle": {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 9,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 28207616,
+          "blocks": 55093,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "late_note_offs": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 2,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 28206592,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "interpretation": "Clean retirement and zero queued underruns do not turn the terminally failed workload into a pass.",
+        "records": [
+          {
+            "name": "native-27638f0d6a8ae524a2753e88912f4057.jsonl",
+            "sha256": "630c1afd970be49d5008f8ed89904ee04460ca65e7f5816458842767d357cd37",
+            "bytes": 6962
+          },
+          {
+            "name": "windows-27638f0d6a8ae524a2753e88912f4057.json",
+            "sha256": "f751dcdfe36ccca3211f169fc9c23b32b0e89fb94ddf7405777b9e8bf0455679",
+            "bytes": 211683
+          }
+        ]
+      },
+      {
+        "session": "504d56645d47189a5a2fd8d24af293da",
+        "lifecycle": {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 33838080,
+          "blocks": 66090,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "late_note_offs": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 2,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 33837056,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "interpretation": "Clean retirement and zero queued underruns do not turn the terminally failed workload into a pass.",
+        "records": [
+          {
+            "name": "native-504d56645d47189a5a2fd8d24af293da.jsonl",
+            "sha256": "4a5b2b7d9353ac8ce8cf05bbbd6d8ac5d172df703ca3fdf7eb213b3c41f2075e",
+            "bytes": 6439
+          },
+          {
+            "name": "windows-504d56645d47189a5a2fd8d24af293da.json",
+            "sha256": "44eb51118080ff7986e2da85141d6fc45e4a9d502beee3feaa78922ee3a73788",
+            "bytes": 164052
+          }
+        ]
+      }
+    ],
+    "final_capacity": {
+      "dsp": 0,
+      "keepers": 1,
+      "maintenance": 0,
+      "cleanup_unconfirmed": false
+    },
+    "bitwig_exited": true,
+    "observer": {
+      "file": "physical_run.py",
+      "sha256": "76ee3a9519ea199f7ee59f9d514a8608ced9d3e33ea000c92fa339cc51edfd78",
+      "retained": "Private development evidence directory alongside recordings",
+      "classification_defect": "missing_status and missing/expired frames share one bridge_delivery_failure label; terminal classification requires separate final records"
+    }
+  },
+  "retained_private_archive": {
+    "name": "stopped-interaction-records.tar.gz",
+    "sha256": "96fd29d95617264bbfd738e6c1f86e71abea9a4153aac6591a4c50fe157531b2",
+    "audio_hash_verified_after_transfer": true,
+    "contains": "Unmodified run plan, monitor counters, recordings and final native/Windows records; private local evidence only"
+  },
+  "next_work": "Operator stopped the plug-in repair campaign and selected a platform engineering instruction/architecture reassessment. No new physical experiment is selected by this record."
+}

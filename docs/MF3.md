@@ -70,6 +70,12 @@ inventory, not a misleading generic operating-system error.
 
 ## Fixed preparation recipe
 
+The source-build packaging described below is historical. Current kit production
+uses the reusable engine described in
+[Self-service delivery](SELF_SERVICE_DELIVERY.md#reusable-engine-publication).
+`tools/mf3/package_kit.py` now delegates to that maintainer builder; old kit
+readers remain bound to their own retained inputs for recovery.
+
 The optional immutable software package `preparation-kit.zip` contains owned
 native sources, the registered Rust archive, a pinned recipe including its exact builder and descriptor generator, and a separately
 built preparation Windows host/source manifest. No vendor module, installer,

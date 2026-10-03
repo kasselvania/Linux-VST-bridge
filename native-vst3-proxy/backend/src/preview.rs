@@ -72,17 +72,38 @@ impl Owner {
             retired: false,
         }
     }
-    pub fn finish(mut self) -> io::Result<()> {
+    pub fn finish(self) -> io::Result<()> {
+        self.finish_until(Instant::now() + Duration::from_secs(60))
+    }
+    fn finish_until(mut self, deadline: Instant) -> io::Result<()> {
         if self.retired {
             return Ok(());
         }
         self.stream.shutdown(std::net::Shutdown::Write)?;
         self.stream.set_nonblocking(false)?;
-        self.stream
-            .set_read_timeout(Some(Duration::from_secs(60)))?;
-        let mut reply = [0];
-        self.stream.read_exact(&mut reply)?;
-        need(reply == [b'R'], "owner did not confirm complete retirement")
+        // A terminal failure may reach the worker before it consumes the
+        // supervisor's F notification. F preserves failure; only the separate
+        // R acknowledges process and transport retirement. Never restart the
+        // completion allowance when consuming F or retrying an interrupted read.
+        for notice in 0..2 {
+            let mut reply = [0];
+            loop {
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    return Err(io::Error::new(io::ErrorKind::TimedOut, "owner retirement deadline"));
+                }
+                self.stream.set_read_timeout(Some(remaining))?;
+                match self.stream.read(&mut reply) {
+                    Ok(1) => break,
+                    Ok(_) => return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "owner retirement acknowledgement absent")),
+                    Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+                    Err(error) => return Err(error),
+                }
+            }
+            if reply == [b'R'] { return Ok(()); }
+            need(notice == 0 && reply == [b'F'], "owner did not confirm complete retirement")?;
+        }
+        Err(invalid("owner did not confirm complete retirement"))
     }
 }
 
@@ -530,7 +551,8 @@ mod tests {
                 assert_eq!(peer.read(&mut byte).unwrap(), 0);
                 peer.write_all(reply).unwrap();
             });
-            assert_eq!(Owner::new(socket).finish().is_ok(), reply == b"R");
+            let result=Owner::new(socket).finish();
+            assert_eq!(result.is_ok(), reply == b"R", "{reply:?}: {result:?}");
             t.join().unwrap();
         }
         let (mut peer, socket) = UnixStream::pair().unwrap();
@@ -539,6 +561,43 @@ mod tests {
         peer.write_all(b"R").unwrap();
         assert!(check_owner(&mut owner).is_err());
         owner.unwrap().finish().unwrap(); // acknowledged before the fault was noticed
+    }
+    #[test]
+    fn failure_notice_does_not_replace_or_prevent_retirement_acknowledgement() {
+        for reply in [b"R".as_slice(), b"".as_slice(), b"F".as_slice(), b"X".as_slice()] {
+            let (mut peer, socket) = UnixStream::pair().unwrap();
+            // Windows failed while a control call was returning. The worker
+            // can notice its terminal record before check_owner consumes F.
+            peer.write_all(b"F").unwrap();
+            let t = std::thread::spawn(move || {
+                let mut byte = [0];
+                assert_eq!(peer.read(&mut byte).unwrap(), 0);
+                // The old consumer closes on F, so retain that negative result
+                // without making a peer-side broken pipe mask the regression.
+                let _ = peer.write_all(reply);
+            });
+            assert_eq!(Owner::new(socket).finish().is_ok(), reply == b"R");
+            t.join().unwrap();
+        }
+        // The ordinary observer may instead consume F first. Both interleavings
+        // still require the independent R acknowledgement after half-close.
+        let (mut peer, socket) = UnixStream::pair().unwrap();
+        socket.set_nonblocking(true).unwrap();
+        let mut owner = Some(Owner::new(socket));
+        peer.write_all(b"F").unwrap();
+        assert!(check_owner(&mut owner).is_err());
+        let t = std::thread::spawn(move || {
+            let mut byte = [0];
+            assert_eq!(peer.read(&mut byte).unwrap(), 0);
+            peer.write_all(b"R").unwrap();
+        });
+        owner.unwrap().finish().unwrap();
+        t.join().unwrap();
+        let (mut peer, socket) = UnixStream::pair().unwrap();
+        peer.write_all(b"F").unwrap();
+        // A live peer that never supplies R must remain unconfirmed and bounded.
+        let result = Owner::new(socket).finish_until(Instant::now()+Duration::from_millis(25));
+        assert!(result.is_err());
     }
     #[test]
     fn private_discovery_fragmented_reply_and_owner_disconnect() {

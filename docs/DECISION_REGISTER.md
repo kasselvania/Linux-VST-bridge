@@ -2,8 +2,9 @@
 
 Decisions are separated into **accepted**, **provisional**, and **open**. Implementation convenience does not silently change their state.
 
-The 2026-10-02 recovery direction is recorded in D-022 and architecture section
-18. Earlier development-process entries are historical where superseded by
+The 2026-10-02 recovery direction is recorded in the portable-audio D-022 below;
+the 2026-10-03 platform assessment is recorded in D-028 and architecture section 18.
+Earlier development-process entries are historical where superseded by
 AGENTS.md and GOVERNANCE.md; they do not impose additional approval or closure
 cycles on the operator's selected roadmap.
 
@@ -55,6 +56,14 @@ cycles on the operator's selected roadmap.
 
 **Decision:** Compatibility profiles and support claims bind exact plug-in build, license channel, runner, environment, proxy/protocol, DAW, sandbox, and capability matrix.
 
+Exact support claims do not require maintainer approval before a user can try an
+unfamiliar build or local configuration. The 2026-10-02 operator correction is
+recorded in [architecture section 18.6](ARCHITECTURE.md#186-general-preparation-and-compatibility-experimentation):
+general preparation, advanced runtime/dependency controls and reversible trials
+share the existing candidate/publication owner. Reusable preparation and state
+recovery have bounded installed results; complete configuration and platform
+integration remain open under D-028.
+
 ### D-009 — No arbitrary profile code
 
 **Decision:** Compatibility profiles are declarative, closed-schema data. They cannot contain arbitrary scripts or commands.
@@ -77,11 +86,39 @@ replaced when they cannot satisfy these requirements.
 **Acceptance:** [Integrated beta delivery](INTEGRATED_BETA_DELIVERY.md#acceptance-method)
 is the current release contract. Older short/high-buffer observations remain
 historical evidence and cannot close the recovery targets. Exact wake mechanism,
-delivery-mode promotion and per-platform policies require the experiments listed
-in the [stage 1 review](AUDIO_RECOVERY_REVIEW.md).
+delivery-mode promotion and per-platform policies require the contract comparisons
+in the [platform assessment](PLATFORM_ARCHITECTURE_REVIEW.md). Earlier audio-specific
+findings remain retained in the [recovery review](AUDIO_RECOVERY_REVIEW.md).
 
 **Status:** Selected design direction, 2026-10-02; not an implementation or
 physical support claim. PR #200 remains frozen and draft.
+
+### D-028 — Shared platform configuration and execution convergence
+
+**Decision:** Apply the whole-platform assessment at source
+`01590fa05f99c71b141664becd7d9fadf7fa94a7` through
+[architecture section 18.7](ARCHITECTURE.md#187-platform-execution-convergence).
+Retain the reusable engine, ownership/epoch machinery, state migration and focused
+repairs. Replace fixture-based readiness/resource policy, incomplete configuration
+selection and polling/completion policy with shared capability contracts; repair
+SDK fidelity and editor/control failure classification through their real owners.
+
+**Integration:** One resolved configuration under existing candidate/history owners
+serves preparation, ordinary controls, launch, update and restore. Capability
+observations, user choices, current liveness and exact support claims remain distinct.
+Extend runtime/dependency operations and DAW execution from that contract; graphics
+and portability inform the design throughout. Do not create a second engine,
+candidate database, lifecycle framework or approval process.
+
+**Completion:** Deliver the capability increments and representative installed
+journeys in the [assessment](PLATFORM_ARCHITECTURE_REVIEW.md#implementation-programme-and-completion),
+then the unchanged integrated beta acceptance. Source review and policy adoption
+alone do not implement those capabilities. No Deck experiment, support expansion,
+merge or release promotion follows from this decision.
+
+**Status:** Engineering direction recorded under the operator's 2026-10-03 platform
+assessment instruction. The assessment is complete at the stated source; execution
+and physical acceptance remain open. PR #204 remains draft.
 
 ## Accepted proof-boundary rulings
 

@@ -1755,7 +1755,7 @@ fn capacity_qualification_is_exact_separate_and_never_ordinary_authority() {
     assert_eq!(active.parent, Some(parent.clone()));
     assert_eq!(active.external_ids, prior.external_ids);
     assert_eq!(active.performance.added_frames, 512);
-    registration.native.path = active.registration.native.path.clone();
+    registration.relocate_native(active.registration.native.path.clone());
     assert_eq!(registration, active.registration);
     f.m.verify_retained_authority(&active, std::slice::from_ref(&candidate))
         .unwrap();
@@ -2120,5 +2120,151 @@ fn if1_candidate_retains_ordinary_eleven_and_all_rollback_boundaries() {
         assert_eq!(fs::read_link(f.m.link(&p.class.class_id)).unwrap(), prior.target);
         assert_eq!(snapshot(prior.target.parent().unwrap()), untouched);
         assert!(!f.m.publication_pending(&p.class.class_id).unwrap());
+    }
+}
+
+fn runtime_descriptor_fixture(
+    f: &Fixture,
+    p: &mut Profile,
+    n: &mut NativeArtifact,
+    initial: f64,
+    name: &str,
+) {
+    let directory = f.outer.join(name);
+    private_dir(&directory).unwrap();
+    let engine = directory.join("native.so");
+    fs::copy(&n.artifact.path, &engine).unwrap();
+    n.artifact.path = engine;
+    let descriptor = lvb_plugin_descriptor::Descriptor {
+        schema: 1,
+        engine_sha256: n.artifact.sha256.clone(),
+        class_id: n.class.class_id.clone(),
+        module_sha256: n.module_sha256.clone(),
+        class_name: n.class.name.clone(),
+        vendor: n.class.vendor.clone(),
+        version: n.class.version.clone(),
+        subcategories: n.class.subcategories.clone(),
+        buses: vec![lvb_plugin_descriptor::Bus {
+            media: 0,
+            direction: 1,
+            index: 0,
+            channels: 2,
+            r#type: 0,
+            flags: 1,
+            arrangement: 3,
+            name: "Output".into(),
+        }],
+        parameters: vec![lvb_plugin_descriptor::Parameter {
+            id: 7,
+            title: "Level".into(),
+            units: "".into(),
+            steps: 0,
+            flags: 1,
+            initial,
+            available: true,
+        }],
+    };
+    let path = n
+        .artifact
+        .path
+        .with_file_name(lvb_plugin_descriptor::FILE_NAME);
+    atomic_json(&path, &descriptor).unwrap();
+    let data = Artifact {
+        sha256: digest(&path).unwrap(),
+        path,
+    };
+    n.descriptor_sha256 = data.sha256.clone();
+    p.requirements.descriptor_sha256 = data.sha256.clone();
+    n.descriptor = Some(data);
+}
+#[test]
+fn reusable_engine_publication_keeps_distinct_descriptors_and_rolls_back_exactly() {
+    let (f, mut p, c, mut n) = prepared();
+    runtime_descriptor_fixture(&f, &mut p, &mut n, 0.25, "first-engine");
+    let first = publish(&f, &p, &c, &n, None).unwrap();
+    let first_record = f.m.load_revision(&f.r.key(), &first).unwrap();
+    let original = first_record.registration.descriptor.as_ref().unwrap();
+    assert_eq!(
+        fs::read(&original.path).unwrap(),
+        fs::read(&n.descriptor.as_ref().unwrap().path).unwrap()
+    );
+    let mut next = n.clone();
+    let mut updated = p.clone();
+    updated.revision += 1;
+    runtime_descriptor_fixture(&f, &mut updated, &mut next, 0.75, "second-engine");
+    assert_eq!(n.artifact.sha256, next.artifact.sha256);
+    assert_ne!(n.descriptor_sha256, next.descriptor_sha256);
+    let second = publish(&f, &updated, &c, &next, None).unwrap();
+    let second_record = f.m.load_revision(&f.r.key(), &second).unwrap();
+    assert_ne!(first_record.target, second_record.target);
+    assert_eq!(first_record.external_ids, second_record.external_ids);
+    f.m.rollback(&f.r.key(), &first.id, None).unwrap();
+    assert_eq!(
+        fs::read_link(f.m.link(&f.r.key())).unwrap(),
+        first_record.target
+    );
+    assert_eq!(digest(&original.path).unwrap(), original.sha256);
+    fs::set_permissions(&original.path, fs::Permissions::from_mode(0o600)).unwrap();
+    fs::write(&original.path, b"changed descriptor").unwrap();
+    assert!(f.m.load_revision(&f.r.key(), &first).is_err());
+}
+#[test]
+fn reusable_engine_rejects_wrong_module_or_engine_descriptor_before_publication() {
+    let (f, mut p, c, mut n) = prepared();
+    runtime_descriptor_fixture(&f, &mut p, &mut n, 0.25, "engine");
+    let path = n.descriptor.as_ref().unwrap().path.clone();
+    let original: lvb_plugin_descriptor::Descriptor = read_json(&path).unwrap();
+    let baseline = fs::read_link(f.m.link(&f.r.key())).unwrap();
+    for wrong_engine in [false, true] {
+        let mut d = original.clone();
+        if wrong_engine {
+            d.engine_sha256 = "00".repeat(32);
+        } else {
+            d.module_sha256 = "00".repeat(32);
+        }
+        atomic_json(&path, &d).unwrap();
+        let sha = digest(&path).unwrap();
+        n.descriptor.as_mut().unwrap().sha256 = sha.clone();
+        n.descriptor_sha256 = sha.clone();
+        p.requirements.descriptor_sha256 = sha;
+        assert!(publish(&f, &p, &c, &n, None).is_err());
+        assert_eq!(fs::read_link(f.m.link(&f.r.key())).unwrap(), baseline);
+    }
+}
+
+#[test]
+fn reusable_engine_interrupted_publication_recovers_engine_and_descriptor_together() {
+    for point in BOUNDARIES {
+        let (f, mut p, c, mut n) = prepared();
+        runtime_descriptor_fixture(&f, &mut p, &mut n, 0.25, "first-engine");
+        let first = publish(&f, &p, &c, &n, None).unwrap();
+        let original = f.m.load_revision(&f.r.key(), &first).unwrap();
+        p.revision += 1;
+        runtime_descriptor_fixture(&f, &mut p, &mut n, 0.75, "second-engine");
+        assert!(publish(&f, &p, &c, &n, Some(point)).is_err(), "{point:?}");
+        f.m.reconcile().unwrap();
+        f.m.reconcile().unwrap();
+        let entry = f.m.registry().unwrap().classes.remove(&f.r.key()).unwrap();
+        entry.registration.verify_descriptor().unwrap();
+        let activated = matches!(
+            point,
+            Boundary::PointerExchanged
+                | Boundary::PointerSynced
+                | Boundary::RegistryCommitted
+                | Boundary::ResultWritten
+                | Boundary::Cleanup
+        );
+        let expected = if activated {
+            n.descriptor.as_ref()
+        } else {
+            original.registration.descriptor.as_ref()
+        };
+        assert_eq!(
+            entry.registration.descriptor.as_ref().unwrap().sha256,
+            expected.unwrap().sha256,
+            "{point:?}"
+        );
+        original.registration.verify_descriptor().unwrap();
+        assert!(!f.m.publication_pending(&f.r.key()).unwrap());
     }
 }

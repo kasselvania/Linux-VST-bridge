@@ -257,6 +257,7 @@ pub fn binding(m: &Manager) -> Result<Registration> {
     let environment = baseline(m, &p)?;
     let c = crate::qualification::load_for(m, p.clone(), Qualification::Ap18Pigments)?;
     let r = Registration {
+            descriptor: None,
         metadata: p.class.clone(),
         module: module(&environment, &p)?,
         environment,
@@ -281,7 +282,7 @@ pub(crate) fn check_publication(m: &Manager, p: &Profile, r: &Registration) -> R
 }
 pub(crate) fn retained(m: &Manager, r: &Revision, exact: &InstalledCandidate) -> Result<()> {
     let mut expected = binding(m)?;
-    expected.native.path = r.registration.native.path.clone();
+    expected.relocate_native(r.registration.native.path.clone());
     require(
         r.profile == exact.profile
             && r.registration == expected

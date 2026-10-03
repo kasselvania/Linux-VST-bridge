@@ -10,6 +10,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 def main():
     source = (ROOT / 'windows-factory-probe/source/mapped_processing.cpp').read_text()
     body = source[source.index('struct Socket {'):source.index('struct Handle{')]
+    wait = source[source.index(' bool wait_state('):source.index(' void dispatch(')]
+    body += ('struct StateWait { bool serviced=false; std::atomic<bool> owner_failure{false};'
+             'std::mutex mutex; std::condition_variable condition;' + wait + '};\n')
     includes = r'''
 #ifdef _WIN32
 #include <winsock2.h>
@@ -33,14 +36,35 @@ int winselect(int,fd_set* r,fd_set* w,fd_set* e,timeval* t){return select(FD_SET
 #include <chrono>
 #include <thread>
 #include <iostream>
+#include <atomic>
+#include <mutex>
+#include <condition_variable>
+#include <algorithm>
 using namespace linux_vst_bridge::ap1;
 '''
     tests = r'''
 int main(){
+ std::cout.setf(std::ios::unitbuf);
+ for(bool cancel:{false,true}){
+  StateWait state;bool result=false;std::atomic<bool> waiting{false};
+  auto begin=std::chrono::steady_clock::now();
+  std::thread worker([&]{std::unique_lock lock(state.mutex);waiting.store(true);result=state.wait_state(lock);});
+  while(!waiting.load())std::this_thread::yield();
+  if(cancel){
+   // Deliberately omit notification: cancellation must survive the race
+   // between the worker's predicate check and entering condition wait.
+   state.owner_failure.store(true);
+  }else{
+   {std::lock_guard lock(state.mutex);state.serviced=true;}state.condition.notify_all();
+  }
+  worker.join();require(result!=cancel,"state service versus cancellation result");
+  require(std::chrono::steady_clock::now()-begin<std::chrono::seconds(1),"state cancellation bound without notification");
+ }
+ std::cout<<"production state wait service/cancellation passed\n";
 #ifdef _WIN32
  WSADATA data{};require(WSAStartup(MAKEWORD(2,2),&data)==0,"WSAStartup");
 #endif
- for(int fast=0;fast<2;++fast)for(int scenario=0;scenario<5;++scenario){
+ for(int fast=0;fast<2;++fast)for(int scenario=0;scenario<8;++scenario){
   SOCKET listener=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
   sockaddr_in a{};a.sin_family=AF_INET;a.sin_addr.s_addr=htonl(INADDR_LOOPBACK);
   require(bind(listener,reinterpret_cast<sockaddr*>(&a),sizeof(a))==0,"bind");
@@ -54,6 +78,7 @@ int main(){
   Socket sender;sender.eager=fast!=0;sender.value=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
   require(connect(sender.value,reinterpret_cast<sockaddr*>(&a),sizeof(a))==0,"connect");
   Socket receiver;receiver.eager=fast!=0;receiver.value=accept(listener,nullptr,nullptr);closesocket(listener);
+  std::atomic<bool> cancelled{false};if(scenario>=5)receiver.cancelled=&cancelled;
   unsigned long nonblock=1;require(ioctlsocket(sender.value,FIONBIO,&nonblock)==0,"sender nonblock");require(ioctlsocket(receiver.value,FIONBIO,&nonblock)==0,"nonblock");
   auto started=std::chrono::steady_clock::now();bool failed=false;
   std::thread peer([&]{
@@ -63,9 +88,13 @@ int main(){
    }else if(scenario==1){shutdown(sender.value,2);}
    else if(scenario==2){char byte='L';send(sender.value,&byte,1,0);}
    else if(scenario==3){auto b=encode(Frame{Hello,{},0,{1,2,3}});send(sender.value,reinterpret_cast<const char*>(b.data()),int(header_bytes),0);}
+   else if(scenario>=5){
+    if(scenario==6){char byte='L';send(sender.value,&byte,1,0);}
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));cancelled.store(true);shutdown(receiver.value,2);
+   }
   });
   try{
-   auto f=receiver.receive(scenario!=4);
+   auto f=receiver.receive(scenario!=4&&scenario!=7);
    require(scenario==0&&f.kind==Close&&f.sequence==1,"first command");
    require(receiver.receive(true).sequence==2,"next command");
   }catch(const std::exception&){failed=true;}
@@ -73,8 +102,8 @@ int main(){
   auto seconds=std::chrono::duration<double>(std::chrono::steady_clock::now()-started).count();
   require(failed==(scenario!=0),"idle versus failure result");
   if(scenario==0)require(seconds>=6&&seconds<9,"idle survival");
-  if(scenario==1)require(seconds<2,"disconnect detection");
-  if(scenario>=2)require(seconds>=4.5&&seconds<8,"bounded message/reply deadline");
+  if(scenario==1||scenario>=5)require(seconds<2,"disconnect/owned cancellation detection");
+  if(scenario>=2&&scenario<=4)require(seconds>=4.5&&seconds<8,"bounded message/reply deadline");
   std::cout<<"socket scenario "<<scenario<<" passed\n";
  }
 }
@@ -84,7 +113,7 @@ int main(){
         unit = root / 'socket.cpp'
         unit.write_text(includes + body + tests)
         executable = root / ('socket.exe' if os.name == 'nt' else 'socket')
-        command = (['cl', '/nologo', '/std:c++20', '/EHsc', '/W4',
+        command = (['cl', '/nologo', '/std:c++20', '/EHsc', '/W4', '/DNOMINMAX',
                     '/I' + str(ROOT/'windows-factory-probe/source'), str(unit),
                     '/Fe:' + str(executable), '/link', 'ws2_32.lib'] if os.name == 'nt' else
                    ['c++', '-std=c++20', '-pthread', '-I', str(ROOT/'windows-factory-probe/source'), str(unit), '-o', str(executable)])

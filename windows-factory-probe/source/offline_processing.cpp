@@ -158,8 +158,9 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     try {
         std::atomic<bool> worker_done{false};
         std::thread worker([&] {
-            // No owner-thread call overlaps this thread. Logging surrounds calls;
-            // the sample comparison and buffer serialization happen after join.
+            // Processor lifecycle and DSP belong to this thread. Controller/
+            // editor work remains on the owner; state requests use the existing
+            // ExternalProcessing handoff. Storage stays alive through join.
             SetThreadDescription(GetCurrentThread(),L"lvb-audio");
             bool started=false;
             try {
@@ -251,10 +252,29 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
             catch (...) {if(!primary_error)primary_error=std::current_exception();stopped=false;ok=false;}
             worker_done.store(true,std::memory_order_release);
         });
-        if(stateful)while(!worker_done.load(std::memory_order_acquire)){
-            external->service_owner();std::this_thread::sleep_for(std::chrono::microseconds(50));
+        bool owner_error=false;
+        try {
+            if(stateful)while(!worker_done.load(std::memory_order_acquire)){
+                external->service_owner();std::this_thread::sleep_for(std::chrono::microseconds(50));
+            }
+        } catch (...) {
+            // Do not unwind a joinable std::thread, detach a borrower of our
+            // buffers, or race the worker's error/result fields. Ask the owned
+            // transport to stop, then join before touching shared results.
+            owner_error=true;
+            external->owner_failed();
+            if(WaitForSingleObject(worker.native_handle(),5000)!=WAIT_OBJECT_0) {
+                // A vendor process/setProcessing call may never return. The
+                // outer supervisor owns the failed instance; no DLL detach or
+                // vendor destruction is safe while this worker remains live.
+                TerminateProcess(GetCurrentProcess(),93);
+                std::terminate();
+            }
         }
         worker.join();joined=true;
+        // Vendor exception text can contain private paths/account data. Keep
+        // the fault stage in its existing status owner and emit only our code.
+        if(owner_error){primary_error=std::make_exception_ptr(std::runtime_error("Windows owner service failed"));ok=false;}
     } catch (...) {if(!primary_error)primary_error=std::current_exception();ok=false;}
     events.lifecycle("ap0_thread_joined",",\"joined\":"+std::string(joined?"true":"false")+
         ",\"processing_stopped\":"+(stopped?"true":"false")+

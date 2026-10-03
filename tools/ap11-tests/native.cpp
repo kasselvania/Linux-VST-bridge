@@ -25,7 +25,7 @@ std::vector<ap11_gui_message_t> commands;
 uint32_t gui_fault = 0, caps = 0, closes = 0, refused_sends = 0;
 uint64_t generation = 7, revision = 1;
 double dsp = .5;
-uint32_t save_code=0, state_calls=0;
+uint32_t save_code=0, state_calls=0, close_code=0;
 uint32_t process_refusal=0;
 uint32_t configured_maximum=0, activated_maximum=0;
 if1_terminal_t terminal_record{};
@@ -182,7 +182,7 @@ uint32_t __wrap_ap4_deactivate(uint64_t) { return 0; }
 uint32_t __wrap_ap3_transition(uint64_t, uint32_t) { return 0; }
 uint32_t __wrap_if2_close(uint64_t) {
   ++closes;
-  return 0;
+  return close_code;
 }
 uint32_t __wrap_if1_terminal(uint64_t,if1_terminal_t* out){*out=terminal_record;return 0;}
 uint32_t __wrap_ap10_notices(uint64_t, uint32_t *p) {
@@ -225,6 +225,9 @@ uint32_t __wrap_ap11_gui_failure(uint64_t, uint64_t g, uint32_t c) {
   return gui_fault;
 }
 uint32_t __wrap_ap8_validate(const uint8_t *, const uint8_t *, uint32_t) {
+  return 0;
+}
+uint32_t __wrap_ap8_validate_restore(const uint8_t *, const uint8_t *, uint32_t) {
   return 0;
 }
 uint32_t __wrap_ap4_state(uint64_t, const uint8_t *, uint32_t, uint8_t *out,
@@ -432,9 +435,61 @@ void curve_refusal_regression() {
   controller->disconnect(&processor);processor.disconnect(controller);
   controller->terminate();controller->release();processor.terminate();
 }
+void historical_controller_regression() {
+  for(bool connectedFirst : {true,false}) for(bool controllerFirst : {true,false}) {
+    events.clear();commands.clear();gui_fault=0;terminal_record={};dsp=.625;save_code=0;
+    Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+    host.controller=controller;host.processor=&processor;
+    auto* context=static_cast<IHostApplication*>(&host);
+    check(processor.initialize(context)==kResultOk&&controller->initialize(context)==kResultOk,"migration initialize");
+    auto connect=[&] {
+      if(controllerFirst) check(controller->connect(&processor)==kResultOk&&processor.connect(controller)==kResultOk,"controller-first migration connection");
+      else check(processor.connect(controller)==kResultOk&&controller->connect(&processor)==kResultOk,"processor-first migration connection");
+    };
+    if(connectedFirst) connect();
+    // This backend-double envelope contains an earlier two-parameter mirror;
+    // the selected descriptor has one parameter and the actual readback .625.
+    // Rust's separate tests cover class/provenance, integrity and bounds.
+    LVBState::Stream historical;historical.bytes.resize(144);historical.bytes[64]=40;
+    historical.bytes[112]=2;historical.bytes[120]=77;historical.bytes[132]=88;
+    check(processor.setState(&historical)==kResultOk,"vendor restore recaptures selected implementation");
+    historical.position=0;
+    check(controller->setComponentState(&historical)==kResultOk,"historical parameter inventory is not admission authority");
+    if(!connectedFirst) {check(!controller->readbackAvailable(0),"disconnected projection stays unavailable");connect();}
+    check(controller->readbackAvailable(0)&&controller->getParamNormalized(0)==.625,"current readback wins in either connection order");
+    auto* message=new HostMessage;message->setMessageID("AP8.readback");
+    message->getAttributes()->setBinary("state",historical.bytes.data(),uint32(historical.bytes.size()));
+    check(controller->notify(message)==kResultFalse&&controller->getParamNormalized(0)==.625,"current inventory validation remains strict");
+    message->release();
+    check(controller->disconnect(&processor)==kResultOk&&processor.disconnect(controller)==kResultOk,"migration disconnect");
+    check(controller->terminate()==kResultOk&&processor.terminate()==kResultOk,"migration terminate");controller->release();
+  }
+}
+void failed_restore_retirement_regression() {
+  for(bool vendorRefusal : {false,true}) for(bool closeRefusal : {false,true}) {
+    events.clear();commands.clear();gui_fault=0;terminal_record={};save_code=close_code=0;
+    Host host;AP2::Processor processor;
+    check(processor.initialize(static_cast<IHostApplication*>(&host))==kResultOk,"failed restore initialize");
+    LVBState::Stream initial;
+    check(processor.getState(&initial)==kResultOk,"failed restore owns initialized backend");
+    LVBState::Stream saved;
+    if(vendorRefusal) {saved.bytes.resize(144);saved.bytes[64]=40;save_code=7;}
+    else saved.bytes.resize(10); // Refuse a truncated envelope before vendor dispatch.
+    const auto calls=state_calls;
+    check(processor.setState(&saved)==kResultFalse,"original restore failure remains visible");
+    check(state_calls==calls+unsigned(vendorRefusal),"admission refusal never reaches vendor restore");
+    save_code=0;close_code=closeRefusal?13:0;
+    const auto before=closes;
+    check((processor.terminate()==kResultOk)==!closeRefusal,"quiescent failed restore retires only with confirmed backend cleanup");
+    check(closes==before+1,"failed restore backend closes exactly once");
+    check(processor.terminate()==kResultFalse&&closes==before+1,"failed restore cannot terminate twice");
+    close_code=0;
+  }
+}
 int main(int argc,char** argv) {
   if(argc>1){
-    if(!std::strcmp(argv[1],"--curve-refusal"))curve_refusal_regression();
+    if(!std::strcmp(argv[1],"--state-migration")){historical_controller_regression();failed_restore_retirement_regression();}
+    else if(!std::strcmp(argv[1],"--curve-refusal"))curve_refusal_regression();
     else contained_host_survival_regression();
     return 0;
   }
@@ -581,7 +636,10 @@ int main(int argc,char** argv) {
   c->panelOpen(viewToken);check(commands.back().kind==AP11::Open,"editor continues after refused save");
   save_code=0;
   LVBState::Stream projected;projected.bytes.resize(136);projected.bytes[64]=32;projected.bytes[112]=1;projected.bytes[116]=2;
-  check(c->setComponentState(&projected)==kResultOk&&!c->readbackAvailable(0)&&c->getParamNormalized(0)==.65,"native tagged state apply preserves unavailable ID and stale projection");
+  LVBState::Stream selectedReadback;
+  check(processor->getState(&selectedReadback)==kResultOk,"capture selected implementation before synchronization");
+  check(c->setComponentState(&projected)==kResultOk&&c->readbackAvailable(0)&&c->getParamNormalized(0)==dsp,
+        "historical mirror cannot override selected current readback");
   // Saving drains a complete accepted edit before taking the state barrier.
   event(AP11::Begin);
   event(AP11::Value, .9);

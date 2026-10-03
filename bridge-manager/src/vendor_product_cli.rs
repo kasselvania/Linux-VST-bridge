@@ -74,7 +74,7 @@ pub(super) fn finish_scan(
     // the terminal retirement receipt. Consume readiness before exposing the
     // lease so the later exact LVO1 comparison cannot mistake LVO0+LVO1 for a
     // malformed retirement.
-    if let Err(readiness) = supervisor_ready(&mut child, &job.session, Duration::from_secs(4)) {
+    if let Err(readiness) = supervisor_ready(&mut child, job, Duration::from_secs(4)) {
         retire_unready_supervisor(&mut child, owner)?;
         return Err(readiness);
     }

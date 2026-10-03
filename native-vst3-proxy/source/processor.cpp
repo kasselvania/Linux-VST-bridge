@@ -27,7 +27,7 @@
 namespace AP2 {
 using namespace Steinberg;
 using namespace Steinberg::Vst;
-#ifdef AP8_PREVIEW
+#if defined(AP8_PREVIEW) && !defined(LVB_RUNTIME_DESCRIPTOR)
 static_assert(std::size(AP8::buses)<=AP18Buses::max_buses);
 #endif
 namespace {
@@ -144,7 +144,7 @@ bool parameters(IParameterChanges *p, double &gain, bool &changed) {
 #endif
 bool outputs(ProcessData &d, int maximum, uint32_t mask=1) {
 #ifdef AP8_PREVIEW
-  constexpr int count=std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kOutput;});
+  const int count=std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kOutput;});
   // Trailing inactive buses may be omitted. Every active bus needs storage.
   if(d.numOutputs<1||d.numOutputs>count||!d.outputs)return false;
   if(d.numOutputs<32&&(mask>>d.numOutputs))return false;
@@ -264,6 +264,24 @@ void Processor::stateFailure(const char *operation, const char *stage) {
   if (n > 0 && static_cast<size_t>(n) < sizeof(text))
     diagnostic_report(report_path_, text, static_cast<size_t>(n));
 }
+tresult PLUGIN_API Processor::connect(IConnectionPoint *peer) {
+  auto result = AudioEffect::connect(peer);
+#ifdef AP8_PREVIEW
+  if (result == kResultOk) {
+    // Either half may connect first. The controller pulls current state only
+    // once both directions exist; no saved mirror or second session is used.
+    auto *message = allocateMessage();
+    result = kResultFalse;
+    if (message) {
+      message->setMessageID("AP8.connected");
+      result = sendMessage(message);
+      message->release();
+    }
+    if (result != kResultOk) AudioEffect::disconnect(peer);
+  }
+#endif
+  return result;
+}
 tresult PLUGIN_API Processor::getState(IBStream *stream) {
   if (!preview_)
     return kNotImplemented;
@@ -332,7 +350,7 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
 #endif
     if (!LVBState::readEnvelope(stream, blob) ||
 #ifdef AP8_PREVIEW
-        ap8_validate(AP8::identity,blob.data(),static_cast<uint32_t>(blob.size())))
+        ap8_validate_restore(AP8::identity,blob.data(),static_cast<uint32_t>(blob.size())))
 #else
         ap4_validate(blob.data(), static_cast<uint32_t>(blob.size()), &restored))
 #endif
@@ -841,11 +859,11 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   #endif
   auto **out = d.outputs[0].channelBuffers32;
 #ifdef AP8_PREVIEW
-  constexpr size_t output_count=std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kOutput;});
-  std::array<float*,2*output_count> output_planes{};
+  const size_t output_count=std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kOutput;});
+  std::array<float*,2*AP18Buses::max_audio_outputs> output_planes{};
   for(size_t bus=0;bus<output_count;++bus)if(output_mask_&(uint32_t(1)<<bus))
     for(int ch=0;ch<2;++ch)output_planes[2*bus+ch]=d.outputs[bus].channelBuffers32[ch];
-  for(size_t ch=0;ch<output_planes.size();++ch)if(output_planes[ch]){
+  for(size_t ch=0;ch<2*output_count;++ch)if(output_planes[ch]){
     for(size_t other=0;other<ch;++other)if(output_planes[other]&&overlap(output_planes[ch],output_planes[other],d.numSamples))return reject();
     if(ch>=2&&receive_input&&(overlap(output_planes[ch],in[0],d.numSamples)||overlap(output_planes[ch],in[1],d.numSamples)))return reject();
   }
@@ -894,7 +912,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
 #endif
   auto r =
 #ifdef AP8_PREVIEW
-      output_count==1?if2_process(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,&c,input_flags,in[0],in[1],out[0],out[1],&silence,&delivery,entered_ns):ap19_process_outputs(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,&c,input_flags,in[0],in[1],output_planes.data(),uint32_t(output_planes.size()),&silence,&delivery,entered_ns);
+      output_count==1?if2_process(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,&c,input_flags,in[0],in[1],out[0],out[1],&silence,&delivery,entered_ns):ap19_process_outputs(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,&c,input_flags,in[0],in[1],output_planes.data(),uint32_t(2*output_count),&silence,&delivery,entered_ns);
 #else
       queued_
           ? static_cast<int32_t>(ap7_process(
@@ -1001,7 +1019,9 @@ tresult PLUGIN_API Processor::terminate() {
     return kResultFalse;
   bool clean =
       phase_ == Initialized || phase_ == Setup || phase_ == Deactivated ||
-      (terminal() && !want_processing_ && !want_active_);
+      ((phase_ == Failed || terminal()) && !want_processing_ && !want_active_);
+  // A refused inactive restore does not prevent orderly teardown. Keep the
+  // restore failure separate from the backend cleanup result checked below.
   if (input_hint_adjustments_) {
     char text[320];
     const auto n = std::snprintf(text, sizeof(text),

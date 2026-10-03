@@ -337,6 +337,7 @@ impl Manager {
     pub fn load_revision(&self, key: &str, reference: &RevisionRef) -> Result<Revision> {
         let r = self.revision_record(key, reference)?;
         r.registration.native.verify()?;
+        r.registration.verify_descriptor()?;
         if !r.adopted_legacy {
             require(
                 digest(&r.target.join("bridge-provenance.json"))? == reference.sha256,
@@ -481,9 +482,10 @@ impl Manager {
             // The old target is checked in place and retained verbatim. It is
             // never rebuilt from a current input artifact during rollback.
             entry.registration.native.verify()?;
+            entry.registration.verify_descriptor()?;
             let provenance: Registration = read_json(&target.join("bridge-provenance.json"))?;
             let mut normalized = provenance;
-            normalized.native.path = entry.registration.native.path.clone();
+            normalized.relocate_native(entry.registration.native.path.clone());
             require(
                 normalized == entry.registration,
                 "legacy_provenance_mismatch",
@@ -560,6 +562,7 @@ impl Manager {
         require(digest(&copy)? == source.sha256, "candidate_copy_changed")?;
         fs::set_permissions(&copy, fs::Permissions::from_mode(0o500))?;
         sync(&copy)?;
+        copy_native_descriptor(&source.path, &copy, &r.registration.descriptor)?;
         sync(&binaries)?;
         boundary(fail, Boundary::NativeCopied)?;
         immutable(&bundle.join("bridge-provenance.json"), r)?;
@@ -943,6 +946,7 @@ impl Manager {
                 let r = self.load_revision(&key, reference)?;
                 let mut old = r.registration.clone();
                 old.native = registration.native.clone();
+                old.descriptor = registration.descriptor.clone();
                 old.host = registration.host.clone();
                 if fail.is_none()
                     && e.publication == Publication::Published
@@ -976,9 +980,9 @@ impl Manager {
             .join(format!("LVB_{key}.vst3"));
         let source_artifact = registration.native.clone();
         let mut installed = registration;
-        installed.native.path = target
+        installed.relocate_native(target
             .join("Contents/x86_64-linux")
-            .join(format!("LVB_{key}.so"));
+            .join(format!("LVB_{key}.so")));
         let r = Revision {
             schema: 1,
             id,
@@ -1080,10 +1084,14 @@ impl Manager {
         }
         let (selected, r) = selected.ok_or("rollback_revision_not_retained_ancestor")?;
         r.registration.verify(&self.root)?;
-        require(
-            self.performance(key)? == r.performance,
-            "rollback_performance_mismatch",
-        )?;
+        // The revision retains the publication-time preference as evidence.
+        // Explicit buffering changes are independently owned class settings;
+        // restoring a publication preserves them, subject to the target's
+        // actual capacity, rather than demanding the historical value.
+        let performance = self.performance(key)?;
+        require(performance.added_frames != 1024
+            || preparation::build::revision_maximum_bridge_frames(self, &r)? == Some(1024),
+            "rollback_buffering_unsupported_by_target")?;
         if e.publication == Publication::Published && current == &selected {
             require(
                 physical(&self.link(key))? == Some(r.target),
@@ -1164,9 +1172,9 @@ pub(crate) fn retained_candidate_fixture(
         .join(format!("LVB_{key}.vst3"));
     let source = registration.native.clone();
     let mut registration = registration;
-    registration.native.path = target
+    registration.relocate_native(target
         .join("Contents/x86_64-linux")
-        .join(format!("LVB_{key}.so"));
+        .join(format!("LVB_{key}.so")));
     let r = Revision {
         schema: 1,
         id,

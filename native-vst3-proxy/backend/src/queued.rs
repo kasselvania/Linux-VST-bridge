@@ -1548,7 +1548,7 @@ pub unsafe extern "C" fn ap4_state(
             let Some(l) = INSTANCES.lease(id) else {
                 return 1;
             };
-            state::bound_payload(
+            state::restore_payload(
                 l.shared.identity,
                 std::slice::from_raw_parts(restore, n as usize),
             )

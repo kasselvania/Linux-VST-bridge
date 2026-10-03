@@ -244,12 +244,22 @@ dependencies = [
  "ed25519-dalek",
  "flate2",
  "libc",
+ "lvb-plugin-descriptor",
  "serde",
  "serde_json",
  "sha1",
  "sha2",
  "tar",
  "xz2",
+]
+
+[[package]]
+name = "lvb-plugin-descriptor"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha1",
 ]
 
 [[package]]

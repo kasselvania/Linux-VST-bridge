@@ -18,6 +18,23 @@ The build emits the independent SDK consumer and callback audit library. Run
 --pairs 1` is an initial probe; only the default two-role, four-pair run can
 report the complete development suite passing.
 
+For unfamiliar-module coverage, freeze and retain a package first, then run
+`build_unfamiliar.py` on Windows with that package and engine digest. It builds
+two first-party module revisions with newly generated classes through the same
+pinned SDK contract tests. Pass its output with `--unfamiliar-fixtures`, the
+exact `--revision` and `--frozen-candidate` to the installed driver. The driver
+checks package, software, descriptor and engine identities and derives the
+native class IDs independently. `--recall-from` uses the exact saved states of
+a previously passing one-pair run. An explicit `--selected-candidate` can name
+a later manager package; it is independently verified and must preserve the
+original frozen engine. It does not relabel the original frozen-package run.
+The installed 1.0.1-to-1.0.2 comparison currently refuses the earlier component
+state before vendor restore; retain that failure. The consumer also compares
+complete state envelopes for an unchanged version. A future update-compatible
+state test must separately account for bridge provenance changing while checking
+actual vendor state, parameter readback and output; do not rewrite the saved file
+or waive the restore result to manufacture a pass.
+
 Before a run, install and publish both reference fixtures through Setup and
 product controls. Replace older publications through those controls. The
 driver refuses a predecessor host, changed module/native bytes, unpublished

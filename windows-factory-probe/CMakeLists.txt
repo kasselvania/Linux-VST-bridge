@@ -5,7 +5,20 @@ add_executable(wf0-factory-probe
     source/mapped_processing.cpp
     source/win32_module.cpp
     source/factory_census.cpp)
-target_sources(wf0-factory-probe PRIVATE source/inspect_module.cpp)
+target_sources(wf0-factory-probe PRIVATE source/inspect_module.cpp source/graphics_assessment.cpp)
+
+foreach(kind RANGE 1 4)
+    add_library(graphics-reference-${kind} SHARED ../windows-fixtures/graphics/editor.cpp
+        "${WF0_VST3_SDK_ROOT}/public.sdk/source/main/dllmain.cpp")
+    target_include_directories(graphics-reference-${kind} PRIVATE "${WF0_VST3_SDK_ROOT}")
+    target_compile_definitions(graphics-reference-${kind} PRIVATE GRAPHICS_FIXTURE=${kind} UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+    target_compile_options(graphics-reference-${kind} PRIVATE /W4 /permissive- /EHsc /Brepro)
+    target_link_libraries(graphics-reference-${kind} PRIVATE sdk user32 gdi32)
+    set_target_properties(graphics-reference-${kind} PROPERTIES PREFIX "" SUFFIX ".vst3" RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+endforeach()
+target_link_libraries(graphics-reference-1 PRIVATE d3d11)
+target_link_libraries(graphics-reference-2 PRIVATE opengl32 delayimp)
+target_link_options(graphics-reference-2 PRIVATE /DELAYLOAD:opengl32.dll)
 
 target_include_directories(wf0-factory-probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
@@ -14,7 +27,7 @@ target_include_directories(wf0-factory-probe PRIVATE
 target_compile_definitions(wf0-factory-probe PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(wf0-factory-probe PRIVATE /W4 /permissive- /EHsc /Brepro)
 target_link_options(wf0-factory-probe PRIVATE /Brepro /INCREMENTAL:NO)
-target_link_libraries(wf0-factory-probe PRIVATE sdk_hosting base pluginterfaces advapi32 ws2_32 user32 ole32)
+target_link_libraries(wf0-factory-probe PRIVATE sdk_hosting base pluginterfaces advapi32 ws2_32 user32 ole32 gdi32)
 set_target_properties(wf0-factory-probe PROPERTIES
     OUTPUT_NAME "wf0-factory-probe"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
@@ -33,7 +46,7 @@ target_compile_definitions(wf0-loader-adapter-tests PRIVATE
     WF0_LOADER_ADAPTER_TEST UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(wf0-loader-adapter-tests PRIVATE /W4 /permissive- /EHsc /Brepro)
 target_link_options(wf0-loader-adapter-tests PRIVATE /Brepro /INCREMENTAL:NO)
-target_link_libraries(wf0-loader-adapter-tests PRIVATE sdk_hosting base pluginterfaces advapi32 ws2_32 user32 ole32)
+target_link_libraries(wf0-loader-adapter-tests PRIVATE sdk_hosting base pluginterfaces advapi32 ws2_32 user32 ole32 gdi32)
 set_target_properties(wf0-loader-adapter-tests PROPERTIES
     OUTPUT_NAME "wf0-loader-adapter-tests"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
@@ -84,6 +97,18 @@ target_link_libraries(ap11-editor-tests PRIVATE sdk sdk_hosting user32 ole32)
 set_target_properties(ap11-editor-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
 
 add_executable(ap11-state-tests ../tools/ap11-tests/state.cpp)
+add_executable(ap11-owner-failure-tests ../tools/ap11-tests/owner_failure.cpp source/offline_processing.cpp source/component_instance_session.cpp)
+target_include_directories(ap11-owner-failure-tests PRIVATE source include "${WF0_VST3_SDK_ROOT}")
+target_compile_definitions(ap11-owner-failure-tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(ap11-owner-failure-tests PRIVATE /W4 /permissive- /EHsc /UNDEBUG)
+target_link_libraries(ap11-owner-failure-tests PRIVATE sdk sdk_hosting user32 ole32)
+set_target_properties(ap11-owner-failure-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+add_executable(ap11-controller-failure-tests ../tools/ap11-tests/controller_failure.cpp source/offline_processing.cpp source/component_instance_session.cpp source/mapped_processing.cpp)
+target_include_directories(ap11-controller-failure-tests PRIVATE source include "${WF0_VST3_SDK_ROOT}")
+target_compile_definitions(ap11-controller-failure-tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(ap11-controller-failure-tests PRIVATE /W4 /permissive- /EHsc /UNDEBUG)
+target_link_libraries(ap11-controller-failure-tests PRIVATE sdk sdk_hosting user32 ole32 ws2_32)
+set_target_properties(ap11-controller-failure-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
 target_include_directories(ap11-state-tests PRIVATE "${CMAKE_SOURCE_DIR}" "${WF0_VST3_SDK_ROOT}")
 target_link_libraries(ap11-state-tests PRIVATE sdk sdk_hosting)
 set_target_properties(ap11-state-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")

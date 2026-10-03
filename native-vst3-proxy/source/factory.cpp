@@ -1,7 +1,12 @@
 #include "../../vst-state/stream.h"
 #include "ap4_backend.h"
 #include "processor.h"
+#ifdef LVB_RUNTIME_DESCRIPTOR
+#include "public.sdk/source/main/pluginfactory.h"
+#include <memory>
+#else
 #include "public.sdk/source/main/pluginfactory_constexpr.h"
+#endif
 #include <thread>
 #include <cstdio>
 #ifdef AP3_PREVIEW
@@ -159,11 +164,33 @@ static constexpr Steinberg::TUID processorID =
 } // namespace AP2
 #ifdef AP8_PREVIEW
 #include "commercial_controller.h"
+#ifdef LVB_RUNTIME_DESCRIPTOR
+SMTG_EXPORT_SYMBOL Steinberg::IPluginFactory* PLUGIN_API GetPluginFactory() {
+  using namespace Steinberg;
+  try {
+    if (!AP8::loadDescriptor()) return nullptr;
+    if (gPluginFactory) {gPluginFactory->addRef();return gPluginFactory;}
+    const PFactoryInfo info(AP8::vendor,"https://github.com/kasselvania/Linux-VST-bridge","",2);
+    auto* factory=new CPluginFactory(info);
+    const auto release=[](CPluginFactory* p) {p->release();};
+    std::unique_ptr<CPluginFactory,decltype(release)> owner(factory,release);
+    const PClassInfo2 processor(AP8::processorID,PClassInfo::kManyInstances,kVstAudioEffectClass,
+      AP8::class_name,0,AP8::subcategories,AP8::vendor,AP8::version,kVstVersionString);
+    const PClassInfo2 controller(AP8::controlID,PClassInfo::kManyInstances,kVstComponentControllerClass,
+      AP8::class_name,0,"",AP8::vendor,AP8::version,kVstVersionString);
+    if (!factory->registerClass(&processor,AP2::Processor::create) ||
+        !factory->registerClass(&controller,AP8::Controller::create)) return nullptr;
+    gPluginFactory=owner.release();
+    return gPluginFactory;
+  } catch (...) {return nullptr;}
+}
+#else
 #define AP8_UID(...) INLINE_UID(__VA_ARGS__)
 namespace AP8 {static constexpr Steinberg::TUID processorID=AP8_UID(AP8_PROCESSOR_UID);static constexpr Steinberg::TUID controlID=AP8_UID(AP8_CONTROLLER_UID);}
 BEGIN_FACTORY_DEF(AP8::vendor, "https://github.com/kasselvania/Linux-VST-bridge", "", 2)
 DEF_CLASS(AP8::processorID,Steinberg::PClassInfo::kManyInstances,kVstAudioEffectClass,AP8::class_name,0,AP8::subcategories,AP8::version,kVstVersionString,AP2::Processor::create,nullptr)
 DEF_CLASS(AP8::controlID,Steinberg::PClassInfo::kManyInstances,kVstComponentControllerClass,AP8::class_name,0,"",AP8::version,kVstVersionString,AP8::Controller::create,nullptr)
+#endif
 #elif defined(AP3_PREVIEW)
 BEGIN_FACTORY_DEF("Kasselvania Research",
                   "https://github.com/kasselvania/Linux-VST-bridge", "", 2)
@@ -179,4 +206,6 @@ DEF_CLASS(AP2::processorID, 1, kVstAudioEffectClass, "AGain Offline Bridge", 0,
           "Fx|OnlyOfflineProcess", "0.1.0", kVstVersionString,
           AP2::Processor::create, nullptr)
 #endif
+#ifndef LVB_RUNTIME_DESCRIPTOR
 END_FACTORY
+#endif

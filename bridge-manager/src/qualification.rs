@@ -125,6 +125,7 @@ pub(crate) fn load_for(
         sha256: p.requirements.host_source_sha256.clone(),
     };
     let native = NativeArtifact {
+            descriptor: None,
         class: p.class.clone(),
         module_sha256: p.module_sha256.clone(),
         artifact: Artifact {
@@ -318,7 +319,7 @@ impl Manager {
             &exact.native,
             SelectionPurpose::Qualification,
         )?;
-        derived.native.path = r.registration.native.path.clone();
+        derived.relocate_native(r.registration.native.path.clone());
         require(
             derived == r.registration && r.performance.added_frames == 512,
             "qualification_exact_candidate_required",

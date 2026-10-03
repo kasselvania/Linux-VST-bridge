@@ -349,6 +349,7 @@ pub fn derive_for(
         host: facts.host.clone(),
         host_source_sha256: facts.host_source_sha256.clone(),
         native: native.artifact.clone(),
+        descriptor: native.descriptor.clone(),
         compatibility: profile.capabilities.compatibility(),
     })
 }

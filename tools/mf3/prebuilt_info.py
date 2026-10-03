@@ -7,12 +7,17 @@ def maximum_bridge_frames(request):
         assert len(names) <= 256 and len(names) == len(set(names))
         assert archive.getinfo('recipe.json').file_size <= 65536
         recipe = json.loads(archive.read('recipe.json'))
-        if recipe['schema'] != 3:
+        if recipe['schema'] not in (3,4):
             return None
         assert archive.getinfo('prebuilt/index.json').file_size <= 1024 * 1024
         data = archive.read('prebuilt/index.json')
         assert hashlib.sha256(data).hexdigest() == recipe['files']['prebuilt/index.json']
         index = json.loads(data)
+        if recipe['schema'] == 4:
+            assert index['schema'] == 3 and index['descriptor_schema'] == 1
+            assert index['maximum_bridge_frames'] == 1024
+            assert recipe['files'][index['engine']] == index['engine_sha256']
+            return 1024 if request['native_sha256'] == index['engine_sha256'] else None
         assert index['schema'] in (1, 2) and 1 <= len(index['proxies']) <= 64
         matches = [row for row in index['proxies']
             if row['class_id'].upper() == request['class_id'].upper()

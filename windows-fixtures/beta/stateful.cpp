@@ -17,34 +17,49 @@ using namespace Steinberg::Vst;
 #ifndef LVB_BETA_INSTRUMENT
 #define LVB_BETA_INSTRUMENT 0
 #endif
+#ifndef LVB_BETA_STATE_VERSION
+#define LVB_BETA_STATE_VERSION 1
+#endif
+#ifndef LVB_BETA_RESTORE_POLICY
+#define LVB_BETA_RESTORE_POLICY 0
+#endif
+static constexpr bool evolved = LVB_BETA_STATE_VERSION == 2;
 static const FUID processorID(0x4C564242, 0x45544131,
     LVB_BETA_INSTRUMENT ? 0x494E5354 : 0x45464658, 0x00000001);
 static const FUID controllerID(0x4C564242, 0x45544131,
     LVB_BETA_INSTRUMENT ? 0x494E5354 : 0x45464658, 0x00000002);
 static constexpr double tau = 6.2831853071795864769;
-struct Settings { double gain = .25, colour = .5; };
+struct Settings { double gain = .25, colour = .5, trim = .25; };
 static bool normalized(double value) {
     return std::isfinite(value) && value >= 0. && value <= 1.;
 }
 static tresult state(IBStream* stream, Settings& settings, bool write) {
     if (!stream) return kInvalidArgument;
-    // Fixed little-endian 24-byte state, including exact fixture role/version.
-    std::array<uint8, 24> bytes{ 'L', 'V', 'B', 'B', 1, LVB_BETA_INSTRUMENT, 0, 0 };
+    // Revision 2 deliberately changes the layout and adds a parameter. Only
+    // the vendor fixture interprets/migrates the earlier opaque schema.
+    std::array<uint8, 32> bytes{ 'L', 'V', 'B', 'B', LVB_BETA_STATE_VERSION, LVB_BETA_INSTRUMENT, 0, 0 };
     int32 count = 0;
     if (write) {
-        std::memcpy(bytes.data() + 8, &settings.gain, 8);
+        std::memcpy(bytes.data() + 8, evolved ? &settings.trim : &settings.gain, 8);
         std::memcpy(bytes.data() + 16, &settings.colour, 8);
-        return stream->write(bytes.data(), int32(bytes.size()), &count) == kResultOk
-            && count == int32(bytes.size()) ? kResultOk : kResultFalse;
+        if(evolved) std::memcpy(bytes.data() + 24, &settings.gain, 8);
+        const int32 size=evolved?32:24;
+        return stream->write(bytes.data(), size, &count) == kResultOk
+            && count == size ? kResultOk : kResultFalse;
     }
     const auto header = bytes;
-    if (stream->read(bytes.data(), int32(bytes.size()), &count) != kResultOk
-        || count != int32(bytes.size())
-        || !std::equal(bytes.begin(), bytes.begin() + 8, header.begin())) return kResultFalse;
+    if (stream->read(bytes.data(), 8, &count) != kResultOk || count != 8
+        || !std::equal(bytes.begin(), bytes.begin() + 4, header.begin())
+        || bytes[5]!=LVB_BETA_INSTRUMENT || bytes[6] || bytes[7]
+        || (bytes[4]!=1 && !(evolved&&bytes[4]==2))) return kResultFalse;
+    const int32 remaining=bytes[4]==2?24:16;
+    if(stream->read(bytes.data()+8,remaining,&count)!=kResultOk||count!=remaining) return kResultFalse;
     Settings candidate;
-    std::memcpy(&candidate.gain, bytes.data() + 8, 8);
+    std::memcpy(&candidate.gain, bytes.data() + (bytes[4]==2?24:8), 8);
     std::memcpy(&candidate.colour, bytes.data() + 16, 8);
-    if (!normalized(candidate.gain) || !normalized(candidate.colour)) return kResultFalse;
+    if(bytes[4]==2) std::memcpy(&candidate.trim,bytes.data()+8,8);
+    else if(evolved) candidate.trim=candidate.gain+candidate.colour;
+    if (!normalized(candidate.gain) || !normalized(candidate.colour) || !normalized(candidate.trim)) return kResultFalse;
     settings = candidate;
     return kResultOk;
 }
@@ -99,7 +114,15 @@ public:
         return AudioEffect::setActive(active);
     }
     tresult PLUGIN_API getState(IBStream* stream) override { return state(stream, settings, true); }
-    tresult PLUGIN_API setState(IBStream* stream) override { return state(stream, settings, false); }
+    tresult PLUGIN_API setState(IBStream* stream) override {
+        if constexpr(LVB_BETA_RESTORE_POLICY==1) {
+            int64 position=0;uint8 header[8]{};int32 read=0;
+            if(!stream||stream->tell(&position)!=kResultOk||stream->read(header,8,&read)!=kResultOk
+                ||read!=8||stream->seek(position,IBStream::kIBSeekSet,nullptr)!=kResultOk) return kResultFalse;
+            if(header[4]==1) return kResultFalse; // explicit vendor migration refusal
+        }
+        return state(stream, settings, false);
+    }
     tresult PLUGIN_API process(ProcessData& data) override {
         if (data.symbolicSampleSize != kSample32 || data.numSamples < 0
             || data.numSamples > processSetup.maxSamplesPerBlock) return kInvalidArgument;
@@ -108,9 +131,9 @@ public:
         const auto events = data.inputEvents;
         const auto eventCount = events ? events->getEventCount() : 0;
         const int32 queueCount = parameters ? parameters->getParameterCount() : 0;
-        if (eventCount < 0 || eventCount > 256 || queueCount < 0 || queueCount > 2) return kInvalidArgument;
+        if (eventCount < 0 || eventCount > 256 || queueCount < 0 || queueCount > (evolved?3:2)) return kInvalidArgument;
         struct Point { IParamValueQueue* queue = nullptr; int32 index = 0, count = 0, offset = 0; double value = 0.; };
-        std::array<Point, 2> points{};
+        std::array<Point, 3> points{};
         for (int32 q = 0; q < queueCount; ++q) {
             auto& point = points[q];
             point.queue = parameters->getParameterData(q);
@@ -126,6 +149,7 @@ public:
                 while (point.index < point.count && point.offset == sample) {
                     if (point.queue->getParameterId() == 0) settings.gain = point.value;
                     if (point.queue->getParameterId() == 1) settings.colour = point.value;
+                    if (evolved && point.queue->getParameterId() == 17) settings.trim = point.value;
                     if (++point.index < point.count) {
                         if (point.queue->getPoint(point.index, point.offset, point.value) != kResultOk
                             || point.offset < sample || !normalized(point.value)) return kInvalidArgument;
@@ -156,7 +180,7 @@ public:
                 const auto input = LVB_BETA_INSTRUMENT ? signal
                     : (data.inputs[0].silenceFlags & (1ull << ch)) ? 0.
                     : data.inputs[0].channelBuffers32[ch][sample];
-                data.outputs[0].channelBuffers32[ch][sample] = float(settings.gain
+                data.outputs[0].channelBuffers32[ch][sample] = float(settings.gain * (evolved ? .75 + settings.trim : 1.)
                     * (LVB_BETA_INSTRUMENT ? input / 16. : input * (.5 + settings.colour)));
             }
         }
@@ -172,6 +196,7 @@ public:
         if (result != kResultOk) return result;
         parameters.addParameter(STR16("Level"), nullptr, 0, .25, ParameterInfo::kCanAutomate, 0);
         parameters.addParameter(STR16("Colour"), nullptr, 0, .5, ParameterInfo::kCanAutomate, 1);
+        if(evolved) parameters.addParameter(STR16("Trim"), nullptr, 0, .25, ParameterInfo::kCanAutomate, 17);
         return kResultOk;
     }
     tresult PLUGIN_API setComponentState(IBStream* stream) override {
@@ -179,13 +204,22 @@ public:
         auto result = state(stream, settings, false);
         if (result != kResultOk) return result;
         if (setParamNormalized(0, settings.gain) != kResultOk) return kResultFalse;
-        return setParamNormalized(1, settings.colour);
+        if(setParamNormalized(1, settings.colour)!=kResultOk) return kResultFalse;
+        return evolved?setParamNormalized(17,settings.trim):kResultOk;
     }
     tresult PLUGIN_API getState(IBStream* stream) override {
-        Settings settings{getParamNormalized(0), getParamNormalized(1)};
+        Settings settings{getParamNormalized(0), getParamNormalized(1),evolved?getParamNormalized(17):.25};
         return state(stream, settings, true);
     }
-    tresult PLUGIN_API setState(IBStream* stream) override { return setComponentState(stream); }
+    tresult PLUGIN_API setState(IBStream* stream) override {
+        if constexpr(LVB_BETA_RESTORE_POLICY==2) {
+            int64 position=0;uint8 header[8]{};int32 read=0;
+            if(!stream||stream->tell(&position)!=kResultOk||stream->read(header,8,&read)!=kResultOk
+                ||read!=8||stream->seek(position,IBStream::kIBSeekSet,nullptr)!=kResultOk) return kResultFalse;
+            if(header[4]==1) return kResultFalse; // component already migrated: partial restore
+        }
+        return setComponentState(stream);
+    }
 };
 BEGIN_FACTORY_DEF("Linux VST Bridge", "https://github.com/kasselvania/Linux-VST-bridge", "")
 DEF_CLASS2(INLINE_UID_FROM_FUID(processorID), PClassInfo::kManyInstances, kVstAudioEffectClass,

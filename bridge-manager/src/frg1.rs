@@ -367,7 +367,7 @@ pub fn catalogue_free_registry(m: &Manager, registry: &Registry) -> Result<bool>
         return retired_predecessor(m, entry);
     }
     let mut expected = binding(m)?;
-    expected.native.path = revision.registration.native.path.clone();
+    expected.relocate_native(revision.registration.native.path.clone());
     let parent_is_exact = if profile.revision == 12 {
         let parent = revision.parent.as_ref().ok_or("frg1_predecessor_absent")?;
         m.load_revision(&profile.class.class_id, parent)?.profile == predecessor()?
@@ -585,6 +585,7 @@ pub fn binding(m: &Manager) -> Result<Registration> {
     let record = adoption(m)?;
     let candidate = installed(m)?;
     let registration = Registration {
+            descriptor: None,
         metadata: candidate.profile.class.clone(),
         module: record.module,
         environment: record.environment,
@@ -646,7 +647,7 @@ pub(crate) fn check_publication(
 
 pub(crate) fn retained(m: &Manager, revision: &Revision, exact: &InstalledCandidate) -> Result<()> {
     let mut expected = binding(m)?;
-    expected.native.path = revision.registration.native.path.clone();
+    expected.relocate_native(revision.registration.native.path.clone());
     let parent_is_exact = if candidate()?.revision == 12 {
         let reference = revision.parent.as_ref().ok_or("frg1_predecessor_absent")?;
         let prior = m.load_revision(&revision.class_id, reference)?;

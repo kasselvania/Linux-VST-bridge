@@ -155,6 +155,51 @@ class PackageAssembly(unittest.TestCase):
         package = package_archive(out, self.root / "with-kit.pkg.tar.zst")
         self.assertEqual(verify_package.verify(package, release, True)["files"], len(self.files) + 2)
 
+    def test_reusable_engine_kit_packages_and_rejects_inconsistent_metadata(self):
+        files = {
+            "libap2_backend.a": b"!<arch>\n",
+            "runtime/host.exe": (self.inputs / "4").read_bytes(),
+            "runtime/host-source-manifest.json": (self.inputs / "5").read_bytes(),
+            "tools/mf3/native_builder.py": b"owned builder",
+            "tools/ap8_descriptor.py": b"owned generator",
+            "prebuilt/engine.so": b"\x7fELFreusable engine fixture",
+            **{f"licenses/{name}.txt": b"retained license"
+               for name in ("vst3sdk", "base", "pluginterfaces", "public.sdk")},
+        }
+        index = dict(schema=3, engine="prebuilt/engine.so",
+                     engine_sha256=assemble.sha(files["prebuilt/engine.so"]),
+                     descriptor_schema=1, maximum_bridge_frames=1024, native_sources={})
+
+        def archive_bytes(selected, extra=None):
+            contents = {**files, **(extra or {}),
+                        "prebuilt/index.json": json.dumps(selected).encode()}
+            recipe = dict(schema=4, source_commit=self.spec["source_head"],
+                          sdk=assemble.KIT_SDK, sdk_runtime=assemble.KIT_SDK_RUNTIME,
+                          files={name: assemble.sha(data) for name, data in contents.items()})
+            data = io.BytesIO()
+            with zipfile.ZipFile(data, "w") as archive:
+                for name, value in contents.items():
+                    archive.writestr(name, value)
+                archive.writestr("recipe.json", json.dumps(recipe))
+            return data.getvalue()
+
+        self.add_file(assemble.KIT_DESTINATION, "preparation_kit", archive_bytes(index), 106)
+        self.spec["schema"] = 2
+        out = self.root / "reusable-kit"
+        release = assemble.build(self.spec, out, 1234567890)
+        package = package_archive(out, self.root / "reusable.pkg.tar.zst")
+        self.assertEqual(verify_package.verify(package, release, True)["files"], len(self.files) + 2)
+        for change in ({"engine_sha256": "0" * 64}, {"descriptor_schema": 2},
+                       {"maximum_bridge_frames": 64}, {"proxies": []}):
+            with self.subTest(change=change), self.assertRaisesRegex(ValueError, "reusable engine index"):
+                assemble.verify_kit(archive_bytes({**index, **change}), self.spec["source_head"],
+                                    assemble.sha(files["runtime/host.exe"]),
+                                    assemble.sha(files["runtime/host-source-manifest.json"]))
+        with self.assertRaisesRegex(ValueError, "prebuilt kit entry"):
+            assemble.verify_kit(archive_bytes(index, {"unowned": b"unexpected"}),
+                                self.spec["source_head"], assemble.sha(files["runtime/host.exe"]),
+                                assemble.sha(files["runtime/host-source-manifest.json"]))
+
     def test_operator_pair_uses_exact_source_and_retained_predecessor(self):
         current = assemble.declared_operator_schema()
         self.assertEqual(self.spec["operator_schema"], current)

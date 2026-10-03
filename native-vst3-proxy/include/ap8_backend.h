@@ -6,5 +6,8 @@ static_assert(sizeof(ap8_event_t)==32);
 extern "C" {
 uint32_t ap8_open(const uint8_t* identity, uint64_t* handle);
 uint32_t ap8_validate(const uint8_t* identity,const uint8_t* blob,uint32_t length);
+// Historical same-class state may be offered to the explicitly selected module.
+// ap8_validate remains exact for snapshots, captures and current readback.
+uint32_t ap8_validate_restore(const uint8_t* identity,const uint8_t* blob,uint32_t length);
 uint32_t ap8_process(uint64_t handle,uint32_t frames,const ap8_event_t* events,uint32_t count,const float* left,const float* right,float* out_left,float* out_right,uint64_t* flags,ap7_delivery_t* delivery);
 }

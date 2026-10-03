@@ -4,7 +4,11 @@
 #include <cstdint>
 #include <thread>
 #ifdef AP8_PREVIEW
+#ifdef LVB_RUNTIME_DESCRIPTOR
+#include "runtime_descriptor.h"
+#else
 #include "ap8_descriptor.h"
+#endif
 #include "ap8_backend.h"
 #include "ap18_bus_support.h"
 #include "output_results.h"
@@ -27,6 +31,7 @@ public:
   }
   ~Processor() override;
   Steinberg::tresult PLUGIN_API initialize(Steinberg::FUnknown *) override;
+  Steinberg::tresult PLUGIN_API connect(Steinberg::Vst::IConnectionPoint *) override;
   Steinberg::tresult PLUGIN_API terminate() override;
   Steinberg::tresult PLUGIN_API setActive(Steinberg::TBool) override;
   Steinberg::tresult PLUGIN_API activateBus(Steinberg::Vst::MediaType,
@@ -49,7 +54,11 @@ public:
   getControllerClassId(Steinberg::TUID id) override {
     if (preview_) {
 #ifdef AP8_PREVIEW
+#ifdef LVB_RUNTIME_DESCRIPTOR
+      std::memcpy(id,AP8::controlID,16);
+#else
       Steinberg::FUID(AP8_CONTROLLER_UID).toTUID(id);
+#endif
 #else
       controllerID.toTUID(id);
 #endif
