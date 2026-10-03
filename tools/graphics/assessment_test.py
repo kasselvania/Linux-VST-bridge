@@ -17,10 +17,12 @@ def sha(path):
 
 def run(out, kind):
     host = out / 'wf0-factory-probe.exe'
-    module = out / f'graphics-reference-{kind}.vst3'
+    original_module = out / f'graphics-reference-{kind}.vst3'
     sid = uuid.uuid4().hex
     directory = pathlib.Path('C:/bridge/sessions') / sid
     directory.mkdir(parents=True)
+    module = directory / 'reference.vst3'
+    shutil.copyfile(original_module, module)
     ready, gate = (directory / (sid + suffix) for suffix in ('.ready', '.gate'))
     source = sha(out / 'host-source-manifest.json')
     pairs = [('session', sid), ('scanner-sha256', sha(host)), ('implementation-source-manifest-sha256', source),
@@ -38,7 +40,8 @@ def run(out, kind):
         deadline = time.monotonic() + 15
         while True:
             if child.poll() is not None:
-                raise RuntimeError('assessment host exited before gate')
+                output, error = child.communicate(timeout=5)
+                raise RuntimeError(f'assessment host exited before gate: {child.returncode}; {output[-1024:]!r}; {error[-1024:]!r}')
             if time.monotonic() >= deadline:
                 raise TimeoutError('assessment readiness')
             try:
