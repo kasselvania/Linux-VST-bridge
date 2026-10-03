@@ -276,10 +276,13 @@ fn status_with_wait(
     let mut current_classes=limits.classes.clone();
     for (key,e) in m.registry()?.classes {
         if e.publication!=Publication::Published || current_classes.iter().any(|c|c.class_id==key){continue;}
-        if let Some(capacity) = unfamiliar_managed_capacity(m, limits.native_image_hard, &key)? {
-            let limit=ClassLimit{class_id:key,dsp:capacity};
-            engineering_classes.push(limit.clone());current_classes.push(limit);
-        }
+        // Publication eligibility controls only this class's extra slots. An
+        // invalid or pending publication must not hide canonical owners or
+        // prevent its ordinary reconciliation. Admission below still returns
+        // the exact publication error; malformed owners still fail readback.
+        let Ok(Some(capacity)) = unfamiliar_managed_capacity(m, limits.native_image_hard, &key) else { continue; };
+        let limit=ClassLimit{class_id:key,dsp:capacity};
+        engineering_classes.push(limit.clone());current_classes.push(limit);
     }
     let verified_additional_classes = if additional_verified { vec![limits.classes[2].clone()] } else { Vec::new() };
     let owners = owners(m)?;
@@ -1370,8 +1373,88 @@ mod tests {
         let selected = f.m.load_revision(class, &revision).unwrap();
         fs::remove_file(f.m.link(class)).unwrap();
         std::os::unix::fs::symlink(selected.target.with_extension("changed"), f.m.link(class)).unwrap();
-        assert!(status(&f.m, policy.clone(), 0, false).is_err());
+        let observed = status(&f.m, policy.clone(), 0, false).unwrap();
+        assert_eq!(observed.dsp, 4);
+        assert_eq!(observed.owners, owners(&f.m).unwrap());
+        assert_eq!(observed.available_dsp, 2);
+        assert!(!observed.engineering_classes.iter().any(|row| row.class_id == *class));
         assert!(reserve(&f.m, &policy, Some(class), false).is_err());
+    }
+
+    fn interrupted_unfamiliar_replacement() -> (Fixture, crate::preparation::Candidate, Limits, PathBuf) {
+        let (f, candidate) = crate::preparation::tests::fixture();
+        crate::preparation::record_candidate(&f.m, &candidate).unwrap();
+        let baseline = crate::preparation::enable(&f.m, &candidate, false).unwrap();
+        let mut policy = limits();
+        policy.global_dsp = 6;
+        policy.classes[0].class_id = "03".repeat(16);
+        assert!(!policy.classes.iter().any(|row| row.class_id == candidate.selection.class.id));
+        let sibling = {
+            let guard = reserve(&f.m, &policy, Some(&policy.classes[1].class_id), false).unwrap();
+            let lease = lease(&f, &policy.classes[1].class_id, Kind::Dsp);
+            drop(guard);
+            lease
+        };
+        let next = crate::preparation::configuration::prepare(&f.m, &candidate,
+            Some(operator_model::GraphicsBackend::WineD3d11), Some(&baseline)).unwrap();
+        f.m.publish_with_expected(&next.profile, &next.census().unwrap(),
+            crate::preparation::configuration::registration(&next).unwrap(),
+            (&next.host, &next.source_manifest.sha256),
+            (Some(crate::publication::Qualification::ManagedExperimental), false),
+            Some(crate::publication::Boundary::Intent), Some(&baseline)).unwrap_err();
+        assert!(f.m.publication_pending(&candidate.selection.class.id).unwrap());
+        (f, candidate, policy, sibling)
+    }
+
+    #[test]
+    fn interrupted_unfamiliar_publication_keeps_canonical_owners_and_reconciliation_available() {
+        let (f, candidate, policy, sibling) = interrupted_unfamiliar_replacement();
+        let class = &candidate.selection.class.id;
+        let entry = f.m.registry().unwrap().classes[class].clone();
+        assert_eq!(entry.publication, Publication::Published);
+        let live_owners = owners(&f.m).unwrap();
+        let observed = status(&f.m, policy.clone(), 0, false).unwrap();
+        assert_eq!(observed.owners, live_owners);
+        assert_eq!(observed.dsp, 1);
+        assert_eq!(observed.per_class[&policy.classes[1].class_id], 1);
+        // Only the two eligible policy classes contribute free slots: two
+        // for the first class and one remaining beside the live sibling.
+        assert_eq!(observed.available_dsp, 3);
+        assert!(!observed.cleanup_unconfirmed);
+        assert!(!observed.maintenance_admissible);
+        assert!(!observed.engineering_classes.iter().any(|row| row.class_id == *class));
+        assert_eq!(reason(reserve(&f.m, &policy, Some(class), false)), "capacity_publication_changed");
+        drop(reserve(&f.m, &policy, Some(&policy.classes[1].class_id), false).unwrap());
+        assert_eq!(owners(&f.m).unwrap(), live_owners);
+        assert!(f.m.reconcile_inactive().is_err());
+        assert_eq!(f.m.registry().unwrap().classes[class], entry);
+
+        // Explicitly retire this fixture's exact sibling lease. A positive
+        // report alone cannot make it disappear from canonical readback.
+        let report: PathBuf = read_json(&sibling).unwrap();
+        atomic_json(&report, &serde_json::json!({"cleanup_confirmed":true,
+            "transport_retired":true})).unwrap();
+        assert_eq!(status(&f.m, policy.clone(), 0, false).unwrap().dsp, 1);
+        fs::remove_file(sibling).unwrap();
+        let retired = status(&f.m, policy.clone(), 0, false).unwrap();
+        assert!(retired.owners.is_empty() && retired.maintenance_admissible);
+        f.m.reconcile_inactive().unwrap();
+        assert!(!f.m.publication_pending(class).unwrap());
+        assert_eq!(f.m.registry().unwrap().classes[class], entry);
+        drop(reserve(&f.m, &policy, Some(class), false).unwrap());
+    }
+
+    #[test]
+    fn invalid_owner_still_refuses_readback_and_admission_during_publication_recovery() {
+        let (f, _, policy, _) = interrupted_unfamiliar_replacement();
+        private_dir(&f.m.root.join("runtime/leases")).unwrap();
+        fs::write(f.m.root.join("runtime/leases/broken.json"), b"invalid").unwrap();
+        assert!(status(&f.m, policy.clone(), 0, false).is_err());
+        assert_eq!(reason(reserve(&f.m, &policy, Some(&policy.classes[1].class_id), false)),
+            Refusal::CleanupUnconfirmed.code());
+        assert_eq!(reason(reserve_maintenance(&f.m, &policy, || false)),
+            Refusal::CleanupUnconfirmed.code());
+        assert!(f.m.reconcile_inactive().is_err());
     }
 
     #[test]

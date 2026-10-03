@@ -5306,6 +5306,74 @@ mod tests {
             .ok()
             .and_then(|v| serde_json::from_value(serde_json::to_value(v).unwrap()).ok())
     }
+    #[test]
+    fn interrupted_unfamiliar_publication_keeps_the_ordinary_reconcile_offer_reachable() {
+        use linux_vst_bridge::preparation as prep;
+        let (f, candidate) = preparation_cli::tests::projection_fixture();
+        atomic_json(&f.m.root.join("software.json"),
+            &preparation_cli::tests::projection_software(&candidate)).unwrap();
+        prep::record_candidate(&f.m, &candidate).unwrap();
+        let baseline = prep::enable(&f.m, &candidate, false).unwrap();
+        let next = prep::configuration::prepare(&f.m, &candidate,
+            Some(ui::GraphicsBackend::WineD3d11), Some(&baseline)).unwrap();
+        prep::replace(&f.m, &next, &baseline).unwrap();
+        let class = &candidate.selection.class.id;
+        let before = f.m.registry().unwrap().classes[class].clone();
+
+        let sibling_class = capacity::fixture_limits().classes[1].class_id.clone();
+        let session = random_id().unwrap();
+        let report = f.m.root.join("runtime/results").join(format!("windows-{session}.json"));
+        private_dir(report.parent().unwrap()).unwrap();
+        let owner = f.r.environment.root.join("compatdata/pfx/drive_c/bridge/sessions")
+            .join(&session).join("owner.json");
+        private_dir(owner.parent().unwrap()).unwrap();
+        atomic_json(&owner, &json!({"session":session,"report":report,
+            "keeper":false,"inspect":false,"vendor_access":false,
+            "registration":{"metadata":{"class_id":sibling_class}}})).unwrap();
+        let lease = f.m.root.join("runtime/leases").join(format!("{session}.json"));
+        private_dir(lease.parent().unwrap()).unwrap();
+        atomic_json(&lease, &report).unwrap();
+        f.m.rollback(class, &baseline.id,
+            Some(linux_vst_bridge::publication::Boundary::Intent)).unwrap_err();
+        assert!(f.m.publication_pending(class).unwrap());
+        assert_eq!(f.m.registry().unwrap().classes[class], before);
+
+        let read = || capacity_fixture(&f.m);
+        let live = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &read).unwrap();
+        assert!(live.system.capacity_available());
+        assert_eq!(live.system.dsp, 1);
+        let offer = live.actions.iter().find(|offer|
+            matches!(offer.action, ui::Action::TransactionReconcile {})).unwrap();
+        assert!(offer.disabled_reason.as_deref().unwrap().contains("Close active bridged"));
+        assert!(execute_with_receipt_capacity(&f.m, &offer.action, None, &read).is_err());
+        assert_eq!(capacity::owners(&f.m).unwrap()[0].session, session);
+        assert_eq!(f.m.registry().unwrap().classes[class], before);
+
+        // Supervised fixture retirement confirms cleanup, then releases only
+        // its exact owner. The positive report alone never grants inactivity.
+        atomic_json(&report, &json!({"cleanup_confirmed":true,"transport_retired":true})).unwrap();
+        assert_eq!(read().unwrap().dsp, 1);
+        fs::remove_file(lease).unwrap();
+        let retired = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &read).unwrap();
+        assert!(retired.system.capacity_available());
+        assert_eq!(retired.system.dsp, 0);
+        let offer = retired.actions.iter().find(|offer|
+            matches!(offer.action, ui::Action::TransactionReconcile {})).unwrap();
+        assert!(offer.disabled_reason.is_none());
+        validate(&ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:retired.state_token.clone(),action:offer.action.clone()}, &retired).unwrap();
+        assert_eq!(execute_with_receipt_capacity(&f.m, &offer.action, None, &read).unwrap(),
+            json!({"reconciled":true}));
+        assert!(!f.m.publication_pending(class).unwrap());
+        assert_eq!(f.m.registry().unwrap().classes[class], before);
+
+        // A missing owner is still an authority gap, even for reconciliation.
+        let unattributed = f.m.root.join("runtime/leases").join(format!("{}.json", "cd".repeat(16)));
+        atomic_json(&unattributed, &report).unwrap();
+        assert!(read().is_none());
+        assert!(snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &read).is_err());
+        assert!(execute_with_receipt_capacity(&f.m, &offer.action, None, &read).is_err());
+    }
     fn contended_registry<T>(m: &Manager,
         run: impl FnOnce(std::sync::mpsc::Sender<()>) -> T) -> T {
         let held = m.lock("registry.lock").unwrap();
