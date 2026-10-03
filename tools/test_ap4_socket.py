@@ -10,6 +10,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 def main():
     source = (ROOT / 'windows-factory-probe/source/mapped_processing.cpp').read_text()
     body = source[source.index('struct Socket {'):source.index('struct Handle{')]
+    wait = source[source.index(' bool wait_state('):source.index(' void dispatch(')]
+    body += ('struct StateWait { bool serviced=false; std::atomic<bool> owner_failure{false};'
+             'std::mutex mutex; std::condition_variable condition;' + wait + '};\n')
     includes = r'''
 #ifdef _WIN32
 #include <winsock2.h>
@@ -33,10 +36,30 @@ int winselect(int,fd_set* r,fd_set* w,fd_set* e,timeval* t){return select(FD_SET
 #include <chrono>
 #include <thread>
 #include <iostream>
+#include <atomic>
+#include <mutex>
+#include <condition_variable>
+#include <algorithm>
 using namespace linux_vst_bridge::ap1;
 '''
     tests = r'''
 int main(){
+ for(bool cancel:{false,true}){
+  StateWait state;bool result=false;std::atomic<bool> waiting{false};
+  auto begin=std::chrono::steady_clock::now();
+  std::thread worker([&]{std::unique_lock lock(state.mutex);waiting.store(true);result=state.wait_state(lock);});
+  while(!waiting.load())std::this_thread::yield();
+  if(cancel){
+   // Deliberately omit notification: cancellation must survive the race
+   // between the worker's predicate check and entering condition wait.
+   state.owner_failure.store(true);
+  }else{
+   {std::lock_guard lock(state.mutex);state.serviced=true;}state.condition.notify_all();
+  }
+  worker.join();require(result!=cancel,"state service versus cancellation result");
+  require(std::chrono::steady_clock::now()-begin<std::chrono::seconds(1),"state cancellation bound without notification");
+ }
+ std::cout<<"production state wait service/cancellation passed\n";
 #ifdef _WIN32
  WSADATA data{};require(WSAStartup(MAKEWORD(2,2),&data)==0,"WSAStartup");
 #endif

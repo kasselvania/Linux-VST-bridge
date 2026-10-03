@@ -9,6 +9,7 @@ for args, expected in [([], 0), (["--hang"], 93)]:
     start = time.monotonic()
     child = subprocess.run([str(exe), *args], capture_output=True, text=True, timeout=12)
     duration = time.monotonic() - start
+    assert "sensitive-vendor-exception-marker" not in child.stdout + child.stderr
     print(child.stdout, end="")
     print(f"owner scenario {args or ['cancellable']}: exit={child.returncode}, seconds={duration:.3f}")
     if child.returncode != expected:

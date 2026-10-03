@@ -50,7 +50,7 @@ struct Session final : ExternalProcessing {
     void service_owner() override {
         if(delivered.load(std::memory_order_acquire)) {
             ++failures;
-            throw std::runtime_error("injected owner service exception");
+            throw std::runtime_error("sensitive-vendor-exception-marker");
         }
     }
     // Also compiles against the unmodified base for the red reproduction.
