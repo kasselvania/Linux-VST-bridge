@@ -11,6 +11,39 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Managed configuration remains **unqualified**; installed acceptance failed.
+Paired package `0.12.0config4` is frozen at source
+`19c5888bd3332c827c317387365b177587d9d805` with green CI. Source connects
+preparation, advice/preferences, registration/readback, launch and trial/keep/restore
+through the existing candidate/history owners. Prepared defaults remain frozen in
+retained profiles; refresh resolves current advice while preserving explicit
+preferences, exact execution bindings, historical IDs and saved objects.
+Publication/buffering changes quiesce the affected class while allowing independent
+siblings; unresolved ownership and shared maintenance retain specific refusals.
+Unfamiliar managed classes receive finite native slots according to capability
+eligibility, separately from liveness and historical qualification. Interrupted
+publications remain visible as needing attention and can reach normal reconciliation
+after required retirement; readback cannot grant execution or mutation admission.
+This recovery behavior is covered by Linux tests, with no installed fault-injection
+claim from the SDK workflow.
+The [installed Ubuntu reference result](../evidence/preparation/2026-10-03-managed-configuration-installed.json)
+passes the existing unfamiliar instrument's two settings trials, meaningful recall,
+partial keep and exact restoration, with affected-class refusals and independent
+sibling DSP. Thirteen complete SDK lifetimes compared 63,897,600 samples without
+errors or overruns. The new reference effect's workflow failed: during second-trial
+request dispatch its independent instrument sibling returned one silent 1024-frame
+span, with 2044 sample mismatches and one 21.375-ms callback. Eight preceding clean
+lifetimes do not qualify that workflow. Both consumers retired normally; the cause
+of the missing block remains unresolved. See
+[FC-AUDIO-001](FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses).
+Commercial/Deck, real DAW project, editor/rendering, reboot, alternate-runtime/
+dependency and low-latency qualification remain open. Normal GUI recovery is incomplete: the first predecessor restored with 512 retained,
+but the original-version action submitted no durable request. Supported CLI
+fallback restored the exact original and returned buffering to 1024; one separate
+original-state audio recall passed. Input/application attribution remains open.
+The later all-four readback confirms exact original selections/settings and idle
+cleanup; it does not reclassify the failed SDK workflow.
+
 The previous Deck package blocked plug-ins absent from its exact prebuilt index.
 The reusable replacement first established an installed Ubuntu reference result:
 the frozen `0.12.0general1` package prepared and processed Windows

@@ -84,7 +84,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-LIFE-002](#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state) | Failed launch cleanup and truthful recovery | Manager ownership/leases/results | causal | deployed | Steam Deck and Ubuntu fixtures | supported-with-workaround | Manager recovery UX |
 | [FC-MIDI-001](#fc-midi-001--recognized-expression-rejected-an-entire-native-input-callback) | Recognized expression rejected an entire native input callback | Native VST3 proxy input admission | causal in source; physical attribution open | source-fixed | Pinned SDK fixture; Push / Deck operator report only | unqualified for Push expression | Build and publish exact proxy successor; physical Push/Bitwig release check |
 | [FC-MIDI-002](#fc-midi-002--late-note-off-permanently-fails-processing) | Late note-off permanently fails processing | Native SDK signed timestamp conversion | causal in source and matched comparison | deployed | Pinned SDK regression; recovery1 Pure LoFi physical Deck comparison | qualified for this late-release recovery only | Residual timing and broader host/event qualification remain open |
-| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | preemption and callback-burst loss attributed; older startup/output silence remain | recovery6 bounded completion repair passes physical SDK A/B and two short Bitwig runs; longer acceptance open | Pure LoFi Deck burst repair; no general audio qualification | blocked for dependable musical use | Frozen-artifact interaction/soak and separate output-silence attribution; no gap-free fallback established |
+| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | preemption and callback-burst loss attributed; config4 sibling gap and older startup/output silence remain unattributed | recovery6 focused repair passes; config4 installed configuration workflow fails one 1024-frame span | Pure LoFi Deck burst repair; Ubuntu SDK configuration/audio coexistence failed | blocked for dependable musical use | Bounded request-stage/render-thread timing before causal repair; no gap-free fallback established |
 | [FC-AUDIO-002](#fc-audio-002--host-block-exceeds-the-selected-bridge-presentation-envelope) | Host block exceeds selected bridge presentation envelope | Proxy setup, selected delay, DAW audio settings | causal | accepted | FRAGMENTS / Ubuntu at Bitwig 512/48 kHz | supported-with-workaround | Actionable requested-versus-supported block message |
 | [FC-AUTO-001](#fc-auto-001--automation-refusal-collides-with-terminal-silence) | Automation refusal collides with terminal silence | Native curve admission / SDK result interpretation | causal collision; sparse-curve capability still incomplete | deployed collision correction; whole-block successor source-only | Ubuntu reference effect explicitly refuses 0x107; state still fails | blocked for the failed saved-automation journey | Deliver paired protocol-14 whole DAW blocks and repeat recall; audio gaps remain separate |
 | [FC-CAP-001](#fc-cap-001--capacity-enumeration-versus-lease-retirement-race) | Capacity scan versus lease retirement | Manager capacity ownership | causal | none | AP17 exact fixture | supported-with-workaround | Repair issue #93 |
@@ -974,6 +974,25 @@ physical product result is claimed.
 ---
 
 ## FC-AUDIO-001 — Residual audio deadline misses
+
+The [2026-10-03 config4 Ubuntu workflow](../evidence/preparation/2026-10-03-managed-configuration-installed.json)
+contains a separate confirmed missing-output result. While applying a second
+configuration trial to a reference effect, its independent instrument sibling
+returned one silent 1024-frame span: 2044 sample mismatches and a 21.374726-ms
+callback at 48 kHz, with 1024 actual/maximum frames and 1024 bridge frames.
+The full 4800-block lifetime and orderly SDK/native/Windows retirement completed;
+the consumer's failure at stage `retirement` is the audio assertion site, not a
+demonstrated teardown failure. The complete effect workflow remains failed.
+
+The callback began during request dispatch, after product projection and before
+the receipt was observed; worker/mutation start was not captured. Native queue
+progress was not an atomic snapshot. Native scheduling reported an unavailable
+existing RT budget, and Windows exact-owned-thread selection failed before RTKit
+invocation. Repeated runtime-tree/candidate checks in ordinary controls are a
+confirmed source cost, but neither that cost nor cumulative cgroup throttling
+attributes the missing block. The next comparison needs bounded request-stage
+and exact-render-thread timing witnesses. Retain this failure separately from
+earlier Deck mechanisms; do not fix its label by replaying until clean.
 
 The [2026-10-03 general5 Deck interaction](../evidence/audio-recovery/2026-10-03-general5-deck-installation.json)
 is a separate terminal-instance failure, not another established queued-dropout
@@ -2215,6 +2234,33 @@ No repaired Nibbi/Deck claim follows.
 The [beta contract](INTEGRATED_BETA_DELIVERY.md#unfamiliar-plug-ins-and-advanced-compatibility)
 also requires dependency and alternate-runtime experiments and failed-trial
 recovery. Last reviewed: 2026-10-03.
+
+The managed-configuration follow-up freezes product source `19c5888b` in
+`0.12.0config4`. Preparation, local graphics/accessibility choices, launch
+registration, readback and ordinary trial/restore actions now share the existing
+candidate/history owners. Retained defaults are not reinterpreted using today's
+advice, and refreshed preparation preserves explicit choices. Publication and
+buffering changes quiesce the affected class while allowing independent sibling
+DSP owners and preserving the separate buffering preference. Capability eligibility is distinct
+from historical qualification; unfamiliar managed classes use the existing finite
+native slots rather than requiring catalogue membership.
+
+Linux regression tests also cover an interrupted unfamiliar publication remaining
+visible through overview, product and setup readback so normal reconciliation can
+be reached. The readback path preserves canonical ownership; pending or invalid
+bindings still refuse execution and mutation. This recovery coverage is a source
+test result, not an installed fault-injection result or a broader cleanup claim.
+
+Installed config4 results pass the existing unfamiliar instrument's complete SDK
+configuration workflow but fail the new reference effect's second-trial sibling
+audio comparison. GUI recovery restored its first predecessor, retaining 512;
+original-version inputs then produced no durable request and the cause remains
+unassigned between remote input and application. Supported CLI fallback restored
+the exact original and buffering 1024, followed by one passing original-state SDK
+recall. All four exact original selections/preferences and idle cleanup were read
+back separately. The retained result and FC-AUDIO-001 keep shared configuration/
+audio coexistence and ordinary GUI recovery open; preparation and CLI restoration
+do not establish dependable processing or an actual DAW/editor workflow.
 
 ## FC-STATE-001 — Saved state rejects an explicitly selected module update
 
