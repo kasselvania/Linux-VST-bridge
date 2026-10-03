@@ -1195,7 +1195,8 @@ fn supervisor_ready_for_configuration(child: &mut Child, session: &str,
             // record already buffered in the pipe is still authoritative.
             // Drain the pipe before classifying its closure as pre-readiness
             // failure; checking try_wait() first discards that valid record.
-            Ok(0) => return Err("supervisor readiness output closed".into()),
+            Ok(0) => return Err(if graphics.is_some() { mismatch }
+                else { "supervisor readiness output closed" }.into()),
             Ok(count) => received.extend_from_slice(&bytes[..count]),
             Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => continue,
             Err(error) => return Err(error.into()),
@@ -2508,9 +2509,14 @@ mod tests {
             let mut registration = f.r.clone();
             registration.compatibility.graphics = graphics;
             let (job, path) = spec(&f.m, registration.into(), true, false, false).unwrap();
-            let status = spawn(&f.m, &software, &path, None).unwrap().wait().unwrap();
+            let mut child = spawn(&f.m, &software, &path, None).unwrap();
+            let status = child.wait().unwrap();
             assert_eq!(status.success(), graphics.is_none());
             assert_eq!(job.directory.join("owner-started").exists(), graphics.is_none());
+            if graphics.is_some() {
+                assert!(supervisor_ready(&mut child, &job, Duration::from_secs(1)).unwrap_err()
+                    .to_string().contains("check compatibility to prepare a current configuration"));
+            }
         }
     }
     #[test]
