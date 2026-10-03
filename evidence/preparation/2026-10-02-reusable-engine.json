@@ -71,7 +71,8 @@
     "Native fixture command initially used named arguments for positional parameters; corrected invocation.",
     "macOS all-target manager checks reach existing Linux-only scheduling and device APIs; no macOS binary pass claimed.",
     "Emulated Linux manager check crashed while linking the serde build script. A system-linker comparison then hit GCC cc1 SIGSEGV while compiling lzma-sys. No cgroup OOM events were recorded; native Linux CI remains required.",
-    "Extending the manager route test through installed readback and runtime admission reproduced candidate_registration_changed: a comparison relocated the engine but not its descriptor. All registration relocations now move the pair; the same regression checks the fix."
+    "Extending the manager route test through installed readback and runtime admission reproduced candidate_registration_changed: a comparison relocated the engine but not its descriptor. All registration relocations now move the pair; the same regression checks the fix.",
+    "First native CI passed manager Rust, runtime and frontend checks but its offline signing-rebuild test lacked unicode-ident 1.0.26 from the backend lockfile. Reproduced with a fresh manager-only Cargo cache. CI now fetches the backend lockfile explicitly before the unchanged offline rebuild; no customer dependency is added."
   ],
   "resources": {
     "builder_count": 1,
@@ -96,5 +97,17 @@
     "frozen_audio_worktree_changed": false,
     "vendor_state_changed": false
   },
-  "next": "Join shared assessment and requested/effective configuration to existing candidate history, exercise a reversible supported setting, then compare actual new Windows modules and DAW recall on a frozen package."
+  "next": "Join shared assessment and requested/effective configuration to existing candidate history, exercise a reversible supported setting, then compare actual new Windows modules and DAW recall on a frozen package.",
+  "implementation_commit": "a7ec8ab5e6cd693b57add8e15726d1d64b8dcdce",
+  "implementation_tree": "23c6fc15fc373cd6ad1050c0f73b56e1dc6323a7",
+  "ci": {
+    "native": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100530559",
+    "native_result": "passed",
+    "package_portability": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100530556",
+    "package_portability_result": "passed",
+    "policy": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100530543",
+    "policy_result": "passed",
+    "first_manager": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100530598",
+    "first_manager_result": "manager Rust, runtime, frontend and release builds passed; offline rebuild fixture failed missing dependency cache"
+  }
 }

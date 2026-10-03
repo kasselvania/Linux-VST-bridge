@@ -107,6 +107,9 @@ jobs:
       - run: python3 -m unittest discover -s tools/uir2 -v
       - run: python3 -m unittest discover -s tools/if2 -v
       - run: sudo apt-get install -y xvfb libxtst6 libxcomposite1 libxi6 libarchive-tools gnupg
+      # The signing verifier rebuilds offline using the backend's own lockfile,
+      # whose transitive versions need not match the manager dependency cache.
+      - run: cargo fetch --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --target x86_64-unknown-linux-gnu
       - run: python3 -m unittest discover -s tools/pkg0 -v
       - run: python3 tools/pkg0/root_intake_fixture.py
       - run: UIO1_XVFB_FIXTURE=1 timeout 20s xvfb-run -a python3 tools/uio1/x11_fixture.py
