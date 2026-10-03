@@ -128,12 +128,19 @@ assessment nor policy adoption approves the beta or changes the installed machin
 
 Installed config4 acceptance uses the disposable Ubuntu fixture under the main
 engineer's machine custody. No Deck run is selected.
-The Ubuntu VM was shut down normally after recovery; the builder is stopped and
-Audiobookshelf remains running. Retained VM disks and private evidence are preserved.
-Retain one VM or builder at a time, at most two CPUs, 4 GiB memory and 4 GiB combined
-memory/swap, and 256 processes on the declared build fixture. Reserve host CPU 0–1
-and capacity for Audiobookshelf. Other independently authorized owners retain their
-work and machine-custody boundaries.
+The Ubuntu VM was shut down normally after the retained config4 recovery.
+Retained VM disks and private evidence are preserved; Audiobookshelf remains running.
+The next observation uses one VM or builder at a time, at most two CPUs on host
+CPU 2–3 and 256 processes. Reserve host CPU 0–1 and capacity for Audiobookshelf.
+On 2026-10-03 the operator authorized an 8 GiB memory allowance for a controlled
+capacity comparison. Retain the original 3 GiB guest / 4 GiB container as the
+baseline; compare a 6 GiB guest / 8 GiB container, leaving room for VM overhead.
+Combined memory/swap equals each container's memory limit. Change memory separately
+from runtime, buffering, scheduling and software; record actual pressure and quota
+deltas. The builder retains its 4 GiB limit. No memory setting establishes audio
+qualification. The operator also requested a clean-room comparison with current
+yabridge and relevant Proton/Wine mechanisms. Other independently authorized owners
+retain their work and machine-custody boundaries.
 
 The operator's delegation preference is implementation on `gpt-6.1-sol` at `max`,
 review on `gpt-6-astra` at `xhigh`, and computer use on `gpt-6.1-sol` at `high`.
