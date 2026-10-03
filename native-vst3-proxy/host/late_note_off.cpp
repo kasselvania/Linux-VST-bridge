@@ -23,9 +23,11 @@ using Clock=std::chrono::steady_clock;
 static void need(bool v,const char* why){if(!v)throw std::runtime_error(why);}
 static void ok(tresult v,const char* why){need(v==kResultOk,why);}
 int main(int argc,char** argv){try{
- need(argc==4,"usage: late-note-off-host BUNDLE OUTPUT_PREFIX -1661|0");
+ need(argc==4||argc==5,"usage: late-note-off-host BUNDLE OUTPUT_PREFIX -1661|0 [BLOCKS]");
  const int offset=std::stoi(argv[3]);need(offset==-1661||offset==0,"declared release offset");
- constexpr int frames=512,count=720;
+ constexpr int frames=512;
+ const int count=argc==5?std::stoi(argv[4]):720;
+ need(count>=720&&count<=112500,"capture duration outside 720..112500 blocks");
  const std::string prefix=argv[2];
  std::string error;auto module=VST3::Hosting::Module::create(argv[1],error);
  need(bool(module),"module load");auto host=owned(new HostApplication);
@@ -59,7 +61,8 @@ int main(int argc,char** argv){try{
  // bridge plus vendor latency; a commercial instrument need not report 512.
  const auto reportedLatency=processor->getLatencySamples();
  std::vector<std::array<float,2>> samples(size_t(count*frames));
- struct Row{tresult result{};uint64_t started{},duration{};};std::array<Row,count> rows{};
+ struct Row{tresult result{};uint64_t started{},duration{};};std::vector<Row> rows(size_t(count),Row{});
+ uint64_t audioBegin=0;
  std::exception_ptr failure;
  std::thread audio([&]{try{
   std::array<std::array<float,frames>,2> out{};float* planes[]{out[0].data(),out[1].data()};
@@ -67,11 +70,13 @@ int main(int argc,char** argv){try{
   EventList notes(1);ProcessData data{};data.processMode=kRealtime;data.symbolicSampleSize=kSample32;
   data.numSamples=frames;data.numOutputs=1;data.outputs=&output;data.inputEvents=&notes;
   ok(processor->setProcessing(true),"start");auto begin=Clock::now();
+  audioBegin=std::chrono::duration_cast<std::chrono::nanoseconds>(begin.time_since_epoch()).count();
   for(int b=0;b<count;++b){
    notes.clear();
-   if(b==8||b==120||b==360||b==472){
-    const bool on=b==8||b==360;const int pitch=b<360?60:67,id=b<360?42:43;
-    Event e{};e.busIndex=0;e.sampleOffset=b==120?offset:0;
+   const int pattern=b%720;
+   if(pattern==8||pattern==120||pattern==360||pattern==472){
+    const bool on=pattern==8||pattern==360;const int pitch=pattern<360?60:67,id=pattern<360?42:43;
+    Event e{};e.busIndex=0;e.sampleOffset=pattern==120?offset:0;
     e.type=on?Event::kNoteOnEvent:Event::kNoteOffEvent;
     if(on)e.noteOn={0,int16(pitch),0.f,.75f,0,id};else e.noteOff={0,int16(pitch),.25f,id,0.f};
     ok(notes.addEvent(e),"note input");
@@ -102,7 +107,8 @@ int main(int argc,char** argv){try{
   <<",\"blocks\":"<<count<<",\"reported_latency_samples\":"<<reportedLatency<<",\"native_processor_id\":\""<<classes[0].ID().toString()
   <<"\",\"native_controller_id\":\""<<classes[1].ID().toString()<<"\",\"rejected_callbacks\":"<<rejected
   <<",\"nonfinite_samples\":"<<nonfinite<<",\"state_result\":"<<state<<",\"state_bytes\":"<<after.bytes.size()
-  <<",\"deactivate_result\":"<<inactive<<",\"terminate_result\":"<<retired<<",\"timing\":[";
+  <<",\"deactivate_result\":"<<inactive<<",\"terminate_result\":"<<retired
+  <<",\"audio_begin_monotonic_ns\":"<<audioBegin<<",\"timing\":[";
  for(int b=0;b<count;++b){const auto&r=rows[size_t(b)];if(b)std::cout<<',';
   std::cout<<'['<<r.result<<','<<r.started<<','<<r.duration<<']';}
  std::cout<<"]}"<<std::endl;

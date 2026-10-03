@@ -2,6 +2,7 @@
 #[cfg(test)]
 mod commercial_tests;
 mod context;
+mod completion_wait;
 mod fault_status;
 mod terminal;
 mod gui;
@@ -17,6 +18,7 @@ mod process_results;
 mod queue;
 mod queued;
 mod recovery;
+mod scheduling;
 mod state;
 #[cfg(feature = "rpi0")]
 pub mod rpi0;

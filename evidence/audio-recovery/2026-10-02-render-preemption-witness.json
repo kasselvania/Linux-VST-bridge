@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "fixture": "Physical Deck / Bitwig 6.1 / Pure LoFi 1.0.0.6121; recovery1; tracing enabled; SCHED_OTHER 0",
+  "sequence": 9072,
+  "gap_position": 4642816,
+  "gap_frames": 512,
+  "request_monotonic_ns": [
+    8235052993307,
+    8235055104864,
+    8235055114624,
+    8235055115704,
+    8235066253257,
+    8235066315299,
+    8235066327000
+  ],
+  "windows_reply": [
+    82347985651,
+    82347988109,
+    82347988234,
+    82347988259,
+    82348096168,
+    82348096898,
+    82348097025,
+    82348097043,
+    18446744073709551615,
+    18446744073709551615,
+    37591,
+    0,
+    37605,
+    0,
+    10000000
+  ],
+  "gap_monotonic_ns": 8235063646165,
+  "clock_uncertainty_ns": 1180,
+  "switches": [
+    [
+      8235054755393,
+      "IN",
+      false
+    ],
+    [
+      8235055028221,
+      "OUT",
+      true
+    ],
+    [
+      8235055132534,
+      "IN",
+      false
+    ],
+    [
+      8235055144245,
+      "OUT",
+      false
+    ],
+    [
+      8235055259198,
+      "IN",
+      false
+    ],
+    [
+      8235059029728,
+      "OUT",
+      true
+    ],
+    [
+      8235065029768,
+      "IN",
+      false
+    ],
+    [
+      8235066202696,
+      "OUT",
+      true
+    ]
+  ],
+  "lost_events": 0,
+  "private_native_report_sha256": "3fb5907c0f630b9fbed2f73dcd739c1377e291b75de6f740069fff90879f02bd",
+  "private_scheduler_text_sha256": "a58f0c30f7761dddad7f95375e7fdac26c95d8e7d6d355fea5e351c9eec2555a"
+}

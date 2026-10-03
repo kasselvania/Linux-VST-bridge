@@ -1,5 +1,214 @@
 # Current work selection
 
+## Active audio recovery stage 2: one attributed presentation gap
+
+On 2026-10-02 the operator authorized stage 2 of the recorded recovery roadmap.
+Base: `7be2a0b2ed81ff48e65f98701c8f58c77c7f472f`, tree
+`8c0e0dc04af5816038a5665744428730ca48998d`. The first bounded claim is that
+one reproduced physical audio gap is attributed to its responsible delivery
+boundary and a causal repair passes a failing regression and a matched physical
+captured-output comparison. Stage 2 as a whole remains open until the frozen
+artifact passes the declared interaction and soak gates.
+
+Current result: the focused callback-burst repair has passed source regression
+and a captured-output physical SDK A/B on the Deck. Recovery6 also passed two
+short Bitwig lifetimes. Longer interaction/soak and earlier unexplained failures
+remain open. Exact reference application and native component bytes are restored;
+the repair package and evidence remain retained. The next bounded job is the
+frozen recovery6 interaction/soak, with no concurrent architecture or runtime
+change. Detailed observations below retain earlier failures as failures.
+
+Basis: the operator's recovery directive; AGENTS.md real-time and evidence laws;
+ARCHITECTURE.md §18; decision D-022; AUDIO_RECOVERY_ROADMAP.md stage 2; and
+INTEGRATED_BETA_DELIVERY.md acceptance method. Begin with the retained physical
+Steam Deck, recovery1 Pure LoFi 1.0.0.6121, 48 kHz, actual/maximum block 512 and
+bridge delay 512. Verify the exact installed identities against the retained
+late-note-off receipt before running. Keep the selected runtime, licensed
+environment, scheduling policy and delay fixed while reproducing and attributing
+the failure. Once attributed, vary only the measured cause in the repair comparison.
+
+The first captured attribution is a 6.000040 ms preemption of the actual Windows
+render thread, inside the SDK call and across the missing block's presentation
+deadline. A scheduling-only experiment on that thread completed 19,480 Pure LoFi
+blocks without missing frames; it is a test intervention, not an installed fix.
+The bounded repair requests SCHED_RR priority 5 through existing RealtimeKit from
+the owning supervisor, using a Rust control-plane operation. It binds the target
+to existing PID/start custody, the exact mapped session status inode and the
+named render thread. It preserves other policies and records actual readback or
+unavailability. This is post-start capability acquisition, not a new processing
+readiness gate or a promise that the policy was effective from the first sample.
+The exact source `d5e710a243d5c990e33eb832103098ff4a14e6b3`, tree
+`f00ca2178f65e33730fe7385de089a6fafc8d318`, was built and installed as
+`0.12.0recovery3`. Both existing native publications and the Windows host/runtime
+remained unchanged. The selected application's matching host/source pair routed
+both sessions through the new supervisor. Actual render-thread readback confirmed
+RR 5 with RESET_ON_FORK automatically in two separate project lifetimes.
+
+**The installed candidate fails whole-session continuity.** In the untraced
+interaction run Pure LoFi lost 512 frames in one gap over 40,076 blocks;
+FRAGMENTS lost none over 39,687 blocks. The gap arose after the final clean live
+read and before processing stopped, during the stop/save/close interval; the
+responsible operation is not established. The whole recording also contains an
+unexplained 512-frame silent span during playback while later bridge counters
+were still clean. Do not attribute that separate observation to this bridge gap.
+A traced reopen with two play/stop cycles and saves completed 27,828 / 27,435
+blocks without gaps and retired cleanly. It does not erase the failed run.
+
+The [sanitized result](evidence/audio-recovery/2026-10-02-owned-render-scheduling.json)
+retains every comparison, source checks, exact artifacts and limitations. Normal
+Setup and Updates controls restored the exact recovery1 application afterward;
+the entire registry, original project and reference copy are unchanged. The
+candidate and full private captures remain preserved. The builder is stopped.
+Attribution and an installed scheduling capability are demonstrated; the primary
+continuity-repair claim and stage 2 remain open. Next capture must cover the native
+worker, Windows render and DAW callback through the remaining late-session gap,
+and separately distinguish the monitor silence from native-reference behavior.
+
+The next bounded comparison reproduced no gap on unchanged recovery3: the
+traced lifetime completed 27,947 Pure LoFi / 27,556 FRAGMENTS blocks; the
+diagnostics-disabled lifetime completed 45,502 / 45,120. Both used external
+scheduler capture, whole speaker-monitor recording, copied-project saves and
+two play/stop cycles; both retired cleanly. Neither clears the earlier failure
+or proves that observation caused it. The native worker's exact per-session
+identity was ambiguous in the first external collector and is not used for
+causal attribution.
+
+The [observation repair](native-vst3-proxy/host/PRESENTATION_GAPS.md) retains
+16 bounded missing-span records without the optional observer. It exports the
+presentation clock bracket, existing parent callback, worker identity/progress,
+queue counters and control/readiness observations at close. It preserves the
+audio result and all delivery protections. The new regression fails on the old
+source; 22 queued tests pass on macOS, including callback allocation checks.
+Linux backend validation passed 89 tests with one existing Windows-fixture test
+ignored. The exact source `361442f42366e4be3f333d7622809e99273d8d87`, tree
+`c32a848dc4a5d631e74a5d5a52ec587271600786`, was built and installed as recovery4,
+including both matching native publications. With sample tracing off, a controlled
+40 ms suspension of the owned Windows test process produced four retained spans
+and exactly the corresponding 2,048 silent frames in captured SDK output. Audio
+resumed and ownership retired cleanly. This validates installed observation;
+the deliberately injected stall does not attribute the earlier natural failure.
+A separate 120-second native Bitwig 1 kHz reference had no missing spans or signal
+recurrence violations after capture startup. The earlier monitor silence remains
+unattributed. [Retained comparison](evidence/audio-recovery/2026-10-02-residual-gap-observation.json).
+This is diagnostic coverage, not the remaining causal audio repair.
+
+The untraced recovery4 chain then reproduced 1,024 missing FRAGMENTS frames.
+Both missing requests had not been consumed by the native worker. External
+capture shows a 23.273160 ms native-worker preemption across both deadlines;
+the collector omitted namespace mappings, so the exact numeric per-session TID
+association is a stated gap. A subsequent exactly mapped intervention on both
+native workers accumulated no further bridge gaps for about 630 seconds, but
+Pure LoFi had already lost 512 startup frames and the monitor contains additional
+unexplained silent spans. Neither whole lifetime passes.
+
+The next bounded source repair prepares native-worker scheduling through the
+existing authenticated supervisor, before servicing setup or audio. It preserves
+DAW-wide limits and policies, verifies the exact namespace TID and thread start,
+and independently reads back the effective result. The preparation contract is
+[documented here](native-vst3-proxy/host/NATIVE_SCHEDULING.md). Source
+`8ade872366ddd0cce59577c4af014cd580e76df4`, tree
+`fb49cd38047cd98c4d15f6b47e1210810bf44466`, passed 93 Linux backend tests
+(one existing fixture ignored), five Rust target-selection tests, five supervisor
+tests and 16 ownership/retirement tests. The new supervisor regression fails on
+the old source; it tests preparation, not a deterministic reproduction of the
+physical audio loss. All ten package-build steps passed.
+
+Installed recovery5 verified automatic RR 5 on both native workers before setup
+and audio, and on both Windows render threads at later readback. Its first whole
+lifetime completed 52,935 Pure LoFi / 52,544 FRAGMENTS blocks without bridge
+misses, but the monitor recording contains an unexplained 512-frame silent span
+during editor interaction. The second lifetime lost one startup block per
+plug-in (23,638 / 23,249 total blocks). Both gaps precede the added direct recorder
+and scheduler collector. Native scheduling was already effective; Windows policy
+at the first callback is not established. Independent progress reads place each
+missing position in the worker's processing operation, without a pending control
+request; they do not identify SDK time versus reply wait or host callback timing.
+The later direct recorder accumulated 43 stream errors and the scheduler helper
+exceeded its requested file bound and timed out during cleanup. Those observer
+failures are retained separately and cannot explain the earlier startup gaps.
+
+The [physical result](evidence/audio-recovery/2026-10-02-native-worker-scheduling.json)
+therefore remains failed. Normal historical candidate publication and application
+selection restored all recovery1 component bytes and both reference native
+binaries. New publication revisions and software location were created; the
+registry and location are not byte-identical to the earlier selection. Other six
+publications, runtime, environment, original project and reference copy are
+unchanged. All DSP owners and experiment recorders retired; the builder is
+stopped. The retained reference is functional, not qualified gap-free.
+
+Next bounded target: locate the first missing startup result across native
+admission, Windows render readiness/processing, reply and presentation before
+changing another mechanism. Separately qualify the additional recorder before
+attributing editor-interval output silence. Do not infer callback bursts from a
+worker-ready timestamp or first-sample Windows policy from a later readback.
+Stage 2 and its continuity-repair claim remain open.
+
+The next short traced recovery5 lifetime reproduced a different, directly
+attributed gap at the final Pure LoFi callback before close. Request admission
+to presentation was only 1.340 ms; Windows SDK processing took 1.943 ms and
+native publication followed presentation by 0.894 ms. Control work had finished
+about nine seconds earlier. The first startup in this run was clean. The whole
+speaker capture has no internal exact-zero span during its musical signal;
+this identifies a delivery defect, not an audible dropout in that recording.
+
+The [bounded completion repair](native-vst3-proxy/host/COMPLETION_DEADLINE.md)
+lets the prepared protocol-14 callback wait for already-due output within one
+actual-block-duration budget. It retains the queued delay, ownership and epochs;
+this is not the stage-4 zero-added-delay path. A burst regression loses 7,680
+frames on recovery5 and passes after the repair with zero callback allocations.
+Timeout, expiry, control exclusion and notification-race tests accompany it.
+The final source `85c444ff2a1271f5d616ab3f3192ff2d36fb111e`, tree
+`0ef273cacf66d45f38b9b7ce895728e1bd6f15bf`, passed 96 Linux backend tests
+(one existing fixture ignored) and all ten package-build steps. Installed
+recovery6 passed two short copied Bitwig lifetimes: 9,095 / 8,702 traced and
+8,399 / 8,014 untraced Pure LoFi / FRAGMENTS blocks, with zero missing,
+rejected or expired frames, no internal exact-zero captured span, and clean
+retirement. Neither run exercised the completion wait.
+
+A separate diagnostics-disabled physical SDK comparison deliberately paused
+only the owned consumer for 40 ms, producing catch-up callbacks while a note
+was held. With identical application, Windows host, runtime, plug-in state and
+consumer, recovery5 replaced 1,536 captured frames with exact zeros; recovery6
+used three completion waits and delivered every block, with no internal exact-zero
+span or expiry. Maximum full SDK processing-call duration was 1.526402 ms.
+Both arms captured identical opaque state before/after and retired cleanly.
+Native scheduling remained SCHED_OTHER in this SDK host because it had no finite
+realtime budget; Windows RR 5 was verified in both. Bitwig independently verified
+native RR 5. The deliberate pause proves the burst boundary, not a device-output
+deadline or the cause of every historical failure.
+
+The [retained result](evidence/audio-recovery/2026-10-02-queued-completion-deadline.json)
+therefore completes the focused burst-delivery repair. Stage 2 remains open.
+Next: qualify the frozen recovery6 artifact through the declared interaction
+and soak, covering startup, stop/restart/save/close and editors, and separately
+attribute any captured silence without bridge misses. Do not claim the older
+startup or editor-interval failure is fixed from this focused comparison.
+Normal publication and installer/Setup controls restored all eight reference
+application component hashes, both reference native binaries and their host
+pairs. New selection/publication locations were created. Other six publications,
+runtime/environment, original and reference projects are unchanged; service is
+ready, owners and recorders are retired, tracing is off and the builder is stopped.
+Audiobookshelf was running at final readback. The reference remains functional,
+not qualified gap-free.
+
+Scope: the actual callback, queue, worker, transport, Windows render and
+presentation path; bounded preallocated telemetry; independent SDK consumer;
+focused regression and evidence. Dependencies change only if required by the
+measured cause. Preserve ownership, epochs, strict wire validation, original
+projects and rollback artifacts. Do not weaken the queued D >= M contract or
+fold runtime selection, manager redesign, new platforms or lower-latency claims
+into this repair.
+
+Capture every run in full, including failures, actual output, callback timings,
+trace coverage, component hashes, settings and confirmed retirement. Locate the
+missing result at its presentation deadline. Compare observer effects explicitly;
+diagnostics remain off for acceptance. Test the failure and the repaired behavior,
+including cleanup and stale-result rejection where affected. Use project copies
+and the existing publication/selection mechanism for any installed successor.
+One VM or builder at a time must leave Audiobookshelf resource headroom. Retain
+private captures outside Git; publish only sanitized evidence. Commit and push
+the bounded result without promoting or merging the frozen PR #200.
+
 ## Completed audio recovery stage 1
 
 On 2026-10-02 the operator selected the [six-stage recovery roadmap](docs/AUDIO_RECOVERY_ROADMAP.md)

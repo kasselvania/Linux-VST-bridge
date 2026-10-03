@@ -69,7 +69,7 @@ fn same_session_reconfiguration_two_ended() {
     shared.ack.store(17, Ordering::Release);
     let shared = Arc::new(shared);
     let peer = shared.clone();
-    let worker = thread::spawn(move || super::worker(session, peer, None));
+    let worker = thread::spawn(move || super::worker(session, peer, None, None));
     run.handle = INSTANCES
         .insert(|| {
             Ok::<_, io::Error>(Live {

@@ -17,6 +17,63 @@ FRAGMENTS pair restores sound, editor interaction and project recall on the
 Deck, but new whole-session observations still contain missing audio. It is a
 useful reference, not a gap-free fallback. FC-AUDIO-001 remains open.
 
+A subsequent recovery1 Deck failure now has a kernel scheduling witness:
+the Pure LoFi render thread was preempted for 6.000040 ms across a missing
+block's deadline while inside the SDK call. A scheduling-only helper comparison
+completed 19,480 instrument blocks without gaps and retired cleanly. The automatic
+supervisor/Rust request was then installed as recovery3 and actual RR 5 readback
+was verified for both render threads. Its tracing-disabled whole lifetime still
+lost 512 Pure LoFi frames over 40,076 blocks; FRAGMENTS lost none over 39,687.
+A later traced reopen/lifecycle repetition had no bridge gaps but does not erase
+that failure. A separate unexplained 512-frame silent span exists in the monitor
+recording while bridge counters were clean. Exact recovery1 application selection
+was restored through normal controls; all publications remain unchanged. The
+[retained result](../evidence/audio-recovery/2026-10-02-owned-render-scheduling.json)
+does not change the blocked dependable-audio support posture.
+See [FC-AUDIO-001](FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses).
+
+Two additional recovery3 lifetimes, with external scheduler capture, completed
+27,947 / 27,556 traced and 45,502 / 45,120 untraced Pure LoFi / FRAGMENTS blocks
+without missing frames and retired cleanly. They leave the earlier failure
+intact. The bounded untraced missing-span record passed 22 queued tests on macOS
+and 89 backend tests on Linux, with one existing Windows-fixture test ignored.
+Its installed recovery4 record matches exactly 2,048 captured silent frames from
+a deliberately injected 40 ms owned-process stall. This is diagnostic validation,
+not a second causal audio repair. A 120-second native Bitwig reference signal
+passed after capture startup; the earlier monitor silence remains unattributed.
+The [comparison](../evidence/audio-recovery/2026-10-02-residual-gap-observation.json)
+does not change dependable-audio support or establish beta readiness.
+
+A subsequent recovery4 FRAGMENTS run lost 1,024 frames before native request
+consumption, with a 23.273160 ms native-worker preemption across the deadlines.
+The exact per-session external TID association was not retained in that run.
+Later native-worker scheduling produced no further bridge gaps for about ten
+minutes, but the lifetime had a startup gap and unexplained output silence.
+Installed recovery5 subsequently verified automatic native preparation and
+Windows-render scheduling. Its first lifetime has zero bridge misses over
+52,935 / 52,544 blocks but unexplained 512-frame monitor silence. The repeat lost
+one startup block per plug-in over 23,638 / 23,249 blocks, after native scheduling
+was prepared and before extra observers began. Those later observers also failed
+independently and are not accepted measurement tools. First-callback Windows
+scheduling and the startup request/reply delay remain unattributed. All owners
+retired; recovery1 component bytes and both reference natives were restored
+through normal controls under new selection/publication locations. Dependable
+audio remains blocked. See the [whole-lifetime results](../evidence/audio-recovery/2026-10-02-native-worker-scheduling.json).
+
+Recovery6 at source `85c444ff` subsequently repairs a measured callback-burst
+delivery failure. A physical SDK A/B with the same Pure LoFi module/state,
+application, Windows host and runtime changed only the native proxy: a deliberate
+consumer pause produced 1,536 captured missing frames on recovery5 and none on
+recovery6. Three completion waits were exercised; the full SDK process-call
+maximum was 1.526402 ms. Two short Bitwig lifetimes also completed with zero
+misses (9,095 / 8,702 traced and 8,399 / 8,014 untraced instrument/effect blocks),
+but exercised no wait. Captures and clean retirement are retained in the
+[focused result](../evidence/audio-recovery/2026-10-02-queued-completion-deadline.json).
+This establishes the burst repair, not dependable musical use. Longer interaction,
+soak, prior startup failures and the separate editor-interval silence remain open.
+Exact reference application/native bytes were restored afterward through normal
+controls under new selection/publication locations; the candidate is retained.
+
 The separate late-note-off correction passed its source regression and an
 installed physical Pure LoFi comparison on the Deck. Internal57 rejected 600
 callbacks after offset -1661; recovery1 delivered all 720 callbacks, captured
@@ -139,8 +196,8 @@ product results remain scoped to their recorded input fixtures.
 
 | Product / exact class | User posture | Accepted profile or selected candidate | Runner/policy | Physically accepted behavior | Current limitations and linked failure classes | Last physical evidence |
 |---|---|---|---|---|---|---|
-| Pure LoFi 1.0.0.6121 · `417274754156495350724C4650726F63` (instrument) | supported | ordinary verified revision 10; [profile](../compatibility/arturia-pure-lofi.json); exact host/source continuity [FC-MGMT-002](FAILURE_CLASSES.md#fc-mgmt-002--exact-verified-hostsource-omitted-across-software-generations) | `proton-11.0-2c-25118279-slr4-4.0.20260805.254769`; default policy | Deck instrument/audio, editor, automation, distinct state and save/reopen, sibling isolation and retirement in the exact Arturia fixture | Recorded gaps and no 256-frame qualification: [FC-AUDIO-001](FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses). Concurrent lease race: [FC-CAP-001](FAILURE_CLASSES.md#fc-cap-001--capacity-enumeration-versus-lease-retirement-race). | [AP17 six-instance/recall result](AP17.md#r1-fixture-completion-and-recovery-result) |
-| Efx FRAGMENTS 1.0.0.2925 · `41727475415649536772616E50726F63` (effect) | supported | ordinary verified revision 10; [profile](../compatibility/arturia-efx-fragments.json); exact host/source continuity [FC-MGMT-002](FAILURE_CLASSES.md#fc-mgmt-002--exact-verified-hostsource-omitted-across-software-generations) | same pinned Arturia runner; default policy | Deck effect audio, editor/parameter interaction, saved-state recall and clean retirement | Recorded gaps and unqualified 256: [FC-AUDIO-001](FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses). Concurrent lease race: [FC-CAP-001](FAILURE_CLASSES.md#fc-cap-001--capacity-enumeration-versus-lease-retirement-race). Arbitrary multibus I/O is not claimed. | [AP17 six-instance/recall result](AP17.md#r1-fixture-completion-and-recovery-result); [AP16](AP16.md) |
+| Pure LoFi 1.0.0.6121 · `417274754156495350724C4650726F63` (instrument) | blocked for dependable audio | retained recovery1 reference candidate `6bada0be548a` restored as managed revision `90b164371f317f4cd341cfbff726af86`; native `cfde3eaf`; historical [profile](../compatibility/arturia-pure-lofi.json) | `proton-11.0-2c-25118279-slr4-4.0.20260805.254769`; default policy | Historical Deck instrument/audio, editor, automation, distinct state and save/reopen, sibling isolation and retirement retain their original scope; recovery1 additionally fixes the bounded late note-off | Recovery6 passes focused burst repair and two short Bitwig lifetimes; longer continuity and older startup/output silence remain unqualified; no gap-free reference or 256-frame qualification: [FC-AUDIO-001](FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses). Concurrent lease race: [FC-CAP-001](FAILURE_CLASSES.md#fc-cap-001--capacity-enumeration-versus-lease-retirement-race). | [Recovery6 focused comparison and reference restoration](../evidence/audio-recovery/2026-10-02-queued-completion-deadline.json); historical [AP17 recall](AP17.md#r1-fixture-completion-and-recovery-result) |
+| Efx FRAGMENTS 1.0.0.2925 · `41727475415649536772616E50726F63` (effect) | blocked for dependable audio | retained reference candidate `f53b7cd489b0` restored as managed revision `cd806641a49f2f59f53ac3fca7f52ce6`; native `af208f08`; historical [profile](../compatibility/arturia-efx-fragments.json) | same pinned Arturia runner; default policy | Historical Deck effect audio, editor/parameter interaction, saved-state recall and clean retirement retain their original scope | Recovery6 effect passes two short Bitwig lifetimes; the burst wait was physically exercised only with Pure LoFi; longer continuity and older startup/output silence remain unqualified; no gap-free reference or 256-frame qualification: [FC-AUDIO-001](FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses). Concurrent lease race: [FC-CAP-001](FAILURE_CLASSES.md#fc-cap-001--capacity-enumeration-versus-lease-retirement-race). Arbitrary multibus I/O is not claimed. | [Recovery6 focused comparison and reference restoration](../evidence/audio-recovery/2026-10-02-queued-completion-deadline.json); historical [AP17 recall](AP17.md#r1-fixture-completion-and-recovery-result) |
 | Pigments 7.0.1.6772 · `41727475415649534B61743150726F63` (instrument) | supported | ordinary verified revision 18; [profile](../compatibility/arturia-pigments.json) | same pinned Arturia runner; default policy; accepted host-pump fairness | Deck notes/audio, editor, preset/control and automation recall, save/reopen, sibling independence, process-scoped retirement | Older long touch-release tail remains unattributed: [FC-UI-004](FAILURE_CLASSES.md#fc-ui-004--windows-touch-release-processing-continues-long-after-x11-release). One-instance posture is exact to [AP18](AP18.md). Recorded gaps: [FC-AUDIO-001](FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses). Generic pump fix is [FC-UI-001](FAILURE_CLASSES.md#fc-ui-001--generic-editor-input-starvation-behind-posted-work). | [AP18](AP18.md); [UIR1](UIR1.md); [UIO3](UIO3.md) |
 | Serum 2 2.1.5 · `56534558667350736572756D20320000` (instrument) | supported | engineering candidate D `b43421069dca3872cf7c28440616d1086d192f827ac8ccd80bf16102dc2681ab`, published revision `d39392e65959e4fba15d769d9fea9b1a`; C retained as exact predecessor; candidate-package host/source continuity [FC-MGMT-002](FAILURE_CLASSES.md#fc-mgmt-002--exact-verified-hostsource-omitted-across-software-generations); source [SV1 profile](../compatibility/sv1/xfer-serum2.json) is not candidate-D physical authority | `proton-11.0-2c-x11-touch-routing-v2`; `x11_touch_routing_v2` | Deck audio, trackpad waveform menu, ordinary touch, finger-open/finger-select and finger-open/finger-dismiss on the waveform popup; responsive editor and following audible note; clean retirement | Exact touch-popup correction [FC-UI-002](FAILURE_CLASSES.md#fc-ui-002--x11-raw-touch-release-retains-contact-on-pointer-up), [FC-UI-003](FAILURE_CLASSES.md#fc-ui-003--touch-opened-serum-popup-stalls-the-editor-message-loop) is not a universal touch claim. Broader historical editor-loss reports remain separate [FC-UI-006](FAILURE_CLASSES.md#fc-ui-006--touch-triggered-editor-loss-on-non-arturia-products). Candidate-D save/reopen is not accepted; recorded deadline class remains [FC-AUDIO-001](FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses), though this one D session had zero gaps. | [candidate-D physical result](../evidence/serum-x11-touch-routing/candidate-d-physical.json); [candidate-C failed result](https://github.com/kasselvania/Linux-VST-bridge/blob/4ae414b33e37f771c422d8a70a9fa78a20231118/evidence/serum-x11-touch-release/physical-attempt-002.json) |
 | Blackhole Immersive 1.4.4 · `5653544248496D626C61636B686F6C65` (effect) | supported | selected engineering candidate `80e06590b7dc3f4e15d2903237541bdb466c012c8dfb647f6d0843daefb68b7d` in last fleet readback; managed candidate, no root source profile | `proton-11.0-2c-dcomp-c27f058-reference`; `dcomp_wine_builtins_reference_v1` | Exact DirectComposition editor renders and mouse Bypass responds; operator confirmed audible processing; later Deck open accepted | Experimental exact-runner claim, not general graphics: [FC-GFX-001](FAILURE_CLASSES.md#fc-gfx-001--directcomposition-presentation-capability). Broad touch-loss report [FC-UI-006](FAILURE_CLASSES.md#fc-ui-006--touch-triggered-editor-loss-on-non-arturia-products). Same-instance reopen/project recall not established by original graphics receipt. | [Blackhole editor and operator-audio result](BLACKHOLE_EDITOR.md#delivered-bitwig-result-and-stopping-point) |

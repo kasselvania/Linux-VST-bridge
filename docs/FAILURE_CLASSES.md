@@ -71,7 +71,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-LIFE-002](#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state) | Failed launch cleanup and truthful recovery | Manager ownership/leases/results | causal | deployed | Steam Deck and Ubuntu fixtures | supported-with-workaround | Manager recovery UX |
 | [FC-MIDI-001](#fc-midi-001--recognized-expression-rejected-an-entire-native-input-callback) | Recognized expression rejected an entire native input callback | Native VST3 proxy input admission | causal in source; physical attribution open | source-fixed | Pinned SDK fixture; Push / Deck operator report only | unqualified for Push expression | Build and publish exact proxy successor; physical Push/Bitwig release check |
 | [FC-MIDI-002](#fc-midi-002--late-note-off-permanently-fails-processing) | Late note-off permanently fails processing | Native SDK signed timestamp conversion | causal in source and matched comparison | deployed | Pinned SDK regression; recovery1 Pure LoFi physical Deck comparison | qualified for this late-release recovery only | Residual timing and broader host/event qualification remain open |
-| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | bounded | instrumentation-only | Arturia Deck and FRAGMENTS Ubuntu observations | blocked for dependable musical use | Physical continuity repair; no clean whole-session fallback established |
+| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | preemption and callback-burst loss attributed; older startup/output silence remain | recovery6 bounded completion repair passes physical SDK A/B and two short Bitwig runs; longer acceptance open | Pure LoFi Deck burst repair; no general audio qualification | blocked for dependable musical use | Frozen-artifact interaction/soak and separate output-silence attribution; no gap-free fallback established |
 | [FC-AUDIO-002](#fc-audio-002--host-block-exceeds-the-selected-bridge-presentation-envelope) | Host block exceeds selected bridge presentation envelope | Proxy setup, selected delay, DAW audio settings | causal | accepted | FRAGMENTS / Ubuntu at Bitwig 512/48 kHz | supported-with-workaround | Actionable requested-versus-supported block message |
 | [FC-AUTO-001](#fc-auto-001--automation-refusal-collides-with-terminal-silence) | Automation refusal collides with terminal silence | Native curve admission / SDK result interpretation | causal collision; sparse-curve capability still incomplete | deployed collision correction; whole-block successor source-only | Ubuntu reference effect explicitly refuses 0x107; state still fails | blocked for the failed saved-automation journey | Deliver paired protocol-14 whole DAW blocks and repeat recall; audio gaps remain separate |
 | [FC-CAP-001](#fc-cap-001--capacity-enumeration-versus-lease-retirement-race) | Capacity scan versus lease retirement | Manager capacity ownership | causal | none | AP17 exact fixture | supported-with-workaround | Repair issue #93 |
@@ -937,11 +937,141 @@ callback admission, native worker, Windows processing, scheduler and reply path
 
 ### Understanding
 
-bounded
+Physical Deck render-thread preemption and callback-burst loss attributed;
+older startup and editor-interval output silence remain unresolved.
 
 ### Implementation
 
-instrumentation-only
+installed scheduling capability and focused burst-delivery repair demonstrated;
+dependable musical continuity remains unqualified
+
+On 2026-10-02, recovery1 in Bitwig 6.1 reproduced five missing 512-frame
+Pure LoFi blocks. The retained [request and scheduler witness](../evidence/audio-recovery/2026-10-02-render-preemption-witness.json)
+places a continuous 6.000040 ms kernel preemption inside request 9072's SDK call
+and across its presentation deadline. The SDK wall interval is not DSP CPU time.
+A controlled RealtimeKit request changed only that render thread from SCHED_OTHER
+0 to SCHED_RR 5 with RESET_ON_FORK and a 200 ms RTTIME ceiling. The matched copied
+chain completed 19,480 Pure LoFi blocks and 19,104 FRAGMENTS blocks with zero
+missing frames or rejections, effective end readback and confirmed retirement.
+This short, traced helper intervention is not an installed product repair or
+dependable-musical-use qualification. FRAGMENTS stayed under SCHED_OTHER 0.
+Both whole-session recordings are retained privately; effect tails mean the
+chain recording's lack of exact silence cannot exonerate an upstream gap.
+
+The source candidate makes the bounded request from the owning supervisor via
+Rust, outside the callback, once per render-thread start. Existing PID/start
+custody and the mapped session status inode select the target. Readback or
+unavailability is retained; another policy is preserved. This is post-start
+capability acquisition, not a new readiness gate. It does not change buffers,
+runtime, affinity, the Windows host or DSP.
+
+The [installed recovery3 result](../evidence/audio-recovery/2026-10-02-owned-render-scheduling.json)
+at `d5e710a2` verifies that both actual render threads received RR 5 with
+RESET_ON_FORK automatically. Both native publications and the entire registry
+were unchanged; the selected application's exact matching host/source pair
+selected the new supervisor for both. With tracing disabled, Pure LoFi lost
+512 frames in one gap over 40,076 blocks; FRAGMENTS lost none over 39,687.
+The final clean live read precedes stop/save/close, so this narrows the gap to
+that interval without attributing it to any particular action. A separate
+512-frame exact silent span exists in the captured output during playback
+while later bridge counters were clean. Its origin is unestablished.
+
+A traced reopen and focused stop/save/restart comparison completed 27,828 Pure
+LoFi and 27,435 FRAGMENTS blocks with zero gaps and confirmed retirement.
+Neither that repetition nor the earlier manual intervention turns the failed
+untraced lifetime into a pass. Normal Setup and Updates restored the exact
+recovery1 application after testing; the failed candidate and all whole-session
+captures remain retained. Stage 2 stays open: capture the native worker, render
+thread and callback together across the residual gap before another repair.
+The monitor silence also needs a separate native-reference comparison. The
+30-minute interaction and longer soak gates are unperformed.
+
+The next [bounded comparison](../evidence/audio-recovery/2026-10-02-residual-gap-observation.json)
+on unchanged recovery3 completed 27,947 / 27,556 traced and 45,502 / 45,120
+untraced Pure LoFi / FRAGMENTS blocks with zero missing frames and clean
+retirement. Both had external scheduler capture and whole output recording.
+This does not clear the failed prior lifetime or establish an observer effect.
+The new source observation retains the first 16 missing presentation spans
+without sample tracing, with close-only export and explicit omission counts.
+Independent progress reads are not a causal or atomic snapshot. Its old-source
+regression fails; 22 queued tests pass on macOS and 89 backend tests pass on Linux
+(one existing Windows-fixture test ignored). Installed recovery4 preserves the
+host/runtime/module identities and changes both native publications. A controlled
+40 ms owned-process suspension with sample tracing off produced four retained
+spans matching exactly 2,048 silent captured frames, followed by resumed audio and
+clean retirement. That establishes observation coverage, not the cause of the
+earlier natural gap. A 120-second native Bitwig 1 kHz capture passed the continuous
+signal check after startup; the earlier isolated monitor silence remains
+unattributed. Audio continuity remains blocked.
+
+Recovery4 subsequently reproduced a two-block FRAGMENTS gap while both missing
+requests were still waiting for native-worker consumption. A 23.273160 ms native
+worker preemption spans both deadlines; this collector lacks the namespace
+mapping needed to prove the exact numeric per-session TID link. In a later
+exactly mapped intervention, both native workers received RR 5 and accumulated
+no additional bridge gaps for about 630 seconds. Pure LoFi had already lost one
+startup block; additional monitor silence remains unexplained. Full lifetimes
+remain failed. The next source correction requests native scheduling during
+worker preparation through the existing authenticated supervisor, preserving
+DAW limits and recording independent effective readback. See the
+[native preparation contract](../native-vst3-proxy/host/NATIVE_SCHEDULING.md).
+
+That correction was built and installed as recovery5 from `8ade8723`.
+[Both complete comparisons](../evidence/audio-recovery/2026-10-02-native-worker-scheduling.json)
+verify automatic native-worker preparation and later Windows-render RR 5
+readback. The first has no bridge misses over 52,935 / 52,544 blocks, but has an
+unexplained 512-frame monitor silence during editor interaction. The second has
+one 512-frame startup loss in each plug-in over 23,638 / 23,249 blocks. Native
+scheduling was effective before those losses. The missing positions were still
+in the worker's processing operation; the non-atomic observations do not locate
+Windows execution versus transport wait. First-callback Windows policy and the
+host's preceding callback timing are gaps in the evidence.
+
+The additional direct recorder and scheduler collector began after both startup
+losses. They subsequently failed independently: 43 recorder stream errors and a
+scheduler byte-limit/cleanup timeout. Their outputs are not accepted audio or
+causal scheduler evidence. All owned sessions and observers retired. Normal
+controls restored recovery1 component bytes and both reference native binaries
+under new selection/publication locations. Neither full comparison establishes
+dependable audio; startup delivery and the separate editor-interval silence are
+the next bounded attribution targets.
+
+The next short recovery5 trace directly attributed a final-callback loss:
+presentation occurred only 1.340 ms after admission, SDK processing took
+1.943 ms, and publication followed the gap by 0.894 ms. No control work occupied
+that request. A sample delay did not guarantee elapsed worker time. The speaker
+capture has no internal exact-zero span during its musical signal, so this is
+a measured delivery failure at close, not a claimed audible dropout in that run.
+
+The [recovery6 result](../evidence/audio-recovery/2026-10-02-queued-completion-deadline.json)
+adds one preallocated native completion notification and one actual-block-duration
+budget for already-due protocol-14 output. It preserves delay, epochs, ownership,
+counted timeout silence and late-result expiry. The unpaced source regression
+fails on recovery5 and passes with exact delayed output and zero callback
+allocations. Source `85c444ff` passed 96 Linux backend tests (one existing fixture
+ignored), five Rust/five Python scheduling checks, and all ten build steps.
+
+Installed recovery6 passed two short complete Bitwig lifetimes: 9,095 / 8,702
+traced and 8,399 / 8,014 untraced instrument/effect blocks, with zero gaps,
+rejections or expiry, clean retirement and no internal exact-zero capture span.
+Neither exercised a wait. A separate diagnostics-disabled physical SDK A/B used
+the same application, Windows host, runtime, module, state and consumer, changing
+only the native proxy. A 40 ms suspension of the owned consumer generated
+catch-up calls while a note was held. Recovery5 lost 1,536 actual captured frames;
+recovery6 used three waits and lost none, with a 1.526402 ms full SDK process-call
+maximum. Both arms retained state and retired. The SDK native workers remained
+SCHED_OTHER (no finite host realtime budget); Windows RR 5 was verified in both,
+and the separate Bitwig runs verified native RR 5.
+
+This completes the focused burst repair, not FC-AUDIO-001. The deliberately
+paused SDK consumer is not device-deadline acceptance, and it does not attribute
+every historical gap. The frozen artifact still needs the declared interaction
+and soak, with separate attribution of silence when bridge counters are clean.
+Normal UI publication and package selection restored all reference application
+and native bytes afterward, under new selection/publication locations. Other
+publications, runtime/environment and original/reference projects are unchanged.
+All owners/recorders are retired and the builder is stopped. The retained
+reference itself remains unqualified for dependable audio.
 
 The 2026-10-02 [audio recovery comparison](../evidence/audio-recovery/2026-10-02-late-note-off.json)
 preserves missing audio in both the earlier usable Deck pair and an internal57
@@ -971,7 +1101,8 @@ unchanged.
 
 ### User posture
 
-supported-with-workaround
+Blocked for dependable musical use. Historical sound, editor and recall results
+retain their stated scope; no clean whole-session workaround is established.
 
 ### Symptom
 
@@ -988,7 +1119,7 @@ the call with little runnable delay, FEX-boundary samples and Serum guest-code
 map growth. The particular FEX routine and per-millisecond fault cost remain
 unresolved.
 
-### Fix chain
+### Historical fix chain before the Deck recovery comparisons
 
 - **Source correction:** AP16's private-tmpfs hot-transport mapping addressed the demonstrated backing-store class. AS1 [PR #172](https://github.com/kasselvania/Linux-VST-bridge/pull/172) removes recurring bridge-owned allocation from the covered request/reply path at the source stage only; no residual deadline-miss mechanism or fix has been established.
 - **Built artifact:** AP16 corrected software revision `f6a19c78100fce548ae380ac043489d85d1543497ea20806e029526ad8fb8f0b`; no residual repair artifact.
@@ -1067,6 +1198,12 @@ FC-AUDIO-002, FC-CAP-001, FC-LIFE-002.
 
 ### Remaining gate
 
+For the selected Deck recovery, attribute the first startup request/reply loss
+with observation present before audio begins; independently qualify the output
+recorder before attributing editor-interval silence. Recovery5's automatic native
+scheduling passed its capability check and failed continuity. A later render
+policy readback does not prove first-callback readiness.
+
 The separate FN1/PW1 source reviews do not authorize installation or a
 general support claim. PSL1 is proposed next to make preparation product-owned
 and state-aware. Other residual misses still need their own exact thread/queue
@@ -1084,7 +1221,7 @@ callback-side policy from the old fork.
 
 ### Last reviewed
 
-2026-09-25.
+2026-10-02.
 
 ---
 
