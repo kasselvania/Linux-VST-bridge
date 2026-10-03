@@ -1,6 +1,7 @@
 //! Revisioned transactions around the existing registry and discovery links.
 //! Intent and immutable records precede activation; physical links decide recovery.
 use crate::{observation::Census, profiles::*, *};
+use crate::operator_lock::timing::{self, Stage};
 use std::{ffi::CString, os::unix::ffi::OsStrExt};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -532,6 +533,7 @@ impl Manager {
         })
     }
     fn write_intent(&self, intent: &Intent, fail: Option<Boundary>) -> Result<()> {
+        let mutation = timing::span(Stage::IntentMutation);
         self.durable_dir(&self.root.join("transactions"))?;
         immutable(
             &self
@@ -541,7 +543,9 @@ impl Manager {
             intent,
         )?;
         boundary(fail, Boundary::IntentArchived)?;
-        immutable(&self.pending_path(&intent.class_id), intent)
+        let result = immutable(&self.pending_path(&intent.class_id), intent);
+        mutation.end(result.is_ok());
+        result
     }
     fn make_candidate(
         &self,
@@ -549,6 +553,7 @@ impl Manager {
         source: &Artifact,
         fail: Option<Boundary>,
     ) -> Result<()> {
+        let mutation = timing::span(Stage::PublicationStageMutation);
         self.durable_dir(&self.revisions(&r.class_id))?;
         let stage = self.revisions(&r.class_id).join(format!(".stage-{}", r.id));
         private_dir(&stage)?;
@@ -578,7 +583,9 @@ impl Manager {
         rename_link(&stage, &self.revision_dir(&r.class_id, &r.id)?, false)?;
         sync(&self.revisions(&r.class_id))?;
         self.load_revision(&r.class_id, &Self::revision_ref(r)?)?;
-        boundary(fail, Boundary::CandidateReady)
+        let result = boundary(fail, Boundary::CandidateReady);
+        mutation.end(result.is_ok());
+        result
     }
     fn activate(&self, intent: &Intent, fail: Option<Boundary>) -> Result<()> {
         fs::create_dir_all(&self.publications)?;
@@ -600,6 +607,7 @@ impl Manager {
             fs::symlink_metadata(&temp).is_err(),
             "transaction_pointer_occupied",
         )?;
+        let mutation = timing::span(Stage::PointerMutation);
         if let Some(candidate) = candidate {
             symlink(&candidate.target, &temp)?;
             sync(&self.publications)?;
@@ -622,7 +630,9 @@ impl Manager {
         }
         boundary(fail, Boundary::PointerExchanged)?;
         sync(&self.publications)?;
-        boundary(fail, Boundary::PointerSynced)
+        let result = boundary(fail, Boundary::PointerSynced);
+        mutation.end(result.is_ok());
+        result
     }
     fn finish(
         &self,
@@ -655,6 +665,7 @@ impl Manager {
         } else {
             db.classes.remove(&intent.class_id);
         }
+        let mutation = timing::span(Stage::RegistryMutation);
         self.save(db)?;
         boundary(fail, Boundary::RegistryCommitted)?;
         let complete = Completion {
@@ -692,7 +703,9 @@ impl Manager {
         }
         fs::remove_file(self.pending_path(&intent.class_id))?;
         sync(&self.root.join("transactions"))?;
-        boundary(fail, Boundary::Cleanup)
+        let result = boundary(fail, Boundary::Cleanup);
+        mutation.end(result.is_ok());
+        result
     }
     fn read_intent(&self, path: &Path) -> Result<Intent> {
         let i: Intent = read_json(path)?;
@@ -864,6 +877,7 @@ impl Manager {
         host:(&Artifact,&str),scope:(Option<Qualification>,bool),fail:Option<Boundary>,
         expected:Option<&RevisionRef>,
     )->Result<RevisionRef> {
+        let validation = timing::span(Stage::PublicationValidation);
         let (qualification, global_inactive) = scope;
         let (installed_host, source) = host;
         let managed = qualification == Some(Qualification::ManagedExperimental) || crate::preparation::owns_profile(self,profile)?;
@@ -872,7 +886,7 @@ impl Manager {
         // are rechecked outside the guard again before the short commit below.
         census.verify_current(&self.root,installed_host,source,crate::observation::now()?)?;
         registration.verify(&self.root)?;
-        let mut guard = Some(self.lock("registry.lock")?);
+        let mut guard = Some(timing::measure(Stage::RegistryLock, || self.lock("registry.lock"))?);
         let key = registration.key();
         self.require_inactive(if global_inactive { None } else { Some(&key) })?;
         let mut db = self.registry()?;
@@ -890,7 +904,7 @@ impl Manager {
                 }
             }
         }
-        self.reconcile_revisions(&mut db)?;
+        timing::measure(Stage::PublicationRecovery, || self.reconcile_revisions(&mut db))?;
         let purpose = if qualification.is_some() {
             SelectionPurpose::Qualification
         } else {
@@ -958,10 +972,13 @@ impl Manager {
                         physical(&self.link(&key))? == Some(r.target),
                         "foreign_or_missing_publication",
                     )?;
+                    validation.end(true);
                     return Ok(reference.clone());
                 }
             }
         }
+        validation.end(true);
+        let retained_mutation = timing::span(Stage::PublicationRetainMutation);
         self.retain_profile(profile)?;
         boundary(fail, Boundary::ProfileRetained)?;
         let transaction = random_id()?;
@@ -974,6 +991,7 @@ impl Manager {
         if prior.is_none() {
             require(physical(&self.link(&key))?.is_none(), "foreign_publication")?;
         }
+        retained_mutation.end(true);
         let id = random_id()?;
         let target = self
             .revision_dir(&key, &id)?
@@ -1014,12 +1032,14 @@ impl Manager {
             // No physical pointer or transaction is exposed during package copy.
             // A failed/interrupted copy cannot authorize service admission.
             self.make_candidate(&r,&source_artifact,fail)?;
+            let authority = timing::span(Stage::PublicationFinalAuthority);
             census.verify_current(&self.root,installed_host,source,crate::observation::now()?)?;
             source_artifact.verify()?;
-            guard=Some(self.lock("registry.lock")?);
+            guard=Some(timing::measure(Stage::RegistryLock, || self.lock("registry.lock"))?);
             self.require_inactive(if global_inactive { None } else { Some(&r.class_id) })?;
             require(serde_json::to_vec(&self.registry()?)?==snapshot && !self.publication_pending(&r.class_id)?
                 && physical(&self.link(&r.class_id))?==intent.prior.as_ref().and_then(|p|p.target.clone()),"preparation_publication_state_changed")?;
+            authority.end(true);
             self.write_intent(&intent,fail)?;
             boundary(fail,Boundary::Intent)?;
         } else {
@@ -1027,8 +1047,10 @@ impl Manager {
             boundary(fail, Boundary::Intent)?;
             self.make_candidate(&r, &source_artifact, fail)?;
         }
-        self.activate(&intent, fail)?;
-        self.finish(&mut db, &intent, Outcome::Committed, fail)?;
+        timing::measure(Stage::PublicationMutation, || {
+            self.activate(&intent, fail)?;
+            self.finish(&mut db, &intent, Outcome::Committed, fail)
+        })?;
         drop(guard);
         Ok(reference)
     }
@@ -1058,11 +1080,12 @@ impl Manager {
         expected: Option<&RevisionRef>,
         global_inactive: bool,
     ) -> Result<RevisionRef> {
+        let authority = timing::span(Stage::RestoreAuthority);
         require(valid_hex(key, 32) && valid_hex(id, 32), "rollback_identity")?;
-        let _lock = self.lock("registry.lock")?;
+        let _lock = timing::measure(Stage::RegistryLock, || self.lock("registry.lock"))?;
         self.require_inactive(if global_inactive { None } else { Some(key) })?;
         let mut db = self.registry()?;
-        self.reconcile_revisions(&mut db)?;
+        timing::measure(Stage::PublicationRecovery, || self.reconcile_revisions(&mut db))?;
         let e = db.classes.get(key).ok_or("registration_absent")?.clone();
         let current = e.managed_revision.as_ref().ok_or("no_managed_revision")?;
         require(
@@ -1083,7 +1106,7 @@ impl Manager {
             reference = r.parent;
         }
         let (selected, r) = selected.ok_or("rollback_revision_not_retained_ancestor")?;
-        r.registration.verify(&self.root)?;
+        timing::measure(Stage::CandidateVerification, || r.registration.verify(&self.root))?;
         // The revision retains the publication-time preference as evidence.
         // Explicit buffering changes are independently owned class settings;
         // restoring a publication preserves them, subject to the target's
@@ -1097,6 +1120,7 @@ impl Manager {
                 physical(&self.link(key))? == Some(r.target),
                 "foreign_or_missing_publication",
             )?;
+            authority.end(true);
             return Ok(selected);
         }
         let transaction = random_id()?;
@@ -1109,10 +1133,13 @@ impl Manager {
             candidate: Some(selected.clone()),
             candidate_target: Some(r.target.clone()),
         };
-        self.write_intent(&intent, fail)?;
-        boundary(fail, Boundary::Intent)?;
-        self.activate(&intent, fail)?;
-        self.finish(&mut db, &intent, Outcome::Committed, fail)?;
+        authority.end(true);
+        timing::measure(Stage::RestoreMutation, || {
+            self.write_intent(&intent, fail)?;
+            boundary(fail, Boundary::Intent)?;
+            self.activate(&intent, fail)?;
+            self.finish(&mut db, &intent, Outcome::Committed, fail)
+        })?;
         Ok(selected)
     }
     pub(crate) fn remove_revision(

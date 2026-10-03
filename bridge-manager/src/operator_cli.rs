@@ -1,6 +1,7 @@
 //! MF1: closed operator requests dispatched to existing canonical owners.
 use super::*;
 use linux_vst_bridge::operator_model as ui;
+use linux_vst_bridge::operator_lock::timing::{self, Stage};
 use linux_vst_bridge::renderer_application as renderer;
 use serde_json::{json, Value};
 mod current;
@@ -940,7 +941,16 @@ fn acquire_readback(
         ui::OperatorLock::Receipt => ui::LockPurpose::OperationReceipt,
         ui::OperatorLock::Resume => ui::LockPurpose::ServiceRecovery,
     };
-    match m.lock_bounded(name, purpose, id, timeout) {
+    #[cfg(feature = "pb0-c0-audit")]
+    let acquired = timing::measure(match name {
+        ui::OperatorLock::Canonical => Stage::CanonicalLock,
+        ui::OperatorLock::Registry => Stage::RegistryLock,
+        ui::OperatorLock::Receipt => Stage::ReceiptLock,
+        ui::OperatorLock::Resume => Stage::ResumeLock,
+    }, || m.lock_bounded(name, purpose, id, timeout));
+    #[cfg(not(feature = "pb0-c0-audit"))]
+    let acquired = m.lock_bounded(name, purpose, id, timeout);
+    match acquired {
         Ok((lock, facts)) => {
             waits.push(facts);
             Ok(lock)
@@ -1337,10 +1347,12 @@ fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Resu
         let captured = current::capture(m)?;
         let sw = software(m)?;
         let db = m.registry()?;
-        let selection = preparation_cli::action_selection(m, &sw,
-            &request.action)?.ok_or("operator_product_action_identity")?;
-        let product = project_current_product(m, &captured, &sw, &db, &selection.environment.id,
-            &selection.module.sha256, &selection.class.id)?;
+        let product = timing::measure(Stage::SelectedProjection, || {
+            let selection = preparation_cli::action_selection(m, &sw,
+                &request.action)?.ok_or("operator_product_action_identity")?;
+            project_current_product(m, &captured, &sw, &db, &selection.environment.id,
+                &selection.module.sha256, &selection.class.id)
+        })?;
         captured.recheck(m)?;
         let mut offered = captured.snapshot;
         offered.products = vec![product];
@@ -1357,9 +1369,10 @@ fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Resu
             | ui::Action::BufferingSet { class_id, .. }
             | ui::Action::CaptureArm { class_id } => {
                 let entry = db.classes.get(class_id).ok_or("operator_product_not_current")?;
-                offered.products = vec![project_current_product(m, &captured, &sw, &db,
-                    &entry.registration.environment.id, &entry.registration.module.sha256,
-                    class_id)?];
+                offered.products = vec![timing::measure(Stage::SelectedProjection, ||
+                    project_current_product(m, &captured, &sw, &db,
+                        &entry.registration.environment.id, &entry.registration.module.sha256,
+                        class_id))?];
             }
             ui::Action::EnvironmentRescan { environment } => {
                 require(valid_product_environment(environment), "operator_product_identity")?;
@@ -1486,6 +1499,7 @@ pub(super) fn resumable_check_source(m: &Manager, id: &str, action: &ui::Action)
 }
 fn write_operation(m: &Manager, id: &str, value: &Value, make_latest: bool) -> Result<()> {
     let deadline = Instant::now() + Duration::from_secs(5);
+    let receipt_lock = timing::span(Stage::ReceiptLock);
     let _lock = loop {
         match m.lock("operator-receipt.lock") {
             Ok(lock) => break lock,
@@ -1498,6 +1512,7 @@ fn write_operation(m: &Manager, id: &str, value: &Value, make_latest: bool) -> R
             Err(e) => return Err(e),
         }
     };
+    receipt_lock.end(true);
     let dir = job_dir(m, id)?;
     let prior = optional(&dir.join("result.json"))?;
     if matches!(prior["state"].as_str(), Some("completed" | "refused")) {
@@ -1646,6 +1661,7 @@ fn finish_operation_with(
 }
 fn begin_request(m: &Manager, request: &ui::Request) -> Result<String> {
     let id = random_id()?;
+    timing::bind_operation(&id);
     let dir = job_dir(m, &id)?;
     private_dir(&dir)?;
     atomic_json(&dir.join("request.json"), request)?;
@@ -1672,13 +1688,13 @@ fn launch_reserved(
     id: &str,
     launch: impl FnOnce(&str) -> Result<bool>,
 ) -> Result<ui::Receipt> {
-    write_operation(
+    timing::measure(Stage::QueuedReceipt, || write_operation(
         m,
         id,
         &json!({"schema":1,"operation":id,"state":"queued","action":request.action}),
         false,
-    )?;
-    if !launch(id).unwrap_or(false) {
+    ))?;
+    if !timing::measure(Stage::WorkerLaunch, || launch(id)).unwrap_or(false) {
         refuse_unfinished(m, id, "operator_worker_launch_failed")?;
         return Err("operator_worker_launch_failed".into());
     }
@@ -1696,8 +1712,10 @@ fn dispatch_recorded(
     request: &ui::Request,
     run: impl FnOnce(&str) -> Result<ui::Receipt>,
 ) -> Result<ui::Receipt> {
-    let id = begin_request(m, request)?;
-    match run(&id) {
+    let _observed = timing::Session::dispatch(m, &request.action);
+    let dispatch = timing::span(Stage::Dispatch);
+    let id = timing::measure(Stage::RequestCreation, || begin_request(m, request))?;
+    let result = match run(&id) {
         Ok(r) => Ok(r),
         Err(e) => {
             let reason: String = e.to_string().chars().take(512).collect();
@@ -1714,14 +1732,19 @@ fn dispatch_recorded(
                 refusal: Some(reason),
             })
         }
-    }
+    };
+    dispatch.end(result.is_ok());
+    result
 }
 fn dispatch(m: &Manager, request: ui::Request) -> Result<ui::Receipt> {
     dispatch_recorded(m, &request, |id| {
-        let _lock = m.lock("operator-dispatch.lock")?;
-        validate_current_request(m, &request)?;
-        let sw = software(m)?;
-        sw.manager.verify()?;
+        let _lock = timing::measure(Stage::DispatchLock, || m.lock("operator-dispatch.lock"))?;
+        timing::measure(Stage::RequestValidation, || validate_current_request(m, &request))?;
+        let sw = timing::measure(Stage::SoftwareVerification, || {
+            let sw = software(m)?;
+            sw.manager.verify()?;
+            Ok(sw)
+        })?;
         launch_reserved(m, &request, id, |id| {
             let status = Command::new("systemd-run")
                 .args([
@@ -1912,7 +1935,8 @@ fn execute_with_receipt_policy(
             capacity_read,
         );
     }
-    require_operator_inactive_with(m, a, capacity_read, operation, timeout, waits)?;
+    timing::measure(Stage::WorkerAdmission, ||
+        require_operator_inactive_with(m, a, capacity_read, operation, timeout, waits))?;
 
     if preparation_cli::is_action(a) {
         let owner = operation.ok_or("operator_operation_identity")?;
@@ -2864,14 +2888,24 @@ fn worker_with_capacity(
     timeout: Duration,
     capacity_read: &dyn Fn() -> Option<CapacityReadback>,
 ) -> Result<()> {
+    let _observed = timing::Session::worker(m, id);
+    timing::measure(Stage::Worker, || worker_with_capacity_observed(m, id, timeout, capacity_read))
+}
+fn worker_with_capacity_observed(
+    m: &Manager,
+    id: &str,
+    timeout: Duration,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+) -> Result<()> {
     // Prevent a duplicate worker from executing the same operation twice.
     let dir = job_dir(m, id)?;
-    let _owner = m.lock(&format!("operator-worker-{id}.lock"))?;
-    let prior = optional(&dir.join("result.json"))?;
+    let _owner = timing::measure(Stage::WorkerLock, || m.lock(&format!("operator-worker-{id}.lock")))?;
+    let prior = timing::measure(Stage::WorkerReceiptRead, || optional(&dir.join("result.json")))?;
     if matches!(prior["state"].as_str(), Some("completed" | "refused")) {
         return Ok(());
     }
-    let request: ui::Request = read_json(&dir.join("request.json"))?;
+    let request: ui::Request = timing::measure(Stage::WorkerRequestRead, || read_json(&dir.join("request.json")))?;
+    timing::select_action(&request.action);
     write_operation(
         m,
         id,
@@ -2879,7 +2913,7 @@ fn worker_with_capacity(
         false,
     )?;
     let mut waits = vec![];
-    let validation = if matches!(request.action, ui::Action::SupportExport {}) {
+    let validation = timing::measure(Stage::WorkerValidation, || if matches!(request.action, ui::Action::SupportExport {}) {
         validate_current_request(m, &request)
     } else if current_offer_action(&request.action)
         || preparation_cli::is_action(&request.action)
@@ -2890,7 +2924,7 @@ fn worker_with_capacity(
     } else {
         snapshot_for_operation(m, Some(id), timeout, &mut waits, capacity_read)
             .and_then(|snapshot| validate(&request, &snapshot))
-    };
+    });
     if let Err(e) = validation {
         let failure = e
             .downcast_ref::<linux_vst_bridge::operator_lock::AcquisitionFailure>()
@@ -2929,12 +2963,12 @@ fn worker_with_capacity(
                 .take(512)
                 .collect()
         };
-        return write_operation(
+        return timing::measure(Stage::FinalReceipt, || write_operation(
             m,
             id,
             &json!({"schema":1,"operation":id,"state":"refused","reason":reason,"failure":failure,"preparation_failure":preparation_cli::failure(&request.action),"lock_waits":waits}),
             false,
-        );
+        ));
     }
     // Snapshot's registry authority and serialization have both been released.
     // Action owners reacquire serialization and revalidate mutation authority.
@@ -2992,7 +3026,7 @@ fn worker_with_capacity(
             json!({"schema":1,"operation":id,"state":"refused","reason":reason,"failure":failure,"preparation_failure":preparation_failure(&request.action,e.as_ref()),"lock_waits":waits})
         }
     };
-    write_operation(m, id, &value, false)
+    timing::measure(Stage::FinalReceipt, || write_operation(m, id, &value, false))
 }
 pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
     match args {
@@ -5315,6 +5349,137 @@ mod tests {
         capacity::status(m, capacity::fixture_limits(), 0, false)
             .ok()
             .and_then(|v| serde_json::from_value(serde_json::to_value(v).unwrap()).ok())
+    }
+    #[cfg(feature = "pb0-c0-audit")]
+    #[test]
+    fn audit_observes_normal_publish_test_recorded_dispatch_and_actual_worker() {
+        use linux_vst_bridge::preparation as prep;
+        let (f,base) = preparation_cli::tests::projection_fixture();
+        atomic_json(&f.m.root.join("software.json"),
+            &preparation_cli::tests::projection_software(&base)).unwrap();
+        prep::record_candidate(&f.m,&base).unwrap();
+        let baseline = prep::enable(&f.m,&base,false).unwrap();
+        let trial = prep::configuration::prepare_settings(&f.m,&base,
+            &ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+                accessibility:ui::AccessibilityChoice::DisabledForHost},Some(&baseline)).unwrap();
+        let service = overview_service_reply(&f.m,capacity_json(false,0,0));
+        let detail = product_detail(&f.m,&base.selection.environment.id,
+            &base.selection.module.sha256,&base.selection.class.id).unwrap();
+        service.join().unwrap();
+        let offer = detail.product.compatibility.as_ref().unwrap().primary.as_ref().unwrap();
+        assert!(matches!(&offer.action,ui::Action::CompatibilityPublishTest {candidate,..}
+            if *candidate == trial.id().unwrap()));
+        assert!(offer.disabled_reason.is_none());
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:detail.state_token,
+            action:offer.action.clone()};
+        let service = overview_service_reply(&f.m,capacity_json(false,0,0));
+        // Reuse recorded dispatch/current authority; only the external service
+        // launch is a deterministic seam, as in existing operator tests.
+        let receipt = dispatch_recorded(&f.m,&request,|id| {
+            timing::measure(Stage::RequestValidation,|| validate_current_request(&f.m,&request))?;
+            launch_reserved(&f.m,&request,id,|_| Ok(true))
+        }).unwrap();
+        service.join().unwrap();
+        assert!(receipt.accepted);
+        let id = receipt.operation.unwrap();
+        worker_with_capacity(&f.m,&id,OPERATOR_WAIT,&|| capacity_fixture(&f.m)).unwrap();
+        let receipt = worker_receipt(&f.m,&id);
+        assert_eq!(receipt["state"],"completed","{receipt}");
+        for (lane,stages) in [
+            ("dispatch",vec!["request_creation","request_validation","current_capture","selected_projection","queued_receipt","worker_launch"]),
+            ("worker",vec!["worker","worker_lock","worker_validation","worker_admission","publication_final_authority","pointer_mutation","registry_mutation","final_receipt"]),
+        ] {
+            let observed:Value = read_json(&job_dir(&f.m,&id).unwrap().join(format!("timing-{lane}.json"))).unwrap();
+            assert_eq!(observed["kind"],"apply");
+            assert_eq!(observed["omitted"],0);
+            let marks = observed["marks"].as_array().unwrap();
+            for stage in stages {
+                assert!(marks.iter().any(|mark|mark["stage"] == stage && mark["edge"] == "returned"),
+                    "{lane} missing completed {stage}: {observed}");
+            }
+        }
+        assert!(f.m.registry().unwrap().classes[&base.selection.class.id].registration.compatibility.disable_windows_accessibility);
+        assert!(!f.m.root.join("operator/resume.json").exists());
+    }
+    #[cfg(feature = "pb0-c0-audit")]
+    #[test]
+    fn audit_dispatch_receipt_failure_keeps_durable_request_timing() {
+        let f = test_fixture::Fixture::new();
+        fs::create_dir(f.m.root.join("operator-receipt.lock")).unwrap();
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"private state".into(),
+            action:ui::Action::CompatibilityPublishTest {candidate:"aa".repeat(32),expected_current:None}};
+        let dispatched = std::cell::Cell::new(false);
+        assert!(dispatch_recorded(&f.m,&request,|_| {dispatched.set(true);unreachable!()}).is_err());
+        assert!(!dispatched.get());
+        let directory = fs::read_dir(f.m.root.join("operator")).unwrap().next().unwrap().unwrap().path();
+        assert_eq!(read_json::<ui::Request>(&directory.join("request.json")).unwrap().action,request.action);
+        assert!(!directory.join("result.json").exists());
+        let observed:Value = read_json(&directory.join("timing-dispatch.json")).unwrap();
+        assert_eq!(observed["kind"],"apply");assert_eq!(observed["kind_basis"],"dispatch_request");
+        let marks = observed["marks"].as_array().unwrap();
+        assert!(marks.iter().any(|mark|mark["stage"] == "request_creation" && mark["edge"] == "failed"));
+        assert!(marks.iter().any(|mark|mark["stage"] == "receipt_lock" && mark["edge"] == "scope_exit"));
+        assert!(marks.iter().all(|mark|mark["stage"] != "worker_launch"));
+    }
+    #[cfg(feature = "pb0-c0-audit")]
+    #[test]
+    fn audit_actual_worker_retry_keeps_first_primary_after_receipt_write_failure() {
+        let f = test_fixture::Fixture::new();
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"private state".into(),
+            action:ui::Action::CompatibilityPublishTest {candidate:"aa".repeat(32),expected_current:None}};
+        let id = begin_request(&f.m,&request).unwrap();
+        let directory = job_dir(&f.m,&id).unwrap();
+        let result_before = fs::read(directory.join("result.json")).unwrap();
+        let receipt_lock = f.m.root.join("operator-receipt.lock");
+        fs::remove_file(&receipt_lock).unwrap();
+        fs::create_dir(&receipt_lock).unwrap();
+        assert!(worker_with_capacity(&f.m,&id,OPERATOR_WAIT,&|| panic!("readback cannot begin")).is_err());
+        assert_eq!(fs::read(directory.join("result.json")).unwrap(),result_before);
+        let primary = directory.join("timing-worker.json");
+        let first = fs::read(&primary).unwrap();
+        let observed:Value = serde_json::from_slice(&first).unwrap();
+        assert_eq!(observed["kind"],"apply");assert_eq!(observed["attempt"],"primary");
+        assert_eq!(observed["kind_basis"],"worker_request_read");
+        let marks = observed["marks"].as_array().unwrap();
+        assert!(marks.iter().any(|mark|mark["stage"] == "worker_request_read" && mark["edge"] == "returned"));
+        assert!(marks.iter().any(|mark|mark["stage"] == "receipt_lock" && mark["edge"] == "scope_exit"));
+        assert!(marks.iter().any(|mark|mark["stage"] == "worker" && mark["edge"] == "failed"));
+        assert!(marks.iter().all(|mark|mark["stage"] != "worker_validation"));
+
+        fs::remove_dir(&receipt_lock).unwrap();
+        worker_with_capacity(&f.m,&id,OPERATOR_WAIT,&|| capacity_fixture(&f.m)).unwrap();
+        let receipt = worker_receipt(&f.m,&id);
+        assert_eq!(receipt["state"],"refused","{receipt}");
+        assert!(receipt["reason"].as_str().unwrap().contains("operator_stale_request_refresh"));
+        assert_ne!(fs::read(directory.join("result.json")).unwrap(),result_before);
+        assert_eq!(fs::read(&primary).unwrap(),first,
+            "the first observation stays historical; the canonical receipt owns the retry outcome");
+    }
+    #[cfg(feature = "pb0-c0-audit")]
+    #[test]
+    fn audit_actual_worker_lock_and_receipt_failures_keep_separate_early_attempts() {
+        for lock_failure in [true,false] {
+            let f = test_fixture::Fixture::new();
+            let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"private state".into(),
+                action:ui::Action::CompatibilityPublishTest {candidate:"aa".repeat(32),expected_current:None}};
+            let id = begin_request(&f.m,&request).unwrap();
+            let directory = job_dir(&f.m,&id).unwrap();
+            let canonical = directory.join("timing-worker.json");
+            atomic_json(&canonical,&json!({"retained":"canonical worker trace"})).unwrap();
+            let before = fs::read(&canonical).unwrap();
+            let owned = lock_failure.then(|| f.m.lock(&format!("operator-worker-{id}.lock")).unwrap());
+            if !lock_failure {fs::write(directory.join("result.json"),b"invalid receipt").unwrap();}
+            assert!(worker_with_capacity(&f.m,&id,OPERATOR_WAIT,&|| panic!("readback cannot begin")).is_err());
+            drop(owned);
+            let observed:Value = read_json(&directory.join("timing-worker-early.json")).unwrap();
+            assert_eq!(observed["kind"],"apply");assert_eq!(observed["attempt"],"early");
+            assert_eq!(observed["kind_basis"],"recovered_after_return");
+            let stage = if lock_failure {"worker_lock"} else {"worker_receipt_read"};
+            let marks = observed["marks"].as_array().unwrap();
+            assert!(marks.iter().any(|mark|mark["stage"] == stage && mark["edge"] == "failed"));
+            assert!(marks.iter().all(|mark|mark["stage"] != "worker_request_read"));
+            assert_eq!(fs::read(&canonical).unwrap(),before);
+        }
     }
     #[test]
     fn interrupted_unfamiliar_publication_keeps_the_ordinary_reconcile_offer_reachable() {

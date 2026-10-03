@@ -1301,7 +1301,8 @@ pub fn execute(
     operation: &str,
     registry_admission: impl FnOnce() -> Result<Lock>,
 ) -> Result<Value> {
-    let sw = software(m)?;
+    use linux_vst_bridge::operator_lock::timing::{self, Stage};
+    let sw = timing::measure(Stage::SoftwareVerification, || software(m))?;
     match a {
         ui::Action::CandidateGraphicsAssess { candidate } => {
             let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
@@ -1314,7 +1315,8 @@ pub fn execute(
             Ok(json!({"candidate":candidate,"assessment":result,"publication_changed":false}))
         }
         ui::Action::CandidateSettingsPrepare { candidate, settings, expected_current } => {
-            let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+            let c = timing::measure(Stage::CandidateVerification, ||
+                prep::candidate(m, candidate, &sw.host, &sw.source_sha256))?;
             let _guard = registry_admission()?;
             let next = prep::configuration::prepare_settings(m, &c, settings,
                 expected_current.as_ref().map(publication_reference).as_ref())?;
@@ -1322,7 +1324,8 @@ pub fn execute(
                 "configuration":prep::configuration::view(m, &next)?,"publication_changed":false}))
         }
         ui::Action::CandidateGraphicsPrepare { candidate, backend, expected_current } => {
-            let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+            let c = timing::measure(Stage::CandidateVerification, ||
+                prep::candidate(m, candidate, &sw.host, &sw.source_sha256))?;
             let _guard = registry_admission()?;
             let next = prep::configuration::prepare(m, &c, *backend,
                 expected_current.as_ref().map(publication_reference).as_ref())?;
@@ -1439,7 +1442,8 @@ pub fn execute(
             candidate,
             expected_current,
         } => {
-            let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+            let c = timing::measure(Stage::CandidateVerification, ||
+                prep::candidate(m, candidate, &sw.host, &sw.source_sha256))?;
             let revision = prep::replace(m, &c, &publication_reference(expected_current))?;
             Ok(json!({"candidate":candidate,"replaced":expected_current,"publication":revision}))
         }
@@ -1455,7 +1459,8 @@ pub fn execute(
         }
         ui::Action::ExperimentalEnable { candidate }
         | ui::Action::CandidatePublishOrdinary { candidate } => {
-            let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+            let c = timing::measure(Stage::CandidateVerification, ||
+                prep::candidate(m, candidate, &sw.host, &sw.source_sha256))?;
             let ordinary = matches!(a, ui::Action::CandidatePublishOrdinary { .. });
             let r = prep::enable(m, &c, ordinary)?;
             Ok(
@@ -1463,12 +1468,14 @@ pub fn execute(
             )
         }
         ui::Action::ExperimentalDisable { candidate } => {
-            let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+            let c = timing::measure(Stage::CandidateVerification, ||
+                prep::candidate(m, candidate, &sw.host, &sw.source_sha256))?;
             prep::disable(m, &c)?;
             Ok(json!({"candidate":candidate,"experimental":false,"history_preserved":true}))
         }
         ui::Action::CompatibilityPublishTest { candidate, expected_current } => {
-            let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+            let c = timing::measure(Stage::CandidateVerification, ||
+                prep::candidate(m, candidate, &sw.host, &sw.source_sha256))?;
             let state = prep::publication_state(m, &c)?;
             let revision = match (state.as_str(), expected_current) {
                 ("experimental", _) => {
@@ -1705,6 +1712,54 @@ pub(crate) mod tests {
         assert_eq!(f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision, Some(baseline));
         assert_eq!(guided_result_disposition(&f.m, &next, &publication_identity(&current), &operation).unwrap(), GuidedDisposition::Restored);
         assert!(prep::observations(&f.m, &next).unwrap().iter().any(|row| row.status == prep::TestStatus::Failed));
+    }
+
+    #[cfg(feature = "pb0-c0-audit")]
+    #[test]
+    fn audit_observes_normal_configuration_publish_test_and_idempotent_readback() {
+        use linux_vst_bridge::operator_lock::timing::{self, Stage};
+        let (f,base) = projection_fixture();
+        let sw = projection_software(&base);
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
+        prep::record_candidate(&f.m,&base).unwrap();
+        let baseline = prep::enable(&f.m,&base,false).unwrap();
+        let baseline_registration = f.m.load_revision(&base.selection.class.id,&baseline).unwrap().registration;
+        for graphics in [Some(ui::GraphicsBackend::WineD3d11),None] {
+            let next = prep::configuration::prepare_settings(&f.m,&base,
+                &ui::LocalSettings {graphics,accessibility:ui::AccessibilityChoice::DisabledForHost},Some(&baseline)).unwrap();
+            let mut products = vec![projection_product(&base)];
+            project(&f.m,&sw,&mut products,None).unwrap();
+            let action = products[0].compatibility.as_ref().unwrap().primary.as_ref().unwrap().action.clone();
+            assert!(matches!(&action,ui::Action::CompatibilityPublishTest {candidate,expected_current:Some(current)}
+                if *candidate == next.id().unwrap() && *current == publication_identity(&baseline)));
+            for idempotent in [false,true] {
+                let operation = random_id().unwrap();
+                let directory = f.m.root.join("operator").join(&operation);
+                private_dir(&directory).unwrap();
+                let result = {
+                    let _observed = timing::Session::worker(&f.m,&operation);
+                    timing::select_action(&action);
+                    timing::measure(Stage::Worker,|| execute(&f.m,&action,&operation,|| f.m.lock("registry.lock"))).unwrap()
+                };
+                let observed:Value = read_json(&directory.join("timing-worker.json")).unwrap();
+                assert_eq!(observed["kind"],"apply");
+                assert_eq!(observed["omitted"],0);
+                let marks = observed["marks"].as_array().unwrap();
+                let has = |stage:&str,edge:&str| marks.iter().any(|mark|mark["stage"] == stage && mark["edge"] == edge);
+                assert!(has("software_verification","returned") && has("candidate_verification","returned"));
+                assert_eq!(has("publication_final_authority","returned"),!idempotent);
+                assert_eq!(has("pointer_mutation","returned"),!idempotent);
+                assert_eq!(has("registry_mutation","returned"),!idempotent);
+                if idempotent {assert_eq!(result["already_available"],true);}
+                else {assert_eq!(result["experimental"],true);}
+            }
+            // Restore the exact predecessor before the independent second trial.
+            execute(&f.m,&ui::Action::ExperimentalDisable {candidate:next.id().unwrap()},
+                &random_id().unwrap(),|| f.m.lock("registry.lock")).unwrap();
+            let entry = &f.m.registry().unwrap().classes[&base.selection.class.id];
+            assert_eq!(entry.managed_revision,Some(baseline.clone()));
+            assert_eq!(entry.registration,baseline_registration);
+        }
     }
 
     #[test]

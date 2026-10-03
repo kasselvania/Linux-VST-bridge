@@ -2,6 +2,7 @@
 //! A launch-only trial never revises a runner, prefix or native descriptor.
 use super::*;
 use crate::{graphics::assessment, operator_model::{GraphicsBackend, LocalSettings, AccessibilityChoice}};
+use crate::operator_lock::timing::{self, Stage};
 
 pub fn registration(c: &Candidate) -> Result<Registration> {
     registration_for(c, &c.profile, &c.census()?, SelectionPurpose::Qualification)
@@ -117,7 +118,9 @@ pub fn prepare(m: &Manager, base: &Candidate, backend: Option<GraphicsBackend>,
 /// active instance. Publication later rechecks and quiesces the affected class.
 pub fn prepare_settings(m: &Manager, base: &Candidate, requested: &LocalSettings,
     expected: Option<&RevisionRef>) -> Result<Candidate> {
-    verify_candidate(m, base, &base.selection.scanner, &base.selection.scanner_source)?;
+    timing::measure(Stage::CandidateVerification, ||
+        verify_candidate(m, base, &base.selection.scanner, &base.selection.scanner_source))?;
+    let authority = timing::span(Stage::ConfigurationAuthority);
     let state = publication_state(m, base)?;
     require(matches!((state.as_str(), expected), ("ordinary" | "experimental", Some(_))
         | ("unpublished" | "removed", None)), "settings_trial_requires_current_configuration")?;
@@ -126,11 +129,15 @@ pub fn prepare_settings(m: &Manager, base: &Candidate, requested: &LocalSettings
         .and_then(|entry| entry.managed_revision.as_ref()) == expected,
         "settings_trial_baseline_changed")?;
     let next = successor(base, requested, expected)?;
-    verify_candidate(m, &next, &base.selection.scanner, &base.selection.scanner_source)?;
+    timing::measure(Stage::CandidateVerification, ||
+        verify_candidate(m, &next, &base.selection.scanner, &base.selection.scanner_source))?;
+    authority.end(true);
     // Retain ancestry before exposing the candidate, as ordinary preparation
     // does. A crash must not let readback invent a predecessor-free lineage.
-    retain_lineage(m, &next, &next.id()?, Some(&base.id()?))?;
-    record_candidate_with_predecessor(m, &next, Some(&base.id()?))?;
+    timing::measure(Stage::CandidateMutation, || {
+        retain_lineage(m, &next, &next.id()?, Some(&base.id()?))?;
+        record_candidate_with_predecessor(m, &next, Some(&base.id()?))
+    })?;
     Ok(next)
 }
 

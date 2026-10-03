@@ -1398,11 +1398,13 @@ fn enable_exact(
     ordinary: bool,
     expected: Option<&RevisionRef>,
 ) -> Result<RevisionRef> {
+    use crate::operator_lock::timing::{self, Stage};
     require(
         !ordinary || publication_state(m, c)? != "ordinary",
         "candidate_already_ordinary",
     )?;
-    verify_candidate(m, c, &c.selection.scanner, &c.selection.scanner_source)?;
+    timing::measure(Stage::CandidateVerification, ||
+        verify_candidate(m, c, &c.selection.scanner, &c.selection.scanner_source))?;
     if !ordinary {
         if let Some(trial) = &c.settings_trial {
             require(expected == trial.baseline.as_ref(), "settings_trial_baseline_changed")?;
@@ -1414,7 +1416,8 @@ fn enable_exact(
         "explicit_replacement_or_reconciliation_required",
     )?;
     // Adopting retained CLI provenance grants no publication by itself.
-    record_candidate(m, c)?;
+    timing::measure(Stage::CandidateMutation, ||
+        record_candidate(m, c))?;
     let p = if ordinary {
         accepted(m, c)?
     } else {

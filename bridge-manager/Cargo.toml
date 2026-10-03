@@ -8,6 +8,8 @@ cpi2-test-contract = []
 # Source-owned, non-product read-only convergence probe. Never included in a
 # normal manager/frontend package generation.
 pb0-r3-audit = []
+# Private, bounded manager readback/configuration timing observation; excluded
+# from normal packages and independent of installed product qualification.
 pb0-c0-audit = []
 [dependencies]
 lvb-plugin-descriptor = { path = "../plugin-descriptor" }

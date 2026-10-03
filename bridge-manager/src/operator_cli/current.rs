@@ -214,6 +214,7 @@ impl CurrentOverviewContext {
         })
     }
     fn recheck_with(&self, m: &Manager, mut external: impl FnMut() -> Result<()>) -> Result<()> {
+        let observed = timing::span(Stage::CurrentRecheck);
         let started = Instant::now();
         // Both external observations occur without registry.lock. Manager-owned
         // bytes and owner records are compared between them under the guard.
@@ -260,6 +261,7 @@ impl CurrentOverviewContext {
             "total_manager_ms":self.captured_at.elapsed().as_millis()}));
         #[cfg(not(feature = "pb0-c0-audit"))]
         let _ = started;
+        observed.end(true);
         Ok(())
     }
     pub(super) fn recheck(&self, m: &Manager) -> Result<()> {
@@ -441,8 +443,10 @@ fn append_discovered(m: &Manager, sw: &Software, records: &[onboarding::Record],
 }
 
 pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
-    linux_vst_bridge::runtime_delivery::prepare_readback(m)?;
-    linux_vst_bridge::with_readback_digests(|| capture_readonly(m))
+    timing::measure(Stage::CurrentCapture, || {
+        linux_vst_bridge::runtime_delivery::prepare_readback(m)?;
+        linux_vst_bridge::with_readback_digests(|| capture_readonly(m))
+    })
 }
 fn capture_readonly(m: &Manager) -> Result<CurrentOverviewContext> {
     let started = Instant::now();
@@ -451,8 +455,8 @@ fn capture_readonly(m: &Manager) -> Result<CurrentOverviewContext> {
     // registry/owners together, then perform expensive and external probes
     // without action ownership. The caller rechecks exact tokens, file stamps,
     // owners and external state before exposing any offered action.
-    let _registry_guard = acquire_readback(m, ui::OperatorLock::Registry, None,
-        OPERATOR_WAIT, &mut vec![])?;
+    let _registry_guard = timing::measure(Stage::CaptureRegistry, ||
+        acquire_readback(m, ui::OperatorLock::Registry, None, OPERATOR_WAIT, &mut vec![]))?;
     let owners = capacity::owners(m)?;
     let db = m.registry()?;
     drop(_registry_guard);
@@ -466,12 +470,15 @@ fn capture_readonly(m: &Manager) -> Result<CurrentOverviewContext> {
     let workspace_task = scope.spawn(|| daw_workspace::current_projection(m));
     let before = token_with_registry(m, &db)?;
     let token_at = Instant::now(); phases.push(("token_before",token_at.duration_since(started).as_millis()));
+    let authority_observed = timing::span(Stage::CaptureSoftwareCatalogue);
     let sw = software(m)?;
     let watched = watch_paths(m, &sw, &db)?;
     let catalogue = operator_catalogue_readback(m, &sw, &db)?;
     let profiles = profiles::installed_profiles()?;
+    authority_observed.end(true);
     let authority_at = Instant::now(); phases.push(("software_catalogue_profiles",authority_at.duration_since(token_at).as_millis()));
-    let (mut products, revisions) = current_products(m, &db, &sw, &profiles)?;
+    let (mut products, revisions) = timing::measure(Stage::CaptureProducts, ||
+        current_products(m, &db, &sw, &profiles))?;
     let product_at = Instant::now(); phases.push(("current_products",product_at.duration_since(authority_at).as_millis()));
     let pending = pending_transactions(m)?;
     let vendor = vendor_retired(m)?;

@@ -25,6 +25,81 @@ struct Target { pid: i32, process_start: u64, tid: i32, thread_start: u64 }
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 struct Policy { policy: i32, priority: i32 }
 
+// Observation of the supervisor-supplied cohort, never new ownership authority.
+// Keep the validated session directory pinned; neither replacement paths nor
+// symlinks may redirect the audit write. Normal builds perform none of this work.
+#[cfg(feature = "pb0-c0-audit")]
+mod audit {
+    use super::*;
+    use std::{os::fd::AsRawFd, os::unix::fs::OpenOptionsExt};
+    const FILENAME: &str = "windows-scheduling.audit.json";
+    pub(super) struct Owned<'a> {
+        request: &'a Request,
+        directory: fs::File,
+        parent: PathBuf,
+        device: u64,
+        inode: u64,
+        version: u32,
+        header: [u8;32],
+        pub(super) render_matches: Option<usize>,
+    }
+    #[derive(Serialize)]
+    struct Record<'a> {
+        schema: u32, request_schema: u32, session: &'a str,
+        basis: &'static str, clock: &'static str, status_device: u64, status_inode: u64,
+        status_version: u32, status_extent: u64, owned: &'a [(i32,u64)],
+        monotonic_ns: Option<u64>, render_matches: Option<usize>,
+    }
+    impl<'a> Owned<'a> {
+        pub(super) fn new(request: &'a Request, status: &fs::Metadata, header: [u8;32]) -> Option<Self> {
+            if request.status.file_name()? != "ap12.status" {return None;}
+            let parent = request.status.parent()?.to_owned();
+            let directory = fs::OpenOptions::new().read(true)
+                .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW).open(&parent).ok()?;
+            let meta = directory.metadata().ok()?;
+            if !meta.is_dir() || meta.uid() != status.uid() || meta.mode() & 0o077 != 0 {return None;}
+            let observed = Self {request,directory,parent,device:status.dev(),inode:status.ino(),
+                version:u32::from_le_bytes(header[4..8].try_into().ok()?),header,render_matches:None};
+            observed.revalidate().ok()?;
+            Some(observed)
+        }
+        fn pinned(&self) -> PathBuf {
+            PathBuf::from(format!("/proc/self/fd/{}",self.directory.as_raw_fd()))
+        }
+        fn revalidate(&self) -> Result<()> {
+            let expected = self.directory.metadata()?;
+            let current = fs::symlink_metadata(&self.parent)?;
+            require(current.is_dir() && current.dev() == expected.dev() && current.ino() == expected.ino()
+                && current.uid() == expected.uid() && current.mode() & 0o077 == 0,
+                "scheduling_audit_directory_changed")?;
+            let mut file = linux_vst_bridge::file(&self.pinned().join("ap12.status"))?;
+            let status = file.metadata()?;
+            require(status.dev() == self.device && status.ino() == self.inode
+                && status.uid() == expected.uid() && status.mode() & 0o077 == 0 && status.len() == 1024,
+                "scheduling_audit_status_changed")?;
+            let mut header = [0;32];file.read_exact(&mut header)?;
+            require(header == self.header,"scheduling_audit_header_changed")
+        }
+        fn export(&self) -> Result<()> {
+            self.revalidate()?;
+            let mut time = libc::timespec {tv_sec:0,tv_nsec:0};
+            let monotonic_ns = if unsafe {libc::clock_gettime(libc::CLOCK_MONOTONIC,&mut time)} == 0 {
+                u64::try_from(time.tv_sec).ok().and_then(|seconds|seconds.checked_mul(1_000_000_000))
+                    .and_then(|seconds|u64::try_from(time.tv_nsec).ok().and_then(|ns|seconds.checked_add(ns)))
+            } else {None};
+            linux_vst_bridge::atomic_json(&self.pinned().join(FILENAME),&Record {
+                schema:1,request_schema:self.request.schema,session:&self.request.session,
+                basis:"supervisor_supplied_cohort",clock:"clock_monotonic",status_device:self.device,status_inode:self.inode,
+                status_version:self.version,status_extent:1024,owned:&self.request.owned,
+                monotonic_ns,render_matches:self.render_matches,
+            })
+        }
+    }
+    impl Drop for Owned<'_> {
+        fn drop(&mut self) {let _ = self.export();}
+    }
+}
+
 fn bounded(path: &Path, maximum: u64) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
     fs::File::open(path)?.take(maximum + 1).read_to_end(&mut bytes)?;
@@ -106,6 +181,8 @@ fn select(request: &Request, proc_root: &Path, uid: u32) -> Result<Target> {
         require(start(&process, pid)? == process_start, "scheduling_native_peer_changed")?;
         return found.ok_or_else(|| "scheduling_native_worker_absent".into());
     }
+    #[cfg(feature = "pb0-c0-audit")]
+    let mut observed = audit::Owned::new(request,&status,header);
     let mut targets = Vec::new();
     for &(pid, process_start) in &request.owned {
         if pid <= 0 { return Err("scheduling_owner_pid".into()); }
@@ -135,6 +212,8 @@ fn select(request: &Request, proc_root: &Path, uid: u32) -> Result<Target> {
         }
     }
     targets.sort_by_key(|t| t.tid); targets.dedup();
+    #[cfg(feature = "pb0-c0-audit")]
+    if let Some(observed) = observed.as_mut() {observed.render_matches = Some(targets.len());}
     require(targets.len() == 1, "scheduling_unique_owned_render_thread")?;
     Ok(targets.remove(0))
 }
@@ -277,6 +356,107 @@ mod tests {
         f.request.session="43".repeat(16);assert!(f.select().is_err());
         f.request.session="42".repeat(16);
         fs::set_permissions(&f.request.status,fs::Permissions::from_mode(0o644)).unwrap();assert!(f.select().is_err());
+    }
+    #[cfg(feature = "pb0-c0-audit")]
+    fn private_audit_fixture() -> Fixture {
+        let f = Fixture::new();
+        fs::set_permissions(&f.root,fs::Permissions::from_mode(0o700)).unwrap();
+        f
+    }
+    #[cfg(feature = "pb0-c0-audit")]
+    fn scheduling_audit(f: &Fixture) -> serde_json::Value {
+        linux_vst_bridge::read_json(&f.root.join("windows-scheduling.audit.json")).unwrap()
+    }
+    #[cfg(feature = "pb0-c0-audit")]
+    #[test]
+    fn audit_owned_cohort_is_exact_private_bound_and_selection_result_is_unchanged() {
+        let mut f = private_audit_fixture();
+        f.process(100,101,true);f.process(200,201,false);f.process(300,301,true);
+        f.request.owned.push((200,900));
+        assert_eq!(f.select().unwrap(),Target {pid:100,process_start:900,tid:101,thread_start:901});
+        let observed = scheduling_audit(&f);
+        assert_eq!(observed.as_object().unwrap().keys().map(String::as_str).collect::<Vec<_>>(),
+            vec!["basis","clock","monotonic_ns","owned","render_matches","request_schema","schema","session",
+                "status_device","status_extent","status_inode","status_version"]);
+        assert_eq!(observed["owned"],serde_json::json!([[100,900],[200,900]]));
+        assert_eq!(observed["render_matches"],1);
+        assert_eq!(observed["basis"],"supervisor_supplied_cohort");
+        assert_eq!(observed["session"],f.request.session);
+        let status = fs::metadata(&f.request.status).unwrap();
+        assert_eq!(observed["status_device"],status.dev());assert_eq!(observed["status_inode"],status.ino());
+        assert_eq!(observed["status_extent"],1024);assert_eq!(observed["status_version"],2);
+        assert!(observed["monotonic_ns"].as_u64().is_some_and(|value|value > 0));
+        let path = f.root.join("windows-scheduling.audit.json");
+        assert_eq!(fs::metadata(&path).unwrap().mode() & 0o777,0o600);
+        assert!(!fs::read_to_string(path).unwrap().contains(f.root.to_str().unwrap()));
+    }
+    #[cfg(feature = "pb0-c0-audit")]
+    #[test]
+    fn audit_render_zero_multiple_and_incomplete_are_distinct_without_widening_custody() {
+        let mut f = private_audit_fixture();f.process(100,101,false);f.process(300,301,true);
+        assert_eq!(f.select().unwrap_err().to_string(),"scheduling_unique_owned_render_thread");
+        assert_eq!(scheduling_audit(&f)["render_matches"],0);
+        f.process(100,101,true);f.process(200,201,true);f.request.owned.push((200,900));
+        assert_eq!(f.select().unwrap_err().to_string(),"scheduling_unique_owned_render_thread");
+        assert_eq!(scheduling_audit(&f)["render_matches"],2);
+        Fixture::stat(&f.root.join("100"),100,902);
+        assert_eq!(f.select().unwrap_err().to_string(),"scheduling_owner_changed");
+        assert!(scheduling_audit(&f)["render_matches"].is_null());
+    }
+    #[cfg(feature = "pb0-c0-audit")]
+    #[test]
+    fn audit_refuses_status_drift_and_export_error_cannot_change_selection() {
+        let mut f = private_audit_fixture();f.process(100,101,true);
+        f.request.session = "43".repeat(16);
+        assert_eq!(f.select().unwrap_err().to_string(),"scheduling_status_binding");
+        assert!(!f.root.join("windows-scheduling.audit.json").exists());
+        f.request.session = "42".repeat(16);
+        f.request.owned.resize(MAX_OWNERS+1,(100,900));
+        assert_eq!(f.select().unwrap_err().to_string(),"scheduling_request");
+        assert!(!f.root.join("windows-scheduling.audit.json").exists());
+        f.request.owned.truncate(1);
+        fs::create_dir(f.root.join("windows-scheduling.audit.json")).unwrap();
+        assert_eq!(f.select().unwrap().tid,101);
+        assert!(f.root.join("windows-scheduling.audit.json").is_dir());
+        assert!(fs::read_dir(&f.root).unwrap().all(|entry| !entry.unwrap().file_name().to_string_lossy().contains(".tmp-")));
+    }
+    #[cfg(feature = "pb0-c0-audit")]
+    #[test]
+    fn audit_native_request_cannot_overwrite_the_windows_cohort() {
+        let mut f = private_audit_fixture();f.process(100,101,true);f.select().unwrap();
+        let path = f.root.join("windows-scheduling.audit.json");
+        let before = fs::read(&path).unwrap();
+        f.request.schema = 2;f.request.native_peer = Some((100,900));f.request.owned.clear();
+        assert!(f.select().is_err()); // Missing native startup record is still refused.
+        assert_eq!(fs::read(path).unwrap(),before);
+    }
+    #[cfg(feature = "pb0-c0-audit")]
+    #[test]
+    fn audit_write_cannot_follow_replacement_directory_symlink_or_status() {
+        let f = private_audit_fixture();
+        let header = [b"LVFS".as_slice(),&2u32.to_le_bytes(),&[0,4,0,0,0,0,0,0],&[0x42;16]].concat();
+        let observed = audit::Owned::new(&f.request,&fs::metadata(&f.request.status).unwrap(),header.clone().try_into().unwrap()).unwrap();
+        let retained = f.root.with_extension("retained");
+        fs::rename(&f.root,&retained).unwrap();fs::create_dir(&f.root).unwrap();
+        drop(observed);
+        assert!(!f.root.join("windows-scheduling.audit.json").exists());
+        assert!(!retained.join("windows-scheduling.audit.json").exists());
+        fs::remove_dir(&f.root).unwrap();std::os::unix::fs::symlink(&retained,&f.root).unwrap();
+        assert!(audit::Owned::new(&f.request,&fs::metadata(&f.request.status).unwrap(),header.try_into().unwrap()).is_none());
+        fs::remove_file(&f.root).unwrap();fs::rename(&retained,&f.root).unwrap();
+        let mut status = linux_vst_bridge::file(&f.request.status).unwrap();
+        let mut header = [0;32];status.read_exact(&mut header).unwrap();
+        let observed = audit::Owned::new(&f.request,&status.metadata().unwrap(),header).unwrap();
+        fs::rename(&f.request.status,f.root.join("old.status")).unwrap();
+        fs::copy(f.root.join("old.status"),&f.request.status).unwrap();
+        drop(observed);
+        assert!(!f.root.join("windows-scheduling.audit.json").exists());
+    }
+    #[cfg(not(feature = "pb0-c0-audit"))]
+    #[test]
+    fn audit_disabled_selection_never_exports_a_cohort() {
+        let f = Fixture::new();f.process(100,101,true);assert_eq!(f.select().unwrap().tid,101);
+        assert!(!f.root.join("windows-scheduling.audit.json").exists());
     }
     #[test]
     fn scheduling_preserves_existing_policy_and_requires_effective_reset_flag() {
