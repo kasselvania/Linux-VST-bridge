@@ -136,6 +136,25 @@ def lease_observations():
     return rows
 
 
+def dsp_leases():
+    """A newly started environment keeper is not a native DSP instance."""
+    leases = list((root/'runtime/leases').glob('*.json'))
+    assert len(leases) <= 64, 'ownership extent'
+    sessions = set()
+    for lease in leases:
+        sid = lease.stem
+        assert re.fullmatch(r'[a-f0-9]{32}', sid), 'lease identity'
+        try:
+            report = pathlib.Path(read(lease))
+        except FileNotFoundError:
+            continue
+        assert report.parent == root/'runtime/results', 'report identity'
+        assert report.name in ('windows-'+sid+'.json', 'environment-'+sid+'.json'), 'lease report kind'
+        if report.name == 'windows-'+sid+'.json':
+            sessions.add(sid)
+    return sessions
+
+
 def capacity():
     with socket.socket(socket.AF_UNIX) as peer:
         peer.settimeout(5)
@@ -284,7 +303,7 @@ class HealthySibling:
             artifact=registration[name]
             assert sha(pathlib.Path(artifact['path']))==artifact['sha256']
         bundle=pathlib.Path.home()/'.vst3'/('LVB_'+key+'.vst3')
-        before={p.stem for p in (root/'runtime/leases').glob('*.json')}
+        before=dsp_leases()
         command=[str(args.host),str(bundle),self.role,'sibling',str(args.output/'sibling-state'),'1024',*NATIVE_IDS[self.role]]
         self.child=subprocess.Popen(command,env=environment,stdout=subprocess.PIPE,stderr=subprocess.PIPE,bufsize=0)
         try:
@@ -298,14 +317,19 @@ class HealthySibling:
                     row=json.loads(line);self.events.append(row)
                     if row['event']=='processing_state':break
                 else:raise TimeoutError('sibling processing readiness')
-            self.sessions={p.stem for p in (root/'runtime/leases').glob('*.json')}-before
+            self.sessions=dsp_leases()-before
             assert len(self.sessions)==1 and self.child.poll() is None, 'one live exact sibling required'
             idle(1)
             emit('sibling_processing',role=self.role,class_id=key,module_sha256=args.sibling_module_sha256,
                  native_sha256=registration['native']['sha256'],sessions=sorted(self.sessions))
             return self
-        except BaseException:
-            self.stop();raise
+        except BaseException as error:
+            stdout,stderr=self.stop()
+            self.events += [json.loads(line) for line in stdout.splitlines() if line.strip()]
+            emit('sibling_start_failure',reason=str(error),sessions=sorted(self.sessions),
+                 exit_code=self.child.returncode,host_events=self.events,
+                 omitted_stderr_bytes=len(stderr),stderr_sha256=hashlib.sha256(stderr).hexdigest())
+            raise
     def stop(self):
         self.child.terminate()
         try:return self.child.communicate(timeout=15)
