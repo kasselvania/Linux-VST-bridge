@@ -1197,6 +1197,14 @@ whole difference. A user can run bounded checks or enable the candidate in the
 DAW for musical testing before it has a support claim. Ordinary interaction is
 not a request to run every diagnostic again.
 
+Bridge buffering remains an explicit class preference. A publication records
+its value at publication time; that historical snapshot does not override a
+later user choice. Publication restore preserves the current preference and
+checks the target engine's supported capacity, including its exact retained kit
+when the installed package has changed. Unknown capacity refuses before the
+publication changes. Restoring graphics settings must not silently alter audio
+buffering or require it to equal an obsolete snapshot.
+
 Keep loader, audio, editor, state/recall and cleanup outcomes separately. A
 renderer probe is not editor acceleration; editor success is not uninterrupted
 audio. Combined editor/automation load requires captured audio and timing

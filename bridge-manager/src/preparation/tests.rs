@@ -164,6 +164,23 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
     software.preparation_kit = Some(kit(&f, &c, 2));
     atomic_json(&f.m.root.join("software.json"), &software).unwrap();
     f.m.select_delay(&c.selection.class.id, 1024).unwrap();
+    // Buffering is an independent, explicit preference. A later graphics trial
+    // must restore the original publication without reverting that preference
+    // to the publication-time snapshot (512).
+    let trial = configuration::prepare(&f.m, &c,
+        Some(crate::operator_model::GraphicsBackend::WineD3d11), Some(&original)).unwrap();
+    let trial_ref = replace(&f.m, &trial, &original).unwrap();
+    let before_restore = fs::read(f.m.root.join("registry.json")).unwrap();
+    let capable_kit = software.preparation_kit.take();
+    atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+    assert!(disable_exact(&f.m, &trial, &trial_ref).is_err(), "unknown target capacity must still refuse");
+    assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before_restore);
+    assert_eq!(f.m.performance(&c.selection.class.id).unwrap().added_frames, 1024);
+    software.preparation_kit = capable_kit;
+    atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+    disable_exact(&f.m, &trial, &trial_ref).unwrap();
+    assert_eq!(f.m.registry().unwrap().classes[&c.selection.class.id].managed_revision, Some(original.clone()));
+    assert_eq!(f.m.performance(&c.selection.class.id).unwrap().added_frames, 1024);
     let next = prepared(c.selection.clone(), c.inspection.clone(), c.native.clone(),
         c.host.clone(), c.source_manifest.clone(), software.preparation_kit.as_ref().unwrap().sha256.clone()).unwrap();
     record_candidate(&f.m, &next).unwrap();
@@ -242,6 +259,12 @@ with zipfile.ZipFile(out,'w') as archive:
     f.m.select_delay(&c.selection.class.id, 512).unwrap();
     f.m.select_delay(&c.selection.class.id, 1024).unwrap();
     assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_before);
+    let trial = configuration::prepare(&f.m, &retained_candidate,
+        Some(crate::operator_model::GraphicsBackend::WineD3d11), Some(&reference)).unwrap();
+    let trial_ref = replace(&f.m, &trial, &reference).unwrap();
+    disable_exact(&f.m, &trial, &trial_ref).unwrap();
+    assert_eq!(f.m.registry().unwrap().classes[&c.selection.class.id].managed_revision, Some(reference.clone()));
+    assert_eq!(f.m.performance(&c.selection.class.id).unwrap().added_frames, 1024);
     let mut foreign = revision.registration.clone();
     foreign.module.sha256 = "ff".repeat(32);
     assert_eq!(build::maximum_bridge_frames(&f.m, &foreign).unwrap(), None);

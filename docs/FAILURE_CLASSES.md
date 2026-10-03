@@ -2138,6 +2138,19 @@ with `KeyError: proxies` on the reusable kit. It now verifies and stages the
 schema-4 engine under a generic name. The real input-builder/roster regression
 passes without any exact plug-in entry; installed comparison is still pending.
 
+The `0.12.0general1` installed comparison then processed both post-freeze Windows
+fixtures through the unchanged reusable engine, including automation, state
+recall and retirement. The Wine D3D11 trial also processed correctly, but restore
+refused with `rollback_performance_mismatch` after an explicit 512-to-1024 buffer
+change. The publication snapshot was incorrectly used as authority over the
+independent current preference. The focused regression reproduced the installed
+failure. The source repair preserves current buffering while checking the target
+engine's exact capacity, including retained-kit capacity after a package update;
+unknown capacity refuses without changing publication or buffering. All 213
+macOS library tests pass. Installed repair comparison remains pending. This
+failure does not invalidate the retained audio samples or establish a complete
+settings-trial pass.
+
 Next check: an instrument/effect absent from bridge build inputs reaches actual
 processing and recall, including updated-module metadata and a reversible
 settings comparison, without a customer compiler or maintainer proxy build.

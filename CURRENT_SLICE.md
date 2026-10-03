@@ -109,6 +109,16 @@ two CPUs, 4 GiB RAM, no additional swap and 256 processes. Reserve CPU capacity
 for the homelab's audiobook service. Retain the package before generating the
 unfamiliar fixture identities and use the existing product preparation controls.
 
+The frozen `0.12.0general1` package prepared post-freeze Windows instrument/effect
+classes and passed installed SDK processing, automation, state and retirement.
+Its graphics override assessment and effect processing also passed, but restore
+refused with `rollback_performance_mismatch`: the original publication retained
+512 while the independently selected buffer was 1024. The focused source
+regression reproduces that failure. The repair preserves the current preference
+and verifies the target engine's capacity, with unknown capacity still refusing
+before mutation. Installed repair comparison and module-update recall remain
+pending; the failure is not counted as a completed graphics trial.
+
 ## Shared graphics assessment
 
 The operator approved a reusable assessment across plug-ins and distributions.

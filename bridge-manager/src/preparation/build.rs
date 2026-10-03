@@ -27,12 +27,7 @@ pub fn recipe(m: &Manager) -> Result<Artifact> {
 /// A verified kit must bind this exact native binary as well as module/class.
 /// An older proxy cannot acquire a larger envelope from a newer manager alone.
 pub fn maximum_bridge_frames(m: &Manager, r: &Registration) -> Result<Option<u32>> {
-    let software: crate::catalogue::Software = read_json(&m.root.join("software.json"))?;
-    r.native.verify()?;
-    if software.preparation_kit.is_some() {
-        let maximum = maximum_from_kit(&recipe(m)?, r)?;
-        if maximum.is_some() { return Ok(maximum); }
-    }
+    if let Some(maximum) = current_kit_maximum(m, r)? { return Ok(Some(maximum)); }
     // A changed kit describes its own proxies, not the capacity of a retained
     // publication. Follow that publication's exact candidate recipe, never an
     // ambient kit search or the successor's module/class match alone.
@@ -41,12 +36,27 @@ pub fn maximum_bridge_frames(m: &Manager, r: &Registration) -> Result<Option<u32
         .filter(|entry| entry.registration == *r) else { return Ok(None); };
     let Some(reference) = &entry.managed_revision else { return Ok(None); };
     let revision = m.load_revision(&r.metadata.class_id, reference)?;
-    let candidate = super::publication_candidate(m, &revision.profile, r)?;
+    retained_maximum(m, &revision)
+}
+/// Rollback validates the target ancestor's capacity before selecting it. The
+/// currently selected revision cannot stand in for that ancestor's recipe.
+pub(crate) fn revision_maximum_bridge_frames(m: &Manager, r: &Revision) -> Result<Option<u32>> {
+    if let Some(maximum) = current_kit_maximum(m, &r.registration)? { return Ok(Some(maximum)); }
+    retained_maximum(m, r)
+}
+fn current_kit_maximum(m: &Manager, r: &Registration) -> Result<Option<u32>> {
+    let software: crate::catalogue::Software = read_json(&m.root.join("software.json"))?;
+    r.native.verify()?;
+    if software.preparation_kit.is_some() { maximum_from_kit(&recipe(m)?, r) }
+    else { Ok(None) }
+}
+fn retained_maximum(m: &Manager, r: &Revision) -> Result<Option<u32>> {
+    let candidate = super::publication_candidate(m, &r.profile, &r.registration)?;
     if !valid_hex(&candidate.recipe_sha256, 64) { return Ok(None); }
     let retained = existing_runtime(m, &candidate.recipe_sha256)?;
     require(candidate.host == retained.host && candidate.source_manifest == retained.source_manifest,
         "candidate_runtime_changed")?;
-    maximum_from_kit(&retained.kit, r)
+    maximum_from_kit(&retained.kit, &r.registration)
 }
 fn maximum_from_kit(kit: &Artifact, r: &Registration) -> Result<Option<u32>> {
     kit.verify()?;

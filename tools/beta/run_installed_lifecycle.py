@@ -39,6 +39,8 @@ parser.add_argument('--unfamiliar-fixtures', type=pathlib.Path,
 parser.add_argument('--revision', choices=('1.0.1', '1.0.2'))
 parser.add_argument('--frozen-candidate', type=pathlib.Path,
                     help='Retained package, freeze receipt and staged release manifest')
+parser.add_argument('--selected-candidate', type=pathlib.Path,
+                    help='Explicit later package selection; the original frozen engine must remain unchanged')
 parser.add_argument('--recall-from', type=pathlib.Path,
                     help='Recall the exact saved states from a previously passing one-pair run')
 parser.add_argument('--pairs', type=int, choices=(1, 4), default=4,
@@ -61,6 +63,21 @@ def read(path):
 def sha(path):
     with path.open('rb') as stream:
         return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def frozen_candidate(directory):
+    frozen = read(directory/'FROZEN_CANDIDATE.json')
+    assert frozen['schema'] == 1
+    package_name, = [name for name in frozen['files']
+                     if re.fullmatch(r'linux-vst-bridge-beta_[0-9A-Za-z.]+-1_amd64\.deb', name)]
+    assert sha(directory/package_name) == frozen['files'][package_name], 'retained package changed'
+    release_name, = [name for name in frozen['files']
+                     if re.fullmatch(r'staged-[0-9A-Za-z]+/RELEASE_MANIFEST\.json', name)]
+    release_path = directory/release_name
+    assert sha(release_path) == frozen['files'][release_name]
+    release = read(release_path)
+    assert release['source_head'] == frozen['source_head'] and release['source_tree'] == frozen['source_tree']
+    return frozen, frozen['files'][package_name], {item['destination']:item['sha256'] for item in release['files']}
 
 
 def receive(peer, size):
@@ -180,23 +197,19 @@ unfamiliar = None
 if args.unfamiliar_fixtures is not None:
     assert args.revision and args.frozen_candidate, 'exact unfamiliar revision and frozen candidate required'
     unfamiliar = read(args.unfamiliar_fixtures/'UNFAMILIAR_FIXTURES.json')
-    frozen = read(args.frozen_candidate/'FROZEN_CANDIDATE.json')
-    assert unfamiliar['schema'] == frozen['schema'] == 1
+    frozen, package_sha, roster = frozen_candidate(args.frozen_candidate)
+    assert unfamiliar['schema'] == 1
     assert unfamiliar['classification'] == 'first_party_test_instrumentation'
-    package_name, = [name for name in frozen['files']
-                     if re.fullmatch(r'linux-vst-bridge-beta_[0-9A-Za-z.]+-1_amd64\.deb', name)]
-    assert sha(args.frozen_candidate/package_name) == frozen['files'][package_name] == unfamiliar['frozen_package_sha256']
+    assert package_sha == unfamiliar['frozen_package_sha256']
     assert unfamiliar['frozen_engine_sha256'] == frozen['engine_sha256']
-    release_name, = [name for name in frozen['files']
-                     if re.fullmatch(r'staged-[0-9A-Za-z]+/RELEASE_MANIFEST\.json', name)]
-    release_path = args.frozen_candidate/release_name
-    assert sha(release_path) == frozen['files'][release_name]
-    release = read(release_path)
-    assert release['source_head'] == frozen['source_head'] and release['source_tree'] == frozen['source_tree']
-    roster = {item['destination']:item['sha256'] for item in release['files']}
+    selected = frozen
+    if args.selected_candidate is not None:
+        selected, package_sha, roster = frozen_candidate(args.selected_candidate)
+        assert selected['engine_sha256'] == frozen['engine_sha256'], 'package update changed the frozen engine'
+    assert roster['usr/lib/linux-vst-bridge/proxy/ReusableEngine.so'] == frozen['engine_sha256']
     for key, destination in (('manager', 'usr/bin/linux-vst-bridge'),
                              ('host', 'usr/lib/linux-vst-bridge/host/bridge-host.exe')):
-        assert software[key]['sha256'] == roster[destination], 'selected software differs from frozen package'
+        assert software[key]['sha256'] == roster[destination], 'selected software differs from declared package'
     revision, = [row for row in unfamiliar['revisions'] if row['version'] == args.revision]
     assert len(revision['modules']) == 2 and {row['role'] for row in revision['modules']} == set(FIXTURES)
     namespace = uuid.UUID('9389480f-b4b0-5e02-a1d7-687a57b54b3f')
@@ -211,9 +224,10 @@ if args.unfamiliar_fixtures is not None:
     emit('unfamiliar_fixture', revision=args.revision,
          generator_source_head=unfamiliar['generator_source_head'],
          frozen_package_sha256=unfamiliar['frozen_package_sha256'],
-         frozen_engine_sha256=unfamiliar['frozen_engine_sha256'])
+         frozen_engine_sha256=unfamiliar['frozen_engine_sha256'],
+         selected_package_sha256=package_sha, selected_source_head=selected['source_head'])
 else:
-    assert args.revision is None and args.frozen_candidate is None, 'unfamiliar fixture directory required'
+    assert args.revision is None and args.frozen_candidate is None and args.selected_candidate is None, 'unfamiliar fixture directory required'
 for key in ('manager', 'host'):
     artifact = software[key]
     assert sha(pathlib.Path(artifact['path'])) == artifact['sha256'], 'selected artifact changed'

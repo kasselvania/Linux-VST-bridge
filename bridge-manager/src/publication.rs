@@ -1084,10 +1084,14 @@ impl Manager {
         }
         let (selected, r) = selected.ok_or("rollback_revision_not_retained_ancestor")?;
         r.registration.verify(&self.root)?;
-        require(
-            self.performance(key)? == r.performance,
-            "rollback_performance_mismatch",
-        )?;
+        // The revision retains the publication-time preference as evidence.
+        // Explicit buffering changes are independently owned class settings;
+        // restoring a publication preserves them, subject to the target's
+        // actual capacity, rather than demanding the historical value.
+        let performance = self.performance(key)?;
+        require(performance.added_frames != 1024
+            || preparation::build::revision_maximum_bridge_frames(self, &r)? == Some(1024),
+            "rollback_buffering_unsupported_by_target")?;
         if e.publication == Publication::Published && current == &selected {
             require(
                 physical(&self.link(key))? == Some(r.target),
