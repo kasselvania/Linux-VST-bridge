@@ -975,6 +975,20 @@ physical product result is claimed.
 
 ## FC-AUDIO-001 — Residual audio deadline misses
 
+The [2026-10-03 general5 Deck interaction](../evidence/audio-recovery/2026-10-03-general5-deck-installation.json)
+is a separate terminal-instance failure, not another established queued-dropout
+reproduction. Pure LoFi's status mapping disappeared during a combined transport
+and editor/resize-menu test. The private observer called that delivery failure;
+initial narration incorrectly called it missing audio. Final native records show
+zero underruns and rejections for both plug-ins, an explicit terminal failure for
+Pure LoFi, and confirmed retirement for both. Bitwig refused temporary state saving
+for the failed instrument before normal exit. Editor failure was sampled, but the
+trigger and responsible shared boundary are not attributed. The 30-minute window
+stopped after 497.630 seconds; its planned engineering soak never began. Do not
+assign this incident to the historical deadline mechanism or count it as a pass.
+The operator selected a platform architecture/method reassessment, not another
+automatically selected vendor workaround.
+
 ### Shared boundary
 
 callback admission, native worker, Windows processing, scheduler and reply path
@@ -2267,10 +2281,16 @@ mismatches; this is functional coverage, not a soak. General3/general4 failures
 and the failed general4 VM checkpoint remain retained. Manager refresh briefly
 showed unavailable status before returning ready; that UI observation is open.
 
-Fix stage: installed reference repair passed. Support: this reference regression
-is resolved; real DAW, physical Deck and commercial update coverage remain
-unqualified. Next: declared physical interaction/soak and actual DAW state recall
-on one frozen artifact. The original
+Fix stage: installed reference repair passed. The later
+[general5 Deck installation](../evidence/audio-recovery/2026-10-03-general5-deck-installation.json)
+adds real Bitwig recall with unchanged commercial binaries and a saved/reopened
+Macro2 change. It does not test a commercial vendor-version migration. That
+physical interaction later fails in terminal instance handling; both transports
+retire, but temporary state saving fails for the terminal instrument. The reference
+migration regression remains resolved at its declared scope; commercial updates
+and the complete musician workflow remain unqualified. Further engineering follows
+the platform reassessment in CURRENT_SLICE.md rather than automatic soak retries.
+The original
 [failure](../evidence/preparation/2026-10-03-unfamiliar-installed.json) and final
 [comparison](../evidence/preparation/2026-10-03-state-update-installed.json) remain
 separate evidence. #204 remains draft and unmerged.

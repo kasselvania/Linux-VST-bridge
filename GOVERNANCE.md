@@ -1,29 +1,52 @@
-# Project decisions and evidence
+# Product decisions, ownership and completion
 
-`AGENTS.md` contains the working rules. `CURRENT_SLICE.md` names the current outcome. This document explains how decisions and evidence are used; it does not add another execution gate.
+`AGENTS.md` defines the engineering method. `CURRENT_SLICE.md` is the short current
+task pointer. The architecture defines shared product contracts; failure records
+and the support matrix describe their implementation and observed coverage.
+Historical task selections are retained context, not current commands.
 
-## Decisions
+## Responsibility and authority
 
-The operator sets goals and approves consequential scope, spending and security changes. The technical lead selects useful work, closes consequential public-behavior decisions and reviews results. The engineer implements and tests within that scope, including routine repairs. The operator's latest direction takes precedence over older repository process instructions.
+The operator sets the product goal and decides consequential scope, spending,
+security and destructive changes. The engineer owns the architectural reasoning,
+implementation, integration and verification needed to deliver that goal. Routine
+choices do not require another operator instruction. Current operator direction
+takes precedence over repository process text; genuine conflicts must be surfaced.
 
-Normal work is: agree on an outcome, implement and test, then review one PR. There is no mandatory sequence of selection receipts, adversarial design approvals, diagnostic campaigns, frozen acceptance candidates and separate closure PRs. Use a short design note only when a real decision needs it. Do not make the number of owners crossed determine the number of tasks.
+Work is organized around reusable capabilities and complete user journeys. A
+plug-in incident can expose a shared design problem; it does not automatically
+become a vendor-specific task or dictate the architecture. Review across owners
+when the failure or requirement crosses them. A small commit can be part of a
+larger coherent capability; narrowing the commit must not quietly narrow the goal.
 
-## What evidence means
+Architecture is revisable through explicit, evidence-based decisions. Existing
+code and previous proofs have no exemption from the product contract. Review
+whether to retain, repair, replace or retire an implementation without defaulting
+to either endless local workarounds or a new engine. Record consequential decisions
+in the existing architecture/decision documents, not a parallel authority system.
 
-Record the tested code/build, relevant environment, action, observed result and limitations. Source/build identifiers identify evidence; ordinary changes within an approved task do not require renewed permission for every commit.
+## Evidence and completion
 
-A successful development test may support a bounded claim directly. An incomplete or failed test cannot. A mock establishes local behavior, not live Windows or DAW compatibility. A reviewer may ask for an additional test for a specific unresolved risk, not just to move an observation between procedural categories.
+Report source correctness, built artifacts, installed behavior, platform coverage
+and release readiness separately. Reference fixtures demonstrate their contracts;
+commercial and physical results demonstrate their declared conditions. Unknown
+compatibility remains distinguishable from missing capability or actual failure.
+A partial result is useful, but required unfinished integration remains unfinished.
 
-Historical receipts and acceptance packets remain unchanged, including their original labels, failed attempts and consumption counts. Do not change a legacy diagnostic's `acceptance_eligible` field or claim that its old acceptance protocol passed. Under the present process, review can consider its actual observed facts alongside code and other evidence, without pretending the historical record is something else.
+Qualify the measurement path and preserve original observations. Correct reporting
+errors without rewriting history, erasing failures or reclassifying a failed test
+as a pass. Reuse unaffected results; test affected boundaries and the complete
+promised workflow. Only change agreed acceptance scope through an explicit product
+decision. A green test suite or reviewed PR cannot substitute for that workflow.
 
-## Cost and safety
+## Delivery and cost
 
-Reuse unchanged artifacts. Keep explicit user spending limits and useful run accounting; do not invent a universal two-attempt debugging limit. A retry should answer a question or verify a repair. Preserve partial results so a failed GUI/reporting step does not erase correct sample measurements.
+Keep one current task pointer and one support/failure record system. Commit and
+push coherent work with accurate remaining gaps. Review before merge and publish
+only supported claims. A policy change must be independently reviewable from an
+unfinished runtime or beta implementation when their acceptance differs.
 
-Resource ownership, real-time behavior, data protection and useful errors remain engineering requirements. Tool, sandbox and administrator permissions remain separate from project decisions. Updating a repository document cannot grant a prohibited tool operation.
-
-## Review and completion
-
-Review the actual diff and supporting results against the requested outcome. State what was not independently reproduced. Merge only within the user's authority. Update accepted capability and remaining limitations in the same PR where possible; a separate status-closure cycle is unnecessary.
-
-Legacy transaction tooling remains available for exact old receipts and reporting. Its private state is not migrated or reset by this policy change. Retiring a development ceremony neither certifies unfinished product behavior nor removes the product's integrity and cleanup checks.
+Respect existing machine custody, resource and spending limits. Use inexpensive
+readback and supported tooling; reserve physical runs for questions that need them.
+Tool approvals, privacy, licensed state and ownership protections remain in force.
+New process text cannot grant a prohibited operation or require pointless reruns.
