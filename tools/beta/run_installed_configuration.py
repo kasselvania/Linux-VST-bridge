@@ -21,6 +21,14 @@ import threading
 import time
 import traceback
 
+SIBLING_BLOCKS = 2400
+SETTINGS_SIBLING_BLOCKS = 4800
+CONSUMER_BLOCKS = 480
+HOST_FRAMES = 1024
+SAMPLE_RATE = 48000
+STARTUP_SECONDS = 60
+RETIREMENT_SECONDS = 20
+
 
 class Failed(Exception):
     pass
@@ -181,6 +189,7 @@ class Run:
         print(json.dumps(row), flush=True)
 
     def command(self, label, argv, input=None, timeout=45, retain_stdout=True):
+        began = time.monotonic_ns()
         try:
             result = subprocess.run(argv, input=input, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, check=True)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
@@ -191,6 +200,8 @@ class Run:
                 raise Failed("desktop_environment_unavailable") from None
             save(self.out / (label + "-command-failure.json"), details)
             raise
+        finally:
+            save(self.out / (label + "-command-interval.json"), {"began_ns": began, "ended_ns": time.monotonic_ns()})
         for name, data, limit in (("stdout", result.stdout, 8 * 1024 * 1024), ("stderr", result.stderr, 1048576)):
             if name != "stdout" or retain_stdout:
                 (self.out / (label + "-" + name + ".log")).write_bytes(data[:limit])
@@ -285,6 +296,7 @@ class Run:
         began = time.monotonic_ns()
         raw = self.command(stem + "-request", [self.c["manager"], "operator", "request"], input=json.dumps(request).encode())
         receipt = json.loads(raw)
+        receipt_observed = time.monotonic_ns()
         save(self.out / (stem + "-receipt.json"), receipt)
         need(receipt["schema"] == 17, "receipt_schema")
         if disabled:
@@ -310,7 +322,7 @@ class Run:
             save(self.out / (stem + "-result.json"), result)
             need(result and result.get("state") == "completed", "operator_operation_not_completed")
         ended = time.monotonic_ns()
-        save(self.out / (stem + "-interval.json"), {"began_ns": began, "ended_ns": ended})
+        save(self.out / (stem + "-interval.json"), {"began_ns": began, "receipt_observed_ns": receipt_observed, "ended_ns": ended})
         if active:
             active.assert_processing()
             active.intervals.append((label, began, ended))
@@ -334,7 +346,7 @@ class Run:
                  and descriptor["module_sha256"] == fixture["module_sha256"]
                  and descriptor["engine_sha256"] == registration["native"]["sha256"], "published_descriptor_identity")
 
-    def check_fixture(self, fixture, label, prepared_resume=False):
+    def check_fixture(self, fixture, label):
         need(fixture["role"] in ("effect", "instrument"), "fixture_role")
         for key in ("class_id", "processor_id", "controller_id"):
             need(re.fullmatch(r"[0-9A-F]{32}", fixture[key]), "fixture_class_identity")
@@ -346,6 +358,17 @@ class Run:
         need(reg["compatibility"].get("graphics") is None
              and reg["compatibility"]["disable_windows_accessibility"] is False,
              "baseline_launch_defaults_required")
+        reference = fixture["publication"]
+        need(re.fullmatch(r"[a-f0-9]{32}", reference["id"])
+             and re.fullmatch(r"[a-f0-9]{64}", reference["sha256"]), "baseline_publication_identity")
+        revision_path = self.root / "publications" / fixture["class_id"] / "revisions" / reference["id"] / "revision.json"
+        self.artifact({"path": str(revision_path), "sha256": reference["sha256"]})
+        revision = read(revision_path)
+        need(revision["id"] == reference["id"] and revision["class_id"] == fixture["class_id"]
+             and revision["registration"] == reg
+             and revision["external_ids"] == [fixture["processor_id"], fixture["controller_id"]], "baseline_retained_entry_changed")
+        need(Path(fixture["bundle"]).is_symlink()
+             and Path(fixture["bundle"]).resolve(strict=True) == Path(revision["target"]).resolve(strict=True), "baseline_publication_target_changed")
         for name in ("module", "host", "native", "descriptor"):
             if name in reg:
                 self.artifact(reg[name])
@@ -355,14 +378,22 @@ class Run:
              and reg["host_source_sha256"] == self.software["source_sha256"], "fixture_host_not_selected_package")
         self.published_artifacts(fixture, reg)
         detail = self.detail(fixture, label)
-        configuration = detail["product"]["details"]["configuration"]
-        if prepared_resume and configuration["publication"] == "another_configuration":
-            # resume_prepared below must prove the full original selected entry,
-            # retained trial predecessor and a fresh exact publish offer.
-            pass
-        else:
-            need(configuration["publication"] in ("ordinary", "experimental"), "newest_candidate_is_not_selected_baseline")
+        product = detail["product"]
+        selected = product["details"]
+        need(product["class_id"] == fixture["class_id"] and product["environment"] == fixture["environment"]
+             and product["module_sha256"] == fixture["module_sha256"]
+             and selected["publication"] == reference
+             and selected["publication_selected"] is True and selected["publication_valid"] is True
+             and selected.get("refusal") is None, "baseline_selected_publication_unavailable")
+        configuration = selected["configuration"]
+        need(configuration["publication"] in ("ordinary", "experimental", "another_configuration"), "baseline_configuration_unavailable")
+        if configuration["publication"] != "another_configuration":
             need(configuration["settings"] == fixture["settings"], "baseline_settings")
+        # Configuration shows the newest workflow candidate, which may be an
+        # unselected retained trial. The exact selected revision above owns the
+        # baseline and its effective launch defaults independently of that view.
+        save(self.out / (label + "-selected-baseline.json"), {"publication": reference,
+             "registration": reg, "settings": fixture["settings"], "effective_launch_defaults": reg["compatibility"]})
         need(self.performance(fixture) == {"schema": 1, "added_frames": 1024}, "initial_1024_buffering_required")
         return entry
 
@@ -489,7 +520,7 @@ class Run:
         need(all(fixture["native_sha256"] == roster["native_engine"]
                  for fixture in (self.target, self.sibling)), "fixture_engine_not_selected_package")
         self.capacity(0)
-        baseline = self.check_fixture(self.target, "baseline-target", prepared_resume=bool(self.resume))
+        baseline = self.check_fixture(self.target, "baseline-target")
         sibling_entry = self.check_fixture(self.sibling, "baseline-sibling")
         save(self.out / "baseline-entries.json", {"target": baseline, "sibling": sibling_entry})
         settings = self.target["settings"]
@@ -513,7 +544,8 @@ class Run:
             if index == 1 and resumed_candidate:
                 candidate = resumed_candidate
             else:
-                preparing = Consumer(self, self.sibling, f"trial-{index}-prepare-sibling", "sibling", self.out / f"prepare-sibling-state-{index}")
+                preparing = Consumer(self, self.sibling, f"trial-{index}-prepare-sibling", "sibling", self.out / f"prepare-sibling-state-{index}",
+                                     sibling_blocks=SETTINGS_SIBLING_BLOCKS)
                 prepared, _ = self.action(f"trial-{index}-prepare", lambda a: a["kind"] == "candidate_settings_prepare"
                                           and a["settings"] == settings and a["expected_current"] == before["managed_revision"], active=preparing)
                 candidate = prepared["candidate"]
@@ -521,7 +553,8 @@ class Run:
             need(re.fullmatch(r"[a-f0-9]{64}", candidate), "prepared_candidate_identity")
             need(self.entry(self.target) == before and self.entry(self.sibling) == sibling_entry, "prepare_changed_publication")
             need(self.performance(self.target)["added_frames"] == 1024, "prepare_changed_buffering")
-            sibling = Consumer(self, self.sibling, f"trial-{index}-apply-sibling", "sibling", self.out / f"apply-sibling-state-{index}")
+            sibling = Consumer(self, self.sibling, f"trial-{index}-apply-sibling", "sibling", self.out / f"apply-sibling-state-{index}",
+                               sibling_blocks=SETTINGS_SIBLING_BLOCKS)
             published, _ = self.action(f"trial-{index}-apply", lambda a: a["kind"] in ("experimental_replace", "compatibility_publish_test")
                                        and a["candidate"] == candidate and a["expected_current"] == before["managed_revision"], active=sibling)
             current = self.entry(self.target)
@@ -598,26 +631,32 @@ class Run:
 
 
 class Consumer:
-    def __init__(self, run, fixture, label, mode, prefix):
+    def __init__(self, run, fixture, label, mode, prefix, sibling_blocks=SIBLING_BLOCKS):
         self.r, self.fixture, self.label, self.mode = run, fixture, label, mode
         self.events, self.intervals, self.errors = [], [], []
         self.finished = False
+        need(type(sibling_blocks) is int and 2400 <= sibling_blocks <= 4800
+             and (mode == "sibling" or sibling_blocks == SIBLING_BLOCKS), "consumer_declared_count")
+        self.blocks = sibling_blocks if mode == "sibling" else CONSUMER_BLOCKS
         run.capacity(0)
         self.before = run.leases()
         self.registration = run.entry(fixture)["registration"]
         self.dir = run.out / label
         self.dir.mkdir(mode=0o700)
-        command = [run.c["host"]["path"], fixture["bundle"], fixture["role"], mode, str(prefix), "1024",
+        command = [run.c["host"]["path"], fixture["bundle"], fixture["role"], mode, str(prefix), str(HOST_FRAMES),
                    fixture["processor_id"], fixture["controller_id"]]
+        if mode == "sibling":
+            command.append(str(self.blocks))
         save(self.dir / "command.json", command)
         self.started = time.monotonic()
+        self.deadline = self.started + STARTUP_SECONDS + self.blocks * HOST_FRAMES / SAMPLE_RATE + RETIREMENT_SECONDS
         self.child = subprocess.Popen(command, env=run.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         run.children.append(self)
         self.threads = [threading.Thread(target=self.drain, args=(self.child.stdout, "stdout", True), daemon=True),
                         threading.Thread(target=self.drain, args=(self.child.stderr, "stderr", False), daemon=True)]
         for thread in self.threads:
             thread.start()
-        until = time.monotonic() + 60
+        until = self.started + STARTUP_SECONDS
         while time.monotonic() < until:
             if any(row.get("event") == "processing_state" for _, row in self.events):
                 break
@@ -660,7 +699,9 @@ class Consumer:
         need(self.session in self.r.leases(), "processing_lease_missing")
 
     def finish(self):
-        self.child.wait(timeout=max(1, 95 - (time.monotonic() - self.started)))
+        remaining = self.deadline - time.monotonic()
+        need(remaining > 0, "consumer_lifecycle_deadline")
+        self.child.wait(timeout=remaining)
         for thread in self.threads:
             thread.join(timeout=5)
         need(not self.errors and not any(thread.is_alive() for thread in self.threads), "consumer_output_failed")
@@ -669,16 +710,21 @@ class Consumer:
         need(self.child.returncode == 0 and rows[-1]["event"] == "passed", "consumer_lifecycle_failed")
         audio, = [row for row in rows if row.get("event") == "audio"]
         need(audio["callback_audited"] and audio["mismatches"] == audio["nonfinite"] == audio["rejected_callbacks"] == 0
-             and audio["nonzero"] > 0 and audio["blocks"] == (2400 if self.mode == "sibling" else 480), "consumer_audio_failed")
+             and audio["nonzero"] > 0 and audio["blocks"] == self.blocks
+             and audio["frames_per_callback"] == HOST_FRAMES
+             and audio["compared_samples"] == self.blocks * HOST_FRAMES * 2, "consumer_audio_failed")
         need(any(row.get("event") == "host_retired" and row.get("module_unloaded") for row in rows), "consumer_sdk_retirement_missing")
         timing, = [row for row in rows if row.get("event") == "consumer_timing"]
+        need(len(timing["blocks"]) == self.blocks
+             and all(row["block"] == index and row["scheduled_ns"] == index * HOST_FRAMES * 1000000000 // SAMPLE_RATE
+                     for index, row in enumerate(timing["blocks"])), "consumer_timing_count_or_schedule")
         # C++ steady_clock and Python monotonic both use CLOCK_MONOTONIC on this Linux fixture.
         start = timing["audio_begin_monotonic_ns"]
         end = start + timing["blocks"][-1]["started_ns"]
         for label, began, ended in self.intervals:
             need(start < began <= ended < end, "action_not_within_actual_audio_window")
         report_path = self.r.root / "runtime/results" / ("windows-" + self.session + ".json")
-        until = time.monotonic() + 20
+        until = min(self.deadline, time.monotonic() + RETIREMENT_SECONDS)
         report, samples = None, []
         while time.monotonic() < until:
             if report_path.exists():

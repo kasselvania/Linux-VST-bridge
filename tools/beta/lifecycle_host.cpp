@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <dlfcn.h>
@@ -20,6 +21,7 @@
 #include <functional>
 #include <iostream>
 #include <stdexcept>
+#include <string_view>
 #include <thread>
 #include <vector>
 using namespace Steinberg;
@@ -28,6 +30,16 @@ using Clock = std::chrono::steady_clock;
 namespace {
 const char* stage = "load";
 void need(bool value, const char* why) { if (!value) throw std::runtime_error(why); }
+constexpr int defaultSiblingBlocks=2400,maximumSiblingBlocks=4800;
+int siblingBlocks(const char* value) {
+    const std::string_view text=value;
+    int count{};
+    const auto [end,error]=std::from_chars(text.data(),text.data()+text.size(),count);
+    need(error==std::errc{}&&end==text.data()+text.size()
+         &&count>=defaultSiblingBlocks&&count<=maximumSiblingBlocks,
+         "sibling block count must be an integer from 2400 to 4800");
+    return count;
+}
 void ok(tresult value, const char* why) { need(value==kResultOk,why); }
 using Mark = void (*)();
 using Count = uint64_t (*)();
@@ -106,7 +118,7 @@ void synchronize(IEditController& controller,LVBState::Stream& state,double gain
 }
 int main(int argc,char** argv) {
     try {
-        need(argc==8||argc==9,"usage: lifecycle-host BUNDLE instrument|effect record|sibling|recall|migrate|recall-disconnected|migrate-disconnected|abrupt STATE_PREFIX FRAMES NATIVE_PROCESSOR_ID NATIVE_CONTROLLER_ID [CAPTURE_PREFIX]");
+        need(argc==8||argc==9,"usage: lifecycle-host BUNDLE instrument|effect record|sibling|recall|migrate|recall-disconnected|migrate-disconnected|abrupt STATE_PREFIX FRAMES NATIVE_PROCESSOR_ID NATIVE_CONTROLLER_ID [CAPTURE_PREFIX (migration) | SIBLING_BLOCKS (sibling, 2400..4800)]");
         bool instrument=std::string(argv[2])=="instrument",record=std::string(argv[3])=="record"||std::string(argv[3])=="sibling";
         need(instrument||std::string(argv[2])=="effect","fixture role");
         const std::string mode=argv[3];
@@ -116,6 +128,8 @@ int main(int argc,char** argv) {
         const bool sibling=mode=="sibling";
         need(record||mode=="recall"||mode=="recall-disconnected"||migrate||abrupt,"fixture mode");
         need(!migrate||argc==9,"migration needs a separate capture destination");
+        need(argc!=9||migrate||sibling,"unexpected argument for fixture mode");
+        const int count=sibling?(argc==9?siblingBlocks(argv[8]):defaultSiblingBlocks):480;
         const int frames=std::stoi(argv[5]);need(frames==1008||frames==1024,"declared callback sizes");
         const std::string prefix=argv[4];
         auditBegin=reinterpret_cast<Mark>(dlsym(RTLD_DEFAULT,"ap3_audit_begin"));
@@ -194,12 +208,11 @@ int main(int argc,char** argv) {
         std::cout<<"{\"event\":\"activated\",\"latency_samples\":"<<latency<<",\"elapsed_ms\":"<<std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now()-at).count()<<"}"<<std::endl;
         std::atomic<int> blocks{0};std::atomic<bool> audioDone{false};std::exception_ptr audioFailure;
         uint64_t mismatches=0,nonfinite=0,nonzero=0,rejected=0,overruns=0,maxNs=0;double maxError=0.;
-        const int count=sibling?2400:480;
         const int releaseBlock=sibling?count-30:350;
         // Bounded independent-host observations. No logging or allocation is
         // added inside process(); all rows are emitted after the audio join.
         struct Timing {uint64_t scheduledNs{},startedNs{},durationNs{},mismatches{};};
-        std::array<Timing,2400> timing{};
+        std::array<Timing,maximumSiblingBlocks> timing{};
         Clock::time_point audioBegin;
         uint64_t audioBeginUnixNs=0;
         std::jthread audio([&]{ProcessingStop stop{*processor,audioFailure};try {

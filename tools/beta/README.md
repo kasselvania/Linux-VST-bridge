@@ -18,6 +18,12 @@ The build emits the independent SDK consumer and callback audit library. Run
 --pairs 1` is an initial probe; only the default two-role, four-pair run can
 report the complete development suite passing.
 
+The SDK consumer's sibling mode defaults to 2400 callbacks. Its optional ninth
+argument selects a strict decimal count from 2400 through 4800; other ordinary
+modes reject that argument, while migration retains its capture-prefix meaning.
+Timing storage is allocated before audio for the maximum count. Rebuild the
+consumer after changing this source and retain its source and executable digests.
+
 For unfamiliar-module coverage, freeze and retain a package first, then run
 `build_unfamiliar.py` on Windows with that package and engine digest. It builds
 two first-party module revisions with newly generated classes through the same
@@ -113,6 +119,23 @@ All changes consume current operator offers and their state tokens:
   Each restore preserves the current buffering preference and sibling publication.
   The driver restores the initial 1024-frame preference, recalls the original
   unchanged saved files, and requires zero remaining DSP owners.
+
+This configuration driver uses 4800 sibling callbacks during preparation and
+apply at 1024 frames and 48 kHz, a bounded 102.4-second observer window. The
+active-target refusal checks retain their 2400-callback, 51.2-second windows.
+Every audio and timing row must match its declared count; the callback, state,
+sample and retirement oracles remain unchanged. The consumer deadline derives from the audio duration plus
+60 seconds for startup and 20 seconds for retirement. Exact command intervals
+are retained so projection and request time can be separated from operation time.
+
+Baseline selection is verified through the exact registry reference, hashed
+retained revision, full registration, physical publication and current selected
+publication readback with effective default launch settings. A newest unselected
+trial may still appear as `another_configuration`; its advisory settings do not
+describe the selected baseline. Fresh preparation must bind the exact baseline
+in `expected_current`. A changed SDK consumer requires fresh record/recall runs
+and separate tool-source provenance; it cannot inherit the earlier consumer's
+passed sample counts through resume.
 
 `--resume-from /PRIVATE/failed-run` can reuse passed baseline consumers and a
 completed, retained first settings preparation. The original selected entries,
