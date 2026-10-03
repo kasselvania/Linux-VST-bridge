@@ -98,6 +98,17 @@ runtimes, dependencies, advanced controls and physical commercial acceptance
 remain required work. See the retained first-step evidence under
 `evidence/preparation/2026-10-02-reusable-engine.json`.
 
+The installed comparison continues from `78ee6ead2211e18a5c0cd7c35676e01c950f1daa`.
+Its first reproduced packaging defect was the maintainer input builder reading
+the retired per-plug-in `proxies` list from a schema-4 kit. The regression now
+passes through the real input builder and package-roster validation with one
+reusable engine and no exact plug-in entry. This repairs assembly inputs; it
+does not establish installed processing. Use one bounded builder or disposable
+Ubuntu guest at a time, preserving the existing Deck and VM disks, with at most
+two CPUs, 4 GiB RAM, no additional swap and 256 processes. Reserve CPU capacity
+for the homelab's audiobook service. Retain the package before generating the
+unfamiliar fixture identities and use the existing product preparation controls.
+
 ## Shared graphics assessment
 
 The operator approved a reusable assessment across plug-ins and distributions.

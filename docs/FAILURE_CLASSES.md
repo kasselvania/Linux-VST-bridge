@@ -2132,6 +2132,12 @@ from FC-MGMT-004, which repaired readback after an existing proxy was published.
 No cause is assigned to the separately reported Deck input pauses or readiness
 changes. No remote operation was performed for this design correction.
 
+The subsequent installed comparison reproduced an additional packaging caller:
+`tools/beta/candidate_inputs.py` still read the retired `proxies` list and failed
+with `KeyError: proxies` on the reusable kit. It now verifies and stages the
+schema-4 engine under a generic name. The real input-builder/roster regression
+passes without any exact plug-in entry; installed comparison is still pending.
+
 Next check: an instrument/effect absent from bridge build inputs reaches actual
 processing and recall, including updated-module metadata and a reversible
 settings comparison, without a customer compiler or maintainer proxy build.

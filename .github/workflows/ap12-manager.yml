@@ -12,6 +12,7 @@ on:
       - 'evidence/naui1/**'
       - 'tools/mf2/**'
       - 'tools/mf3/**'
+      - 'tools/beta/**'
       - 'tools/lc2/**'
       - 'evidence/lc2/generated.json'
       - 'bridge-manager/**'
@@ -94,6 +95,7 @@ jobs:
       - run: python3 tools/test_ap10_descriptor.py
       - run: python3 tools/frg1/test_census.py
       - run: python3 -m unittest discover -s tools/mf3 -v
+      - run: python3 -m unittest discover -s tools/beta -v
       - run: python3 -m unittest discover -s tools/lc2 -v
       - run: python3 -m unittest discover -s tools/is3 -v
       - run: python3 -m unittest discover -s tools/is4 -v
