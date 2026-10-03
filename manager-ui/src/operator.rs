@@ -660,13 +660,34 @@ impl Operator {
     fn controls_pending(&self) -> bool {
         self.queued_action.is_some()
             || self.queued_import
+            || self.action_inflight
             || self.feedback.as_ref().is_some_and(|f| f.blocking)
             || (self.pending && !self.background_poll
                 && self.origin != Some(RequestOrigin::SilentPostMutationRefresh))
     }
-    fn capture_action(&mut self, request: Request) {
+    fn capture_action(&mut self, request: Request) -> bool {
+        if self.controls_pending() {
+            return false;
+        }
+        for form in [&mut self.product_form, &mut self.workspace_select_form,
+            &mut self.installer_rename_form] {
+            if form.as_ref() == Some(&request.action) {
+                *form = None;
+            }
+        }
         self.feedback = Some(RequestFeedback::captured(request.action.clone()));
         self.queued_action = Some(request);
+        true
+    }
+    fn capture_chosen_action(&mut self, action: Action) -> bool {
+        let Some(snapshot) = self.current_action_snapshot() else {
+            return false;
+        };
+        self.capture_action(Request {
+            schema: crate::model::OPERATOR_SCHEMA,
+            state_token: snapshot.state_token.clone(),
+            action,
+        })
     }
     fn current_action_snapshot(&self) -> Option<&Snapshot> {
         self.overview.as_ref().filter(|_| self.overview_fresh).map(|o| &o.current)
@@ -2232,11 +2253,11 @@ impl eframe::App for Operator {
                     ui.label("Exact installer release");
                     ui.add(egui::TextEdit::singleline(release).char_limit(32).min_size(egui::vec2(220.0, 44.0)));
                     ui.small("The manager verifies this installer in canonical custody before changing the selection.");
-                    submit = ui.add_enabled(!release.is_empty() && !controls_pending, egui::Button::new("Select version").min_size(egui::vec2(180.0, 44.0))).clicked();
+                    submit = ui.add_enabled(!release.is_empty() && !action_controls_pending, egui::Button::new("Select version").min_size(egui::vec2(180.0, 44.0))).clicked();
                     cancel = ui.add_sized([100.0, 44.0], egui::Button::new("Cancel")).clicked();
                 });
             if submit {
-                chosen = self.workspace_select_form.take();
+                chosen = self.workspace_select_form.clone();
             } else if cancel {
                 self.workspace_select_form = None;
             }
@@ -2250,11 +2271,11 @@ impl eframe::App for Operator {
                 ui.add(egui::TextEdit::singleline(label).char_limit(96)
                     .min_size(egui::vec2(240.0, 44.0)));
                 let plausible = plausible_installer_label(label);
-                submit = ui.add_enabled(plausible && !controls_pending,
+                submit = ui.add_enabled(plausible && !action_controls_pending,
                     egui::Button::new("Save name").min_size(egui::vec2(180.0, 44.0))).clicked();
                 cancel = ui.add_sized([100.0, 44.0], egui::Button::new("Cancel")).clicked();
             });
-            if submit { chosen = self.installer_rename_form.take(); }
+            if submit { chosen = self.installer_rename_form.clone(); }
             else if cancel { self.installer_rename_form = None; }
         }
         let result_offer = self.product_form.as_ref().and_then(|form| {
@@ -2323,7 +2344,7 @@ impl eframe::App for Operator {
                                 && (*category != ProblemCategory::Other || failed_area.is_some()),
                         };
                         let refusal = compatibility_result_refusal(result_offer.as_ref(), result);
-                        submit = ui.add_enabled(valid && !controls_pending && refusal.is_none(),
+                        submit = ui.add_enabled(valid && !action_controls_pending && refusal.is_none(),
                             egui::Button::new("Record this test result")
                                 .min_size(egui::vec2(240.0, 44.0))).clicked();
                         if !valid { ui.small("Select an observed check, or choose a problem and describe it."); }
@@ -2339,19 +2360,19 @@ impl eframe::App for Operator {
                         egui::ComboBox::from_id_salt("area").selected_text(area.as_str()).show_ui(ui,|ui|{for a in ["daw_load","midi","audio","editor","parameters","automation","state_recall","processing_restart","retirement"]{ui.selectable_value(area,a.into(),a.replace('_'," "));}});
                         egui::ComboBox::from_id_salt("status").selected_text(status.as_str()).show_ui(ui,|ui|{for a in ["passed","failed","not_tested","unavailable","not_applicable"]{ui.selectable_value(status,a.into(),a.replace('_'," "));}});
                         ui.add(egui::TextEdit::multiline(note).char_limit(512));
-                        submit=ui.add_enabled(!note.trim().is_empty(),egui::Button::new("Record operator observation")).clicked();
+                        submit=ui.add_enabled(!note.trim().is_empty() && !action_controls_pending,egui::Button::new("Record operator observation")).clicked();
                     }
                     Action::CandidateReview{accept,rationale,..}=>{
                         ui.label(if *accept{"Maintainer review: accept this exact local configuration against the retained results. This is not a project-wide support claim. Publication remains a separate action."}else{"Record why this exact configuration needs more work. Publication is unchanged."});
                         ui.add(egui::TextEdit::multiline(rationale).char_limit(512));
-                        submit=ui.add_enabled(!rationale.trim().is_empty(),egui::Button::new("Record explicit review decision")).clicked();
+                        submit=ui.add_enabled(!rationale.trim().is_empty() && !action_controls_pending,egui::Button::new("Record explicit review decision")).clicked();
                     }
                     _=>cancel=true,
                 }
                 cancel|=ui.button("Cancel").clicked();
             });
             if submit {
-                chosen = self.product_form.take();
+                chosen = self.product_form.clone();
             } else if cancel {
                 self.product_form = None;
             }
@@ -2367,13 +2388,7 @@ impl eframe::App for Operator {
         if pick { self.queued_import = true; }
         if refresh { self.explicit_refresh_queued = true; }
         if let Some(a) = chosen {
-            if let Some(s) = self.current_action_snapshot() {
-                self.capture_action(Request {
-                    schema: crate::model::OPERATOR_SCHEMA,
-                    state_token: s.state_token.clone(),
-                    action: a,
-                });
-            }
+            self.capture_chosen_action(a);
         }
         if !self.pending && self.queued_import {
             self.queued_import = false;
@@ -4336,6 +4351,141 @@ mod tests {
         assert_eq!(o.next_action().unwrap().action, create_request().action);
         assert!(o.next_action().is_none());
         assert!(o.controls_pending());
+    }
+    #[test]
+    fn competing_expert_form_preserves_recovery_receipt_and_terminal_result() {
+        for draft in [
+            Action::CandidateObserve { candidate: "ef".repeat(32), area: "editor".into(),
+                status: "failed".into(), note: "Observed symptom".into() },
+            Action::CandidateReview { candidate: "ef".repeat(32), accept: false,
+                rationale: "Retained work is needed".into() },
+        ] {
+            for accepted in [true, false] {
+                let mut o = state_fixture();
+                o.overview = Some(overview_fixture());
+                o.overview_fresh = true;
+                let recovery = Action::OrdinaryRollback { class_id: "ab".repeat(16),
+                    publication: "cd".repeat(16) };
+                o.product_form = Some(draft.clone());
+                assert!(o.capture_chosen_action(recovery.clone()));
+                let request = o.next_action().unwrap();
+                assert_eq!(request.action, recovery);
+                assert_eq!(o.product_form.as_ref(), Some(&draft));
+                o.pending = true;
+                o.action_inflight = true;
+                o.origin = Some(RequestOrigin::UserAction);
+                assert!(!o.capture_chosen_action(draft.clone()));
+                assert!(o.queued_action.is_none());
+                assert_eq!(o.feedback.as_ref().unwrap().action, recovery);
+                assert_eq!(o.product_form.as_ref(), Some(&draft));
+
+                let operation = "31".repeat(16);
+                let reason = "Exact affected owner remains live";
+                o.handle_reply(Reply::Receipt(Receipt { schema: crate::model::OPERATOR_SCHEMA,
+                    accepted, operation: Some(operation.clone()),
+                    refusal: (!accepted).then(|| reason.into()) }));
+                assert!(!o.capture_chosen_action(draft.clone()));
+                let feedback = o.feedback.as_ref().unwrap();
+                assert_eq!(feedback.action, recovery);
+                assert_eq!(feedback.operation.as_deref(), Some(operation.as_str()));
+                if !accepted { assert!(feedback.text.contains(reason)); }
+
+                let terminal = serde_json::json!({"schema":1,"operation":operation,
+                    "state":if accepted {"completed"} else {"refused"},
+                    "action":recovery,"reason":reason});
+                let mut pulse = pulse_fixture(false);
+                pulse.operation = Some(terminal.clone());
+                o.origin = Some(RequestOrigin::BackgroundActivity);
+                o.handle_reply(Reply::Pulse(pulse));
+                assert!(!o.capture_chosen_action(draft.clone()),
+                    "terminal receipt still needs its fresh readback");
+                let feedback = o.feedback.as_ref().unwrap();
+                assert!(feedback.terminal && feedback.blocking);
+                assert_eq!(feedback.action, recovery);
+                assert_eq!(feedback.operation.as_deref(), Some(operation.as_str()));
+                assert_eq!(o.product_form.as_ref(), Some(&draft));
+
+                let mut current = overview_fixture();
+                current.current.state_token = "after-recovery".into();
+                current.readiness.state_token = current.current.state_token.clone();
+                current.current.operation = Some(terminal);
+                o.origin = Some(RequestOrigin::SilentPostMutationRefresh);
+                o.handle_reply(Reply::Overview(Box::new(current)));
+                let feedback = o.feedback.as_ref().unwrap();
+                assert!(feedback.terminal && !feedback.blocking);
+                assert_eq!(feedback.action, recovery);
+                assert_eq!(feedback.operation.as_deref(), Some(operation.as_str()));
+                if !accepted { assert!(feedback.text.contains(reason)); }
+                assert!(o.queued_action.is_none(), "retained drafts are never resubmitted");
+                assert_eq!(o.product_form.as_ref(), Some(&draft));
+
+                assert!(o.capture_chosen_action(draft.clone()));
+                assert!(o.product_form.is_none());
+                let later = o.next_action().unwrap();
+                assert_eq!(later.action, draft);
+                assert_eq!(later.state_token, "after-recovery");
+                assert!(o.next_action().is_none());
+            }
+        }
+    }
+    #[test]
+    fn recovery_capture_queues_once_during_background_readback() {
+        for changed in [false, true] {
+            let mut o = state_fixture();
+            let overview = overview_fixture();
+            let token = overview.current.state_token.clone();
+            o.overview = Some(overview);
+            o.overview_fresh = true;
+            o.pending = true;
+            o.background_poll = true;
+            o.origin = Some(RequestOrigin::BackgroundActivity);
+            let recovery = Action::OrdinaryRollback { class_id: "ab".repeat(16),
+                publication: "cd".repeat(16) };
+            assert!(o.capture_chosen_action(recovery.clone()));
+            assert!(!o.capture_chosen_action(Action::BufferingSet {
+                class_id: "ab".repeat(16), added_frames: 512 }));
+            assert!(o.next_action().is_none());
+            let mut pulse = pulse_fixture(false);
+            if changed { pulse.cleanup_unconfirmed = Some(true); }
+            o.handle_reply(Reply::Pulse(pulse));
+            let request = o.next_action().unwrap();
+            assert_eq!(request.schema, crate::model::OPERATOR_SCHEMA);
+            assert_eq!(request.state_token, token, "never relabel a captured request");
+            assert_eq!(request.action, recovery);
+            assert!(o.next_action().is_none());
+        }
+    }
+    #[test]
+    fn form_drafts_survive_unavailable_authority_and_competing_import() {
+        let mut o = state_fixture();
+        o.overview = Some(overview_fixture());
+        let observation = Action::CandidateObserve { candidate: "ef".repeat(32),
+            area: "editor".into(), status: "failed".into(), note: "Retained note".into() };
+        let workspace = Action::WorkspaceSelectInstaller {
+            installer: "ab".repeat(32), release: "Exact release".into() };
+        let rename = Action::InstallerRename { installer: "cd".repeat(32),
+            label: "Retained display name".into() };
+        o.product_form = Some(observation.clone());
+        o.workspace_select_form = Some(workspace.clone());
+        o.installer_rename_form = Some(rename.clone());
+        for draft in [&observation, &workspace, &rename] {
+            assert!(!o.capture_chosen_action(draft.clone()));
+        }
+        o.overview_fresh = true;
+        o.queued_import = true;
+        for draft in [&observation, &workspace, &rename] {
+            assert!(!o.capture_chosen_action(draft.clone()));
+        }
+        assert!(o.feedback.is_none() && o.queued_action.is_none());
+        assert_eq!(o.product_form.as_ref(), Some(&observation));
+        assert_eq!(o.workspace_select_form.as_ref(), Some(&workspace));
+        assert_eq!(o.installer_rename_form.as_ref(), Some(&rename));
+        o.queued_import = false;
+        assert!(o.capture_chosen_action(workspace.clone()));
+        assert!(o.workspace_select_form.is_none());
+        assert_eq!(o.product_form.as_ref(), Some(&observation));
+        assert_eq!(o.installer_rename_form.as_ref(), Some(&rename));
+        assert_eq!(o.next_action().unwrap().action, workspace);
     }
     #[test]
     fn long_setup_feedback_names_only_the_exact_running_operation() {
