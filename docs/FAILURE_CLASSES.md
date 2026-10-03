@@ -11,9 +11,11 @@ or acceleration qualification. Source inspection identifies controller-update
 failure propagation to audio and an owner-exception/thread-retirement hazard.
 Subsequent Windows SDK fixtures reproduce those boundaries; FC-UI-009 below
 records the owner repair and explicit controller failure custody. Neither is
-assigned to a commercial incident. Requested-policy and native diagnostic
-readback are now implemented, while effective Windows renderer observation and
-rendering-cost measurements remain gaps. No physical support posture is widened.
+assigned to a commercial incident. The shared explicit graphics assessment now
+adds module dependency hints, editor-time library observations and independent
+Windows context probes through the existing inspector. The editor's own device,
+child renderers and rendering-cost measurements remain gaps. No physical support
+posture is widened.
 
 ## Status vocabulary
 

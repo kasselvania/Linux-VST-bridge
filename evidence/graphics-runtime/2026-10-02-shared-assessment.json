@@ -1,0 +1,181 @@
+{
+  "schema": 1,
+  "status": "source_and_reference_validation_passed",
+  "base": "7565616b17865ff5060e5656184618f5432c13ed",
+  "source": "415cc3958e036fc9b94e71a9dd16228f687a5b73",
+  "tree": "deedbb98a1fcd65024af873608114f6a19303c59",
+  "source_sha256": {
+    ".github/workflows/ap8-windows.yml": "db299443d31bda85545add014f2d6d6ab93b36ff4ffbb17f8c49183522c5bc17",
+    "bridge-manager/examples/graphics_assessment_report.rs": "5e4c24219fb5e96daca34e47633d1a6d1b29dc7001e65bfe83e6eb9cc1e0030d",
+    "bridge-manager/runtime/session.py": "02dedbf226de0315450ef5f027ffc7184f4990b773ce1d51f10198e045780e9f",
+    "bridge-manager/runtime/test_session.py": "73ea1c9c852ddf01d8ce394ed682bf7269008bb5645b36868311afe1523f5616",
+    "bridge-manager/src/graphics.rs": "e7e9c8298667d022c8288a7655d69d352dc1e9e3a4c5f98d7621c2a1332a1870",
+    "bridge-manager/src/graphics/assessment.rs": "9ae5a2d4c59ca9626a71585b06aa73c23ed866562fd6f6767dc3a9310be44e47",
+    "bridge-manager/src/graphics/pe.rs": "02a75f02b1c6d785cd35c29695ec0176125134f7a735e904fb8faee98918d995",
+    "bridge-manager/src/graphics/tests.rs": "f38269479fb8e8c8113ae50923e3761e3c1d70fdb9492866f631df1a803bda54",
+    "bridge-manager/src/graphics_cli.rs": "58f45132317212925934b5f23dd320da0c5a80c657725aa18a5f2d77480aa80c",
+    "bridge-manager/src/main.rs": "b5467acbd609dbaabdd5c5362b5920abde32a04ac3fa7b5fb65f4220a4f7a3d3",
+    "tools/graphics/assessment_test.py": "a3d7cc4d281cd9b5643726f8fa5b3245513d01cd1974f9916310a30e53bbdb14",
+    "windows-factory-probe/CMakeLists.txt": "0e548c70ee96fa3229faf3acaf0a33ec14951a1cbd2671e2b0446dfa7b5dcc43",
+    "windows-factory-probe/source/graphics_assessment.cpp": "e02b98dd53c31aa91f85cd0b094e50075112936a1487739b6df3da29f08c4528",
+    "windows-factory-probe/source/graphics_assessment.h": "e9c0ccbd27696a8af11304baff03ba2a5568ea49ed9756c8dbafa4d4ed6f408c",
+    "windows-factory-probe/source/inspect_module.cpp": "e4e40f48d7982ea64a57be5c94f3294d67c7a3f1dbfece7209bbb3b49b679ce1",
+    "windows-factory-probe/source/inspect_module.h": "a33373fc0110844e66a249f5116fb146472226f7f001fb5b51f1750f86ea8a59",
+    "windows-factory-probe/source/main.cpp": "aa72d08c2bb0f63cbe362037c6ab7d53c9d8f8870680217b67da8835a254a004",
+    "windows-fixtures/graphics/editor.cpp": "71619783de148cf664d38be166e5965762e611d3e5fb7aa03fbd33ffbfa742da"
+  },
+  "claim": "One explicit inactive graphics assessment across modules: PE import hints, editor-time library observations and independent selected-runtime graphics probes; no policy or support promotion.",
+  "local_checks": {
+    "graphics_rust_tests": 8,
+    "focused_supervisor_tests": 7,
+    "manager_library_tests_at_first_implementation": 203,
+    "library_and_report_lint": "passed"
+  },
+  "attempts": [
+    {
+      "source": "84e193c65ccc5947e7a59a21c5845e0905a5b7a9",
+      "windows_run": 37090210684,
+      "result": "failed before assessment gate: reference module placed on D: outside existing admitted C: module boundary. Windows compilation and preceding fixtures passed. Test setup corrected; boundary unchanged."
+    },
+    {
+      "source": "ea9b79ff505d0118be3c6a421a873e56ec25141c",
+      "windows_run": 37090549068,
+      "result": "cancelled after identifying the same unchanged fixture path error; not counted as a pass."
+    },
+    {
+      "source": "035ab25ded9e2098ca5fbd76cf4fed35509ff286",
+      "windows_run": 37090650813,
+      "result": "D3D11 default and WARP readback passed; default context reported Microsoft Basic Render Driver. OpenGL GDI Generic context creation succeeded but hidden single-buffer readback failed. Switched the probe and independent OpenGL fixture to explicit double-buffered back-buffer drawing/readback. Failure retained, not counted as a pass."
+    },
+    {
+      "source": "a654e6269ae160b5fee3d9e5fad703c5a2cdfb9f",
+      "windows_run": 37091171036,
+      "result": "Independent OpenGL probe and D3D11 reference passed. Delayed-OpenGL reference editor refused attachment. Added a reference-owned child surface with a persistent DC and precise failure observations; this did not resolve the failure."
+    },
+    {
+      "source": "0f2cd845905ef51062c7d2c598d8f29d121da8b4",
+      "windows_run": 37091439150,
+      "result": "OpenGL reference still refused: pixel format 4 selected, no WGL context, Win32 error 2000. Independent probes and D3D11 reference passed. Next comparison resolves delayed WGL at editor entry before GDI pixel-format setup."
+    },
+    {
+      "source": "415cc3958e036fc9b94e71a9dd16228f687a5b73",
+      "windows_run": 37091722836,
+      "result": "passed all four reference assessments, independent pixel probes, production Rust joins and existing Windows regressions. The OpenGL fixture comparison changed only delayed WGL resolution order from the preceding failure; no production audio or installed setting changed."
+    }
+  ],
+  "final_runs": {
+    "windows": 37091722836,
+    "linux_manager": 37091722832,
+    "native": 37091722764,
+    "proof": 37091722839,
+    "package": 37091722784
+  },
+  "fixture_scope": [
+    "Native Windows 2022 CI, pinned VST3 SDK, first-party D3D11 and delayed-OpenGL reference editors",
+    "Refused and absent reference editors",
+    "Production Rust parser/report consumer; no licensed commercial assets"
+  ],
+  "boundaries": {
+    "deck_access": false,
+    "deployment": false,
+    "policy_changes": false,
+    "physical_gpu_qualification": false,
+    "plugin_device_observation": false,
+    "child_renderer_observation": false,
+    "audio_continuity_qualification": false,
+    "beta_ready": false
+  },
+  "remaining": [
+    "Exercise the assessor under an exact selected Proton runtime on physical hardware",
+    "Observe actual vendor rendering device and browser children",
+    "Measure editor/audio coexistence; BEAM crackling remains unattributed",
+    "Broader requirement/policy selection and musician workflow qualification"
+  ],
+  "linux_validation": {
+    "source": "415cc3958e036fc9b94e71a9dd16228f687a5b73",
+    "manager_library": 209,
+    "manager_binary": 292,
+    "preexisting_ignored": 2,
+    "runtime_python": 353,
+    "frontend": 86,
+    "lint_and_release_builds": "passed",
+    "existing_uir1_report_tests": 5
+  },
+  "ci_checkout": {
+    "commit": "8d80e83ea811f6238bde841f0729fd0f039651be",
+    "tree": "deedbb98a1fcd65024af873608114f6a19303c59",
+    "matches_source_tree": true
+  },
+  "final_run_results": {
+    "windows": "success",
+    "linux_manager": "success",
+    "native": "success",
+    "proof": "success",
+    "package": "success"
+  },
+  "windows_validation": {
+    "host_job": 111113293225,
+    "rust_join_job": 111114427728,
+    "reference_editors": {
+      "d3d11": "opened; independent reference pixels matched",
+      "delayed_opengl": "opened; library absent before editor and present during editor; independent reference pixels matched",
+      "refused_editor": "unavailable and closed",
+      "missing_editor": "unavailable and closed"
+    },
+    "runtime_probes": {
+      "d3d11_default": "pixel readback passed; Microsoft Basic Render Driver normalized to reported_software",
+      "d3d11_warp": "pixel readback passed; reported_software",
+      "opengl": "pixel readback passed; GDI Generic 1.1.0 reported_software",
+      "direct_composition": "device creation passed; presentation not tested"
+    },
+    "existing_windows_regressions": "passed",
+    "rust_join": "production PE parser and report assembly passed against all four actual Windows binaries and observations"
+  },
+  "artifacts": [
+    {
+      "id": 11263610283,
+      "name": "ap8-windows-host-8d80e83ea811f6238bde841f0729fd0f039651be",
+      "digest": "sha256:7169b9a384f4d208464640840b1beb8b8ef6aaaf831890a265ff708d0583a5d4"
+    },
+    {
+      "id": 11263440532,
+      "name": "graphics-assessments-8d80e83ea811f6238bde841f0729fd0f039651be",
+      "digest": "sha256:c63371da3b9e1c4cb9615d217797ddc989a40ef88572e410efa516bc2db7c24b"
+    }
+  ],
+  "artifact_sha256": {
+    "wf0-factory-probe.exe": "94e605bf10c9f3cc4c31485f2842d0f92579ca80838840eaa06e0d534924d5f9",
+    "host-source-manifest.json": "8b1dc90488b2ddf06498a29b1203a4973e883f233377843e60a1862f1362c819",
+    "graphics-reference-1.vst3": "a5621c9d66669497fb052583f9ae073d75e0b3cc1e37057afff7f5952a76ad52",
+    "graphics-reference-2.vst3": "5c182b3e695d642695f440964b70fdf1d221e7ce33285ea1e096a5f717f4b836",
+    "graphics-reference-3.vst3": "ba886b184e2009894d9140aed626fe0b63c23226dce4d29d9fe525c804c0cafc",
+    "graphics-reference-4.vst3": "edd3e80386fd2cd2e3e5afa5e2aa198f3bd4854a492484e8ecd2ed1a4f8ad853"
+  },
+  "reports": {
+    "evidence/graphics-runtime/2026-10-02-shared-assessment/assessment-1.json": "7fd6e8ad065573a3103001ddcd98209357b4043228021f423bb8dcc6424e7eb3",
+    "evidence/graphics-runtime/2026-10-02-shared-assessment/assessment-2.json": "99c0d8b6d673d6799b7969bc306c7b9e44dfe9c67d8ce6aa5bc1e20d7896c1da",
+    "evidence/graphics-runtime/2026-10-02-shared-assessment/assessment-3.json": "f222f57906937147f2ccef8759950e7928ffd7bfce95555c29f265e0d57d664b",
+    "evidence/graphics-runtime/2026-10-02-shared-assessment/assessment-4.json": "a27ecd833d4df1cd77d89f18f2c07041eedf7fb6f1d7eb64db0e65a519426d9c"
+  },
+  "cleanup": {
+    "reference_sessions": "owned temporary test directories retired by the test after each run",
+    "shared_server_or_vm_use": false,
+    "deck_access": false,
+    "audio_worktree_head": "764af9ca5380f14a8b8967acb462dcb9814e7e17",
+    "audio_worktree_clean": true
+  },
+  "host_source_verification": {
+    "manifest_commit": "8d80e83ea811f6238bde841f0729fd0f039651be",
+    "exact_file_hashes": 0,
+    "windows_crlf_file_hashes": 61,
+    "other_differences": [],
+    "note": "Windows checkout line endings are CRLF for the listed source files; all recorded host inputs match local bytes exactly or after LF to CRLF conversion. Git trees are identical."
+  },
+  "final_run_urls": {
+    "windows": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37091722836",
+    "linux_manager": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37091722832",
+    "native": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37091722764",
+    "proof": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37091722839",
+    "package": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37091722784"
+  }
+}

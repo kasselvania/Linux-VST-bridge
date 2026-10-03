@@ -32,6 +32,21 @@ qualification remain unperformed until exercised on declared hardware. Keep
 sanitized results and failed attempts; commit and push to the existing draft PR.
 Source rollback is commit reversion; no installed rollback is needed.
 
+Result: this source/reference claim is complete at
+`415cc3958e036fc9b94e71a9dd16228f687a5b73`, tree
+`deedbb98a1fcd65024af873608114f6a19303c59`. Windows CI used an identical tree.
+Both reference editors opened and verified pixels; refused and absent editors
+reported unavailable. All four observations and exact compiled PE files passed
+the production Rust report join. Independent default-D3D11, WARP and OpenGL pixel
+checks passed on the CI software renderers; DirectComposition device creation
+passed, without a presentation claim. Linux manager/runtime/frontend, native,
+package and existing Windows checks passed. The
+[retained results](evidence/graphics-runtime/2026-10-02-shared-assessment.json)
+include prior failures, exact artifact hashes and all four normalized reports.
+No Deck, installed runtime, licensed environment or frozen audio worktree was
+changed. Selected-Proton hardware assessment, actual vendor/child rendering
+attribution and graphics/audio coexistence remain unperformed.
+
 ## Graphics readback and editor failure containment implementation
 
 On 2026-10-02 the operator authorized the two source follow-ups below while

@@ -58,7 +58,7 @@ separates effective rendering capability, editor/controller failure isolation
 and graphics performance from their final coexistence test with audio. Local
 source checks passed. The subsequently authorized work adds requested/observed
 graphics reporting, optional native diagnostics and controlled owner-exception
-retirement with SDK fixtures. [Implementation results](GRAPHICS_RUNTIME_REVIEW.md#implemented-follow-up-readback-and-failure-containment)
+retirement with SDK fixtures. [Implementation results](GRAPHICS_RUNTIME_REVIEW.md#earlier-implementation-readback-and-failure-containment)
 remain separate from selected-runtime renderer observation and physical
 coexistence tests. There has been no Deck access or change to the frozen audio
 candidate, and no graphics path is qualified through an audio-only result.

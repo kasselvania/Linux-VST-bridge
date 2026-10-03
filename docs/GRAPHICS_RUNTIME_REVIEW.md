@@ -34,7 +34,7 @@ One implementation produces these separate facts:
 | Editor opening and closing | Existing SDK `VendorView` lifecycle and a 750 ms message-pump observation. This is neither visual correctness nor a performance test. A missing/refused view is explicit. |
 | Default D3D11 context | Creates a device and checks all pixels of a 2 by 2 clear/readback. Reports its adapter, feature level and driver version when supplied by the API. It does not silently retry another rendering policy. |
 | WARP D3D11 context | Separate software-rendering comparison with its own pixel readback and explicit software label. Its success cannot make the default-device result pass. |
-| OpenGL context | Creates its own Win32/WGL context and checks all pixels of a 2 by 2 clear/readback. Reports renderer/version and pixel-format acceleration flags. |
+| OpenGL context | Creates its own double-buffered Win32/WGL context and checks all back-buffer pixels of a 2 by 2 clear/readback. Reports renderer/version and pixel-format acceleration flags. |
 | DirectComposition | Tests device creation against the default D3D11 device. A pass does not establish compositor presentation, browser rendering or animation quality. |
 
 Direct3D 9/12, Vulkan, Direct2D, WebView2 and ANGLE dependencies are recognizable
@@ -77,6 +77,16 @@ on the selected Proton runtime, observing browser children and measuring
 graphics/audio coexistence are the next bounded jobs. Existing native GLX,
 machine/DAW readiness and scheduling observations keep their own scopes; this
 graphics command does not replace them with a new platform profiler.
+
+At source `415cc3958e036fc9b94e71a9dd16228f687a5b73`, all four reference cases
+passed on native Windows CI, followed by the production Rust join of their
+actual PE bytes and observations. The CI merge checkout has the same tree.
+The default D3D11 adapter was Microsoft Basic Render Driver and OpenGL was
+GDI Generic 1.1.0; both are correctly reported as software. These are useful
+software-path results, with no physical acceleration claim. Earlier fixture-path,
+OpenGL back-buffer and delayed-library setup failures remain recorded in the
+[assessment evidence](../evidence/graphics-runtime/2026-10-02-shared-assessment.json),
+alongside passing artifacts and unchanged Deck/audio boundaries.
 
 Public API basis: Microsoft's [PE specification](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format),
 [D3D11 device creation](https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-d3d11createdevice)
