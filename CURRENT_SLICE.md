@@ -117,6 +117,63 @@ buffers, change the runtime or priorities, or widen privileges as a guessed repa
 
 ## Selected implementation endpoint
 
+### Active architectural hardening
+
+The operator selected these shared repairs on 2026-10-03. Implementation starts
+from commit `9dd5367e69ec42fbf232aef4b22371fb7ba78fb3`, tree
+`6130ae769eef0ce3ea8ce9dfa472c4266fd4ea7a`. Basis: Architecture 18.7,
+"Shared configuration, separate facts" and "Capability and ownership scope";
+the controlled observation and next bounded work above. The primary claim is
+that ordinary configuration controls and exact execution custody use their proper
+existing owners without weakening execution admission. This is a prerequisite
+repair within the unchanged endpoint below, not completed installed acceptance.
+
+Scope is the manager's record/projection/action consumers and the supervisor's
+per-launch process custody and scheduling adapter, with their focused regressions.
+Ordinary readback may validate bounded control records, bindings, transaction state
+and the selected physical pointer. It must identify that scope truthfully and must
+not claim a fresh check of executable payloads. The queued worker executable is
+freshly verified; workers and launch retain deep payload verification and final
+ownership/publication rechecks. No persisted cache becomes execution authority.
+
+The supervisor must establish the final Windows host's authenticated process
+generation and exact session/status binding before render-thread selection. A name,
+self-reported PID, or membership in the shared keeper cannot grant instance custody.
+Retain uncertainty if the implemented runtime cannot establish that binding. Do not
+change scheduler policy or privileges to conceal a missing owner.
+
+Source acceptance requires: ordinary overview/product/offer reads avoid bulk payload
+hashing, runtime-tree walks and preparation-kit execution; altered payloads still
+refuse at worker/launch admission; altered bindings, stale actions and affected
+owners refuse at their authoritative boundary. Custody tests cover unrelated
+senders, partial/coalesced messages, PID reuse, startup failure and exact retirement.
+Existing siblings, saved state, unrelated preferences and historical identities
+remain preserved. Independent review precedes installed claims.
+
+Installed comparison uses the same disposable Ubuntu reference fixture, pinned
+runtime and 1024-frame settings described in the retained observation. Verify
+ordinary controls, current custody/scheduling readback, actual captured audio and
+positive retirement together. Retain the failed original and all new attempts;
+the comparison cannot establish a root cause or erase the failed workflow. Rollback
+uses retained paired package/publications and ordinary exact restoration. No engine,
+runtime, dependency, buffer or privilege experiment is included; the Deck is unchanged.
+
+### Source checkpoint
+
+The [foundation source result](evidence/preparation/2026-10-03-foundation-source.json)
+records the reviewed exact file identities and Linux validation: 392 runtime tests,
+560 manager tests (two existing opt-in tests excluded), 97 frontend tests, audit
+and report tests, packaging-helper tests and strict manager/frontend lint passed.
+The final Windows writer uses kernel-authenticated, generation-pinned custody
+and exact status mapping through the existing launch channel. Ordinary controls
+use bounded records; workers and launch retain deep execution validation. Explicit
+history completion and lineage-before-candidate publication replace incidental
+migration during readback. Earlier failed test attempts remain retained.
+This is source acceptance only. Paired installation, exact pinned-runtime custody,
+integrated audio/settings and ordinary GUI restoration remain to be performed.
+
+### Complete configuration workflow
+
 Prepare, explain, run and restore an unfamiliar plug-in through one managed
 configuration. Extend existing candidate/history and registration owners; connect
 profile advice, explicit preferences, capability assessment, normal controls,

@@ -26,10 +26,16 @@ fn legacy_successor(base: &Candidate, backend: Option<GraphicsBackend>, baseline
 /// the effective launch options or choose a different module/runtime.
 pub(super) fn registration_for(c: &Candidate, profile: &Profile, census: &crate::observation::Census,
     purpose: SelectionPurpose) -> Result<Registration> {
+    let registration = registration_record_for(c, profile, census, purpose)?;
+    c.native.artifact.verify()?;
+    Ok(registration)
+}
+pub(super) fn registration_record_for(c: &Candidate, profile: &Profile, census: &crate::observation::Census,
+    purpose: SelectionPurpose) -> Result<Registration> {
     verify_settings(c)?;
     require(profile.capabilities.compatibility() == c.profile.capabilities.compatibility(),
         "configuration_profile_changed")?;
-    crate::observation::derive_for(profile, census, &c.native, purpose)
+    crate::observation::derive_record_for(profile, census, &c.native, purpose)
 }
 
 pub fn settings(c: &Candidate) -> LocalSettings {
@@ -142,12 +148,17 @@ pub fn prepare_settings(m: &Manager, base: &Candidate, requested: &LocalSettings
 }
 
 pub(super) fn verify_trial(m: &Manager, c: &Candidate) -> Result<()> {
+    validate_trial_record(m, c)?;
+    if let Some(baseline) = c.settings_trial.as_ref().and_then(|trial| trial.baseline.as_ref()) {
+        m.load_revision(&c.selection.class.id, baseline)?;
+    }
+    Ok(())
+}
+pub(super) fn validate_trial_record(m: &Manager, c: &Candidate) -> Result<()> {
     let Some(trial) = &c.settings_trial else {
         return Ok(());
     };
-    let base = retained_candidates(m)?.into_iter()
-        .find(|old| old.id().is_ok_and(|id| id == trial.predecessor))
-        .ok_or("settings_trial_predecessor_absent")?;
+    let base = candidate_record(m, &trial.predecessor)?;
     let expected = if let Some(settings) = &c.local_settings {
         successor_with_resolved(&base, settings, trial.baseline.as_ref(),
             c.profile.capabilities.accessibility.clone())?
@@ -156,7 +167,7 @@ pub(super) fn verify_trial(m: &Manager, c: &Candidate) -> Result<()> {
     };
     require(expected == *c, "settings_trial_configuration_changed")?;
     let Some(baseline) = &trial.baseline else { return Ok(()) };
-    let prior = m.load_revision(&c.selection.class.id, baseline)?;
+    let prior = m.load_revision_record(&c.selection.class.id, baseline)?;
     require((prior.profile == base.profile || accepted_profile(m, &base, &prior.profile)?)
         && prior.registration.environment == c.selection.environment
         && prior.registration.module == c.selection.module
@@ -201,7 +212,9 @@ pub fn record_assessment(m: &Manager, c: &Candidate, operation: &str, result: &a
 /// Retained observations describe that run, not the current driver/device.
 /// Ordinary projection never launches a probe or infers accelerated rendering.
 pub fn view(m: &Manager, c: &Candidate) -> Result<Value> {
-    let expected = context(c)?;
+    let registration = registration_record_for(c, &c.profile, &c.census()?, SelectionPurpose::Qualification)?;
+    let expected = assessment::Context::for_configuration(&c.selection.environment, &c.selection.module,
+        &c.selection.class.id, &c.host, &c.source_manifest.sha256, &registration.compatibility)?;
     let mut reports = Vec::new();
     for path in list(&root(m).join("graphics").join(c.id()?))? {
         if path.extension().and_then(|s| s.to_str()) != Some("json") { continue; }
@@ -215,7 +228,6 @@ pub fn view(m: &Manager, c: &Candidate) -> Result<Value> {
         }
     }
     reports.sort_by_key(|row| row["observed_at"].as_u64().unwrap_or(0));
-    let registration = registration(c)?;
     let selected = settings(c);
     let explicit_graphics = c.local_settings.is_some() || c.settings_trial.is_some();
     let accessibility_source = match selected.accessibility {
@@ -225,6 +237,8 @@ pub fn view(m: &Manager, c: &Candidate) -> Result<Value> {
     let buffering = m.performance(&c.selection.class.id)?;
     Ok(serde_json::json!({
         "schema":1,
+        "verification_scope":"control_records",
+        "execution_verification":"deferred_to_worker_or_launch",
         "launch":{
             "module":registration.module.sha256,
             "class_id":registration.metadata.class_id,
@@ -305,7 +319,7 @@ mod tests {
         assert_eq!(restored.managed_revision, Some(original.clone()));
         assert_eq!(restored.registration, revision.registration);
         check_publication(&f.m, &revision.profile, &restored.registration).unwrap();
-        let loaded = candidate(&f.m, &saved_id, &current.host, &current.source_manifest.sha256).unwrap();
+        let loaded = candidate_record(&f.m, &saved_id).unwrap();
         assert_eq!(loaded.id().unwrap(), saved_id);
         assert_eq!(serde_json::to_vec(&loaded).unwrap(), saved);
     }
@@ -362,7 +376,7 @@ mod tests {
         assert_eq!(restored.managed_revision, Some(selected.clone()));
         assert!(restored.registration.compatibility.disable_windows_accessibility);
         check_publication(&f.m, &revision.profile, &restored.registration).unwrap();
-        let loaded = candidate(&f.m, &saved_id, &base.host, &base.source_manifest.sha256).unwrap();
+        let loaded = candidate_record(&f.m, &saved_id).unwrap();
         assert_eq!(loaded.id().unwrap(), saved_id);
         assert_eq!(serde_json::to_vec(&loaded).unwrap(), saved);
 

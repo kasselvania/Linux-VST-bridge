@@ -189,6 +189,20 @@ pub fn stale_reason(
         None
     }
 }
+/// Readback freshness is an identity/location fact. Payload-byte freshness is
+/// verified by the scanner/mutation/launch owner, not by drawing this inventory.
+pub fn record_stale_reason(module: &Module, observed_environment: &Environment,
+    observed_host: &Artifact, observed_source: &str, environment: &Environment,
+    host: &Artifact, source: &str) -> Option<&'static str> {
+    if observed_host.sha256 != host.sha256 || observed_source != source
+        || observed_host.validate_record().is_err() || host.validate_record().is_err() {
+        Some("Scanner binding changed or missing — rescan under current scanner host")
+    } else if observed_environment != environment {
+        Some("Environment changed — rescan required")
+    } else if module.artifact.validate_record().is_err() {
+        Some("Module location missing or invalid — rescan required")
+    } else { None }
+}
 
 /// A specific complete factory result, never an exit-code-only reinterpretation.
 pub fn inspection_hint(module: &Module) -> Result<Option<&'static str>> {

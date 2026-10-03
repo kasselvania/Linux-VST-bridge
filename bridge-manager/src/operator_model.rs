@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 17;
+pub const OPERATOR_SCHEMA: u32 = 18;
 /// A launch-only DLL selection, never a Proton prefix conversion or driver install.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -65,6 +65,8 @@ pub struct PublicationIdentity {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    /// Complete the exact retained legacy history, without replacing publication.
+    CandidateHistoryComplete { candidate: String, expected_history: String },
     CandidateGraphicsAssess { candidate: String },
     /// Prepare a retained trial; publication and shared environment are unchanged.
     CandidateSettingsPrepare {
@@ -665,6 +667,7 @@ impl Action {
         matches!(
             self,
             Self::RuntimeInstall {}
+                | Self::CandidateHistoryComplete { .. }
                 | Self::CandidateGraphicsAssess { .. }
                 | Self::CandidateGraphicsPrepare { .. }
                 | Self::DependencyPrepare {}
@@ -701,7 +704,8 @@ impl Action {
     /// use the manager's exact offered refusal and repeat that check on execution.
     pub fn requires_global_inactive(&self) -> bool {
         self.requires_inactive() && !matches!(self,
-            Self::CompatibilityPublishTest { .. }
+            Self::CandidateHistoryComplete { .. }
+                | Self::CompatibilityPublishTest { .. }
                 | Self::CompatibilityResult { .. }
                 | Self::CompatibilityFinishResult { .. }
                 | Self::ExperimentalReplace { .. }
@@ -722,6 +726,7 @@ mod tests {
         let candidate = "candidate".to_string();
         let current = PublicationIdentity {id:"publication".into(),sha256:"digest".into()};
         for action in [
+            Action::CandidateHistoryComplete {candidate:candidate.clone(),expected_history:"history".into()},
             Action::CompatibilityPublishTest {candidate:candidate.clone(),expected_current:Some(current.clone())},
             Action::CompatibilityResult {candidate:candidate.clone(),expected_current:current.clone(),
                 result:TestResultKind::Worked,passed:vec![],failed_area:None,note:String::new()},

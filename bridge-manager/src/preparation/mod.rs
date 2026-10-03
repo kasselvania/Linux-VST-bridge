@@ -257,6 +257,11 @@ pub fn selections(m: &Manager, host: &Artifact, source: &str) -> Result<Vec<Sele
     Ok(out)
 }
 pub fn select(m: &Manager, id: &str, host: &Artifact, source: &str) -> Result<Selection> {
+    let s = select_record(m, id, host, source)?;
+    verify_selection_data(m, &s, host, source)?;
+    Ok(s)
+}
+pub fn select_record(m: &Manager, id: &str, host: &Artifact, source: &str) -> Result<Selection> {
     require(valid_hex(id, 64), "preparation_selection_identity")?;
     let matches: Vec<_> = selections(m, host, source)?
         .into_iter()
@@ -267,19 +272,29 @@ pub fn select(m: &Manager, id: &str, host: &Artifact, source: &str) -> Result<Se
         "preparation_selection_stale_or_ambiguous",
     )?;
     let s = matches.into_iter().next().unwrap();
-    verify_selection(m, &s, host, source)?;
+    validate_selection_data(m, &s, host, source)?;
     Ok(s)
 }
 pub fn verify_selection(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result<()> {
+    validate_selection_record(m, s, host, source)?;
+    verify_selection_data(m, s, host, source)
+}
+pub fn validate_selection_record(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result<()> {
     require(
         selections(m, host, source)?
             .iter()
             .any(|current| current == s),
         "preparation_inventory_superseded",
     )?;
-    verify_selection_data(m, s, host, source)
+    validate_selection_data(m, s, host, source)
 }
 fn verify_selection_data(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result<()> {
+    validate_selection_data(m, s, host, source)?;
+    s.module.verify()?;
+    s.scanner.verify()?;
+    s.environment.runner.verify()
+}
+fn validate_selection_data(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result<()> {
     require(
         s.schema == 1 && s.scanner.sha256 == host.sha256 && s.scanner_source == source,
         "preparation_scanner_changed",
@@ -299,11 +314,11 @@ fn verify_selection_data(m: &Manager, s: &Selection, host: &Artifact, source: &s
             && s.module.path.canonicalize()? == s.module.path,
         "preparation_module_location",
     )?;
-    s.module.verify()?;
-    s.scanner.verify()?;
-    s.environment.runner.verify()?;
-    s.factory_report.verify()?;
-    let classes = crate::inventory::classes(&bounded::<Value>(&s.factory_report.path)?)?;
+    s.module.validate_record()?;
+    s.scanner.validate_record()?;
+    s.environment.runner.validate_record()?;
+    let raw: Value = s.factory_report.read_record(8 * 1024 * 1024)?;
+    let classes = crate::inventory::classes(&raw)?;
     require(
         classes.iter().filter(|c| **c == s.class).count() == 1
             && s.class.category == "Audio Module Class",
@@ -361,10 +376,17 @@ pub fn inspect_record_with_layout(
     source_manifest: Artifact,
     audio_layout: Option<AudioLayoutPolicy>,
 ) -> Result<Inspection> {
-    report.verify()?;
     host.verify()?;
     source_manifest.verify()?;
-    let raw: Value = bounded(&report.path)?;
+    inspection_record_with_layout(s, report, origin, host, source_manifest, audio_layout)
+}
+fn inspection_record_with_layout(
+    s: Selection, report: Artifact, origin: Origin, host: Artifact,
+    source_manifest: Artifact, audio_layout: Option<AudioLayoutPolicy>,
+) -> Result<Inspection> {
+    host.validate_record()?;
+    source_manifest.validate_record()?;
+    let raw: Value = report.read_record(8 * 1024 * 1024)?;
     Census::from_report(
         crate::catalogue::EnvironmentBinding {
             family: Family::ManagedInstallerV1,
@@ -561,12 +583,14 @@ pub fn candidates(m: &Manager, _host: &Artifact, _source: &str) -> Result<Vec<Ca
     }
     Ok(out)
 }
-pub fn candidate(m: &Manager, id: &str, host: &Artifact, source: &str) -> Result<Candidate> {
+/// Exact immutable ID lookup, without enumerating unrelated preparations.
+pub fn candidate_record(m: &Manager, id: &str) -> Result<Candidate> {
     require(valid_hex(id, 64), "candidate_identity")?;
-    candidates(m, host, source)?
-        .into_iter()
-        .find(|c| c.id().is_ok_and(|v| v == id))
-        .ok_or_else(|| "candidate_absent".into())
+    let path = object(m, "candidates", id)?.join("candidate.json");
+    require(path.try_exists()?, "candidate_absent")?;
+    let c: Candidate = bounded(&path)?;
+    require(c.schema == 1 && c.id()? == id, "candidate_identity")?;
+    Ok(c)
 }
 pub fn verify_candidate(m: &Manager, c: &Candidate, host: &Artifact, source: &str) -> Result<()> {
     if matches!(c.origin, Origin::X11TouchReleaseV1 | Origin::X11TouchRoutingV2) {
@@ -581,6 +605,19 @@ pub fn verify_candidate(m: &Manager, c: &Candidate, host: &Artifact, source: &st
         verify_selection(m, &c.selection, host, source)?;
     }
     verify_retained_candidate(m, c)
+}
+pub fn validate_current_candidate_record(m: &Manager, c: &Candidate,
+    host: &Artifact, source: &str) -> Result<()> {
+    if matches!(c.origin, Origin::X11TouchReleaseV1 | Origin::X11TouchRoutingV2) {
+        require((c.selection.scanner.sha256 == host.sha256 && c.selection.scanner_source == source)
+            || (c.host.sha256 == host.sha256 && c.source_manifest.sha256 == source),
+            "touch_current_runtime")?;
+        validate_touch_record(m, c)?;
+    } else {
+        require(c.touch_carry_forward.is_none(), "touch_carry_forward_origin")?;
+        validate_selection_record(m, &c.selection, host, source)?;
+    }
+    validate_candidate_record(m, c)
 }
 pub const SERUM_TOUCH_PREDECESSOR: &str =
     "f6af02eba109d3632b2ecc786f2c9006ec6bc1d433772001d24d2969fb944b44";
@@ -648,6 +685,16 @@ fn carry_forward_touch_fields(
 }
 
 fn verify_touch_carry_forward(m: &Manager, c: &Candidate) -> Result<()> {
+    validate_touch_record(m, c)?;
+    c.touch_carry_forward.as_ref().ok_or("touch_carry_forward_absent")?.runner_manifest.verify()?;
+    let prepared: Value = bounded(&c.touch_carry_forward.as_ref()
+        .ok_or("touch_carry_forward_absent")?.transition.path.parent()
+        .ok_or("touch_carry_forward_transition")?.join("transition.json"))?;
+    let retired: RevisionRef = serde_json::from_value(prepared["removed_publication"].clone())?;
+    m.load_revision(&c.selection.class.id, &retired)?;
+    Ok(())
+}
+fn validate_touch_record(m: &Manager, c: &Candidate) -> Result<()> {
     let provenance = c.touch_carry_forward.as_ref().ok_or("touch_carry_forward_absent")?;
     let expected_predecessor = match c.origin {
         Origin::X11TouchReleaseV1 => SERUM_TOUCH_PREDECESSOR,
@@ -658,12 +705,9 @@ fn verify_touch_carry_forward(m: &Manager, c: &Candidate) -> Result<()> {
         provenance.predecessor == expected_predecessor,
         "touch_carry_forward_predecessor",
     )?;
-    provenance.transition.verify()?;
-    provenance.runner_manifest.verify()?;
-    let predecessor = retained_candidates(m)?.into_iter()
-        .find(|prior| prior.id().is_ok_and(|id| id == provenance.predecessor))
-        .ok_or("touch_carry_forward_predecessor_absent")?;
-    let transition: Value = bounded(&provenance.transition.path)?;
+    provenance.runner_manifest.validate_record()?;
+    let predecessor = candidate_record(m, &provenance.predecessor)?;
+    let transition: Value = provenance.transition.read_record(8 * 1024 * 1024)?;
     let prepared_path = provenance.transition.path.parent()
         .ok_or("touch_carry_forward_transition")?.join("transition.json");
     let prepared: Value = bounded(&prepared_path)?;
@@ -684,7 +728,7 @@ fn verify_touch_carry_forward(m: &Manager, c: &Candidate) -> Result<()> {
         "touch_carry_forward_prepared",
     )?;
     let retired: crate::publication::RevisionRef = serde_json::from_value(prepared["removed_publication"].clone())?;
-    let retired_revision = m.load_revision(&c.selection.class.id, &retired)?;
+    let retired_revision = m.load_revision_record(&c.selection.class.id, &retired)?;
     require(
         retired_revision.profile == predecessor.profile
             && retired_revision.registration.module == predecessor.selection.module
@@ -712,9 +756,27 @@ fn verify_touch_carry_forward(m: &Manager, c: &Candidate) -> Result<()> {
     require(*c == expected, "touch_carry_forward_changed")
 }
 pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
+    validate_candidate_record(m, c)?;
+    configuration::verify_trial(m, c)?;
     let host = &c.selection.scanner;
     let source = c.selection.scanner_source.as_str();
     verify_selection_data(m, &c.selection, host, source)?;
+    if c.origin == Origin::RetainedSv1 {
+        verify_legacy(m, c)?;
+    } else if c.host.sha256 != host.sha256 || c.source_manifest.sha256 != source {
+        build::verify_runtime(m, c)?;
+    }
+    c.source_manifest.verify()?;
+    c.host.verify()?;
+    c.native.artifact.verify()?;
+    configuration::registration(c)?.verify(&m.root)
+}
+/// Candidate consistency and retained control evidence only. A readable
+/// candidate never replaces verify_candidate/verify_retained_candidate.
+pub fn validate_candidate_record(m: &Manager, c: &Candidate) -> Result<()> {
+    let host = &c.selection.scanner;
+    let source = c.selection.scanner_source.as_str();
+    validate_selection_data(m, &c.selection, host, source)?;
     require(
         c.schema == 1
             && c.inspection.selection == c.selection
@@ -743,22 +805,24 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
         c.profile.capabilities.compatibility() == expected_compatibility,
         "candidate_policy_requires_explicit_support",
     )?;
-    configuration::verify_trial(m, c)?;
+    configuration::validate_trial_record(m, c)?;
     require(
         c.host == c.inspection.host && c.source_manifest == c.inspection.source_manifest,
         "candidate_host_changed",
     )?;
     if c.origin == Origin::RetainedSv1 {
-        verify_legacy(m, c)?;
+        validate_legacy_record(m, c)?;
     } else if c.host.sha256 != host.sha256 || c.source_manifest.sha256 != source {
-        build::verify_runtime(m, c)?;
+        let runtime = build::existing_runtime_record(m, &c.recipe_sha256)?;
+        require(c.host == runtime.host && c.source_manifest == runtime.source_manifest,
+            "candidate_runtime_changed")?;
     }
-    c.source_manifest.verify()?;
-    c.host.verify()?;
+    c.source_manifest.validate_record()?;
+    c.host.validate_record()?;
     c.native.matches(&c.profile)?;
-    c.native.artifact.verify()?;
+    c.native.artifact.validate_record()?;
     require(
-        inspect_record_with_layout(
+        inspection_record_with_layout(
             c.selection.clone(),
             c.inspection.report.clone(),
             c.inspection.origin.clone(),
@@ -769,9 +833,9 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
         "candidate_inspection_changed",
     )?;
     let census = c.census()?;
-    let reg = configuration::registration_for(c, &c.profile, &census,
+    let reg = configuration::registration_record_for(c, &c.profile, &census,
         SelectionPurpose::Qualification)?;
-    reg.verify(&m.root)
+    reg.validate_record(&m.root)
 }
 pub fn record_candidate(m: &Manager, c: &Candidate) -> Result<String> {
     record_candidate_with_predecessor(m, c, None)
@@ -783,8 +847,10 @@ pub fn record_candidate_with_predecessor(
 ) -> Result<String> {
     let id = c.id()?;
     let d = object(m, "candidates", &id)?;
-    immutable(&d.join("candidate.json"), c)?;
+    // The candidate is the visible commit. Retain its exact ancestry first;
+    // an interrupted lineage write may leave no committed candidate.
     retain_lineage(m, c, &id, predecessor)?;
+    immutable(&d.join("candidate.json"), c)?;
     changed(m)?;
     Ok(id)
 }
@@ -1137,6 +1203,13 @@ pub fn accepted(m: &Manager, c: &Candidate) -> Result<Profile> {
         .ok_or_else(|| "qualification_review_required".into())
 }
 pub fn publication_state(m: &Manager, c: &Candidate) -> Result<String> {
+    publication_state_with(m, c, Manager::load_revision)
+}
+pub fn publication_state_record(m: &Manager, c: &Candidate) -> Result<String> {
+    publication_state_with(m, c, Manager::load_revision_record)
+}
+fn publication_state_with(m: &Manager, c: &Candidate,
+    load: fn(&Manager, &str, &RevisionRef) -> Result<Revision>) -> Result<String> {
     if m.publication_pending(&c.selection.class.id)? {
         return Ok("needs_attention".into());
     }
@@ -1157,7 +1230,7 @@ pub fn publication_state(m: &Manager, c: &Candidate) -> Result<String> {
         }
         .into());
     }
-    let r = m.load_revision(
+    let r = load(m,
         &c.selection.class.id,
         e.managed_revision
             .as_ref()
@@ -1216,21 +1289,105 @@ fn runner_match(r: &Runner) -> Result<RunnerMatch> {
 }
 
 fn for_profile(m: &Manager, p: &Profile) -> Result<Option<Candidate>> {
-    let mut found = vec![];
-    for path in list(&root(m).join("candidates"))? {
-        let c: Candidate = bounded(&path.join("candidate.json"))?;
-        require(
-            path.file_name().and_then(|n| n.to_str()) == Some(c.id()?.as_str()),
-            "candidate_identity",
-        )?;
-        if c.profile == *p
-            || (p.claim == Claim::VerifiedExactFixture && accepted_profile(m, &c, p)?)
-        {
-            found.push(c)
-        }
+    let records = RecordReadback::capture(m)?;
+    Ok(records.for_profile(m, p)?.cloned())
+}
+/// One bounded census of existing immutable metadata for a control projection.
+/// It has no execution-verification result and never survives that projection.
+pub struct RecordReadback {
+    pub candidates: Vec<Candidate>,
+    watched: std::sync::Mutex<std::collections::BTreeSet<PathBuf>>,
+}
+impl RecordReadback {
+    pub fn capture(m: &Manager) -> Result<Self> {
+        let candidates = retained_candidates(m)?;
+        let mut watched = std::collections::BTreeSet::new();
+        watched.insert(root(m).join("candidates"));
+        Ok(Self { candidates, watched:std::sync::Mutex::new(watched) })
     }
-    require(found.len() <= 1, "candidate_identity_ambiguous")?;
-    Ok(found.pop())
+    fn for_profile<'a>(&'a self, m: &Manager, p: &Profile) -> Result<Option<&'a Candidate>> {
+        let mut found = None;
+        for c in &self.candidates {
+            if c.selection.class.id != p.class.class_id || c.selection.module.sha256 != p.module_sha256 {
+                continue;
+            }
+            if c.profile == *p || (p.claim == Claim::VerifiedExactFixture && accepted_profile(m, c, p)?) {
+                require(found.is_none(), "candidate_identity_ambiguous")?;
+                found = Some(c);
+            }
+        }
+        Ok(found)
+    }
+    pub fn watched_paths(&self) -> Result<Vec<PathBuf>> {
+        Ok(self.watched.lock().map_err(|_| "preparation_record_watch_poisoned")?.iter().cloned().collect())
+    }
+    pub(super) fn watch_candidate(&self, m: &Manager, c: &Candidate) -> Result<()> {
+        let mut paths = self.watched.lock().map_err(|_| "preparation_record_watch_poisoned")?;
+        let id = c.id()?;
+        paths.insert(object(m, "candidates", &id)?.join("candidate.json"));
+        paths.insert(object(m, "lineage", &id)?.join("record.json"));
+        paths.insert(object(m, "inspections", &c.selection.id()?)?);
+        for artifact in [&c.selection.module, &c.selection.scanner, &c.selection.factory_report,
+            &c.inspection.report, &c.host, &c.source_manifest, &c.native.artifact]
+            .into_iter().chain(c.native.descriptor.iter()) {
+            paths.insert(artifact.path.clone());
+        }
+        if valid_hex(&c.recipe_sha256, 64) {
+            paths.insert(m.root.join("software/preparation-kits").join(&c.recipe_sha256).join("runtime.json"));
+        }
+        if c.origin == Origin::RetainedSv1 {
+            paths.extend(history::retained_history_paths(m, c)?.into_iter().map(|(_, path)| path));
+            paths.insert(c.selection.environment.root.join("environment.json"));
+            paths.insert(m.root.join("onboarding").join(&c.selection.environment.id).join("record.json"));
+            paths.insert(m.root.join("inventory").join(format!("{}.json", c.selection.environment.id)));
+        }
+        require(paths.len() <= 4096, "preparation_record_watch_bound")
+    }
+    pub fn incomplete_history(&self, m: &Manager, s: &Selection) -> Result<Vec<RetainedHistoryRecovery>> {
+        let mut incomplete = Vec::new();
+        for c in self.candidates.iter().filter(|c| same_product(&c.selection, s)) {
+            self.watch_candidate(m, c)?;
+            if let Some(recovery) = retained_history_recovery(m, c)? { incomplete.push(recovery); }
+        }
+        Ok(incomplete)
+    }
+    /// Missing modern lineage is an authority gap, not permission to infer a
+    /// predecessor or reuse the legacy migration owner.
+    pub fn missing_lineage(&self, m: &Manager, s: &Selection) -> Result<Vec<String>> {
+        let mut missing = Vec::new();
+        for c in self.candidates.iter().filter(|c| same_product(&c.selection, s)
+            && c.origin != Origin::RetainedSv1) {
+            self.watch_candidate(m, c)?;
+            let path = object(m, "lineage", &c.id()?)?.join("record.json");
+            match fs::symlink_metadata(&path) {
+                Ok(_) => { history::lineage_record(m, c)?; }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => missing.push(c.id()?),
+                Err(error) => return Err(error.into()),
+            }
+        }
+        Ok(missing)
+    }
+    pub fn catalogue_free_registry(&self, m: &Manager, registry: &Registry) -> Result<bool> {
+        for (class, entry) in &registry.classes {
+            let Some(reference) = &entry.managed_revision else { return Ok(false); };
+            let r = m.load_revision_record(class, reference)?;
+            let Some(c) = self.for_profile(m, &r.profile)? else { return Ok(false); };
+            self.watch_candidate(m, c)?;
+            validate_candidate_record(m, c)?;
+            let mut expected = configuration::registration_record_for(c, &r.profile, &c.census()?,
+                if r.profile.claim == Claim::ReviewCandidate { SelectionPurpose::Qualification }
+                else { SelectionPurpose::Activation })?;
+            expected.relocate_native(r.registration.native.path.clone());
+            require(expected == r.registration && r.registration == entry.registration,
+                "candidate_catalogue_free_identity")?;
+            require(r.external_ids == external_ids(class)?
+                && ((r.profile.claim == Claim::ReviewCandidate
+                    && r.qualification == Some(Qualification::ManagedExperimental))
+                    || (r.profile.claim == Claim::VerifiedExactFixture && r.qualification.is_none())),
+                "candidate_authority_kind")?;
+        }
+        Ok(true)
+    }
 }
 pub(crate) fn owns_profile(m: &Manager, p: &Profile) -> Result<bool> {
     Ok(for_profile(m, p)?.is_some())
@@ -1316,10 +1473,7 @@ fn catalogue_free_revision<'a>(m: &Manager, class: &str, entry: &'a Entry)
 /// Readback retains exact managed ownership even when publication needs
 /// reconciliation. It does not authorize setup, mutation or execution.
 pub(crate) fn catalogue_free_registry_readback(m: &Manager, registry: &Registry) -> Result<bool> {
-    for (class, entry) in &registry.classes {
-        if catalogue_free_revision(m, class, entry)?.is_none() { return Ok(false); }
-    }
-    Ok(true)
+    RecordReadback::capture(m)?.catalogue_free_registry(m, registry)
 }
 /// Managed preparation owns its exact generated publication independently of
 /// the static catalogue shipped for previously qualified fixtures. A completed

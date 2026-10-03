@@ -4,6 +4,25 @@ use serde_json::json;
 pub(crate) fn fixture() -> (Fixture, Candidate) {
     fixture_with_environment(&"13".repeat(16))
 }
+#[test]
+fn candidate_commit_requires_valid_retained_lineage() {
+    let (f, c) = fixture();
+    let id = c.id().unwrap();
+    let record = object(&f.m, "candidates", &id).unwrap().join("candidate.json");
+    assert_eq!(record_candidate_with_predecessor(&f.m, &c, Some(&"ff".repeat(32)))
+        .unwrap_err().to_string(), "candidate_predecessor_absent");
+    assert!(!record.exists());
+    assert!(retained_candidates(&f.m).unwrap().is_empty());
+    let lineage_path = object(&f.m, "lineage", &id).unwrap().join("record.json");
+    immutable(&lineage_path, &CandidateLineage {schema:1,candidate:"ff".repeat(32),
+        preparation_identity:"original".into(),ordinal:7,predecessor:None}).unwrap();
+    let original = fs::read(&lineage_path).unwrap();
+    assert_eq!(record_candidate(&f.m, &c).unwrap_err().to_string(), "candidate_lineage_identity");
+    assert!(!record.exists());
+    assert!(retained_candidates(&f.m).unwrap().is_empty());
+    assert_eq!(fs::read(&lineage_path).unwrap(), original);
+    assert!(!root(&f.m).join("revision.json").exists());
+}
 fn fixture_with_environment(id: &str) -> (Fixture, Candidate) {
     let (mut f, _, mut census, native) = prepared_accessibility(false);
     f.m.unpublish(&f.r.key()).unwrap();
@@ -71,6 +90,31 @@ fn fixture_with_environment(id: &str) -> (Fixture, Candidate) {
     };
     let c = prepared(s, i, native, f.r.host.clone(), manifest, "aa".repeat(32)).unwrap();
     (f, c)
+}
+#[test]
+fn record_readback_watches_only_used_product_records_not_unrelated_history_payloads() {
+    let (f, current) = fixture();
+    record_candidate(&f.m, &current).unwrap();
+    enable(&f.m, &current, false).unwrap();
+    let mut unrelated = current.clone();
+    unrelated.selection.class.id = "ef".repeat(16);
+    unrelated.inspection.selection = unrelated.selection.clone();
+    unrelated.profile.class.class_id = unrelated.selection.class.id.clone();
+    unrelated.native.class.class_id = unrelated.selection.class.id.clone();
+    unrelated.native.artifact.path = f.outer.join("unrelated-history-payload");
+    let id = unrelated.id().unwrap();
+    let directory = object(&f.m, "candidates", &id).unwrap();
+    private_dir(&directory).unwrap();
+    atomic_json(&directory.join("candidate.json"), &unrelated).unwrap();
+    let records = RecordReadback::capture(&f.m).unwrap();
+    assert_eq!(records.candidates.len(), 2);
+    assert_eq!(records.watched_paths().unwrap(), vec![root(&f.m).join("candidates")]);
+    assert!(records.catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
+    let watches = records.watched_paths().unwrap();
+    assert!(watches.contains(&current.native.artifact.path));
+    assert!(!watches.contains(&unrelated.native.artifact.path));
+    assert!(!watches.contains(&directory.join("candidate.json")));
+    assert!(!watches.contains(&object(&f.m, "lineage", &id).unwrap().join("record.json")));
 }
 #[test]
 fn retained_uuid_environment_can_prepare_from_current_exact_inventory() {
@@ -387,7 +431,7 @@ fn generic_selection_controller_and_exact_reuse() {
     let id = record_candidate(&f.m, &c).unwrap();
     assert_eq!(record_candidate(&f.m, &c).unwrap(), id);
     assert_eq!(
-        candidate(&f.m, &id, &c.host, &c.source_manifest.sha256).unwrap(),
+        candidate_record(&f.m, &id).unwrap(),
         c
     );
     assert!(f.m.registry().unwrap().classes.is_empty());
@@ -977,7 +1021,7 @@ fn candidate_and_inspection_generations_coexist_and_actions_are_exact() {
         Some(a.id().unwrap())
     );
     assert_eq!(
-        candidate(&f.m, &b.id().unwrap(), &b.host, &b.source_manifest.sha256).unwrap(),
+        candidate_record(&f.m, &b.id().unwrap()).unwrap(),
         b
     );
     assert!(observations(&f.m, &b).unwrap().is_empty());
@@ -1104,7 +1148,7 @@ fn durable_legacy_provenance_survives_current_host_inventory_advance() {
     atomic_json(&inv, &json!({"new":"scanner generation"})).unwrap();
     fs::remove_file(&on).unwrap();
     verify_legacy(&f.m, &c).unwrap(); // Never kit verification for retained-sv1.
-    assert_eq!(candidate(&f.m, &id, &c.host, &"ff".repeat(32)).unwrap(), c);
+    assert_eq!(candidate_record(&f.m, &id).unwrap(), c);
     assert_eq!(
         before,
         fs::read(object(&f.m, "legacy", &id).unwrap().join("provenance.json")).unwrap()
@@ -1486,6 +1530,91 @@ fn installed_candidate_only_upgrade_materializes_history_without_replacing_candi
     assert_eq!(fs::read(&record).unwrap(), before);
 }
 
+#[test]
+fn scoped_history_recovery_rechecks_records_preserves_lineage_and_ignores_unrelated_candidates() {
+    let (f, c, binding) = legacy_fixture();
+    let id = c.id().unwrap();
+    let record = object(&f.m, "candidates", &id).unwrap().join("candidate.json");
+    immutable(&record, &c).unwrap();
+    let candidate_bytes = fs::read(&record).unwrap();
+    let mut unrelated = c.clone();
+    unrelated.selection.environment.id = "14".repeat(16);
+    unrelated.selection.environment.root = f.m.root.join("environments").join(&unrelated.selection.environment.id);
+    let unrelated_record = object(&f.m, "candidates", &unrelated.id().unwrap()).unwrap().join("candidate.json");
+    immutable(&unrelated_record, &unrelated).unwrap();
+    let unrelated_bytes = fs::read(&unrelated_record).unwrap();
+    let line = CandidateLineage {schema:1,candidate:id.clone(),preparation_identity:"original-generation".into(),
+        ordinal:17,predecessor:None};
+    let lineage_path = object(&f.m, "lineage", &id).unwrap().join("record.json");
+    immutable(&lineage_path, &line).unwrap();
+    let lineage_bytes = fs::read(&lineage_path).unwrap();
+    let recovery = history::retained_history_recovery_with_binding(&f.m, &c, &binding).unwrap().unwrap();
+    assert!(!recovery.missing.iter().any(|slot| slot == "lineage"));
+    let inventory_path = f.m.root.join("inventory").join(format!("{}.json", c.selection.environment.id));
+    let inventory_bytes = fs::read(&inventory_path).unwrap();
+    let mut inventory: Value = read_json(&inventory_path).unwrap();
+    inventory["completed_at"] = json!(999);
+    atomic_json(&inventory_path, &inventory).unwrap();
+    assert_eq!(history::complete_candidate_history_with_binding(&f.m, &id,
+        &recovery.expected_history, &binding).unwrap_err().to_string(), "candidate_history_changed");
+    assert!(!object(&f.m, "legacy", &id).unwrap().exists());
+    fs::write(&inventory_path, &inventory_bytes).unwrap();
+    history::complete_candidate_history_with_binding(&f.m, &id, &recovery.expected_history, &binding).unwrap();
+    assert!(history::retained_history_recovery_with_binding(&f.m, &c, &binding).unwrap().is_none());
+    verify_legacy(&f.m, &c).unwrap();
+    assert_eq!(lineage(&f.m, &c).unwrap(), line);
+    assert_eq!(fs::read(&lineage_path).unwrap(), lineage_bytes);
+    assert_eq!(fs::read(&record).unwrap(), candidate_bytes);
+    assert_eq!(fs::read(&unrelated_record).unwrap(), unrelated_bytes);
+    assert!(!object(&f.m, "legacy", &unrelated.id().unwrap()).unwrap().exists());
+}
+#[test]
+fn scoped_history_recovery_reports_absent_source_without_materializing_history() {
+    let (f, c, binding) = legacy_fixture();
+    let id = c.id().unwrap();
+    let record = object(&f.m, "candidates", &id).unwrap().join("candidate.json");
+    immutable(&record, &c).unwrap();
+    let original = fs::read(&record).unwrap();
+    fs::remove_file(f.m.root.join("inventory").join(format!("{}.json", c.selection.environment.id))).unwrap();
+    let recovery = history::retained_history_recovery_with_binding(&f.m, &c, &binding).unwrap().unwrap();
+    assert_eq!(recovery.unavailable_reason.as_deref(), Some(
+        "Saved setup history cannot be completed because original setup records are missing."));
+    assert_eq!(history::complete_candidate_history_with_binding(&f.m, &id,
+        &recovery.expected_history, &binding).unwrap_err().to_string(), "candidate_history_source_unavailable");
+    assert_eq!(fs::read(&record).unwrap(), original);
+    assert!(!object(&f.m, "legacy", &id).unwrap().exists());
+    assert!(!object(&f.m, "lineage", &id).unwrap().exists());
+}
+#[test]
+fn scoped_history_recovery_finishes_each_partial_snapshot_without_false_corruption_fallback() {
+    use history::MaterializeBoundary::*;
+    for boundary in [Environment, Onboarding, Inventory, ProvenanceStaged, ProvenanceInstalled] {
+        let (f, c, binding) = legacy_fixture();
+        let id = c.id().unwrap();
+        let record = object(&f.m, "candidates", &id).unwrap().join("candidate.json");
+        immutable(&record, &c).unwrap();
+        let candidate_bytes = fs::read(&record).unwrap();
+        assert_eq!(history::materialize_legacy_with(&f.m, &c, &binding, Some(boundary))
+            .unwrap_err().to_string(), "legacy_materialization_interrupted");
+        let recovery = history::retained_history_recovery_with_binding(&f.m, &c, &binding).unwrap().unwrap();
+        let snapshots = snapshot(&object(&f.m, "legacy", &id).unwrap());
+        history::complete_candidate_history_with_binding(&f.m, &id, &recovery.expected_history, &binding).unwrap();
+        let completed = snapshot(&object(&f.m, "legacy", &id).unwrap());
+        for (path, bytes) in snapshots {
+            assert_eq!(completed.get(&path), Some(&bytes), "existing immutable snapshots must win");
+        }
+        verify_legacy(&f.m, &c).unwrap();
+        assert_eq!(fs::read(&record).unwrap(), candidate_bytes);
+        assert!(history::retained_history_recovery_with_binding(&f.m, &c, &binding).unwrap().is_none());
+    }
+    let (f, c, binding) = legacy_fixture();
+    let conflict = object(&f.m, "legacy", &c.id().unwrap()).unwrap().join("environment.json");
+    immutable(&conflict, &json!({"conflicting":"snapshot"})).unwrap();
+    let bytes = fs::read(&conflict).unwrap();
+    assert_eq!(history::retained_history_recovery_with_binding(&f.m, &c, &binding)
+        .unwrap_err().to_string(), "legacy_input_binding");
+    assert_eq!(fs::read(&conflict).unwrap(), bytes);
+}
 #[test]
 fn candidate_only_upgrade_retries_each_interruption_through_readback_owner() {
     use history::MaterializeBoundary::*;

@@ -69,7 +69,7 @@ pub fn private_dir(p: &Path) -> Result<()> {
 pub fn file(p: &Path) -> Result<File> {
     let f = OpenOptions::new()
         .read(true)
-        .custom_flags(libc::O_NOFOLLOW)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
         .open(p)?;
     let m = f.metadata()?;
     require(
@@ -235,9 +235,27 @@ pub fn digest(p: &Path) -> Result<String> {
     Ok(value)
 }
 pub fn read_json<T: for<'de> Deserialize<'de>>(p: &Path) -> Result<T> {
-    let f = file(p)?;
-    require(f.metadata()?.len() <= 8 * 1024 * 1024, "JSON size limit")?;
-    Ok(serde_json::from_reader(std::io::BufReader::new(f).take(8 * 1024 * 1024 + 1))?)
+    Ok(serde_json::from_slice(&read_control_bytes(p, 8 * 1024 * 1024)?)?)
+}
+pub fn read_json_identity<T: for<'de> Deserialize<'de>>(p: &Path) -> Result<(T, String)> {
+    let bytes = read_control_bytes(p, 8 * 1024 * 1024)?;
+    Ok((serde_json::from_slice(&bytes)?, hex(&Sha256::digest(&bytes))))
+}
+fn read_control_bytes(p: &Path, limit: usize) -> Result<Vec<u8>> {
+    read_control_bytes_with(p, limit, || Ok(()))
+}
+fn read_control_bytes_with(p: &Path, limit: usize, after_open: impl FnOnce() -> Result<()>) -> Result<Vec<u8>> {
+    let mut held = file(p)?;
+    let before = DigestFileIdentity::from(&held.metadata()?);
+    require(before.length <= limit as u64, "control_record_bound")?;
+    after_open()?;
+    let mut bytes = Vec::new();
+    std::io::Read::by_ref(&mut held).take(limit as u64 + 1).read_to_end(&mut bytes)?;
+    require(bytes.len() <= limit && bytes.len() as u64 == before.length
+        && DigestFileIdentity::from(&held.metadata()?) == before
+        && DigestFileIdentity::from(&fs::symlink_metadata(p)?) == before,
+        "control_record_changed_during_read")?;
+    Ok(bytes)
 }
 pub fn atomic_json<T: Serialize>(p: &Path, data: &T) -> Result<()> {
     let temp = p.with_extension(format!("tmp-{}", random_id()?));
@@ -266,6 +284,27 @@ pub struct Artifact {
     pub sha256: String,
 }
 impl Artifact {
+    /// Read/hash/parse one bounded control record through the same held file.
+    /// Replaced, oversized or growing records cannot become projection authority.
+    pub fn read_record<T: serde::de::DeserializeOwned>(&self, limit: usize) -> Result<T> {
+        serde_json::from_slice(&self.record_bytes(limit)?).map_err(Into::into)
+    }
+    pub fn record_bytes(&self, limit: usize) -> Result<Vec<u8>> {
+        require(self.path.is_absolute() && valid_hex(&self.sha256, 64),
+            "artifact identity syntax")?;
+        require(self.path.canonicalize()? == self.path, "record path traverses symlink")?;
+        let bytes = read_control_bytes(&self.path, limit)?;
+        require(hex(&Sha256::digest(&bytes)) == self.sha256, "control_record_digest_changed")?;
+        Ok(bytes)
+    }
+    /// Validate the recorded identity and current location/custody. This reads
+    /// no payload bytes and is never executable admission authority.
+    pub fn validate_record(&self) -> Result<()> {
+        require(self.path.is_absolute() && valid_hex(&self.sha256, 64),
+            "artifact identity syntax")?;
+        file(&self.path)?;
+        Ok(())
+    }
     pub fn verify(&self) -> Result<()> {
         require(
             self.path.is_absolute() && valid_hex(&self.sha256, 64),
@@ -299,7 +338,8 @@ pub struct Runner {
     pub policy: Option<RunnerPolicy>,
 }
 impl Runner {
-    pub fn verify(&self) -> Result<()> {
+    /// Bounded runner record/entry-point validation, without a runtime census.
+    pub fn validate_record(&self) -> Result<()> {
         require(
             !self.id.is_empty()
                 && !self.version.is_empty()
@@ -312,8 +352,13 @@ impl Runner {
             "runner entry points not pinned",
         )?;
         for f in &self.files {
-            f.verify()?;
+            f.validate_record()?;
         }
+        Ok(())
+    }
+    pub fn verify(&self) -> Result<()> {
+        self.validate_record()?;
+        for f in &self.files { f.verify()?; }
         runtime_delivery::verify_tree(self)?;
         Ok(())
     }
@@ -432,7 +477,8 @@ impl Registration {
     pub fn key(&self) -> String {
         self.metadata.class_id.to_uppercase()
     }
-    pub fn verify(&self, root: &Path) -> Result<()> {
+    /// Exact control bindings and descriptor metadata, not payload verification.
+    pub fn validate_record(&self, root: &Path) -> Result<()> {
         self.metadata.verify()?;
         require(
             self.environment.revision > 0 && !self.environment.id.is_empty(),
@@ -473,12 +519,19 @@ impl Registration {
             valid_hex(&self.host_source_sha256, 64),
             "host source identity syntax",
         )?;
+        self.environment.runner.validate_record()?;
+        self.module.validate_record()?;
+        self.host.validate_record()?;
+        self.native.validate_record()?;
+        self.verify_descriptor()?;
+        Ok(())
+    }
+    pub fn verify(&self, root: &Path) -> Result<()> {
+        self.validate_record(root)?;
         self.environment.runner.verify()?;
         self.module.verify()?;
         self.host.verify()?;
-        self.native.verify()?;
-        self.verify_descriptor()?;
-        Ok(())
+        self.native.verify()
     }
 }
 pub(crate) fn verify_native_descriptor(
@@ -491,11 +544,7 @@ pub(crate) fn verify_native_descriptor(
         artifact.path == native.path.with_file_name(lvb_plugin_descriptor::FILE_NAME),
         "native_descriptor_location",
     )?;
-    artifact.verify()?;
-    let mut bytes = Vec::new();
-    file(&artifact.path)?
-        .take((lvb_plugin_descriptor::LIMIT + 1) as u64)
-        .read_to_end(&mut bytes)?;
+    let bytes = artifact.record_bytes(lvb_plugin_descriptor::LIMIT)?;
     let descriptor = lvb_plugin_descriptor::Descriptor::parse(&bytes)?;
     require(
         descriptor.engine_sha256 == native.sha256
@@ -970,6 +1019,49 @@ impl Manager {
 mod tests {
     use super::*;
     use crate::test_fixture::Fixture;
+    #[test]
+    fn bounded_control_record_uses_one_stable_object_for_parse_and_identity() {
+        let f = Fixture::new();
+        let path = f.outer.join("bounded-control.json");
+        fs::write(&path, b"{\"value\":1}\n").unwrap();
+        let (value, sha): (serde_json::Value, String) = read_json_identity(&path).unwrap();
+        assert_eq!(value["value"], 1);
+        assert_eq!(sha, hex(&Sha256::digest(fs::read(&path).unwrap())));
+        let record = Artifact { path:path.clone(), sha256:sha };
+        assert_eq!(record.read_record::<serde_json::Value>(32).unwrap(), value);
+        let unopened = Cell::new(true);
+        File::create(&path).unwrap().set_len(33).unwrap();
+        let error = read_control_bytes_with(&path, 32, || { unopened.set(false); Ok(()) })
+            .unwrap_err().to_string();
+        assert_eq!(error, "control_record_bound");
+        assert!(unopened.get(), "oversized records must refuse before the read seam");
+        fs::write(&path, b"{}\n").unwrap();
+        assert_eq!(read_control_bytes_with(&path, 32, || {
+            fs::write(&path, vec![b'x';33])?; Ok(())
+        }).unwrap_err().to_string(), "control_record_changed_during_read");
+        fs::write(&path, b"{}\n").unwrap();
+        assert_eq!(read_control_bytes_with(&path, 32, || {
+            let replacement = path.with_extension("replacement");
+            fs::write(&replacement, b"[]\n")?;
+            fs::rename(replacement, &path)?; Ok(())
+        }).unwrap_err().to_string(), "control_record_changed_during_read");
+        assert_eq!(record.read_record::<serde_json::Value>(32).unwrap_err().to_string(),
+            "control_record_digest_changed");
+    }
+    #[test]
+    fn special_file_replacements_refuse_without_a_writer_or_payload_read() {
+        use std::os::unix::ffi::OsStrExt;
+        let f = Fixture::new();
+        let path = f.outer.join("replaced-control");
+        let name = std::ffi::CString::new(path.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+        let record = Artifact {path:path.clone(),sha256:"ab".repeat(32)};
+        assert_eq!(record.validate_record().unwrap_err().to_string(), "file ownership/type differs");
+        assert_eq!(read_json::<serde_json::Value>(&path).unwrap_err().to_string(),
+            "file ownership/type differs");
+        assert_eq!(record.read_record::<serde_json::Value>(32).unwrap_err().to_string(),
+            "file ownership/type differs");
+    }
     #[test]
     fn shared_launch_observations_recheck_mutation_and_restore_scopes() {
         let f = Fixture::new();

@@ -50,7 +50,23 @@ pub struct Software {
     pub native_catalogue: Option<Artifact>,
 }
 impl Software {
+    pub fn validate_record(&self) -> Result<()> {
+        require(self.source_manifest.sha256 == self.source_sha256,
+            "host source manifest differs")?;
+        for artifact in [&self.manager, &self.supervisor, &self.ownership,
+            &self.host, &self.source_manifest].into_iter().chain([
+                &self.installer_launch, &self.preparation_kit, &self.operator_frontend,
+                &self.native_catalogue].into_iter().flatten()) {
+            artifact.validate_record()?;
+        }
+        Ok(())
+    }
     pub fn catalogue(&self, m: &Manager) -> Result<Catalogue> {
+        let c = self.catalogue_record(m)?;
+        c.validate(&m.root)?;
+        Ok(c)
+    }
+    pub fn catalogue_record(&self, m: &Manager) -> Result<Catalogue> {
         let a = self
             .native_catalogue
             .as_ref()
@@ -59,13 +75,8 @@ impl Software {
             a.path.parent() == self.manager.path.parent(),
             "catalogue_software_binding",
         )?;
-        a.verify()?;
-        require(
-            file(&a.path)?.metadata()?.len() <= 512 * 1024,
-            "catalogue_size",
-        )?;
-        let c: Catalogue = read_json(&a.path)?;
-        c.validate(&m.root)?;
+        let c: Catalogue = a.read_record(512 * 1024)?;
+        c.validate_record(&m.root)?;
         Ok(c)
     }
 }
@@ -185,6 +196,23 @@ impl OnboardingRuntimePolicy {
 }
 impl Catalogue {
     pub fn validate(&self, root: &Path) -> Result<()> {
+        self.validate_record(root)?;
+        for native in &self.natives { native.artifact.verify()?; }
+        if self.onboarding_runtime.is_some() {
+            for binding in &self.environments {
+                let runner = &binding.environment.runner;
+                if runner.id == STANDARD_ONBOARDING_RUNNER && runner.policy.is_none() {
+                    runner.verify()?;
+                }
+            }
+        }
+        for host in &self.hosts {
+            host.host.verify()?;
+            host.source_manifest.verify()?;
+        }
+        Ok(())
+    }
+    pub fn validate_record(&self, root: &Path) -> Result<()> {
         require(
             ((self.schema == 1 && self.hosts.is_empty()) || matches!(self.schema, 2..=4))
                 && !self.natives.is_empty()
@@ -212,7 +240,7 @@ impl Catalogue {
                     && n.artifact.path.canonicalize()? == n.artifact.path,
                 "catalogue_identity",
             )?;
-            n.artifact.verify()?;
+            n.artifact.validate_record()?;
         }
         let mut environments = std::collections::BTreeSet::new();
         for e in &self.environments {
@@ -233,7 +261,7 @@ impl Catalogue {
             for binding in &self.environments {
                 let runner = &binding.environment.runner;
                 if runner.id == STANDARD_ONBOARDING_RUNNER && runner.policy.is_none() {
-                    runner.verify()?;
+                    runner.validate_record()?;
                     standard.insert(runner_key(runner)?);
                 }
             }
@@ -256,7 +284,7 @@ impl Catalogue {
                         && file(&a.path)?.metadata()?.mode() & 0o222 == 0,
                     "catalogue_host_identity",
                 )?;
-                a.verify()?;
+                a.validate_record()?;
             }
         }
         Ok(())
@@ -315,7 +343,7 @@ pub fn catalogue_free_registry_readback(m: &Manager, registry: &Registry) -> Res
     if crate::preparation::catalogue_free_registry_readback(m, registry)? {
         return Ok(true);
     }
-    crate::frg1::catalogue_free_registry(m, registry)
+    crate::frg1::catalogue_free_registry_readback(m, registry)
 }
 
 /// AP14 adopts only already managed, verified generated artifacts. Setup is an

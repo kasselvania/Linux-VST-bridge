@@ -210,6 +210,12 @@ fn runtime_dir(m: &Manager, sha: &str) -> Result<PathBuf> {
     Ok(m.root.join("software/preparation-kits").join(sha))
 }
 pub fn existing_runtime(m: &Manager, sha: &str) -> Result<Runtime> {
+    let r = existing_runtime_record(m, sha)?;
+    for a in [&r.kit, &r.host, &r.source_manifest].into_iter()
+        .chain(r.builder.iter()).chain(r.generator.iter()) { a.verify()?; }
+    Ok(r)
+}
+pub fn existing_runtime_record(m: &Manager, sha: &str) -> Result<Runtime> {
     let dir = runtime_dir(m, sha)?;
     let r: Runtime = bounded(&dir.join("runtime.json"))?;
     require(
@@ -228,7 +234,7 @@ pub fn existing_runtime(m: &Manager, sha: &str) -> Result<Runtime> {
             a.path.canonicalize()? == a.path && file(&a.path)?.metadata()?.mode() & 0o222 == 0,
             "preparation_runtime_mutability",
         )?;
-        a.verify()?;
+        a.validate_record()?;
     }
     Ok(r)
 }

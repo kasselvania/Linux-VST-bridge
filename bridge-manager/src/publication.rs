@@ -301,11 +301,8 @@ impl Manager {
             "publication_revision_hash",
         )?;
         let path = self.revision_dir(key, &reference.id)?.join("revision.json");
-        require(
-            digest(&path)? == reference.sha256,
-            "publication_revision_changed",
-        )?;
-        let r: Revision = read_json(&path)?;
+        let r: Revision = Artifact { path, sha256:reference.sha256.clone() }
+            .read_record(8 * 1024 * 1024)?;
         r.profile.validate()?;
         require(
             r.schema == 1
@@ -336,14 +333,20 @@ impl Manager {
         Ok(r)
     }
     pub fn load_revision(&self, key: &str, reference: &RevisionRef) -> Result<Revision> {
-        let r = self.revision_record(key, reference)?;
+        let r = self.load_revision_record(key, reference)?;
         r.registration.native.verify()?;
+        Ok(r)
+    }
+    /// Immutable revision/provenance/descriptor bindings. Executable bytes are
+    /// deliberately left to load_revision and the mutation/launch owners.
+    pub fn load_revision_record(&self, key: &str, reference: &RevisionRef) -> Result<Revision> {
+        let r = self.revision_record(key, reference)?;
+        r.registration.native.validate_record()?;
         r.registration.verify_descriptor()?;
         if !r.adopted_legacy {
-            require(
-                digest(&r.target.join("bridge-provenance.json"))? == reference.sha256,
-                "publication_provenance_changed",
-            )?;
+            let provenance: Revision = Artifact { path:r.target.join("bridge-provenance.json"),
+                sha256:reference.sha256.clone() }.read_record(8 * 1024 * 1024)?;
+            require(provenance == r, "publication_provenance_changed")?;
         }
         r.performance.verify()?;
         Ok(r)

@@ -6,7 +6,7 @@ callback work. The Rust manager supplies an exact verified registration.
 """
 import ctypes,mmap,collections,re,threading
 import fcntl,hashlib,json,os,pathlib,pwd,selectors,shutil,signal,socket,stat,struct,subprocess,sys,time
-from ownership import process_identities,descendant_identities,cleanup_process,ProcessTracker,CompanionCgroup,InstallerLedger
+from ownership import process_identities,descendant_identities,cleanup_process,ProcessTracker,CompanionCgroup,InstallerLedger,host_writer_credentials,receive_host_writer,HostWriterLines,FinalHostCustody
 
 def atomic(path,value):
     temp=path.with_suffix(path.suffix+'.tmp')
@@ -1094,8 +1094,10 @@ def prelaunch_owned_failure(spec,peer,error):
 NATIVE_COMMAND_CHILD = r'''
 import json,os,pathlib,re,socket,sys
 args=sys.argv[1:]
-if (len(args)<4 or args[2]!='--' or not re.fullmatch('[0-9a-f]{64}',args[1])
-        or not pathlib.Path(args[3]).is_absolute()):
+capture=len(args)>2 and args[2]=='--credential-stdout'
+target=4 if capture else 3
+if (len(args)<=target or args[target-1]!='--' or not re.fullmatch('[0-9a-f]{64}',args[1])
+        or not pathlib.Path(args[target]).is_absolute()):
     raise RuntimeError('native command child arguments')
 channel=socket.socket(fileno=int(args[0]));channel.settimeout(5)
 pid=os.getpid()
@@ -1110,8 +1112,11 @@ while b'\n' not in acknowledgement and len(acknowledgement)<128:
     if not part:break
     acknowledgement.extend(part)
 if acknowledgement!=(args[1]+'\n').encode():raise RuntimeError('native command child not admitted')
+if capture:
+    channel.setblocking(True)
+    os.dup2(channel.fileno(),1)
 channel.close()
-os.execv(args[3],args[3:])
+os.execv(args[target],args[target:])
 '''
 
 # Native instances share their keeper's initialized Proton namespace. Selection
@@ -1131,6 +1136,7 @@ class NativeProtonSession:
             raise RuntimeError('native command canonical runner key absent')
         self.component=component;self.endpoint=None;self.endpoint_directory_identity=None;self.control=None
         self.remote_identity=None;self.started=False;self.client=None;self.service=None
+        self.host_custody=None;self.host_lines=None
         base=pathlib.Path(self.runner['entry_point']).parent/'pressure-vessel/bin'
         self.client=base/'steam-runtime-launch-client';self.service=base.parent/'libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service'
         self.verify_tools()
@@ -1296,9 +1302,20 @@ class NativeProtonSession:
         self.find_keeper();self.verify_tools()
         self.control,child=socket.socketpair();self.control.setblocking(False)
         self.nonce=os.urandom(32).hex()
+        capture=self.spec.get('inspect') is False and not self.spec.get('vendor_access') and not self.spec.get('keeper')
+        try:
+            if capture:
+                host_writer_credentials(self.control)
+                pairs=dict(zip(cmd[6::2],cmd[7::2]))
+                fields={name:pairs['--'+name.replace('_','-')] for name in ('session','scanner_sha256','module_sha256','bundle_manifest_sha256','implementation_source_manifest_sha256','mode','component_case')}
+                fields['run_ordinal']=1
+                self.host_custody=FinalHostCustody(self.spec['directory'],self.spec['session'],fields)
+                self.host_lines=HostWriterLines()
+        except BaseException:
+            child.close();self.close();raise
         command=[str(self.client),'--socket='+str(self.endpoint),'--directory='+str(pathlib.Path(self.reg['environment']['root'])/'home'),
             *['--pass-env='+key for key in self.FORWARD],'--forward-fd='+str(child.fileno()),'--',
-            '/usr/bin/python3','-I','-c',NATIVE_COMMAND_CHILD,str(child.fileno()),self.nonce,'--',*cmd[3:]]
+            '/usr/bin/python3','-I','-c',NATIVE_COMMAND_CHILD,str(child.fileno()),self.nonce,*(['--credential-stdout'] if capture else []),'--',*cmd[3:]]
         try:
             root=subprocess.Popen(command,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
                 start_new_session=True,bufsize=0,pass_fds=(child.fileno(),))
@@ -1308,29 +1325,48 @@ class NativeProtonSession:
             self.close();raise
         finally:child.close()
     def bind(self,root,tracker,pump):
-        deadline=time.monotonic()+5;data=bytearray()
-        while b'\n' not in data:
-            pump(0)
-            try:
-                part=self.control.recv(512)
-                if not part:raise RuntimeError('native command child disconnected before binding')
-                data.extend(part)
-            except BlockingIOError:time.sleep(.01)
-            if len(data)>512:raise RuntimeError('native command child binding extent')
-            if root.poll() is not None or time.monotonic()>deadline:raise RuntimeError('native command child binding timeout')
-        value=json.loads(data)
-        if set(value)!={'nonce','pid','start'} or value['nonce']!=self.nonce or type(value['pid']) is not int or type(value['start']) is not int:
-            raise RuntimeError('native command child binding invalid')
-        if root.poll() is not None:raise RuntimeError('native command launcher exited before binding')
-        identity=tracker.identity(value['pid'])
-        if identity is None or identity[0]!=value['start'] or os.getpgid(value['pid'])!=value['pid']:
-            raise RuntimeError('native command child identity changed')
-        self.remote_identity=(value['pid'],value['start']);tracker.owned.add(self.remote_identity)
-        root.lvb_remote_group=self.remote_identity
-        self.control.sendall((self.nonce+'\n').encode())
-        self.control.close();self.control=None
+        deadline=time.monotonic()+5;data=bytearray();writer=None
+        custody=getattr(self,'host_custody',None)
+        try:
+            while b'\n' not in data:
+                pump(0)
+                try:
+                    if custody is not None:
+                        part,current=receive_host_writer(self.control,512)
+                        if writer is None:writer=current
+                        elif current is not None:
+                            try:
+                                if not current.same(writer):raise RuntimeError('native command child sender changed')
+                            finally:current.close()
+                    else:part=self.control.recv(512)
+                    if not part:raise RuntimeError('native command child disconnected before binding')
+                    data.extend(part)
+                except BlockingIOError:time.sleep(.01)
+                if len(data)>512:raise RuntimeError('native command child binding extent')
+                if root.poll() is not None or time.monotonic()>deadline:raise RuntimeError('native command child binding timeout')
+            value=json.loads(data)
+            if set(value)!={'nonce','pid','start'} or value['nonce']!=self.nonce or type(value['pid']) is not int or type(value['start']) is not int:
+                raise RuntimeError('native command child binding invalid')
+            if root.poll() is not None:raise RuntimeError('native command launcher exited before binding')
+            pid=value['pid']
+            if writer is not None:
+                writer.pin()
+                if writer.identity[1]!=value['start'] or writer.identity[2][-1]!=pid:
+                    raise RuntimeError('native command child namespace changed')
+                pid=writer.pid
+            identity=tracker.identity(pid)
+            if identity is None or identity[0]!=value['start'] or os.getpgid(pid)!=pid:
+                raise RuntimeError('native command child identity changed')
+            self.remote_identity=(pid,value['start']);tracker.owned.add(self.remote_identity)
+            root.lvb_remote_group=self.remote_identity
+            self.control.sendall((self.nonce+'\n').encode())
+            if custody is None:self.control.close();self.control=None
+        finally:
+            if writer is not None:writer.close()
     def close(self):
         if self.control is not None:self.control.close();self.control=None
+        if getattr(self,'host_lines',None) is not None:self.host_lines.close()
+        if getattr(self,'host_custody',None) is not None:self.host_custody.close()
 
 
 def run(spec,peer=None):
@@ -1503,20 +1539,36 @@ def run_owned(spec,peer,stop_requested):
         pending.extend(data)
         while b'\n' in pending:
             line,_,rest=pending.partition(b'\n');pending[:]=rest
-            if not line.startswith(b'{"event":'):
-                retain('vendor',vendor,line+b'\n');capture_call('write','vendor',line+b'\n');continue
-            protocol_bytes+=len(line)+1
-            if protocol_bytes>1048576:raise RuntimeError('host protocol output capacity exceeded')
-            record=json.loads(line);records.append(record);state=record.get('state')
-            if audio_scheduling and state=='ap0_processing_thread_started':audio_scheduling.started()
-            if state=='ap8_call' or record.get('event')=='call_started':call=(record.get('operation'),time.monotonic())
-            elif state in ('ap8_result','ap8_failure','ap8_inspection_closed') or record.get('event')=='call_completed':call=None
+            host_line(line)
         if len(pending)>65536:raise RuntimeError('host output line capacity exceeded')
+    def host_line(line,writer=None):
+        nonlocal protocol_bytes,call
+        if not line.startswith(b'{"event":'):
+            retain('vendor',vendor,line+b'\n');capture_call('write','vendor',line+b'\n');return
+        protocol_bytes+=len(line)+1
+        if protocol_bytes>1048576:raise RuntimeError('host protocol output capacity exceeded')
+        record=json.loads(line)
+        if writer is not None:command_session.host_custody.observe(record,writer,tracker,root)
+        records.append(record);state=record.get('state')
+        if audio_scheduling and state=='ap0_processing_thread_started':audio_scheduling.started()
+        if state=='ap8_call' or record.get('event')=='call_started':call=(record.get('operation'),time.monotonic())
+        elif state in ('ap8_result','ap8_failure','ap8_inspection_closed') or record.get('event')=='call_completed':call=None
     def pump(timeout):
         for key,_ in sel.select(timeout):
+            if key.data=='host':
+                data,writer=receive_host_writer(key.fileobj)
+                if not data:
+                    sel.unregister(key.fileobj)
+                    command_session.host_lines.finish(host_line)
+                    continue
+                command_session.host_lines.feed(data,writer,host_line)
+                continue
             data=os.read(key.fileobj.fileno(),16384)
             if not data:sel.unregister(key.fileobj);continue
-            if key.data=='stdout':feed(data)
+            if key.data=='stdout':
+                if command_session is not None and command_session.host_custody is not None:
+                    retain('vendor',vendor,data);capture_call('write','vendor',data)
+                else:feed(data)
             else:
                 retain('stderr',stderr,data);capture_call('write','stderr',data)
     try:
@@ -1525,6 +1577,7 @@ def run_owned(spec,peer,stop_requested):
         if command_session is not None:
             try:command_session.bind(root,tracker,pump)
             finally:owned.update(tracker.update())
+            if command_session.host_custody is not None:sel.register(command_session.control,selectors.EVENT_READ,'host')
         while True:
             owned.update(tracker.update())
             capture_call('observe',owned,root)
@@ -1583,6 +1636,8 @@ def run_owned(spec,peer,stop_requested):
                 break
     except Exception as e:failure=f'{type(e).__name__}: {e}'
     finally:
+        if command_session is not None and command_session.host_custody is not None:
+            command_session.host_custody.begin_cleanup()
         if retirement:
             retirement.close()
             if retirement_ready is None and failure is None:failure='Windows retirement status absent'
@@ -1600,11 +1655,18 @@ def run_owned(spec,peer,stop_requested):
                 nonlocal failure
                 try:pump(0)
                 except Exception as e:failure=failure or ('cleanup diagnostic drain: '+type(e).__name__)
+            if command_session is not None and command_session.host_custody is not None and command_session.host_custody.admitted:
+                # Exact mapping admission can precede an immediate failure or
+                # stop, before render start refreshes this cached cleanup set.
+                owned.update(tracker.owned)
             cleanup=cleanup_process(root,sorted(owned),during_cleanup=cleanup_drain) if capture else cleanup_process(root,sorted(owned))
             clean=all(cleanup.values())
             if command_session is not None and command_session.remote_identity is None:
                 clean=False
                 raise RuntimeError('native command child retirement unconfirmed before binding')
+            if command_session is not None and command_session.host_custody is not None and not command_session.host_custody.admitted:
+                clean=False
+                raise RuntimeError('final Windows host custody incomplete; retirement unconfirmed')
             if capture:
                 # The process owner is already retired. A closed or saturated
                 # logging stream cannot introduce an unbounded final wait.
@@ -1613,12 +1675,15 @@ def run_owned(spec,peer,stop_requested):
                 capture.counts['final_drain_incomplete']=bool(sel.get_map())
         except Exception as e:
             failure=(failure+'; ' if failure else '')+'cleanup: '+str(e)
+        host_custody=command_session.host_custody.value() if command_session is not None and command_session.host_custody is not None else None
         if command_session is not None:command_session.close()
         sel.close()
         for stream in (root.stdout,root.stderr):stream.close()
         outcome={'graphics_configuration':graphics_configuration,'vendor_retirement':retirement_ready,'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
         if audio_scheduling:outcome['audio_scheduling']=audio_scheduling.value()
-        if command_session is not None:outcome['native_command_child']=command_session.remote_identity
+        if command_session is not None:
+            outcome['native_command_child']=command_session.remote_identity
+            if host_custody is not None:outcome['final_windows_host']=host_custody
         # Diagnostic persistence cannot skip physical cleanup or peer retirement.
         try:atomic(report,outcome)
         except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]

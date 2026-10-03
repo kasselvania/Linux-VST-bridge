@@ -14,6 +14,28 @@ fn reason<T>(r: Result<T>, expected: &str) {
 }
 
 #[test]
+fn revision_and_provenance_records_refuse_oversized_and_changed_exact_objects() {
+    let (f, p, census, native) = prepared();
+    let reference = publish(&f, &p, &census, &native, None).unwrap();
+    let revision = f.m.load_revision(&p.class.class_id, &reference).unwrap();
+    let registry = fs::read(f.m.root.join("registry.json")).unwrap();
+    for path in [revision.target.parent().unwrap().join("revision.json"),
+        revision.target.join("bridge-provenance.json")] {
+        let original = fs::read(&path).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        OpenOptions::new().write(true).open(&path).unwrap().set_len(8 * 1024 * 1024 + 1).unwrap();
+        assert_eq!(f.m.load_revision_record(&p.class.class_id, &reference).unwrap_err().to_string(),
+            "control_record_bound");
+        fs::write(&path, b"{}\n").unwrap();
+        assert_eq!(f.m.load_revision_record(&p.class.class_id, &reference).unwrap_err().to_string(),
+            "control_record_digest_changed");
+        fs::write(&path, original).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        assert_eq!(f.m.load_revision_record(&p.class.class_id, &reference).unwrap(), revision);
+    }
+    assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry);
+}
+#[test]
 fn explicit_host_update_preserves_exact_prior_host_for_rollback_only() {
     let (f, mut p, c, n) = prepared();
     p.revision = 3;
@@ -1966,8 +1988,8 @@ fn capacity_acceptance_exact_nine_to_ten_and_rollback_ancestry() {
     assert_eq!(publish(&x.f, &x.verified, &x.census, &x.native, None).unwrap(), ten);
     let revision = x.f.m.load_revision(key, &ten).unwrap();
     assert!(revision.qualification.is_none());
-    assert!(capacity::verified_envelope_for(&x.f.m, &capacity::fixture_limits(), std::slice::from_ref(&x.verified)).unwrap());
-    assert!(!capacity::verified_envelope_for(&x.f.m, &capacity::fixture_limits(), std::slice::from_ref(&x.candidate)).unwrap());
+    assert!(capacity::retained_qualification_envelope_for(&x.f.m, &capacity::fixture_limits(), std::slice::from_ref(&x.verified)).unwrap());
+    assert!(!capacity::retained_qualification_envelope_for(&x.f.m, &capacity::fixture_limits(), std::slice::from_ref(&x.candidate)).unwrap());
     assert_eq!(revision.parent.as_ref(), Some(&x.review.products[0].parent));
     assert_eq!(revision.performance.added_frames, 512);
     assert_eq!(revision.external_ids, external_ids(key).unwrap());
@@ -1978,6 +2000,20 @@ fn capacity_acceptance_exact_nine_to_ten_and_rollback_ancestry() {
     assert_eq!(fs::read_link(x.f.m.link(key)).unwrap(), seven.target);
     assert_eq!(snapshot(seven.target.parent().unwrap()), preserved);
     x.f.m.rollback(key, &t.three.id, None).unwrap();
+}
+#[test]
+fn retained_capacity_qualification_is_not_fresh_native_verification() {
+    let t = CapacityAcceptanceFixture::new();
+    let x = &t.t;
+    let key = &x.prior.class.class_id;
+    let reference = publish(&x.f, &x.verified, &x.census, &x.native, None).unwrap();
+    let revision = x.f.m.load_revision(key, &reference).unwrap();
+    fs::set_permissions(&revision.registration.native.path, fs::Permissions::from_mode(0o600)).unwrap();
+    fs::write(&revision.registration.native.path, b"changed selected native bytes").unwrap();
+    assert!(capacity::retained_qualification_envelope_for(&x.f.m, &capacity::fixture_limits(),
+        std::slice::from_ref(&x.verified)).unwrap());
+    assert_eq!(x.f.m.load_revision(key, &reference).unwrap_err().to_string(), "artifact missing or changed");
+    assert!(x.f.m.resolve(&x.f.identity()).is_err());
 }
 #[test]
 fn capacity_acceptance_mismatches_and_ownership_refuse_without_mutation() {

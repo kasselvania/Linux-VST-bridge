@@ -485,11 +485,18 @@ fn require_operator_inactive_with(
     m.require_inactive(class.as_deref())
 }
 fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
+    history_with(m, key, entry, true)
+}
+fn history_records(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
+    history_with(m, key, entry, false)
+}
+fn history_with(m: &Manager, key: &str, entry: &Entry, execution: bool) -> Result<Vec<ui::History>> {
+    let load = if execution { Manager::load_revision } else { Manager::load_revision_record };
     let mut ancestors = std::collections::BTreeSet::new();
     let mut current = entry.managed_revision.clone();
     for _ in 0..256 {
         let Some(r) = current else { break };
-        let revision = m.load_revision(key, &r)?;
+        let revision = load(m, key, &r)?;
         ancestors.insert(revision.id);
         current = revision.parent;
     }
@@ -504,17 +511,17 @@ fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
         if !path.exists() {
             continue;
         }
-        let raw: publication::Revision = read_json(&path)?;
+        let (raw, sha256): (publication::Revision, _) = read_json_identity(&path)?;
         let reference = publication::RevisionRef {
             id: raw.id.clone(),
-            sha256: digest(&path)?,
+            sha256,
         };
-        let r = m.load_revision(key, &reference)?;
+        let r = load(m, key, &reference)?;
         let retained_user_selection =
             (r.qualification.is_none() && r.profile.claim == profiles::Claim::VerifiedExactFixture)
             || r.qualification == Some(publication::Qualification::ManagedExperimental);
         let buffering = m.performance(key)?.added_frames;
-        let rollback_unavailable = if buffering == 1024 {
+        let rollback_unavailable = if execution && buffering == 1024 {
             match preparation::build::revision_maximum_bridge_frames(m, &r) {
                 Ok(Some(1024)) => None,
                 Ok(_) => Some("This version cannot retain the selected 1024-frame buffering. Select supported buffering before restoring it.".into()),
@@ -526,7 +533,8 @@ fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
         } else { "default graphics" };
         let description = format!("{} · version {} · {} · {}-frame bridge buffering{}",
             r.profile.class.name, r.profile.class.version, graphics, buffering,
-            if rollback_unavailable.is_none() { " retained" } else { " unavailable" });
+            if !execution && buffering == 1024 { " · target capacity checked before restoration" }
+            else if rollback_unavailable.is_none() { " retained" } else { " unavailable" });
         result.push(ui::History {
             revision: r.profile.revision,
             claim: serde_json::to_value(r.profile.claim)?
@@ -574,7 +582,7 @@ fn managed_environment_bindings(
             bindings.push(binding);
         }
     }
-    if let Some(binding) = linux_vst_bridge::frg1::adopted_environment(m)? {
+    if let Some(binding) = linux_vst_bridge::frg1::adopted_environment_record(m)? {
         if let Some(existing) = bindings.iter()
             .find(|candidate| candidate.environment.id == binding.environment.id) {
             require(existing == &binding,"operator_managed_environment_binding_conflict")?;
@@ -591,6 +599,10 @@ fn managed_rescan_binding_from(
     registry: &Registry,
     environment: &str,
 ) -> Result<Option<Environment>> {
+    managed_rescan_binding_with(m, bindings, registry, environment, false)
+}
+fn managed_rescan_binding_with(m: &Manager, bindings: &[catalogue::EnvironmentBinding],
+    registry: &Registry, environment: &str, execution: bool) -> Result<Option<Environment>> {
     let env = &bindings
         .iter()
         .find(|candidate| candidate.environment.id == environment)
@@ -602,7 +614,9 @@ fn managed_rescan_binding_from(
         .filter(|entry| entry.registration.environment.id == environment)
         .collect();
     if owners.is_empty() {
-        return Ok(linux_vst_bridge::frg1::adopted_environment(m)?
+        let adopted = if execution { linux_vst_bridge::frg1::adopted_environment(m)? }
+            else { linux_vst_bridge::frg1::adopted_environment_record(m)? };
+        return Ok(adopted
             .filter(|binding| binding.environment == *env)
             .map(|binding| binding.environment));
     }
@@ -612,7 +626,9 @@ fn managed_rescan_binding_from(
             .all(|entry| entry.registration.environment == *env),
         "operator_managed_environment_mismatch",
     )?;
-    if let Some(retained) = onboarding::retained_environment(m, environment)? {
+    let retained = if execution { onboarding::retained_environment(m, environment)? }
+        else { onboarding::retained_environment_record(m, environment)? };
+    if let Some(retained) = retained {
         require(
             retained.environment == *env,
             "operator_onboarding_environment_mismatch",
@@ -645,11 +661,12 @@ fn managed_rescan_binding(
     registry: &Registry,
     environment: &str,
 ) -> Result<Option<Environment>> {
-    managed_rescan_binding_from(
+    managed_rescan_binding_with(
         m,
         &managed_environment_bindings(m, catalogue, registry)?,
         registry,
         environment,
+        true,
     )
 }
 #[cfg(test)]
@@ -670,7 +687,7 @@ fn environment_projection_from(
     registry: &Registry,
     busy: Option<&str>,
 ) -> Result<Vec<ui::Environment>> {
-    let adopted = linux_vst_bridge::frg1::adopted_environment(m)?;
+    let adopted = linux_vst_bridge::frg1::adopted_environment_record(m)?;
     bindings
         .iter()
         .map(|entry| {
@@ -686,10 +703,10 @@ fn environment_projection_from(
                 &entry.environment.id,
             )?
             {
-                if onboarding::inventory_refresh_required(
+                if onboarding::inventory_refresh_record_required(
                     m, &environment, &sw.host, &sw.source_sha256,
                 )? || (adopted.as_ref().is_some_and(|binding| binding.environment == environment)
-                    && linux_vst_bridge::frg1::inventory_refresh_required(m, &environment)?) {
+                    && linux_vst_bridge::frg1::inventory_refresh_record_required(m, &environment)?) {
                     vec![action(
                         "Refresh installed products",
                         ui::Action::EnvironmentRescan {
@@ -733,12 +750,17 @@ fn operator_catalogue(m: &Manager, sw: &Software, registry: &Registry)
 }
 fn operator_catalogue_readback(m: &Manager, sw: &Software, registry: &Registry)
     -> Result<Option<linux_vst_bridge::catalogue::Catalogue>> {
+    operator_catalogue_records(m, sw, registry, &preparation::RecordReadback::capture(m)?)
+}
+fn operator_catalogue_records(m: &Manager, sw: &Software, registry: &Registry,
+    records: &preparation::RecordReadback) -> Result<Option<linux_vst_bridge::catalogue::Catalogue>> {
     if sw.native_catalogue.is_none() {
-        require(linux_vst_bridge::catalogue::catalogue_free_registry_readback(m, registry)?,
+        require(records.catalogue_free_registry(m, registry)?
+            || linux_vst_bridge::frg1::catalogue_free_registry_readback(m, registry)?,
             "native_catalogue_absent_run_product_setup")?;
         Ok(None)
     } else {
-        Ok(Some(sw.catalogue(m)?))
+        Ok(Some(sw.catalogue_record(m)?))
     }
 }
 const OPERATOR_WAIT: Duration = Duration::from_secs(10);
@@ -798,12 +820,13 @@ fn product_detail_readonly(m: &Manager, environment: &str, module: &str,
     class: &str) -> Result<ui::CurrentProductDetail> {
     require(valid_product_environment(environment) && valid_hex(module, 64)
         && (class.is_empty() || valid_hex(class, 32)), "operator_product_identity")?;
-    let captured = current::capture(m)?;
-    let sw = software(m)?;
-    let db = m.registry()?;
-    let product = project_current_product(m, &captured, &sw, &db, environment, module, class)?;
-    let (environments, vendor_applications) = scoped_product_context(m, &sw, &db,
-        environment, captured.busy)?;
+    let mut captured = current::capture(m)?;
+    let sw = &captured.software;
+    let db = &captured.registry;
+    let product = project_current_product(m, &captured, sw, db, environment, module, class)?;
+    let (environments, vendor_applications) = scoped_product_context_from(m, sw, db,
+        &captured.bindings, environment, captured.busy)?;
+    captured.capture_preparation_watches()?;
     captured.recheck(m)?;
     Ok(ui::CurrentProductDetail {schema:1,operator_schema:ui::OPERATOR_SCHEMA,
         state_token:captured.snapshot.state_token,
@@ -832,7 +855,7 @@ fn project_current_product(m: &Manager, captured: &current::CurrentOverviewConte
     if let Some(entry) = db.classes.get(class).filter(|entry|
         entry.registration.environment.id == environment
             && entry.registration.module.sha256 == module) {
-        product.history = history(m, class, entry)?;
+        product.history = history_records(m, class, entry)?;
         for prior in &product.history {
             if prior.rollback_allowed && !prior.active {
                 product.actions.push(action(&format!("Restore {}",prior.description),
@@ -852,10 +875,11 @@ fn project_current_product(m: &Manager, captured: &current::CurrentOverviewConte
                 || !product.details["qualification"].is_null() {
                 Some("An exact ordinary publication is required")
             } else { None }));
-        buffering_actions(m, &entry.registration, &mut product.actions, class_busy);
+        buffering_record_actions(m, &entry.registration, &mut product.actions, class_busy);
     }
-    preparation_cli::project_scoped(m, sw,
-        std::slice::from_mut(&mut product), captured.busy, None, &|_| class_busy)?;
+    preparation_cli::project_scoped_records(m, sw,
+        std::slice::from_mut(&mut product), captured.busy, None, &|_| class_busy,
+        &captured.preparation)?;
     Ok(product)
 }
 fn buffering_actions(m: &Manager, registration: &Registration,
@@ -876,13 +900,23 @@ fn buffering_actions(m: &Manager, registration: &Registration,
             ui::Action::BufferingSet {class_id:registration.metadata.class_id.clone(), added_frames:1024}, reason));
     }
 }
-fn scoped_product_context(m: &Manager, sw: &Software, db: &Registry,
-    environment: &str, busy: Option<&str>)
+fn buffering_record_actions(m: &Manager, registration: &Registration,
+    actions: &mut Vec<ui::AvailableAction>, busy: Option<&str>) {
+    let current = m.performance(&registration.metadata.class_id).ok().map(|p| p.added_frames);
+    if current != Some(512) {
+        actions.push(action("Restore 512-frame bridge buffering",
+            ui::Action::BufferingSet {class_id:registration.metadata.class_id.clone(), added_frames:512}, busy));
+    }
+    if current != Some(1024) {
+        actions.push(action("Try 1024-frame bridge buffering · capacity checked before changing",
+            ui::Action::BufferingSet {class_id:registration.metadata.class_id.clone(), added_frames:1024}, busy));
+    }
+}
+fn scoped_product_context_from(m: &Manager, sw: &Software, db: &Registry,
+    bindings: &[catalogue::EnvironmentBinding], environment: &str, busy: Option<&str>)
     -> Result<(Vec<ui::Environment>,Vec<ui::VendorApplication>)> {
-    let catalogue = operator_catalogue_readback(m, sw, db)?;
-    let bindings = managed_environment_bindings(m, catalogue.as_ref(), db)?;
-    let exact = bindings.into_iter().filter(|binding|
-        binding.environment.id == environment).collect::<Vec<_>>();
+    let exact = bindings.iter().filter(|binding|
+        binding.environment.id == environment).cloned().collect::<Vec<_>>();
     let environments = environment_projection_from(m, sw, &exact, db, busy)?;
     let arturia = app_directory(m).join("application.json");
     let mut vendor_applications = if arturia.exists()
@@ -1344,24 +1378,25 @@ fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Resu
         return Ok(());
     }
     if preparation_cli::is_action(&request.action) {
-        let captured = current::capture(m)?;
-        let sw = software(m)?;
-        let db = m.registry()?;
+        let mut captured = current::capture(m)?;
+        let sw = &captured.software;
+        let db = &captured.registry;
         let product = timing::measure(Stage::SelectedProjection, || {
-            let selection = preparation_cli::action_selection(m, &sw,
+            let selection = preparation_cli::action_selection_record(m, sw,
                 &request.action)?.ok_or("operator_product_action_identity")?;
-            project_current_product(m, &captured, &sw, &db, &selection.environment.id,
+            project_current_product(m, &captured, sw, db, &selection.environment.id,
                 &selection.module.sha256, &selection.class.id)
         })?;
+        captured.capture_preparation_watches()?;
         captured.recheck(m)?;
         let mut offered = captured.snapshot;
         offered.products = vec![product];
         return validate(request, &offered);
     }
     if scoped_product_action(&request.action) {
-        let captured = current::capture(m)?;
-        let sw = software(m)?;
-        let db = m.registry()?;
+        let mut captured = current::capture(m)?;
+        let sw = &captured.software;
+        let db = &captured.registry;
         let mut offered = captured.snapshot.clone();
         match &request.action {
             ui::Action::OrdinaryRollback { class_id, .. }
@@ -1370,14 +1405,14 @@ fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Resu
             | ui::Action::CaptureArm { class_id } => {
                 let entry = db.classes.get(class_id).ok_or("operator_product_not_current")?;
                 offered.products = vec![timing::measure(Stage::SelectedProjection, ||
-                    project_current_product(m, &captured, &sw, &db,
+                    project_current_product(m, &captured, sw, db,
                         &entry.registration.environment.id, &entry.registration.module.sha256,
                         class_id))?];
             }
             ui::Action::EnvironmentRescan { environment } => {
                 require(valid_product_environment(environment), "operator_product_identity")?;
-                offered.environments = scoped_product_context(m, &sw, &db,
-                    environment, captured.busy)?.0;
+                offered.environments = scoped_product_context_from(m, sw, db,
+                    &captured.bindings, environment, captured.busy)?.0;
             }
             ui::Action::VendorApplicationOpen { application }
             | ui::Action::VendorApplicationFocus { application }
@@ -1387,11 +1422,12 @@ fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Resu
             }
             ui::Action::RendererOpen { .. } | ui::Action::RendererFocus { .. }
             | ui::Action::RendererStop { .. } => {
-                offered.vendor_applications = scoped_product_context(m, &sw, &db,
-                    renderer::ENVIRONMENT, captured.busy)?.1;
+                offered.vendor_applications = scoped_product_context_from(m, sw, db,
+                    &captured.bindings, renderer::ENVIRONMENT, captured.busy)?.1;
             }
             _ => return Err("operator_product_action_identity".into()),
         }
+        captured.capture_preparation_watches()?;
         captured.recheck(m)?;
         return validate(request, &offered);
     }
@@ -1741,7 +1777,7 @@ fn dispatch(m: &Manager, request: ui::Request) -> Result<ui::Receipt> {
         let _lock = timing::measure(Stage::DispatchLock, || m.lock("operator-dispatch.lock"))?;
         timing::measure(Stage::RequestValidation, || validate_current_request(m, &request))?;
         let sw = timing::measure(Stage::SoftwareVerification, || {
-            let sw = software(m)?;
+            let sw = software_record(m)?;
             sw.manager.verify()?;
             Ok(sw)
         })?;
@@ -2015,7 +2051,8 @@ fn execute_with_receipt_policy(
             drop(projection.take());
             daw_workspace::execute_action(m, action, operation.ok_or("operator_operation_identity")?)
         }
-        ui::Action::CandidateGraphicsAssess { .. }
+        ui::Action::CandidateHistoryComplete { .. }
+        | ui::Action::CandidateGraphicsAssess { .. }
         | ui::Action::CandidateGraphicsPrepare { .. }
         | ui::Action::CandidateSettingsPrepare { .. }
         | ui::Action::PluginReinspect { .. }
@@ -2484,7 +2521,7 @@ fn recovery_request(m: &Manager, saved: &ResumeRecord) -> Result<ui::Action> {
     let request: ui::Request =
         read_json(&job_dir(m, &saved.owner_operation)?.join("request.json"))?;
     // The installed private UI2 manager retained schema-11 requests. This is
-    // historical readback only; live requests still require operator schema 12.
+    // historical readback only; live requests require the current paired operator schema.
     require(
         matches!(request.schema, 5..=ui::OPERATOR_SCHEMA),
         "operator_resume_request_schema",
@@ -3689,7 +3726,7 @@ mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 17);
+        assert_eq!(ui::OPERATOR_SCHEMA, 18);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
@@ -3877,17 +3914,36 @@ mod tests {
         })
     }
     fn overview_service_reply(m: &Manager, value: Value) -> std::thread::JoinHandle<()> {
+        overview_service_reply_with_counts(m, value, (1, 3))
+    }
+    fn overview_service_reply_with_counts(m: &Manager, value: Value, expected: (usize, usize))
+        -> std::thread::JoinHandle<()> {
         private_dir(&m.root.join("runtime")).unwrap();
         let socket=m.root.join("runtime/owner.sock");
         if socket.exists() {fs::remove_file(&socket).unwrap();}
         let listener=UnixListener::bind(&socket).unwrap();
+        listener.set_nonblocking(true).unwrap();
         std::thread::spawn(move || {
             // Capacity and the first cleanup probe run concurrently. The
             // final recheck samples cleanup on both sides of registry.lock.
             let mut capacity = 0;
             let mut pulses = 0;
-            for _ in 0..4 {
-                let (mut peer,_)=listener.accept().unwrap();
+            let deadline = Instant::now() + OPERATOR_WAIT;
+            while capacity + pulses < expected.0 + expected.1 {
+                assert!(Instant::now() < deadline,
+                    "service stub timed out: observed {:?}, expected {:?}", (capacity, pulses), expected);
+                let (mut peer,_) = match listener.accept() {
+                    Ok(peer) => peer,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(Duration::from_millis(1));
+                        continue;
+                    }
+                    Err(error) => panic!("service stub accept: {error}"),
+                };
+                let remaining = deadline.saturating_duration_since(Instant::now())
+                    .max(Duration::from_millis(1));
+                peer.set_read_timeout(Some(remaining)).unwrap();
+                peer.set_write_timeout(Some(remaining)).unwrap();
                 let mut greeting=[0;5];
                 peer.read_exact(&mut greeting).unwrap();
                 if &greeting==b"LVC1\n" {
@@ -3901,7 +3957,7 @@ mod tests {
                     peer.write_all(&[0]).unwrap();
                 }
             }
-            assert_eq!((capacity,pulses),(1,3));
+            assert_eq!((capacity,pulses),expected);
         })
     }
     #[test]
@@ -5036,6 +5092,506 @@ mod tests {
         assert!(rows[0].actions.is_empty());
         let setups = onboarding::setup_projection(&f.m, &rows, &[], &Default::default()).unwrap();
         assert!(setups[0].primary.is_none());
+    }
+    #[test]
+    fn native_catalogue_views_require_the_shared_registration_record_binding() {
+        let (f, _profile, census, native) = test_fixture::prepared();
+        let catalogue = linux_vst_bridge::catalogue::Catalogue {schema:3,natives:vec![native],
+            environments:vec![census.environment],hosts:vec![],onboarding_runtime:None};
+        let catalogue_path = f.m.root.join("software/native-catalogue.json");
+        atomic_json(&catalogue_path, &catalogue).unwrap();
+        let software = Software {installer_launch:None,preparation_kit:None,
+            operator_frontend:None,manager:f.r.host.clone(),supervisor:f.r.host.clone(),
+            ownership:f.r.host.clone(),host:f.r.host.clone(),source_manifest:Artifact {
+                path:f.r.host.path.with_file_name("host-source-manifest.json"),
+                sha256:f.r.host_source_sha256.clone()},source_sha256:f.r.host_source_sha256.clone(),
+            native_catalogue:Some(Artifact {sha256:digest(&catalogue_path).unwrap(),path:catalogue_path})};
+        atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+        let original = f.m.registry().unwrap();
+        let class = f.r.key();
+        assert!(original.classes[&class].managed_revision.is_none());
+        // Completed schema17 requests remain historical records. Only newly
+        // submitted requests require the current paired schema.
+        let operation = "ab".repeat(16);
+        let directory = job_dir(&f.m, &operation).unwrap();
+        private_dir(&directory).unwrap();
+        let prior_request = ui::Request {schema:17,state_token:"prior-state".into(),
+            action:ui::Action::BufferingSet {class_id:class.clone(),added_frames:512}};
+        let prior_result = json!({"schema":1,"operation":operation,"state":"completed",
+            "action":prior_request.action,"result":{"added_bridge_frames":512}});
+        atomic_json(&directory.join("request.json"), &prior_request).unwrap();
+        atomic_json(&directory.join("result.json"), &prior_result).unwrap();
+        atomic_json(&f.m.root.join("operator/latest.json"), &prior_result).unwrap();
+        let request_bytes = fs::read(directory.join("request.json")).unwrap();
+        let result_bytes = fs::read(directory.join("result.json")).unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let current = product_detail(&f.m, &f.r.environment.id, &f.r.module.sha256, &class).unwrap();
+        service.join().unwrap();
+        assert_eq!(current.product.disposition, "ready");
+        assert_eq!(current.operator_schema, 18);
+        let old_request = ui::Request {schema:17,state_token:current.state_token.clone(),
+            action:ui::Action::BufferingSet {class_id:class.clone(),added_frames:1024}};
+        assert_eq!(validate_current_request(&f.m, &old_request).unwrap_err().to_string(),
+            "operator_schema_mismatch_update_manager_frontend");
+        assert_eq!(fs::read(directory.join("request.json")).unwrap(), request_bytes);
+        assert_eq!(fs::read(directory.join("result.json")).unwrap(), result_bytes);
+        for module_outside in [true, false] {
+            let mut changed: Registry = serde_json::from_value(serde_json::to_value(&original).unwrap()).unwrap();
+            let registration = &mut changed.classes.get_mut(&class).unwrap().registration;
+            let artifact = if module_outside { &mut registration.module } else { &mut registration.host };
+            let outside = f.outer.join(if module_outside { "outside-module" } else { "outside-host" });
+            fs::copy(&artifact.path, &outside).unwrap();
+            artifact.path = outside;
+            assert!(artifact.validate_record().is_ok(), "individual artifact metadata still exists");
+            assert!(registration.validate_record(&f.m.root).is_err());
+            atomic_json(&f.m.root.join("registry.json"), &changed).unwrap();
+            let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+            let overview = overview(&f.m).unwrap();
+            service.join().unwrap();
+            let product = &overview.current.products[0];
+            assert_eq!(product.disposition, "needs_attention");
+            assert_eq!(product.details["publication_valid"], true,
+                "the unchanged physical pointer cannot substitute for a registration binding");
+            for key in ["module_binding_valid","runner_binding_valid","native_binding_valid","host_binding_valid"] {
+                assert_eq!(product.details[key], false, "{key}");
+            }
+            let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+            let detail = product_detail(&f.m, &f.r.environment.id, &f.r.module.sha256, &class).unwrap();
+            service.join().unwrap();
+            assert_eq!(detail.product.disposition, "needs_attention");
+            assert_eq!(detail.product.details["module_binding_valid"], false);
+            assert!(f.m.resolve(&f.identity()).is_err());
+        }
+    }
+    #[test]
+    fn retained_schema17_queued_request_refuses_without_execution_or_rewriting_its_request() {
+        let f = test_fixture::Fixture::new();
+        atomic_json(&f.m.root.join("registry.json"), &f.m.registry().unwrap()).unwrap();
+        let operation = "ab".repeat(16);
+        let directory = job_dir(&f.m, &operation).unwrap();
+        private_dir(&directory).unwrap();
+        let request = ui::Request {schema:17,state_token:token(&f.m).unwrap(),
+            action:ui::Action::BufferingSet {class_id:f.r.key(),added_frames:1024}};
+        atomic_json(&directory.join("request.json"), &request).unwrap();
+        atomic_json(&directory.join("result.json"), &json!({"schema":1,
+            "operation":operation,"state":"queued","action":request.action})).unwrap();
+        let request_bytes = fs::read(directory.join("request.json")).unwrap();
+        let registry_bytes = fs::read(f.m.root.join("registry.json")).unwrap();
+        worker_with_capacity(&f.m, &operation, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        let terminal = worker_receipt(&f.m, &operation);
+        assert_eq!(terminal["schema"], 1);
+        assert_eq!(terminal["operation"], operation);
+        assert_eq!(terminal["state"], "refused");
+        assert!(terminal["reason"].as_str().unwrap()
+            .contains("operator_schema_mismatch_update_manager_frontend"));
+        assert_eq!(fs::read(directory.join("request.json")).unwrap(), request_bytes);
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_bytes);
+        assert!(!f.m.root.join("performance").exists());
+    }
+    #[test]
+    fn candidate_only_history_is_readable_with_scoped_recovery_and_corrupt_records_refuse() {
+        use linux_vst_bridge::preparation as prep;
+        let (f, mut candidate) = preparation_cli::tests::projection_fixture();
+        candidate.origin = prep::Origin::RetainedSv1;
+        candidate.inspection.origin = prep::Origin::RetainedSv1;
+        candidate.recipe_sha256 = "retained-sv1".into();
+        f.m.register(f.r.clone()).unwrap();
+        let catalogue = linux_vst_bridge::catalogue::Catalogue {schema:3,
+            natives:vec![candidate.native.clone()],environments:vec![
+                linux_vst_bridge::catalogue::EnvironmentBinding {
+                    family:profiles::Family::ManagedInstallerV1,
+                    environment:candidate.selection.environment.clone()}],hosts:vec![],onboarding_runtime:None};
+        let catalogue_path = f.m.root.join("software/native-catalogue.json");
+        atomic_json(&catalogue_path, &catalogue).unwrap();
+        let mut sw = preparation_cli::tests::projection_software(&candidate);
+        sw.native_catalogue = Some(Artifact {sha256:digest(&catalogue_path).unwrap(),path:catalogue_path});
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let onboarding = onboarding::Record {schema:1,id:candidate.selection.environment.id.clone(),
+            installer:"ba".repeat(32),environment:candidate.selection.environment.clone(),created_at:1,
+            creation_operation:"ab".repeat(16),installation_operation:Some("cd".repeat(16)),published:false,previous_attempt:None};
+        let onboarding_path = f.m.root.join("onboarding").join(&onboarding.id).join("record.json");
+        private_dir(onboarding_path.parent().unwrap()).unwrap();
+        atomic_json(&onboarding_path, &onboarding).unwrap();
+        atomic_json(&onboarding_path.with_file_name(format!("{}-result.json", onboarding.installation_operation.as_ref().unwrap())),
+            &json!({"schema":2,"operation":onboarding.installation_operation,"state":"completed",
+                "cleanup_confirmed":true,"owned_live":0,"launcher_exit":0})).unwrap();
+        assert!(onboarding::retired(&onboarding::result(&f.m, &onboarding).unwrap()));
+        let id = candidate.id().unwrap();
+        let candidate_path = f.m.root.join("preparation/candidates").join(&id).join("candidate.json");
+        private_dir(candidate_path.parent().unwrap()).unwrap();
+        atomic_json(&candidate_path, &candidate).unwrap();
+        let candidate_bytes = fs::read(&candidate_path).unwrap();
+        let registry_bytes = fs::read(f.m.root.join("registry.json")).unwrap();
+        let legacy_path = f.m.root.join("preparation/legacy").join(&id);
+        let lineage_path = f.m.root.join("preparation/lineage").join(&id).join("record.json");
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let detail = product_detail(&f.m, &candidate.selection.environment.id,
+            &candidate.selection.module.sha256, &candidate.selection.class.id).unwrap();
+        service.join().unwrap();
+        assert_eq!(detail.product.disposition, "needs_attention");
+        assert_eq!(detail.product.details["preparation"]["preparation"], "history_incomplete");
+        assert!(!legacy_path.exists() && !lineage_path.exists(), "projection cannot migrate history");
+        assert_eq!(fs::read(&candidate_path).unwrap(), candidate_bytes);
+        let offered = detail.product.compatibility.as_ref().unwrap().primary.as_ref().unwrap();
+        assert!(offered.disabled_reason.is_none());
+        assert!(matches!(&offered.action, ui::Action::CandidateHistoryComplete {candidate,expected_history}
+            if candidate == &id && valid_hex(expected_history,64)));
+        let inventory = f.m.root.join("inventory").join(format!("{}.json", candidate.selection.environment.id));
+        let saved_inventory = f.outer.join("retained-current-inventory.json");
+        fs::rename(&inventory, &saved_inventory).unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let unavailable = product_detail(&f.m, &candidate.selection.environment.id,
+            &candidate.selection.module.sha256, &candidate.selection.class.id).unwrap();
+        service.join().unwrap();
+        assert_eq!(unavailable.product.disposition, "needs_attention");
+        let unavailable_offer = unavailable.product.compatibility.as_ref().unwrap().primary.as_ref().unwrap();
+        assert_eq!(unavailable_offer.disabled_reason.as_deref(), Some(
+            "Saved setup history cannot be completed because original setup records are missing."));
+        assert!(unavailable.product.details["preparation"]["history_recovery"][0]["missing"]
+            .as_array().unwrap().contains(&json!("inventory")));
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        assert_eq!(validate_current_request(&f.m, &ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:unavailable.state_token,action:unavailable_offer.action.clone()})
+            .unwrap_err().to_string(), unavailable_offer.disabled_reason.as_deref().unwrap());
+        service.join().unwrap();
+        assert!(!legacy_path.exists() && !lineage_path.exists());
+        assert_eq!(fs::read(&candidate_path).unwrap(), candidate_bytes);
+        fs::rename(saved_inventory, inventory).unwrap();
+        let mut request = ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:detail.state_token,action:offered.action.clone()};
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        validate_current_request(&f.m, &request).unwrap();
+        service.join().unwrap();
+        if let ui::Action::CandidateHistoryComplete {expected_history,..} = &mut request.action {
+            *expected_history = "00".repeat(32);
+        }
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        assert_eq!(validate_current_request(&f.m, &request).unwrap_err().to_string(),
+            "operator_action_not_available");
+        service.join().unwrap();
+        // This synthetic fixture is not the retained SV1 snapshot. Execution
+        // reaches its existing migration owner and refuses the original binding.
+        request.action = offered.action.clone();
+        let receipt = dispatch_recorded(&f.m, &request, |operation|
+            launch_reserved(&f.m, &request, operation, |_| Ok(true))).unwrap();
+        let operation = receipt.operation.unwrap();
+        worker_with_capacity(&f.m, &operation, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        let terminal = worker_receipt(&f.m, &operation);
+        assert_eq!(terminal["state"], "refused", "{terminal}");
+        assert!(terminal["reason"].as_str().unwrap().contains("legacy_input_binding"), "{terminal}");
+        assert_eq!(fs::read(&candidate_path).unwrap(), candidate_bytes);
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_bytes);
+        assert!(!lineage_path.exists());
+        // An existing mismatched record is not disguised as missing migration.
+        private_dir(lineage_path.parent().unwrap()).unwrap();
+        atomic_json(&lineage_path, &prep::CandidateLineage {schema:1,candidate:"ff".repeat(32),
+            preparation_identity:"original".into(),ordinal:7,predecessor:None}).unwrap();
+        let corrupt = fs::read(&lineage_path).unwrap();
+        // Corrupt lineage refuses during product projection, before the two
+        // final cleanup rechecks. The initial capacity and cleanup reads remain.
+        let service = overview_service_reply_with_counts(&f.m, capacity_json(false,0,0), (1, 1));
+        let failure = product_detail(&f.m, &candidate.selection.environment.id,
+            &candidate.selection.module.sha256, &candidate.selection.class.id).unwrap_err();
+        service.join().unwrap();
+        assert_eq!(failure.to_string(), "candidate_lineage_identity");
+        assert_eq!(fs::read(&lineage_path).unwrap(), corrupt);
+        assert_eq!(fs::read(&candidate_path).unwrap(), candidate_bytes);
+    }
+    #[test]
+    fn catalogue_free_missing_lineage_preserves_selected_publication_and_rollback_readback() {
+        use linux_vst_bridge::preparation as prep;
+        let (f, base) = preparation_cli::tests::projection_fixture();
+        atomic_json(&f.m.root.join("software.json"), &preparation_cli::tests::projection_software(&base)).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let original = prep::enable(&f.m, &base, false).unwrap();
+        let trial = prep::configuration::prepare_settings(&f.m, &base,
+            &ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+                accessibility:ui::AccessibilityChoice::ProfileDefault}, Some(&original)).unwrap();
+        let selected = prep::replace(&f.m, &trial, &original).unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let before = product_detail(&f.m, &base.selection.environment.id,
+            &base.selection.module.sha256, &base.selection.class.id).unwrap();
+        service.join().unwrap();
+        let settings_offer = before.product.actions.iter().find(|offer|
+            matches!(offer.action, ui::Action::CandidateSettingsPrepare {..})).unwrap().action.clone();
+        let id = trial.id().unwrap();
+        let candidate_path = f.m.root.join("preparation/candidates").join(&id).join("candidate.json");
+        let candidate_bytes = fs::read(&candidate_path).unwrap();
+        let lineage_path = f.m.root.join("preparation/lineage").join(&id).join("record.json");
+        fs::remove_file(&lineage_path).unwrap();
+        let registry_bytes = fs::read(f.m.root.join("registry.json")).unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let detail = product_detail(&f.m, &base.selection.environment.id,
+            &base.selection.module.sha256, &base.selection.class.id).unwrap();
+        service.join().unwrap();
+        assert_eq!(detail.product.disposition, "needs_attention");
+        assert_eq!(detail.product.details["publication_valid"], true);
+        assert_eq!(detail.product.details["publication_selected"], true);
+        assert_eq!(detail.product.details["publication"], serde_json::to_value(&selected).unwrap());
+        assert_eq!(detail.product.details["preparation"]["history_refusal"],
+            json!({"code":"candidate_predecessor_authority_missing","candidates":[id]}));
+        let workflow = detail.product.compatibility.as_ref().unwrap();
+        assert!(workflow.primary.is_none() && workflow.alternatives.is_empty());
+        assert!(!detail.product.actions.iter().any(|offer| preparation_cli::is_action(&offer.action)));
+        let rollback = detail.product.actions.iter().find(|offer| matches!(&offer.action,
+            ui::Action::OrdinaryRollback {publication,..} if publication == &original.id)).unwrap();
+        assert!(rollback.disabled_reason.is_none());
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        validate_current_request(&f.m, &ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:detail.state_token.clone(),action:rollback.action.clone()}).unwrap();
+        service.join().unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        assert_eq!(validate_current_request(&f.m, &ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:detail.state_token,action:settings_offer}).unwrap_err().to_string(),
+            "operator_action_not_available");
+        service.join().unwrap();
+        assert!(!lineage_path.exists(), "readback must not invent predecessor authority");
+        assert_eq!(fs::read(&candidate_path).unwrap(), candidate_bytes);
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_bytes);
+    }
+    #[test]
+    fn candidate_action_worker_missing_target_does_not_migrate_unrelated_history() {
+        use linux_vst_bridge::preparation as prep;
+        let (f, mut target) = preparation_cli::tests::projection_fixture();
+        atomic_json(&f.m.root.join("software.json"), &preparation_cli::tests::projection_software(&target)).unwrap();
+        target.origin = prep::Origin::RetainedSv1;
+        target.inspection.origin = prep::Origin::RetainedSv1;
+        target.recipe_sha256 = "retained-sv1".into();
+        let id = target.id().unwrap();
+        let target_path = f.m.root.join("preparation/candidates").join(&id).join("candidate.json");
+        private_dir(target_path.parent().unwrap()).unwrap();
+        atomic_json(&target_path, &target).unwrap();
+        let mut unrelated = target.clone();
+        unrelated.selection.class.id = "ef".repeat(16);
+        let unrelated_path = f.m.root.join("preparation/candidates").join(unrelated.id().unwrap()).join("candidate.json");
+        private_dir(unrelated_path.parent().unwrap()).unwrap();
+        atomic_json(&unrelated_path, &unrelated).unwrap();
+        for action in [
+            ui::Action::CandidateHistoryComplete {candidate:id.clone(),expected_history:"ab".repeat(32)},
+            ui::Action::CandidateSettingsPrepare {candidate:id.clone(),settings:ui::LocalSettings {
+                graphics:None,accessibility:ui::AccessibilityChoice::ProfileDefault},expected_current:None},
+            ui::Action::CandidateObserve {candidate:id.clone(),area:"editor".into(),
+                status:"not_tested".into(),note:"No editor observation".into()},
+        ] {
+            // The queued exact target disappears without a canonical generation
+            // change. Both scoped admission and non-inactive execution refuse.
+            atomic_json(&target_path, &target).unwrap();
+            let request = ui::Request {schema:ui::OPERATOR_SCHEMA,
+                state_token:token(&f.m).unwrap(),action};
+            let receipt = launch_queued(&f.m, &request, |_| Ok(true)).unwrap();
+            fs::remove_file(&target_path).unwrap();
+            assert_eq!(token(&f.m).unwrap(), request.state_token);
+            let retained = test_fixture::snapshot(&f.m.root.join("preparation"));
+            let registry = fs::read(f.m.root.join("registry.json")).unwrap();
+            let operation = receipt.operation.unwrap();
+            worker_with_capacity(&f.m, &operation, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+            let terminal = worker_receipt(&f.m, &operation);
+            assert_eq!(terminal["state"], "refused");
+            assert_eq!(terminal["reason"], "Operator action: candidate_absent");
+            assert_eq!(test_fixture::snapshot(&f.m.root.join("preparation")), retained);
+            assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry);
+            assert!(unrelated_path.exists());
+        }
+    }
+    #[test]
+    fn ordinary_views_and_offer_admission_defer_payload_tree_and_kit_verification() {
+        use linux_vst_bridge::{preparation as prep, runtime_delivery};
+        let (f, base) = preparation_cli::tests::projection_fixture();
+        let mut sw = preparation_cli::tests::projection_software(&base);
+        let kit_path = f.m.root.join("software/display-only-kit.zip");
+        fs::write(&kit_path, b"not a kit archive").unwrap();
+        fs::set_permissions(&kit_path, fs::Permissions::from_mode(0o400)).unwrap();
+        sw.preparation_kit = Some(Artifact {path:kit_path.clone(),sha256:digest(&kit_path).unwrap()});
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let baseline = prep::enable(&f.m, &base, false).unwrap();
+        let trial = prep::configuration::prepare_settings(&f.m, &base,
+            &ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+                accessibility:ui::AccessibilityChoice::ProfileDefault}, Some(&baseline)).unwrap();
+        // A default runtime's executable tree is not needed to display the
+        // selected product. Its metadata is readable; execution still refuses.
+        let runtime_path = runtime_delivery::record_path(&f.m);
+        let runtime_dir = runtime_path.parent().unwrap();
+        let artifact = |relative: &str, bytes: &[u8]| {
+            let path = runtime_dir.join(relative);
+            private_dir(path.parent().unwrap()).unwrap();
+            fs::write(&path, bytes).unwrap();
+            Artifact {sha256:digest(&path).unwrap(),path}
+        };
+        let proton = artifact("GE-Proton11-7-x86_64/proton", b"runtime bytes");
+        let entry = artifact("SteamLinuxRuntime_4/_v2-entry-point", b"entry bytes");
+        let tree = artifact("runtime-tree.json", b"[]\n");
+        let runner = Runner {id:runtime_delivery::ID.into(),version:"retained-test".into(),
+            proton:proton.path.clone(),entry_point:entry.path.clone(),
+            files:vec![proton,entry,tree],policy:None};
+        atomic_json(&runtime_path, &json!({"schema":1,"id":runtime_delivery::ID,
+            "downloads":runtime_delivery::downloads(),"runner":runner})).unwrap();
+        fs::set_permissions(&runtime_path, fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(runtime_delivery::installed_record(&f.m).unwrap().is_some());
+        assert!(runtime_delivery::installed(&f.m).is_err());
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let overview = overview(&f.m).unwrap();
+        service.join().unwrap();
+        let current = &overview.current.products[0];
+        assert_eq!(current.details["verification_scope"], "control_records");
+        assert_eq!(current.details["buffering_capacity"], "deferred_to_mutation_or_launch");
+        assert_eq!(current.disposition, "ready");
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let detail = product_detail(&f.m, &base.selection.environment.id,
+            &base.selection.module.sha256, &base.selection.class.id).unwrap();
+        service.join().unwrap();
+        let offer = detail.product.compatibility.as_ref().unwrap().primary.as_ref().unwrap();
+        assert!(matches!(&offer.action, ui::Action::CompatibilityPublishTest {candidate,..}
+            if *candidate == trial.id().unwrap()));
+        assert!(offer.disabled_reason.is_none());
+        assert!(detail.product.actions.iter().any(|offer|
+            matches!(offer.action, ui::Action::BufferingSet {added_frames:1024,..})
+                && offer.disabled_reason.is_none() && offer.label.contains("capacity checked")));
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:detail.state_token,
+            action:offer.action.clone()};
+        let db = f.m.registry().unwrap();
+        let selected_native = db.classes[&base.selection.class.id].registration.native.path.clone();
+        for path in [&base.selection.module.path, &base.selection.environment.runner.proton,
+            &base.native.artifact.path, &selected_native] {
+            fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
+            fs::write(path, b"changed executable bytes").unwrap();
+        }
+        let registry = fs::read(f.m.root.join("registry.json")).unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        validate_current_request(&f.m, &request).unwrap();
+        service.join().unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let changed = product_detail(&f.m, &base.selection.environment.id,
+            &base.selection.module.sha256, &base.selection.class.id).unwrap();
+        service.join().unwrap();
+        for key in ["module_valid","runner_valid","native_valid","host_valid"] {
+            assert!(changed.product.details[key].is_null(), "{key} must not claim fresh verification");
+        }
+        for key in ["module_binding_valid","runner_binding_valid","native_binding_valid","host_binding_valid"] {
+            assert_eq!(changed.product.details[key], true, "{key}");
+        }
+        let receipt = dispatch_recorded(&f.m, &request, |id|
+            launch_reserved(&f.m, &request, id, |_| Ok(true))).unwrap();
+        assert!(receipt.accepted, "queue acceptance is distinct from execution");
+        let id = receipt.operation.unwrap();
+        worker_with_capacity(&f.m, &id, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        let result = worker_receipt(&f.m, &id);
+        assert_eq!(result["state"], "refused", "{result}");
+        assert!(result["reason"].as_str().unwrap().contains("artifact missing or changed"), "{result}");
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry);
+        assert_eq!(f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision, Some(baseline));
+        assert!(!f.m.publication_pending(&base.selection.class.id).unwrap());
+        assert!(f.m.resolve(&f.identity()).is_err(), "launch must still verify current executable bytes");
+    }
+    #[test]
+    fn changed_manager_bytes_refuse_before_queue_with_exact_durable_request() {
+        use linux_vst_bridge::preparation as prep;
+        let (f, base) = preparation_cli::tests::projection_fixture();
+        let mut sw = preparation_cli::tests::projection_software(&base);
+        let manager = f.m.root.join("software/current-manager");
+        fs::write(&manager, b"manager generation").unwrap();
+        sw.manager = Artifact {path:manager.clone(),sha256:digest(&manager).unwrap()};
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let baseline = prep::enable(&f.m, &base, false).unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let detail = product_detail(&f.m, &base.selection.environment.id,
+            &base.selection.module.sha256, &base.selection.class.id).unwrap();
+        service.join().unwrap();
+        let offer = detail.product.actions.iter().find(|offer|
+            matches!(offer.action, ui::Action::BufferingSet {added_frames:1024,..})).unwrap();
+        assert!(offer.disabled_reason.is_none());
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:detail.state_token,
+            action:offer.action.clone()};
+        let registry = fs::read(f.m.root.join("registry.json")).unwrap();
+        fs::write(&manager, b"other manager bytes").unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let receipt = dispatch(&f.m, request.clone()).unwrap();
+        service.join().unwrap();
+        assert!(!receipt.accepted);
+        assert_eq!(receipt.refusal.as_deref(), Some("artifact missing or changed"));
+        let id = receipt.operation.unwrap();
+        let dir = job_dir(&f.m, &id).unwrap();
+        assert_eq!(serde_json::to_value(read_json::<ui::Request>(&dir.join("request.json")).unwrap()).unwrap(),
+            serde_json::to_value(&request).unwrap());
+        let result: Value = read_json(&dir.join("result.json")).unwrap();
+        assert_eq!(result["operation"], id);
+        assert_eq!(result["state"], "refused");
+        assert_eq!(result["stage"], "operator_request_admission");
+        assert_eq!(result["worker_started"], false);
+        assert_eq!(result["mutation_started"], false);
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry);
+        assert_eq!(f.m.performance(&base.selection.class.id).unwrap().added_frames, 512);
+        assert_eq!(f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision, Some(baseline));
+    }
+    #[test]
+    fn ordinary_rollback_exposes_deferred_ancestor_capacity_and_worker_checks_the_exact_target() {
+        use linux_vst_bridge::preparation as prep;
+        let (f, base) = preparation_cli::tests::projection_fixture();
+        let mut sw = preparation_cli::tests::projection_software(&base);
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let baseline = prep::enable(&f.m, &base, false).unwrap();
+        let trial = prep::configuration::prepare_settings(&f.m, &base,
+            &ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+                accessibility:ui::AccessibilityChoice::ProfileDefault}, Some(&baseline)).unwrap();
+        let selected = prep::replace(&f.m, &trial, &baseline).unwrap();
+        let performance = f.m.root.join("performance").join(format!("{}.json", base.selection.class.id));
+        private_dir(performance.parent().unwrap()).unwrap();
+        // Simulate a retained 1024 preference with a target whose exact kit
+        // only describes 512. Ordinary display reports capacity as deferred.
+        atomic_json(&performance, &Performance {schema:1,added_frames:1024}).unwrap();
+        let registry = fs::read(f.m.root.join("registry.json")).unwrap();
+        for other_native in [false, true] {
+            let native = if other_native {"fe".repeat(32)} else {base.native.artifact.sha256.clone()};
+            let path = f.m.root.join("software").join(format!("ancestor-kit-{other_native}.zip"));
+            let index = json!({"schema":1,"proxies":[{"class_id":base.selection.class.id,
+                "module_sha256":base.selection.module.sha256,"native_sha256":native,
+                "file":"prebuilt/proxy.so"}]}).to_string();
+            let status = Command::new("python3").args(["-I","-c",r#"
+import hashlib,json,sys,zipfile
+index=sys.argv[2].encode()
+with zipfile.ZipFile(sys.argv[1],'w') as archive:
+ archive.writestr('prebuilt/index.json',index)
+ archive.writestr('recipe.json',json.dumps({'schema':3,'files':{
+  'prebuilt/index.json':hashlib.sha256(index).hexdigest(),'prebuilt/proxy.so':sys.argv[3]}}))
+"#]).arg(&path).arg(index).arg(&native).status().unwrap();
+            assert!(status.success());
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+            sw.preparation_kit = Some(Artifact {sha256:digest(&path).unwrap(),path});
+            atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+            let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+            let detail = product_detail(&f.m, &base.selection.environment.id,
+                &base.selection.module.sha256, &base.selection.class.id).unwrap();
+            service.join().unwrap();
+            assert_eq!(detail.product.details["added_frames"], 1024);
+            assert_eq!(detail.product.details["performance_valid"], true);
+            assert_eq!(detail.product.details["buffering_capacity"], "deferred_to_mutation_or_launch");
+            let offer = detail.product.actions.iter().find(|offer|
+                matches!(&offer.action, ui::Action::OrdinaryRollback {publication,..}
+                    if publication == &baseline.id)).unwrap();
+            assert!(offer.disabled_reason.is_none());
+            assert!(offer.label.contains("capacity checked"));
+            let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:detail.state_token,
+                action:offer.action.clone()};
+            let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+            validate_current_request(&f.m, &request).unwrap();
+            service.join().unwrap();
+            let receipt = dispatch_recorded(&f.m, &request, |id|
+                launch_reserved(&f.m, &request, id, |_| Ok(true))).unwrap();
+            let id = receipt.operation.unwrap();
+            worker_with_capacity(&f.m, &id, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+            let result = worker_receipt(&f.m, &id);
+            assert_eq!(result["state"], "refused", "{result}");
+            if !other_native {
+                assert!(result["reason"].as_str().unwrap().contains("rollback_buffering_unsupported_by_target"),
+                    "{result}");
+            }
+            assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry);
+            assert_eq!(f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision, Some(selected.clone()));
+            assert_eq!(f.m.performance(&base.selection.class.id).unwrap().added_frames, 1024);
+            assert!(!f.m.publication_pending(&base.selection.class.id).unwrap());
+        }
     }
     #[test]
     fn current_setup_offer_receives_durable_ack_without_diagnostics_snapshot() {

@@ -115,6 +115,14 @@ pub(crate) fn load_for(
     p: Profile,
     purpose: Qualification,
 ) -> Result<InstalledCandidate> {
+    let candidate = load_record_for(m, p, purpose)?;
+    for artifact in [&candidate.host, &candidate.source_manifest, &candidate.native.artifact] {
+        artifact.verify()?;
+    }
+    Ok(candidate)
+}
+pub(crate) fn load_record_for(m: &Manager, p: Profile, purpose: Qualification)
+    -> Result<InstalledCandidate> {
     let dir = directory(m, &p, purpose)?;
     let host = Artifact {
         path: dir.join("host.exe"),
@@ -141,7 +149,7 @@ pub(crate) fn load_for(
             a.path.canonicalize()? == a.path && file(&a.path)?.metadata()?.mode() & 0o222 == 0,
             "qualification_artifact_location_or_mutability",
         )?;
-        a.verify()?;
+        a.validate_record()?;
     }
     native.matches(&p)?;
     Ok(InstalledCandidate {

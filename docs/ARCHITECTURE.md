@@ -1305,6 +1305,29 @@ checks its affected inputs and supported capacities, preserves explicit unrelate
 preferences, and uses retained predecessors rather than guessing another build.
 Migrate existing records without changing class IDs or saved objects.
 
+Ordinary configuration readback validates bounded owned records and their current
+bindings, including transaction state and the selected physical publication. This
+is control-record validation, not a fresh verification of executable payloads.
+Present that distinction in readiness and offered actions. Do not traverse complete
+runtime trees, hash bulk executable payloads or execute preparation tools merely
+to display a product or validate an offered choice. Offer admission still rechecks
+the exact token, expected predecessor, settings and affected owners. The queued
+worker executable is freshly verified; mutation and launch owners retain deep
+execution verification and final binding/ownership rechecks. Neither a readable
+record nor a previously successful observation grants permission to execute it.
+
+Incomplete retained history from an older installation stays readable as needing
+recovery. An explicit scoped action invokes the existing history-completion owner
+after rechecking the selected candidate and recorded history. Projection does not
+perform migration or invent missing lineage. Corrupt existing records remain
+refusals; completing history does not replace executable admission. Paired clients
+must recognize the recovery action's operator schema, while retained earlier
+operation records preserve their original schema and bytes.
+The shared preparation owner retains valid lineage before publishing a candidate
+record. An older incomplete record without authority for its original predecessor
+stays an explicit history gap; it cannot acquire invented lineage through readback.
+Independently valid publication and exact rollback facts remain available.
+
 The initial implementation uses optional typed local settings on the retained
 candidate, preserving the serialized identity of older records when that field is
 absent. Preparation resolves graphics and Windows accessibility choices into the
@@ -1349,6 +1372,19 @@ and vendor maintenance cannot masquerade as independent DSP. Scanner, installer,
 runtime and environment operations retain global exclusion until their narrower
 shared-resource contracts are implemented. That remaining restriction is explicit;
 it is not evidence of environment-scoped maintenance.
+
+The shared-runtime launch adapter must authenticate the final Windows host, not
+assume that its pre-exec launcher remains its parent. The existing per-launch
+channel may carry kernel-authenticated writer credentials and a pinned process
+handle. Admission additionally binds that writer to this launch's exact readiness
+identity and mapped session-status object. A claimed PID, process name, shared
+keeper membership or ordinary diagnostic line cannot grant custody. Recheck the
+binding on render restart. Unsupported kernel/runtime observation remains explicit;
+missing final-host custody cannot become confirmed retirement. Preserve exact
+instance cleanup and keeper/sibling isolation, including pre-admission failure.
+Close new custody admission before cleanup starts. Diagnostic draining cannot
+expand the ownership set after its final retirement signal or turn missing
+admission into a successful cleanup claim.
 
 An unfamiliar class with a valid managed publication may reserve the existing
 native image slot count under the shared service ceiling. This is a structural

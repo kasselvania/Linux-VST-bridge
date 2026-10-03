@@ -269,8 +269,8 @@ fn status_with_wait(
     )?;
     let extended = limits == service_limits()?;
     let ordinary_limits = fixture_limits();
-    let verified = verified_envelope(m, if extended { &ordinary_limits } else { &limits })?;
-    let additional_verified = extended && verified_additional(m)?;
+    let verified = retained_qualification_envelope(m, if extended { &ordinary_limits } else { &limits })?;
+    let additional_verified = extended && retained_additional_qualification(m)?;
     let mut engineering_classes = if extended && !additional_verified { vec![limits.classes[2].clone()] } else { Vec::new() };
     if extended { engineering_classes.push(limits.classes[3].clone()); }
     let mut current_classes=limits.classes.clone();
@@ -280,7 +280,7 @@ fn status_with_wait(
         // invalid or pending publication must not hide canonical owners or
         // prevent its ordinary reconciliation. Admission below still returns
         // the exact publication error; malformed owners still fail readback.
-        let Ok(Some(capacity)) = unfamiliar_managed_capacity(m, limits.native_image_hard, &key) else { continue; };
+        let Ok(Some(capacity)) = unfamiliar_managed_capacity_with(m, limits.native_image_hard, &key, false) else { continue; };
         let limit=ClassLimit{class_id:key,dsp:capacity};
         engineering_classes.push(limit.clone());current_classes.push(limit);
     }
@@ -340,17 +340,19 @@ fn status_with_wait(
     })
 }
 
-/// Caller holds registry.lock. Read physical revision authority, never infer it
-/// from the manager version or from a retained candidate's mere presence.
-fn verified_envelope(m: &Manager, limits: &Limits) -> Result<bool> {
-    verified_envelope_for(m, limits, &crate::profiles::ap17_profiles()?)
+/// Caller holds registry.lock. Match retained qualification and physical
+/// publication records. This projects the evidence's claim, never fresh
+/// executable verification or permission to launch. Reservation/launch owners
+/// retain their independent current checks.
+fn retained_qualification_envelope(m: &Manager, limits: &Limits) -> Result<bool> {
+    retained_qualification_envelope_for(m, limits, &crate::profiles::ap17_profiles()?)
 }
-fn verified_additional(m: &Manager) -> Result<bool> {
+fn retained_additional_qualification(m: &Manager) -> Result<bool> {
     let p = crate::profiles::pigments_verified()?;
     let db = m.registry()?;
     let Some(e) = db.classes.get(&p.class.class_id) else { return Ok(false); };
     let Some(reference) = &e.managed_revision else { return Ok(false); };
-    let r = m.load_revision(&p.class.class_id, reference)?;
+    let r = m.load_revision_record(&p.class.class_id, reference)?;
     if (r.profile != p && r.profile != crate::profiles::pigments_eleven()?) || r.qualification.is_some() || e.publication != Publication::Published
         || r.registration != e.registration || m.publication_pending(&p.class.class_id)?
         || crate::publication::physical(&m.link(&p.class.class_id))? != Some(r.target.clone()) {
@@ -359,7 +361,7 @@ fn verified_additional(m: &Manager) -> Result<bool> {
     m.verify_completed_publication(&r, reference)?;
     Ok(true)
 }
-pub(crate) fn verified_envelope_for(
+pub(crate) fn retained_qualification_envelope_for(
     m: &Manager,
     limits: &Limits,
     profiles: &[crate::profiles::Profile],
@@ -375,7 +377,7 @@ pub(crate) fn verified_envelope_for(
         let Some(reference) = &e.managed_revision else {
             return Ok(false);
         };
-        let r = m.load_revision(&p.class.class_id, reference)?;
+        let r = m.load_revision_record(&p.class.class_id, reference)?;
         if p.revision != 10
             || p.claim != crate::profiles::Claim::VerifiedExactFixture
             || r.profile != *p
@@ -725,6 +727,10 @@ fn validate_reservation(m: &Manager, limits: &Limits, class: Option<&str>) -> Re
 /// separate. A stale or ambiguous publication never receives this capacity.
 /// Caller holds registry.lock, the same guard used by admission and publication.
 fn unfamiliar_managed_capacity(m: &Manager, native_image_hard: usize, class: &str) -> Result<Option<usize>> {
+    unfamiliar_managed_capacity_with(m, native_image_hard, class, true)
+}
+fn unfamiliar_managed_capacity_with(m: &Manager, native_image_hard: usize, class: &str,
+    execution: bool) -> Result<Option<usize>> {
     require(valid_hex(class, 32) && class == class.to_uppercase(), "capacity_class_identity")?;
     let registry = m.registry()?;
     let Some(entry) = registry.classes.get(class) else { return Ok(None); };
@@ -732,7 +738,8 @@ fn unfamiliar_managed_capacity(m: &Manager, native_image_hard: usize, class: &st
     // A legacy/manual publication is not reusable-engine admission authority,
     // but its presence must not make the entire service readback unavailable.
     let Some(reference) = entry.managed_revision.as_ref() else { return Ok(None); };
-    let revision = m.load_revision(class, reference)?;
+    let revision = if execution { m.load_revision(class, reference)? }
+        else { m.load_revision_record(class, reference)? };
     require(revision.class_id == class
         && revision.registration.key() == class
         && revision.registration.metadata.class_id == class
@@ -1350,6 +1357,28 @@ mod tests {
         assert_eq!(reason(reserve(&f.m, &policy, Some(&key), false)), Refusal::BindingInvalid.code());
     }
 
+    #[test]
+    fn readable_unfamiliar_capacity_records_do_not_grant_changed_native_admission() {
+        let (f, candidate) = crate::preparation::tests::fixture();
+        crate::preparation::record_candidate(&f.m, &candidate).unwrap();
+        let reference = crate::preparation::enable(&f.m, &candidate, false).unwrap();
+        let class = &candidate.selection.class.id;
+        let mut policy = limits();
+        policy.classes[0].class_id = "03".repeat(16);
+        let publication = f.m.load_revision(class, &reference).unwrap();
+        let path = &publication.registration.native.path;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(path, b"changed selected native bytes").unwrap();
+        let status = status(&f.m, policy.clone(), 0, false).unwrap();
+        assert_eq!(status.dsp, 0);
+        assert!(status.engineering_classes.iter().any(|row| row.class_id == *class));
+        assert!(f.m.load_revision_record(class, &reference).is_ok());
+        assert_eq!(reserve(&f.m, &policy, Some(class), false).err().unwrap().to_string(),
+            "artifact missing or changed");
+        assert_eq!(f.m.resolve(&f.identity()).err().unwrap().to_string(), "artifact missing or changed");
+        assert_eq!(f.m.registry().unwrap().classes[class].managed_revision, Some(reference));
+        assert!(owners(&f.m).unwrap().is_empty());
+    }
     #[test]
     fn unfamiliar_slots_require_a_current_managed_publication_and_durable_reservations() {
         let (f, candidate) = crate::preparation::tests::fixture();

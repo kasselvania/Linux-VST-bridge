@@ -465,7 +465,7 @@ fn keeper_wait_retries_only_busy_and_never_hides_failure_or_deadline() {
         |_| panic!("non-busy retry")).is_err());
 }
 fn software(m: &Manager) -> Result<Software> {
-    let s: Software = read_json(&m.root.join("software.json"))?;
+    let s = software_record(m)?;
     for a in [
         &s.manager,
         &s.supervisor,
@@ -487,6 +487,11 @@ fn software(m: &Manager) -> Result<Software> {
     if let Some(a) = &s.native_catalogue {
         a.verify()?;
     }
+    Ok(s)
+}
+fn software_record(m: &Manager) -> Result<Software> {
+    let s: Software = read_json(&m.root.join("software.json"))?;
+    s.validate_record()?;
     Ok(s)
 }
 fn systemd(s: &str) -> String {

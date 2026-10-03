@@ -619,6 +619,7 @@ fn relevant_repair(product: &ui::Product) -> Option<ui::AvailableAction> {
         .cloned()
 }
 fn product_facts(product: &ui::Product, at: u64) -> Vec<ui::ReadinessFact> {
+    let records = product.details["verification_scope"] == "control_records";
     let exact = |name: &str, value: Option<String>| {
         observed(name, value, "canonical manager product readback", at)
     };
@@ -635,7 +636,7 @@ fn product_facts(product: &ui::Product, at: u64) -> Vec<ui::ReadinessFact> {
             }),
         )
     };
-    vec![
+    let mut facts = vec![
         exact("Environment ID", Some(product.environment.clone())),
         exact(
             "Environment revision",
@@ -699,7 +700,21 @@ fn product_facts(product: &ui::Product, at: u64) -> Vec<ui::ReadinessFact> {
         exact("Publication selected",
             product.details["publication_selected"].as_bool().map(|selected|
                 if selected {"yes"} else {"no"}.into())),
-    ]
+    ];
+    if records {
+        facts.push(exact("Validation scope", Some("control_records".into())));
+        for (name, key) in [("Module binding", "module_binding_valid"),
+            ("Runner binding", "runner_binding_valid"), ("Windows host binding", "host_binding_valid"),
+            ("Native proxy binding", "native_binding_valid")] {
+            facts.push(exact(name, product.details[key].as_bool().map(|value|
+                if value { "record_and_location_valid" } else { "missing_or_changed" }.into())));
+        }
+        facts.push(observed("Fresh executable verification", None,
+            "performed by the mutation worker or launch owner before execution", at));
+        facts.push(observed("Target buffering capacity", None,
+            "checked against the exact target before a buffering change or restoration", at));
+    }
+    facts
 }
 fn matches_deck(p: &PlatformReadback) -> bool {
     p.operating_system.observed().map(String::as_str) == Some("linux")
@@ -868,7 +883,7 @@ fn resolve_with(
         let acceptance = accepted(product);
         let authority_failure = acceptance.as_ref().err().copied();
         let exact = acceptance == Ok(true);
-        let current_checks = [
+        let execution_checks = [
             "module_valid",
             "environment_valid",
             "runner_valid",
@@ -877,6 +892,10 @@ fn resolve_with(
             "publication_valid",
             "performance_valid",
         ];
+        let record_checks = ["module_binding_valid", "environment_valid", "runner_binding_valid",
+            "native_binding_valid", "host_binding_valid", "publication_valid", "performance_valid"];
+        let record_scope = product.details["verification_scope"] == "control_records";
+        let current_checks = if record_scope { &record_checks } else { &execution_checks };
         let health = if product.disposition == "quarantined"
             || product.details["current"] == false
             || current_checks.iter().any(|key| product.details[*key] == false) {
@@ -912,7 +931,9 @@ fn resolve_with(
         } else if health == ui::InstallationHealth::Healthy
             && product.details["publication_selected"] == true
             && product.disposition == "ready" {
-            (O::Ready, "Selected execution bindings verify. The publication is eligible to try; live host behavior and support qualification are separate.")
+            (O::Ready, if record_scope {
+                "Current configuration records and the selected publication agree. Executable bytes are checked before a worker changes the configuration or a host launches it; live behavior and support remain separate."
+            } else { "Selected execution bindings verify. The publication is eligible to try; live host behavior and support qualification are separate." })
         } else {
             (O::Unknown, "Required execution bindings or the selected publication have not been verified.")
         };
@@ -1370,6 +1391,34 @@ fn report_value(m: &Manager, snapshot: &ui::Snapshot,
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn control_record_readiness_does_not_claim_fresh_payload_or_capacity_verification() {
+        let (mut snapshot, platform) = fixture();
+        let product = &mut snapshot.products[0];
+        product.details["verification_scope"] = json!("control_records");
+        for key in ["module_valid", "runner_valid", "native_valid", "host_valid"] {
+            product.details[key] = Value::Null;
+        }
+        for key in ["module_binding_valid", "runner_binding_valid", "native_binding_valid", "host_binding_valid"] {
+            product.details[key] = json!(true);
+        }
+        let assessment = result(&snapshot, &platform);
+        let assessed = &assessment.products[0];
+        assert_eq!(assessed.installation_health, ui::InstallationHealth::Healthy);
+        assert!(assessed.reason.contains("Current configuration records"));
+        assert!(assessed.reason.contains("Executable bytes are checked before"));
+        for name in ["Module verification", "Runner verification", "Windows host verification",
+            "Native proxy verification", "Fresh executable verification", "Target buffering capacity"] {
+            let fact = assessed.facts.iter().find(|fact| fact.name == name).unwrap();
+            assert_eq!(fact.certainty, ui::FactCertainty::Unknown, "{name}");
+            assert_eq!(fact.value, None, "{name}");
+        }
+        assert_eq!(assessed.facts.iter().find(|fact| fact.name == "Validation scope").unwrap().value.as_deref(),
+            Some("control_records"));
+        snapshot.products[0].details["runner_binding_valid"] = json!(false);
+        assert_eq!(result(&snapshot, &platform).products[0].installation_health,
+            ui::InstallationHealth::ActionRequired);
+    }
     #[test]
     fn graphics_host_observation_does_not_qualify_the_windows_renderer() {
         let (mut snapshot, platform) = fixture();

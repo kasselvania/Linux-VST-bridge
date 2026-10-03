@@ -31,7 +31,7 @@ pub fn retain_lineage(
     let id = c.id()?;
     let path = object(m, "lineage", &id)?.join("record.json");
     if path.exists() {
-        return Ok(());
+        return lineage_record(m, c).map(|_| ());
     }
     if let Some(prior) = predecessor {
         let old = retained_candidates(m)?
@@ -60,6 +60,10 @@ pub fn lineage(m: &Manager, c: &Candidate) -> Result<CandidateLineage> {
     if !path.exists() {
         retain_lineage(m, c, &c.id()?, None)?;
     }
+    lineage_record(m, c)
+}
+pub(super) fn lineage_record(m: &Manager, c: &Candidate) -> Result<CandidateLineage> {
+    let path = object(m, "lineage", &c.id()?)?.join("record.json");
     let v: CandidateLineage = bounded(&path)?;
     require(
         v.schema == 1 && v.candidate == c.id()?,
@@ -82,21 +86,124 @@ pub fn legacy_provenance(m: &Manager, c: &Candidate) -> Result<LegacyProvenance>
     )?;
     Ok(v)
 }
+pub(super) fn retained_history_paths(m: &Manager, c: &Candidate) -> Result<Vec<(&'static str, PathBuf)>> {
+    let dir = object(m, "legacy", &c.id()?)?;
+    Ok(vec![
+        ("provenance", dir.join("provenance.json")),
+        ("environment", dir.join("environment.json")),
+        ("onboarding", dir.join("onboarding.json")),
+        ("inventory", dir.join("inventory.json")),
+        ("lineage", object(m, "lineage", &c.id()?)?.join("record.json")),
+        ("inspection", object(m, "inspections", &c.selection.id()?)?
+            .join(format!("{}.json", c.inspection.id()?))),
+        ("inspection_order", object(m, "inspection-order", &c.inspection.id()?)?.join("record.json")),
+    ])
+}
+fn retained_binding() -> Result<Value> {
+    Ok(serde_json::from_slice(include_bytes!("../../../compatibility/sv1/binding.json"))?)
+}
+#[derive(Clone, Debug, Serialize)]
+pub struct RetainedHistoryRecovery {
+    pub candidate: String,
+    pub expected_history: String,
+    pub missing: Vec<String>,
+    pub unavailable_reason: Option<String>,
+}
+/// Missing migration records are visible without inventing lineage or granting
+/// executable authority. Existing malformed or conflicting records still refuse.
+pub fn retained_history_recovery(m: &Manager, c: &Candidate) -> Result<Option<RetainedHistoryRecovery>> {
+    retained_history_recovery_with_binding(m, c, &retained_binding()?)
+}
+pub(super) fn retained_history_recovery_with_binding(m: &Manager, c: &Candidate, binding: &Value)
+    -> Result<Option<RetainedHistoryRecovery>> {
+    if c.origin != Origin::RetainedSv1 { return Ok(None); }
+    let paths = retained_history_paths(m, c)?;
+    let missing = paths.iter().filter_map(|(name, path)| match fs::symlink_metadata(path) {
+        Ok(_) => None,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Some(Ok((*name).to_owned())),
+        Err(error) => Some(Err(error)),
+    }).collect::<std::io::Result<Vec<_>>>()?;
+    if missing.is_empty() { return Ok(None); }
+    let provenance = if missing.iter().any(|name| name == "provenance") { None }
+        else {
+            let provenance = legacy_provenance(m, c)?;
+            require(provenance.binding == *binding, "legacy_input_binding")?;
+            Some(provenance)
+        };
+    let mut records = Vec::new();
+    for (name, path) in paths {
+        if missing.iter().any(|slot| slot == name) {
+            records.push((name, None));
+            continue;
+        }
+        require(path.canonicalize()? == path, "preparation_record_bound_or_alias")?;
+        let (value, hash): (Value, String) = read_json_identity(&path)?;
+        match name {
+            "environment" | "onboarding" | "inventory" => {
+                require(hash == binding[format!("{name}_sha256")], "legacy_input_binding")?;
+                if let Some(provenance) = &provenance {
+                    let expected = match name {
+                        "environment" => &provenance.environment,
+                        "onboarding" => &provenance.onboarding,
+                        _ => &provenance.inventory,
+                    };
+                    let artifact = provenance.inputs.get(name).ok_or("legacy_input_absent")?;
+                    require(artifact.path == path && artifact.sha256 == hash && value == *expected,
+                        "legacy_input_identity")?;
+                }
+            }
+            "lineage" => { lineage_record(m, c)?; }
+            "inspection" => require(serde_json::from_value::<Inspection>(value)? == c.inspection,
+                "legacy_inspection_history_changed")?,
+            "inspection_order" => { serde_json::from_value::<u64>(value)?; }
+            _ => (),
+        }
+        records.push((name, Some(hash)));
+    }
+    // Bind any current input that the existing migration owner would need to
+    // snapshot. Its exact original digest is still enforced by that owner.
+    let mut unavailable_inputs = Vec::new();
+    for (name, path) in [
+        ("environment", c.selection.environment.root.join("environment.json")),
+        ("onboarding", m.root.join("onboarding").join(&c.selection.environment.id).join("record.json")),
+        ("inventory", m.root.join("inventory").join(format!("{}.json", c.selection.environment.id))),
+    ] {
+        if missing.iter().any(|slot| slot == name) {
+            if let Err(error) = fs::symlink_metadata(&path) {
+                if error.kind() != std::io::ErrorKind::NotFound { return Err(error.into()); }
+                unavailable_inputs.push(name);
+                records.push((name, None));
+                continue;
+            }
+            require(path.canonicalize()? == path, "preparation_record_bound_or_alias")?;
+            let (_, hash): (Value, String) = read_json_identity(&path)?;
+            records.push((name, Some(hash)));
+        }
+    }
+    Ok(Some(RetainedHistoryRecovery {candidate:c.id()?,
+        expected_history:key(&(c.id()?, binding, records))?,missing,
+        unavailable_reason:(!unavailable_inputs.is_empty()).then(||
+            "Saved setup history cannot be completed because original setup records are missing.".into())}))
+}
+/// The same migration owner, scoped to the exact offered candidate and records.
+pub fn complete_candidate_history(m: &Manager, candidate: &str, expected_history: &str) -> Result<()> {
+    complete_candidate_history_with_binding(m, candidate, expected_history, &retained_binding()?)
+}
+pub(super) fn complete_candidate_history_with_binding(m: &Manager, candidate: &str,
+    expected_history: &str, binding: &Value) -> Result<()> {
+    require(valid_hex(expected_history, 64), "candidate_history_identity")?;
+    let c = candidate_record(m, candidate)?;
+    let recovery = retained_history_recovery_with_binding(m, &c, binding)?
+        .ok_or("candidate_history_not_incomplete")?;
+    require(recovery.expected_history == expected_history, "candidate_history_changed")?;
+    require(recovery.unavailable_reason.is_none(), "candidate_history_source_unavailable")?;
+    complete_legacy_history(m, &c, binding)
+}
 /// A candidate record predates generation history in the first installed MF3.
 /// Presence of that record is not proof that its provenance transition completed.
 pub(super) fn complete_legacy_history(m: &Manager, c: &Candidate, binding: &Value) -> Result<()> {
-    let dir = object(m, "legacy", &c.id()?)?;
-    let required = [
-        dir.join("provenance.json"),
-        dir.join("environment.json"),
-        dir.join("onboarding.json"),
-        dir.join("inventory.json"),
-        object(m, "lineage", &c.id()?)?.join("record.json"),
-        object(m, "inspections", &c.selection.id()?)?.join(format!("{}.json", c.inspection.id()?)),
-        object(m, "inspection-order", &c.inspection.id()?)?.join("record.json"),
-    ];
     let mut complete = true;
-    for path in required {
+    for (_, path) in retained_history_paths(m, c)? {
         complete &= path.try_exists()?;
     }
     if !complete {
@@ -231,6 +338,12 @@ pub(super) fn materialize_legacy_with(
     Ok(())
 }
 pub fn verify_legacy(m: &Manager, c: &Candidate) -> Result<()> {
+    validate_legacy_record(m, c)?;
+    for a in [&c.host, &c.source_manifest, &c.native.artifact,
+        &c.inspection.report, &c.selection.factory_report] { a.verify()?; }
+    Ok(())
+}
+pub(super) fn validate_legacy_record(m: &Manager, c: &Candidate) -> Result<()> {
     require(c.origin == Origin::RetainedSv1, "not_legacy_provenance")?;
     let v = legacy_provenance(m, c)?;
     for (name, value) in [
@@ -244,8 +357,7 @@ pub fn verify_legacy(m: &Manager, c: &Candidate) -> Result<()> {
                 && a.sha256 == v.binding[format!("{name}_sha256")],
             "legacy_input_identity",
         )?;
-        a.verify()?;
-        require(bounded::<Value>(&a.path)? == *value, "legacy_input_content")?;
+        require(a.read_record::<Value>(8 * 1024 * 1024)? == *value, "legacy_input_content")?;
     }
     require(
         v.binding["inspection_sha256"] == c.inspection.report.sha256
@@ -259,12 +371,15 @@ pub fn verify_legacy(m: &Manager, c: &Candidate) -> Result<()> {
         &c.inspection.report,
         &c.selection.factory_report,
     ] {
-        a.verify()?;
+        a.validate_record()?;
     }
     c.native.matches(&v.profile)
 }
 
 pub fn inspections(m: &Manager, s: &Selection) -> Result<Vec<Inspection>> {
+    inspections_with_candidates(m, s, &retained_candidates(m)?)
+}
+fn inspections_with_candidates(m: &Manager, s: &Selection, candidates: &[Candidate]) -> Result<Vec<Inspection>> {
     let mut out = vec![];
     for p in list(&object(m, "inspections", &s.id()?)?)? {
         if p.extension().is_none_or(|x| x != "json") {
@@ -276,12 +391,11 @@ pub fn inspections(m: &Manager, s: &Selection) -> Result<Vec<Inspection>> {
             out.push(i);
         }
     }
-    for c in retained_candidates(m)?
-        .into_iter()
+    for c in candidates.iter()
         .filter(|c| c.selection == *s)
     {
         if !out.contains(&c.inspection) {
-            out.push(c.inspection);
+            out.push(c.inspection.clone());
         }
     }
     let mut ordered = out
@@ -311,34 +425,42 @@ fn inspection_ordinal(m: &Manager, i: &Inspection) -> Result<u64> {
     }
 }
 pub fn recommended_inspection(m: &Manager, s: &Selection) -> Result<Option<Inspection>> {
+    recommended_inspection_with(m, s, &retained_candidates(m)?, true)
+}
+fn recommended_inspection_with(m: &Manager, s: &Selection, candidates: &[Candidate],
+    execution: bool) -> Result<Option<Inspection>> {
     let current = if m.root.join("software.json").exists() {
         let sw: crate::catalogue::Software = bounded(&m.root.join("software.json"))?;
-        verify_selection(m, s, &sw.host, &sw.source_sha256)
+        if execution { verify_selection(m, s, &sw.host, &sw.source_sha256) }
+        else { validate_selection_record(m, s, &sw.host, &sw.source_sha256) }
     } else {
-        verify_selection(m, s, &s.scanner, &s.scanner_source)
+        if execution { verify_selection(m, s, &s.scanner, &s.scanner_source) }
+        else { validate_selection_record(m, s, &s.scanner, &s.scanner_source) }
     };
     if current.is_err() {
         return Ok(None);
     }
 
     let expected = match build::recipe_available(m) {
-        Ok(a) => match build::existing_runtime(m, &a.sha256) {
+        Ok(a) => match if execution { build::existing_runtime(m, &a.sha256) }
+            else { build::existing_runtime_record(m, &a.sha256) } {
             Ok(r) => Some(r),
             Err(_) => return Ok(None),
         },
         Err(_) => None,
     };
     let mut matches = vec![];
-    for i in inspections(m, s)? {
+    for i in inspections_with_candidates(m, s, candidates)? {
         let current = if let Some(r) = &expected {
             i.host == r.host && i.source_manifest == r.source_manifest
         } else {
             i.host.sha256 == s.scanner.sha256 && i.source_manifest.sha256 == s.scanner_source
         };
+        let host_valid = if execution { i.host.verify().is_ok() && i.source_manifest.verify().is_ok() }
+            else { i.host.validate_record().is_ok() && i.source_manifest.validate_record().is_ok() };
         if current
-            && i.report.verify().is_ok()
-            && i.host.verify().is_ok()
-            && i.source_manifest.verify().is_ok()
+            && i.report.read_record::<Value>(8 * 1024 * 1024).is_ok()
+            && host_valid
         {
             matches.push(i);
         }
@@ -401,6 +523,17 @@ pub fn view(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result
 pub fn view_with_candidates(
     m: &Manager, s: &Selection, host: &Artifact, source: &str, all: &[Candidate],
 ) -> Result<View> {
+    view_with_evidence(m, s, host, source, all, true)
+}
+pub fn view_records(m: &Manager, s: &Selection, host: &Artifact, source: &str,
+    records: &RecordReadback) -> Result<View> {
+    for c in records.candidates.iter().filter(|c| same_product(&c.selection, s)) {
+        records.watch_candidate(m, c)?;
+    }
+    view_with_evidence(m, s, host, source, &records.candidates, false)
+}
+fn view_with_evidence(m: &Manager, s: &Selection, host: &Artifact, source: &str,
+    all: &[Candidate], execution: bool) -> Result<View> {
     let found: Vec<_> = all.iter()
         .filter(|c| {
             c.selection.environment.id == s.environment.id
@@ -409,14 +542,15 @@ pub fn view_with_candidates(
         })
         .cloned()
         .collect();
-    let i = inspection(m, s)?;
+    let i = recommended_inspection_with(m, s, all, execution)?;
     let recommended = i.as_ref().map(Inspection::id).transpose()?;
     let mut history = vec![];
     for c in &found {
         let evidence = observations(m, c)?;
-        let publication = publication_state(m, c)?;
-        let lineage = lineage(m, c)?;
-        let current = verify_candidate(m, c, host, source).is_ok();
+        let publication = if execution { publication_state(m, c)? } else { publication_state_record(m, c)? };
+        let lineage = if execution { lineage(m, c)? } else { lineage_record(m, c)? };
+        let current = if execution { verify_candidate(m, c, host, source).is_ok() }
+            else { validate_current_candidate_record(m, c, host, source).is_ok() };
         let sealed = publication == "ordinary";
         let legacy = if c.origin == Origin::RetainedSv1 {
             Some(legacy_provenance(m, c)?)
@@ -473,7 +607,7 @@ pub fn view_with_candidates(
         .iter()
         .find(|h| h.disposition == "current_published")
         .or_else(|| history.last());
-    let mut inspection_history = inspections(m, s)?;
+    let mut inspection_history = inspections_with_candidates(m, s, all)?;
     for c in &found {
         if !inspection_history.contains(&c.inspection) {
             inspection_history.push(c.inspection.clone());
@@ -516,7 +650,7 @@ pub fn view_with_candidates(
         .classes
         .get(&s.class.id)
         .filter(|e| e.publication == Publication::Published)
-        .and_then(|_| current_revision(m, &s.class.id).ok().flatten())
+        .and_then(|_| current_revision_with(m, &s.class.id, execution).ok().flatten())
         .map(|r| r.profile.revision);
     let view = View {
         selection: s.id()?,
@@ -551,7 +685,7 @@ pub fn view_with_candidates(
         recommended_audio_layout: i.as_ref().and_then(|i| i.audio_layout.clone()),
         current_revision: reference,
         current_profile_revision: active,
-        publication_facts: publication_facts(m, &s.class.id)?,
+        publication_facts: publication_facts_with(m, &s.class.id, execution)?,
         candidates: history,
     };
     Ok(view)
@@ -566,9 +700,18 @@ pub fn withdraw(m: &Manager, c: &Candidate, expected: &RevisionRef) -> Result<()
 }
 
 pub fn publication_facts(m: &Manager, class: &str) -> Result<Value> {
+    publication_facts_with(m, class, true)
+}
+fn current_revision_with(m: &Manager, class: &str, execution: bool) -> Result<Option<Revision>> {
+    let db = m.registry()?;
+    db.classes.get(class).and_then(|entry| entry.managed_revision.as_ref())
+        .map(|reference| if execution { m.load_revision(class, reference) }
+            else { m.load_revision_record(class, reference) }).transpose()
+}
+fn publication_facts_with(m: &Manager, class: &str, execution: bool) -> Result<Value> {
     let db = m.registry()?;
     let e = db.classes.get(class);
-    let r = current_revision(m, class)?;
+    let r = current_revision_with(m, class, execution)?;
     let pointer = physical(&m.link(class))?;
     Ok(
         serde_json::json!({"registry_publication":e.map(|e|&e.publication),"current_revision":e.and_then(|e|e.managed_revision.as_ref()),"current_profile_sha256":r.as_ref().map(|r|&r.profile_sha256),"qualification":r.as_ref().and_then(|r|r.qualification),"physical_present":pointer.is_some(),"physical_matches_retained":r.as_ref().is_some_and(|r|pointer.as_ref()==Some(&r.target)),"pending":m.publication_pending(class)?,"acceptance_policy":"publication_time_until_explicit_withdrawal"}),

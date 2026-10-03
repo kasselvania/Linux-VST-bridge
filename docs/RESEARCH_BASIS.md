@@ -205,6 +205,27 @@ ownership gaps are independent findings, not an attribution of the retained gap.
 
 ## 2.5 Proton
 
+### Final-host custody investigation, 2026-10-03
+
+The proposed shared-runtime adapter reuses the existing per-launch stdout channel.
+[Linux v6.16 socket UAPI](https://github.com/torvalds/linux/blob/v6.16/include/uapi/asm-generic/socket.h)
+and [Unix socket implementation](https://github.com/torvalds/linux/blob/v6.16/net/unix/af_unix.c)
+provide per-message credentials and a kernel-delivered process handle through
+`SO_PASSCRED` and `SO_PASSPIDFD`. A received numeric PID alone is insufficient:
+queued output may outlive its sender. Pin the generation, then validate the exact
+host readiness identity and mapped session object. Diagnostic output grants no
+custody. This is an original adapter design, with no third-party implementation
+copied into the repository.
+
+At Wine source `dc26e61847081a1b5cb0733dc30feba6ee575482`, the
+[Unix file implementation](https://github.com/ValveSoftware/wine/blob/dc26e61847081a1b5cb0733dc30feba6ee575482/dlls/ntdll/unix/file.c)
+contains caller-side writes after descriptor resolution. Conversely, the
+[socket server](https://github.com/ValveSoftware/wine/blob/dc26e61847081a1b5cb0733dc30feba6ee575482/server/sock.c)
+performs connection operations; a newly connected socket's peer is not sufficient
+proof of the final plug-in host. These source facts motivate testing the inherited
+channel. They do not prove the pinned installed Proton stdout route, kernel
+availability on all targets, custody, cleanup, scheduling or audio continuity.
+
 Primary source:
 
 - [ValveSoftware/Proton](https://github.com/ValveSoftware/Proton), current observed development head `b7a763327f0cb76e9e0bd53dc4de95dee0d4c3b7` and inspected `proton_10.0` README blob `37096af2ced6f71003f54b646e15246deae8ec51`.

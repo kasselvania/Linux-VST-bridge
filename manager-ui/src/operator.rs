@@ -8,6 +8,18 @@ use std::{
     sync::mpsc,
     time::{Duration, Instant},
 };
+fn installation_label(product: &ReadinessProduct) -> &'static str {
+    let records = product.facts.iter().any(|fact| fact.name == "Validation scope"
+        && fact.value.as_deref() == Some("control_records"));
+    match (records, product.installation_health) {
+        (true, InstallationHealth::Healthy) => "Current configuration: records and publication agree",
+        (true, InstallationHealth::ActionRequired) => "Current configuration: needs attention",
+        (true, InstallationHealth::Unknown) => "Current configuration: records incomplete",
+        (false, InstallationHealth::Healthy) => "Current installation: healthy",
+        (false, InstallationHealth::ActionRequired) => "Current installation: needs repair",
+        (false, InstallationHealth::Unknown) => "Current installation: not verified",
+    }
+}
 
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq)]
 pub enum Page {
@@ -1141,11 +1153,7 @@ impl Operator {
                     ReadinessOutcome::Unsupported => "Operational status: Required capability unavailable",
                     ReadinessOutcome::Unknown => "Operational status: Facts incomplete",
                 });
-                ui.label(match product.installation_health {
-                    InstallationHealth::Healthy => "Current installation: healthy",
-                    InstallationHealth::ActionRequired => "Current installation: needs repair",
-                    InstallationHealth::Unknown => "Current installation: not verified",
-                });
+                ui.label(installation_label(product));
                 ui.label(match product.support_qualification {
                     SupportQualification::Verified => "Support qualification: exact profile verified",
                     SupportQualification::Unsupported => "Support qualification: exact profile withdrawn",
@@ -2768,6 +2776,25 @@ fn refresh_for_workspace_product(snapshot: &Snapshot, install_finish_ready: bool
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn ordinary_configuration_label_preserves_deferred_execution_verification() {
+        let mut product = crate::model::ReadinessProduct {
+            name:"Exact product".into(),class_id:"01".repeat(16),module_sha256:"02".repeat(32),
+            profile:None,status:ReadinessOutcome::Ready,installation_health:InstallationHealth::Healthy,
+            support_qualification:SupportQualification::NotYetQualified,reason:"Records agree".into(),
+            failure_code:None,facts:vec![ReadinessFact {name:"Validation scope".into(),
+                value:Some("control_records".into()),source:"Canonical product records".into(),
+                observed_at:1,certainty:FactCertainty::Observed}],
+        };
+        assert_eq!(installation_label(&product), "Current configuration: records and publication agree");
+        product.installation_health = InstallationHealth::Unknown;
+        assert_eq!(installation_label(&product), "Current configuration: records incomplete");
+        product.installation_health = InstallationHealth::ActionRequired;
+        assert_eq!(installation_label(&product), "Current configuration: needs attention");
+        product.facts.clear();
+        product.installation_health = InstallationHealth::Healthy;
+        assert_eq!(installation_label(&product), "Current installation: healthy");
+    }
     #[test]
     fn recovery_does_not_claim_readiness_or_erase_prior_failure() {
         let mut value = serde_json::json!({"dependency":{"recovery":{"authority":"qualified_bundle_payload_and_retired_installation"},"ready_tested":false}});
