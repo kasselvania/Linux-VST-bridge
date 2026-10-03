@@ -1,0 +1,1306 @@
+{
+  "schema": 1,
+  "claim": "A bounded completion wait repairs the demonstrated protocol-14 queued-output loss during host callback bursts; physical SDK capture confirms the focused repair.",
+  "status": "focused_physical_burst_repair_passed_full_musical_acceptance_open",
+  "source": {
+    "base": "0cb5674589d92da641ef2f70f41d4da00fa6adba",
+    "repair": "85c444ff2a1271f5d616ab3f3192ff2d36fb111e",
+    "repair_tree": "0ef273cacf66d45f38b9b7ce895728e1bd6f15bf",
+    "repair_initial": "7c06f3c373b25c41c0560372be900b7695a7ec4a"
+  },
+  "fixture": {
+    "machine": "physical Steam Deck OLED",
+    "host": "Bitwig Studio 6.1 Flatpak",
+    "sample_rate": 48000,
+    "maximum_frames": 512,
+    "actual_frames": 512,
+    "precision": "float32",
+    "bridge_delay_frames": 512,
+    "runtime": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+    "project": "private copy of retained two-bar Pure LoFi and FRAGMENTS chain",
+    "edits": "none; one playback interval, stop, save copy, quit",
+    "distro": "SteamOS 3.8.16",
+    "audio_backend": "PipeWire",
+    "initial_copy_sha256": "633e78b5f0b0c7b8186bf373b28deb31b5e84571525229e6d76ea3d6963baaa0",
+    "kernel": "6.16.12-valve24.5-1-neptune-616-gb2f7cfe85e45"
+  },
+  "baseline": {
+    "artifact": "0.12.0recovery5",
+    "artifact_source": "8ade872366ddd0cce59577c4af014cd580e76df4",
+    "tracing": true,
+    "additional_scheduler_or_direct_recorders": false,
+    "startup": "no missing startup frames in this lifetime",
+    "lifecycle": [
+      {
+        "plugin": "Efx FRAGMENTS 1.0.0.2925",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 3823104,
+        "blocks": 7467,
+        "callback_rejections": 0,
+        "skipped_expression_callbacks": 0,
+        "late_note_offs": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 0,
+        "underrun_gaps": 0,
+        "underrun_callbacks": 0,
+        "expired_output_frames": 0,
+        "delivered_frames": 3822592,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      },
+      {
+        "plugin": "Pure LoFi 1.0.0.6121",
+        "phase": 6,
+        "requested_maximum": 512,
+        "requested_rate": 48000,
+        "requested_mode": 0,
+        "frames": 4034048,
+        "blocks": 7879,
+        "callback_rejections": 0,
+        "skipped_expression_callbacks": 0,
+        "late_note_offs": 0,
+        "rejected_silent_frames": 0,
+        "discontinuities": 0,
+        "successful_silent_callbacks": 1,
+        "successful_silent_frames": 512,
+        "priming_frames": 512,
+        "underrun_frames": 512,
+        "underrun_gaps": 1,
+        "underrun_callbacks": 1,
+        "expired_output_frames": 0,
+        "delivered_frames": 4033024,
+        "zero_gain_blocks": 0,
+        "gain_min": 1,
+        "gain_max": 1,
+        "clean": true
+      }
+    ],
+    "gap": {
+      "event": "ap7_gap_request",
+      "epoch": 1,
+      "gap_position": 4033024,
+      "gap_frames": 512,
+      "request_position": 4033024,
+      "request_frames": 512,
+      "sequence": 7882,
+      "output_published": true,
+      "queue_us": 47,
+      "prepare_us": 12,
+      "send_us": 2,
+      "reply_us": 2137,
+      "validation_us": 20,
+      "publication_us": 12,
+      "publication_after_gap_us": 894,
+      "admission_to_gap_us": 1339,
+      "windows_process_ns": 1942700,
+      "clock": {
+        "event": "ap11_gap_clock",
+        "epoch": 1,
+        "gap_position": 4033024,
+        "gap_frames": 512,
+        "gap_monotonic_ns": 23705088800950,
+        "request_monotonic_ns": [
+          23705087461383,
+          23705087508984,
+          23705087521144,
+          23705087524114,
+          23705089661887,
+          23705089682787,
+          23705089695737
+        ],
+        "consumer_callback": [
+          7879,
+          512,
+          0,
+          23705088783069
+        ]
+      },
+      "windows_stages_us": {
+        "receive_wait": 8974.7,
+        "translation": 12.5,
+        "sdk_prepare": 3.6,
+        "sdk_process": 1944.8,
+        "validate_outputs": 68.7,
+        "prepare_reply": 11.0,
+        "publish_reply": 1.7
+      },
+      "windows_receive_to_publish_us": 2042.3
+    },
+    "previous_control_completed_seconds_before_admission": 9.177677244,
+    "interpretation": "At the final callback before close, a preceding request was still in SDK processing when the old callback immediately chose silence. A 512-frame sample delay did not supply 10.667 ms wall time. This does not attribute the older startup gaps or editor-interval silence.",
+    "capture": {
+      "file": "traced1-monitor.wav",
+      "bytes": 90374232,
+      "sha256": "98f4c8384f3dbd6df6a99effa7bc584e4faa14440f3ac7536065f215694bf4be",
+      "analysis": {
+        "frames": 11296768,
+        "seconds": 235.34933333333333,
+        "peak": 0.46351146697998047,
+        "nonfinite_frames": 0,
+        "exact_stereo_zero_spans_at_least_32_frames": [
+          [
+            0,
+            6770476,
+            6770476,
+            0.0
+          ],
+          [
+            9804288,
+            11296768,
+            1492480,
+            204.256
+          ]
+        ]
+      },
+      "limitation": "No internal exact-zero span during musical signal. No audible dropout is claimed from this shutdown gap or from zero-span analysis alone."
+    },
+    "clean_retirement": true,
+    "original_project_sha256": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+    "reference_project_sha256": "bbedf47ce92f4c3962e8b2a10b5fa5513ed4a49d15159b80e8aa8af1e666030f",
+    "saved_copy_sha256": "a32d4e0e2530bcef8f7e4442dca98613d175009773c1d500f01402f58beeddac",
+    "native_components": [
+      {
+        "class_id": "417274754156495350724C4650726F63",
+        "native_sha256": "c767da74328af59d8462e7dde6272abde09b7f1b543542bf3fe6f066339a7b30"
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "native_sha256": "500585bcd6d23bd5ebd7927a0dc5a62ca079f426cd8cb481a0398d37c605c1e7"
+      }
+    ]
+  },
+  "source_checks": {
+    "red": "Old queue lost 7680 frames in the 16-call unpaced burst regression with 2 ms peer service.",
+    "green": "Same regression delivers the exact 512-frame delayed signal with zero callback allocations.",
+    "mac_backend": {
+      "passed": 95,
+      "failed": 0,
+      "existing_ignored": 1
+    },
+    "initial_test_failure": "Timeout regression initially asserted on untouched buffer capacity beyond N; corrected to inspect exactly N. Production output behavior was unchanged by that correction.",
+    "linux_backend": {
+      "passed": 96,
+      "failed": 0,
+      "existing_ignored": 1,
+      "source": "85c444ff2a1271f5d616ab3f3192ff2d36fb111e"
+    },
+    "final_mac_focused": {
+      "completion_cases": 2,
+      "burst_cases": 1,
+      "passed": true
+    },
+    "unchanged_scheduling_checks": {
+      "rust": 5,
+      "python_supervisor": 5,
+      "passed": true
+    }
+  },
+  "policy": "One N/Fs budget from Rust callback entry; only due results; one native completion futex; no queued-delay reduction; no state or manager wait; timeout preserves counted silence and stale-result expiry.",
+  "physical_successor": {
+    "version": "0.12.0recovery6",
+    "installation": "Verified package installed and selected through normal UI; both default-layout compatibility checks and exact native candidate publication completed.",
+    "candidates": [
+      {
+        "plugin": "Pure LoFi 1.0.0.6121",
+        "class_id": "417274754156495350724C4650726F63",
+        "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+        "candidate": "4d7ea61f3cab50c3a025cd571b6bd908a4909000916347ee2412f976e3c3f12b",
+        "native_sha256": "df12082212f1f89eb111abd902ee584bdb310a644db821613e341dc0d1c03b86"
+      },
+      {
+        "plugin": "Efx FRAGMENTS 1.0.0.2925",
+        "class_id": "41727475415649536772616E50726F63",
+        "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+        "candidate": "988999fef40de310320d51374402d5b0942c6d1e02b676907667a4af0dcee1aa",
+        "native_sha256": "a6ab404487b41f3907a8e7872194d009065f51eee97802c2d91dbb547efb8842"
+      }
+    ],
+    "bitwig_runs": [
+      {
+        "label": "traced2b",
+        "sample_tracing": true,
+        "declared_play_interval_seconds": 30,
+        "edits": "play, stop, save copied project, quit; editors closed; no preset or configuration change",
+        "lifecycle": [
+          {
+            "plugin": "Pure LoFi",
+            "event": "ap3_proxy_lifecycle",
+            "phase": 6,
+            "requested_maximum": 512,
+            "requested_rate": 48000,
+            "requested_mode": 0,
+            "frames": 4656640,
+            "blocks": 9095,
+            "callback_rejections": 0,
+            "skipped_expression_callbacks": 0,
+            "late_note_offs": 0,
+            "rejected_silent_frames": 0,
+            "discontinuities": 0,
+            "successful_silent_callbacks": 1,
+            "successful_silent_frames": 512,
+            "priming_frames": 512,
+            "underrun_frames": 0,
+            "underrun_gaps": 0,
+            "underrun_callbacks": 0,
+            "expired_output_frames": 0,
+            "delivered_frames": 4656128,
+            "zero_gain_blocks": 0,
+            "gain_min": 1,
+            "gain_max": 1,
+            "clean": true,
+            "completion": {
+              "event": "native_callback_completion",
+              "scope": "successful Rust processing calls including completion wait",
+              "waits": 0,
+              "waits_without_result": 0,
+              "maximum_ns": 414620,
+              "bucket_upper_us": [
+                50,
+                100,
+                250,
+                500,
+                1000,
+                2000,
+                5000,
+                10000,
+                25000,
+                null
+              ],
+              "buckets": [
+                8942,
+                135,
+                16,
+                2,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "scheduling": [
+              {
+                "before": {
+                  "policy": 0,
+                  "priority": 0
+                },
+                "effective": {
+                  "policy": 1073741826,
+                  "priority": 5
+                },
+                "outcome": "effective",
+                "requested_priority": 5,
+                "rttime_hard_us": 200000,
+                "rttime_soft_us": 200000,
+                "role": "native_worker"
+              },
+              {
+                "before": {
+                  "policy": 0,
+                  "priority": 0
+                },
+                "effective": {
+                  "policy": 1073741826,
+                  "priority": 5
+                },
+                "outcome": "effective",
+                "requested_priority": 5,
+                "rttime_hard_us": 200000,
+                "rttime_soft_us": 200000,
+                "role": "windows_render"
+              }
+            ],
+            "retirement": {
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "raw_exit": 0
+            }
+          },
+          {
+            "plugin": "Efx FRAGMENTS",
+            "event": "ap3_proxy_lifecycle",
+            "phase": 6,
+            "requested_maximum": 512,
+            "requested_rate": 48000,
+            "requested_mode": 0,
+            "frames": 4455424,
+            "blocks": 8702,
+            "callback_rejections": 0,
+            "skipped_expression_callbacks": 0,
+            "late_note_offs": 0,
+            "rejected_silent_frames": 0,
+            "discontinuities": 0,
+            "successful_silent_callbacks": 1,
+            "successful_silent_frames": 512,
+            "priming_frames": 512,
+            "underrun_frames": 0,
+            "underrun_gaps": 0,
+            "underrun_callbacks": 0,
+            "expired_output_frames": 0,
+            "delivered_frames": 4454912,
+            "zero_gain_blocks": 0,
+            "gain_min": 1,
+            "gain_max": 1,
+            "clean": true,
+            "completion": {
+              "event": "native_callback_completion",
+              "scope": "successful Rust processing calls including completion wait",
+              "waits": 0,
+              "waits_without_result": 0,
+              "maximum_ns": 2505119,
+              "bucket_upper_us": [
+                50,
+                100,
+                250,
+                500,
+                1000,
+                2000,
+                5000,
+                10000,
+                25000,
+                null
+              ],
+              "buckets": [
+                8462,
+                140,
+                56,
+                22,
+                12,
+                9,
+                1,
+                0,
+                0,
+                0
+              ]
+            },
+            "scheduling": [
+              {
+                "before": {
+                  "policy": 0,
+                  "priority": 0
+                },
+                "effective": {
+                  "policy": 1073741826,
+                  "priority": 5
+                },
+                "outcome": "effective",
+                "requested_priority": 5,
+                "rttime_hard_us": 200000,
+                "rttime_soft_us": 200000,
+                "role": "native_worker"
+              },
+              {
+                "before": {
+                  "policy": 0,
+                  "priority": 0
+                },
+                "effective": {
+                  "policy": 1073741826,
+                  "priority": 5
+                },
+                "outcome": "effective",
+                "requested_priority": 5,
+                "rttime_hard_us": 200000,
+                "rttime_soft_us": 200000,
+                "role": "windows_render"
+              }
+            ],
+            "retirement": {
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "raw_exit": -15
+            }
+          }
+        ],
+        "capture": {
+          "name": "traced2b-monitor.wav",
+          "bytes": 75038808,
+          "sha256": "8f89a9511f6cee0a50a7c6dce0f914cd4adba3abcedbc0097eae9c4937fbe8d8",
+          "analysis": {
+            "frames": 9379840,
+            "seconds": 195.41333333333333,
+            "peak": 0.648341715335846,
+            "nonfinite_frames": 0,
+            "exact_stereo_zero_spans_at_least_32_frames": [
+              [
+                0,
+                4930340,
+                4930340,
+                0.0
+              ],
+              [
+                8552960,
+                9379840,
+                826880,
+                178.186667
+              ]
+            ]
+          }
+        },
+        "original_project_sha256": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+        "reference_project_sha256": "bbedf47ce92f4c3962e8b2a10b5fa5513ed4a49d15159b80e8aa8af1e666030f",
+        "saved_copy_sha256": "f93f46d6b8066c45893471cd3c3e75790eaaf10692350321488800b1d6d39bff",
+        "interpretation": "Whole plug-in lifetimes have zero missing/rejected/expired frames. Captured signal has no internal exact-zero span. Completion waits were not exercised; this short run is not causal proof or musical qualification.",
+        "setup_difference": "Project opened from an already empty Bitwig Quick Start after the separately retained aborted setup. The entire plug-in lifetime is covered."
+      },
+      {
+        "label": "untraced3",
+        "sample_tracing": false,
+        "declared_play_interval_seconds": 30,
+        "edits": "play, stop, save copied project, quit; editors closed; no preset or configuration change",
+        "lifecycle": [
+          {
+            "plugin": "Pure LoFi",
+            "event": "ap3_proxy_lifecycle",
+            "phase": 6,
+            "requested_maximum": 512,
+            "requested_rate": 48000,
+            "requested_mode": 0,
+            "frames": 4300288,
+            "blocks": 8399,
+            "callback_rejections": 0,
+            "skipped_expression_callbacks": 0,
+            "late_note_offs": 0,
+            "rejected_silent_frames": 0,
+            "discontinuities": 0,
+            "successful_silent_callbacks": 1,
+            "successful_silent_frames": 512,
+            "priming_frames": 512,
+            "underrun_frames": 0,
+            "underrun_gaps": 0,
+            "underrun_callbacks": 0,
+            "expired_output_frames": 0,
+            "delivered_frames": 4299776,
+            "zero_gain_blocks": 0,
+            "gain_min": 1,
+            "gain_max": 1,
+            "clean": true,
+            "completion": {
+              "event": "native_callback_completion",
+              "scope": "successful Rust processing calls including completion wait",
+              "waits": 0,
+              "waits_without_result": 0,
+              "maximum_ns": 671985,
+              "bucket_upper_us": [
+                50,
+                100,
+                250,
+                500,
+                1000,
+                2000,
+                5000,
+                10000,
+                25000,
+                null
+              ],
+              "buckets": [
+                8219,
+                167,
+                10,
+                1,
+                2,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "scheduling": [
+              {
+                "before": {
+                  "policy": 0,
+                  "priority": 0
+                },
+                "effective": {
+                  "policy": 1073741826,
+                  "priority": 5
+                },
+                "outcome": "effective",
+                "requested_priority": 5,
+                "rttime_hard_us": 200000,
+                "rttime_soft_us": 200000,
+                "role": "native_worker"
+              },
+              {
+                "before": {
+                  "policy": 0,
+                  "priority": 0
+                },
+                "effective": {
+                  "policy": 1073741826,
+                  "priority": 5
+                },
+                "outcome": "effective",
+                "requested_priority": 5,
+                "rttime_hard_us": 200000,
+                "rttime_soft_us": 200000,
+                "role": "windows_render"
+              }
+            ],
+            "retirement": {
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "raw_exit": -15
+            }
+          },
+          {
+            "plugin": "Efx FRAGMENTS",
+            "event": "ap3_proxy_lifecycle",
+            "phase": 6,
+            "requested_maximum": 512,
+            "requested_rate": 48000,
+            "requested_mode": 0,
+            "frames": 4103168,
+            "blocks": 8014,
+            "callback_rejections": 0,
+            "skipped_expression_callbacks": 0,
+            "late_note_offs": 0,
+            "rejected_silent_frames": 0,
+            "discontinuities": 0,
+            "successful_silent_callbacks": 1,
+            "successful_silent_frames": 512,
+            "priming_frames": 512,
+            "underrun_frames": 0,
+            "underrun_gaps": 0,
+            "underrun_callbacks": 0,
+            "expired_output_frames": 0,
+            "delivered_frames": 4102656,
+            "zero_gain_blocks": 0,
+            "gain_min": 1,
+            "gain_max": 1,
+            "clean": true,
+            "completion": {
+              "event": "native_callback_completion",
+              "scope": "successful Rust processing calls including completion wait",
+              "waits": 0,
+              "waits_without_result": 0,
+              "maximum_ns": 4703685,
+              "bucket_upper_us": [
+                50,
+                100,
+                250,
+                500,
+                1000,
+                2000,
+                5000,
+                10000,
+                25000,
+                null
+              ],
+              "buckets": [
+                7836,
+                103,
+                41,
+                18,
+                6,
+                6,
+                4,
+                0,
+                0,
+                0
+              ]
+            },
+            "scheduling": [
+              {
+                "before": {
+                  "policy": 0,
+                  "priority": 0
+                },
+                "effective": {
+                  "policy": 1073741826,
+                  "priority": 5
+                },
+                "outcome": "effective",
+                "requested_priority": 5,
+                "rttime_hard_us": 200000,
+                "rttime_soft_us": 200000,
+                "role": "native_worker"
+              },
+              {
+                "before": {
+                  "policy": 0,
+                  "priority": 0
+                },
+                "effective": {
+                  "policy": 1073741826,
+                  "priority": 5
+                },
+                "outcome": "effective",
+                "requested_priority": 5,
+                "rttime_hard_us": 200000,
+                "rttime_soft_us": 200000,
+                "role": "windows_render"
+              }
+            ],
+            "retirement": {
+              "cleanup_confirmed": true,
+              "transport_retired": true,
+              "raw_exit": -15
+            }
+          }
+        ],
+        "capture": {
+          "name": "untraced3-monitor.wav",
+          "bytes": 92733528,
+          "sha256": "3a4c2f76b7125cf94c4fddee4dac2d37a839f9d7823f65a4f0aed721fa734fe1",
+          "analysis": {
+            "frames": 11591680,
+            "seconds": 241.49333333333334,
+            "peak": 0.47295519709587097,
+            "nonfinite_frames": 0,
+            "exact_stereo_zero_spans_at_least_32_frames": [
+              [
+                0,
+                6578468,
+                6578468,
+                0.0
+              ],
+              [
+                9615872,
+                11591680,
+                1975808,
+                200.330667
+              ]
+            ]
+          }
+        },
+        "original_project_sha256": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+        "reference_project_sha256": "bbedf47ce92f4c3962e8b2a10b5fa5513ed4a49d15159b80e8aa8af1e666030f",
+        "saved_copy_sha256": "e9dff88b3310d46ff86db354c88494182c4debd428c33b6a0c643fa1e950e0b9",
+        "interpretation": "Whole plug-in lifetimes have zero missing/rejected/expired frames. Captured signal has no internal exact-zero span. Completion waits were not exercised; this short run is not causal proof or musical qualification.",
+        "save_location_change": "DAW saved the copy inside a same-named project subdirectory; retained pre-save backup matches the starting artifact",
+        "pre_save_backup_sha256": "633e78b5f0b0c7b8186bf373b28deb31b5e84571525229e6d76ea3d6963baaa0",
+        "observer_posture": "Sample tracing disabled; no live counter reads, scheduler capture or extra direct recorder during processing."
+      }
+    ],
+    "software_components": {
+      "preparation_kit": "c51fdb096e895807867d007104880b09a0e75e76af88b1fc9d08f2786f7e74af",
+      "operator_frontend": "a1e80ab4bbc0b8334cd08cd8624ece9b69d76bc72a8cebf5a2fa2e7dcc7ebb74",
+      "manager": "b51cd9dbd62a3c05ec152d416cd97886fc9eecff6704a8bb5dc5ce1101dd62ae",
+      "supervisor": "b14d2d6f906d09fd8bb230ac01ae410c7c7a2a7ac9e326b3abc01fab35586227",
+      "ownership": "13b4a4444f0ba4184c98b940c1866cdd2a54944379dde4c6169097e9f46b2e37",
+      "host": "b7c9f08194b34ff814609629415c337610ef263e6b20fe0d785b4d4afab05f4e",
+      "source_manifest": "8215e6238e21a8b787bd63cdd56ec839493d76669b585a3d94ff9e2af3f1406a",
+      "native_catalogue": "dd9109e2b9223c8dadf06f581ad075b968552e4480b127806e1a13dfe9913c0e"
+    },
+    "selected_generation": "4b18aefdb0917d2251c44dddf66647c261e2a4bac5c2850888bfec196d043ca8"
+  },
+  "nonclaims": [
+    "Beta readiness",
+    "Zero bridge delay",
+    "64/128/256-frame physical qualification",
+    "Reconfiguration or offline DAW acceptance",
+    "Attribution of older startup gaps",
+    "Repair of unexplained editor-interval monitor silence",
+    "Full C++/DAW callback worst-case bound",
+    "30-minute interaction and longer soak acceptance",
+    "Sample-identical vendor DSP across separate runs",
+    "Hardware-device output continuity during the deliberately suspended SDK consumer"
+  ],
+  "build": {
+    "installer_sha256": "ba4301f60c9361e8d53bd784f76da95a03fc4de8d6b55b8ed6ef521a65f1baf6",
+    "bytes": 58383164,
+    "source_head": "85c444ff2a1271f5d616ab3f3192ff2d36fb111e",
+    "source_tree": "0ef273cacf66d45f38b9b7ce895728e1bd6f15bf",
+    "version": "0.12.0recovery6",
+    "all_ten_steps_passed": true,
+    "assembly_retry": "Final candidate inputs initially collided with the preserved uninstalled initial build. Renamed initial inputs and resumed assembly only. No source or test failure.",
+    "components": [
+      {
+        "kind": "frontend",
+        "sha256": "a1e80ab4bbc0b8334cd08cd8624ece9b69d76bc72a8cebf5a2fa2e7dcc7ebb74",
+        "size": 13635632
+      },
+      {
+        "kind": "manager",
+        "sha256": "b51cd9dbd62a3c05ec152d416cd97886fc9eecff6704a8bb5dc5ce1101dd62ae",
+        "size": 11411856
+      },
+      {
+        "kind": "windows_host",
+        "sha256": "b7c9f08194b34ff814609629415c337610ef263e6b20fe0d785b4d4afab05f4e",
+        "size": 968704
+      },
+      {
+        "kind": "host_source",
+        "sha256": "8215e6238e21a8b787bd63cdd56ec839493d76669b585a3d94ff9e2af3f1406a",
+        "size": 7023
+      },
+      {
+        "kind": "preparation_kit",
+        "sha256": "c51fdb096e895807867d007104880b09a0e75e76af88b1fc9d08f2786f7e74af",
+        "size": 12450723
+      },
+      {
+        "kind": "proxy",
+        "sha256": "df12082212f1f89eb111abd902ee584bdb310a644db821613e341dc0d1c03b86",
+        "size": 2159432
+      },
+      {
+        "kind": "ownership",
+        "sha256": "13b4a4444f0ba4184c98b940c1866cdd2a54944379dde4c6169097e9f46b2e37",
+        "size": 47731
+      },
+      {
+        "kind": "supervisor",
+        "sha256": "b14d2d6f906d09fd8bb230ac01ae410c7c7a2a7ac9e326b3abc01fab35586227",
+        "size": 517383
+      }
+    ],
+    "initial_build": "An earlier source-7c06f3c package is retained privately and was never installed. Final source85c444ff resolves imported wait functions while inactive and timestamps result publication before notification."
+  },
+  "physical_burst_comparison": {
+    "fixture": "Physical Deck, installed Pure LoFi 1.0.0.6121 via independent official-SDK consumer; 720 realtime-paced 512-frame calls at 48 kHz; two held notes; exact same initial vendor-state hash in both arms.",
+    "method": "Briefly stop and continue only the owned SDK consumer process, including its native worker, while the first note is held. Its existing absolute-time pacing produces catch-up callbacks. Bind the suspension with pidfd and process-start custody. Windows host remains running.",
+    "controlled_difference": "Only the selected native Pure LoFi proxy changes: recovery5 to recovery6. Recovery6 application/supervisor, Windows host, module, runtime, delay, consumer binary and input pattern remain the same.",
+    "limits": "Pause occurs after 67 admitted blocks in control and 64 in repair, within the declared 64..95 held-note window. Native workers remain SCHED_OTHER because this SDK host lacks a finite realtime budget; Windows RR5 is independently verified in both. Bitwig runs separately verify native RR5. Actual vendor samples vary across instances; sample identity is not asserted. This tests captured sample continuity under bursts, not real device playback through a paused consumer.",
+    "arms": [
+      {
+        "label": "sdk-catchup-control",
+        "native_sha256": "c767da74328af59d8462e7dde6272abde09b7f1b543542bf3fe6f066339a7b30",
+        "windows_host_sha256": "b7c9f08194b34ff814609629415c337610ef263e6b20fe0d785b4d4afab05f4e",
+        "consumer_sha256": "67292de65d824bbe7c362f2021ba32239b8e1a1c7f880483b40fd119d09213ae",
+        "sample_tracing": false,
+        "exit": 0,
+        "error": null,
+        "lifecycle": {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 368640,
+          "blocks": 720,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "late_note_offs": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 1536,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 3,
+          "expired_output_frames": 1536,
+          "delivered_frames": 366592,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        "completion": null,
+        "native_scheduling": [
+          {
+            "event": "native_audio_scheduling",
+            "schema": 1,
+            "outcome": "host_realtime_budget_unavailable",
+            "route": "owned_supervisor_realtimekit",
+            "before": {
+              "policy": 0,
+              "priority": 0
+            },
+            "effective": {
+              "policy": 0,
+              "priority": 0
+            },
+            "requested_priority": 5,
+            "host_limits_changed": false
+          }
+        ],
+        "windows_scheduling": [
+          {
+            "before": {
+              "policy": 0,
+              "priority": 0
+            },
+            "effective": {
+              "policy": 1073741826,
+              "priority": 5
+            },
+            "outcome": "effective",
+            "requested_priority": 5,
+            "rttime_hard_us": 200000,
+            "rttime_soft_us": 200000,
+            "role": "windows_render"
+          }
+        ],
+        "retirement": {
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "raw_exit": -15
+        },
+        "state_hashes": [
+          "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11"
+        ],
+        "pause": {
+          "requested_ms": 40,
+          "actual_signal_interval_ns": 40141659,
+          "admitted_frames_before": 34304,
+          "missing_frames_before": 0,
+          "windows_host_suspended": false
+        },
+        "capture": {
+          "frames": 368640,
+          "sample_rate": 48000,
+          "capture_sha256": "89dde487dc389ffc9aa4de1cd17b1567bd1a07bd12834b668c5debed60da6bf0",
+          "nonfinite_samples": 0,
+          "exact_stereo_zero_spans_at_least_32_frames": [
+            [
+              0,
+              4666
+            ],
+            [
+              34816,
+              36352
+            ]
+          ],
+          "captured_gap_spans": [
+            {
+              "result_position": 34304,
+              "output_range": [
+                34816,
+                35328
+              ],
+              "all_samples_exact_zero": true,
+              "held_note": true
+            },
+            {
+              "result_position": 34816,
+              "output_range": [
+                35328,
+                35840
+              ],
+              "all_samples_exact_zero": true,
+              "held_note": true
+            },
+            {
+              "result_position": 35328,
+              "output_range": [
+                35840,
+                36352
+              ],
+              "all_samples_exact_zero": true,
+              "held_note": true
+            }
+          ],
+          "first_held_note_window": {
+            "range": [
+              16384,
+              56320
+            ],
+            "rms": 0.03707114202807768,
+            "peak": 0.0655609741806984,
+            "exact_zero_frames": 1536
+          }
+        },
+        "timing": {
+          "resume_callback_one_based": 68,
+          "callbacks_near_resume": [
+            {
+              "callback": 66,
+              "entry_ns": 693394085,
+              "duration_ns": 20100,
+              "previous_entry_interval_ns": 10665173
+            },
+            {
+              "callback": 67,
+              "entry_ns": 704060348,
+              "duration_ns": 19220,
+              "previous_entry_interval_ns": 10666263
+            },
+            {
+              "callback": 68,
+              "entry_ns": 748565477,
+              "duration_ns": 21831,
+              "previous_entry_interval_ns": 44505129
+            },
+            {
+              "callback": 69,
+              "entry_ns": 748588078,
+              "duration_ns": 3980,
+              "previous_entry_interval_ns": 22601
+            },
+            {
+              "callback": 70,
+              "entry_ns": 748592458,
+              "duration_ns": 3160,
+              "previous_entry_interval_ns": 4380
+            },
+            {
+              "callback": 71,
+              "entry_ns": 748595948,
+              "duration_ns": 4450,
+              "previous_entry_interval_ns": 3490
+            },
+            {
+              "callback": 72,
+              "entry_ns": 757397552,
+              "duration_ns": 28830,
+              "previous_entry_interval_ns": 8801604
+            },
+            {
+              "callback": 73,
+              "entry_ns": 768066475,
+              "duration_ns": 23850,
+              "previous_entry_interval_ns": 10668923
+            },
+            {
+              "callback": 74,
+              "entry_ns": 778728248,
+              "duration_ns": 18630,
+              "previous_entry_interval_ns": 10661773
+            },
+            {
+              "callback": 75,
+              "entry_ns": 789394750,
+              "duration_ns": 19231,
+              "previous_entry_interval_ns": 10666502
+            }
+          ],
+          "full_cpp_process_duration_ns": {
+            "p50": 20171,
+            "p99": 31461,
+            "max": 58162
+          },
+          "min_callback_entry_interval_ns": 3490,
+          "callback_entries_less_than_1ms_apart": 3
+        }
+      },
+      {
+        "label": "sdk-catchup-repair",
+        "native_sha256": "df12082212f1f89eb111abd902ee584bdb310a644db821613e341dc0d1c03b86",
+        "windows_host_sha256": "b7c9f08194b34ff814609629415c337610ef263e6b20fe0d785b4d4afab05f4e",
+        "consumer_sha256": "67292de65d824bbe7c362f2021ba32239b8e1a1c7f880483b40fd119d09213ae",
+        "sample_tracing": false,
+        "exit": 0,
+        "error": null,
+        "lifecycle": {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 512,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 368640,
+          "blocks": 720,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "late_note_offs": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 512,
+          "priming_frames": 512,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 368128,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        "completion": {
+          "event": "native_callback_completion",
+          "scope": "successful Rust processing calls including completion wait",
+          "waits": 3,
+          "waits_without_result": 0,
+          "maximum_ns": 1523052,
+          "bucket_upper_us": [
+            50,
+            100,
+            250,
+            500,
+            1000,
+            2000,
+            5000,
+            10000,
+            25000,
+            null
+          ],
+          "buckets": [
+            717,
+            0,
+            0,
+            0,
+            0,
+            3,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "native_scheduling": [
+          {
+            "event": "native_audio_scheduling",
+            "schema": 1,
+            "outcome": "host_realtime_budget_unavailable",
+            "route": "owned_supervisor_realtimekit",
+            "before": {
+              "policy": 0,
+              "priority": 0
+            },
+            "effective": {
+              "policy": 0,
+              "priority": 0
+            },
+            "requested_priority": 5,
+            "host_limits_changed": false
+          }
+        ],
+        "windows_scheduling": [
+          {
+            "before": {
+              "policy": 0,
+              "priority": 0
+            },
+            "effective": {
+              "policy": 1073741826,
+              "priority": 5
+            },
+            "outcome": "effective",
+            "requested_priority": 5,
+            "rttime_hard_us": 200000,
+            "rttime_soft_us": 200000,
+            "role": "windows_render"
+          }
+        ],
+        "retirement": {
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "raw_exit": -15
+        },
+        "state_hashes": [
+          "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+          "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11"
+        ],
+        "pause": {
+          "requested_ms": 40,
+          "actual_signal_interval_ns": 40138555,
+          "admitted_frames_before": 32768,
+          "missing_frames_before": 0,
+          "windows_host_suspended": false
+        },
+        "capture": {
+          "frames": 368640,
+          "sample_rate": 48000,
+          "capture_sha256": "3ded6230045936c8f1d2b197a02a6d5daff36f3d1fd6143e26e8198726cc68b0",
+          "nonfinite_samples": 0,
+          "exact_stereo_zero_spans_at_least_32_frames": [
+            [
+              0,
+              4659
+            ]
+          ],
+          "captured_gap_spans": [],
+          "first_held_note_window": {
+            "range": [
+              16384,
+              56320
+            ],
+            "rms": 0.03786572106329515,
+            "peak": 0.06378187239170074,
+            "exact_zero_frames": 0
+          }
+        },
+        "timing": {
+          "resume_callback_one_based": 65,
+          "callbacks_near_resume": [
+            {
+              "callback": 63,
+              "entry_ns": 661395161,
+              "duration_ns": 19830,
+              "previous_entry_interval_ns": 10664402
+            },
+            {
+              "callback": 64,
+              "entry_ns": 672048193,
+              "duration_ns": 19190,
+              "previous_entry_interval_ns": 10653032
+            },
+            {
+              "callback": 65,
+              "entry_ns": 718376107,
+              "duration_ns": 21800,
+              "previous_entry_interval_ns": 46327914
+            },
+            {
+              "callback": 66,
+              "entry_ns": 718398617,
+              "duration_ns": 1526402,
+              "previous_entry_interval_ns": 22510
+            },
+            {
+              "callback": 67,
+              "entry_ns": 719925529,
+              "duration_ns": 1233736,
+              "previous_entry_interval_ns": 1526912
+            },
+            {
+              "callback": 68,
+              "entry_ns": 721160605,
+              "duration_ns": 1322638,
+              "previous_entry_interval_ns": 1235076
+            },
+            {
+              "callback": 69,
+              "entry_ns": 725396473,
+              "duration_ns": 21621,
+              "previous_entry_interval_ns": 4235868
+            },
+            {
+              "callback": 70,
+              "entry_ns": 736030505,
+              "duration_ns": 24650,
+              "previous_entry_interval_ns": 10634032
+            },
+            {
+              "callback": 71,
+              "entry_ns": 746731817,
+              "duration_ns": 24991,
+              "previous_entry_interval_ns": 10701312
+            },
+            {
+              "callback": 72,
+              "entry_ns": 757397199,
+              "duration_ns": 25031,
+              "previous_entry_interval_ns": 10665382
+            }
+          ],
+          "full_cpp_process_duration_ns": {
+            "p50": 21760,
+            "p99": 39151,
+            "max": 1526402
+          },
+          "min_callback_entry_interval_ns": 22510,
+          "callback_entries_less_than_1ms_apart": 1
+        }
+      }
+    ],
+    "result": "Control replaced 1536 held-note frames with exact zeros at the three retained presentation gaps and expired those results. Repair exercised three completion waits, zero misses/expiry/rejections, no internal captured zero span, and maximum full SDK process-call duration 1526402 ns. Both opaque state captures match before and after, and both owners retired."
+  },
+  "retained_attempts": [
+    {
+      "label": "traced2",
+      "status": "unperformed_before_project_load",
+      "reason": "Preexisting desktop warning and navigation consumed setup time; stopped at setup bound, no project or DSP owner loaded. Capture and cleanup retained."
+    },
+    {
+      "label": "control_publication_selection",
+      "status": "operator_selection_corrected_before_audio",
+      "reason": "Delegated GUI selected historical reference1 instead of recovery5. Parent stopped delegation, verified DSP0, selected exact recovery5, verified native bytes before launching. No test ran on the mistaken selection."
+    },
+    {
+      "label": "untraced3_collection",
+      "status": "collector_path_corrected",
+      "reason": "DAW save placed the copy in a same-named project subdirectory. Initial collection could not find the prior path; corrected to the observed saved file and verified the initial backup hash. Audio run was preserved."
+    }
+  ],
+  "remaining": "The focused burst repair passes. Longer interaction/soak, editor-interval silence, other startup failures, format reconfiguration, lower blocks, offline DAW rendering, reboot and beta acceptance remain open. No promotion or merge of PR200.",
+  "restoration": {
+    "exact_software_component_bytes_restored": true,
+    "software_location_identical": false,
+    "manager_sha256": "75e5d3e28afaa68f1324c42c1de2aa71ac5b1128b8a68601baed99d29fd5eaa8",
+    "supervisor_sha256": "7546336c6a7ef92ff18bca0c7c1d7c573e4a287991dd8690df6b7a52a913516f",
+    "reference_installer_sha256": "3efa81c760fbf8dc271f7241a763c933b0cbe89e9320d3b388d0aa808656ca28",
+    "publications": [
+      {
+        "class_id": "417274754156495350724C4650726F63",
+        "native_sha256": "cfde3eaf63b0033e63670fb0af80394fe3075ae2f3dc7fa38f8d030e5db85feb",
+        "host_sha256": "b7c9f08194b34ff814609629415c337610ef263e6b20fe0d785b4d4afab05f4e",
+        "host_source_sha256": "8215e6238e21a8b787bd63cdd56ec839493d76669b585a3d94ff9e2af3f1406a",
+        "managed_revision": {
+          "id": "90b164371f317f4cd341cfbff726af86",
+          "sha256": "4df87030769a527d73f30a65c2a69301a08b71dbf2877d711f989fc7e6d2e648"
+        },
+        "registration_changes_from_reference": [
+          "native"
+        ],
+        "old_host_and_native_bytes_restored": true,
+        "module_runtime_environment_compatibility_unchanged": true
+      },
+      {
+        "class_id": "41727475415649536772616E50726F63",
+        "native_sha256": "af208f0842ae29c84e2b169324453bb72e36912fde3743cf96092f10a837251c",
+        "host_sha256": "b7c9f08194b34ff814609629415c337610ef263e6b20fe0d785b4d4afab05f4e",
+        "host_source_sha256": "8215e6238e21a8b787bd63cdd56ec839493d76669b585a3d94ff9e2af3f1406a",
+        "managed_revision": {
+          "id": "cd806641a49f2f59f53ac3fca7f52ce6",
+          "sha256": "c1765fa70475c63858babb26e3b19e0903f94ebee22648fa8217127c9265b4c8"
+        },
+        "registration_changes_from_reference": [
+          "native"
+        ],
+        "old_host_and_native_bytes_restored": true,
+        "module_runtime_environment_compatibility_unchanged": true
+      }
+    ],
+    "unrelated_publications_unchanged": true,
+    "retained_host_source_pairs": 4,
+    "original_project_unchanged": true,
+    "reference_project_unchanged": true,
+    "project_hashes": {
+      "original": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+      "reference": "bbedf47ce92f4c3962e8b2a10b5fa5513ed4a49d15159b80e8aa8af1e666030f",
+      "working_copy": "633e78b5f0b0c7b8186bf373b28deb31b5e84571525229e6d76ea3d6963baaa0"
+    },
+    "dsp": 0,
+    "maintenance": 0,
+    "cleanup_confirmed": true,
+    "tracing_disabled": true,
+    "bitwig_closed": true,
+    "experiment_recorders_stopped": true,
+    "rollback_method": "exact historical candidate Apply test bridge update, followed by normal retained Recovery 1 installer/Setup selection",
+    "whole_registry_byte_identical": false,
+    "software_components": {
+      "preparation_kit": "a12294f19e5c0b7ce4fa569a22f72b909381e9e6b66512c3e8d3e1e944bc0b27",
+      "operator_frontend": "fc47f61985812ba406f33c6b3ab8137621cac6fb9a9dc6eff3725795a6c01928",
+      "manager": "75e5d3e28afaa68f1324c42c1de2aa71ac5b1128b8a68601baed99d29fd5eaa8",
+      "supervisor": "7546336c6a7ef92ff18bca0c7c1d7c573e4a287991dd8690df6b7a52a913516f",
+      "ownership": "13b4a4444f0ba4184c98b940c1866cdd2a54944379dde4c6169097e9f46b2e37",
+      "host": "b7c9f08194b34ff814609629415c337610ef263e6b20fe0d785b4d4afab05f4e",
+      "source_manifest": "8215e6238e21a8b787bd63cdd56ec839493d76669b585a3d94ff9e2af3f1406a",
+      "native_catalogue": "dd9109e2b9223c8dadf06f581ad075b968552e4480b127806e1a13dfe9913c0e"
+    },
+    "kernel": "6.16.12-valve24.5-1-neptune-616-gb2f7cfe85e45",
+    "reference_posture": "Functional retained reference; not qualified gap-free. Experimental recovery6 package, candidates and all raw captures remain preserved."
+  },
+  "resource_cleanup": {
+    "builder_state": "exited",
+    "builder_cpu_quota_cores": 1,
+    "builder_memory_bytes": 2684354560,
+    "builder_memory_swap_total_bytes": 2684354560,
+    "builder_pids_limit": 256,
+    "builder_init": true,
+    "audiobookshelf_state": "running",
+    "note": "Final readback; the first combined inspection hit an absent optional Init field on Audiobookshelf, then a status-only read confirmed both containers."
+  },
+  "custody": {
+    "private_directory_name": "startup-delivery-20261002",
+    "originals_retained": true,
+    "remote_run_manifests_sha256": {
+      "traced1": "6ce26a7b7c388a4aed15787b02b0980ad0cb4e125af77b6c4936f90f09847cb6",
+      "traced2": "2ea6f618c9b2e16338d80af4dd9c3ca40a6199a74602be22415e093fd1b08208",
+      "traced2b": "af2ade543996751a5458aecd3dbf9e9e6a585d6bf716f10d981eeba39215b430",
+      "untraced3": "f3c9943391f9dc3c4b17cd0262be10cf5963697fa6ea9d6dd7cd1cbdf5bd8e5f",
+      "sdk-catchup-control": "3b6de42c740b5f140bd00881dde84504067ee84266c92af793cf689a62f2b449",
+      "sdk-catchup-repair": "24eb0d7c6edf755e3e895ffa5f676eabfcc65a4a3ffc433295f57fca67505694"
+    },
+    "all_fetched_run_hashes_verified": true,
+    "raw_paths_and_process_identities": "retained privately; removed from published result"
+  }
+}

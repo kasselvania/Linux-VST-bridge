@@ -52,3 +52,12 @@ and allocation cases remain required. Physical comparison and diagnostics-off
 acceptance remain necessary. This does not implement the stage-4 `D = 0` path,
 change the Windows mailbox wake mechanism, or qualify low blocks, reconfiguration
 or the beta workflow.
+
+The [installed recovery6 comparison](../../evidence/audio-recovery/2026-10-02-queued-completion-deadline.json)
+at source `85c444ff` passed the physical SDK burst case: the old native proxy
+lost three held-note blocks (1,536 captured zero frames), while the repaired
+proxy used three waits, lost none and preserved state. The full SDK process-call
+maximum was 1.526402 ms in that run. Both used the same application, Windows
+host, runtime, module and consumer. Two short Bitwig lifetimes also had zero
+misses, but did not exercise a wait. These results qualify this repair boundary;
+they do not complete the longer interaction/soak or general audio acceptance.

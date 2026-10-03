@@ -10,6 +10,14 @@ boundary and a causal repair passes a failing regression and a matched physical
 captured-output comparison. Stage 2 as a whole remains open until the frozen
 artifact passes the declared interaction and soak gates.
 
+Current result: the focused callback-burst repair has passed source regression
+and a captured-output physical SDK A/B on the Deck. Recovery6 also passed two
+short Bitwig lifetimes. Longer interaction/soak and earlier unexplained failures
+remain open. Exact reference application and native component bytes are restored;
+the repair package and evidence remain retained. The next bounded job is the
+frozen recovery6 interaction/soak, with no concurrent architecture or runtime
+change. Detailed observations below retain earlier failures as failures.
+
 Basis: the operator's recovery directive; AGENTS.md real-time and evidence laws;
 ARCHITECTURE.md §18; decision D-022; AUDIO_RECOVERY_ROADMAP.md stage 2; and
 INTEGRATED_BETA_DELIVERY.md acceptance method. Begin with the retained physical
@@ -149,8 +157,39 @@ actual-block-duration budget. It retains the queued delay, ownership and epochs;
 this is not the stage-4 zero-added-delay path. A burst regression loses 7,680
 frames on recovery5 and passes after the repair with zero callback allocations.
 Timeout, expiry, control exclusion and notification-race tests accompany it.
-Linux build and matched installed comparison are pending; do not claim the
-remaining startup or editor-interval failure is fixed from this source test.
+The final source `85c444ff2a1271f5d616ab3f3192ff2d36fb111e`, tree
+`0ef273cacf66d45f38b9b7ce895728e1bd6f15bf`, passed 96 Linux backend tests
+(one existing fixture ignored) and all ten package-build steps. Installed
+recovery6 passed two short copied Bitwig lifetimes: 9,095 / 8,702 traced and
+8,399 / 8,014 untraced Pure LoFi / FRAGMENTS blocks, with zero missing,
+rejected or expired frames, no internal exact-zero captured span, and clean
+retirement. Neither run exercised the completion wait.
+
+A separate diagnostics-disabled physical SDK comparison deliberately paused
+only the owned consumer for 40 ms, producing catch-up callbacks while a note
+was held. With identical application, Windows host, runtime, plug-in state and
+consumer, recovery5 replaced 1,536 captured frames with exact zeros; recovery6
+used three completion waits and delivered every block, with no internal exact-zero
+span or expiry. Maximum full SDK processing-call duration was 1.526402 ms.
+Both arms captured identical opaque state before/after and retired cleanly.
+Native scheduling remained SCHED_OTHER in this SDK host because it had no finite
+realtime budget; Windows RR 5 was verified in both. Bitwig independently verified
+native RR 5. The deliberate pause proves the burst boundary, not a device-output
+deadline or the cause of every historical failure.
+
+The [retained result](evidence/audio-recovery/2026-10-02-queued-completion-deadline.json)
+therefore completes the focused burst-delivery repair. Stage 2 remains open.
+Next: qualify the frozen recovery6 artifact through the declared interaction
+and soak, covering startup, stop/restart/save/close and editors, and separately
+attribute any captured silence without bridge misses. Do not claim the older
+startup or editor-interval failure is fixed from this focused comparison.
+Normal publication and installer/Setup controls restored all eight reference
+application component hashes, both reference native binaries and their host
+pairs. New selection/publication locations were created. Other six publications,
+runtime/environment, original and reference projects are unchanged; service is
+ready, owners and recorders are retired, tracing is off and the builder is stopped.
+Audiobookshelf was running at final readback. The reference remains functional,
+not qualified gap-free.
 
 Scope: the actual callback, queue, worker, transport, Windows render and
 presentation path; bounded preallocated telemetry; independent SDK consumer;

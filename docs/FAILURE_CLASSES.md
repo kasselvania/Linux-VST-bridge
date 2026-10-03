@@ -71,7 +71,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-LIFE-002](#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state) | Failed launch cleanup and truthful recovery | Manager ownership/leases/results | causal | deployed | Steam Deck and Ubuntu fixtures | supported-with-workaround | Manager recovery UX |
 | [FC-MIDI-001](#fc-midi-001--recognized-expression-rejected-an-entire-native-input-callback) | Recognized expression rejected an entire native input callback | Native VST3 proxy input admission | causal in source; physical attribution open | source-fixed | Pinned SDK fixture; Push / Deck operator report only | unqualified for Push expression | Build and publish exact proxy successor; physical Push/Bitwig release check |
 | [FC-MIDI-002](#fc-midi-002--late-note-off-permanently-fails-processing) | Late note-off permanently fails processing | Native SDK signed timestamp conversion | causal in source and matched comparison | deployed | Pinned SDK regression; recovery1 Pure LoFi physical Deck comparison | qualified for this late-release recovery only | Residual timing and broader host/event qualification remain open |
-| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | one Deck render preemption attributed; startup losses and output silence remain | recovery5 native/render scheduling verified; continuity failed; reference component bytes restored | Arturia Deck and FRAGMENTS Ubuntu observations; no general audio fix | blocked for dependable musical use | Attribute the first startup request/reply loss and independently validate editor-interval output; no gap-free fallback established |
+| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | preemption and callback-burst loss attributed; older startup/output silence remain | recovery6 bounded completion repair passes physical SDK A/B and two short Bitwig runs; longer acceptance open | Pure LoFi Deck burst repair; no general audio qualification | blocked for dependable musical use | Frozen-artifact interaction/soak and separate output-silence attribution; no gap-free fallback established |
 | [FC-AUDIO-002](#fc-audio-002--host-block-exceeds-the-selected-bridge-presentation-envelope) | Host block exceeds selected bridge presentation envelope | Proxy setup, selected delay, DAW audio settings | causal | accepted | FRAGMENTS / Ubuntu at Bitwig 512/48 kHz | supported-with-workaround | Actionable requested-versus-supported block message |
 | [FC-AUTO-001](#fc-auto-001--automation-refusal-collides-with-terminal-silence) | Automation refusal collides with terminal silence | Native curve admission / SDK result interpretation | causal collision; sparse-curve capability still incomplete | deployed collision correction; whole-block successor source-only | Ubuntu reference effect explicitly refuses 0x107; state still fails | blocked for the failed saved-automation journey | Deliver paired protocol-14 whole DAW blocks and repeat recall; audio gaps remain separate |
 | [FC-CAP-001](#fc-cap-001--capacity-enumeration-versus-lease-retirement-race) | Capacity scan versus lease retirement | Manager capacity ownership | causal | none | AP17 exact fixture | supported-with-workaround | Repair issue #93 |
@@ -937,11 +937,13 @@ callback admission, native worker, Windows processing, scheduler and reply path
 
 ### Understanding
 
-One physical Deck render-thread preemption attributed; other failures remain.
+Physical Deck render-thread preemption and callback-burst loss attributed;
+older startup and editor-interval output silence remain unresolved.
 
 ### Implementation
 
-installed scheduling capability demonstrated; whole-session continuity failed
+installed scheduling capability and focused burst-delivery repair demonstrated;
+dependable musical continuity remains unqualified
 
 On 2026-10-02, recovery1 in Bitwig 6.1 reproduced five missing 512-frame
 Pure LoFi blocks. The retained [request and scheduler witness](../evidence/audio-recovery/2026-10-02-render-preemption-witness.json)
@@ -1033,6 +1035,43 @@ controls restored recovery1 component bytes and both reference native binaries
 under new selection/publication locations. Neither full comparison establishes
 dependable audio; startup delivery and the separate editor-interval silence are
 the next bounded attribution targets.
+
+The next short recovery5 trace directly attributed a final-callback loss:
+presentation occurred only 1.340 ms after admission, SDK processing took
+1.943 ms, and publication followed the gap by 0.894 ms. No control work occupied
+that request. A sample delay did not guarantee elapsed worker time. The speaker
+capture has no internal exact-zero span during its musical signal, so this is
+a measured delivery failure at close, not a claimed audible dropout in that run.
+
+The [recovery6 result](../evidence/audio-recovery/2026-10-02-queued-completion-deadline.json)
+adds one preallocated native completion notification and one actual-block-duration
+budget for already-due protocol-14 output. It preserves delay, epochs, ownership,
+counted timeout silence and late-result expiry. The unpaced source regression
+fails on recovery5 and passes with exact delayed output and zero callback
+allocations. Source `85c444ff` passed 96 Linux backend tests (one existing fixture
+ignored), five Rust/five Python scheduling checks, and all ten build steps.
+
+Installed recovery6 passed two short complete Bitwig lifetimes: 9,095 / 8,702
+traced and 8,399 / 8,014 untraced instrument/effect blocks, with zero gaps,
+rejections or expiry, clean retirement and no internal exact-zero capture span.
+Neither exercised a wait. A separate diagnostics-disabled physical SDK A/B used
+the same application, Windows host, runtime, module, state and consumer, changing
+only the native proxy. A 40 ms suspension of the owned consumer generated
+catch-up calls while a note was held. Recovery5 lost 1,536 actual captured frames;
+recovery6 used three waits and lost none, with a 1.526402 ms full SDK process-call
+maximum. Both arms retained state and retired. The SDK native workers remained
+SCHED_OTHER (no finite host realtime budget); Windows RR 5 was verified in both,
+and the separate Bitwig runs verified native RR 5.
+
+This completes the focused burst repair, not FC-AUDIO-001. The deliberately
+paused SDK consumer is not device-deadline acceptance, and it does not attribute
+every historical gap. The frozen artifact still needs the declared interaction
+and soak, with separate attribution of silence when bridge counters are clean.
+Normal UI publication and package selection restored all reference application
+and native bytes afterward, under new selection/publication locations. Other
+publications, runtime/environment and original/reference projects are unchanged.
+All owners/recorders are retired and the builder is stopped. The retained
+reference itself remains unqualified for dependable audio.
 
 The 2026-10-02 [audio recovery comparison](../evidence/audio-recovery/2026-10-02-late-note-off.json)
 preserves missing audio in both the earlier usable Deck pair and an internal57
