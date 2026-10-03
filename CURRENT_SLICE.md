@@ -58,8 +58,13 @@ identities chosen after the engine build, checked buses and parameter values,
 and retained stable DAW IDs across a simulated module update. Invalid or missing
 data refused. Manager tests exercise actual preparation through the kit-owned
 loader, experimental publication, exact rollback and all 16 interruption points.
-These are generated metadata/reference and source checks, not Windows plug-in
-processing or a complete installed musician workflow. The reusable engine has
+Native Linux CI also passes the manager/library/frontend builds and checks,
+including the actual preparation/admission regression and offline packaging
+verification. Its missing backend dependency-cache prerequisite was reproduced
+and repaired without changing the offline customer path. The implementation's
+Windows host and graphics-report checks pass. These are generated
+metadata/reference and source checks, not Windows plug-in processing or a
+complete installed musician workflow. The reusable engine has
 not been installed on the Deck; no repaired Nibbi result is claimed.
 
 The primary outcome above remains open. Next connect the shared graphics

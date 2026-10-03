@@ -10,7 +10,11 @@
     "rust": "1.95.0",
     "cxx": "Ubuntu GCC 15.2.0-16ubuntu1",
     "cmake": "4.2.3",
-    "runtime_proton": "not used"
+    "runtime_proton": "not used",
+    "backend_features": [
+      "registered"
+    ],
+    "engine_build_option": "LVB_REUSABLE_ENGINE=ON"
   },
   "checks": {
     "manager_library": {
@@ -95,7 +99,8 @@
   "preservation": {
     "deck_changed": false,
     "frozen_audio_worktree_changed": false,
-    "vendor_state_changed": false
+    "vendor_state_changed": false,
+    "builder_final_state": "idle; CPU 0.00 percent, memory 697 MiB, configured limits retained"
   },
   "next": "Join shared assessment and requested/effective configuration to existing candidate history, exercise a reversible supported setting, then compare actual new Windows modules and DAW recall on a frozen package.",
   "implementation_commit": "a7ec8ab5e6cd693b57add8e15726d1d64b8dcdce",
@@ -108,6 +113,24 @@
     "policy": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100530543",
     "policy_result": "passed",
     "first_manager": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100530598",
-    "first_manager_result": "manager Rust, runtime, frontend and release builds passed; offline rebuild fixture failed missing dependency cache"
+    "first_manager_result": "manager Rust, runtime, frontend and release builds passed; offline rebuild fixture failed missing dependency cache",
+    "tested_head": "d42fbc311367eaf143e36d0c0b31dc2266010271",
+    "checkout_commit": "cdf65916da5cfbcb9366c8ac0ed674b83361adf3",
+    "checkout_and_head_tree": "7dd060a26f60c99e4af914c6f7be51ad93ac5f66",
+    "manager": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100868053",
+    "manager_result": "passed: 213 library tests, 292 binary tests, 5 example tests, runtime/frontend/lint checks, release builds, package verification and existing X11 fixtures; 2 existing binary tests ignored",
+    "offline_packaging_tests": {
+      "passed": 23,
+      "failed": 0,
+      "skipped": 0
+    },
+    "native_final": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100868027",
+    "native_final_result": "passed",
+    "windows_implementation": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100530550",
+    "windows_implementation_result": "passed host and graphics-report jobs at the implementation commit; the follow-up changes only CI cache setup and evidence",
+    "package_portability_final": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100868070",
+    "package_portability_final_result": "passed",
+    "policy_final": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100868131",
+    "policy_final_result": "passed"
   }
 }
