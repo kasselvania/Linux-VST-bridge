@@ -176,6 +176,33 @@ and both guest and outer memory limits for the authorized memory comparison.
 A clean larger-memory repetition cannot replace the failed lifetime or establish
 its cause.
 
+The [installed comparison](../evidence/preparation/2026-10-03-controlled-capacity-observation.json)
+at source `c9117d6a` retained the same engine/Windows host and completed one short
+reference lifetime at each memory limit. Both were clean. The larger guest avoided
+the smaller run's measured swapping; fixed order and cache carryover remain
+confounds. This is neither a yabridge benchmark nor dependable-audio qualification.
+
+The exact Windows render target was unavailable at both sizes. Source review at
+`c9117d6a` traces custody to the authenticated pre-exec bootstrap in
+`bridge-manager/runtime/session.py` and descendant tracking in `ownership.py`.
+The render-start event has no authenticated final Linux-host generation; refreshing
+the tracker already occurs before scheduling. Unseen reparented or shared-service
+children cannot be acquired solely by that traversal. The observed cohort had no
+exact session-status mapping; missing final-host custody versus mapping projection
+is unassigned. The repair must bind the final host through existing launch custody,
+including namespaces and status generation, without adopting guessed processes or
+the keeper's entire cohort. Zero targets refused before RealtimeKit, so this result
+is not a permissions denial.
+
+Control timing also measured deep repeated verification during ordinary readback,
+request admission and the worker. `operator_cli/current.rs`, `operator_model.rs`,
+`preparation_cli.rs` and registration/runner validation share those paths. Bounded
+display/offer records and fresh execution/mutation admission have different jobs:
+use the existing control records for the former and retain the latter's exact
+verification at its owner. No new persisted cache authority or metadata-based claim
+of freshly verified executable bytes is justified. These measured costs and source
+ownership gaps are independent findings, not an attribution of the retained gap.
+
 ## 2.5 Proton
 
 Primary source:

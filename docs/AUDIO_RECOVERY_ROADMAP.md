@@ -94,8 +94,13 @@ Physical testing remains stopped. This assessment does not launch a new Deck,
 runtime, vendor, ARM or Windows-DAW campaign. Existing independent workstreams keep
 their authority and machine custody. Builders/VMs used by the stopped run are off.
 When build/test work resumes, use one VM or builder at a time, at most two CPUs,
-4 GiB memory and 4 GiB combined memory/swap, and 256 processes on the declared
-fixture; reserve host CPU 0–1 and capacity for Audiobookshelf.
+and 256 processes on the declared fixture; reserve host CPU 0–1 and capacity for
+Audiobookshelf. The operator authorized the controlled comparison of 3 GiB guest /
+4 GiB container with 6 GiB guest / 8 GiB container on 2026-10-03. Combined outer
+memory/swap equals the respective container limit; the builder remains at 4 GiB.
+The [completed short comparison](../evidence/preparation/2026-10-03-controlled-capacity-observation.json)
+had clean reference audio at both sizes and less guest memory pressure in the
+larger run. It does not close the original failure or the interaction/soak gate.
 
 Commit and push complete, reviewable capability increments. Report unfinished
 integration explicitly. Reducing agreed platform, catalogue or latency goals

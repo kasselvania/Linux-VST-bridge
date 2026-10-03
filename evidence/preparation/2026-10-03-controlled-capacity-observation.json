@@ -1,0 +1,334 @@
+{
+  "schema": 1,
+  "date": "2026-10-03",
+  "claim": "controlled reference audio and configuration observation at two memory limits",
+  "qualification_claim": false,
+  "audio_cause_identified": false,
+  "original_failure": {
+    "record": "evidence/preparation/2026-10-03-managed-configuration-installed.json",
+    "status": "failed; unchanged by these clean observations",
+    "missing_frames": 1024,
+    "mismatches": 2044,
+    "callback_overruns": 1
+  },
+  "product": {
+    "head": "c9117d6ad5236280b7d5eae56bc63fb47ed464ab",
+    "tree": "eb3c55c8a88dbaf3e0a4e8f03b7e6fad201ad172",
+    "package": "0.12.0config5observe",
+    "deb_sha256": "e48e9633a8aad516bf40dae76df3204b593b5c6f8c6811971af02ebe88ddb2cd",
+    "manager_sha256": "8b85a2d3e6f0891dc5493f34205a77fce841efda2e44f2e37ae117d71c45e7cb",
+    "engine_sha256": "cc442e4a98018977aad3b97dddf3433abf6f18b157a99b628f5f760d91b12d0f",
+    "windows_host_sha256": "94e605bf10c9f3cc4c31485f2842d0f92579ca80838840eaa06e0d534924d5f9",
+    "sdk_host_sha256": "a657da2425b168c963d22d2e28be6c05f099749f8a851e2c63c087408f2e5012",
+    "callback_audit_sha256": "9d497104f783a179b4039a0a0d375713aacc38f38c0312f0380e9b2c2af3a8ad"
+  },
+  "tools": {
+    "observer_sha256": "323a042e82f963d6e181cbad0a4008aca57013370ead5bb0f22820f59a052974",
+    "helper_sha256": "250735715d51ce297d262005a3de646cb7cd1c2696ec3a5d22a13176e1b6ffbd",
+    "sampler_sha256": "9cce54f36075c609b315d661cdf63f34381c59c97f87968d0a1186a43451e578"
+  },
+  "fixture": {
+    "os": "Ubuntu 26.04.1",
+    "kernel": "7.0.0-34-generic",
+    "architecture": "x86_64",
+    "session": "GNOME Wayland",
+    "runtime": "managed-ge-proton11-7-slr4-20260805-r3",
+    "runner": "GE-Proton11-7",
+    "slr": "4.0.20260805.254769",
+    "module_version": "first-party reference 1.0.0",
+    "sdk_commit": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "audio_role": "instrument while independent reference effect configuration is changed",
+    "effect_class": "4C564242455441314546465800000001",
+    "instrument_class": "4C56424245544131494E535400000001",
+    "sample_rate": 48000,
+    "maximum_frames": 1024,
+    "actual_frames": 1024,
+    "bridge_added_frames": 1024,
+    "blocks_per_lifetime": 4800,
+    "audio_seconds_per_lifetime": 102.4
+  },
+  "method": {
+    "one_vm_or_builder_at_a_time": true,
+    "cpus": 2,
+    "cpuset": "2,3",
+    "reserved_host_cpus": "0,1",
+    "pids_limit": 256,
+    "combined_memory_swap_equals_container_memory": true,
+    "guest_disk_swap_separate_from_outer_swap_limit": true,
+    "same_read_only_original_disk_with_independent_overlays": true,
+    "unchanged_audio_engine_windows_host_runtime_and_buffering": true,
+    "diagnostics_enabled": true,
+    "order": [
+      "baseline4",
+      "expanded"
+    ],
+    "cache_state_not_reset": true,
+    "action": "ordinary offered compatibility_publish_test for prepared effect trial during independent instrument processing",
+    "same_semantic_effect_settings": {
+      "graphics": "wine_d3d11",
+      "accessibility": "disabled_for_host"
+    },
+    "each_request_bound_to_its_own_exact_candidate_and_current": true,
+    "candidate_and_publication_identities_generated_independently": true
+  },
+  "runs": [
+    {
+      "label": "baseline4",
+      "guest_configured_mib": 3072,
+      "guest_observed_memtotal_kib": 2638540,
+      "container_memory_bytes": 4294967296,
+      "audio": {
+        "blocks": 4800,
+        "compared_samples": 9830400,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "rejected_callbacks": 0,
+        "callback_max_ns": 732190,
+        "callback_overruns": 0
+      },
+      "callback_p99_ns": 27787,
+      "native_gap_spans": 0,
+      "native_gap_spans_omitted": 0,
+      "completion_waits": 0,
+      "action_completed": true,
+      "control_duration_ns": {
+        "product_read": 14363847896,
+        "dispatch": 10661584871,
+        "worker": 21141731834,
+        "worker_candidate_verification": 17635259806
+      },
+      "guest_lifetime_resources": {
+        "scope": "endpoint deltas spanning startup, audio and retirement; not per-gap attribution",
+        "swap_in_pages": 5754,
+        "swap_out_pages": 90160,
+        "major_faults": 4277,
+        "memory_pressure_total_delta_us": {
+          "some": 1320293,
+          "full": 1082656
+        }
+      },
+      "container_audio_intervals": {
+        "scope": "sample brackets wholly within audio under the retained clock-offset envelope",
+        "memory_peak_bytes": 3872661504,
+        "memory_events_delta": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0,
+          "sock_throttled": 0
+        },
+        "throttled_us": 48822,
+        "memory_pressure_total_delta_us": {
+          "some": 66285,
+          "full": 55786
+        }
+      },
+      "scheduling": {
+        "native_outcome": "host_realtime_budget_unavailable",
+        "native_effective_policy": {
+          "policy": 0,
+          "priority": 0
+        },
+        "windows_census_complete": true,
+        "windows_exact_render_matches": 0,
+        "windows_availability": "identity_unavailable",
+        "windows_reason": "zero_render_matches"
+      },
+      "observers": {
+        "sample_count": 20023,
+        "missed_slots": 32,
+        "sampler_loop_cpu_ns": 4500419196,
+        "sampler_core_fraction": 0.04488065092878841,
+        "sampler_max_read_bracket_ns": 10007140,
+        "native_worker_attribution_available": false,
+        "clock_offset_envelope_width_ns": 193153671,
+        "control_marks_omitted": 0,
+        "control_clock_failures": 0
+      },
+      "recovery": {
+        "exact_target_entry_equal": true,
+        "exact_sibling_entry_equal": true,
+        "positive_product_retirement": true,
+        "windows_cleanup_confirmed": true,
+        "windows_transport_retired": true,
+        "dsp": 0,
+        "maintenance": 0,
+        "cleanup_unconfirmed": false,
+        "trace_marker_prior_absence_restored": true
+      },
+      "artifact_sha256": {
+        "guest_archive": "ed537a64834f9f0434582a48ca5bcd626fd981e79736eaa78761457ca55dfcc2",
+        "host_resources": "3dff6bab0f9e87a2837d8293ad0782974e3ab1dd6a62572d08bf6205c03a79dc",
+        "host_guest_clock": "0e3735a4efc3687124088752e8b41c1303bed670d9addc86b0a5b0201498019d",
+        "observation_result": "ba8faf89d410486f6a025b2c3510f86033086a00148904e46c4be63dffb21fa3",
+        "sdk_events": "d4cfbc685ad7aaa1043a4678b4d5bcf1f799ac3c14db1b508a5a6a76ca594c27",
+        "native_phases": "65e4cbcd5961c83915720dc96ae7584b86b08b3cc1f0b8fc7861048d4dccf3dc",
+        "windows_result": "671a041123b487a4f67cf158007f9f255083e5532ef8cdb7bdaff3d1c16ae0c6",
+        "scheduler_summary": "7644ef97890b83dccc48fbf84381b1ca20f63040954311e36d0f029861b2f6e3",
+        "scheduler_rows": "62bee6bdf64844bd244811f5ada9f27d00e57d5f38f1c7eb21b72a4e68f14adc",
+        "final_state": "9380521f21781ecb46b8f6d71d413f7d72865bb9729e820bb454d4964e3cbfe5"
+      }
+    },
+    {
+      "label": "expanded",
+      "guest_configured_mib": 6144,
+      "guest_observed_memtotal_kib": 5532364,
+      "container_memory_bytes": 8589934592,
+      "audio": {
+        "blocks": 4800,
+        "compared_samples": 9830400,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "rejected_callbacks": 0,
+        "callback_max_ns": 3123824,
+        "callback_overruns": 0
+      },
+      "callback_p99_ns": 30089,
+      "native_gap_spans": 0,
+      "native_gap_spans_omitted": 0,
+      "completion_waits": 0,
+      "action_completed": true,
+      "control_duration_ns": {
+        "product_read": 13237628420,
+        "dispatch": 10616334011,
+        "worker": 14318489023,
+        "worker_candidate_verification": 10702923547
+      },
+      "guest_lifetime_resources": {
+        "scope": "endpoint deltas spanning startup, audio and retirement; not per-gap attribution",
+        "swap_in_pages": 0,
+        "swap_out_pages": 0,
+        "major_faults": 1257,
+        "memory_pressure_total_delta_us": {
+          "some": 12796,
+          "full": 11976
+        }
+      },
+      "container_audio_intervals": {
+        "scope": "sample brackets wholly within audio under the retained clock-offset envelope",
+        "memory_peak_bytes": 6023475200,
+        "memory_events_delta": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0,
+          "sock_throttled": 0
+        },
+        "throttled_us": 56858,
+        "memory_pressure_total_delta_us": {
+          "some": 15464,
+          "full": 12190
+        }
+      },
+      "scheduling": {
+        "native_outcome": "host_realtime_budget_unavailable",
+        "native_effective_policy": {
+          "policy": 0,
+          "priority": 0
+        },
+        "windows_census_complete": true,
+        "windows_exact_render_matches": 0,
+        "windows_availability": "identity_unavailable",
+        "windows_reason": "zero_render_matches"
+      },
+      "observers": {
+        "sample_count": 20015,
+        "missed_slots": 36,
+        "sampler_loop_cpu_ns": 4609686406,
+        "sampler_core_fraction": 0.04597413563644208,
+        "sampler_max_read_bracket_ns": 11011616,
+        "native_worker_attribution_available": false,
+        "clock_offset_envelope_width_ns": 193142971,
+        "control_marks_omitted": 0,
+        "control_clock_failures": 0
+      },
+      "recovery": {
+        "exact_target_entry_equal": true,
+        "exact_sibling_entry_equal": true,
+        "positive_product_retirement": true,
+        "windows_cleanup_confirmed": true,
+        "windows_transport_retired": true,
+        "dsp": 0,
+        "maintenance": 0,
+        "cleanup_unconfirmed": false,
+        "trace_marker_prior_absence_restored": true
+      },
+      "artifact_sha256": {
+        "guest_archive": "1584f56fc480a366c1594bd9de94c94019744308719b79deb01f83a38987b185",
+        "host_resources": "4f7ee30c6eee4aa655094e5744d6fd1f418c7f26e31f6c31bf1fd45883538a1b",
+        "host_guest_clock": "e31017445a702be6c882d042bdc08e5f891c96ab3c902498c2bb5f2ddfe98274",
+        "observation_result": "ba8faf89d410486f6a025b2c3510f86033086a00148904e46c4be63dffb21fa3",
+        "sdk_events": "aa91c71a57b85f1c9d7eb500fe775d63a10dd853a2d9b9273ee963b3d0484f7b",
+        "native_phases": "9e358bb1289a89b1b0d692d2a256dd87ac668a643fd0b2033e9cf7d3058c0654",
+        "windows_result": "aa59d3cacaec5435f89652ae71ccac0a990fb0f1b4f232ba357a9956c4f6cd5d",
+        "scheduler_summary": "c9e72ee0f73836af92161e4af48c6405eb5754ddde43a5e1ce22fbeac124a9bc",
+        "scheduler_rows": "11aacac4fd0d62674c31d6b8b24c50094fe7dad81d7559568ce03c837cd3b9fe",
+        "final_state": "3971278681d1e76892089e2abe356234cb72176d8b969e801ccf66b78958de54"
+      }
+    }
+  ],
+  "preliminary_attempts": [
+    {
+      "label": "baseline",
+      "audio_lifetimes": 0,
+      "issue": "product freshness refusal during setup",
+      "archive_sha256": "b1508f12df46a1647a1fa2f9f10b96afd80294858528363124447b4e574c5960"
+    },
+    {
+      "label": "baseline2",
+      "audio_lifetimes": 0,
+      "issue": "helper required a different first-idle action kind than the exact offered action",
+      "archive_sha256": "6d912e79fc1770533a98ae113240f2d258386bc7badbc523b32d7facc3454493"
+    },
+    {
+      "label": "baseline3",
+      "audio_lifetimes": 1,
+      "issue": "relative output path refused by recorder before observed action; output mode was already 0700",
+      "clean_audio_without_observed_action": true,
+      "exact_original_restored": true,
+      "archive_sha256": "2108365b98339d0c3ab67ec405c03fabad6be910aabe61e557712d0ac3e3d857"
+    }
+  ],
+  "interpretation": [
+    "The larger guest did not swap during the measured lifetime and had lower measured memory-pressure time. Both sizes returned correct audio.",
+    "One fixed-order observation per size with host cache carryover and tracing does not establish RAM as the earlier gap cause or a latency improvement.",
+    "Zero exact Windows render targets is an ownership/mapping integration gap before RealtimeKit, not an RTKit denial. Missing cohort membership versus mapping projection is unassigned.",
+    "Control timing establishes expensive read/dispatch/worker validation. It does not establish control work as the cause of the earlier missing block.",
+    "No gap record identifies the native worker in these clean runs; retain per-task samples without guessing a worker by name or activity.",
+    "Sampler clocks and counters have finite read brackets and missed slots; host alignment has an observed envelope, not a guarantee against later drift.",
+    "These runs used no native completion wait and do not requalify the buffered catch-up repair."
+  ],
+  "remaining": [
+    "integrated configuration workflow remains failed",
+    "normal manager recovery interaction remains unqualified despite source request-ownership repair",
+    "physical Deck interaction and soak remain failed/unperformed as previously recorded",
+    "real DAW, commercial editors, lower blocks, offline completion and beta acceptance not established"
+  ],
+  "source_validation": {
+    "head": "c9117d6ad5236280b7d5eae56bc63fb47ed464ab",
+    "applicable_ci": "passed",
+    "frontend_tests": 96,
+    "strict_linux_clippy": "passed",
+    "astra_xhigh_source_review": "no remaining finding in reviewed timing-retention and request-ownership scope"
+  },
+  "custody": {
+    "deck_changed": false,
+    "test_vms_shutdown_normally": true,
+    "builders_stopped": true,
+    "audiobookshelf_running": true,
+    "originals_and_private_evidence_preserved": true,
+    "private_final_receipt_sha256": "9bc9ba755f2fe50111372c6821ec14abb3ac6f0c9daa532216ade620a29eddd9",
+    "private_durable_manifest_sha256": "c9fe41d93d74687fe92ece5a66a3cb88a7ff0c222e3810d5e4ef7f4a1c06b8dc",
+    "original_vm_disk_stat_unchanged": true,
+    "expanded_final_registry": {
+      "all_four_original_entries_restored": true,
+      "revision_before": 38,
+      "revision_after": 41,
+      "sha256": "183e57608eab15766186ed9a20d78e1f562c50700863cf868e4d8f5bc48b75b4"
+    }
+  }
+}

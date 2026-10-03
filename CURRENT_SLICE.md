@@ -69,14 +69,42 @@ retains the exact package, modules, runtime, observer and earlier failed attempt
   readback confirms all four exact original entries, each preference at 1024,
   unchanged saved objects/package artifacts and no active or uncertain owners.
 
+## Controlled capacity observation
+
+Diagnostic package `0.12.0config5observe`, source `c9117d6a`, retains the config4
+audio engine, Windows host and runtime. The [memory comparison](evidence/preparation/2026-10-03-controlled-capacity-observation.json)
+completed one 102.4-second reference-instrument lifetime at each of 3 GiB guest /
+4 GiB container and 6 GiB guest / 8 GiB container, with an independent effect's
+ordinary settings apply during audio. Both compared 9,830,400 samples with no
+mismatches, missing spans or overruns, then retired and restored exactly. The
+larger guest had no measured swapping and lower memory-pressure time. Fixed order,
+cache carryover, tracing and one lifetime per size prevent causal or qualification
+claims. The earlier failed workflow remains failed; preliminary tool failures
+are retained separately.
+
+The source also preserves pending UI action ownership (96 frontend tests and
+strict Linux lint passed). This does not qualify the incomplete GUI recovery.
+Bounded control timing and exact-cohort diagnostics are audit-feature-only;
+applicable CI at `c9117d6a` passed. Neither is an audio repair.
+
 ## Next bounded work
 
-Measure the shared control-work/audio scheduling boundary before choosing a timing
-repair: bracket durable request creation, projection validation, queued receipt,
-worker start and mutation begin/end; correlate actual output with bounded native/
-Windows render-thread scheduling observations and interval resource deltas.
-Distinguish runnable starvation, transport wait and SDK service.
-Preserve the failed lifetime; another clean repetition cannot replace it.
+Close the observed render-host ownership/mapping gap through existing per-launch
+custody. The authenticated bootstrap and descendant tracker do not provide an
+explicit final Windows-host witness. Both observed cohorts had zero exact mapped
+render targets, before RealtimeKit. Establish the final host's generation, namespace
+and session/status binding before selecting and reading back its render thread.
+Do not infer ownership from a name or import all keeper/sibling processes. Missing
+cohort membership versus mapping projection remains unassigned.
+
+Separate ordinary display/offer readback from deep worker/launch admission using
+the existing control records and transaction owners. Observed product reads took
+13.24–14.36 seconds, dispatch 10.62–10.66 seconds and workers 14.32–21.14 seconds.
+Retain exact execution validation; presentation must not claim fresh byte
+verification from metadata. These costs are measured, but are not the demonstrated
+cause of the earlier missing block. Correlating worker service at a future gap still
+requires exact thread identity; clean runs supplied no gap-based native worker join.
+Preserve the failed lifetime; clean repetitions cannot replace it.
 Also resolve the ordinary recovery interaction: its incomplete GUI path cannot be
 qualified from a successful CLI fallback.
 
@@ -128,7 +156,7 @@ assessment nor policy adoption approves the beta or changes the installed machin
 
 Installed config4 acceptance uses the disposable Ubuntu fixture under the main
 engineer's machine custody. No Deck run is selected.
-The Ubuntu VM was shut down normally after the retained config4 recovery.
+The Ubuntu comparison VMs were shut down normally after exact restoration.
 Retained VM disks and private evidence are preserved; Audiobookshelf remains running.
 The next observation uses one VM or builder at a time, at most two CPUs on host
 CPU 2–3 and 256 processes. Reserve host CPU 0–1 and capacity for Audiobookshelf.
