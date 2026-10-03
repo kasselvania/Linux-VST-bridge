@@ -39,11 +39,6 @@ std::string safe_text(const wchar_t* value, size_t length) {
     }
     return "null";
 }
-bool software(std::string value){
-    for(auto& c:value)c=char(std::tolower(static_cast<unsigned char>(c)));
-    return value.find("llvmpipe")!=std::string::npos||value.find("softpipe")!=std::string::npos
-        ||value.find("software rasterizer")!=std::string::npos||value.find("basic render")!=std::string::npos;
-}
 struct Probe {
     std::string api,status="unavailable",rendering="unknown",renderer="null",vendor="null",device="null",driver="null",level="null";
     explicit Probe(const char* name):api(name){}
@@ -66,7 +61,7 @@ std::pair<Probe,Probe> d3d(D3D_DRIVER_TYPE type){
     ComPtr<IDXGIDevice> dxgi;ComPtr<IDXGIAdapter> adapter;DXGI_ADAPTER_DESC description{};
     if(SUCCEEDED(device.As(&dxgi))&&SUCCEEDED(dxgi->GetAdapter(&adapter))&&SUCCEEDED(adapter->GetDesc(&description))){
         result.renderer=safe_text(description.Description,128);result.vendor=std::to_string(description.VendorId);result.device=std::to_string(description.DeviceId);
-        rendering=type==D3D_DRIVER_TYPE_WARP||software(result.renderer)?"reported_software":"reported_hardware";
+        rendering=type==D3D_DRIVER_TYPE_WARP?"reported_software":"reported_hardware";
         LARGE_INTEGER version{};
         if(SUCCEEDED(adapter->CheckInterfaceSupport(__uuidof(ID3D11Device),&version)))
             result.driver="\""+std::to_string(HIWORD(version.HighPart))+"."+std::to_string(LOWORD(version.HighPart))+"."+
@@ -125,7 +120,7 @@ Probe opengl(){
         result.status="readback_failed";
         if(error()==GL_NO_ERROR&&pixels(bytes.data())&&pixels(bytes.data()+4)&&pixels(bytes.data()+8)&&pixels(bytes.data()+12)){
             result.status="passed";
-            if(software(result.renderer)||(described&&(actual.dwFlags&PFD_GENERIC_FORMAT)&&!(actual.dwFlags&PFD_GENERIC_ACCELERATED)))result.rendering="reported_software";
+            if(described&&(actual.dwFlags&PFD_GENERIC_FORMAT)&&!(actual.dwFlags&PFD_GENERIC_ACCELERATED))result.rendering="reported_software";
             else if(described)result.rendering="reported_hardware";
         }
         current(nullptr,nullptr);

@@ -101,7 +101,8 @@ pub struct Editor {
 pub struct Finding {
     pub library: Library,
     pub sources: Vec<&'static str>,
-    pub capability: String,
+    pub probe_api: Option<String>,
+    pub probe_status: String,
 }
 #[derive(Debug, Clone, Serialize)]
 pub struct Assessment {
@@ -183,7 +184,7 @@ pub fn assemble(
     )?;
     let runtime = one(rows, "graphics_runtime")?;
     require(runtime["schema"] == 1, "graphics_runtime_schema")?;
-    let probes: Vec<Probe> = serde_json::from_value(runtime["probes"].clone())?;
+    let mut probes: Vec<Probe> = serde_json::from_value(runtime["probes"].clone())?;
     require(probes.len() == 4, "graphics_probe_count")?;
     let expected = BTreeSet::from([
         "d3d11_default",
@@ -199,7 +200,7 @@ pub fn assemble(
             == expected,
         "graphics_probe_apis",
     )?;
-    for p in &probes {
+    for p in &mut probes {
         require(
             matches!(
                 p.status.as_str(),
@@ -211,6 +212,13 @@ pub fn assemble(
                 && bounded_text(&p.driver_version),
             "graphics_probe_fields",
         )?;
+        if p.status == "passed"
+            && p.renderer
+                .as_ref()
+                .is_some_and(|r| super::software_renderer(r))
+        {
+            p.rendering = "reported_software".into();
+        }
         require(
             p.status == "passed" || p.rendering == "unknown",
             "graphics_probe_failure_claim",
@@ -252,7 +260,8 @@ pub fn assemble(
             Finding {
                 library,
                 sources,
-                capability,
+                probe_api: library.probe().map(str::to_owned),
+                probe_status: capability,
             }
         })
         .collect();

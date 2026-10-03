@@ -11,6 +11,12 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+The shared graphics assessor adds reusable dependency/editor-library observations
+and independent Windows graphics probes. Reference editors establish the tested
+assessment behavior; no commercial product, Proton runtime or distribution gains
+support from these results. The plug-in's own device and browser-child rendering
+remain unobserved. See [scope](GRAPHICS_RUNTIME_REVIEW.md#shared-assessment-implementation).
+
 The graphics/owner source follow-up adds truthful policy/native diagnostic facts
 and controlled Windows owner-failure retirement, with generated SDK tests
 ([FC-UI-009](FAILURE_CLASSES.md#fc-ui-009--owner-exception-unwinds-a-live-processing-thread)).

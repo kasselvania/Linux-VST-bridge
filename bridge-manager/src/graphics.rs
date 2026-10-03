@@ -38,7 +38,7 @@ impl HostGlx {
 }
 fn software_renderer(value: &str) -> bool {
     let lower = value.to_ascii_lowercase();
-    ["llvmpipe", "softpipe", "swrast", "software rasterizer"].iter().any(|name|
+    ["llvmpipe", "softpipe", "swrast", "software rasterizer", "gdi generic", "microsoft basic render driver"].iter().any(|name|
         lower == *name || lower.strip_prefix(name).is_some_and(|rest| rest.starts_with(' ')))
 }
 

@@ -16,7 +16,73 @@ measured coexistence under editor load. The retained BEAM rendering repair does
 not establish that its editor-open crackling is fixed. No rendering backend,
 CPU affinity or runtime replacement is selected by this review.
 
-## Implemented follow-up: readback and failure containment
+## Shared assessment implementation
+
+The subsequent operator request is to reuse compatibility assessment across
+plug-ins and distributions. The new explicit `graphics-assess INSPECTION.json`
+manager command accepts the existing exact environment/module/class inspection
+request. It uses the installed inspection host, the environment's selected
+runner and graphics policy, the existing inactive admission and supervised
+process lifetime. It does not republish or replace a retained audio host.
+
+One implementation produces these separate facts:
+
+| Observation | Scope and interpretation |
+| --- | --- |
+| Ordinary and delayed PE imports | Bounded Rust inspection of the exact module. Only known graphics-library categories are retained. Dependencies are hints; dynamic loads and transitive dependencies can be absent from this table. |
+| Libraries before and during editor opening | Allowlisted `GetModuleHandleW` observations in the inspected Windows process, taken before the independent probes. Presence is not proof that the editor called that API. |
+| Editor opening and closing | Existing SDK `VendorView` lifecycle and a 750 ms message-pump observation. This is neither visual correctness nor a performance test. A missing/refused view is explicit. |
+| Default D3D11 context | Creates a device and checks all pixels of a 2 by 2 clear/readback. Reports its adapter, feature level and driver version when supplied by the API. It does not silently retry another rendering policy. |
+| WARP D3D11 context | Separate software-rendering comparison with its own pixel readback and explicit software label. Its success cannot make the default-device result pass. |
+| OpenGL context | Creates its own Win32/WGL context and checks all pixels of a 2 by 2 clear/readback. Reports renderer/version and pixel-format acceleration flags. |
+| DirectComposition | Tests device creation against the default D3D11 device. A pass does not establish compositor presentation, browser rendering or animation quality. |
+
+Direct3D 9/12, Vulkan, Direct2D, WebView2 and ANGLE dependencies are recognizable
+hints but have no workload probe in this revision. They remain `not_tested`.
+Requirements such as a particular shader feature level cannot be inferred from
+an imported DLL name. No product name, vendor name or distro name selects a rule.
+
+The SDK editor is closed and its component/controller retired before the
+independent runtime probes run. Those probes create their own contexts. The
+report leaves the **plug-in's actual rendering device unknown**, and child
+renderers explicitly unobserved. Driver/API reports of hardware rendering are
+labeled `reported_hardware`; they do not prove GPU utilization or a deadline.
+This closes the reusable dependency/context assessment seam, not full graphics
+attribution or BEAM's crackling report.
+
+The normalized report joins each dependency category to its observation sources
+and the corresponding available probe result. It retains the configured policy
+without choosing an optimization from a fingerprint. The module, class, runner,
+environment revision and inspection host/source are bound by exact identities.
+A context fingerprint and a separate observation fingerprint support comparison.
+Every invocation probes afresh; saved reports are point-in-time history and are
+never automatically reused as current readiness or activation authority. A
+driver, session, runtime or module change calls for a new assessment. Capability
+fingerprints never recreate a prefix or change vendor machine identity.
+
+The report is printed as JSON and saved under the manager's private
+`observations/graphics/` directory. It contains no module paths, arbitrary import
+names, vendor output or full process/prefix export. Existing raw inspection
+results remain private. Timeouts, failed retirement, changed modules and missing
+or duplicate terminal observations cannot produce a completed assessment. The
+existing supervisor bounds startup/inspection to 180 seconds and individual
+Windows calls to 30 seconds, with normal owned-process cleanup. None of this
+work is added to normal plug-in selection or an audio callback.
+
+Reference fixtures exercise ordinary D3D11 imports, delayed OpenGL imports,
+actual independent editor pixel readback, editor refusal and absent editors.
+Their native Windows execution and the production Rust report join are checked
+separately from a physical Proton/driver/commercial workload. Testing this path
+on the selected Proton runtime, observing browser children and measuring
+graphics/audio coexistence are the next bounded jobs. Existing native GLX,
+machine/DAW readiness and scheduling observations keep their own scopes; this
+graphics command does not replace them with a new platform profiler.
+
+Public API basis: Microsoft's [PE specification](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format),
+[D3D11 device creation](https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-d3d11createdevice)
+and [pixel-format flags](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-pixelformatdescriptor).
+
+## Earlier implementation: readback and failure containment
 
 Requested Windows graphics now comes from the exact registered runner policy
 in both current and detailed manager projections. Per-product facts explicitly

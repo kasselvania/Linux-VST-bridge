@@ -122,7 +122,7 @@ fn graphics_assessment_reuses_rules_without_promoting_hints_or_probe_devices() {
             .iter()
             .find(|f| f.library == Library::WebView2)
             .unwrap()
-            .capability,
+            .probe_status,
         "not_tested"
     );
     assert_eq!(
@@ -184,4 +184,23 @@ fn graphics_assessment_refuses_wrong_identity_incomplete_and_false_claims() {
         assemble(context(), imports, &r, 100).unwrap().editor.status,
         "unavailable"
     );
+}
+
+#[test]
+fn graphics_driver_observation_changes_without_rekeying_environment() {
+    let imports = pe::inspect(&mut Cursor::new(image("d3d11.dll", "opengl32.dll"))).unwrap();
+    let original = assemble(context(), imports.clone(), &report(), 100).unwrap();
+    let mut changed = report();
+    changed["records"][3]["probes"][0]["renderer"] = json!("llvmpipe (LLVM test)");
+    changed["records"][3]["probes"][0]["rendering"] = json!("reported_hardware");
+    changed["records"][3]["probes"][0]["driver_version"] = json!("2.0");
+    let next = assemble(context(), imports, &changed, 101).unwrap();
+    assert_eq!(next.context, original.context);
+    assert_eq!(next.context_fingerprint, original.context_fingerprint);
+    assert_ne!(
+        next.observations_fingerprint,
+        original.observations_fingerprint
+    );
+    assert_eq!(next.runtime_probes[0].rendering, "reported_software");
+    assert!(next.editor_device.is_none());
 }

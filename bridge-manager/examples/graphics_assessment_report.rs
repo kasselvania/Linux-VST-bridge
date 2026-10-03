@@ -31,7 +31,7 @@ fn main() -> Result<()> {
         require(
             result.findings.iter().any(|f| {
                 f.library == library
-                    && f.capability == "passed"
+                    && f.probe_status == "passed"
                     && f.sources.iter().any(|s| s.ends_with("import_hint"))
                     && f.sources.contains(&"loaded_during_editor")
             }),

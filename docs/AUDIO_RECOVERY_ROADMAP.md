@@ -32,6 +32,13 @@ owns the production decisions; [Integrated beta delivery](INTEGRATED_BETA_DELIVE
 owns the current acceptance criteria. The roadmap does not create a parallel
 decision or support registry.
 
+The shared graphics assessment now has one explicit manager path for dependency
+hints, editor-time library observations and selected-runtime capability probes.
+It reuses inspection ownership and reports exact identities without selecting
+policies by plug-in or distro name. Runtime-probe success remains distinct from
+the actual editor's rendering device and musical qualification; see
+[the implementation scope](GRAPHICS_RUNTIME_REVIEW.md#shared-assessment-implementation).
+
 ## Execution
 
 Preserve exact source, build, runtime and publication identities. Keep the working

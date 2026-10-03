@@ -158,3 +158,28 @@ jobs:
           name: ap8-windows-host-${{ github.sha }}
           path: ${{ runner.temp }}/ap8-build/wf0/bin/Release/
           if-no-files-found: error
+  graphics-report:
+    needs: host
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ap8-windows-host-${{ github.sha }}
+          path: ${{ runner.temp }}/graphics-reference
+      - name: Join actual PE imports and Windows observations with production Rust
+        env:
+          GRAPHICS_REFERENCE_ROOT: ${{ runner.temp }}/graphics-reference
+          CARGO_BUILD_JOBS: 2
+        run: |
+          for kind in 1 2 3 4; do
+            cargo run --quiet --locked --manifest-path bridge-manager/Cargo.toml --example graphics_assessment_report -- "$GRAPHICS_REFERENCE_ROOT/graphics-reference-$kind.vst3" "$GRAPHICS_REFERENCE_ROOT/graphics-reference-$kind.json" > "$GRAPHICS_REFERENCE_ROOT/assessment-$kind.json"
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: graphics-assessments-${{ github.sha }}
+          path: ${{ runner.temp }}/graphics-reference/assessment-*.json
+          if-no-files-found: error
