@@ -1,113 +1,52 @@
-# Product workstreams
+# Product work allocation
 
-Decision date: 2026-09-24. This is the work-allocation map, not a compatibility
-certificate or live-machine status report. [SUPPORT_MATRIX.md](SUPPORT_MATRIX.md)
-and [FAILURE_CLASSES.md](FAILURE_CLASSES.md) retain those separate roles.
+Updated by the operator's 2026-10-03 compatibility-platform direction. This file
+coordinates separately authorized work. It is neither a compatibility certificate
+nor authority to start every listed lane. `../CURRENT_SLICE.md` names this branch's
+current outcome; `SUPPORT_MATRIX.md` and `FAILURE_CLASSES.md` retain support and
+observed failure scope. Previous allocations remain in Git history.
 
-## One product, separate execution lanes
+## Shared platform, distinct execution lanes
 
-| Workstream | Role | Next outcome | Boundaries |
-|---|---|---|---|
-| Native Linux DAW bridge | Primary release-driving product | Operator Desktop-mode soak, focused manager frontend, then GM0 with one known-good Serum instance | Existing proxy, Windows host, audio/state transport and support limits remain authoritative. Bitwig evidence is not REAPER evidence. |
-| Managed Windows DAW | Separate FL workspace lane | WD0's trial-mode reinstall/launch and [WD1](WD1.md)'s direct Serum 2 installation, FL discovery, audible pattern, preset change, automation, clean retirement and fresh-session use are bounded results. WAV export and licensed FLP recall remain unqualified. | [Windows DAW workspace architecture](WINDOWS_DAW_WORKSPACES.md). No Linux proxy in this audio path; no changes to the existing six plug-in environments. |
-| ARM/manufacturer appliance | Separately owned parallel experiment | Continue its already-selected appliance work | No FL-on-ARM claim, no dependency on WD0, no import of unmerged appliance code into the DAW lane. |
+| Lane | Product relationship | Engineering boundary |
+| --- | --- | --- |
+| Native Linux DAW bridge | Primary compatibility and beta-delivery goal | Shared machine/runtime assessment, unfamiliar plug-in preparation, audio/editor/state contracts, manager operations and recovery. Fixtures and existing implementations do not limit the design. |
+| Managed Windows DAW | Separately authorized workspace capability | A Windows DAW loads Windows plug-ins directly within its workspace. Reuse platform management where its contract applies; do not insert a Linux proxy or import its latency/count claims. See [workspace architecture](WINDOWS_DAW_WORKSPACES.md). |
+| ARM/manufacturer appliance | Separately authorized appliance work | Share validated abstractions where appropriate. Architecture, device and audio evidence remains specific; native Linux or Windows-workspace results do not qualify an appliance. |
 
-FL Studio is selected first. Ableton Live follows a demonstrated FL workspace
-and is a different application qualification, not a second simultaneous DAW
-bring-up. Max for Live, new distributions and a larger plug-in set do not become
-WD0 completion conditions.
+The platform design accounts for shared contracts across lanes. Implementation
+ownership and mutable application environments stay explicit. One lane's scope
+must not silently redefine another's completion, delay it behind unrelated work,
+or create a second manager, compatibility database or lifecycle authority.
 
-The Windows lane starts now; it does not wait for universal touchscreen support,
-a new finished manager frontend or elimination of every native-bridge underrun.
-Mouse/trackpad is the first FL input posture. Conversely, WD0 must not consume
-the native lane's running experiment or redefine the native product as unfinished
-until FL works.
+## Planning and integration
 
-## Current allocation
+Select work through the operator's current goal and the capability method in
+[AGENTS.md](../AGENTS.md). Keep patches reviewable while completing the necessary
+connections across owners. No standing allocation orders another Serum-only run,
+Gaming Mode transition, frontend redesign, FL/Ableton bring-up or catalogue campaign.
+Existing separately authorized tasks continue within their own scope and custody.
 
-### Operator / product-use lane
+A shared-platform change must consider its affected consumers, installed runtime
+policies, host/proxy pairs, state and recovery behavior. Reuse sound mechanisms;
+revise wrong abstractions rather than treating current code as architecture.
+Unmerged dependencies must be explicit. Review actual changes and relevant evidence
+before integration, without treating one lane's success as universal support.
 
-Use the current six products normally in Steam Deck Desktop Mode. Preserve only
-useful failures and friction rather than turning the period into another test
-matrix. A note should name the product, action, input method, whether audio
-continued, what happened to the editor, and whether normal close cleaned up.
+## Machine and repository custody
 
-### FL Studio owner
+- Work in the canonical repository with one branch/worktree per coherent outcome.
+  Do not change another owner's checkout or experiment.
+- Each lane owns its mutable environments, sessions and evidence. Reuse immutable
+  runners through verified references and coordinate shared-package changes.
+- Serialize shared GUI/audio work, installation, service replacement and runtime
+  transitions with the current machine custodian. Preserve user projects and
+  unrelated installed publications.
+- Respect declared CPU, memory, process and spending limits. Build concurrency
+  does not override the user's reserved capacity or a physical test's conditions.
+- Use the agreed handoff or current task record to transfer custody; do not invent
+  a scheduling service or another mandatory permission/receipt framework.
 
-WD1's first direct-hosted Windows VST3 is complete at its bounded trial-mode
-claim. Its exact source and physical evidence are in [WD1](WD1.md). Further FL
-qualification requires a separately selected outcome and Deck custody; WD1
-does not qualify WAV export, saved-project recall, or new audio settings.
-
-### Manager frontend owner
-
-A separate focused frontend slice first studies the current manager and presents
-two or three concrete product-interface directions to the operator. It then
-implements the selected direction as a projection of existing manager truth:
-product readiness, available action, running sessions/capacity, incidents,
-service health and recovery. It must not invent new lifecycle, installation,
-publication or recovery authority merely to make the UI look complete.
-
-Checkpoint that work at a coherent PR before moving the same owner onto GM0.
-
-### GM0 owner
-
-After the Desktop-mode soak, GM0 owns the one-device Gaming Mode transition:
-Desktop clean state, switch to Gaming Mode, normal Bitwig launch under Gamescope,
-one Serum candidate-D instance, editor/trackpad/touch/audio, clean quit and
-return to a healthy Desktop session. FL Studio, six-device concurrency, suspend,
-external displays and broad recovery are outside GM0.
-
-## Branch and machine ownership
-
-- Product implementation stays in `kasselvania/Linux-VST-bridge`. Do not create
-  an independent FL-on-Wine product repository or a second compatibility
-  database.
-- Use one branch/worktree and one implementation PR per selected outcome.
-  `CURRENT_SLICE.md` on an implementation branch names that branch's task; it
-  is not an exclusive reservation of all project work.
-- Integrate from reviewed canonical main. Reuse findings from an unmerged branch
-  without silently consuming its implementation. Necessary code dependencies
-  must be explicit and reviewed.
-- Each lane owns separate mutable environment roots, launch/session ownership
-  and evidence. Reuse immutable runners/artifacts only through verified
-  references.
-- The Deck remains the lead physical platform. Before a physical run, coordinate
-  with the current custodian, require relevant projects saved/closed, and verify
-  no conflicting experiment or uncertain owner.
-- Builds and source work can proceed in parallel. GUI use, installation, service
-  replacement, runner/environment transitions and device/audio-setting changes
-  are serialized by the task custodians. Do not invent a scheduling daemon or a
-  new permission-receipt framework.
-
-## Installed and canonical state
-
-Canonical main `a4e140a53cedb8b65b487a45d6fea0e44caea74d`, tree
-`b3f3d264901267e2dcb723b9904c464baf6eefae`, includes the physically accepted
-Serum candidate-D runtime support and `x11_touch_routing_v2` policy.
-
-The Deck's current working generation, selected Serum candidate D and the other
-five publications remain user-facing product state. WD0 workspace-only commands
-must leave the shared native-bridge service and software catalogue untouched.
-Any later common-package replacement must explicitly preserve every installed
-runner policy and required host/source pair, including FC-MGMT-002.
-
-Separate application state is an ownership boundary within one canonical
-product, not permission to fork the management implementation.
-
-## Progress and review rule
-
-A selected implementation outcome includes ordinary code, builds, focused tests,
-diagnosis and in-scope corrections. Preserve the first useful failure, learn
-from it and continue the repair; do not return for a new tech-lead gate after
-every successful substep. Ask only for a genuinely new security boundary,
-spending decision, destructive action, secret-entry action or change of goal.
-
-Review the complete implementation and observed result before merge. Do not
-merge a launch-only or mock-only result as a working DAW. A vendor licensing
-limit or unavailable device gets an explicit partial result, not a fabricated
-pass and not another infrastructure campaign.
-
-For shared fixes, update the relevant failure-class card and affected support
-rows in the implementation PR. Do not add FL Studio or Ableton as supported
-merely because these workstreams were selected.
+Historical [WD0](WD0.md), [WD1](WD1.md) and other fixture reports retain their original
+results and limitations. Consult current machine readback for installed state;
+historical commit names and old allocation text are not current deployment facts.
