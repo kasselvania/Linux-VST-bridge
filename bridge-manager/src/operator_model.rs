@@ -257,6 +257,10 @@ pub struct History {
     pub publication: String,
     pub active: bool,
     pub rollback_allowed: bool,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub rollback_unavailable: Option<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

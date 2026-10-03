@@ -94,7 +94,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MGMT-004](#fc-mgmt-004--managed-publication-is-mistaken-for-a-static-catalogue-fixture) | Managed publication is mistaken for a static catalogue fixture | Catalogue/publication ownership | causal | installed | Ubuntu internal22 normal status and product controls passed | resolved at publication readback | DAW use remains untested |
 | [FC-MGMT-005](#fc-mgmt-005--partial-installation-retry-omitted-from-setup) | Partial installation retry omitted from Setup | Existing installer offers to Setup projection | causal | installed | Ubuntu internal56: two partial-stop and isolated-retry repetitions | resolved for the recorded partial retry | Remaining recovery cases and platform qualification |
 | [FC-MGMT-006](#fc-mgmt-006--exact-prebuilt-catalogue-blocks-unfamiliar-plug-ins) | Exact prebuilt catalogue blocks unfamiliar plug-ins | Preparation/descriptor/publication | causal in source; Nibbi user report | installed Ubuntu unfamiliar Windows processing and graphics restore | No repaired Deck/Nibbi result | Deck blocked; reference candidate unqualified | Complete module-update recall, dependency and runtime trials |
-| [FC-STATE-001](#fc-state-001--saved-state-rejects-an-explicitly-selected-module-update) | Updated module rejects earlier saved state | Native state envelope / selected execution identity | causal for reference effect | reproduced installed; no repair | Ubuntu SDK reference only | blocked for cross-version recall | Separate state provenance from explicit module selection, preserve validation and vendor refusal |
+| [FC-STATE-001](#fc-state-001--saved-state-rejects-an-explicitly-selected-module-update) | Updated module rejects earlier saved state | Native state envelope / selected execution identity | causal for reference effect | source repair under installed validation | Ubuntu SDK reference only | blocked until installed successor comparison | Validate migration, orderly and abrupt failure cleanup, and normal predecessor controls |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
@@ -2203,7 +2203,17 @@ Normal history controls did not offer experimental ancestors. Their CLI
 restoration is not a complete frontend rollback pass.
 
 Understanding: causal at the native restore boundary for this exact fixture.
-Fix stage: reproduced installed, no source repair yet. Support: cross-version
+The coordinated source repair now distinguishes historical same-class restore
+from exact-snapshot/readback validation, leaves saved objects unchanged, and
+synchronizes the native controller from selected current readback. The SDK
+consumer unwinds completed lifecycle steps and uses a separate migration oracle.
+The supervisor proves exact native-generation death independently of its final
+acknowledgement, and manager history offers retained experimental predecessors.
+The new controller regression fails with the prior controller and passes with
+the repair, in both connection orders. Linux runtime tests pass (359); installed
+successor, failure and rollback comparisons remain to be run.
+
+Fix stage: source repair tested, installed validation pending. Support: cross-version
 recall blocked; real DAW and commercial update coverage unperformed. Next repair:
 preserve logical class, envelope integrity and bounded validation, retain saved
 module provenance, and allow the explicitly selected version to accept or

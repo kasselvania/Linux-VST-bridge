@@ -1,4 +1,4 @@
-//! Durable state binds only logical processor/module/content, never a session.
+//! Durable state preserves logical class and producing-module provenance, never a session.
 use crate::*;
 use sha2::{Digest, Sha256};
 #[derive(Debug)]
@@ -78,6 +78,14 @@ pub fn payload(blob: &[u8]) -> io::Result<&[u8]> {
     Ok(p)
 }
 pub fn payload_for(identity: Identity, version: u32, blob: &[u8]) -> io::Result<&[u8]> {
+    checked_payload(identity, version, blob, RestoreIdentity::ExactSnapshot)
+}
+#[derive(Clone, Copy)]
+enum RestoreIdentity {
+    ExactSnapshot,
+    SelectedSuccessor,
+}
+fn checked_payload(identity: Identity, version: u32, blob: &[u8], policy: RestoreIdentity) -> io::Result<&[u8]> {
     need(
         blob.len() >= HEADER_SIZE && blob.len() <= HEADER_SIZE + LIMIT,
         "state envelope extent",
@@ -89,7 +97,9 @@ pub fn payload_for(identity: Identity, version: u32, blob: &[u8]) -> io::Result<
         "state envelope version",
     )?;
     need(
-        blob[16..32] == identity.class && blob[32..64] == identity.module,
+        blob[16..32] == identity.class
+            && (matches!(policy, RestoreIdentity::SelectedSuccessor)
+                || blob[32..64] == identity.module),
         "state class/module mismatch",
     )?;
     need(
@@ -469,11 +479,20 @@ pub fn bound_envelope(identity: Option<Identity>, p: &[u8]) -> io::Result<Vec<u8
     }
 }
 pub fn bound_payload(identity: Option<Identity>, b: &[u8]) -> io::Result<&[u8]> {
+    commercial_envelope_payload(identity, b, RestoreIdentity::ExactSnapshot)
+}
+/// Host project restore only. Execution is already selected and admitted by
+/// the publication/session, never by this historical producing-module digest.
+/// Keep the source envelope intact; the selected vendor owns opaque migration.
+pub fn restore_payload(identity: Option<Identity>, b: &[u8]) -> io::Result<&[u8]> {
+    commercial_envelope_payload(identity, b, RestoreIdentity::SelectedSuccessor)
+}
+fn commercial_envelope_payload(identity: Option<Identity>, b: &[u8], policy: RestoreIdentity) -> io::Result<&[u8]> {
     if let Some(id) = identity {
         need(b.len() >= HEADER_SIZE, "commercial envelope header")?;
         let version = get(&b[8..12]) as u32;
         need(matches!(version, 2 | 3), "commercial envelope version")?;
-        let p = payload_for(id, version, b)?;
+        let p = checked_payload(id, version, b, policy)?;
         commercial_payload(p)?;
         need(
             (get(&p[12..16]) & 2 != 0) == (version == 3),
@@ -486,6 +505,13 @@ pub fn bound_payload(identity: Option<Identity>, b: &[u8]) -> io::Result<&[u8]> 
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap8_validate(identity: *const u8, blob: *const u8, n: u32) -> u32 {
+    validate(identity, blob, n, RestoreIdentity::ExactSnapshot)
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap8_validate_restore(identity: *const u8, blob: *const u8, n: u32) -> u32 {
+    validate(identity, blob, n, RestoreIdentity::SelectedSuccessor)
+}
+unsafe fn validate(identity: *const u8, blob: *const u8, n: u32, policy: RestoreIdentity) -> u32 {
     crate::ffi(|| {
         if identity.is_null() || blob.is_null() || n as usize > LIMIT + HEADER_SIZE {
             return 1;
@@ -495,7 +521,7 @@ pub unsafe extern "C" fn ap8_validate(identity: *const u8, blob: *const u8, n: u
             class: b[..16].try_into().unwrap(),
             module: b[16..].try_into().unwrap(),
         };
-        match bound_payload(Some(id), std::slice::from_raw_parts(blob, n as usize)) {
+        match commercial_envelope_payload(Some(id), std::slice::from_raw_parts(blob, n as usize), policy) {
             Ok(_) => 0,
             Err(e) => retain(&e),
         }
@@ -505,6 +531,39 @@ pub unsafe extern "C" fn ap8_validate(identity: *const u8, blob: *const u8, n: u
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn historical_restore_preserves_provenance_without_authorizing_another_class() {
+        let original = Identity { class: [7; 16], module: [8; 32] };
+        let selected = Identity { module: [9; 32], ..original };
+        let mut payload = vec![0; 35];
+        payload[0] = 3; payload[8] = 1; payload[12] = 2;
+        payload[16..19].copy_from_slice(b"old");
+        payload[19] = 42; payload[23] = 1;
+        payload[27..35].copy_from_slice(&0.625f64.to_le_bytes());
+        let saved = bound_envelope(Some(original), &payload).unwrap();
+        assert!(bound_payload(Some(selected), &saved).is_err());
+        assert_eq!(restore_payload(Some(selected), &saved).unwrap(), payload);
+        assert_eq!(saved[32..64], original.module);
+        let current = bound_envelope(Some(selected), &payload).unwrap();
+        assert_eq!(current[32..64], selected.module);
+        assert_ne!(saved, current);
+        assert!(restore_payload(Some(Identity { class: [6; 16], ..selected }), &saved).is_err());
+        for offset in [0, 8, 12, 16, 64, 68, 72, 104] {
+            let mut corrupt = saved.clone(); corrupt[offset] ^= 1;
+            assert!(restore_payload(Some(selected), &corrupt).is_err(), "offset {offset}");
+        }
+        for n in 0..saved.len() {
+            assert!(restore_payload(Some(selected), &saved[..n]).is_err());
+        }
+        assert!(restore_payload(Some(selected), &vec![0; HEADER_SIZE + LIMIT + 1]).is_err());
+        // The strict reference fixture/recovery path does not acquire migration.
+        assert!(restore_payload(None, &saved).is_err());
+        unsafe {
+            let id = [selected.class.as_slice(), selected.module.as_slice()].concat();
+            assert_eq!(ap8_validate_restore(id.as_ptr(), saved.as_ptr(), saved.len() as u32), 0);
+            assert_ne!(ap8_validate(id.as_ptr(), saved.as_ptr(), saved.len() as u32), 0);
+        }
+    }
     #[test]
     fn opaque_commercial_state_has_identity_integrity_and_no_gain_layout() {
         let identity = Identity {

@@ -1,5 +1,53 @@
 # Current work selection
 
+## Update-compatible state and failed-load recovery
+
+The operator's review of #204 authorizes this coordinated repair on
+`134981ca41de558632d1460d9441433c6e097510`, tree
+`745916e3353d7481875c27d1c5abcf52e2d337f5`. Retain the reusable engine and focused
+audio repairs; keep #204 draft. Freeze further graphics/runtime expansion.
+
+Basis: AGENTS.md Core product invariants, Real-time laws and Evidence requirements;
+ARCHITECTURE.md 5.7 Native Linux VST3 proxy and 18.6 General preparation and
+compatibility experimentation; INTEGRATED_BETA_DELIVERY.md Unfamiliar plug-ins
+and advanced compatibility. Primary claim: an explicitly selected same-class
+successor can interpret historical opaque state, synchronize its current values,
+and fail cleanly with normal-manager restoration of the exact predecessor.
+
+Scope: native state admission/controller synchronization, independent SDK consumer
+lifecycle and migration oracle, first-party evolving state/parameter fixtures,
+exact consumer-loss retirement, and existing manager publication-history actions.
+The producing module digest remains provenance. Exact snapshots and current
+execution/readback still require exact identities. Saved bytes never select code.
+No guessed parameter mapping, new engine, runtime/dependency change, Deck change,
+commercial compatibility claim, dependable-audio claim or beta promotion.
+
+Acceptance on the existing disposable Ubuntu fixture and pinned managed runtime:
+same-version instrument/effect recall; compatible cross-version restore with a
+changed schema/parameter inventory; truthful migrated capture and reopen; both
+connected and preconnection controller synchronization; wrong-class/corrupt/large
+state admission refusal; vendor refusal and partial restore failure; orderly SDK
+teardown and abrupt native loss as separate cases; exact predecessor restoration
+through normal offered controls, preserving supported buffering. Compare actual
+returned samples and meaningful values. Preserve old saved objects and healthy
+siblings. Cleanup must retire exact process/transport ownership without reboot
+or deleting uncertainty records. Retain original failed runs and exact artifacts.
+
+Use one bounded builder or VM at a time under the existing CPU/memory limits;
+leave Audiobookshelf capacity and the frozen Deck installation intact. Source
+rollback is commit reversion; installed rollback uses supported exact selection.
+After this repair, return to interaction/soak testing on one frozen Deck artifact.
+
+Source progress: distinct historical/exact state APIs, current controller
+readback, lifecycle-aware SDK cleanup/migration checks, kernel-confirmed abrupt
+consumer retirement, and experimental predecessor actions are implemented.
+The controller regression fails against the prior controller and passes in both
+connection orders after repair. All 359 runtime tests pass with a reaping test
+runner and correct source ownership. Native state/controller tests and the SDK
+consumer compile. This is source evidence; installed migration/refusal/recovery
+acceptance is still pending.
+
+
 ## General preparation and compatibility experimentation
 
 The operator rejected the per-plug-in prebuilt catalogue restriction, authorized

@@ -470,8 +470,23 @@ fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
             sha256: digest(&path)?,
         };
         let r = m.load_revision(key, &reference)?;
-        let ordinary =
-            r.qualification.is_none() && r.profile.claim == profiles::Claim::VerifiedExactFixture;
+        let retained_user_selection =
+            (r.qualification.is_none() && r.profile.claim == profiles::Claim::VerifiedExactFixture)
+            || r.qualification == Some(publication::Qualification::ManagedExperimental);
+        let buffering = m.performance(key)?.added_frames;
+        let rollback_unavailable = if buffering == 1024 {
+            match preparation::build::revision_maximum_bridge_frames(m, &r) {
+                Ok(Some(1024)) => None,
+                Ok(_) => Some("This version cannot retain the selected 1024-frame buffering. Select supported buffering before restoring it.".into()),
+                Err(_) => Some("The retained version's buffering capability could not be verified.".into()),
+            }
+        } else { None };
+        let graphics = if r.registration.compatibility.graphics.is_some() {
+            "Wine D3D11 graphics"
+        } else { "default graphics" };
+        let description = format!("{} · version {} · {} · {}-frame bridge buffering{}",
+            r.profile.class.name, r.profile.class.version, graphics, buffering,
+            if rollback_unavailable.is_none() { " retained" } else { " unavailable" });
         result.push(ui::History {
             revision: r.profile.revision,
             claim: serde_json::to_value(r.profile.claim)?
@@ -481,7 +496,8 @@ fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
             publication: r.id.clone(),
             active: entry.publication == Publication::Published
                 && entry.managed_revision.as_ref() == Some(&reference),
-            rollback_allowed: ordinary && ancestors.contains(&r.id),
+            rollback_allowed: retained_user_selection && ancestors.contains(&r.id),
+            description, rollback_unavailable,
         });
     }
     result.sort_by_key(|r| r.revision);
@@ -768,9 +784,9 @@ fn project_current_product(m: &Manager, captured: &current::CurrentOverviewConte
         product.history = history(m, class, entry)?;
         for prior in &product.history {
             if prior.rollback_allowed && !prior.active {
-                product.actions.push(action(&format!("Roll back to revision {}",prior.revision),
+                product.actions.push(action(&format!("Restore {}",prior.description),
                     ui::Action::OrdinaryRollback {class_id:class.into(),
-                        publication:prior.publication.clone()}, captured.busy));
+                        publication:prior.publication.clone()}, captured.busy.or(prior.rollback_unavailable.as_deref())));
             }
         }
         if captured.profiles.iter().any(|profile|
@@ -978,12 +994,12 @@ fn snapshot_readonly_depth(
         for h in &hist {
             if h.rollback_allowed && !h.active {
                 actions.push(action(
-                    &format!("Roll back to revision {}", h.revision),
+                    &format!("Restore {}", h.description),
                     ui::Action::OrdinaryRollback {
                         class_id: p.class_id.clone(),
                         publication: h.publication.clone(),
                     },
-                    busy,
+                    busy.or(h.rollback_unavailable.as_deref()),
                 ));
             }
         }

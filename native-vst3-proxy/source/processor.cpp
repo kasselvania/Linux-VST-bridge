@@ -264,6 +264,24 @@ void Processor::stateFailure(const char *operation, const char *stage) {
   if (n > 0 && static_cast<size_t>(n) < sizeof(text))
     diagnostic_report(report_path_, text, static_cast<size_t>(n));
 }
+tresult PLUGIN_API Processor::connect(IConnectionPoint *peer) {
+  auto result = AudioEffect::connect(peer);
+#ifdef AP8_PREVIEW
+  if (result == kResultOk) {
+    // Either half may connect first. The controller pulls current state only
+    // once both directions exist; no saved mirror or second session is used.
+    auto *message = allocateMessage();
+    result = kResultFalse;
+    if (message) {
+      message->setMessageID("AP8.connected");
+      result = sendMessage(message);
+      message->release();
+    }
+    if (result != kResultOk) AudioEffect::disconnect(peer);
+  }
+#endif
+  return result;
+}
 tresult PLUGIN_API Processor::getState(IBStream *stream) {
   if (!preview_)
     return kNotImplemented;
@@ -332,7 +350,7 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
 #endif
     if (!LVBState::readEnvelope(stream, blob) ||
 #ifdef AP8_PREVIEW
-        ap8_validate(AP8::identity,blob.data(),static_cast<uint32_t>(blob.size())))
+        ap8_validate_restore(AP8::identity,blob.data(),static_cast<uint32_t>(blob.size())))
 #else
         ap4_validate(blob.data(), static_cast<uint32_t>(blob.size()), &restored))
 #endif

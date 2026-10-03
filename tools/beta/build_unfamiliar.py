@@ -29,6 +29,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--sdk', type=pathlib.Path, required=True)
     parser.add_argument('--output', type=pathlib.Path, required=True)
+    parser.add_argument('--evolve-generation', help='Existing first-party identity; build schema/parameter migration and refusal successors')
     parser.add_argument('--frozen-package-sha256', required=True)
     parser.add_argument('--frozen-engine-sha256', required=True)
     args = parser.parse_args()
@@ -44,7 +45,9 @@ def main():
     git = lambda *values: subprocess.check_output(['git', '-C', str(ROOT), *values]).strip()
     if git('status', '--porcelain'):
         raise ValueError('Commit the fixture generator before running it')
-    generation = uuid.uuid4().hex[:8].upper()
+    generation = args.evolve_generation or uuid.uuid4().hex[:8].upper()
+    if not re.fullmatch('[0-9A-F]{8}',generation):
+        raise ValueError('Exact first-party generation required')
     if generation == '45544131':
         raise ValueError('Generated identity collides with the original fixture')
     original = (ROOT / 'windows-fixtures/beta/stateful.cpp').read_text()
@@ -56,7 +59,7 @@ def main():
         reference_source_sha256=sha(ROOT / 'windows-fixtures/beta/stateful.cpp'),
         frozen_package_sha256=args.frozen_package_sha256,
         frozen_engine_sha256=args.frozen_engine_sha256,
-        generation=generation, revisions=[])
+        generation=generation, evolving_contract=bool(args.evolve_generation), revisions=[])
     with tempfile.TemporaryDirectory(prefix='lvb-unfamiliar-') as tmp:
         work = pathlib.Path(tmp)
         source, build = work / 'source', work / 'build'
@@ -68,9 +71,11 @@ def main():
             '-G', 'Visual Studio 17 2022', '-A', 'x64', '-T', 'v143',
             '-DCMAKE_SYSTEM_VERSION=10.0.19041.0', '-DWF0_BUILD_ONLY=ON',
             '-DWF0_VST3_SDK_ROOT:PATH=' + str(sdk)], check=True, timeout=120)
-        for revision in (1, 2):
+        for revision in ((3,4,5) if args.evolve_generation else (1,2)):
             version = f'1.0.{revision}'
             generated = original.replace('0x45544131', '0x' + generation)
+            if args.evolve_generation:
+                generated = f'#define LVB_BETA_STATE_VERSION 2\n#define LVB_BETA_RESTORE_POLICY {revision-3}\n' + generated
             generated = generated.replace('"1.0.0"', '"' + version + '"')
             generated = generated.replace('LVB Reference ', 'LVB Unfamiliar ')
             generated_path = source / 'windows-fixtures/beta/stateful.cpp'
@@ -82,7 +87,10 @@ def main():
             binaries = build / 'wf0/bin/Release'
             destination = args.output / version
             destination.mkdir()
-            row = dict(version=version, generated_source_sha256=sha(generated_path),
+            row = dict(version=version, state_schema=2 if args.evolve_generation else 1,
+                       parameter_ids=[0,1,17] if args.evolve_generation else [0,1],
+                       restore_policy=(revision-3) if args.evolve_generation else 0,
+                       generated_source_sha256=sha(generated_path),
                        modules=[], contract_tests=[])
             for role in ('instrument', 'effect'):
                 test = subprocess.check_output([str(binaries / f'lvb-reference-{role}-tests.exe')], timeout=30)

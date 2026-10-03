@@ -1016,36 +1016,72 @@ def session_preflight(spec):
     command(spec);env=environment(reg,spec.get('graphical_session'))
     managed_home(spec,env);transport_environment(spec,env);delivery_trace(spec,env)
 
-def prelaunch_owned_failure(spec,peer,error):
-    """Retire an exposed native transport when Windows ownership never began."""
-    sid=spec['session'];report=pathlib.Path(spec['report']);released=peer is None
-    directories_retired=False;retirement_error=None
+def native_generation_ended(spec,proc_root=pathlib.Path('/proc')):
+    """Positive kernel evidence for the socket-authenticated native generation.
+
+    Missing/denied/malformed ownership is unknown, never permission to erase a
+    reservation. A vanished PID, reused PID or zombie proves the original
+    process no longer owns an address space. Socket EOF is checked separately.
+    """
+    peer=spec.get('graphical_session') or {}
+    pid,start=peer.get('peer_pid'),peer.get('peer_start_ticks')
+    if type(pid) is not int or pid<=0 or type(start) is not int or start<=0:return False
     try:
-        session_directories(spec)
+        raw=(proc_root/str(pid)/'stat').read_text()
+        actual,separator,_=raw.partition(' (');fields=raw.rsplit(')',1)[1].split()
+        if not separator or int(actual)!=pid:return False
+        return int(fields[19])!=start or fields[0]=='Z'
+    except (FileNotFoundError,ProcessLookupError):return True
+    except (OSError,ValueError,IndexError):return False
+
+def retire_native_transport(spec,peer,failure=False):
+    """Windows owners must already be retired. Release only this session.
+
+    A live consumer must half-close and receive R. A dead authenticated native
+    generation cannot receive R: EOF plus kernel death and retired directories
+    establishes containment independently of polite SDK teardown.
+    """
+    result={'transport_retired':False}
+    try:
         if peer is not None:
             peer.setblocking(False)
-            peer.sendall(b'F')
+            if failure:
+                try:peer.sendall(b'F')
+                except (BrokenPipeError,ConnectionResetError):pass
             end=time.monotonic()+10
-            while time.monotonic()<end:
+            while True:
                 try:
-                    if peer.recv(1)==b'':released=True;break
+                    if peer.recv(1)==b'':break
                     raise RuntimeError('unexpected native owner bytes')
-                except BlockingIOError:time.sleep(.02)
-            if not released:raise TimeoutError('native owner release deadline')
-        retire_directories(spec);directories_retired=True
+                except BlockingIOError:
+                    if time.monotonic()>=end:raise TimeoutError('native owner release deadline')
+                    time.sleep(.02)
+                except ConnectionResetError:
+                    if native_generation_ended(spec):break
+                    raise
+        retire_directories(spec)
         if peer is not None:
-            peer.settimeout(5);peer.sendall(b'R')
-    except Exception as exc:
-        retirement_error=type(exc).__name__+': '+str(exc)[:256]
-    retired=directories_retired and (peer is None or retirement_error is None)
+            try:peer.settimeout(5);peer.sendall(b'R')
+            except OSError as error:
+                if not native_generation_ended(spec):raise
+                result['native_retirement_basis']='authenticated_process_generation_ended'
+                result['retirement_ack_error']=type(error).__name__+': '+str(error)[:256]
+        result['transport_retired']=True
+    except Exception as error:
+        result['retirement_error']=type(error).__name__+': '+str(error)[:256]
+    return result
+
+def prelaunch_owned_failure(spec,peer,error):
+    """Retire an exposed native transport when Windows ownership never began."""
+    sid=spec['session'];report=pathlib.Path(spec['report'])
+    retirement=retire_native_transport(spec,peer,True)
     outcome={'vendor_retirement':None,'transport_storage':spec.get('transport'),
       'fault_status':None,'fault_reporting_error':None,'ownership_schema':1,
       'session':sid,'records':[],'exit_before_cleanup':None,'raw_exit':None,
       'error':'prelaunch_owner_failure: '+type(error).__name__+': '+str(error)[:256],
       'cleanup_confirmed':True,'gated':False,
       'discarded_diagnostic_bytes':{'vendor':0,'stderr':0},'vendor_stdout':'','stderr':'',
-      'transport_retired':retired}
-    if retirement_error is not None:outcome['retirement_error']=retirement_error
+      **retirement}
     atomic(report,outcome)
     receipt={k:outcome.get(k,False) for k in ('session','cleanup_confirmed','transport_retired')}
     receipt['reporting_error']=None
@@ -1587,30 +1623,7 @@ def run_owned(spec,peer,stop_requested):
         try:atomic(report,outcome)
         except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
     if clean:
-        retired=peer is None or disconnected is not None
-        if peer is not None and not retired:
-            # Wake the native transport accept/worker on early Windows failure.
-            # Never acknowledge retirement until the native owner releases it.
-            try:
-                if failure:peer.sendall(b'F')
-                end=time.monotonic()+10
-                while time.monotonic()<end:
-                    if native_released():retired=True;break
-                    time.sleep(.02)
-            except OSError:pass
-        outcome['transport_retired']=retired
-        if retired:
-            # Only this random, private session is removed. Reports live outside
-            # it; no environment, vendor, publication or sibling path is touched.
-            try:retire_directories(spec)
-            except (OSError,RuntimeError) as e:
-                outcome['transport_retired']=False
-                outcome['retirement_error']=type(e).__name__+': '+str(e)[:256]
-            if outcome['transport_retired'] and peer is not None:
-                try:peer.settimeout(5);peer.sendall(b'R')
-                except OSError as e:
-                    outcome['transport_retired']=False
-                    outcome['retirement_error']=type(e).__name__+': '+str(e)[:256]
+        outcome.update(retire_native_transport(spec,peer,bool(failure)))
         try:atomic(report,outcome)
         except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
     if retirement_ready is not None and clean and outcome.get('transport_retired') and not failure:

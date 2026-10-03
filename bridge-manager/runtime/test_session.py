@@ -1736,6 +1736,57 @@ class SupervisorOwnershipBoundaryTests(SupervisorFixture,unittest.TestCase):
             self.assertEqual(result,json.loads(pathlib.Path(spec['report']).read_text()))
             launch.assert_not_called()
 
+    @unittest.skipUnless(sys.platform=='linux','Linux native generation proof')
+    def test_abrupt_native_exit_retires_exact_transport_without_ack(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp));owner,native=socket.socketpair()
+            sibling=pathlib.Path(tmp)/'sibling';sibling.mkdir();(sibling/'keep').write_bytes(b'unchanged')
+            child=subprocess.Popen([sys.executable,'-c',
+                'import sys;sys.stdout.write("ready\\n");sys.stdout.flush();sys.stdin.read()'],
+                pass_fds=(native.fileno(),),stdin=subprocess.PIPE,stdout=subprocess.PIPE)
+            try:
+                self.assertEqual(child.stdout.readline(),b'ready\n')
+                identity=session.IncidentCapture.identity(child.pid)
+                spec['graphical_session']={'schema':1,'peer_pid':child.pid,'peer_start_ticks':identity['start_ticks']}
+                native.close();child.kill();child.wait(timeout=5)
+                result=session.retire_native_transport(spec,owner,True)
+                self.assertTrue(result['transport_retired'])
+                self.assertEqual(result['native_retirement_basis'],'authenticated_process_generation_ended')
+                self.assertIn('BrokenPipeError',result['retirement_ack_error'])
+                self.assertFalse(durable.exists());self.assertEqual((sibling/'keep').read_bytes(),b'unchanged')
+            finally:
+                owner.close();native.close()
+                if child.poll() is None:child.kill();child.wait(timeout=5)
+                child.stdin.close();child.stdout.close()
+
+    def test_unknown_native_generation_cannot_turn_lost_ack_into_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp));owner,native=socket.socketpair();native.close()
+            try:
+                result=session.retire_native_transport(spec,owner,True)
+                self.assertFalse(result['transport_retired'])
+                self.assertIn('BrokenPipeError',result['retirement_error'])
+                self.assertNotIn('native_retirement_basis',result)
+            finally:owner.close()
+
+    def test_generation_proof_distinguishes_live_unknown_and_ended(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);process=root/'42';process.mkdir()
+            spec={'graphical_session':{'peer_pid':42,'peer_start_ticks':19}}
+            fields=['S']+['0']*18+['19']
+            (process/'stat').write_text('42 (native (host)) '+' '.join(fields))
+            self.assertFalse(session.native_generation_ended(spec,root))
+            fields[0]='Z';(process/'stat').write_text('42 (native) '+' '.join(fields))
+            self.assertTrue(session.native_generation_ended(spec,root))
+            fields[0]='S';fields[19]='20';(process/'stat').write_text('42 (reused) '+' '.join(fields))
+            self.assertTrue(session.native_generation_ended(spec,root))
+            (process/'stat').write_text('malformed')
+            self.assertFalse(session.native_generation_ended(spec,root))
+            (process/'stat').unlink();self.assertTrue(session.native_generation_ended(spec,root))
+            self.assertFalse(session.native_generation_ended({},root))
+            with patch.object(pathlib.Path,'read_text',side_effect=PermissionError('unknown')):
+                self.assertFalse(session.native_generation_ended(spec,root))
+
     def test_failed_retirement_ack_never_publishes_positive_transport_retirement(self):
         class RefuseRetirementAck:
             def __init__(self,peer):self.peer=peer

@@ -17,6 +17,7 @@
 #include <cmath>
 #include <dlfcn.h>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <stdexcept>
 #include <thread>
@@ -52,6 +53,52 @@ void save(const std::string& path,const LVBState::Stream& stream) {
     file.write(reinterpret_cast<const char*>(stream.bytes.data()),std::streamsize(stream.bytes.size()));
     file.flush();need(bool(file),"saved state write");
 }
+// Own only completed SDK lifecycle steps. The audio thread is declared after
+// its borrowed storage and is joined before this owner's destruction.
+struct Lifecycle {
+    IPtr<IComponent> component;
+    IPtr<IEditController> controller;
+    FUnknownPtr<IAudioProcessor> processor;
+    FUnknownPtr<IConnectionPoint> cp,cc;
+    bool componentInitialized=false,controllerInitialized=false;
+    bool componentConnected=false,controllerConnected=false,active=false,finished=false,clean=true;
+    std::function<void(bool)> unload;
+    ~Lifecycle() { finish(); }
+    bool finish() noexcept {
+        if(finished) return clean;
+        finished=true;
+        auto call=[&](bool completed,auto operation) -> tresult {
+            if(!completed) return kResultOk;
+            try {auto result=operation();if(result!=kResultOk) clean=false;return result;}
+            catch(...) {clean=false;return kInternalError;}
+        };
+        auto deactivate=call(active,[&]{return component->setActive(false);});
+        auto controllerDisconnect=call(controllerConnected,[&]{return cc->disconnect(cp);});
+        auto componentDisconnect=call(componentConnected,[&]{return cp->disconnect(cc);});
+        auto terminate=call(componentInitialized,[&]{return component->terminate();});
+        auto controllerTerminate=call(controllerInitialized,[&]{return controller->terminate();});
+        // If an SDK owner refuses termination, retain the image until process
+        // exit. A failed cleanup must not unload code still owning objects.
+        if(clean) {cc=nullptr;cp=nullptr;processor=nullptr;controller=nullptr;component=nullptr;}
+        if(unload) unload(clean);
+        std::cout<<"{\"event\":\"host_retired\",\"deactivate_result\":"<<deactivate
+                 <<",\"component_disconnect_result\":"<<componentDisconnect
+                 <<",\"controller_disconnect_result\":"<<controllerDisconnect
+                 <<",\"terminate_result\":"<<terminate
+                 <<",\"controller_terminate_result\":"<<controllerTerminate
+                 <<",\"module_unloaded\":"<<(clean?"true":"false")<<"}"<<std::endl;
+        return clean;
+    }
+};
+struct ProcessingStop {
+    IAudioProcessor& processor;
+    std::exception_ptr& failure;
+    bool started=false;
+    ~ProcessingStop() {
+        if(started) try {ok(callback([&]{return processor.setProcessing(false);}),"processing stop");}
+        catch(...) {if(!failure) failure=std::current_exception();}
+    }
+};
 void synchronize(IEditController& controller,LVBState::Stream& state,double gain,double colour) {
     state.position=0;ok(controller.setComponentState(&state),"component/controller synchronization");
     need(controller.getParamNormalized(0)==gain&&controller.getParamNormalized(1)==colour,"recognizable state readback");
@@ -59,10 +106,15 @@ void synchronize(IEditController& controller,LVBState::Stream& state,double gain
 }
 int main(int argc,char** argv) {
     try {
-        need(argc==8,"usage: lifecycle-host BUNDLE instrument|effect record|recall STATE_PREFIX FRAMES NATIVE_PROCESSOR_ID NATIVE_CONTROLLER_ID");
+        need(argc==8||argc==9,"usage: lifecycle-host BUNDLE instrument|effect record|recall|migrate|recall-disconnected|migrate-disconnected|abrupt STATE_PREFIX FRAMES NATIVE_PROCESSOR_ID NATIVE_CONTROLLER_ID [CAPTURE_PREFIX]");
         bool instrument=std::string(argv[2])=="instrument",record=std::string(argv[3])=="record";
         need(instrument||std::string(argv[2])=="effect","fixture role");
-        need(record||std::string(argv[3])=="recall","fixture mode");
+        const std::string mode=argv[3];
+        const bool migrate=mode=="migrate"||mode=="migrate-disconnected";
+        const bool disconnected=mode=="recall-disconnected"||mode=="migrate-disconnected";
+        const bool abrupt=mode=="abrupt";
+        need(record||mode=="recall"||mode=="recall-disconnected"||migrate||abrupt,"fixture mode");
+        need(!migrate||argc==9,"migration needs a separate capture destination");
         const int frames=std::stoi(argv[5]);need(frames==1008||frames==1024,"declared callback sizes");
         const std::string prefix=argv[4];
         auditBegin=reinterpret_cast<Mark>(dlsym(RTLD_DEFAULT,"ap3_audit_begin"));
@@ -79,28 +131,46 @@ int main(int argc,char** argv) {
         auto classes=module->getFactory().classInfos();need(classes.size()==2,"exact two-class fixture factory");
         need(classes[0].ID().toString()==argv[6],"exact native processor class");
         need(classes[1].ID().toString()==argv[7],"exact native controller class");
-        auto component=module->getFactory().createInstance<IComponent>(classes[0].ID());need(bool(component),"component factory");
-        ok(component->initialize(host),"component initialize");
-        FUnknownPtr<IAudioProcessor> processor(component);need(bool(processor),"processor interface");
+        Lifecycle life;
+        life.unload=[&](bool clean) {
+            if(clean) {host=nullptr;module.reset();}
+            else {[[maybe_unused]] auto* retained=new decltype(module)(std::move(module));}
+        };
+        auto& component=life.component;auto& controller=life.controller;
+        auto& processor=life.processor;auto& cp=life.cp;auto& cc=life.cc;
+        component=module->getFactory().createInstance<IComponent>(classes[0].ID());need(bool(component),"component factory");
+        ok(component->initialize(host),"component initialize");life.componentInitialized=true;
+        processor=FUnknownPtr<IAudioProcessor>(component);need(bool(processor),"processor interface");
         TUID controllerId{};ok(component->getControllerClassId(controllerId),"controller identity");
         char8 controllerText[33]{};FUID(controllerId).toString(controllerText);
         need(classes[1].ID().toString()==controllerText,"exact controller factory identity");
-        auto controller=module->getFactory().createInstance<IEditController>(classes[1].ID());need(bool(controller),"controller factory");
-        ok(controller->initialize(host),"controller initialize");
-        FUnknownPtr<IConnectionPoint> cp(component),cc(controller);need(cp&&cc,"connection interfaces");
-        ok(cp->connect(cc),"component connect");ok(cc->connect(cp),"controller connect");
+        controller=module->getFactory().createInstance<IEditController>(classes[1].ID());need(bool(controller),"controller factory");
+        ok(controller->initialize(host),"controller initialize");life.controllerInitialized=true;
+        cp=FUnknownPtr<IConnectionPoint>(component);cc=FUnknownPtr<IConnectionPoint>(controller);need(cp&&cc,"connection interfaces");
+        auto connect=[&] {
+            if(disconnected) {ok(cc->connect(cp),"controller connect");life.controllerConnected=true;}
+            ok(cp->connect(cc),"component connect");life.componentConnected=true;
+            if(!disconnected) {ok(cc->connect(cp),"controller connect");life.controllerConnected=true;}
+        };
+        if(!disconnected) connect();
         ParameterInfo first{},second{};
-        need(controller->getParameterCount()==2,"exact fixture parameters");
+        const auto parameterCount=controller->getParameterCount();
+        need(parameterCount==2||parameterCount==3,"declared fixture parameters");
+        if(parameterCount==3) {ParameterInfo added{};ok(controller->getParameterInfo(2,added),"added parameter metadata");need(added.id==17,"stable added parameter identity");}
         ok(controller->getParameterInfo(0,first),"level metadata");ok(controller->getParameterInfo(1,second),"colour metadata");
         need(first.id==0&&second.id==1,"parameter identities");
         stage="initialized_state";LVBState::Stream initial;
         ok(component->getState(&initial),"state before processing");synchronize(*controller,initial,.25,.5);
         std::cout<<"{\"event\":\"initialized_state\",\"bytes\":"<<initial.bytes.size()<<",\"elapsed_ms\":"<<std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now()-at).count()<<"}"<<std::endl;
         double initialGain=.25,initialColour=.5;
+        if(abrupt) {std::cout<<"{\"event\":\"abrupt_exit\",\"sdk_teardown\":false}"<<std::endl;std::_Exit(23);}
         if(!record) {
             stage="restore";LVBState::Stream saved(load(prefix+".component"));
             ok(component->setState(&saved),"component restore");
-            synchronize(*controller,saved,.625,.125);
+            saved.position=0;ok(controller->setComponentState(&saved),"component/controller synchronization");
+            if(disconnected) connect();
+            need(controller->getParamNormalized(0)==.625&&controller->getParamNormalized(1)==.125,"migrated current controller values");
+            if(parameterCount==3) need(controller->getParamNormalized(17)==.75,"new parameter comes from vendor migration, not descriptor default");
             LVBState::Stream control(load(prefix+".controller"));ok(controller->setState(&control),"controller restore");
             need(controller->getParamNormalized(0)==.625&&controller->getParamNormalized(1)==.125,"restored controller values");
             initialGain=.625;initialColour=.125;
@@ -112,7 +182,7 @@ int main(int argc,char** argv) {
         if(!instrument) ok(component->activateBus(kAudio,kInput,0,true),"audio input active");
         else ok(component->activateBus(kEvent,kInput,0,true),"notes active");
         ok(component->activateBus(kAudio,kOutput,0,true),"audio output active");
-        stage="activation";ok(component->setActive(true),"Windows activation");
+        stage="activation";ok(component->setActive(true),"Windows activation");life.active=true;
         const auto latency=processor->getLatencySamples();need(latency==1024,"declared existing buffering");
         std::cout<<"{\"event\":\"activated\",\"latency_samples\":"<<latency<<",\"elapsed_ms\":"<<std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now()-at).count()<<"}"<<std::endl;
         std::atomic<int> blocks{0};std::atomic<bool> audioDone{false};std::exception_ptr audioFailure;
@@ -124,19 +194,19 @@ int main(int argc,char** argv) {
         std::array<Timing,count> timing{};
         Clock::time_point audioBegin;
         uint64_t audioBeginUnixNs=0;
-        std::thread audio([&]{try {
+        std::jthread audio([&]{ProcessingStop stop{*processor,audioFailure};try {
             std::array<std::array<float,1024>,2> input{},output{};
             float* in[]{input[0].data(),input[1].data()};float* out[]{output[0].data(),output[1].data()};
             AudioBusBuffers ib{},ob{};ib.numChannels=ob.numChannels=2;ib.channelBuffers32=in;ob.channelBuffers32=out;
-            ParameterChanges parameters(2);EventList notes(2);
+            ParameterChanges parameters(3);EventList notes(2);
             ProcessData data{};data.processMode=kRealtime;data.symbolicSampleSize=kSample32;data.numSamples=frames;
             data.numInputs=instrument?0:1;data.inputs=instrument?nullptr:&ib;data.numOutputs=1;data.outputs=&ob;
             data.inputParameterChanges=&parameters;data.inputEvents=instrument?&notes:nullptr;
             std::vector<std::array<float,2>> expected(size_t(count*frames+latency));
-            double gain=initialGain,colour=initialColour,phase=0.;bool voice=false;
+            double gain=initialGain,colour=initialColour,trim=record?.25:.75,phase=0.;bool voice=false;
             const double tau=6.2831853071795864769,increment=tau*440./48000.;
             input[0].fill(.25f);input[1].fill(-.125f);
-            ok(callback([&]{return processor->setProcessing(true);}),"processing start");
+            ok(callback([&]{return processor->setProcessing(true);}),"processing start");stop.started=true;
             auto begin=Clock::now();
             audioBegin=begin;
             audioBeginUnixNs=uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -150,7 +220,10 @@ int main(int argc,char** argv) {
                     ok(queue->addPoint(37,.5,point),"gain automation middle");
                     ok(queue->addPoint(1007,.625,point),"gain automation whole block");
                 }
-                if(record&&b==5) ok(parameters.addParameterData(1,index)->addPoint(49,.125,point),"colour automation");
+                if(record&&b==5) {
+                    ok(parameters.addParameterData(1,index)->addPoint(49,.125,point),"colour automation");
+                    if(parameterCount==3) ok(parameters.addParameterData(17,index)->addPoint(49,.75,point),"added parameter automation");
+                }
                 if(instrument&&(b==3||b==350)) {
                     Event event{};event.busIndex=0;event.sampleOffset=b==3?7:43;
                     event.type=b==3?Event::kNoteOnEvent:Event::kNoteOffEvent;
@@ -159,14 +232,15 @@ int main(int argc,char** argv) {
                 }
                 for(int i=0;i<frames;++i) {
                     if(record&&b==4) {if(i==7) gain=.75;if(i==37) gain=.5;if(i==1007) gain=.625;}
-                    if(record&&b==5&&i==49) colour=.125;
+                    if(record&&b==5&&i==49) {colour=.125;trim=.75;}
                     if(instrument&&b==3&&i==7) {voice=true;phase=0.;}
                     if(instrument&&b==350&&i==43) voice=false;
                     double signal=voice?double(.8f)*(std::sin(phase)+colour*.5*std::sin(phase*2.)):0.;
                     if(voice) phase=std::fmod(phase+increment,tau);
                     auto& e=expected[size_t(b*frames+i+latency)];
-                    e=instrument?std::array<float,2>{float(gain*signal/16.),float(gain*signal/16.)}
-                                :std::array<float,2>{float(gain*.25*(.5+colour)),float(gain*-.125*(.5+colour))};
+                    const auto factor=parameterCount==3?.75+trim:1.;
+                    e=instrument?std::array<float,2>{float(factor*gain*signal/16.),float(factor*gain*signal/16.)}
+                                :std::array<float,2>{float(factor*gain*.25*(.5+colour)),float(factor*gain*-.125*(.5+colour))};
                 }
                 const auto scheduledNs=uint64_t(b)*uint64_t(frames)*1000000000ULL/48000;
                 std::this_thread::sleep_until(begin+std::chrono::nanoseconds(scheduledNs));
@@ -186,7 +260,6 @@ int main(int argc,char** argv) {
                 row.mismatches=mismatches-priorMismatches;
                 blocks.store(b+1,std::memory_order_release);
             }
-            ok(callback([&]{return processor->setProcessing(false);}),"processing stop");
         } catch(...) {audioFailure=std::current_exception();}audioDone.store(true,std::memory_order_release);});
         LVBState::Stream captured,control;std::exception_ptr captureFailure;
         while(blocks.load(std::memory_order_acquire)<96&&!audioDone.load(std::memory_order_acquire)) std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -195,7 +268,7 @@ int main(int argc,char** argv) {
             auto captureAt=Clock::now();const auto captureBeginBlock=blocks.load(std::memory_order_acquire);
             ok(component->getState(&captured),"state during processing");
             synchronize(*controller,captured,.625,.125);ok(controller->getState(&control),"controller state capture");
-            if(!record) {
+            if(!record&&!migrate) {
                 need(captured.bytes==load(prefix+".component"),"byte-identical component state roundtrip");
                 need(control.bytes==load(prefix+".controller"),"byte-identical controller state roundtrip");
             }
@@ -216,17 +289,16 @@ int main(int argc,char** argv) {
         std::cout<<"]}"<<std::endl;
         std::cout<<"{\"event\":\"audio\",\"role\":\""<<(instrument?"instrument":"effect")<<"\",\"frames_per_callback\":"<<frames<<",\"blocks\":"<<blocks<<",\"compared_samples\":"<<uint64_t(blocks)*uint64_t(frames)*2<<",\"mismatches\":"<<mismatches<<",\"nonfinite\":"<<nonfinite<<",\"nonzero\":"<<nonzero<<",\"max_error\":"<<maxError<<",\"rejected_callbacks\":"<<rejected<<",\"callback_max_ns\":"<<maxNs<<",\"callback_overruns\":"<<overruns<<",\"callback_audited\":"<<(auditBegin?"true":"false")<<"}"<<std::endl;
         stage="retirement";
-        if(audioFailure) processor->setProcessing(false);
-        auto deactivate=component->setActive(false);
-        ok(cc->disconnect(cp),"controller disconnect");ok(cp->disconnect(cc),"component disconnect");cc=nullptr;cp=nullptr;
-        auto terminate=component->terminate();processor=nullptr;component=nullptr;
-        auto controlTerminate=controller->terminate();controller=nullptr;host=nullptr;module.reset();
-        std::cout<<"{\"event\":\"host_retired\",\"deactivate_result\":"<<deactivate<<",\"terminate_result\":"<<terminate<<",\"controller_terminate_result\":"<<controlTerminate<<",\"module_unloaded\":true}"<<std::endl;
-        if(audioFailure) std::rethrow_exception(audioFailure);
-        if(captureFailure) std::rethrow_exception(captureFailure);
-        ok(deactivate,"deactivate");ok(terminate,"component terminate");ok(controlTerminate,"controller terminate");
+        auto retired=life.finish();
+        if(audioFailure) {stage="processing";std::rethrow_exception(audioFailure);}
+        if(captureFailure) {stage="processing_state";std::rethrow_exception(captureFailure);}
+        need(retired,"SDK lifecycle cleanup failed");
         need(mismatches==0&&nonfinite==0&&rejected==0&&nonzero>0,"exact installed audio comparison");
-        if(record) {save(prefix+".component",captured);save(prefix+".controller",control);}
+        if(record||migrate) {
+            const std::string destination=migrate?argv[8]:prefix;
+            need(!migrate||destination!=prefix,"original saved object must remain unchanged");
+            save(destination+".component",captured);save(destination+".controller",control);
+        }
         std::cout<<"{\"event\":\"passed\",\"claim\":\"installed_sdk_development_regression\",\"real_daw_project_claim\":false}"<<std::endl;
         return 0;
     }catch(const std::exception& error) {

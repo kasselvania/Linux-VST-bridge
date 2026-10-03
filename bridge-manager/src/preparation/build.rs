@@ -40,7 +40,7 @@ pub fn maximum_bridge_frames(m: &Manager, r: &Registration) -> Result<Option<u32
 }
 /// Rollback validates the target ancestor's capacity before selecting it. The
 /// currently selected revision cannot stand in for that ancestor's recipe.
-pub(crate) fn revision_maximum_bridge_frames(m: &Manager, r: &Revision) -> Result<Option<u32>> {
+pub fn revision_maximum_bridge_frames(m: &Manager, r: &Revision) -> Result<Option<u32>> {
     if let Some(maximum) = current_kit_maximum(m, &r.registration)? { return Ok(Some(maximum)); }
     retained_maximum(m, r)
 }

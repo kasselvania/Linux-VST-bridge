@@ -14,6 +14,8 @@ on:
       - 'tools/mf3/**'
       - 'tools/ap10-tests/**'
       - 'tools/ap11-tests/**'
+      - 'tools/beta/lifecycle_host.cpp'
+      - 'tools/beta/build_lifecycle_host.sh'
       - 'windows-factory-probe/source/*.h'
 permissions:
   contents: read
@@ -51,6 +53,8 @@ jobs:
             -DAP8_DESCRIPTOR="$PWD/native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h"
           cmake --build "${{ runner.temp }}/ap10-build" --target \
             ap10-result-lifetime ap10-results-tests ap18-whole-block-tests ap18-auxiliary-input ap11-native-tests ap11-state-tests ap11-panel-tests ap11-activation-tests ap3-callback-audit CommercialInstrumentBridge -j 4
+      - name: Compile independent installed lifecycle consumer
+        run: sh tools/beta/build_lifecycle_host.sh "${{ runner.temp }}/ap10-sdk" "${{ runner.temp }}/ap10-build/lib/Release" "${{ runner.temp }}/lifecycle-tools"
       - name: Test shallow host lifetime and existing collector behavior
         run: ctest --test-dir "${{ runner.temp }}/ap10-build/native-vst3-proxy" --verbose
       - name: Build reusable engine before choosing plug-in metadata

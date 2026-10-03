@@ -136,8 +136,15 @@ public:
       return Steinberg::kResultFalse;
     try {
       std::vector<uint8_t> b;
-      if (!LVBState::readEnvelope(s, b) || !apply(b))
+      if (!LVBState::readEnvelope(s, b) ||
+          ap8_validate_restore(identity, b.data(), static_cast<uint32_t>(b.size())))
         return Steinberg::kResultFalse;
+      // This is the host's original component object, possibly produced by an
+      // older module with different parameters. Only the selected Windows
+      // implementation may migrate it. Its fresh capture is authoritative;
+      // never apply the historical mirror, even temporarily. If disconnected,
+      // connect() requests that same strict current readback when the peer is
+      // available. No historical state is replayed into the vendor controller.
       return connected_ ? request() : Steinberg::kResultOk;
     } catch (...) {
       return Steinberg::kResultFalse;
@@ -148,6 +155,12 @@ public:
     if (!m || !m->getMessageID() || !onOwner())
       return kResultFalse;
     const char *id = m->getMessageID();
+    if (!std::strcmp(id, "AP8.connected")) {
+      if (!connected_) return kResultOk; // our connect() will finish the pair
+      capabilities();
+      auto result = request("AP11.bind");
+      return result == kResultOk ? request() : result;
+    }
     if (!std::strcmp(id,"AP10.instance_failed")) {
       const void* data=nullptr; uint32 size=0;
       if (m->getAttributes()->getBinary("terminal",data,size)!=kResultOk || size!=sizeof(if1_terminal_t) || !data) return kResultFalse;

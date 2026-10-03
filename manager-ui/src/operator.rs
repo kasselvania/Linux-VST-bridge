@@ -2067,9 +2067,9 @@ impl Operator {
                     .unwrap_or_else(|| "none".into())));
         }
         for history in &product.history {
-            ui.label(format!("Revision {} · {}{}{}", history.revision, history.claim,
-                if history.active { " · active" } else { "" },
-                if history.rollback_allowed && !history.active { " · rollback available" } else { "" }));
+            ui.label(format!("{} · {}{}", history.description, history.claim,
+                if history.active { " · active" } else { "" }));
+            if let Some(reason) = &history.rollback_unavailable { ui.label(reason); }
         }
         egui::CollapsingHeader::new("Technical product details").show(ui, |ui| {
             ui.label(format!("Status: {}\nClass: {}\nModule SHA-256: {}\nEnvironment: {}\nRunner: {}",

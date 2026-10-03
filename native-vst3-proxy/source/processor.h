@@ -31,6 +31,7 @@ public:
   }
   ~Processor() override;
   Steinberg::tresult PLUGIN_API initialize(Steinberg::FUnknown *) override;
+  Steinberg::tresult PLUGIN_API connect(Steinberg::Vst::IConnectionPoint *) override;
   Steinberg::tresult PLUGIN_API terminate() override;
   Steinberg::tresult PLUGIN_API setActive(Steinberg::TBool) override;
   Steinberg::tresult PLUGIN_API activateBus(Steinberg::Vst::MediaType,

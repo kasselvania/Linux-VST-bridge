@@ -36,16 +36,29 @@ parser.add_argument('--audit', type=pathlib.Path, required=True)
 parser.add_argument('--role', choices=FIXTURES)
 parser.add_argument('--unfamiliar-fixtures', type=pathlib.Path,
                     help='Post-freeze first-party fixture artifact directory')
-parser.add_argument('--revision', choices=('1.0.1', '1.0.2'))
+parser.add_argument('--revision', choices=('1.0.1', '1.0.2', '1.0.3', '1.0.4', '1.0.5'))
 parser.add_argument('--frozen-candidate', type=pathlib.Path,
                     help='Retained package, freeze receipt and staged release manifest')
 parser.add_argument('--selected-candidate', type=pathlib.Path,
                     help='Explicit later package selection; the original frozen engine must remain unchanged')
 parser.add_argument('--recall-from', type=pathlib.Path,
                     help='Recall the exact saved states from a previously passing one-pair run')
+parser.add_argument('--state-update', action='store_true',
+                    help='Verify an explicitly frozen successor engine for state repair; not the original engine-generalization claim')
+parser.add_argument('--restore-mode', choices=('recall','recall-disconnected','migrate','migrate-disconnected'), default='recall')
+parser.add_argument('--expect-restore-refusal', action='store_true')
+parser.add_argument('--invalid-state', choices=('wrong-class','corrupt','oversized'))
+parser.add_argument('--abrupt-exit', action='store_true')
 parser.add_argument('--pairs', type=int, choices=(1, 4), default=4,
                     help='One initial probe or the complete predeclared four-pair workload')
 args = parser.parse_args()
+assert not args.state_update or (args.selected_candidate and args.pairs==1), 'exact bounded successor package required'
+assert args.restore_mode=='recall' or (args.state_update and args.recall_from), 'explicit state-update recall required'
+assert not args.expect_restore_refusal or (args.recall_from and args.state_update)
+assert not args.invalid_state or args.expect_restore_refusal
+assert not args.abrupt_exit or (args.state_update and not args.recall_from)
+assert not (args.expect_restore_refusal and args.restore_mode.startswith('migrate'))
+
 root = pathlib.Path.home()/'.local/share/linux-vst-bridge/managed'
 os.umask(0o077)
 args.output.mkdir(mode=0o700, parents=True, exist_ok=False)
@@ -205,8 +218,9 @@ if args.unfamiliar_fixtures is not None:
     selected = frozen
     if args.selected_candidate is not None:
         selected, package_sha, roster = frozen_candidate(args.selected_candidate)
-        assert selected['engine_sha256'] == frozen['engine_sha256'], 'package update changed the frozen engine'
-    assert roster['usr/lib/linux-vst-bridge/proxy/ReusableEngine.so'] == frozen['engine_sha256']
+        if not args.state_update:
+            assert selected['engine_sha256'] == frozen['engine_sha256'], 'package update changed the frozen engine'
+    assert roster['usr/lib/linux-vst-bridge/proxy/ReusableEngine.so'] == selected['engine_sha256']
     for key, destination in (('manager', 'usr/bin/linux-vst-bridge'),
                              ('host', 'usr/lib/linux-vst-bridge/host/bridge-host.exe')):
         assert software[key]['sha256'] == roster[destination], 'selected software differs from declared package'
@@ -225,7 +239,8 @@ if args.unfamiliar_fixtures is not None:
          generator_source_head=unfamiliar['generator_source_head'],
          frozen_package_sha256=unfamiliar['frozen_package_sha256'],
          frozen_engine_sha256=unfamiliar['frozen_engine_sha256'],
-         selected_package_sha256=package_sha, selected_source_head=selected['source_head'])
+         selected_package_sha256=package_sha, selected_source_head=selected['source_head'],
+         selected_engine_sha256=selected['engine_sha256'], state_update=args.state_update)
 else:
     assert args.revision is None and args.frozen_candidate is None and args.selected_candidate is None, 'unfamiliar fixture directory required'
 for key in ('manager', 'host'):
@@ -262,12 +277,12 @@ for role in roles:
         artifact = registration[name]
         assert sha(pathlib.Path(artifact['path'])) == artifact['sha256'], 'fixture artifact changed'
     if unfamiliar is not None:
-        assert registration['native']['sha256'] == unfamiliar['frozen_engine_sha256'], 'engine was rebuilt for fixture'
+        assert registration['native']['sha256'] == selected['engine_sha256'], 'engine was rebuilt for fixture'
         artifact = registration['descriptor']
         assert sha(pathlib.Path(artifact['path'])) == artifact['sha256'], 'prepared data changed'
         descriptor = read(pathlib.Path(artifact['path']))
         assert descriptor['class_id'] == key and descriptor['module_sha256'] == module_sha
-        assert descriptor['version'] == args.revision and descriptor['engine_sha256'] == unfamiliar['frozen_engine_sha256']
+        assert descriptor['version'] == args.revision and descriptor['engine_sha256'] == selected['engine_sha256']
     performance = read(root/'performance'/(key+'.json'))
     assert performance == {'schema':1, 'added_frames':1024}, 'predeclared 1024-frame workload required'
     bundle = pathlib.Path.home()/'.vst3'/('LVB_'+key+'.vst3')
@@ -279,7 +294,9 @@ for role in roles:
         prefix = args.output/(role+'-'+str(pair))
         if saved is not None:
             prior, = [row for row in saved if row['event'] == 'publication' and row['role'] == role]
-            assert prior['class_id'] == key and prior['native_sha256'] == registration['native']['sha256']
+            assert prior['class_id'] == key
+            if not args.state_update:
+                assert prior['native_sha256'] == registration['native']['sha256']
             state, = [row for row in saved if row['event'] == 'state_roundtrip' and row['role'] == role and row['pair'] == pair]
             prefix = args.recall_from/(role+'-'+str(pair))
             for part in ('component', 'controller'):
@@ -287,13 +304,26 @@ for role in roles:
             emit('prior_state_recall', role=role, from_module_sha256=prior['module_sha256'],
                  to_module_sha256=module_sha, component_sha256=state['component_sha256'],
                  controller_sha256=state['controller_sha256'])
-        for mode in (('recall',) if saved is not None else ('record', 'recall')):
+        original_prefix=prefix
+        original_hashes={part:sha(prefix.with_suffix('.'+part)) for part in ('component','controller')} if saved is not None else None
+        if args.invalid_state:
+            damaged=args.output/(role+'-invalid')
+            component=bytearray(prefix.with_suffix('.component').read_bytes())
+            if args.invalid_state=='wrong-class':component[16]^=1
+            elif args.invalid_state=='corrupt':component[-1]^=1
+            else:component[64:68]=(1024*1024+1).to_bytes(4,'little')
+            damaged.with_suffix('.component').write_bytes(component)
+            damaged.with_suffix('.controller').write_bytes(prefix.with_suffix('.controller').read_bytes())
+            prefix=damaged
+        modes=('abrupt',) if args.abrupt_exit else ((args.restore_mode,'recall') if args.restore_mode.startswith('migrate') else (args.restore_mode,)) if saved is not None else ('record','recall')
+        for mode in modes:
             before = idle()
             known = session_reports()
             started = time.monotonic()
-            child = subprocess.Popen([str(args.host), str(bundle), role, mode,
-                                      str(prefix), str(frames), *NATIVE_IDS[role]], env=environment,
-                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            command=[str(args.host),str(bundle),role,mode,str(prefix),str(frames),*NATIVE_IDS[role]]
+            migrated=args.output/(role+'-'+str(pair))
+            if mode.startswith('migrate'):command.append(str(migrated))
+            child = subprocess.Popen(command,env=environment,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
             try:
                 stdout, stderr = child.communicate(timeout=95)
             except subprocess.TimeoutExpired:
@@ -318,7 +348,7 @@ for role in roles:
                 for path in session_reports()-known:
                     report = read(path)
                     reports.append({k:report.get(k) for k in
-                                    ('session', 'cleanup_confirmed', 'transport_retired', 'gated', 'raw_exit')})
+                                    ('session', 'cleanup_confirmed', 'transport_retired', 'gated', 'raw_exit','native_retirement_basis')})
                 remaining = [r['session'] for r in reports
                              if (root/'runtime/leases'/(r['session']+'.json')).exists()]
                 if reports and not remaining and all(r['cleanup_confirmed'] is True
@@ -356,19 +386,45 @@ for role in roles:
                  retirement_readback_failed=retirement_readback_failed,
                  retirement_observations=retirement_observations,
                  omitted_stderr_bytes=len(stderr), stderr_sha256=hashlib.sha256(stderr).hexdigest())
-            assert child.returncode == 0 and events[-1]['event'] == 'passed', 'installed lifecycle failed'
+            if args.abrupt_exit:
+                assert child.returncode==23 and events[-1]['event']=='abrupt_exit', 'declared abrupt loss missing'
+                assert not any(e['event']=='host_retired' for e in events), 'consumer unexpectedly performed SDK teardown'
+                assert any(r.get('native_retirement_basis')=='authenticated_process_generation_ended' for r in reports), 'independent native-death proof missing'
+            elif args.expect_restore_refusal:
+                assert child.returncode==1 and events[-1]['event']=='failed' and events[-1]['stage']=='restore', 'explicit restore refusal missing'
+                assert any(e['event']=='host_retired' and e['module_unloaded'] for e in events), 'orderly SDK teardown missing'
+                assert not any(e['event'] in ('activated','audio') for e in events), 'failed restore must not substitute playable default state'
+            else:
+                assert child.returncode == 0 and events[-1]['event'] == 'passed', 'installed lifecycle failed'
             assert reports and not remaining and all(r['cleanup_confirmed'] is True
                 and r['transport_retired'] is True for r in reports), 'positive retirement missing'
             assert not retirement_readback_failed, 'retirement capacity readback refused'
             assert after.get('dsp') == 0 and after.get('cleanup_unconfirmed') is False, 'fresh capacity readback missing'
-            assert phases, 'phase attribution missing'
+            assert phases or args.abrupt_exit, 'phase attribution missing'
             for report in reports:
                 session_phases = [p for p in phases if p['session'] == report['session']]
-                assert session_phases and session_phases[-1]['phase'] == 'retired', 'native retirement missing'
+                if not args.abrupt_exit:
+                    assert session_phases and session_phases[-1]['phase'] == 'retired', 'native retirement missing'
             assert all(p.get('processing', {}).get('missing_frames', 0) == 0 for p in phases), 'processing audio gap'
+            if original_hashes:
+                assert all(sha(original_prefix.with_suffix('.'+part))==value for part,value in original_hashes.items()), 'original saved object changed'
+            if mode.startswith('migrate'):
+                old=original_prefix.with_suffix('.component').read_bytes()
+                new=migrated.with_suffix('.component').read_bytes()
+                assert old[16:32]==new[16:32]==bytes.fromhex(key), 'logical class changed'
+                assert old[32:64]==bytes.fromhex(prior['module_sha256']), 'historical producing identity changed'
+                assert new[32:64]==bytes.fromhex(module_sha), 'new producing identity is false'
+                assert hashlib.sha256(new[104:]).digest()==new[72:104], 'new payload integrity'
+                emit('state_migration',role=role,old_module_sha256=old[32:64].hex(),new_module_sha256=new[32:64].hex(),
+                     old_parameter_count=int.from_bytes(old[112:116],'little'),new_parameter_count=int.from_bytes(new[112:116],'little'),
+                     old_component_bytes=int.from_bytes(old[104:108],'little'),new_component_bytes=int.from_bytes(new[104:108],'little'),
+                     original_sha256=original_hashes['component'],migrated_sha256=sha(migrated.with_suffix('.component')))
+                prefix=migrated
+        if args.abrupt_exit or args.expect_restore_refusal:continue
         emit('state_roundtrip', role=role, pair=pair, frames=frames,
              component_sha256=sha(prefix.with_suffix('.component')),
              controller_sha256=sha(prefix.with_suffix('.controller')))
 emit('suite_passed' if args.role is None and args.pairs == 4 else 'subset_passed',
      roles=roles, pairs=args.pairs, claim='installed_development_regression',
-     real_daw_project_claim=False, maintainer_repairs=0)
+     real_daw_project_claim=False, maintainer_repairs=0, state_update=args.state_update,
+     expected_refusal=args.expect_restore_refusal, invalid_state=args.invalid_state, abrupt_exit=args.abrupt_exit)

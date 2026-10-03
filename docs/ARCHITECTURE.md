@@ -1205,6 +1205,28 @@ when the installed package has changed. Unknown capacity refuses before the
 publication changes. Restoring graphics settings must not silently alter audio
 buffering or require it to equal an obsolete snapshot.
 
+Saved state preserves its producing module digest as provenance. Exact recovery
+snapshots and current readback validate that digest against the selected module.
+A host project restore is a distinct operation: validate the saved object's
+format, integrity, bounds and logical class, then offer its unchanged opaque
+state to the explicitly selected and independently admitted implementation.
+Only that implementation migrates it. The saved object never chooses an
+executable, publication or runtime. A successful new capture identifies its
+current producer; the original saved object remains unchanged.
+
+The historical parameter mirror cannot define a successor's inventory or values.
+After vendor restoration, use current authoritative readback and validate it
+strictly against the selected descriptor. A native controller synchronized before
+connection defers that readback until connection; it does not invent positional
+parameter mappings. Changed automation IDs remain a separate compatibility claim.
+
+Failure retirement distinguishes orderly native release from native death. A
+live consumer still owes the transport handshake. If the authenticated native
+process generation has ended, socket closure, exact Windows-owner cleanup and
+retirement of the session's transport establish cleanup without an impossible
+acknowledgement to the dead consumer. Unknown identity or incomplete cleanup
+remains visible. No reboot or manual ownership-record deletion is a recovery step.
+
 Keep loader, audio, editor, state/recall and cleanup outcomes separately. A
 renderer probe is not editor acceleration; editor success is not uninterrupted
 audio. Combined editor/automation load requires captured audio and timing

@@ -40,6 +40,24 @@ int main() {
         LVBState::Stream unchanged;
         need(processor.getState(&unchanged) == kResultOk && unchanged.bytes == captured.bytes, "failed restore preserves state");
     }
+    if(evolved) {
+        std::vector<uint8_t> legacy{'L','V','B','B',1,LVB_BETA_INSTRUMENT,0,0};
+        legacy.resize(24);double gain=.625,colour=.125;
+        std::memcpy(legacy.data()+8,&gain,8);std::memcpy(legacy.data()+16,&colour,8);
+        LVBState::Stream old(legacy);
+        auto result=processor.setState(&old);
+        need((result==kResultOk)==(LVB_BETA_RESTORE_POLICY!=1),"declared vendor component migration/refusal");
+        if(result==kResultOk) {
+            old.position=0;need(controller.setComponentState(&old)==kResultOk,"legacy component synchronization");
+            old.position=0;result=controller.setState(&old);
+            need((result==kResultOk)==(LVB_BETA_RESTORE_POLICY!=2),"declared partial controller refusal");
+            need(controller.getParameterCount()==3&&controller.getParamNormalized(17)==.75,"vendor adds and migrates parameter");
+            LVBState::Stream migrated;need(processor.getState(&migrated)==kResultOk&&migrated.bytes.size()==32&&migrated.bytes[4]==2,"new opaque schema capture");
+            Settings actual; migrated.position=0;
+            need(state(&migrated,actual,false)==kResultOk&&actual.gain==gain&&actual.colour==colour&&actual.trim==.75,"migrated semantic values");
+        }
+        selectedState.position=0;need(processor.setState(&selectedState)==kResultOk,"reset exact current fixture state");
+    }
     std::array<float, 64> inputLeft{}, inputRight{}, left{}, right{};
     inputLeft.fill(1.f); inputRight.fill(-.5f);
     float* input[] = {inputLeft.data(), inputRight.data()};
