@@ -55,6 +55,12 @@ cycles on the operator's selected roadmap.
 
 **Decision:** Compatibility profiles and support claims bind exact plug-in build, license channel, runner, environment, proxy/protocol, DAW, sandbox, and capability matrix.
 
+Exact support claims do not require maintainer approval before a user can try an
+unfamiliar build or local configuration. The 2026-10-02 operator correction is
+recorded in [architecture section 18.6](ARCHITECTURE.md#186-general-preparation-and-compatibility-experimentation):
+general preparation, advanced runtime/dependency controls and reversible trials
+share the existing candidate/publication owner. Implementation remains open.
+
 ### D-009 — No arbitrary profile code
 
 **Decision:** Compatibility profiles are declarative, closed-schema data. They cannot contain arbitrary scripts or commands.

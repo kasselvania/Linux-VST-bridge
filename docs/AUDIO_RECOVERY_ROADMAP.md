@@ -21,7 +21,7 @@ remains a frozen draft; this roadmap does not authorize promoting it wholesale.
 | 2. Dependable audio | Attribute a missing block across admission, worker, control, Windows processing, publication and presentation; repair the responsible mechanism and exercise normal interaction. | A frozen Deck artifact passes captured-output interaction and soak tests with diagnostics disabled and confirmed retirement. |
 | 3. Portable runtime selection | Observe host capabilities, match explicit plug-in requirements to pinned runtime policies, verify effective settings, and exercise reference workloads on Ubuntu and CachyOS. | The same product logic prepares declared targets without maintainer environment fixes; physical audio and graphics claims have hardware evidence. |
 | 4. Reconfiguration and lower latency | Support legal repeated setup changes without republishing; qualify 256, 128 and 64 frames, irregular blocks, callback bursts and offline processing; evaluate bounded same-callback delivery. | Every claimed configuration has output, latency, timing and lifecycle evidence. Queued mode remains only if independently useful and accurately described. |
-| 5. Self-service delivery | Integrate reviewed runtime, prebuilt proxy, installer, recovery, update and rollback work around the verified engine; finish ordinary manager behavior and distribution preparation. | Users complete install through recall and recovery using ordinary controls, without compilers, SSH or manual runtime administration. |
+| 5. Self-service delivery | Integrate reviewed runtime, reusable proxy engine, installer, compatibility experiments, recovery, update and rollback around the verified audio path; finish ordinary manager behavior and distribution preparation. | Users complete install through recall and recovery, including unfamiliar plug-in preparation, using ordinary controls without compilers, SSH or mandatory manual runtime administration. |
 | 6. Frozen beta qualification | Test one coherent release candidate, with declared platform builds, across the agreed catalogue and complete musician workflow. | Installation, authorization, audio, editors, automation, meaningful recall, reboot, recovery, populated update and rollback pass; release artifacts and distribution obligations are complete. |
 
 Stage 1 is complete at the source-review and design level. Its
@@ -32,6 +32,18 @@ owns the production decisions; [Integrated beta delivery](INTEGRATED_BETA_DELIVE
 owns the current acceptance criteria. The roadmap does not create a parallel
 decision or support registry.
 
+The operator's subsequent preparation correction is part of this same roadmap:
+[architecture section 18.6](ARCHITECTURE.md#186-general-preparation-and-compatibility-experimentation)
+connects unfamiliar plug-ins, capability assessment, recommended settings,
+advanced runtime/dependency experiments and native publication. Stages 3 and 5
+must use that shared configuration path. A fixed prebuilt plug-in catalogue is
+not the product boundary, and a better refusal message does not complete setup.
+The next repair removes that restriction with a reusable proxy engine and
+validated metadata, carries the assessment/configuration through preparation,
+and exercises a reversible settings comparison. Alternate runtimes and dependency
+trials extend the same path; they are explicit acceptance cases, not implied by
+graphics-probe success. Dependable audio and physical qualification remain open.
+
 The shared graphics assessment now has one explicit manager path for dependency
 hints, editor-time library observations and selected-runtime capability probes.
 It reuses inspection ownership and reports exact identities without selecting
@@ -40,6 +52,16 @@ the actual editor's rendering device and musical qualification; see
 [the implementation scope](GRAPHICS_RUNTIME_REVIEW.md#shared-assessment-implementation).
 
 ## Execution
+
+For each change, trace the user action through installation, discovery,
+assessment, prepared configuration, publication, processing/editor use, recall
+and recovery. Identify the owners affected and the existing mechanism to reuse
+or replace before editing one component. Include the unfamiliar-plug-in case,
+an existing working installation and an ordinary update in that reasoning.
+Select a vertical comparison that reaches the user's result; a passing parser,
+probe or package build cannot stand in for that result. Keep unimplemented
+connections explicit in CURRENT_SLICE.md so the operator does not have to
+rediscover and assemble them between tasks.
 
 Preserve exact source, build, runtime and publication identities. Keep the working
 comparison available and protect original projects and vendor authorization.

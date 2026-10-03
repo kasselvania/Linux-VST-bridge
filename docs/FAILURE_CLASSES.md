@@ -93,6 +93,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-PLAT-001](#fc-plat-001--nativewindows-transport-requires-shared-private-loopback) | Native/Windows transport needs shared loopback | Platform namespace adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Regression gate for new adapters |
 | [FC-MGMT-004](#fc-mgmt-004--managed-publication-is-mistaken-for-a-static-catalogue-fixture) | Managed publication is mistaken for a static catalogue fixture | Catalogue/publication ownership | causal | installed | Ubuntu internal22 normal status and product controls passed | resolved at publication readback | DAW use remains untested |
 | [FC-MGMT-005](#fc-mgmt-005--partial-installation-retry-omitted-from-setup) | Partial installation retry omitted from Setup | Existing installer offers to Setup projection | causal | installed | Ubuntu internal56: two partial-stop and isolated-retry repetitions | resolved for the recorded partial retry | Remaining recovery cases and platform qualification |
+| [FC-MGMT-006](#fc-mgmt-006--exact-prebuilt-catalogue-blocks-unfamiliar-plug-ins) | Exact prebuilt catalogue blocks unfamiliar plug-ins | Preparation/descriptor/publication | causal in source; Nibbi user report | proposed | No repaired physical result | blocked for affected new builds | General preparation with reusable engine, assessed configuration and reversible trial |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
@@ -2085,6 +2086,44 @@ sound, editor and persistence remain open.
 [Ubuntu delivery result](../evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json),
 [PR #200](https://github.com/kasselvania/Linux-VST-bridge/pull/200).
 Last reviewed: 2026-09-29.
+
+## FC-MGMT-006 — Exact prebuilt catalogue blocks unfamiliar plug-ins
+
+The operator reported a missing exact prebuilt proxy while preparing newly
+installed Nibbi. Source `9a0766afbf71fbb336c897c98b003b9e4bdda737` confirms the
+shared refusal: `tools/mf3/native_builder.py::prebuilt` requires exactly one
+shipped class-ID/module-digest match before it generates or validates the
+descriptor. An absent entry raises
+`prebuilt_proxy_unavailable_for_exact_plugin_build`. This is not evidence of
+a Nibbi DSP, graphics or authorization defect.
+
+`tools/ap8_descriptor.py` embeds discovery metadata in generated C++ constants;
+some initial parameter observations also participate in the exact prebuilt
+descriptor match. Stable native class IDs already derive from the logical
+vendor class independently of the module digest and must be preserved.
+`preparation_cli.rs` offers preparation when a kit and inspection are available,
+without resolving the missing exact entry. The refusal arrives after that offer.
+
+The selected repair replaces module-specific compiled metadata with validated
+data for a reusable native engine. Assessment, local advanced settings and
+candidate publication must share the configuration described in
+[architecture section 18.6](ARCHITECTURE.md#186-general-preparation-and-compatibility-experimentation).
+Existing candidate observations, experimental publication and history are
+retained; exact qualification is not a prerequisite for a supervised local trial.
+
+Understanding: causal in the selected source. Implementation: proposed, with
+the conflicting beta requirement corrected. Physical repaired coverage: none.
+Posture: blocked for new builds missing from the shipped index. This is distinct
+from FC-MGMT-004, which repaired readback after an existing proxy was published.
+No cause is assigned to the separately reported Deck input pauses or readiness
+changes. No remote operation was performed for this design correction.
+
+Next check: an instrument/effect absent from bridge build inputs reaches actual
+processing and recall, including updated-module metadata and a reversible
+settings comparison, without a customer compiler or maintainer proxy build.
+The [beta contract](INTEGRATED_BETA_DELIVERY.md#unfamiliar-plug-ins-and-advanced-compatibility)
+also requires dependency and alternate-runtime experiments and failed-trial
+recovery. Last reviewed: 2026-10-02.
 
 ## FC-UI-008 — Vendor editor removal crashes the Windows host
 

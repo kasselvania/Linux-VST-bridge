@@ -1,5 +1,56 @@
 # Current work selection
 
+## General preparation and compatibility experimentation
+
+The operator rejected the per-plug-in prebuilt catalogue restriction, authorized
+its repair, then required the graphics/runtime/dependency and advanced-user
+workflow to be connected before implementation. Base
+`9a0766afbf71fbb336c897c98b003b9e4bdda737`, tree
+`f94e517e5e61e63bf43b7c830caa2027b8e3ee12`.
+
+Basis: the operator's product invariants; AGENTS.md Goal and Keep the engineering
+safeguards; ARCHITECTURE.md 5.1 Manager core, 5.3 Environment manager,
+5.4 Installer supervisor, 5.6 Scanner service, 5.7 Native Linux VST3 proxy,
+9 Compatibility profiles and 18.6 General preparation and compatibility
+experimentation; design-dossier/01-product-and-user-experience.md
+2.2 Linux audio power user;
+INTEGRATED_BETA_DELIVERY.md Unfamiliar plug-ins and advanced compatibility.
+
+Primary outcome: a newly installed VST3 absent from the bridge's build inputs can
+be assessed, prepared and published using a reusable native engine, with one
+manager-owned configuration supporting a reversible settings trial. Exact
+support claims remain distinct from the user's ability to try a configuration.
+Advanced dependency and alternate-runtime cases must follow the same ownership
+model; removing one error message is not completion of the whole workflow.
+
+Scope: native factory/descriptor initialization outside the callback, preparation
+and candidate data, shared graphics assessment, runtime/profile application,
+publication, normal manager controls and focused reference fixtures. Preserve
+existing Rust/C ABI/SDK ownership, stable class IDs, real-time constraints,
+supervision, predecessor history and licensed state. No new runtime version,
+dependency or third-party library is selected by this design change.
+
+First executable comparison: freeze the bridge package, then generate/build
+independent instrument/effect fixtures not included in its catalogue; prepare
+and publish without a customer compiler, process and save/reopen, update the
+module without changing its DAW identity, then compare and undo a supported
+runtime/graphics option. Check malformed descriptors, stale inputs, ABI mismatch
+and interrupted publication/trial recovery. Retain exact source/artifact/runtime
+identities, output, requested/effective settings and cleanup. The full workflow
+also requires the dependency and alternate-runtime cases in the beta contract.
+
+No Deck modification, installer/license operation, engine rewrite, generic audio
+reliability claim or beta promotion follows from this design. Source work can
+proceed locally; physical commercial audio/editor acceptance remains explicitly
+unperformed until tested. Preserve the installed reference and frozen audio
+worktree. Source rollback is commit reversion; installed successors use the
+existing supported publication/selection and viable environment restore path.
+
+Current result: source connections and acceptance cases are recorded; the beta
+contract's permission to stop at a catalogue refusal has been removed. No
+production code has been changed by this design correction. Implementation,
+the unseen-plug-in comparison and advanced compatibility journey remain open.
+
 ## Shared graphics assessment
 
 The operator approved a reusable assessment across plug-ins and distributions.

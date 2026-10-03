@@ -11,6 +11,14 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+General preparation is currently blocked for an installed module absent from
+the delivered exact prebuilt index. The operator's Nibbi report exposed this
+shared product restriction; [FC-MGMT-006](FAILURE_CLASSES.md#fc-mgmt-006--exact-prebuilt-catalogue-blocks-unfamiliar-plug-ins)
+records the source mechanism and proposed replacement. The design correction
+connects reusable publication, capability assessment and advanced configuration
+experiments. No implementation or repaired Nibbi/Deck result follows. Existing
+exact product results below retain their original scope.
+
 The shared graphics assessor adds reusable dependency/editor-library observations
 and independent Windows graphics probes. Reference editors establish the tested
 assessment behavior; no commercial product, Proton runtime or distribution gains

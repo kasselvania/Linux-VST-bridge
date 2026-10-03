@@ -711,6 +711,11 @@ claim:
 
 Schema does not permit arbitrary commands. Implementation maps declared capabilities to reviewed code.
 
+Exact profile matching bounds recommendations and support claims; it is not a
+prerequisite for attempting an unfamiliar plug-in. Local experiments use the
+same implemented operations and publication owner. See section 18.6 for the
+preparation and advanced-control contract.
+
 ## 10. Flatpak deployment architecture
 
 ## 10.1 Host probe first
@@ -1078,8 +1083,11 @@ for delivered signal.
 
 Retain pinned runtime acquisition, side-by-side revisions and exact rollback.
 Preserve normal Proton initialization and the coherent selected runtime, rather
-than swapping isolated DLLs or adopting an ambient newer runner. Runtime choices
-remain closed, reviewed profile data with exact identities and effective readback.
+than swapping isolated DLLs or adopting an ambient newer runner. Runtime
+operations have implemented, reviewed contracts; selections and local overrides
+are declarative data with exact identities and effective readback. An unfamiliar
+runner satisfying an implemented adapter may be tried as an unqualified local
+configuration under section 18.6 without an exact support-profile entry.
 
 Graphics acceleration and fallbacks are selected and verified per rendering path.
 Scheduling/affinity changes require measured benefit and actual-thread readback;
@@ -1092,6 +1100,140 @@ Consolidate duplicate production settings into the prepared configuration, after
 checking callers. Isolate comparison-only controls and preserve useful tests;
 delete superseded implementations once their replacement is verified. Historical
 AP names alone do not prove code is unused or wrong. Keep app-owned runtime and
-prebuilt proxy delivery; no customer Steam, Wine, SDK or compiler prerequisite.
+reusable prebuilt proxy-engine delivery; no customer Steam, Wine, SDK or compiler
+prerequisite. Plug-in metadata and configuration are prepared data, not a finite
+catalogue of separately compiled per-module proxies.
 Release qualification binds the complete component roster, including retained
 predecessors needed by installed projects, to declared platform packages.
+
+### 18.6 General preparation and compatibility experimentation
+
+The operator's 2026-10-02 correction makes an unfamiliar plug-in and an advanced
+user's experiment ordinary product cases. Automatic preparation and advanced
+controls use one manager-owned configuration and the existing supervised
+installation, inspection, candidate, publication and recovery mechanisms. This
+is the required design; the complete workflow is not implemented or qualified.
+
+The original dossier already includes runtime dependencies, graphics choices,
+advanced overrides and rollback. The restriction to a shipped catalogue of
+module-specific proxy binaries contradicts that goal. A compatibility database
+helps choose settings and explain evidence; it must not determine which new
+plug-in builds are allowed to enter preparation.
+
+#### One configuration, distinct responsibilities
+
+| Concern | Owner and prepared result |
+| --- | --- |
+| Installed module | Supervised installer and scanner retain exact module/class identities, interface and bus/parameter facts, dependency hints and unresolved requirements. |
+| Machine and runtime | Capability assessment records the selected runner, actual platform capabilities, graphics paths, audio/IPC access and effective resource permissions. A distro name is not a policy selector. |
+| Suggested setup | The manager combines implemented defaults, applicable profile advice, current observations and explicit local overrides. Every selected value has a reason, scope and observed-or-untested status. |
+| Native publication | One precompiled engine per supported platform/ABI reads validated per-plug-in descriptor/configuration data outside the audio callback. Stable DAW class IDs are independent of module digest, renderer and runtime choice. |
+| Runtime execution | Existing supervisor and Windows host apply the selected configuration before use and report effective settings. Installation, editor, control and audio retain their thread and failure boundaries. |
+| DAW processing | The DAW supplies sample rate, maximum and actual blocks, precision and transport. The bridge prepares supported capacities while inactive and reports actual added latency. Installation does not invent these live facts. |
+
+The configuration identifies the engine/host protocol pair, module/class,
+descriptor, runner, environment revision, dependencies, renderer/editor policy,
+process policy and explicit overrides. Existing candidate/history records own
+these bindings; do not introduce a second candidate database or lifecycle system.
+Machine capability observations are not vendor machine identity. Presets,
+parameters, saved state and authorization data remain legitimately mutable.
+
+Hashes identify versions and detect stale observations. A vendor update triggers
+rescan and preparation of new data; it does not require a new bridge release or
+silently inherit the previous build's support claim. An unexplained changed file
+must not execute under an old receipt. The user gets a managed refresh/update
+operation, with the previous publication retained where its exact bytes remain
+available. Never promise to restore a vendor build that is no longer present.
+
+#### Normal use and advanced controls
+
+Normal use is install, assess, try and use. The manager offers a plausible initial
+setup and explains a failed stage. Missing historical qualification is visible
+but is not itself a refusal. Missing required capabilities, an unsupported
+interface or invalid data retain specific failures. Optional editor assessment
+cannot make an audio-only plug-in unsupported. Assessment failure preserves
+useful discovery results and offers another configuration when feasible.
+
+Advanced controls expose the same configuration with these operations:
+
+| User intent | Product operation and scope |
+| --- | --- |
+| Try another compatibility runtime | Select an installed revision, acquire one through product delivery, or import a user-supplied coherent runner through an implemented runner adapter. Check its structure and required capabilities; unfamiliar provenance remains explicit without becoming a plug-in whitelist. Keep the previous selection. |
+| Change editor rendering | Select a supported graphics backend or fallback, DPI and editor mode. Retain requested versus effective renderer facts and test the actual editor as well as independent capability probes. |
+| Add or change a dependency | Run a lawful user-supplied dependency installer, or a declared package acquisition, through existing installation supervision. Record version, source, resulting environment changes and affected plug-ins; rescan afterward. Fonts, redistributables and companion applications need real setup operations, not arbitrary profile scripts. |
+| Try library or synchronization options | Apply typed options supported by the selected runtime, with a visible configuration difference and reset-to-default operation. Runtime component replacements form a new coherent runner revision; do not silently replace DLLs in a working shared runner. |
+| Change process or CPU behavior | Offer implemented process grouping and bounded scheduling/affinity options. Read actual worker/render-thread policy and measure results. Shared vendor services, quotas and other applications remain accounted for. |
+| Investigate system drivers | Report actual driver/API capabilities and a specific unmet requirement. User-level runtime component selection is distinct from changing an OS/kernel driver; a plug-in check never silently changes the latter. |
+
+Reviewed operations and declarative option types are the execution boundary;
+they are not a closed list of permitted plug-in builds. A user may try an
+unqualified combination through those operations without a maintainer compiling
+a proxy or approving a new compatibility profile first. A genuinely new runner
+interface or unimplemented operation needs an adapter implementation, with the
+missing capability named. Do not disguise it as an unknown-product refusal.
+
+Each control shows whether it affects one instance, all classes of a module,
+a shared vendor environment or the whole host. Conflicting per-plug-in requests
+for one shared environment must be resolved visibly, not silently applied to
+siblings. Precedence is implemented defaults, applicable profile advice, then
+explicit local overrides; required interface/capacity constraints are checked
+separately. A profile refresh must preserve the user's overrides and show advice
+that conflicts with them.
+
+#### Try, compare, keep or restore
+
+An experiment starts from the current configuration and retains its difference
+and predecessor. Launch-only options are scoped to the trial. Dependency or
+runner changes can mutate shared environment state: determine affected owners
+and a viable restore/checkpoint strategy before applying them. Preserve licensed
+machine identity; do not assume copying or recreating a prefix is harmless.
+Where a vendor operation cannot be undone, state that fact before the user's
+action rather than promising transactional rollback that does not exist.
+
+The manager can suggest the next useful trial from a failed stage and observed
+capabilities. Record why that change might help. Compare one relevant change at
+a time by default; allow an explicit group of dependent changes and record the
+whole difference. A user can run bounded checks or enable the candidate in the
+DAW for musical testing before it has a support claim. Ordinary interaction is
+not a request to run every diagnostic again.
+
+Keep loader, audio, editor, state/recall and cleanup outcomes separately. A
+renderer probe is not editor acceleration; editor success is not uninterrupted
+audio. Combined editor/automation load requires captured audio and timing
+comparison. Keep/restore acts through the existing publication and history owner
+after affected processing stops. Failed or interrupted trials leave useful
+results and an identified recovery action rather than global unexplained
+"bridge not ready" state.
+
+A successful local setup is reusable local configuration, not universal support.
+The user can export sanitized settings and results; profiles contain no licenses,
+account state, arbitrary commands or proprietary binaries. Wider recommendations
+need evidence from the actual conditions being claimed. Reuse observations when
+their inputs remain valid and rerun affected checks when module, runtime,
+dependency, driver or host conditions change.
+
+#### Source connections and the first repair
+
+At source `9a0766afbf71fbb336c897c98b003b9e4bdda737`:
+
+| Existing component | Required treatment |
+| --- | --- |
+| `tools/mf3/native_builder.py`, `tools/ap8_descriptor.py`, native SDK factory | Replace exact per-module binary selection and compiled metadata with the reusable engine and validated descriptor data. Preserve existing stable class-ID derivation and strict binding checks. |
+| `bridge-manager/src/preparation/{model,mod,history}.rs` | Extend the existing candidates, observations and predecessor relationships to carry the coherent configuration; do not recreate them. |
+| `bridge-manager/src/graphics_cli.rs` and `graphics/` | Consume the shared assessor during requested preparation/checks. Retain its distinction between import hints, runtime probes and actual editor observations. It currently reports; it does not choose or apply a complete setup. |
+| `bridge-manager/src/profiles.rs`, runtime and installer owners | Separate exact support claims from permission to try; provide typed runtime/dependency/override operations without name-based policies or arbitrary command hooks. |
+| `bridge-manager/src/preparation_cli.rs` and manager UI | Present recommended setup, advanced differences, trial results and keep/restore through the same owner. Replace the late generic missing-proxy refusal with a working general preparation path. |
+
+The first repair is the unseen-plug-in preparation/publication path carrying this
+configuration, with the reusable graphics assessment and a reversible settings
+comparison. It must not become a Nibbi-specific build or a second host engine.
+Dependency changes and alternate-runtime trials extend that same path. The
+full acceptance journey is specified in
+[Integrated beta delivery](INTEGRATED_BETA_DELIVERY.md#unfamiliar-plug-ins-and-advanced-compatibility).
+Removing the catalogue refusal alone does not complete that journey.
+
+Valve's [Proton documentation](https://github.com/ValveSoftware/Proton#runtime-config-options)
+describes per-game runtime overrides, restoring defaults by removing overrides,
+and selection of locally built compatibility tools. Those concepts inform the
+user workflow; their game launch commands are not the bridge protocol, and
+runtime options do not establish audio correctness.
