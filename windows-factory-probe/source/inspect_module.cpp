@@ -1,4 +1,5 @@
 #include "inspect_module.h"
+#include "graphics_assessment.h"
 #include "bus_census.h"
 #include "stereo_negotiation.h"
 #include "offline_processing.h"
@@ -47,7 +48,7 @@ template<size_t N> std::string bounded(const char (&value)[N]) {
 }
 
 }
-int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id, ExternalProcessing* external, const std::wstring& access_directory, bool bus_probe, bool stereo_probe) {
+int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id, ExternalProcessing* external, const std::wstring& access_directory, bool bus_probe, bool stereo_probe, bool graphics_probe) {
     using namespace Steinberg;using namespace Steinberg::Vst;
     HostApplication host;VendorHandler handler;handler.external=external;
     IComponent* component=nullptr;IAudioProcessor* audio=nullptr;IEditController* controller=nullptr;
@@ -207,7 +208,11 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         synchronize_initial(*controller,controller_initialized,state_result,state);
         if(state_result==kResultOk&&controller_initialized)ok(kResultOk,"synchronizeController");
         if(state_result==kResultOk)events.lifecycle("ap8_inspected",",\"controller_separate\":"+std::string(controller_initialized?"true":"false")+",\"state_bytes\":"+std::to_string(state.bytes.size())+",\"latency_samples\":"+std::to_string(audio->getLatencySamples())+",\"float32_result\":"+std::to_string(audio->canProcessSampleSize(kSample32))+",\"float64_result\":"+std::to_string(audio->canProcessSampleSize(kSample64))+",\"tail_samples\":"+std::to_string(audio->getTailSamples()));
-        if(!external && access_directory.empty()){
+        if(graphics_probe){
+            step("assessGraphicsEditor");
+            assess_graphics_editor(*controller,events);
+            ok(kResultOk,"assessGraphicsEditor");
+        } else if(!external && access_directory.empty()){
             // Preliminary interface observation only: never attach or pump a vendor editor.
             step("inspectEditorInterface");
             IPlugView* view=controller->createView(ViewType::kEditor);
@@ -261,6 +266,11 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
     if(initialized)cleanup("terminateComponent",[&]{return component->terminate();});
     if(component)component->release();
     {FUnknownPtr<IPluginFactory3> f3(factory);if(f3)f3->setHostContext(nullptr);}
+    if(graphics_probe && primary==0){
+        step("assessGraphicsRuntime");
+        assess_graphics_runtime(events);
+        ok(kResultOk,"assessGraphicsRuntime");
+    }
     events.lifecycle("ap8_inspection_closed",",\"exit_code\":"+std::to_string(primary));
     return primary;
 }

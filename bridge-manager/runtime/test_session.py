@@ -500,6 +500,20 @@ class BusCensusCommandTests(unittest.TestCase):
             self.assertIn(('component_case=class:'+selected+'\n').encode(),binding)
             self.assertNotIn(b'component_case=first-audio',binding)
 
+    def test_graphics_assessment_is_explicit_exact_inspection(self):
+        reg={'environment':{'root':'/fixture','runner':{'entry_point':'/entry','proton':'/proton'}},
+             'metadata':{'class_id':'A'*32},'host':{'path':'/fixture/host.exe','sha256':'1'*64},
+             'host_source_sha256':'2'*64,'module':{'path':'/fixture/module.vst3','sha256':'3'*64}}
+        spec={'registration':reg,'session':'4'*32,'inspect':True,'first_audio':False,'graphics_assessment':True}
+        argv,binding=session.command(spec)
+        self.assertEqual(argv[argv.index('--mode')+1],'graphics-assessment')
+        self.assertIn(b'mode=graphics-assessment\n',binding)
+        self.assertIn(('component_case=class:'+'A'*32+'\n').encode(),binding)
+        for key,value in [('inspect',False),('keeper',True),('vendor_access',True),('first_audio',True),('bus_lifecycle_probe',True)]:
+            with self.assertRaises(RuntimeError):session.command(dict(spec,**{key:value}))
+        del spec['graphics_assessment']
+        self.assertEqual(session.command(spec)[0][-3],'ap8-module-inspection')
+
     def test_probe_is_inspection_only_and_handshake_bound(self):
         reg={'environment':{'root':'/fixture','runner':{'entry_point':'/entry','proton':'/proton'}},
              'metadata':{'class_id':'A'*32},'host':{'path':'/fixture/compatdata/pfx/drive_c/host.exe','sha256':'1'*64},

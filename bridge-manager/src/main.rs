@@ -9,6 +9,7 @@ mod experimental_runner;
 mod vendor_product_cli;
 mod operator_cli;
 mod readiness;
+mod graphics_cli;
 mod installer_import;
 mod installer_source;
 mod onboarding;
@@ -273,6 +274,8 @@ fn refuse_unclassified_worker(manager: &Manager, peer: Option<&mut UnixStream>, 
 struct SessionSpec {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     onboarding_home: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    graphics_assessment: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     crash_capture: Option<crash_capture::Capture>,
     registration: HostBinding,
@@ -811,6 +814,7 @@ fn spec(
     let runner_key = catalogue::runner_key(&r.environment.runner)?;
     let s = SessionSpec {
         onboarding_home,
+        graphics_assessment: false,
         crash_capture: None,
         registration: r,
         session: sid.clone(),
@@ -1978,8 +1982,9 @@ fn main() -> Result<()> {
   Some("capacity") if args.len()==1=>capacity_read(&m),
   Some("reconcile") if args.len()==1=>m.reconcile(),
   Some("inspect") if args.len()==2=>inspect(&m,Path::new(&args[1])),
+  Some("graphics-assess") if args.len()==2=>graphics_cli::run(&m,Path::new(&args[1])),
   Some("vendor-editor") if args.len()==2=>vendor_editor(&m,Path::new(&args[1])),
-  _=>Err("Usage: linux-vst-bridge setup PACKAGE | environment-create RUNNER.json | environment-import ENVIRONMENT.json | install ENV_ID INSTALLER SHA256 | inspect INSPECTION.json | vendor-editor INSPECTION.json | register REGISTRATION.json | status | set-delay CLASS_ID FRAMES | reconcile | unpublish CLASS_ID | serve".into())
+  _=>Err("Usage: linux-vst-bridge setup PACKAGE | environment-create RUNNER.json | environment-import ENVIRONMENT.json | install ENV_ID INSTALLER SHA256 | inspect INSPECTION.json | graphics-assess INSPECTION.json | vendor-editor INSPECTION.json | register REGISTRATION.json | status | set-delay CLASS_ID FRAMES | reconcile | unpublish CLASS_ID | serve".into())
  }
 }
 fn vendor_editor(m: &Manager, path: &Path) -> Result<()> {

@@ -257,6 +257,10 @@ def command(spec):
         if spec['inspect'] is not True or spec.get('keeper') or spec.get('vendor_access'):
             raise RuntimeError('bus lifecycle probe requires isolated inspection')
         mode='ap18-bus-lifecycle'
+    if spec.get('graphics_assessment'):
+        if spec['inspect'] is not True or spec.get('keeper') or spec.get('vendor_access') or spec.get('bus_lifecycle_probe') or spec.get('first_audio'):
+            raise RuntimeError('graphics assessment requires exact inactive inspection')
+        mode='graphics-assessment'
     case='first-audio' if spec.get('first_audio') else 'class:'+reg['metadata']['class_id']
     handshake_directory=prefix/'drive_c/bridge/sessions'/sid
     pairs=[('session',sid),('scanner-sha256',reg['host']['sha256']),('implementation-source-manifest-sha256',reg['host_source_sha256']),

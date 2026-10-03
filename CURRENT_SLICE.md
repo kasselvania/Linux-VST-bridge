@@ -1,5 +1,37 @@
 # Current work selection
 
+## Shared graphics assessment
+
+The operator approved a reusable assessment across plug-ins and distributions.
+Base `7565616b17865ff5060e5656184618f5432c13ed`, tree
+`07a544975ac77bebf73518b64ddb9cc2c21bc3c0`. Basis: ARCHITECTURE.md
+5.6 Scanner service, 9 Compatibility profiles, and 18.2 Capabilities and stable
+identity; GRAPHICS_RUNTIME_REVIEW.md requested versus observed graphics.
+
+Primary claim: one explicit manager assessment can report an exact module's
+graphics dependency hints, editor-time library observations and independent
+graphics capability checks inside its selected runtime, without product-name or
+distro-name branches or changing its working configuration. Static hints,
+runtime probe results, actual editor observations and musical qualification
+remain separate. Missing observations remain unknown.
+
+Scope: existing manager inspection/admission, bounded Rust PE import assessment
+and normalized report, supervisor mode selection, and Windows SDK editor
+inspection. The narrow C++ addition owns Win32 graphics context creation/readback
+at that existing SDK/Windows boundary; Rust owns classification and reporting.
+No new dependencies, runtime selection changes, publications, audio-path work,
+Deck access, licensed-state edits or automatic compatibility promotion.
+
+Acceptance: generated PE fixtures with ordinary/delayed imports and malformed
+inputs; the same SDK assessment against reference editors using different
+graphics APIs; actual pixel readback for independent D3D11/OpenGL probes;
+negative missing/refused editor and incomplete report cases; exact context and
+freshness checks. Windows CI establishes Windows behavior; Linux tests establish
+manager/supervisor behavior. Physical Proton/driver and commercial coexistence
+qualification remain unperformed until exercised on declared hardware. Keep
+sanitized results and failed attempts; commit and push to the existing draft PR.
+Source rollback is commit reversion; no installed rollback is needed.
+
 ## Graphics readback and editor failure containment implementation
 
 On 2026-10-02 the operator authorized the two source follow-ups below while

@@ -1,6 +1,12 @@
 //! Graphics facts have a context. A host GLX observation is never promoted to
 //! evidence about a Windows editor, its browser child, or a Vulkan context.
 use crate::RunnerPolicy;
+pub mod assessment;
+pub mod pe;
+#[cfg(test)]
+mod tests_assessment {
+    include!("graphics/tests.rs");
+}
 
 pub fn requested_backend(policy: Option<&RunnerPolicy>) -> &'static str {
     match policy {
