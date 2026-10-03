@@ -591,15 +591,23 @@ pub fn preparation_basis(m: &Manager, predecessor: Option<&Candidate>) -> Result
 }
 pub fn bind_preparation_basis(c: Candidate, basis: Option<String>) -> Result<Candidate> {
     let graphics = c.profile.capabilities.graphics;
-    let mut result = prepared(
+    let settings = c.local_settings.clone();
+    let accessibility = c.profile.capabilities.accessibility.clone();
+    // Preparation/refresh already resolved defaults and carried explicit
+    // choices. Binding review metadata must preserve that configuration.
+    let mut result = prepared_with_advice(
         c.selection,
         c.inspection,
         c.native,
         c.host,
         c.source_manifest,
         c.recipe_sha256,
+        (accessibility.clone(), c.profile.evidence),
     )?;
-    if graphics.is_some() {
+    if let Some(settings) = settings {
+        configuration::apply_resolved_settings(&mut result, settings.clone(), accessibility)?;
+        result.profile.id = format!("managed.{}", key(&(&result.profile.id, &settings))?);
+    } else if graphics.is_some() {
         result.profile.capabilities.graphics = graphics;
         result.profile.id = format!("managed.{}", key(&(&result.profile.id, graphics))?);
     }

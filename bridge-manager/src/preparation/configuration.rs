@@ -72,7 +72,7 @@ fn apply_settings(c: &mut Candidate, settings: LocalSettings) -> Result<()> {
     apply_resolved_settings(c, settings, resolved)
 }
 
-fn apply_resolved_settings(c: &mut Candidate, settings: LocalSettings,
+pub(super) fn apply_resolved_settings(c: &mut Candidate, settings: LocalSettings,
     resolved: Accessibility) -> Result<()> {
     require(accessibility_matches_choice(&settings, &resolved), "configuration_choices_changed")?;
     c.profile.capabilities.graphics = settings.graphics;
@@ -257,6 +257,67 @@ pub fn view(m: &Manager, c: &Candidate) -> Result<Value> {
 mod tests {
     use super::*;
     use crate::preparation::tests::fixture;
+
+    #[test]
+    fn changed_profile_advice_does_not_reinterpret_ordinary_default_candidate() {
+        let (f, current) = fixture();
+        let retained = prepared_with_advice(current.selection.clone(), current.inspection.clone(),
+            current.native.clone(), current.host.clone(), current.source_manifest.clone(),
+            current.recipe_sha256.clone(), (Accessibility::DisabledForVendorProcess,
+                vec!["docs/MF3.md".into(), "evidence/default-accessibility-advice.json".into()])).unwrap();
+        // The ordinary preparation path resolved different advice when this
+        // profile was retained. It has no settings trial or explicit overrides.
+        assert!(retained.local_settings.is_none() && retained.settings_trial.is_none());
+        assert_eq!(accessibility::selected(&retained.selection).unwrap().0,
+            Accessibility::WindowsDefault);
+        let saved = serde_json::to_vec(&retained).unwrap();
+        let saved_id = retained.id().unwrap();
+        assert!(!String::from_utf8_lossy(&saved).contains("local_settings"));
+        record_candidate(&f.m, &retained).unwrap();
+        verify_candidate(&f.m, &retained, &current.host, &current.source_manifest.sha256).unwrap();
+        let original = enable(&f.m, &retained, false).unwrap();
+        let revision = f.m.load_revision(&current.selection.class.id, &original).unwrap();
+        assert!(revision.registration.compatibility.disable_windows_accessibility);
+        check_publication(&f.m, &revision.profile, &revision.registration).unwrap();
+        assert!(session_binding(&f.m, &retained.selection.class.id,
+            &retained.selection.environment, &retained.selection.module,
+            &retained.host, &retained.source_manifest.sha256).unwrap());
+        let shown = view(&f.m, &retained).unwrap();
+        assert_eq!(shown["choices"][0]["source"], "Selected runtime defaults");
+        assert_eq!(shown["choices"][1]["source"], "Applicable profile advice or Windows defaults");
+
+        // Fresh preparation/refresh still resolves current advice. Restoring
+        // the predecessor recovers the exact stored profile and registration.
+        let refreshed = carry_settings(current.clone(), Some(&retained)).unwrap();
+        assert_eq!(refreshed.profile.capabilities.accessibility, Accessibility::WindowsDefault);
+        assert!(refreshed.local_settings.is_none());
+        record_candidate_with_predecessor(&f.m, &refreshed, Some(&saved_id)).unwrap();
+        let selected = replace(&f.m, &refreshed, &original).unwrap();
+        f.m.rollback_exact(&current.selection.class.id, &original.id, &selected).unwrap();
+        let restored = f.m.registry().unwrap().classes[&current.selection.class.id].clone();
+        assert_eq!(restored.managed_revision, Some(original.clone()));
+        assert_eq!(restored.registration, revision.registration);
+        check_publication(&f.m, &revision.profile, &restored.registration).unwrap();
+        let loaded = candidate(&f.m, &saved_id, &current.host, &current.source_manifest.sha256).unwrap();
+        assert_eq!(loaded.id().unwrap(), saved_id);
+        assert_eq!(serde_json::to_vec(&loaded).unwrap(), saved);
+    }
+
+    #[test]
+    fn preparation_basis_keeps_carried_explicit_accessibility() {
+        let (f, base) = fixture();
+        record_candidate(&f.m, &base).unwrap();
+        let requested = LocalSettings { graphics: None,
+            accessibility: AccessibilityChoice::DisabledForHost };
+        let trial = prepare_settings(&f.m, &base, &requested, None).unwrap();
+        let refreshed = carry_settings(base.clone(), Some(&trial)).unwrap();
+        let bound = bind_preparation_basis(refreshed, Some("ab".repeat(32))).unwrap();
+        assert_eq!(bound.local_settings.as_ref(), Some(&requested));
+        assert!(registration(&bound).unwrap().compatibility.disable_windows_accessibility);
+        assert!(bound.settings_trial.is_none());
+        verify_candidate(&f.m, &bound, &base.host, &base.source_manifest.sha256).unwrap();
+        assert_eq!(bind_preparation_basis(bound.clone(), bound.preparation_basis.clone()).unwrap(), bound);
+    }
 
     #[test]
     fn changed_profile_advice_does_not_reinterpret_retained_settings_or_restoration() {

@@ -99,13 +99,22 @@ fn retained_uuid_environment_can_prepare_from_current_exact_inventory() {
         &f.r.host_source_sha256).is_err());
 }
 #[test]
-fn unknown_candidate_cannot_acquire_a_process_accessibility_override() {
+fn retained_accessibility_configuration_requires_consistent_advice_and_limits() {
     let (f, mut candidate) = fixture();
     candidate.profile.capabilities.accessibility = Accessibility::DisabledForVendorProcess;
+    assert!(verify_retained_candidate(&f.m, &candidate).unwrap_err().to_string()
+        .contains("candidate_accessibility_limitation_changed"));
     candidate.profile.limitations.push(Limitation::WindowsAccessibilityUnavailable);
-    candidate.profile.evidence.push("evidence/self-service-delivery/ubuntu-fragments-trial-2026-09-29.json".into());
     assert!(verify_retained_candidate(&f.m, &candidate).unwrap_err().to_string()
         .contains("candidate_policy_requires_explicit_support"));
+    candidate.profile.evidence.push("evidence/default-accessibility-advice.json".into());
+    verify_retained_candidate(&f.m, &candidate).unwrap();
+    candidate.origin = Origin::RetainedSv1;
+    assert!(verify_retained_candidate(&f.m, &candidate).is_err());
+    candidate.origin = Origin::ManagedPreparation;
+    candidate.profile.capabilities.accessibility = Accessibility::WindowsDefault;
+    assert!(verify_retained_candidate(&f.m, &candidate).unwrap_err().to_string()
+        .contains("candidate_accessibility_limitation_changed"));
 }
 #[test]
 fn managed_publication_needs_no_static_catalogue_but_keeps_exact_authority() {
@@ -1181,6 +1190,14 @@ fn complete_build_identity_reuses_only_the_exact_generation() {
     let refreshed = bind_preparation_basis(refreshed, Some("bc".repeat(32))).unwrap();
     record_candidate_with_predecessor(&f.m, &refreshed, Some(&trial.id().unwrap())).unwrap();
     assert_eq!(refreshed.profile.capabilities.graphics, trial.profile.capabilities.graphics);
+    assert_eq!(build::reusable(&f.m, &c.selection, &i, &kit.sha256).unwrap(), Some(c.clone()));
+    // A historical default recommendation does not select native code or
+    // reinterpret its configuration when today's advice changes.
+    let advised = prepared_with_advice(c.selection.clone(), i.clone(), c.native.clone(),
+        c.host.clone(), c.source_manifest.clone(), kit.sha256.clone(),
+        (Accessibility::DisabledForVendorProcess,
+            vec!["docs/MF3.md".into(), "evidence/default-accessibility-advice.json".into()])).unwrap();
+    record_candidate(&f.m, &advised).unwrap();
     assert_eq!(build::reusable(&f.m, &c.selection, &i, &kit.sha256).unwrap(), Some(c.clone()));
     assert!(build::reusable(&f.m, &c.selection, &i, &"ff".repeat(32))
         .unwrap()

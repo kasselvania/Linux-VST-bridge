@@ -722,13 +722,14 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
             && c.profile.class.class_id == c.selection.class.id,
         "candidate_binding",
     )?;
+    require((c.profile.capabilities.accessibility == Accessibility::DisabledForVendorProcess)
+        == c.profile.limitations.contains(&Limitation::WindowsAccessibilityUnavailable),
+        "candidate_accessibility_limitation_changed")?;
     if c.local_settings.is_none() && c.profile.capabilities.accessibility != Accessibility::WindowsDefault {
-        let (selected, evidence) = accessibility::selected(&c.selection)?;
+        // The exact retained profile owns its resolved advice. Loading,
+        // publication and rollback must not consult a newer recommendation.
         require(c.origin == Origin::ManagedPreparation
-            && c.profile.capabilities.accessibility == selected
-            && selected == Accessibility::DisabledForVendorProcess
-            && c.profile.limitations.contains(&Limitation::WindowsAccessibilityUnavailable)
-            && evidence.as_ref().is_some_and(|reference| c.profile.evidence.contains(reference)),
+            && c.profile.evidence.iter().any(|reference| reference.starts_with("evidence/")),
             "candidate_policy_requires_explicit_support")?;
     }
     configuration::verify_settings(c)?;
@@ -797,6 +798,23 @@ pub fn prepared(
     manifest: Artifact,
     recipe: String,
 ) -> Result<Candidate> {
+    let (accessibility, reference) = accessibility::selected(&s)?;
+    let mut evidence = vec!["docs/MF3.md".into()];
+    if let Some(reference) = reference { evidence.push(reference); }
+    prepared_with_advice(s, i, native, host, manifest, recipe, (accessibility, evidence))
+}
+
+// Build one profile from advice already resolved by preparation, or retained
+// in the exact configuration when binding metadata for a new review generation.
+fn prepared_with_advice(
+    s: Selection,
+    i: Inspection,
+    native: NativeArtifact,
+    host: Artifact,
+    manifest: Artifact,
+    recipe: String,
+    advice: (Accessibility, Vec<String>),
+) -> Result<Candidate> {
     require(
         s == i.selection
             && native.module_sha256 == s.module.sha256
@@ -805,14 +823,12 @@ pub fn prepared(
     )?;
     let raw: Value = bounded(&i.report.path)?;
     require(raw["error"].is_null(), "inspection_failed")?;
-    let (accessibility, accessibility_evidence) = accessibility::selected(&s)?;
+    let (accessibility, evidence) = advice;
     let mut limitations=vec![Limitation::DirectEditorUnderQualification,
         Limitation::Unqualified256,Limitation::DetachedFocusRefusal];
     if accessibility == Accessibility::DisabledForVendorProcess {
         limitations.push(Limitation::WindowsAccessibilityUnavailable);
     }
-    let mut evidence = vec!["docs/MF3.md".into()];
-    if let Some(reference) = accessibility_evidence { evidence.push(reference); }
     let identity = if accessibility == Accessibility::WindowsDefault {
         key(&(&s, &i, &native, &host, &manifest, &recipe))?
     } else {
