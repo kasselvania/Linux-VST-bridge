@@ -46,6 +46,9 @@ public:
         context->Unmap(capture.Get(),0);if(!matched)return kResultFalse;
         std::fputs("reference D3D11 pixels matched\n",stderr);
 #elif GRAPHICS_FIXTURE == 2
+        // Resolve the delayed OpenGL library at editor entry, before GDI
+        // selects its pixel format. Factory loading must still leave it absent.
+        (void)wglGetCurrentContext();
         // A GL editor owns its drawing surface and persistent DC; it must not
         // set the pixel format of the DAW/host-owned parent window.
         WNDCLASSW wc{};wc.style=CS_OWNDC;wc.lpfnWndProc=DefWindowProcW;wc.hInstance=GetModuleHandleW(nullptr);wc.lpszClassName=L"LVBReferenceOpenGL";
