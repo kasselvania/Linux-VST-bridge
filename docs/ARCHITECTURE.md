@@ -1221,8 +1221,12 @@ connection defers that readback until connection; it does not invent positional
 parameter mappings. Changed automation IDs remain a separate compatibility claim.
 
 Failure retirement distinguishes orderly native release from native death. A
-live consumer still owes the transport handshake. If the authenticated native
-process generation has ended, socket closure, exact Windows-owner cleanup and
+live consumer still owes the transport handshake. An outstanding `F` failure
+notice does not replace the independent `R` retirement acknowledgement: teardown
+may consume one notice, but still requires `R` within its original deadline.
+Unknown bytes, EOF and timeout cannot prove retirement, and positive cleanup
+cannot reclassify the original failed restoration as successful. If the
+authenticated native process generation has ended, socket closure, exact Windows-owner cleanup and
 retirement of the session's transport establish cleanup without an impossible
 acknowledgement to the dead consumer. Unknown identity or incomplete cleanup
 remains visible. No reboot or manual ownership-record deletion is a recovery step.

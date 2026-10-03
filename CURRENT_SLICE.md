@@ -44,8 +44,8 @@ consumer retirement, and experimental predecessor actions are implemented.
 The controller regression fails against the prior controller and passes in both
 connection orders after repair. All 359 runtime tests pass with a reaping test
 runner and correct source ownership. Native state/controller tests and the SDK
-consumer compile. This is source evidence; installed migration/refusal/recovery
-acceptance is still pending.
+consumer compile. The final installed comparison below now completes this
+bounded reference-fixture repair; it does not qualify a real DAW or vendor.
 
 The first installed repair package (`0.12.0general3`, source `2c66cb87`) passed
 same-version recall and schema/parameter-changing migration plus reopen for both
@@ -56,7 +56,8 @@ solely because the inactive instance had previously entered `Failed`. The focuse
 regression reproduces it and preserves refusal when actual backend cleanup fails.
 The correction allows an inactive failed instance to terminate only after positive
 backend cleanup. These failed installed runs remain retained; final installed
-refusal, abrupt-loss and normal-manager predecessor acceptance remain open.
+refusal, abrupt-loss and normal-manager predecessor acceptance were still open
+at that point.
 
 The frozen `0.12.0general4` package then passed same-version recall, both
 migration/connection sequences and migrated reopen, malformed/oversized-state
@@ -68,8 +69,47 @@ The focused owner-channel regression reproduces this interleaving. Its repair
 accepts at most one pending failure notice while still requiring `R` within the
 original completion deadline. It does not clear the failed musical operation.
 General4 remains failed; its original reports, uncertain lease and VM checkpoint
-are retained. Repeat the complete required comparison on the next frozen engine;
-no reboot or manual record deletion may count as a passing case's recovery.
+are retained. That failure required the complete comparison on the next frozen
+engine. No reboot or manual record deletion counts as a passing case's recovery.
+
+Final installed result: `0.12.0general5`, source
+`9da4dc66111c500d4ca7bada5f0fad06ab19f93d`, tree
+`4a15329cb9183bb5259c13be56e8e50b00f8b6a5`, passes all ten declared cases on
+the disposable Ubuntu 26.04.1 fixture at 48 kHz/1024 frames. Both roles preserve
+same-version state and migrate 1.0.1 state into 1.0.3's changed opaque schema
+and three-parameter inventory. Connected and preconnection restoration, truthful
+new capture and migrated-state reopen pass. Wrong-class, corrupt and oversized
+objects, vendor refusal, partial vendor restoration and abrupt native loss all
+retire cleanly while the healthy sibling continues processing. No passing case
+needed reboot or manual ownership-record deletion.
+
+The normal manager's Plug-ins controls restored both exact original 1.0.1
+publications, retaining explicit 1024 buffering. The effect first restored a
+later retained 1.0.1 publication, then its original frozen publication; both
+operations remain recorded. Final original-state replay passes with the restored
+original engine, separately identified from the final manager/repair engine.
+The ten cases contain 18 primary consumers and six healthy siblings: 18 audio
+comparisons, 41,287,680 checked samples, zero mismatches and complete retirement.
+These are separate 10.24-second processing runs and 51.2-second sibling runs,
+not a continuous soak. Original saved objects remain byte-identical.
+
+All applicable CI passes at the tested source. Earlier failed packages, source
+failures and the general4 offline VM checkpoint remain preserved. The final raw
+export has 630 hash/size-verified files outside the checkout. The test VM and
+builder are stopped; Audiobookshelf remains running and the Deck is unchanged.
+See `evidence/preparation/2026-10-03-state-update-installed.json` for exact
+identities, operation receipts, samples, failure attribution and limitations.
+
+The manager visibly completed restoration, but its status temporarily became
+unavailable during refresh. Distinct retained engine builds can also share the
+same module-version/settings label. These UI observations remain open; no cause
+or polish claim is inferred from the successful backend recovery.
+
+This repair is ready for review; #204 remains draft and unmerged. The next
+declared acceptance is physical Deck interaction and soak on one frozen
+artifact, including actual DAW save/reopen. Offline completion policy, complete
+callback/chain timing, reconfiguration and lower-block qualification remain
+separate open audio work. No new runtime, graphics or vendor campaign is selected.
 
 
 ## General preparation and compatibility experimentation
@@ -163,9 +203,10 @@ regressions, graphics-report, portability and policy workflows also pass.
 See `evidence/preparation/2026-10-02-settings-trial.json`
 for exact checks, prior failures and the unperformed installed comparison.
 
-The primary outcome above remains open. The installed comparison below now
-establishes unfamiliar Windows processing and a graphics-setting restore, but
-cross-version saved-state recall fails. Alternate runtimes, dependencies,
+The wider outcome above remains open. The original installed comparison below
+established unfamiliar Windows processing and a graphics-setting restore, then
+failed cross-version saved-state recall. The coordinated repair above now passes
+that reference workflow. Alternate runtimes, dependencies,
 advanced controls, real DAW projects and physical commercial acceptance remain
 required work. See the retained first-step evidence under
 `evidence/preparation/2026-10-02-reusable-engine.json`.
@@ -214,13 +255,16 @@ and rollback pass. The test VM and builder are stopped; Audiobookshelf remains
 running. Fourteen short SDK consumers passed and the one cross-version restore
 failed; the passing runs do not erase that failure.
 
-Next bounded repair: separate saved-state provenance from the explicitly selected
-module's execution identity. Preserve class, integrity, size, protocol, ownership
+That failure selected the repair above: separate saved-state provenance from
+the explicitly selected module's execution identity. Preserve class, integrity,
+size, protocol, ownership
 and selected-module checks; let the selected plug-in decide whether it can load
 the earlier opaque state. Prove failure handling and actual output/parameter
 recall, including predecessor restoration. Do not merely strip the digest or
 rewrite saved project bytes. The comparison remains at the installed SDK level,
-48 kHz/1024 frames, without editor or physical audio qualification. See
+48 kHz/1024 frames, without editor or physical audio qualification. The final
+state-update evidence above supersedes this failure's current repair status,
+while preserving the original result. See
 `evidence/preparation/2026-10-03-unfamiliar-installed.json` for exact results,
 failures, recovery and retained identities.
 

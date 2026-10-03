@@ -23,10 +23,24 @@ These are 48-kHz/1024-frame SDK tests, not low-latency or real DAW qualification
 See [installed evidence](../evidence/preparation/2026-10-03-unfamiliar-installed.json)
 and [FC-MGMT-006](FAILURE_CLASSES.md#fc-mgmt-006--exact-prebuilt-catalogue-blocks-unfamiliar-plug-ins).
 
-The new 1.0.2 reference modules also prepare, publish and process with stable DAW
-IDs and the same engine, but the effect rejects its 1.0.1 saved state before
-vendor restore. Cross-version project recall is **blocked**, tracked in
-[FC-STATE-001](FAILURE_CLASSES.md#fc-state-001--saved-state-rejects-an-explicitly-selected-module-update).
+The original 1.0.2 comparison failed before vendor restoration. The installed
+`0.12.0general5` repair now passes same-version recall and 1.0.1 → 1.0.3 migration
+for both reference roles, including a changed state schema and parameter set,
+current controller synchronization and migrated-state reopen. Invalid state,
+vendor refusal, partial restoration and abrupt consumer loss retire completely
+while a healthy sibling keeps producing correct samples. The normal manager
+restores both exact original publications with 1024 buffering retained; their
+original saved states produce correct output again. No passing recovery needs
+a reboot or manual record deletion. Earlier failed packages remain failed.
+
+These ten installed SDK cases at source `9da4dc66` establish the bounded
+reference repair in
+[FC-STATE-001](FAILURE_CLASSES.md#fc-state-001--saved-state-rejects-an-explicitly-selected-module-update),
+not commercial project-update support. The
+[state-update evidence](../evidence/preparation/2026-10-03-state-update-installed.json)
+retains all identities and 18 separate audio comparisons. Real DAW and commercial
+cross-version recall remain **unqualified**. Status refresh briefly became
+unavailable in the installed manager; that UI behavior remains open.
 Neither Nibbi nor the Deck was updated or retested. Dependency and alternate
 runtime trials, editor/audio coexistence, real DAW recall and physical commercial
 acceptance remain open. Existing exact product results below retain their scope.

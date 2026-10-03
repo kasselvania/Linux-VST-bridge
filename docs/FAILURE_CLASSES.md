@@ -93,8 +93,8 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-PLAT-001](#fc-plat-001--nativewindows-transport-requires-shared-private-loopback) | Native/Windows transport needs shared loopback | Platform namespace adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Regression gate for new adapters |
 | [FC-MGMT-004](#fc-mgmt-004--managed-publication-is-mistaken-for-a-static-catalogue-fixture) | Managed publication is mistaken for a static catalogue fixture | Catalogue/publication ownership | causal | installed | Ubuntu internal22 normal status and product controls passed | resolved at publication readback | DAW use remains untested |
 | [FC-MGMT-005](#fc-mgmt-005--partial-installation-retry-omitted-from-setup) | Partial installation retry omitted from Setup | Existing installer offers to Setup projection | causal | installed | Ubuntu internal56: two partial-stop and isolated-retry repetitions | resolved for the recorded partial retry | Remaining recovery cases and platform qualification |
-| [FC-MGMT-006](#fc-mgmt-006--exact-prebuilt-catalogue-blocks-unfamiliar-plug-ins) | Exact prebuilt catalogue blocks unfamiliar plug-ins | Preparation/descriptor/publication | causal in source; Nibbi user report | installed Ubuntu unfamiliar Windows processing and graphics restore | No repaired Deck/Nibbi result | Deck blocked; reference candidate unqualified | Complete module-update recall, dependency and runtime trials |
-| [FC-STATE-001](#fc-state-001--saved-state-rejects-an-explicitly-selected-module-update) | Updated module rejects earlier saved state | Native state envelope / selected execution identity | causal for reference effect | source repair under installed validation | Ubuntu SDK reference only | blocked until installed successor comparison | Validate migration, orderly and abrupt failure cleanup, and normal predecessor controls |
+| [FC-MGMT-006](#fc-mgmt-006--exact-prebuilt-catalogue-blocks-unfamiliar-plug-ins) | Exact prebuilt catalogue blocks unfamiliar plug-ins | Preparation/descriptor/publication | causal in source; Nibbi user report | installed Ubuntu unfamiliar Windows processing, state migration and restoration | No repaired Deck/Nibbi result | Deck blocked; reference candidate unqualified | Actual DAW workflow, dependency and runtime trials |
+| [FC-STATE-001](#fc-state-001--saved-state-rejects-an-explicitly-selected-module-update) | Updated module rejects earlier saved state | Native state envelope / selected execution identity | causal for reference fixtures | installed reference repair passed | Ubuntu SDK instrument/effect; normal manager rollback | reference regression resolved; real DAW/commercial unqualified | Physical DAW update/recall and declared interaction/soak |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
@@ -876,6 +876,34 @@ processes, confirmed cleanup and durable files classified installed. This is
 an engineering recovery, not a self-service recovery pass. The vendor hang's
 cause remains unproved and its earlier result is retained.
 
+### State-update failure follow-up
+
+The general4 reference restore-refusal test exposed a distinct transport race:
+the native owner consumed an outstanding `F` failure notice where it expected
+the final `R` retirement acknowledgement, then closed before the supervisor
+could reply. Windows process cleanup succeeded, transport cleanup remained
+unconfirmed, and the native consumer was still alive at that decision. That
+failed result and its offline VM checkpoint remain retained. A subsequent VM
+restart is not counted as successful recovery of the case.
+
+The general5 correction at `9da4dc66` accepts at most one pending `F` while still
+requiring `R` within the original deadline. Separately, the supervisor can prove
+the authenticated native process generation ended and retire its exact owned
+resources without requiring acknowledgement from a dead process. Unknown
+identity, a live peer with a failed handshake or incomplete cleanup still
+refuses; neither positive path hides the original processing/restore failure.
+
+Installed malformed-state, vendor-refusal and partial-restore cases now complete
+SDK teardown and unload. A deliberately abrupt SDK consumer exit independently
+passes exact process/transport retirement, with the authenticated generation-death
+basis recorded. A healthy sibling keeps producing correct samples throughout
+each failed-instance retirement. No passing general5 case uses reboot or manual
+record deletion. The normal manager then restores exact retained predecessors.
+See [FC-STATE-001](#fc-state-001--saved-state-rejects-an-explicitly-selected-module-update)
+and the [installed comparison](../evidence/preparation/2026-10-03-state-update-installed.json).
+This covers the declared Ubuntu first-party fixture; commercial and physical
+DAW failure recovery remain unqualified.
+
 ### Claim limit
 
 Abrupt power-loss recovery with active owners is not universally automatic.
@@ -890,7 +918,8 @@ Provide an everyday manager recovery/panic workflow that preserves evidence and 
 
 ### Evidence and historical sources
 
-[PLUGIN_RELIABILITY_FOLLOWUP](PLUGIN_RELIABILITY_FOLLOWUP.md), Ubuntu-lab PR #5 history.
+[PLUGIN_RELIABILITY_FOLLOWUP](PLUGIN_RELIABILITY_FOLLOWUP.md), Ubuntu-lab PR #5 history,
+and the installed state-update comparison above.
 
 ### Tracking issue
 
@@ -898,7 +927,7 @@ No dedicated shared issue yet.
 
 ### Last reviewed
 
-2026-09-23.
+2026-10-03.
 
 ---
 
@@ -2165,8 +2194,10 @@ and recalled their own state with stable DAW IDs and no new engine. The effect's
 1.0.1 state was rejected by the native module-digest check; see FC-STATE-001.
 The [installed evidence](../evidence/preparation/2026-10-03-unfamiliar-installed.json)
 retains these partial results and the original graphics-restore failure.
-Next check: repair and repeat cross-version state recall and exact predecessor
-restoration, then the actual DAW workflow. No repaired Nibbi/Deck claim follows.
+The subsequent [state-update comparison](../evidence/preparation/2026-10-03-state-update-installed.json)
+repairs and passes reference cross-version recall and normal-manager restoration
+of both exact original publications. Next check: the actual DAW workflow.
+No repaired Nibbi/Deck claim follows.
 The [beta contract](INTEGRATED_BETA_DELIVERY.md#unfamiliar-plug-ins-and-advanced-compatibility)
 also requires dependency and alternate-runtime experiments and failed-trial
 recovery. Last reviewed: 2026-10-03.
@@ -2180,9 +2211,10 @@ their own SDK processing and state round trip through the same frozen native
 engine. Loading the intact 1.0.1 state after explicitly publishing 1.0.2 fails
 at `IComponent::setState`, before activation or vendor state restore.
 
-`native-vst3-proxy/backend/src/state.rs::payload_for` requires equality of both
-class and module digest. `Processor::setState` calls `ap8_validate` before the
-state session and marks the instance failed on refusal. The retained envelope's
+At that failing head, `native-vst3-proxy/backend/src/state.rs::payload_for`
+required equality of both class and module digest. `Processor::setState` called
+`ap8_validate` before the state session and marked the instance failed on refusal.
+The retained envelope's
 class and payload hash match; its module digest identifies the original build.
 This establishes a bridge refusal, not vendor state incompatibility. The
 controller mirror and worker restore boundaries must be included in the repair;
@@ -2209,19 +2241,39 @@ synchronizes the native controller from selected current readback. The SDK
 consumer unwinds completed lifecycle steps and uses a separate migration oracle.
 The supervisor proves exact native-generation death independently of its final
 acknowledgement, and manager history offers retained experimental predecessors.
-The new controller regression fails with the prior controller and passes with
-the repair, in both connection orders. Linux runtime tests pass (359); installed
-successor, failure and rollback comparisons remain to be run.
+The controller regression fails with the prior controller and passes with the
+repair in all four state/connection-order combinations. Linux runtime tests pass
+(359). Installed testing then found and repaired two additional cleanup defects:
+an inactive failed processor returned termination failure despite positive
+backend cleanup, and a pending owner failure notice was mistaken for the final
+retirement acknowledgement. Their focused regressions fail on the prior code;
+actual cleanup refusal and missing acknowledgement still refuse.
 
-Fix stage: source repair tested, installed validation pending. Support: cross-version
-recall blocked; real DAW and commercial update coverage unperformed. Next repair:
-preserve logical class, envelope integrity and bounded validation, retain saved
-module provenance, and allow the explicitly selected version to accept or
-refuse its earlier opaque state. Test meaningful state/output, vendor refusal,
-failure retirement and rollback. The SDK observer must distinguish changed
-bridge provenance from vendor-state changes rather than require every envelope
-byte to stay equal across an update. See
-[evidence](../evidence/preparation/2026-10-03-unfamiliar-installed.json).
+Frozen `0.12.0general5`, source `9da4dc66`, passes ten installed Ubuntu SDK cases
+at 48 kHz/1024 frames. Both reference roles restore 1.0.1 opaque state into
+1.0.3's changed schema (24 to 32 bytes) and parameter inventory (two to three).
+The migrated added parameter is .75 rather than its .25 default and affects
+the sample oracle. Connected and preconnection restore, truthful current capture
+and reopen pass. Same-version recall remains exact. Wrong-class, corrupt and
+oversized envelopes refuse; complete and partial vendor restore refusals and
+abrupt native loss retire without reboot or record deletion. Six healthy-sibling
+comparisons pass during those failures. Original saved objects remain unchanged.
+
+The normal manager restores both exact original 1.0.1 publications and retains
+1024 buffering. Their original saved states then pass SDK audio comparison and
+retirement through the restored original engine. In total the final ten cases
+contain 18 separate audio comparisons and 41,287,680 checked samples with zero
+mismatches; this is functional coverage, not a soak. General3/general4 failures
+and the failed general4 VM checkpoint remain retained. Manager refresh briefly
+showed unavailable status before returning ready; that UI observation is open.
+
+Fix stage: installed reference repair passed. Support: this reference regression
+is resolved; real DAW, physical Deck and commercial update coverage remain
+unqualified. Next: declared physical interaction/soak and actual DAW state recall
+on one frozen artifact. The original
+[failure](../evidence/preparation/2026-10-03-unfamiliar-installed.json) and final
+[comparison](../evidence/preparation/2026-10-03-state-update-installed.json) remain
+separate evidence. #204 remains draft and unmerged.
 Last reviewed: 2026-10-03.
 
 ## FC-UI-008 — Vendor editor removal crashes the Windows host
