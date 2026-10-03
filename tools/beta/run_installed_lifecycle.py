@@ -14,6 +14,7 @@ import socket
 import struct
 import subprocess
 import time
+import uuid
 from datetime import datetime, timezone
 
 FIXTURES = {
@@ -33,6 +34,11 @@ parser.add_argument('--output', type=pathlib.Path, required=True)
 parser.add_argument('--host', type=pathlib.Path, required=True)
 parser.add_argument('--audit', type=pathlib.Path, required=True)
 parser.add_argument('--role', choices=FIXTURES)
+parser.add_argument('--unfamiliar-fixtures', type=pathlib.Path,
+                    help='Post-freeze first-party fixture artifact directory')
+parser.add_argument('--revision', choices=('1.0.1', '1.0.2'))
+parser.add_argument('--frozen-candidate', type=pathlib.Path,
+                    help='Retained package, freeze receipt and staged release manifest')
 parser.add_argument('--pairs', type=int, choices=(1, 4), default=4,
                     help='One initial probe or the complete predeclared four-pair workload')
 args = parser.parse_args()
@@ -168,6 +174,44 @@ def sanitized_phases(stderr):
 
 software = read(root/'software.json')
 registry = read(root/'registry.json')
+unfamiliar = None
+if args.unfamiliar_fixtures is not None:
+    assert args.revision and args.frozen_candidate, 'exact unfamiliar revision and frozen candidate required'
+    unfamiliar = read(args.unfamiliar_fixtures/'UNFAMILIAR_FIXTURES.json')
+    frozen = read(args.frozen_candidate/'FROZEN_CANDIDATE.json')
+    assert unfamiliar['schema'] == frozen['schema'] == 1
+    assert unfamiliar['classification'] == 'first_party_test_instrumentation'
+    package_name, = [name for name in frozen['files']
+                     if re.fullmatch(r'linux-vst-bridge-beta_[0-9A-Za-z.]+-1_amd64\.deb', name)]
+    assert sha(args.frozen_candidate/package_name) == frozen['files'][package_name] == unfamiliar['frozen_package_sha256']
+    assert unfamiliar['frozen_engine_sha256'] == frozen['engine_sha256']
+    release_name, = [name for name in frozen['files']
+                     if re.fullmatch(r'staged-[0-9A-Za-z]+/RELEASE_MANIFEST\.json', name)]
+    release_path = args.frozen_candidate/release_name
+    assert sha(release_path) == frozen['files'][release_name]
+    release = read(release_path)
+    assert release['source_head'] == frozen['source_head'] and release['source_tree'] == frozen['source_tree']
+    roster = {item['destination']:item['sha256'] for item in release['files']}
+    for key, destination in (('manager', 'usr/bin/linux-vst-bridge'),
+                             ('host', 'usr/lib/linux-vst-bridge/host/bridge-host.exe')):
+        assert software[key]['sha256'] == roster[destination], 'selected software differs from frozen package'
+    revision, = [row for row in unfamiliar['revisions'] if row['version'] == args.revision]
+    assert len(revision['modules']) == 2 and {row['role'] for row in revision['modules']} == set(FIXTURES)
+    namespace = uuid.UUID('9389480f-b4b0-5e02-a1d7-687a57b54b3f')
+    for module in revision['modules']:
+        role, key = module['role'], module['processor_class']
+        assert re.fullmatch('[0-9A-F]{32}', key) and re.fullmatch('[0-9a-f]{64}', module['sha256'])
+        assert pathlib.PurePosixPath(module['file']).parts == (args.revision, f'lvb-reference-{role}.vst3')
+        assert sha(args.unfamiliar_fixtures/module['file']) == module['sha256'], 'generated fixture bytes changed'
+        FIXTURES[role] = (key, module['sha256'])
+        NATIVE_IDS[role] = tuple(uuid.uuid5(namespace, key+suffix).hex.upper()
+                                 for suffix in (':processor', ':controller'))
+    emit('unfamiliar_fixture', revision=args.revision,
+         generator_source_head=unfamiliar['generator_source_head'],
+         frozen_package_sha256=unfamiliar['frozen_package_sha256'],
+         frozen_engine_sha256=unfamiliar['frozen_engine_sha256'])
+else:
+    assert args.revision is None and args.frozen_candidate is None, 'unfamiliar fixture directory required'
 for key in ('manager', 'host'):
     artifact = software[key]
     assert sha(pathlib.Path(artifact['path'])) == artifact['sha256'], 'selected artifact changed'
@@ -193,6 +237,13 @@ for role in roles:
     for name in ('module', 'host', 'native'):
         artifact = registration[name]
         assert sha(pathlib.Path(artifact['path'])) == artifact['sha256'], 'fixture artifact changed'
+    if unfamiliar is not None:
+        assert registration['native']['sha256'] == unfamiliar['frozen_engine_sha256'], 'engine was rebuilt for fixture'
+        artifact = registration['descriptor']
+        assert sha(pathlib.Path(artifact['path'])) == artifact['sha256'], 'prepared data changed'
+        descriptor = read(pathlib.Path(artifact['path']))
+        assert descriptor['class_id'] == key and descriptor['module_sha256'] == module_sha
+        assert descriptor['version'] == args.revision and descriptor['engine_sha256'] == unfamiliar['frozen_engine_sha256']
     performance = read(root/'performance'/(key+'.json'))
     assert performance == {'schema':1, 'added_frames':1024}, 'predeclared 1024-frame workload required'
     bundle = pathlib.Path.home()/'.vst3'/('LVB_'+key+'.vst3')
