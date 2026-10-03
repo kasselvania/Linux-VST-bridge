@@ -13,7 +13,8 @@
     "assessment_optional": true,
     "restoration": "Exact existing publication, including an experimental predecessor; remove test publication when there was none",
     "keep": "Retain explicitly selected observations without inventing an ordinary support claim",
-    "observed_renderer": "Independent capability probes only; editor device and child rendering remain unknown; retained driver facts are not claimed fresh"
+    "observed_renderer": "Independent capability probes only; editor device and child rendering remain unknown; retained driver facts are not claimed fresh",
+    "supervisor_contract": "Versioned launch entry refuses older supervisors before Windows ownership begins; graphics-v1 readiness confirms support. Capable retained generations remain valid across package updates. Assessment selects the same paired host and supervisor as production."
   },
   "local_checks": {
     "fixture": "macOS generated fixtures; real manager publication/reconciliation functions; supervised launch construction with no Windows process",
@@ -27,9 +28,9 @@
     },
     "runtime": {
       "passed": 42,
-      "skipped": 4,
+      "skipped": 13,
       "failed": 0,
-      "skips": "Linux-specific ownership checks"
+      "skips": "Linux-specific ownership and process checks; 55 targeted checks total"
     },
     "trial_interruption_boundaries": 16,
     "lint": "manager library passed"
@@ -37,14 +38,18 @@
   "native_linux_ci": {
     "first_run": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37103580319",
     "first_head": "4da4ca1c6c499ba212f2867a1f3372ce6a382460",
-    "first_result": "one outdated UI-text assertion; corrected; rerun pending"
+    "first_result": "218 library and 293 binary tests passed; one outdated restoration wording assertion corrected",
+    "second_run": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37103850711",
+    "second_head": "e818484ab14793026e6beca59d4a7aacc8dfc936",
+    "second_result": "218 library, 295 binary and 5 example tests plus clippy passed. Runtime suite ran 355 tests with 14 failures and 3 errors caused by the new diagnostic read assuming full compatibility data in reduced supervisor fixtures. Diagnostic read corrected without relaxing launch validation; source rerun pending."
   },
   "prior_attempts": [
     "New test initially used Registry equality without equality/debug traits; corrected to compare serialized state.",
     "A shared test fixture needed test-only crate visibility.",
     "An initial restore assertion included the monotonically increasing registry revision; corrected to require exact class/publication restoration and an increased history revision.",
     "The macOS binary compilation reaches the existing Linux-only scheduler/device APIs; no macOS manager executable pass is claimed.",
-    "First native Linux run passed 218 library tests and 293 binary tests but failed one old assertion expecting the phrase previous working configuration. Restoration can now target an unqualified predecessor, so the truthful wording and its assertion are previous configuration. The two new manager workflow tests passed in that run."
+    "First native Linux run passed 218 library tests and 293 binary tests but failed one old assertion expecting the phrase previous working configuration. Restoration can now target an unqualified predecessor, so the truthful wording and its assertion are previous configuration. The two new manager workflow tests passed in that run.",
+    "Second native Linux run exposed incomplete mocked registrations in runtime ownership fixtures. The optional diagnostic field now tolerates their absent compatibility data, while real environment preparation still validates the mandatory launch contract."
   ],
   "not_performed": [
     "Deck installation or modification",
@@ -55,13 +60,13 @@
     "beta qualification"
   ],
   "source_sha256": {
-    "bridge-manager/runtime/session.py": "2187a515e981e47d2fd019182df7881ea1517d76a7321f19d82162a877240190",
+    "bridge-manager/runtime/session.py": "44eed09dfdd4665a1d4548351a4e3f4fbd5ee78a4f9b79840f2b9bf7c78cfb88",
     "bridge-manager/runtime/test_native_command_session.py": "872ece9a90e3511b453ffca3b61aa3ce5b3de65b147cee79e7bb62489663d362",
-    "bridge-manager/runtime/test_session.py": "1fa2a7219dd9a1fccaafe72b22d8fb8d9b95725b1da4bad201bc9d07905a5a1f",
+    "bridge-manager/runtime/test_session.py": "cd8457e7ea83870e567769ac50e089f2d24d959ca1a7f52d40cd6341e5b4f788",
     "bridge-manager/src/graphics.rs": "8639530f46b9ee795f66a3481ba59fb4f0a50d449f87d8472fcbaffb79aad249",
     "bridge-manager/src/graphics/assessment.rs": "f723e26f86928342f2967ac0495e40141826ddf9ec2a5ea7a3e1a15b8c9285a9",
     "bridge-manager/src/graphics/tests.rs": "70b0655eecf4a824603f152227ae0721a01b572398958ea6075b7b5a7b36b253",
-    "bridge-manager/src/graphics_cli.rs": "420b232e234ea1614250257b711d0f9d8c81bc69e078da42527631b9f046c2d8",
+    "bridge-manager/src/graphics_cli.rs": "8069fd6228ad9312d1fef23ef93a90f79102023664a57c26eee63aa525f6545e",
     "bridge-manager/src/lib.rs": "3fe626de143d1abbf259c324229b9009915c11f4140633dc3e0c62ba40a0491f",
     "bridge-manager/src/operator_cli.rs": "52db1b63b5f50d213984342a4289e4c0af0ed381a79bc69a6f03f852e4ee6a40",
     "bridge-manager/src/operator_model.rs": "c0c3aeec8305cb412117b4284add8c0a6b0cc48e4ff6dbe7882caffdb5d1898b",
@@ -75,6 +80,8 @@
     "bridge-manager/src/test_fixture.rs": "d31e60e919fef0cb6c83f6a25c11a6fc2b37a43ec6041b7df89c27f1cf1b4aa1",
     "manager-ui/src/library.rs": "e090f307685d20a8fd710f7e1d9a033129ecb8c214db815e9e0463e0374bbbdb",
     "manager-ui/src/operator.rs": "2293b2cffc1681e62fe250b3db38a22ea6bdb80afc6d6ae26cdff537f1d5c8d6",
-    "bridge-manager/src/preparation/configuration.rs": "cf24527e00a5b0792a3ff3db4b37e7c44830b4827c5eb98c0d1747fda3c08a4f"
+    "bridge-manager/src/preparation/configuration.rs": "cf24527e00a5b0792a3ff3db4b37e7c44830b4827c5eb98c0d1747fda3c08a4f",
+    "bridge-manager/src/main.rs": "bb8f8bb0fe1b9b6e7886e123d0e98760a5dca59acae389d17598e99b860b7ee9",
+    "bridge-manager/src/vendor_product_cli.rs": "89e26d58ae553c79740bb2d5b61f3b4a3de475a3f7a8cd26bdd5241d6557ce9c"
   }
 }

@@ -853,9 +853,16 @@ fn spawn(m: &Manager, s: &Software, path: &Path, peer: Option<UnixStream>) -> Re
     record_lease_generation(&job)?;
     m.retain_lease_owner(path)?;
     atomic_json(&job.lease, &job.report)?;
-    let child = Command::new("/usr/bin/python3")
-        .arg(&s.supervisor.path)
-        .arg(path)
+    let mut command = Command::new("/usr/bin/python3");
+    command.arg(&s.supervisor.path);
+    if job.registration.compatibility.graphics.is_some() && !job.keeper {
+        // Older retained supervisors expect the first argument to be the job
+        // file. A versioned entry point makes them refuse before preflight or
+        // Windows launch, rather than discovering unsupported settings after
+        // an owner may already have spawned children.
+        command.arg("--graphics-settings-v1");
+    }
+    let child = command.arg(path)
         .stdin(stdin)
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
@@ -1136,7 +1143,11 @@ fn startup_reply(peer: &mut UnixStream, bytes: &[u8]) -> Result<()> {
     peer.write_all(bytes)?;
     Ok(())
 }
-fn supervisor_ready(child: &mut Child, session: &str, timeout: Duration) -> Result<()> {
+fn supervisor_ready(child: &mut Child, job: &SessionSpec, timeout: Duration) -> Result<()> {
+    supervisor_ready_for_configuration(child, &job.session, job.registration.compatibility.graphics, timeout)
+}
+fn supervisor_ready_for_configuration(child: &mut Child, session: &str,
+    graphics: Option<operator_model::GraphicsBackend>, timeout: Duration) -> Result<()> {
     let fd = child
         .stdout
         .as_ref()
@@ -1148,7 +1159,14 @@ fn supervisor_ready(child: &mut Child, session: &str, timeout: Duration) -> Resu
         unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } == 0,
         "supervisor readiness output nonblocking",
     )?;
-    let expected = format!("LVO0 {session} ready\n").into_bytes();
+    // A retained supervisor may predate typed launch settings. Require its
+    // capability acknowledgment before exposing the native instance. Existing
+    // capable generations remain usable across manager/package updates.
+    let capability = if graphics.is_some() { " graphics-v1" } else { "" };
+    let expected = format!("LVO0 {session} ready{capability}\n").into_bytes();
+    let mismatch = if graphics.is_some() {
+        "Graphics-aware supervisor readiness was not confirmed; check compatibility to prepare a current configuration"
+    } else { "supervisor readiness receipt differs" };
     let mut received = Vec::with_capacity(expected.len());
     let deadline = Instant::now() + timeout;
     while received.len() < expected.len() {
@@ -1184,10 +1202,10 @@ fn supervisor_ready(child: &mut Child, session: &str, timeout: Duration) -> Resu
         }
         require(
             expected.starts_with(&received),
-            "supervisor readiness receipt differs",
+            mismatch,
         )?;
     }
-    require(received == expected, "supervisor readiness receipt differs")
+    require(received == expected, mismatch)
 }
 
 fn retire_unready_supervisor(child: &mut Child, owner: &Path) -> Result<()> {
@@ -1428,7 +1446,7 @@ fn serve(m: Manager) -> Result<()> {
                     let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
                     job.shared_inspection=true;atomic_json(&path,&job)?;
                     let mut child=spawn(&m,&execution,&path,None)?;
-                    if let Err(readiness)=supervisor_ready(&mut child,&job.session,
+                    if let Err(readiness)=supervisor_ready(&mut child,&job,
                         Duration::from_secs(4)) {
                         retire_unready_supervisor(&mut child,&path)?;
                         return Err(readiness);
@@ -1471,7 +1489,7 @@ fn serve(m: Manager) -> Result<()> {
                     job.vendor_access=true;atomic_json(&path,&job)?;
                     let mut pending=PendingAdmission::new(job.lease.clone(),blocked.clone());
                     let mut child=spawn(&m,&execution,&path,None)?;
-                    if let Err(readiness)=supervisor_ready(&mut child,&job.session,
+                    if let Err(readiness)=supervisor_ready(&mut child,&job,
                         Duration::from_secs(4)) {
                         retire_unready_supervisor(&mut child,&path)?;
                         return Err(readiness);
@@ -1650,7 +1668,7 @@ fn serve(m: Manager) -> Result<()> {
                 let mut child=spawn(&m,&execution,&path,Some(peer.try_clone()?))?;
                 if let Err(readiness) = supervisor_ready(
                     &mut child,
-                    &job.session,
+                    &job,
                     Duration::from_secs(4),
                 ) {
                     let cleanup = retire_unready_supervisor(&mut child, &path);
@@ -2449,12 +2467,12 @@ mod tests {
         let command=format!("printf 'LVO0 {session} ready\\n'; sleep 5");
         let mut child=Command::new("/bin/sh").args(["-c",&command])
             .stdout(Stdio::piped()).spawn().unwrap();
-        supervisor_ready(&mut child,&session,Duration::from_secs(1)).unwrap();
+        supervisor_ready_for_configuration(&mut child,&session,None,Duration::from_secs(1)).unwrap();
         child.kill().unwrap();child.wait().unwrap();
 
         let mut wrong=Command::new("/bin/sh").args(["-c","printf 'LVO0 wrong ready\\n'"])
             .stdout(Stdio::piped()).spawn().unwrap();
-        assert!(supervisor_ready(&mut wrong,&session,Duration::from_secs(1)).is_err());
+        assert!(supervisor_ready_for_configuration(&mut wrong,&session,None,Duration::from_secs(1)).is_err());
         wrong.wait().unwrap();
 
         let f=test_fixture::Fixture::new();
@@ -2462,6 +2480,38 @@ mod tests {
         let blocked=Arc::new(AtomicBool::new(false));
         drop(PendingAdmission::new(lease.clone(),blocked.clone()));
         assert!(!lease.exists()&&!blocked.load(Ordering::Acquire));
+    }
+    #[test]
+    fn graphics_settings_require_capability_acknowledgment_from_any_retained_generation() {
+        let session = "ac".repeat(16);
+        for acknowledged in [false, true] {
+            let capability = if acknowledged { " graphics-v1" } else { "" };
+            let command = format!("printf 'LVO0 {session} ready{capability}\\n'");
+            let mut child = Command::new("/bin/sh").args(["-c", &command])
+                .stdout(Stdio::piped()).spawn().unwrap();
+            let result = supervisor_ready_for_configuration(&mut child, &session,
+                Some(operator_model::GraphicsBackend::WineD3d11), Duration::from_secs(1));
+            assert_eq!(result.is_ok(), acknowledged);
+            child.wait().unwrap();
+        }
+    }
+    #[test]
+    #[cfg(target_os="linux")]
+    fn graphics_launch_refuses_legacy_entry_before_it_can_start_an_owner() {
+        let (f, _, _, _) = test_fixture::prepared();
+        let mut software = recovery_software(&f);
+        let script = f.outer.join("legacy-supervisor.py");
+        // The retained interface reads argv[1] as the job before launching.
+        fs::write(&script, b"import json,pathlib,sys\njob=json.loads(pathlib.Path(sys.argv[1]).read_text())\npathlib.Path(job['directory'],'owner-started').write_text('legacy launch')\n").unwrap();
+        software.supervisor = Artifact { sha256: digest(&script).unwrap(), path: script };
+        for graphics in [None, Some(operator_model::GraphicsBackend::WineD3d11)] {
+            let mut registration = f.r.clone();
+            registration.compatibility.graphics = graphics;
+            let (job, path) = spec(&f.m, registration.into(), true, false, false).unwrap();
+            let status = spawn(&f.m, &software, &path, None).unwrap().wait().unwrap();
+            assert_eq!(status.success(), graphics.is_none());
+            assert_eq!(job.directory.join("owner-started").exists(), graphics.is_none());
+        }
     }
     #[test]
     fn real_supervisor_preflight_refuses_before_exposure() {
@@ -2481,7 +2531,7 @@ mod tests {
         let script=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("runtime/session.py");
         let mut child=Command::new("/usr/bin/python3").arg(script).arg(&path)
             .stdin(stdin).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().unwrap();
-        assert!(supervisor_ready(&mut child,&job.session,Duration::from_secs(2)).is_err());
+        assert!(supervisor_ready(&mut child,&job,Duration::from_secs(2)).is_err());
         retire_unready_supervisor(&mut child,&path).unwrap();
         drop(pending);
         assert!(!job.lease.exists());
@@ -2491,8 +2541,15 @@ mod tests {
     #[cfg(target_os="linux")]
     #[test]
     fn stop_at_real_supervisor_readiness_completes_native_and_manager_retirement() {
+        check_stop_at_real_supervisor_readiness(None);
+        check_stop_at_real_supervisor_readiness(Some(operator_model::GraphicsBackend::WineD3d11));
+    }
+    #[cfg(target_os="linux")]
+    fn check_stop_at_real_supervisor_readiness(graphics: Option<operator_model::GraphicsBackend>) {
         let f=test_fixture::Fixture::new();
-        let (job,path)=spec(&f.m,f.r.clone().into(),false,false,false).unwrap();
+        let mut registration = f.r.clone();
+        registration.compatibility.graphics = graphics;
+        let (job,path)=spec(&f.m,registration.into(),false,false,false).unwrap();
         let bin=f.outer.join("fixture-bin");private_dir(&bin).unwrap();
         let systemctl=bin.join("systemctl");
         fs::write(&systemctl,b"#!/bin/sh\nprintf 'DISPLAY=:fixture\\n'\n").unwrap();
@@ -2504,10 +2561,13 @@ mod tests {
         native.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
         let stdin=unsafe{Stdio::from_raw_fd(supervisor.into_raw_fd())};
         let script=PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("runtime/session.py");
-        let mut child=Command::new("/usr/bin/python3").arg(script).arg(&path)
+        let mut command = Command::new("/usr/bin/python3");
+        command.arg(script);
+        if graphics.is_some() { command.arg("--graphics-settings-v1"); }
+        let mut child=command.arg(&path)
             .env("PATH",format!("{}:/usr/bin:/bin",bin.display()))
             .stdin(stdin).stdout(Stdio::piped()).stderr(Stdio::inherit()).spawn().unwrap();
-        supervisor_ready(&mut child,&job.session,Duration::from_secs(2)).unwrap();
+        supervisor_ready(&mut child,&job,Duration::from_secs(2)).unwrap();
         pending.expose();
         assert_eq!(unsafe{libc::kill(child.id() as i32,libc::SIGTERM)},0);
         let mut byte=[0;1];native.read_exact(&mut byte).unwrap();assert_eq!(byte,[b'F']);

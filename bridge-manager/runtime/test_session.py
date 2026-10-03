@@ -1785,6 +1785,19 @@ class SupervisorOwnershipBoundaryTests(SupervisorFixture,unittest.TestCase):
             self.assertIn('FileNotFoundError',result['error'])
             self.assertFalse(durable.exists())
 
+    def test_graphics_capability_acknowledgment_keeps_prelaunch_failure_owned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp));output=io.StringIO()
+            spec['registration']['compatibility']['graphics']='wine_d3d11'
+            with patch.object(session,'environment',return_value=dict(os.environ,WINEDLLOVERRIDES='d3d11,dxgi=b')),\
+                 patch.object(session,'command',return_value=(['/missing/windows-root'],b'binding')),\
+                 patch.object(session.subprocess,'Popen',side_effect=FileNotFoundError('fixture root absent')),\
+                 contextlib.redirect_stdout(output):
+                result=session.run(spec)
+            self.assertEqual(output.getvalue(),'LVO0 '+spec['session']+' ready graphics-v1\n')
+            self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
+            self.assertFalse(durable.exists())
+
     def test_keeper_graphical_preflight_failure_publishes_empty_cleanup(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=pathlib.Path(tmp).resolve();spec,durable=self.fixture(root);spec['keeper']=True;spec['inspect']=True

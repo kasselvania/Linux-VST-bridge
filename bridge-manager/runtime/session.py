@@ -1305,7 +1305,8 @@ def run(spec,peer=None):
         stop_requested[0]=True
     signal.signal(signal.SIGTERM,before_owner_stop);signal.signal(signal.SIGINT,before_owner_stop)
     try:
-        print('LVO0 '+spec['session']+' ready',flush=True)
+        graphics=spec['registration'].get('compatibility',{}).get('graphics')
+        print('LVO0 '+spec['session']+' ready'+(' graphics-v1' if graphics is not None else ''),flush=True)
         if stop_requested[0]:raise InterruptedError('supervisor interrupted after readiness')
         # Lock refusal is still a prelaunch owner failure. No Windows child
         # exists yet, so the same finalizer must retain the refusal and retire
@@ -1399,7 +1400,7 @@ def run_owned(spec,peer,stop_requested):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
     cmd,binding=command(spec);env=environment(reg,spec.get('graphical_session'))
-    graphics_configuration={'requested_backend':reg['compatibility'].get('graphics'),
+    graphics_configuration={'requested_backend':reg.get('compatibility',{}).get('graphics'),
         'dll_overrides':env.get('WINEDLLOVERRIDES'),'scope':'host_process_and_children',
         'renderer_observed':False}
     managed_home(spec,env)
@@ -4626,7 +4627,11 @@ if __name__=='__main__':
     os.umask(0o077)
     if sys.argv[1]=='--install':sys.exit(0 if install(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
     if sys.argv[1]=='--vendor-application':sys.exit(0 if vendor_application(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
-    spec=json.loads(pathlib.Path(sys.argv[1]).read_text());peer=None if spec['inspect'] or spec.get('vendor_access') else socket.socket(fileno=0)
+    graphics_entry=sys.argv[1]=='--graphics-settings-v1'
+    spec=json.loads(pathlib.Path(sys.argv[2 if graphics_entry else 1]).read_text())
+    if graphics_entry and (spec.get('keeper') or spec['registration'].get('compatibility',{}).get('graphics')!='wine_d3d11'):
+        raise RuntimeError('graphics settings entry requires a supported process-scoped choice')
+    peer=None if spec['inspect'] or spec.get('vendor_access') else socket.socket(fileno=0)
     operation=None
     try:
         if spec.get('keeper'):

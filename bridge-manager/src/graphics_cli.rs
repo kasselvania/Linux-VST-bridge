@@ -80,7 +80,9 @@ pub(super) fn run(m: &Manager, request_path: &Path) -> Result<()> {
 pub(super) fn assess(m: &Manager, binding: HostBinding,
     registry_admission: impl FnOnce() -> Result<Lock>) -> Result<assessment::Assessment> {
     with_launch_verification(|| {
-        let sw = software(m)?;
+        let selected = software(m)?;
+        let sw = package_authority::paired_host_components(m, &selected, &binding.host,
+            &binding.host_source_sha256)?;
         let module_stamp = observation::ModuleStamp::read(&binding.module.path)?;
         let imports = pe::inspect(&mut file(&binding.module.path)?)?;
         binding.module.verify()?;
