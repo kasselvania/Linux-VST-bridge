@@ -67,7 +67,7 @@ def run(out, kind):
         editor = one('graphics_assessment')['editor']
         probes = {p['api']: p for p in one('graphics_runtime')['probes']}
         assert editor['closed'] is True
-        assert editor['status'] == ('opened' if kind in (1, 2) else 'unavailable'), editor
+        assert editor['status'] == ('opened' if kind in (1, 2) else 'unavailable'), (editor, error[-2048:])
         assert probes['d3d11_warp']['status'] == 'passed', probes
         assert probes['d3d11_warp']['rendering'] == 'reported_software', probes
         assert probes['opengl']['status'] == 'passed', probes
