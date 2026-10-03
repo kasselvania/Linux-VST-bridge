@@ -39,6 +39,8 @@ parser.add_argument('--unfamiliar-fixtures', type=pathlib.Path,
 parser.add_argument('--revision', choices=('1.0.1', '1.0.2'))
 parser.add_argument('--frozen-candidate', type=pathlib.Path,
                     help='Retained package, freeze receipt and staged release manifest')
+parser.add_argument('--recall-from', type=pathlib.Path,
+                    help='Recall the exact saved states from a previously passing one-pair run')
 parser.add_argument('--pairs', type=int, choices=(1, 4), default=4,
                     help='One initial probe or the complete predeclared four-pair workload')
 args = parser.parse_args()
@@ -227,6 +229,14 @@ for line in subprocess.check_output(['systemctl', '--user', 'show-environment'],
         environment[key] = value
 environment['LD_PRELOAD'] = str(args.audit.resolve(strict=True))
 roles = [args.role] if args.role else list(FIXTURES)
+saved = None
+if args.recall_from is not None:
+    assert args.pairs == 1 and unfamiliar is not None, 'bounded unfamiliar update recall only'
+    log = args.recall_from/'result.ndjson'
+    assert log.stat().st_size <= 8*1024*1024, 'prior result extent'
+    saved = [json.loads(line) for line in log.read_text().splitlines()]
+    assert saved[-1]['event'] == 'subset_passed' and saved[-1]['pairs'] == 1
+    assert all(role in saved[-1]['roles'] for role in roles), 'prior role did not pass'
 for role in roles:
     key, module_sha = FIXTURES[role]
     entry = registry['classes'][key]
@@ -253,7 +263,17 @@ for role in roles:
          native_sha256=registration['native']['sha256'], added_frames=1024)
     for pair, frames in enumerate((1024, 1024, 1024, 1008)[:args.pairs], 1):
         prefix = args.output/(role+'-'+str(pair))
-        for mode in ('record', 'recall'):
+        if saved is not None:
+            prior, = [row for row in saved if row['event'] == 'publication' and row['role'] == role]
+            assert prior['class_id'] == key and prior['native_sha256'] == registration['native']['sha256']
+            state, = [row for row in saved if row['event'] == 'state_roundtrip' and row['role'] == role and row['pair'] == pair]
+            prefix = args.recall_from/(role+'-'+str(pair))
+            for part in ('component', 'controller'):
+                assert sha(prefix.with_suffix('.'+part)) == state[part+'_sha256'], 'prior saved state changed'
+            emit('prior_state_recall', role=role, from_module_sha256=prior['module_sha256'],
+                 to_module_sha256=module_sha, component_sha256=state['component_sha256'],
+                 controller_sha256=state['controller_sha256'])
+        for mode in (('recall',) if saved is not None else ('record', 'recall')):
             before = idle()
             known = session_reports()
             started = time.monotonic()
