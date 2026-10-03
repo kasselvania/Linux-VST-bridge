@@ -9,7 +9,7 @@ def load_generators(request):
         assert len(z.namelist())==len(set(z.namelist())) and len(z.namelist())<=512
         assert z.getinfo('recipe.json').file_size<=65536
         recipe=json.loads(z.read('recipe.json'))
-        assert recipe['schema'] in (2,3), 'build_recipe_generator_identity_missing'
+        assert recipe['schema'] in (2,3,4), 'build_recipe_generator_identity_missing'
         loaded=[]
         for name in (BUILDER,GENERATOR):
             info=z.getinfo(name);assert not info.is_dir() and info.file_size<=1024*1024
@@ -25,7 +25,7 @@ def main():
         b={'__name__':'mf3_kit_builder'};g={'__name__':'mf3_kit_descriptor'}
         exec(compile(builder,BUILDER,'exec'),b)
         exec(compile(generator,GENERATOR,'exec'),g)
-        result=b['build'](request,g['prebuilt_descriptor'] if recipe['schema']==3 else g['generate'])
+        result=b['build'](request,g['runtime_descriptor'] if recipe['schema']==4 else g['prebuilt_descriptor'] if recipe['schema']==3 else g['generate'])
         result.update(kit_sha256=request['kit_sha256'],builder_sha256=recipe['files'][BUILDER],generator_sha256=recipe['files'][GENERATOR])
         print(json.dumps(result))
     except Exception as e:

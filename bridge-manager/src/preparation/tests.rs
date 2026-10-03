@@ -1459,3 +1459,120 @@ fn candidate_only_upgrade_refuses_bound_snapshot_conflict_without_rewriting_it()
     assert_eq!(fs::read(&record).unwrap(), before);
     assert!(!conflict.with_file_name("provenance.json").exists());
 }
+
+#[test]
+fn reusable_engine_actual_preparation_retains_and_publishes_descriptor() {
+    let (f, c) = fixture();
+    let path = f.m.root.join("software/reusable-kit.zip");
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    let script = r#"import json,zipfile,hashlib,sys,pathlib
+path,root,host,manifest=sys.argv[1:];root=pathlib.Path(root)
+sha=lambda b:hashlib.sha256(b).hexdigest()
+files={'prebuilt/engine.so':b'\x7fELFreusable-engine-fixture',
+ 'runtime/host.exe':pathlib.Path(host).read_bytes(),
+ 'runtime/host-source-manifest.json':pathlib.Path(manifest).read_bytes()}
+for name in ('tools/mf3/native_builder.py','tools/ap8_descriptor.py'):files[name]=(root/name).read_bytes()
+files['prebuilt/index.json']=json.dumps(dict(schema=3,engine='prebuilt/engine.so',
+ engine_sha256=sha(files['prebuilt/engine.so']),descriptor_schema=1,maximum_bridge_frames=1024,native_sources={})).encode()
+recipe=dict(schema=4,source_commit='ab'*20,sdk='3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96',
+ sdk_runtime='b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8',files={k:sha(v) for k,v in files.items()})
+with zipfile.ZipFile(path,'w') as z:
+ z.writestr('recipe.json',json.dumps(recipe))
+ for k,v in files.items():z.writestr(k,v)
+"#;
+    assert!(std::process::Command::new("python3")
+        .args(["-I", "-c", script])
+        .arg(&path)
+        .arg(root)
+        .arg(&c.host.path)
+        .arg(&c.source_manifest.path)
+        .status()
+        .unwrap()
+        .success());
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+    let a = c.host.clone();
+    let sw = crate::catalogue::Software {
+        manager: a.clone(),
+        operator_frontend: None,
+        installer_launch: None,
+        preparation_kit: Some(Artifact {
+            sha256: digest(&path).unwrap(),
+            path,
+        }),
+        supervisor: a.clone(),
+        ownership: a.clone(),
+        host: a,
+        source_manifest: c.source_manifest.clone(),
+        source_sha256: c.source_manifest.sha256.clone(),
+        native_catalogue: None,
+    };
+    atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+    let runtime = build::stage_runtime(&f.m).unwrap();
+    let mut raw: Value = read_json(&c.inspection.report.path).unwrap();
+    raw["records"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"state":"ap8_bus","media":0,
+        "direction":1,"index":0,"channels":2,"type":0,"flags":1,"arrangement":3,"name":"Output"}));
+    let report = f.outer.join("preparation-inspection.json");
+    atomic_json(&report, &raw).unwrap();
+    let inspection = inspect_record_with(
+        c.selection.clone(),
+        Artifact {
+            sha256: digest(&report).unwrap(),
+            path: report,
+        },
+        Origin::ManagedPreparation,
+        runtime.host.clone(),
+        runtime.source_manifest.clone(),
+    )
+    .unwrap();
+    let operation = random_id().unwrap();
+    let prepared = build::construct(
+        &f.m,
+        c.selection,
+        inspection,
+        runtime.host,
+        runtime.source_manifest,
+        &operation,
+    )
+    .unwrap();
+    let descriptor = prepared.native.descriptor.as_ref().unwrap();
+    assert_eq!(prepared.profile.claim, Claim::ReviewCandidate);
+    assert_eq!(
+        fs::read(&prepared.native.artifact.path).unwrap(),
+        b"\x7fELFreusable-engine-fixture"
+    );
+    let data: lvb_plugin_descriptor::Descriptor = read_json(&descriptor.path).unwrap();
+    assert_eq!(data.parameters[0].initial, 0.5);
+    assert!(!data.parameters[0].available);
+    verify_candidate(
+        &f.m,
+        &prepared,
+        &prepared.selection.scanner,
+        &prepared.selection.scanner_source,
+    )
+    .unwrap();
+    retain_inspection(&f.m, &prepared.inspection).unwrap();
+    record_candidate(&f.m, &prepared).unwrap();
+    build::cleanup_work(&f.m, &operation).unwrap();
+    descriptor.verify().unwrap();
+    let revision = enable(&f.m, &prepared, false).unwrap();
+    let installed =
+        f.m.load_revision(&prepared.selection.class.id, &revision)
+            .unwrap();
+    assert_eq!(
+        installed.registration.descriptor.as_ref().unwrap().sha256,
+        descriptor.sha256
+    );
+    assert_eq!(
+        fs::read_link(f.m.link(&prepared.selection.class.id)).unwrap(),
+        installed.target
+    );
+    check_publication(&f.m, &installed.profile, &installed.registration).unwrap();
+    assert!(catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
+    assert_eq!(f.m.resolve(&f.identity()).unwrap(), installed.registration);
+}

@@ -16,7 +16,7 @@ def prebuilt_descriptor(records,class_id,module_sha256):
                     parameter[6]=value
     return generate(records,class_id,module_sha256)
 
-def generate(records,class_id,module_sha256,profile=None):
+def inspected_metadata(records,class_id,module_sha256,profile=None):
     buses=[dict(r) for r in records if r.get('state')=='ap8_bus']
     policy=None if profile is None else profile['capabilities'].get('event_output')
     if profile is not None and (profile['class']['class_id']!=class_id or profile['module_sha256']!=module_sha256):
@@ -60,8 +60,6 @@ def generate(records,class_id,module_sha256,profile=None):
     name=vendor['name']
     if not name or '\0' in name or len(name.encode('utf-8'))>63:
         raise ValueError('vendor class display name outside SDK bound')
-    # Octal UTF-8 bytes keep the SDK class label identical on every compiler.
-    label='"'+''.join('\\%03o'%b for b in name.encode('utf-8'))+'"'
     if metadata['float32_result']!=0:raise ValueError('float32 processing unsupported')
     # A factory-1 class has no declared role: inspectable, but not publishable.
     if vendor.get('metadata_tier') not in ('factory_2','factory_3_unicode'):
@@ -72,12 +70,10 @@ def generate(records,class_id,module_sha256,profile=None):
     effect='Fx' in categories
     if effect and not any(r['media']==0 and r['direction']==0 and r['type']==0 for r in buses):
         raise ValueError('effect requires main audio input')
-    literals={}
     for key,limit in [('vendor',63),('version',63),('subcategories',127)]:
         value=vendor[key]
         if not value or any(ord(c)<32 for c in value) or len(value.encode('utf-8'))>limit:
             raise ValueError('vendor '+key+' outside SDK bound')
-        literals[key]='"'+''.join('\\%03o'%b for b in value.encode('utf-8'))+'"'
 
     params=[p for r in records if r.get('state')=='ap8_parameters' for p in r['parameters']]
     if len(params)!=next(r['count'] for r in records if r.get('state')=='ap8_parameter_count') or len({p[0] for p in params})!=len(params):
@@ -87,6 +83,16 @@ def generate(records,class_id,module_sha256,profile=None):
     for p in params:
         if not available(p) and not normal(p[5]):
             raise ValueError('no valid readback or SDK default for presentation')
+    return buses, raw, vendor, params, effect
+
+def generate(records,class_id,module_sha256,profile=None):
+    buses, raw, vendor, params, effect = inspected_metadata(records,class_id,module_sha256,profile)
+    normal=lambda v: isinstance(v,(int,float)) and math.isfinite(v) and 0<=v<=1
+    available=lambda p: normal(p[6])
+    # Octal UTF-8 bytes preserve the SDK label across compilers for retained kits.
+    literal=lambda value: '"'+''.join('\\%03o'%b for b in value.encode('utf-8'))+'"'
+    label=literal(vendor['name'])
+    literals={key:literal(vendor[key]) for key in ('vendor','version','subcategories')}
     # Immutable UUIDv5 namespace and logical vendor CID. No path/build/session in native class IDs.
     namespace=uuid.UUID('9389480f-b4b0-5e02-a1d7-687a57b54b3f')
     ids=[uuid.uuid5(namespace,class_id.upper()+suffix).hex for suffix in (':processor',':controller')]
@@ -114,6 +120,25 @@ inline constexpr Parameter parameters[]={
 '''+',\n'.join('{'+','.join([str(p[0]),quote(p[1]),quote(p[2]),str(p[3]),str(p[4]),repr(p[6] if available(p) else p[5]),str(available(p)).lower()])+'}' for p in params)+'''\n};
 }
 '''
+
+def runtime_descriptor(records, class_id, module_sha256, engine_sha256):
+    """Prepare data for the reusable engine; preserve each installation's readback.
+
+    Inspection validation is shared with retained static-descriptor tooling.
+    Rust validates the bounded data again before publication and native loading.
+    """
+    buses, _, vendor, params, _ = inspected_metadata(records, class_id, module_sha256)
+    normal = lambda v: isinstance(v, (int, float)) and math.isfinite(v) and 0 <= v <= 1
+    descriptor = dict(schema=1, engine_sha256=engine_sha256,
+        class_id=class_id.upper(), module_sha256=module_sha256,
+        class_name=vendor['name'], vendor=vendor['vendor'], version=vendor['version'],
+        subcategories=vendor['subcategories'],
+        buses=[{k: r.get(k, 0) for k in
+            ('media','direction','index','channels','type','flags','arrangement','name')}
+            for r in buses],
+        parameters=[dict(id=p[0],title=p[1],units=p[2],steps=p[3],flags=p[4],
+            initial=p[6] if normal(p[6]) else p[5],available=normal(p[6])) for p in params])
+    return json.dumps(descriptor, sort_keys=True, separators=(',', ':'), allow_nan=False)
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('inspection',type=pathlib.Path);p.add_argument('--class-id',required=True);p.add_argument('--module-sha256',required=True);p.add_argument('--output',type=pathlib.Path,required=True);p.add_argument('--profile',type=pathlib.Path);a=p.parse_args()

@@ -410,9 +410,23 @@ pub struct Registration {
     pub host: Artifact,
     pub host_source_sha256: String,
     pub native: Artifact,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub descriptor: Option<Artifact>,
     pub compatibility: Compatibility,
 }
 impl Registration {
+    pub fn relocate_native(&mut self, path: PathBuf) {
+        if let Some(descriptor) = &mut self.descriptor {
+            descriptor.path = path.with_file_name(lvb_plugin_descriptor::FILE_NAME);
+        }
+        self.native.path = path;
+    }
+    pub fn verify_descriptor(&self) -> Result<()> {
+        if let Some(artifact) = &self.descriptor {
+            verify_native_descriptor(&self.native, artifact, &self.metadata, &self.module.sha256)?;
+        }
+        Ok(())
+    }
     pub fn key(&self) -> String {
         self.metadata.class_id.to_uppercase()
     }
@@ -461,8 +475,64 @@ impl Registration {
         self.module.verify()?;
         self.host.verify()?;
         self.native.verify()?;
+        self.verify_descriptor()?;
         Ok(())
     }
+}
+pub(crate) fn verify_native_descriptor(
+    native: &Artifact,
+    artifact: &Artifact,
+    metadata: &Metadata,
+    module: &str,
+) -> Result<()> {
+    require(
+        artifact.path == native.path.with_file_name(lvb_plugin_descriptor::FILE_NAME),
+        "native_descriptor_location",
+    )?;
+    artifact.verify()?;
+    let mut bytes = Vec::new();
+    file(&artifact.path)?
+        .take((lvb_plugin_descriptor::LIMIT + 1) as u64)
+        .read_to_end(&mut bytes)?;
+    let descriptor = lvb_plugin_descriptor::Descriptor::parse(&bytes)?;
+    require(
+        descriptor.engine_sha256 == native.sha256
+            && descriptor.module_sha256 == module
+            && descriptor.class_id.eq_ignore_ascii_case(&metadata.class_id)
+            && descriptor.class_name == metadata.name
+            && descriptor.vendor == metadata.vendor
+            && descriptor.version == metadata.version
+            && descriptor.subcategories == metadata.subcategories,
+        "native_descriptor_binding",
+    )
+}
+pub(crate) fn copy_native_descriptor(
+    source: &Path,
+    target: &Path,
+    expected: &Option<Artifact>,
+) -> Result<()> {
+    if let Some(descriptor) = expected {
+        let source = source.with_file_name(lvb_plugin_descriptor::FILE_NAME);
+        let target = target.with_file_name(lvb_plugin_descriptor::FILE_NAME);
+        require(
+            digest(&source)? == descriptor.sha256,
+            "source_descriptor_changed",
+        )?;
+        // Copy through the same no-follow, current-owner reader as other artifacts.
+        let mut input = file(&source)?;
+        let mut output = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o400)
+            .open(&target)?;
+        std::io::copy(&mut input, &mut output)?;
+        output.sync_all()?;
+        require(
+            digest(&target)? == descriptor.sha256,
+            "copied_descriptor_changed",
+        )?;
+    }
+    Ok(())
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Publication {
@@ -754,7 +824,9 @@ impl Manager {
         self.root
             .join("publications")
             .join(r.key())
-            .join(&r.native.sha256)
+            .join(if let Some(descriptor) = &r.descriptor {
+                hex(&Sha256::digest(format!("{}:{}", r.native.sha256, descriptor.sha256).as_bytes()))
+            } else { r.native.sha256.clone() })
             .join(format!("LVB_{}.vst3", r.key()))
     }
     pub fn native_path(&self, r: &Registration) -> PathBuf {
@@ -768,14 +840,14 @@ impl Manager {
         let mut db = self.registry()?;
         let key = r.key();
         let mut installed = r.clone();
-        installed.native.path = self.native_path(&r);
+        installed.relocate_native(self.native_path(&r));
         if let Some(old) = db.classes.get(&key) {
             require(
                 old.managed_revision.is_none(),
                 "managed binding requires explicit publication transaction",
             )?;
             let mut previous = old.registration.clone();
-            previous.native.path = self.native_path(&previous);
+            previous.relocate_native(self.native_path(&previous));
             require(
                 previous == installed,
                 "existing binding differs; explicit update transaction required",
@@ -816,6 +888,7 @@ impl Manager {
             )?;
             fs::set_permissions(&copy, fs::Permissions::from_mode(0o500))?;
             File::open(&copy)?.sync_all()?;
+            copy_native_descriptor(&r.native.path, &copy, &r.descriptor)?;
             atomic_json(&stage.join("bridge-provenance.json"), r)?;
             fs::rename(stage, &target)?;
             File::open(parent)?.sync_all()?;
@@ -824,6 +897,9 @@ impl Manager {
             digest(&so)? == r.native.sha256,
             "installed publication changed",
         )?;
+        if let Some(descriptor) = &r.descriptor {
+            require(digest(&so.with_file_name(lvb_plugin_descriptor::FILE_NAME))? == descriptor.sha256, "installed_descriptor_changed")?;
+        }
         fs::create_dir_all(&self.publications)?;
         let parent_meta = fs::symlink_metadata(&self.publications)?;
         require(
@@ -863,11 +939,11 @@ impl Manager {
             if e.publication == Publication::Pending {
                 let target = self.native_path(&e.registration);
                 if target.try_exists()? {
-                    e.registration.native.path = target.clone();
+                    e.registration.relocate_native(target.clone());
                 }
                 e.registration.verify(&self.root)?;
                 self.publish_entry(&e.registration)?;
-                e.registration.native.path = target;
+                e.registration.relocate_native(target);
                 e.publication = Publication::Published;
                 changed = true;
             }

@@ -1260,7 +1260,7 @@ fn publication_candidate(m: &Manager, p: &Profile, r: &Registration) -> Result<C
             SelectionPurpose::Activation
         },
     )?;
-    expected.native.path = r.native.path.clone();
+    expected.relocate_native(r.native.path.clone());
     require(expected == *r, "candidate_registration_changed")?;
     Ok(c)
 }

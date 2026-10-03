@@ -84,28 +84,37 @@ customer release. Customer signing, complete notices/SBOM and any later runtime
 redistribution remain task 4. This selected GE/SLR pair needs its own observed
 compatibility results; earlier Valve-Proton fixture profiles do not qualify it.
 
-## Prebuilt publication
+## Reusable engine publication
 
-Preparation kit schema 3 carries prebuilt native ELF proxies, exact generated
-SDK descriptors, a proxy index, paired Windows host/source manifest, source-owned
-selection tools, backend/source identities and the pinned SDK's MIT notices.
-`tools/mf3/prebuilt_kit.py` builds this kit on the developer's Linux build machine.
-Package assembly checks its roster, rebuilds the backend and each proxy from the
-declared clean source tree, and compares the resulting bytes before signing.
+The current source builds preparation kit schema 4: one native ELF engine,
+validated per-plug-in JSON discovery data prepared after inspection, the paired
+Windows host/source manifest, source-owned preparation tools, backend/source
+identities and the pinned SDK notices. `tools/mf3/prebuilt_kit.py` and the
+`package_kit.py` entry point build it on the maintainer's Linux machine.
+Package verification checks the roster, source and rebuilt engine bytes.
+No vendor class or module digest is a build input to this engine.
 
-On the customer's machine, ordinary managed inspection selects an exact
-module SHA-256 and Windows class ID. The kit-owned descriptor generator checks
-the observed buses, parameters and vendor metadata
-against the shipped descriptor. Presentation uses valid SDK-declared defaults.
-If the vendor supplies an invalid default, the existing validated readback is
-retained as an exact match requirement; a different value refuses this proxy.
-The Arturia fixtures expose MIDI helpers with default -1 and observed value 0.
-No guessed default or preset substitution is introduced.
-Existing class IDs remain stable across builds. Preparation then copies the
-verified ELF bytes into the managed candidate; it invokes no compiler, Flatpak
-SDK, VST3 SDK or download. An unlisted module or different metadata is refused,
-with no source-build fallback. A subsequent kit can add a specifically tested
-build; an existing project must never silently receive another class/build.
+The customer path copies the verified engine and prepares bounded bus,
+parameter and class metadata. Rust validates the data and its engine/module
+binding outside the audio callback. Stable DAW class IDs retain the existing
+logical vendor-class derivation. A module update changes discovery data without
+requiring a new bridge binary. Unsupported interfaces/layouts and stale inputs
+still have explicit failures. Installation readbacks remain private local data.
+
+The manager retains engine and metadata as one publication revision and restores
+both through existing rollback. The source/SDK first-step checks do not qualify
+Windows DSP, project recall, graphics/audio coexistence, a released package or
+Nibbi. Older manager binaries do not understand descriptor-bearing registration
+records; package downgrade must restore compatible publication/data or refuse
+explicitly. That cross-version package operation is not validated here. The
+assessed configuration and reversible trial workflow remains open.
+See [the current slice](../CURRENT_SLICE.md#general-preparation-and-compatibility-experimentation).
+
+Historical schema-3 kits contain exact module-specific proxies and still use
+only their own exact metadata/build inputs when read for retained publications.
+They cannot borrow the new generator or acquire general preparation merely
+because the manager was updated. The following installed results describe those
+older kits, not the new engine.
 
 The internal21 test kit retains the Pure LoFi fixture and original Deck
 FRAGMENTS entry, and adds the exact module produced by official FRAGMENTS

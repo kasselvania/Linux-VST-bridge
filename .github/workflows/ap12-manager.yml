@@ -16,6 +16,7 @@ on:
       - 'evidence/lc2/generated.json'
       - 'bridge-manager/**'
       - 'native-audio-client/**'
+      - 'plugin-descriptor/**'
       - 'compatibility/**'
       - '.github/workflows/ap12-manager.yml'
       - 'tools/ap8_descriptor.py'

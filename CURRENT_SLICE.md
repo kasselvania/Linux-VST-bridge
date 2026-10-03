@@ -5,8 +5,8 @@
 The operator rejected the per-plug-in prebuilt catalogue restriction, authorized
 its repair, then required the graphics/runtime/dependency and advanced-user
 workflow to be connected before implementation. Base
-`9a0766afbf71fbb336c897c98b003b9e4bdda737`, tree
-`f94e517e5e61e63bf43b7c830caa2027b8e3ee12`.
+`6d0743b809b8e8a4a5fb54aee174e884c435c3ff`, tree
+`9a2fba91eebb58d1b75574f96e541930c51df599` for the authorized first implementation steps.
 
 Basis: the operator's product invariants; AGENTS.md Goal and Keep the engineering
 safeguards; ARCHITECTURE.md 5.1 Manager core, 5.3 Environment manager,
@@ -46,10 +46,29 @@ unperformed until tested. Preserve the installed reference and frozen audio
 worktree. Source rollback is commit reversion; installed successors use the
 existing supported publication/selection and viable environment restore path.
 
-Current result: source connections and acceptance cases are recorded; the beta
-contract's permission to stop at a catalogue refusal has been removed. No
-production code has been changed by this design correction. Implementation,
-the unseen-plug-in comparison and advanced compatibility journey remain open.
+Current result: the first source implementation separates the compiled native
+engine from bounded per-plug-in discovery data. Kit schema 4 prepares that data
+without a customer compiler or exact module catalogue. Rust validates it before
+publication and factory loading; the existing manager retains, copies, verifies
+and rolls it back with its engine. Historical kit readers remain for retained
+artifacts, while both maintainer kit entry points now build the reusable engine.
+
+A compiled Linux SDK consumer loaded simultaneous unfamiliar instrument/effect
+identities chosen after the engine build, checked buses and parameter values,
+and retained stable DAW IDs across a simulated module update. Invalid or missing
+data refused. Manager tests exercise actual preparation through the kit-owned
+loader, experimental publication, exact rollback and all 16 interruption points.
+These are generated metadata/reference and source checks, not Windows plug-in
+processing or a complete installed musician workflow. The reusable engine has
+not been installed on the Deck; no repaired Nibbi result is claimed.
+
+The primary outcome above remains open. Next connect the shared graphics
+assessment and requested/effective settings to the existing candidate workflow,
+with one supported reversible trial. Then run the frozen package against actual
+new Windows reference modules through audio, state and DAW recall. Alternate
+runtimes, dependencies, advanced controls and physical commercial acceptance
+remain required work. See the retained first-step evidence under
+`evidence/preparation/2026-10-02-reusable-engine.json`.
 
 ## Shared graphics assessment
 

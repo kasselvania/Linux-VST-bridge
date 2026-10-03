@@ -2,6 +2,8 @@
 #[cfg(test)]
 mod commercial_tests;
 mod context;
+#[cfg(target_os = "linux")]
+mod descriptor;
 mod completion_wait;
 mod fault_status;
 mod terminal;

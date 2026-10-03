@@ -2,7 +2,11 @@
 #include "../../vst-state/stream.h"
 #include "ap10_backend.h"
 #include "ap11_gui.h"
+#ifdef LVB_RUNTIME_DESCRIPTOR
+#include "runtime_descriptor.h"
+#else
 #include "ap8_descriptor.h"
+#endif
 #include "desktop_activation.h"
 #include "editor_lifecycle.h"
 #include "public.sdk/source/vst/vsteditcontroller.h"

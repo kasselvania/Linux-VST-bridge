@@ -1,4 +1,4 @@
-//! Fixed offline recipe. Compilation is non-RT and never owns registry.lock.
+//! Offline preparation from the installed kit, outside the audio path and registry lock.
 use super::*;
 use std::{
     process::{Command, Stdio},
@@ -6,7 +6,7 @@ use std::{
 };
 pub fn recipe_available(m: &Manager) -> Result<Artifact> {
     let sw: crate::catalogue::Software = read_json(&m.root.join("software.json"))?;
-    let kit=sw.preparation_kit.ok_or("Preparation tools are not installed. Install the manager package with its pinned build tools")?;
+    let kit=sw.preparation_kit.ok_or("Preparation support is missing. Install the complete manager package")?;
     require(
         kit.path.starts_with(m.root.join("software"))
             && kit.path.canonicalize()? == kit.path
@@ -138,7 +138,16 @@ pub fn construct(
         status.success(),
         reply["error"].as_str().unwrap_or("native_build_failed"),
     )?;
+    let descriptor = if reply["delivery"] == "reusable_engine" {
+        let artifact = Artifact { path: dir.join(lvb_plugin_descriptor::FILE_NAME),
+            sha256: reply["descriptor_sha256"].as_str().ok_or("build_descriptor")?.into() };
+        artifact.verify()?;
+        fs::set_permissions(&artifact.path, fs::Permissions::from_mode(0o400))?;
+        file(&artifact.path)?.sync_all()?;
+        Some(artifact)
+    } else { None };
     let native = NativeArtifact {
+        descriptor,
         class: i.census()?.selected,
         module_sha256: s.module.sha256.clone(),
         artifact: Artifact {
@@ -165,6 +174,10 @@ pub fn construct(
         "build_recipe_identity",
     )?;
     native.artifact.verify()?;
+    if let Some(descriptor) = &native.descriptor {
+        crate::verify_native_descriptor(&native.artifact, descriptor,
+            &native.class, &native.module_sha256)?;
+    }
     fs::set_permissions(&native.artifact.path, fs::Permissions::from_mode(0o500))?;
     file(&native.artifact.path)?.sync_all()?;
     immutable(&dir.join("build.json"), &reply)?;
@@ -232,9 +245,9 @@ pub fn stage_runtime(m: &Manager) -> Result<Runtime> {
 kit,out=sys.argv[1:];out=pathlib.Path(out)
 with zipfile.ZipFile(kit) as z:
  assert z.getinfo('recipe.json').file_size<=65536
- recipe=json.loads(z.read('recipe.json'));assert recipe['schema'] in (1,2,3)
+ recipe=json.loads(z.read('recipe.json'));assert recipe['schema'] in (1,2,3,4)
  names=[('runtime/host.exe','host.exe'),('runtime/host-source-manifest.json','host-source-manifest.json')]
- if recipe['schema'] in (2,3):names += [('tools/mf3/native_builder.py','native_builder.py'),('tools/ap8_descriptor.py','ap8_descriptor.py')]
+ if recipe['schema'] in (2,3,4):names += [('tools/mf3/native_builder.py','native_builder.py'),('tools/ap8_descriptor.py','ap8_descriptor.py')]
  for key,name in names:
   i=z.getinfo(key);assert not i.is_dir() and i.file_size<=64*1024*1024
   b=z.read(i);assert hashlib.sha256(b).hexdigest()==recipe['files'][key]
@@ -359,7 +372,7 @@ pub fn cleanup_work(m: &Manager, operation: &str) -> Result<()> {
         let path = entry?.path();
         if matches!(
             path.file_name().and_then(|n| n.to_str()),
-            Some("native.so" | "build.json")
+            Some("native.so" | "build.json" | "plugin-descriptor.json")
         ) {
             continue;
         }

@@ -238,7 +238,7 @@ def verify_kit(data, source_head, host_sha256, source_sha256):
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         if archive.getinfo("recipe.json").file_size > 65536:
             raise ValueError("preparation kit recipe extent")
-        if json.loads(archive.read("recipe.json")).get("schema") == 3:
+        if json.loads(archive.read("recipe.json")).get("schema") in (3,4):
             return verify_prebuilt_kit(data, source_head, host_sha256, source_sha256)
     if len(data) > 256 * 1024 * 1024:
         raise ValueError("preparation kit extent")
@@ -310,6 +310,8 @@ def verify_prebuilt_kit(data, source_head, host_sha256, source_sha256):
             "licenses/pluginterfaces.txt","licenses/public.sdk.txt"}
         if not fixed <= set(names) or len(names)!=len(set(names)) or len(names)>256:
             raise ValueError("prebuilt kit roster")
+        recipe=json.loads(archive.read("recipe.json"))
+        if recipe.get("schema") == 4: fixed.add("prebuilt/engine.so")
         total=0
         for entry in entries:
             name=entry.filename
@@ -321,7 +323,7 @@ def verify_prebuilt_kit(data, source_head, host_sha256, source_sha256):
         if total>256*1024*1024:raise ValueError("prebuilt kit extent")
         recipe=json.loads(archive.read("recipe.json"))
         if (set(recipe)!={"schema","source_commit","sdk","sdk_runtime","files"}
-            or recipe["schema"]!=3 or recipe["source_commit"]!=source_head
+            or recipe["schema"] not in (3,4) or recipe["source_commit"]!=source_head
             or recipe["sdk"]!=KIT_SDK or recipe["sdk_runtime"]!=KIT_SDK_RUNTIME
             or set(recipe["files"])!=set(names)-{"recipe.json"}):
             raise ValueError("prebuilt kit recipe")
@@ -332,6 +334,14 @@ def verify_prebuilt_kit(data, source_head, host_sha256, source_sha256):
         if recipe["files"]["runtime/host.exe"]!=host_sha256 or recipe["files"]["runtime/host-source-manifest.json"]!=source_sha256:
             raise ValueError("prebuilt kit host pair")
         index=json.loads(archive.read("prebuilt/index.json"))
+        if recipe["schema"] == 4:
+            if (set(index)!={"schema","engine","engine_sha256","descriptor_schema","maximum_bridge_frames","native_sources"}
+                or index["schema"]!=3 or index["descriptor_schema"]!=1
+                or index["maximum_bridge_frames"]!=1024 or index["engine"]!="prebuilt/engine.so"
+                or recipe["files"][index["engine"]]!=index["engine_sha256"]
+                or not archive.read(index["engine"]).startswith(b"\x7fELF") or set(names)!=fixed):
+                raise ValueError("reusable engine index")
+            return
         if set(index)!={"schema","proxies","native_sources"} or index["schema"] not in (1,2) or not 1<=len(index["proxies"])<=64:
             raise ValueError("prebuilt proxy index")
         selected=set();expected_names=set(fixed)
@@ -370,8 +380,10 @@ def verify_kit_source(data, source_root, source_head, source_tree):
         raise ValueError("preparation kit source roster bound")
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         recipe = json.loads(archive.read("recipe.json"))
-        if recipe["schema"]==3:
+        if recipe["schema"] in (3,4):
             native_names={name for name in git("ls-files","-z","--",*KIT_SOURCE_ARGS[:5],"native-audio-client").decode().split("\0") if name}
+            if recipe["schema"] == 4:
+                native_names.update(name for name in git("ls-files","-z","--","plugin-descriptor").decode().split("\0") if name)
             index=json.loads(archive.read("prebuilt/index.json"))
             if index["native_sources"]!={name:sha((source_root/name).read_bytes()) for name in native_names}:
                 raise ValueError("prebuilt native source differs")
@@ -398,7 +410,7 @@ def verify_kit_backend(data, source_root):
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         expected = sha(archive.read("libap2_backend.a"))
         recipe = json.loads(archive.read("recipe.json"))
-        prebuilt_index = json.loads(archive.read("prebuilt/index.json")) if recipe["schema"] == 3 else None
+        prebuilt_index = json.loads(archive.read("prebuilt/index.json")) if recipe["schema"] in (3,4) else None
     compiler = subprocess.check_output(
         ["rustup", "which", "--toolchain", KIT_RUST_TOOLCHAIN, "rustc"], text=True).strip()
     with tempfile.TemporaryDirectory(prefix="lvb-pkg1-backend-") as target:
@@ -441,6 +453,16 @@ def verify_kit_backend(data, source_root):
                 for component in ('', 'base', 'pluginterfaces', 'public.sdk'):
                     if archive.read('licenses/'+(component or 'vst3sdk')+'.txt') != (sdk/component/'LICENSE.txt').read_bytes():
                         raise ValueError('prebuilt SDK license differs')
+                if prebuilt_index["schema"] == 3:
+                    build=Path(target)/"reusable-engine"
+                    subprocess.run(["cmake","-S",str(source_root),"-B",str(build),"-G","Ninja",
+                        "-DCMAKE_BUILD_TYPE=Release","-DAP2_BUILD_ONLY=ON","-DLVB_REUSABLE_ENGINE=ON",
+                        "-DVST3_SDK_ROOT="+str(sdk),"-DAP2_RUST_LIBRARY="+str(built)],check=True,timeout=120)
+                    subprocess.run(["cmake","--build",str(build),"--target","CommercialInstrumentBridge","-j","2"],check=True,timeout=600)
+                    native=build/"VST3/Release/CommercialInstrumentBridge.vst3/Contents/x86_64-linux/CommercialInstrumentBridge.so"
+                    if sha(native.read_bytes())!=prebuilt_index["engine_sha256"]:
+                        raise ValueError("reusable engine rebuild differs")
+                    return
                 for number, proxy in enumerate(prebuilt_index["proxies"]):
                     metadata=Path(target)/("descriptor-"+str(number));metadata.mkdir()
                     header=metadata/"ap8_descriptor.h"

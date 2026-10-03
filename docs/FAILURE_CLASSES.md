@@ -93,7 +93,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-PLAT-001](#fc-plat-001--nativewindows-transport-requires-shared-private-loopback) | Native/Windows transport needs shared loopback | Platform namespace adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Regression gate for new adapters |
 | [FC-MGMT-004](#fc-mgmt-004--managed-publication-is-mistaken-for-a-static-catalogue-fixture) | Managed publication is mistaken for a static catalogue fixture | Catalogue/publication ownership | causal | installed | Ubuntu internal22 normal status and product controls passed | resolved at publication readback | DAW use remains untested |
 | [FC-MGMT-005](#fc-mgmt-005--partial-installation-retry-omitted-from-setup) | Partial installation retry omitted from Setup | Existing installer offers to Setup projection | causal | installed | Ubuntu internal56: two partial-stop and isolated-retry repetitions | resolved for the recorded partial retry | Remaining recovery cases and platform qualification |
-| [FC-MGMT-006](#fc-mgmt-006--exact-prebuilt-catalogue-blocks-unfamiliar-plug-ins) | Exact prebuilt catalogue blocks unfamiliar plug-ins | Preparation/descriptor/publication | causal in source; Nibbi user report | proposed | No repaired physical result | blocked for affected new builds | General preparation with reusable engine, assessed configuration and reversible trial |
+| [FC-MGMT-006](#fc-mgmt-006--exact-prebuilt-catalogue-blocks-unfamiliar-plug-ins) | Exact prebuilt catalogue blocks unfamiliar plug-ins | Preparation/descriptor/publication | causal in source; Nibbi user report | source and SDK factory checks | No repaired physical result | blocked for affected new builds | General preparation with reusable engine, assessed configuration and reversible trial |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
@@ -2111,9 +2111,15 @@ candidate publication must share the configuration described in
 Existing candidate observations, experimental publication and history are
 retained; exact qualification is not a prerequisite for a supervised local trial.
 
-Understanding: causal in the selected source. Implementation: proposed, with
-the conflicting beta requirement corrected. Physical repaired coverage: none.
-Posture: blocked for new builds missing from the shipped index. This is distinct
+Understanding: causal in the selected source. First implementation: kit schema 4
+uses one reusable engine with Rust-validated discovery data, carried by existing
+candidate/publication records. Generated classes chosen after compilation load
+simultaneously through an independent Linux SDK consumer; a simulated module
+update preserves DAW IDs. Actual manager preparation and publication, malformed
+data, exact rollback and all 16 interrupted-publication boundaries pass source
+tests. Assessment/configuration/trial integration and actual Windows processing
+remain open. Physical repaired coverage: none. Posture: still blocked in the
+unchanged delivered package for builds missing from its index. This is distinct
 from FC-MGMT-004, which repaired readback after an existing proxy was published.
 No cause is assigned to the separately reported Deck input pauses or readiness
 changes. No remote operation was performed for this design correction.
