@@ -45,6 +45,14 @@ buffer size and delivery model together. Use the existing SDK consumers and
 qualified recorder. A failed run remains failed; useful sub-results retain their
 original scope.
 
+The operator requested a separate graphics/editor/runtime investigation while
+using the Deck on 2026-10-02. Its [source review](GRAPHICS_RUNTIME_REVIEW.md)
+separates effective rendering capability, editor/controller failure isolation
+and graphics performance from their final coexistence test with audio. Local
+source checks passed; no Deck access or production change occurred. The proposed
+follow-ups are independently bounded and do not modify the frozen audio candidate
+or qualify any graphics path through an audio-only result.
+
 Complete, review, commit and push bounded jobs. Keep the failure cards and support
 matrix consistent with their evidence. Do not launch unrelated ARM, Windows DAW,
 catalogue expansion or manager redesign work from this roadmap. Existing separate

@@ -4,6 +4,17 @@ This ledger is the current map from reusable failure mechanisms to fixes, artifa
 
 Historical AP/UIO/UIR/IF documents remain authoritative for what a particular experiment observed. This ledger is authoritative for the project's current cross-plug-in understanding.
 
+The 2026-10-02 [graphics/runtime source investigation](GRAPHICS_RUNTIME_REVIEW.md)
+retains FC-GFX-001's exact rendering claim. BEAM's reported editor-open crackling
+has no assigned cause: its historical V4 rendering/input result is not an audio
+or acceleration qualification. Source inspection identifies controller-update
+failure propagation to audio and an owner-exception/thread-retirement hazard;
+neither has been reproduced in the production Windows host in this investigation
+or assigned to a commercial incident. They are separate proposed fixture tests,
+not new causal failure classes or deployed repairs. Missing effective graphics
+readback and rendering-cost measurements are recorded as implementation/evidence
+gaps. No physical support posture is widened.
+
 ## Status vocabulary
 
 **Understanding**

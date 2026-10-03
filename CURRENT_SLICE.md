@@ -1,5 +1,46 @@
 # Current work selection
 
+## Graphics, editor and runtime source investigation
+
+On 2026-10-02 the operator requested investigation of the non-audio layers while
+retaining the Deck for personal tests. Base commit:
+`764af9ca5380f14a8b8967acb462dcb9814e7e17`, tree
+`78d5081c79999360344625cc11bf15b5387d7f86`.
+
+Primary claim: map the existing graphics selection, editor execution and runtime
+capability boundaries to source and retained evidence, identify concrete gaps,
+and select bounded follow-up experiments. This is source investigation, not a
+graphics repair or physical qualification.
+
+Basis: the operator's current instruction; AGENTS.md real-time, cross-boundary
+and evidence rules; ARCHITECTURE.md sections 6.3–6.6, 7.1, 9 and 18.1/18.2/18.5;
+the portable audio recovery D-022; AUDIO_RECOVERY_ROADMAP.md stage 3 and Execution.
+Scope: manager readiness/profiles/runtime launch, native GUI transport, Windows
+owner/editor/controller service, and retained BEAM/Blackhole/FRAGMENTS graphics
+evidence. Dependencies and production behavior remain unchanged. The fixture is
+this exact source tree and local generated tests; retained physical observations
+keep their original artifact identities and limitations.
+
+Acceptance: an anchored source/evidence review, focused local checks of existing
+boundaries where executable, explicit failure propagation and test gaps, and
+separate graphics, execution-isolation and combined-performance follow-ups.
+No Deck access, remote observation, installation, configuration, publication,
+process control or test instrumentation is authorized by this investigation.
+No new GPU, audio, compatibility or beta-readiness claim follows. Preserve the
+audio repair branch and artifacts; retain only sanitized source findings and
+check results, commit and push the separate result. No deployed rollback is
+needed because this work changes documentation only.
+
+Result: the [source investigation](docs/GRAPHICS_RUNTIME_REVIEW.md) is complete.
+Fifteen local Python checks, seven registered-backend Rust checks and the existing
+C++ concurrent controller-update test passed. The review identifies missing
+effective renderer/driver readback, controller-failure propagation into audio,
+an owner-exception/thread-retirement hazard, and unmeasured owner/rendering cost.
+These are source findings and proposed reproductions, not BEAM crackle attribution.
+The next proposed jobs are graphics capability readback and production SDK
+failure-isolation tests; physical comparisons remain deferred to the operator's
+availability. Audio recovery stage 2 below is unchanged and still open.
+
 ## Active audio recovery stage 2: one attributed presentation gap
 
 On 2026-10-02 the operator authorized stage 2 of the recorded recovery roadmap.
