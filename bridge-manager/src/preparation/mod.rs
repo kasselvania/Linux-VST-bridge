@@ -496,6 +496,7 @@ fn adopt_sv1(m: &Manager, s: &Selection) -> Result<Option<Candidate>> {
         c.source_manifest.clone(),
     )?;
     let candidate = Candidate {
+        local_settings: None,
         settings_trial: None,
         schema: 1,
         selection: s.clone(),
@@ -721,7 +722,7 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
             && c.profile.class.class_id == c.selection.class.id,
         "candidate_binding",
     )?;
-    if c.profile.capabilities.accessibility != Accessibility::WindowsDefault {
+    if c.local_settings.is_none() && c.profile.capabilities.accessibility != Accessibility::WindowsDefault {
         let (selected, evidence) = accessibility::selected(&c.selection)?;
         require(c.origin == Origin::ManagedPreparation
             && c.profile.capabilities.accessibility == selected
@@ -730,6 +731,7 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
             && evidence.as_ref().is_some_and(|reference| c.profile.evidence.contains(reference)),
             "candidate_policy_requires_explicit_support")?;
     }
+    configuration::verify_settings(c)?;
     let expected_compatibility = Compatibility {
         graphics: c.profile.capabilities.graphics,
         disable_windows_accessibility: c.profile.capabilities.accessibility == Accessibility::DisabledForVendorProcess,
@@ -766,12 +768,8 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
         "candidate_inspection_changed",
     )?;
     let census = c.census()?;
-    let reg = crate::observation::derive_for(
-        &c.profile,
-        &census,
-        &c.native,
-        SelectionPurpose::Qualification,
-    )?;
+    let reg = configuration::registration_for(c, &c.profile, &census,
+        SelectionPurpose::Qualification)?;
     reg.verify(&m.root)
 }
 pub fn record_candidate(m: &Manager, c: &Candidate) -> Result<String> {
@@ -859,6 +857,7 @@ pub fn prepared(
     };
     profile.validate()?;
     Ok(Candidate {
+        local_settings: None,
         settings_trial: None,
         schema: 1,
         selection: s,
@@ -1256,10 +1255,8 @@ pub(crate) fn check_publication(m: &Manager, p: &Profile, r: &Registration) -> R
 fn publication_candidate(m: &Manager, p: &Profile, r: &Registration) -> Result<Candidate> {
     let c = for_profile(m, p)?.ok_or("candidate_preparation_required")?;
     verify_retained_candidate(m, &c)?;
-    let mut expected = crate::observation::derive_for(
-        p,
-        &c.census()?,
-        &c.native,
+    let mut expected = configuration::registration_for(
+        &c, p, &c.census()?,
         if p.claim == Claim::ReviewCandidate {
             SelectionPurpose::Qualification
         } else {
@@ -1392,10 +1389,8 @@ fn enable_exact(
         c.profile.clone()
     };
     let census = c.census()?;
-    let r = crate::observation::derive_for(
-        &p,
-        &census,
-        &c.native,
+    let r = configuration::registration_for(
+        c, &p, &census,
         if ordinary {
             SelectionPurpose::Activation
         } else {
@@ -1413,7 +1408,7 @@ fn enable_exact(
             } else {
                 Some(Qualification::ManagedExperimental)
             },
-            true,
+            false,
         ),
         None,
         expected,
@@ -1451,9 +1446,9 @@ pub fn disable_exact(m: &Manager, c: &Candidate, expected: &RevisionRef) -> Resu
         configuration::verify_trial(m, c)?;
         if let Some(baseline) = &trial.baseline {
             require(r.parent.as_ref() == Some(baseline), "settings_trial_parent_changed")?;
-            m.rollback_exact_inactive(&r.class_id, &baseline.id, expected)?;
+            m.rollback_exact(&r.class_id, &baseline.id, expected)?;
         } else {
-            m.unpublish_exact_inactive(&r.class_id, expected)?;
+            m.unpublish_exact(&r.class_id, expected)?;
         }
         return Ok(());
     }
@@ -1466,7 +1461,7 @@ pub fn disable_exact(m: &Manager, c: &Candidate, expected: &RevisionRef) -> Resu
         )?;
         let prior = m.load_revision(&r.class_id, &reference)?;
         if prior.qualification.is_none() && prior.profile.claim == Claim::VerifiedExactFixture {
-            m.rollback_exact_inactive(
+            m.rollback_exact(
                 &r.class_id,
                 &reference.id,
                 expected,
@@ -1475,7 +1470,7 @@ pub fn disable_exact(m: &Manager, c: &Candidate, expected: &RevisionRef) -> Resu
         }
         parent = prior.parent;
     }
-    m.unpublish_exact_inactive(
+    m.unpublish_exact(
         &r.class_id,
         expected,
     )

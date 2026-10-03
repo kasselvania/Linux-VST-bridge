@@ -1305,6 +1305,22 @@ checks its affected inputs and supported capacities, preserves explicit unrelate
 preferences, and uses retained predecessors rather than guessing another build.
 Migrate existing records without changing class IDs or saved objects.
 
+The initial implementation uses optional typed local settings on the retained
+candidate, preserving the serialized identity of older records when that field is
+absent. Preparation resolves graphics and Windows accessibility choices into the
+candidate profile. Publication validation, assessment and the launched host consume
+the same resulting registration. Default advice is resolved at preparation time;
+later advice cannot reinterpret an already retained configuration. Refresh carries
+explicit preferences forward and creates fresh configuration evidence.
+
+Preparing a settings trial records an immutable successor without changing a live
+publication. Applying or restoring it rechecks the exact predecessor and affected
+class under registry admission, including after artifact copying. Buffering remains
+an independent class preference and is retained when the predecessor supports it.
+The manager distinguishes selected options, their sources and scope, independent
+probe results and observed behavior; selecting a graphics option is not evidence
+of an editor's effective renderer.
+
 Cache observations by their actual dependencies. Module changes invalidate module
 inspection; runtime/dependency changes invalidate affected runtime and compatibility
 observations; driver/display/host changes invalidate affected consuming-context
@@ -1325,6 +1341,21 @@ configured limits and tested workload recommendations. Preserve finite reservati
 and exact generation/ownership checks. Independent instances must not be stopped
 merely because a current implementation uses a global inactivity shortcut; shared
 mutations must not proceed until their actual affected owners are inactive.
+
+Class publication and buffering controls permit independent DSP owners while
+requiring every instance of the affected class to retire. Their final mutation
+uses the service's canonical owner classification: unresolved custody, inspection
+and vendor maintenance cannot masquerade as independent DSP. Scanner, installer,
+runtime and environment operations retain global exclusion until their narrower
+shared-resource contracts are implemented. That remaining restriction is explicit;
+it is not evidence of environment-scoped maintenance.
+
+An unfamiliar class with a valid managed publication may reserve the existing
+native image slot count under the shared service ceiling. This is a structural
+admission limit, not a qualified workload recommendation. Readiness separates that
+permission to try from support history. Active native/sandboxed consumer observations
+bind to authenticated process generation, mapped proxy and consuming mount paths;
+an idle host or missing observation remains unknown without inventing a failure.
 
 Advanced runtime/dependency operations apply through those same owners. An imported
 runner must satisfy an implemented coherent-runtime adapter; a new name does not

@@ -562,7 +562,7 @@ pub fn withdraw(m: &Manager, c: &Candidate, expected: &RevisionRef) -> Result<()
         publication_state(m, c)? == "ordinary",
         "not_selected_ordinary_publication",
     )?;
-    m.unpublish_exact_inactive(&c.selection.class.id, expected)
+    m.unpublish_exact(&c.selection.class.id, expected)
 }
 
 pub fn publication_facts(m: &Manager, class: &str) -> Result<Value> {

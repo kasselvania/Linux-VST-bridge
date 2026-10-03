@@ -1,10 +1,9 @@
-# Current work: compatibility-platform architecture assessment
+# Current work: one managed plug-in configuration
 
-Selected by the operator on 2026-10-03 after the execution-rule reset.
-Status: assessment complete for source `01590fa05f99c71b141664becd7d9fadf7fa94a7`,
-tree `b4625b53a7df4eb89287ad0c65e8a12d509b9d4e`, on
-`codex/graphics-runtime-investigation`. Product implementation and physical
-acceptance remain open. Physical testing remains stopped.
+Selected by the operator on 2026-10-03 after the completed platform assessment.
+Status: implementation in progress on `codex/platform-configuration`, based on
+`e1f8033bcad08a2b008384a1671d3c510b55c362`. The endpoint below is unchanged by
+individual plug-in examples. No vendor-specific investigation is selected.
 
 ## Completed outcome
 
@@ -15,9 +14,27 @@ implemented behavior from intended contracts and retained observations, records
 retain/repair/replace/retire decisions, and supplies owner changes plus representative
 acceptance. [Architecture section 18.7](docs/ARCHITECTURE.md#187-platform-execution-convergence),
 D-028 and the [roadmap](docs/AUDIO_RECOVERY_ROADMAP.md) now agree on that direction.
-This documentation change contains no new runtime implementation or hardware claim.
+The assessment is the design basis; this implementation must connect the product
+owners and verify their user-visible workflow.
 
-## Next implementation endpoint
+## Implementation checkpoint
+
+Typed graphics/accessibility preferences, frozen default resolution, common launch
+registration/readback and ordinary trial/keep/restore controls are connected in
+source. Publication and buffering quiesce the affected class; canonical owner
+checks still exclude maintenance and unresolved cleanup. Unfamiliar managed classes
+use existing native slots within the service ceiling. Readiness now separates
+capability eligibility from historical qualification and observes actual consumer
+paths for native and sandboxed hosts.
+
+Local library/frontend and Linux readiness/operator tests have exercised these
+connections. Full installed execution and meaningful recall on the new package
+remain pending. Prepare the paired candidate and run the existing disposable Ubuntu
+reference workflow next, including retained settings and independent siblings.
+Scanner/runtime/environment maintenance remains globally exclusive; narrowing it
+requires an explicit shared-resource implementation, not a relaxed publication check.
+
+## Selected implementation endpoint
 
 Prepare, explain, run and restore an unfamiliar plug-in through one managed
 configuration. Extend existing candidate/history and registration owners; connect

@@ -49,6 +49,10 @@ pub enum ControllerAssociation {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Candidate {
+    /// Explicit launch choices, independent of support qualification. Absent in
+    /// historical records so their serialized bytes and candidate IDs stay exact.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_settings: Option<crate::operator_model::LocalSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub settings_trial: Option<SettingsTrial>,
     pub schema: u32,

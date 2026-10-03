@@ -214,6 +214,7 @@ impl RequestFeedback {
                 Action::PluginPrepare { .. } => "Preparing this plug-in's matching bridge.".into(),
                 Action::CandidateGraphicsAssess { .. } => "Assessing graphics in this plug-in's selected runtime.".into(),
                 Action::CandidateGraphicsPrepare { .. } => "Preparing a reversible graphics settings trial.".into(),
+                Action::CandidateSettingsPrepare { .. } => "Preparing a reversible compatibility settings trial. Your current selection stays in place.".into(),
                 Action::CompatibilityPublishTest { .. } => "Selecting this plug-in's prepared bridge.".into(),
                 _ => "This operation is in progress. Do not click again.".into(),
             },
@@ -1054,11 +1055,11 @@ impl Operator {
         fresh: bool, pending: bool, refresh: &mut bool, chosen: &mut Option<Action>) {
         let assessment = &overview.readiness;
         ui.heading(match assessment.overall_status {
-            ReadinessOutcome::Ready => "Ready for supported software",
+            ReadinessOutcome::Ready => "Ready to try",
             ReadinessOutcome::ActionRequired if assessment.products.is_empty() => "Setup incomplete",
             ReadinessOutcome::ActionRequired => "Action required",
-            ReadinessOutcome::Unsupported => "This configuration is not supported",
-            ReadinessOutcome::Unknown => "Compatibility has not been qualified",
+            ReadinessOutcome::Unsupported => "Required capability unavailable",
+            ReadinessOutcome::Unknown => "Operational facts incomplete",
         });
         if !fresh {
             ui.colored_label(warning_color(ui), "Checking current status. Actions are unavailable until readback completes.");
@@ -1067,10 +1068,15 @@ impl Operator {
         if let Some(blocker) = assessment.blockers.first() {
             ui.label(&blocker.explanation);
         } else {
-            ui.label("The selected supported configuration has no current setup blocker.");
+            ui.label(match assessment.overall_status {
+                ReadinessOutcome::Ready => "No current operational blocker is recorded for the selected configuration.",
+                ReadinessOutcome::Unknown => "Current operational facts are incomplete. Check again to refresh them.",
+                ReadinessOutcome::Unsupported => "A required capability is unavailable for this configuration.",
+                ReadinessOutcome::ActionRequired => "Setup needs attention before continuing.",
+            });
         }
         let ready = assessment.products.iter().filter(|row| row.status == ReadinessOutcome::Ready).count();
-        ui.small(format!("{} of {} managed plug-ins currently ready under this exact support envelope",
+        ui.small(format!("{} of {} managed plug-ins operationally ready to try",
             ready, assessment.products.len()));
         if let Some(step) = assessment.ordered_steps.first() {
             ui.strong(&step.title);
@@ -1108,15 +1114,21 @@ impl Operator {
         for product in &overview.readiness.products {
             ui.group(|ui| {
                 ui.strong(&product.name);
+                ui.label(match product.status {
+                    ReadinessOutcome::Ready => "Operational status: Ready to try",
+                    ReadinessOutcome::ActionRequired => "Operational status: Action required",
+                    ReadinessOutcome::Unsupported => "Operational status: Required capability unavailable",
+                    ReadinessOutcome::Unknown => "Operational status: Facts incomplete",
+                });
                 ui.label(match product.installation_health {
                     InstallationHealth::Healthy => "Current installation: healthy",
                     InstallationHealth::ActionRequired => "Current installation: needs repair",
                     InstallationHealth::Unknown => "Current installation: not verified",
                 });
                 ui.label(match product.support_qualification {
-                    SupportQualification::Verified => "Beta support: exact profile verified",
-                    SupportQualification::Unsupported => "Beta support: exact profile withdrawn",
-                    SupportQualification::NotYetQualified => "Beta support: not yet qualified",
+                    SupportQualification::Verified => "Support qualification: exact profile verified",
+                    SupportQualification::Unsupported => "Support qualification: exact profile withdrawn",
+                    SupportQualification::NotYetQualified => "Support qualification: not yet qualified",
                 });
                 ui.small(&product.reason);
             });
@@ -1775,7 +1787,7 @@ impl Operator {
                         }
                         if let Some(offer) = &setup.primary {
                             let reason = offer.disabled_reason.as_deref()
-                                .or(offer.action.requires_inactive().then_some(busy).flatten());
+                                .or(offer.action.requires_global_inactive().then_some(busy).flatten());
                             let response = ui.add_enabled(!pending && reason.is_none(),
                                 egui::Button::new(egui::RichText::new(&offer.label).strong())
                                     .min_size(egui::vec2(240.0, 48.0)));
@@ -2245,8 +2257,13 @@ impl eframe::App for Operator {
             if submit { chosen = self.installer_rename_form.take(); }
             else if cancel { self.installer_rename_form = None; }
         }
-        let result_inactive_reason = self.current_health_system()
-            .map_or(Some("Current manager readback unavailable"), System::inactive_reason);
+        let result_offer = self.product_form.as_ref().and_then(|form| {
+            let Action::CompatibilityResult { candidate, expected_current, .. } = form else { return None };
+            let snapshot = if self.overview_fresh {
+                selected_product_snapshot.as_ref().or_else(|| self.current_action_snapshot())
+            } else if self.preview { self.snapshot.as_ref() } else { None };
+            Some(compatibility_result_offer(snapshot, candidate, expected_current))
+        });
         if let Some(form) = self.product_form.as_mut() {
             let mut submit = false;
             let mut cancel = false;
@@ -2305,15 +2322,16 @@ impl eframe::App for Operator {
                             TestResultKind::Problem { category } => !note.trim().is_empty()
                                 && (*category != ProblemCategory::Other || failed_area.is_some()),
                         };
-                        let success_blocked = matches!(result, TestResultKind::Worked)
-                            && result_inactive_reason.is_some();
-                        submit = ui.add_enabled(valid && !controls_pending && !success_blocked,
+                        let refusal = compatibility_result_refusal(result_offer.as_ref(), result);
+                        submit = ui.add_enabled(valid && !controls_pending && refusal.is_none(),
                             egui::Button::new("Record this test result")
                                 .min_size(egui::vec2(240.0, 44.0))).clicked();
                         if !valid { ui.small("Select an observed check, or choose a problem and describe it."); }
-                        if success_blocked {
-                            ui.small(result_inactive_reason.unwrap_or_default());
-                            ui.small("You can report a problem now. A successful result needs clean retirement.");
+                        if let Some(reason) = refusal {
+                            ui.small(reason);
+                            if matches!(&result_offer, Some(Ok(_))) {
+                                ui.small("You can report a problem now. A successful result needs this plug-in's clean retirement.");
+                            }
                         }
                     }
                     Action::CandidateObserve{area,status,note,..}=>{
@@ -2394,6 +2412,29 @@ impl eframe::App for Operator {
         ui.ctx().request_repaint_after(self.repaint_delay());
     }
 }
+fn compatibility_result_offer(snapshot: Option<&Snapshot>, candidate: &str,
+    expected_current: &PublicationIdentity) -> Result<Option<String>, &'static str> {
+    let snapshot = snapshot.ok_or("Current manager readback unavailable")?;
+    let offer = snapshot.products.iter().flat_map(|product| {
+        product.actions.iter().chain(product.compatibility.iter().flat_map(|workflow|
+            workflow.primary.iter().chain(workflow.alternatives.iter())))
+    }).find(|offer| matches!(&offer.action, Action::CompatibilityResult {
+        candidate: offered_candidate, expected_current: offered_current, ..
+    } if offered_candidate == candidate && offered_current == expected_current))
+        .ok_or("This exact test-result offer is no longer current. Refresh the plug-in's controls.")?;
+    Ok(offer.disabled_reason.clone())
+}
+
+fn compatibility_result_refusal<'a>(offer: Option<&'a Result<Option<String>, &'static str>>,
+    result: &TestResultKind) -> Option<&'a str> {
+    match offer {
+        Some(Err(reason)) => Some(*reason),
+        Some(Ok(reason)) if matches!(result, TestResultKind::Worked) => reason.as_deref(),
+        Some(Ok(_)) => None,
+        None => Some("Current test-result offer unavailable"),
+    }
+}
+
 fn installer_lines(v: &serde_json::Value) -> Vec<String> {
     let t = &v["transaction"];
     if t["schema"] != 1 || t["operation"] != v["operation"] {
@@ -2999,6 +3040,69 @@ mod tests {
         };
         InteractiveOverview {schema:1,operator_schema:crate::model::OPERATOR_SCHEMA,
             scope:"current_only".into(),current_generation:"same".into(),current:snapshot,readiness}
+    }
+    #[test]
+    fn test_result_uses_exact_class_offer_and_keeps_problem_reporting_available() {
+        let mut snapshot = overview_fixture().current;
+        snapshot.system.dsp = 1;
+        let candidate = "exact-candidate".to_string();
+        let current = PublicationIdentity {id:"exact-publication".into(),sha256:"exact-digest".into()};
+        snapshot.products[0].actions = vec![AvailableAction {label:"Record test result".into(),
+            action:Action::CompatibilityResult {candidate:candidate.clone(),expected_current:current.clone(),
+                result:TestResultKind::Worked,passed:vec![],failed_area:None,note:String::new()},
+            disabled_reason:None}];
+        assert!(snapshot.system.inactive_reason().is_some());
+        let worked = TestResultKind::Worked;
+        let problem = TestResultKind::Problem {category:ProblemCategory::NoAudio};
+        let offer = compatibility_result_offer(Some(&snapshot),&candidate,&current);
+        assert_eq!(compatibility_result_refusal(Some(&offer),&worked),None);
+        snapshot.products[0].actions[0].disabled_reason = Some("This plug-in has not retired".into());
+        let offer = compatibility_result_offer(Some(&snapshot),&candidate,&current);
+        assert_eq!(compatibility_result_refusal(Some(&offer),&worked),Some("This plug-in has not retired"));
+        assert_eq!(compatibility_result_refusal(Some(&offer),&problem),None);
+        let changed = PublicationIdentity {id:"changed-publication".into(),..current.clone()};
+        let stale = compatibility_result_offer(Some(&snapshot),&candidate,&changed);
+        assert!(compatibility_result_refusal(Some(&stale),&worked).is_some());
+        assert!(compatibility_result_refusal(Some(&stale),&problem).is_some());
+        let unavailable = compatibility_result_offer(None,&candidate,&current);
+        assert!(compatibility_result_refusal(Some(&unavailable),&problem).is_some());
+    }
+    #[test]
+    fn home_separates_operational_readiness_from_support_qualification() {
+        fn texts(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
+            match shape {
+                egui::epaint::Shape::Text(text) => out.push(text.galley.text().into()),
+                egui::epaint::Shape::Vec(items) => for item in items { texts(item, out); },
+                _ => {}
+            }
+        }
+        for status in [ReadinessOutcome::Ready, ReadinessOutcome::Unknown] {
+            let mut overview = overview_fixture();
+            overview.readiness.overall_status = status;
+            overview.readiness.products = vec![crate::model::ReadinessProduct {
+                name:"Unfamiliar plug-in".into(),class_id:"exact-class".into(),module_sha256:"exact-module".into(),
+                profile:None,status,installation_health:InstallationHealth::Healthy,
+                support_qualification:SupportQualification::NotYetQualified,
+                reason:"No published support claim for this installation".into(),failure_code:None,facts:vec![],
+            }];
+            let ctx = egui::Context::default();
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                Operator::fast_home(ui,&overview,true,false,&mut Page::Home,&mut false,&mut None);
+            });
+            let mut labels = vec![];
+            for clipped in &output.shapes { texts(&clipped.shape,&mut labels); }
+            output.textures_delta.clear();
+            assert!(labels.iter().any(|line| line == "Support qualification: not yet qualified"));
+            if status == ReadinessOutcome::Ready {
+                assert!(labels.iter().any(|line| line == "Ready to try"));
+                assert!(labels.iter().any(|line| line == "Operational status: Ready to try"));
+            } else {
+                assert!(labels.iter().any(|line| line == "Operational facts incomplete"));
+                assert!(!labels.iter().any(|line| line.contains("No current operational blocker")));
+            }
+            assert!(!labels.iter().any(|line| line.contains("support envelope")
+                || line == "Compatibility has not been qualified"));
+        }
     }
     #[test]
     fn retained_product_card_requires_matching_identity_and_fresh_actions() {

@@ -1017,7 +1017,7 @@ impl Manager {
             census.verify_current(&self.root,installed_host,source,crate::observation::now()?)?;
             source_artifact.verify()?;
             guard=Some(self.lock("registry.lock")?);
-            self.require_inactive(None)?;
+            self.require_inactive(if global_inactive { None } else { Some(&r.class_id) })?;
             require(serde_json::to_vec(&self.registry()?)?==snapshot && !self.publication_pending(&r.class_id)?
                 && physical(&self.link(&r.class_id))?==intent.prior.as_ref().and_then(|p|p.target.clone()),"preparation_publication_state_changed")?;
             self.write_intent(&intent,fail)?;
@@ -1047,8 +1047,8 @@ impl Manager {
     pub fn rollback_inactive(&self, key: &str, id: &str, fail: Option<Boundary>) -> Result<RevisionRef> {
         self.rollback_with_scope(key, id, fail, None, true)
     }
-    pub(crate) fn rollback_exact_inactive(&self, key: &str, id: &str, expected: &RevisionRef) -> Result<RevisionRef> {
-        self.rollback_with_scope(key, id, None, Some(expected), true)
+    pub(crate) fn rollback_exact(&self, key: &str, id: &str, expected: &RevisionRef) -> Result<RevisionRef> {
+        self.rollback_with_scope(key, id, None, Some(expected), false)
     }
     fn rollback_with_scope(
         &self,

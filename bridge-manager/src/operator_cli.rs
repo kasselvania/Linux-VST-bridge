@@ -402,6 +402,30 @@ fn inactive_reason(
         _ => None,
     }
 }
+// Publication and per-class preferences do not mutate a shared environment.
+// Unknown custody and maintenance still block them; independent DSP does not.
+fn class_inactive_reason(
+    system: &ui::System, owners: &[capacity::Owner], vendor_retired: bool, class: &str,
+) -> Option<&'static str> {
+    if !system.capacity_available() {
+        Some("Service capacity unavailable; actions requiring inactivity are unsafe")
+    } else if system.cleanup_unconfirmed {
+        Some("Previous instance cleanup is unconfirmed")
+    } else if system.dsp != owners.iter().filter(|o| o.kind == capacity::Kind::Dsp).count()
+        || system.maintenance != owners.iter().filter(|o| matches!(o.kind,
+            capacity::Kind::Inspection | capacity::Kind::VendorAccess)).count() {
+        Some("Service capacity owner census changed; refresh before this action")
+    } else if system.maintenance > 0 {
+        Some("Wait for the owned maintenance operation to finish")
+    } else if owners.iter().any(|owner| owner.kind == capacity::Kind::Dsp
+        && owner.class_id.eq_ignore_ascii_case(class)) {
+        Some("Close instances of this plug-in before changing its configuration")
+    } else if !vendor_retired {
+        Some("Wait for the owned installer or vendor operation to retire")
+    } else if system.pending_transactions > 0 {
+        Some("Reconcile the interrupted publication first")
+    } else { None }
+}
 pub(super) fn require_engineering_inactive(m: &Manager) -> Result<()> {
     let cap = live_capacity(m)?;
     let _guard = m.lock("registry.lock")?;
@@ -430,19 +454,34 @@ fn require_operator_inactive_with(
     if !a.requires_inactive() {
         return Ok(());
     }
+    // Resolve immutable candidate history before taking the short admission lock.
+    let class = if a.requires_global_inactive() { None } else {
+        match a {
+            ui::Action::OrdinaryRollback { class_id, .. }
+            | ui::Action::BufferingSet { class_id, .. } => Some(class_id.clone()),
+            _ => Some(preparation_cli::action_selection(m, &software(m)?, a)?
+                .ok_or("operator_action_scope_unresolved")?.class.id),
+        }
+    };
     let cap = capacity_read().ok_or("capacity_readback_unavailable")?;
     let _admission = acquire_readback(m, ui::OperatorLock::Registry, operation, timeout, waits)?;
-    if let Some(reason) = inactive_reason(
+    require(cap.owners == capacity::owners(m)?, "operator_owners_changed")?;
+    let retired = vendor_retired(m)? && onboarding::all_retired(m)?;
+    let pending = pending_transactions(m)?;
+    let reason = if let Some(class) = &class {
+        class_inactive_reason(&system_from_capacity(Some(&cap), pending, 0), &cap.owners, retired, class)
+    } else { inactive_reason(
         Some(&cap),
-        vendor_retired(m)? && onboarding::all_retired(m)?,
-        pending_transactions(m)?,
+        retired,
+        pending,
         matches!(a, ui::Action::TransactionReconcile {}),
-    ) {
+    ) };
+    if let Some(reason) = reason {
         return Err(reason.into());
     }
     // Recheck durable owners at the mutation boundary, under the same lock
     // used by service admission; a peer lost since LVC1 must not disappear.
-    m.require_inactive(None)
+    m.require_inactive(class.as_deref())
 }
 fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
     let mut ancestors = std::collections::BTreeSet::new();
@@ -777,6 +816,7 @@ fn project_current_product(m: &Manager, captured: &current::CurrentOverviewConte
         product.environment == environment && product.module_sha256 == module
             && product.class_id == class);
     let mut product = matching.next().ok_or("operator_product_not_current")?.clone();
+    let class_busy = captured.class_busy(class);
     require(matching.next().is_none(), "operator_product_ambiguous")?;
     if let Some(entry) = db.classes.get(class).filter(|entry|
         entry.registration.environment.id == environment
@@ -786,7 +826,7 @@ fn project_current_product(m: &Manager, captured: &current::CurrentOverviewConte
             if prior.rollback_allowed && !prior.active {
                 product.actions.push(action(&format!("Restore {}",prior.description),
                     ui::Action::OrdinaryRollback {class_id:class.into(),
-                        publication:prior.publication.clone()}, captured.busy.or(prior.rollback_unavailable.as_deref())));
+                        publication:prior.publication.clone()}, class_busy.or(prior.rollback_unavailable.as_deref())));
             }
         }
         if captured.profiles.iter().any(|profile|
@@ -801,10 +841,10 @@ fn project_current_product(m: &Manager, captured: &current::CurrentOverviewConte
                 || !product.details["qualification"].is_null() {
                 Some("An exact ordinary publication is required")
             } else { None }));
-        buffering_actions(m, &entry.registration, &mut product.actions, captured.busy);
+        buffering_actions(m, &entry.registration, &mut product.actions, class_busy);
     }
-    preparation_cli::project(m, sw,
-        std::slice::from_mut(&mut product), captured.busy)?;
+    preparation_cli::project_scoped(m, sw,
+        std::slice::from_mut(&mut product), captured.busy, None, &|_| class_busy)?;
     Ok(product)
 }
 fn buffering_actions(m: &Manager, registration: &Registration,
@@ -981,6 +1021,8 @@ fn snapshot_readonly_depth(
     let pending = pending_transactions(m)?;
     let retired = vendor_retired(m)? && onboarding::all_retired(m)?;
     let busy = inactive_reason(cap.as_ref(), retired, pending, false);
+    let scope_system = system_from_capacity(cap.as_ref(), pending, 0);
+    let class_scope = |class: &str| class_inactive_reason(&scope_system, &owners, retired, class);
     let mut products = Vec::new();
     for p in canonical.products {
         let entry = db
@@ -990,7 +1032,8 @@ fn snapshot_readonly_depth(
         let hist = if deep { history(m, &p.class_id, entry)? } else { vec![] };
         let recommended = profiles.iter().find(|r| r.class.class_id == p.class_id);
         let mut actions = Vec::new();
-        buffering_actions(m, &entry.registration, &mut actions, busy);
+        let class_busy = class_scope(&p.class_id);
+        buffering_actions(m, &entry.registration, &mut actions, class_busy);
         for h in &hist {
             if h.rollback_allowed && !h.active {
                 actions.push(action(
@@ -999,7 +1042,7 @@ fn snapshot_readonly_depth(
                         class_id: p.class_id.clone(),
                         publication: h.publication.clone(),
                     },
-                    busy.or(h.rollback_unavailable.as_deref()),
+                    class_busy.or(h.rollback_unavailable.as_deref()),
                 ));
             }
         }
@@ -1086,11 +1129,7 @@ fn snapshot_readonly_depth(
         }
     }
     if deep {
-        if let Some(operation) = id {
-            preparation_cli::project_for_operation(m, &sw, &mut products, busy, operation)?;
-        } else {
-            preparation_cli::project(m, &sw, &mut products, busy)?;
-        }
+        preparation_cli::project_scoped(m, &sw, &mut products, busy, id, &class_scope)?;
     }
     let mut vendor_applications = asc_projection(m, busy)?.into_iter().collect::<Vec<_>>();
     if deep {
@@ -1255,7 +1294,8 @@ fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
         .find(|a| preparation_cli::offered(&request.action, &a.action))
         .ok_or("operator_action_not_available")?;
     require(
-        offered.disabled_reason.is_none(),
+        offered.disabled_reason.is_none() || matches!(request.action,
+            ui::Action::CompatibilityResult { result: ui::TestResultKind::Problem { .. }, .. }),
         offered
             .disabled_reason
             .as_deref()
@@ -1943,6 +1983,7 @@ fn execute_with_receipt_policy(
         }
         ui::Action::CandidateGraphicsAssess { .. }
         | ui::Action::CandidateGraphicsPrepare { .. }
+        | ui::Action::CandidateSettingsPrepare { .. }
         | ui::Action::PluginReinspect { .. }
         | ui::Action::PluginInspect { .. }
         | ui::Action::PluginPrepare { .. }
@@ -2049,7 +2090,7 @@ fn execute_with_receipt_policy(
         ui::Action::OrdinaryRollback {
             class_id,
             publication,
-        } => Ok(serde_json::to_value(m.rollback_inactive(
+        } => Ok(serde_json::to_value(m.rollback(
             class_id,
             publication,
             None,
@@ -3029,6 +3070,54 @@ pub(super) fn product_receipt(
 mod tests {
     use super::*;
     #[test]
+    fn class_controls_preserve_siblings_but_refuse_maintenance_and_unknown_custody() {
+        let target = "01".repeat(16);
+        let sibling = capacity::Owner { session:"ab".repeat(16), class_id:"02".repeat(16),
+            kind:capacity::Kind::Dsp, terminal:None };
+        let mut system = view("token", action("capture", ui::Action::CaptureDisarm {}, None)).system;
+        system.dsp = 1;
+        assert_eq!(class_inactive_reason(&system, std::slice::from_ref(&sibling), true, &target), None);
+        assert!(class_inactive_reason(&system, std::slice::from_ref(&sibling), true, &sibling.class_id)
+            .unwrap().contains("this plug-in"));
+        assert!(class_inactive_reason(&system, &[], true, &target).unwrap().contains("census"));
+        system.cleanup_unconfirmed = true;
+        assert!(class_inactive_reason(&system, std::slice::from_ref(&sibling), true, &target)
+            .unwrap().contains("cleanup"));
+        system.cleanup_unconfirmed = false;
+        system.pending_transactions = 1;
+        assert!(class_inactive_reason(&system, std::slice::from_ref(&sibling), true, &target)
+            .unwrap().contains("Reconcile"));
+        system.pending_transactions = 0;
+        assert!(class_inactive_reason(&system, std::slice::from_ref(&sibling), false, &target)
+            .unwrap().contains("vendor"));
+        for kind in [capacity::Kind::Inspection, capacity::Kind::VendorAccess] {
+            system.dsp = 0;
+            system.maintenance = 1;
+            let owner = capacity::Owner {kind, ..sibling.clone()};
+            assert!(class_inactive_reason(&system, &[owner], true, &target)
+                .unwrap().contains("maintenance"));
+        }
+    }
+    #[test]
+    fn problem_reporting_remains_available_without_authorizing_a_busy_success_result() {
+        let offered = ui::Action::CompatibilityResult {
+            candidate:"ab".repeat(32), expected_current:ui::PublicationIdentity {
+                id:"cd".repeat(16), sha256:"ef".repeat(32) },
+            result:ui::TestResultKind::Worked, passed:vec![ui::TestArea::Audio],
+            failed_area:None, note:String::new(),
+        };
+        let snapshot = view("token", action("Result", offered.clone(), Some("Close this plug-in")));
+        let mut request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"token".into(),action:offered};
+        assert!(validate(&request, &snapshot).is_err());
+        if let ui::Action::CompatibilityResult {result, note, ..} = &mut request.action {
+            *result = ui::TestResultKind::Problem {category:ui::ProblemCategory::CleanupIncomplete};
+            *note = "The instance remains active".into();
+        }
+        validate(&request, &snapshot).unwrap();
+        request.state_token = "stale".into();
+        assert!(validate(&request, &snapshot).is_err());
+    }
+    #[test]
     fn completed_inspection_is_not_relabelled_by_service_restoration_failure() {
         let action = ui::Action::PluginReinspect {
             selection: "01".repeat(32), audio_layout: None,
@@ -3556,7 +3645,7 @@ mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 16);
+        assert_eq!(ui::OPERATOR_SCHEMA, 17);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
@@ -3890,7 +3979,8 @@ mod tests {
                 let server = service_reply(&f.m, capacity_json(blocked, dsp, maintenance));
                 let e = execute(&f.m, action).unwrap_err().to_string();
                 server.join().unwrap();
-                assert!(e.contains("cleanup") || e.contains("active bridged"), "{e}");
+                assert!(e.contains("cleanup") || e.contains("active bridged")
+                    || e.contains("owner census") || e.contains("maintenance"), "{e}");
             }
             let cap: CapacityReadback =
                 serde_json::from_value(capacity_json(false, 0, 0)["capacity"].clone()).unwrap();
@@ -3921,7 +4011,8 @@ mod tests {
             })
             .unwrap_err()
             .to_string();
-            assert!(e.contains("cleanup") || e.contains("active bridged"), "{e}");
+            assert!(e.contains("cleanup") || e.contains("active bridged")
+                    || e.contains("owner census") || e.contains("maintenance"), "{e}");
             assert!(!f.m.root.join("onboarding").exists());
             assert!(!f.m.root.join("operator/resume.json").exists());
         }
@@ -5460,7 +5551,7 @@ mod tests {
         let report = f.m.root.join("runtime/results").join(format!("windows-{sid}.json"));
         let spec = f.r.environment.root.join("compatdata/pfx/drive_c/bridge/sessions").join(&sid).join("owner.json");
         private_dir(spec.parent().unwrap()).unwrap();
-        atomic_json(&spec, &json!({"session":sid,"report":report,"keeper":false,
+        atomic_json(&spec, &json!({"session":sid,"report":report,"keeper":false,"inspect":false,
             "registration":{"metadata":{"class_id":f.r.key()}}})).unwrap();
         private_dir(&f.m.root.join("runtime/leases")).unwrap();
         atomic_json(&f.m.root.join("runtime/leases").join(format!("{sid}.json")), &report).unwrap();
@@ -5473,7 +5564,7 @@ mod tests {
             require_operator_inactive_with(&f.m, &action, &idle_test_capacity,
                 Some(&owner), Duration::from_secs(2), &mut waits)
         }).unwrap_err();
-        assert_eq!(error.to_string(), "active_device_lease");
+        assert_eq!(error.to_string(), "operator_owners_changed");
         let error = contended_registry(&f.m, |entered| {
             entered.send(()).unwrap();
             suspend_with(&f.m, &owner, Some(owner.clone()), Duration::from_secs(2), &mut waits,

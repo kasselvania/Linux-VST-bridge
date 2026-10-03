@@ -1,4 +1,4 @@
-//! PB0: bounded local facts and exact, read-only supported-system resolution.
+//! Bounded local facts, execution requirements and separate support qualification.
 //! This module never executes a profile or interprets SUPPORT_MATRIX.md.
 use super::*;
 use linux_vst_bridge::{operator_model as ui, profiles};
@@ -30,6 +30,7 @@ impl<T: Clone> Probe<T> {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct PlatformReadback {
+    pub operating_system: Probe<String>,
     pub arch: Probe<String>,
     pub model: Option<String>,
     pub distro: Option<String>,
@@ -51,6 +52,62 @@ pub(super) struct PlatformReadback {
     pub bitwig_runtime: Probe<String>,
     pub bitwig_permissions: Probe<String>,
     pub publication_directory: Probe<bool>,
+    /// Observations belong to the consuming host context. Manager-side paths
+    /// and Flatpak permission declarations cannot populate these as available.
+    pub hosts: Vec<HostReadback>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct HostReadback {
+    pub name: String,
+    pub source: String,
+    pub adapter: Probe<bool>,
+    pub publication: Probe<bool>,
+    pub ipc: Probe<bool>,
+    pub pipewire: Probe<bool>,
+    pub jack: Probe<bool>,
+    pub display: Probe<bool>,
+}
+
+fn unavailable_host(name: &str, source: &str, adapter: Probe<bool>) -> HostReadback {
+    HostReadback { name:name.into(), source:source.into(), adapter,
+        publication:Probe::Unavailable, ipc:Probe::Unavailable,
+        pipewire:Probe::Unavailable, jack:Probe::Unavailable, display:Probe::Unavailable }
+}
+
+fn available(probe: &Probe<bool>) -> bool { probe.observed() == Some(&true) }
+fn absent(probe: &Probe<bool>) -> bool {
+    probe.is_absent() || probe.observed() == Some(&false)
+}
+fn either(left: &Probe<bool>, right: &Probe<bool>) -> Probe<bool> {
+    if available(left) || available(right) { Probe::Observed(true) }
+    else if absent(left) && absent(right) { Probe::Absent }
+    else { Probe::Unavailable }
+}
+
+fn host_requirements(host: &HostReadback, requires_display: bool) -> Vec<ui::ReadinessBlocker> {
+    use ui::ReadinessOutcome as O;
+    let mut missing = Vec::new();
+    let audio = either(&host.pipewire, &host.jack);
+    for (category, probe, description) in [
+        ("host_adapter", &host.adapter, "consuming-host adapter"),
+        ("publication_path", &host.publication, "managed publication access"),
+        ("host_ipc", &host.ipc, "bridge IPC access"),
+        ("host_audio", &audio, "PipeWire or JACK access"),
+    ].into_iter().chain(requires_display.then_some(
+        ("host_display", &host.display, "X11/XWayland access for the selected Windows host route"))) {
+        if !available(probe) {
+            missing.push(issue(category, if absent(probe) { O::ActionRequired } else { O::Unknown },
+                &format!("{}: {description} {}.", host.name,
+                    if absent(probe) { "is unavailable" } else { "has not been observed in this consuming context" })));
+        }
+    }
+    missing
+}
+
+fn capability_fact(name: &str, probe: &Probe<bool>, source: &str, at: u64) -> ui::ReadinessFact {
+    observed(name, if available(probe) { Some("available".into()) }
+        else if absent(probe) { Some("unavailable".into()) } else { None }, source, at)
 }
 
 fn bounded_file(path: &Path, limit: u64) -> Option<String> {
@@ -244,6 +301,159 @@ fn local_display_number(raw: &str) -> Option<u8> {
         .flatten()
 }
 
+fn process_start(process: &Path, pid: i32) -> Option<u64> {
+    let stat = bounded_file(&process.join("stat"), 4096)?;
+    let (number, _) = stat.split_once(" (")?;
+    if number.parse::<i32>().ok()? != pid { return None; }
+    stat.rsplit_once(')')?.1.split_whitespace().nth(19)?.parse().ok()
+}
+
+fn same_visible_object(path: &Path, process_root: &Path) -> Probe<bool> {
+    use std::os::unix::fs::MetadataExt;
+    let Ok(relative) = path.strip_prefix("/") else { return Probe::Malformed; };
+    match (fs::metadata(path), consuming_metadata(process_root, relative)) {
+        (Ok(host), Ok(peer)) => Probe::Observed(host.dev() == peer.dev() && host.ino() == peer.ino()),
+        (Err(e), _) | (_, Err(e)) if e.kind() == std::io::ErrorKind::NotFound => Probe::Absent,
+        _ => Probe::Unavailable,
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn consuming_metadata(process_root: &Path, relative: &Path) -> std::io::Result<fs::Metadata> {
+    use std::os::unix::ffi::OsStrExt;
+    let root = fs::File::open(process_root)?;
+    let path = std::ffi::CString::new(relative.as_os_str().as_bytes())
+        .map_err(|_| std::io::Error::from(std::io::ErrorKind::InvalidInput))?;
+    let mut how: libc::open_how = unsafe { std::mem::zeroed() };
+    how.flags = (libc::O_PATH | libc::O_CLOEXEC) as u64;
+    // Absolute publication symlinks must resolve inside the consumer's root.
+    // Ordinary /proc/PID/root/path metadata can follow one back into our root.
+    how.resolve = libc::RESOLVE_IN_ROOT | libc::RESOLVE_NO_MAGICLINKS;
+    let fd = unsafe { libc::syscall(libc::SYS_openat2, root.as_raw_fd(), path.as_ptr(),
+        &how, std::mem::size_of::<libc::open_how>()) };
+    if fd < 0 { return Err(std::io::Error::last_os_error()); }
+    let file = unsafe { fs::File::from_raw_fd(fd as i32) };
+    file.metadata()
+}
+#[cfg(not(target_os = "linux"))]
+fn consuming_metadata(_process_root: &Path, _relative: &Path) -> std::io::Result<fs::Metadata> {
+    Err(std::io::ErrorKind::Unsupported.into())
+}
+
+fn mapped_artifact(process: &Path, artifact: &Path) -> Option<bool> {
+    use std::os::unix::fs::MetadataExt;
+    let meta = fs::metadata(artifact).ok()?;
+    let maps = bounded_file(&process.join("maps"), 2 * 1024 * 1024)?;
+    for line in maps.lines() {
+        let fields: Vec<_> = line.split_whitespace().take(5).collect();
+        if fields.len() != 5 { return None; }
+        let (major, minor) = fields[3].split_once(':')?;
+        if fields[4].parse::<u64>().ok()? == meta.ino()
+            && u64::from_str_radix(major,16).ok()? == libc::major(meta.dev() as libc::dev_t) as u64
+            && u64::from_str_radix(minor,16).ok()? == libc::minor(meta.dev() as libc::dev_t) as u64 {
+            return Some(true);
+        }
+    }
+    Some(false)
+}
+
+/// An existing authenticated admission supplies the peer; no executable name,
+/// desktop-file guess or manager-side path can impersonate a consuming DAW.
+fn observed_consumer(m: &Manager, registration: &Registration,
+    graphical: &transport_storage::GraphicalSession, proc_root: &Path,
+    transport_root: &Path, pipewire: &Probe<bool>, jack: &Probe<bool>) -> Result<HostReadback> {
+    use std::os::unix::fs::MetadataExt;
+    let process = proc_root.join(graphical.peer_pid.to_string());
+    require(graphical.schema == 1 && graphical.peer_pid > 0 && graphical.peer_start_ticks > 0
+        && process.metadata()?.uid() == unsafe { libc::getuid() }
+        && process_start(&process, graphical.peer_pid) == Some(graphical.peer_start_ticks),
+        "readiness_consumer_generation")?;
+    require(mapped_artifact(&process, &registration.native.path) == Some(true),
+        "readiness_consumer_proxy_mapping")?;
+    let root = process.join("root");
+    let root_identity = root.metadata()?;
+    let mount_identity = fs::read_link(process.join("ns/mnt")).ok();
+    let sandbox = match consuming_metadata(&root, Path::new(".flatpak-info")) {
+        Ok(_) => true,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
+        Err(e) => return Err(e.into()),
+    };
+    // Only identical mount namespaces can inherit host-side audio observation.
+    // A sandbox needs its own visible socket; a host JACK query cannot prove it.
+    let same_mount = mount_identity.clone()
+        .zip(fs::read_link(proc_root.join("self/ns/mnt")).ok())
+        .map(|(peer, ours)| peer == ours);
+    let ipc_identity = fs::read_link(process.join("ns/ipc")).ok();
+    let same_ipc = ipc_identity.clone()
+        .zip(fs::read_link(proc_root.join("self/ns/ipc")).ok())
+        .map(|(peer, ours)| peer == ours);
+    let runtime = PathBuf::from(format!("/run/user/{}", unsafe { libc::getuid() }));
+    let display = local_display_number(&graphical.display).map(|number| {
+        let socket = PathBuf::from(format!("/tmp/.X11-unix/X{number}"));
+        if available(&path_probe(&socket, true)) { same_visible_object(&socket, &root) }
+        else { path_probe(&socket, true) }
+    }).unwrap_or(Probe::Unavailable);
+    let result = HostReadback {
+        name: if sandbox || same_mount == Some(false) { "Active sandboxed DAW" }
+            else if same_mount == Some(true) { "Active native DAW" }
+            else { "Active DAW (mount context unknown)" }.into(),
+        source: format!("authenticated consumer, mapped proxy and mount view for class {}; not DAW or audio qualification",
+            registration.metadata.class_id),
+        adapter: if same_mount.is_some() { Probe::Observed(true) } else { Probe::Unavailable },
+        publication: same_visible_object(&m.link(&registration.metadata.class_id), &root),
+        ipc: same_visible_object(transport_root, &root),
+        pipewire: if available(pipewire) { same_visible_object(&runtime.join("pipewire-0"), &root) }
+            else { pipewire.clone() },
+        jack: if same_mount == Some(true) && same_ipc == Some(true) { jack.clone() } else { Probe::Unavailable },
+        display,
+    };
+    let final_root = root.metadata()?;
+    require(process_start(&process, graphical.peer_pid) == Some(graphical.peer_start_ticks)
+        && mount_identity == fs::read_link(process.join("ns/mnt")).ok()
+        && ipc_identity == fs::read_link(process.join("ns/ipc")).ok()
+        && (root_identity.dev(), root_identity.ino()) == (final_root.dev(), final_root.ino()),
+        "readiness_consumer_generation_changed")?;
+    Ok(result)
+}
+
+fn collect_consumers(m: &Manager, pipewire: &Probe<bool>, jack: &Probe<bool>) -> Result<Vec<HostReadback>> {
+    collect_consumers_from(m, pipewire, jack, Path::new("/proc"), &transport_storage::root())
+}
+
+fn collect_consumers_from(m: &Manager, pipewire: &Probe<bool>, jack: &Probe<bool>,
+    proc_root: &Path, transport_root: &Path) -> Result<Vec<HostReadback>> {
+    let _guard = match m.try_lock("registry.lock")? {
+        operator_lock::LockAttempt::Acquired(guard) => guard,
+        operator_lock::LockAttempt::Busy => return Err("readiness_consumers_busy".into()),
+    };
+    let registry = m.registry()?;
+    let mut result = Vec::new();
+    for owner in capacity::owners(m)?.into_iter()
+        .filter(|owner| owner.kind == capacity::Kind::Dsp && owner.terminal.is_none()) {
+        let report: PathBuf = read_json(&m.root.join("runtime/leases").join(format!("{}.json", owner.session)))?;
+        // A stale lease from an earlier boot can otherwise collide with a new
+        // PID and start tick. Historical ownership is never a current peer.
+        let generation: LeaseGeneration = read_json(&m.root.join("runtime/lease-generations")
+            .join(format!("{}.json", owner.session)))?;
+        let boot = bounded_file(&proc_root.join("sys/kernel/random/boot_id"), 64)
+            .ok_or("readiness_consumer_boot_unavailable")?;
+        require(generation.schema == 1 && generation.session == owner.session
+            && generation.report == report && valid_kernel_boot(boot.trim())
+            && generation.kernel_boot == boot.trim()
+            && matches!(generation.basis, LeaseGenerationBasis::BeforeLaunch),
+            "readiness_consumer_boot_changed")?;
+        let (retained, _) = m.lease_owner(&owner.session, &report)?;
+        let registration = &registry.classes.get(&owner.class_id)
+            .ok_or("readiness_consumer_registration_absent")?.registration;
+        let bound: HostBinding = serde_json::from_value(retained["registration"].clone())?;
+        require(bound == registration.clone().into(), "readiness_consumer_registration_changed")?;
+        let graphical = serde_json::from_value(retained["graphical_session"].clone())?;
+        result.push(observed_consumer(m, registration, &graphical, proc_root,
+            transport_root, pipewire, jack)?);
+    }
+    Ok(result)
+}
+
 pub(super) fn collect(m: &Manager) -> PlatformReadback {
     let os = bounded_file(Path::new("/etc/os-release"), 8192).unwrap_or_default();
     let env = |key: &str| {
@@ -308,7 +518,22 @@ pub(super) fn collect(m: &Manager) -> PlatformReadback {
         },
         other => nonempty(other),
     };
+    let pipewire_socket = path_probe(&runtime.join("pipewire-0"), true);
+    let jack_available = match jack {
+        Probe::Observed(_) => Probe::Observed(true),
+        Probe::Absent => Probe::Absent,
+        Probe::Unavailable => Probe::Unavailable,
+        Probe::Malformed => Probe::Malformed,
+    };
+    let mut hosts = vec![unavailable_host("Native DAW", "no current authenticated native consumer observation", Probe::Unavailable),
+        unavailable_host("Bitwig Flatpak", "installation metadata only; consuming paths require an authenticated consumer",
+            match &bitwig_ref { Probe::Observed(_) => Probe::Observed(true), Probe::Absent => Probe::Absent, _ => Probe::Unavailable })];
+    match collect_consumers(m, &pipewire_socket, &jack_available) {
+        Ok(consumers) => hosts.extend(consumers),
+        Err(_) => hosts.push(unavailable_host("Active DAW", "current consumer ownership could not be verified", Probe::Unavailable)),
+    }
     PlatformReadback {
+        operating_system: Probe::Observed(std::env::consts::OS.into()),
         arch,
         model: bounded_file(Path::new("/sys/devices/virtual/dmi/id/product_name"), 128)
             .map(|s| s.trim().to_owned())
@@ -321,13 +546,8 @@ pub(super) fn collect(m: &Manager) -> PlatformReadback {
         session: env("XDG_SESSION_TYPE"),
         display,
         runtime_dir,
-        pipewire_socket: path_probe(&runtime.join("pipewire-0"), true),
-        jack_available: match jack {
-            Probe::Observed(_) => Probe::Observed(true),
-            Probe::Absent => Probe::Absent,
-            Probe::Unavailable => Probe::Unavailable,
-            Probe::Malformed => Probe::Malformed,
-        },
+        pipewire_socket,
+        jack_available,
         pipewire_graph_rate: metadata.observed().and_then(|v| pipewire_setting(v, "clock.rate")),
         pipewire_quantum: metadata.observed().and_then(|v| pipewire_setting(v, "clock.quantum")),
         device_sample_rate: None,
@@ -337,6 +557,7 @@ pub(super) fn collect(m: &Manager) -> PlatformReadback {
         bitwig_runtime: nonempty(bitwig_runtime),
         bitwig_permissions: nonempty(bitwig_permissions),
         publication_directory: path_probe(&m.publications, false),
+        hosts,
     }
 }
 
@@ -481,27 +702,13 @@ fn product_facts(product: &ui::Product, at: u64) -> Vec<ui::ReadinessFact> {
     ]
 }
 fn matches_deck(p: &PlatformReadback) -> bool {
-    p.arch.observed().map(String::as_str) == Some("x86_64")
+    p.operating_system.observed().map(String::as_str) == Some("linux")
+        && p.arch.observed().map(String::as_str) == Some("x86_64")
         && p.model.as_deref() == Some(DECK_MODEL)
         && p.distro.as_deref() == Some(DECK_DISTRO)
         && p.distro_version.as_deref() == Some(DECK_VERSION)
         && p.bitwig_ref.observed().map(String::as_str) == Some(BITWIG_REF)
         && p.bitwig_version.observed().map(String::as_str) == Some(BITWIG_VERSION)
-}
-fn sandbox_path(p: &PlatformReadback) -> Option<bool> {
-    p.bitwig_permissions.observed().and_then(|permissions| {
-        if !permissions.lines().any(|line| line.trim() == "[Context]") { return None; }
-        let filesystems = key_value(permissions, "filesystems")?;
-        let sockets = key_value(permissions, "sockets")?;
-        let publication_directory = match &p.publication_directory {
-            Probe::Observed(value) => *value,
-            Probe::Absent => false,
-            Probe::Unavailable | Probe::Malformed => return None,
-        };
-        Some(publication_directory
-            && filesystems.split(';').any(|entry| entry == "host")
-            && sockets.split(';').any(|entry| entry == "x11"))
-    })
 }
 
 /// A reviewed source-owned support envelope, bound to the revision captured
@@ -558,6 +765,11 @@ fn resolve_with(
             "Installed compatibility authority could not be verified. Open Diagnostics or create a support export.",
         ));
     }
+    if p.operating_system.observed().map(String::as_str) != Some("linux") {
+        blockers.push(issue("operating_system", if p.operating_system.observed().is_some() {
+            O::Unsupported
+        } else { O::Unknown }, "The selected native engine requires the Linux platform ABI."));
+    }
     if p.arch.observed().map(String::as_str) != Some("x86_64") {
         blockers.push(issue(
             "architecture",
@@ -568,90 +780,21 @@ fn resolve_with(
             },
             "This native bridge lane requires x86-64 Linux.",
         ));
-    } else if p.distro.is_none() || p.distro_version.is_none() || p.model.is_none() {
-        blockers.push(issue(
-            "platform",
-            O::Unknown,
-            "Machine or distribution identity is unavailable.",
-        ));
-    } else if p.distro.as_deref() != Some(DECK_DISTRO)
-        || p.distro_version.as_deref() != Some(DECK_VERSION)
-        || p.model.as_deref() != Some(DECK_MODEL)
-    {
-        blockers.push(issue("platform", O::Unknown,
-            "This exact distribution, version and hardware combination has not been qualified for these profiles."));
     }
-    if p.bitwig_ref.is_absent() {
-        blockers.push(issue(
-            "daw",
-            O::ActionRequired,
-            "Bitwig Studio Flatpak is not visible to the manager.",
-        ));
-        steps.push(step(
-            "Install or verify Bitwig Studio",
-            "Use the supported Bitwig Flatpak route, then Check again.",
-            None,
-        ));
-    } else if p.bitwig_ref.observed().map(String::as_str).is_none()
-        || p.bitwig_version.observed().map(String::as_str).is_none() {
-        blockers.push(issue("daw", O::Unknown,
-            "Bitwig installation or version could not be observed reliably."));
-    } else if p.bitwig_ref.observed().map(String::as_str) != Some(BITWIG_REF)
-        || p.bitwig_version.observed().map(String::as_str) != Some(BITWIG_VERSION)
-    {
-        blockers.push(issue(
-            "daw",
-            O::Unknown,
-            "The installed DAW build or Flatpak branch is outside the accepted Bitwig 6.1 fixture.",
-        ));
-    }
-    match sandbox_path(p) {
-        Some(true) => {}
-        Some(false) => {
-            blockers.push(issue("publication_path", O::ActionRequired,
-                "Bitwig's current Flatpak permissions do not establish access to the managed VST3 path and X11 editor socket."));
-            steps.push(step("Review Bitwig Flatpak access",
-                "Use the supported application permissions; the manager will not widen the sandbox automatically.", None));
+    // These are prerequisites of the implemented Windows-host route, not a
+    // machine/product support list. A live DAW format is negotiated at launch.
+    let audio = either(&p.pipewire_socket, &p.jack_available);
+    let display = p.display.as_ref().map(|_| Probe::Observed(true)).unwrap_or(Probe::Unavailable);
+    for (category, probe, explanation) in [
+        ("runtime_ipc", &p.runtime_dir, "The user runtime directory is required for bridge IPC."),
+        ("publication_path", &p.publication_directory, "The managed publication directory is required."),
+        ("audio_ipc", &audio, "At least one observed PipeWire or JACK audio route is required."),
+        ("graphics", &display, "X11/XWayland is required by the selected Windows host launch route."),
+    ] {
+        if !available(probe) {
+            blockers.push(issue(category, if absent(probe) { O::ActionRequired } else { O::Unknown }, explanation));
+            steps.push(step("Review required capability", explanation, None));
         }
-        None => blockers.push(issue(
-            "publication_path",
-            O::Unknown,
-            "Bitwig sandbox permissions could not be read.",
-        )),
-    }
-    if p.display.is_none() || p.session.is_none() {
-        blockers.push(issue(
-            "graphics",
-            O::Unknown,
-            "The current graphical session or X11 display cannot be confirmed.",
-        ));
-    } else if !matches!(p.session.as_deref(), Some("wayland" | "x11")) {
-        blockers.push(issue(
-            "graphics",
-            O::ActionRequired,
-            "The selected profiles require a Desktop session with X11/XWayland editor access.",
-        ));
-        steps.push(step(
-            "Use a compatible Desktop session",
-            "Return to SteamOS Desktop Mode, then Check again.",
-            None,
-        ));
-    }
-    if p.runtime_dir.is_absent() || p.pipewire_socket.is_absent() {
-        blockers.push(issue(
-            "audio_ipc",
-            O::ActionRequired,
-            "The user runtime directory or PipeWire socket is unavailable.",
-        ));
-        steps.push(step(
-            "Restore the desktop audio session",
-            "Sign in to the normal desktop session, then Check again.",
-            None,
-        ));
-    } else if p.runtime_dir.observed() != Some(&true)
-        || p.pipewire_socket.observed() != Some(&true) {
-        blockers.push(issue("audio_ipc", O::Unknown,
-            "The user runtime directory or PipeWire socket could not be verified."));
     }
     if !snapshot.system.capacity_available() {
         blockers.push(issue(
@@ -722,15 +865,9 @@ fn resolve_with(
     }
     let mut products = Vec::new();
     for product in &snapshot.products {
-        let beta_profile = product.details["profile"]["id"]
-            .as_str()
-            .is_some_and(|id| BETA_PROFILE_IDS.contains(&id));
-        let acceptance = beta_profile.then(|| accepted(product));
-        let authority_failure = acceptance
-            .as_ref()
-            .and_then(|result| result.as_ref().err())
-            .copied();
-        let exact = acceptance.is_some_and(|result| result == Ok(true));
+        let acceptance = accepted(product);
+        let authority_failure = acceptance.as_ref().err().copied();
+        let exact = acceptance == Ok(true);
         let current_checks = [
             "module_valid",
             "environment_valid",
@@ -766,23 +903,18 @@ fn resolve_with(
                 "The current module, environment, runner, host, proxy or publication needs repair.")
         } else if product.details["publication_selected"] == false {
             (O::ActionRequired,
-                "This product is not currently made available to Bitwig.")
+                "This product is not currently made available to native DAWs.")
         } else if authority_failure.is_some() {
             (
                 O::Unknown,
                 "Installed compatibility authority could not be verified for this product.",
             )
-        } else if support == ui::SupportQualification::Unsupported {
-            (O::Unsupported, "This exact profile has been withdrawn.")
-        } else if !beta_profile {
-            (O::Unknown,"This product has no accepted PB0 support envelope; its current installation health is shown separately.")
-        } else if exact && product.disposition == "ready" && has_deck {
-            (O::Ready,"Exact ordinary Arturia profile and managed artifacts verify on the accepted Deck fixture.")
+        } else if health == ui::InstallationHealth::Healthy
+            && product.details["publication_selected"] == true
+            && product.disposition == "ready" {
+            (O::Ready, "Selected execution bindings verify. The publication is eligible to try; live host behavior and support qualification are separate.")
         } else {
-            (
-                O::Unknown,
-                "This build and machine combination has no accepted PB0 support envelope.",
-            )
+            (O::Unknown, "Required execution bindings or the selected publication have not been verified.")
         };
         if let Some(code) = authority_failure {
             if !blockers.iter().any(|blocker| blocker.category == code) {
@@ -833,39 +965,14 @@ fn resolve_with(
             "No managed plug-in has been installed and published.",
         ));
         steps.push(step(
-            "Add a supported plug-in",
+            "Add a plug-in",
             "Open Setup to import the lawful Windows installer.",
             None,
         ));
     }
-    // The device rate and Bitwig's internal callback maximum are not reliably
-    // readable from an idle manager. Graph metadata never substitutes for them.
-    if any_ready
-        && (p.device_sample_rate != Some(48000)
-            || p.daw_callback_maximum.is_none_or(|maximum| maximum > 512))
-    {
-        let unknown = p.device_sample_rate.is_none() || p.daw_callback_maximum.is_none();
-        blockers.push(issue("host_audio", O::ActionRequired,if unknown {
-            "Bitwig's current device rate or callback maximum is not confirmed outside a live session."
-        } else {
-            "The observed device rate or Bitwig callback maximum does not match the accepted 48 kHz / at-most-512-frame profile."
-        }));
-        steps.push(step("Verify Bitwig audio settings",
-            if unknown {
-                "In Bitwig Audio settings, confirm 48 kHz and a maximum of at most 512 frames. The idle manager cannot verify these values yet, so this assessment remains action required. PipeWire graph values are not a substitute."
-            } else {
-                "Set the exact device rate and Bitwig callback maximum to the qualified values, then Check again. The manager does not change DAW settings."
-            },None));
-        for product in &mut products {
-            if product.status == O::Ready {
-                product.status = O::ActionRequired;
-                product.reason="Exact profile and artifacts verify; current Bitwig audio settings still need confirmation.".into();
-            }
-        }
-    }
-    // Product-specific outcomes remain on their product. A withdrawn profile,
-    // quarantine, or unqualified sibling cannot invalidate a verified system
-    // or another exact supported product.
+    // Current DAW rate/block size are live negotiation facts. An idle manager
+    // must neither invent them nor use their absence as a publication refusal.
+    // Product failures remain scoped to their product.
     let system_blockers = blockers.iter().filter(|b| b.category != "product");
     let system_statuses: Vec<_> = system_blockers.map(|b| b.status).collect();
     let overall = if system_statuses.contains(&O::Unsupported) {
@@ -886,11 +993,12 @@ fn resolve_with(
         O::Unknown
     };
     if overall == O::Unsupported {
-        steps=vec![step("Review supported configurations",
-            "This exact configuration crosses an accepted negative support boundary. No setup mutation is offered.",None)];
+        steps=vec![step("Review required architecture",
+            "The selected native engine requires x86-64 Linux.",None)];
     } else if overall == O::Unknown {
-        steps=vec![step("Review exact compatibility",
-            "The manager has no accepted support claim for this exact combination. Review Details or create a support export.",None)];
+        steps.truncate(1);
+        if steps.is_empty() { steps.push(step("Review missing observations",
+            "A required execution capability could not be verified. Review Details or create a support export.",None)); }
     } else {
         steps.truncate(1);
     }
@@ -899,19 +1007,19 @@ fn resolve_with(
             if product.status == O::Ready {
                 product.status = overall;
                 product.reason =
-                    "Exact profile and artifacts verify; the current system is not fully ready."
+                    "Selected execution bindings verify; a required system capability needs attention."
                         .into();
             }
         }
     }
-    let source = "accepted SteamOS 3.8.16 / Bitwig 6.1 Arturia profile envelope";
-    let required = |name: &str, value: &str| {
+    let source = "historical bounded support envelope; not an execution requirement";
+    let qualified = |name: &str, value: &str| {
         fact(
             name,
             Some(value.into()),
             source,
             at,
-            ui::FactCertainty::ProfileRequired,
+            ui::FactCertainty::Observed,
         )
     };
     ui::ReadinessAssessment {
@@ -921,6 +1029,7 @@ fn resolve_with(
         overall_status: overall,
         system: snapshot.system.clone(),
         platform: vec![
+            observed("Operating system", p.operating_system.value(), "manager native platform ABI", at),
             observed("CPU architecture", p.arch.value(), "uname -m", at),
             observed("Hardware model", p.model.clone(), "DMI product name", at),
             observed("Distribution", p.distro.clone(), "/etc/os-release", at),
@@ -931,20 +1040,30 @@ fn resolve_with(
                 at,
             ),
             observed("Kernel", p.kernel.clone(), "/proc/sys/kernel/osrelease", at),
-            required("Qualified distribution", "SteamOS 3.8.16"),
+            qualified("Historical qualified distribution", "SteamOS 3.8.16"),
         ],
-        daw: vec![
-            observed("DAW Flatpak ref", p.bitwig_ref.value(), "flatpak info", at),
-            observed("DAW version", p.bitwig_version.value(), "flatpak info", at),
-            observed("DAW runtime", p.bitwig_runtime.value(), "flatpak info", at),
-            observed(
-                "Sandbox publication access",
-                sandbox_path(p).map(|b| if b { "available" } else { "unavailable" }.into()),
-                "Flatpak permissions and managed publication directory",
-                at,
-            ),
-            required("Qualified DAW", "Bitwig Studio 6.1 Flatpak"),
-        ],
+        daw: {
+            let mut facts = vec![
+                observed("DAW Flatpak ref", p.bitwig_ref.value(), "flatpak info; installation only", at),
+                observed("DAW version", p.bitwig_version.value(), "flatpak info; installation only", at),
+                observed("DAW runtime", p.bitwig_runtime.value(), "flatpak info; installation only", at),
+                observed("Sandbox permission metadata", p.bitwig_permissions.observed().map(|_| "available; not consuming-path proof".into()), "flatpak info", at),
+                qualified("Historical qualified DAW", "Bitwig Studio 6.1 Flatpak"),
+            ];
+            for host in &p.hosts {
+                let missing = host_requirements(host, true);
+                let status = if missing.is_empty() { "required access observed" }
+                    else if missing.iter().any(|item| item.status == O::ActionRequired) { "required access unavailable" }
+                    else { "consuming-context observation unavailable" };
+                facts.push(observed(&format!("{} context", host.name), Some(status.into()), &host.source, at));
+                for (name, probe) in [("adapter", &host.adapter), ("publication access", &host.publication),
+                    ("bridge IPC access", &host.ipc), ("PipeWire access", &host.pipewire),
+                    ("JACK access", &host.jack), ("route display access", &host.display)] {
+                    facts.push(capability_fact(&format!("{} {name}", host.name), probe, &host.source, at));
+                }
+            }
+            facts
+        },
         audio: vec![
             observed(
                 "PipeWire availability",
@@ -979,20 +1098,20 @@ fn resolve_with(
                 at,
             ),
             observed(
-                "Bitwig callback maximum",
+                "DAW callback maximum",
                 p.daw_callback_maximum.map(|n| n.to_string()),
                 "trusted live DAW readback; unavailable when idle",
                 at,
             ),
-            required("Qualified device sample rate", "48000 Hz"),
-            required("Qualified host maximum", "at most 512 frames"),
+            qualified("Historical qualified device sample rate", "48000 Hz"),
+            qualified("Historical qualified host maximum", "at most 512 frames"),
             observed(
                 "Bridge processing quantum",
                 None,
                 "not exposed in current operator snapshot",
                 at,
             ),
-            required("Bridge presentation reserve", "512 added frames"),
+            qualified("Historical presentation reserve", "512 added frames"),
             observed(
                 "Vendor algorithmic latency",
                 None,
@@ -1423,7 +1542,7 @@ mod tests {
         product.details = json!({"profile":{"id":p.id,"revision":p.revision,"claim":"verified_exact_fixture"},
             "module_valid":true,"environment_valid":true,"runner_valid":true,
             "native_valid":true,"host_valid":true,"publication_valid":true,
-            "publication_complete":true,"performance_valid":true,"added_frames":512,
+            "publication_complete":true,"publication_selected":true,"performance_valid":true,"added_frames":512,
             "qualification":null});
         snapshot.onboarding.clear();
         snapshot.system.service = "active".into();
@@ -1433,6 +1552,7 @@ mod tests {
         snapshot.system.stale_transports = 0;
         snapshot.system.cleanup_unconfirmed = false;
         let platform = PlatformReadback {
+            operating_system: Probe::Observed("linux".into()),
             arch: Probe::Observed("x86_64".into()),
             model: Some(DECK_MODEL.into()),
             distro: Some(DECK_DISTRO.into()),
@@ -1454,6 +1574,7 @@ mod tests {
                 "[Context]\nsockets=x11;pulseaudio;\nfilesystems=host;\n".into(),
             ),
             publication_directory: Probe::Observed(true),
+            hosts:vec![unavailable_host("Native DAW", "idle fixture", Probe::Unavailable)],
         };
         (snapshot, platform)
     }
@@ -1478,17 +1599,13 @@ mod tests {
         p.device_sample_rate = None;
         p.daw_callback_maximum = None;
         let idle = result(&s, &p);
-        assert_eq!(idle.overall_status, ui::ReadinessOutcome::ActionRequired);
-        assert_eq!(
-            idle.products[0].status,
-            ui::ReadinessOutcome::ActionRequired
-        );
-        assert_eq!(idle.ordered_steps.len(), 1);
-        assert!(idle.ordered_steps[0].title.contains("Bitwig audio"));
+        assert_eq!(idle.overall_status, ui::ReadinessOutcome::Ready);
+        assert_eq!(idle.products[0].status, ui::ReadinessOutcome::Ready);
+        assert!(idle.ordered_steps.is_empty());
         assert!(idle
             .audio
             .iter()
-            .find(|f| f.name == "Bitwig callback maximum")
+            .find(|f| f.name == "DAW callback maximum")
             .unwrap()
             .value
             .is_none());
@@ -1511,82 +1628,200 @@ mod tests {
             ui::ReadinessOutcome,
         );
         let cases: Vec<PlatformCase> = vec![
-            (
-                "unknown distro",
-                |p| p.distro = Some("new-linux".into()),
-                ui::ReadinessOutcome::Unknown,
-            ),
-            (
-                "wrong architecture",
-                |p| p.arch = Probe::Observed("aarch64".into()),
-                ui::ReadinessOutcome::Unsupported,
-            ),
-            (
-                "missing daw",
-                |p| p.bitwig_ref = Probe::Absent,
-                ui::ReadinessOutcome::ActionRequired,
-            ),
-            (
-                "unavailable daw probe",
-                |p| p.bitwig_ref = Probe::Unavailable,
-                ui::ReadinessOutcome::Unknown,
-            ),
-            (
-                "malformed permissions",
-                |p| p.bitwig_permissions = Probe::Malformed,
-                ui::ReadinessOutcome::Unknown,
-            ),
-            (
-                "incomplete permission observation",
-                |p| p.bitwig_permissions = Probe::Observed("[Context]\nfilesystems=host;".into()),
-                ui::ReadinessOutcome::Unknown,
-            ),
-            (
-                "wrong daw version",
-                |p| p.bitwig_version = Probe::Observed("7.0".into()),
-                ui::ReadinessOutcome::Unknown,
-            ),
-            (
-                "sandbox path",
-                |p| p.publication_directory = Probe::Absent,
-                ui::ReadinessOutcome::ActionRequired,
-            ),
-            (
-                "callback maximum",
-                |p| p.daw_callback_maximum = Some(1024),
-                ui::ReadinessOutcome::ActionRequired,
-            ),
-            (
-                "device rate",
-                |p| p.device_sample_rate = Some(44100),
-                ui::ReadinessOutcome::ActionRequired,
-            ),
-            (
-                "graphics",
-                |p| p.display = None,
-                ui::ReadinessOutcome::Unknown,
-            ),
-            (
-                "ipc",
-                |p| p.pipewire_socket = Probe::Absent,
-                ui::ReadinessOutcome::ActionRequired,
-            ),
-            (
-                "unavailable ipc observation",
-                |p| p.pipewire_socket = Probe::Unavailable,
-                ui::ReadinessOutcome::Unknown,
-            ),
+            ("incompatible platform ABI", |p| p.operating_system = Probe::Observed("macos".into()), ui::ReadinessOutcome::Unsupported),
+            ("unobserved platform ABI", |p| p.operating_system = Probe::Unavailable, ui::ReadinessOutcome::Unknown),
+            ("unfamiliar distro", |p| p.distro = Some("new-linux".into()), ui::ReadinessOutcome::Ready),
+            ("unobserved distro", |p| {p.distro = None; p.model = None;}, ui::ReadinessOutcome::Ready),
+            ("wrong architecture", |p| p.arch = Probe::Observed("aarch64".into()), ui::ReadinessOutcome::Unsupported),
+            ("missing optional Bitwig", |p| p.bitwig_ref = Probe::Absent, ui::ReadinessOutcome::Ready),
+            ("unavailable optional Bitwig", |p| p.bitwig_ref = Probe::Unavailable, ui::ReadinessOutcome::Ready),
+            ("permission metadata is not access", |p| p.bitwig_permissions = Probe::Malformed, ui::ReadinessOutcome::Ready),
+            ("unqualified DAW version", |p| p.bitwig_version = Probe::Observed("7.0".into()), ui::ReadinessOutcome::Ready),
+            ("publication directory absent", |p| p.publication_directory = Probe::Absent, ui::ReadinessOutcome::ActionRequired),
+            ("publication observation unavailable", |p| p.publication_directory = Probe::Unavailable, ui::ReadinessOutcome::Unknown),
+            ("live callback negotiation", |p| p.daw_callback_maximum = Some(1024), ui::ReadinessOutcome::Ready),
+            ("live device negotiation", |p| p.device_sample_rate = Some(44100), ui::ReadinessOutcome::Ready),
+            ("selected display route", |p| p.display = None, ui::ReadinessOutcome::Unknown),
+            ("JACK only", |p| p.pipewire_socket = Probe::Absent, ui::ReadinessOutcome::Ready),
+            ("unavailable PipeWire with JACK", |p| p.pipewire_socket = Probe::Unavailable, ui::ReadinessOutcome::Ready),
+            ("no audio route", |p| {p.pipewire_socket = Probe::Absent; p.jack_available = Probe::Absent;}, ui::ReadinessOutcome::ActionRequired),
+            ("unavailable audio observations", |p| {p.pipewire_socket = Probe::Unavailable; p.jack_available = Probe::Absent;}, ui::ReadinessOutcome::Unknown),
+            ("IPC runtime absent", |p| p.runtime_dir = Probe::Absent, ui::ReadinessOutcome::ActionRequired),
         ];
         for (name, change, expected) in cases {
             let mut p = p.clone();
             change(&mut p);
             let r = result(&s, &p);
             assert_eq!(r.overall_status, expected, "{name}");
-            assert_ne!(r.products[0].status, ui::ReadinessOutcome::Ready, "{name}");
+            assert_eq!(r.products[0].status, expected, "{name}");
         }
     }
     #[test]
-    fn exact_artifacts_transactions_cleanup_and_withdrawal_are_not_ready() {
+    fn unfamiliar_valid_publication_is_eligible_without_a_support_or_idle_daw_claim() {
+        let (mut snapshot, mut platform) = fixture();
+        let product = &mut snapshot.products[0];
+        product.name = "Unfamiliar instrument".into();
+        product.vendor = "Unfamiliar vendor".into();
+        product.class_id = "ce".repeat(16);
+        product.module_sha256 = "de".repeat(32);
+        product.details["profile"] = Value::Null;
+        platform.model = None;
+        platform.distro = Some("unfamiliar-linux".into());
+        platform.bitwig_ref = Probe::Absent;
+        platform.device_sample_rate = None;
+        platform.daw_callback_maximum = None;
+        let assessment = result(&snapshot, &platform);
+        assert_eq!(assessment.overall_status, ui::ReadinessOutcome::Ready);
+        assert_eq!(assessment.products[0].installation_health, ui::InstallationHealth::Healthy);
+        assert_eq!(assessment.products[0].support_qualification, ui::SupportQualification::NotYetQualified);
+        assert!(assessment.daw.iter().find(|fact| fact.name == "Native DAW publication access")
+            .unwrap().value.is_none());
+        snapshot.products[0].details["host_valid"] = Value::Null;
+        assert_eq!(result(&snapshot, &platform).products[0].status, ui::ReadinessOutcome::Unknown);
+        snapshot.products[0].details["host_valid"] = json!(false);
+        assert_eq!(result(&snapshot, &platform).products[0].status, ui::ReadinessOutcome::ActionRequired);
+    }
+
+    #[test]
+    fn host_requirements_are_scoped_and_optional_display_is_not_an_audio_requirement() {
+        let native = HostReadback { name:"Native fixture".into(), source:"test observation".into(),
+            adapter:Probe::Observed(true), publication:Probe::Observed(true), ipc:Probe::Observed(true),
+            pipewire:Probe::Absent, jack:Probe::Observed(true), display:Probe::Unavailable };
+        assert!(host_requirements(&native, false).is_empty());
+        let interactive = host_requirements(&native, true);
+        assert_eq!(interactive.len(), 1);
+        assert_eq!(interactive[0].category, "host_display");
+        assert_eq!(interactive[0].status, ui::ReadinessOutcome::Unknown);
+        let mut sandbox = native.clone();
+        sandbox.name = "Sandbox fixture".into();
+        sandbox.publication = Probe::Absent;
+        sandbox.ipc = Probe::Unavailable;
+        sandbox.jack = Probe::Absent;
+        let missing = host_requirements(&sandbox, false);
+        assert!(missing.iter().any(|item| item.category == "publication_path"
+            && item.status == ui::ReadinessOutcome::ActionRequired));
+        assert!(missing.iter().any(|item| item.category == "host_ipc"
+            && item.status == ui::ReadinessOutcome::Unknown));
+        assert!(missing.iter().any(|item| item.category == "host_audio"
+            && item.status == ui::ReadinessOutcome::ActionRequired));
+        let (snapshot, mut platform) = fixture();
+        platform.hosts = vec![native, sandbox];
+        let assessment = result(&snapshot, &platform);
+        // There is no selected host in this idle overview; an unused sandbox's
+        // missing access must not block preparing or trying the valid publication.
+        assert_eq!(assessment.overall_status, ui::ReadinessOutcome::Ready);
+        assert_eq!(assessment.daw.iter().find(|fact| fact.name == "Sandbox fixture publication access")
+            .unwrap().value.as_deref(), Some("unavailable"));
+    }
+
+    #[cfg(target_os = "linux")]
+    fn consumer_fixture() -> (crate::test_fixture::Fixture, PathBuf, PathBuf, String) {
+        use std::os::unix::{fs::{symlink, MetadataExt}, net::UnixListener};
+        let f = crate::test_fixture::Fixture::new();
+        let sid = "42".repeat(16);
+        let proc_root = f.outer.join("proc");
+        let transport = f.outer.join("transport");
+        let process = proc_root.join("41");
+        for directory in [process.join("ns"), proc_root.join("self/ns"),
+            proc_root.join("sys/kernel/random"), transport.clone(), f.m.publications.clone(),
+            f.m.root.join("runtime/leases"), f.m.root.join("runtime/results"),
+            f.m.root.join("runtime/lease-generations")] { private_dir(&directory).unwrap(); }
+        symlink("/", process.join("root")).unwrap();
+        symlink("mnt:[1]", process.join("ns/mnt")).unwrap();
+        symlink("mnt:[1]", proc_root.join("self/ns/mnt")).unwrap();
+        symlink("ipc:[1]", process.join("ns/ipc")).unwrap();
+        symlink("ipc:[1]", proc_root.join("self/ns/ipc")).unwrap();
+        let mut stat = vec!["0"; 20]; stat[0] = "S"; stat[19] = "900";
+        fs::write(process.join("stat"), format!("41 (unknown native consumer) {}", stat.join(" "))).unwrap();
+        let meta = fs::metadata(&f.r.native.path).unwrap();
+        fs::write(process.join("maps"), format!("10-20 r-xp 0 {:x}:{:x} {} unknown\n",
+            libc::major(meta.dev()), libc::minor(meta.dev()), meta.ino())).unwrap();
+        fs::write(proc_root.join("sys/kernel/random/boot_id"), "11111111-1111-4111-8111-111111111111\n").unwrap();
+        let bundle = f.outer.join("bundle"); private_dir(&bundle).unwrap();
+        symlink(&bundle, f.m.link(&f.r.metadata.class_id)).unwrap();
+        let mut registry = Registry::default();
+        registry.classes.insert(f.r.key(), Entry {registration:f.r.clone(), publication:Publication::Published, managed_revision:None});
+        atomic_json(&f.m.root.join("registry.json"), &registry).unwrap();
+        let report = f.m.root.join("runtime/results").join(format!("windows-{sid}.json"));
+        let owner_dir = f.r.environment.root.join("compatdata/pfx/drive_c/bridge/sessions").join(&sid);
+        private_dir(&owner_dir).unwrap();
+        let lease = f.m.root.join("runtime/leases").join(format!("{sid}.json"));
+        atomic_json(&lease, &report).unwrap();
+        let owner = owner_dir.join("owner.json");
+        atomic_json(&owner, &json!({"session":sid,"report":report,"lease":lease,
+            "registration":HostBinding::from(f.r.clone()),"keeper":false,"inspect":false,
+            "graphical_session":{"schema":1,"peer_pid":41,"peer_start_ticks":900,"display":":99"}})).unwrap();
+        f.m.retain_lease_owner(&owner).unwrap();
+        atomic_json(&f.m.root.join("runtime/lease-generations").join(format!("{sid}.json")),
+            &json!({"schema":1,"session":sid,"report":report,"kernel_boot":"11111111-1111-4111-8111-111111111111","basis":"before_launch"})).unwrap();
+        // A real socket under fixture custody distinguishes IPC visibility from
+        // an arbitrary regular file. It is not a DAW/audio success receipt.
+        let _socket = UnixListener::bind(transport.join("fixture.sock")).unwrap();
+        (f, proc_root, transport, sid)
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn consumer_collection_requires_current_boot_process_and_exact_proxy_binding() {
+        let (f, proc_root, transport, _) = consumer_fixture();
+        let collect = || collect_consumers_from(&f.m, &Probe::Absent, &Probe::Observed(true), &proc_root, &transport);
+        let hosts = collect().unwrap();
+        assert_eq!(hosts.len(), 1);
+        assert_eq!(hosts[0].name, "Active native DAW");
+        assert_eq!(hosts[0].publication, Probe::Observed(true));
+        assert_eq!(hosts[0].ipc, Probe::Observed(true));
+        assert_eq!(hosts[0].jack, Probe::Observed(true));
+        let stat_path = proc_root.join("41/stat");
+        let original = fs::read_to_string(&stat_path).unwrap();
+        fs::write(&stat_path, original.replace("900", "901")).unwrap();
+        assert!(collect().unwrap_err().to_string().contains("consumer_generation"));
+        fs::write(&stat_path, original).unwrap();
+        fs::write(proc_root.join("41/maps"), "10-20 r-xp 0 00:00 1 foreign\n").unwrap();
+        assert!(collect().unwrap_err().to_string().contains("consumer_proxy_mapping"));
+        fs::write(proc_root.join("sys/kernel/random/boot_id"), "22222222-2222-4222-8222-222222222222\n").unwrap();
+        assert!(collect().unwrap_err().to_string().contains("consumer_boot_changed"));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn sandbox_consumer_cannot_inherit_host_path_or_jack_access() {
+        let (f, proc_root, transport, _) = consumer_fixture();
+        let root = proc_root.join("41/root");
+        fs::remove_file(&root).unwrap(); private_dir(&root).unwrap();
+        fs::write(root.join(".flatpak-info"), "[Application]\nname=unknown.fixture\n").unwrap();
+        fs::remove_file(proc_root.join("41/ns/mnt")).unwrap();
+        std::os::unix::fs::symlink("mnt:[2]", proc_root.join("41/ns/mnt")).unwrap();
+        let hosts = collect_consumers_from(&f.m, &Probe::Absent, &Probe::Observed(true), &proc_root, &transport).unwrap();
+        assert_eq!(hosts[0].name, "Active sandboxed DAW");
+        assert_eq!(hosts[0].publication, Probe::Absent);
+        assert_eq!(hosts[0].ipc, Probe::Absent);
+        assert_eq!(hosts[0].jack, Probe::Unavailable);
+        fs::remove_file(proc_root.join("41/ns/mnt")).unwrap();
+        let hosts = collect_consumers_from(&f.m, &Probe::Absent, &Probe::Observed(true), &proc_root, &transport).unwrap();
+        assert_eq!(hosts[0].adapter, Probe::Unavailable);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn consuming_path_resolves_absolute_symlinks_inside_consumer_root() {
+        let f = crate::test_fixture::Fixture::new();
+        let root = f.outer.join("isolated-root"); private_dir(&root).unwrap();
+        let host_path = f.outer.join("exposed");
+        std::os::unix::fs::symlink(&f.r.native.path, &host_path).unwrap();
+        let peer_path = root.join(host_path.strip_prefix("/").unwrap());
+        private_dir(peer_path.parent().unwrap()).unwrap();
+        std::os::unix::fs::symlink(&f.r.native.path, &peer_path).unwrap();
+        // Naive metadata follows the absolute target into the observer's root.
+        assert!(fs::metadata(&peer_path).is_ok());
+        assert_eq!(same_visible_object(&host_path, &root), Probe::Absent);
+        let visible_target = root.join(f.r.native.path.strip_prefix("/").unwrap());
+        fs::hard_link(&f.r.native.path, &visible_target).unwrap();
+        assert_eq!(same_visible_object(&host_path, &root), Probe::Observed(true));
+        fs::remove_file(&visible_target).unwrap(); fs::write(&visible_target, "different object").unwrap();
+        assert_eq!(same_visible_object(&host_path, &root), Probe::Observed(false));
+    }
+    #[test]
+    fn exact_artifacts_transactions_and_cleanup_are_requirements_but_withdrawal_is_qualification() {
         let (s, p) = fixture();
         for key in [
             "module_valid",
@@ -1609,10 +1844,10 @@ mod tests {
         let mut s = s.clone();
         s.products[0].details["profile"]["claim"] = json!("withdrawn");
         assert_eq!(
-            result(&s, &p).products[0].status,
-            ui::ReadinessOutcome::Unsupported
+            result(&s, &p).products[0].support_qualification,
+            ui::SupportQualification::Unsupported
         );
-        assert_eq!(result(&s, &p).overall_status, ui::ReadinessOutcome::Unknown);
+        assert_eq!(result(&s, &p).overall_status, ui::ReadinessOutcome::Ready);
         s.products[0].details["profile"]["claim"] = json!("verified_exact_fixture");
         s.system.pending_transactions = 1;
         assert_eq!(
@@ -1638,15 +1873,14 @@ mod tests {
         );
     }
     #[test]
-    fn source_profile_and_current_exact_identity_are_both_required() {
+    fn support_profile_identity_does_not_replace_current_execution_validation() {
         let (mut s, p) = fixture();
         assert_eq!(result(&s, &p).overall_status, ui::ReadinessOutcome::Ready);
         s.products[0].module_sha256 = "00".repeat(32);
-        assert_eq!(
-            result(&s, &p).products[0].status,
-            ui::ReadinessOutcome::Unknown
-        );
-        assert_eq!(result(&s, &p).overall_status, ui::ReadinessOutcome::Unknown);
+        assert_eq!(result(&s, &p).products[0].support_qualification, ui::SupportQualification::NotYetQualified);
+        assert_eq!(result(&s, &p).overall_status, ui::ReadinessOutcome::Ready);
+        s.products[0].details["module_valid"] = json!(false);
+        assert_eq!(result(&s, &p).overall_status, ui::ReadinessOutcome::ActionRequired);
     }
     #[test]
     fn physically_absent_publication_can_be_valid_without_being_ready() {
@@ -1676,7 +1910,7 @@ mod tests {
         let unknown = result(&s, &p);
         assert_eq!(unknown.overall_status, O::Ready);
         assert_eq!(unknown.products[0].status, O::Ready);
-        assert_eq!(unknown.products[1].status, O::Unknown);
+        assert_eq!(unknown.products[1].status, O::Ready);
         s.products[1].details["module_valid"] = json!(false);
         let broken_unqualified = result(&s, &p);
         assert_eq!(broken_unqualified.products[1].status, O::ActionRequired);
@@ -1692,7 +1926,8 @@ mod tests {
         let unsupported = result(&s, &p);
         assert_eq!(unsupported.overall_status, O::Ready);
         assert_eq!(unsupported.products[0].status, O::Ready);
-        assert_eq!(unsupported.products[1].status, O::Unsupported);
+        assert_eq!(unsupported.products[1].support_qualification, ui::SupportQualification::Unsupported);
+        assert_eq!(unsupported.products[1].status, O::Ready);
 
         s.products[1].disposition = "quarantined".into();
         let quarantined = result(&s, &p);
@@ -1718,16 +1953,17 @@ mod tests {
                 .iter()
                 .filter(|p| p.status == O::Ready)
                 .count(),
-            2
+            3
         );
-        assert_eq!(two_and_withdrawn.products[2].status, O::Unsupported);
+        assert_eq!(two_and_withdrawn.products[2].support_qualification, ui::SupportQualification::Unsupported);
 
         s.products.retain(|product| product.name == "Another build");
         s.products[0].details["profile"]["id"] = json!("unqualified-profile");
         s.products[0].details["profile"]["claim"] = json!("verified_exact_fixture");
         let only_unknown = result(&s, &p);
-        assert_eq!(only_unknown.overall_status, O::Unknown);
-        assert_eq!(only_unknown.products[0].status, O::Unknown);
+        assert_eq!(only_unknown.overall_status, O::Ready);
+        assert_eq!(only_unknown.products[0].status, O::Ready);
+        assert_eq!(only_unknown.products[0].support_qualification, ui::SupportQualification::NotYetQualified);
 
         s.products = vec![ready];
         p.arch = Probe::Observed("aarch64".into());
@@ -1804,7 +2040,7 @@ mod tests {
             assert_eq!(r.products[0].status, O::Unknown);
             assert_eq!(r.products[0].failure_code.as_deref(), Some(code));
             assert!(r.blockers.iter().any(|b| b.category == code));
-            assert!(r.ordered_steps[0].title.contains("compatibility"));
+            assert!(r.ordered_steps[0].title.contains("observations"));
         }
         let f = crate::test_fixture::Fixture::new();
         let assessment = resolve_with(&s, &p, 123,

@@ -301,7 +301,7 @@ fn foreign_publication_is_never_overwritten() {
     assert_eq!(fs::read(link.join("foreign")).unwrap(), b"keep");
 }
 
-fn lease(f: &Fixture, key: &str, keeper: bool) -> PathBuf {
+pub(crate) fn lease(f: &Fixture, key: &str, keeper: bool) -> PathBuf {
     let sid = random_id().unwrap();
     let results = f.m.root.join("runtime/results");
     let leases = f.m.root.join("runtime/leases");
@@ -317,7 +317,7 @@ fn lease(f: &Fixture, key: &str, keeper: bool) -> PathBuf {
             .join("compatdata/pfx/drive_c/bridge/sessions")
             .join(&sid);
     private_dir(&directory).unwrap();
-    atomic_json(&directory.join("owner.json"),&serde_json::json!({"session":sid,"report":report,"keeper":keeper,"registration":{"metadata":{"class_id":key}}})).unwrap();
+    atomic_json(&directory.join("owner.json"),&serde_json::json!({"session":sid,"report":report,"keeper":keeper,"inspect":keeper,"registration":{"metadata":{"class_id":key}}})).unwrap();
     let path = leases.join(format!("{sid}.json"));
     atomic_json(&path, &report).unwrap();
     path
@@ -340,6 +340,65 @@ fn active_target_refuses_mutation_but_keeper_and_healthy_sibling_survive() {
     f.m.rollback(&key, &one.id, None).unwrap();
     assert!(keeper.exists() && sibling.exists());
     assert_ne!(one, two);
+}
+#[test]
+fn sibling_maintenance_arriving_after_preflight_refuses_class_mutations() {
+    use crate::preparation as prep;
+    for kind in [capacity::Kind::Inspection, capacity::Kind::VendorAccess] {
+        let (f, c) = prep::tests::fixture();
+        let key = &c.selection.class.id;
+        prep::retain_inspection(&f.m, &c.inspection).unwrap();
+        let prior = prep::enable(&f.m, &c, false).unwrap();
+        for area in prep::AREAS {
+            prep::record_observation(
+                &f.m, &c, &random_id().unwrap(), area, prep::TestStatus::Passed,
+                "Generated mutation-scope fixture; no live qualification claimed",
+            ).unwrap();
+        }
+        prep::review(
+            &f.m, &c, &random_id().unwrap(), prep::ReviewChoice::AcceptExactLocal,
+            "Generated exact local review for mutation-scope regression",
+        ).unwrap();
+        let current = prep::enable(&f.m, &c, true).unwrap();
+        let trial = prep::configuration::prepare(
+            &f.m, &c, Some(operator_model::GraphicsBackend::WineD3d11), Some(&current),
+        ).unwrap();
+        {
+            let _guard = f.m.lock("registry.lock").unwrap();
+            f.m.require_inactive(Some(key)).unwrap();
+        }
+        // An initial UI check does not retain admission. A sibling maintenance
+        // owner arriving afterwards must be seen by each mutation's final guard.
+        let active = lease(&f, &"02".repeat(16), false);
+        let sid = active.file_stem().unwrap().to_str().unwrap();
+        let report: PathBuf = read_json(&active).unwrap();
+        let (mut owner, path) = f.m.lease_owner(sid, &report).unwrap();
+        owner["inspect"] = serde_json::json!(kind == capacity::Kind::Inspection);
+        owner["vendor_access"] = serde_json::json!(kind == capacity::Kind::VendorAccess);
+        atomic_json(&path, &owner).unwrap();
+        let mutation_state = || {
+            let mut state = snapshot(&f.outer);
+            // Re-presenting a retained candidate may invalidate the readback
+            // token. It grants no publication or runtime mutation authority.
+            state.remove(&f.m.root.join("preparation/revision.json"));
+            state
+        };
+        let before = mutation_state();
+        reason(prep::replace(&f.m, &trial, &current), "active_maintenance_lease");
+        assert_eq!(mutation_state(), before);
+        reason(f.m.rollback(key, &prior.id, None), "active_maintenance_lease");
+        assert_eq!(mutation_state(), before);
+        reason(f.m.select_delay(key, 256), "active_maintenance_lease");
+        assert_eq!(mutation_state(), before);
+        reason(prep::withdraw(&f.m, &c, &current), "active_maintenance_lease");
+        assert_eq!(mutation_state(), before);
+        fs::remove_file(active).unwrap();
+        f.m.select_delay(key, 256).unwrap();
+        let changed = prep::replace(&f.m, &trial, &current).unwrap();
+        prep::disable_exact(&f.m, &trial, &changed).unwrap();
+        assert_eq!(prep::publication_state(&f.m, &c).unwrap(), "ordinary");
+        prep::withdraw(&f.m, &c, &current).unwrap();
+    }
 }
 #[test]
 fn failed_updates_and_profile_revision_reuse_keep_the_prior_exact() {

@@ -8,7 +8,7 @@ pub fn project(
     products: &mut [ui::Product],
     busy: Option<&str>,
 ) -> Result<()> {
-    project_with_excluded_operation(m, sw, products, busy, None)
+    project_with_excluded_operation(m, sw, products, busy, None, None)
 }
 
 /// Worker validation must not let its own waiting receipt hide the action it
@@ -20,7 +20,14 @@ pub(super) fn project_for_operation(
     busy: Option<&str>,
     operation: &str,
 ) -> Result<()> {
-    project_with_excluded_operation(m, sw, products, busy, Some(operation))
+    project_with_excluded_operation(m, sw, products, busy, Some(operation), None)
+}
+
+pub(super) fn project_scoped(
+    m: &Manager, sw: &Software, products: &mut [ui::Product], busy: Option<&str>,
+    operation: Option<&str>, scope: &dyn Fn(&str) -> Option<&'static str>,
+) -> Result<()> {
+    project_with_excluded_operation(m, sw, products, busy, operation, Some(scope))
 }
 
 fn project_with_excluded_operation(
@@ -29,6 +36,7 @@ fn project_with_excluded_operation(
     products: &mut [ui::Product],
     busy: Option<&str>,
     exclude_operation: Option<&str>,
+    scope: Option<&dyn Fn(&str) -> Option<&'static str>>,
 ) -> Result<()> {
     let candidates = prep::candidates(m, &sw.host, &sw.source_sha256)?;
     let selections = product_selections(
@@ -42,6 +50,7 @@ fn project_with_excluded_operation(
         }) else {
             continue;
         };
+        let class_busy = match scope { Some(scope) => scope(&s.class.id), None => busy };
         let mut v = prep::view_with_candidates(m, &s, &sw.host, &sw.source_sha256,
             &candidates)?;
         // Ordinary registry readback remains authority; MF3 augments that card.
@@ -163,9 +172,9 @@ fn project_with_excluded_operation(
                 &h.publication,
                 v.current_revision.as_ref(),
                 if matches!(h.publication.as_str(), "ordinary" | "experimental") {
-                    busy
+                    class_busy
                 } else {
-                    busy.or(historical)
+                    class_busy.or(historical)
                 },
             ) {
                 p.actions.push(a);
@@ -199,7 +208,7 @@ fn project_with_excluded_operation(
                 ui::Action::CandidatePublishOrdinary {
                     candidate: id.clone(),
                 },
-                busy.or(historical).or(
+                class_busy.or(historical).or(
                     if h.ordinary_acceptance_current
                         && !matches!(
                             h.publication.as_str(),
@@ -226,7 +235,7 @@ fn project_with_excluded_operation(
             v.operation = Some(op.clone());
             p.details["preparation"]["operation"] = op;
         }
-        let mut workflow = guided_projection(m, &s, &v, busy, stale, canonical,
+        let mut workflow = guided_projection(m, &s, &v, busy, class_busy, stale, canonical,
             p.disposition == "ready")?;
         // A failed test can be removed while its accepted ancestor becomes
         // current, before the result's completion marker is retained. Search
@@ -251,18 +260,18 @@ fn project_with_excluded_operation(
                     if exact_test_publication(m, &candidate, &expected_current).is_ok() => (
                     ui::CompatibilityPhase::AwaitingRetirement,
                     "Problem recorded. The test configuration is still selected. Close the DAW or complete recovery, then finish this result.",
-                    busy.map(str::to_owned),
+                    class_busy.map(str::to_owned),
                 ),
                 (ui::TestResultKind::Problem { .. }, _) => match guided_result_disposition(m, &candidate, &expected_current, operation) {
                     Ok(GuidedDisposition::Restored) => (
                         ui::CompatibilityPhase::TestResultIncomplete,
                         "Test result needs final reconciliation. The failed test configuration was removed and the previous configuration is selected.",
-                        busy.map(str::to_owned),
+                        class_busy.map(str::to_owned),
                     ),
                     Ok(GuidedDisposition::Removed) => (
                         ui::CompatibilityPhase::TestResultIncomplete,
                         "Test result needs final reconciliation. The failed test configuration was removed; finish its exact record.",
-                        busy.map(str::to_owned),
+                        class_busy.map(str::to_owned),
                     ),
                     Err(_) => (
                         ui::CompatibilityPhase::PublicationNeedsAttention,
@@ -273,7 +282,7 @@ fn project_with_excluded_operation(
                 (ui::TestResultKind::Worked, _) => (
                     ui::CompatibilityPhase::TestResultIncomplete,
                     "Test result was only partly recorded. Finish the exact disposition after confirming the plug-in is closed.",
-                    busy.map(str::to_owned),
+                    class_busy.map(str::to_owned),
                 ),
             };
             workflow.phase = phase;
@@ -360,6 +369,7 @@ fn guided_projection(
     selection: &prep::Selection,
     view: &prep::View,
     busy: Option<&str>,
+    class_busy: Option<&str>,
     stale: Option<&str>,
     canonical: bool,
     ordinary_ready: bool,
@@ -440,7 +450,7 @@ fn guided_projection(
                 candidate: row.id.clone(), expected_current: publication_identity(expected),
                 result: ui::TestResultKind::Worked, passed: vec![], failed_area: None,
                 note: String::new(),
-            }, None));
+            }, class_busy));
         }
         if row.review.as_ref().is_some_and(|review| review.choice == prep::ReviewChoice::AcceptExactLocal) {
             (Phase::PassedExperimental, "Recorded checks passed. This configuration remains experimental.".into())
@@ -470,7 +480,7 @@ fn guided_projection(
                 primary = Some(offer(if publication == "another_configuration" {
                     "Replace it with this test configuration"
                 } else { "Make available for testing" },
-                ui::Action::CompatibilityPublishTest { candidate: row.id.clone(), expected_current }, busy));
+                ui::Action::CompatibilityPublishTest { candidate: row.id.clone(), expected_current }, class_busy));
             }
             (Phase::ReadyForTest, if ordinary_current {
                 "Your current working bridge remains selected. Apply the test bridge update to try this configuration; the current revision is retained for rollback."
@@ -741,7 +751,7 @@ fn finish_guided_result(m: &Manager, sw: &Software, source_operation: &str) -> R
                 exact_test_publication(m, &c, expected_current)?;
                 {
                     let _guard = m.lock("registry.lock")?;
-                    m.require_inactive(None)?;
+                    m.require_inactive(Some(&c.selection.class.id))?;
                 }
                 prep::record_guided_observations(m, &c, source_operation, &observations, detail)?;
                 prep::review(m, &c, source_operation, prep::ReviewChoice::NeedsWork, detail)?;
@@ -843,6 +853,7 @@ pub fn is_action(a: &ui::Action) -> bool {
         a,
         ui::Action::CandidateGraphicsAssess { .. }
             | ui::Action::CandidateGraphicsPrepare { .. }
+            | ui::Action::CandidateSettingsPrepare { .. }
             | ui::Action::PluginReinspect { .. }
             | ui::Action::CompatibilityCheck { .. }
             | ui::Action::CompatibilityResumeCheck { .. }
@@ -890,6 +901,7 @@ pub(super) fn action_selection(m: &Manager, sw: &Software,
         }
         ui::Action::CandidateGraphicsAssess { candidate }
         | ui::Action::CandidateGraphicsPrepare { candidate, .. }
+        | ui::Action::CandidateSettingsPrepare { candidate, .. }
         | ui::Action::CompatibilityPublishTest { candidate, .. }
         | ui::Action::CompatibilityResult { candidate, .. }
         | ui::Action::ExperimentalReplace { candidate, .. }
@@ -1291,6 +1303,14 @@ pub fn execute(
             prep::configuration::record_assessment(m, &c, operation, &result)?;
             Ok(json!({"candidate":candidate,"assessment":result,"publication_changed":false}))
         }
+        ui::Action::CandidateSettingsPrepare { candidate, settings, expected_current } => {
+            let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+            let _guard = registry_admission()?;
+            let next = prep::configuration::prepare_settings(m, &c, settings,
+                expected_current.as_ref().map(publication_reference).as_ref())?;
+            Ok(json!({"candidate":next.id()?,"predecessor":candidate,
+                "configuration":prep::configuration::view(m, &next)?,"publication_changed":false}))
+        }
         ui::Action::CandidateGraphicsPrepare { candidate, backend, expected_current } => {
             let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
             let _guard = registry_admission()?;
@@ -1504,6 +1524,7 @@ pub fn failure(action: &ui::Action) -> Option<Value> {
         | ui::Action::CompatibilityResumeCheck { .. } => "guided_compatibility_check",
         ui::Action::CandidateGraphicsAssess { .. } => "graphics_assessment",
         ui::Action::CandidateGraphicsPrepare { .. }
+        | ui::Action::CandidateSettingsPrepare { .. }
         | ui::Action::PluginPrepare { .. } => "candidate_preparation",
         ui::Action::ExperimentalReplace { .. }
         | ui::Action::CandidateWithdraw { .. }
@@ -1607,6 +1628,31 @@ pub(crate) mod tests {
         (f, c)
     }
     #[test]
+    fn configuration_offers_distinguish_selected_class_from_shared_maintenance() {
+        let (f, base) = projection_fixture();
+        let sw = projection_software(&base);
+        prep::record_candidate(&f.m, &base).unwrap();
+        let baseline = prep::enable(&f.m, &base, false).unwrap();
+        let next = prep::configuration::prepare_settings(&f.m, &base,
+            &ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+                accessibility:ui::AccessibilityChoice::ProfileDefault}, Some(&baseline)).unwrap();
+        for target_busy in [None, Some("Close instances of this plug-in")] {
+            let mut products = vec![projection_product(&base)];
+            project_scoped(&f.m, &sw, &mut products, Some("Another plug-in is active"),
+                None, &|_| target_busy).unwrap();
+            let product = &products[0];
+            let publish = product.actions.iter().chain(product.compatibility.as_ref().unwrap().primary.iter())
+                .find(|offer| matches!(&offer.action, ui::Action::ExperimentalReplace {candidate,..}
+                    | ui::Action::CompatibilityPublishTest {candidate,..} if candidate == &next.id().unwrap())).unwrap();
+            assert_eq!(publish.disabled_reason.as_deref(), target_busy);
+            assert!(product.actions.iter().any(|offer|
+                matches!(offer.action, ui::Action::PluginReinspect {..}) && offer.disabled_reason.is_some()));
+            assert!(product.actions.iter().any(|offer|
+                matches!(offer.action, ui::Action::CandidateSettingsPrepare {..}) && offer.disabled_reason.is_none()));
+        }
+    }
+
+    #[test]
     fn graphics_settings_use_offered_actions_keep_exact_results_and_restore_prior_test() {
         let (f, base) = projection_fixture();
         let sw = projection_software(&base);
@@ -1616,10 +1662,10 @@ pub(crate) mod tests {
         let mut products = vec![projection_product(&base)];
         project(&f.m, &sw, &mut products, None).unwrap();
         let action = products[0].actions.iter().find(|offer|
-            matches!(offer.action, ui::Action::CandidateGraphicsPrepare { .. })).unwrap().action.clone();
-        assert!(action.requires_inactive());
+            matches!(offer.action, ui::Action::CandidateSettingsPrepare { .. })).unwrap().action.clone();
+        assert!(!action.requires_inactive());
         let mut wrong = action.clone();
-        if let ui::Action::CandidateGraphicsPrepare { expected_current, .. } = &mut wrong {
+        if let ui::Action::CandidateSettingsPrepare { expected_current, .. } = &mut wrong {
             expected_current.as_mut().unwrap().sha256 = "ff".repeat(32);
         }
         assert!(!offered(&wrong, &action));
@@ -1629,7 +1675,7 @@ pub(crate) mod tests {
         products = vec![projection_product(&base)];
         project(&f.m, &sw, &mut products, None).unwrap();
         let offer = products[0].compatibility.as_ref().unwrap().primary.as_ref().unwrap();
-        assert_eq!(offer.label, "Try the prepared graphics settings");
+        assert_eq!(offer.label, "Try the prepared compatibility settings");
         execute(&f.m, &offer.action, &random_id().unwrap(), || f.m.lock("registry.lock")).unwrap();
         let current = f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision.clone().unwrap();
         let result = ui::Action::CompatibilityResult { candidate: next.id().unwrap(),
@@ -1662,7 +1708,7 @@ pub(crate) mod tests {
         let assessment = products[0].actions.iter().find(|a| matches!(a.action, ui::Action::CandidateGraphicsAssess { .. })).unwrap();
         assert!(assessment.action.requires_inactive());
         assert!(assessment.disabled_reason.is_none());
-        let trial = products[0].actions.iter().find(|a| matches!(a.action, ui::Action::CandidateGraphicsPrepare { .. })).unwrap();
+        let trial = products[0].actions.iter().find(|a| matches!(a.action, ui::Action::CandidateSettingsPrepare { .. })).unwrap();
         let result = execute(&f.m, &trial.action, &random_id().unwrap(), || f.m.lock("registry.lock")).unwrap();
         let candidate = result["candidate"].as_str().unwrap().to_owned();
         // No assessment ran. Optional editor/driver observations cannot gate audio publication.
@@ -1671,8 +1717,11 @@ pub(crate) mod tests {
         products = vec![projection_product(&base)];
         project(&f.m, &sw, &mut products, Some("Active plug-in process")).unwrap();
         assert!(products[0].actions.iter().filter(|a| matches!(a.action,
-            ui::Action::CandidateGraphicsAssess { .. } | ui::Action::CandidateGraphicsPrepare { .. }))
+            ui::Action::CandidateGraphicsAssess { .. }))
             .all(|a| a.disabled_reason.is_some()));
+        assert!(products[0].actions.iter().filter(|a| matches!(a.action,
+            ui::Action::CandidateSettingsPrepare { .. }))
+            .all(|a| a.disabled_reason.is_none()));
     }
 
     #[test]
@@ -2785,7 +2834,7 @@ pub(crate) mod tests {
             note: "Editor remained blank".into(),
         };
         let sid = random_id().unwrap();
-        let report = f.m.root.join("runtime/results").join(format!("{sid}.json"));
+        let report = f.m.root.join("runtime/results").join(format!("windows-{sid}.json"));
         let lease = f.m.root.join("runtime/leases").join(format!("{sid}.json"));
         private_dir(report.parent().unwrap()).unwrap();
         private_dir(lease.parent().unwrap()).unwrap();
@@ -2794,12 +2843,12 @@ pub(crate) mod tests {
             .join(&sid).join("owner.json");
         private_dir(owner.parent().unwrap()).unwrap();
         atomic_json(&owner, &json!({"session":sid,"report":report,
-            "keeper":false,"registration":{"metadata":{"class_id":c.selection.class.id}}})).unwrap();
+            "keeper":false,"inspect":false,"registration":{"metadata":{"class_id":c.selection.class.id}}})).unwrap();
         assert!(f.m.require_inactive(None).is_err());
         let mut products = vec![projection_product(&c)];
         project(&f.m, &sw, &mut products, Some("Close active bridged instances")).unwrap();
         assert!(products[0].compatibility.as_ref().unwrap().primary.as_ref().unwrap()
-            .disabled_reason.is_none());
+            .disabled_reason.is_some());
         let before = fs::read(f.m.root.join("registry.json")).unwrap();
         let result = guided_result(&f.m, &sw, &action, &operation,
             || f.m.lock("registry.lock")).unwrap();
@@ -2835,7 +2884,7 @@ pub(crate) mod tests {
         let mut products = vec![projection_product(&c)];
         project(&f.m, &sw, &mut products, Some("Previous instance cleanup is unconfirmed")).unwrap();
         assert!(products[0].compatibility.as_ref().unwrap().primary.as_ref().unwrap()
-            .disabled_reason.is_none());
+            .disabled_reason.is_some());
         let before = fs::read(f.m.root.join("registry.json")).unwrap();
         assert_eq!(guided_result(&f.m, &sw, &action, &operation,
             || f.m.lock("registry.lock")).unwrap()["result"],
@@ -2927,7 +2976,7 @@ pub(crate) mod tests {
             recorded_at: 1, ordinal: 1, ordinary_profile: None,
         });
         view.candidates.insert(0, prior);
-        let workflow = guided_projection(&f.m, &c.selection, &view, None, None, false, false).unwrap();
+        let workflow = guided_projection(&f.m, &c.selection, &view, None, None, None, false, false).unwrap();
         assert_eq!(workflow.phase, ui::CompatibilityPhase::AvailableForTest);
         assert_eq!(workflow.current_candidate.as_deref(), Some(c.id().unwrap().as_str()));
         assert!(matches!(workflow.primary.unwrap().action, ui::Action::CompatibilityResult { .. }));
@@ -2945,7 +2994,7 @@ pub(crate) mod tests {
         stereo.audio_layout = Some(profiles::AudioLayoutPolicy::StereoMainPair);
         stereo.recommended = false;
         view.inspections.push(stereo);
-        let workflow = guided_projection(&f.m, &c.selection, &view, None, None, false, false).unwrap();
+        let workflow = guided_projection(&f.m, &c.selection, &view, None, None, None, false, false).unwrap();
         assert_eq!(workflow.phase, ui::CompatibilityPhase::NotChecked);
         assert!(workflow.primary.is_none());
         assert_eq!(workflow.alternatives.len(), 2);

@@ -276,10 +276,8 @@ fn status_with_wait(
     let mut current_classes=limits.classes.clone();
     for (key,e) in m.registry()?.classes {
         if e.publication!=Publication::Published || current_classes.iter().any(|c|c.class_id==key){continue;}
-        let Some(reference)=e.managed_revision else {continue};
-        let r=m.load_revision(&key,&reference)?;
-        if crate::preparation::owns_profile(m,&r.profile)? {
-            let limit=ClassLimit{class_id:key,dsp:1};
+        if let Some(capacity) = unfamiliar_managed_capacity(m, limits.native_image_hard, &key)? {
+            let limit=ClassLimit{class_id:key,dsp:capacity};
             engineering_classes.push(limit.clone());current_classes.push(limit);
         }
     }
@@ -620,7 +618,10 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
     Ok(result)
 }
 
-fn check_selected(owners: &[Owner], limits: &Limits, class: Option<&str>, managed:bool) -> Result<()> {
+fn check_selected(
+    owners: &[Owner], limits: &Limits, class: Option<&str>,
+    unfamiliar_managed_capacity: Option<usize>,
+) -> Result<()> {
     limits.verify()?;
     if owners
         .iter()
@@ -636,11 +637,9 @@ fn check_selected(owners: &[Owner], limits: &Limits, class: Option<&str>, manage
             Err(Refusal::MaintenanceActive.into())
         };
     };
-    let policy = limits
-        .classes
-        .iter()
-        .find(|c| c.class_id == class);
-    let ceiling=policy.map(|p|p.dsp).or(if managed{Some(1)}else{None}).ok_or(Refusal::BindingInvalid)?;
+    let policy = limits.classes.iter().find(|c| c.class_id == class);
+    let ceiling=policy.map(|p|p.dsp).or(unfamiliar_managed_capacity)
+        .ok_or(Refusal::BindingInvalid)?;
     if dsp >= limits.global_dsp {
         return Err(Refusal::GlobalCapacity.into());
     }
@@ -708,15 +707,39 @@ fn reserve_maintenance_with_wait(
 }
 fn validate_reservation(m: &Manager, limits: &Limits, class: Option<&str>) -> Result<()> {
     let records = owners(m).map_err(|_| Refusal::CleanupUnconfirmed)?;
-    let managed = if let Some(class)=class.filter(|class|!limits.classes.iter().any(|c|c.class_id==*class)) {
-        let db=m.registry()?;
-        if let Some(e)=db.classes.get(class).filter(|e|e.publication==Publication::Published) {
-            let r=m.load_revision(class,e.managed_revision.as_ref().ok_or(Refusal::BindingInvalid)?)?;
-            crate::preparation::owns_profile(m,&r.profile)?
-        } else {false}
-    }else{false};
-    check_selected(&records, limits, class,managed)?;
+    let unfamiliar_managed_capacity = match class {
+        Some(class) if !limits.classes.iter().any(|policy| policy.class_id == class) =>
+            unfamiliar_managed_capacity(m, limits.native_image_hard, class)?,
+        _ => None,
+    };
+    check_selected(&records, limits, class, unfamiliar_managed_capacity)?;
     Ok(())
+}
+
+/// An unfamiliar class with an exact, currently published managed revision may
+/// use the native image's structural slot count. This is only an admission
+/// ceiling; the shared global reservation and measured workload policy remain
+/// separate. A stale or ambiguous publication never receives this capacity.
+/// Caller holds registry.lock, the same guard used by admission and publication.
+fn unfamiliar_managed_capacity(m: &Manager, native_image_hard: usize, class: &str) -> Result<Option<usize>> {
+    require(valid_hex(class, 32) && class == class.to_uppercase(), "capacity_class_identity")?;
+    let registry = m.registry()?;
+    let Some(entry) = registry.classes.get(class) else { return Ok(None); };
+    if entry.publication != Publication::Published { return Ok(None); }
+    // A legacy/manual publication is not reusable-engine admission authority,
+    // but its presence must not make the entire service readback unavailable.
+    let Some(reference) = entry.managed_revision.as_ref() else { return Ok(None); };
+    let revision = m.load_revision(class, reference)?;
+    require(revision.class_id == class
+        && revision.registration.key() == class
+        && revision.registration.metadata.class_id == class
+        && entry.registration == revision.registration, "capacity_publication_identity")?;
+    if !crate::preparation::owns_profile(m, &revision.profile)? { return Ok(None); }
+    require(!m.publication_pending(class)?
+        && crate::publication::physical(&m.link(class))? == Some(revision.target.clone()),
+        "capacity_publication_changed")?;
+    m.verify_completed_publication(&revision, reference)?;
+    Ok(Some(native_image_hard))
 }
 
 #[cfg(test)]
@@ -1309,6 +1332,59 @@ mod tests {
         for c in &p.classes {
             assert!(records.iter().filter(|o| o.class_id == c.class_id).count() <= 2);
         }
+    }
+    #[test]
+    fn a_legacy_publication_does_not_hide_service_capacity_or_gain_managed_slots() {
+        let f = Fixture::new();
+        let key = f.r.key();
+        let mut policy = limits();
+        policy.classes[0].class_id = "03".repeat(16);
+        f.m.register(f.r.clone()).unwrap();
+        assert!(!policy.classes.iter().any(|c| c.class_id == key));
+        let observed = status(&f.m, policy.clone(), 0, false).unwrap();
+        assert_eq!(observed.dsp, 0);
+        assert!(!observed.limits.classes.iter().any(|c| c.class_id == key));
+        assert_eq!(reason(reserve(&f.m, &policy, Some(&key), false)), Refusal::BindingInvalid.code());
+    }
+
+    #[test]
+    fn unfamiliar_managed_classes_use_native_slots_and_share_the_global_budget() {
+        let mut policy = limits();
+        policy.global_dsp = 6;
+        policy.classes[0].dsp = 3;
+        policy.classes[1].dsp = 4;
+        let unfamiliar = "03".repeat(16);
+        let mut active = Vec::new();
+
+        // The managed-class resolver supplies the structural native image
+        // ceiling, while every reservation still consumes the shared global
+        // pool. This does not make the limit a tested workload claim.
+        for _ in 0..policy.native_image_hard {
+            check_selected(&active, &policy, Some(&unfamiliar), Some(policy.native_image_hard)).unwrap();
+            active.push(Owner { session: random_id().unwrap(), class_id: unfamiliar.clone(), kind: Kind::Dsp, terminal: None });
+        }
+        assert_eq!(
+            check_selected(&active, &policy, Some(&unfamiliar), Some(policy.native_image_hard))
+                .unwrap_err().downcast_ref::<Refusal>(),
+            Some(&Refusal::ClassCapacity)
+        );
+
+        // A separate mixed-class run demonstrates that independent class
+        // slots still draw from one finite service-wide reservation.
+        active.clear();
+        for _ in 0..3 {
+            check_selected(&active, &policy, Some(&policy.classes[0].class_id), None).unwrap();
+            active.push(Owner { session: random_id().unwrap(), class_id: policy.classes[0].class_id.clone(), kind: Kind::Dsp, terminal: None });
+        }
+        for _ in 0..3 {
+            check_selected(&active, &policy, Some(&unfamiliar), Some(policy.native_image_hard)).unwrap();
+            active.push(Owner { session: random_id().unwrap(), class_id: unfamiliar.clone(), kind: Kind::Dsp, terminal: None });
+        }
+        assert_eq!(
+            check_selected(&active, &policy, Some(&unfamiliar), Some(policy.native_image_hard))
+                .unwrap_err().downcast_ref::<Refusal>(),
+            Some(&Refusal::GlobalCapacity)
+        );
     }
     #[test]
     fn maintenance_never_becomes_dsp_and_excludes_new_dsp() {

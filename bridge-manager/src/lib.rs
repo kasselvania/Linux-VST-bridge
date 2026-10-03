@@ -663,46 +663,17 @@ impl Manager {
     }
     /// Must be called while holding registry.lock, the same lock as admission.
     pub fn require_inactive(&self, class: Option<&str>) -> Result<()> {
-        let leases = self.root.join("runtime/leases");
-        if !leases.try_exists()? {
-            return Ok(());
-        }
-        for entry in fs::read_dir(leases)? {
-            let path = entry?.path();
-            let report: PathBuf = read_json(&path)?;
-            require(
-                report.parent() == Some(self.root.join("runtime/results").as_path()),
-                "lease_identity",
-            )?;
-            let sid = path
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .ok_or("lease_identity")?;
-            require(valid_hex(sid, 32), "active_lease_unresolved")?;
-            let (owner, _) = self.lease_owner(sid, &report)?;
-            require(
-                owner["session"].as_str() == Some(sid)
-                    && owner["report"].as_str() == report.to_str(),
-                "lease_identity",
-            )?;
-            if owner["keeper"] == true {
-                require(
-                    report
-                        .file_name()
-                        .and_then(|s| s.to_str())
-                        .is_some_and(|s| s.starts_with("environment-")),
-                    "lease_identity",
-                )?;
-                continue;
+        for owner in capacity::owners(self)? {
+            match owner.kind {
+                capacity::Kind::Keeper => {}
+                capacity::Kind::Dsp => require(
+                    class.is_some_and(|c| !c.eq_ignore_ascii_case(&owner.class_id)),
+                    "active_device_lease",
+                )?,
+                capacity::Kind::Inspection | capacity::Kind::VendorAccess => {
+                    return Err("active_maintenance_lease".into());
+                }
             }
-            let active = owner["registration"]["metadata"]["class_id"]
-                .as_str()
-                .ok_or("active_lease_unresolved")?;
-            require(valid_hex(active, 32), "active_lease_unresolved")?;
-            require(
-                class.is_some_and(|c| !c.eq_ignore_ascii_case(active)),
-                "active_device_lease",
-            )?;
         }
         Ok(())
     }
@@ -741,19 +712,7 @@ impl Manager {
         let registry = self.registry()?;
         let entry = registry.classes.get(&key).ok_or("class not registered")?;
         require(verified.is_none_or(|r| r == entry.registration), "buffering_target_changed")?;
-        let leases = self.root.join("runtime/leases");
-        if leases.try_exists()? {
-            for entry in fs::read_dir(leases)? {
-                let report: PathBuf = read_json(&entry?.path())?;
-                require(
-                    report
-                        .file_name()
-                        .and_then(|s| s.to_str())
-                        .is_some_and(|s| s.starts_with("environment-")),
-                    "close all bridged devices before changing delay; an instance lease remains",
-                )?;
-            }
-        }
+        self.require_inactive(Some(&key))?;
         private_dir(&self.root.join("performance"))?;
         atomic_json(
             &self.root.join("performance").join(format!("{key}.json")),
@@ -958,6 +917,7 @@ impl Manager {
     }
     pub fn unpublish(&self, key: &str) -> Result<()> { self.unpublish_scoped(key,None,false) }
     pub fn unpublish_exact_inactive(&self,key:&str,expected:&publication::RevisionRef)->Result<()> {self.unpublish_scoped(key,Some(expected),true)}
+    pub(crate) fn unpublish_exact(&self,key:&str,expected:&publication::RevisionRef)->Result<()> {self.unpublish_scoped(key,Some(expected),false)}
     fn unpublish_scoped(&self,key:&str,expected:Option<&publication::RevisionRef>,global:bool)->Result<()> {
         require(valid_hex(key, 32), "class ID syntax")?;
         let key = key.to_uppercase();
@@ -1130,11 +1090,7 @@ mod tests {
         assert_eq!(f.m.performance(&key).unwrap().added_frames, 256);
         fs::remove_file(&lease).unwrap();
         // The environment keeper is not a DSP instance.
-        atomic_json(
-            &lease,
-            &f.m.root.join("runtime/results/environment-keeper.json"),
-        )
-        .unwrap();
+        let _keeper = managed_tests::lease(&f, &key, true);
         f.m.select_delay(&key, 512).unwrap();
         assert_eq!(f.m.performance(&key).unwrap().added_frames, 512);
         let path = f.m.root.join("performance").join(format!("{key}.json"));

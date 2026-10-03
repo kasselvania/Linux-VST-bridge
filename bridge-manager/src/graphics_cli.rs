@@ -25,7 +25,7 @@ pub(super) fn project(m: &Manager, product: &mut ui::Product,
                     offer.label = "Keep these settings and record the result".into(),
                 ui::Action::ExperimentalReplace { candidate, .. }
                 | ui::Action::CompatibilityPublishTest { candidate, .. } if candidate == &id => {
-                    offer.label = "Try the prepared graphics settings".into();
+                    offer.label = "Try the prepared compatibility settings".into();
                     let selected = if row.publication == "another_configuration" {
                         view.current_revision.as_ref()
                     } else { None };
@@ -37,13 +37,19 @@ pub(super) fn project(m: &Manager, product: &mut ui::Product,
             }
         }
     }
+    if row.ordinary_acceptance_current {
+        configuration["qualification"] = serde_json::json!("Accepted exact local configuration against retained observations; not general platform support.");
+    }
+    product.details["configuration"] = configuration.clone();
+    // Compatibility projection for older report consumers; one owner/result.
     product.details["graphics"] = configuration;
-    let blocked = busy.or(if !row.current_inputs {
+    let configuration_blocked = if !row.current_inputs {
         Some("Refresh this plug-in's changed inputs before assessing settings")
     } else if matches!(workflow.phase, ui::CompatibilityPhase::PublicationNeedsAttention
         | ui::CompatibilityPhase::AwaitingRetirement | ui::CompatibilityPhase::TestResultIncomplete) {
         Some("Finish the current recovery before another graphics operation")
-    } else { None });
+    } else { None };
+    let blocked = busy.or(configuration_blocked);
     product.actions.push(ui::AvailableAction {
         label: "Assess graphics with these settings".into(),
         action: ui::Action::CandidateGraphicsAssess { candidate: id.clone() },
@@ -57,15 +63,35 @@ pub(super) fn project(m: &Manager, product: &mut ui::Product,
             let current = if matches!(row.publication.as_str(), "ordinary" | "experimental" | "another_configuration") {
                 view.current_revision.as_ref()
             } else { None };
-            let backend = if base.profile.capabilities.graphics.is_some() { None }
+            let selected = prep::configuration::settings(base);
+            let mut choices = Vec::new();
+            let mut graphics = selected.clone();
+            graphics.graphics = if selected.graphics.is_some() { None }
                 else { Some(ui::GraphicsBackend::WineD3d11) };
-            product.actions.push(ui::AvailableAction {
-                label: if backend.is_some() { "Prepare Wine D3D11 graphics fallback" }
-                    else { "Prepare a return to runtime graphics defaults" }.into(),
-                action: ui::Action::CandidateGraphicsPrepare { candidate: base.id()?, backend,
-                    expected_current: current.map(|current| ui::PublicationIdentity { id: current.id.clone(), sha256: current.sha256.clone() }) },
-                disabled_reason: blocked.map(str::to_owned),
-            });
+            choices.push((if graphics.graphics.is_some() { "Prepare Wine D3D11 graphics fallback" }
+                else { "Prepare runtime graphics defaults" }, graphics));
+            for (accessibility, label) in [
+                (ui::AccessibilityChoice::ProfileDefault, "Prepare profile accessibility defaults"),
+                (ui::AccessibilityChoice::WindowsDefault, "Prepare Windows accessibility defaults"),
+                (ui::AccessibilityChoice::DisabledForHost, "Prepare disabling Windows accessibility for this plug-in"),
+            ] {
+                if selected.accessibility != accessibility {
+                    let mut settings = selected.clone();
+                    settings.accessibility = accessibility;
+                    choices.push((label, settings));
+                }
+            }
+            for (label, settings) in choices {
+                product.actions.push(ui::AvailableAction {
+                    label: label.into(),
+                    action: ui::Action::CandidateSettingsPrepare { candidate: base.id()?, settings,
+                        expected_current: current.map(|current| ui::PublicationIdentity {
+                            id: current.id.clone(), sha256: current.sha256.clone() }) },
+                    // This records immutable next-launch choices only. Applying
+                    // the trial is a separate owner-scoped publication operation.
+                    disabled_reason: configuration_blocked.map(str::to_owned),
+                });
+            }
     }
     Ok(())
 }
