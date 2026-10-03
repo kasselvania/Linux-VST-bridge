@@ -67,7 +67,7 @@ metadata/reference and source checks, not Windows plug-in processing or a
 complete installed musician workflow. The reusable engine has
 not been installed on the Deck; no repaired Nibbi result is claimed.
 
-The next source step connects explicit graphics assessment to the exact candidate
+The graphics source step connects explicit assessment to the exact candidate
 and its launch configuration. A Wine D3D11/DXGI builtin fallback is a typed local
 choice applied to the Windows host process; it does not select a new runner or
 convert the shared prefix. The normal manager can prepare it before first
@@ -77,11 +77,19 @@ preparation refresh; native artifact reuse is independent of launch settings.
 Graphics probes and missing editor observations cannot qualify or disqualify
 audio, and retained renderer facts are not treated as a fresh driver census.
 
-Local checks pass 213 manager library tests, 86 frontend tests, and 42 runtime
-checks with four Linux-only skips. All 16 publication interruption points are
-covered for the settings trial. Linux manager dispatch/recovery, final package
-checks and native CI remain pending for this source step. See
-`evidence/preparation/2026-10-02-settings-trial.json` for the exact scope.
+Assessment selects the same paired supervisor/host generation as production.
+The versioned graphics launch entry refuses older supervisors before Windows
+ownership begins, and readiness acknowledges the requested capability. Retained
+capable generations remain usable across package updates.
+
+Source `8db4ed24d3ad95cf5f8211c423f9238c9d2028ac`, tree
+`ce4076da6098a5fbadd085fb0b092c4d312133e0`, passes Linux checks: 218 library,
+297 manager (two existing ignored), five example, 356 runtime and 86 frontend
+tests, lint and 23 package tests. All 16 publication interruption points are
+covered for the settings trial. Release builds, native proxy and Windows-host
+regressions, graphics-report, portability and policy workflows also pass.
+See `evidence/preparation/2026-10-02-settings-trial.json`
+for exact checks, prior failures and the unperformed installed comparison.
 
 The primary outcome above remains open. Next run the frozen package against
 actual new Windows reference modules through audio, state and DAW recall,
