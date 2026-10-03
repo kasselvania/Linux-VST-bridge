@@ -84,6 +84,7 @@ fn bounded_command(program: &str, args: &[&str]) -> Probe<String> {
         "jack_lsp" => "/usr/bin/jack_lsp",
         "uname" => "/usr/bin/uname",
         "systemctl" => "/usr/bin/systemctl",
+        "glxinfo" if args == ["-B"] => "/usr/bin/glxinfo",
         _ => return Probe::Unavailable,
     };
     let mut command = Command::new(executable);
@@ -424,6 +425,11 @@ fn product_facts(product: &ui::Product, at: u64) -> Vec<ui::ReadinessFact> {
         valid("Environment verification", "environment_valid"),
         exact("Runner ID", Some(product.runner.clone())),
         valid("Runner verification", "runner_valid"),
+        exact("Requested Windows graphics", product.details["requested_graphics"].as_str().map(str::to_owned)),
+        observed("Plug-in renderer", None,
+            "requires observation in this exact Windows runtime and editor session", at),
+        observed("Plug-in hardware acceleration", None,
+            "requested policy and native host diagnostics cannot establish this", at),
         exact("Module SHA-256", Some(product.module_sha256.clone())),
         valid("Module verification", "module_valid"),
         exact("VST3 class ID", Some(product.class_id.clone())),
@@ -1013,9 +1019,9 @@ fn resolve_with(
                 },
             ),
             observed(
-                "Graphics driver",
+                "Native host graphics diagnostic",
                 None,
-                "no profile-required driver probe",
+                "collected only by an explicit support export; does not identify the Windows editor renderer",
                 at,
             ),
         ],
@@ -1125,7 +1131,13 @@ fn sanitized(mut assessment: ui::ReadinessAssessment) -> SupportReadiness {
 /// paths, environment dump, license state, or vendor payload can enter it.
 pub(super) fn export(m: &Manager, overview: &ui::InteractiveOverview) -> Result<Value> {
     let snapshot = &overview.current;
-    let assessment = overview.readiness.clone();
+    let mut assessment = overview.readiness.clone();
+    // A separate native context is useful support evidence, never a Windows
+    // rendering qualification. Do not start it during ordinary UI readback.
+    let graphics = if std::env::var("DISPLAY").ok().and_then(|s| local_display_number(&s)).is_some() {
+        bounded_command("glxinfo", &["-B"])
+    } else { Probe::Unavailable };
+    append_host_graphics(&mut assessment, graphics, observation::now()?);
     let refused_step = assessment
         .ordered_steps
         .first()
@@ -1135,6 +1147,23 @@ pub(super) fn export(m: &Manager, overview: &ui::InteractiveOverview) -> Result<
     let assessment = sanitized(assessment);
     let sw: Software = read_json(&m.root.join("software.json"))?;
     write_export(m, snapshot, assessment, &sw, refused_step)
+}
+fn append_host_graphics(assessment: &mut ui::ReadinessAssessment, probe: Probe<String>, at: u64) {
+    let parsed = probe.observed().and_then(|text| linux_vst_bridge::graphics::parse_host_glx(text));
+    let status = match (&probe, &parsed) {
+        (_, Some(_)) => "observed",
+        (Probe::Observed(_) | Probe::Malformed, _) => "malformed or ambiguous",
+        (Probe::Absent, _) => "probe failed",
+        (Probe::Unavailable, _) => "unavailable or timed out",
+    };
+    let source = "explicit native glxinfo -B diagnostic; separate from the Windows plug-in context";
+    assessment.graphics.push(observed("Native GLX probe status", Some(status.into()), source, at));
+    for (name, value) in [
+        ("Native GLX vendor", parsed.as_ref().map(|p| p.vendor.clone())),
+        ("Native GLX renderer", parsed.as_ref().map(|p| p.renderer.clone())),
+        ("Native GLX version", parsed.as_ref().map(|p| p.version.clone())),
+        ("Native GLX rendering", parsed.as_ref().map(|p| p.rendering().to_owned())),
+    ] { assessment.graphics.push(observed(name, value, source, at)); }
 }
 #[cfg(feature = "pb0-c0-audit")]
 pub(super) fn audit_export(m: &Manager, overview: &ui::InteractiveOverview) -> Result<Value> {
@@ -1222,6 +1251,38 @@ fn report_value(m: &Manager, snapshot: &ui::Snapshot,
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn graphics_host_observation_does_not_qualify_the_windows_renderer() {
+        let (mut snapshot, platform) = fixture();
+        snapshot.products[0].details["requested_graphics"] = json!(linux_vst_bridge::graphics::requested_backend(
+            Some(&linux_vst_bridge::RunnerPolicy::DcompWineBuiltinsReferenceV1)));
+        let mut assessment = result(&snapshot, &platform);
+        let prior = assessment.clone();
+        append_host_graphics(&mut assessment, Probe::Observed(
+            "name of display: secret-host\nOpenGL vendor string: Mesa\nOpenGL renderer string: llvmpipe (LLVM test)\nOpenGL version string: 4.5 Test\nAccelerated: no\n".into()), 456);
+        assert_eq!(assessment.overall_status, prior.overall_status);
+        assert_eq!(assessment.products, prior.products);
+        let facts = &assessment.products[0].facts;
+        assert!(facts.iter().find(|f| f.name == "Requested Windows graphics").unwrap().value.as_ref().unwrap().contains("WineD3D"));
+        for name in ["Plug-in renderer", "Plug-in hardware acceleration"] {
+            let f = facts.iter().find(|f| f.name == name).unwrap();
+            assert!(f.value.is_none()); assert_eq!(f.certainty, ui::FactCertainty::Unknown);
+        }
+        assert_eq!(assessment.graphics.iter().find(|f| f.name == "Native GLX rendering").unwrap().value.as_deref(), Some("software"));
+        assert!(!serde_json::to_string(&sanitized(assessment)).unwrap().contains("secret-host"));
+    }
+    #[test]
+    fn graphics_probe_failure_keeps_observations_unknown() {
+        assert!(matches!(bounded_command("glxinfo", &["-display", "remote:0"]), Probe::Unavailable));
+        let (snapshot, platform) = fixture();
+        for probe in [Probe::Absent, Probe::Unavailable, Probe::Malformed,
+            Probe::Observed("OpenGL renderer string: incomplete".into())] {
+            let mut assessment = result(&snapshot, &platform);
+            append_host_graphics(&mut assessment, probe, 456);
+            assert!(assessment.graphics.iter().filter(|f| f.name.starts_with("Native GLX")
+                && f.name != "Native GLX probe status").all(|f| f.value.is_none()));
+        }
+    }
     #[test]
     fn bounded_unit_readback_admits_only_known_exact_states() {
         for state in ["active","activating","deactivating","reloading","inactive","failed"] {

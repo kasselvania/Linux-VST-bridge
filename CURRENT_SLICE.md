@@ -1,5 +1,30 @@
 # Current work selection
 
+## Graphics readback and editor failure containment implementation
+
+On 2026-10-02 the operator authorized the two source follow-ups below while
+physical demonstration is unavailable. Base: `ad7287440b7beed668e2a89fd8aa71add59f4439`,
+tree `8b52c12ea8e5496812580e5f5a855e9639c81da0`. Basis: AGENTS.md real-time,
+thread-affinity, evidence and privacy rules; ARCHITECTURE.md 6.3–6.6, 7.1 and 18;
+GRAPHICS_RUNTIME_REVIEW.md “Next bounded jobs”.
+
+The first claim is truthful requested-versus-observed graphics reporting, with
+bounded, explicitly requested host diagnostics and unknown Windows renderer facts
+until that exact runtime can be observed. The second is controlled retirement
+after a reproduced editor-owner exception, with separate controller-failure
+tests preserving state integrity. Scope: manager readback and its tests, existing
+Windows SDK-edge processing/editor ownership and focused SDK fixtures/CI. No
+dependency, runtime policy, audio queue model or installed artifact changes.
+
+Acceptance: local parsing, missing/contradictory/software renderer and bounded
+helper failure checks; native Windows SDK reproduction of the original failure
+and verification of the repair, including cancellation and timeout containment.
+Record exact source, actual test outcomes and outstanding physical acceptance.
+No Deck access or changes, vendor state, deployment, new acceleration claim or
+BEAM crackle attribution. Preserve the frozen audio worktree and existing
+evidence. Source rollback is ordinary commit reversion; no installed rollback is
+needed. Commit and push the reviewed changes to draft PR #204.
+
 ## Graphics, editor and runtime source investigation
 
 On 2026-10-02 the operator requested investigation of the non-audio layers while
