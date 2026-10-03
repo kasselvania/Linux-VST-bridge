@@ -120,6 +120,11 @@ All changes consume current operator offers and their state tokens:
   The driver restores the initial 1024-frame preference, recalls the original
   unchanged saved files, and requires zero remaining DSP owners.
 
+Schema 17 records each valid typed request before admission. Active-target
+refusals require the exact busy reason and a matching terminal refused operation
+with no worker or mutation started; selection and buffering must remain unchanged.
+Accepted actions require the exact retained request and matching completed result.
+
 This configuration driver uses 4800 sibling callbacks during preparation and
 apply at 1024 frames and 48 kHz, a bounded 102.4-second observer window. The
 active-target refusal checks retain their 2400-callback, 51.2-second windows.

@@ -284,6 +284,9 @@ class Run:
     def action(self, label, predicate, mutate=None, disabled=False, active=None):
         self.counter += 1
         stem = f"{self.counter:02d}-{label}"
+        if disabled:
+            before = {"target": self.entry(self.target), "sibling": self.entry(self.sibling),
+                      "target_buffering": self.performance(self.target), "sibling_buffering": self.performance(self.sibling)}
         detail = self.detail(self.target, stem)
         offer = self.select(detail, predicate, disabled)
         action = copy.deepcopy(offer["action"])
@@ -299,17 +302,32 @@ class Run:
         receipt_observed = time.monotonic_ns()
         save(self.out / (stem + "-receipt.json"), receipt)
         need(receipt["schema"] == 17, "receipt_schema")
+        operation = receipt["operation"]
+        need(isinstance(operation, str) and re.fullmatch(r"[a-f0-9]{32}", operation), "operator_operation_identity")
+        directory = self.root / "operator" / operation
+        recorded_request = read(directory / "request.json")
+        save(self.out / (stem + "-recorded-request.json"), recorded_request)
+        need(recorded_request == request, "operator_recorded_request_changed")
         if disabled:
             need(offer["disabled_reason"] == "Close instances of this plug-in before changing its configuration", "not_target_busy_offer")
-            need(not receipt["accepted"] and receipt["operation"] is None
+            need(receipt["accepted"] is False
                  and receipt["refusal"] == offer["disabled_reason"], "not_exact_target_busy_refusal")
-            result = {"state": "refused"}
+            result = read(directory / "result.json")
+            save(self.out / (stem + "-result.json"), result)
+            need(result["schema"] == 1 and result["operation"] == operation and result["state"] == "refused"
+                 and result["stage"] == "operator_request_admission" and result["action"] == action
+                 and result["reason"] == offer["disabled_reason"]
+                 and result["worker_started"] is False and result["mutation_started"] is False,
+                 "not_exact_durable_target_busy_refusal")
+            need(before == {"target": self.entry(self.target), "sibling": self.entry(self.sibling),
+                            "target_buffering": self.performance(self.target), "sibling_buffering": self.performance(self.sibling)},
+                 "target_busy_refusal_changed_selection_or_buffering")
         else:
-            need(receipt["accepted"] and re.fullmatch(r"[a-f0-9]{32}", receipt["operation"] or ""), "operator_request_refused")
+            need(receipt["accepted"] is True and receipt["refusal"] is None, "operator_request_refused")
             until = time.monotonic() + 120
             result = None
             while time.monotonic() < until:
-                path = self.root / "operator" / receipt["operation"] / "result.json"
+                path = directory / "result.json"
                 try:
                     result = read(path)
                 except FileNotFoundError:
@@ -320,7 +338,8 @@ class Run:
                     active.assert_processing()
                 time.sleep(0.1)
             save(self.out / (stem + "-result.json"), result)
-            need(result and result.get("state") == "completed", "operator_operation_not_completed")
+            need(result and result.get("schema") == 1 and result.get("operation") == operation
+                 and result.get("state") == "completed", "operator_operation_not_completed")
         ended = time.monotonic_ns()
         save(self.out / (stem + "-interval.json"), {"began_ns": began, "receipt_observed_ns": receipt_observed, "ended_ns": ended})
         if active:
