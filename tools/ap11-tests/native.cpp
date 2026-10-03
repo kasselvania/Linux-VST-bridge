@@ -25,7 +25,7 @@ std::vector<ap11_gui_message_t> commands;
 uint32_t gui_fault = 0, caps = 0, closes = 0, refused_sends = 0;
 uint64_t generation = 7, revision = 1;
 double dsp = .5;
-uint32_t save_code=0, state_calls=0;
+uint32_t save_code=0, state_calls=0, close_code=0;
 uint32_t process_refusal=0;
 uint32_t configured_maximum=0, activated_maximum=0;
 if1_terminal_t terminal_record{};
@@ -182,7 +182,7 @@ uint32_t __wrap_ap4_deactivate(uint64_t) { return 0; }
 uint32_t __wrap_ap3_transition(uint64_t, uint32_t) { return 0; }
 uint32_t __wrap_if2_close(uint64_t) {
   ++closes;
-  return 0;
+  return close_code;
 }
 uint32_t __wrap_if1_terminal(uint64_t,if1_terminal_t* out){*out=terminal_record;return 0;}
 uint32_t __wrap_ap10_notices(uint64_t, uint32_t *p) {
@@ -465,9 +465,30 @@ void historical_controller_regression() {
     check(controller->terminate()==kResultOk&&processor.terminate()==kResultOk,"migration terminate");controller->release();
   }
 }
+void failed_restore_retirement_regression() {
+  for(bool vendorRefusal : {false,true}) for(bool closeRefusal : {false,true}) {
+    events.clear();commands.clear();gui_fault=0;terminal_record={};save_code=close_code=0;
+    Host host;AP2::Processor processor;
+    check(processor.initialize(static_cast<IHostApplication*>(&host))==kResultOk,"failed restore initialize");
+    LVBState::Stream initial;
+    check(processor.getState(&initial)==kResultOk,"failed restore owns initialized backend");
+    LVBState::Stream saved;
+    if(vendorRefusal) {saved.bytes.resize(144);saved.bytes[64]=40;save_code=7;}
+    else saved.bytes.resize(10); // Refuse a truncated envelope before vendor dispatch.
+    const auto calls=state_calls;
+    check(processor.setState(&saved)==kResultFalse,"original restore failure remains visible");
+    check(state_calls==calls+unsigned(vendorRefusal),"admission refusal never reaches vendor restore");
+    save_code=0;close_code=closeRefusal?13:0;
+    const auto before=closes;
+    check((processor.terminate()==kResultOk)==!closeRefusal,"quiescent failed restore retires only with confirmed backend cleanup");
+    check(closes==before+1,"failed restore backend closes exactly once");
+    check(processor.terminate()==kResultFalse&&closes==before+1,"failed restore cannot terminate twice");
+    close_code=0;
+  }
+}
 int main(int argc,char** argv) {
   if(argc>1){
-    if(!std::strcmp(argv[1],"--state-migration"))historical_controller_regression();
+    if(!std::strcmp(argv[1],"--state-migration")){historical_controller_regression();failed_restore_retirement_regression();}
     else if(!std::strcmp(argv[1],"--curve-refusal"))curve_refusal_regression();
     else contained_host_survival_regression();
     return 0;

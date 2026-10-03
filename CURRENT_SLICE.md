@@ -47,6 +47,17 @@ runner and correct source ownership. Native state/controller tests and the SDK
 consumer compile. This is source evidence; installed migration/refusal/recovery
 acceptance is still pending.
 
+The first installed repair package (`0.12.0general3`, source `2c66cb87`) passed
+same-version recall and schema/parameter-changing migration plus reopen for both
+reference roles and both connection orders. Wrong-class and corrupt-state tests
+then exposed a separate native teardown result defect: process/transport cleanup
+was confirmed and the healthy sibling passed, but `terminate()` returned failure
+solely because the inactive instance had previously entered `Failed`. The focused
+regression reproduces it and preserves refusal when actual backend cleanup fails.
+The correction allows an inactive failed instance to terminate only after positive
+backend cleanup. These failed installed runs remain retained; final installed
+refusal, abrupt-loss and normal-manager predecessor acceptance remain open.
+
 
 ## General preparation and compatibility experimentation
 

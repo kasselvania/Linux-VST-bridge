@@ -1019,7 +1019,9 @@ tresult PLUGIN_API Processor::terminate() {
     return kResultFalse;
   bool clean =
       phase_ == Initialized || phase_ == Setup || phase_ == Deactivated ||
-      (terminal() && !want_processing_ && !want_active_);
+      ((phase_ == Failed || terminal()) && !want_processing_ && !want_active_);
+  // A refused inactive restore does not prevent orderly teardown. Keep the
+  // restore failure separate from the backend cleanup result checked below.
   if (input_hint_adjustments_) {
     char text[320];
     const auto n = std::snprintf(text, sizeof(text),
