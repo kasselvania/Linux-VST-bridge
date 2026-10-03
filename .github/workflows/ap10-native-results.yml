@@ -57,6 +57,16 @@ jobs:
         run: sh tools/beta/build_lifecycle_host.sh "${{ runner.temp }}/ap10-sdk" "${{ runner.temp }}/ap10-build/lib/Release" "${{ runner.temp }}/lifecycle-tools"
       - name: Test shallow host lifetime and existing collector behavior
         run: ctest --test-dir "${{ runner.temp }}/ap10-build/native-vst3-proxy" --verbose
+      - name: Retain independent installed-test instrumentation
+        run: |
+          cp tools/beta/lifecycle_host.cpp "${{ runner.temp }}/lifecycle-tools/"
+          git rev-parse HEAD > "${{ runner.temp }}/lifecycle-tools/SOURCE_HEAD"
+          cd "${{ runner.temp }}/lifecycle-tools"
+          sha256sum lifecycle-host libap3-callback-audit.so lifecycle_host.cpp SOURCE_HEAD > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: installed-lifecycle-tools-${{ github.sha }}
+          path: ${{ runner.temp }}/lifecycle-tools
       - name: Build reusable engine before choosing plug-in metadata
         run: |
           cmake -S . -B "${{ runner.temp }}/reusable-build" -G Ninja \

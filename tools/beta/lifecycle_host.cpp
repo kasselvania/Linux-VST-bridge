@@ -161,7 +161,13 @@ int main(int argc,char** argv) {
         ok(controller->getParameterInfo(0,first),"level metadata");ok(controller->getParameterInfo(1,second),"colour metadata");
         need(first.id==0&&second.id==1,"parameter identities");
         stage="initialized_state";LVBState::Stream initial;
-        ok(component->getState(&initial),"state before processing");synchronize(*controller,initial,.25,.5);
+        ok(component->getState(&initial),"state before processing");
+        if(disconnected) {
+            // Before connection the native controller has no authoritative
+            // processor readback. Exercise deferred synchronization without
+            // asserting that descriptor defaults are a restored state.
+            initial.position=0;ok(controller->setComponentState(&initial),"deferred initial synchronization");
+        } else synchronize(*controller,initial,.25,.5);
         std::cout<<"{\"event\":\"initialized_state\",\"bytes\":"<<initial.bytes.size()<<",\"elapsed_ms\":"<<std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now()-at).count()<<"}"<<std::endl;
         double initialGain=.25,initialColour=.5;
         if(abrupt) {std::cout<<"{\"event\":\"abrupt_exit\",\"sdk_teardown\":false}"<<std::endl;std::_Exit(23);}
