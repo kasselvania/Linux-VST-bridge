@@ -1272,9 +1272,9 @@ fn verify_retained_revision(m: &Manager, r: &Revision) -> Result<()> {
     // Publication retains the explicitly selected buffering configuration.
     // A larger snapshot needs the same exact proxy capability as selection;
     // a new manager cannot enlarge a historical native binary's envelope.
-    let buffering = r.performance.added_frames == 512
-        || (r.performance.added_frames == 1024
-            && build::maximum_bridge_frames(m, &r.registration)? == Some(1024));
+    r.performance.verify()?;
+    let buffering = r.performance.added_frames != 1024
+        || build::maximum_bridge_frames(m, &r.registration)? == Some(1024);
     require(
         buffering && r.external_ids == external_ids(&r.class_id)?,
         "candidate_runtime_contract",

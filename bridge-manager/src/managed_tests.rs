@@ -395,8 +395,16 @@ fn sibling_maintenance_arriving_after_preflight_refuses_class_mutations() {
         fs::remove_file(active).unwrap();
         f.m.select_delay(key, 256).unwrap();
         let changed = prep::replace(&f.m, &trial, &current).unwrap();
+        let selected = f.m.load_revision(key, &changed).unwrap();
+        assert_eq!(selected.performance.added_frames, 256);
+        prep::retained(&f.m, &selected).unwrap();
+        f.m.verify_served_host(
+            &selected.registration, &c.host, &c.source_manifest.sha256,
+            &crate::profiles::installed_profiles().unwrap(),
+        ).unwrap();
         prep::disable_exact(&f.m, &trial, &changed).unwrap();
         assert_eq!(prep::publication_state(&f.m, &c).unwrap(), "ordinary");
+        assert_eq!(f.m.performance(key).unwrap().added_frames, 256);
         prep::withdraw(&f.m, &c, &current).unwrap();
     }
 }
