@@ -65,6 +65,86 @@ vendor diagnostic text is omitted; only its byte count and digest are retained.
 A failed probe or test-owned timeout remains failed. Test-process destruction
 alone never confirms product retirement.
 
+`run_installed_configuration.py` exercises the managed settings journey using
+only first-party stateful reference modules and the same independent SDK consumer
+and callback audit library. Run it as the populated disposable fixture user with
+a new private output directory. Obtain the input shape with `--example-config`;
+replace every placeholder with exact selected package, release-manifest,
+consumer/audit, environment, module, publication and native class identities.
+The processor/controller IDs come from that publication's exact revision, not
+the Windows class IDs or friendly names. Both classes must be selected in the
+same managed environment, with runtime-default graphics, accessibility enabled
+and the explicit 1024-frame buffering preference. Run with each role as the
+target when both instrument and effect coverage is claimed.
+
+```sh
+python3 tools/beta/run_installed_configuration.py --example-config
+python3 tools/beta/run_installed_configuration.py \
+  --config /PRIVATE/configuration-input.json --output /PRIVATE/configuration-run
+```
+
+The driver validates release and selected software identities, exact published
+native/descriptor bytes, class mapping and idle capacity before starting. It
+records meaningful component/controller state and recalls it through the real
+installed proxy. Two separate trials isolate the implemented controls: first
+WineD3D11 replaces runtime-default graphics; then Windows accessibility is
+disabled for the target host while WineD3D11 remains selected. Each trial retains
+its exact predecessor. `--single-trial` exercises graphics only and reports a
+subset rather than the complete settings journey.
+
+All changes consume current operator offers and their state tokens:
+
+- `candidate_settings_prepare` creates the retained settings successor without
+  changing either publication. Preparation and application run while the other
+  class processes audio in the shared environment; their operation intervals
+  must fall inside that sibling's measured audio interval.
+- `compatibility_publish_test` or `experimental_replace` applies the exact
+  candidate and predecessor. Module, environment, Windows host and native bytes
+  remain exact; a new publication may own a different bundle path.
+- With the target processing, `experimental_disable` and `buffering_set` must
+  refuse with the actual target-busy offer. The refused actions must preserve
+  publication and buffering. The driver subsequently recalls the original state
+  under each selected trial and validates independent sample output, controls,
+  callback audit, effective process DLL overrides and positive owned retirement.
+- `compatibility_result` records those bounded checks as a worked, partial
+  experimental result. It must not publish ordinary support or alter selection.
+- After selecting 512 added frames through `buffering_set`,
+  `experimental_disable` restores both exact predecessors in reverse order.
+  Each restore preserves the current buffering preference and sibling publication.
+  The driver restores the initial 1024-frame preference, recalls the original
+  unchanged saved files, and requires zero remaining DSP owners.
+
+`--resume-from /PRIVATE/failed-run` can reuse passed baseline consumers and a
+completed, retained first settings preparation. The original selected entries,
+preparation request/result, predecessor and fresh publish offer must still match.
+Resume independently verifies both previous and current release-manifest hashes,
+source heads/trees and package versions. Only `source_head`, `package` and
+`release_manifest` may differ in the input; consumer/audit, manager path, root,
+fixtures, publications and every other input value remain identical. Native
+engine, Windows host and Windows host source-manifest bytes must remain the same.
+The new output retains the exact previous input and both artifact identities.
+Inherited run/sample counts remain attributed to their original source/package;
+fresh recall through the current manager is mandatory before continuation. A
+changed module, runtime, publication or execution pair requires a fresh run.
+
+This is private maintainer instrumentation. The driver writes raw commands,
+operator inputs/readbacks, environment/ownership records, logs and opaque
+first-party state with private directory/file permissions. Keep every raw output
+outside the checkout and public evidence; copying a whole output tree is not an
+export. Export only an explicit allow-list of sanitized fields such as frozen
+source/package and artifact digests, first-party class/role, typed choices,
+comparison counters, retirement/restore outcomes and original-source attribution
+for inherited counts. Exclude paths, usernames, host identifiers, environment or
+owner records, saved state and arbitrary diagnostic text. The driver does not
+produce a public diagnostic export or authorize proprietary fixtures.
+
+A passing result establishes the declared installed SDK configuration regression:
+meaningful original-state recall, separate launch choices, sibling preservation,
+target-busy refusal, exact restoration and owned cleanup at 1024 host frames.
+It is not a frontend interaction, real DAW project, editor/rendering acceleration,
+low-latency workload, reboot/update, commercial compatibility or beta completion
+claim. Applied DLL overrides do not establish the editor's actual renderer.
+
 `trace_worker_exhaustion.py` is an installed, idle-service fault check. It
 temporarily lowers only the owned service's task cap to one and requires three
 bounded worker refusals without a manager restart or admission. It restores
