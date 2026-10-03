@@ -103,19 +103,22 @@ Probe opengl(){
     auto clear=library.get<decltype(&glClear)>("glClear");
     auto read=library.get<decltype(&glReadPixels)>("glReadPixels");
     auto error=library.get<decltype(&glGetError)>("glGetError");
-    if(!create||!current||!remove||!string||!clear_colour||!clear||!read||!error)return result;
+    auto draw_buffer=library.get<decltype(&glDrawBuffer)>("glDrawBuffer");
+    auto read_buffer=library.get<decltype(&glReadBuffer)>("glReadBuffer");
+    if(!create||!current||!remove||!string||!clear_colour||!clear||!read||!error||!draw_buffer||!read_buffer)return result;
     WNDCLASSW wc{};wc.style=CS_OWNDC;wc.lpfnWndProc=DefWindowProcW;wc.hInstance=GetModuleHandleW(nullptr);wc.lpszClassName=L"LVBGraphicsProbe";
     if(!RegisterClassW(&wc)&&GetLastError()!=ERROR_CLASS_ALREADY_EXISTS)return result;
     HWND window=CreateWindowW(wc.lpszClassName,L"Graphics assessment",WS_POPUP,0,0,32,32,nullptr,nullptr,wc.hInstance,nullptr);
     if(!window)return result;
     HDC dc=GetDC(window);HGLRC context=nullptr;
     PIXELFORMATDESCRIPTOR request{};request.nSize=sizeof(request);request.nVersion=1;
-    request.dwFlags=PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL;request.iPixelType=PFD_TYPE_RGBA;request.cColorBits=32;request.cAlphaBits=8;
+    request.dwFlags=PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL|PFD_DOUBLEBUFFER;request.iPixelType=PFD_TYPE_RGBA;request.cColorBits=32;request.cAlphaBits=8;
     const int format=dc?ChoosePixelFormat(dc,&request):0;
     if(format&&SetPixelFormat(dc,format,&request)&&(context=create(dc))&&current(dc,context)){
         result.renderer=safe_text(reinterpret_cast<const char*>(string(GL_RENDERER)));
         result.driver=safe_text(reinterpret_cast<const char*>(string(GL_VERSION)));
         PIXELFORMATDESCRIPTOR actual{};const bool described=DescribePixelFormat(dc,format,sizeof(actual),&actual)!=0;
+        draw_buffer(GL_BACK);read_buffer(GL_BACK);
         clear_colour(.25f,.5f,.75f,1.f);clear(GL_COLOR_BUFFER_BIT);std::array<unsigned char,16> bytes{};read(0,0,2,2,GL_RGBA,GL_UNSIGNED_BYTE,bytes.data());
         result.status="readback_failed";
         if(error()==GL_NO_ERROR&&pixels(bytes.data())&&pixels(bytes.data()+4)&&pixels(bytes.data()+8)&&pixels(bytes.data()+12)){

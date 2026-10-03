@@ -42,10 +42,10 @@ public:
         context->Unmap(capture.Get(),0);if(!matched)return kResultFalse;
         std::fputs("reference D3D11 pixels matched\n",stderr);
 #elif GRAPHICS_FIXTURE == 2
-        HDC dc=GetDC(HWND(parent));PIXELFORMATDESCRIPTOR p{};p.nSize=sizeof(p);p.nVersion=1;p.dwFlags=PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL;p.iPixelType=PFD_TYPE_RGBA;p.cColorBits=32;
+        HDC dc=GetDC(HWND(parent));PIXELFORMATDESCRIPTOR p{};p.nSize=sizeof(p);p.nVersion=1;p.dwFlags=PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL|PFD_DOUBLEBUFFER;p.iPixelType=PFD_TYPE_RGBA;p.cColorBits=32;
         int format=ChoosePixelFormat(dc,&p);bool matched=false;HGLRC rc=nullptr;
         if(format&&SetPixelFormat(dc,format,&p)&&(rc=wglCreateContext(dc))&&wglMakeCurrent(dc,rc)){
-            glClearColor(0,1,0,1);glClear(GL_COLOR_BUFFER_BIT);unsigned char pixels[4]{};glReadPixels(0,0,1,1,GL_RGB,GL_UNSIGNED_BYTE,pixels);
+            glDrawBuffer(GL_BACK);glReadBuffer(GL_BACK);glClearColor(0,1,0,1);glClear(GL_COLOR_BUFFER_BIT);unsigned char pixels[4]{};glReadPixels(0,0,1,1,GL_RGB,GL_UNSIGNED_BYTE,pixels);
             matched=glGetError()==GL_NO_ERROR&&pixels[0]==0&&pixels[1]==255&&pixels[2]==0;wglMakeCurrent(nullptr,nullptr);
         }
         if(rc)wglDeleteContext(rc);ReleaseDC(HWND(parent),dc);if(!matched)return kResultFalse;
