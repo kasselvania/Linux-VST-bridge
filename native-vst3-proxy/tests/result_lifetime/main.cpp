@@ -157,7 +157,7 @@ int main() {
  begin();auto status=p->process(d);auto effects=end();
  require(status==kResultFalse && effects==0 && drains==old_drains,"latched failure");
  require(p->setProcessing(false)==kResultOk && p->setActive(false)==kResultOk,"stop failed instance");
- require(p->terminate()!=kResultOk && closes==1,"failed close remains explicit and releases owner");
+ require(p->terminate()==kResultOk && closes==1,"latched processing failure still permits confirmed owner retirement");
  // Containment preserves local returned-note cleanup without consulting the
  // dead Windows result source. First callback and sink-absent retry are audited.
  p=std::make_unique<AP2::Processor>();

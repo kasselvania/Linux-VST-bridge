@@ -42,6 +42,8 @@ parser.add_argument('--frozen-candidate', type=pathlib.Path,
                     help='Retained package, freeze receipt and staged release manifest')
 parser.add_argument('--selected-candidate', type=pathlib.Path,
                     help='Explicit later package selection; the original frozen engine must remain unchanged')
+parser.add_argument('--publication-candidate', type=pathlib.Path,
+                    help='Exact retained package supplying a restored predecessor engine; selected manager stays separately verified')
 parser.add_argument('--recall-from', type=pathlib.Path,
                     help='Recall the exact saved states from a previously passing one-pair run')
 parser.add_argument('--state-update', action='store_true',
@@ -55,6 +57,7 @@ parser.add_argument('--pairs', type=int, choices=(1, 4), default=4,
                     help='One initial probe or the complete predeclared four-pair workload')
 args = parser.parse_args()
 assert not args.state_update or (args.selected_candidate and args.pairs==1), 'exact bounded successor package required'
+assert not args.publication_candidate or (args.state_update and args.recall_from and not args.expect_restore_refusal and not args.abrupt_exit), 'retained engine is only an explicit predecessor recall comparison'
 assert args.restore_mode=='recall' or (args.state_update and args.recall_from), 'explicit state-update recall required'
 assert not args.expect_restore_refusal or (args.recall_from and args.state_update)
 assert not args.invalid_state or args.expect_restore_refusal
@@ -224,6 +227,11 @@ if args.unfamiliar_fixtures is not None:
         if not args.state_update:
             assert selected['engine_sha256'] == frozen['engine_sha256'], 'package update changed the frozen engine'
     assert roster['usr/lib/linux-vst-bridge/proxy/ReusableEngine.so'] == selected['engine_sha256']
+    publication = selected
+    publication_package_sha = package_sha
+    if args.publication_candidate is not None:
+        publication, publication_package_sha, publication_roster = frozen_candidate(args.publication_candidate)
+        assert publication_roster['usr/lib/linux-vst-bridge/proxy/ReusableEngine.so'] == publication['engine_sha256']
     for key, destination in (('manager', 'usr/bin/linux-vst-bridge'),
                              ('host', 'usr/lib/linux-vst-bridge/host/bridge-host.exe')):
         assert software[key]['sha256'] == roster[destination], 'selected software differs from declared package'
@@ -243,7 +251,9 @@ if args.unfamiliar_fixtures is not None:
          frozen_package_sha256=unfamiliar['frozen_package_sha256'],
          frozen_engine_sha256=unfamiliar['frozen_engine_sha256'],
          selected_package_sha256=package_sha, selected_source_head=selected['source_head'],
-         selected_engine_sha256=selected['engine_sha256'], state_update=args.state_update)
+         selected_engine_sha256=selected['engine_sha256'], state_update=args.state_update,
+         publication_package_sha256=publication_package_sha,
+         publication_source_head=publication['source_head'], publication_engine_sha256=publication['engine_sha256'])
 else:
     assert args.revision is None and args.frozen_candidate is None and args.selected_candidate is None, 'unfamiliar fixture directory required'
 for key in ('manager', 'host'):
@@ -269,7 +279,7 @@ class HealthySibling:
         key,_=FIXTURES[self.role]
         entry=registry['classes'][key];registration=entry['registration']
         assert entry['publication']=='Published' and registration['module']['sha256']==args.sibling_module_sha256
-        assert registration['native']['sha256']==selected['engine_sha256'], 'sibling must use the frozen repaired engine'
+        assert registration['native']['sha256']==publication['engine_sha256'], 'sibling must use the declared frozen engine'
         for name in ('module','native','host'):
             artifact=registration[name]
             assert sha(pathlib.Path(artifact['path']))==artifact['sha256']
@@ -347,19 +357,20 @@ for role in roles:
         artifact = registration[name]
         assert sha(pathlib.Path(artifact['path'])) == artifact['sha256'], 'fixture artifact changed'
     if unfamiliar is not None:
-        assert registration['native']['sha256'] == selected['engine_sha256'], 'engine was rebuilt for fixture'
+        assert registration['native']['sha256'] == publication['engine_sha256'], 'publication differs from the declared retained engine'
         artifact = registration['descriptor']
         assert sha(pathlib.Path(artifact['path'])) == artifact['sha256'], 'prepared data changed'
         descriptor = read(pathlib.Path(artifact['path']))
         assert descriptor['class_id'] == key and descriptor['module_sha256'] == module_sha
-        assert descriptor['version'] == args.revision and descriptor['engine_sha256'] == selected['engine_sha256']
+        assert descriptor['version'] == args.revision and descriptor['engine_sha256'] == publication['engine_sha256']
     performance = read(root/'performance'/(key+'.json'))
     assert performance == {'schema':1, 'added_frames':1024}, 'predeclared 1024-frame workload required'
     bundle = pathlib.Path.home()/'.vst3'/('LVB_'+key+'.vst3')
     assert bundle.is_dir() and registration['native']['sha256'] == sha(
         bundle/'Contents/x86_64-linux'/('LVB_'+key+'.so')), 'published native identity differs'
     emit('publication', role=role, class_id=key, module_sha256=module_sha,
-         native_sha256=registration['native']['sha256'], added_frames=1024)
+         native_sha256=registration['native']['sha256'], added_frames=1024,
+         retained_revision=entry.get('managed_revision'))
     for pair, frames in enumerate((1024, 1024, 1024, 1008)[:args.pairs], 1):
         prefix = args.output/(role+'-'+str(pair))
         if saved is not None:

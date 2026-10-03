@@ -215,7 +215,8 @@ int main(){
  assert(refused!=kResultOk&&effects==0);
  assert(p->process(d)!=kResultOk);
  assert(p->setProcessing(false)==kResultOk);assert(p->setActive(false)==kResultOk);
- assert(p->terminate()!=kResultOk);p->release();assert(closes==1);
+ // Processing remains refused above; this result describes successful cleanup.
+ assert(p->terminate()==kResultOk);p->release();assert(closes==1);
  std::ifstream report(report_path);assert(report.good());
  std::string contents(std::istreambuf_iterator<char>{report},{});
  assert(contents.find("\"skipped_expression_callbacks\":2")!=std::string::npos);
