@@ -11,20 +11,25 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
-General preparation is currently blocked for an installed module absent from
-the delivered exact prebuilt index. The operator's Nibbi report exposed this
-shared product restriction; [FC-MGMT-006](FAILURE_CLASSES.md#fc-mgmt-006--exact-prebuilt-catalogue-blocks-unfamiliar-plug-ins)
-records the source mechanism and replacement in progress. The first source
-implementation prepares one reusable engine with per-plug-in data. Generated
-metadata and independent Linux SDK factory checks pass, as do manager preparation,
-publication and recovery checks. Candidate-linked graphics assessment and one
-typed, reversible graphics setting now pass native Linux source checks, including
-manager dispatch, launch/cleanup and restoration of an experimental predecessor.
-Assessment uses the production host/supervisor pair; an older supervisor cannot
-silently ignore a requested graphics setting. Actual Windows audio/recall and the installed
-assessment/settings/trial workflow remain unperformed. There is no deployed
-repair or repaired Nibbi/Deck result. Existing exact product results below retain
-their original scope.
+The Deck's unchanged delivered package still blocks plug-ins absent from its
+exact prebuilt index. The replacement now has an installed Ubuntu reference
+result: the frozen `0.12.0general1` package prepared and processed Windows
+instrument/effect classes generated after its build, using one unchanged engine
+and no customer compiler. Both passed automation and meaningful SDK state
+record/recall. `0.12.0general2` fixes the observed graphics-restore refusal after
+an explicit buffering change; its installed comparison restores the exact prior
+publication, retains the buffer preference, and recalls both original states.
+These are 48-kHz/1024-frame SDK tests, not low-latency or real DAW qualification.
+See [installed evidence](../evidence/preparation/2026-10-03-unfamiliar-installed.json)
+and [FC-MGMT-006](FAILURE_CLASSES.md#fc-mgmt-006--exact-prebuilt-catalogue-blocks-unfamiliar-plug-ins).
+
+The new 1.0.2 reference modules also prepare, publish and process with stable DAW
+IDs and the same engine, but the effect rejects its 1.0.1 saved state before
+vendor restore. Cross-version project recall is **blocked**, tracked in
+[FC-STATE-001](FAILURE_CLASSES.md#fc-state-001--saved-state-rejects-an-explicitly-selected-module-update).
+Neither Nibbi nor the Deck was updated or retested. Dependency and alternate
+runtime trials, editor/audio coexistence, real DAW recall and physical commercial
+acceptance remain open. Existing exact product results below retain their scope.
 
 The shared graphics assessor adds reusable dependency/editor-library observations
 and independent Windows graphics probes. Reference editors establish the tested

@@ -91,11 +91,11 @@ regressions, graphics-report, portability and policy workflows also pass.
 See `evidence/preparation/2026-10-02-settings-trial.json`
 for exact checks, prior failures and the unperformed installed comparison.
 
-The primary outcome above remains open. Next run the frozen package against
-actual new Windows reference modules through audio, state and DAW recall,
-including a selected-runtime graphics comparison and restore. Alternate
-runtimes, dependencies, advanced controls and physical commercial acceptance
-remain required work. See the retained first-step evidence under
+The primary outcome above remains open. The installed comparison below now
+establishes unfamiliar Windows processing and a graphics-setting restore, but
+cross-version saved-state recall fails. Alternate runtimes, dependencies,
+advanced controls, real DAW projects and physical commercial acceptance remain
+required work. See the retained first-step evidence under
 `evidence/preparation/2026-10-02-reusable-engine.json`.
 
 The installed comparison continues from `78ee6ead2211e18a5c0cd7c35676e01c950f1daa`.
@@ -116,8 +116,41 @@ refused with `rollback_performance_mismatch`: the original publication retained
 512 while the independently selected buffer was 1024. The focused source
 regression reproduces that failure. The repair preserves the current preference
 and verifies the target engine's capacity, with unknown capacity still refusing
-before mutation. Installed repair comparison and module-update recall remain
-pending; the failure is not counted as a completed graphics trial.
+before mutation. Source `6bbd6178dd2a43e463bf19a2b60cbfdbe0a568e1`, tree
+`5edb7197a2967bcc1a8f53875b1039137d0b9b20`, was built and installed as
+`0.12.0general2`. Its engine is byte-identical to the original frozen engine.
+The exact graphics predecessor restored with 1024 buffering retained and the
+instrument entry unchanged. Both original saved states then recalled and
+processed correctly after the VM restart and manager update.
+
+The independently generated 1.0.2 modules also installed, scanned, prepared and
+replaced both publications without another engine build or changed DAW IDs.
+Both passed new-state record/recall and sample-by-sample SDK output comparisons.
+Restoring the effect's original 1.0.1 state failed at component restore: the
+native envelope still requires the saved module digest to equal the selected
+module digest, before calling the vendor's state loader. The original state is
+intact and its logical class and payload integrity match. This is
+[FC-STATE-001](docs/FAILURE_CLASSES.md#fc-state-001--saved-state-rejects-an-explicitly-selected-module-update),
+not evidence of vendor state incompatibility. The failed consumer's exit also
+left transport retirement unconfirmed; normal VM restart reconciled the ended
+kernel generation while preserving the failed report. The instrument's
+cross-version restore was not run after that failure. Existing managed rollback
+commands restored both exact 1.0.1 publications; both original saved states then
+passed output comparison and retirement again. The normal history UI did not
+offer those experimental ancestors, so this is not a complete frontend update
+and rollback pass. The test VM and builder are stopped; Audiobookshelf remains
+running. Fourteen short SDK consumers passed and the one cross-version restore
+failed; the passing runs do not erase that failure.
+
+Next bounded repair: separate saved-state provenance from the explicitly selected
+module's execution identity. Preserve class, integrity, size, protocol, ownership
+and selected-module checks; let the selected plug-in decide whether it can load
+the earlier opaque state. Prove failure handling and actual output/parameter
+recall, including predecessor restoration. Do not merely strip the digest or
+rewrite saved project bytes. The comparison remains at the installed SDK level,
+48 kHz/1024 frames, without editor or physical audio qualification. See
+`evidence/preparation/2026-10-03-unfamiliar-installed.json` for exact results,
+failures, recovery and retained identities.
 
 ## Shared graphics assessment
 
