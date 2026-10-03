@@ -730,6 +730,16 @@ fn operator_catalogue(m: &Manager, sw: &Software, registry: &Registry)
         Ok(Some(sw.catalogue(m)?))
     }
 }
+fn operator_catalogue_readback(m: &Manager, sw: &Software, registry: &Registry)
+    -> Result<Option<linux_vst_bridge::catalogue::Catalogue>> {
+    if sw.native_catalogue.is_none() {
+        require(linux_vst_bridge::catalogue::catalogue_free_registry_readback(m, registry)?,
+            "native_catalogue_absent_run_product_setup")?;
+        Ok(None)
+    } else {
+        Ok(Some(sw.catalogue(m)?))
+    }
+}
 const OPERATOR_WAIT: Duration = Duration::from_secs(10);
 #[cfg(test)]
 fn canonical_lock(m: &Manager) -> Result<Lock> {
@@ -868,7 +878,7 @@ fn buffering_actions(m: &Manager, registration: &Registration,
 fn scoped_product_context(m: &Manager, sw: &Software, db: &Registry,
     environment: &str, busy: Option<&str>)
     -> Result<(Vec<ui::Environment>,Vec<ui::VendorApplication>)> {
-    let catalogue = operator_catalogue(m, sw, db)?;
+    let catalogue = operator_catalogue_readback(m, sw, db)?;
     let bindings = managed_environment_bindings(m, catalogue.as_ref(), db)?;
     let exact = bindings.into_iter().filter(|binding|
         binding.environment.id == environment).collect::<Vec<_>>();
@@ -1069,7 +1079,7 @@ fn snapshot_readonly_depth(
         ));
         products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid && p.publication == Publication::Published {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,compatibility:None,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"environment_valid":p.environment_valid,"environment_revision":p.environment_revision,"runner_valid":p.runner_valid,"runner_policy":entry.registration.environment.runner.policy,"requested_graphics":linux_vst_bridge::graphics::requested_backend(entry.registration.environment.runner.policy.as_ref()),"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"publication_valid":p.publication_valid,"publication_selected":p.publication == Publication::Published,"host_sha256":entry.registration.host.sha256,"host_source_sha256":entry.registration.host_source_sha256,"native_sha256":entry.registration.native.sha256,"qualification":p.qualification,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
     }
-    let catalogue = operator_catalogue(m, &sw, &db)?;
+    let catalogue = operator_catalogue_readback(m, &sw, &db)?;
     let managed_bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
     let environments = environment_projection_from(m, &sw, &managed_bindings, &db, busy)?;
     let mut inventory_environments: Vec<Environment> = managed_bindings.iter()
@@ -5337,11 +5347,30 @@ mod tests {
             Some(linux_vst_bridge::publication::Boundary::Intent)).unwrap_err();
         assert!(f.m.publication_pending(class).unwrap());
         assert_eq!(f.m.registry().unwrap().classes[class], before);
+        let sw = software(&f.m).unwrap();
+        assert!(sw.native_catalogue.is_none());
+        assert!(operator_catalogue(&f.m, &sw, &f.m.registry().unwrap()).is_err());
+        assert!(onboarding::runners(&f.m).is_err());
+
+        // Home and the scoped product view retain the pending configuration
+        // without describing it as ready or granting publication admission.
+        let current = current::capture(&f.m).unwrap();
+        current.recheck(&f.m).unwrap();
+        let product = current.snapshot.products.iter().find(|p| &p.class_id == class).unwrap();
+        assert_eq!(product.disposition, "needs_attention");
+        assert_eq!(product.details["publication_valid"], false);
+        let detail = product_detail(&f.m, &candidate.selection.environment.id,
+            &candidate.selection.module.sha256, class).unwrap();
+        assert_eq!(detail.product.disposition, "needs_attention");
+        assert_eq!(detail.product.details["publication_valid"], false);
 
         let read = || capacity_fixture(&f.m);
         let live = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &read).unwrap();
         assert!(live.system.capacity_available());
         assert_eq!(live.system.dsp, 1);
+        let product = live.products.iter().find(|p| &p.class_id == class).unwrap();
+        assert_eq!(product.disposition, "needs_attention");
+        assert_eq!(product.details["refusal"]["code"], "recovery_pending");
         let offer = live.actions.iter().find(|offer|
             matches!(offer.action, ui::Action::TransactionReconcile {})).unwrap();
         assert!(offer.disabled_reason.as_deref().unwrap().contains("Close active bridged"));
@@ -5354,6 +5383,8 @@ mod tests {
         atomic_json(&report, &json!({"cleanup_confirmed":true,"transport_retired":true})).unwrap();
         assert_eq!(read().unwrap().dsp, 1);
         fs::remove_file(lease).unwrap();
+        assert!(rescan(&f.m, &candidate.selection.environment.id).unwrap_err()
+            .to_string().contains("candidate_catalogue_free_identity"));
         let retired = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &read).unwrap();
         assert!(retired.system.capacity_available());
         assert_eq!(retired.system.dsp, 0);
@@ -5366,6 +5397,26 @@ mod tests {
             json!({"reconciled":true}));
         assert!(!f.m.publication_pending(class).unwrap());
         assert_eq!(f.m.registry().unwrap().classes[class], before);
+
+        // A substituted selected link is also inspectable, never ready or
+        // usable as a prerequisite for a new mutation.
+        let link = f.m.link(class);
+        let target = fs::read_link(&link).unwrap();
+        fs::remove_file(&link).unwrap();
+        std::os::unix::fs::symlink(&f.m.root, &link).unwrap();
+        let changed = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &read).unwrap();
+        assert!(changed.system.capacity_available());
+        let product = changed.products.iter().find(|p| &p.class_id == class).unwrap();
+        assert_eq!(product.disposition, "needs_attention");
+        assert_eq!(product.details["publication_valid"], false);
+        assert!(operator_catalogue(&f.m, &sw, &f.m.registry().unwrap()).is_err());
+        assert!(onboarding::runners(&f.m).is_err());
+        assert!(capacity::reserve(&f.m, &capacity::fixture_limits(), Some(class), false).is_err());
+        let detail = product_detail(&f.m, &candidate.selection.environment.id,
+            &candidate.selection.module.sha256, class).unwrap();
+        assert_eq!(detail.product.disposition, "needs_attention");
+        fs::remove_file(&link).unwrap();
+        std::os::unix::fs::symlink(target, &link).unwrap();
 
         // A missing owner is still an authority gap, even for reconciliation.
         let unattributed = f.m.root.join("runtime/leases").join(format!("{}.json", "cd".repeat(16)));

@@ -308,6 +308,16 @@ pub fn catalogue_free_registry(m: &Manager, registry: &Registry) -> Result<bool>
     crate::frg1::catalogue_free_registry(m, registry)
 }
 
+/// Recovery views preserve managed revision ownership while projecting an
+/// incomplete or changed publication. This grants no publication admission;
+/// the separate historical FRG1 contract retains its strict predicate.
+pub fn catalogue_free_registry_readback(m: &Manager, registry: &Registry) -> Result<bool> {
+    if crate::preparation::catalogue_free_registry_readback(m, registry)? {
+        return Ok(true);
+    }
+    crate::frg1::catalogue_free_registry(m, registry)
+}
+
 /// AP14 adopts only already managed, verified generated artifacts. Setup is an
 /// inactive product operation; neither playback nor managed publication needs
 /// the original generator checkout/build path after this copy.

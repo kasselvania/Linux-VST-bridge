@@ -1303,17 +1303,33 @@ fn verify_retained_revision(m: &Manager, r: &Revision) -> Result<()> {
     )?;
     Ok(())
 }
+fn catalogue_free_revision<'a>(m: &Manager, class: &str, entry: &'a Entry)
+    -> Result<Option<(Revision, &'a RevisionRef)>> {
+    let Some(reference) = &entry.managed_revision else { return Ok(None); };
+    let revision = m.load_revision(class, reference)?;
+    if !owns_profile(m, &revision.profile)? { return Ok(None); }
+    verify_retained_revision(m, &revision)?;
+    require(revision.registration == entry.registration,
+        "candidate_catalogue_free_identity")?;
+    Ok(Some((revision, reference)))
+}
+/// Readback retains exact managed ownership even when publication needs
+/// reconciliation. It does not authorize setup, mutation or execution.
+pub(crate) fn catalogue_free_registry_readback(m: &Manager, registry: &Registry) -> Result<bool> {
+    for (class, entry) in &registry.classes {
+        if catalogue_free_revision(m, class, entry)?.is_none() { return Ok(false); }
+    }
+    Ok(true)
+}
 /// Managed preparation owns its exact generated publication independently of
 /// the static catalogue shipped for previously qualified fixtures. A completed
 /// transaction and the physical selected/removed disposition remain required.
 pub(crate) fn catalogue_free_registry(m: &Manager, registry: &Registry) -> Result<bool> {
     for (class, entry) in &registry.classes {
-        let Some(reference) = &entry.managed_revision else { return Ok(false); };
-        let revision = m.load_revision(class, reference)?;
-        if !owns_profile(m, &revision.profile)? { return Ok(false); }
-        verify_retained_revision(m, &revision)?;
-        require(revision.registration == entry.registration
-            && !m.publication_pending(class)?, "candidate_catalogue_free_identity")?;
+        let Some((revision, reference)) = catalogue_free_revision(m, class, entry)? else {
+            return Ok(false);
+        };
+        require(!m.publication_pending(class)?, "candidate_catalogue_free_identity")?;
         m.verify_completed_publication(&revision, reference)?;
         let physical = physical(&m.link(class))?;
         require(match entry.publication {

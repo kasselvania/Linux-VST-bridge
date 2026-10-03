@@ -142,11 +142,24 @@ pub fn runner_key(r: &Runner) -> Result<String> {
 }
 pub fn runners(m: &Manager) -> Result<Vec<(String, Runner)>> {
     let sw = software(m)?;
-    let mut list = if sw.native_catalogue.is_none() {
+    let list = if sw.native_catalogue.is_none() {
         require(catalogue::catalogue_free_registry(m, &m.registry()?)?,
             "native_catalogue_absent_run_product_setup")?;
         vec![]
     } else { runners_from_catalogue(Some(&sw.catalogue(m)?))? };
+    with_delivered_runtime(m, list)
+}
+fn runners_for_readback(m: &Manager) -> Result<Vec<(String, Runner)>> {
+    let sw = software(m)?;
+    let list = if sw.native_catalogue.is_none() {
+        require(catalogue::catalogue_free_registry_readback(m, &m.registry()?)?,
+            "native_catalogue_absent_run_product_setup")?;
+        vec![]
+    } else { runners_from_catalogue(Some(&sw.catalogue(m)?))? };
+    with_delivered_runtime(m, list)
+}
+fn with_delivered_runtime(m: &Manager, mut list: Vec<(String, Runner)>)
+    -> Result<Vec<(String, Runner)>> {
     if let Some(runner) = linux_vst_bridge::runtime_delivery::installed(m)? {
         let key = runner_key(&runner)?;
         if !list.iter().any(|(id, _)| id == &key) { list.push((key, runner)); }
@@ -631,7 +644,7 @@ fn projection_with_live(
     is_live: impl FnMut(&str) -> Result<bool>,
 ) -> Result<Vec<ui::Onboarding>> {
     let sw = software(m)?;
-    let installed_runners = runners(m)?;
+    let installed_runners = runners_for_readback(m)?;
     let default = default_runtime(m, &installed_runners)?;
     let registry = m.registry()?;
     let records = history_records(m)?;
@@ -910,7 +923,7 @@ fn setup_primary(actions: &[ui::AvailableAction], next: SetupNext) -> Option<ui:
 
 pub fn setup_projection(m: &Manager, rows: &[ui::Onboarding], products: &[ui::Product],
     workspace_installers: &std::collections::BTreeSet<String>) -> Result<Vec<ui::InstallerSetup>> {
-    let runners = runners(m)?;
+    let runners = runners_for_readback(m)?;
     let default = default_runtime(m, &runners)?;
     let retained = history_records(m)?;
     let installers = installer_import::list(m)?;

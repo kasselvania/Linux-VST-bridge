@@ -468,7 +468,7 @@ fn capture_readonly(m: &Manager) -> Result<CurrentOverviewContext> {
     let token_at = Instant::now(); phases.push(("token_before",token_at.duration_since(started).as_millis()));
     let sw = software(m)?;
     let watched = watch_paths(m, &sw, &db)?;
-    let catalogue = operator_catalogue(m, &sw, &db)?;
+    let catalogue = operator_catalogue_readback(m, &sw, &db)?;
     let profiles = profiles::installed_profiles()?;
     let authority_at = Instant::now(); phases.push(("software_catalogue_profiles",authority_at.duration_since(token_at).as_millis()));
     let (mut products, revisions) = current_products(m, &db, &sw, &profiles)?;

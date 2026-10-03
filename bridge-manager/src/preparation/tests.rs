@@ -123,20 +123,33 @@ fn managed_publication_needs_no_static_catalogue_but_keeps_exact_authority() {
     record_candidate(&f.m, &c).unwrap();
     let reference = enable(&f.m, &c, false).unwrap();
     assert!(crate::catalogue::catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
+    assert!(crate::catalogue::catalogue_free_registry_readback(&f.m, &f.m.registry().unwrap()).unwrap());
     let mut foreign = f.m.registry().unwrap();
     foreign.classes.get_mut(&c.selection.class.id).unwrap().registration.native.sha256 = "ff".repeat(32);
     assert!(catalogue_free_registry(&f.m, &foreign).is_err());
+    assert!(catalogue_free_registry_readback(&f.m, &foreign).is_err());
     let mut legacy = f.m.registry().unwrap();
     legacy.classes.get_mut(&c.selection.class.id).unwrap().managed_revision = None;
     assert!(!catalogue_free_registry(&f.m, &legacy).unwrap());
+    assert!(!catalogue_free_registry_readback(&f.m, &legacy).unwrap());
     let revision = f.m.load_revision(&c.selection.class.id, &reference).unwrap();
     let completion = f.m.root.join("transactions").join(format!("{}.result.json",revision.transaction));
     let saved = completion.with_extension("saved");
     fs::rename(&completion, &saved).unwrap();
     assert!(catalogue_free_registry(&f.m, &f.m.registry().unwrap()).is_err());
+    assert!(catalogue_free_registry_readback(&f.m, &f.m.registry().unwrap()).unwrap());
     fs::rename(&saved, &completion).unwrap();
+    let link = f.m.link(&c.selection.class.id);
+    let target = fs::read_link(&link).unwrap();
+    fs::remove_file(&link).unwrap();
+    symlink(&f.m.root, &link).unwrap();
+    assert!(catalogue_free_registry(&f.m, &f.m.registry().unwrap()).is_err());
+    assert!(catalogue_free_registry_readback(&f.m, &f.m.registry().unwrap()).unwrap());
+    fs::remove_file(&link).unwrap();
+    symlink(target, &link).unwrap();
     disable(&f.m, &c).unwrap();
     assert!(crate::catalogue::catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
+    assert!(crate::catalogue::catalogue_free_registry_readback(&f.m, &f.m.registry().unwrap()).unwrap());
 }
 #[test]
 fn successor_publication_keeps_explicit_buffering_and_requires_exact_proxy_capacity() {
