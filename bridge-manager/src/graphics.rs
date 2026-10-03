@@ -16,6 +16,14 @@ pub fn requested_backend(policy: Option<&RunnerPolicy>) -> &'static str {
     }
 }
 
+pub fn requested_configuration(policy: Option<&RunnerPolicy>, backend: Option<crate::operator_model::GraphicsBackend>) -> &'static str {
+    match backend {
+        Some(crate::operator_model::GraphicsBackend::WineD3d11) =>
+            "Wine built-in D3D11 and DXGI for this plug-in host process",
+        None => requested_backend(policy),
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct HostGlx {
     pub vendor: String,

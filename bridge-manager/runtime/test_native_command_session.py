@@ -360,6 +360,20 @@ class SelectionTests(unittest.TestCase):
   with self.assertRaisesRegex(RuntimeError,'directory changed'):n.retire_endpoint()
   self.assertTrue(endpoint.parent.exists())
 
+ def test_graphics_setting_reaches_the_actual_command_session_launch(self):
+  self.declare();n=s.NativeProtonSession.selected(self.spec)
+  reg=self.spec['registration'];reg['compatibility']={'disable_windows_accessibility':False,'graphics':'wine_d3d11'}
+  with patch.object(s.subprocess,'check_output',return_value='DISPLAY=:0\n'):
+   env=s.environment(reg)
+  n.endpoint=self.root/'test-endpoint'
+  try:
+   with patch.object(n,'find_keeper'),patch.object(s.subprocess,'Popen',return_value=object()) as launch:
+    n.spawn(['entry','--verb=run','--','/usr/bin/proton','runinprefix'],env)
+   self.assertIn('--pass-env=WINEDLLOVERRIDES',launch.call_args.args[0])
+   self.assertEqual(launch.call_args.kwargs['env']['WINEDLLOVERRIDES'],'d3d11,dxgi=b')
+   self.assertNotIn('PROTON_USE_WINED3D',launch.call_args.kwargs['env'])
+  finally:n.close()
+
  def test_compiled_parent_sends_isolated_text_without_host_bytecode_path(self):
   compiled=self.root/'session.pyc';py_compile.compile(s.__file__,cfile=str(compiled),doraise=True)
   module_spec=importlib.util.spec_from_file_location('compiled_native_session',compiled)

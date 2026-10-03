@@ -368,6 +368,8 @@ impl Metadata {
 #[serde(deny_unknown_fields)]
 pub struct Compatibility {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub graphics: Option<operator_model::GraphicsBackend>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vendor_retirement: Option<profiles::VendorRetirement>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub editor_lifetime: Option<profiles::EditorLifetime>,

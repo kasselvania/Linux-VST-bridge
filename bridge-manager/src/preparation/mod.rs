@@ -1,6 +1,7 @@
 //! MF3: canonical selection, immutable preparation and explicit local review.
 //! No frontend path, process, profile or compiler authority enters this owner.
 pub mod build;
+pub mod configuration;
 mod accessibility;
 mod history;
 mod model;
@@ -495,6 +496,7 @@ fn adopt_sv1(m: &Manager, s: &Selection) -> Result<Option<Candidate>> {
         c.source_manifest.clone(),
     )?;
     let candidate = Candidate {
+        settings_trial: None,
         schema: 1,
         selection: s.clone(),
         inspection: i,
@@ -729,6 +731,7 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
             "candidate_policy_requires_explicit_support")?;
     }
     let expected_compatibility = Compatibility {
+        graphics: c.profile.capabilities.graphics,
         disable_windows_accessibility: c.profile.capabilities.accessibility == Accessibility::DisabledForVendorProcess,
         audio_layout: c.inspection.audio_layout.clone(),
         ..Compatibility::default()
@@ -737,6 +740,7 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
         c.profile.capabilities.compatibility() == expected_compatibility,
         "candidate_policy_requires_explicit_support",
     )?;
+    configuration::verify_trial(m, c)?;
     require(
         c.host == c.inspection.host && c.source_manifest == c.inspection.source_manifest,
         "candidate_host_changed",
@@ -839,6 +843,7 @@ pub fn prepared(
             descriptor_sha256: native.descriptor_sha256.clone(),
         },
         capabilities: Capabilities {
+            graphics: None,
             accessibility,
             editor: Editor::DetachedDirectVendorLifecycle,
             state: State::ConcurrentReadOnlyCaptureV12,
@@ -854,6 +859,7 @@ pub fn prepared(
     };
     profile.validate()?;
     Ok(Candidate {
+        settings_trial: None,
         schema: 1,
         selection: s,
         inspection: i,
@@ -1368,6 +1374,11 @@ fn enable_exact(
         "candidate_already_ordinary",
     )?;
     verify_candidate(m, c, &c.selection.scanner, &c.selection.scanner_source)?;
+    if !ordinary {
+        if let Some(trial) = &c.settings_trial {
+            require(expected == trial.baseline.as_ref(), "settings_trial_baseline_changed")?;
+        }
+    }
     require(
         publication_state(m, c)? != "needs_attention"
             && (publication_state(m, c)? != "another_configuration" || expected.is_some()),
@@ -1436,6 +1447,16 @@ pub fn disable_exact(m: &Manager, c: &Candidate, expected: &RevisionRef) -> Resu
             ),
         "not_selected_experimental_publication",
     )?;
+    if let Some(trial) = &c.settings_trial {
+        configuration::verify_trial(m, c)?;
+        if let Some(baseline) = &trial.baseline {
+            require(r.parent.as_ref() == Some(baseline), "settings_trial_parent_changed")?;
+            m.rollback_exact_inactive(&r.class_id, &baseline.id, expected)?;
+        } else {
+            m.unpublish_exact_inactive(&r.class_id, expected)?;
+        }
+        return Ok(());
+    }
     let mut parent = r.parent.clone();
     let mut visited = std::collections::BTreeSet::new();
     while let Some(reference) = parent {
@@ -1465,4 +1486,4 @@ fn changed(m: &Manager) -> Result<()> {
     atomic_json(&root(m).join("revision.json"), &random_id()?)
 }
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

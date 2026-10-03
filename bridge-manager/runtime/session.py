@@ -224,6 +224,16 @@ def environment(reg,graphical=None):
         env.update(PROTON_USE_WINED3D='1',PROTON_DISABLE_NVAPI='1',PROTON_DLL_COPY='*')
     elif runner_policy not in (None,'x11_touch_release_v1','x11_touch_routing_v2'):
         raise RuntimeError('unsupported runner policy')
+    graphics=reg['compatibility'].get('graphics')
+    if graphics is not None:
+        if graphics!='wine_d3d11':raise RuntimeError('unsupported graphics backend')
+        # Per-host DLL selection only. Do not set PROTON_USE_WINED3D/DLL_COPY:
+        # those can change the shared prefix. Preserve the runner's other DLL
+        # choices and accessibility policy. The inherited DComp policy already
+        # selects these exact builtins and needs no duplicate override.
+        if runner_policy!='dcomp_wine_builtins_reference_v1':
+            prior=env.get('WINEDLLOVERRIDES')
+            env['WINEDLLOVERRIDES']='d3d11,dxgi=b'+(';' + prior if prior else '')
     policy=reg['compatibility'].get('event_output')
     if policy is not None:
         if policy!='reported_zero_event_channels_unspecified':raise RuntimeError('unsupported event output policy')
@@ -1389,6 +1399,9 @@ def run_owned(spec,peer,stop_requested):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
     cmd,binding=command(spec);env=environment(reg,spec.get('graphical_session'))
+    graphics_configuration={'requested_backend':reg['compatibility'].get('graphics'),
+        'dll_overrides':env.get('WINEDLLOVERRIDES'),'scope':'host_process_and_children',
+        'renderer_observed':False}
     managed_home(spec,env)
     transport_environment(spec,env);delivery_trace(spec,env)
     capture=None;capture_error=None
@@ -1566,7 +1579,7 @@ def run_owned(spec,peer,stop_requested):
         if command_session is not None:command_session.close()
         sel.close()
         for stream in (root.stdout,root.stderr):stream.close()
-        outcome={'vendor_retirement':retirement_ready,'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
+        outcome={'graphics_configuration':graphics_configuration,'vendor_retirement':retirement_ready,'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
         if audio_scheduling:outcome['audio_scheduling']=audio_scheduling.value()
         if command_session is not None:outcome['native_command_child']=command_session.remote_identity
         # Diagnostic persistence cannot skip physical cleanup or peer retirement.

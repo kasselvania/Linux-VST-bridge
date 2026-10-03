@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "date": "2026-10-02",
+  "base_commit": "2c6477e0fd8f045b91b936d6400f9b53d8939833",
+  "claim": "Source workflow: candidate-linked graphics assessment and a reversible process-scoped settings trial",
+  "configuration": {
+    "choice": "wine_d3d11",
+    "application": "WINEDLLOVERRIDES=d3d11,dxgi=b for the Windows host process and its children; existing accessibility and runner policy retained",
+    "prefix_conversion": false,
+    "runner_update": false,
+    "descriptor_rebuild": false,
+    "permission_to_try_requires_qualification": false,
+    "assessment_optional": true,
+    "restoration": "Exact existing publication, including an experimental predecessor; remove test publication when there was none",
+    "keep": "Retain explicitly selected observations without inventing an ordinary support claim",
+    "observed_renderer": "Independent capability probes only; editor device and child rendering remain unknown; retained driver facts are not claimed fresh"
+  },
+  "local_checks": {
+    "fixture": "macOS generated fixtures; real manager publication/reconciliation functions; supervised launch construction with no Windows process",
+    "manager_library": {
+      "passed": 213,
+      "failed": 0
+    },
+    "frontend": {
+      "passed": 86,
+      "failed": 0
+    },
+    "runtime": {
+      "passed": 42,
+      "skipped": 4,
+      "failed": 0,
+      "skips": "Linux-specific ownership checks"
+    },
+    "trial_interruption_boundaries": 16,
+    "lint": "manager library passed"
+  },
+  "native_linux_ci": "pending",
+  "prior_attempts": [
+    "New test initially used Registry equality without equality/debug traits; corrected to compare serialized state.",
+    "A shared test fixture needed test-only crate visibility.",
+    "An initial restore assertion included the monotonically increasing registry revision; corrected to require exact class/publication restoration and an increased history revision.",
+    "The macOS binary compilation reaches the existing Linux-only scheduler/device APIs; no macOS manager executable pass is claimed."
+  ],
+  "not_performed": [
+    "Deck installation or modification",
+    "actual Proton/driver graphics trial",
+    "actual new Windows plug-in processing and DAW save/reopen",
+    "commercial plug-in graphics/audio coexistence",
+    "dependency or alternate-runtime experiment",
+    "beta qualification"
+  ],
+  "source_sha256": {
+    "bridge-manager/runtime/session.py": "2187a515e981e47d2fd019182df7881ea1517d76a7321f19d82162a877240190",
+    "bridge-manager/runtime/test_native_command_session.py": "872ece9a90e3511b453ffca3b61aa3ce5b3de65b147cee79e7bb62489663d362",
+    "bridge-manager/runtime/test_session.py": "1fa2a7219dd9a1fccaafe72b22d8fb8d9b95725b1da4bad201bc9d07905a5a1f",
+    "bridge-manager/src/graphics.rs": "8639530f46b9ee795f66a3481ba59fb4f0a50d449f87d8472fcbaffb79aad249",
+    "bridge-manager/src/graphics/assessment.rs": "f723e26f86928342f2967ac0495e40141826ddf9ec2a5ea7a3e1a15b8c9285a9",
+    "bridge-manager/src/graphics/tests.rs": "70b0655eecf4a824603f152227ae0721a01b572398958ea6075b7b5a7b36b253",
+    "bridge-manager/src/graphics_cli.rs": "420b232e234ea1614250257b711d0f9d8c81bc69e078da42527631b9f046c2d8",
+    "bridge-manager/src/lib.rs": "3fe626de143d1abbf259c324229b9009915c11f4140633dc3e0c62ba40a0491f",
+    "bridge-manager/src/operator_cli.rs": "52db1b63b5f50d213984342a4289e4c0af0ed381a79bc69a6f03f852e4ee6a40",
+    "bridge-manager/src/operator_model.rs": "c0c3aeec8305cb412117b4284add8c0a6b0cc48e4ff6dbe7882caffdb5d1898b",
+    "bridge-manager/src/preparation/build.rs": "0ce108cf014ac5a59d6a3111a75e3f844df70f7ad29dcf8766647d4c18b1987e",
+    "bridge-manager/src/preparation/history.rs": "29578ebf4c6c28d699825e818535a88cf22007fa5f10cfed691e37bcd8173a12",
+    "bridge-manager/src/preparation/mod.rs": "0ef2679f51fd519ed3894eaab4adeae87bb769566b9dc50e056c6c2307616bb6",
+    "bridge-manager/src/preparation/model.rs": "060832ec08f1bf98073a7c5aafd7e84e0bbbcc5c64c9292633d182209150bf2c",
+    "bridge-manager/src/preparation/tests.rs": "57f804e9e23f16f5d3100b1e2f7c4d49e49920d34cbbfce84bd99cc6e2b05ccc",
+    "bridge-manager/src/preparation_cli.rs": "2a69bddf865f75a5ec1e8ee88f3cfc39eff64d7e1cd4bdc5c0125cfe545e0d1c",
+    "bridge-manager/src/profiles.rs": "55723bd2f34dddadf97836dd61e4260905c560f405046e3a4706ad91984b025a",
+    "bridge-manager/src/test_fixture.rs": "d31e60e919fef0cb6c83f6a25c11a6fc2b37a43ec6041b7df89c27f1cf1b4aa1",
+    "manager-ui/src/library.rs": "e090f307685d20a8fd710f7e1d9a033129ecb8c214db815e9e0463e0374bbbdb",
+    "manager-ui/src/operator.rs": "2293b2cffc1681e62fe250b3db38a22ea6bdb80afc6d6ae26cdff537f1d5c8d6",
+    "bridge-manager/src/preparation/configuration.rs": "f853ff1d930022ea37fef41d92b3818653479a99685429a14b8cee6a32ee8487"
+  }
+}

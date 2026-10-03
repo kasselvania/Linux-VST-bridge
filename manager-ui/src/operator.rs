@@ -212,6 +212,8 @@ impl RequestFeedback {
                 Action::CompatibilityCheck { .. } | Action::CompatibilityResumeCheck { .. } =>
                     "Checking this plug-in and preparing its matching bridge.".into(),
                 Action::PluginPrepare { .. } => "Preparing this plug-in's matching bridge.".into(),
+                Action::CandidateGraphicsAssess { .. } => "Assessing graphics in this plug-in's selected runtime.".into(),
+                Action::CandidateGraphicsPrepare { .. } => "Preparing a reversible graphics settings trial.".into(),
                 Action::CompatibilityPublishTest { .. } => "Selecting this plug-in's prepared bridge.".into(),
                 _ => "This operation is in progress. Do not click again.".into(),
             },

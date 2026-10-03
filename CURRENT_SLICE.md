@@ -67,10 +67,25 @@ metadata/reference and source checks, not Windows plug-in processing or a
 complete installed musician workflow. The reusable engine has
 not been installed on the Deck; no repaired Nibbi result is claimed.
 
-The primary outcome above remains open. Next connect the shared graphics
-assessment and requested/effective settings to the existing candidate workflow,
-with one supported reversible trial. Then run the frozen package against actual
-new Windows reference modules through audio, state and DAW recall. Alternate
+The next source step connects explicit graphics assessment to the exact candidate
+and its launch configuration. A Wine D3D11/DXGI builtin fallback is a typed local
+choice applied to the Windows host process; it does not select a new runner or
+convert the shared prefix. The normal manager can prepare it before first
+publication, assess it, select it for testing, retain observed results and restore
+the exact predecessor, including an experimental predecessor. Settings survive
+preparation refresh; native artifact reuse is independent of launch settings.
+Graphics probes and missing editor observations cannot qualify or disqualify
+audio, and retained renderer facts are not treated as a fresh driver census.
+
+Local checks pass 213 manager library tests, 86 frontend tests, and 42 runtime
+checks with four Linux-only skips. All 16 publication interruption points are
+covered for the settings trial. Linux manager dispatch/recovery, final package
+checks and native CI remain pending for this source step. See
+`evidence/preparation/2026-10-02-settings-trial.json` for the exact scope.
+
+The primary outcome above remains open. Next run the frozen package against
+actual new Windows reference modules through audio, state and DAW recall,
+including a selected-runtime graphics comparison and restore. Alternate
 runtimes, dependencies, advanced controls and physical commercial acceptance
 remain required work. See the retained first-step evidence under
 `evidence/preparation/2026-10-02-reusable-engine.json`.

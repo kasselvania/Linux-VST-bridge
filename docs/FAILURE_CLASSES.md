@@ -2117,8 +2117,13 @@ candidate/publication records. Generated classes chosen after compilation load
 simultaneously through an independent Linux SDK consumer; a simulated module
 update preserves DAW IDs. Actual manager preparation and publication, malformed
 data, exact rollback and all 16 interrupted-publication boundaries pass source
-tests. Assessment/configuration/trial integration and actual Windows processing
-remain open. Physical repaired coverage: none. Posture: still blocked in the
+tests. The next source step binds graphics assessment to a candidate's requested
+and applied launch settings, offers a typed process-only Wine D3D11/DXGI trial,
+and restores its exact previous publication through the existing transaction
+owner. Refresh retains local settings without rebuilding an identical engine.
+Trial interruption, stale baseline and optional-editor cases have source checks;
+Linux manager dispatch and installed runtime comparisons remain pending. Actual
+Windows processing remains open. Physical repaired coverage: none. Posture: still blocked in the
 unchanged delivered package for builds missing from its index. This is distinct
 from FC-MGMT-004, which repaired readback after an existing proxy was published.
 No cause is assigned to the separately reported Deck input pauses or readiness

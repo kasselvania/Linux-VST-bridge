@@ -17,7 +17,9 @@ shared product restriction; [FC-MGMT-006](FAILURE_CLASSES.md#fc-mgmt-006--exact-
 records the source mechanism and replacement in progress. The first source
 implementation prepares one reusable engine with per-plug-in data. Generated
 metadata and independent Linux SDK factory checks pass, as do manager preparation,
-publication and recovery checks. Actual Windows audio/recall and the connected
+publication and recovery checks. Candidate-linked graphics assessment and one
+typed, reversible graphics setting now have source tests, including restoration
+of an experimental predecessor. Actual Windows audio/recall and the installed
 assessment/settings/trial workflow remain unperformed. There is no deployed
 repair or repaired Nibbi/Deck result. Existing exact product results below retain
 their original scope.

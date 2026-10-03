@@ -1,7 +1,7 @@
 use super::*;
 use crate::test_fixture::{inspection_report, prepared_accessibility, snapshot, Fixture};
 use serde_json::json;
-pub(super) fn fixture() -> (Fixture, Candidate) {
+pub(crate) fn fixture() -> (Fixture, Candidate) {
     fixture_with_environment(&"13".repeat(16))
 }
 fn fixture_with_environment(id: &str) -> (Fixture, Candidate) {
@@ -1149,6 +1149,16 @@ fn complete_build_identity_reuses_only_the_exact_generation() {
         build::reusable(&f.m, &c.selection, &i, &kit.sha256).unwrap(),
         Some(c.clone())
     );
+    // Several settings candidates share one compiled artifact. Refresh keeps
+    // the selected override without mistaking the candidates for two engines.
+    let trial = configuration::prepare(&f.m, &c,
+        Some(crate::operator_model::GraphicsBackend::WineD3d11), None).unwrap();
+    let reusable = build::reusable(&f.m, &c.selection, &i, &kit.sha256).unwrap().unwrap();
+    let refreshed = configuration::carry_settings(reusable, Some(&trial)).unwrap();
+    let refreshed = bind_preparation_basis(refreshed, Some("bc".repeat(32))).unwrap();
+    record_candidate_with_predecessor(&f.m, &refreshed, Some(&trial.id().unwrap())).unwrap();
+    assert_eq!(refreshed.profile.capabilities.graphics, trial.profile.capabilities.graphics);
+    assert_eq!(build::reusable(&f.m, &c.selection, &i, &kit.sha256).unwrap(), Some(c.clone()));
     assert!(build::reusable(&f.m, &c.selection, &i, &"ff".repeat(32))
         .unwrap()
         .is_none());

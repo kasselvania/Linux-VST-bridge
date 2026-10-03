@@ -50,6 +50,10 @@ impl Library {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Context {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub configuration_fingerprint: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requested_backend: Option<crate::operator_model::GraphicsBackend>,
     pub module_sha256: String,
     pub class_id: String,
     pub runner_fingerprint: String,
@@ -60,6 +64,21 @@ pub struct Context {
     pub requested_graphics: String,
 }
 impl Context {
+    pub fn for_configuration(environment: &crate::Environment, module: &crate::Artifact,
+        class_id: &str, host: &crate::Artifact, source: &str,
+        compatibility: &crate::Compatibility) -> Result<Self> {
+        Ok(Self {
+            configuration_fingerprint: Some(crate::preparation::key(compatibility)?),
+            requested_backend: compatibility.graphics,
+            module_sha256: module.sha256.clone(), class_id: class_id.into(),
+            runner_fingerprint: crate::catalogue::runner_key(&environment.runner)?,
+            environment_fingerprint: crate::preparation::key(environment)?,
+            environment_revision: environment.revision, host_sha256: host.sha256.clone(),
+            host_source_sha256: source.into(),
+            requested_graphics: super::requested_configuration(environment.runner.policy.as_ref(),
+                compatibility.graphics).into(),
+        })
+    }
     pub fn fingerprint(&self) -> Result<String> {
         require(
             [
@@ -71,7 +90,8 @@ impl Context {
             ]
             .iter()
             .all(|s| valid_hex(s, 64))
-                && valid_hex(&self.class_id, 32),
+                && valid_hex(&self.class_id, 32)
+                && self.configuration_fingerprint.as_ref().is_none_or(|v| valid_hex(v, 64)),
             "graphics_context_identity",
         )?;
         Ok(crate::hex(&Sha256::digest(serde_json::to_vec(self)?)))
@@ -106,6 +126,7 @@ pub struct Finding {
 }
 #[derive(Debug, Clone, Serialize)]
 pub struct Assessment {
+    pub applied_launch: Value,
     pub schema: u32,
     pub context: Context,
     pub context_fingerprint: String,
@@ -140,6 +161,19 @@ pub fn assemble(
     report: &Value,
     at: u64,
 ) -> Result<Assessment> {
+    let applied_launch = report["graphics_configuration"].clone();
+    if context.configuration_fingerprint.is_some() {
+        require(applied_launch["requested_backend"] == serde_json::to_value(context.requested_backend)?
+            && applied_launch["scope"] == "host_process_and_children"
+            && applied_launch["renderer_observed"] == false,
+            "graphics_launch_configuration_missing_or_changed")?;
+        if context.requested_backend == Some(crate::operator_model::GraphicsBackend::WineD3d11) {
+            require(applied_launch["dll_overrides"].as_str().is_some_and(|s|
+                s == "d3d11,dxgi=b" || s == "d3d11,dxgi=b;uiautomationcore="
+                    || s == "d2d1,d3d11,dxgi,dcomp=b" || s == "d2d1,d3d11,dxgi,dcomp=b;uiautomationcore="),
+                "graphics_launch_override_not_applied")?;
+        }
+    }
     require(
         report["cleanup_confirmed"] == true
             && report["transport_retired"] == true
@@ -271,8 +305,9 @@ pub fn assemble(
         &imports,
         &editor,
         &probes,
+        &applied_launch,
     ))?));
-    Ok(Assessment {schema:1,context_fingerprint,observations_fingerprint,context,observed_at:at,
+    Ok(Assessment {schema:1,applied_launch,context_fingerprint,observations_fingerprint,context,observed_at:at,
         scope:"isolated inspection in selected environment; independent probe contexts are not the plug-in rendering context",
         imports,editor,runtime_probes:probes,findings,editor_device:None,child_renderers:"not_observed",
         qualification:"unqualified",next_action:"Review candidate API observations, then run editor/audio coexistence and recall tests; no settings were selected"})

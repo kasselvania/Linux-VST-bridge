@@ -87,6 +87,8 @@ fn context() -> Context {
         host_sha256: "44".repeat(32),
         host_source_sha256: "55".repeat(32),
         requested_graphics: "runner defaults".into(),
+        configuration_fingerprint: None,
+        requested_backend: None,
     }
 }
 fn report() -> Value {
@@ -152,6 +154,37 @@ fn graphics_assessment_reuses_rules_without_promoting_hints_or_probe_devices() {
             original
         );
     }
+}
+
+#[test]
+fn candidate_assessment_binds_launch_settings_and_keeps_missing_editor_optional() {
+    use crate::preparation::{self as prep, configuration};
+    let (f, base) = prep::tests::fixture();
+    prep::record_candidate(&f.m, &base).unwrap();
+    let original = prep::enable(&f.m, &base, false).unwrap();
+    let next = configuration::prepare(&f.m, &base,
+        Some(crate::operator_model::GraphicsBackend::WineD3d11), Some(&original)).unwrap();
+    let context = configuration::context(&next).unwrap();
+    let imports = pe::Imports { machine: 0x8664, ordinary: vec![Library::D3d11], delayed: vec![] };
+    let mut raw = report();
+    raw["records"][0]["module_sha256"] = json!(context.module_sha256);
+    raw["records"][0]["scanner_sha256"] = json!(context.host_sha256);
+    raw["records"][0]["implementation_source_manifest_sha256"] = json!(context.host_source_sha256);
+    raw["records"][1]["class_id"] = json!(context.class_id);
+    raw["records"][2]["editor"]["status"] = json!("unavailable");
+    assert!(assemble(context.clone(), imports.clone(), &raw, 100).is_err());
+    raw["graphics_configuration"] = json!({"requested_backend":"wine_d3d11", "dll_overrides":"d3d11,dxgi=b",
+        "scope":"host_process_and_children","renderer_observed":false});
+    let assessment = assemble(context.clone(), imports.clone(), &raw, 100).unwrap();
+    assert_eq!(assessment.editor.status, "unavailable");
+    assert_eq!(assessment.qualification, "unqualified");
+    configuration::record_assessment(&f.m, &next, &"ac".repeat(16), &assessment).unwrap();
+    assert_eq!(configuration::view(&f.m, &next).unwrap()["assessment"]["editor"]["status"], "unavailable");
+    assert!(configuration::view(&f.m, &base).unwrap()["assessment"].is_null());
+    assert!(configuration::record_assessment(&f.m, &base, &"ad".repeat(16), &assessment).is_err());
+    raw["graphics_configuration"]["dll_overrides"] = json!("unrelated=b");
+    assert!(assemble(context, imports, &raw, 101).is_err());
+    assert!(prep::observations(&f.m, &next).unwrap().is_empty(), "graphics probes cannot qualify audio/editor/state");
 }
 #[test]
 fn graphics_assessment_refuses_wrong_identity_incomplete_and_false_claims() {

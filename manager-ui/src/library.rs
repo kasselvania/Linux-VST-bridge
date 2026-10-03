@@ -320,6 +320,7 @@ impl Library {
                                 snapshot.system.inactive_reason(), pending, chosen);
                         }
                         action_buttons(ui, &management, snapshot.system.inactive_reason(), pending, chosen);
+                        graphics_settings(ui, p, snapshot.system.inactive_reason(), pending, chosen);
                         let buffering: Vec<_> = p.actions.iter().filter(|offer|
                             matches!(offer.action, Action::BufferingSet { .. })).cloned().collect();
                         if !buffering.is_empty() {
@@ -393,7 +394,9 @@ impl Library {
                                     .iter()
                                     .chain(related.iter())
                                     .filter(|action| {
-                                        !matches!(action.action, Action::BufferingSet { .. })
+                                        !matches!(action.action, Action::BufferingSet { .. }
+                                            | Action::CandidateGraphicsAssess { .. }
+                                            | Action::CandidateGraphicsPrepare { .. })
                                             && !management.iter().any(|shown|shown.action==action.action) && primary
                                             .as_ref()
                                             .is_none_or(|primary| primary.action != action.action)
@@ -417,6 +420,46 @@ impl Library {
             });
         }
     }
+}
+
+/// Graphics checks and launch settings share the product's candidate controls.
+fn graphics_settings(ui: &mut egui::Ui, product: &Product, busy: Option<&str>,
+    pending: bool, chosen: &mut Option<Action>) {
+    let settings = &product.details["graphics"];
+    if settings.is_null() { return; }
+    egui::CollapsingHeader::new("Compatibility settings · graphics").show(ui, |ui| {
+        ui.label(settings["requested"].as_str().unwrap_or("Requested graphics settings unavailable"));
+        ui.small(settings["reason"].as_str().unwrap_or_default());
+        ui.small("Applies to new host processes for this plug-in and their children. Close the DAW before changing the selected configuration.");
+        ui.small("The Wine D3D11 fallback changes how D3D11/DXGI libraries load. It does not install a runtime or change the system graphics driver.");
+        if settings["publication"] == "another_configuration" {
+            ui.strong("Prepared only. Your previous configuration is still selected.");
+        }
+        if !settings["change"].is_null() {
+            ui.label(format!("Before this trial: {}", settings["before"]["requested"].as_str().unwrap_or("Retained previous configuration")));
+            graphics_observation(ui, "Previous assessment", &settings["before"]["assessment"]);
+        }
+        graphics_observation(ui, "This configuration's assessment", &settings["assessment"]);
+        ui.small("Assessment opens the editor in a supervised check. These results do not establish the editor's actual GPU, uninterrupted audio, or saved-project recall.");
+        let actions: Vec<_> = product.actions.iter().filter(|offer| matches!(offer.action,
+            Action::CandidateGraphicsAssess { .. } | Action::CandidateGraphicsPrepare { .. }))
+            .cloned().collect();
+        action_buttons(ui, &actions, busy, pending, chosen);
+    });
+}
+
+fn graphics_observation(ui: &mut egui::Ui, label: &str, result: &serde_json::Value) {
+    ui.strong(label);
+    if result.is_null() { ui.small("Not assessed with these settings."); return; }
+    ui.label(format!("Editor: {}", result["editor"]["status"].as_str().unwrap_or("unknown")));
+    if let Some(probes) = result["runtime_probes"].as_array() {
+        for probe in probes {
+            ui.small(format!("{}: {} · {}", probe["api"].as_str().unwrap_or("API"),
+                probe["status"].as_str().unwrap_or("unknown"),
+                probe["renderer"].as_str().unwrap_or("renderer unknown")));
+        }
+    }
+    ui.small("Recorded run; current driver/device freshness is unverified.");
 }
 
 /// Shared with the local preview; controls and defaults are unchanged.

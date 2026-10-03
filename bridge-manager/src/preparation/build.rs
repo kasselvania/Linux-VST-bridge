@@ -423,21 +423,16 @@ pub fn reusable(
             "retained_build_identity",
         )?;
         verify_candidate(m, &c, &s.scanner, &s.scanner_source)?;
-        require(
-            bind_preparation_basis(
-                prepared(
-                    s.clone(),
-                    i.clone(),
-                    c.native.clone(),
-                    i.host.clone(),
-                    i.source_manifest.clone(),
-                    kit.into(),
-                )?,
-                c.preparation_basis.clone(),
-            )? == c,
-            "retained_build_policy_changed",
-        )?;
-        let technical = bind_preparation_basis(c, None)?;
+        let technical = prepared(s.clone(), i.clone(), c.native.clone(),
+            i.host.clone(), i.source_manifest.clone(), kit.into())?;
+        // A settings trial was verified against its exact predecessor above.
+        // It reuses the same artifact; launch settings cannot make matching
+        // native bytes ambiguous or force a customer compilation.
+        if c.settings_trial.is_none() {
+            require(bind_preparation_basis(
+                configuration::carry_settings(technical.clone(), Some(&c))?,
+                c.preparation_basis.clone())? == c, "retained_build_policy_changed")?;
+        }
         if !found.contains(&technical) {
             found.push(technical);
         }

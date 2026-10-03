@@ -387,6 +387,28 @@ class VendorOperationTests(unittest.TestCase):
 
 
 class BusCensusCommandTests(unittest.TestCase):
+    def test_graphics_trial_is_closed_process_scoped_and_does_not_convert_prefix(self):
+        reg={'environment':{'root':'/fixture','runner':{}},
+             'compatibility':{'disable_windows_accessibility':False}}
+        with patch.object(session.subprocess,'check_output',return_value='DISPLAY=:0\n'):
+            before=session.environment(reg)
+            for accessibility in (False,True):
+                trial={**reg,'compatibility':{'graphics':'wine_d3d11',
+                    'disable_windows_accessibility':accessibility}}
+                selected=session.environment(trial)
+                self.assertEqual(selected['WINEDLLOVERRIDES'],
+                    'd3d11,dxgi=b'+(';uiautomationcore=' if accessibility else ''))
+                self.assertEqual({k:v for k,v in selected.items() if k!='WINEDLLOVERRIDES'},before)
+                for key in ('PROTON_USE_WINED3D','PROTON_DLL_COPY','PROTON_DISABLE_NVAPI'):
+                    self.assertNotIn(key,selected)
+                self.assertIn('WINEDLLOVERRIDES',session.NativeProtonSession.FORWARD)
+                self.assertEqual(session.environment(reg),before, 'sibling/keeper/default launch unchanged')
+            bad={**reg,'compatibility':{'graphics':'arbitrary=dll','disable_windows_accessibility':False}}
+            with self.assertRaisesRegex(RuntimeError,'unsupported graphics backend'):session.environment(bad)
+            trial['environment']={**reg['environment'],'runner':{'policy':'dcomp_wine_builtins_reference_v1'}}
+            self.assertEqual(session.environment(trial)['WINEDLLOVERRIDES'],
+                'd2d1,d3d11,dxgi,dcomp=b;uiautomationcore=')
+
     def test_event_policy_is_registered_not_ambient(self):
         reg={'environment':{'root':'/fixture'},'compatibility':{'disable_windows_accessibility':False}}
         with patch.object(session.subprocess,'check_output',return_value='DISPLAY=:0\nLVB_EVENT_OUTPUT_POLICY=reported_zero_event_channels_unspecified\n'):

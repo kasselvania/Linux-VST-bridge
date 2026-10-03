@@ -1852,7 +1852,8 @@ fn execute_with_receipt_policy(
         let owner = operation.ok_or("operator_operation_identity")?;
         if matches!(
             a,
-            ui::Action::PluginReinspect { .. }
+            ui::Action::CandidateGraphicsAssess { .. }
+                | ui::Action::PluginReinspect { .. }
                 | ui::Action::PluginInspect { .. }
                 | ui::Action::CompatibilityCheck { .. }
                 | ui::Action::CompatibilityResumeCheck { .. }
@@ -1924,7 +1925,9 @@ fn execute_with_receipt_policy(
             drop(projection.take());
             daw_workspace::execute_action(m, action, operation.ok_or("operator_operation_identity")?)
         }
-        ui::Action::PluginReinspect { .. }
+        ui::Action::CandidateGraphicsAssess { .. }
+        | ui::Action::CandidateGraphicsPrepare { .. }
+        | ui::Action::PluginReinspect { .. }
         | ui::Action::PluginInspect { .. }
         | ui::Action::PluginPrepare { .. }
         | ui::Action::CompatibilityCheck { .. }
@@ -2531,6 +2534,7 @@ fn resume_interrupted_with(
                 | ui::Action::PluginReinspect { .. }
                 | ui::Action::PluginInspect { .. }
                 | ui::Action::PluginPrepare { .. }
+                | ui::Action::CandidateGraphicsAssess { .. }
                 | ui::Action::CompatibilityCheck { .. }
                 | ui::Action::CompatibilityResumeCheck { .. }
         ),
@@ -3536,7 +3540,7 @@ mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 15);
+        assert_eq!(ui::OPERATOR_SCHEMA, 16);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
