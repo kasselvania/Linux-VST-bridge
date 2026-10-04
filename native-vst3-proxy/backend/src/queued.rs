@@ -122,6 +122,10 @@ struct Shared {
     requests: Queue<Item>,
     results: Queue<Completion>,
     completion: crate::completion_wait::Signal,
+    // The non-RT control caller owns this wait. The mailbox result remains the
+    // predicate; the sequence only prevents a publication/check race from
+    // losing the wake and is isolated from audio completion traffic.
+    control_acknowledgement: crate::completion_wait::Signal,
     work: crate::completion_wait::WorkSignal,
     extra: std::sync::OnceLock<crate::output_pool::Pool>,
     wanted: AtomicU64,
@@ -137,6 +141,8 @@ struct Shared {
     // Separate owner-thread mailbox. It never writes the SPSC audio queue.
     control: std::sync::Mutex<Option<Control>>,
     pending_control: AtomicBool,
+    #[cfg(test)]
+    control_waits: AtomicU64,
     state_capable: AtomicBool,
     curve_state_revision: AtomicU64,
     observer: Option<Arc<crate::observer::Shared>>,
@@ -183,6 +189,7 @@ impl Shared {
             requests: Queue::new(DESCRIPTORS),
             results: Queue::new(DESCRIPTORS),
             completion: crate::completion_wait::Signal::new(),
+            control_acknowledgement: crate::completion_wait::Signal::new(),
             work: crate::completion_wait::WorkSignal::new()?,
             extra: std::sync::OnceLock::new(),
             wanted: AtomicU64::new(0),
@@ -197,6 +204,8 @@ impl Shared {
             detail: std::sync::Mutex::new(String::new()),
             control: std::sync::Mutex::new(None),
             pending_control: AtomicBool::new(false),
+            #[cfg(test)]
+            control_waits: AtomicU64::new(0),
             state_capable: AtomicBool::new(false),
             curve_state_revision: AtomicU64::new(0),
             observer: None,
@@ -264,11 +273,13 @@ impl Shared {
             self.first_context_ready.store(true, Ordering::Release);
         }
         self.completion.notify();
+        self.control_acknowledgement.notify();
         self.work.notify();
     }
     fn cancel(&self) {
         self.cancelled.store(true, Ordering::Release);
         self.completion.notify();
+        self.control_acknowledgement.notify();
         self.work.notify();
     }
 }
@@ -299,6 +310,10 @@ fn complete_control(s: &Shared, c: &mut Control, result: io::Result<Vec<u8>>,
     }
     c.result = Some(result);
     s.pending_control.store(false, Ordering::Release);
+    // Publish only after the authoritative result and pending predicate. The
+    // waiter snapshots before inspecting both, so an acknowledgement racing
+    // with wait entry cannot be lost.
+    s.control_acknowledgement.notify();
     if failed { Err(invalid("component state/control failed; original detail retained in response")) }
     else { Ok(()) }
 }
@@ -1429,6 +1444,7 @@ unsafe fn control(id: u64, op: u32, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
     s.work.notify();
     let until = Instant::now() + Duration::from_secs(20);
     loop {
+        let observed = s.control_acknowledgement.snapshot();
         {
             let mut c = s
                 .control
@@ -1439,13 +1455,20 @@ unsafe fn control(id: u64, op: u32, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
                 return result;
             }
         }
+        if s.cancelled.load(Ordering::Acquire) || s.quit.load(Ordering::Acquire) {
+            return Err(invalid(
+                "state acknowledgement cancelled; no retry",
+            ));
+        }
         if Instant::now() >= until || s.fault.load(Ordering::Acquire) != 0 {
             s.fail(WORKER, u64::MAX);
             return Err(invalid(
                 "state acknowledgement missing; instance failed, no retry",
             ));
         }
-        thread::sleep(Duration::from_micros(50));
+        #[cfg(test)]
+        s.control_waits.fetch_add(1, Ordering::Release);
+        s.control_acknowledgement.wait(observed, until);
     }
 }
 #[no_mangle]
@@ -2503,6 +2526,22 @@ pub unsafe extern "C" fn ap10_fail_results(id: u64) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn control_live(shared: Arc<Shared>) -> u64 {
+        INSTANCES.insert(|| Ok::<_, ()>(Live {
+            shared, callback: UnsafeCell::new(Callback::new()), busy: AtomicBool::new(false),
+            worker: None, report: None, max: 256, recovery_blocked: false,
+            installed_delay: Some(256),
+            delivery_mode: crate::performance::DeliveryMode::Buffered,
+            minor: 15, setup: None,
+        })).unwrap().unwrap()
+    }
+    fn await_control_wait(shared: &Shared) {
+        let until = Instant::now() + Duration::from_secs(3);
+        while shared.control_waits.load(Ordering::Acquire) == 0 {
+            assert!(Instant::now() < until, "control caller did not enter its acknowledgement wait");
+            thread::yield_now();
+        }
+    }
     fn prepared_live(shared: Arc<Shared>, maximum: u32, mode: u32,
         delivery: crate::performance::DeliveryMode) -> u64 {
         let mut callback = Callback::new();
@@ -2516,6 +2555,70 @@ mod tests {
             installed_delay: Some(256), delivery_mode: delivery, minor: 15,
             setup: Some(crate::performance::wire_version(maximum, mode, 48000., true).unwrap()),
         })).unwrap().unwrap()
+    }
+    #[test]
+    fn current_control_acknowledgement_delivers_a_result_across_racing_wait_entry() {
+        let _registry_owner = crate::registry_test();
+        let shared = Arc::new(Shared::new());
+        shared.state_capable.store(true, Ordering::Release);
+        let id = control_live(shared.clone());
+        let caller = thread::spawn(move || unsafe { control(id, 20, vec![1, 2, 3]) });
+        await_control_wait(&shared);
+        // The counter establishes arrival at the wait boundary, not which side
+        // of wait entry wins this race. Signal's deterministic
+        // publication_between_inspection_and_sleep_cannot_lose_wake test
+        // separately forces publication before entering the primitive wait.
+        let started = Instant::now();
+        {
+            let mut mailbox = shared.control.lock().unwrap();
+            let pending = mailbox.as_mut().expect("published control predicate");
+            assert_eq!((pending.op, pending.bytes.as_slice()), (20, [1, 2, 3].as_slice()));
+            complete_control(&shared, pending, Ok(vec![4, 5, 6]), [0; 5]).unwrap();
+        }
+        assert_eq!(caller.join().unwrap().unwrap(), vec![4, 5, 6]);
+        assert!(started.elapsed() < Duration::from_secs(1));
+        assert!(!shared.pending_control.load(Ordering::Acquire));
+        assert!(shared.control.lock().unwrap().is_none());
+        INSTANCES.remove(id, |_| ()).unwrap();
+    }
+    #[test]
+    fn current_control_wait_is_woken_by_cancellation_without_fabricating_an_acknowledgement() {
+        let _registry_owner = crate::registry_test();
+        let shared = Arc::new(Shared::new());
+        shared.state_capable.store(true, Ordering::Release);
+        let id = control_live(shared.clone());
+        let caller = thread::spawn(move || unsafe { control(id, 16, vec![]) });
+        await_control_wait(&shared);
+        let started = Instant::now();
+        shared.cancel();
+        let error = caller.join().unwrap().unwrap_err();
+        assert_eq!(error.to_string(), "state acknowledgement cancelled; no retry");
+        assert!(started.elapsed() < Duration::from_secs(1));
+        assert_eq!(shared.fault.load(Ordering::Acquire), 0);
+        assert!(shared.pending_control.load(Ordering::Acquire));
+        let mailbox = shared.control.lock().unwrap();
+        assert!(mailbox.as_ref().is_some_and(|pending| pending.result.is_none()));
+        drop(mailbox);
+        INSTANCES.remove(id, |_| ()).unwrap();
+    }
+    #[test]
+    fn current_control_wait_is_woken_by_fault_without_replacing_the_first_failure() {
+        let _registry_owner = crate::registry_test();
+        let shared = Arc::new(Shared::new());
+        shared.state_capable.store(true, Ordering::Release);
+        let id = control_live(shared.clone());
+        let caller = thread::spawn(move || unsafe { control(id, 8, vec![0; 8]) });
+        await_control_wait(&shared);
+        let started = Instant::now();
+        shared.fail(CORRELATION, 99);
+        let error = caller.join().unwrap().unwrap_err();
+        assert_eq!(error.to_string(), "state acknowledgement missing; instance failed, no retry");
+        assert!(started.elapsed() < Duration::from_secs(1));
+        assert_eq!(shared.fault.load(Ordering::Acquire), CORRELATION);
+        assert_eq!(shared.first_position.load(Ordering::Acquire), 99);
+        assert!(shared.pending_control.load(Ordering::Acquire));
+        assert!(shared.control.lock().unwrap().as_ref().is_some_and(|pending| pending.result.is_none()));
+        INSTANCES.remove(id, |_| ()).unwrap();
     }
     #[test]
     fn consecutive_zero_frame_operations_return_their_exact_results_without_advancing_audio() {
@@ -2916,8 +3019,7 @@ mod tests {
                         if c.result.is_none() && ap1_native_client::get(&c.bytes[..4]) == maximum {
                             assert_eq!(c.op, 20);
                             let mut reply = vec![0; 16]; reply[8] = 1;
-                            c.result = Some(Ok(reply));
-                            worker_shared.pending_control.store(false, Ordering::Release);
+                            complete_control(&worker_shared, c, Ok(reply), [0; 5]).unwrap();
                             break;
                         }
                     }
@@ -3217,7 +3319,7 @@ mod tests {
                         assert_eq!(&c.bytes[24..], expected);
                         let mut reply = vec![0; 16];
                         reply[8] = 1;
-                        c.result = Some(Ok(reply));
+                        complete_control(&shared, c, Ok(reply), [0; 5]).unwrap();
                         break;
                     }
                     assert!(Instant::now() < until, "setup ABI did not deliver bus contract");
@@ -3505,14 +3607,14 @@ mod tests {
                     let c = mailbox.as_mut().unwrap();
                     assert_eq!(c.op, 20);
                     assert_eq!(c.bytes, crate::performance::wire(128, 0, 96000.).unwrap());
-                    c.result = Some(Ok([
+                    let reply = [
                         7u32.to_le_bytes(),
                         18u32.to_le_bytes(),
                         1u32.to_le_bytes(),
                         0u32.to_le_bytes(),
                     ]
-                    .concat()));
-                    peer.pending_control.store(false, Ordering::Release);
+                    .concat();
+                    complete_control(&peer, c, Ok(reply), [0; 5]).unwrap();
                     break;
                 }
                 assert!(Instant::now() < until);

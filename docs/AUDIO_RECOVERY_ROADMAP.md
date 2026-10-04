@@ -63,8 +63,11 @@ The following work closes specific omissions without opening another workstream:
   deliberately legacy-only paths with their callers and scope. Their presence
   alone is not evidence that they caused an observed audio failure.
   The 2026-10-03 caller audit finds `queued::control` still reachable for IPC 15
-  setup, activation and state operations; replacing that acknowledgement poll
-  remains required by the selected control-wakeup contract. `wait_started` is
+  setup, activation and state operations. The reviewed successor replaces that
+  acknowledgement poll with a dedicated notification; its installed acceptance
+  remains open. The notification does not strengthen the inherited total control
+  duration bound: the worker still owns the mailbox mutex during Session calls.
+  `wait_started` is
   compiled only with `rpi0` and used by the Pi standalone start/restart path.
   `mailbox::receive_while_into` is the explicitly minor<15 reply fallback; IPC 15
   uses `receive_notified_into`. The control-handoff sleep is likewise the branch
