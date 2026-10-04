@@ -132,6 +132,75 @@ void overlapRefusals() {
     need(!captureOverlaps(begin,end,alreadyEnded),"callback must still be in flight at capture return");
     need(!captureOverlaps(begin,begin+10000000000ULL,overlapping),"original capture deadline cannot be renewed");
 }
+std::vector<uint8_t> completionEnvelope(const Options& o,double operation) {
+    constexpr size_t header=104;std::vector<uint8_t> payload;
+    auto append32=[&](uint32_t value){for(size_t i=0;i<4;++i)payload.push_back(uint8_t(value>>(i*8)));};
+    auto append64=[&](double value){const auto begin=payload.size();payload.resize(begin+8);std::memcpy(payload.data()+begin,&value,8);};
+    std::array<uint8_t,24> vendor{'L','V','B','B',1,uint8_t(o.instrument),0,0};
+    const double gain=.625,colour=.125;std::memcpy(vendor.data()+8,&gain,8);std::memcpy(vendor.data()+16,&colour,8);
+    append32(24);append32(24);append32(4);append32(3);
+    payload.insert(payload.end(),vendor.begin(),vendor.end());payload.insert(payload.end(),vendor.begin(),vendor.end());
+    for(const auto [id,value]:std::array<std::pair<uint32_t,double>,4>{{{0,.625},{1,.125},{31,operation},{32,0.}}}) {
+        append32(id);append32(1);append64(value);
+    }
+    std::vector<uint8_t> envelope(header);std::copy_n(reinterpret_cast<const uint8_t*>("LVBSTATE"),8,envelope.begin());
+    auto put32=[&](size_t offset,uint32_t value){for(size_t i=0;i<4;++i)envelope[offset+i]=uint8_t(value>>(i*8));};
+    put32(8,3);put32(12,header);
+    const auto fixtureClass=completionFixtureClass(o.instrument);
+    std::copy(fixtureClass.begin(),fixtureClass.end(),envelope.begin()+16);
+    std::fill(envelope.begin()+32,envelope.begin()+64,0x5a);put32(64,uint32_t(payload.size()));
+    const auto digest=stateSha256(payload.data(),payload.size());std::copy(digest.begin(),digest.end(),envelope.begin()+72);
+    envelope.insert(envelope.end(),payload.begin(),payload.end());return envelope;
+}
+void resign(std::vector<uint8_t>& envelope) {
+    const auto digest=stateSha256(envelope.data()+104,envelope.size()-104);
+    std::copy(digest.begin(),digest.end(),envelope.begin()+72);
+}
+void slowStateRefusals(const Options& o) {
+    const std::array<uint8_t,3> abc{'a','b','c'};
+    const std::array<uint8_t,32> abcDigest{0xba,0x78,0x16,0xbf,0x8f,0x01,0xcf,0xea,0x41,0x41,0x40,0xde,0x5d,0xae,0x22,0x23,
+                                                  0xb0,0x03,0x61,0xa3,0x96,0x17,0x7a,0x9c,0xb4,0x10,0xff,0x61,0xf2,0x00,0x15,0xad};
+    need(stateSha256(abc.data(),abc.size())==abcDigest,"independent SHA-256 known answer");
+    const auto original=completionEnvelope(o,1.);const auto recalled=completionEnvelope(o,.25);
+    const std::array<uint8_t,32> payloadDigest=o.instrument
+        ?std::array<uint8_t,32>{0xbc,0x98,0xd3,0xd3,0x76,0x4c,0x39,0x02,0xed,0xbf,0x59,0x8d,0xa9,0x97,0xe4,0x57,
+                                0x34,0x3f,0x8d,0xec,0xc5,0x14,0xb3,0x06,0xd8,0x82,0x00,0x47,0x70,0x77,0x33,0x6e}
+        :std::array<uint8_t,32>{0x9a,0x79,0xb8,0x54,0xfb,0x31,0xbe,0x8f,0x49,0x64,0xad,0xf4,0xa8,0x4f,0x8d,0x20,
+                                0x6e,0x21,0x09,0xf7,0x4c,0x7d,0x7d,0x8b,0x3f,0xb5,0x91,0x62,0x59,0xe3,0xe5,0x96};
+    need(stateSha256(original.data()+104,original.size()-104)==payloadDigest,"independent 128-byte fixture SHA-256 known answer");
+    slowStateRecall(o,original,recalled);
+    need(original==completionEnvelope(o,1.),"slow observer leaves original saved snapshot untouched");
+    auto wrongDurable=recalled;const double wrongGain=.5;std::memcpy(wrongDurable.data()+104+16+8,&wrongGain,8);resign(wrongDurable);
+    refuses([&]{slowStateRecall(o,original,wrongDurable);},"wrong durable vendor value refused");
+    const auto recalledView=completionState(recalled,o);
+    auto wrongMirror=recalled;std::memcpy(wrongMirror.data()+recalledView.valueOffsets[0],&wrongGain,8);resign(wrongMirror);
+    refuses([&]{slowStateRecall(o,original,wrongMirror);},"wrong durable mirror value refused");
+    auto wrongIdentity=recalled;wrongIdentity[recalledView.valueOffsets[2]-8]=30;resign(wrongIdentity);
+    refuses([&]{slowStateRecall(o,original,wrongIdentity);},"wrong mirror identity refused");
+    auto duplicateIdentity=recalled;duplicateIdentity[recalledView.valueOffsets[2]-8]=1;resign(duplicateIdentity);
+    refuses([&]{slowStateRecall(o,original,duplicateIdentity);},"duplicate mirror identity refused");
+    auto wrongClass=recalled;wrongClass[16]^=1;
+    refuses([&]{slowStateRecall(o,original,wrongClass);},"wrong class provenance refused");
+    auto proxyAsVendor=recalled;auto nibble=[](char ch)->uint8_t{return uint8_t(ch<='9'?ch-'0':ch-'A'+10);};
+    for(size_t i=0;i<16;++i)proxyAsVendor[16+i]=uint8_t((nibble(o.processor[i*2])<<4)|nibble(o.processor[i*2+1]));
+    refuses([&]{slowStateRecall(o,original,proxyAsVendor);},"native proxy identity is not the Windows fixture class");
+    auto wrongModule=recalled;wrongModule[32]^=1;
+    refuses([&]{slowStateRecall(o,original,wrongModule);},"wrong module provenance refused");
+    auto wrongOperation=recalled;const double stale=.5;std::memcpy(wrongOperation.data()+recalledView.valueOffsets[2],&stale,8);resign(wrongOperation);
+    refuses([&]{slowStateRecall(o,original,wrongOperation);},"wrong fresh transient value refused");
+    auto malformed=recalled;malformed.pop_back();
+    refuses([&]{slowStateRecall(o,original,malformed);},"malformed envelope extent refused");
+    auto corruptDigest=recalled;corruptDigest[72]^=1;
+    refuses([&]{slowStateRecall(o,original,corruptDigest);},"malformed envelope digest refused");
+    refuses([&]{need(original==recalled,"byte-exact component state recall");},"deterministic recall keeps exact full-byte assertion");
+}
+void originalStateRefusals() {
+    const std::vector<uint8_t> saved{1,2,3};LVBState::Stream state(saved);
+    originalStateRetained(state,saved);
+    state.failed=true;refuses([&]{originalStateRetained(state,saved);},"failed original stream operation refused");state.failed=false;
+    state.addRef();refuses([&]{originalStateRetained(state,saved);},"retained original stream reference refused");state.release();
+    state.bytes[0]^=1;refuses([&]{originalStateRetained(state,saved);},"mutated original saved bytes refused");
+}
 struct PrivateOutputTest {
     std::string directory,prefix;
     PrivateOutputTest() {
@@ -162,12 +231,14 @@ void retainedOutput(const OutputCapture& output,const PrivateOutputTest& locatio
     refuses([&]{other.prepare(location.prefix.c_str());},"a reused run prefix cannot overwrite retained output");
 }
 int main() {
-    lifecycleRefusals();configureOwnershipRefusals();overlapRefusals();
+    lifecycleRefusals();configureOwnershipRefusals();overlapRefusals();originalStateRefusals();
     const char* args[]{"completion-host","unused.vst3",LVB_BETA_INSTRUMENT?"instrument":"effect","matrix","private-state",
-        "257","48000","0","11111111111111111111111111111111","22222222222222222222222222222222"};
+        "257","48000","0",LVB_BETA_INSTRUMENT?"9F2F385EF1995AAFB9B903BE757F945F":"F873988072B15B10BB2104F4CF6B5C0F",
+        LVB_BETA_INSTRUMENT?"F55783DD140C5EE997498BF6549BECB6":"539E040E312B5E979DB62FBE6438D70A"};
     std::array<char*,10> mutableArgs{};
     for (size_t i = 0; i < mutableArgs.size(); ++i) mutableArgs[i] = const_cast<char*>(args[i]);
     const auto o = options(10,mutableArgs.data());
+    slowStateRefusals(o);
     for (const auto* value : {"","0","-1","+64","64x","1025"," 64","64 ","99999999999999999999999"}) {
         auto bad = mutableArgs; bad[5] = const_cast<char*>(value);
         refuses([&]{options(10,bad.data());},"malformed/out-of-bound M refused before module load");
@@ -247,5 +318,5 @@ int main() {
     ok(processor.terminate(),"actual producer terminate");
     output.write();retainedOutput(output,outputLocation,positiveOutput,corruptedOutput,failedOracleOutput);
     std::cout << "COMPLETION_CONSUMER_ORACLE_V1 role=" << (o.instrument?"instrument":"effect")
-              << " exact_producer=passed argument_refusals=passed stale_mode=refused missing_flush=refused first_final_corruption=refused lifecycle_refusal_retention=passed reconfiguration_refusal=retained audited_start_cleanup=passed false_capture_overlap=refused actual_output_retained=passed corrupt_output_retained=passed\n";
+              << " exact_producer=passed argument_refusals=passed stale_mode=refused missing_flush=refused first_final_corruption=refused lifecycle_refusal_retention=passed reconfiguration_refusal=retained audited_start_cleanup=passed false_capture_overlap=refused slow_state_observer=passed original_state_stream_refusals=passed actual_output_retained=passed corrupt_output_retained=passed\n";
 }

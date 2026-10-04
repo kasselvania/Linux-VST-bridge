@@ -17,6 +17,7 @@
 #include <charconv>
 #include <chrono>
 #include <cmath>
+#include <cstring>
 #include <cstdlib>
 #include <dlfcn.h>
 #include <fcntl.h>
@@ -493,18 +494,130 @@ void writeState(const char* prefix,const char* suffix,const LVBState::Stream& st
     file.write(reinterpret_cast<const char*>(state.bytes.data()),std::streamsize(state.bytes.size()));
     file.flush(); need(bool(file), "private state output");
 }
+std::array<uint8_t,32> stateSha256(const uint8_t* bytes,size_t length) {
+    static constexpr std::array<uint32_t,64> constants{
+        0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+        0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+        0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+        0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+        0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+        0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+        0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+        0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2};
+    std::array<uint32_t,8> hash{0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,
+                                0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19};
+    const uint64_t bits=uint64_t(length)*8;
+    const size_t blocks=(length+9+63)/64;
+    for(size_t block=0;block<blocks;++block) {
+        std::array<uint8_t,64> input{};const size_t begin=block*64;
+        for(size_t i=0;i<64;++i) {
+            const size_t position=begin+i;
+            if(position<length)input[i]=bytes[position];
+            else if(position==length)input[i]=0x80;
+        }
+        if(block+1==blocks)for(size_t i=0;i<8;++i)input[63-i]=uint8_t(bits>>(i*8));
+        std::array<uint32_t,64> words{};
+        for(size_t i=0;i<16;++i)words[i]=(uint32_t(input[i*4])<<24)|(uint32_t(input[i*4+1])<<16)
+            |(uint32_t(input[i*4+2])<<8)|uint32_t(input[i*4+3]);
+        for(size_t i=16;i<64;++i) {
+            const auto s0=std::rotr(words[i-15],7)^std::rotr(words[i-15],18)^(words[i-15]>>3);
+            const auto s1=std::rotr(words[i-2],17)^std::rotr(words[i-2],19)^(words[i-2]>>10);
+            words[i]=words[i-16]+s0+words[i-7]+s1;
+        }
+        auto [a,b,c,d,e,f,g,h]=hash;
+        for(size_t i=0;i<64;++i) {
+            const auto s1=std::rotr(e,6)^std::rotr(e,11)^std::rotr(e,25);
+            const auto choice=(e&f)^((~e)&g);
+            const auto first=h+s1+choice+constants[i]+words[i];
+            const auto s0=std::rotr(a,2)^std::rotr(a,13)^std::rotr(a,22);
+            const auto majority=(a&b)^(a&c)^(b&c);
+            const auto second=s0+majority;
+            h=g;g=f;f=e;e=d+first;d=c;c=b;b=a;a=first+second;
+        }
+        hash[0]+=a;hash[1]+=b;hash[2]+=c;hash[3]+=d;
+        hash[4]+=e;hash[5]+=f;hash[6]+=g;hash[7]+=h;
+    }
+    std::array<uint8_t,32> result{};
+    for(size_t i=0;i<hash.size();++i)for(size_t j=0;j<4;++j)result[i*4+j]=uint8_t(hash[i]>>(24-j*8));
+    return result;
+}
+uint32_t stateWord(const uint8_t* bytes) {
+    return uint32_t(bytes[0])|(uint32_t(bytes[1])<<8)|(uint32_t(bytes[2])<<16)|(uint32_t(bytes[3])<<24);
+}
+struct CompletionStateView {
+    std::array<size_t,4> valueOffsets{};
+    std::array<double,4> values{};
+};
+std::array<uint8_t,16> completionFixtureClass(bool instrument) {
+    return instrument ? std::array<uint8_t,16>{'L','V','B','B','C','M','P','1','I','N','S','T',0,0,0,1}
+                      : std::array<uint8_t,16>{'L','V','B','B','C','M','P','1','E','F','F','X',0,0,0,1};
+}
+CompletionStateView completionState(const std::vector<uint8_t>& bytes,const Options& o) {
+    constexpr size_t header=104,vendorBytes=24,parameterBytes=16;
+    need(bytes.size()>=header,"completion state envelope extent");
+    need(std::equal(bytes.begin(),bytes.begin()+8,reinterpret_cast<const uint8_t*>("LVBSTATE"))
+        &&stateWord(bytes.data()+8)==3&&stateWord(bytes.data()+12)==header,"completion state envelope version");
+    need(stateWord(bytes.data()+64)==bytes.size()-header&&stateWord(bytes.data()+68)==0,
+         "completion state envelope length/reserved");
+    const auto digest=stateSha256(bytes.data()+header,bytes.size()-header);
+    need(std::equal(digest.begin(),digest.end(),bytes.begin()+72),"completion state envelope integrity");
+    const auto fixtureClass=completionFixtureClass(o.instrument);
+    need(std::equal(fixtureClass.begin(),fixtureClass.end(),bytes.begin()+16),"completion fixture class provenance");
+    need(std::any_of(bytes.begin()+32,bytes.begin()+64,[](uint8_t value){return value!=0;}),
+         "completion state module provenance");
+    const auto* payload=bytes.data()+header;const size_t payloadBytes=bytes.size()-header;
+    need(payloadBytes>=16,"completion commercial state header");
+    const auto component=stateWord(payload),controller=stateWord(payload+4),parameters=stateWord(payload+8),flags=stateWord(payload+12);
+    need(component==vendorBytes&&controller==vendorBytes&&parameters==4&&flags==3
+        &&payloadBytes==16+component+controller+parameters*parameterBytes,"completion commercial state structure");
+    std::array<uint8_t,vendorBytes> expected{'L','V','B','B',1,uint8_t(o.instrument),0,0};
+    const double gain=.625,colour=.125;std::memcpy(expected.data()+8,&gain,8);std::memcpy(expected.data()+16,&colour,8);
+    need(std::equal(expected.begin(),expected.end(),payload+16),"completion opaque component state");
+    need(std::equal(expected.begin(),expected.end(),payload+16+component),"completion opaque controller state");
+    CompletionStateView view;std::array<bool,4> seen{};const std::array<uint32_t,4> ids{0,1,31,32};
+    const size_t records=16+component+controller;
+    for(size_t record=0;record<parameters;++record) {
+        const auto* value=payload+records+record*parameterBytes;const auto id=stateWord(value),available=stateWord(value+4);
+        auto found=std::find(ids.begin(),ids.end(),id);need(found!=ids.end()&&available==1,"completion parameter identity/availability");
+        const size_t index=size_t(found-ids.begin());need(!seen[index],"completion parameter identity uniqueness");seen[index]=true;
+        view.valueOffsets[index]=header+records+record*parameterBytes+8;
+        std::memcpy(&view.values[index],value+8,8);need(std::isfinite(view.values[index])&&view.values[index]>=0&&view.values[index]<=1,
+                                                        "completion parameter normalized value");
+    }
+    need(std::all_of(seen.begin(),seen.end(),[](bool value){return value;}),"completion parameter identity census");
+    need(view.values[0]==gain&&view.values[1]==colour&&view.values[3]==0.,"completion durable parameter mirror");
+    return view;
+}
+void slowStateRecall(const Options& o,const std::vector<uint8_t>& original,const std::vector<uint8_t>& recalled) {
+    const auto before=completionState(original,o),after=completionState(recalled,o);
+    need(before.values[2]==1.&&after.values[2]==.25,"slow-offline fresh fixture operation mirror");
+    need(before.valueOffsets[2]==after.valueOffsets[2],"slow-offline parameter record structure");
+    need(std::equal(original.begin(),original.begin()+72,recalled.begin()),"slow-offline state provenance");
+    need(original.size()==recalled.size(),"slow-offline state extent");
+    for(size_t i=104;i<original.size();++i)
+        if(i<before.valueOffsets[2]||i>=before.valueOffsets[2]+8)need(original[i]==recalled[i],"slow-offline unexpected state difference");
+}
+void originalStateRetained(const LVBState::Stream& original,const std::vector<uint8_t>& saved) {
+    need(!original.failed&&original.quiescent(),"original state stream bounds/lifetime");
+    need(original.bytes==saved,"original saved component state changed during recall");
+}
 void stateRoundtrip(Lifecycle& life,const Options& o,LVBState::Stream& original) {
+    const auto saved=original.bytes;
     original.position = 0; ok(life.component->setState(&original), "original opaque component recall");
     original.position = 0; ok(life.controller->setComponentState(&original), "original controller synchronization");
     need(life.controller->getParamNormalized(0) == .625 && life.controller->getParamNormalized(1) == .125,
          "recognizable recalled parameters");
     LVBState::Stream recalled; ok(life.component->getState(&recalled), "recalled component capture");
-    need(recalled.bytes == original.bytes, "byte-exact component state recall");
+    LVBState::Stream retained(saved,LVBState::payloadLimit+LVBState::overhead);
+    writeState(o.prefix,".component",retained);writeState(o.prefix,".component.recalled",recalled);
+    originalStateRetained(original,saved);
+    if(o.scenario=="slow-offline")slowStateRecall(o,saved,recalled.bytes);
+    else need(recalled.bytes==saved,"byte-exact component state recall");
     LVBState::Stream control; ok(life.controller->getState(&control), "controller capture");
     control.position = 0; ok(life.controller->setState(&control), "controller recall");
     LVBState::Stream controlAgain; ok(life.controller->getState(&controlAgain), "controller recapture");
     need(control.bytes == controlAgain.bytes, "byte-exact controller state recall");
-    writeState(o.prefix,".component",original); writeState(o.prefix,".controller",control);
+    writeState(o.prefix,".controller",control);
     std::cout << "{\"event\":\"completion_state\",\"component_bytes\":" << original.bytes.size()
               << ",\"controller_bytes\":" << control.bytes.size() << ",\"component_recall\":true,\"controller_recall\":true}" << std::endl;
 }

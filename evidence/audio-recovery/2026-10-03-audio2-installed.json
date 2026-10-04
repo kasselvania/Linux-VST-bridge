@@ -454,5 +454,77 @@
     "Same-callback or lower-latency qualification",
     "Whole-callback real-time timing qualification",
     "Beta readiness"
-  ]
+  ],
+  "subsequent_slow_offline_attempt": {
+    "role": "instrument",
+    "scenario": "slow-offline",
+    "maximum": 512,
+    "rate": 48000,
+    "delay": 512,
+    "exit_code": 1,
+    "retired": true,
+    "passed": false,
+    "observer_error": null,
+    "intervention": null,
+    "label": "instrument-buffered512-slow-offline1",
+    "diagnostics_enabled": false,
+    "audio": {
+      "event": "completion_audio",
+      "schema": 1,
+      "role": "instrument",
+      "delivery_frames": 512,
+      "vendor_latency_frames": 13,
+      "callbacks": 10,
+      "compared_samples": 4148,
+      "mismatches": 0,
+      "nonfinite": 0,
+      "nonzero": 2040,
+      "max_error": 0,
+      "returned_events": 11,
+      "returned_points": 17,
+      "rejected_callbacks": 0,
+      "callback_max_ns": 12001938837,
+      "whole_callback_overruns": 0,
+      "callback_effects": 0,
+      "callback_local_wakes": 10,
+      "local_wake_counter_available": true,
+      "callback_audited": true
+    },
+    "capture_overlap": {
+      "event": "capture_overlap_observation",
+      "capture_begin_ns": 727574935387,
+      "capture_end_ns": 727783963705,
+      "audio_begin_ns": 727625037177,
+      "audio_end_ns": 739626976014,
+      "audio_inflight_at_capture_return": true,
+      "audio_callback_interval_recorded": true,
+      "capture_issued_before_audio_begin": true,
+      "capture_within_original_10s": true,
+      "audio_remaining_after_capture_start_ns": 12052040627,
+      "transport_capture_admission_proven_by_sdk_timestamps": false
+    },
+    "failure": {
+      "event": "failed",
+      "stage": "processing",
+      "reason": "byte-exact component state recall"
+    },
+    "classification": "state_oracle_rejected_nonpersistent_fixture_control_mirror",
+    "attribution": {
+      "component_and_controller_opaque_bytes_unchanged": true,
+      "class_and_module_provenance_unchanged": true,
+      "durable_gain": 0.625,
+      "durable_colour": 0.125,
+      "changed_mirror_id": 31,
+      "captured_value": 1.0,
+      "fresh_value_after_restore": 0.25,
+      "changed_payload_byte_offset": 110,
+      "reason": "Fixture ID31 is a transient operation excluded from vendor durable state. The selected vendor restore owns migration; the bridge correctly reads fresh values instead of replaying an old mirror. The unchanged full-envelope oracle is invalid for this deliberately changed transient control.",
+      "commercial_payload_sha256_before": "bc98d3d3764c3902edbf598da997e457343f8decc514b306d88200477077336e",
+      "commercial_payload_sha256_after": "46a4f35c89c8de3a50ffab7dfd86e47002817e3a990d541eaa77730864bc8f35"
+    },
+    "result_record_sha256": "290bcca277b752336b652c54bb68bc346de3b2c62bb4d445bee36c1729ec77d5",
+    "private_archive_sha256": "1d2f156cce45f0763155d1b221147226c43264ae1024df6bf6e7fbce73cf8eb5",
+    "original_failed_lifetime_retained": true,
+    "corrected_observer_installed_result": "not_run"
+  }
 }

@@ -154,8 +154,11 @@ not an attribution of historical gaps or a dependable-audio claim.
 Next work retains the same completion contract: replace the current IPC 15 control
 acknowledgement polling with notification, and complete installed failure/slow
 offline and delivery-selection checks. The first slow-offline run returns correct
-audio and retires, but fails its exact component-state recall assertion; attribute
-the saved-byte difference before repair or further installed tests. Same-callback,
+audio and retires, but its full-envelope state oracle incorrectly requires replay
+of transient fixture control ID31. Vendor opaque state and durable values are
+unchanged; the current controller mirror legitimately reports the later operation.
+Correct only this explicit observer assumption and rerun against the unchanged
+installed candidate before using a source successor. Same-callback,
 serial-chain, lower-block, failure and physical acceptance remain open.
 
 The polling audit distinguishes current control acknowledgement from deliberate
