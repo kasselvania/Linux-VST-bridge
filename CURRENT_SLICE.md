@@ -181,3 +181,81 @@ remains required before promoting a new physical candidate. Physical DAW/serial-
 completion, inactive reconfiguration, lower blocks and the musician interaction/soak
 still need qualification on one frozen artifact. The device/whole-graph deadline
 and bridge-local containment allowance must remain distinct in that work.
+
+## Current endpoint: loaded-engine admission
+
+Operator continuation starts from `514c74d2cb4bc7905ddaea33704058f3a1e4af0d`,
+tree `e2f88511210f870c5b4e6b6201115f1a5ea8948f`. Before another physical
+candidate, close FC-MGMT-008 under architecture 18.6 “One configuration, distinct
+responsibilities” and 18.7 “Shared configuration, separate facts.” The claim is
+that an already loaded native factory can create a managed instance only against
+its matching selected execution pair and discovery data. A publication update or
+rollback must yield an inspectable stale-caller refusal when the cached caller
+does not match, before new runtime, DSP or transport resources are admitted.
+
+Scope: factory-time descriptor/image binding, non-realtime native greeting,
+manager resolution and final admission rechecks, existing refusal reporting, and
+loader/manager regression fixtures. Reuse existing registration, publication and
+recovery owners. Do not change Windows processing, callback bounds, runtime,
+buffer preferences, class IDs, saved state or licensed environments. Hashing the
+current pathname alone cannot prove which engine is already mapped by the DAW.
+
+Acceptance must reproduce a held factory across selection changes, cover both
+engine and descriptor changes, and verify matching fresh/cached callers, explicit
+stale/malformed identity refusal, no resources acquired by a refused caller, and
+usable exact predecessor restoration. Older greeting behavior must be explicit
+and tested; it may neither bypass caller binding nor silently destroy rollback.
+Retain original failure and repaired loader/admission evidence, actual source and
+artifact identities, normal recovery results and unperformed physical boundaries.
+No Deck mutation occurs during this source repair.
+
+Legacy migration is an explicit pending operator decision. An old runtime-descriptor
+engine can be mapped from A, read descriptor B through the publication link on its
+first factory call, then survive restoration of A. Its class/module-only greeting
+does not distinguish that cache from correct A; a unique mapped A inode cannot
+repair the missing descriptor provenance. Do not accept process-map presence as
+proof of the legacy cache, or claim that suggesting a DAW restart enforces it.
+Modern loaded-image/descriptor binding and its tests may proceed independently.
+Requiring explicit managed refresh of pre-contract native publications changes
+legacy execution eligibility and remains pending; no deployment or compatibility
+claim may assume approval.
+
+The [modern source checkpoint](evidence/audio-recovery/2026-10-04-loaded-engine-admission-source.json)
+is independently reviewed at patch `fcc640b012b65b9f57cd2573bf6c39f9d08e3cc40bbe911eaff1d1394df707e9`
+over the base above. The actual audio9 loader reproduces the mismatched cache;
+the repaired engine refuses it and passes the unchanged-link control. Linux
+validation passes 22 client tests, 150 default/151 registered backend tests,
+571 manager tests and 13 native SDK tests, plus affected strict lint. Two backend
+tests in each configuration and two manager tests remain explicitly ignored.
+The final manager-only error-routing correction recompiles and passes its real
+Unix-peer regression and strict lint; unchanged native results are reused by hash.
+Original lint, local concurrent-test and observer failures remain retained.
+
+The modern source binding is implemented; FC-MGMT-008 as a complete capability is
+still open. LVB1–4 execution policy has not changed, and full installed admission,
+refusal and predecessor recovery are unperformed for this repair. Do not deploy it
+while the managed-refresh decision is pending. All evidence is copied and verified
+outside the checkout. Builder and VM are stopped, Audiobookshelf is running and
+the Deck remains unchanged.
+
+## Following gate: physical delivery measurements
+
+The operator's audio9 review ends VM timing iteration. Disposable Linux testing may
+still establish deterministic admission, lifecycle and recovery behavior; it must
+not produce another timing candidate to chase a tiny-block pass. Audio9 tested
+Buffered512 only and does not measure SameCallback delivery.
+
+After admission is repaired and reviewed, use one frozen physical Deck candidate
+with explicit Buffered and SameCallback D=0 selections. Record whole lifetimes
+over thousands of callbacks at actual host blocks 256, 128 and 64, with sample rate,
+maximum block, actual block, bridge delay and vendor latency distinct. Report
+median, 99th percentile and maximum for the actual request/reply interval and whole
+callback separately, actual returned audio and missing spans, mode and artifact
+identities, and effective scheduling on both native and Windows render threads.
+Verify realtime scheduling rather than assuming it; preserve an unavailable result
+without unrelated privilege changes. Do not call total buffered callback duration
+an isolated round-trip cost. Keep diagnostics-off acceptance separate from bounded
+instrumented timing observations and retain all failed lifetimes.
+
+These distributions guide realistic block-size qualification; they do not replace
+serial-chain/reconfiguration checks or the declared musician interaction and soak.

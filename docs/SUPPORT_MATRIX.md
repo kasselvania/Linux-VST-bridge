@@ -80,6 +80,22 @@ DAW, serial-chain, lower-block and endurance gates remain open.
 These reference SDK results do not change the Deck claims below or attribute the
 config4 and historical Deck gaps.
 
+The subsequent loaded-engine repair is **source-only and unqualified for deployment**.
+An independent SDK loader reproduces cached descriptor B with selected/mapped engine
+A on the retained audio9 engine. The repaired factory refuses that race and passes
+the unchanged-publication control. New LVB5 admission carries factory-cached engine
+and descriptor digests, checks the selected executable mapping, and retains one DAW
+process generation across startup checks. Its real Unix-socket regression rejects
+stale engine/descriptor, an unmapped same-byte inode and changed process generation
+before the guarded startup continuation. These observations do not run the complete
+manager/Windows workflow or prove physical audio.
+Pre-contract greetings remain unchanged pending the operator's managed-refresh
+decision; they cannot establish the same cached-descriptor provenance.
+FC-MGMT-008 therefore remains open. No new package or Deck publication is installed.
+After that boundary is resolved, timing qualification moves to one frozen physical
+candidate in both Buffered and SameCallback D=0 modes; further VM timing iterations
+are not an acceptance route.
+
 Managed configuration remains **unqualified** for the musician workflow. The
 latest Ubuntu reference SDK configuration and normal recovery checks pass;
 earlier failures remain retained below.

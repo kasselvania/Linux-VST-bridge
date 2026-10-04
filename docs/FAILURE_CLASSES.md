@@ -99,7 +99,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
 | [FC-MGMT-007](#fc-mgmt-007--retained-proposal-displaces-selected-configuration) | Retained proposal displaces selected configuration | Manager guided projection and frontend action ownership | causal | installed-fixed on reference fixture | Ubuntu config7 full effect/instrument workflow and GUI restoration | reference configuration regression passed; musician workflow unqualified | Physical DAW integration and endurance |
-| [FC-MGMT-008](#fc-mgmt-008--loaded-native-engine-is-not-bound-during-admission) | Loaded native engine missing from admission | Cached DAW factory / selected execution pair | source-established gap | inactive guard compatibility repaired; identity binding open | Source-matched IPC15 old-reader regression; physical cached-factory case unperformed | unqualified | Bind the executing engine and preserve exact predecessor restoration |
+| [FC-MGMT-008](#fc-mgmt-008--loaded-native-engine-is-not-bound-during-admission) | Loaded native engine missing from admission | Cached DAW factory / selected execution pair | reproduced loader/cache mismatch | modern source binding repaired; legacy migration authority gap open | Independent old/new SDK loader comparison and real Unix-peer admission gate; complete installed/physical path unperformed | unqualified | Resolve pre-contract refresh policy, then prove installed admission and predecessor recovery |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
 ---
@@ -2754,3 +2754,39 @@ provide an inspectable stale-caller result and preserve usable exact predecessor
 restoration. Do not claim that admission is fixed merely because fresh-process
 installation and rollback pass. No greeting/ABI redesign is included in the current
 sample-payload repair.
+
+The subsequent admission investigation reproduced an additional cache mismatch
+with the retained audio9 engine (`e0455c106fff08a326bc20386eed013de9e0281366d24b9d20539cb58f23719b`).
+An independent SDK loader maps A through the normal bundle publication link,
+selects B before the first factory call, then restores A. The selected executable
+mapping is A by kernel device/inode, but the factory reports descriptor B. The
+unchanged-link control reports A correctly. Class and vendor-module identities
+are unchanged between the two descriptors. This is an actual loader observation;
+it does not execute manager admission or audio processing.
+
+Thus a legacy class/module-only greeting plus a unique selected image mapping
+cannot prove the cached descriptor. Requiring a new caller-binding contract would
+also change whether pre-contract native publications may execute. The operator
+has been asked to choose explicit managed refresh versus keeping this repair
+source-only pending migration policy. Until resolved and tested, retain this as an
+authority gap; neither a suggested DAW restart nor successful file rollback closes
+it. Existing installed publications and licensed state have not been changed.
+
+The modern source repair binds descriptor ABI v2 to the executable mapping containing
+the factory's function anchor, opens image and descriptor from one directory handle,
+and retains their hashes with the factory metadata. LVB5 transmits that cached pair
+on normal admission and recovery. The manager verifies it against the selected
+registration and executable inode before its startup continuation, then rechecks
+before final admission. Both checks and graphical capture use one retained peer
+PID/UID/start-time identity. Stale callers receive the existing typed refusal path
+with `admission_stale_native_caller`; no callback or Windows processing change is
+part of this repair.
+
+The repaired SDK loader passes unchanged-link control and refuses the same actual
+bundle-link race reproduced on audio9. The production gate's Linux UnixStream test
+admits the current executable and rejects stale engine, stale descriptor, an unmapped
+same-byte inode and changed process generation without calling its continuation.
+This is a modern source/loader proof, not complete installed service qualification
+or authentication of an arbitrary transferred socket's calling module. Legacy
+LVB1–4 behavior is unchanged. Until its migration decision and installed recovery
+are established, this failure class remains open.

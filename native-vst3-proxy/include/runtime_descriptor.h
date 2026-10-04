@@ -21,19 +21,21 @@ struct Parameter {
 };
 struct DescriptorView {
   uint32_t abi, size;
-  uint8_t identity[48], processor[16], controller[16];
+  uint8_t identity[48], engine_sha256[32], descriptor_sha256[32];
+  uint8_t processor[16], controller[16];
   char class_name[64], vendor[64], version[64], subcategories[128];
   uint32_t bus_count, parameter_count;
   const Bus* buses;
   const Parameter* parameters;
 };
-extern "C" int32_t lvb_descriptor_open_v1(const char*, void**, DescriptorView*);
+extern "C" int32_t lvb_descriptor_open_v2(const char*, const void*, void**, DescriptorView*);
 extern "C" void lvb_descriptor_close_v1(void*);
 
 // Hidden symbols keep each loaded publication's discovery data independent.
 inline std::span<const Bus> buses;
 inline std::span<const Parameter> parameters;
 inline uint8_t identity[48]{};
+inline uint8_t engine_sha256[32]{}, descriptor_sha256[32]{};
 inline char processorID[16]{}, controlID[16]{};
 inline char class_name[64]{}, vendor[64]{}, version[64]{}, subcategories[128]{};
 
@@ -45,9 +47,12 @@ inline bool loadDescriptor() {
       Dl_info info{};
       DescriptorView view{};
       if (!dladdr(reinterpret_cast<void*>(&loadDescriptor), &info) || !info.dli_fname ||
-          lvb_descriptor_open_v1(info.dli_fname, &owner, &view) ||
-          view.abi != 1 || view.size != sizeof(view)) return;
+          lvb_descriptor_open_v2(info.dli_fname,
+            reinterpret_cast<const void*>(&loadDescriptor), &owner, &view) ||
+          view.abi != 2 || view.size != sizeof(view)) return;
       std::memcpy(identity, view.identity, sizeof(identity));
+      std::memcpy(engine_sha256, view.engine_sha256, sizeof(engine_sha256));
+      std::memcpy(descriptor_sha256, view.descriptor_sha256, sizeof(descriptor_sha256));
       std::memcpy(processorID, view.processor, sizeof(processorID));
       std::memcpy(controlID, view.controller, sizeof(controlID));
       std::memcpy(class_name, view.class_name, sizeof(class_name));

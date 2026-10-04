@@ -2280,6 +2280,15 @@ fn runtime_descriptor_fixture(
     p.requirements.descriptor_sha256 = data.sha256.clone();
     n.descriptor = Some(data);
 }
+fn loaded_execution(registration: &Registration) -> ap1_native_client::admission::ExecutionIdentity {
+    let parse = |value: &str| -> [u8;32] {
+        std::array::from_fn(|index| u8::from_str_radix(&value[index*2..index*2+2],16).unwrap())
+    };
+    ap1_native_client::admission::ExecutionIdentity {
+        engine:parse(&registration.native.sha256),
+        descriptor:parse(&registration.descriptor.as_ref().unwrap().sha256),
+    }
+}
 #[test]
 fn reusable_engine_publication_keeps_distinct_descriptors_and_rolls_back_exactly() {
     let (f, mut p, c, mut n) = prepared();
@@ -2310,6 +2319,38 @@ fn reusable_engine_publication_keeps_distinct_descriptors_and_rolls_back_exactly
     fs::set_permissions(&original.path, fs::Permissions::from_mode(0o600)).unwrap();
     fs::write(&original.path, b"changed descriptor").unwrap();
     assert!(f.m.load_revision(&f.r.key(), &first).is_err());
+}
+#[test]
+fn loaded_execution_binding_refuses_stale_engine_and_descriptor_then_accepts_exact_restore() {
+    let (f, mut p, c, mut n) = prepared();
+    runtime_descriptor_fixture(&f, &mut p, &mut n, 0.25, "loaded-first");
+    let first = publish(&f, &p, &c, &n, None).unwrap();
+    let first_record = f.m.load_revision(&f.r.key(), &first).unwrap();
+    let first_loaded = loaded_execution(&first_record.registration);
+    first_record.registration.verify_loaded_execution(&first_loaded).unwrap();
+
+    let mut updated = p.clone(); updated.revision += 1;
+    let mut next = n.clone();
+    runtime_descriptor_fixture(&f, &mut updated, &mut next, 0.75, "loaded-second");
+    let second = publish(&f, &updated, &c, &next, None).unwrap();
+    let second_record = f.m.load_revision(&f.r.key(), &second).unwrap();
+    let second_loaded = loaded_execution(&second_record.registration);
+    assert_eq!(first_loaded.engine, second_loaded.engine, "descriptor-only update retains engine bytes");
+    assert_ne!(first_loaded.descriptor, second_loaded.descriptor);
+    let before = snapshot(&f.m.root);
+    assert!(second_record.registration.verify_loaded_execution(&first_loaded).is_err());
+    let mut wrong_engine = second_loaded;
+    wrong_engine.engine[0] ^= 1;
+    assert!(second_record.registration.verify_loaded_execution(&wrong_engine).is_err());
+    assert_eq!(snapshot(&f.m.root), before, "stale caller checks create no owner or transport state");
+
+    f.m.rollback(&f.r.key(), &first.id, None).unwrap();
+    let selected = f.m.registry().unwrap().classes.remove(&f.r.key()).unwrap().registration;
+    assert_eq!(selected, first_record.registration);
+    selected.verify_loaded_execution(&first_loaded).unwrap();
+    assert!(selected.verify_loaded_execution(&second_loaded).is_err());
+    let mut missing = selected.clone(); missing.descriptor = None;
+    assert!(missing.verify_loaded_execution(&first_loaded).is_err());
 }
 #[test]
 fn reusable_engine_rejects_wrong_module_or_engine_descriptor_before_publication() {

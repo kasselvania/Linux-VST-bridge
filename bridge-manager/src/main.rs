@@ -1148,6 +1148,19 @@ fn startup_reply(peer: &mut UnixStream, bytes: &[u8]) -> Result<()> {
     peer.write_all(bytes)?;
     Ok(())
 }
+fn with_loaded_native_caller<T>(
+    peer: &UnixStream,
+    process: &transport_storage::PeerProcess,
+    registration: &Registration,
+    loaded: &ap1_native_client::admission::ExecutionIdentity,
+    admitted: impl FnOnce() -> T,
+) -> Result<T> {
+    if registration.verify_loaded_execution(loaded).is_err()
+        || transport_storage::peer_maps_artifact(peer, process, &registration.native.path).is_err() {
+        return Err(capacity::Refusal::StaleNativeCaller.into());
+    }
+    Ok(admitted())
+}
 fn supervisor_ready(child: &mut Child, job: &SessionSpec, timeout: Duration) -> Result<()> {
     supervisor_ready_for_configuration(child, &job.session, job.registration.compatibility.graphics, timeout)
 }
@@ -1348,7 +1361,7 @@ fn serve(m: Manager) -> Result<()> {
             let _worker_count=worker_count;
             let outcome = (|| -> Result<()> {
                 peer.set_read_timeout(Some(Duration::from_secs(5)))?;
-                let mut greeting = [0; 53];
+                let mut greeting = [0; 117];
                 peer.read_exact(&mut greeting[..5])?;
                 if &greeting[..5]==b"LVE2\n" {
                     // Maintenance admitted no active DSP. Restore control
@@ -1512,25 +1525,42 @@ fn serve(m: Manager) -> Result<()> {
                     pending.complete(&job.session,status.success(),&disposition,None)?;
                     peer.write_all(b"Vendor access retired.\n")?;return Ok(());
                 }
-                peer.read_exact(&mut greeting[5..])?;
+                let version5 = &greeting[..5] == ap1_native_client::admission::GREETING_V5;
+                let extent = if version5 { 117 } else { 53 };
+                peer.read_exact(&mut greeting[5..extent])?;
                 let version4 = &greeting[..5] == ap1_native_client::admission::GREETING_V4;
-                let version3 = version4 || &greeting[..5] == ap1_native_client::admission::GREETING;
+                let version3 = version5 || version4 || &greeting[..5] == ap1_native_client::admission::GREETING;
                 let version2 = version3 || &greeting[..5] == b"LVB2\n";
                 require(version2 || &greeting[..5] == b"LVB1\n", "registration protocol mismatch")?;
                 let mut request=[0u8;16];
                 if version3 {peer.read_exact(&mut request)?;require(request!=[0;16],"admission request identity")?;}
                 peer.set_write_timeout(Some(Duration::from_secs(5)))?;
                 let class=hex(&greeting[5..21]).to_uppercase();
+                let loaded=version5.then(|| ap1_native_client::admission::ExecutionIdentity {
+                    engine:greeting[53..85].try_into().unwrap(),
+                    descriptor:greeting[85..117].try_into().unwrap(),
+                });
                 let mut startup=NativeStartup::new(&m,request,class.clone());
                 // Leave room for the four-second supervisor handshake within
                 // the existing 65-second native admission budget.
                 let keeper_deadline=startup.started+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS);
                 let prepared=(|| -> Result<_> {
+                    let peer_process=match transport_storage::peer_process(&peer) {
+                        Ok(process)=>process,
+                        Err(_) if version5=>return Err(capacity::Refusal::StaleNativeCaller.into()),
+                        Err(error)=>return Err(error),
+                    };
                     let ((registration, execution), verified)=launch_verification.prepare(keeper_deadline, || {
-                        let registration = m.resolve(&greeting[5..])?;
-                        experimental_runner::verify_selected_bg1_history(&m, &registration.environment)?;
-                        m.verify_served_host(&registration, &s.host, &s.source_sha256, &profiles::installed_profiles()?)?;
-                        let execution=package_authority::paired_components(&m,&s,&registration)?;
+                        let registration = m.resolve(&greeting[5..53])?;
+                        let prepare_execution=|| -> Result<_> {
+                            experimental_runner::verify_selected_bg1_history(&m, &registration.environment)?;
+                            m.verify_served_host(&registration, &s.host, &s.source_sha256, &profiles::installed_profiles()?)?;
+                            package_authority::paired_components(&m,&s,&registration)
+                        };
+                        let execution=if let Some(loaded)=&loaded {
+                            with_loaded_native_caller(&peer,&peer_process,&registration,loaded,
+                                prepare_execution)??
+                        } else {prepare_execution()?};
                         Ok((registration, execution))
                     })?;
                     // Shared byte preparation is complete. All keeper and DSP
@@ -1542,7 +1572,7 @@ fn serve(m: Manager) -> Result<()> {
                     let performance = m.performance(&r.metadata.class_id)?;
                     require(version2 || performance.added_frames == 512,
                         "selected delay requires a version-2 native binding")?;
-                    require(version4 || performance.delivery_mode == DeliveryMode::Buffered,
+                    require(version5 || version4 || performance.delivery_mode == DeliveryMode::Buffered,
                         "selected delivery requires a version-4 native binding")?;
                     require(performance.delivery_mode != DeliveryMode::SameCallback
                         || preparation::build::supports_audio_completion(&m, &full_registration)?,
@@ -1550,8 +1580,8 @@ fn serve(m: Manager) -> Result<()> {
                     // Validate the DAW's view of the fixed memory root before
                     // creating or exposing a session. A Flatpak's /dev/shm is
                     // not assumed to be the host's shared memory mount.
-                    transport_storage::visible_to_peer(&peer, &transport_storage::root())?;
-                    let graphical_session=transport_storage::graphical_session(&peer)?;
+                    transport_storage::visible_to_peer(&peer,&peer_process,&transport_storage::root())?;
+                    let graphical_session=transport_storage::graphical_session(&peer,&peer_process)?;
                     startup.phase("binding_verified");
                     let mut observed=None;
                     let reservation=wait_for_keeper(keeper_deadline,
@@ -1594,10 +1624,16 @@ fn serve(m: Manager) -> Result<()> {
                     // registry reservation, and publish the fresh process-owned
                     // observations so the next load need not redo this work.
                     let (_, ready_verified)=launch_verification.prepare(keeper_deadline, || {
-                        require(m.resolve(&greeting[5..])?==full_registration,
+                        require(m.resolve(&greeting[5..53])?==full_registration,
                             "publication_changed_during_startup")?;
-                        require(package_authority::paired_components(&m,&s,&full_registration)?==execution,
-                            "publication_components_changed_during_startup")
+                        let verify_components=|| -> Result<()> {require(
+                            package_authority::paired_components(&m,&s,&full_registration)?==execution,
+                            "publication_components_changed_during_startup")};
+                        if let Some(loaded)=&loaded {
+                            with_loaded_native_caller(&peer,&peer_process,&full_registration,loaded,
+                                verify_components)??
+                        } else {verify_components()?;}
+                        Ok(())
                     })?;
                     startup.phase("ready_binding_verified");
                     ready_verified.run(|| {
@@ -1654,7 +1690,9 @@ fn serve(m: Manager) -> Result<()> {
                         if version3 {
                             let reason=e.downcast_ref::<capacity::Refusal>().copied()
                                 .unwrap_or(capacity::Refusal::BindingInvalid);
-                            startup_reply(&mut peer,&(if version4 {ap1_native_client::admission::refused_v4} else {ap1_native_client::admission::refused})(request,reason))?;
+                            startup_reply(&mut peer,&(if version5 {ap1_native_client::admission::refused_v5}
+                                else if version4 {ap1_native_client::admission::refused_v4}
+                                else {ap1_native_client::admission::refused})(request,reason))?;
                         }
                         return Err(e);
                     }
@@ -1663,7 +1701,9 @@ fn serve(m: Manager) -> Result<()> {
                 // Cold Wine startup then uses the existing bounded transport accept.
                 let reply = if version3 {
                     let session=std::array::from_fn(|i|u8::from_str_radix(&job.session[i*2..i*2+2],16).unwrap());
-                    (if version4 {ap1_native_client::admission::accepted_v4} else {ap1_native_client::admission::accepted})(request,&ap1_native_client::admission::Binding {
+                    (if version5 {ap1_native_client::admission::accepted_v5}
+                        else if version4 {ap1_native_client::admission::accepted_v4}
+                        else {ap1_native_client::admission::accepted})(request,&ap1_native_client::admission::Binding {
                         session,added_frames:performance.added_frames,delivery_mode:performance.delivery_mode as u32,
                         directory:job.directory.to_str().ok_or("session directory encoding")?.into(),
                     })?
@@ -1689,7 +1729,9 @@ fn serve(m: Manager) -> Result<()> {
                     if version3 {
                         let _ = startup_reply(
                             &mut peer,
-                            &(if version4 {ap1_native_client::admission::refused_v4} else {ap1_native_client::admission::refused})(
+                            &(if version5 {ap1_native_client::admission::refused_v5}
+                                else if version4 {ap1_native_client::admission::refused_v4}
+                                else {ap1_native_client::admission::refused})(
                                 request,
                                 capacity::Refusal::BindingInvalid,
                             ),
@@ -2055,6 +2097,80 @@ fn status(m: &Manager) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os="linux")]
+    #[test]
+    fn loaded_native_gate_uses_one_peer_generation_and_never_runs_rejected_continuations() {
+        use std::os::unix::fs::MetadataExt;
+
+        let f = test_fixture::Fixture::new();
+        let executable = std::env::current_exe().unwrap().canonicalize().unwrap();
+        let descriptor_path = f.outer.join("loaded-descriptor.json");
+        fs::write(&descriptor_path, b"exact cached descriptor").unwrap();
+        let mut selected = f.r.clone();
+        selected.native = Artifact {
+            sha256: digest(&executable).unwrap(),
+            path: executable.clone(),
+        };
+        selected.descriptor = Some(Artifact {
+            sha256: digest(&descriptor_path).unwrap(),
+            path: descriptor_path,
+        });
+        let parse = |value: &str| -> [u8; 32] {
+            std::array::from_fn(|index| {
+                u8::from_str_radix(&value[index * 2..index * 2 + 2], 16).unwrap()
+            })
+        };
+        let loaded = ap1_native_client::admission::ExecutionIdentity {
+            engine: parse(&selected.native.sha256),
+            descriptor: parse(&selected.descriptor.as_ref().unwrap().sha256),
+        };
+        let (_client, peer) = UnixStream::pair().unwrap();
+        let process = transport_storage::peer_process(&peer).unwrap();
+        let admitted = std::cell::Cell::new(false);
+        assert_eq!(
+            with_loaded_native_caller(&peer, &process, &selected, &loaded, || {
+                admitted.set(true);
+                17
+            })
+            .unwrap(),
+            17
+        );
+        assert!(admitted.get());
+
+        let refuse = |registration: &Registration,
+                      execution: &ap1_native_client::admission::ExecutionIdentity,
+                      owner: &transport_storage::PeerProcess| {
+            let continued = std::cell::Cell::new(false);
+            let error = with_loaded_native_caller(&peer, owner, registration, execution, || {
+                continued.set(true);
+            })
+            .unwrap_err();
+            assert_eq!(
+                error.downcast_ref::<capacity::Refusal>(),
+                Some(&capacity::Refusal::StaleNativeCaller)
+            );
+            assert!(!continued.get(), "refused admission reached resource continuation");
+        };
+        let mut stale_engine = loaded;
+        stale_engine.engine[0] ^= 1;
+        refuse(&selected, &stale_engine, &process);
+        let mut stale_descriptor = loaded;
+        stale_descriptor.descriptor[0] ^= 1;
+        refuse(&selected, &stale_descriptor, &process);
+
+        let unmapped = f.outer.join("same-bytes-unmapped-native");
+        fs::copy(&executable, &unmapped).unwrap();
+        assert_ne!(fs::metadata(&executable).unwrap().ino(), fs::metadata(&unmapped).unwrap().ino());
+        let mut unmapped_selection = selected.clone();
+        unmapped_selection.native.path = unmapped;
+        assert_eq!(digest(&unmapped_selection.native.path).unwrap(), selected.native.sha256);
+        refuse(&unmapped_selection, &loaded, &process);
+
+        let mut replaced_generation = process;
+        replaced_generation.start_ticks = replaced_generation.start_ticks.checked_add(1).unwrap();
+        refuse(&selected, &loaded, &replaced_generation);
+    }
+
     fn recovery_software(f: &test_fixture::Fixture) -> Software {
         let source_path = f.r.host.path.with_file_name("host-source-manifest.json");
         let source = Artifact { sha256: digest(&source_path).unwrap(), path: source_path };

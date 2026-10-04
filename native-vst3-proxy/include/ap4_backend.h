@@ -3,6 +3,8 @@
 #ifdef __cplusplus
 extern "C" {
 uint32_t ap9_open(const uint8_t* identity,uint64_t* handle);
+uint32_t ap24_open(const uint8_t* identity,const uint8_t* engine_sha256,
+                   const uint8_t* descriptor_sha256,uint64_t* handle);
 uint32_t ap9_setup(uint64_t handle,uint32_t maximum,uint32_t mode,double sample_rate,uint32_t* latency_and_tail);
 #endif
 /* ABI 1: all AP4 functions are owner-thread only, never concurrent with close.

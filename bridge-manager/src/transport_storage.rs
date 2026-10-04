@@ -37,6 +37,13 @@ pub struct GraphicalSession {
     pub dbus_session_bus_address: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PeerProcess {
+    pub pid: i32,
+    pub uid: u32,
+    pub start_ticks: u64,
+}
+
 impl GraphicalSession {
     pub fn same_display_context(&self, other: &Self) -> bool {
         self.display == other.display
@@ -359,31 +366,122 @@ fn peer_credentials(peer: &std::os::unix::net::UnixStream) -> Result<libc::ucred
     Ok(cred)
 }
 #[cfg(target_os = "linux")]
-pub fn visible_to_peer(peer: &std::os::unix::net::UnixStream, directory: &Path) -> Result<()> {
-    let cred = peer_credentials(peer)?;
-    let visible =
-        PathBuf::from(format!("/proc/{}/root", cred.pid)).join(directory.strip_prefix("/")?);
-    same_directory(directory, &visible)
-}
-#[cfg(target_os = "linux")]
-pub fn graphical_session(peer: &std::os::unix::net::UnixStream) -> Result<GraphicalSession> {
-    let cred = peer_credentials(peer)?;
-    let stat = fs::read_to_string(format!("/proc/{}/stat", cred.pid))?;
-    let (_, fields) = stat.rsplit_once(") ").ok_or("graphical_peer_stat")?;
+fn process_start_ticks(pid: i32) -> Result<u64> {
+    let stat = fs::read_to_string(format!("/proc/{pid}/stat"))?;
+    let (_, fields) = stat.rsplit_once(") ").ok_or("peer_process_stat")?;
     let start = fields
         .split_ascii_whitespace()
         .nth(19)
-        .ok_or("graphical_peer_stat")?
+        .ok_or("peer_process_stat")?
         .parse()?;
-    let environment = fs::read(format!("/proc/{}/environ", cred.pid))?;
-    parse_graphical_environment(cred.pid, start, &environment)
+    require(start > 0, "peer_process_generation")?;
+    Ok(start)
+}
+#[cfg(target_os = "linux")]
+impl PeerProcess {
+    fn verify(&self, peer: &std::os::unix::net::UnixStream) -> Result<()> {
+        let credentials = peer_credentials(peer)?;
+        require(
+            credentials.pid == self.pid
+                && credentials.uid == self.uid
+                && process_start_ticks(self.pid)? == self.start_ticks,
+            "peer_process_generation_changed",
+        )
+    }
+}
+#[cfg(target_os = "linux")]
+pub fn peer_process(peer: &std::os::unix::net::UnixStream) -> Result<PeerProcess> {
+    let credentials = peer_credentials(peer)?;
+    let process = PeerProcess {
+        pid: credentials.pid,
+        uid: credentials.uid,
+        start_ticks: process_start_ticks(credentials.pid)?,
+    };
+    process.verify(peer)?;
+    Ok(process)
+}
+#[cfg(any(target_os = "linux", test))]
+fn maps_artifact(bytes: &[u8], metadata: &fs::Metadata) -> Result<bool> {
+    for line in std::str::from_utf8(bytes)?.lines() {
+        let fields: Vec<_> = line.split_whitespace().take(5).collect();
+        require(fields.len() == 5, "native_caller_maps_format")?;
+        let (major, minor) = fields[3].split_once(':').ok_or("native_caller_maps_device")?;
+        if fields[1].starts_with("r-x")
+            && fields[4].parse::<u64>()? == metadata.ino()
+            && u64::from_str_radix(major, 16)? == libc::major(metadata.dev() as libc::dev_t) as u64
+            && u64::from_str_radix(minor, 16)? == libc::minor(metadata.dev() as libc::dev_t) as u64 {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+#[cfg(target_os = "linux")]
+pub fn peer_maps_artifact(
+    peer: &std::os::unix::net::UnixStream,
+    process: &PeerProcess,
+    artifact: &Path,
+) -> Result<()> {
+    process.verify(peer)?;
+    let file = crate::file(artifact)?;
+    let metadata = file.metadata()?;
+    require(
+        metadata.is_file() && metadata.uid() == process.uid,
+        "native_caller_artifact_owner",
+    )?;
+    let mut bytes = Vec::new();
+    fs::File::open(format!("/proc/{}/maps", process.pid))?.take(2 * 1024 * 1024 + 1)
+        .read_to_end(&mut bytes)?;
+    require(bytes.len() <= 2 * 1024 * 1024, "native_caller_maps_extent")?;
+    require(maps_artifact(&bytes, &metadata)?, "native_caller_image_not_mapped")?;
+    process.verify(peer)
 }
 #[cfg(not(target_os = "linux"))]
-pub fn visible_to_peer(_peer: &std::os::unix::net::UnixStream, _directory: &Path) -> Result<()> {
+pub fn peer_process(_peer: &std::os::unix::net::UnixStream) -> Result<PeerProcess> {
+    Err("peer_process_requires_linux".into())
+}
+#[cfg(not(target_os = "linux"))]
+pub fn peer_maps_artifact(
+    _peer: &std::os::unix::net::UnixStream,
+    _process: &PeerProcess,
+    _artifact: &Path,
+) -> Result<()> {
+    Err("native_caller_mapping_requires_linux".into())
+}
+#[cfg(target_os = "linux")]
+pub fn visible_to_peer(
+    peer: &std::os::unix::net::UnixStream,
+    process: &PeerProcess,
+    directory: &Path,
+) -> Result<()> {
+    process.verify(peer)?;
+    let visible =
+        PathBuf::from(format!("/proc/{}/root", process.pid)).join(directory.strip_prefix("/")?);
+    same_directory(directory, &visible)?;
+    process.verify(peer)
+}
+#[cfg(target_os = "linux")]
+pub fn graphical_session(
+    peer: &std::os::unix::net::UnixStream,
+    process: &PeerProcess,
+) -> Result<GraphicalSession> {
+    process.verify(peer)?;
+    let environment = fs::read(format!("/proc/{}/environ", process.pid))?;
+    process.verify(peer)?;
+    parse_graphical_environment(process.pid, process.start_ticks, &environment)
+}
+#[cfg(not(target_os = "linux"))]
+pub fn visible_to_peer(
+    _peer: &std::os::unix::net::UnixStream,
+    _process: &PeerProcess,
+    _directory: &Path,
+) -> Result<()> {
     Err("transport_requires_linux_tmpfs".into())
 }
 #[cfg(not(target_os = "linux"))]
-pub fn graphical_session(_peer: &std::os::unix::net::UnixStream) -> Result<GraphicalSession> {
+pub fn graphical_session(
+    _peer: &std::os::unix::net::UnixStream,
+    _process: &PeerProcess,
+) -> Result<GraphicalSession> {
     Err("transport_requires_linux_tmpfs".into())
 }
 #[cfg(any(target_os = "linux", test))]
@@ -463,6 +561,23 @@ mod tests {
         assert!(same_directory(&a, &a.join("other")).is_err());
         fs::remove_dir_all(a).unwrap();
     }
+    #[test]
+    fn mapped_native_identity_uses_device_and_inode_not_path_text() {
+        let path = std::env::temp_dir().join(format!("mapped-native-{}", random_id().unwrap()));
+        fs::write(&path, b"native image").unwrap();
+        let metadata = fs::metadata(&path).unwrap();
+        let matching = format!("1000-2000 r-xp 0 {:x}:{:x} {} /different/mount/name\n",
+            libc::major(metadata.dev() as libc::dev_t), libc::minor(metadata.dev() as libc::dev_t), metadata.ino());
+        assert!(maps_artifact(matching.as_bytes(), &metadata).unwrap());
+        let readonly = matching.replacen("r-xp", "r--p", 1);
+        assert!(!maps_artifact(readonly.as_bytes(), &metadata).unwrap());
+        let wrong = format!("1000-2000 r-xp 0 {:x}:{:x} {} {}\n",
+            libc::major(metadata.dev() as libc::dev_t), libc::minor(metadata.dev() as libc::dev_t),
+            metadata.ino()+1, path.display());
+        assert!(!maps_artifact(wrong.as_bytes(), &metadata).unwrap());
+        assert!(maps_artifact(b"malformed\n", &metadata).is_err());
+        fs::remove_file(path).unwrap();
+    }
     #[cfg(target_os = "linux")]
     #[test]
     fn memory_storage_is_private_exact_and_never_adopts_foreign_sessions() {
@@ -484,7 +599,8 @@ mod tests {
         assert_eq!(id.inode, fs::metadata(&p).unwrap().ino());
         memory_filesystem(&p).unwrap();
         let (a, _b) = std::os::unix::net::UnixStream::pair().unwrap();
-        visible_to_peer(&a, &p).unwrap();
+        let process = peer_process(&a).unwrap();
+        visible_to_peer(&a, &process, &p).unwrap();
         assert!(create_at(&r, &sid).is_err());
         for invalid in ["../escape", "", &"AB".repeat(16)] {
             assert!(create_at(&r, invalid).is_err());

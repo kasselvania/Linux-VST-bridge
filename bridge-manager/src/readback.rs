@@ -33,6 +33,7 @@ pub enum RefusalCode {
     AdmissionCleanupUnconfirmed,
     AdmissionMaintenanceActive,
     AdmissionBindingInvalid,
+    AdmissionStaleNativeCaller,
     LocalRecordOrIoFailure,
 }
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -52,6 +53,7 @@ pub fn refusal(e: &(dyn std::error::Error + Send + Sync + 'static)) -> Refusal {
             A::CleanupUnconfirmed => RefusalCode::AdmissionCleanupUnconfirmed,
             A::MaintenanceActive => RefusalCode::AdmissionMaintenanceActive,
             A::BindingInvalid => RefusalCode::AdmissionBindingInvalid,
+            A::StaleNativeCaller => RefusalCode::AdmissionStaleNativeCaller,
         };
         return Refusal { code, detail };
     }

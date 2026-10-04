@@ -5,6 +5,7 @@ use std::io;
 
 pub const GREETING: &[u8; 5] = b"LVB3\n";
 pub const GREETING_V4: &[u8; 5] = b"LVB4\n";
+pub const GREETING_V5: &[u8; 5] = b"LVB5\n";
 pub const MAX_REPLY: usize = 1024;
 pub const HEADER: usize = 24;
 
@@ -18,6 +19,7 @@ pub enum Refusal {
     CleanupUnconfirmed = 5,
     MaintenanceActive = 6,
     BindingInvalid = 7,
+    StaleNativeCaller = 8,
 }
 impl Refusal {
     pub fn code(self) -> &'static str {
@@ -29,6 +31,7 @@ impl Refusal {
             Self::CleanupUnconfirmed => "admission_cleanup_unconfirmed",
             Self::MaintenanceActive => "admission_maintenance_active",
             Self::BindingInvalid => "admission_binding_invalid",
+            Self::StaleNativeCaller => "admission_stale_native_caller",
         }
     }
     fn decode(value: u8) -> io::Result<Self> {
@@ -40,6 +43,7 @@ impl Refusal {
             5 => Ok(Self::CleanupUnconfirmed),
             6 => Ok(Self::MaintenanceActive),
             7 => Ok(Self::BindingInvalid),
+            8 => Ok(Self::StaleNativeCaller),
             _ => Err(invalid("admission refusal encoding")),
         }
     }
@@ -58,6 +62,11 @@ pub struct Binding {
     pub delivery_mode: u32,
     pub directory: String,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ExecutionIdentity {
+    pub engine: [u8; 32],
+    pub descriptor: [u8; 32],
+}
 fn header(request: [u8; 16], code: u8) -> Vec<u8> {
     let mut bytes = vec![0; HEADER];
     bytes[..4].copy_from_slice(b"LVR3");
@@ -70,15 +79,22 @@ pub fn refused(request: [u8; 16], reason: Refusal) -> Vec<u8> {
 }
 pub fn accepted(request: [u8; 16], binding: &Binding) -> io::Result<Vec<u8>> {
     need(binding.delivery_mode == 0, "legacy admission supports buffered delivery only")?;
-    encode(request, binding, false)
+    encode(request, binding, b'3')
 }
 pub fn accepted_v4(request: [u8; 16], binding: &Binding) -> io::Result<Vec<u8>> {
-    encode(request, binding, true)
+    encode(request, binding, b'4')
 }
 pub fn refused_v4(request: [u8; 16], reason: Refusal) -> Vec<u8> {
     let mut bytes = refused(request, reason); bytes[3] = b'4'; bytes
 }
-fn encode(request: [u8; 16], binding: &Binding, version4: bool) -> io::Result<Vec<u8>> {
+pub fn accepted_v5(request: [u8; 16], binding: &Binding) -> io::Result<Vec<u8>> {
+    encode(request, binding, b'5')
+}
+pub fn refused_v5(request: [u8; 16], reason: Refusal) -> Vec<u8> {
+    let mut bytes = refused(request, reason); bytes[3] = b'5'; bytes
+}
+fn encode(request: [u8; 16], binding: &Binding, version: u8) -> io::Result<Vec<u8>> {
+    let explicit_delivery = matches!(version, b'4' | b'5');
     need(binding.delivery_mode <= 1, "admission delivery mode")?;
     need(request != [0; 16], "admission request identity")?;
     need(binding.session != [0; 16], "admission session identity")?;
@@ -86,33 +102,38 @@ fn encode(request: [u8; 16], binding: &Binding, version4: bool) -> io::Result<Ve
     need(
         binding.directory.starts_with('/')
             && !binding.directory.bytes().any(|b| b == 0 || b == b'\n')
-            && HEADER + 20 + if version4 {4} else {0} + binding.directory.len() <= MAX_REPLY,
+            && HEADER + 20 + if explicit_delivery {4} else {0} + binding.directory.len() <= MAX_REPLY,
         "admission directory extent",
     )?;
     let mut bytes = header(request, 0);
-    if version4 { bytes[3] = b'4'; }
+    bytes[3] = version;
     bytes.extend(binding.session);
     bytes.extend(binding.added_frames.to_le_bytes());
-    if version4 { bytes.extend(binding.delivery_mode.to_le_bytes()); }
+    if explicit_delivery { bytes.extend(binding.delivery_mode.to_le_bytes()); }
     bytes.extend(binding.directory.as_bytes());
     Ok(bytes)
 }
 pub fn decode(bytes: &[u8], request: [u8; 16]) -> io::Result<Result<Binding, Refusal>> {
-    decode_version(bytes, request, false)
+    decode_version(bytes, request, b'3')
 }
 pub fn decode_v4(bytes: &[u8], request: [u8; 16]) -> io::Result<Result<Binding, Refusal>> {
     // The unclassified bounded-service refusal precedes reading any greeting.
     if bytes == refused([0; 16], Refusal::ServiceBusy) { return decode(bytes, request); }
-    decode_version(bytes, request, true)
+    decode_version(bytes, request, b'4')
 }
-fn decode_version(bytes: &[u8], request: [u8; 16], version4: bool) -> io::Result<Result<Binding, Refusal>> {
+pub fn decode_v5(bytes: &[u8], request: [u8; 16]) -> io::Result<Result<Binding, Refusal>> {
+    if bytes == refused([0; 16], Refusal::ServiceBusy) { return decode(bytes, request); }
+    decode_version(bytes, request, b'5')
+}
+fn decode_version(bytes: &[u8], request: [u8; 16], version: u8) -> io::Result<Result<Binding, Refusal>> {
+    let explicit_delivery = matches!(version, b'4' | b'5');
     need(request != [0; 16], "admission request identity")?;
     need(
         (HEADER..=MAX_REPLY).contains(&bytes.len()),
         "admission reply extent",
     )?;
     need(
-        &bytes[..4] == if version4 { b"LVR4" } else { b"LVR3" } && bytes[5..8] == [0; 3],
+        bytes[..3] == *b"LVR" && bytes[3] == version && bytes[5..8] == [0; 3],
         "admission reply version",
     )?;
     // At the bounded connection ceiling the service can refuse classification
@@ -124,19 +145,19 @@ fn decode_version(bytes: &[u8], request: [u8; 16], version4: bool) -> io::Result
         need(bytes.len() == HEADER, "admission refusal payload")?;
         return Ok(Err(Refusal::decode(bytes[4])?));
     }
-    let path_offset = if version4 { 48 } else { 44 };
+    let path_offset = if explicit_delivery { 48 } else { 44 };
     need(bytes.len() > path_offset, "admission binding extent")?;
     let binding = Binding {
         session: bytes[24..40].try_into().unwrap(),
         added_frames: u32::from_le_bytes(bytes[40..44].try_into().unwrap()),
-        delivery_mode: if version4 { u32::from_le_bytes(bytes[44..48].try_into().unwrap()) } else { 0 },
+        delivery_mode: if explicit_delivery { u32::from_le_bytes(bytes[44..48].try_into().unwrap()) } else { 0 },
         directory: std::str::from_utf8(&bytes[path_offset..])
             .map_err(|_| invalid("admission directory encoding"))?
             .into(),
     };
     // One validator owns the accepted shape on both ends.
     need(
-        encode(request, &binding, version4)? == bytes,
+        encode(request, &binding, version)? == bytes,
         "admission binding encoding",
     )?;
     Ok(Ok(binding))
@@ -169,6 +190,7 @@ mod tests {
             Refusal::CleanupUnconfirmed,
             Refusal::MaintenanceActive,
             Refusal::BindingInvalid,
+            Refusal::StaleNativeCaller,
         ] {
             assert_eq!(
                 decode(&refused(request, reason), request).unwrap(),
@@ -198,6 +220,15 @@ mod tests {
         assert!(decode_v4(&bytes, request).is_err());
         assert_eq!(decode_v4(&refused([0;16], Refusal::ServiceBusy), request).unwrap(), Err(Refusal::ServiceBusy));
         assert!(decode_v4(&refused(request, Refusal::BindingInvalid), request).is_err());
+    }
+    #[test]
+    fn loaded_identity_admission_has_its_own_version_and_stale_refusal() {
+        let request = [1; 16];
+        let binding = Binding {session:[2;16],added_frames:512,delivery_mode:1,directory:"/owned/session".into()};
+        let bytes = accepted_v5(request, &binding).unwrap();
+        assert_eq!(decode_v5(&bytes, request).unwrap(), Ok(binding));
+        assert!(decode_v4(&bytes, request).is_err());
+        assert_eq!(decode_v5(&refused_v5(request, Refusal::StaleNativeCaller), request).unwrap(), Err(Refusal::StaleNativeCaller));
     }
     #[test]
     fn malformed_stale_and_unsupported_messages_fail_closed() {

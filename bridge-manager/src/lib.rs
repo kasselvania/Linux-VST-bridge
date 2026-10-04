@@ -490,6 +490,15 @@ impl Registration {
         }
         Ok(())
     }
+    pub fn verify_loaded_execution(
+        &self,
+        loaded: &ap1_native_client::admission::ExecutionIdentity,
+    ) -> Result<()> {
+        let descriptor = self.descriptor.as_ref().ok_or("loaded_descriptor_binding_absent")?;
+        require(self.native.sha256 == hex(&loaded.engine)
+            && descriptor.sha256 == hex(&loaded.descriptor),
+            "loaded_execution_binding_differs")
+    }
     pub fn key(&self) -> String {
         self.metadata.class_id.to_uppercase()
     }

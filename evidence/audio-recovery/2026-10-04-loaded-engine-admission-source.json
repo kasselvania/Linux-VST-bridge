@@ -1,0 +1,380 @@
+{
+  "date": "2026-10-04",
+  "claim": "Modern loaded-image and cached-descriptor source binding; legacy migration unresolved",
+  "source": {
+    "base": "514c74d2cb4bc7905ddaea33704058f3a1e4af0d",
+    "patch_sha256": "fcc640b012b65b9f57cd2573bf6c39f9d08e3cc40bbe911eaff1d1394df707e9",
+    "files": {
+      "bridge-manager/src/lib.rs": "849512d576faeea4ff0fa367151339908480e3e87888d4cbfa853d033760e027",
+      "bridge-manager/src/main.rs": "f9220bfec572238b7d11e568daabf11811df31e827def12186d75f8a9a1f90ac",
+      "bridge-manager/src/managed_tests.rs": "99d1d08d4cc30599a6f841607e4e082a42685f35d85b0282edec19215bfbc7be",
+      "bridge-manager/src/readback.rs": "2c393bc08b487cc0ffe0c145b2ce11a1609b3bbaf973882f19ab94fa16b0587a",
+      "bridge-manager/src/transport_storage.rs": "9e0250e971dfc4868b8b4a198ebb9cd8b3daab8f72e6802ceace4b6e29015f9a",
+      "native-audio-client/src/admission.rs": "02dd9b91d8c0cace38c4c31202d52e84fc212b86cb87df2b0dfad539efb770fe",
+      "native-vst3-proxy/backend/src/descriptor.rs": "96c7ff0e5915c8f8e9b9c9dd68146cd54a6a82b9fb02b788bf91d8d982decd55",
+      "native-vst3-proxy/backend/src/preview.rs": "c62c964c6c8a439d2036f1178a7c412abf8b2f076339c57d2ff37a7295013518",
+      "native-vst3-proxy/backend/src/queued.rs": "aea2115bdddf77755e9f7f98755147e4210bcd82e4989587ce9b413738cea394",
+      "native-vst3-proxy/include/ap4_backend.h": "4c142ef952a04b8ae371c2994eb9a26d398445a6910b348b986916b836843418",
+      "native-vst3-proxy/include/runtime_descriptor.h": "f0f6fa56dc518e918b5388112c7e083dfeb159ad6ea61cb7fd16c663c4a4b236",
+      "native-vst3-proxy/source/processor.cpp": "9f4f6ae74aa091f1a98462fbe843cbc96f6d787157f7b8bf9e3da468523dcd8c",
+      "tools/mf3/check_reusable_engine.py": "c362a12b247a14723eb1a543ed84212affe47d937ddccdb4bc161a9b14a8b756",
+      "tools/mf3/reusable_factory_check.cpp": "532c686a4e5fa000230f494620392fc319482d4d6703ac575a0e671987b956a4"
+    },
+    "scope": "modern binding only; legacy policy pending",
+    "changed_since_snapshot_3": [
+      "bridge-manager/src/main.rs"
+    ]
+  },
+  "independent_review": {
+    "reviewer_model": "gpt-6-astra",
+    "reasoning_effort": "xhigh",
+    "source_patch_sha256": "fcc640b012b65b9f57cd2573bf6c39f9d08e3cc40bbe911eaff1d1394df707e9",
+    "all_14_source_hashes_verified": true,
+    "remaining_actionable_findings": [],
+    "repaired_findings": [
+      "Retain one peer process generation across both executable-map checks and graphical/session capture",
+      "Exercise the production-consumed gate with actual UnixStream credentials and executable mappings, including refused continuation",
+      "Route initial peer-process capture failure through the common typed refusal handler"
+    ],
+    "claim_limit": "Modern source binding and production-gate regression only. Legacy LVB1-4 policy pending; full installed service and physical acceptance unperformed; FC-MGMT-008 remains open."
+  },
+  "fixture": {
+    "platform": "Linux x86_64 constrained build container",
+    "sdk_commit": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "kind": "first-party metadata and independent SDK loader, no commercial module or license state",
+    "bundle_layout": "publication symlink/Contents/x86_64-linux/native.so",
+    "cpu_count": 2,
+    "cpu_set": "2,3",
+    "memory_bytes": 4294967296,
+    "memory_plus_swap_bytes": 4294967296,
+    "pids_limit": 256
+  },
+  "legacy_reproduction": {
+    "layout": "published bundle symlink; ordinary final parent directory",
+    "control_returncode": 0,
+    "control_stdout": "factory_refused=false selected_and_mapped_A=true cached_name=Descriptor A\n",
+    "source": "84bc1c621a974c841580f38dc51790b93f8b6754",
+    "engine_sha256": "e0455c106fff08a326bc20386eed013de9e0281366d24b9d20539cb58f23719b",
+    "returncode": 42,
+    "stdout": "factory_refused=false selected_and_mapped_A=true cached_name=Descriptor B\n",
+    "stderr": "",
+    "claim": "actual loader cache mismatch only; no audio or managed admission invoked"
+  },
+  "repaired_comparison": {
+    "layout": "published bundle symlink; ordinary final parent directory",
+    "control_returncode": 0,
+    "control_stdout": "factory_refused=false selected_and_mapped_A=true cached_name=Descriptor A\n",
+    "source_base": "514c74d2cb4bc7905ddaea33704058f3a1e4af0d",
+    "patch_sha256": "bf676973ce8ec6f1d622f8ad9fbea6c28b15d27a842b517447e943bf7714b849",
+    "engine_sha256": "2160df0d1e4c647bd2282180e21e801d02902230032fe049570b7e765f42ec23",
+    "returncode": 0,
+    "stdout": "factory_refused=true selected_and_mapped_A=true\n",
+    "stderr": "",
+    "claim": "actual loader mismatch refusal and unchanged-link control only; no audio or managed admission invoked"
+  },
+  "manager_gate": {
+    "test": "loaded_native_gate_uses_one_peer_generation_and_never_runs_rejected_continuations",
+    "actual_unix_peer_credentials_and_executable_mapping": true,
+    "matching_caller_admitted": true,
+    "refused_without_startup_continuation": [
+      "stale engine digest",
+      "stale cached descriptor digest",
+      "same bytes at an unmapped different inode",
+      "changed process start ticks"
+    ],
+    "scope": "production-consumed admission function, not complete manager service, Windows launch or publication rollback"
+  },
+  "validation": [
+    {
+      "snapshot": 1,
+      "patch_sha256": "a3cc723f28e59b8d79787fabc9458ae7d1e9664c06d967f572227a4a55ec4871",
+      "runs": [
+        {
+          "name": "client",
+          "returncode": 0,
+          "seconds": 2.647,
+          "log_sha256": "1bb6315b3d65f60ccd9a782256144b98c73faf67ae790f0dca618001d54f070b",
+          "test_result_lines": [
+            "test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.45s",
+            "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+            "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+          ]
+        },
+        {
+          "name": "backend",
+          "returncode": 0,
+          "seconds": 30.338,
+          "log_sha256": "148dcb079b79863fb5ea9ee86a58bcbb32390857b0e9eb5cdb12ba05167a0751",
+          "test_result_lines": [
+            "test result: ok. 150 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 22.05s",
+            "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+          ]
+        },
+        {
+          "name": "backend-registered",
+          "returncode": 0,
+          "seconds": 27.531,
+          "log_sha256": "d0f1c568250753eb80910e80ece6f2bd5680f3e71d253547f156ea418af8881a",
+          "test_result_lines": [
+            "test result: ok. 151 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 21.58s",
+            "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+          ]
+        },
+        {
+          "name": "manager",
+          "returncode": 0,
+          "seconds": 446.986,
+          "log_sha256": "d6efca27131e2f9ad3d230c47f58cec29a4cdc0f4cdd5b0ac85e5f11f1a249ae",
+          "test_result_lines": [
+            "test result: ok. 250 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 268.06s",
+            "test result: ok. 320 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 139.48s",
+            "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+            "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+          ]
+        },
+        {
+          "name": "client-clippy",
+          "returncode": 0,
+          "seconds": 0.581,
+          "log_sha256": "ec253ba24125c885050ee06a185cebc59cb1b0b4d21532c3aaa22976fccd1727",
+          "test_result_lines": []
+        },
+        {
+          "name": "backend-registered-clippy",
+          "returncode": 101,
+          "seconds": 3.233,
+          "log_sha256": "74f29ea26835ef550986e762814a266751d668c528b523491da9f8fb1fce3471",
+          "test_result_lines": []
+        }
+      ]
+    },
+    {
+      "snapshot": 2,
+      "patch_sha256": "bf676973ce8ec6f1d622f8ad9fbea6c28b15d27a842b517447e943bf7714b849",
+      "runs": [
+        {
+          "name": "backend",
+          "returncode": 0,
+          "seconds": 25.664,
+          "log_sha256": "9eaa91e19d9a1930cdf3f0dba2c82e4b126a22f5149792fe92dc9a2cbc8afcfd",
+          "test_result_lines": [
+            "test result: ok. 150 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 21.55s",
+            "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+          ]
+        },
+        {
+          "name": "backend-registered",
+          "returncode": 0,
+          "seconds": 25.801,
+          "log_sha256": "89daf494bbe5d4d317486198649993327a70565a520b4130f581ed748b777584",
+          "test_result_lines": [
+            "test result: ok. 151 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 21.72s",
+            "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+          ]
+        },
+        {
+          "name": "backend-registered-clippy",
+          "returncode": 0,
+          "seconds": 3.091,
+          "log_sha256": "7008b2ea5f0397c21e607185f282933bbf953de9626c79dc19242436cdd27329",
+          "test_result_lines": []
+        },
+        {
+          "name": "manager-clippy",
+          "returncode": 0,
+          "seconds": 19.868,
+          "log_sha256": "b70c516124344ffd218a4e34ee68ed4a8b521a8c4fb682685f6666535901c042",
+          "test_result_lines": []
+        },
+        {
+          "name": "registered-engine-backend",
+          "returncode": 0,
+          "seconds": 5.236,
+          "log_sha256": "62cc380e41a0387a4e15e594f777ea3dd7c66880bdc850db212e7be047d6e30a",
+          "test_result_lines": []
+        },
+        {
+          "name": "native-configure",
+          "returncode": 0,
+          "seconds": 1.678,
+          "log_sha256": "f5f5c2c8346a319cb1c046e2dd2983ab2d0e448eb5e5ab060f2b525ec7082403",
+          "test_result_lines": []
+        },
+        {
+          "name": "native-build",
+          "returncode": 0,
+          "seconds": 28.478,
+          "log_sha256": "c7fad9ad8690e19a96859257bf2db07212730af6c07f9e638e966517792e7104",
+          "test_result_lines": []
+        },
+        {
+          "name": "native-sdk-tests",
+          "returncode": 0,
+          "seconds": 6.933,
+          "log_sha256": "09735a76021d8be054068ef09f6e8d822285251ec9b7a578f9b45b990437bab8",
+          "test_result_lines": []
+        },
+        {
+          "name": "reusable-factory",
+          "returncode": 0,
+          "seconds": 0.52,
+          "log_sha256": "98d1590493454c8af3e79ae95834f57b4960c9e63f788187b4457b585a5df4c0",
+          "test_result_lines": []
+        }
+      ]
+    },
+    {
+      "snapshot": 3,
+      "patch_sha256": "51bd0fe63f696429cfbcba3aecd7a34c240e377a5e5dcd0820a35d8252e3614c",
+      "runs": [
+        {
+          "name": "manager-socket-gate",
+          "returncode": 0,
+          "seconds": 33.364,
+          "log_sha256": "308980b0e520a5cc54dbe49a95132518a5bb84643f972eb1996e72d767c24293",
+          "test_result_lines": [
+            "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 250 filtered out; finished in 0.00s",
+            "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 322 filtered out; finished in 9.94s",
+            "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+          ]
+        },
+        {
+          "name": "manager-full",
+          "returncode": 0,
+          "seconds": 423.747,
+          "log_sha256": "a6e9b9ea7ca538f97511355e7956dc77a97d8d3ad2070ef3f954ba53dc01c8e3",
+          "test_result_lines": [
+            "test result: ok. 250 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 274.65s",
+            "test result: ok. 321 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 146.09s",
+            "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+            "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+          ]
+        },
+        {
+          "name": "manager-clippy",
+          "returncode": 0,
+          "seconds": 16.726,
+          "log_sha256": "33de3cdb7d03c6dfb5e42af061484c4ca5f2020b2637af6ed40918d344ef6e39",
+          "test_result_lines": []
+        }
+      ]
+    },
+    {
+      "snapshot": 4,
+      "patch_sha256": "fcc640b012b65b9f57cd2573bf6c39f9d08e3cc40bbe911eaff1d1394df707e9",
+      "runs": [
+        {
+          "name": "manager-socket-gate",
+          "returncode": 0,
+          "seconds": 20.046,
+          "log_sha256": "563be391caf92cd242b7baf8c99a8cee9125fc9d993d639e52e6047143b27b2e",
+          "test_result_lines": [
+            "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 250 filtered out; finished in 0.00s",
+            "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 322 filtered out; finished in 10.03s",
+            "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+          ]
+        },
+        {
+          "name": "manager-clippy",
+          "returncode": 0,
+          "seconds": 11.972,
+          "log_sha256": "610f0ca695ca2c5136e6812fffcbcaff0601a9825582ae1eac5ed986a0529bac",
+          "test_result_lines": []
+        }
+      ]
+    }
+  ],
+  "validation_reuse": "Snapshot2 native engine and all non-manager source hashes are unchanged at snapshot4. Snapshot3 full manager suite precedes only moving peer-process capture inside the prepared-result error scope; snapshot4 recompiles and tests the real socket gate plus strict full manager lint.",
+  "retained_failures": [
+    {
+      "kind": "initial lint failure",
+      "snapshot": 1,
+      "result": "backend registered strict lint rejected nonminimal boolean and items after test module; corrected in snapshot2; original log retained"
+    },
+    {
+      "kind": "local test failure",
+      "record": {
+        "scope": "implementation agent local source validation report; original output retained in agent transcript, not an independent raw log file",
+        "failure": {
+          "command": "cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --features registered preview::tests:: -- --nocapture",
+          "test": "preview::tests::failure_notice_does_not_replace_or_prevent_retirement_acknowledgement",
+          "location": "src/preview.rs:716:13",
+          "assertion": "left false, right true",
+          "other_tests_passed": 11,
+          "context": "another default-feature AP9 test command ran concurrently; cause not established"
+        },
+        "later_isolated_run": {
+          "command": "cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --features registered failure_notice_does_not_replace_or_prevent_retirement_acknowledgement",
+          "passed": true
+        },
+        "qualification": "original failed test run remains failed; final frozen Linux validation separate"
+      }
+    },
+    {
+      "kind": "observer correction",
+      "result": "initial direct-parent-symlink fixture could falsely pass through O_NOFOLLOW refusal; original retained, acceptance uses real publication bundle layout and passing unchanged-link control"
+    },
+    {
+      "kind": "staging failure",
+      "result": "root-owned destination refused source transfer; old helper invocation then failed FileExistsError before test. Corrected staging through owned build mount; no product execution from that attempt"
+    },
+    {
+      "kind": "final resource observer sequencing",
+      "record": {
+        "failure": "Initial final-state assertion ran while docker stop was still pending; it refused to write RESOURCE_FINAL.json. The dependent evidence writer refused missing final state.",
+        "correction": "Waited for successful stop command completion, then repeated only final resource readback; builder and VM now stopped, Audiobookshelf running. No test or product acceptance rerun."
+      }
+    }
+  ],
+  "legacy_policy": {
+    "status": "pending operator decision",
+    "current_legacy_greetings": "LVB1-LVB4 behavior unchanged",
+    "gap": "legacy cached descriptor provenance cannot be established; no deployment approval inferred",
+    "options": [
+      "explicit managed refresh of pre-contract native publications",
+      "keep source-only until migration policy is decided"
+    ]
+  },
+  "unperformed": [
+    "complete installed manager admission and refusal workflow",
+    "updated publication and exact predecessor recovery under decided legacy policy",
+    "physical Deck candidate installation",
+    "physical Buffered and SameCallback D=0 callback distributions",
+    "physical DAW interaction, serial chain, reconfiguration and endurance"
+  ],
+  "nonclaims": [
+    "FC-MGMT-008 closed",
+    "legacy callers safely bound",
+    "arbitrary transferred socket authenticates calling module",
+    "timing fixed",
+    "new supported platform or plug-in",
+    "beta ready"
+  ],
+  "resource_final": {
+    "observed_at": "2026-10-04T17:23:28.486397+00:00",
+    "project_machines": [
+      {
+        "role": "builder",
+        "running": false,
+        "cpu_quota": 2.0,
+        "cpuset": "2,3",
+        "memory_bytes": 4294967296,
+        "memory_plus_swap_bytes": 4294967296,
+        "pids_limit": 256
+      },
+      {
+        "role": "ubuntu_vm",
+        "running": false,
+        "cpu_quota": 2.0,
+        "cpuset": "2,3",
+        "memory_bytes": 8589934592,
+        "memory_plus_swap_bytes": 8589934592,
+        "pids_limit": 256
+      }
+    ],
+    "audiobookshelf_running": true,
+    "deck_mutated": false,
+    "licensed_state_touched": false
+  },
+  "private_evidence": "durable maintainer evidence directory 2026-10-04-loaded-engine; allowlisted source snapshots, original logs, comparison results and first-party engine artifacts with SHA256 manifest; no prefix or licensed data copied"
+}

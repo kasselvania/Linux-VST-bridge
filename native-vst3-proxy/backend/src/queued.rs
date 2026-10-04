@@ -250,6 +250,7 @@ struct Shared {
     snapshots: Arc<std::sync::Mutex<crate::recovery::Store>>,
     generation: u64,
     identity: Option<state::Identity>,
+    execution: Option<ap1_native_client::admission::ExecutionIdentity>,
     notices: AtomicU64,
     notice_traits: AtomicU64,
     last_edit: AtomicU64,
@@ -327,6 +328,7 @@ impl Shared {
             snapshots: Arc::new(std::sync::Mutex::new(crate::recovery::Store::default())),
             generation: 1,
             identity: None,
+            execution: None,
             notices: AtomicU64::new(0),
             notice_traits: AtomicU64::new(0),
             last_edit: AtomicU64::new(0),
@@ -1703,9 +1705,18 @@ pub(crate) unsafe fn open(
     minor: u64,
     identity: Option<state::Identity>,
 ) -> u32 {
-    open_with(max, handle, minor, identity, None, || {
+    open_execution(max, handle, minor, identity, None)
+}
+unsafe fn open_execution(
+    max: u32,
+    handle: *mut u64,
+    minor: u64,
+    identity: Option<state::Identity>,
+    execution: Option<ap1_native_client::admission::ExecutionIdentity>,
+) -> u32 {
+    open_with(max, handle, minor, identity, execution, None, || {
         if minor >= 6 {
-            crate::preview::discover_performance(identity)
+            crate::preview::discover_performance(identity, execution)
         } else if let Some(identity) = identity {
             crate::preview::discover_commercial(identity)
         } else {
@@ -1722,7 +1733,7 @@ pub(crate) unsafe fn open_bound(
     binding: crate::preview::Binding,
 ) -> u32 {
     let report = binding.directory.join("rpi0.performance.jsonl");
-    open_with(max, handle, 12, Some(identity), Some(report), || Ok(binding))
+    open_with(max, handle, 12, Some(identity), None, Some(report), || Ok(binding))
 }
 
 unsafe fn open_with(
@@ -1730,6 +1741,7 @@ unsafe fn open_with(
     handle: *mut u64,
     minor: u64,
     identity: Option<state::Identity>,
+    execution: Option<ap1_native_client::admission::ExecutionIdentity>,
     report_override: Option<std::path::PathBuf>,
     binding_source: impl FnOnce() -> io::Result<crate::preview::Binding>,
 ) -> u32 {
@@ -1766,6 +1778,7 @@ unsafe fn open_with(
             shared.gui = session.gui.clone();
             shared.terminal = session.fault_status.as_ref().map(|f| f.terminal.clone());
             shared.identity = identity;
+            shared.execution = execution;
             shared.observer = session.witness.as_ref().map(|w| w.shared.clone());
             let shared = Arc::new(shared);
             shared.state_capable.store(minor >= 4, Ordering::Release);
@@ -1909,7 +1922,7 @@ pub unsafe extern "C" fn ap6_recover(
             // replacement. The owner still contains any newly owned endpoint.
             l.recovery_blocked = true;
             let binding = if l.minor >= 6 {
-                crate::preview::discover_performance(l.shared.identity)?
+                crate::preview::discover_performance(l.shared.identity, l.shared.execution)?
             } else {
                 binding(true)?
             };
@@ -1960,6 +1973,7 @@ pub unsafe extern "C" fn ap6_recover(
                 .ok_or_else(|| invalid("transport generation exhausted"))?;
             shared.snapshots = l.shared.snapshots.clone();
             shared.identity = l.shared.identity;
+            shared.execution = l.shared.execution;
             shared.state_capable.store(true, Ordering::Release);
             shared.ack.store(17, Ordering::Release);
             shared.observer = session.witness.as_ref().map(|w| w.shared.clone());
@@ -2903,6 +2917,19 @@ pub unsafe extern "C" fn ap9_open(identity: *const u8, handle: *mut u64) -> u32 
         if identity.is_some() { 15 } else { 6 },
         identity,
     )
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap24_open(identity: *const u8, engine: *const u8,
+    descriptor: *const u8, handle: *mut u64) -> u32 {
+    if identity.is_null() || engine.is_null() || descriptor.is_null() { return 1; }
+    let value = std::slice::from_raw_parts(identity, 48);
+    open_execution(256, handle, 15, Some(state::Identity {
+        class: value[..16].try_into().unwrap(),
+        module: value[16..].try_into().unwrap(),
+    }), Some(ap1_native_client::admission::ExecutionIdentity {
+        engine: std::slice::from_raw_parts(engine, 32).try_into().unwrap(),
+        descriptor: std::slice::from_raw_parts(descriptor, 32).try_into().unwrap(),
+    }))
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap8_open(identity: *const u8, handle: *mut u64) -> u32 {

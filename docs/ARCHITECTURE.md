@@ -1372,6 +1372,26 @@ checks its affected inputs and supported capacities, preserves explicit unrelate
 preferences, and uses retained predecessors rather than guessing another build.
 Migrate existing records without changing class IDs or saved objects.
 
+The loaded-native admission successor binds the executing factory as well as the
+selected files. Descriptor C ABI v2 receives an anchor in the loaded image, matches
+its executable mapping to an opened image, and reads the descriptor through that
+same resolved directory handle. Cache the engine and descriptor digests with the
+factory metadata. Admission LVB5 carries this cached pair alongside logical class
+and vendor-module identity; the manager compares the selected registration and the
+peer's executable mapping before starting resources and again before admission.
+Retain one peer process generation across these checks and graphical-context capture.
+Recovery uses the original caller binding, never a fresh hash of whichever path is
+currently selected. This is a non-realtime factory/admission contract and does not
+change Windows IPC15, the sample transport, class identity or saved-state format.
+
+LVB1–4 cannot report cached descriptor provenance. A mapped legacy engine can cache
+another publication's descriptor before the selection is restored, so selected-file
+hashes or process-map presence cannot reconstruct that fact. Legacy execution policy
+is unresolved pending the operator's choice of explicit managed refresh; the modern
+source implementation must not be deployed or described as complete admission
+closure while that route is unchanged. Exact historical files and user state remain
+retained. This gap is recorded in FC-MGMT-008, not hidden behind a restart suggestion.
+
 Ordinary configuration readback validates bounded owned records and their current
 bindings, including transaction state and the selected physical publication. This
 is control-record validation, not a fresh verification of executable payloads.

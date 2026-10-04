@@ -206,7 +206,11 @@ bool Processor::stateSession() {
   queued_ = true;
   if (
 #ifdef AP8_PREVIEW
+#ifdef LVB_RUNTIME_DESCRIPTOR
+      ap24_open(AP8::identity,AP8::engine_sha256,AP8::descriptor_sha256,&handle_)
+#else
       ap9_open(AP8::identity,&handle_)
+#endif
 #else
       ap9_open(nullptr,&handle_)
 #endif

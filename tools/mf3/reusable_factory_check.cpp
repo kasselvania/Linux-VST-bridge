@@ -4,20 +4,23 @@
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include <dlfcn.h>
 #include <cstring>
+#include <filesystem>
 #include <iostream>
 #include <string>
 #include <stdexcept>
 using namespace Steinberg;
 struct Module {
  void* image=nullptr;IPluginFactory* factory=nullptr;bool(*exit)()=nullptr;
- explicit Module(const char* path) {
+ IPluginFactory*(*get)()=nullptr;
+ explicit Module(const char* path,bool immediate=true) {
   image=dlopen(path,RTLD_NOW|RTLD_LOCAL);if(!image)throw std::runtime_error(dlerror());
   auto entry=reinterpret_cast<bool(*)(void*)>(dlsym(image,"ModuleEntry"));
   exit=reinterpret_cast<bool(*)()>(dlsym(image,"ModuleExit"));
-  auto get=reinterpret_cast<IPluginFactory*(*)()>(dlsym(image,"GetPluginFactory"));
+  get=reinterpret_cast<IPluginFactory*(*)()>(dlsym(image,"GetPluginFactory"));
   if(!entry||!exit||!get||!entry(image))throw std::runtime_error("module entry");
-  factory=get();
+  if(immediate)factory=get();
  }
+ IPluginFactory* openFactory(){if(!factory)factory=get();return factory;}
  ~Module(){if(factory)factory->release();if(exit)exit();if(image)dlclose(image);}
 };
 std::string hex(const TUID id){std::string out;for(unsigned char b:std::string(id,16)){out+="0123456789abcdef"[b>>4];out+="0123456789abcdef"[b&15];}return out;}
@@ -45,7 +48,21 @@ void check(Module& m,const char* expected,const char* name,double value){
  if(component->terminate())throw std::runtime_error("component termination");
  component->release();
 }
+void select(const std::filesystem::path& link,const std::filesystem::path& target){
+ auto temporary=link;temporary += ".next";
+ std::error_code ignored;std::filesystem::remove(temporary,ignored);
+ std::filesystem::create_directory_symlink(target,temporary);
+ std::filesystem::rename(temporary,link);
+}
 int main(int argc,char**argv){try{
+ if(argc==6&&std::strcmp(argv[1],"--descriptor-race-refuse")==0){
+  Module loaded(argv[2],false);
+  select(argv[3],argv[4]);
+  if(loaded.openFactory())return 42;
+  select(argv[3],argv[5]);
+  if(loaded.openFactory())return 43;
+  return 0;
+ }
  if(argc==2){Module invalid(argv[1]);return invalid.factory?2:0;}
  if(argc!=6)return 2;
  Module first(argv[1]),second(argv[3]);
