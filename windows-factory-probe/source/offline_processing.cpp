@@ -17,6 +17,9 @@
 #include <exception>
 #include <memory>
 #include <stdexcept>
+#ifdef LVB_SAMPLE_PLANE_TEST
+#include <cassert>
+#endif
 
 namespace linux_vst_bridge::wf0 {
 namespace {
@@ -44,6 +47,9 @@ struct Block {
     double gain{};
     tresult result{kNotInitialized};
     bool worker_thread{false};
+#ifdef LVB_SAMPLE_PLANE_TEST
+    size_t sample_plane_reads=0,sample_plane_writes=0;
+#endif
 };
 // The existing owner selects commands; the existing render thread consumes
 // them. Events are hints, while the exact generation transfers the pending
@@ -119,16 +125,27 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     // thread before activation. Each process call receives a separate block.
     for (int b=0;b<3;++b) {
         auto& block=blocks[b];
-        for(size_t ch=0;ch<64;++ch)block.output_channels[ch]=ch<2?block.output[ch].data()+1:block.extra_output[ch-2].data()+1;block.silent_input.front()=block.silent_input.back()=std::bit_cast<float>(guard); block.gain=b==0?0.5:0.25;
+        block.silent_input.fill(0.f);
+        block.silent_input.front()=block.silent_input.back()=std::bit_cast<float>(guard);
+        for(size_t ch=0;ch<64;++ch){
+            auto& plane=ch<2?block.output[ch]:block.extra_output[ch-2];
+            plane.fill(std::bit_cast<float>(sentinel));
+            plane.front()=plane.back()=std::bit_cast<float>(guard);
+            block.output_channels[ch]=plane.data()+1;
+        }
+        block.gain=b==0?0.5:0.25;
         block.returned.buses=uint32_t(layout.counts[3]);
         size_t event_out=0;for(size_t i=0;i<layout.size;++i)if(layout.buses[i].info.mediaType==kEvent&&layout.buses[i].info.direction==kOutput){block.returned.channels[event_out]=layout.buses[i].effective_channels;block.returned.bus_active[event_out++]=layout.buses[i].active?1:0;}
         for (int ch=0;ch<2;++ch) {
-            block.input[ch].front()=block.input[ch][frames+1]=std::bit_cast<float>(guard);
-            block.output[ch].fill(std::bit_cast<float>(sentinel));
-            block.output[ch].front()=block.output[ch][frames+1]=std::bit_cast<float>(guard);
+            block.input[ch].fill(0.f);
+            block.input[ch].front()=block.input[ch].back()=std::bit_cast<float>(guard);
             for(int i=0;i<frames;++i) {
                 const int numerator=ch==0?((i+b*2)%9)-4:((i*3+b+2)%11)-5;
                 block.input[ch][i+1]=(external||b==2)?0.f:static_cast<float>(numerator)/8.f;
+            }
+            if(!external){
+                block.input[ch][frames+1]=std::bit_cast<float>(guard);
+                block.output[ch][frames+1]=std::bit_cast<float>(guard);
             }
             block.in[ch]=block.input[ch].data()+1;block.out[ch]=block.output[ch].data()+1;
         }
@@ -251,18 +268,18 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                 if (started) for(uint64_t b=0;sustained||b<uint64_t(external?65:3);++b) {
                     auto& block=blocks[external?0:b];
                     if (external) {
-                        block.silent_input.fill(0.f);
-                        block.silent_input.front()=block.silent_input.back()=std::bit_cast<float>(guard);
-                        for(int ch=0;ch<2;++ch) {
-                            block.input[ch].fill(0.f);block.output[ch].fill(std::bit_cast<float>(sentinel));
-                            block.input[ch].front()=block.input[ch].back()=std::bit_cast<float>(guard);
-                            block.output[ch].front()=block.output[ch].back()=std::bit_cast<float>(guard);
-                        }
-                        for(auto& plane:block.extra_output){plane.fill(std::bit_cast<float>(sentinel));plane.front()=plane.back()=std::bit_cast<float>(guard);}
+#ifdef LVB_SAMPLE_PLANE_TEST
+                        block.sample_plane_reads=block.sample_plane_writes=0;
+#endif
                         auto& request=block.request;
                         if (!external->next(request,block.in[0],block.in[1])) break;
                         if(request.frames>static_cast<int>(maximum)) throw std::runtime_error("negotiated maximum exceeded");
-                        block.input_before=block.input;
+                        if(request.frames){
+                            block.input_before=block.input;
+#ifdef LVB_SAMPLE_PLANE_TEST
+                            block.sample_plane_reads+=2;block.sample_plane_writes+=2;
+#endif
+                        }
                         block.gain=request.gain;block.data.numSamples=request.frames;
                         block.data.processMode=callback_process_mode(request,setup.processMode);
                         block.input_bus.silenceFlags=request.silence;
@@ -282,6 +299,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                     block.data.outputParameterChanges=external&&external->returned_results()?&block.returned:nullptr;
                     block.data.processContext=block.request.has_context?&block.request.context:nullptr;
                     block.worker_thread=std::this_thread::get_id()!=owner;
+                    const auto admitted_samples=block.data.numSamples;
                     if(!sustained)events.lifecycle("ap0_process_started",",\"block\":"+std::to_string(b));
                     if(external)external->before_process();
                     const auto process_start=std::chrono::steady_clock::now();
@@ -300,29 +318,51 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         ",\"result\":"+std::to_string(block.result));
                     if(block.result!=kResultOk) {ok=false;if(sustained)throw std::runtime_error("Windows processor returned failure");break;}
                     if(block.returned.failed)throw std::runtime_error("malformed or oversized process results");
-                    if(std::bit_cast<uint32>(block.silent_input.front())!=guard||std::bit_cast<uint32>(block.silent_input.back())!=guard||
-                       std::any_of(block.silent_input.begin()+1,block.silent_input.end()-1,[](float v){return v!=0.f;}))
+                    if(block.data.numSamples!=admitted_samples)
+                        throw std::runtime_error("Windows processor changed admitted sample extent");
+                    if(admitted_samples&&
+                       (std::bit_cast<uint32>(block.silent_input.front())!=guard||std::bit_cast<uint32>(block.silent_input.back())!=guard||
+                        std::any_of(block.silent_input.begin()+1,block.silent_input.end()-1,[](float v){return v!=0.f;})))
                         throw std::runtime_error("AP18 inactive input modified");
                     ++processed;
-                    if(external) {
+                    if(external&&admitted_samples) {
+#ifdef LVB_SAMPLE_PLANE_TEST
+                        block.sample_plane_reads+=65;
+#endif
                         for(int ch=0;ch<2;++ch) {
                             if(block.input[ch]!=block.input_before[ch] ||
                                std::bit_cast<uint32>(block.output[ch].front())!=guard ||
                                std::bit_cast<uint32>(block.output[ch].back())!=guard)
                                 throw std::runtime_error("AP1 private buffer guard/input");
-                            for(int i=block.data.numSamples+1;i<=capacity;++i)
+                            for(int i=admitted_samples+1;i<=capacity;++i)
                                 if(std::bit_cast<uint32>(block.output[ch][i])!=sentinel)
                                     throw std::runtime_error("AP1 unused private output modified");
                         }
                         for(const auto& plane:block.extra_output){
                             if(std::bit_cast<uint32>(plane.front())!=guard||std::bit_cast<uint32>(plane.back())!=guard)
                                 throw std::runtime_error("extra private output guard");
-                            for(int i=block.data.numSamples+1;i<=capacity;++i)if(std::bit_cast<uint32>(plane[i])!=sentinel)
+                            for(int i=admitted_samples+1;i<=capacity;++i)if(std::bit_cast<uint32>(plane[i])!=sentinel)
                                 throw std::runtime_error("extra private output extent");
                         }
                         if(!sustained)events.lifecycle("ap1_private_buffers_valid",",\"block\":"+std::to_string(b));
                     }
                     if(external) external->done_outputs(block.all_outputs.data(),layout.counts[1],uint64_t(process_ns),&block.returned.values);
+                    if(external&&admitted_samples){
+                        const auto end=admitted_samples+1;
+                        for(int ch=0;ch<2;++ch)
+                            std::fill(block.output[ch].begin()+1,block.output[ch].begin()+end,std::bit_cast<float>(sentinel));
+                        for(auto& plane:block.extra_output)
+                            std::fill(plane.begin()+1,plane.begin()+end,std::bit_cast<float>(sentinel));
+#ifdef LVB_SAMPLE_PLANE_TEST
+                        block.sample_plane_writes+=64;
+#endif
+                    }
+#ifdef LVB_SAMPLE_PLANE_TEST
+                    assert(admitted_samples||
+                           (block.sample_plane_reads==0&&block.sample_plane_writes==0));
+                    assert(!admitted_samples||
+                           (block.sample_plane_reads!=0&&block.sample_plane_writes!=0));
+#endif
                 }
             } catch (...) {primary_error=std::current_exception();worker_exception=true;ok=false;}
             // Attempt bounded teardown through the same supervisor even after

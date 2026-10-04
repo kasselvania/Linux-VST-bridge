@@ -59,9 +59,10 @@ struct PreparedThread {
     void retired()const{assert(handle&&WaitForSingleObject(handle,0)==WAIT_OBJECT_0);}
 };
 struct Setup {uint32_t maximum,mode;double rate;};
-enum class Case {idle,reconfigure,legacy_finite,owner_ack,owner_before_start,owner_during_start,cancel_restart,render_before_start,refused_start,throw_start,throw_start_owner_failure,refused_stop,hung_process};
+enum class Case {idle,reconfigure,legacy_finite,owner_ack,owner_before_start,owner_during_start,cancel_restart,render_before_start,refused_start,throw_start,throw_start_owner_failure,refused_stop,hung_process,malformed_samples};
 
 struct Fixture final:AudioEffect {
+    bool instrument=false;
     DWORD owner=GetCurrentThreadId();
     std::atomic<DWORD> prepared{0};
     std::atomic<unsigned> starts{0},stops{0},blocks{0};
@@ -71,6 +72,7 @@ struct Fixture final:AudioEffect {
     std::atomic<unsigned long long> owner_sequence{0};
     Setup accepted{};
     bool reject_start=false,reject_stop=false,hang_process=false;
+    bool malformed_samples=false;
     bool throw_start=false,await_cancel=false;
     std::atomic<bool>* cancelled=nullptr;
     bool deferred_logging=true;
@@ -78,7 +80,8 @@ struct Fixture final:AudioEffect {
     unsigned active_calls=0,inactive_calls=0;
     tresult PLUGIN_API initialize(FUnknown* host)override{
         auto result=AudioEffect::initialize(host);
-        addAudioInput(u"In",SpeakerArr::kStereo);addAudioOutput(u"Out",SpeakerArr::kStereo);
+        if(!instrument)addAudioInput(u"In",SpeakerArr::kStereo);
+        addAudioOutput(u"Out",SpeakerArr::kStereo);addEventOutput(u"Results",16);
         return result;
     }
     tresult PLUGIN_API setupProcessing(ProcessSetup& setup)override{
@@ -114,8 +117,18 @@ struct Fixture final:AudioEffect {
         assert(uint32_t(data.processMode)==accepted.mode);
         if(data.numSamples==0)assert(!data.inputs&&!data.outputs&&data.numInputs==0&&data.numOutputs==0);
         else for(int ch=0;ch<2;++ch){
-            for(int i=0;i<data.numSamples;++i)data.outputs[0].channelBuffers32[ch][i]=data.inputs[0].channelBuffers32[ch][i]*.5f;
+            for(int i=0;i<data.numSamples;++i)data.outputs[0].channelBuffers32[ch][i]=instrument?.375f:data.inputs[0].channelBuffers32[ch][i]*.5f;
             data.outputs[0].silenceFlags=0;
+        }
+        assert(data.outputEvents&&data.outputParameterChanges);
+        Event event{};event.busIndex=0;event.sampleOffset=0;event.type=Event::kLegacyMIDICCOutEvent;
+        event.midiCCOut={7,1,2,3};assert(data.outputEvents->addEvent(event)==kResultOk);
+        int32 index=0,point=0;auto* queue=data.outputParameterChanges->addParameterData(77,index);
+        assert(queue&&queue->addPoint(0,.625,point)==kResultOk);
+        if(malformed_samples&&data.numSamples){
+            data.outputs[0].channelBuffers32[0][-1]=0.f;
+            data.numSamples=0;
+            malformed_samples=false;
         }
         ++blocks;return kResultOk;
     }
@@ -134,12 +147,14 @@ struct Script final:ExternalProcessing {
         fixture.throw_start=c==Case::throw_start||c==Case::throw_start_owner_failure;
         fixture.await_cancel=c==Case::throw_start_owner_failure;fixture.cancelled=&cancelled;
         fixture.deferred_logging=c!=Case::legacy_finite;
+        fixture.malformed_samples=c==Case::malformed_samples;
         if(c==Case::legacy_finite)setups[0].mode=2;
     }
     bool hosted()const override{return true;}
     bool sustained()const override{return scenario!=Case::legacy_finite;}
     bool stateful()const override{return true;}
     bool commercial()const override{return scenario!=Case::legacy_finite;}
+    bool returned_results()const override{return true;}
     uint32_t process_mode()const override{return setups[activation].mode;}
     double sample_rate()const override{return setups[activation].rate;}
     void ready()override{}
@@ -169,7 +184,7 @@ struct Script final:ExternalProcessing {
         }else if(kind==13){
             assert(GetCurrentThreadId()==fixture.owner&&!fixture.processing);
             if(scenario==Case::legacy_finite)threads[activation].retired();else threads[activation].live();
-            assert(delivered==4*(intervals+1));
+            assert(delivered==5*(intervals+1));
             ++stopped_acks;++intervals;
             fixture.owner_sequence.store(fixture.events->sequence(),std::memory_order_release);
         }else{
@@ -199,20 +214,26 @@ struct Script final:ExternalProcessing {
     void owner_failed()noexcept override{assert(GetCurrentThreadId()==fixture.owner);++owner_failures;cancelled.store(true,std::memory_order_release);}
     bool next(ExternalBlock& block,float* left,float* right)override{
         assert(GetCurrentThreadId()==threads[activation].id);
-        if(block_index==4)return false;
-        const std::array<unsigned,4> lengths{0,1,setups[activation].maximum/2,setups[activation].maximum};
+        if(block_index==5)return false;
+        const std::array<unsigned,5> lengths{0,1,setups[activation].maximum/2,0,setups[activation].maximum};
         block.frames=int(lengths[block_index++]);block.silence=0;block.gain_present=false;
         for(int i=0;i<block.frames;++i){left[i]=.25f;right[i]=-.5f;}
         return true;
     }
-    void done(const float* left,const float* right,uint64_t,uint64_t,const ap10_results_t*)override{
-        const std::array<unsigned,4> lengths{0,1,setups[activation].maximum/2,setups[activation].maximum};
-        for(unsigned i=0;i<lengths[block_index-1];++i)assert(left[i]==.125f&&right[i]==-.25f);
+    void done(const float* left,const float* right,uint64_t silence,uint64_t,const ap10_results_t* results)override{
+        const std::array<unsigned,5> lengths{0,1,setups[activation].maximum/2,0,setups[activation].maximum};
+        const auto expected=fixture.instrument?.375f:.125f;
+        for(unsigned i=0;i<lengths[block_index-1];++i){assert(left[i]==expected);assert(right[i]==(fixture.instrument?.375f:-.25f));}
+        assert(silence==0);
+        assert(results&&results->events==1&&results->points==1&&results->bytes==0);
+        assert(results->event[0].offset==0&&results->event[0].bus==0&&results->event[0].kind==Event::kLegacyMIDICCOutEvent);
+        assert(results->event[0].a==7&&results->event[0].b==1&&results->event[0].c==2&&results->event[0].d==3);
+        assert(results->point[0].offset==0&&results->point[0].id==77&&results->point[0].value==.625);
         ++delivered;
     }
 };
-void exercise(Case scenario){
-    HostApplication host;Fixture fixture;assert(fixture.initialize(&host)==kResultOk);
+void exercise(Case scenario,bool instrument=false){
+    HostApplication host;Fixture fixture;fixture.instrument=instrument;assert(fixture.initialize(&host)==kResultOk);
     Script script(fixture,scenario);EventWriter events(1048576);HostCallbackSink callbacks(&events,GetCurrentThreadId());
     fixture.events=&events;
     const auto begin=GetTickCount64();
@@ -222,10 +243,10 @@ void exercise(Case scenario){
     assert(result.success==success&&result.retirement_ready==success);
     if(scenario==Case::idle){assert(fixture.starts==0&&fixture.stops==0&&fixture.blocks==0);}
     if(scenario==Case::reconfigure){
-        assert(fixture.starts==6&&fixture.stops==6&&fixture.blocks==24);
+        assert(fixture.starts==6&&fixture.stops==6&&fixture.blocks==30);
         assert(script.started_acks==6&&script.stopped_acks==6&&fixture.active_calls==3);
     }
-    if(scenario==Case::legacy_finite){assert(fixture.starts==1&&fixture.stops==1&&fixture.blocks==4&&script.stopped_acks==1);}
+    if(scenario==Case::legacy_finite){assert(fixture.starts==1&&fixture.stops==1&&fixture.blocks==5&&script.stopped_acks==1);}
     if(scenario==Case::owner_ack||scenario==Case::owner_before_start||scenario==Case::owner_during_start){
         assert(script.cancelled.load()&&script.owner_failures==1&&fixture.starts==0&&fixture.stops==0);
     }
@@ -237,7 +258,10 @@ void exercise(Case scenario){
     }
     if(scenario==Case::cancel_restart){
         assert(script.owner_failures==1&&script.cancelled.load());
-        assert(fixture.starts==1&&fixture.stops==1&&fixture.blocks==4&&script.stopped_acks==1);
+        assert(fixture.starts==1&&fixture.stops==1&&fixture.blocks==5&&script.stopped_acks==1);
+    }
+    if(scenario==Case::malformed_samples){
+        assert(fixture.starts==1&&fixture.stops==1&&fixture.blocks==2&&script.delivered==1);
     }
     assert(GetTickCount64()-begin<5000);
     assert(fixture.terminate()==kResultOk);
@@ -257,6 +281,7 @@ int main(int argc,char** argv){
     assert(argc==1);
     exercise(Case::idle);
     exercise(Case::reconfigure);
+    exercise(Case::reconfigure,true);
     // Finite workers publish their exact completion immediately before exit.
     // Exercise that terminal/completion boundary and the legacy actual join
     // before ACK13, without replacing lifetime evidence with a text search.
@@ -268,5 +293,6 @@ int main(int argc,char** argv){
     exercise(Case::refused_start);
     exercise(Case::throw_start);
     exercise(Case::throw_start_owner_failure);
+    exercise(Case::malformed_samples);
     std::cout<<"prepared render lifecycle: activation ordering, interval reuse, zero frames, inactive reconfiguration and failure retirement passed\n";
 }

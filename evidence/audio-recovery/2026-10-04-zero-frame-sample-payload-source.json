@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "claim": "zero_frame_operations_do_not_access_mapped_or_private_audio_sample_payload",
+  "base_commit": "ce17477a74378c22c56f2623b6a8edc11ee5836d",
+  "base_tree": "1ef69c36df2863860b4fa573cf19037aa95a9864",
+  "full_patch_sha256": "320f3a4af19ad42d5408ea67b341b3f0702f56106ee2337e4b7945dd66cb9161",
+  "files": {
+    "native-vst3-proxy/backend/src/commercial_tests.rs": "86c0a660757cc9a8888132b59fad998178b780dd8a00e38028bb7847136cd7fd",
+    "native-vst3-proxy/backend/src/lc1_tests.rs": "464911d1f690aa6fd99c66c5821847297a631773a512bd4028ac098339510488",
+    "native-vst3-proxy/backend/src/lib.rs": "ac2d85b6a26afc96c1fc4900267dc4713132ab37aff3434746a375e467e1265f",
+    "native-vst3-proxy/backend/src/queued.rs": "4dba9cbe447957813ce08feb9f2110a0cd9e92f8c04807d24dfe2a043bf26ea8",
+    "tools/ap18-tests/lc1_session.cpp": "30027dbeaac7ec7d66d69cf2822b9de47d543ce27e0ac45a07baf7e03c5d5cde",
+    "tools/ap23-tests/windows_readiness.cpp": "f4a68eb231ddede7d1e2586fa2723d2e14537ac8d1839944a6fbe1ce66c1ea80",
+    "windows-factory-probe/CMakeLists.txt": "1a14f307b67e8300ca3d6420541a82aa70544b841189209ebd385ec1260f7a88",
+    "windows-factory-probe/source/mapped_processing.cpp": "ee0defd44578c70cbc6a1b830e58498c954ce8ceeedc934711278246530a29b1",
+    "windows-factory-probe/source/offline_processing.cpp": "abc168f4f93dc4920a0f0c91266b3b581a4129993d1fc7384e48f24788857352"
+  },
+  "red": {
+    "platform": "Linux x86_64",
+    "test": "production_processing_reuses_maximum_request_and_reply_storage",
+    "tests_only_patch_sha256": "8debdd801dd4fdc74dacf644f90e734182ea1ad0929a7047eef12767f77fbc82",
+    "exit_code": 101,
+    "observed_mapped_writes_reads": [
+      4,
+      4
+    ],
+    "expected": [
+      0,
+      0
+    ],
+    "log_sha256": "742a4eb5675e47a3bbcbade6e9f4dcadf7a06931d424159ee9b32282c07b40d8",
+    "observer_correction": "Post-run classifier initially searched a different assertion label. Same preserved log confirmed exact expected behavior; no test rerun."
+  },
+  "green": {
+    "platform": "Linux x86_64",
+    "backend_tests": {
+      "passed": 142,
+      "failed": 0,
+      "ignored": 1,
+      "ignored_case": "lc1_tests::same_session_reconfiguration_two_ended"
+    },
+    "checks": [
+      {
+        "name": "backend-registered",
+        "exit_code": 0,
+        "seconds": 34.47298972099088,
+        "log_sha256": "f06f9fd1d9d0e9a387b2e7eb86a07cfe475f5b46677d89e9652958fed2ace474"
+      },
+      {
+        "name": "backend-clippy",
+        "exit_code": 0,
+        "seconds": 3.0343750149477273,
+        "log_sha256": "80cbc96e01b7c3375af8f73b6c91f36c84d27621bb03bae3219fce5e7890f6a5"
+      }
+    ],
+    "focused_contracts": [
+      "real Session N0 returned results and zero mapped plane access",
+      "malformed N0 completion refuses without mapped sample access",
+      "nonzero 64-plane guards and tails remain validated",
+      "immediate START then N0 queue order with exact results and zero callback allocations"
+    ],
+    "local_lc2_oracle_tests": 5
+  },
+  "windows": {
+    "execution": "pending_exact_source_CI",
+    "sdk_owner": "N0/N1/variable lengths for instrument and effect; returned events and parameters; trusted frame count mutation refusal and quiescent teardown",
+    "mapped_integration": "updated LC1 fixture is compiled by CI; paired Linux/Windows runtime execution is separate and not yet claimed"
+  },
+  "review": {
+    "status": "pending_final_delta",
+    "fixed_finding": "Use trusted admitted frame count after vendor processing; refuse vendor mutation before publishing results."
+  },
+  "unchanged": [
+    "IPC and shared-memory layout",
+    "real-time/offline deadlines",
+    "START ordering and lightweight setProcessing",
+    "runtime and scheduling policy",
+    "nonzero guard and tail validation"
+  ],
+  "limits": [
+    "No installed timing cure or historical dropout attribution",
+    "No physical Deck, commercial workflow, endurance, serial-chain, lower-latency or beta claim",
+    "Fixed-size native result array still initializes; zero mapped sample access does not mean zero total work",
+    "Post-Done private output reset is bounded same-thread work and may delay a following request",
+    "Two-ended LC1 retains its explicit START acknowledgement wait; unpaced ordering is a separate native callback/queue regression"
+  ],
+  "custody": {
+    "durable_copy_verified": true,
+    "red_archive_sha256": "bb39b0967c5e2ed8eab2eab9455afe207a7a4806d0fa633d79940c60e5fae25c",
+    "green_archive_sha256": "26078dac5b30afa5ff1d1574309bfcaa501291a169196b4523e4ac814d114828"
+  }
+}

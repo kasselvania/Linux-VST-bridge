@@ -292,6 +292,9 @@ struct MappedSession::Impl {
     Layout layout = legacy_layout;
     uint32_t mapped_bytes = mapping_bytes;
     uint64_t extra_silence = 0;
+#ifdef LVB_LC1_TEST
+    size_t mapped_sample_reads=0,mapped_sample_writes=0;
+#endif
     void connect_transport() {
         if (connected)
             return;
@@ -1243,12 +1246,20 @@ bool MappedSession::next(ExternalBlock& out, float* left, float* right) {
         x.current = x.state.begin(x.sustained ? x.base_request : f,
                                   x.sustained ? UINT64_MAX - 1 : 64, x.stateful, x.layout);
         require(x.current.frames <= x.maximum, "configured maximum exceeded");
-        barrier();
-        for (size_t ch = 0; ch < 2; ++ch) {
-            auto base = x.view + x.layout.input + ch * x.layout.stride;
-            require(get(base, 4) == guard && get(base + x.layout.stride - 4, 4) == guard,
-                    "input guard");
-            std::memcpy(ch ? right : left, base + 4, x.current.frames * 4);
+#ifdef LVB_LC1_TEST
+        x.mapped_sample_reads=x.mapped_sample_writes=0;
+#endif
+        if(x.current.frames){
+            barrier();
+            for (size_t ch = 0; ch < 2; ++ch) {
+                auto base = x.view + x.layout.input + ch * x.layout.stride;
+                require(get(base, 4) == guard && get(base + x.layout.stride - 4, 4) == guard,
+                        "input guard");
+                std::memcpy(ch ? right : left, base + 4, x.current.frames * 4);
+#ifdef LVB_LC1_TEST
+                x.mapped_sample_reads+=8+x.current.frames*4;
+#endif
+            }
         }
         if (x.diagnostic.enabled)
             x.input_observation.observe(x.timeline.epoch, x.state.next, x.timeline.position,
@@ -1368,7 +1379,7 @@ void MappedSession::done_outputs(const Steinberg::Vst::AudioBusBuffers* buses, i
     }
     require(count == x.buses.counts[1] && count >= 1 && count <= 32, "output bus count changed");
     x.extra_silence = 0;
-    if (x.socket.minor >= 13) {
+    if (x.socket.minor >= 13 && x.current.frames) {
         int index = 0;
         for (size_t i = 0; i < x.buses.size; ++i) {
             const auto& b = x.buses.buses[i];
@@ -1396,6 +1407,9 @@ void MappedSession::done_outputs(const Steinberg::Vst::AudioBusBuffers* buses, i
                                 "extra output claim");
                     std::memcpy(destination, source, x.current.frames * 4);
                 }
+#ifdef LVB_LC1_TEST
+                x.mapped_sample_writes+=x.current.frames*4;
+#endif
             }
         }
     }
@@ -1466,9 +1480,21 @@ void MappedSession::done(const float* left, const float* right, uint64_t silence
             }
             std::memcpy(p, r.payload, r.bytes);
         }
-        for (size_t ch = 0; ch < 2; ++ch)
+        if(x.current.frames)for (size_t ch = 0; ch < 2; ++ch){
             std::memcpy(x.view + x.layout.output + ch * x.layout.stride + 4, ch ? right : left,
                         x.current.frames * 4);
+#ifdef LVB_LC1_TEST
+            x.mapped_sample_writes+=x.current.frames*4;
+#endif
+        }
+#ifdef LVB_LC1_TEST
+        require(x.current.frames||
+                    (x.mapped_sample_reads==0&&x.mapped_sample_writes==0),
+                "zero-frame mapped sample access");
+        require(!x.current.frames||
+                    (x.mapped_sample_reads!=0&&x.mapped_sample_writes!=0),
+                "nonzero mapped sample access absent");
+#endif
         barrier();
         x.diagnostic.stamp(6);
         if (x.fault)

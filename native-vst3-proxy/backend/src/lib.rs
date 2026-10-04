@@ -80,6 +80,17 @@ mod allocation_test {
         (result, COUNTS.with(Cell::get))
     }
 }
+#[cfg(test)]
+mod sample_plane_test {
+    use std::cell::Cell;
+    thread_local! {
+        static ACCESSES: Cell<(usize, usize)> = const { Cell::new((0, 0)) };
+    }
+    pub fn reset() { ACCESSES.with(|value| value.set((0, 0))); }
+    pub fn write() { ACCESSES.with(|value| { let (writes, reads) = value.get(); value.set((writes + 1, reads)); }); }
+    pub fn read() { ACCESSES.with(|value| { let (writes, reads) = value.get(); value.set((writes, reads + 1)); }); }
+    pub fn accesses() -> (usize, usize) { ACCESSES.with(Cell::get) }
+}
 struct Session {
     gui: Option<std::sync::Arc<gui::Gui>>,
     gui_revision: u64,
@@ -508,18 +519,26 @@ impl Session {
         };
         let capacity = self.mapping.as_ref().ok_or_else(|| invalid("mapping absent"))?.capacity;
         need(n <= capacity, "process exceeds negotiated mapping")?;
-        let mut snapshot = [[0u32; BLOCK_CAP + 2]; 2];
-        let mut poison = [POISON; BLOCK_CAP + 2];
-        poison[0] = GUARD;
-        poison[capacity + 1] = GUARD;
-        for ch in 0..2 {
-            snapshot[ch][0] = GUARD;
-            snapshot[ch][capacity + 1] = GUARD;
-            for i in 0..n {
-                need(input[ch][i].is_finite(), "nonfinite input")?;
-                snapshot[ch][i + 1] = input[ch][i].to_bits();
+        // A zero-frame operation still carries events, parameters, identity and
+        // an exact completion. It exposes no sample planes to the processor, so
+        // do not prepare or touch the mapped sample payload for that operation.
+        let sample_planes = if n == 0 {
+            None
+        } else {
+            let mut snapshot = [[0u32; BLOCK_CAP + 2]; 2];
+            let mut poison = [POISON; BLOCK_CAP + 2];
+            poison[0] = GUARD;
+            poison[capacity + 1] = GUARD;
+            for ch in 0..2 {
+                snapshot[ch][0] = GUARD;
+                snapshot[ch][capacity + 1] = GUARD;
+                for i in 0..n {
+                    need(input[ch][i].is_finite(), "nonfinite input")?;
+                    snapshot[ch][i + 1] = input[ch][i].to_bits();
+                }
             }
-        }
+            Some((snapshot, poison))
+        };
         self.returned.events = 0;
         self.returned.points = 0;
         self.returned.bytes = 0;
@@ -528,11 +547,19 @@ impl Session {
                 .mapping
                 .as_mut()
                 .ok_or_else(|| invalid("mapping absent"))?;
-            for (ch, plane) in snapshot.iter().enumerate() {
-                map.write_plane(INPUT, ch, plane)?;
+            if let Some((snapshot, poison)) = &sample_planes {
+                for (ch, plane) in snapshot.iter().enumerate() {
+                    #[cfg(test)]
+                    sample_plane_test::write();
+                    map.write_plane(INPUT, ch, plane)?;
+                }
+                for ch in 0..map.output_channels {
+                    #[cfg(test)]
+                    sample_plane_test::write();
+                    map.write_plane(map.output, ch, poison)?;
+                }
+                barrier();
             }
-            for ch in 0..map.output_channels { map.write_plane(map.output, ch, &poison)?; }
-            barrier();
             let request = &mut self.processing.request;
             if self.minor >= 4 {
                 request.payload.clear();
@@ -667,35 +694,49 @@ impl Session {
                 reply.payload.truncate(16);
             }
             let flags = self.state.done_at(reply, map.output)?;
-            barrier();
-            let output: [[u32; BLOCK_CAP + 2]; 2] = [map.plane(map.output, 0)?, map.plane(map.output, 1)?];
             need(map.output_channels == 64 || flags >> map.output_channels == 0, "output flags")?;
-            for ch in 0..2 {
-                need(map.plane(INPUT, ch)? == snapshot[ch], "input changed")?;
-                need(
-                    output[ch][0] == GUARD
-                        && output[ch][capacity + 1] == GUARD
-                        && output[ch][n + 1..capacity + 1].iter().all(|&x| x == POISON),
-                    "output bounds",
-                )?;
-                for &bits in &output[ch][1..n + 1] {
-                    let sample = f32::from_bits(bits);
+            let output = if let Some((snapshot, _)) = &sample_planes {
+                barrier();
+                #[cfg(test)]
+                sample_plane_test::read();
+                let left = map.plane(map.output, 0)?;
+                #[cfg(test)]
+                sample_plane_test::read();
+                let right = map.plane(map.output, 1)?;
+                let output: [[u32; BLOCK_CAP + 2]; 2] = [left, right];
+                for ch in 0..2 {
+                    #[cfg(test)]
+                    sample_plane_test::read();
+                    let mapped_input = map.plane(INPUT, ch)?;
+                    need(mapped_input == snapshot[ch], "input changed")?;
                     need(
-                        sample.is_finite() && ((flags & (1 << ch)) == 0 || sample == 0.0),
-                        "invalid output claim",
+                        output[ch][0] == GUARD
+                            && output[ch][capacity + 1] == GUARD
+                            && output[ch][n + 1..capacity + 1].iter().all(|&x| x == POISON),
+                        "output bounds",
                     )?;
+                    for &bits in &output[ch][1..n + 1] {
+                        let sample = f32::from_bits(bits);
+                        need(
+                            sample.is_finite() && ((flags & (1 << ch)) == 0 || sample == 0.0),
+                            "invalid output claim",
+                        )?;
+                    }
                 }
-            }
-            for ch in 2..map.output_channels {
-                let plane: [u32; BLOCK_CAP + 2] = map.plane(map.output, ch)?;
-                need(plane[0] == GUARD && plane[capacity+1] == GUARD
-                    && plane[n+1..capacity+1].iter().all(|&x| x == POISON), "extra output bounds")?;
-                for i in 0..n {
-                    let sample = f32::from_bits(plane[i+1]);
-                    need(sample.is_finite() && (flags & (1u64 << ch) == 0 || sample == 0.), "extra output claim")?;
-                    map.extra[ch-2][i] = sample;
+                for ch in 2..map.output_channels {
+                    #[cfg(test)]
+                    sample_plane_test::read();
+                    let plane: [u32; BLOCK_CAP + 2] = map.plane(map.output, ch)?;
+                    need(plane[0] == GUARD && plane[capacity+1] == GUARD
+                        && plane[n+1..capacity+1].iter().all(|&x| x == POISON), "extra output bounds")?;
+                    for i in 0..n {
+                        let sample = f32::from_bits(plane[i+1]);
+                        need(sample.is_finite() && (flags & (1u64 << ch) == 0 || sample == 0.), "extra output claim")?;
+                        map.extra[ch-2][i] = sample;
+                    }
                 }
-            }
+                output
+            } else { [[0; BLOCK_CAP + 2]; 2] };
             self.trace.validated = Some(std::time::Instant::now());
             self.position += n as u64;
             Ok((output, flags))

@@ -106,7 +106,7 @@ target_link_libraries(ap11-owner-failure-tests PRIVATE sdk sdk_hosting user32 ol
 set_target_properties(ap11-owner-failure-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
 add_executable(ap23-windows-readiness-tests ../tools/ap23-tests/windows_readiness.cpp source/offline_processing.cpp source/component_instance_session.cpp)
 target_include_directories(ap23-windows-readiness-tests PRIVATE source include "${WF0_VST3_SDK_ROOT}")
-target_compile_definitions(ap23-windows-readiness-tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_definitions(ap23-windows-readiness-tests PRIVATE LVB_SAMPLE_PLANE_TEST UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(ap23-windows-readiness-tests PRIVATE /W4 /permissive- /EHsc /UNDEBUG)
 target_link_libraries(ap23-windows-readiness-tests PRIVATE sdk sdk_hosting user32 ole32)
 set_target_properties(ap23-windows-readiness-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")

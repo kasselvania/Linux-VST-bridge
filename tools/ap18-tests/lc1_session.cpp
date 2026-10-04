@@ -15,8 +15,12 @@ struct Fixture final:AudioEffect {
  tresult PLUGIN_API initialize(FUnknown* h) override {auto r=AudioEffect::initialize(h);addAudioInput(u"In",SpeakerArr::kStereo);addAudioOutput(u"Out",SpeakerArr::kStereo);return r;}
  tresult PLUGIN_API setProcessing(TBool active) override {if(active)++starts;else ++stops;return kResultOk;}
  tresult PLUGIN_API process(ProcessData& d) override {
-  assert(d.numSamples==256&&d.numInputs==1&&d.numOutputs==1);
-  for(int c=0;c<2;++c)for(int i=0;i<d.numSamples;++i)d.outputs[0].channelBuffers32[c][i]=d.inputs[0].channelBuffers32[c][i]*.5f;
+  assert(d.numSamples==0||d.numSamples==1||d.numSamples==128||d.numSamples==256);
+  if(!d.numSamples)assert(!d.inputs&&!d.outputs&&d.numInputs==0&&d.numOutputs==0);
+  else {
+   assert(d.numInputs==1&&d.numOutputs==1);
+   for(int c=0;c<2;++c)for(int i=0;i<d.numSamples;++i)d.outputs[0].channelBuffers32[c][i]=d.inputs[0].channelBuffers32[c][i]*.5f;
+  }
   ++blocks;return kResultOk;
  }
 };

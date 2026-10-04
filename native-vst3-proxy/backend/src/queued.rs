@@ -3258,6 +3258,68 @@ mod tests {
         }
     }
     #[test]
+    fn legal_start_immediately_precedes_zero_frame_audio_without_readiness_pacing() {
+        let _registry_owner = crate::registry_test();
+        let shared = Arc::new(Shared::new());
+        shared.state_capable.store(true, Ordering::Release);
+        let mut callback = Callback::new();
+        callback.prepare(256, 2, 0);
+        assert_eq!(callback.transition(&shared, START), 0);
+        let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
+            shared: shared.clone(), callback: UnsafeCell::new(callback),
+            busy: AtomicBool::new(false), worker: None, report: None, max: 256,
+            recovery_blocked: false, installed_delay: Some(256),
+            delivery_mode: crate::performance::DeliveryMode::SameCallback, minor: 15,
+            setup: Some(crate::performance::wire_version(256, 1, 48000., true).unwrap()),
+        })).unwrap().unwrap();
+
+        // Supply the exact completion at the source seam so this test controls
+        // lifecycle/request ordering without turning worker timing into a pace.
+        // The START request remains queued and no processing-ready observation
+        // is published before the legal first callback.
+        let mut completed = Item::control(AUDIO, 1);
+        completed.ticket = 1;
+        completed.process_mode = 1;
+        let mut completion = Completion::from(completed);
+        completion.returned.events = 1;
+        completion.returned.event[0] = crate::process_results::Event {
+            kind: 65535, a: 64, c: 71, ..Default::default()
+        };
+        completion.returned.points = 1;
+        completion.returned.point[0] = crate::process_results::Point {
+            offset: 0, id: 31, value: 0.25,
+        };
+        assert!(shared.publish_result(completion).is_some());
+        assert_eq!(shared.processing_ready_epoch.load(Ordering::Acquire), 0);
+
+        let mut sample = 0.;
+        let planes = [std::ptr::addr_of_mut!(sample); 2];
+        let mut flags = u64::MAX;
+        let (result, allocations) = crate::allocation_test::measure(|| unsafe {
+            ap23_process_outputs(id, 0, 1, std::ptr::null(), 0,
+                &crate::context::Context::default(), 0, &sample, &sample,
+                planes.as_ptr(), 2, &mut flags, std::ptr::null_mut(), 0)
+        });
+        assert_eq!(result, 0);
+        assert_eq!(allocations, [0; 3]);
+        assert_eq!(flags, 3);
+        assert_eq!(shared.processing_ready_epoch.load(Ordering::Acquire), 0);
+
+        let start = shared.requests.pop().unwrap();
+        let audio = shared.requests.pop().unwrap();
+        assert_eq!((start.kind, start.epoch), (START, 1));
+        assert_eq!((audio.kind, audio.epoch, audio.ticket, audio.position, audio.n,
+            audio.process_mode, audio.parent[0]), (AUDIO, 1, 1, 0, 0, 1, 1));
+        assert!(shared.requests.pop().is_none());
+        let mut packet = crate::process_results::Packet::default();
+        unsafe { assert_eq!(ap10_take_results(id, &mut packet), 0); }
+        assert_eq!((packet.events, packet.points), (1, 1));
+        assert_eq!((packet.event[0].offset, packet.event[0].c), (0, 71));
+        assert_eq!((packet.point[0].offset, packet.point[0].id, packet.point[0].value),
+            (0, 31, 0.25));
+        INSTANCES.remove(id, |_| ()).unwrap();
+    }
+    #[test]
     fn zero_frame_buffered_timeout_is_explicit_and_never_left_for_the_next_callback() {
         let _registry_owner = crate::registry_test();
         let shared = Arc::new(Shared::new());

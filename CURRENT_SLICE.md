@@ -123,6 +123,40 @@ previous Sol 6.1 Max settings for new implementation assignments.
 Root owns architecture, integration, machine custody, installed acceptance and
 commit/push. Workstream review and required gates remain active until completed.
 
+## Active repair boundary: zero-frame sample payload
+
+Base `ce17477a74378c22c56f2623b6a8edc11ee5836d`, tree
+`1ef69c36df2863860b4fa573cf19037aa95a9864`. An N=0 operation carries events,
+parameters and completion identity, but exposes no audio buses to the Windows
+processor. The existing native and Windows owners nevertheless initialize, copy
+and validate prepared sample planes. Separate actual sample payload from prepared
+capacity in those owners; preserve the real vendor call and exact returned results.
+
+Scope is native Session/mapping, Windows mapped/SDK processing and focused tests.
+No wire-layout, runtime, scheduling, buffering, allowance or lifecycle policy change.
+Keep all packet/identity checks, START ordering, cancellation, final deadline refusal
+and guards for every exposed nonzero plane. Do not clear input after the receive
+operation has populated it or needlessly shift nonzero preparation into service time.
+
+A source regression must fail on the old actual processing path and pass with no
+sample-plane access for N=0, including returned event/parameter results. Exercise
+N=1 and multiple outputs, malformed completion, output guards/tails, allocation and
+unpaced START-to-N=0 ordering. Build matching Windows/native artifacts, then repeat
+the declared installed workload once with diagnostics off and once on, retaining
+whole output, state, timing and retirement. Restore the exact predecessor normally.
+The claim is removal of unnecessary zero-frame sample work, not attribution of
+historical misses or dependable audio. Broader completion acceptance remains open.
+
+The [source regression](evidence/audio-recovery/2026-10-04-zero-frame-sample-payload-source.json)
+fails on the old actual Session path (four mapped writes and reads for N=0) and
+passes with the repair. Linux has 142 passing tests, one ignored paired Windows
+integration, and clean strict lint. Native immediate START-to-N=0 ordering and
+malformed completion are covered separately from the ACK-paced two-ended fixture.
+Review found a mutable vendor frame-count bypass; the repair now uses the admitted
+count and explicitly refuses mutation. Final delta review, Windows execution and
+installed acceptance remain pending. Fixed-size native result initialization remains;
+post-Done private output reset may delay the following request.
+
 ## Current checkpoint
 
 The source at `8d8327a295ed6b064d3f14e252e5f51d46510d8b` passes applicable

@@ -115,27 +115,29 @@ fn same_session_reconfiguration_two_ended() {
         wait(&shared, || {
             shared.ack.load(Ordering::Acquire) == (epoch << 8) | 11
         });
-        let blocks = if epoch == 1 { 3 } else { 1 };
-        for block in 0..blocks {
+        let lengths: &[usize] = if epoch == 1 { &[0, 1, 0] } else { &[128] };
+        let mut position = 0u64;
+        for (block, &n) in lengths.iter().enumerate() {
             let live = INSTANCES.lease(handle).unwrap();
             let cb = unsafe { &mut *live.callback.get() };
             let mut request = Item::control(AUDIO, 0);
-            request.n = 256;
+            request.n = n as u32;
             request.gain = f64::NAN;
             request.data = [[0.25; CAP], [-0.5; CAP]];
             let mut out = [[0.; CAP]; 2];
             assert_eq!(cb.epoch, epoch);
-            assert_eq!(cb.position, block * 256);
+            assert_eq!(cb.position, position);
             cb.process(&shared, request, &mut out).unwrap();
             drop(live);
-            let expected = if epoch == 1 { block + 1 } else { 4 };
+            let expected = if epoch == 1 { block as u64 + 1 } else { 4 };
             wait(&shared, || {
                 shared.processed.load(Ordering::Acquire) == expected
             });
             let result = shared.results.pop().expect("exact completed result");
-            assert_eq!((result.epoch, result.audio.position), (epoch, block * 256));
-            assert_eq!(result.audio.data[0][..256], [0.125; 256]);
-            assert_eq!(result.audio.data[1][..256], [-0.25; 256]);
+            assert_eq!((result.epoch, result.audio.position), (epoch, position));
+            assert_eq!(result.audio.data[0][..n], vec![0.125; n]);
+            assert_eq!(result.audio.data[1][..n], vec![-0.25; n]);
+            position += n as u64;
         }
         assert_eq!(unsafe { ap3_transition(handle, STOP) }, 0);
         wait(&shared, || {
@@ -177,6 +179,6 @@ fn same_session_reconfiguration_two_ended() {
         thread::sleep(Duration::from_millis(10));
     }
     eprintln!(
-        "LC1 two intervals passed: Start2 sequence104687 epoch2 position0, four exact SDK results"
+        "LC1 two intervals passed: first post-Start block N0, four exact SDK results"
     );
 }

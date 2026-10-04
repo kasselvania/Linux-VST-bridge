@@ -443,7 +443,7 @@ fn asynchronous_capture_correlates_failures_without_fabricating_a_completed_save
 
 #[test]
 fn full_mapping_generations_preserve_events_and_every_output_plane_with_overrun_refusal() {
-    for (minor, frames) in [(13, 17), (14, 1024), (14, 1008), (14, 0)] {
+    for (minor, frames) in [(13, 17), (14, 1024), (14, 1008), (14, 1), (14, 0)] {
     for corrupt in [false,true] {
         let path=std::env::temp_dir().join(format!("multi-output-{:x}",u128::from_le_bytes(mapping::random().unwrap())));
         let mut mapping=Mapping::with_layout(&path,64,minor == 14).unwrap();mapping.output_channels=64;
@@ -473,7 +473,7 @@ fn full_mapping_generations_preserve_events_and_every_output_plane_with_overrun_
             epoch:1,position:0,witness:None,identity:None,trace:Default::default(),sample_rate:48000,armed:false,owner:None};
         let zero=[0.;BLOCK_CAP];let result=session.process_events(frames,f64::NAN,3,[&zero,&zero],&inputs,Default::default());
         remote.join().unwrap();
-        if corrupt {assert!(result.is_err());} else {
+        if corrupt && frames != 0 {assert!(result.is_err());} else {
             let (main,flags)=result.unwrap();assert_eq!(flags,0);
             for (ch, plane) in main.iter().enumerate() {for i in 0..frames {
                 assert_eq!(f32::from_bits(plane[i+1]),ch as f32+i as f32/32.);
@@ -489,10 +489,45 @@ fn full_mapping_generations_preserve_events_and_every_output_plane_with_overrun_
     }
 }
 #[test]
+fn malformed_zero_frame_completion_is_terminal_without_sample_plane_access() {
+    let path=std::env::temp_dir().join(format!("n0-malformed-{:x}",u128::from_le_bytes(mapping::random().unwrap())));
+    let mut mapping=Mapping::with_layout(&path,64,false).unwrap();mapping.output_channels=64;
+    let listener=std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let socket=TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    let (mut peer,_)=listener.accept().unwrap();
+    let remote=thread::spawn(move||{
+        let request=receive_version(&mut peer,5,9).unwrap();
+        assert_eq!((request.kind,get(&request.payload[..4])),(PROCESS,0));
+        let decoded=events::decode(&request.payload[48..request.payload.len()-96],0).unwrap();
+        assert_eq!((decoded.len(),decoded[0].kind,decoded[0].id),(1,events::PARAMETER,31));
+        let mut payload=vec![0;88];
+        put(&mut payload[4..8],OUTPUT as u64);
+        payload[16..32].copy_from_slice(&request.payload[32..48]);
+        put(&mut payload[60..64],1); // one returned parameter
+        put(&mut payload[72..76],1); // offset one is outside an N=0 operation
+        put(&mut payload[76..80],31);
+        payload[80..88].copy_from_slice(&0.25f64.to_le_bytes());
+        send_version(&mut peer,&Frame{kind:DONE,session:request.session,sequence:request.sequence,payload},5,9).unwrap();
+    });
+    let mut session=Session{gui:None,gui_revision:0,mapping:Some(mapping),mailbox:None,mailbox_enabled:false,
+        notifications:None,configured_mode:0,capture:None,fault_status:None,notices:(0,0),returned:Default::default(),
+        processing:ProcessingScratch::new(),socket,state:ClientState{session:[30;16],next:1,slot:Slot::Writable},
+        phase:11,max:CAP,minor:9,epoch:1,position:0,witness:None,identity:None,trace:Default::default(),
+        sample_rate:48000,armed:false,owner:None};
+    let zero=[0.;CAP];
+    let parameter=events::Event{kind:events::PARAMETER,id:31,value:1.,..Default::default()};
+    sample_plane_test::reset();
+    let result=session.process_events(0,f64::NAN,3,[&zero,&zero],&[parameter],Default::default());
+    assert!(result.unwrap_err().to_string().contains("malformed returned parameter"));
+    assert_eq!(sample_plane_test::accesses(),(0,0));
+    assert_eq!((session.phase,session.position),(ERROR,0));
+    remote.join().unwrap();drop(session);std::fs::remove_file(path).unwrap();
+}
+#[test]
 fn production_processing_reuses_maximum_request_and_reply_storage() {
     use ap1_native_client::events::{Event, MAX_EVENTS, NOTE_ON, PARAMETER};
     let path=std::env::temp_dir().join(format!("ap9-storage-{:032x}",u128::from_le_bytes(mapping::random().unwrap())));
-    let mapping=Mapping::new(&path).unwrap();
+    let mut mapping=Mapping::with_layout(&path,64,false).unwrap();mapping.output_channels=64;
     let file=std::fs::OpenOptions::new().read(true).write(true).open(&path).unwrap();
     let listener=std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let socket=TcpStream::connect(listener.local_addr().unwrap()).unwrap();
@@ -509,7 +544,7 @@ fn production_processing_reuses_maximum_request_and_reply_storage() {
             assert_eq!(decoded.len(),MAX_EVENTS);
             assert_eq!(decoded[0].offset,0);
             assert_eq!(decoded[255].offset,if n==0 {0} else {(255%n) as u32});
-            for ch in 0..2 {
+            for ch in 0..64 {
                 file.write_all_at(&vec![0;n*4],(OUTPUT+ch*STRIDE+4) as u64).unwrap();
             }
             let mut payload=vec![0;10312];
@@ -550,9 +585,12 @@ fn production_processing_reuses_maximum_request_and_reply_storage() {
             id:i as u32,channel:0,pitch:60,value:0.5,
             ..Default::default()
         }).map(|mut e|{if n==0 {e.pitch=0;}e}).collect();
+        sample_plane_test::reset();
         let (result,counts)=allocation_test::measure(||session.process_events(n,f64::NAN,3,[&zero,&zero],&input_events,context::Context{present:1,rate:48000.,..Default::default()}));
         result.unwrap();
         assert_eq!(counts,[0;3],"production request/reply allocated at {n} frames");
+        assert_eq!(sample_plane_test::accesses(), if n == 0 { (0, 0) } else { (66, 66) },
+            "mapped sample-plane access at {n} frames");
         assert_eq!((session.returned.events,session.returned.points,session.returned.bytes),(64,128,4096));
         assert_eq!(session.returned.event[63].payload_offset,63*64);
         assert_eq!(session.returned.point[127].id,127);
