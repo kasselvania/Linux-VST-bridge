@@ -1,0 +1,164 @@
+{
+  "schema": 1,
+  "recorded_date": "2026-10-04",
+  "claim": "physical_deck_deployment_refusal_before_audio_timing",
+  "product": {
+    "schema": 1,
+    "source_head": "e8a79926084df8d621f6dff36694218935d0c955",
+    "source_tree": "0d47b93e49627467bd945a18a29dc6bbfb739a0c",
+    "version": "0.12.0refresh3deck",
+    "frozen_at_utc": "2026-10-04T22:38:28.508224+00:00",
+    "files": {
+      "linux-vst-bridge-beta_0.12.0refresh3deck-1_amd64.deb": "0189ade034c45ceb58aded94353a4d7eaaad47d1f605014bec3c1c6421267e86",
+      "Linux-VST-Bridge-0.12.0refresh3deck-internal.install": "342524fb4ff2d83fe99f53425030cf2feea053836a1b0589ebf63ea1ba91b71a",
+      "preparation-kit.zip": "0bcd35e978a0a2afdafcfaad725c530ab1ddecf14df7bffefcee2227c56c3268",
+      "staged-refresh1/RELEASE_MANIFEST.json": "5de968a494697569fd72950e463eb4c98827e40cf20d7bd50917940c519bd371",
+      "PACKAGE_VERIFIED.json": "54cb87ea58b89bce6a2dda1248b33f9d301fda4a0df9d95e79f638cbb1e8dc53"
+    },
+    "manager_features": [
+      "pb0-c0-audit"
+    ],
+    "manager_sha256": "ef89186f9e591f425ca01eff2fa6ba358bbe23a591399e2840fcaa2131dfc9bb",
+    "engine_sha256": "a5de9dcd4c20349842e2ae449c2464b2dec60eefefd7139284020211cacfc0b6",
+    "windows_host_sha256": "c8587d8c75ddce80c2317a10070735c65b30b6bc1649ff219821c44689bcf05f",
+    "paired_backend_rebuild": true,
+    "claim": "managed_refresh_candidate_not_installed_acceptance_or_beta_qualification"
+  },
+  "measurement": {
+    "source_head": "fbb318988d7f9cec27613f036e0fe6669fdd2987",
+    "source_tree": "771d45aa78bbc4a12967b6a2d9a23b7ffb494a07",
+    "files": {
+      "measurement-build.log": "ccb48c222af2e5df1518601f8658a963af242246a706ba89ff0fcde501b1c0da",
+      "measurement-effect-tests.log": "508faad7956f7a531d3ed7e18dc6fc301e0f63a79f8d6d62a3244e900731d21b",
+      "measurement-instrument-tests.log": "080b0084a3a5057bf2e145b43e6e4e28888aab1d4ed4ed4ce32fb5599a905f3f",
+      "measurement-sdk-tools/completion-host-effect-tests": "8d6dfcd1e7e4b53c168704ce104fa6223a0bbad4bcf093509036dd1eb3eb9c66",
+      "measurement-sdk-tools/completion-host-instrument-tests": "7963fbb63434e8cb046d80a9dde2c529808778bf0f2bfde0dae58677a1192486",
+      "measurement-sdk-tools/completion-host": "2850053e24e17b0ba7da04c83e75f9a24f1d16b10747e63eb28cc2c5dce0b3a1",
+      "measurement-sdk-tools/libap3-callback-audit.so": "9bf0756723322f5b37b2c72d9ad60593a8526b3970d3099c3be4bfc7e2386b00",
+      "measurement-sdk-tools/lifecycle-host": "72764dfc4f262fc4e33fa415771285618a2629d437cddb72bfc21dea19478bb1"
+    },
+    "instrument_tests": "passed",
+    "effect_tests": "passed",
+    "archive_sha256": "bdd18cce4e1ead8f49ef21cfdce1bc493cad43cbb28ced2f873f5d7d3e8f167c"
+  },
+  "build": {
+    "target": "SteamOS user-space portable install; Debian13 builder Python3.13",
+    "native_tests": {
+      "passed": 13,
+      "failed": 0
+    },
+    "measurement_role_tests": [
+      "instrument passed",
+      "effect passed"
+    ],
+    "initial_verification_failure": "release build machine requires the pinned SDK",
+    "correction": "Expose existing exact pinned SDK at verifier cache path; repeat independent backend/engine verification on unchanged package. No product source change."
+  },
+  "fixture": {
+    "dmi_product": "Galileo",
+    "python": "3.13.5",
+    "glibc": "2.41",
+    "kernel": "6.16.12-valve24.5-1-neptune-616-gb2f7cfe85e45",
+    "daw_running_before": false,
+    "rtkit_max_rttime_us": 200000,
+    "native_worker_policy": "unmeasured; no candidate consumer launched",
+    "windows_render_policy": "unmeasured; no candidate consumer launched"
+  },
+  "installed_attempt": {
+    "installer_stage": "passed; actual installer UI",
+    "setup_offered_update": true,
+    "update_clicks": 1,
+    "result": "refused",
+    "visible_error": "candidate_preparation_required",
+    "new_manager_selected": false,
+    "new_publications_selected": false,
+    "service_restored": true,
+    "dsp": 0,
+    "maintenance": 0,
+    "cleanup_unconfirmed": false,
+    "package_transition_journal": false,
+    "predecessor_manager_sha256": "edf203362157c4ecf4c38ee5bd4136d8610576cc28f89f7cabd8cd1fc295ace6",
+    "all_eight_selected_publications_preferences_artifacts_exact": true,
+    "setup_closed_normally": true
+  },
+  "attribution": {
+    "class": "legacy profile-backed selected publication without managed Candidate",
+    "first_sorted_publication": "Pigments",
+    "profile_id": "arturia-pigments",
+    "qualification": null,
+    "profile_claim": "verified_exact_fixture",
+    "matching_candidate_records": 0,
+    "candidate_records_before": 38,
+    "other_seven_have_matching_candidate": true,
+    "all_eight_external_ids_match_current_stable_derivation": true,
+    "source_boundary": "prepare_refresh_receipt calls publication_candidate for every selected revision; for_profile cannot resolve the retained ordinary profile without a matching managed Candidate. No audio processing reached."
+  },
+  "supported_preparation_check": {
+    "selected_manager": "unchanged predecessor",
+    "inspection_action": "plugin_reinspect",
+    "inspection_result": "completed, publication_changed=false",
+    "prepare_action": "plugin_prepare",
+    "prepare_result": "completed, publication_changed=false",
+    "retained_candidate": "aaca605bad51bcdf2a140f9129fcede17fc7fe7763281174c45699b53b279ecf",
+    "selected_publications_and_preferences_verified_exact_afterwards": true,
+    "package_update_retried": false,
+    "experimental_publication_selected": false,
+    "inference": "A newly prepared review candidate does not satisfy lookup of the still-selected ordinary profile. Keeping it retained does not repair automatic legacy refresh."
+  },
+  "physical_timing": {
+    "runs": 0,
+    "same_callback_measured": false,
+    "buffered_measured": false,
+    "actual_audio_captured": false,
+    "soak_performed": false
+  },
+  "remaining": {
+    "physical_timing_blocked_by": "legacy selected-profile migration on unchanged frozen product",
+    "source_boundary_change": "operator approval requested; no repair implemented",
+    "recovery_matrix": "still deferred per operator decision",
+    "beta_ready": false
+  },
+  "custody": {
+    "ubuntu_vm": "exited 0 after normal shutdown",
+    "steamos_builder": "stopped after build and retained outputs; docker exit137",
+    "other_builder": "stopped",
+    "audiobookshelf": "running",
+    "deck": "idle Desktop Mode; selected predecessor retained"
+  },
+  "private_evidence": {
+    "durable_storage": "outside checkout in linux-vst-bridge-evidence/2026-10-04-managed-refresh",
+    "archives": {
+      "refresh3deck-package.tgz": "d61afdd79cfd3457d8e617f3bf387ee792faf3e977b1350af811e64647b1f711",
+      "refresh3deck-build-proof.tgz": "6f4f2c8d819180dae8ac843b5dfbbd3007f597efaead162cc7650dc6d21847f8",
+      "refresh3deck-measurement-linux.tgz": "bdd18cce4e1ead8f49ef21cfdce1bc493cad43cbb28ced2f873f5d7d3e8f167c",
+      "deck-predecessor-v2.tgz": "f3a9b0952aff225ab73efc3d7c66e02f1e483cd9f2b1596c69077c235917ca84",
+      "refresh3deck-update-refusal.tgz": "730a49f13c0458cb14a13b447a6d132befbcd94f8ce83d510282406cc5aeb61c",
+      "refresh3deck-normal-preparation.tgz": "9c22545a3fdfe01e13564f1cc12e43d7806421c99ea1a8f4f0a870a0d568e9c9"
+    },
+    "screenshots": {
+      "desktop-deck-refresh3-01.png": "8e9364b7b35d180cabfe328aafb6333ed8688797a4aad94c26701c4ca0f286f2",
+      "desktop-deck-refresh3-02.png": "dd53c95fe4433fceff43626b1054c27d99270b0bc1726c174651fbcb68ff2022",
+      "desktop-deck-refresh3-03.png": "2862f720fcde2d1a398621314d321326b730532e4612271e2fca03894a377c1a",
+      "desktop-deck-refresh3-04.png": "13feba969049d9c950c5ff477c61d2b7c36d8130d209109c522f20a558819db3",
+      "desktop-deck-refresh3-05.png": "a46b7b3c9b900f56ca4abbf16c4ae788be8e246f0ab2b293cd1c1a8ec586c62a",
+      "desktop-deck-refresh3-06.png": "e21b2e5c4c5253f70349fd3ec56b4ebc887f1b7af435bca612f4e19a21a51544",
+      "desktop-deck-refresh3-07.png": "22633aa0897b483f4b8189f0ca100cd259e4ffdd66c673878afb5d66ea55e06b",
+      "desktop-deck-refresh3-08.png": "6e1d29fdf7102dfdd620e12b752863374a64ef2703e052a0edfba1f335f0ebe4",
+      "desktop-deck-refresh3-09.png": "93e13d889c0a87e07fba6bcf16c7f08f0696596c1a431071284508a989bae3c7",
+      "desktop-deck-refresh3-10.png": "a7675a9bcec943d472772b2988de33e29eaeda920c2da8f9c8e9b43c16fb0d15",
+      "desktop-deck-refresh3-11.png": "a0e7af96d104fa09abefee292c8105fdeb343bc4ba30c0704cc8f2d22cf8145b",
+      "desktop-deck-refresh3-12.png": "30764423b93f91a568f2ec3a77ecd4f93da35b0a57a9db36a6617a2addddb8d1",
+      "desktop-deck-refresh3-13.png": "12851344553ab91affab99c4b406e21df30c43b6c5de7c1666689284dd2dcf91",
+      "desktop-deck-refresh3-14.png": "b3078bb859fa3f2b77e22876cac247aeac2bf2e3a9be1cf1d6882a42ae63823f",
+      "desktop-deck-refresh3-15.png": "fe1665b876026f2c8e7764dc0bcdcc5d2e2443364d922eadb87575b1d5b06a66"
+    }
+  },
+  "nonclaims": [
+    "No installed refresh3deck audio run",
+    "No actual real-time worker policy result",
+    "No real-DAW timing or device deadline",
+    "No endurance or musician workflow qualification",
+    "No automatic legacy migration repair",
+    "No release readiness"
+  ]
+}

@@ -22,7 +22,29 @@ Frozen product source: commit `e8a79926084df8d621f6dff36694218935d0c955`, tree
 `fbb318988d7f9cec27613f036e0fe6669fdd2987`, tree
 `771d45aa78bbc4a12967b6a2d9a23b7ffb494a07`. The extension changes only
 `tools/beta/completion_host.cpp` and its tests; the private independent analyzer is
-separately frozen. Source review passed; Linux execution remains to be completed.
+separately frozen. Source review and both Linux measurement-host role tests passed.
+
+### Physical deployment blocker
+
+[Refresh3deck deployment evidence](evidence/audio-recovery/2026-10-04-refresh3deck-deployment-refusal.json)
+records target-compatible packaging, 13 native tests and independent paired
+backend/engine verification. The normal Deck installer staged the package, but
+its single Update action refused `candidate_preparation_required` before selection.
+Pigments is the first selected legacy ordinary profile without a managed Candidate;
+the other seven selected publications have matching candidates. The updater
+incorrectly assumes all retained publications already have that newer record.
+
+The selected software, all eight publications, exact artifacts and explicit
+preferences remain unchanged; the predecessor service is healthy with no DSP or
+maintenance owners and no unconfirmed cleanup. Normal old-manager reinspection
+and preparation completed without changing publication. The resulting review
+candidate does not establish a matching Candidate for the still-selected ordinary
+profile. It was retained, not experimentally selected; no update retry occurred.
+
+Physical audio timing has **not run**. A narrow legacy-publication migration repair
+would change the frozen-source/no-new-manager boundary below; operator confirmation
+has been requested. Do not silently replace Pigments, fabricate preparation
+provenance, bypass admission, or reopen the broader recovery matrix.
 
 ## Completed installed checkpoint
 
@@ -91,10 +113,12 @@ release signing and distribution obligations remain separate open gates.
 ## Machine custody and cost
 
 The retained Ubuntu VM shut down normally after the checkpoint. The SteamOS-target
-builder is running; no second builder or VM may run concurrently. Builder: CPUs2–3,
+builder finished and was stopped after its outputs were preserved (container exit137).
+No builder or VM is running; Audiobookshelf remains running. Builder limits: CPUs2–3,
 two CPUs, 4 GiB memory with equal combined memory/swap limit, 256 processes. Reserve
 CPU0–1 and capacity for Audiobookshelf. The Deck is reachable (Galileo, Python3.13.5,
-glibc2.41); readback found no Bitwig process, and its installed selection is unchanged.
+glibc2.41); readback found no Bitwig process, and its installed selection is unchanged
+after the refused update and retained preparation. Setup was closed normally.
 Root owns machine mutations and artifacts. Implementation agents Sol5.6 xhigh;
 reviewers Astra6 xhigh; computer use Sol6.1 high.
 

@@ -688,3 +688,11 @@ legacy stale-caller refusal, and preparation refusal with automatic service reco
 on the retained Ubuntu VM. This does not close full update/rollback qualification.
 The operator explicitly placed physical Deck timing next, ahead of the remaining
 recovery matrix. No current SameCallback physical or dependable-audio claim is added.
+
+The subsequent [refresh3deck deployment](../evidence/audio-recovery/2026-10-04-refresh3deck-deployment-refusal.json)
+stages the target-compatible package through the normal installer, but Update
+refuses `candidate_preparation_required` on the selected legacy ordinary Pigments
+profile. All eight selected publications/preferences and predecessor software
+remain exact; service recovery is confirmed. Normal inspection/preparation retained
+a test candidate without changing that selection. No physical audio timing ran.
+Automatic migration of profile-backed publications remains an FC-MGMT-008 gap.

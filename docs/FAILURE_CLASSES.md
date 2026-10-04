@@ -2818,3 +2818,17 @@ negative-test/disable route uses `rollback_exact` and may refuse a pre-contract
 ancestor with `bridge_update_required`; normal history restoration uses managed
 refresh. No installed result establishes that alternative route. It must not be
 described as covered by ordinary history restoration.
+
+The [refresh3deck deployment refusal](../evidence/audio-recovery/2026-10-04-refresh3deck-deployment-refusal.json)
+exposes another existing-publication case: an ordinary `VerifiedExactFixture`
+revision can have valid retained profile/census/registration provenance without a
+managed preparation Candidate. `prepare_refresh_receipt` unconditionally calls
+`publication_candidate`, so the first such selected revision (Pigments on this
+Deck) refuses `candidate_preparation_required`. The other seven selected revisions
+have matching Candidates. All eight publications, preferences, exact artifacts and
+predecessor software remain intact, with a healthy service and confirmed cleanup.
+Creating a new review candidate through normal inspection/preparation does not
+retroactively make it the producer of the still-selected ordinary revision.
+This is a migration gap before audio launch, not an audio failure. Physical timing
+remains unperformed; the frozen-source boundary must be explicitly amended before
+implementing the narrow prerequisite repair. Full recovery acceptance stays deferred.
