@@ -315,7 +315,8 @@ impl Library {
                                     .min_size(egui::vec2(240.0, 46.0)));
                                 ui.small(reason);
                             } else { emphasized_button(ui, action, pending, chosen); }
-                        } else if let Some(workflow) = &p.compatibility {
+                        }
+                        if let Some(workflow) = &p.compatibility {
                             action_buttons(ui, &workflow.alternatives,
                                 snapshot.system.inactive_reason(), pending, chosen);
                         }
@@ -392,9 +393,8 @@ impl Library {
                                             | Action::CandidateGraphicsAssess { .. }
                                             | Action::CandidateGraphicsPrepare { .. }
                                             | Action::CandidateSettingsPrepare { .. })
-                                            && !management.iter().any(|shown|shown.action==action.action) && primary
-                                            .as_ref()
-                                            .is_none_or(|primary| primary.action != action.action)
+                                            && !management.iter().any(|shown|shown.action==action.action)
+                                            && !guided_action_shown(p, primary.as_ref(), &action.action)
                                     })
                                     .cloned()
                                     .collect();
@@ -405,10 +405,6 @@ impl Library {
                                     pending,
                                     chosen,
                                 );
-                                if let Some(workflow) = &p.compatibility {
-                                    action_buttons(ui, &workflow.alternatives,
-                                        snapshot.system.inactive_reason(), pending, chosen);
-                                }
                                 details(ui, p);
                             });
                     });
@@ -567,12 +563,23 @@ fn ordinary_actions(product:&Product, related:&[AvailableAction],
                 |Action::RendererFocus{..} => true,
             _ => false,
         };
-        if show && primary.is_none_or(|p|p.action!=offer.action)
+        if show && !guided_action_shown(product, primary, &offer.action)
             && !actions.iter().any(|shown:&AvailableAction|shown.action==offer.action) {
             actions.push(offer.clone());
         }
     }
     actions
+}
+
+fn guided_action_shown(product: &Product, primary: Option<&AvailableAction>, action: &Action) -> bool {
+    primary.into_iter().chain(product.compatibility.iter()
+        .flat_map(|workflow| workflow.alternatives.iter())).any(|shown| {
+        shown.action == *action || matches!((action, &shown.action),
+            (Action::ExperimentalReplace {candidate, expected_current},
+                Action::CompatibilityPublishTest {candidate: shown_candidate,
+                    expected_current: Some(shown_current)})
+            if candidate == shown_candidate && expected_current == shown_current)
+    })
 }
 
 fn routine_rank(action: &Action) -> Option<u8> {
@@ -987,6 +994,70 @@ mod tests {
         }
     }
 
+    #[test]
+    fn selected_keep_restore_and_prepared_trials_render_together() {
+        use crate::model::{PublicationIdentity, TestResultKind};
+        fn texts(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
+            match shape {
+                egui::epaint::Shape::Text(text) => out.push(text.galley.text().into()),
+                egui::epaint::Shape::Vec(items) => for item in items { texts(item, out); },
+                _ => {}
+            }
+        }
+        let mut snapshot = snapshot();
+        snapshot.products.truncate(1);
+        snapshot.environments.clear();
+        snapshot.vendor_applications.clear();
+        let product = &mut snapshot.products[0];
+        let current = PublicationIdentity {id:"ac".repeat(16),sha256:"bd".repeat(32)};
+        let keep = AvailableAction {label:"Keep these settings and record the result".into(),
+            action:Action::CompatibilityResult {candidate:"ab".repeat(32),expected_current:current.clone(),
+                result:TestResultKind::Worked,passed:vec![],failed_area:None,note:String::new()},
+            disabled_reason:None};
+        let ready = AvailableAction {label:"Try Wine D3D11 graphics, Windows accessibility disabled · setup 25".into(),
+            action:Action::CompatibilityPublishTest {candidate:"cd".repeat(32),expected_current:Some(current.clone())},
+            disabled_reason:None};
+        let stale = AvailableAction {label:"Try runtime graphics defaults, Windows accessibility defaults · setup 24".into(),
+            action:Action::CompatibilityPublishTest {candidate:"ef".repeat(32),expected_current:Some(current.clone())},
+            disabled_reason:Some("The previous selection changed. Prepare a trial from the current configuration.".into())};
+        let restore = AvailableAction {label:"Restore the settings from before this trial".into(),
+            action:Action::ExperimentalDisable {candidate:"ab".repeat(32)},disabled_reason:None};
+        let expert = AvailableAction {label:"Record an operator observation".into(),
+            action:Action::CandidateObserve {candidate:"ab".repeat(32),area:"editor".into(),
+                status:"not_tested".into(),note:String::new()},disabled_reason:None};
+        product.compatibility = Some(CompatibilityWorkflow {
+            phase:CompatibilityPhase::AvailableForTest,summary:"Selected trial remains available".into(),
+            established:vec![],remaining:vec![],current_inspection:None,current_candidate:Some("ab".repeat(32)),
+            primary:Some(keep.clone()),alternatives:vec![ready.clone(),stale.clone()],
+        });
+        product.actions = vec![restore.clone(), AvailableAction {label:ready.label.clone(),
+            action:Action::ExperimentalReplace {candidate:"cd".repeat(32),expected_current:current.clone()},
+            disabled_reason:None}, AvailableAction {label:stale.label.clone(),
+            action:Action::ExperimentalReplace {candidate:"ef".repeat(32),expected_current:current},
+            disabled_reason:stale.disabled_reason.clone()}, expert.clone()];
+        for (width, expanded) in [(960.0,false),(560.0,false),(960.0,true),(560.0,true)] {
+            let ctx = egui::Context::default();
+            ctx.global_style_mut(|style| style.animation_time = 0.0);
+            let mut library = Library {expand_details:expanded,..Default::default()};
+            let mut chosen = None;
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                ui.set_max_width(width - 32.0);
+                library.show(ui, &snapshot, false, &mut chosen, |_,_| {});
+            });
+            let mut labels = vec![];
+            for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
+            output.textures_delta.clear();
+            for offer in [&keep,&restore,&ready,&stale] {
+                assert_eq!(labels.iter().filter(|label| **label == offer.label).count(), 1,
+                    "{} must render once at {width}, expanded={expanded}", offer.label);
+            }
+            assert!(labels.iter().any(|label| Some(label) == stale.disabled_reason.as_ref()));
+            assert_eq!(labels.iter().filter(|label| **label == expert.label).count(), usize::from(expanded),
+                "expert section must actually be open only when requested");
+            assert_eq!(library.expand_details, expanded);
+            assert!(chosen.is_none());
+        }
+    }
     #[test]
     fn search_combines_terms_and_filters_without_losing_unknown_states() {
         let mut snapshot = snapshot();

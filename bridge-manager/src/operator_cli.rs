@@ -5394,6 +5394,122 @@ mod tests {
         }
     }
     #[test]
+    fn populated_history_keeps_selected_configuration_and_explicit_trials() {
+        use linux_vst_bridge::preparation as prep;
+        let (f, base) = preparation_cli::tests::projection_fixture();
+        atomic_json(&f.m.root.join("software.json"), &preparation_cli::tests::projection_software(&base)).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let original = prep::enable(&f.m, &base, false).unwrap();
+        let original_entry = serde_json::to_value(&f.m.registry().unwrap().classes[&base.selection.class.id]).unwrap();
+        let selected = prep::configuration::prepare_settings(&f.m, &base,
+            &ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+                accessibility:ui::AccessibilityChoice::ProfileDefault}, Some(&original)).unwrap();
+        let previous = prep::replace(&f.m, &selected, &original).unwrap();
+        prep::configuration::prepare_settings(&f.m, &selected,
+            &ui::LocalSettings {graphics:None,accessibility:ui::AccessibilityChoice::ProfileDefault},
+            Some(&previous)).unwrap();
+        let requested = ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+            accessibility:ui::AccessibilityChoice::DisabledForHost};
+        let stale = prep::configuration::prepare_settings(&f.m, &selected, &requested, Some(&previous)).unwrap();
+        prep::disable_exact(&f.m, &selected, &previous).unwrap();
+        let current = prep::replace(&f.m, &selected, &original).unwrap();
+        assert_ne!(current, previous, "a reused candidate has a new publication identity");
+        let selected_entry = serde_json::to_value(&f.m.registry().unwrap().classes[&base.selection.class.id]).unwrap();
+        let preference = serde_json::to_value(f.m.performance(&base.selection.class.id).unwrap()).unwrap();
+        let read = || {
+            let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+            let detail = product_detail(&f.m, &base.selection.environment.id,
+                &base.selection.module.sha256, &base.selection.class.id).unwrap();
+            service.join().unwrap();
+            detail
+        };
+        let first = read();
+        let workflow = first.product.compatibility.as_ref().unwrap();
+        assert_eq!(workflow.current_candidate.as_deref(), Some(selected.id().unwrap().as_str()));
+        assert_eq!(workflow.phase, ui::CompatibilityPhase::AvailableForTest);
+        assert_eq!(first.product.details["preparation"]["candidate"], selected.id().unwrap());
+        assert_eq!(first.product.details["configuration"]["candidate"], selected.id().unwrap());
+        assert_eq!(first.product.details["configuration"]["publication"], "experimental");
+        assert_eq!(first.product.details["configuration"]["settings"],
+            serde_json::to_value(prep::configuration::settings(&selected)).unwrap());
+        assert_eq!(first.product.details["publication"], serde_json::to_value(&current).unwrap());
+        assert_eq!(first.product.details["publication_selected"], true);
+        let mut keep = workflow.primary.as_ref().unwrap().action.clone();
+        let ui::Action::CompatibilityResult {candidate,expected_current,passed,..} = &mut keep else {
+            panic!("selected publication must retain its test result control")
+        };
+        assert_eq!(*candidate, selected.id().unwrap());
+        assert_eq!(expected_current.id, current.id);
+        assert_eq!(expected_current.sha256, current.sha256);
+        passed.push(ui::TestArea::Audio);
+        let stale_offer = workflow.alternatives.iter().find(|offer| matches!(&offer.action,
+            ui::Action::CompatibilityPublishTest {candidate,..} if *candidate == stale.id().unwrap())).unwrap();
+        let refusal = "The previous selection changed. Prepare a trial from the current configuration.";
+        assert_eq!(stale_offer.disabled_reason.as_deref(), Some(refusal));
+        assert_eq!(test_submit_offered(&f.m, &stale_offer.action).unwrap_err().to_string(), refusal);
+        assert!(first.product.actions.iter().filter(|offer| matches!(&offer.action,
+            ui::Action::ExperimentalReplace {candidate,..} if *candidate == stale.id().unwrap()))
+            .all(|offer| offer.disabled_reason.as_deref() == Some(refusal)));
+        let mut wrong = keep.clone();
+        if let ui::Action::CompatibilityResult {candidate,..} = &mut wrong { *candidate = stale.id().unwrap(); }
+        assert_eq!(test_submit_offered(&f.m, &wrong).unwrap_err().to_string(), "operator_action_not_available");
+        if let ui::Action::CompatibilityResult {expected_current,..} = &mut wrong {
+            *expected_current = ui::PublicationIdentity {id:previous.id,sha256:previous.sha256};
+        }
+        // The candidate as well as the exact current publication must match.
+        if let ui::Action::CompatibilityResult {candidate,..} = &mut wrong { *candidate = selected.id().unwrap(); }
+        assert_eq!(test_submit_offered(&f.m, &wrong).unwrap_err().to_string(), "operator_action_not_available");
+
+        // Ordinary preparation from the selected setup remains reachable, even
+        // with a retained proposal prepared against its previous publication.
+        let prepare = first.product.actions.iter().find(|offer| matches!(&offer.action,
+            ui::Action::CandidateSettingsPrepare {candidate,settings,expected_current:Some(expected)}
+            if *candidate == selected.id().unwrap() && *settings == requested
+                && expected.id == current.id && expected.sha256 == current.sha256)).unwrap();
+        assert!(prepare.disabled_reason.is_none());
+        let operation = test_submit_offered(&f.m, &prepare.action).unwrap();
+        let prepared = test_run_offered_worker(&f.m, &operation).unwrap();
+        assert_eq!(prepared["state"], "completed", "{prepared}");
+        let fresh = prep::candidate_record(&f.m, prepared["result"]["candidate"].as_str().unwrap()).unwrap();
+        assert_ne!(fresh.id().unwrap(), stale.id().unwrap());
+        let after_prepare = read();
+        let workflow = after_prepare.product.compatibility.as_ref().unwrap();
+        assert_eq!(workflow.current_candidate.as_deref(), Some(selected.id().unwrap().as_str()));
+        let apply = workflow.alternatives.iter().find(|offer| matches!(&offer.action,
+            ui::Action::CompatibilityPublishTest {candidate,expected_current:Some(expected)}
+            if *candidate == fresh.id().unwrap() && expected.id == current.id
+                && expected.sha256 == current.sha256)).unwrap().clone();
+        assert!(apply.disabled_reason.is_none());
+        assert_ne!(apply.label, stale_offer.label, "different prepared setups have distinct labels");
+        let candidates_before = test_fixture::snapshot(&f.m.root.join("preparation/candidates"));
+        let operation = test_submit_offered(&f.m, &keep).unwrap();
+        let kept = test_run_offered_worker(&f.m, &operation).unwrap();
+        assert_eq!(kept["state"], "completed", "{kept}");
+        assert_eq!(kept["result"]["candidate"], selected.id().unwrap());
+        assert_eq!(kept["result"]["publication_changed"], false);
+        assert_eq!(kept["result"]["result"], "partial_experimental");
+        assert!(prep::observations(&f.m, &stale).unwrap().is_empty());
+        assert!(prep::observations(&f.m, &fresh).unwrap().is_empty());
+        assert_eq!(serde_json::to_value(&f.m.registry().unwrap().classes[&base.selection.class.id]).unwrap(), selected_entry);
+        let operation = test_submit_offered(&f.m, &apply.action).unwrap();
+        let applied = test_run_offered_worker(&f.m, &operation).unwrap();
+        assert_eq!(applied["state"], "completed", "{applied}");
+        for (candidate, expected_entry) in [(&fresh, &selected_entry), (&selected, &original_entry)] {
+            let detail = read();
+            assert_eq!(detail.product.compatibility.as_ref().unwrap().current_candidate.as_deref(),
+                Some(candidate.id().unwrap().as_str()));
+            let restore = detail.product.actions.iter().find(|offer| matches!(&offer.action,
+                ui::Action::ExperimentalDisable {candidate: offered} if *offered == candidate.id().unwrap())).unwrap();
+            assert!(restore.disabled_reason.is_none());
+            let operation = test_submit_offered(&f.m, &restore.action).unwrap();
+            let restored = test_run_offered_worker(&f.m, &operation).unwrap();
+            assert_eq!(restored["state"], "completed", "{restored}");
+            assert_eq!(serde_json::to_value(&f.m.registry().unwrap().classes[&base.selection.class.id]).unwrap(), *expected_entry);
+            assert_eq!(serde_json::to_value(f.m.performance(&base.selection.class.id).unwrap()).unwrap(), preference);
+        }
+        assert_eq!(test_fixture::snapshot(&f.m.root.join("preparation/candidates")), candidates_before);
+    }
+    #[test]
     fn ordinary_views_and_offer_admission_defer_payload_tree_and_kit_verification() {
         use linux_vst_bridge::{preparation as prep, runtime_delivery};
         let (f, base) = preparation_cli::tests::projection_fixture();
@@ -5440,7 +5556,14 @@ mod tests {
         let detail = product_detail(&f.m, &base.selection.environment.id,
             &base.selection.module.sha256, &base.selection.class.id).unwrap();
         service.join().unwrap();
-        let offer = detail.product.compatibility.as_ref().unwrap().primary.as_ref().unwrap();
+        let workflow = detail.product.compatibility.as_ref().unwrap();
+        assert!(matches!(&workflow.primary.as_ref().unwrap().action,
+            ui::Action::CompatibilityResult {candidate,expected_current,..}
+            if *candidate == base.id().unwrap() && expected_current.id == baseline.id
+                && expected_current.sha256 == baseline.sha256));
+        let offer = workflow.alternatives.iter().find(|offer|
+            matches!(&offer.action, ui::Action::CompatibilityPublishTest {candidate,..}
+                if *candidate == trial.id().unwrap())).unwrap();
         assert!(matches!(&offer.action, ui::Action::CompatibilityPublishTest {candidate,..}
             if *candidate == trial.id().unwrap()));
         assert!(offer.disabled_reason.is_none());
@@ -5922,7 +6045,9 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         let detail = product_detail(&f.m,&base.selection.environment.id,
             &base.selection.module.sha256,&base.selection.class.id).unwrap();
         service.join().unwrap();
-        let offer = detail.product.compatibility.as_ref().unwrap().primary.as_ref().unwrap();
+        let offer = detail.product.compatibility.as_ref().unwrap().alternatives.iter().find(|offer|
+            matches!(&offer.action, ui::Action::CompatibilityPublishTest {candidate,..}
+                if *candidate == trial.id().unwrap())).unwrap();
         assert!(matches!(&offer.action,ui::Action::CompatibilityPublishTest {candidate,..}
             if *candidate == trial.id().unwrap()));
         assert!(offer.disabled_reason.is_none());

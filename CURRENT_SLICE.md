@@ -1,12 +1,14 @@
 # Current work: one managed plug-in configuration
 
 Selected by the operator on 2026-10-03 after the completed platform assessment.
-Status: installed acceptance failed on `codex/platform-configuration`, based
-on `e1f8033bcad08a2b008384a1671d3c510b55c362`. Paired package `0.12.0config4` is
-frozen at source `19c5888bd3332c827c317387365b177587d9d805`, tree
-`c35c9ada601f39f8dac401f69da842fdeb97884d`, with green CI. The endpoint below
-is unchanged by individual plug-in examples. No vendor-specific investigation
-is selected, and the integrated capability is not yet complete.
+Status: reviewed architectural hardening source passes the manager and frontend
+tests and strict lint; paired successor installation remains. Config6 verifies final
+Windows-host custody, bounded ordinary readback and normal GUI restoration, but
+its integrated workflow fails at Keep. The source repair restores selected-publication
+authority while preserving explicit prepared alternatives. The original config4
+audio failure remains unresolved. This is `codex/platform-configuration`, based on
+`e1f8033bcad08a2b008384a1671d3c510b55c362`; the endpoint below is unchanged by
+individual plug-in examples. No vendor-specific investigation is selected.
 
 ## Completed outcome
 
@@ -87,33 +89,20 @@ strict Linux lint passed). This does not qualify the incomplete GUI recovery.
 Bounded control timing and exact-cohort diagnostics are audit-feature-only;
 applicable CI at `c9117d6a` passed. Neither is an audio repair.
 
-## Next bounded work
+## Remaining bounded work
 
-Close the observed render-host ownership/mapping gap through existing per-launch
-custody. The authenticated bootstrap and descendant tracker do not provide an
-explicit final Windows-host witness. Both observed cohorts had zero exact mapped
-render targets, before RealtimeKit. Establish the final host's generation, namespace
-and session/status binding before selecting and reading back its render thread.
-Do not infer ownership from a name or import all keeper/sibling processes. Missing
-cohort membership versus mapping projection remains unassigned.
+The installed foundation comparison establishes final Windows render-host custody
+and bounded ordinary readback. The normal GUI restoration and original-state recall
+also pass on config6. The full integrated workflow exposed the remaining selection
+owner defect: a newer retained proposal displaces the published configuration and
+hides Keep. Repair that shared projection and all consuming action views, preserve
+explicit alternatives and their exact predecessor checks, then repeat the complete
+installed workflow on one paired successor. Retain config6's failed run.
 
-Separate ordinary display/offer readback from deep worker/launch admission using
-the existing control records and transaction owners. Observed product reads took
-13.24–14.36 seconds, dispatch 10.62–10.66 seconds and workers 14.32–21.14 seconds.
-Retain exact execution validation; presentation must not claim fresh byte
-verification from metadata. These costs are measured, but are not the demonstrated
-cause of the earlier missing block. Correlating worker service at a future gap still
-requires exact thread identity; clean runs supplied no gap-based native worker join.
-Preserve the failed lifetime; clean repetitions cannot replace it.
-Also resolve the ordinary recovery interaction: its incomplete GUI path cannot be
-qualified from a successful CLI fallback.
-
-Source review confirms that ordinary projection/admission repeats candidate,
-history and complete runtime-tree checks. Native scheduling remained ordinary
-because the existing DAW process RT budget was unavailable; Windows exact-owned
-render-thread selection failed before RealtimeKit invocation. Those are observed
-capability/cost gaps, not a demonstrated cause of this missing block. Do not raise
-buffers, change the runtime or priorities, or widen privileges as a guessed repair.
+The earlier missing audio block remains unexplained. Clean comparisons, effective
+Windows scheduling readback and faster controls do not establish its cause. Do not
+raise buffering, switch runtime or privileges as a guessed repair. Native scheduling
+remains ordinary because the consuming DAW process RT budget is unavailable.
 
 ## Selected implementation endpoint
 
@@ -169,8 +158,31 @@ and exact status mapping through the existing launch channel. Ordinary controls
 use bounded records; workers and launch retain deep execution validation. Explicit
 history completion and lineage-before-candidate publication replace incidental
 migration during readback. Earlier failed test attempts remain retained.
-This is source acceptance only. Paired installation, exact pinned-runtime custody,
-integrated audio/settings and ordinary GUI restoration remain to be performed.
+Paired package `0.12.0config6foundation`, source `21d99190`, is installed on the
+same expanded Ubuntu fixture. The independent census now confirms the final
+Windows render host/thread and effective existing scheduling request; original
+state recall compared 983,040 samples without mismatch/overrun and retired fully.
+Ten product reads took 0.18–0.28 seconds. The full configuration workflow remains
+failed: seven complete audio lifetimes passed 32,440,320 samples, then Keep was
+unavailable because the main workflow selected a newer retained proposal instead
+of the actual published configuration. This inherited projection defect is now the
+remaining shared repair: selected publication owns main configuration/Keep/Restore;
+prepared alternatives remain explicit and retain their own predecessor checks.
+The ordinary GUI restored the exact original on its first click while retaining
+512-frame buffering. Both buffering changes also completed on their first click.
+Final readback confirms all four original class entries and 1024-frame preferences;
+original-state recall passed 983,040 samples with full retirement. The manager
+closed normally. The frozen candidate and all failed attempts are retained; no
+audio-cause or beta claim follows.
+The selected-publication regression fails against the previous production projection
+and passes the repair. Independent review approves the corrected ordinary/expanded
+action views and distinguishable alternatives. Linux validation covers 244 library
+and 318 manager action tests (two existing opt-in tests ignored), 98 frontend tests,
+16 audit-feature tests and the report/helper checks. Initial test-checkout ownership
+and offscreen texture-cleanup failures are retained; product checks were not relaxed.
+Paired successor installed acceptance remains pending.
+CI is green at test-only follow-up `c3a574f7`; its fixture compatibility correction
+does not change the installed product.
 
 ### Complete configuration workflow
 

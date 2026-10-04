@@ -1340,6 +1340,11 @@ Preparing a settings trial records an immutable successor without changing a liv
 publication. Applying or restoring it rechecks the exact predecessor and affected
 class under registry admission, including after artifact copying. Buffering remains
 an independent class preference and is retained when the predecessor supports it.
+The selected publication owns the main configuration readback and Keep/Restore
+workflow. A newer preparation is an explicit proposal, not a new selection.
+Prepared alternatives remain reachable alongside the selected workflow, with
+their own candidate identity and predecessor checks; stale proposals cannot
+displace the current selection or borrow another trial's admission result.
 The manager distinguishes selected options, their sources and scope, independent
 probe results and observed behavior; selecting a graphics option is not evidence
 of an editor's effective renderer.

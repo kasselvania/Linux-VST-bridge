@@ -302,6 +302,9 @@ fn project_records(m: &Manager, sw: &Software, products: &mut [ui::Product], bus
             results.extend(prep::guided_results(m, &candidate.id)?);
         }
         let incomplete: Vec<_> = results.iter().filter(|row| row["completed"] != true).collect();
+        if !incomplete.is_empty() {
+            workflow.alternatives.clear();
+        }
         if incomplete.len() > 1 {
             workflow.phase = ui::CompatibilityPhase::PublicationNeedsAttention;
             workflow.summary = "Several test-result operations need reconciliation. Review their exact history before continuing.".into();
@@ -435,12 +438,10 @@ fn guided_projection(
     let published = view.candidates.iter().find(|row| row.disposition == "current_published");
     let newest = view.candidates.iter().rev().find(|row| row.current_inputs
         && row.review.as_ref().is_none_or(|review| review.choice != prep::ReviewChoice::NeedsWork));
-    let selected = match (published, newest) {
-        (Some(current), Some(newer)) if newer.lineage.ordinal > current.lineage.ordinal => Some(newer),
-        (Some(current), _) => Some(current),
-        (None, Some(newest)) => Some(newest),
-        (None, None) => view.candidates.last(),
-    };
+    // A retained preparation is a proposal, not a new selected publication.
+    // Keep/result and configuration readback belong to the published candidate;
+    // independently prepared choices remain explicit alternatives below.
+    let selected = published.or(newest).or_else(|| view.candidates.last());
     let mut primary = None;
     let mut alternatives = Vec::new();
     let mut established = Vec::new();
@@ -567,6 +568,26 @@ fn guided_projection(
             } else { "Installed · compatibility not checked" }.into())
         }
     };
+    if stale.is_none() && published.is_some_and(|row| row.current_inputs)
+        && matches!(phase, Phase::OrdinarySupported | Phase::AvailableForTest | Phase::PassedExperimental) {
+        let ordinary_current = view.current_revision.as_ref().map(|revision|
+            m.load_revision_record(&selection.class.id, revision)
+                .map(|record| record.qualification.is_none())).transpose()?.unwrap_or(false);
+        for row in view.candidates.iter().filter(|row| row.disposition == "prepared"
+            && row.current_inputs && row.publication == "another_configuration"
+            && row.review.as_ref().is_none_or(|review| review.choice != prep::ReviewChoice::NeedsWork)) {
+            if let Some(current) = view.current_revision.as_ref() {
+                let action = if ordinary_current {
+                    ui::Action::ExperimentalReplace {candidate:row.id.clone(),
+                        expected_current:publication_identity(current)}
+                } else {
+                    ui::Action::CompatibilityPublishTest {candidate:row.id.clone(),
+                        expected_current:Some(publication_identity(current))}
+                };
+                alternatives.push(offer(&format!("Try prepared setup {}", row.lineage.ordinal), action, class_busy));
+            }
+        }
+    }
     Ok(ui::CompatibilityWorkflow {
         phase, summary, established, remaining,
         current_inspection: view.recommended_inspection.clone(),
@@ -1776,8 +1797,12 @@ pub(crate) mod tests {
         assert_eq!(prep::publication_state(&f.m, &base).unwrap(), "experimental");
         products = vec![projection_product(&base)];
         project(&f.m, &sw, &mut products, None).unwrap();
-        let offer = products[0].compatibility.as_ref().unwrap().primary.as_ref().unwrap();
-        assert_eq!(offer.label, "Try the prepared compatibility settings");
+        let workflow = products[0].compatibility.as_ref().unwrap();
+        assert!(matches!(&workflow.primary.as_ref().unwrap().action,
+            ui::Action::CompatibilityResult {candidate,..} if *candidate == base.id().unwrap()));
+        let offer = workflow.alternatives.iter().find(|offer| matches!(&offer.action,
+            ui::Action::CompatibilityPublishTest {candidate,..} if *candidate == next.id().unwrap())).unwrap();
+        assert!(offer.label.contains("Wine D3D11 graphics"));
         execute(&f.m, &offer.action, &random_id().unwrap(), || f.m.lock("registry.lock")).unwrap();
         let current = f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision.clone().unwrap();
         let result = ui::Action::CompatibilityResult { candidate: next.id().unwrap(),
@@ -1814,7 +1839,9 @@ pub(crate) mod tests {
                 &ui::LocalSettings {graphics,accessibility:ui::AccessibilityChoice::DisabledForHost},Some(&baseline)).unwrap();
             let mut products = vec![projection_product(&base)];
             project(&f.m,&sw,&mut products,None).unwrap();
-            let action = products[0].compatibility.as_ref().unwrap().primary.as_ref().unwrap().action.clone();
+            let action = products[0].compatibility.as_ref().unwrap().alternatives.iter().find(|offer|
+                matches!(&offer.action, ui::Action::CompatibilityPublishTest {candidate,..}
+                    if *candidate == next.id().unwrap())).unwrap().action.clone();
             assert!(matches!(&action,ui::Action::CompatibilityPublishTest {candidate,expected_current:Some(current)}
                 if *candidate == next.id().unwrap() && *current == publication_identity(&baseline)));
             for idempotent in [false,true] {
@@ -1845,6 +1872,66 @@ pub(crate) mod tests {
             assert_eq!(entry.managed_revision,Some(baseline.clone()));
             assert_eq!(entry.registration,baseline_registration);
         }
+    }
+
+    #[test]
+    fn ordinary_selected_configuration_exposes_explicit_prepared_update() {
+        let (f, base) = projection_fixture();
+        let sw = projection_software(&base);
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let evidence = prep::AREAS.iter().map(|area| (*area, prep::TestStatus::Passed)).collect::<Vec<_>>();
+        let operation = random_id().unwrap();
+        prep::record_guided_observations(&f.m, &base, &operation, &evidence, "Source-owned exact acceptance fixture").unwrap();
+        prep::review(&f.m, &base, &operation, prep::ReviewChoice::AcceptExactLocal, "Source-owned exact acceptance fixture").unwrap();
+        let original = prep::enable(&f.m, &base, true).unwrap();
+        let original_entry = serde_json::to_value(&f.m.registry().unwrap().classes[&base.selection.class.id]).unwrap();
+        let mut retained = Vec::new();
+        for basis in ["ba".repeat(32), "cb".repeat(32)] {
+            let proposal = prep::bind_preparation_basis(base.clone(), Some(basis)).unwrap();
+            assert!(proposal.settings_trial.is_none());
+            prep::record_candidate_with_predecessor(&f.m, &proposal, Some(&base.id().unwrap())).unwrap();
+            retained.push(proposal.id().unwrap());
+        }
+        let mut products = vec![projection_product(&base)];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        let workflow = products[0].compatibility.as_ref().unwrap();
+        assert_eq!(workflow.current_candidate.as_deref(), Some(base.id().unwrap().as_str()));
+        let mut labels = Vec::new();
+        for id in &retained {
+            let row = products[0].details["preparation"]["candidates"].as_array().unwrap()
+                .iter().find(|row| row["id"] == *id).unwrap();
+            let offer = workflow.alternatives.iter().find(|offer| matches!(&offer.action,
+                ui::Action::ExperimentalReplace {candidate,expected_current}
+                if candidate == id && *expected_current == publication_identity(&original))).unwrap();
+            assert!(offer.disabled_reason.is_none());
+            assert_eq!(offer.label, format!("Try prepared setup {}", row["lineage"]["ordinal"].as_u64().unwrap()));
+            labels.push(offer.label.clone());
+        }
+        assert_ne!(labels[0], labels[1], "ordinary proposals need distinct visible choices");
+        let prepare = products[0].actions.iter().find(|offer| matches!(&offer.action,
+            ui::Action::CandidateSettingsPrepare {settings,..} if settings.graphics.is_some())).unwrap();
+        assert!(prepare.disabled_reason.is_none());
+        let prepared = execute(&f.m, &prepare.action, &random_id().unwrap(), || f.m.lock("registry.lock")).unwrap();
+        let id = prepared["candidate"].as_str().unwrap();
+        products = vec![projection_product(&base)];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        let workflow = products[0].compatibility.as_ref().unwrap();
+        assert_eq!(workflow.current_candidate.as_deref(), Some(base.id().unwrap().as_str()));
+        assert_eq!(workflow.phase, ui::CompatibilityPhase::OrdinarySupported);
+        assert_eq!(products[0].details["configuration"]["candidate"], base.id().unwrap());
+        let apply = workflow.alternatives.iter().find(|offer| matches!(&offer.action,
+            ui::Action::ExperimentalReplace {candidate,expected_current}
+            if candidate == id && *expected_current == publication_identity(&original))).unwrap();
+        assert!(apply.disabled_reason.is_none());
+        execute(&f.m, &apply.action, &random_id().unwrap(), || f.m.lock("registry.lock")).unwrap();
+        products = vec![projection_product(&base)];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        assert_eq!(products[0].compatibility.as_ref().unwrap().current_candidate.as_deref(), Some(id));
+        let restore = products[0].actions.iter().find(|offer| matches!(&offer.action,
+            ui::Action::ExperimentalDisable {candidate} if candidate == id)).unwrap();
+        execute(&f.m, &restore.action, &random_id().unwrap(), || f.m.lock("registry.lock")).unwrap();
+        assert_eq!(serde_json::to_value(&f.m.registry().unwrap().classes[&base.selection.class.id]).unwrap(), original_entry);
     }
 
     #[test]

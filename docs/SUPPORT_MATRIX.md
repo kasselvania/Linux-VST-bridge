@@ -44,6 +44,19 @@ original-state audio recall passed. Input/application attribution remains open.
 The later all-four readback confirms exact original selections/settings and idle
 cleanup; it does not reclassify the failed SDK workflow.
 
+The later [foundation comparison](../evidence/preparation/2026-10-03-foundation-installed.json)
+on the same expanded Ubuntu fixture installs `0.12.0config6foundation`. Exact
+Windows render-host/thread custody is now independently observed, and ordinary
+product reads take 0.18–0.28 seconds while deep worker/launch verification remains.
+All three normal GUI recovery actions complete on their first click: 1024→512,
+exact original restoration with 512 retained, and 512→1024. All four original
+class entries/settings and original-state recall are verified afterward. This
+closes that candidate's GUI recovery check; it does not attribute the earlier
+input failure. Its full SDK configuration workflow still fails at Keep because
+a newer retained proposal displaces the selected publication. Seven complete
+audio lifetimes passed before that failure. The selection repair has passed source review and Linux validation;
+no whole-workflow or audio-cause claim follows.
+
 The previous Deck package blocked plug-ins absent from its exact prebuilt index.
 The reusable replacement first established an installed Ubuntu reference result:
 the frozen `0.12.0general1` package prepared and processed Windows

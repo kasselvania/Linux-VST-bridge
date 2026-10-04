@@ -16,17 +16,34 @@ pub(super) fn project(m: &Manager, product: &mut ui::Product,
         if let Some(base) = candidates.iter().find(|c| c.id().is_ok_and(|id| id == trial.predecessor)) {
             configuration["before"] = prep::configuration::view(m, base)?;
         }
-        for offer in product.actions.iter_mut().chain(workflow.primary.iter_mut()) {
+    }
+    // Every trial offer owns its own predecessor. A different proposal cannot
+    // supply labels, settings or publication authority for the selected one.
+    for prepared in candidates.iter().filter(|candidate|
+        prep::same_product(&candidate.selection, &c.selection)) {
+        let Some(trial) = &prepared.settings_trial else { continue };
+        let prepared_id = prepared.id()?;
+        let Some(prepared_row) = view.candidates.iter().find(|row| row.id == prepared_id) else { continue };
+        for offer in product.actions.iter_mut().chain(workflow.primary.iter_mut())
+            .chain(workflow.alternatives.iter_mut()) {
             match &offer.action {
-                ui::Action::ExperimentalDisable { candidate } if candidate == &id =>
+                ui::Action::ExperimentalDisable { candidate } if candidate == &prepared_id =>
                     offer.label = if trial.baseline.is_some() { "Restore the settings from before this trial" }
                         else { "Remove this trial from the DAW" }.into(),
-                ui::Action::CompatibilityResult { candidate, .. } if candidate == &id =>
+                ui::Action::CompatibilityResult { candidate, .. } if candidate == &prepared_id =>
                     offer.label = "Keep these settings and record the result".into(),
                 ui::Action::ExperimentalReplace { candidate, .. }
-                | ui::Action::CompatibilityPublishTest { candidate, .. } if candidate == &id => {
-                    offer.label = "Try the prepared compatibility settings".into();
-                    let selected = if row.publication == "another_configuration" {
+                | ui::Action::ExperimentalEnable { candidate }
+                | ui::Action::CompatibilityPublishTest { candidate, .. } if candidate == &prepared_id => {
+                    let graphics = if prepared.profile.capabilities.graphics.is_some() {
+                        "Wine D3D11 graphics"
+                    } else { "runtime graphics defaults" };
+                    let accessibility = if prepared.profile.capabilities.accessibility
+                        == profiles::Accessibility::DisabledForVendorProcess {
+                        "Windows accessibility disabled"
+                    } else { "Windows accessibility defaults" };
+                    offer.label = format!("Try {graphics}, {accessibility} · setup {}", prepared_row.lineage.ordinal);
+                    let selected = if prepared_row.publication == "another_configuration" {
                         view.current_revision.as_ref()
                     } else { None };
                     if selected != trial.baseline.as_ref() {

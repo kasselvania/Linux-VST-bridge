@@ -98,6 +98,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
+| [FC-MGMT-007](#fc-mgmt-007--retained-proposal-displaces-selected-configuration) | Retained proposal displaces selected configuration | Manager guided projection and frontend action ownership | causal | source-fixed | Ubuntu config6 installed Keep refusal; populated-history Linux reproduction | blocked for the failed configuration workflow | Reviewed paired successor and full installed repeat |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
 ---
@@ -758,6 +759,15 @@ No dedicated shared issue yet.
 ---
 
 ## FC-LIFE-002 — Failed launch cleanup and truthful recovery state
+
+The 2026-10-03 [foundation comparison](../evidence/preparation/2026-10-03-foundation-installed.json)
+closes a related final-host custody gap on the declared Ubuntu/pinned-runtime
+fixture. The existing launch channel now supplies kernel-authenticated writer
+credentials and a generation-pinned handle, followed by exact session/status
+mapping. An independent census observes one matching live Windows render thread;
+normal process and transport retirement are confirmed. Unsupported kernel custody
+capabilities refuse explicitly. This does not establish cross-distro coverage or
+attribute the earlier missing audio block.
 
 ### Shared boundary
 
@@ -1796,6 +1806,15 @@ None; accepted platform law.
 
 ## FC-MGMT-003 — Whole-runtime hashing blocks bounded setup admission
 
+The later config4 observation again measured 13.24–14.36-second ordinary product
+readback. In the 2026-10-03 foundation repair, bounded control records and exact
+bindings own display/offer projection; the queued worker executable is freshly
+verified, and workers/launch retain deep executable verification. No persisted
+cache grants admission. Config6 installed product reads took 0.18–0.28 seconds,
+and normal GUI recovery completed. These are retained observations, not a latency
+benchmark or a demonstrated audio-gap repair; see the
+[foundation comparison](../evidence/preparation/2026-10-03-foundation-installed.json).
+
 ### Shared boundary
 
 Runtime identity/integrity verification versus manager status projection and
@@ -2586,3 +2605,22 @@ no graphics qualification and no beta-ready claim.
 
 Tracking: [PR #204](https://github.com/kasselvania/Linux-VST-bridge/pull/204).
 Last reviewed: 2026-10-02.
+
+## FC-MGMT-007 — Retained proposal displaces selected configuration
+
+The main workflow preferred the newest prepared candidate over the exact selected
+publication. On installed `0.12.0config6foundation`, retained proposal history hid
+Keep for the running settings trial. Independent settings/publication readback
+still identified the correct selection. The same production rule exists at
+`19c5888b`; the new populated-history regression fails against that rule at its
+selected-candidate assertion. This is a product projection defect, not an audio
+failure or an SDK observer assumption.
+
+The repair makes the published candidate own current configuration and Keep/Restore.
+Prepared successors remain explicit alternatives, bound to their own candidate and
+predecessor; stale proposals retain specific refusal. Every choice is distinguishable
+and appears once in normal and expanded views. Workers and launch still own fresh
+execution validation. Source and installed results are retained in the
+[foundation comparison](../evidence/preparation/2026-10-03-foundation-installed.json).
+The complete successor workflow is pending; config6's seven clean audio lifetimes
+do not turn its Keep failure into a pass.
