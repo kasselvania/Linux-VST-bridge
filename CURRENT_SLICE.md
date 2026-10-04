@@ -176,29 +176,47 @@ close that gap. No greeting/ABI redesign is included in this sample-payload chan
 
 ## Installed checkpoint and next completion boundary
 
-Latest installed package is `0.12.0audio6` at source `e483ddce`, with the exact audio4
-instrument native predecessor restored through normal controls. The manager remains
-audio6; this is not whole-package rollback or a dependable fallback. Instrument
-Buffered512 and sibling effect SameCallback D0/remembered512 remain unchanged.
+Paired `0.12.0audio8` is frozen at source
+`d110cbc412f7b284264993508ebdd5ad66bb6d5d`, tree
+`9c3be25e582322795a0d611c561290150bcb8274`. Five applicable CI workflows,
+13 native SDK tests and independent package rebuild pass. The reviewed Windows
+artifact retains `cc41a030` provenance with all 64 source inputs unchanged. The
+consumer, audit and reference plug-in bytes match audio6.
 
-The [audio6 comparison](evidence/audio-recovery/2026-10-04-audio6-refusal-frontier.json)
-passes all 107 diagnostic-off callbacks, 198,672 independently compared samples,
-state and local timing. Diagnostic-on refuses its first RT N=0 at 1,007,081 ns
-against the unchanged 1-ms allowance, before measured audio/final recall. Both
-retire positively. The exact operation predicate is satisfied at refusal: native
-reply precedes the deadline bracket by 43,143–43,214 ns, wait-end by 4,558–4,629 ns,
-and presentation follows it by 171–242 ns. This identifies the refusal path, not
-intrinsic CPU cost or the cause of older gaps. Scheduling observations differ;
-one off/on pair cannot isolate observer or scheduling causation.
+The [installed comparison](evidence/audio-recovery/2026-10-04-audio8-zero-frame-comparison.json)
+completed normal update, inventory refresh, inspection, preparation and publication.
+The initial inspection was correctly disabled until refresh; no request was sent.
+Existing publications/preferences survived package adoption, and the sibling was
+unchanged by publication. Diagnostic-off returns all 198,672 expected samples,
+state and confirmed retirement across 107 calls, but callback105 (N13) takes
+327,208 ns against 270,833 ns. Diagnostic-on refuses first RT N=0 at 1,107,316 ns
+against 1 ms, before measured audio/final recall. It also retires positively.
+Neither whole lifetime qualifies timing. No acceptance rerun followed.
 
-Next: freeze the compatibility-corrected paired package, install on the same bounded
-Ubuntu fixture using normal package adoption, inspect/prepare/publish the successor,
-then run the same complete instrument modes workload once off and once on
-(M512, Fs48000, D512). Retain every whole attempt, actual output/state/timing and
-retirement. Do not rerun to obtain a pass. Restore the exact audio4 publication
-through ordinary rollback, preserving the sibling and explicit preferences. Keep
-budgets, runtime and scheduling unchanged. Stop the builder before starting the VM;
-finish with normal VM shutdown. The Deck stays unchanged during this comparison.
+The traced exact-operation predicate is satisfied at refusal. Its native reply
+observation is already 71,783–71,852 ns after the converted deadline; wait-end is
+95,174–95,243 ns after it. Processing-ready is observed 443,045 ns after C++ entry,
+then the reply 628,757 ns later. These are chronological observations, not vendor
+DSP cost or a measured scheduling cause. They differ from audio6's pre-deadline
+reply/post-deadline presentation. The source sample-work repair is established;
+the installed timing failure remains. Native worker policy0/priority0 and differing
+Windows readbacks do not establish scheduling or observer causation.
+
+Next bounded audio work must separate the START/readiness prerequisite and exact
+request service through native transport, Windows pump/render processing and reply
+publication before choosing another timing change. Reuse existing ownership and
+observations where sufficient; do not add a second lifecycle or change deadlines,
+buffering, runtime or privileges to hide the failure. The caller-engine admission
+gap remains a separate required repair. No new vendor/graphics expansion or
+repeat-until-green campaign follows this failed comparison.
+
+Normal `ordinary_rollback` restored exact audio4 instrument publication
+`7145b6f90323884c08db9a52f7b24c9c`, including its retained paired host. Manager audio8
+remains selected. All prior class registrations and preferences match: instrument
+Buffered512, sibling effect SameCallback D0 with remembered512. This is native
+publication restoration, not whole-package rollback or a dependable fallback.
+All attempts/output/receipts are durably retained. Ubuntu shut down through normal
+GUI Power Off (exit0); builder is stopped, Audiobookshelf running, Deck unchanged.
 
 Previous retained results, reused only within their stated scope:
 
@@ -209,6 +227,7 @@ Previous retained results, reused only within their stated scope:
 | [audio3](evidence/audio-recovery/2026-10-03-audio3-installed.json) | Slow offline, vendor refusal, timeout and abrupt consumer-loss containment; D0 selection, both offline roles and normal buffering restoration pass. N13 timing remains failed; cold-start failure is retained separately. |
 | [audio4](evidence/audio-recovery/2026-10-04-audio4-phase-comparison.json) | Exact audio/state and retirement in both runs; callback105 exceeds allowance in both. Phase observer localizes waiting but does not establish scheduling cause. |
 | [audio5](evidence/audio-recovery/2026-10-04-audio5-zero-frame-failure.json) | Absolute monotonic waiting is source-repaired; installed off/on and exact audio4 control all fail an N=0 deadline. All retire. |
+| [audio6](evidence/audio-recovery/2026-10-04-audio6-refusal-frontier.json) | Untraced output/state/timing passes; traced first N0 refuses after pre-deadline reply and post-deadline presentation. Both retire. |
 
 The current control-acknowledgement polling audit, deliberate legacy paths and
 Windows render-file formatting are complete. The roadmap selects splitting #200
@@ -216,5 +235,4 @@ and landing retained capabilities in dependency order after audio acceptance;
 preserve the original stack and record its dependency map before extraction.
 No merge/rebase or new runtime/graphics/vendor work starts here. Physical DAW,
 serial-chain, lower-block, dependable-audio and full musician/soak gates remain open.
-Builder custody is active for this package; Ubuntu is stopped, Audiobookshelf is
-running and Deck/Nibbi are unchanged.
+Both project machines are stopped; Audiobookshelf is running. Deck/Nibbi are unchanged.

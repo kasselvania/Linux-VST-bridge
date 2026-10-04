@@ -251,6 +251,14 @@
     },
     "full_patch_sha256": "5198d522cbeb0f7285af3a09b34f43cb0846213c0ae321e5bb0db21fbfe6fbd8",
     "lint_correction": "Test iterator only; production unchanged. Full suite retained before correction, focused regression and strict affected Linux lint rerun after.",
-    "final_linux_archive_sha256": "44cf6e5399c0aa8587cfe282e4daac0eb40740e39e797787b612d62e5ccca742"
+    "final_linux_archive_sha256": "44cf6e5399c0aa8587cfe282e4daac0eb40740e39e797787b612d62e5ccca742",
+    "installed_comparison": {
+      "source_head": "d110cbc412f7b284264993508ebdd5ad66bb6d5d",
+      "version": "0.12.0audio8",
+      "evidence": "2026-10-04-audio8-zero-frame-comparison.json",
+      "sample_payload_source_claim": "passed",
+      "installed_timing_qualification": "failed",
+      "loaded_engine_admission_gap": "open"
+    }
   }
 }

@@ -99,6 +99,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
 | [FC-MGMT-007](#fc-mgmt-007--retained-proposal-displaces-selected-configuration) | Retained proposal displaces selected configuration | Manager guided projection and frontend action ownership | causal | installed-fixed on reference fixture | Ubuntu config7 full effect/instrument workflow and GUI restoration | reference configuration regression passed; musician workflow unqualified | Physical DAW integration and endurance |
+| [FC-MGMT-008](#fc-mgmt-008--loaded-native-engine-is-not-bound-during-admission) | Loaded native engine missing from admission | Cached DAW factory / selected execution pair | source-established gap | inactive guard compatibility repaired; identity binding open | Source-matched IPC15 old-reader regression; physical cached-factory case unperformed | unqualified | Bind the executing engine and preserve exact predecessor restoration |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
 ---
@@ -1209,6 +1210,22 @@ and preferences under the newer manager. FC-AUDIO-001 remains open: reduce and
 qualify the shared completion critical path without hiding late return or increasing
 the declared allowance. Earlier unsatisfied-predicate failures remain independently
 failed and unattributed.
+
+The [audio8 installed pair](../evidence/audio-recovery/2026-10-04-audio8-zero-frame-comparison.json)
+validates delivery of the zero-frame sample-work repair but does **not** repair
+this timing class. Off returns 198,672 exact samples and state across 107 calls;
+N13 callback105 takes 327,208 ns against 270,833 ns. On refuses the first RT N=0
+at 1,107,316 ns before measured audio/final recall. Both retire. The exact native
+reply observation is 71,783–71,852 ns after the deadline, with its operation
+predicate satisfied at refusal. Unlike audio6, this reply is already late.
+Processing-ready occurs 443,045 ns after C++ entry and reply observation follows
+628,757 ns later; these differences do not isolate vendor DSP, queueing or scheduler
+cost. No cause is assigned to historical gaps or differing scheduling readbacks.
+Normal package adoption, required inventory refresh and publication preserve
+siblings/preferences; normal rollback restores exact audio4 native and its host
+under manager audio8. Full source/runtime identities and all failed lifetimes are
+retained. Next attribution must separate START readiness and exact request service,
+without expanding allowances or treating a source optimization as dependable audio.
 
 This status is for the residual deadline-miss classes. AP16 separately accepted a disk-backed
 hot-mapping repair. [AS1 PR #172](https://github.com/kasselvania/Linux-VST-bridge/pull/172)

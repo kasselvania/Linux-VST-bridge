@@ -57,6 +57,16 @@ native publication with audio6 manager retained. Different scheduling observatio
 and independently sampled phases prevent observer or scheduling causation claims.
 The shared real-time completion capability remains **unqualified**; this short
 reference result and its failure measurement do not close earlier failures.
+Installed [audio8 zero-frame repair](../evidence/audio-recovery/2026-10-04-audio8-zero-frame-comparison.json)
+retains **failed timing qualification**. Off passes all output/state/retirement,
+but one N13 callback exceeds its allowance; on refuses first RT N=0 with the native
+reply already observed after the deadline. The unnecessary sample-work removal is
+source-proven, not an installed timing cure. Normal refresh, preparation/publication
+and exact predecessor restoration pass, preserving siblings/preferences. The
+manager stays audio8 while original audio4 native/host are restored. Loaded-engine
+admission [FC-MGMT-008](FAILURE_CLASSES.md#fc-mgmt-008--loaded-native-engine-is-not-bound-during-admission)
+remains a separate source-established gap; its cached-factory physical case is
+unperformed. No support posture is widened.
 These reference SDK results do not change the Deck claims below or attribute the
 config4 and historical Deck gaps.
 
