@@ -167,13 +167,11 @@ fn same_session_reconfiguration_two_ended() {
                 "an admitted pre-audio control must retain its earlier barrier");
             fs::write(&release, b"release").unwrap();
             wait(&shared, || shared.ack.load(Ordering::Acquire) == (epoch << 8) | 11);
-            let _capture = saver.join().unwrap();
+            assert!(saver.join().unwrap().is_ok());
             assert!(!shared.pending_control.load(Ordering::Acquire));
-            let early = wait_request(&shared, &root);
-            assert_eq!((early.kind, early.session), (ap1_native_client::PROCESS, id));
-            assert_eq!((ap1_native_client::get(&early.payload[..4]),
-                ap1_native_client::get(&early.payload[32..40]),
-                ap1_native_client::get(&early.payload[40..48])), (0, epoch, 0));
+            // The earlier capture completes before the deferred AUDIO result.
+            // Do not infer ordering from the transient mapped request, which
+            // the Windows owner may already have consumed.
             take_result(&shared, &mut processed, epoch, 0, 0);
         } else {
             submit(handle, &shared, epoch, 0, 0);
