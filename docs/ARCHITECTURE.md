@@ -1080,6 +1080,61 @@ uses diagnostics disabled and actual captured output, with observer effects
 measured separately. Existing phase counters remain evidence, not a replacement
 for delivered signal.
 
+The 2026-10-03 audio-completion workstream selects the following implementation
+contract; its source, installed and physical acceptance remain separate gates:
+
+- The existing class performance preference carries typed Buffered or SameCallback
+  delivery and remembered buffered frames. Missing/legacy records mean Buffered.
+  Switching modes preserves that value. SameCallback has effective D=0, while
+  Buffered retains D>=M. Neither mode changes DAW capacity, rate or vendor latency.
+  Exact paired native/Windows capability is verified on selection and execution;
+  restoring an older unsupported publication requires an explicit supported choice.
+- Real-time and prefetch may alternate per call without setup. Crossing offline
+  requires legal inactive setup. Carry actual mode through the C ABI and PROCESS
+  message; do not reuse the setup mode as a substitute. Every operation has an exact
+  completion ticket, including consecutive zero-frame calls at the same position.
+- A real-time/prefetch completion allowance ends N/Fs after native C++ callback
+  entry. In either delivery mode N=0 instead has a 1-ms flush allowance and must
+  return its exact supported event/parameter results or explicit failure. Offline
+  operations have one 60-second absolute bound across the callback and worker,
+  with cooperative cancellation observations no farther than 4 ms apart. Vendor
+  process() is not thereby interruptible; storage remains owned until joins or
+  existing supervisor containment establish safe retirement. Offline failure is
+  explicit, never successful timeout silence. Buffered offline still presents at
+  D after completing each operation; the host supplies its own latency/tail calls.
+- Session owns a dedicated paired notification connection, isolated from bulk
+  state replies. Mailbox publication remains authoritative; hints can coalesce,
+  race or duplicate without changing ownership. Native callbacks do no network
+  work. A Windows transport pump owns notification and active lifecycle/control
+  socket bytes, exchanging bounded prepared handoffs and Win32 events with the
+  render thread. The render thread performs no socket reads/writes, including
+  Start/Started, control-flag handling and error paths. Vendor state calls retain
+  their existing owner and restoration remains exclusive.
+- Worker completion waits service already-admitted state capture incrementally,
+  retaining its independent deadline. Request/control/capture/fault/quit wakeups
+  and control-flag consumption cannot depend on repeated 50-microsecond sleeps.
+  Cancellation is published before waiting for native callback leases, then all
+  owned workers/pumps are joined or contained before storage release.
+- Buffered presentation storage is sized by retained frames (`D + M`), not by
+  assuming that one host call contains a full block. Copy completed extra output
+  planes into that prepared history before releasing their transport slots.
+  Returned events and automation retain bounded operation packets separately;
+  their declared per-callback limits still apply. The native SDK output owner
+  supports 512 payload-bearing events per callback, 512 outstanding note-ons,
+  and at most 1536 nonempty drain packets followed by an empty read. These are
+  independent bounds, not consequences of retained-packet capacity. Exceeding
+  them or a host sink's capacity fails explicitly; it cannot authorize dropping
+  due results while reporting successful delivery. Inactive reconfiguration must
+  prepare the new capacity without depending on the previous maximum block.
+
+This contract uses IPC minor15 with an explicitly versioned bootstrap, mailbox
+layout3, notification schema1, admission LVB4 and the separate ap23 C ABI. Their
+versions are independent. Legacy admission remains buffered-only and older
+executable publications retain their original identities. None of these choices
+establishes lower-block qualification, whole-DAW scheduling guarantees or the cause
+of earlier physical missing audio. Those require the installed/physical comparisons
+in the current workstream.
+
 ### 18.5 Runtime selection and production convergence
 
 Retain pinned runtime acquisition, side-by-side revisions and exact rollback.

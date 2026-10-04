@@ -424,6 +424,8 @@ pub struct Compatibility {
     pub audio_layout: Option<profiles::AudioLayoutPolicy>,
     pub disable_windows_accessibility: bool,
 }
+pub use operator_model::DeliveryMode;
+fn buffered_delivery(mode: &DeliveryMode) -> bool { *mode == DeliveryMode::Buffered }
 /// Installed performance preference, independently versioned from vendor state
 /// and the class registry. Missing records preserve the accepted 512-frame path.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -431,19 +433,29 @@ pub struct Compatibility {
 pub struct Performance {
     pub schema: u32,
     pub added_frames: u32,
+    #[serde(default, skip_serializing_if = "buffered_delivery")]
+    pub delivery_mode: DeliveryMode,
 }
 impl Default for Performance {
     fn default() -> Self {
         Self {
             schema: 1,
             added_frames: 512,
+            delivery_mode: DeliveryMode::Buffered,
         }
     }
 }
 impl Performance {
+    pub fn effective_frames(&self) -> u32 {
+        if self.delivery_mode == DeliveryMode::Buffered { self.added_frames } else { 0 }
+    }
+    pub fn is_qualified_buffering(&self) -> bool {
+        self.delivery_mode == DeliveryMode::Buffered && self.added_frames == 512
+    }
     pub fn verify(&self) -> Result<()> {
         require(
-            self.schema == 1 && matches!(self.added_frames, 256 | 512 | 1024),
+            (self.schema == 1 && self.delivery_mode == DeliveryMode::Buffered || self.schema == 2)
+                && matches!(self.added_frames, 256 | 512 | 1024),
             "unsupported performance schema or delay (use 256, 512 or 1024 frames)",
         )
     }
@@ -741,32 +753,43 @@ impl Manager {
         Ok(value)
     }
     pub fn select_delay(&self, key: &str, frames: u32) -> Result<()> {
-        let value = Performance {
-            schema: 1,
-            added_frames: frames,
-        };
-        value.verify()?;
+        self.select_performance(key, Some(frames), None)
+    }
+    pub fn select_delivery(&self, key: &str, mode: DeliveryMode) -> Result<()> {
+        self.select_performance(key, None, Some(mode))
+    }
+    fn select_performance(&self, key: &str, frames: Option<u32>, mode: Option<DeliveryMode>) -> Result<()> {
         require(valid_hex(key, 32), "class ID syntax")?;
         let key = key.to_uppercase();
-        let verified = if frames == 1024 {
-            let registration = self.registry()?.classes.get(&key)
-                .ok_or("class not registered")?.registration.clone();
-            require(preparation::build::maximum_bridge_frames(self, &registration)? == Some(1024),
-                "The selected proxy does not support 1024-frame buffering. Check compatibility with the current package first.")?;
-            Some(registration)
-        } else { None };
-        // Admission holds this same lock until its lease is published. No
-        // instance can race a preference change into its startup binding.
+        let registration = self.registry()?.classes.get(&key)
+            .ok_or("class not registered")?.registration.clone();
+        // Capability checks use the exact native/Windows pair. The registry lock
+        // then rechecks that pair and publishes the preference atomically with
+        // respect to admission. Missing/old capabilities never enable a new mode.
+        let old = self.performance(&key)?;
+        let mut value = old.clone();
+        if let Some(frames) = frames { value.added_frames = frames; }
+        if let Some(mode) = mode {
+            value.delivery_mode = mode;
+            // Returning to Buffered restores the historical representation as
+            // well, so the retained predecessor manager can read this setting.
+            value.schema = if mode == DeliveryMode::Buffered { 1 } else { 2 };
+        }
+        value.verify()?;
+        require(value.added_frames != 1024
+            || preparation::build::maximum_bridge_frames(self, &registration)? == Some(1024),
+            "The selected proxy does not support 1024-frame buffering. Check compatibility with the current package first.")?;
+        require(value.delivery_mode != DeliveryMode::SameCallback
+            || preparation::build::supports_audio_completion(self, &registration)?,
+            "The selected native bridge and Windows host do not support same-callback delivery. Prepare them with the current package first.")?;
         let _lock = self.lock("registry.lock")?;
         let registry = self.registry()?;
         let entry = registry.classes.get(&key).ok_or("class not registered")?;
-        require(verified.is_none_or(|r| r == entry.registration), "buffering_target_changed")?;
+        require(entry.registration == registration, "performance_target_changed")?;
+        require(self.performance(&key)? == old, "performance_preference_changed")?;
         self.require_inactive(Some(&key))?;
         private_dir(&self.root.join("performance"))?;
-        atomic_json(
-            &self.root.join("performance").join(format!("{key}.json")),
-            &value,
-        )
+        atomic_json(&self.root.join("performance").join(format!("{key}.json")), &value)
     }
     pub fn installed() -> Result<Self> {
         let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
@@ -1158,6 +1181,77 @@ mod tests {
         assert!(SCOPED_DIGESTS.with(|cache| cache.borrow().is_none()));
     }
     #[test]
+    fn historical_performance_bytes_keep_identity_and_do_not_enable_new_delivery() {
+        let bytes = br#"{"schema":1,"added_frames":512}"#;
+        let old: Performance = serde_json::from_slice(bytes).unwrap();
+        old.verify().unwrap();
+        assert_eq!(serde_json::to_vec(&old).unwrap(), bytes);
+        assert_eq!(old.effective_frames(), 512);
+        let mut next = old.clone();
+        next.delivery_mode = DeliveryMode::SameCallback;
+        assert!(next.verify().is_err());
+        next.schema = 2;
+        next.verify().unwrap();
+        assert_eq!(next.effective_frames(), 0);
+        assert_eq!(next.added_frames, 512);
+        assert!(!next.is_qualified_buffering());
+        assert!(serde_json::from_str::<Performance>(r#"{"schema":2,"added_frames":512,"delivery_mode":"fast"}"#).is_err());
+    }
+    #[test]
+    fn explicit_delivery_preserves_buffering_checks_the_exact_pair_and_stays_inactive() {
+        let f = Fixture::new();
+        f.m.register(f.r.clone()).unwrap();
+        let key = f.r.key();
+        let path = f.m.root.join("software/delivery-test.zip");
+        let status = std::process::Command::new("python3").args(["-I", "-c", r#"
+import json,hashlib,sys,zipfile
+path,native,host=sys.argv[1:]
+index=json.dumps(dict(schema=3,engine='prebuilt/engine.so',engine_sha256=native,
+ descriptor_schema=1,maximum_bridge_frames=1024,audio_completion_contract=1,native_sources={})).encode()
+with zipfile.ZipFile(path,'x') as z:
+ z.writestr('prebuilt/index.json',index)
+ z.writestr('recipe.json',json.dumps(dict(schema=4,files={
+  'prebuilt/index.json':hashlib.sha256(index).hexdigest(),'prebuilt/engine.so':native,'runtime/host.exe':host})))
+"#]).arg(&path).arg(&f.r.native.sha256).arg(&f.r.host.sha256).status().unwrap();
+        assert!(status.success());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        let sw = catalogue::Software {manager:f.r.host.clone(),operator_frontend:None,
+            installer_launch:None,preparation_kit:Some(Artifact {sha256:digest(&path).unwrap(),path}),
+            supervisor:f.r.host.clone(),ownership:f.r.host.clone(),host:f.r.host.clone(),
+            source_manifest:f.r.host.clone(),source_sha256:f.r.host_source_sha256.clone(),native_catalogue:None};
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let registration = fs::read(f.m.root.join("registry.json")).unwrap();
+        f.m.select_delay(&key, 1024).unwrap();
+        f.m.select_delivery(&key, DeliveryMode::SameCallback).unwrap();
+        let selected = f.m.performance(&key).unwrap();
+        assert_eq!(selected.effective_frames(), 0);
+        assert_eq!(selected.added_frames, 1024);
+        // A healthy independent keeper does not become an audio owner.
+        let _keeper = managed_tests::lease(&f, &key, true);
+        f.m.select_delay(&key, 256).unwrap();
+        assert_eq!(f.m.performance(&key).unwrap().delivery_mode, DeliveryMode::SameCallback);
+        f.m.select_delivery(&key, DeliveryMode::Buffered).unwrap();
+        assert_eq!(f.m.performance(&key).unwrap().effective_frames(), 256);
+        let restored: serde_json::Value = read_json(&f.m.root.join("performance")
+            .join(format!("{}.json", key.to_uppercase()))).unwrap();
+        assert_eq!(restored, serde_json::json!({"schema":1,"added_frames":256}),
+            "normal buffering restoration remains readable by the predecessor manager");
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registration);
+        let lease = f.m.root.join("runtime/leases/active.json");
+        atomic_json(&lease, &f.m.root.join("runtime/results/windows-active.json")).unwrap();
+        assert!(f.m.select_delivery(&key, DeliveryMode::SameCallback).is_err());
+        assert_eq!(f.m.performance(&key).unwrap().delivery_mode, DeliveryMode::Buffered);
+        fs::remove_file(&lease).unwrap();
+        let mut wrong = f.r.clone();
+        wrong.host.sha256 = "cd".repeat(32);
+        assert!(preparation::build::supports_audio_completion(&f.m, &wrong).is_err());
+        let mut sw = sw;
+        sw.preparation_kit = None;
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        assert!(f.m.select_delivery(&key, DeliveryMode::SameCallback).is_err());
+        assert_eq!(f.m.performance(&key).unwrap().effective_frames(), 256);
+    }
+    #[test]
     fn installed_delay_is_inactive_versioned_and_separate_from_identity() {
         let f = Fixture::new();
         f.m.register(f.r.clone()).unwrap();
@@ -1189,9 +1283,8 @@ mod tests {
         atomic_json(
             &path,
             &Performance {
-                schema: 2,
-                added_frames: 256,
-            },
+                schema: 3,
+                added_frames: 256, delivery_mode:DeliveryMode::Buffered },
         )
         .unwrap();
         assert!(f.m.performance(&key).is_err());

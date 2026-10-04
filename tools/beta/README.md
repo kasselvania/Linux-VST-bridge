@@ -24,6 +24,72 @@ modes reject that argument, while migration retains its capture-prefix meaning.
 Timing storage is allocated before audio for the maximum count. Rebuild the
 consumer after changing this source and retain its source and executable digests.
 
+`completion_host.cpp` is a separate ordinary-SDK consumer for the audio-completion
+slice. `lifecycle_host.cpp` remains the unchanged baseline. The same build script
+now builds both consumers, the callback audit library and two functional oracle
+tests against the actual first-party completion producer. Run those tests before
+installed use; they reject stale mode results, missing zero-frame results, corrupt
+first/final samples and writes beyond the borrowed frame count. This source check
+does not qualify transport or callback timing.
+
+Windows CI builds `LVB_Completion_Plugins_1_0_0.exe` with
+`build_reference.py --fixture-family completion` after the default reference
+installer. Its separate `LVB_COMPLETION_MANIFEST.json` and inspection records
+come from the production Windows host's actual class and bus census. Import
+that installer through the manager's ordinary Setup flow; it installs distinct
+`LVBCompletionInstrument.vst3` and `LVBCompletionEffect.vst3` files and keeps the
+reference installation and registration independent.
+
+Install and publish the distinct `LVB Completion Instrument` and `LVB Completion
+Effect` modules through supported product setup, then select Buffered or
+SameCallback through the manager. Supply the actual native class pair from that
+publication's retained revision. The Windows fixture class IDs are separate;
+neither friendly names nor source IDs authorize a native publication. The supplied
+`D` must be the selected effective delay, zero or 256/512/1024. The consumer requires
+the SDK's reported latency to equal `D+13`; the fixture's vendor latency is 13.
+
+```sh
+umask 077
+LD_PRELOAD=/PRIVATE/libap3-callback-audit.so /PRIVATE/completion-host \
+  /EXACT/SELECTED/BUNDLE.vst3 instrument matrix /PRIVATE/state \
+  1024 48000 0 ACTUAL_NATIVE_PROCESSOR_ID ACTUAL_NATIVE_CONTROLLER_ID
+```
+
+The arguments are strict and checked before module load. `M` is 1..1024, and the
+declared rates are 44100/48000/88200/96000/192000. `matrix` checks all actual frame
+counts 0..M under offline processing, consecutive parameter-only N=0 flushes,
+non-power-of-two blocks, a legal inactive rate/block transition, unpaced real-time/
+prefetch switching, first/final events, in-place effects and two stereo outputs.
+The host explicitly supplies the finite `D+13` audio tail. An absolute sample
+position oracle checks audio and returned mode/gain points and inline events;
+there is no bridge packet or vendor-state decoder in this consumer. `offline`
+and `modes` select their named subsets. Whole SDK callback intervals, forbidden
+effects and permitted local wakes are reported separately. Audio correctness
+does not imply timing qualification when whole callbacks overrun their allowance.
+
+`slow-offline` issues state capture first using the fixture's declared 200-ms
+state-reply delay, then starts a valid 12-second offline callback. It checks exact
+opaque state and prompt capture within the original 10-second capture deadline
+while audio remains in flight beyond 10 seconds from capture entry. SDK call
+timestamps cannot prove transport Capture admission; retain and join the exact
+owner/transport observation for that claim. The original state file is written
+only after the complete SDK recall/retirement checks.
+
+`offline-failure` requires an explicit vendor refusal. `offline-timeout` submits
+the declared 65-second fixture operation and requires explicit failure under the
+original 60-second deadline plus the declared 4-ms cancellation observation bound.
+No negative becomes a successful silence result or another audio attempt.
+`abrupt-offline` exits 23 while the 12-second callback still borrows its buffers;
+it performs no concurrent SDK stop/deactivate/terminate. This is an intentional
+consumer disappearance, not SDK cancellation success. Exact supervisor/transport
+containment and retirement must be established independently. Native C-ABI
+cooperative cancellation has separate source-owner tests.
+
+Keep completion states, raw timing and ownership observations private. Retain
+the executed consumer/fixture/audit hashes, actual selected delivery and original
+failed lifetimes. These are independent development regressions, not real-DAW,
+serial-chain, commercial, physical-hardware, endurance or beta acceptance.
+
 For unfamiliar-module coverage, freeze and retain a package first, then run
 `build_unfamiliar.py` on Windows with that package and engine digest. It builds
 two first-party module revisions with newly generated classes through the same

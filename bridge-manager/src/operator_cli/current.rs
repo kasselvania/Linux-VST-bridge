@@ -343,7 +343,9 @@ fn current_products(m: &Manager, db: &Registry, sw: &Software,
                 m.verify_completed_publication(revision, reference).is_ok());
         let performance = m.performance(class);
         let performance_valid = performance.is_ok();
-        let added_frames = performance.ok().map(|record| record.added_frames);
+        let added_frames = performance.as_ref().ok().map(|record| record.effective_frames());
+        let buffered_frames = performance.as_ref().ok().map(|record|record.added_frames);
+        let delivery_mode = performance.as_ref().ok().map(|record|record.delivery_mode);
         let registration_valid = r.validate_record(&m.root).is_ok();
         let module_valid = registration_valid && cache.artifact(&r.module);
         let environment_valid = cache.environment(&r.environment)? && registration_valid;
@@ -402,6 +404,7 @@ fn current_products(m: &Manager, db: &Registry, sw: &Software,
                 "runner_policy":r.environment.runner.policy,
                 "requested_graphics":linux_vst_bridge::graphics::requested_backend(r.environment.runner.policy.as_ref()),
                 "performance_valid":performance_valid,"added_frames":added_frames,
+                "buffered_frames":buffered_frames,"delivery_mode":delivery_mode,
                 "buffering_capacity":"deferred_to_mutation_or_launch",
                 "publication_complete":completed_publication,
                 "host_binding_valid":host_valid,"publication_valid":publication_valid,
@@ -718,11 +721,11 @@ mod tests {
         assert_eq!(products[0].disposition,"ready");
         let performance=m.root.join("performance").join(format!("{class}.json"));
         private_dir(performance.parent().unwrap()).unwrap();
-        atomic_json(&performance,&Performance {schema:1,added_frames:512}).unwrap();
+        atomic_json(&performance,&Performance {schema:1,added_frames:512, delivery_mode:DeliveryMode::Buffered }).unwrap();
         let (products,_)=current_products(m,&db,&sw,std::slice::from_ref(&profile)).unwrap();
         assert_eq!(products[0].details["performance_valid"],true);
         assert_eq!(products[0].details["added_frames"],512);
-        atomic_json(&performance,&Performance {schema:1,added_frames:256}).unwrap();
+        atomic_json(&performance,&Performance {schema:1,added_frames:256, delivery_mode:DeliveryMode::Buffered }).unwrap();
         let (products,_)=current_products(m,&db,&sw,std::slice::from_ref(&profile)).unwrap();
         assert_eq!(products[0].details["performance_valid"],true);
         assert_eq!(products[0].details["added_frames"],256);

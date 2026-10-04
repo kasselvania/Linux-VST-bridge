@@ -91,13 +91,14 @@ uint32_t __wrap_ap4_deactivate(uint64_t) {return 0;}
 uint32_t __wrap_ap3_transition(uint64_t,uint32_t) {return 0;}
 uint32_t __wrap_if2_close(uint64_t) {++closes;return 0;}
 uint32_t __wrap_ap10_fail_results(uint64_t) {++failures;return 0;}
-uint32_t __wrap_if2_process(uint64_t,uint32_t n,const ap8_event_t*,uint32_t,
- const ap10_context_t*,uint64_t,const float* l,const float* r,float* ol,float* or_,
+uint32_t __wrap_ap23_process_outputs(uint64_t,uint32_t n,uint32_t mode,const ap8_event_t*,uint32_t,
+ const ap10_context_t*,uint64_t,const float* l,const float* r,float*const* outputs,uint32_t channels,
  uint64_t* silence,ap7_delivery_t* delivery,uint64_t entered_ns) {
  require(entered_ns!=0,"native callback-entry clock");
+ require(channels==2 && mode==kRealtime,"actual callback mode and planar ABI");
  if(terminal_result)return IF2::contained;
  frames=int32(n);cursor=drains=0;*silence=0;*delivery={};delivery->delivered_frames=n;
- std::copy_n(l,n,ol);std::copy_n(r,n,or_);return 0;
+ std::copy_n(l,n,outputs[0]);std::copy_n(r,n,outputs[1]);return 0;
 }
 uint32_t __wrap_ap10_take_results(uint64_t,ap10_results_t* packet) {
  packet->events=packet->points=packet->bytes=packet->reserved=0;
@@ -178,7 +179,7 @@ int main() {
  require(off.type==Event::kNoteOffEvent && off.busIndex==0 && off.noteOff.channel==15 && off.noteOff.pitch==60 && off.noteOff.noteId==-1234 && off.noteOff.tuning==.25f && off.sampleOffset==0 && off.flags==0xc001 && off.ppqPosition==7.25,"IF2 exact returned note identity and cleanup offset");
  sink.clear();d.numSamples=d.numInputs=d.numOutputs=0;d.inputs=d.outputs=nullptr;
  begin();status=p->process(d);effects=end();
- require(status==kResultOk && effects==0 && sink.getEventCount()==0 && drains==completedDrains,"IF2 zero-frame terminal callback does not duplicate Note Off or drain results");
+ require(status==kResultFalse && effects==0 && sink.getEventCount()==0 && drains==completedDrains,"exact zero-frame terminal callback fails without duplicating Note Off or draining results");
  require(p->setProcessing(false)==kResultOk && p->setActive(false)==kResultOk && p->terminate()==kResultOk,"IF2 positive contained cleanup");
  std::puts("Native callback payload lifetime, contained terminal silence and exact Note Off cleanup PASS");
 }

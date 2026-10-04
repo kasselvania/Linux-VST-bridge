@@ -5,7 +5,62 @@ use std::{
     io::Read,
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::PathBuf,
+    time::{Duration, Instant},
 };
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[repr(u32)]
+pub(crate) enum DeliveryMode {
+    #[default]
+    Buffered = 0,
+    SameCallback = 1,
+}
+impl TryFrom<u32> for DeliveryMode {
+    type Error = io::Error;
+    fn try_from(value: u32) -> io::Result<Self> {
+        match value {
+            0 => Ok(Self::Buffered),
+            1 => Ok(Self::SameCallback),
+            _ => Err(invalid("unsupported delivery mode")),
+        }
+    }
+}
+impl DeliveryMode {
+    pub(crate) fn effective_delay(self, maximum: u32, remembered: u32) -> io::Result<u32> {
+        need((1..=1024).contains(&maximum), "host maximum outside 1..1024")?;
+        need(matches!(remembered, 256 | 512 | 1024)
+            || (cfg!(feature = "rpi0") && remembered == 2048), "remembered buffering")?;
+        match self {
+            Self::Buffered => { validate_delay(maximum, remembered)?; Ok(remembered) }
+            Self::SameCallback => Ok(0),
+        }
+    }
+}
+pub(crate) fn whole_block(minor: u64) -> bool { matches!(minor, 14 | 15) }
+pub(crate) fn valid_process_mode(configured: u32, actual: u32) -> bool {
+    matches!((configured, actual), (0 | 1, 0 | 1) | (2, 2))
+}
+pub(crate) const OFFLINE_ALLOWANCE: Duration = Duration::from_secs(60);
+pub(crate) const FLUSH_ALLOWANCE: Duration = Duration::from_millis(1);
+pub(crate) const INTERRUPT_INTERVAL: Duration = Duration::from_millis(4);
+#[derive(Clone, Copy)]
+pub(crate) struct CompletionPolicy {
+    pub(crate) deadline: Instant,
+    pub(crate) exact: bool,
+    pub(crate) offline: bool,
+}
+impl CompletionPolicy {
+    pub(crate) fn new(mode: u32, delivery: DeliveryMode, n: usize, rate: f64,
+        entered_ns: u64, now_ns: u64, now: Instant) -> Self {
+        let offline = mode == 2;
+        let allowance = if offline { OFFLINE_ALLOWANCE }
+            else if n == 0 { FLUSH_ALLOWANCE }
+            else { Duration::from_nanos((n as f64 * 1_000_000_000. / rate) as u64) };
+        let elapsed = if entered_ns == 0 || now_ns == 0 { Duration::ZERO }
+            else { Duration::from_nanos(now_ns.saturating_sub(entered_ns)) };
+        Self { deadline: now + allowance.saturating_sub(elapsed),
+            exact: offline || n == 0 || delivery == DeliveryMode::SameCallback, offline }
+    }
+}
 pub(crate) const MAX_BUSES: usize = 56;
 pub(crate) const MAX_BUS_CONTRACT_BYTES: u32 = (4 + 32 * MAX_BUSES) as u32;
 #[cfg(test)]
@@ -47,7 +102,7 @@ pub fn validate_wire(b: &[u8]) -> io::Result<()> {
     let rate = f64::from_le_bytes(b[8..16].try_into().unwrap());
     need(
         (1..=1024).contains(&get(&b[..4]))
-            && matches!(get(&b[4..8]), 0 | 2)
+            && matches!(get(&b[4..8]), 0..=2)
             && [44100., 48000., 88200., 96000., 192000.].contains(&rate)
             && matches!(get(&b[16..20]), 0 | 2 | 3)
             && get(&b[20..24]) <= 3,
@@ -215,7 +270,7 @@ mod tests {
         for mailbox_version in [0u32, 2, 3] {
             let mut b = wire(256, 0, 48000.).unwrap();
             b[16..20].copy_from_slice(&mailbox_version.to_le_bytes());
-            for process_mode in [0u32, 2] {
+            for process_mode in [0u32, 1, 2] {
                 b[4..8].copy_from_slice(&process_mode.to_le_bytes());
                 assert!(validate_wire(&b).is_ok());
             }
@@ -230,10 +285,34 @@ mod tests {
         }
         assert!(wire(1025, 0, 48000.).is_err());
         assert!(wire(64, 0, 47999.).is_err());
-        assert!(wire(64, 1, 48000.).is_err());
+        assert!(wire(64, 1, 48000.).is_ok());
         let mut b = wire(64, 0, 48000.).unwrap();
         b[16] = 1; // retired mailbox version
         assert!(validate_wire(&b).is_err());
+    }
+    #[test]
+    fn delivery_and_completion_keep_actual_length_mode_and_original_entry_distinct() {
+        assert_eq!(DeliveryMode::SameCallback.effective_delay(1024, 256).unwrap(), 0);
+        assert!(DeliveryMode::Buffered.effective_delay(1024, 256).is_err());
+        assert_eq!(DeliveryMode::Buffered.effective_delay(256, 512).unwrap(), 512);
+        assert!(DeliveryMode::try_from(2).is_err());
+        for configured in [0, 1] {
+            for actual in [0, 1] { assert!(valid_process_mode(configured, actual)); }
+            assert!(!valid_process_mode(configured, 2));
+        }
+        assert!(valid_process_mode(2, 2)); assert!(!valid_process_mode(2, 0));
+        let now = Instant::now();
+        let realtime = CompletionPolicy::new(0, DeliveryMode::SameCallback, 48, 48000.,
+            1_000_000, 1_750_000, now);
+        assert_eq!(realtime.deadline.duration_since(now), Duration::from_micros(250));
+        let expired = CompletionPolicy::new(1, DeliveryMode::SameCallback, 48, 48000.,
+            1_000_000, 3_000_000, now);
+        assert_eq!(expired.deadline, now);
+        let zero = CompletionPolicy::new(0, DeliveryMode::Buffered, 0, 48000., 0, 0, now);
+        assert!(zero.exact); assert_eq!(zero.deadline.duration_since(now), FLUSH_ALLOWANCE);
+        let offline = CompletionPolicy::new(2, DeliveryMode::Buffered, 1, 192000., 0, 0, now);
+        assert!(offline.exact && offline.offline);
+        assert_eq!(offline.deadline.duration_since(now), OFFLINE_ALLOWANCE);
     }
 }
 

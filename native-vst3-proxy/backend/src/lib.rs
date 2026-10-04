@@ -86,6 +86,8 @@ struct Session {
     mapping: Option<Mapping>,
     mailbox: Option<mailbox::Mailbox>,
     mailbox_enabled: bool,
+    notifications: Option<ap1_native_client::notification::Channel>,
+    configured_mode: u32,
     capture: Option<state::Capture>,
     fault_status: Option<fault_status::Status>,
     notices: (u32, u64),
@@ -113,9 +115,9 @@ struct ProcessingScratch {
 impl ProcessingScratch {
     fn new() -> Self {
         Self {
-            request: Frame { kind: PROCESS, session: [0; 16], sequence: 0, payload: Vec::with_capacity(8352) },
+            request: Frame { kind: PROCESS, session: [0; 16], sequence: 0, payload: Vec::with_capacity(8360) },
             reply: Frame { kind: 0, session: [0; 16], sequence: 0, payload: Vec::with_capacity(10312) },
-            wire: Vec::with_capacity(HEADER + 8352),
+            wire: Vec::with_capacity(HEADER + 8360),
         }
     }
 }
@@ -167,6 +169,7 @@ fn binding(preview: bool) -> io::Result<preview::Binding> {
         directory: path,
         session,
         installed_delay: None,
+        delivery_mode: performance::DeliveryMode::Buffered,
         owner: None,
     })
 }
@@ -195,7 +198,7 @@ impl Session {
         } else {
             None
         };
-        let mailbox = if minor >= 6 && performance::use_mailbox()? {
+        let mailbox = if minor >= 15 || minor >= 6 && performance::use_mailbox()? {
             Some(mailbox::Mailbox::create(&path.join("ap10.delivery"), id)?)
         } else {
             None
@@ -205,15 +208,17 @@ impl Session {
         } else {
             None
         };
-        let prepared = Prepared::with_layout(path, id, if minor >= 13 { MULTI_CHANNELS } else { 2 }, minor == 14)?;
-        let (mapping, socket) =
-            prepared.accept_while(minor, || preview::check_owner(&mut owner))?;
+        let prepared = Prepared::with_protocol(path, id, if minor >= 13 { MULTI_CHANNELS } else { 2 }, minor)?;
+        let (mapping, socket, notifications) =
+            prepared.accept_notified_while(minor, || preview::check_owner(&mut owner))?;
         let mut s = Self {
             gui,
             gui_revision: 0,
             mapping: Some(mapping),
             mailbox,
             mailbox_enabled: false,
+            notifications,
+            configured_mode: 0,
             capture: None,
             fault_status,
             notices: (0, 0),
@@ -231,7 +236,7 @@ impl Session {
             epoch: 0,
             position: 0,
             witness: if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13)
-                || (minor == 14 && observer::delivery_enabled())
+                || (minor >= 14 && observer::delivery_enabled())
             {
                 observer::Observer::commercial().ok()
             } else if matches!(minor, 4 | 6)
@@ -306,7 +311,33 @@ impl Session {
                 .as_mut()
                 .ok_or_else(|| invalid("delivery mapping absent"))?
                 .control()?;
+            if let Some(channel) = &mut self.notifications { channel.notify()?; }
         }
+        Ok(())
+    }
+    fn wait_control_handoff(&mut self, end: std::time::Instant,
+        mut cancelled: impl FnMut() -> bool) -> io::Result<()> {
+        while self.mailbox.as_ref().is_some_and(|mailbox| mailbox.control_handoff_pending()) {
+            need(!cancelled(), "audio operation cancelled")?;
+            need(std::time::Instant::now() < end, "control handoff deadline")?;
+            preview::check_owner(&mut self.owner)?;
+            mailbox::peer_status(&self.socket, self.capture.is_some())?;
+            if let Some(capture) = &mut self.capture { capture.service(&self.socket, self.minor)?; }
+            if let Some(channel) = &mut self.notifications { channel.service(end)?; }
+            else { std::thread::sleep(std::time::Duration::from_micros(50)); }
+        }
+        Ok(())
+    }
+    fn worker_wait_fds(&self) -> [(i32, bool); 2] {
+        use std::os::unix::io::AsRawFd;
+        [(if self.capture.as_ref().is_some_and(|capture| capture.is_unread()) { self.socket.as_raw_fd() } else { -1 }, false),
+            self.notifications.as_ref().map_or((-1, false), |channel| (channel.raw_fd(), channel.pending_wake()))]
+    }
+    fn service_worker_wakes(&mut self, _end: std::time::Instant, mut cancelled: impl FnMut() -> bool) -> io::Result<()> {
+        need(!cancelled(), "audio operation cancelled")?;
+        preview::check_owner(&mut self.owner)?;
+        mailbox::peer_status(&self.socket, self.capture.is_some())?;
+        if let Some(channel) = &mut self.notifications { channel.service(std::time::Instant::now())?; }
         Ok(())
     }
     fn configure(&mut self, mut bytes: Vec<u8>) -> io::Result<Vec<u8>> {
@@ -315,7 +346,7 @@ impl Session {
             "setup requires inactive session",
         )?;
         performance::validate_wire(&bytes)?;
-        need(get(&bytes[..4]) <= if self.minor == 14 { BLOCK_CAP as u64 } else { CAP as u64 },
+        need(get(&bytes[..4]) <= if self.minor >= 14 { BLOCK_CAP as u64 } else { CAP as u64 },
              "setup exceeds negotiated mapping")?;
         self.sample_rate = f64::from_le_bytes(bytes[8..16].try_into().unwrap()) as u32;
         if self.minor >= 13 {
@@ -324,6 +355,7 @@ impl Session {
         }
         let mailbox_version = 3 * u64::from(self.mailbox.is_some());
         put(&mut bytes[16..20], mailbox_version);
+        let configured_mode = get(&bytes[4..8]) as u32;
         let reply = self.exchange(20, bytes)?;
         need(
             get(&reply.payload[12..16]) == mailbox_version
@@ -331,15 +363,16 @@ impl Session {
             "invalid setup response",
         )?;
         self.mailbox_enabled = mailbox_version == 3;
+        self.configured_mode = configured_mode;
         Ok(reply.payload)
     }
     fn activate(&mut self, maximum: usize, mode: u32) -> io::Result<()> {
         need(
             self.minor >= 4
                 && matches!(self.phase, 17 | 15)
-                && (1..=if self.minor == 14 { BLOCK_CAP } else { CAP }).contains(&maximum)
+                && (1..=if self.minor >= 14 { BLOCK_CAP } else { CAP }).contains(&maximum)
                 && if self.minor >= 6 {
-                    matches!(mode, 0 | 2)
+                    if self.minor >= 15 { mode <= 2 } else { matches!(mode, 0 | 2) }
                 } else {
                     mode <= 1
                 },
@@ -390,12 +423,16 @@ impl Session {
         timeline: (u64, u64),
         events: &[events::Event],
         context: context::Context,
+        process_mode: u32,
+        deadline: std::time::Instant,
+        cancelled: impl FnMut() -> bool,
+        capture_completed: impl FnMut(io::Result<Vec<u8>>) -> io::Result<()>,
     ) -> io::Result<([[u32; BLOCK_CAP + 2]; 2], u64)> {
         need(
             self.minor >= 3 && timeline == (self.epoch, self.position),
             "queued audio epoch/position",
         )?;
-        self.process_events(n, gain, silence, input, events, context)
+        self.process_events_with(n, gain, silence, input, events, context, process_mode, deadline, cancelled, capture_completed)
     }
     fn process(
         &mut self,
@@ -415,12 +452,25 @@ impl Session {
         events: &[events::Event],
         context: context::Context,
     ) -> io::Result<([[u32; BLOCK_CAP + 2]; 2], u64)> {
+        self.process_events_with(n, gain, silence, input, events, context, self.configured_mode,
+            std::time::Instant::now() + std::time::Duration::from_secs(5), || false, |_| Ok(()))
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn process_events_with(
+        &mut self, n: usize, gain: f64, silence: u64, input: [&[f32]; 2],
+        events: &[events::Event], context: context::Context, process_mode: u32,
+        deadline: std::time::Instant, mut cancelled: impl FnMut() -> bool,
+        mut capture_completed: impl FnMut(io::Result<Vec<u8>>) -> io::Result<()>,
+    ) -> io::Result<([[u32; BLOCK_CAP + 2]; 2], u64)> {
+        need(!cancelled(), "audio operation cancelled")?;
+        need(self.minor < 15 || process_mode <= 2 && (process_mode == 2) == (self.configured_mode == 2),
+            "process mode requires inactive setup")?;
         need(
-            matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14) || events.is_empty(),
+            matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15) || events.is_empty(),
             "events require negotiated protocol",
         )?;
         need(
-            !matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14) || gain.is_nan(),
+            !matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15) || gain.is_nan(),
             "commercial legacy gain refused",
         )?;
         need(
@@ -518,14 +568,18 @@ impl Session {
                     .payload
                     .extend_from_slice(&self.position.to_le_bytes());
             }
-            if matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14) {
-                events::encode_for_block(events, n, &mut request.payload, self.minor == 14)?;
+            if matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15) {
+                events::encode_for_block(events, n, &mut request.payload, self.minor >= 14)?;
             }
             if self.minor >= 8 {
                 context.encode_into(&mut request.payload);
             }
             if self.minor >= 10 {
                 request.payload.extend(self.gui_revision.to_le_bytes());
+            }
+            if self.minor >= 15 {
+                request.payload.extend(process_mode.to_le_bytes());
+                request.payload.extend(0u32.to_le_bytes());
             }
             self.trace.prepared = Some(std::time::Instant::now());
             if let Some(s) = &mut self.fault_status {
@@ -538,16 +592,34 @@ impl Session {
                     .as_mut()
                     .ok_or_else(|| invalid("delivery mapping absent"))?;
                 mailbox.send(request, self.minor)?;
+                if let Some(channel) = &mut self.notifications { channel.notify()?; }
                 self.trace.sent = Some(std::time::Instant::now());
                 if let Some(s) = &mut self.fault_status {
                     s.publish(self.epoch, self.state.next, self.position, 2, 0);
                 }
-                mailbox.receive_while_into(
-                    self.minor,
-                    std::time::Instant::now() + std::time::Duration::from_secs(5),
-                    || { preview::check_owner(&mut self.owner)?; mailbox::peer_status(&self.socket, self.capture.is_some()) },
-                    reply,
-                )?;
+                let mut healthy = || {
+                    need(!cancelled(), "audio operation cancelled")?;
+                    preview::check_owner(&mut self.owner)?;
+                    mailbox::peer_status(&self.socket, self.capture.is_some())?;
+                    if let Some(capture) = &mut self.capture {
+                        if let Some(reply) = capture.poll(&self.socket, self.minor)? {
+                            let request = Frame { kind: 16, session: self.state.session, sequence: capture.sequence, payload: vec![] };
+                            let result = state::validate_reply(self.minor, &mut self.witness, &request, reply)
+                                .and_then(|payload| state::bound_envelope(self.identity, &payload));
+                            let fatal = result.as_ref().is_err_and(|error| !state::save_refused(error));
+                            self.capture = None;
+                            capture_completed(result)?;
+                            need(!fatal, "state capture failed; original result retained")?;
+                        }
+                    }
+                    Ok(())
+                };
+                if let Some(channel) = &mut self.notifications {
+                    mailbox.receive_notified_into(self.minor, deadline, &mut healthy, reply, channel)?;
+                } else {
+                    need(self.minor < 15, "paired notification channel absent")?;
+                    mailbox.receive_while_into(self.minor, deadline, &mut healthy, reply)?;
+                }
                 self.trace.windows = mailbox.diagnostic;
             } else {
                 ap1_native_client::endpoint::send_version_with(&mut self.socket, request, 5, self.minor, &mut self.processing.wire)?;
@@ -649,6 +721,7 @@ impl Session {
         // No native asynchronous worker exists. Shutdown prevents replay; the external
         // supervisor owns the independently mapped Windows endpoint on failure.
         let _ = self.socket.shutdown(std::net::Shutdown::Both);
+        self.notifications.take();
         let unmap = self
             .mapping
             .take()

@@ -4,6 +4,7 @@ use crate::{invalid, need};
 use std::io;
 
 pub const GREETING: &[u8; 5] = b"LVB3\n";
+pub const GREETING_V4: &[u8; 5] = b"LVB4\n";
 pub const MAX_REPLY: usize = 1024;
 pub const HEADER: usize = 24;
 
@@ -54,6 +55,7 @@ impl std::error::Error for Refusal {}
 pub struct Binding {
     pub session: [u8; 16],
     pub added_frames: u32,
+    pub delivery_mode: u32,
     pub directory: String,
 }
 fn header(request: [u8; 16], code: u8) -> Vec<u8> {
@@ -67,29 +69,50 @@ pub fn refused(request: [u8; 16], reason: Refusal) -> Vec<u8> {
     header(request, reason as u8)
 }
 pub fn accepted(request: [u8; 16], binding: &Binding) -> io::Result<Vec<u8>> {
+    need(binding.delivery_mode == 0, "legacy admission supports buffered delivery only")?;
+    encode(request, binding, false)
+}
+pub fn accepted_v4(request: [u8; 16], binding: &Binding) -> io::Result<Vec<u8>> {
+    encode(request, binding, true)
+}
+pub fn refused_v4(request: [u8; 16], reason: Refusal) -> Vec<u8> {
+    let mut bytes = refused(request, reason); bytes[3] = b'4'; bytes
+}
+fn encode(request: [u8; 16], binding: &Binding, version4: bool) -> io::Result<Vec<u8>> {
+    need(binding.delivery_mode <= 1, "admission delivery mode")?;
     need(request != [0; 16], "admission request identity")?;
     need(binding.session != [0; 16], "admission session identity")?;
     need(matches!(binding.added_frames, 256 | 512 | 1024), "admission delay")?;
     need(
         binding.directory.starts_with('/')
             && !binding.directory.bytes().any(|b| b == 0 || b == b'\n')
-            && HEADER + 20 + binding.directory.len() <= MAX_REPLY,
+            && HEADER + 20 + if version4 {4} else {0} + binding.directory.len() <= MAX_REPLY,
         "admission directory extent",
     )?;
     let mut bytes = header(request, 0);
+    if version4 { bytes[3] = b'4'; }
     bytes.extend(binding.session);
     bytes.extend(binding.added_frames.to_le_bytes());
+    if version4 { bytes.extend(binding.delivery_mode.to_le_bytes()); }
     bytes.extend(binding.directory.as_bytes());
     Ok(bytes)
 }
 pub fn decode(bytes: &[u8], request: [u8; 16]) -> io::Result<Result<Binding, Refusal>> {
+    decode_version(bytes, request, false)
+}
+pub fn decode_v4(bytes: &[u8], request: [u8; 16]) -> io::Result<Result<Binding, Refusal>> {
+    // The unclassified bounded-service refusal precedes reading any greeting.
+    if bytes == refused([0; 16], Refusal::ServiceBusy) { return decode(bytes, request); }
+    decode_version(bytes, request, true)
+}
+fn decode_version(bytes: &[u8], request: [u8; 16], version4: bool) -> io::Result<Result<Binding, Refusal>> {
     need(request != [0; 16], "admission request identity")?;
     need(
         (HEADER..=MAX_REPLY).contains(&bytes.len()),
         "admission reply extent",
     )?;
     need(
-        &bytes[..4] == b"LVR3" && bytes[5..8] == [0; 3],
+        &bytes[..4] == if version4 { b"LVR4" } else { b"LVR3" } && bytes[5..8] == [0; 3],
         "admission reply version",
     )?;
     // At the bounded connection ceiling the service can refuse classification
@@ -101,17 +124,19 @@ pub fn decode(bytes: &[u8], request: [u8; 16]) -> io::Result<Result<Binding, Ref
         need(bytes.len() == HEADER, "admission refusal payload")?;
         return Ok(Err(Refusal::decode(bytes[4])?));
     }
-    need(bytes.len() > HEADER + 20, "admission binding extent")?;
+    let path_offset = if version4 { 48 } else { 44 };
+    need(bytes.len() > path_offset, "admission binding extent")?;
     let binding = Binding {
         session: bytes[24..40].try_into().unwrap(),
         added_frames: u32::from_le_bytes(bytes[40..44].try_into().unwrap()),
-        directory: std::str::from_utf8(&bytes[44..])
+        delivery_mode: if version4 { u32::from_le_bytes(bytes[44..48].try_into().unwrap()) } else { 0 },
+        directory: std::str::from_utf8(&bytes[path_offset..])
             .map_err(|_| invalid("admission directory encoding"))?
             .into(),
     };
     // One validator owns the accepted shape on both ends.
     need(
-        accepted(request, &binding)? == bytes,
+        encode(request, &binding, version4)? == bytes,
         "admission binding encoding",
     )?;
     Ok(Ok(binding))
@@ -124,13 +149,14 @@ mod tests {
     fn exact_binding_and_refusals_never_overlap() {
         let request = [1; 16];
         for added_frames in [256, 512, 1024] {
-            let binding = Binding {session:[2;16],added_frames,directory:"/owned/session".into()};
+            let binding = Binding {session:[2;16],added_frames,delivery_mode:0,directory:"/owned/session".into()};
             let bytes = accepted(request, &binding).unwrap();
             assert_eq!(decode(&bytes, request).unwrap(), Ok(binding));
         }
         let binding = Binding {
             session: [2; 16],
             added_frames: 512,
+            delivery_mode: 0,
             directory: "/owned/session".into(),
         };
         let bytes = accepted(request, &binding).unwrap();
@@ -157,11 +183,29 @@ mod tests {
         assert!(decode(&refused([0; 16], Refusal::GlobalCapacity), request).is_err());
     }
     #[test]
+    fn explicit_delivery_preserves_remembered_buffer_and_legacy_cannot_accept_it() {
+        let request = [1; 16];
+        for mode in [0, 1] {
+            let binding = Binding {session:[2;16],added_frames:1024,delivery_mode:mode,directory:"/owned/session".into()};
+            let bytes = accepted_v4(request, &binding).unwrap();
+            assert!(decode(&bytes, request).is_err());
+            assert_eq!(decode_v4(&bytes, request).unwrap(), Ok(binding));
+        }
+        let binding = Binding {session:[2;16],added_frames:1024,delivery_mode:1,directory:"/owned/session".into()};
+        assert!(accepted(request, &binding).is_err());
+        let mut bytes = accepted_v4(request, &binding).unwrap();
+        bytes[44] = 2;
+        assert!(decode_v4(&bytes, request).is_err());
+        assert_eq!(decode_v4(&refused([0;16], Refusal::ServiceBusy), request).unwrap(), Err(Refusal::ServiceBusy));
+        assert!(decode_v4(&refused(request, Refusal::BindingInvalid), request).is_err());
+    }
+    #[test]
     fn malformed_stale_and_unsupported_messages_fail_closed() {
         let request = [1; 16];
         let binding = Binding {
             session: [2; 16],
             added_frames: 512,
+            delivery_mode: 0,
             directory: "/owned/session".into(),
         };
         let bytes = accepted(request, &binding).unwrap();

@@ -1449,7 +1449,8 @@ fn verify_retained_revision(m: &Manager, r: &Revision) -> Result<()> {
     let buffering = r.performance.added_frames != 1024
         || build::maximum_bridge_frames(m, &r.registration)? == Some(1024);
     require(
-        buffering && r.external_ids == external_ids(&r.class_id)?,
+        buffering && (r.performance.delivery_mode != DeliveryMode::SameCallback
+            || build::supports_audio_completion(m, &r.registration)?) && r.external_ids == external_ids(&r.class_id)?,
         "candidate_runtime_contract",
     )?;
     require(

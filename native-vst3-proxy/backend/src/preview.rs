@@ -57,6 +57,7 @@ pub struct Binding {
     pub directory: PathBuf,
     pub session: [u8; 16],
     pub installed_delay: Option<u32>,
+    pub delivery_mode: crate::performance::DeliveryMode,
     // Held through Session::close. EOF tells the owner to clean up after a crash.
     pub owner: Option<Owner>,
 }
@@ -125,7 +126,8 @@ pub fn connect(root: &Path) -> io::Result<Binding> {
     connect_greeting(root, b"AP4\n")
 }
 pub fn connect_greeting(root: &Path, greeting: &[u8]) -> io::Result<Binding> {
-    if !greeting.starts_with(ap1_native_client::admission::GREETING) {
+    if !greeting.starts_with(ap1_native_client::admission::GREETING)
+        && !greeting.starts_with(ap1_native_client::admission::GREETING_V4) {
         return connect_once(root, greeting, None);
     }
     connect_greeting_with_policy(root, greeting, Duration::from_secs(65), 3250)
@@ -173,7 +175,8 @@ fn connect_once(root: &Path, greeting: &[u8], deadline: Option<Instant>) -> io::
             .min(Duration::from_secs(5)),
         None => Duration::from_secs(5),
     }))?;
-    let version3 = greeting.starts_with(ap1_native_client::admission::GREETING);
+    let version4 = greeting.starts_with(ap1_native_client::admission::GREETING_V4);
+    let version3 = version4 || greeting.starts_with(ap1_native_client::admission::GREETING);
     let mut request = [0u8; 16];
     if version3 {
         need(greeting.len() == 53, "admission greeting extent")?;
@@ -212,7 +215,8 @@ fn connect_once(root: &Path, greeting: &[u8], deadline: Option<Instant>) -> io::
     read(&mut bytes)?;
     if version3 {
         let binding =
-            ap1_native_client::admission::decode(&bytes, request)?.map_err(io::Error::other)?;
+            (if version4 { ap1_native_client::admission::decode_v4(&bytes, request) }
+            else { ap1_native_client::admission::decode(&bytes, request) })?.map_err(io::Error::other)?;
         let directory = PathBuf::from(binding.directory);
         private(&directory, true)?;
         owner.set_nonblocking(true)?;
@@ -220,6 +224,7 @@ fn connect_once(root: &Path, greeting: &[u8], deadline: Option<Instant>) -> io::
             directory,
             session: binding.session,
             installed_delay: Some(binding.added_frames),
+            delivery_mode: crate::performance::DeliveryMode::try_from(binding.delivery_mode)?,
             owner: Some(Owner::new(owner)),
         });
     }
@@ -255,6 +260,7 @@ fn connect_once(root: &Path, greeting: &[u8], deadline: Option<Instant>) -> io::
         directory,
         session,
         installed_delay,
+        delivery_mode: crate::performance::DeliveryMode::Buffered,
         owner: Some(Owner::new(owner)),
     })
 }
@@ -272,7 +278,7 @@ pub(crate) fn performance_root(commercial: bool) -> PathBuf {
 }
 pub fn discover_performance(identity: Option<crate::state::Identity>) -> io::Result<Binding> {
     let mut greeting = if cfg!(feature = "registered") && identity.is_some() {
-        ap1_native_client::admission::GREETING.to_vec()
+        ap1_native_client::admission::GREETING_V4.to_vec()
     } else {
         b"AP9\n".to_vec()
     };
@@ -410,6 +416,32 @@ mod tests {
         }
     }
     #[test]
+    fn new_binding_preserves_delivery_and_buffered_preference() {
+        use ap1_native_client::admission;
+        let dir = Directory::new();
+        let socket = dir.0.join("owner.sock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        fs::set_permissions(&socket, fs::Permissions::from_mode(0o600)).unwrap();
+        let path = dir.0.clone();
+        let peer = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut hello = [0; 69];
+            stream.read_exact(&mut hello).unwrap();
+            assert_eq!(&hello[..5], admission::GREETING_V4);
+            let reply = admission::accepted_v4(hello[53..].try_into().unwrap(), &admission::Binding {
+                session:[9;16],added_frames:1024,delivery_mode:1,directory:path.to_str().unwrap().into(),
+            }).unwrap();
+            stream.write_all(&(reply.len() as u16).to_le_bytes()).unwrap();
+            stream.write_all(&reply).unwrap();
+            assert_eq!(stream.read(&mut [0]).unwrap(), 0);
+        });
+        let mut greeting = admission::GREETING_V4.to_vec(); greeting.extend([7;48]);
+        let binding = connect_greeting(&dir.0, &greeting).unwrap();
+        assert_eq!(binding.installed_delay, Some(1024));
+        assert_eq!(binding.delivery_mode, crate::performance::DeliveryMode::SameCallback);
+        drop(binding); peer.join().unwrap();
+    }
+    #[test]
     fn only_unowned_busy_can_retry_and_keeper_warmup_outlives_the_old_64_attempt_limit() {
         use ap1_native_client::admission::{self, Refusal};
         for (busy_replies, succeeds) in [(100usize, true), (64usize, false)] {
@@ -436,7 +468,7 @@ mod tests {
                             request,
                             &admission::Binding {
                                 session: [9; 16],
-                                added_frames: 512,
+                                added_frames: 512, delivery_mode:0,
                                 directory: path.to_str().unwrap().into(),
                             },
                         )
@@ -488,7 +520,7 @@ mod tests {
                 hello[53..].try_into().unwrap(),
                 &admission::Binding {
                     session: [9; 16],
-                    added_frames: 512,
+                    added_frames: 512, delivery_mode:0,
                     directory: path.to_str().unwrap().into(),
                 },
             )
@@ -637,6 +669,7 @@ mod tests {
         assert!(crate::Session::open(
             Binding {
                 installed_delay: None,
+                delivery_mode: crate::performance::DeliveryMode::Buffered,
                 directory: dir.0.clone(),
                 session: [3; 16],
                 owner: Some(Owner::new(owner))

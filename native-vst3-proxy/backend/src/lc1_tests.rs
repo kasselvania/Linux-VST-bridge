@@ -81,6 +81,7 @@ fn same_session_reconfiguration_two_ended() {
                 max: 256,
                 recovery_blocked: false,
                 installed_delay: Some(512),
+                delivery_mode: crate::performance::DeliveryMode::Buffered,
                 minor: 12,
                 setup: None,
             })

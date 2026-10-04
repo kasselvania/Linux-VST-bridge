@@ -889,8 +889,13 @@ impl Manager {
         // are rechecked outside the guard again before the short commit below.
         census.verify_current(&self.root,installed_host,source,crate::observation::now()?)?;
         registration.verify(&self.root)?;
-        let mut guard = Some(timing::measure(Stage::RegistryLock, || self.lock("registry.lock"))?);
         let key = registration.key();
+        let performance = self.performance(&key)?;
+        require(performance.delivery_mode != DeliveryMode::SameCallback || managed
+            && crate::preparation::build::publication_supports_audio_completion(self, profile, &registration)?,
+            "publication_delivery_unsupported_by_target: Select buffered delivery before selecting this older publication.")?;
+        let mut guard = Some(timing::measure(Stage::RegistryLock, || self.lock("registry.lock"))?);
+        require(self.performance(&key)? == performance, "publication_performance_changed")?;
         self.require_inactive(if global_inactive { None } else { Some(&key) })?;
         let mut db = self.registry()?;
         if let Some(expected)=expected {
@@ -957,7 +962,6 @@ impl Manager {
                 && registration.compatibility == profile.capabilities.compatibility(),
             "derived_registration_mismatch",
         )?;
-        let performance = self.performance(&key)?;
         if let Some(e) = db.classes.get(&key) {
             if let Some(reference) = &e.managed_revision {
                 let r = self.load_revision(&key, reference)?;
@@ -1040,6 +1044,7 @@ impl Manager {
             source_artifact.verify()?;
             guard=Some(timing::measure(Stage::RegistryLock, || self.lock("registry.lock"))?);
             self.require_inactive(if global_inactive { None } else { Some(&r.class_id) })?;
+            require(self.performance(&r.class_id)? == r.performance, "publication_performance_changed")?;
             require(serde_json::to_vec(&self.registry()?)?==snapshot && !self.publication_pending(&r.class_id)?
                 && physical(&self.link(&r.class_id))?==intent.prior.as_ref().and_then(|p|p.target.clone()),"preparation_publication_state_changed")?;
             authority.end(true);
@@ -1118,6 +1123,9 @@ impl Manager {
         require(performance.added_frames != 1024
             || preparation::build::revision_maximum_bridge_frames(self, &r)? == Some(1024),
             "rollback_buffering_unsupported_by_target")?;
+        require(performance.delivery_mode != DeliveryMode::SameCallback
+            || preparation::build::revision_supports_audio_completion(self, &r)?,
+            "rollback_delivery_unsupported_by_target: Select buffered delivery before restoring this older publication.")?;
         if e.publication == Publication::Published && current == &selected {
             require(
                 physical(&self.link(key))? == Some(r.target),

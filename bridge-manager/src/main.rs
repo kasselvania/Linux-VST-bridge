@@ -1511,7 +1511,8 @@ fn serve(m: Manager) -> Result<()> {
                     peer.write_all(b"Vendor access retired.\n")?;return Ok(());
                 }
                 peer.read_exact(&mut greeting[5..])?;
-                let version3 = &greeting[..5] == ap1_native_client::admission::GREETING;
+                let version4 = &greeting[..5] == ap1_native_client::admission::GREETING_V4;
+                let version3 = version4 || &greeting[..5] == ap1_native_client::admission::GREETING;
                 let version2 = version3 || &greeting[..5] == b"LVB2\n";
                 require(version2 || &greeting[..5] == b"LVB1\n", "registration protocol mismatch")?;
                 let mut request=[0u8;16];
@@ -1539,6 +1540,11 @@ fn serve(m: Manager) -> Result<()> {
                     let performance = m.performance(&r.metadata.class_id)?;
                     require(version2 || performance.added_frames == 512,
                         "selected delay requires a version-2 native binding")?;
+                    require(version4 || performance.delivery_mode == DeliveryMode::Buffered,
+                        "selected delivery requires a version-4 native binding")?;
+                    require(performance.delivery_mode != DeliveryMode::SameCallback
+                        || preparation::build::supports_audio_completion(&m, &full_registration)?,
+                        "selected pair lacks the audio completion contract")?;
                     // Validate the DAW's view of the fixed memory root before
                     // creating or exposing a session. A Flatpak's /dev/shm is
                     // not assumed to be the host's shared memory mount.
@@ -1646,7 +1652,7 @@ fn serve(m: Manager) -> Result<()> {
                         if version3 {
                             let reason=e.downcast_ref::<capacity::Refusal>().copied()
                                 .unwrap_or(capacity::Refusal::BindingInvalid);
-                            startup_reply(&mut peer,&ap1_native_client::admission::refused(request,reason))?;
+                            startup_reply(&mut peer,&(if version4 {ap1_native_client::admission::refused_v4} else {ap1_native_client::admission::refused})(request,reason))?;
                         }
                         return Err(e);
                     }
@@ -1655,8 +1661,8 @@ fn serve(m: Manager) -> Result<()> {
                 // Cold Wine startup then uses the existing bounded transport accept.
                 let reply = if version3 {
                     let session=std::array::from_fn(|i|u8::from_str_radix(&job.session[i*2..i*2+2],16).unwrap());
-                    ap1_native_client::admission::accepted(request,&ap1_native_client::admission::Binding {
-                        session,added_frames:performance.added_frames,
+                    (if version4 {ap1_native_client::admission::accepted_v4} else {ap1_native_client::admission::accepted})(request,&ap1_native_client::admission::Binding {
+                        session,added_frames:performance.added_frames,delivery_mode:performance.delivery_mode as u32,
                         directory:job.directory.to_str().ok_or("session directory encoding")?.into(),
                     })?
                 } else if version2 {
@@ -1681,7 +1687,7 @@ fn serve(m: Manager) -> Result<()> {
                     if version3 {
                         let _ = startup_reply(
                             &mut peer,
-                            &ap1_native_client::admission::refused(
+                            &(if version4 {ap1_native_client::admission::refused_v4} else {ap1_native_client::admission::refused})(
                                 request,
                                 capacity::Refusal::BindingInvalid,
                             ),
@@ -2037,7 +2043,9 @@ fn status(m: &Manager) -> Result<()> {
             "compatibility":e.registration.compatibility,"artifacts_valid":refusal.is_none(),
             "refusal":refusal,"performance":performance,
             "performance_refusal":performance_refusal,
-            "added_frames":performance.map(|p|p.added_frames)})
+            "added_frames":performance.as_ref().map(|p|p.effective_frames()),
+            "buffered_frames":performance.as_ref().map(|p|p.added_frames),
+            "delivery_mode":performance.as_ref().map(|p|p.delivery_mode)})
     }).collect();
     println!("{}", serde_json::to_string_pretty(&rows)?);
     Ok(())

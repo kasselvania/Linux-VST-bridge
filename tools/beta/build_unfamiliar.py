@@ -109,7 +109,7 @@ def main():
             subprocess.run(['rustc', str(ROOT / 'tools/beta/reference_installer.rs'),
                 '--edition=2024', '-D', 'warnings', '-C', 'opt-level=2',
                 '-C', 'target-feature=+crt-static', '--check-cfg', 'cfg(beta_hold)',
-                '--check-cfg', 'cfg(beta_partial_hold)', '-o', str(installer)],
+                '--check-cfg', 'cfg(beta_partial_hold)', '--check-cfg', 'cfg(beta_completion)', '-o', str(installer)],
                 env=env, check=True, timeout=120)
             subprocess.run([str(installer), '--self-test'], check=True, timeout=30)
             row['installer'] = dict(file=version + '/' + installer.name, sha256=sha(installer))

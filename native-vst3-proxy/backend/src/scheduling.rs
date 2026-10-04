@@ -134,6 +134,8 @@ mod linux {
     pub(super) fn prepare(preparation: Preparation) -> Observation {
         let began = crate::observer::monotonic_ns();
         let mut limit = Limit { soft: 0, hard: 0 };
+        // c_ulong is target-width dependent; keep this observation's wire width fixed.
+        #[allow(clippy::unnecessary_cast)]
         let hard = (unsafe { getrlimit(15, &mut limit) } == 0).then_some(limit.hard as u64);
         let mut result = acquire(current(), hard, || {
             let accepted = (|| -> std::io::Result<bool> {

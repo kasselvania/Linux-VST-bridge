@@ -250,7 +250,7 @@ pub(crate) fn check_publication(m: &Manager, p: &Profile, r: &Registration) -> R
     )?;
     m.require_inactive(None)?;
     require(
-        m.performance(&p.class.class_id)?.added_frames == 512,
+        m.performance(&p.class.class_id)?.is_qualified_buffering(),
         "candidate_frame_posture",
     )
 }

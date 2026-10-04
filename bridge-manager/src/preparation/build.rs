@@ -47,7 +47,7 @@ pub fn revision_maximum_bridge_frames(m: &Manager, r: &Revision) -> Result<Optio
 fn current_kit_maximum(m: &Manager, r: &Registration) -> Result<Option<u32>> {
     let software: crate::catalogue::Software = read_json(&m.root.join("software.json"))?;
     r.native.verify()?;
-    if software.preparation_kit.is_some() { maximum_from_kit(&recipe(m)?, r) }
+    if software.preparation_kit.is_some() { capability_from_kit(&recipe(m)?, r, "maximum_bridge_frames") }
     else { Ok(None) }
 }
 fn retained_maximum(m: &Manager, r: &Revision) -> Result<Option<u32>> {
@@ -56,12 +56,12 @@ fn retained_maximum(m: &Manager, r: &Revision) -> Result<Option<u32>> {
     let retained = existing_runtime(m, &candidate.recipe_sha256)?;
     require(candidate.host == retained.host && candidate.source_manifest == retained.source_manifest,
         "candidate_runtime_changed")?;
-    maximum_from_kit(&retained.kit, &r.registration)
+    capability_from_kit(&retained.kit, &r.registration, "maximum_bridge_frames")
 }
-fn maximum_from_kit(kit: &Artifact, r: &Registration) -> Result<Option<u32>> {
+fn capability_from_kit(kit: &Artifact, r: &Registration, capability: &str) -> Result<Option<u32>> {
     kit.verify()?;
     let request = serde_json::json!({"kit":kit.path,"class_id":r.metadata.class_id,
-        "module_sha256":r.module.sha256,"native_sha256":r.native.sha256});
+        "module_sha256":r.module.sha256,"native_sha256":r.native.sha256,"host_sha256":r.host.sha256,"capability":capability});
     let mut child = Command::new("python3")
         .args(["-I", "-c", include_str!("../../../tools/mf3/prebuilt_info.py")])
         .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn()?;
@@ -79,8 +79,37 @@ fn maximum_from_kit(kit: &Artifact, r: &Registration) -> Result<Option<u32>> {
     child.stdout.take().ok_or("prebuilt_info_stdout")?.take(33).read_to_end(&mut bytes)?;
     require(status.success() && bytes.len() <= 32, "prebuilt_info_invalid")?;
     let maximum: Option<u32> = serde_json::from_slice(&bytes)?;
-    require(maximum.is_none_or(|n| matches!(n, 512 | 1024)), "prebuilt_info_envelope")?;
+    require(maximum.is_none_or(|n| if capability == "audio_completion_contract" { n == 1 } else { matches!(n, 512 | 1024) }), "prebuilt_info_envelope")?;
     Ok(maximum)
+}
+/// Both executables must belong to the same recipe declaring this contract.
+pub fn supports_audio_completion(m: &Manager, r: &Registration) -> Result<bool> {
+    r.native.verify()?;
+    r.host.verify()?;
+    let software: crate::catalogue::Software = read_json(&m.root.join("software.json"))?;
+    if software.preparation_kit.is_some()
+        && capability_from_kit(&recipe(m)?, r, "audio_completion_contract")? == Some(1) { return Ok(true); }
+    let registry = m.registry()?;
+    let Some(entry) = registry.classes.get(&r.metadata.class_id)
+        .filter(|entry| entry.registration == *r) else { return Ok(false); };
+    let Some(reference) = &entry.managed_revision else { return Ok(false); };
+    revision_supports_audio_completion(m, &m.load_revision(&r.metadata.class_id, reference)?)
+}
+pub fn revision_supports_audio_completion(m: &Manager, r: &Revision) -> Result<bool> {
+    publication_supports_audio_completion(m, &r.profile, &r.registration)
+}
+pub(crate) fn publication_supports_audio_completion(m: &Manager, p: &Profile, r: &Registration) -> Result<bool> {
+    r.native.verify()?;
+    r.host.verify()?;
+    let software: crate::catalogue::Software = read_json(&m.root.join("software.json"))?;
+    if software.preparation_kit.is_some()
+        && capability_from_kit(&recipe(m)?, r, "audio_completion_contract")? == Some(1) { return Ok(true); }
+    let candidate = super::publication_candidate(m, p, r)?;
+    if !valid_hex(&candidate.recipe_sha256, 64) { return Ok(false); }
+    let retained = existing_runtime(m, &candidate.recipe_sha256)?;
+    require(candidate.host == retained.host && candidate.source_manifest == retained.source_manifest,
+        "candidate_runtime_changed")?;
+    Ok(capability_from_kit(&retained.kit, r, "audio_completion_contract")? == Some(1))
 }
 pub fn construct(
     m: &Manager,

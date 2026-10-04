@@ -329,7 +329,7 @@ impl Manager {
         )?;
         derived.relocate_native(r.registration.native.path.clone());
         require(
-            derived == r.registration && r.performance.added_frames == 512,
+            derived == r.registration && r.performance.is_qualified_buffering(),
             "qualification_exact_candidate_required",
         )?;
         if purpose == Qualification::Ap18Pigments { return crate::pigments::retained(self, r, &exact); }
@@ -515,7 +515,7 @@ impl Manager {
                 && r.environment == registration.environment
                 && r.compatibility == parent_compatibility
                 && e.registration == *r
-                && self.performance(&p.class.class_id)?.added_frames == 512
+                && self.performance(&p.class.class_id)?.is_qualified_buffering()
                 && (!check_pointer
                     || crate::publication::physical(&self.link(&p.class.class_id))?
                         == Some(prior.target.clone()))

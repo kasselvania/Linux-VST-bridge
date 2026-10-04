@@ -1,9 +1,11 @@
 #pragma once
+#include <winsock2.h>
 #include <windows.h>
 #include <chrono>
 #include <atomic>
 #include <thread>
 #include "ap1_protocol.h"
+#include "notification_transport.h"
 namespace linux_vst_bridge::wf0 {
 // Negotiated mailbox v2/v3; v3 adds 15 reply-owned diagnostic words. Fixed wire bytes; no C++ object crosses the map.
 // Socket control remains authenticated by the existing per-session handshake.
@@ -18,12 +20,12 @@ class DeliveryMailbox {
 public:
  uint32_t version=0;
  uint64_t sleep50_ns=0,delay50_ns=0;
- void pause(){LARGE_INTEGER interval{};interval.QuadPart=-500;ap1::require(delay(FALSE,&interval)>=0,"delivery wait failed");}
- DeliveryMailbox(const std::wstring& directory,const std::array<uint8_t,16>& session){
+ void pause(){ap1::require(delay!=nullptr,"legacy polling adapter absent");LARGE_INTEGER interval{};interval.QuadPart=-500;ap1::require(delay(FALSE,&interval)>=0,"delivery wait failed");}
+ DeliveryMailbox(const std::wstring& directory,const std::array<uint8_t,16>& session,bool notified=false){
   using namespace ap1;
   try{
    wire.reserve(reply_cap);
-   delay=reinterpret_cast<Delay>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"),"NtDelayExecution"));require(delay!=nullptr,"precise delay unavailable");
+   if(!notified){delay=reinterpret_cast<Delay>(GetProcAddress(GetModuleHandleW(L"ntdll.dll"),"NtDelayExecution"));require(delay!=nullptr,"precise delay unavailable");}
    file=CreateFileW((directory+L"\\ap10.delivery").c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,OPEN_EXISTING,0,nullptr);
    require(file!=INVALID_HANDLE_VALUE,"delivery mapping file absent");LARGE_INTEGER size{};
    require(GetFileSizeEx(file,&size)&&size.QuadPart==bytes,"delivery mapping extent");
@@ -33,7 +35,7 @@ public:
    require(std::memcmp(view,"LVBM",4)==0&&(version==2||version==3)&&get(view+8,4)==bytes&&get(view+12,4)==0&&std::memcmp(view+16,session.data(),16)==0,"delivery mapping version/identity");
    require(flag(64)==0&&flag(128)==0,"delivery mapping initially occupied");
    auto probe=[&](bool precise){auto start=std::chrono::steady_clock::now();for(int i=0;i<32;++i){if(precise)pause();else std::this_thread::sleep_for(std::chrono::microseconds(50));}return uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-start).count()/32);};
-   sleep50_ns=probe(false);delay50_ns=probe(true);
+   if(!notified){sleep50_ns=probe(false);delay50_ns=probe(true);}
   }catch(...){close();throw;}
  }
  ~DeliveryMailbox(){close();}
@@ -41,16 +43,17 @@ public:
  // Idle has no issued-request deadline, as on the existing socket path. The
  // outer owner contains a vanished native peer. Linux waits at most five seconds
  // for an issued request, counts gaps meanwhile, then fails the instance.
- bool receive(ap1::Frame& out,uint16_t minor,const std::atomic<bool>* cancelled=nullptr){
+ bool receive(ap1::Frame& out,uint16_t minor,const std::atomic<bool>* cancelled=nullptr,NotificationTransport* notifications=nullptr){
   using namespace ap1;
+  require(minor<15||notifications,"paired notification transport absent");
   for(;;){require(!cancelled||!cancelled->load(std::memory_order_acquire),"owner service failed");auto state=flag(64);
    if(state==1){auto n=get(view+68,4);require(n>=header_bytes&&n<=request_cap&&n-header_bytes<=out.payload.capacity(),"delivery request extent");
     decode_into(view+request_offset,size_t(n),minor,out);
     require(out.kind==Process,"delivery request kind");flag(64,0);return true;
    }
-   if(state==2){flag(64,0);return false;}
+   if(state==2){flag(64,0);if(notifications)notifications->signal_reply();return false;}
    require(state==0,"delivery request flag");
-   pause();
+   if(notifications)notifications->wait_request();else pause();
   }
  }
  void send(const ap1::Frame& frame,uint16_t minor,const std::array<uint64_t,15>* diagnostic=nullptr){

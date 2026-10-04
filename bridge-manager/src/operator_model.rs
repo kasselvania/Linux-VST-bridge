@@ -2,7 +2,13 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 18;
+pub const OPERATOR_SCHEMA: u32 = 19;
+/// Explicit delivery policy, independent from the remembered buffered delay.
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+#[repr(u32)]
+pub enum DeliveryMode { #[default] Buffered = 0, SameCallback = 1 }
+
 /// A launch-only DLL selection, never a Proton prefix conversion or driver install.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -224,6 +230,10 @@ pub enum Action {
     },
     OrdinaryRestoreRecommended {
         class_id: String,
+    },
+    DeliverySet {
+        class_id: String,
+        mode: DeliveryMode,
     },
     BufferingSet {
         class_id: String,
@@ -697,6 +707,7 @@ impl Action {
                 | Self::OrdinaryRollback { .. }
                 | Self::OrdinaryRestoreRecommended { .. }
                 | Self::BufferingSet { .. }
+                | Self::DeliverySet { .. }
                 | Self::TransactionReconcile {}
         )
     }
@@ -715,6 +726,7 @@ impl Action {
                 | Self::CandidatePublishOrdinary { .. }
                 | Self::OrdinaryRollback { .. }
                 | Self::BufferingSet { .. }
+                | Self::DeliverySet { .. }
         )
     }
 }
@@ -738,6 +750,7 @@ mod tests {
             Action::CandidatePublishOrdinary {candidate},
             Action::OrdinaryRollback {class_id:"class".into(),publication:"publication".into()},
             Action::BufferingSet {class_id:"class".into(),added_frames:512},
+            Action::DeliverySet {class_id:"class".into(),mode:DeliveryMode::SameCallback},
         ] {
             assert!(action.requires_inactive(), "Affected owners still need inactivity: {action:?}");
             assert!(!action.requires_global_inactive(), "Unrelated DSP must remain independent: {action:?}");

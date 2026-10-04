@@ -316,7 +316,7 @@ class Run:
         if attempt:
             save(self.out / (stem + ".json"), value)
         save(self.out / (label + "-product.json"), value)
-        need(value["schema"] == 1 and value["operator_schema"] == 18, "operator_schema")
+        need(value["schema"] == 1 and value["operator_schema"] in (18, 19), "operator_schema")
         return value
 
     def select(self, detail, predicate, disabled=False):
@@ -351,7 +351,7 @@ class Run:
         receipt = json.loads(raw)
         receipt_observed = time.monotonic_ns()
         save(self.out / (stem + "-receipt.json"), receipt)
-        need(receipt["schema"] == 18, "receipt_schema")
+        need(receipt["schema"] == request["schema"], "receipt_schema")
         operation = receipt["operation"]
         need(isinstance(operation, str) and re.fullmatch(r"[a-f0-9]{32}", operation), "operator_operation_identity")
         directory = self.root / "operator" / operation

@@ -132,21 +132,34 @@ pub unsafe extern "C" fn ap4_validate(blob: *const u8, n: u32, gain: *mut f64) -
 // This reader is used only by the transport worker: one nonblocking read of
 // at most 16 KiB per service turn. It never changes socket blocking mode.
 pub struct Capture {
-    sequence: u64,
+    pub(super) sequence: u64,
     bytes: Vec<u8>,
     received: usize,
     end: std::time::Instant,
+    completed: Option<Frame>,
 }
 impl Capture {
+    pub(super) fn is_unread(&self) -> bool { self.completed.is_none() }
     fn new(sequence: u64) -> Self {
         Self {
             sequence,
             bytes: vec![0; HEADER],
             received: 0,
             end: std::time::Instant::now() + std::time::Duration::from_secs(10),
+            completed: None,
         }
     }
-    fn poll(&mut self, socket: &TcpStream, minor: u64) -> io::Result<Option<Frame>> {
+    /// Service admitted capture while a slower audio operation waits. Its
+    /// original deadline is unchanged and normal control service consumes it.
+    pub(super) fn service(&mut self, socket: &TcpStream, minor: u64) -> io::Result<()> {
+        if self.completed.is_none() { self.completed = self.read(socket, minor)?; }
+        Ok(())
+    }
+    pub(super) fn poll(&mut self, socket: &TcpStream, minor: u64) -> io::Result<Option<Frame>> {
+        if let Some(frame) = self.completed.take() { return Ok(Some(frame)); }
+        self.read(socket, minor)
+    }
+    fn read(&mut self, socket: &TcpStream, minor: u64) -> io::Result<Option<Frame>> {
         use std::os::fd::AsRawFd;
         unsafe extern "C" {
             fn recv(fd: i32, p: *mut u8, n: usize, flags: i32) -> isize;
@@ -199,13 +212,13 @@ impl Capture {
         Ok(Some(Frame::decode_version(&self.bytes, minor)?))
     }
 }
-impl Session {
-    fn state_reply(&mut self, request: &Frame, reply: Frame) -> io::Result<Vec<u8>> {
+pub(super) fn validate_reply(minor: u64, witness: &mut Option<crate::observer::Observer>,
+    request: &Frame, reply: Frame) -> io::Result<Vec<u8>> {
         need(
             reply.session == request.session && reply.sequence == request.sequence,
             "state response correlation",
         )?;
-        if reply.kind == 7 && self.minor >= 11 && request.kind == 16 {
+        if reply.kind == 7 && minor >= 11 && request.kind == 16 {
             need(
                 reply.payload.len() == 16
                     && get(&reply.payload[..4]) == 1
@@ -228,7 +241,7 @@ impl Session {
         }
         need(reply.kind == request.kind + 1, "state response kind")?;
         need(reply.payload.len() <= LIMIT, "state response cap")?;
-        if matches!(self.minor, 4 | 6) {
+        if matches!(minor, 4 | 6) {
             if request.kind == 18 {
                 need(
                     reply.payload == request.payload,
@@ -239,10 +252,15 @@ impl Session {
         } else {
             commercial_payload(&reply.payload)?;
         }
-        if let Some(w) = &mut self.witness {
+        if let Some(w) = witness {
             w.state(&reply.payload, request.kind == 18);
         }
         Ok(reply.payload)
+
+}
+impl Session {
+    fn state_reply(&mut self, request: &Frame, reply: Frame) -> io::Result<Vec<u8>> {
+        validate_reply(self.minor, &mut self.witness, request, reply)
     }
     fn state_result(&mut self, result: io::Result<Vec<u8>>) -> io::Result<Vec<u8>> {
         if result.as_ref().is_err_and(|e| !save_refused(e)) {

@@ -11,6 +11,14 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+The current audio-completion workstream implements explicit Buffered/SameCallback
+selection and event-driven delivery through the existing managed ownership path.
+SameCallback, offline completion, zero-frame delivery and the paired IPC-15 transport
+remain **unqualified** until the new paired artifact passes installed acceptance.
+Source review and SDK instrumentation do not change the installed config7 or Deck
+claims below. Neither the config4 gap nor all historical Deck gaps have been
+attributed to this workstream's corrected contracts.
+
 Managed configuration remains **unqualified** for the musician workflow. The
 latest Ubuntu reference SDK configuration and normal recovery checks pass;
 earlier failures remain retained below.

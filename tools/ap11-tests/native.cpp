@@ -27,6 +27,8 @@ uint64_t generation = 7, revision = 1;
 double dsp = .5;
 uint32_t save_code=0, state_calls=0, close_code=0;
 uint32_t process_refusal=0;
+uint32_t fixture_delay=UINT32_MAX,fixture_vendor=0,fixture_tail=0,notice_flags=0;
+uint32_t actual_mode=UINT32_MAX,process_calls=0;
 uint32_t configured_maximum=0, activated_maximum=0;
 if1_terminal_t terminal_record{};
 std::thread::id owner = std::this_thread::get_id();
@@ -39,7 +41,7 @@ struct Host final : HostApplication,
   AP8::Controller *controller = nullptr;
   AP2::Processor *processor = nullptr;
   bool flush = true, reentrant = false;
-  uint32 dirty = 0, restarts = 0, reload_calls = 0;
+  uint32 dirty = 0, restarts = 0, reload_calls = 0, restart_calls=0, refuse_restarts=0;
   unsigned refuse_allocations = 0;
   tresult PLUGIN_API createInstance(TUID cid, TUID iid, void **out) override {
     if (refuse_allocations) { --refuse_allocations; *out = nullptr; return kResultFalse; }
@@ -126,6 +128,8 @@ struct Host final : HostApplication,
     return kResultOk;
   }
   tresult PLUGIN_API restartComponent(int32 flags) override {
+    ++restart_calls;
+    if(refuse_restarts){--refuse_restarts;return kResultFalse;}
     restarts |= flags;
     if(flags & kReloadComponent) ++reload_calls;
     if (flags & kParamValuesChanged)
@@ -173,8 +177,8 @@ uint32_t __wrap_ap5_report_path(uint64_t, uint8_t *p, uint32_t n) {
 uint32_t __wrap_ap10_setup(uint64_t, uint32_t maximum, uint32_t, double,
                            const uint8_t *, uint32_t, uint32_t, uint32_t *t) {
   configured_maximum = maximum;
-  t[0] = std::max(512u,maximum);
-  t[1] = t[2] = 0;
+  t[0] = (fixture_delay==UINT32_MAX?std::max(512u,maximum):fixture_delay)+fixture_vendor;
+  t[1] = fixture_tail; t[2] = fixture_vendor;
   return 0;
 }
 uint32_t __wrap_ap4_activate(uint64_t, uint32_t maximum, uint32_t) { activated_maximum=maximum;return 0; }
@@ -186,7 +190,7 @@ uint32_t __wrap_if2_close(uint64_t) {
 }
 uint32_t __wrap_if1_terminal(uint64_t,if1_terminal_t* out){*out=terminal_record;return 0;}
 uint32_t __wrap_ap10_notices(uint64_t, uint32_t *p) {
-  p[0] = 0;
+  p[0] = notice_flags;p[1]=fixture_vendor;p[2]=fixture_tail;notice_flags=0;
   return 0;
 }
 uint32_t __wrap_ap11_gui_generation(uint64_t, uint64_t *out) {
@@ -240,14 +244,16 @@ uint32_t __wrap_ap4_state(uint64_t, const uint8_t *, uint32_t, uint8_t *out,
   *n = 132;
   return 0;
 }
-uint32_t __wrap_if2_process(uint64_t, uint32_t n, const ap8_event_t *e,
+uint32_t __wrap_ap23_process_outputs(uint64_t, uint32_t n, uint32_t mode, const ap8_event_t *e,
                              uint32_t count, const ap10_context_t *, uint64_t,
-                             const float *, const float *, float *, float *,
+                             const float *l, const float *r, float *const *outputs, uint32_t channels,
                              uint64_t *silence, ap7_delivery_t *delivery, uint64_t entered_ns) {
   check(entered_ns != 0, "native callback entry is propagated");
+  check(mode<=kOffline && channels==2,"actual callback mode and planar ABI");
+  actual_mode=mode;++process_calls;
   if(IF1::valid(terminal_record))return IF2::contained;
   if(process_refusal)return process_refusal;
-  check(n == 0, "stopped flush is zero frames");
+  check(n<=configured_maximum,"callback length is within prepared maximum");
   for (uint32_t i = 0; i < count; ++i)
     if (e[i].kind == 2) {
       check(e[i].id == 0, "real parameter ID");
@@ -255,6 +261,7 @@ uint32_t __wrap_if2_process(uint64_t, uint32_t n, const ap8_event_t *e,
     }
   *silence = 0;
   *delivery = {};
+  if(n){std::copy_n(l,n,outputs[0]);std::copy_n(r,n,outputs[1]);delivery->delivered_frames=n;}
   return 0;
 }
 uint32_t __wrap_ap10_take_results(uint64_t, ap10_results_t *p) {
@@ -383,7 +390,7 @@ void contained_host_survival_regression() {
   data.numSamples=129;check(processor->process(data)==kResultFalse,"IF2 malformed extent refused");data.numSamples=128;
   check(processor->process(data)==kResultOk,"IF2 bad host call cannot erase contained state");
   data.numSamples=data.numInputs=data.numOutputs=0;data.inputs=data.outputs=nullptr;
-  check(processor->process(data)==kResultOk,"IF2 zero-frame flush stays local");
+  check(processor->process(data)==kResultFalse,"exact zero-frame terminal flush is explicit failure");
   host.tick();
   if(host.restarts & kReloadComponent) {
     processor->setProcessing(false); processor->setActive(false);
@@ -486,10 +493,53 @@ void failed_restore_retirement_regression() {
     close_code=0;
   }
 }
+void completion_contract_regression() {
+  events.clear();commands.clear();gui_fault=0;terminal_record={};save_code=close_code=process_refusal=0;
+  // Deliberate C ABI fixtures isolate the SDK rule; installed manager selection
+  // and actual transport timing are qualified by the independent consumer.
+  fixture_delay=512;fixture_vendor=13;fixture_tail=7;notice_flags=0;
+  Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+  host.processor=&processor;host.controller=controller;
+  auto* context=static_cast<IHostApplication*>(&host);
+  check(processor.initialize(context)==kResultOk&&controller->initialize(context)==kResultOk,"completion initialize");
+  controller->setComponentHandler(static_cast<IComponentHandler*>(&host));
+  processor.connect(controller);controller->connect(&processor);
+  ProcessSetup setup{kRealtime,kSample32,128,48000.};
+  check(processor.setupProcessing(setup)==kResultOk&&processor.getLatencySamples()==525,"D plus vendor L reported");
+  auto* poll=new HostMessage;poll->setMessageID("AP10.poll");
+  host.refuse_allocations=1;
+  check(processor.notify(poll)==kResultFalse&&host.restart_calls==0,"latency allocation refusal retains pending notice");
+  host.refuse_restarts=1;
+  check(processor.notify(poll)==kResultFalse&&host.restart_calls==1,"host restart refusal remains pending");
+  check(processor.notify(poll)==kResultOk&&host.restart_calls==2&&(host.restarts&kLatencyChanged),"latency notice retries through existing SDK route");
+  fixture_vendor=29;fixture_tail=42;notice_flags=kLatencyChanged;
+  check(processor.notify(poll)==kResultOk&&processor.getLatencySamples()==541&&processor.getTailSamples()==42,"vendor notification preserves effective D");
+  auto restarts=host.restart_calls;check(processor.notify(poll)==kResultOk&&host.restart_calls==restarts,"acknowledged latency notice is not duplicated");
+  check(processor.setActive(true)==kResultOk&&processor.setProcessing(true)==kResultOk,"completion RT start");
+  ProcessData data{};data.symbolicSampleSize=kSample32;data.processMode=kPrefetch;
+  check(processor.process(data)==kResultOk&&actual_mode==kPrefetch,"RT to prefetch needs no setup");
+  auto calls=process_calls;data.processMode=kOffline;
+  check(processor.process(data)==kResultFalse&&process_calls==calls,"offline mode crossing refuses before C ABI admission");
+  auto illegal=setup;illegal.processMode=kOffline;illegal.sampleRate=96000.;
+  check(processor.setupProcessing(illegal)==kResultFalse,"active offline setup is refused");
+  data.processMode=kRealtime;check(processor.process(data)==kResultOk&&actual_mode==kRealtime,"refused setup preserves accepted processing contract");
+  check(processor.setProcessing(false)==kResultOk&&processor.setActive(false)==kResultOk,"completion RT stop");
+  fixture_delay=0;fixture_vendor=13;setup={kOffline,kSample32,256,96000.};
+  check(processor.setupProcessing(setup)==kResultOk&&processor.getLatencySamples()==13,"same callback effective D is zero");
+  check(processor.setActive(true)==kResultOk&&processor.setProcessing(true)==kResultOk,"inactive offline reconfiguration");
+  data.processMode=kOffline;check(processor.process(data)==kResultOk&&actual_mode==kOffline,"offline zero callback delivered with actual mode");
+  data.processMode=kPrefetch;calls=process_calls;
+  check(processor.process(data)==kResultFalse&&process_calls==calls,"offline to prefetch also requires inactive setup");
+  check(processor.setProcessing(false)==kResultOk&&processor.setActive(false)==kResultOk,"completion offline stop");
+  poll->release();controller->disconnect(&processor);processor.disconnect(controller);
+  check(controller->terminate()==kResultOk&&processor.terminate()==kResultOk,"completion retirement");controller->release();
+  fixture_delay=UINT32_MAX;fixture_vendor=fixture_tail=notice_flags=0;
+}
 int main(int argc,char** argv) {
   if(argc>1){
     if(!std::strcmp(argv[1],"--state-migration")){historical_controller_regression();failed_restore_retirement_regression();}
     else if(!std::strcmp(argv[1],"--curve-refusal"))curve_refusal_regression();
+    else if(!std::strcmp(argv[1],"--completion-contract"))completion_contract_regression();
     else contained_host_survival_regression();
     return 0;
   }

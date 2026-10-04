@@ -49,6 +49,7 @@ pub struct Prepared {
     capability: [u8; 32],
     witness: u64,
     session: [u8; 16],
+    declared_minor: Option<u64>,
 }
 impl Prepared {
     pub fn create(path: &Path, session: [u8; 16]) -> io::Result<Self> {
@@ -58,6 +59,13 @@ impl Prepared {
         Self::with_layout(path, session, channels, false)
     }
     pub fn with_layout(path: &Path, session: [u8; 16], channels: usize, whole_block: bool) -> io::Result<Self> {
+        Self::prepare(path, session, channels, whole_block, None)
+    }
+    pub fn with_protocol(path: &Path, session: [u8; 16], channels: usize, minor: u64) -> io::Result<Self> {
+        need((1..=15).contains(&minor), "unsupported prepared protocol")?;
+        Self::prepare(path, session, channels, minor >= 14, Some(minor))
+    }
+    fn prepare(path: &Path, session: [u8; 16], channels: usize, whole_block: bool, declared_minor: Option<u64>) -> io::Result<Self> {
         let mut mapping = Mapping::with_layout(&path.join("ap1.audio"), channels, whole_block)?;
         let capability = random::<32>()?;
         let witness = u64::from_le_bytes(random::<8>()?);
@@ -79,10 +87,15 @@ impl Prepared {
         barrier();
         let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))?;
         listener.set_nonblocking(true)?;
-        let mut config = vec![0; 52];
+        let mut config = vec![0; if declared_minor == Some(15) { 60 } else { 52 }];
         put(&mut config[0..2], listener.local_addr()?.port() as u64);
         config[4..20].copy_from_slice(&session);
         config[20..52].copy_from_slice(&capability);
+        if declared_minor == Some(15) {
+            put(&mut config[2..4], 1); // bootstrap schema, independent of IPC
+            put(&mut config[52..54], 15);
+            put(&mut config[56..60], 60);
+        }
         let temp = path.join("ap1.control.tmp");
         let mut f = OpenOptions::new()
             .create_new(true)
@@ -99,6 +112,7 @@ impl Prepared {
             capability,
             witness,
             session,
+            declared_minor,
         })
     }
     pub fn accept(self, minor: u64) -> io::Result<(Mapping, TcpStream)> {
@@ -107,16 +121,29 @@ impl Prepared {
     pub fn accept_while(
         self,
         minor: u64,
-        mut alive: impl FnMut() -> io::Result<()>,
+        alive: impl FnMut() -> io::Result<()>,
     ) -> io::Result<(Mapping, TcpStream)> {
+        need(minor < 15, "paired notification endpoint required")?;
+        let (mapping, socket, _) = self.accept_notified_while(minor, alive)?;
+        Ok((mapping, socket))
+    }
+    pub fn accept_notified_while(
+        self,
+        minor: u64,
+        mut alive: impl FnMut() -> io::Result<()>,
+    ) -> io::Result<(Mapping, TcpStream, Option<crate::notification::Channel>)> {
         let Self {
             mut mapping,
             listener,
             capability,
             witness,
             session,
+            declared_minor,
         } = self;
-        need((minor == 14) == (mapping.version == 3), "protocol/mapping generation differs")?;
+        need((minor >= 14) == (mapping.version == 3), "protocol/mapping generation differs")?;
+        need(declared_minor.is_none_or(|declared| declared == minor)
+            && (minor < 15 || declared_minor == Some(15)), "bootstrap protocol differs")?;
+        let notifications = if minor == 15 { Some(crate::notification::Prepared::create()?) } else { None };
         let until = Instant::now() + Duration::from_secs(180);
         let mut socket: TcpStream = loop {
             alive()?;
@@ -166,11 +193,58 @@ impl Prepared {
                 kind: HELLO,
                 session,
                 sequence: 0,
-                payload: vec![],
+                payload: if let Some(notification) = &notifications { notification.offer()? } else { vec![] },
             },
             10,
             minor,
         )?;
-        Ok((mapping, socket))
+        let channel = notifications.map(|prepared| prepared.accept_while(session, minor, &mut alive)).transpose()?;
+        Ok((mapping, socket, channel))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::FileExt;
+    #[test]
+    fn explicit_bootstrap_pairs_notification_without_changing_mapping_generation() {
+        let directory=std::env::temp_dir().join(format!("lvb-notification-bootstrap-{}-{}",std::process::id(),u64::from_le_bytes(random().unwrap())));
+        std::fs::create_dir(&directory).unwrap();
+        let session=[21;16];
+        let endpoint=Prepared::with_protocol(&directory,session,MULTI_CHANNELS,15).unwrap();
+        let config=std::fs::read(directory.join("ap1.control")).unwrap();
+        assert_eq!(config.len(),60);assert_eq!(get(&config[2..4]),1);assert_eq!(get(&config[52..54]),15);assert_eq!(get(&config[54..56]),0);assert_eq!(get(&config[56..60]),60);
+        assert_eq!(endpoint.mapping.version,3);
+        let peer_directory=directory.clone();
+        let peer=std::thread::spawn(move || {
+            let file=OpenOptions::new().read(true).write(true).open(peer_directory.join("ap1.audio")).unwrap();
+            let mut header=[0;64];file.read_exact_at(&mut header,0).unwrap();
+            file.write_all_at(&(get(&header[32..40])^WITNESS).to_le_bytes(),40).unwrap();barrier();
+            let mut socket=TcpStream::connect((std::net::Ipv4Addr::LOCALHOST,get(&config[0..2]) as u16)).unwrap();
+            let mut payload=config[20..52].to_vec();payload.extend_from_slice(&(BLOCK_CAP as u32).to_le_bytes());payload.extend_from_slice(&(get(&header[16..20]) as u32).to_le_bytes());
+            send_version(&mut socket,&Frame{kind:HELLO,session,sequence:0,payload},1,15).unwrap();
+            let offer=receive_version(&mut socket,1,15).unwrap();
+            assert_eq!((offer.kind,offer.session,offer.sequence),(HELLO,session,0));assert_eq!(offer.payload.len(),crate::notification::OFFER_BYTES);
+            assert!(offer.payload[..4]==*b"LVBW"&&get(&offer.payload[4..8])==1&&get(&offer.payload[10..12])==0);
+            let mut notification=TcpStream::connect((std::net::Ipv4Addr::LOCALHOST,get(&offer.payload[8..10]) as u16)).unwrap();
+            let mut payload=vec![0;40];put(&mut payload[..4],1);put(&mut payload[4..8],1);payload[8..].copy_from_slice(&offer.payload[12..]);
+            send_version(&mut notification,&Frame{kind:HELLO,session,sequence:0,payload},1,15).unwrap();
+            let ack=receive_version(&mut notification,1,15).unwrap();assert_eq!((ack.kind,ack.session,ack.sequence),(HELLO,session,0));assert!(ack.payload.is_empty());
+            let mut wake=[0];notification.set_read_timeout(Some(Duration::from_secs(2))).unwrap();notification.read_exact(&mut wake).unwrap();assert_eq!(wake,[crate::notification::WAKE]);
+        });
+        let (mapping,_socket,mut notifications)=endpoint.accept_notified_while(15,||Ok(())).unwrap();
+        notifications.as_mut().unwrap().notify().unwrap();peer.join().unwrap();
+        drop(notifications);mapping.close().unwrap();std::fs::remove_dir_all(directory).unwrap();
+    }
+    #[test]
+    fn product_bootstrap_refuses_legacy_or_unpaired_selection() {
+        for unpaired in [false,true] {
+            let directory=std::env::temp_dir().join(format!("lvb-notification-refusal-{}-{}",std::process::id(),u64::from_le_bytes(random().unwrap())));
+            std::fs::create_dir(&directory).unwrap();
+            let endpoint=Prepared::with_protocol(&directory,[22;16],MULTI_CHANNELS,15).unwrap();
+            let result=if unpaired { endpoint.accept(15).map(|_|()) } else { endpoint.accept_notified_while(14,||Ok(())).map(|_|()) };
+            assert!(result.is_err());std::fs::remove_dir_all(directory).unwrap();
+        }
     }
 }

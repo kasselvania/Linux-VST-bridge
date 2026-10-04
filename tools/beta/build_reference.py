@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
-"""Build the first-party installer with exact MSVC reference module payloads."""
+"""Build first-party installers with the selected exact MSVC fixture payloads."""
 import argparse, hashlib, json, os, pathlib, shutil, subprocess, time, uuid
 parser = argparse.ArgumentParser()
 parser.add_argument('--windows-artifacts', type=pathlib.Path, required=True)
+parser.add_argument('--fixture-family', choices=('reference', 'completion'), default='reference')
 args = parser.parse_args()
 directory = args.windows_artifacts.resolve(strict=True)
 source = pathlib.Path(__file__).with_name('reference_installer.rs')
-env = dict(os.environ, LVB_BETA_INSTRUMENT=str(directory/'lvb-reference-instrument.vst3'),
-           LVB_BETA_EFFECT=str(directory/'lvb-reference-effect.vst3'))
+family = args.fixture_family
+env = dict(os.environ, LVB_BETA_INSTRUMENT=str(directory/f'lvb-{family}-instrument.vst3'),
+           LVB_BETA_EFFECT=str(directory/f'lvb-{family}-effect.vst3'))
 rows = []
-for name, configuration in [('LVB_Reference_Plugins_1_0_0.exe', None),
+installers = [('LVB_Completion_Plugins_1_0_0.exe', 'beta_completion')] if family == 'completion' else [
+                           ('LVB_Reference_Plugins_1_0_0.exe', None),
                             ('LVB_Reference_Recovery_1_0_0.exe', 'beta_hold'),
-                            ('LVB_Reference_Partial_1_0_0.exe', 'beta_partial_hold')]:
+                            ('LVB_Reference_Partial_1_0_0.exe', 'beta_partial_hold')]
+for name, configuration in installers:
     command = ['rustc', str(source), '--edition=2024', '-D', 'warnings',
                '-C', 'opt-level=2', '-C', 'target-feature=+crt-static',
                '--check-cfg', 'cfg(beta_hold)', '--check-cfg', 'cfg(beta_partial_hold)',
+               '--check-cfg', 'cfg(beta_completion)',
                '-o', str(directory/name)]
     if configuration: command += ['--cfg', configuration]
     subprocess.run(command, env=env, check=True)
@@ -22,7 +27,7 @@ for name, configuration in [('LVB_Reference_Plugins_1_0_0.exe', None),
     rows.append({'file': name, 'sha256': hashlib.sha256((directory/name).read_bytes()).hexdigest(),
                  'configuration': configuration or 'ordinary'})
 for role in ('instrument', 'effect'):
-    name = f'lvb-reference-{role}.vst3'
+    name = f'lvb-{family}-{role}.vst3'
     rows.append({'file': name, 'sha256': hashlib.sha256((directory/name).read_bytes()).hexdigest(), 'role': role})
 
 # Census the actual modules through the production Windows inspection host.
@@ -36,7 +41,7 @@ for role in ('instrument', 'effect'):
     session = pathlib.Path('C:/bridge/sessions')/sid
     session.mkdir(parents=True)
     module = session/'fixture.vst3'
-    shutil.copyfile(directory/f'lvb-reference-{role}.vst3', module)
+    shutil.copyfile(directory/f'lvb-{family}-{role}.vst3', module)
     ready, gate = session/(sid+'.ready'), session/(sid+'.gate')
     fields = [('schema', 'linux-vst-bridge-wf0-handshake/v1'), ('session', sid),
         ('scanner_sha256', digest(host)), ('module_sha256', digest(module)),
@@ -57,24 +62,24 @@ for role in ('instrument', 'effect'):
     try:
         deadline = time.monotonic()+20
         while True:
-            if child.poll() is not None: raise RuntimeError('reference host exited before readiness')
-            if time.monotonic() >= deadline: raise RuntimeError('reference host readiness timeout')
+            if child.poll() is not None: raise RuntimeError(f'{family} host exited before readiness')
+            if time.monotonic() >= deadline: raise RuntimeError(f'{family} host readiness timeout')
             try: actual = ready.read_bytes()
             except (FileNotFoundError, PermissionError):
                 time.sleep(.01); continue
-            if actual != binding: raise RuntimeError('reference host binding mismatch')
+            if actual != binding: raise RuntimeError(f'{family} host binding mismatch')
             break
         temporary = gate.with_suffix('.tmp')
         with temporary.open('xb') as stream:
             stream.write(binding); stream.flush(); os.fsync(stream.fileno())
         os.replace(temporary, gate)
         output, error = child.communicate(timeout=30)
-        if child.returncode != 0: raise RuntimeError(f'reference inspection failed: {child.returncode} {error[-1024:]!r} {output[-2048:]!r}')
-        if len(output) > 1048576: raise RuntimeError('reference inspection exceeded bound')
+        if child.returncode != 0: raise RuntimeError(f'{family} inspection failed: {child.returncode} {error[-1024:]!r} {output[-2048:]!r}')
+        if len(output) > 1048576: raise RuntimeError(f'{family} inspection exceeded bound')
         records = [json.loads(line) for line in output.splitlines()]
         classes = [r for r in records if r.get('state') == 'ap12_class' and
                    ('Instrument' if role == 'instrument' else 'Fx') in r.get('subcategories', '').split('|')]
-        if len(classes) != 1: raise RuntimeError('reference processor class census differs')
+        if len(classes) != 1: raise RuntimeError(f'{family} processor class census differs')
         import sys
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
         from ap8_descriptor import prebuilt_descriptor
@@ -82,9 +87,9 @@ for role in ('instrument', 'effect'):
         report = {'schema': 1, 'gated': True, 'cleanup_confirmed': True, 'transport_retired': True,
             'error': None, 'class_id': classes[0]['class_id'], 'module_sha256': digest(module),
             'records': records, 'provenance': 'first-party Windows CI production-host census; no installed DAW claim'}
-        (directory/f'lvb-reference-{role}-inspection.json').write_text(json.dumps(report, sort_keys=True)+'\n')
+        (directory/f'lvb-{family}-{role}-inspection.json').write_text(json.dumps(report, sort_keys=True)+'\n')
     finally:
         if child.poll() is None: child.kill(); child.wait(10)
         child.stdout.close(); child.stderr.close(); shutil.rmtree(session)
-(directory/'LVB_REFERENCE_MANIFEST.json').write_text(json.dumps({'schema': 1,
+(directory/f'LVB_{family.upper()}_MANIFEST.json').write_text(json.dumps({'schema': 1,
     'version': '1.0.0', 'classification': 'first_party_test_instrumentation', 'files': rows}, indent=2)+'\n')

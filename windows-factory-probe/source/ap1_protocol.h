@@ -29,15 +29,15 @@ inline std::vector<uint8_t> encode(const Frame& f,uint16_t minor=1){
  std::vector<uint8_t>b;encode_into(f,minor,b);return b;
 }
 inline void encode_into(const Frame& f,uint16_t minor,std::vector<uint8_t>&b){
- require(minor>=1&&minor<=14&&f.kind>=Hello&&f.kind<=(minor>=6?Configured:minor>=4?StateApplied:minor>=2?Deactivated:Error)&&f.payload.size()<=(minor>=4&&f.kind>=State?(1u<<20):minor>=9&&f.kind==Done?10312:(minor==5||minor==7||minor==8||minor==9||minor==10||minor==11||minor==12||minor==13||minor==14)&&f.kind==Process?(minor>=10?8352:minor>=8?8344:8248):4040),"frame kind/length");
+ require(minor>=1&&minor<=15&&f.kind>=Hello&&f.kind<=(minor>=6?Configured:minor>=4?StateApplied:minor>=2?Deactivated:Error)&&f.payload.size()<=(minor>=4&&f.kind>=State?(1u<<20):minor>=9&&f.kind==Done?10312:(minor==5||minor==7||minor==8||minor==9||minor==10||minor==11||minor==12||minor==13||minor==14||minor==15)&&f.kind==Process?(minor>=15?8360:minor>=10?8352:minor>=8?8344:8248):4040),"frame kind/length");
  b.assign(header_bytes+f.payload.size(),0);put(b.data(),magic,4);put(b.data()+4,1,2);put(b.data()+6,minor,2);
  put(b.data()+8,f.kind,2);put(b.data()+12,f.payload.size(),4);std::memcpy(b.data()+16,f.session.data(),16);
  put(b.data()+32,1,8);put(b.data()+40,f.sequence,8);if(!f.payload.empty())std::memcpy(b.data()+56,f.payload.data(),f.payload.size());
 }
 inline size_t payload_length(const uint8_t* b,uint16_t minor=1){
- require(get(b,4)==magic&&get(b+4,2)==1&&get(b+6,2)==minor&&(minor>=1&&minor<=14)&&get(b+10,2)==0,"protocol version/header");
+ require(get(b,4)==magic&&get(b+4,2)==1&&get(b+6,2)==minor&&(minor>=1&&minor<=15)&&get(b+10,2)==0,"protocol version/header");
  require(get(b+8,2)>=Hello&&get(b+8,2)<=uint16_t(minor>=6?Configured:minor>=4?StateApplied:minor>=2?Deactivated:Error)&&get(b+32,8)==1&&get(b+48,8)==0,"protocol kind/instance/parent");
- auto n=get(b+12,4);require(n<=(minor>=4&&get(b+8,2)>=State?(1u<<20):minor>=9&&get(b+8,2)==Done?10312:(minor==5||minor==7||minor==8||minor==9||minor==10||minor==11||minor==12||minor==13||minor==14)&&get(b+8,2)==Process?(minor>=10?8352:minor>=8?8344:8248):4040),"frame length");return size_t(n);
+ auto n=get(b+12,4);require(n<=(minor>=4&&get(b+8,2)>=State?(1u<<20):minor>=9&&get(b+8,2)==Done?10312:(minor==5||minor==7||minor==8||minor==9||minor==10||minor==11||minor==12||minor==13||minor==14||minor==15)&&get(b+8,2)==Process?(minor>=15?8360:minor>=10?8352:minor>=8?8344:8248):4040),"frame length");return size_t(n);
 }
 inline Frame decode(const std::vector<uint8_t>& b,uint16_t minor=1){
  Frame f{};decode_into(b.data(),b.size(),minor,f);return f;

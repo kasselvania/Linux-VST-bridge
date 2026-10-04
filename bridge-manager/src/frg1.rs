@@ -655,7 +655,7 @@ pub fn check_binding(m: &Manager, profile: &Profile, registration: &Registration
     )?;
     m.require_inactive(None)?;
     require(
-        m.performance(&profile.class.class_id)?.added_frames == 512,
+        m.performance(&profile.class.class_id)?.is_qualified_buffering(),
         "candidate_frame_posture",
     )
 }

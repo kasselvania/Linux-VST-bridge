@@ -189,8 +189,12 @@ class PackageAssembly(unittest.TestCase):
         release = assemble.build(self.spec, out, 1234567890)
         package = package_archive(out, self.root / "reusable.pkg.tar.zst")
         self.assertEqual(verify_package.verify(package, release, True)["files"], len(self.files) + 2)
+        assemble.verify_kit(archive_bytes({**index, "audio_completion_contract": 1}),
+                            self.spec["source_head"], assemble.sha(files["runtime/host.exe"]),
+                            assemble.sha(files["runtime/host-source-manifest.json"]))
         for change in ({"engine_sha256": "0" * 64}, {"descriptor_schema": 2},
-                       {"maximum_bridge_frames": 64}, {"proxies": []}):
+                       {"maximum_bridge_frames": 64}, {"proxies": []},
+                       {"audio_completion_contract": 2}, {"audio_completion_contract": True}):
             with self.subTest(change=change), self.assertRaisesRegex(ValueError, "reusable engine index"):
                 assemble.verify_kit(archive_bytes({**index, **change}), self.spec["source_head"],
                                     assemble.sha(files["runtime/host.exe"]),

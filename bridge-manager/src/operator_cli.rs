@@ -459,6 +459,7 @@ fn require_operator_inactive_with(
     let class = if a.requires_global_inactive() { None } else {
         match a {
             ui::Action::OrdinaryRollback { class_id, .. }
+            | ui::Action::DeliverySet { class_id, .. }
             | ui::Action::BufferingSet { class_id, .. } => Some(class_id.clone()),
             _ => Some(preparation_cli::action_selection(m, &software(m)?, a)?
                 .ok_or("operator_action_scope_unresolved")?.class.id),
@@ -520,20 +521,29 @@ fn history_with(m: &Manager, key: &str, entry: &Entry, execution: bool) -> Resul
         let retained_user_selection =
             (r.qualification.is_none() && r.profile.claim == profiles::Claim::VerifiedExactFixture)
             || r.qualification == Some(publication::Qualification::ManagedExperimental);
-        let buffering = m.performance(key)?.added_frames;
-        let rollback_unavailable = if execution && buffering == 1024 {
+        let performance = m.performance(key)?;
+        let buffering = performance.added_frames;
+        let mut rollback_unavailable = if execution && buffering == 1024 {
             match preparation::build::revision_maximum_bridge_frames(m, &r) {
                 Ok(Some(1024)) => None,
                 Ok(_) => Some("This version cannot retain the selected 1024-frame buffering. Select supported buffering before restoring it.".into()),
                 Err(_) => Some("The retained version's buffering capability could not be verified.".into()),
             }
         } else { None };
+        if execution && rollback_unavailable.is_none() && performance.delivery_mode == DeliveryMode::SameCallback {
+            rollback_unavailable = match preparation::build::revision_supports_audio_completion(m, &r) {
+                Ok(true) => None,
+                Ok(false) => Some("Select buffered delivery before restoring this older publication; it does not support same-callback delivery.".into()),
+                Err(_) => Some("The retained version's audio delivery capability could not be verified.".into()),
+            };
+        }
         let graphics = if r.registration.compatibility.graphics.is_some() {
             "Wine D3D11 graphics"
         } else { "default graphics" };
-        let description = format!("{} · version {} · {} · {}-frame bridge buffering{}",
+        let description = format!("{} · version {} · {} · {}-frame remembered bridge buffering{}",
             r.profile.class.name, r.profile.class.version, graphics, buffering,
-            if !execution && buffering == 1024 { " · target capacity checked before restoration" }
+            if performance.delivery_mode == DeliveryMode::SameCallback { " · same-callback delivery; target support checked before restoration" }
+            else if !execution && buffering == 1024 { " · target capacity checked before restoration" }
             else if rollback_unavailable.is_none() { " retained" } else { " unavailable" });
         result.push(ui::History {
             revision: r.profile.revision,
@@ -884,33 +894,43 @@ fn project_current_product(m: &Manager, captured: &current::CurrentOverviewConte
 }
 fn buffering_actions(m: &Manager, registration: &Registration,
     actions: &mut Vec<ui::AvailableAction>, busy: Option<&str>) {
-    let current = m.performance(&registration.metadata.class_id).ok().map(|p|p.added_frames);
-    if current != Some(512) {
-        actions.push(action("Restore 512-frame bridge buffering",
-            ui::Action::BufferingSet {class_id:registration.metadata.class_id.clone(), added_frames:512}, busy));
-    }
-    if current != Some(1024) {
-        let capacity = preparation::build::maximum_bridge_frames(m, registration);
-        let reason = match capacity {
-            Ok(Some(1024)) => busy,
-            Ok(_) => return,
-            Err(_) => Some("Installed proxy buffering capability could not be verified. Check compatibility first."),
-        };
-        actions.push(action("Use 1024-frame bridge buffering for testing",
-            ui::Action::BufferingSet {class_id:registration.metadata.class_id.clone(), added_frames:1024}, reason));
-    }
+    performance_actions(m, registration, actions, busy, true);
 }
 fn buffering_record_actions(m: &Manager, registration: &Registration,
     actions: &mut Vec<ui::AvailableAction>, busy: Option<&str>) {
-    let current = m.performance(&registration.metadata.class_id).ok().map(|p| p.added_frames);
-    if current != Some(512) {
-        actions.push(action("Restore 512-frame bridge buffering",
-            ui::Action::BufferingSet {class_id:registration.metadata.class_id.clone(), added_frames:512}, busy));
+    performance_actions(m, registration, actions, busy, false);
+}
+fn performance_actions(m: &Manager, registration: &Registration,
+    actions: &mut Vec<ui::AvailableAction>, busy: Option<&str>, verify_bytes: bool) {
+    let Ok(current) = m.performance(&registration.metadata.class_id) else { return; };
+    for frames in [256, 512, 1024] {
+        if current.added_frames == frames { continue; }
+        let reason = if verify_bytes && frames == 1024 {
+            match preparation::build::maximum_bridge_frames(m, registration) {
+                Ok(Some(1024)) => busy,
+                Ok(_) => continue,
+                Err(_) => Some("Installed buffering capability could not be verified. Check compatibility first."),
+            }
+        } else { busy };
+        let mut label = if current.delivery_mode == DeliveryMode::SameCallback {
+            format!("Remember {frames} frames for buffered delivery")
+        } else { format!("Use {frames}-frame bridge buffering") };
+        if !verify_bytes && frames == 1024 { label.push_str(" · capacity checked before changing"); }
+        actions.push(action(&label, ui::Action::BufferingSet {
+            class_id:registration.metadata.class_id.clone(), added_frames:frames}, reason));
     }
-    if current != Some(1024) {
-        actions.push(action("Try 1024-frame bridge buffering · capacity checked before changing",
-            ui::Action::BufferingSet {class_id:registration.metadata.class_id.clone(), added_frames:1024}, busy));
-    }
+    let (mode, label) = if current.delivery_mode == DeliveryMode::Buffered {
+        (DeliveryMode::SameCallback, "Try same-callback delivery · capability checked before changing")
+    } else { (DeliveryMode::Buffered, "Restore buffered delivery with remembered buffering") };
+    let reason = if verify_bytes && mode == DeliveryMode::SameCallback {
+        match preparation::build::supports_audio_completion(m, registration) {
+            Ok(true) => busy,
+            Ok(false) => Some("Prepare this plug-in with the current package before selecting same-callback delivery."),
+            Err(_) => Some("Installed audio completion capability could not be verified."),
+        }
+    } else { busy };
+    actions.push(action(label, ui::Action::DeliverySet {
+        class_id:registration.metadata.class_id.clone(), mode}, reason));
 }
 fn scoped_product_context_from(m: &Manager, sw: &Software, db: &Registry,
     bindings: &[catalogue::EnvironmentBinding], environment: &str, busy: Option<&str>)
@@ -1401,6 +1421,7 @@ fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Resu
         match &request.action {
             ui::Action::OrdinaryRollback { class_id, .. }
             | ui::Action::OrdinaryRestoreRecommended { class_id }
+            | ui::Action::DeliverySet { class_id, .. }
             | ui::Action::BufferingSet { class_id, .. }
             | ui::Action::CaptureArm { class_id } => {
                 let entry = db.classes.get(class_id).ok_or("operator_product_not_current")?;
@@ -1436,6 +1457,7 @@ fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Resu
 fn scoped_product_action(action: &ui::Action) -> bool {
     matches!(action, ui::Action::OrdinaryRollback { .. }
         | ui::Action::OrdinaryRestoreRecommended { .. }
+        | ui::Action::DeliverySet { .. }
         | ui::Action::BufferingSet { .. }
         | ui::Action::CaptureArm { .. }
         | ui::Action::EnvironmentRescan { .. }
@@ -2170,10 +2192,19 @@ fn execute_with_receipt_policy(
             managed_cli::restore_recommended(m, class_id)?;
             Ok(json!({"restored":true}))
         }
+        ui::Action::DeliverySet { class_id, mode } => {
+            m.select_delivery(class_id, *mode)?;
+            let performance = m.performance(class_id)?;
+            Ok(json!({"delivery_mode":performance.delivery_mode,
+                "added_bridge_frames":performance.effective_frames(),
+                "remembered_buffered_frames":performance.added_frames,
+                "applies_to":"next_activation","compatibility_qualified":false}))
+        }
         ui::Action::BufferingSet { class_id, added_frames } => {
-            require(matches!(added_frames, 512 | 1024), "operator_buffering_value")?;
+            require(matches!(added_frames, 256 | 512 | 1024), "operator_buffering_value")?;
             m.select_delay(class_id, *added_frames)?;
-            Ok(json!({"added_bridge_frames":added_frames,"applies_to":"next_activation",
+            Ok(json!({"remembered_buffered_frames":added_frames,
+                "added_bridge_frames":m.performance(class_id)?.effective_frames(),"applies_to":"next_activation",
                 "compatibility_qualified":false}))
         }
         ui::Action::IncidentExport { incident } => {
@@ -3726,7 +3757,7 @@ mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 18);
+        assert_eq!(ui::OPERATOR_SCHEMA, 19);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
@@ -3999,10 +4030,10 @@ mod tests {
         let before=pulse_generation(&f.m).unwrap();
         let path=f.m.root.join("performance").join(format!("{}.json",f.r.key()));
         private_dir(path.parent().unwrap()).unwrap();
-        atomic_json(&path,&Performance {schema:1,added_frames:512}).unwrap();
+        atomic_json(&path,&Performance {schema:1,added_frames:512, delivery_mode:DeliveryMode::Buffered }).unwrap();
         let selected=pulse_generation(&f.m).unwrap();
         assert_ne!(before,selected);
-        atomic_json(&path,&Performance {schema:1,added_frames:256}).unwrap();
+        atomic_json(&path,&Performance {schema:1,added_frames:256, delivery_mode:DeliveryMode::Buffered }).unwrap();
         assert_ne!(selected,pulse_generation(&f.m).unwrap());
     }
     #[test]
@@ -5128,7 +5159,7 @@ mod tests {
         let current = product_detail(&f.m, &f.r.environment.id, &f.r.module.sha256, &class).unwrap();
         service.join().unwrap();
         assert_eq!(current.product.disposition, "ready");
-        assert_eq!(current.operator_schema, 18);
+        assert_eq!(current.operator_schema, ui::OPERATOR_SCHEMA);
         let old_request = ui::Request {schema:17,state_token:current.state_token.clone(),
             action:ui::Action::BufferingSet {class_id:class.clone(),added_frames:1024}};
         assert_eq!(validate_current_request(&f.m, &old_request).unwrap_err().to_string(),
@@ -5663,7 +5694,7 @@ mod tests {
         private_dir(performance.parent().unwrap()).unwrap();
         // Simulate a retained 1024 preference with a target whose exact kit
         // only describes 512. Ordinary display reports capacity as deferred.
-        atomic_json(&performance, &Performance {schema:1,added_frames:1024}).unwrap();
+        atomic_json(&performance, &Performance {schema:1,added_frames:1024, delivery_mode:DeliveryMode::Buffered }).unwrap();
         let registry = fs::read(f.m.root.join("registry.json")).unwrap();
         for other_native in [false, true] {
             let native = if other_native {"fe".repeat(32)} else {base.native.artifact.sha256.clone()};

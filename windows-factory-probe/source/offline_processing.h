@@ -11,7 +11,10 @@ namespace linux_vst_bridge::wf0 {
 class ResultStatus;
 class HostCallbackSink;
 class EventWriter;
-struct ExternalBlock { Steinberg::Vst::ProcessContext context{};uint64_t gui_revision=0,generation=0,epoch=0,sequence=0,position=0;bool has_context=false; int frames; double gain; unsigned silence; bool gain_present=true;std::array<InputEvent,event_capacity> events{};size_t event_count=0; };
+struct ExternalBlock { Steinberg::Vst::ProcessContext context{};uint64_t gui_revision=0,generation=0,epoch=0,sequence=0,position=0;uint32_t process_mode=0;bool authoritative_process_mode=false;bool has_context=false; int frames; double gain; unsigned silence; bool gain_present=true;std::array<InputEvent,event_capacity> events{};size_t event_count=0; };
+constexpr int32_t callback_process_mode(const ExternalBlock& request,int32_t accepted_mode) noexcept {
+    return request.authoritative_process_mode?static_cast<int32_t>(request.process_mode):accepted_mode;
+}
 // Private C++ edge interface; no object/layout crosses the process boundary.
 class ExternalProcessing {
 public:

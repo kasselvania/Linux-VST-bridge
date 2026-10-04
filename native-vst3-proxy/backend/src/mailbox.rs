@@ -137,6 +137,28 @@ impl Mailbox {
             }
             std::thread::sleep(Duration::from_micros(50));
         }
+        self.copy_reply(minor, frame)
+    }
+    /// Product IPC 15 uses its paired channel. The map remains authoritative;
+    /// a stale, delayed or coalesced hint cannot grant or lose reply ownership.
+    pub fn receive_notified_into(&mut self, minor: u64, end: Instant,
+        mut healthy: impl FnMut() -> io::Result<()>, frame: &mut Frame,
+        channel: &mut ap1_native_client::notification::Channel) -> io::Result<()> {
+        loop {
+            need(Instant::now() < end, "delivery response deadline")?;
+            healthy()?;
+            channel.service(Instant::now())?;
+            match self.flag(128).load(Ordering::Acquire) {
+                0 => {},
+                1 => break,
+                _ => return Err(invalid("invalid delivery response flag")),
+            }
+            need(Instant::now() < end, "delivery response deadline")?;
+            channel.service(end)?;
+        }
+        self.copy_reply(minor, frame)
+    }
+    fn copy_reply(&mut self, minor: u64, frame: &mut Frame) -> io::Result<()> {
         let mut size_bytes=[0;4];
         unsafe { std::ptr::copy_nonoverlapping(self.pointer.as_ptr().add(132),size_bytes.as_mut_ptr(),4); }
         let size = u32::from_le_bytes(size_bytes) as usize;
@@ -213,6 +235,55 @@ impl Mailbox {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn notification_pair() -> (ap1_native_client::notification::Channel, std::net::TcpStream) {
+        let listener=std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let socket=std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (peer,_)=listener.accept().unwrap();peer.set_nodelay(true).unwrap();
+        (ap1_native_client::notification::Channel::new(socket).unwrap(),peer)
+    }
+    #[test]
+    fn notified_exchange_keeps_authoritative_state_and_prepared_storage() {
+        use std::io::Write;
+        let path=std::env::temp_dir().join(format!("ap15-notified-{:032x}",u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())));
+        let mut mailbox=Mailbox::create(&path,[15;16]).unwrap();let mut peer=mailbox.counterpart();
+        let (mut channel,mut wake_peer)=notification_pair();
+        let mut reply=Frame {kind:0,session:[0;16],sequence:0,payload:Vec::with_capacity(10312)};
+        for sequence in 1..=3 {
+            let request=Frame {kind:3,session:[15;16],sequence,payload:vec![0;8360]};
+            mailbox.send(&request,15).unwrap();assert_eq!(peer.take_request(15).unwrap(),request);
+            peer.respond(Frame {kind:4,session:[15;16],sequence,payload:vec![0;10312]},15);
+            // Reply may precede any hint. Duplicate/stale hints grant no new
+            // ownership and do not make a later exchange consume old samples.
+            if sequence!=2 { wake_peer.write_all(&[1;3]).unwrap(); }
+            let (received,counts)=crate::allocation_test::measure(||mailbox.receive_notified_into(15,Instant::now()+Duration::from_secs(1),||Ok(()),&mut reply,&mut channel));
+            received.unwrap();assert_eq!(counts,[0;3]);assert_eq!(reply.sequence,sequence);
+        }
+        drop(peer);drop(mailbox);std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn publication_after_wait_and_cancellation_keep_original_bound() {
+        use std::io::Write;
+        let path=std::env::temp_dir().join(format!("ap15-race-{:032x}",u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())));
+        let mut mailbox=Mailbox::create(&path,[15;16]).unwrap();let mut peer=mailbox.counterpart();
+        let (mut channel,mut wake_peer)=notification_pair();
+        mailbox.send(&Frame{kind:3,session:[15;16],sequence:1,payload:vec![0;64]},15).unwrap();
+        let publisher=std::thread::spawn(move||{
+            std::thread::sleep(Duration::from_millis(10));assert!(peer.take_request(15).is_some());
+            peer.respond(Frame{kind:4,session:[15;16],sequence:1,payload:vec![0;72]},15);wake_peer.write_all(&[1]).unwrap();
+            (peer,wake_peer)
+        });
+        let mut reply=Frame{kind:0,session:[0;16],sequence:0,payload:Vec::with_capacity(10312)};
+        mailbox.receive_notified_into(15,Instant::now()+Duration::from_secs(1),||Ok(()),&mut reply,&mut channel).unwrap();
+        let (peer,wake_peer)=publisher.join().unwrap();
+        mailbox.send(&Frame{kind:3,session:[15;16],sequence:2,payload:vec![0;64]},15).unwrap();
+        let cancelled=std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));let cancel=cancelled.clone();
+        let canceller=std::thread::spawn(move||{std::thread::sleep(Duration::from_millis(10));cancel.store(true,Ordering::Release);});
+        let start=Instant::now();
+        let result=mailbox.receive_notified_into(15,start+Duration::from_secs(60),||need(!cancelled.load(Ordering::Acquire),"test cancellation"),&mut reply,&mut channel);
+        assert!(result.unwrap_err().to_string().contains("test cancellation"));assert!(start.elapsed()<Duration::from_millis(250));
+        assert_eq!(mailbox.flag(64).load(Ordering::Acquire),1);canceller.join().unwrap();
+        drop(peer);drop(wake_peer);drop(mailbox);std::fs::remove_file(path).unwrap();
+    }
     #[test]
     fn first_maximum_mailbox_exchange_and_reuse_do_not_allocate() {
         let path=std::env::temp_dir().join(format!("ap10-storage-{:032x}",u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())));

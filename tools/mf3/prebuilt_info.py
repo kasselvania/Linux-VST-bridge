@@ -1,7 +1,7 @@
 """Read bounded, hash-bound capabilities for one exact packaged native proxy."""
 import hashlib, json, sys, zipfile
 
-def maximum_bridge_frames(request):
+def capability(request, name="maximum_bridge_frames"):
     with zipfile.ZipFile(request['kit']) as archive:
         names = archive.namelist()
         assert len(names) <= 256 and len(names) == len(set(names))
@@ -17,7 +17,13 @@ def maximum_bridge_frames(request):
             assert index['schema'] == 3 and index['descriptor_schema'] == 1
             assert index['maximum_bridge_frames'] == 1024
             assert recipe['files'][index['engine']] == index['engine_sha256']
-            return 1024 if request['native_sha256'] == index['engine_sha256'] else None
+            if request['native_sha256'] != index['engine_sha256']:
+                return None
+            if name == 'audio_completion_contract':
+                return 1 if type(index.get(name)) is int and index[name] == 1 and request['host_sha256'] == recipe['files']['runtime/host.exe'] else None
+            return 1024
+        if name != 'maximum_bridge_frames':
+            return None
         assert index['schema'] in (1, 2) and 1 <= len(index['proxies']) <= 64
         matches = [row for row in index['proxies']
             if row['class_id'].upper() == request['class_id'].upper()
@@ -33,5 +39,11 @@ def maximum_bridge_frames(request):
         assert selected['maximum_bridge_frames'] == 1024
         return 1024
 
+def maximum_bridge_frames(request):
+    return capability(request)
+
 if __name__ == '__main__':
-    print(json.dumps(maximum_bridge_frames(json.load(sys.stdin))))
+    request = json.load(sys.stdin)
+    name = request.get('capability', 'maximum_bridge_frames')
+    assert name in ('maximum_bridge_frames', 'audio_completion_contract')
+    print(json.dumps(capability(request, name)))

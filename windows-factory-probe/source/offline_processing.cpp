@@ -186,6 +186,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         if(request.frames>static_cast<int>(maximum)) throw std::runtime_error("negotiated maximum exceeded");
                         block.input_before=block.input;
                         block.gain=request.gain;block.data.numSamples=request.frames;
+                        block.data.processMode=callback_process_mode(request,setup.processMode);
                         block.input_bus.silenceFlags=request.silence;
                         layout.map_inputs(block.all_inputs,block.in.data(),block.silent_channels.data(),request.silence);layout.map_outputs(block.all_outputs,block.output_channels.data(),block.inactive_output_channels.data());
                         block.parameters.clearQueue();int32 parameter=0,point=0;

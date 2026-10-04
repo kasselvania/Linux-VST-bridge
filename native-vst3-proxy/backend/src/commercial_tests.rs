@@ -139,7 +139,7 @@ fn real_protocol_carries_offsets_ids_and_accepts_vendor_reserialization() {
             gui: None,
             gui_revision: 0,
             mailbox: None,
-            mailbox_enabled: false,
+            mailbox_enabled: false, notifications:None, configured_mode:0,
                 capture: None,
         fault_status: None,
             notices: (0, 0),
@@ -181,6 +181,7 @@ fn real_protocol_carries_offsets_ids_and_accepts_vendor_reserialization() {
                     project: 24000,
                     ..Default::default()
                 },
+                0, std::time::Instant::now()+std::time::Duration::from_secs(5), || false, |_| Ok(()),
             ));
         let (out, flags) = processed.unwrap();
         assert_eq!(allocations, [0; 3], "first production request allocated (alloc/realloc/free)");
@@ -281,7 +282,7 @@ fn performance_setup_and_reference_state_keep_their_protocol_roles() {
         gui: None,
         gui_revision: 0,
         mailbox: None,
-        mailbox_enabled: false,
+        mailbox_enabled: false, notifications:None, configured_mode:0,
                 capture: None,
         fault_status: None,
         notices: (0, 0),
@@ -362,7 +363,7 @@ fn save_failure_is_terminal_for_restore_or_malformed_protocol() {
             gui: None,
             gui_revision: 0,
             mailbox: None,
-            mailbox_enabled: false,
+            mailbox_enabled: false, notifications:None, configured_mode:0,
                 capture: None,
         fault_status: None,
             notices: (0, 0),
@@ -425,7 +426,7 @@ fn asynchronous_capture_correlates_failures_without_fabricating_a_completed_save
             }
             send_version(&mut peer,&reply,5,12).unwrap();
         });
-        let mut session=Session{gui:None,gui_revision:0,mapping:None,mailbox:Some(mailbox),mailbox_enabled:true,capture:None,fault_status:None,notices:(0,0),returned:Default::default(),processing:ProcessingScratch::new(),socket,state:ClientState{session:[13;16],next:9,slot:Slot::Writable},phase:11,max:256,minor:12,epoch:1,position:0,witness:None,identity:Some(state::Identity{class:[13;16],module:[14;32]}),trace:Default::default(),sample_rate:48000,armed:false,owner:None};
+        let mut session=Session{gui:None,gui_revision:0,mapping:None,mailbox:Some(mailbox),mailbox_enabled:true, notifications:None, configured_mode:0,capture:None,fault_status:None,notices:(0,0),returned:Default::default(),processing:ProcessingScratch::new(),socket,state:ClientState{session:[13;16],next:9,slot:Slot::Writable},phase:11,max:256,minor:12,epoch:1,position:0,witness:None,identity:Some(state::Identity{class:[13;16],module:[14;32]}),trace:Default::default(),sample_rate:48000,armed:false,owner:None};
         session.begin_capture().unwrap();assert_eq!(session.state.next,10);
         assert!(session.begin_capture().is_err());assert!(session.component_state(Some(&opaque(0.5))).is_err());
         let started=std::time::Instant::now();
@@ -466,7 +467,7 @@ fn full_mapping_generations_preserve_events_and_every_output_plane_with_overrun_
             payload[16..32].copy_from_slice(&f.payload[32..48]);
             send_version(&mut peer,&Frame{kind:DONE,session:f.session,sequence:f.sequence,payload},5,minor).unwrap();
         });
-        let mut session=Session{gui:None,gui_revision:0,mapping:Some(mapping),mailbox:None,mailbox_enabled:false,
+        let mut session=Session{gui:None,gui_revision:0,mapping:Some(mapping),mailbox:None,mailbox_enabled:false, notifications:None, configured_mode:0,
             capture:None,fault_status:None,notices:(0,0),returned:Default::default(),processing:ProcessingScratch::new(),socket,
             state:ClientState{session:[19;16],next:1,slot:Slot::Writable},phase:11,max:BLOCK_CAP,minor,
             epoch:1,position:0,witness:None,identity:None,trace:Default::default(),sample_rate:48000,armed:false,owner:None};
@@ -536,7 +537,7 @@ fn production_processing_reuses_maximum_request_and_reply_storage() {
         }
     });
     let mut session=Session{
-        gui:None,gui_revision:0,mapping:Some(mapping),mailbox:None,mailbox_enabled:false,
+        gui:None,gui_revision:0,mapping:Some(mapping),mailbox:None,mailbox_enabled:false, notifications:None, configured_mode:0,
         capture:None,fault_status:None,notices:(0,0),returned:Default::default(),processing:ProcessingScratch::new(),socket,
         state:ClientState{session:[29;16],next:1,slot:Slot::Writable},phase:11,max:CAP,minor:9,
         epoch:1,position:0,witness:None,identity:None,trace:Default::default(),sample_rate:48000,armed:false,owner:None,

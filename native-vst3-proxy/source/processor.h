@@ -47,9 +47,9 @@ public:
   Steinberg::tresult PLUGIN_API canProcessSampleSize(Steinberg::int32) override;
   Steinberg::tresult PLUGIN_API process(Steinberg::Vst::ProcessData &) override;
   Steinberg::uint32 PLUGIN_API getLatencySamples() override {
-    return preview_ ? latency_ : queued_ ? 1024 : 0;
+    return preview_ ? latency_.load(std::memory_order_acquire) : queued_ ? 1024 : 0;
   }
-  Steinberg::uint32 PLUGIN_API getTailSamples() override { return tail_; }
+  Steinberg::uint32 PLUGIN_API getTailSamples() override { return tail_.load(std::memory_order_acquire); }
   Steinberg::tresult PLUGIN_API
   getControllerClassId(Steinberg::TUID id) override {
     if (preview_) {
@@ -98,7 +98,9 @@ private:
   uint64_t contained_callbacks_=0, contained_frames_=0;
   int eventOutputActive(int)const;
   uint64_t terminal_notified_generation_=0;
-  bool notifications_=false;uint32_t vendor_latency_=0;
+  bool notifications_=false;
+  std::atomic<uint32_t> vendor_latency_{0},bridge_delay_{1024};
+  uint32_t pending_restart_flags_=0; // SDK owner thread; retained until acknowledged.
   std::array<bool,AP18Buses::max_buses> bus_active_{};
   int stereo_input_ordinal_=-1; // SDK-selected input lane, never product-role dispatch.
   bool setupBuses(uint32_t maximum,uint32_t mode,double rate,uint32_t* traits);
@@ -127,7 +129,7 @@ private:
   uint64_t handle_ = 0;
   char report_path_[4096]{};
   int maximum_ = 0;
-  uint32_t latency_ = 1024, tail_ = 0;
+  std::atomic<uint32_t> latency_{1024},tail_{0};
   unsigned blocks_ = 0;
   std::atomic<uint64_t> callback_rejections_{0};
   std::atomic<uint64_t> skipped_expression_callbacks_{0};
@@ -142,6 +144,7 @@ private:
   double gain_min_ = 1., gain_max_ = 0.;
   int requested_maximum_ = 0, requested_mode_ = -1;
   double requested_rate_ = 0.;
+  double sample_rate_ = 0.; // Accepted inactive processing configuration.
   double gain_ = 1.;
   int process_mode_ = Steinberg::Vst::kOffline;
   bool queued_ = false;

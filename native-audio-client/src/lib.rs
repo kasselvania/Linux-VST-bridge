@@ -2,6 +2,7 @@ pub mod endpoint;
 pub mod admission;
 pub mod events;
 pub mod mapping;
+pub mod notification;
 // AP1 bounded wire codec and Linux-owned slot state. No external dependencies.
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
@@ -78,14 +79,16 @@ impl Frame {
                 7
             })
                 .contains(&self.kind)
-                && (1..=14).contains(&minor)
+                && (1..=15).contains(&minor)
                 && self.payload.len()
                     <= if minor >= 4 && matches!(self.kind, 17..=19) {
                         1 << 20
                     } else if minor >= 9 && self.kind == DONE {
                         10312
-                    } else if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14) && self.kind == PROCESS {
-                        if minor >= 10 {
+                    } else if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15) && self.kind == PROCESS {
+                        if minor >= 15 {
+                            8360
+                        } else if minor >= 10 {
                             8352
                         } else if minor >= 8 {
                             8344
@@ -139,7 +142,7 @@ pub fn payload_length_version(b: &[u8], minor: u64) -> io::Result<usize> {
             && get(&b[0..4]) == 0x3141504c
             && get(&b[4..6]) == 1
             && get(&b[6..8]) == minor
-            && (1..=14).contains(&minor)
+            && (1..=15).contains(&minor)
             && get(&b[10..12]) == 0,
         "protocol version/header",
     )?;
@@ -164,8 +167,10 @@ pub fn payload_length_version(b: &[u8], minor: u64) -> io::Result<usize> {
             1 << 20
         } else if minor >= 9 && get(&b[8..10]) == DONE as u64 {
             10312
-        } else if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14) && get(&b[8..10]) == PROCESS as u64 {
-            if minor >= 10 {
+        } else if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15) && get(&b[8..10]) == PROCESS as u64 {
+            if minor >= 15 {
+                8360
+            } else if minor >= 10 {
                 8352
             } else if minor >= 8 {
                 8344

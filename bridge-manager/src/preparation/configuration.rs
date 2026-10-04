@@ -262,7 +262,8 @@ pub fn view(m: &Manager, c: &Candidate) -> Result<Value> {
              "scope":"This plug-in class's new Windows host processes and their children",
              "change":"Disabling removes Windows accessibility support for these processes. Linux/Deck input settings are not changed."}
         ],
-        "buffering":{"added_frames":buffering.added_frames,
+        "buffering":{"added_frames":buffering.effective_frames(),
+            "remembered_frames":buffering.added_frames,"delivery_mode":buffering.delivery_mode,
             "source":"Current explicit class preference, or 512-frame default. Independent of settings restoration."},
         "candidate":c.id()?, "backend":c.profile.capabilities.graphics,
         "requested":expected.requested_graphics,
@@ -388,6 +389,35 @@ mod tests {
         assert!(verify_trial(&f.m, &changed).is_err(), "other retained trial fields remain exact");
         disable_exact(&f.m, &retained, &selected).unwrap();
         assert_eq!(f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision, Some(original));
+    }
+
+    #[test]
+    fn retained_delivery_preference_cannot_promote_an_unsupported_publication() {
+        let (f, base) = fixture();
+        record_candidate(&f.m, &base).unwrap();
+        let original = enable(&f.m, &base, false).unwrap();
+        let requested = LocalSettings {graphics:None, accessibility:AccessibilityChoice::DisabledForHost};
+        let next = prepare_settings(&f.m, &base, &requested, Some(&original)).unwrap();
+        let selected = replace(&f.m, &next, &original).unwrap();
+        let preference = f.m.root.join("performance").join(format!("{}.json",base.selection.class.id));
+        private_dir(preference.parent().unwrap()).unwrap();
+        // Simulate a retained explicit preference. It grants no capability to
+        // these older executable fixtures, for replacement or exact rollback.
+        let choice = Performance {schema:2,added_frames:256,delivery_mode:DeliveryMode::SameCallback};
+        atomic_json(&preference, &choice).unwrap();
+        let before = fs::read(f.m.root.join("registry.json")).unwrap();
+        let saved = fs::read(&preference).unwrap();
+        assert!(disable_exact(&f.m, &next, &selected).is_err());
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before);
+        assert_eq!(fs::read(&preference).unwrap(), saved);
+        f.m.select_delivery(&base.selection.class.id, DeliveryMode::Buffered).unwrap();
+        disable_exact(&f.m, &next, &selected).unwrap();
+        assert_eq!(f.m.performance(&base.selection.class.id).unwrap().effective_frames(), 256);
+        let before = fs::read(f.m.root.join("registry.json")).unwrap();
+        atomic_json(&preference, &choice).unwrap();
+        assert!(replace(&f.m, &next, &original).is_err());
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before);
+        assert_eq!(fs::read(&preference).unwrap(), saved);
     }
 
     #[test]

@@ -389,7 +389,7 @@ impl Library {
                                     .iter()
                                     .chain(related.iter())
                                     .filter(|action| {
-                                        !matches!(action.action, Action::BufferingSet { .. }
+                                        !matches!(action.action, Action::BufferingSet { .. } | Action::DeliverySet { .. }
                                             | Action::CandidateGraphicsAssess { .. }
                                             | Action::CandidateGraphicsPrepare { .. }
                                             | Action::CandidateSettingsPrepare { .. })
@@ -420,7 +420,7 @@ fn compatibility_settings(ui: &mut egui::Ui, product: &Product, busy: Option<&st
     let legacy = &product.details["graphics"];
     let actions = settings_actions(product);
     let buffering: Vec<_> = product.actions.iter().filter(|offer|
-        matches!(offer.action, Action::BufferingSet { .. })).cloned().collect();
+        matches!(offer.action, Action::BufferingSet { .. } | Action::DeliverySet { .. })).cloned().collect();
     if configuration.is_null() && legacy.is_null() && actions.is_empty() && buffering.is_empty() {
         return;
     }
@@ -455,9 +455,17 @@ fn compatibility_settings(ui: &mut egui::Ui, product: &Product, busy: Option<&st
         action_buttons(ui, &actions, busy, pending, chosen);
         if !configuration["buffering"].is_null() || !buffering.is_empty() {
             ui.separator();
-            ui.strong("Bridge audio buffering");
-            if let Some(frames) = configuration["buffering"]["added_frames"].as_u64() {
-                ui.label(format!("{frames} added frames"));
+            ui.strong("Bridge audio delivery");
+            let audio = &configuration["buffering"];
+            if let Some(frames) = audio["added_frames"].as_u64()
+                .or_else(||product.details["added_frames"].as_u64()) {
+                ui.label(format!("{frames} added bridge frames"));
+                if audio["delivery_mode"] == "same_callback" || product.details["delivery_mode"] == "same_callback" {
+                    ui.label("Same-callback delivery · experimental");
+                    if let Some(remembered) = audio["remembered_frames"].as_u64().or_else(||product.details["buffered_frames"].as_u64()) {
+                        ui.small(format!("Buffered delivery retains {remembered} frames for restoration."));
+                    }
+                } else { ui.label("Buffered delivery"); }
                 ui.small(format!("Source: {}", configuration_value(&configuration["buffering"]["source"])));
             }
             ui.small("This is the bridge's added buffering. The DAW sets the live sample rate and processing block size; they are not measured here.");
@@ -817,7 +825,7 @@ mod tests {
             for expected in ["Compatibility settings", "Graphics: Wine D3D11 fallback", "Accessibility: Windows default",
                 "Source: Explicit local choice", "Selected runtime: selected-runtime-r7",
                 "Selected environment: existing-environment", "Environment revision: 4", "Not yet qualified",
-                "512 added frames", "The DAW sets the live sample rate", "Prepared only.",
+                "512 added bridge frames", "The DAW sets the live sample rate", "Prepared only.",
                 "Effective editor renderer: not established", "Independent runtime probes", "Probe renderer only",
                 "Prepare compatibility trial", "Assessment unavailable while this class is active"] {
                 assert!(labels.iter().any(|line| line.contains(expected)),
@@ -826,6 +834,21 @@ mod tests {
             for forbidden in ["Legacy graphics trial", "Legacy duplicate", "48 kHz", "1024 frames"] {
                 assert!(!labels.iter().any(|line| line.contains(forbidden)), "Unexpected {forbidden}");
             }
+            let mut same_callback = product.clone();
+            same_callback.details["configuration"]["buffering"] = serde_json::json!({
+                "added_frames":0,"remembered_frames":512,"delivery_mode":"same_callback",
+                "source":"Explicit class preference"});
+            let ctx = egui::Context::default();
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                ui.set_max_width(width - 32.0);
+                compatibility_settings(ui,&same_callback,None,false,&mut None,true);
+            });
+            let mut labels = vec![];
+            for clipped in &output.shapes { texts(&clipped.shape,&mut labels); }
+            output.textures_delta.clear();
+            assert!(labels.iter().any(|line|line == "0 added bridge frames"));
+            assert!(labels.iter().any(|line|line.contains("retains 512 frames for restoration")));
+            assert!(!labels.iter().any(|line|line.contains("512 added bridge frames")));
         }
     }
 
@@ -1258,6 +1281,7 @@ mod tests {
         for (action, refusal, clickable) in [
             (Action::OrdinaryRollback {class_id:"class".into(),publication:"previous".into()},None,true),
             (Action::BufferingSet {class_id:"class".into(),added_frames:512},Some("This class is active"),false),
+            (Action::DeliverySet {class_id:"class".into(),mode:crate::model::DeliveryMode::SameCallback},Some("This class is active"),false),
             (Action::EnvironmentRescan {environment:"environment".into()},None,false),
         ] {
             let offer = AvailableAction {label:"Selected action".into(),action:action.clone(),disabled_reason:refusal.map(str::to_owned)};

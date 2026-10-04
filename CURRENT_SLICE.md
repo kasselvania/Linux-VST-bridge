@@ -17,7 +17,7 @@ an explicit compatibility choice; same-callback delivery targets D=0 with truthf
 latency and no implicit preference change.
 
 Basis: Architecture 18.3 “Prepared processing configuration,” 18.4 “Delivery and
-deadline policy,” and 18.7 “DAW and editor execution contracts”; accepted D-028;
+deadline policy,” and 18.7 “Platform execution convergence”; accepted D-028;
 roadmap order 2b and the platform assessment's shared delivery findings. No yabridge
 code may be copied. Its documented architecture is comparison evidence, not our
 implementation or a performance guarantee.
@@ -38,6 +38,8 @@ implementation or a performance guarantee.
   thread. The native transport worker owns its endpoint. A narrowly owned Windows
   transport pump exchanges notification hints and signals prepared Win32 events;
   the render thread waits/signals those events and accesses mapped payloads.
+  The pump also owns existing active lifecycle/control/error socket bytes through
+  bounded prepared handoffs, including Started and control-flag consumption.
   There is no GUI-owner relay or render-thread writer mutex. Cancellation must wake
   and join the pump/render/worker before releasing their storage.
 - Native worker wake conditions include requests, pending controls, control-flag 2
@@ -53,13 +55,19 @@ implementation or a performance guarantee.
   Add exact audio-operation tickets for completion, including consecutive N=0,
   without replacing existing epoch/sample-position/result validation.
 - Declare a single absolute real-time/prefetch local allowance N/Fs from C++
-  callback entry; SameCallback N=0 initially has a 1-ms flush allowance. Offline
+  callback entry; Every RT/prefetch N=0 operation has a 1-ms flush allowance and must return its
+  exact results or explicit failure in that callback, in either delivery mode. Offline
   initially has a 60-second absolute operation bound shared by callback/worker,
-  interruptible at intervals no longer than 4 ms. Wakes never renew a deadline.
+  cooperative cancellation checks at intervals no longer than 4 ms. This does not
+  interrupt a hung vendor call: retain storage until joins or supervisor containment.
+  Service admitted state capture incrementally during offline completion waits,
+  preserving both deadlines. Wakes never renew a deadline.
   These are policies to qualify, not whole-DAW scheduling guarantees.
 - Offline failure/cancellation/timeout must return explicit failure, never successful
   timeout silence. SameCallback RT misses are separately identified and contained
   through existing retirement. Buffered RT retains its declared gap/expiry posture.
+  Buffered offline retains its declared D after completing each submitted operation;
+  the host provides latency/tail calls. The bridge does not invent drain calls.
   Publish cancellation before waiting for callback leases. No request replay.
 
 ## Scope and executable acceptance
@@ -112,3 +120,20 @@ editor remains unresolved. No Deck mutation occurs during source development.
 Implementation agents: Sol 6.1 Max; reviewers: Astra 6 xhigh; computer use: Sol 6.1 High.
 Root owns architecture, integration, machine custody, installed acceptance and
 commit/push. Workstream review and required gates remain active until completed.
+
+## Current checkpoint
+
+The coherent source candidate is frozen for Linux/Windows validation. Independent
+review closed the retained-result capacity and legacy process-mode findings.
+Audio history now holds `D + M` frames, and returned events/automation retain compact
+operation packets separately. One-frame runs and inactive maximum changes have
+source regressions. The SDK consumer records successful lifecycle ownership before
+audit assertions, retains failed cleanup ownership, and preserves whole returned
+sample output outside processing for independent analysis.
+
+Pinned Linux SDK compilation and both independent consumer producer/oracle cases
+pass, including failed reconfiguration, audited-start cleanup and corrupt-output
+retention. The paired Windows build, package installation, full SDK transport/failure
+runs and physical Deck qualification remain open. The builder is the sole active
+project machine; Ubuntu is stopped and the Deck remains unchanged. No causal claim
+is made for the historical Deck/config4 audio gaps.

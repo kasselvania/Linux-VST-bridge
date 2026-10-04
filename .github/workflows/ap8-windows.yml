@@ -36,6 +36,7 @@ on:
       - 'tools/beta/reference_installer.rs'
       - 'tools/beta/build_reference.py'
       - 'tools/beta/build_unfamiliar.py'
+      - 'tools/beta/sdk_buffers.h'
       - 'native-vst3-proxy/include/ap10*'
       - 'native-vst3-proxy/source/output_results.h'
       - 'tools/ap10-tests/**'
@@ -61,6 +62,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Acquire pinned official SDK
         run: python tools/wf0-factory-census/build.py acquire --sdk-root "${{ runner.temp }}/unfamiliar-sdk"
@@ -88,6 +90,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Acquire pinned official SDK
         run: python tools/wf0-factory-census/build.py acquire --sdk-root "${{ runner.temp }}/ap8-sdk"
@@ -102,13 +105,17 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/graphics/assessment_test.py "${{ runner.temp }}/ap8-build/wf0/bin/Release"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build "${{ runner.temp }}/ap8-build" --config Release --target graphics-reference-1 graphics-reference-2 graphics-reference-3 graphics-reference-4 wf0-factory-probe wf0-loader-adapter-tests ap10-return-fixture lvb-reference-instrument lvb-reference-effect lvb-reference-instrument-tests lvb-reference-effect-tests ap10-results-tests ap11-editor-tests ap11-state-tests ap11-owner-failure-tests ap11-controller-failure-tests ap12-path-tests ap12-fault-tests ap13-state-delivery-tests ap14-environment-tests ap18-result-custody-tests ap18-bus-census-tests ap18-whole-block-tests ap18-crash-capture ap18-lc1-session uio1-tests uir1-input-fixture uio2-popup-fixture uio2-uia-disconnect uir2-touch-fixture mf2-bootstrap-ready is1-bootstrapper is1-direct-msi is2-launch is2-fixture is2-admin-fixture is3-capability naui2-application nad1-service-fixture nad1-service-adapter nad1-application-fixture --parallel 4
+          cmake --build "${{ runner.temp }}/ap8-build" --config Release --target graphics-reference-1 graphics-reference-2 graphics-reference-3 graphics-reference-4 wf0-factory-probe wf0-loader-adapter-tests ap10-return-fixture lvb-reference-instrument lvb-reference-effect lvb-reference-instrument-tests lvb-reference-effect-tests lvb-completion-instrument lvb-completion-effect lvb-completion-instrument-tests lvb-completion-effect-tests ap10-results-tests ap11-editor-tests ap11-state-tests ap11-owner-failure-tests ap11-controller-failure-tests ap12-path-tests ap12-fault-tests ap13-state-delivery-tests ap14-environment-tests ap18-result-custody-tests ap18-bus-census-tests ap18-whole-block-tests ap18-crash-capture ap18-lc1-session uio1-tests uir1-input-fixture uio2-popup-fixture uio2-uia-disconnect uir2-touch-fixture mf2-bootstrap-ready is1-bootstrapper is1-direct-msi is2-launch is2-fixture is2-admin-fixture is3-capability naui2-application nad1-service-fixture nad1-service-adapter nad1-application-fixture --parallel 4
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap18-crash-capture.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap18-crash-capture.exe" --normal
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap10-results-tests.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "${{ runner.temp }}/ap8-build/wf0/bin/Release/lvb-completion-instrument-tests.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "${{ runner.temp }}/ap8-build/wf0/bin/Release/lvb-completion-effect-tests.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap11-editor-tests.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -171,6 +178,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/beta/build_reference.py --windows-artifacts "${{ runner.temp }}/ap8-build/wf0/bin/Release"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/beta/build_reference.py --fixture-family completion --windows-artifacts "${{ runner.temp }}/ap8-build/wf0/bin/Release"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build and self-test exact x86 IS3 consumer
         shell: cmd
         run: |
@@ -184,7 +193,7 @@ jobs:
         shell: pwsh
         run: |
           git rev-parse HEAD | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/SOURCE_COMMIT.txt"
-          Get-FileHash "${{ runner.temp }}/ap8-build/wf0/bin/Release/*.exe" -Algorithm SHA256 | Format-List | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/SHA256.txt"
+          Get-ChildItem "${{ runner.temp }}/ap8-build/wf0/bin/Release" -File | Where-Object { $_.Extension -in '.exe', '.vst3' } | Get-FileHash -Algorithm SHA256 | Format-List | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/SHA256.txt"
           "is3-capability.exe x64`nis3-capability-x86.exe x86" | Out-File -Encoding ascii "${{ runner.temp }}/ap8-build/wf0/bin/Release/IS3_ARCHITECTURES.txt"
       - name: Test socket idle and disconnect behavior
         shell: cmd
@@ -194,6 +203,8 @@ jobs:
           python tools/test_delivery_trace.py
           if errorlevel 1 exit /b %errorlevel%
           python tools/test_delivery_mailbox.py
+          if errorlevel 1 exit /b %errorlevel%
+          python tools/test_notification_transport.py
           if errorlevel 1 exit /b %errorlevel%
           python tools/test_ap4_socket.py
           if errorlevel 1 exit /b %errorlevel%

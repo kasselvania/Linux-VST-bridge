@@ -335,7 +335,10 @@ def verify_prebuilt_kit(data, source_head, host_sha256, source_sha256):
             raise ValueError("prebuilt kit host pair")
         index=json.loads(archive.read("prebuilt/index.json"))
         if recipe["schema"] == 4:
-            if (set(index)!={"schema","engine","engine_sha256","descriptor_schema","maximum_bridge_frames","native_sources"}
+            if (set(index) not in (
+                    {"schema","engine","engine_sha256","descriptor_schema","maximum_bridge_frames","native_sources"},
+                    {"schema","engine","engine_sha256","descriptor_schema","maximum_bridge_frames","native_sources","audio_completion_contract"})
+                or ("audio_completion_contract" in index and (type(index["audio_completion_contract"]) is not int or index["audio_completion_contract"] != 1))
                 or index["schema"]!=3 or index["descriptor_schema"]!=1
                 or index["maximum_bridge_frames"]!=1024 or index["engine"]!="prebuilt/engine.so"
                 or recipe["files"][index["engine"]]!=index["engine_sha256"]
