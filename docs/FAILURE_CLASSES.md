@@ -98,7 +98,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
-| [FC-MGMT-007](#fc-mgmt-007--retained-proposal-displaces-selected-configuration) | Retained proposal displaces selected configuration | Manager guided projection and frontend action ownership | causal | source-fixed | Ubuntu config6 installed Keep refusal; populated-history Linux reproduction | blocked for the failed configuration workflow | Reviewed paired successor and full installed repeat |
+| [FC-MGMT-007](#fc-mgmt-007--retained-proposal-displaces-selected-configuration) | Retained proposal displaces selected configuration | Manager guided projection and frontend action ownership | causal | installed-fixed on reference fixture | Ubuntu config7 full effect/instrument workflow and GUI restoration | reference configuration regression passed; musician workflow unqualified | Physical DAW integration and endurance |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
 ---
@@ -2622,5 +2622,16 @@ predecessor; stale proposals retain specific refusal. Every choice is distinguis
 and appears once in normal and expanded views. Workers and launch still own fresh
 execution validation. Source and installed results are retained in the
 [foundation comparison](../evidence/preparation/2026-10-03-foundation-installed.json).
-The complete successor workflow is pending; config6's seven clean audio lifetimes
-do not turn its Keep failure into a pass.
+Paired config7 at `3fcd7bae` now passes complete fresh effect and unfamiliar-instrument
+SDK workflows, both trials/Keeps, exact two-predecessor restoration, saved-state
+recall and full retirement: thirteen audio lifetimes and 63,897,600 samples per role
+with zero mismatches or overruns. Normal GUI restoration also completes, preserving
+separate buffering and siblings. Its final buffering control needed fully visible
+activation after a clipped click submitted no request.
+
+The first config7 attempt remains failed on a product-read freshness refusal. The
+external consumer correction permits one exact read retry under the original
+deadline; it replays neither actions nor audio. Four such refreshes occurred in
+each passing full run. Config6's Keep failure and the earlier missing audio block
+remain retained; this reference repair neither establishes the audio cause nor
+qualifies the physical musician workflow.

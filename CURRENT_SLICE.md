@@ -1,243 +1,128 @@
 # Current work: one managed plug-in configuration
 
-Selected by the operator on 2026-10-03 after the completed platform assessment.
-Status: reviewed architectural hardening source passes the manager and frontend
-tests and strict lint; paired successor installation remains. Config6 verifies final
-Windows-host custody, bounded ordinary readback and normal GUI restoration, but
-its integrated workflow fails at Keep. The source repair restores selected-publication
-authority while preserving explicit prepared alternatives. The original config4
-audio failure remains unresolved. This is `codex/platform-configuration`, based on
-`e1f8033bcad08a2b008384a1671d3c510b55c362`; the endpoint below is unchanged by
-individual plug-in examples. No vendor-specific investigation is selected.
+Selected by the operator on 2026-10-03. The endpoint is **prepare, explain, run,
+save and restore an unfamiliar plug-in through one managed configuration**, using
+ordinary controls and preserving independent siblings. A vendor example does not
+change this task. Branch `codex/platform-configuration`, draft PR #206, is stacked
+on unmerged #204 and ultimately #200; no inherited integration is approved wholesale.
 
-## Completed outcome
+## Current outcome
 
-The [platform assessment](docs/PLATFORM_ARCHITECTURE_REVIEW.md) traces production
-configuration, host capabilities, runtime/dependencies, discovery, SDK/audio,
-editors, state, supervision and ordinary delivery/recovery. It distinguishes
-implemented behavior from intended contracts and retained observations, records
-retain/repair/replace/retire decisions, and supplies owner changes plus representative
-acceptance. [Architecture section 18.7](docs/ARCHITECTURE.md#187-platform-execution-convergence),
-D-028 and the [roadmap](docs/AUDIO_RECOVERY_ROADMAP.md) now agree on that direction.
-The assessment is the design basis; this implementation must connect the product
-owners and verify their user-visible workflow.
+The [platform assessment](docs/PLATFORM_ARCHITECTURE_REVIEW.md), Architecture
+[18.7](docs/ARCHITECTURE.md#187-platform-execution-convergence), D-028 and the
+[roadmap](docs/AUDIO_RECOVERY_ROADMAP.md) own the shared design. Candidate/history,
+registration, supervision and ordinary manager controls now connect prepared
+preferences, admission, launch, trial/keep and exact restoration. Capability
+eligibility, observed liveness and historical qualification remain distinct.
 
-## Implementation checkpoint
+Architectural hardening is installed as `0.12.0config7foundation`, source
+`3fcd7bae2ee71630aa64442341b5ec66df94ea81`, tree
+`67d7f49d1cc9d59d284db8e044757e8bdfceac20`, on disposable Ubuntu:
 
-The existing candidate/history owners now connect ordinary preparation, typed
-graphics/accessibility preferences, shared registration/readback, launch and
-trial/keep/restore. Retained profiles own the defaults resolved at preparation;
-later advice cannot reinterpret them. Refresh resolves current advice, carries
-explicit preferences through generation binding and reuses exact native bytes.
-Historical record IDs, logical class identity and saved objects remain preserved.
+- Final Windows-host custody is authenticated through kernel writer credentials,
+  pinned process generation and exact session/status mapping on the existing launch
+  channel. The config6 independent census confirms the actual render thread;
+  config7 retains that reviewed custody implementation.
+- Ordinary controls validate bounded records and the selected pointer. Workers and
+  launch retain fresh deep executable validation. Ten config6 product reads took
+  0.18–0.28 seconds, previously 13.24–14.36; this is an observation, not a controlled
+  latency benchmark or audio-cause finding.
+- The selected publication owns current configuration, Keep and Restore. Retained
+  proposals remain explicit, distinguishable alternatives with their own predecessor
+  checks. A populated-history regression fails against the old production projection
+  and passes the repair. Native engine, Windows host and runtime are unchanged.
 
-Publication and buffering changes quiesce every affected-class instance while
-allowing independent sibling DSP. Canonical ownership, maintenance and unresolved
-cleanup still constrain the final mutation. Unfamiliar managed classes use the
-existing native slots within the shared service ceiling. Readiness separates
-capability eligibility, observed consumer liveness and historical qualification;
-native/sandbox consuming-context observations remain exact, bounded evidence.
-Scanner/runtime/environment maintenance remains globally exclusive.
+Independent review and applicable CI pass. At frozen product source, CI runs 392
+runtime, 244 manager library, 318 manager action and 98 frontend tests; two existing
+opt-in manager tests are excluded. Applicable native, packaging and policy checks
+also pass. The external SDK consumer at `71e47ba6` adds one exact read-only snapshot
+refresh retry under the original deadline, with separate attempt evidence. Requests
+and audio are never replayed. Eleven new regressions, all twelve local beta-tool
+tests and current CI pass; installed product bytes remain frozen at `3fcd7bae`.
 
-Interrupted managed publications remain inspectable as needing attention, with
-canonical owners still counted and the normal reconcile action reachable after
-required retirement. Readback does not grant publication or execution admission;
-pending/invalid bindings and ownership gaps continue to refuse those operations.
-The frozen source has green CI, including the focused refresh, capacity and normal
-recovery regressions. Interrupted-publication recovery is covered by Linux tests;
-the SDK workflow does not establish an installed fault-injection result.
-Installed checks used [the retained driver](tools/beta/run_installed_configuration.py)
-at tool commit `9c3d9b0c`, independently of frozen product source `19c5888b`.
-The [installed result](evidence/preparation/2026-10-03-managed-configuration-installed.json)
-retains the exact package, modules, runtime, observer and earlier failed attempts.
+## Installed acceptance and retained failures
 
-- Existing unfamiliar instrument: both settings trials, independent sibling
-  processing, affected-class refusals, original-state recall, partial keep and
-  exact restoration passed. Thirteen complete SDK lifetimes compared 63,897,600
-  samples with no errors or callback overruns. This is not a continuous soak.
-- New reference effect: the full workflow failed during its second trial's apply
-  operation. Its independent instrument sibling returned one silent 1024-frame
-  span (2044 sample mismatches); the affected callback took 21.375 ms. Eight earlier
-  complete lifetimes passed, but they do not make the effect workflow a pass.
-- The failure occurred during request dispatch; the actual worker/mutation start
-  was not observed. Both consumers retired cleanly. No causal attribution or
-  qualification retry follows from this result.
-- GUI recovery changed buffering to 512 and restored the exact first predecessor,
-  retaining that preference. The original-version action produced no durable
-  request after two mouse attempts and one Return; input/application attribution
-  remains open. Supported CLI rollback then restored the exact original, retained
-  512, and explicitly returned to 1024. One separate original-state recall passed
-  983,040 samples with no errors/overruns and full retirement. Separate final
-  readback confirms all four exact original entries, each preference at 1024,
-  unchanged saved objects/package artifacts and no active or uncertain owners.
+[Foundation evidence](evidence/preparation/2026-10-03-foundation-installed.json)
+retains source, package, observer and private archive identities for every attempt.
+Config6 established custody, bounded controls, normal GUI restoration and original
+state recall, but its complete workflow failed at Keep because a newer proposal
+replaced the selected publication in the main projection. Config7 repairs that owner.
 
-## Controlled capacity observation
+Config7's first full effect attempt completed both trials and Keeps, twelve audio
+lifetimes and 62,914,560 compared samples without mismatch or callback overrun,
+then stopped on a product-read consistency refusal before the buffering request.
+That whole attempt remains failed. The specific snapshot input that changed was
+not observed. The corrected external consumer now handles that exact read refusal.
+Normal GUI recovery has restored both predecessors, preserved 512 through each
+restore, then returned all four originals to 1024 and closed the manager. The final
+buffering button needed fully visible activation after a clipped click submitted
+no request; the cause remains unassigned. Fresh complete effect and unfamiliar
+instrument workflows now both pass: thirteen separate audio lifetimes each,
+63,897,600 compared samples each, zero mismatches/overruns and full retirement.
+Both trials, Keeps, affected-owner refusals, exact two-predecessor restoration and
+original-state recall passed. Four single product-read refreshes occurred in each
+workflow; no settings request or audio run was replayed. Independent final readback
+confirms all four originals at 1024, unchanged saved objects/package artifacts, a
+closed manager and no active DSP, maintenance or uncertain cleanup. These are
+complete configuration regressions, not a continuous soak.
 
-Diagnostic package `0.12.0config5observe`, source `c9117d6a`, retains the config4
-audio engine, Windows host and runtime. The [memory comparison](evidence/preparation/2026-10-03-controlled-capacity-observation.json)
-completed one 102.4-second reference-instrument lifetime at each of 3 GiB guest /
-4 GiB container and 6 GiB guest / 8 GiB container, with an independent effect's
-ordinary settings apply during audio. Both compared 9,830,400 samples with no
-mismatches, missing spans or overruns, then retired and restored exactly. The
-larger guest had no measured swapping and lower memory-pressure time. Fixed order,
-cache carryover, tracing and one lifetime per size prevent causal or qualification
-claims. The earlier failed workflow remains failed; preliminary tool failures
-are retained separately.
+The earlier config4 workflow remains failed: an independent instrument sibling
+returned one silent 1024-frame span during second-trial request dispatch, with 2044
+sample mismatches and a 21.375-ms callback. Worker/mutation start was not observed;
+both consumers retired. The [controlled capacity comparison](evidence/preparation/2026-10-03-controlled-capacity-observation.json)
+passed one 102.4-second lifetime at each memory size, with lower measured pressure
+and no measured swapping in the larger guest. Fixed order, tracing and one lifetime
+per size establish neither a RAM cause nor dependable audio.
 
-The source also preserves pending UI action ownership (96 frontend tests and
-strict Linux lint passed). This does not qualify the incomplete GUI recovery.
-Bounded control timing and exact-cohort diagnostics are audit-feature-only;
-applicable CI at `c9117d6a` passed. Neither is an audio repair.
+## Acceptance and next boundary
 
-## Remaining bounded work
+The hardening slice began at `9dd5367e69ec42fbf232aef4b22371fb7ba78fb3`, tree
+`6130ae769eef0ce3ea8ce9dfa472c4266fd4ea7a`. Basis: Architecture 18.7, “Shared
+configuration, separate facts” and “Capability and ownership scope.” Its primary
+claim is that ordinary configuration controls and exact execution custody use the
+proper existing owners without weakening execution admission.
 
-The installed foundation comparison establishes final Windows render-host custody
-and bounded ordinary readback. The normal GUI restoration and original-state recall
-also pass on config6. The full integrated workflow exposed the remaining selection
-owner defect: a newer retained proposal displaces the published configuration and
-hides Keep. Repair that shared projection and all consuming action views, preserve
-explicit alternatives and their exact predecessor checks, then repeat the complete
-installed workflow on one paired successor. Retain config6's failed run.
+Completed on both installed reference roles on the same frozen candidate: prepare and
+apply two settings trials while an independent sibling processes; refuse changes
+with affected owners active; recall meaningful saved state; Keep without inventing
+qualification; restore both exact predecessors with separately selected buffering
+retained; return to baseline and prove audio plus process/transport retirement.
+Normal GUI restoration and all four original selections/settings are verified. Retain
+whole failed attempts, unchanged saved objects and all original comparisons.
 
-The earlier missing audio block remains unexplained. Clean comparisons, effective
-Windows scheduling readback and faster controls do not establish its cause. Do not
-raise buffering, switch runtime or privileges as a guessed repair. Native scheduling
-remains ordinary because the consuming DAW process RT budget is unavailable.
+This closes the bounded hardening claim at the declared Ubuntu reference fixture.
+It is a prerequisite within the complete platform endpoint, not commercial or
+DAW acceptance. Interrupted-publication recovery has Linux source coverage, not
+installed fault-injection proof from these SDK runs. Real DAW projects, editor
+rendering/coexistence, reboot, dependable interaction/soak, lower latency and
+cross-platform acceptance remain open. A pass cannot attribute the old audio gap.
 
-## Selected implementation endpoint
+Next, the same architecture must supply coherent DAW execution: event-driven
+handoffs over existing transport, real-time/offline completion, legal reconfiguration
+and scoped editor/control failure. Runtime/dependency operations extend the shared
+configuration contract independently. Do not infer an audio repair from faster
+controls, effective scheduling or extra memory, and do not start a vendor campaign,
+second engine/lifecycle framework or speculative priority/buffer/runtime experiment.
 
-### Active architectural hardening
+## Machine custody and preserved state
 
-The operator selected these shared repairs on 2026-10-03. Implementation starts
-from commit `9dd5367e69ec42fbf232aef4b22371fb7ba78fb3`, tree
-`6130ae769eef0ce3ea8ce9dfa472c4266fd4ea7a`. Basis: Architecture 18.7,
-"Shared configuration, separate facts" and "Capability and ownership scope";
-the controlled observation and next bounded work above. The primary claim is
-that ordinary configuration controls and exact execution custody use their proper
-existing owners without weakening execution admission. This is a prerequisite
-repair within the unchanged endpoint below, not completed installed acceptance.
+The completed Ubuntu run used 6 GiB guest / 8 GiB container, two CPUs pinned to host 2–3 and 256
+processes, with combined outer memory/swap equal to memory. Run one VM or builder
+at a time; the builder retains its 4 GiB limit. Reserve CPU 0–1 and capacity for
+Audiobookshelf. The VM shut down normally after verified restoration and evidence
+preservation; all project VMs/builders are stopped and Audiobookshelf remains running.
+Retain the original 3 GiB guest / 4 GiB container for comparison.
+Normal restoration uses retained paired packages/publications. No manual ownership
+record deletion, unverified cleanup, licensed-environment recreation or privilege
+change is part of this slice.
 
-Scope is the manager's record/projection/action consumers and the supervisor's
-per-launch process custody and scheduling adapter, with their focused regressions.
-Ordinary readback may validate bounded control records, bindings, transaction state
-and the selected physical pointer. It must identify that scope truthfully and must
-not claim a fresh check of executable payloads. The queued worker executable is
-freshly verified; workers and launch retain deep payload verification and final
-ownership/publication rechecks. No persisted cache becomes execution authority.
+The Deck is unchanged at `0.12.0general5deck` with paired Pure LoFi/FRAGMENTS
+publications. Short installed recall passed; the interaction run ended in terminal
+instance failure before the planned soak. Final queued-underrun records were zero;
+disappearing status was initially misreported as audio loss. The trigger remains
+unattributed. Exact projects, predecessor artifacts and the corrected
+[physical result](evidence/audio-recovery/2026-10-03-general5-deck-installation.json)
+are retained. No new Deck run is selected.
 
-The supervisor must establish the final Windows host's authenticated process
-generation and exact session/status binding before render-thread selection. A name,
-self-reported PID, or membership in the shared keeper cannot grant instance custody.
-Retain uncertainty if the implemented runtime cannot establish that binding. Do not
-change scheduler policy or privileges to conceal a missing owner.
-
-Source acceptance requires: ordinary overview/product/offer reads avoid bulk payload
-hashing, runtime-tree walks and preparation-kit execution; altered payloads still
-refuse at worker/launch admission; altered bindings, stale actions and affected
-owners refuse at their authoritative boundary. Custody tests cover unrelated
-senders, partial/coalesced messages, PID reuse, startup failure and exact retirement.
-Existing siblings, saved state, unrelated preferences and historical identities
-remain preserved. Independent review precedes installed claims.
-
-Installed comparison uses the same disposable Ubuntu reference fixture, pinned
-runtime and 1024-frame settings described in the retained observation. Verify
-ordinary controls, current custody/scheduling readback, actual captured audio and
-positive retirement together. Retain the failed original and all new attempts;
-the comparison cannot establish a root cause or erase the failed workflow. Rollback
-uses retained paired package/publications and ordinary exact restoration. No engine,
-runtime, dependency, buffer or privilege experiment is included; the Deck is unchanged.
-
-### Source checkpoint
-
-The [foundation source result](evidence/preparation/2026-10-03-foundation-source.json)
-records the reviewed exact file identities and Linux validation: 392 runtime tests,
-560 manager tests (two existing opt-in tests excluded), 97 frontend tests, audit
-and report tests, packaging-helper tests and strict manager/frontend lint passed.
-The final Windows writer uses kernel-authenticated, generation-pinned custody
-and exact status mapping through the existing launch channel. Ordinary controls
-use bounded records; workers and launch retain deep execution validation. Explicit
-history completion and lineage-before-candidate publication replace incidental
-migration during readback. Earlier failed test attempts remain retained.
-Paired package `0.12.0config6foundation`, source `21d99190`, is installed on the
-same expanded Ubuntu fixture. The independent census now confirms the final
-Windows render host/thread and effective existing scheduling request; original
-state recall compared 983,040 samples without mismatch/overrun and retired fully.
-Ten product reads took 0.18–0.28 seconds. The full configuration workflow remains
-failed: seven complete audio lifetimes passed 32,440,320 samples, then Keep was
-unavailable because the main workflow selected a newer retained proposal instead
-of the actual published configuration. This inherited projection defect is now the
-remaining shared repair: selected publication owns main configuration/Keep/Restore;
-prepared alternatives remain explicit and retain their own predecessor checks.
-The ordinary GUI restored the exact original on its first click while retaining
-512-frame buffering. Both buffering changes also completed on their first click.
-Final readback confirms all four original class entries and 1024-frame preferences;
-original-state recall passed 983,040 samples with full retirement. The manager
-closed normally. The frozen candidate and all failed attempts are retained; no
-audio-cause or beta claim follows.
-The selected-publication regression fails against the previous production projection
-and passes the repair. Independent review approves the corrected ordinary/expanded
-action views and distinguishable alternatives. Linux validation covers 244 library
-and 318 manager action tests (two existing opt-in tests ignored), 98 frontend tests,
-16 audit-feature tests and the report/helper checks. Initial test-checkout ownership
-and offscreen texture-cleanup failures are retained; product checks were not relaxed.
-Paired successor installed acceptance remains pending.
-CI is green at test-only follow-up `c3a574f7`; its fixture compatibility correction
-does not change the installed product.
-
-### Complete configuration workflow
-
-Prepare, explain, run and restore an unfamiliar plug-in through one managed
-configuration. Extend existing candidate/history and registration owners; connect
-profile advice, explicit preferences, capability assessment, normal controls,
-admission, launch and affected-owner recovery. Separate eligibility, liveness and
-qualification. Preserve exact execution bindings, class identity, saved objects,
-licensed environment identity and independent siblings.
-
-Complete this as an integrated capability, not a new configuration type followed
-by another handoff. Both a new class and an existing publication must reach ordinary
-preparation, actual execution, meaningful recall, a settings trial and keep/restore;
-missing required capabilities and genuine shared-resource conflicts must produce
-specific recovery actions. Use native/sandbox host contexts and representative
-multiple-instance/shared-environment cases. The assessment names the source owners
-and fuller acceptance; there is no new policy database or approval sequence.
-
-Runtime/dependency operations and DAW execution extend the same contract next.
-Graphics and portability inform it from the start. Do not automatically choose the
-latest Pure LoFi symptom as the task, postpone platform design behind one vendor,
-or start a second host/lifecycle architecture. Routine engineering choices belong
-to the engineer; physical execution continues to respect current machine custody.
-
-## Retained physical state
-
-Package `0.12.0general5deck` and paired Pure LoFi/FRAGMENTS publications remain on
-the Deck. Installation and short changed-control recall passed; the interaction run
-ended in terminal instance failure and never reached its planned soak. Disappearing
-session status was initially misreported as missing audio. Terminal records showed
-zero queued underruns before failure; the trigger remains unattributed.
-
-The exact raw result, saved projects and predecessors are preserved privately.
-[PR #204](https://github.com/kasselvania/Linux-VST-bridge/pull/204) remains draft and
-unmerged; it retains the implementation and
-[corrected physical result](evidence/audio-recovery/2026-10-03-general5-deck-installation.json).
-The instruction rewrite is separately reviewable from main in
-[PR #205](https://github.com/kasselvania/Linux-VST-bridge/pull/205). Neither this
-assessment nor policy adoption approves the beta or changes the installed machine.
-
-Installed config4 acceptance uses the disposable Ubuntu fixture under the main
-engineer's machine custody. No Deck run is selected.
-The Ubuntu comparison VMs were shut down normally after exact restoration.
-Retained VM disks and private evidence are preserved; Audiobookshelf remains running.
-The next observation uses one VM or builder at a time, at most two CPUs on host
-CPU 2–3 and 256 processes. Reserve host CPU 0–1 and capacity for Audiobookshelf.
-On 2026-10-03 the operator authorized an 8 GiB memory allowance for a controlled
-capacity comparison. Retain the original 3 GiB guest / 4 GiB container as the
-baseline; compare a 6 GiB guest / 8 GiB container, leaving room for VM overhead.
-Combined memory/swap equals each container's memory limit. Change memory separately
-from runtime, buffering, scheduling and software; record actual pressure and quota
-deltas. The builder retains its 4 GiB limit. No memory setting establishes audio
-qualification. The operator also requested a clean-room comparison with current
-yabridge and relevant Proton/Wine mechanisms. Other independently authorized owners
-retain their work and machine-custody boundaries.
-
-The operator's delegation preference is implementation on `gpt-6.1-sol` at `max`,
-review on `gpt-6-astra` at `xhigh`, and computer use on `gpt-6.1-sol` at `high`.
+Delegation: implementation `gpt-6.1-sol` / `max`, review `gpt-6-astra` / `xhigh`,
+computer use `gpt-6.1-sol` / `high`. No fusion reviews.

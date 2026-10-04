@@ -11,7 +11,9 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
-Managed configuration remains **unqualified**; installed acceptance failed.
+Managed configuration remains **unqualified** for the musician workflow. The
+latest Ubuntu reference SDK configuration and normal recovery checks pass;
+earlier failures remain retained below.
 Paired package `0.12.0config4` is frozen at source
 `19c5888bd3332c827c317387365b177587d9d805` with green CI. Source connects
 preparation, advice/preferences, registration/readback, launch and trial/keep/restore
@@ -56,6 +58,25 @@ input failure. Its full SDK configuration workflow still fails at Keep because
 a newer retained proposal displaces the selected publication. Seven complete
 audio lifetimes passed before that failure. The selection repair has passed source review and Linux validation;
 no whole-workflow or audio-cause claim follows.
+
+Paired successor `0.12.0config7foundation` at `3fcd7bae` retains that custody
+and bounded-read implementation and repairs selected-publication authority. Its
+first full effect attempt completed both trials and Keeps, then failed on an
+explicit product-read freshness refusal before buffering dispatch. All twelve
+completed audio lifetimes passed and retired, but the full attempt remains failed.
+The external consumer at `71e47ba6` now retries only that exact read refusal once
+under the original deadline. Fresh full effect and unfamiliar-instrument workflows
+now both pass on the same frozen product: thirteen separate audio lifetimes and
+63,897,600 compared samples per role, no sample mismatch or callback overrun,
+complete retirement, two trials/Keeps and exact restoration with saved state intact.
+Four single read refreshes occurred per workflow; no action/audio was replayed.
+Independent final readback confirms all four original entries/preferences, unchanged
+saved objects/package and idle cleanup. These are functional regressions, not a soak.
+Normal GUI recovery on config7 restored both exact predecessors, retained 512
+through both restores and returned all four originals to 1024 with idle cleanup.
+The final buffering action needed fully visible activation after an initial clipped
+click submitted no request; this is not an all-first-click result. The manager
+closed normally. These results do not attribute the earlier input or audio failures.
 
 The previous Deck package blocked plug-ins absent from its exact prebuilt index.
 The reusable replacement first established an installed Ubuntu reference result:
