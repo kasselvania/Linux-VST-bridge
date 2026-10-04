@@ -37,6 +37,7 @@ on:
       - 'tools/beta/build_reference.py'
       - 'tools/beta/build_unfamiliar.py'
       - 'tools/beta/sdk_buffers.h'
+      - 'tools/test_ap4_socket.py'
       - 'native-vst3-proxy/include/ap10*'
       - 'native-vst3-proxy/source/output_results.h'
       - 'tools/ap10-tests/**'

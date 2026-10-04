@@ -41,6 +41,17 @@ int winselect(int,fd_set* r,fd_set* w,fd_set* e,timeval* t){return select(FD_SET
 #include <condition_variable>
 #include <algorithm>
 using namespace linux_vst_bridge::ap1;
+#ifdef _WIN32
+#include "notification_transport.h"
+using linux_vst_bridge::wf0::NotificationTransport;
+#else
+// This POSIX shim exercises only the unpaired legacy Socket. Windows CI
+// compiles the real pump above; accidental pump use here must refuse.
+struct NotificationTransport {
+ void read(Frame&,bool,void(*)(void*)=nullptr,void* =nullptr){require(false,"Windows notification pump required");}
+ void write(const Frame&,bool,void(*)(void*)=nullptr,void* =nullptr){require(false,"Windows notification pump required");}
+};
+#endif
 '''
     tests = r'''
 int main(){

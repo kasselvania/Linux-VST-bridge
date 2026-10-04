@@ -1,0 +1,478 @@
+{
+  "schema": 1,
+  "claim": "source_validation_of_explicit_audio_completion_and_frame_sized_retention",
+  "source_head": "f6ba78673766eb811e6523c55e8491f3eea6210e",
+  "source_tree": "2ca00b17786cf1557d122ab64ee1d668a80517ec",
+  "base_commit": "5813a65b9b0c680344262a4557e4c4bc26550038",
+  "selection_commit": "f3105274eb117ac304cf02ba9d9de650ebbfa638",
+  "native_sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+  "platform": {
+    "system": "Linux",
+    "architecture": "x86_64",
+    "kernel": "7.0.0-31-generic",
+    "gcc": "15.2.0",
+    "rust": "1.95.0"
+  },
+  "validation": [
+    {
+      "name": "sdk",
+      "result": "passed",
+      "scope": "Pinned SDK consumer compile",
+      "log_sha256": "a6cf927f984e96a246e6c7b34b32c6e0fbcaffbef221ead0635e4fd9de6cf3f0"
+    },
+    {
+      "name": "sdk-instrument",
+      "result": "passed",
+      "scope": "First-party instrument producer/oracle, lifecycle failure and retained-output checks",
+      "log_sha256": "af60f9daf3d33b5ac7cfbc1273d6186a17f6dc86db8244a3d9bcfe05b8fadcc4"
+    },
+    {
+      "name": "sdk-effect",
+      "result": "passed",
+      "scope": "First-party effect producer/oracle, lifecycle failure and retained-output checks",
+      "log_sha256": "6e8acf04ae5f6e00618364e0876bab7ff394a128c7fb60ee2a9125ec7d28100f"
+    },
+    {
+      "name": "client",
+      "result": "passed",
+      "scope": "18 passed",
+      "log_sha256": "77981b34ddaf0bbf2f20db9cb859dea99f32c906c4677c80c313b04d6a60387a"
+    },
+    {
+      "name": "backend-default",
+      "result": "passed",
+      "scope": "122 passed; 1 installed-only LC1 test ignored",
+      "log_sha256": "ac38a5cbc91e5a43204fddc83af4aa7aae2d539309ceb28139169aae530ae147"
+    },
+    {
+      "name": "backend-registered",
+      "result": "passed",
+      "scope": "122 passed; 1 installed-only LC1 test ignored",
+      "log_sha256": "2d776dc910dafd604a9e90cf64b45d7b531cff3c0798c7e1e4bd2dcbb80524b4"
+    },
+    {
+      "name": "native-clippy",
+      "result": "passed",
+      "scope": "all targets, registered, -D warnings",
+      "log_sha256": "ab95f642b1a05e46d4bea99a0b657872507f6bd2e58d7fbba7fe52a98a3818b2"
+    },
+    {
+      "name": "rust-release",
+      "result": "passed",
+      "scope": "release backend",
+      "log_sha256": "952b4955677cc6e6db4a617a04d2fd6dc3748fcb05d98cb151805b7d7f5fdf7c"
+    },
+    {
+      "name": "cmake",
+      "result": "passed",
+      "scope": "pinned native SDK configuration",
+      "log_sha256": "04c90a8c7a7ac100497540b249e314b28f42d2d4e5759a9412d620faef29b921"
+    },
+    {
+      "name": "native-sdk-build",
+      "result": "passed",
+      "scope": "production proxy and explicit SDK test targets",
+      "log_sha256": "f5841e6a8f03eac514a3faf447902c8f16b850853f1de1db6de763c9b0574a5f"
+    },
+    {
+      "name": "native-sdk-tests",
+      "result": "passed",
+      "scope": "13 of 13 executed and passed",
+      "log_sha256": "7c31fab48ea7f3129afefd58036faaf5f63ce24851691a4f73719d3724c61abf"
+    }
+  ],
+  "retained_red_logs": [
+    {
+      "name": "completion-red-slow-offline.log",
+      "sha256": "2b33357649fadc1dcea9aeff98baf22a31df90e20aef7f0280c4686adf1f0474"
+    },
+    {
+      "name": "completion-red-offline-terminal.log",
+      "sha256": "ed5b3ff7f24c1e36658b63dec1c2f2c91f88a9d7e985673944ebbe3fb116b3e3"
+    },
+    {
+      "name": "completion-red-zero-terminal.log",
+      "sha256": "2fd13913d296aadd54b5c222a068aed75fa49db2e4d5c6abe96aa8efaa7dfcd7"
+    },
+    {
+      "name": "completion-red-buffered-audio-capacity.log",
+      "sha256": "5588347ab146fc1f5c9b622067dd394035a9f6c8873d529593abad4a657f9b9a"
+    },
+    {
+      "name": "completion-red-buffered-one-frame.log",
+      "sha256": "cb3d8145ae2231a27846f9e8a674bd2082c524c13df95841458dc924e162600d"
+    },
+    {
+      "name": "completion-red-buffered-primary-audio.log",
+      "sha256": "173da9a791627878caf18c68ef4c28b7ceb5067ad8512a91c9fe82c986a5d9b2"
+    }
+  ],
+  "capacity_red_source": {
+    "archive_sha256": "8d5191daa056f3df3955670a13e1a24cd0b63670e76cf223f9ec19c8c9a7e5b3",
+    "scope": "pre-capacity integration with source regressions; not a historical installed failure reproduction"
+  },
+  "capacity_failures": [
+    "D1024 primary audio exhausted retained descriptors at frame512",
+    "D512 extra-output slot exhausted at frame511",
+    "D256 dense returned events/points exhausted retention at frame8"
+  ],
+  "scoped_reviews": {
+    "model": "gpt-6-astra",
+    "effort": "xhigh",
+    "closed_findings": [
+      "Frame/result retained capacity",
+      "Legacy accepted setup-mode fallback",
+      "Complete SDK lifetime retained after teardown failure",
+      "Exact capture/audio overlap oracle",
+      "Recorded ordinary deactivation refusal",
+      "Successful processing-start ownership before independent audit"
+    ],
+    "status": "no remaining P1/P2 reported in reviewed deltas; not installed approval"
+  },
+  "retained_private_bundle_sha256": "6750238fdce551afd0142e7cf8f2ca4ebd1a9cd8edd833e5ac039b9ef05131d6",
+  "installed_acceptance": false,
+  "physical_deck_acceptance": false,
+  "historical_gap_cause_established": false,
+  "claims_excluded": [
+    "paired Windows transport execution",
+    "installed package and SDK workflows",
+    "real DAW serial-chain timing",
+    "Deck interaction and soak",
+    "lower-block reliability",
+    "beta readiness"
+  ],
+  "changed_source_inputs": [
+    {
+      "path": "bridge-manager/src/acceptance.rs",
+      "sha256": "0a88a2861db0fa39787cf7e5cb7ff9e26065ffdf18559db3da3a09561aed566f"
+    },
+    {
+      "path": "bridge-manager/src/frg1.rs",
+      "sha256": "44d54cc4cdaf4ac1a53056b7099bfb529f53ecf76d0c898d3ccfabdc1b9db71e"
+    },
+    {
+      "path": "bridge-manager/src/lib.rs",
+      "sha256": "b22a544e02b03aeb56f004f596ad39b1571c587a479903d0ed5789c2a0aae84f"
+    },
+    {
+      "path": "bridge-manager/src/main.rs",
+      "sha256": "4312faad6d656a78d8119cad8fb8cead474e362906a3fa95fffe78233d5449eb"
+    },
+    {
+      "path": "bridge-manager/src/managed_candidate.rs",
+      "sha256": "d50be9ccb21f207ec26aa339e853bc6733851c1439c3881aba95545c5234c1ab"
+    },
+    {
+      "path": "bridge-manager/src/operator_cli.rs",
+      "sha256": "19c2ab6257a79badd3d92679fc5e88b9c608e3f3bc39fa92d09d4b5bef4be843"
+    },
+    {
+      "path": "bridge-manager/src/operator_cli/current.rs",
+      "sha256": "6adebead0b91ac1dec1f843080f7a1293c0e3de3658fa6be06af75d7dc04f49c"
+    },
+    {
+      "path": "bridge-manager/src/operator_model.rs",
+      "sha256": "0cbd087811a94a64bacbf765f16d82ca6943535de9c1a01af4252dff6221383f"
+    },
+    {
+      "path": "bridge-manager/src/pigments.rs",
+      "sha256": "792d89f8f228d28005e3a14bf90b5a794c96967757c323b5bfa123f3de2ea2d1"
+    },
+    {
+      "path": "bridge-manager/src/preparation/build.rs",
+      "sha256": "d6bdd2351bc81a1d02358f44fa0ae4803e6c4fe3cf641a1b9db5113272854549"
+    },
+    {
+      "path": "bridge-manager/src/preparation/configuration.rs",
+      "sha256": "05a5c6bcd61de6a9ff1c59033b41e9e96cc08d71605fd9aaa4dd6768d419692b"
+    },
+    {
+      "path": "bridge-manager/src/preparation/mod.rs",
+      "sha256": "7059d66d51f88b10babe3ed8244cd9e5ab99b527d7601e2a5aea5ade14eb40fb"
+    },
+    {
+      "path": "bridge-manager/src/publication.rs",
+      "sha256": "45fe7df27a990771a79afcbaabfe0bd463472a4f45a25526623bd48c17645a7a"
+    },
+    {
+      "path": "bridge-manager/src/qualification.rs",
+      "sha256": "05d37031e100d171cd4cab9bb6f349885b8eb34c9d00f6f0178e323fb4ddb753"
+    },
+    {
+      "path": "manager-ui/examples/library-preview.json",
+      "sha256": "2d2edaaec14860bc02810a071f246f15c05cef003d72ad938d13c65c7d0a1c48"
+    },
+    {
+      "path": "manager-ui/src/library.rs",
+      "sha256": "9fcb12e1cd414a26f6531cf31310cafa8c6d2ac305af6d820de41eb653601f25"
+    },
+    {
+      "path": "native-audio-client/src/admission.rs",
+      "sha256": "18b8adf1a4c8c3a8873563471fac0d751f76fda22e29a92bfaf1413f4fd8e0ae"
+    },
+    {
+      "path": "native-audio-client/src/endpoint.rs",
+      "sha256": "4a0d8a5b9a746a4a1dd911787ef2d6a0b0f3793ffb34c6f52018d23b75541291"
+    },
+    {
+      "path": "native-audio-client/src/lib.rs",
+      "sha256": "457dc186a678c168469d2c1062ef3148e9763a8013c557fa0fd1ed63a5dcbdc5"
+    },
+    {
+      "path": "native-audio-client/src/notification.rs",
+      "sha256": "b98c47fbe770bb8e6fd40091e745cf357496f0d8fe8d2bf3a0b84897982706a0"
+    },
+    {
+      "path": "native-vst3-proxy/CMakeLists.txt",
+      "sha256": "309ca58f397e61ad76f305f3d2b07f7a15c798de56ab95592115014caf19e655"
+    },
+    {
+      "path": "native-vst3-proxy/backend/src/capture_tests.rs",
+      "sha256": "f16d1752c8da8cf1ae370a12a711cced1dc56d3a643bc93018fb916e1eff9358"
+    },
+    {
+      "path": "native-vst3-proxy/backend/src/commercial_tests.rs",
+      "sha256": "c22b20f93e16f7ab595efe1874b2641799c4c7a1efa5d348072217ada06bc3d1"
+    },
+    {
+      "path": "native-vst3-proxy/backend/src/completion_wait.rs",
+      "sha256": "02eddee9dae8417b72ce519ea512d8dc8835eaa496d78ce8a011a0bff1d433fd"
+    },
+    {
+      "path": "native-vst3-proxy/backend/src/fault_status.rs",
+      "sha256": "b47a450876cfee1588608413902652ce0bbe29743dbd7d633a563d24d7c094f5"
+    },
+    {
+      "path": "native-vst3-proxy/backend/src/lc1_tests.rs",
+      "sha256": "47304db87085e1e094cfca8330526daafdb69d686f90f703c01ff6f6195dbf24"
+    },
+    {
+      "path": "native-vst3-proxy/backend/src/lib.rs",
+      "sha256": "c7dce9283bf9b06a978117abe4fe3352101e8e5b655b0ed87927bf535c4978ff"
+    },
+    {
+      "path": "native-vst3-proxy/backend/src/mailbox.rs",
+      "sha256": "09aeb77ad2c765983aa2426a64b82535c80e95d29271266bf1ad9b220e3cf3a8"
+    },
+    {
+      "path": "native-vst3-proxy/backend/src/output_pool.rs",
+      "sha256": "da8fbfa9432411ea096356f43840ac1869c4e9972b3ee3b17b0f5698f683de3b"
+    },
+    {
+      "path": "native-vst3-proxy/backend/src/performance.rs",
+      "sha256": "f9ef71d5f7c45e1a88ee3ad0cc095bbcc212b24b863b3a17b993135e0b09d77b"
+    },
+    {
+      "path": "native-vst3-proxy/backend/src/preview.rs",
+      "sha256": "87647368e444f5fdff69adb211dbe5f336068a20593f90331f2de7a3f91fa483"
+    },
+    {
+      "path": "native-vst3-proxy/backend/src/process_results.rs",
+      "sha256": "10827bc1dcc0c57db1e784040fa4b69001eefb5e5e2e5b46c919552d2e5798b3"
+    },
+    {
+      "path": "native-vst3-proxy/backend/src/queued.rs",
+      "sha256": "c13917c2ce44e973db0a7127a02d94c6425ce77ea120962df0ea86ae51daf780"
+    },
+    {
+      "path": "native-vst3-proxy/backend/src/scheduling.rs",
+      "sha256": "ad91361b1b50d181ae8046ac5168132c470befdb119a0ed95b385818687da056"
+    },
+    {
+      "path": "native-vst3-proxy/backend/src/state.rs",
+      "sha256": "7085fad05dbe5ffa83b390c347101515f2e00fda1a9dbf70918ddce978b07594"
+    },
+    {
+      "path": "native-vst3-proxy/include/ap23_backend.h",
+      "sha256": "4e70bd37eb742cbc4330661117af818eeaad5614d74cca4a9a7949cc3a114461"
+    },
+    {
+      "path": "native-vst3-proxy/source/output_results.h",
+      "sha256": "e9ee9969f9fac0b54461c1c0ecc8f8f7114a20332ce5341a723d707b5be157e8"
+    },
+    {
+      "path": "native-vst3-proxy/source/processor.cpp",
+      "sha256": "b66aecf6ea85d2962fc078319e1792dbeb01dc9b288c71f95475d654c80c7b2a"
+    },
+    {
+      "path": "native-vst3-proxy/source/processor.h",
+      "sha256": "203ddc42a9ccb6f62f3fa900ae954cf3f413f5d373ea1c55cd81dd6b009de94e"
+    },
+    {
+      "path": "native-vst3-proxy/tests/auxiliary_input/main.cpp",
+      "sha256": "78fc6bcea383fdb17ca3d6779222dc9c45d78b0a7d5d86bbc91c66447f574d20"
+    },
+    {
+      "path": "native-vst3-proxy/tests/callback_audit.cpp",
+      "sha256": "11e9f96652ff0bda0d89df6ab111b1b0e89256a0dc034a483865d1f7903ec269"
+    },
+    {
+      "path": "native-vst3-proxy/tests/local_wake_audit.cpp",
+      "sha256": "9c7eeb848052deb8f7bd570a59ec6603a962c4af01b9053b0c4f019285e8600c"
+    },
+    {
+      "path": "native-vst3-proxy/tests/result_lifetime/main.cpp",
+      "sha256": "2b37b211678cb87f7c51a175869998e3c072d88f0c2551cc10b56a2b66b19c7e"
+    },
+    {
+      "path": "tools/ap11-tests/native.cpp",
+      "sha256": "a0a0b01c98f23a4f9cfb96fc791e122b7f11e02cbd52df157921edb9a232f95c"
+    },
+    {
+      "path": "tools/ap13-tests/state_delivery.cpp",
+      "sha256": "a20bbdb418e99654851bb9630b3e331e8508dc4294ce1447ff4eb1a8e08b3905"
+    },
+    {
+      "path": "tools/beta/README.md",
+      "sha256": "503d83f589b787863f8484e853b1a8d7efe33cf595e5f6102b350c7bc3533b5b"
+    },
+    {
+      "path": "tools/beta/build_lifecycle_host.sh",
+      "sha256": "d6c248b609202a48fb2316c959de46949918c99dcc28c0139f6a85f5b97f0721"
+    },
+    {
+      "path": "tools/beta/build_reference.py",
+      "sha256": "ed97d6393ac19725db05623600eace8f3525d0d5fff6da34b25e5939b3535fbd"
+    },
+    {
+      "path": "tools/beta/build_unfamiliar.py",
+      "sha256": "bc2f22969435d433463077d87e25d89824c245b8a837f4188e65818af246f593"
+    },
+    {
+      "path": "tools/beta/completion_host.cpp",
+      "sha256": "b788653cc9ee2e05a5137ad025502f6ed44f41dc88d714523246daf94c37caec"
+    },
+    {
+      "path": "tools/beta/completion_host_tests.cpp",
+      "sha256": "fa11dec70142ccfbdb9d8a80782e3455d5185d1db62d0aa5bda83c2775e0a1c3"
+    },
+    {
+      "path": "tools/beta/reference_installer.rs",
+      "sha256": "ae43b61e7983815e35eaefe54a47202b6d4acae0c65158a1f4b9a8f3b7b1f422"
+    },
+    {
+      "path": "tools/beta/run_installed_configuration.py",
+      "sha256": "b97a5b82a6ee235da074479b48a00efe35bf8c2167af86d3a6653e41e5872215"
+    },
+    {
+      "path": "tools/beta/sdk_buffers.h",
+      "sha256": "a404e1cd82981431477da9642e0583ad8d7354672d06fa5ac8c024f5c0fd57b4"
+    },
+    {
+      "path": "tools/mf3/prebuilt_info.py",
+      "sha256": "e6dcab5fb048c0914cb513d5353e298d43f11746bfbab79f7fe736691f94de17"
+    },
+    {
+      "path": "tools/mf3/prebuilt_kit.py",
+      "sha256": "a1b8bff9200e1c8bdcc47faf4d20a85f805ade7cd17480fe3a9f8645a6506970"
+    },
+    {
+      "path": "tools/mf3/test_prebuilt_info.py",
+      "sha256": "d3e2615f1cd19ea343824be31aaf6fd636cace8aa1f3a1ab8a901ad4f6dddb72"
+    },
+    {
+      "path": "tools/pkg0/assemble.py",
+      "sha256": "27b631285e079f24c5d3a6bc24bda096b55bab42fa10cd391a331a3a9fb351c9"
+    },
+    {
+      "path": "tools/pkg0/test_assemble.py",
+      "sha256": "fdf60161791dea31ed2cf599b561b68c11fed9484d0f3c61fe50faeaf5b285f2"
+    },
+    {
+      "path": "tools/test_notification_transport.py",
+      "sha256": "6f18701c47612c339f17fcb9400190fc84ba5ef6396baa5384cc2621dfd8c0aa"
+    },
+    {
+      "path": "windows-factory-probe/CMakeLists.txt",
+      "sha256": "4b86b87078293240e7b45e742a808da1f43592c1b34796d73cfd445c051872f7"
+    },
+    {
+      "path": "windows-factory-probe/source/ap1_protocol.h",
+      "sha256": "6a77e14036448de23cdc67ff967529f7ba1e1c71854744ed43c3eadf7c6101af"
+    },
+    {
+      "path": "windows-factory-probe/source/delivery_mailbox.h",
+      "sha256": "98b2f2f7371bec643291cce641f342fc5aae2bad16ee436e374c213ef8ae6487"
+    },
+    {
+      "path": "windows-factory-probe/source/mapped_processing.cpp",
+      "sha256": "33e79b1290c72dc2dbb2529c0e697bbf7aa7591ab965821413c783ca45aac52e"
+    },
+    {
+      "path": "windows-factory-probe/source/notification_transport.h",
+      "sha256": "9e2bd4f4ed9324e59f195b61c1789d46e83a8bb871ac95b48a96a9d19723bcdc"
+    },
+    {
+      "path": "windows-factory-probe/source/offline_processing.cpp",
+      "sha256": "715c63e6053440a11a8ccd709cacd5d1a09381fc9b427ee6276a478ceb1600e7"
+    },
+    {
+      "path": "windows-factory-probe/source/offline_processing.h",
+      "sha256": "53819fefb6ba7b646dc4d9ba7f91b78b9ae25980f60daae9e1b7af38c3a86cf7"
+    },
+    {
+      "path": "windows-fixtures/beta/README.md",
+      "sha256": "120a2274c457a26268d3a8d687cefa5b3b7a32eaf39aec38e0f18e5ca8316344"
+    },
+    {
+      "path": "windows-fixtures/beta/completion.cmake",
+      "sha256": "430666d3e02aa9e413ce9386b54bf61dc0769c1d1cda06186848cb4ed697e5e4"
+    },
+    {
+      "path": "windows-fixtures/beta/completion_contract_tests.cpp",
+      "sha256": "9f50e8f26aa967f52633b6336d663daf88d78e6a5e8d0f197e11d08dd8bf93b1"
+    },
+    {
+      "path": "windows-fixtures/beta/stateful.cpp",
+      "sha256": "5f7da1f7116f4aa797e88c10be25598af88b52e613d879261812742e6e025cbe"
+    }
+  ],
+  "ci": {
+    "head": "f6ba78673766eb811e6523c55e8491f3eea6210e",
+    "workflows": [
+      {
+        "label": "native",
+        "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37172036988",
+        "result": "passed",
+        "log_sha256": "666c4ca699dfdf416d6aafd6ac9c100628469de1de49e6647d7fe9167ad786a0"
+      },
+      {
+        "label": "registered-owner",
+        "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37172037053",
+        "result": "passed",
+        "log_sha256": "f9fc046dfd87e26e66253688a3a037e10a2eb7e1b1de3016072bcfea82ee46ca"
+      },
+      {
+        "label": "portability",
+        "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37172037021",
+        "result": "passed",
+        "log_sha256": "4b00ccb027829ff4090a8ef548c76980617c9e48eb2124a21ea6a7aaa50c7eec"
+      },
+      {
+        "label": "policy",
+        "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37172037052",
+        "result": "passed",
+        "log_sha256": "a5badf4b5a7107cc47e6192d47bee4d8e8ab8b3f5f8afd6846bc25060f28d7cb"
+      }
+    ],
+    "manager_suite": {
+      "library_passed": 247,
+      "binary_passed": 318,
+      "binary_ignored": 2,
+      "frontend_passed": 98,
+      "runtime_python_passed": 392
+    },
+    "windows": {
+      "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37172037093",
+      "result": "failed_legacy_socket_harness_compilation",
+      "host_compile": "passed",
+      "completion_fixture_both_roles": "passed_N0_through_1024_modes_in_place_multiout_state",
+      "completion_installer": "passed",
+      "ipc15_capture_and_lifecycle": "passed",
+      "paired_notification_render_no_network_cancellation_peer_loss": "passed",
+      "failure": "Extracted legacy Socket test omitted the NotificationTransport declaration/header. No product binary is qualified by this incomplete run.",
+      "log_sha256": "7d174d895ca9bb52d6656b5080cccd58e23863cd1eee48f875f93856455ead86",
+      "artifacts_promoted": false
+    }
+  }
+}
