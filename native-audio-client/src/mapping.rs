@@ -48,12 +48,26 @@ impl Mapping {
         // MAP_SHARED=1, PROT_READ|PROT_WRITE=3 on this Linux/x86-64 target.
         let p = unsafe { mmap(std::ptr::null_mut(), bytes, 3, 1, file.as_raw_fd(), 0) };
         need(p as isize != -1, "mapping failed")?;
-        Ok(Self {
+        let mut mapping = Self {
             pointer: NonNull::new(p as *mut u8).ok_or_else(|| invalid("null mapping"))?,
             _file: file,
             unmapped: false, bytes, capacity, stride, output, version,
             output_channels: 2, extra: vec![[0.; BLOCK_CAP]; channels - 2],
-        })
+        };
+        // The mapping is still exclusively native-owned here. Establish the
+        // persistent plane guards once so an older compatible peer may validate
+        // a first zero-frame operation without requiring per-operation sample
+        // preparation. Interiors remain zero-backed until a nonzero request.
+        let guard = GUARD.to_le_bytes();
+        for (base, planes) in [(INPUT, 2), (output, channels)] {
+            for ch in 0..planes {
+                let plane = base + ch * stride;
+                mapping.write(plane, &guard)?;
+                mapping.write(plane + (capacity + 1) * 4, &guard)?;
+            }
+        }
+        barrier();
+        Ok(mapping)
     }
     pub fn close(mut self) -> io::Result<()> {
         let result = unsafe { munmap(self.pointer.as_ptr() as *mut c_void, self.bytes) };

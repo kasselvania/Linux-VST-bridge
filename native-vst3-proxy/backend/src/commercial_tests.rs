@@ -524,6 +524,64 @@ fn malformed_zero_frame_completion_is_terminal_without_sample_plane_access() {
     remote.join().unwrap();drop(session);std::fs::remove_file(path).unwrap();
 }
 #[test]
+fn fresh_mapping_preserves_old_peer_guards_across_zero_nonzero_zero_operations() {
+    let path=std::env::temp_dir().join(format!("n0-old-peer-{:x}",u128::from_le_bytes(mapping::random().unwrap())));
+    let mapping=Mapping::with_layout(&path,64,true).unwrap();
+    let output=mapping.output;let stride=mapping.stride;
+    let file=std::fs::OpenOptions::new().read(true).write(true).open(&path).unwrap();
+    let listener=std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let socket=TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    let (mut peer,_)=listener.accept().unwrap();
+    let remote=thread::spawn(move||{
+        let mut observed=Vec::new();
+        let mut position=0u64;
+        for (sequence,n) in [0usize,1,0].into_iter().enumerate(){
+            let request=receive_version(&mut peer,5,15).unwrap();
+            assert_eq!((request.kind,request.sequence,get(&request.payload[..4]),
+                get(&request.payload[40..48])),(PROCESS,sequence as u64+1,n as u64,position));
+            let mut guards=[[0u32;2];2];
+            for (ch, lane) in guards.iter_mut().enumerate() {
+                let mut bytes=[0;4];
+                file.read_exact_at(&mut bytes,(INPUT+ch*stride) as u64).unwrap();
+                lane[0]=u32::from_le_bytes(bytes);
+                file.read_exact_at(&mut bytes,(INPUT+(ch+1)*stride-4) as u64).unwrap();
+                lane[1]=u32::from_le_bytes(bytes);
+            }
+            observed.push(guards);
+            if n==1 {
+                for (ch,value) in [0.125f32,-0.25].into_iter().enumerate() {
+                    file.write_all_at(&value.to_le_bytes(),(output+ch*stride+4) as u64).unwrap();
+                }
+            }
+            let mut payload=vec![0;72];
+            put(&mut payload[..4],n as u64);put(&mut payload[4..8],output as u64);
+            payload[16..32].copy_from_slice(&request.payload[32..48]);
+            send_version(&mut peer,&Frame{kind:DONE,session:request.session,
+                sequence:request.sequence,payload},5,15).unwrap();
+            position+=n as u64;
+        }
+        observed
+    });
+    let mut session=Session{gui:None,gui_revision:0,mapping:Some(mapping),mailbox:None,
+        mailbox_enabled:false,notifications:None,configured_mode:0,capture:None,fault_status:None,
+        notices:(0,0),returned:Default::default(),processing:ProcessingScratch::new(),socket,
+        state:ClientState{session:[31;16],next:1,slot:Slot::Writable},phase:11,max:BLOCK_CAP,minor:15,
+        epoch:1,position:0,witness:None,identity:None,trace:Default::default(),sample_rate:48000,
+        armed:false,owner:None};
+    let left=[0.25;BLOCK_CAP];let right=[-0.5;BLOCK_CAP];
+    for n in [0,1,0] {
+        sample_plane_test::reset();
+        let (output,flags)=session.process_events(n,f64::NAN,0,[&left,&right],&[],Default::default()).unwrap();
+        assert_eq!(flags,0);
+        if n==1 {assert_eq!((f32::from_bits(output[0][1]),f32::from_bits(output[1][1])),(0.125,-0.25));}
+        assert_eq!(sample_plane_test::accesses(),if n==0 {(0,0)} else {(4,4)});
+    }
+    let observed=remote.join().unwrap();
+    assert!(observed.iter().flatten().flatten().all(|&word|word==GUARD),
+        "fresh or retained input mapping guard was absent: {observed:?}");
+    drop(session);std::fs::remove_file(path).unwrap();
+}
+#[test]
 fn production_processing_reuses_maximum_request_and_reply_storage() {
     use ap1_native_client::events::{Event, MAX_EVENTS, NOTE_ON, PARAMETER};
     let path=std::env::temp_dir().join(format!("ap9-storage-{:032x}",u128::from_le_bytes(mapping::random().unwrap())));

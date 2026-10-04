@@ -147,215 +147,74 @@ whole output, state, timing and retirement. Restore the exact predecessor normal
 The claim is removal of unnecessary zero-frame sample work, not attribution of
 historical misses or dependable audio. Broader completion acceptance remains open.
 
-The [source regression](evidence/audio-recovery/2026-10-04-zero-frame-sample-payload-source.json)
-fails on the old actual Session path (four mapped writes and reads for N=0) and
-passes with the repair. Linux has 142 passing tests, one ignored paired Windows
-integration, and clean strict lint. Native immediate START-to-N=0 ordering and
-malformed completion are covered separately from the ACK-paced two-ended fixture.
-Review found a mutable vendor frame-count bypass; the repair now uses the admitted
-count and explicitly refuses mutation. Final delta review, Windows execution and
-installed acceptance remain pending. Fixed-size native result initialization remains;
-post-Done private output reset may delay the following request.
+The original source regression fails on the old actual Session path (four mapped
+writes and reads for N=0). Repaired source `cc41a030` passed 142 Linux backend tests,
+Windows SDK execution, five applicable CI workflows, 13 native SDK tests and paired
+package rebuild. Review closed the mutable vendor frame-count bypass by retaining
+the admitted count and refusing mutation before publication. Fixed-size native
+result initialization remains; bounded post-Done private output reset may delay
+following work. The ACK-paced two-ended LC1 runtime test remains unperformed;
+unpaced START/N=0 ordering is covered separately at native callback/queue level.
 
-## Current checkpoint
+Its `0.12.0audio7` candidate is retained **uninstalled**. Compatibility review found
+that a cached engine after rollback can be admitted against an older host
+(FC-MGMT-008), whose first N=0 reads guards missing from a fresh zero-backed mapping.
+The follow-up prepares those existing guards once during inactive mapping creation.
+Its actual Session IPC15 regression fails at `cc41a030`, then passes fresh
+N=0/N=1/N=0 against the source-matched old-reader oracle, with per-operation mapped
+access counts (0,0)/(4,4)/(0,0). This is not execution of the old Windows binary.
+Bounded independent review has no findings. Linux validation passes 143 backend
+tests (one paired integration ignored), 18 client tests and strict affected lint.
+The unchanged Windows artifact may be reused only with all declared inputs verified.
 
-The source at `8d8327a295ed6b064d3f14e252e5f51d46510d8b` passes applicable
-Linux/Windows CI. Paired package `0.12.0audio1` passed independent native/backend
-rebuild verification and is installed on the bounded Ubuntu fixture. Normal Setup
-installed, discovered, prepared and published the completion instrument and effect
-for testing. Original publications/preferences were preserved at package adoption.
+Source, original failures and candidate identities are retained in
+[evidence](evidence/audio-recovery/2026-10-04-zero-frame-sample-payload-source.json).
+The loaded-engine admission gap remains a separate required architectural repair:
+bind the executing caller to its pair, give an inspectable stale-caller result and
+preserve usable exact predecessor restoration. Mapping guard preparation does not
+close that gap. No greeting/ABI redesign is included in this sample-payload change.
 
-The [installed checkpoint](evidence/audio-recovery/2026-10-03-audio1-installed.json)
-retains both passing buffered offline lifetimes: N=0..512, inactive M=257/Fs=96 kHz
-reconfiguration, exact state and retirement, and 1,336,552 independently compared
-float samples with zero mismatches. The first real-time zero-frame flush after an
-offline-to-real-time transition then failed its 1-ms allowance. Fault progress
-places it behind START acknowledgement; the processing-ready marker follows its
-failed callback. A declared diagnostic comparison reproduced this boundary.
-Neither failure submitted audio frames, and both retired positively.
+## Installed checkpoint and next completion boundary
 
-The prepared render lifecycle repair at
-`f57a4a4dd357b22c610daa20ab64be2cac634375` is installed as `0.12.0audio2`.
-Its [installed comparison](evidence/audio-recovery/2026-10-03-audio2-installed.json)
-completes the formerly failing first RT N=0 callback in 844,029 ns against the
-unchanged 1-ms allowance. The complete mode-switch run returns 198,672 correct
-float samples, with no rejected callbacks or missing output. One N=13 callback
-still exceeds its whole-callback allowance by 67,759 ns, so timing qualification
-remains failed. Both offline roles retain exact output/state/retirement, totaling
-1,336,552 independently compared samples. This is a bounded functional comparison,
-not an attribution of historical gaps or a dependable-audio claim.
+Latest installed package is `0.12.0audio6` at source `e483ddce`, with the exact audio4
+instrument native predecessor restored through normal controls. The manager remains
+audio6; this is not whole-package rollback or a dependable fallback. Instrument
+Buffered512 and sibling effect SameCallback D0/remembered512 remain unchanged.
 
-Current IPC 15 control acknowledgement polling was replaced with a reviewed
-notification at `06820906`, now included in the installed audio3 comparison. Next work
-retains the same completion contract through failure/slow offline and delivery
-selection checks. The first slow-offline run returns correct
-audio and retires, but its full-envelope state oracle incorrectly requires replay
-of transient fixture control ID31. Vendor opaque state and durable values are
-unchanged; the current controller mirror legitimately reports the later operation.
-The reviewed observer correction at `88451fb8` was rebuilt separately and tried
-against unchanged audio2 after a VM restart. That attempt stops before audio:
-manager launch verification expires, native state becomes `Failed`, and the later
-bus call refuses that phase. No consumer audio transport was created; this is not
-a transport-retirement failure or a result from the corrected state oracle.
-A separately declared single warm comparison on unchanged audio2 then passes the
-corrected oracle, 4,148 exact audio samples, a 12-second offline callback with
-concurrent state capture, and exact retirement. The cold-start failure remains
-failed; no failed lifetime is relabeled by that comparison.
+The [audio6 comparison](evidence/audio-recovery/2026-10-04-audio6-refusal-frontier.json)
+passes all 107 diagnostic-off callbacks, 198,672 independently compared samples,
+state and local timing. Diagnostic-on refuses its first RT N=0 at 1,007,081 ns
+against the unchanged 1-ms allowance, before measured audio/final recall. Both
+retire positively. The exact operation predicate is satisfied at refusal: native
+reply precedes the deadline bracket by 43,143–43,214 ns, wait-end by 4,558–4,629 ns,
+and presentation follows it by 171–242 ns. This identifies the refusal path, not
+intrinsic CPU cost or the cause of older gaps. Scheduling observations differ;
+one off/on pair cannot isolate observer or scheduling causation.
 
-The shared preparation regression is reproduced and repaired: successful bounded
-byte observations now survive a late completion, while the expired caller remains
-refused. Later admission retains fresh file-identity and expected-digest checks.
-The focused regression, shared preparation checks and 243 manager library tests
-pass; scoped independent review has no findings. No startup/audio budget, runtime
-or persisted authorization policy changed. Paired `0.12.0audio3` is frozen at
-`29e820402851a3d5f05395f6f4f923456a5afa0c`, tree
-`fd75321eaa8289ffc968bd1c9ffabdfd52e06bae`, with all five applicable CI workflows
-and independent native rebuild verification passing. It includes the reviewed
-control acknowledgement notification. The unchanged Windows host retains its
-`f57a4a4` provenance; all 64 declared Windows inputs match the new freeze.
-Normal installation and both successor publications preserve prior settings and
-predecessors. After a normal shutdown/restart, its first slow-offline consumer
-passes audio, state and retirement without an intervening consumer warmup. That
-one installed success does not prove the automatic warm task crossed its deadline;
-the source regression establishes the late-observation defect separately.
-The [installed lifetimes](evidence/audio-recovery/2026-10-03-audio3-installed.json)
-also pass explicit vendor failure, original offline timeout and abrupt native
-consumer disappearance, with confirmed process/transport retirement. Timeout
-returns explicit failure 78,796 ns beyond 60 seconds; no strict whole-callback
-wall-clock guarantee follows. Normal manager actions select SameCallback D=0 for
-both roles while retaining remembered512. Both complete offline consumers pass
-787 callbacks and 664,180 exact samples each, state and retirement. Independent
-evidence review has no findings for those six lifetimes. Normal GUI restoration
-then returns only the instrument to Buffered512; the effect remains D0 with
-unchanged preference bytes. Restored offline output/state match audio2 exactly.
-The matched modes comparison also preserves exact output/state/retirement, but
-callback105 (RT, N13) takes 280,722 ns against 270,833 ns. Both historical and new
-whole-callback timing remain unqualified. Eight whole lifetimes are retained;
-local source/record analysis identifies callback105 as the N13 residual tail,
-which may need the preceding N512 completion. Buffered nonzero deadlines bound
-completion waiting; subsequent presentation and C++ result delivery remain outside
-that enforced wait bound. The outer SDK bracket includes unquantified audit costs.
-Existing aggregate counters cannot attribute this callback's overrun.
+Next: freeze the compatibility-corrected paired package, install on the same bounded
+Ubuntu fixture using normal package adoption, inspect/prepare/publish the successor,
+then run the same complete instrument modes workload once off and once on
+(M512, Fs48000, D512). Retain every whole attempt, actual output/state/timing and
+retirement. Do not rerun to obtain a pass. Restore the exact audio4 publication
+through ordinary rollback, preserving the sibling and explicit preferences. Keep
+budgets, runtime and scheduling unchanged. Stop the builder before starting the VM;
+finish with normal VM shutdown. The Deck stays unchanged during this comparison.
 
-The bounded native phase observer is installed as `0.12.0audio4` at source
-`1124c1b32637432ab9b0cf3a31b46cbb0820fcbc`, tree
-`f649b1399b16d8466e4c8edfa3fc4f3cf1a3f11f`. All five applicable CI workflows,
-13 Linux SDK tests, three phase regressions, legacy native builds and independent
-package rebuild pass. Explicit invocation-only `LVB_AP23_PHASE_TRACE=1` prepares
-128 records while inactive and exports them after quiescence. Reached phases and
-valid clocks differ; inferred deadlines retain conversion brackets; final C++ is
-pre-return. Ordinary disabled callbacks retain their ABI and no phase export.
+Previous retained results, reused only within their stated scope:
 
-The [installed off/on comparison](evidence/audio-recovery/2026-10-04-audio4-phase-comparison.json)
-uses the same reference module, settings, Windows executable and independent
-consumer. Normal rescan, inspection, preparation and successor publication retain
-the predecessor and all performance preferences. Both 107-call runs preserve exact
-audio/state bytes from audio3 and confirmed retirement, but each has one timing
-overrun. Callback 105 takes 283,345 ns off and 294,484 ns on against 270,833 ns. The traced
-wait interval spans 285,056 ns; its post-return end stamp is 18,405–18,467 ns beyond the
-conversion bracket. C++ result delivery spans 595 ns. This localizes the interval,
-not the cause: notification timing, kernel waiting, pre-syscall and post-return
-descheduling remain indistinguishable. The initial offline state-setting flush is
-one additional native record outside the 107 measured Exercise calls; all 108 are
-retained and correlated using unique SDK clock brackets. No acceptance rerun or
-budget change follows from correcting the analyzer's initial count assumption.
+| Candidate | Established result and open limit |
+| --- | --- |
+| [audio1](evidence/audio-recovery/2026-10-03-audio1-installed.json) | Both buffered offline roles pass output/state/reconfiguration; first RT N=0 fails behind START readiness. |
+| [audio2](evidence/audio-recovery/2026-10-03-audio2-installed.json) | Prepared render lifecycle completes the first flush; complete output/state pass, but N13 whole-callback timing fails. |
+| [audio3](evidence/audio-recovery/2026-10-03-audio3-installed.json) | Slow offline, vendor refusal, timeout and abrupt consumer-loss containment; D0 selection, both offline roles and normal buffering restoration pass. N13 timing remains failed; cold-start failure is retained separately. |
+| [audio4](evidence/audio-recovery/2026-10-04-audio4-phase-comparison.json) | Exact audio/state and retirement in both runs; callback105 exceeds allowance in both. Phase observer localizes waiting but does not establish scheduling cause. |
+| [audio5](evidence/audio-recovery/2026-10-04-audio5-zero-frame-failure.json) | Absolute monotonic waiting is source-repaired; installed off/on and exact audio4 control all fail an N=0 deadline. All retire. |
 
-The shared absolute-wait repair is committed at
-`2847d4b9343fa91f54110ee310746fc89a25b625`, tree
-`47bdcf07afb7b25ef964f209210600d30de271c7`.
-The [Linux source regression](evidence/audio-recovery/2026-10-04-absolute-completion-wait.json)
-first fails against the relative wait, then all 133 backend tests pass with the
-reviewed absolute monotonic wait. Checked conversion, early timeout reinspection,
-publication races, interruption and cancellation retain the original deadline.
-This fixes deadline arming; it does not guarantee a descheduled caller returns by
-that deadline. All five applicable CI workflows, 13 native SDK tests and the
-independent package rebuild pass for paired `0.12.0audio5`.
-
-The [installed comparison](evidence/audio-recovery/2026-10-04-audio5-zero-frame-failure.json)
-**fails**. Diagnostic-off and diagnostic-on both refuse the first RT N=0 call:
-1,130,203 ns and 1,072,008 ns against 1 ms. Neither reaches measured audio or final
-state recall. Both confirm process and transport retirement. The traced operation
-predicate remains unsatisfied; its enclosing wait is 1,055,160 ns. The processing-ready
-marker appears 789,283 ns after SDK entry. This marker and the post-wait stamp do
-not isolate worker scheduling, transport, render-thread or SDK duration.
-
-One declared same-boot control restores exact audio4 native publication through
-normal `ordinary_rollback`, retaining audio5 manager, identical Windows host/runtime,
-consumer and all preferences. It passes the first RT N=0 in 679,060 ns, compares
-16,380 samples correctly, then refuses callback12 (prefetch N=0) in 1,066,883 ns.
-It also retires positively. None of these three lifetimes passes. The earlier
-engine's failure prevents assigning the new first-call failures to the absolute
-wait alone; it does not prove timing equivalence. The exact audio4 native predecessor
-is left selected, with audio5 manager and all sibling registrations/preferences
-unchanged. Preserve this explicit mixed selection; do not call it a whole-package
-rollback or a known dependable fallback.
-
-Next bounded work is the shared START/readiness and queued zero-frame completion
-path, including unpaced backlog and the native/Windows wake chain. Establish where
-the required operation is before its deadline before another production change.
-Native worker readback is policy0/priority0 with realtime budget unavailable;
-Each audio5 run has two unavailable Windows scheduling requests and no effective
-policy readback. The predecessor control has one unavailable request and one effective
-policy1073741826/priority5 readback. These differing post-start observations confound
-an isolated engine timing comparison and do not prove continuous scheduling policy.
-Do not substitute a launcher policy for actual-thread measurement. Keep existing
-budgets, buffering, runtime and privilege scope unchanged. Keep `setProcessing`
-lightweight: it may execute on the processing thread; do not move a blocking START
-acknowledgement wait there.
-Physical/serial-chain/lower-block/musician acceptance remains open.
-
-The observation change starts from `637c40b431e64492884025e5b0ace409f6f95f24`,
-tree `d4d4c0a5c921d429bdb21b327a19c43ee4a20f4a`. It reuses AP12's existing mapped status:
-prepare a retained read-only view and capture one bounded snapshot when the first
-exact-deadline refusal is recorded, under explicit invocation diagnostics. It observes
-the refusal interval, not an atomic cross-process instant at the original deadline.
-Keep per-lane stability, generation/epoch/position/sequence matching and clock domains
-separate; a stable stale row is not current work. A coherent diagnostic worker tuple
-binds protocol sequence to callback/ticket, including repeated zero-frame calls at
-the same position. Changed or absent correlation stays unknown. Export only after
-quiescence.
-This is one snapshot of existing stages, not a second trace stream or a new transport.
-Cover an advancing-after-refusal row, stale/unstable/absent data, map lifetime,
-first-failure preservation and callback allocation. Disabled operation performs no
-snapshot reads. Separately preserve identity-checked scheduling observations after
-an unsuccessful capability request instead of discarding them in a generic error.
-Scope: backend `fault_status.rs`, `lib.rs`, `queued.rs`, and manager
-`audio_scheduling.rs`, plus required focused tests. No Windows/protocol, budgets,
-RTTIME/privilege, lifecycle or buffering changes. The
-[source validation](evidence/audio-recovery/2026-10-04-deadline-status-source.json)
-passes 140 Linux backend tests, 12 scheduling tests, final focused tests and clippy;
-independent review has no remaining findings. Recovery export has helper-level
-tests and source-reviewed integration, not a new end-to-end recovery proof.
-
-Paired `0.12.0audio6`, source `e483ddce6364c134822a58495330b371fa0dc3d4`,
-tree `4a022c19fc621ade38a235c66a580606326b86de`, passes five applicable CI jobs,
-13 native SDK tests and independent rebuild verification. Its
-[installed pair](evidence/audio-recovery/2026-10-04-audio6-refusal-frontier.json)
-uses unchanged Windows/consumer/audit bytes and normal update, inspection,
-preparation and publication. Diagnostic-off passes all 107 calls, independently
-verified 198,672 samples, state round-trip and local timing. Diagnostic-on refuses
-the first RT N=0 at 1,007,081 ns; no measured audio or final recall follows.
-Both retire positively. The failed call's exact-operation predicate is satisfied;
-its correlated native reply stamp is 43,143–43,214 ns before the deadline bracket,
-wait-end is 4,558–4,629 ns before it, and presentation stamp is 171–242 ns after it.
-The final native check refuses late completion. This identifies the refusal path,
-not the exact consumption instant, intrinsic CPU cost or cause of older gaps.
-Windows scheduling readbacks again differ; their availability may itself depend
-on lifetime length. One off/on pair cannot isolate observer overhead or scheduling
-causation. The whole completion path, including remaining work after waiting and
-shared START/N=0 ordering, is the next bounded target. Do not hide lateness by
-removing the final check, raising the budget or blocking `setProcessing`.
-Normal rollback restores exact audio4 native with audio6 manager retained, all
-original class registrations and preferences unchanged. This is native restoration,
-not whole-package rollback or a dependable fallback. Both lifetimes and their
-captured output/status are preserved. Failure-time observation alone is not an
-audio repair; physical/serial-chain/lower-block/endurance gates remain open.
-
-The polling audit distinguishes current control acknowledgement from deliberate
-legacy paths. Windows mapped-processing formatting was completed separately at
-`12ee4383`, preserving all tokens/comments and preprocessor records. The roadmap
-selects splitting #200 and integrating retained capabilities in dependency order
-after audio acceptance; preserve the original stack and record the exact dependency
-map before that later extraction. No rebase or merge starts in this slice. Ubuntu was
-shut down normally after this checkpoint; both project machines are stopped.
-Audiobookshelf remains running and the Deck remains unchanged.
+The current control-acknowledgement polling audit, deliberate legacy paths and
+Windows render-file formatting are complete. The roadmap selects splitting #200
+and landing retained capabilities in dependency order after audio acceptance;
+preserve the original stack and record its dependency map before extraction.
+No merge/rebase or new runtime/graphics/vendor work starts here. Physical DAW,
+serial-chain, lower-block, dependable-audio and full musician/soak gates remain open.
+Builder custody is active for this package; Ubuntu is stopped, Audiobookshelf is
+running and Deck/Nibbi are unchanged.

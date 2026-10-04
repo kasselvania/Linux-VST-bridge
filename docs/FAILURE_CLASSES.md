@@ -2700,3 +2700,28 @@ deadline; it replays neither actions nor audio. Four such refreshes occurred in
 each passing full run. Config6's Keep failure and the earlier missing audio block
 remain retained; this reference repair neither establishes the audio cause nor
 qualifies the physical musician workflow.
+
+## FC-MGMT-008 — Loaded native engine is not bound during admission
+
+The native preview greeting identifies the logical class and vendor module, while
+the manager resolves the currently selected publication. It does not identify the
+engine already loaded in the DAW. Source inspection at `cc41a030` establishes this
+admission gap: a cached factory can survive a publication rollback without a DSP
+lease and later create an instance against the restored host. File-level coherent
+publication, inactivity checks and protocol 15 do not prove the caller uses that pair.
+
+Normal preparation and rollback do preserve each complete recorded registration
+and its retained host/supervisor components. The missing boundary is the executing
+caller's identity, not loss of the retained files. Relevant owners are descriptor
+identity, native `preview.rs` greeting, manager `resolve`, and publication admission.
+A physical DAW cached-factory reproduction has not been run.
+
+The zero-frame optimization exposed a concrete compatibility consequence: its
+fresh zero-backed mapping lacks the input guards read by the earlier Windows host.
+The bounded compatibility repair prepares existing guard invariants while inactive,
+retaining zero per-operation sample access. This does not close caller admission.
+The broader follow-up must bind the loaded native engine to the execution pair,
+provide an inspectable stale-caller result and preserve usable exact predecessor
+restoration. Do not claim that admission is fixed merely because fresh-process
+installation and rollback pass. No greeting/ABI redesign is included in the current
+sample-payload repair.
