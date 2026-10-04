@@ -23,6 +23,261 @@ fn candidate_commit_requires_valid_retained_lineage() {
     assert_eq!(fs::read(&lineage_path).unwrap(), original);
     assert!(!root(&f.m).join("revision.json").exists());
 }
+#[test]
+fn retained_static_profile_without_candidate_authorizes_only_its_exact_refresh() {
+    let (f, mut profile, mut census, native) = prepared_accessibility(false);
+    let mut raw: Value = read_json(&census.report.path).unwrap();
+    let mut controller = raw["records"][1]["classes"][0].clone();
+    controller["raw_tuid_hex"] = json!("02".repeat(16));
+    controller["category_hex"] = json!(hex(b"Component Controller Class"));
+    raw["records"][1]["classes"][1] = controller;
+    atomic_json(&census.report.path, &raw).unwrap();
+    let report = census.report.path.clone();
+    census = Census::from_report(
+        census.environment,
+        census.module,
+        census.module_stamp,
+        census.host,
+        census.host_source_sha256,
+        Artifact { sha256:digest(&report).unwrap(), path:report },
+        &f.r.key(),
+    ).unwrap();
+    let reference =
+        f.m.managed_publish(
+            &profile,
+            &census,
+            f.r.clone(),
+            &f.r.host,
+            &f.r.host_source_sha256,
+            None,
+        )
+        .unwrap();
+    let predecessor = f.m.load_revision(&f.r.key(), &reference).unwrap();
+    profile.capabilities.accessibility = Accessibility::DisabledForVendorProcess;
+    profile.capabilities.vendor_retirement =
+        Some(VendorRetirement::ProcessScopedVendorRetirement);
+    profile.capabilities.editor_lifetime =
+        Some(EditorLifetime::RetainEditorViewUntilInstanceRetirement);
+    profile.capabilities.event_output =
+        Some(EventOutputPolicy::ReportedZeroEventChannelsUnspecified);
+    profile
+        .limitations
+        .push(Limitation::WindowsAccessibilityUnavailable);
+    profile.validate().unwrap();
+    let mut predecessor = predecessor;
+    predecessor.id = random_id().unwrap();
+    predecessor.transaction = random_id().unwrap();
+    predecessor.profile = profile.clone();
+    predecessor.profile_sha256 = profile.fingerprint().unwrap();
+    predecessor.registration.compatibility = profile.capabilities.compatibility();
+    let revision_dir = f
+        .m
+        .root
+        .join("publications")
+        .join(&predecessor.class_id)
+        .join("revisions")
+        .join(&predecessor.id);
+    private_dir(&revision_dir).unwrap();
+    predecessor.target = revision_dir.join(format!("LVB_{}.vst3", predecessor.class_id));
+    let native_dir = predecessor.target.join("Contents/x86_64-linux");
+    private_dir(&native_dir).unwrap();
+    let installed_native = native_dir.join(format!("LVB_{}.so", predecessor.class_id));
+    fs::copy(&predecessor.registration.native.path, &installed_native).unwrap();
+    predecessor.registration.relocate_native(installed_native);
+    atomic_json(&predecessor.target.join("bridge-provenance.json"), &predecessor).unwrap();
+    atomic_json(&revision_dir.join("revision.json"), &predecessor).unwrap();
+    assert_eq!(
+        publication_candidate(&f.m, &predecessor.profile, &predecessor.registration)
+            .unwrap_err()
+            .to_string(),
+        "candidate_preparation_required"
+    );
+
+    with_retained_refresh_profiles(vec![profile.clone()], || {
+        let source = refresh_source(&f.m, &predecessor).unwrap();
+        assert!(source.candidate.is_none());
+        assert_eq!(
+            source.selection.environment,
+            predecessor.registration.environment
+        );
+        assert_eq!(source.selection.module, predecessor.registration.module);
+        assert_eq!(source.selection.class.id, predecessor.class_id);
+        assert_eq!(source.basis, retained_revision_basis(&predecessor).unwrap());
+
+        let manifest = Artifact {
+            path: predecessor
+                .registration
+                .host
+                .path
+                .with_file_name("host-source-manifest.json"),
+            sha256: predecessor.registration.host_source_sha256.clone(),
+        };
+        let inspection = inspect_record_with_layout(
+            source.selection.clone(),
+            predecessor.census.report.clone(),
+            Origin::ManagedPreparation,
+            predecessor.registration.host.clone(),
+            manifest.clone(),
+            predecessor.registration.compatibility.audio_layout.clone(),
+        )
+        .unwrap();
+        let next = prepared(
+            source.selection,
+            inspection,
+            native,
+            predecessor.registration.host.clone(),
+            manifest,
+            "aa".repeat(32),
+        )
+        .unwrap();
+        let next = bind_preparation_basis(next, Some(source.basis.clone())).unwrap();
+        let next = carry_retained_revision_configuration(next, &predecessor).unwrap();
+        retain_refresh_lineage(&f.m, &next, &predecessor, None).unwrap();
+        verify_refresh_candidate(&f.m, &next, &predecessor).unwrap();
+        validate_candidate_record(&f.m, &next).unwrap();
+        verify_retained_candidate(&f.m, &next).unwrap();
+        assert!(publication_requires_refresh(&f.m, &predecessor).unwrap());
+        assert_eq!(
+            next.local_settings,
+            Some(crate::operator_model::LocalSettings {
+                graphics: predecessor.profile.capabilities.graphics,
+                accessibility: crate::operator_model::AccessibilityChoice::DisabledForHost,
+            })
+        );
+        assert_eq!(
+            next.profile.capabilities.compatibility(),
+            predecessor.registration.compatibility
+        );
+        assert_eq!(
+            next.profile.capabilities.vendor_retirement,
+            Some(VendorRetirement::ProcessScopedVendorRetirement)
+        );
+        assert_eq!(
+            next.profile.capabilities.editor_lifetime,
+            Some(EditorLifetime::RetainEditorViewUntilInstanceRetirement)
+        );
+        assert_eq!(
+            next.profile.capabilities.event_output,
+            Some(EventOutputPolicy::ReportedZeroEventChannelsUnspecified)
+        );
+
+        record_candidate(&f.m, &next).unwrap();
+        let mut second_predecessor = predecessor.clone();
+        second_predecessor.profile = next.profile.clone();
+        second_predecessor.profile_sha256 = next.profile.fingerprint().unwrap();
+        second_predecessor.census = next.census().unwrap();
+        second_predecessor.registration = configuration::registration(&next).unwrap();
+        second_predecessor.qualification = Some(Qualification::ManagedExperimental);
+        let second_source = refresh_source(&f.m, &second_predecessor).unwrap();
+        assert!(second_source.candidate.is_some());
+        assert_eq!(
+            second_source
+                .retained_configuration
+                .as_ref()
+                .unwrap()
+                .id,
+            predecessor.id
+        );
+        let mut successor = next.clone();
+        successor.recipe_sha256 = "bb".repeat(32);
+        let successor = bind_preparation_basis(
+            configuration::carry_settings(successor, Some(&next)).unwrap(),
+            Some(second_source.basis.clone()),
+        )
+        .unwrap();
+        let successor =
+            carry_retained_revision_configuration(successor, &second_predecessor).unwrap();
+        retain_refresh_lineage(
+            &f.m,
+            &successor,
+            second_source.retained_configuration.as_ref().unwrap(),
+            Some(&next.id().unwrap()),
+        )
+        .unwrap();
+        verify_refresh_candidate(&f.m, &successor, &second_predecessor).unwrap();
+        validate_candidate_record(&f.m, &successor).unwrap();
+        assert_eq!(
+            successor.profile.capabilities.compatibility(),
+            predecessor.registration.compatibility
+        );
+
+        let mut stale = predecessor.clone();
+        stale.id = random_id().unwrap();
+        assert_eq!(
+            verify_refresh_candidate(&f.m, &next, &stale)
+                .unwrap_err()
+                .to_string(),
+            "bridge_refresh_predecessor_configuration"
+        );
+        let mut qualified = predecessor.clone();
+        qualified.qualification = Some(Qualification::ManagedExperimental);
+        assert_eq!(
+            refresh_source(&f.m, &qualified).unwrap_err().to_string(),
+            "bridge_refresh_predecessor_claim"
+        );
+        let mut malformed = predecessor.clone();
+        malformed.census.selected.name = "Different class".into();
+        assert!(refresh_source(&f.m, &malformed).is_err());
+        let mut wrong_class = next;
+        wrong_class.selection.class.id = "03".repeat(16);
+        assert_eq!(
+            verify_refresh_candidate(&f.m, &wrong_class, &predecessor)
+                .unwrap_err()
+                .to_string(),
+            "bridge_refresh_predecessor_changed"
+        );
+    });
+}
+
+#[test]
+fn lost_managed_candidate_is_not_reclassified_as_a_legacy_profile() {
+    let (f, c) = fixture();
+    record_candidate(&f.m, &c).unwrap();
+    for area in AREAS {
+        record_observation(
+            &f.m,
+            &c,
+            &random_id().unwrap(),
+            area,
+            TestStatus::Passed,
+            "Exact local observation",
+        )
+        .unwrap();
+    }
+    review(
+        &f.m,
+        &c,
+        &random_id().unwrap(),
+        ReviewChoice::AcceptExactLocal,
+        "Exact local review",
+    )
+    .unwrap();
+    let reference = enable(&f.m, &c, true).unwrap();
+    let predecessor =
+        f.m.load_revision(&c.selection.class.id, &reference)
+            .unwrap();
+    let lineage_path = object(&f.m, "lineage", &c.id().unwrap())
+        .unwrap()
+        .join("record.json");
+    let lineage: CandidateLineage = read_json(&lineage_path).unwrap();
+    fs::remove_file(&lineage_path).unwrap();
+    assert_eq!(
+        refresh_source(&f.m, &predecessor).unwrap_err().to_string(),
+        "candidate_lineage_absent"
+    );
+    atomic_json(&lineage_path, &lineage).unwrap();
+    fs::remove_dir_all(root(&f.m).join("candidates")).unwrap();
+    assert_eq!(
+        publication_candidate(&f.m, &predecessor.profile, &predecessor.registration)
+            .unwrap_err()
+            .to_string(),
+        "candidate_preparation_required"
+    );
+    assert_eq!(
+        refresh_source(&f.m, &predecessor).unwrap_err().to_string(),
+        "bridge_refresh_predecessor_profile"
+    );
+}
 fn fixture_with_environment(id: &str) -> (Fixture, Candidate) {
     let (mut f, _, mut census, native) = prepared_accessibility(false);
     f.m.unpublish(&f.r.key()).unwrap();

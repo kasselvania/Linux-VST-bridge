@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "date": "2026-10-04",
+  "claim": "source_validation_of_retained_ordinary_publication_migration_not_installed_acceptance",
+  "base_commit": "b0d5a1b0c25872a4aa5d6e426287b26adb8c38f8",
+  "base_tree": "4a1973495a6a27c8673b3a9e0b6b66afa8525287",
+  "source_patch_sha256": "38233cf5240c977c75b2da88ab0cf37f0e2dbc29ef62aaf0a17d8970c3e0a7f8",
+  "files": {
+    "bridge-manager/src/package_authority.rs": "2dec24f8c874968712d624ff33cfc652d02ffc3c34702d4a342a4c0d1f592e28",
+    "bridge-manager/src/preparation/mod.rs": "8fbaef1110e594ada003ece853860c26a6f36fb111dd0c93e09e80a736774b2f",
+    "bridge-manager/src/preparation/tests.rs": "bf7e61d710d492c082592b401daf92a7c3d6eb479c05867f3fac6c7f6c9809c2"
+  },
+  "independent_review": {
+    "model": "gpt-6-astra",
+    "reasoning": "xhigh",
+    "result": "no_remaining_source_blockers",
+    "exact_patch_sha256": "38233cf5240c977c75b2da88ab0cf37f0e2dbc29ef62aaf0a17d8970c3e0a7f8"
+  },
+  "original_failure": {
+    "test": "preparation::tests::retained_static_profile_refresh_verifies_without_inventing_a_candidate_predecessor",
+    "base_compiled": true,
+    "exit_code": 101,
+    "reason": "candidate_preparation_required",
+    "regression_patch_sha256": "018aec387516721f8778c020e7751e3e44e405f55b77167e374f22b159d5d42c",
+    "log_sha256": "5c2911f1dbfaa2a3b39bb29167c3bcb2457a821214b0aa37891e17a3c9147bd2"
+  },
+  "linux_results": [
+    {
+      "name": "manager-lib",
+      "exit_code": 0,
+      "log_sha256": "dbceab94a0ed4e19b59d72b96ba195801856771ded2805152baacd44e9610ac7",
+      "passed": 259,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "name": "package_authority",
+      "exit_code": 0,
+      "log_sha256": "d6fc7ee7a0090b80ab7bb94b0db0a8e6bd5d53cac56baab30381db48aa8e6ed1",
+      "passed": 55,
+      "failed": 0,
+      "ignored": 1
+    },
+    {
+      "name": "preparation_cli",
+      "exit_code": 0,
+      "log_sha256": "278ff565bc52215d2aea4395f99bf98a2b3f0945e0d87013e417e1ef85b84f70",
+      "passed": 47,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "name": "package-authority-default",
+      "exit_code": 0,
+      "log_sha256": "3db406f411c111f08e45798fcf06aa745829a8716ee09977c44bfeb768080194",
+      "passed": 55,
+      "failed": 0,
+      "ignored": 1
+    },
+    {
+      "name": "manager-clippy",
+      "exit_code": 0,
+      "log_sha256": "b865aecba8f3fd0f4d21ddec41e95539da7130088df2869648a894007a86032f"
+    }
+  ],
+  "ignored_case": "root_owned_package_intake requires tools/pkg0/root_intake_fixture.py; unaffected separate fixture not run",
+  "resource_limits": {
+    "cpu_set": "2-3",
+    "cpus": 2,
+    "memory_bytes": 4294967296,
+    "memory_plus_swap_bytes": 4294967296,
+    "pids": 256,
+    "parallel_vm": false
+  },
+  "private_archive": {
+    "name": "legacy-refresh-source-validation.tgz",
+    "sha256": "5fe6a4195bb03402ea4e79d5902a717203e4b42917505547c69a04c420b5141d"
+  },
+  "preserved_boundaries": [
+    "exact retained ordinary revision and rederived census",
+    "no fabricated predecessor Candidate",
+    "current Candidate and lineage admission stay strict",
+    "nondefault compatibility carries exact immutable revision provenance",
+    "current selection, full compatibility, external IDs and explicit buffering remain checked",
+    "audio engine and Windows host source unchanged from e8a79926"
+  ],
+  "remaining": [
+    "normal Deck update",
+    "physical SameCallback and Buffered timing",
+    "full deferred recovery matrix",
+    "DAW interaction and soak; beta acceptance"
+  ]
+}

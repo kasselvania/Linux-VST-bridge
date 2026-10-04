@@ -801,6 +801,15 @@ pub fn validate_candidate_record(m: &Manager, c: &Candidate) -> Result<()> {
         audio_layout: c.inspection.audio_layout.clone(),
         ..Compatibility::default()
     };
+    let expected_compatibility = if c.profile.capabilities.compatibility()
+        != expected_compatibility
+    {
+        retained_revision_configuration(m, c)?
+            .map(|revision| revision.registration.compatibility)
+            .unwrap_or(expected_compatibility)
+    } else {
+        expected_compatibility
+    };
     require(
         c.profile.capabilities.compatibility() == expected_compatibility,
         "candidate_policy_requires_explicit_support",
@@ -1525,9 +1534,19 @@ pub(crate) fn check_publication(m: &Manager, p: &Profile, r: &Registration) -> R
 #[doc(hidden)]
 pub fn publication_candidate(m: &Manager, p: &Profile, r: &Registration) -> Result<Candidate> {
     let c = for_profile(m, p)?.ok_or("candidate_preparation_required")?;
+    verify_publication_candidate(m, p, r, c)
+}
+fn verify_publication_candidate(
+    m: &Manager,
+    p: &Profile,
+    r: &Registration,
+    c: Candidate,
+) -> Result<Candidate> {
     verify_retained_candidate(m, &c)?;
     let mut expected = configuration::registration_for(
-        &c, p, &c.census()?,
+        &c,
+        p,
+        &c.census()?,
         if p.claim == Claim::ReviewCandidate {
             SelectionPurpose::Qualification
         } else {
@@ -1537,6 +1556,281 @@ pub fn publication_candidate(m: &Manager, p: &Profile, r: &Registration) -> Resu
     expected.relocate_native(r.native.path.clone());
     require(expected == *r, "candidate_registration_changed")?;
     Ok(c)
+}
+#[derive(Debug)]
+struct RefreshSource {
+    selection: Selection,
+    candidate: Option<Candidate>,
+    retained_configuration: Option<Revision>,
+    basis: String,
+}
+fn retained_revision_basis(predecessor: &Revision) -> Result<String> {
+    let mut bytes = serde_json::to_vec(predecessor)?;
+    bytes.push(b'\n');
+    Ok(hex(&Sha256::digest(bytes)))
+}
+fn retained_revision_identity(predecessor: &Revision) -> Result<String> {
+    Ok(format!(
+        "retained-revision-v1:{}:{}:{}",
+        predecessor.class_id,
+        predecessor.id,
+        retained_revision_basis(predecessor)?,
+    ))
+}
+fn retained_revision_configuration(m: &Manager, candidate: &Candidate) -> Result<Option<Revision>> {
+    let Some(basis) = candidate.preparation_basis.as_deref() else {
+        return Ok(None);
+    };
+    let path = object(m, "lineage", &candidate.id()?)?.join("record.json");
+    if !path.try_exists()? {
+        return Ok(None);
+    }
+    let lineage = history::lineage_record(m, candidate)?;
+    let Some(binding) = lineage
+        .preparation_identity
+        .strip_prefix("retained-revision-v1:")
+    else {
+        return Ok(None);
+    };
+    let fields: Vec<_> = binding.split(':').collect();
+    require(
+        fields.len() == 3
+            && fields[0] == candidate.selection.class.id
+            && valid_hex(fields[0], 32)
+            && valid_hex(fields[1], 32)
+            && valid_hex(fields[2], 64)
+            && fields[2] == basis,
+        "bridge_refresh_predecessor_binding",
+    )?;
+    let reference = RevisionRef {
+        id: fields[1].into(),
+        sha256: fields[2].into(),
+    };
+    let revision = m.load_revision_record(fields[0], &reference)?;
+    let profiles = retained_refresh_profiles()?;
+    require(
+        retained_revision_basis(&revision)? == basis
+            && revision.qualification.is_none()
+            && revision.profile.claim == Claim::VerifiedExactFixture
+            && profiles
+                .iter()
+                .filter(|profile| **profile == revision.profile)
+                .count()
+                == 1
+            && revision.profile.capabilities.compatibility()
+                == revision.registration.compatibility
+            && revision.census.environment.environment == candidate.selection.environment
+            && revision.census.module == candidate.selection.module
+            && revision.census.host == candidate.selection.scanner
+            && revision.census.host_source_sha256 == candidate.selection.scanner_source
+            && revision.census.report == candidate.selection.factory_report
+            && revision.registration.metadata.class_id == candidate.selection.class.id
+            && revision.registration.metadata.name == candidate.selection.class.name
+            && revision.registration.metadata.vendor == candidate.selection.class.vendor
+            && revision.registration.metadata.version == candidate.selection.class.version
+            && revision.registration.metadata.subcategories
+                == candidate.selection.class.subcategories
+            && revision.registration.compatibility.audio_layout
+                == candidate.inspection.audio_layout
+            && revision.registration.compatibility
+                == candidate.profile.capabilities.compatibility()
+            && candidate.local_settings.is_some(),
+        "bridge_refresh_predecessor_binding",
+    )?;
+    Ok(Some(revision))
+}
+fn retain_refresh_lineage(
+    m: &Manager,
+    candidate: &Candidate,
+    predecessor: &Revision,
+    prior_candidate: Option<&str>,
+) -> Result<()> {
+    let identity = retained_revision_identity(predecessor)?;
+    retain_lineage(m, candidate, &identity, prior_candidate)?;
+    let retained = history::lineage_record(m, candidate)?;
+    require(
+        retained.preparation_identity == identity
+            && retained.predecessor.as_deref() == prior_candidate,
+        "bridge_refresh_predecessor_binding",
+    )
+}
+#[cfg(test)]
+thread_local! {
+    static RETAINED_REFRESH_PROFILE_FIXTURE:
+        std::cell::RefCell<Option<Vec<Profile>>> = const { std::cell::RefCell::new(None) };
+}
+fn retained_refresh_profiles() -> Result<Vec<Profile>> {
+    #[cfg(test)]
+    if let Some(profiles) = RETAINED_REFRESH_PROFILE_FIXTURE.with(|slot| slot.borrow().clone()) {
+        crate::profiles::validate_set(&profiles)?;
+        return Ok(profiles);
+    }
+    crate::profiles::installed_profiles()
+}
+#[cfg(test)]
+fn with_retained_refresh_profiles<T>(profiles: Vec<Profile>, run: impl FnOnce() -> T) -> T {
+    struct Reset;
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            RETAINED_REFRESH_PROFILE_FIXTURE.with(|slot| *slot.borrow_mut() = None);
+        }
+    }
+    RETAINED_REFRESH_PROFILE_FIXTURE.with(|slot| {
+        assert!(slot.borrow().is_none());
+        *slot.borrow_mut() = Some(profiles);
+    });
+    let reset = Reset;
+    let result = run();
+    drop(reset);
+    result
+}
+fn retained_revision_selection(m: &Manager, predecessor: &Revision) -> Result<Selection> {
+    require(
+        predecessor.qualification.is_none()
+            && predecessor.profile.claim == Claim::VerifiedExactFixture,
+        "bridge_refresh_predecessor_claim",
+    )?;
+    let profiles: Vec<_> = retained_refresh_profiles()?
+        .into_iter()
+        .filter(|profile| *profile == predecessor.profile)
+        .collect();
+    require(profiles.len() == 1, "bridge_refresh_predecessor_profile")?;
+    m.verify_retained_authority(predecessor, &profiles)?;
+    crate::observation::select_for(&profiles, &predecessor.census, SelectionPurpose::Activation)?;
+    predecessor.registration.verify(&m.root)?;
+    predecessor.census.verify_current(
+        &m.root,
+        &predecessor.census.host,
+        &predecessor.census.host_source_sha256,
+        predecessor.census.captured_at,
+    )?;
+    let raw: Value = predecessor.census.report.read_record(8 * 1024 * 1024)?;
+    let classes: Vec<_> = crate::inventory::classes(&raw)?
+        .into_iter()
+        .filter(|class| {
+            class.id == predecessor.class_id
+                && class.id == predecessor.registration.metadata.class_id
+                && class.name == predecessor.registration.metadata.name
+                && class.vendor == predecessor.registration.metadata.vendor
+                && class.version == predecessor.registration.metadata.version
+                && class.subcategories == predecessor.registration.metadata.subcategories
+        })
+        .collect();
+    require(classes.len() == 1, "bridge_refresh_predecessor_class")?;
+    require(
+        predecessor.census.environment.environment == predecessor.registration.environment
+            && predecessor.census.module == predecessor.registration.module
+            && predecessor.census.host == predecessor.registration.host
+            && predecessor.census.host_source_sha256 == predecessor.registration.host_source_sha256
+            && predecessor.census.selected == predecessor.registration.metadata
+            && predecessor.census.module_stamp
+                == ModuleStamp::read(&predecessor.census.module.path)?
+            && predecessor.profile.requirements.native_sha256
+                == predecessor.registration.native.sha256
+            && predecessor.profile.capabilities.compatibility()
+                == predecessor.registration.compatibility,
+        "bridge_refresh_predecessor_changed",
+    )?;
+    let selection = Selection {
+        schema: 1,
+        environment: predecessor.census.environment.environment.clone(),
+        module: predecessor.census.module.clone(),
+        class: classes.into_iter().next().unwrap(),
+        scanner: predecessor.census.host.clone(),
+        scanner_source: predecessor.census.host_source_sha256.clone(),
+        factory_report: predecessor.census.report.clone(),
+    };
+    verify_selection_data(m, &selection, &selection.scanner, &selection.scanner_source)?;
+    Ok(selection)
+}
+fn refresh_source(m: &Manager, predecessor: &Revision) -> Result<RefreshSource> {
+    if let Some(candidate) = for_profile(m, &predecessor.profile)? {
+        require(
+            object(m, "lineage", &candidate.id()?)?
+                .join("record.json")
+                .try_exists()?,
+            "candidate_lineage_absent",
+        )?;
+        history::lineage_record(m, &candidate)?;
+        let candidate = verify_publication_candidate(
+            m,
+            &predecessor.profile,
+            &predecessor.registration,
+            candidate,
+        )?;
+        let retained_configuration = retained_revision_configuration(m, &candidate)?;
+        let basis = if retained_configuration.is_some() {
+            candidate
+                .preparation_basis
+                .clone()
+                .ok_or("bridge_refresh_predecessor_binding")?
+        } else {
+            preparation_basis(m, Some(&candidate))?
+        };
+        return Ok(RefreshSource {
+            selection: candidate.selection.clone(),
+            candidate: Some(candidate),
+            retained_configuration,
+            basis,
+        });
+    }
+    let selection = retained_revision_selection(m, predecessor)?;
+    Ok(RefreshSource {
+        selection,
+        candidate: None,
+        retained_configuration: Some(predecessor.clone()),
+        basis: retained_revision_basis(predecessor)?,
+    })
+}
+#[doc(hidden)]
+pub fn publication_requires_refresh(m: &Manager, predecessor: &Revision) -> Result<bool> {
+    let source = refresh_source(m, predecessor)?;
+    source.candidate.as_ref().map_or(Ok(true), |candidate| {
+        build::supports_loaded_engine_admission(m, candidate).map(|supported| !supported)
+    })
+}
+fn carry_retained_revision_configuration(
+    mut candidate: Candidate,
+    predecessor: &Revision,
+) -> Result<Candidate> {
+    require(
+        candidate.inspection.audio_layout == predecessor.registration.compatibility.audio_layout,
+        "bridge_refresh_predecessor_configuration",
+    )?;
+    let accessibility = predecessor.profile.capabilities.accessibility.clone();
+    let settings = crate::operator_model::LocalSettings {
+        graphics: predecessor.profile.capabilities.graphics,
+        accessibility: match accessibility {
+            Accessibility::WindowsDefault => {
+                crate::operator_model::AccessibilityChoice::WindowsDefault
+            }
+            Accessibility::DisabledForVendorProcess => {
+                crate::operator_model::AccessibilityChoice::DisabledForHost
+            }
+        },
+    };
+    configuration::apply_resolved_settings(&mut candidate, settings, accessibility)?;
+    candidate.profile.capabilities.vendor_retirement =
+        predecessor.profile.capabilities.vendor_retirement.clone();
+    candidate.profile.capabilities.editor_lifetime =
+        predecessor.profile.capabilities.editor_lifetime.clone();
+    candidate.profile.capabilities.event_output =
+        predecessor.profile.capabilities.event_output.clone();
+    require(
+        candidate.profile.capabilities.compatibility() == predecessor.registration.compatibility,
+        "bridge_refresh_predecessor_configuration",
+    )?;
+    candidate.profile.id = format!(
+        "managed.{}",
+        key(&(
+            &candidate.profile.id,
+            "retained_publication_configuration_v1",
+            &predecessor.profile_sha256,
+            &predecessor.registration.compatibility,
+        ))?
+    );
+    candidate.profile.validate()?;
+    Ok(candidate)
 }
 /// A package refresh starts from an exact retained publication, whose original
 /// discovery row may have been superseded by a later inventory.  The retained
@@ -1549,13 +1843,13 @@ pub(crate) fn verify_refresh_candidate(
     candidate: &Candidate,
     predecessor: &Revision,
 ) -> Result<()> {
-    let prior = publication_candidate(m, &predecessor.profile, &predecessor.registration)?;
+    let source = refresh_source(m, predecessor)?;
     require(
         predecessor.class_id == candidate.selection.class.id
             && predecessor.registration.metadata.class_id == candidate.selection.class.id
             && predecessor.registration.environment == candidate.selection.environment
             && predecessor.registration.module == candidate.selection.module
-            && prior.selection == candidate.selection,
+            && source.selection == candidate.selection,
         "bridge_refresh_predecessor_changed",
     )?;
     require(
@@ -1563,6 +1857,15 @@ pub(crate) fn verify_refresh_candidate(
             && candidate.inspection.origin == Origin::ManagedPreparation,
         "bridge_refresh_candidate_origin",
     )?;
+    if source.retained_configuration.is_some() {
+        require(
+            candidate.preparation_basis.as_deref() == Some(source.basis.as_str())
+                && candidate.local_settings.is_some()
+                && candidate.profile.capabilities.compatibility()
+                    == predecessor.registration.compatibility,
+            "bridge_refresh_predecessor_configuration",
+        )?;
+    }
     verify_retained_candidate(m, candidate)
 }
 #[doc(hidden)]
@@ -1573,29 +1876,61 @@ pub fn refresh_candidate(
     report: Artifact,
     operation: &str,
 ) -> Result<Candidate> {
-    let prior = publication_candidate(m, &predecessor.profile, &predecessor.registration)?;
-    require(prior.selection.environment == predecessor.registration.environment
-        && prior.selection.module == predecessor.registration.module,
-        "bridge_refresh_predecessor_changed")?;
+    let source = refresh_source(m, predecessor)?;
+    require(
+        source.selection.environment == predecessor.registration.environment
+            && source.selection.module == predecessor.registration.module,
+        "bridge_refresh_predecessor_changed",
+    )?;
     let inspection = inspect_record_with_layout(
-        prior.selection.clone(),
+        source.selection.clone(),
         report,
         Origin::ManagedPreparation,
         runtime.host.clone(),
         runtime.source_manifest.clone(),
-        prior.inspection.audio_layout.clone(),
+        predecessor.registration.compatibility.audio_layout.clone(),
     )?;
-    let next = build::construct_with_runtime(m, prior.selection.clone(), inspection,
-        runtime, operation)?;
-    let basis = preparation_basis(m, Some(&prior))?;
-    let next = bind_preparation_basis(configuration::carry_settings(next, Some(&prior))?,
-        Some(basis))?;
+    let next =
+        build::construct_with_runtime(m, source.selection.clone(), inspection, runtime, operation)?;
+    let next = if let Some(prior) = source.candidate.as_ref() {
+        let next = bind_preparation_basis(
+            configuration::carry_settings(next, Some(prior))?,
+            Some(source.basis.clone()),
+        )?;
+        if source.retained_configuration.is_some() {
+            carry_retained_revision_configuration(next, predecessor)?
+        } else {
+            next
+        }
+    } else {
+        carry_retained_revision_configuration(
+            bind_preparation_basis(next, Some(source.basis.clone()))?,
+            predecessor,
+        )?
+    };
+    let prior_candidate = source
+        .candidate
+        .as_ref()
+        .map(Candidate::id)
+        .transpose()?;
+    if let Some(retained) = source.retained_configuration.as_ref() {
+        retain_refresh_lineage(m, &next, retained, prior_candidate.as_deref())?;
+    }
     verify_refresh_candidate(m, &next, predecessor)?;
-    require(build::supports_loaded_engine_admission(m, &next)?,
-        "loaded_engine_admission_contract_missing")?;
+    require(
+        build::supports_loaded_engine_admission(m, &next)?,
+        "loaded_engine_admission_contract_missing",
+    )?;
     crate::operator_lock::timing::measure(
-        crate::operator_lock::timing::Stage::CandidateMutation, ||
-        record_candidate_with_predecessor(m, &next, Some(&prior.id()?)))?;
+        crate::operator_lock::timing::Stage::CandidateMutation,
+        || {
+            if let Some(prior) = source.candidate.as_ref() {
+                record_candidate_with_predecessor(m, &next, Some(&prior.id()?))
+            } else {
+                record_candidate(m, &next)
+            }
+        },
+    )?;
     Ok(next)
 }
 fn verify_retained_revision(m: &Manager, r: &Revision) -> Result<()> {

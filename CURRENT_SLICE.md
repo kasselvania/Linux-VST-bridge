@@ -17,7 +17,7 @@ matches the claim”; GOVERNANCE.md “Evidence and completion”; architecture 
 “General preparation and compatibility experimentation” and 18.7 “Platform
 execution convergence”; accepted D-029; the operator's revised order above.
 
-Frozen product source: commit `e8a79926084df8d621f6dff36694218935d0c955`, tree
+Preserved comparison product source: commit `e8a79926084df8d621f6dff36694218935d0c955`, tree
 `0d47b93e49627467bd945a18a29dc6bbfb739a0c`. Independent test-host extension:
 `fbb318988d7f9cec27613f036e0fe6669fdd2987`, tree
 `771d45aa78bbc4a12967b6a2d9a23b7ffb494a07`. The extension changes only
@@ -41,10 +41,32 @@ and preparation completed without changing publication. The resulting review
 candidate does not establish a matching Candidate for the still-selected ordinary
 profile. It was retained, not experimentally selected; no update retry occurred.
 
-Physical audio timing has **not run**. A narrow legacy-publication migration repair
-would change the frozen-source/no-new-manager boundary below; operator confirmation
-has been requested. Do not silently replace Pigments, fabricate preparation
+Physical audio timing has **not run**. The operator has now approved the narrow
+legacy-publication migration repair and continuation to Deck timing. Amend the
+frozen source only for that prerequisite; freeze its tested successor before the
+next installed attempt. Do not silently replace Pigments, fabricate preparation
 provenance, bypass admission, or reopen the broader recovery matrix.
+
+Approved repair base: commit `b0d5a1b0c25872a4aa5d6e426287b26adb8c38f8`, tree
+`4a1973495a6a27c8673b3a9e0b6b66afa8525287`.
+
+The repair must recognize a valid retained ordinary profile-backed revision that
+predates managed Candidate records. Validate the retained revision/census/report,
+class, module, environment, compatibility and registration; fresh-inspect and
+prepare the target pair through existing owners. Preserve the distinction between
+a predecessor revision and a predecessor Candidate. Keep current-candidate checks
+strict and preserve exact class IDs, configuration, buffering, selected-state
+checks and failure cleanup. Add a failing legacy-revision regression and focused
+malformed/stale-input coverage. Scope is preparation and package-refresh consumers,
+their tests and installed evidence; no audio, Windows host, runtime or graphics
+behavior changes. Share the corrected preparation contract with existing ordinary
+restoration, without running or claiming the deferred recovery matrix.
+
+The [source repair validation](evidence/audio-recovery/2026-10-04-legacy-publication-refresh-source.json)
+now passes the original-failure regression, 259 Linux library tests, 47 preparation
+tests, package-update tests in both feature configurations and all-target/all-feature
+static checks. Independent exact-source review found no remaining blocker. Normal
+Deck update and physical timing remain unperformed on this successor.
 
 ## Completed installed checkpoint
 
@@ -65,7 +87,8 @@ on this constrained VM is not a reason to start another manager optimization now
 
 ## Immediate work and boundary
 
-1. Build target-compatible SteamOS packaging from the frozen product source. The
+1. Repair and test the approved legacy-publication prerequisite, review the exact
+   diff, then freeze and build target-compatible SteamOS packaging. The
    Ubuntu artifact uses Python 3.14 and must not be installed on the Deck's 3.13.
    Use existing assembly/signing, pinned tools and matching Windows host inputs.
 2. Compile and run the focused measurement host tests on the bounded Linux builder.
@@ -93,8 +116,8 @@ audio and independently analyze it, including any failed lifetime.
 
 Scope: target packaging, focused measurement host/analysis, supported configuration
 selection, existing diagnostics and physical execution. No engine rewrite, further
-VM timing candidates, audio wait-budget tuning, graphics/runtime expansion or new
-manager/recovery implementation. A newly observed blocker requires explicit
+VM timing candidates, audio wait-budget tuning, graphics/runtime expansion or
+manager/recovery implementation beyond the approved prerequisite above. A newly observed blocker requires explicit
 attribution and the smallest safe route to measurement, not automatic reopening of
 the full manager matrix. No physical success has yet been observed for this candidate.
 
@@ -113,12 +136,15 @@ release signing and distribution obligations remain separate open gates.
 ## Machine custody and cost
 
 The retained Ubuntu VM shut down normally after the checkpoint. The SteamOS-target
-builder finished and was stopped after its outputs were preserved (container exit137).
-No builder or VM is running; Audiobookshelf remains running. Builder limits: CPUs2–3,
+builder was restarted for the approved migration validation; no VM or second builder
+is running, and Audiobookshelf remains running. Builder limits: CPUs2–3,
 two CPUs, 4 GiB memory with equal combined memory/swap limit, 256 processes. Reserve
 CPU0–1 and capacity for Audiobookshelf. The Deck is reachable (Galileo, Python3.13.5,
 glibc2.41); readback found no Bitwig process, and its installed selection is unchanged
 after the refused update and retained preparation. Setup was closed normally.
+The first-party Completion instrument/effect installer completed in a separate
+managed environment with confirmed cleanup and manifest-matching modules; neither
+has been prepared or published yet. The commercial selections are unchanged.
 Root owns machine mutations and artifacts. Implementation agents Sol5.6 xhigh;
 reviewers Astra6 xhigh; computer use Sol6.1 high.
 
