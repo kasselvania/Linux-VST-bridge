@@ -1,6 +1,14 @@
-# Current capability: managed bridge upgrade and recovery
+# Current task: installed refresh checkpoint, then physical audio timing
 
 ## Authority and outcome
+
+On 2026-10-04 the operator explicitly reprioritized the physical Deck timing gate:
+finish one successful normal installed update plus instrument/effect saved-state
+recall and actual-output checks, then take that frozen candidate to the Deck.
+Do not complete the remaining update/recovery matrix before that measurement.
+This changes sequencing, not the beta acceptance criteria or the product's recovery
+contract. The manager workflow is not complete merely because this checkpoint passes.
+
 
 The operator approved the managed-refresh policy on 2026-10-04: one normal
 **Update Bridge** action prepares and verifies replacement bridge components before
@@ -74,8 +82,10 @@ now connects preparation, package publication, ordinary restoration and truthful
 selected readback. Its unchanged-base regression reproduces the failure; Linux
 library and affected manager suites, strict lint and independent source review
 pass. New-discovery freshness remains strict, with exact predecessor, environment,
-module, inspection and runtime verification retained. Build the committed successor
-and resume the original installed acceptance; source success does not replace the
+module, inspection and runtime verification retained. The successor at `e8a79926084df8d621f6dff36694218935d0c955` has now built as
+`0.12.0refresh3`; installed acceptance is in progress. Its source tree is
+`0d47b93e49627467bd945a18a29dc6bbfb739a0c`. Finish only the installed checkpoint
+authorized above before the physical gate; source success does not replace the
 failed installed result.
 
 FC-MGMT-008 remains open until the committed package completes the installed
@@ -101,7 +111,25 @@ and old-record handling. No new engine, runtime experiment, vendor campaign, aud
 wait budget, Windows DSP change or graphics expansion. No saved-state rewriting,
 licensed-prefix recreation or unrelated host privilege changes.
 
-## Acceptance
+## Immediate checkpoint
+
+Use frozen `0.12.0refresh3` at `e8a79926` on the retained Ubuntu installation.
+One normal update must refresh all six selected publications without changing
+vendor module/class/environment identity, original saved objects or supported
+explicit settings. Matching instrument and effect callers must restore meaningful
+saved values, return correct captured output and retire cleanly. Retain any failure;
+do not run unchanged candidates repeatedly for a passing result. An already armed
+cached-caller observer may complete alongside this transaction, but additional
+refusal, restoration or interruption cases must not expand this checkpoint.
+
+After it passes, stop VM work and proceed to the physical timing gate below. If it
+fails, identify the exact blocker and assess the smallest safe route to that gate;
+do not automatically commission the whole recovery matrix again.
+
+## Open beta acceptance: separate managed-update workstream
+
+The following requirements remain open wherever installed evidence is absent.
+They are not prerequisites for the newly prioritized physical measurement:
 
 Use the retained populated Ubuntu installation and first-party instrument/effect
 with meaningful saved state, automation and deterministic output. Its currently
@@ -128,8 +156,8 @@ not dependable-audio claims. Preserve exact identities before mutation.
 
 ## Machine custody and cost
 
-The constrained builder is in use for source validation and candidate construction;
-the retained Ubuntu VM is stopped. Audiobookshelf is running.
+The exact candidate build is preserved and the builder is stopped. The retained
+Ubuntu VM is running for the installed checkpoint. Audiobookshelf is running.
 Use one builder or VM at a time, two CPUs on host 2–3, 256 processes. Builder 4 GiB;
 Ubuntu 6 GiB guest / 8 GiB container; combined outer memory/swap equals memory. Reserve
 CPU 0–1 and capacity for Audiobookshelf. Root owns machine mutations and artifacts.
@@ -138,7 +166,7 @@ Implementation agents Sol 5.6 xhigh; reviewers Astra 6 xhigh; computer use Sol 6
 
 ## Following physical gate
 
-No more VM timing candidates. After installed migration/recovery is reviewed, use
+No more VM timing candidates. After the immediate installed checkpoint above, use
 one frozen Deck candidate in explicit Buffered and SameCallback D=0 modes. Measure
 thousands of callbacks at actual 256/128/64-frame blocks: median/p99/max of the
 request/reply interval and whole callback separately, actual output/missing spans,
@@ -153,5 +181,10 @@ not endurance or SameCallback timing. See
 and the [allowance audit](docs/RESEARCH_BASIS.md#2026-10-04-callback-allowance-and-audio8-scope).
 Physical DAW/serial-chain/reconfiguration and musician interaction/soak remain open.
 
-Keep #207 draft. The roadmap selects splitting #200, retaining the original stack
-and recording its dependency map before extraction. No merge or beta promotion.
+Keep #207 draft. Separate review boundaries: audio/START/admission ends at
+`22e6569cd0afa9f0112518819d5b95e47932bbc8`; managed-refresh policy and implementation
+start at its successor `80835886`. Preserve the full existing history when separating
+the PRs; no rewrite or extraction may discard retained evidence. The broader roadmap
+still selects splitting #200 with its dependency map retained. PR separation and the
+remaining recovery cases must not become another prerequisite for Deck timing.
+No merge or beta promotion.
