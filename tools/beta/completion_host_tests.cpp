@@ -140,7 +140,7 @@ std::vector<uint8_t> completionEnvelope(const Options& o,double operation) {
     const double gain=.625,colour=.125;std::memcpy(vendor.data()+8,&gain,8);std::memcpy(vendor.data()+16,&colour,8);
     append32(24);append32(24);append32(4);append32(3);
     payload.insert(payload.end(),vendor.begin(),vendor.end());payload.insert(payload.end(),vendor.begin(),vendor.end());
-    for(const auto [id,value]:std::array<std::pair<uint32_t,double>,4>{{{0,.625},{1,.125},{31,operation},{32,0.}}}) {
+    for(const auto& [id,value]:std::array<std::pair<uint32_t,double>,4>{{{0,.625},{1,.125},{31,operation},{32,0.}}}) {
         append32(id);append32(1);append64(value);
     }
     std::vector<uint8_t> envelope(header);std::copy_n(reinterpret_cast<const uint8_t*>("LVBSTATE"),8,envelope.begin());
