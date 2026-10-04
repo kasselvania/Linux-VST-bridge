@@ -8,15 +8,58 @@ use std::io;
 #[cfg(target_os = "linux")]
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 
+#[cfg(target_os = "linux")]
+fn monotonic_now() -> Option<libc::timespec> {
+    let mut time = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+    if unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut time) } != 0
+        || time.tv_sec < 0 || !(0..1_000_000_000).contains(&time.tv_nsec) {
+        return None;
+    }
+    Some(time)
+}
+
+#[cfg(target_os = "linux")]
+fn absolute_target_from(deadline: Instant, monotonic_before: Option<libc::timespec>,
+    instant_after: Instant) -> Option<libc::timespec> {
+    let mut target = monotonic_before?;
+    if target.tv_sec < 0 || !(0..1_000_000_000).contains(&target.tv_nsec) { return None; }
+    let remaining = deadline.checked_duration_since(instant_after)?;
+    let seconds: libc::time_t = remaining.as_secs().try_into().ok()?;
+    let nanos = target.tv_nsec.checked_add(remaining.subsec_nanos() as libc::c_long)?;
+    let carry = nanos / 1_000_000_000;
+    target.tv_nsec = nanos % 1_000_000_000;
+    target.tv_sec = target.tv_sec.checked_add(seconds)?
+        .checked_add(carry as libc::time_t)?;
+    Some(target)
+}
+
+#[cfg(target_os = "linux")]
+fn absolute_target(deadline: Instant) -> Option<libc::timespec> {
+    // Sample CLOCK_MONOTONIC first. Instant is sampled afterward, so any
+    // interruption between them can only move the kernel target earlier.
+    let monotonic_before = monotonic_now();
+    let instant_after = Instant::now();
+    absolute_target_from(deadline, monotonic_before, instant_after)
+}
+
+#[cfg(target_os = "linux")]
+#[inline]
+fn wait_result<F>(result: libc::c_long, error: libc::c_int, deadline: Instant,
+    now: F) -> bool where F: FnOnce() -> Instant {
+    result == 0 || matches!(error, libc::EAGAIN | libc::EINTR)
+        || error == libc::ETIMEDOUT && now() < deadline
+}
+
 pub(crate) struct Signal(AtomicU32);
 impl Signal {
     pub(crate) fn new() -> Self {
         let signal = Self(AtomicU32::new(0));
         #[cfg(target_os = "linux")]
         {
-            // Resolve both imported libc functions during inactive allocation,
+            // Resolve the required libc functions during inactive allocation,
             // even when the DAW loads the proxy with lazy symbol binding.
             signal.notify();
+            let _ = monotonic_now();
             unsafe { libc::__errno_location(); }
         }
         signal
@@ -33,28 +76,36 @@ impl Signal {
         }
     }
     pub(crate) fn wait(&self, observed: u32, deadline: Instant) -> bool {
-        let Some(remaining) = deadline.checked_duration_since(Instant::now()) else { return false; };
         #[cfg(target_os = "linux")]
-        unsafe {
-            let timeout = libc::timespec {
-                tv_sec: remaining.as_secs() as libc::time_t,
-                tv_nsec: remaining.subsec_nanos() as libc::c_long,
-            };
-            let result = libc::syscall(libc::SYS_futex, self.0.as_ptr(),
-                libc::FUTEX_WAIT | libc::FUTEX_PRIVATE_FLAG, observed,
-                &timeout as *const libc::timespec);
-            // Signals and a publication racing with entry merely request a
-            // fresh queue inspection. The caller retains the original deadline.
-            result == 0 || matches!(*libc::__errno_location(), libc::EAGAIN | libc::EINTR)
+        {
+            self.wait_with(observed, deadline, |address, operation, value, timeout, address2, bitset| unsafe {
+                let result = libc::syscall(libc::SYS_futex,
+                    address, operation, value, timeout, address2, bitset);
+                (result, *libc::__errno_location())
+            })
         }
         #[cfg(not(target_os = "linux"))]
         {
+            let Some(remaining) = deadline.checked_duration_since(Instant::now()) else { return false; };
             // Portable source-test fallback, not a non-Linux product claim.
             if self.snapshot() == observed {
                 std::thread::sleep(remaining.min(std::time::Duration::from_micros(50)));
             }
             true
         }
+    }
+    #[cfg(target_os = "linux")]
+    fn wait_with<F>(&self, observed: u32, deadline: Instant, enter: F) -> bool
+    where F: FnOnce(*mut u32, libc::c_int, u32, *const libc::timespec,
+        *mut u32, u32) -> (libc::c_long, libc::c_int) {
+        let Some(timeout) = absolute_target(deadline) else { return false; };
+        let (result, error) = enter(self.0.as_ptr(),
+            libc::FUTEX_WAIT_BITSET | libc::FUTEX_PRIVATE_FLAG,
+            observed, &timeout, std::ptr::null_mut(), libc::FUTEX_BITSET_MATCH_ANY as u32);
+        // Signals, interruption and a publication racing with entry request a
+        // fresh queue inspection. Conservative clock conversion can expire
+        // early; preserve the caller's original Instant deadline in that case.
+        wait_result(result, error, deadline, Instant::now)
     }
 }
 
@@ -165,6 +216,134 @@ impl WorkSignal {
 mod tests {
     use super::*;
     use std::time::Duration;
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn futex_wait_never_renews_the_deadline_before_kernel_entry() {
+        fn monotonic_ns() -> u128 {
+            let mut time = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+            assert_eq!(unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut time) }, 0);
+            assert!(time.tv_sec >= 0 && time.tv_nsec >= 0);
+            time.tv_sec as u128 * 1_000_000_000 + time.tv_nsec as u128
+        }
+        fn timeout_ns(timeout: *const libc::timespec) -> u128 {
+            assert!(!timeout.is_null());
+            let timeout = unsafe { &*timeout };
+            assert!(timeout.tv_sec >= 0 && timeout.tv_nsec >= 0);
+            timeout.tv_sec as u128 * 1_000_000_000 + timeout.tv_nsec as u128
+        }
+        let signal = Signal::new();
+        let observed = signal.snapshot();
+        let allowance = Duration::from_secs(10);
+        let instant = Instant::now();
+        let deadline = instant + allowance;
+        // The later monotonic sample plus the full allowance is a conservative
+        // upper bracket for the original Instant deadline.
+        let deadline_upper = monotonic_ns() + allowance.as_nanos();
+        let fake_kernel_entry = deadline_upper + Duration::from_secs(5).as_nanos();
+        let mut entered = false;
+        let ready = signal.wait_with(observed, deadline,
+            |_address, operation, _value, timeout, _address2, _bitset| {
+                entered = true;
+                assert_eq!(operation & libc::FUTEX_CLOCK_REALTIME, 0);
+                let timeout = timeout_ns(timeout);
+                let effective_expiry = match operation & libc::FUTEX_CMD_MASK {
+                    libc::FUTEX_WAIT => fake_kernel_entry + timeout,
+                    libc::FUTEX_WAIT_BITSET => timeout,
+                    command => panic!("unexpected futex command {command}"),
+                };
+                assert!(effective_expiry <= deadline_upper,
+                    "kernel expiry {effective_expiry} renewed original deadline upper {deadline_upper}");
+                (0, 0)
+            });
+        assert!(entered);
+        assert!(ready);
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn futex_wait_uses_the_full_bitset_syscall_abi() {
+        let signal = Signal::new();
+        let observed = signal.snapshot();
+        let mut entered = false;
+        let ready = signal.wait_with(observed, Instant::now() + Duration::from_secs(1),
+            |address, operation, value, target, address2, bitset| {
+                entered = true;
+                assert_eq!(address, signal.0.as_ptr());
+                assert_eq!(operation, libc::FUTEX_WAIT_BITSET | libc::FUTEX_PRIVATE_FLAG);
+                assert_eq!(value, observed);
+                assert!(!target.is_null());
+                assert!(address2.is_null());
+                assert_eq!(bitset, libc::FUTEX_BITSET_MATCH_ANY as u32);
+                (0, 0)
+            });
+        assert!(entered);
+        assert!(ready);
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn absolute_target_is_conservative_and_refuses_invalid_clock_or_overflow() {
+        let instant_after = Instant::now();
+        let deadline = instant_after + Duration::new(123, 456_000_000);
+        let target = absolute_target_from(deadline,
+            Some(libc::timespec { tv_sec: 7, tv_nsec: 900_000_000 }), instant_after).unwrap();
+        assert_eq!((target.tv_sec, target.tv_nsec), (131, 356_000_000));
+        assert!(absolute_target_from(deadline, None, instant_after).is_none());
+        assert!(absolute_target_from(deadline,
+            Some(libc::timespec { tv_sec: -1, tv_nsec: 0 }), instant_after).is_none());
+        assert!(absolute_target_from(deadline,
+            Some(libc::timespec { tv_sec: 0, tv_nsec: 1_000_000_000 }), instant_after).is_none());
+        assert!(absolute_target_from(instant_after + Duration::from_secs(1),
+            Some(libc::timespec { tv_sec: libc::time_t::MAX, tv_nsec: 0 }),
+            instant_after).is_none());
+        assert!(absolute_target_from(instant_after, Some(libc::timespec {
+            tv_sec: 1, tv_nsec: 0 }), instant_after + Duration::from_nanos(1)).is_none());
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn expired_absolute_target_reaches_linux_and_interruption_keeps_existing_result() {
+        let signal = Signal::new();
+        let observed = signal.snapshot();
+        let mut kernel_result = None;
+        let _ = signal.wait_with(observed, Instant::now() + Duration::from_secs(60),
+            |address, operation, value, _timeout, address2, bitset| unsafe {
+                let mut expired = monotonic_now().unwrap();
+                if expired.tv_nsec == 0 {
+                    expired.tv_sec -= 1;
+                    expired.tv_nsec = 999_999_999;
+                } else {
+                    expired.tv_nsec -= 1;
+                }
+                let result = libc::syscall(libc::SYS_futex,
+                    address, operation, value, &expired, address2, bitset);
+                let error = *libc::__errno_location();
+                kernel_result = Some((result, error));
+                (result, error)
+            });
+        assert_eq!(kernel_result, Some((-1, libc::ETIMEDOUT)));
+        let interrupted = signal.wait_with(observed, Instant::now() + Duration::from_secs(1),
+            |_address, _operation, _value, _timeout, _address2, _bitset| (-1, libc::EINTR));
+        assert!(interrupted);
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn conservative_early_timeout_reinspects_only_until_the_original_deadline() {
+        let deadline = Instant::now() + Duration::from_secs(1);
+        let early = deadline.checked_sub(Duration::from_nanos(1)).unwrap();
+        assert!(wait_result(-1, libc::ETIMEDOUT, deadline, || early));
+        assert!(!wait_result(-1, libc::ETIMEDOUT, deadline, || deadline));
+        assert!(!wait_result(-1, libc::ETIMEDOUT, deadline, ||
+            deadline + Duration::from_nanos(1)));
+
+        let signal = Signal::new();
+        let observed = signal.snapshot();
+        let past = Instant::now().checked_sub(Duration::from_nanos(1)).unwrap();
+        let mut entered = false;
+        assert!(!signal.wait_with(observed, past,
+            |_address, _operation, _value, _timeout, _address2, _bitset| {
+                entered = true;
+                (0, 0)
+            }));
+        assert!(!entered);
+    }
     #[test]
     fn publication_between_inspection_and_sleep_cannot_lose_wake() {
         let signal = Signal::new();
