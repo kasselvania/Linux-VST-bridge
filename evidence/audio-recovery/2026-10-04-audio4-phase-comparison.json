@@ -1,0 +1,461 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-04",
+  "claim": "installed native completion-phase attribution; no audio timing repair or beta qualification",
+  "source": {
+    "head": "1124c1b32637432ab9b0cf3a31b46cbb0820fcbc",
+    "tree": "f649b1399b16d8466e4c8edfa3fc4f3cf1a3f11f"
+  },
+  "package": {
+    "schema": 1,
+    "source_head": "1124c1b32637432ab9b0cf3a31b46cbb0820fcbc",
+    "source_tree": "f649b1399b16d8466e4c8edfa3fc4f3cf1a3f11f",
+    "version": "0.12.0audio4",
+    "frozen_at_utc": "2026-10-04T07:00:42.791191+00:00",
+    "files": {
+      "linux-vst-bridge-beta_0.12.0audio4-1_amd64.deb": "e3acaf95aba38383b288affda61d79312f5cd45c56910302a6b680811598448a",
+      "preparation-kit.zip": "c7a749c84d43f7d99f81fecbc3085f11613c4fa9f171c1114229af9a738ec764",
+      "staged-audio4/RELEASE_MANIFEST.json": "5ce8c3dd221b1b31dc1d0501a91e4a1e587c18a2b3bb91dff839a3ccc39654e3",
+      "PACKAGE_VERIFIED.json": "41e49c52bcd4ba0d37feca368b37eacf8a00f35f60855f75794af29ccac0c5f3"
+    },
+    "manager_features": [
+      "pb0-c0-audit"
+    ],
+    "manager_sha256": "e0042a827b63165e261c3e461b8851daf91922d072495798b10bb40496f5d510",
+    "engine_sha256": "36300f4a387e2ee7e3652b6acbe488df614ad474bd42f5b72f0e0e2c220154be",
+    "windows_host_sha256": "57f23801e9cbd9f6bcab3a71ddf28dbd1f2861c88e12501635257561830a1b64",
+    "paired_backend_rebuild": true,
+    "claim": "audio_completion_candidate_not_installed_acceptance_or_beta_qualification"
+  },
+  "build": {
+    "builder_evidence_sha256": "e4363c2a4528e5a307c91a3a757ef8ddbb8b755e567745c62105c92583fe46ad",
+    "native_tests": {
+      "passed": 13,
+      "failed": 0
+    },
+    "phase_tests": {
+      "passed": 3,
+      "failed": 0
+    },
+    "legacy_targets_built": [
+      "AGainOfflineBridge",
+      "AGainQueuedBridge"
+    ],
+    "limits": {
+      "cpu.max": "200000 100000",
+      "cpuset.cpus.effective": "2-3",
+      "memory.max": "4294967296",
+      "memory.swap.max": "0",
+      "pids.max": "256"
+    },
+    "windows_host_bytes_unchanged_from_audio3": true,
+    "matching_windows_source": "1124c1b32637432ab9b0cf3a31b46cbb0820fcbc",
+    "windows_archive_sha256": "cfed9f8c5cbd808f3c57f4edee3ebe633f9cb0c6e9e6672551589a822e92f0cb",
+    "package_archive_sha256": "b6317403b04d6fbfb28f98b775c78b5593139cb8eaa738970b9d135abbf7ce42",
+    "ci": [
+      {
+        "conclusion": "success",
+        "databaseId": 37183851521,
+        "name": "Beta package portability",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 37183851474,
+        "name": "PX2 proof policy",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 37183851497,
+        "name": "AP10 native result lifetime",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 37183851526,
+        "name": "AP12 registered owner",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 37183851522,
+        "name": "AP8 Windows host",
+        "status": "completed"
+      }
+    ]
+  },
+  "fixture": {
+    "role": "instrument",
+    "class_id": "4C564242434D5031494E535400000001",
+    "native_ids": [
+      "9F2F385EF1995AAFB9B903BE757F945F",
+      "F55783DD140C5EE997498BF6549BECB6"
+    ],
+    "metadata": {
+      "class_id": "4C564242434D5031494E535400000001",
+      "name": "LVB Completion Instrument",
+      "vendor": "Linux VST Bridge",
+      "version": "1.0.0",
+      "subcategories": "Instrument|Synth",
+      "metadata_tier": "factory_3_unicode"
+    },
+    "runner": {
+      "id": "managed-ge-proton11-7-slr4-20260805-r3",
+      "version": "GE-Proton11-7; SLR 4.0.20260805.254769; managed download v3",
+      "file_digests": [
+        {
+          "component": "runtime-tree.json",
+          "sha256": "c4190a4a184e8ff3721b7495e01db0d0de09c0eaf3ffd42b87b516c077c4e7ef"
+        },
+        {
+          "component": "proton",
+          "sha256": "c0fe398829c78c82b26d39c20fbeb6b28d1e46941723962d794d7e5f67d402be"
+        },
+        {
+          "component": "wine",
+          "sha256": "7b0ca4538f365d8a225afdfe5f872715bb5f7c1908dbdcb522c9519cac7c8714"
+        },
+        {
+          "component": "_v2-entry-point",
+          "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+        },
+        {
+          "component": "pressure-vessel-wrap",
+          "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+        }
+      ]
+    },
+    "module_sha256": "dd5b062168bee829e61959c27037cb3ae339b29dbc19274ab79045bcf356dda5",
+    "host_source_sha256": "8f99a3d5d23f86b380e7f8999c8a0bbd7bfc9f9b05d5c353d88e2ff3fa07445f",
+    "descriptor_sha256": "7e98ef5015a93aa7bf21621a1df95307792ac3d8835935379a3c0b759fec2041",
+    "publication": {
+      "id": "7145b6f90323884c08db9a52f7b24c9c",
+      "sha256": "3b1e54e951e0e3f9d63172c2a2ee8caaa06a7d4dc6a53b1115fb3f2f636a8dac"
+    },
+    "preferences": {
+      "schema": 1,
+      "added_frames": 512
+    },
+    "consumer_sha256": "7ed165f39ee8e59bcb42802a3c4357d974636c35428105895335fae9fe0ef907",
+    "callback_audit_sha256": "b26516e2d3d80ab393f57dc45701f801219f0625ad8384008fd1f8f35d33a0c2"
+  },
+  "installation": {
+    "normal_update": true,
+    "normal_actions": [
+      "environment_rescan",
+      "plugin_reinspect",
+      "plugin_prepare",
+      "experimental_replace"
+    ],
+    "predecessor_retained": true,
+    "all_performance_preferences_unchanged": true,
+    "archive_sha256": "0156711281f3a16eec4443a18181aa216a4a541aeb3b44304c2bd0d7dce649f9",
+    "preparation_read_refusal": "An attempted historical reinspection was refused before any operation; the currently offered environment rescan refreshed inventory and the normal workflow then completed."
+  },
+  "runs": [
+    {
+      "diagnostic": "off",
+      "archive_sha256": "7251363da527bba0b573e73f05ce11c4668dff7592fcf27212fc6f2cba31ea76",
+      "functional_pass": true,
+      "timing_qualified": false,
+      "retired": true,
+      "exit_code": 0,
+      "owner_validated": true,
+      "observer_error": null,
+      "intervention": null,
+      "audio": {
+        "event": "completion_audio",
+        "schema": 1,
+        "role": "instrument",
+        "delivery_frames": 512,
+        "vendor_latency_frames": 13,
+        "callbacks": 107,
+        "compared_samples": 198672,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "nonzero": 196564,
+        "max_error": 0,
+        "returned_events": 108,
+        "returned_points": 211,
+        "rejected_callbacks": 0,
+        "callback_max_ns": 3103784,
+        "whole_callback_overruns": 1,
+        "callback_effects": 0,
+        "callback_local_wakes": 107,
+        "local_wake_counter_available": true,
+        "callback_audited": true
+      },
+      "target_callback": {
+        "index": 105,
+        "N": 13,
+        "mode": 0,
+        "sample_position": 49655,
+        "duration_ns": 283345,
+        "allowance_ns": 270833,
+        "overrun_ns": 12512
+      },
+      "state_and_audio_hashes": {
+        "state.output.f32le": "74c26e69df151985702e71ee6fb477a4f8e10f0708962f0331c49be3fd9d0422",
+        "state.component": "0c4f695cd4814dcca978eeb306cf53ddc26ab28d39618c60abc14d03e19a3800",
+        "state.component.recalled": "0c4f695cd4814dcca978eeb306cf53ddc26ab28d39618c60abc14d03e19a3800",
+        "state.controller": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+      },
+      "retirement": [
+        {
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "raw_exit": 0,
+          "error": null,
+          "discarded_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        }
+      ]
+    },
+    {
+      "diagnostic": "on",
+      "archive_sha256": "52936cf5ae40a504081606d9c81b6fbbd66f72c94000e12404f16fa20a0868f5",
+      "functional_pass": true,
+      "timing_qualified": false,
+      "retired": true,
+      "exit_code": 0,
+      "owner_validated": true,
+      "observer_error": null,
+      "intervention": null,
+      "audio": {
+        "event": "completion_audio",
+        "schema": 1,
+        "role": "instrument",
+        "delivery_frames": 512,
+        "vendor_latency_frames": 13,
+        "callbacks": 107,
+        "compared_samples": 198672,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "nonzero": 196564,
+        "max_error": 0,
+        "returned_events": 108,
+        "returned_points": 211,
+        "rejected_callbacks": 0,
+        "callback_max_ns": 4363221,
+        "whole_callback_overruns": 1,
+        "callback_effects": 0,
+        "callback_local_wakes": 107,
+        "local_wake_counter_available": true,
+        "callback_audited": true
+      },
+      "target_callback": {
+        "index": 105,
+        "N": 13,
+        "mode": 0,
+        "sample_position": 49655,
+        "duration_ns": 294484,
+        "allowance_ns": 270833,
+        "overrun_ns": 23651
+      },
+      "state_and_audio_hashes": {
+        "state.output.f32le": "74c26e69df151985702e71ee6fb477a4f8e10f0708962f0331c49be3fd9d0422",
+        "state.component": "0c4f695cd4814dcca978eeb306cf53ddc26ab28d39618c60abc14d03e19a3800",
+        "state.component.recalled": "0c4f695cd4814dcca978eeb306cf53ddc26ab28d39618c60abc14d03e19a3800",
+        "state.controller": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+      },
+      "retirement": [
+        {
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "raw_exit": 0,
+          "error": null,
+          "discarded_diagnostic_bytes": {
+            "vendor": 0,
+            "stderr": 0
+          }
+        }
+      ]
+    }
+  ],
+  "trace": {
+    "summary": {
+      "event": "ap23_callback_phase_summary",
+      "schema": 1,
+      "requested": true,
+      "allocated": true,
+      "capacity": 128,
+      "retained": 108,
+      "omitted": 0,
+      "scope": "guard-held calls reaching AP23",
+      "cpp_final_stamp": "pre-return",
+      "identity_fields": "generation,epoch,host_call,position",
+      "call_fields": "frames,mode,delivery_mode,exact",
+      "policy_fields": "allowance_ns,wait_deadline_lower_ns,wait_deadline_upper_ns",
+      "predicate_fields": "kind,required,before,after,initial_satisfied,final_satisfied",
+      "clock_fields": "cpp_entry_ns,rust_entry_ns,wait_begin_ns,wait_end_ns,presentation_done_ns,rust_pre_return_ns,result_delivery_begin_ns,result_delivery_done_ns,cpp_pre_return_ns",
+      "wait_fields": "total_ns,count",
+      "result_fields": "backend,sdk",
+      "phase_bits": "0=cpp_entry,1=rust_entry,2=policy,3=identity,4=predicate_before,5=wait,6=predicate_after,7=presentation_done,8=rust_pre_return,9=backend_result,10=result_delivery_begin,11=cpp_pre_return,12=sdk_result,13=result_delivery_done",
+      "clock_valid_uses_phase_bits": true
+    },
+    "target": {
+      "callback": 105,
+      "N": 13,
+      "mode": 0,
+      "sample_position": 49655,
+      "sdk_duration_ns": 294484,
+      "trace": {
+        "event": "ap23_callback_phase",
+        "schema": 1,
+        "size": 264,
+        "phase_reached": 16383,
+        "clock_valid": 11687,
+        "ordinal": 107,
+        "identity": {
+          "generation": 1,
+          "epoch": 2,
+          "host_call": 107,
+          "position": 49655
+        },
+        "call": {
+          "frames": 13,
+          "mode": 0,
+          "delivery_mode": 0,
+          "exact": 0
+        },
+        "policy": {
+          "allowance_ns": 270833,
+          "wait_deadline_lower_ns": 537983040996,
+          "wait_deadline_upper_ns": 537983041058
+        },
+        "predicate": {
+          "kind": 0,
+          "required": 49156,
+          "before": 49143,
+          "after": 49655,
+          "initial_satisfied": 0,
+          "final_satisfied": 1
+        },
+        "clock": {
+          "cpp_entry_ns": 537982770206,
+          "rust_entry_ns": 537982770816,
+          "wait_begin_ns": 537982774407,
+          "wait_end_ns": 537983059463,
+          "presentation_done_ns": 537983063207,
+          "rust_pre_return_ns": 537983063349,
+          "result_delivery_begin_ns": 537983063605,
+          "result_delivery_done_ns": 537983064200,
+          "cpp_pre_return_ns": 537983064274
+        },
+        "wait": {
+          "total_ns": 285056,
+          "count": 1
+        },
+        "result": {
+          "backend": 0,
+          "sdk": 0
+        }
+      },
+      "allowance_ns": 270833,
+      "durations_ns": {
+        "before_cpp": 131,
+        "cpp_to_rust": 610,
+        "rust": 292533,
+        "wait": 285056,
+        "rust_to_delivery": 256,
+        "result_delivery": 595,
+        "delivery_to_pre_return": 74,
+        "after_cpp_pre_return": 285
+      },
+      "last_wait_end_relative_to_deadline_ns": [
+        18405,
+        18467
+      ]
+    },
+    "initial_state_flush": {
+      "event": "ap23_callback_phase",
+      "schema": 1,
+      "size": 264,
+      "phase_reached": 16383,
+      "clock_valid": 11687,
+      "ordinal": 1,
+      "identity": [
+        1,
+        1,
+        1,
+        0
+      ],
+      "call": [
+        0,
+        2,
+        0,
+        1
+      ],
+      "policy": [
+        60000000000,
+        597927039750,
+        597927039817
+      ],
+      "predicate": [
+        1,
+        1,
+        0,
+        1,
+        0,
+        1
+      ],
+      "clock": [
+        537927039799,
+        537927041381,
+        537927046968,
+        537928125302,
+        537928129343,
+        537928129565,
+        537928130078,
+        537928132414,
+        537928132628
+      ],
+      "wait": [
+        1078334,
+        1
+      ],
+      "result": [
+        0,
+        0
+      ]
+    },
+    "correlation": "unique C++ entry within each SDK timing bracket; initial state flush is separately retained",
+    "comparison_sha256": "45847e268701a11eb4eabd9ef9f6caf3d730fe739143fcd39685728bbc6cd7cb",
+    "analyzer_sha256": "1942f3f1e804d7b1ec324daf0886e17e5611952fcdf20f144c87c3c277a93e51",
+    "initial_analysis_correction": "The first analyzer incorrectly assumed 107 total native calls; it stopped on 108 records. The initial state-setting offline N0 call is separately retained; 107 Exercise calls are correlated by their SDK clock brackets. Neither installed run was repeated."
+  },
+  "interpretation": {
+    "output_and_state_identical_to_audio3": true,
+    "result_delivery_ns": 595,
+    "off_on_callback_duration_difference_ns": 11139,
+    "causal_limit": "The enclosing wait interval includes clock-sampling overhead and descheduling before kernel entry and after Signal::wait returns. Its end stamp, not the exact return instant, is 18,405\u201318,467 ns past the deadline bracket. These observations do not distinguish late publication, native scheduling, pre-syscall delay or post-return descheduling; they do not attribute Windows DSP or quantify observer overhead separately from scheduling variation.",
+    "post_wait_stamp_past_deadline_ns": [
+      18405,
+      18467
+    ],
+    "wait_interval_dominates_traced_overrun": true
+  },
+  "nonclaims": [
+    "Wait elapsed includes scheduling and notification races, not proof of kernel sleep or Windows DSP time.",
+    "Pre-return is not the final SDK return; outer SDK timing also includes the callback audit.",
+    "One paired comparison does not isolate instrumentation overhead from scheduler variation.",
+    "No physical DAW or Steam Deck acceptance.",
+    "Not a long soak, serial-chain qualification or lower-block musical acceptance.",
+    "No runtime, Windows-host behavior, buffering or completion deadline policy change.",
+    "One successful pair does not erase the historical failures; both current whole-callback timing checks fail."
+  ],
+  "checkpoint_custody": {
+    "ubuntu_shutdown": "normal desktop Power Off and confirmation; stopped exit0",
+    "builder": "stopped; no OOM",
+    "audiobookshelf": "running unchanged",
+    "deck": "unchanged",
+    "private_shutdown_evidence_sha256": "41c5ac9d3206c1a240762632cd57e1004488db30ea070c6b88ff6c70b8c437c7"
+  },
+  "independent_review": {
+    "status": "no_remaining_findings",
+    "scope": "Both installed archives, exact timing correlation, audio/state comparison, unchanged preferences, normal publication actions, positive retirement and bounded attribution; post-wait wording corrected."
+  }
+}

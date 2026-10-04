@@ -203,18 +203,40 @@ completion waiting; subsequent presentation and C++ result delivery remain outsi
 that enforced wait bound. The outer SDK bracket includes unquantified audit costs.
 Existing aggregate counters cannot attribute this callback's overrun.
 
-The bounded native phase observer is implemented and independently reviewed.
-Explicit invocation-only `LVB_AP23_PHASE_TRACE=1` is sampled during inactive setup;
-128 preallocated records retain cross-setup ordinals, completion predicates/waits,
-Rust presentation and C++ result delivery, with quiescent export and explicit
-omission counts. Phase reachability and valid clocks are distinct. The inferred
-wait deadline is a bracket, not an exact clock conversion, and the final C++ stamp
-is pre-return. Disabled callbacks use the ordinary ABI. Local source regressions
-pass; ordinary Linux native/legacy builds and the installed comparison are next.
-Build one registered successor, then compare diagnostics off and on using that
-same artifact. Preserve the original disabled failures and measure observer effects
-separately. No deadline, buffering, IPC, Windows-host or runtime policy changed;
-serial-chain, lower-block and physical acceptance remain open.
+The bounded native phase observer is installed as `0.12.0audio4` at source
+`1124c1b32637432ab9b0cf3a31b46cbb0820fcbc`, tree
+`f649b1399b16d8466e4c8edfa3fc4f3cf1a3f11f`. All five applicable CI workflows,
+13 Linux SDK tests, three phase regressions, legacy native builds and independent
+package rebuild pass. Explicit invocation-only `LVB_AP23_PHASE_TRACE=1` prepares
+128 records while inactive and exports them after quiescence. Reached phases and
+valid clocks differ; inferred deadlines retain conversion brackets; final C++ is
+pre-return. Ordinary disabled callbacks retain their ABI and no phase export.
+
+The [installed off/on comparison](evidence/audio-recovery/2026-10-04-audio4-phase-comparison.json)
+uses the same reference module, settings, Windows executable and independent
+consumer. Normal rescan, inspection, preparation and successor publication retain
+the predecessor and all performance preferences. Both 107-call runs preserve exact
+audio/state bytes from audio3 and confirmed retirement, but each has one timing
+overrun. Callback 105 takes 283,345 ns off and 294,484 ns on against 270,833 ns. The traced
+wait interval spans 285,056 ns; its post-return end stamp is 18,405–18,467 ns beyond the
+conversion bracket. C++ result delivery spans 595 ns. This localizes the interval,
+not the cause: notification timing, kernel waiting, pre-syscall and post-return
+descheduling remain indistinguishable. The initial offline state-setting flush is
+one additional native record outside the 107 measured Exercise calls; all 108 are
+retained and correlated using unique SDK clock brackets. No acceptance rerun or
+budget change follows from correcting the analyzer's initial count assumption.
+
+Next bounded repair is the shared absolute-wait contract. `Signal::wait` currently
+calculates remaining time and then starts a relative futex timeout; a pause between
+those steps can extend the selected deadline. Reproduce that gap, use an absolute
+monotonic wait with conservative clock conversion, and test publication races,
+interruption and the callback-audit ABI. Preserve existing budgets, queues,
+notifications, ownership and failure posture. Absolute expiry cannot guarantee
+when a descheduled caller returns, and this repair must not be called the cause or
+cure of the installed overrun without a comparison. No Windows behavior, runtime,
+buffering or privilege changes. Review source, then qualify the frozen successor
+through the same installed path. Serial-chain, lower-block and physical musician
+acceptance remain open.
 
 The polling audit distinguishes current control acknowledgement from deliberate
 legacy paths. Windows mapped-processing formatting was completed separately at

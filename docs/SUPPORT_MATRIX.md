@@ -29,6 +29,14 @@ The new mode-switch run still exceeds its N13 callback allowance (280,722 ns ver
 270,833 ns). These eight separate lifetimes establish neither endurance nor complete
 real-time performance. Serial chains, lower blocks and the physical musician
 workflow remain **unqualified**.
+Installed [audio4 phase measurement](../evidence/audio-recovery/2026-10-04-audio4-phase-comparison.json)
+preserves exact audio/state/retirement in its declared diagnostic-off/on pair, but
+both whole-callback timing checks fail. The traced N13 overrun is concentrated in
+the enclosing completion-wait interval (285,056 ns); result delivery spans 595 ns.
+The post-wait stamp is 18,405–18,467 ns beyond the deadline bracket. Scheduling before
+or after the wait remains indistinguishable from waiting; no Windows-DSP or
+historical-gap cause is established. This is attribution progress, not an audio
+repair or expanded support.
 These reference SDK results do not change the Deck claims below or attribute the
 config4 and historical Deck gaps.
 

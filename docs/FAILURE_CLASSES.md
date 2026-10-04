@@ -1165,6 +1165,16 @@ preserves missing audio in both the earlier usable Deck pair and an internal57
 control. FC-MIDI-002 now has a physical note-release repair, but its short clean
 SDK and Bitwig runs do not close this independent deadline failure class.
 
+The [audio4 installed measurement](../evidence/audio-recovery/2026-10-04-audio4-phase-comparison.json)
+retains one N13 whole-callback overrun in each matched diagnostic-off/on lifetime,
+with exact output/state and confirmed retirement. The traced SDK bracket is 294,484 ns
+against 270,833 ns; its enclosing native wait interval is 285,056 ns, while C++ result
+delivery takes 595 ns. The post-wait stamp is 18,405–18,467 ns past the inferred deadline
+bracket. This does not distinguish result-publication timing, waiting, pre-syscall
+or post-return descheduling. The separate source gap in using a relative futex
+timeout after computing remaining time is the next bounded contract repair; it is
+not a demonstrated cause of this overrun. FC-AUDIO-001 remains open.
+
 This status is for the residual deadline-miss classes. AP16 separately accepted a disk-backed
 hot-mapping repair. [AS1 PR #172](https://github.com/kasselvania/Linux-VST-bridge/pull/172)
 removed recurring bridge-owned allocation from its covered shared audio
