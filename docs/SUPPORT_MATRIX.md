@@ -47,6 +47,16 @@ confirm retirement; all preferences and sibling registrations survive rollback.
 This leaves shared readiness/zero-frame completion unqualified, and establishes
 neither a new audio cure nor a dependable predecessor. No whole-package rollback
 is claimed from restoring only the native publication.
+Installed [audio6 refusal measurement](../evidence/audio-recovery/2026-10-04-audio6-refusal-frontier.json)
+passes one untraced 107-call SDK lifetime: 198,672 independently matching samples,
+state round-trip, local timing and retirement. The traced lifetime fails its first
+RT N=0 at 1,007,081 ns with a satisfied exact-operation predicate. Native reply
+observation precedes the deadline, but the presentation stamp follows it and the
+final check refuses. Both retire; normal controls restore the exact pre-comparison
+native publication with audio6 manager retained. Different scheduling observations
+and independently sampled phases prevent observer or scheduling causation claims.
+The shared real-time completion capability remains **unqualified**; this short
+reference result and its failure measurement do not close earlier failures.
 These reference SDK results do not change the Deck claims below or attribute the
 config4 and historical Deck gaps.
 

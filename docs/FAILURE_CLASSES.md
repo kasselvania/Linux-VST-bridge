@@ -1191,6 +1191,25 @@ effective policy1073741826/priority5 readback while each audio5 run has two unav
 requests; this difference prevents an isolated engine timing comparison and is not
 continuity proof. FC-AUDIO-001 remains open.
 
+The [audio6 installed pair](../evidence/audio-recovery/2026-10-04-audio6-refusal-frontier.json)
+localizes a different refusal boundary. The untraced 107-call lifetime passes
+198,672 independently compared samples, state round-trip, local timing and retirement.
+The traced first RT N=0 fails at 1,007,081 ns with its exact predicate satisfied.
+Ticket/host-call/sequence correlation identifies the native reply observation
+43,143–43,214 ns before the converted deadline. Wait-end precedes it by
+4,558–4,629 ns; the presentation stamp follows it by 171–242 ns. The final native
+deadline check returns failure. This is no longer an unsatisfied completion predicate
+at refusal, but does not timestamp exact consumption or isolate CPU work from
+scheduling. Windows delivery stage1 has returned to its receive loop while retaining
+the completed request tuple; it must not be read as evidence the request never ran.
+The UI-owner lane is separate and stale for this operation. One off/on pair with
+different post-start scheduling readbacks cannot prove observer or policy causation.
+Both retire, and exact native predecessor restoration preserves all registrations
+and preferences under the newer manager. FC-AUDIO-001 remains open: reduce and
+qualify the shared completion critical path without hiding late return or increasing
+the declared allowance. Earlier unsatisfied-predicate failures remain independently
+failed and unattributed.
+
 This status is for the residual deadline-miss classes. AP16 separately accepted a disk-backed
 hot-mapping repair. [AS1 PR #172](https://github.com/kasselvania/Linux-VST-bridge/pull/172)
 removed recurring bridge-owned allocation from its covered shared audio

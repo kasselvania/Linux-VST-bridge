@@ -291,9 +291,31 @@ RTTIME/privilege, lifecycle or buffering changes. The
 [source validation](evidence/audio-recovery/2026-10-04-deadline-status-source.json)
 passes 140 Linux backend tests, 12 scheduling tests, final focused tests and clippy;
 independent review has no remaining findings. Recovery export has helper-level
-tests and source-reviewed integration, not a new end-to-end recovery proof. The
-next installed off/on pair uses one frozen package and unchanged reference workload.
-Failure-time observation alone is not an audio repair.
+tests and source-reviewed integration, not a new end-to-end recovery proof.
+
+Paired `0.12.0audio6`, source `e483ddce6364c134822a58495330b371fa0dc3d4`,
+tree `4a022c19fc621ade38a235c66a580606326b86de`, passes five applicable CI jobs,
+13 native SDK tests and independent rebuild verification. Its
+[installed pair](evidence/audio-recovery/2026-10-04-audio6-refusal-frontier.json)
+uses unchanged Windows/consumer/audit bytes and normal update, inspection,
+preparation and publication. Diagnostic-off passes all 107 calls, independently
+verified 198,672 samples, state round-trip and local timing. Diagnostic-on refuses
+the first RT N=0 at 1,007,081 ns; no measured audio or final recall follows.
+Both retire positively. The failed call's exact-operation predicate is satisfied;
+its correlated native reply stamp is 43,143–43,214 ns before the deadline bracket,
+wait-end is 4,558–4,629 ns before it, and presentation stamp is 171–242 ns after it.
+The final native check refuses late completion. This identifies the refusal path,
+not the exact consumption instant, intrinsic CPU cost or cause of older gaps.
+Windows scheduling readbacks again differ; their availability may itself depend
+on lifetime length. One off/on pair cannot isolate observer overhead or scheduling
+causation. The whole completion path, including remaining work after waiting and
+shared START/N=0 ordering, is the next bounded target. Do not hide lateness by
+removing the final check, raising the budget or blocking `setProcessing`.
+Normal rollback restores exact audio4 native with audio6 manager retained, all
+original class registrations and preferences unchanged. This is native restoration,
+not whole-package rollback or a dependable fallback. Both lifetimes and their
+captured output/status are preserved. Failure-time observation alone is not an
+audio repair; physical/serial-chain/lower-block/endurance gates remain open.
 
 The polling audit distinguishes current control acknowledgement from deliberate
 legacy paths. Windows mapped-processing formatting was completed separately at
