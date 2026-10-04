@@ -151,6 +151,7 @@ fn same_session_reconfiguration_two_ended() {
             assert!(unsafe { control(handle, 20, setup.clone()) }.is_ok());
             assert_eq!(unsafe { ap4_activate(handle, 256, 0) }, 0);
         }
+        let ack_before_start = shared.ack.load(Ordering::Acquire);
         assert_eq!(unsafe { ap3_transition(handle, START) }, 0);
         let held = root.join(format!("lc1-start-held-{epoch}"));
         let release = root.join(format!("lc1-release-start-{epoch}"));
@@ -170,6 +171,8 @@ fn same_session_reconfiguration_two_ended() {
             assert!(crate::mailbox::Mailbox::inspect_request(
                 &root.join("ap10.delivery"), 15).unwrap().is_none(),
                 "an admitted pre-audio control must retain its earlier barrier");
+            assert_eq!(shared.ack.load(Ordering::Acquire), ack_before_start,
+                "held Started must not grant readiness");
             fs::write(&release, b"release").unwrap();
             wait(&shared, || shared.ack.load(Ordering::Acquire) == (epoch << 8) | 11);
             assert!(saver.join().unwrap().is_ok());
@@ -189,7 +192,7 @@ fn same_session_reconfiguration_two_ended() {
                 assert!(early.sequence > sequence, "restart reused an earlier request identity");
             }
             prior_early_sequence = Some(early.sequence);
-            assert_eq!(shared.ack.load(Ordering::Acquire) & 0xff, 9,
+            assert_eq!(shared.ack.load(Ordering::Acquire), ack_before_start,
                 "request publication must not grant Started");
             fs::write(&release, b"release").unwrap();
             wait(&shared, || shared.ack.load(Ordering::Acquire) == (epoch << 8) | 11);
@@ -317,6 +320,7 @@ fn refused_vendor_start_never_grants_audio_authority() {
     }
     assert!(unsafe { control(handle, 20, setup) }.is_ok());
     assert_eq!(unsafe { ap4_activate(handle, 256, 0) }, 0);
+    let ack_before_start = shared.ack.load(Ordering::Acquire);
     assert_eq!(unsafe { ap3_transition(handle, START) }, 0);
     let until = Instant::now() + Duration::from_secs(15);
     while shared.fault.load(Ordering::Acquire) == 0 {
@@ -324,6 +328,7 @@ fn refused_vendor_start_never_grants_audio_authority() {
         thread::sleep(Duration::from_millis(1));
     }
     assert_eq!(shared.processing_ready_epoch.load(Ordering::Acquire), 0);
+    assert_eq!(shared.ack.load(Ordering::Acquire), ack_before_start);
     assert_eq!(shared.processed.load(Ordering::Acquire), 0);
     assert!(crate::mailbox::Mailbox::inspect_request(
         &root.join("ap10.delivery"), 15).unwrap().is_none());
