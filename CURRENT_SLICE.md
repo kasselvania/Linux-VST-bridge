@@ -1,128 +1,114 @@
-# Current work: one managed plug-in configuration
+# Current work: coherent audio completion
 
-Selected by the operator on 2026-10-03. The endpoint is **prepare, explain, run,
-save and restore an unfamiliar plug-in through one managed configuration**, using
-ordinary controls and preserving independent siblings. A vendor example does not
-change this task. Branch `codex/platform-configuration`, draft PR #206, is stacked
-on unmerged #204 and ultimately #200; no inherited integration is approved wholesale.
+Operator selected on 2026-10-03 after the installed configuration hardening.
+Branch `codex/audio-completion-contract` starts at
+`5813a65b9b0c680344262a4557e4c4bc26550038`, tree
+`d50a53e911affeb4db1244510e4d1a84c5968ce2`, and will stack on draft PR #206.
+That PR remains unmerged, above #204 and the inherited #200 integration.
 
-## Current outcome
+## Outcome and basis
 
-The [platform assessment](docs/PLATFORM_ARCHITECTURE_REVIEW.md), Architecture
-[18.7](docs/ARCHITECTURE.md#187-platform-execution-convergence), D-028 and the
-[roadmap](docs/AUDIO_RECOVERY_ROADMAP.md) own the shared design. Candidate/history,
-registration, supervision and ordinary manager controls now connect prepared
-preferences, admission, launch, trial/keep and exact restoration. Capability
-eligibility, observed liveness and historical qualification remain distinct.
+Deliver one prepared audio-execution contract through the native SDK, owned
+transport, Windows render thread and normal manager selection. The primary claim
+is that the selected delivery mode completes ordered work under its declared
+real-time/offline bound and failure posture, including zero-frame operations,
+mode switches, inactive reconfiguration and retirement. Existing buffering remains
+an explicit compatibility choice; same-callback delivery targets D=0 with truthful
+latency and no implicit preference change.
 
-Architectural hardening is installed as `0.12.0config7foundation`, source
-`3fcd7bae2ee71630aa64442341b5ec66df94ea81`, tree
-`67d7f49d1cc9d59d284db8e044757e8bdfceac20`, on disposable Ubuntu:
+Basis: Architecture 18.3 “Prepared processing configuration,” 18.4 “Delivery and
+deadline policy,” and 18.7 “DAW and editor execution contracts”; accepted D-028;
+roadmap order 2b and the platform assessment's shared delivery findings. No yabridge
+code may be copied. Its documented architecture is comparison evidence, not our
+implementation or a performance guarantee.
 
-- Final Windows-host custody is authenticated through kernel writer credentials,
-  pinned process generation and exact session/status mapping on the existing launch
-  channel. The config6 independent census confirms the actual render thread;
-  config7 retains that reviewed custody implementation.
-- Ordinary controls validate bounded records and the selected pointer. Workers and
-  launch retain fresh deep executable validation. Ten config6 product reads took
-  0.18–0.28 seconds, previously 13.24–14.36; this is an observation, not a controlled
-  latency benchmark or audio-cause finding.
-- The selected publication owns current configuration, Keep and Restore. Retained
-  proposals remain explicit, distinguishable alternatives with their own predecessor
-  checks. A populated-history regression fails against the old production projection
-  and passes the repair. Native engine, Windows host and runtime are unchanged.
+## Agreed implementation boundary
 
-Independent review and applicable CI pass. At frozen product source, CI runs 392
-runtime, 244 manager library, 318 manager action and 98 frontend tests; two existing
-opt-in manager tests are excluded. Applicable native, packaging and policy checks
-also pass. The external SDK consumer at `71e47ba6` adds one exact read-only snapshot
-refresh retry under the original deadline, with separate attempt evidence. Requests
-and audio are never replayed. Eleven new regressions, all twelve local beta-tool
-tests and current CI pass; installed product bytes remain frozen at `3fcd7bae`.
+- Keep `Live`/`Shared`/`Session`, the bounded queues, mapped payloads, stream epochs,
+  exact process/transport custody and retirement. Add no parallel host/lifecycle
+  architecture. Notifications prompt inspection; they never authorize execution,
+  sequence advancement, slot reuse or acceptance of malformed data.
+- Isolate notification traffic from the existing state/control connection under
+  the same Session ownership. Pair a dedicated loopback notification connection
+  before activation using the authenticated bootstrap, exact session and a fresh
+  capability. This is channel pairing, not kernel process identity. Preserve the
+  supervisor's independent final-host custody. IPC minor 15 explicitly negotiates the
+  change; shared-memory layout 3 and notification schema 1 are separate axes.
+- Network I/O stays off both the native DAW callback and Windows vendor render
+  thread. The native transport worker owns its endpoint. A narrowly owned Windows
+  transport pump exchanges notification hints and signals prepared Win32 events;
+  the render thread waits/signals those events and accesses mapped payloads.
+  There is no GUI-owner relay or render-thread writer mutex. Cancellation must wake
+  and join the pump/render/worker before releasing their storage.
+- Native worker wake conditions include requests, pending controls, control-flag 2
+  consumption, bounded capture service, fault and quit. Preserve concurrent state
+  capture without spinning on an unread stream or delaying audio behind large state
+  replies. Backpressure cannot discard the last required wake.
+- Prepare typed `Buffered` or `SameCallback` delivery through existing class
+  preferences/admission. Existing records remain Buffered; remembered 256/512/1024
+  buffering survives selecting/restoring SameCallback. Report effective D and
+  vendor L separately, with D+L through the existing SDK latency-change route.
+- Carry actual callback mode through the C ABI and IPC 15 process request. Permit
+  RT/prefetch switches without setup; offline boundaries require inactive setup.
+  Add exact audio-operation tickets for completion, including consecutive N=0,
+  without replacing existing epoch/sample-position/result validation.
+- Declare a single absolute real-time/prefetch local allowance N/Fs from C++
+  callback entry; SameCallback N=0 initially has a 1-ms flush allowance. Offline
+  initially has a 60-second absolute operation bound shared by callback/worker,
+  interruptible at intervals no longer than 4 ms. Wakes never renew a deadline.
+  These are policies to qualify, not whole-DAW scheduling guarantees.
+- Offline failure/cancellation/timeout must return explicit failure, never successful
+  timeout silence. SameCallback RT misses are separately identified and contained
+  through existing retirement. Buffered RT retains its declared gap/expiry posture.
+  Publish cancellation before waiting for callback leases. No request replay.
 
-## Installed acceptance and retained failures
+## Scope and executable acceptance
 
-[Foundation evidence](evidence/preparation/2026-10-03-foundation-installed.json)
-retains source, package, observer and private archive identities for every attempt.
-Config6 established custody, bounded controls, normal GUI restoration and original
-state recall, but its complete workflow failed at Keep because a newer proposal
-replaced the selected publication in the main projection. Config7 repairs that owner.
+Files/components: native audio-client protocol/bootstrap; native backend mailbox,
+queue, completion/preparation and admission; native SDK processor/ABI; Windows
+mapped processing, notification adapter and narrow SDK mode propagation; existing
+manager performance/action/readback owners; first-party reference modules and
+independent SDK consumer/build/package tests. Keep pinned runtime, toolchain,
+licensed environments, SDK version and unrelated configuration policies unchanged.
+No vendor campaign, graphics renderer repair, broad manager redesign or new runtime.
 
-Config7's first full effect attempt completed both trials and Keeps, twelve audio
-lifetimes and 62,914,560 compared samples without mismatch or callback overrun,
-then stopped on a product-read consistency refusal before the buffering request.
-That whole attempt remains failed. The specific snapshot input that changed was
-not observed. The corrected external consumer now handles that exact read refusal.
-Normal GUI recovery has restored both predecessors, preserved 512 through each
-restore, then returned all four originals to 1024 and closed the manager. The final
-buffering button needed fully visible activation after a clipped click submitted
-no request; the cause remains unassigned. Fresh complete effect and unfamiliar
-instrument workflows now both pass: thirteen separate audio lifetimes each,
-63,897,600 compared samples each, zero mismatches/overruns and full retirement.
-Both trials, Keeps, affected-owner refusals, exact two-predecessor restoration and
-original-state recall passed. Four single product-read refreshes occurred in each
-workflow; no settings request or audio run was replayed. Independent final readback
-confirms all four originals at 1024, unchanged saved objects/package artifacts, a
-closed manager and no active DSP, maintenance or uncertain cleanup. These are
-complete configuration regressions, not a continuous soak.
+First source regressions must establish the current slow-offline/mode failures.
+Then verify notifications under publication races, delayed/duplicate/coalesced hints,
+backpressure, crossed/stale pairing, endpoint loss and cancellation. Cover concurrent
+and idle capture, control handoff, start/stop generations and exact retirement.
 
-The earlier config4 workflow remains failed: an independent instrument sibling
-returned one silent 1024-frame span during second-trial request dispatch, with 2044
-sample mismatches and a 21.375-ms callback. Worker/mutation start was not observed;
-both consumers retired. The [controlled capacity comparison](evidence/preparation/2026-10-03-controlled-capacity-observation.json)
-passed one 102.4-second lifetime at each memory size, with lower measured pressure
-and no measured swapping in the larger guest. Fixed order, tracing and one lifetime
-per size establish neither a RAM cause nor dependable audio.
+Verify both roles with actual N from 0 through M, non-power-of-two blocks, in-place
+buffers, supported output buses and zero-frame event/parameter results. Include
+unpaced bursts, first/final block fidelity, slow valid offline processing beyond the
+old five-second worker timeout, explicit failure, RT/prefetch switches, legal rate/
+block reconfiguration, state recall, deadline entry time and no callback allocation.
+Use original first-party instrumentation; no vendor payloads in public evidence.
 
-## Acceptance and next boundary
+Build paired native/Windows/manager artifacts and test normal delivery selection
+and buffering restoration on disposable Ubuntu. Capture whole SDK callback timing,
+actual output, state and owner retirement on one frozen candidate. Evaluate serial
+chains and lower actual blocks 256/128 then 64 without inflating delay or shortening
+acceptance. Physical DAW/Deck qualification follows reviewed installed results;
+source tests and SDK runs cannot establish musician endurance or beta readiness.
+Retain every whole failed attempt and original baseline. Explicitly report an
+unperformed physical gate if hardware cannot safely be used.
 
-The hardening slice began at `9dd5367e69ec42fbf232aef4b22371fb7ba78fb3`, tree
-`6130ae769eef0ce3ea8ce9dfa472c4266fd4ea7a`. Basis: Architecture 18.7, “Shared
-configuration, separate facts” and “Capability and ownership scope.” Its primary
-claim is that ordinary configuration controls and exact execution custody use the
-proper existing owners without weakening execution admission.
+## Baseline, rollback and machine custody
 
-Completed on both installed reference roles on the same frozen candidate: prepare and
-apply two settings trials while an independent sibling processes; refuse changes
-with affected owners active; recall meaningful saved state; Keep without inventing
-qualification; restore both exact predecessors with separately selected buffering
-retained; return to baseline and prove audio plus process/transport retirement.
-Normal GUI restoration and all four original selections/settings are verified. Retain
-whole failed attempts, unchanged saved objects and all original comparisons.
+[Configuration hardening evidence](evidence/preparation/2026-10-03-foundation-installed.json)
+retains Ubuntu config7 at source 3fcd7bae: both complete reference workflows, 26
+separate audio lifetimes/127,795,200 matching samples, normal GUI restoration and
+unchanged original states. Earlier config4 audio loss remains unexplained. That
+candidate is the paired rollback/comparison, not a gap-free musical qualification.
 
-This closes the bounded hardening claim at the declared Ubuntu reference fixture.
-It is a prerequisite within the complete platform endpoint, not commercial or
-DAW acceptance. Interrupted-publication recovery has Linux source coverage, not
-installed fault-injection proof from these SDK runs. Real DAW projects, editor
-rendering/coexistence, reboot, dependable interaction/soak, lower latency and
-cross-platform acceptance remain open. A pass cannot attribute the old audio gap.
+All project builders/VMs are stopped at task start. Use one at a time, two CPUs on
+host 2–3 and 256 processes; reserve CPU 0–1/capacity for Audiobookshelf. Builder limit
+4 GiB; expanded Ubuntu 6 GiB guest / 8 GiB container, combined outer memory/swap equal to
+memory. Keep exact predecessor artifacts, normal product recovery and uncertain
+ownership records. No forced VM cleanup or unrelated service/privilege changes.
+The Deck remains at the previously recorded general5deck configuration; Nibbi's
+editor remains unresolved. No Deck mutation occurs during source development.
 
-Next, the same architecture must supply coherent DAW execution: event-driven
-handoffs over existing transport, real-time/offline completion, legal reconfiguration
-and scoped editor/control failure. Runtime/dependency operations extend the shared
-configuration contract independently. Do not infer an audio repair from faster
-controls, effective scheduling or extra memory, and do not start a vendor campaign,
-second engine/lifecycle framework or speculative priority/buffer/runtime experiment.
-
-## Machine custody and preserved state
-
-The completed Ubuntu run used 6 GiB guest / 8 GiB container, two CPUs pinned to host 2–3 and 256
-processes, with combined outer memory/swap equal to memory. Run one VM or builder
-at a time; the builder retains its 4 GiB limit. Reserve CPU 0–1 and capacity for
-Audiobookshelf. The VM shut down normally after verified restoration and evidence
-preservation; all project VMs/builders are stopped and Audiobookshelf remains running.
-Retain the original 3 GiB guest / 4 GiB container for comparison.
-Normal restoration uses retained paired packages/publications. No manual ownership
-record deletion, unverified cleanup, licensed-environment recreation or privilege
-change is part of this slice.
-
-The Deck is unchanged at `0.12.0general5deck` with paired Pure LoFi/FRAGMENTS
-publications. Short installed recall passed; the interaction run ended in terminal
-instance failure before the planned soak. Final queued-underrun records were zero;
-disappearing status was initially misreported as audio loss. The trigger remains
-unattributed. Exact projects, predecessor artifacts and the corrected
-[physical result](evidence/audio-recovery/2026-10-03-general5-deck-installation.json)
-are retained. No new Deck run is selected.
-
-Delegation: implementation `gpt-6.1-sol` / `max`, review `gpt-6-astra` / `xhigh`,
-computer use `gpt-6.1-sol` / `high`. No fusion reviews.
+Implementation agents: Sol 6.1 Max; reviewers: Astra 6 xhigh; computer use: Sol 6.1 High.
+Root owns architecture, integration, machine custody, installed acceptance and
+commit/push. Workstream review and required gates remain active until completed.
