@@ -106,6 +106,141 @@ impl From<Item> for Completion {
         }
     }
 }
+#[derive(Clone, Copy, Default)]
+struct DeadlineIdentity {
+    generation: u64,
+    epoch: u64,
+    position: u64,
+    host_call: u64,
+    operation_ticket: u64,
+    operation_submitted: bool,
+}
+const WORKER_BINDING_WORDS: usize = 6;
+#[derive(Clone, Copy)]
+struct WorkerBindingObservation {
+    stability: crate::fault_status::Stability,
+    attempts: u32,
+    publication_before: u64,
+    publication_after: u64,
+    words: [u64; WORKER_BINDING_WORDS],
+}
+impl WorkerBindingObservation {
+    const fn absent() -> Self {
+        Self {
+            stability: crate::fault_status::Stability::Absent,
+            attempts: 0,
+            publication_before: 0,
+            publication_after: 0,
+            words: [0; WORKER_BINDING_WORDS],
+        }
+    }
+}
+struct WorkerBinding {
+    publication: AtomicU64,
+    slots: [[AtomicU64; WORKER_BINDING_WORDS]; 2],
+}
+impl WorkerBinding {
+    fn new() -> Self {
+        Self {
+            publication: AtomicU64::new(0),
+            slots: std::array::from_fn(|_| std::array::from_fn(|_| AtomicU64::new(0))),
+        }
+    }
+    fn publish(&self, words: [u64; WORKER_BINDING_WORDS]) {
+        let Some(next) = self.publication.load(Ordering::Relaxed).checked_add(1) else {
+            return;
+        };
+        for (destination, value) in self.slots[next as usize & 1].iter().zip(words) {
+            destination.store(value, Ordering::SeqCst);
+        }
+        self.publication.store(next, Ordering::SeqCst);
+    }
+    fn read(&self) -> WorkerBindingObservation {
+        let mut observed = WorkerBindingObservation::absent();
+        for attempt in 1..=3 {
+            let before = self.publication.load(Ordering::SeqCst);
+            if before == 0 {
+                let after = self.publication.load(Ordering::SeqCst);
+                observed.attempts = attempt;
+                observed.publication_before = before;
+                observed.publication_after = after;
+                if after == 0 {
+                    return observed;
+                }
+                continue;
+            }
+            let words = std::array::from_fn(|index| {
+                self.slots[before as usize & 1][index].load(Ordering::SeqCst)
+            });
+            let after = self.publication.load(Ordering::SeqCst);
+            observed.attempts = attempt;
+            observed.publication_before = before;
+            observed.publication_after = after;
+            if before == after {
+                observed.stability = crate::fault_status::Stability::Stable;
+                observed.words = words;
+                return observed;
+            }
+        }
+        observed.stability = crate::fault_status::Stability::Unstable;
+        observed
+    }
+}
+#[derive(Clone, Copy)]
+struct RefusalSnapshot {
+    identity: DeadlineIdentity,
+    worker_binding: [WorkerBindingObservation; 2],
+    status: crate::fault_status::Snapshot,
+}
+struct FirstRefusal {
+    ready: AtomicBool,
+    exported: AtomicBool,
+    value: UnsafeCell<Option<RefusalSnapshot>>,
+}
+// Exactly one first-fault CAS winner writes the fixed snapshot. Registry
+// removal waits for all callback leases before the close owner reads it.
+unsafe impl Sync for FirstRefusal {}
+impl FirstRefusal {
+    fn new() -> Self {
+        Self {
+            ready: AtomicBool::new(false),
+            exported: AtomicBool::new(false),
+            value: UnsafeCell::new(None),
+        }
+    }
+    fn capture(
+        &self,
+        reader: &crate::fault_status::Reader,
+        binding: &WorkerBinding,
+        identity: DeadlineIdentity,
+    ) {
+        let before = binding.read();
+        let status = reader.snapshot();
+        let after = binding.read();
+        unsafe {
+            *self.value.get() = Some(RefusalSnapshot {
+                identity,
+                worker_binding: [before, after],
+                status,
+            });
+        }
+        self.ready.store(true, Ordering::Release);
+    }
+    #[cfg(test)]
+    fn read(&self) -> Option<RefusalSnapshot> {
+        self.ready
+            .load(Ordering::Acquire)
+            .then(|| unsafe { *self.value.get() })
+            .flatten()
+    }
+    fn take_for_export(&self) -> Option<RefusalSnapshot> {
+        if !self.ready.load(Ordering::Acquire)
+            || self.exported.compare_exchange(false,true,Ordering::AcqRel,Ordering::Acquire).is_err() {
+            return None;
+        }
+        unsafe { *self.value.get() }
+    }
+}
 struct Shared {
     terminal: Option<Arc<crate::terminal::Status>>,
     // Set only after a complete, session/generation-bound terminal record.
@@ -148,6 +283,10 @@ struct Shared {
     state_capable: AtomicBool,
     curve_state_revision: AtomicU64,
     observer: Option<Arc<crate::observer::Shared>>,
+    phase_diagnostics: bool,
+    fault_reader: Option<crate::fault_status::Reader>,
+    worker_binding: WorkerBinding,
+    first_refusal: FirstRefusal,
     worker_op: AtomicU64,
     worker_epoch: AtomicU64,
     worker_position: AtomicU64,
@@ -213,6 +352,10 @@ impl Shared {
             state_capable: AtomicBool::new(false),
             curve_state_revision: AtomicU64::new(0),
             observer: None,
+            phase_diagnostics: false,
+            fault_reader: None,
+            worker_binding: WorkerBinding::new(),
+            first_refusal: FirstRefusal::new(),
             worker_op: AtomicU64::new(0),
             worker_epoch: AtomicU64::new(0),
             worker_position: AtomicU64::new(0),
@@ -251,12 +394,12 @@ impl Shared {
         self.terminal_latched.store(true, Ordering::Release);
         Some(record)
     }
-    fn fail(&self, code: u64, position: u64) {
-        if self
+    fn begin_failure(&self, code: u64, position: u64) -> bool {
+        let first = self
             .fault
             .compare_exchange(0, code, Ordering::AcqRel, Ordering::Acquire)
-            .is_ok()
-        {
+            .is_ok();
+        if first {
             self.first_position.store(position, Ordering::Relaxed);
             self.first_epoch
                 .store(self.wanted.load(Ordering::Acquire), Ordering::Relaxed);
@@ -276,9 +419,24 @@ impl Shared {
             self.first_results[1].store(self.results.consumed(), Ordering::Relaxed);
             self.first_context_ready.store(true, Ordering::Release);
         }
+        first
+    }
+    fn notify_failure(&self) {
         self.completion.notify();
         self.control_acknowledgement.notify();
         self.work.notify();
+    }
+    fn fail(&self, code: u64, position: u64) {
+        self.begin_failure(code, position);
+        self.notify_failure();
+    }
+    fn fail_deadline(&self, position: u64, identity: DeadlineIdentity) {
+        if self.begin_failure(COMPLETION_DEADLINE, position) {
+            if let Some(reader) = &self.fault_reader {
+                self.first_refusal.capture(reader, &self.worker_binding, identity);
+            }
+        }
+        self.notify_failure();
     }
     fn cancel(&self) {
         self.cancelled.store(true, Ordering::Release);
@@ -409,6 +567,9 @@ struct Callback {
     host_call: u64,
     submitted_operation: u64,
     completed_operation: u64,
+    last_operation_position: u64,
+    last_operation_host_call: u64,
+    last_operation_ticket: u64,
     delay: u64,
     epoch: u64,
     position: u64,
@@ -436,6 +597,9 @@ impl Callback {
             host_call: 0,
             submitted_operation: 0,
             completed_operation: 0,
+            last_operation_position: 0,
+            last_operation_host_call: 0,
+            last_operation_ticket: 0,
             delay: DELAY,
             epoch: 0,
             position: 0,
@@ -456,6 +620,16 @@ impl Callback {
         self.returned = crate::process_results::Pending::with_capacity(
             if delay == 0 { 1 } else { delay + DESCRIPTORS + 1 });
         self.delay = delay as u64;
+    }
+    fn deadline_identity(&self, s: &Shared, submitted: bool) -> DeadlineIdentity {
+        DeadlineIdentity {
+            generation: s.generation,
+            epoch: self.epoch,
+            position: if submitted { self.last_operation_position } else { self.position },
+            host_call: if submitted { self.last_operation_host_call } else { self.host_call },
+            operation_ticket: if submitted { self.last_operation_ticket } else { 0 },
+            operation_submitted: submitted,
+        }
     }
     fn clear_audio(&mut self, s: &Shared) {
         self.curve_carry = crate::parameter_curves::Carry::empty();
@@ -535,6 +709,9 @@ impl Callback {
     ) -> Result<u64,u32> {
         self.process_outputs_until_traced(s, request, out, extra, destination, deadline, None)
     }
+    // Keep the callback's already-bounded audio, deadline, and optional trace
+    // borrows explicit at this real-time boundary.
+    #[allow(clippy::too_many_arguments)]
     fn process_outputs_until_traced(&mut self, s: &Shared, mut request: Item,
         out: &mut [[f32; CAP]; 2], extra: &[*mut f32], destination: usize,
         deadline: Option<Instant>, mut trace: Option<&mut PhaseTrace>,
@@ -550,7 +727,7 @@ impl Callback {
         }
         let exact = request.completion.is_some_and(|policy| policy.exact);
         if exact && deadline.is_some_and(|end| Instant::now() >= end) {
-            s.fail(COMPLETION_DEADLINE, self.position);
+            s.fail_deadline(self.position, self.deadline_identity(s, false));
             return Err(COMPLETION_EXPIRED);
         }
         for &p in extra { if !p.is_null() { unsafe {
@@ -564,6 +741,9 @@ impl Callback {
             };
             request.ticket = ticket;
             self.submitted_operation = ticket;
+            self.last_operation_position = request.position;
+            self.last_operation_host_call = request.parent[0];
+            self.last_operation_ticket = ticket;
         }
         request.queued = Some(Instant::now());
         if request.events[..request.event_count as usize]
@@ -684,7 +864,7 @@ impl Callback {
                 self.delivery.expired_frames += expired;
             }
         }
-        if let Some(t) = trace.as_deref_mut() {
+        if let Some(t) = trace {
             t.predicate_after = if exact { self.completed_operation } else { self.next_result };
             t.predicate_final_satisfied = u64::from(if exact {
                 self.completed_operation >= request.ticket
@@ -694,7 +874,7 @@ impl Callback {
             t.phase_reached |= PHASE_PREDICATE_AFTER;
         }
         if exact && self.completed_operation < request.ticket {
-            s.fail(COMPLETION_DEADLINE, self.position);
+            s.fail_deadline(self.position, self.deadline_identity(s, true));
             return Err(COMPLETION_EXPIRED);
         }
         let mut i = 0;
@@ -960,6 +1140,16 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
             match item.kind {
                 AUDIO => {
                     let started = Instant::now();
+                    if s.phase_diagnostics {
+                        s.worker_binding.publish([
+                            s.generation,
+                            item.epoch,
+                            item.position,
+                            item.ticket,
+                            item.parent[0],
+                            session.state.next,
+                        ]);
+                    }
                     if let Some(status) = &mut session.fault_status {
                         status.delivery = std::array::from_fn(|i| s.delivery_totals[i].load(Ordering::Acquire));
                     }
@@ -1191,6 +1381,155 @@ fn progress_text(s: &Shared) -> String {
         s.first_results[0].load(Ordering::Relaxed), s.first_results[1].load(Ordering::Relaxed),
         s.service_us_max.load(Ordering::Relaxed), s.observer.as_ref().map_or(0, |o| o.dropped.load(Ordering::Relaxed)))
 }
+fn optional_u64(value: Option<u64>) -> String {
+    value.map_or_else(|| "null".into(), |value| value.to_string())
+}
+fn optional_bool(value: Option<bool>) -> &'static str {
+    match value {
+        Some(true) => "true",
+        Some(false) => "false",
+        None => "null",
+    }
+}
+fn worker_binding_text(observation: WorkerBindingObservation) -> String {
+    let stable = observation.stability == crate::fault_status::Stability::Stable;
+    let value = |word| stable.then_some(observation.words[word]);
+    format!(concat!("{{\"stability\":\"{}\",\"attempts\":{},\"publication\":[{},{}],",
+        "\"generation\":{},\"epoch\":{},\"position\":{},\"operation_ticket\":{},",
+        "\"host_call\":{},\"protocol_sequence\":{}}}"),
+        observation.stability.name(), observation.attempts,
+        observation.publication_before, observation.publication_after,
+        optional_u64(value(0)), optional_u64(value(1)), optional_u64(value(2)),
+        optional_u64(value(3)), optional_u64(value(4)), optional_u64(value(5)))
+}
+fn refusal_lane_text(
+    index: usize,
+    lane: crate::fault_status::Lane,
+    identity: DeadlineIdentity,
+    native: Option<[u64; 4]>,
+    worker: Option<[u64; WORKER_BINDING_WORDS]>,
+    worker_matches_refusal: bool,
+) -> String {
+    let names = ["native_transport", "windows_delivery", "windows_ui_owner"];
+    let clocks = [
+        "linux_clock_monotonic_ns",
+        "windows_query_performance_counter",
+        "windows_query_performance_counter",
+    ];
+    let stable = lane.stability == crate::fault_status::Stability::Stable;
+    let value = |word| stable.then_some(lane.words[word]);
+    let match_fields = |reference: Option<[u64; 4]>| {
+        reference.map(|reference| [
+            lane.words[0] == reference[0],
+            lane.words[1] == reference[1],
+            lane.words[3] == reference[2],
+            lane.words[2] == reference[3],
+        ])
+    };
+    let native_matches = (stable && index != 0).then(|| match_fields(native)).flatten();
+    let worker_matches = (stable).then(|| worker.map(|binding| [
+        lane.words[0] == binding[0],
+        lane.words[1] == binding[1],
+        lane.words[3] == binding[2],
+        lane.words[2] == binding[5],
+    ])).flatten();
+    let correlated = |matches: Option<[bool; 4]>| matches.map(|matches| matches.into_iter().all(|v|v));
+    let correlates_worker = correlated(worker_matches);
+    let match_text = |matches: Option<[bool; 4]>| match matches {
+        Some(matches) => format!("{{\"generation\":{},\"epoch\":{},\"position\":{},\"sequence\":{}}}",
+            matches[0],matches[1],matches[2],matches[3]),
+        None => "{\"generation\":null,\"epoch\":null,\"position\":null,\"sequence\":null}".into(),
+    };
+    let delivery = if stable && lane.word_count == 16 {
+        format!(concat!(",\"delivery\":{{\"admitted_frames\":{},\"missing_frames\":{},",
+            "\"gaps\":{},\"expired_frames\":{},\"delivered_frames\":{},\"priming_frames\":{}}}"),
+            lane.words[10], lane.words[11], lane.words[12], lane.words[13], lane.words[14], lane.words[15])
+    } else {
+        String::new()
+    };
+    format!(concat!("{{\"lane\":\"{}\",\"stability\":\"{}\",\"attempts\":{},",
+        "\"publication\":[{},{}],\"generation\":{},\"epoch\":{},\"sequence\":{},",
+        "\"position\":{},\"stage\":{},\"detail\":{},\"thread_id\":{},\"process_id\":{},",
+        "\"clock\":{{\"domain\":\"{}\",\"ticks\":{},\"frequency\":{}}},",
+        "\"matches_refusal\":{{\"generation\":{},\"epoch\":{},\"position\":{}}},",
+        "\"matches_native\":{},\"correlates_native\":{},",
+        "\"matches_worker\":{},\"correlates_worker\":{},\"correlates_refusal\":{}{} }}"),
+        names[index], lane.stability.name(), lane.attempts,
+        lane.publication_before, lane.publication_after,
+        optional_u64(value(0)), optional_u64(value(1)), optional_u64(value(2)),
+        optional_u64(value(3)), optional_u64(value(4)), optional_u64(value(5)),
+        optional_u64(value(8)), optional_u64(value(9)), clocks[index],
+        optional_u64(value(6)), optional_u64(value(7)),
+        optional_bool(value(0).map(|v| v == identity.generation)),
+        optional_bool(value(1).map(|v| v == identity.epoch)),
+        optional_bool(value(3).map(|v| v == identity.position)),
+        match_text(native_matches), optional_bool(correlated(native_matches)),
+        match_text(worker_matches), optional_bool(correlates_worker),
+        optional_bool(correlates_worker.map(|matched| matched && worker_matches_refusal)), delivery)
+}
+fn refusal_text(snapshot: RefusalSnapshot) -> String {
+    let native = snapshot.status.lanes[0];
+    let binding_before = snapshot.worker_binding[0];
+    let binding_after = snapshot.worker_binding[1];
+    let binding_unchanged = binding_before.stability == crate::fault_status::Stability::Stable
+        && binding_after.stability == crate::fault_status::Stability::Stable
+        && binding_before.publication_before == binding_after.publication_before
+        && binding_before.words == binding_after.words;
+    let binding_matches_refusal = binding_unchanged
+        && snapshot.identity.operation_submitted
+        && binding_before.words[..5] == [
+            snapshot.identity.generation,
+            snapshot.identity.epoch,
+            snapshot.identity.position,
+            snapshot.identity.operation_ticket,
+            snapshot.identity.host_call,
+        ];
+    let native_matches_binding = binding_unchanged
+        && native.stability == crate::fault_status::Stability::Stable
+        && native.words[0] == binding_before.words[0]
+        && native.words[1] == binding_before.words[1]
+        && native.words[2] == binding_before.words[5]
+        && native.words[3] == binding_before.words[2];
+    let callback_binding = if binding_matches_refusal && native_matches_binding { "matched" } else { "unknown" };
+    // A stable native row can correlate AP12 lanes by their published tuple.
+    // Callback binding additionally requires one unchanged, coherent worker
+    // publication containing the operation ticket and host call.
+    let native_tuple = (native.stability == crate::fault_status::Stability::Stable)
+        .then_some([native.words[0],native.words[1],native.words[3],native.words[2]]);
+    let native_sequence = native_tuple.map(|tuple|tuple[3]);
+    let worker_tuple = binding_unchanged.then_some(binding_before.words);
+    let mut records = format!(concat!("{{\"event\":\"ap23_exact_deadline_status\",\"schema\":1,\"ap12_schema\":2,",
+        "\"refusal\":{{\"generation\":{},\"epoch\":{},\"position\":{},\"host_call\":{},",
+        "\"operation_ticket\":{},\"operation_submitted\":{}}},",
+        "\"worker_binding\":{{\"before\":{},\"after\":{},\"unchanged\":{},",
+        "\"matches_refusal\":{},\"native_status_matches_binding\":{}}},",
+        "\"native_sequence_reference\":{},\"callback_binding\":\"{}\",",
+        "\"progress_is_atomic_snapshot\":false}}\n"),
+        snapshot.identity.generation, snapshot.identity.epoch, snapshot.identity.position,
+        snapshot.identity.host_call, snapshot.identity.operation_ticket,
+        snapshot.identity.operation_submitted,
+        worker_binding_text(binding_before), worker_binding_text(binding_after), binding_unchanged,
+        binding_matches_refusal, native_matches_binding, optional_u64(native_sequence), callback_binding);
+    // The existing report sink caps each JSONL record at 2048 bytes. Keep one
+    // captured snapshot, but export its three independently sampled AP12 lanes
+    // as correlated bounded records instead of silently dropping one oversized
+    // aggregate record.
+    for index in 0..3 {
+        let lane = refusal_lane_text(index, snapshot.status.lanes[index], snapshot.identity,
+            native_tuple, worker_tuple, binding_matches_refusal);
+        records.push_str(&format!(concat!("{{\"event\":\"ap23_exact_deadline_lane\",\"schema\":1,",
+            "\"ap12_schema\":2,\"refusal\":{{\"generation\":{},\"epoch\":{},",
+            "\"position\":{},\"host_call\":{},\"operation_ticket\":{}}},\"status\":{}}}\n"),
+            snapshot.identity.generation, snapshot.identity.epoch, snapshot.identity.position,
+            snapshot.identity.host_call, snapshot.identity.operation_ticket, lane));
+    }
+    records
+}
+fn export_refusal(s: &Shared, path: &std::path::Path) {
+    if let Some(snapshot) = s.first_refusal.take_for_export() {
+        crate::preview::append_records(path, &refusal_text(snapshot));
+    }
+}
 fn bounded_detail(error: &io::Error) -> String {
     format!("{:?}: {}", error.kind(), error)
         .chars()
@@ -1282,6 +1621,10 @@ unsafe fn open_with(
             let mut shared = Shared::try_new()?;
             let mut session = Session::open(binding, max as usize, minor)?;
             session.identity = identity;
+            shared.phase_diagnostics = crate::observer::phase_delivery_enabled();
+            if shared.phase_diagnostics {
+                shared.fault_reader = session.fault_status.as_ref().map(|status| status.reader());
+            }
             shared.gui = session.gui.clone();
             shared.terminal = session.fault_status.as_ref().map(|f| f.terminal.clone());
             shared.identity = identity;
@@ -1418,6 +1761,12 @@ pub unsafe extern "C" fn ap6_recover(
                     "owner has not confirmed failed endpoint retirement",
                 ));
             }
+            // Registry update has excluded every callback lease and the old
+            // worker is joined. Preserve its one refusal record before either
+            // Shared ownership or the report path can be replaced.
+            if let Some(path) = &l.report {
+                export_refusal(&l.shared,path);
+            }
             // A failed new startup/restore cannot silently authorize another
             // replacement. The owner still contains any newly owned endpoint.
             l.recovery_blocked = true;
@@ -1460,6 +1809,10 @@ pub unsafe extern "C" fn ap6_recover(
                 return Err(error);
             }
             if l.minor>=13 {if let Some(bytes)=&l.setup {shared.prepare_outputs(bytes)?;}}
+            shared.phase_diagnostics = l.shared.phase_diagnostics;
+            if shared.phase_diagnostics {
+                shared.fault_reader = session.fault_status.as_ref().map(|status| status.reader());
+            }
             shared.gui = session.gui.clone();
             shared.terminal = session.fault_status.as_ref().map(|f| f.terminal.clone());
             shared.generation = l
@@ -2149,7 +2502,11 @@ unsafe fn process_events_guarded(
     // The result and local presentation must finish within the original entry
     // allowance. A result racing the timeout cannot authorize late success.
     if completion.is_some_and(|policy| policy.exact && Instant::now() >= policy.deadline) {
-        l.shared.fail(COMPLETION_DEADLINE, (*l.callback.get()).position);
+        let callback = &*l.callback.get();
+        l.shared.fail_deadline(
+            callback.position,
+            callback.deadline_identity(&l.shared, true),
+        );
         return COMPLETION_EXPIRED;
     }
     *out_flags = combined;
@@ -2238,7 +2595,12 @@ pub extern "C" fn ap23_cancel(id: u64) -> u32 {
 #[no_mangle]
 pub extern "C" fn ap23_deadline_failed(id: u64) -> u32 {
     let Some(l) = INSTANCES.lease(id) else { return 1; };
-    l.shared.fail(COMPLETION_DEADLINE, l.shared.worker_position.load(Ordering::Acquire));
+    let Some(_guard) = Guard::acquire(&l) else { return 3; };
+    let callback = unsafe { &*l.callback.get() };
+    l.shared.fail_deadline(
+        l.shared.worker_position.load(Ordering::Acquire),
+        callback.deadline_identity(&l.shared, callback.last_operation_ticket != 0),
+    );
     0
 }
 unsafe fn close_instance(id: u64, contain_terminal: bool) -> u32 {
@@ -2271,6 +2633,7 @@ unsafe fn close_instance(id: u64, contain_terminal: bool) -> u32 {
             if let Some(path) = &l.report {
                 let callback = l.callback.get_mut();
                 callback.gaps.report(path);
+                export_refusal(&l.shared,path);
                 crate::preview::append_report(path, format!(
                     "{{\"event\":\"native_callback_completion\",\"scope\":\"successful Rust processing calls including completion wait\",\"waits\":{},\"waits_without_result\":{},\"maximum_ns\":{},\"bucket_upper_us\":[50,100,250,500,1000,2000,5000,10000,25000,null],\"buckets\":{:?}}}\n",
                     callback.completion_waits, callback.completion_wait_misses,
@@ -2585,7 +2948,7 @@ pub unsafe extern "C" fn ap23_phase_trace_enabled(id: u64, out: *mut u32) -> u32
     if out.is_null() { return 0x101; }
     let Some(l) = INSTANCES.lease(id) else { return 1; };
     let Some(_guard) = Guard::acquire(&l) else { return 3; };
-    *out = u32::from(crate::observer::phase_delivery_enabled());
+    *out = u32::from(l.shared.phase_diagnostics);
     0
 }
 #[no_mangle]
@@ -4834,6 +5197,133 @@ mod tests {
         assert_eq!(s.first_epoch.load(Ordering::Relaxed), 2);
         assert_eq!(s.first_worker_op.load(Ordering::Relaxed), AUDIO as u64);
         assert!(report.detail.starts_with(b"queued session fault"));
+    }
+    #[test]
+    fn exact_deadline_retains_the_first_bounded_status_before_live_progress_advances() {
+        let dir=std::env::temp_dir().join(format!("ap12-refusal-{:032x}",
+            u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())));
+        std::fs::create_dir(&dir).unwrap();
+        let mut status=crate::fault_status::Status::create(&dir.join("ap12.status"),[31;16]).unwrap();
+        status.publish(2,17,0,2,0);
+        let mut shared=Shared::new();
+        shared.generation=1;
+        shared.phase_diagnostics=true;
+        shared.fault_reader=Some(status.reader());
+        shared.worker_binding.publish([1,2,0,1,4,17]);
+        let identity=DeadlineIdentity {generation:1,epoch:2,position:0,host_call:4,
+            operation_ticket:1,operation_submitted:true};
+        let (_,allocations)=crate::allocation_test::measure(||shared.fail_deadline(0,identity));
+        assert_eq!(allocations,[0;3]);
+        shared.worker_binding.publish([1,2,0,2,5,18]);
+        status.publish(2,18,0,3,0);
+        shared.fail_deadline(99,DeadlineIdentity {host_call:5,..identity});
+        let retained=shared.first_refusal.read().unwrap();
+        assert_eq!(retained.status.lanes[0].words[2],17);
+        assert_eq!(retained.status.lanes[0].words[4],2);
+        assert_eq!(shared.fault_reader.as_ref().unwrap().snapshot().lanes[0].words[4],3);
+        assert_eq!(shared.first_position.load(Ordering::Acquire),0);
+        let text=refusal_text(retained);
+        assert!(text.contains("\"stage\":2"));
+        assert!(text.contains("\"native_sequence_reference\":17"));
+        assert!(text.contains("\"native_status_matches_binding\":true"));
+        assert!(text.contains("\"callback_binding\":\"matched\""));
+        assert!(text.contains("\"progress_is_atomic_snapshot\":false"));
+        drop(shared);drop(status);std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[test]
+    fn recovery_export_retains_the_old_refusal_once_before_shared_replacement() {
+        let dir=std::env::temp_dir().join(format!("ap12-recovery-export-{:032x}",
+            u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())));
+        std::fs::create_dir(&dir).unwrap();
+        let mut status=crate::fault_status::Status::create(&dir.join("ap12.status"),[32;16]).unwrap();
+        status.publish(3,21,0,2,0);
+        let mut shared=Shared::new();shared.generation=1;shared.phase_diagnostics=true;
+        shared.fault_reader=Some(status.reader());shared.worker_binding.publish([1,3,0,1,7,21]);
+        shared.fail_deadline(0,DeadlineIdentity {generation:1,epoch:3,position:0,host_call:7,
+            operation_ticket:1,operation_submitted:true});
+        let old=Arc::new(shared);let report=dir.join("old.jsonl");
+        export_refusal(&old,&report);
+        // Both a later failed recovery cleanup and the ordinary close path may
+        // reach this helper; neither can duplicate the old generation row.
+        export_refusal(&old,&report);
+        let replacement=Arc::new(Shared::new());
+        assert!(replacement.first_refusal.read().is_none());
+        drop(replacement);
+        let text=std::fs::read_to_string(&report).unwrap();
+        assert_eq!(text.matches("\"event\":\"ap23_exact_deadline_status\"").count(),1);
+        assert_eq!(text.matches("\"event\":\"ap23_exact_deadline_lane\"").count(),3);
+        assert!(text.lines().all(|record|record.len()<=2048));
+        assert!(text.contains("\"callback_binding\":\"matched\""));
+        drop(old);drop(status);std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[test]
+    fn refusal_report_keeps_stability_and_identity_matches_independent() {
+        let mut native=[0;16];native[..10].copy_from_slice(&[1,2,17,0,2,0,100,1_000_000_000,7,8]);
+        let mut stale=[0;16];stale[..10].copy_from_slice(&[9,2,17,1,4,0,200,10_000_000,10,11]);
+        let snapshot=RefusalSnapshot {
+            identity:DeadlineIdentity {generation:1,epoch:2,position:0,host_call:4,
+                operation_ticket:1,operation_submitted:true},
+            worker_binding:[
+                WorkerBindingObservation {stability:crate::fault_status::Stability::Stable,
+                    attempts:1,publication_before:2,publication_after:2,words:[1,2,0,1,4,17]},
+                WorkerBindingObservation {stability:crate::fault_status::Stability::Stable,
+                    attempts:1,publication_before:2,publication_after:2,words:[1,2,0,1,4,17]},
+            ],
+            status:crate::fault_status::Snapshot {lanes:[
+                crate::fault_status::Lane {stability:crate::fault_status::Stability::Stable,
+                    attempts:1,publication_before:3,publication_after:3,words:native,word_count:16},
+                crate::fault_status::Lane {stability:crate::fault_status::Stability::Stable,
+                    attempts:1,publication_before:4,publication_after:4,words:stale,word_count:10},
+                crate::fault_status::Lane {stability:crate::fault_status::Stability::Unstable,
+                    attempts:3,publication_before:5,publication_after:6,words:[0;16],word_count:10},
+            ]},
+        };
+        let text=refusal_text(snapshot);
+        assert!(text.contains("\"lane\":\"windows_delivery\",\"stability\":\"stable\""));
+        assert!(text.contains("\"matches_refusal\":{\"generation\":false,\"epoch\":true,\"position\":false}"));
+        assert!(text.contains("\"matches_native\":{\"generation\":false,\"epoch\":true,\"position\":false,\"sequence\":true}"));
+        assert!(text.contains("\"correlates_native\":false"));
+        assert!(text.contains("\"callback_binding\":\"matched\""));
+        assert!(text.contains("\"lane\":\"windows_ui_owner\",\"stability\":\"unstable\",\"attempts\":3"));
+        assert!(text.contains("\"generation\":null"));
+    }
+    #[test]
+    fn changed_or_predecessor_worker_binding_cannot_bind_repeated_zero_frame_status() {
+        let mut native=[0;16];native[..10].copy_from_slice(&[1,2,18,0,2,0,100,1_000_000_000,7,8]);
+        let lane=crate::fault_status::Lane {stability:crate::fault_status::Stability::Stable,
+            attempts:1,publication_before:4,publication_after:4,words:native,word_count:16};
+        let observed=|publication,ticket,host_call,sequence| WorkerBindingObservation {
+            stability:crate::fault_status::Stability::Stable,attempts:1,
+            publication_before:publication,publication_after:publication,
+            words:[1,2,0,ticket,host_call,sequence],
+        };
+        let identity=DeadlineIdentity {generation:1,epoch:2,position:0,host_call:5,
+            operation_ticket:2,operation_submitted:true};
+        let snapshot=|bindings| RefusalSnapshot {identity,worker_binding:bindings,
+            status:crate::fault_status::Snapshot {lanes:[lane,
+                crate::fault_status::Lane {stability:crate::fault_status::Stability::Absent,
+                    attempts:1,publication_before:0,publication_after:0,words:[0;16],word_count:10},
+                crate::fault_status::Lane {stability:crate::fault_status::Stability::Absent,
+                    attempts:1,publication_before:0,publication_after:0,words:[0;16],word_count:10}]}};
+        let predecessor=refusal_text(snapshot([observed(3,1,4,18),observed(3,1,4,18)]));
+        assert!(predecessor.contains("\"worker_binding\":{\"before\":"));
+        assert!(predecessor.contains("\"matches_refusal\":false"));
+        assert!(predecessor.contains("\"native_status_matches_binding\":true"));
+        assert!(predecessor.contains("\"callback_binding\":\"unknown\""));
+        let changed=refusal_text(snapshot([observed(3,2,5,18),observed(4,3,6,19)]));
+        assert!(changed.contains("\"unchanged\":false"));
+        assert!(changed.contains("\"callback_binding\":\"unknown\""));
+    }
+    #[test]
+    fn diagnostics_disabled_deadline_has_no_status_snapshot_or_callback_allocation() {
+        let shared=Shared::new();
+        assert!(!shared.phase_diagnostics);assert!(shared.fault_reader.is_none());
+        let (_,allocations)=crate::allocation_test::measure(||shared.fail_deadline(0,
+            DeadlineIdentity {generation:1,epoch:1,position:0,host_call:1,
+                operation_ticket:1,operation_submitted:true}));
+        assert_eq!(allocations,[0;3]);
+        assert!(shared.first_refusal.read().is_none());
+        assert_eq!(shared.fault.load(Ordering::Acquire),COMPLETION_DEADLINE);
     }
     fn pump(s: &Shared) {
         while let Some(mut r) = s.requests.pop() {

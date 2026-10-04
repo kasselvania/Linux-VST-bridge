@@ -1,0 +1,207 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-04",
+  "claim": "source_verified_invocation_only_exact_deadline_status_snapshot_and_scheduling_readback",
+  "base": {
+    "head": "637c40b431e64492884025e5b0ace409f6f95f24",
+    "tree": "d4d4c0a5c921d429bdb21b327a19c43ee4a20f4a"
+  },
+  "files_sha256": {
+    "bridge-manager/src/audio_scheduling.rs": "151f32deecae2fdf9f57cb68f83b0babe1929d5673ac0087c04f1fba71d2a702",
+    "native-vst3-proxy/backend/src/fault_status.rs": "ffb65c5d28fd63d2c60eedcb1e4ece3836ad6fb065115e264f2687520f4a35bc",
+    "native-vst3-proxy/backend/src/queued.rs": "0b0d9b097e4eaca6968ba31c8a7763f542bd8735483985b869fbd29e71112282"
+  },
+  "scope": [
+    "Retained AP12 view with three bounded read attempts per lane.",
+    "First exact-deadline refusal captures fixed data only under explicit AP23 invocation.",
+    "Coherent worker ticket/host-call/protocol-sequence binding distinguishes repeated zero-frame operations.",
+    "Summary and three correlated lane records export after callback/worker quiescence, including the recovery replacement boundary.",
+    "Scheduling request outcome and identity-checked actual policy remain separate."
+  ],
+  "linux_validation": {
+    "full_registered_backend": {
+      "passed": 140,
+      "failed": 0,
+      "ignored": 1,
+      "patch_sha256": "4fc90af6fb8f8abd13650ff4a331fc0f93e42a09b1f40ebd08600b0f5d173ed1"
+    },
+    "scheduling_binary": {
+      "passed": 12,
+      "failed": 0
+    },
+    "checks": [
+      {
+        "name": "backend-registered",
+        "command": [
+          "cargo",
+          "+1.95.0",
+          "test",
+          "--manifest-path",
+          "native-vst3-proxy/backend/Cargo.toml",
+          "--locked",
+          "--features",
+          "registered",
+          "--",
+          "--test-threads=1"
+        ],
+        "started_at_utc": "2026-10-04T08:53:31.418747+00:00",
+        "ended_at_utc": "2026-10-04T08:54:06.623420+00:00",
+        "seconds": 35.202,
+        "exit_code": 0,
+        "log_sha256": "9926e7858c37f814e83ec10583bd8f943c03922f5cb6cf8deae687eb9c6372b4"
+      },
+      {
+        "name": "scheduling",
+        "command": [
+          "cargo",
+          "+1.95.0",
+          "test",
+          "--manifest-path",
+          "bridge-manager/Cargo.toml",
+          "--locked",
+          "--features",
+          "pb0-c0-audit",
+          "--bin",
+          "linux-vst-bridge",
+          "audio_scheduling::tests",
+          "--",
+          "--test-threads=1"
+        ],
+        "started_at_utc": "2026-10-04T08:54:06.623748+00:00",
+        "ended_at_utc": "2026-10-04T08:54:37.559640+00:00",
+        "seconds": 30.936,
+        "exit_code": 0,
+        "log_sha256": "e89840416ec9079420b8471c01be71fbf07b335ee1ddaefb7b080a56631b83de"
+      },
+      {
+        "name": "backend-clippy",
+        "command": [
+          "cargo",
+          "+1.95.0",
+          "clippy",
+          "--manifest-path",
+          "native-vst3-proxy/backend/Cargo.toml",
+          "--locked",
+          "--all-targets",
+          "--features",
+          "registered",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "started_at_utc": "2026-10-04T08:54:37.560672+00:00",
+        "ended_at_utc": "2026-10-04T08:54:40.386883+00:00",
+        "seconds": 2.826,
+        "exit_code": 101,
+        "log_sha256": "b3265452bdfff421f0a625d2b41c53dd965b770b3bcf411f8ab7455344895a77"
+      }
+    ],
+    "final_checks": [
+      {
+        "name": "clippy",
+        "command": [
+          "cargo",
+          "+1.95.0",
+          "clippy",
+          "--manifest-path",
+          "native-vst3-proxy/backend/Cargo.toml",
+          "--locked",
+          "--features",
+          "registered",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "started_utc": "2026-10-04T08:57:06.277146+00:00",
+        "ended_utc": "2026-10-04T08:57:08.801131+00:00",
+        "exit_code": 0,
+        "log_sha256": "b291aa518263fa53b5a7b3c3cba46a3f9587b0126e53bb1833a105ee3a8f8faf"
+      },
+      {
+        "name": "refusal",
+        "command": [
+          "cargo",
+          "+1.95.0",
+          "test",
+          "--manifest-path",
+          "native-vst3-proxy/backend/Cargo.toml",
+          "--locked",
+          "--features",
+          "registered",
+          "refusal",
+          "--",
+          "--test-threads=1"
+        ],
+        "started_utc": "2026-10-04T08:57:08.801378+00:00",
+        "ended_utc": "2026-10-04T08:57:11.115069+00:00",
+        "exit_code": 0,
+        "log_sha256": "3c3fc77fecb3feb33e88da2ebe12b8ea3d50a091293a557e749091d6affb9fd7"
+      },
+      {
+        "name": "phase_trace",
+        "command": [
+          "cargo",
+          "+1.95.0",
+          "test",
+          "--manifest-path",
+          "native-vst3-proxy/backend/Cargo.toml",
+          "--locked",
+          "--features",
+          "registered",
+          "phase_trace",
+          "--",
+          "--test-threads=1"
+        ],
+        "started_utc": "2026-10-04T08:57:11.115339+00:00",
+        "ended_utc": "2026-10-04T08:57:11.202400+00:00",
+        "exit_code": 0,
+        "log_sha256": "874463d2beaae58d9cfa64375c2f54f45bf779875a2bc5396df04b4e6f93c6b6"
+      },
+      {
+        "name": "exact_deadline_retains",
+        "command": [
+          "cargo",
+          "+1.95.0",
+          "test",
+          "--manifest-path",
+          "native-vst3-proxy/backend/Cargo.toml",
+          "--locked",
+          "--features",
+          "registered",
+          "exact_deadline_retains",
+          "--",
+          "--test-threads=1"
+        ],
+        "started_utc": "2026-10-04T08:57:11.202651+00:00",
+        "ended_utc": "2026-10-04T08:57:11.245059+00:00",
+        "exit_code": 0,
+        "log_sha256": "dad843cde32472889924e711098e7af16d89f1ffc8db06c5646c77e867a9b2e0"
+      }
+    ],
+    "final_patch_sha256": "f72eb93d72b081a6cfb4bd82faa0240cba75895d9b9f60301dbfe52b2e0b0616",
+    "final_delta": "Documented local argument-count allowance and consumption of the final trace borrow; full prior results reused, affected tests and clippy rerun.",
+    "archives": {
+      "audio6-final-linux-results.tgz": "e7a9a59bd269f9d546c97524dbb57211f72c0ce6d042a7dd1150675d11fde9f9",
+      "audio6-first-linux-results.tgz": "305afb12645b961e5e8393db1a26db4bbdfe995e3b1f1bb915350681f34926eb"
+    }
+  },
+  "review": {
+    "model": "gpt-6-astra",
+    "reasoning_effort": "xhigh",
+    "functional_patch_sha256": "2ce49c0ea416d3eb98f87dec936ea3d090829b380806ce580fa0b554678b32df",
+    "status": "no_remaining_findings",
+    "final_clippy_delta_sha256": "1b4957757906d68cfc792e62d9ce86977f0ce6c40b8b88fe2ff4c577252795f5",
+    "final_delta_review": "root inspected the two local lint corrections"
+  },
+  "retained_setup_failures": [
+    "Shared-clone alternate nesting limit stopped checkout before tests.",
+    "Diff object-abbreviation mismatch stopped validation before tests; all changed file hashes matched. Full object identities now used."
+  ],
+  "nonclaims": [
+    "This observation change does not repair audio completion or change its budgets.",
+    "Captured lanes are sampled independently during refusal, not an atomic cross-process instant at the original deadline.",
+    "Recovery coverage is helper-level export/record/replacement tests plus source review of ap6_recover, not an end-to-end recovery execution.",
+    "No new installed, Deck, physical DAW, soak, low-latency or beta qualification."
+  ]
+}

@@ -242,45 +242,110 @@ fn requested(policy: &Policy) -> bool {
 fn ordinary(policy: &Policy) -> bool {
     policy.policy & !libc::SCHED_RESET_ON_FORK == libc::SCHED_OTHER && policy.priority == 0
 }
+fn fixed_reason(error: &dyn std::fmt::Display) -> String {
+    let message = error.to_string();
+    if message.starts_with("scheduling_") { message }
+    else { "scheduling_capability_unavailable".into() }
+}
+#[derive(Clone, Copy, Default)]
+struct RequestObservation {
+    attempted: bool,
+    accepted: Option<bool>,
+    command_exited: bool,
+    command_exit_code: Option<i32>,
+    command_timed_out: bool,
+}
+impl RequestObservation {
+    // This client has positive acceptance evidence only. A command failure is
+    // not proof that RealtimeKit itself refused the request.
+    fn refused(self) -> Option<bool> { self.accepted.map(|_| false) }
+    fn unknown(self) -> bool { self.attempted && self.accepted.is_none() }
+}
+fn unavailable_after_before(
+    target: &Target,
+    before: Policy,
+    error: &dyn std::fmt::Display,
+    request: RequestObservation,
+    readback: impl FnOnce(&Target) -> Result<Policy>,
+) -> serde_json::Value {
+    let reason = fixed_reason(error);
+    match readback(target) {
+        Ok(effective) => serde_json::json!({"outcome":"unavailable","reason":reason,
+            "target":target,"before":before,"effective":effective,"effective_readback":"observed",
+            "request_attempted":request.attempted,"request_accepted":request.accepted,
+            "request_refused":request.refused(),"request_unknown":request.unknown(),
+            "command_exited":request.command_exited,"command_exit_code":request.command_exit_code,
+            "command_timed_out":request.command_timed_out}),
+        Err(readback_error) => serde_json::json!({"outcome":"unavailable","reason":reason,
+            "target":target,"before":before,"effective":null,"effective_readback":"unavailable",
+            "effective_readback_reason":fixed_reason(readback_error.as_ref()),
+            "request_attempted":request.attempted,"request_accepted":request.accepted,
+            "request_refused":request.refused(),"request_unknown":request.unknown(),
+            "command_exited":request.command_exited,"command_exit_code":request.command_exit_code,
+            "command_timed_out":request.command_timed_out}),
+    }
+}
 fn apply(target: &Target, native: bool) -> Result<serde_json::Value> {
     let before = current(target)?;
-    if requested(&before) { return Ok(serde_json::json!({"outcome":"already_effective","target":target,"effective":before})); }
-    require(ordinary(&before), "scheduling_existing_policy_preserved")?;
-    // Best effort capability: no privilege changes and no RT budget increase.
-    let mut limits = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
-    require(unsafe { libc::prlimit(target.pid, libc::RLIMIT_RTTIME, std::ptr::null(), &mut limits) } == 0,
-        "scheduling_limits_read")?;
-    // A native worker belongs to the DAW process. Never change a DAW-wide limit.
-    let bounded_limits = if native {
-        require(limits.rlim_max > 0 && limits.rlim_max <= RTTIME_US, "scheduling_native_budget_unavailable")?;
-        limits
-    } else { libc::rlimit { rlim_cur: limits.rlim_cur.min(RTTIME_US), rlim_max: limits.rlim_max.min(RTTIME_US) } };
-    current(target)?;
-    if !native {
-        require(unsafe { libc::prlimit(target.pid, libc::RLIMIT_RTTIME, &bounded_limits, std::ptr::null_mut()) } == 0,
-            "scheduling_limits_set")?;
-    }
-    // RealtimeKit sets RESET_ON_FORK itself and checks membership of the
-    // supplied thread in the supplied process. Do not preemptively change a
-    // numeric TID's policy or silently downgrade an existing RT policy.
-    current(target)?;
-    let mut child = Command::new("/usr/bin/busctl")
-        .args(["--system", "--timeout=1", "--allow-interactive-authorization=no", "call",
-            "org.freedesktop.RealtimeKit1", "/org/freedesktop/RealtimeKit1", "org.freedesktop.RealtimeKit1",
-            "MakeThreadRealtimeWithPID", "ttu"])
-        .args([target.pid.to_string(), target.tid.to_string(), PRIORITY.to_string()])
-        .env_remove("DBUS_SYSTEM_BUS_ADDRESS").stdin(Stdio::null())
-        .stdout(Stdio::null()).stderr(Stdio::null()).spawn()?;
-    let deadline = Instant::now() + Duration::from_millis(1200);
-    let accepted = loop {
-        if let Some(status) = child.try_wait()? { break status.success(); }
-        if Instant::now() >= deadline { let _ = child.kill(); let _ = child.wait(); break false; }
-        std::thread::sleep(Duration::from_millis(5));
-    };
-    let effective = current(target)?;
-    Ok(serde_json::json!({"outcome":if accepted && requested(&effective) {"effective"} else {"unavailable"},
-        "target":target,"before":before,"effective":effective,"requested_priority":PRIORITY,
-        "rttime_soft_us":bounded_limits.rlim_cur,"rttime_hard_us":bounded_limits.rlim_max}))
+    if requested(&before) { return Ok(serde_json::json!({"outcome":"already_effective","target":target,"effective":before,
+        "request_attempted":false,"request_accepted":null,"request_refused":null,"request_unknown":false,
+        "command_exited":false,"command_exit_code":null,"command_timed_out":false})); }
+    let mut request = RequestObservation::default();
+    let attempt = (|| -> Result<serde_json::Value> {
+        require(ordinary(&before), "scheduling_existing_policy_preserved")?;
+        // Best effort capability: no privilege changes and no RT budget increase.
+        let mut limits = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
+        require(unsafe { libc::prlimit(target.pid, libc::RLIMIT_RTTIME, std::ptr::null(), &mut limits) } == 0,
+            "scheduling_limits_read")?;
+        // A native worker belongs to the DAW process. Never change a DAW-wide limit.
+        let bounded_limits = if native {
+            require(limits.rlim_max > 0 && limits.rlim_max <= RTTIME_US, "scheduling_native_budget_unavailable")?;
+            limits
+        } else { libc::rlimit { rlim_cur: limits.rlim_cur.min(RTTIME_US), rlim_max: limits.rlim_max.min(RTTIME_US) } };
+        current(target)?;
+        if !native {
+            require(unsafe { libc::prlimit(target.pid, libc::RLIMIT_RTTIME, &bounded_limits, std::ptr::null_mut()) } == 0,
+                "scheduling_limits_set")?;
+        }
+        // RealtimeKit sets RESET_ON_FORK itself and checks membership of the
+        // supplied thread in the supplied process. Do not preemptively change a
+        // numeric TID's policy or silently downgrade an existing RT policy.
+        current(target)?;
+        request.attempted = true;
+        let mut child = Command::new("/usr/bin/busctl")
+            .args(["--system", "--timeout=1", "--allow-interactive-authorization=no", "call",
+                "org.freedesktop.RealtimeKit1", "/org/freedesktop/RealtimeKit1", "org.freedesktop.RealtimeKit1",
+                "MakeThreadRealtimeWithPID", "ttu"])
+            .args([target.pid.to_string(), target.tid.to_string(), PRIORITY.to_string()])
+            .env_remove("DBUS_SYSTEM_BUS_ADDRESS").stdin(Stdio::null())
+            .stdout(Stdio::null()).stderr(Stdio::null()).spawn()?;
+        let deadline = Instant::now() + Duration::from_millis(1200);
+        loop {
+            if let Some(status) = child.try_wait()? {
+                request.command_exited=true;
+                request.command_exit_code=status.code();
+                if status.success() { request.accepted=Some(true); }
+                break;
+            }
+            if Instant::now() >= deadline {
+                request.command_timed_out=true;
+                let _ = child.kill();let _ = child.wait();break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let effective = current(target)?;
+        Ok(serde_json::json!({"outcome":if request.accepted==Some(true) && requested(&effective) {"effective"} else {"unavailable"},
+            "target":target,"before":before,"effective":effective,"requested_priority":PRIORITY,
+            "rttime_soft_us":bounded_limits.rlim_cur,"rttime_hard_us":bounded_limits.rlim_max,
+            "request_attempted":request.attempted,"request_accepted":request.accepted,
+            "request_refused":request.refused(),"request_unknown":request.unknown(),
+            "command_exited":request.command_exited,"command_exit_code":request.command_exit_code,
+            "command_timed_out":request.command_timed_out}))
+    })();
+    Ok(match attempt {
+        Ok(value) => value,
+        Err(error) => unavailable_after_before(target, before, error.as_ref(), request, current),
+    })
 }
 
 pub fn run() -> Result<()> {
@@ -293,10 +358,10 @@ pub fn run() -> Result<()> {
     })();
     // Fixed failure classes only: raw errors can contain private paths.
     let value = result.unwrap_or_else(|error| {
-        let message = error.to_string();
-        let reason = if message.starts_with("scheduling_") { message }
-            else { "scheduling_capability_unavailable".into() };
-        serde_json::json!({"outcome":"unavailable","reason":reason})
+        let reason = fixed_reason(error.as_ref());
+        serde_json::json!({"outcome":"unavailable","reason":reason,
+            "request_attempted":false,"request_accepted":null,"request_refused":null,"request_unknown":false,
+            "command_exited":false,"command_exit_code":null,"command_timed_out":false})
     });
     println!("{}", serde_json::to_string(&value)?);
     Ok(())
@@ -466,6 +531,67 @@ mod tests {
         assert!(!requested(&Policy{policy:libc::SCHED_RR,priority:5}));
         assert!(!requested(&Policy{policy:libc::SCHED_OTHER,priority:0}));
         assert!(requested(&Policy{policy:libc::SCHED_RR|libc::SCHED_RESET_ON_FORK,priority:5}));
+    }
+    #[test]
+    fn scheduling_error_retains_before_and_fresh_identity_checked_effective_policy() {
+        let target=Target {pid:10,process_start:20,tid:30,thread_start:40};
+        let before=Policy {policy:libc::SCHED_OTHER,priority:0};
+        let effective=Policy {policy:libc::SCHED_RR|libc::SCHED_RESET_ON_FORK,priority:PRIORITY};
+        let calls=AtomicUsize::new(0);
+        let value=unavailable_after_before(&target,before.clone(),
+            &"scheduling_native_budget_unavailable",RequestObservation::default(),|observed| {
+                calls.fetch_add(1,Ordering::Relaxed);
+                assert_eq!(observed,&target);
+                Ok(effective.clone())
+            });
+        assert_eq!(calls.load(Ordering::Relaxed),1);
+        assert_eq!(value["outcome"],"unavailable");
+        assert_eq!(value["reason"],"scheduling_native_budget_unavailable");
+        assert_eq!(value["target"],serde_json::to_value(&target).unwrap());
+        assert_eq!(value["before"],serde_json::to_value(&before).unwrap());
+        assert_eq!(value["effective"],serde_json::to_value(&effective).unwrap());
+        assert_eq!(value["effective_readback"],"observed");
+        assert_eq!(value["request_attempted"],false);
+        assert!(value["request_accepted"].is_null());
+        assert!(value["request_refused"].is_null());
+        assert_eq!(value["request_unknown"],false);
+    }
+    #[test]
+    fn scheduling_error_retains_before_and_null_when_fresh_identity_readback_refuses() {
+        let target=Target {pid:10,process_start:20,tid:30,thread_start:40};
+        let before=Policy {policy:libc::SCHED_OTHER,priority:0};
+        let calls=AtomicUsize::new(0);
+        let request=RequestObservation {attempted:true,..Default::default()};
+        let value=unavailable_after_before(&target,before.clone(),&std::io::Error::other("private path"),request,|_| {
+            calls.fetch_add(1,Ordering::Relaxed);
+            Err("scheduling_target_changed".into())
+        });
+        assert_eq!(calls.load(Ordering::Relaxed),1);
+        assert_eq!(value["outcome"],"unavailable");
+        assert_eq!(value["reason"],"scheduling_capability_unavailable");
+        assert_eq!(value["before"],serde_json::to_value(&before).unwrap());
+        assert!(value["effective"].is_null());
+        assert_eq!(value["effective_readback"],"unavailable");
+        assert_eq!(value["effective_readback_reason"],"scheduling_target_changed");
+        assert_eq!(value["request_attempted"],true);
+        assert!(value["request_accepted"].is_null());
+        assert!(value["request_refused"].is_null());
+        assert_eq!(value["request_unknown"],true);
+        let nonzero=unavailable_after_before(&target,before.clone(),&"scheduling_capability_unavailable",
+            RequestObservation {attempted:true,command_exited:true,command_exit_code:Some(1),
+                ..Default::default()},|_|Ok(Policy {policy:0,priority:0}));
+        assert!(nonzero["request_accepted"].is_null());
+        assert!(nonzero["request_refused"].is_null());
+        assert_eq!(nonzero["request_unknown"],true);
+        assert_eq!(nonzero["command_exited"],true);
+        assert_eq!(nonzero["command_exit_code"],1);
+        assert_eq!(nonzero["command_timed_out"],false);
+        let accepted=unavailable_after_before(&target,before,&"scheduling_capability_unavailable",
+            RequestObservation {attempted:true,accepted:Some(true),command_exited:true,
+                command_exit_code:Some(0),command_timed_out:false},|_|Ok(Policy {policy:0,priority:0}));
+        assert_eq!(accepted["request_accepted"],true);
+        assert_eq!(accepted["request_refused"],false);
+        assert_eq!(accepted["request_unknown"],false);
     }
     #[test]
     fn native_worker_requires_socket_peer_namespace_generation_and_session_mapping() {

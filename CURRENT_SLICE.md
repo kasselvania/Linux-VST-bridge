@@ -270,6 +270,31 @@ lightweight: it may execute on the processing thread; do not move a blocking STA
 acknowledgement wait there.
 Physical/serial-chain/lower-block/musician acceptance remains open.
 
+The observation change starts from `637c40b431e64492884025e5b0ace409f6f95f24`,
+tree `d4d4c0a5c921d429bdb21b327a19c43ee4a20f4a`. It reuses AP12's existing mapped status:
+prepare a retained read-only view and capture one bounded snapshot when the first
+exact-deadline refusal is recorded, under explicit invocation diagnostics. It observes
+the refusal interval, not an atomic cross-process instant at the original deadline.
+Keep per-lane stability, generation/epoch/position/sequence matching and clock domains
+separate; a stable stale row is not current work. A coherent diagnostic worker tuple
+binds protocol sequence to callback/ticket, including repeated zero-frame calls at
+the same position. Changed or absent correlation stays unknown. Export only after
+quiescence.
+This is one snapshot of existing stages, not a second trace stream or a new transport.
+Cover an advancing-after-refusal row, stale/unstable/absent data, map lifetime,
+first-failure preservation and callback allocation. Disabled operation performs no
+snapshot reads. Separately preserve identity-checked scheduling observations after
+an unsuccessful capability request instead of discarding them in a generic error.
+Scope: backend `fault_status.rs`, `lib.rs`, `queued.rs`, and manager
+`audio_scheduling.rs`, plus required focused tests. No Windows/protocol, budgets,
+RTTIME/privilege, lifecycle or buffering changes. The
+[source validation](evidence/audio-recovery/2026-10-04-deadline-status-source.json)
+passes 140 Linux backend tests, 12 scheduling tests, final focused tests and clippy;
+independent review has no remaining findings. Recovery export has helper-level
+tests and source-reviewed integration, not a new end-to-end recovery proof. The
+next installed off/on pair uses one frozen package and unchanged reference workload.
+Failure-time observation alone is not an audio repair.
+
 The polling audit distinguishes current control acknowledgement from deliberate
 legacy paths. Windows mapped-processing formatting was completed separately at
 `12ee4383`, preserving all tokens/comments and preprocessor records. The roadmap
