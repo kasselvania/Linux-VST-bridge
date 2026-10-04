@@ -67,6 +67,16 @@ manager stays audio8 while original audio4 native/host are restored. Loaded-engi
 admission [FC-MGMT-008](FAILURE_CLASSES.md#fc-mgmt-008--loaded-native-engine-is-not-bound-during-admission)
 remains a separate source-established gap; its cached-factory physical case is
 unperformed. No support posture is widened.
+Installed [audio9 START overlap](../evidence/audio-recovery/2026-10-04-audio9-start-overlap-comparison.json)
+passes complete output, state and retirement in both declared off/on SDK lifetimes.
+Each returns 198,672 exact float values across four lanes (49,668 frames; 1.03475
+seconds of unpaced audio). First N0 completes within 1 ms in both. Off still has
+one N13 overrun, 311,965 ns against 270,833 ns; on has none. **Timing qualification
+remains failed.** The separate held-gate fixture proves earlier request publication
+with exact Started validation, control ordering and refused-start containment;
+it does not measure real-time latency. Normal controls restore the exact predecessor
+and preferences under manager audio9. Loaded-engine admission and all physical
+DAW, serial-chain, lower-block and endurance gates remain open.
 These reference SDK results do not change the Deck claims below or attribute the
 config4 and historical Deck gaps.
 

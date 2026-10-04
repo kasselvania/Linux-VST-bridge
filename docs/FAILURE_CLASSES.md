@@ -1227,6 +1227,18 @@ under manager audio8. Full source/runtime identities and all failed lifetimes ar
 retained. Next attribution must separate START readiness and exact request service,
 without expanding allowances or treating a source optimization as dependable audio.
 
+The [audio9 installed pair](../evidence/audio-recovery/2026-10-04-audio9-start-overlap-comparison.json)
+retains FC-AUDIO-001 as open. Both off/on lifetimes return the complete exact output,
+state and confirmed retirement, including first N0 at 442,827/847,211 ns. Off has
+one N13 overrun at 311,965 ns against 270,833 ns; on has none. The independently
+[proved START publication repair](../evidence/audio-recovery/2026-10-04-start-overlap-source.json)
+removes a source dependency while preserving acknowledgement/epoch authority and
+state ordering. It does not establish an installed timing cure or explain historical
+gaps. No allowance, buffering, runtime or scheduler change was made. The N13
+buffered tail and ordinary-scheduled VM do not measure intrinsic transport cost or
+a physical DAW deadline. Exact ordinary predecessor restoration succeeds; no extra
+audio lifetime was run to turn the failed timing result green.
+
 This status is for the residual deadline-miss classes. AP16 separately accepted a disk-backed
 hot-mapping repair. [AS1 PR #172](https://github.com/kasselvania/Linux-VST-bridge/pull/172)
 removed recurring bridge-owned allocation from its covered shared audio

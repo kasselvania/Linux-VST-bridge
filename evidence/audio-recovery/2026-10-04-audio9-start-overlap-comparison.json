@@ -1,0 +1,529 @@
+{
+  "schema": 1,
+  "claim": "installed_START_overlap_preserves_complete_output_state_and_retirement_but_diagnostic_off_timing_remains_failed",
+  "candidate": {
+    "source_head": "84bc1c621a974c841580f38dc51790b93f8b6754",
+    "source_tree": "66cbb10c71b1d26945caead615feae20be6ccaa5",
+    "package_version": "0.12.0audio9",
+    "package_sha256": "0c8196db643f5c35a066d7e9e08c804c2c01a7ce775bac8f2c76184a21b5ebae",
+    "manager_sha256": "70685c8e31b655a6a5bcff8beb14fbeb250ccbc9c91ef1d07846f7f01b598e7d",
+    "native_sha256": "e0455c106fff08a326bc20386eed013de9e0281366d24b9d20539cb58f23719b",
+    "windows_host_sha256": "c8587d8c75ddce80c2317a10070735c65b30b6bc1649ff219821c44689bcf05f",
+    "candidate_archive_sha256": "4c4a9bcbc961e37480bdef7a2de2dab08ce1c14d313815499ba0c81761b39475"
+  },
+  "fixture_proof": {
+    "fixture_source_head": "7b5a7287711322b62b72a70c3e4412605d351c1e",
+    "fixture_source_tree": "498231b736ef8ac67c7de83b05af49785bbceb86",
+    "observation_sha256": "94cfbbd9be0bddc2ef50d59eb75d204700f78e2fe2f2a6f3795325f748bddc4b",
+    "archive_sha256": "1abb6244bd40e02bc2046cc8e60300fb6feb078003138cdf78192e1587c0891c"
+  },
+  "publication": {
+    "environment_rescan": "completed",
+    "published": {
+      "id": "75f0fce171b31c1ec7a99134195d1e41",
+      "sha256": "4be0b3e7b5dda80b56a0b08b2268fc73093fc46850d6803b0f496bc5d1d35f07"
+    },
+    "predecessor": {
+      "id": "7145b6f90323884c08db9a52f7b24c9c",
+      "sha256": "3b1e54e951e0e3f9d63172c2a2ee8caaa06a7d4dc6a53b1115fb3f2f636a8dac"
+    },
+    "siblings_unchanged": true,
+    "preferences_unchanged": true,
+    "rollback": {
+      "restored": {
+        "id": "7145b6f90323884c08db9a52f7b24c9c",
+        "sha256": "3b1e54e951e0e3f9d63172c2a2ee8caaa06a7d4dc6a53b1115fb3f2f636a8dac"
+      },
+      "all_class_registrations_restored": true,
+      "preferences_unchanged": true,
+      "manager_package": "0.12.0audio9",
+      "native_sha256": "36300f4a387e2ee7e3652b6acbe488df614ad474bd42f5b72f0e0e2c220154be",
+      "windows_host_sha256": "57f23801e9cbd9f6bcab3a71ddf28dbd1f2861c88e12501635257561830a1b64",
+      "whole_package_rollback": false,
+      "dependable_fallback_claim": false
+    }
+  },
+  "invocations": {
+    "diagnostics_off": {
+      "archive_sha256": "5b950510a1bf7857e11dc368c77e594ecfb0008677b8e3acbb10f234d75fb424",
+      "preference": {
+        "schema": 1,
+        "added_frames": 512
+      },
+      "consumer_sha256": "7ed165f39ee8e59bcb42802a3c4357d974636c35428105895335fae9fe0ef907",
+      "audit_sha256": "b26516e2d3d80ab393f57dc45701f801219f0625ad8384008fd1f8f35d33a0c2",
+      "independent": {
+        "schema": 1,
+        "claim": "independent_whole_retained_output_comparison",
+        "role": "instrument",
+        "scenario": "modes",
+        "maximum": 512,
+        "rate": 48000,
+        "bridge_delay": 512,
+        "vendor_latency": 13,
+        "raw_sha256": "74c26e69df151985702e71ee6fb477a4f8e10f0708962f0331c49be3fd9d0422",
+        "log_sha256": "bf16cfc00ffff99aa00bddf26b00cd267449caa56d9a34ed49c5a609a4034795",
+        "complete_plan": true,
+        "callbacks": 107,
+        "expected_callbacks": 107,
+        "samples": 198672,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "unexpected_zero_samples": 0,
+        "maximum_error": 0.0,
+        "first_mismatches": [],
+        "consumer_success": true,
+        "output_complete": true,
+        "passed": true,
+        "physical_daw_claim": false
+      },
+      "audio": {
+        "event": "completion_audio",
+        "schema": 1,
+        "role": "instrument",
+        "delivery_frames": 512,
+        "vendor_latency_frames": 13,
+        "callbacks": 107,
+        "compared_samples": 198672,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "nonzero": 196564,
+        "max_error": 0,
+        "returned_events": 108,
+        "returned_points": 211,
+        "rejected_callbacks": 0,
+        "callback_max_ns": 3661810,
+        "whole_callback_overruns": 1,
+        "callback_effects": 0,
+        "callback_local_wakes": 107,
+        "local_wake_counter_available": true,
+        "callback_audited": true
+      },
+      "timing": {
+        "clock": "steady_monotonic",
+        "max": {
+          "callback": 17,
+          "N": 512,
+          "duration_ns": 3661810,
+          "allowance_ns": 10666666
+        },
+        "first_n0": {
+          "callback": 0,
+          "duration_ns": 442827,
+          "allowance_ns": 1000000
+        },
+        "tail_n13": {
+          "callback": 105,
+          "duration_ns": 311965,
+          "allowance_ns": 270833
+        },
+        "overruns": [
+          {
+            "callback": 105,
+            "N": 13,
+            "mode": 0,
+            "position": 49655,
+            "duration_ns": 311965,
+            "allowance_ns": 270833,
+            "excess_ns": 41132
+          }
+        ],
+        "qualified": false
+      },
+      "trace_summary": null,
+      "tail_trace": null,
+      "state_sha256": {
+        "state.component": "0c4f695cd4814dcca978eeb306cf53ddc26ab28d39618c60abc14d03e19a3800",
+        "state.component.recalled": "0c4f695cd4814dcca978eeb306cf53ddc26ab28d39618c60abc14d03e19a3800",
+        "state.controller": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+      },
+      "retirement": {
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "error": null
+      },
+      "state_roundtrip": {
+        "event": "completion_state",
+        "component_bytes": 232,
+        "controller_bytes": 8,
+        "component_recall": true,
+        "controller_recall": true
+      },
+      "consumer_functional_pass": true,
+      "native_scheduling": {
+        "outcome": "host_realtime_budget_unavailable",
+        "route": "owned_supervisor_realtimekit",
+        "before": {
+          "policy": 0,
+          "priority": 0
+        },
+        "effective": {
+          "policy": 0,
+          "priority": 0
+        },
+        "requested_priority": 5,
+        "host_limits_changed": false
+      },
+      "windows_scheduling": {
+        "schema": 1,
+        "requested_policy": "SCHED_RR",
+        "requested_priority": 5,
+        "requests": 2,
+        "discarded": 0,
+        "records": [
+          {
+            "command_exit_code": null,
+            "command_exited": false,
+            "command_timed_out": false,
+            "outcome": "unavailable",
+            "reason": "scheduling_capability_unavailable",
+            "request_accepted": null,
+            "request_attempted": false,
+            "request_refused": null,
+            "request_unknown": false
+          },
+          {
+            "before": {
+              "policy": 0,
+              "priority": 0
+            },
+            "command_exit_code": 0,
+            "command_exited": true,
+            "command_timed_out": false,
+            "effective": {
+              "policy": 1073741826,
+              "priority": 5
+            },
+            "outcome": "effective",
+            "request_accepted": true,
+            "request_attempted": true,
+            "request_refused": false,
+            "request_unknown": false,
+            "requested_priority": 5,
+            "rttime_hard_us": 200000,
+            "rttime_soft_us": 200000
+          }
+        ],
+        "scope": "post-start effective readback, not a continuity guarantee"
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "owner_validated": true,
+      "observer_error": null,
+      "intervention": null
+    },
+    "diagnostics_on": {
+      "archive_sha256": "413ea16103c1399d6ec8a97e16fb20c9b6aea8d71351b60a731419c1641ad448",
+      "preference": {
+        "schema": 1,
+        "added_frames": 512
+      },
+      "consumer_sha256": "7ed165f39ee8e59bcb42802a3c4357d974636c35428105895335fae9fe0ef907",
+      "audit_sha256": "b26516e2d3d80ab393f57dc45701f801219f0625ad8384008fd1f8f35d33a0c2",
+      "independent": {
+        "schema": 1,
+        "claim": "independent_whole_retained_output_comparison",
+        "role": "instrument",
+        "scenario": "modes",
+        "maximum": 512,
+        "rate": 48000,
+        "bridge_delay": 512,
+        "vendor_latency": 13,
+        "raw_sha256": "74c26e69df151985702e71ee6fb477a4f8e10f0708962f0331c49be3fd9d0422",
+        "log_sha256": "3543b8ed46aacbe01236ed8ee1d7cbb9eea46992939e82dd139e006559042ced",
+        "complete_plan": true,
+        "callbacks": 107,
+        "expected_callbacks": 107,
+        "samples": 198672,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "unexpected_zero_samples": 0,
+        "maximum_error": 0.0,
+        "first_mismatches": [],
+        "consumer_success": true,
+        "output_complete": true,
+        "passed": true,
+        "physical_daw_claim": false
+      },
+      "audio": {
+        "event": "completion_audio",
+        "schema": 1,
+        "role": "instrument",
+        "delivery_frames": 512,
+        "vendor_latency_frames": 13,
+        "callbacks": 107,
+        "compared_samples": 198672,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "nonzero": 196564,
+        "max_error": 0,
+        "returned_events": 108,
+        "returned_points": 211,
+        "rejected_callbacks": 0,
+        "callback_max_ns": 2316185,
+        "whole_callback_overruns": 0,
+        "callback_effects": 0,
+        "callback_local_wakes": 107,
+        "local_wake_counter_available": true,
+        "callback_audited": true
+      },
+      "timing": {
+        "clock": "steady_monotonic",
+        "max": {
+          "callback": 17,
+          "N": 512,
+          "duration_ns": 2316185,
+          "allowance_ns": 10666666
+        },
+        "first_n0": {
+          "callback": 0,
+          "duration_ns": 847211,
+          "allowance_ns": 1000000
+        },
+        "tail_n13": {
+          "callback": 105,
+          "duration_ns": 252570,
+          "allowance_ns": 270833
+        },
+        "overruns": [],
+        "qualified": true
+      },
+      "trace_summary": {
+        "event": "ap23_callback_phase_summary",
+        "schema": 1,
+        "requested": true,
+        "allocated": true,
+        "capacity": 128,
+        "retained": 108,
+        "omitted": 0,
+        "scope": "guard-held calls reaching AP23",
+        "cpp_final_stamp": "pre-return",
+        "identity_fields": "generation,epoch,host_call,position",
+        "call_fields": "frames,mode,delivery_mode,exact",
+        "policy_fields": "allowance_ns,wait_deadline_lower_ns,wait_deadline_upper_ns",
+        "predicate_fields": "kind,required,before,after,initial_satisfied,final_satisfied",
+        "clock_fields": "cpp_entry_ns,rust_entry_ns,wait_begin_ns,wait_end_ns,presentation_done_ns,rust_pre_return_ns,result_delivery_begin_ns,result_delivery_done_ns,cpp_pre_return_ns",
+        "wait_fields": "total_ns,count",
+        "result_fields": "backend,sdk",
+        "phase_bits": "0=cpp_entry,1=rust_entry,2=policy,3=identity,4=predicate_before,5=wait,6=predicate_after,7=presentation_done,8=rust_pre_return,9=backend_result,10=result_delivery_begin,11=cpp_pre_return,12=sdk_result,13=result_delivery_done",
+        "clock_valid_uses_phase_bits": true
+      },
+      "tail_trace": {
+        "event": "ap23_callback_phase",
+        "schema": 1,
+        "size": 264,
+        "phase_reached": 16383,
+        "clock_valid": 11687,
+        "ordinal": 107,
+        "identity": [
+          1,
+          2,
+          107,
+          49655
+        ],
+        "call": [
+          13,
+          0,
+          0,
+          0
+        ],
+        "policy": [
+          270833,
+          423766691274,
+          423766691329
+        ],
+        "predicate": [
+          0,
+          49156,
+          49143,
+          49655,
+          0,
+          1
+        ],
+        "clock": [
+          423766420478,
+          423766421094,
+          423766438542,
+          423766668337,
+          423766671627,
+          423766671803,
+          423766672031,
+          423766672553,
+          423766672640
+        ],
+        "wait": [
+          229795,
+          1
+        ],
+        "result": [
+          0,
+          0
+        ]
+      },
+      "state_sha256": {
+        "state.component": "0c4f695cd4814dcca978eeb306cf53ddc26ab28d39618c60abc14d03e19a3800",
+        "state.component.recalled": "0c4f695cd4814dcca978eeb306cf53ddc26ab28d39618c60abc14d03e19a3800",
+        "state.controller": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+      },
+      "retirement": {
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "error": null
+      },
+      "state_roundtrip": {
+        "event": "completion_state",
+        "component_bytes": 232,
+        "controller_bytes": 8,
+        "component_recall": true,
+        "controller_recall": true
+      },
+      "consumer_functional_pass": true,
+      "native_scheduling": {
+        "outcome": "host_realtime_budget_unavailable",
+        "route": "owned_supervisor_realtimekit",
+        "before": {
+          "policy": 0,
+          "priority": 0
+        },
+        "effective": {
+          "policy": 0,
+          "priority": 0
+        },
+        "requested_priority": 5,
+        "host_limits_changed": false
+      },
+      "windows_scheduling": {
+        "schema": 1,
+        "requested_policy": "SCHED_RR",
+        "requested_priority": 5,
+        "requests": 2,
+        "discarded": 0,
+        "records": [
+          {
+            "command_exit_code": null,
+            "command_exited": false,
+            "command_timed_out": false,
+            "outcome": "unavailable",
+            "reason": "scheduling_unique_owned_render_thread",
+            "request_accepted": null,
+            "request_attempted": false,
+            "request_refused": null,
+            "request_unknown": false
+          },
+          {
+            "before": {
+              "policy": 0,
+              "priority": 0
+            },
+            "command_exit_code": 0,
+            "command_exited": true,
+            "command_timed_out": false,
+            "effective": {
+              "policy": 1073741826,
+              "priority": 5
+            },
+            "outcome": "effective",
+            "request_accepted": true,
+            "request_attempted": true,
+            "request_refused": false,
+            "request_unknown": false,
+            "requested_priority": 5,
+            "rttime_hard_us": 200000,
+            "rttime_soft_us": 200000
+          }
+        ],
+        "scope": "post-start effective readback, not a continuity guarantee"
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "owner_validated": true,
+      "observer_error": null,
+      "intervention": null
+    }
+  },
+  "comparisons": {
+    "same_audio_sha256": true,
+    "same_state_sha256": true,
+    "both_exact_audio": true,
+    "both_retired": true
+  },
+  "limits": [
+    "diagnostics-on is a declared observation run, not qualification of disabled-path overhead",
+    "off retained one N13 whole-call overrun and is not timing-qualified",
+    "one installed SDK consumer per condition is not DAW, hardware, graph, serial-chain, soak, or general performance proof",
+    "the pair does not attribute timing differences to diagnostics or prove the START-overlap repair caused a timing outcome",
+    "198672 float values across four lanes represent 49668 frames, or 1.03475 seconds of unpaced audio per run; not endurance.",
+    "No callback allowance, runtime, scheduler, buffering or fixture-module change was used to obtain the result."
+  ],
+  "install_publication_archive_sha256": "805fe328df7567efdda0803d58b0200852ce2549d6d3e0db0af69f1df50c0682",
+  "created_at_utc": "2026-10-04T16:04:15.200472+00:00",
+  "recorded_at": "2026-10-04",
+  "source_proof": "2026-10-04-start-overlap-source.json",
+  "source_proof_sha256": "166b5663effda702ddd3ab2faede9bf6bff69d7413f57f8243057f548bb3775f",
+  "fixture": {
+    "environment": "Existing disposable Ubuntu VM; no physical DAW",
+    "class_id": "4C564242434D5031494E535400000001",
+    "module_sha256": "dd5b062168bee829e61959c27037cb3ae339b29dbc19274ab79045bcf356dda5",
+    "descriptor_sha256": "66e417be14f3f14e5da052de000eba243615690e006763657401d5ea82a2caea",
+    "host_source_sha256": "f5182ed0abeb625e47e1b6c0ba08e47d8bf80b779bbd31f5f4a980729863bfa0",
+    "runner_id": "managed-ge-proton11-7-slr4-20260805-r3",
+    "runner_version": "GE-Proton11-7; SLR 4.0.20260805.254769; managed download v3",
+    "delivery": "Buffered",
+    "sample_rate": 48000,
+    "maximum_frames": 512,
+    "bridge_delay_frames": 512,
+    "vendor_latency_frames": 13,
+    "lanes": 4,
+    "float_values_per_run": 198672,
+    "frames_per_run": 49668,
+    "represented_audio_seconds_per_run": 1.03475,
+    "paced": false,
+    "exact_runtime_reference_and_consumer_reused": true
+  },
+  "installation": {
+    "registry_unchanged_at_package_adoption": true,
+    "all_preferences_unchanged": true,
+    "normal_actions": [
+      "environment_rescan",
+      "plugin_reinspect",
+      "plugin_prepare",
+      "experimental_replace",
+      "ordinary_rollback"
+    ],
+    "observer_attempt": "The first offline output analysis named state.output.raw rather than retained state.output.f32le. Corrected analysis reused the same captured output; no product rerun."
+  },
+  "custody": {
+    "builder_and_vm_never_run_together": true,
+    "reserved_cpus": "0-1",
+    "project_cpuset": "2,3",
+    "project_cpus": 2,
+    "builder_memory_bytes": 4294967296,
+    "vm_container_memory_bytes": 8589934592,
+    "vm_guest_memory_bytes": 6442450944,
+    "memory_swap_equals_memory": true,
+    "pids_limit": 256,
+    "vm_final": "normal GNOME Power Off; exited0",
+    "builder_final": "stopped; exit137 without OOM after artifacts completed",
+    "audiobookshelf": "running; unchanged",
+    "deck": "unchanged",
+    "final_readback_sha256": "755877e5936e98795b09defe1235f900bd88565a25780be4d83600f7842a6af3",
+    "final_resource_readback_sha256": "caf3f852975dc8c1ce39543ea3f8d20d29f64a1b1a9aa37396de56e524d8c3d3",
+    "guest_qemu_configuration_sha256": "63a308bb6b8b2b9e56694e09868e1cf7414eb25a5677b8f82cbef6a86208aba7"
+  },
+  "interpretation": {
+    "source_result": "The held-gate proof establishes removal of the native START-to-first-request publication dependency.",
+    "installed_result": "Both complete output/state/retirement runs pass; diagnostics-off retains one local N/Fs overrun. Overall timing qualification remains failed.",
+    "tail_scope": "N13 is the residual D512+L13 tail after N512; it is not an isolated cross-process round-trip-cost measurement.",
+    "budget_scope": "N/Fs is a declared bridge-local allowance, not an observed hardware-period or whole-graph deadline.",
+    "vm_scope": "Native worker policy0/priority0 remains ordinary scheduling; this VM cannot settle physical real-time qualification.",
+    "remaining": "Loaded-engine execution admission, physical DAW and serial-chain behavior, lower blocks, reconfiguration and musician interaction/soak remain open."
+  }
+}
