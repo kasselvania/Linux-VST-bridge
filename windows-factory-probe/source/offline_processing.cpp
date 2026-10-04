@@ -45,6 +45,48 @@ struct Block {
     tresult result{kNotInitialized};
     bool worker_thread{false};
 };
+// The existing owner selects commands; the existing render thread consumes
+// them. Events are hints, while the exact generation transfers the pending
+// frame and interval results. No event left by preparation/Stop can satisfy a
+// later Run. All objects are prepared before Activated is acknowledged.
+struct ProcessingSignals {
+    HANDLE command=CreateEventW(nullptr,FALSE,FALSE,nullptr);
+    HANDLE quiescent=CreateEventW(nullptr,FALSE,FALSE,nullptr);
+    std::atomic<uint64_t> issued{0},completed{UINT64_MAX};
+    std::atomic<bool> exit{false},done{false};
+    ~ProcessingSignals(){if(command)CloseHandle(command);if(quiescent)CloseHandle(quiescent);}
+    void publish(uint64_t generation)noexcept{
+        completed.store(generation,std::memory_order_release);
+        SetEvent(quiescent);
+    }
+    void request_exit()noexcept{
+        exit.store(true,std::memory_order_release);
+        if(command)SetEvent(command);
+    }
+};
+// Installed immediately after thread construction, including before an
+// acknowledgement or owner command selection that can throw. Storage and SDK
+// leases remain alive until join; a hung borrower is contained in this process.
+struct ProcessingJoin {
+    std::thread& worker;
+    ProcessingSignals& signals;
+    ExternalProcessing* external;
+    bool joined=false;
+    void finish(bool cancel)noexcept{
+        if(!worker.joinable())return;
+        if(cancel&&external)external->owner_failed();
+        signals.request_exit();
+        if(WaitForSingleObject(worker.native_handle(),5000)!=WAIT_OBJECT_0){
+            TerminateProcess(GetCurrentProcess(),93);std::terminate();
+        }
+        try{worker.join();joined=true;}catch(...){TerminateProcess(GetCurrentProcess(),93);std::terminate();}
+    }
+    ~ProcessingJoin(){finish(true);}
+};
+struct TransitionRecord {
+    bool attempted=false,returned=false;
+    tresult result=kNotInitialized;
+};
 std::string bits(const std::array<float, capacity + 2>& values) {
     std::string text="[";
     for (int i=0;i<frames+2;++i) {
@@ -141,34 +183,71 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     layout.activate(component,true);
     active=call("set_active_true",[&]{return component.setActive(true);});
     if (!active) return {false,false};
-    if(hosted) external->lifecycle_ack(9);
     uint64_t processed=0,intervals=0;
-    bool restart=false;
     std::exception_ptr primary_error;
     AP10Results::RejectionRecord first_rejection{};
     uint64_t rejected_generation=0,rejected_epoch=0,rejected_sequence=0,rejected_position=0,rejected_callback=0;
     uint32_t rejected_input_notes=0,rejected_input_parameters=0;
-    // An activated component need not enter processing. A DAW may deactivate
-    // it again while negotiating routing. Select the exact pending command on
-    // the owner before creating a worker; only Start belongs to that worker.
-    const bool processing_requested=!sustained||external->next_transition()==10;
-    if(!processing_requested)external->lifecycle_request(14);
-    if(processing_requested) do {
-    joined=false;restart=false;
+    bool processing_requested=false;
+    bool join_recorded=false;
+    bool transitions_exported=true;
+    std::array<TransitionRecord,2> transitions{};
+    // The installed sustained path initializes the plug-in with the SDK
+    // HostApplication (inspect_module), not this wrapper's observer sink.
+    // Its transition wrapper therefore touches only fixed records/status on
+    // render. Noncommercial reference admission retains its legacy observer.
+    const bool deferred_transitions=commercial&&sustained;
+    auto render_transition=[&](bool running){
+        if(!deferred_transitions)return call(running?"set_processing_true":"set_processing_false",
+            [&]{return processor.setProcessing(running);},true);
+        auto& record=transitions[running?0:1];record.attempted=true;
+        external->lifecycle_activity(false,running?3:4);
+        // A throw/refusal retains its fixed in-flight stage until the owner
+        // acquires and exports the scalar failure. Cleanup may publish its own
+        // stage, while this exact attempted/returned/result record survives.
+        record.result=processor.setProcessing(running);record.returned=true;
+        const bool accepted=record.result==kResultOk||record.result==kNotImplemented;
+        if(accepted)external->lifecycle_activity(false,0);
+        ok=ok&&accepted;return accepted;
+    };
+    auto export_transitions=[&]{
+        if(transitions_exported)return;
+        transitions_exported=true; // one export attempt, including output failure
+        if(!deferred_transitions)return;
+        constexpr std::array<const char*,2> names{"set_processing_true","set_processing_false"};
+        for(size_t i=0;i<transitions.size();++i){
+            const auto& record=transitions[i];if(!record.attempted)continue;
+            events.lifecycle("ap0_call_started",",\"operation\":\""+std::string(names[i])+"\",\"owner_thread\":false,\"exported_after_quiescence\":true,\"returned\":"+(record.returned?"true":"false"));
+            if(record.returned)events.lifecycle("ap0_call_completed",",\"operation\":\""+std::string(names[i])+"\",\"result\":"+std::to_string(record.result));
+        }
+    };
     try {
-        std::atomic<bool> worker_done{false};
+        ProcessingSignals signals;
+        if(!signals.command||!signals.quiescent)throw std::runtime_error("processing event preparation failed");
+        uint32_t preparation_error=0;
         std::thread worker([&] {
             // Processor lifecycle and DSP belong to this thread. Controller/
             // editor work remains on the owner; state requests use the existing
             // ExternalProcessing handoff. Storage stays alive through join.
-            SetThreadDescription(GetCurrentThread(),L"lvb-audio");
-            bool started=false;
+            if(FAILED(SetThreadDescription(GetCurrentThread(),L"lvb-audio"))){
+                preparation_error=1;ok=false;worker_exception=true;
+                signals.done.store(true,std::memory_order_release);SetEvent(signals.quiescent);return;
+            }
+            signals.publish(0); // prepared; no vendor Start or DSP has occurred
+            uint64_t handled=0;
+            for(;;){
+            const auto wake=WaitForSingleObject(signals.command,INFINITE);
+            if(signals.exit.load(std::memory_order_acquire))break;
+            if(wake!=WAIT_OBJECT_0){preparation_error=2;ok=false;worker_exception=true;break;}
+            const auto generation=signals.issued.load(std::memory_order_acquire);
+            if(generation==handled)continue;
+            if(generation!=handled+1){preparation_error=3;ok=false;worker_exception=true;break;}
+            bool started=false,processing_attempted=false;
             try {
-                events.lifecycle("ap0_processing_thread_started",",\"distinct_from_owner\":"+
-                    std::string(std::this_thread::get_id()!=owner?"true":"false"));
                 if(hosted) external->lifecycle_request(10);
-                stopped=false;
-                started=call("set_processing_true",[&]{return processor.setProcessing(true);},true);
+                if(signals.exit.load(std::memory_order_acquire))break;
+                processing_attempted=true;stopped=false;
+                started=render_transition(true);
                 if (started && external) {if(hosted) external->lifecycle_ack(11);else external->ready();}
                 if (started) for(uint64_t b=0;sustained||b<uint64_t(external?65:3);++b) {
                     auto& block=blocks[external?0:b];
@@ -249,35 +328,102 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
             } catch (...) {primary_error=std::current_exception();worker_exception=true;ok=false;}
             // Attempt bounded teardown through the same supervisor even after
             // a failed process result. A hang is owned by the outer timeout.
-            try {stopped=call("set_processing_false",[&]{return processor.setProcessing(false);},true);}
-            catch (...) {if(!primary_error)primary_error=std::current_exception();stopped=false;ok=false;}
-            worker_done.store(true,std::memory_order_release);
+            if(processing_attempted){
+                try {stopped=render_transition(false);}
+                catch (...) {if(!primary_error)primary_error=std::current_exception();stopped=false;ok=false;}
+            }
+            handled=generation;
+            // This is the publication barrier previously provided by joining
+            // every interval. All pending/session/frame/capture borrows and
+            // vendor false are complete before the owner may inspect fields,
+            // acknowledge Stopped or publish another Run.
+            signals.publish(generation);
+            if(!ok||!sustained)break;
+            }
+            signals.done.store(true,std::memory_order_release);SetEvent(signals.quiescent);
         });
+        ProcessingJoin retirement{worker,signals,external};
         bool owner_error=false;
         try {
-            if(stateful)while(!worker_done.load(std::memory_order_acquire)){
-                external->service_owner();std::this_thread::sleep_for(std::chrono::microseconds(50));
+            auto await_quiescence=[&](uint64_t generation,bool preparing){
+                const auto end=std::chrono::steady_clock::now()+std::chrono::seconds(5);
+                while(signals.completed.load(std::memory_order_acquire)!=generation){
+                    if(signals.done.load(std::memory_order_acquire)){
+                        // A finite worker publishes completion immediately
+                        // before done. Accept that exact completion even if
+                        // the first load raced with its publication.
+                        if(signals.completed.load(std::memory_order_acquire)==generation)break;
+                        throw std::runtime_error("processing worker stopped before quiescence");
+                    }
+                    if(preparing&&std::chrono::steady_clock::now()>=end)throw std::runtime_error("processing preparation deadline");
+                    if(stateful)external->service_owner();
+                    const auto wake=WaitForSingleObject(signals.quiescent,stateful&&!preparing?0:4);
+                    if(wake!=WAIT_OBJECT_0&&wake!=WAIT_TIMEOUT)throw std::runtime_error("processing quiescence wait failed");
+                    // Preserve the existing owner state/GUI service cadence
+                    // during an interval. Render/start work does not poll it.
+                    if(stateful&&!preparing&&wake==WAIT_TIMEOUT)
+                        std::this_thread::sleep_for(std::chrono::microseconds(50));
+                }
+            };
+            await_quiescence(0,true);
+            if(hosted&&!sustained)external->lifecycle_ack(9);
+            events.lifecycle("ap0_processing_thread_started",",\"distinct_from_owner\":"+
+                std::string(worker.get_id()!=owner?"true":"false"));
+            if(hosted&&sustained)external->lifecycle_ack(9); // prepared, never processing_ready
+            uint64_t generation=0;
+            uint16_t command=sustained?external->next_transition():10;
+            for(;;){
+                if(command==14){external->lifecycle_request(14);break;}
+                if(command!=10||generation==UINT64_MAX)throw std::runtime_error("processing command generation invalid");
+                processing_requested=true;
+                // Owner owns these fields while the previous generation is
+                // quiescent. Clearing before Run publication also prevents an
+                // Exit that wins over pending Run from exporting stale fields.
+                transitions={};transitions_exported=false;
+                signals.issued.store(++generation,std::memory_order_release);
+                if(!SetEvent(signals.command))throw std::runtime_error("processing command wake failed");
+                await_quiescence(generation,false);
+                ++intervals;
+                export_transitions();
+                if(!stopped){
+                    // A failed vendor false never grants deactivation or
+                    // permission to release its processing storage/interfaces.
+                    TerminateProcess(GetCurrentProcess(),93);std::terminate();
+                }
+                if(!ok)break;
+                if(!sustained){
+                    // AP0/AP1/AP2 finite admission retains its real joined
+                    // worker before Stopped. Sustained intervals instead
+                    // retain the prepared live thread until deactivation.
+                    retirement.finish(false);joined=retirement.joined;
+                    events.lifecycle("ap0_thread_joined",",\"joined\":true,\"processing_stopped\":true,\"worker_exception\":false");
+                    join_recorded=true;
+                }
+                if(hosted)external->lifecycle_ack(13);
+                if(!sustained){if(hosted)external->lifecycle_request(14);break;}
+                command=external->next_transition();
             }
         } catch (...) {
             // Do not unwind a joinable std::thread, detach a borrower of our
             // buffers, or race the worker's error/result fields. Ask the owned
             // transport to stop, then join before touching shared results.
             owner_error=true;
-            external->owner_failed();
-            if(WaitForSingleObject(worker.native_handle(),5000)!=WAIT_OBJECT_0) {
-                // A vendor process/setProcessing call may never return. The
-                // outer supervisor owns the failed instance; no DLL detach or
-                // vendor destruction is safe while this worker remains live.
-                TerminateProcess(GetCurrentProcess(),93);
-                std::terminate();
-            }
+            retirement.finish(true);
         }
-        worker.join();joined=true;
+        retirement.finish(false);joined=retirement.joined;
+        // Owner cancellation can leave an attempted Start/Stop after the
+        // ordinary quiescence wait has thrown. Join supplies its final acquire
+        // barrier; export the same generation once before containment/cleanup.
+        try{export_transitions();}catch(...){owner_error=true;}
+        if(!stopped){TerminateProcess(GetCurrentProcess(),93);std::terminate();}
+        // A preparation failure does not grant ACK9. Its fixed code is read
+        // only after join, when no render thread can still write the results.
+        if(preparation_error&&!primary_error)primary_error=std::make_exception_ptr(std::runtime_error("Windows processing preparation failed"));
         // Vendor exception text can contain private paths/account data. Keep
         // the fault stage in its existing status owner and emit only our code.
         if(owner_error){primary_error=std::make_exception_ptr(std::runtime_error("Windows owner service failed"));ok=false;}
     } catch (...) {if(!primary_error)primary_error=std::current_exception();ok=false;}
-    events.lifecycle("ap0_thread_joined",",\"joined\":"+std::string(joined?"true":"false")+
+    if(!join_recorded)events.lifecycle("ap0_thread_joined",",\"joined\":"+std::string(joined?"true":"false")+
         ",\"processing_stopped\":"+(stopped?"true":"false")+
         ",\"worker_exception\":"+(worker_exception?"true":"false"));
     if(first_rejection.reason!=AP10Results::Rejection::None){
@@ -315,18 +461,12 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         detail+=",\"input_parameters\":"+std::to_string(rejected_input_parameters);
         events.lifecycle("ap18_result_rejection",detail);
     }
-    if (!stopped) return {false,false};
-    if(hosted&&ok) {
-        external->lifecycle_ack(13);
-        if(sustained)restart=external->next_transition()==10;
-        if(!restart)external->lifecycle_request(14);
-    }
-    ++intervals;
-    } while(restart&&ok);
+    if (!stopped){TerminateProcess(GetCurrentProcess(),93);std::terminate();}
     if(sustained) {
         events.lifecycle("ap3_processing_summary",",\"processed_blocks\":"+std::to_string(processed)+
             ",\"intervals\":"+std::to_string(intervals)+",\"process_mode\":\"kRealtime\"");
-        if(primary_error)try{std::rethrow_exception(primary_error);}catch(const std::exception& e){
+        if(primary_error&&deferred_transitions)events.lifecycle("ap3_processing_error",",\"detail\":\"Windows processing failed\"");
+        else if(primary_error)try{std::rethrow_exception(primary_error);}catch(const std::exception& e){
             // Only our fixed explanatory errors are emitted, not paths or args.
             // Windows/plugin exceptions retain their stage via the outer supervisor.
             events.lifecycle("ap3_processing_error",",\"detail\":\""+std::string(e.what()).substr(0,160)+"\"");
