@@ -570,13 +570,18 @@ bool factoryReleased(const Options& o) {
     need(std::equal(token->begin(),token->end(),expected.begin(),expected.end()),"exact factory release token");
     return true;
 }
-constexpr auto factoryWaitBound=std::chrono::seconds(600);
+// Control-only ceiling for the retained six-class 9,120-second package-refresh
+// envelope plus observer orchestration. The operator releases it immediately
+// when Update Bridge completes; this is not an audio-processing allowance.
+constexpr auto factoryWaitSeconds=9750;
+constexpr auto factoryWaitBound=std::chrono::seconds(factoryWaitSeconds);
 void holdFactory(const Options& o) {
     const std::string marker=std::string("{\"schema\":1,\"factory_cached\":true,\"processor\":\"")+o.processor
-        +"\",\"controller\":\""+o.controller+"\"}\n";
+        +"\",\"controller\":\""+o.controller+"\",\"wait_bound_seconds\":"+std::to_string(factoryWaitSeconds)+"}\n";
     writePrivate(std::string(o.prefix)+".factory-ready",reinterpret_cast<const uint8_t*>(marker.data()),marker.size(),
                  "private unique factory-ready marker");
-    std::cout<<"{\"event\":\"factory_held\",\"schema\":1,\"metadata_cached\":true,\"wait_bound_seconds\":600}"<<std::endl;
+    std::cout<<"{\"event\":\"factory_held\",\"schema\":1,\"metadata_cached\":true,\"wait_bound_seconds\":"
+             <<factoryWaitSeconds<<"}"<<std::endl;
     const auto deadline=Clock::now()+factoryWaitBound;
     while(!factoryReleased(o)) {
         need(Clock::now()<deadline,"factory release deadline");

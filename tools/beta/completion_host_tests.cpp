@@ -211,7 +211,7 @@ struct PrivateOutputTest {
     ~PrivateOutputTest() { std::error_code ignored;std::filesystem::remove_all(directory,ignored); }
 };
 void privateGateInputs(const Options& base) {
-    need(factoryWaitBound==std::chrono::seconds(600),"factory hold is bounded by the declared control-plane update allowance");
+    need(factoryWaitBound==std::chrono::seconds(9750),"factory hold covers the declared six-class control-plane update envelope");
     PrivateOutputTest location;Options o=base;o.prefix=location.prefix.c_str();o.capturePrefix=o.prefix;
     need(!factoryReleased(o),"absent release token remains pending");
     static constexpr std::array<uint8_t,8> release{'r','e','l','e','a','s','e','\n'};
@@ -219,6 +219,7 @@ void privateGateInputs(const Options& base) {
     holdFactory(o);
     const auto ready=readPrivate(location.prefix+".factory-ready",512,false,"factory-ready test read");
     need(ready&&std::string_view(reinterpret_cast<const char*>(ready->data()),ready->size()).find("\"factory_cached\":true")!=std::string_view::npos
+        &&std::string_view(reinterpret_cast<const char*>(ready->data()),ready->size()).find("\"wait_bound_seconds\":9750")!=std::string_view::npos
         &&factoryReleased(o),"cached factory readiness and exact release token");
     refuses([&]{holdFactory(o);},"factory-ready evidence cannot be overwritten");
     PrivateOutputTest malformed;Options bad=base;bad.prefix=malformed.prefix.c_str();bad.capturePrefix=bad.prefix;
