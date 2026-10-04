@@ -1172,8 +1172,24 @@ against 270,833 ns; its enclosing native wait interval is 285,056 ns, while C++ 
 delivery takes 595 ns. The post-wait stamp is 18,405–18,467 ns past the inferred deadline
 bracket. This does not distinguish result-publication timing, waiting, pre-syscall
 or post-return descheduling. The separate source gap in using a relative futex
-timeout after computing remaining time is the next bounded contract repair; it is
-not a demonstrated cause of this overrun. FC-AUDIO-001 remains open.
+timeout after computing remaining time is repaired by the
+[absolute-wait source regression](../evidence/audio-recovery/2026-10-04-absolute-completion-wait.json).
+It is not a demonstrated cause or cure of this overrun.
+
+The [audio5 installed comparison](../evidence/audio-recovery/2026-10-04-audio5-zero-frame-failure.json)
+fails both diagnostic-off/on lifetimes at the first RT zero-frame call, before
+measured audio and final recall, with confirmed process/transport retirement.
+The traced processing-ready marker falls inside that callback; its completed
+operation predicate remains false at timeout. A same-boot normal rollback to the
+exact audio4 native under unchanged audio5 manager/runtime/Windows/consumer also
+fails, at a later prefetch zero-frame call after 16,380 correct samples. All three
+whole lifetimes remain failed. Source tracing must separate START/readiness,
+queued work and native/Windows scheduling before a causal repair. The marker is
+not a render-service duration, and unavailable Windows scheduling requests are not
+an effective render-thread policy measurement. The predecessor control contains one
+effective policy1073741826/priority5 readback while each audio5 run has two unavailable
+requests; this difference prevents an isolated engine timing comparison and is not
+continuity proof. FC-AUDIO-001 remains open.
 
 This status is for the residual deadline-miss classes. AP16 separately accepted a disk-backed
 hot-mapping repair. [AS1 PR #172](https://github.com/kasselvania/Linux-VST-bridge/pull/172)

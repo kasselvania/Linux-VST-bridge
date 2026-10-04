@@ -37,6 +37,16 @@ The post-wait stamp is 18,405–18,467 ns beyond the deadline bracket. Schedulin
 or after the wait remains indistinguishable from waiting; no Windows-DSP or
 historical-gap cause is established. This is attribution progress, not an audio
 repair or expanded support.
+Installed [audio5 and predecessor comparison](../evidence/audio-recovery/2026-10-04-audio5-zero-frame-failure.json)
+remains **failed** despite the independently repaired deadline-arming defect.
+Both audio5 lifetimes refuse the first real-time zero-frame call before measured
+audio or final recall. Normal rollback to exact audio4 native under unchanged
+audio5 manager, Windows host, runtime and consumer succeeds, but that control
+fails a later prefetch zero-frame call after 16,380 correct samples. All three
+confirm retirement; all preferences and sibling registrations survive rollback.
+This leaves shared readiness/zero-frame completion unqualified, and establishes
+neither a new audio cure nor a dependable predecessor. No whole-package rollback
+is claimed from restoring only the native publication.
 These reference SDK results do not change the Deck claims below or attribute the
 config4 and historical Deck gaps.
 

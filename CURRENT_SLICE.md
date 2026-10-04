@@ -226,17 +226,49 @@ one additional native record outside the 107 measured Exercise calls; all 108 ar
 retained and correlated using unique SDK clock brackets. No acceptance rerun or
 budget change follows from correcting the analyzer's initial count assumption.
 
-Next bounded repair is the shared absolute-wait contract. `Signal::wait` currently
-calculates remaining time and then starts a relative futex timeout; a pause between
-those steps can extend the selected deadline. Reproduce that gap, use an absolute
-monotonic wait with conservative clock conversion, and test publication races,
-interruption and the callback-audit ABI. Preserve existing budgets, queues,
-notifications, ownership and failure posture. Absolute expiry cannot guarantee
-when a descheduled caller returns, and this repair must not be called the cause or
-cure of the installed overrun without a comparison. No Windows behavior, runtime,
-buffering or privilege changes. Review source, then qualify the frozen successor
-through the same installed path. Serial-chain, lower-block and physical musician
-acceptance remain open.
+The shared absolute-wait repair is committed at
+`2847d4b9343fa91f54110ee310746fc89a25b625`, tree
+`47bdcf07afb7b25ef964f209210600d30de271c7`.
+The [Linux source regression](evidence/audio-recovery/2026-10-04-absolute-completion-wait.json)
+first fails against the relative wait, then all 133 backend tests pass with the
+reviewed absolute monotonic wait. Checked conversion, early timeout reinspection,
+publication races, interruption and cancellation retain the original deadline.
+This fixes deadline arming; it does not guarantee a descheduled caller returns by
+that deadline. All five applicable CI workflows, 13 native SDK tests and the
+independent package rebuild pass for paired `0.12.0audio5`.
+
+The [installed comparison](evidence/audio-recovery/2026-10-04-audio5-zero-frame-failure.json)
+**fails**. Diagnostic-off and diagnostic-on both refuse the first RT N=0 call:
+1,130,203 ns and 1,072,008 ns against 1 ms. Neither reaches measured audio or final
+state recall. Both confirm process and transport retirement. The traced operation
+predicate remains unsatisfied; its enclosing wait is 1,055,160 ns. The processing-ready
+marker appears 789,283 ns after SDK entry. This marker and the post-wait stamp do
+not isolate worker scheduling, transport, render-thread or SDK duration.
+
+One declared same-boot control restores exact audio4 native publication through
+normal `ordinary_rollback`, retaining audio5 manager, identical Windows host/runtime,
+consumer and all preferences. It passes the first RT N=0 in 679,060 ns, compares
+16,380 samples correctly, then refuses callback12 (prefetch N=0) in 1,066,883 ns.
+It also retires positively. None of these three lifetimes passes. The earlier
+engine's failure prevents assigning the new first-call failures to the absolute
+wait alone; it does not prove timing equivalence. The exact audio4 native predecessor
+is left selected, with audio5 manager and all sibling registrations/preferences
+unchanged. Preserve this explicit mixed selection; do not call it a whole-package
+rollback or a known dependable fallback.
+
+Next bounded work is the shared START/readiness and queued zero-frame completion
+path, including unpaced backlog and the native/Windows wake chain. Establish where
+the required operation is before its deadline before another production change.
+Native worker readback is policy0/priority0 with realtime budget unavailable;
+Each audio5 run has two unavailable Windows scheduling requests and no effective
+policy readback. The predecessor control has one unavailable request and one effective
+policy1073741826/priority5 readback. These differing post-start observations confound
+an isolated engine timing comparison and do not prove continuous scheduling policy.
+Do not substitute a launcher policy for actual-thread measurement. Keep existing
+budgets, buffering, runtime and privilege scope unchanged. Keep `setProcessing`
+lightweight: it may execute on the processing thread; do not move a blocking START
+acknowledgement wait there.
+Physical/serial-chain/lower-block/musician acceptance remains open.
 
 The polling audit distinguishes current control acknowledgement from deliberate
 legacy paths. Windows mapped-processing formatting was completed separately at
