@@ -5,9 +5,11 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs,
     io::{Read, Write},
+    os::fd::{AsRawFd, FromRawFd, OwnedFd},
     os::unix::{
+        ffi::OsStrExt,
         fs::{FileTypeExt, MetadataExt, OpenOptionsExt, PermissionsExt},
-        net::{UnixListener, UnixStream},
+        net::UnixStream,
     },
     path::{Path, PathBuf},
 };
@@ -220,13 +222,51 @@ fn initialize_at(path: &Path) -> Result<()> {
 use std::os::unix::fs::DirBuilderExt;
 
 fn initialize_graphical_denial(root: &Path, name: &str) -> Result<()> {
+    initialize_graphical_denial_with(root, name, || {})
+}
+
+fn initialize_graphical_denial_with(root: &Path, name: &str, bound: impl FnOnce()) -> Result<()> {
     let path = root.join(name);
     match fs::symlink_metadata(&path) {
         Ok(_) => {}
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            let listener = UnixListener::bind(&path)?;
+            // A listening descriptor can survive in a concurrently forked
+            // child until that child execs, even when it has FD_CLOEXEC. The
+            // denial inode must therefore never enter the listening state.
+            #[cfg(target_os = "linux")]
+            let socket_type = libc::SOCK_STREAM | libc::SOCK_CLOEXEC;
+            #[cfg(not(target_os = "linux"))]
+            let socket_type = libc::SOCK_STREAM;
+            let raw = unsafe { libc::socket(libc::AF_UNIX, socket_type, 0) };
+            if raw < 0 {
+                return Err(std::io::Error::last_os_error().into());
+            }
+            let socket = unsafe { OwnedFd::from_raw_fd(raw) };
+            #[cfg(target_os = "macos")]
+            if unsafe { libc::fcntl(socket.as_raw_fd(), libc::F_SETFD, libc::FD_CLOEXEC) } != 0 {
+                return Err(std::io::Error::last_os_error().into());
+            }
+            let bytes = path.as_os_str().as_bytes();
+            let mut address: libc::sockaddr_un = unsafe { std::mem::zeroed() };
+            require(!bytes.contains(&0) && bytes.len() < address.sun_path.len(),
+                "graphical_denial_path")?;
+            address.sun_family = libc::AF_UNIX as libc::sa_family_t;
+            for (target, source) in address.sun_path.iter_mut().zip(bytes) {
+                *target = *source as libc::c_char;
+            }
+            let length = std::mem::offset_of!(libc::sockaddr_un, sun_path)
+                .checked_add(bytes.len() + 1).ok_or("graphical_denial_path")?;
+            #[cfg(target_os = "macos")]
+            {
+                address.sun_len = length.try_into()?;
+            }
+            if unsafe { libc::bind(socket.as_raw_fd(),
+                std::ptr::from_ref(&address).cast::<libc::sockaddr>(), length.try_into()?) } != 0 {
+                return Err(std::io::Error::last_os_error().into());
+            }
             fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
-            drop(listener); // retain the socket inode without a listening owner
+            bound();
+            drop(socket); // retain a bound stream inode that was never listening
         }
         Err(error) => return Err(error.into()),
     }
@@ -533,6 +573,67 @@ impl Drop for PendingTransport {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(target_os = "linux")]
+    use std::os::unix::net::UnixListener;
+
+    #[cfg(target_os = "linux")]
+    struct ForkedChild {
+        pid: libc::pid_t,
+        release: OwnedFd,
+    }
+    #[cfg(target_os = "linux")]
+    impl ForkedChild {
+        fn wait_bounded(&mut self) -> Option<i32> {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+            loop {
+                let mut status = 0;
+                let result = unsafe { libc::waitpid(self.pid, &mut status, libc::WNOHANG) };
+                if result == self.pid {
+                    self.pid = -1;
+                    return Some(status);
+                }
+                if result < 0 && std::io::Error::last_os_error().kind()
+                    != std::io::ErrorKind::Interrupted {
+                    return None;
+                }
+                if std::time::Instant::now() >= deadline {
+                    return None;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+        }
+        fn release_and_wait(mut self) -> i32 {
+            let byte = [1u8];
+            assert_eq!(unsafe { libc::write(self.release.as_raw_fd(), byte.as_ptr().cast(), 1) }, 1);
+            self.wait_bounded().expect("forked child did not exit")
+        }
+    }
+    #[cfg(target_os = "linux")]
+    impl Drop for ForkedChild {
+        fn drop(&mut self) {
+            if self.pid <= 0 {
+                return;
+            }
+            unsafe { libc::kill(self.pid, libc::SIGKILL); }
+            let mut status = 0;
+            loop {
+                let result = unsafe { libc::waitpid(self.pid, &mut status, 0) };
+                if result == self.pid || (result < 0
+                    && std::io::Error::last_os_error().kind()
+                        != std::io::ErrorKind::Interrupted) {
+                    break;
+                }
+            }
+        }
+    }
+    #[cfg(target_os = "linux")]
+    struct TestDirectory(PathBuf);
+    #[cfg(target_os = "linux")]
+    impl Drop for TestDirectory {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
     #[test]
     fn graphical_context_uses_only_the_authenticated_peer_allowlist() {
         let context = parse_graphical_environment(
@@ -555,10 +656,13 @@ mod tests {
             .canonicalize()
             .unwrap()
             .join(format!("ap16-visible-{}", random_id().unwrap()));
+        fs::DirBuilder::new().mode(0o700).create(&a).unwrap();
         private_dir(&a).unwrap();
-        private_dir(&a.join("other")).unwrap();
+        let other = a.join("other");
+        fs::DirBuilder::new().mode(0o700).create(&other).unwrap();
+        private_dir(&other).unwrap();
         assert!(same_directory(&a, &a).is_ok());
-        assert!(same_directory(&a, &a.join("other")).is_err());
+        assert!(same_directory(&a, &other).is_err());
         fs::remove_dir_all(a).unwrap();
     }
     #[test]
@@ -658,6 +762,53 @@ mod tests {
             drop(listener);
             fs::remove_dir_all(r).unwrap();
         }
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn forked_pre_exec_child_cannot_keep_a_denial_socket_listening() {
+        let r = TestDirectory(PathBuf::from("/dev/shm")
+            .join(format!("graphical-denial-fork-{}", random_id().unwrap())));
+        fs::DirBuilder::new().mode(0o700).create(&r.0).unwrap();
+        let mut ready = [-1; 2];
+        let mut release = [-1; 2];
+        assert_eq!(unsafe { libc::pipe2(ready.as_mut_ptr(), libc::O_CLOEXEC) }, 0);
+        assert_eq!(unsafe { libc::pipe2(release.as_mut_ptr(), libc::O_CLOEXEC) }, 0);
+        let ready_read = unsafe { OwnedFd::from_raw_fd(ready[0]) };
+        let ready_write = unsafe { OwnedFd::from_raw_fd(ready[1]) };
+        let release_read = unsafe { OwnedFd::from_raw_fd(release[0]) };
+        let release_write = unsafe { OwnedFd::from_raw_fd(release[1]) };
+        let mut child = None;
+        let result = initialize_graphical_denial_with(&r.0, GRAPHICAL_DENIAL_SOCKETS[0], || {
+            let pid = unsafe { libc::fork() };
+            if pid == 0 {
+                unsafe {
+                    libc::close(ready_read.as_raw_fd());
+                    libc::close(release_write.as_raw_fd());
+                    let byte = [1u8];
+                    let _ = libc::write(ready_write.as_raw_fd(), byte.as_ptr().cast(), 1);
+                    libc::close(ready_write.as_raw_fd());
+                    let mut release_byte = 0u8;
+                    let _ = libc::read(release_read.as_raw_fd(),
+                        std::ptr::from_mut(&mut release_byte).cast(), 1);
+                    libc::_exit(0);
+                }
+            }
+            assert!(pid > 0);
+            drop(ready_write);
+            drop(release_read);
+            child = Some(ForkedChild { pid, release: release_write });
+            let mut pollfd = libc::pollfd {
+                fd: ready_read.as_raw_fd(), events: libc::POLLIN, revents: 0
+            };
+            assert_eq!(unsafe { libc::poll(&mut pollfd, 1, 5_000) }, 1);
+            let mut byte = 0u8;
+            assert_eq!(unsafe { libc::read(ready_read.as_raw_fd(),
+                std::ptr::from_mut(&mut byte).cast(), 1) }, 1);
+        });
+        result.unwrap();
+        let status = child.take().unwrap().release_and_wait();
+        assert!(libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0);
+        verify_graphical_denial(&r.0, GRAPHICAL_DENIAL_SOCKETS[0]).unwrap();
     }
     #[cfg(target_os = "linux")]
     #[test]

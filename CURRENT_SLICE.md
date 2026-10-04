@@ -43,7 +43,14 @@ and connects normal Setup controls to service recovery. Legacy LVB1–4 admissio
 is refused under the modern manager. Current source validation is recorded in
 [managed refresh source evidence](evidence/audio-recovery/2026-10-04-managed-refresh-source.json).
 The retained [installed baseline](evidence/audio-recovery/2026-10-04-managed-refresh-installed-baseline.json)
-contains six selected classes and original instrument/effect state and output.
+contains six selected classes and original instrument/effect state and output. A
+subsequent parallel CI run exposed a temporary-listener inheritance race in
+transport initialization. The [bound-only socket repair](evidence/audio-recovery/2026-10-04-denial-socket-fork-repair.json)
+retains the refusal checks, reproduces the old failure with a forked child, and
+passes the corrected Linux module checks in default and candidate builds.
+The first package attempt remains retained and uninstalled: its private cache
+layout and stale Windows source roster were refused. The next build uses a clean
+committed source and the matching verified Windows CI artifact.
 
 FC-MGMT-008 remains open until the committed package completes the installed
 update, current-caller recall, stale-caller refusal, failure/interruption recovery
