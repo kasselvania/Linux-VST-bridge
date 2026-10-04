@@ -203,15 +203,18 @@ completion waiting; subsequent presentation and C++ result delivery remain outsi
 that enforced wait bound. The outer SDK bracket includes unquantified audit costs.
 Existing aggregate counters cannot attribute this callback's overrun.
 
-Next bounded implementation is optional, preallocated native per-callback phase
-observation: C++ entry, completion predicate/wait, Rust return and C++ result
-completion, correlated to host calls across setup transitions. Prepare storage
-outside processing, retain explicit capacity/overflow, export after quiescence,
-and keep disabled behavior unchanged. Review before one declared diagnostic
-comparison on the same fixture; preserve the original diagnostic-disabled failures
-and measure observer effects separately. No deadline, buffering, IPC, Windows-host
-or runtime change is authorized by this measurement. Serial-chain, lower-block and
-physical acceptance remain open.
+The bounded native phase observer is implemented and independently reviewed.
+Explicit invocation-only `LVB_AP23_PHASE_TRACE=1` is sampled during inactive setup;
+128 preallocated records retain cross-setup ordinals, completion predicates/waits,
+Rust presentation and C++ result delivery, with quiescent export and explicit
+omission counts. Phase reachability and valid clocks are distinct. The inferred
+wait deadline is a bracket, not an exact clock conversion, and the final C++ stamp
+is pre-return. Disabled callbacks use the ordinary ABI. Local source regressions
+pass; ordinary Linux native/legacy builds and the installed comparison are next.
+Build one registered successor, then compare diagnostics off and on using that
+same artifact. Preserve the original disabled failures and measure observer effects
+separately. No deadline, buffering, IPC, Windows-host or runtime policy changed;
+serial-chain, lower-block and physical acceptance remain open.
 
 The polling audit distinguishes current control acknowledgement from deliberate
 legacy paths. Windows mapped-processing formatting was completed separately at

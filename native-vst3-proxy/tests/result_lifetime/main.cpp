@@ -10,7 +10,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <dlfcn.h>
+#include <fstream>
 #include <memory>
+#include <string>
+#include <unistd.h>
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
@@ -20,6 +23,8 @@ void require(bool ok, const char* why) {
 }
 uint32_t total=0, cursor=0, drains=0, failures=0, closes=0, seed=0;
 bool sysex_only=false, odd=false, terminal_result=false, note_only=false;
+bool phase_enabled=false,phase_incomplete=false;
+uint32_t phase_queries=0,phase_calls=0,ordinary_calls=0;
 int32 frames=0;
 TChar character(uint32_t i, uint32_t j) {
  return TChar(0x100 + (seed*97+i*31+j)%0x7000);
@@ -91,12 +96,50 @@ uint32_t __wrap_ap4_deactivate(uint64_t) {return 0;}
 uint32_t __wrap_ap3_transition(uint64_t,uint32_t) {return 0;}
 uint32_t __wrap_if2_close(uint64_t) {++closes;return 0;}
 uint32_t __wrap_ap10_fail_results(uint64_t) {++failures;return 0;}
+uint32_t __wrap_ap23_phase_trace_enabled(uint64_t,uint32_t* enabled) {
+ ++phase_queries;*enabled=phase_enabled?1:0;return 0;
+}
 uint32_t __wrap_ap23_process_outputs(uint64_t,uint32_t n,uint32_t mode,const ap8_event_t*,uint32_t,
  const ap10_context_t*,uint64_t,const float* l,const float* r,float*const* outputs,uint32_t channels,
  uint64_t* silence,ap7_delivery_t* delivery,uint64_t entered_ns) {
  require(entered_ns!=0,"native callback-entry clock");
+ ++ordinary_calls;
  require(channels==2 && mode==kRealtime,"actual callback mode and planar ABI");
  if(terminal_result)return IF2::contained;
+ frames=int32(n);cursor=drains=0;*silence=0;*delivery={};delivery->delivered_frames=n;
+ std::copy_n(l,n,outputs[0]);std::copy_n(r,n,outputs[1]);return 0;
+}
+uint32_t __wrap_ap23_process_outputs_trace(uint64_t,uint32_t n,uint32_t mode,const ap8_event_t*,uint32_t,
+ const ap10_context_t*,uint64_t,const float* l,const float* r,float*const* outputs,uint32_t channels,
+ uint64_t* silence,ap7_delivery_t* delivery,uint64_t entered_ns,ap23_phase_trace_t* trace) {
+ require(trace&&trace->schema==1&&trace->size==sizeof(*trace),"versioned phase record");
+ require(entered_ns==trace->cpp_entry_ns&&channels==2&&mode==kRealtime,"phase call identity");
+ ++phase_calls;
+ trace->rust_entry_ns=entered_ns+10;trace->phase_reached|=AP23::phase_rust_entry;
+ trace->clock_valid|=AP23::phase_rust_entry;
+ if(phase_incomplete){
+  trace->rust_pre_return_ns=entered_ns+20;trace->phase_reached|=AP23::phase_rust_pre_return;
+  trace->clock_valid|=AP23::phase_rust_pre_return;
+  return AP23::cancelled;
+ }
+ trace->generation=7;trace->epoch=phase_calls<3?1:2;trace->host_call=phase_calls;
+ trace->position=phase_calls-1;trace->phase_reached|=AP23::phase_identity;
+ trace->delivery_mode=0;trace->exact=0;trace->allowance_ns=n*1000000000ull/48000;
+ trace->wait_deadline_lower_ns=entered_ns+trace->allowance_ns;
+ trace->wait_deadline_upper_ns=trace->wait_deadline_lower_ns+2;
+ trace->phase_reached|=AP23::phase_policy;trace->clock_valid|=AP23::phase_policy;
+ trace->predicate_kind=0;trace->predicate_required=phase_calls;
+ trace->predicate_before=phase_calls-1;trace->predicate_after=phase_calls;
+ trace->predicate_initial_satisfied=0;trace->predicate_final_satisfied=1;
+ trace->phase_reached|=AP23::phase_predicate_before|AP23::phase_predicate_after|AP23::phase_wait;
+ trace->wait_begin_ns=entered_ns+11;trace->wait_end_ns=entered_ns+12;
+ trace->wait_total_ns=1;trace->wait_count=1;
+ trace->clock_valid|=AP23::phase_wait;
+ trace->presentation_done_ns=entered_ns+13;trace->phase_reached|=AP23::phase_presentation_done;
+ trace->clock_valid|=AP23::phase_presentation_done;
+ trace->backend_result=0;trace->phase_reached|=AP23::phase_backend_result;
+ trace->rust_pre_return_ns=entered_ns+14;trace->phase_reached|=AP23::phase_rust_pre_return;
+ trace->clock_valid|=AP23::phase_rust_pre_return;
  frames=int32(n);cursor=drains=0;*silence=0;*delivery={};delivery->delivered_frames=n;
  std::copy_n(l,n,outputs[0]);std::copy_n(r,n,outputs[1]);return 0;
 }
@@ -181,5 +224,67 @@ int main() {
  begin();status=p->process(d);effects=end();
  require(status==kResultFalse && effects==0 && sink.getEventCount()==0 && drains==completedDrains,"exact zero-frame terminal callback fails without duplicating Note Off or draining results");
  require(p->setProcessing(false)==kResultOk && p->setActive(false)==kResultOk && p->terminate()==kResultOk,"IF2 positive contained cleanup");
+
+ // Trace opt-in is sampled once after successful inactive setup. Toggling the
+ // test source later cannot create callback storage or phase output lazily.
+ char disabled_name[]="/tmp/ap23-phase-disabled-XXXXXX";
+ int disabled_fd=mkstemp(disabled_name);require(disabled_fd>=0,"disabled report create");close(disabled_fd);
+ setenv("LVB_AP3_REPORT",disabled_name,1);phase_enabled=false;terminal_result=false;note_only=false;
+ auto before_queries=phase_queries,before_phase=phase_calls;
+ p=std::make_unique<AP2::Processor>();
+ require(p->initialize(&host)==kResultOk,"disabled trace initialize");
+ require(p->setupProcessing(setup)==kResultOk,"disabled trace setup");
+ phase_enabled=true;
+ require(p->setupProcessing(setup)==kResultOk,"disabled trace ressetup");
+ require(phase_queries==before_queries+1,"phase opt-in sampled once");
+ require(p->setActive(true)==kResultOk&&p->setProcessing(true)==kResultOk,"disabled trace start");
+ total=0;d.numSamples=1;d.numInputs=d.numOutputs=1;d.inputs=&input;d.outputs=&output;d.outputEvents=nullptr;
+ begin();status=p->process(d);effects=end();require(status==kResultOk&&effects==0,"disabled trace callback unchanged");
+ require(phase_calls==before_phase,"disabled trace never calls phase ABI");
+ require(p->setProcessing(false)==kResultOk&&p->setActive(false)==kResultOk&&p->terminate()==kResultOk,"disabled trace retire");
+ {std::ifstream file(disabled_name);std::string text((std::istreambuf_iterator<char>(file)),{});
+  require(text.find("ap23_callback_phase")==std::string::npos,"disabled trace has no export");}
+ unlink(disabled_name);
+
+ // A bounded trace survives ordinary stop/setup/start reconfiguration, exports
+ // only after quiescence, and omits rather than overwrites after capacity.
+ char enabled_name[]="/tmp/ap23-phase-enabled-XXXXXX";
+ int enabled_fd=mkstemp(enabled_name);require(enabled_fd>=0,"enabled report create");close(enabled_fd);
+ setenv("LVB_AP3_REPORT",enabled_name,1);phase_enabled=true;phase_incomplete=false;
+ before_queries=phase_queries;before_phase=phase_calls;auto before_ordinary=ordinary_calls;
+ p=std::make_unique<AP2::Processor>();require(p->initialize(&host)==kResultOk,"enabled trace initialize");
+ require(p->setupProcessing(setup)==kResultOk&&p->setActive(true)==kResultOk&&p->setProcessing(true)==kResultOk,"enabled trace first start");
+ auto run_phase=[&]{begin();auto result=p->process(d);auto audit=end();require(result==kResultOk&&audit==0,"traced callback result/effects");};
+ run_phase();run_phase();
+ require(p->setProcessing(false)==kResultOk&&p->setActive(false)==kResultOk,"enabled trace first stop");
+ require(p->setupProcessing(setup)==kResultOk&&p->setActive(true)==kResultOk&&p->setProcessing(true)==kResultOk,"enabled trace reconfiguration");
+ for(int i=2;i<130;++i)run_phase();
+ {std::ifstream file(enabled_name);std::string text((std::istreambuf_iterator<char>(file)),{});
+  require(text.find("ap23_callback_phase")==std::string::npos,"trace exported before quiescent termination");}
+ require(phase_queries==before_queries+1&&phase_calls==before_phase+128,"single sample and bounded traced calls");
+ require(ordinary_calls==before_ordinary+2,"overflow callbacks use unchanged ordinary ABI");
+ require(p->setProcessing(false)==kResultOk&&p->setActive(false)==kResultOk&&p->terminate()==kResultOk,"enabled trace retire");
+ {std::ifstream file(enabled_name);std::string text((std::istreambuf_iterator<char>(file)),{});
+  size_t count=0,at=0;while((at=text.find("\"event\":\"ap23_callback_phase\"",at))!=std::string::npos){++count;++at;}
+  require(count==128,"exact retained trace capacity");
+  require(text.find("\"ordinal\":128")!=std::string::npos&&text.find("\"omitted\":2")!=std::string::npos,"ordinal persists and overflow explicit");
+  require(text.find("guard-held calls reaching AP23")!=std::string::npos&&text.find("\"cpp_final_stamp\":\"pre-return\"")!=std::string::npos,"trace scope labels");
+  require(text.find("\"clock_valid_uses_phase_bits\":true")!=std::string::npos,"complete trace summary");}
+ unlink(enabled_name);
+
+ // A failed backend call retains only phases actually reached. It never
+ // fabricates a completion predicate, presentation or result-delivery stamp.
+ char incomplete_name[]="/tmp/ap23-phase-incomplete-XXXXXX";
+ int incomplete_fd=mkstemp(incomplete_name);require(incomplete_fd>=0,"incomplete report create");close(incomplete_fd);
+ setenv("LVB_AP3_REPORT",incomplete_name,1);phase_incomplete=true;
+ p=std::make_unique<AP2::Processor>();require(p->initialize(&host)==kResultOk&&p->setupProcessing(setup)==kResultOk&&
+  p->setActive(true)==kResultOk&&p->setProcessing(true)==kResultOk,"incomplete trace start");
+ begin();status=p->process(d);effects=end();require(status==kResultFalse&&effects==0,"incomplete backend failure preserved");
+ require(p->setProcessing(false)==kResultOk&&p->setActive(false)==kResultOk&&p->terminate()==kResultOk,"incomplete trace retire");
+ {std::ifstream file(incomplete_name);std::string text((std::istreambuf_iterator<char>(file)),{});
+  require(text.find("\"phase_reached\":6915")!=std::string::npos&&
+    text.find("\"clock_valid\":2307")!=std::string::npos,"incomplete phase/clock masks");
+  require(text.find("\"result\":[265,1]")!=std::string::npos,"backend and SDK failure retained");}
+ unlink(incomplete_name);unsetenv("LVB_AP3_REPORT");
  std::puts("Native callback payload lifetime, contained terminal silence and exact Note Off cleanup PASS");
 }

@@ -24,6 +24,7 @@
 #include <cstdlib>
 #include <fcntl.h>
 #include <limits>
+#include <new>
 #include <sys/stat.h>
 #include <unistd.h>
 namespace AP2 {
@@ -33,6 +34,14 @@ using namespace Steinberg::Vst;
 static_assert(std::size(AP8::buses)<=AP18Buses::max_buses);
 #endif
 namespace {
+#ifdef AP8_PREVIEW
+uint64_t monotonic_ns() {
+  timespec value{};
+  if (clock_gettime(CLOCK_MONOTONIC, &value)) return 0;
+  return uint64_t(value.tv_sec)*1000000000+uint64_t(value.tv_nsec);
+}
+static_assert(sizeof(ap23_phase_trace_t)==264);
+#endif
 uint32_t transportMaximum(int32_t maximum) {
 #ifdef AP8_PREVIEW
   return static_cast<uint32_t>(maximum);
@@ -688,6 +697,16 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup &setup) {
     sample_rate_ = setup.sampleRate;
     queued_ = preview_ || process_mode_ == kRealtime;
     phase_ = Setup;
+#ifdef AP8_PREVIEW
+    if (preview_ && !phase_trace_sampled_) {
+      phase_trace_sampled_ = true;
+      uint32_t enabled = 0;
+      if (!ap23_phase_trace_enabled(handle_, &enabled) && enabled == 1) {
+        phase_trace_requested_ = true;
+        phase_trace_.reset(new(std::nothrow) ap23_phase_trace_t[AP23::phase_trace_capacity]{});
+      }
+    }
+#endif
   }
   return r;
 }
@@ -789,8 +808,7 @@ tresult Processor::rejected(ProcessData &d) {
 }
 tresult PLUGIN_API Processor::process(ProcessData &d) {
 #ifdef AP8_PREVIEW
-  timespec entered{};clock_gettime(CLOCK_MONOTONIC,&entered);
-  const uint64_t entered_ns=uint64_t(entered.tv_sec)*1000000000+uint64_t(entered.tv_nsec);
+  const uint64_t entered_ns=monotonic_ns();
 #endif
   Guard g(busy_);
   auto reject = [&] { return rejected(d); };
@@ -849,16 +867,61 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
     if(!append(v))return reject();}}
   if(skipped_expression)skipped_expression_callbacks_.fetch_add(1,std::memory_order_relaxed);
   if(d.inputParameterChanges){auto n=d.inputParameterChanges->getParameterCount();if(n<0||n>256)return reject();for(int i=0;i<n;++i){auto*q=d.inputParameterChanges->getParameterData(i);if(!q)return reject();auto id=q->getParameterId();bool known=false;for(const auto&p:AP8::parameters)if(p.id==id){known=true;break;}if(!known)return reject();auto points=q->getPointCount();if(points<0||points>256)return reject();int previous=-1;for(int j=0;j<points;++j){int offset=0;double value=0;if(q->getPoint(j,offset,value)!=kResultOk||offset<previous)return reject();previous=offset;if(!append({static_cast<uint32_t>(offset),2,id,0,0,value,0,0}))return reject();}}}
+  ap23_phase_trace_t* phase_trace_record=nullptr;
+  auto processOutputs=[&](uint32_t n,const ap10_context_t* context,uint64_t input_flags,
+      const float* left,const float* right,float*const* output,uint32_t channels,
+      uint64_t* output_flags,ap7_delivery_t* delivery){
+    if(phase_trace_requested_){
+      const auto ordinal=phase_trace_ordinal_==std::numeric_limits<uint64_t>::max()?
+        phase_trace_ordinal_:++phase_trace_ordinal_;
+      if(ordinal&&phase_trace_&&phase_trace_count_<AP23::phase_trace_capacity){
+        phase_trace_record=&phase_trace_[phase_trace_count_++];
+        *phase_trace_record={};phase_trace_record->schema=AP23::phase_trace_schema;
+        phase_trace_record->size=sizeof(*phase_trace_record);
+        phase_trace_record->ordinal=ordinal;phase_trace_record->frames=n;
+        phase_trace_record->mode=uint32_t(d.processMode);
+        phase_trace_record->cpp_entry_ns=entered_ns;
+        phase_trace_record->phase_reached|=AP23::phase_cpp_entry;
+        if(entered_ns)phase_trace_record->clock_valid|=AP23::phase_cpp_entry;
+      }else if(phase_trace_omitted_!=std::numeric_limits<uint64_t>::max())++phase_trace_omitted_;
+    }
+    const auto result=phase_trace_record?
+      ap23_process_outputs_trace(handle_,n,uint32_t(d.processMode),events,event_count,context,
+        input_flags,left,right,output,channels,output_flags,delivery,entered_ns,phase_trace_record):
+      ap23_process_outputs(handle_,n,uint32_t(d.processMode),events,event_count,context,
+        input_flags,left,right,output,channels,output_flags,delivery,entered_ns);
+    if(phase_trace_record){phase_trace_record->backend_result=result;
+      phase_trace_record->phase_reached|=AP23::phase_backend_result;}
+    return result;
+  };
+  auto deliver=[&]{
+    if(phase_trace_record){phase_trace_record->result_delivery_begin_ns=monotonic_ns();
+      phase_trace_record->phase_reached|=AP23::phase_result_delivery_begin;
+      if(phase_trace_record->result_delivery_begin_ns)phase_trace_record->clock_valid|=AP23::phase_result_delivery_begin;}
+    const auto result=deliverResults(d);
+    if(phase_trace_record){phase_trace_record->result_delivery_done_ns=monotonic_ns();
+      phase_trace_record->phase_reached|=AP23::phase_result_delivery_done;
+      if(phase_trace_record->result_delivery_done_ns)phase_trace_record->clock_valid|=AP23::phase_result_delivery_done;}
+    return result;
+  };
+  auto finish=[&](tresult result){
+    if(phase_trace_record){phase_trace_record->sdk_result=static_cast<int32_t>(result);
+      phase_trace_record->phase_reached|=AP23::phase_sdk_result;
+      phase_trace_record->cpp_pre_return_ns=monotonic_ns();
+      phase_trace_record->phase_reached|=AP23::phase_cpp_pre_return;
+      if(phase_trace_record->cpp_pre_return_ns)phase_trace_record->clock_valid|=AP23::phase_cpp_pre_return;}
+    return result;
+  };
   if(d.numSamples==0){
     if(d.numInputs||d.numOutputs)return reject();
     float dummy=0;uint64_t flags=0;ap7_delivery_t delivery{};ap10_context_t context{};
     float* output[]={&dummy,&dummy};
-    auto result=ap23_process_outputs(handle_,0,uint32_t(d.processMode),events,event_count,&context,0,&dummy,&dummy,output,2,&flags,&delivery,entered_ns);
-    if(result==IF2::contained)return containedSilence(d);
-    if(result==AP23::mode_refused)return reject();
-    if(result||!deliverResults(d)){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return reject();}
-    if(expired())return reject();
-    return kResultOk;
+    auto result=processOutputs(0,&context,0,&dummy,&dummy,output,2,&flags,&delivery);
+    if(result==IF2::contained)return finish(containedSilence(d));
+    if(result==AP23::mode_refused)return finish(reject());
+    if(result||!deliver()){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return finish(reject());}
+    if(expired())return finish(reject());
+    return finish(kResultOk);
   }
 #else
   bool changed = false;
@@ -955,7 +1018,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
 #endif
   auto r =
 #ifdef AP8_PREVIEW
-      ap23_process_outputs(handle_,static_cast<uint32_t>(d.numSamples),uint32_t(d.processMode),events,event_count,&c,input_flags,in[0],in[1],output_planes.data(),uint32_t(2*output_count),&silence,&delivery,entered_ns);
+      processOutputs(static_cast<uint32_t>(d.numSamples),&c,input_flags,in[0],in[1],output_planes.data(),uint32_t(2*output_count),&silence,&delivery);
 #else
       queued_
           ? static_cast<int32_t>(ap7_process(
@@ -970,8 +1033,8 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   #endif
   if (r) {
 #ifdef AP8_PREVIEW
-    if(r==IF2::contained)return containedSilence(d);
-    if(r==AP23::mode_refused)return reject();
+    if(r==IF2::contained)return finish(containedSilence(d));
+    if(r==AP23::mode_refused)return finish(reject());
     returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});
     if (!admission_failure_.code) {
       admission_failure_ = {uint32_t(r), c.state, d.numSamples, input_flags,
@@ -1004,7 +1067,11 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
     if (!queued_)
       report();
     phase_ = Failed;
+    #ifdef AP8_PREVIEW
+    return finish(reject());
+    #else
     return reject();
+    #endif
   }
   last_callback_rejected_.store(false, std::memory_order_relaxed);
   if ((silence&3) == 3 && !delivery.missing_frames) {
@@ -1028,10 +1095,14 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   for(int bus=1;bus<d.numOutputs;++bus)if(output_mask_&(uint32_t(1)<<bus))d.outputs[bus].silenceFlags=(silence>>(2*bus))&3;
 #endif
 #ifdef AP8_PREVIEW
-  if(!deliverResults(d)){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return reject();}
-  if(expired())return reject();
+  if(!deliver()){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return finish(reject());}
+  if(expired())return finish(reject());
 #endif
+  #ifdef AP8_PREVIEW
+  return finish(kResultOk);
+  #else
   return kResultOk;
+  #endif
 }
 #ifdef AP8_PREVIEW
 tresult Processor::containedSilence(ProcessData& d) {
@@ -1060,6 +1131,54 @@ bool Processor::deliverResults(ProcessData&d){
  }
  ap10_fail_results(handle_);return false;
 }
+void Processor::reportPhaseTrace(){
+ if(!phase_trace_requested_)return;
+ if(phase_trace_)for(uint32_t i=0;i<phase_trace_count_;++i){
+  const auto&t=phase_trace_[i];char text[1280];
+  auto n=std::snprintf(text,sizeof(text),
+   "{\"event\":\"ap23_callback_phase\",\"schema\":%u,\"size\":%u,\"phase_reached\":%llu,\"clock_valid\":%llu,"
+   "\"ordinal\":%llu,\"identity\":[%llu,%llu,%llu,%llu],"
+   "\"call\":[%llu,%llu,%llu,%llu],\"policy\":[%llu,%llu,%llu],"
+   "\"predicate\":[%llu,%llu,%llu,%llu,%llu,%llu],"
+   "\"clock\":[%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu],"
+   "\"wait\":[%llu,%llu],\"result\":[%u,%d]}\n",
+   t.schema,t.size,(unsigned long long)t.phase_reached,(unsigned long long)t.clock_valid,
+   (unsigned long long)t.ordinal,
+   (unsigned long long)t.generation,(unsigned long long)t.epoch,
+   (unsigned long long)t.host_call,(unsigned long long)t.position,
+   (unsigned long long)t.frames,(unsigned long long)t.mode,
+   (unsigned long long)t.delivery_mode,(unsigned long long)t.exact,
+   (unsigned long long)t.allowance_ns,(unsigned long long)t.wait_deadline_lower_ns,
+   (unsigned long long)t.wait_deadline_upper_ns,
+   (unsigned long long)t.predicate_kind,(unsigned long long)t.predicate_required,
+   (unsigned long long)t.predicate_before,(unsigned long long)t.predicate_after,
+   (unsigned long long)t.predicate_initial_satisfied,
+   (unsigned long long)t.predicate_final_satisfied,
+   (unsigned long long)t.cpp_entry_ns,(unsigned long long)t.rust_entry_ns,
+   (unsigned long long)t.wait_begin_ns,(unsigned long long)t.wait_end_ns,
+   (unsigned long long)t.presentation_done_ns,(unsigned long long)t.rust_pre_return_ns,
+   (unsigned long long)t.result_delivery_begin_ns,(unsigned long long)t.result_delivery_done_ns,
+   (unsigned long long)t.cpp_pre_return_ns,
+   (unsigned long long)t.wait_total_ns,(unsigned long long)t.wait_count,
+   t.backend_result,t.sdk_result);
+  if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));
+ }
+ char summary[1536];auto n=std::snprintf(summary,sizeof(summary),
+  "{\"event\":\"ap23_callback_phase_summary\",\"schema\":1,\"requested\":true,"
+  "\"allocated\":%s,\"capacity\":%u,\"retained\":%u,\"omitted\":%llu,"
+  "\"scope\":\"guard-held calls reaching AP23\",\"cpp_final_stamp\":\"pre-return\","
+  "\"identity_fields\":\"generation,epoch,host_call,position\","
+  "\"call_fields\":\"frames,mode,delivery_mode,exact\","
+  "\"policy_fields\":\"allowance_ns,wait_deadline_lower_ns,wait_deadline_upper_ns\","
+  "\"predicate_fields\":\"kind,required,before,after,initial_satisfied,final_satisfied\","
+  "\"clock_fields\":\"cpp_entry_ns,rust_entry_ns,wait_begin_ns,wait_end_ns,presentation_done_ns,rust_pre_return_ns,result_delivery_begin_ns,result_delivery_done_ns,cpp_pre_return_ns\","
+  "\"wait_fields\":\"total_ns,count\",\"result_fields\":\"backend,sdk\","
+  "\"phase_bits\":\"0=cpp_entry,1=rust_entry,2=policy,3=identity,4=predicate_before,5=wait,6=predicate_after,7=presentation_done,8=rust_pre_return,9=backend_result,10=result_delivery_begin,11=cpp_pre_return,12=sdk_result,13=result_delivery_done\","
+  "\"clock_valid_uses_phase_bits\":true}\n",
+  phase_trace_?"true":"false",AP23::phase_trace_capacity,phase_trace_count_,
+  (unsigned long long)phase_trace_omitted_);
+ if(n>0&&size_t(n)<sizeof(summary))diagnostic_report(report_path_,summary,size_t(n));
+}
 #endif
 tresult PLUGIN_API Processor::terminate() {
   Guard g(busy_);
@@ -1082,6 +1201,7 @@ tresult PLUGIN_API Processor::terminate() {
       diagnostic_report(report_path_, text, static_cast<size_t>(n));
   }
 #ifdef AP8_PREVIEW
+  reportPhaseTrace();
   if(terminal()){
     char text[256];auto n=std::snprintf(text,sizeof(text),"{\"event\":\"if2_contained_terminal\",\"callbacks\":%llu,\"silent_frames\":%llu,\"automatic_reload\":false}\n",(unsigned long long)contained_callbacks_,(unsigned long long)contained_frames_);
     if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));

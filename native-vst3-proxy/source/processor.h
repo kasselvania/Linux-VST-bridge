@@ -2,6 +2,7 @@
 #include "public.sdk/source/vst/vstaudioeffect.h"
 #include <atomic>
 #include <cstdint>
+#include <memory>
 #include <thread>
 #ifdef AP8_PREVIEW
 #ifdef LVB_RUNTIME_DESCRIPTOR
@@ -10,6 +11,7 @@
 #include "ap8_descriptor.h"
 #endif
 #include "ap8_backend.h"
+#include "ap23_backend.h"
 #include "ap18_bus_support.h"
 #include "output_results.h"
 #include <vector>
@@ -94,6 +96,7 @@ private:
   bool gui_consumer_=false; // UI-thread capability, withdrawn before peer retirement.
   Steinberg::tresult guiPoll(uint64_t generation,unsigned limit);
   bool deliverResults(Steinberg::Vst::ProcessData&);
+  void reportPhaseTrace();
   Steinberg::tresult containedSilence(Steinberg::Vst::ProcessData&);
   uint64_t contained_callbacks_=0, contained_frames_=0;
   int eventOutputActive(int)const;
@@ -114,6 +117,10 @@ private:
     ap8_event_t invalid_event{};
   } admission_failure_;
   std::vector<uint8_t> state_readback_;
+  std::unique_ptr<ap23_phase_trace_t[]> phase_trace_;
+  uint64_t phase_trace_ordinal_=0,phase_trace_omitted_=0;
+  uint32_t phase_trace_count_=0;
+  bool phase_trace_sampled_=false,phase_trace_requested_=false;
   Steinberg::tresult readback();
 #endif
   void snapshotStatus(const char *status);

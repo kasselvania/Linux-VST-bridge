@@ -44,6 +44,7 @@ pub(crate) const FLUSH_ALLOWANCE: Duration = Duration::from_millis(1);
 pub(crate) const INTERRUPT_INTERVAL: Duration = Duration::from_millis(4);
 #[derive(Clone, Copy)]
 pub(crate) struct CompletionPolicy {
+    pub(crate) allowance: Duration,
     pub(crate) deadline: Instant,
     pub(crate) exact: bool,
     pub(crate) offline: bool,
@@ -57,7 +58,7 @@ impl CompletionPolicy {
             else { Duration::from_nanos((n as f64 * 1_000_000_000. / rate) as u64) };
         let elapsed = if entered_ns == 0 || now_ns == 0 { Duration::ZERO }
             else { Duration::from_nanos(now_ns.saturating_sub(entered_ns)) };
-        Self { deadline: now + allowance.saturating_sub(elapsed),
+        Self { allowance, deadline: now + allowance.saturating_sub(elapsed),
             exact: offline || n == 0 || delivery == DeliveryMode::SameCallback, offline }
     }
 }

@@ -140,6 +140,12 @@ pub(crate) fn delivery_enabled() -> bool {
             .is_ok_and(|b| b == b"1\n")
     })
 }
+// Sampled by the native SDK owner during successful inactive preparation. This
+// deliberately does not inherit the heavier AP10 witness switch or a persisted
+// runtime setting; a normal installed artifact remains diagnostic-off.
+pub(crate) fn phase_delivery_enabled() -> bool {
+    std::env::var_os("LVB_AP23_PHASE_TRACE").is_some_and(|value| value == "1")
+}
 pub struct Shared {
     jobs: Queue<Job>,
     pub gaps: Queue<Gap>,

@@ -143,6 +143,8 @@ struct Shared {
     pending_control: AtomicBool,
     #[cfg(test)]
     control_waits: AtomicU64,
+    #[cfg(test)]
+    phase_waits: AtomicU64,
     state_capable: AtomicBool,
     curve_state_revision: AtomicU64,
     observer: Option<Arc<crate::observer::Shared>>,
@@ -206,6 +208,8 @@ impl Shared {
             pending_control: AtomicBool::new(false),
             #[cfg(test)]
             control_waits: AtomicU64::new(0),
+            #[cfg(test)]
+            phase_waits: AtomicU64::new(0),
             state_capable: AtomicBool::new(false),
             curve_state_revision: AtomicU64::new(0),
             observer: None,
@@ -524,9 +528,16 @@ impl Callback {
     ) -> Result<u64,u32> {
         self.process_outputs_until(s, request, out, extra, destination, None)
     }
-    fn process_outputs_until(&mut self, s: &Shared, mut request: Item,
+    #[cfg(test)]
+    fn process_outputs_until(&mut self, s: &Shared, request: Item,
         out: &mut [[f32; CAP]; 2], extra: &[*mut f32], destination: usize,
         deadline: Option<Instant>,
+    ) -> Result<u64,u32> {
+        self.process_outputs_until_traced(s, request, out, extra, destination, deadline, None)
+    }
+    fn process_outputs_until_traced(&mut self, s: &Shared, mut request: Item,
+        out: &mut [[f32; CAP]; 2], extra: &[*mut f32], destination: usize,
+        deadline: Option<Instant>, mut trace: Option<&mut PhaseTrace>,
     ) -> Result<u64,u32> {
         if !self.running || request.n as usize > CAP {
             return Err(1);
@@ -574,6 +585,17 @@ impl Callback {
         let n = request.n as usize;
         let mut flags = channel_mask(2+extra.len());
         let required_end = self.position.saturating_add(n as u64).saturating_sub(self.delay);
+        if let Some(t) = trace.as_deref_mut() {
+            t.predicate_kind = u64::from(exact);
+            t.predicate_required = if exact { request.ticket } else { required_end };
+            t.predicate_before = if exact { self.completed_operation } else { self.next_result };
+            t.predicate_initial_satisfied = u64::from(if exact {
+                self.completed_operation >= request.ticket
+            } else {
+                n == 0 || self.next_result >= required_end
+            });
+            t.phase_reached |= PHASE_PREDICATE_BEFORE | PHASE_WAIT;
+        }
         // Consume whole completions independently of audio presentation. This
         // admits zero-frame results and preserves late events before audio expiry.
         let presentation_start = self.position.saturating_sub(self.delay);
@@ -597,8 +619,15 @@ impl Callback {
                     || s.quit.load(Ordering::Acquire)
                 { break None; }
                 self.completion_waits += 1;
+                #[cfg(test)]
+                s.phase_waits.fetch_add(1, Ordering::Release);
                 let interrupt = Instant::now() + crate::performance::INTERRUPT_INTERVAL;
-                if !s.completion.wait(observed, until.min(interrupt)) {
+                let wait_begin = trace.as_ref().map(|_| crate::observer::monotonic_ns());
+                let signalled = s.completion.wait(observed, until.min(interrupt));
+                if let (Some(t), Some(begin)) = (trace.as_deref_mut(), wait_begin) {
+                    retain_wait_clock(t, begin, crate::observer::monotonic_ns());
+                }
+                if !signalled {
                     // A publication can precede timeout return while its wake
                     // races. Inspect once more before declaring missing audio.
                     let item = s.results.pop();
@@ -654,6 +683,15 @@ impl Callback {
                 };
                 self.delivery.expired_frames += expired;
             }
+        }
+        if let Some(t) = trace.as_deref_mut() {
+            t.predicate_after = if exact { self.completed_operation } else { self.next_result };
+            t.predicate_final_satisfied = u64::from(if exact {
+                self.completed_operation >= request.ticket
+            } else {
+                n == 0 || self.next_result >= required_end
+            });
+            t.phase_reached |= PHASE_PREDICATE_AFTER;
         }
         if exact && self.completed_operation < request.ticket {
             s.fail(COMPLETION_DEADLINE, self.position);
@@ -711,6 +749,78 @@ impl Callback {
         self.position += request.n as u64;
         Ok(flags)
     }
+}
+
+const PHASE_TRACE_SCHEMA: u32 = 1;
+const PHASE_RUST_ENTRY: u64 = 1 << 1;
+const PHASE_POLICY: u64 = 1 << 2;
+const PHASE_IDENTITY: u64 = 1 << 3;
+const PHASE_PREDICATE_BEFORE: u64 = 1 << 4;
+const PHASE_WAIT: u64 = 1 << 5;
+const PHASE_PREDICATE_AFTER: u64 = 1 << 6;
+const PHASE_PRESENTATION_DONE: u64 = 1 << 7;
+const PHASE_RUST_PRE_RETURN: u64 = 1 << 8;
+const PHASE_BACKEND_RESULT: u64 = 1 << 9;
+
+#[inline]
+fn retain_wait_clock(t: &mut PhaseTrace, begin: u64, end: u64) {
+    let prior = t.wait_count;
+    t.wait_count = t.wait_count.saturating_add(1);
+    if begin == 0 || end == 0 || end < begin {
+        t.clock_valid &= !PHASE_WAIT;
+        return;
+    }
+    // Once any interval is unavailable, later intervals cannot make the
+    // aggregate complete. Retain only the valid prefix and the whole count.
+    if prior != 0 && t.clock_valid & PHASE_WAIT == 0 {
+        return;
+    }
+    if prior == 0 {
+        t.wait_begin_ns = begin;
+    }
+    t.wait_end_ns = end;
+    t.wait_total_ns = t.wait_total_ns.saturating_add(end - begin);
+    t.clock_valid |= PHASE_WAIT;
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct PhaseTrace {
+    pub schema: u32,
+    pub size: u32,
+    pub phase_reached: u64,
+    pub clock_valid: u64,
+    pub ordinal: u64,
+    pub generation: u64,
+    pub epoch: u64,
+    pub host_call: u64,
+    pub position: u64,
+    pub frames: u64,
+    pub mode: u64,
+    pub delivery_mode: u64,
+    pub exact: u64,
+    pub allowance_ns: u64,
+    pub wait_deadline_lower_ns: u64,
+    pub wait_deadline_upper_ns: u64,
+    pub predicate_kind: u64,
+    pub predicate_required: u64,
+    pub predicate_before: u64,
+    pub predicate_after: u64,
+    pub predicate_initial_satisfied: u64,
+    pub predicate_final_satisfied: u64,
+    pub cpp_entry_ns: u64,
+    pub rust_entry_ns: u64,
+    pub wait_begin_ns: u64,
+    pub wait_end_ns: u64,
+    pub wait_total_ns: u64,
+    pub wait_count: u64,
+    pub presentation_done_ns: u64,
+    pub rust_pre_return_ns: u64,
+    pub result_delivery_begin_ns: u64,
+    pub result_delivery_done_ns: u64,
+    pub cpp_pre_return_ns: u64,
+    pub backend_result: u32,
+    pub sdk_result: i32,
 }
 struct Live {
     shared: Arc<Shared>,
@@ -1782,13 +1892,72 @@ unsafe fn process_events(
     extra: &[*mut f32],
     actual_mode: Option<u32>,
 ) -> u32 {
+    process_events_traced(id,n,gain,flags,left,right,out_left,out_right,out_flags,delivery,
+        events,context,detailed,entered_ns,contain_terminal,extra,actual_mode,None)
+}
+#[allow(clippy::too_many_arguments)]
+unsafe fn process_events_traced(
+    id: u64,
+    n: u32,
+    gain: f64,
+    flags: u64,
+    left: *const f32,
+    right: *const f32,
+    out_left: *mut f32,
+    out_right: *mut f32,
+    out_flags: *mut u64,
+    delivery: *mut Delivery,
+    events: &[Event],
+    context: crate::context::Context,
+    detailed: bool,
+    entered_ns: u64,
+    contain_terminal: bool,
+    extra: &[*mut f32],
+    actual_mode: Option<u32>,
+    mut trace: Option<&mut PhaseTrace>,
+) -> u32 {
     let callback_entered = Instant::now();
-    let Some(l) = INSTANCES.lease(id) else {
-        return 1;
-    };
-    let Some(_guard) = Guard::acquire(&l) else {
-        return 3;
-    };
+    let Some(l) = INSTANCES.lease(id) else { return 1; };
+    let Some(_guard) = Guard::acquire(&l) else { return 3; };
+    if let Some(t) = trace.as_deref_mut() {
+        t.rust_entry_ns = crate::observer::monotonic_ns();
+        t.phase_reached |= PHASE_RUST_ENTRY;
+        if t.rust_entry_ns != 0 { t.clock_valid |= PHASE_RUST_ENTRY; }
+    }
+    let result = process_events_guarded(&l,callback_entered,n,gain,flags,left,right,out_left,out_right,out_flags,
+        delivery,events,context,detailed,entered_ns,contain_terminal,extra,actual_mode,
+        trace.as_deref_mut());
+    if let Some(t) = trace {
+        t.backend_result = result;
+        t.phase_reached |= PHASE_BACKEND_RESULT;
+        t.rust_pre_return_ns = crate::observer::monotonic_ns();
+        t.phase_reached |= PHASE_RUST_PRE_RETURN;
+        if t.rust_pre_return_ns != 0 { t.clock_valid |= PHASE_RUST_PRE_RETURN; }
+    }
+    result
+}
+#[allow(clippy::too_many_arguments)]
+unsafe fn process_events_guarded(
+    l: &Live,
+    callback_entered: Instant,
+    n: u32,
+    gain: f64,
+    flags: u64,
+    left: *const f32,
+    right: *const f32,
+    out_left: *mut f32,
+    out_right: *mut f32,
+    out_flags: *mut u64,
+    delivery: *mut Delivery,
+    events: &[Event],
+    context: crate::context::Context,
+    detailed: bool,
+    entered_ns: u64,
+    contain_terminal: bool,
+    extra: &[*mut f32],
+    actual_mode: Option<u32>,
+    mut trace: Option<&mut PhaseTrace>,
+) -> u32 {
     let n = n as usize;
     if extra.len()>62 || (n>0 && extra.len()!=l.shared.extra.get().map_or(0,|p|p.channels)) {
         return if detailed {0x101} else {1};
@@ -1847,8 +2016,10 @@ unsafe fn process_events(
     // separate shared operation deadline. Legacy/ARM retain their policy.
     // Sample Instant before CLOCK_MONOTONIC, so a scheduling interruption
     // between reads can shorten the remaining wait, never renew the allowance.
+    let phase_budget_before_ns = trace.as_ref().map(|_| crate::observer::monotonic_ns());
     let budget_now = Instant::now();
     let budget_now_ns = crate::observer::monotonic_ns();
+    let phase_budget_after_ns = trace.as_ref().map(|_| crate::observer::monotonic_ns());
     let completion = if whole_block {
         l.setup.as_ref().map(|setup| crate::performance::CompletionPolicy::new(
             mode, l.delivery_mode, n,
@@ -1856,6 +2027,23 @@ unsafe fn process_events(
             budget_now_ns, budget_now))
     } else { None };
     let completion_deadline = completion.map(|p| p.deadline);
+    if let (Some(t), Some(policy)) = (trace.as_deref_mut(), completion) {
+        t.frames = n as u64;
+        t.mode = mode as u64;
+        t.delivery_mode = l.delivery_mode as u64;
+        t.exact = u64::from(policy.exact);
+        t.allowance_ns = policy.allowance.as_nanos().min(u64::MAX as u128) as u64;
+        let remaining = policy.deadline.saturating_duration_since(budget_now)
+            .as_nanos().min(u64::MAX as u128) as u64;
+        let before = phase_budget_before_ns.unwrap_or(0);
+        let after = phase_budget_after_ns.unwrap_or(0);
+        if before != 0 && after != 0 {
+            t.wait_deadline_lower_ns = before.saturating_add(remaining);
+            t.wait_deadline_upper_ns = after.saturating_add(remaining);
+            t.clock_valid |= PHASE_POLICY;
+        }
+        t.phase_reached |= PHASE_POLICY;
+    }
     // The current product transports the DAW's queue unchanged. Its vendor
     // processor owns implicit parameter values, including after state/GUI
     // changes and transport seeks. Curve reconstruction is legacy-only.
@@ -1892,6 +2080,13 @@ unsafe fn process_events(
         callback.returned.window(callback.position, n);
         let Some(next) = callback.host_call.checked_add(1) else { return 2; };
         callback.host_call = next;
+        if let Some(t) = trace.as_deref_mut() {
+            t.generation = l.shared.generation;
+            t.epoch = callback.epoch;
+            t.host_call = callback.host_call;
+            t.position = callback.position;
+            t.phase_reached |= PHASE_IDENTITY;
+        }
     }
     let entered_ns = if entered_ns == 0 { crate::observer::monotonic_ns() } else { entered_ns };
     let mut total = Delivery::default();
@@ -1923,11 +2118,17 @@ unsafe fn process_events(
         }
         let mut out = [[0.; CAP]; 2];
         let callback = &mut *l.callback.get();
-        match callback.process_outputs_until(&l.shared, item, &mut out,extra,offset,completion_deadline) {
+        match callback.process_outputs_until_traced(&l.shared, item, &mut out,extra,offset,
+            completion_deadline,trace.as_deref_mut()) {
             Ok(f) => {
                 combined &= f;
                 for (ch, p) in [out_left, out_right].into_iter().enumerate() {
                     std::ptr::copy_nonoverlapping(out[ch].as_ptr(), p.add(offset), count);
+                }
+                if let Some(t) = trace.as_deref_mut() {
+                    t.presentation_done_ns = crate::observer::monotonic_ns();
+                    t.phase_reached |= PHASE_PRESENTATION_DONE;
+                    if t.presentation_done_ns != 0 { t.clock_valid |= PHASE_PRESENTATION_DONE; }
                 }
                 let d = callback.delivery;
                 total.missing_frames += d.missing_frames;
@@ -2380,6 +2581,14 @@ pub unsafe extern "C" fn ap19_process_outputs(
 #[no_mangle]
 pub extern "C" fn ap23_abi_version() -> u32 { 1 }
 #[no_mangle]
+pub unsafe extern "C" fn ap23_phase_trace_enabled(id: u64, out: *mut u32) -> u32 {
+    if out.is_null() { return 0x101; }
+    let Some(l) = INSTANCES.lease(id) else { return 1; };
+    let Some(_guard) = Guard::acquire(&l) else { return 3; };
+    *out = u32::from(crate::observer::phase_delivery_enabled());
+    0
+}
+#[no_mangle]
 pub unsafe extern "C" fn ap23_process_outputs(
     id:u64,n:u32,mode:u32,events:*const Event,count:u32,context:*const crate::context::Context,
     flags:u64,left:*const f32,right:*const f32,outputs:*const *mut f32,channels:u32,
@@ -2393,6 +2602,23 @@ pub unsafe extern "C" fn ap23_process_outputs(
     let events=if count==0 {&[]} else {std::slice::from_raw_parts(events,count as usize)};
     process_events(id,n,f64::NAN,flags,left,right,outputs[0],outputs[1],out_flags,delivery,
         events,*context,true,entered_ns,true,&outputs[2..],Some(mode))
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap23_process_outputs_trace(
+    id:u64,n:u32,mode:u32,events:*const Event,count:u32,context:*const crate::context::Context,
+    flags:u64,left:*const f32,right:*const f32,outputs:*const *mut f32,channels:u32,
+    out_flags:*mut u64,delivery:*mut Delivery,entered_ns:u64,trace:*mut PhaseTrace,
+)->u32 {
+    if trace.is_null() || (*trace).schema != PHASE_TRACE_SCHEMA
+        || (*trace).size as usize != std::mem::size_of::<PhaseTrace>()
+        || count as usize>MAX_EVENTS || (count>0&&events.is_null()) || context.is_null()
+        || outputs.is_null() || !(2..=64).contains(&channels) || !channels.is_multiple_of(2) {
+        return 0x101;
+    }
+    let outputs=std::slice::from_raw_parts(outputs,channels as usize);
+    let events=if count==0 {&[]} else {std::slice::from_raw_parts(events,count as usize)};
+    process_events_traced(id,n,f64::NAN,flags,left,right,outputs[0],outputs[1],out_flags,
+        delivery,events,*context,true,entered_ns,true,&outputs[2..],Some(mode),Some(&mut *trace))
 }
 
 #[no_mangle]
@@ -2784,7 +3010,8 @@ mod tests {
             let mut request = Item::control(AUDIO, 1); request.n = 1;
             request.position = position as u64; request.ticket = position as u64 + 1;
             let end = Instant::now() + Duration::from_secs(60);
-            request.completion = Some(crate::performance::CompletionPolicy { deadline: end, exact: true, offline: true });
+            request.completion = Some(crate::performance::CompletionPolicy {
+                allowance: Duration::from_millis(50), deadline: end, exact: true, offline: true });
             let mut completion = Completion::from(request);
             completion.audio.data[0][0] = position as f32;
             completion.audio.data[1][0] = position as f32 + 0.5;
@@ -3392,6 +3619,140 @@ mod tests {
             Some(Instant::now() + Duration::from_millis(10))).unwrap();
         assert_eq!(callback.completion_waits, waits, "zero-frame flush cannot wait");
         assert_eq!(callback.delivery.missing_frames, 0);
+    }
+
+    #[test]
+    fn phase_trace_wait_clock_requires_every_interval() {
+        let mut trace = PhaseTrace::default();
+        retain_wait_clock(&mut trace, 10, 14);
+        assert_eq!((trace.wait_count,trace.wait_begin_ns,trace.wait_end_ns,
+            trace.wait_total_ns,trace.clock_valid&PHASE_WAIT),(1,10,14,4,PHASE_WAIT));
+        retain_wait_clock(&mut trace, 0, 20);
+        assert_eq!((trace.wait_count,trace.wait_begin_ns,trace.wait_end_ns,
+            trace.wait_total_ns,trace.clock_valid&PHASE_WAIT),(2,10,14,4,0));
+        retain_wait_clock(&mut trace, 30, 35);
+        assert_eq!((trace.wait_count,trace.wait_begin_ns,trace.wait_end_ns,
+            trace.wait_total_ns,trace.clock_valid&PHASE_WAIT),(3,10,14,4,0));
+
+        let mut unavailable_first = PhaseTrace::default();
+        retain_wait_clock(&mut unavailable_first, 0, 0);
+        retain_wait_clock(&mut unavailable_first, 40, 50);
+        assert_eq!((unavailable_first.wait_count,unavailable_first.wait_begin_ns,
+            unavailable_first.wait_end_ns,unavailable_first.wait_total_ns,
+            unavailable_first.clock_valid&PHASE_WAIT),(2,0,0,0,0));
+    }
+
+    #[test]
+    fn phase_trace_separates_buffered_completion_wait_from_host_presentation() {
+        let _registry_owner = crate::registry_test();
+        let shared = Arc::new(Shared::new());
+        shared.state_capable.store(true, Ordering::Release);
+        let mut callback = Callback::new();
+        callback.prepare(512, 2, 512);
+        callback.running = true;
+        callback.epoch = 1;
+        callback.position = 1024;
+        callback.next_result = 512;
+        callback.submitted_operation = 1;
+        let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
+            shared: shared.clone(), callback: UnsafeCell::new(callback),
+            busy: AtomicBool::new(false), worker: None, report: None,
+            max: 512, recovery_blocked: false, installed_delay: Some(512),
+            delivery_mode: crate::performance::DeliveryMode::Buffered,
+            minor: 15, setup: Some(crate::performance::wire_version(512, 0, 48000., true).unwrap()),
+        })).unwrap().unwrap();
+        let peer = shared.clone();
+        let worker = thread::spawn(move || {
+            let until = Instant::now() + Duration::from_secs(1);
+            let current = loop {
+                if let Some(item) = peer.requests.pop() { break item; }
+                assert!(Instant::now() < until);
+                thread::yield_now();
+            };
+            assert_eq!((current.position,current.n,current.ticket),(1024,512,2));
+            while peer.phase_waits.load(Ordering::Acquire)==0 {
+                assert!(Instant::now()<until);
+                thread::yield_now();
+            }
+            let mut prior = Item::control(AUDIO, 1);
+            prior.n = 512;
+            prior.position = 512;
+            prior.ticket = 1;
+            prior.data = [[0.25; CAP]; 2];
+            assert!(peer.publish_result(prior.into()).is_some());
+        });
+        let input = [0.5; 512];
+        let mut output = [[9.; 512]; 2];
+        let planes = [output[0].as_mut_ptr(),output[1].as_mut_ptr()];
+        let mut flags = 0;
+        let mut delivery = Delivery::default();
+        let mut trace = PhaseTrace { schema: PHASE_TRACE_SCHEMA,
+            size: std::mem::size_of::<PhaseTrace>() as u32, ..Default::default() };
+        let entered = crate::observer::monotonic_ns();
+        let (result, allocations) = crate::allocation_test::measure(|| unsafe {
+            ap23_process_outputs_trace(id,512,0,std::ptr::null(),0,
+                &crate::context::Context::default(),0,input.as_ptr(),input.as_ptr(),
+                planes.as_ptr(),2,&mut flags,&mut delivery,entered,&mut trace)
+        });
+        worker.join().unwrap();
+        INSTANCES.remove(id, |_| ()).unwrap();
+        assert_eq!(result,0);assert_eq!(allocations,[0;3]);
+        assert_eq!(output,[[0.25;512];2]);assert_eq!(delivery.delivered_frames,512);
+        assert_eq!((trace.generation,trace.epoch,trace.host_call,trace.position),(1,1,1,1024));
+        assert_eq!((trace.frames,trace.mode,trace.delivery_mode,trace.exact),(512,0,0,0));
+        assert_eq!(trace.allowance_ns,10_666_666);
+        assert!(trace.wait_deadline_lower_ns<=trace.wait_deadline_upper_ns);
+        assert_eq!((trace.predicate_kind,trace.predicate_required,
+            trace.predicate_before,trace.predicate_after),(0,1024,512,1024));
+        assert_eq!((trace.predicate_initial_satisfied,trace.predicate_final_satisfied),(0,1));
+        assert!(trace.wait_count>=1);
+        #[cfg(target_os="linux")]
+        assert!(trace.wait_begin_ns>0&&trace.wait_end_ns>=trace.wait_begin_ns&&trace.wait_total_ns>0,
+            "wait trace {:?}",(trace.wait_count,trace.wait_begin_ns,trace.wait_end_ns,trace.wait_total_ns));
+        let complete = PHASE_RUST_ENTRY|PHASE_POLICY|PHASE_IDENTITY|PHASE_PREDICATE_BEFORE|
+            PHASE_WAIT|PHASE_PREDICATE_AFTER|PHASE_PRESENTATION_DONE|
+            PHASE_RUST_PRE_RETURN|PHASE_BACKEND_RESULT;
+        assert_eq!(trace.phase_reached&complete,complete);
+        let clocked = PHASE_RUST_ENTRY|PHASE_POLICY|PHASE_WAIT|
+            PHASE_PRESENTATION_DONE|PHASE_RUST_PRE_RETURN;
+        #[cfg(target_os="linux")]
+        {
+            assert_eq!(trace.clock_valid&clocked,clocked);
+            assert!(trace.rust_entry_ns<=trace.wait_begin_ns&&
+                trace.wait_end_ns<=trace.presentation_done_ns&&
+                trace.presentation_done_ns<=trace.rust_pre_return_ns);
+        }
+        #[cfg(not(target_os="linux"))]
+        {
+            assert_eq!(trace.clock_valid&clocked,0);
+            assert_eq!((trace.rust_entry_ns,trace.wait_deadline_lower_ns,
+                trace.wait_deadline_upper_ns,trace.wait_begin_ns,trace.wait_end_ns,
+                trace.wait_total_ns,trace.presentation_done_ns,trace.rust_pre_return_ns),
+                (0,0,0,0,0,0,0,0));
+        }
+    }
+
+    #[test]
+    fn phase_trace_does_not_write_outside_the_existing_instance_guard() {
+        let _registry_owner = crate::registry_test();
+        let shared = Arc::new(Shared::new());
+        shared.state_capable.store(true, Ordering::Release);
+        let id = prepared_live(shared,64,0,crate::performance::DeliveryMode::Buffered);
+        let lease = INSTANCES.lease(id).unwrap();
+        let guard = Guard::acquire(&lease).unwrap();
+        let input = [0.;64];let mut output=[[9.;64];2];
+        let planes=[output[0].as_mut_ptr(),output[1].as_mut_ptr()];let mut flags=0;
+        let mut trace=PhaseTrace {schema:PHASE_TRACE_SCHEMA,
+            size:std::mem::size_of::<PhaseTrace>() as u32,phase_reached:1,ordinal:7,
+            cpp_entry_ns:23,..Default::default()};
+        let result=unsafe {ap23_process_outputs_trace(id,64,0,std::ptr::null(),0,
+            &crate::context::Context::default(),3,input.as_ptr(),input.as_ptr(),planes.as_ptr(),2,
+            &mut flags,std::ptr::null_mut(),23,&mut trace)};
+        assert_eq!(result,3);
+        assert_eq!((trace.phase_reached,trace.clock_valid,trace.ordinal,trace.cpp_entry_ns),(1,0,7,23));
+        assert_eq!((trace.rust_entry_ns,trace.backend_result,trace.rust_pre_return_ns),(0,0,0));
+        assert_eq!(output,[[9.;64];2]);
+        drop(guard);drop(lease);INSTANCES.remove(id, |_| ()).unwrap();
     }
 
     #[test]
