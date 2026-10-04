@@ -1,0 +1,246 @@
+{
+  "schema": 1,
+  "date": "2026-10-04",
+  "claim": "Managed package and publication refresh source validation; installed acceptance remains open",
+  "source": {
+    "schema": 1,
+    "base": "8083588676927859fdcbf10db5082502953970c2",
+    "patch_sha256": "63ea5da360b13b99fe7a54e3db5264b78eab7b6b0039afb576a65b848fdc7787",
+    "files": {
+      "bridge-manager/src/main.rs": "f892fdf1307302e9f21298441f5ca24532e3a6ac877cc846db40fc51b4a5578d",
+      "bridge-manager/src/operator_cli.rs": "2ad8bd9ab21ee47eb391204b8c910e56c362a4bc83f4394add785ef7adcc4248",
+      "bridge-manager/src/package_authority.rs": "ce7bcd7dc5321a51aee2c987a9e662d831e5802526e8e73823a224e4153c1160",
+      "bridge-manager/src/portable_package.rs": "3637fbc258484895627308e901a41f77ae30225e5369ff70bc8acdfa486a0782",
+      "bridge-manager/src/preparation/build.rs": "ab5f6a9236a1dfc7c21dddd7bbbe9a4c367698422ce01cb7108321f0e5f25610",
+      "bridge-manager/src/preparation/mod.rs": "b18e9d0304b253fd5bf8f92e359507afbaf3c1b525f915b038fc608ad6b22087",
+      "bridge-manager/src/preparation/tests.rs": "6866fe3e8b60ec8df6da8f64917228e1ebf998a27fdb1a66b02b789ae301b9ec",
+      "bridge-manager/src/preparation_cli.rs": "d33456f8670716ad195fe7e38000aa950d12bafb66535c3e67edb8246016885a",
+      "bridge-manager/src/publication.rs": "cfb095cb47bc5817ada7ed45a48bc00b0aa08ffa8a518f85a95cea2fc0c5aede",
+      "bridge-manager/src/readiness.rs": "3df896ed9485860d4ac0244962e415ba52844b708edf092499b8b3ccd87f891d",
+      "bridge-manager/src/setup_install.rs": "9b39eb920ffcb54fa7a686b87a009dfbf4122f8219675a7b7378e39a1bab4de1",
+      "manager-ui/src/bootstrap.rs": "401f49530f784df1a65494c8432faa30b899632343460defcc189a799c0f2919",
+      "tools/beta/candidate_inputs.py": "d02de9e4e0f548fc69d9aab4a75436edcbaab40b96dd10042b30b2249eb0b81e",
+      "tools/beta/completion_host.cpp": "4acc94c8fb18513384c68f2fae69ff7d2bf8bca99d3914e742f2759142570f11",
+      "tools/beta/completion_host_tests.cpp": "64a0ac2137e9639166db5421a0005a5979eeb024842231c88c1fd25d4f449ef5",
+      "tools/beta/test_candidate_inputs.py": "89e84b4284e391504f97672477cc6281997f0fb64f893b909bca3af8771e52bc",
+      "tools/mf3/native_builder.py": "1671529d6e17c22adc70f6d70b6f96e5116245e212c462451406d100b20b7eb4",
+      "tools/mf3/prebuilt_info.py": "470f90bf8fafa7741a8d7764043fe8394c0cd48f49923d96554b99f638804f4e",
+      "tools/mf3/prebuilt_kit.py": "81555cc2e7d622edfc9c7aab900517d13437571c5703d3da5b8ad206ae2b6d59",
+      "tools/mf3/test_prebuilt_info.py": "44ba907dfadb023bd11f5c140f8ae07934920910788f4855be72f1dec0bf1661",
+      "tools/mf3/test_reusable_engine.py": "7049b7f2d830ddc801b53c63d19690a889f19ee5390d1c5174475de7de7715d1",
+      "tools/pkg0/assemble.py": "b6ced176bdc73c178b4ddee3ef943e7982b9011fcd056f54c57745d97782cef6",
+      "tools/pkg0/test_assemble.py": "3cc42aad2c7791f89a76d3cf474305674aab74dfcb9c3e34c8005b409b9426c7",
+      "evidence/audio-recovery/2026-10-04-managed-refresh-installed-baseline.json": "064595c95ffbc38dee82f2ac8e816475d05619a44ad8b29c498f3d72bee2024c"
+    }
+  },
+  "implemented": [
+    "Pre-contract LVB1-4 refusal under the modern manager; required all-publication refresh before execution",
+    "Prepare against explicit target package and retain original vendor/class/environment/preferences",
+    "Versioned package transition owns exact forward and reverse publication intents and immutable old/new receipts",
+    "Coordinated update, exact package predecessor restore and interruption recovery with ordered service/software/publication changes",
+    "Only exact owned idle or empty auto-restarting service may be stopped; active DSP or uncertain ownership refuses",
+    "Normal Setup Update Bridge, Restore previous setup and Recover interrupted setup controls with bounded backend ownership",
+    "Fixed verified Setup source remains usable after restoring predecessor Library routes",
+    "SDK state-record/state-recall verifies recalled audio before automation; held factory supports actual cached-caller refusal"
+  ],
+  "attribution": {
+    "prior_committed_loaded_image_and_descriptor_binding": "22e6569cd0afa9f0112518819d5b95e47932bbc8",
+    "this_increment": "Managed refresh and recovery using that admission contract. No audio delivery, Windows DSP, runtime or graphics change."
+  },
+  "fixture": {
+    "platform": "Linux x86_64 build container",
+    "cpus": "2,3",
+    "cpu_quota": 2,
+    "memory_bytes": 4294967296,
+    "memory_plus_swap_bytes": 4294967296,
+    "pids_limit": 256,
+    "test_threads": 2,
+    "manager_features": [
+      "pb0-c0-audit"
+    ]
+  },
+  "validation": [
+    {
+      "name": "package_authority-tests",
+      "returncode": 0,
+      "log_sha256": "0efc91546202d26283df735b78e1d508be535ae66d29549098febde817e216d8",
+      "seconds": 49.689,
+      "source_snapshot": "v6",
+      "results": [
+        "test result: ok. 54 passed; 0 failed; 1 ignored; 0 measured; 294 filtered out; finished in 49.61s"
+      ]
+    },
+    {
+      "name": "operator_cli-tests",
+      "returncode": 0,
+      "log_sha256": "751075d0a470c0250c65d6b762f69fa185fd138d42afe727c5acdcddd47734e1",
+      "seconds": 45.724,
+      "source_snapshot": "v6",
+      "results": [
+        "test result: ok. 84 passed; 0 failed; 1 ignored; 0 measured; 264 filtered out; finished in 45.62s"
+      ]
+    },
+    {
+      "name": "preparation_cli-tests",
+      "returncode": 0,
+      "log_sha256": "439df14fec6b4373d8edd45e2b8c8793e3b670b6c393b5e95be98c63b9d102df",
+      "seconds": 62.504,
+      "source_snapshot": "v6",
+      "results": [
+        "test result: ok. 46 passed; 0 failed; 0 ignored; 0 measured; 303 filtered out; finished in 62.38s"
+      ]
+    },
+    {
+      "name": "readiness-tests",
+      "returncode": 0,
+      "log_sha256": "886f638b8492d7d9a6fad36c80317f993e7eac7c7c75a82bc2631d52b3636ad7",
+      "seconds": 0.766,
+      "source_snapshot": "v6",
+      "results": [
+        "test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 324 filtered out; finished in 0.67s"
+      ]
+    },
+    {
+      "name": "manager-clippy",
+      "returncode": 0,
+      "log_sha256": "8a6656facf1fe0ce237ca05dfcd854c4e08990fb7714dcdf7dcc73c67e5114e1",
+      "seconds": 19.014,
+      "source_snapshot": "v6",
+      "results": []
+    },
+    {
+      "name": "candidate-inputs",
+      "returncode": 0,
+      "log_sha256": "68dcc2c36feb9d1175a2fd70d8d75a265a93ef447218235f613481cf2b976772",
+      "seconds": 0.214,
+      "source_snapshot": "v6",
+      "results": [
+        "Ran 1 test in 0.044s",
+        "OK"
+      ]
+    },
+    {
+      "name": "manager-tests",
+      "returncode": 0,
+      "log_sha256": "436da2005649c238da2b703d2f6c4c2c90507637962835b9fd866435aa2a1ce7",
+      "seconds": 490.732,
+      "source_snapshot": "v6",
+      "results": [
+        "test result: ok. 255 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 281.60s",
+        "test result: ok. 347 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 190.03s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "name": "ui-tests",
+      "returncode": 0,
+      "log_sha256": "04166a945e843b1503fdf54558c94fbf3e9ede6d3cbfaef6105343742a0979fc",
+      "seconds": 38.291,
+      "source_snapshot": "unchanged files from v1",
+      "results": [
+        "test result: ok. 100 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.34s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "name": "ui-clippy",
+      "returncode": 0,
+      "log_sha256": "6ba7b9a2be484f725f6f1fdd9d409f1f3212e9a29dda994cf0b3df675189b50b",
+      "seconds": 18.049,
+      "source_snapshot": "unchanged files from v1",
+      "results": []
+    },
+    {
+      "name": "kit-capability",
+      "returncode": 0,
+      "log_sha256": "fb65ff58d39ae1599099039da710c8dddf231f48a79cb21b521a98d0cbd2980a",
+      "seconds": 0.116,
+      "source_snapshot": "unchanged files from v1",
+      "results": [
+        "Ran 4 tests in 0.005s",
+        "OK"
+      ]
+    },
+    {
+      "name": "reusable-engine",
+      "returncode": 0,
+      "log_sha256": "dfc212cdf4b0b029e2de88350df38732f6d4a76dfe573367d707483f9e0afe98",
+      "seconds": 0.164,
+      "source_snapshot": "unchanged files from v1",
+      "results": [
+        "Ran 3 tests in 0.051s",
+        "OK"
+      ]
+    },
+    {
+      "name": "package-assembly",
+      "returncode": 0,
+      "log_sha256": "778445e0d87ba25fc0e3e1a7c919ad3eb6ac2f043a1c7a0308ea140aca0d570d",
+      "seconds": 14.019,
+      "source_snapshot": "unchanged files from v1",
+      "results": [
+        "Ran 22 tests in 13.932s",
+        "OK"
+      ]
+    }
+  ],
+  "independent_review": {
+    "model": "gpt-6-astra",
+    "effort": "xhigh",
+    "final_review_sha256": "3997fe9cb3b46159a6fe474af11858d1b1d2d19baaa4a2b0a6ef1375f40f867c",
+    "all_24_snapshot_hashes_verified": true,
+    "remaining_actionable_findings": [],
+    "limits": "Source review only; prior reviewed unchanged UI and SDK harness carried forward. Installed and physical acceptance are separate."
+  },
+  "retained_failed_iterations": [
+    {
+      "snapshot": "v1",
+      "archive_sha256": "c11be0c100d63a395a0168d168a2a9a47146863696594998f71a498e70970b96",
+      "outcome": "Manager binary tests failed: 289 passed, 37 failed, 2 ignored; original logs retained. Independent unchanged UI and packaging checks passed."
+    },
+    {
+      "snapshot": "v4",
+      "archive_sha256": "34babee04a0171d2ef1547fb62477ae920976e5b98d731db3e2b99a2aef359f6",
+      "outcome": "Manager binary tests failed: 324 passed, 20 failed, 2 ignored. Original logs retained."
+    },
+    {
+      "snapshot": "v5",
+      "archive_sha256": "ffd7b363648183a1201e36e90fc244d2b623872e97b12c8ddd1c8078da87da79",
+      "outcome": "Seven targeted fixture failures retained and corrected before V6: exact intent serialization, stale link, fixture HOME, operation identity, complete descriptor/build output relocation."
+    }
+  ],
+  "supporting_baseline": "2026-10-04-managed-refresh-installed-baseline.json",
+  "private_artifact_archives": [
+    {
+      "name": "source-validation-v6.tgz",
+      "sha256": "1ca25fd531c0f09e01707803c6b8c7ab670e956c4629e4e28676d6592d68e551"
+    },
+    {
+      "name": "source-full-validation-v6.tgz",
+      "sha256": "e71041227d8274d6d1475d71ac07a9a04957d84c3794c8958306a5f0ba47e90c"
+    },
+    {
+      "name": "source-validation-v1.tgz",
+      "sha256": "c11be0c100d63a395a0168d168a2a9a47146863696594998f71a498e70970b96"
+    }
+  ],
+  "retention": "Verified copies outside checkout in maintainer evidence storage; raw local paths and machine identifiers excluded.",
+  "open_acceptance": [
+    "Build and independently verify exact committed package",
+    "Normal installed all-class update and current callers reopening original saved state with actual output and retirement",
+    "Actual cached legacy and mismatched modern caller refusal before admission",
+    "Installed preparation/switch failure and interruption recovery through ordinary controls",
+    "Ordinary per-plugin and coherent full-package predecessor restoration",
+    "Frozen physical Deck delivery-mode timing distribution and complete musician interaction/soak"
+  ],
+  "nonclaims": [
+    "beta-ready",
+    "installed managed refresh passed",
+    "physical Deck acceptance",
+    "dependable audio",
+    "low latency qualification",
+    "commercial plug-in migration",
+    "general distribution or vendor compatibility"
+  ]
+}

@@ -9,7 +9,9 @@ from prebuilt_info import maximum_bridge_frames
 def sha(data): return hashlib.sha256(data).hexdigest()
 def kit(root, engine=b'\x7fELFunit-test-engine'):
     index=dict(schema=3,engine='prebuilt/engine.so',engine_sha256=sha(engine),
-               descriptor_schema=1,maximum_bridge_frames=1024,native_sources={})
+               descriptor_schema=1,maximum_bridge_frames=1024,
+               audio_completion_contract=1,loaded_engine_admission_contract=1,
+               native_sources={})
     files={'prebuilt/engine.so':engine,'prebuilt/index.json':json.dumps(index).encode(),
            'tools/mf3/native_builder.py':pathlib.Path(__file__).with_name('native_builder.py').read_bytes(),
            'tools/ap8_descriptor.py':(pathlib.Path(__file__).resolve().parents[1]/'ap8_descriptor.py').read_bytes()}

@@ -85,6 +85,158 @@ struct Generation {
     packaged_preparation_kit_sha256: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum TransitionKind { Update, Restore }
+
+const CONTROL_RECORD_MAX: usize = 8 * 1024 * 1024;
+
+fn require_json_extent(value: &impl Serialize, reason: &str) -> Result<()> {
+    let length = serde_json::to_vec(value)?.len()
+        .checked_add(1).ok_or(reason)?;
+    require(length <= CONTROL_RECORD_MAX, reason)
+}
+
+/// Immutable provenance for one completed managed package refresh. It records
+/// the exact coherent pair on both sides; current selection remains owned by
+/// software.json and the publication registry.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RefreshReceipt {
+    schema: u32,
+    predecessor: Software,
+    successor: Software,
+    before_publications: Vec<publication::PublicationState>,
+    after_publications: Vec<publication::PublicationState>,
+    transitions: Vec<publication::PreparedTransition>,
+}
+
+/// The sole crash journal for a package/publication switch. The setup plan is
+/// the existing route owner; publication transitions remain the existing
+/// per-class owner. This record coordinates their safe order and recovery.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CoordinatedTransition {
+    schema: u32,
+    id: String,
+    kind: TransitionKind,
+    recovery_before: Software,
+    setup: setup_install::Plan,
+    receipt: RefreshReceipt,
+}
+
+fn ordered_publications(states: &[publication::PublicationState]) -> bool {
+    states.len() <= 256
+        && states.windows(2).all(|pair| pair[0].class_id < pair[1].class_id)
+}
+
+fn validate_receipt(receipt: &RefreshReceipt) -> Result<()> {
+    require(receipt.schema == 1
+        && ordered_publications(&receipt.before_publications)
+        && ordered_publications(&receipt.after_publications)
+        && receipt.before_publications.len() == receipt.after_publications.len()
+        && receipt.transitions.len() <= receipt.before_publications.len()
+        && receipt.transitions.windows(2)
+            .all(|pair| pair[0].before.class_id < pair[1].before.class_id),
+        "package_refresh_receipt")?;
+    let mut expected = receipt.before_publications.clone();
+    for transition in &receipt.transitions {
+        require(transition.schema == 2
+            && transition.before.class_id == transition.after.class_id,
+            "package_refresh_receipt")?;
+        let state = expected.iter_mut().find(|state|
+            state.class_id == transition.before.class_id)
+            .ok_or("package_refresh_receipt")?;
+        require(*state == transition.before, "package_refresh_receipt")?;
+        *state = transition.after.clone();
+    }
+    require(expected == receipt.after_publications,
+        "package_refresh_receipt")
+}
+
+fn validate_coordinated(m: &Manager, home: &Path,
+    transition: &CoordinatedTransition) -> Result<()> {
+    require(transition.schema == 2 && valid_hex(&transition.id, 32),
+        "package_transition_schema")?;
+    validate_receipt(&transition.receipt)?;
+    setup_install::validate_plan(&transition.setup, m, home)?;
+    let (before, after) = setup_install::plan_software(&transition.setup)?;
+    let before = before.ok_or("package_transition_software")?;
+    match transition.kind {
+        TransitionKind::Update => require(before == transition.recovery_before
+            && after == transition.receipt.successor,
+            "package_transition_software"),
+        TransitionKind::Restore => require(before == transition.receipt.successor
+            && after == transition.receipt.predecessor
+            && transition.recovery_before == transition.receipt.successor,
+            "package_transition_software"),
+    }?;
+    require_json_extent(&transition.receipt, "package_refresh_receipt_bound")?;
+    require_json_extent(transition, "package_transition_bound")
+}
+
+fn receipt_directory(m: &Manager, software: &Software) -> Result<PathBuf> {
+    let generation = software.manager.path.parent().ok_or("package_generation_path")?;
+    require(generation.parent() == Some(m.root.join("software").as_path()),
+        "package_generation_path")?;
+    Ok(generation.join("package-refreshes"))
+}
+
+fn retain_refresh_receipt(m: &Manager, receipt: &RefreshReceipt) -> Result<()> {
+    validate_receipt(receipt)?;
+    let mut bytes = serde_json::to_vec(receipt)?;
+    bytes.push(b'\n');
+    require(bytes.len() <= CONTROL_RECORD_MAX,
+        "package_refresh_receipt_bound")?;
+    let id = hex(&sha2::Sha256::digest(&bytes));
+    let directory = receipt_directory(m, &receipt.successor)?;
+    private_dir(&directory)?;
+    let path = directory.join(format!("{id}.json"));
+    if path.try_exists()? {
+        require(fs::read(&path)? == bytes, "package_refresh_receipt_conflict")?;
+        return Ok(());
+    }
+    atomic_json(&path, receipt)?;
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o400))?;
+    fs::File::open(&path)?.sync_all()?;
+    fs::File::open(&directory)?.sync_all()?;
+    Ok(())
+}
+
+fn matching_refresh_receipts(m: &Manager, selected: &Software,
+    publications: &[publication::PublicationState]) -> Result<Vec<RefreshReceipt>> {
+    let directory = receipt_directory(m, selected)?;
+    let mut matching = Vec::new();
+    if directory.try_exists()? {
+        let mut count = 0usize;
+        for entry in fs::read_dir(&directory)? {
+            let entry = entry?;
+            count += 1;
+            require(count <= 256 && entry.file_type()?.is_file(),
+                "package_refresh_receipt_bound")?;
+            let metadata = entry.metadata()?;
+            require(metadata.uid() == unsafe { libc::getuid() }
+                && metadata.mode() & 0o022 == 0
+                && metadata.len() <= 8 * 1024 * 1024,
+                "package_refresh_receipt_bound")?;
+            let name = entry.file_name();
+            let name = name.to_str().ok_or("package_refresh_receipt_identity")?;
+            let digest_name = name.strip_suffix(".json")
+                .ok_or("package_refresh_receipt_identity")?;
+            require(valid_hex(digest_name, 64)
+                && digest(&entry.path())? == digest_name,
+                "package_refresh_receipt_identity")?;
+            let receipt: RefreshReceipt = read_json(&entry.path())?;
+            validate_receipt(&receipt)?;
+            if receipt.successor == *selected
+                && receipt.after_publications == publications {
+                matching.push(receipt);
+            }
+        }
+    }
+    Ok(matching)
+}
+
 fn package_source(path: &Path, owner: u32, max: u64, capture: bool) -> Result<(String, u64, Vec<u8>)> {
     let mut source = fs::OpenOptions::new().read(true)
         .custom_flags(libc::O_NOFOLLOW).open(path)?;
@@ -554,12 +706,395 @@ fn preflight(m: &Manager) -> Result<()> {
     transport_storage::require_no_sessions()?;
     Ok(())
 }
+fn recovery_preflight(m: &Manager,
+    transition: &CoordinatedTransition) -> Result<()> {
+    require(!reconcile_leases(m)?, "package_cleanup_unconfirmed")?;
+    m.require_inactive(None)?;
+    require(capacity::owners(m)?.is_empty(), "package_owner_active")?;
+    m.verify_package_pending_intents(&transition.receipt.transitions)?;
+    require(onboarding::all_retired(m)?, "package_installer_owner_active")?;
+    require(operator_cli::vendor_retired(m)?, "package_vendor_owner_active")?;
+    daw_workspace::package_idle(m)?;
+    transport_storage::require_no_sessions()?;
+    Ok(())
+}
 fn with_locks<T>(m: &Manager, work: impl FnOnce() -> Result<T>) -> Result<T> {
     let _package = m.lock("package.lock")?;
     let _service = m.lock("service.lock")?;
     let _setup = m.lock("setup.lock")?;
     let _registry = m.lock("registry.lock")?;
     work()
+}
+
+fn publications_need_refresh(m: &Manager) -> Result<bool> {
+    for state in m.package_publication_snapshot()? {
+        if state.entry.publication != Publication::Published { continue; }
+        let Some(reference) = &state.entry.managed_revision else { return Ok(true); };
+        let revision = m.load_revision(&state.class_id, reference)?;
+        let modern = preparation::publication_candidate(
+            m, &revision.profile, &revision.registration).and_then(|candidate|
+                preparation::build::supports_loaded_engine_admission(m, &candidate))
+            .unwrap_or(false);
+        if !modern { return Ok(true); }
+    }
+    Ok(false)
+}
+
+fn retained_publication_ancestor(m: &Manager, key: &str, id: &str)
+    -> Result<(publication::RevisionRef, publication::Revision)> {
+    require(valid_hex(key, 32) && valid_hex(id, 32), "rollback_identity")?;
+    let entry = m.registry()?.classes.get(key).cloned()
+        .ok_or("registration_absent")?;
+    require(entry.publication == Publication::Published,
+        "rollback_publication_not_selected")?;
+    let current = entry.managed_revision.ok_or("no_managed_revision")?;
+    let mut reference = Some(current.clone());
+    let mut selected = None;
+    for _ in 0..256 {
+        let Some(candidate) = reference else { break };
+        let revision = m.load_revision(key, &candidate)?;
+        if revision.id == id {
+            selected = Some(revision);
+            break;
+        }
+        reference = revision.parent.clone();
+    }
+    Ok((current, selected.ok_or("rollback_revision_not_retained_ancestor")?))
+}
+
+pub(super) fn publication_restore_needs_refresh(m: &Manager, key: &str,
+    id: &str) -> Result<bool> {
+    let (_, target) = retained_publication_ancestor(m, key, id)?;
+    Ok(!preparation::build::revision_supports_loaded_engine_admission(m, &target)
+        .unwrap_or(false))
+}
+
+/// Ordinary history restoration keeps the retained vendor/configuration but
+/// never republishes an LVB1-4 image under the repaired manager. The existing
+/// preparation and publication owners create a fresh managed revision whose
+/// parent is the currently selected revision; the historical target remains
+/// immutable evidence.
+pub(super) fn restore_publication(m: &Manager, key: &str, id: &str,
+    operation: &str) -> Result<publication::RevisionRef> {
+    let _package = m.lock("package.lock")?;
+    require(!m.root.join("package-transition.json").try_exists()?,
+        "package_transition_needs_recovery")?;
+    let (current, target) = retained_publication_ancestor(m, key, id)?;
+    if preparation::build::revision_supports_loaded_engine_admission(m, &target)
+        .unwrap_or(false) {
+        return m.rollback_managed_expected(key, id, &current);
+    }
+    m.require_inactive(None)?;
+    let selected = software(m)?;
+    verify_software_identity(m, &selected)?;
+    let runtime = preparation::build::stage_runtime_for_software(m, &selected)?;
+    require(preparation::build::runtime_declares_loaded_engine(&runtime)?,
+        "loaded_engine_admission_contract_missing")?;
+    let report = inspect_for_package_refresh(m, &selected, &runtime,
+        &target.registration)?;
+    let prepared = preparation::refresh_candidate(m, &target, runtime,
+        report, operation);
+    let cleanup = preparation::build::cleanup_work(m, operation);
+    let candidate = prepared?;
+    cleanup?;
+    preparation::replace(m, &candidate, &current)
+}
+
+fn prepare_refresh_receipt(m: &Manager, target: &Software,
+    predecessor: Software) -> Result<RefreshReceipt> {
+    let before = m.package_publication_snapshot()?;
+    // The fixed population bound is 256. Each class gets the supervisor's
+    // 190-second outer inspection bound plus the existing 1,250-second build
+    // owner and retirement allowance; setup/staging gets a separate base.
+    // Schema-4 reusable engines normally only copy bytes, but the authority
+    // bound remains valid if that helper fails to return promptly.
+    let published = before.iter().filter(|state|
+        state.entry.publication == Publication::Published).count() as u64;
+    let refresh_seconds = 120u64.checked_add(published.checked_mul(1_500)
+        .ok_or("package_refresh_deadline")?).ok_or("package_refresh_deadline")?;
+    let deadline = std::time::Instant::now().checked_add(
+        std::time::Duration::from_secs(refresh_seconds))
+        .ok_or("package_refresh_deadline")?;
+    let runtime = preparation::build::stage_runtime_for_software(m, target)?;
+    require(preparation::build::runtime_declares_loaded_engine(&runtime)?,
+        "loaded_engine_admission_contract_missing")?;
+    let mut transitions = Vec::new();
+    for state in &before {
+        require(std::time::Instant::now() < deadline,
+            "package_refresh_deadline")?;
+        if state.entry.publication != Publication::Published { continue; }
+        let reference = state.entry.managed_revision.as_ref()
+            .ok_or("bridge_refresh_managed_predecessor_missing")?;
+        let revision = m.load_revision(&state.class_id, reference)?;
+        let current = preparation::publication_candidate(
+            m, &revision.profile, &revision.registration)?;
+        if preparation::build::supports_loaded_engine_admission(m, &current)? {
+            continue;
+        }
+        let report = inspect_for_package_refresh(m, target, &runtime,
+            &revision.registration)?;
+        let operation = random_id()?;
+        let prepared = preparation::refresh_candidate(m, &revision,
+            runtime.clone(), report, &operation);
+        let cleanup = preparation::build::cleanup_work(m, &operation);
+        let candidate = prepared?;
+        cleanup?;
+        transitions.push(m.prepare_package_refresh(&candidate, reference)?);
+        require(std::time::Instant::now() < deadline,
+            "package_refresh_deadline")?;
+    }
+    transitions.sort_by(|left, right| left.before.class_id.cmp(&right.before.class_id));
+    let mut after = before.clone();
+    for transition in &transitions {
+        let state = after.iter_mut().find(|state|
+            state.class_id == transition.before.class_id)
+            .ok_or("package_publication_set_changed")?;
+        require(*state == transition.before, "package_publication_set_changed")?;
+        *state = transition.after.clone();
+    }
+    m.verify_package_publication_snapshot(&before)?;
+    let receipt = RefreshReceipt { schema:1, predecessor,
+        successor:target.clone(), before_publications:before,
+        after_publications:after, transitions };
+    validate_receipt(&receipt)?;
+    Ok(receipt)
+}
+
+fn start_and_health(service: &impl ServiceControl, m: &Manager, home: &Path,
+    selected: &Software) -> Result<()> {
+    reload_and_verify(service, home, Some(selected))?;
+    service.enable_start()?;
+    let state = service.show()?;
+    require(state.load == "loaded" && state.active == "active"
+        && effective_exec_is(&state.exec, &selected.manager.path),
+        "package_service_did_not_start")?;
+    for _ in 0..20 {
+        if service.healthy(m).is_ok() { return Ok(()); }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    service.healthy(m)
+}
+
+fn stop_transition_service(m: &Manager, home: &Path,
+    service: &impl ServiceControl, software: &[&Software],
+    publications: &[publication::PreparedTransition]) -> Result<()> {
+    let state = service.show()?;
+    if matches!(state.active.as_str(), "active" | "activating") {
+        require(state.load == "loaded"
+            && state.fragment == home.join(".config/systemd/user/linux-vst-bridge.service")
+                .to_str().ok_or("package_service_path")?
+            && software.iter().any(|selected|
+                effective_exec_is(&state.exec, &selected.manager.path)),
+            "package_active_service_identity_changed")?;
+        // An active service has a live capacity endpoint whose readback must
+        // agree with durable custody. A manager refusing a mixed journal can
+        // remain in systemd's activating/auto-restart state before creating
+        // that socket; only exact durable absence can authorize stopping it.
+        let observed = (state.active == "active").then(|| service.idle(m)).transpose()?;
+        {
+            let _registry = m.lock("registry.lock")?;
+            m.require_inactive(None)?;
+            let owners = capacity::owners(m)?;
+            if let Some(observed) = observed {
+                require(owners == observed, "package_owners_changed")?;
+            } else {
+                require(owners.is_empty(), "package_service_not_clean_idle")?;
+            }
+            m.verify_package_pending_intents(publications)?;
+            let current = service.show()?;
+            require(current.load == state.load && current.active == state.active
+                && current.fragment == state.fragment && current.exec == state.exec,
+                "package_active_service_identity_changed")?;
+            service.stop()?;
+        }
+    }
+    reconcile_stopped_service(m, service)
+}
+
+fn apply_coordinated(m: &Manager, transition: &CoordinatedTransition) -> Result<()> {
+    match transition.kind {
+        TransitionKind::Update => {
+            setup_install::apply_plan(&transition.setup)?;
+            for publication in &transition.receipt.transitions {
+                m.commit_package_publication(publication)?;
+            }
+            require(transition.setup.is_after()?, "package_transition_incomplete")?;
+            m.verify_package_publication_snapshot(
+                &transition.receipt.after_publications)
+        }
+        TransitionKind::Restore => {
+            for publication in transition.receipt.transitions.iter().rev() {
+                m.restore_package_publication(publication)?;
+            }
+            m.verify_package_publication_snapshot(
+                &transition.receipt.before_publications)?;
+            setup_install::apply_restore_plan(&transition.setup)
+        }
+    }
+}
+
+fn restore_coordinated_origin(m: &Manager,
+    transition: &CoordinatedTransition) -> Result<()> {
+    match transition.kind {
+        TransitionKind::Update => {
+            for publication in transition.receipt.transitions.iter().rev() {
+                m.restore_package_publication(publication)?;
+            }
+            m.verify_package_publication_snapshot(
+                &transition.receipt.before_publications)?;
+            setup_install::restore_plan(&transition.setup)?;
+            require(transition.setup.is_before()?, "package_transition_recovery_incomplete")
+        }
+        TransitionKind::Restore => {
+            setup_install::restore_successor_plan(&transition.setup)?;
+            for publication in &transition.receipt.transitions {
+                m.commit_package_publication(publication)?;
+            }
+            require(transition.setup.is_before()?, "package_transition_recovery_incomplete")?;
+            m.verify_package_publication_snapshot(
+                &transition.receipt.after_publications)
+        }
+    }
+}
+
+fn coordinated_final_software(transition: &CoordinatedTransition) -> &Software {
+    match transition.kind {
+        TransitionKind::Update => &transition.receipt.successor,
+        TransitionKind::Restore => &transition.receipt.predecessor,
+    }
+}
+
+fn coordinated_origin_publications(transition: &CoordinatedTransition)
+    -> &[publication::PublicationState] {
+    match transition.kind {
+        TransitionKind::Update => &transition.receipt.before_publications,
+        TransitionKind::Restore => &transition.receipt.after_publications,
+    }
+}
+
+fn require_service_transition_coherent_at(m: &Manager, selected: &Software,
+    home: &Path) -> Result<()> {
+    let journal = m.root.join("package-transition.json");
+    if !journal.try_exists()? { return Ok(()); }
+    let value: serde_json::Value = read_json(&journal)?;
+    require(value.get("schema").and_then(serde_json::Value::as_u64) == Some(2),
+        "package_transition_needs_recovery")?;
+    let transition: CoordinatedTransition = serde_json::from_value(value)?;
+    validate_coordinated(m, home, &transition)?;
+    let publications = m.package_publication_snapshot()?;
+    let coherent = match transition.kind {
+        TransitionKind::Update => (transition.setup.is_before()?
+            && *selected == transition.recovery_before
+            && publications == transition.receipt.before_publications)
+            || (transition.setup.is_after()?
+                && *selected == transition.receipt.successor
+                && publications == transition.receipt.after_publications),
+        TransitionKind::Restore => (transition.setup.is_before()?
+            && *selected == transition.receipt.successor
+            && publications == transition.receipt.after_publications)
+            || (transition.setup.is_after()?
+                && *selected == transition.receipt.predecessor
+                && publications == transition.receipt.before_publications),
+    };
+    require(coherent, "package_transition_needs_recovery")
+}
+
+pub(super) fn require_service_transition_coherent(m: &Manager,
+    selected: &Software) -> Result<()> {
+    let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
+    require_service_transition_coherent_at(m, selected, &home)
+}
+
+fn complete_coordinated(m: &Manager, home: &Path, service: &impl ServiceControl,
+    transition: &CoordinatedTransition) -> Result<()> {
+    let journal = m.root.join("package-transition.json");
+    apply_coordinated(m, transition)?;
+    let selected = coordinated_final_software(transition);
+    start_and_health(service, m, home, selected)?;
+    if transition.kind == TransitionKind::Update {
+        retain_refresh_receipt(m, &transition.receipt)?;
+    }
+    fs::remove_file(&journal)?;
+    fs::File::open(&m.root)?.sync_all()?;
+    Ok(())
+}
+
+fn recover_coordinated_error(m: &Manager, home: &Path,
+    service: &impl ServiceControl, transition: &CoordinatedTransition,
+    original: Box<dyn std::error::Error + Send + Sync>) -> Result<()> {
+    let journal = m.root.join("package-transition.json");
+    let recovery = (|| -> Result<()> {
+        stop_transition_service(m, home, service,
+            &[&transition.recovery_before, coordinated_final_software(transition)],
+            &transition.receipt.transitions)?;
+        restore_coordinated_origin(m, transition)?;
+        start_and_health(service, m, home, &transition.recovery_before)?;
+        m.verify_package_publication_snapshot(
+            coordinated_origin_publications(transition))?;
+        fs::remove_file(&journal)?;
+        fs::File::open(&m.root)?.sync_all()?;
+        Ok(())
+    })();
+    match recovery {
+        Ok(()) => Err(original),
+        Err(recovery) => Err(format!(
+            "{original}; package recovery failed: {recovery}").into()),
+    }
+}
+
+fn run_coordinated(m: &Manager, home: &Path, service: &impl ServiceControl,
+    transition: CoordinatedTransition, restart_prior: bool) -> Result<()> {
+    let journal = m.root.join("package-transition.json");
+    let prepared = (|| -> Result<()> {
+        validate_coordinated(m, home, &transition)?;
+        require(!journal.try_exists()?, "package_transition_needs_recovery")?;
+        Ok(())
+    })();
+    if let Err(original) = prepared {
+        return restart_prior_after_error(m, home, service,
+            &transition.recovery_before, original, restart_prior);
+    }
+    if let Err(original) = atomic_json(&journal, &transition) {
+        if journal.try_exists()? {
+            return recover_coordinated_error(m, home, service,
+                &transition, original);
+        }
+        return restart_prior_after_error(m, home, service,
+            &transition.recovery_before, original, restart_prior);
+    }
+    match complete_coordinated(m, home, service, &transition) {
+        Ok(()) => Ok(()),
+        Err(original) => recover_coordinated_error(m, home, service,
+            &transition, original),
+    }
+}
+
+fn restart_prior_after_error<T>(m: &Manager, home: &Path,
+    service: &impl ServiceControl, prior: &Software,
+    original: Box<dyn std::error::Error + Send + Sync>,
+    required: bool) -> Result<T> {
+    if !required { return Err(original); }
+    match start_and_health(service, m, home, prior) {
+        Ok(()) => Err(original),
+        Err(recovery) => Err(format!(
+            "{original}; prior service restart failed: {recovery}").into()),
+    }
+}
+
+fn stop_for_coordinated(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
+    service: &impl ServiceControl, prior: &Software) -> Result<bool> {
+    let before = service.show()?;
+    let was_active = before.active == "active";
+    match stop_for_repair_locked(m, home, inputs, owner, service) {
+        Ok(()) => Ok(was_active),
+        Err(original) => {
+            let after = service.show().map_err(|observation| format!(
+                "{original}; prior service state unavailable: {observation}"))?;
+            let stopped = matches!(after.active.as_str(), "inactive" | "failed");
+            restart_prior_after_error(m, home, service, prior, original,
+                was_active && stopped)
+        }
+    }
 }
 fn adopt_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl) -> Result<()> {
@@ -572,11 +1107,7 @@ fn adopt_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
         let predecessor = old_software(m)?;
         if let Some(old) = &predecessor {
             require_retained_host_pair(m, old, &manifest)?;
-            // The same read-only predecessor and route checks used by the
-            // PB0-R3 gate run before any successor files are staged.
             let _ = predecessor_plan(m, home, manifest.clone(), sha.clone())?;
-        }
-        if let Some(old) = &predecessor {
             if old.manager.path.parent()
                 .is_some_and(|dir| dir.join("package-generation.json").exists()) {
                 let old_record = verify_generation(m, old)?;
@@ -586,6 +1117,9 @@ fn adopt_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
                         |selected| reload_and_verify(service, home, selected));
                 }
             }
+            require(!m.registry()?.classes.values().any(|entry|
+                entry.publication == Publication::Published),
+                "package_update_required: use Update Bridge")?;
         }
         let installed = stage(m, inputs, manifest, sha, predecessor.clone())?;
         setup_install::commit_journaled(m, home, &installed, predecessor.as_ref(),
@@ -598,6 +1132,9 @@ fn rollback_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Res
         require(!m.root.join("package-transition.json").try_exists()?,
             "package_transition_needs_recovery")?;
         preflight(m)?;
+        require(!m.registry()?.classes.values().any(|entry|
+            entry.publication == Publication::Published),
+            "package_restore_required: use Restore previous setup")?;
         let current = old_software(m)?.ok_or("package_not_installed")?;
         let record = verify_generation(m, &current)?;
         let old = record.predecessor.ok_or("package_no_predecessor")?;
@@ -606,13 +1143,154 @@ fn rollback_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Res
             |selected| reload_and_verify(service, home, selected))
     })
 }
-fn recover_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Result<bool> {
-    with_locks(m, || {
+fn update_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
+    service: &impl ServiceControl) -> Result<()> {
+    let _package = m.lock("package.lock")?;
+    let _setup = m.lock("setup.lock")?;
+    let current = old_software(m)?.ok_or("package_not_installed")?;
+    let restart_prior = stop_for_coordinated(m, home, inputs, owner, service, &current)?;
+    let prepared = (|| -> Result<CoordinatedTransition> {
         require_service_stopped(service)?;
+        require(!m.root.join("package-transition.json").try_exists()?,
+            "package_transition_needs_recovery")?;
         preflight(m)?;
-        setup_install::recover_journaled(m, home,
-            |selected| reload_and_verify(service, home, selected))
-    })
+        let (manifest, sha) = read_manifest(inputs, owner)?;
+        require_retained_host_pair(m, &current, &manifest)?;
+        let target = if current.manager.path.parent()
+            .is_some_and(|dir| dir.join("package-generation.json").exists()) {
+            let selected = verify_generation(m, &current)?;
+            if selected.manifest_sha256 == sha {
+                require(selected.manifest == manifest, "package_manifest_changed")?;
+                current.clone()
+            } else {
+                let _ = predecessor_plan(m, home, manifest.clone(), sha.clone())?;
+                stage(m, inputs, manifest, sha, Some(current.clone()))?
+            }
+        } else {
+            let _ = predecessor_plan(m, home, manifest.clone(), sha.clone())?;
+            stage(m, inputs, manifest, sha, Some(current.clone()))?
+        };
+        let needs_refresh = publications_need_refresh(m)?;
+        require(target != current || needs_refresh,
+            "package_update_not_required")?;
+        let predecessor = if target == current && needs_refresh {
+            verify_generation(m, &current)?.predecessor
+                .ok_or("package_restore_predecessor_unavailable")?
+        } else { current.clone() };
+        verify_software_identity(m, &predecessor)?;
+        let receipt = prepare_refresh_receipt(m, &target, predecessor)?;
+        for state in &receipt.before_publications {
+            if state.entry.publication == Publication::Published {
+                let _ = paired_components(m, &receipt.predecessor,
+                    &state.entry.registration)?;
+            }
+        }
+        let setup = setup_install::plan(m, home, &target, Some(&current))?;
+        Ok(CoordinatedTransition { schema:2, id:random_id()?,
+            kind:TransitionKind::Update, recovery_before:current.clone(),
+            setup, receipt })
+    })();
+    let transition = match prepared {
+        Ok(transition) => transition,
+        Err(original) => {
+            return restart_prior_after_error(m, home, service, &current,
+                original, restart_prior);
+        }
+    };
+    run_coordinated(m, home, service, transition, restart_prior)
+}
+
+fn restore_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
+    service: &impl ServiceControl) -> Result<()> {
+    let _package = m.lock("package.lock")?;
+    let _setup = m.lock("setup.lock")?;
+    let current = old_software(m)?.ok_or("package_not_installed")?;
+    let restart_prior = stop_for_coordinated(m, home, inputs, owner, service, &current)?;
+    let prepared = (|| -> Result<CoordinatedTransition> {
+        require_service_stopped(service)?;
+        require(!m.root.join("package-transition.json").try_exists()?,
+            "package_transition_needs_recovery")?;
+        preflight(m)?;
+        let snapshot = m.package_publication_snapshot()?;
+        let matching = matching_refresh_receipts(m, &current, &snapshot)?;
+        require(matching.len() <= 1, "package_restore_receipt_ambiguous")?;
+        let receipt = if let Some(receipt) = matching.into_iter().next() {
+            receipt
+        } else {
+            require(!snapshot.iter().any(|state|
+                state.entry.publication == Publication::Published),
+                "package_restore_receipt_unavailable")?;
+            let predecessor = verify_generation(m, &current)?.predecessor
+                .ok_or("package_no_predecessor")?;
+            RefreshReceipt { schema:1, predecessor, successor:current.clone(),
+                before_publications:snapshot.clone(), after_publications:snapshot,
+                transitions:Vec::new() }
+        };
+        verify_software_identity(m, &receipt.predecessor)?;
+        let setup = setup_install::plan(m, home, &receipt.predecessor, Some(&current))?;
+        Ok(CoordinatedTransition { schema:2, id:random_id()?,
+            kind:TransitionKind::Restore, recovery_before:current.clone(),
+            setup, receipt })
+    })();
+    let transition = match prepared {
+        Ok(transition) => transition,
+        Err(original) => {
+            return restart_prior_after_error(m, home, service, &current,
+                original, restart_prior);
+        }
+    };
+    run_coordinated(m, home, service, transition, restart_prior)
+}
+
+fn recover_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Result<bool> {
+    let _package = m.lock("package.lock")?;
+    let _setup = m.lock("setup.lock")?;
+    let journal = m.root.join("package-transition.json");
+    if !journal.try_exists()? { return Ok(false); }
+    let value: serde_json::Value = read_json(&journal)?;
+    if value.get("schema").and_then(serde_json::Value::as_u64) != Some(2) {
+        let plan = setup_install::pending_plan(m, home)?;
+        let (before, after) = setup_install::plan_software(&plan)?;
+        let mut allowed = vec![&after];
+        if let Some(before) = before.as_ref() { allowed.push(before); }
+        stop_transition_service(m, home, service, &allowed, &[])?;
+        preflight(m)?;
+        let recovered = setup_install::recover_journaled(m, home,
+            |selected| reload_and_verify(service, home, selected))?;
+        if let Some(selected) = old_software(m)? {
+            start_and_health(service, m, home, &selected)?;
+        }
+        return Ok(recovered);
+    }
+    let transition: CoordinatedTransition = serde_json::from_value(value)?;
+    validate_coordinated(m, home, &transition)?;
+    stop_transition_service(m, home, service,
+        &[&transition.recovery_before, coordinated_final_software(&transition)],
+        &transition.receipt.transitions)?;
+    recovery_preflight(m, &transition)?;
+    for publication in &transition.receipt.transitions {
+        m.reconcile_package_pending_intent(publication)?;
+    }
+    require(operator_cli::pending_transactions(m)? == 0,
+        "package_transaction_pending")?;
+    let final_publications = match transition.kind {
+        TransitionKind::Update => &transition.receipt.after_publications,
+        TransitionKind::Restore => &transition.receipt.before_publications,
+    };
+    let final_state = transition.setup.is_after()?
+        && m.package_publication_snapshot()? == *final_publications;
+    if final_state {
+        start_and_health(service, m, home, coordinated_final_software(&transition))?;
+        if transition.kind == TransitionKind::Update {
+            retain_refresh_receipt(m, &transition.receipt)?;
+        }
+    } else {
+        restore_coordinated_origin(m, &transition)?;
+        start_and_health(service, m, home, &transition.recovery_before)?;
+    }
+    fs::remove_file(&journal)?;
+    fs::File::open(&m.root)?.sync_all()?;
+    Ok(true)
 }
 #[derive(Clone, Debug)]
 struct UnitReadback { load: String, active: String, fragment: String, exec: String }
@@ -817,6 +1495,7 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     };
     let generation = selected_generation(m, &selected)?;
     let legacy = generation.is_none();
+    let refresh_required = publications_need_refresh(m)?;
     let (manifest, sha) = read_manifest(inputs, owner)?;
     let (version, update_available, rollback_available) = if legacy {
         require_retained_host_pair(m, &selected, &manifest)?;
@@ -824,16 +1503,22 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
         (manifest.version, false, false)
     } else {
         let generation = generation.ok_or("package_generation_record_missing")?;
-        let rollback_available = if let Some(predecessor) = &generation.predecessor {
+        if let Some(predecessor) = &generation.predecessor {
             verify_software_identity(m, predecessor)?;
-            true
-        } else { false };
+        }
+        let current_publications = m.package_publication_snapshot()?;
+        let receipts = matching_refresh_receipts(m, &selected, &current_publications)?;
+        require(receipts.len() <= 1, "package_restore_receipt_ambiguous")?;
+        let has_published = current_publications.iter().any(|state|
+            state.entry.publication == Publication::Published);
+        let rollback_available = receipts.len() == 1
+            || (!has_published && generation.predecessor.is_some());
         // A healthy selected generation does not imply that the installed
         // package still contains those bytes. Verify its whole fixed roster
         // before offering an exact update or opening the selected frontend.
         if sha == generation.manifest_sha256 {
             require(manifest == generation.manifest, "package_manifest_changed")?;
-            (generation.manifest.version, false, rollback_available)
+            (generation.manifest.version, refresh_required, rollback_available)
         } else {
             let _ = predecessor_plan(m, home, manifest.clone(), sha)?;
             (manifest.version, true, rollback_available)
@@ -966,6 +1651,10 @@ fn stop_for_repair_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     // stop alone holds registry.lock to exclude a new DSP admission.
     let _package = m.lock("package.lock")?;
     let _setup = m.lock("setup.lock")?;
+    stop_for_repair_locked(m, home, inputs, owner, service)
+}
+fn stop_for_repair_locked(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
+    service: &impl ServiceControl) -> Result<()> {
     let (_, package_sha) = read_manifest(inputs, owner)?;
     let status = bootstrap_status_from(m, home, inputs, owner, service)?;
     require(matches!(status.state, "legacy_active" | "repair_active" | "update_active"
@@ -1048,6 +1737,16 @@ pub(super) fn rollback(m: &Manager) -> Result<()> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
     rollback_from(m, &home, &SystemctlService)
 }
+pub(super) fn update(m: &Manager) -> Result<()> {
+    let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
+    let (inputs, owner) = Inputs::installed()?;
+    update_from(m, &home, &inputs, owner, &SystemctlService)
+}
+pub(super) fn restore(m: &Manager) -> Result<()> {
+    let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
+    let (inputs, owner) = Inputs::installed()?;
+    restore_from(m, &home, &inputs, owner, &SystemctlService)
+}
 pub(super) fn recover(m: &Manager) -> Result<bool> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
     recover_from(m, &home, &SystemctlService)
@@ -1086,6 +1785,7 @@ mod tests {
         fail_show: Cell<bool>,
         stale_reload: Cell<bool>,
         fail_start: Cell<bool>,
+        fail_starts: Cell<usize>,
         fail_health: Cell<bool>,
         fail_idle: Cell<bool>,
         fail_stop: Cell<bool>,
@@ -1100,6 +1800,7 @@ mod tests {
                 fragment: String::new(), exec: String::new(),
             }), fail_reload: Cell::new(false), fail_show: Cell::new(false),
                 stale_reload: Cell::new(false), fail_start: Cell::new(false),
+                fail_starts: Cell::new(0),
                 fail_health: Cell::new(false), fail_idle: Cell::new(false),
                 fail_stop: Cell::new(false), retire_keepers: Cell::new(true),
                 starts: Cell::new(0), stops: Cell::new(0) }
@@ -1130,6 +1831,10 @@ mod tests {
             Ok(())
         }
         fn enable_start(&self) -> Result<()> {
+            if self.fail_starts.get() > 0 {
+                self.fail_starts.set(self.fail_starts.get() - 1);
+                return Err("package_user_service_unavailable".into());
+            }
             require(!self.fail_start.get(), "package_user_service_unavailable")?;
             let mut state = self.loaded.borrow_mut();
             require(state.load == "loaded" && matches!(state.active.as_str(), "inactive" | "failed"),
@@ -1151,7 +1856,8 @@ mod tests {
         }
         fn stop(&self) -> Result<()> {
             require(!self.fail_stop.get(), "package_user_service_unavailable")?;
-            require(self.loaded.borrow().active == "active", "package_stop_state_changed")?;
+            require(matches!(self.loaded.borrow().active.as_str(), "active" | "activating"),
+                "package_stop_state_changed")?;
             self.loaded.borrow_mut().active = "inactive".into();
             self.stops.set(self.stops.get() + 1);
             if self.retire_keepers.get() {
@@ -1176,7 +1882,9 @@ mod tests {
     }
     impl Fixture {
         fn new() -> Self {
-            let base = test_fixture::Fixture::new();
+            Self::with_base(test_fixture::Fixture::new())
+        }
+        fn with_base(base: test_fixture::Fixture) -> Self {
             let home = base.outer.join("home");
             let inputs = Inputs::under(&base.outer.join("package/usr"));
             for name in NAMES {
@@ -1400,14 +2108,10 @@ mod tests {
         assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), before);
         assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
             &f.service).unwrap().state, "legacy_adoptable");
-        f.adopt().unwrap();
-        let current = f.current();
-        assert!(current.manager.path.parent().unwrap().join("package-generation.json").exists());
-        assert_eq!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
-            &f.service).unwrap().state, "rollback_inactive");
-        let record = verify_generation(&f.base.m, &current).unwrap();
-        assert_eq!(record.predecessor.unwrap().manager.sha256,
-            serde_json::from_slice::<Software>(&before).unwrap().manager.sha256);
+        assert!(f.adopt().unwrap_err().to_string().contains("package_update_required"));
+        assert!(update_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service)
+            .unwrap_err().to_string().contains("Preparation support is missing"));
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), before);
     }
 
     #[test]
@@ -1833,10 +2537,9 @@ mod tests {
         assert_eq!(fs::read(old.native_catalogue.as_ref().unwrap().path.clone()).unwrap(), catalogue_before);
         assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_before);
         assert!(!f.base.m.root.join("software").join(id(&planned).unwrap()).exists());
-        f.adopt().unwrap();
-        assert_eq!(f.current().manager.path.parent().unwrap().file_name().unwrap().to_str(),
-            Some(id(&planned).unwrap().as_str()));
+        assert!(f.adopt().unwrap_err().to_string().contains("package_update_required"));
         let selected_before = fs::read(f.base.m.root.join("software.json")).unwrap();
+        assert_eq!(selected_before, software_before);
         let (same, _) = predecessor_plan(&f.base.m, &f.home, manifest, sha).unwrap();
         assert_eq!(id(&same).unwrap(), id(&planned).unwrap());
         assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), selected_before);
@@ -2049,7 +2752,7 @@ mod tests {
     }
 
     #[test]
-    fn populated_legacy_kit_and_catalogue_remain_exact_rollback_authority() {
+    fn populated_legacy_kit_and_catalogue_cannot_bypass_managed_update() {
         let (base, _, _, native) = test_fixture::prepared();
         let home = base.outer.join("home");
         let f = Fixture { service: FakeService::new(&home), home,
@@ -2075,35 +2778,13 @@ mod tests {
         let catalogue_bytes = fs::read(&old.native_catalogue.as_ref().unwrap().path).unwrap();
         let registry_bytes = fs::read(f.base.m.root.join("registry.json")).unwrap();
         f.add_kit(b"new source-owned native kit");
-        f.adopt().unwrap();
-        let new = f.current();
-        assert_ne!(new.preparation_kit, old.preparation_kit);
-        assert_eq!(fs::read(new.native_catalogue.as_ref().unwrap().path.clone()).unwrap(), catalogue_bytes);
-        assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_bytes);
-        rollback_from(&f.base.m, &f.home, &f.service).unwrap();
-        assert_eq!(serde_json::from_slice::<serde_json::Value>(&fs::read(f.base.m.root.join("software.json")).unwrap()).unwrap(),
-            serde_json::from_slice::<serde_json::Value>(&old_bytes).unwrap());
+        assert!(f.adopt().unwrap_err().to_string().contains("package_update_required"));
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), old_bytes);
         old.preparation_kit.as_ref().unwrap().verify().unwrap();
+        assert_eq!(fs::read(old.native_catalogue.as_ref().unwrap().path.clone()).unwrap(),
+            catalogue_bytes);
         assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_bytes);
-        let record = old.manager.path.parent().unwrap().join("package-generation.json");
-        assert!(!record.exists());
-        let restored_bytes = fs::read(f.base.m.root.join("software.json")).unwrap();
-        let status = activation_status_from(&f.base.m, &f.home, &f.service).unwrap();
-        assert_eq!(status.state, "inactive");
-        assert_eq!(status.package_version, "retained-installation");
-        assert_eq!(selected_package_version(&f.base.m, &old).unwrap(), None);
-        activate_from(&f.base.m, &f.home, &f.service).unwrap();
-        assert_eq!(activation_status_from(&f.base.m, &f.home, &f.service).unwrap().state,
-            "active");
-        assert_eq!(f.service.starts.get(), 1);
-        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), restored_bytes);
-        assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry_bytes);
-        assert!(!record.exists());
-        f.service.loaded.borrow_mut().active = "inactive".into();
-        fs::write(&record, b"{}").unwrap();
-        fs::set_permissions(&record, fs::Permissions::from_mode(0o400)).unwrap();
-        assert!(activate_from(&f.base.m, &f.home, &f.service).is_err());
-        assert_eq!(f.service.starts.get(), 1);
+        assert!(!old.manager.path.parent().unwrap().join("package-generation.json").exists());
     }
 
     #[test]
@@ -2121,6 +2802,8 @@ mod tests {
         assert!(recover_from(&f.base.m, &f.home, &f.service).unwrap());
         assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), old_bytes);
         assert!(f.current().preparation_kit.is_none());
+        assert_eq!(f.service.show().unwrap().active, "active");
+        f.service.stop().unwrap();
         f.adopt().unwrap();
         assert_eq!(f.current().preparation_kit.unwrap().sha256,
             digest(&f.inputs.path("preparation-kit.zip").unwrap()).unwrap());
@@ -2145,6 +2828,7 @@ mod tests {
         }
         f.write_manifest();
         f.setup_legacy_with_catalogue(native);
+        atomic_json(&f.base.m.root.join("registry.json"), &Registry::default()).unwrap();
         let old = f.current();
         let catalogue_bytes = fs::read(old.native_catalogue.as_ref().unwrap().path.clone()).unwrap();
         let registry_bytes = fs::read(f.base.m.root.join("registry.json")).unwrap();
@@ -2299,6 +2983,7 @@ mod tests {
         }
         f.write_manifest();
         f.setup_legacy_with_catalogue(native);
+        atomic_json(&f.base.m.root.join("registry.json"), &Registry::default()).unwrap();
         f.adopt().unwrap();
         let selected = f.current();
         let catalogue = selected.native_catalogue.unwrap().path;
@@ -2323,13 +3008,82 @@ mod tests {
         assert!(f.adopt().is_err());
         assert!(recover_from(&f.base.m, &f.home, &f.service).unwrap());
         assert_eq!(f.current().manager.sha256, first.manager.sha256);
+        assert_eq!(f.service.show().unwrap().active, "active");
+        f.service.stop().unwrap();
         f.adopt().unwrap();
         let next = f.current();
         rollback_from(&f.base.m, &f.home, &f.service).unwrap();
         setup_install::interrupt_journaled_for_test(&f.base.m, &f.home, &next, Some(&first), true).unwrap();
         assert!(recover_from(&f.base.m, &f.home, &f.service).unwrap());
+        assert_eq!(f.service.show().unwrap().active, "active");
         assert_eq!(f.current().manager.sha256, next.manager.sha256);
         assert_eq!(fs::read_link(f.home.join(".local/bin/linux-audio-compatibility-manager")).unwrap(), next.operator_frontend.unwrap().path);
+    }
+
+    #[test]
+    fn interrupted_first_install_recovers_absence_or_completed_selection() {
+        for complete in [false, true] {
+            let f = Fixture::new();
+            let (manifest, sha) = read_manifest(&f.inputs, f.owner).unwrap();
+            let installed = stage(&f.base.m, &f.inputs, manifest, sha, None).unwrap();
+            setup_install::interrupt_journaled_for_test(&f.base.m, &f.home,
+                &installed, None, complete).unwrap();
+            assert!(recover_from(&f.base.m, &f.home, &f.service).unwrap());
+            assert!(!f.base.m.root.join("package-transition.json").exists());
+            if complete {
+                assert!(f.current() == installed);
+                assert_eq!(f.service.show().unwrap().active, "active");
+                assert_eq!(f.service.starts.get(), 1);
+            } else {
+                assert!(old_software(&f.base.m).unwrap().is_none());
+                let state = f.service.show().unwrap();
+                assert_eq!(state.load, "not-found");
+                assert_eq!(state.active, "inactive");
+                assert_eq!(f.service.starts.get(), 0);
+                assert!(!f.home.join(".local/bin/linux-vst-bridge").exists());
+            }
+        }
+    }
+
+    #[test]
+    fn first_install_auto_restart_recovers_after_unit_before_selection() {
+        let f = Fixture::new();
+        let (manifest, sha) = read_manifest(&f.inputs, f.owner).unwrap();
+        let installed = stage(&f.base.m, &f.inputs, manifest, sha, None).unwrap();
+        setup_install::interrupt_first_install_after_service_for_test(
+            &f.base.m, &f.home, &installed).unwrap();
+        f.service.reload().unwrap();
+        f.service.loaded.borrow_mut().active = "activating".into();
+        f.service.fail_idle.set(true);
+        assert!(old_software(&f.base.m).unwrap().is_none());
+        assert!(recover_from(&f.base.m, &f.home, &f.service).unwrap());
+        assert_eq!(f.service.stops.get(), 1);
+        assert_eq!(f.service.starts.get(), 0);
+        let state = f.service.show().unwrap();
+        assert_eq!(state.load, "not-found");
+        assert_eq!(state.active, "inactive");
+        assert!(!f.base.m.root.join("package-transition.json").exists());
+    }
+
+    #[test]
+    fn auto_restart_recovery_refuses_foreign_exec_and_durable_owner() {
+        for refusal in ["foreign_exec", "durable_owner"] {
+            let f = Fixture::new();
+            f.adopt().unwrap();
+            let selected = f.current();
+            f.service.loaded.borrow_mut().active = "activating".into();
+            f.service.fail_idle.set(true);
+            if refusal == "foreign_exec" {
+                f.service.loaded.borrow_mut().exec =
+                    "{ path=/usr/bin/foreign ; argv[]=/usr/bin/foreign serve ; ignore_errors=no }".into();
+            } else {
+                owned_lease(&f, &"ab".repeat(16), false);
+            }
+            assert!(stop_transition_service(&f.base.m, &f.home, &f.service,
+                &[&selected], &[]).is_err(), "{refusal}");
+            assert_eq!(f.service.stops.get(), 0, "{refusal}");
+            assert_eq!(f.service.show().unwrap().active, "activating", "{refusal}");
+        }
     }
 
     #[test]
@@ -2464,6 +3218,7 @@ mod tests {
         assert!(recover_from(&f.base.m, &f.home, &f.service).unwrap());
         let selected = f.current();
         assert!(effective_exec_is(&f.service.show().unwrap().exec, &selected.manager.path));
+        f.service.stop().unwrap();
         rollback_from(&f.base.m, &f.home, &f.service).unwrap();
         let predecessor = f.current();
         assert!(effective_exec_is(&f.service.show().unwrap().exec, &predecessor.manager.path));
@@ -2489,6 +3244,403 @@ mod tests {
         assert!(recover_from(&f.base.m, &f.home, &f.service).unwrap());
         assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), before);
         assert!(!f.base.m.root.join("package-transition.json").exists());
+    }
+
+    fn staged_transition(f: &Fixture) -> (Software, Software, RefreshReceipt,
+        setup_install::Plan) {
+        let first = f.current();
+        f.replace("linux-vst-bridge", b"coordinated next manager", true);
+        f.replace("linux-audio-compatibility-manager",
+            b"coordinated next frontend", true);
+        let (manifest, sha) = read_manifest(&f.inputs, f.owner).unwrap();
+        let next = stage(&f.base.m, &f.inputs, manifest, sha,
+            Some(first.clone())).unwrap();
+        let publications = f.base.m.package_publication_snapshot().unwrap();
+        let receipt = RefreshReceipt { schema:1, predecessor:first.clone(),
+            successor:next.clone(), before_publications:publications.clone(),
+            after_publications:publications, transitions:Vec::new() };
+        let setup = setup_install::plan(&f.base.m, &f.home, &next,
+            Some(&first)).unwrap();
+        (first, next, receipt, setup)
+    }
+
+    fn real_publication_transition() -> (Fixture, publication::PreparedTransition) {
+        let (base, profile, census, native) = test_fixture::prepared();
+        let f = Fixture::with_base(base);
+        f.adopt().unwrap();
+        let registration = observation::derive(&profile, &census, &native).unwrap();
+        let first = f.base.m.managed_publish(&profile, &census, registration.clone(),
+            &census.host, &census.host_source_sha256, None).unwrap();
+        let before = f.base.m.package_publication_snapshot().unwrap().remove(0);
+        let mut next_profile = profile.clone();
+        next_profile.revision += 1;
+        let second = f.base.m.managed_publish(&next_profile, &census, registration,
+            &census.host, &census.host_source_sha256, None).unwrap();
+        let after = f.base.m.package_publication_snapshot().unwrap().remove(0);
+        let second_revision = f.base.m.load_revision(&after.class_id, &second).unwrap();
+        let transition = serde_json::from_value(serde_json::json!({
+            "schema":2,
+            "before":before,
+            "after":after,
+            "intent":{
+                "schema":1,
+                "id":second_revision.transaction,
+                "class_id":before.class_id,
+                "prior":{
+                    "entry":before.entry,
+                    "revision":first,
+                    "target":before.target,
+                },
+                "candidate":second,
+                "candidate_target":after.target,
+            },
+            "reverse_intent":{
+                "schema":1,
+                "id":random_id().unwrap(),
+                "class_id":after.class_id,
+                "prior":{
+                    "entry":after.entry,
+                    "revision":second,
+                    "target":after.target,
+                },
+                "candidate":first,
+                "candidate_target":before.target,
+            },
+        })).unwrap();
+        // Arrange the retained baseline through the same exact package
+        // transition authority used by recovery. Ordinary rollback correctly
+        // refuses these deliberately legacy fixture publications.
+        f.base.m.restore_package_publication(&transition).unwrap();
+        assert_eq!(f.base.m.package_publication_snapshot().unwrap(), vec![before.clone()]);
+        (f, transition)
+    }
+
+    fn interrupt_publication(transition: &publication::PreparedTransition,
+        m: &Manager, reverse: bool) {
+        let value = serde_json::to_value(transition).unwrap();
+        let intent = &value[if reverse { "reverse_intent" } else { "intent" }];
+        let class_id = intent["class_id"].as_str().unwrap();
+        let id = intent["id"].as_str().unwrap();
+        let directory = m.root.join("transactions");
+        private_dir(&directory).unwrap();
+        let archived = directory.join(format!("{id}.json"));
+        if !archived.exists() { atomic_json(&archived, intent).unwrap(); }
+        assert_eq!(read_json::<serde_json::Value>(&archived).unwrap(), *intent);
+        // Production binds the pending marker to the exact archived bytes,
+        // including their hash. Preserve those bytes when arranging the
+        // interrupted state instead of reserializing the same JSON value.
+        fs::copy(&archived,
+            directory.join(format!("{class_id}.pending.json"))).unwrap();
+        let target = intent["candidate_target"].as_str().unwrap();
+        let link = m.link(class_id);
+        fs::remove_file(&link).unwrap();
+        std::os::unix::fs::symlink(target, &link).unwrap();
+    }
+
+    #[test]
+    fn coordinated_update_and_restore_recover_after_old_routes_are_selected() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let (first, next, receipt, setup) = staged_transition(&f);
+        let update = CoordinatedTransition { schema:2, id:random_id().unwrap(),
+            kind:TransitionKind::Update, recovery_before:first.clone(), setup,
+            receipt:receipt.clone() };
+        run_coordinated(&f.base.m, &f.home, &f.service, update, false).unwrap();
+        assert!(f.current() == next);
+        assert_eq!(f.service.show().unwrap().active, "active");
+        assert_eq!(matching_refresh_receipts(&f.base.m, &next,
+            &receipt.after_publications).unwrap().len(), 1);
+
+        f.service.stop().unwrap();
+        let restore = CoordinatedTransition { schema:2, id:random_id().unwrap(),
+            kind:TransitionKind::Restore, recovery_before:next.clone(),
+            setup:setup_install::plan(&f.base.m, &f.home, &first,
+                Some(&next)).unwrap(), receipt };
+        let journal = f.base.m.root.join("package-transition.json");
+        atomic_json(&journal, &restore).unwrap();
+        // Simulate interruption after the retained old package routes have
+        // been selected. Recovery still runs in this fixed new manager.
+        setup_install::apply_plan(&restore.setup).unwrap();
+        assert!(f.current() == first);
+        assert!(recover_from(&f.base.m, &f.home, &f.service).unwrap());
+        assert!(f.current() == first);
+        assert_eq!(f.service.show().unwrap().active, "active");
+        assert!(!journal.exists());
+    }
+
+    #[test]
+    fn restore_keeps_successor_service_bootable_until_predecessor_is_coherent() {
+        let (f, publication) = real_publication_transition();
+        let (first, next, _, setup) = staged_transition(&f);
+        let receipt = RefreshReceipt { schema:1, predecessor:first.clone(),
+            successor:next.clone(),
+            before_publications:vec![publication.before.clone()],
+            after_publications:vec![publication.after.clone()],
+            transitions:vec![publication.clone()] };
+        let update = CoordinatedTransition { schema:2, id:random_id().unwrap(),
+            kind:TransitionKind::Update, recovery_before:first.clone(), setup,
+            receipt:receipt.clone() };
+        run_coordinated(&f.base.m, &f.home, &f.service, update, false).unwrap();
+        f.service.stop().unwrap();
+        let restore = CoordinatedTransition { schema:2, id:random_id().unwrap(),
+            kind:TransitionKind::Restore, recovery_before:next.clone(),
+            setup:setup_install::plan(&f.base.m, &f.home, &first,
+                Some(&next)).unwrap(), receipt };
+        let journal = f.base.m.root.join("package-transition.json");
+        atomic_json(&journal, &restore).unwrap();
+        f.base.m.restore_package_publication(&publication).unwrap();
+        setup_install::interrupt_restore_before_service_for_test(&restore.setup).unwrap();
+        assert!(f.current() == first);
+        assert_eq!(f.base.m.package_publication_snapshot().unwrap(),
+            restore.receipt.before_publications);
+        f.service.reload().unwrap();
+        let boot = f.service.show().unwrap();
+        assert!(effective_exec_is(&boot.exec, &next.manager.path));
+        assert!(require_service_transition_coherent_at(
+            &f.base.m, &first, &f.home).is_err());
+        assert!(recover_from(&f.base.m, &f.home, &f.service).unwrap());
+        assert!(f.current() == next);
+        assert_eq!(f.base.m.package_publication_snapshot().unwrap(),
+            restore.receipt.after_publications);
+        assert_eq!(f.service.show().unwrap().active, "active");
+        assert!(!journal.exists());
+    }
+
+    #[test]
+    fn failed_restore_activation_recovers_successor_service_before_selection() {
+        let (f, publication) = real_publication_transition();
+        let (first, next, _, setup) = staged_transition(&f);
+        let receipt = RefreshReceipt { schema:1, predecessor:first.clone(),
+            successor:next.clone(),
+            before_publications:vec![publication.before.clone()],
+            after_publications:vec![publication.after.clone()],
+            transitions:vec![publication] };
+        let update = CoordinatedTransition { schema:2, id:random_id().unwrap(),
+            kind:TransitionKind::Update, recovery_before:first.clone(), setup,
+            receipt:receipt.clone() };
+        run_coordinated(&f.base.m, &f.home, &f.service, update, false).unwrap();
+        f.service.stop().unwrap();
+        let restore = CoordinatedTransition { schema:2, id:random_id().unwrap(),
+            kind:TransitionKind::Restore, recovery_before:next.clone(),
+            setup:setup_install::plan(&f.base.m, &f.home, &first,
+                Some(&next)).unwrap(), receipt };
+        let journal = f.base.m.root.join("package-transition.json");
+        atomic_json(&journal, &restore).unwrap();
+        apply_coordinated(&f.base.m, &restore).unwrap();
+        assert!(f.current() == first);
+        assert_eq!(f.base.m.package_publication_snapshot().unwrap(),
+            restore.receipt.before_publications);
+        f.service.fail_start.set(true);
+        assert!(start_and_health(&f.service, &f.base.m, &f.home, &first).is_err());
+        f.service.fail_start.set(false);
+
+        // Simulate interruption during failure recovery immediately after the
+        // journal-aware successor unit has replaced the predecessor unit.
+        setup_install::interrupt_restore_origin_after_service_for_test(
+            &restore.setup).unwrap();
+        f.service.reload().unwrap();
+        let boot = f.service.show().unwrap();
+        assert!(effective_exec_is(&boot.exec, &next.manager.path));
+        assert!(f.current() == first);
+        assert!(require_service_transition_coherent_at(
+            &f.base.m, &first, &f.home).is_err());
+        assert!(recover_from(&f.base.m, &f.home, &f.service).unwrap());
+        assert!(f.current() == next);
+        assert_eq!(f.base.m.package_publication_snapshot().unwrap(),
+            restore.receipt.after_publications);
+        assert_eq!(f.service.show().unwrap().active, "active");
+        assert!(!journal.exists());
+    }
+
+    #[test]
+    fn coordinated_recovery_owns_interrupted_forward_and_reverse_publications() {
+        let (f, publication) = real_publication_transition();
+        let (first, next, _, setup) = staged_transition(&f);
+        let receipt = RefreshReceipt { schema:1, predecessor:first.clone(),
+            successor:next.clone(),
+            before_publications:vec![publication.before.clone()],
+            after_publications:vec![publication.after.clone()],
+            transitions:vec![publication.clone()] };
+        let update = CoordinatedTransition { schema:2, id:random_id().unwrap(),
+            kind:TransitionKind::Update, recovery_before:first.clone(), setup,
+            receipt:receipt.clone() };
+        let journal = f.base.m.root.join("package-transition.json");
+        atomic_json(&journal, &update).unwrap();
+        interrupt_publication(&publication, &f.base.m, false);
+        assert!(f.base.m.publication_pending(&publication.before.class_id).unwrap());
+        assert!(recover_from(&f.base.m, &f.home, &f.service).unwrap());
+        assert_eq!(f.base.m.package_publication_snapshot().unwrap(),
+            receipt.before_publications);
+        assert!(!journal.exists());
+
+        f.service.stop().unwrap();
+        run_coordinated(&f.base.m, &f.home, &f.service, update, false).unwrap();
+        assert_eq!(f.base.m.package_publication_snapshot().unwrap(),
+            receipt.after_publications);
+        f.service.stop().unwrap();
+        let restore = CoordinatedTransition { schema:2, id:random_id().unwrap(),
+            kind:TransitionKind::Restore, recovery_before:next.clone(),
+            setup:setup_install::plan(&f.base.m, &f.home, &first,
+                Some(&next)).unwrap(), receipt:receipt.clone() };
+        atomic_json(&journal, &restore).unwrap();
+        interrupt_publication(&publication, &f.base.m, true);
+        assert!(f.base.m.publication_pending(&publication.before.class_id).unwrap());
+        assert!(recover_from(&f.base.m, &f.home, &f.service).unwrap());
+        assert_eq!(f.base.m.package_publication_snapshot().unwrap(),
+            receipt.after_publications);
+        assert!(f.current() == next);
+        assert!(!journal.exists());
+    }
+
+    #[test]
+    fn all_final_recovery_does_not_stop_an_active_dsp() {
+        let (f, publication) = real_publication_transition();
+        let (first, next, _, setup) = staged_transition(&f);
+        let receipt = RefreshReceipt { schema:1, predecessor:first.clone(),
+            successor:next.clone(),
+            before_publications:vec![publication.before.clone()],
+            after_publications:vec![publication.after.clone()],
+            transitions:vec![publication] };
+        let transition = CoordinatedTransition { schema:2, id:random_id().unwrap(),
+            kind:TransitionKind::Update, recovery_before:first, setup, receipt };
+        let journal = f.base.m.root.join("package-transition.json");
+        atomic_json(&journal, &transition).unwrap();
+        apply_coordinated(&f.base.m, &transition).unwrap();
+        start_and_health(&f.service, &f.base.m, &f.home, &next).unwrap();
+        owned_lease(&f, &"ab".repeat(16), false);
+        let stops = f.service.stops.get();
+        assert_eq!(recover_from(&f.base.m, &f.home, &f.service)
+            .unwrap_err().to_string(), "package_service_not_clean_idle");
+        assert_eq!(f.service.stops.get(), stops);
+        assert_eq!(f.service.show().unwrap().active, "active");
+        assert!(journal.exists());
+    }
+
+    #[test]
+    fn coordinated_activation_failure_restores_prior_or_retains_recovery() {
+        for failed_starts in [1, 2] {
+            let f = Fixture::new();
+            f.adopt().unwrap();
+            let (first, _, receipt, setup) = staged_transition(&f);
+            let transition = CoordinatedTransition { schema:2,
+                id:random_id().unwrap(), kind:TransitionKind::Update,
+                recovery_before:first.clone(), setup, receipt };
+            f.service.fail_starts.set(failed_starts);
+            let error = run_coordinated(&f.base.m, &f.home, &f.service,
+                transition, false).unwrap_err().to_string();
+            assert!(error.contains("package_user_service_unavailable"));
+            assert!(f.current() == first);
+            assert_eq!(f.base.m.root.join("package-transition.json").exists(),
+                failed_starts == 2);
+            if failed_starts == 1 {
+                assert_eq!(f.service.show().unwrap().active, "active");
+                assert!(!error.contains("package recovery failed"));
+            } else {
+                assert!(error.contains("package recovery failed"));
+            }
+        }
+    }
+
+    #[test]
+    fn service_admission_refuses_mixed_package_and_publication_journal() {
+        let (f, prepared) = real_publication_transition();
+        let (first, next, _, setup) = staged_transition(&f);
+        let before = vec![prepared.before.clone()];
+        let after = vec![prepared.after.clone()];
+        let receipt = RefreshReceipt { schema:1, predecessor:first.clone(),
+            successor:next.clone(), before_publications:before,
+            after_publications:after, transitions:vec![prepared] };
+        let transition = CoordinatedTransition { schema:2, id:random_id().unwrap(),
+            kind:TransitionKind::Update, recovery_before:first.clone(), setup,
+            receipt };
+        let journal = f.base.m.root.join("package-transition.json");
+        atomic_json(&journal, &transition).unwrap();
+        require_service_transition_coherent_at(&f.base.m, &first, &f.home).unwrap();
+        setup_install::apply_plan(&transition.setup).unwrap();
+        assert!(require_service_transition_coherent_at(
+            &f.base.m, &next, &f.home).is_err());
+        assert!(journal.exists());
+    }
+
+    #[test]
+    fn failed_preparation_after_owned_stop_restarts_selected_service() {
+        let (f, _) = real_publication_transition();
+        let selected = f.current();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        f.replace("linux-vst-bridge", b"target requiring managed refresh", true);
+        let error = update_from(&f.base.m, &f.home, &f.inputs, f.owner,
+            &f.service).unwrap_err().to_string();
+        assert!(error.contains("Preparation support is missing"));
+        assert!(f.current() == selected);
+        assert_eq!(f.service.show().unwrap().active, "active");
+        assert_eq!((f.service.stops.get(), f.service.starts.get()), (1, 2));
+        assert!(!f.base.m.root.join("package-transition.json").exists());
+    }
+
+    #[test]
+    fn oversized_coordinator_is_refused_before_journal_and_restarts_prior_service() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        f.base.m.register(f.base.r.clone()).unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        f.service.stop().unwrap();
+        let (first, _, mut receipt, setup) = staged_transition(&f);
+        let mut state = f.base.m.package_publication_snapshot().unwrap().remove(0);
+        state.entry.registration.metadata.name = "x".repeat(CONTROL_RECORD_MAX);
+        receipt.before_publications = vec![state.clone()];
+        receipt.after_publications = vec![state];
+        let transition = CoordinatedTransition { schema:2, id:random_id().unwrap(),
+            kind:TransitionKind::Update, recovery_before:first, setup, receipt };
+        let error = run_coordinated(&f.base.m, &f.home, &f.service,
+            transition, true).unwrap_err().to_string();
+        assert!(error.contains("package_refresh_receipt_bound"));
+        assert!(!f.base.m.root.join("package-transition.json").exists());
+        assert_eq!(f.service.show().unwrap().active, "active");
+    }
+
+    #[test]
+    fn raw_package_switches_cannot_bypass_a_published_bridge_refresh() {
+        let (base, profile, census, _) = test_fixture::prepared();
+        let home = base.outer.join("home");
+        let f = Fixture { service:FakeService::new(&home), home,
+            inputs:Inputs::under(&base.outer.join("package/usr")),
+            owner:unsafe { libc::getuid() }, base };
+        for name in NAMES {
+            let path = f.inputs.path(name).unwrap();
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, match name {
+                "host.exe" => b"host".as_slice(),
+                "host-source-manifest.json" => b"fixture host source".as_slice(),
+                _ => name.as_bytes(),
+            }).unwrap();
+            fs::set_permissions(path, fs::Permissions::from_mode(0o444)).unwrap();
+        }
+        f.write_manifest();
+        f.adopt().unwrap();
+        // Establish a package predecessor before this fixture publishes. Once
+        // a publication exists, raw generation switches are no longer legal.
+        f.base.m.unpublish(&f.base.r.key()).unwrap();
+        atomic_json(&f.base.m.root.join("registry.json"), &Registry::default()).unwrap();
+        f.replace("linux-vst-bridge", b"second generation", true);
+        f.adopt().unwrap();
+        let selected = f.current();
+        f.base.m.managed_publish(&profile, &census, f.base.r.clone(),
+            &f.base.r.host, &f.base.r.host_source_sha256, None).unwrap();
+        let registry = fs::read(f.base.m.root.join("registry.json")).unwrap();
+        let frontend = f.home.join(".local/bin/linux-audio-compatibility-manager");
+        fs::remove_file(&frontend).unwrap();
+        f.adopt().unwrap();
+        assert_eq!(fs::read_link(&frontend).unwrap(),
+            selected.operator_frontend.as_ref().unwrap().path);
+        assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry);
+        f.replace("linux-vst-bridge", b"third generation", true);
+        let adopt_error = f.adopt().unwrap_err().to_string();
+        assert!(adopt_error.contains("package_update_required"));
+        let restore_error = rollback_from(&f.base.m, &f.home,
+            &f.service).unwrap_err().to_string();
+        assert!(restore_error.contains("package_restore_required"));
+        assert!(f.current() == selected);
+        assert_eq!(fs::read(f.base.m.root.join("registry.json")).unwrap(), registry);
     }
 
     #[cfg(target_os = "linux")]

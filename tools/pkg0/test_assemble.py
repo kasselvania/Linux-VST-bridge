@@ -168,7 +168,9 @@ class PackageAssembly(unittest.TestCase):
         }
         index = dict(schema=3, engine="prebuilt/engine.so",
                      engine_sha256=assemble.sha(files["prebuilt/engine.so"]),
-                     descriptor_schema=1, maximum_bridge_frames=1024, native_sources={})
+                     descriptor_schema=1, maximum_bridge_frames=1024,
+                     audio_completion_contract=1, loaded_engine_admission_contract=1,
+                     native_sources={})
 
         def archive_bytes(selected, extra=None):
             contents = {**files, **(extra or {}),
@@ -193,6 +195,7 @@ class PackageAssembly(unittest.TestCase):
                             self.spec["source_head"], assemble.sha(files["runtime/host.exe"]),
                             assemble.sha(files["runtime/host-source-manifest.json"]))
         for change in ({"engine_sha256": "0" * 64}, {"descriptor_schema": 2},
+                       {"loaded_engine_admission_contract": 0},
                        {"maximum_bridge_frames": 64}, {"proxies": []},
                        {"audio_completion_contract": 2}, {"audio_completion_contract": True}):
             with self.subTest(change=change), self.assertRaisesRegex(ValueError, "reusable engine index"):

@@ -1996,6 +1996,30 @@ fn execute_with_receipt_policy(
     timing::measure(Stage::WorkerAdmission, ||
         require_operator_inactive_with(m, a, capacity_read, operation, timeout, waits))?;
 
+    if let ui::Action::OrdinaryRollback { class_id, publication } = a {
+        drop(projection.take());
+        let refresh = package_authority::publication_restore_needs_refresh(
+            m, class_id, publication)?;
+        if refresh {
+            let owner = operation.ok_or("operator_operation_identity")?;
+            let _environment = m.lock("operator-environment.lock")?;
+            suspend(m, owner, None, timeout, waits)?;
+            let result = package_authority::restore_publication(
+                m, class_id, publication, owner);
+            let cleanup = resume_owned(m, owner);
+            let value = serde_json::to_value(result?)?;
+            if let Err(error) = cleanup {
+                return Err(ServiceRestorationFailure {
+                    reason:error.to_string(), completed_action:value,
+                }.into());
+            }
+            return Ok(value);
+        }
+        let restored = package_authority::restore_publication(m, class_id,
+            publication, operation.ok_or("operator_operation_identity")?)?;
+        return Ok(serde_json::to_value(restored)?);
+    }
+
     if preparation_cli::is_action(a) {
         let owner = operation.ok_or("operator_operation_identity")?;
         if matches!(
@@ -4368,13 +4392,13 @@ mod tests {
         let report_before = fs::read(&report).unwrap();
         let registry_before = fs::read(f.m.root.join("registry.json")).unwrap();
         let action = ui::Action::PluginPrepare { selection: c.selection.id().unwrap(),
-            inspection: c.inspection.id().unwrap(), recipe: c.recipe_sha256.clone(), predecessor: None };
+            inspection: c.inspection.id().unwrap(), recipe: "ff".repeat(32), predecessor: None };
         let owner = queued_test_action(&f.m, action.clone());
-        // The real constructor refuses this incomplete fixture kit. That must
-        // not turn pure proxy construction into Wine-service cancellation.
+        // Exact recipe drift refuses before construction. That must not turn
+        // pure proxy preparation into Wine-service cancellation.
         let error = execute_with_receipt_policy(&f.m, &action, Some(&owner),
             &|| capacity_fixture(&f.m), Duration::from_secs(2), &mut vec![]).unwrap_err();
-        assert_eq!(error.to_string(), "build_recipe_generator_identity_missing");
+        assert_eq!(error.to_string(), "preparation_recipe_changed");
         assert!(lease.exists());
         assert_eq!(fs::read(report).unwrap(), report_before);
         assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_before);
@@ -4849,21 +4873,22 @@ mod tests {
     }
     #[test]
     fn ordinary_history_limits_rollback_to_ancestry_and_restore_preserves_bytes() {
-        let (f, mut p, c, n) = test_fixture::prepared();
-        let r = observation::derive(&p, &c, &n).unwrap();
-        let key = r.key();
-        let first =
-            f.m.managed_publish(&p, &c, r.clone(), &c.host, &c.host_source_sha256, None)
-                .unwrap();
-        p.revision += 1;
-        let abandoned =
-            f.m.managed_publish(&p, &c, r.clone(), &c.host, &c.host_source_sha256, None)
-                .unwrap();
+        use linux_vst_bridge::preparation as prep;
+        let (f, base) = preparation_cli::tests::projection_fixture();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let key = base.selection.class.id.clone();
+        let first = prep::enable(&f.m, &base, false).unwrap();
+        let abandoned_candidate = prep::configuration::prepare_settings(&f.m, &base,
+            &ui::LocalSettings { graphics:Some(ui::GraphicsBackend::WineD3d11),
+                accessibility:ui::AccessibilityChoice::ProfileDefault },
+            Some(&first)).unwrap();
+        let abandoned = prep::replace(&f.m, &abandoned_candidate, &first).unwrap();
         f.m.rollback(&key, &first.id, None).unwrap();
-        p.revision += 1;
-        let recommended =
-            f.m.managed_publish(&p, &c, r.clone(), &c.host, &c.host_source_sha256, None)
-                .unwrap();
+        let recommended_candidate = prep::configuration::prepare_settings(&f.m, &base,
+            &ui::LocalSettings { graphics:None,
+                accessibility:ui::AccessibilityChoice::DisabledForHost },
+            Some(&first)).unwrap();
+        let recommended = prep::replace(&f.m, &recommended_candidate, &first).unwrap();
         let saved = fs::read(
             f.m.root
                 .join("publications")
@@ -4893,24 +4918,19 @@ mod tests {
                 .unwrap()
                 .rollback_allowed
         );
+        let action = ui::Action::OrdinaryRollback {
+            class_id: key.clone(), publication: first.id.clone() };
+        let owner = queued_test_action(&f.m, action.clone());
         let server = service_reply(&f.m, capacity_json(false, 0, 0));
-        execute(
-            &f.m,
-            &ui::Action::OrdinaryRollback {
-                class_id: key.clone(),
-                publication: first.id.clone(),
-            },
-        )
-        .unwrap();
+        execute_with_receipt(&f.m, &action, Some(&owner)).unwrap();
         server.join().unwrap();
         assert_eq!(
             f.m.registry().unwrap().classes[&key].managed_revision,
-            Some(first)
+            Some(first.clone())
         );
-        let restored =
-            f.m.managed_publish(&p, &c, r, &c.host, &c.host_source_sha256, None)
-                .unwrap();
-        assert_eq!(f.m.load_revision(&key, &restored).unwrap().profile, p);
+        let restored = prep::replace(&f.m, &recommended_candidate, &first).unwrap();
+        assert_eq!(f.m.load_revision(&key, &restored).unwrap().profile,
+            recommended_candidate.profile);
         assert_eq!(
             fs::read(
                 f.m.root
@@ -4923,11 +4943,6 @@ mod tests {
             .unwrap(),
             saved
         );
-        p.claim = profiles::Claim::ReviewCandidate;
-        assert!(f
-            .m
-            .managed_publish(&p, &c, f.r.clone(), &c.host, &c.host_source_sha256, None)
-            .is_err());
     }
     #[test]
     fn vendor_deactivation_is_live_until_the_unit_finishes_cleanup() {
@@ -5226,6 +5241,9 @@ mod tests {
         candidate.origin = prep::Origin::RetainedSv1;
         candidate.inspection.origin = prep::Origin::RetainedSv1;
         candidate.recipe_sha256 = "retained-sv1".into();
+        let retained_native = f.m.root.join("software/retained-history-native.so");
+        fs::copy(&candidate.native.artifact.path, &retained_native).unwrap();
+        candidate.native.artifact.path = retained_native;
         f.m.register(f.r.clone()).unwrap();
         let catalogue = linux_vst_bridge::catalogue::Catalogue {schema:3,
             natives:vec![candidate.native.clone()],environments:vec![
@@ -5679,7 +5697,7 @@ mod tests {
         assert_eq!(f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision, Some(baseline));
     }
     #[test]
-    fn ordinary_rollback_exposes_deferred_ancestor_capacity_and_worker_checks_the_exact_target() {
+    fn ordinary_rollback_defers_capacity_then_uses_the_exact_retained_target() {
         use linux_vst_bridge::preparation as prep;
         let (f, base) = preparation_cli::tests::projection_fixture();
         let mut sw = preparation_cli::tests::projection_software(&base);
@@ -5692,17 +5710,16 @@ mod tests {
         let selected = prep::replace(&f.m, &trial, &baseline).unwrap();
         let performance = f.m.root.join("performance").join(format!("{}.json", base.selection.class.id));
         private_dir(performance.parent().unwrap()).unwrap();
-        // Simulate a retained 1024 preference with a target whose exact kit
-        // only describes 512. Ordinary display reports capacity as deferred.
+        // Simulate a retained 1024 preference while the currently selected
+        // package points at an unrelated 512-only kit. The rollback target's
+        // retained exact kit supports 1024, so mutation must use that target.
         atomic_json(&performance, &Performance {schema:1,added_frames:1024, delivery_mode:DeliveryMode::Buffered }).unwrap();
-        let registry = fs::read(f.m.root.join("registry.json")).unwrap();
-        for other_native in [false, true] {
-            let native = if other_native {"fe".repeat(32)} else {base.native.artifact.sha256.clone()};
-            let path = f.m.root.join("software").join(format!("ancestor-kit-{other_native}.zip"));
-            let index = json!({"schema":1,"proxies":[{"class_id":base.selection.class.id,
-                "module_sha256":base.selection.module.sha256,"native_sha256":native,
-                "file":"prebuilt/proxy.so"}]}).to_string();
-            let status = Command::new("python3").args(["-I","-c",r#"
+        let native = "fe".repeat(32);
+        let path = f.m.root.join("software/other-selected-kit.zip");
+        let index = json!({"schema":1,"proxies":[{"class_id":base.selection.class.id,
+            "module_sha256":base.selection.module.sha256,"native_sha256":native,
+            "file":"prebuilt/proxy.so"}]}).to_string();
+        let status = Command::new("python3").args(["-I","-c",r#"
 import hashlib,json,sys,zipfile
 index=sys.argv[2].encode()
 with zipfile.ZipFile(sys.argv[1],'w') as archive:
@@ -5710,42 +5727,39 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
  archive.writestr('recipe.json',json.dumps({'schema':3,'files':{
   'prebuilt/index.json':hashlib.sha256(index).hexdigest(),'prebuilt/proxy.so':sys.argv[3]}}))
 "#]).arg(&path).arg(index).arg(&native).status().unwrap();
-            assert!(status.success());
-            fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
-            sw.preparation_kit = Some(Artifact {sha256:digest(&path).unwrap(),path});
-            atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
-            let service = overview_service_reply(&f.m, capacity_json(false,0,0));
-            let detail = product_detail(&f.m, &base.selection.environment.id,
-                &base.selection.module.sha256, &base.selection.class.id).unwrap();
-            service.join().unwrap();
-            assert_eq!(detail.product.details["added_frames"], 1024);
-            assert_eq!(detail.product.details["performance_valid"], true);
-            assert_eq!(detail.product.details["buffering_capacity"], "deferred_to_mutation_or_launch");
-            let offer = detail.product.actions.iter().find(|offer|
-                matches!(&offer.action, ui::Action::OrdinaryRollback {publication,..}
-                    if publication == &baseline.id)).unwrap();
-            assert!(offer.disabled_reason.is_none());
-            assert!(offer.label.contains("capacity checked"));
-            let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:detail.state_token,
-                action:offer.action.clone()};
-            let service = overview_service_reply(&f.m, capacity_json(false,0,0));
-            validate_current_request(&f.m, &request).unwrap();
-            service.join().unwrap();
-            let receipt = dispatch_recorded(&f.m, &request, |id|
-                launch_reserved(&f.m, &request, id, |_| Ok(true))).unwrap();
-            let id = receipt.operation.unwrap();
-            worker_with_capacity(&f.m, &id, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
-            let result = worker_receipt(&f.m, &id);
-            assert_eq!(result["state"], "refused", "{result}");
-            if !other_native {
-                assert!(result["reason"].as_str().unwrap().contains("rollback_buffering_unsupported_by_target"),
-                    "{result}");
-            }
-            assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry);
-            assert_eq!(f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision, Some(selected.clone()));
-            assert_eq!(f.m.performance(&base.selection.class.id).unwrap().added_frames, 1024);
-            assert!(!f.m.publication_pending(&base.selection.class.id).unwrap());
-        }
+        assert!(status.success());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        sw.preparation_kit = Some(Artifact {sha256:digest(&path).unwrap(),path});
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let detail = product_detail(&f.m, &base.selection.environment.id,
+            &base.selection.module.sha256, &base.selection.class.id).unwrap();
+        service.join().unwrap();
+        assert_eq!(detail.product.details["added_frames"], 1024);
+        assert_eq!(detail.product.details["performance_valid"], true);
+        assert_eq!(detail.product.details["buffering_capacity"], "deferred_to_mutation_or_launch");
+        let offer = detail.product.actions.iter().find(|offer|
+            matches!(&offer.action, ui::Action::OrdinaryRollback {publication,..}
+                if publication == &baseline.id)).unwrap();
+        assert!(offer.disabled_reason.is_none());
+        assert!(offer.label.contains("capacity checked"));
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:detail.state_token,
+            action:offer.action.clone()};
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        validate_current_request(&f.m, &request).unwrap();
+        service.join().unwrap();
+        let receipt = dispatch_recorded(&f.m, &request, |id|
+            launch_reserved(&f.m, &request, id, |_| Ok(true))).unwrap();
+        let id = receipt.operation.unwrap();
+        worker_with_capacity(&f.m, &id, OPERATOR_WAIT, &|| capacity_fixture(&f.m)).unwrap();
+        let result = worker_receipt(&f.m, &id);
+        assert_eq!(result["state"], "completed", "{result}");
+        assert_eq!(f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision,
+            Some(baseline));
+        assert_ne!(selected, f.m.registry().unwrap().classes[&base.selection.class.id]
+            .managed_revision.clone().unwrap());
+        assert_eq!(f.m.performance(&base.selection.class.id).unwrap().added_frames, 1024);
+        assert!(!f.m.publication_pending(&base.selection.class.id).unwrap());
     }
     #[test]
     fn current_setup_offer_receives_durable_ack_without_diagnostics_snapshot() {

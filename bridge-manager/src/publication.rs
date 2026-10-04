@@ -49,7 +49,7 @@ struct Prior {
     revision: RevisionRef,
     target: Option<PathBuf>,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 struct Intent {
     schema: u32,
@@ -58,6 +58,25 @@ struct Intent {
     prior: Option<Prior>,
     candidate: Option<RevisionRef>,
     candidate_target: Option<PathBuf>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+#[doc(hidden)]
+pub struct PublicationState {
+    pub class_id: String,
+    pub entry: Entry,
+    pub target: Option<PathBuf>,
+    pub performance: Performance,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[doc(hidden)]
+pub struct PreparedTransition {
+    pub schema: u32,
+    pub before: PublicationState,
+    pub after: PublicationState,
+    intent: Intent,
+    reverse_intent: Intent,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -453,6 +472,39 @@ impl Manager {
     pub fn publication_pending(&self, key: &str) -> Result<bool> {
         Ok(fs::symlink_metadata(self.pending_path(key)).is_ok())
     }
+    fn package_publication_state(&self, key: &str, entry: &Entry) -> Result<PublicationState> {
+        require(entry.registration.key() == key && entry.publication != Publication::Pending,
+            "package_publication_state")?;
+        let target = match entry.publication {
+            Publication::Published => Some(self.entry_target(entry)?),
+            Publication::Removed => None,
+            Publication::Pending => unreachable!(),
+        };
+        require(physical(&self.link(key))? == target && !self.publication_pending(key)?,
+            "package_publication_state")?;
+        Ok(PublicationState { class_id:key.into(), entry:entry.clone(), target,
+            performance:self.performance(key)? })
+    }
+    #[doc(hidden)]
+    pub fn package_publication_snapshot(&self) -> Result<Vec<PublicationState>> {
+        let _lock = self.lock("registry.lock")?;
+        let db = self.registry()?;
+        require(db.classes.len() <= 256, "package_publication_bound")?;
+        db.classes.iter().map(|(key, entry)| self.package_publication_state(key, entry)).collect()
+    }
+    #[doc(hidden)]
+    pub fn verify_package_publication_snapshot(&self,
+        expected: &[PublicationState]) -> Result<()> {
+        require(expected.len() <= 256
+            && expected.windows(2).all(|pair| pair[0].class_id < pair[1].class_id),
+            "package_publication_order")?;
+        let _lock = self.lock("registry.lock")?;
+        let db = self.registry()?;
+        let actual = db.classes.iter().map(|(key, entry)|
+            self.package_publication_state(key, entry)).collect::<Result<Vec<_>>>()?;
+        require(actual == expected,
+            "package_publication_set_changed")
+    }
     fn retain_profile(&self, profile: &Profile) -> Result<()> {
         let dir = self.root.join("profiles").join(&profile.id);
         self.durable_dir(&dir)?;
@@ -834,6 +886,209 @@ impl Manager {
             fail,
         )
     }
+    #[doc(hidden)]
+    pub fn prepare_package_refresh(
+        &self,
+        candidate: &crate::preparation::Candidate,
+        expected: &RevisionRef,
+    ) -> Result<PreparedTransition> {
+        crate::preparation::verify_candidate(self, candidate,
+            &candidate.selection.scanner, &candidate.selection.scanner_source)?;
+        require(candidate.profile.claim == Claim::ReviewCandidate
+            && crate::preparation::build::supports_loaded_engine_admission(self, candidate)?,
+            "loaded_engine_admission_contract_missing")?;
+        let census = candidate.census()?;
+        census.verify_current(&self.root, &candidate.host,
+            &candidate.source_manifest.sha256, crate::observation::now()?)?;
+        let registration = crate::preparation::configuration::registration(candidate)?;
+        registration.verify(&self.root)?;
+        let key = registration.key();
+        let _lock = self.lock("registry.lock")?;
+        let db = self.registry()?;
+        let entry = db.classes.get(&key).ok_or("registration_absent")?;
+        require(entry.publication == Publication::Published
+            && entry.managed_revision.as_ref() == Some(expected),
+            "bridge_refresh_current_changed")?;
+        let before = self.package_publication_state(&key, entry)?;
+        let prior_revision = self.load_revision(&key, expected)?;
+        require(prior_revision.registration.module == registration.module
+            && prior_revision.registration.environment == registration.environment
+            && prior_revision.registration.metadata == registration.metadata
+            && prior_revision.registration.compatibility == registration.compatibility
+            && prior_revision.external_ids == candidate.native.external_ids,
+            "bridge_refresh_configuration_changed")?;
+        require(before.performance.added_frames != 1024
+            || crate::preparation::build::candidate_maximum_bridge_frames(self, candidate)?
+                == Some(1024),
+            "bridge_refresh_buffering_unsupported")?;
+        require(before.performance.delivery_mode != DeliveryMode::SameCallback
+            || crate::preparation::build::candidate_supports_audio_completion(self, candidate)?,
+            "bridge_refresh_delivery_unsupported")?;
+        self.retain_profile(&candidate.profile)?;
+        let transaction = random_id()?;
+        let prior = self.adopt_prior(entry, &candidate.profile, &census, &transaction)?;
+        require(prior.revision == *expected, "bridge_refresh_current_changed")?;
+        let id = random_id()?;
+        let target = self.revision_dir(&key, &id)?
+            .join(format!("LVB_{key}.vst3"));
+        let source = registration.native.clone();
+        let mut installed = registration;
+        installed.relocate_native(target.join("Contents/x86_64-linux")
+            .join(format!("LVB_{key}.so")));
+        let revision = Revision {
+            schema:1, id, class_id:key.clone(), external_ids:external_ids(&key)?,
+            profile:candidate.profile.clone(), profile_sha256:candidate.profile.fingerprint()?,
+            census, registration:installed.clone(), performance:before.performance.clone(),
+            target:target.clone(), parent:Some(expected.clone()), transaction:transaction.clone(),
+            adopted_legacy:false, qualification:Some(Qualification::ManagedExperimental),
+        };
+        let reference = Self::revision_ref(&revision)?;
+        let intent = Intent { schema:1, id:transaction, class_id:key.clone(),
+            prior:Some(prior), candidate:Some(reference.clone()),
+            candidate_target:Some(target.clone()) };
+        self.make_candidate(&revision, &source, None)?;
+        let after = PublicationState { class_id:key,
+            entry:Entry { registration:installed, publication:Publication::Published,
+                managed_revision:Some(reference) },
+            target:Some(target), performance:before.performance.clone() };
+        let reverse_intent = Intent { schema:1, id:random_id()?,
+            class_id:after.class_id.clone(),
+            prior:Some(Prior {
+                entry:after.entry.clone(),
+                revision:after.entry.managed_revision.clone()
+                    .ok_or("package_publication_transition_changed")?,
+                target:after.target.clone(),
+            }),
+            candidate:before.entry.managed_revision.clone(),
+            candidate_target:before.target.clone(),
+        };
+        Ok(PreparedTransition { schema:2, before, after, intent, reverse_intent })
+    }
+    #[doc(hidden)]
+    pub fn package_transition_states(t: &PreparedTransition)
+        -> (&PublicationState, &PublicationState) {
+        (&t.before, &t.after)
+    }
+    fn verify_prepared_transition(&self, transition: &PreparedTransition) -> Result<()> {
+        let t = transition;
+        require(t.schema == 2 && t.before.class_id == t.after.class_id
+            && t.intent.class_id == t.before.class_id
+            && t.intent.prior.as_ref().map(|prior| &prior.entry) == Some(&t.before.entry)
+            && t.intent.prior.as_ref().and_then(|prior| prior.target.as_ref()) == t.before.target.as_ref()
+            && t.intent.candidate.as_ref() == t.after.entry.managed_revision.as_ref()
+            && t.intent.candidate_target.as_ref() == t.after.target.as_ref()
+            && t.reverse_intent.schema == 1
+            && valid_hex(&t.reverse_intent.id, 32)
+            && t.reverse_intent.class_id == t.before.class_id
+            && t.reverse_intent.id != t.intent.id
+            && t.reverse_intent.prior.as_ref().map(|prior| &prior.entry)
+                == Some(&t.after.entry)
+            && t.reverse_intent.prior.as_ref().and_then(|prior| prior.target.as_ref())
+                == t.after.target.as_ref()
+            && t.reverse_intent.prior.as_ref().map(|prior| &prior.revision)
+                == t.after.entry.managed_revision.as_ref()
+            && t.reverse_intent.candidate.as_ref()
+                == t.before.entry.managed_revision.as_ref()
+            && t.reverse_intent.candidate_target.as_ref() == t.before.target.as_ref()
+            && t.before.performance == t.after.performance,
+            "package_publication_transition_changed")?;
+        let reference = t.after.entry.managed_revision.as_ref()
+            .ok_or("package_publication_transition_changed")?;
+        let revision = self.load_revision(&t.after.class_id, reference)?;
+        require(revision.registration == t.after.entry.registration
+            && Some(&revision.target) == t.after.target.as_ref()
+            && revision.performance == t.after.performance
+            && revision.transaction == t.intent.id,
+            "package_publication_transition_changed")
+    }
+    #[doc(hidden)]
+    pub fn verify_package_pending_intents(&self,
+        transitions: &[PreparedTransition]) -> Result<()> {
+        for transition in transitions {
+            self.verify_prepared_transition(transition)?;
+        }
+        let directory = self.root.join("transactions");
+        if !directory.try_exists()? { return Ok(()); }
+        let mut count = 0usize;
+        for entry in fs::read_dir(directory)? {
+            let path = entry?.path();
+            if !path.file_name().and_then(|name| name.to_str())
+                .is_some_and(|name| name.ends_with(".pending.json")) {
+                continue;
+            }
+            count += 1;
+            require(count <= transitions.len(),
+                "package_transaction_pending")?;
+            let intent = self.read_intent(&path)?;
+            let owned = transitions.iter().any(|transition|
+                intent == transition.intent || intent == transition.reverse_intent);
+            require(owned, "package_transaction_pending")?;
+        }
+        Ok(())
+    }
+    #[doc(hidden)]
+    pub fn reconcile_package_pending_intent(&self,
+        transition: &PreparedTransition) -> Result<()> {
+        self.verify_prepared_transition(transition)?;
+        let key = &transition.before.class_id;
+        let _lock = self.lock("registry.lock")?;
+        let pending = self.pending_path(key);
+        if !pending.try_exists()? { return Ok(()); }
+        let intent = self.read_intent(&pending)?;
+        require(intent == transition.intent || intent == transition.reverse_intent,
+            "package_publication_transaction_changed")?;
+        let mut db = self.registry()?;
+        let actual = physical(&self.link(key))?;
+        let prior = intent.prior.as_ref().and_then(|value| value.target.clone());
+        if actual == prior {
+            self.finish(&mut db, &intent, Outcome::Aborted, None)
+        } else {
+            require(actual == intent.candidate_target,
+                "foreign_publication")?;
+            self.finish(&mut db, &intent, Outcome::Committed, None)
+        }
+    }
+    #[doc(hidden)]
+    pub fn commit_package_publication(&self,
+        transition: &PreparedTransition) -> Result<()> {
+        self.reconcile_package_pending_intent(transition)?;
+        let _lock = self.lock("registry.lock")?;
+        self.verify_prepared_transition(transition)?;
+        let current = self.package_publication_state(&transition.before.class_id,
+            self.registry()?.classes.get(&transition.before.class_id)
+                .ok_or("package_publication_set_changed")?)?;
+        if current == transition.after { return Ok(()); }
+        require(current == transition.before, "package_publication_set_changed")?;
+        let mut db = self.registry()?;
+        self.write_intent(&transition.intent, None)?;
+        self.activate(&transition.intent, None)?;
+        self.finish(&mut db, &transition.intent, Outcome::Committed, None)?;
+        require(self.package_publication_state(&transition.after.class_id,
+            self.registry()?.classes.get(&transition.after.class_id)
+                .ok_or("package_publication_set_changed")?)? == transition.after,
+            "package_publication_set_changed")
+    }
+    #[doc(hidden)]
+    pub fn restore_package_publication(&self,
+        transition: &PreparedTransition) -> Result<()> {
+        self.verify_prepared_transition(transition)?;
+        let key = &transition.before.class_id;
+        self.reconcile_package_pending_intent(transition)?;
+        let _lock = self.lock("registry.lock")?;
+        let current = self.registry()?.classes.get(key)
+            .ok_or("package_publication_set_changed")?.clone();
+        let state = self.package_publication_state(key, &current)?;
+        if state == transition.before { return Ok(()); }
+        require(state == transition.after, "package_publication_set_changed")?;
+        self.require_inactive(Some(key))?;
+        let mut db = self.registry()?;
+        self.write_intent(&transition.reverse_intent, None)?;
+        self.activate(&transition.reverse_intent, None)?;
+        self.finish(&mut db, &transition.reverse_intent, Outcome::Committed, None)?;
+        require(self.package_publication_state(key,
+            self.registry()?.classes.get(key).ok_or("package_publication_set_changed")?)?
+            == transition.before, "package_publication_set_changed")
+    }
     /// MF1's global inactivity law is checked again under the publication lock.
     pub fn managed_publish_inactive(
         &self,
@@ -880,11 +1135,22 @@ impl Manager {
         host:(&Artifact,&str),scope:(Option<Qualification>,bool),fail:Option<Boundary>,
         expected:Option<&RevisionRef>,
     )->Result<RevisionRef> {
+        require(!self.root.join("package-transition.json").try_exists()?,
+            "package_transition_needs_recovery")?;
         let validation = timing::span(Stage::PublicationValidation);
         let (qualification, global_inactive) = scope;
         let (installed_host, source) = host;
         let managed = qualification == Some(Qualification::ManagedExperimental) || crate::preparation::owns_profile(self,profile)?;
         if managed {crate::preparation::check_publication(self,profile,&registration)?;}
+        #[cfg(test)]
+        let enforce_loaded_engine = self.root.join("test-loaded-engine-enforcement").exists();
+        #[cfg(not(test))]
+        let enforce_loaded_engine = true;
+        if managed && enforce_loaded_engine {
+            require(crate::preparation::build::publication_supports_loaded_engine_admission(
+                self, profile, &registration)?,
+                "bridge_update_required: use Update Bridge")?;
+        }
         // Digest and inspection work precede registry admission. Immutable inputs
         // are rechecked outside the guard again before the short commit below.
         census.verify_current(&self.root,installed_host,source,crate::observation::now()?)?;
@@ -1072,13 +1338,18 @@ impl Manager {
         fail: Option<Boundary>,
         expected: Option<&RevisionRef>,
     ) -> Result<RevisionRef> {
-        self.rollback_with_scope(key, id, fail, expected, false)
+        self.rollback_with_scope(key, id, fail, expected, false, false)
+    }
+    #[doc(hidden)]
+    pub fn rollback_managed_expected(&self, key: &str, id: &str,
+        expected: &RevisionRef) -> Result<RevisionRef> {
+        self.rollback_expected(key, id, None, Some(expected))
     }
     pub fn rollback_inactive(&self, key: &str, id: &str, fail: Option<Boundary>) -> Result<RevisionRef> {
-        self.rollback_with_scope(key, id, fail, None, true)
+        self.rollback_with_scope(key, id, fail, None, true, false)
     }
     pub(crate) fn rollback_exact(&self, key: &str, id: &str, expected: &RevisionRef) -> Result<RevisionRef> {
-        self.rollback_with_scope(key, id, None, Some(expected), false)
+        self.rollback_with_scope(key, id, None, Some(expected), false, false)
     }
     fn rollback_with_scope(
         &self,
@@ -1087,7 +1358,10 @@ impl Manager {
         fail: Option<Boundary>,
         expected: Option<&RevisionRef>,
         global_inactive: bool,
+        package_transition: bool,
     ) -> Result<RevisionRef> {
+        require(package_transition || !self.root.join("package-transition.json").try_exists()?,
+            "package_transition_needs_recovery")?;
         let authority = timing::span(Stage::RestoreAuthority);
         require(valid_hex(key, 32) && valid_hex(id, 32), "rollback_identity")?;
         let _lock = timing::measure(Stage::RegistryLock, || self.lock("registry.lock"))?;
@@ -1115,6 +1389,18 @@ impl Manager {
         }
         let (selected, r) = selected.ok_or("rollback_revision_not_retained_ancestor")?;
         timing::measure(Stage::CandidateVerification, || r.registration.verify(&self.root))?;
+        #[cfg(test)]
+        let enforce_loaded_engine = self.root.join("test-loaded-engine-enforcement").exists();
+        #[cfg(not(test))]
+        let enforce_loaded_engine = true;
+        if !package_transition && enforce_loaded_engine {
+            let modern = crate::preparation::publication_candidate(
+                self, &r.profile, &r.registration).and_then(|candidate|
+                    crate::preparation::build::supports_loaded_engine_admission(self, &candidate))
+                .unwrap_or(false);
+            require(modern,
+                "bridge_update_required: use Update Bridge or Restore previous setup")?;
+        }
         // The revision retains the publication-time preference as evidence.
         // Explicit buffering changes are independently owned class settings;
         // restoring a publication preserves them, subject to the target's
@@ -1159,6 +1445,8 @@ impl Manager {
         key: &str,
         fail: Option<Boundary>,
     ) -> Result<()> {
+        require(!self.root.join("package-transition.json").try_exists()?,
+            "package_transition_needs_recovery")?;
         self.require_inactive(Some(key))?;
         self.reconcile_revisions(db)?;
         let e = db.classes.get(key).ok_or("registration_absent")?.clone();

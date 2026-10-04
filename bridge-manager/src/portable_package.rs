@@ -348,6 +348,11 @@ fn verify_python(root:&Path) -> Result<()> {
 pub fn input_root(executable:&Path, home:&Path) -> Result<Option<PathBuf>> {
     let base=home.join(".local/share/linux-vst-bridge/packages");
     if !executable.starts_with(&base) { return Ok(None); }
+    input_root_with_trust(executable, home, &Trust::compiled()?)
+}
+fn input_root_with_trust(executable:&Path, home:&Path, trust:&Trust) -> Result<Option<PathBuf>> {
+    let base=home.join(".local/share/linux-vst-bridge/packages");
+    if !executable.starts_with(&base) { return Ok(None); }
     require(executable.canonicalize()?==executable,"user_package_executable_identity")?;
     let relative=executable.strip_prefix(&base)?;
     let parts=relative.iter().collect::<Vec<_>>();
@@ -359,7 +364,7 @@ pub fn input_root(executable:&Path, home:&Path) -> Result<Option<PathBuf>> {
     let bytes=verified_bytes(&root.join("RELEASE_MANIFEST.json"),MANIFEST_MAX)?;
     require(Some(hex(&Sha256::digest(&bytes)).as_str())==parts[0].to_str(),
         "user_package_directory_identity")?;
-    verify_directory(&root,&Trust::compiled()?)?;
+    verify_directory(&root,trust)?;
     Ok(Some(root.join("usr")))
 }
 
@@ -367,6 +372,9 @@ pub fn input_root(executable:&Path, home:&Path) -> Result<Option<PathBuf>> {
 /// the bridge remain explicit actions in the ordinary PKG0 frontend.
 pub fn expose_setup(frontend:&Path, home:&Path) -> Result<()> {
     let root=input_root(frontend,home)?.ok_or("user_package_source_required")?;
+    expose_verified_setup(frontend, home, &root)
+}
+fn expose_verified_setup(frontend:&Path, home:&Path, root:&Path) -> Result<()> {
     let apps=home.join(".local/share/applications");
     fs::create_dir_all(&apps)?;
     let metadata=fs::symlink_metadata(&apps)?;
@@ -487,6 +495,37 @@ mod tests {
         fs::set_permissions(&first,fs::Permissions::from_mode(0o755)).unwrap();
         assert!(Bundle::open(&f.bundle("1.0"),f.trust()).unwrap().stage(&f.home).is_err());
         f.unchanged(&old);
+    }
+    #[test]
+    fn setup_reopens_verified_source_after_selected_routes_restore() {
+        let f=Fixture::new();let old=f.old_state();
+        let first=Bundle::open(&f.bundle("1.0"),f.trust()).unwrap().stage(&f.home).unwrap();
+        let second=Bundle::open(&f.bundle("1.1"),f.trust()).unwrap().stage(&f.home).unwrap();
+        let source=input_root_with_trust(&second,&f.home,&f.trust()).unwrap().unwrap();
+        expose_verified_setup(&second,&f.home,&source).unwrap();
+        let setup=f.home.join(".local/share/applications").join(SETUP);
+        let setup_bytes=fs::read(&setup).unwrap();
+        assert!(String::from_utf8(setup_bytes.clone()).unwrap()
+            .contains(&format!("Exec=\"{}\"",second.display())));
+        let managed=f.home.join(".local/share/linux-vst-bridge/managed/software/predecessor");
+        directory(&managed).unwrap();
+        let selected=managed.join("linux-audio-compatibility-manager");
+        fs::copy(&first,&selected).unwrap();
+        let commands=f.home.join(".local/bin");directory(&commands).unwrap();
+        let route=commands.join("linux-audio-compatibility-manager");
+        std::os::unix::fs::symlink(&second,&route).unwrap();
+        fs::remove_file(&route).unwrap();
+        std::os::unix::fs::symlink(&selected,&route).unwrap();
+        assert_eq!(fs::read_link(&route).unwrap(),selected);
+        assert!(input_root_with_trust(&selected,&f.home,&f.trust()).unwrap().is_none());
+        assert_eq!(fs::read(&setup).unwrap(),setup_bytes);
+        assert_eq!(input_root_with_trust(&second,&f.home,&f.trust()).unwrap(),Some(source));
+        f.unchanged(&old);
+        // The Setup route is retained, but tampered source bytes still refuse.
+        fs::set_permissions(&second,fs::Permissions::from_mode(0o755)).unwrap();
+        fs::write(&second,b"changed source frontend").unwrap();
+        assert!(input_root_with_trust(&second,&f.home,&f.trust()).is_err());
+        assert_eq!(fs::read(&setup).unwrap(),setup_bytes);
     }
     #[test]
     fn wrong_key_class_signature_and_payload_refuse_before_selection() {

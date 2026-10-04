@@ -65,7 +65,9 @@ class CandidateInputs(unittest.TestCase):
             }
             entries['prebuilt/index.json'] = json.dumps(dict(schema=3,
                 engine='prebuilt/engine.so', engine_sha256=sha(engine),
-                descriptor_schema=1, maximum_bridge_frames=1024, native_sources={})).encode()
+                descriptor_schema=1, maximum_bridge_frames=1024,
+                audio_completion_contract=1, loaded_engine_admission_contract=1,
+                native_sources={})).encode()
             recipe = dict(schema=4, source_commit=git('rev-parse', 'HEAD'),
                 sdk=assemble.KIT_SDK, sdk_runtime=assemble.KIT_SDK_RUNTIME,
                 files={name: sha(data) for name, data in entries.items()})

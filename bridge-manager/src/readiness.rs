@@ -1524,7 +1524,9 @@ mod tests {
     fn timed_out_fixed_helper_retires_its_descendant() {
         let marker = std::env::temp_dir().join(format!("lvb-probe-{}", random_id().unwrap()));
         let mut command = Command::new("/bin/sh");
-        command.args(["-c", "sleep 30 & printf '%s' \"$!\" > \"$PID_FILE\"; wait"])
+        // Publish a complete PID record: shell redirection creates the file
+        // before printf writes, so observing its existence alone is not ready.
+        command.args(["-c", "sleep 30 & printf '%s' \"$!\" > \"$PID_FILE.pending\"; mv \"$PID_FILE.pending\" \"$PID_FILE\"; wait"])
             .env("PID_FILE", &marker).stdout(Stdio::piped());
         unsafe { command.pre_exec(|| {
             if libc::setsid() < 0 { Err(std::io::Error::last_os_error()) } else { Ok(()) }
@@ -1534,9 +1536,14 @@ mod tests {
         while !marker.exists() && Instant::now() < deadline {
             thread::sleep(Duration::from_millis(5));
         }
-        let descendant: i32 = std::fs::read_to_string(&marker).unwrap().parse().unwrap();
-        assert_eq!(bounded_child(child, Duration::from_millis(30)), Probe::Unavailable);
+        // Retire the owned process group even if the fixture failed to publish.
+        let result = bounded_child(child, Duration::from_millis(30));
+        let descendant = std::fs::read_to_string(&marker);
         let _ = std::fs::remove_file(&marker);
+        let _ = std::fs::remove_file(marker.with_file_name(format!(
+            "{}.pending", marker.file_name().unwrap().to_string_lossy())));
+        assert_eq!(result, Probe::Unavailable);
+        let descendant: i32 = descendant.unwrap().parse().unwrap();
         let deadline = Instant::now() + Duration::from_secs(1);
         loop {
             let live = unsafe { libc::kill(descendant, 0) } == 0;

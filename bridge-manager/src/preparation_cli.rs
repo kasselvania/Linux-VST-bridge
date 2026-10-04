@@ -1252,10 +1252,20 @@ fn probed_candidate() -> Option<prep::Candidate> {
             fs::copy(&probe.source_native, &probe.candidate.native.artifact.path).unwrap();
             fs::set_permissions(&probe.candidate.native.artifact.path,
                 fs::Permissions::from_mode(0o500)).unwrap();
-            atomic_json(&dir.join("build.json"), &json!({
-                "native_sha256":probe.candidate.native.artifact.sha256,
-                "kit_sha256":probe.candidate.recipe_sha256,
-            })).unwrap();
+            if let Some(descriptor) = &probe.candidate.native.descriptor {
+                let source = probe.source_native
+                    .with_file_name(lvb_plugin_descriptor::FILE_NAME);
+                assert_eq!(digest(&source).unwrap(), descriptor.sha256);
+                assert_eq!(descriptor.path, probe.candidate.native.artifact.path
+                    .with_file_name(lvb_plugin_descriptor::FILE_NAME));
+                fs::copy(source, &descriptor.path).unwrap();
+                fs::set_permissions(&descriptor.path,
+                    fs::Permissions::from_mode(0o400)).unwrap();
+            }
+            fs::copy(probe.source_native.with_file_name("build.json"),
+                dir.join("build.json")).unwrap();
+            fs::set_permissions(dir.join("build.json"),
+                fs::Permissions::from_mode(0o400)).unwrap();
         }
         probe.candidate.clone()
     }))
@@ -1678,7 +1688,7 @@ pub(crate) mod tests {
         use prep::*;
         use profiles::Family;
         use test_fixture::{inspection_report, prepared_accessibility};
-        let (mut f, _, mut census, mut native) = prepared_accessibility(false);
+        let (mut f, _, mut census, _) = prepared_accessibility(false);
         f.m.unpublish(&f.r.key()).unwrap();
         atomic_json(&f.m.root.join("registry.json"), &Registry::default()).unwrap();
         let old = f.r.environment.root.clone();
@@ -1699,7 +1709,6 @@ pub(crate) mod tests {
         census.module_stamp = ModuleStamp::read(&census.module.path).unwrap();
         if effect {
             census.selected.subcategories = "Fx".into();
-            native.class.subcategories = "Fx".into();
         }
         let mut raw = inspection_report(&census);
         // Complete non-audio factory class; the production inventory validates all rows.
@@ -1711,6 +1720,14 @@ pub(crate) mod tests {
         raw["records"].as_array_mut().unwrap().push(
         json!({"state":"ap8_controller_association","combined":false,"class_id":"02".repeat(16)}),
     );
+        if effect {
+            raw["records"].as_array_mut().unwrap().push(json!({"state":"ap8_bus",
+                "media":0,"direction":0,"index":0,"channels":2,"type":0,"flags":1,
+                "arrangement":3,"name":"Input"}));
+        }
+        raw["records"].as_array_mut().unwrap().push(json!({"state":"ap8_bus",
+            "media":0,"direction":1,"index":0,"channels":2,"type":0,"flags":1,
+            "arrangement":3,"name":"Output"}));
         atomic_json(&census.report.path, &raw).unwrap();
         census.report.sha256 = digest(&census.report.path).unwrap();
         let classes = linux_vst_bridge::inventory::classes(&raw).unwrap();
@@ -1742,13 +1759,33 @@ pub(crate) mod tests {
             .unwrap()
             .pop()
             .unwrap();
-        let i = inspect_record(s.clone(), census.report, Origin::ManagedPreparation).unwrap();
         let manifest = Artifact {
             path: f.r.host.path.with_file_name("host-source-manifest.json"),
             sha256: f.r.host_source_sha256.clone(),
         };
-        let c = prepared(s, i, native, f.r.host.clone(), manifest, "aa".repeat(32)).unwrap();
+        let sw = reusable_projection_software(&f, &manifest);
+        let runtime = prep::build::stage_runtime_for_software(&f.m, &sw).unwrap();
+        let i = inspect_record_with(s.clone(), census.report, Origin::ManagedPreparation,
+            runtime.host.clone(), runtime.source_manifest.clone()).unwrap();
+        let c = prep::build::construct_with_runtime(&f.m, s, i, runtime,
+            &random_id().unwrap()).unwrap();
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         (f, c)
+    }
+    #[test]
+    fn projection_fixture_uses_the_current_loaded_engine_contract() {
+        let (f, c) = projection_fixture();
+        let sw = projection_software(&c);
+        let runtime = prep::build::existing_runtime(&f.m, &c.recipe_sha256).unwrap();
+        assert_eq!(sw.host, c.selection.scanner);
+        assert_ne!(sw.host.path, c.host.path);
+        assert_eq!(sw.preparation_kit, Some(runtime.kit.clone()));
+        assert_eq!(c.host, runtime.host);
+        assert_eq!(c.source_manifest, runtime.source_manifest);
+        assert!(runtime.builder.is_some() && runtime.generator.is_some());
+        assert!(c.native.descriptor.is_some());
+        assert!(prep::build::runtime_declares_loaded_engine(&runtime).unwrap());
+        assert!(prep::build::supports_loaded_engine_admission(&f.m, &c).unwrap());
     }
     #[test]
     fn configuration_offers_distinguish_selected_class_from_shared_maintenance() {
@@ -2185,17 +2222,65 @@ pub(crate) mod tests {
         assert!(spec(&f.m, newer.clone(), true, true, false).is_ok());
         assert!(spec(&f.m, newer, false, false, false).is_err());
     }
-    pub(crate) fn projection_software(c: &prep::Candidate) -> Software {
+    fn reusable_projection_software(f: &test_fixture::Fixture,
+        manifest: &Artifact) -> Software {
+        let path = f.m.root.join("software/ui2-projection-kit.zip");
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent().unwrap().to_path_buf();
+        let script = r#"import json,zipfile,hashlib,sys,pathlib
+path,root,host,manifest=sys.argv[1:];root=pathlib.Path(root)
+sha=lambda b:hashlib.sha256(b).hexdigest()
+files={'prebuilt/engine.so':b'\x7fELFprojection-reusable-engine',
+ 'runtime/host.exe':pathlib.Path(host).read_bytes(),
+ 'runtime/host-source-manifest.json':pathlib.Path(manifest).read_bytes()}
+for name in ('tools/mf3/native_builder.py','tools/ap8_descriptor.py'):
+ files[name]=(root/name).read_bytes()
+files['prebuilt/index.json']=json.dumps(dict(schema=3,engine='prebuilt/engine.so',
+ engine_sha256=sha(files['prebuilt/engine.so']),descriptor_schema=1,maximum_bridge_frames=1024,
+ audio_completion_contract=1,loaded_engine_admission_contract=1,native_sources={})).encode()
+recipe=dict(schema=4,source_commit='ab'*20,sdk='3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96',
+ sdk_runtime='b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8',
+ files={k:sha(v) for k,v in files.items()})
+with zipfile.ZipFile(path,'w') as z:
+ z.writestr('recipe.json',json.dumps(recipe))
+ for name,data in files.items():z.writestr(name,data)
+"#;
+        assert!(std::process::Command::new("python3")
+            .args(["-I", "-c", script]).arg(&path).arg(root)
+            .arg(&f.r.host.path).arg(&manifest.path)
+            .status().unwrap().success());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        let host = f.r.host.clone();
         Software {
             installer_launch: None,
-            preparation_kit: None,
-            manager: c.host.clone(),
+            preparation_kit: Some(Artifact { sha256: digest(&path).unwrap(), path }),
+            manager: host.clone(),
             operator_frontend: None,
-            supervisor: c.host.clone(),
-            ownership: c.host.clone(),
-            host: c.host.clone(),
-            source_manifest: c.source_manifest.clone(),
-            source_sha256: c.source_manifest.sha256.clone(),
+            supervisor: host.clone(),
+            ownership: host.clone(),
+            host,
+            source_manifest: manifest.clone(),
+            source_sha256: manifest.sha256.clone(),
+            native_catalogue: None,
+        }
+    }
+    pub(crate) fn projection_software(c: &prep::Candidate) -> Software {
+        let runtime: prep::build::Runtime = read_json(&c.host.path.parent().unwrap()
+            .join("runtime.json")).unwrap();
+        let host = c.selection.scanner.clone();
+        Software {
+            installer_launch: None,
+            preparation_kit: Some(runtime.kit),
+            manager: host.clone(),
+            operator_frontend: None,
+            supervisor: host.clone(),
+            ownership: host.clone(),
+            host: host.clone(),
+            source_manifest: Artifact {
+                path: host.path.with_file_name("host-source-manifest.json"),
+                sha256: c.selection.scanner_source.clone(),
+            },
+            source_sha256: c.selection.scanner_source.clone(),
             native_catalogue: None,
         }
     }
@@ -2221,39 +2306,44 @@ pub(crate) mod tests {
         }
     }
     fn projection_kit(f: &test_fixture::Fixture, c: &prep::Candidate) -> Software {
-        let mut sw = projection_software(c);
-        let path = f.m.root.join("software/ui2-projection-kit.zip");
-        private_dir(path.parent().unwrap()).unwrap();
-        fs::write(&path, b"source-owned test kit identity").unwrap();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
-        sw.preparation_kit = Some(Artifact { sha256: digest(&path).unwrap(), path });
+        let sw = projection_software(c);
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         sw
+    }
+    fn catalogue_native(f: &test_fixture::Fixture,
+        candidate: &prep::Candidate) -> linux_vst_bridge::catalogue::NativeArtifact {
+        let directory = f.m.root.join("software/catalogue-natives")
+            .join(&candidate.native.artifact.sha256);
+        private_dir(&directory).unwrap();
+        let native_path = directory.join("native.so");
+        fs::copy(&candidate.native.artifact.path, &native_path).unwrap();
+        fs::set_permissions(&native_path, fs::Permissions::from_mode(0o500)).unwrap();
+        let mut native = candidate.native.clone();
+        native.artifact = Artifact {
+            path: native_path,
+            sha256: candidate.native.artifact.sha256.clone(),
+        };
+        if let Some(descriptor) = &candidate.native.descriptor {
+            let path = directory.join("plugin-descriptor.json");
+            fs::copy(&descriptor.path, &path).unwrap();
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+            native.descriptor = Some(Artifact {
+                path,
+                sha256: descriptor.sha256.clone(),
+            });
+        }
+        native
+    }
+    fn relocate_probed_native(candidate: &mut prep::Candidate, path: PathBuf) {
+        if let Some(descriptor) = &mut candidate.native.descriptor {
+            descriptor.path = path.with_file_name(lvb_plugin_descriptor::FILE_NAME);
+        }
+        candidate.native.artifact.path = path;
     }
     pub(crate) fn guided_fixture() -> (test_fixture::Fixture, prep::Candidate, Software, ui::Action) {
         let (f, mut c) = projection_fixture_with_role(true);
         let mut sw = projection_kit(&f, &c);
         let recipe = sw.preparation_kit.as_ref().unwrap().sha256.clone();
-        let root = f.m.root.join("software/preparation-kits").join(&recipe);
-        private_dir(&root).unwrap();
-        let host = root.join("host.exe");
-        let source = root.join("host-source-manifest.json");
-        fs::copy(&c.host.path, &host).unwrap();
-        fs::copy(&c.source_manifest.path, &source).unwrap();
-        fs::set_permissions(&host, fs::Permissions::from_mode(0o400)).unwrap();
-        fs::set_permissions(&source, fs::Permissions::from_mode(0o400)).unwrap();
-        let runtime = prep::build::Runtime {
-            kit: sw.preparation_kit.clone().unwrap(),
-            host: Artifact { sha256: digest(&host).unwrap(), path: host },
-            source_manifest: Artifact { sha256: digest(&source).unwrap(), path: source },
-            builder: None, generator: None,
-        };
-        atomic_json(&root.join("runtime.json"), &runtime).unwrap();
-        c.inspection.host = runtime.host.clone();
-        c.inspection.source_manifest = runtime.source_manifest.clone();
-        c.host = runtime.host;
-        c.source_manifest = runtime.source_manifest;
-        c.recipe_sha256 = recipe.clone();
         let basis = prep::preparation_basis(&f.m, None).unwrap();
         c = prep::bind_preparation_basis(c, Some(basis)).unwrap();
         let action = ui::Action::CompatibilityCheck {
@@ -2263,7 +2353,7 @@ pub(crate) mod tests {
         // The operator snapshot discovers this unqualified product through
         // its exact managed environment and inventory, with no publication.
         let catalogue = linux_vst_bridge::catalogue::Catalogue {
-            schema: 3, natives: vec![c.native.clone()],
+            schema: 3, natives: vec![catalogue_native(&f, &c)],
             environments: vec![linux_vst_bridge::catalogue::EnvironmentBinding {
                 family: profiles::Family::ManagedInstallerV1,
                 environment: c.selection.environment.clone(),
@@ -2277,6 +2367,19 @@ pub(crate) mod tests {
         (f, c, sw, action)
     }
     #[test]
+    fn guided_fixture_keeps_installed_catalogue_native_separate_from_candidate_work() {
+        let (f, candidate, software, _) = guided_fixture();
+        let catalogue = software.catalogue(&f.m).unwrap();
+        let installed = &catalogue.natives[0];
+        assert!(installed.artifact.path.starts_with(f.m.root.join("software")));
+        assert!(candidate.native.artifact.path.starts_with(f.m.root.join("preparation/work")));
+        assert_ne!(installed.artifact.path, candidate.native.artifact.path);
+        assert_eq!(installed.artifact.sha256, candidate.native.artifact.sha256);
+        assert_eq!(installed.descriptor_sha256, candidate.native.descriptor_sha256);
+        assert_ne!(installed.descriptor.as_ref().unwrap().path,
+            candidate.native.descriptor.as_ref().unwrap().path);
+    }
+    #[test]
     fn ui2_interrupted_checks_resume_through_fresh_offered_operator_requests() {
         use std::{cell::Cell, panic::{catch_unwind, AssertUnwindSafe}, rc::Rc};
         for boundary in ["inspection", "candidate"] {
@@ -2286,8 +2389,8 @@ pub(crate) mod tests {
             let builds = Rc::new(Cell::new(0));
             let source = operator_cli::test_submit_offered(&f.m, &check).unwrap();
             let mut owned = c.clone();
-            owned.native.artifact.path = f.m.root.join("preparation/work")
-                .join(&source).join("native.so");
+            relocate_probed_native(&mut owned, f.m.root.join("preparation/work")
+                .join(&source).join("native.so"));
             GUIDED_CHECK_PROBE.with(|slot| *slot.borrow_mut() = Some(GuidedCheckProbe {
                 inspection: c.inspection.clone(), candidate: owned.clone(),
                 source_native: c.native.artifact.path.clone(),
@@ -2373,7 +2476,7 @@ pub(crate) mod tests {
         let before_registry = fs::read(f.m.root.join("registry.json")).unwrap();
         let dir = f.m.root.join("preparation/work").join(&source);
         let mut owned = c.clone();
-        owned.native.artifact.path = dir.join("native.so");
+        relocate_probed_native(&mut owned, dir.join("native.so"));
         let inspections = Rc::new(Cell::new(1));
         let builds = Rc::new(Cell::new(0));
         GUIDED_CHECK_PROBE.with(|slot| *slot.borrow_mut() = Some(GuidedCheckProbe {
@@ -2396,7 +2499,7 @@ pub(crate) mod tests {
         assert!(!dir.join("build.log").exists());
         assert_eq!(fs::read(dir.join("build.json")).unwrap(), build_before);
         owned.native.artifact.verify().unwrap();
-        assert_eq!(fs::read_dir(&dir).unwrap().count(), 2);
+        assert_eq!(fs::read_dir(&dir).unwrap().count(), 3);
         assert_eq!(inspections.get(), 1);
         assert_eq!(builds.get(), 1);
         assert_eq!(prep::retained_candidates(&f.m).unwrap(), vec![owned.clone()]);
@@ -2415,7 +2518,7 @@ pub(crate) mod tests {
         let before_registry = fs::read(f.m.root.join("registry.json")).unwrap();
         let dir = f.m.root.join("preparation/work").join(&source);
         let mut owned = c.clone();
-        owned.native.artifact.path = dir.join("native.so");
+        relocate_probed_native(&mut owned, dir.join("native.so"));
         let inspections = Rc::new(Cell::new(1));
         let builds = Rc::new(Cell::new(0));
         GUIDED_CHECK_PROBE.with(|slot| *slot.borrow_mut() = Some(GuidedCheckProbe {
@@ -2445,7 +2548,7 @@ pub(crate) mod tests {
         assert_eq!(builds.get(), 2, "only the interrupted construction must restart");
         assert_eq!(prep::retained_candidates(&f.m).unwrap(), vec![owned.clone()]);
         owned.native.artifact.verify().unwrap();
-        assert_eq!(fs::read_dir(&dir).unwrap().count(), 2);
+        assert_eq!(fs::read_dir(&dir).unwrap().count(), 3);
         assert_eq!(prep::publication_state(&f.m, &owned).unwrap(), "unpublished");
         assert_eq!(fs::read(&original_receipt).unwrap(), before_receipt);
         assert_eq!(operator_cli::test_finalize_interrupted_worker(&f.m, &interrupted).unwrap(), refused);
@@ -3360,40 +3463,11 @@ pub(crate) mod tests {
         prep::record_candidate(&f.m, &c).unwrap();
         prep::retain_inspection(&f.m, &c.inspection).unwrap();
         let original = test_fixture::snapshot(&f.m.root.join("preparation/candidates"));
-        let mut sw = projection_software(&c);
-        // A current kit host with exact runtime identities for preparation offers.
-        let kitpath = f.m.root.join("software/projection-kit.zip");
-        fs::write(&kitpath, b"generated kit identity").unwrap();
-        fs::set_permissions(&kitpath, fs::Permissions::from_mode(0o400)).unwrap();
-        let kit = Artifact {
-            sha256: digest(&kitpath).unwrap(),
-            path: kitpath,
-        };
-        let dir = f.m.root.join("software/preparation-kits").join(&kit.sha256);
-        private_dir(&dir).unwrap();
-        let copy = |a: &Artifact, name: &str| {
-            let path = dir.join(name);
-            fs::copy(&a.path, &path).unwrap();
-            fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
-            Artifact {
-                path,
-                sha256: a.sha256.clone(),
-            }
-        };
-        let host = copy(&c.host, "host.exe");
-        let source = copy(&c.source_manifest, "host-source-manifest.json");
-        atomic_json(
-            &dir.join("runtime.json"),
-            &prep::build::Runtime {
-                kit: kit.clone(),
-                host: host.clone(),
-                source_manifest: source.clone(),
-                builder: None,
-                generator: None,
-            },
-        )
-        .unwrap();
-        sw.preparation_kit = Some(kit.clone());
+        let sw = projection_software(&c);
+        // The current schema-4 kit and its exact staged host own preparation offers.
+        let kit = sw.preparation_kit.clone().unwrap();
+        let host = c.host.clone();
+        let source = c.source_manifest.clone();
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         let mut raw: Value = read_json(&c.selection.factory_report.path).unwrap();
         raw["inspection_generation"] = json!(2);

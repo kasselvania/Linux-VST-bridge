@@ -1425,7 +1425,8 @@ pub fn session_binding(
 pub(crate) fn check_publication(m: &Manager, p: &Profile, r: &Registration) -> Result<()> {
     publication_candidate(m, p, r).map(|_| ())
 }
-fn publication_candidate(m: &Manager, p: &Profile, r: &Registration) -> Result<Candidate> {
+#[doc(hidden)]
+pub fn publication_candidate(m: &Manager, p: &Profile, r: &Registration) -> Result<Candidate> {
     let c = for_profile(m, p)?.ok_or("candidate_preparation_required")?;
     verify_retained_candidate(m, &c)?;
     let mut expected = configuration::registration_for(
@@ -1439,6 +1440,39 @@ fn publication_candidate(m: &Manager, p: &Profile, r: &Registration) -> Result<C
     expected.relocate_native(r.native.path.clone());
     require(expected == *r, "candidate_registration_changed")?;
     Ok(c)
+}
+#[doc(hidden)]
+pub fn refresh_candidate(
+    m: &Manager,
+    predecessor: &Revision,
+    runtime: build::Runtime,
+    report: Artifact,
+    operation: &str,
+) -> Result<Candidate> {
+    let prior = publication_candidate(m, &predecessor.profile, &predecessor.registration)?;
+    require(prior.selection.environment == predecessor.registration.environment
+        && prior.selection.module == predecessor.registration.module,
+        "bridge_refresh_predecessor_changed")?;
+    let inspection = inspect_record_with_layout(
+        prior.selection.clone(),
+        report,
+        Origin::ManagedPreparation,
+        runtime.host.clone(),
+        runtime.source_manifest.clone(),
+        prior.inspection.audio_layout.clone(),
+    )?;
+    let next = build::construct_with_runtime(m, prior.selection.clone(), inspection,
+        runtime, operation)?;
+    let basis = preparation_basis(m, Some(&prior))?;
+    let next = bind_preparation_basis(configuration::carry_settings(next, Some(&prior))?,
+        Some(basis))?;
+    verify_candidate(m, &next, &prior.selection.scanner, &prior.selection.scanner_source)?;
+    require(build::supports_loaded_engine_admission(m, &next)?,
+        "loaded_engine_admission_contract_missing")?;
+    crate::operator_lock::timing::measure(
+        crate::operator_lock::timing::Stage::CandidateMutation, ||
+        record_candidate_with_predecessor(m, &next, Some(&prior.id()?)))?;
+    Ok(next)
 }
 fn verify_retained_revision(m: &Manager, r: &Revision) -> Result<()> {
     check_publication(m, &r.profile, &r.registration)?;

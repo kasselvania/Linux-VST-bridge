@@ -210,6 +210,101 @@ struct PrivateOutputTest {
     }
     ~PrivateOutputTest() { std::error_code ignored;std::filesystem::remove_all(directory,ignored); }
 };
+void privateGateInputs(const Options& base) {
+    need(factoryWaitBound==std::chrono::seconds(600),"factory hold is bounded by the declared control-plane update allowance");
+    PrivateOutputTest location;Options o=base;o.prefix=location.prefix.c_str();o.capturePrefix=o.prefix;
+    need(!factoryReleased(o),"absent release token remains pending");
+    static constexpr std::array<uint8_t,8> release{'r','e','l','e','a','s','e','\n'};
+    writePrivate(location.prefix+".factory-release",release.data(),release.size(),"test release token");
+    holdFactory(o);
+    const auto ready=readPrivate(location.prefix+".factory-ready",512,false,"factory-ready test read");
+    need(ready&&std::string_view(reinterpret_cast<const char*>(ready->data()),ready->size()).find("\"factory_cached\":true")!=std::string_view::npos
+        &&factoryReleased(o),"cached factory readiness and exact release token");
+    refuses([&]{holdFactory(o);},"factory-ready evidence cannot be overwritten");
+    PrivateOutputTest malformed;Options bad=base;bad.prefix=malformed.prefix.c_str();bad.capturePrefix=bad.prefix;
+    const std::array<uint8_t,8> wrong{'r','e','l','e','a','s','e','!'};
+    writePrivate(malformed.prefix+".factory-release",wrong.data(),wrong.size(),"malformed release fixture");
+    refuses([&]{factoryReleased(bad);},"malformed release token refused");
+    PrivateOutputTest oversized;Options large=base;large.prefix=oversized.prefix.c_str();large.capturePrefix=large.prefix;
+    const std::array<uint8_t,9> tooLarge{'r','e','l','e','a','s','e','\n','x'};
+    writePrivate(oversized.prefix+".factory-release",tooLarge.data(),tooLarge.size(),"oversized release fixture");
+    refuses([&]{factoryReleased(large);},"oversized release token refused before allocation");
+    PrivateOutputTest linked;Options link=base;link.prefix=linked.prefix.c_str();link.capturePrefix=link.prefix;
+    need(::symlink((location.prefix+".factory-release").c_str(),(linked.prefix+".factory-release").c_str())==0,
+         "release symlink fixture");
+    refuses([&]{factoryReleased(link);},"release symlink refused");
+    PrivateOutputTest publicFile;Options publicOption=base;publicOption.prefix=publicFile.prefix.c_str();publicOption.capturePrefix=publicOption.prefix;
+    writePrivate(publicFile.prefix+".factory-release",release.data(),release.size(),"public-mode fixture");
+    need(::chmod((publicFile.prefix+".factory-release").c_str(),0644)==0,"public-mode fixture chmod");
+    refuses([&]{factoryReleased(publicOption);},"group/world-readable release refused");
+    PrivateOutputTest fifo;Options fifoOption=base;fifoOption.prefix=fifo.prefix.c_str();fifoOption.capturePrefix=fifoOption.prefix;
+    need(::mkfifo((fifo.prefix+".factory-release").c_str(),0600)==0,"factory release FIFO fixture");
+    refuses([&]{factoryReleased(fifoOption);},"factory release FIFO refused without blocking");
+}
+LifetimePtr actualRecallLifetime(const Options& o,ExternalState& saved) {
+    auto owner=lifetime();auto& life=owner->life;owner->host=owned(new HostApplication);
+    life.component=owned(new ReferenceProcessor);ok(life.component->initialize(owner->host),"actual recall component initialize");
+    life.componentInitialized=true;life.processor=FUnknownPtr<IAudioProcessor>(life.component);need(bool(life.processor),"actual recall processor interface");
+    life.controller=owned(new ReferenceController);ok(life.controller->initialize(owner->host),"actual recall controller initialize");
+    life.controllerInitialized=true;life.cp=FUnknownPtr<IConnectionPoint>(life.component);life.cc=FUnknownPtr<IConnectionPoint>(life.controller);
+    need(life.cp&&life.cc,"actual recall connection interfaces");
+    ok(life.cp->connect(life.cc),"actual recall component connect");life.componentConnected=true;
+    ok(life.cc->connect(life.cp),"actual recall controller connect");life.controllerConnected=true;
+    restoreExternalState(*life.component,*life.controller,saved);
+    SpeakerArrangement in=SpeakerArr::kStereo,out[2]{SpeakerArr::kStereo,SpeakerArr::kStereo};
+    ok(life.processor->setBusArrangements(o.instrument?nullptr:&in,o.instrument?0:1,out,2),"actual recall bus negotiation");
+    return owner;
+}
+void externalStateActualProducer(const Options& base) {
+    PrivateOutputTest location;Options o=base;o.prefix=location.prefix.c_str();o.capturePrefix=o.prefix;
+    HostApplication host;ReferenceProcessor producer;ReferenceController producerController;
+    ok(producer.initialize(&host),"state source processor initialize");
+    ok(producerController.initialize(&host),"state source controller initialize");
+    SpeakerArrangement in=SpeakerArr::kStereo,out[2]{SpeakerArr::kStereo,SpeakerArr::kStereo};
+    ok(producer.setBusArrangements(o.instrument?nullptr:&in,o.instrument?0:1,out,2),"state source bus negotiation");
+    ProcessSetup setup{kOffline,kSample32,64,48000.};ok(producer.setupProcessing(setup),"state source processing setup");
+    ok(producer.setActive(true),"state source activation");ok(producer.setProcessing(true),"state source start");
+    Buffers initialization(o.instrument);initialization.prepare(0,kOffline,o.instrument,false);
+    point(initialization.sent,0,.625);point(initialization.sent,1,.125);
+    ok(producer.process(initialization.data),"state source recognizable values");
+    ok(producer.setProcessing(false),"state source stop");ok(producer.setActive(false),"state source deactivate");
+    LVBState::Stream component;ok(producer.getState(&component),"actual component source capture");
+    component.position=0;ok(producerController.setComponentState(&component),"actual source controller synchronization");
+    LVBState::Stream controller;ok(producerController.getState(&controller),"actual controller source capture");
+    const auto componentBytes=component.bytes,controllerBytes=controller.bytes;
+    writeState(o.prefix,".component",component);writeState(o.prefix,".controller",controller);
+    struct stat componentInfo{},controllerInfo{};
+    need(::stat((location.prefix+".component").c_str(),&componentInfo)==0
+        &&::stat((location.prefix+".controller").c_str(),&controllerInfo)==0
+        &&(componentInfo.st_mode&0777)==0600&&(controllerInfo.st_mode&0777)==0600,"actual state inputs private");
+    ok(producer.terminate(),"state source processor terminate");
+    ok(producerController.terminate(),"state source controller terminate");
+
+    ExternalState saved(o);
+    {
+        auto lost=actualRecallLifetime(o,saved);
+        auto wrong=componentBytes;const double wrongGain=.25;std::memcpy(wrong.data()+8,&wrongGain,8);
+        LVBState::Stream wrongState(wrong);ok(lost->life.component->setState(&wrongState),"accepted lost-restore negative state");
+        Exercise proof(lost->life,o);
+        refuses([&]{proof.recalledStateAudio(64,48000);},"first recalled-state audio refuses a lost DSP gain before any parameter edit");
+        LVBState::Stream stillWrong;ok(lost->life.component->getState(&stillWrong),"lost-restore negative state capture");
+        need(stillWrong.bytes==wrong,"recalled-state proof does not repair the failed restore");
+    }
+    auto recalled=actualRecallLifetime(o,saved);Exercise proof(recalled->life,o);proof.recalledStateAudio(64,48000);
+    need(proof.oracle.mismatches==0&&proof.oracle.nonfinite==0&&proof.oracle.nonzero>0
+        &&proof.oracle.returnedEvents>0&&proof.oracle.returnedPoints>0,"actual output/results before any post-restore parameter edit");
+    LVBState::Stream current;ok(recalled->life.component->getState(&current),"actual recalled component capture");
+    LVBState::Stream currentController;ok(recalled->life.controller->getState(&currentController),"actual recalled controller capture");
+    need(current.bytes==componentBytes&&currentController.bytes==controllerBytes,
+         "unchanged actual fixture exact state after external recall and output");
+    originalStateRetained(saved.component,componentBytes);originalStateRetained(saved.controller,controllerBytes);
+    const auto componentAgain=readPrivate(saved.componentPath,LVBState::payloadLimit+LVBState::overhead,false,"source component reread");
+    const auto controllerAgain=readPrivate(saved.controllerPath,LVBState::payloadLimit+LVBState::overhead,false,"source controller reread");
+    need(componentAgain&&*componentAgain==componentBytes&&controllerAgain&&*controllerAgain==controllerBytes,
+         "actual source state files remain byte-exact and untouched");
+    refuses([&]{writeState(o.prefix,".component",current);},"external input component cannot be overwritten");
+    need(recalled->life.finish(),"actual recalled-state proof retires exactly");
+}
 void retainedOutput(const OutputCapture& output,const PrivateOutputTest& location,
                     const Row& positive,const Row& corrupted,const Row& failedOracle) {
     need(output.written&&output.writtenBytes==output.count*sizeof(float),"actual complete output artifact written after direct processing stopped");
@@ -238,7 +333,21 @@ int main() {
     std::array<char*,10> mutableArgs{};
     for (size_t i = 0; i < mutableArgs.size(); ++i) mutableArgs[i] = const_cast<char*>(args[i]);
     const auto o = options(10,mutableArgs.data());
-    slowStateRefusals(o);
+    slowStateRefusals(o);privateGateInputs(o);externalStateActualProducer(o);
+    for(const auto* scenario:{"state-record","held-factory-refusal"}) {
+        auto accepted=mutableArgs;accepted[3]=const_cast<char*>(scenario);(void)options(10,accepted.data());
+    }
+    auto recallMissing=mutableArgs;recallMissing[3]=const_cast<char*>("state-recall");
+    refuses([&]{options(10,recallMissing.data());},"external recall without capture destination refused");
+    std::array<char*,11> recall{};std::copy(mutableArgs.begin(),mutableArgs.end(),recall.begin());
+    recall[3]=const_cast<char*>("state-recall");recall[10]=const_cast<char*>("private-state-current");
+    const auto recalledOptions=options(11,recall.data());
+    need(std::string_view(recalledOptions.prefix)=="private-state"
+        &&std::string_view(recalledOptions.capturePrefix)=="private-state-current","distinct external input and current capture prefixes");
+    auto sameRecall=recall;sameRecall[10]=sameRecall[4];
+    refuses([&]{options(11,sameRecall.data());},"external state input cannot be its current capture destination");
+    auto unexpectedExtra=recall;unexpectedExtra[3]=const_cast<char*>("matrix");
+    refuses([&]{options(11,unexpectedExtra.data());},"ordinary scenario cannot accept an unexplained argument");
     for (const auto* value : {"","0","-1","+64","64x","1025"," 64","64 ","99999999999999999999999"}) {
         auto bad = mutableArgs; bad[5] = const_cast<char*>(value);
         refuses([&]{options(10,bad.data());},"malformed/out-of-bound M refused before module load");
@@ -318,5 +427,5 @@ int main() {
     ok(processor.terminate(),"actual producer terminate");
     output.write();retainedOutput(output,outputLocation,positiveOutput,corruptedOutput,failedOracleOutput);
     std::cout << "COMPLETION_CONSUMER_ORACLE_V1 role=" << (o.instrument?"instrument":"effect")
-              << " exact_producer=passed argument_refusals=passed stale_mode=refused missing_flush=refused first_final_corruption=refused lifecycle_refusal_retention=passed reconfiguration_refusal=retained audited_start_cleanup=passed false_capture_overlap=refused slow_state_observer=passed original_state_stream_refusals=passed actual_output_retained=passed corrupt_output_retained=passed\n";
+              << " exact_producer=passed argument_refusals=passed stale_mode=refused missing_flush=refused first_final_corruption=refused lifecycle_refusal_retention=passed reconfiguration_refusal=retained audited_start_cleanup=passed false_capture_overlap=refused slow_state_observer=passed original_state_stream_refusals=passed external_state_actual_output=passed external_state_inputs_untouched=passed held_factory_gate=passed actual_output_retained=passed corrupt_output_retained=passed\n";
 }

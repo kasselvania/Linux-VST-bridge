@@ -17,6 +17,10 @@ def capability(request, name="maximum_bridge_frames"):
             assert index['schema'] == 3 and index['descriptor_schema'] == 1
             assert index['maximum_bridge_frames'] == 1024
             assert recipe['files'][index['engine']] == index['engine_sha256']
+            if name == 'loaded_engine_admission_contract':
+                if request.get('native_sha256', index['engine_sha256']) != index['engine_sha256']:
+                    return None
+                return 1 if type(index.get(name)) is int and index[name] == 1 else None
             if request['native_sha256'] != index['engine_sha256']:
                 return None
             if name == 'audio_completion_contract':
@@ -45,5 +49,6 @@ def maximum_bridge_frames(request):
 if __name__ == '__main__':
     request = json.load(sys.stdin)
     name = request.get('capability', 'maximum_bridge_frames')
-    assert name in ('maximum_bridge_frames', 'audio_completion_contract')
+    assert name in ('maximum_bridge_frames', 'audio_completion_contract',
+                    'loaded_engine_admission_contract')
     print(json.dumps(capability(request, name)))

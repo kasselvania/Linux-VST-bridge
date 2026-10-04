@@ -26,8 +26,11 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <stdexcept>
+#include <string>
 #include <string_view>
+#include <sys/stat.h>
 #include <thread>
 #include <unistd.h>
 using namespace Steinberg;
@@ -61,15 +64,18 @@ struct Options {
     int block = 0, rate = 0, delay = 0;
     const char* processor = nullptr;
     const char* controller = nullptr;
+    const char* capturePrefix = nullptr;
 };
 Options options(int argc, char** argv) {
-    need(argc == 10, "usage: completion-host BUNDLE instrument|effect matrix|modes|offline|slow-offline|offline-failure|offline-timeout|abrupt-offline STATE_PREFIX M SAMPLE_RATE D NATIVE_PROCESSOR_ID NATIVE_CONTROLLER_ID");
+    need(argc == 10 || argc == 11, "usage: completion-host BUNDLE instrument|effect SCENARIO STATE_PREFIX M SAMPLE_RATE D NATIVE_PROCESSOR_ID NATIVE_CONTROLLER_ID [CAPTURE_PREFIX]");
     Options o; o.bundle = argv[1]; o.instrument = std::string_view(argv[2]) == "instrument";
     need(o.instrument || std::string_view(argv[2]) == "effect", "exact fixture role");
     o.scenario = argv[3];
     need(o.scenario == "matrix" || o.scenario == "modes" || o.scenario == "offline"
         || o.scenario == "slow-offline" || o.scenario == "offline-failure"
-        || o.scenario == "offline-timeout" || o.scenario == "abrupt-offline", "exact scenario");
+        || o.scenario == "offline-timeout" || o.scenario == "abrupt-offline"
+        || o.scenario == "state-record" || o.scenario == "state-recall"
+        || o.scenario == "held-factory-refusal", "exact scenario");
     o.prefix = argv[4]; need(*o.prefix != '\0', "state output prefix");
     o.block = integer(argv[5], 1, maximum); o.rate = integer(argv[6], 44100, 192000);
     need(o.rate == 44100 || o.rate == 48000 || o.rate == 88200 || o.rate == 96000 || o.rate == 192000,
@@ -79,6 +85,10 @@ Options options(int argc, char** argv) {
     o.processor = argv[8]; o.controller = argv[9];
     need(classId(o.processor) && classId(o.controller) && std::string_view(o.processor) != o.controller,
          "exact distinct uppercase native class identities");
+    need((o.scenario == "state-recall") == (argc == 11), "external recall requires one distinct capture prefix");
+    o.capturePrefix = argc == 11 ? argv[10] : o.prefix;
+    need(*o.capturePrefix != '\0' && (argc != 11 || std::string_view(o.capturePrefix) != o.prefix),
+         "distinct nonempty capture prefix");
     return o;
 }
 using Mark = void(*)(); using Count = uint64_t(*)();
@@ -443,6 +453,13 @@ struct Exercise {
         process(block,kOffline,rate,false,true);
         tail(kOffline,block,rate); life.stop();
     }
+    void recalledStateAudio(int block,int rate) {
+        configure(kOffline,block,rate);
+        // The first nonzero audio after restore uses the restored values. No
+        // parameter point may repair a missed component restore before this.
+        process(block,kOffline,rate,true,true);
+        tail(kOffline,block,rate);life.stop();
+    }
     void modes(int block,int rate) {
         configure(kRealtime,block,rate); zeroes(kRealtime,rate);
         // Unpaced bursts are deliberate. No sleeping or larger hidden D makes
@@ -488,11 +505,84 @@ struct Exercise {
         std::cout << "]}" << std::endl;
     }
 };
+void writePrivate(const std::string& path,const uint8_t* bytes,size_t size,const char* why) {
+    int fd=::open(path.c_str(),O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOFOLLOW,0600);
+    need(fd>=0,why);size_t written=0;
+    try {
+        while(written<size) {
+            const auto result=::write(fd,bytes+written,size-written);
+            if(result<0&&errno==EINTR)continue;
+            need(result>0,why);written+=size_t(result);
+        }
+        const int result=::close(fd);fd=-1;need(result==0,why);
+    } catch (...) { if(fd>=0)::close(fd);throw; }
+}
+std::optional<std::vector<uint8_t>> readPrivate(const std::string& path,size_t maximumSize,
+                                                bool missingAllowed,const char* why) {
+    int fd=::open(path.c_str(),O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOFOLLOW);
+    if(fd<0&&missingAllowed&&errno==ENOENT)return std::nullopt;
+    need(fd>=0,why);
+    try {
+        struct stat info{};need(::fstat(fd,&info)==0&&S_ISREG(info.st_mode)&&info.st_uid==::getuid()
+            &&(info.st_mode&0177)==0&&info.st_size>0&&uint64_t(info.st_size)<=maximumSize,why);
+        std::vector<uint8_t> bytes(static_cast<size_t>(info.st_size));size_t read=0;
+        while(read<bytes.size()) {
+            const auto result=::read(fd,bytes.data()+read,bytes.size()-read);
+            if(result<0&&errno==EINTR)continue;
+            need(result>0,why);read+=size_t(result);
+        }
+        uint8_t extra=0;ssize_t result=0;
+        do result=::read(fd,&extra,1);while(result<0&&errno==EINTR);
+        need(result==0,why);const int closed=::close(fd);fd=-1;need(closed==0,why);return bytes;
+    } catch (...) { if(fd>=0)::close(fd);throw; }
+}
 void writeState(const char* prefix,const char* suffix,const LVBState::Stream& state) {
     need(!state.failed && state.quiescent() && !state.bytes.empty(), "complete lexical opaque state required");
-    std::ofstream file(std::string(prefix)+suffix,std::ios::binary);
-    file.write(reinterpret_cast<const char*>(state.bytes.data()),std::streamsize(state.bytes.size()));
-    file.flush(); need(bool(file), "private state output");
+    writePrivate(std::string(prefix)+suffix,state.bytes.data(),state.bytes.size(),"private unique state output");
+}
+void originalStateRetained(const LVBState::Stream&,const std::vector<uint8_t>&);
+struct ExternalState {
+    std::string componentPath,controllerPath;
+    std::vector<uint8_t> componentBytes,controllerBytes;
+    LVBState::Stream component,controller;
+    explicit ExternalState(const Options& o)
+        :componentPath(std::string(o.prefix)+".component"),controllerPath(std::string(o.prefix)+".controller"),
+         componentBytes(*readPrivate(componentPath,LVBState::payloadLimit+LVBState::overhead,false,"private component state input")),
+         controllerBytes(*readPrivate(controllerPath,LVBState::payloadLimit+LVBState::overhead,false,"private controller state input")),
+         component(componentBytes,LVBState::payloadLimit+LVBState::overhead),
+         controller(controllerBytes,LVBState::payloadLimit+LVBState::overhead) {}
+};
+void restoreExternalState(IComponent& component,IEditController& controller,ExternalState& state) {
+    state.component.position=0;ok(component.setState(&state.component),"external opaque component restore");
+    state.component.position=0;ok(controller.setComponentState(&state.component),"external component/controller synchronization");
+    need(controller.getParamNormalized(0)==.625&&controller.getParamNormalized(1)==.125,
+         "meaningful external component values");
+    state.controller.position=0;ok(controller.setState(&state.controller),"external opaque controller restore");
+    need(controller.getParamNormalized(0)==.625&&controller.getParamNormalized(1)==.125,
+         "meaningful external controller values");
+    originalStateRetained(state.component,state.componentBytes);
+    originalStateRetained(state.controller,state.controllerBytes);
+}
+bool factoryReleased(const Options& o) {
+    const auto token=readPrivate(std::string(o.prefix)+".factory-release",8,true,"private factory release token");
+    if(!token)return false;
+    static constexpr std::array<uint8_t,8> expected{'r','e','l','e','a','s','e','\n'};
+    need(std::equal(token->begin(),token->end(),expected.begin(),expected.end()),"exact factory release token");
+    return true;
+}
+constexpr auto factoryWaitBound=std::chrono::seconds(600);
+void holdFactory(const Options& o) {
+    const std::string marker=std::string("{\"schema\":1,\"factory_cached\":true,\"processor\":\"")+o.processor
+        +"\",\"controller\":\""+o.controller+"\"}\n";
+    writePrivate(std::string(o.prefix)+".factory-ready",reinterpret_cast<const uint8_t*>(marker.data()),marker.size(),
+                 "private unique factory-ready marker");
+    std::cout<<"{\"event\":\"factory_held\",\"schema\":1,\"metadata_cached\":true,\"wait_bound_seconds\":600}"<<std::endl;
+    const auto deadline=Clock::now()+factoryWaitBound;
+    while(!factoryReleased(o)) {
+        need(Clock::now()<deadline,"factory release deadline");
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    std::cout<<"{\"event\":\"factory_released\",\"schema\":1}"<<std::endl;
 }
 std::array<uint8_t,32> stateSha256(const uint8_t* bytes,size_t length) {
     static constexpr std::array<uint32_t,64> constants{
@@ -620,6 +710,48 @@ void stateRoundtrip(Lifecycle& life,const Options& o,LVBState::Stream& original)
     writeState(o.prefix,".controller",control);
     std::cout << "{\"event\":\"completion_state\",\"component_bytes\":" << original.bytes.size()
               << ",\"controller_bytes\":" << control.bytes.size() << ",\"component_recall\":true,\"controller_recall\":true}" << std::endl;
+    if(o.scenario=="state-record") {
+        const auto view=completionState(saved,o);
+        need(view.values[0]==.625&&view.values[1]==.125,"meaningful external state record values");
+        std::cout<<"{\"event\":\"external_state_recorded\",\"schema\":1,\"component_bytes\":"<<saved.size()
+                 <<",\"controller_bytes\":"<<control.bytes.size()<<",\"meaningful_gain\":0.625,\"meaningful_colour\":0.125"
+                 <<",\"input_bytes_owned_by_host\":true}"<<std::endl;
+    }
+}
+void captureExternalRecall(Lifecycle& life,const Options& o,ExternalState& source) {
+    LVBState::Stream current;ok(life.component->getState(&current),"current component state capture after external recall");
+    const auto sourceView=completionState(source.componentBytes,o);
+    const auto currentView=completionState(current.bytes,o);
+    need(sourceView.values[0]==.625&&sourceView.values[1]==.125
+        &&currentView.values[0]==.625&&currentView.values[1]==.125,"meaningful migrated component state values");
+    need(current.bytes==source.componentBytes,"unchanged fixture exact external component state");
+    current.position=0;ok(life.component->setState(&current),"current component state replay");
+    current.position=0;ok(life.controller->setComponentState(&current),"current controller synchronization");
+    need(life.controller->getParamNormalized(0)==.625&&life.controller->getParamNormalized(1)==.125,
+         "meaningful current controller values");
+    LVBState::Stream recalled;ok(life.component->getState(&recalled),"current component state recapture");
+    need(recalled.bytes==current.bytes,"unchanged fixture exact current component roundtrip");
+    LVBState::Stream control;ok(life.controller->getState(&control),"current controller state capture");
+    need(control.bytes==source.controllerBytes,"unchanged fixture exact external controller state");
+    control.position=0;ok(life.controller->setState(&control),"current controller state replay");
+    LVBState::Stream controlAgain;ok(life.controller->getState(&controlAgain),"current controller state recapture");
+    need(controlAgain.bytes==control.bytes,"unchanged fixture exact current controller roundtrip");
+    originalStateRetained(source.component,source.componentBytes);
+    originalStateRetained(source.controller,source.controllerBytes);
+    const auto componentOnDisk=readPrivate(source.componentPath,LVBState::payloadLimit+LVBState::overhead,false,
+                                           "external component state reread");
+    const auto controllerOnDisk=readPrivate(source.controllerPath,LVBState::payloadLimit+LVBState::overhead,false,
+                                            "external controller state reread");
+    need(componentOnDisk&&*componentOnDisk==source.componentBytes
+        &&controllerOnDisk&&*controllerOnDisk==source.controllerBytes,"external state input files changed");
+    writeState(o.capturePrefix,".component",current);
+    writeState(o.capturePrefix,".component.recalled",recalled);
+    writeState(o.capturePrefix,".controller",control);
+    std::cout<<"{\"event\":\"completion_state\",\"schema\":2,\"source_component_bytes\":"
+             <<source.componentBytes.size()<<",\"source_controller_bytes\":"<<source.controllerBytes.size()
+             <<",\"current_component_bytes\":"<<current.bytes.size()<<",\"current_controller_bytes\":"<<control.bytes.size()
+             <<",\"external_input_unchanged\":true,\"meaningful_gain\":0.625,\"meaningful_colour\":0.125"
+             <<",\"component_exact_for_unchanged_fixture\":true,\"controller_exact_for_unchanged_fixture\":true}"<<std::endl;
 }
 void slow(Exercise& run) {
     run.configure(kOffline,run.o.block,run.o.rate); run.zeroes(kOffline,run.o.rate);
@@ -694,6 +826,8 @@ void slow(Exercise& run) {
 int main(int argc,char** argv) {
     try {
         const auto o = options(argc,argv);
+        std::optional<ExternalState> external;
+        if(o.scenario=="state-recall") {stage="external_state_input";external.emplace(o);}
         auditBegin = reinterpret_cast<Mark>(dlsym(RTLD_DEFAULT,"ap3_audit_begin"));
         auditEnd = reinterpret_cast<Count>(dlsym(RTLD_DEFAULT,"ap3_audit_end"));
         auditLocalWakes = reinterpret_cast<Count>(dlsym(RTLD_DEFAULT,"ap3_audit_local_wakes"));
@@ -708,6 +842,7 @@ int main(int argc,char** argv) {
         host = owned(new HostApplication); module->getFactory().setHostContext(host);
         const auto classes = module->getFactory().classInfos(); need(classes.size() == 2, "exact two-class fixture");
         need(classes[0].ID().toString() == o.processor && classes[1].ID().toString() == o.controller, "exact declared native class pair");
+        if(o.scenario=="held-factory-refusal") {stage="factory_gate";holdFactory(o);stage="post_update_instance_setup";}
         life.component = module->getFactory().createInstance<IComponent>(classes[0].ID()); need(bool(life.component), "component factory");
         ok(life.component->initialize(host), "component initialize"); life.componentInitialized = true;
         life.processor = FUnknownPtr<IAudioProcessor>(life.component); need(bool(life.processor), "processor interface");
@@ -722,6 +857,7 @@ int main(int argc,char** argv) {
         need(life.controller->getParameterCount() == 4, "exact fixture parameter census");
         for (int i = 0; i < 4; ++i) { ParameterInfo info{}; ok(life.controller->getParameterInfo(i,info), "parameter metadata");
             need(info.id == std::array<ParamID,4>{0,1,31,32}[size_t(i)], "stable parameter identities"); }
+        if(external) {stage="external_state_restore";restoreExternalState(*life.component,*life.controller,*external);}
         need(life.component->getBusCount(kAudio,kInput) == (o.instrument?0:1)
             && life.component->getBusCount(kAudio,kOutput) == 2 && life.component->getBusCount(kEvent,kInput) == 1
             && life.component->getBusCount(kEvent,kOutput) == 1, "exact declared stereo/event buses");
@@ -739,15 +875,22 @@ int main(int argc,char** argv) {
         }
         need(life.processor->canProcessSampleSize(kSample32) == kResultTrue
             && life.processor->canProcessSampleSize(kSample64) != kResultTrue, "declared float32 processing");
-        stage = "processing"; Exercise run(life,o); std::exception_ptr failure;
+        stage = "processing"; Exercise run(life,o); std::exception_ptr failure;const char* failureStage=nullptr;
         try {
-            run.output.prepare(o.prefix);
-            run.configure(kOffline,o.block,o.rate);
-            // Opaque initial state is changed through SDK parameters only.
-            run.buffers.prepare(0,kOffline,o.instrument,false); point(run.buffers.sent,0,.625); point(run.buffers.sent,1,.125);
-            auto initialized = call([&]{return life.processor->process(run.buffers.data);});
-            need(initialized.effects == 0, "initial flush callback effects"); ok(initialized.result, "initial recognizable state flush");
-            life.stop();
+            run.output.prepare(o.capturePrefix);
+            if(o.scenario=="held-factory-refusal") {
+                stage="post_update_processing_admission";
+                run.configure(kOffline,o.block,o.rate);
+                throw std::runtime_error("held factory unexpectedly admitted after bridge replacement");
+            }
+            if(o.scenario!="state-recall") {
+                run.configure(kOffline,o.block,o.rate);
+                // Opaque initial state is changed through SDK parameters only.
+                run.buffers.prepare(0,kOffline,o.instrument,false); point(run.buffers.sent,0,.625); point(run.buffers.sent,1,.125);
+                auto initialized = call([&]{return life.processor->process(run.buffers.data);});
+                need(initialized.effects == 0, "initial flush callback effects"); ok(initialized.result, "initial recognizable state flush");
+                life.stop();
+            }
             if (o.scenario == "slow-offline") slow(run);
             else if (o.scenario == "abrupt-offline") abrupt(run);
             else if (o.scenario == "offline-failure" || o.scenario == "offline-timeout") {
@@ -762,7 +905,9 @@ int main(int argc,char** argv) {
                           << "\",\"result\":" << result.result << ",\"callback_ns\":" << result.end-result.begin
                           << ",\"successful_audio_claim\":false}" << std::endl;
             } else {
-                if (o.scenario == "matrix" || o.scenario == "offline") {
+                if(o.scenario=="state-record"||o.scenario=="state-recall")run.recalledStateAudio(o.block,o.rate);
+                if (o.scenario == "matrix" || o.scenario == "offline"
+                    || o.scenario == "state-record" || o.scenario == "state-recall") {
                     run.offlineMatrix(o.block,o.rate);
                     // Legal inactive rate/block reconfiguration, independently
                     // of republishing or manager preparation.
@@ -770,17 +915,21 @@ int main(int argc,char** argv) {
                     run.offlineMatrix(std::min(257,o.block),otherRate);
                 }
                 if (o.scenario == "matrix" || o.scenario == "modes") run.modes(o.block,o.rate);
-                LVBState::Stream captured; ok(life.component->getState(&captured), "idle post-processing capture");
-                stateRoundtrip(life,o,captured);
+                stage="state_capture";
+                if(external)captureExternalRecall(life,o,*external);
+                else {
+                    LVBState::Stream captured; ok(life.component->getState(&captured), "idle post-processing capture");
+                    stateRoundtrip(life,o,captured);
+                }
             }
-        } catch (...) { failure = std::current_exception(); }
+        } catch (...) { failure = std::current_exception();failureStage=stage; }
         stage = "retirement"; const bool clean = life.finish();
         // All process calls have returned/joined. Even a refused stop retains
         // the SDK lifetime separately; these copied samples own no vendor memory.
         std::exception_ptr outputFailure;
         try { run.output.write(); } catch (...) { outputFailure = std::current_exception(); }
         run.report();
-        if (failure) { stage = "processing"; std::rethrow_exception(failure); }
+        if (failure) { stage = failureStage; std::rethrow_exception(failure); }
         need(clean, "positive completed SDK lifecycle retirement");
         if (outputFailure) { stage = "output_retention"; std::rethrow_exception(outputFailure); }
         need(run.oracle.mismatches == 0 && run.oracle.nonfinite == 0 && run.effects == 0, "exact completion audio and callback oracle");

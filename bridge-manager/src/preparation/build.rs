@@ -24,6 +24,18 @@ pub fn recipe(m: &Manager) -> Result<Artifact> {
     kit.verify()?;
     Ok(kit)
 }
+pub fn recipe_for_software(m: &Manager, software: &crate::catalogue::Software) -> Result<Artifact> {
+    let kit = software.preparation_kit.clone()
+        .ok_or("Preparation support is missing. Install the complete manager package")?;
+    require(kit.path.starts_with(m.root.join("software"))
+        && kit.path.canonicalize()? == kit.path
+        && file(&kit.path)?.metadata()?.mode() & 0o222 == 0,
+        "preparation_kit_authority")?;
+    require(file(&kit.path)?.metadata()?.len() <= 256 * 1024 * 1024,
+        "preparation_kit_size")?;
+    kit.verify()?;
+    Ok(kit)
+}
 /// A verified kit must bind this exact native binary as well as module/class.
 /// An older proxy cannot acquire a larger envelope from a newer manager alone.
 pub fn maximum_bridge_frames(m: &Manager, r: &Registration) -> Result<Option<u32>> {
@@ -37,6 +49,34 @@ pub fn maximum_bridge_frames(m: &Manager, r: &Registration) -> Result<Option<u32
     let Some(reference) = &entry.managed_revision else { return Ok(None); };
     let revision = m.load_revision(&r.metadata.class_id, reference)?;
     retained_maximum(m, &revision)
+}
+/// Package refresh validates capacity against the explicit staged runtime.
+/// The selected package may still describe the predecessor while preparation
+/// is in progress, so it cannot answer for the candidate native image.
+pub(crate) fn candidate_maximum_bridge_frames(
+    m: &Manager,
+    candidate: &Candidate,
+) -> Result<Option<u32>> {
+    let registration = super::configuration::registration(candidate)?;
+    let runtime = existing_runtime(m, &candidate.recipe_sha256)?;
+    require(
+        candidate.host == runtime.host && candidate.source_manifest == runtime.source_manifest,
+        "candidate_runtime_changed",
+    )?;
+    capability_from_kit(&runtime.kit, &registration, "maximum_bridge_frames")
+}
+pub(crate) fn candidate_supports_audio_completion(
+    m: &Manager,
+    candidate: &Candidate,
+) -> Result<bool> {
+    let registration = super::configuration::registration(candidate)?;
+    let runtime = existing_runtime(m, &candidate.recipe_sha256)?;
+    require(
+        candidate.host == runtime.host && candidate.source_manifest == runtime.source_manifest,
+        "candidate_runtime_changed",
+    )?;
+    Ok(capability_from_kit(&runtime.kit, &registration,
+        "audio_completion_contract")? == Some(1))
 }
 /// Rollback validates the target ancestor's capacity before selecting it. The
 /// currently selected revision cannot stand in for that ancestor's recipe.
@@ -79,8 +119,33 @@ fn capability_from_kit(kit: &Artifact, r: &Registration, capability: &str) -> Re
     child.stdout.take().ok_or("prebuilt_info_stdout")?.take(33).read_to_end(&mut bytes)?;
     require(status.success() && bytes.len() <= 32, "prebuilt_info_invalid")?;
     let maximum: Option<u32> = serde_json::from_slice(&bytes)?;
-    require(maximum.is_none_or(|n| if capability == "audio_completion_contract" { n == 1 } else { matches!(n, 512 | 1024) }), "prebuilt_info_envelope")?;
+    require(maximum.is_none_or(|n| if matches!(capability,
+        "audio_completion_contract" | "loaded_engine_admission_contract") { n == 1 }
+        else { matches!(n, 512 | 1024) }), "prebuilt_info_envelope")?;
     Ok(maximum)
+}
+pub fn runtime_declares_loaded_engine(runtime: &Runtime) -> Result<bool> {
+    runtime.kit.verify()?;
+    let request = serde_json::json!({"kit":runtime.kit.path,
+        "capability":"loaded_engine_admission_contract"});
+    let mut child = Command::new("python3")
+        .args(["-I", "-c", include_str!("../../../tools/mf3/prebuilt_info.py")])
+        .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn()?;
+    child.stdin.take().ok_or("prebuilt_info_stdin")?
+        .write_all(&serde_json::to_vec(&request)?)?;
+    let deadline = Instant::now() + Duration::from_secs(3);
+    let status = loop {
+        if let Some(status) = child.try_wait()? { break status; }
+        if Instant::now() >= deadline {
+            child.kill()?; child.wait()?;
+            return Err("prebuilt_info_deadline".into());
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    let mut bytes = Vec::new();
+    child.stdout.take().ok_or("prebuilt_info_stdout")?.take(33).read_to_end(&mut bytes)?;
+    require(status.success() && bytes.len() <= 32, "prebuilt_info_invalid")?;
+    Ok(serde_json::from_slice::<Option<u32>>(&bytes)? == Some(1))
 }
 /// Both executables must belong to the same recipe declaring this contract.
 pub fn supports_audio_completion(m: &Manager, r: &Registration) -> Result<bool> {
@@ -94,6 +159,26 @@ pub fn supports_audio_completion(m: &Manager, r: &Registration) -> Result<bool> 
         .filter(|entry| entry.registration == *r) else { return Ok(false); };
     let Some(reference) = &entry.managed_revision else { return Ok(false); };
     revision_supports_audio_completion(m, &m.load_revision(&r.metadata.class_id, reference)?)
+}
+pub fn supports_loaded_engine_admission(m: &Manager, c: &Candidate) -> Result<bool> {
+    c.native.artifact.verify()?;
+    let Some(descriptor) = c.native.descriptor.as_ref() else { return Ok(false); };
+    if !valid_hex(&c.recipe_sha256, 64) { return Ok(false); }
+    crate::verify_native_descriptor(&c.native.artifact, descriptor,
+        &c.native.class, &c.native.module_sha256)?;
+    let retained = existing_runtime(m, &c.recipe_sha256)?;
+    let registration = super::configuration::registration(c)?;
+    Ok(capability_from_kit(&retained.kit, &registration,
+        "loaded_engine_admission_contract")? == Some(1))
+}
+pub fn revision_supports_loaded_engine_admission(m: &Manager, r: &Revision) -> Result<bool> {
+    let candidate = super::publication_candidate(m, &r.profile, &r.registration)?;
+    supports_loaded_engine_admission(m, &candidate)
+}
+pub(crate) fn publication_supports_loaded_engine_admission(m: &Manager,
+    p: &Profile, r: &Registration) -> Result<bool> {
+    let candidate = super::publication_candidate(m, p, r)?;
+    supports_loaded_engine_admission(m, &candidate)
 }
 pub fn revision_supports_audio_completion(m: &Manager, r: &Revision) -> Result<bool> {
     publication_supports_audio_completion(m, &r.profile, &r.registration)
@@ -119,21 +204,32 @@ pub fn construct(
     manifest: Artifact,
     operation: &str,
 ) -> Result<Candidate> {
+    let runtime = stage_runtime(m)?;
+    require(runtime.host == host && runtime.source_manifest == manifest,
+        "inspection_generation_refresh_required")?;
+    construct_with_runtime(m, s, i, runtime, operation)
+}
+pub fn construct_with_runtime(
+    m: &Manager,
+    s: Selection,
+    i: Inspection,
+    runtime: Runtime,
+    operation: &str,
+) -> Result<Candidate> {
     require(valid_hex(operation, 32), "preparation_operation")?;
     require(
         !matches!(i.controller, ControllerAssociation::Unavailable { .. }),
         "Inspection did not retain the exact controller association; updated inspection required",
     )?;
-    let runtime = stage_runtime(m)?;
-    require(
-        runtime.host == host && runtime.source_manifest == manifest,
-        "inspection_generation_refresh_required",
-    )?;
+    let host = runtime.host.clone();
+    let manifest = runtime.source_manifest.clone();
+    require(i.host == host && i.source_manifest == manifest,
+        "inspection_generation_refresh_required")?;
     require(
         runtime.builder.is_some() && runtime.generator.is_some(),
         "build_recipe_generator_identity_missing",
     )?;
-    let kit = recipe(m)?;
+    let kit = runtime.kit.clone();
     let parent = m.root.join("preparation/work");
     private_dir(&parent)?;
     let dir = parent.join(operation);
@@ -278,6 +374,13 @@ pub fn verify_runtime(m: &Manager, c: &Candidate) -> Result<()> {
 /// replacing the default host or invalidating concurrent SV1 product bytes.
 pub fn stage_runtime(m: &Manager) -> Result<Runtime> {
     let kit = recipe(m)?;
+    stage_runtime_with_kit(m, kit)
+}
+pub fn stage_runtime_for_software(m: &Manager,
+    software: &crate::catalogue::Software) -> Result<Runtime> {
+    stage_runtime_with_kit(m, recipe_for_software(m, software)?)
+}
+fn stage_runtime_with_kit(m: &Manager, kit: Artifact) -> Result<Runtime> {
     let dir = runtime_dir(m, &kit.sha256)?;
     if dir.join("runtime.json").exists() {
         return existing_runtime(m, &kit.sha256);

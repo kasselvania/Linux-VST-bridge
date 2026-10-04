@@ -35,7 +35,8 @@ class PrebuiltCapabilities(unittest.TestCase):
                 kit = pathlib.Path(directory)/'kit.zip'
                 native, host = 'ab'*32, 'cd'*32
                 index = dict(schema=3, engine='prebuilt/engine.so', engine_sha256=native,
-                    descriptor_schema=1, maximum_bridge_frames=1024, native_sources={})
+                    descriptor_schema=1, maximum_bridge_frames=1024,
+                    loaded_engine_admission_contract=1, native_sources={})
                 if supported:
                     index['audio_completion_contract'] = 1
                 data = json.dumps(index).encode()
@@ -48,6 +49,9 @@ class PrebuiltCapabilities(unittest.TestCase):
                 self.assertEqual(capability(request, 'audio_completion_contract'), 1 if supported else None)
                 for name in ('native_sha256','host_sha256'):
                     self.assertIsNone(capability({**request, name:'ef'*32}, 'audio_completion_contract'))
+                self.assertEqual(capability(request, 'loaded_engine_admission_contract'), 1)
+                self.assertIsNone(capability({**request, 'native_sha256':'ef'*32},
+                    'loaded_engine_admission_contract'))
 
     def test_unknown_capability_and_changed_index_refuse(self):
         for options in (dict(maximum=2048), dict(corrupt=True)):

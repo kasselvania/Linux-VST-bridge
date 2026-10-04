@@ -106,14 +106,14 @@ fn put(path: &Path, bytes: &[u8]) -> Result<()> {
     }
     result
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct FileChange {
     path: PathBuf,
     before: Option<Vec<u8>>,
     after: Vec<u8>,
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct LinkChange {
     path: PathBuf,
@@ -122,9 +122,9 @@ struct LinkChange {
 }
 /// A complete, exact switch of the user-facing command, frontend, service and
 /// software authority. PKG0 retains this before changing any of those routes.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct Plan {
+pub(crate) struct Plan {
     links: Vec<LinkChange>,
     files: Vec<FileChange>,
 }
@@ -184,7 +184,7 @@ pub(super) fn commit(
     apply(&plan, fail_after)
 }
 
-pub(super) fn plan(
+pub(crate) fn plan(
     m: &Manager,
     home: &Path,
     installed: &Software,
@@ -303,6 +303,78 @@ fn apply(plan: &Plan, fail_after: Option<usize>) -> Result<()> {
     }
     Ok(())
 }
+pub(crate) fn apply_plan(plan: &Plan) -> Result<()> { apply(plan, None) }
+
+fn apply_restore_order(plan: &Plan, include_service: bool) -> Result<()> {
+    require(plan.files.len() >= 2, "package_transition_paths")?;
+    let service = plan.files.len() - 2;
+    let software = plan.files.len() - 1;
+    let mut written = Vec::new();
+    let mut linked = Vec::new();
+    let result = (|| -> Result<()> {
+        // The predecessor selection becomes authoritative while the successor
+        // service unit is still the only unit that can start after a reboot.
+        // That manager understands the coordinated journal and refuses a
+        // mixed publication/setup state. The predecessor unit is installed
+        // only after every other route and publication is at the final state.
+        for index in std::iter::once(software).chain(0..service) {
+            let change = &plan.files[index];
+            let actual = owned_file(&change.path, None)?;
+            require(actual == change.before || actual.as_ref() == Some(&change.after),
+                "setup_file_changed")?;
+            if actual.as_ref() != Some(&change.after) {
+                put(&change.path, &change.after)?;
+                written.push(index);
+            }
+        }
+        for (index, change) in plan.links.iter().enumerate() {
+            let actual = Plan::link_state(change)?;
+            publication::install_command(&change.path, &change.after,
+                change.before.as_deref())?;
+            if actual.as_ref() != Some(&change.after) { linked.push(index); }
+        }
+        if include_service {
+            let change = &plan.files[service];
+            let actual = owned_file(&change.path, None)?;
+            require(actual == change.before || actual.as_ref() == Some(&change.after),
+                "setup_file_changed")?;
+            if actual.as_ref() != Some(&change.after) {
+                put(&change.path, &change.after)?;
+                written.push(service);
+            }
+        }
+        Ok(())
+    })();
+    if let Err(error) = result {
+        for index in written.into_iter().rev() {
+            let change = &plan.files[index];
+            require(owned_file(&change.path, None)?.as_ref() == Some(&change.after),
+                "setup_rollback_file_changed")?;
+            if let Some(before) = &change.before { put(&change.path, before)?; }
+            else { fs::remove_file(&change.path)?; }
+        }
+        for index in linked.into_iter().rev() {
+            let change = &plan.links[index];
+            require(Plan::link_state(change)?.as_ref() == Some(&change.after),
+                "setup_rollback_command_changed")?;
+            if let Some(before) = &change.before {
+                publication::install_command(&change.path, before, Some(&change.after))?;
+            } else { fs::remove_file(&change.path)?; }
+        }
+        return Err(error);
+    }
+    Ok(())
+}
+
+pub(crate) fn apply_restore_plan(plan: &Plan) -> Result<()> {
+    apply_restore_order(plan, true)?;
+    require(plan.is_after()?, "package_transition_incomplete")
+}
+
+#[cfg(test)]
+pub(crate) fn interrupt_restore_before_service_for_test(plan: &Plan) -> Result<()> {
+    apply_restore_order(plan, false)
+}
 
 /// The package owner writes this private journal before changing any route.
 /// It is kept on ordinary failure until the exact old or new state is proven.
@@ -405,8 +477,92 @@ impl Plan {
         }
         Ok((before, after))
     }
-    fn is_before(&self) -> Result<bool> { Ok(self.states()?.0) }
-    fn is_after(&self) -> Result<bool> { Ok(self.states()?.1) }
+    pub(crate) fn is_before(&self) -> Result<bool> { Ok(self.states()?.0) }
+    pub(crate) fn is_after(&self) -> Result<bool> { Ok(self.states()?.1) }
+}
+pub(crate) fn validate_plan(plan: &Plan, m: &Manager, home: &Path) -> Result<()> {
+    plan.validate_paths(m, home)
+}
+
+pub(crate) fn plan_software(plan: &Plan) -> Result<(Option<Software>, Software)> {
+    let software = plan.files.last().ok_or("package_transition_paths")?;
+    let before = software.before.as_ref()
+        .map(|bytes| serde_json::from_slice(bytes)).transpose()?;
+    let after = serde_json::from_slice(&software.after)?;
+    Ok((before, after))
+}
+
+pub(crate) fn pending_plan(m: &Manager, home: &Path) -> Result<Plan> {
+    let plan: Plan = read_json(&m.root.join("package-transition.json"))?;
+    plan.validate_paths(m, home)?;
+    Ok(plan)
+}
+
+pub(crate) fn restore_plan(plan: &Plan) -> Result<()> {
+    if !plan.is_before()? {
+        for file in plan.files.iter().rev() {
+            let actual = owned_file(&file.path, None)?;
+            if actual.as_ref() == Some(&file.after) && actual != file.before {
+                if let Some(bytes) = &file.before { put(&file.path, bytes)?; }
+                else { fs::remove_file(&file.path)?; }
+            }
+        }
+        for link in plan.links.iter().rev() {
+            if Plan::link_state(link)?.as_ref() == Some(&link.after)
+                && link.before.as_ref() != Some(&link.after) {
+                if let Some(prior) = &link.before {
+                    publication::install_command(&link.path, prior, Some(&link.after))?;
+                } else { fs::remove_file(&link.path)?; }
+            }
+        }
+    }
+    require(plan.is_before()?, "package_transition_recovery_incomplete")
+}
+
+fn restore_successor_order(plan: &Plan, include_rest: bool) -> Result<()> {
+    require(plan.files.len() >= 2, "package_transition_paths")?;
+    // Validate every route before the first mutation. For the inverse of a
+    // Restore, reinstall the journal-aware successor service unit first and
+    // make its software selection authoritative last. A reboot at any
+    // intermediate point therefore starts the manager that understands the
+    // retained coordinated journal and refuses the mixed state.
+    plan.states()?;
+    let service = plan.files.len() - 2;
+    let software = plan.files.len() - 1;
+    let restore_file = |change: &FileChange| -> Result<()> {
+        let actual = owned_file(&change.path, None)?;
+        if actual.as_ref() == Some(&change.after) && actual != change.before {
+            if let Some(before) = &change.before { put(&change.path, before)?; }
+            else { fs::remove_file(&change.path)?; }
+        }
+        Ok(())
+    };
+    restore_file(&plan.files[service])?;
+    if !include_rest { return Ok(()); }
+    for change in plan.files[..service].iter().rev() {
+        restore_file(change)?;
+    }
+    for change in plan.links.iter().rev() {
+        if Plan::link_state(change)?.as_ref() == Some(&change.after)
+            && change.before.as_ref() != Some(&change.after) {
+            if let Some(before) = &change.before {
+                publication::install_command(&change.path, before,
+                    Some(&change.after))?;
+            } else { fs::remove_file(&change.path)?; }
+        }
+    }
+    restore_file(&plan.files[software])?;
+    require(plan.is_before()?, "package_transition_recovery_incomplete")
+}
+
+pub(crate) fn restore_successor_plan(plan: &Plan) -> Result<()> {
+    restore_successor_order(plan, true)
+}
+
+#[cfg(test)]
+pub(crate) fn interrupt_restore_origin_after_service_for_test(
+    plan: &Plan) -> Result<()> {
+    restore_successor_order(plan, false)
 }
 
 /// After a crash, finish an entirely applied switch or restore the exact
@@ -417,23 +573,7 @@ pub(super) fn recover_journaled(m: &Manager, home: &Path,
     if !journal.try_exists()? { return Ok(false); }
     let switch: Plan = read_json(&journal)?;
     switch.validate_paths(m, home)?;
-    if !switch.is_after()? && !switch.is_before()? {
-        for file in switch.files.iter().rev() {
-            let actual = owned_file(&file.path, None)?;
-            if actual.as_ref() == Some(&file.after) && actual != file.before {
-                if let Some(bytes) = &file.before { put(&file.path, bytes)?; }
-                else { fs::remove_file(&file.path)?; }
-            }
-        }
-        for link in switch.links.iter().rev() {
-            if Plan::link_state(link)?.as_ref() == Some(&link.after)
-                && link.before.as_ref() != Some(&link.after) {
-                if let Some(prior) = &link.before {
-                    publication::install_command(&link.path, prior, Some(&link.after))?;
-                } else { fs::remove_file(&link.path)?; }
-            }
-        }
-    }
+    if !switch.is_after()? && !switch.is_before()? { restore_plan(&switch)?; }
     require(switch.is_after()? || switch.is_before()?, "package_transition_recovery_incomplete")?;
     let chosen = if switch.is_after()? {
         Some(serde_json::from_slice::<Software>(&switch.files.last().ok_or("package_transition_paths")?.after)?)
@@ -456,6 +596,25 @@ pub(super) fn interrupt_journaled_for_test(m: &Manager, home: &Path,
         let first = switch.links.first().ok_or("package_transition_paths")?;
         publication::install_command(&first.path, &first.after, first.before.as_deref())
     }
+}
+
+#[cfg(test)]
+pub(super) fn interrupt_first_install_after_service_for_test(m: &Manager,
+    home: &Path, installed: &Software) -> Result<()> {
+    let switch = plan(m, home, installed, None)?;
+    switch.validate_paths(m, home)?;
+    atomic_json(&m.root.join("package-transition.json"), &switch)?;
+    for link in &switch.links {
+        publication::install_command(&link.path, &link.after, None)?;
+    }
+    let software = switch.files.len().checked_sub(1)
+        .ok_or("package_transition_paths")?;
+    for file in &switch.files[..software] {
+        require(owned_file(&file.path, None)?.is_none(), "setup_file_changed")?;
+        put(&file.path, &file.after)?;
+    }
+    require(!m.root.join("software.json").try_exists()?,
+        "package_transition_software")
 }
 
 #[cfg(test)]

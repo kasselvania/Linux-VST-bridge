@@ -37,9 +37,18 @@ eligible execution route under the repaired manager. Normal restoration must use
 verified compatible bridge components for the exact retained vendor/configuration.
 A retained full package predecessor requires its coherent manager/publication pair.
 
-The code still lacks the coordinated customer workflow. A legacy refusal alone
-cannot close FC-MGMT-008. Update staging, publication selection, interruption
-recovery, service restoration and ordinary rollback must agree before deployment.
+The coordinated source implementation now prepares against the explicit target,
+uses the existing package journal and exact publication intents for update/restore,
+and connects normal Setup controls to service recovery. Legacy LVB1–4 admission
+is refused under the modern manager. Current source validation is recorded in
+[managed refresh source evidence](evidence/audio-recovery/2026-10-04-managed-refresh-source.json).
+The retained [installed baseline](evidence/audio-recovery/2026-10-04-managed-refresh-installed-baseline.json)
+contains six selected classes and original instrument/effect state and output.
+
+FC-MGMT-008 remains open until the committed package completes the installed
+update, current-caller recall, stale-caller refusal, failure/interruption recovery
+and both ordinary restoration routes. Source tests and the prior baseline do not
+establish that new installed behavior.
 
 ## Implementation boundary
 
@@ -86,7 +95,8 @@ not dependable-audio claims. Preserve exact identities before mutation.
 
 ## Machine custody and cost
 
-Both project machines are stopped at turn start; Audiobookshelf is running.
+The constrained builder is in use for source validation and candidate construction;
+the retained Ubuntu VM is stopped. Audiobookshelf is running.
 Use one builder or VM at a time, two CPUs on host 2–3, 256 processes. Builder 4 GiB;
 Ubuntu 6 GiB guest / 8 GiB container; combined outer memory/swap equals memory. Reserve
 CPU 0–1 and capacity for Audiobookshelf. Root owns machine mutations and artifacts.

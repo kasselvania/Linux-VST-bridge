@@ -785,6 +785,16 @@ fn spec(
     first_audio: bool,
     keeper: bool,
 ) -> Result<(SessionSpec, PathBuf)> {
+    spec_with_package_refresh(m, r, inspect, first_audio, keeper, false)
+}
+fn spec_with_package_refresh(
+    m: &Manager,
+    r: HostBinding,
+    inspect: bool,
+    first_audio: bool,
+    keeper: bool,
+    package_refresh: bool,
+) -> Result<(SessionSpec, PathBuf)> {
     let sid = random_id()?;
     let directory = r
         .environment
@@ -805,6 +815,9 @@ fn spec(
                 else {package_authority::paired_host_components(m,&current,&r.host,&r.host_source_sha256)?};
             require(r.host==paired.host && r.host_source_sha256==paired.source_sha256,"keeper_software_binding_changed")?;
             require(onboarding::history_records(m)?.iter().any(|h|h.environment==r.environment),"keeper_environment_binding_changed")?;
+        } else if package_refresh && inspect {
+            // The package owner has already bound this maintenance launch to
+            // one staged package, retained registration and stopped service.
         } else if inspect && onboarding::history_records(m)?.iter().any(|h|h.environment==r.environment) {
             // The maintenance inspector is independently installed and may be
             // newer than a retained product runtime. It grants no DSP authority.
@@ -844,6 +857,63 @@ fn spec(
     let path = directory.join("owner.json");
     atomic_json(&path, &s)?;
     Ok((s, path))
+}
+
+fn verify_package_refresh_runtime(target: &Software,
+    runtime: &preparation::build::Runtime) -> Result<()> {
+    let target_kit = target.preparation_kit.as_ref()
+        .ok_or("package_refresh_runtime_changed")?;
+    target_kit.verify()?;
+    runtime.kit.verify()?;
+    require(target_kit.sha256 == runtime.kit.sha256
+        && target.host.sha256 == runtime.host.sha256
+        && target.source_manifest.sha256 == runtime.source_manifest.sha256
+        && target.source_sha256 == runtime.source_manifest.sha256,
+        "package_refresh_runtime_changed")?;
+    target.host.verify()?;
+    target.source_manifest.verify()?;
+    runtime.host.verify()?;
+    runtime.source_manifest.verify()
+}
+
+pub(crate) fn inspect_for_package_refresh(m: &Manager, target: &Software,
+    runtime: &preparation::build::Runtime, prior: &Registration) -> Result<Artifact> {
+    verify_package_refresh_runtime(target, runtime)?;
+    m.require_inactive(None)?;
+    prior.module.verify()?;
+    let binding = HostBinding {
+        metadata:ClassSelection { class_id:prior.metadata.class_id.clone() },
+        environment:prior.environment.clone(), module:prior.module.clone(),
+        host:runtime.host.clone(), host_source_sha256:runtime.source_manifest.sha256.clone(),
+        compatibility:prior.compatibility.clone(),
+    };
+    let (job, path) = spec_with_package_refresh(m, binding, true, false, false, true)?;
+    let mut child = spawn(m, target, &path, None)?;
+    if let Err(readiness) = supervisor_ready(&mut child, &job, Duration::from_secs(4)) {
+        retire_unready_supervisor(&mut child, &path)?;
+        return Err(readiness);
+    }
+    // The supervisor owns the Windows process tree and has a 180-second
+    // inspection deadline. Keep a separate outer bound so a broken supervisor
+    // cannot leave the package owner waiting indefinitely.
+    let deadline = Instant::now() + Duration::from_secs(190);
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) => {}
+            Err(error) => {
+                retire_unready_supervisor(&mut child, &path)?;
+                return Err(error.into());
+            }
+        }
+        if Instant::now() >= deadline {
+            retire_unready_supervisor(&mut child, &path)?;
+            return Err("package_refresh_inspection_deadline".into());
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    finish_inspection(m, &job, status)?;
+    Ok(Artifact { sha256:digest(&job.report)?, path:job.report })
 }
 fn spawn(m: &Manager, s: &Software, path: &Path, peer: Option<UnixStream>) -> Result<Child> {
     s.supervisor.verify()?;
@@ -1292,8 +1362,9 @@ fn capacity_read(m: &Manager) -> Result<()> {
 }
 fn serve(m: Manager) -> Result<()> {
     let _lock = m.lock("service.lock")?;
-    m.reconcile()?;
     let s = software(&m)?;
+    package_authority::require_service_transition_coherent(&m, &s)?;
+    m.reconcile()?;
     transport_storage::initialize()?;
     let runtime = m.root.join("runtime");
     private_dir(&runtime)?;
@@ -1545,6 +1616,10 @@ fn serve(m: Manager) -> Result<()> {
                 // the existing 65-second native admission budget.
                 let keeper_deadline=startup.started+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS);
                 let prepared=(|| -> Result<_> {
+                    if !version5 {
+                        startup.phase("bridge_update_required");
+                        return Err(capacity::Refusal::StaleNativeCaller.into());
+                    }
                     let peer_process=match transport_storage::peer_process(&peer) {
                         Ok(process)=>process,
                         Err(_) if version5=>return Err(capacity::Refusal::StaleNativeCaller.into()),
@@ -2007,6 +2082,8 @@ fn main() -> Result<()> {
     match args.first().map(String::as_str){
   Some("setup") if args.len()==2=>setup(&m,Some(Path::new(&args[1]))),
   Some("package-adopt") if args.len()==1=>package_authority::adopt(&m),
+  Some("package-update") if args.len()==1=>package_authority::update(&m),
+  Some("package-restore") if args.len()==1=>package_authority::restore(&m),
   Some("package-rollback") if args.len()==1=>package_authority::rollback(&m),
   Some("package-recover") if args.len()==1=>package_authority::recover(&m).map(|_|()),
   Some("package-activation-status") if args.len()==1=>package_authority::activation_status(&m),
@@ -2500,6 +2577,61 @@ mod tests {
         assert_eq!(job.keeper_startup_seconds,Some(KEEPER_OWNER_STARTUP_SECONDS));
         assert_eq!(job.runner_key.as_deref(), Some(catalogue::runner_key(&f.r.environment.runner).unwrap().as_str()));
         assert_eq!(KEEPER_MANAGER_RETIRE_SECONDS,KEEPER_OWNER_STARTUP_SECONDS+2);
+    }
+    #[test]
+    fn package_refresh_runtime_binds_equal_bytes_at_distinct_owned_paths() {
+        let f = test_fixture::Fixture::new();
+        let retained = f.outer.join("retained");
+        let extracted = f.outer.join("extracted");
+        private_dir(&retained).unwrap();
+        private_dir(&extracted).unwrap();
+        let make = |directory: &Path, name: &str, bytes: &[u8]| {
+            fs::write(directory.join(name), bytes).unwrap();
+            Artifact { sha256:digest(&directory.join(name)).unwrap(),
+                path:directory.join(name) }
+        };
+        let target_host = make(&retained, "host.exe", b"same host");
+        let runtime_host = make(&extracted, "host.exe", b"same host");
+        let target_source = make(&retained, "source.json", b"same source");
+        let runtime_source = make(&extracted, "source.json", b"same source");
+        let target_kit = make(&retained, "kit.zip", b"exact kit");
+        let runtime_kit = make(&extracted, "kit.zip", b"exact kit");
+        let target = Software { installer_launch:None,
+            preparation_kit:Some(target_kit), operator_frontend:None,
+            manager:target_host.clone(), supervisor:target_host.clone(),
+            ownership:target_host.clone(), host:target_host,
+            source_manifest:target_source.clone(),
+            source_sha256:target_source.sha256.clone(), native_catalogue:None };
+        let runtime = preparation::build::Runtime { kit:runtime_kit,
+            host:runtime_host, source_manifest:runtime_source,
+            builder:None, generator:None };
+        assert_ne!(target.preparation_kit.as_ref().unwrap().path, runtime.kit.path);
+        assert_ne!(target.host.path, runtime.host.path);
+        verify_package_refresh_runtime(&target, &runtime).unwrap();
+        fs::write(&runtime.host.path, b"changed host").unwrap();
+        assert!(verify_package_refresh_runtime(&target, &runtime).is_err());
+    }
+    #[test]
+    fn package_refresh_accepts_exact_cached_kit_at_a_new_generation_path() {
+        let (f, candidate) = crate::preparation_cli::tests::projection_fixture();
+        let cached = preparation::build::existing_runtime(&f.m,
+            &candidate.recipe_sha256).unwrap();
+        let mut target = crate::preparation_cli::tests::projection_software(&candidate);
+        let directory = f.m.root.join("software/next-generation");
+        private_dir(&directory).unwrap();
+        let path = directory.join("preparation-kit.zip");
+        fs::copy(&cached.kit.path, &path).unwrap();
+        fs::set_permissions(&path,
+            fs::Permissions::from_mode(0o400)).unwrap();
+        target.preparation_kit = Some(Artifact {
+            sha256:digest(&path).unwrap(), path,
+        });
+        let reused = preparation::build::stage_runtime_for_software(&f.m,
+            &target).unwrap();
+        assert_ne!(target.preparation_kit.as_ref().unwrap().path,
+            reused.kit.path);
+        assert_eq!(reused.kit, cached.kit);
+        verify_package_refresh_runtime(&target, &reused).unwrap();
     }
     #[test]
     fn missing_candidate_onboarding_cannot_fall_back_to_operator_home() {

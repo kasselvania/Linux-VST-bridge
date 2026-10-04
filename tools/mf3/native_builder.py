@@ -73,6 +73,7 @@ def reusable_engine(request, generator, archive, recipe):
         index = json.loads(index_bytes)
         assert index['schema'] == 3 and index['descriptor_schema'] == 1
         assert index['maximum_bridge_frames'] == 1024
+        assert index.get('loaded_engine_admission_contract') == 1
         name = index['engine']
         assert name == 'prebuilt/engine.so'
         info = z.getinfo(name)

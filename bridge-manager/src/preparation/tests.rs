@@ -1655,36 +1655,48 @@ fn candidate_only_upgrade_refuses_bound_snapshot_conflict_without_rewriting_it()
 #[test]
 fn reusable_engine_actual_preparation_retains_and_publishes_descriptor() {
     let (f, c) = fixture();
+    retain_inspection(&f.m, &c.inspection).unwrap();
+    record_candidate(&f.m, &c).unwrap();
+    let predecessor = enable(&f.m, &c, false).unwrap();
+    private_dir(&f.m.root.join("performance")).unwrap();
+    atomic_json(&f.m.root.join("performance").join(format!("{}.json",
+        c.selection.class.id)), &Performance { schema:1, added_frames:1024,
+        delivery_mode:DeliveryMode::Buffered }).unwrap();
     let path = f.m.root.join("software/reusable-kit.zip");
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
         .to_path_buf();
     let script = r#"import json,zipfile,hashlib,sys,pathlib
-path,root,host,manifest=sys.argv[1:];root=pathlib.Path(root)
+path,root,host,manifest,engine=sys.argv[1:];root=pathlib.Path(root)
 sha=lambda b:hashlib.sha256(b).hexdigest()
-files={'prebuilt/engine.so':b'\x7fELFreusable-engine-fixture',
+files={'prebuilt/engine.so':b'\x7fELF'+engine.encode(),
  'runtime/host.exe':pathlib.Path(host).read_bytes(),
  'runtime/host-source-manifest.json':pathlib.Path(manifest).read_bytes()}
 for name in ('tools/mf3/native_builder.py','tools/ap8_descriptor.py'):files[name]=(root/name).read_bytes()
 files['prebuilt/index.json']=json.dumps(dict(schema=3,engine='prebuilt/engine.so',
- engine_sha256=sha(files['prebuilt/engine.so']),descriptor_schema=1,maximum_bridge_frames=1024,native_sources={})).encode()
+ engine_sha256=sha(files['prebuilt/engine.so']),descriptor_schema=1,maximum_bridge_frames=1024,
+ audio_completion_contract=1,loaded_engine_admission_contract=1,native_sources={})).encode()
 recipe=dict(schema=4,source_commit='ab'*20,sdk='3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96',
  sdk_runtime='b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8',files={k:sha(v) for k,v in files.items()})
 with zipfile.ZipFile(path,'w') as z:
  z.writestr('recipe.json',json.dumps(recipe))
  for k,v in files.items():z.writestr(k,v)
 "#;
-    assert!(std::process::Command::new("python3")
-        .args(["-I", "-c", script])
-        .arg(&path)
-        .arg(root)
-        .arg(&c.host.path)
-        .arg(&c.source_manifest.path)
-        .status()
-        .unwrap()
-        .success());
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+    let make_kit = |path: &Path, engine: &str| {
+        assert!(std::process::Command::new("python3")
+            .args(["-I", "-c", script])
+            .arg(path)
+            .arg(&root)
+            .arg(&c.host.path)
+            .arg(&c.source_manifest.path)
+            .arg(engine)
+            .status()
+            .unwrap()
+            .success());
+        fs::set_permissions(path, fs::Permissions::from_mode(0o400)).unwrap();
+    };
+    make_kit(&path, "reusable-engine-fixture");
     let a = c.host.clone();
     let sw = crate::catalogue::Software {
         manager: a.clone(),
@@ -1701,8 +1713,18 @@ with zipfile.ZipFile(path,'w') as z:
         source_sha256: c.source_manifest.sha256.clone(),
         native_catalogue: None,
     };
-    atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
-    let runtime = build::stage_runtime(&f.m).unwrap();
+    let old_kit = f.m.root.join("software/old-selected-kit.zip");
+    make_kit(&old_kit, "old-selected-engine-fixture");
+    let mut selected = sw.clone();
+    selected.preparation_kit = Some(Artifact {
+        sha256:digest(&old_kit).unwrap(), path:old_kit,
+    });
+    atomic_json(&f.m.root.join("software.json"), &selected).unwrap();
+    let selected_before = fs::read(f.m.root.join("software.json")).unwrap();
+    assert_ne!(selected.preparation_kit.as_ref().unwrap().sha256,
+        sw.preparation_kit.as_ref().unwrap().sha256);
+    let runtime = build::stage_runtime_for_software(&f.m, &sw).unwrap();
+    assert_eq!(fs::read(f.m.root.join("software.json")).unwrap(), selected_before);
     let mut raw: Value = read_json(&c.inspection.report.path).unwrap();
     raw["records"]
         .as_array_mut()
@@ -1723,12 +1745,11 @@ with zipfile.ZipFile(path,'w') as z:
     )
     .unwrap();
     let operation = random_id().unwrap();
-    let prepared = build::construct(
+    let prepared = build::construct_with_runtime(
         &f.m,
         c.selection,
         inspection,
-        runtime.host,
-        runtime.source_manifest,
+        runtime,
         &operation,
     )
     .unwrap();
@@ -1752,7 +1773,23 @@ with zipfile.ZipFile(path,'w') as z:
     record_candidate(&f.m, &prepared).unwrap();
     build::cleanup_work(&f.m, &operation).unwrap();
     descriptor.verify().unwrap();
-    let revision = enable(&f.m, &prepared, false).unwrap();
+    let transition = f.m.prepare_package_refresh(&prepared, &predecessor).unwrap();
+    assert_eq!(fs::read(f.m.root.join("software.json")).unwrap(), selected_before);
+    assert_eq!(transition.before.performance.added_frames, 1024);
+    assert_eq!(transition.after.performance.added_frames, 1024);
+    assert_ne!(transition.before.entry.registration.native.sha256,
+        transition.after.entry.registration.native.sha256);
+    for (field, changed) in [("schema", json!(2)),
+        ("id", json!("../reverse-intent-escape"))] {
+        let mut value = serde_json::to_value(&transition).unwrap();
+        value["reverse_intent"][field] = changed;
+        let tampered = serde_json::from_value(value).unwrap();
+        assert_eq!(f.m.restore_package_publication(&tampered)
+            .unwrap_err().to_string(), "package_publication_transition_changed");
+        assert!(!f.m.root.join("reverse-intent-escape.json").exists());
+    }
+    f.m.commit_package_publication(&transition).unwrap();
+    let revision = transition.after.entry.managed_revision.clone().unwrap();
     let installed =
         f.m.load_revision(&prepared.selection.class.id, &revision)
             .unwrap();
@@ -1764,6 +1801,7 @@ with zipfile.ZipFile(path,'w') as z:
         fs::read_link(f.m.link(&prepared.selection.class.id)).unwrap(),
         installed.target
     );
+    atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
     check_publication(&f.m, &installed.profile, &installed.registration).unwrap();
     assert!(catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
     assert_eq!(f.m.resolve(&f.identity()).unwrap(), installed.registration);

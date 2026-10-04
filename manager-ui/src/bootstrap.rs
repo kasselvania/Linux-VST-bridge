@@ -4,6 +4,7 @@ use eframe::egui;
 use std::{
     io::Read,
     os::fd::AsRawFd,
+    os::unix::fs::{FileExt, OpenOptionsExt},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::mpsc::{self, Receiver},
@@ -63,11 +64,18 @@ pub fn launch_selected() -> Result<(), String> {
 enum Operation {
     Adopt,
     Activate,
-    Rollback,
+    Update,
+    Restore,
     Recover,
     StopForRepair,
     Status,
     SelectedStatus,
+}
+
+impl Operation {
+    fn owns_transition(self) -> bool {
+        matches!(self, Self::Update | Self::Restore | Self::Recover)
+    }
 }
 
 fn fixed_command(operation: Operation) -> Result<Command, String> {
@@ -80,7 +88,8 @@ fn fixed_command(operation: Operation) -> Result<Command, String> {
     command.arg(match operation {
         Operation::Adopt => "package-adopt",
         Operation::Activate => "package-activate",
-        Operation::Rollback => "package-rollback",
+        Operation::Update => "package-update",
+        Operation::Restore => "package-restore",
         Operation::Recover => "package-recover",
         Operation::StopForRepair => "package-stop-for-repair",
         Operation::Status => "package-bootstrap-status",
@@ -124,7 +133,55 @@ fn collect_pipe<R: Read>(
     }
 }
 
+fn stop_observing(
+    operation: Operation,
+    mut child: std::process::Child,
+    mut stdout: Option<std::process::ChildStdout>,
+    mut stderr: Option<std::process::ChildStderr>,
+) {
+    if !operation.owns_transition() {
+        let _ = child.kill();
+        let _ = child.wait();
+        return;
+    }
+    // A lost UI observation must not kill the transaction owner. Drain its
+    // pipes and reap it while the backend completes its own bounded operation.
+    std::thread::spawn(move || {
+        let mut discarded = Vec::new();
+        loop {
+            let _ = collect_pipe(&mut stdout, &mut discarded, 4096);
+            discarded.clear();
+            let _ = collect_pipe(&mut stderr, &mut discarded, 4096);
+            discarded.clear();
+            match child.try_wait() {
+                Ok(None) => std::thread::sleep(Duration::from_millis(20)),
+                _ => break,
+            }
+        }
+    });
+}
+
+fn transition_output() -> Result<std::fs::File, String> {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| "Package output identity unavailable")?.as_nanos();
+    let path = std::env::temp_dir().join(format!("lvb-package-output-{}-{stamp}-{}",
+        std::process::id(), NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)));
+    let file = std::fs::OpenOptions::new().read(true).write(true).create_new(true)
+        .mode(0o600).open(&path).map_err(|_| "Private package output unavailable")?;
+    std::fs::remove_file(&path).map_err(|_| "Private package output cleanup failed")?;
+    // The backend inherits the open file, so GUI exit cannot break its output.
+    // The unlinked private file lives until both owners close it. Durable change
+    // status belongs to the manager's existing transition record.
+    Ok(file)
+}
+
 fn execute(operation: Operation) -> Result<Vec<u8>, String> {
+    let retained_error = operation.owns_transition().then(transition_output).transpose()?;
+    let error_output = match retained_error.as_ref() {
+        Some(file) => Stdio::from(file.try_clone().map_err(|_| "Package output unavailable")?),
+        None => Stdio::piped(),
+    };
     let mut child = fixed_command(operation)?
         .stdin(Stdio::null())
         .stdout(if matches!(operation, Operation::Status | Operation::SelectedStatus) {
@@ -132,7 +189,7 @@ fn execute(operation: Operation) -> Result<Vec<u8>, String> {
         } else {
             Stdio::null()
         })
-        .stderr(Stdio::piped())
+        .stderr(error_output)
         .spawn()
         .map_err(|_| "Installed package manager is unavailable".to_owned())?;
     let mut stdout = child.stdout.take();
@@ -145,29 +202,38 @@ fn execute(operation: Operation) -> Result<Vec<u8>, String> {
     .flatten()
     {
         if let Err(reason) = nonblocking(fd) {
-            let _ = child.kill();
-            let _ = child.wait();
+            stop_observing(operation, child, stdout, stderr);
             return Err(reason);
         }
     }
     let mut output = Vec::new();
     let mut error = Vec::new();
-    let deadline = Instant::now()
+    // The coordinated owner bounds preparation and cleanup. Killing that owner
+    // at a separate UI deadline could strand its supervised children. Keep the
+    // window responsive while awaiting its final result; closing the window
+    // does not cancel or replace the managed transition.
+    let deadline = (!operation.owns_transition()).then(|| Instant::now()
         + Duration::from_secs(if matches!(operation, Operation::Status | Operation::SelectedStatus) {
             10
         } else {
             300
-        });
+        }));
     let mut exited_at = None;
     let status = loop {
         let readback = collect_pipe(&mut stdout, &mut output, 4096)
             .and_then(|_| collect_pipe(&mut stderr, &mut error, 4096));
         if let Err(reason) = readback {
-            let _ = child.kill();
-            let _ = child.wait();
+            stop_observing(operation, child, stdout, stderr);
             return Err(reason);
         }
-        if let Some(status) = child.try_wait().map_err(|_| "Package wait failed")? {
+        let child_status = match child.try_wait() {
+            Ok(status) => status,
+            Err(_) => {
+                stop_observing(operation, child, stdout, stderr);
+                return Err("Package wait failed; reopen setup to check the retained operation".into());
+            }
+        };
+        if let Some(status) = child_status {
             if stdout.is_none() && stderr.is_none() {
                 break status;
             }
@@ -176,7 +242,7 @@ fn execute(operation: Operation) -> Result<Vec<u8>, String> {
                 return Err("Package result stream remained open after the manager exited".into());
             }
         }
-        if Instant::now() >= deadline {
+        if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
             let _ = child.kill();
             let _ = child.wait();
             return Err(if matches!(operation, Operation::Status | Operation::SelectedStatus) {
@@ -187,6 +253,12 @@ fn execute(operation: Operation) -> Result<Vec<u8>, String> {
         }
         std::thread::sleep(Duration::from_millis(20));
     };
+    if let Some(file) = retained_error {
+        let length = file.metadata().map_err(|_| "Package result unavailable")?.len();
+        if length > 4096 { return Err("Package result exceeded its bound; reopen setup to check the completed operation".into()); }
+        error.resize(length as usize, 0);
+        file.read_exact_at(&mut error, 0).map_err(|_| "Package result unavailable")?;
+    }
     if !status.success() {
         let refusal = String::from_utf8_lossy(&error);
         let bounded = refusal.chars().take(4096).collect::<String>();
@@ -215,10 +287,11 @@ enum Completion {
     RepairActive,
     RepairInactive,
     RetirementPending,
+    LegacyRetirementPending,
 }
 
 fn confirmation_readback(operation: Operation) -> Operation {
-    if matches!(operation, Operation::Adopt | Operation::Activate | Operation::Rollback) {
+    if matches!(operation, Operation::Adopt | Operation::Activate | Operation::Update | Operation::Restore) {
         Operation::SelectedStatus
     } else {
         Operation::Status
@@ -241,6 +314,10 @@ fn run(operation: Operation) -> Result<Completion, String> {
 }
 
 fn completed_status(operation: Operation, state: &str) -> Result<Completion, String> {
+    if matches!(operation, Operation::Update | Operation::Restore) {
+        return if state == "active" { Ok(Completion::Selected) }
+            else { Err("The bridge change has not completed. Reopen setup to recover the retained change.".into()) };
+    }
     match state {
         "active" => Ok(Completion::Selected),
         "inactive" if operation != Operation::Activate => Ok(Completion::NeedsActivation),
@@ -256,8 +333,8 @@ fn completed_status(operation: Operation, state: &str) -> Result<Completion, Str
         "rollback_retirement_pending" => Ok(Completion::RollbackRetirementPending),
         "repair_active" => Ok(Completion::RepairActive),
         "repair_inactive" => Ok(Completion::RepairInactive),
-        "legacy_retirement_pending" | "repair_retirement_pending" =>
-            Ok(Completion::RetirementPending),
+        "legacy_retirement_pending" => Ok(Completion::LegacyRetirementPending),
+        "repair_retirement_pending" => Ok(Completion::RetirementPending),
         _ => Err("Package activation status is invalid".into()),
     }
 }
@@ -338,10 +415,9 @@ pub struct Bootstrap {
     package_adopt_offered: bool,
     stop_offered: bool,
     retirement_pending: bool,
-    legacy_adoptable: bool,
+    legacy_update: bool,
     update_available: bool,
     rollback_available: bool,
-    rollback_stopped: bool,
     adopted: bool,
     attention: bool,
     check_queued: bool,
@@ -357,10 +433,9 @@ impl Bootstrap {
             package_adopt_offered: false,
             stop_offered: false,
             retirement_pending: false,
-            legacy_adoptable: false,
+            legacy_update: false,
             update_available: false,
             rollback_available: false,
-            rollback_stopped: false,
             adopted: false,
             attention: false,
             check_queued: false,
@@ -405,10 +480,9 @@ impl Bootstrap {
             package_adopt_offered: false,
             stop_offered: false,
             retirement_pending: false,
-            legacy_adoptable: false,
+            legacy_update: false,
             update_available: false,
             rollback_available: false,
-            rollback_stopped: false,
             result: Some(error),
             adopted: false,
             attention: true,
@@ -433,10 +507,9 @@ impl Bootstrap {
         self.package_adopt_offered = false;
         self.stop_offered = false;
         self.retirement_pending = false;
-        self.legacy_adoptable = false;
+        self.legacy_update = false;
         self.update_available = false;
         self.rollback_available = false;
-        self.rollback_stopped = false;
         self.adopted = false;
         self.attention = false;
         self.result = None;
@@ -446,10 +519,17 @@ impl Bootstrap {
             Ok(Completion::FreshAdoptable) => {},
             Ok(Completion::LegacyAdoptable) => {
                 self.package_adopt_offered = true;
-                self.legacy_adoptable = true;
+                self.legacy_update = true;
             }
-            Ok(Completion::LegacyActive) | Ok(Completion::RepairActive) => {
+            Ok(Completion::LegacyActive) => {
                 self.stop_offered = true;
+                self.legacy_update = true;
+            }
+            Ok(Completion::RepairActive) => self.stop_offered = true,
+            Ok(Completion::LegacyRetirementPending) => {
+                self.stop_offered = true;
+                self.retirement_pending = true;
+                self.legacy_update = true;
             }
             Ok(Completion::UpdateActive) => {
                 self.stop_offered = true;
@@ -470,7 +550,6 @@ impl Bootstrap {
             }
             Ok(Completion::RollbackInactive) => {
                 self.rollback_available = true;
-                self.rollback_stopped = true;
             }
             Ok(Completion::RollbackRetirementPending) => {
                 self.stop_offered = true;
@@ -494,20 +573,18 @@ impl Bootstrap {
     }
 
     fn primary_action(&self) -> (Operation, &'static str) {
-        if self.recovery_offered { (Operation::Recover, "Finish interrupted setup") }
+        if self.recovery_offered { (Operation::Recover, "Recover interrupted setup") }
+        else if self.update_available || self.legacy_update { (Operation::Update, "Update Bridge") }
+        else if self.rollback_available { (Operation::Restore, "Restore previous setup") }
         else if self.stop_offered { (Operation::StopForRepair,
             if self.retirement_pending { "Finish bridge shutdown" }
-            else if self.rollback_available { "Stop bridge service to restore previous version" }
-            else if self.update_available { "Stop bridge service to change version" }
             else { "Stop bridge service for setup" }) }
-        else if self.rollback_stopped { (Operation::Rollback, "Restore previous version") }
-        else if self.package_adopt_offered { (Operation::Adopt,
-            if self.update_available { "Select installed version" }
-            else { "Apply installed package" }) }
+        else if self.package_adopt_offered { (Operation::Adopt, "Apply installed package") }
         else if self.attention { (Operation::Status, "Check again") }
         else if self.adopted { (Operation::Activate, "Start bridge service") }
         else { (Operation::Adopt, "Set up application") }
     }
+
 }
 
 impl eframe::App for Bootstrap {
@@ -537,17 +614,17 @@ impl eframe::App for Bootstrap {
             }
         }
         egui::CentralPanel::default().show(ui, |ui| {
-            ui.heading(if self.update_available {
-                "Switch Linux VST Bridge version"
+            ui.heading(if self.update_available || self.legacy_update {
+                "Update Linux VST Bridge"
             } else if self.rollback_available {
-                "Restore previous Linux VST Bridge version"
-            } else if self.stop_offered || (self.package_adopt_offered && !self.legacy_adoptable) {
+                "Restore previous setup"
+            } else if self.stop_offered || (self.package_adopt_offered && !self.legacy_update) {
                 "Repair Linux VST Bridge"
             } else { "Set up Linux VST Bridge" });
-            ui.label(if self.update_available {
-                "A verified package version differs from your selected application. The current generation remains selected until you switch, and stays available for rollback."
+            ui.label(if self.update_available || self.legacy_update {
+                "The manager prepares compatible bridge components for your installed plug-ins, then applies the update. Your plug-ins, licenses, projects and settings are retained."
             } else if self.rollback_available {
-                "The selected application has one exact verified predecessor. Restoring it keeps your plug-ins and other user data."
+                "Restore the retained application and its matching plug-in bridges together. Your vendor installations, projects and settings are retained."
             } else if self.stop_offered || self.package_adopt_offered {
                 "An existing managed installation is selected. The manager will keep its plug-ins and rollback history while checking application routes."
             } else {
@@ -558,22 +635,26 @@ impl eframe::App for Bootstrap {
                 ui.strong(match operation {
                     Operation::Adopt => "Setting up the application…",
                     Operation::Activate => "Starting the bridge service…",
-                    Operation::Rollback => "Restoring the previous application version…",
+                    Operation::Update => "Preparing and applying the bridge update…",
+                    Operation::Restore => "Restoring the previous setup…",
                     Operation::Recover => "Finishing interrupted setup…",
                     Operation::StopForRepair => "Stopping the idle bridge service…",
                     Operation::Status => "Checking package status…",
                     Operation::SelectedStatus => "Checking selected application…",
                 });
-                ui.small("Keep this window open while the package transition completes.");
+                ui.small(if operation.owns_transition() {
+                    "The manager handles preparation and recovery. Closing this window leaves the operation running; reopen setup to check its result."
+                } else { "Keep this window open while setup completes." });
             } else {
                 if self.recovery_offered { ui.label("An earlier setup stopped before it finished. Finish that saved change before opening your Library."); }
-                else if self.stop_offered && self.retirement_pending { ui.label("The bridge service stopped, but its keeper cleanup has not yet been reconciled. Finish the exact shutdown before applying the package. Unconfirmed cleanup will refuse."); }
-                else if self.stop_offered && self.update_available { ui.label("Close your DAW first. The manager will verify clean retirement, then stop the selected bridge service before switching to the installed package."); }
-                else if self.stop_offered && self.rollback_available { ui.label("Close your DAW first. The manager will verify clean retirement before restoring the exact previous application version."); }
-                else if self.stop_offered { ui.label("Close your DAW first. The manager will confirm there are no active plug-ins or setup tasks, then stop the selected bridge service so its application routes can be repaired."); }
-                else if self.rollback_stopped { ui.label("The bridge service is stopped. Restore the exact previous version, or restart the current version without changing it."); }
-                else if self.package_adopt_offered && self.legacy_adoptable { ui.label("Your existing managed installation is verified. Apply the installed package to retain it as the rollback predecessor."); }
-                else if self.package_adopt_offered && self.update_available { ui.label("Select the verified installed package. Your current generation and plug-in state remain available for exact rollback."); }
+                else if self.update_available || self.legacy_update {
+                    ui.label("Close your DAW before updating. Preparation, verification and service restart are handled together. If preparation fails, the current setup stays selected.");
+                }
+                else if self.rollback_available {
+                    ui.label("Close your DAW before restoring. The manager verifies the retained components and restarts the restored setup.");
+                }
+                else if self.stop_offered && self.retirement_pending { ui.label("The bridge service stopped, but its cleanup has not been confirmed. Finish shutdown before continuing."); }
+                else if self.stop_offered { ui.label("Close your DAW first. The manager will confirm that no plug-ins or setup tasks are active before repairing the application."); }
                 else if self.package_adopt_offered { ui.label("Application routes need attention. Applying the installed package rechecks the exact generation and refuses a route it does not own."); }
                 else if self.attention { ui.label("Setup needs attention. Check again to confirm the current application and next step."); }
                 else if self.adopted { ui.label("Application files and routes are selected. Start the bridge service to finish first-run setup."); }
@@ -581,15 +662,9 @@ impl eframe::App for Bootstrap {
                 if ui.add_sized([250.0, 48.0], egui::Button::new(label)).clicked() {
                     self.submit(operation, ui.ctx().clone());
                 }
-                if self.rollback_stopped && ui.button("Keep current version and restart").clicked() {
+                if (self.update_available || self.legacy_update || self.rollback_available)
+                    && !self.retirement_pending && ui.button("Keep current setup").clicked() {
                     self.submit(Operation::Activate, ui.ctx().clone());
-                }
-                if self.rollback_available && !self.rollback_stopped && !self.retirement_pending
-                    && ui.button("Open current Library").clicked() {
-                    match launch_selected() {
-                        Ok(()) => ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close),
-                        Err(error) => { self.attention = true; self.result = Some(error); }
-                    }
                 }
             }
             if let Some(result) = &self.result {
@@ -608,6 +683,65 @@ impl eframe::App for Bootstrap {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn transition_output_survives_observer_process_exit() {
+        let marker = std::env::temp_dir().join(format!("lvb-ui-exit-{}-{}",
+            std::process::id(), std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let output = transition_output().unwrap();
+        let mut observer = Command::new("sh").args(["-c", r#"
+            ( set -e; sleep 0.1; i=0
+              while [ "$i" -lt 2000 ]; do
+                printf 'owned transition output after observer exit\n' >&2
+                i=$((i+1))
+              done
+              printf complete > "$1"
+            ) &
+            exit 0
+        "#, "observer"]).arg(&marker).stdin(Stdio::null())
+            .stdout(Stdio::null()).stderr(Stdio::from(output.try_clone().unwrap()))
+            .spawn().unwrap();
+        drop(output);
+        assert!(observer.wait().unwrap().success());
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline {
+            if std::fs::read(&marker).is_ok_and(|bytes| bytes == b"complete") {
+                std::fs::remove_file(marker).unwrap();
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        panic!("owned transition must finish writing after its observer exits");
+    }
+
+    #[test]
+    fn lost_observation_drains_and_reaps_the_transition_without_killing_it() {
+        let marker = std::env::temp_dir().join(format!("lvb-ui-owner-{}-{}",
+            std::process::id(), std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let mut child = Command::new("sh").args(["-c",
+            "i=0; while [ \"$i\" -lt 2000 ]; do printf 'transition output exceeds the UI observation limit\\n' >&2; i=$((i+1)); done; printf complete > \"$1\"",
+            "owned-transition"]).arg(&marker).stdout(Stdio::piped())
+            .stderr(Stdio::piped()).spawn().unwrap();
+        let pid = child.id();
+        let stdout = child.stdout.take();
+        let stderr = child.stderr.take();
+        nonblocking(stdout.as_ref().unwrap().as_raw_fd()).unwrap();
+        nonblocking(stderr.as_ref().unwrap().as_raw_fd()).unwrap();
+        stop_observing(Operation::Update, child, stdout, stderr);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline {
+            if marker.exists() && unsafe { libc::kill(pid as i32, 0) } == -1
+                && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH) {
+                assert_eq!(std::fs::read(&marker).unwrap(), b"complete");
+                std::fs::remove_file(marker).unwrap();
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        panic!("transition must finish and be reaped after its UI observer stops");
+    }
     #[test]
     fn interrupted_shutdown_explains_restart_without_offering_adoption() {
         let mut screen = Bootstrap::new();
@@ -622,7 +756,8 @@ mod tests {
         for (operation, verb) in [
             (Operation::Adopt, "package-adopt"),
             (Operation::Activate, "package-activate"),
-            (Operation::Rollback, "package-rollback"),
+            (Operation::Update, "package-update"),
+            (Operation::Restore, "package-restore"),
             (Operation::Recover, "package-recover"),
             (Operation::StopForRepair, "package-stop-for-repair"),
             (Operation::Status, "package-bootstrap-status"),
@@ -683,7 +818,7 @@ mod tests {
     }
     #[test]
     fn setup_verifies_current_status_before_handoff() {
-        for operation in [Operation::Adopt, Operation::Activate, Operation::Rollback] {
+        for operation in [Operation::Adopt, Operation::Activate, Operation::Update, Operation::Restore] {
             assert_eq!(confirmation_readback(operation), Operation::SelectedStatus);
         }
         for operation in [Operation::Status, Operation::StopForRepair, Operation::Recover] {
@@ -701,10 +836,12 @@ mod tests {
             completed_status(Operation::Activate, "active").unwrap(),
             Completion::Selected
         );
-        assert_eq!(
-            completed_status(Operation::Rollback, "inactive").unwrap(),
-            Completion::NeedsActivation
-        );
+        for operation in [Operation::Update, Operation::Restore] {
+            assert_eq!(completed_status(operation, "active").unwrap(), Completion::Selected);
+            for state in ["inactive", "update_adoptable", "rollback_inactive", "unknown"] {
+                assert!(completed_status(operation, state).is_err(), "incomplete change cannot open Library");
+            }
+        }
         assert!(completed_status(Operation::Activate, "inactive").is_err());
         assert!(completed_status(Operation::Adopt, "unknown").is_err());
     }
@@ -730,18 +867,16 @@ mod tests {
         }
         for (state, action, label) in [
             ("fresh_adoptable", Operation::Adopt, "Set up application"),
-            ("legacy_adoptable", Operation::Adopt, "Apply installed package"),
-            ("legacy_active", Operation::StopForRepair, "Stop bridge service for setup"),
+            ("legacy_adoptable", Operation::Update, "Update Bridge"),
+            ("legacy_active", Operation::Update, "Update Bridge"),
             ("repair_active", Operation::StopForRepair, "Stop bridge service for setup"),
-            ("update_active", Operation::StopForRepair, "Stop bridge service to change version"),
-            ("update_retirement_pending", Operation::StopForRepair, "Finish bridge shutdown"),
-            ("update_adoptable", Operation::Adopt, "Select installed version"),
-            ("rollback_active", Operation::StopForRepair,
-                "Stop bridge service to restore previous version"),
-            ("rollback_retirement_pending", Operation::StopForRepair,
-                "Finish bridge shutdown"),
-            ("rollback_inactive", Operation::Rollback, "Restore previous version"),
-            ("legacy_retirement_pending", Operation::StopForRepair, "Finish bridge shutdown"),
+            ("update_active", Operation::Update, "Update Bridge"),
+            ("update_retirement_pending", Operation::Update, "Update Bridge"),
+            ("update_adoptable", Operation::Update, "Update Bridge"),
+            ("rollback_active", Operation::Restore, "Restore previous setup"),
+            ("rollback_retirement_pending", Operation::Restore, "Restore previous setup"),
+            ("rollback_inactive", Operation::Restore, "Restore previous setup"),
+            ("legacy_retirement_pending", Operation::Update, "Update Bridge"),
             ("repair_retirement_pending", Operation::StopForRepair, "Finish bridge shutdown"),
             ("repair_inactive", Operation::Adopt, "Apply installed package"),
             ("inactive", Operation::Activate, "Start bridge service"),
@@ -750,37 +885,17 @@ mod tests {
             assert!(!screen.apply_completion(completed_status(Operation::Status, state)));
             assert_eq!(screen.primary_action(), (action, label));
         }
-        for (pending, settled) in [
-            ("legacy_retirement_pending", "legacy_adoptable"),
-            ("repair_retirement_pending", "repair_inactive"),
-            ("update_retirement_pending", "update_adoptable"),
-            ("rollback_retirement_pending", "rollback_inactive"),
-        ] {
+        for (initial, operation) in [("update_active", Operation::Update),
+            ("rollback_active", Operation::Restore)] {
             let mut screen = Bootstrap::checking();
-            assert!(!screen.apply_completion(completed_status(Operation::Status, pending)));
-            assert_eq!(screen.primary_action(),
-                (Operation::StopForRepair, "Finish bridge shutdown"));
-            assert!(!screen.apply_completion(
-                completed_status(Operation::StopForRepair, settled)));
-            assert_eq!(screen.primary_action(),
-                if settled == "rollback_inactive" {
-                    (Operation::Rollback, "Restore previous version")
-                } else if settled == "update_adoptable" {
-                    (Operation::Adopt, "Select installed version")
-                } else {
-                    (Operation::Adopt, "Apply installed package")
-                });
+            assert!(!screen.apply_completion(completed_status(Operation::Status, initial)));
+            assert_eq!(screen.primary_action().0, operation);
+            assert!(screen.apply_completion(completed_status(operation, "active")),
+                "one completed operation hands off without a manual activation step");
+            assert!(!screen.apply_completion(completed_status(operation, "inactive")));
+            assert!(screen.attention && !screen.adopted);
+            assert_eq!(screen.primary_action(), (Operation::Status, "Check again"));
         }
-        let mut restore = Bootstrap::checking();
-        assert!(!restore.apply_completion(completed_status(Operation::Status,
-            "rollback_active")));
-        assert!(restore.rollback_available && restore.stop_offered);
-        assert!(!restore.apply_completion(completed_status(Operation::StopForRepair,
-            "rollback_inactive")));
-        assert!(restore.rollback_stopped);
-        assert!(!restore.apply_completion(completed_status(Operation::Rollback,
-            "inactive")));
-        assert_eq!(restore.primary_action(), (Operation::Activate, "Start bridge service"));
         for raw in [
             "prefix_package_routes_need_repair",
             "package_stop_service_first",

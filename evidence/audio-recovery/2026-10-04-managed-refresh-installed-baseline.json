@@ -1,0 +1,242 @@
+{
+  "schema": 1,
+  "claim": "retained_installed_update_state_baseline",
+  "scope": "First-party SDK reference on the existing Ubuntu VM; no repaired package installed",
+  "manager": {
+    "version": "0.12.0audio9",
+    "sha256": "70685c8e31b655a6a5bcff8beb14fbeb250ccbc9c91ef1d07846f7f01b598e7d"
+  },
+  "published_classes": 6,
+  "fixtures": [
+    {
+      "role": "instrument",
+      "logical_class": "4C564242434D5031494E535400000001",
+      "external_ids": [
+        "9F2F385EF1995AAFB9B903BE757F945F",
+        "F55783DD140C5EE997498BF6549BECB6"
+      ],
+      "module_sha256": "dd5b062168bee829e61959c27037cb3ae339b29dbc19274ab79045bcf356dda5",
+      "windows_host_sha256": "57f23801e9cbd9f6bcab3a71ddf28dbd1f2861c88e12501635257561830a1b64",
+      "native_sha256": "36300f4a387e2ee7e3652b6acbe488df614ad474bd42f5b72f0e0e2c220154be",
+      "descriptor_sha256": "7e98ef5015a93aa7bf21621a1df95307792ac3d8835935379a3c0b759fec2041",
+      "descriptor_json_schema": 1,
+      "selected_revision": {
+        "id": "7145b6f90323884c08db9a52f7b24c9c",
+        "sha256": "3b1e54e951e0e3f9d63172c2a2ee8caaa06a7d4dc6a53b1115fb3f2f636a8dac"
+      },
+      "preferences": {
+        "schema": 1,
+        "added_frames": 512
+      },
+      "runner": {
+        "id": "managed-ge-proton11-7-slr4-20260805-r3",
+        "version": "GE-Proton11-7; SLR 4.0.20260805.254769; managed download v3",
+        "files": {
+          "runtime-tree.json": "c4190a4a184e8ff3721b7495e01db0d0de09c0eaf3ffd42b87b516c077c4e7ef",
+          "GE-Proton11-7-x86_64/proton": "c0fe398829c78c82b26d39c20fbeb6b28d1e46941723962d794d7e5f67d402be",
+          "GE-Proton11-7-x86_64/files/bin/wine": "7b0ca4538f365d8a225afdfe5f872715bb5f7c1908dbdcb522c9519cac7c8714",
+          "SteamLinuxRuntime_4/_v2-entry-point": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+          "SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-wrap": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+        }
+      },
+      "compatibility": {
+        "disable_windows_accessibility": false
+      }
+    },
+    {
+      "role": "effect",
+      "logical_class": "4C564242434D50314546465800000001",
+      "external_ids": [
+        "F873988072B15B10BB2104F4CF6B5C0F",
+        "539E040E312B5E979DB62FBE6438D70A"
+      ],
+      "module_sha256": "54721e5973b73960a7317c3ce26287bc39642a5a19c0f9587def8962ccf980a1",
+      "windows_host_sha256": "57f23801e9cbd9f6bcab3a71ddf28dbd1f2861c88e12501635257561830a1b64",
+      "native_sha256": "0c3c3b627a8714868c1e42220d232f098d34b7364c864d67759651b3c795d5e3",
+      "descriptor_sha256": "130f1849dba93f5e3eaee9cbaaf5f9f56d96410cc0927da456d8ba78181eb455",
+      "descriptor_json_schema": 1,
+      "selected_revision": {
+        "id": "16cb0d8b72141c664ab7838c51233381",
+        "sha256": "c3c34e040202568de64a4a6b8021e65f45190f57a671a0446d8b4d51c61c70a3"
+      },
+      "preferences": {
+        "schema": 2,
+        "added_frames": 512,
+        "delivery_mode": "same_callback"
+      },
+      "runner": {
+        "id": "managed-ge-proton11-7-slr4-20260805-r3",
+        "version": "GE-Proton11-7; SLR 4.0.20260805.254769; managed download v3",
+        "files": {
+          "runtime-tree.json": "c4190a4a184e8ff3721b7495e01db0d0de09c0eaf3ffd42b87b516c077c4e7ef",
+          "GE-Proton11-7-x86_64/proton": "c0fe398829c78c82b26d39c20fbeb6b28d1e46941723962d794d7e5f67d402be",
+          "GE-Proton11-7-x86_64/files/bin/wine": "7b0ca4538f365d8a225afdfe5f872715bb5f7c1908dbdcb522c9519cac7c8714",
+          "SteamLinuxRuntime_4/_v2-entry-point": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1",
+          "SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-wrap": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+        }
+      },
+      "compatibility": {
+        "disable_windows_accessibility": false
+      }
+    }
+  ],
+  "harness": {
+    "source_base": "22e6569cd0afa9f0112518819d5b95e47932bbc8",
+    "host_source_sha256": "4acc94c8fb18513384c68f2fae69ff7d2bf8bca99d3914e742f2759142570f11",
+    "tests_source_sha256": "64a0ac2137e9639166db5421a0005a5979eeb024842231c88c1fd25d4f449ef5",
+    "patch_sha256": "de3309ee0b58947227d9ede6f98d84ef8f43abed1a62e0657e61c8ddf138e6a9",
+    "linux_strict_build_and_role_tests": "passed",
+    "independent_review": "no remaining findings after recalled-audio-before-automation and FIFO fixes"
+  },
+  "runs": [
+    {
+      "scenario": "state-record",
+      "role": "effect",
+      "maximum": 512,
+      "rate": 48000,
+      "delay": 0,
+      "exit_code": 0,
+      "owner_validated": true,
+      "retired": true,
+      "state_files": {
+        ".component": {
+          "bytes": 232,
+          "sha256": "f0aff352b58e66d16a406907b0a2903680c5550c50c3b828e27d85e5f67953be"
+        },
+        ".controller": {
+          "bytes": 8,
+          "sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+        },
+        ".component.recalled": {
+          "bytes": 232,
+          "sha256": "f0aff352b58e66d16a406907b0a2903680c5550c50c3b828e27d85e5f67953be"
+        },
+        ".output.f32le": {
+          "bytes": 2665120,
+          "sha256": "b0b9d35b949822d6b9ced00ae6237cbc8a0858afa8f8f29b4d124045ab8ee4dd"
+        }
+      },
+      "analysis": {
+        "schema": 1,
+        "claim": "independent_whole_retained_output_comparison",
+        "role": "effect",
+        "scenario": "state-record",
+        "maximum": 512,
+        "rate": 48000,
+        "bridge_delay": 0,
+        "vendor_latency": 13,
+        "raw_sha256": "b0b9d35b949822d6b9ced00ae6237cbc8a0858afa8f8f29b4d124045ab8ee4dd",
+        "log_sha256": "bd958f4db98393db919c1013cf1bdc4b16ecd7877407d6909d29e52f5b21d64b",
+        "complete_plan": true,
+        "callbacks": 790,
+        "expected_callbacks": 790,
+        "samples": 666280,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "unexpected_zero_samples": 0,
+        "maximum_error": 0.0,
+        "first_mismatches": [],
+        "consumer_success": true,
+        "output_complete": true,
+        "passed": true,
+        "physical_daw_claim": false
+      },
+      "passed": true
+    },
+    {
+      "scenario": "state-recall",
+      "role": "instrument",
+      "maximum": 512,
+      "rate": 48000,
+      "delay": 512,
+      "exit_code": 0,
+      "owner_validated": true,
+      "retired": true,
+      "state_files": {
+        ".component": {
+          "bytes": 232,
+          "sha256": "0c4f695cd4814dcca978eeb306cf53ddc26ab28d39618c60abc14d03e19a3800"
+        },
+        ".controller": {
+          "bytes": 8,
+          "sha256": "91c00987c3d5b3ee36351ddfeef7767fffda3879e87961c77a979762a3f7a2a2"
+        },
+        ".component.recalled": {
+          "bytes": 232,
+          "sha256": "0c4f695cd4814dcca978eeb306cf53ddc26ab28d39618c60abc14d03e19a3800"
+        },
+        ".output.f32le": {
+          "bytes": 2689696,
+          "sha256": "1bed28656585d20fc4d9c5a77355b9f0b1cd62f134474ecd70f0e24f309272ff"
+        }
+      },
+      "analysis": {
+        "schema": 1,
+        "claim": "independent_whole_retained_output_comparison",
+        "role": "instrument",
+        "scenario": "state-recall",
+        "maximum": 512,
+        "rate": 48000,
+        "bridge_delay": 512,
+        "vendor_latency": 13,
+        "raw_sha256": "1bed28656585d20fc4d9c5a77355b9f0b1cd62f134474ecd70f0e24f309272ff",
+        "log_sha256": "d705255674c1a803f4502669271233ed51e624a6e88932fd8fcbed850c738356",
+        "complete_plan": true,
+        "callbacks": 794,
+        "expected_callbacks": 794,
+        "samples": 672424,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "unexpected_zero_samples": 0,
+        "maximum_error": 0.0,
+        "first_mismatches": [],
+        "consumer_success": true,
+        "output_complete": true,
+        "passed": true,
+        "physical_daw_claim": false
+      },
+      "passed": true
+    }
+  ],
+  "original_instrument_record": {
+    "audio_samples": 672424,
+    "mismatches": 0,
+    "state_values": {
+      "gain": 0.625,
+      "colour": 0.125
+    },
+    "sdk_terminal_event": "passed",
+    "exact_child_exit_status": null,
+    "retirement_confirmed": true,
+    "observer_failure": "Keeper and DSP owner sharing a caller generation were wrongly treated as duplicate DSP owners. Original run and failure retained; captured data reanalyzed without rerunning audio.",
+    "original_archive_sha256": "085274c1d89b738b39e9ccc585b23600b02fe43a155a33af288805a40c285fe3",
+    "corrected_observation_sha256": "4e509dc76d4dd80e41e358a0287164dffef8087b04d4461e9b12369c0cf07223"
+  },
+  "preservation": {
+    "registry_and_selected_software_unchanged": true,
+    "instrument_original_saved_bytes_survived_recall": true,
+    "all_preferences_retained_in_private_archive": true,
+    "archive": "baseline-complete.tgz",
+    "archive_sha256": "bde068b53bde626504252df0a139d3aee5eb9125aecd4eec8898495fbff8dd54"
+  },
+  "resource_posture": {
+    "guest_vcpus": 2,
+    "guest_memory_mib": 6144,
+    "container_memory_and_swap_mib": 8192,
+    "host_cpuset": "2,3",
+    "pid_limit": 256,
+    "builder_and_vm_overlap": false,
+    "guest_shutdown": "normal_exit_0",
+    "audiobookshelf_running": true,
+    "deck_changed": false
+  },
+  "nonclaims": [
+    "new package migration",
+    "complete rollback workflow",
+    "real DAW project recall",
+    "physical Deck acceptance",
+    "timing qualification",
+    "soak",
+    "beta release readiness"
+  ]
+}
