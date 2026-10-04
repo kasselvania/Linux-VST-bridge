@@ -525,6 +525,173 @@
     "result_record_sha256": "290bcca277b752336b652c54bb68bc346de3b2c62bb4d445bee36c1729ec77d5",
     "private_archive_sha256": "1d2f156cce45f0763155d1b221147226c43264ae1024df6bf6e7fbce73cf8eb5",
     "original_failed_lifetime_retained": true,
-    "corrected_observer_installed_result": "not_run"
+    "corrected_observer_installed_result": "blocked_before_state_comparison_by_post_restart_launch_preparation_refusal"
+  },
+  "corrected_observer_attempt": {
+    "role": "instrument",
+    "scenario": "slow-offline",
+    "maximum": 512,
+    "rate": 48000,
+    "delay": 512,
+    "exit_code": 1,
+    "retired": false,
+    "passed": false,
+    "observer_error": "AssertionError: expected one authenticated consumer owner, found 0",
+    "intervention": null,
+    "observer_source_head": "88451fb82c9f97093a54e93c4810d194222146e3",
+    "observer_source_tree": "e7b75bcf1ca65cd54a8cebce6d1120a2f1174649",
+    "observer_sha256": "7ed165f39ee8e59bcb42802a3c4357d974636c35428105895335fae9fe0ef907",
+    "installed_product_unchanged": true,
+    "vm_restarted_between_runs": true,
+    "diagnostics_enabled": false,
+    "failure": {
+      "event": "failed",
+      "stage": "load",
+      "reason": "ordinary bus arrangement"
+    },
+    "primary_failure": "launch_verification_deadline",
+    "native_backend_error": "admission_binding_invalid",
+    "native_phase": "Failed",
+    "classification": "post_restart_launch_preparation_refusal_before_audio",
+    "consumer_audio_owner_created": false,
+    "consumer_audio_transport_created": false,
+    "audio_processing_reached": false,
+    "corrected_state_comparison_reached": false,
+    "retirement_interpretation": "No authenticated consumer audio owner existed to retire. The local SDK objects were torn down; current capacity reports no DSP/maintenance owner and no unconfirmed cleanup. The raw runner retired=false is not a failed audio-transport cleanup result.",
+    "private_archive_sha256": "65cae61f19c6d1d1c6b1503f96f0cda145f23ba0ea61ff6119eb1dd3dad8764a",
+    "result_record_sha256": "34439e464421d4ed2f6b21d05d01489cdd578a80ee05e863c87f088198dbe7c7",
+    "next_hypothesis": "A completed cold-runtime verification crossing its startup deadline discards valid process-owned byte observations before the next launch. Reproduce and repair the shared preparation behavior without extending deadlines or weakening execution validation."
+  },
+  "corrected_observer_warm_comparison": {
+    "role": "instrument",
+    "scenario": "slow-offline",
+    "maximum": 512,
+    "rate": 48000,
+    "delay": 512,
+    "exit_code": 0,
+    "retired": true,
+    "passed": true,
+    "observer_error": null,
+    "intervention": null,
+    "observer_source_head": "88451fb82c9f97093a54e93c4810d194222146e3",
+    "installed_product_unchanged": true,
+    "diagnostics_enabled": false,
+    "single_declared_warm_comparison": true,
+    "audio": {
+      "event": "completion_audio",
+      "schema": 1,
+      "role": "instrument",
+      "delivery_frames": 512,
+      "vendor_latency_frames": 13,
+      "callbacks": 10,
+      "compared_samples": 4148,
+      "mismatches": 0,
+      "nonfinite": 0,
+      "nonzero": 2040,
+      "max_error": 0,
+      "returned_events": 11,
+      "returned_points": 17,
+      "rejected_callbacks": 0,
+      "callback_max_ns": 12000955445,
+      "whole_callback_overruns": 0,
+      "callback_effects": 0,
+      "callback_local_wakes": 10,
+      "local_wake_counter_available": true,
+      "callback_audited": true
+    },
+    "state": {
+      "event": "completion_state",
+      "component_bytes": 232,
+      "controller_bytes": 8,
+      "component_recall": true,
+      "controller_recall": true
+    },
+    "capture_overlap": {
+      "event": "capture_overlap_observation",
+      "capture_begin_ns": 651686928970,
+      "capture_end_ns": 651894581108,
+      "audio_begin_ns": 651743258316,
+      "audio_end_ns": 663744213761,
+      "audio_inflight_at_capture_return": true,
+      "audio_callback_interval_recorded": true,
+      "capture_issued_before_audio_begin": true,
+      "capture_within_original_10s": true,
+      "audio_remaining_after_capture_start_ns": 12057284791,
+      "transport_capture_admission_proven_by_sdk_timestamps": false
+    },
+    "independent_audio": {
+      "schema": 1,
+      "claim": "independent_whole_retained_output_comparison",
+      "role": "instrument",
+      "scenario": "slow-offline",
+      "maximum": 512,
+      "rate": 48000,
+      "bridge_delay": 512,
+      "vendor_latency": 13,
+      "raw_sha256": "ed5a0610ab0d4b9d12bd5432403ecaee11844768275a7ae5a50348e5e30b9d60",
+      "log_sha256": "2977655cbcb9d9cdaf64f2e41b89291d38b2a07b9aabb39f9df832c1c607515d",
+      "complete_plan": true,
+      "callbacks": 10,
+      "expected_callbacks": 10,
+      "samples": 4148,
+      "mismatches": 0,
+      "nonfinite": 0,
+      "unexpected_zero_samples": 0,
+      "maximum_error": 0.0,
+      "first_mismatches": [],
+      "consumer_success": true,
+      "output_complete": true,
+      "passed": true,
+      "physical_daw_claim": false
+    },
+    "private_archive_sha256": "9ed42c023a8f60a819e30a6a16234b0a83d19ebf8836d2acc4a37ac1d2a143e6",
+    "result_record_sha256": "913d69c1b4679e6a53f37d5587056efe3f48aaf408c486c5607dd5f8921a8099",
+    "scope": "Corrected state oracle and slow offline delivery work in this warm lifetime on unchanged audio2. The preceding cold-start failure remains failed; no restart, endurance or beta acceptance."
+  },
+  "launch_preparation_source_repair": {
+    "basis_head": "88451fb82c9f97093a54e93c4810d194222146e3",
+    "claim": "Successful bounded byte observations remain available to independent later admission even when the original caller expires; the original caller remains refused.",
+    "source_regression": {
+      "red": "launch_verification_deadline returned; shared record count 0 instead of expected 1",
+      "green": "late request refused, next admission reuses valid observations, changed bytes and wrong expected digest refused, failed preparations leave prior published records unchanged"
+    },
+    "validation": {
+      "focused_regression": {
+        "passed": 1,
+        "failed": 0
+      },
+      "shared_launch": {
+        "passed": 2,
+        "failed": 0
+      },
+      "manager_library": {
+        "passed": 243,
+        "failed": 0
+      },
+      "diff_check": "passed",
+      "review": "independent scoped source review; no findings"
+    },
+    "commands": [
+      "cargo test --lib late_success_is_refused_but_retains_valid_launch_observations -- --nocapture",
+      "cargo test --lib shared_launch -- --nocapture",
+      "cargo test --lib",
+      "git diff --check"
+    ],
+    "records": {
+      "red_observation_sha256": "20128421acf9ec0d190633a7a8e345b8d945aa7a1042b93134bba0eff14b0c18",
+      "focused_raw_log_sha256": "f2d08cbddb69609b81c9d6f3b01ff2ffc46ce7323e78eacbb50e1f436772d649",
+      "full_library_result_record_sha256": "5e12422b1b13bdc2019591926e06adff59565f8c73ece9075a691713cef447b3",
+      "validation_sha256": "c0165137ac3c74dbc2f9b01572e18665094b4a958bbbbb42296d4703f3450e01",
+      "patch_sha256": "eb5571b220673afdc0eef0e1f8d9fc958b6128fd02a8631f4638e47911eba7a5",
+      "private_archive_sha256": "1ecdf09e8e7afd4cf38b2aa1378e8425f1e0d9e6a4dbab18ec16b5dd10aa7edd"
+    },
+    "record_limit": "RED and full-library records preserve observed failure and final Cargo summary, not raw full transcripts; focused final log is raw.",
+    "installed_cold_start_comparison": "unperformed",
+    "nonclaims": [
+      "No larger admission deadline",
+      "No persisted authorization cache",
+      "No runtime change",
+      "No physical or beta qualification"
+    ]
   }
 }

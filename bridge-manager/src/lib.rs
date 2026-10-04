@@ -159,9 +159,13 @@ impl LaunchVerification {
             (result, observed)
         });
         let value = result?;
-        require(std::time::Instant::now() < deadline, "launch_verification_deadline")?;
         require(observed.len() <= 200_000, "launch_verification_extent")?;
         *records = observed.clone();
+        // Completing verification after this caller's boundary cannot authorize
+        // its execution. The valid process-owned observations still help a later
+        // independent admission, which must reopen every path and run its ordinary
+        // identity/hash owners before it can execute.
+        require(std::time::Instant::now() < deadline, "launch_verification_deadline")?;
         Ok((value, LaunchSnapshot(observed)))
     }
 }
@@ -1127,6 +1131,56 @@ mod tests {
         drop(held);
         assert!(shared.prepare(std::time::Instant::now()-std::time::Duration::from_millis(1),
             || Ok(())).is_err());
+    }
+    #[test]
+    fn late_success_is_refused_but_retains_valid_launch_observations() {
+        let f = Fixture::new();
+        let path = f.outer.join("late-launch-artifact");
+        fs::write(&path, b"verified bytes").unwrap();
+        let shared = LaunchVerification::default();
+        let deadline = std::time::Instant::now()+std::time::Duration::from_secs(1);
+        let mut verified = None;
+        let error = match shared.prepare(deadline, || {
+            verified = Some(digest(&path)?);
+            std::thread::sleep(deadline.saturating_duration_since(std::time::Instant::now())
+                +std::time::Duration::from_millis(20));
+            Ok(())
+        }) {
+            Ok(_) => panic!("late preparation authorized execution"),
+            Err(error) => error.to_string(),
+        };
+        assert_eq!(error, "launch_verification_deadline");
+        let verified = verified.expect("late preparation must have completed its verification");
+        assert_eq!(shared.records.lock().unwrap().len(), 1,
+            "completed valid observations remain available after refusing late execution");
+        let (next, _) = shared.prepare(
+            std::time::Instant::now()+std::time::Duration::from_secs(2), || {
+                assert!(SCOPED_DIGESTS.with(|cache| cache.borrow().as_ref().unwrap()
+                    .contains_key(&path)), "next request starts from the valid process observation");
+                digest(&path)
+            }).unwrap();
+        assert_eq!(next, verified);
+        let published = shared.records.lock().unwrap().clone();
+        let expected = Artifact {path:path.clone(),sha256:verified};
+        fs::write(&path, b"modified bytes").unwrap();
+        let changed = match shared.prepare(
+            std::time::Instant::now()+std::time::Duration::from_secs(2), || expected.verify()) {
+            Ok(_) => panic!("changed artifact satisfied the retained observation"),
+            Err(error) => error.to_string(),
+        };
+        assert_eq!(changed, "artifact missing or changed");
+        assert_eq!(*shared.records.lock().unwrap(), published,
+            "failed verification may not publish changed observations");
+        fs::write(&path, b"verified bytes").unwrap();
+        let wrong = Artifact {path,sha256:"00".repeat(32)};
+        let wrong_digest = match shared.prepare(
+            std::time::Instant::now()+std::time::Duration::from_secs(2), || wrong.verify()) {
+            Ok(_) => panic!("wrong expected digest gained execution authority"),
+            Err(error) => error.to_string(),
+        };
+        assert_eq!(wrong_digest, "artifact missing or changed");
+        assert_eq!(*shared.records.lock().unwrap(), published,
+            "wrong expected digest may not publish observations");
     }
     #[test]
     fn readback_digest_reuse_is_scoped_and_rechecks_file_identity() {

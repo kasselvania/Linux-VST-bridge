@@ -1308,7 +1308,9 @@ fn serve(m: Manager) -> Result<()> {
         let result = warm_verification.prepare(
             Instant::now()+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS),
             || runtime_delivery::installed(&warm_manager).map(|_| ()));
-        if result.is_err() { eprintln!("owned runtime preparation unavailable; launch will verify its exact binding"); }
+        if let Err(error)=result {
+            eprintln!("owned runtime preparation did not authorize execution; each launch remains subject to its own exact admission: {error}");
+        }
     });
     if let Err(error) = &_runtime_preparation {
         eprintln!("owned runtime preparation worker unavailable: {error}");

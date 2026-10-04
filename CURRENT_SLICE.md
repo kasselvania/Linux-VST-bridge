@@ -151,15 +151,32 @@ remains failed. Both offline roles retain exact output/state/retirement, totalin
 1,336,552 independently compared samples. This is a bounded functional comparison,
 not an attribution of historical gaps or a dependable-audio claim.
 
-Next work retains the same completion contract: replace the current IPC 15 control
-acknowledgement polling with notification, and complete installed failure/slow
-offline and delivery-selection checks. The first slow-offline run returns correct
+Current IPC 15 control acknowledgement polling was replaced with a reviewed
+notification at `06820906`; installed qualification remains pending. Next work
+retains the same completion contract through failure/slow offline and delivery
+selection checks. The first slow-offline run returns correct
 audio and retires, but its full-envelope state oracle incorrectly requires replay
 of transient fixture control ID31. Vendor opaque state and durable values are
 unchanged; the current controller mirror legitimately reports the later operation.
-Correct only this explicit observer assumption and rerun against the unchanged
-installed candidate before using a source successor. Same-callback,
-serial-chain, lower-block, failure and physical acceptance remain open.
+The reviewed observer correction at `88451fb8` was rebuilt separately and tried
+against unchanged audio2 after a VM restart. That attempt stops before audio:
+manager launch verification expires, native state becomes `Failed`, and the later
+bus call refuses that phase. No consumer audio transport was created; this is not
+a transport-retirement failure or a result from the corrected state oracle.
+A separately declared single warm comparison on unchanged audio2 then passes the
+corrected oracle, 4,148 exact audio samples, a 12-second offline callback with
+concurrent state capture, and exact retirement. The cold-start failure remains
+failed; no failed lifetime is relabeled by that comparison.
+
+The shared preparation regression is reproduced and repaired: successful bounded
+byte observations now survive a late completion, while the expired caller remains
+refused. Later admission retains fresh file-identity and expected-digest checks.
+The focused regression, shared preparation checks and 243 manager library tests
+pass; scoped independent review has no findings. No startup/audio budget, runtime
+or persisted authorization policy changed. Installed cold-start acceptance is
+unperformed. Build one paired successor with this repair and the reviewed control
+notification, then test a cold restart before continuing completion acceptance.
+Same-callback, serial-chain, lower-block, failure and physical acceptance remain open.
 
 The polling audit distinguishes current control acknowledgement from deliberate
 legacy paths. Windows mapped-processing formatting was completed separately at
