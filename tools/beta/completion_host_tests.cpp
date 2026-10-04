@@ -326,22 +326,7 @@ void retainedOutput(const OutputCapture& output,const PrivateOutputTest& locatio
     OutputCapture other;
     refuses([&]{other.prepare(location.prefix.c_str());},"a reused run prefix cannot overwrite retained output");
 }
-void sustainedMeasurement(const Options& base) {
-    need(sustainedRowCapacity(256,0)==4006&&sustainedRowCapacity(128,0)==4006
-        &&sustainedRowCapacity(64,0)==4006&&sustainedRowCapacity(256,256)==4007
-        &&sustainedRowCapacity(128,256)==4008&&sustainedRowCapacity(64,256)==4010,
-        "every declared sustained mode and actual N fits the fixed callback capacity with exact tail calls");
-    std::array<Row,maximumCallbacks> rows{};
-    for(size_t i=0;i<sustainedCallbacks;++i)rows[i].end=uint64_t(sustainedCallbacks-i);
-    const auto statistics=wholeCallbackStatistics(rows,0,sustainedCallbacks,3500);
-    need(statistics.callbacks==sustainedCallbacks&&statistics.median==2001
-        &&statistics.p99==3960&&statistics.maximum==4000&&statistics.overruns==500,
-        "exact bounded sustained whole-callback statistics");
-    refuses([&]{wholeCallbackStatistics(rows,maximumCallbacks-1,2,1);},
-        "sustained statistics cannot exceed prepared callback capacity");
-
-    Options o=base;o.scenario="sustained";o.block=64;o.rate=48000;o.delay=0;
-    auditBegin=[]{};auditEnd=[]()->uint64_t{return 0;};auditLocalWakes=[]()->uint64_t{return 0;};
+LifetimePtr sustainedLifetime(const Options& o) {
     auto owner=lifetime();owner->host=owned(new HostApplication);auto& life=owner->life;
     life.component=owned(new ReferenceProcessor);life.processor=FUnknownPtr<IAudioProcessor>(life.component);
     need(bool(life.processor),"actual sustained producer processor");
@@ -359,6 +344,47 @@ void sustainedMeasurement(const Options& base) {
     initial.guards(0);
     ok(life.processor->setProcessing(false),"recognizable sustained-state stop");
     ok(life.component->setActive(false),"recognizable sustained-state deactivate");
+    return owner;
+}
+void sustainedFailureRows(const Options& o) {
+    for(const size_t preceding:{size_t(0),size_t(17)}) {
+        auto owner=sustainedLifetime(o);auto& life=owner->life;Exercise run(life,o);
+        run.configure(kRealtime,o.block,o.rate);run.zeroes(kRealtime,o.rate);
+        run.sustainedAttempted=true;run.sustainedBegin=run.rowCount;
+        for(size_t i=0;i<preceding;++i)run.sustainedMain(o.block,o.rate,i==0,false);
+        std::string original;
+        try { run.sustainedMain(o.block,o.rate,preceding==0,false,.5); }
+        catch(const std::exception& error) { original=error.what(); }
+        need(original=="SDK process refused","actual first/late sustained refusal retained");
+        need(run.sustainedCount==preceding+1&&run.rowCount==run.sustainedBegin+preceding+1,
+             "recorded failing main callback remains in sustained window");
+        const auto& failed=run.rows[run.sustainedBegin+preceding];
+        need(failed.result!=kResultOk&&!failed.threw&&failed.n==o.block&&failed.mode==kRealtime,
+             "exact failed sustained callback row retained");
+        const auto statistics=wholeCallbackStatistics(run.rows,run.sustainedBegin,run.sustainedCount,
+            uint64_t(o.block)*1000000000ULL/uint64_t(o.rate));
+        need(statistics.callbacks==preceding+1,"failed sustained callback included in statistics");
+        life.stop();need(life.finish(),"failed SDK result still permits ordinary exact retirement");
+    }
+}
+void sustainedMeasurement(const Options& base) {
+    need(sustainedRowCapacity(256,0)==4006&&sustainedRowCapacity(128,0)==4006
+        &&sustainedRowCapacity(64,0)==4006&&sustainedRowCapacity(256,256)==4007
+        &&sustainedRowCapacity(128,256)==4008&&sustainedRowCapacity(64,256)==4010,
+        "every declared sustained mode and actual N fits the fixed callback capacity with exact tail calls");
+    std::array<Row,maximumCallbacks> rows{};
+    for(size_t i=0;i<sustainedCallbacks;++i)rows[i].end=uint64_t(sustainedCallbacks-i);
+    const auto statistics=wholeCallbackStatistics(rows,0,sustainedCallbacks,3500);
+    need(statistics.callbacks==sustainedCallbacks&&statistics.median==2001
+        &&statistics.p99==3960&&statistics.maximum==4000&&statistics.overruns==500,
+        "exact bounded sustained whole-callback statistics");
+    refuses([&]{wholeCallbackStatistics(rows,maximumCallbacks-1,2,1);},
+        "sustained statistics cannot exceed prepared callback capacity");
+
+    Options o=base;o.scenario="sustained";o.block=64;o.rate=48000;o.delay=0;
+    auditBegin=[]{};auditEnd=[]()->uint64_t{return 0;};auditLocalWakes=[]()->uint64_t{return 0;};
+    sustainedFailureRows(o);
+    auto owner=sustainedLifetime(o);auto& life=owner->life;
     Exercise run(life,o);run.sustained(o.block,o.rate);
     need(run.sustainedAttempted&&run.sustainedBegin==4&&run.sustainedCount==sustainedCallbacks,
          "exact four setup flushes then 4000 fixed-size sustained callbacks");

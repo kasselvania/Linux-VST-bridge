@@ -503,6 +503,19 @@ struct Exercise {
         }
         tail(kRealtime,block,rate); life.stop();
     }
+    CallbackResult sustainedMain(int block,int rate,bool first,bool final,double operation=-1.) {
+        try {
+            auto result=process(block,kRealtime,rate,first,final,false,-1.,operation);
+            sustainedCount=rowCount-sustainedBegin;
+            return result;
+        } catch (...) {
+            // process() owns the row before it checks the returned status,
+            // callback effects or output oracle. Keep that refused attempt in
+            // the measured main window before preserving the original failure.
+            sustainedCount=rowCount-sustainedBegin;
+            throw;
+        }
+    }
     void sustained(int block,int rate) {
         configure(kRealtime,block,rate);zeroes(kRealtime,rate);
         // This is an unpaced SDK-host measurement. Every process call and all
@@ -510,8 +523,7 @@ struct Exercise {
         // only after processing and lifecycle retirement have quiesced.
         sustainedAttempted=true;sustainedBegin=rowCount;
         for(size_t b=0;b<sustainedCallbacks;++b) {
-            process(block,kRealtime,rate,b==0,b+1==sustainedCallbacks);
-            ++sustainedCount;
+            sustainedMain(block,rate,b==0,b+1==sustainedCallbacks);
         }
         tail(kRealtime,block,rate);life.stop();
     }
