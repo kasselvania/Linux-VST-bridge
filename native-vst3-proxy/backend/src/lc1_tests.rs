@@ -1,11 +1,39 @@
 //! Two-ended integration with tools/ap18-tests/lc1_session.cpp under the pinned
 //! Windows runner. No vendor module, manager publication, DAW or editor is used.
 use super::*;
+use sha2::{Digest, Sha256};
 use std::{
     fs,
     path::PathBuf,
     process::{Child, Command, Stdio},
 };
+
+const LC1_IDENTITY: state::Identity = state::Identity {
+    // Explicit first-party test class; not a discovered vendor class ID.
+    class: *b"LVBLC1STATE00001",
+    // SHA-256 of the exact launcher-verified ap18-lc1-session.exe.
+    module: [
+        0x84, 0xb4, 0x9f, 0xdf, 0xbe, 0x45, 0x3e, 0xb7, 0x9f, 0xa4, 0x1b, 0x9f, 0xc3, 0xdf,
+        0x4d, 0x87, 0x16, 0x81, 0x9c, 0xfe, 0x35, 0xc9, 0x4c, 0xd7, 0xb1, 0x01, 0x7c, 0x53,
+        0x90, 0x29, 0xe4, 0x41,
+    ],
+};
+const LC1_STATE_PAYLOAD: [u8; 20] = [
+    4, 0, 0, 0, // component bytes
+    0, 0, 0, 0, // controller bytes
+    0, 0, 0, 0, // parameters
+    2, 0, 0, 0, // v3 availability records
+    0x53, 0x31, 0x43, 0x4c, // Fixture component state 0x4c433153
+];
+fn fixture_identity(launcher: &std::ffi::OsStr) -> state::Identity {
+    let executable = PathBuf::from(launcher)
+        .parent()
+        .expect("fixture launcher directory")
+        .join("ap18-lc1-session.exe");
+    let digest: [u8; 32] = Sha256::digest(fs::read(executable).unwrap()).into();
+    assert_eq!(digest, LC1_IDENTITY.module, "exact LC1 executable identity");
+    LC1_IDENTITY
+}
 
 struct Run {
     child: Child,
@@ -79,10 +107,11 @@ fn same_session_reconfiguration_two_ended() {
         PathBuf::from(std::env::var_os("LVB_LC1_DIRECTORY").expect("private empty test directory"));
     assert!(root.is_dir() && fs::read_dir(&root).unwrap().next().is_none());
     let launcher = std::env::var_os("LVB_LC1_LAUNCHER").expect("owned fixture launcher");
+    let identity = fixture_identity(&launcher);
     let id = [0x1c; 16];
     // Launcher waits for the control file, then execs only the SDK fixture.
     let log = fs::File::create(root.join("windows.jsonl")).unwrap();
-    let child = Command::new(launcher)
+    let child = Command::new(&launcher)
         .arg(&root)
         .arg("1c".repeat(16))
         .env("LVB_LC1_HOLD_STARTED", "3")
@@ -92,6 +121,7 @@ fn same_session_reconfiguration_two_ended() {
         .unwrap();
     let mut run = Run { child, handle: 0 };
     let mut session = Session::open_bound(&root, id, 256, 15, None).unwrap();
+    session.identity = Some(identity);
     // Fixture-only seed on both real sequence owners before any lifecycle call.
     session.state.next = 104684;
     // The fixture emits Ready only as a test barrier after its high-sequence
@@ -101,6 +131,7 @@ fn same_session_reconfiguration_two_ended() {
     assert!(ready.payload.is_empty());
     let mut fault_socket = session.socket.try_clone().unwrap();
     let mut shared = Shared::new();
+    shared.identity = Some(identity);
     shared.gui = session.gui.clone();
     shared.state_capable.store(true, Ordering::Release);
     shared.ack.store(17, Ordering::Release);
@@ -175,11 +206,15 @@ fn same_session_reconfiguration_two_ended() {
                 "held Started must not grant readiness");
             fs::write(&release, b"release").unwrap();
             wait(&shared, || shared.ack.load(Ordering::Acquire) == (epoch << 8) | 11);
-            assert!(saver.join().unwrap().is_ok());
+            let saved = saver.join().unwrap().unwrap();
+            assert_eq!(
+                state::bound_payload(Some(identity), &saved).unwrap(),
+                LC1_STATE_PAYLOAD
+            );
             assert!(!shared.pending_control.load(Ordering::Acquire));
-            // The earlier capture completes before the deferred AUDIO result.
-            // Do not infer ordering from the transient mapped request, which
-            // the Windows owner may already have consumed.
+            // Capture is admitted before the deferred AUDIO. Both complete
+            // after Started; no transient mapped-request observation is used
+            // to infer their completion-time order.
             take_result(&shared, &mut processed, epoch, 0, 0);
         } else {
             submit(handle, &shared, epoch, 0, 0);
@@ -276,9 +311,10 @@ fn refused_vendor_start_never_grants_audio_authority() {
     assert_eq!(root.file_name().and_then(|name| name.to_str()), Some("start_refusal"));
     assert!(root.is_dir() && fs::read_dir(&root).unwrap().next().is_none());
     let launcher = std::env::var_os("LVB_LC1_LAUNCHER").expect("owned fixture launcher");
+    let identity = fixture_identity(&launcher);
     let id = [0x1c; 16];
     let log = fs::File::create(root.join("windows.jsonl")).unwrap();
-    let child = Command::new(launcher)
+    let child = Command::new(&launcher)
         .arg(&root)
         .arg("1c".repeat(16))
         .env("LVB_LC1_REFUSE_FIRST_START", "1")
@@ -288,10 +324,12 @@ fn refused_vendor_start_never_grants_audio_authority() {
         .unwrap();
     let mut run = Run { child, handle: 0 };
     let mut session = Session::open_bound(&root, id, 256, 15, None).unwrap();
+    session.identity = Some(identity);
     session.state.next = 104684;
     let ready = ap1_native_client::endpoint::receive_version(&mut session.socket, 10, 15).unwrap();
     assert_eq!((ready.kind, ready.sequence, ready.session), (2, 0, id));
-    let shared = Shared::new();
+    let mut shared = Shared::new();
+    shared.identity = Some(identity);
     shared.state_capable.store(true, Ordering::Release);
     shared.ack.store(17, Ordering::Release);
     let shared = Arc::new(shared);
@@ -328,7 +366,9 @@ fn refused_vendor_start_never_grants_audio_authority() {
         thread::sleep(Duration::from_millis(1));
     }
     assert_eq!(shared.processing_ready_epoch.load(Ordering::Acquire), 0);
-    assert_eq!(shared.ack.load(Ordering::Acquire), ack_before_start);
+    let ack = shared.ack.load(Ordering::Acquire);
+    assert!(ack == ack_before_start || ack == 6, "refusal terminal acknowledgment");
+    assert_ne!(ack, (1u64 << 8) | 11, "refused Start granted readiness");
     assert_eq!(shared.processed.load(Ordering::Acquire), 0);
     assert!(crate::mailbox::Mailbox::inspect_request(
         &root.join("ap10.delivery"), 15).unwrap().is_none());
