@@ -209,6 +209,35 @@ impl Drop for Mailbox {
 
 #[cfg(test)]
 impl Mailbox {
+    pub(crate) fn inspect_request(path: &Path, minor: u64) -> io::Result<Option<Frame>> {
+        let file = OpenOptions::new().read(true).write(true).open(path)?;
+        let pointer = unsafe { mmap(std::ptr::null_mut(), BYTES, 3, 1, file.as_raw_fd(), 0) };
+        need(pointer as isize != -1, "delivery inspection mapping failed")?;
+        let pointer = NonNull::new(pointer.cast::<u8>())
+            .ok_or_else(|| invalid("null delivery inspection mapping"))?;
+        let result = (|| {
+            let flag = unsafe { &*pointer.as_ptr().add(64).cast::<AtomicU32>() }
+                .load(Ordering::Acquire);
+            if flag == 0 {
+                return Ok(None);
+            }
+            need(flag == 1, "delivery inspection request ownership")?;
+            let mut size_bytes = [0; 4];
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    pointer.as_ptr().add(68), size_bytes.as_mut_ptr(), 4);
+            }
+            let size = u32::from_le_bytes(size_bytes) as usize;
+            need((ap1_native_client::HEADER..=REQUEST_CAP).contains(&size),
+                "delivery inspection request extent")?;
+            let bytes = unsafe {
+                std::slice::from_raw_parts(pointer.as_ptr().add(REQUEST), size)
+            };
+            Frame::decode_version(bytes, minor).map(Some)
+        })();
+        unsafe { munmap(pointer.as_ptr().cast(), BYTES); }
+        result
+    }
     pub(crate) fn counterpart(&self) -> Self {
         let file=self._file.try_clone().unwrap();
         let p=unsafe {mmap(std::ptr::null_mut(),BYTES,3,1,file.as_raw_fd(),0)};

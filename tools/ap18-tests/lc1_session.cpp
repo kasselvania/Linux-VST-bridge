@@ -11,10 +11,12 @@
 using namespace Steinberg;using namespace Steinberg::Vst;
 using namespace linux_vst_bridge::wf0;
 struct Fixture final:AudioEffect {
- unsigned blocks=0,starts=0,stops=0;
+ unsigned blocks=0,starts=0,stops=0;bool processing=false;
+ bool refuse_first=[]{wchar_t v[2]{};return GetEnvironmentVariableW(L"LVB_LC1_REFUSE_FIRST_START",v,2)==1&&v[0]==L'1';}();
  tresult PLUGIN_API initialize(FUnknown* h) override {auto r=AudioEffect::initialize(h);addAudioInput(u"In",SpeakerArr::kStereo);addAudioOutput(u"Out",SpeakerArr::kStereo);return r;}
- tresult PLUGIN_API setProcessing(TBool active) override {if(active)++starts;else ++stops;return kResultOk;}
+ tresult PLUGIN_API setProcessing(TBool active) override {if(active){++starts;if(refuse_first&&starts==1)return kResultFalse;processing=true;}else{++stops;processing=false;}return kResultOk;}
  tresult PLUGIN_API process(ProcessData& d) override {
+  assert(processing);
   assert(d.numSamples==0||d.numSamples==1||d.numSamples==128||d.numSamples==256);
   if(!d.numSamples)assert(!d.inputs&&!d.outputs&&d.numInputs==0&&d.numOutputs==0);
   else {
@@ -33,8 +35,9 @@ int wmain(int argc,wchar_t** argv){
   MappedSession session(argv[1],id,events,true,true,true,true,true);
   session.lc1_seed();session.ready();
   auto result=run_offline_processing(plugin,plugin,callbacks,events,&session);
+  if(plugin.refuse_first){assert(!result.success&&result.quiescent&&!result.retirement_ready);assert(plugin.blocks==0&&plugin.starts==1&&plugin.stops==1&&!plugin.processing);assert(plugin.terminate()==kResultOk);return 0;}
   assert(result.success&&result.quiescent&&result.retirement_ready);
-  assert(plugin.blocks==4&&plugin.starts==2&&plugin.stops==2);
+  assert(plugin.blocks==6&&plugin.starts==4&&plugin.stops==4&&!plugin.processing);
   session.finish(true);assert(plugin.terminate()==kResultOk);
   return 0;
  }catch(const std::exception& e){std::cerr<<"LC1 Windows failure: "<<e.what()<<'\n';return 1;}

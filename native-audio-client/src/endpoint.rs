@@ -3,8 +3,9 @@ use crate::mapping::{barrier, random, Mapping};
 use crate::*;
 use std::{
     fs::OpenOptions,
-    io::{self, Write},
+    io::{self, Read, Write},
     net::{TcpListener, TcpStream},
+    os::fd::AsRawFd,
     os::unix::fs::OpenOptionsExt,
     path::Path,
     time::{Duration, Instant},
@@ -31,6 +32,150 @@ pub fn receive_version_into(socket: &mut TcpStream, seconds: u64, minor: u64, fr
     frame.session.copy_from_slice(&header[16..32]);
     frame.sequence = get(&header[40..48]);
     Ok(())
+}
+/// Preallocated state for one exact control frame. A caller can consume the
+/// bytes currently available without blocking, then resume the same frame
+/// after another local-work or socket wake.
+pub struct IncrementalFrame {
+    header: [u8; HEADER],
+    header_read: usize,
+    payload_read: usize,
+    payload_size: Option<usize>,
+}
+impl IncrementalFrame {
+    pub fn new() -> Self {
+        Self { header: [0; HEADER], header_read: 0, payload_read: 0, payload_size: None }
+    }
+    pub fn reset(&mut self) {
+        self.header_read = 0;
+        self.payload_read = 0;
+        self.payload_size = None;
+    }
+    fn prepare_payload(&mut self, minor: u64, frame: &mut Frame) -> io::Result<()> {
+        if self.header_read == HEADER && self.payload_size.is_none() {
+            let size = payload_length_version(&self.header, minor)?;
+            need(size <= frame.payload.capacity(), "audio reply scratch extent")?;
+            frame.payload.clear();
+            frame.payload.resize(size, 0);
+            self.payload_size = Some(size);
+        }
+        Ok(())
+    }
+    fn complete(&self) -> bool {
+        self.payload_size.is_some_and(|size| self.payload_read == size)
+    }
+    fn finish(&self, frame: &mut Frame) {
+        frame.kind = get(&self.header[8..10]) as u16;
+        frame.session.copy_from_slice(&self.header[16..32]);
+        frame.sequence = get(&self.header[40..48]);
+    }
+    fn read_once(&mut self, socket: &mut TcpStream, minor: u64, frame: &mut Frame) -> io::Result<bool> {
+        let read = if self.header_read < HEADER {
+            socket.read(&mut self.header[self.header_read..]).inspect(|&n| {
+                self.header_read += n;
+            })
+        } else {
+            self.prepare_payload(minor, frame)?;
+            let size = self.payload_size.unwrap_or(0);
+            if self.payload_read == size {
+                self.finish(frame);
+                return Ok(true);
+            }
+            socket.read(&mut frame.payload[self.payload_read..]).inspect(|&n| {
+                self.payload_read += n;
+            })
+        }?;
+        if read == 0 {
+            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "control acknowledgement ended"));
+        }
+        self.prepare_payload(minor, frame)?;
+        if self.complete() {
+            self.finish(frame);
+            return Ok(true);
+        }
+        Ok(false)
+    }
+    /// Consume every byte currently available without waiting. Partial bytes
+    /// stay owned by this reader; readiness alone never grants a response.
+    pub fn read_available(&mut self, socket: &TcpStream, minor: u64, frame: &mut Frame) -> io::Result<bool> {
+        unsafe extern "C" { fn recv(fd: i32, bytes: *mut u8, size: usize, flags: i32) -> isize; }
+        #[cfg(target_os = "linux")]
+        const DONTWAIT: i32 = 0x40;
+        #[cfg(target_os = "macos")]
+        const DONTWAIT: i32 = 0x80;
+        loop {
+            self.prepare_payload(minor, frame)?;
+            if self.complete() {
+                self.finish(frame);
+                return Ok(true);
+            }
+            let (pointer, size) = if self.header_read < HEADER {
+                (unsafe { self.header.as_mut_ptr().add(self.header_read) }, HEADER - self.header_read)
+            } else {
+                let size = self.payload_size.unwrap_or(0);
+                (unsafe { frame.payload.as_mut_ptr().add(self.payload_read) }, size - self.payload_read)
+            };
+            if size == 0 {
+                self.finish(frame);
+                return Ok(true);
+            }
+            let result = unsafe { recv(socket.as_raw_fd(), pointer, size, DONTWAIT) };
+            if result == 0 {
+                return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "control acknowledgement ended"));
+            }
+            if result < 0 {
+                let error = io::Error::last_os_error();
+                if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted) {
+                    return Ok(false);
+                }
+                return Err(error);
+            }
+            if self.header_read < HEADER {
+                self.header_read += result as usize;
+            } else {
+                self.payload_read += result as usize;
+            }
+        }
+    }
+}
+impl Default for IncrementalFrame {
+    fn default() -> Self { Self::new() }
+}
+
+/// Finish one incrementally owned frame under the caller's existing absolute
+/// bound. `healthy` is inspected between bounded reads so cancellation cannot
+/// be hidden behind a peer that published only part of an acknowledgement.
+pub fn receive_incremental_until_while(
+    socket: &mut TcpStream,
+    end: Instant,
+    minor: u64,
+    reader: &mut IncrementalFrame,
+    frame: &mut Frame,
+    mut healthy: impl FnMut() -> io::Result<()>,
+) -> io::Result<()> {
+    loop {
+        healthy()?;
+        let remaining = end
+            .checked_duration_since(Instant::now())
+            .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "control deadline"))?;
+        if reader.read_available(socket, minor, frame)? {
+            end.checked_duration_since(Instant::now())
+                .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "control deadline"))?;
+            return Ok(());
+        }
+        socket.set_read_timeout(Some(remaining.min(Duration::from_millis(4))))?;
+        match reader.read_once(socket, minor, frame) {
+            Ok(true) => {
+                end.checked_duration_since(Instant::now())
+                    .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "control deadline"))?;
+                return Ok(());
+            }
+            Ok(false) => {}
+            Err(error) if matches!(error.kind(), io::ErrorKind::WouldBlock
+                | io::ErrorKind::TimedOut | io::ErrorKind::Interrupted) => {}
+            Err(error) => return Err(error),
+        }
+    }
 }
 pub fn send_version_with(socket: &mut TcpStream, f: &Frame, seconds: u64, minor: u64, bytes: &mut Vec<u8>) -> io::Result<()> {
     f.encode_version_into(minor, bytes)?;
@@ -206,7 +351,108 @@ impl Prepared {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::os::unix::fs::FileExt;
+    use std::{io::Write, os::unix::fs::FileExt};
+    fn socket_pair() -> (TcpStream, TcpStream) {
+        let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (server, _) = listener.accept().unwrap();
+        (client, server)
+    }
+    #[test]
+    fn partial_lifecycle_acknowledgement_observes_cancellation() {
+        let (mut client, mut server) = socket_pair();
+        let frame = Frame {
+            kind: 11,
+            session: [31; 16],
+            sequence: 7,
+            payload: 3u64.to_le_bytes().to_vec(),
+        };
+        let bytes = frame.encode_version(15).unwrap();
+        server.write_all(&bytes[..13]).unwrap();
+        let mut reply = Frame {
+            kind: 0,
+            session: [0; 16],
+            sequence: 0,
+            payload: Vec::with_capacity(8),
+        };
+        let mut inspections = 0;
+        let mut reader = IncrementalFrame::new();
+        let result = receive_incremental_until_while(
+            &mut client,
+            Instant::now() + Duration::from_secs(1),
+            15,
+            &mut reader,
+            &mut reply,
+            || {
+                inspections += 1;
+                if inspections >= 3 {
+                    Err(io::Error::other("test cancellation"))
+                } else {
+                    Ok(())
+                }
+            },
+        );
+        assert_eq!(result.unwrap_err().to_string(), "test cancellation");
+        assert!(inspections >= 3);
+    }
+    #[test]
+    fn buffered_lifecycle_acknowledgement_cannot_escape_expired_deadline() {
+        let (mut client, mut server) = socket_pair();
+        let frame = Frame {
+            kind: 11,
+            session: [32; 16],
+            sequence: 8,
+            payload: 4u64.to_le_bytes().to_vec(),
+        };
+        server.write_all(&frame.encode_version(15).unwrap()).unwrap();
+        let mut reply = Frame {
+            kind: 0,
+            session: [0; 16],
+            sequence: 0,
+            payload: Vec::with_capacity(8),
+        };
+        let mut reader = IncrementalFrame::new();
+        let result = receive_incremental_until_while(
+            &mut client,
+            Instant::now() - Duration::from_nanos(1),
+            15,
+            &mut reader,
+            &mut reply,
+            || Ok(()),
+        );
+        assert_eq!(result.unwrap_err().kind(), io::ErrorKind::TimedOut);
+    }
+    #[test]
+    fn partial_lifecycle_acknowledgement_keeps_local_work_observable() {
+        let (mut client, mut server) = socket_pair();
+        let frame = Frame {
+            kind: 11,
+            session: [33; 16],
+            sequence: 9,
+            payload: 5u64.to_le_bytes().to_vec(),
+        };
+        let bytes = frame.encode_version(15).unwrap();
+        server.write_all(&bytes[..13]).unwrap();
+        let mut reply = Frame {
+            kind: 0,
+            session: [0; 16],
+            sequence: 0,
+            payload: Vec::with_capacity(8),
+        };
+        let mut reader = IncrementalFrame::new();
+        assert!(!reader.read_available(&client, 15, &mut reply).unwrap());
+        server.write_all(&bytes[13..]).unwrap();
+        receive_incremental_until_while(
+            &mut client,
+            Instant::now() + Duration::from_secs(1),
+            15,
+            &mut reader,
+            &mut reply,
+            || Ok(()),
+        )
+        .unwrap();
+        assert_eq!(reply, frame);
+    }
     #[test]
     fn explicit_bootstrap_pairs_notification_without_changing_mapping_generation() {
         let directory=std::env::temp_dir().join(format!("lvb-notification-bootstrap-{}-{}",std::process::id(),u64::from_le_bytes(random().unwrap())));

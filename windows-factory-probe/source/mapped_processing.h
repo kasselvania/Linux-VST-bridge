@@ -42,6 +42,7 @@ public:
     void finish(bool success);
 #ifdef LVB_LC1_TEST
     void lc1_seed();
+    void lc1_hold_started() override;
 #endif
 private:
     struct Impl;std::unique_ptr<Impl> impl_;

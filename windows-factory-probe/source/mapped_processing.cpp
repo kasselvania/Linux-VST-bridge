@@ -21,6 +21,7 @@
 #include <mutex>
 #include <atomic>
 #include <condition_variable>
+#include <cwchar>
 #include <thread>
 #include <exception>
 #include <cmath>
@@ -1047,6 +1048,31 @@ void MappedSession::lc1_seed() {
     require(x.state.next == 1 && !x.timeline.running && !x.has_pending,
             "LC1 seed before lifecycle");
     x.state.next = 104684;
+}
+void MappedSession::lc1_hold_started() {
+    auto& x = *impl_;
+    wchar_t enabled[16]{};
+    const auto length = GetEnvironmentVariableW(L"LVB_LC1_HOLD_STARTED", enabled, 16);
+    if (!length || length >= 16)
+        return;
+    wchar_t* end = nullptr;
+    const auto last = std::wcstoul(enabled, &end, 10);
+    require(end && *end == L'\0' && last >= 1, "LC1 Started gate extent");
+    if (x.timeline.epoch > last)
+        return;
+    const auto suffix = std::to_wstring(x.timeline.epoch);
+    const auto held = x.directory + L"\\lc1-start-held-" + suffix;
+    Handle marker;
+    marker.value = CreateFileW(held.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_NEW,
+                               FILE_ATTRIBUTE_NORMAL, nullptr);
+    require(marker.value != INVALID_HANDLE_VALUE, "LC1 Started gate marker");
+    const auto release = x.directory + L"\\lc1-release-start-" + suffix;
+    const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+    while (GetFileAttributesW(release.c_str()) == INVALID_FILE_ATTRIBUTES) {
+        require(GetLastError() == ERROR_FILE_NOT_FOUND && std::chrono::steady_clock::now() < end,
+                "LC1 Started gate release");
+        Sleep(1);
+    }
 }
 #endif
 

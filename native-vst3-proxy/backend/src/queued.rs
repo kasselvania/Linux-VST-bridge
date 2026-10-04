@@ -280,6 +280,10 @@ struct Shared {
     control_waits: AtomicU64,
     #[cfg(test)]
     phase_waits: AtomicU64,
+    #[cfg(test)]
+    pending_start_wakes: AtomicU64,
+    #[cfg(test)]
+    pending_start_control_fences: AtomicU64,
     state_capable: AtomicBool,
     curve_state_revision: AtomicU64,
     observer: Option<Arc<crate::observer::Shared>>,
@@ -349,6 +353,10 @@ impl Shared {
             control_waits: AtomicU64::new(0),
             #[cfg(test)]
             phase_waits: AtomicU64::new(0),
+            #[cfg(test)]
+            pending_start_wakes: AtomicU64::new(0),
+            #[cfg(test)]
+            pending_start_control_fences: AtomicU64::new(0),
             state_capable: AtomicBool::new(false),
             curve_state_revision: AtomicU64::new(0),
             observer: None,
@@ -450,6 +458,32 @@ struct Control {
     op: u32,
     bytes: Vec<u8>,
     result: Option<io::Result<Vec<u8>>>,
+}
+fn admitted_control_precedes(s: &Shared, consumed_includes_candidate: bool) -> io::Result<bool> {
+    if !s.pending_control.load(Ordering::Acquire) { return Ok(false); }
+    let mailbox = s.control.lock().map_err(|_| invalid("state mailbox poisoned"))?;
+    let consumed = s.requests.consumed();
+    Ok(mailbox.as_ref().is_some_and(|control| {
+        control.result.is_none()
+            && if consumed_includes_candidate {
+                control.barrier < consumed
+            } else {
+                control.barrier <= consumed
+            }
+    }))
+}
+fn pending_start_cancelled(s: &Shared) -> bool {
+    s.cancelled.load(Ordering::Acquire)
+        || s.quit.load(Ordering::Acquire)
+        || s.fault.load(Ordering::Acquire) != 0
+}
+fn pending_start_wait_after_snapshot(s: &Shared, observed: u32) -> io::Result<u32> {
+    ap1_native_client::need(!pending_start_cancelled(s), "pending Start cancelled")?;
+    Ok(observed)
+}
+fn audio_transport_deadline(item: &Item, now: Instant) -> Instant {
+    item.completion.filter(|policy| policy.offline)
+        .map_or_else(|| now + Duration::from_secs(5), |policy| policy.deadline)
 }
 // Both normal owner service and an admitted read-only capture finish here.
 // This is transport-worker code, never a DAW callback. Capture completion can
@@ -1049,7 +1083,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
         status.generation = s.generation;
     }
     let run = (|| -> io::Result<()> {
-        loop {
+        'work: loop {
             let work_observed = s.work.snapshot();
             s.work.check()?;
             if let Some(t) = &s.terminal {
@@ -1134,6 +1168,97 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                     session.worker_wait_fds())?;
                 continue;
             }
+            let mut pending_start = None;
+            if item.kind == START && session.can_overlap_start() {
+                s.worker_epoch.store(item.epoch, Ordering::Relaxed);
+                s.worker_position.store(item.position, Ordering::Relaxed);
+                s.worker_op.store(START as u64, Ordering::Release);
+                let pending = session.begin_start(item.epoch)?;
+                let next = loop {
+                    if pending_start_cancelled(&s) {
+                        return Err(invalid("pending Start cancelled"));
+                    }
+                    if admitted_control_precedes(&s, false)? {
+                        #[cfg(test)]
+                        s.pending_start_control_fences.fetch_add(1, Ordering::Release);
+                        session.finish_start(pending, || {
+                            s.cancelled.load(Ordering::Acquire)
+                                || s.quit.load(Ordering::Acquire)
+                                || s.fault.load(Ordering::Acquire) != 0
+                        })?;
+                        break None;
+                    }
+                    if let Some(next) = s.requests.pop() {
+                        if admitted_control_precedes(&s, true)? {
+                            deferred = Some(next);
+                            #[cfg(test)]
+                            s.pending_start_control_fences.fetch_add(1, Ordering::Release);
+                            session.finish_start(pending, || {
+                                s.cancelled.load(Ordering::Acquire)
+                                    || s.quit.load(Ordering::Acquire)
+                                    || s.fault.load(Ordering::Acquire) != 0
+                            })?;
+                            break None;
+                        }
+                        break Some(next);
+                    }
+                    if session.poll_start(pending)? { break None; }
+                    let observed = s.work.snapshot();
+                    // Close the publication/snapshot race before blocking. A
+                    // socket wake may contain only a partial Started frame;
+                    // consuming that prefix must not hide later local AUDIO.
+                    if let Some(next) = s.requests.pop() {
+                        if admitted_control_precedes(&s, true)? {
+                            deferred = Some(next);
+                            #[cfg(test)]
+                            s.pending_start_control_fences.fetch_add(1, Ordering::Release);
+                            session.finish_start(pending, || {
+                                s.cancelled.load(Ordering::Acquire)
+                                    || s.quit.load(Ordering::Acquire)
+                                    || s.fault.load(Ordering::Acquire) != 0
+                            })?;
+                            break None;
+                        }
+                        break Some(next);
+                    }
+                    let observed = pending_start_wait_after_snapshot(&s, observed)?;
+                    s.work.wait(observed, pending.receive_deadline,
+                        session.pending_start_wait_fds())?;
+                    #[cfg(test)]
+                    s.pending_start_wakes.fetch_add(1, Ordering::Release);
+                };
+                match next {
+                    Some(next) if next.kind == AUDIO => {
+                        item = next;
+                        pending_start = Some(pending);
+                    }
+                    Some(next) if next.kind == STOP => {
+                        session.finish_start(pending, || {
+                            s.cancelled.load(Ordering::Acquire)
+                                || s.quit.load(Ordering::Acquire)
+                                || s.fault.load(Ordering::Acquire) != 0
+                        })?;
+                        s.processing_ready_epoch.store(pending.epoch, Ordering::Release);
+                        phases.record(&s, "processing_ready", pending.epoch);
+                        s.ack.store((pending.epoch << 8) | u64::from(START + 1), Ordering::Release);
+                        s.worker_epoch.store(next.epoch, Ordering::Relaxed);
+                        s.worker_position.store(next.position, Ordering::Relaxed);
+                        s.worker_op.store(STOP as u64, Ordering::Release);
+                        session.transition_epoch(STOP as u16, next.epoch)?;
+                        s.processing_ready_epoch.store(0, Ordering::Release);
+                        phases.record(&s, "processing_stopped", next.epoch);
+                        s.ack.store((next.epoch << 8) | u64::from(STOP + 1), Ordering::Release);
+                        continue 'work;
+                    }
+                    Some(_) => return Err(invalid("pending Start ordered request kind")),
+                    None => {
+                        s.processing_ready_epoch.store(pending.epoch, Ordering::Release);
+                        phases.record(&s, "processing_ready", pending.epoch);
+                        s.ack.store((pending.epoch << 8) | u64::from(START + 1), Ordering::Release);
+                        continue 'work;
+                    }
+                }
+            }
             s.worker_epoch.store(item.epoch, Ordering::Relaxed);
             s.worker_position.store(item.position, Ordering::Relaxed);
             s.worker_op.store(item.kind as u64, Ordering::Release);
@@ -1159,28 +1284,41 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                     session.gui_revision = item.gui_revision;
                     let capture_context = [s.generation,session.epoch,session.state.next,
                         session.position,u64::from(session.phase)];
-                    let (words, flags) = session.process_positioned(
-                        n,
-                        item.gain,
-                        item.flags,
-                        [&item.data[0][..n], &item.data[1][..n]],
-                        (item.epoch, item.position),
-                        &item.events[..item.event_count as usize],
-                        item.context,
-                        item.process_mode,
-                        item.completion.filter(|p| p.offline).map_or_else(
-                            || Instant::now() + Duration::from_secs(5), |p| p.deadline),
-                        || s.cancelled.load(Ordering::Acquire) || s.quit.load(Ordering::Acquire)
-                            || s.fault.load(Ordering::Acquire) != 0,
-                        |result| {
+                    let deadline = audio_transport_deadline(&item, Instant::now());
+                    let mut capture_completed = |result| {
                             let mut mailbox = s.control.lock().map_err(|_| invalid("state mailbox poisoned"))?;
                             let c = mailbox.as_mut().ok_or_else(|| invalid("admitted capture owner absent"))?;
                             ap1_native_client::need(c.op == 16 && c.result.is_none()
                                 && s.pending_control.load(Ordering::Acquire), "admitted capture owner changed")?;
                             previous_control[2] = crate::observer::monotonic_ns();
                             complete_control(&s, c, result, capture_context)
-                        },
-                    )?;
+                        };
+                    let cancelled = || s.cancelled.load(Ordering::Acquire)
+                        || s.quit.load(Ordering::Acquire)
+                        || s.fault.load(Ordering::Acquire) != 0;
+                    let (words, flags) = if let Some(pending) = pending_start {
+                        let pending = pending.bounded_by(deadline);
+                        session.process_positioned_pending_start(
+                            pending, n, item.gain, item.flags,
+                            [&item.data[0][..n], &item.data[1][..n]],
+                            (item.epoch, item.position),
+                            &item.events[..item.event_count as usize], item.context,
+                            item.process_mode, deadline, cancelled, &mut capture_completed,
+                            || {
+                                s.processing_ready_epoch.store(pending.epoch, Ordering::Release);
+                                phases.record(&s, "processing_ready", pending.epoch);
+                                s.ack.store((pending.epoch << 8) | u64::from(START + 1), Ordering::Release);
+                            },
+                        )?
+                    } else {
+                        session.process_positioned(
+                            n, item.gain, item.flags,
+                            [&item.data[0][..n], &item.data[1][..n]],
+                            (item.epoch, item.position),
+                            &item.events[..item.event_count as usize], item.context,
+                            item.process_mode, deadline, cancelled, &mut capture_completed,
+                        )?
+                    };
                     for (ch, word) in words.iter().enumerate() {
                         for i in 0..n {
                             item.data[ch][i] = f32::from_bits(word[i + 1]);
@@ -3115,6 +3253,66 @@ pub unsafe extern "C" fn ap10_fail_results(id: u64) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn pending_start_control_barrier_preserves_publication_order_across_pop() {
+        let shared = Shared::new();
+        assert!(shared.requests.push(Item::control(START, 1)));
+        assert_eq!(shared.requests.pop().unwrap().kind, START);
+        assert!(!admitted_control_precedes(&shared, false).unwrap());
+
+        *shared.control.lock().unwrap() = Some(Control {
+            barrier: shared.requests.published(),
+            op: 16,
+            bytes: vec![],
+            result: None,
+        });
+        shared.pending_control.store(true, Ordering::Release);
+        assert!(admitted_control_precedes(&shared, false).unwrap());
+
+        assert!(shared.requests.push(Item::control(AUDIO, 1)));
+        assert_eq!(shared.requests.pop().unwrap().kind, AUDIO);
+        assert!(admitted_control_precedes(&shared, true).unwrap(),
+            "control admitted before AUDIO must survive the pop race");
+
+        shared.control.lock().unwrap().as_mut().unwrap().barrier =
+            shared.requests.published();
+        assert!(!admitted_control_precedes(&shared, true).unwrap(),
+            "control whose barrier includes AUDIO must remain after it");
+    }
+    #[test]
+    fn pending_start_cancellation_included_in_snapshot_is_rechecked_before_wait() {
+        let shared = Shared::new();
+        assert!(!pending_start_cancelled(&shared));
+        shared.cancelled.store(true, Ordering::Release);
+        shared.work.notify();
+        let observed = shared.work.snapshot();
+        assert_eq!(pending_start_wait_after_snapshot(&shared, observed)
+            .unwrap_err().to_string(), "pending Start cancelled");
+    }
+    #[test]
+    fn buffered_nonzero_local_deadline_does_not_shorten_worker_transport() {
+        let now = Instant::now();
+        let local_deadline = now - Duration::from_nanos(1);
+        let mut item = Item::control(AUDIO, 1);
+        item.n = 128;
+        item.completion = Some(crate::performance::CompletionPolicy {
+            allowance: Duration::from_nanos(128),
+            deadline: local_deadline,
+            exact: false,
+            offline: false,
+        });
+        let transport = audio_transport_deadline(&item, now);
+        assert_eq!(transport, now + Duration::from_secs(5));
+        let pending = crate::PendingStart {
+            session: [0; 16],
+            sequence: 1,
+            epoch: 1,
+            receive_deadline: now + Duration::from_secs(10),
+        }
+        .bounded_by(transport);
+        assert_eq!(pending.receive_deadline, transport);
+        assert!(pending.receive_deadline > local_deadline);
+    }
     fn control_live(shared: Arc<Shared>) -> u64 {
         INSTANCES.insert(|| Ok::<_, ()>(Live {
             shared, callback: UnsafeCell::new(Callback::new()), busy: AtomicBool::new(false),

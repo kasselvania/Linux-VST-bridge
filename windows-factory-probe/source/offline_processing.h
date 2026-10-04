@@ -48,6 +48,9 @@ public:
     virtual uint32_t lifecycle_request(uint16_t) { return 256; }
     virtual void lifecycle_ack(uint16_t) {}
     virtual void lifecycle_activity(bool,uint64_t) {}
+#ifdef LVB_LC1_TEST
+    virtual void lc1_hold_started() {}
+#endif
     virtual ResultStatus* result_status() {return nullptr;}
     virtual void before_process() {}
     virtual void after_process() {}

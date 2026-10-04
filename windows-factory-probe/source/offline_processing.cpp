@@ -264,7 +264,12 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                 if(signals.exit.load(std::memory_order_acquire))break;
                 processing_attempted=true;stopped=false;
                 started=render_transition(true);
-                if (started && external) {if(hosted) external->lifecycle_ack(11);else external->ready();}
+                if (started && external) {
+#ifdef LVB_LC1_TEST
+                    external->lc1_hold_started();
+#endif
+                    if(hosted) external->lifecycle_ack(11);else external->ready();
+                }
                 if (started) for(uint64_t b=0;sustained||b<uint64_t(external?65:3);++b) {
                     auto& block=blocks[external?0:b];
                     if (external) {

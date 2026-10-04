@@ -1119,8 +1119,11 @@ contract; its source, installed and physical acceptance remain separate gates:
   sending START while its exact Started reply is pending. Publication does not
   mean readiness: validate the original session/sequence/epoch acknowledgement
   before accepting any result or releasing another control operation. The pending
-  reply has one bounded reader; cancellation retains mapping/worker custody until
-  retirement. Windows still calls vendor setProcessing(true) before consuming
+  reply has one bounded reader. Cancellation ends native access before releasing
+  its local mapping view; the supervisor retains custody of the independently
+  mapped Windows endpoint and transport stage until confirmed retirement. It never
+  authorizes slot reuse or stage removal from an unconfirmed reply. Windows still
+  calls vendor setProcessing(true) before consuming
   AUDIO and retains its existing synchronous acknowledgement handoff. Legacy
   exchanges remain sequential. This removes a request-publication dependency;
   it does not enlarge the callback allowance or establish a timing improvement.
