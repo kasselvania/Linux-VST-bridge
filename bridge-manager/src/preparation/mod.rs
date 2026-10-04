@@ -1208,6 +1208,31 @@ pub fn publication_state(m: &Manager, c: &Candidate) -> Result<String> {
 pub fn publication_state_record(m: &Manager, c: &Candidate) -> Result<String> {
     publication_state_with(m, c, Manager::load_revision_record)
 }
+/// Bounded control-record proof for a selected candidate whose discovery row
+/// is historical.  This does not grant preparation or execution authority; it
+/// only prevents the operator projection from hiding an exact publication
+/// after a coordinated package refresh.
+pub fn selected_publication_candidate_record(m: &Manager, c: &Candidate) -> Result<bool> {
+    if !matches!(publication_state_record(m, c)?.as_str(), "ordinary" | "experimental") {
+        return Ok(false);
+    }
+    let db = m.registry()?;
+    let entry = db.classes.get(&c.selection.class.id)
+        .ok_or("publication_revision_missing")?;
+    let reference = entry.managed_revision.as_ref()
+        .ok_or("publication_revision_missing")?;
+    let revision = m.load_revision_record(&c.selection.class.id, reference)?;
+    require(entry.registration == revision.registration,
+        "candidate_registration_changed")?;
+    m.verify_completed_publication(&revision, reference)?;
+    m.performance(&c.selection.class.id)?;
+    let records = RecordReadback::capture(m)?;
+    let Some(selected) = records.publication_candidate_record(
+        m, &revision.profile, &revision.registration)? else {
+        return Ok(false);
+    };
+    Ok(selected.id()? == c.id()?)
+}
 fn publication_state_with(m: &Manager, c: &Candidate,
     load: fn(&Manager, &str, &RevisionRef) -> Result<Revision>) -> Result<String> {
     if m.publication_pending(&c.selection.class.id)? {
@@ -1513,6 +1538,33 @@ pub fn publication_candidate(m: &Manager, p: &Profile, r: &Registration) -> Resu
     require(expected == *r, "candidate_registration_changed")?;
     Ok(c)
 }
+/// A package refresh starts from an exact retained publication, whose original
+/// discovery row may have been superseded by a later inventory.  The retained
+/// revision and candidate are the authority for its class/module/environment;
+/// the new inspection and runtime still undergo complete byte verification.
+/// Ordinary preparation continues to require a current inventory row through
+/// `verify_candidate`.
+pub(crate) fn verify_refresh_candidate(
+    m: &Manager,
+    candidate: &Candidate,
+    predecessor: &Revision,
+) -> Result<()> {
+    let prior = publication_candidate(m, &predecessor.profile, &predecessor.registration)?;
+    require(
+        predecessor.class_id == candidate.selection.class.id
+            && predecessor.registration.metadata.class_id == candidate.selection.class.id
+            && predecessor.registration.environment == candidate.selection.environment
+            && predecessor.registration.module == candidate.selection.module
+            && prior.selection == candidate.selection,
+        "bridge_refresh_predecessor_changed",
+    )?;
+    require(
+        candidate.origin == Origin::ManagedPreparation
+            && candidate.inspection.origin == Origin::ManagedPreparation,
+        "bridge_refresh_candidate_origin",
+    )?;
+    verify_retained_candidate(m, candidate)
+}
 #[doc(hidden)]
 pub fn refresh_candidate(
     m: &Manager,
@@ -1538,7 +1590,7 @@ pub fn refresh_candidate(
     let basis = preparation_basis(m, Some(&prior))?;
     let next = bind_preparation_basis(configuration::carry_settings(next, Some(&prior))?,
         Some(basis))?;
-    verify_candidate(m, &next, &prior.selection.scanner, &prior.selection.scanner_source)?;
+    verify_refresh_candidate(m, &next, predecessor)?;
     require(build::supports_loaded_engine_admission(m, &next)?,
         "loaded_engine_admission_contract_missing")?;
     crate::operator_lock::timing::measure(
@@ -1644,28 +1696,50 @@ pub(crate) fn permits_transition(
         && (p == &c.profile || accepted(m, &c).is_ok_and(|a| a == *p)))
 }
 pub fn enable(m: &Manager, c: &Candidate, ordinary: bool) -> Result<RevisionRef> {
-    enable_exact(m, c, ordinary, None)
+    enable_exact(m, c, ordinary, None, None)
 }
 pub fn replace(m: &Manager, c: &Candidate, expected: &RevisionRef) -> Result<RevisionRef> {
     require(
         publication_state(m, c)? == "another_configuration",
         "replacement_not_required",
     )?;
-    enable_exact(m, c, false, Some(expected))
+    enable_exact(m, c, false, Some(expected), None)
+}
+#[doc(hidden)]
+pub fn replace_refreshed(
+    m: &Manager,
+    c: &Candidate,
+    predecessor: &Revision,
+    expected: &RevisionRef,
+) -> Result<RevisionRef> {
+    require(
+        publication_state(m, c)? == "another_configuration",
+        "replacement_not_required",
+    )?;
+    enable_exact(m, c, false, Some(expected), Some(predecessor))
 }
 fn enable_exact(
     m: &Manager,
     c: &Candidate,
     ordinary: bool,
     expected: Option<&RevisionRef>,
+    refresh_predecessor: Option<&Revision>,
 ) -> Result<RevisionRef> {
     use crate::operator_lock::timing::{self, Stage};
     require(
         !ordinary || publication_state(m, c)? != "ordinary",
         "candidate_already_ordinary",
     )?;
-    timing::measure(Stage::CandidateVerification, ||
-        verify_candidate(m, c, &c.selection.scanner, &c.selection.scanner_source))?;
+    timing::measure(Stage::CandidateVerification, || match refresh_predecessor {
+        Some(predecessor) => verify_refresh_candidate(m, c, predecessor),
+        None => verify_candidate(m, c, &c.selection.scanner, &c.selection.scanner_source),
+    })?;
+    if refresh_predecessor.is_some() {
+        require(
+            build::supports_loaded_engine_admission(m, c)?,
+            "loaded_engine_admission_contract_missing",
+        )?;
+    }
     if !ordinary {
         if let Some(trial) = &c.settings_trial {
             require(expected == trial.baseline.as_ref(), "settings_trial_baseline_changed")?;

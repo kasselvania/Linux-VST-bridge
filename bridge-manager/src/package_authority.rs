@@ -1157,7 +1157,7 @@ pub(super) fn restore_publication(m: &Manager, key: &str, id: &str,
     let cleanup = preparation::build::cleanup_work(m, operation);
     let candidate = prepared?;
     cleanup?;
-    preparation::replace(m, &candidate, &current)
+    preparation::replace_refreshed(m, &candidate, &target, &current)
 }
 
 fn prepare_refresh_receipt(m: &Manager, target: &Software,

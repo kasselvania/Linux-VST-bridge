@@ -941,8 +941,8 @@ impl Manager {
         candidate: &crate::preparation::Candidate,
         expected: &RevisionRef,
     ) -> Result<PreparedTransition> {
-        crate::preparation::verify_candidate(self, candidate,
-            &candidate.selection.scanner, &candidate.selection.scanner_source)?;
+        let prior_revision = self.load_revision(&candidate.selection.class.id, expected)?;
+        crate::preparation::verify_refresh_candidate(self, candidate, &prior_revision)?;
         require(candidate.profile.claim == Claim::ReviewCandidate
             && crate::preparation::build::supports_loaded_engine_admission(self, candidate)?,
             "loaded_engine_admission_contract_missing")?;
@@ -959,7 +959,6 @@ impl Manager {
             && entry.managed_revision.as_ref() == Some(expected),
             "bridge_refresh_current_changed")?;
         let before = self.package_publication_state(&key, entry)?;
-        let prior_revision = self.load_revision(&key, expected)?;
         require(prior_revision.registration.module == registration.module
             && prior_revision.registration.environment == registration.environment
             && prior_revision.registration.metadata == registration.metadata

@@ -458,6 +458,20 @@ fn guided_projection(
             requirement.split(':').next().unwrap_or(requirement).replace('_', " ")).collect();
     }
     let exact = selected.filter(|row| row.current_inputs);
+    // A coordinated package refresh remains the selected publication even
+    // when its historical discovery row is no longer current.  That retained
+    // publication may be shown and its exact test result recorded; discovery
+    // and settings actions continue to use `current_inputs` below.
+    let selected_publication = selected.filter(|row| {
+        if row.disposition != "current_published"
+            || !matches!(row.publication.as_str(), "ordinary" | "experimental") {
+            return false;
+        }
+        prep::candidate_record(m, &row.id)
+            .and_then(|candidate|
+                prep::selected_publication_candidate_record(m, &candidate))
+            .is_ok_and(|current| current)
+    });
     let offer = |label: &str, action: ui::Action, disabled: Option<&str>| ui::AvailableAction {
         label: label.into(), action, disabled_reason: disabled.map(str::to_owned),
     };
@@ -495,14 +509,16 @@ fn guided_projection(
     let (phase, summary) = if canonical && view.candidates.is_empty() {
         if ordinary_ready { (Phase::OrdinarySupported, "Supported exact configuration".into()) }
         else { (Phase::PublicationNeedsAttention, "Existing publication needs attention.".into()) }
-    } else if stale.is_some() {
+    } else if stale.is_some() && selected_publication.is_none() {
         (Phase::HistoricalOnly, "This installed selection is historical. Refresh its managed inventory before checking it again.".into())
     } else if selected.is_some_and(|row| row.publication == "needs_attention") {
         (Phase::PublicationNeedsAttention, "Publication needs reconciliation before testing.".into())
-    } else if let Some(row) = exact.filter(|row| row.publication == "ordinary") {
+    } else if let Some(row) = exact.filter(|row| row.publication == "ordinary")
+        .or_else(|| selected_publication.filter(|row| row.publication == "ordinary")) {
         let _ = row;
         (Phase::OrdinarySupported, "Supported exact configuration".into())
-    } else if let Some(row) = exact.filter(|row| row.publication == "experimental") {
+    } else if let Some(row) = exact.filter(|row| row.publication == "experimental")
+        .or_else(|| selected_publication.filter(|row| row.publication == "experimental")) {
         if let Some(expected) = view.current_revision.as_ref() {
             primary = Some(offer("Record test result", ui::Action::CompatibilityResult {
                 candidate: row.id.clone(), expected_current: publication_identity(expected),
@@ -3317,6 +3333,55 @@ with zipfile.ZipFile(path,'w') as z:
         assert_eq!(workflow.phase, ui::CompatibilityPhase::AvailableForTest);
         assert_eq!(workflow.current_candidate.as_deref(), Some(c.id().unwrap().as_str()));
         assert!(matches!(workflow.primary.unwrap().action, ui::Action::CompatibilityResult { .. }));
+    }
+    #[test]
+    fn selected_refreshed_candidate_stays_visible_without_reopening_discovery_admission() {
+        let (f, c) = projection_fixture();
+        prep::record_candidate(&f.m, &c).unwrap();
+        prep::enable(&f.m, &c, false).unwrap();
+        let sw = projection_software(&c);
+        fs::remove_file(f.m.root.join("inventory")
+            .join(format!("{}.json", c.selection.environment.id))).unwrap();
+        let view = prep::view(&f.m, &c.selection, &sw.host, &sw.source_sha256).unwrap();
+        assert!(!view.candidates.iter().any(|row| row.current_inputs));
+        let workflow = guided_projection(&f.m, &c.selection, &view,
+            Inactivity {global:None, class:None}, Some("inventory superseded"), false, false).unwrap();
+        assert_eq!(workflow.phase, ui::CompatibilityPhase::AvailableForTest);
+        assert_eq!(workflow.current_candidate.as_deref(), Some(c.id().unwrap().as_str()));
+        assert!(matches!(workflow.primary.unwrap().action,
+            ui::Action::CompatibilityResult { .. }));
+
+        let environment = c.selection.environment.root.join("environment.json");
+        let environment_bytes = fs::read(&environment).unwrap();
+        let mut changed: serde_json::Value = read_json(&environment).unwrap();
+        changed["revision"] = json!(c.selection.environment.revision + 1);
+        atomic_json(&environment, &changed).unwrap();
+        let refused = guided_projection(&f.m, &c.selection, &view,
+            Inactivity {global:None, class:None}, Some("inventory superseded"), false, false).unwrap();
+        assert_eq!(refused.phase, ui::CompatibilityPhase::HistoricalOnly);
+        assert!(refused.primary.is_none());
+        fs::write(&environment, environment_bytes).unwrap();
+
+        let reference = f.m.registry().unwrap().classes[&c.selection.class.id]
+            .managed_revision.clone().unwrap();
+        let revision = f.m.load_revision_record(&c.selection.class.id, &reference).unwrap();
+        let completion = f.m.root.join("transactions")
+            .join(format!("{}.result.json", revision.transaction));
+        let completion_bytes = fs::read(&completion).unwrap();
+        fs::remove_file(&completion).unwrap();
+        let incomplete = guided_projection(&f.m, &c.selection, &view,
+            Inactivity {global:None, class:None}, Some("inventory superseded"), false, false).unwrap();
+        assert_eq!(incomplete.phase, ui::CompatibilityPhase::HistoricalOnly);
+        fs::write(&completion, completion_bytes).unwrap();
+
+        let performance = f.m.root.join("performance")
+            .join(format!("{}.json", c.selection.class.id));
+        private_dir(performance.parent().unwrap()).unwrap();
+        fs::write(&performance, b"not a performance record").unwrap();
+        let invalid_performance = guided_projection(&f.m, &c.selection, &view,
+            Inactivity {global:None, class:None}, Some("inventory superseded"), false, false).unwrap();
+        assert_eq!(invalid_performance.phase, ui::CompatibilityPhase::HistoricalOnly);
+        fs::remove_file(performance).unwrap();
     }
     #[test]
     fn ui2_two_exact_effect_layouts_offer_only_bounded_human_choices() {

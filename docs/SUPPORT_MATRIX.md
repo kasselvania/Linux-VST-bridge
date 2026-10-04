@@ -94,6 +94,12 @@ establish the same cached-descriptor provenance. The operator has approved manag
 refresh through the normal update/recovery controls (D-029). That integration and
 its installed acceptance remain unfinished, so FC-MGMT-008 stays open. No new
 package or Deck publication is installed by the source checkpoint.
+The subsequent [refresh2 installed check](../evidence/audio-recovery/2026-10-04-managed-refresh-inventory-failure.json)
+passes normal Setup status and missing-capability refusal with automatic prior
+service recovery. Valid Update still refuses a retained publication whose old
+discovery entry is absent. All six prior publications, preferences and saved
+objects remain exact; updated audio/state and both restoration routes remain
+unperformed. This does not widen any audio or platform support claim.
 After that boundary is resolved, timing qualification moves to one frozen physical
 candidate in both Buffered and SameCallback D=0 modes; further VM timing iterations
 are not an acceptance route.

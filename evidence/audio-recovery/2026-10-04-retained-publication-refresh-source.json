@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "date": "2026-10-04",
+  "claim": "Source repair for managed refresh and ordinary restoration of exact retained publications after discovery supersession; installed successor acceptance pending",
+  "base": "529b1b6cb691d52c44eb380ff97a96f6ec8967bd",
+  "source_patch_sha256": "c157f89b63718e61a0174f9ad1980a31217cd9952c315aff78f7b209a96811d1",
+  "files": {
+    "bridge-manager/src/package_authority.rs": "171de3de04295400e74478acf032ec4abe6d1d03f413a907c34069b5c48d8da2",
+    "bridge-manager/src/preparation/mod.rs": "daa29dab80521b1b08eb09923aedd03d32d9dc6ed0c615fc5695d7520c79a541",
+    "bridge-manager/src/preparation/tests.rs": "789af88574a519032ea407e261a0fe907687def33f59211f3fd814d4f57bf7a7",
+    "bridge-manager/src/preparation_cli.rs": "057f27ea26d986c344e1e430a5b03f0126a0292c8595c09b0ab8f885862f0de1",
+    "bridge-manager/src/publication.rs": "b976d26f316d129a0b8b487445c6ad9a66fbd61519e9b2fea563b3adc3e27785"
+  },
+  "changes": [
+    "Retained predecessor candidate and exact class/module/environment authorize refresh independently of mutable current scan membership",
+    "Fresh inspection, runtime, native bytes and retained source objects remain fully verified",
+    "Package publication and ordinary retained-history restoration use the same bound verifier; selected revision is rechecked at commit",
+    "Selected readiness uses bounded candidate/revision/registry/environment/completion/performance records; it cannot erase an existing refusal merely because a pointer is selected",
+    "New discovery, new preparation and settings actions remain current-inventory strict"
+  ],
+  "regression": {
+    "old_base_patch_sha256": "c77f15b2755a7c81f4be4375c43d2e3ca5c9a067be192b6488fff4d8aba6b31b",
+    "old_base_result": "Actual removed-inventory fixture fails preparation_inventory_superseded at refresh_candidate, after retained publication validation succeeds",
+    "repaired_result": "Same fixture refreshes and commits, reverses exact publication, and prepares ordinary refreshed replacement; ordinary discovery verification still refuses",
+    "negative_cases": [
+      "Changed module or environment identity",
+      "Wrong candidate origin",
+      "Altered inspection report",
+      "Stale expected publication leaves registry unchanged",
+      "Selected readiness refuses changed environment, absent completed publication and malformed performance record"
+    ]
+  },
+  "linux_checks": [
+    {
+      "name": "old-base-red",
+      "returncode": 101,
+      "result": "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 256 filtered out; finished in 2.21s",
+      "log_sha256": "3690978ed178ace1711ab8ae135144e49c4a09bbcfa5b40badc222ab5c228b7a"
+    },
+    {
+      "name": "manager-lib-candidate",
+      "returncode": 0,
+      "result": "test result: ok. 257 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 272.94s",
+      "log_sha256": "ec5e34cfa43cbd0d85e75ad5a82589c2e03d0e1c797f393e759668411c93e7ae"
+    },
+    {
+      "name": "package_authority-candidate",
+      "returncode": 0,
+      "result": "test result: ok. 55 passed; 0 failed; 1 ignored; 0 measured; 295 filtered out; finished in 52.73s",
+      "log_sha256": "d0f8c32561f9f3de08be902829e95f644d6d69239b44c67366f06e709ac3bf38"
+    },
+    {
+      "name": "preparation_cli-candidate",
+      "returncode": 0,
+      "result": "test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 304 filtered out; finished in 63.50s",
+      "log_sha256": "923d5521ac0e62891c184d81ca8ceecf5db2891d668c4338712ad38922a78dd3"
+    },
+    {
+      "name": "operator_cli-candidate",
+      "returncode": 0,
+      "result": "test result: ok. 84 passed; 0 failed; 1 ignored; 0 measured; 266 filtered out; finished in 46.47s",
+      "log_sha256": "c1d6b707d86c43ab1775897ccad9e69d04da6e2867842613dbb2eb64de96ce66"
+    },
+    {
+      "name": "package-authority-default",
+      "returncode": 0,
+      "result": "test result: ok. 55 passed; 0 failed; 1 ignored; 0 measured; 286 filtered out; finished in 52.05s",
+      "log_sha256": "df17a95babcb8a6971ed626ce4efdaf7147606f8802cea4bf0c78d0420017850"
+    },
+    {
+      "name": "manager-clippy",
+      "returncode": 0,
+      "result": "strict all-target all-feature clippy passed",
+      "log_sha256": "e27a522f94f9822c0bb36c5f815088d0e4c0183f55166b8f2922c4c394d7cbe9"
+    }
+  ],
+  "review": {
+    "model": "gpt-6-astra",
+    "effort": "xhigh",
+    "patch_sha256": "c157f89b63718e61a0174f9ad1980a31217cd9952c315aff78f7b209a96811d1",
+    "result": "No remaining blocking source findings; new binary readiness regression included in Linux validation"
+  },
+  "retained_artifacts": {
+    "retained-refresh-source-review-v2.tgz": "080ecae20b0dde2e60c2a6ed717e6b37aaea3b88d11f2382a3a62eabf6bee772",
+    "retained-refresh-validation-v2.tgz": "046d3b91a207289d3baae25472026a0b4d66989e423778e638d286cfdef2bb8e"
+  },
+  "nonclaims": [
+    "Valid installed refresh2 still failed and remains retained; source results do not replace that result",
+    "Updated saved-state/audio, cached-caller refusal and both restoration routes remain pending on successor",
+    "Experimental negative-test/disable old-parent rollback route remains separately classified",
+    "No audio wait, DSP, runner, vendor module, graphics or physical Deck changes"
+  ]
+}

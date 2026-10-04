@@ -1839,6 +1839,16 @@ with zipfile.ZipFile(path,'w') as z:
     check_publication(&f.m, &installed.profile, &installed.registration).unwrap();
     assert!(catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
     assert_eq!(f.m.resolve(&f.identity()).unwrap(), installed.registration);
+    // A retained selected publication is independent of the mutable discovery
+    // projection.  This is the installed refresh shape: CMP1 remains selected
+    // and exact after a later scan has superseded its original inventory row.
+    let inventory = f.m.root.join("inventory")
+        .join(format!("{}.json", prepared.selection.environment.id));
+    fs::remove_file(&inventory).unwrap();
+    assert_eq!(verify_candidate(&f.m, &prepared, &prepared.selection.scanner,
+        &prepared.selection.scanner_source).unwrap_err().to_string(),
+        "preparation_inventory_superseded");
+    check_publication(&f.m, &installed.profile, &installed.registration).unwrap();
     let refresh_operation = random_id().unwrap();
     let replacement = refresh_candidate(
         &f.m,
@@ -1849,6 +1859,26 @@ with zipfile.ZipFile(path,'w') as z:
     )
     .unwrap();
     build::cleanup_work(&f.m, &refresh_operation).unwrap();
+    let mut changed_predecessor = replacement.clone();
+    changed_predecessor.selection.module.sha256 = "ee".repeat(32);
+    assert_eq!(verify_refresh_candidate(&f.m, &changed_predecessor, &installed)
+        .unwrap_err().to_string(), "bridge_refresh_predecessor_changed");
+    changed_predecessor = replacement.clone();
+    changed_predecessor.selection.environment.revision += 1;
+    assert_eq!(verify_refresh_candidate(&f.m, &changed_predecessor, &installed)
+        .unwrap_err().to_string(), "bridge_refresh_predecessor_changed");
+    let mut changed_origin = replacement.clone();
+    changed_origin.origin = Origin::RetainedSv1;
+    assert_eq!(verify_refresh_candidate(&f.m, &changed_origin, &installed)
+        .unwrap_err().to_string(), "bridge_refresh_candidate_origin");
+    let mut changed_report = replacement.clone();
+    changed_report.inspection.report.sha256 = "ff".repeat(32);
+    assert!(f.m.prepare_package_refresh(&changed_report, &revision).is_err());
+    let mut stale_expected = revision.clone();
+    stale_expected.id = "dd".repeat(16);
+    let selected = fs::read(f.m.root.join("registry.json")).unwrap();
+    assert!(replace_refreshed(&f.m, &replacement, &installed, &stale_expected).is_err());
+    assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), selected);
     let refreshed = f.m.prepare_package_refresh(&replacement, &revision).unwrap();
     f.m.commit_package_publication(&refreshed).unwrap();
     assert!(!registry_requires_loaded_engine_refresh_record(&f.m).unwrap());
@@ -1857,4 +1887,12 @@ with zipfile.ZipFile(path,'w') as z:
         refreshed.after.entry.registration.native.path);
     assert_eq!(fs::read(&build_path).unwrap(), serde_json::to_vec(&legacy_build).unwrap());
     assert_ne!(replacement.native.artifact.path.with_file_name("build.json"), build_path);
+    f.m.restore_package_publication(&refreshed).unwrap();
+    assert_eq!(f.m.registry().unwrap().classes[&prepared.selection.class.id]
+        .managed_revision.as_ref(), Some(&revision));
+    let restored = replace_refreshed(&f.m, &replacement, &installed, &revision).unwrap();
+    let restored = f.m.load_revision(&prepared.selection.class.id, &restored).unwrap();
+    assert_eq!(restored.registration.environment, installed.registration.environment);
+    assert_eq!(restored.registration.module, installed.registration.module);
+    assert_eq!(restored.registration.native.sha256, replacement.native.artifact.sha256);
 }

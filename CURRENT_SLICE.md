@@ -60,9 +60,23 @@ No update was submitted; the six-class audio9 baseline remained
 exact and healthy. The [source correction](evidence/audio-recovery/2026-10-04-package-status-boundary-source.json)
 now separates bounded status records from executable launch/mutation verification,
 with consistent refresh action/provenance and guarded frontend handoff. Its Linux
-checks and independent source review pass. Build the committed successor and
-resume the original installed acceptance; the status correction is not yet an
-installed result.
+checks and independent source review pass. The committed refresh2 successor's
+[installed attempt](evidence/audio-recovery/2026-10-04-managed-refresh-inventory-failure.json)
+now reaches normal Update; explicit status readback took 0.309 seconds. The
+deliberately missing-capability package was refused with automatic service
+restoration and exact predecessor preservation. The valid package then failed
+`preparation_inventory_superseded`: its retained published Completion fixtures
+no longer have matching current discovery entries. Fresh target inspection
+completed and retired; no selection changed, and the prior service recovered.
+The held old caller was never released, so stale-caller acceptance remains
+unperformed. The [retained-publication source repair](evidence/audio-recovery/2026-10-04-retained-publication-refresh-source.json)
+now connects preparation, package publication, ordinary restoration and truthful
+selected readback. Its unchanged-base regression reproduces the failure; Linux
+library and affected manager suites, strict lint and independent source review
+pass. New-discovery freshness remains strict, with exact predecessor, environment,
+module, inspection and runtime verification retained. Build the committed successor
+and resume the original installed acceptance; source success does not replace the
+failed installed result.
 
 FC-MGMT-008 remains open until the committed package completes the installed
 update, current-caller recall, stale-caller refusal, failure/interruption recovery

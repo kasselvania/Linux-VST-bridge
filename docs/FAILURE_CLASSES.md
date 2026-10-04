@@ -2793,3 +2793,20 @@ or authentication of an arbitrary transferred socket's calling module. Legacy
 LVB1–4 behavior is unchanged at that source checkpoint. D-029 now authorizes the
 coordinated refresh/enforcement workflow. Until that normal update and installed
 recovery are established, this failure class remains open.
+
+The [refresh2 installed attempt](../evidence/audio-recovery/2026-10-04-managed-refresh-inventory-failure.json)
+passes bounded Setup status and a deliberately missing-capability preparation
+refusal with automatic service recovery. The valid normal update still fails:
+retained Completion publications are incorrectly required to appear in current
+discovery inventory (`preparation_inventory_superseded`). Fresh target inspection
+completed and retired, but no publication or software selection changed. The prior
+service, six selected publications, preferences and saved objects remain intact.
+Repair retained-publication refresh authority across preparation, publication,
+ordinary restoration and selected readback; do not weaken new-discovery freshness.
+Cached-caller, updated-state and coordinated restoration acceptance remain open.
+
+An adjacent source-only recovery gap remains classified: the experimental
+negative-test/disable route uses `rollback_exact` and may refuse a pre-contract
+ancestor with `bridge_update_required`; normal history restoration uses managed
+refresh. No installed result establishes that alternative route. It must not be
+described as covered by ordinary history restoration.

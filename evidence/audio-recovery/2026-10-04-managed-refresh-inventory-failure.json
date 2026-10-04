@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "date": "2026-10-04",
+  "claim": "Installed bounded Setup status and preparation failure recovery pass; valid populated update remains failed",
+  "candidate": {
+    "schema": 1,
+    "source_head": "529b1b6cb691d52c44eb380ff97a96f6ec8967bd",
+    "source_tree": "5a0bdeddfc6cf1f0eaef2191c76a380d290e55b5",
+    "version": "0.12.0refresh2",
+    "frozen_at_utc": "2026-10-04T21:20:20.820082+00:00",
+    "files": {
+      "linux-vst-bridge-beta_0.12.0refresh2-1_amd64.deb": "659b73b28bce6b09c5a68f755a5ce05d0c9a85a54f067f860456d8aa17d3a068",
+      "Linux-VST-Bridge-0.12.0refresh2-internal.install": "830c0340dee4d87ede1eeb2b41126167f575e63cfbcefe8accce1cc7cc04355c",
+      "preparation-kit.zip": "f88d46b158969f80c3327d5e1306fa82d6bae9a747588e71476e927407a66fc2",
+      "staged-refresh1/RELEASE_MANIFEST.json": "e75fcfde74fd5ff364750cb8ad9c024354c9675a095059f57514c16ba73b4654",
+      "PACKAGE_VERIFIED.json": "7162206324a4202077db416ac68794d1cae3aeaa01df2221b9a86cbc7e7d4428"
+    },
+    "manager_features": [
+      "pb0-c0-audit"
+    ],
+    "manager_sha256": "4be5d8df409a85b502668834b8a9c1c77895a43efc2247f2297c55207687f1af",
+    "engine_sha256": "220490cbd71035d98e8fca6fe193895d8abc57d5048ad19ddc9c7b8387ea2db0",
+    "windows_host_sha256": "c8587d8c75ddce80c2317a10070735c65b30b6bc1649ff219821c44689bcf05f",
+    "paired_backend_rebuild": true,
+    "claim": "managed_refresh_candidate_not_installed_acceptance_or_beta_qualification"
+  },
+  "build_checks": {
+    "native_sdk_tests_passed": 13,
+    "paired_backend_and_engine_independent_rebuild": true,
+    "applicable_pr_ci": "passed",
+    "dispatch_only_unfamiliar_fixtures": "skipped"
+  },
+  "fixture": "Retained populated Ubuntu x86_64 VM, six first-party published classes, selected audio9 predecessor; two CPUs, 6 GiB guest in 8 GiB container; builder stopped",
+  "status_correction": {
+    "normal_ui": "Both negative and valid source packages reached Update Bridge without timeout",
+    "read_only_status": {
+      "returncode": 0,
+      "elapsed_seconds": 0.30900613700001145,
+      "result": {
+        "schema": 3,
+        "state": "update_active",
+        "package_version": "0.12.0refresh2neg1"
+      }
+    },
+    "previous_refresh1_seconds": 34.64695745999995,
+    "scope": "One explicit read-only observation, not a performance distribution"
+  },
+  "negative_update": {
+    "version": "0.12.0refresh2neg1",
+    "installer_sha256": "c781b0218f5c947eb03ffaa941617ac832e4e2fc61125ba7dfd8a73efd49af71",
+    "submitted_through_normal_ui_once": true,
+    "visible_error": "loaded_engine_admission_contract_missing",
+    "exact_prior_software_publications_settings_saved_objects": true,
+    "prior_service_automatically_active": true,
+    "dsp_owners": 0,
+    "maintenance_owners": 0,
+    "cleanup_unconfirmed": false,
+    "journal_absent": true
+  },
+  "valid_update": {
+    "submitted_through_normal_ui_once": true,
+    "visible_error": "preparation_inventory_superseded",
+    "selected_target": false,
+    "exact_prior_software_publications_settings_saved_objects": true,
+    "prior_service_automatically_active": true,
+    "dsp_owners": 0,
+    "maintenance_owners": 0,
+    "cleanup_unconfirmed": false,
+    "journal_absent": true,
+    "first_refreshed_class": "4C564242434D50314546465800000001",
+    "fresh_target_inspection_complete": true,
+    "inspection_cleanup_confirmed": true,
+    "inspection_transport_retired": true,
+    "inspection_raw_exit": -15,
+    "inspection_gated": true,
+    "retained_completion_instrument_and_effect_have_matching_current_discovery": false
+  },
+  "source_attribution": "refresh_candidate re-enters current discovery membership through verify_candidate after deriving a valid retained publication and fresh target-host inspection. prepare_package_refresh and refreshed ordinary restoration have the same assumption. Mutable discovery inventory is not the execution authority of an exact retained published revision.",
+  "observer_limitations": {
+    "initial_preflight": "Missing private gate directory refused before consumer launch or update; original failure retained",
+    "held_old_factory": "Loaded but never released because update failed; exact process terminated and reaped, no target identity fabricated",
+    "stale_caller_acceptance": "unperformed, not a refusal pass"
+  },
+  "retained_artifacts": {
+    "refresh2-frozen-build.tgz": "610176515ff4ab3d8dbebc58b9fa937bd0eea73c6874f54c7501d8c1b2f36fe1",
+    "refresh2-negative-installed-evidence.tgz": "cc2b293d2ac17a69f3f925dff07d044abaf07fc33d6ba87343cd4062540e530f",
+    "refresh2-inventory-failure.tgz": "acd5d11caec68ddc5b57b0d236901be79d916be89875fa9a800602992d267361",
+    "refresh2-aborted-refusal-observer.tgz": "1d9d11dd00273dc661a9e82dee8aad5f6dfc7783ad0e131e49af888bf88b31e5"
+  },
+  "screenshots": {
+    "desktop-refresh2-01-installer.png": "9d70774dfe0e0f2889ff2561d0afe64407ebb3b117b85f0c69cfbd7715ad5d19",
+    "desktop-refresh2-02-installed.png": "cc2ce6eec63f44168f358f5f13fc6cb678cf9c8c90b6c80eeeb1e03f80419e27",
+    "desktop-refresh2-03-installed-complete.png": "4e57c0b92018a988981ec813446a68b2ea7ad67aad325485c96393e006404863",
+    "desktop-refresh2-04-setup.png": "a58c890a2d1061355c2b8f121c9338c954cc2f15de959e1b30b65ef5e59f77b9",
+    "desktop-refresh2-05-pre-update.png": "a58c890a2d1061355c2b8f121c9338c954cc2f15de959e1b30b65ef5e59f77b9",
+    "desktop-refresh2-06-update-started.png": "04c3edef4f51e149b3550fa4c7d09697382ededebf3c807fefefd68d9235de58",
+    "desktop-refresh2-07-update-result.png": "04c3edef4f51e149b3550fa4c7d09697382ededebf3c807fefefd68d9235de58",
+    "desktop-refresh2-08-update-state.png": "0695f4bb5a944cad0d2b8d61ace031d2370b4ee7000ad630ff1d930422fa4790",
+    "desktop-refresh2-09-pre-close.png": "0695f4bb5a944cad0d2b8d61ace031d2370b4ee7000ad630ff1d930422fa4790",
+    "desktop-refresh2-10-negative-closed.png": "14aea34691bb817b89c2856e57f2b2b7a2f99602aa3e1f4aa10077bf6f1c2a8f",
+    "desktop-refresh2-11-good-installer.png": "14aea34691bb817b89c2856e57f2b2b7a2f99602aa3e1f4aa10077bf6f1c2a8f",
+    "desktop-refresh2-12-good-installed.png": "7e8ef96f51139185746660504c68afdeb3c41a5c02bdd4c3e1dbae3c004aa06c",
+    "desktop-refresh2-13-good-setup.png": "36cf15a11453c7e99b85f61af7ad7795522b114e4d7a9652424d7b7218cdef0a",
+    "desktop-refresh2-14-good-pre-update.png": "36cf15a11453c7e99b85f61af7ad7795522b114e4d7a9652424d7b7218cdef0a",
+    "desktop-refresh2-15-good-update-start.png": "f94e8e7cec6bfb5e83c14d0c00b5fa6f4be62357772e2ee5e9252b6af5bfc1ab",
+    "desktop-refresh2-16-good-update-state.png": "f94e8e7cec6bfb5e83c14d0c00b5fa6f4be62357772e2ee5e9252b6af5bfc1ab",
+    "desktop-refresh2-17-good-update-state.png": "033ed250b25774db81401a6908cbeeedb69c7635f536186b63c7074b7296c753",
+    "desktop-refresh2-18-good-update-state.png": "43430f056cca31b4196fe9fad63af00c7f099069e25ee87c61755033599c176f",
+    "desktop-refresh2-19-failed-pre-close.png": "00cfff73dfe655892d5021e0bcc07851e387f62f6b99e39d80a09bf2f869883a",
+    "desktop-refresh2-20-plain-desktop.png": "20f215ba4e60c3657bf65d57584256e53968b9f9f9bf5ff157f253bd1062b18c"
+  },
+  "nonclaims": [
+    "Populated successful update, matching current recall, cached caller refusal, interruption recovery and ordinary restoration remain open on this candidate",
+    "No Deck mutation, audio timing, endurance or beta qualification"
+  ]
+}
