@@ -140,15 +140,26 @@ places it behind START acknowledgement; the processing-ready marker follows its
 failed callback. A declared diagnostic comparison reproduced this boundary.
 Neither failure submitted audio frames, and both retired positively.
 
-Current repair: make render/start readiness satisfy the prepared lifecycle contract
-without heavy work in `setProcessing`, relaxed deadlines or increased buffering.
-The contributions of thread creation, pump acknowledgement and OS scheduling still
-need separation. Preserve all failed attempts, including separately classified
-observer and GUI-executor errors. The frozen candidate remains failed; same-callback,
-serial-chain, lower-block, failure and physical gates remain open.
+The prepared render lifecycle repair at
+`f57a4a4dd357b22c610daa20ab64be2cac634375` is installed as `0.12.0audio2`.
+Its [installed comparison](evidence/audio-recovery/2026-10-03-audio2-installed.json)
+completes the formerly failing first RT N=0 callback in 844,029 ns against the
+unchanged 1-ms allowance. The complete mode-switch run returns 198,672 correct
+float samples, with no rejected callbacks or missing output. One N=13 callback
+still exceeds its whole-callback allowance by 67,759 ns, so timing qualification
+remains failed. Both offline roles retain exact output/state/retirement, totaling
+1,336,552 independently compared samples. This is a bounded functional comparison,
+not an attribution of historical gaps or a dependable-audio claim.
 
-The roadmap now records the requested polling reachability audit, readable Windows
-render-path formatting before final qualification, and an explicit stack landing
-decision. These do not change the implementation order. Ubuntu is the sole active
-project machine; the builder is stopped and the Deck remains unchanged. No causal
-claim is made for historical Deck/config4 audio gaps.
+Next work retains the same completion contract: replace the current IPC 15 control
+acknowledgement polling with notification, and complete installed failure/slow
+offline and delivery-selection checks. The first slow-offline run returns correct
+audio and retires, but fails its exact component-state recall assertion; attribute
+the saved-byte difference before repair or further installed tests. Same-callback,
+serial-chain, lower-block, failure and physical acceptance remain open.
+
+The polling audit distinguishes current control acknowledgement from deliberate
+legacy paths. Windows mapped-processing formatting was completed separately at
+`12ee4383`, preserving all tokens/comments and preprocessor records. An explicit
+stack landing decision remains required before trunk integration. Ubuntu is the
+sole active project machine; the builder is stopped and the Deck remains unchanged.

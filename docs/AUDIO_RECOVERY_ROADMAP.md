@@ -74,6 +74,10 @@ The following work closes specific omissions without opening another workstream:
   ownership review before final installed/Deck qualification. Keep a formatting
   change distinct from behavioral repair, preserve the current frozen comparison,
   and rebuild/verify any successor used for acceptance.
+  Completed separately at `12ee4383`: all 13,371 tokens/comments and 32
+  preprocessor records are unchanged, with no lines over 160 characters. The
+  installed audio2 successor includes this formatting and the separately reviewed
+  prepared-render repair; its functional results do not establish timing acceptance.
 - Make an explicit landing decision for the inherited #200–#207 stack before
   integrating it into trunk: reviewed bottom-up landing or splitting #200 and
   rebasing the retained capabilities. Record the chosen commit/dependency map,
