@@ -679,3 +679,12 @@ The current six-product heterogeneous project has not yet completed. Individual 
 - Link every current limitation to a failure-class entry when a shared class exists.
 - Update this matrix in the same PR that changes accepted physical coverage or user posture.
 - Exact profile/candidate/revision identity remains in `compatibility/`, manager state, and retained evidence; this file summarizes rather than replaces that authority.
+
+### 2026-10-04: managed refresh checkpoint and physical timing priority
+
+[Refresh3 installed evidence](../evidence/audio-recovery/2026-10-04-managed-refresh-installed-checkpoint.json)
+passes the normal six-publication update, original instrument/effect state and output,
+legacy stale-caller refusal, and preparation refusal with automatic service recovery
+on the retained Ubuntu VM. This does not close full update/rollback qualification.
+The operator explicitly placed physical Deck timing next, ahead of the remaining
+recovery matrix. No current SameCallback physical or dependable-audio claim is added.

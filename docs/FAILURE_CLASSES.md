@@ -2805,6 +2805,14 @@ Repair retained-publication refresh authority across preparation, publication,
 ordinary restoration and selected readback; do not weaken new-discovery freshness.
 Cached-caller, updated-state and coordinated restoration acceptance remain open.
 
+The [refresh3 installed checkpoint](../evidence/audio-recovery/2026-10-04-managed-refresh-installed-checkpoint.json)
+now passes one normal six-publication update, exact original instrument/effect recall
+and captured output, and actual legacy refusal before DSP admission. The deliberately
+missing-capability package preserves the exact predecessor and restores its service.
+The operator prioritized physical Deck timing next; full restoration/interruption
+acceptance and the modern cached-caller case remain open, so this failure class is
+not closed. This result is installed VM/SDK evidence, not a physical DAW result.
+
 An adjacent source-only recovery gap remains classified: the experimental
 negative-test/disable route uses `rollback_exact` and may refuse a pre-contract
 ancestor with `bridge_update_required`; normal history restoration uses managed
