@@ -197,9 +197,21 @@ unchanged preference bytes. Restored offline output/state match audio2 exactly.
 The matched modes comparison also preserves exact output/state/retirement, but
 callback105 (RT, N13) takes 280,722 ns against 270,833 ns. Both historical and new
 whole-callback timing remain unqualified. Eight whole lifetimes are retained;
-local source/record analysis now targets the remaining callback work without
-changing budgets or repeating runs. Serial-chain, lower-block and physical
-acceptance remain open.
+local source/record analysis identifies callback105 as the N13 residual tail,
+which may need the preceding N512 completion. Buffered nonzero deadlines bound
+completion waiting; subsequent presentation and C++ result delivery remain outside
+that enforced wait bound. The outer SDK bracket includes unquantified audit costs.
+Existing aggregate counters cannot attribute this callback's overrun.
+
+Next bounded implementation is optional, preallocated native per-callback phase
+observation: C++ entry, completion predicate/wait, Rust return and C++ result
+completion, correlated to host calls across setup transitions. Prepare storage
+outside processing, retain explicit capacity/overflow, export after quiescence,
+and keep disabled behavior unchanged. Review before one declared diagnostic
+comparison on the same fixture; preserve the original diagnostic-disabled failures
+and measure observer effects separately. No deadline, buffering, IPC, Windows-host
+or runtime change is authorized by this measurement. Serial-chain, lower-block and
+physical acceptance remain open.
 
 The polling audit distinguishes current control acknowledgement from deliberate
 legacy paths. Windows mapped-processing formatting was completed separately at
