@@ -28,6 +28,7 @@ HOST_FRAMES = 1024
 SAMPLE_RATE = 48000
 STARTUP_SECONDS = 60
 RETIREMENT_SECONDS = 20
+PRODUCT_READ_SECONDS = 45
 
 
 class Failed(Exception):
@@ -63,6 +64,30 @@ def failure_details(error):
             result[name] = {"text": data[:1048576].decode("utf-8", errors="replace"), "bytes": len(data),
                             "sha256": hashlib.sha256(data).hexdigest(), "truncated": len(data) > 1048576}
     return result
+
+
+def exact_product_refresh(error, command):
+    if (not isinstance(error, subprocess.CalledProcessError)
+            or type(error.returncode) is not int or error.returncode != 1
+            or error.cmd != command or error.output != b""
+            or not isinstance(error.stderr, bytes) or len(error.stderr) > 1048576):
+        return False
+    refusal = b'Error: "operator_state_changed_refresh"'
+    lines = error.stderr.splitlines()
+    if lines.count(refusal) != 1:
+        return False
+    for line in lines:
+        if line == refusal:
+            continue
+        if not line.startswith(b"PB0_PHASE "):
+            return False
+        try:
+            phase = json.loads(line[len(b"PB0_PHASE "):])
+        except (ValueError, UnicodeError):
+            return False
+        if type(phase) not in (dict, list):
+            return False
+    return True
 
 
 def applied_launch(registration, report):
@@ -261,10 +286,35 @@ class Run:
         return result
 
     def detail(self, fixture, label):
-        data = self.command(label + "-product", [self.c["manager"], "operator", "product",
-                                       fixture["environment"], fixture["module_sha256"], fixture["class_id"]])
+        command = [self.c["manager"], "operator", "product", fixture["environment"],
+                   fixture["module_sha256"], fixture["class_id"]]
+        deadline_ns = time.monotonic_ns() + PRODUCT_READ_SECONDS * 1_000_000_000
+        attempts = (label + "-product", label + "-product-read-2")
+        for attempt, stem in enumerate(attempts):
+            remaining = (deadline_ns - time.monotonic_ns()) / 1_000_000_000
+            if remaining <= 0:
+                error = subprocess.TimeoutExpired(command, PRODUCT_READ_SECONDS)
+                failure = failure_details(error)
+                failure.update(command_started=False, deadline_ns=deadline_ns)
+                save(self.out / (stem + "-command-failure.json"), failure)
+                raise error
+            try:
+                data = self.command(stem, command, timeout=remaining)
+            except subprocess.CalledProcessError as error:
+                if attempt or not exact_product_refresh(error, command):
+                    raise
+                save(self.out / (label + "-product-refresh.json"),
+                     {"schema": 1, "refusal": "operator_state_changed_refresh",
+                      "first_attempt": attempts[0], "second_attempt": attempts[1],
+                      "deadline_ns": deadline_ns})
+                # Repeat only this read, within its original deadline. A second
+                # refusal or any request/audio failure remains terminal here.
+                continue
+            break
         need(len(data) <= 8 * 1024 * 1024, "product_extent")
         value = json.loads(data)
+        if attempt:
+            save(self.out / (stem + ".json"), value)
         save(self.out / (label + "-product.json"), value)
         need(value["schema"] == 1 and value["operator_schema"] == 18, "operator_schema")
         return value
