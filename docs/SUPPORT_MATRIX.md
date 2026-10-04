@@ -80,7 +80,7 @@ DAW, serial-chain, lower-block and endurance gates remain open.
 These reference SDK results do not change the Deck claims below or attribute the
 config4 and historical Deck gaps.
 
-The subsequent loaded-engine repair is **source-only and unqualified for deployment**.
+The loaded-engine repair's initial checkpoint was **source-only**.
 An independent SDK loader reproduces cached descriptor B with selected/mapped engine
 A on the retained audio9 engine. The repaired factory refuses that race and passes
 the unchanged-publication control. New LVB5 admission carries factory-cached engine
@@ -91,18 +91,21 @@ before the guarded startup continuation. These observations do not run the compl
 manager/Windows workflow or prove physical audio.
 Pre-contract greetings remain unchanged at that source checkpoint; they cannot
 establish the same cached-descriptor provenance. The operator has approved managed
-refresh through the normal update/recovery controls (D-029). That integration and
-its installed acceptance remain unfinished, so FC-MGMT-008 stays open. No new
-package or Deck publication is installed by the source checkpoint.
+refresh through the normal update/recovery controls (D-029). Normal VM and Deck
+updates now pass at the later checkpoints below; full recovery and modern stale-caller
+installed restoration remain unfinished, so FC-MGMT-008 stays open. No package or
+Deck publication was installed by the initial source checkpoint.
 The subsequent [refresh2 installed check](../evidence/audio-recovery/2026-10-04-managed-refresh-inventory-failure.json)
 passes normal Setup status and missing-capability refusal with automatic prior
 service recovery. Valid Update still refuses a retained publication whose old
 discovery entry is absent. All six prior publications, preferences and saved
 objects remain exact; updated audio/state and both restoration routes remain
 unperformed. This does not widen any audio or platform support claim.
-After that boundary is resolved, timing qualification moves to one frozen physical
-candidate in both Buffered and SameCallback D=0 modes; further VM timing iterations
-are not an acceptance route.
+The later [refresh4deck physical matrix](../evidence/audio-recovery/2026-10-04-refresh4deck-physical-timing.md)
+measures one frozen installed candidate in Buffered D256 and SameCallback D0.
+All 24 first-attempt cells ran; eight full audio/state lifetimes pass and sixteen
+fail. Native real-time scheduling is unmet, and dependable audio remains unqualified.
+Further VM timing iterations are not an acceptance route.
 
 Managed configuration remains **unqualified** for the musician workflow. The
 latest Ubuntu reference SDK configuration and normal recovery checks pass;
@@ -694,5 +697,38 @@ stages the target-compatible package through the normal installer, but Update
 refuses `candidate_preparation_required` on the selected legacy ordinary Pigments
 profile. All eight selected publications/preferences and predecessor software
 remain exact; service recovery is confirmed. Normal inspection/preparation retained
-a test candidate without changing that selection. No physical audio timing ran.
-Automatic migration of profile-backed publications remains an FC-MGMT-008 gap.
+a test candidate without changing that selection. No physical audio timing ran on
+that refused package; its original failure remains retained.
+
+The approved legacy-publication repair and normal **refresh4deck Update pass**.
+[Exact installed evidence](../evidence/audio-recovery/2026-10-04-refresh4deck-physical-timing.json)
+preserves all eight commercial class/module/environment identities, configuration,
+preference bytes and current/predecessor artifacts. Completion 1.0.0 instrument/effect
+were scanned, prepared and experimentally published through offered product actions.
+This closes that bounded migration prerequisite; full FC-MGMT-008 recovery remains open.
+
+The [physical timing report](../evidence/audio-recovery/2026-10-04-refresh4deck-physical-timing.md)
+contains all 24 first attempts at 48 kHz, M=N=256/128/64, SameCallback D0/Buffered
+D256, diagnostics OFF/ON. **Eight full audio/state lifetimes pass; sixteen fail.**
+Twenty-three main windows contain exact captured output; instrument D0/N64 ON
+fails main call 34. Ten SameCallback N13 tails refuse processing, one Buffered N13
+tail loses due audio/events, and all four Buffered N64 lifetimes refuse final N0
+after complete correct audio. State capture was not reached in processing failures.
+
+Native workers remain ordinary policy 0/priority 0; RTKit exit 1 leaves the exact
+DBus reason unavailable. Windows priority 5 has effective readback in 23 cells;
+the short failed cell has none. First invocation was cold; later invocations used
+the managed warm keeper. No causal diagnostics, native real-time, scheduling-continuity,
+real-DAW, soak, dependable-audio or beta claim follows. FC-AUDIO-001 remains open.
+The next bounded architectural target is shared legal short/zero-frame completion
+and containment, request/result/predicate attribution and a justified deadline
+policy, retaining the main N64 failure and native scheduling-reason gap. Distinguish
+unfinished rendering from completed work blocked by presentation/control ordering.
+Review one callback-entry time origin without resetting/stacking allowances;
+observed N/Fs and 1 ms constants are not authoritative general policy. The deadline
+policy needs DAW/device justification.
+
+All test DSP owners retired, service health and cleanup are confirmed, and the
+healthy product environment keeper remains. Commercial preferences are untouched;
+both first-party fixtures end on SameCallback D0 with remembered Buffered 256.
+Manager/stream closed normally; builders and the capacity VM are stopped.

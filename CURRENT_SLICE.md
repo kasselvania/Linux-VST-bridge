@@ -1,157 +1,104 @@
-# Current task: physical Deck audio timing
+# Current task: completed physical Deck audio timing
 
 ## Authority and one claim
 
-On 2026-10-04 the operator explicitly prioritized physical timing immediately after
-one successful installed update plus instrument/effect recall and output checks.
-That checkpoint has passed. Remaining recovery acceptance stays open and must not
-become a prerequisite for this measurement again.
+The operator prioritized physical timing immediately after the installed update and
+instrument/effect recall/output checkpoint. The approved legacy-publication migration
+prerequisite and normal physical Deck update now pass. Full recovery remains deferred.
 
-Primary claim: measure current installed Buffered and SameCallback delivery on the
-physical Deck over thousands of fixed-size callbacks, with actual output, truthful
-callback/request timing distributions and effective scheduling readback. This is a
-physical SDK-host measurement, not a real-DAW, device-deadline or endurance claim.
+Primary claim: measure installed Buffered and SameCallback delivery on the physical
+Deck over thousands of fixed-size callbacks, with captured output, truthful callback
+and request distributions, effective scheduling readback and exact owner retirement.
+The declared 24-cell first-attempt matrix is complete. **Eight complete audio/state
+lifetimes pass; sixteen fail. The installed candidate fails full audio acceptance.**
+Native real-time scheduling was not achieved.
 
 Basis: AGENTS.md “Work in complete capability increments” and “Verification that
 matches the claim”; GOVERNANCE.md “Evidence and completion”; architecture 18.6
-“General preparation and compatibility experimentation” and 18.7 “Platform
-execution convergence”; accepted D-029; the operator's revised order above.
+“General preparation and compatibility experimentation” and 18.7 “Platform execution
+convergence”; accepted D-029; the operator's revised order and machine/model custody.
 
-Preserved comparison product source: commit `e8a79926084df8d621f6dff36694218935d0c955`, tree
-`0d47b93e49627467bd945a18a29dc6bbfb739a0c`. Independent test-host extension:
-`fbb318988d7f9cec27613f036e0fe6669fdd2987`, tree
-`771d45aa78bbc4a12967b6a2d9a23b7ffb494a07`. The extension changes only
-`tools/beta/completion_host.cpp` and its tests; the private independent analyzer is
-separately frozen. Source review and both Linux measurement-host role tests passed.
+## Frozen artifacts and installed result
 
-### Physical deployment blocker
+Product source commit `b137ca61043f1086cde1a71727f446985e0710cf`, tree
+`67166c967f311b8b2a04253bae7ecc6695960aa3`; version `0.12.0refresh4deck`.
+The approved source repair is limited to preparation/package-refresh authority and
+its tests. [Source validation](evidence/audio-recovery/2026-10-04-legacy-publication-refresh-source.json)
+retains the original regression, Linux suite and independent exact-source review.
+Audio engine/Windows host source is unchanged from `e8a79926`; their frozen artifact
+hashes are separate facts. The target engine/paired backend was rebuilt and verified.
 
-[Refresh3deck deployment evidence](evidence/audio-recovery/2026-10-04-refresh3deck-deployment-refusal.json)
-records target-compatible packaging, 13 native tests and independent paired
-backend/engine verification. The normal Deck installer staged the package, but
-its single Update action refused `candidate_preparation_required` before selection.
-Pigments is the first selected legacy ordinary profile without a managed Candidate;
-the other seven selected publications have matching candidates. The updater
-incorrectly assumes all retained publications already have that newer record.
+Independent measurement-host source `fbb318988d7f9cec27613f036e0fe6669fdd2987`, tree
+`771d45aa78bbc4a12967b6a2d9a23b7ffb494a07`; both role tests passed on the builder
+and physical Deck. Its consumer, callback audit, runner and output oracle remained
+frozen. Supplemental offline audits do not replace that declared output oracle.
 
-The selected software, all eight publications, exact artifacts and explicit
-preferences remain unchanged; the predecessor service is healthy with no DSP or
-maintenance owners and no unconfirmed cleanup. Normal old-manager reinspection
-and preparation completed without changing publication. The resulting review
-candidate does not establish a matching Candidate for the still-selected ordinary
-profile. It was retained, not experimentally selected; no update retry occurred.
+The [physical report](evidence/audio-recovery/2026-10-04-refresh4deck-physical-timing.md)
+and [exact evidence](evidence/audio-recovery/2026-10-04-refresh4deck-physical-timing.json)
+record one normal installer/Setup Update action. All eight commercial class/module/
+environment/configuration identities, explicit preferences and current/predecessor
+artifacts are preserved. The former [legacy-publication refusal](evidence/audio-recovery/2026-10-04-refresh3deck-deployment-refusal.json)
+remains retained; no experimental Pigments substitution occurred.
+Completion 1.0.0 instrument/effect were scanned, inspected, prepared and experimentally
+published through actual offered installed actions in their separate environment.
+They do not acquire commercial qualification from these test results.
 
-Physical audio timing has **not run**. The operator has now approved the narrow
-legacy-publication migration repair and continuation to Deck timing. Amend the
-frozen source only for that prerequisite; freeze its tested successor before the
-next installed attempt. Do not silently replace Pigments, fabricate preparation
-provenance, bypass admission, or reopen the broader recovery matrix.
+## Measurement outcome and gaps
 
-Approved repair base: commit `b0d5a1b0c25872a4aa5d6e426287b26adb8c38f8`, tree
-`4a1973495a6a27c8673b3a9e0b6b66afa8525287`.
+At 48 kHz, M=N=256,128,64, both D0 SameCallback and D256 Buffered ran diagnostics OFF
+and separately ON, once each. Each cell planned 4,000 unpaced main calls, four initial
+N0 calls, D+13 tail frames and final N0. All raw rows/output and failed lifetimes remain.
+Twenty-three main windows completed with exact captured audio. Instrument D0/N64 ON
+stopped during main call 34, including its failed row and 256 unexpected zero values.
+A matching retained phase records an unsatisfied completion predicate and 1.378-ms
+wait against 1.333-ms allowance. Its request histogram covers 33 observed requests.
 
-The repair must recognize a valid retained ordinary profile-backed revision that
-predates managed Candidate records. Validate the retained revision/census/report,
-class, module, environment, compatibility and registration; fresh-inspect and
-prepare the target pair through existing owners. Preserve the distinction between
-a predecessor revision and a predecessor Candidate. Keep current-candidate checks
-strict and preserve exact class IDs, configuration, buffering, selected-state
-checks and failure cleanup. Add a failing legacy-revision regression and focused
-malformed/stale-input coverage. Scope is preparation and package-refresh consumers,
-their tests and installed evidence; no audio, Windows host, runtime or graphics
-behavior changes. Share the corrected preparation contract with existing ordinary
-restoration, without running or claiming the deferred recovery matrix.
+Ten SameCallback lifetimes refuse the N13 tail; one Buffered instrument N256 ON
+lifetime loses tail audio/events despite SDK success. All four Buffered N64 lifetimes
+return complete correct audio then refuse final N0 before state capture. Eight
+passing lifetimes capture meaningful state and exact recall. Processing-failed
+lifetimes did not reach state capture; state corruption is not established.
 
-The [source repair validation](evidence/audio-recovery/2026-10-04-legacy-publication-refresh-source.json)
-now passes the original-failure regression, 259 Linux library tests, 47 preparation
-tests, package-update tests in both feature configurations and all-target/all-feature
-static checks. Independent exact-source review found no remaining blocker. Normal
-Deck update and physical timing remain unperformed on this successor.
+Native workers remained SCHED_OTHER policy 0/priority 0. RTKit commands exited 1,
+with acceptance/refusal unknown; their exact DBus reason is an observability gap.
+Windows RR/reset-on-fork priority 5 was read back in 23 lifetimes; the short failed
+instrument D0/N64 ON lifetime lacks effective Windows readback. No scheduling
+continuity or native real-time qualification follows. Local N/Fs is not a DAW graph
+deadline. ON histograms describe observer-delivered requests, with bucket-upper-bound
+quantiles and retained coverage counters; they are separate from raw main callbacks.
 
-## Completed installed checkpoint
+The first instrument D0/N256 OFF invocation began without an environment keeper;
+remaining invocations used the managed warm keeper. OFF/ON are single first-attempt
+comparisons with that startup condition disclosed, not causal diagnostic attribution.
 
-[Refresh3 installed evidence](evidence/audio-recovery/2026-10-04-managed-refresh-installed-checkpoint.json)
-records one normal successful update on the retained Ubuntu VM. All six selected
-first-party publications use the new engine. Vendor module/class/environment,
-explicit preferences and original saved objects stayed intact; the target service
-is active and ownership/transition cleanup is confirmed.
+The next bounded architectural target is the shared legal short/zero-frame completion
+and containment contract: request/result/predicate attribution and a justified deadline
+policy, retaining the observed main N64 failure. Distinguish unfinished rendering from
+completed work blocked by presentation/control ordering. Review one callback-entry
+time origin without resetting/stacking allowances; the observed N/Fs and 1 ms constants
+are not authoritative general policy. The policy needs DAW/device justification.
+Native scheduling failure-reason
+observability remains a gap. No further source/policy change is authorized by this
+measurement; no rerun, wait-budget tuning or expanded recovery campaign occurred.
 
-Both original instrument/effect states restore meaningful values and pass independent
-whole-output comparison: 672,424 and 666,280 sample values, zero mismatches,
-zero unexpected zeros, complete retirement. The cached legacy SDK caller receives
-actual protocol refusal 8 before a new owner/result is created. A deliberately
-missing-capability package is refused with the exact predecessor preserved and its
-service restored automatically. This is SDK/VM functional evidence, not audio timing.
-Original refresh1/refresh2 failures remain retained. The update's lengthy preparation
-on this constrained VM is not a reason to start another manager optimization now.
+## Machine custody and remaining scope
 
-## Immediate work and boundary
+All 24 authenticated test DSP owners retired with confirmed transport/cleanup.
+The selected service is active/running, DSP=0 and maintenance=0, with no cleanup
+uncertainty or package transition. One healthy product-owned environment keeper
+remains; it is distinct from retired test DSP sessions. Both first-party fixtures
+remain SameCallback D0 with remembered Buffered 256. Commercial settings are unchanged.
+Manager and Moonlight stream closed normally; Bitwig was not run. The builders and
+capacity VM are stopped; Audiobookshelf remains running. Raw evidence, frozen package,
+build logs and GUI evidence are preserved in verified durable allowlisted archives.
 
-1. Repair and test the approved legacy-publication prerequisite, review the exact
-   diff, then freeze and build target-compatible SteamOS packaging. The
-   Ubuntu artifact uses Python 3.14 and must not be installed on the Deck's 3.13.
-   Use existing assembly/signing, pinned tools and matching Windows host inputs.
-2. Compile and run the focused measurement host tests on the bounded Linux builder.
-   Preserve its separate source/binary identity from the product package.
-3. Preserve/read back the Deck's current selected setup and use supported installed
-   selection/preparation controls. No licensed-prefix recreation, vendor binary/state
-   rewriting, manual registry repair, ambient runtime upgrade or rootfs change.
-4. Measure at Fs=48 kHz with actual M=N=256,128,64 in SameCallback D=0 and Buffered
-   D=256. Buffered D=128/64 are not supported selections. Use the same declared
-   fixture/workload/settings for the comparisons; record exact versions and identities.
-5. Retain 4,000 fixed-N main calls per measured run plus all zero/tail calls and
-   complete captured output. Report median/p99/max complete SDK callback duration;
-   keep failed recorded calls in statistics and retain full-lifetime failure results.
-   Use existing bounded request/reply histograms in a separately declared diagnostics
-   invocation, reporting histogram precision and observer effects honestly.
-6. Record the actual native and Windows render-thread scheduling policy/priority,
-   permissions/limits and relevant hardware conditions. Do not infer real-time
-   scheduling from a launcher nice value or make blanket privilege changes.
+Execution/implementation custody: Sol6.1 xhigh. GUI: Sol6.1 high. Reviewers: Astra6
+xhigh. Root orchestrates; the executor owns mutations. This supersedes the prior
+Sol5.6 preference. Keep #207 draft; no merge or beta promotion is authorized.
 
-The test host's sustained scenario is explicitly unpaced. Its local N/Fs comparison
-is not the available deadline of a whole DAW graph. Distinguish startup, fixed-N
-main callbacks and zero/tail calls; do not remove failures to produce a clean window.
-Bounded 4,096-row storage covers the largest 4,010-row run. Preserve actual returned
-audio and independently analyze it, including any failed lifetime.
-
-Scope: target packaging, focused measurement host/analysis, supported configuration
-selection, existing diagnostics and physical execution. No engine rewrite, further
-VM timing candidates, audio wait-budget tuning, graphics/runtime expansion or
-manager/recovery implementation beyond the approved prerequisite above. A newly observed blocker requires explicit
-attribution and the smallest safe route to measurement, not automatic reopening of
-the full manager matrix. No physical success has yet been observed for this candidate.
-
-## Remaining product and beta work
-
-FC-MGMT-008 remains open. Full package predecessor restoration, normal individual
-history restoration, switch interruption/recovery and modern stale-caller restoration
-remain unperformed on refresh3. The separate experimental `rollback_exact` route
-may refuse a pre-contract predecessor and has no installed result. Keep these in
-the managed-update workstream; this checkpoint does not close them.
-
-Real Bitwig processing, serial chains, legal reconfiguration, editor/automation,
-interaction and soak, save/reopen/reboot, cross-platform/catalogue qualification,
-release signing and distribution obligations remain separate open gates.
-
-## Machine custody and cost
-
-The retained Ubuntu VM shut down normally after the checkpoint. The SteamOS-target
-builder was restarted for the approved migration validation; no VM or second builder
-is running, and Audiobookshelf remains running. Builder limits: CPUs2–3,
-two CPUs, 4 GiB memory with equal combined memory/swap limit, 256 processes. Reserve
-CPU0–1 and capacity for Audiobookshelf. The Deck is reachable (Galileo, Python3.13.5,
-glibc2.41); readback found no Bitwig process, and its installed selection is unchanged
-after the refused update and retained preparation. Setup was closed normally.
-The first-party Completion instrument/effect installer completed in a separate
-managed environment with confirmed cleanup and manifest-matching modules; neither
-has been prepared or published yet. The commercial selections are unchanged.
-Root owns machine mutations and artifacts. Implementation agents Sol5.6 xhigh;
-reviewers Astra6 xhigh; computer use Sol6.1 high.
-
-## Review and landing
-
-Keep #207 draft. Audio/START/admission ends at `22e6569c`; managed-refresh policy
-and implementation start at `80835886`. Preserve the existing stack and evidence
-when separating review/landing branches. PR separation must not delay physical
-measurement. The broader roadmap still selects splitting #200 with its dependency
-map retained. No merge or beta promotion is authorized by these results.
+FC-AUDIO-001 and FC-MGMT-008 remain open. Full package/history restoration,
+switch interruption/recovery and modern stale-caller installed restoration remain
+deferred. Real Bitwig processing, serial chains/reconfiguration, editors/automation,
+interaction/soak, save/reopen/reboot, catalogue/platform coverage and distribution
+obligations remain separate. Preserve the existing stack when separating review/
+landing branches; the broader roadmap still selects splitting #200 with dependencies.

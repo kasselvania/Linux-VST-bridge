@@ -84,7 +84,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-LIFE-002](#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state) | Failed launch cleanup and truthful recovery | Manager ownership/leases/results | causal | deployed | Steam Deck and Ubuntu fixtures | supported-with-workaround | Manager recovery UX |
 | [FC-MIDI-001](#fc-midi-001--recognized-expression-rejected-an-entire-native-input-callback) | Recognized expression rejected an entire native input callback | Native VST3 proxy input admission | causal in source; physical attribution open | source-fixed | Pinned SDK fixture; Push / Deck operator report only | unqualified for Push expression | Build and publish exact proxy successor; physical Push/Bitwig release check |
 | [FC-MIDI-002](#fc-midi-002--late-note-off-permanently-fails-processing) | Late note-off permanently fails processing | Native SDK signed timestamp conversion | causal in source and matched comparison | deployed | Pinned SDK regression; recovery1 Pure LoFi physical Deck comparison | qualified for this late-release recovery only | Residual timing and broader host/event qualification remain open |
-| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | preemption and callback-burst loss attributed; config4 sibling gap and older startup/output silence remain unattributed | recovery6 focused repair passes; config4 installed configuration workflow fails one 1024-frame span | Pure LoFi Deck burst repair; Ubuntu SDK configuration/audio coexistence failed | blocked for dependable musical use | Bounded request-stage/render-thread timing before causal repair; no gap-free fallback established |
+| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | preemption/burst loss attributed; refresh4 retains main N64, N13 tail and final N0 failures with remaining service/scheduler attribution gaps | recovery6 focused repair passes; refresh4 physical SDK matrix fails 16/24 full lifetimes | Pure LoFi Deck burst repair; Ubuntu coexistence failure; physical Completion instrument/effect matrix | blocked for dependable musical use | Shared legal short/zero-frame completion and containment, request/result/predicate attribution and justified deadline policy; native scheduling reason remains unavailable |
 | [FC-AUDIO-002](#fc-audio-002--host-block-exceeds-the-selected-bridge-presentation-envelope) | Host block exceeds selected bridge presentation envelope | Proxy setup, selected delay, DAW audio settings | causal | accepted | FRAGMENTS / Ubuntu at Bitwig 512/48 kHz | supported-with-workaround | Actionable requested-versus-supported block message |
 | [FC-AUTO-001](#fc-auto-001--automation-refusal-collides-with-terminal-silence) | Automation refusal collides with terminal silence | Native curve admission / SDK result interpretation | causal collision; sparse-curve capability still incomplete | deployed collision correction; whole-block successor source-only | Ubuntu reference effect explicitly refuses 0x107; state still fails | blocked for the failed saved-automation journey | Deliver paired protocol-14 whole DAW blocks and repeat recall; audio gaps remain separate |
 | [FC-CAP-001](#fc-cap-001--capacity-enumeration-versus-lease-retirement-race) | Capacity scan versus lease retirement | Manager capacity ownership | causal | none | AP17 exact fixture | supported-with-workaround | Repair issue #93 |
@@ -99,7 +99,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
 | [FC-MGMT-007](#fc-mgmt-007--retained-proposal-displaces-selected-configuration) | Retained proposal displaces selected configuration | Manager guided projection and frontend action ownership | causal | installed-fixed on reference fixture | Ubuntu config7 full effect/instrument workflow and GUI restoration | reference configuration regression passed; musician workflow unqualified | Physical DAW integration and endurance |
-| [FC-MGMT-008](#fc-mgmt-008--loaded-native-engine-is-not-bound-during-admission) | Loaded native engine missing from admission | Cached DAW factory / selected execution pair | reproduced loader/cache mismatch | modern source binding repaired; managed-refresh policy accepted in D-029; integration open | Independent old/new SDK loader comparison and real Unix-peer admission gate; complete installed/physical path unperformed | unqualified | Deliver coordinated normal update, refusal, recall and predecessor recovery |
+| [FC-MGMT-008](#fc-mgmt-008--loaded-native-engine-is-not-bound-during-admission) | Loaded native engine missing from admission | Cached DAW factory / selected execution pair | reproduced loader/cache mismatch | modern binding and legacy-publication refresh repaired; normal VM/Deck update passed; full recovery open | Source/loader and Unix-peer gate; VM SDK checkpoint; exact eight-publication Deck update | unqualified for complete recovery | Complete deferred predecessor/interruption and modern stale-caller installed restoration |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
 ---
@@ -985,6 +985,35 @@ physical product result is claimed.
 ---
 
 ## FC-AUDIO-001 — Residual audio deadline misses
+
+The [refresh4deck physical report](../evidence/audio-recovery/2026-10-04-refresh4deck-physical-timing.md)
+retains the complete first-attempt 24-cell Completion instrument/effect matrix at
+48 kHz, M=N=256/128/64, SameCallback D0 and Buffered D256, diagnostics OFF/ON.
+Eight complete audio/state lifetimes pass; sixteen fail. Twenty-three fixed-main
+windows complete with exact captured values; instrument D0/N64 ON fails main call
+34 and returns 256 unexpected zero values. Its matching phase has an unsatisfied
+completion predicate and 1,378,162-ns wait against 1,333,333 ns. The failed row remains
+in raw statistics; its 34-call p99 is not a 4,000-call estimate.
+
+Ten SameCallback N13 tails refuse processing. A Buffered instrument N256 ON tail
+returns SDK success but loses due audio/events. Four Buffered N64 lifetimes return
+all correct audio, then refuse final N0. State capture was not reached in failed
+processing lifetimes; no state-corruption claim follows. All 24 DSP owners retire.
+Native scheduling remains ordinary policy 0/priority 0: RTKit exit 1 does not expose
+acceptance/refusal or the DBus reason. Windows priority 5 has positive readback in
+23 cells; the short failed cell has no effective readback. First invocation was
+cold; subsequent invocations retained the managed warm environment keeper.
+Single OFF/ON observations and request-histogram bucket bounds do not establish
+causality, scheduling continuity, intrinsic cost, DAW deadlines or dependable audio.
+
+The next bounded architectural target is shared legal short/zero-frame completion
+and containment, with request/result/predicate attribution and a justified deadline
+policy. Distinguish unfinished rendering from completed work blocked by presentation/
+control ordering. Review one callback-entry time origin without resetting/stacking
+allowances; observed N/Fs and 1 ms constants are not authoritative general policy.
+The policy needs DAW/device justification. Retain the observed main N64 failure and
+the native scheduling-reason gap.
+The measurement authorizes no additional source repair or allowance change.
 
 The [2026-10-03 config4 Ubuntu workflow](../evidence/preparation/2026-10-03-managed-configuration-installed.json)
 contains a separate confirmed missing-output result. While applying a second
@@ -2829,6 +2858,12 @@ have matching Candidates. All eight publications, preferences, exact artifacts a
 predecessor software remain intact, with a healthy service and confirmed cleanup.
 Creating a new review candidate through normal inspection/preparation does not
 retroactively make it the producer of the still-selected ordinary revision.
-This is a migration gap before audio launch, not an audio failure. Physical timing
-remains unperformed; the frozen-source boundary must be explicitly amended before
-implementing the narrow prerequisite repair. Full recovery acceptance stays deferred.
+This was a migration gap before audio launch, not an audio failure. The approved
+repair's [source evidence](../evidence/audio-recovery/2026-10-04-legacy-publication-refresh-source.json)
+and [refresh4deck installed evidence](../evidence/audio-recovery/2026-10-04-refresh4deck-physical-timing.json)
+now establish one normal Deck update. All eight commercial identities/preferences
+and predecessor artifacts remain exact; no fabricated predecessor Candidate or
+experimental replacement was needed. The selected service is healthy and all test
+DSP owners retired. Physical timing subsequently ran and failed full audio acceptance
+under FC-AUDIO-001. Full restoration/interruption and modern cached-caller installed
+restoration remain deferred, so FC-MGMT-008 remains open.
