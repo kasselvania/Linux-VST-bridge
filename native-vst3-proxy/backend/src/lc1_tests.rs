@@ -60,8 +60,13 @@ fn submit(handle: u64, shared: &Shared, epoch: u64, position: u64, n: usize) {
 }
 fn take_result(shared: &Shared, processed: &mut u64, epoch: u64, position: u64, n: usize) {
     *processed += 1;
-    wait(shared, || shared.processed.load(Ordering::Acquire) == *processed);
-    let result = shared.results.pop().expect("exact completed result");
+    let mut result = None;
+    wait(shared, || {
+        result = shared.results.pop();
+        result.is_some()
+    });
+    assert_eq!(shared.processed.load(Ordering::Acquire), *processed);
+    let result = result.unwrap();
     assert_eq!((result.epoch, result.audio.position), (epoch, position));
     assert_eq!(result.audio.data[0][..n], vec![0.125; n]);
     assert_eq!(result.audio.data[1][..n], vec![-0.25; n]);
@@ -207,7 +212,7 @@ fn same_session_reconfiguration_two_ended() {
         if epoch == 2 && std::env::var_os("LVB_LC1_BAD_DEACTIVATE_SEQUENCE").is_some() {
             // Fault injection only while the real queued worker is idle after
             // its acknowledged Stop. Windows must not accept next+1 here.
-            use ap1_native_client::endpoint::{receive_version, send_version};
+            use ap1_native_client::endpoint::send_version;
             let wrong = ap1_native_client::Frame {
                 kind: 14,
                 session: id,
@@ -215,11 +220,13 @@ fn same_session_reconfiguration_two_ended() {
                 payload: vec![],
             };
             send_version(&mut fault_socket, &wrong, 5, 15).unwrap();
-            let rejected = receive_version(&mut fault_socket, 5, 15).unwrap();
-            assert_eq!(
-                (rejected.kind, rejected.session, rejected.sequence),
-                (7, id, expected_after_epoch_two)
-            );
+            let end = Instant::now() + Duration::from_secs(5);
+            while shared.fault.load(Ordering::Acquire) == 0 {
+                assert!(Instant::now() < end, "wrong Deactivate was not contained");
+                thread::sleep(Duration::from_millis(1));
+            }
+            assert_eq!(shared.processing_ready_epoch.load(Ordering::Acquire), 0);
+            assert_eq!(shared.processed.load(Ordering::Acquire), processed);
             assert_eq!(unsafe { ap3_close(handle) }, 2);
             run.handle = 0;
             eprintln!("LC1 wrong Deactivate sequence refused");
