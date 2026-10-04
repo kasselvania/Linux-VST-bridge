@@ -1055,9 +1055,9 @@ void MappedSession::lc1_hold_started() {
     const auto length = GetEnvironmentVariableW(L"LVB_LC1_HOLD_STARTED", enabled, 16);
     if (!length || length >= 16)
         return;
-    wchar_t* end = nullptr;
-    const auto last = std::wcstoul(enabled, &end, 10);
-    require(end && *end == L'\0' && last >= 1, "LC1 Started gate extent");
+    wchar_t* parse_end = nullptr;
+    const auto last = std::wcstoul(enabled, &parse_end, 10);
+    require(parse_end && *parse_end == L'\0' && last >= 1, "LC1 Started gate extent");
     if (x.timeline.epoch > last)
         return;
     const auto suffix = std::to_wstring(x.timeline.epoch);
