@@ -1949,6 +1949,26 @@ refuses stale/changed bytes and disk-cache authority, and releases its bounded
 preparation lock before keeper/DSP work. Focused tests pass. It is absent from
 internal32; repeated installed cold/warm measurements remain pending.
 
+The later [audio2 cold-start attempt](../evidence/audio-recovery/2026-10-03-audio2-installed.json)
+refuses with `launch_verification_deadline` before creating a consumer audio
+owner/transport. The native instance enters `Failed`; a subsequent bus call
+reports that phase. This is a launch-preparation refusal, not audio loss or
+unconfirmed transport retirement. A separately declared warm lifetime succeeds;
+it does not erase the failed cold attempt.
+
+Source regression and repair at `896bc3b2` establish that successful bounded byte
+preparation finishing after its deadline previously discarded all new observations.
+The repair retains those process-owned observations while still refusing the late
+caller. Every later admission reopens files, checks identity and validates expected
+digests; failed or oversized preparation cannot publish. The focused regression,
+shared-preparation checks and all 243 manager library tests pass with independent
+scoped review. [Paired audio3](../evidence/audio-recovery/2026-10-03-audio3-installed.json) at
+`29e82040` passes the first slow-offline consumer
+after a normal restart, with no intervening consumer warmup and confirmed retirement.
+There is no automatic warm-task success timestamp, so this run does not prove that
+its warm preparation crossed the deadline. The original cold timing is consistent
+with the source defect, not proof that it is the only startup cause.
+
 Internal52's installed SDK suite passed both reference roles. First state access
 took 24.806 seconds; the remaining fifteen warm launches took 11.367–12.674
 seconds. Retained phases place 8.070–8.599 seconds

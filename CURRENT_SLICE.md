@@ -152,7 +152,7 @@ remains failed. Both offline roles retain exact output/state/retirement, totalin
 not an attribution of historical gaps or a dependable-audio claim.
 
 Current IPC 15 control acknowledgement polling was replaced with a reviewed
-notification at `06820906`; installed qualification remains pending. Next work
+notification at `06820906`, now included in the installed audio3 comparison. Next work
 retains the same completion contract through failure/slow offline and delivery
 selection checks. The first slow-offline run returns correct
 audio and retires, but its full-envelope state oracle incorrectly requires replay
@@ -173,13 +173,37 @@ byte observations now survive a late completion, while the expired caller remain
 refused. Later admission retains fresh file-identity and expected-digest checks.
 The focused regression, shared preparation checks and 243 manager library tests
 pass; scoped independent review has no findings. No startup/audio budget, runtime
-or persisted authorization policy changed. Installed cold-start acceptance is
-unperformed. Build one paired successor with this repair and the reviewed control
-notification, then test a cold restart before continuing completion acceptance.
-Same-callback, serial-chain, lower-block, failure and physical acceptance remain open.
+or persisted authorization policy changed. Paired `0.12.0audio3` is frozen at
+`29e820402851a3d5f05395f6f4f923456a5afa0c`, tree
+`fd75321eaa8289ffc968bd1c9ffabdfd52e06bae`, with all five applicable CI workflows
+and independent native rebuild verification passing. It includes the reviewed
+control acknowledgement notification. The unchanged Windows host retains its
+`f57a4a4` provenance; all 64 declared Windows inputs match the new freeze.
+Normal installation and both successor publications preserve prior settings and
+predecessors. After a normal shutdown/restart, its first slow-offline consumer
+passes audio, state and retirement without an intervening consumer warmup. That
+one installed success does not prove the automatic warm task crossed its deadline;
+the source regression establishes the late-observation defect separately.
+The [installed lifetimes](evidence/audio-recovery/2026-10-03-audio3-installed.json)
+also pass explicit vendor failure, original offline timeout and abrupt native
+consumer disappearance, with confirmed process/transport retirement. Timeout
+returns explicit failure 78,796 ns beyond 60 seconds; no strict whole-callback
+wall-clock guarantee follows. Normal manager actions select SameCallback D=0 for
+both roles while retaining remembered512. Both complete offline consumers pass
+787 callbacks and 664,180 exact samples each, state and retirement. Independent
+evidence review has no findings for those six lifetimes. Normal GUI restoration
+then returns only the instrument to Buffered512; the effect remains D0 with
+unchanged preference bytes. Restored offline output/state match audio2 exactly.
+The matched modes comparison also preserves exact output/state/retirement, but
+callback105 (RT, N13) takes 280,722 ns against 270,833 ns. Both historical and new
+whole-callback timing remain unqualified. Eight whole lifetimes are retained;
+local source/record analysis now targets the remaining callback work without
+changing budgets or repeating runs. Serial-chain, lower-block and physical
+acceptance remain open.
 
 The polling audit distinguishes current control acknowledgement from deliberate
 legacy paths. Windows mapped-processing formatting was completed separately at
 `12ee4383`, preserving all tokens/comments and preprocessor records. An explicit
-stack landing decision remains required before trunk integration. Ubuntu is the
-sole active project machine; the builder is stopped and the Deck remains unchanged.
+stack landing decision remains required before trunk integration. Ubuntu was
+shut down normally after this checkpoint; both project machines are stopped.
+Audiobookshelf remains running and the Deck remains unchanged.

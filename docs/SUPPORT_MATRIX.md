@@ -13,11 +13,24 @@ A source patch, build, candidate, or publication is not a physical support claim
 
 The current audio-completion workstream implements explicit Buffered/SameCallback
 selection and event-driven delivery through the existing managed ownership path.
-SameCallback, offline completion, zero-frame delivery and the paired IPC-15 transport
-remain **unqualified** until the new paired artifact passes installed acceptance.
-Source review and SDK instrumentation do not change the installed config7 or Deck
-claims below. Neither the config4 gap nor all historical Deck gaps have been
-attributed to this workstream's corrected contracts.
+The [audio2 installed reference comparison](../evidence/audio-recovery/2026-10-03-audio2-installed.json)
+passes buffered offline output/state/retirement and the previously failing first
+real-time zero-frame callback. One subsequent 13-frame callback still exceeds its
+whole-callback allowance. A reviewed observer correction passes one declared warm
+slow-offline lifetime, but the preceding cold launch fails before audio admission.
+The late-preparation repair is source-tested and independently reviewed. Installed
+[audio3](../evidence/audio-recovery/2026-10-03-audio3-installed.json) passes its first
+slow-offline consumer after normal restart without an intervening consumer warmup;
+explicit vendor failure, timeout and abrupt-consumer cleanup; and both complete
+D=0 offline roles with exact state/audio/retirement. SameCallback selection retains
+remembered512. Normal GUI restoration then returns the instrument to Buffered512,
+preserving the sibling's D=0 preference, and restored output/state match audio2.
+The new mode-switch run still exceeds its N13 callback allowance (280,722 ns versus
+270,833 ns). These eight separate lifetimes establish neither endurance nor complete
+real-time performance. Serial chains, lower blocks and the physical musician
+workflow remain **unqualified**.
+These reference SDK results do not change the Deck claims below or attribute the
+config4 and historical Deck gaps.
 
 Managed configuration remains **unqualified** for the musician workflow. The
 latest Ubuntu reference SDK configuration and normal recovery checks pass;
