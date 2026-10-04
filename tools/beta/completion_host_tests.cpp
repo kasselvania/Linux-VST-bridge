@@ -326,6 +326,53 @@ void retainedOutput(const OutputCapture& output,const PrivateOutputTest& locatio
     OutputCapture other;
     refuses([&]{other.prepare(location.prefix.c_str());},"a reused run prefix cannot overwrite retained output");
 }
+void sustainedMeasurement(const Options& base) {
+    need(sustainedRowCapacity(256,0)==4006&&sustainedRowCapacity(128,0)==4006
+        &&sustainedRowCapacity(64,0)==4006&&sustainedRowCapacity(256,256)==4007
+        &&sustainedRowCapacity(128,256)==4008&&sustainedRowCapacity(64,256)==4010,
+        "every declared sustained mode and actual N fits the fixed callback capacity with exact tail calls");
+    std::array<Row,maximumCallbacks> rows{};
+    for(size_t i=0;i<sustainedCallbacks;++i)rows[i].end=uint64_t(sustainedCallbacks-i);
+    const auto statistics=wholeCallbackStatistics(rows,0,sustainedCallbacks,3500);
+    need(statistics.callbacks==sustainedCallbacks&&statistics.median==2001
+        &&statistics.p99==3960&&statistics.maximum==4000&&statistics.overruns==500,
+        "exact bounded sustained whole-callback statistics");
+    refuses([&]{wholeCallbackStatistics(rows,maximumCallbacks-1,2,1);},
+        "sustained statistics cannot exceed prepared callback capacity");
+
+    Options o=base;o.scenario="sustained";o.block=64;o.rate=48000;o.delay=0;
+    auditBegin=[]{};auditEnd=[]()->uint64_t{return 0;};auditLocalWakes=[]()->uint64_t{return 0;};
+    auto owner=lifetime();owner->host=owned(new HostApplication);auto& life=owner->life;
+    life.component=owned(new ReferenceProcessor);life.processor=FUnknownPtr<IAudioProcessor>(life.component);
+    need(bool(life.processor),"actual sustained producer processor");
+    ok(life.component->initialize(owner->host),"actual sustained producer initialize");life.componentInitialized=true;
+    SpeakerArrangement in=SpeakerArr::kStereo,out[2]{SpeakerArr::kStereo,SpeakerArr::kStereo};
+    ok(life.processor->setBusArrangements(o.instrument?nullptr:&in,o.instrument?0:1,out,2),
+       "actual sustained producer bus negotiation");
+    ProcessSetup initialSetup{kOffline,kSample32,o.block,double(o.rate)};
+    ok(life.processor->setupProcessing(initialSetup),"recognizable sustained-state setup");
+    ok(life.component->setActive(true),"recognizable sustained-state activate");
+    ok(life.processor->setProcessing(true),"recognizable sustained-state start");
+    Buffers initial(o.instrument);initial.prepare(0,kOffline,o.instrument,false);
+    point(initial.sent,0,.625);point(initial.sent,1,.125);
+    ok(life.processor->process(initial.data),"recognizable sustained-state flush");
+    initial.guards(0);
+    ok(life.processor->setProcessing(false),"recognizable sustained-state stop");
+    ok(life.component->setActive(false),"recognizable sustained-state deactivate");
+    Exercise run(life,o);run.sustained(o.block,o.rate);
+    need(run.sustainedAttempted&&run.sustainedBegin==4&&run.sustainedCount==sustainedCallbacks,
+         "exact four setup flushes then 4000 fixed-size sustained callbacks");
+    need(run.rowCount==sustainedCallbacks+6&&run.rowCount<=maximumCallbacks,
+         "sustained callbacks plus exact D0 latency tail fit prepared storage");
+    for(size_t i=0;i<sustainedCallbacks;++i) {
+        const auto& row=run.rows[run.sustainedBegin+i];
+        need(row.n==o.block&&row.mode==kRealtime&&row.result==kResultOk&&!row.threw,
+             "every sustained callback retains exact actual N, mode and result");
+    }
+    need(run.oracle.mismatches==0&&run.oracle.nonfinite==0&&run.oracle.nonzero>0
+        &&run.rejected==0&&run.effects==0,"actual sustained producer output and callback audit pass");
+    need(life.finish(),"actual sustained producer retirement");
+}
 int main() {
     lifecycleRefusals();configureOwnershipRefusals();overlapRefusals();originalStateRefusals();
     const char* args[]{"completion-host","unused.vst3",LVB_BETA_INSTRUMENT?"instrument":"effect","matrix","private-state",
@@ -334,9 +381,21 @@ int main() {
     std::array<char*,10> mutableArgs{};
     for (size_t i = 0; i < mutableArgs.size(); ++i) mutableArgs[i] = const_cast<char*>(args[i]);
     const auto o = options(10,mutableArgs.data());
-    slowStateRefusals(o);privateGateInputs(o);externalStateActualProducer(o);
+    slowStateRefusals(o);privateGateInputs(o);externalStateActualProducer(o);sustainedMeasurement(o);
     for(const auto* scenario:{"state-record","held-factory-refusal"}) {
         auto accepted=mutableArgs;accepted[3]=const_cast<char*>(scenario);(void)options(10,accepted.data());
+    }
+    auto sustained=mutableArgs;sustained[3]=const_cast<char*>("sustained");
+    sustained[5]=const_cast<char*>("64");sustained[7]=const_cast<char*>("0");
+    const auto sustainedOptions=options(10,sustained.data());
+    need(sustainedOptions.block==64&&sustainedOptions.delay==0,"declared sustained measurement arguments accepted");
+    for(const auto* block:{"63","257"}) {
+        auto bad=mutableArgs;bad[3]=const_cast<char*>("sustained");bad[5]=const_cast<char*>(block);
+        refuses([&]{options(10,bad.data());},"sustained rejects undeclared actual N");
+    }
+    for(const auto* delay:{"512","1024"}) {
+        auto bad=mutableArgs;bad[3]=const_cast<char*>("sustained");bad[5]=const_cast<char*>("64");bad[7]=const_cast<char*>(delay);
+        refuses([&]{options(10,bad.data());},"sustained rejects unsupported measurement D");
     }
     auto recallMissing=mutableArgs;recallMissing[3]=const_cast<char*>("state-recall");
     refuses([&]{options(10,recallMissing.data());},"external recall without capture destination refused");

@@ -40,6 +40,7 @@ using Clock = std::chrono::steady_clock;
 namespace {
 constexpr int maximum = 1024, vendorLatency = 13;
 constexpr size_t maximumCallbacks = 4096;
+constexpr size_t sustainedCallbacks = 4000;
 constexpr double tau = 6.2831853071795864769;
 const char* stage = "arguments";
 void need(bool value, const char* why) { if (!value) throw std::runtime_error(why); }
@@ -71,7 +72,7 @@ Options options(int argc, char** argv) {
     Options o; o.bundle = argv[1]; o.instrument = std::string_view(argv[2]) == "instrument";
     need(o.instrument || std::string_view(argv[2]) == "effect", "exact fixture role");
     o.scenario = argv[3];
-    need(o.scenario == "matrix" || o.scenario == "modes" || o.scenario == "offline"
+    need(o.scenario == "matrix" || o.scenario == "modes" || o.scenario == "sustained" || o.scenario == "offline"
         || o.scenario == "slow-offline" || o.scenario == "offline-failure"
         || o.scenario == "offline-timeout" || o.scenario == "abrupt-offline"
         || o.scenario == "state-record" || o.scenario == "state-recall"
@@ -82,6 +83,10 @@ Options options(int argc, char** argv) {
          "declared supported sample rate");
     o.delay = integer(argv[7], 0, 1024);
     need(o.delay == 0 || o.delay == 256 || o.delay == 512 || o.delay == 1024, "declared delivery D");
+    if (o.scenario == "sustained") {
+        need(o.block == 64 || o.block == 128 || o.block == 256, "sustained actual N must be 64, 128 or 256");
+        need(o.delay == 0 || o.delay == 256, "sustained delivery D must be SameCallback zero or Buffered 256");
+    }
     o.processor = argv[8]; o.controller = argv[9];
     need(classId(o.processor) && classId(o.controller) && std::string_view(o.processor) != o.controller,
          "exact distinct uppercase native class identities");
@@ -337,6 +342,31 @@ struct Row {
     int n{},mode{},result{}; bool inPlace{},threw{};
     size_t outputOffset{},outputCount{};
 };
+struct WholeCallbackStatistics {
+    size_t callbacks{};
+    uint64_t median{},p99{},maximum{},overruns{};
+};
+constexpr size_t sustainedRowCapacity(int block,int delay) {
+    return 4+sustainedCallbacks+size_t((delay+vendorLatency+block-1)/block)+1;
+}
+static_assert(sustainedRowCapacity(64,256)<=maximumCallbacks,
+              "4000 sustained callbacks and the longest selected tail require prepared storage");
+WholeCallbackStatistics wholeCallbackStatistics(
+    const std::array<Row,maximumCallbacks>& rows,size_t begin,size_t count,uint64_t allowance) {
+    need(count && begin <= rows.size() && count <= rows.size()-begin,
+         "bounded completed sustained callback window");
+    std::array<uint64_t,maximumCallbacks> durations{};
+    WholeCallbackStatistics result{};result.callbacks=count;
+    for(size_t i=0;i<count;++i) {
+        const auto& row=rows[begin+i];need(row.end>=row.begin,"monotonic whole callback interval");
+        const auto duration=row.end-row.begin;durations[i]=duration;result.overruns+=duration>allowance;
+    }
+    std::sort(durations.begin(),durations.begin()+count);
+    result.median=durations[count/2];
+    result.p99=durations[(count-1)*99/100];
+    result.maximum=durations[count-1];
+    return result;
+}
 struct OutputCapture {
     static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559
         && std::endian::native == std::endian::little, "retained output requires IEEE float32 little endian");
@@ -392,6 +422,8 @@ struct Exercise {
     OutputCapture output;
     std::array<Row,maximumCallbacks> rows{};
     size_t rowCount = 0;
+    size_t sustainedBegin = 0, sustainedCount = 0;
+    bool sustainedAttempted = false;
     uint64_t callbackMax = 0, overruns = 0, rejected = 0, effects = 0, localWakes = 0;
     bool pendingAudio = false;
     Exercise(Lifecycle& owner,const Options& option):life(owner),o(option),buffers(option.instrument) {}
@@ -471,6 +503,18 @@ struct Exercise {
         }
         tail(kRealtime,block,rate); life.stop();
     }
+    void sustained(int block,int rate) {
+        configure(kRealtime,block,rate);zeroes(kRealtime,rate);
+        // This is an unpaced SDK-host measurement. Every process call and all
+        // output storage are prepared before entry; statistics are computed
+        // only after processing and lifecycle retirement have quiesced.
+        sustainedAttempted=true;sustainedBegin=rowCount;
+        for(size_t b=0;b<sustainedCallbacks;++b) {
+            process(block,kRealtime,rate,b==0,b+1==sustainedCallbacks);
+            ++sustainedCount;
+        }
+        tail(kRealtime,block,rate);life.stop();
+    }
     void report() const {
         std::cout << "{\"event\":\"completion_output\",\"schema\":1,\"file_suffix\":\".output.f32le\""
                   << ",\"format\":\"IEEE754-float32\",\"endianness\":\"little\",\"interleaving\":\"frame-major\""
@@ -503,6 +547,31 @@ struct Exercise {
                       << ",\"output_byte_count\":" << r.outputCount*sizeof(float) << '}';
         }
         std::cout << "]}" << std::endl;
+        if(sustainedAttempted) {
+            const uint64_t allowance=uint64_t(o.block)*1000000000ULL/uint64_t(o.rate);
+            if(sustainedCount) {
+                const auto statistics=wholeCallbackStatistics(rows,sustainedBegin,sustainedCount,allowance);
+                std::cout << "{\"event\":\"completion_sustained_timing\",\"schema\":1"
+                          << ",\"callbacks\":" << statistics.callbacks << ",\"requested_callbacks\":" << sustainedCallbacks
+                          << ",\"complete\":" << (statistics.callbacks==sustainedCallbacks?"true":"false")
+                          << ",\"actual_frames\":" << o.block << ",\"sample_rate\":" << o.rate
+                          << ",\"delivery_frames\":" << o.delay << ",\"process_mode\":" << kRealtime
+                          << ",\"whole_callback_median_ns\":" << statistics.median
+                          << ",\"whole_callback_p99_ns\":" << statistics.p99
+                          << ",\"whole_callback_max_ns\":" << statistics.maximum
+                          << ",\"local_n_over_fs_allowance_ns\":" << allowance
+                          << ",\"local_n_over_fs_overruns\":" << statistics.overruns
+                          << ",\"unpaced_sdk_host\":true,\"daw_deadline_claim\":false,\"soak_claim\":false}"
+                          << std::endl;
+            } else {
+                std::cout << "{\"event\":\"completion_sustained_timing\",\"schema\":1,\"callbacks\":0"
+                          << ",\"requested_callbacks\":" << sustainedCallbacks
+                          << ",\"complete\":false,\"actual_frames\":" << o.block
+                          << ",\"sample_rate\":" << o.rate << ",\"delivery_frames\":" << o.delay
+                          << ",\"unpaced_sdk_host\":true,\"daw_deadline_claim\":false,\"soak_claim\":false}"
+                          << std::endl;
+            }
+        }
     }
 };
 void writePrivate(const std::string& path,const uint8_t* bytes,size_t size,const char* why) {
@@ -920,6 +989,7 @@ int main(int argc,char** argv) {
                     run.offlineMatrix(std::min(257,o.block),otherRate);
                 }
                 if (o.scenario == "matrix" || o.scenario == "modes") run.modes(o.block,o.rate);
+                if (o.scenario == "sustained") run.sustained(o.block,o.rate);
                 stage="state_capture";
                 if(external)captureExternalRecall(life,o,*external);
                 else {
@@ -940,7 +1010,9 @@ int main(int argc,char** argv) {
         need(run.oracle.mismatches == 0 && run.oracle.nonfinite == 0 && run.effects == 0, "exact completion audio and callback oracle");
         if (o.scenario != "offline-failure" && o.scenario != "offline-timeout") need(run.rejected == 0 && run.oracle.nonzero > 0, "actual successful nonzero audio");
         std::cout << "{\"event\":\"passed\",\"claim\":\"installed_sdk_completion_development_regression\",\"whole_callback_timing_qualified\":"
-                  << (run.overruns == 0?"true":"false") << ",\"real_daw_or_soak_claim\":false}" << std::endl;
+                  << (o.scenario!="sustained"&&run.overruns==0?"true":"false")
+                  << ",\"timing_scope\":\"" << (o.scenario=="sustained"?"unpaced_sdk_host_local_n_over_fs":"existing_completion_scenario")
+                  << "\",\"real_daw_or_soak_claim\":false}" << std::endl;
         return 0;
     } catch (const std::exception& error) {
         std::cout << "{\"event\":\"failed\",\"stage\":\"" << stage << "\",\"reason\":\"" << error.what() << "\"}" << std::endl;
