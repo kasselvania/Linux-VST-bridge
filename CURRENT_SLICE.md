@@ -215,7 +215,9 @@ physical acceptance remain open.
 
 The polling audit distinguishes current control acknowledgement from deliberate
 legacy paths. Windows mapped-processing formatting was completed separately at
-`12ee4383`, preserving all tokens/comments and preprocessor records. An explicit
-stack landing decision remains required before trunk integration. Ubuntu was
+`12ee4383`, preserving all tokens/comments and preprocessor records. The roadmap
+selects splitting #200 and integrating retained capabilities in dependency order
+after audio acceptance; preserve the original stack and record the exact dependency
+map before that later extraction. No rebase or merge starts in this slice. Ubuntu was
 shut down normally after this checkpoint; both project machines are stopped.
 Audiobookshelf remains running and the Deck remains unchanged.

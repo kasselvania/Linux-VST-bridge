@@ -64,8 +64,9 @@ The following work closes specific omissions without opening another workstream:
   alone is not evidence that they caused an observed audio failure.
   The 2026-10-03 caller audit finds `queued::control` still reachable for IPC 15
   setup, activation and state operations. The reviewed successor replaces that
-  acknowledgement poll with a dedicated notification; its installed acceptance
-  remains open. The notification does not strengthen the inherited total control
+  acknowledgement poll with a dedicated notification. It is included in the
+  [audio3 installed reference workflows](../evidence/audio-recovery/2026-10-03-audio3-installed.json);
+  complete timing and physical acceptance remain open. The notification does not strengthen the inherited total control
   duration bound: the worker still owns the mailbox mutex during Session calls.
   `wait_started` is
   compiled only with `rpi0` and used by the Pi standalone start/restart path.
@@ -81,12 +82,20 @@ The following work closes specific omissions without opening another workstream:
   preprocessor records are unchanged, with no lines over 160 characters. The
   installed audio2 successor includes this formatting and the separately reviewed
   prepared-render repair; its functional results do not establish timing acceptance.
-- Make an explicit landing decision for the inherited #200–#207 stack before
-  integrating it into trunk: reviewed bottom-up landing or splitting #200 and
-  rebasing the retained capabilities. Record the chosen commit/dependency map,
-  retained evidence and required integrated checks. Neither adding another layer
-  nor passing this audio slice decides that question implicitly. No stack merge
-  is authorized by this note.
+- **Landing decision: split #200, then integrate retained capabilities in dependency
+  order.** Preserve the existing #200–#207 history and evidence as the comparison
+  stack. Do not merge #200 wholesale or rewrite that history during audio repair.
+  After the current audio work reaches its declared acceptance boundary, map the
+  necessary #200 foundations and subsequent repairs to coherent capability groups
+  against an exact trunk base. Each group records its source commits, dependencies,
+  retained/replaced behavior and applicable evidence; follow-up repairs must travel
+  with the foundations they correct. Do not cherry-pick a leaf repair that silently
+  drops an unmerged dependency. Build and qualify the resulting integrated artifact
+  before promoting it; unchanged component evidence may be reused with exact
+  provenance, but the new integration does not inherit an installed pass by name.
+  Extraction/review order is a source-landing strategy, not beta acceptance. The
+  concrete commit map is a required deliverable of that later integration work.
+  This decision starts no rebase, branch deletion, merge or new workstream now.
 
 Use shared contract fixtures for unfamiliar classes, state/parameter evolution,
 varied buses/events, actual blocks below maximum, zero-frame handling, callback
