@@ -120,6 +120,33 @@ merge or release promotion follows from this decision.
 assessment instruction. The assessment is complete at the stated source; execution
 and physical acceptance remain open. PR #204 remains draft.
 
+### D-029 — Managed refresh of pre-contract native publications
+
+**Decision:** Operator approved on 2026-10-04 after the reproduced loaded-engine
+and cached-descriptor mismatch at `22e6569c`. The normal Update Bridge operation
+prepares and verifies replacement bridge components for affected selected plug-ins
+before switching. Require the DAW to close when necessary; no per-plug-in manual
+refresh, vendor reinstall, SDK/compiler or customer terminal operation is required.
+Preserve vendor installations, licensed environment identity, stable DAW class IDs,
+saved state and supported explicit settings. Preparation failure preserves the
+prior selection and gives a specific failure. Restore previous setup remains an
+ordinary operation with verified compatible bridge components.
+
+**Identity and recovery:** Pre-contract LVB1–4 native publications cannot execute
+under the repaired manager because they cannot prove cached descriptor provenance.
+Retain their original bytes/history without falsifying provenance. Restoring a
+vendor/configuration predecessor uses an explicitly prepared compatible bridge
+pair; a full bridge-package predecessor must restore its coherent components and
+publications. Do not silently run old proxy binaries through a weaker admission
+path, fabricate lineage or replace a missing vendor version with another build.
+
+**Completion:** Extend existing package transition, preparation, publication and
+history owners rather than introducing a parallel transaction framework. Installed
+update, saved-state/audio recall, failed/interrupted update recovery and normal
+predecessor restoration must pass before this migration is considered delivered.
+The modern source binding alone does not satisfy the customer journey. This
+decision resolves the policy gap; it does not claim deployment or beta readiness.
+
 ## Accepted proof-boundary rulings
 
 ### D-011 — Native VST3 host boundary accepted

@@ -89,9 +89,11 @@ process generation across startup checks. Its real Unix-socket regression reject
 stale engine/descriptor, an unmapped same-byte inode and changed process generation
 before the guarded startup continuation. These observations do not run the complete
 manager/Windows workflow or prove physical audio.
-Pre-contract greetings remain unchanged pending the operator's managed-refresh
-decision; they cannot establish the same cached-descriptor provenance.
-FC-MGMT-008 therefore remains open. No new package or Deck publication is installed.
+Pre-contract greetings remain unchanged at that source checkpoint; they cannot
+establish the same cached-descriptor provenance. The operator has approved managed
+refresh through the normal update/recovery controls (D-029). That integration and
+its installed acceptance remain unfinished, so FC-MGMT-008 stays open. No new
+package or Deck publication is installed by the source checkpoint.
 After that boundary is resolved, timing qualification moves to one frozen physical
 candidate in both Buffered and SameCallback D=0 modes; further VM timing iterations
 are not an acceptance route.

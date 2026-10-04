@@ -1386,11 +1386,17 @@ change Windows IPC15, the sample transport, class identity or saved-state format
 
 LVB1–4 cannot report cached descriptor provenance. A mapped legacy engine can cache
 another publication's descriptor before the selection is restored, so selected-file
-hashes or process-map presence cannot reconstruct that fact. Legacy execution policy
-is unresolved pending the operator's choice of explicit managed refresh; the modern
-source implementation must not be deployed or described as complete admission
-closure while that route is unchanged. Exact historical files and user state remain
-retained. This gap is recorded in FC-MGMT-008, not hidden behind a restart suggestion.
+hashes or process-map presence cannot reconstruct that fact. Under accepted D-029,
+the normal bridge update prepares and verifies all affected selected publications
+before switching. Pre-contract publications must be refreshed to execute under the
+repaired manager. Preserve exact historical files and user state; a failure during
+preparation leaves the prior selection intact. Ordinary restoration prepares a
+compatible bridge pair for the exact retained vendor/configuration, while full
+package restoration must recover coherent manager/publication components. Extend
+the existing transition and history owners for interruption recovery. The customer
+receives one update action and a DAW-close request when necessary, not individual
+proxy maintenance. FC-MGMT-008 remains open until installed update, recall and
+recovery prove this workflow; a restart suggestion alone does not close it.
 
 Ordinary configuration readback validates bounded owned records and their current
 bindings, including transaction state and the selected physical publication. This

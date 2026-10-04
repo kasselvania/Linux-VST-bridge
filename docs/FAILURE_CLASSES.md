@@ -99,7 +99,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
 | [FC-MGMT-007](#fc-mgmt-007--retained-proposal-displaces-selected-configuration) | Retained proposal displaces selected configuration | Manager guided projection and frontend action ownership | causal | installed-fixed on reference fixture | Ubuntu config7 full effect/instrument workflow and GUI restoration | reference configuration regression passed; musician workflow unqualified | Physical DAW integration and endurance |
-| [FC-MGMT-008](#fc-mgmt-008--loaded-native-engine-is-not-bound-during-admission) | Loaded native engine missing from admission | Cached DAW factory / selected execution pair | reproduced loader/cache mismatch | modern source binding repaired; legacy migration authority gap open | Independent old/new SDK loader comparison and real Unix-peer admission gate; complete installed/physical path unperformed | unqualified | Resolve pre-contract refresh policy, then prove installed admission and predecessor recovery |
+| [FC-MGMT-008](#fc-mgmt-008--loaded-native-engine-is-not-bound-during-admission) | Loaded native engine missing from admission | Cached DAW factory / selected execution pair | reproduced loader/cache mismatch | modern source binding repaired; managed-refresh policy accepted in D-029; integration open | Independent old/new SDK loader comparison and real Unix-peer admission gate; complete installed/physical path unperformed | unqualified | Deliver coordinated normal update, refusal, recall and predecessor recovery |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
 ---
@@ -2766,11 +2766,13 @@ it does not execute manager admission or audio processing.
 
 Thus a legacy class/module-only greeting plus a unique selected image mapping
 cannot prove the cached descriptor. Requiring a new caller-binding contract would
-also change whether pre-contract native publications may execute. The operator
-has been asked to choose explicit managed refresh versus keeping this repair
-source-only pending migration policy. Until resolved and tested, retain this as an
-authority gap; neither a suggested DAW restart nor successful file rollback closes
-it. Existing installed publications and licensed state have not been changed.
+also change whether pre-contract native publications may execute. The initial
+source checkpoint retained that authority gap and made no deployment claim.
+The operator subsequently approved managed refresh through one normal bridge
+update, recorded in D-029. No further policy approval is required. Implementation
+and installed acceptance remain open; neither a suggested DAW restart nor
+successful file rollback alone closes this failure class. Existing installed
+publications and licensed state have not been changed by the source checkpoint.
 
 The modern source repair binds descriptor ABI v2 to the executable mapping containing
 the factory's function anchor, opens image and descriptor from one directory handle,
@@ -2788,5 +2790,6 @@ admits the current executable and rejects stale engine, stale descriptor, an unm
 same-byte inode and changed process generation without calling its continuation.
 This is a modern source/loader proof, not complete installed service qualification
 or authentication of an arbitrary transferred socket's calling module. Legacy
-LVB1–4 behavior is unchanged. Until its migration decision and installed recovery
-are established, this failure class remains open.
+LVB1–4 behavior is unchanged at that source checkpoint. D-029 now authorizes the
+coordinated refresh/enforcement workflow. Until that normal update and installed
+recovery are established, this failure class remains open.

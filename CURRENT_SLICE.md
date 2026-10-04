@@ -1,261 +1,114 @@
-# Current work: coherent audio completion
+# Current capability: managed bridge upgrade and recovery
 
-Operator selected on 2026-10-03 after the installed configuration hardening.
-Branch `codex/audio-completion-contract` starts at
-`5813a65b9b0c680344262a4557e4c4bc26550038`, tree
-`d50a53e911affeb4db1244510e4d1a84c5968ce2`. Draft PR #207 stacks on draft PR #206.
-That PR remains unmerged, above #204 and the inherited #200 integration.
+## Authority and outcome
 
-## Outcome and basis
+The operator approved the managed-refresh policy on 2026-10-04: one normal
+**Update Bridge** action prepares and verifies replacement bridge components before
+switching. The customer closes the DAW when needed, without per-plug-in refreshes,
+compilers, vendor reinstalls or terminal work. Preparation failure leaves the prior
+selection intact. **Restore previous setup** remains a normal, verified operation.
 
-Deliver one prepared audio-execution contract through the native SDK, owned
-transport, Windows render thread and normal manager selection. The primary claim
-is that the selected delivery mode completes ordered work under its declared
-real-time/offline bound and failure posture, including zero-frame operations,
-mode switches, inactive reconfiguration and retirement. Existing buffering remains
-an explicit compatibility choice; same-callback delivery targets D=0 with truthful
-latency and no implicit preference change.
+Base commit `22e6569cd0afa9f0112518819d5b95e47932bbc8`, tree
+`436e5b30903ff01e37502318671e6f8c569d239f`. Branch
+`codex/audio-completion-contract`, draft PR #207, stacked on #206. Basis:
+AGENTS.md “Work in complete capability increments”; GOVERNANCE.md “Evidence and
+completion”; architecture 18.6 “One configuration, distinct responsibilities” and
+18.7 “Shared configuration, separate facts”; accepted decision D-029.
 
-Basis: Architecture 18.3 “Prepared processing configuration,” 18.4 “Delivery and
-deadline policy,” and 18.7 “Platform execution convergence”; accepted D-028;
-roadmap order 2b and the platform assessment's shared delivery findings. No yabridge
-code may be copied. Its documented architecture is comparison evidence, not our
-implementation or a performance guarantee.
+Primary claim: a populated installation can update the bridge through normal
+controls, refresh every affected selected native publication into the new admission
+contract, reopen its saved state, and recover a failed update or restore a retained
+setup without manual publication repair. Preserve vendor module/class, environment
+and licensed machine identity, saved objects and supported explicit preferences.
 
-## Agreed implementation boundary
+## Existing proof and exact remaining gap
 
-- Keep `Live`/`Shared`/`Session`, the bounded queues, mapped payloads, stream epochs,
-  exact process/transport custody and retirement. Add no parallel host/lifecycle
-  architecture. Notifications prompt inspection; they never authorize execution,
-  sequence advancement, slot reuse or acceptance of malformed data.
-- Isolate notification traffic from the existing state/control connection under
-  the same Session ownership. Pair a dedicated loopback notification connection
-  before activation using the authenticated bootstrap, exact session and a fresh
-  capability. This is channel pairing, not kernel process identity. Preserve the
-  supervisor's independent final-host custody. IPC minor 15 explicitly negotiates the
-  change; shared-memory layout 3 and notification schema 1 are separate axes.
-- Network I/O stays off both the native DAW callback and Windows vendor render
-  thread. The native transport worker owns its endpoint. A narrowly owned Windows
-  transport pump exchanges notification hints and signals prepared Win32 events;
-  the render thread waits/signals those events and accesses mapped payloads.
-  The pump also owns existing active lifecycle/control/error socket bytes through
-  bounded prepared handoffs, including Started and control-flag consumption.
-  There is no GUI-owner relay or render-thread writer mutex. Cancellation must wake
-  and join the pump/render/worker before releasing their storage.
-- Native worker wake conditions include requests, pending controls, control-flag 2
-  consumption, bounded capture service, fault and quit. Preserve concurrent state
-  capture without spinning on an unread stream or delaying audio behind large state
-  replies. Backpressure cannot discard the last required wake.
-- Prepare typed `Buffered` or `SameCallback` delivery through existing class
-  preferences/admission. Existing records remain Buffered; remembered 256/512/1024
-  buffering survives selecting/restoring SameCallback. Report effective D and
-  vendor L separately, with D+L through the existing SDK latency-change route.
-- Carry actual callback mode through the C ABI and IPC 15 process request. Permit
-  RT/prefetch switches without setup; offline boundaries require inactive setup.
-  Add exact audio-operation tickets for completion, including consecutive N=0,
-  without replacing existing epoch/sample-position/result validation.
-- Declare a single absolute real-time/prefetch local allowance N/Fs from C++
-  callback entry; Every RT/prefetch N=0 operation has a 1-ms flush allowance and must return its
-  exact results or explicit failure in that callback, in either delivery mode. Offline
-  initially has a 60-second absolute operation bound shared by callback/worker,
-  cooperative cancellation checks at intervals no longer than 4 ms. This does not
-  interrupt a hung vendor call: retain storage until joins or supervisor containment.
-  Service admitted state capture incrementally during offline completion waits,
-  preserving both deadlines. Wakes never renew a deadline.
-  These are policies to qualify, not whole-DAW scheduling guarantees.
-- Offline failure/cancellation/timeout must return explicit failure, never successful
-  timeout silence. SameCallback RT misses are separately identified and contained
-  through existing retirement. Buffered RT retains its declared gap/expiry posture.
-  Buffered offline retains its declared D after completing each submitted operation;
-  the host provides latency/tail calls. The bridge does not invent drain calls.
-  Publish cancellation before waiting for callback leases. No request replay.
+[Modern admission source evidence](evidence/audio-recovery/2026-10-04-loaded-engine-admission-source.json)
+records the real audio9 loader mismatch, repaired factory refusal, LVB5 identity
+binding, peer-generation checks and source regressions. Its applicable CI checks
+passed at `22e6569c`; the dispatch-only unfamiliar fixture job was skipped. This
+is source proof, not installed migration or physical acceptance.
 
-## Scope and executable acceptance
+The operator decision resolves the previously recorded policy gap. Pre-contract
+LVB1–4 publications must be refreshed before executing under the repaired manager.
+Retain original files/history; do not rewrite their provenance or silently treat
+old handshakes as proof of cached metadata. Old proxy binaries are no longer an
+eligible execution route under the repaired manager. Normal restoration must use
+verified compatible bridge components for the exact retained vendor/configuration.
+A retained full package predecessor requires its coherent manager/publication pair.
 
-Files/components: native audio-client protocol/bootstrap; native backend mailbox,
-queue, completion/preparation and admission; native SDK processor/ABI; Windows
-mapped processing, notification adapter and narrow SDK mode propagation; existing
-manager performance/action/readback owners; first-party reference modules and
-independent SDK consumer/build/package tests. Keep pinned runtime, toolchain,
-licensed environments, SDK version and unrelated configuration policies unchanged.
-No vendor campaign, graphics renderer repair, broad manager redesign or new runtime.
+The code still lacks the coordinated customer workflow. A legacy refusal alone
+cannot close FC-MGMT-008. Update staging, publication selection, interruption
+recovery, service restoration and ordinary rollback must agree before deployment.
 
-First source regressions must establish the current slow-offline/mode failures.
-Then verify notifications under publication races, delayed/duplicate/coalesced hints,
-backpressure, crossed/stale pairing, endpoint loss and cancellation. Cover concurrent
-and idle capture, control handoff, start/stop generations and exact retirement.
+## Implementation boundary
 
-Verify both roles with actual N from 0 through M, non-power-of-two blocks, in-place
-buffers, supported output buses and zero-frame event/parameter results. Include
-unpaced bursts, first/final block fidelity, slow valid offline processing beyond the
-old five-second worker timeout, explicit failure, RT/prefetch switches, legal rate/
-block reconfiguration, state recall, deadline entry time and no callback allocation.
-Use original first-party instrumentation; no vendor payloads in public evidence.
+Trace and extend the existing package adoption/transition journal, preparation
+kit and candidate/history owners, publication/registry and normal manager controls.
+Prepare against an explicit target package without temporarily selecting it or
+inventing a parallel configuration database. Recheck exact affected inputs before
+commit; retain a recoverable old/new state on partial failure or interruption.
+Make progress and a specific failure visible. Resume/recovery must not require the
+customer to know an internal revision or manually restart services.
 
-Build paired native/Windows/manager artifacts and test normal delivery selection
-and buffering restoration on disposable Ubuntu. Capture whole SDK callback timing,
-actual output, state and owner retirement on one frozen candidate. Evaluate serial
-chains and lower actual blocks 256/128 then 64 without inflating delay or shortening
-acceptance. Physical DAW/Deck qualification follows reviewed installed results;
-source tests and SDK runs cannot establish musician endurance or beta readiness.
-Retain every whole failed attempt and original baseline. Explicitly report an
-unperformed physical gate if hardware cannot safely be used.
+Scope includes `package_authority`, `setup_install`, reusable preparation/build,
+publication/history, admission and readback, manager bootstrap/operator controls,
+and corresponding contract/installed fixtures. Dependencies permitted to change:
+existing package/record contracts needed for this migration with explicit versioning
+and old-record handling. No new engine, runtime experiment, vendor campaign, audio
+wait budget, Windows DSP change or graphics expansion. No saved-state rewriting,
+licensed-prefix recreation or unrelated host privilege changes.
 
-## Baseline, rollback and machine custody
+## Acceptance
 
-[Configuration hardening evidence](evidence/preparation/2026-10-03-foundation-installed.json)
-retains Ubuntu config7 at source 3fcd7bae: both complete reference workflows, 26
-separate audio lifetimes/127,795,200 matching samples, normal GUI restoration and
-unchanged original states. Earlier config4 audio loss remains unexplained. That
-historical candidate is not a gap-free musical qualification. The current exact
-predecessor and installed selection are recorded in the latest checkpoint below.
+Use the retained populated Ubuntu installation and first-party instrument/effect
+with meaningful saved state, automation and deterministic output. Its currently
+selected audio9 manager and audio4 native predecessor are historical baselines,
+not dependable-audio claims. Preserve exact identities before mutation.
 
-All project builders/VMs are stopped at task start. Use one at a time, two CPUs on
-host 2–3 and 256 processes; reserve CPU 0–1/capacity for Audiobookshelf. Builder limit
-4 GiB; expanded Ubuntu 6 GiB guest / 8 GiB container, combined outer memory/swap equal to
-memory. Keep exact predecessor artifacts, normal product recovery and uncertain
-ownership records. No forced VM cleanup or unrelated service/privilege changes.
-The Deck remains at the previously recorded general5deck configuration; Nibbi's
-editor remains unresolved. No Deck mutation occurs during source development.
+- One normal update prepares all affected published classes, verifies exact new
+  engine/descriptor/host bindings and selects only after successful preparation.
+  Stable external class IDs, module/environment and explicit settings survive.
+- A cached old caller and a mismatched modern caller receive specific refusal
+  before runtime/DSP/transport admission; matching refreshed callers succeed.
+- Existing saved state reaches the same selected vendor implementation; returned
+  values/audio and newly captured provenance remain correct; retirement completes.
+- Inject preparation and switch failures and interruptions. Preserve the original
+  failure and prior selection, or retain an explicit recoverable transition until
+  exact old/new ownership is established. Healthy siblings and saved bytes survive.
+- Restore the exact retained vendor/configuration through ordinary controls with
+  compatible bridge components. Test package-predecessor consistency as well as
+  publication recovery; no reboot, manual record deletion or CLI workaround counts.
+- Test unsupported/missing retained metadata, foreign edits, active DAW/owners,
+  insufficient capacity and unresolved cleanup with truthful, actionable refusal.
+- Retain sanitized source, artifact, whole-run and recovery evidence; independently
+  review source and installed results. Commit/push coherent completed work.
 
-Implementation agents: Sol 5.6 xhigh (operator cost update); reviewers: Astra 6 xhigh;
-computer use: Sol 6.1 High. Do not reuse earlier implementation agents with their
-previous Sol 6.1 Max settings for new implementation assignments.
-Root owns architecture, integration, machine custody, installed acceptance and
-commit/push. Workstream review and required gates remain active until completed.
+## Machine custody and cost
 
-## Earlier checkpoints
+Both project machines are stopped at turn start; Audiobookshelf is running.
+Use one builder or VM at a time, two CPUs on host 2–3, 256 processes. Builder 4 GiB;
+Ubuntu 6 GiB guest / 8 GiB container; combined outer memory/swap equals memory. Reserve
+CPU 0–1 and capacity for Audiobookshelf. Root owns machine mutations and artifacts.
+No Deck mutation during source development. Preserve all original failed runs.
+Implementation agents Sol 5.6 xhigh; reviewers Astra 6 xhigh; computer use Sol 6.1 High.
 
-Retain all original evidence. [Audio3](evidence/audio-recovery/2026-10-03-audio3-installed.json)
-covers slow offline completion, explicit failure/timeout and abrupt-consumer cleanup,
-both D0 offline roles and normal buffering restoration. Later timing failures remain
-failed: [audio4](evidence/audio-recovery/2026-10-04-audio4-phase-comparison.json),
-[audio5](evidence/audio-recovery/2026-10-04-audio5-zero-frame-failure.json),
-[audio6](evidence/audio-recovery/2026-10-04-audio6-refusal-frontier.json) and
-[audio8](evidence/audio-recovery/2026-10-04-audio8-zero-frame-comparison.json).
-The [zero-frame source repair](evidence/audio-recovery/2026-10-04-zero-frame-sample-payload-source.json)
-removes unnecessary sample work; its installed audio8 result did not establish a
-timing cure. [The allowance audit](docs/RESEARCH_BASIS.md#2026-10-04-callback-allowance-and-audio8-scope)
-keeps N/Fs local containment distinct from an observed device/graph deadline.
+## Following physical gate
 
-The polling reachability audit and Windows render-file formatting are complete.
-The roadmap selects splitting #200 and landing retained capabilities in dependency
-order after audio acceptance. Preserve the original stack and record its dependency
-map before extraction; no merge/rebase or new runtime/graphics/vendor work starts here.
+No more VM timing candidates. After installed migration/recovery is reviewed, use
+one frozen Deck candidate in explicit Buffered and SameCallback D=0 modes. Measure
+thousands of callbacks at actual 256/128/64-frame blocks: median/p99/max of the
+request/reply interval and whole callback separately, actual output/missing spans,
+exact identities and effective native/Windows render-thread scheduling. Keep Fs,
+maximum/actual block, bridge delay and vendor latency distinct. An unavailable
+realtime policy is a reported limit, not authority for blanket privilege changes.
 
-## START overlap checkpoint and remaining work
+Audio9's Buffered512 off/on lifetimes retained exact output/state/retirement but
+overall timing failed. Its 107 calls / 49,668 four-lane frames represent 1.03475 seconds,
+not endurance or SameCallback timing. See
+[installed audio9](evidence/audio-recovery/2026-10-04-audio9-start-overlap-comparison.json)
+and the [allowance audit](docs/RESEARCH_BASIS.md#2026-10-04-callback-allowance-and-audio8-scope).
+Physical DAW/serial-chain/reconfiguration and musician interaction/soak remain open.
 
-The [source and two-ended proof](evidence/audio-recovery/2026-10-04-start-overlap-source.json)
-closes the native START/request publication dependency at production source
-`84bc1c621a974c841580f38dc51790b93f8b6754`, tree
-`66cbb10c71b1d26945caead615feae20be6ccaa5`. The old `ad1c57f6` worker cannot
-publish first N0 while Started is held; the repaired worker does so without
-granting readiness. Exact acknowledgement, state/control admission order,
-repeated epochs, empty Start/Stop and refused-start containment pass. The fixture
-successor `7b5a7287` changes only the test module; both failed observer attempts
-remain retained. No production Windows change or larger callback allowance follows.
-Linux client 21, backend 148 in each configuration, strict affected lint, 13 SDK tests,
-all five candidate CI workflows and an independent paired-package rebuild pass.
-
-[Installed audio9](evidence/audio-recovery/2026-10-04-audio9-start-overlap-comparison.json)
-uses the same Windows host, runtime, reference module, SDK consumer and audit as
-audio8. Normal update, refresh, preparation and publication pass. Both declared
-Buffered512 off/on lifetimes return 107 calls, 198,672 exact float values, correct
-state and confirmed retirement. First N0 takes 442,827/847,211 ns against 1 ms.
-Off still exceeds the local N13 allowance: 311,965 ns against 270,833 ns; on takes
-252,570 ns and has no overrun. **Overall timing remains failed.** Each unpaced
-run represents 49,668 four-lane frames, 1.03475 seconds of audio, not endurance.
-The N13 tail is not an isolated transport round trip; neither this ordinary-scheduled
-VM nor one off/on pair establishes a physical deadline or diagnostic causation.
-
-Normal rollback restores exact audio4 publication `7145b6f90323884c08db9a52f7b24c9c`
-and its paired host, with all class registrations/preferences restored; manager
-`0.12.0audio9` remains installed. Both project machines are stopped after normal
-Ubuntu Power Off; Audiobookshelf is running, and Deck/Nibbi remain unchanged.
-
-The publication-dependency repair is complete at its declared scope. The parent
-audio-completion capability remains open. Keep the existing callback bounds and
-failed lifetimes; do not tune against the VM's tiny-block allowance until it turns
-green. The separate [loaded-engine admission gap](docs/FAILURE_CLASSES.md#fc-mgmt-008--loaded-native-engine-is-not-bound-during-admission)
-remains required before promoting a new physical candidate. Physical DAW/serial-chain
-completion, inactive reconfiguration, lower blocks and the musician interaction/soak
-still need qualification on one frozen artifact. The device/whole-graph deadline
-and bridge-local containment allowance must remain distinct in that work.
-
-## Current endpoint: loaded-engine admission
-
-Operator continuation starts from `514c74d2cb4bc7905ddaea33704058f3a1e4af0d`,
-tree `e2f88511210f870c5b4e6b6201115f1a5ea8948f`. Before another physical
-candidate, close FC-MGMT-008 under architecture 18.6 “One configuration, distinct
-responsibilities” and 18.7 “Shared configuration, separate facts.” The claim is
-that an already loaded native factory can create a managed instance only against
-its matching selected execution pair and discovery data. A publication update or
-rollback must yield an inspectable stale-caller refusal when the cached caller
-does not match, before new runtime, DSP or transport resources are admitted.
-
-Scope: factory-time descriptor/image binding, non-realtime native greeting,
-manager resolution and final admission rechecks, existing refusal reporting, and
-loader/manager regression fixtures. Reuse existing registration, publication and
-recovery owners. Do not change Windows processing, callback bounds, runtime,
-buffer preferences, class IDs, saved state or licensed environments. Hashing the
-current pathname alone cannot prove which engine is already mapped by the DAW.
-
-Acceptance must reproduce a held factory across selection changes, cover both
-engine and descriptor changes, and verify matching fresh/cached callers, explicit
-stale/malformed identity refusal, no resources acquired by a refused caller, and
-usable exact predecessor restoration. Older greeting behavior must be explicit
-and tested; it may neither bypass caller binding nor silently destroy rollback.
-Retain original failure and repaired loader/admission evidence, actual source and
-artifact identities, normal recovery results and unperformed physical boundaries.
-No Deck mutation occurs during this source repair.
-
-Legacy migration is an explicit pending operator decision. An old runtime-descriptor
-engine can be mapped from A, read descriptor B through the publication link on its
-first factory call, then survive restoration of A. Its class/module-only greeting
-does not distinguish that cache from correct A; a unique mapped A inode cannot
-repair the missing descriptor provenance. Do not accept process-map presence as
-proof of the legacy cache, or claim that suggesting a DAW restart enforces it.
-Modern loaded-image/descriptor binding and its tests may proceed independently.
-Requiring explicit managed refresh of pre-contract native publications changes
-legacy execution eligibility and remains pending; no deployment or compatibility
-claim may assume approval.
-
-The [modern source checkpoint](evidence/audio-recovery/2026-10-04-loaded-engine-admission-source.json)
-is independently reviewed at patch `fcc640b012b65b9f57cd2573bf6c39f9d08e3cc40bbe911eaff1d1394df707e9`
-over the base above. The actual audio9 loader reproduces the mismatched cache;
-the repaired engine refuses it and passes the unchanged-link control. Linux
-validation passes 22 client tests, 150 default/151 registered backend tests,
-571 manager tests and 13 native SDK tests, plus affected strict lint. Two backend
-tests in each configuration and two manager tests remain explicitly ignored.
-The final manager-only error-routing correction recompiles and passes its real
-Unix-peer regression and strict lint; unchanged native results are reused by hash.
-Original lint, local concurrent-test and observer failures remain retained.
-
-The modern source binding is implemented; FC-MGMT-008 as a complete capability is
-still open. LVB1–4 execution policy has not changed, and full installed admission,
-refusal and predecessor recovery are unperformed for this repair. Do not deploy it
-while the managed-refresh decision is pending. All evidence is copied and verified
-outside the checkout. Builder and VM are stopped, Audiobookshelf is running and
-the Deck remains unchanged.
-
-## Following gate: physical delivery measurements
-
-The operator's audio9 review ends VM timing iteration. Disposable Linux testing may
-still establish deterministic admission, lifecycle and recovery behavior; it must
-not produce another timing candidate to chase a tiny-block pass. Audio9 tested
-Buffered512 only and does not measure SameCallback delivery.
-
-After admission is repaired and reviewed, use one frozen physical Deck candidate
-with explicit Buffered and SameCallback D=0 selections. Record whole lifetimes
-over thousands of callbacks at actual host blocks 256, 128 and 64, with sample rate,
-maximum block, actual block, bridge delay and vendor latency distinct. Report
-median, 99th percentile and maximum for the actual request/reply interval and whole
-callback separately, actual returned audio and missing spans, mode and artifact
-identities, and effective scheduling on both native and Windows render threads.
-Verify realtime scheduling rather than assuming it; preserve an unavailable result
-without unrelated privilege changes. Do not call total buffered callback duration
-an isolated round-trip cost. Keep diagnostics-off acceptance separate from bounded
-instrumented timing observations and retain all failed lifetimes.
-
-These distributions guide realistic block-size qualification; they do not replace
-serial-chain/reconfiguration checks or the declared musician interaction and soak.
+Keep #207 draft. The roadmap selects splitting #200, retaining the original stack
+and recording its dependency map before extraction. No merge or beta promotion.
