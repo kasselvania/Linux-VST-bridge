@@ -117,7 +117,9 @@ ownership records. No forced VM cleanup or unrelated service/privilege changes.
 The Deck remains at the previously recorded general5deck configuration; Nibbi's
 editor remains unresolved. No Deck mutation occurs during source development.
 
-Implementation agents: Sol 6.1 Max; reviewers: Astra 6 xhigh; computer use: Sol 6.1 High.
+Implementation agents: Sol 5.6 xhigh (operator cost update); reviewers: Astra 6 xhigh;
+computer use: Sol 6.1 High. Do not reuse earlier implementation agents with their
+previous Sol 6.1 Max settings for new implementation assignments.
 Root owns architecture, integration, machine custody, installed acceptance and
 commit/push. Workstream review and required gates remain active until completed.
 
