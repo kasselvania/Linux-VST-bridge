@@ -129,11 +129,20 @@ pub struct NativeArtifact {
     pub external_ids: [String; 2],
 }
 impl NativeArtifact {
-    pub fn matches(&self, p: &Profile) -> Result<()> {
+    pub fn matches_record(&self, p: &Profile) -> Result<()> {
         if let Some(descriptor) = &self.descriptor {
             require(descriptor.sha256 == self.descriptor_sha256, "native_descriptor_digest")?;
-            verify_native_descriptor(&self.artifact, descriptor, &self.class, &self.module_sha256)?;
+            require(
+                descriptor.path
+                    == self
+                        .artifact
+                        .path
+                        .with_file_name(lvb_plugin_descriptor::FILE_NAME),
+                "native_descriptor_location",
+            )?;
+            descriptor.validate_record()?;
         }
+        self.artifact.validate_record()?;
         require(
             self.class == p.class
                 && self.module_sha256 == p.module_sha256
@@ -143,6 +152,13 @@ impl NativeArtifact {
                 && self.external_ids == external_ids(&p.class.class_id)?,
             "native_artifact_mismatch",
         )
+    }
+    pub fn matches(&self, p: &Profile) -> Result<()> {
+        self.matches_record(p)?;
+        if let Some(descriptor) = &self.descriptor {
+            verify_native_descriptor(&self.artifact, descriptor, &self.class, &self.module_sha256)?;
+        }
+        Ok(())
     }
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

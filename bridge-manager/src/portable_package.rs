@@ -343,14 +343,37 @@ fn verify_python(root:&Path) -> Result<()> {
     require(status.success() && std::str::from_utf8(&bytes)?.trim()==expected.as_deref().unwrap_or(""),
         "This build requires a different system Python version. Your selected application was retained")
 }
-/// Only the running source-package executable selects its source. A selected
-/// generation executable is an ordinary product route, not a package input.
-pub fn input_root(executable:&Path, home:&Path) -> Result<Option<PathBuf>> {
-    let base=home.join(".local/share/linux-vst-bridge/packages");
-    if !executable.starts_with(&base) { return Ok(None); }
-    input_root_with_trust(executable, home, &Trust::compiled()?)
+fn release_record(root:&Path, trust:&Trust) -> Result<(Release,String)> {
+    require(root.is_absolute() && root.canonicalize()?==root,
+        "user_package_directory_identity")?;
+    let metadata=fs::symlink_metadata(root)?;
+    require(metadata.is_dir() && metadata.uid()==unsafe{libc::getuid()}
+        && metadata.mode() & 0o077==0,"user_package_directory_custody")?;
+    let bytes=verified_bytes(&root.join("RELEASE_MANIFEST.json"),MANIFEST_MAX)?;
+    let signature=verified_bytes(&root.join("RELEASE_MANIFEST.ed25519"),64)?;
+    let base=verified_bytes(&root.join("INSTALLER_BASE.sha256"),64)?;
+    let base=std::str::from_utf8(&base)?;
+    require(hexadecimal(base,64),"user_package_installer_identity")?;
+    let mut base_sha256=[0;32];
+    for (i,byte) in base_sha256.iter_mut().enumerate() {
+        *byte=u8::from_str_radix(&base[i*2..i*2+2],16)?;
+    }
+    let manifest_sha256=hex(&Sha256::digest(&bytes));
+    Ok((signed_release(&bytes,&signature,&base_sha256,trust)?,manifest_sha256))
 }
-fn input_root_with_trust(executable:&Path, home:&Path, trust:&Trust) -> Result<Option<PathBuf>> {
+fn verify_release_file(root:&Path, row:&ReleaseFile)->Result<PathBuf> {
+    let path=root.join(&row.destination);
+    require(path.canonicalize()?==path,"user_package_link")?;
+    let metadata=file(&path)?.metadata()?;
+    require(metadata.uid()==unsafe{libc::getuid()} && metadata.is_file()
+        && metadata.len()==row.size
+        && metadata.mode() & 0o777==u32::from_str_radix(&row.mode,8)?,
+        "user_package_file_custody")?;
+    require(digest(&path)?==row.sha256,"user_package_file_changed")?;
+    Ok(path)
+}
+fn input_release_record_with_trust(executable:&Path,home:&Path,trust:&Trust)
+    ->Result<Option<(PathBuf,Release)>> {
     let base=home.join(".local/share/linux-vst-bridge/packages");
     if !executable.starts_with(&base) { return Ok(None); }
     require(executable.canonicalize()?==executable,"user_package_executable_identity")?;
@@ -361,9 +384,64 @@ fn input_root_with_trust(executable:&Path, home:&Path, trust:&Trust) -> Result<O
         && matches!(parts[3].to_str(),Some("linux-vst-bridge"|"linux-audio-compatibility-manager")),
         "user_package_executable_identity")?;
     let root=base.join(parts[0]);
-    let bytes=verified_bytes(&root.join("RELEASE_MANIFEST.json"),MANIFEST_MAX)?;
-    require(Some(hex(&Sha256::digest(&bytes)).as_str())==parts[0].to_str(),
+    let (release,manifest_sha256)=release_record(&root,trust)?;
+    require(Some(manifest_sha256.as_str())==parts[0].to_str(),
         "user_package_directory_identity")?;
+    let destination=executable.strip_prefix(&root)?.to_str()
+        .ok_or("user_package_executable_identity")?;
+    let row=release.files.iter().find(|row|row.destination==destination)
+        .ok_or("user_package_executable_identity")?;
+    require(matches!(row.kind.as_str(),"manager"|"frontend"),
+        "user_package_executable_identity")?;
+    require(verify_release_file(&root,row)?==executable,
+        "user_package_executable_identity")?;
+    Ok(Some((root,release)))
+}
+/// Signed source identity plus the exact running executable. Status discovery
+/// does not certify or scan unrelated staged payloads.
+pub fn input_root_record(executable:&Path,home:&Path)->Result<Option<PathBuf>> {
+    if !executable.starts_with(home.join(".local/share/linux-vst-bridge/packages")) {
+        return Ok(None);
+    }
+    input_root_record_with_trust(executable,home,&Trust::compiled()?)
+}
+fn input_root_record_with_trust(executable:&Path,home:&Path,trust:&Trust)
+    ->Result<Option<PathBuf>> {
+    Ok(input_release_record_with_trust(executable,home,trust)?
+        .map(|(root,_)|root.join("usr")))
+}
+/// Resolve another source-package executable only after verifying both the
+/// running launcher and the exact executable about to be spawned.
+pub fn input_executable(executable:&Path,home:&Path,name:&str)
+    ->Result<Option<PathBuf>> {
+    if !executable.starts_with(home.join(".local/share/linux-vst-bridge/packages")) {
+        return Ok(None);
+    }
+    input_executable_with_trust(executable,home,name,&Trust::compiled()?)
+}
+fn input_executable_with_trust(executable:&Path,home:&Path,name:&str,trust:&Trust)
+    ->Result<Option<PathBuf>> {
+    require(matches!(name,"linux-vst-bridge"|"linux-audio-compatibility-manager"),
+        "user_package_executable_identity")?;
+    let Some((root,release))=input_release_record_with_trust(executable,home,trust)? else {
+        return Ok(None);
+    };
+    let destination=format!("usr/bin/{name}");
+    let row=release.files.iter().find(|row|row.destination==destination)
+        .ok_or("user_package_executable_identity")?;
+    Ok(Some(verify_release_file(&root,row)?))
+}
+/// Only the running source-package executable selects its source. A selected
+/// generation executable is an ordinary product route, not a package input.
+pub fn input_root(executable:&Path, home:&Path) -> Result<Option<PathBuf>> {
+    let base=home.join(".local/share/linux-vst-bridge/packages");
+    if !executable.starts_with(&base) { return Ok(None); }
+    input_root_with_trust(executable, home, &Trust::compiled()?)
+}
+fn input_root_with_trust(executable:&Path, home:&Path, trust:&Trust) -> Result<Option<PathBuf>> {
+    let Some((root,_))=input_release_record_with_trust(executable,home,trust)? else {
+        return Ok(None);
+    };
     verify_directory(&root,trust)?;
     Ok(Some(root.join("usr")))
 }
@@ -526,6 +604,37 @@ mod tests {
         fs::write(&second,b"changed source frontend").unwrap();
         assert!(input_root_with_trust(&second,&f.home,&f.trust()).is_err());
         assert_eq!(fs::read(&setup).unwrap(),setup_bytes);
+    }
+    #[test]
+    fn status_source_resolution_hashes_only_the_exact_executables_it_launches() {
+        let f=Fixture::new();let frontend=Bundle::open(&f.bundle("1.0"),f.trust())
+            .unwrap().stage(&f.home).unwrap();
+        let source=input_root_record_with_trust(&frontend,&f.home,&f.trust())
+            .unwrap().unwrap();
+        let manager=input_executable_with_trust(&frontend,&f.home,
+            "linux-vst-bridge",&f.trust()).unwrap().unwrap();
+        assert_eq!(manager,source.join("bin/linux-vst-bridge"));
+        let unrelated=source.join("lib/linux-vst-bridge/self-test/Fixture.exe");
+        let bytes=fs::read(&unrelated).unwrap();
+        fs::set_permissions(&unrelated,fs::Permissions::from_mode(0o644)).unwrap();
+        fs::write(&unrelated,vec![b'X';bytes.len()]).unwrap();
+        fs::set_permissions(&unrelated,fs::Permissions::from_mode(0o444)).unwrap();
+        assert_eq!(input_root_record_with_trust(&frontend,&f.home,&f.trust())
+            .unwrap(),Some(source.clone()));
+        assert_eq!(input_executable_with_trust(&frontend,&f.home,
+            "linux-vst-bridge",&f.trust()).unwrap(),Some(manager.clone()));
+        assert!(input_root_with_trust(&frontend,&f.home,&f.trust()).is_err());
+        fs::set_permissions(&unrelated,fs::Permissions::from_mode(0o644)).unwrap();
+        fs::write(&unrelated,bytes).unwrap();
+        fs::set_permissions(&unrelated,fs::Permissions::from_mode(0o444)).unwrap();
+        let manager_bytes=fs::read(&manager).unwrap();
+        fs::set_permissions(&manager,fs::Permissions::from_mode(0o755)).unwrap();
+        fs::write(&manager,vec![b'Y';manager_bytes.len()]).unwrap();
+        fs::set_permissions(&manager,fs::Permissions::from_mode(0o555)).unwrap();
+        assert_eq!(input_root_record_with_trust(&frontend,&f.home,&f.trust())
+            .unwrap(),Some(source));
+        assert!(input_executable_with_trust(&frontend,&f.home,
+            "linux-vst-bridge",&f.trust()).is_err());
     }
     #[test]
     fn wrong_key_class_signature_and_payload_refuse_before_selection() {

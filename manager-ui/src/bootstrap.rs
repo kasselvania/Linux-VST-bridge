@@ -4,7 +4,7 @@ use eframe::egui;
 use std::{
     io::Read,
     os::fd::AsRawFd,
-    os::unix::fs::{FileExt, OpenOptionsExt},
+    os::unix::fs::{FileExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::mpsc::{self, Receiver},
@@ -20,9 +20,8 @@ pub enum Entry {
     Ordinary,
 }
 
-fn selected_frontend() -> Result<PathBuf, String> {
-    let home = std::env::var_os("HOME").ok_or("Home directory unavailable")?;
-    Ok(PathBuf::from(home).join(".local/bin/linux-audio-compatibility-manager"))
+fn selected_frontend(home: &Path) -> PathBuf {
+    home.join(".local/bin/linux-audio-compatibility-manager")
 }
 
 fn select_entry(executable: &Path) -> Entry {
@@ -36,7 +35,7 @@ fn select_entry(executable: &Path) -> Entry {
 pub fn entry() -> Result<Entry, String> {
     let executable = std::env::current_exe().map_err(|_| "Frontend identity unavailable")?;
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("Home directory unavailable")?);
-    if linux_vst_bridge::portable_package::input_root(&executable, &home)
+    if linux_vst_bridge::portable_package::input_root_record(&executable, &home)
         .map_err(|e| e.to_string())?.is_some() {
         return Ok(Entry::Checking);
     }
@@ -46,18 +45,49 @@ pub fn entry() -> Result<Entry, String> {
     Ok(select_entry(&executable))
 }
 
-pub fn launch_selected() -> Result<(), String> {
-    let frontend = selected_frontend()?;
-    let target = std::fs::canonicalize(&frontend)
+fn launch_selected_with(home: &Path, executable: &Path,
+    launch: impl FnOnce(&Path) -> Result<(), String>) -> Result<(), String> {
+    let route = selected_frontend(home);
+    let target = std::fs::canonicalize(&route)
         .map_err(|_| "Selected application route is unavailable".to_owned())?;
     if target == Path::new(SYSTEM_FRONTEND)
-        || std::env::current_exe().is_ok_and(|executable|executable==target) {
+        || executable == target {
         return Err("Selected application route points back to the package launcher".into());
     }
-    Command::new(frontend)
-        .spawn()
-        .map(|_| ())
-        .map_err(|_| "Selected application could not be opened".into())
+    let root = home.join(".local/share/linux-vst-bridge/managed");
+    let software_path = root.join("software.json");
+    let (software, identity) = linux_vst_bridge::read_json_identity::<
+        linux_vst_bridge::catalogue::Software>(&software_path)
+        .map_err(|_| "Selected application identity is invalid".to_owned())?;
+    software.validate_record().map_err(|_| "Selected application identity is invalid".to_owned())?;
+    let frontend = software.operator_frontend.as_ref()
+        .ok_or_else(|| "Selected application is unavailable".to_owned())?;
+    let metadata = std::fs::metadata(&frontend.path)
+        .map_err(|_| "Selected application identity is unavailable".to_owned())?;
+    if frontend.path.parent() != software.manager.path.parent()
+        || !frontend.path.starts_with(root.join("software"))
+        || frontend.path.canonicalize().ok().as_ref() != Some(&frontend.path)
+        || target != frontend.path
+        || metadata.permissions().mode() & 0o222 != 0 {
+        return Err("Selected application identity is invalid".into());
+    }
+    frontend.verify().map_err(|_| "Selected application changed; reopen Setup".to_owned())?;
+    let unchanged = linux_vst_bridge::read_json_identity::<
+        linux_vst_bridge::catalogue::Software>(&software_path);
+    if !unchanged.is_ok_and(|(again, digest)|again==software && digest==identity)
+        || std::fs::canonicalize(&route).ok().as_ref() != Some(&frontend.path) {
+        return Err("Selected application changed; reopen Setup".into());
+    }
+    launch(&frontend.path)
+}
+
+pub fn launch_selected() -> Result<(), String> {
+    let home = PathBuf::from(std::env::var_os("HOME").ok_or("Home directory unavailable")?);
+    let executable = std::env::current_exe().map_err(|_| "Frontend identity unavailable")?;
+    launch_selected_with(&home, &executable, |frontend| {
+        Command::new(frontend).spawn().map(|_| ())
+            .map_err(|_| "Selected application could not be opened".into())
+    })
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -81,8 +111,9 @@ impl Operation {
 fn fixed_command(operation: Operation) -> Result<Command, String> {
     let executable = std::env::current_exe().map_err(|_| "Frontend identity unavailable")?;
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("Home directory unavailable")?);
-    let manager = linux_vst_bridge::portable_package::input_root(&executable,&home)
-        .map_err(|e|e.to_string())?.map(|root|root.join("bin/linux-vst-bridge"))
+    let manager = linux_vst_bridge::portable_package::input_executable(&executable,&home,
+        "linux-vst-bridge")
+        .map_err(|e|e.to_string())?
         .unwrap_or_else(|| PathBuf::from(SYSTEM_MANAGER));
     let mut command = Command::new(manager);
     command.arg(match operation {
@@ -683,6 +714,79 @@ impl eframe::App for Bootstrap {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn selected_handoff_verifies_exact_frontend_before_launch() {
+        let home = std::env::temp_dir().join(format!("lvb-ui-launch-{}-{}",
+            std::process::id(), std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        std::fs::create_dir(&home).unwrap();
+        let home = std::fs::canonicalize(home).unwrap();
+        let generation = home.join(".local/share/linux-vst-bridge/managed/software/generation");
+        std::fs::create_dir_all(&generation).unwrap();
+        let artifact = |name: &str, bytes: &[u8], mode: u32| {
+            let path = generation.join(name);
+            std::fs::write(&path, bytes).unwrap();
+            std::fs::set_permissions(&path,
+                std::fs::Permissions::from_mode(mode)).unwrap();
+            linux_vst_bridge::Artifact { sha256:linux_vst_bridge::digest(&path).unwrap(), path }
+        };
+        let manager = artifact("linux-vst-bridge", b"manager", 0o500);
+        let frontend = artifact("linux-audio-compatibility-manager", b"frontend", 0o500);
+        let supervisor = artifact("session.pyc", b"supervisor", 0o400);
+        let ownership = artifact("ownership.pyc", b"ownership", 0o400);
+        let host = artifact("host.exe", b"host", 0o400);
+        let source_manifest = artifact("host-source-manifest.json", b"source", 0o400);
+        let software = linux_vst_bridge::catalogue::Software {
+            installer_launch:None, preparation_kit:None,
+            operator_frontend:Some(frontend.clone()), manager,
+            supervisor, ownership, host, source_sha256:source_manifest.sha256.clone(),
+            source_manifest, native_catalogue:None,
+        };
+        linux_vst_bridge::atomic_json(
+            &home.join(".local/share/linux-vst-bridge/managed/software.json"),
+            &software).unwrap();
+        std::fs::create_dir_all(home.join(".local/bin")).unwrap();
+        std::os::unix::fs::symlink(&frontend.path,selected_frontend(&home)).unwrap();
+        let launches=std::cell::Cell::new(0);
+        launch_selected_with(&home,Path::new("/usr/bin/source-setup"),|path| {
+            assert_eq!(path,&frontend.path);launches.set(launches.get()+1);Ok(())
+        }).unwrap();
+        assert_eq!(launches.get(),1);
+        let software_path=home.join(".local/share/linux-vst-bridge/managed/software.json");
+        let software_bytes=std::fs::read(&software_path).unwrap();
+        std::fs::write(&software_path,vec![b'X';8*1024*1024+1]).unwrap();
+        assert!(launch_selected_with(&home,Path::new("/usr/bin/source-setup"),|_| {
+            launches.set(launches.get()+1);Ok(())
+        }).is_err());
+        std::fs::remove_file(&software_path).unwrap();
+        let fifo=std::ffi::CString::new(
+            std::os::unix::ffi::OsStrExt::as_bytes(software_path.as_os_str())).unwrap();
+        assert_eq!(unsafe{libc::mkfifo(fifo.as_ptr(),0o600)},0);
+        assert!(launch_selected_with(&home,Path::new("/usr/bin/source-setup"),|_| {
+            launches.set(launches.get()+1);Ok(())
+        }).is_err());
+        std::fs::remove_file(&software_path).unwrap();
+        let saved=software_path.with_extension("saved");
+        std::fs::write(&saved,&software_bytes).unwrap();
+        std::os::unix::fs::symlink(&saved,&software_path).unwrap();
+        assert!(launch_selected_with(&home,Path::new("/usr/bin/source-setup"),|_| {
+            launches.set(launches.get()+1);Ok(())
+        }).is_err());
+        std::fs::remove_file(&software_path).unwrap();
+        std::fs::write(&software_path,software_bytes).unwrap();
+        assert_eq!(launches.get(),1);
+        std::fs::set_permissions(&frontend.path,
+            std::fs::Permissions::from_mode(0o700)).unwrap();
+        std::fs::write(&frontend.path,b"changed!").unwrap();
+        std::fs::set_permissions(&frontend.path,
+            std::fs::Permissions::from_mode(0o500)).unwrap();
+        assert!(launch_selected_with(&home,Path::new("/usr/bin/source-setup"),|_| {
+            launches.set(launches.get()+1);Ok(())
+        }).is_err());
+        assert_eq!(launches.get(),1);
+        std::fs::remove_dir_all(home).unwrap();
+    }
 
     #[test]
     fn transition_output_survives_observer_process_exit() {

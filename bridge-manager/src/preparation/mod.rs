@@ -819,7 +819,7 @@ pub fn validate_candidate_record(m: &Manager, c: &Candidate) -> Result<()> {
     }
     c.source_manifest.validate_record()?;
     c.host.validate_record()?;
-    c.native.matches(&c.profile)?;
+    c.native.matches_record(&c.profile)?;
     c.native.artifact.validate_record()?;
     require(
         inspection_record_with_layout(
@@ -1318,6 +1318,32 @@ impl RecordReadback {
         }
         Ok(found)
     }
+    /// Exact control-record reconstruction for status. It grants no execution
+    /// or mutation authority.
+    pub fn publication_candidate_record<'a>(
+        &'a self,
+        m: &Manager,
+        p: &Profile,
+        r: &Registration,
+    ) -> Result<Option<&'a Candidate>> {
+        let Some(c) = self.for_profile(m, p)? else {
+            return Ok(None);
+        };
+        validate_candidate_record(m, c)?;
+        let mut expected = configuration::registration_record_for(
+            c,
+            p,
+            &c.census()?,
+            if p.claim == Claim::ReviewCandidate {
+                SelectionPurpose::Qualification
+            } else {
+                SelectionPurpose::Activation
+            },
+        )?;
+        expected.relocate_native(r.native.path.clone());
+        require(expected == *r, "candidate_registration_changed")?;
+        Ok(Some(c))
+    }
     pub fn watched_paths(&self) -> Result<Vec<PathBuf>> {
         Ok(self.watched.lock().map_err(|_| "preparation_record_watch_poisoned")?.iter().cloned().collect())
     }
@@ -1388,6 +1414,52 @@ impl RecordReadback {
         }
         Ok(true)
     }
+}
+
+/// Read-only package status classification from retained control records.
+/// Execution and mutation owners must still perform full artifact verification.
+pub fn registry_requires_loaded_engine_refresh_record(m: &Manager) -> Result<bool> {
+    let records = RecordReadback::capture(m)?;
+    for state in m.package_publication_record_snapshot()? {
+        if state.entry.publication != Publication::Published {
+            continue;
+        }
+        let Some(reference) = &state.entry.managed_revision else {
+            return Ok(true);
+        };
+        let revision = m.load_revision_record(&state.class_id, reference)?;
+        let Some(candidate) = records.publication_candidate_record(
+            m,
+            &revision.profile,
+            &revision.registration,
+        )? else {
+            return Ok(true);
+        };
+        if !build::supports_loaded_engine_admission_record(m, candidate)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+/// Mutation classification preserves full candidate/runtime byte verification
+/// while sharing the same explicit retained admission provenance as status.
+pub fn registry_requires_loaded_engine_refresh(m: &Manager) -> Result<bool> {
+    for state in m.package_publication_snapshot()? {
+        if state.entry.publication != Publication::Published {
+            continue;
+        }
+        let Some(reference) = &state.entry.managed_revision else {
+            return Ok(true);
+        };
+        let revision = m.load_revision(&state.class_id, reference)?;
+        let modern = publication_candidate(m, &revision.profile, &revision.registration)
+            .and_then(|candidate| build::supports_loaded_engine_admission(m, &candidate))
+            .unwrap_or(false);
+        if !modern {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 pub(crate) fn owns_profile(m: &Manager, p: &Profile) -> Result<bool> {
     Ok(for_profile(m, p)?.is_some())

@@ -87,7 +87,8 @@ def reusable_engine(request, generator, archive, recipe):
         (source/'native.so').write_bytes(data)
         return dict(schema=1,source_commit=recipe['source_commit'],native_sha256=index['engine_sha256'],
             descriptor_sha256=digest(descriptor),dropped_bytes=0,sdk=SDK,sdk_runtime=None,
-            delivery='reusable_engine',prebuilt_index_sha256=digest(index_bytes))
+            delivery='reusable_engine',prebuilt_index_sha256=digest(index_bytes),
+            loaded_engine_admission_contract=1)
 
 def build(request, generator):
     source=pathlib.Path(request['directory'])

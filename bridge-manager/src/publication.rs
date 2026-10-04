@@ -382,6 +382,18 @@ impl Manager {
             Ok(self.target(&e.registration))
         }
     }
+    fn entry_target_record(&self, e: &Entry) -> Result<PathBuf> {
+        if let Some(reference) = &e.managed_revision {
+            let r = self.load_revision_record(&e.registration.key(), reference)?;
+            require(
+                r.registration == e.registration,
+                "registry_revision_mismatch",
+            )?;
+            Ok(r.target)
+        } else {
+            Ok(self.target(&e.registration))
+        }
+    }
     /// A rollback can retain an older exact Windows host while the environment
     /// keeper uses current product software. Only a complete retained managed
     /// revision with the reviewed protocol/state contract grants this route.
@@ -485,12 +497,49 @@ impl Manager {
         Ok(PublicationState { class_id:key.into(), entry:entry.clone(), target,
             performance:self.performance(key)? })
     }
+    fn package_publication_record_state(
+        &self,
+        key: &str,
+        entry: &Entry,
+    ) -> Result<PublicationState> {
+        require(
+            entry.registration.key() == key && entry.publication != Publication::Pending,
+            "package_publication_state",
+        )?;
+        let target = match entry.publication {
+            Publication::Published => Some(self.entry_target_record(entry)?),
+            Publication::Removed => None,
+            Publication::Pending => unreachable!(),
+        };
+        require(
+            physical(&self.link(key))? == target && !self.publication_pending(key)?,
+            "package_publication_state",
+        )?;
+        Ok(PublicationState {
+            class_id: key.into(),
+            entry: entry.clone(),
+            target,
+            performance: self.performance(key)?,
+        })
+    }
     #[doc(hidden)]
     pub fn package_publication_snapshot(&self) -> Result<Vec<PublicationState>> {
         let _lock = self.lock("registry.lock")?;
         let db = self.registry()?;
         require(db.classes.len() <= 256, "package_publication_bound")?;
         db.classes.iter().map(|(key, entry)| self.package_publication_state(key, entry)).collect()
+    }
+    /// Current registry/revision/link/performance control bindings without
+    /// executable payload verification. Package status is its only authority.
+    #[doc(hidden)]
+    pub fn package_publication_record_snapshot(&self) -> Result<Vec<PublicationState>> {
+        let _lock = self.lock("registry.lock")?;
+        let db = self.registry()?;
+        require(db.classes.len() <= 256, "package_publication_bound")?;
+        db.classes
+            .iter()
+            .map(|(key, entry)| self.package_publication_record_state(key, entry))
+            .collect()
     }
     #[doc(hidden)]
     pub fn verify_package_publication_snapshot(&self,

@@ -49,8 +49,20 @@ transport initialization. The [bound-only socket repair](evidence/audio-recovery
 retains the refusal checks, reproduces the old failure with a forked child, and
 passes the corrected Linux module checks in default and candidate builds.
 The first package attempt remains retained and uninstalled: its private cache
-layout and stale Windows source roster were refused. The next build uses a clean
-committed source and the matching verified Windows CI artifact.
+layout and stale Windows source roster were refused. The committed refresh1 build passed its native tests, paired rebuild and applicable
+CI using the matching Windows input. Its first installed check is retained in
+[status failure evidence](evidence/audio-recovery/2026-10-04-managed-refresh-status-failure.json):
+the normal installer staged application files, but Setup timed out before offering
+Update. A standalone status call took 34.65 seconds. A live process snapshot
+showed 3.18 GB of aggregate reads while a Wine runtime DLL was open; source
+inspection identifies repeated full-runner verification in this status path.
+No update was submitted; the six-class audio9 baseline remained
+exact and healthy. The [source correction](evidence/audio-recovery/2026-10-04-package-status-boundary-source.json)
+now separates bounded status records from executable launch/mutation verification,
+with consistent refresh action/provenance and guarded frontend handoff. Its Linux
+checks and independent source review pass. Build the committed successor and
+resume the original installed acceptance; the status correction is not yet an
+installed result.
 
 FC-MGMT-008 remains open until the committed package completes the installed
 update, current-caller recall, stale-caller refusal, failure/interruption recovery

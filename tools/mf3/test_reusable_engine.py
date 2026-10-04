@@ -50,6 +50,7 @@ class ReusableEngine(unittest.TestCase):
             root=pathlib.Path(d);archive=kit(root)
             result=prepare(root,archive,uuid.uuid4().hex.upper(),'ab'*32,loader=True)
             self.assertEqual(result['delivery'],'reusable_engine')
+            self.assertEqual(result['loaded_engine_admission_contract'],1)
             self.assertEqual(result['kit_sha256'],sha(archive.read_bytes()))
             self.assertEqual(sha((root/'prepared/native.so').read_bytes()),result['native_sha256'])
             self.assertEqual(sha((root/'prepared/plugin-descriptor.json').read_bytes()),result['descriptor_sha256'])

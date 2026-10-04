@@ -169,7 +169,78 @@ pub fn supports_loaded_engine_admission(m: &Manager, c: &Candidate) -> Result<bo
     let retained = existing_runtime(m, &c.recipe_sha256)?;
     let registration = super::configuration::registration(c)?;
     Ok(capability_from_kit(&retained.kit, &registration,
-        "loaded_engine_admission_contract")? == Some(1))
+        "loaded_engine_admission_contract")? == Some(1)
+        && supports_loaded_engine_admission_record(m, c)?)
+}
+/// Status evidence from the immutable output of a completed schema-4 build.
+/// Mutation and launch still use supports_loaded_engine_admission and hash all
+/// executable/runtime bytes.
+pub fn supports_loaded_engine_admission_record(m: &Manager, c: &Candidate) -> Result<bool> {
+    let Some(descriptor) = c.native.descriptor.as_ref() else {
+        return Ok(false);
+    };
+    if !valid_hex(&c.recipe_sha256, 64) {
+        return Ok(false);
+    }
+    require(
+        descriptor.sha256 == c.native.descriptor_sha256
+            && descriptor.path
+                == c
+                    .native
+                    .artifact
+                    .path
+                    .with_file_name(lvb_plugin_descriptor::FILE_NAME),
+        "native_descriptor_binding",
+    )?;
+    c.native.artifact.validate_record()?;
+    descriptor.validate_record()?;
+    let runtime_path = m
+        .root
+        .join("software/preparation-kits")
+        .join(&c.recipe_sha256)
+        .join("runtime.json");
+    if !runtime_path.try_exists()? {
+        return Ok(false);
+    }
+    let runtime = existing_runtime_record(m, &c.recipe_sha256)?;
+    require(
+        c.host == runtime.host && c.source_manifest == runtime.source_manifest,
+        "candidate_runtime_changed",
+    )?;
+    let (Some(builder), Some(generator)) = (&runtime.builder, &runtime.generator) else {
+        return Ok(false);
+    };
+    let path = c.native.artifact.path.with_file_name("build.json");
+    if !path.try_exists()? {
+        return Ok(false);
+    }
+    require(
+        path.canonicalize()? == path && file(&path)?.metadata()?.mode() & 0o222 == 0,
+        "retained_build_record_mutability",
+    )?;
+    let row: Value = bounded(&path)?;
+    require(
+        row["schema"] == 1
+            && row["dropped_bytes"] == 0
+            && row["kit_sha256"] == c.recipe_sha256
+            && row["native_sha256"] == c.native.artifact.sha256
+            && row["descriptor_sha256"] == descriptor.sha256
+            && row["descriptor_sha256"] == c.native.descriptor_sha256
+            && row["source_commit"] == c.native.source_commit
+            && row["builder_sha256"] == builder.sha256
+            && row["generator_sha256"] == generator.sha256
+            && row["prebuilt_index_sha256"]
+                .as_str()
+                .is_some_and(|digest| valid_hex(digest, 64))
+            && matches!(row["delivery"].as_str(), Some("prebuilt" | "reusable_engine")),
+        "retained_build_identity",
+    )?;
+    if row.get("loaded_engine_admission_contract").is_none() {
+        return Ok(false);
+    }
+    require(row["loaded_engine_admission_contract"] == 1,
+        "retained_build_identity")?;
+    Ok(row["delivery"] == "reusable_engine")
 }
 pub fn revision_supports_loaded_engine_admission(m: &Manager, r: &Revision) -> Result<bool> {
     let candidate = super::publication_candidate(m, &r.profile, &r.registration)?;
@@ -274,6 +345,8 @@ pub fn construct_with_runtime(
         reply["error"].as_str().unwrap_or("native_build_failed"),
     )?;
     let descriptor = if reply["delivery"] == "reusable_engine" {
+        require(reply["loaded_engine_admission_contract"] == 1,
+            "loaded_engine_admission_contract_missing")?;
         let artifact = Artifact { path: dir.join(lvb_plugin_descriptor::FILE_NAME),
             sha256: reply["descriptor_sha256"].as_str().ok_or("build_descriptor")?.into() };
         artifact.verify()?;

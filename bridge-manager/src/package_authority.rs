@@ -33,6 +33,14 @@ impl Inputs {
             None => Ok((Self {root:PathBuf::from(PACKAGE_ROOT)}, 0)),
         }
     }
+    fn installed_record() -> Result<(Self, u32)> {
+        let executable = std::env::current_exe()?;
+        let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
+        match linux_vst_bridge::portable_package::input_root_record(&executable, &home)? {
+            Some(root) => Ok((Self { root }, unsafe { libc::getuid() })),
+            None => Ok((Self { root: PathBuf::from(PACKAGE_ROOT) }, 0)),
+        }
+    }
     #[cfg(test)]
     fn under(root: &Path) -> Self { Self { root: root.to_path_buf() } }
     fn manifest(&self) -> PathBuf {
@@ -280,6 +288,61 @@ fn read_manifest(inputs: &Inputs, owner: u32) -> Result<(PackageManifest, String
     }
     Ok((manifest, sha))
 }
+fn package_artifact_record(path: &Path, owner: u32, maximum: u64, expected: u64) -> Result<()> {
+    let held = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)?;
+    let before = held.metadata()?;
+    require(
+        path.is_absolute()
+            && before.is_file()
+            && before.uid() == owner
+            && before.mode() & 0o022 == 0
+            && before.len() <= maximum
+            && before.len() == expected,
+        "package_artifact_owner_or_extent",
+    )?;
+    let after = held.metadata()?;
+    let path_after = fs::symlink_metadata(path)?;
+    require(
+        before.dev() == after.dev()
+            && before.ino() == after.ino()
+            && before.len() == after.len()
+            && before.mtime() == after.mtime()
+            && before.mtime_nsec() == after.mtime_nsec()
+            && before.ctime() == after.ctime()
+            && before.ctime_nsec() == after.ctime_nsec()
+            && before.uid() == after.uid()
+            && before.mode() == after.mode()
+            && before.dev() == path_after.dev()
+            && before.ino() == path_after.ino()
+            && before.len() == path_after.len()
+            && before.mtime() == path_after.mtime()
+            && before.mtime_nsec() == path_after.mtime_nsec()
+            && before.ctime() == path_after.ctime()
+            && before.ctime_nsec() == path_after.ctime_nsec()
+            && before.uid() == path_after.uid()
+            && before.mode() == path_after.mode(),
+        "package_artifact_changed_during_read",
+    )
+}
+fn read_manifest_record(inputs: &Inputs, owner: u32) -> Result<(PackageManifest, String)> {
+    let path = inputs.manifest();
+    let (sha, _, bytes) = package_source(&path, owner, 64 * 1024, true)?;
+    let manifest: PackageManifest = serde_json::from_slice(&bytes)?;
+    validate_manifest_identity(&manifest)?;
+    for (entry, name) in manifest.files.iter().zip(names(manifest.schema)?) {
+        let maximum = if *name == "preparation-kit.zip" {
+            256
+        } else {
+            128
+        } * 1024
+            * 1024;
+        package_artifact_record(&inputs.path(name)?, owner, maximum, entry.size)?;
+    }
+    Ok((manifest, sha))
+}
 fn validate_manifest_identity(manifest: &PackageManifest) -> Result<()> {
     let expected = names(manifest.schema)?;
     require(manifest.operator_schema == operator_model::OPERATOR_SCHEMA
@@ -326,11 +389,58 @@ fn verify_software_identity(m: &Manager, old: &Software) -> Result<()> {
     if old.native_catalogue.is_some() { old.catalogue(m)?; }
     Ok(())
 }
+fn validate_software_record(m: &Manager, old: &Software) -> Result<()> {
+    require(
+        old.operator_frontend
+            .as_ref()
+            .is_some_and(|a| a.path.parent() == old.manager.path.parent()),
+        "package_prior_pairing",
+    )?;
+    old.validate_record()?;
+    for artifact in [
+        &old.manager,
+        &old.supervisor,
+        &old.ownership,
+        &old.host,
+        &old.source_manifest,
+    ]
+    .into_iter()
+    .chain(
+        [
+            &old.operator_frontend,
+            &old.installer_launch,
+            &old.preparation_kit,
+            &old.native_catalogue,
+        ]
+        .into_iter()
+        .flatten(),
+    ) {
+        require(
+            artifact.path.starts_with(m.root.join("software"))
+                && artifact.path.canonicalize()? == artifact.path
+                && fs::metadata(&artifact.path)?.permissions().mode() & 0o222 == 0,
+            "package_prior_software_identity",
+        )?;
+    }
+    if old.native_catalogue.is_some() {
+        old.catalogue_record(m)?;
+    }
+    Ok(())
+}
 fn old_software(m: &Manager) -> Result<Option<Software>> {
     let path = m.root.join("software.json");
     if !path.try_exists()? { return Ok(None); }
     let old = software(m)?;
     verify_software_identity(m, &old)?;
+    Ok(Some(old))
+}
+fn old_software_record(m: &Manager) -> Result<Option<Software>> {
+    let path = m.root.join("software.json");
+    if !path.try_exists()? {
+        return Ok(None);
+    }
+    let old = software_record(m)?;
+    validate_software_record(m, &old)?;
     Ok(Some(old))
 }
 fn require_retained_host_pair(m: &Manager, old: &Software,
@@ -342,6 +452,22 @@ fn require_retained_host_pair(m: &Manager, old: &Software,
         for entry in m.registry()?.classes.values() {
             if entry.publication == Publication::Published {
                 paired_components(m, old, &entry.registration)?;
+            }
+        }
+    }
+    Ok(())
+}
+fn require_retained_host_pair_record(
+    m: &Manager,
+    old: &Software,
+    manifest: &PackageManifest,
+) -> Result<()> {
+    if old.host.sha256 != manifest.files[4].sha256
+        || old.source_manifest.sha256 != manifest.files[5].sha256
+    {
+        for entry in m.registry()?.classes.values() {
+            if entry.publication == Publication::Published {
+                paired_components_record(m, old, &entry.registration)?;
             }
         }
     }
@@ -393,6 +519,18 @@ fn generation_record(m: &Manager, manifest: PackageManifest, manifest_sha256: St
 pub(super) fn paired_components(m: &Manager, selected: &Software,
     registration: &Registration) -> Result<Software> {
     paired_host_components(m, selected, &registration.host, &registration.host_source_sha256)
+}
+fn paired_components_record(
+    m: &Manager,
+    selected: &Software,
+    registration: &Registration,
+) -> Result<Software> {
+    paired_host_components_record(
+        m,
+        selected,
+        &registration.host,
+        &registration.host_source_sha256,
+    )
 }
 pub(super) fn paired_host_components(m: &Manager, selected: &Software,
     host: &Artifact, source_sha256: &str) -> Result<Software> {
@@ -448,6 +586,79 @@ pub(super) fn paired_host_components(m: &Manager, selected: &Software,
     }
     supplemental.ok_or_else(|| "publication_component_generation_unavailable".into())
 }
+fn paired_host_components_record(
+    m: &Manager,
+    selected: &Software,
+    host: &Artifact,
+    source_sha256: &str,
+) -> Result<Software> {
+    let mut candidate = selected.clone();
+    let mut seen = std::collections::BTreeSet::new();
+    let mut supplemental = None;
+    for depth in 0..32 {
+        validate_software_record(m, &candidate)?;
+        if candidate.host.sha256 == host.sha256 && candidate.source_sha256 == source_sha256 {
+            return Ok(candidate);
+        }
+        if let Some(retained) = candidate
+            .native_catalogue
+            .as_ref()
+            .map(|_| candidate.catalogue_record(m))
+            .transpose()?
+            .and_then(|catalogue| {
+                catalogue.hosts.into_iter().find(|entry| {
+                    entry.host.sha256 == host.sha256
+                        && entry.source_manifest.sha256 == source_sha256
+                })
+            })
+        {
+            let mut set = candidate.clone();
+            set.host = retained.host;
+            set.source_manifest = retained.source_manifest;
+            set.source_sha256 = set.source_manifest.sha256.clone();
+            supplemental = Some(set);
+        }
+        if let Some(kit) = &candidate.preparation_kit {
+            require(valid_hex(&kit.sha256, 64), "preparation_kit_identity")?;
+            let record = m
+                .root
+                .join("software/preparation-kits")
+                .join(&kit.sha256)
+                .join("runtime.json");
+            if record.try_exists()? {
+                let runtime =
+                    linux_vst_bridge::preparation::build::existing_runtime_record(m, &kit.sha256)?;
+                if runtime.host.sha256 == host.sha256
+                    && runtime.source_manifest.sha256 == source_sha256
+                {
+                    let mut set = candidate.clone();
+                    set.host = runtime.host;
+                    set.source_manifest = runtime.source_manifest;
+                    set.source_sha256 = set.source_manifest.sha256.clone();
+                    supplemental = Some(set);
+                }
+            }
+        }
+        require(
+            seen.insert(candidate.manager.path.clone()),
+            "package_predecessor_cycle",
+        )?;
+        let dir = candidate
+            .manager
+            .path
+            .parent()
+            .ok_or("package_generation_path")?;
+        if !dir.join("package-generation.json").try_exists()? {
+            break;
+        }
+        let Some(predecessor) = validate_generation_record(m, &candidate)?.predecessor else {
+            break;
+        };
+        require(depth < 31, "package_predecessor_bound")?;
+        candidate = predecessor;
+    }
+    supplemental.ok_or_else(|| "publication_component_generation_unavailable".into())
+}
 
 /// A read-only predecessor decision. The caller separately verifies the
 /// candidate package bytes; this method reads selected user authority and
@@ -475,6 +686,23 @@ fn predecessor_plan(m: &Manager, home: &Path, manifest: PackageManifest,
         .and_then(|p| p.to_str()) != Some(planned_id.as_str()),
         "package_self_predecessor")?;
     Ok((record, routes))
+}
+fn validate_predecessor_status(m: &Manager, manifest: &PackageManifest,
+    manifest_sha256: &str) -> Result<()> {
+    validate_manifest_identity(manifest)?;
+    require(valid_hex(manifest_sha256, 64), "package_manifest_digest")?;
+    require(!m.root.join("package-transition.json").try_exists()?,
+        "package_transition_needs_recovery")?;
+    let old = old_software_record(m)?.ok_or("package_predecessor_absent")?;
+    require_retained_host_pair_record(m, &old, manifest)?;
+    if old.manager.path.parent().is_some_and(|dir|
+        dir.join("package-generation.json").exists()) {
+        let selected = validate_generation_record(m, &old)?;
+        if selected.manifest_sha256 == manifest_sha256 {
+            require(selected.manifest == *manifest, "package_manifest_changed")?;
+        }
+    }
+    Ok(())
 }
 /// Source-owned PB0-R3 audit entry point. The input is only an exact bounded
 /// package manifest, never a path or command. It cannot stage or select it.
@@ -575,6 +803,119 @@ fn verify_generation(m: &Manager, current: &Software) -> Result<Generation> {
     }
     Ok(record)
 }
+fn validate_generation_record(m: &Manager, current: &Software) -> Result<Generation> {
+    let dir = current
+        .manager
+        .path
+        .parent()
+        .ok_or("package_generation_path")?;
+    require(
+        dir.parent() == Some(m.root.join("software").as_path()),
+        "package_generation_path",
+    )?;
+    existing_generation_dir(dir)?;
+    let record_path = dir.join("package-generation.json");
+    require(
+        record_path.canonicalize()? == record_path
+            && fs::metadata(&record_path)?.permissions().mode() & 0o222 == 0,
+        "package_generation_record_writable",
+    )?;
+    let record: Generation = read_json(&record_path)?;
+    require(
+        matches!((record.schema, record.manifest.schema), (1, 1) | (2, 2))
+            && id(&record)? == dir.file_name().and_then(|n| n.to_str()).unwrap_or(""),
+        "package_generation_identity",
+    )?;
+    let expected_names = names(record.manifest.schema)?;
+    require(
+        record.manifest.package == "linux-vst-bridge-beta"
+            && valid_package_version(&record.manifest.version)
+            && record.manifest.pkgrel == 1
+            && record.manifest.files.len() == expected_names.len()
+            && record
+                .manifest
+                .files
+                .iter()
+                .zip(expected_names)
+                .all(|(entry, name)| {
+                    entry.name == *name
+                        && valid_hex(&entry.sha256, 64)
+                        && entry.size
+                            <= (if *name == "preparation-kit.zip" {
+                                256
+                            } else {
+                                128
+                            }) * 1024
+                                * 1024
+                }),
+        "package_generation_manifest",
+    )?;
+    let expected = [
+        (&current.manager, NAMES[0]),
+        (
+            current
+                .operator_frontend
+                .as_ref()
+                .ok_or("package_frontend_absent")?,
+            NAMES[1],
+        ),
+        (&current.supervisor, NAMES[2]),
+        (&current.ownership, NAMES[3]),
+        (&current.host, NAMES[4]),
+        (&current.source_manifest, NAMES[5]),
+    ];
+    for (index, (actual, name)) in expected.iter().enumerate() {
+        require(
+            actual.path == dir.join(name)
+                && actual.sha256 == record.manifest.files[index].sha256
+                && file(&actual.path)?.metadata()?.len() == record.manifest.files[index].size,
+            "package_generation_artifact_binding",
+        )?;
+        actual.validate_record()?;
+    }
+    let packaged_kit = if record.schema == 2 {
+        let entry = &record.manifest.files[NAMES.len()];
+        require(
+            record.packaged_preparation_kit_sha256.as_ref() == Some(&entry.sha256)
+                && record.retained_preparation_kit.is_none(),
+            "package_generation_kit_binding",
+        )?;
+        let kit = Artifact {
+            path: dir.join("preparation-kit.zip"),
+            sha256: entry.sha256.clone(),
+        };
+        kit.validate_record()?;
+        require(
+            file(&kit.path)?.metadata()?.len() == entry.size
+                && fs::metadata(&kit.path)?.permissions().mode() & 0o222 == 0,
+            "package_generation_kit_writable",
+        )?;
+        Some(kit)
+    } else {
+        require(
+            record.packaged_preparation_kit_sha256.is_none(),
+            "package_generation_kit_binding",
+        )?;
+        record.retained_preparation_kit.clone()
+    };
+    require(
+        current.source_sha256 == current.source_manifest.sha256
+            && current.installer_launch == record.retained_installer_launch
+            && current.preparation_kit == packaged_kit
+            && current.native_catalogue.as_ref().map(|a| a.sha256.as_str())
+                == record.catalogue_sha256.as_deref(),
+        "package_generation_software_binding",
+    )?;
+    if let Some(a) = &current.native_catalogue {
+        require(
+            a.path == dir.join("native-catalogue.json")
+                && fs::metadata(&a.path)?.permissions().mode() & 0o222 == 0,
+            "package_generation_catalogue_binding",
+        )?;
+        current.catalogue_record(m)?;
+    }
+    Ok(record)
+}
 pub(super) fn selected_package_version(m: &Manager, current: &Software) -> Result<Option<String>> {
     Ok(selected_generation(m, current)?.map(|record| record.manifest.version))
 }
@@ -598,6 +939,36 @@ fn selected_generation(m: &Manager, current: &Software) -> Result<Option<Generat
                 && metadata.mode() & 0o222 == 0,
                 "package_generation_record_changed")?;
             Ok(Some(verify_generation(m, current)?))
+        }
+    }
+}
+fn selected_generation_record(m: &Manager, current: &Software) -> Result<Option<Generation>> {
+    let dir = current
+        .manager
+        .path
+        .parent()
+        .ok_or("package_generation_path")?;
+    match fs::symlink_metadata(dir.join("package-generation.json")) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            require(
+                current.supervisor.path == dir.join("session.py")
+                    && current.ownership.path == dir.join("ownership.py"),
+                "package_generation_record_missing",
+            )?;
+            existing_generation_dir(dir)?;
+            validate_software_record(m, current)?;
+            Ok(None)
+        }
+        Err(error) => Err(error.into()),
+        Ok(metadata) => {
+            require(
+                metadata.is_file()
+                    && !metadata.file_type().is_symlink()
+                    && metadata.uid() == unsafe { libc::getuid() }
+                    && metadata.mode() & 0o222 == 0,
+                "package_generation_record_changed",
+            )?;
+            Ok(Some(validate_generation_record(m, current)?))
         }
     }
 }
@@ -727,19 +1098,8 @@ fn with_locks<T>(m: &Manager, work: impl FnOnce() -> Result<T>) -> Result<T> {
 }
 
 fn publications_need_refresh(m: &Manager) -> Result<bool> {
-    for state in m.package_publication_snapshot()? {
-        if state.entry.publication != Publication::Published { continue; }
-        let Some(reference) = &state.entry.managed_revision else { return Ok(true); };
-        let revision = m.load_revision(&state.class_id, reference)?;
-        let modern = preparation::publication_candidate(
-            m, &revision.profile, &revision.registration).and_then(|candidate|
-                preparation::build::supports_loaded_engine_admission(m, &candidate))
-            .unwrap_or(false);
-        if !modern { return Ok(true); }
-    }
-    Ok(false)
+    preparation::registry_requires_loaded_engine_refresh(m)
 }
-
 fn retained_publication_ancestor(m: &Manager, key: &str, id: &str)
     -> Result<(publication::RevisionRef, publication::Revision)> {
     require(valid_hex(key, 32) && valid_hex(id, 32), "rollback_identity")?;
@@ -1466,11 +1826,31 @@ fn selected_activation(m: &Manager, home: &Path,
         "package_service_effective_route_mismatch")?;
     Ok((selected, version, state))
 }
+fn selected_activation_record(m: &Manager, home: &Path,
+    service: &impl ServiceControl) -> Result<(Software, String, UnitReadback)> {
+    require(!m.root.join("package-transition.json").try_exists()?,
+        "package_transition_needs_recovery")?;
+    let selected = old_software_record(m)?.ok_or("package_not_installed")?;
+    let version = selected_generation_record(m, &selected)?
+        .map(|record| record.manifest.version)
+        .unwrap_or_else(|| "retained-installation".into());
+    let routes = setup_install::current_route_statuses(m, home, &selected)?;
+    require(routes.len() == 6 && routes.iter().all(|route| route.status == "exact"),
+        "package_routes_need_repair")?;
+    let state = service.show()?;
+    require(state.load == "loaded"
+        && state.fragment == home.join(".config/systemd/user/linux-vst-bridge.service")
+            .to_str().ok_or("package_service_path")?
+        && effective_exec_is(&state.exec, &selected.manager.path)
+        && matches!(state.active.as_str(), "inactive" | "failed" | "active"),
+        "package_service_effective_route_mismatch")?;
+    Ok((selected, version, state))
+}
 fn activation_status_from(m: &Manager, home: &Path,
     service: &impl ServiceControl) -> Result<ActivationStatus> {
-    let (selected, version, state) = selected_activation(m, home, service)?;
+    let (selected, version, state) = selected_activation_record(m, home, service)?;
     if state.active == "active" { service.healthy(m)?; }
-    let (again, second, after) = selected_activation(m, home, service)?;
+    let (again, second, after) = selected_activation_record(m, home, service)?;
     require(selected == again && version == second
         && state.active == after.active, "package_activation_status_changed")?;
     Ok(ActivationStatus { schema: 1,
@@ -1484,8 +1864,8 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl) -> Result<ActivationStatus> {
     require(!m.root.join("package-transition.json").try_exists()?,
         "package_transition_needs_recovery")?;
-    let Some(selected) = old_software(m)? else {
-        let (manifest, _) = read_manifest(inputs, owner)?;
+    let Some(selected) = old_software_record(m)? else {
+        let (manifest, _) = read_manifest_record(inputs, owner)?;
         let state = service.show()?;
         require(state.load == "not-found" && state.active == "inactive"
             && state.fragment.is_empty() && state.exec.is_empty(),
@@ -1493,34 +1873,33 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
         return Ok(ActivationStatus { schema: 3, state: "fresh_adoptable",
             package_version: manifest.version });
     };
-    let generation = selected_generation(m, &selected)?;
+    let generation = selected_generation_record(m, &selected)?;
     let legacy = generation.is_none();
-    let refresh_required = publications_need_refresh(m)?;
-    let (manifest, sha) = read_manifest(inputs, owner)?;
+    let refresh_required = preparation::registry_requires_loaded_engine_refresh_record(m)?;
+    let (manifest, sha) = read_manifest_record(inputs, owner)?;
     let (version, update_available, rollback_available) = if legacy {
-        require_retained_host_pair(m, &selected, &manifest)?;
-        let _ = predecessor_plan(m, home, manifest.clone(), sha)?;
+        require_retained_host_pair_record(m, &selected, &manifest)?;
+        validate_predecessor_status(m, &manifest, &sha)?;
         (manifest.version, false, false)
     } else {
         let generation = generation.ok_or("package_generation_record_missing")?;
         if let Some(predecessor) = &generation.predecessor {
-            verify_software_identity(m, predecessor)?;
+            validate_software_record(m, predecessor)?;
         }
-        let current_publications = m.package_publication_snapshot()?;
+        let current_publications = m.package_publication_record_snapshot()?;
         let receipts = matching_refresh_receipts(m, &selected, &current_publications)?;
         require(receipts.len() <= 1, "package_restore_receipt_ambiguous")?;
         let has_published = current_publications.iter().any(|state|
             state.entry.publication == Publication::Published);
         let rollback_available = receipts.len() == 1
             || (!has_published && generation.predecessor.is_some());
-        // A healthy selected generation does not imply that the installed
-        // package still contains those bytes. Verify its whole fixed roster
-        // before offering an exact update or opening the selected frontend.
+        // Status binds the owned fixed roster to this bounded manifest and
+        // leaves payload certification to the selected mutation.
         if sha == generation.manifest_sha256 {
             require(manifest == generation.manifest, "package_manifest_changed")?;
             (generation.manifest.version, refresh_required, rollback_available)
         } else {
-            let _ = predecessor_plan(m, home, manifest.clone(), sha)?;
+            validate_predecessor_status(m, &manifest, &sha)?;
             (manifest.version, true, rollback_available)
         }
     };
@@ -1758,7 +2137,7 @@ pub(super) fn activation_status(m: &Manager) -> Result<()> {
 }
 pub(super) fn bootstrap_status(m: &Manager) -> Result<()> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
-    let (inputs, owner) = Inputs::installed()?;
+    let (inputs, owner) = Inputs::installed_record()?;
     println!("{}", serde_json::to_string(&bootstrap_status_from(m, &home,
         &inputs, owner, &SystemctlService)?)?);
     Ok(())
@@ -2242,6 +2621,34 @@ mod tests {
         f.replace("linux-audio-compatibility-manager", b"changed without manifest", false);
         assert!(bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner,
             &f.service).is_err());
+        assert_eq!(f.service.stops.get(), 0);
+    }
+
+    #[test]
+    fn bootstrap_status_defers_bulk_hash_while_mutation_refuses_changed_payload() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let selected = f.current();
+        let bytes = fs::read(&selected.manager.path).unwrap();
+        fs::set_permissions(&selected.manager.path,
+            fs::Permissions::from_mode(0o700)).unwrap();
+        fs::write(&selected.manager.path, vec![b'X'; bytes.len()]).unwrap();
+        fs::set_permissions(&selected.manager.path,
+            fs::Permissions::from_mode(0o500)).unwrap();
+
+        let status = bootstrap_status_from(&f.base.m, &f.home, &f.inputs,
+            f.owner, &f.service).unwrap();
+        assert_eq!((status.state, status.package_version.as_str()),
+            ("inactive", "0.1.0beta1"));
+        let selected_status = activation_status_from(&f.base.m, &f.home,
+            &f.service).unwrap();
+        assert_eq!((selected_status.state, selected_status.package_version.as_str()),
+            ("inactive", "0.1.0beta1"));
+        assert!(activate_from(&f.base.m, &f.home, &f.service).unwrap_err()
+            .to_string().contains("artifact missing or changed"));
+        assert!(f.adopt().unwrap_err().to_string()
+            .contains("artifact missing or changed"));
+        assert_eq!(f.service.starts.get(), 0);
         assert_eq!(f.service.stops.get(), 0);
     }
 

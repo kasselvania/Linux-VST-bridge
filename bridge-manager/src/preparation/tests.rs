@@ -1773,6 +1773,21 @@ with zipfile.ZipFile(path,'w') as z:
     record_candidate(&f.m, &prepared).unwrap();
     build::cleanup_work(&f.m, &operation).unwrap();
     descriptor.verify().unwrap();
+    // Status reconstructs the exact publication from bounded immutable
+    // records without reading the multi-gigabyte runner tree. A later
+    // mutation still performs full-byte verification and refuses a change.
+    let registration = configuration::registration(&prepared).unwrap();
+    let runner_file = prepared.selection.environment.runner.files[0].path.clone();
+    let runner_bytes = fs::read(&runner_file).unwrap();
+    fs::write(&runner_file, vec![b'X'; runner_bytes.len()]).unwrap();
+    let records = RecordReadback::capture(&f.m).unwrap();
+    let projected = records.publication_candidate_record(
+        &f.m, &prepared.profile, &registration).unwrap().unwrap();
+    assert!(build::supports_loaded_engine_admission_record(&f.m, projected).unwrap());
+    assert!(verify_candidate(&f.m, &prepared, &prepared.selection.scanner,
+        &prepared.selection.scanner_source).unwrap_err().to_string()
+        .contains("artifact missing or changed"));
+    fs::write(&runner_file, &runner_bytes).unwrap();
     let transition = f.m.prepare_package_refresh(&prepared, &predecessor).unwrap();
     assert_eq!(fs::read(f.m.root.join("software.json")).unwrap(), selected_before);
     assert_eq!(transition.before.performance.added_frames, 1024);
@@ -1793,6 +1808,25 @@ with zipfile.ZipFile(path,'w') as z:
     let installed =
         f.m.load_revision(&prepared.selection.class.id, &revision)
             .unwrap();
+    fs::write(&runner_file, vec![b'Y'; runner_bytes.len()]).unwrap();
+    assert!(!registry_requires_loaded_engine_refresh_record(&f.m).unwrap());
+    assert!(publication_candidate(&f.m, &installed.profile, &installed.registration)
+        .unwrap_err().to_string().contains("artifact missing or changed"));
+    fs::write(&runner_file, &runner_bytes).unwrap();
+    assert!(!registry_requires_loaded_engine_refresh_record(&f.m).unwrap());
+    // Reusable delivery predates loaded-engine admission. Only the explicit
+    // immutable build fact makes this publication modern for package status.
+    let build_path = prepared.native.artifact.path.with_file_name("build.json");
+    let build_bytes = fs::read(&build_path).unwrap();
+    let mut legacy_build: serde_json::Value =
+        serde_json::from_slice(&build_bytes).unwrap();
+    legacy_build.as_object_mut().unwrap()
+        .remove("loaded_engine_admission_contract");
+    fs::set_permissions(&build_path, fs::Permissions::from_mode(0o600)).unwrap();
+    fs::write(&build_path, serde_json::to_vec(&legacy_build).unwrap()).unwrap();
+    fs::set_permissions(&build_path, fs::Permissions::from_mode(0o400)).unwrap();
+    assert!(registry_requires_loaded_engine_refresh_record(&f.m).unwrap());
+    assert!(registry_requires_loaded_engine_refresh(&f.m).unwrap());
     assert_eq!(
         installed.registration.descriptor.as_ref().unwrap().sha256,
         descriptor.sha256
@@ -1805,4 +1839,22 @@ with zipfile.ZipFile(path,'w') as z:
     check_publication(&f.m, &installed.profile, &installed.registration).unwrap();
     assert!(catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
     assert_eq!(f.m.resolve(&f.identity()).unwrap(), installed.registration);
+    let refresh_operation = random_id().unwrap();
+    let replacement = refresh_candidate(
+        &f.m,
+        &installed,
+        build::existing_runtime(&f.m, &prepared.recipe_sha256).unwrap(),
+        prepared.inspection.report.clone(),
+        &refresh_operation,
+    )
+    .unwrap();
+    build::cleanup_work(&f.m, &refresh_operation).unwrap();
+    let refreshed = f.m.prepare_package_refresh(&replacement, &revision).unwrap();
+    f.m.commit_package_publication(&refreshed).unwrap();
+    assert!(!registry_requires_loaded_engine_refresh_record(&f.m).unwrap());
+    assert!(!registry_requires_loaded_engine_refresh(&f.m).unwrap());
+    assert_ne!(refreshed.before.entry.registration.native.path,
+        refreshed.after.entry.registration.native.path);
+    assert_eq!(fs::read(&build_path).unwrap(), serde_json::to_vec(&legacy_build).unwrap());
+    assert_ne!(replacement.native.artifact.path.with_file_name("build.json"), build_path);
 }
