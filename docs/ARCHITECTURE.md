@@ -1115,6 +1115,15 @@ contract; its source, installed and physical acceptance remain separate gates:
   and control-flag consumption cannot depend on repeated 50-microsecond sleeps.
   Cancellation is published before waiting for native callback leases, then all
   owned workers/pumps are joined or contained before storage release.
+- For IPC15 START, the same Session may publish one ordered mapped request after
+  sending START while its exact Started reply is pending. Publication does not
+  mean readiness: validate the original session/sequence/epoch acknowledgement
+  before accepting any result or releasing another control operation. The pending
+  reply has one bounded reader; cancellation retains mapping/worker custody until
+  retirement. Windows still calls vendor setProcessing(true) before consuming
+  AUDIO and retains its existing synchronous acknowledgement handoff. Legacy
+  exchanges remain sequential. This removes a request-publication dependency;
+  it does not enlarge the callback allowance or establish a timing improvement.
 - Buffered presentation storage is sized by retained frames (`D + M`), not by
   assuming that one host call contains a full block. Copy completed extra output
   planes into that prepared history before releasing their transport slots.

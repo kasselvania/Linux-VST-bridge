@@ -123,7 +123,7 @@ previous Sol 6.1 Max settings for new implementation assignments.
 Root owns architecture, integration, machine custody, installed acceptance and
 commit/push. Workstream review and required gates remain active until completed.
 
-## Active repair boundary: zero-frame sample payload
+## Retained repair: zero-frame sample payload
 
 Base `ce17477a74378c22c56f2623b6a8edc11ee5836d`, tree
 `1ef69c36df2863860b4fa573cf19037aa95a9864`. An N=0 operation carries events,
@@ -187,11 +187,19 @@ The [installed comparison](evidence/audio-recovery/2026-10-04-audio8-zero-frame-
 completed normal update, inventory refresh, inspection, preparation and publication.
 The initial inspection was correctly disabled until refresh; no request was sent.
 Existing publications/preferences survived package adoption, and the sibling was
-unchanged by publication. Diagnostic-off returns all 198,672 expected samples,
-state and confirmed retirement across 107 calls, but callback105 (N13) takes
+unchanged by publication. Buffered D512 diagnostic-off returns all 198,672 expected
+float samples (49,668 four-lane frames), state and confirmed retirement across 107 calls,
+but callback105 (N13) takes
 327,208 ns against 270,833 ns. Diagnostic-on refuses first RT N=0 at 1,107,316 ns
 against 1 ms, before measured audio/final recall. It also retires positively.
 Neither whole lifetime qualifies timing. No acceptance rerun followed.
+
+The unpaced output represents 1.03475 seconds of audio, not endurance. N13 is the
+residual D512+L13 tail after N512, not an isolated transport-cost measurement.
+The [allowance audit](docs/RESEARCH_BASIS.md#2026-10-04-callback-allowance-and-audio8-scope)
+keeps local N/Fs containment distinct from an observed device/graph deadline;
+neither N nor M alone supplies the latter. Current bounds and retained failures
+remain unchanged while readiness and exact request service are investigated.
 
 The traced exact-operation predicate is satisfied at refusal. Its native reply
 observation is already 71,783–71,852 ns after the converted deadline; wait-end is
@@ -202,13 +210,12 @@ reply/post-deadline presentation. The source sample-work repair is established;
 the installed timing failure remains. Native worker policy0/priority0 and differing
 Windows readbacks do not establish scheduling or observer causation.
 
-Next bounded audio work must separate the START/readiness prerequisite and exact
-request service through native transport, Windows pump/render processing and reply
-publication before choosing another timing change. Reuse existing ownership and
-observations where sufficient; do not add a second lifecycle or change deadlines,
-buffering, runtime or privileges to hide the failure. The caller-engine admission
-gap remains a separate required repair. No new vendor/graphics expansion or
-repeat-until-green campaign follows this failed comparison.
+The source trace separates already-prepared storage/events/render-thread entry
+from the legal vendor START transition. It identifies one extra dependency:
+the native worker cannot publish the first AUDIO until the complete Started reply
+returns. This establishes an ordering cost, not its duration or the cause of an
+installed miss. The caller-engine admission gap remains a separate required repair.
+No new vendor/graphics expansion or repeat-until-green campaign follows this result.
 
 Normal `ordinary_rollback` restored exact audio4 instrument publication
 `7145b6f90323884c08db9a52f7b24c9c`, including its retained paired host. Manager audio8
@@ -236,3 +243,34 @@ preserve the original stack and record its dependency map before extraction.
 No merge/rebase or new runtime/graphics/vendor work starts here. Physical DAW,
 serial-chain, lower-block, dependable-audio and full musician/soak gates remain open.
 Both project machines are stopped; Audiobookshelf is running. Deck/Nibbi are unchanged.
+
+## Active repair boundary: START and first request
+
+Base `ad1c57f612844fc47c90aacad9d06b556f9424ca`, tree
+`52c44f8b3e85d0a0892e26d3888283a5f12d90f8`. Basis: Architecture 18.3, 18.4
+and 18.7; the installed audio8 checkpoint above. Primary claim: with IPC15,
+the existing native Session can publish one ordered mapped AUDIO behind a sent
+START while its exact Started acknowledgement remains pending. That reply remains
+necessary before readiness or output acceptance. Vendor start-before-process,
+epoch/sequence checks, callback bounds and retirement remain authoritative.
+
+Scope: native Session/queue and existing bounded control-read machinery; native
+regressions and the existing LC1 Windows SDK fixture adapted to IPC15. Leave Windows
+production acknowledgement transmission and lane ownership unchanged. No early
+vendor Start, new lifecycle/transport, generic relaxed admission, blocking
+setProcessing, runtime/scheduling/buffering change or larger callback allowance.
+
+Use a deterministic two-ended gate after successful vendor Start and before
+Started transmission. Submit first N0 without waiting for acknowledgement, prove
+mapped publication while the reply is held, then release it and verify exact
+completion and ordinary retirement. Exercise repeated epochs, no-audio Start,
+immediate Start/Stop, refused/malformed Started, cancellation and endpoint loss.
+Pending START must exclude other control readers and mutations; unpublished or
+unconfirmed output must not become success. A held-gate ordering test is not an
+RT timing pass. Retain a failing baseline before the repair and reuse existing
+tests for sample/event/state/output ownership.
+
+After source review, build and compare the frozen installed pair through normal
+selection and exact predecessor restoration. Keep audio8 and all new whole failed
+attempts. Report source overlap, installed output/timing and physical qualification
+separately. No installed timing cure is claimed by the dependency removal alone.

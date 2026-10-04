@@ -203,6 +203,37 @@ verification at its owner. No new persisted cache authority or metadata-based cl
 of freshly verified executable bytes is justified. These measured costs and source
 ownership gaps are independent findings, not an attribution of the retained gap.
 
+### 2026-10-04 callback allowance and audio8 scope
+
+At source `d110cbc4`, `CompletionPolicy` and the SDK consumer measure real-time and
+prefetch calls against a local `N/Fs` allowance (1 ms for N=0). This is bridge policy,
+not a deadline supplied by the DAW. VST3 distinguishes negotiated
+[maximum capacity](https://steinbergmedia.github.io/vst3_doc/vstinterfaces/structSteinberg_1_1Vst_1_1ProcessSetup.html)
+from the [current processing length](https://steinbergmedia.github.io/vst3_doc/vstinterfaces/structSteinberg_1_1Vst_1_1ProcessData.html).
+Its [processing context](https://steinbergmedia.github.io/vst3_doc/vstinterfaces/structSteinberg_1_1Vst_1_1ProcessContext.html)
+allows host block subdivision around timeline jumps. Those interfaces do not
+supply the remaining device-period or serial-graph budget. Neither `N/Fs` nor
+`M/Fs` can therefore be presented as that observed budget. A minimum timeout would
+also be bridge policy, not newly discovered host time. Keep policy failures distinct
+from measured device underruns; do not relabel retained failures by changing a bound.
+
+The [audio8 comparison](../evidence/audio-recovery/2026-10-04-audio8-zero-frame-comparison.json)
+uses Buffered D=512, M=512 at 48 kHz. Its diagnostic-off output contains 198,672
+float values across four lanes: 49,668 frames, representing 1.03475 seconds of audio.
+The calls are unpaced; that duration is neither wall-clock execution nor a soak.
+The N=13 call is the residual tail after draining D=512 plus vendor L=13, immediately
+following N=512. Its 327,208 ns duration includes buffered presentation dependencies;
+it is not an isolated 13-frame transport round trip. The refused first N=0 call also
+includes START readiness. Neither establishes a fixed Wine round-trip cost.
+
+Separate legal START-to-ready work from steady exact-operation service before
+choosing another repair. The ordinary-scheduled VM can test ordering, output and
+containment, but cannot qualify physical real-time timing. Subsequent timing
+qualification must declare first/restart versus steady calls, delivery mode,
+actual block sizes, scheduling/capacity and whole host-period/chain measurements
+where available. Keep unpaced and split-block correctness coverage. No timeout,
+runtime, buffering or scheduling change follows from this audit alone.
+
 ## 2.5 Proton
 
 ### Final-host custody investigation, 2026-10-03
