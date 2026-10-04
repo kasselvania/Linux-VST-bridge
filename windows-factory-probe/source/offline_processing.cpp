@@ -229,10 +229,9 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
             // Processor lifecycle and DSP belong to this thread. Controller/
             // editor work remains on the owner; state requests use the existing
             // ExternalProcessing handoff. Storage stays alive through join.
-            if(FAILED(SetThreadDescription(GetCurrentThread(),L"lvb-audio"))){
-                preparation_error=1;ok=false;worker_exception=true;
-                signals.done.store(true,std::memory_order_release);SetEvent(signals.quiescent);return;
-            }
+            // Naming supports diagnostics; worker/event preparation supplies
+            // readiness even on runners without this optional naming support.
+            SetThreadDescription(GetCurrentThread(),L"lvb-audio");
             signals.publish(0); // prepared; no vendor Start or DSP has occurred
             uint64_t handled=0;
             for(;;){
