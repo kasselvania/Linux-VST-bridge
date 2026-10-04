@@ -73,7 +73,15 @@ opaque state and prompt capture within the original 10-second capture deadline
 while audio remains in flight beyond 10 seconds from capture entry. SDK call
 timestamps cannot prove transport Capture admission; retain and join the exact
 owner/transport observation for that claim. The original state file is written
-only after the complete SDK recall/retirement checks.
+after the SDK recall checks; final retirement is reported separately.
+
+The consumer reserves `STATE_PREFIX.output.f32le` before activation and captures
+returned samples into prepared storage. It writes the file after processing has
+joined and retirement has been attempted, including output from failed callbacks.
+The format is frame-major little-endian float32: main left, main right, auxiliary
+left, auxiliary right. Callback timing records identify each output offset and
+length so an independent reader can compare the entire retained signal. The
+64-MiB capacity bounds the run; exceeding it is an explicit test failure.
 
 `offline-failure` requires an explicit vendor refusal. `offline-timeout` submits
 the declared 65-second fixture operation and requires explicit failure under the

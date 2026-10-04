@@ -123,17 +123,30 @@ commit/push. Workstream review and required gates remain active until completed.
 
 ## Current checkpoint
 
-The coherent source candidate is frozen for Linux/Windows validation. Independent
-review closed the retained-result capacity and legacy process-mode findings.
-Audio history now holds `D + M` frames, and returned events/automation retain compact
-operation packets separately. One-frame runs and inactive maximum changes have
-source regressions. The SDK consumer records successful lifecycle ownership before
-audit assertions, retains failed cleanup ownership, and preserves whole returned
-sample output outside processing for independent analysis.
+The source at `8d8327a295ed6b064d3f14e252e5f51d46510d8b` passes applicable
+Linux/Windows CI. Paired package `0.12.0audio1` passed independent native/backend
+rebuild verification and is installed on the bounded Ubuntu fixture. Normal Setup
+installed, discovered, prepared and published the completion instrument and effect
+for testing. Original publications/preferences were preserved at package adoption.
 
-Pinned Linux SDK compilation and both independent consumer producer/oracle cases
-pass, including failed reconfiguration, audited-start cleanup and corrupt-output
-retention. The paired Windows build, package installation, full SDK transport/failure
-runs and physical Deck qualification remain open. The builder is the sole active
-project machine; Ubuntu is stopped and the Deck remains unchanged. No causal claim
-is made for the historical Deck/config4 audio gaps.
+The [installed checkpoint](evidence/audio-recovery/2026-10-03-audio1-installed.json)
+retains both passing buffered offline lifetimes: N=0..512, inactive M=257/Fs=96 kHz
+reconfiguration, exact state and retirement, and 1,336,552 independently compared
+float samples with zero mismatches. The first real-time zero-frame flush after an
+offline-to-real-time transition then failed its 1-ms allowance. Fault progress
+places it behind START acknowledgement; the processing-ready marker follows its
+failed callback. A declared diagnostic comparison reproduced this boundary.
+Neither failure submitted audio frames, and both retired positively.
+
+Current repair: make render/start readiness satisfy the prepared lifecycle contract
+without heavy work in `setProcessing`, relaxed deadlines or increased buffering.
+The contributions of thread creation, pump acknowledgement and OS scheduling still
+need separation. Preserve all failed attempts, including separately classified
+observer and GUI-executor errors. The frozen candidate remains failed; same-callback,
+serial-chain, lower-block, failure and physical gates remain open.
+
+The roadmap now records the requested polling reachability audit, readable Windows
+render-path formatting before final qualification, and an explicit stack landing
+decision. These do not change the implementation order. Ubuntu is the sole active
+project machine; the builder is stopped and the Deck remains unchanged. No causal
+claim is made for historical Deck/config4 audio gaps.

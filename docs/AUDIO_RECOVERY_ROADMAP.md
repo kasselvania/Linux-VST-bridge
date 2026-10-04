@@ -52,6 +52,27 @@ portability until one vendor passes. Editor/rendering requirements inform orders
 
 ## Evidence and acceptance
 
+### Review follow-through for the audio-completion work
+
+The operator retained the implementation order above after the #207 review.
+The following work closes specific omissions without opening another workstream:
+
+- Trace the remaining 50-microsecond state/start acknowledgement waits in
+  `queued.rs` and the reply wait in `mailbox.rs` from the installed IPC 15 path.
+  Convert reachable polling that contradicts the completion contract; record
+  deliberately legacy-only paths with their callers and scope. Their presence
+  alone is not evidence that they caused an observed audio failure.
+- Format the Windows mapped-processing implementation for a readable thread and
+  ownership review before final installed/Deck qualification. Keep a formatting
+  change distinct from behavioral repair, preserve the current frozen comparison,
+  and rebuild/verify any successor used for acceptance.
+- Make an explicit landing decision for the inherited #200–#207 stack before
+  integrating it into trunk: reviewed bottom-up landing or splitting #200 and
+  rebasing the retained capabilities. Record the chosen commit/dependency map,
+  retained evidence and required integrated checks. Neither adding another layer
+  nor passing this audio slice decides that question implicitly. No stack merge
+  is authorized by this note.
+
 Use shared contract fixtures for unfamiliar classes, state/parameter evolution,
 varied buses/events, actual blocks below maximum, zero-frame handling, callback
 bursts, slow valid offline work, legal lifecycle and connection orders, demanding
