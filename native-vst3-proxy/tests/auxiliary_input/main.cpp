@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <dlfcn.h>
 #include <fstream>
 #include <iterator>
 #include <string>
@@ -19,8 +20,10 @@ using namespace Steinberg;
 using namespace Steinberg::Vst;
 static unsigned setups=0,activations=0,closes=0,processes=0;
 static bool input_enabled=true,last_output=false;
-enum class InputCase { Original, MixedExpression, ExpressionOnly, NoteOffOnly };
+enum class InputCase { Original, MixedExpression, ExpressionOnly, NoteOffOnly, LateNoteOff, RefusedNote };
 static InputCase input_case=InputCase::Original;
+static uint32_t refused_kind=0,refused_offset=0;
+static int32_t refused_frames=0;
 static std::array<float,32> expected_left{},expected_right{};
 static uint64_t expected_silence=3;
 extern "C" {
@@ -39,6 +42,13 @@ uint32_t __wrap_ap3_transition(uint64_t,uint32_t){return 0;}
 uint32_t __wrap_ap10_take_results(uint64_t,ap10_results_t*p){static const ap10_results_t empty{};*p=empty;return 0;}
 uint32_t __wrap_if2_process(uint64_t,uint32_t n,const ap8_event_t*e,uint32_t count,const ap10_context_t*,uint64_t silence,const float*l,const float*r,float*ol,float*orr,uint64_t*out,ap7_delivery_t*d,uint64_t entered){
  assert(entered);
+ if(input_case==InputCase::RefusedNote){
+  // The SDK translation must preserve these refused inputs. The production
+  // transport's unchanged event validator refuses this kind/extent pair.
+  assert(n==uint32_t(refused_frames)&&count==1);
+  assert(e[0].kind==refused_kind&&e[0].offset==refused_offset);
+  return 0x102;
+ }
  if(input_case==InputCase::Original){
   assert(count==2&&e[0].kind==0&&e[1].kind==2);
   assert(e[0].offset==(n?7u:0u)&&e[1].offset==(n?11u:0u));
@@ -46,6 +56,14 @@ uint32_t __wrap_if2_process(uint64_t,uint32_t n,const ap8_event_t*e,uint32_t cou
   assert(count==2&&e[0].kind==0&&e[1].kind==1);
   assert(e[0].offset==7&&e[1].offset==19);
   assert(e[0].id==1&&e[1].id==1&&e[0].channel==9&&e[1].channel==9);
+ }else if(input_case==InputCase::LateNoteOff){
+  assert(n==32&&count==2&&e[0].kind==1&&e[1].kind==0);
+  // Mirror the unchanged transport extent refusal so the predecessor SDK
+  // translation fails this regression instead of hiding in a permissive stub.
+  if(e[0].offset>=n)return 0x102;
+  assert(e[0].offset==0&&e[0].id==UINT32_MAX&&e[0].channel==9&&e[0].pitch==63);
+  assert(e[0].value==.25&&e[0].tuning==0);
+  assert(e[1].offset==7&&e[1].id==1&&e[1].channel==9&&e[1].pitch==60);
  }else if(input_case==InputCase::ExpressionOnly){
   assert(count==0);
  }else{
@@ -120,6 +138,18 @@ int main(){
  off.noteOff.noteId=1;off.noteOff.tuning=0;notes.addEvent(off);run();
  input_case=InputCase::ExpressionOnly;notes.clear();notes.addEvent(pressure);notes.addEvent(expression);notes.addEvent(text_expression);run();
  input_case=InputCase::NoteOffOnly;notes.clear();notes.addEvent(off);run();
+ auto audit_begin=reinterpret_cast<void(*)()>(dlsym(RTLD_DEFAULT,"ap3_audit_begin"));
+ auto audit_end=reinterpret_cast<uint64_t(*)()>(dlsym(RTLD_DEFAULT,"ap3_audit_end"));
+ assert(audit_begin&&audit_end);
+ // Recover the exact late voice and continue processing on the same SDK owner.
+ input_case=InputCase::LateNoteOff;
+ Event late=off;late.noteOff.noteId=-1;late.noteOff.pitch=63;late.noteOff.velocity=.25f;
+ for(int offset : {-1661,-1}){
+  late.sampleOffset=offset;notes.clear();notes.addEvent(late);notes.addEvent(note);
+  audit_begin();auto result=p->process(d);auto effects=audit_end();
+  assert(result==kResultOk&&effects==0);
+ }
+ input_case=InputCase::NoteOffOnly;notes.clear();notes.addEvent(off);run();
  auto before_unknown=processes;off.type=999;notes.clear();notes.addEvent(off);
  assert(p->process(d)!=kResultOk&&processes==before_unknown);
  input_case=InputCase::Original;notes.clear();note.noteOn.channel=0;notes.addEvent(note);
@@ -165,6 +195,32 @@ int main(){
  std::ifstream report(report_path);assert(report.good());
  std::string contents(std::istreambuf_iterator<char>{report},{});
  assert(contents.find("\"skipped_expression_callbacks\":2")!=std::string::npos);
+ assert(contents.find("\"late_note_offs\":2")!=std::string::npos);
  report.close();assert(unlink(report_path)==0);assert(unsetenv("LVB_AP3_REPORT")==0);
+ // Fresh owners keep the inherited failure posture from obscuring the next
+ // negative case. No general timestamp or zero-frame note acceptance is added.
+ input_enabled=true;last_output=false;input_case=InputCase::RefusedNote;
+ auto refuse=[&](Event event,int32 frames,uint32_t kind,uint32_t offset){
+  auto* rejected=new AP2::Processor;assert(rejected->initialize(&host)==kResultOk);
+  // Fresh descriptor owners begin with every default-active output enabled.
+  // Match the original test owner's inactive trailing buses before setup.
+  for(int bus=1;bus<32;++bus)assert(rejected->activateBus(kAudio,kOutput,bus,false)==kResultOk);
+  assert(rejected->setupProcessing(setup)==kResultOk);
+  assert(rejected->setActive(true)==kResultOk&&rejected->setProcessing(true)==kResultOk);
+  EventList invalid;invalid.addEvent(event);
+  ProcessData call{};call.processMode=kRealtime;call.symbolicSampleSize=kSample32;
+  call.numSamples=frames;call.inputEvents=&invalid;
+  if(frames){call.numInputs=call.numOutputs=1;call.inputs=&ib;call.outputs=&ob;ib.channelBuffers32=in;}
+  refused_kind=kind;refused_offset=offset;refused_frames=frames;
+  audit_begin();auto result=rejected->process(call);auto effects=audit_end();
+  assert(result!=kResultOk&&effects==0);
+  assert(rejected->setProcessing(false)==kResultOk&&rejected->setActive(false)==kResultOk);
+  assert(rejected->terminate()!=kResultOk);rejected->release();
+ };
+ note.sampleOffset=-1;refuse(note,32,0,UINT32_MAX);
+ off.type=Event::kNoteOffEvent;off.sampleOffset=32;refuse(off,32,1,32);
+ off.sampleOffset=-1;refuse(off,0,1,UINT32_MAX);
+ off.sampleOffset=0;refuse(off,0,1,0);
+ assert(closes==5);
  std::puts("AP18 native sole auxiliary samples/silence/guards/events PASS");
 }

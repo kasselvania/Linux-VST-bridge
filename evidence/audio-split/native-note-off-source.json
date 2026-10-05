@@ -1,0 +1,112 @@
+{
+  "schema": 1,
+  "date": "2026-10-04",
+  "claim_level": "source_extraction_candidate",
+  "claim": "Native SDK negative note-off normalization only, with exact voice preservation and no general validity relaxation",
+  "base": {
+    "commit": "13ed1d85e830d581ec297760e04e9f9433bfd671",
+    "tree": "f281a2e518298f466b2486f3ca7c01a80e84aa28"
+  },
+  "source_provenance": {
+    "production": "2e159ca7dd69e00e08e75c5d70bdccdae60cfc68",
+    "independent_host_followup": "bad5c69cf5a1edbbec6a48bb29a5b734ba9b9569",
+    "test_audit_support": "ec690c0f02ab7dfa873360f14bcd9e8f5dd0504b",
+    "test_adaptation": "adapted onto exact main; latest stack test file not copied"
+  },
+  "local_fixture": {
+    "os": "Darwin",
+    "architecture": "arm64",
+    "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21) (Homebrew)"
+  },
+  "local_results": {
+    "admission": {
+      "command": "cargo test --manifest-path native-audio-client/Cargo.toml --locked admission",
+      "passed": 2,
+      "failed": 0
+    },
+    "backend_first_parallel": {
+      "command": "cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked",
+      "passed": 76,
+      "failed": 1,
+      "ignored": 1,
+      "failure": "queued::tests::correlated_save_refusal_keeps_worker_audio_snapshot_and_sibling; existing src/queued.rs:2889 unwrap Err(Full)"
+    },
+    "same_failure_alone": {
+      "command": "cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked correlated_save_refusal_keeps_worker_audio_snapshot_and_sibling",
+      "passed": 1,
+      "failed": 0
+    },
+    "backend_serialized": {
+      "command": "cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked -- --test-threads=1",
+      "passed": 77,
+      "failed": 0,
+      "ignored": 1
+    },
+    "failure_classification": "Rust sources are byte-identical to trunk; initial parallel failure remains retained. Isolated/serialized results do not establish a causal diagnosis or erase it.",
+    "diff_check": "passed",
+    "event_roundtrip": {
+      "command": "cargo test --manifest-path native-audio-client/Cargo.toml --locked events",
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "required_linux_ci": "Pending on corrected extracted PR head; first failed SDK run remains above. Required checks must pass before merge.",
+  "production_files": [
+    "native-vst3-proxy/source/processor.cpp",
+    "native-vst3-proxy/source/processor.h"
+  ],
+  "source_sha256": {
+    "native-vst3-proxy/source/processor.cpp": "ccbb7aaa9bbbc5c776219dc98a950ad782ce89b3b20ea3a31e1dde726e260770",
+    "native-vst3-proxy/source/processor.h": "d8af798ba5a2ca6e8a123d3269e598fa2213da47660b27766d87de6951d30c06",
+    "native-vst3-proxy/tests/auxiliary_input/main.cpp": "082601bbfc18a08abcb4886aea3d30df82cfaadcbf9e362559382c42c302cb7f",
+    "native-vst3-proxy/host/late_note_off.cpp": "ce3549340ce6872f6afa77a2e8ba904c2f6447737a873c500121c37449d29ee2",
+    "native-vst3-proxy/CMakeLists.txt": "052f4b4c3a46b511b9286b628ae9cf0a014ae88ded722724dad81f40f8c8620e",
+    ".github/workflows/ap10-native-results.yml": "342fcc71b47a37c9d665922eec277a42778e9623c97d9d6204460697c4aa8563"
+  },
+  "custody": {
+    "active_qualification_branch_mutated": false,
+    "deck_mutated": false,
+    "remote_builder_used": false,
+    "vendor_binaries_or_state_exported": false
+  },
+  "nonclaims": [
+    "installed extracted build",
+    "commercial DAW qualification",
+    "deadline or realtime scheduling",
+    "editor/automation or project recall",
+    "interaction gate or soak",
+    "beta or engine update delivery"
+  ],
+  "retained_physical_provenance": {
+    "url": "https://github.com/kasselvania/Linux-VST-bridge/blob/a308fbf93e623ba2b8b5bc5e029f06f440ae390c/evidence/audio-recovery/2026-10-02-late-note-off.json",
+    "base": "37b5d41e5ffc7876b4bab4ecc6e57737297233bd",
+    "tested": "bad5c69cf5a1edbbec6a48bb29a5b734ba9b9569",
+    "scope": "old stacked Pure LoFi 1.0.0.6121 comparison; not acceptance of extracted tree"
+  },
+  "dependency_map": {
+    "artifact": "lvb-audio-split/064bcf0f.md",
+    "sha256": "4f8f3c6da0c15f24c82404ac5fdf3cdf671eb3d63a10df11a09da4b47570b90c",
+    "outside_code_pr": true
+  },
+  "linux_first_head": {
+    "commit": "ac84155dce78ab895f75417ece13d1e5366e73fc",
+    "run": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37253991034",
+    "result": "failed",
+    "passed_stages": [
+      "production transport tests",
+      "release Rust backend",
+      "actual native Processor and corrected independent comparison host build"
+    ],
+    "native_tests": {
+      "passed": 7,
+      "failed": 1,
+      "failure": "new auxiliary-input fresh-owner setup: strict __wrap_ap10_setup expected inactive outputs1..31; fresh descriptor owner had them default-active"
+    },
+    "correction": "Fresh negative-test owners now explicitly deactivate trailing outputs before setup, matching original main fixture setup. Strict assertions and production code unchanged.",
+    "reviewer": "Astra exact-head review identified the omitted fixture setup",
+    "policy_check": "PX2 passed on the same first head"
+  },
+  "followup_source_sha256": {
+    "native-vst3-proxy/tests/auxiliary_input/main.cpp": "631ee75e0e2f7319ca4ef8ff5f18658f4a902b9e0d2b5d68a763b6febbd7cd10"
+  }
+}

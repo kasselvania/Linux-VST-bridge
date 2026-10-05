@@ -40,6 +40,11 @@ target_compile_options(ap3-callback-audit PRIVATE -Wall -Wextra -Wpedantic -Werr
 
 option(AP10_RESULTS_TESTS "Test callback result lifetime against the pinned SDK" OFF)
 if(AP10_RESULTS_TESTS)
+ add_executable(ap18-late-note-off-host host/late_note_off.cpp
+  "${VST3_SDK_ROOT}/public.sdk/source/vst/hosting/module_linux.cpp")
+ target_link_libraries(ap18-late-note-off-host PRIVATE sdk_hosting pthread dl)
+ target_compile_features(ap18-late-note-off-host PRIVATE cxx_std_20)
+ target_compile_options(ap18-late-note-off-host PRIVATE -Wall -Wextra -Wpedantic -Werror)
  add_executable(ap10-result-lifetime tests/result_lifetime/main.cpp source/processor.cpp)
  target_include_directories(ap10-result-lifetime PRIVATE include source tests/result_lifetime)
  target_compile_definitions(ap10-result-lifetime PRIVATE AP3_PREVIEW=1 AP8_PREVIEW=1)
@@ -69,7 +74,8 @@ if(AP10_RESULTS_TESTS)
  foreach(symbol ap9_open ap5_report_path ap10_setup ap4_activate ap4_deactivate if2_close if2_terminal_status ap3_transition if2_process ap19_process_outputs ap10_take_results)
   target_link_options(ap18-auxiliary-input PRIVATE "-Wl,--wrap=${symbol}")
  endforeach()
- add_test(NAME ap18-auxiliary-input COMMAND ap18-auxiliary-input)
+ add_test(NAME ap18-auxiliary-input COMMAND "${CMAKE_COMMAND}" -E env
+  "LD_PRELOAD=$<TARGET_FILE:ap3-callback-audit>" $<TARGET_FILE:ap18-auxiliary-input>)
  add_executable(ap11-native-tests "${PROJECT_SOURCE_DIR}/tools/ap11-tests/native.cpp" source/processor.cpp)
  target_include_directories(ap11-native-tests PRIVATE include source tests/result_lifetime)
  target_compile_definitions(ap11-native-tests PRIVATE AP3_PREVIEW=1 AP8_PREVIEW=1)
