@@ -312,6 +312,13 @@ def verify_prebuilt_kit(data, source_head, host_sha256, source_sha256):
             raise ValueError("prebuilt kit roster")
         recipe=json.loads(archive.read("recipe.json"))
         if recipe.get("schema") == 4: fixed.add("prebuilt/engine.so")
+        helpers={"runtime/lvb-direct-wait.dll","runtime/x86_64-windows/lvb-direct-wait.dll",
+                 "runtime/x86_64-unix/lvb-direct-wait.so","runtime/direct-audio-helper.json"}
+        present=helpers & set(names)
+        if present:
+            if recipe.get("schema") != 4 or present != helpers:
+                raise ValueError("prebuilt direct helper roster")
+            fixed.update(helpers)
         total=0
         for entry in entries:
             name=entry.filename
@@ -333,6 +340,21 @@ def verify_prebuilt_kit(data, source_head, host_sha256, source_sha256):
                 raise ValueError("prebuilt kit file digest")
         if recipe["files"]["runtime/host.exe"]!=host_sha256 or recipe["files"]["runtime/host-source-manifest.json"]!=source_sha256:
             raise ValueError("prebuilt kit host pair")
+        if present:
+            helper=json.loads(archive.read("runtime/direct-audio-helper.json"))
+            expected={name.removeprefix("runtime/"):recipe["files"][name]
+                      for name in helpers if name != "runtime/direct-audio-helper.json"}
+            shim=archive.read("runtime/lvb-direct-wait.dll")
+            if (set(helper)!={"schema","abi","host_sha256","runner_wine_revision","files"}
+                or type(helper["schema"]) is not int or helper["schema"]!=1
+                or type(helper["abi"]) is not int or helper["abi"]!=1
+                or helper["host_sha256"]!=host_sha256
+                or helper["runner_wine_revision"]!="46b29104e3741fe23bf5e2547196a253aab88c89"
+                or helper["files"]!=expected
+                or not shim.startswith(b"MZ") or b"Wine builtin DLL" not in shim[:128]
+                or shim!=archive.read("runtime/x86_64-windows/lvb-direct-wait.dll")
+                or not archive.read("runtime/x86_64-unix/lvb-direct-wait.so").startswith(b"\x7fELF")):
+                raise ValueError("prebuilt direct helper binding")
         index=json.loads(archive.read("prebuilt/index.json"))
         if recipe["schema"] == 4:
             if (set(index) !=

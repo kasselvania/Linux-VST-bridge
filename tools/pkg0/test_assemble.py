@@ -206,6 +206,25 @@ class PackageAssembly(unittest.TestCase):
             assemble.verify_kit(archive_bytes(index, {"unowned": b"unexpected"}),
                                 self.spec["source_head"], assemble.sha(files["runtime/host.exe"]),
                                 assemble.sha(files["runtime/host-source-manifest.json"]))
+        helpers={"runtime/lvb-direct-wait.dll":b"MZ Wine builtin DLL fixture",
+                 "runtime/x86_64-windows/lvb-direct-wait.dll":b"MZ Wine builtin DLL fixture",
+                 "runtime/x86_64-unix/lvb-direct-wait.so":b"\x7fELFowned helper"}
+        binding=dict(schema=1,abi=1,host_sha256=assemble.sha(files["runtime/host.exe"]),
+                     runner_wine_revision="46b29104e3741fe23bf5e2547196a253aab88c89",
+                     files={name.removeprefix("runtime/"):assemble.sha(data) for name,data in helpers.items()})
+        helpers["runtime/direct-audio-helper.json"]=json.dumps(binding).encode()
+        def verify_helpers(extra):
+            assemble.verify_kit(archive_bytes(index,extra),self.spec["source_head"],
+                                assemble.sha(files["runtime/host.exe"]),
+                                assemble.sha(files["runtime/host-source-manifest.json"]))
+        verify_helpers(helpers)
+        for name in helpers:
+            with self.subTest(missing=name),self.assertRaisesRegex(ValueError,"direct helper roster"):
+                verify_helpers({key:value for key,value in helpers.items() if key!=name})
+        for change in ({"host_sha256":"0"*64},{"abi":True},{"files":{}},
+                       {"runner_wine_revision":"unselected"}):
+            with self.subTest(binding=change),self.assertRaisesRegex(ValueError,"direct helper binding"):
+                verify_helpers({**helpers,"runtime/direct-audio-helper.json":json.dumps({**binding,**change}).encode()})
 
     def test_operator_pair_uses_exact_source_and_retained_predecessor(self):
         current = assemble.declared_operator_schema()
