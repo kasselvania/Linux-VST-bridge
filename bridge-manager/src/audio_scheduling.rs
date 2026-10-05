@@ -247,19 +247,30 @@ fn fixed_reason(error: &dyn std::fmt::Display) -> String {
     if message.starts_with("scheduling_") { message }
     else { "scheduling_capability_unavailable".into() }
 }
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Default)]
 struct RequestObservation {
     attempted: bool,
     accepted: Option<bool>,
     command_exited: bool,
     command_exit_code: Option<i32>,
     command_timed_out: bool,
+    // The bus client's bounded first error line. A failed call that names its
+    // D-Bus error is positive refusal evidence; a silent failure or timeout is not.
+    refusal: Option<String>,
 }
 impl RequestObservation {
-    // This client has positive acceptance evidence only. A command failure is
-    // not proof that RealtimeKit itself refused the request.
-    fn refused(self) -> Option<bool> { self.accepted.map(|_| false) }
-    fn unknown(self) -> bool { self.attempted && self.accepted.is_none() }
+    fn refused(&self) -> Option<bool> { self.accepted.map(|accepted| !accepted) }
+    fn unknown(&self) -> bool { self.attempted && self.accepted.is_none() }
+}
+const REFUSAL_CHARS: usize = 160;
+/// One bounded printable line of the bus client's diagnostic output. The text
+/// is a fixed-width observation for the record, never parsed for policy.
+fn refusal_text(bytes: &[u8]) -> Option<String> {
+    let line = bytes.split(|&b| b == b'\n').map(|l| l.trim_ascii()).find(|l| !l.is_empty())?;
+    let mut text: String = line.iter().take(REFUSAL_CHARS)
+        .map(|&b| if (0x20..0x7f).contains(&b) { b as char } else { '?' }).collect();
+    if line.len() > REFUSAL_CHARS { text.push_str("..."); }
+    Some(text)
 }
 fn unavailable_after_before(
     target: &Target,
@@ -273,14 +284,14 @@ fn unavailable_after_before(
         Ok(effective) => serde_json::json!({"outcome":"unavailable","reason":reason,
             "target":target,"before":before,"effective":effective,"effective_readback":"observed",
             "request_attempted":request.attempted,"request_accepted":request.accepted,
-            "request_refused":request.refused(),"request_unknown":request.unknown(),
+            "request_refused":request.refused(),"request_unknown":request.unknown(),"request_refusal":request.refusal,
             "command_exited":request.command_exited,"command_exit_code":request.command_exit_code,
             "command_timed_out":request.command_timed_out}),
         Err(readback_error) => serde_json::json!({"outcome":"unavailable","reason":reason,
             "target":target,"before":before,"effective":null,"effective_readback":"unavailable",
             "effective_readback_reason":fixed_reason(readback_error.as_ref()),
             "request_attempted":request.attempted,"request_accepted":request.accepted,
-            "request_refused":request.refused(),"request_unknown":request.unknown(),
+            "request_refused":request.refused(),"request_unknown":request.unknown(),"request_refusal":request.refusal,
             "command_exited":request.command_exited,"command_exit_code":request.command_exit_code,
             "command_timed_out":request.command_timed_out}),
     }
@@ -288,7 +299,7 @@ fn unavailable_after_before(
 fn apply(target: &Target, native: bool) -> Result<serde_json::Value> {
     let before = current(target)?;
     if requested(&before) { return Ok(serde_json::json!({"outcome":"already_effective","target":target,"effective":before,
-        "request_attempted":false,"request_accepted":null,"request_refused":null,"request_unknown":false,
+        "request_attempted":false,"request_accepted":null,"request_refused":null,"request_unknown":false,"request_refusal":null,
         "command_exited":false,"command_exit_code":null,"command_timed_out":false})); }
     let mut request = RequestObservation::default();
     let attempt = (|| -> Result<serde_json::Value> {
@@ -318,7 +329,7 @@ fn apply(target: &Target, native: bool) -> Result<serde_json::Value> {
                 "MakeThreadRealtimeWithPID", "ttu"])
             .args([target.pid.to_string(), target.tid.to_string(), PRIORITY.to_string()])
             .env_remove("DBUS_SYSTEM_BUS_ADDRESS").stdin(Stdio::null())
-            .stdout(Stdio::null()).stderr(Stdio::null()).spawn()?;
+            .stdout(Stdio::null()).stderr(Stdio::piped()).spawn()?;
         let deadline = Instant::now() + Duration::from_millis(1200);
         loop {
             if let Some(status) = child.try_wait()? {
@@ -333,12 +344,20 @@ fn apply(target: &Target, native: bool) -> Result<serde_json::Value> {
             }
             std::thread::sleep(Duration::from_millis(5));
         }
+        // The client has exited, so this bounded read cannot block on a live writer.
+        if let Some(stderr) = child.stderr.take() {
+            let mut bytes = Vec::new();
+            if stderr.take(4096).read_to_end(&mut bytes).is_ok() { request.refusal = refusal_text(&bytes); }
+        }
+        if request.command_exited && request.accepted.is_none() && request.refusal.is_some() {
+            request.accepted = Some(false);
+        }
         let effective = current(target)?;
         Ok(serde_json::json!({"outcome":if request.accepted==Some(true) && requested(&effective) {"effective"} else {"unavailable"},
             "target":target,"before":before,"effective":effective,"requested_priority":PRIORITY,
             "rttime_soft_us":bounded_limits.rlim_cur,"rttime_hard_us":bounded_limits.rlim_max,
             "request_attempted":request.attempted,"request_accepted":request.accepted,
-            "request_refused":request.refused(),"request_unknown":request.unknown(),
+            "request_refused":request.refused(),"request_unknown":request.unknown(),"request_refusal":request.refusal,
             "command_exited":request.command_exited,"command_exit_code":request.command_exit_code,
             "command_timed_out":request.command_timed_out}))
     })();
@@ -360,7 +379,7 @@ pub fn run() -> Result<()> {
     let value = result.unwrap_or_else(|error| {
         let reason = fixed_reason(error.as_ref());
         serde_json::json!({"outcome":"unavailable","reason":reason,
-            "request_attempted":false,"request_accepted":null,"request_refused":null,"request_unknown":false,
+            "request_attempted":false,"request_accepted":null,"request_refused":null,"request_unknown":false,"request_refusal":null,
             "command_exited":false,"command_exit_code":null,"command_timed_out":false})
     });
     println!("{}", serde_json::to_string(&value)?);
@@ -524,6 +543,22 @@ mod tests {
         assert!(!f.root.join("windows-scheduling.audit.json").exists());
     }
     #[test]
+    fn refusal_text_is_one_bounded_printable_line_and_failure_evidence_is_explicit() {
+        assert_eq!(refusal_text(b""),None);
+        assert_eq!(refusal_text(b"\n  \n"),None);
+        assert_eq!(refusal_text(b"\nCall failed: Access denied\nsecond line\n").as_deref(),Some("Call failed: Access denied"));
+        assert_eq!(refusal_text(b"tab\there \xff\x01end").as_deref(),Some("tab?here ??end"));
+        let long=vec![b'x';REFUSAL_CHARS+40];
+        let text=refusal_text(&long).unwrap();
+        assert_eq!(text.len(),REFUSAL_CHARS+3);assert!(text.ends_with("..."));
+        let mut request=RequestObservation {attempted:true,..RequestObservation::default()};
+        assert_eq!((request.refused(),request.unknown()),(None,true));
+        request.accepted=Some(false);request.refusal=Some("Call failed: Access denied".into());
+        assert_eq!((request.refused(),request.unknown()),(Some(true),false));
+        request.accepted=Some(true);
+        assert_eq!((request.refused(),request.unknown()),(Some(false),false));
+    }
+    #[test]
     fn scheduling_preserves_existing_policy_and_requires_effective_reset_flag() {
         assert!(ordinary(&Policy{policy:libc::SCHED_OTHER,priority:0}));
         assert!(!ordinary(&Policy{policy:libc::SCHED_FIFO,priority:20}));
@@ -588,7 +623,7 @@ mod tests {
         assert_eq!(nonzero["command_timed_out"],false);
         let accepted=unavailable_after_before(&target,before,&"scheduling_capability_unavailable",
             RequestObservation {attempted:true,accepted:Some(true),command_exited:true,
-                command_exit_code:Some(0),command_timed_out:false},|_|Ok(Policy {policy:0,priority:0}));
+                command_exit_code:Some(0),command_timed_out:false,refusal:None},|_|Ok(Policy {policy:0,priority:0}));
         assert_eq!(accepted["request_accepted"],true);
         assert_eq!(accepted["request_refused"],false);
         assert_eq!(accepted["request_unknown"],false);
