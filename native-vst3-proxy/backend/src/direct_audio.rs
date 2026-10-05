@@ -2,7 +2,7 @@
 //! owners touch separate atomic words. No socket, state store, or relay is used
 //! by request publication or completion waiting.
 use std::{fs::File, io, os::fd::AsRawFd, ptr::NonNull,
-    sync::{Arc, atomic::{AtomicU32, Ordering}}, time::Instant};
+    sync::{Arc, atomic::{AtomicBool, AtomicU32, Ordering}}, time::Instant};
 
 pub(crate) const BYTES: usize = 33024;
 pub(crate) const CONTROL: usize = 32;
@@ -15,9 +15,9 @@ const REQUEST: usize = 256;
 const REPLY: usize = 16640;
 pub(crate) const CAPACITY: usize = 16384;
 
-struct Region { pointer: NonNull<u8>, _file: File }
-// Atomic flags transfer the two bounded byte regions to their single owners.
-// These traits do not grant concurrent AUDIO producers or consumers.
+struct Region { pointer: NonNull<u8>, _file: File, audio_owned: AtomicBool }
+// Only AudioEndpoint may access AUDIO bytes. Its local exclusive claim spans
+// publication through the completed reply copy, including render ownership.
 unsafe impl Send for Region {}
 unsafe impl Sync for Region {}
 impl Drop for Region {
@@ -25,6 +25,7 @@ impl Drop for Region {
 }
 #[derive(Clone)]
 pub(crate) struct Endpoint(Arc<Region>);
+pub(crate) struct AudioEndpoint { control: Endpoint, outstanding: bool }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Failure { Ownership, Cancelled, Expired, Wait, Extent }
 impl Endpoint {
@@ -34,21 +35,22 @@ impl Endpoint {
         let raw=unsafe { libc::mmap(std::ptr::null_mut(), BYTES, libc::PROT_READ|libc::PROT_WRITE,
             libc::MAP_SHARED, file.as_raw_fd(), 0) };
         if raw==libc::MAP_FAILED { return Err(io::Error::last_os_error()); }
-        Ok(Self(Arc::new(Region { pointer:NonNull::new(raw.cast()).unwrap(), _file:file })))
+        Ok(Self(Arc::new(Region { pointer:NonNull::new(raw.cast()).unwrap(), _file:file,
+            audio_owned:AtomicBool::new(false) })))
     }
     fn word(&self, offset:usize)->&AtomicU32 {
         unsafe { &*self.0.pointer.as_ptr().add(offset).cast::<AtomicU32>() }
     }
     pub(crate) fn terminal(&self)->u32 { self.word(TERMINAL).load(Ordering::Acquire) }
-    fn notify(&self, offset:usize) {
+    fn notify(&self, offset:usize)->libc::c_long {
         self.word(offset).fetch_add(1,Ordering::Release);
         // Shared backing across Linux and Wine: never FUTEX_PRIVATE_FLAG.
-        unsafe { libc::syscall(libc::SYS_futex,self.word(offset).as_ptr(),libc::FUTEX_WAKE,1); }
+        unsafe { libc::syscall(libc::SYS_futex,self.word(offset).as_ptr(),libc::FUTEX_WAKE,1) }
     }
-    pub(crate) fn cancel(&self, code:u32) {
+    pub(crate) fn cancel(&self, code:u32)->[libc::c_long;2] {
         // Preserve first death/cancel/fault. Neither owner releases AUDIO here.
         let _=self.word(TERMINAL).compare_exchange(0,code.max(1),Ordering::AcqRel,Ordering::Acquire);
-        self.notify(REQUEST_WAKE); self.notify(REPLY_WAKE);
+        [self.notify(REQUEST_WAKE), self.notify(REPLY_WAKE)]
     }
     pub(crate) fn control(&self)->Result<(),Failure> {
         if self.terminal()!=0 { return Err(Failure::Cancelled); }
@@ -57,35 +59,11 @@ impl Endpoint {
         self.notify(REQUEST_WAKE); Ok(())
     }
     pub(crate) fn control_pending(&self)->bool { self.word(CONTROL).load(Ordering::Acquire)!=0 }
-    pub(crate) fn publish(&self, bytes:&[u8])->Result<(),Failure> {
+    pub(crate) fn claim_audio(&self)->Result<AudioEndpoint,Failure> {
         if self.terminal()!=0 { return Err(Failure::Cancelled); }
-        if bytes.len()>CAPACITY { return Err(Failure::Extent); }
-        if self.word(REQUEST_FLAG).load(Ordering::Acquire)!=0 || self.word(REPLY_FLAG).load(Ordering::Acquire)!=0 {
-            return Err(Failure::Ownership);
-        }
-        unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(),self.0.pointer.as_ptr().add(REQUEST),bytes.len()); }
-        self.word(68).store(bytes.len() as u32,Ordering::Relaxed);
-        self.word(REQUEST_FLAG).store(1,Ordering::Release);
-        self.notify(REQUEST_WAKE); Ok(())
-    }
-    pub(crate) fn receive(&self, deadline:Instant, bytes:&mut [u8])->Result<usize,Failure> {
-        loop {
-            let observed=self.word(REPLY_WAKE).load(Ordering::Acquire);
-            if self.terminal()!=0 { return Err(Failure::Cancelled); }
-            if Instant::now()>=deadline { self.cancel(2); return Err(Failure::Expired); }
-            match self.word(REPLY_FLAG).load(Ordering::Acquire) {
-                0=>{}, 1=>break, _=>{self.cancel(3);return Err(Failure::Ownership);}
-            }
-            if !crate::completion_wait::wait_shared(self.word(REPLY_WAKE),observed,deadline) {
-                if Instant::now()>=deadline { self.cancel(2);return Err(Failure::Expired); }
-                self.cancel(3);return Err(Failure::Wait);
-            }
-        }
-        let size=self.word(132).load(Ordering::Relaxed) as usize;
-        if size>CAPACITY || size>bytes.len() { self.cancel(3);return Err(Failure::Extent); }
-        unsafe {std::ptr::copy_nonoverlapping(self.0.pointer.as_ptr().add(REPLY),bytes.as_mut_ptr(),size);}
-        // Complete copy, not timeout/cancel, grants the sole slot's next use.
-        self.word(REPLY_FLAG).store(0,Ordering::Release); Ok(size)
+        self.0.audio_owned.compare_exchange(false,true,Ordering::AcqRel,Ordering::Acquire)
+            .map_err(|_|Failure::Ownership)?;
+        Ok(AudioEndpoint {control:self.clone(),outstanding:false})
     }
     #[cfg(test)]
     fn render_receive(&self, end:Instant)->Result<Vec<u8>,Failure> {
@@ -112,6 +90,52 @@ impl Endpoint {
         self.word(REPLY_FLAG).store(1,Ordering::Release);self.notify(REPLY_WAKE);
     }
 }
+impl AudioEndpoint {
+    pub(crate) fn publish(&mut self, bytes:&[u8])->Result<(),Failure> {
+        let control=&self.control;
+        if control.terminal()!=0 { return Err(Failure::Cancelled); }
+        if self.outstanding {return Err(Failure::Ownership);}
+        if bytes.len()>CAPACITY { return Err(Failure::Extent); }
+        if control.word(REQUEST_FLAG).load(Ordering::Acquire)!=0 || control.word(REPLY_FLAG).load(Ordering::Acquire)!=0 {
+            return Err(Failure::Ownership);
+        }
+        self.outstanding=true;
+        unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(),control.0.pointer.as_ptr().add(REQUEST),bytes.len()); }
+        control.word(68).store(bytes.len() as u32,Ordering::Relaxed);
+        control.word(REQUEST_FLAG).store(1,Ordering::Release);
+        control.notify(REQUEST_WAKE); Ok(())
+    }
+    pub(crate) fn receive(&mut self, deadline:Instant, bytes:&mut [u8])->Result<usize,Failure> {
+        if !self.outstanding {return Err(Failure::Ownership);}
+        let control=&self.control;
+        loop {
+            let observed=control.word(REPLY_WAKE).load(Ordering::Acquire);
+            if control.terminal()!=0 { return Err(Failure::Cancelled); }
+            if Instant::now()>=deadline { control.cancel(2); return Err(Failure::Expired); }
+            match control.word(REPLY_FLAG).load(Ordering::Acquire) {
+                0=>{}, 1=>break, _=>{control.cancel(3);return Err(Failure::Ownership);}
+            }
+            if !crate::completion_wait::wait_shared(control.word(REPLY_WAKE),observed,deadline) {
+                if Instant::now()>=deadline { control.cancel(2);return Err(Failure::Expired); }
+                control.cancel(3);return Err(Failure::Wait);
+            }
+        }
+        let size=control.word(132).load(Ordering::Relaxed) as usize;
+        if size>CAPACITY || size>bytes.len() { control.cancel(3);return Err(Failure::Extent); }
+        unsafe {std::ptr::copy_nonoverlapping(control.0.pointer.as_ptr().add(REPLY),bytes.as_mut_ptr(),size);}
+        // A deschedule during copy cannot release a timed-out/cancelled slot.
+        if control.terminal()!=0 {return Err(Failure::Cancelled);}
+        if Instant::now()>=deadline {control.cancel(2);return Err(Failure::Expired);}
+        // Complete copy, not timeout/cancel, grants the sole slot's next use.
+        control.word(REPLY_FLAG).store(0,Ordering::Release);self.outstanding=false;Ok(size)
+    }
+}
+impl Drop for AudioEndpoint {
+    fn drop(&mut self) {
+        if self.outstanding {self.control.cancel(1);} // never permit reuse of host-owned bytes
+        else {self.control.0.audio_owned.store(false,Ordering::Release);}
+    }
+}
 
 #[cfg(all(test,target_os="linux"))]
 mod tests {
@@ -124,8 +148,9 @@ mod tests {
     }
     #[test]
     fn ready_audio_ignores_stalled_control_and_never_allocates_on_callback() {
-        let (callback,path)=channel(); let render=callback.clone();
-        callback.control().unwrap(); // deliberately unconsumed control work
+        let (control,path)=channel(); let render=control.clone();
+        let mut callback=control.claim_audio().unwrap();
+        control.control().unwrap(); // deliberately unconsumed control work
         let t=std::thread::spawn(move||{
             assert_eq!(render.render_receive(Instant::now()+Duration::from_secs(2)).unwrap(),b"request");
             render.render_reply(b"complete");
@@ -135,25 +160,48 @@ mod tests {
             callback.publish(b"request").unwrap();
             callback.receive(Instant::now()+Duration::from_secs(2),&mut out).unwrap()
         });assert_eq!(n,8);assert_eq!(counts,[0;3]);
-        assert_eq!(&out[..8],b"complete");assert!(callback.control_pending());
+        assert_eq!(&out[..8],b"complete");assert!(control.control_pending());
         t.join().unwrap();std::fs::remove_file(path).unwrap();
     }
     #[test]
     fn death_wakes_both_waiters_and_preserves_first_fault() {
-        let (a,path)=channel();let b=a.clone();
-        let t=std::thread::spawn(move||b.render_receive(Instant::now()+Duration::from_secs(5)));
-        std::thread::sleep(Duration::from_millis(10));a.cancel(7);a.cancel(8);
-        assert_eq!(a.terminal(),7);assert_eq!(t.join().unwrap(),Err(Failure::Cancelled));
-        assert_eq!(a.receive(Instant::now()+Duration::from_secs(5),&mut [0;8]),Err(Failure::Cancelled));
+        let (control,path)=channel();let render=control.clone();
+        let mut callback=control.claim_audio().unwrap();callback.publish(b"owned").unwrap();
+        let ready=Arc::new(std::sync::Barrier::new(3));let render_ready=ready.clone();
+        let render=std::thread::spawn(move||{
+            render.render_receive(Instant::now()+Duration::from_secs(5)).unwrap();
+            render_ready.wait();render.render_receive(Instant::now()+Duration::from_secs(5))
+        });
+        let callback_ready=ready.clone();let callback=std::thread::spawn(move||{
+            callback_ready.wait();callback.receive(Instant::now()+Duration::from_secs(5),&mut [0;8])
+        });
+        ready.wait();std::thread::sleep(Duration::from_millis(20));
+        let started=Instant::now();
+        assert_eq!(control.cancel(7),[1,1]); // kernel proves both waiters were sleeping
+        control.cancel(8);
+        assert_eq!(control.terminal(),7);assert_eq!(render.join().unwrap(),Err(Failure::Cancelled));
+        assert_eq!(callback.join().unwrap(),Err(Failure::Cancelled));
+        assert!(started.elapsed()<Duration::from_millis(100));
         std::fs::remove_file(path).unwrap();
     }
     #[test]
     fn expiry_does_not_release_or_reuse_outstanding_storage() {
-        let (a,path)=channel();a.publish(b"owned").unwrap();
+        let (control,path)=channel();let mut a=control.claim_audio().unwrap();a.publish(b"owned").unwrap();
         assert_eq!(a.receive(Instant::now(),&mut [0;8]),Err(Failure::Expired));
-        assert_eq!(a.word(REQUEST_FLAG).load(Ordering::Acquire),1);
+        assert_eq!(control.word(REQUEST_FLAG).load(Ordering::Acquire),1);
         assert_eq!(a.publish(b"replacement"),Err(Failure::Cancelled));
         std::fs::remove_file(path).unwrap();
     }
+    #[test]
+    fn exclusive_claim_spans_rendering_and_abandoned_exchange() {
+        let (control,path)=channel();let mut a=control.claim_audio().unwrap();
+        assert!(matches!(control.clone().claim_audio(),Err(Failure::Ownership)));
+        a.publish(b"first").unwrap();
+        assert_eq!(control.render_receive(Instant::now()+Duration::from_secs(1)).unwrap(),b"first");
+        // Both shared flags are now zero, but the Windows render still owns this exchange.
+        assert_eq!(a.publish(b"second"),Err(Failure::Ownership));
+        drop(a);assert_ne!(control.terminal(),0);
+        assert!(matches!(control.claim_audio(),Err(Failure::Cancelled)));
+        std::fs::remove_file(path).unwrap();
+    }
 }
-
