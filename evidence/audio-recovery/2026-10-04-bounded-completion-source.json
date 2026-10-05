@@ -11,8 +11,8 @@
     "native-vst3-proxy/CMakeLists.txt": "6f77716f2d80a9b2e224a78cce86c36fba3f7c1a3cb6f58cba85bf97c02c0b39",
     "native-vst3-proxy/backend/src/completion_contract_tests.rs": "e3c599ab116402080ab484e9aa02cb4d8bd89da3b9ebc9a464ab0d747a6ab040",
     "native-vst3-proxy/backend/src/lib.rs": "2c0a6771b228bab1e353f5f7726f6335950a8e7eb44ed6223164d70b8e7e30a2",
-    "native-vst3-proxy/backend/src/performance.rs": "46fe464804530a1268f966c5f3b3d1096fe0594bc953fbd600cc857b9419630a",
-    "native-vst3-proxy/backend/src/queued.rs": "4bb52ccc407fe551953236bb2760b161ddb77f292d353ee163ad726204b198c5",
+    "native-vst3-proxy/backend/src/performance.rs": "cbe325eb2f0dd48c06240a40794290b2a0d70a6932c82ed28edc7a4401325a15",
+    "native-vst3-proxy/backend/src/queued.rs": "8f8b68dba80cb15044163797305156134488884e1dfe1c4ff428395640a6a2b0",
     "native-vst3-proxy/include/ap23_backend.h": "339f766579bdc6b4a4f279d57c2d0c2f7f77baa9a5b1d61cab1cd425fa592caf",
     "native-vst3-proxy/source/processor.cpp": "2e90ec50f6722761af698e0bc0ddbe940dcfb1c8a6420ecd3e3978bfefea1634",
     "native-vst3-proxy/tests/auxiliary_input/main.cpp": "2d3ae651809e0c7cdae9a1a6ced43d777447ca553d1eba7de4ba7c2ad087b974",
@@ -75,7 +75,10 @@
     "approved-final-publication-controls-v2.log": "32b2cb128d30050d02d6cb995c37e2c01e22e8a202e456a3e4643c328e4ba7e7",
     "approved-default-suite.log": "735ee944562b8e3cc5678f19f5ceb934d63f52c21182806ebd6610f20ba28d70",
     "approved-final-contract-tests-v2.log": "649eba78ba2e58a67d607db7b361350933621af6dc4545c70c16b41e009a42bd",
-    "publication-boundary-attribution.log": "4b03f9e65a296a7f46f73adbe2ca0aa32a70e81a2182400af2699bb6e35e4468"
+    "publication-boundary-attribution.log": "4b03f9e65a296a7f46f73adbe2ca0aa32a70e81a2182400af2699bb6e35e4468",
+    "approved-stale-field-registered-worker-tests.log": "0eef198c441f259d0084aaeb8b482441907d9cc6bc0488832eca7b2947cfb3d1",
+    "approved-stale-field-worker-tests.log": "8058f48966740b2947bd95ec22f2467e8c9e64454d3674c3c1cdb93205114fa2",
+    "approved-stale-field-policy-tests.log": "1e1a5d41d356df2b8ac27deb96fe4df963e2ae3160fdeb1cc53f1493d3e4feed"
   },
   "scope_limits": [
     "Instrumented native peer is not Windows vendor DSP qualification",
@@ -85,5 +88,20 @@
     "No Deck mutation or new physical result in source evidence",
     "No RT/DAW/soak/beta acceptance"
   ],
-  "accepted_decision": "D-030"
+  "accepted_decision": "D-030",
+  "first_linux_source_attempt": {
+    "source_head": "559efe8fa6112b8f9ebae20bcbb3163b40661457",
+    "source_tree": "b4a769c0bf7614e969e2b2ccf427086e87812de8",
+    "default_passed": 164,
+    "registered_passed": 165,
+    "ignored_each": 2,
+    "strict_registered_clippy": "FAILED obsolete CompletionPolicy.offline never read; packaging stopped before native SDK tests",
+    "retained_archive_sha256": "e73d11fa45f1099f2807de974ef0641ef47c5db859c0dc089c460da60c8ad987",
+    "new_package_created": false
+  },
+  "successor_correction": {
+    "basis_head": "559efe8fa6112b8f9ebae20bcbb3163b40661457",
+    "change": "Remove obsolete duplicated stored offline flag; mode2 still derives exact60s policy in new(). No policy/ABI/wire change.",
+    "macos_validation_scope": "Original full156/157 suites belong to reviewed predecessor; successor checks policy and12 real-worker tests in default/registered. Full Linux/native package validation remains required."
+  }
 }

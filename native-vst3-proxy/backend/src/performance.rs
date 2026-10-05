@@ -48,7 +48,6 @@ pub(crate) struct CompletionPolicy {
     pub(crate) allowance: Duration,
     pub(crate) deadline: Instant,
     pub(crate) exact: bool,
-    pub(crate) offline: bool,
 }
 impl CompletionPolicy {
     pub(crate) fn new(mode: u32, delivery: DeliveryMode, n: usize,
@@ -58,7 +57,7 @@ impl CompletionPolicy {
         let elapsed = if entered_ns == 0 || now_ns == 0 { Duration::ZERO }
             else { Duration::from_nanos(now_ns.saturating_sub(entered_ns)) };
         Self { allowance, deadline: now + allowance.saturating_sub(elapsed),
-            exact: offline || n == 0 || delivery == DeliveryMode::SameCallback, offline }
+            exact: offline || n == 0 || delivery == DeliveryMode::SameCallback }
     }
 }
 pub(crate) const MAX_BUSES: usize = 56;
@@ -311,7 +310,7 @@ mod tests {
         let zero = CompletionPolicy::new(0, DeliveryMode::Buffered, 0, 0, 0, now);
         assert!(zero.exact); assert_eq!(zero.deadline.duration_since(now), AUDIO_CONTAINMENT);
         let offline = CompletionPolicy::new(2, DeliveryMode::Buffered, 1, 0, 0, now);
-        assert!(offline.exact && offline.offline);
+        assert!(offline.exact);
         assert_eq!(offline.deadline.duration_since(now), OFFLINE_ALLOWANCE);
     }
 }

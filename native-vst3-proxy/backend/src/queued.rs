@@ -3428,7 +3428,6 @@ mod tests {
             allowance: Duration::from_nanos(128),
             deadline: local_deadline,
             exact: false,
-            offline: false,
         });
         let transport = audio_transport_deadline(&item, now);
         assert_eq!(transport, local_deadline);
@@ -3816,7 +3815,7 @@ mod tests {
             request.position = position as u64; request.ticket = position as u64 + 1;
             let end = Instant::now() + Duration::from_secs(60);
             request.completion = Some(crate::performance::CompletionPolicy {
-                allowance: Duration::from_millis(50), deadline: end, exact: true, offline: true });
+                allowance: Duration::from_millis(50), deadline: end, exact: true });
             let mut completion = Completion::from(request);
             completion.audio.data[0][0] = position as f32;
             completion.audio.data[1][0] = position as f32 + 0.5;
