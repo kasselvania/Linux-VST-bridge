@@ -43,9 +43,14 @@
       "ignored": 1
     },
     "failure_classification": "Rust sources are byte-identical to trunk; initial parallel failure remains retained. Isolated/serialized results do not establish a causal diagnosis or erase it.",
-    "diff_check": "passed"
+    "diff_check": "passed",
+    "event_roundtrip": {
+      "command": "cargo test --manifest-path native-audio-client/Cargo.toml --locked events",
+      "passed": 1,
+      "failed": 0
+    }
   },
-  "required_linux_ci": "pending on extracted PR head; actual SDK callback tests, callback audit, helper build and existing native suite must be checked there",
+  "required_linux_ci": "Pending on corrected extracted PR head; first failed SDK run remains above. Required checks must pass before merge.",
   "production_files": [
     "native-vst3-proxy/source/processor.cpp",
     "native-vst3-proxy/source/processor.h"
@@ -82,5 +87,26 @@
     "artifact": "lvb-audio-split/064bcf0f.md",
     "sha256": "4f8f3c6da0c15f24c82404ac5fdf3cdf671eb3d63a10df11a09da4b47570b90c",
     "outside_code_pr": true
+  },
+  "linux_first_head": {
+    "commit": "ac84155dce78ab895f75417ece13d1e5366e73fc",
+    "run": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37253991034",
+    "result": "failed",
+    "passed_stages": [
+      "production transport tests",
+      "release Rust backend",
+      "actual native Processor and corrected independent comparison host build"
+    ],
+    "native_tests": {
+      "passed": 7,
+      "failed": 1,
+      "failure": "new auxiliary-input fresh-owner setup: strict __wrap_ap10_setup expected inactive outputs1..31; fresh descriptor owner had them default-active"
+    },
+    "correction": "Fresh negative-test owners now explicitly deactivate trailing outputs before setup, matching original main fixture setup. Strict assertions and production code unchanged.",
+    "reviewer": "Astra exact-head review identified the omitted fixture setup",
+    "policy_check": "PX2 passed on the same first head"
+  },
+  "followup_source_sha256": {
+    "native-vst3-proxy/tests/auxiliary_input/main.cpp": "631ee75e0e2f7319ca4ef8ff5f18658f4a902b9e0d2b5d68a763b6febbd7cd10"
   }
 }

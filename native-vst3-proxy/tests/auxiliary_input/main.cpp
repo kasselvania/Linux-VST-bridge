@@ -202,6 +202,9 @@ int main(){
  input_enabled=true;last_output=false;input_case=InputCase::RefusedNote;
  auto refuse=[&](Event event,int32 frames,uint32_t kind,uint32_t offset){
   auto* rejected=new AP2::Processor;assert(rejected->initialize(&host)==kResultOk);
+  // Fresh descriptor owners begin with every default-active output enabled.
+  // Match the original test owner's inactive trailing buses before setup.
+  for(int bus=1;bus<32;++bus)assert(rejected->activateBus(kAudio,kOutput,bus,false)==kResultOk);
   assert(rejected->setupProcessing(setup)==kResultOk);
   assert(rejected->setActive(true)==kResultOk&&rejected->setProcessing(true)==kResultOk);
   EventList invalid;invalid.addEvent(event);
