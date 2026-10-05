@@ -1,44 +1,37 @@
-# Current task: test denormal handling on the real render thread
-
-## Goal
-
-Pure LoFi plays at SameCallback D0, 512 frames / 48 kHz, Together hosting,
-editor open, for ten minutes without missing output blocks or graph errors.
-If clean, confirm on the same frozen build with thirty minutes of interaction.
-Preserve projects, licensed state, the pinned runner and machine headroom.
+# Current task: denormal comparison completed
 
 ## Works now
 
-Installed direct mailbox v4 bypasses the native relay/socket pump. Reference
-output/state and second setup pass; an owned reference peer death wakes the
-pending call in 3.14 ms and retires cleanly. Median bridge remainder is 0.121 ms.
+The paired denormal host is installed and its actual mapped bytes, helper and
+direct mailbox v4 were verified. The native engine matches the direct baseline.
+The real vendor process call has same-thread FTZ/DAZ with full MXCSR restoration.
+All 73,793 lifetime calls are sealed/export-confirmed, result0, with no omissions.
+Reference output/state and prompt peer-death retirement remain established.
 
 ## Still broken
 
-The direct baseline has ten silent 512-frame blocks and +10 graph errors in
-600 seconds. Whole-call median/p99/max is 2.770/4.258/6.798 ms; Windows/vendor
-elapsed time is 2.646/4.123/6.377 ms. No measured call exceeds nominal 512/48k
-cadence, which is distinct from the remaining device budget. Slower controller
-polling also retains graph errors; that diagnostic is reverted.
+At SameCallback D0, 512/48k, Together, Little Pleasures editor open, the matched
+600-second capture contains eight stereo-zero spans of 512 frames and +8 active
+graph errors, recorder0. The earlier direct baseline has ten/+10, recorder0.
+One lower count is not a demonstrated improvement; the clean gate still fails.
+Slower controller polling also failed (twelve/+12) and is reverted.
 
-## Working explanation
+## Timing result
 
-Missing render-thread FTZ/DAZ could amplify vendor-internal denormal work.
-This is a specific untested explanation, not established by the timing split.
-The same-thread guard restores the complete original MXCSR after each vendor
-process call, including failure/unwind. Vendor worker threads remain unchanged.
+Active Windows/vendor median/p99/max is 2.608/4.191/6.338 ms, versus baseline
+2.646/4.123/6.377 ms. Whole-call timing is 2.732/4.336/7.283 ms, versus
+2.770/4.258/6.798 ms. Vendor time is broadly unchanged; the guard is not the
+observed dropout repair. No lifetime call exceeds nominal 512/48k cadence;
+that cadence is not proof of the remaining device budget.
 
-## Next change
+## Endpoint
 
-Build and install the paired denormal host with the restored 10 ms polling path.
-Verify actual selected engine/host/helper and direct mode, then repeat the
-same full 600-second output capture with sealed whole-call/vendor timings.
-Compare missing blocks, active graph errors, recorder errors and call durations.
-
-## Done
-
-Retain the full first result. If clean, run the frozen interaction confirmation.
-If it fails, return that concrete result without another variant campaign.
-Commit and push completed work. Raw captures/logs remain outside Git.
+The assigned physical comparison is complete. Do not start thirty minutes or
+another hypothesis in this assignment. Native arrival spacing still reaches
+19.607 ms, with up to 16.416 ms outside measured calls; its mechanism remains
+unresolved. This result does not identify a cause or exclude vendor worker work.
+Bitwig saved the working copy and quit normally; the session retired cleanly.
+Original projects, licensed state, prior publications and normal settings remain
+preserved. Builder is stopped. Full captures/logs remain outside Git.
 
 Source/SSH/Deck: Sol6.1 xhigh; GUI: Sol6.1 high; root orchestrates.
