@@ -1,142 +1,51 @@
-# Current task: commercial continuity attribution on one frozen engine
+# Current task: complete native VST3 process-call timing
 
-## Operator order and current bounded claim
+## Outcome and source
 
-The operator selected these next steps in order: one commercial plug-in on the
-reviewed engine in Bitwig/Deck, SameCallback at the actual host block, editor open
-for ten minutes; obtain the native RT refusal reason and repair scheduling with a
-matched comparison; then thirty-minute interaction and longer soak on one frozen
-build. Split landing is separate; engine-update UX is deferred.
+Reliably observe every native VST3 process() call from SDK entry through its return
+boundary, including zero/partial calls, early refusals and exception exits. Use
+permanent opt-in, prepared bounded storage; export only off the audio thread.
+Base 74705deb47d256326feaba8a11b4de4b39cfb0fa, tree
+43b2e347a11b79e1e0c06e0d96804d818c57bfbd, branch codex/audio-callback-timing.
+The prior completion endpoint/#207 remains intact. Basis: current operator order,
+AGENTS.md real-time/ownership laws, GOVERNANCE.md evidence/completion, architecture
+18.1–18.4 and D-030. Completion/containment, IPC15, runner and scheduling stay unchanged.
 
-The first endpoint was the ten-minute commercial baseline, before source,
-scheduling or RT privilege changes. The current bounded task is attribution through
-the operator-approved same-build priority comparison and paced scheduler trace,
-with first failures retained. Use the existing lawful Pure LoFi fixture
-and retained project. Use the supported manual preparation route
-for only the selected commercial class. Preserve exact predecessor/settings,
-licensed installation/state and original project; use a separate working copy.
-The [first actual commercial baseline](evidence/audio-recovery/2026-10-04-pure-lofi-bitwig-baseline.md)
-is retained and remains unqualified for dependable continuity: sixteen512-frame
-stereo-zero spans and18active graph ERR increments in the full811.365-second
-bracket, despite bridge-gap counters0 and fresh native/Windows RR5. The original
-project, exact predecessor/settings and nine other published siblings stay exact.
-This does not authorize speculative scheduler repair or begin30minute interaction/soak.
+## Contract and acceptance
 
-## Frozen source and basis
+Retain all call sequences, actual N/mode/precision, accepted rate/capacity,
+instance/configuration context, monotonic entry/return stamps and actual calling
+PID/TID. Map namespace identities to exact host PID/TID/starttime off RT; names
+are not role proof. Allocation refusal, saturation, dropped/unfinished observations,
+invalid clocks and export failure are explicit. No RT allocation, filesystem/logging,
+ordinary lock or observer thread. The [proposal](evidence/audio-recovery/2026-10-05-process-call-timing-proposal.md)
+defines the measurement edge and observer tail; review before implementation freeze.
 
-Evidence base HEAD `580ec3adf820667f7a93ca920747eae55be72fda`, branch
-`codex/audio-completion-contract`; PR207 stays draft. Frozen installed engine comes
-from `d970eda91be4bc972d38a0d4b107cc5f4ededa54`, tree
-`57a484beee1f28cb6d0df85f25977b458d64a1ff`, package `0.12.0refresh5deck`, engine
-SHA256 `add49d7a5ed38c44d55395f58d471656d33a7ef8f097cdd43de2332ebe04fbd0`.
-Basis: current operator order; AGENTS.md capability increments and verification;
-GOVERNANCE.md responsibility/evidence; architecture18.1–18.4 and accepted D-030.
-The approved one-origin five-second containment contract is unchanged.
+Test all SDK exit categories, zero/partial calls, backend/sink failure, unwind,
+reentrant/concurrent refusal, saturation, lifecycle export and callback allocation/
+I/O posture. Independent caller clocks must enclose the measured interval.
+On one reviewed installed candidate, retain three first-attempt180s Bitwig
+conditions: Pure LoFi editor open, Pure LoFi editor closed, first-party bridged
+reference. The added open baseline makes the editor comparison use one instrumented
+build. Same declared host/audio settings and clip where semantically applicable;
+different plug-in DSP/audio is not an exact waveform match. Retain whole output,
+all call records, exact engine/process identities, scheduling, graph/recorder errors
+and retirement. Sample-accurate capture alignment is not an entry gate; report limits.
 
-The [prior physical SDK comparison](evidence/audio-recovery/2026-10-04-refresh5deck-physical-completion.md)
-passes24/24 first-party full lifetimes versus refresh4's8/24, with six nonzero
-N/Fs cadence exceedances, two main. It does not prove actual DAW performance,
-isolated bridge overhead or native RT. The historical SDK consumer executed
-natively outside Flatpak; its RTKit exit1 cannot establish Bitwig sandbox denial.
-Only two Completion publications were refreshed. Modern publication engine-update
-UX remains FC-MGMT-008; its repair is deferred rather than claimed complete.
+## Limits and custody
 
-## First baseline protocol and acceptance
+Whole-call time includes vendor DSP, not isolated bridge overhead. N/Fs and
+graph512/48k are cadence context, not proven device budgets; several short calls
+can consume one graph period. No causal gap, dependable continuity, RT/DAW,
+interaction/soak, update-UX completion or beta claim. Previous evidence remains;
+the [scheduler window](evidence/audio-recovery/2026-10-04-paced-scheduler-window.md)
+does not authenticate a callback thread or align individual output gaps.
 
-Refresh live machine/DAW ownership before mutation. Preserve exact class/module/
-environment/settings/predecessor and project bytes. Normal offered rescan,
-inspection, preparation/replacement and delivery selection must prove the chosen
-publication uses the frozen engine/paired host. No other commercial selection or
-licensed environment recreation is in scope.
-
-Before playback, review the exact commercial version, project/clip and independent
-whole-session output/continuity oracle. Verify real Bitwig/Flatpak version, audio
-backend, actual block/rate, one selected instance and editor visibly open. Capture
-all paced output for600seconds with recorder/DAW/sink error witnesses, actual
-consumer/native/Windows/callback placement and effective scheduling. Record
-observable node/graph facts; N/Fs is not an inferred actual DAW deadline. Commercial
-DSP is opaque: waveform silence alone is not a dropout, and bridge counters alone
-are not an output pass. Preserve intended rests, automation and transport boundaries.
-
-Retain every first attempt, failures and observation gaps, original/working project
-and complete output hashes. Stop unsafe ownership/cleanup or lost recording and
-retain partial failure. Ten-minute automatic playback with an open editor is a
-baseline, not user interaction. Normal stop/save/quit and authenticated retirement
-finish the declared lifetime; no rerun until green.
-
-After this baseline, the operator approved a positive continuous native Test Tone
-control: separate project, sole active native source, graph512/48k, matched full
-stereo output capture, zero bridge DSP owners, declared >=600second bracket and
-fixed-frequency/recurrence/zero-span oracle. The [retained control](evidence/audio-recovery/2026-10-04-native-tone-control.md)
-completed600.000626seconds on unchanged source/priority: no activezero/graphERR,
-nominal recurrence below unchanged1e-5, but original fixed1000Hz model remainsfalse.
-One separately labeled whole600s global frequency/phase fit characterizes a small
-nominal-frequency mismatch with zero residuals above that threshold; no rerun or
-per-window rephasing. Original/complete output, setup/stop witnesses and cleanup are
-retained. This does not eliminate commercial-load contention or attribute its gaps. Native GUI load is not equivalent to the vendor editor. Retain
-all anomalies and concurrent read-only preflight observer activity.
-
-The operator additionally authorized same-build forced ordinary-versus-realtime
-native-worker comparisons and a kernel scheduler trace during paced playback,
-after this native control. Freeze matched repetitions/order and exact authenticated
-PID/TID/starttime, policy restoration and abort posture before mutation. Keep
-Windows policy/affinity/power/editor/audio/capture conditions declared and stable.
-Kernel capture scope must be isolated, owned and finite, with exact events/filters,
-loss/storage/cleanup and clock-correlation limits; no global permission/sysctl change.
-The operator explicitly accepted private perf event FDs/rings for this boundary;
-this mechanism does not create a tracefs instance.
-Initial read-only capability checks found installed perf/trace-cmd but root-only
-tracefs and no sudo-n access. The later explicit reusable-access authorization and
-verified credential reuse below resolve administrator access; no global privilege
-workaround occurred. The frozen Completion SDK host has no pacing/worker-ready
-gate; actual paced Bitwig diagnostics cannot inherit its per-callback rows.
-
-The [first priority pair](evidence/audio-recovery/2026-10-04-paced-priority-abort.md)
-is retained as an aborted A/B/B/A experiment: A/B each captured180seconds, with
-five/four inside512-frame zero spans and seven/four active Bitwig ERR increments.
-B's recorder ended before the normal-stop marker; windows03/04 are unperformed.
-No priority-cause/rate-reduction claim follows. Native RR5 was restored and all
-test DSP owners retired, GUI/stream closed, exact selections/preferences/history
-and original project preserved. The operator subsequently authorized reusable
-remote administrator access. Hidden Mac-side enrollment, Keychain reuse and
-fresh remote administrator verification succeeded without a Deck-local prompt.
-The [first scheduler trace](evidence/audio-recovery/2026-10-04-scheduler-trace-first-attempt.md)
-is incomplete: its256MiB cap was reached12.849seconds after arming, before the
-shared active marker. The requested180seconds were not collected. Partial trace
-and98.272seconds of paired output remain; tracing/instance cleanup and normal
-DAW/owner retirement pass. No rerun, cap increase or scheduling repair followed.
-Raw volume attribution is a separate read-only check, not an audio/timing claim.
-No live audio owner or TARGET remains waiting for access.
-
-The subsequent [machine-coordinated scheduler observation](evidence/audio-recovery/2026-10-04-paced-scheduler-window.md)
-completed 180.036107 seconds on the same frozen engine, with paired output and
-normal retirement. Its 179.925333 second written-byte window contains nine 512-frame
-stereo-zero spans, Bitwig ERR +8 inside/+9 enclosing and recorder ERR +1; buffering
-alignment remains uncalibrated. Continuity is unqualified. Full binary decoding
-uses separately bounded offline resources. Native/Windows wake-to-run maxima are
-1.394097 ms (one >1 ms) /108.932 µs (none >1 ms); blocked/scheduled time does
-not establish DSP time or a gap cause. The next bounded observation target is
-actual callback/output-to-graph clock alignment, before any repair claim. Prior
-parser/GUI coordination/reader failures stay
-retained. No further capture, scheduler repair, interaction or soak starts in this
-endpoint; close exact evidence review and commit/push first.
-
-Current Bitwig native and Windows promotion succeeded, so scheduling repair requires
-a demonstrated defect. The historical outside-Flatpak SDK refusal reason remains
-unobserved; a small reviewed control-path observability change is a separate possible
-next step, not yet a production/source mutation. Pacing, RTKit, portal and priority inversion remain hypotheses unless
-measured. Do not broaden into recovery/graphics/runtime/engine-update or beta work.
-
-## Custody
-
-Fresh preflight: physical Galileo/SteamOS3.8.16, Bitwig6.1 Flatpak/runtime25.08,
-PipeWire1.6.4; no Bitwig/manager/test consumer; DSP0/maintenance0, cleanup confirmed,
-one healthy product keeper. Pure LoFi1.0.0.6121 is manually prepared on the verified refresh5 engine;
-seven other commercial selections remain old-engine and untouched. Two Completion
-fixtures already use the new engine. No generic engine-update completion is claimed. Builders/VM stay stopped; reserve Audiobookshelf
-headroom, one builder/VM at a time. Machine/source mutations: Sol6.1xhigh executor;
-GUI Sol6.1high; the executor temporarily performed stopped-session setup while
-agent capacity was unavailable, then handed explicit screen custody to the
-dedicated GUI agent for playback/stop/save/quit/disconnect. Review: Astra6xhigh;
-root orchestrates. Commit/push completed work;
-no merge or beta promotion.
+Execution/source/SSH: Sol6.1 xhigh; GUI: Sol6.1 high with explicit lease; review:
+Astra6 xhigh; root orchestrates. Refresh inactivity before installation; preserve
+predecessors/settings, all unselected publications, licensed state and original
+projects. Use working copies and normal offered preparation. Read the exact owned
+wineserver policy during normal setup; no priority mutation or kernel trace.
+Reuse enrolled Keychain access. One builder/VM at a time, reserve Audiobookshelf
+headroom; stop idle builder before timing. Retain first outcomes, no rerun until
+green. Commit/push and create a focused draft PR stacked on #207; no merge.

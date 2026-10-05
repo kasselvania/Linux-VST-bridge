@@ -1086,6 +1086,10 @@ struct Live {
 // guard. The worker owns Shared/Session; removal excludes every live lease.
 unsafe impl Sync for Live {}
 static INSTANCES: crate::instances::Registry<Live> = crate::instances::Registry::new();
+#[cfg(target_os = "linux")]
+pub(crate) fn process_call_report(id: u64) -> Option<std::path::PathBuf> {
+    INSTANCES.lease(id)?.report.clone()
+}
 struct Guard<'a>(&'a AtomicBool);
 impl<'a> Guard<'a> {
     fn acquire(live: &'a Live) -> Option<Self> {

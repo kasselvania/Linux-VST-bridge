@@ -699,6 +699,9 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup &setup) {
     maximum_ = setup.maxSamplesPerBlock;
     process_mode_ = setup.processMode;
     sample_rate_ = setup.sampleRate;
+#ifdef AP8_PREVIEW
+    if(configuration_revision_!=UINT64_MAX)++configuration_revision_;
+#endif
     queued_ = preview_ || process_mode_ == kRealtime;
     phase_ = Setup;
 #ifdef AP8_PREVIEW
@@ -813,11 +816,27 @@ tresult Processor::rejected(ProcessData &d) {
 tresult PLUGIN_API Processor::process(ProcessData &d) {
 #ifdef AP8_PREVIEW
   const uint64_t entered_ns=monotonic_ns();
+  LVBCallTiming::Recorder::Call observation(process_calls_,d.numSamples,d.processMode,
+                                           d.symbolicSampleSize,entered_ns);
+  const auto result=processBody(d,entered_ns,observation);
+  observation.result(static_cast<int32_t>(result));
+  return result; // Observer closes after all body locals/Guard and on unwind.
+#else
+  return processBody(d);
+#endif
+}
+#ifdef AP8_PREVIEW
+tresult Processor::processBody(ProcessData &d,uint64_t entered_ns,
+                              LVBCallTiming::Recorder::Call& observation) {
+#else
+tresult Processor::processBody(ProcessData &d) {
 #endif
   Guard g(busy_);
   auto reject = [&] { return rejected(d); };
   if (!g.held) return reject();
 #ifdef AP8_PREVIEW
+  observation.configuration(sample_rate_,maximum_,configuration_revision_,
+                            static_cast<int32_t>(phase_.load()),handle_);
   auto expired=[&]{
     if(!ap23_finish_callback(handle_))return false;
     phase_=Failed;returned_.release_requested=true;return true;
@@ -1003,6 +1022,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
 #ifdef AP8_PREVIEW
   ap10_context_t c{};
   if(d.processContext){const auto& p=*d.processContext;c.present=1;c.state=p.state&0x2bf0e;c.rate=p.sampleRate;c.project=p.projectTimeSamples;
+   observation.project(p.projectTimeSamples);
    if(c.rate!=sample_rate_)return reject();
    if(c.state&0x100)c.system=p.systemTime;
    if(c.state&0x20000)c.continuous=p.continousTimeSamples;
@@ -1129,6 +1149,33 @@ bool Processor::deliverResults(ProcessData&d){
  }
  ap10_fail_results(handle_);return false;
 }
+void Processor::reportProcessCalls(){
+ if(!process_calls_.requestedEnabled()||!process_calls_.markExported())return;
+ const auto summary=process_calls_.seal();
+ uint32_t status=1; // No export while an outer callback writer is unfinished.
+ try{
+  if(!summary.unfinished_writers){
+   std::vector<lvb_process_call_record_t> records(size_t(summary.retained));
+   if(process_calls_.snapshot(summary,records.data(),uint32_t(records.size())))
+    status=lvb_process_call_export(handle_,&summary,records.data(),uint32_t(records.size()));
+  }
+ }catch(...){status=2;} // Observation cannot change SDK retirement/result policy.
+ char text[2048];const auto n=std::snprintf(text,sizeof(text),
+  "{\"event\":\"native_process_call_summary\",\"schema\":1,\"instance\":%llu,"
+  "\"namespace_pid\":%u,\"backend_handle\":%llu,"
+  "\"flags\":%u,\"capacity\":%u,\"offered\":%llu,\"retained\":%llu,"
+  "\"capacity_dropped\":%llu,\"contention_dropped\":%llu,\"allocation_dropped\":%llu,"
+  "\"invalid_clocks\":%llu,\"invalid_identity\":%llu,\"after_seal\":%llu,"
+  "\"unfinished_writers\":%llu,\"sequence_overflow\":%llu,\"export_status\":%u,"
+  "\"clock\":\"CLOCK_MONOTONIC\",\"return_edge\":\"after_body_cleanup_before_record_publication\"}\n",
+  (unsigned long long)summary.instance,summary.namespace_pid,(unsigned long long)handle_,summary.flags,summary.capacity,
+  (unsigned long long)summary.offered,(unsigned long long)summary.retained,
+  (unsigned long long)summary.capacity_dropped,(unsigned long long)summary.contention_dropped,
+  (unsigned long long)summary.allocation_dropped,(unsigned long long)summary.invalid_clocks,
+  (unsigned long long)summary.invalid_identity,(unsigned long long)summary.after_seal,
+  (unsigned long long)summary.unfinished_writers,(unsigned long long)summary.sequence_overflow,status);
+ if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));
+}
 void Processor::reportPhaseTrace(){
  if(!phase_trace_requested_)return;
  if(phase_trace_)for(uint32_t i=0;i<phase_trace_count_;++i){
@@ -1199,6 +1246,7 @@ tresult PLUGIN_API Processor::terminate() {
       diagnostic_report(report_path_, text, static_cast<size_t>(n));
   }
 #ifdef AP8_PREVIEW
+  reportProcessCalls();
   reportPhaseTrace();
   if(terminal()){
     char text[256];auto n=std::snprintf(text,sizeof(text),"{\"event\":\"if2_contained_terminal\",\"callbacks\":%llu,\"silent_frames\":%llu,\"automatic_reload\":false}\n",(unsigned long long)contained_callbacks_,(unsigned long long)contained_frames_);

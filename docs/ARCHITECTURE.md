@@ -1083,6 +1083,23 @@ uses diagnostics disabled and actual captured output, with observer effects
 measured separately. Existing phase counters remain evidence, not a replacement
 for delivered signal.
 
+Whole native SDK call timing is a separate opt-in observation capability. Prepare
+and prefault a finite immutable record pool before activation; retain every entry
+sequence and actual N, including zero/partial calls, early refusal and unwind.
+The SDK edge records CLOCK_MONOTONIC at entry and after the complete processing
+body, SDK sinks and busy-guard cleanup; fixed publication/return epilogue follows
+the final stamp and must be qualified with an independent caller bracket. Capture
+actual calling namespace PID/TID and guarded rate/configuration/session context,
+then authenticate host PID/TID/starttime off RT while the caller is live. Names
+alone do not prove a callback role. Writer registration and export sealing share
+one race-safe protocol; unfinished writers, allocation/identity/clock failures,
+contention drops, saturation and counter overflow refuse complete observation.
+Rust owns private finite serialization after quiescence through a separately
+versioned plain-data observation ABI. No telemetry operation changes processing
+results, exception propagation, originating containment deadlines or scheduling.
+Durations include fixture DSP; neither N/Fs nor a single graph period establishes
+a device deadline, and several short calls may cumulatively consume one period.
+
 The 2026-10-03 audio-completion workstream selects the following implementation
 contract; its source, installed and physical acceptance remain separate gates:
 

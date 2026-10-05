@@ -12,6 +12,8 @@ mod instances;
 mod mailbox;
 mod observer;
 mod input_observation;
+#[cfg(target_os = "linux")]
+mod process_call_timing;
 mod output_pool;
 mod performance;
 mod parameter_curves;

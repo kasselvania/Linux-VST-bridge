@@ -14,6 +14,7 @@
 #include "ap23_backend.h"
 #include "ap18_bus_support.h"
 #include "output_results.h"
+#include "process_call_observer.h"
 #include <vector>
 #include <array>
 #endif
@@ -97,6 +98,11 @@ private:
   Steinberg::tresult guiPoll(uint64_t generation,unsigned limit);
   bool deliverResults(Steinberg::Vst::ProcessData&);
   void reportPhaseTrace();
+  void reportProcessCalls();
+  LVBCallTiming::Recorder process_calls_;
+  uint64_t configuration_revision_=0; // Accepted inactive setup; busy_-owned.
+  Steinberg::tresult processBody(Steinberg::Vst::ProcessData&,uint64_t,
+                                 LVBCallTiming::Recorder::Call&);
   Steinberg::tresult containedSilence(Steinberg::Vst::ProcessData&);
   uint64_t contained_callbacks_=0, contained_frames_=0;
   int eventOutputActive(int)const;
@@ -123,6 +129,9 @@ private:
   bool phase_trace_sampled_=false,phase_trace_requested_=false;
   Steinberg::tresult readback();
 #endif
+ #ifndef AP8_PREVIEW
+  Steinberg::tresult processBody(Steinberg::Vst::ProcessData&);
+ #endif
   void snapshotStatus(const char *status);
   Steinberg::tresult recover(uint64_t revision);
   bool controller_synced_ = false;
