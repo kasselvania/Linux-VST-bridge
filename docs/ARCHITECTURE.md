@@ -631,6 +631,11 @@ Event transport preserves:
 
 MIDI-only testing is insufficient for VST3 event correctness.
 
+A negative-timestamp note-off in a nonempty callback releases its exact identified
+voice at the first available sample, offset zero. Preserve its other fields and
+event order. This native SDK recovery does not admit negative note-ons, future
+note offsets or zero-frame notes, and does not relax the wire validator.
+
 ## 8. Process topology and isolation
 
 Candidate default:

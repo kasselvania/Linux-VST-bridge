@@ -40,6 +40,13 @@ installed native proxy and publications do not yet contain it. Push 3 note
 release and expression are unqualified for every row below. The existing
 product results remain scoped to their recorded input fixtures.
 
+**Late host note-off:** [FC-MIDI-002](FAILURE_CLASSES.md#fc-midi-002--late-note-off-permanently-fails-processing)
+has a separate native SDK correction extracted onto trunk. Source tests cover
+negative release timestamps without expanding other event validity. The old
+stacked Pure LoFi comparison is retained provenance; no installed or DAW
+qualification of this extracted build is recorded here. Existing product rows
+retain their original scope.
+
 | Product / exact class | User posture | Accepted profile or selected candidate | Runner/policy | Physically accepted behavior | Current limitations and linked failure classes | Last physical evidence |
 |---|---|---|---|---|---|---|
 | Pure LoFi 1.0.0.6121 · `417274754156495350724C4650726F63` (instrument) | supported | ordinary verified revision 10; [profile](../compatibility/arturia-pure-lofi.json); exact host/source continuity [FC-MGMT-002](FAILURE_CLASSES.md#fc-mgmt-002--exact-verified-hostsource-omitted-across-software-generations) | `proton-11.0-2c-25118279-slr4-4.0.20260805.254769`; default policy | Deck instrument/audio, editor, automation, distinct state and save/reopen, sibling isolation and retirement in the exact Arturia fixture | Recorded gaps and no 256-frame qualification: [FC-AUDIO-001](FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses). Concurrent lease race: [FC-CAP-001](FAILURE_CLASSES.md#fc-cap-001--capacity-enumeration-versus-lease-retirement-race). | [AP17 six-instance/recall result](AP17.md#r1-fixture-completion-and-recovery-result) |
