@@ -202,7 +202,9 @@ def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root
 
 def direct_audio_environment(reg,env):
     # Only an immutable preparation runtime declaring the paired helper can
-    # select it. Older retained hosts keep their original launch environment.
+    # select it. Older retained hosts keep their original launch environment,
+    # as does a registration that carries no host record at all.
+    if 'host' not in reg:return env
     root=pathlib.Path(reg['host']['path']).parent
     manifest=root/'direct-audio-helper.json'
     if not manifest.exists():return env
