@@ -1460,16 +1460,9 @@ recorder before attributing editor-interval silence. Recovery5's automatic nativ
 scheduling passed its capability check and failed continuity. A later render
 policy readback does not prove first-callback readiness.
 
-The Deck records show the Windows render-thread grant was flaky, not absent: in
-a session the first RealtimeKit call failed with no reason captured, the second
-found no unique `lvb-audio` thread, and the third was effective. A source
-correction now records the bus client's bounded error line and retries a
-transient refusal on a 0.5 to 8 second backoff per render start. It is not
-installed or measured; RR 5 effective in all 24 cells did not remove the misses.
-The same timing evidence records the DAW thread that calls process() as
-SCHED_OTHER 0 at every entry, with entry spacing to 19.4 ms mostly outside the
-bridged call. A second source correction records each calling thread and asks
-RealtimeKit for the render thread's policy on it, off the callback. Unmeasured.
+The render retry and caller grant are installed on the Deck. The caller record is `effective`, RR 5 on `bitwig-remote-p`; the eight `PluginsThreadPo` workers remain TS. A ten-minute Pure LoFi / Together / editor-open / 512-frame / 48-kHz run captured two missing 512-frame blocks versus baseline eight, but maximum call spacing grew to 33.37 ms versus 19.4 ms (29.44 ms outside the prior call); Bitwig ERR+16 and recorder ERR+1. One offline loop-region export exercised 674 offline calls and the same plug-in host survived.
+
+The approved Flatpak RealtimeKit talk permission changed none of Bitwig's data-loop.0, audio-1..8, Audio Task or PluginsThreadPo workers in three playback samples. The operator's stop condition skipped the second ten-minute run; the permission was removed and unrelated overrides preserved. Host dispatch/audio-engine delay remains the most likely cause, about 70%; continuity is still broken. Raw captures stay outside Git.
 
 The separate FN1/PW1 source reviews do not authorize installation or a
 general support claim. PSL1 is proposed next to make preparation product-owned

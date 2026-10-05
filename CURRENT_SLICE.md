@@ -1,51 +1,40 @@
-# Current task: the DAW thread that calls the bridge is not real-time
+# Current task: residual Bitwig timing after the caller grant
 
 ## Goal
 
-Pure LoFi plays in Bitwig on the Deck at 512 frames / 48 kHz for ten minutes
-without a missing block or graph error; then thirty minutes with normal use.
-Preserve projects, licensed state, the pinned runner and machine headroom.
+Pure LoFi on the Deck, Bitwig 6.1, Together hosting, editor open, 512 frames /
+48 kHz: ten minutes without missing blocks or graph errors, then thirty minutes
+with normal use. Preserve projects, licensed state, runner and machine headroom.
 
-## What the last two runs established
+## Works now
 
-Denormals are not the cause: the FTZ/DAZ guard left vendor time unchanged
-(2.61 vs 2.65 ms median) and misses went 10 to 8, within noise. No bridged call
-exceeds the 10.67 ms period (max 6.4 ms). Yet entry spacing between calls
-reaches 19.4 ms, with 16.2 ms lying outside our call. The caller's thread,
-recorded at every SDK entry, is SCHED_OTHER priority 0. Our native worker and
-Windows render thread are SCHED_RR 5. The render grant itself was flaky
-(first request refused, second found no thread, third effective); PR #215
-retries it and records the refusal reason.
+The caller grant is installed. The session's native_audio_scheduling caller
+record is effective, RR 5, on bitwig-remote-p. The eight PluginsThreadPo workers
+remain TS. One offline loop-region WAV export completed with 674 offline calls;
+the same plug-in host survived. Both sessions exited normally and retired cleanly.
 
-## Best explanation (about 75%)
+## Still broken
 
-In Bitwig's "Together" hosting the plug-in runs in Bitwig's plug-in host
-process, and that process's audio thread has no real-time policy on this Deck.
-Every ordinary-priority thread on the machine (Wine UI, wineserver, our
-supervisor, the desktop) can delay it, and our 2.6 to 6.4 ms call occupies a
-quarter to 60 percent of the period, so a few ms of caller delay becomes a
-missed block. The two RT grants we do hold protect threads that wait on the
-unprotected one.
+The ten-minute Together run captured two missing 512-frame blocks versus baseline
+eight, but the largest call gap grew to 33.37 ms versus 19.4 ms. Bitwig graph
+ERR increased by 16; recorder ERR by one. The longest bridge call was 5.71 ms;
+29.44 ms of the largest entry gap lay outside the preceding bridge call.
 
-## Next changes, one at a time
+With Bitwig closed, the approved RealtimeKit permission was added and Bitwig
+restarted. Three playback samples showed no change: Bitwig data-loop.0, audio-1
+through audio-8, Audio Task workers and all eight PluginsThreadPo workers stayed
+TS. Per operator instruction, no second ten-minute run or export was attempted.
+The added talk permission was removed; other overrides and projects were preserved.
 
-1. Deck, no code: during playback, record thread policies and CPU for Bitwig's
-   engine, Bitwig's plug-in host, the Wine host and the supervisor:
-   `ps -eLo pid,tid,comm,cls,rtprio,pcpu | grep -iE 'bitwig|wf0-factory|wineserver|python'`
-   sampled a few times. Expect the plug-in host's audio thread to show TS/-.
-2. Deck, no code: set Bitwig's plug-in hosting mode to "Within Bitwig" for this
-   plug-in (same project, clip, editor open) and repeat the ten-minute capture.
-   Compare missing blocks and maximum entry spacing against 8 and 19.4 ms.
-3. Code, if 1 and 2 confirm: at the first process() call the proxy records the
-   caller's TID and the supervisor requests SCHED_RR for it through the existing
-   RealtimeKit path, at least as high as the render thread. Then re-test in
-   "Together" mode.
-4. If 2 does not remove the misses: run Buffered with 512 remembered frames to
-   take the vendor call off Bitwig's critical path, and compare again.
+## Most likely cause (about 70%)
 
-## Done
+Delay in Bitwig's remaining host dispatch/audio-engine path, whose sampled
+workers are still ordinary priority. Raising the actual bridge caller did not
+remove the problem, and the Flatpak permission alone changed no target policy.
 
-Ten clean minutes in the normal product configuration, then thirty, with the
-change that removed the misses named. Raw captures stay outside Git.
+## Doing next
 
-Source/SSH/Deck: Sol6.1 xhigh; GUI: Sol6.1 high; root orchestrates.
+Operator's Part B/C comparison is complete; no further experiment is running.
+The next proposed comparison is Buffered with 512 remembered frames, taking
+vendor processing off Bitwig's critical path. Await the operator's next task.
+Raw captures stay outside Git; gap-free musical use remains unfinished.
