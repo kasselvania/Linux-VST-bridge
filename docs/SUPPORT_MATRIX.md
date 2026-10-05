@@ -11,6 +11,13 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+The [paced priority comparison](../evidence/audio-recovery/2026-10-04-paced-priority-abort.md)
+remains **unqualified**: its first A/B pair retains five/four inside512-frame zero
+spans and seven/four active Bitwig ERR increments. B's post-window recording loss
+aborted the planned A/B/B/A; windows03/04 are unperformed. No priority cause or
+rate reduction is claimed. Policy restoration and retirement pass; kernel trace
+is staged but awaits user-local OS authentication with a fresh verified target.
+
 The subsequent [native continuous-source control](../evidence/audio-recovery/2026-10-04-native-tone-control.md)
 provides a positive native witness for its exact600.000626-second window: no active
 zero spans/graphERR, nominal recurrence below1e-5 and a single supplemental global
@@ -27,7 +34,7 @@ per-call512 N, a DAW/device deadline, or proof of bridge-origin gaps. SameCallba
 publication uses the frozen refresh5 engine through supported manual prepare/replace;
 all nine unselected published siblings/preferences and the original project remain
 exact. Normal stop/save/quit and retirement pass. Native continuous-source control
-and bounded priority/trace diagnostics remain separate pending evidence; engine-update
+and the aborted priority pair are separate retained evidence; trace remains pending. Engine-update
 UX, dependable continuity, thirty-minute interaction and longer soak remain open.
 
 The current audio-completion workstream implements explicit Buffered/SameCallback

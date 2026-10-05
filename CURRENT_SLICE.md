@@ -22,7 +22,7 @@ This does not authorize speculative scheduler repair or begin30minute interactio
 
 ## Frozen source and basis
 
-Base HEAD `064bcf0fa72ff995e2c5c69ffeba832ccdc88f22`, branch
+Evidence base HEAD `bb8bcb9ac4850369fef3e6cb70cb5e26f6b087c4`, branch
 `codex/audio-completion-contract`; PR207 stays draft. Frozen installed engine comes
 from `d970eda91be4bc972d38a0d4b107cc5f4ededa54`, tree
 `57a484beee1f28cb6d0df85f25977b458d64a1ff`, package `0.12.0refresh5deck`, engine
@@ -85,6 +85,16 @@ Read-only capability checks currently find installed perf/trace-cmd but root-onl
 tracefs and no sudo-n access. That explicit access gap is not resolved by elapsed
 time or a workaround. The frozen Completion SDK host has no pacing/worker-ready
 gate; actual paced Bitwig diagnostics cannot inherit its per-callback rows.
+
+The [first priority pair](evidence/audio-recovery/2026-10-04-paced-priority-abort.md)
+is retained as an aborted A/B/B/A experiment: A/B each captured180seconds, with
+five/four inside512-frame zero spans and seven/four active Bitwig ERR increments.
+B's recorder ended before the normal-stop marker; windows03/04 are unperformed.
+No priority-cause/rate-reduction claim follows. Native RR5 was restored and all
+test DSP owners retired, GUI/stream closed, exact selections/preferences/history
+and original project preserved. Trace is staged but unexecuted: user-local OS
+authentication and fresh stopped-session target verification are required. No
+live audio owner remains waiting for authentication.
 
 Current Bitwig native and Windows promotion succeeded, so scheduling repair requires
 a demonstrated defect. The historical outside-Flatpak SDK refusal reason remains

@@ -986,6 +986,14 @@ physical product result is claimed.
 
 ## FC-AUDIO-001 — Residual audio deadline misses
 
+The [paced priority pair](../evidence/audio-recovery/2026-10-04-paced-priority-abort.md)
+retains five/four inside512-frame zero spans and seven/four active Bitwig ERR
+increments under ordinary/RR5 native scheduling, with Windows RR5 unchanged.
+B's post-window recording loss triggered abort; windows03/04 are unperformed.
+This incomplete A/B/B/A assigns no priority cause or rate reduction. Native RR5
+restoration, normal retirement and exact preservation pass. Kernel trace is
+staged but blocked on user-local OS authentication and fresh target verification.
+
 The subsequent [native Test Tone control](../evidence/audio-recovery/2026-10-04-native-tone-control.md)
 retains600.000626seconds with no activezero/graphERR and no nominal recurrence
 exceedances. The original fixed1000Hz model fails; a separately labeled single
@@ -1008,8 +1016,8 @@ includes vendor DSP/wait and cannot establish isolated bridge overhead. Normal
 stop/save/quit and authenticated retirement pass; original project, predecessor,
 settings and nine unselected published siblings stay exact. The presumed Bitwig
 native-RT failure is not reproduced; historical outside-Flatpak SDK refusal reason
-remains unobserved. A positive native continuous-source control and separately
-reviewed user-authorized ordinary/RR scheduler diagnostics are next; no30minute
+remains unobserved. The positive native continuous-source control and aborted
+ordinary/RR priority pair are retained separately; trace remains pending. No30minute
 interaction, soak, scheduler repair or beta acceptance is claimed.
 
 The approved D-030 ordered-completion contract now passes the
