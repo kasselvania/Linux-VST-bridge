@@ -2,38 +2,34 @@
 
 ## Goal
 
-Pure LoFi plays in Bitwig on the Deck at 512 frames / 48 kHz, same-callback
-delivery, editor open, for ten minutes with no dropped cycle. Then thirty
-minutes with normal interaction.
+Pure LoFi plays in Bitwig on the Deck at 512 frames / 48 kHz, SameCallback,
+editor open, for ten minutes without a dropped cycle; then thirty minutes with
+normal interaction. Preserve projects, licensed state and the machine budget.
 
-## Symptom
+## Still broken
 
-Occasional dropouts of exactly one 512-frame cycle, each with a Bitwig graph
-error: nine in three minutes with the editor open, none seen in about 2.5
-minutes with it closed. Bitwig's native test tone is clean for ten minutes.
+The same-candidate three-minute editor-open and editor-closed comparisons each
+had three graph errors and three 512-frame stereo-zero observations. The latest
+closed scheduler capture failed early and the recorder had errors; its no-zero
+suffix is not a clean pass. The native continuous-tone control was clean after
+one global frequency fit.
 
-## Best current explanation (about 70%)
+## Best explanation (about 60%)
 
-One bridged call takes 3.9 ms typically and up to 8.4 ms of the 10.67 ms cycle.
-The calling thread sleeps while the Windows host processes the block, so the
-long "blocked" calls are most likely the Windows side running long. Bitwig's
-calling thread and the Wine server both run at ordinary priority, and the caller
-waits up to 2.9 ms for a CPU. With the editor competing in the same Wine
-process, some calls exceed the cycle.
+Windows processing plus ordinary-priority caller/Wine contention consumes time
+while the Linux SDK caller waits. Caller ready delays occasionally add milliseconds.
+The two longest measured calls have different runnable/sleeping composition; all
+covered calls remained below the nominal cycle, so editor load alone is not yet
+our explanation. We need the Windows processing time for those same calls.
 
-## Do next, in this order
+## First change
 
-The operator authorizes every change below. Use only the per-call timer for
-measurement: three minutes per run, count calls over 10.67 ms and dropped cycles.
+Reuse the existing Windows process_ns reply and correlate it with each native
+whole-call record. Add only bounded preallocated telemetry where that correlation
+is missing. Measure three minutes on the same saved device/clip, without a kernel
+trace. If Windows processing dominates, act on that side; if it is small, follow
+the bridge/Wine waiting time. Compare one change at a time and keep only changes
+that improve the musician's result. No measuring-tool repair project.
 
-1. Report the Windows host's own processing time for the same calls, to split
-   the 3.9 ms into vendor DSP and everything around it.
-2. Run as-is, then with the Wine server at realtime priority. Compare.
-3. Run editor open, then editor closed. Compare.
-4. Find out why Bitwig's plug-in thread is not realtime inside the Flatpak, and
-   fix it or document the setup step.
-5. Keep whichever changes remove the dropouts, revert the rest, and rerun the
-   ten-minute goal.
-
-If the Windows processing time in step 1 is small, the delay is in the bridge or
-Wine layer: follow that instead and say so.
+Execution/source/SSH/Deck: Sol6.1 xhigh; GUI: Sol6.1 high; root orchestrates.
+Landing work uses a separate owned worktree. Raw diagnostics stay outside Git.
