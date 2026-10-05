@@ -1,37 +1,44 @@
-# Current task: stop the audio dropouts
+# Current task: direct audio completion
 
 ## Goal
 
 Pure LoFi plays in Bitwig on the Deck at 512 frames / 48 kHz, SameCallback,
-editor open, for ten minutes without a dropped cycle; then thirty minutes with
-normal interaction. Preserve projects, licensed state and the machine budget.
+editor open, for ten minutes without a dropped cycle, then thirty minutes with
+normal interaction. Preserve projects, licensed state and machine headroom.
 
 ## Works now
 
-Every native call can be paired with its Windows/vendor SDK call elapsed time.
-The three-minute baseline retained all 16,875 pairs: typical whole call 3.18 ms,
-Windows/vendor call 2.55 ms, remainder 0.64 ms. Vendor elapsed includes waits.
+Whole native calls retain correlated Windows/vendor process-call time. Typical
+baseline time was 3.18 ms whole / 2.55 ms inside Windows, not pure DSP CPU time.
 
 ## Still broken
 
-Earlier matched open and closed sessions each had three graph errors and three
-silent 512-frame spans. The new baseline had one of each. Temporary Wine-server
-and actual-caller realtime priority each left two of each; both were restored.
-The earlier truncated recording with recorder errors was not a clean pass.
+Matched editor-open and editor-closed runs each had three graph errors and three
+silent blocks. Wine-server priority, caller priority and in-process hosting did
+not remove drops. Priorities and Together/Auto 512 preferences are restored;
+the interrupted 1024 comparison was never played.
 
 ## Best explanation (about 70%)
 
-Late host-to-plug-in admission or process handoff, rather than thread priority
-alone. The caller-priority trial still had an 18.74 ms arrival interval, including
-16.09 ms outside the preceding measured call. Typical vendor cost is not blame.
+The synchronous audio dependency crosses a native relay and TCP notification
+pump and can service state parsing/hash/snapshot work before inspecting an audio
+reply. This structure adds contention even when vendor processing is bounded.
 
-## Next change
+## Next changes
 
-Compare the same saved device/clip with Bitwig's hosting setting changed from
-Together to with Bitwig. The proxy now loads in BitwigAudioEngine rather than
-BitwigPluginHost. Keep build, runner, rate/block and priorities fixed; restore the
-backed-up preference if drops persist. If improved, continue to the ten-minute
-editor-open check, then normal interaction. No kernel-trace repair campaign.
+First prove an original, product-built shared-futex adapter on the selected
+Wine/Linux x86-64 runner. Then give the prepared native callback and actual
+Windows render thread their own AUDIO request/completion slot and direct wake.
+Keep control/state processing outside their completion dependency. An off-path
+watcher must wake both waiters on death/cancel; expiry never releases host-owned
+storage. Keep legal lifecycle, state round trips and exact epoch/ticket bounds.
 
-Execution/source/SSH/Deck: Sol6.1 xhigh; GUI: Sol6.1 high; root orchestrates.
-Landing uses a separate worktree. Raw diagnostics stay outside Git.
+## Done
+
+Focused audio/control-overlap, cancellation, expiry and retirement checks pass.
+The paired installed build preserves output/state, then passes the editor-open
+512/48k checks above with actual output and graph counters. N/Fs is cadence
+context; it is not a fabricated device deadline. Old build stays available for
+comparison/rollback. No runner, priority, manager or licensed-state expansion.
+
+Source/SSH/Deck: Sol6.1 xhigh; GUI: Sol6.1 high; root orchestrates.
