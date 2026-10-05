@@ -1,6 +1,11 @@
 name: Direct audio helper
 on:
   workflow_dispatch:
+  push:
+    branches: [codex/direct-audio-handoff]
+    paths:
+      - 'tools/direct-audio-handoff/**'
+      - '.github/workflows/direct-audio-helper.yml'
   pull_request:
     paths:
       - 'tools/direct-audio-handoff/**'
