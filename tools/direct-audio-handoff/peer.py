@@ -40,8 +40,11 @@ def run(path):
                     raise RuntimeError('native-to-Wine sleeping-wait proof failed')
                 wine_wakes += woke
                 deadline = time.monotonic_ns() + 3000000000
-                while words[1] != ticket:
-                    if words[1] != ticket - 1 or time.monotonic_ns() >= deadline:
+                while True:
+                    observed = words[1]
+                    if observed == ticket:
+                        break
+                    if observed != ticket - 1 or time.monotonic_ns() >= deadline:
                         raise RuntimeError('native reply ticket/deadline refusal')
                     result = futex(1, 9, ticket - 1, deadline)
                     if result not in (0, -11, -4):
