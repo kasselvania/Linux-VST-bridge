@@ -6,30 +6,32 @@ Pure LoFi plays in Bitwig on the Deck at 512 frames / 48 kHz, SameCallback,
 editor open, for ten minutes without a dropped cycle; then thirty minutes with
 normal interaction. Preserve projects, licensed state and the machine budget.
 
+## Works now
+
+Every native call can be paired with its Windows/vendor SDK call elapsed time.
+The three-minute baseline retained all 16,875 pairs: typical whole call 3.18 ms,
+Windows/vendor call 2.55 ms, remainder 0.64 ms. Vendor elapsed includes waits.
+
 ## Still broken
 
-The same-candidate three-minute editor-open and editor-closed comparisons each
-had three graph errors and three 512-frame stereo-zero observations. The latest
-closed scheduler capture failed early and the recorder had errors; its no-zero
-suffix is not a clean pass. The native continuous-tone control was clean after
-one global frequency fit.
+Earlier matched open and closed sessions each had three graph errors and three
+silent 512-frame spans. The new baseline had one of each. Temporary Wine-server
+and actual-caller realtime priority each left two of each; both were restored.
+The earlier truncated recording with recorder errors was not a clean pass.
 
-## Best explanation (about 60%)
+## Best explanation (about 70%)
 
-Windows processing plus ordinary-priority caller/Wine contention consumes time
-while the Linux SDK caller waits. Caller ready delays occasionally add milliseconds.
-The two longest measured calls have different runnable/sleeping composition; all
-covered calls remained below the nominal cycle, so editor load alone is not yet
-our explanation. We need the Windows processing time for those same calls.
+Late host-to-plug-in admission or process handoff, rather than thread priority
+alone. The caller-priority trial still had an 18.74 ms arrival interval, including
+16.09 ms outside the preceding measured call. Typical vendor cost is not blame.
 
-## First change
+## Next change
 
-Reuse the existing Windows process_ns reply and correlate it with each native
-whole-call record. Add only bounded preallocated telemetry where that correlation
-is missing. Measure three minutes on the same saved device/clip, without a kernel
-trace. If Windows processing dominates, act on that side; if it is small, follow
-the bridge/Wine waiting time. Compare one change at a time and keep only changes
-that improve the musician's result. No measuring-tool repair project.
+Compare the same saved device/clip with Bitwig's hosting setting changed from
+Together to with Bitwig. The proxy now loads in BitwigAudioEngine rather than
+BitwigPluginHost. Keep build, runner, rate/block and priorities fixed; restore the
+backed-up preference if drops persist. If improved, continue to the ten-minute
+editor-open check, then normal interaction. No kernel-trace repair campaign.
 
 Execution/source/SSH/Deck: Sol6.1 xhigh; GUI: Sol6.1 high; root orchestrates.
-Landing work uses a separate owned worktree. Raw diagnostics stay outside Git.
+Landing uses a separate worktree. Raw diagnostics stay outside Git.
