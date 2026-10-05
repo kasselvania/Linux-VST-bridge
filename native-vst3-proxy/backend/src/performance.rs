@@ -40,7 +40,8 @@ pub(crate) fn valid_process_mode(configured: u32, actual: u32) -> bool {
     matches!((configured, actual), (0 | 1, 0 | 1) | (2, 2))
 }
 pub(crate) const OFFLINE_ALLOWANCE: Duration = Duration::from_secs(60);
-pub(crate) const FLUSH_ALLOWANCE: Duration = Duration::from_millis(1);
+// Host-health containment, not an observed device/DAW graph deadline.
+pub(crate) const AUDIO_CONTAINMENT: Duration = Duration::from_secs(5);
 pub(crate) const INTERRUPT_INTERVAL: Duration = Duration::from_millis(4);
 #[derive(Clone, Copy)]
 pub(crate) struct CompletionPolicy {
@@ -50,12 +51,10 @@ pub(crate) struct CompletionPolicy {
     pub(crate) offline: bool,
 }
 impl CompletionPolicy {
-    pub(crate) fn new(mode: u32, delivery: DeliveryMode, n: usize, rate: f64,
+    pub(crate) fn new(mode: u32, delivery: DeliveryMode, n: usize,
         entered_ns: u64, now_ns: u64, now: Instant) -> Self {
         let offline = mode == 2;
-        let allowance = if offline { OFFLINE_ALLOWANCE }
-            else if n == 0 { FLUSH_ALLOWANCE }
-            else { Duration::from_nanos((n as f64 * 1_000_000_000. / rate) as u64) };
+        let allowance = if offline { OFFLINE_ALLOWANCE } else { AUDIO_CONTAINMENT };
         let elapsed = if entered_ns == 0 || now_ns == 0 { Duration::ZERO }
             else { Duration::from_nanos(now_ns.saturating_sub(entered_ns)) };
         Self { allowance, deadline: now + allowance.saturating_sub(elapsed),
@@ -303,15 +302,15 @@ mod tests {
         }
         assert!(valid_process_mode(2, 2)); assert!(!valid_process_mode(2, 0));
         let now = Instant::now();
-        let realtime = CompletionPolicy::new(0, DeliveryMode::SameCallback, 48, 48000.,
+        let realtime = CompletionPolicy::new(0, DeliveryMode::SameCallback, 48,
             1_000_000, 1_750_000, now);
-        assert_eq!(realtime.deadline.duration_since(now), Duration::from_micros(250));
-        let expired = CompletionPolicy::new(1, DeliveryMode::SameCallback, 48, 48000.,
-            1_000_000, 3_000_000, now);
+        assert_eq!(realtime.deadline.duration_since(now), AUDIO_CONTAINMENT-Duration::from_micros(750));
+        let expired = CompletionPolicy::new(1, DeliveryMode::SameCallback, 48,
+            1_000_000, 5_001_000_000, now);
         assert_eq!(expired.deadline, now);
-        let zero = CompletionPolicy::new(0, DeliveryMode::Buffered, 0, 48000., 0, 0, now);
-        assert!(zero.exact); assert_eq!(zero.deadline.duration_since(now), FLUSH_ALLOWANCE);
-        let offline = CompletionPolicy::new(2, DeliveryMode::Buffered, 1, 192000., 0, 0, now);
+        let zero = CompletionPolicy::new(0, DeliveryMode::Buffered, 0, 0, 0, now);
+        assert!(zero.exact); assert_eq!(zero.deadline.duration_since(now), AUDIO_CONTAINMENT);
+        let offline = CompletionPolicy::new(2, DeliveryMode::Buffered, 1, 0, 0, now);
         assert!(offline.exact && offline.offline);
         assert_eq!(offline.deadline.duration_since(now), OFFLINE_ALLOWANCE);
     }

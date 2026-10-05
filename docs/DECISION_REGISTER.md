@@ -425,3 +425,37 @@ Select only after Serum reveals which architectural assumptions need counter-pre
 **Successor consequence:** This bounded acceptance satisfies D-026's prerequisite for considering product-capability work, while its ergonomics and invalidation rules remain binding. Current DX0 source/basis/ref guards and its proof plan are still specific: an arbitrary successor does not already execute unchanged. A successor must bind its authorized source and focused plan while reusing these owners; it must not recreate manual build/custody/SSH choreography or rebuild unchanged artifacts for renderer-only fixes. No successor is selected here.
 
 **Claim ceiling:** DX0 adds no VST3 capability, audio processing, buses, parameters, state, controller/connection, GUI/editor, native proxy, C ABI, IPC, Bitwig or Serum operation, packaging, signing, immutable hosted runner, release suitability, or general compatibility. The accepted product frontier remains WA0.
+
+
+### D-030 — Ordered audio completion under independent host-health containment
+
+**Decision:** On 2026-10-04 the operator explicitly approved the reviewed
+[bounded completion proposal](../evidence/audio-recovery/2026-10-04-short-completion-proposal.md),
+SHA-256 `a705d01d95b942931703b4d50ff28cdefe7c00d4780f1f2644ee9ffec7b77935`.
+This replaces architecture 18.4's realtime/prefetch N/Fs and N0 1-ms cutoffs and
+its prohibition on synchronous use of the existing AUDIO five-second ceiling.
+Approval accepts the possible seconds-long DAW-thread stall at failure; it does
+not qualify audio timing or establish an external device/graph deadline.
+
+**Shared contract:** One originating callback-entry absolute five-second AUDIO
+containment expiry for realtime/prefetch, retained by every admitted request after
+Buffered return. Earlier queued predecessor bounds never renew. D0 and N0 require
+exact ordered completion; Buffered nonzero requires complete due audio/events/
+parameter results despite admitted control. Rendering, validation/publication,
+presentation and final SDK sinks share the origin. Death/cancellation may fail
+sooner; reject late admission/output/success and retain custody until retirement.
+The requested expiry cannot preempt descheduling, vendor process(), or SDK sinks;
+when control returns after expiry, refuse success. Offline60, exclusive restoration,
+epoch/identity, terminal posture and ownership contracts remain intact.
+
+**Implementation pairing:** Mandatory final SDK completion checks advance the ap23
+C ABI from 1 to 2 and native initialization refuses mismatches. IPC15, descriptor,
+profile, mailbox and notification axes are unchanged. Static paired artifacts and
+normal managed update remain the delivery path.
+
+**Evidence and claim ceiling:** The retained refresh4 physical failures and
+[test-only discrimination](../evidence/audio-recovery/2026-10-04-short-completion-discrimination.json)
+remain historical observations. Approval authorizes implementation and frozen
+installed comparisons, not acceptance inferred from tests. No special N13/plugin
+rule, arbitrary budget increase, native RT privilege change, real-time/DAW/soak,
+recovery-matrix or beta claim follows. Source and installed evidence are separate.

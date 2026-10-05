@@ -1,6 +1,6 @@
 #pragma once
 #include "ap10_backend.h"
-// Audio completion C ABI v1. SDK objects/pointers do not cross this boundary;
+// Audio completion C ABI v2. SDK objects/pointers do not cross this boundary;
 // only the existing bounded borrowed planar/event spans and explicit mode do.
 extern "C" {
 struct ap23_phase_trace_t {
@@ -52,9 +52,14 @@ uint32_t ap23_process_outputs_trace(uint64_t,uint32_t,uint32_t,const ap8_event_t
  uint64_t*,ap7_delivery_t*,uint64_t,ap23_phase_trace_t*);
 uint32_t ap23_cancel(uint64_t);
 uint32_t ap23_deadline_failed(uint64_t);
+// Consume the originating processing call's policy after all SDK result sinks.
+// Refuses missing/reused policy, cancellation, fault or expired completion.
+uint32_t ap23_finish_callback(uint64_t);
 uint32_t ap23_abi_version();
 }
 namespace AP23 {
+inline constexpr uint32_t abi_version=2;
+inline constexpr bool compatibleAbi(uint32_t version) { return version==abi_version; }
 inline constexpr uint32_t deadline_expired=0x108, cancelled=0x109, mode_refused=0x10A;
 inline constexpr uint32_t phase_trace_schema=1, phase_trace_capacity=128;
 inline constexpr uint64_t phase_cpp_entry=1ull<<0, phase_rust_entry=1ull<<1,

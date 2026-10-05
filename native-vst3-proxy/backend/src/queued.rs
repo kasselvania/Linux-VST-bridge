@@ -288,6 +288,10 @@ struct Shared {
     #[cfg(test)]
     publication_held_ticket: AtomicU64,
     #[cfg(test)]
+    final_publication_hold_ticket: AtomicU64,
+    #[cfg(test)]
+    final_publication_held_ticket: AtomicU64,
+    #[cfg(test)]
     pending_start_wakes: AtomicU64,
     #[cfg(test)]
     pending_start_control_fences: AtomicU64,
@@ -365,6 +369,10 @@ impl Shared {
             publication_hold_ticket: AtomicU64::new(0),
             #[cfg(test)]
             publication_held_ticket: AtomicU64::new(0),
+            #[cfg(test)]
+            final_publication_hold_ticket: AtomicU64::new(0),
+            #[cfg(test)]
+            final_publication_held_ticket: AtomicU64::new(0),
             #[cfg(test)]
             pending_start_wakes: AtomicU64::new(0),
             #[cfg(test)]
@@ -494,8 +502,8 @@ fn pending_start_wait_after_snapshot(s: &Shared, observed: u32) -> io::Result<u3
     Ok(observed)
 }
 fn audio_transport_deadline(item: &Item, now: Instant) -> Instant {
-    item.completion.filter(|policy| policy.offline)
-        .map_or_else(|| now + Duration::from_secs(5), |policy| policy.deadline)
+    item.completion.map_or_else(|| now + crate::performance::AUDIO_CONTAINMENT,
+        |policy| policy.deadline)
 }
 // Both normal owner service and an admitted read-only capture finish here.
 // This is transport-worker code, never a DAW callback. Capture completion can
@@ -600,6 +608,9 @@ impl PresentationGaps {
     }
 }
 struct Callback {
+    // One originating call policy remains owned through final SDK sink work.
+    // Each queued Item owns its copy after Buffered presentation returns.
+    completion_policy: Option<crate::performance::CompletionPolicy>,
     completion_waits: u64,
     completion_wait_misses: u64,
     callback_ns_max: u64,
@@ -630,6 +641,7 @@ struct Callback {
 impl Callback {
     fn new() -> Self {
         Self {
+            completion_policy: None,
             completion_waits: 0,
             completion_wait_misses: 0,
             callback_ns_max: 0,
@@ -703,6 +715,7 @@ impl Callback {
         next
     }
     fn transition(&mut self, s: &Shared, op: u32) -> u32 {
+        self.completion_policy = None;
         if s.fault.load(Ordering::Acquire) != 0 {
             return 2;
         }
@@ -772,7 +785,7 @@ impl Callback {
             return Err(COMPLETION_CANCELLED);
         }
         let exact = request.completion.is_some_and(|policy| policy.exact);
-        if exact && deadline.is_some_and(|end| Instant::now() >= end) {
+        if request.completion.is_some() && deadline.is_some_and(|end| Instant::now() >= end) {
             s.fail_deadline(self.position, self.deadline_identity(s, false));
             return Err(COMPLETION_EXPIRED);
         }
@@ -839,7 +852,7 @@ impl Callback {
                 let Some(until) = deadline else { break None; };
                 let satisfied = if exact { self.completed_operation >= request.ticket }
                     else { n == 0 || self.next_result >= required_end };
-                if satisfied || (!exact && s.pending_control.load(Ordering::Acquire))
+                if satisfied || (request.completion.is_none() && !exact && s.pending_control.load(Ordering::Acquire))
                     || s.fault.load(Ordering::Acquire) != 0
                     || s.terminal_latched.load(Ordering::Acquire)
                     || s.quit.load(Ordering::Acquire)
@@ -919,7 +932,10 @@ impl Callback {
             });
             t.phase_reached |= PHASE_PREDICATE_AFTER;
         }
-        if exact && self.completed_operation < request.ticket {
+        let unsatisfied = if exact { self.completed_operation < request.ticket }
+            else { self.next_result < required_end };
+        if request.completion.is_some() && (unsatisfied
+            || deadline.is_some_and(|end| Instant::now() >= end)) {
             s.fail_deadline(self.position, self.deadline_identity(s, true));
             return Err(COMPLETION_EXPIRED);
         }
@@ -937,8 +953,9 @@ impl Callback {
             }
             let expected = position - self.delay;
             if self.audio.is_empty() {
-                // The buffer is filled successfully, with a counted
-                // missing presentation span. Continue the same epoch.
+                // Retain the gap observation and failure output. Modern
+                // ordered completion cannot report successful missing spans;
+                // legacy policy keeps its previously declared counted silence.
                 let count = n - i;
                 self.gaps.record(s, self.epoch, expected, count as u64, request.parent);
                 for plane in out.iter_mut() {
@@ -958,6 +975,10 @@ impl Callback {
                 self.delivery.missing_frames += count as u64;
                 self.delivery.gaps += u64::from(!self.in_gap);
                 self.in_gap = true;
+                if request.completion.is_some() {
+                    s.fail(CORRELATION, position);
+                    return Err(2);
+                }
                 break;
             }
             self.delivery.expired_frames += self.audio.discard_before(expected);
@@ -1297,6 +1318,15 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                     let capture_context = [s.generation,session.epoch,session.state.next,
                         session.position,u64::from(session.phase)];
                     let deadline = audio_transport_deadline(&item, Instant::now());
+                    let deadline_identity = DeadlineIdentity {
+                        generation: s.generation, epoch: item.epoch,
+                        position: item.position, host_call: item.parent[0],
+                        operation_ticket: item.ticket, operation_submitted: true,
+                    };
+                    if Instant::now() >= deadline {
+                        s.fail_deadline(item.position, deadline_identity);
+                        return Err(invalid("originating audio containment expired before worker service"));
+                    }
                     let mut capture_completed = |result| {
                             let mut mailbox = s.control.lock().map_err(|_| invalid("state mailbox poisoned"))?;
                             let c = mailbox.as_mut().ok_or_else(|| invalid("admitted capture owner absent"))?;
@@ -1308,7 +1338,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                     let cancelled = || s.cancelled.load(Ordering::Acquire)
                         || s.quit.load(Ordering::Acquire)
                         || s.fault.load(Ordering::Acquire) != 0;
-                    let (words, flags) = if let Some(pending) = pending_start {
+                    let processed = if let Some(pending) = pending_start {
                         let pending = pending.bounded_by(deadline);
                         session.process_positioned_pending_start(
                             pending, n, item.gain, item.flags,
@@ -1321,7 +1351,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                                 phases.record(&s, "processing_ready", pending.epoch);
                                 s.ack.store((pending.epoch << 8) | u64::from(START + 1), Ordering::Release);
                             },
-                        )?
+                        )
                     } else {
                         session.process_positioned(
                             n, item.gain, item.flags,
@@ -1329,8 +1359,12 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                             (item.epoch, item.position),
                             &item.events[..item.event_count as usize], item.context,
                             item.process_mode, deadline, cancelled, &mut capture_completed,
-                        )?
+                        )
                     };
+                    if item.completion.is_some() && !cancelled() && Instant::now() >= deadline {
+                        s.fail_deadline(item.position, deadline_identity);
+                    }
+                    let (words, flags) = processed?;
                     #[cfg(test)]
                     if item.ticket != 0 && s.publication_hold_ticket.load(Ordering::Acquire) == item.ticket {
                         assert!(session.trace.validated.is_some());
@@ -1371,6 +1405,28 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                                 .ok_or_else(||invalid("extra output capacity"))?;
                             completion.audio.extra_slot=slot;
                         }
+                    }
+                    #[cfg(test)]
+                    if item.ticket != 0 && s.final_publication_hold_ticket.load(Ordering::Acquire) == item.ticket {
+                        assert!(session.trace.validated.is_some());
+                        s.final_publication_held_ticket.store(item.ticket, Ordering::Release);
+                        let until = Instant::now() + Duration::from_secs(3);
+                        while s.final_publication_hold_ticket.load(Ordering::Acquire) == item.ticket
+                            && !cancelled() {
+                            assert!(Instant::now() < until, "test final publication hold was not released");
+                            thread::yield_now();
+                        }
+                    }
+                    // The owned completion and any extra slot are fully prepared.
+                    // Check at publication, not before the intervening copy work.
+                    if cancelled() {
+                        s.release_output(&completion.audio);
+                        return Err(invalid("audio completion cancelled before publication"));
+                    }
+                    if item.completion.is_some() && Instant::now() >= deadline {
+                        s.release_output(&completion.audio);
+                        s.fail_deadline(item.position, deadline_identity);
+                        return Err(invalid("originating audio containment expired before result publication"));
                     }
                     let published = if publish { s.publish_result(completion) } else { None };
                     if publish && published.is_none() {
@@ -2453,6 +2509,7 @@ unsafe fn process_events_traced(
     let result = process_events_guarded(&l,callback_entered,n,gain,flags,left,right,out_left,out_right,out_flags,
         delivery,events,context,detailed,entered_ns,contain_terminal,extra,actual_mode,
         trace.as_deref_mut());
+    if result != 0 { (*l.callback.get()).completion_policy = None; }
     if let Some(t) = trace {
         t.backend_result = result;
         t.phase_reached |= PHASE_BACKEND_RESULT;
@@ -2484,6 +2541,7 @@ unsafe fn process_events_guarded(
     actual_mode: Option<u32>,
     mut trace: Option<&mut PhaseTrace>,
 ) -> u32 {
+    (*l.callback.get()).completion_policy = None;
     let n = n as usize;
     if extra.len()>62 || (n>0 && extra.len()!=l.shared.extra.get().map_or(0,|p|p.channels)) {
         return if detailed {0x101} else {1};
@@ -2535,11 +2593,9 @@ unsafe fn process_events_guarded(
         return if exact { 2 } else { CONTAINED_TERMINAL };
     }
     let whole_block = crate::performance::whole_block(l.minor);
-    // Prepared whole-block delivery has one local completion budget for this
-    // entire host call, including validation and all subblocks. N is actual
-    // frames; rate and delivery come only from inactive preparation. Exact
-    // zero-frame flushes have their own finite allowance; offline work has a
-    // separate shared operation deadline. Legacy/ARM retain their policy.
+    // One original callback-entry containment bound includes all ordered debt
+    // and presentation. It is independent of actual N, maximum M and Fs.
+    // Offline remains separate; legacy/ARM retain their existing policy.
     // Sample Instant before CLOCK_MONOTONIC, so a scheduling interruption
     // between reads can shorten the remaining wait, never renew the allowance.
     let phase_budget_before_ns = trace.as_ref().map(|_| crate::observer::monotonic_ns());
@@ -2547,11 +2603,11 @@ unsafe fn process_events_guarded(
     let budget_now_ns = crate::observer::monotonic_ns();
     let phase_budget_after_ns = trace.as_ref().map(|_| crate::observer::monotonic_ns());
     let completion = if whole_block {
-        l.setup.as_ref().map(|setup| crate::performance::CompletionPolicy::new(
-            mode, l.delivery_mode, n,
-            f64::from_le_bytes(setup[8..16].try_into().unwrap()), entered_ns,
+        l.setup.as_ref().map(|_| crate::performance::CompletionPolicy::new(
+            mode, l.delivery_mode, n, entered_ns,
             budget_now_ns, budget_now))
     } else { None };
+    (*l.callback.get()).completion_policy = completion;
     let completion_deadline = completion.map(|p| p.deadline);
     if let (Some(t), Some(policy)) = (trace.as_deref_mut(), completion) {
         t.frames = n as u64;
@@ -2674,7 +2730,7 @@ unsafe fn process_events_guarded(
     }
     // The result and local presentation must finish within the original entry
     // allowance. A result racing the timeout cannot authorize late success.
-    if completion.is_some_and(|policy| policy.exact && Instant::now() >= policy.deadline) {
+    if completion.is_some_and(|policy| Instant::now() >= policy.deadline) {
         let callback = &*l.callback.get();
         l.shared.fail_deadline(
             callback.position,
@@ -2774,6 +2830,27 @@ pub extern "C" fn ap23_deadline_failed(id: u64) -> u32 {
         l.shared.worker_position.load(Ordering::Acquire),
         callback.deadline_identity(&l.shared, callback.last_operation_ticket != 0),
     );
+    0
+}
+// Mandatory C ABI v2 final check, after the SDK sinks return. The C++ instance
+// guard spans processing and this check; it cannot finish another call's policy.
+#[no_mangle]
+pub extern "C" fn ap23_finish_callback(id: u64) -> u32 {
+    let Some(l) = INSTANCES.lease(id) else { return 1; };
+    let Some(_guard) = Guard::acquire(&l) else { return 3; };
+    let callback = unsafe { &mut *l.callback.get() };
+    let policy = callback.completion_policy.take();
+    if l.shared.cancelled.load(Ordering::Acquire) || l.shared.quit.load(Ordering::Acquire) {
+        return COMPLETION_CANCELLED;
+    }
+    if l.shared.fault.load(Ordering::Acquire) != 0 || l.shared.terminal_latched.load(Ordering::Acquire) {
+        return 2;
+    }
+    let Some(policy) = policy else { return 1; };
+    if Instant::now() >= policy.deadline {
+        l.shared.fail_deadline(callback.position, callback.deadline_identity(&l.shared, true));
+        return COMPLETION_EXPIRED;
+    }
     0
 }
 unsafe fn close_instance(id: u64, contain_terminal: bool) -> u32 {
@@ -3128,7 +3205,7 @@ pub unsafe extern "C" fn ap19_process_outputs(
         events,*context,true,entered_ns,true,&outputs[2..],None)
 }
 #[no_mangle]
-pub extern "C" fn ap23_abi_version() -> u32 { 1 }
+pub extern "C" fn ap23_abi_version() -> u32 { 2 }
 #[no_mangle]
 pub unsafe extern "C" fn ap23_phase_trace_enabled(id: u64, out: *mut u32) -> u32 {
     if out.is_null() { return 0x101; }
@@ -3342,7 +3419,7 @@ mod tests {
             .unwrap_err().to_string(), "pending Start cancelled");
     }
     #[test]
-    fn buffered_nonzero_local_deadline_does_not_shorten_worker_transport() {
+    fn buffered_work_keeps_its_originating_absolute_containment_bound() {
         let now = Instant::now();
         let local_deadline = now - Duration::from_nanos(1);
         let mut item = Item::control(AUDIO, 1);
@@ -3354,7 +3431,7 @@ mod tests {
             offline: false,
         });
         let transport = audio_transport_deadline(&item, now);
-        assert_eq!(transport, now + Duration::from_secs(5));
+        assert_eq!(transport, local_deadline);
         let pending = crate::PendingStart {
             session: [0; 16],
             sequence: 1,
@@ -3362,8 +3439,7 @@ mod tests {
             receive_deadline: now + Duration::from_secs(10),
         }
         .bounded_by(transport);
-        assert_eq!(pending.receive_deadline, transport);
-        assert!(pending.receive_deadline > local_deadline);
+        assert_eq!(pending.receive_deadline, local_deadline);
     }
     fn control_live(shared: Arc<Shared>) -> u64 {
         INSTANCES.insert(|| Ok::<_, ()>(Live {
@@ -3574,20 +3650,74 @@ mod tests {
         let _registry_owner = crate::registry_test();
         let shared = Arc::new(Shared::new());
         shared.state_capable.store(true, Ordering::Release);
-        let id = prepared_live(shared.clone(), 256, 0, crate::performance::DeliveryMode::Buffered);
-        let mut dummy = 0.; let mut flags = 9; let planes = [std::ptr::addr_of_mut!(dummy); 2];
-        let started = Instant::now();
-        let (result, allocations) = crate::allocation_test::measure(|| unsafe {
-            ap23_process_outputs(id, 0, 1, std::ptr::null(), 0,
-                &crate::context::Context::default(), 0, &dummy, &dummy, planes.as_ptr(),
-                2, &mut flags, std::ptr::null_mut(), 0)
-        });
-        let elapsed = started.elapsed();
-        let request = shared.requests.pop().unwrap();
-        assert_eq!((request.ticket, request.n, request.position), (1, 0, 0));
-        assert_eq!(result, COMPLETION_EXPIRED); assert_eq!(allocations, [0; 3]);
+        let mut callback = Callback::new(); callback.prepare(256, 2, 256);
+        callback.running = true; callback.epoch = 1;
+        let mut request = Item::control(AUDIO, 1);
+        let now = Instant::now();
+        let mut policy = crate::performance::CompletionPolicy::new(0,
+            crate::performance::DeliveryMode::Buffered, 0, 0, 0, now);
+        // Inject an expired absolute bound; production uses the full 5s ceiling.
+        policy.deadline = now - Duration::from_nanos(1); request.completion = Some(policy);
+        let (result, allocations) = crate::allocation_test::measure(||
+            callback.process_outputs_until(&shared, request, &mut [[0.; CAP]; 2], &[], 0,
+                Some(policy.deadline)));
+        assert!(shared.requests.pop().is_none(), "expired call cannot admit new work");
+        assert_eq!(result, Err(COMPLETION_EXPIRED)); assert_eq!(allocations, [0; 3]);
         assert_eq!(shared.fault.load(Ordering::Acquire), COMPLETION_DEADLINE);
-        assert_eq!(flags, 9); assert!(elapsed < Duration::from_millis(100));
+    }
+    #[test]
+    fn final_sdk_check_consumes_the_same_queued_policy_and_refuses_stale_calls() {
+        let _registry_owner = crate::registry_test();
+        assert_eq!(ap23_abi_version(), 2);
+        for mode in [crate::performance::DeliveryMode::SameCallback,
+            crate::performance::DeliveryMode::Buffered] {
+            let shared = Arc::new(Shared::new());
+            shared.state_capable.store(true, Ordering::Release);
+            let id = prepared_live(shared.clone(), 256, 0, mode);
+            assert_eq!(ap23_finish_callback(id), 1, "no originating call exists");
+            let mut result = Item::control(AUDIO, 1); result.ticket = 1;
+            assert!(shared.publish_result(Completion::from(result)).is_some());
+            let mut dummy = 0.; let planes = [std::ptr::addr_of_mut!(dummy); 2]; let mut flags = 9;
+            unsafe { assert_eq!(ap23_process_outputs(id, 0, 0, std::ptr::null(), 0,
+                &crate::context::Context::default(), 0, &dummy, &dummy, planes.as_ptr(),
+                2, &mut flags, std::ptr::null_mut(), 0), 0); }
+            let request = shared.requests.pop().unwrap();
+            let l = INSTANCES.lease(id).unwrap();
+            let callback = unsafe { &*l.callback.get() };
+            assert_eq!(callback.completion_policy.unwrap().deadline,
+                request.completion.unwrap().deadline);
+            drop(l);
+            let (finish, allocations) = crate::allocation_test::measure(|| ap23_finish_callback(id));
+            assert_eq!(finish, 0); assert_eq!(allocations, [0; 3]);
+            assert_eq!(ap23_finish_callback(id), 1, "success cannot reuse consumed policy");
+            unsafe { assert_eq!(ap23_process_outputs(id, 257, 0, std::ptr::null(), 0,
+                &crate::context::Context::default(), 0, &dummy, &dummy, planes.as_ptr(),
+                2, &mut flags, std::ptr::null_mut(), 0), 0x101); }
+            assert_eq!(ap23_finish_callback(id), 1, "failed new call clears old policy");
+            INSTANCES.remove(id, |_| ()).unwrap();
+        }
+    }
+    #[test]
+    fn buffered_final_sdk_sink_crossing_original_five_second_bound_refuses_success() {
+        let _registry_owner = crate::registry_test();
+        let shared = Arc::new(Shared::new()); shared.state_capable.store(true, Ordering::Release);
+        let id = prepared_live(shared.clone(), 256, 0, crate::performance::DeliveryMode::Buffered);
+        let input = [0.; 64]; let mut output = [[0.; 64]; 2];
+        let planes = [output[0].as_mut_ptr(), output[1].as_mut_ptr()]; let mut flags = 9;
+        unsafe { assert_eq!(ap23_process_outputs(id, 64, 0, std::ptr::null(), 0,
+            &crate::context::Context::default(), 3, input.as_ptr(), input.as_ptr(),
+            planes.as_ptr(), 2, &mut flags, std::ptr::null_mut(), 0), 0); }
+        let request = shared.requests.pop().unwrap(); let policy = request.completion.unwrap();
+        assert_eq!(policy.allowance, crate::performance::AUDIO_CONTAINMENT);
+        // Model a host SDK sink that returns after the real original bound.
+        // The bridge cannot preempt that sink, but must refuse subsequent success.
+        thread::sleep(policy.deadline.saturating_duration_since(Instant::now())
+            + Duration::from_millis(1));
+        let (finish, allocations) = crate::allocation_test::measure(|| ap23_finish_callback(id));
+        assert_eq!(finish, COMPLETION_EXPIRED); assert_eq!(allocations, [0; 3]);
+        assert_eq!(shared.fault.load(Ordering::Acquire), COMPLETION_DEADLINE);
+        assert_eq!(shared.first_requests[0].load(Ordering::Acquire), 2, "START and AUDIO were published");
+        assert_eq!(ap23_finish_callback(id), 2, "first expiry remains primary");
         INSTANCES.remove(id, |_| ()).unwrap();
     }
     #[test]
@@ -4375,7 +4505,7 @@ mod tests {
         assert_eq!(output,[[0.25;512];2]);assert_eq!(delivery.delivered_frames,512);
         assert_eq!((trace.generation,trace.epoch,trace.host_call,trace.position),(1,1,1,1024));
         assert_eq!((trace.frames,trace.mode,trace.delivery_mode,trace.exact),(512,0,0,0));
-        assert_eq!(trace.allowance_ns,10_666_666);
+        assert_eq!(trace.allowance_ns,5_000_000_000);
         assert!(trace.wait_deadline_lower_ns<=trace.wait_deadline_upper_ns);
         assert_eq!((trace.predicate_kind,trace.predicate_required,
             trace.predicate_before,trace.predicate_after),(0,1024,512,1024));

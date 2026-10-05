@@ -1065,13 +1065,16 @@ Select and measure the wake mechanism before promoting it. This is a DAW-executi
 qualification target, not an implemented or accepted fast path. Keep queued mode
 as an explicit buffered compatibility option only if it proves independent value.
 
-Separate three bounds: startup/control timeouts, transport failure containment,
-and audio completion deadlines. The current worker's five-second reply timeout
-must never become a synchronous DAW-callback wait. A new callback completion
-budget must be declared for its format and processing mode before testing, with
-defined silence/failure and asynchronous recovery if it expires. No callback
-allocation, filesystem/network operation, ordinary logging, manager wait or
-unbounded lock acquisition becomes permissible through this design.
+Separate startup/control health bounds, AUDIO host-health containment, and actual
+host/device audio deadlines. The operator accepted D-030 on 2026-10-04, explicitly
+replacing the earlier prohibition on synchronous use of the AUDIO five-second
+ceiling. Healthy valid work completes under this finite containment policy even
+when N/Fs or 1 ms has elapsed. This may stall the DAW thread for seconds; it is not
+an audio performance policy or real-time qualification. The requested absolute
+expiry does not guarantee wall-clock return while descheduled or inside a host
+SDK sink that the bridge cannot preempt. Refuse success when control returns after
+expiry. No callback allocation, filesystem/network operation, ordinary logging,
+manager wait or unbounded lock acquisition becomes permissible through this change.
 
 Bounded, preallocated observations must attribute a missing span to its actual
 stage: admission, queue/control wait, worker service, Windows wait/DSP, reply
@@ -1093,15 +1096,34 @@ contract; its source, installed and physical acceptance remain separate gates:
   requires legal inactive setup. Carry actual mode through the C ABI and PROCESS
   message; do not reuse the setup mode as a substitute. Every operation has an exact
   completion ticket, including consecutive zero-frame calls at the same position.
-- A real-time/prefetch completion allowance ends N/Fs after native C++ callback
-  entry. In either delivery mode N=0 instead has a 1-ms flush allowance and must
-  return its exact supported event/parameter results or explicit failure. Offline
-  operations have one 60-second absolute bound across the callback and worker,
-  with cooperative cancellation observations no farther than 4 ms apart. Vendor
-  process() is not thereby interruptible; storage remains owned until joins or
-  existing supervisor containment establish safe retirement. Offline failure is
-  explicit, never successful timeout silence. Buffered offline still presents at
-  D after completing each operation; the host supplies its own latency/tail calls.
+- Real-time/prefetch AUDIO has one requested absolute five-second host-health
+  containment expiry from native C++ callback entry, independent of N, M and Fs.
+  Every admitted AUDIO retains that originating callback's deadline after Buffered
+  return; queued predecessors keep their earlier bounds. No stage renews, resets
+  or stacks allowances. SameCallback and every N0 require exact ordered ticket
+  completion; N0 drains prior FIFO debt without advancing sample position. Buffered
+  nonzero requires its complete due presentation frontier, including due events
+  and parameter points. Pending control cannot authorize successful missing output.
+  Keep the named contained-terminal silence posture separate from complete-output
+  success, preserving first fault identity. Death/cancellation can fail earlier.
+- The same originating absolute bound covers queue/control debt, rendering, native
+  validation/publication, presentation and final C++ SDK sink delivery. Distinguish
+  unfinished rendering from completed owned work blocked by publication/control
+  ordering. Reject expired work before publishing a new wire request and reject
+  late output before publication or success. Mandatory ap23 C ABI revision 2 pairs
+  processing with the final SDK finish check; absent, stale or incompatible policy
+  cannot authorize success. IPC15, mailbox and other version axes are unchanged.
+- Offline operations retain their one 60-second absolute bound across callback and
+  worker, with cooperative cancellation observations no farther than 4 ms apart.
+  Vendor process() and host SDK sinks are not thereby interruptible; storage stays
+  owned until joins or existing supervisor containment establish safe retirement.
+  Offline failure remains explicit. Buffered offline still presents at D after
+  completing each operation; the host supplies its own latency/tail calls.
+- N/Fs and M/Fs remain cadence comparisons; 1 ms was the superseded local flush
+  cutoff. None establishes a serial graph/device deadline. A future audio deadline
+  policy needs actual DAW/device justification; this containment amendment supplies
+  no measured deadline, timing success, scheduling guarantee or permission to drop
+  complete due output while reporting success.
 - Session owns a dedicated paired notification connection, isolated from bulk
   state replies. Mailbox publication remains authoritative; hints can coalesce,
   race or duplicate without changing ownership. Native callbacks do no network

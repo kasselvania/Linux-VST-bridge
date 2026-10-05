@@ -244,6 +244,7 @@ uint32_t __wrap_ap4_state(uint64_t, const uint8_t *, uint32_t, uint8_t *out,
   *n = 132;
   return 0;
 }
+uint32_t __wrap_ap23_finish_callback(uint64_t) { return 0; }
 uint32_t __wrap_ap23_process_outputs(uint64_t, uint32_t n, uint32_t mode, const ap8_event_t *e,
                              uint32_t count, const ap10_context_t *, uint64_t,
                              const float *l, const float *r, float *const *outputs, uint32_t channels,

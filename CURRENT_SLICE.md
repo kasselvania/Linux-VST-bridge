@@ -9,8 +9,8 @@ within a declared completion/containment policy, or explicitly fail while keepin
 ownership safe. The observed D0/N64 main failure remains in scope alongside short
 tails and Buffered final-N0 predecessor debt. This claim is not yet established.
 
-Base commit `35bbcac4f3399d18d4de57f10ff2848fe4414d1d`, tree
-`8782bca8c4b56f8d3197f1d1d88e8adbbb633c10`, branch
+Base commit `8eaf2c2966cf0254a11d2428cfa1319fd2f829b3`, tree
+`e96ac9ee5c5e64b22dc47f401024ed995d53dd36`, branch
 `codex/audio-completion-contract`; keep #207 draft, no merge.
 Basis: AGENTS.md “Design the shared system before selecting patches”, “Work in
 complete capability increments” and “Engineering protections”; GOVERNANCE.md
@@ -18,7 +18,7 @@ complete capability increments” and “Engineering protections”; GOVERNANCE.
 18.1–18.4; accepted D-022 and D-028; the operator's continuation and machine/model
 custody. Preserve existing ownership, epoch, identity, transport and state semantics.
 
-## Current observation and pending decision
+## Current observation and accepted contract
 
 The [retained physical report](evidence/audio-recovery/2026-10-04-refresh4deck-physical-timing.md)
 records eight passing and sixteen failing full audio/state lifetimes out of 24.
@@ -36,33 +36,34 @@ retains uncertainty if mapped request admission was not observed. No lost-wakeup
 or correlation defect has been established. Tests discriminate possible states;
 they do not assign causes to every retained physical failure.
 
-**Explicit authority conflict:** architecture 18.4 currently prescribes N/Fs and
-N0 1 ms, and forbids using the worker's five-second bound synchronously. Newer
-research and physical evidence establish that N/Fs, M/Fs and 1 ms are local policy,
-not observed device-period/serial-graph deadlines. The [reviewed proposal](evidence/audio-recovery/2026-10-04-short-completion-proposal.md)
-uses the existing AUDIO five-second outer containment ceiling from one callback-entry
-origin; each admitted AUDIO retains its originating bound, earlier predecessor
-bounds are never renewed, and death/cancellation may fail earlier. It includes
-both D0 exact ticket and Buffered due-frontier/control dependencies through final
-SDK sink delivery. It can impose a seconds-long DAW-thread wait. The requested
-five-second expiry is not a guaranteed wall-clock return during descheduling or
-an unpreempted host SDK sink. This consequential amendment is **pending operator
-decision**. Production policy and physical software remain unchanged meanwhile.
+The operator explicitly approved the [reviewed proposal](evidence/audio-recovery/2026-10-04-short-completion-proposal.md)
+SHA-256 `a705d01d95b942931703b4d50ff28cdefe7c00d4780f1f2644ee9ffec7b77935`.
+Accepted D-030 and architecture18.4 now explicitly replace N/Fs/N0 1ms and the
+prior prohibition on synchronous use of AUDIO5s. Realtime/prefetch uses one
+originating callback-entry absolute five-second host-health containment bound;
+each queued AUDIO keeps it, earlier predecessors never renew, and death/cancel
+may fail earlier. Both D0 exact-ticket/N0 FIFO debt and Buffered due-frontier/
+control dependencies extend through final SDK sinks. This accepts a possible
+seconds-long DAW-thread stall. Requested expiry is not guaranteed wall-clock
+return during descheduling or an unpreempted SDK sink; no external deadline or
+audio timing qualification is claimed. Physical software remains refresh4 until
+a reviewed frozen source candidate completes the normal manager update.
 
 ## Scope and acceptance
 
-Current source changes are test-only: the real worker discrimination harness and
-a cfg(test) publication hold after Session validation. No production branch or
-storage is introduced. The [test evidence](evidence/audio-recovery/2026-10-04-short-completion-discrimination.json)
-retains exact source/validation scope. The proposed policy amendment, exact source
-review and operator decision precede any production repair or hardware mutation.
+Implement the accepted contract coherently in Rust performance/Session/queued
+worker and native SDK processor/final C ABI. AP23 ABI advances to2 with mandatory
+pair refusal; IPC15/descriptor/profile stay unchanged. The shared stored policy
+covers every modern call through final sinks. Retain legacy and contained-terminal
+postures distinctly. No per-stage reset, fixture/product exception, concurrent
+state restoration/DSP or invented external deadline is permitted.
 
-After acceptance of the contract, make the coherent minimal change across Rust
-completion/worker policy and the native C ABI/SDK final check. Test FIFO predecessor
-debt, short/full/repeated-N0 calls, due results, serialized control, cancellation,
-dead peers, stale epochs, late publication and SDK delivery crossing the same
-absolute bound. No per-stage reset, stacked allowances, fixture/product exceptions,
-concurrent state restoration/DSP or invented external deadline is permitted.
+Meaningful red/green real-worker regressions cover healthy N13/N64/N0 backlog,
+reply versus validated-owned publication hold, due audio during capture, original
+predecessor expiry, late reply, cancellation and refusal before expired admission.
+Final SDK tests check the same queued policy, missing/stale policy and Buffered
+sink expiry. Preserve all failed validation attempts and inherited broad-check
+limitations. Exact independent source review precedes commit/package freeze.
 
 Only a reviewed frozen candidate warrants a new installed physical comparison:
 retain every first attempt, captured complete audio/state, diagnostics OFF and

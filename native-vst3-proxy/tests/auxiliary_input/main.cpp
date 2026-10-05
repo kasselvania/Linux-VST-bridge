@@ -75,6 +75,7 @@ uint32_t __wrap_if2_process(uint64_t,uint32_t n,const ap8_event_t*e,uint32_t cou
  if(n){assert(silence==expected_silence);for(unsigned i=0;i<n;++i){assert(l[i]==expected_left[i]);assert(r[i]==expected_right[i]);}}
  std::copy_n(l,n,ol);std::copy_n(r,n,orr);*out=silence;*d={};d->delivered_frames=n;++processes;return 0;
 }
+uint32_t __wrap_ap23_finish_callback(uint64_t) { return 0; }
 uint32_t __wrap_ap23_process_outputs(uint64_t id,uint32_t n,uint32_t mode,const ap8_event_t*e,uint32_t count,const ap10_context_t*c,uint64_t silence,const float*l,const float*r,float*const*outputs,uint32_t channels,uint64_t*flags,ap7_delivery_t*d,uint64_t entered){
  assert(mode==kRealtime && channels==(n?64u:2u));
  auto result=__wrap_if2_process(id,n,e,count,c,silence,l,r,outputs[0],outputs[1],flags,d,entered);

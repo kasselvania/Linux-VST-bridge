@@ -21,6 +21,7 @@ namespace {
 void require(bool ok, const char* why) {
  if (!ok) { std::fprintf(stderr,"FAIL: %s\n",why); std::exit(1); }
 }
+uint32_t backend_abi=2, finish_calls=0, finish_result=0;
 uint32_t total=0, cursor=0, drains=0, failures=0, closes=0, seed=0;
 bool sysex_only=false, odd=false, terminal_result=false, note_only=false;
 bool phase_enabled=false,phase_incomplete=false;
@@ -84,6 +85,10 @@ void verify(EventList& sink, uint32_t count) {
 }
 
 extern "C" {
+uint32_t __wrap_ap23_abi_version(){return backend_abi;}
+uint32_t __wrap_ap23_finish_callback(uint64_t){
+ ++finish_calls;require(cursor==total,"final check follows all SDK result drains");return finish_result;
+}
 uint32_t __wrap_if2_terminal_status(uint64_t){return terminal_result ? 1 : 0;}
 uint32_t __wrap_ap9_open(const uint8_t*,uint64_t* h) {*h=1;return 0;}
 uint32_t __wrap_ap22_curve_parameters(uint64_t,const uint32_t*,uint32_t){return 0;}
@@ -124,7 +129,7 @@ uint32_t __wrap_ap23_process_outputs_trace(uint64_t,uint32_t n,uint32_t mode,con
  }
  trace->generation=7;trace->epoch=phase_calls<3?1:2;trace->host_call=phase_calls;
  trace->position=phase_calls-1;trace->phase_reached|=AP23::phase_identity;
- trace->delivery_mode=0;trace->exact=0;trace->allowance_ns=n*1000000000ull/48000;
+ trace->delivery_mode=0;trace->exact=0;trace->allowance_ns=5000000000ull;
  trace->wait_deadline_lower_ns=entered_ns+trace->allowance_ns;
  trace->wait_deadline_upper_ns=trace->wait_deadline_lower_ns+2;
  trace->phase_reached|=AP23::phase_policy;trace->clock_valid|=AP23::phase_policy;
@@ -162,6 +167,11 @@ int main() {
  auto end=reinterpret_cast<uint64_t(*)()>(dlsym(RTLD_DEFAULT,"ap3_audit_end"));
  require(begin && end,"run with the existing callback audit library preloaded");
  HostApplication host;
+ for(uint32_t incompatible:{1u,3u}) {
+  backend_abi=incompatible;AP2::Processor refused;
+  require(refused.initialize(&host)==kResultFalse,"mandatory completion ABI mismatch refuses initialization");
+ }
+ backend_abi=2;
  auto p=std::make_unique<AP2::Processor>();
  require(p->initialize(&host)==kResultOk,"initialize");
  require(p->activateBus(kEvent,kOutput,0,true)==kResultOk,"activate declared output");
@@ -286,5 +296,16 @@ int main() {
     text.find("\"clock_valid\":2307")!=std::string::npos,"incomplete phase/clock masks");
   require(text.find("\"result\":[265,1]")!=std::string::npos,"backend and SDK failure retained");}
  unlink(incomplete_name);unsetenv("LVB_AP3_REPORT");
+ // A Buffered nonzero SDK call must obey mandatory final containment refusal
+ // after its real result sinks. The Rust policy/clock controls are tested there.
+ phase_enabled=phase_incomplete=false;finish_result=AP23::deadline_expired;
+ p=std::make_unique<AP2::Processor>();
+ require(p->initialize(&host)==kResultOk&&p->setupProcessing(setup)==kResultOk&&
+  p->setActive(true)==kResultOk&&p->setProcessing(true)==kResultOk,"final sink refusal start");
+ total=0;const auto prior_finish=finish_calls;
+ begin();status=p->process(d);effects=end();
+ require(status==kResultFalse&&effects==0&&finish_calls==prior_finish+1,"Buffered final sink refusal preserved");
+ require(p->setProcessing(false)==kResultOk&&p->setActive(false)==kResultOk&&p->terminate()==kResultOk,"final sink refusal retires");
+ finish_result=0;
  std::puts("Native callback payload lifetime, contained terminal silence and exact Note Off cleanup PASS");
 }

@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "claim": "approved_ordered_completion_source_candidate_not_installed_acceptance",
+  "base_head": "8eaf2c2966cf0254a11d2428cfa1319fd2f829b3",
+  "base_tree": "e96ac9ee5c5e64b22dc47f401024ed995d53dd36",
+  "operator_approved_proposal_sha256": "a705d01d95b942931703b4d50ff28cdefe7c00d4780f1f2644ee9ffec7b77935",
+  "source_files_sha256": {
+    "CURRENT_SLICE.md": "cef4c8bc2f2873aab1a744b3672f080b7b435b5cf6632b8441f156b861e02d3b",
+    "docs/ARCHITECTURE.md": "26d78943f283fb5d86801c595d667e25953257e0a3f8c857d2098d236dde5bb6",
+    "docs/DECISION_REGISTER.md": "4a031c61bbb0108722df2e76a37a794711446a6a9eaa6c5228371f8329994ed1",
+    "native-vst3-proxy/CMakeLists.txt": "6f77716f2d80a9b2e224a78cce86c36fba3f7c1a3cb6f58cba85bf97c02c0b39",
+    "native-vst3-proxy/backend/src/completion_contract_tests.rs": "e3c599ab116402080ab484e9aa02cb4d8bd89da3b9ebc9a464ab0d747a6ab040",
+    "native-vst3-proxy/backend/src/lib.rs": "2c0a6771b228bab1e353f5f7726f6335950a8e7eb44ed6223164d70b8e7e30a2",
+    "native-vst3-proxy/backend/src/performance.rs": "46fe464804530a1268f966c5f3b3d1096fe0594bc953fbd600cc857b9419630a",
+    "native-vst3-proxy/backend/src/queued.rs": "4bb52ccc407fe551953236bb2760b161ddb77f292d353ee163ad726204b198c5",
+    "native-vst3-proxy/include/ap23_backend.h": "339f766579bdc6b4a4f279d57c2d0c2f7f77baa9a5b1d61cab1cd425fa592caf",
+    "native-vst3-proxy/source/processor.cpp": "2e90ec50f6722761af698e0bc0ddbe940dcfb1c8a6420ecd3e3978bfefea1634",
+    "native-vst3-proxy/tests/auxiliary_input/main.cpp": "2d3ae651809e0c7cdae9a1a6ced43d777447ca553d1eba7de4ba7c2ad087b974",
+    "native-vst3-proxy/tests/result_lifetime/main.cpp": "a75830e0568703b45c38270ed6ee3221e73e85f363cde97ee5e8f9ed66c09d3a",
+    "tools/ap10-tests/results.cpp": "4e2ee9ca84c4a22c1135203530278c8637141ec57d5ab319374730e98f3139f2",
+    "tools/ap11-tests/native.cpp": "744d13577f9d4ceb5967f3a27499bdda6b1dcc6eb76c463ff42a34dbd6929c0a"
+  },
+  "policy": {
+    "realtime_prefetch_containment_seconds": 5,
+    "offline_seconds_unchanged": 60,
+    "origin": "native_cpp_callback_entry",
+    "retained_per_queued_AUDIO": true,
+    "predecessor_bounds_renewed": false,
+    "requested_expiry_not_preemptive_wall_clock_return": true,
+    "device_or_graph_deadline_observed": false,
+    "ap23_C_ABI": 2,
+    "IPC_minor_unchanged": 15
+  },
+  "validation": {
+    "red_before_repair": "three approved healthy N13/N64/N0 backlog regressions compiled then failed; Err264 instead of success",
+    "focused_after": "12 real-worker tests including actual admitted capture, reply/validated-native-publication holds, and final-publication expiry/cancel with acquired extra-slot retirement",
+    "default_final": {
+      "passed": 156,
+      "ignored": 2
+    },
+    "registered_final": {
+      "passed": 157,
+      "ignored": 2
+    },
+    "native_cpp": "pending frozen Linux build, including actual Processor ABI1/3 refusal and Buffered final SDK refusal",
+    "retained_intermediate_failures": [
+      "first control assertion confused request-published counter with operation ticket",
+      "default initial two assertion failures: worker-first explicit expiry versus callback-first code, and START+AUDIO counter",
+      "incremental capture harness compile error: receive_version is endpoint member",
+      "final-publication harness immutable/mutable borrow compiler failure",
+      "final-publication harness failed before boundary: native peer omitted extra planes, exact InvalidData: extra output claim; fixed protocol instrumentation, production unchanged"
+    ],
+    "inherited_unresolved_broad_checks": "RPI0 missing delivery_mode; macOS strict clippy nine Linux scheduling dead-code findings; retained unchanged-base classification in prior test-only evidence; no repair/suppression/new broad rerun",
+    "review_corrections": [
+      "Moved original bound/cancel check after owned completion and extra-slot preparation to actual publication boundary, releasing acquired slot on refusal",
+      "Assigned new decisionD-030, preserving existingD-028/D-029"
+    ]
+  },
+  "logs_sha256": {
+    "approved-reviewed-registered.log": "2b7a713748acdb687a6cf5dfed67452805a7de0ea4023e4cf4bf454186cd944a",
+    "approved-default-final.log": "1382bb2e3d00b84f8c440fe5e2510b76ba205e90927e0bef1b33561854c014be",
+    "approved-after-repair-first.log": "52f6fe2583f0ca03495ce9a30a2ac24861eb5b24be70675043c25f974c247b01",
+    "approved-registered-final.log": "ed07c8974fb72afebdabd35087d136ae7356b0bcd4e0f594ab8a3996fac4c437",
+    "approved-after-controls.log": "bda6c5547b457a01ed898e381a60bee6c78ce8d4c46c4d278c36f9eac7f1af7e",
+    "approved-default-suite-v2.log": "5f637e5fd0431c856e5ae30dfb30af3cfeeb0808347249dc717fcf03ce0fb42c",
+    "approved-publication-registered-final.log": "11bf9e35544c6b9d9522dfdcd58b74d89ef0ee583d261ac0b0881879526a5706",
+    "approved-before-repair.log": "c572bd91855c3593ea7d1aacf486460cba50e4543b88c06e249a1a9aa30d61a4",
+    "approved-default-suite-v3.log": "641a4d791a1e098da0b696a94e2ea4ce1f0c7cd11a83b03278832814afe47daf",
+    "approved-final-publication-controls.log": "4812ff76f2b9c45c4c370e93a51911679b83ea57b8b0b491d9ff35f08b2bf334",
+    "approved-registered-suite.log": "69786585c952f24b1022ff7782bb57b62112004d7128351b912c3fd8736b5d0c",
+    "approved-reviewed-default.log": "1069d415a19b24ece41ae1898d71486bf4e8841da9c9e3c839a5cf0333ea6a45",
+    "approved-final-contract-tests.log": "55ef9208c246370fc68b87459c0efd861cd9bef5f4ff3920891dc89b9dcb595b",
+    "approved-publication-default-final.log": "c9090b0964a5c407c5fa3d814390ec0593ad3df036e923a0d1bda9a35f9f27b3",
+    "approved-final-publication-controls-v3.log": "ebf680220a553fe6f54e3c6ac0cf4bb9bcc68038afc0a683cec36bbc38b17a20",
+    "approved-final-publication-controls-v2.log": "32b2cb128d30050d02d6cb995c37e2c01e22e8a202e456a3e4643c328e4ba7e7",
+    "approved-default-suite.log": "735ee944562b8e3cc5678f19f5ceb934d63f52c21182806ebd6610f20ba28d70",
+    "approved-final-contract-tests-v2.log": "649eba78ba2e58a67d607db7b361350933621af6dc4545c70c16b41e009a42bd",
+    "publication-boundary-attribution.log": "4b03f9e65a296a7f46f73adbe2ca0aa32a70e81a2182400af2699bb6e35e4468"
+  },
+  "scope_limits": [
+    "Instrumented native peer is not Windows vendor DSP qualification",
+    "Finite shortened control bounds are explicitly harness injection, not product policy",
+    "Final SDK bound test waits through actual original5s in Buffered priming, not device deadline",
+    "No assignment of all refresh4 physical failure causes",
+    "No Deck mutation or new physical result in source evidence",
+    "No RT/DAW/soak/beta acceptance"
+  ],
+  "accepted_decision": "D-030"
+}

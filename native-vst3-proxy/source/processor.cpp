@@ -587,7 +587,7 @@ Processor::~Processor() {
 }
 tresult PLUGIN_API Processor::initialize(FUnknown *context) {
 #ifdef AP8_PREVIEW
-  if(ap10_results_abi_version()!=1||ap23_abi_version()!=1)return kResultFalse;
+  if(ap10_results_abi_version()!=1||!AP23::compatibleAbi(ap23_abi_version()))return kResultFalse;
 #endif
   Guard g(busy_);
   if (!g.held || phase_ != New || ap2_abi_version() != 1)
@@ -819,14 +819,8 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   if (!g.held) return reject();
 #ifdef AP8_PREVIEW
   auto expired=[&]{
-    if(d.numSamples<0)return false;
-    if(d.processMode!=kOffline&&d.numSamples>0&&bridge_delay_.load(std::memory_order_acquire)!=0)return false;
-    const uint64_t allowance=d.processMode==kOffline?60000000000ull:
-        d.numSamples==0?1000000ull:uint64_t(double(d.numSamples)*1000000000./sample_rate_);
-    timespec completed{};clock_gettime(CLOCK_MONOTONIC,&completed);
-    const uint64_t now=uint64_t(completed.tv_sec)*1000000000+uint64_t(completed.tv_nsec);
-    if(now-entered_ns<allowance)return false;
-    ap23_deadline_failed(handle_);phase_=Failed;returned_.release_requested=true;return true;
+    if(!ap23_finish_callback(handle_))return false;
+    phase_=Failed;returned_.release_requested=true;return true;
   };
   returned_.beginCallback();
   if(!terminal()&&d.numSamples>=0&&returned_.release_requested){

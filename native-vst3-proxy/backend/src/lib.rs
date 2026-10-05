@@ -811,6 +811,8 @@ impl Session {
                 s.publish(operation_epoch, self.state.next, operation_position, 1, 0);
             }
             if self.mailbox_enabled {
+                need(!cancelled(), "audio operation cancelled before publication")?;
+                need(std::time::Instant::now() < deadline, "audio containment expired before publication")?;
                 self.mailbox
                     .as_mut()
                     .ok_or_else(|| invalid("delivery mapping absent"))?
@@ -855,6 +857,8 @@ impl Session {
                 }
                 self.trace.windows = mailbox.diagnostic;
             } else {
+                need(!cancelled(), "audio operation cancelled before publication")?;
+                need(std::time::Instant::now() < deadline, "audio containment expired before publication")?;
                 ap1_native_client::endpoint::send_version_with(&mut self.socket, request, 5, self.minor, &mut self.processing.wire)?;
                 self.trace.sent = Some(std::time::Instant::now());
                 if let Some(s) = &mut self.fault_status {
