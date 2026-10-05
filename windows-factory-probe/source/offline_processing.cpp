@@ -338,8 +338,9 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                             for(int ch=0;ch<bus.info.channelCount;++ch) {
                                 // Use prepared addresses/extent, never a pointer
                                 // or count the vendor could replace in ProcessData.
-                                const auto* plane=direction==kInput?(selected?block.in[ch]:block.silent_channels[ch]):
-                                    (selected?block.output_channels[2*index+ch]:block.inactive_output_channels[ch]);
+                                const int lane=2*index+ch;
+                                const auto* plane=direction==kInput?(selected?block.input[ch].data()+1:block.silent_input.data()+1):
+                                    (selected?(lane<2?block.output[lane].data()+1:block.extra_output[lane-2].data()+1):nullptr);
                                 if(plane&&(std::bit_cast<uint32>(plane[-1])!=guard||
                                            std::bit_cast<uint32>(plane[capacity])!=guard))
                                     throw std::runtime_error("direct private plane guard");
