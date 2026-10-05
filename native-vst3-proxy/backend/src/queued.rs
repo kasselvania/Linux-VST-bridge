@@ -281,6 +281,12 @@ struct Shared {
     control_waits: AtomicU64,
     #[cfg(test)]
     phase_waits: AtomicU64,
+    // Test-only scheduling boundary after Session validated an owned reply,
+    // before the worker publishes it. No production branch or storage exists.
+    #[cfg(test)]
+    publication_hold_ticket: AtomicU64,
+    #[cfg(test)]
+    publication_held_ticket: AtomicU64,
     #[cfg(test)]
     pending_start_wakes: AtomicU64,
     #[cfg(test)]
@@ -355,6 +361,10 @@ impl Shared {
             control_waits: AtomicU64::new(0),
             #[cfg(test)]
             phase_waits: AtomicU64::new(0),
+            #[cfg(test)]
+            publication_hold_ticket: AtomicU64::new(0),
+            #[cfg(test)]
+            publication_held_ticket: AtomicU64::new(0),
             #[cfg(test)]
             pending_start_wakes: AtomicU64::new(0),
             #[cfg(test)]
@@ -1321,6 +1331,17 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                             item.process_mode, deadline, cancelled, &mut capture_completed,
                         )?
                     };
+                    #[cfg(test)]
+                    if item.ticket != 0 && s.publication_hold_ticket.load(Ordering::Acquire) == item.ticket {
+                        assert!(session.trace.validated.is_some());
+                        s.publication_held_ticket.store(item.ticket, Ordering::Release);
+                        let until = Instant::now() + Duration::from_secs(3);
+                        while s.publication_hold_ticket.load(Ordering::Acquire) == item.ticket
+                            && !cancelled() {
+                            assert!(Instant::now() < until, "test publication hold was not released");
+                            thread::yield_now();
+                        }
+                    }
                     for (ch, word) in words.iter().enumerate() {
                         for i in 0..n {
                             item.data[ch][i] = f32::from_bits(word[i + 1]);
@@ -3276,6 +3297,10 @@ pub unsafe extern "C" fn ap10_fail_results(id: u64) -> u32 {
     (*l.callback.get()).returned.reset();
     0
 }
+
+#[cfg(test)]
+#[path = "completion_contract_tests.rs"]
+mod completion_contract_tests;
 
 #[cfg(test)]
 mod tests {
