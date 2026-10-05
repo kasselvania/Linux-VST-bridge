@@ -37,6 +37,45 @@ class AudioSchedulingTests(unittest.TestCase):
             self.assertEqual((root/'native-scheduling.reply').read_bytes(),header+struct.pack('<I',1))
             self.assertEqual(control.value()['requests'],1)
             self.assertEqual(control.value()['records'][0]['role'],'native_worker')
+            self.assertEqual((root/'caller-scheduling.supported').read_bytes(),header)
+
+    def test_caller_requests_are_served_one_at_a_time_with_their_thread_and_bounded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);helper=root/'manager';journal=root/'requests'
+            helper.write_text('#!/usr/bin/env python3\nimport sys,json,pathlib\n'
+                f'with pathlib.Path({str(journal)!r}).open("a") as f:f.write(sys.stdin.read()+"\\n")\n'
+                'print(json.dumps({"outcome":"effective"}))\n')
+            helper.chmod(0o700)
+            artifact={'path':str(helper),'sha256':hashlib.sha256(helper.read_bytes()).hexdigest()}
+            spec={'session':'42'*16,'directory':str(root),
+                'graphical_session':{'peer_pid':123,'peer_start_ticks':456}}
+            with patch.dict(os.environ,{'LVB_AUDIO_SCHEDULER':json.dumps(artifact)}):
+                control=session.AudioScheduling(spec)
+            header=b'LVNS'+struct.pack('<I',1)+bytes.fromhex(spec['session'])
+            control.poll(set());self.assertFalse(journal.exists())
+            served=[]
+            for n in range(session.AudioScheduling.CALLER_REQUESTS_MAX+2):
+                tid=1000+n
+                (root/'caller-scheduling.request').write_bytes(header+struct.pack('<IIQ',20,tid,30+n))
+                control.poll(set())
+                if (root/'caller-scheduling.reply').exists():
+                    served.append((root/'caller-scheduling.reply').read_bytes());(root/'caller-scheduling.reply').unlink()
+                    self.assertFalse((root/'caller-scheduling.request').exists())
+                else:
+                    # Beyond the bound the request is left alone and nothing is invoked.
+                    self.assertTrue((root/'caller-scheduling.request').exists())
+                    (root/'caller-scheduling.request').unlink()
+            self.assertEqual(served,[header+struct.pack('<II',1000+n,1) for n in range(session.AudioScheduling.CALLER_REQUESTS_MAX)])
+            requests=[json.loads(line) for line in journal.read_text().splitlines()]
+            self.assertEqual(len(requests),session.AudioScheduling.CALLER_REQUESTS_MAX)
+            self.assertTrue(all(r=={'schema':2,'session':'42'*16,'status':str(root/'ap12.status'),
+                'owned':[],'native_peer':[123,456],'native_role':'caller'} for r in requests))
+            self.assertEqual({r['role'] for r in control.value()['records']},{'caller'})
+            # A malformed request is still consumed and answered for no thread.
+            control.caller_requests=0
+            (root/'caller-scheduling.request').write_bytes(b'short')
+            control.poll(set())
+            self.assertEqual((root/'caller-scheduling.reply').read_bytes(),header+b'\0\0\0\0'+struct.pack('<I',1))
 
     def test_every_render_restart_gets_exact_owned_request_but_idle_polls_do_not(self):
         with tempfile.TemporaryDirectory() as tmp:

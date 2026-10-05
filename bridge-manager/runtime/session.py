@@ -1439,11 +1439,14 @@ class AudioScheduling:
     """
     RETRY_DELAYS=(0.5,1.0,2.0,4.0,8.0)
     FINAL_REASONS=frozenset(('scheduler_artifact_unavailable','scheduling_existing_policy_preserved'))
+    # Distinct DAW threads the proxy may record calling process(); matches the
+    # proxy's own slot count, so a runaway peer cannot keep this loop busy.
+    CALLER_REQUESTS_MAX=8
     def __init__(self,spec,clock=time.monotonic):
         self.spec=spec;self.clock=clock;self.pending=0;self.requests=0;self.retries=0;self.rows=collections.deque(maxlen=64)
         self.artifact=None;self.unavailable=None
         self.attempt=0;self.retry_at=None
-        self.native_done=False;self.native_header=None
+        self.native_done=False;self.native_header=None;self.caller_requests=0
         try:
             self.artifact=json.loads(os.environ['LVB_AUDIO_SCHEDULER'])
             verify(self.artifact)
@@ -1453,12 +1456,13 @@ class AudioScheduling:
                 self.native_header=b'LVNS'+struct.pack('<I',1)+bytes.fromhex(spec['session'])
                 if len(self.native_header)!=24:raise ValueError('session identity')
                 atomic_bytes(pathlib.Path(spec['directory'])/'native-scheduling.supported',self.native_header)
+                atomic_bytes(pathlib.Path(spec['directory'])/'caller-scheduling.supported',self.native_header)
             except Exception:self.native_header=None
     def started(self):
         # A new render thread supersedes any pending retry for the previous one.
         self.pending+=1;self.attempt=0;self.retry_at=None
     def poll(self,owned):
-        self.poll_native()
+        self.poll_native();self.poll_caller()
         if not self.pending:
             if self.retry_at is None or self.clock()<self.retry_at:return
             self.retry_at=None;self.retries+=1
@@ -1511,6 +1515,28 @@ class AudioScheduling:
         code={'effective':1,'already_effective':2}.get(result['outcome'],3)
         try:atomic_bytes(directory/'native-scheduling.reply',self.native_header+struct.pack('<I',code))
         except OSError:pass # native preparation has a bounded unavailable result
+    def poll_caller(self):
+        """Serve one recorded DAW caller thread per poll, bounded per session.
+
+        The proxy publishes one 40-byte request at a time and waits off its
+        audio path for a reply naming the same thread. The Rust helper reads
+        and verifies the request file itself; Python only echoes the thread.
+        """
+        if self.native_header is None or self.caller_requests>=self.CALLER_REQUESTS_MAX:return
+        directory=pathlib.Path(self.spec['directory']);request=directory/'caller-scheduling.request'
+        try:data=request.read_bytes()
+        except OSError:return
+        self.caller_requests+=1;self.requests+=1
+        peer=self.spec['graphical_session']
+        thread=data[28:32] if len(data)==40 and data[:24]==self.native_header else b'\0\0\0\0'
+        result=self.invoke({'schema':2,'session':self.spec['session'],'status':str(directory/'ap12.status'),
+            'owned':[],'native_peer':[peer['peer_pid'],peer['peer_start_ticks']],'native_role':'caller'})
+        result['role']='caller';self.rows.append(result)
+        try:request.unlink()
+        except OSError:pass
+        code={'effective':1,'already_effective':2}.get(result['outcome'],3)
+        try:atomic_bytes(directory/'caller-scheduling.reply',self.native_header+thread+struct.pack('<I',code))
+        except OSError:pass # the proxy's bounded wait reports unavailable
     def value(self):
         return {'schema':1,'requested_policy':'SCHED_RR','requested_priority':5,
             'requests':self.requests,'retries':self.retries,'retry_delays_seconds':list(self.RETRY_DELAYS),

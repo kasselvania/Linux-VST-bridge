@@ -349,6 +349,9 @@ struct Shared {
     worker_epoch: AtomicU64,
     worker_position: AtomicU64,
     worker_thread: AtomicU64,
+    // Distinct DAW threads seen calling process(); the worker requests a
+    // real-time policy for each through the supervisor, off the callback.
+    callers: [AtomicU64; crate::scheduling::CALLER_SLOTS],
     service_us_max: AtomicU64,
     // Callback writes counters only; the transport publishes them through the
     // existing independent status lane. No callback mapping or diagnostic I/O.
@@ -441,6 +444,7 @@ impl Shared {
             worker_epoch: AtomicU64::new(0),
             worker_position: AtomicU64::new(0),
             worker_thread: AtomicU64::new(0),
+            callers: std::array::from_fn(|_| AtomicU64::new(0)),
             service_us_max: AtomicU64::new(0),
             delivery_totals: std::array::from_fn(|_| AtomicU64::new(0)),
             processing_ready_epoch: AtomicU64::new(0),
@@ -1318,13 +1322,38 @@ impl Drop for DeathWatch {
         if let Some(thread)=self.thread.take() {let _=thread.join();}
     }
 }
+impl Shared {
+    /// Real-time path: one gettid and at most eight atomic loads. A thread is
+    /// recorded the first time it calls; the worker is woken once to request
+    /// its policy. The guard serializes callers, so a lost race retries on
+    /// the next call and nothing here allocates, waits or logs.
+    fn note_caller(&self) {
+        #[cfg(target_os = "linux")]
+        {
+            let tid = unsafe { libc::gettid() } as u64;
+            for slot in &self.callers {
+                match slot.load(Ordering::Acquire) {
+                    0 => {
+                        if slot.compare_exchange(0, tid, Ordering::AcqRel, Ordering::Acquire).is_ok() {
+                            self.work.notify();
+                        }
+                        return;
+                    }
+                    seen if seen == tid => return,
+                    _ => {}
+                }
+            }
+        }
+    }
+}
 fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBuf>, preparation: Option<crate::scheduling::Preparation>) {
     #[cfg(target_os = "linux")]
     {
         unsafe extern "C" { fn gettid() -> i32; }
         s.worker_thread.store(unsafe { gettid() } as u64, Ordering::Release);
     }
-    let scheduling = crate::scheduling::prepare(preparation);
+    let scheduling = crate::scheduling::prepare(preparation.clone());
+    let mut caller_grants = crate::scheduling::CallerGrants::new(preparation);
     let mut input_observation = crate::input_observation::InputObservation::new(crate::observer::delivery_enabled());
     let mut previous_control = [0u64; 4];
     let mut deferred = None;
@@ -1353,6 +1382,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
             }
             session.service_worker_wakes(Instant::now(),
                 || s.quit.load(Ordering::Acquire) || s.fault.load(Ordering::Acquire) != 0)?;
+            caller_grants.service(&s.callers);
             if s.pending_control.load(Ordering::Acquire) {
                 let mut mailbox = s
                     .control
@@ -1746,6 +1776,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
     }
     if let Some(path) = &report {
         scheduling.report(path);
+        caller_grants.report(path);
         crate::preview::append_report(path, input_observation.report().as_bytes());
     }
     if let Some(observer) = &mut session.witness {
@@ -2792,6 +2823,7 @@ unsafe fn process_events_guarded(
 ) -> u32 {
     (*l.callback.get()).completion_policy = None;
     (*l.callback.get()).windows_timing = WindowsProcessTiming::default();
+    l.shared.note_caller();
     let n = n as usize;
     if extra.len()>62 || (n>0 && extra.len()!=l.shared.extra.get().map_or(0,|p|p.channels)) {
         return if detailed {0x101} else {1};

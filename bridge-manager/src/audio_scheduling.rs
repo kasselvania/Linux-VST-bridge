@@ -19,6 +19,11 @@ pub struct Request {
     // Supplied only by the supervisor from the authenticated owner socket's
     // retained peer identity. Never supplied by the native request file.
     native_peer: Option<(i32, u64)>,
+    // "worker" (default) names the proxy's own transport thread; "caller"
+    // names a DAW thread the proxy recorded calling process(). Each role has
+    // its own request file; the DAW's thread name is not a selection input.
+    #[serde(default)]
+    native_role: Option<String>,
 }
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 struct Target { pid: i32, process_start: u64, tid: i32, thread_start: u64 }
@@ -149,7 +154,13 @@ fn select(request: &Request, proc_root: &Path, uid: u32) -> Result<Target> {
             == request.session.to_ascii_lowercase(), "scheduling_status_binding")?;
     if let Some((pid, process_start)) = request.native_peer {
         require(request.owned.is_empty() && pid > 0, "scheduling_native_peer")?;
-        let path = request.status.parent().ok_or("scheduling_native_directory")?.join("native-scheduling.request");
+        let caller = match request.native_role.as_deref() {
+            None | Some("worker") => false,
+            Some("caller") => true,
+            Some(_) => return Err("scheduling_request".into()),
+        };
+        let path = request.status.parent().ok_or("scheduling_native_directory")?
+            .join(if caller { "caller-scheduling.request" } else { "native-scheduling.request" });
         let mut file = linux_vst_bridge::file(&path)?;
         let meta = file.metadata()?;
         require(meta.uid() == uid && meta.mode() & 0o077 == 0 && meta.len() == 40,
@@ -174,7 +185,7 @@ fn select(request: &Request, proc_root: &Path, uid: u32) -> Result<Target> {
             let tid: i32 = task.file_name().to_str().ok_or("scheduling_tid")?.parse()?;
             let comm = bounded(&task.path().join("comm"), 32)?;
             require(found.is_none() && task.metadata()?.uid() == uid
-                && matches!(comm.as_slice(), b"ap3-transport\n" | b"ap6-transport\n")
+                && (caller || matches!(comm.as_slice(), b"ap3-transport\n" | b"ap6-transport\n"))
                 && start(&task.path(), tid)? == thread_start, "scheduling_native_worker_changed")?;
             found = Some(Target { pid, process_start, tid, thread_start });
         }
@@ -401,7 +412,7 @@ mod tests {
             bytes[4..8].copy_from_slice(&2u32.to_le_bytes()); bytes[8..12].copy_from_slice(&1024u32.to_le_bytes());
             bytes[16..32].fill(0x42); fs::write(&status, bytes).unwrap();
             fs::set_permissions(&status, fs::Permissions::from_mode(0o600)).unwrap();
-            Self { root, request: Request {schema:1,session:"42".repeat(16),status,owned:vec![(100,900)],native_peer:None} }
+            Self { root, request: Request {schema:1,session:"42".repeat(16),status,owned:vec![(100,900)],native_peer:None,native_role:None} }
         }
         fn process(&self, pid: i32, tid: i32, mapped: bool) {
             let p = self.root.join(pid.to_string()); let task = p.join(format!("task/{tid}"));
@@ -655,5 +666,28 @@ mod tests {
         bytes[8]^=1;fs::write(&file,&bytes).unwrap();
         f.request.native_peer=Some((100,902));assert!(f.select().is_err());
         f.request.native_peer=Some((100,900));fs::write(process.join("maps"),b"").unwrap();assert!(f.select().is_err());
+    }
+    #[test]
+    fn native_caller_role_reads_its_own_request_and_selects_any_thread_name() {
+        let mut f=Fixture::new();f.process(100,101,true);
+        f.request.schema=2;f.request.owned.clear();f.request.native_peer=Some((100,900));
+        let process=f.root.join("100");
+        fs::write(process.join("status"), "NSpid:\t100\t40\n").unwrap();
+        let task=process.join("task/101");
+        fs::write(task.join("status"),"NSpid:\t101\t41\n").unwrap();
+        fs::write(task.join("comm"),b"BitwigPluginHos\n").unwrap();
+        let bytes=[b"LVNS".as_slice(),&1u32.to_le_bytes(),&[0x42;16],
+            &40u32.to_le_bytes(),&41u32.to_le_bytes(),&901u64.to_le_bytes()].concat();
+        let write=|name:&str|{let file=f.root.join(name);fs::write(&file,&bytes).unwrap();
+            fs::set_permissions(&file,fs::Permissions::from_mode(0o600)).unwrap();};
+        // The worker role still requires the transport thread name and its own file.
+        write("native-scheduling.request");
+        assert!(f.select().is_err());
+        f.request.native_role=Some("caller".into());
+        assert!(f.select().is_err()); // no caller request file yet
+        write("caller-scheduling.request");
+        assert_eq!(f.select().unwrap(),Target{pid:100,process_start:900,tid:101,thread_start:901});
+        f.request.native_role=Some("worker".into());assert!(f.select().is_err());
+        f.request.native_role=Some("other".into());assert!(f.select().is_err());
     }
 }

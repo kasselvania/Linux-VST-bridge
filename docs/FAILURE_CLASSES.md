@@ -1466,6 +1466,10 @@ found no unique `lvb-audio` thread, and the third was effective. A source
 correction now records the bus client's bounded error line and retries a
 transient refusal on a 0.5 to 8 second backoff per render start. It is not
 installed or measured; RR 5 effective in all 24 cells did not remove the misses.
+The same timing evidence records the DAW thread that calls process() as
+SCHED_OTHER 0 at every entry, with entry spacing to 19.4 ms mostly outside the
+bridged call. A second source correction records each calling thread and asks
+RealtimeKit for the render thread's policy on it, off the callback. Unmeasured.
 
 The separate FN1/PW1 source reviews do not authorize installation or a
 general support claim. PSL1 is proposed next to make preparation product-owned
