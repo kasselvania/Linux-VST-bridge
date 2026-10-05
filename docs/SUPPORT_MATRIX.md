@@ -11,6 +11,18 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+The latest [Pure LoFi / Bitwig commercial baseline](../evidence/audio-recovery/2026-10-04-pure-lofi-bitwig-baseline.md)
+remains **unqualified**: its full first811.365-second editor-open automatic playback
+retains sixteen512-frame stereo-zero spans and18active Bitwig/PipeWire ERR increments,
+despite zero bridge delivery-gap counters and fresh native/Windows RR5 readback.
+This is not user interaction, isolated bridge-overhead measurement, verified
+per-call512 N, a DAW/device deadline, or proof of bridge-origin gaps. SameCallback
+publication uses the frozen refresh5 engine through supported manual prepare/replace;
+all nine unselected published siblings/preferences and the original project remain
+exact. Normal stop/save/quit and retirement pass. Native continuous-source control
+and bounded priority/trace diagnostics remain separate pending evidence; engine-update
+UX, dependable continuity, thirty-minute interaction and longer soak remain open.
+
 The current audio-completion workstream implements explicit Buffered/SameCallback
 selection and event-driven delivery through the existing managed ownership path.
 The [audio2 installed reference comparison](../evidence/audio-recovery/2026-10-03-audio2-installed.json)

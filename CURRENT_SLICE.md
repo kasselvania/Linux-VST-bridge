@@ -1,87 +1,101 @@
-# Current outcome: legal short/zero-frame completion and containment
+# Current task: commercial continuity attribution on one frozen engine
 
-## Authority and completed bounded claim
+## Operator order and current bounded claim
 
-The operator approved the reviewed five-second completion proposal, SHA-256
-`a705d01d95b942931703b4d50ff28cdefe7c00d4780f1f2644ee9ffec7b77935`.
-Accepted D-030 and architecture 18.4 explicitly replace the prior N/Fs/N0 1 ms
-expiry and prohibition on synchronous AUDIO 5s use. One originating native callback
-entry supplies an absolute host-health containment bound through queued Rust
-completion/presentation and final C++ SDK sinks. Every queued AUDIO retains its
-own original bound; earlier predecessors never renew. Death/cancellation may
-fail earlier. Requested expiry does not preempt descheduling or a host SDK sink;
-possible seconds-long DAW-thread failure stalls were explicitly accepted.
+The operator selected these next steps in order: one commercial plug-in on the
+reviewed engine in Bitwig/Deck, SameCallback at the actual host block, editor open
+for ten minutes; obtain the native RT refusal reason and repair scheduling with a
+matched comparison; then thirty-minute interaction and longer soak on one frozen
+build. Split landing is separate; engine-update UX is deferred.
 
-The [physical comparison](evidence/audio-recovery/2026-10-04-refresh5deck-physical-completion.md)
-**passes all 24 first-attempt complete audio/state lifetimes** at the declared
-Completion 1.0.0 instrument/effect SDK scope: Fs=48000, M=N=256/128/64,
-SameCallback D0/Buffered D256, diagnostics OFF and separately ON. Captured output
-contains 57,357,536 exact sample values over 96,172 callbacks (96,000 main), with
-complete returned events/points, meaningful state recall and all 24 DSP owners
-retired. D0/N64 main, short N13 tails and final-N0 Buffered debt are included.
-The unchanged consumer/full-output oracle requires the complete planned lifetime.
+The current endpoint is the first ten-minute commercial baseline, before source,
+scheduling or RT privilege changes. Prefer the existing lawful Pure LoFi fixture
+and retained project, otherwise Serum2. Use the supported manual preparation route
+for only the selected commercial class. Preserve exact predecessor/settings,
+licensed installation/state and original project; use a separate working copy.
+The [first actual commercial baseline](evidence/audio-recovery/2026-10-04-pure-lofi-bitwig-baseline.md)
+is retained and remains unqualified for dependable continuity: sixteen512-frame
+stereo-zero spans and18active graph ERR increments in the full811.365-second
+bracket, despite bridge-gap counters0 and fresh native/Windows RR5. The original
+project, exact predecessor/settings and nine other published siblings stay exact.
+This does not authorize speculative scheduler repair or begin30minute interaction/soak.
 
-Six nonzero callbacks exceed the independent N/Fs cadence reference, including
-two main callbacks. No SDK refusal or raw SDK span over 5s was recorded. These
-facts are separate from stored-policy expiry and do not qualify a device/DAW
-whole-graph deadline. Native workers remain ordinary scheduled; the RTKit command
-exit 1 leaves the exact DBus reason unknown. Windows priority 5 effective readback
-exists in all 24 cells, without a scheduling-continuity claim. First invocation
-was cold; the remaining 23 retained a warm product keeper in both generations.
+## Frozen source and basis
 
-## Exact source and installed scope
+Base HEAD `064bcf0fa72ff995e2c5c69ffeba832ccdc88f22`, branch
+`codex/audio-completion-contract`; PR207 stays draft. Frozen installed engine comes
+from `d970eda91be4bc972d38a0d4b107cc5f4ededa54`, tree
+`57a484beee1f28cb6d0df85f25977b458d64a1ff`, package `0.12.0refresh5deck`, engine
+SHA256 `add49d7a5ed38c44d55395f58d471656d33a7ef8f097cdd43de2332ebe04fbd0`.
+Basis: current operator order; AGENTS.md capability increments and verification;
+GOVERNANCE.md responsibility/evidence; architecture18.1–18.4 and accepted D-030.
+The approved one-origin five-second containment contract is unchanged.
 
-Implementation base `8eaf2c2966cf0254a11d2428cfa1319fd2f829b3`, tree
-`e96ac9ee5c5e64b22dc47f401024ed995d53dd36`; installed frozen successor
-`d970eda91be4bc972d38a0d4b107cc5f4ededa54`, tree
-`57a484beee1f28cb6d0df85f25977b458d64a1ff`, version `0.12.0refresh5deck`.
-Branch `codex/audio-completion-contract`; #207 remains draft, no merge.
-Basis: AGENTS.md “Design the shared system before selecting patches”, “Work in
-complete capability increments” and “Engineering protections”; GOVERNANCE.md
-“Responsibility and authority” and “Evidence and completion”; architecture 18.1–18.4,
-accepted D-022/D-028/D-030 and the operator's explicit contract decision.
+The [prior physical SDK comparison](evidence/audio-recovery/2026-10-04-refresh5deck-physical-completion.md)
+passes24/24 first-party full lifetimes versus refresh4's8/24, with six nonzero
+N/Fs cadence exceedances, two main. It does not prove actual DAW performance,
+isolated bridge overhead or native RT. The historical SDK consumer executed
+natively outside Flatpak; its RTKit exit1 cannot establish Bitwig sandbox denial.
+Only two Completion publications were refreshed. Modern publication engine-update
+UX remains FC-MGMT-008; its repair is deferred rather than claimed complete.
 
-AP23 C ABI 2 requires final completion checking and rejects old/new mismatch;
-IPC 15, descriptor/profile axes, epochs, state, custody and terminal posture remain
-separate. Real Session/IPC 15 worker tests discriminate outstanding replies from
-validated owned results awaiting publication, cover FIFO N0/short debt and due
-Buffered output/control ordering, original expiry, cancellation/death, late output
-and acquired-slot retirement. Actual native SDK tests cover ABI refusal and final
-SDK sink expiry on the same origin. Exact source review cleared the candidate.
-Linux 164/registered 165 tests pass (2 ignored each), strict registered clippy and
-13 native SDK tests pass, and both SDK oracle unit tests pass. Initial source,
-pairing and private-helper failures remain retained, with inherited Pi/macOS broad
-check limitations classified. [Source/build evidence](evidence/audio-recovery/2026-10-04-bounded-completion-source.json)
-identifies each generation and archive separately.
+## First baseline protocol and acceptance
 
-Normal installer/one Update Bridge action selected the new software and kit,
-but **all 10 modern publications retained their old engine and revision**. Only the
-two Completion fixtures selected the frozen revised engine after actual offered
-rescan/reinspection/preparation/experimental replacement. All 8 commercial
-registrations/preferences and current/predecessor bytes remain exact on their old
-engines. Successful fixture preparation does not close the end-customer engine
-update journey. FC-MGMT-008 records this remaining delivery limitation.
+Refresh live machine/DAW ownership before mutation. Preserve exact class/module/
+environment/settings/predecessor and project bytes. Normal offered rescan,
+inspection, preparation/replacement and delivery selection must prove the chosen
+publication uses the frozen engine/paired host. No other commercial selection or
+licensed environment recreation is in scope.
 
-## Remaining work and custody
+Before playback, review the exact commercial version, project/clip and independent
+whole-session output/continuity oracle. Verify real Bitwig/Flatpak version, audio
+backend, actual block/rate, one selected instance and editor visibly open. Capture
+all paced output for600seconds with recorder/DAW/sink error witnesses, actual
+consumer/native/Windows/callback placement and effective scheduling. Record
+observable node/graph facts; N/Fs is not an inferred actual DAW deadline. Commercial
+DSP is opaque: waveform silence alone is not a dropout, and bridge counters alone
+are not an output pass. Preserve intended rests, automation and transport boundaries.
 
-The bounded first-party SDK correctness endpoint is complete. FC-AUDIO-001 remains
-open for actual timing/scheduling, native scheduling-reason observability and the
-separate retained musical failures; FC-MGMT-008 remains open for modern engine
-update delivery and deferred restoration. No commercial new-engine, real DAW
-musical/project/reboot, full recovery, soak, catalogue/platform, dependable audio
-or beta claim follows. The prior refresh4 8/24 lifetime result and failed main N64
-remain retained; the comparison does not assign every earlier failure cause.
-No further hardware run, source repair, recovery campaign, merge or promotion is
-selected by this completed slice.
+Retain every first attempt, failures and observation gaps, original/working project
+and complete output hashes. Stop unsafe ownership/cleanup or lost recording and
+retain partial failure. Ten-minute automatic playback with an open editor is a
+baseline, not user interaction. Normal stop/save/quit and authenticated retirement
+finish the declared lifetime; no rerun until green.
 
-Final readback: all 24 test DSP owners/transports retired; DSP 0/maintenance 0 and
-cleanup confirmed; service active; no DAW/consumer/manager remains. The healthy
-managed inspection keeper remains. Both Completion fixtures end on SameCallback
-D0 with remembered Buffered 256; commercial preferences are unchanged. Manager and
-Moonlight closed normally. Builders/capacity VM are stopped, Audiobookshelf remains
-running, and no global RT privilege or runtime/graphics policy changed.
-Use one builder/VM at a time and preserve Audiobookshelf headroom in future work.
+After this baseline, the operator approved a positive continuous native Test Tone
+control: separate project, sole active native source, graph512/48k, matched full
+stereo output capture, zero bridge DSP owners, declared >=600second bracket and
+fixed-frequency/recurrence/zero-span oracle. It is currently running on unchanged
+source/priority. Native GUI load is not equivalent to the vendor editor. Retain
+all anomalies and concurrent read-only preflight observer activity.
 
-Execution/implementation: Sol6.1 xhigh. GUI: Sol6.1 high. Reviewers: Astra6 xhigh.
-Root orchestrates; the executor owns mutations. Exact final evidence review and
-commit/push conclude this endpoint; no merge is authorized.
+The operator additionally authorized same-build forced ordinary-versus-realtime
+native-worker comparisons and a kernel scheduler trace during paced playback,
+after this native control. Freeze matched repetitions/order and exact authenticated
+PID/TID/starttime, policy restoration and abort posture before mutation. Keep
+Windows policy/affinity/power/editor/audio/capture conditions declared and stable.
+Kernel trace scope must be a bounded private instance with exact events/filters,
+loss/storage/cleanup and clock-correlation limits; no global permission/sysctl change.
+Read-only capability checks currently find installed perf/trace-cmd but root-only
+tracefs and no sudo-n access. That explicit access gap is not resolved by elapsed
+time or a workaround. The frozen Completion SDK host has no pacing/worker-ready
+gate; actual paced Bitwig diagnostics cannot inherit its per-callback rows.
+
+Current Bitwig native and Windows promotion succeeded, so scheduling repair requires
+a demonstrated defect. The historical outside-Flatpak SDK refusal reason remains
+unobserved; a small reviewed control-path observability change is a separate possible
+next step, not yet a production/source mutation. Pacing, RTKit, portal and priority inversion remain hypotheses unless
+measured. Do not broaden into recovery/graphics/runtime/engine-update or beta work.
+
+## Custody
+
+Fresh preflight: physical Galileo/SteamOS3.8.16, Bitwig6.1 Flatpak/runtime25.08,
+PipeWire1.6.4; no Bitwig/manager/test consumer; DSP0/maintenance0, cleanup confirmed,
+one healthy Completion keeper. Pure LoFi1.0.0.6121 is manually prepared on the verified refresh5 engine;
+seven other commercial selections remain old-engine and untouched. Two Completion
+fixtures already use the new engine. No generic engine-update completion is claimed. Builders/VM stay stopped; reserve Audiobookshelf
+headroom, one builder/VM at a time. Machine/source mutations: Sol6.1xhigh executor;
+GUI normally Sol6.1high; unavailable agent capacity required temporary GUI execution
+by this same Sol6.1xhigh executor, as explicitly authorized. Review: Astra6xhigh;
+root orchestrates. Commit/push completed work;
+no merge or beta promotion.

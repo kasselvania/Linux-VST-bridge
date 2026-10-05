@@ -986,6 +986,23 @@ physical product result is claimed.
 
 ## FC-AUDIO-001 — Residual audio deadline misses
 
+The later [Pure LoFi / Bitwig commercial baseline](../evidence/audio-recovery/2026-10-04-pure-lofi-bitwig-baseline.md)
+is **unqualified for dependable musical continuity**. The complete first playback
+attempt retains an811.365-second bracket, sixteen512-frame stereo-zero spans and
+18active Bitwig/PipeWire ERR increments. Bridge missing/gap/expired counters remain
+zero; native and Windows workers both freshly reach RR5. Thirteen zero spans have
+nearby error associations under byte-observation brackets expanded by±1second;
+three remain unassociated. Neither zeros nor graph ERR establish bridge origin.
+GUI Auto512, graph512/48k and negotiated VST3 maximum512 are separate observations;
+actual per-call N and device deadline are unobserved. Native completion telemetry
+includes vendor DSP/wait and cannot establish isolated bridge overhead. Normal
+stop/save/quit and authenticated retirement pass; original project, predecessor,
+settings and nine unselected published siblings stay exact. The presumed Bitwig
+native-RT failure is not reproduced; historical outside-Flatpak SDK refusal reason
+remains unobserved. A positive native continuous-source control and separately
+reviewed user-authorized ordinary/RR scheduler diagnostics are next; no30minute
+interaction, soak, scheduler repair or beta acceptance is claimed.
+
 The approved D-030 ordered-completion contract now passes the
 [refresh5deck physical first-party SDK comparison](../evidence/audio-recovery/2026-10-04-refresh5deck-physical-completion.md):
 all 24 first-attempt lifetimes return complete correct audio/events/parameters,
