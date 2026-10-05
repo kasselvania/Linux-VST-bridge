@@ -1,5 +1,6 @@
 #pragma once
 #include "process_call_timing.h"
+#include "ap23_backend.h"
 #include <atomic>
 #include <cmath>
 #include <cstdlib>
@@ -39,7 +40,7 @@ class Recorder final {
  static_assert(std::atomic<uint64_t>::is_always_lock_free);
  static_assert(std::atomic<uint32_t>::is_always_lock_free);
  static_assert(std::atomic<bool>::is_always_lock_free);
- static_assert(sizeof(Slot)==120);
+ static_assert(sizeof(Slot)==168);
  static constexpr uint64_t closed=uint64_t(1)<<63;
  inline static std::atomic<uint64_t> instances_{1};
  static uint64_t nextInstance()noexcept {
@@ -84,6 +85,7 @@ public:
   Recorder& owner_;
   Slot* slot_=nullptr;
   bool registered_=false,returned_=false;
+  bool windows_seen_=false,windows_ok_=true;
  public:
   Call(Recorder& owner,int32_t frames,int32_t mode,int32_t precision,uint64_t entry)noexcept
    :owner_(owner) {
@@ -127,9 +129,26 @@ public:
    returned_=true;
    if(slot_){slot_->record.sdk_result=status;slot_->record.valid|=result_valid;}
   }
+  void windows(const ap23_windows_process_timing_t& t,uint32_t status)noexcept {
+   if(!slot_)return;
+   windows_seen_=true;
+   if(status||t.schema!=1||t.size!=sizeof(t)||t.valid!=1||t.reserved||
+      !t.requests||!t.host_call||!t.epoch||!t.first_sequence||
+      t.last_sequence<t.first_sequence){windows_ok_=false;return;}
+   auto&r=slot_->record;
+   if(r.windows_requests&&(r.windows_epoch!=t.epoch||
+      t.first_sequence<=r.windows_last_sequence)){windows_ok_=false;return;}
+   if(t.process_ns>UINT64_MAX-r.windows_process_ns||
+      t.requests>UINT64_MAX-r.windows_requests){windows_ok_=false;return;}
+   if(!r.windows_requests)r.windows_first_sequence=t.first_sequence;
+   r.windows_epoch=t.epoch;r.windows_last_host_call=t.host_call;
+   r.windows_last_sequence=t.last_sequence;r.windows_requests+=t.requests;
+   r.windows_process_ns+=t.process_ns;
+  }
   void finishAt(uint64_t end)noexcept {
    if(!registered_)return;
    if(slot_){auto& record=slot_->record;record.return_ns=end;
+    if(windows_seen_&&windows_ok_&&record.windows_requests)record.valid|=windows_process_valid;
     record.outcome=returned_?returned:unwound;
     if(end)record.valid|=return_valid;
     if(record.entry_ns&&end&&end>=record.entry_ns)record.valid|=duration_valid;

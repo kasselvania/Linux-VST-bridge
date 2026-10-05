@@ -101,11 +101,16 @@ void verify(EventList& sink, uint32_t count) {
 extern "C" {
 uint32_t __wrap_lvb_process_call_export(uint64_t,const lvb_process_call_summary_t* summary,
  const lvb_process_call_record_t* records,uint32_t count){
- require(summary&&summary->schema==1&&summary->size==sizeof(*summary)&&count==summary->retained,"plain timing export ABI");
+ require(summary&&summary->schema==LVBCallTiming::schema&&summary->size==sizeof(*summary)&&count==summary->retained,"plain timing export ABI");
  ++call_exports;call_summary=*summary;
  if(count)call_records.assign(records,records+count);else call_records.clear();return 0;
 }
 uint32_t __wrap_ap23_abi_version(){return backend_abi;}
+uint32_t __wrap_ap23_process_windows_timing(uint64_t,ap23_windows_process_timing_t* timing){
+ require(timing&&timing->schema==1&&timing->size==sizeof(*timing),"Windows timing POD ABI");
+ static uint64_t sequence=0;
+ *timing={1,sizeof(*timing),1,++sequence,1,1234,sequence,sequence,1,0};return 0;
+}
 uint32_t __wrap_ap23_finish_callback(uint64_t){
  ++finish_calls;require(cursor==total,"final check follows all SDK result drains");finish_completed=callerClock();return finish_result;
 }
@@ -383,6 +388,9 @@ int main() {
  require(!(call_records.back().valid&LVBCallTiming::owner_context_valid),"busy refusal cannot fabricate phase/handle snapshot");
  require(!(call_records[0].valid&LVBCallTiming::configuration_valid)&&(call_records[0].valid&LVBCallTiming::owner_context_valid),"pre-initialize owner snapshot is not an accepted configuration");
  require(call_records[1].sample_rate==48000.&&call_records[1].maximum==128,"accepted processing context captured");
+ require((call_records[1].valid&LVBCallTiming::windows_process_valid)&&call_records[1].windows_process_ns==1234&&
+  call_records[1].windows_requests==1&&call_records[1].windows_first_sequence==call_records[1].windows_last_sequence,
+  "matching backend Windows duration reaches the owning whole-call record");
  uint64_t maximum_tail=0;for(size_t i=0;i<expected.size();++i)maximum_tail=std::max(maximum_tail,expected[i].after-call_records[i].return_ns);
  std::printf("Timing independent caller bracket: %zu exits, max return-edge-to-caller/audit tail %llu ns\n",expected.size(),(unsigned long long)maximum_tail);
  auto traceStart=[&]{setenv("LVB_PROCESS_CALL_TRACE","1",1);p=std::make_unique<AP2::Processor>();unsetenv("LVB_PROCESS_CALL_TRACE");

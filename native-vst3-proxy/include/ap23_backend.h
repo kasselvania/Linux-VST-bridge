@@ -3,6 +3,14 @@
 // Audio completion C ABI v2. SDK objects/pointers do not cross this boundary;
 // only the existing bounded borrowed planar/event spans and explicit mode do.
 extern "C" {
+struct ap23_windows_process_timing_t {
+ uint32_t schema,size;
+ uint64_t epoch,host_call,requests,process_ns,first_sequence,last_sequence;
+ uint32_t valid,reserved;
+};
+// One-shot optional diagnostic copy after process, under the SDK busy guard.
+// Only exact own-ticket results are valid; no Buffered predecessor substitution.
+uint32_t ap23_process_windows_timing(uint64_t,ap23_windows_process_timing_t*);
 struct ap23_phase_trace_t {
  uint32_t schema;
  uint32_t size;
@@ -58,6 +66,7 @@ uint32_t ap23_finish_callback(uint64_t);
 uint32_t ap23_abi_version();
 }
 namespace AP23 {
+static_assert(sizeof(ap23_windows_process_timing_t)==64);
 inline constexpr uint32_t abi_version=2;
 inline constexpr bool compatibleAbi(uint32_t version) { return version==abi_version; }
 inline constexpr uint32_t deadline_expired=0x108, cancelled=0x109, mode_refused=0x10A;

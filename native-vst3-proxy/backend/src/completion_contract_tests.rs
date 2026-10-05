@@ -46,6 +46,9 @@ impl Peer {
         request
     }
     fn reply(&mut self, request: &Frame) {
+        self.reply_timed(request, 0);
+    }
+    fn reply_timed(&mut self, request: &Frame, process_ns: u64) {
         let n = ap1_native_client::get(&request.payload[..4]) as usize;
         if n != 0 {
             let mut bytes = vec![0; n * 4];
@@ -67,6 +70,7 @@ impl Peer {
         payload[..4].copy_from_slice(&(n as u32).to_le_bytes());
         payload[4..8].copy_from_slice(&(self.output as u32).to_le_bytes());
         payload[16..32].copy_from_slice(&request.payload[32..48]);
+        payload[32..40].copy_from_slice(&process_ns.to_le_bytes());
         if n == 0 {
             payload[60..64].copy_from_slice(&1u32.to_le_bytes());
             payload[76..80].copy_from_slice(&7u32.to_le_bytes());
@@ -156,6 +160,39 @@ impl Drop for Fixture {
         if let Some(worker) = self.worker.take() { worker.join().unwrap(); }
         std::fs::remove_dir_all(&self.directory).unwrap();
     }
+}
+
+#[test]
+fn real_worker_windows_timer_matches_own_ticket_including_zero_frames() {
+    let (mut fixture, mut peer) = Fixture::new(0);
+    let responder = thread::spawn(move || {
+        for (n, ns) in [(64, 3_000_000), (0, 1234), (13, 4567)] {
+            let request = peer.request();
+            assert_eq!(ap1_native_client::get(&request.payload[..4]), n);
+            peer.reply_timed(&request, ns);
+        }
+        peer
+    });
+    for (sequence, frames, ns) in [(1, 64, 3_000_000), (2, 0, 1234), (3, 13, 4567)] {
+        fixture.callback.windows_timing = WindowsProcessTiming::default();
+        assert_eq!(
+            fixture.call(frames, None),
+            Ok(if frames == 0 { 3 } else { 0 })
+        );
+        let t = fixture.callback.windows_timing;
+        assert_eq!(
+            (
+                t.epoch,
+                t.requests,
+                t.process_ns,
+                t.first_sequence,
+                t.last_sequence,
+                t.valid
+            ),
+            (1, 1, ns, sequence, sequence, 1)
+        );
+    }
+    let _peer = responder.join().unwrap();
 }
 
 #[test]

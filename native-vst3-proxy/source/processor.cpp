@@ -909,6 +909,11 @@ tresult Processor::processBody(ProcessData &d) {
         input_flags,left,right,output,channels,output_flags,delivery,entered_ns);
     if(phase_trace_record){phase_trace_record->backend_result=result;
       phase_trace_record->phase_reached|=AP23::phase_backend_result;}
+    if(process_calls_.requestedEnabled()){
+      ap23_windows_process_timing_t timing{};timing.schema=1;timing.size=sizeof(timing);
+      const auto status=ap23_process_windows_timing(handle_,&timing);
+      observation.windows(timing,status);
+    }
     return result;
   };
   auto deliver=[&]{

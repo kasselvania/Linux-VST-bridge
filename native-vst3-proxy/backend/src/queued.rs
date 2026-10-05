@@ -89,6 +89,8 @@ struct Completion {
     epoch: u64,
     ticket: u64,
     returned: crate::process_results::Packet,
+    windows_process_ns: Option<u64>,
+    windows_sequence: u64,
 }
 impl From<Item> for Completion {
     fn from(i: Item) -> Self {
@@ -103,6 +105,8 @@ impl From<Item> for Completion {
             epoch: i.epoch,
             ticket: i.ticket,
             returned: crate::process_results::Packet::default(),
+            windows_process_ns: None,
+            windows_sequence: 0,
         }
     }
 }
@@ -608,6 +612,7 @@ impl PresentationGaps {
     }
 }
 struct Callback {
+    windows_timing: WindowsProcessTiming,
     // One originating call policy remains owned through final SDK sink work.
     // Each queued Item owns its copy after Buffered presentation returns.
     completion_policy: Option<crate::performance::CompletionPolicy>,
@@ -641,6 +646,7 @@ struct Callback {
 impl Callback {
     fn new() -> Self {
         Self {
+            windows_timing: WindowsProcessTiming::default(),
             completion_policy: None,
             completion_waits: 0,
             completion_wait_misses: 0,
@@ -895,6 +901,9 @@ impl Callback {
                 if self.completed_operation.checked_add(1) != Some(item.ticket) {
                     s.release_output(&a); s.fail(CORRELATION, self.position); return Err(2);
                 }
+                if exact && item.ticket == request.ticket {
+                    self.windows_timing.add(item.epoch, item.windows_sequence, item.windows_process_ns);
+                }
                 self.completed_operation = item.ticket;
             } else if request.completion.is_some() {
                 s.release_output(&a); s.fail(CORRELATION, self.position); return Err(2);
@@ -999,6 +1008,56 @@ impl Callback {
 }
 
 const PHASE_TRACE_SCHEMA: u32 = 1;
+// Optional diagnostics: exact own-ticket vendor elapsed time, already present
+// in IPC15 replies. No additional timer or observer thread on the callback.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct WindowsProcessTiming {
+    pub schema: u32,
+    pub size: u32,
+    pub epoch: u64,
+    pub host_call: u64,
+    pub requests: u64,
+    pub process_ns: u64,
+    pub first_sequence: u64,
+    pub last_sequence: u64,
+    pub valid: u32,
+    pub reserved: u32,
+}
+impl Default for WindowsProcessTiming {
+    fn default() -> Self {
+        Self {
+            schema: 1,
+            size: 64,
+            epoch: 0,
+            host_call: 0,
+            requests: 0,
+            process_ns: 0,
+            first_sequence: 0,
+            last_sequence: 0,
+            valid: 0,
+            reserved: 0,
+        }
+    }
+}
+impl WindowsProcessTiming {
+    fn add(&mut self, epoch: u64, sequence: u64, ns: Option<u64>) {
+        if self.requests == 0 {
+            self.epoch = epoch;
+            self.first_sequence = sequence;
+            self.valid = 1;
+        } else if self.epoch != epoch || sequence <= self.last_sequence {
+            self.valid = 0;
+        }
+        self.requests += 1;
+        self.last_sequence = sequence;
+        match ns.and_then(|n| self.process_ns.checked_add(n)) {
+            Some(total) if sequence != 0 => self.process_ns = total,
+            _ => self.valid = 0,
+        }
+    }
+}
+const _: () = assert!(std::mem::size_of::<WindowsProcessTiming>() == 64);
 const PHASE_RUST_ENTRY: u64 = 1 << 1;
 const PHASE_POLICY: u64 = 1 << 2;
 const PHASE_IDENTITY: u64 = 1 << 3;
@@ -1402,6 +1461,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                     let publish = s.wanted.load(Ordering::Acquire) == item.epoch;
                     let mut completion = Completion::from(item);
                     completion.returned = session.returned;
+                    completion.windows_process_ns = session.trace.process_ns;
+                    completion.windows_sequence = session.trace.sequence;
                     if publish && n>0 {
                         if let Some(pool)=s.extra.get() {
                             let map=session.mapping.as_ref().ok_or_else(||invalid("output mapping absent"))?;
@@ -2546,6 +2607,7 @@ unsafe fn process_events_guarded(
     mut trace: Option<&mut PhaseTrace>,
 ) -> u32 {
     (*l.callback.get()).completion_policy = None;
+    (*l.callback.get()).windows_timing = WindowsProcessTiming::default();
     let n = n as usize;
     if extra.len()>62 || (n>0 && extra.len()!=l.shared.extra.get().map_or(0,|p|p.channels)) {
         return if detailed {0x101} else {1};
@@ -2680,6 +2742,7 @@ unsafe fn process_events_guarded(
         l.shared.processing_ready_epoch.load(Ordering::Acquire));
     let mut combined = channel_mask(2+extra.len());
     let mut offset = 0;
+    let mut timing_requests = 0;
     loop {
         let count = (n - offset).min(if whole_block { CAP } else { LEGACY_CAP });
         let mut item = Item::control(AUDIO, 0);
@@ -2707,6 +2770,7 @@ unsafe fn process_events_guarded(
         match callback.process_outputs_until_traced(&l.shared, item, &mut out,extra,offset,
             completion_deadline,trace.as_deref_mut()) {
             Ok(f) => {
+                timing_requests += 1;
                 combined &= f;
                 for (ch, p) in [out_left, out_right].into_iter().enumerate() {
                     std::ptr::copy_nonoverlapping(out[ch].as_ptr(), p.add(offset), count);
@@ -2743,6 +2807,10 @@ unsafe fn process_events_guarded(
         return COMPLETION_EXPIRED;
     }
     *out_flags = combined;
+    let callback = &mut *l.callback.get();
+    callback.windows_timing.host_call = callback.host_call;
+    callback.windows_timing.valid = u32::from(exact &&
+        callback.windows_timing.requests == timing_requests && callback.windows_timing.valid == 1);
     if !whole_block {
     let callback = &mut *l.callback.get();
     callback.curve_carry.count = callback.curve_plan.next.count;
@@ -3232,6 +3300,24 @@ pub unsafe extern "C" fn ap23_process_outputs(
     let events=if count==0 {&[]} else {std::slice::from_raw_parts(events,count as usize)};
     process_events(id,n,f64::NAN,flags,left,right,outputs[0],outputs[1],out_flags,delivery,
         events,*context,true,entered_ns,true,&outputs[2..],Some(mode))
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap23_process_windows_timing(
+    id: u64,
+    out: *mut WindowsProcessTiming,
+) -> u32 {
+    if out.is_null() || (*out).schema != 1 || (*out).size != 64 {
+        return 2;
+    }
+    let Some(l) = INSTANCES.lease(id) else {
+        return 1;
+    };
+    let Some(_guard) = Guard::acquire(&l) else {
+        return 3;
+    };
+    // The SDK busy guard spans process -> this one-shot copy -> final sinks.
+    *out = std::mem::take(&mut (*l.callback.get()).windows_timing);
+    0
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap23_process_outputs_trace(

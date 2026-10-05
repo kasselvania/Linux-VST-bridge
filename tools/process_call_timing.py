@@ -1,4 +1,4 @@
-"""Bounded offline reader for native process-call observation schema1.
+"""Bounded offline reader for native process-call observation schemas1/2.
 
 Retain the source binary: every call is present there, including refused/unwound
 calls and actual zero/partial N. Summaries do not establish audio deadlines.
@@ -13,6 +13,7 @@ import struct
 
 SUMMARY = struct.Struct('<6I11Q')
 RECORD = struct.Struct('<II6QdqII6iII')
+RECORD_V2 = struct.Struct('<II6QdqII6iII6Q')
 CAPACITY = 262144
 SUMMARY_FIELDS = ('schema size capacity namespace_pid record_size flags instance offered retained '
                   'capacity_dropped contention_dropped allocation_dropped invalid_clocks '
@@ -20,31 +21,42 @@ SUMMARY_FIELDS = ('schema size capacity namespace_pid record_size flags instance
 FIELDS = ('schema size instance sequence entry_ns return_ns backend_handle configuration sample_rate '
           'project_samples namespace_pid namespace_tid frames mode precision maximum phase sdk_result '
           'valid outcome').split()
-Call = collections.namedtuple('Call', FIELDS)
+WINDOWS_FIELDS = ('windows_epoch windows_last_host_call windows_requests windows_process_ns '
+                  'windows_first_sequence windows_last_sequence').split()
+Call = collections.namedtuple('Call', FIELDS + WINDOWS_FIELDS, defaults=(0,)*6)
 
 
 def read(path):
     path = pathlib.Path(path)
     extent = path.stat().st_size
-    if extent < 128 or extent > 128 + CAPACITY * RECORD.size:
+    if extent < 128 or extent > 128 + CAPACITY * RECORD_V2.size:
         raise ValueError('observation extent outside prepared capacity')
     with path.open('rb') as stream:
-        if stream.read(16) != b'LVBPC001' + struct.pack('<II', 128, RECORD.size):
+        header=stream.read(16)
+        if header==b'LVBPC001'+struct.pack('<II',128,RECORD.size):
+            encoding, schema = RECORD, 1
+        elif header==b'LVBPC002'+struct.pack('<II',128,RECORD_V2.size):
+            encoding, schema = RECORD_V2, 2
+        else:
             raise ValueError('observation header/encoding')
         summary = dict(zip(SUMMARY_FIELDS, SUMMARY.unpack(stream.read(SUMMARY.size))))
-        if (summary['schema'] != 1 or summary['size'] != SUMMARY.size or
-                summary['record_size'] != RECORD.size or summary['capacity'] > CAPACITY or
+        if (summary['schema'] != schema or summary['size'] != SUMMARY.size or
+                summary['record_size'] != encoding.size or summary['capacity'] > CAPACITY or
                 summary['retained'] > summary['capacity'] or summary['flags'] & ~15 or
                 summary['flags'] & 5 != 5 or summary['unfinished_writers'] or
-                extent != 128 + summary['retained'] * RECORD.size):
+                extent != 128 + summary['retained'] * encoding.size):
             raise ValueError('observation summary/extent/ownership')
         rows = []
         for _ in range(summary['retained']):
-            row = Call(*RECORD.unpack(stream.read(RECORD.size)))
-            if (row.schema != 1 or row.size != RECORD.size or row.instance != summary['instance'] or
-                    row.namespace_pid != summary['namespace_pid'] or row.valid & ~255 or
+            row = Call(*encoding.unpack(stream.read(encoding.size)))
+            if (row.schema != schema or row.size != encoding.size or row.instance != summary['instance'] or
+                    row.namespace_pid != summary['namespace_pid'] or row.valid & ~(511 if schema==2 else 255) or
                     row.outcome not in (1, 2) or bool(row.valid & 64) != (row.outcome == 1)):
                 raise ValueError('observation record/schema/identity/outcome')
+            if row.valid & 256 and (not row.windows_epoch or not row.windows_last_host_call or
+                    not row.windows_requests or not row.windows_first_sequence or
+                    row.windows_last_sequence < row.windows_first_sequence):
+                raise ValueError('Windows request correlation')
             rows.append(row)
     if len({row.sequence for row in rows}) != len(rows):
         if not summary['sequence_overflow']:
@@ -113,6 +125,9 @@ def analyze(summary, rows, start=None, end=None, export_confirmed=None):
     for row in valid:
         values[row.frames].append(row.return_ns-row.entry_ns)
     groups = {str(n): dict(calls=counts[n], durations=distribution(values[n])) for n in sorted(counts)}
+    matched=[row for row in valid if row.valid & 256]
+    residuals=[row.return_ns-row.entry_ns-row.windows_process_ns for row in matched
+               if row.windows_process_ns <= row.return_ns-row.entry_ns]
     population_complete = bool(summary['flags'] & 8)
     return dict(schema=1, record_population_complete=population_complete,
                 export_confirmed=export_confirmed,
@@ -123,6 +138,12 @@ def analyze(summary, rows, start=None, end=None, export_confirmed=None):
                 outcomes=dict(collections.Counter(str(row.outcome) for row in selected)),
                 sdk_results=dict(collections.Counter(str(row.sdk_result) for row in selected if row.valid & 64)),
                 durations=distribution([row.return_ns-row.entry_ns for row in valid]), actual_n=groups,
+                windows_process=dict(correlated_calls=len(matched), missing_calls=len(valid)-len(matched),
+                    durations=distribution([row.windows_process_ns for row in matched]),
+                    outside_windows_process=distribution(residuals),
+                    negative_residual_sequences=[row.sequence for row in matched
+                        if row.windows_process_ns > row.return_ns-row.entry_ns],
+                    scope='Windows/vendor SDK call elapsed, including vendor-internal waits; not DSP CPU time'),
                 cadence_comparable_calls=len(cadence), cadence_undefined_calls=len(selected)-len(cadence),
                 cadence_exceeding_sequences=[sequence for sequence, exceeded in cadence if exceeded],
                 method=dict(quantiles='sorted[count//2], sorted[floor((count-1)*0.99)]; no interpolation',

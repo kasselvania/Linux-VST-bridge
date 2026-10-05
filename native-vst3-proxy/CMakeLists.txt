@@ -64,7 +64,7 @@ if(AP10_RESULTS_TESTS)
  target_compile_features(ap10-result-lifetime PRIVATE cxx_std_20)
  target_compile_options(ap10-result-lifetime PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-error=stringop-truncation)
  target_link_libraries(ap10-result-lifetime PRIVATE sdk sdk_hosting "${AP2_RUST_LIBRARY}" pthread dl m)
- foreach(symbol ap9_open ap22_curve_parameters ap5_report_path ap10_setup ap4_activate ap4_deactivate ap3_transition if2_close if2_terminal_status ap23_phase_trace_enabled ap23_process_outputs ap23_process_outputs_trace ap23_finish_callback ap23_abi_version ap10_take_results ap10_fail_results lvb_process_call_export)
+ foreach(symbol ap9_open ap22_curve_parameters ap5_report_path ap10_setup ap4_activate ap4_deactivate ap3_transition if2_close if2_terminal_status ap23_phase_trace_enabled ap23_process_outputs ap23_process_outputs_trace ap23_process_windows_timing ap23_finish_callback ap23_abi_version ap10_take_results ap10_fail_results lvb_process_call_export)
   target_link_options(ap10-result-lifetime PRIVATE "-Wl,--wrap=${symbol}")
  endforeach()
  # Preserve the original collector/deep-copy sink coverage alongside the

@@ -7,7 +7,7 @@ use std::{
     path::Path,
 };
 const CAPACITY: u32 = 262_144;
-const RECORD_BYTES: usize = 112;
+const RECORD_BYTES: usize = 160;
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
 pub struct Record {
@@ -31,6 +31,12 @@ pub struct Record {
     pub sdk_result: i32,
     pub valid: u32,
     pub outcome: u32,
+    pub windows_epoch: u64,
+    pub windows_last_host_call: u64,
+    pub windows_requests: u64,
+    pub windows_process_ns: u64,
+    pub windows_first_sequence: u64,
+    pub windows_last_sequence: u64,
 }
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
@@ -59,7 +65,7 @@ fn bad() -> io::Error {
     io::Error::new(io::ErrorKind::InvalidInput, "process call observation")
 }
 fn validate(summary: &Summary, records: &[Record]) -> io::Result<()> {
-    if summary.schema != 1
+    if summary.schema != 2
         || summary.size != 112
         || summary.capacity > CAPACITY
         || summary.record_size != RECORD_BYTES as u32
@@ -86,13 +92,22 @@ fn validate(summary: &Summary, records: &[Record]) -> io::Result<()> {
         return Err(bad());
     }
     for record in records {
-        if record.schema != 1
+        if record.schema != 2
             || record.size != RECORD_BYTES as u32
             || record.instance != summary.instance
             || record.namespace_pid != summary.namespace_pid
-            || record.valid & !255 != 0
+            || record.valid & !511 != 0
             || !(1..=2).contains(&record.outcome)
             || (record.valid & 64 != 0) != (record.outcome == 1)
+        {
+            return Err(bad());
+        }
+        if record.valid & 256 != 0
+            && (record.windows_epoch == 0
+                || record.windows_last_host_call == 0
+                || record.windows_requests == 0
+                || record.windows_first_sequence == 0
+                || record.windows_last_sequence < record.windows_first_sequence)
         {
             return Err(bad());
         }
@@ -175,6 +190,17 @@ fn encode_record(r: &Record) -> [u8; RECORD_BYTES] {
         out[at..at + 4].copy_from_slice(&value.to_le_bytes());
         at += 4;
     }
+    for value in [
+        r.windows_epoch,
+        r.windows_last_host_call,
+        r.windows_requests,
+        r.windows_process_ns,
+        r.windows_first_sequence,
+        r.windows_last_sequence,
+    ] {
+        out[at..at + 8].copy_from_slice(&value.to_le_bytes());
+        at += 8;
+    }
     out
 }
 fn export(report: &Path, summary: &Summary, records: &[Record]) -> io::Result<()> {
@@ -194,7 +220,7 @@ fn export(report: &Path, summary: &Summary, records: &[Record]) -> io::Result<()
         .mode(0o600)
         .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
         .open(Path::new(&name))?;
-    file.write_all(b"LVBPC001")?;
+    file.write_all(b"LVBPC002")?;
     file.write_all(&128_u32.to_le_bytes())?;
     file.write_all(&(RECORD_BYTES as u32).to_le_bytes())?;
     file.write_all(&encode_summary(summary))?;
@@ -206,7 +232,7 @@ fn export(report: &Path, summary: &Summary, records: &[Record]) -> io::Result<()
     // complete without its exact expected extent plus successful export status.
     Ok(())
 }
-/// Off-thread diagnostic ABI1. The caller owns valid aligned immutable spans
+/// Off-thread diagnostic ABI2. The caller owns valid aligned immutable spans
 /// for this call; no SDK object, allocation or ownership crosses the boundary.
 ///
 /// # Safety
@@ -243,8 +269,8 @@ mod tests {
     use super::*;
     fn observation() -> (Summary, Record) {
         let record = Record {
-            schema: 1,
-            size: 112,
+            schema: 2,
+            size: 160,
             instance: 7,
             sequence: 0,
             entry_ns: 10,
@@ -260,11 +286,11 @@ mod tests {
             ..Record::default()
         };
         let summary = Summary {
-            schema: 1,
+            schema: 2,
             size: 112,
             capacity: CAPACITY,
             namespace_pid: 12,
-            record_size: 112,
+            record_size: 160,
             flags: 15,
             instance: 7,
             offered: 1,
@@ -315,8 +341,8 @@ mod tests {
         export(&report, &s, &[r]).unwrap();
         let calls = root.join("session.ndjson.process-calls.bin");
         let bytes = std::fs::read(&calls).unwrap();
-        assert_eq!(bytes.len(), 240);
-        assert_eq!(&bytes[..8], b"LVBPC001");
+        assert_eq!(bytes.len(), 288);
+        assert_eq!(&bytes[..8], b"LVBPC002");
         assert_eq!(std::fs::metadata(&calls).unwrap().mode() & 0o777, 0o600);
         assert!(export(&report, &s, &[r]).is_err());
         assert_eq!(std::fs::read(&calls).unwrap(), bytes);

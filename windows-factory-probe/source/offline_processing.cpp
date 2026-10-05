@@ -309,6 +309,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                     if(external)external->before_process();
                     const auto process_start=std::chrono::steady_clock::now();
                     block.result=processor.process(block.data);
+                    const auto process_ns=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-process_start).count();
                     // Custody immediately after the vendor call, before any throw/teardown.
                     if(block.returned.failed&&first_rejection.reason==AP10Results::Rejection::None){
                         first_rejection=block.returned.rejection;rejected_callback=processed+1;
@@ -317,7 +318,6 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         for(size_t i=0;i<block.request.event_count;++i){if(block.request.events[i].kind==2)++rejected_input_parameters;else ++rejected_input_notes;}
                         if(external&&external->result_status())external->result_status()->publish(first_rejection,rejected_generation,rejected_epoch,rejected_sequence,rejected_position,rejected_callback,rejected_input_notes,rejected_input_parameters);
                     }
-                    const auto process_ns=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-process_start).count();
                     if(external)external->after_process();
                     if(!sustained)events.lifecycle("ap0_process_completed",",\"block\":"+std::to_string(b)+
                         ",\"result\":"+std::to_string(block.result));

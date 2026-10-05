@@ -13,7 +13,7 @@ class Timing(unittest.TestCase):
                        after_seal=0, unfinished_writers=0, sequence_overflow=0)
         summary.update(changes)
         return b'LVBPC001'+struct.pack('<II', 128, 112)+timing.SUMMARY.pack(
-            *(summary[key] for key in timing.SUMMARY_FIELDS))+b''.join(timing.RECORD.pack(*row) for row in rows)
+            *(summary[key] for key in timing.SUMMARY_FIELDS))+b''.join(timing.RECORD.pack(*row[:len(timing.FIELDS)]) for row in rows)
 
     def row(self, sequence, n, elapsed, result=0, outcome=1):
         return timing.Call(1,112,7,sequence,100+sequence*10000000,100+sequence*10000000+elapsed,
@@ -23,6 +23,26 @@ class Timing(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path=pathlib.Path(directory)/'calls.bin';path.write_bytes(data)
             return timing.read(path)
+
+    def test_windows_same_call_time_and_missing_correlation(self):
+        import json
+        rows=[self.row(0,512,4000000)._replace(schema=2,size=160,valid=367,
+            windows_epoch=1,windows_last_host_call=4,windows_requests=1,
+            windows_process_ns=3000000,windows_first_sequence=7,windows_last_sequence=7),
+            self.row(1,0,1000)._replace(schema=2,size=160)]
+        old=self.binary([])
+        summary=dict(zip(timing.SUMMARY_FIELDS,timing.SUMMARY.unpack(old[16:128])))
+        summary.update(schema=2,record_size=160,offered=2,retained=2)
+        data=b'LVBPC002'+struct.pack('<II',128,160)+timing.SUMMARY.pack(
+            *(summary[k] for k in timing.SUMMARY_FIELDS))+b''.join(timing.RECORD_V2.pack(*r) for r in rows)
+        summary,decoded=self.read_bytes(data)
+        result=timing.analyze(summary,decoded)
+        self.assertEqual(result['windows_process']['correlated_calls'],1)
+        self.assertEqual(result['windows_process']['missing_calls'],1)
+        self.assertEqual(result['windows_process']['durations']['max_ns'],3000000)
+        self.assertEqual(result['windows_process']['outside_windows_process']['max_ns'],1000000)
+        bad=rows[0]._replace(windows_first_sequence=0)
+        with self.assertRaises(ValueError):self.read_bytes(data[:128]+timing.RECORD_V2.pack(*bad)+timing.RECORD_V2.pack(*rows[1]))
 
     def test_every_exit_actual_n_and_independent_cadence(self):
         rows=[self.row(0,0,100000000),self.row(1,64,1333334,1),self.row(2,1,2000,outcome=2)]

@@ -18,6 +18,16 @@ int main(){
  auto end=reinterpret_cast<uint64_t(*)()>(dlsym(RTLD_DEFAULT,"ap3_audit_end"));
  require(begin&&end,"existing audit preload");
  Recorder disabled(false,2);begin();{Recorder::Call call(disabled,1,0,0,10);call.result(0);}require(end()==0,"disabled callback effects");
+ Recorder timed(true,2);
+ ap23_windows_process_timing_t wt{1,64,2,3,1,6,7,7,1,0};
+ begin();{Recorder::Call call(timed,512,0,0,10);call.windows(wt,0);call.result(0);call.finishAt(20);}
+ require(end()==0,"correlated Windows timer adds no audited callback effects");
+ {Recorder::Call call(timed,0,0,0,10);call.windows(wt,0);call.windows(wt,0);call.result(0);call.finishAt(20);}
+ std::array<lvb_process_call_record_t,2> correlated{};const auto ts=timed.seal();
+ require(timed.snapshot(ts,correlated.data(),2),"Windows timing snapshot");
+ require((correlated[0].valid&windows_process_valid)&&correlated[0].windows_process_ns==6&&
+  correlated[0].windows_requests==1&&correlated[0].windows_first_sequence==7,"exact Windows request retained");
+ require(!(correlated[1].valid&windows_process_valid),"repeated/stale Windows reply cannot fabricate correlation");
  require(disabled.seal().offered==0,"disabled does not collect or allocate lazily");
  Recorder small(true,2);
  for(int32_t n:{0,1,64}){begin();{Recorder::Call call(small,n,0,0,10);call.result(0);call.finishAt(20);}require(end()==0,"enabled fixed query/atomics have no audited effects");}
