@@ -1,44 +1,51 @@
-# Current task: test denormal handling on the real render thread
+# Current task: the DAW thread that calls the bridge is not real-time
 
 ## Goal
 
-Pure LoFi plays at SameCallback D0, 512 frames / 48 kHz, Together hosting,
-editor open, for ten minutes without missing output blocks or graph errors.
-If clean, confirm on the same frozen build with thirty minutes of interaction.
+Pure LoFi plays in Bitwig on the Deck at 512 frames / 48 kHz for ten minutes
+without a missing block or graph error; then thirty minutes with normal use.
 Preserve projects, licensed state, the pinned runner and machine headroom.
 
-## Works now
+## What the last two runs established
 
-Installed direct mailbox v4 bypasses the native relay/socket pump. Reference
-output/state and second setup pass; an owned reference peer death wakes the
-pending call in 3.14 ms and retires cleanly. Median bridge remainder is 0.121 ms.
+Denormals are not the cause: the FTZ/DAZ guard left vendor time unchanged
+(2.61 vs 2.65 ms median) and misses went 10 to 8, within noise. No bridged call
+exceeds the 10.67 ms period (max 6.4 ms). Yet entry spacing between calls
+reaches 19.4 ms, with 16.2 ms lying outside our call. The caller's thread,
+recorded at every SDK entry, is SCHED_OTHER priority 0. Our native worker and
+Windows render thread are SCHED_RR 5. The render grant itself was flaky
+(first request refused, second found no thread, third effective); PR #215
+retries it and records the refusal reason.
 
-## Still broken
+## Best explanation (about 75%)
 
-The direct baseline has ten silent 512-frame blocks and +10 graph errors in
-600 seconds. Whole-call median/p99/max is 2.770/4.258/6.798 ms; Windows/vendor
-elapsed time is 2.646/4.123/6.377 ms. No measured call exceeds nominal 512/48k
-cadence, which is distinct from the remaining device budget. Slower controller
-polling also retains graph errors; that diagnostic is reverted.
+In Bitwig's "Together" hosting the plug-in runs in Bitwig's plug-in host
+process, and that process's audio thread has no real-time policy on this Deck.
+Every ordinary-priority thread on the machine (Wine UI, wineserver, our
+supervisor, the desktop) can delay it, and our 2.6 to 6.4 ms call occupies a
+quarter to 60 percent of the period, so a few ms of caller delay becomes a
+missed block. The two RT grants we do hold protect threads that wait on the
+unprotected one.
 
-## Working explanation
+## Next changes, one at a time
 
-Missing render-thread FTZ/DAZ could amplify vendor-internal denormal work.
-This is a specific untested explanation, not established by the timing split.
-The same-thread guard restores the complete original MXCSR after each vendor
-process call, including failure/unwind. Vendor worker threads remain unchanged.
-
-## Next change
-
-Build and install the paired denormal host with the restored 10 ms polling path.
-Verify actual selected engine/host/helper and direct mode, then repeat the
-same full 600-second output capture with sealed whole-call/vendor timings.
-Compare missing blocks, active graph errors, recorder errors and call durations.
+1. Deck, no code: during playback, record thread policies and CPU for Bitwig's
+   engine, Bitwig's plug-in host, the Wine host and the supervisor:
+   `ps -eLo pid,tid,comm,cls,rtprio,pcpu | grep -iE 'bitwig|wf0-factory|wineserver|python'`
+   sampled a few times. Expect the plug-in host's audio thread to show TS/-.
+2. Deck, no code: set Bitwig's plug-in hosting mode to "Within Bitwig" for this
+   plug-in (same project, clip, editor open) and repeat the ten-minute capture.
+   Compare missing blocks and maximum entry spacing against 8 and 19.4 ms.
+3. Code, if 1 and 2 confirm: at the first process() call the proxy records the
+   caller's TID and the supervisor requests SCHED_RR for it through the existing
+   RealtimeKit path, at least as high as the render thread. Then re-test in
+   "Together" mode.
+4. If 2 does not remove the misses: run Buffered with 512 remembered frames to
+   take the vendor call off Bitwig's critical path, and compare again.
 
 ## Done
 
-Retain the full first result. If clean, run the frozen interaction confirmation.
-If it fails, return that concrete result without another variant campaign.
-Commit and push completed work. Raw captures/logs remain outside Git.
+Ten clean minutes in the normal product configuration, then thirty, with the
+change that removed the misses named. Raw captures stay outside Git.
 
 Source/SSH/Deck: Sol6.1 xhigh; GUI: Sol6.1 high; root orchestrates.
