@@ -1456,7 +1456,12 @@ class AudioScheduling:
                 self.native_header=b'LVNS'+struct.pack('<I',1)+bytes.fromhex(spec['session'])
                 if len(self.native_header)!=24:raise ValueError('session identity')
                 atomic_bytes(pathlib.Path(spec['directory'])/'native-scheduling.supported',self.native_header)
-                atomic_bytes(pathlib.Path(spec['directory'])/'caller-scheduling.supported',self.native_header)
+                # The DAW caller-thread grant is an experiment, off by default: on
+                # the Deck it made Bitwig's own graph errors worse while the rest
+                # of Bitwig's engine stays ordinary priority. Without this
+                # advertisement the proxy records "unsupported_supervisor".
+                if os.environ.get('LVB_CALLER_SCHEDULING')=='1':
+                    atomic_bytes(pathlib.Path(spec['directory'])/'caller-scheduling.supported',self.native_header)
             except Exception:self.native_header=None
     def started(self):
         # A new render thread supersedes any pending retry for the previous one.

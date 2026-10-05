@@ -1464,6 +1464,16 @@ The render retry and caller grant are installed on the Deck. The caller record i
 
 The approved Flatpak RealtimeKit talk permission changed none of Bitwig's data-loop.0, audio-1..8, Audio Task or PluginsThreadPo workers in three playback samples. The operator's stop condition skipped the second ten-minute run; the permission was removed and unrelated overrides preserved. Host dispatch/audio-engine delay remains the most likely cause, about 70%; continuity is still broken. Raw captures stay outside Git.
 
+The process-call timing evidence discriminates the cause: through the identical
+bridge the reference plug-in (0.66 ms median call) has zero Bitwig graph errors
+in its window while Pure LoFi (3.3 ms median, 6.9 ms max) has errors in every
+run, so the misses scale with the vendor call inside Bitwig's ordinary-priority
+window, not with the bridge's presence. Because the installed caller grant
+doubled Bitwig's graph errors and stretched the largest gap to 33 ms, it is now
+opt-in (LVB_CALLER_SCHEDULING=1) and off by default. The next comparison is
+Buffered delivery with 512 remembered frames, which takes the vendor call out
+of Bitwig's window.
+
 The separate FN1/PW1 source reviews do not authorize installation or a
 general support claim. PSL1 is proposed next to make preparation product-owned
 and state-aware. Other residual misses still need their own exact thread/queue

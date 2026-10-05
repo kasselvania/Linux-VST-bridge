@@ -1159,7 +1159,10 @@ contract; its source, installed and physical acceptance remain separate gates:
   An existing non-default policy on that thread is preserved, no process limit
   is changed, and an older supervisor simply does not advertise the request.
   The Deck records that thread as SCHED_OTHER 0 in Bitwig's plug-in host; the
-  two real-time grants otherwise protect threads that wait on it.
+  two real-time grants otherwise protect threads that wait on it. The grant is
+  opt-in (LVB_CALLER_SCHEDULING=1): installed, it halved missing blocks but
+  doubled Bitwig's own graph errors while the rest of Bitwig's engine stays
+  ordinary priority, so it is not default behaviour until that is understood.
 - An original product-built Rust ELF helper and marked Wine builtin PE shim supply
   the Windows Linux wait ABI under the selected x86-64 Wine/Linux runner. Package
   and verify their exact digests with the paired host, select their private path

@@ -1,40 +1,51 @@
-# Current task: residual Bitwig timing after the caller grant
+# Current task: take the vendor call off Bitwig's deadline
 
 ## Goal
 
-Pure LoFi on the Deck, Bitwig 6.1, Together hosting, editor open, 512 frames /
-48 kHz: ten minutes without missing blocks or graph errors, then thirty minutes
-with normal use. Preserve projects, licensed state, runner and machine headroom.
+Pure LoFi plays in Bitwig on the Deck at 512 frames / 48 kHz for ten minutes
+without a missing block or graph error; then thirty minutes with normal use.
+Preserve projects, licensed state, the pinned runner and machine headroom.
 
-## Works now
+## What the runs so far established
 
-The caller grant is installed. The session's native_audio_scheduling caller
-record is effective, RR 5, on bitwig-remote-p. The eight PluginsThreadPo workers
-remain TS. One offline loop-region WAV export completed with 674 offline calls;
-the same plug-in host survived. Both sessions exited normally and retired cleanly.
+Same bridge, same Wine process, same supervisor, same grants: the reference
+plug-in (0.66 ms median call) produced zero Bitwig graph errors in its window;
+Pure LoFi (3.3 ms median, 6.9 ms max) produced errors in every run. The misses
+scale with the vendor call, not with the bridge's presence. Bridge overhead is
+0.12 ms. Denormals: no change. "Within Bitwig" hosting: no change. Flatpak
+RealtimeKit permission: no Bitwig thread became real-time. Every Bitwig audio
+thread on this Deck, including PipeWire's loop inside Bitwig, runs at ordinary
+priority, and we cannot change that from our side.
 
-## Still broken
+The caller grant works mechanically (effective, RR 5 on bitwig-remote-p) and
+gave 2 missing blocks against 8, but Bitwig's graph errors doubled (16 against
+8) and the largest gap grew to 33 ms. One run each; a real-time thread inside
+an ordinary-priority engine is a plausible cause of the extra errors. It is now
+opt-in (LVB_CALLER_SCHEDULING=1) and off by default.
 
-The ten-minute Together run captured two missing 512-frame blocks versus baseline
-eight, but the largest call gap grew to 33.37 ms versus 19.4 ms. Bitwig graph
-ERR increased by 16; recorder ERR by one. The longest bridge call was 5.71 ms;
-29.44 ms of the largest entry gap lay outside the preceding bridge call.
+## Best explanation (about 80%)
 
-With Bitwig closed, the approved RealtimeKit permission was added and Bitwig
-restarted. Three playback samples showed no change: Bitwig data-loop.0, audio-1
-through audio-8, Audio Task workers and all eight PluginsThreadPo workers stayed
-TS. Per operator instruction, no second ten-minute run or export was attempted.
-The added talk permission was removed; other overrides and projects were preserved.
+Bitwig runs its engine with no real-time protection, so its own timing jitters
+by several milliseconds. In SameCallback mode our 3 to 7 ms vendor call sits
+inside Bitwig's window on top of that jitter; the two tails add up past the
+10.67 ms period a few times per ten minutes. The cheap reference plug-in leaves
+room for the jitter; Pure LoFi does not.
 
-## Most likely cause (about 70%)
+## Next change
 
-Delay in Bitwig's remaining host dispatch/audio-engine path, whose sampled
-workers are still ordinary priority. Raising the actual bridge caller did not
-remove the problem, and the Flatpak permission alone changed no target policy.
+Buffered delivery with 512 remembered frames, nothing else changed. The vendor
+call then runs on our real-time render thread during the following period and
+Bitwig's thread only copies buffers, so Bitwig's window is no longer shared
+with the vendor. In the manager for Pure LoFi: "Restore buffered delivery with
+remembered buffering", confirm 512 frames, reopen the project, same clip,
+editor open, ten minutes. Compare missing blocks against 8 and Bitwig graph
+errors against +8. Report the DAW-side call time; it should fall well under
+1 ms. If clean, run thirty minutes, then make Buffered the default for effects
+and keep SameCallback as the opt-in for instruments played live.
 
-## Doing next
+## Done
 
-Operator's Part B/C comparison is complete; no further experiment is running.
-The next proposed comparison is Buffered with 512 remembered frames, taking
-vendor processing off Bitwig's critical path. Await the operator's next task.
-Raw captures stay outside Git; gap-free musical use remains unfinished.
+Ten clean minutes in the normal product configuration, then thirty, with the
+change that removed the misses named. Raw captures stay outside Git.
+
+Source/SSH/Deck: Sol6.1 xhigh; GUI: Sol6.1 high; root orchestrates.
