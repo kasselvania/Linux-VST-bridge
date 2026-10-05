@@ -200,6 +200,35 @@ def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root
         result['DBUS_SESSION_BUS_ADDRESS']='unix:path='+denied_graphical_endpoint('dbus')
     return result
 
+def direct_audio_environment(reg,env):
+    # Only an immutable preparation runtime declaring the paired helper can
+    # select it. Older retained hosts keep their original launch environment.
+    root=pathlib.Path(reg['host']['path']).parent
+    manifest=root/'direct-audio-helper.json'
+    if not manifest.exists():return env
+    runtime=json.loads((root/'runtime.json').read_bytes())
+    names=['lvb-direct-wait.dll','x86_64-windows/lvb-direct-wait.dll',
+           'x86_64-unix/lvb-direct-wait.so','direct-audio-helper.json']
+    records=runtime.get('direct_audio_helpers',[])
+    if runtime['host']!=reg['host'] or len(records)!=4:raise RuntimeError('direct helper runtime binding differs')
+    for name,artifact in zip(names,records):
+        path=root/name
+        if artifact['path']!=str(path) or path.resolve()!=path or path.stat().st_mode&0o222:
+            raise RuntimeError('direct helper path/mutability differs')
+        verify(artifact)
+    if manifest.stat().st_size>65536:raise RuntimeError('direct helper manifest extent')
+    helper=json.loads(manifest.read_bytes())
+    if (helper.get('schema')!=1 or helper.get('abi')!=1 or helper.get('host_sha256')!=reg['host']['sha256']
+        or helper.get('runner_wine_revision')!='46b29104e3741fe23bf5e2547196a253aab88c89'
+        or set(helper.get('files',{}))!=set(names[:3])):raise RuntimeError('direct helper manifest binding differs')
+    for name,artifact in zip(names,records):
+        if name in helper['files'] and helper['files'][name]!=artifact['sha256']:
+            raise RuntimeError('direct helper recipe binding differs')
+    result=dict(env);prior=result.get('WINEDLLOVERRIDES','')
+    result['WINEDLLOVERRIDES']=(prior+';' if prior else '')+'lvb-direct-wait=b'
+    result['WINEDLLPATH']=str(root)
+    return result
+
 def environment(reg,graphical=None):
     root=pathlib.Path(reg['environment']['root']);user=pwd.getpwuid(os.getuid())
     env={'HOME':user.pw_dir,'USER':user.pw_name,'LOGNAME':user.pw_name,'PATH':'/usr/bin:/bin','LANG':'C.UTF-8',
@@ -250,7 +279,7 @@ def environment(reg,graphical=None):
     if retirement is not None:
         if retirement!='process_scoped_vendor_retirement' or lifetime!='retain_editor_view_until_instance_retirement':raise RuntimeError('unsupported vendor retirement')
         env['LVB_VENDOR_RETIREMENT']=retirement
-    return env
+    return direct_audio_environment(reg,env)
 
 def managed_home(spec,env):
     # The Rust owner verifies the exact onboarding/environment record before
@@ -1126,7 +1155,7 @@ class NativeProtonSession:
     COMPONENT = 'native-command-session.json'
     MANAGED_RUNNER = 'managed-ge-proton11-7-slr4-20260805-r3'
     FORWARD = ('WINEDEBUG','PROTON_LOG','DXVK_LOG_LEVEL','VKD3D_DEBUG',
-               'WINEDLLOVERRIDES','PROTON_USE_WINED3D','PROTON_DISABLE_NVAPI','PROTON_DLL_COPY',
+               'WINEDLLOVERRIDES','WINEDLLPATH','PROTON_USE_WINED3D','PROTON_DISABLE_NVAPI','PROTON_DLL_COPY',
                'LVB_EVENT_OUTPUT_POLICY','LVB_AUDIO_LAYOUT_POLICY','LVB_EDITOR_LIFETIME',
                'LVB_VENDOR_RETIREMENT','LVB_AP10_TRACE')
     def __init__(self,spec,component):

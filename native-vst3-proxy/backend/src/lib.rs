@@ -1197,6 +1197,58 @@ mod tests {
         let (server, _) = listener.accept().unwrap();
         (client, server)
     }
+    #[cfg(target_os="linux")]
+    #[test]
+    fn direct_second_setup_and_start_preserve_epoch_and_unique_audio_owner() {
+        use std::os::unix::fs::FileExt;
+        let root=std::env::temp_dir().join(format!("direct-reconfigure-{:032x}",u128::from_le_bytes(mapping::random().unwrap())));
+        std::fs::create_dir(&root).unwrap();let (socket,mut peer)=socket_pair();
+        let mut session=pending_session(socket,&root.join("samples"),[29;16]);
+        session.mapping=Some(Mapping::with_layout(&root.join("whole"),64,true).unwrap());
+        session.phase=17;session.direct_requested=true;
+        session.mailbox=Some(mailbox::Mailbox::create(&root.join("mailbox"),[29;16]).unwrap());
+        let channel=session.mailbox.as_mut().unwrap().prepare_direct().unwrap();
+        let samples=std::fs::File::options().read(true).write(true).open(root.join("whole")).unwrap();
+        let owner=std::thread::spawn(move|| {
+            for _ in 0..10 {
+                let sequence=17;
+                let request=ap1_native_client::endpoint::receive_version(&mut peer,5,15).unwrap();
+                assert_eq!(request.sequence,sequence);
+                let payload=if request.kind==20 {
+                    assert_eq!(get(&request.payload[16..20]),4);
+                    let mut p=vec![0;16];p[..8].copy_from_slice(&request.payload[..8]);
+                    put(&mut p[8..12],1);put(&mut p[12..16],4);p
+                } else if matches!(request.kind,10|12) {request.payload.clone()} else {vec![]};
+                ap1_native_client::endpoint::send_version(&mut peer,&Frame {kind:request.kind+1,
+                    session:[29;16],sequence,payload},5,15).unwrap();
+            }
+        });
+        let render=std::thread::spawn(move||for (epoch,n) in [(1,64),(2,128)] {
+            let bytes=channel.render_receive(Instant::now()+Duration::from_secs(3)).unwrap();
+            let request=Frame::decode_version(&bytes,15).unwrap();
+            assert_eq!((request.sequence,get(&request.payload[32..40]),get(&request.payload[..4])),(1,epoch,n));
+            for ch in 0..2 {
+                let mut plane=vec![0;n as usize*4];samples.read_exact_at(&mut plane,(INPUT+ch*BLOCK_STRIDE+4) as u64).unwrap();
+                samples.write_all_at(&plane,(BLOCK_OUTPUT+ch*BLOCK_STRIDE+4) as u64).unwrap();
+            }
+            let mut payload=vec![0;72];put(&mut payload[..4],n);put(&mut payload[4..8],BLOCK_OUTPUT as u64);
+            put(&mut payload[16..24],epoch);
+            channel.render_reply(&Frame {kind:4,session:[29;16],sequence:1,payload}.encode_version(15).unwrap());
+        });
+        for (epoch,n) in [(1,64),(2,128)] {
+            session.configure(performance::wire_version(n,0,48000.,true).unwrap()).unwrap();
+            let mut audio=session.prepare_direct_audio().unwrap().unwrap();
+            assert!(session.prepare_direct_audio().is_err());
+            session.activate(n as usize,0).unwrap();session.transition_epoch(10,epoch).unwrap();
+            let mut item=queued::Item {gui_revision:0,kind:3,n,epoch,position:0,ticket:1,process_mode:0,
+                completion:None,gain:f64::NAN,flags:0,queued:None,parent:[0;4],
+                context:context::Context::default(),event_count:0,events:[events::Event::default();events::MAX_EVENTS],
+                data:[[0.25;BLOCK_CAP];2]};
+            assert_eq!(audio.process(&mut item,Instant::now()+Duration::from_secs(2)).unwrap().sequence,1);
+            session.transition_epoch(12,epoch).unwrap();session.transition(14).unwrap();drop(audio);
+        }
+        owner.join().unwrap();render.join().unwrap();drop(session);std::fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn invalid_ownership_has_no_effect() {
         assert_eq!(ap2_abi_version(), 1);

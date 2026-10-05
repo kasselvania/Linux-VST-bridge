@@ -5,6 +5,36 @@ from types import SimpleNamespace
 import session as s
 import ownership as o
 
+class DirectAudioEnvironmentTests(unittest.TestCase):
+ def test_legacy_runtime_keeps_environment_and_paired_runtime_is_bound(self):
+  with tempfile.TemporaryDirectory() as tmp:
+   root=pathlib.Path(tmp).resolve();host=root/'host.exe';host.write_bytes(b'host')
+   reg={'host':{'path':str(host),'sha256':hashlib.sha256(b'host').hexdigest()}}
+   env={'WINEDLLOVERRIDES':'uiautomationcore=;d3d11,dxgi=b'}
+   self.assertIs(s.direct_audio_environment(reg,env),env)
+   names=['lvb-direct-wait.dll','x86_64-windows/lvb-direct-wait.dll','x86_64-unix/lvb-direct-wait.so']
+   records=[];digests={}
+   for name in names:
+    path=root/name;path.parent.mkdir(exist_ok=True);path.write_bytes(name.encode());path.chmod(0o400)
+    digests[name]=hashlib.sha256(path.read_bytes()).hexdigest();records.append({'path':str(path),'sha256':digests[name]})
+   helper={'schema':1,'abi':1,'host_sha256':reg['host']['sha256'],
+    'runner_wine_revision':'46b29104e3741fe23bf5e2547196a253aab88c89','files':digests}
+   manifest=root/'direct-audio-helper.json';manifest.write_text(json.dumps(helper));manifest.chmod(0o400)
+   records.append({'path':str(manifest),'sha256':hashlib.sha256(manifest.read_bytes()).hexdigest()})
+   runtime={'host':reg['host'],'direct_audio_helpers':records}
+   (root/'runtime.json').write_text(json.dumps(runtime))
+   selected=s.direct_audio_environment(reg,env)
+   self.assertEqual(selected['WINEDLLPATH'],str(root));self.assertIn('WINEDLLPATH',s.NativeProtonSession.FORWARD)
+   self.assertEqual(selected['WINEDLLOVERRIDES'],env['WINEDLLOVERRIDES']+';lvb-direct-wait=b')
+   self.assertNotIn('WINEDLLPATH',env)
+   runtime['host']={**reg['host'],'sha256':'0'*64};(root/'runtime.json').write_text(json.dumps(runtime))
+   with self.assertRaisesRegex(RuntimeError,'binding differs'):s.direct_audio_environment(reg,env)
+   runtime['host']=reg['host'];(root/'runtime.json').write_text(json.dumps(runtime))
+   path=root/names[2];path.chmod(0o600)
+   with self.assertRaisesRegex(RuntimeError,'mutability differs'):s.direct_audio_environment(reg,env)
+   path.write_bytes(b'wrong');path.chmod(0o400)
+   with self.assertRaisesRegex(RuntimeError,'artifact changed'):s.direct_audio_environment(reg,env)
+
 class SelectionTests(unittest.TestCase):
  def setUp(self):
   self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
@@ -363,6 +393,7 @@ class SelectionTests(unittest.TestCase):
  def test_graphics_setting_reaches_the_actual_command_session_launch(self):
   self.declare();n=s.NativeProtonSession.selected(self.spec)
   reg=self.spec['registration'];reg['compatibility']={'disable_windows_accessibility':False,'graphics':'wine_d3d11'}
+  reg['host']={'path':str(self.root/'legacy-host.exe')}
   with patch.object(s.subprocess,'check_output',return_value='DISPLAY=:0\n'):
    env=s.environment(reg)
   n.endpoint=self.root/'test-endpoint'

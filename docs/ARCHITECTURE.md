@@ -1054,15 +1054,16 @@ position checks, output ownership and stale-result rejection. A sample delay doe
 not guarantee an equal amount of wall-clock execution time between callbacks.
 Test callback bursts and offline processing without artificial pacing.
 
-The selected low-latency design to evaluate is same-callback request/reply over
-the existing transport ownership: prepared audio/event memory, an event-driven
-handoff to the actual Windows render thread, and a bounded completion policy.
+The selected low-latency design is a prepared direct request/reply between the
+native callback and the actual Windows render thread. AUDIO has an exclusive
+sample/slot owner and a bounded completion policy; it bypasses the native relay,
+TCP notification pump and mutable control Session.
 Its target is no added bridge presentation delay (`D = 0`): return the current
 block's result in that callback, retaining any vendor latency `L`. Transport and
 processing still consume time; this is not a zero-overhead claim. Merely accepting
 64-frame host calls while retaining a 512-frame bridge delay does not meet it.
 Select and measure the wake mechanism before promoting it. This is a DAW-execution
-qualification target, not an implemented or accepted fast path. Keep queued mode
+qualification target; source implementation alone is not physical acceptance. Keep queued mode
 as an explicit buffered compatibility option only if it proves independent value.
 
 Separate startup/control health bounds, AUDIO host-health containment, and actual
@@ -1129,7 +1130,8 @@ contract; its source, installed and physical acceptance remain separate gates:
   ordering. Reject expired work before publishing a new wire request and reject
   late output before publication or success. Mandatory ap23 C ABI revision 2 pairs
   processing with the final SDK finish check; absent, stale or incompatible policy
-  cannot authorize success. IPC15, mailbox and other version axes are unchanged.
+  cannot authorize success. Direct AUDIO uses IPC15 with mailbox layout4; these
+  version axes remain separate from the SDK ABI and observation formats.
 - Offline operations retain their one 60-second absolute bound across callback and
   worker, with cooperative cancellation observations no farther than 4 ms apart.
   Vendor process() and host SDK sinks are not thereby interruptible; storage stays
@@ -1141,31 +1143,42 @@ contract; its source, installed and physical acceptance remain separate gates:
   policy needs actual DAW/device justification; this containment amendment supplies
   no measured deadline, timing success, scheduling guarantee or permission to drop
   complete due output while reporting success.
-- Session owns a dedicated paired notification connection, isolated from bulk
-  state replies. Mailbox publication remains authoritative; hints can coalesce,
-  race or duplicate without changing ownership. Native callbacks do no network
-  work. A Windows transport pump owns notification and active lifecycle/control
-  socket bytes, exchanging bounded prepared handoffs and Win32 events with the
-  render thread. The render thread performs no socket reads/writes, including
-  Start/Started, control-flag handling and error paths. Vendor state calls retain
-  their existing owner and restoration remains exclusive.
-- Worker completion waits service already-admitted state capture incrementally,
-  retaining its independent deadline. Request/control/capture/fault/quit wakeups
-  and control-flag consumption cannot depend on repeated 50-microsecond sleeps.
-  Cancellation is published before waiting for native callback leases, then all
-  owned workers/pumps are joined or contained before storage release.
-- For IPC15 START, the same Session may publish one ordered mapped request after
-  sending START while its exact Started reply is pending. Publication does not
-  mean readiness: validate the original session/sequence/epoch acknowledgement
-  before accepting any result or releasing another control operation. The pending
-  reply has one bounded reader. Cancellation ends native access before releasing
-  its local mapping view; the supervisor retains custody of the independently
-  mapped Windows endpoint and transport stage until confirmed retirement. It never
-  authorizes slot reuse or stage removal from an unconfirmed reply. Windows still
-  calls vendor setProcessing(true) before consuming
-  AUDIO and retains its existing synchronous acknowledgement handoff. Legacy
-  exchanges remain sequential. This removes a request-publication dependency;
-  it does not enlarge the callback allowance or establish a timing improvement.
+- For prepared SameCallback, a non-clone callback AUDIO owner writes actual N
+  and admitted channels, publishes one exact epoch/ticket request and waits on
+  shared non-private Linux futex words. The actual Windows render thread reads
+  it, calls the vendor and publishes/wakes the owned reply. No AUDIO socket,
+  native worker relay, state parsing/hash or snapshot lock is in this dependency.
+  Shared mapped ownership spans request publication through reply/sample copying;
+  timeout/cancel never makes outstanding host-owned storage reusable. Keep bounded
+  canaries and actual-N finite/silence checks; prototype whole-capacity poisoning,
+  input equality and unused-plane scans remain outside normal direct processing.
+- An original product-built Rust ELF helper and marked Wine builtin PE shim supply
+  the Windows Linux wait ABI under the selected x86-64 Wine/Linux runner. Package
+  and verify their exact digests with the paired host, select their private path
+  per launch, retain the module through all waiters and refuse unsupported inactive
+  capability probes. A customer compiler or runtime rebuild is not required.
+- Control socket sequencing is independent of AUDIO tickets. Owner-thread state
+  capture and parsing/store confirmation cannot gate an already-prepared AUDIO
+  reply. Capture freshness uses callback-submitted/completed progress and its
+  admitted barrier; later parameter/audio edits cannot reuse an older snapshot.
+  Restore/setup remain inactive and exclusive. Vendor state thread affinity and
+  required DSP exclusion remain explicit, rather than assuming all state calls
+  are safe concurrently with processing.
+- START acknowledgment and epoch readiness precede direct AUDIO publication.
+  STOP is framed/validated by the owner and handed to render as a bounded prepared
+  transition; render performs no control socket read or state parsing. Legal
+  inactive reconfiguration transfers a new exclusive sample lease and seeds the
+  retained lifecycle epoch, including repeated setup/start and unique N0 tickets.
+- Peer health observation is independent of control parsing and snapshot work.
+  FIN/death, including unread state bytes, and explicit cancellation wake both
+  direct waiters before lease draining. Native health observes socket retirement
+  off path; Windows transport health only wakes/cancels prepared shared words.
+  Join or supervisor containment precedes releasing mappings/helpers. Terminal
+  AUDIO progress comes from callback-published atomics, not control sequences.
+- The legacy buffered path retains its paired notification lane and explicit
+  queue/presentation ownership. Its pending-START overlap and incremental capture
+  servicing do not prescribe the direct SameCallback dependency. Hints never grant
+  reply ownership, and all legacy workers/pumps remain owned through retirement.
 - Buffered presentation storage is sized by retained frames (`D + M`), not by
   assuming that one host call contains a full block. Copy completed extra output
   planes into that prepared history before releasing their transport slots.
@@ -1179,7 +1192,8 @@ contract; its source, installed and physical acceptance remain separate gates:
   prepare the new capacity without depending on the previous maximum block.
 
 This contract uses IPC minor15 with an explicitly versioned bootstrap, mailbox
-layout3, notification schema1, admission LVB4 and the separate ap23 C ABI. Their
+layout4 for direct SameCallback (layout3 for the legacy worker route), notification
+schema1, admission LVB4 and the separate ap23 C ABI. Their
 versions are independent. Legacy admission remains buffered-only and older
 executable publications retain their original identities. None of these choices
 establishes lower-block qualification, whole-DAW scheduling guarantees or the cause

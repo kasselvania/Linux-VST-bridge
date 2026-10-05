@@ -9,6 +9,8 @@ normal interaction. Preserve projects, licensed state and machine headroom.
 ## Works now
 
 The paired Linux/Wine helper completes real sleeping shared-futex exchanges.
+The source path now gives callback/render exclusive AUDIO ownership; blocked
+control work and FIN with unread state bytes have direct-path regression checks.
 Whole native calls retain correlated Windows/vendor process-call time. Typical
 baseline time was 3.18 ms whole / 2.55 ms inside Windows, not pure DSP CPU time.
 
@@ -28,11 +30,10 @@ reply. This structure adds contention even when vendor processing is bounded.
 ## Next changes
 
 The original product-built helper is proven on the selected Wine/Linux runner.
-Give the prepared native callback and actual
-Windows render thread their own AUDIO request/completion slot and direct wake.
-Keep control/state processing outside their completion dependency. An off-path
-watcher must wake both waiters on death/cancel; expiry never releases host-owned
-storage. Keep legal lifecycle, state round trips and exact epoch/ticket bounds.
+Package the helper with the paired host and install through normal publication.
+Verify the actual Wine reference path and abrupt peer-exit wake/retirement, then
+Pure LoFi editor-open output and graph continuity. Preserve exclusive sample/slot
+ownership, inactive setup/restore, capture freshness and exact epoch/ticket bounds.
 
 ## Done
 

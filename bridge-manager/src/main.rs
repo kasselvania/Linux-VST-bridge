@@ -2604,7 +2604,7 @@ mod tests {
             source_sha256:target_source.sha256.clone(), native_catalogue:None };
         let runtime = preparation::build::Runtime { kit:runtime_kit,
             host:runtime_host, source_manifest:runtime_source,
-            builder:None, generator:None };
+            builder:None, generator:None, direct_audio_helpers:vec![] };
         assert_ne!(target.preparation_kit.as_ref().unwrap().path, runtime.kit.path);
         assert_ne!(target.host.path, runtime.host.path);
         verify_package_refresh_runtime(&target, &runtime).unwrap();

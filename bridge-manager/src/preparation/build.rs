@@ -402,6 +402,8 @@ pub struct Runtime {
     pub builder: Option<Artifact>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub generator: Option<Artifact>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub direct_audio_helpers: Vec<Artifact>,
 }
 fn runtime_dir(m: &Manager, sha: &str) -> Result<PathBuf> {
     require(valid_hex(sha, 64), "preparation_kit_identity")?;
@@ -410,7 +412,7 @@ fn runtime_dir(m: &Manager, sha: &str) -> Result<PathBuf> {
 pub fn existing_runtime(m: &Manager, sha: &str) -> Result<Runtime> {
     let r = existing_runtime_record(m, sha)?;
     for a in [&r.kit, &r.host, &r.source_manifest].into_iter()
-        .chain(r.builder.iter()).chain(r.generator.iter()) { a.verify()?; }
+        .chain(r.builder.iter()).chain(r.generator.iter()).chain(r.direct_audio_helpers.iter()) { a.verify()?; }
     Ok(r)
 }
 pub fn existing_runtime_record(m: &Manager, sha: &str) -> Result<Runtime> {
@@ -426,7 +428,7 @@ pub fn existing_runtime_record(m: &Manager, sha: &str) -> Result<Runtime> {
     for a in [&r.kit, &r.host, &r.source_manifest]
         .into_iter()
         .chain(r.builder.iter())
-        .chain(r.generator.iter())
+        .chain(r.generator.iter()).chain(r.direct_audio_helpers.iter())
     {
         require(
             a.path.canonicalize()? == a.path && file(&a.path)?.metadata()?.mode() & 0o222 == 0,
@@ -434,6 +436,11 @@ pub fn existing_runtime_record(m: &Manager, sha: &str) -> Result<Runtime> {
         )?;
         a.validate_record()?;
     }
+    const HELPERS:[&str;4]=["lvb-direct-wait.dll","x86_64-windows/lvb-direct-wait.dll",
+        "x86_64-unix/lvb-direct-wait.so","direct-audio-helper.json"];
+    require(r.direct_audio_helpers.is_empty() || r.direct_audio_helpers.len()==HELPERS.len()
+        && r.direct_audio_helpers.iter().zip(HELPERS).all(|(a,name)|a.path==dir.join(name)),
+        "direct_audio_helper_identity")?;
     Ok(r)
 }
 pub fn verify_runtime(m: &Manager, c: &Candidate) -> Result<()> {
@@ -469,9 +476,14 @@ with zipfile.ZipFile(kit) as z:
  recipe=json.loads(z.read('recipe.json'));assert recipe['schema'] in (1,2,3,4)
  names=[('runtime/host.exe','host.exe'),('runtime/host-source-manifest.json','host-source-manifest.json')]
  if recipe['schema'] in (2,3,4):names += [('tools/mf3/native_builder.py','native_builder.py'),('tools/ap8_descriptor.py','ap8_descriptor.py')]
+ helpers=['lvb-direct-wait.dll','x86_64-windows/lvb-direct-wait.dll','x86_64-unix/lvb-direct-wait.so','direct-audio-helper.json']
+ present=[('runtime/'+n) in recipe['files'] for n in helpers]
+ assert not any(present) or all(present)
+ if all(present):names += [('runtime/'+n,n) for n in helpers]
  for key,name in names:
   i=z.getinfo(key);assert not i.is_dir() and i.file_size<=64*1024*1024
   b=z.read(i);assert hashlib.sha256(b).hexdigest()==recipe['files'][key]
+  (out/name).parent.mkdir(parents=True,exist_ok=True,mode=0o700)
   (out/name).write_bytes(b)
 "#;
     let launch = Command::new("python3")
@@ -516,7 +528,12 @@ with zipfile.ZipFile(kit) as z:
             sha256: sha,
         })
     };
+    let direct_audio_helpers=if stage.join("direct-audio-helper.json").exists() {
+        ["lvb-direct-wait.dll","x86_64-windows/lvb-direct-wait.dll","x86_64-unix/lvb-direct-wait.so","direct-audio-helper.json"]
+            .into_iter().map(artifact).collect::<Result<Vec<_>>>()?
+    } else {vec![]};
     let r = Runtime {
+        direct_audio_helpers,
         kit,
         host: artifact("host.exe")?,
         source_manifest: artifact("host-source-manifest.json")?,

@@ -23,6 +23,7 @@ def main():
     parser.add_argument('--sdk',type=pathlib.Path,required=True)
     parser.add_argument('--windows-package',type=pathlib.Path,required=True)
     parser.add_argument('--output',type=pathlib.Path,required=True)
+    parser.add_argument('--winebuild',type=pathlib.Path,required=True,help='Maintainer builtin-marker tool; never required on customer machines')
     a=parser.parse_args()
     if git('status','--porcelain'):raise SystemExit('Commit the exact build inputs first')
     subprocess.run(['cargo','+1.95.0','build','--manifest-path',str(ROOT/'native-vst3-proxy/backend/Cargo.toml'),
@@ -43,7 +44,25 @@ def main():
         data=(ROOT/name).read_bytes()
         assert expected in (sha(data),sha(data.replace(b'\n',b'\r\n'))),'Windows host source differs: '+name
     with tempfile.TemporaryDirectory(prefix='lvb-engine-') as temp:
-        native=compile_proxy(ROOT,a.sdk,backend,pathlib.Path(temp)/'build')
+        temp=pathlib.Path(temp)
+        native=compile_proxy(ROOT,a.sdk,backend,temp/'build')
+        shim=a.windows_package/'lvb-direct-wait.dll'
+        assert sha(shim.read_bytes())==manifest['direct_wait_shim_sha256'],'Windows helper differs'
+        marked=temp/'lvb-direct-wait.dll';marked.write_bytes(shim.read_bytes())
+        subprocess.run([str(a.winebuild.resolve()),'--builtin',str(marked)],check=True,timeout=30)
+        assert b'Wine builtin DLL' in marked.read_bytes()[:128],'Builtin marker absent'
+        elf=temp/'lvb-direct-wait.so'
+        subprocess.run(['rustc','+1.95.0','--edition','2024','--crate-type','cdylib',
+            '--target','x86_64-unknown-linux-gnu','-C','panic=abort','-C','opt-level=3',
+            str(ROOT/'tools/direct-audio-handoff/linux_wait.rs'),'-o',str(elf)],check=True,timeout=60)
+        files['runtime/lvb-direct-wait.dll']=marked.read_bytes()
+        files['runtime/x86_64-windows/lvb-direct-wait.dll']=marked.read_bytes()
+        files['runtime/x86_64-unix/lvb-direct-wait.so']=elf.read_bytes()
+        helper=dict(schema=1,host_sha256=manifest['host_sha256'],abi=1,
+            runner_wine_revision='46b29104e3741fe23bf5e2547196a253aab88c89',
+            files={n.removeprefix('runtime/'):sha(b) for n,b in files.items() if 'lvb-direct-wait.' in n})
+        files['runtime/direct-audio-helper.json']=json.dumps(helper,sort_keys=True).encode()
+
     files['prebuilt/engine.so']=native
     index=dict(schema=3,engine='prebuilt/engine.so',engine_sha256=sha(native),
         descriptor_schema=1,maximum_bridge_frames=1024,audio_completion_contract=1,

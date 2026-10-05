@@ -3708,6 +3708,7 @@ mod tests {
             });
             for n in [64,0,128] {
                 let mut item=Item::control(AUDIO,epoch+1);item.n=n;item.gain=f64::NAN;
+                if n==128 {item.event_count=1;item.events[0]=ap1_native_client::events::Event {kind:2,value:0.5,..Default::default()};}
                 item.data[0][..n as usize].fill(0.25);item.data[1][..n as usize].fill(-0.5);
                 item.completion=Some(crate::performance::CompletionPolicy {allowance:Duration::from_secs(2),deadline:Instant::now()+Duration::from_secs(2),exact:true});
                 let mut out=[[0.;CAP];2];let end=item.completion.unwrap().deadline;
@@ -3719,7 +3720,14 @@ mod tests {
             assert_eq!(shared.requests.published(),0);assert_eq!(shared.processed.load(Ordering::Acquire),3);
             assert_eq!(shared.direct_submitted.load(Ordering::Acquire),3);assert_eq!(shared.direct_completed.load(Ordering::Acquire),3);
             assert_eq!(shared.direct_progress.read(),Some([epoch+1,3,64,192]));
-            render.join().unwrap();drop(control);drop(snapshots);drop(callback);
+            render.join().unwrap();drop(control);drop(snapshots);
+            let mut capture=Control {barrier:0,direct_barrier:Some(1),op:16,bytes:vec![],result:None};
+            complete_control(&shared,&mut capture,Ok(vec![9,7]),([1,epoch+1,3,64,11],Some(192))).unwrap();
+            assert_eq!(shared.snapshots.lock().unwrap().latest().unwrap().through,1);
+            assert_eq!(shared.last_edit.load(Ordering::Acquire),3);
+            assert!(shared.last_edit.load(Ordering::Acquire)>shared.snapshots.lock().unwrap().latest().unwrap().through,
+                "later direct parameter edit cannot reuse an older admitted capture");
+            drop(callback);
             std::fs::remove_dir_all(root).unwrap();
         }
     }

@@ -3333,7 +3333,7 @@ mod tests {
         let runtime = linux_vst_bridge::preparation::build::Runtime { kit,
             host: artifact(&dir, "host.exe").unwrap(),
             source_manifest: artifact(&dir, "host-source-manifest.json").unwrap(),
-            builder: None, generator: None };
+            builder: None, generator: None, direct_audio_helpers:vec![] };
         atomic_json(&dir.join("runtime.json"), &runtime).unwrap();
         fs::set_permissions(dir.join("runtime.json"), fs::Permissions::from_mode(0o444)).unwrap();
         let mut registration = f.base.r.clone();

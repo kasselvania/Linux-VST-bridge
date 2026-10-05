@@ -1467,6 +1467,7 @@ fn complete_build_identity_reuses_only_the_exact_generation() {
         source_manifest: manifest.clone(),
         builder: Some(builder.clone()),
         generator: Some(generator.clone()),
+        direct_audio_helpers:vec![],
     };
     immutable(&dir.join("runtime.json"), &runtime).unwrap();
     let i = inspect_record_with(
@@ -1928,6 +1929,11 @@ sha=lambda b:hashlib.sha256(b).hexdigest()
 files={'prebuilt/engine.so':b'\x7fELF'+engine.encode(),
  'runtime/host.exe':pathlib.Path(host).read_bytes(),
  'runtime/host-source-manifest.json':pathlib.Path(manifest).read_bytes()}
+helper_names=['lvb-direct-wait.dll','x86_64-windows/lvb-direct-wait.dll','x86_64-unix/lvb-direct-wait.so']
+for name in helper_names:files['runtime/'+name]=name.encode()
+files['runtime/direct-audio-helper.json']=json.dumps(dict(schema=1,abi=1,
+ host_sha256=sha(files['runtime/host.exe']),runner_wine_revision='46b29104e3741fe23bf5e2547196a253aab88c89',
+ files={name:sha(files['runtime/'+name]) for name in helper_names})).encode()
 for name in ('tools/mf3/native_builder.py','tools/ap8_descriptor.py'):files[name]=(root/name).read_bytes()
 files['prebuilt/index.json']=json.dumps(dict(schema=3,engine='prebuilt/engine.so',
  engine_sha256=sha(files['prebuilt/engine.so']),descriptor_schema=1,maximum_bridge_frames=1024,
@@ -1979,6 +1985,10 @@ with zipfile.ZipFile(path,'w') as z:
     assert_ne!(selected.preparation_kit.as_ref().unwrap().sha256,
         sw.preparation_kit.as_ref().unwrap().sha256);
     let runtime = build::stage_runtime_for_software(&f.m, &sw).unwrap();
+    assert_eq!(runtime.direct_audio_helpers.len(),4);
+    for artifact in &runtime.direct_audio_helpers {
+        artifact.verify().unwrap();assert_eq!(fs::metadata(&artifact.path).unwrap().mode()&0o222,0);
+    }
     assert_eq!(fs::read(f.m.root.join("software.json")).unwrap(), selected_before);
     let mut raw: Value = read_json(&c.inspection.report.path).unwrap();
     raw["records"]
