@@ -11,6 +11,13 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+The subsequent [native continuous-source control](../evidence/audio-recovery/2026-10-04-native-tone-control.md)
+provides a positive native witness for its exact600.000626-second window: no active
+zero spans/graphERR, nominal recurrence below1e-5 and a single supplemental global
+frequency/phase model below the same threshold. Its original1000Hz model remains
+failed and full setup/stop/error witnesses are retained. It does not qualify the
+commercial vendor/editor path or remove contention/capture effects under that load.
+
 The latest [Pure LoFi / Bitwig commercial baseline](../evidence/audio-recovery/2026-10-04-pure-lofi-bitwig-baseline.md)
 remains **unqualified**: its full first811.365-second editor-open automatic playback
 retains sixteen512-frame stereo-zero spans and18active Bitwig/PipeWire ERR increments,

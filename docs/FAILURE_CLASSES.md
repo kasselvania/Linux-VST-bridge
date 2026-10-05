@@ -986,6 +986,15 @@ physical product result is claimed.
 
 ## FC-AUDIO-001 — Residual audio deadline misses
 
+The subsequent [native Test Tone control](../evidence/audio-recovery/2026-10-04-native-tone-control.md)
+retains600.000626seconds with no activezero/graphERR and no nominal recurrence
+exceedances. The original fixed1000Hz model fails; a separately labeled single
+whole-window frequency/phase fit at999.998569495341Hz has zero residuals above the
+unchanged1e-5 threshold. No threshold tuning, per-window rephasing or rerun occurred.
+One sink ERR increment before the declared bracket is retained. Native DSP/GUI
+load differs from the commercial path, so FC-AUDIO-001 and that baseline remain
+unqualified; no oscillator/resampler/clock or bridge cause is assigned.
+
 The later [Pure LoFi / Bitwig commercial baseline](../evidence/audio-recovery/2026-10-04-pure-lofi-bitwig-baseline.md)
 is **unqualified for dependable musical continuity**. The complete first playback
 attempt retains an811.365-second bracket, sixteen512-frame stereo-zero spans and

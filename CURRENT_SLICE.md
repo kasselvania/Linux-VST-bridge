@@ -65,8 +65,13 @@ finish the declared lifetime; no rerun until green.
 After this baseline, the operator approved a positive continuous native Test Tone
 control: separate project, sole active native source, graph512/48k, matched full
 stereo output capture, zero bridge DSP owners, declared >=600second bracket and
-fixed-frequency/recurrence/zero-span oracle. It is currently running on unchanged
-source/priority. Native GUI load is not equivalent to the vendor editor. Retain
+fixed-frequency/recurrence/zero-span oracle. The [retained control](evidence/audio-recovery/2026-10-04-native-tone-control.md)
+completed600.000626seconds on unchanged source/priority: no activezero/graphERR,
+nominal recurrence below unchanged1e-5, but original fixed1000Hz model remainsfalse.
+One separately labeled whole600s global frequency/phase fit characterizes a small
+nominal-frequency mismatch with zero residuals above that threshold; no rerun or
+per-window rephasing. Original/complete output, setup/stop witnesses and cleanup are
+retained. This does not eliminate commercial-load contention or attribute its gaps. Native GUI load is not equivalent to the vendor editor. Retain
 all anomalies and concurrent read-only preflight observer activity.
 
 The operator additionally authorized same-build forced ordinary-versus-realtime
