@@ -2,20 +2,21 @@
 //! owners touch separate atomic words. No socket, state store, or relay is used
 //! by request publication or completion waiting.
 use std::{fs::File, io, os::fd::AsRawFd, ptr::NonNull,
-    sync::{Arc, atomic::{AtomicBool, AtomicU32, Ordering}}, time::Instant};
+    sync::{Arc, atomic::{AtomicU32, Ordering}}, time::Instant};
 
 pub(crate) const BYTES: usize = 33024;
 pub(crate) const CONTROL: usize = 32;
 pub(crate) const TERMINAL: usize = 36;
 const REQUEST_WAKE: usize = 40;
 const REPLY_WAKE: usize = 44;
+const AUDIO_OWNER: usize = 48;
 const REQUEST_FLAG: usize = 64;
 const REPLY_FLAG: usize = 128;
 const REQUEST: usize = 256;
 const REPLY: usize = 16640;
 pub(crate) const CAPACITY: usize = 16384;
 
-struct Region { pointer: NonNull<u8>, _file: File, audio_owned: AtomicBool }
+struct Region { pointer: NonNull<u8>, _file: File }
 // Only AudioEndpoint may access AUDIO bytes. Its local exclusive claim spans
 // publication through the completed reply copy, including render ownership.
 unsafe impl Send for Region {}
@@ -35,8 +36,7 @@ impl Endpoint {
         let raw=unsafe { libc::mmap(std::ptr::null_mut(), BYTES, libc::PROT_READ|libc::PROT_WRITE,
             libc::MAP_SHARED, file.as_raw_fd(), 0) };
         if raw==libc::MAP_FAILED { return Err(io::Error::last_os_error()); }
-        Ok(Self(Arc::new(Region { pointer:NonNull::new(raw.cast()).unwrap(), _file:file,
-            audio_owned:AtomicBool::new(false) })))
+        Ok(Self(Arc::new(Region { pointer:NonNull::new(raw.cast()).unwrap(), _file:file })))
     }
     fn word(&self, offset:usize)->&AtomicU32 {
         unsafe { &*self.0.pointer.as_ptr().add(offset).cast::<AtomicU32>() }
@@ -61,7 +61,7 @@ impl Endpoint {
     pub(crate) fn control_pending(&self)->bool { self.word(CONTROL).load(Ordering::Acquire)!=0 }
     pub(crate) fn claim_audio(&self)->Result<AudioEndpoint,Failure> {
         if self.terminal()!=0 { return Err(Failure::Cancelled); }
-        self.0.audio_owned.compare_exchange(false,true,Ordering::AcqRel,Ordering::Acquire)
+        self.word(AUDIO_OWNER).compare_exchange(0,1,Ordering::AcqRel,Ordering::Acquire)
             .map_err(|_|Failure::Ownership)?;
         Ok(AudioEndpoint {control:self.clone(),outstanding:false})
     }
@@ -132,8 +132,8 @@ impl AudioEndpoint {
 }
 impl Drop for AudioEndpoint {
     fn drop(&mut self) {
-        if self.outstanding {self.control.cancel(1);} // never permit reuse of host-owned bytes
-        else {self.control.0.audio_owned.store(false,Ordering::Release);}
+        if self.outstanding || self.control.terminal()!=0 {self.control.cancel(1);} // never permit reuse of host-owned bytes
+        else {self.control.word(AUDIO_OWNER).store(0,Ordering::Release);}
     }
 }
 
@@ -196,6 +196,9 @@ mod tests {
     fn exclusive_claim_spans_rendering_and_abandoned_exchange() {
         let (control,path)=channel();let mut a=control.claim_audio().unwrap();
         assert!(matches!(control.clone().claim_audio(),Err(Failure::Ownership)));
+        let file=OpenOptions::new().read(true).write(true).open(&path).unwrap();
+        let alias=Endpoint::prepare(&file).unwrap();
+        assert!(matches!(alias.claim_audio(),Err(Failure::Ownership)));
         a.publish(b"first").unwrap();
         assert_eq!(control.render_receive(Instant::now()+Duration::from_secs(1)).unwrap(),b"first");
         // Both shared flags are now zero, but the Windows render still owns this exchange.
