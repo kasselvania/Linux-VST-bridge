@@ -1,61 +1,157 @@
-# Working on Linux VST Bridge
+# Working rules
 
-## Goal
+## What we are building
 
-Build a usable Windows plug-in bridge for native Linux music applications as the primary release-driving product. Extend the same canonical management platform with separately scoped Windows DAW workspaces and the existing ARM appliance work. The user should not have to administer Wine prefixes, proxies, runtime versions or recovery machinery to make music. Steam Deck, Bitwig and AGain are fixtures, not the limits of the product.
+A managed compatibility product that lets native Linux DAWs use Windows audio
+plug-ins. A musician installs, authorizes, plays, saves, reopens and updates a
+plug-in through the product, without administering Wine, Proton or prefixes.
 
-## Work to an outcome
+**The deliverable is working software.** A report, trace, evidence file, review
+or commit count is not progress. Progress is something a musician can now do
+that they could not do before, or a defect that is now fixed and shown fixed.
 
-Read this file and `CURRENT_SLICE.md`, then the architecture/code relevant to the requested change. Do not reread the entire historical corpus or repeat slice selection when the user has selected the goal.
+The operator's current instruction comes first, then this file, then
+`CURRENT_SLICE.md`, then `docs/ARCHITECTURE.md`. If two of them conflict, say so
+in one sentence and follow the higher one.
 
-An approved implementation task includes ordinary code changes, necessary builds, focused tests, debugging and verification within that task. The engineer chooses private types, file layout and algorithms. A routine repair does not need a new design, exact-source approval document, maintenance campaign or separate PR. Record what actually ran; do not confuse source identification with permission to iterate.
+## How to work: fix it, then show it
 
-The operator's current instruction takes precedence over repository process documents. These rules replace the older mandatory selection/receipt/diagnostic/acceptance sequence. `docs/campaigns/`, `docs/maintenance/`, `docs/process/` and previous slice instructions retain historical context, not standing requirements for new work. Platform/tool approvals and security restrictions are separate and remain in force; never route around a denial.
+When something is broken, the job is to make it work.
 
-## Shared failure-class check
+1. **State your best explanation.** Say what you think the cause is and how
+   confident you are. "Probably X, about 70%" is a useful engineering statement.
+   "Cause not established" is not an acceptable place to stop while any
+   experiment that could establish it remains untried.
+2. **Change one thing and compare.** The fastest proof of a cause is to change
+   the suspected thing and see whether the symptom goes away. This is not
+   speculation; it is the experiment. Run it.
+3. **Keep the change or revert it.** If the symptom is gone, keep it, add a
+   regression test where one is possible, and move on. If not, revert, update
+   your explanation and try the next most likely cause.
+4. **Stop measuring when you can act.** Use the simplest measurement that
+   answers the question. If a measuring tool fails twice, replace it with a
+   simpler one; do not repair the tool as a project of its own.
 
-Before a plug-in-specific repair, inspect `docs/FAILURE_CLASSES.md` and `docs/SUPPORT_MATRIX.md` alongside `CURRENT_SLICE.md`. Product-specific code needs evidence that the shared boundary was selected or ruled out.
+Three attempts on one symptom without a change in the outcome means the approach
+is wrong. Step back, say so, and propose a different approach.
 
-Update the relevant card and matrix row in the same PR whenever understanding, fix stage, deployment, physical coverage, workaround, or support posture changes. Keep source correction, built artifact, profile/candidate, installed generation, and physical result distinct. Do not generalize a product result to another product or assign a shared cause to an older report without evidence.
+## What you may do without asking
 
-## Execution lanes and parallel work
+These are routine. Do them, then report what happened.
 
-Use [docs/WORKSTREAMS.md](docs/WORKSTREAMS.md) for work allocation and [docs/WINDOWS_DAW_WORKSPACES.md](docs/WINDOWS_DAW_WORKSPACES.md) for the Windows DAW architecture extension. The native bridge remains primary; [WD0](docs/WD0.md) is the selected parallel FL Studio implementation. Do not wait for every native-bridge limitation to close before WD0, or delay native product completion behind FL/Ableton/ARM scope.
+- Change scheduling priority, CPU affinity, environment variables, Wine/Proton
+  options, buffer sizes or build flags on a test machine or the maintainer's
+  Deck, for an experiment. Restore the previous value afterwards unless the
+  change is being kept.
+- Add or remove diagnostic code, timers and test fixtures.
+- Change product source, including the engine, transport, manager and Windows
+  host, when that is the fix.
+- Build, install and roll back test packages on project machines.
+- Rerun a test.
 
-One canonical management implementation serves different execution lanes. A Windows DAW hosts Windows plug-ins directly in its own coherent workspace; do not insert the Linux proxy or inherit its DSP-count/added-delay claims. Reuse ownership and installer primitives without weakening closed vendor-app selectors into arbitrary execution.
+## What needs the operator first
 
-Each branch owns its own task pointer and each lane its mutable workspace state. Coordinate shared-machine GUI/audio activity and service replacement with the current custodian. Do not consume unmerged code silently or replace a working installed generation merely because main is newer. Before any shared package replacement, reconcile every installed runner policy and required host/source pair. Workspace-only development must leave the existing native-bridge service and publications alone.
+- Anything that could destroy or alter user projects, licensed plug-in
+  installations, activation state or account data.
+- Spending money or exceeding the declared machine resource limits.
+- Changing what the product is for, dropping a target platform, or changing
+  what counts as done for the beta.
+- A permanent change to the maintainer's machines outside the product's own
+  files, such as system packages or root filesystem edits.
 
-## Keep the engineering safeguards
+Ask one specific question and carry on with whatever does not depend on the
+answer.
 
-- Use the actual Windows plug-in, not substitute DSP or fabricated state. Respect SDK interfaces, object lifetime, thread affinity and explicit protocol boundaries. Keep Rust primary and C++ limited to the SDK edges.
-- Keep blocking I/O, allocation, logging and process work out of real-time audio callbacks. Preserve truthful latency and explicit failure behavior.
-- Protect existing projects, installations and credentials. Use disposable test projects/environments where practical. Restore settings changed for a test. Clean up only processes and files the task owns; investigate uncertain ownership before starting another instance.
-- Retain useful failure details before cleanup. Private local diagnostics may contain the paths/process identifiers needed for debugging; do not publish them or credentials, license data, proprietary binaries or presets.
-- Never fabricate a pass, silently change the tested fixture, erase failed attempts or relabel old evidence. A green build, a fake-peer test and an actual DAW test establish different things.
+## How to report
 
-## Verification and review
+Write for a musician who owns the project, not for an auditor. Every update, PR
+description and status note uses this shape and stays under about fifteen lines:
 
-Test the behavior changed and the failures that matter. Reuse working binaries, fixtures, supervision and observations. Do not replay an entire historical matrix because a report, timeout or document changed. Preserve valid sub-results and rerun only affected parts unless a genuine end-to-end uncertainty requires more.
+- **Works now:** what a user can do that they could not before.
+- **Still broken:** the symptom, in plain words, with the one or two numbers
+  that matter.
+- **Most likely cause:** your best explanation and confidence.
+- **Doing next:** the next change you will make.
 
-A meaningful successful development test on the delivered implementation may support review without being repeated under a different label. Keep its original provenance and limitations. Acceptance is the reviewer's decision about the code and evidence, not a requirement to reserve a special class of run in advance. Recorded results from the older system remain exactly as recorded.
+Leave out commit hashes, package names, tree IDs and lists of things you are not
+claiming, unless the operator asks. Do not write a sentence whose only purpose is
+to avoid being wrong. If a result is uncertain, say how uncertain in a few words.
 
-Use normal build/test commands and the existing supervised helpers. `tools/proof-run.py` is an optional legacy transaction interface, not a mandatory gateway to every local test, Deck interaction, GUI action or merge. Do not weaken its historical checks, reset its ledgers or disguise a new launch as recovery. Existing explicit resource limits still apply until the operator changes them; there is no universal two-tries rule for new tasks.
+Never report a failure as a success, and never hide one. That is the whole of
+the honesty rule; it does not require a paragraph of caveats.
 
-Ask before changing the goal, making destructive changes to unrelated/user-owned data, installing paid software, exceeding an explicit spending limit or changing a security boundary. Ordinary compile errors, GUI pacing and in-scope harness repairs belong to the engineer. If a test repeatedly teaches nothing new, diagnose it rather than blindly rerunning it.
+## Records
 
-Publish one PR with what works, how it was checked, relevant versions, remaining limitations and cleanup. Review before merge; include the current-status update in the same PR. No separate audit/closure artifact is required by default. Write additional design only for a consequential unresolved decision, not to memorialize every implementation choice.
+- Raw traces, captures and logs stay outside Git.
+- Do not create a per-run report or evidence file for a diagnostic run. The
+  commit message and the status update are the record.
+- Add an evidence file only when it backs a claim in `docs/SUPPORT_MATRIX.md`,
+  and keep it to the numbers that back the claim.
+- `docs/SUPPORT_MATRIX.md` says what works on what. `docs/FAILURE_CLASSES.md`
+  lists open defects. Update each with a line or two. Do not start another
+  status document, ledger, campaign or receipt system.
+- `CURRENT_SLICE.md` fits on one screen, about forty lines: the goal, the best
+  explanation, the next changes, and what done looks like.
+- Test builds are numbered simply. Do not invent a new candidate name per run.
 
-## GUI test custody and delegated control
+## Landing code
 
-The implementation agent remains the test custodian. It owns the exact candidate and project, setup, permissions, target identities, allowed actions, stop conditions, evidence, cleanup, retry decision and final interpretation. A delegated GUI worker executes a bounded interaction plan; it does not choose the test, declare pass or failure, improvise a retry or change the system.
+- `main` must move. Merge working increments in small pull requests.
+- A stack is at most two pull requests deep. If it is deeper, stop and land it.
+- Code going to `main` gets a review. Diagnostics, experiments and notes do not.
+- Green tests are required for a merge. They are not the definition of done; a
+  musician being able to use the thing is.
 
-Where model-routed GUI control is available, use Luna as the default executor for routine exact-window work, normally at high reasoning and at max for owned popups or mildly ambiguous layouts. Escalate to Astra only after Luna stops on a genuinely novel or consequential visual ambiguity. Give either worker a closed action capsule containing the exact target, permitted actions, forbidden actions and immediate stop conditions. Do not replay an otherwise useful session merely to change executors.
+## Design rules
 
-Machine evidence from UIO, CA1 and bridge/process records outranks the worker's narration. The worker returns actions attempted, visible observations and the blocked step, not an engineering verdict. It stops on identity drift, an unexpected dialog, popup ambiguity, terminal failure, focus or capture ownership change, or any action outside the capsule. Only the test custodian may authorize another launch or attempt.
+- The DAW loads a native Linux proxy. A supervised Windows host loads the
+  Windows plug-in under a pinned runner. The DAW never loads a Windows binary.
+- Rust is the product language. C++ is confined to the VST3 SDK and Win32
+  edges, behind a versioned C ABI. Process boundaries use a versioned protocol.
+- Build general mechanisms. A plug-in is a test case, not a design unit. Do not
+  add product-name branches or per-binary builds to cover a missing mechanism.
+  A vendor-specific workaround needs a vendor-specific reason and belongs in
+  declarative profile data where possible.
+- An unfamiliar plug-in or distribution is untested, not forbidden. Refuse only
+  for a specific missing capability, and name it.
+- Identity is by content and class, not by path or display name. Never silently
+  substitute a different build, preset, environment or content root.
+- Saved projects and plug-in state must survive save, restart, reboot, update
+  and rollback before a plug-in is called usable.
+- The product acquires its own runtime. Steam, a customer-installed Wine, an
+  SDK or a compiler is never a prerequisite.
+- No single Wine prefix for every vendor and no single process for every
+  plug-in by default.
+- Editor, scanner, installer and audio failures are reported as what they are.
 
-## Concurrent work and access
+## Real-time rules
 
-Do not change another agent's branch, checkout or running experiment. Reconcile current instructions when integrating branches; preserve product code and original observations instead of restoring retired process requirements.
+On the audio callback path: no heap allocation after activation, no file,
+network or process work, no ordinary logging, no unbounded lock or wait, and no
+dependence on the manager or an editor. Every wait has a stated bound and a
+stated result when it expires. A dead Windows host must be detected quickly and
+must not stall the DAW.
 
-Reuse established Moonlight/Sunshine and SSH under their existing permissions. Launch Bitwig normally from Applications for desktop use. Respect Computer Use restrictions and do not substitute unapproved interaction methods. Remote access is development tooling, not a plug-in runtime dependency.
+Measure the whole plug-in call as the DAW sees it. A bridge counter reading zero
+is not proof that the audio arrived on time.
+
+## Protections that do not bend
+
+These are not process; they are limits. No experiment overrides them.
+
+- Vendor licensing belongs to the vendor and the user. Never bypass, emulate,
+  forge, intercept or redistribute licensing material.
+- Never commit or log credentials, tokens, licence files, activation data,
+  serials, account identifiers, proprietary installers, plug-in binaries, vendor
+  presets or paid content.
+- Diagnostic exports are allow-listed. Never archive a whole prefix.
+- Do not copy yabridge source. Read it as prior art and write original code.
+- Do not redistribute Proton, Wine, DXVK, VST3 SDK files, installers or
+  plug-ins until the distribution obligations are recorded.
+- Do not disable SteamOS's protected base or make root filesystem changes a
+  product requirement.
+- Profiles are data, not scripts. No shell commands, binary patches or hidden
+  downloads in a profile.
+- Never delete an uncertain ownership record to make a recovery look successful.
+- Do not imply affiliation with or certification by any DAW, runtime or plug-in
+  vendor.

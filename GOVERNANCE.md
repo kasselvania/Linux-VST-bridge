@@ -1,29 +1,41 @@
-# Project decisions and evidence
+# Who decides what
 
-`AGENTS.md` contains the working rules. `CURRENT_SLICE.md` names the current outcome. This document explains how decisions and evidence are used; it does not add another execution gate.
+`AGENTS.md` is the working method. `CURRENT_SLICE.md` is the current task.
+`docs/ARCHITECTURE.md` describes the design. Older task documents, campaign
+files and evidence are history, not instructions.
 
-## Decisions
+## The operator
 
-The operator sets goals and approves consequential scope, spending and security changes. The technical lead selects useful work, closes consequential public-behavior decisions and reviews results. The engineer implements and tests within that scope, including routine repairs. The operator's latest direction takes precedence over older repository process instructions.
+The operator sets the product goal and decides scope, spending, anything that
+could harm user data or licensed state, and what counts as done for a release.
+The operator's current instruction overrides any text in this repository.
 
-Normal work is: agree on an outcome, implement and test, then review one PR. There is no mandatory sequence of selection receipts, adversarial design approvals, diagnostic campaigns, frozen acceptance candidates and separate closure PRs. Use a short design note only when a real decision needs it. Do not make the number of owners crossed determine the number of tasks.
+## The engineer
 
-## What evidence means
+The engineer owns making it work: the diagnosis, the design, the code, the
+integration and the check that it works. Routine engineering choices,
+experiments and reversible changes on project machines do not need permission.
+`AGENTS.md` lists the few things that do.
 
-Record the tested code/build, relevant environment, action, observed result and limitations. Source/build identifiers identify evidence; ordinary changes within an approved task do not require renewed permission for every commit.
+The engineer is expected to hold and state an opinion about what is wrong and
+what to do. Declining to name a likely cause is not caution; it hands the
+problem back to the operator.
 
-A successful development test may support a bounded claim directly. An incomplete or failed test cannot. A mock establishes local behavior, not live Windows or DAW compatibility. A reviewer may ask for an additional test for a specific unresolved risk, not just to move an observation between procedural categories.
+## Done
 
-Historical receipts and acceptance packets remain unchanged, including their original labels, failed attempts and consumption counts. Do not change a legacy diagnostic's `acceptance_eligible` field or claim that its old acceptance protocol passed. Under the present process, review can consider its actual observed facts alongside code and other evidence, without pretending the historical record is something else.
+A capability is done when a musician can use it through the normal product on a
+real machine, and it survives save, reopen and restart. A passing test suite, a
+merged pull request, a package or a report is not that.
 
-## Cost and safety
+A defect is closed when the symptom is gone on the machine where it was seen,
+and the change that removed it is known.
 
-Reuse unchanged artifacts. Keep explicit user spending limits and useful run accounting; do not invent a universal two-attempt debugging limit. A retry should answer a question or verify a repair. Preserve partial results so a failed GUI/reporting step does not erase correct sample measurements.
+Never describe a failed result as a pass, and do not erase a failure. Beyond
+that, keep records short: `docs/SUPPORT_MATRIX.md` for what works,
+`docs/FAILURE_CLASSES.md` for what is open.
 
-Resource ownership, real-time behavior, data protection and useful errors remain engineering requirements. Tool, sandbox and administrator permissions remain separate from project decisions. Updating a repository document cannot grant a prohibited tool operation.
+## Architecture
 
-## Review and completion
-
-Review the actual diff and supporting results against the requested outcome. State what was not independently reproduced. Merge only within the user's authority. Update accepted capability and remaining limitations in the same PR where possible; a separate status-closure cycle is unnecessary.
-
-Legacy transaction tooling remains available for exact old receipts and reporting. Its private state is not migrated or reset by this policy change. Retiring a development ceremony neither certifies unfinished product behavior nor removes the product's integrity and cleanup checks.
+The architecture can change when it is wrong. Say what is wrong, change it, and
+update `docs/ARCHITECTURE.md` in the same pull request. Existing code and earlier
+results do not make a design permanent.
