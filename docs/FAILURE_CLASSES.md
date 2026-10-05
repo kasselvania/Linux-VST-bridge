@@ -1460,6 +1460,13 @@ recorder before attributing editor-interval silence. Recovery5's automatic nativ
 scheduling passed its capability check and failed continuity. A later render
 policy readback does not prove first-callback readiness.
 
+The Deck records show the Windows render-thread grant was flaky, not absent: in
+a session the first RealtimeKit call failed with no reason captured, the second
+found no unique `lvb-audio` thread, and the third was effective. A source
+correction now records the bus client's bounded error line and retries a
+transient refusal on a 0.5 to 8 second backoff per render start. It is not
+installed or measured; RR 5 effective in all 24 cells did not remove the misses.
+
 The separate FN1/PW1 source reviews do not authorize installation or a
 general support claim. PSL1 is proposed next to make preparation product-owned
 and state-aware. Other residual misses still need their own exact thread/queue

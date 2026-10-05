@@ -202,7 +202,9 @@ def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root
 
 def direct_audio_environment(reg,env):
     # Only an immutable preparation runtime declaring the paired helper can
-    # select it. Older retained hosts keep their original launch environment.
+    # select it. Older retained hosts keep their original launch environment,
+    # as does a registration that carries no host record at all.
+    if 'host' not in reg:return env
     root=pathlib.Path(reg['host']['path']).parent
     manifest=root/'direct-audio-helper.json'
     if not manifest.exists():return env
@@ -1424,15 +1426,23 @@ def run(spec,peer=None):
         if operation is not None:operation.close()
 
 class AudioScheduling:
-    """One bounded Rust policy request per owned Windows render-thread start.
+    """Bounded Rust policy requests for the owned Windows render thread.
 
     This is a best-effort capability request, not an audio-readiness gate. It
     does not delay setProcessing/process or claim a policy before readback.
     The existing tracker remains the only process ownership authority.
+
+    A render-thread request that comes back unavailable for a transient reason
+    (bus client failure, RealtimeKit activation, a render thread not yet or no
+    longer unique) is retried on a bounded backoff until the policy is effective
+    or the chain is spent. Each render restart begins a new chain.
     """
-    def __init__(self,spec):
-        self.spec=spec;self.pending=0;self.requests=0;self.rows=collections.deque(maxlen=64)
+    RETRY_DELAYS=(0.5,1.0,2.0,4.0,8.0)
+    FINAL_REASONS=frozenset(('scheduler_artifact_unavailable','scheduling_existing_policy_preserved'))
+    def __init__(self,spec,clock=time.monotonic):
+        self.spec=spec;self.clock=clock;self.pending=0;self.requests=0;self.retries=0;self.rows=collections.deque(maxlen=64)
         self.artifact=None;self.unavailable=None
+        self.attempt=0;self.retry_at=None
         self.native_done=False;self.native_header=None
         try:
             self.artifact=json.loads(os.environ['LVB_AUDIO_SCHEDULER'])
@@ -1444,17 +1454,26 @@ class AudioScheduling:
                 if len(self.native_header)!=24:raise ValueError('session identity')
                 atomic_bytes(pathlib.Path(spec['directory'])/'native-scheduling.supported',self.native_header)
             except Exception:self.native_header=None
-    def started(self):self.pending+=1
+    def started(self):
+        # A new render thread supersedes any pending retry for the previous one.
+        self.pending+=1;self.attempt=0;self.retry_at=None
     def poll(self,owned):
         self.poll_native()
-        if not self.pending:return
-        self.pending-=1;self.requests+=1
+        if not self.pending:
+            if self.retry_at is None or self.clock()<self.retry_at:return
+            self.retry_at=None;self.retries+=1
+        else:
+            self.pending-=1;self.attempt=0
+        self.attempt+=1;self.requests+=1
         if self.unavailable:
-            self.rows.append({'outcome':'unavailable','reason':self.unavailable});return
+            self.rows.append({'outcome':'unavailable','reason':self.unavailable,'attempt':self.attempt});return
         request={'schema':1,'session':self.spec['session'],
             'status':str(pathlib.Path(self.spec['directory'])/'ap12.status'),
             'owned':sorted(owned)}
-        self.rows.append(self.invoke(request))
+        result=self.invoke(request);result['attempt']=self.attempt;self.rows.append(result)
+        if (result['outcome']=='unavailable' and result.get('reason') not in self.FINAL_REASONS
+            and self.attempt<=len(self.RETRY_DELAYS)):
+            self.retry_at=self.clock()+self.RETRY_DELAYS[self.attempt-1]
     def invoke(self,request):
         child=None
         try:
@@ -1494,7 +1513,8 @@ class AudioScheduling:
         except OSError:pass # native preparation has a bounded unavailable result
     def value(self):
         return {'schema':1,'requested_policy':'SCHED_RR','requested_priority':5,
-            'requests':self.requests,'discarded':max(0,self.requests-len(self.rows)),
+            'requests':self.requests,'retries':self.retries,'retry_delays_seconds':list(self.RETRY_DELAYS),
+            'discarded':max(0,self.requests-len(self.rows)),
             'records':list(self.rows),'scope':'post-start effective readback, not a continuity guarantee'}
 
 def run_owned(spec,peer,stop_requested):
