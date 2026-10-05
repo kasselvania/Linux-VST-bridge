@@ -805,3 +805,5 @@ builders/capacity VM stopped, Audiobookshelf running. FC-AUDIO-001 remains open
 for actual timing/scheduling and separate retained musical failures. Real DAW
 project/reboot, full recovery, commercial/catalogue/platform and distribution
 qualification remain separate.
+
+The [installed process-call observer comparison](../evidence/audio-recovery/2026-10-05-bitwig-process-call-timing.md) completes the bounded measurement capability on timing1deck. Three first-attempt180s conditions export every call without loss; actual caller identity and N512 are observed. Both Pure LoFi editor postures retain active graph errors/zero spans, so commercial continuity and editor causation remain unqualified. The first-party reference is different DSP, not waveform equivalence. No scheduling, deadline, soak, updateUX or beta promotion follows.

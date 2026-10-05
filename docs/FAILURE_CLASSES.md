@@ -2954,3 +2954,5 @@ and its 24 passing audio/state lifetimes do not close automatic end-customer eng
 update delivery or qualify commercial processing on the revised engine. That
 connected product-update work and full restoration remain open; no update-policy
 repair was included in the audio slice.
+
+The [installed process-call timing evidence](../evidence/audio-recovery/2026-10-05-bitwig-process-call-timing.md) leaves FC-AUDIO-001 open: both Pure LoFi editor conditions retain +3 active graph errors/three512-frame stereo-zero spans while every measured call stays below8ms. Delayed entries include time outside measured calls; current data does not assign a cause. Next bounded observation is host-to-call scheduling/admission, with callerOTHER0 kept distinct from transport/renderRR5 and shared-environment wineserverOTHER0. Source/telemetry, setup-observer/CI failures and graph/audio outcomes remain separate; no engine or priority repair is inferred.
