@@ -1,37 +1,35 @@
-# Current task: denormal comparison completed
+# Current task: Part A hosting comparison completed
 
 ## Works now
 
-The paired denormal host is installed and its actual mapped bytes, helper and
-direct mailbox v4 were verified. The native engine matches the direct baseline.
-The real vendor process call has same-thread FTZ/DAZ with full MXCSR restoration.
-All 73,793 lifetime calls are sealed/export-confirmed, result0, with no omissions.
-Reference output/state and prompt peer-death retirement remain established.
+The unchanged denormal installation plays the same Pure LoFi / Little Pleasures
+project at 512/48k. Four Together priority samples, ten seconds apart, are retained
+privately. The matched Within Bitwig capture completes 600.000126 seconds;
+all 69,697 lifetime calls export completely, with 56,249 successful N512 calls
+inside the active window. Together is restored, the project bytes are unchanged,
+Bitwig exits normally and the test session confirms retirement. No build or install.
 
 ## Still broken
 
-At SameCallback D0, 512/48k, Together, Little Pleasures editor open, the matched
-600-second capture contains eight stereo-zero spans of 512 frames and +8 active
-graph errors, recorder0. The earlier direct baseline has ten/+10, recorder0.
-One lower count is not a demonstrated improvement; the clean gate still fails.
-Slower controller polling also failed (twelve/+12) and is reverted.
+Within Bitwig retains six 512-frame stereo-zero spans (3,072 frames), +6 Bitwig
+graph errors and +2 recorder errors. Baseline is eight blocks and 19.4 ms maximum
+call spacing; Within reaches 21.221 ms. Recorder errors make the lower block count
+an unclean comparison, not an established improvement. Dependable audio still fails.
 
-## Timing result
+## Most likely cause
 
-Active Windows/vendor median/p99/max is 2.608/4.191/6.338 ms, versus baseline
-2.646/4.123/6.377 ms. Whole-call timing is 2.732/4.336/7.283 ms, versus
-2.770/4.258/6.798 ms. Vendor time is broadly unchanged; the guard is not the
-observed dropout repair. No lifetime call exceeds nominal 512/48k cadence;
-that cadence is not proof of the remaining device budget.
+Host audio scheduling, moderate confidence. Together's Bitwig audio-1 through
+audio-8, Audio Task workers, data-loop and eight PluginsThreadPool workers are TS.
+The plug-in host's ap3-transport is RR5; no Bitwig FF thread appears. Main/UI and
+remote plug-in threads are TS; several support threads are batch class B.
+Within's actual callers are audio-1 through audio-8, still OTHER0 throughout the
+sampled census. Its longest arrival interval includes 18.759 ms outside the
+preceding measured call. Removing separate plug-in hosting does not remove it.
 
-## Endpoint
+## Doing next
 
-The assigned physical comparison is complete. Do not start thirty minutes or
-another hypothesis in this assignment. Native arrival spacing still reaches
-19.607 ms, with up to 16.416 ms outside measured calls; its mechanism remains
-unresolved. This result does not identify a cause or exclude vendor worker work.
-Bitwig saved the working copy and quit normally; the session retired cleanly.
-Original projects, licensed state, prior publications and normal settings remain
-preserved. Builder is stopped. Full captures/logs remain outside Git.
-
-Source/SSH/Deck: Sol6.1 xhigh; GUI: Sol6.1 high; root orchestrates.
+Part B waits for the operator to say #216 is merged. GitHub reports it merged,
+but no pull, rebuild, installation, caller-grant check or offline export occurred.
+Then install the native/manager/supervisor update, inspect caller effective or
+unavailable/refusal records, repeat Together for ten minutes and export offline.
+Full captures, logs, private analysis and restoration records remain outside Git.
