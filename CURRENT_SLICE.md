@@ -1,4 +1,4 @@
-# Current task: take the vendor call off Bitwig's deadline
+# Current task: find what still stalls Bitwig with the vendor call off its thread
 
 ## Goal
 
@@ -8,40 +8,39 @@ Preserve projects, licensed state, the pinned runner and machine headroom.
 
 ## What the runs so far established
 
-Same bridge, same Wine process, same supervisor, same grants: the reference
-plug-in (0.66 ms median call) produced zero Bitwig graph errors in its window;
-Pure LoFi (3.3 ms median, 6.9 ms max) produced errors in every run. The misses
-scale with the vendor call, not with the bridge's presence. Bridge overhead is
-0.12 ms. Denormals: no change. "Within Bitwig" hosting: no change. Flatpak
-RealtimeKit permission: no Bitwig thread became real-time. Every Bitwig audio
-thread on this Deck, including PipeWire's loop inside Bitwig, runs at ordinary
-priority, and we cannot change that from our side.
+Through the identical bridge the reference plug-in (0.66 ms call) has zero
+Bitwig errors; Pure LoFi (3.3 ms median, 6.9 ms max) has them in every run.
+Denormals, hosting mode, the caller grant and the Flatpak RealtimeKit
+permission each changed nothing or made Bitwig worse. Every Bitwig audio
+thread on this Deck runs at ordinary priority and we cannot change that. The
+caller grant is opt-in (LVB_CALLER_SCHEDULING=1), off by default.
 
-The caller grant works mechanically (effective, RR 5 on bitwig-remote-p) and
-gave 2 missing blocks against 8, but Bitwig's graph errors doubled (16 against
-8) and the largest gap grew to 33 ms. One run each; a real-time thread inside
-an ordinary-priority engine is a plausible cause of the extra errors. It is now
-opt-in (LVB_CALLER_SCHEDULING=1) and off by default.
+## Buffered result
 
-## Best explanation (about 80%)
+Buffered 512, no rebuild: the DAW-side call fell to 0.038 ms median (3.2 ms
+max, two calls above 1 ms). Missing blocks 8 to 2, Bitwig graph errors +8 to
++2, recorder 0, largest gap 20.15 ms with 20.10 ms outside our call. The first
+change that improved both numbers without new harm. Buffered becomes the
+default for effects; SameCallback stays the opt-in for live instruments.
 
-Bitwig runs its engine with no real-time protection, so its own timing jitters
-by several milliseconds. In SameCallback mode our 3 to 7 ms vendor call sits
-inside Bitwig's window on top of that jitter; the two tails add up past the
-10.67 ms period a few times per ten minutes. The cheap reference plug-in leaves
-room for the jitter; Pure LoFi does not.
+## Best explanation for the remaining two (about 60%)
 
-## Next change
+Bitwig stalled for 20 ms while our call cost it nothing, so the residue is
+what our process family does to the machine, not the audio path. Suspects, in
+order: our two real-time threads (render RR 5, worker RR 5) preempting
+Bitwig's ordinary-priority engine for up to 7 ms per period; the Wine editor
+window's rendering; the supervisor's 20 Hz process census. Bitwig alone, with
+none of these present, was clean for ten minutes.
 
-Buffered delivery with 512 remembered frames, nothing else changed. The vendor
-call then runs on our real-time render thread during the following period and
-Bitwig's thread only copies buffers, so Bitwig's window is no longer shared
-with the vendor. In the manager for Pure LoFi: "Restore buffered delivery with
-remembered buffering", confirm 512 frames, reopen the project, same clip,
-editor open, ten minutes. Compare missing blocks against 8 and Bitwig graph
-errors against +8. Report the DAW-side call time; it should fall well under
-1 ms. If clean, run thirty minutes, then make Buffered the default for effects
-and keep SameCallback as the opt-in for instruments played live.
+## Next changes, one at a time, Buffered 512 throughout
+
+1. Deck, no code: same run with the editor closed. Compare 2 and +2.
+2. Deck, after the switch lands: same run with LVB_AUDIO_SCHEDULING=0 in the
+   manager's environment, so no thread of ours is real-time. Compare 2 and +2.
+   If clean, ordinary priority is the right default in Buffered mode.
+3. Free data from the existing samples: per-thread CPU for the Wine host,
+   wineserver and the supervisor during playback, and the timestamps of the
+   two misses (start-up or mid-run).
 
 ## Done
 

@@ -1438,7 +1438,8 @@ class AudioScheduling:
     or the chain is spent. Each render restart begins a new chain.
     """
     RETRY_DELAYS=(0.5,1.0,2.0,4.0,8.0)
-    FINAL_REASONS=frozenset(('scheduler_artifact_unavailable','scheduling_existing_policy_preserved'))
+    FINAL_REASONS=frozenset(('scheduler_artifact_unavailable','scheduling_disabled_by_operator',
+                             'scheduling_existing_policy_preserved'))
     # Distinct DAW threads the proxy may record calling process(); matches the
     # proxy's own slot count, so a runaway peer cannot keep this loop busy.
     CALLER_REQUESTS_MAX=8
@@ -1447,6 +1448,11 @@ class AudioScheduling:
         self.artifact=None;self.unavailable=None
         self.attempt=0;self.retry_at=None
         self.native_done=False;self.native_header=None;self.caller_requests=0
+        # Experiment switch: LVB_AUDIO_SCHEDULING=0 in the manager's environment
+        # makes no RealtimeKit request at all, so a run can compare the bridge's
+        # threads at ordinary priority against the default real-time grants.
+        if os.environ.get('LVB_AUDIO_SCHEDULING')=='0':
+            self.unavailable='scheduling_disabled_by_operator';return
         try:
             self.artifact=json.loads(os.environ['LVB_AUDIO_SCHEDULER'])
             verify(self.artifact)

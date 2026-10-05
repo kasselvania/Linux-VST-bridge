@@ -187,6 +187,27 @@ class AudioSchedulingTests(unittest.TestCase):
             control.started();self.assertIsNone(control.retry_at)
             control.poll({(1,2)});self.assertEqual(control.value()['records'][-1]['attempt'],1)
 
+    def test_operator_switch_disables_every_grant_without_touching_the_session_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp)
+            spec={'session':'42'*16,'directory':str(root),
+                'graphical_session':{'peer_pid':123,'peer_start_ticks':456}}
+            with patch.dict(os.environ,{'LVB_AUDIO_SCHEDULER':json.dumps({'path':'/fixture','sha256':'00'*32}),
+                    'LVB_AUDIO_SCHEDULING':'0','LVB_CALLER_SCHEDULING':'1'}),patch.object(session,'verify'):
+                control=session.AudioScheduling(spec,clock=lambda:0.0)
+            # No advertisement: the native worker and caller requests are never made.
+            self.assertEqual(sorted(p.name for p in root.iterdir()),[])
+            control.started();control.poll({(1,2)})
+            self.assertEqual(control.value()['records'],
+                [{'outcome':'unavailable','reason':'scheduling_disabled_by_operator','attempt':1}])
+            self.assertIsNone(control.retry_at)
+            (root/'native-scheduling.request').write_bytes(b'x'*40)
+            (root/'caller-scheduling.request').write_bytes(b'x'*40)
+            control.poll({(1,2)})
+            self.assertEqual(control.value()['requests'],1)
+            self.assertFalse((root/'native-scheduling.reply').exists())
+            self.assertFalse((root/'caller-scheduling.reply').exists())
+
     def test_final_reasons_do_not_retry(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=pathlib.Path(tmp);helper=root/'manager'

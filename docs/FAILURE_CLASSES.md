@@ -1472,7 +1472,11 @@ window, not with the bridge's presence. Because the installed caller grant
 doubled Bitwig's graph errors and stretched the largest gap to 33 ms, it is now
 opt-in (LVB_CALLER_SCHEDULING=1) and off by default. The next comparison is
 Buffered delivery with 512 remembered frames, which takes the vendor call out
-of Bitwig's window.
+of Bitwig's window. Measured: DAW-side call 0.038 ms median, missing blocks 8 to 2,
+Bitwig graph errors +8 to +2, recorder 0, largest gap 20.15 ms almost entirely
+outside the call. Buffered is the effects default; the residue is attributed to
+the bridge's footprint on an ordinary-priority DAW (real-time preemption, editor
+rendering, supervisor census), to be separated one run at a time.
 
 The separate FN1/PW1 source reviews do not authorize installation or a
 general support claim. PSL1 is proposed next to make preparation product-owned
