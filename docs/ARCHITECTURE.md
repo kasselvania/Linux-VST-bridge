@@ -1152,6 +1152,14 @@ contract; its source, installed and physical acceptance remain separate gates:
   timeout/cancel never makes outstanding host-owned storage reusable. Keep bounded
   canaries and actual-N finite/silence checks; prototype whole-capacity poisoning,
   input equality and unused-plane scans remain outside normal direct processing.
+- The DAW thread that calls process() is recorded once per distinct thread on
+  the callback (one gettid, bounded atomics, no wait). Off the callback, the
+  worker asks the supervisor for the same SCHED_RR policy the render thread
+  holds, through RealtimeKit, one request at a time with a bounded reply wait.
+  An existing non-default policy on that thread is preserved, no process limit
+  is changed, and an older supervisor simply does not advertise the request.
+  The Deck records that thread as SCHED_OTHER 0 in Bitwig's plug-in host; the
+  two real-time grants otherwise protect threads that wait on it.
 - An original product-built Rust ELF helper and marked Wine builtin PE shim supply
   the Windows Linux wait ABI under the selected x86-64 Wine/Linux runner. Package
   and verify their exact digests with the paired host, select their private path

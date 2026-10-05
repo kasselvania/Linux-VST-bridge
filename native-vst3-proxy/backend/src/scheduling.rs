@@ -1,11 +1,21 @@
-//! Worker preparation only. Never called from process/setProcessing.
-//! The DAW owns its process limits; this code does not change them.
+//! Worker preparation and off-path caller-thread requests. Nothing here runs
+//! on process/setProcessing. The DAW owns its process limits; this code does
+//! not change them.
 use std::{io::{self, Read, Write}, path::{Path, PathBuf}, time::{Duration, Instant}};
 
 const RR: i32 = 2;
 const RESET_ON_FORK: i32 = 0x4000_0000;
 const PRIORITY: i32 = 5;
 const RTTIME_US: u64 = 200_000;
+const WORKER_SUPPORTED: &str = "native-scheduling.supported";
+const WORKER_REQUEST: &str = "native-scheduling.request";
+const WORKER_REPLY: &str = "native-scheduling.reply";
+const CALLER_SUPPORTED: &str = "caller-scheduling.supported";
+const CALLER_REQUEST: &str = "caller-scheduling.request";
+const CALLER_REPLY: &str = "caller-scheduling.reply";
+const CALLER_TIMEOUT: Duration = Duration::from_secs(3);
+/// Distinct DAW threads whose process() calls are recorded for a policy request.
+pub(crate) const CALLER_SLOTS: usize = 8;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Policy { kind: i32, priority: i32 }
@@ -14,6 +24,7 @@ impl Policy {
     fn requested(self) -> bool { self.kind == (RR | RESET_ON_FORK) && self.priority == PRIORITY }
 }
 
+#[derive(Clone)]
 pub(crate) struct Preparation { directory: PathBuf, session: [u8; 16] }
 impl Preparation {
     pub(crate) fn from_binding(binding: &crate::preview::Binding) -> Option<Self> {
@@ -22,23 +33,29 @@ impl Preparation {
     fn header(&self) -> Vec<u8> {
         [b"LVNS".as_slice(), &1u32.to_le_bytes(), &self.session].concat()
     }
-    fn request(&self, pid: u32, tid: u32, start: u64, timeout: Duration) -> io::Result<bool> {
+    /// Publishes one 40-byte request if the supervisor advertises the role.
+    /// An older supervisor advertises nothing; no new bytes go on the existing
+    /// ownership socket and no unsupported operation is waited for.
+    fn write_request(&self, supported: &str, name: &str, pid: u32, tid: u32, start: u64) -> io::Result<bool> {
         use std::os::unix::fs::OpenOptionsExt;
         let header = self.header();
-        // An older supervisor advertises nothing. Do not send new bytes on the
-        // existing ownership socket or wait for an unsupported operation.
-        if private_read(&self.directory.join("native-scheduling.supported"), 24)? != header {
+        if private_read(&self.directory.join(supported), 24)? != header {
             return Ok(false);
         }
         let request = [header.as_slice(), &pid.to_le_bytes(), &tid.to_le_bytes(), &start.to_le_bytes()].concat();
-        let temp = self.directory.join("native-scheduling.request.tmp");
+        let temp = self.directory.join(format!("{name}.tmp"));
         let mut file = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&temp)?;
         file.write_all(&request)?;
         drop(file);
-        std::fs::rename(temp, self.directory.join("native-scheduling.request"))?;
+        std::fs::rename(temp, self.directory.join(name))?;
+        Ok(true)
+    }
+    fn request(&self, pid: u32, tid: u32, start: u64, timeout: Duration) -> io::Result<bool> {
+        if !self.write_request(WORKER_SUPPORTED, WORKER_REQUEST, pid, tid, start)? { return Ok(false); }
+        let header = self.header();
         let until = Instant::now() + timeout;
         loop {
-            match private_read(&self.directory.join("native-scheduling.reply"), 28) {
+            match private_read(&self.directory.join(WORKER_REPLY), 28) {
                 Ok(bytes) => return Ok(bytes[..24] == header && matches!(u32::from_le_bytes(bytes[24..28].try_into().unwrap()), 1 | 2)),
                 Err(e) if e.kind() == io::ErrorKind::NotFound && Instant::now() < until => std::thread::sleep(Duration::from_millis(5)),
                 Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(false),
@@ -68,19 +85,21 @@ pub(crate) struct Observation {
     before: Option<Policy>,
     after: Option<Policy>,
     clock: [u64; 2],
+    role: &'static str,
+    thread: u32,
 }
 impl Observation {
     fn skipped(reason: &'static str) -> Self {
-        Self { outcome: reason, route: "none", before: None, after: None, clock: [0; 2] }
+        Self { outcome: reason, route: "none", before: None, after: None, clock: [0; 2], role: "worker", thread: 0 }
     }
     pub(crate) fn report(&self, path: &Path) {
         let policy = |p: Option<Policy>| p.map_or("null".to_owned(), |p|
             format!("{{\"policy\":{},\"priority\":{}}}", p.kind, p.priority));
-        let text = format!(concat!("{{\"event\":\"native_audio_scheduling\",\"schema\":1,",
+        let text = format!(concat!("{{\"event\":\"native_audio_scheduling\",\"schema\":1,\"role\":\"{}\",\"thread\":{},",
             "\"outcome\":\"{}\",\"route\":\"{}\",\"before\":{},\"effective\":{},",
             "\"clock_monotonic_ns\":[{},{}],\"requested_priority\":5,",
             "\"host_limits_changed\":false}}\n"),
-            self.outcome, self.route, policy(self.before), policy(self.after), self.clock[0], self.clock[1]);
+            self.role, self.thread, self.outcome, self.route, policy(self.before), policy(self.after), self.clock[0], self.clock[1]);
         crate::preview::append_report(path, text.as_bytes());
     }
 }
@@ -114,44 +133,163 @@ pub(crate) fn prepare(preparation: Option<Preparation>) -> Observation {
 }
 
 #[cfg(target_os = "linux")]
-mod linux {
-    use super::*;
+mod platform {
+    use super::Policy;
+    use std::io::Read;
     use std::os::raw::{c_int, c_ulong};
     #[repr(C)] struct Param { priority: c_int }
     #[repr(C)] struct Limit { soft: c_ulong, hard: c_ulong }
     unsafe extern "C" {
-        fn gettid() -> c_int;
+        pub(super) fn gettid() -> c_int;
         fn sched_getscheduler(pid: c_int) -> c_int;
         fn sched_getparam(pid: c_int, param: *mut Param) -> c_int;
         fn getrlimit(resource: c_int, limit: *mut Limit) -> c_int;
     }
-    fn current() -> Option<Policy> {
-        let kind = unsafe { sched_getscheduler(0) };
+    /// Policy of one thread of this process; 0 names the calling thread.
+    pub(super) fn policy_of(tid: u32) -> Option<Policy> {
+        let kind = unsafe { sched_getscheduler(tid as c_int) };
         let mut param = Param { priority: 0 };
-        (kind >= 0 && unsafe { sched_getparam(0, &mut param) } == 0)
+        (kind >= 0 && unsafe { sched_getparam(tid as c_int, &mut param) } == 0)
             .then_some(Policy { kind, priority: param.priority })
     }
-    pub(super) fn prepare(preparation: Preparation) -> Observation {
-        let began = crate::observer::monotonic_ns();
+    pub(super) fn hard_rttime() -> Option<u64> {
         let mut limit = Limit { soft: 0, hard: 0 };
         // c_ulong is target-width dependent; keep this observation's wire width fixed.
         #[allow(clippy::unnecessary_cast)]
-        let hard = (unsafe { getrlimit(15, &mut limit) } == 0).then_some(limit.hard as u64);
-        let mut result = acquire(current(), hard, || {
-            let accepted = (|| -> std::io::Result<bool> {
-                let tid = unsafe { gettid() } as u32;
-                let mut text = String::new();
-                std::fs::File::open(format!("/proc/self/task/{tid}/stat"))?.take(4097).read_to_string(&mut text)?;
-                let start = (text.len() <= 4096).then(|| text.rsplit_once(')')?.1.split_whitespace().nth(19)?.parse().ok()).flatten()
-                    .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "worker identity"))?;
-                preparation.request(std::process::id(), tid, start, Duration::from_secs(3))
-            })().unwrap_or(false);
-            (accepted, current())
+        (unsafe { getrlimit(15, &mut limit) } == 0).then_some(limit.hard as u64)
+    }
+    /// Kernel start tick of one thread of this process, as the supervisor
+    /// verifies it. A reused thread ID cannot carry the same start.
+    pub(super) fn thread_start(tid: u32) -> Option<u64> {
+        let mut text = String::new();
+        std::fs::File::open(format!("/proc/self/task/{tid}/stat")).ok()?.take(4097).read_to_string(&mut text).ok()?;
+        if text.len() > 4096 { return None; }
+        text.rsplit_once(')')?.1.split_whitespace().nth(19)?.parse().ok()
+    }
+}
+#[cfg(not(target_os = "linux"))]
+mod platform {
+    use super::Policy;
+    pub(super) fn policy_of(_tid: u32) -> Option<Policy> { None }
+    pub(super) fn hard_rttime() -> Option<u64> { None }
+    pub(super) fn thread_start(_tid: u32) -> Option<u64> { None }
+}
+
+#[cfg(target_os = "linux")]
+mod linux {
+    use super::*;
+    pub(super) fn prepare(preparation: Preparation) -> Observation {
+        let began = crate::observer::monotonic_ns();
+        let tid = unsafe { platform::gettid() } as u32;
+        let mut result = acquire(platform::policy_of(0), platform::hard_rttime(), || {
+            let accepted = platform::thread_start(tid)
+                .map(|start| preparation.request(std::process::id(), tid, start, Duration::from_secs(3)).unwrap_or(false))
+                .unwrap_or(false);
+            (accepted, platform::policy_of(0))
         });
         result.route = "owned_supervisor_realtimekit";
         result.clock = [began, crate::observer::monotonic_ns()];
+        result.thread = tid;
         result
     }
+}
+
+/// One off-path real-time request for a DAW thread that called process().
+/// The worker begins it and polls it between its ordinary wakes. No thread
+/// sleeps or blocks on the reply, and the request never runs on the callback.
+pub(crate) struct CallerGrant {
+    preparation: Preparation,
+    tid: u32,
+    before: Option<Policy>,
+    began: u64,
+    deadline: Instant,
+}
+pub(crate) enum CallerStep { Done(Observation), Pending(CallerGrant) }
+impl CallerGrant {
+    fn observation(tid: u32, began: u64, before: Option<Policy>, after: Option<Policy>, outcome: &'static str, route: &'static str) -> Observation {
+        Observation { outcome, route, before, after, clock: [began, crate::observer::monotonic_ns()], role: "caller", thread: tid }
+    }
+    pub(crate) fn begin(preparation: &Preparation, tid: u32) -> CallerStep {
+        let began = crate::observer::monotonic_ns();
+        let before = platform::policy_of(tid);
+        let done = |outcome, route| CallerStep::Done(Self::observation(tid, began, before, before, outcome, route));
+        let Some(policy) = before else { return done("policy_unavailable", "none"); };
+        if !policy.ordinary() { return done("existing_policy_preserved", "none"); }
+        if !platform::hard_rttime().is_some_and(|v| v > 0 && v <= RTTIME_US) {
+            return done("host_realtime_budget_unavailable", "none");
+        }
+        let Some(start) = platform::thread_start(tid) else { return done("caller_identity_unavailable", "none"); };
+        match preparation.write_request(CALLER_SUPPORTED, CALLER_REQUEST, std::process::id(), tid, start) {
+            Ok(true) => CallerStep::Pending(Self { preparation: preparation.clone(), tid, before, began, deadline: Instant::now() + CALLER_TIMEOUT }),
+            // No advertisement at all is an older supervisor, not a failure.
+            Ok(false) => done("unsupported_supervisor", "none"),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => done("unsupported_supervisor", "none"),
+            Err(_) => done("request_unavailable", "owned_supervisor_realtimekit"),
+        }
+    }
+    pub(crate) fn poll(self) -> CallerStep {
+        const ROUTE: &str = "owned_supervisor_realtimekit";
+        let reply = self.preparation.directory.join(CALLER_REPLY);
+        let expired = Instant::now() >= self.deadline;
+        match private_read(&reply, 32) {
+            Ok(bytes) => {
+                let _ = std::fs::remove_file(&reply);
+                let tid = u32::from_le_bytes(bytes[24..28].try_into().unwrap());
+                let code = u32::from_le_bytes(bytes[28..32].try_into().unwrap());
+                if bytes[..24] != self.preparation.header()[..] || tid != self.tid {
+                    // A reply left over from another thread's request is discarded.
+                    return if expired { self.finish("reply_timeout", ROUTE) } else { CallerStep::Pending(self) };
+                }
+                let after = platform::policy_of(self.tid);
+                let outcome = if matches!(code, 1 | 2) && after.is_some_and(Policy::requested) { "effective" } else { "unavailable" };
+                CallerStep::Done(Self::observation(self.tid, self.began, self.before, after, outcome, ROUTE))
+            }
+            Err(e) if e.kind() == io::ErrorKind::NotFound && !expired => CallerStep::Pending(self),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => self.finish("reply_timeout", ROUTE),
+            Err(_) => self.finish("reply_unavailable", ROUTE),
+        }
+    }
+    fn finish(self, outcome: &'static str, route: &'static str) -> CallerStep {
+        CallerStep::Done(Self::observation(self.tid, self.began, self.before, platform::policy_of(self.tid), outcome, route))
+    }
+}
+
+/// Worker-owned sequence of caller grants: one outstanding request at a time,
+/// each recorded thread requested once, at most one small private file
+/// operation per service call.
+pub(crate) struct CallerGrants {
+    preparation: Option<Preparation>,
+    next: usize,
+    pending: Option<CallerGrant>,
+    observations: Vec<Observation>,
+}
+impl CallerGrants {
+    pub(crate) fn new(preparation: Option<Preparation>) -> Self {
+        Self { preparation, next: 0, pending: None, observations: Vec::with_capacity(CALLER_SLOTS) }
+    }
+    pub(crate) fn service(&mut self, callers: &[std::sync::atomic::AtomicU64]) {
+        if let Some(grant) = self.pending.take() {
+            match grant.poll() {
+                CallerStep::Pending(grant) => { self.pending = Some(grant); return; }
+                CallerStep::Done(observation) => self.observations.push(observation),
+            }
+        }
+        let Some(preparation) = &self.preparation else { return; };
+        while self.next < callers.len() {
+            let tid = callers[self.next].load(std::sync::atomic::Ordering::Acquire);
+            if tid == 0 { return; }
+            self.next += 1;
+            match CallerGrant::begin(preparation, tid as u32) {
+                CallerStep::Pending(grant) => { self.pending = Some(grant); return; }
+                CallerStep::Done(observation) => self.observations.push(observation),
+            }
+        }
+    }
+    pub(crate) fn report(&self, path: &Path) {
+        for observation in &self.observations { observation.report(path); }
+    }
+    #[cfg(test)]
+    fn outcomes(&self) -> Vec<&'static str> { self.observations.iter().map(|o| o.outcome).collect() }
 }
 
 #[cfg(test)]
@@ -213,5 +351,71 @@ mod tests {
             assert_eq!(acquire(Some(OTHER), Some(RTTIME_US), || reply).outcome, "unavailable");
         }
         assert_eq!(acquire(None, Some(RTTIME_US), || panic!("unknown policy")).outcome, "policy_unavailable");
+    }
+    #[test]
+    fn caller_grants_request_each_recorded_thread_once_and_never_block() {
+        use std::os::unix::fs::PermissionsExt;
+        use std::sync::atomic::{AtomicU64, Ordering};
+        let root = std::env::temp_dir().join(format!("caller-scheduling-{}", std::process::id()));
+        std::fs::create_dir(&root).unwrap();
+        let preparation = Preparation { directory: root.clone(), session: [0x42; 16] };
+        let write = |name: &str, data: &[u8]| {
+            let path = root.join(name); std::fs::write(&path, data).unwrap();
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        };
+        let callers: [AtomicU64; CALLER_SLOTS] = std::array::from_fn(|_| AtomicU64::new(0));
+        // The grant refuses without a finite real-time budget. Lowering this
+        // process's own RLIMIT_RTTIME is always permitted and affects no RT thread here.
+        let budget = libc::rlimit { rlim_cur: RTTIME_US as libc::rlim_t, rlim_max: RTTIME_US as libc::rlim_t };
+        assert_eq!(unsafe { libc::setrlimit(libc::RLIMIT_RTTIME, &budget) }, 0);
+        assert_eq!(platform::hard_rttime(), Some(RTTIME_US));
+        // Nothing recorded: no request, no observation.
+        let mut grants = CallerGrants::new(Some(preparation.clone()));
+        grants.service(&callers);
+        assert!(grants.outcomes().is_empty() && !root.join(CALLER_REQUEST).exists());
+        // This test thread is an ordinary thread of this process; its policy
+        // and start are readable. An old supervisor advertises nothing.
+        let me = unsafe { platform::gettid() } as u64;
+        callers[0].store(me, Ordering::Release);
+        grants.service(&callers);
+        assert_eq!(grants.outcomes(), vec!["unsupported_supervisor"]);
+        assert!(!root.join(CALLER_REQUEST).exists());
+        // A supporting supervisor: the request carries this process/thread and
+        // the worker keeps going while no reply exists.
+        write(CALLER_SUPPORTED, &preparation.header());
+        let mut grants = CallerGrants::new(Some(preparation.clone()));
+        let began = Instant::now();
+        grants.service(&callers);
+        assert!(began.elapsed() < Duration::from_millis(500));
+        let bytes = std::fs::read(root.join(CALLER_REQUEST)).unwrap();
+        assert_eq!(&bytes[..24], &preparation.header()[..]);
+        assert_eq!(u32::from_le_bytes(bytes[24..28].try_into().unwrap()), std::process::id());
+        assert_eq!(u32::from_le_bytes(bytes[28..32].try_into().unwrap()), me as u32);
+        assert!(u64::from_le_bytes(bytes[32..40].try_into().unwrap()) > 0);
+        grants.service(&callers);
+        assert!(grants.outcomes().is_empty() && grants.pending.is_some());
+        // A reply for another thread is discarded; ours completes the grant.
+        // The policy did not actually change here, so acceptance reads unavailable.
+        let mut other = preparation.header(); other.extend(7u32.to_le_bytes()); other.extend(1u32.to_le_bytes());
+        write(CALLER_REPLY, &other);
+        grants.service(&callers);
+        assert!(grants.outcomes().is_empty() && !root.join(CALLER_REPLY).exists());
+        let mut reply = preparation.header(); reply.extend((me as u32).to_le_bytes()); reply.extend(1u32.to_le_bytes());
+        write(CALLER_REPLY, &reply);
+        grants.service(&callers);
+        assert_eq!(grants.outcomes(), vec!["unavailable"]);
+        assert!(!root.join(CALLER_REPLY).exists());
+        // The same thread is never requested twice; a second recorded thread is.
+        std::fs::remove_file(root.join(CALLER_REQUEST)).unwrap();
+        grants.service(&callers);
+        assert!(!root.join(CALLER_REQUEST).exists());
+        callers[1].store(u64::MAX >> 1, Ordering::Release); // no such thread
+        grants.service(&callers);
+        assert_eq!(grants.outcomes(), vec!["unavailable", "policy_unavailable"]);
+        // Unmanaged fixtures request nothing.
+        let mut none = CallerGrants::new(None);
+        none.service(&callers);
+        assert!(none.outcomes().is_empty());
+        std::fs::remove_dir_all(root).unwrap();
     }
 }
