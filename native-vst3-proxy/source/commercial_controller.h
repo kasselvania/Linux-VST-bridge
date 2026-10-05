@@ -17,6 +17,7 @@
 #include <array>
 #include <atomic>
 #include <cmath>
+#include <cstdlib>
 #include <thread>
 namespace AP8 {
 class Controller final : public Steinberg::Vst::EditController,
@@ -104,6 +105,18 @@ public:
   Result PLUGIN_API
   disconnect(Steinberg::Vst::IConnectionPoint *peer) override {
     if (!panelClose(editor_.owner())) return Steinberg::kResultFalse;
+    if (connected_) {
+      auto *m = allocateMessage();
+      if (m) {
+        m->setMessageID("AP15.poll_summary");
+        m->getAttributes()->setInt("period_ms", slow_poll_ ? 100 : 10);
+        m->getAttributes()->setInt("ticks", Steinberg::int64(poll_ticks_));
+        m->getAttributes()->setInt("ap10", Steinberg::int64(ap10_polls_));
+        m->getAttributes()->setInt("ap11", Steinberg::int64(ap11_polls_));
+        sendMessage(m);
+        m->release();
+      }
+    }
     finishGestures();
     capabilities(false);
     connected_ = false;
@@ -566,12 +579,23 @@ private:
       return;
     ticking_ = true;
     retryClose();
-    request("AP10.poll");
-    if (terminal_failed_) {ticking_=false;return;}
-    if (!generation_)
-      request("AP11.bind");
-    else
-      request("AP11.poll");
+    ++poll_ticks_;
+    // Diagnostic only: keep the 10 ms lifecycle/focus timer and immediate
+    // bootstrap/commands, but reduce recurring cross-host peer messages.
+    // Queued vendor events are still drained, never discarded or muted.
+    const bool poll = !slow_poll_ || !generation_ || ++poll_phase_ >= 10;
+    if (poll) {
+      poll_phase_ = 0;
+      ++ap10_polls_;
+      request("AP10.poll");
+      if (terminal_failed_) {ticking_=false;return;}
+      if (!generation_)
+        request("AP11.bind");
+      else {
+        ++ap11_polls_;
+        request("AP11.poll");
+      }
+    }
     ap11_gui_message_t focus{};
     if (activation_.poll(focus)) {
       focus.kind = AP11::Focus;
@@ -691,6 +715,12 @@ private:
   }
   Steinberg::Linux::IRunLoop *loop_ = nullptr;
   AP15::UiTimer *timer_ = nullptr;
+  const bool slow_poll_ = [] {
+    const char *value = std::getenv("LVB_CONTROLLER_POLL_100MS");
+    return value && !std::strcmp(value, "1");
+  }();
+  unsigned poll_phase_ = 9;
+  uint64_t poll_ticks_ = 0, ap10_polls_ = 0, ap11_polls_ = 0;
   std::thread::id owner_;
   bool connected_ = false, ticking_ = false, group_ = false,
        forwarding_ = false, refreshing_ = false;

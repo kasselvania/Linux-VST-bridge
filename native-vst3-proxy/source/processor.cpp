@@ -436,6 +436,17 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
   const auto *id = message->getMessageID();
   if (!id) return kResultFalse;
 #ifdef AP8_PREVIEW
+  if (!std::strcmp(id, "AP15.poll_summary")) {
+    int64 period=0,ticks=0,ap10=0,ap11=0;
+    auto *a=message->getAttributes();
+    if(a->getInt("period_ms",period)!=kResultOk || (period!=10&&period!=100) ||
+       a->getInt("ticks",ticks)!=kResultOk || ticks<0 ||
+       a->getInt("ap10",ap10)!=kResultOk || ap10<0 ||
+       a->getInt("ap11",ap11)!=kResultOk || ap11<0)return kResultFalse;
+    char text[256];auto n=std::snprintf(text,sizeof(text),"{\"event\":\"controller_poll_summary\",\"period_ms\":%lld,\"ticks\":%lld,\"ap10_requests\":%lld,\"ap11_requests\":%lld}\n",(long long)period,(long long)ticks,(long long)ap10,(long long)ap11);
+    if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));
+    return kResultOk;
+  }
   if(!std::strcmp(id,"AP10.capabilities")){int64 enabled=0;if(message->getAttributes()->getInt("notifications",enabled)!=kResultOk)return kResultFalse;notifications_=enabled==1;return kResultOk;}
   if(!std::strcmp(id,"AP10.poll")){
     if1_terminal_t terminal{};

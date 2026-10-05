@@ -29,6 +29,7 @@ uint32_t save_code=0, state_calls=0, close_code=0;
 uint32_t process_refusal=0;
 uint32_t fixture_delay=UINT32_MAX,fixture_vendor=0,fixture_tail=0,notice_flags=0;
 uint32_t actual_mode=UINT32_MAX,process_calls=0;
+uint32_t notice_calls=0, gui_take_calls=0;
 uint32_t configured_maximum=0, activated_maximum=0;
 if1_terminal_t terminal_record{};
 std::thread::id owner = std::this_thread::get_id();
@@ -190,6 +191,7 @@ uint32_t __wrap_if2_close(uint64_t) {
 }
 uint32_t __wrap_if1_terminal(uint64_t,if1_terminal_t* out){*out=terminal_record;return 0;}
 uint32_t __wrap_ap10_notices(uint64_t, uint32_t *p) {
+  ++notice_calls;
   p[0] = notice_flags;p[1]=fixture_vendor;p[2]=fixture_tail;notice_flags=0;
   return 0;
 }
@@ -206,6 +208,7 @@ uint32_t __wrap_ap11_gui_command(uint64_t, uint64_t g, ap11_gui_message_t *m) {
   return 0;
 }
 uint32_t __wrap_ap11_gui_take(uint64_t, uint64_t g, ap11_gui_message_t *m) {
+  ++gui_take_calls;
   if (g != generation)
     return 5;
   *m = ap11_gui_message_t{};
@@ -536,11 +539,42 @@ void completion_contract_regression() {
   check(controller->terminate()==kResultOk&&processor.terminate()==kResultOk,"completion retirement");controller->release();
   fixture_delay=UINT32_MAX;fixture_vendor=fixture_tail=notice_flags=0;
 }
+void poll_cadence_regression() {
+  check(setenv("LVB_CONTROLLER_POLL_100MS", "1", 1)==0,"enable bounded polling experiment");
+  Host host;AP2::Processor processor;auto* c=new AP8::Controller;
+  check(unsetenv("LVB_CONTROLLER_POLL_100MS")==0,"configuration captured before activation");
+  host.controller=c;host.processor=&processor;host.flush=false;
+  auto* context=static_cast<IHostApplication*>(&host);
+  check(processor.initialize(context)==kResultOk&&c->initialize(context)==kResultOk,"poll initialize");
+  c->setComponentHandler(static_cast<IComponentHandler*>(&host));
+  check(processor.connect(c)==kResultOk&&c->connect(&processor)==kResultOk,"bootstrap is immediate");
+  auto token=c->allocateEditorView();check(c->panelOpen(token),"Open command remains immediate");
+  auto opened=commands.back();opened.kind=AP11::EditorStatus;opened.count=1;opened.view_epoch=1;opened.lifecycle=AP11::Opened;
+  events.push_back(opened);host.tick();
+  check(c->panelState(token)==AP11::Opened,"first periodic poll receives editor status");
+  const auto notices=notice_calls, takes=gui_take_calls;
+  for(unsigned i=0;i<100;++i)host.tick();
+  check(notice_calls==notices+10&&gui_take_calls==takes+10,"100 lifecycle ticks send only ten recurring poll pairs");
+  const auto commandsBefore=commands.size();
+  check(c->setParamNormalized(0,.4)==kResultOk&&commands.size()==commandsBefore+1&&commands.back().kind==AP11::Set,"direct host parameter command is not paced");
+  for(auto kind:{AP11::Begin,AP11::Value,AP11::End}){auto e=opened;e.kind=kind;e.id=0;e.value=.75;e.revision=revision++;events.push_back(e);}
+  fixture_vendor=42;notice_flags=kLatencyChanged;
+  for(unsigned i=0;i<9;++i)host.tick();
+  check(events.size()==3&&notice_flags==kLatencyChanged&&host.gestures.empty(),"queued gestures and notices survive the skipped polls");
+  host.tick();
+  check(events.empty()&&host.gestures==std::vector<uint32_t>{AP11::Begin,AP11::Value,AP11::End}&&c->getParamNormalized(0)==.75,"next poll delivers every queued gesture in order");
+  check(host.restarts==kLatencyChanged&&processor.getLatencySamples()==42,"latency notification remains functional");
+  check(c->panelClose(token)&&commands.back().kind==AP11::Close,"Close command remains immediate");
+  c->disconnect(&processor);processor.disconnect(c);
+  check(c->terminate()==kResultOk&&host.timers.empty()&&processor.terminate()==kResultOk,"paced controller retires normally");c->release();
+  std::cout<<"poll cadence preserves bootstrap, direct commands, queued gestures and latency notices\n";
+}
 int main(int argc,char** argv) {
   if(argc>1){
     if(!std::strcmp(argv[1],"--state-migration")){historical_controller_regression();failed_restore_retirement_regression();}
     else if(!std::strcmp(argv[1],"--curve-refusal"))curve_refusal_regression();
     else if(!std::strcmp(argv[1],"--completion-contract"))completion_contract_regression();
+    else if(!std::strcmp(argv[1],"--poll-cadence"))poll_cadence_regression();
     else contained_host_survival_regression();
     return 0;
   }

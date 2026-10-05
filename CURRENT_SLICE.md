@@ -1,4 +1,4 @@
-# Current task: direct audio completion
+# Current task: isolate repeated controller dispatch
 
 ## Goal
 
@@ -8,39 +8,38 @@ normal interaction. Preserve projects, licensed state and machine headroom.
 
 ## Works now
 
-The paired Linux/Wine helper completes real sleeping shared-futex exchanges.
-The source path now gives callback/render exclusive AUDIO ownership; blocked
-control work and FIN with unread state bytes have direct-path regression checks.
-Whole native calls retain correlated Windows/vendor process-call time. Typical
-baseline time was 3.18 ms whole / 2.55 ms inside Windows, not pure DSP CPU time.
+Installed direct mailbox v4 connects callback to Windows render without the
+native relay/socket pump. Reference output/state and second setup pass; killing
+an owned reference peer wakes the pending call in 3.14 ms and retires cleanly.
+Typical bridge remainder is now 0.121 ms, down from roughly 0.64 ms.
 
 ## Still broken
 
-Matched editor-open and editor-closed runs each had three graph errors and three
-silent blocks. Wine-server priority, caller priority and in-process hosting did
-not remove drops. Priorities and Together/Auto 512 preferences are restored;
-the interrupted 1024 comparison was never played.
+The full 600-second editor-open capture still has ten silent 512-frame blocks
+and ten graph errors. All 76,926 lifetime calls return successfully; no measured
+call exceeds nominal 512/48k cadence. Actual device budget remains distinct.
+Nine arrivals exceed 16 ms; the longest has 15.835 ms outside the prior call.
 
-## Best explanation (about 70%)
+## Best explanation (about 60%)
 
-The synchronous audio dependency crosses a native relay and TCP notification
-pump and can service state parsing/hash/snapshot work before inspecting an audio
-reply. This structure adds contention even when vendor processing is bounded.
+The controller produces two synchronous cross-host polling messages every
+10 ms, even with a closed editor. Empty polls do not wait for Wine or state;
+nonempty polls reenter host edit/restart handlers. This may contend with host
+call dispatch. Routing to the actual audio caller is not yet established.
 
-## Next changes
+## Next change
 
-The original product-built helper is proven on the selected Wine/Linux runner.
-Package the helper with the paired host and install through normal publication.
-Verify the actual Wine reference path and abrupt peer-exit wake/retirement, then
-Pure LoFi editor-open output and graph continuity. Preserve exclusive sample/slot
-ownership, inactive setup/restore, capture freshness and exact epoch/ticket bounds.
+One opt-in diagnostic paces recurring AP10/AP11 polls to 100 ms while retaining
+the 10 ms close/focus timer, immediate bootstrap/commands and every queued event.
+It adds notification latency and is not an accepted production default.
+Reuse Windows/runtime bits, build the native candidate, and repeat the same
+600-second captured fixture. Keep or revert according to the drop count.
 
 ## Done
 
-Focused audio/control-overlap, cancellation, expiry and retirement checks pass.
-The paired installed build preserves output/state, then passes the editor-open
-512/48k checks above with actual output and graph counters. N/Fs is cadence
-context; it is not a fabricated device deadline. Old build stays available for
-comparison/rollback. No runner, priority, manager or licensed-state expansion.
+The targeted controller regression preserves gestures, latency and lifecycle.
+The installed comparison measures output/graph errors and complete call timing.
+If drops remain, revert pacing and examine exact host dispatch boundaries.
+Do not start thirty minutes until ten minutes is clean. No priority/buffer trial.
 
 Source/SSH/Deck: Sol6.1 xhigh; GUI: Sol6.1 high; root orchestrates.
