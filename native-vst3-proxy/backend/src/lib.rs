@@ -5,6 +5,8 @@ mod context;
 #[cfg(target_os = "linux")]
 mod descriptor;
 mod completion_wait;
+#[cfg(target_os = "linux")]
+mod direct_audio;
 mod fault_status;
 mod terminal;
 mod gui;

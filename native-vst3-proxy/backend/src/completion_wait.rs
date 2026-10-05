@@ -42,6 +42,17 @@ fn absolute_target(deadline: Instant) -> Option<libc::timespec> {
     absolute_target_from(deadline, monotonic_before, instant_after)
 }
 
+/// Shared-file futex boundary for delivery v4. No private-key optimization is
+/// legal here: the reciprocal waiter is in Wine, with a different virtual VA.
+#[cfg(target_os = "linux")]
+pub(crate) fn wait_shared(word: &AtomicU32, observed: u32, deadline: Instant) -> bool {
+    let Some(timeout)=absolute_target(deadline) else {return false;};
+    let result=unsafe {libc::syscall(libc::SYS_futex,word.as_ptr(),libc::FUTEX_WAIT_BITSET,
+        observed,&timeout,std::ptr::null_mut::<u32>(),libc::FUTEX_BITSET_MATCH_ANY as u32)};
+    let error=unsafe {*libc::__errno_location()};
+    wait_result(result,error,deadline,Instant::now)
+}
+
 #[cfg(target_os = "linux")]
 #[inline]
 fn wait_result<F>(result: libc::c_long, error: libc::c_int, deadline: Instant,

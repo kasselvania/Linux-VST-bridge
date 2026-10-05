@@ -8,6 +8,7 @@ normal interaction. Preserve projects, licensed state and machine headroom.
 
 ## Works now
 
+The paired Linux/Wine helper completes real sleeping shared-futex exchanges.
 Whole native calls retain correlated Windows/vendor process-call time. Typical
 baseline time was 3.18 ms whole / 2.55 ms inside Windows, not pure DSP CPU time.
 
@@ -26,8 +27,8 @@ reply. This structure adds contention even when vendor processing is bounded.
 
 ## Next changes
 
-First prove an original, product-built shared-futex adapter on the selected
-Wine/Linux x86-64 runner. Then give the prepared native callback and actual
+The original product-built helper is proven on the selected Wine/Linux runner.
+Give the prepared native callback and actual
 Windows render thread their own AUDIO request/completion slot and direct wake.
 Keep control/state processing outside their completion dependency. An off-path
 watcher must wake both waiters on death/cancel; expiry never releases host-owned
