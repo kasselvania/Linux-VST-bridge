@@ -26,6 +26,8 @@ class AudioSchedulingTests(unittest.TestCase):
                 control=session.AudioScheduling(spec)
             header=b'LVNS'+struct.pack('<I',1)+bytes.fromhex(spec['session'])
             self.assertEqual((root/'native-scheduling.supported').read_bytes(),header)
+            # The caller-thread grant is opt-in; by default it is not advertised.
+            self.assertFalse((root/'caller-scheduling.supported').exists())
             control.poll({(999,1)});self.assertFalse(journal.exists())
             # The Rust helper validates content. Python cannot choose a host
             # process from these untrusted namespace IDs.
@@ -37,7 +39,6 @@ class AudioSchedulingTests(unittest.TestCase):
             self.assertEqual((root/'native-scheduling.reply').read_bytes(),header+struct.pack('<I',1))
             self.assertEqual(control.value()['requests'],1)
             self.assertEqual(control.value()['records'][0]['role'],'native_worker')
-            self.assertEqual((root/'caller-scheduling.supported').read_bytes(),header)
 
     def test_caller_requests_are_served_one_at_a_time_with_their_thread_and_bounded(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -49,9 +50,10 @@ class AudioSchedulingTests(unittest.TestCase):
             artifact={'path':str(helper),'sha256':hashlib.sha256(helper.read_bytes()).hexdigest()}
             spec={'session':'42'*16,'directory':str(root),
                 'graphical_session':{'peer_pid':123,'peer_start_ticks':456}}
-            with patch.dict(os.environ,{'LVB_AUDIO_SCHEDULER':json.dumps(artifact)}):
+            with patch.dict(os.environ,{'LVB_AUDIO_SCHEDULER':json.dumps(artifact),'LVB_CALLER_SCHEDULING':'1'}):
                 control=session.AudioScheduling(spec)
             header=b'LVNS'+struct.pack('<I',1)+bytes.fromhex(spec['session'])
+            self.assertEqual((root/'caller-scheduling.supported').read_bytes(),header)
             control.poll(set());self.assertFalse(journal.exists())
             served=[]
             for n in range(session.AudioScheduling.CALLER_REQUESTS_MAX+2):
