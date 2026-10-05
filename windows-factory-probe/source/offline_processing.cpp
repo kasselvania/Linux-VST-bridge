@@ -17,6 +17,17 @@
 #include <exception>
 #include <memory>
 #include <stdexcept>
+#include <xmmintrin.h>
+namespace {
+// Audio hosts run vendor DSP with denormals flushed to zero, and plug-ins rely
+// on it. With the default MXCSR, decaying filter, delay and reverb tails fall
+// onto the CPU's denormal slow path and one block can cost many times more.
+struct FlushDenormals {
+    unsigned saved = _mm_getcsr();
+    FlushDenormals() { _mm_setcsr(saved | 0x8040); } // FTZ | DAZ
+    ~FlushDenormals() { _mm_setcsr(saved); }
+};
+}
 #ifdef LVB_SAMPLE_PLANE_TEST
 #include <cassert>
 #endif
@@ -308,7 +319,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                     if(!sustained)events.lifecycle("ap0_process_started",",\"block\":"+std::to_string(b));
                     if(external)external->before_process();
                     const auto process_start=std::chrono::steady_clock::now();
-                    block.result=processor.process(block.data);
+                    {FlushDenormals flush;block.result=processor.process(block.data);}
                     const auto process_ns=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-process_start).count();
                     // Custody immediately after the vendor call, before any throw/teardown.
                     if(block.returned.failed&&first_rejection.reason==AP10Results::Rejection::None){
