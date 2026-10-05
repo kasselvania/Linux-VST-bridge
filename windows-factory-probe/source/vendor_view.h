@@ -463,8 +463,8 @@ public:
   }
   // Final process-scoped retirement retains the vendor reference until the
   // supervisor reclaims the process. It must never unwind through close().
-  bool detach_for_process_retirement() { return close(true, true); }
-  bool close(bool frame_first = false, bool process_scoped = false) {
+  bool detach_for_process_retirement() { return close(true); }
+  bool close(bool process_scoped = false) {
     stage(200);
     if (owner_ != std::this_thread::get_id()) {
       error_ = AP11::WrongThread;
@@ -481,7 +481,10 @@ public:
     closing_ = true;
     close_requested_ = false;
     try {
-      if (frame_first && view_) {
+      // Detach the host frame before vendor removal, as in the SDK editor
+      // host. Teardown must not expose a resize callback into a closing frame.
+      // A refused detach retains ownership and prevents removal/destruction.
+      if (view_) {
         stage(214);
         if (view_->setFrame(nullptr) != Steinberg::kResultOk) {
           error_ = AP11::Removal; closing_ = false; return false;
@@ -500,11 +503,6 @@ public:
       }
       if (view_ && !process_scoped) {
         stage(214);
-        if (!frame_first && view_->setFrame(nullptr) != Steinberg::kResultOk) {
-          error_ = AP11::Removal;
-          closing_ = false;
-          return false;
-        }
         stage(215);
         view_->release();
         view_ = nullptr;

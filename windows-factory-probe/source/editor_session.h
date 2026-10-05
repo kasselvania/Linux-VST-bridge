@@ -369,7 +369,7 @@ public:
     if (editor_handler_ && (!retain_view_ || final)) editor_handler_->retire();
     // Hidden editor callbacks are rejected by lifecycle; the installed handler
     // still suppresses synchronous host-originated parameter echoes.
-    if (retain_view_ && !(final ? (process_scoped ? view_.detach_for_process_retirement() : view_.close(true)) : view_.hide())) {
+    if (retain_view_ && !(final ? (process_scoped ? view_.detach_for_process_retirement() : view_.close()) : view_.hide())) {
       lifecycle_ = AP11::EditorFailed;
       return false;
     }
