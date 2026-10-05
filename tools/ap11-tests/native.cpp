@@ -548,6 +548,9 @@ void poll_cadence_regression() {
   check(processor.initialize(context)==kResultOk&&c->initialize(context)==kResultOk,"poll initialize");
   c->setComponentHandler(static_cast<IComponentHandler*>(&host));
   check(processor.connect(c)==kResultOk&&c->connect(&processor)==kResultOk,"bootstrap is immediate");
+  fixture_delay=0;
+  ProcessSetup setup{kRealtime,kSample32,128,48000};
+  check(processor.setupProcessing(setup)==kResultOk,"poll fixture has accepted latency configuration");
   auto token=c->allocateEditorView();check(c->panelOpen(token),"Open command remains immediate");
   auto opened=commands.back();opened.kind=AP11::EditorStatus;opened.count=1;opened.view_epoch=1;opened.lifecycle=AP11::Opened;
   events.push_back(opened);host.tick();
