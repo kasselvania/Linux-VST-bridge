@@ -1,45 +1,44 @@
-# Current task: isolate repeated controller dispatch
+# Current task: test denormal handling on the real render thread
 
 ## Goal
 
-Pure LoFi plays in Bitwig on the Deck at 512 frames / 48 kHz, SameCallback,
-editor open, for ten minutes without a dropped cycle, then thirty minutes with
-normal interaction. Preserve projects, licensed state and machine headroom.
+Pure LoFi plays at SameCallback D0, 512 frames / 48 kHz, Together hosting,
+editor open, for ten minutes without missing output blocks or graph errors.
+If clean, confirm on the same frozen build with thirty minutes of interaction.
+Preserve projects, licensed state, the pinned runner and machine headroom.
 
 ## Works now
 
-Installed direct mailbox v4 connects callback to Windows render without the
-native relay/socket pump. Reference output/state and second setup pass; killing
-an owned reference peer wakes the pending call in 3.14 ms and retires cleanly.
-Typical bridge remainder is now 0.121 ms, down from roughly 0.64 ms.
+Installed direct mailbox v4 bypasses the native relay/socket pump. Reference
+output/state and second setup pass; an owned reference peer death wakes the
+pending call in 3.14 ms and retires cleanly. Median bridge remainder is 0.121 ms.
 
 ## Still broken
 
-The full 600-second editor-open capture still has ten silent 512-frame blocks
-and ten graph errors. All 76,926 lifetime calls return successfully; no measured
-call exceeds nominal 512/48k cadence. Actual device budget remains distinct.
-Nine arrivals exceed 16 ms; the longest has 15.835 ms outside the prior call.
+The direct baseline has ten silent 512-frame blocks and +10 graph errors in
+600 seconds. Whole-call median/p99/max is 2.770/4.258/6.798 ms; Windows/vendor
+elapsed time is 2.646/4.123/6.377 ms. No measured call exceeds nominal 512/48k
+cadence, which is distinct from the remaining device budget. Slower controller
+polling also retains graph errors; that diagnostic is reverted.
 
-## Best explanation (about 60%)
+## Working explanation
 
-The controller produces two synchronous cross-host polling messages every
-10 ms, even with a closed editor. Empty polls do not wait for Wine or state;
-nonempty polls reenter host edit/restart handlers. This may contend with host
-call dispatch. Routing to the actual audio caller is not yet established.
+Missing render-thread FTZ/DAZ could amplify vendor-internal denormal work.
+This is a specific untested explanation, not established by the timing split.
+The same-thread guard restores the complete original MXCSR after each vendor
+process call, including failure/unwind. Vendor worker threads remain unchanged.
 
 ## Next change
 
-One opt-in diagnostic paces recurring AP10/AP11 polls to 100 ms while retaining
-the 10 ms close/focus timer, immediate bootstrap/commands and bounded queued-event delivery.
-It adds notification latency and is not an accepted production default.
-Reuse Windows/runtime bits, build the native candidate, and repeat the same
-600-second captured fixture. Keep or revert according to the drop count.
+Build and install the paired denormal host with the restored 10 ms polling path.
+Verify actual selected engine/host/helper and direct mode, then repeat the
+same full 600-second output capture with sealed whole-call/vendor timings.
+Compare missing blocks, active graph errors, recorder errors and call durations.
 
 ## Done
 
-The targeted controller regression preserves gestures, latency and lifecycle.
-The installed comparison measures output/graph errors and complete call timing.
-If drops remain, revert pacing and examine exact host dispatch boundaries.
-Do not start thirty minutes until ten minutes is clean. No priority/buffer trial.
+Retain the full first result. If clean, run the frozen interaction confirmation.
+If it fails, return that concrete result without another variant campaign.
+Commit and push completed work. Raw captures/logs remain outside Git.
 
 Source/SSH/Deck: Sol6.1 xhigh; GUI: Sol6.1 high; root orchestrates.
