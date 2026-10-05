@@ -7,7 +7,8 @@ static LONG load(volatile LONG* p) noexcept { return InterlockedCompareExchange(
 int wmain(int argc, wchar_t** argv) {
     lvb::linux_wait::Runtime runtime;
     if (!runtime.bind()) {
-        std::puts("unsupported: Wine/Linux x86-64 Unix dispatcher unavailable; no Linux syscall executed");
+        std::printf("unsupported: %s nt_status=%ld win32=%lu; no Linux syscall executed\n",
+                    runtime.refusal(),runtime.status(),runtime.error());
         return argc == 2 && !std::wcscmp(argv[1], L"--native-refusal") ? 0 : 77;
     }
     if (argc != 2 || !std::wcscmp(argv[1], L"--native-refusal")) return 78;

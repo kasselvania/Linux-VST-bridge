@@ -24,6 +24,9 @@ class Runtime {
     Dispatcher dispatcher_{};
     std::uint64_t handle_{};
     HMODULE module_{};
+    const char* refusal_{"Wine/Linux dispatcher unavailable"};
+    LONG status_{};
+    DWORD error_{};
     std::int64_t invoke(Arguments& args) const noexcept {
         if (!dispatcher_ || !handle_) return -38;
         const auto status = dispatcher_(handle_, 0, &args);
@@ -51,19 +54,24 @@ public:
         dispatcher_ = *reinterpret_cast<Dispatcher const*>(exported);
         if (!dispatcher_) return false;
         module_=LoadLibraryW(L"lvb-direct-wait.dll");
-        if (!module_) return false;
+        if (!module_) { refusal_="builtin companion could not load"; error_=GetLastError(); return false; }
         using Abi=std::uint32_t(__cdecl*)();
         const auto abi=reinterpret_cast<Abi>(GetProcAddress(module_,"lvb_wait_abi"));
         using Query=LONG(NTAPI*)(HANDLE,void*,ULONG,void*,SIZE_T,SIZE_T*);
         const auto query=reinterpret_cast<Query>(GetProcAddress(module,"NtQueryVirtualMemory"));
         // Private class 1000 from the selected Wine runner. The returned value
         // owns no storage; module_ pins the builtin ELF companion/table.
-        return abi && abi()==1 && query && query(GetCurrentProcess(),module_,1000,
-                   &handle_,sizeof handle_,nullptr)==0 && handle_!=0;
+        if (!abi || abi()!=1 || !query) { refusal_="builtin ABI/query unavailable"; return false; }
+        status_=query(GetCurrentProcess(),module_,1000,&handle_,sizeof handle_,nullptr);
+        if (status_!=0 || !handle_) { refusal_="builtin Unix table unavailable"; return false; }
+        return true;
 #else
         return false;
 #endif
     }
+    const char* refusal() const noexcept { return refusal_; }
+    LONG status() const noexcept { return status_; }
+    DWORD error() const noexcept { return error_; }
     bool monotonic(Deadline& value) const noexcept {
         Arguments args{};
         if (invoke(args) != 0) return false;
