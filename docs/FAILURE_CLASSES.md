@@ -997,6 +997,11 @@ hit its256MiB cap12.849seconds after arming, before the active marker;180seconds
 were not collected. Partial trace/output and cleanup are retained. No cap increase,
 rerun, scheduling repair or dropout attribution follows from that failed collection.
 
+The later [machine-coordinated scheduler observation](../evidence/audio-recovery/2026-10-04-paced-scheduler-window.md)
+completed 180.036 seconds, but commercial continuity remains unqualified: nine 512-frame
+stereo-zero spans, Bitwig ERR +8 inside/+9 enclosing and recorder ERR +1. Full retained
+trace/output and normal retirement do not establish per-gap scheduler causation.
+
 The subsequent [native Test Tone control](../evidence/audio-recovery/2026-10-04-native-tone-control.md)
 retains600.000626seconds with no activezero/graphERR and no nominal recurrence
 exceedances. The original fixed1000Hz model fails; a separately labeled single

@@ -24,7 +24,7 @@ This does not authorize speculative scheduler repair or begin30minute interactio
 
 ## Frozen source and basis
 
-Evidence base HEAD `8d70e69b45da2c6ce9dcbd143891900e5789b4a7`, branch
+Evidence base HEAD `580ec3adf820667f7a93ca920747eae55be72fda`, branch
 `codex/audio-completion-contract`; PR207 stays draft. Frozen installed engine comes
 from `d970eda91be4bc972d38a0d4b107cc5f4ededa54`, tree
 `57a484beee1f28cb6d0df85f25977b458d64a1ff`, package `0.12.0refresh5deck`, engine
@@ -81,8 +81,10 @@ native-worker comparisons and a kernel scheduler trace during paced playback,
 after this native control. Freeze matched repetitions/order and exact authenticated
 PID/TID/starttime, policy restoration and abort posture before mutation. Keep
 Windows policy/affinity/power/editor/audio/capture conditions declared and stable.
-Kernel trace scope must be a bounded private instance with exact events/filters,
+Kernel capture scope must be isolated, owned and finite, with exact events/filters,
 loss/storage/cleanup and clock-correlation limits; no global permission/sysctl change.
+The operator explicitly accepted private perf event FDs/rings for this boundary;
+this mechanism does not create a tracefs instance.
 Initial read-only capability checks found installed perf/trace-cmd but root-only
 tracefs and no sudo-n access. The later explicit reusable-access authorization and
 verified credential reuse below resolve administrator access; no global privilege
@@ -105,6 +107,19 @@ and98.272seconds of paired output remain; tracing/instance cleanup and normal
 DAW/owner retirement pass. No rerun, cap increase or scheduling repair followed.
 Raw volume attribution is a separate read-only check, not an audio/timing claim.
 No live audio owner or TARGET remains waiting for access.
+
+The subsequent [machine-coordinated scheduler observation](evidence/audio-recovery/2026-10-04-paced-scheduler-window.md)
+completed 180.036107 seconds on the same frozen engine, with paired output and
+normal retirement. Its 179.925333 second written-byte window contains nine 512-frame
+stereo-zero spans, Bitwig ERR +8 inside/+9 enclosing and recorder ERR +1; buffering
+alignment remains uncalibrated. Continuity is unqualified. Full binary decoding
+uses separately bounded offline resources. Native/Windows wake-to-run maxima are
+1.394097 ms (one >1 ms) /108.932 µs (none >1 ms); blocked/scheduled time does
+not establish DSP time or a gap cause. The next bounded observation target is
+actual callback/output-to-graph clock alignment, before any repair claim. Prior
+parser/GUI coordination/reader failures stay
+retained. No further capture, scheduler repair, interaction or soak starts in this
+endpoint; close exact evidence review and commit/push first.
 
 Current Bitwig native and Windows promotion succeeded, so scheduling repair requires
 a demonstrated defect. The historical outside-Flatpak SDK refusal reason remains

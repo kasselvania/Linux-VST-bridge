@@ -20,6 +20,11 @@ administrator access subsequently succeeded, but the [first scheduler trace](../
 hit its256MiB storage cap during arming, before the active marker. The180second
 trace remains unqualified; partial data and cleanup are retained, with no rerun.
 
+The later [machine-coordinated scheduler observation](../evidence/audio-recovery/2026-10-04-paced-scheduler-window.md)
+completed 180.036 seconds, but commercial continuity remains unqualified: nine 512-frame
+stereo-zero spans, Bitwig ERR +8 inside/+9 enclosing and recorder ERR +1. Full retained
+trace/output and normal retirement do not establish per-gap scheduler causation.
+
 The subsequent [native continuous-source control](../evidence/audio-recovery/2026-10-04-native-tone-control.md)
 provides a positive native witness for its exact600.000626-second window: no active
 zero spans/graphERR, nominal recurrence below1e-5 and a single supplemental global
