@@ -5,6 +5,8 @@
 
 static LONG load(volatile LONG* p) noexcept { return InterlockedCompareExchange(p, 0, 0); }
 int wmain(int argc, wchar_t** argv) {
+    // Match the production SDK module loader's restricted default search.
+    if (!SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32)) return 70;
     lvb::linux_wait::Runtime runtime;
     if (!runtime.bind()) {
         std::printf("unsupported: %s nt_status=%ld win32=%lu; no Linux syscall executed\n",

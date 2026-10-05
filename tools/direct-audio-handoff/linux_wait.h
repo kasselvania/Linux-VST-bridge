@@ -53,7 +53,23 @@ public:
         if (!exported) return false;
         dispatcher_ = *reinterpret_cast<Dispatcher const*>(exported);
         if (!dispatcher_) return false;
-        module_=LoadLibraryW(L"lvb-direct-wait.dll");
+        // The SDK module loader restricts the process default search to
+        // SYSTEM32. Select the product-owned companion beside this executable
+        // explicitly; never relax that policy or search the vendor directory.
+        wchar_t path[32768]{};
+        const auto length=GetModuleFileNameW(nullptr,path,32768);
+        if (!length || length>=32768) {
+            refusal_="host executable path unavailable"; error_=GetLastError(); return false;
+        }
+        DWORD base=length;
+        while (base && path[base-1]!=L'\\' && path[base-1]!=L'/') --base;
+        constexpr wchar_t name[]=L"lvb-direct-wait.dll";
+        if (!base || base+sizeof(name)/sizeof(name[0])>32768) {
+            refusal_="host companion path unavailable"; return false;
+        }
+        std::memcpy(path+base,name,sizeof(name));
+        module_=LoadLibraryExW(path,nullptr,
+            LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|LOAD_LIBRARY_SEARCH_SYSTEM32);
         if (!module_) { refusal_="builtin companion could not load"; error_=GetLastError(); return false; }
         using Abi=std::uint32_t(__cdecl*)();
         const auto abi=reinterpret_cast<Abi>(GetProcAddress(module_,"lvb_wait_abi"));
