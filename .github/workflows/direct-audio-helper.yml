@@ -58,9 +58,12 @@ jobs:
           dpkg-deb -x wine64-tools_*.deb wine-tools
           cp raw-windows/lvb-direct-wait.dll paired/x86_64-windows/
           wine-tools/usr/lib/wine/winebuild --builtin paired/x86_64-windows/lvb-direct-wait.dll
+          # Normal Windows DLL search must find the marked PE before Wine can
+          # associate its builtin image with the WINEDLLPATH ELF companion.
+          cp paired/x86_64-windows/lvb-direct-wait.dll paired/
           cp raw-windows/lvb-futex-probe.exe paired/
           readelf -Ws paired/x86_64-unix/lvb-direct-wait.so | grep __wine_unix_call_funcs
-          sha256sum wine64-tools_*.deb paired/x86_64-windows/lvb-direct-wait.dll paired/x86_64-unix/lvb-direct-wait.so paired/lvb-futex-probe.exe
+          sha256sum wine64-tools_*.deb paired/lvb-direct-wait.dll paired/x86_64-windows/lvb-direct-wait.dll paired/x86_64-unix/lvb-direct-wait.so paired/lvb-futex-probe.exe
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: direct-audio-paired-helper
