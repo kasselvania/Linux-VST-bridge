@@ -27,6 +27,10 @@ int wmain(int argc, wchar_t** argv) {
         if (!runtime.monotonic(now)) return 6;
         const auto deadline = lvb::linux_wait::after(now, 3000000000);
         while (load(words) != ticket) {
+            const auto observed = load(words);
+            if (observed != ticket - 1) return 11;
+            if (!runtime.monotonic(now) || now.sec > deadline.sec ||
+                (now.sec == deadline.sec && now.nsec >= deadline.nsec)) return 12;
             if (load(words + 3)) return 7;
             const auto result = runtime.wait(words, ticket - 1, deadline);
             if (result != 0 && result != -11 && result != -4) return 8;
