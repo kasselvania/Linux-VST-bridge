@@ -325,6 +325,27 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                     if(block.returned.failed)throw std::runtime_error("malformed or oversized process results");
                     if(block.data.numSamples!=admitted_samples)
                         throw std::runtime_error("Windows processor changed admitted sample extent");
+                    if(admitted_samples&&external&&external->direct_audio()) {
+                        // Two constant canaries per exposed SDK plane. Keep
+                        // overwrite containment without proof-time Nmax scans.
+                        std::array<int,2> bus_index{};
+                        for(size_t i=0;i<layout.size;++i) {
+                            const auto& bus=layout.buses[i];
+                            if(bus.info.mediaType!=kAudio)continue;
+                            const auto direction=bus.info.direction;const int index=bus_index[direction]++;
+                            const bool selected=bus.supported&&bus.active&&
+                                (direction==kOutput||index==layout.transported_input);
+                            for(int ch=0;ch<bus.info.channelCount;++ch) {
+                                // Use prepared addresses/extent, never a pointer
+                                // or count the vendor could replace in ProcessData.
+                                const auto* plane=direction==kInput?(selected?block.in[ch]:block.silent_channels[ch]):
+                                    (selected?block.output_channels[2*index+ch]:block.inactive_output_channels[ch]);
+                                if(plane&&(std::bit_cast<uint32>(plane[-1])!=guard||
+                                           std::bit_cast<uint32>(plane[capacity])!=guard))
+                                    throw std::runtime_error("direct private plane guard");
+                            }
+                        }
+                    }
                     if(admitted_samples&&(!external||!external->direct_audio())&&
                        (std::bit_cast<uint32>(block.silent_input.front())!=guard||std::bit_cast<uint32>(block.silent_input.back())!=guard||
                         std::any_of(block.silent_input.begin()+1,block.silent_input.end()-1,[](float v){return v!=0.f;})))

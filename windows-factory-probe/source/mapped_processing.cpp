@@ -1371,7 +1371,7 @@ bool MappedSession::next(ExternalBlock& out, float* left, float* right) {
                                                          out.gui_revision),
                             "controller update identity/value");
         x.diagnostic.current.epoch = x.timeline.epoch;
-        x.diagnostic.current.sequence = x.state.next;
+        x.diagnostic.current.sequence = x.audio_sequence().next;
         x.diagnostic.current.position = x.timeline.position;
         if (x.diagnostic.enabled) {
             auto& r = x.diagnostic.current;
@@ -1488,7 +1488,7 @@ void MappedSession::done(const float* left, const float* right, uint64_t silence
         // Retain the actual 64-bit SDK result before validating it, including failures.
         if (!x.sustained)
             x.events.lifecycle("ap1_output_silence",
-                               ",\"block\":" + std::to_string(x.state.next - 1) +
+                               ",\"block\":" + std::to_string(x.audio_sequence().next - 1) +
                                    ",\"input_silence_flags\":" + std::to_string(x.current.silence) +
                                    ",\"output_silence_flags\":" + std::to_string(silence));
         auto& reply = x.process_reply;

@@ -245,6 +245,35 @@ impl FirstRefusal {
         unsafe { *self.value.get() }
     }
 }
+#[cfg(target_os="linux")]
+#[derive(Default)]
+struct DirectProgress {
+    revision:AtomicU64,
+    words:[AtomicU64;4], // epoch, AUDIO ticket, request position, completed end
+}
+#[cfg(target_os="linux")]
+impl DirectProgress {
+    // The guarded callback is the sole writer. Off-path readers never wait
+    // for it; an interrupted publication is explicitly unknown.
+    fn publish(&self,item:&Item,completed:bool) {
+        self.revision.fetch_add(1,Ordering::SeqCst);
+        if self.words[0].load(Ordering::SeqCst)!=item.epoch {self.words[3].store(0,Ordering::SeqCst);}
+        self.words[0].store(item.epoch,Ordering::SeqCst);
+        self.words[1].store(item.ticket,Ordering::SeqCst);
+        self.words[2].store(item.position,Ordering::SeqCst);
+        if completed {self.words[3].store(item.position+u64::from(item.n),Ordering::SeqCst);}
+        self.revision.fetch_add(1,Ordering::SeqCst);
+    }
+    fn read(&self)->Option<[u64;4]> {
+        for _ in 0..3 {
+            let before=self.revision.load(Ordering::SeqCst);
+            if before==0 || before&1!=0 {continue;}
+            let words=std::array::from_fn(|i|self.words[i].load(Ordering::SeqCst));
+            if self.revision.load(Ordering::SeqCst)==before {return Some(words);}
+        }
+        None
+    }
+}
 struct Shared {
     #[cfg(target_os="linux")]
     direct: std::sync::OnceLock<crate::direct_audio::Endpoint>,
@@ -252,6 +281,8 @@ struct Shared {
     direct_submitted:AtomicU64,
     #[cfg(target_os="linux")]
     direct_completed:AtomicU64,
+    #[cfg(target_os="linux")]
+    direct_progress:DirectProgress,
     #[cfg(target_os="linux")]
     prepared_audio: std::sync::Mutex<Option<Box<crate::direct_audio_session::AudioSession>>>,
     terminal: Option<Arc<crate::terminal::Status>>,
@@ -351,6 +382,8 @@ impl Shared {
             #[cfg(target_os="linux")]
             direct_completed:AtomicU64::new(0),
             #[cfg(target_os="linux")]
+            direct_progress:DirectProgress::default(),
+            #[cfg(target_os="linux")]
             prepared_audio: std::sync::Mutex::new(None),
             gui: None,
             terminal: None,
@@ -436,6 +469,15 @@ impl Shared {
     fn release_output(&self, audio: &AudioResult) {
         if let Some(pool)=self.extra.get() {pool.release(audio.extra_slot);}
     }
+    fn audio_progress(&self,session:&Session)->([u64;5],Option<u64>) {
+        #[cfg(target_os="linux")]
+        if self.direct.get().is_some() {
+            return self.direct_progress.read().map_or(
+                ([self.generation,session.epoch,u64::MAX,u64::MAX,u64::from(session.phase)],None),
+                |[epoch,ticket,position,end]|([self.generation,epoch,ticket,position,u64::from(session.phase)],Some(end)));
+        }
+        ([self.generation,session.epoch,session.state.next,session.position,u64::from(session.phase)],Some(session.position))
+    }
     fn terminal_record(&self) -> Option<crate::terminal::Record> {
         let record = self.terminal.as_ref()?.read()?;
         if record.words[3] != self.generation || self.generation == 0 { return None; }
@@ -497,6 +539,12 @@ impl Shared {
         self.work.notify();
     }
 }
+// A direct completion is local until handed to the existing consumer. Any
+// intervening cancellation/fault return must release its prepared extra slot.
+struct DirectOutputGuard<'a> {shared:&'a Shared,slot:usize}
+impl Drop for DirectOutputGuard<'_> {
+    fn drop(&mut self) {if let Some(pool)=self.shared.extra.get(){pool.release(self.slot);}}
+}
 struct Control {
     barrier: u64,
     #[cfg(target_os="linux")]
@@ -535,7 +583,7 @@ fn audio_transport_deadline(item: &Item, now: Instant) -> Instant {
 // This is transport-worker code, never a DAW callback. Capture completion can
 // therefore acknowledge its owner while a slower offline AUDIO is still pending.
 fn complete_control(s: &Shared, c: &mut Control, result: io::Result<Vec<u8>>,
-    context: [u64; 5]) -> io::Result<()> {
+    progress: ([u64; 5],Option<u64>)) -> io::Result<()> {
     let failed = result.as_ref().is_err_and(|e| !state::save_refused(e));
     if let Ok(bytes) = &result {
         if matches!(c.op, 16 | 18) {
@@ -544,7 +592,7 @@ fn complete_control(s: &Shared, c: &mut Control, result: io::Result<Vec<u8>>,
             #[cfg(target_os="linux")]
             if let Some(direct)=c.direct_barrier {through=direct;}
             store.confirm(bytes.clone(), c.op, s.generation, through)?;
-            if let Some(t) = &s.terminal { t.progress(context, None, store.latest()); }
+            if let Some(t) = &s.terminal { t.progress(progress.0, progress.1, store.latest()); }
         }
     } else if let Err(error) = &result {
         if !state::save_refused(error) {
@@ -848,6 +896,7 @@ impl Callback {
             self.curve_gui_revision = s.gui.as_ref().map_or(0, |_| request.gui_revision + 1);
         }
         let mut direct_result:Option<Completion>=None;
+        let mut direct_slot=DirectOutputGuard {shared:s,slot:crate::output_pool::NONE};
         #[cfg(target_os="linux")]
         if let Some(audio)=self.direct_audio.as_mut() {
             if !exact || self.delay!=0 {s.fail(CORRELATION,self.position);return Err(2);}
@@ -867,6 +916,7 @@ impl Callback {
             let submitted=s.direct_submitted.fetch_add(1,Ordering::AcqRel);
             let Some(submitted)=submitted.checked_add(1) else {s.fail(OVERFLOW,self.position);return Err(2);};
             if !request.gain.is_nan() || request.event_count>0 {s.last_edit.store(submitted,Ordering::Release);}
+            s.direct_progress.publish(&request,false);
             let done=match audio.process(&mut request,until) {
                 Ok(done)=>done,
                 Err(crate::direct_audio::Failure::Expired)=>{
@@ -878,17 +928,18 @@ impl Callback {
             let mut result=Completion::from(request);result.audio.flags=done.flags;
             result.returned=done.returned;result.windows_sequence=done.sequence;
             result.windows_process_ns=Some(done.process_ns);
-            if let Some(pool)=s.extra.get() {
+            if request.n>0 {if let Some(pool)=s.extra.get() {
                 let Some(slot)=pool.publish_available(&audio.mapping.extra,request.n as usize) else {
                     s.fail(OVERFLOW,self.position);return Err(2);
-                };result.audio.extra_slot=slot;
-            }
+                };result.audio.extra_slot=slot;direct_slot.slot=slot;
+            }}
             s.notice_traits.store(done.traits,Ordering::Release);
             s.notices.fetch_or(done.notices as u64,Ordering::Release);
             s.processed.fetch_add(1,Ordering::Relaxed);
             #[cfg(feature="rpi0")]
             s.processed_frames.fetch_add(request.n as u64,Ordering::Relaxed);
             s.direct_completed.store(submitted,Ordering::Release);
+            s.direct_progress.publish(&request,true);
             direct_result=Some(result);
         }
         if direct_result.is_none() {
@@ -926,7 +977,8 @@ impl Callback {
                 if s.fault.load(Ordering::Acquire) != 0 || s.terminal_latched.load(Ordering::Acquire) {
                     return Err(2);
                 }
-                if let Some(item) = direct_result.take().or_else(||s.results.pop()) { break Some(item); }
+                if let Some(item)=direct_result.take() {direct_slot.slot=crate::output_pool::NONE;break Some(item);}
+                if let Some(item)=s.results.pop() {break Some(item);}
                 let Some(until) = deadline else { break None; };
                 let satisfied = if exact { self.completed_operation >= request.ticket }
                     else { n == 0 || self.next_result >= required_end };
@@ -1288,10 +1340,10 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
             let work_observed = s.work.snapshot();
             s.work.check()?;
             if let Some(t) = &s.terminal {
-                let context = [s.generation,session.epoch,session.state.next,session.position,u64::from(session.phase)];
-                if terminal_context != Some(context) {
-                    t.progress(context,Some(session.position),None);
-                    terminal_context = Some(context);
+                let (context,complete)=s.audio_progress(&session);
+                if terminal_context != Some((context,complete)) {
+                    t.progress(context,complete,None);
+                    terminal_context = Some((context,complete));
                 }
                 if t.read().is_some() { return Err(invalid("terminal instance failure")); }
             }
@@ -1356,8 +1408,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         }) };
                         if let Some(result) = completed {
                         previous_control[2] = crate::observer::monotonic_ns();
-                        complete_control(&s, c, result,
-                            [s.generation,session.epoch,session.state.next,session.position,u64::from(session.phase)])?;
+                        complete_control(&s, c, result,s.audio_progress(&session))?;
                         }
                     }
                 }
@@ -1514,7 +1565,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                             ap1_native_client::need(c.op == 16 && c.result.is_none()
                                 && s.pending_control.load(Ordering::Acquire), "admitted capture owner changed")?;
                             previous_control[2] = crate::observer::monotonic_ns();
-                            complete_control(&s, c, result, capture_context)
+                            complete_control(&s, c, result, (capture_context,Some(capture_context[3])))
                         };
                     let cancelled = || s.cancelled.load(Ordering::Acquire)
                         || s.quit.load(Ordering::Acquire)
@@ -1662,7 +1713,10 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
         // Ordinary Close returns Ok. Cancellation during teardown is not a
         // new terminal incident unless the worker already holds a fault.
         if !s.quit.load(Ordering::Acquire) || s.fault.load(Ordering::Acquire) != 0 {
-            if let Some(t) = &s.terminal { t.fail_native(match s.fault.load(Ordering::Acquire) {0=>WORKER, code=>code}); }
+            if let Some(t) = &s.terminal {
+                let (context,complete)=s.audio_progress(&session);t.progress(context,complete,None);
+                t.fail_native(match s.fault.load(Ordering::Acquire) {0=>WORKER, code=>code});
+            }
         }
         // Publish containment before exposing worker failure to the callback.
         // Unclassified failures retain their existing error behavior.
@@ -3603,7 +3657,7 @@ mod completion_contract_tests;
 mod tests {
     use super::*;
     #[cfg(target_os="linux")]
-    fn direct_fixture(epoch:u64)->(Callback,Arc<Shared>,crate::direct_audio::Endpoint,
+    fn direct_fixture(epoch:u64,channels:usize)->(Callback,Arc<Shared>,crate::direct_audio::Endpoint,
         std::fs::File,std::path::PathBuf) {
         use std::fs::OpenOptions;
         let root=std::env::temp_dir().join(format!("lvb-direct-route-{}-{}",std::process::id(),crate::observer::monotonic_ns()));
@@ -3612,14 +3666,16 @@ mod tests {
         file.set_len(crate::direct_audio::BYTES as u64).unwrap();
         let channel=crate::direct_audio::Endpoint::prepare(&file).unwrap();
         let mut mapping=ap1_native_client::mapping::Mapping::with_layout(&root.join("samples"),64,true).unwrap();
+        mapping.output_channels=channels;
         let render=OpenOptions::new().read(true).write(true).open(root.join("samples")).unwrap();
         let audio=mapping.transfer_audio().unwrap();
         assert!(mapping.transfer_audio().is_err());
         assert!(mapping.write(ap1_native_client::INPUT,&[0]).is_err());
         assert!(mapping.read(ap1_native_client::INPUT,1).is_err());
         let shared=Arc::new(Shared::new());shared.direct.set(channel.clone()).ok().unwrap();
+        if channels>2 {shared.extra.set(crate::output_pool::Pool::new(channels-2,2)).ok().unwrap();}
         shared.processing_ready_epoch.store(epoch+1,Ordering::Release);
-        let mut callback=Callback::new();callback.prepare(128,2,0);callback.running=true;callback.epoch=epoch+1;
+        let mut callback=Callback::new();callback.prepare(128,channels,0);callback.running=true;callback.epoch=epoch+1;
         callback.direct_audio=Some(Box::new(crate::direct_audio_session::AudioSession::prepare(channel.clone(),audio,[7;16],0,epoch).unwrap()));
         (callback,shared,channel,render,root)
     }
@@ -3643,7 +3699,7 @@ mod tests {
     #[test]
     fn direct_callback_completes_while_control_store_is_stalled_and_reprepares_epoch() {
         for epoch in [0,1] {
-            let (mut callback,shared,channel,mut mapping,root)=direct_fixture(epoch);
+            let (mut callback,shared,channel,mut mapping,root)=direct_fixture(epoch,2);
             // These exact control locks are deliberately held throughout all AUDIO calls.
             let control=shared.control.lock().unwrap();let snapshots=shared.snapshots.lock().unwrap();
             shared.pending_control.store(true,Ordering::Release);
@@ -3662,6 +3718,7 @@ mod tests {
             }
             assert_eq!(shared.requests.published(),0);assert_eq!(shared.processed.load(Ordering::Acquire),3);
             assert_eq!(shared.direct_submitted.load(Ordering::Acquire),3);assert_eq!(shared.direct_completed.load(Ordering::Acquire),3);
+            assert_eq!(shared.direct_progress.read(),Some([epoch+1,3,64,192]));
             render.join().unwrap();drop(control);drop(snapshots);drop(callback);
             std::fs::remove_dir_all(root).unwrap();
         }
@@ -3670,7 +3727,7 @@ mod tests {
     #[test]
     fn direct_peer_fin_with_unread_state_wakes_callback_while_store_is_stalled() {
         use std::io::Write;
-        let (mut callback,shared,channel,_mapping,root)=direct_fixture(0);
+        let (mut callback,shared,channel,_mapping,root)=direct_fixture(0,2);
         let listener=std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let mut peer=std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
         let (socket,_)=listener.accept().unwrap();let watch=DeathWatch::start(socket,shared.clone()).unwrap();
@@ -3690,6 +3747,22 @@ mod tests {
         assert_eq!(callback.join().unwrap(),Err(COMPLETION_CANCELLED));assert!(begin.elapsed()<Duration::from_millis(200));
         assert_eq!(shared.fault.load(Ordering::Acquire),WORKER);
         render.join().unwrap();drop(watch);drop(snapshots);drop(control);std::fs::remove_dir_all(root).unwrap();
+    }
+    #[cfg(target_os="linux")]
+    #[test]
+    fn direct_zero_calls_do_not_consume_extra_slots_and_cancelled_local_slot_releases() {
+        let (mut callback,shared,channel,mut mapping,root)=direct_fixture(0,4);
+        let render=thread::spawn(move||for ticket in 1..=16 {direct_reply(&channel,&mut mapping,(1,ticket,0,0));});
+        for _ in 0..16 {
+            let mut item=Item::control(AUDIO,1);item.gain=f64::NAN;
+            item.completion=Some(crate::performance::CompletionPolicy {allowance:Duration::from_secs(2),deadline:Instant::now()+Duration::from_secs(2),exact:true});
+            let (result,allocations)=crate::allocation_test::measure(||callback.process_outputs_until(&shared,item,&mut [[0.;CAP];2],&[std::ptr::null_mut();2],0,Some(item.completion.unwrap().deadline)));
+            assert_eq!(result,Ok(15));assert_eq!(allocations,[0;3]);
+        }
+        render.join().unwrap();let pool=shared.extra.get().unwrap();let planes=[[0.;CAP];2];
+        assert!(pool.publish(0,&planes,1));assert!(pool.publish(1,&planes,1));pool.release(0);pool.release(1);
+        {let _guard=DirectOutputGuard {shared:&shared,slot:pool.publish_available(&planes,1).unwrap()};}
+        assert!(pool.publish(0,&planes,1));pool.release(0);drop(callback);std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn pending_start_control_barrier_preserves_publication_order_across_pop() {
@@ -3798,7 +3871,7 @@ mod tests {
             let mut mailbox = shared.control.lock().unwrap();
             let pending = mailbox.as_mut().expect("published control predicate");
             assert_eq!((pending.op, pending.bytes.as_slice()), (20, [1, 2, 3].as_slice()));
-            complete_control(&shared, pending, Ok(vec![4, 5, 6]), [0; 5]).unwrap();
+            complete_control(&shared, pending, Ok(vec![4, 5, 6]), ([0; 5],None)).unwrap();
         }
         assert_eq!(caller.join().unwrap().unwrap(), vec![4, 5, 6]);
         assert!(started.elapsed() < Duration::from_secs(1));
@@ -4361,7 +4434,7 @@ mod tests {
                         if c.result.is_none() && ap1_native_client::get(&c.bytes[..4]) == maximum {
                             assert_eq!(c.op, 20);
                             let mut reply = vec![0; 16]; reply[8] = 1;
-                            complete_control(&worker_shared, c, Ok(reply), [0; 5]).unwrap();
+                            complete_control(&worker_shared, c, Ok(reply), ([0; 5],None)).unwrap();
                             break;
                         }
                     }
@@ -4661,7 +4734,7 @@ mod tests {
                         assert_eq!(&c.bytes[24..], expected);
                         let mut reply = vec![0; 16];
                         reply[8] = 1;
-                        complete_control(&shared, c, Ok(reply), [0; 5]).unwrap();
+                        complete_control(&shared, c, Ok(reply), ([0; 5],None)).unwrap();
                         break;
                     }
                     assert!(Instant::now() < until, "setup ABI did not deliver bus contract");
@@ -5090,7 +5163,7 @@ mod tests {
                         0u32.to_le_bytes(),
                     ]
                     .concat();
-                    complete_control(&peer, c, Ok(reply), [0; 5]).unwrap();
+                    complete_control(&peer, c, Ok(reply), ([0; 5],None)).unwrap();
                     break;
                 }
                 assert!(Instant::now() < until);
