@@ -31,6 +31,9 @@ class NotificationTransport {
  bool input_published_=false;
  std::atomic<bool> input_ready_{false},reply_requested_{false},failed_{false},cancelled_{false};
  std::thread pump_;
+ std::atomic<void*> death_context_{nullptr};
+ void(*death_notify_)(void*)noexcept=nullptr;
+ void notify_death()noexcept{if(auto context=death_context_.load(std::memory_order_acquire))death_notify_(context);}
  bool pending_wake_=false,closed_sent_=false;
  Lane* writing_=nullptr;size_t written_=0;
  Clock::time_point input_end_{},output_end_{},wake_end_{};
@@ -133,6 +136,7 @@ class NotificationTransport {
    if(ready==WAIT_OBJECT_0+2)network_events(notification_,notification_network_.value);
    if(ready==WAIT_OBJECT_0+3)network_events(control_,control_network_.value);
   }}catch(...){failed_.store(true,std::memory_order_release);cancelled_.store(true,std::memory_order_release);SetEvent(cancel_.value);}
+  notify_death();
   // Only the pump or non-render cancellation owner performs socket shutdown.
   shutdown(notification_,SD_BOTH);shutdown(control_,SD_BOTH);
  }
@@ -150,8 +154,18 @@ public:
  }
  ~NotificationTransport(){stop();if(notification_!=INVALID_SOCKET)closesocket(notification_);}
  NotificationTransport(const NotificationTransport&)=delete;
+ void bind_death(void* context,void(*notify)(void*)noexcept){
+  ap1::require(context&&notify&&!death_context_.load(),"transport death observer binding");
+  death_notify_=notify;death_context_.store(context,std::memory_order_release);
+  if(failed_.load(std::memory_order_acquire)||cancelled_.load(std::memory_order_acquire))notify_death();
+ }
+ bool take_kind(ap1::Frame& frame,uint16_t kind){
+  check();if(!input_ready_.load(std::memory_order_acquire)||ap1::get(incoming_.data()+8,2)!=kind)return false;
+  ap1::decode_into(incoming_.data(),incoming_.size(),minor_,frame);
+  input_ready_.store(false,std::memory_order_release);ap1::require(SetEvent(activity_.value),"transport input retirement wake");return true;
+ }
  bool failed()const{return failed_.load(std::memory_order_acquire);}
- void cancel()noexcept{cancelled_.store(true,std::memory_order_release);if(cancel_.value)SetEvent(cancel_.value);}
+ void cancel()noexcept{cancelled_.store(true,std::memory_order_release);notify_death();if(cancel_.value)SetEvent(cancel_.value);}
  void stop()noexcept{
   cancel();if(!pump_.joinable())return;
   // After cancellation no pump operation may borrow vendor/GUI storage or

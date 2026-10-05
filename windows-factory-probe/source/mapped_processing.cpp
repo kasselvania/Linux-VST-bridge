@@ -211,7 +211,9 @@ struct MappedSession::Impl {
     bool last_fast = false;
     Handle file, mapping;
     uint8_t* view = nullptr;
-    Sequence state;
+    Sequence state, audio_state;
+    bool direct()const{return mailbox&&mailbox->version==4;}
+    Sequence& audio_sequence(){return direct()?audio_state:state;}
     Request current{};
     bool closed = false;
     bool winsock = false;
@@ -221,12 +223,14 @@ struct MappedSession::Impl {
     Timeline timeline;
     Frame pending{};
     bool has_pending = false;
-    Frame process_request{}, base_request{}, process_reply{};
+    Frame process_request{}, base_request{}, process_reply{}, lifecycle_frame{};
+    std::atomic<bool> lifecycle_ready{false};
+    std::atomic<uint64_t> published_epoch{0};
     BusLayout buses;
     std::unique_ptr<GuiChannel> gui;
     std::unique_ptr<EditorSession> editor;
     std::wstring editor_title;
-    std::atomic<bool> can_notify{false}, audio_active{false};
+    std::atomic<bool> can_notify{false}, audio_active{false}, processing_active{false};
     std::atomic<uint32_t> requested_restart{0}, published_restart{0};
     std::atomic<uint64_t> published_traits{0};
     bool stateful = false, commercial = false, separate = false, performance = false,
@@ -281,6 +285,7 @@ struct MappedSession::Impl {
         }
     }
     explicit Impl(EventWriter& e) : events(e) {
+        lifecycle_frame.payload.reserve(8);
         process_request.payload.reserve(8360);
         base_request.payload.reserve(32);
         process_reply.payload.reserve(10312);
@@ -570,16 +575,17 @@ struct MappedSession::Impl {
         require(
             m >= 1 && m <= layout.capacity && (socket.minor >= 15 ? md <= 2 : md == 0 || md == 2) &&
                 (hz == 44100. || hz == 48000. || hz == 88200. || hz == 96000. || hz == 192000.) &&
-                (get(p + 16, 4) == 0 || get(p + 16, 4) == 2 || get(p + 16, 4) == 3) &&
+                (get(p + 16, 4) == 0 || get(p + 16, 4) == 2 || get(p + 16, 4) == 3 || get(p + 16, 4) == 4) &&
                 (socket.minor >= 8 ? (get(p + 20, 4) == 1 || get(p + 20, 4) == 3)
                                    : get(p + 20, 4) == 0),
             "unsupported processing configuration");
         const auto mailbox_version = get(p + 16, 4);
-        require(socket.minor < 15 || mailbox_version == 3 && notifications,
+        require(socket.minor < 15 || (mailbox_version == 3 || mailbox_version == 4) && notifications,
                 "paired mailbox configuration required");
         if (mailbox_version && !mailbox) {
             mailbox =
                 std::make_unique<DeliveryMailbox>(directory, state.session, socket.minor >= 15);
+            if(mailbox->version==4){audio_state.session=state.session;notifications->bind_death(mailbox.get(),DeliveryMailbox::peer_failed);}
             events.lifecycle("ap10_wait_resolution",
                              ",\"samples_per_method\":32,\"sleep50_mean_ns\":" +
                                  std::to_string(mailbox->sleep50_ns) +
@@ -651,6 +657,17 @@ struct MappedSession::Impl {
         }
     }
     void receive_audio(Frame& f) {
+        if(direct()) {
+            last_fast=mailbox->receive(f,socket.minor,&owner_failure);
+            if(!last_fast) {
+                require(lifecycle_ready.load(std::memory_order_acquire),"prepared lifecycle handoff absent");
+                require(lifecycle_frame.payload.size()<=f.payload.capacity(),"prepared lifecycle extent");
+                f.kind=lifecycle_frame.kind;f.session=lifecycle_frame.session;f.sequence=lifecycle_frame.sequence;
+                f.payload.assign(lifecycle_frame.payload.begin(),lifecycle_frame.payload.end());
+                lifecycle_ready.store(false,std::memory_order_release);
+            }
+            return; // direct AUDIO never enters socket/capture service
+        }
         for (;;) {
             last_fast = false;
             if (capture_failed.load(std::memory_order_acquire)) {
@@ -708,7 +725,8 @@ struct MappedSession::Impl {
             WSACleanup();
     }
     void error(const std::exception& e) {
-        state.failed = true;
+        if(direct()){mailbox->cancel(3);owner_failure.store(true,std::memory_order_release);}
+        else state.failed = true;
         if (notifications) {
             notifications->cancel();
             return;
@@ -967,6 +985,7 @@ void MappedSession::retire_vendor_process(bool quiescent) {
     TerminateProcess(GetCurrentProcess(), 92);
     std::terminate(); // never enter DLL detach or vendor destructors
 }
+bool MappedSession::direct_audio() const {return impl_->direct();}
 void MappedSession::service_owner() {
     auto& x = *impl_;
     try {
@@ -983,6 +1002,20 @@ void MappedSession::service_owner() {
         auto latency = x.processor->getLatencySamples(), tail = x.processor->getTailSamples();
         x.published_traits.store(uint64_t(latency) | (uint64_t(tail) << 32));
         x.published_restart.fetch_or(flags);
+    }
+    // Direct AUDIO has its own sequence/storage. Only the owner consumes
+    // GetState from the separate control lane; no render wake/relay is required.
+    if(x.direct()&&x.processing_active.load(std::memory_order_acquire)) {
+        Frame capture{};
+        if(x.notifications->take_kind(capture,GetState))x.state_call(std::move(capture));
+        if(x.notifications->take_kind(capture,Stop)) {
+            require(!x.lifecycle_ready.load(std::memory_order_acquire)&&capture.session==x.state.session&&
+                capture.sequence==x.state.next&&capture.payload.size()==8&&
+                get(capture.payload.data(),8)==x.published_epoch.load(std::memory_order_acquire),"owner Stop correlation");
+            x.lifecycle_frame.kind=capture.kind;x.lifecycle_frame.session=capture.session;x.lifecycle_frame.sequence=capture.sequence;
+            x.lifecycle_frame.payload.assign(capture.payload.begin(),capture.payload.end());
+            x.lifecycle_ready.store(true,std::memory_order_release);x.mailbox->lifecycle_ready();
+        }
     }
     uint32_t ready = 1;
     if (x.capture_slot.compare_exchange_strong(ready, 2, std::memory_order_acq_rel)) {
@@ -1032,6 +1065,7 @@ void MappedSession::owner_failed() noexcept {
     if (x.fault)
         x.fault->terminal.editor_fatal(2);
     x.owner_failure.store(true, std::memory_order_release);
+    if(x.direct())x.mailbox->cancel(1);
     SetEvent(x.capture_completed.value);
     if (x.notifications)
         x.notifications->cancel();
@@ -1134,8 +1168,10 @@ uint32_t MappedSession::lifecycle_request(uint16_t kind) {
                 scratch.session = x.pending.session;
                 scratch.sequence = x.pending.sequence;
                 scratch.payload.assign(x.pending.payload.begin(), x.pending.payload.end());
-            } else
+            } else {
+                require(!x.direct(),"direct START must be owner prepared");
                 x.socket.receive_audio(scratch);
+            }
             selected = &scratch;
         } else {
             owned = x.has_pending ? std::move(x.pending) : x.receive();
@@ -1200,6 +1236,8 @@ uint32_t MappedSession::lifecycle_request(uint16_t kind) {
 void MappedSession::lifecycle_ack(uint16_t kind) {
     auto& x = *impl_;
     require(!x.state.failed, "failed lifecycle");
+    if(kind==Started&&x.direct()){x.audio_state.next=1;x.published_epoch.store(x.timeline.epoch,std::memory_order_release);x.processing_active.store(true,std::memory_order_release);}
+    if(kind==Stopped&&x.direct())x.processing_active.store(false,std::memory_order_release);
     if (kind == Deactivated) {
         x.active = false;
         x.audio_active.store(false);
@@ -1251,8 +1289,8 @@ bool MappedSession::next(ExternalBlock& out, float* left, float* right) {
         if (x.fault)
             x.fault->publish(1, {0, x.timeline.epoch, f.sequence, x.timeline.position, 2, f.kind});
         if (x.hosted && f.kind == Stop) {
-            require(!x.state.failed && !x.state.outstanding && f.session == x.state.session &&
-                        f.sequence == x.state.next,
+            require(x.direct() ? f.session==x.audio_state.session :
+                        !x.state.failed&&!x.state.outstanding&&f.session==x.state.session&&f.sequence==x.state.next,
                     "stop ownership");
             if (x.sustained)
                 x.timeline.stop(f);
@@ -1269,7 +1307,7 @@ bool MappedSession::next(ExternalBlock& out, float* left, float* right) {
         }
         if (x.sustained)
             x.timeline.request_frame_into(f, x.base_request, x.commercial);
-        x.current = x.state.begin(x.sustained ? x.base_request : f,
+        x.current = x.audio_sequence().begin(x.sustained ? x.base_request : f,
                                   x.sustained ? UINT64_MAX - 1 : 64, x.stateful, x.layout);
         require(x.current.frames <= x.maximum, "configured maximum exceeded");
 #ifdef LVB_LC1_TEST
@@ -1288,11 +1326,11 @@ bool MappedSession::next(ExternalBlock& out, float* left, float* right) {
             }
         }
         if (x.diagnostic.enabled)
-            x.input_observation.observe(x.timeline.epoch, x.state.next, x.timeline.position,
+            x.input_observation.observe(x.timeline.epoch, x.audio_sequence().next, x.timeline.position,
                                         x.current.frames, x.current.silence, left, right);
         out.generation = x.fault ? x.fault->rows[1].generation : 0;
         out.epoch = x.timeline.epoch;
-        out.sequence = x.state.next;
+        out.sequence = x.audio_sequence().next;
         out.position = x.timeline.position;
         out.frames = int(x.current.frames);
         out.gain = x.current.gain;
@@ -1532,11 +1570,11 @@ void MappedSession::done(const float* left, const float* right, uint64_t silence
         }
         reply.kind = Done;
         reply.session = x.state.session;
-        reply.sequence = x.state.next;
+        reply.sequence = x.audio_sequence().next;
         if (x.last_fast && x.mailbox) {
             x.mailbox->send(reply, x.socket.minor,
                             x.diagnostic.enabled ? &x.completion_trace : nullptr);
-            if (x.notifications)
+            if (x.notifications&&!x.direct())
                 x.notifications->signal_reply();
         } else
             x.socket.write_audio(reply);
@@ -1544,7 +1582,7 @@ void MappedSession::done(const float* left, const float* right, uint64_t silence
             x.fault->stage(1, 6);
         x.diagnostic.stamp(7);
         x.diagnostic.complete();
-        x.state.complete();
+        x.audio_sequence().complete();
     } catch (const std::exception& error) {
         x.error(error);
         throw;

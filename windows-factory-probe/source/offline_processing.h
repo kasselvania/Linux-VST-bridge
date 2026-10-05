@@ -33,6 +33,7 @@ public:
     virtual bool sustained() const { return false; }
     virtual bool stateful() const { return false; }
     virtual void bind_component(Steinberg::Vst::IComponent*) {}
+    virtual bool direct_audio() const {return false;}
     virtual void service_owner() {}
     // Owner thread only, after service_owner throws. Wake transport/state
     // waits without touching vendor objects or releasing worker-owned storage.

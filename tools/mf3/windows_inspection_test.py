@@ -22,9 +22,9 @@ def main():
     host=out/'wf0-factory-probe.exe';module=out/'ap10-return-fixture.vst3'
     root=pathlib.Path(__file__).resolve().parents[2]
     commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()
-    names=subprocess.check_output(['git','ls-files','windows-factory-probe','native-vst3-proxy/include','vst-state','windows-fixtures/ap10','CMakeLists.txt'],cwd=root,text=True).splitlines()
+    names=subprocess.check_output(['git','ls-files','windows-factory-probe','native-vst3-proxy/include','vst-state','windows-fixtures/ap10','tools/direct-audio-handoff','CMakeLists.txt'],cwd=root,text=True).splitlines()
     manifest=out/'host-source-manifest.json'
-    manifest.write_text(json.dumps(dict(schema=1,source_commit=commit,host_sha256=sha(host),files={n:sha(root/n) for n in names}),sort_keys=True))
+    manifest.write_text(json.dumps(dict(schema=1,source_commit=commit,host_sha256=sha(host),direct_wait_shim_sha256=sha(out/'lvb-direct-wait.dll'),files={n:sha(root/n) for n in names}),sort_keys=True))
     def inspect(case,expected,present,accepted,mode='ap8-module-inspection',audio_layout=False):
         sid=uuid.uuid4().hex;directory=pathlib.Path('C:/bridge/sessions')/sid
         directory.mkdir(parents=True);fixture=directory/'fixture.vst3';shutil.copyfile(module,fixture)

@@ -22,6 +22,7 @@ public:
     bool sustained() const override;
     bool stateful() const override;
     void bind_component(Steinberg::Vst::IComponent*) override;
+    bool direct_audio() const override;
     void service_owner() override;
     void owner_failed() noexcept override;
     void retire_vendor_process(bool) override;

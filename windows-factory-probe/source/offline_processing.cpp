@@ -279,7 +279,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         auto& request=block.request;
                         if (!external->next(request,block.in[0],block.in[1])) break;
                         if(request.frames>static_cast<int>(maximum)) throw std::runtime_error("negotiated maximum exceeded");
-                        if(request.frames){
+                        if(request.frames&& !external->direct_audio()){
                             block.input_before=block.input;
 #ifdef LVB_SAMPLE_PLANE_TEST
                             block.sample_plane_reads+=2;block.sample_plane_writes+=2;
@@ -325,12 +325,12 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                     if(block.returned.failed)throw std::runtime_error("malformed or oversized process results");
                     if(block.data.numSamples!=admitted_samples)
                         throw std::runtime_error("Windows processor changed admitted sample extent");
-                    if(admitted_samples&&
+                    if(admitted_samples&&(!external||!external->direct_audio())&&
                        (std::bit_cast<uint32>(block.silent_input.front())!=guard||std::bit_cast<uint32>(block.silent_input.back())!=guard||
                         std::any_of(block.silent_input.begin()+1,block.silent_input.end()-1,[](float v){return v!=0.f;})))
                         throw std::runtime_error("AP18 inactive input modified");
                     ++processed;
-                    if(external&&admitted_samples) {
+                    if(external&&admitted_samples&&!external->direct_audio()) {
 #ifdef LVB_SAMPLE_PLANE_TEST
                         block.sample_plane_reads+=65;
 #endif
@@ -352,7 +352,7 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         if(!sustained)events.lifecycle("ap1_private_buffers_valid",",\"block\":"+std::to_string(b));
                     }
                     if(external) external->done_outputs(block.all_outputs.data(),layout.counts[1],uint64_t(process_ns),&block.returned.values);
-                    if(external&&admitted_samples){
+                    if(external&&admitted_samples&&!external->direct_audio()){
                         const auto end=admitted_samples+1;
                         for(int ch=0;ch<2;++ch)
                             std::fill(block.output[ch].begin()+1,block.output[ch].begin()+end,std::bit_cast<float>(sentinel));

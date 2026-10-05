@@ -26,6 +26,7 @@ on:
       - 'tools/mf3/**'
       - '.github/workflows/ap8-windows.yml'
       - 'windows-factory-probe/**'
+      - 'tools/direct-audio-handoff/**'
       - 'vst-state/**'
       - 'windows-fixtures/ap10/**'
       - 'windows-fixtures/beta/**'

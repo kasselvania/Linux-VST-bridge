@@ -32,6 +32,14 @@ set_target_properties(wf0-factory-probe PROPERTIES
     OUTPUT_NAME "wf0-factory-probe"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
 
+# Product-owned Wine builtin shim; the paired ELF is built by the Linux kit.
+add_library(lvb-direct-wait SHARED ../tools/direct-audio-handoff/shim.cpp)
+target_compile_features(lvb-direct-wait PRIVATE cxx_std_20)
+target_compile_options(lvb-direct-wait PRIVATE /W4 /WX /permissive- /EHsc /Brepro)
+target_link_options(lvb-direct-wait PRIVATE /Brepro /INCREMENTAL:NO)
+set_target_properties(lvb-direct-wait PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+add_dependencies(wf0-factory-probe lvb-direct-wait)
+
 add_executable(wf0-loader-adapter-tests
     source/main.cpp
     source/component_instance_session.cpp
