@@ -1,52 +1,41 @@
-# Product decisions, ownership and completion
+# Who decides what
 
-`AGENTS.md` defines the engineering method. `CURRENT_SLICE.md` is the short current
-task pointer. The architecture defines shared product contracts; failure records
-and the support matrix describe their implementation and observed coverage.
-Historical task selections are retained context, not current commands.
+`AGENTS.md` is the working method. `CURRENT_SLICE.md` is the current task.
+`docs/ARCHITECTURE.md` describes the design. Older task documents, campaign
+files and evidence are history, not instructions.
 
-## Responsibility and authority
+## The operator
 
-The operator sets the product goal and decides consequential scope, spending,
-security and destructive changes. The engineer owns the architectural reasoning,
-implementation, integration and verification needed to deliver that goal. Routine
-choices do not require another operator instruction. Current operator direction
-takes precedence over repository process text; genuine conflicts must be surfaced.
+The operator sets the product goal and decides scope, spending, anything that
+could harm user data or licensed state, and what counts as done for a release.
+The operator's current instruction overrides any text in this repository.
 
-Work is organized around reusable capabilities and complete user journeys. A
-plug-in incident can expose a shared design problem; it does not automatically
-become a vendor-specific task or dictate the architecture. Review across owners
-when the failure or requirement crosses them. A small commit can be part of a
-larger coherent capability; narrowing the commit must not quietly narrow the goal.
+## The engineer
 
-Architecture is revisable through explicit, evidence-based decisions. Existing
-code and previous proofs have no exemption from the product contract. Review
-whether to retain, repair, replace or retire an implementation without defaulting
-to either endless local workarounds or a new engine. Record consequential decisions
-in the existing architecture/decision documents, not a parallel authority system.
+The engineer owns making it work: the diagnosis, the design, the code, the
+integration and the check that it works. Routine engineering choices,
+experiments and reversible changes on project machines do not need permission.
+`AGENTS.md` lists the few things that do.
 
-## Evidence and completion
+The engineer is expected to hold and state an opinion about what is wrong and
+what to do. Declining to name a likely cause is not caution; it hands the
+problem back to the operator.
 
-Report source correctness, built artifacts, installed behavior, platform coverage
-and release readiness separately. Reference fixtures demonstrate their contracts;
-commercial and physical results demonstrate their declared conditions. Unknown
-compatibility remains distinguishable from missing capability or actual failure.
-A partial result is useful, but required unfinished integration remains unfinished.
+## Done
 
-Qualify the measurement path and preserve original observations. Correct reporting
-errors without rewriting history, erasing failures or reclassifying a failed test
-as a pass. Reuse unaffected results; test affected boundaries and the complete
-promised workflow. Only change agreed acceptance scope through an explicit product
-decision. A green test suite or reviewed PR cannot substitute for that workflow.
+A capability is done when a musician can use it through the normal product on a
+real machine, and it survives save, reopen and restart. A passing test suite, a
+merged pull request, a package or a report is not that.
 
-## Delivery and cost
+A defect is closed when the symptom is gone on the machine where it was seen,
+and the change that removed it is known.
 
-Keep one current task pointer and one support/failure record system. Commit and
-push coherent work with accurate remaining gaps. Review before merge and publish
-only supported claims. A policy change must be independently reviewable from an
-unfinished runtime or beta implementation when their acceptance differs.
+Never describe a failed result as a pass, and do not erase a failure. Beyond
+that, keep records short: `docs/SUPPORT_MATRIX.md` for what works,
+`docs/FAILURE_CLASSES.md` for what is open.
 
-Respect existing machine custody, resource and spending limits. Use inexpensive
-readback and supported tooling; reserve physical runs for questions that need them.
-Tool approvals, privacy, licensed state and ownership protections remain in force.
-New process text cannot grant a prohibited operation or require pointless reruns.
+## Architecture
+
+The architecture can change when it is wrong. Say what is wrong, change it, and
+update `docs/ARCHITECTURE.md` in the same pull request. Existing code and earlier
+results do not make a design permanent.

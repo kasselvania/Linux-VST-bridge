@@ -1,220 +1,157 @@
-# Engineering a Windows-audio compatibility platform
+# Working rules
 
-## Product purpose
+## What we are building
 
-Build a managed compatibility platform that lets native Linux DAWs use Windows
-audio plug-ins across supported machines, distributions and runtime configurations.
-Users install, authorize, prepare, use, save, reopen, update, investigate and recover
-through the product. They must also be able to try unfamiliar plug-ins and explicit
-compatibility options without waiting for a maintainer to compile a special proxy.
+A managed compatibility product that lets native Linux DAWs use Windows audio
+plug-ins. A musician installs, authorizes, plays, saves, reopens and updates a
+plug-in through the product, without administering Wine, Proton or prefixes.
 
-The unit of design is a reusable platform capability and its complete user journey.
-A plug-in is a fixture that exposes requirements; a particular crash or missing
-block is an observation about that system. Steam Deck, Bitwig, a vendor, a known
-catalogue and one successful session do not define the architecture. Small patches
-are useful delivery units, but do not reduce the product goal to isolated repairs.
+**The deliverable is working software.** A report, trace, evidence file, review
+or commit count is not progress. Progress is something a musician can now do
+that they could not do before, or a defect that is now fixed and shown fixed.
 
-## Decisions and current work
+The operator's current instruction comes first, then this file, then
+`CURRENT_SLICE.md`, then `docs/ARCHITECTURE.md`. If two of them conflict, say so
+in one sentence and follow the higher one.
 
-Follow the operator's current instruction, then this file, `GOVERNANCE.md`,
-`CURRENT_SLICE.md`, `docs/ARCHITECTURE.md` and applicable accepted decisions.
-Code describes the implementation; evidence describes observations; support records
-bound published claims. None acquires authority merely by existing. If these
-sources conflict, identify the conflict instead of inventing a compromise.
-Ask when a product term or authority boundary is genuinely unresolved; choose
-ordinary implementation details without making the operator manage engineering.
+## How to work: fix it, then show it
 
-Read the current task and relevant architecture, failure classes and support rows.
-Historical task pointers, campaign documents and previous experiments are context,
-not standing launch instructions. Keep `CURRENT_SLICE.md` short: current outcome,
-shared contracts affected, remaining work, acceptance and machine custody. Replace
-superseded directions; retain history in Git and original evidence. Do not use the
-fusion skill for reviews.
+When something is broken, the job is to make it work.
 
-## Design the shared system before selecting patches
+1. **State your best explanation.** Say what you think the cause is and how
+   confident you are. "Probably X, about 70%" is a useful engineering statement.
+   "Cause not established" is not an acceptable place to stop while any
+   experiment that could establish it remains untried.
+2. **Change one thing and compare.** The fastest proof of a cause is to change
+   the suspected thing and see whether the symptom goes away. This is not
+   speculation; it is the experiment. Run it.
+3. **Keep the change or revert it.** If the symptom is gone, keep it, add a
+   regression test where one is possible, and move on. If not, revert, update
+   your explanation and try the next most likely cause.
+4. **Stop measuring when you can act.** Use the simplest measurement that
+   answers the question. If a measuring tool fails twice, replace it with a
+   simpler one; do not repair the tool as a project of its own.
 
-Before changing behavior, trace the user journey and the data, control, thread,
-process and ownership boundaries that implement it. Ask whether the contract and
-implementation can serve the intended range of plug-ins and platforms. Inspect
-adjacent consumers, including normal setup, updates and recovery, rather than
-stopping at the function that emitted an error.
+Three attempts on one symptom without a change in the outcome means the approach
+is wrong. Step back, say so, and propose a different approach.
 
-Use this coverage map to find architectural gaps and select representative tests:
+## What you may do without asking
 
-| Platform capability | Questions the design must answer |
-| --- | --- |
-| Machine and host integration | Which architecture, loader, sandbox/IPC, audio access, display system, graphics APIs, storage, quotas and scheduling capabilities exist? Which are required, optional or unobserved? |
-| Runtime and dependencies | How does the product acquire/select a coherent pinned runtime, install declared dependencies, preserve environment identity and restore a predecessor? What actually changes with a Proton/runtime option? |
-| Discovery and preparation | Can an unfamiliar module expose classes, interfaces, buses, parameters and requirements through supervised inspection and reusable native machinery? Which specific unsupported contract prevents use? |
-| Configuration and recommendations | How do observations, implemented defaults, profile advice and explicit user overrides produce one explainable configuration with effective readback? |
-| DAW/audio integration | How are negotiated capacity, actual block length, sample rate, precision, events, automation, latency, real-time deadlines and offline completion handled through legal lifecycle changes? |
-| Editors and graphics | Who owns event dispatch, embedding, resizing, input, rendering and teardown? Which work can interfere with DSP/control, and where are failures allowed to propagate? |
-| State and change | Can projects survive save/reopen, restart, module updates, runtime changes and rollback? Are class identity, state provenance and current executable admission distinct? |
-| Supervision and recovery | Can installer, scanner, editor, vendor host and native consumer failures be identified, contained and retired without damaging healthy sessions or hiding uncertain cleanup? |
-| Product delivery | Can the normal manager complete the journey on clean and populated systems, explain a failed stage and offer usable recovery without maintainer administration? |
+These are routine. Do them, then report what happened.
 
-This map guides design and coverage selection; it does not require rerunning every
-platform combination for every edit or creating another approval checklist.
-Portability, graphics, audio, configuration and recovery are designed together.
-Their implementations may proceed in dependency order, but portability is not a
-packaging phase to append after one Deck demonstration works.
+- Change scheduling priority, CPU affinity, environment variables, Wine/Proton
+  options, buffer sizes or build flags on a test machine or the maintainer's
+  Deck, for an experiment. Restore the previous value afterwards unless the
+  change is being kept.
+- Add or remove diagnostic code, timers and test fixtures.
+- Change product source, including the engine, transport, manager and Windows
+  host, when that is the fix.
+- Build, install and roll back test packages on project machines.
+- Rerun a test.
 
-Recurring symptoms, accumulating exceptions, duplicated settings, incompatible
-owners or a design that excludes unfamiliar inputs require an architectural
-review before another local workaround. Retain, repair, replace or retire code
-according to the platform contract and observed consequences. Existing proofs do
-not make an early design permanent. Depth of change follows the evidence: neither
-an arbitrary small-patch limit nor a speculative engine rewrite is the default.
-Reuse sound ownership and transport machinery; do not create competing frameworks.
-Remove or quarantine production paths that contradict the accepted contract;
-preserve needed user state and evidence, not wrong behavior because it is old.
+## What needs the operator first
 
-## Work in complete capability increments
+- Anything that could destroy or alter user projects, licensed plug-in
+  installations, activation state or account data.
+- Spending money or exceeding the declared machine resource limits.
+- Changing what the product is for, dropping a target platform, or changing
+  what counts as done for the beta.
+- A permanent change to the maintainer's machines outside the product's own
+  files, such as system packages or root filesystem edits.
 
-1. State the user-visible capability being delivered, its shared contracts and the
-   gap between current behavior and the platform goal. A symptom alone is not the
-   task definition. Use a short note in the existing task/architecture documents;
-   do not create a new campaign or receipt system.
-2. Review the relevant implementation against that contract. Use failure evidence
-   to test the design, including how the same assumption affects other plug-ins,
-   host behaviors, machines and configuration changes. Distinguish measured causes
-   from hypotheses and missing evidence.
-3. Implement the coherent change across the necessary owners. Make reviewable
-   commits and retain working comparisons. Do not leave required connections to
-   the manager, prepared configuration, state or recovery for the operator to
-   discover and commission separately.
-4. Verify the shared contract, affected failure paths and installed user journey.
-   Report completed work, remaining gaps and actual support scope. If an external
-   blocker prevents delivery, finish independent work and name the blocker exactly.
+Ask one specific question and carry on with whatever does not depend on the
+answer.
 
-A vendor-specific workaround needs evidence of a vendor-specific requirement and
-an explicit scope. Prefer reusable behavior or declarative compatibility data.
-Do not accumulate product-name branches, per-binary builds or allowlists to conceal
-a missing general mechanism. Fixing one fixture can establish a regression repair;
-it cannot establish platform coverage or close the surrounding product capability.
+## How to report
 
-## Compatibility, identity and experimentation
+Write for a musician who owns the project, not for an auditor. Every update, PR
+description and status note uses this shape and stays under about fifteen lines:
 
-Qualification and permission to try are different. An unfamiliar product, version
-or distribution is unqualified, not automatically forbidden. Refuse actual missing
-capabilities, unsupported required interfaces, invalid data or incompatible component
-pairs with a specific reason. Profiles improve setup and communicate evidence;
-they are not the catalogue of software allowed to run.
+- **Works now:** what a user can do that they could not before.
+- **Still broken:** the symptom, in plain words, with the one or two numbers
+  that matter.
+- **Most likely cause:** your best explanation and confidence.
+- **Doing next:** the next change you will make.
 
-Observe capabilities rather than choosing policy by distro or product name. Keep
-static import hints, independent runtime probes, actual editor/render-thread
-observations and measured workload behavior distinct. Do not infer the editor's
-renderer from a successful probe or invent live DAW settings during installation.
+Leave out commit hashes, package names, tree IDs and lists of things you are not
+claiming, unless the operator asks. Do not write a sentence whose only purpose is
+to avoid being wrong. If a result is uncertain, say how uncertain in a few words.
 
-One managed configuration connects discovery, runtime/dependencies, graphics,
-process policy, publication and recovery. Normal setup supplies explainable defaults;
-advanced controls expose implemented options with their scope, expected effect,
-limitations, comparison and keep/restore behavior. Explicit user overrides survive
-profile refresh. Ordinary selection must not rerun deep diagnostics.
+Never report a failure as a success, and never hide one. That is the whole of
+the honesty rule; it does not require a paragraph of caveats.
 
-Hashes identify exact versions and stale inputs; they do not make legitimate state,
-presets or installations immutable. Managed updates refresh observations and prepare
-new data. Stable logical class identity, producing-state provenance, vendor machine
-identity and the selected executable/runtime remain separate. Saved state never
-selects code, and only the selected vendor implementation migrates its opaque state.
-Paths are locations and friendly names are metadata, not durable plug-in identities.
-Never guess parameter replacements or silently substitute another build or preset.
+## Records
 
-Runtime acquisition is the product's responsibility. Steam, customer-installed
-Wine/Proton, SDKs, compilers and remote maintainer builds are not normal prerequisites.
-Use coherent pinned runners and observable updates. Graphics, synchronization and
-CPU options need measured benefit and effective readback; a Proton label is not
-proof of acceleration, real-time scheduling, audio correctness or portability.
+- Raw traces, captures and logs stay outside Git.
+- Do not create a per-run report or evidence file for a diagnostic run. The
+  commit message and the status update are the record.
+- Add an evidence file only when it backs a claim in `docs/SUPPORT_MATRIX.md`,
+  and keep it to the numbers that back the claim.
+- `docs/SUPPORT_MATRIX.md` says what works on what. `docs/FAILURE_CLASSES.md`
+  lists open defects. Update each with a line or two. Do not start another
+  status document, ledger, campaign or receipt system.
+- `CURRENT_SLICE.md` fits on one screen, about forty lines: the goal, the best
+  explanation, the next changes, and what done looks like.
+- Test builds are numbered simply. Do not invent a new candidate name per run.
 
-## Verification that matches the claim
+## Landing code
 
-Choose tests by the contract's meaningful variations: instrument/effect roles,
-capabilities and unsupported interfaces, changing parameter/state schemas, rendering
-paths, native/sandboxed hosts, platform capabilities and failure modes. Include an
-unfamiliar identity when preparation or recommendation generality is claimed.
-Reference modules provide deterministic coverage; lawful commercial fixtures and
-physical targets validate the actual workload. Neither replaces the other.
+- `main` must move. Merge working increments in small pull requests.
+- A stack is at most two pull requests deep. If it is deeper, stop and land it.
+- Code going to `main` gets a review. Diagnostics, experiments and notes do not.
+- Green tests are required for a merge. They are not the definition of done; a
+  musician being able to use the thing is.
 
-Use controlled comparisons to attribute a defect and combined workflows to qualify
-the product. Change related variables together only when the experiment explicitly
-measures that combined change. A soak measures endurance after functional checks;
-it is not a substitute for architecture review or failure attribution.
+## Design rules
 
-Validate the observer before relying on it. Keep recorder/harness faults, missing
-observations, native admission failures, deadline misses, transport/protocol faults,
-vendor DSP failures and editor failures distinct. A missing status file is not
-proof of lost audio; a successful callback is not proof of delivered signal.
-Correlate actual output, timing and lifecycle evidence before assigning a cause.
-Correct a mistaken report promptly and retain the original failure evidence.
+- The DAW loads a native Linux proxy. A supervised Windows host loads the
+  Windows plug-in under a pinned runner. The DAW never loads a Windows binary.
+- Rust is the product language. C++ is confined to the VST3 SDK and Win32
+  edges, behind a versioned C ABI. Process boundaries use a versioned protocol.
+- Build general mechanisms. A plug-in is a test case, not a design unit. Do not
+  add product-name branches or per-binary builds to cover a missing mechanism.
+  A vendor-specific workaround needs a vendor-specific reason and belongs in
+  declarative profile data where possible.
+- An unfamiliar plug-in or distribution is untested, not forbidden. Refuse only
+  for a specific missing capability, and name it.
+- Identity is by content and class, not by path or display name. Never silently
+  substitute a different build, preset, environment or content root.
+- Saved projects and plug-in state must survive save, restart, reboot, update
+  and rollback before a plug-in is called usable.
+- The product acquires its own runtime. Steam, a customer-installed Wine, an
+  SDK or a compiler is never a prerequisite.
+- No single Wine prefix for every vendor and no single process for every
+  plug-in by default.
+- Editor, scanner, installer and audio failures are reported as what they are.
 
-Use applicable declared acceptance criteria without quietly shortening durations,
-raising latency or dropping difficult cases. Shorter engineering checks retain their
-narrow scope. Reuse unaffected evidence with exact provenance, rerun changed contracts
-and complete the final journey on the candidate proposed for release. A clean
-subsection cannot turn a failed lifetime into a pass.
+## Real-time rules
 
-Capability completion requires its normal product path, meaningful musical/state
-behavior and failure recovery at the declared scope. Beta completion additionally
-requires the agreed platform/catalogue matrix, clean and populated installation,
-authorization, audio/editor/automation, save/reopen, reboot/reopen, update/rollback,
-and release/distribution obligations. A source patch, test suite, package, PR or
-single plug-in success is not that completion. Keep `docs/FAILURE_CLASSES.md` and
-`docs/SUPPORT_MATRIX.md` consistent without creating competing status registries.
+On the audio callback path: no heap allocation after activation, no file,
+network or process work, no ordinary logging, no unbounded lock or wait, and no
+dependence on the manager or an editor. Every wait has a stated bound and a
+stated result when it expires. A dead Windows host must be detected quickly and
+must not stall the DAW.
 
-## Engineering protections
+Measure the whole plug-in call as the DAW sees it. A bridge counter reading zero
+is not proof that the audio arrived on time.
 
-- The native DAW loads a Linux proxy; a supervised Windows host loads the selected
-  Windows module. Rust owns product logic, with C++ confined to justified SDK edges
-  and explicit versioned C ABI/IPC boundaries. Preserve SDK reentrancy, lifetime and
-  thread affinity. Do not replace vendor DSP or fabricate state. One global Wine
-  prefix or one process for every plug-in is prohibited as the default; shared
-  vendor services and environment changes need explicit ownership and scope.
-- Keep allocation, filesystem/network/process work, ordinary logging, manager/GUI
-  dependencies and unbounded waits off the audio callback. Prepare storage outside
-  processing; declare each wait's bound and failure result. State/control ordering
-  must respect vendor concurrency while preserving the audio contract. Distinguish
-  local wait allowances from the full DAW deadline and real-time from offline work.
-- Model failure propagation explicitly. A shared vendor process can constrain
-  isolation; disclose and contain that limit rather than promising impossible
-  separation or treating every editor problem as an audio-transport defect.
-- Preserve projects, selected predecessors and licensed environment identity.
-  Separate per-instance settings from shared environment changes. Use supported
-  selection/recovery operations and clean up exact-owned resources only. Never
-  erase uncertain ownership records to manufacture successful recovery.
-- Profiles are versioned data, not arbitrary scripts or hidden downloads. Respect
-  vendor authorization; never bypass licensing or collect credentials. Keep account
-  data, tokens, licenses, proprietary binaries, presets and content out of Git and
-  public diagnostics. Exports are allow-listed, not whole-prefix archives.
-- Preserve SteamOS's protected base and explicit sandbox/broker boundaries. Do not
-  turn root filesystem changes, blanket privilege changes or unrelated-service
-  modifications into product requirements. Honor resource/spending limits and
-  leave capacity for the user's other services.
-- Use public specifications and clean-room prior-art analysis. Do not copy yabridge
-  source into this repository. Record applicable third-party licensing and exact
-  redistribution obligations; do not assume bundled runtimes or SDKs may be shipped.
+## Protections that do not bend
 
-## Ownership, tools and communication
+These are not process; they are limits. No experiment overrides them.
 
-Own design, implementation, integration and verification through the selected
-outcome. Do not make the operator repeatedly reconnect related subsystems or approve
-routine in-scope work. Ask before a genuine goal/security change, destructive change
-to user data or new spending. Repeated low-information tests call for reassessment,
-not another test campaign or a new permission ceremony.
-
-Use `docs/WORKSTREAMS.md` to coordinate separately authorized lanes. It does not
-launch those lanes or expand this task. Do not alter another owner's branch,
-environment or experiment. Keep unmerged dependencies explicit. Shared GUI, audio,
-service and runtime mutations require coordinated machine custody.
-
-Prefer supported APIs/CLI for inexpensive setup and readback; use the GUI to verify
-actual customer interactions. Respect tool permissions. When GUI work is delegated,
-honor the operator's model/cost preference and provide a concise target, actions
-and stop conditions. The main engineer owns the test and interpretation; an executor
-reports observations, not a pass verdict. Never replay a useful test solely to change
-executor or tool. Remote access is development tooling, not a customer prerequisite.
-
-Lead updates with what the platform can now do, what still fails and what evidence
-changed the decision. Label hypotheses and instrument failures. Do not advertise
-motion, commit counts or generated reports as delivered capability. Commit and push
-completed work, preserve unfinished work transparently, and keep the PR focused and
-reviewable. Merge only within the operator's authority; do not promote a failed beta.
+- Vendor licensing belongs to the vendor and the user. Never bypass, emulate,
+  forge, intercept or redistribute licensing material.
+- Never commit or log credentials, tokens, licence files, activation data,
+  serials, account identifiers, proprietary installers, plug-in binaries, vendor
+  presets or paid content.
+- Diagnostic exports are allow-listed. Never archive a whole prefix.
+- Do not copy yabridge source. Read it as prior art and write original code.
+- Do not redistribute Proton, Wine, DXVK, VST3 SDK files, installers or
+  plug-ins until the distribution obligations are recorded.
+- Do not disable SteamOS's protected base or make root filesystem changes a
+  product requirement.
+- Profiles are data, not scripts. No shell commands, binary patches or hidden
+  downloads in a profile.
+- Never delete an uncertain ownership record to make a recovery look successful.
+- Do not imply affiliation with or certification by any DAW, runtime or plug-in
+  vendor.
