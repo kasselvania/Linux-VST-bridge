@@ -1470,13 +1470,12 @@ in its window while Pure LoFi (3.3 ms median, 6.9 ms max) has errors in every
 run, so the misses scale with the vendor call inside Bitwig's ordinary-priority
 window, not with the bridge's presence. Because the installed caller grant
 doubled Bitwig's graph errors and stretched the largest gap to 33 ms, it is now
-opt-in (LVB_CALLER_SCHEDULING=1) and off by default. The next comparison is
-Buffered delivery with 512 remembered frames, which takes the vendor call out
-of Bitwig's window. Measured: DAW-side call 0.038 ms median, missing blocks 8 to 2,
-Bitwig graph errors +8 to +2, recorder 0, largest gap 20.15 ms almost entirely
-outside the call. Buffered is the effects default; the residue is attributed to
-the bridge's footprint on an ordinary-priority DAW (real-time preemption, editor
-rendering, supervisor census), to be separated one run at a time.
+opt-in (LVB_CALLER_SCHEDULING=1) and off by default in source; this successor
+was not installed for the operator's no-rebuild comparison below. The prior
+results prompted Buffered delivery with 512 remembered frames to take the
+vendor call out of Bitwig's window.
+
+Restoring remembered Buffered 512 on the same installed build and reopening the project shortened DAW call median/p99 to 0.038/0.065 ms (maximum 3.157 ms, two of 56,249 calls above 1 ms). The complete ten-minute Together/editor-open/512/48k capture still has two missing 512-frame blocks (baseline eight, Part B two), Bitwig ERR+2 versus +8/+16, recorder ERR0, and maximum call spacing 20.15 ms versus 19.4/33.4 ms; 20.10 ms lies outside the preceding call. Host scheduling/dispatch remains most likely, about 80%; the operator's failed clean gate stopped the thirty-minute run and export. Buffered 512 remains selected, Bitwig closed, projects/publications preserved, raw captures outside Git. The residue is attributed to the bridge's footprint on an ordinary-priority DAW; the source adds LVB_AUDIO_SCHEDULING=0 so one run can compare the bridge's own threads at ordinary priority, the first suspect, with editor rendering and the supervisor census to follow one run at a time.
 
 The separate FN1/PW1 source reviews do not authorize installation or a
 general support claim. PSL1 is proposed next to make preparation product-owned
