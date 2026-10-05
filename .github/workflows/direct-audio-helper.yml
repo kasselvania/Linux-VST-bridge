@@ -32,6 +32,38 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: direct-audio-helper
-          path: ${{ runner.temp }}/direct-audio/Release/lvb-futex-probe.exe
+          path: |
+            ${{ runner.temp }}/direct-audio/Release/lvb-futex-probe.exe
+            ${{ runner.temp }}/direct-audio/Release/lvb-direct-wait.dll
+          if-no-files-found: error
+          retention-days: 7
+  linux-helper:
+    needs: helper
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: direct-audio-helper
+          path: raw-windows
+      - name: Build original ELF and mark its original builtin PE companion
+        run: |
+          set -eu
+          mkdir -p paired/x86_64-windows paired/x86_64-unix wine-tools
+          rustc --edition 2024 --crate-type cdylib -C panic=abort -C opt-level=3 tools/direct-audio-handoff/linux_wait.rs -o paired/x86_64-unix/lvb-direct-wait.so
+          apt-get download wine64-tools
+          dpkg-deb -x wine64-tools_*.deb wine-tools
+          cp raw-windows/lvb-direct-wait.dll paired/x86_64-windows/
+          wine-tools/usr/lib/wine/winebuild --builtin paired/x86_64-windows/lvb-direct-wait.dll
+          cp raw-windows/lvb-futex-probe.exe paired/
+          readelf -Ws paired/x86_64-unix/lvb-direct-wait.so | grep __wine_unix_call_funcs
+          sha256sum wine64-tools_*.deb paired/x86_64-windows/lvb-direct-wait.dll paired/x86_64-unix/lvb-direct-wait.so paired/lvb-futex-probe.exe
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: direct-audio-paired-helper
+          path: paired/
           if-no-files-found: error
           retention-days: 7

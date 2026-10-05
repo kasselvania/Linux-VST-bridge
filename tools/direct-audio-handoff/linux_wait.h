@@ -18,19 +18,23 @@ struct Arguments {
 static_assert(sizeof(Arguments) == 40 && offsetof(Arguments, deadline) == 8 &&
               offsetof(Arguments, expected) == 24 && offsetof(Arguments, result) == 32);
 static_assert(std::is_trivially_copyable_v<Arguments>);
-extern "C" std::int32_t lvb_linux_wait_leaf(void*);
 
 class Runtime {
     using Dispatcher = std::int32_t(WINAPI*)(std::uint64_t, unsigned, void*);
     Dispatcher dispatcher_{};
-    std::uintptr_t table_[1]{reinterpret_cast<std::uintptr_t>(&lvb_linux_wait_leaf)};
+    std::uint64_t handle_{};
+    HMODULE module_{};
     std::int64_t invoke(Arguments& args) const noexcept {
-        if (!dispatcher_) return -38;
-        const auto status = dispatcher_(reinterpret_cast<std::uintptr_t>(table_), 0, &args);
+        if (!dispatcher_ || !handle_) return -38;
+        const auto status = dispatcher_(handle_, 0, &args);
         return status == 0 ? args.result : -38;
     }
 public:
-    // Called inactive. Missing/non-Linux exports refuse before any syscall.
+    Runtime() = default;
+    Runtime(const Runtime&) = delete;
+    Runtime& operator=(const Runtime&) = delete;
+    ~Runtime() { if (module_) FreeLibrary(module_); } // only after all waiters retire
+    // Called inactive. Missing/non-Linux exports refuse before helper loading.
     bool bind() noexcept {
 #if defined(_M_X64)
         const auto module = GetModuleHandleW(L"ntdll.dll");
@@ -45,7 +49,17 @@ public:
         const auto exported = GetProcAddress(module, "__wine_unix_call_dispatcher");
         if (!exported) return false;
         dispatcher_ = *reinterpret_cast<Dispatcher const*>(exported);
-        return dispatcher_ != nullptr;
+        if (!dispatcher_) return false;
+        module_=LoadLibraryW(L"lvb-direct-wait.dll");
+        if (!module_) return false;
+        using Abi=std::uint32_t(__cdecl*)();
+        const auto abi=reinterpret_cast<Abi>(GetProcAddress(module_,"lvb_wait_abi"));
+        using Query=LONG(NTAPI*)(HANDLE,void*,ULONG,void*,SIZE_T,SIZE_T*);
+        const auto query=reinterpret_cast<Query>(GetProcAddress(module,"NtQueryVirtualMemory"));
+        // Private class 1000 from the selected Wine runner. The returned value
+        // owns no storage; module_ pins the builtin ELF companion/table.
+        return abi && abi()==1 && query && query(GetCurrentProcess(),module_,1000,
+                   &handle_,sizeof handle_,nullptr)==0 && handle_!=0;
 #else
         return false;
 #endif
