@@ -109,7 +109,8 @@ impl Fixture {
         let identity = Some(state::Identity { class: [1; 16], module: [2; 32] });
         let session = Session {
             gui: None, gui_revision: 0, mapping: Some(mapping), mailbox: Some(mailbox),
-            mailbox_enabled: true, notifications: Some(Channel::new(wake).unwrap()),
+            mailbox_enabled: true,
+            #[cfg(target_os="linux")] direct_requested:false, notifications: Some(Channel::new(wake).unwrap()),
             configured_mode: 0, capture: None, fault_status: None, notices: (0, 0),
             returned: Default::default(), processing: crate::ProcessingScratch::new(), socket,
             state: ClientState { session: [41; 16], next: 1, slot: Slot::Writable },
@@ -400,6 +401,7 @@ fn cancel_wakes_exact_completion_without_releasing_reply_custody() {
 fn buffered_due_audio_is_complete_while_admitted_capture_waits() {
     let (mut fixture, mut peer) = Fixture::new(256);
     *fixture.shared.control.lock().unwrap() = Some(Control {
+        #[cfg(target_os="linux")] direct_barrier:None,
         barrier: 0, op: 16, bytes: vec![], result: None,
     });
     fixture.shared.pending_control.store(true, Ordering::Release);

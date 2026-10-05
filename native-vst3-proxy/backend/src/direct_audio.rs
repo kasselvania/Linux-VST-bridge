@@ -66,7 +66,7 @@ impl Endpoint {
         Ok(AudioEndpoint {control:self.clone(),outstanding:false})
     }
     #[cfg(test)]
-    fn render_receive(&self, end:Instant)->Result<Vec<u8>,Failure> {
+    pub(crate) fn render_receive(&self, end:Instant)->Result<Vec<u8>,Failure> {
         loop {
             let observed=self.word(REQUEST_WAKE).load(Ordering::Acquire);
             if self.terminal()!=0 {return Err(Failure::Cancelled);}
@@ -83,7 +83,7 @@ impl Endpoint {
         }
     }
     #[cfg(test)]
-    fn render_reply(&self, bytes:&[u8]) {
+    pub(crate) fn render_reply(&self, bytes:&[u8]) {
         assert_eq!(self.word(REPLY_FLAG).load(Ordering::Acquire),0);
         unsafe {std::ptr::copy_nonoverlapping(bytes.as_ptr(),self.0.pointer.as_ptr().add(REPLY),bytes.len());}
         self.word(132).store(bytes.len() as u32,Ordering::Relaxed);

@@ -7,6 +7,8 @@ mod descriptor;
 mod completion_wait;
 #[cfg(target_os = "linux")]
 mod direct_audio;
+#[cfg(target_os="linux")]
+mod direct_audio_session;
 mod fault_status;
 mod terminal;
 mod gui;
@@ -96,6 +98,8 @@ mod sample_plane_test {
     pub fn accesses() -> (usize, usize) { ACCESSES.with(Cell::get) }
 }
 struct Session {
+    #[cfg(target_os = "linux")]
+    direct_requested: bool,
     gui: Option<std::sync::Arc<gui::Gui>>,
     gui_revision: u64,
     mapping: Option<Mapping>,
@@ -213,13 +217,19 @@ fn binding(preview: bool) -> io::Result<preview::Binding> {
 }
 impl Session {
     fn open(binding: preview::Binding, max: usize, minor: u64) -> io::Result<Self> {
-        Self::open_bound(
+        #[cfg(target_os = "linux")]
+        let direct=minor==15 && binding.owner.is_some()
+            && binding.delivery_mode==performance::DeliveryMode::SameCallback;
+        let mut session=Self::open_bound(
             &binding.directory,
             binding.session,
             max,
             minor,
             binding.owner,
-        )
+        )?;
+        #[cfg(target_os = "linux")]
+        {session.direct_requested=direct;}
+        Ok(session)
     }
     fn open_bound(
         path: &std::path::Path,
@@ -250,6 +260,8 @@ impl Session {
         let (mapping, socket, notifications) =
             prepared.accept_notified_while(minor, || preview::check_owner(&mut owner))?;
         let mut s = Self {
+            #[cfg(target_os = "linux")]
+            direct_requested: false,
             gui,
             gui_revision: 0,
             mapping: Some(mapping),
@@ -345,6 +357,8 @@ impl Session {
     fn send_control(&mut self, frame: &Frame) -> io::Result<()> {
         send_version(&mut self.socket, frame, 5, self.minor)?;
         if self.mailbox_enabled && self.phase == 11 {
+            #[cfg(target_os = "linux")]
+            if self.direct_requested {return Ok(());}
             self.mailbox
                 .as_mut()
                 .ok_or_else(|| invalid("delivery mapping absent"))?
@@ -391,7 +405,12 @@ impl Session {
             let channels = performance::output_channels(&bytes)?;
             self.mapping.as_mut().ok_or_else(|| invalid("mapping absent"))?.output_channels = channels;
         }
-        let mailbox_version = 3 * u64::from(self.mailbox.is_some());
+        let mut mailbox_version = 3 * u64::from(self.mailbox.is_some());
+        #[cfg(target_os = "linux")]
+        if self.direct_requested {
+            self.mailbox.as_mut().ok_or_else(||invalid("direct mailbox absent"))?.prepare_direct()?;
+            mailbox_version=4;
+        }
         put(&mut bytes[16..20], mailbox_version);
         let configured_mode = get(&bytes[4..8]) as u32;
         let reply = self.exchange(20, bytes)?;
@@ -400,7 +419,7 @@ impl Session {
                 && matches!(get(&reply.payload[8..12]), 1 | 3),
             "invalid setup response",
         )?;
-        self.mailbox_enabled = mailbox_version == 3;
+        self.mailbox_enabled = mailbox_version >= 3;
         self.configured_mode = configured_mode;
         Ok(reply.payload)
     }
@@ -452,10 +471,19 @@ impl Session {
         Ok(())
     }
     fn can_overlap_start(&self) -> bool {
+        #[cfg(target_os = "linux")]
+        if self.direct_requested {return false;}
         self.minor == 15
             && self.mailbox_enabled
             && self.mailbox.is_some()
             && self.notifications.is_some()
+    }
+    #[cfg(target_os = "linux")]
+    fn prepare_direct_audio(&mut self) -> io::Result<Option<direct_audio_session::AudioSession>> {
+        if !self.direct_requested {return Ok(None);}
+        let channel=self.mailbox.as_mut().ok_or_else(||invalid("direct mailbox absent"))?.prepare_direct()?;
+        let mapping=self.mapping.as_mut().ok_or_else(||invalid("audio mapping absent"))?.transfer_audio()?;
+        Ok(Some(direct_audio_session::AudioSession::prepare(channel,mapping,self.state.session,self.configured_mode,self.epoch).map_err(|_|invalid("direct audio owner already held"))?))
     }
     fn begin_start(&mut self, epoch: u64) -> io::Result<PendingStart> {
         need(
@@ -1140,6 +1168,7 @@ mod tests {
             mapping: Some(Mapping::new(path).unwrap()),
             mailbox: None,
             mailbox_enabled: false,
+            #[cfg(target_os="linux")] direct_requested:false,
             notifications: None,
             configured_mode: 0,
             capture: None,

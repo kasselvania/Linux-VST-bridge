@@ -23,8 +23,48 @@ pub struct Mapping {
     pub version: u32,
     pub output_channels: usize,
     pub extra: Vec<[f32; BLOCK_CAP]>,
+    audio_claim: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    control_only: bool,
+    audio_view: bool,
 }
+// Mapping owns its view and file; no reference into shared storage escapes.
+// A move transfers that view to one AUDIO or control owner.
+unsafe impl Send for Mapping {}
 impl Mapping {
+    /// Inactive transfer of exclusive native sample access. The retained
+    /// control view can subsequently access only the header/witness region.
+    /// One permit spans all views from this uniquely created mapping.
+    pub fn transfer_audio(&mut self) -> io::Result<Self> {
+        use std::sync::atomic::Ordering;
+        need(self.audio_claim.compare_exchange(false,true,Ordering::AcqRel,Ordering::Acquire).is_ok(),
+            "audio sample owner already held")?;
+        let prepared=(|| {
+            let file=self._file.try_clone()?;
+            let raw=unsafe {mmap(std::ptr::null_mut(),self.bytes,3,1,file.as_raw_fd(),0)};
+            need(raw as isize != -1,"audio mapping failed")?;
+            Ok(Self {pointer:NonNull::new(raw.cast()).ok_or_else(||invalid("null audio mapping"))?,
+                _file:file,unmapped:false,bytes:self.bytes,capacity:self.capacity,
+                stride:self.stride,output:self.output,version:self.version,
+                output_channels:self.output_channels,extra:vec![[0.;BLOCK_CAP];self.extra.len()],
+                audio_claim:self.audio_claim.clone(),control_only:false,audio_view:true})
+        })();
+        if prepared.is_ok() {self.control_only=true;} else {self.audio_claim.store(false,Ordering::Release);}
+        prepared
+    }
+    fn accessible(&self,offset:usize,length:usize)->bool {
+        offset.checked_add(length).is_some_and(|end|end<=self.bytes && (!self.control_only||end<=INPUT))
+    }
+    // Static failure only. Direct callback paths must not allocate io::Error.
+    pub fn write_rt(&mut self, offset:usize, bytes:&[u8])->bool {
+        if !self.accessible(offset,bytes.len()) {return false;}
+        unsafe {std::ptr::copy_nonoverlapping(bytes.as_ptr(),self.pointer.as_ptr().add(offset),bytes.len());}
+        true
+    }
+    pub fn read_rt(&self, offset:usize, bytes:&mut [u8])->bool {
+        if !self.accessible(offset,bytes.len()) {return false;}
+        unsafe {std::ptr::copy_nonoverlapping(self.pointer.as_ptr().add(offset),bytes.as_mut_ptr(),bytes.len());}
+        true
+    }
     pub fn new(path: &Path) -> io::Result<Self> {
         Self::with_channels(path, 2)
     }
@@ -53,6 +93,7 @@ impl Mapping {
             _file: file,
             unmapped: false, bytes, capacity, stride, output, version,
             output_channels: 2, extra: vec![[0.; BLOCK_CAP]; channels - 2],
+            audio_claim:std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),control_only:false,audio_view:false,
         };
         // The mapping is still exclusively native-owned here. Establish the
         // persistent plane guards once so an older compatible peer may validate
@@ -77,7 +118,7 @@ impl Mapping {
     }
     pub fn write(&mut self, offset: usize, b: &[u8]) -> io::Result<()> {
         need(
-            offset.checked_add(b.len()).is_some_and(|n| n <= self.bytes),
+            self.accessible(offset,b.len()),
             "mapping write bounds",
         )?;
         // No references into the shared view escape. Called only while Linux owns it.
@@ -93,7 +134,7 @@ impl Mapping {
     }
     pub fn read_into(&self, offset: usize, b: &mut [u8]) -> io::Result<()> {
         need(
-            offset.checked_add(b.len()).is_some_and(|end| end <= self.bytes),
+            self.accessible(offset,b.len()),
             "mapping read bounds",
         )?;
         unsafe {
@@ -125,6 +166,7 @@ impl Mapping {
 }
 impl Drop for Mapping {
     fn drop(&mut self) {
+        if self.audio_view {self.audio_claim.store(false,std::sync::atomic::Ordering::Release);}
         if !self.unmapped {
             unsafe { munmap(self.pointer.as_ptr() as *mut c_void, self.bytes) };
         }

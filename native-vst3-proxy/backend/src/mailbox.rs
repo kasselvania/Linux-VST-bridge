@@ -25,6 +25,8 @@ pub struct Mailbox {
     _file: File,
     pub diagnostic: [u64; 15],
     wire: Vec<u8>,
+    #[cfg(target_os = "linux")]
+    direct: Option<crate::direct_audio::Endpoint>,
 }
 // A view is moved into the single transport worker. No borrowed data escapes.
 unsafe impl Send for Mailbox {}
@@ -45,6 +47,8 @@ impl Mailbox {
             _file: file,
             diagnostic: [0; 15],
             wire: Vec::with_capacity(REQUEST_CAP),
+            #[cfg(target_os = "linux")]
+            direct: None,
         };
         view.write(0, b"LVBM");
         view.write(4, &3u32.to_le_bytes());
@@ -56,6 +60,16 @@ impl Mailbox {
     }
     fn flag(&self, offset: usize) -> &AtomicU32 {
         unsafe { &*self.pointer.as_ptr().add(offset).cast::<AtomicU32>() }
+    }
+    #[cfg(target_os = "linux")]
+    pub(crate) fn prepare_direct(&mut self) -> io::Result<crate::direct_audio::Endpoint> {
+        if self.direct.is_none() {
+            self.idle()?;
+            let direct=crate::direct_audio::Endpoint::prepare(&self._file)?;
+            self.write(4,&4u32.to_le_bytes());
+            self.direct=Some(direct);
+        }
+        Ok(self.direct.as_ref().unwrap().clone())
     }
     fn write(&mut self, offset: usize, bytes: &[u8]) {
         assert!(offset + bytes.len() <= BYTES);
@@ -90,6 +104,8 @@ impl Mailbox {
     // Control notification is consumed before the Windows delivery thread
     // resumes mailbox requests. The worker yields until this handoff is done.
     pub fn control_handoff_pending(&self) -> bool {
+        #[cfg(target_os = "linux")]
+        if let Some(direct)=&self.direct { return direct.control_pending(); }
         self.flag(64).load(Ordering::Acquire) == 2
     }
     pub fn send(&mut self, frame: &Frame, minor: u64) -> io::Result<()> {
@@ -108,6 +124,10 @@ impl Mailbox {
     /// Called after a complete control frame has been sent on the socket. This
     /// avoids polling Winsock while there is no control work to consume.
     pub fn control(&mut self) -> io::Result<()> {
+        #[cfg(target_os = "linux")]
+        if let Some(direct)=&self.direct {
+            return direct.control().map_err(|_|invalid("direct control handoff ownership"));
+        }
         self.idle()?;
         self.flag(64).store(2, Ordering::Release);
         Ok(())
@@ -242,7 +262,8 @@ impl Mailbox {
         let file=self._file.try_clone().unwrap();
         let p=unsafe {mmap(std::ptr::null_mut(),BYTES,3,1,file.as_raw_fd(),0)};
         assert_ne!(p as isize,-1);
-        Self {pointer:NonNull::new(p.cast()).unwrap(),_file:file,diagnostic:[0;15],wire:Vec::with_capacity(REQUEST_CAP)}
+        Self {pointer:NonNull::new(p.cast()).unwrap(),_file:file,diagnostic:[0;15],wire:Vec::with_capacity(REQUEST_CAP),
+            #[cfg(target_os="linux")] direct:self.direct.clone()}
     }
     pub(crate) fn take_request(&mut self, minor:u64) -> Option<Frame> {
         match self.flag(64).load(Ordering::Acquire) {

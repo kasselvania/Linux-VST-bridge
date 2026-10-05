@@ -164,7 +164,8 @@ fn pending_save_does_not_hold_parent_callback_batches_or_replace_a_refused_snaps
         gui_revision: 0,
         mapping: Some(mapping),
         mailbox: Some(mailbox),
-        mailbox_enabled: true, notifications:None, configured_mode:0,
+        mailbox_enabled: true,
+            #[cfg(target_os="linux")] direct_requested:false, notifications:None, configured_mode:0,
         capture: None,
         fault_status: None,
         notices: (0, 0),
@@ -340,6 +341,7 @@ fn offline_audio_longer_than_capture_deadline_publishes_its_save_before_audio_co
     });
     let identity=Some(state::Identity{class:[23;16],module:[24;32]});
     let session=Session{gui:None,gui_revision:0,mapping:Some(mapping),mailbox:Some(mailbox),mailbox_enabled:true,
+            #[cfg(target_os="linux")] direct_requested:false,
         notifications:Some(ap1_native_client::notification::Channel::new(notification).unwrap()),configured_mode:2,capture:None,
         fault_status:None,notices:(0,0),returned:Default::default(),processing:crate::ProcessingScratch::new(),socket,
         state:ClientState{session:[23;16],next:1,slot:Slot::Writable},phase:11,max:64,minor:15,epoch:1,position:0,

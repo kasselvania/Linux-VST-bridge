@@ -246,6 +246,14 @@ impl FirstRefusal {
     }
 }
 struct Shared {
+    #[cfg(target_os="linux")]
+    direct: std::sync::OnceLock<crate::direct_audio::Endpoint>,
+    #[cfg(target_os="linux")]
+    direct_submitted:AtomicU64,
+    #[cfg(target_os="linux")]
+    direct_completed:AtomicU64,
+    #[cfg(target_os="linux")]
+    prepared_audio: std::sync::Mutex<Option<Box<crate::direct_audio_session::AudioSession>>>,
     terminal: Option<Arc<crate::terminal::Status>>,
     // Set only after a complete, session/generation-bound terminal record.
     // The callback reads one atomic; it never reads the mapped custody record.
@@ -336,6 +344,14 @@ impl Shared {
     }
     fn try_new() -> io::Result<Self> {
         Ok(Self {
+            #[cfg(target_os="linux")]
+            direct: std::sync::OnceLock::new(),
+            #[cfg(target_os="linux")]
+            direct_submitted:AtomicU64::new(0),
+            #[cfg(target_os="linux")]
+            direct_completed:AtomicU64::new(0),
+            #[cfg(target_os="linux")]
+            prepared_audio: std::sync::Mutex::new(None),
             gui: None,
             terminal: None,
             terminal_latched: AtomicBool::new(false),
@@ -454,6 +470,8 @@ impl Shared {
         first
     }
     fn notify_failure(&self) {
+        #[cfg(target_os="linux")]
+        if let Some(channel)=self.direct.get() {channel.cancel(3);}
         self.completion.notify();
         self.control_acknowledgement.notify();
         self.work.notify();
@@ -472,6 +490,8 @@ impl Shared {
     }
     fn cancel(&self) {
         self.cancelled.store(true, Ordering::Release);
+        #[cfg(target_os="linux")]
+        if let Some(channel)=self.direct.get() {channel.cancel(1);}
         self.completion.notify();
         self.control_acknowledgement.notify();
         self.work.notify();
@@ -479,6 +499,8 @@ impl Shared {
 }
 struct Control {
     barrier: u64,
+    #[cfg(target_os="linux")]
+    direct_barrier:Option<u64>,
     op: u32,
     bytes: Vec<u8>,
     result: Option<io::Result<Vec<u8>>>,
@@ -518,7 +540,10 @@ fn complete_control(s: &Shared, c: &mut Control, result: io::Result<Vec<u8>>,
     if let Ok(bytes) = &result {
         if matches!(c.op, 16 | 18) {
             let mut store = s.snapshots.lock().map_err(|_| invalid("snapshot store poisoned"))?;
-            store.confirm(bytes.clone(), c.op, s.generation, c.barrier)?;
+            let mut through=c.barrier;
+            #[cfg(target_os="linux")]
+            if let Some(direct)=c.direct_barrier {through=direct;}
+            store.confirm(bytes.clone(), c.op, s.generation, through)?;
             if let Some(t) = &s.terminal { t.progress(context, None, store.latest()); }
         }
     } else if let Err(error) = &result {
@@ -612,6 +637,8 @@ impl PresentationGaps {
     }
 }
 struct Callback {
+    #[cfg(target_os="linux")]
+    direct_audio: Option<Box<crate::direct_audio_session::AudioSession>>,
     windows_timing: WindowsProcessTiming,
     // One originating call policy remains owned through final SDK sink work.
     // Each queued Item owns its copy after Buffered presentation returns.
@@ -646,6 +673,8 @@ struct Callback {
 impl Callback {
     fn new() -> Self {
         Self {
+            #[cfg(target_os="linux")]
+            direct_audio: None,
             windows_timing: WindowsProcessTiming::default(),
             completion_policy: None,
             completion_waits: 0,
@@ -818,12 +847,55 @@ impl Callback {
             request.gui_revision = s.gui.as_ref().map_or(0, |gui| gui.revision());
             self.curve_gui_revision = s.gui.as_ref().map_or(0, |_| request.gui_revision + 1);
         }
-        if !s.requests.push(request) {
-            s.fail(OVERFLOW, self.position);
-            return Err(2);
+        let mut direct_result:Option<Completion>=None;
+        #[cfg(target_os="linux")]
+        if let Some(audio)=self.direct_audio.as_mut() {
+            if !exact || self.delay!=0 {s.fail(CORRELATION,self.position);return Err(2);}
+            let until=deadline.unwrap_or_else(||Instant::now()+crate::performance::AUDIO_CONTAINMENT);
+            // START acknowledgement is the control fence. Once ready, neither
+            // AUDIO publication nor reply waits for the mutable Session worker.
+            while s.processing_ready_epoch.load(Ordering::Acquire)!=self.epoch {
+                let observed=s.completion.snapshot();
+                if s.processing_ready_epoch.load(Ordering::Acquire)==self.epoch {break;}
+                if s.cancelled.load(Ordering::Acquire)||s.quit.load(Ordering::Acquire) {
+                    return Err(COMPLETION_CANCELLED);
+                }
+                if s.fault.load(Ordering::Acquire)!=0 {return Err(2);}
+                if Instant::now()>=until {s.fail_deadline(self.position,self.deadline_identity(s,false));return Err(COMPLETION_EXPIRED);}
+                s.completion.wait(observed,until);
+            }
+            let submitted=s.direct_submitted.fetch_add(1,Ordering::AcqRel);
+            let Some(submitted)=submitted.checked_add(1) else {s.fail(OVERFLOW,self.position);return Err(2);};
+            if !request.gain.is_nan() || request.event_count>0 {s.last_edit.store(submitted,Ordering::Release);}
+            let done=match audio.process(&mut request,until) {
+                Ok(done)=>done,
+                Err(crate::direct_audio::Failure::Expired)=>{
+                    s.fail_deadline(self.position,self.deadline_identity(s,true));return Err(COMPLETION_EXPIRED);
+                }
+                Err(crate::direct_audio::Failure::Cancelled)=>return Err(COMPLETION_CANCELLED),
+                Err(_)=>{s.fail(CORRELATION,self.position);return Err(2);}
+            };
+            let mut result=Completion::from(request);result.audio.flags=done.flags;
+            result.returned=done.returned;result.windows_sequence=done.sequence;
+            result.windows_process_ns=Some(done.process_ns);
+            if let Some(pool)=s.extra.get() {
+                let Some(slot)=pool.publish_available(&audio.mapping.extra,request.n as usize) else {
+                    s.fail(OVERFLOW,self.position);return Err(2);
+                };result.audio.extra_slot=slot;
+            }
+            s.notice_traits.store(done.traits,Ordering::Release);
+            s.notices.fetch_or(done.notices as u64,Ordering::Release);
+            s.processed.fetch_add(1,Ordering::Relaxed);
+            #[cfg(feature="rpi0")]
+            s.processed_frames.fetch_add(request.n as u64,Ordering::Relaxed);
+            s.direct_completed.store(submitted,Ordering::Release);
+            direct_result=Some(result);
         }
-        s.work.notify();
-        if !request.gain.is_nan() || request.event_count > 0 {
+        if direct_result.is_none() {
+            if !s.requests.push(request) {s.fail(OVERFLOW,self.position);return Err(2);}
+            s.work.notify();
+        }
+        if direct_result.is_none() && (!request.gain.is_nan() || request.event_count > 0) {
             s.last_edit.store(s.requests.published(), Ordering::Release);
         }
         self.delivery = Delivery::default();
@@ -854,7 +926,7 @@ impl Callback {
                 if s.fault.load(Ordering::Acquire) != 0 || s.terminal_latched.load(Ordering::Acquire) {
                     return Err(2);
                 }
-                if let Some(item) = s.results.pop() { break Some(item); }
+                if let Some(item) = direct_result.take().or_else(||s.results.pop()) { break Some(item); }
                 let Some(until) = deadline else { break None; };
                 let satisfied = if exact { self.completed_operation >= request.ticket }
                     else { n == 0 || self.next_result >= required_end };
@@ -1163,6 +1235,37 @@ impl Drop for Guard<'_> {
         self.0.store(false, Ordering::Release);
     }
 }
+#[cfg(target_os="linux")]
+struct DeathWatch { stop:Arc<AtomicBool>, thread:Option<JoinHandle<()>> }
+#[cfg(target_os="linux")]
+impl DeathWatch {
+    fn start(socket:std::net::TcpStream,s:Arc<Shared>)->io::Result<Self> {
+        use std::os::fd::AsRawFd;
+        let stop=Arc::new(AtomicBool::new(false));let stopping=stop.clone();
+        let thread=thread::Builder::new().name("lvb-peer-health".into()).spawn(move||{
+            let mut fd=libc::pollfd {fd:socket.as_raw_fd(),events:libc::POLLRDHUP,revents:0};
+            while !stopping.load(Ordering::Acquire) {
+                let result=unsafe {libc::poll(&mut fd,1,20)};
+                if stopping.load(Ordering::Acquire) {break;}
+                if result<0 {
+                    if io::Error::last_os_error().kind()==io::ErrorKind::Interrupted {continue;}
+                    s.fail(WORKER,u64::MAX);break;
+                }
+                if fd.revents&(libc::POLLRDHUP|libc::POLLHUP|libc::POLLERR|libc::POLLNVAL)!=0 {
+                    s.fail(WORKER,u64::MAX);break;
+                }
+            }
+        })?;
+        Ok(Self {stop,thread:Some(thread)})
+    }
+}
+#[cfg(target_os="linux")]
+impl Drop for DeathWatch {
+    fn drop(&mut self) {
+        self.stop.store(true,Ordering::Release);
+        if let Some(thread)=self.thread.take() {let _=thread.join();}
+    }
+}
 fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBuf>, preparation: Option<crate::scheduling::Preparation>) {
     #[cfg(target_os = "linux")]
     {
@@ -1175,6 +1278,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
     let mut deferred = None;
     let mut terminal_context = None;
     let mut phases = PhaseRecords::default();
+    #[cfg(target_os="linux")]
+    let mut death_watch:Option<DeathWatch>=None;
     if let Some(status) = &mut session.fault_status {
         status.generation = s.generation;
     }
@@ -1202,7 +1307,10 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                     .lock()
                     .map_err(|_| invalid("state mailbox poisoned"))?;
                 if let Some(c) = mailbox.as_mut() {
-                    if c.result.is_none() && s.requests.consumed() >= c.barrier {
+                    let mut audio_fenced=true;
+                    #[cfg(target_os="linux")]
+                    if let Some(barrier)=c.direct_barrier {audio_fenced=s.direct_completed.load(Ordering::Acquire)>=barrier;}
+                    if c.result.is_none() && s.requests.consumed() >= c.barrier && audio_fenced {
                         s.worker_op.store(c.op as u64, Ordering::Release);
                         if session.capture.is_none() {
                             previous_control = [c.op as u64, crate::observer::monotonic_ns(), 0, c.barrier];
@@ -1227,7 +1335,17 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                                     )
                                     .map(|_| vec![])
                             }
-                            20 => session.configure(c.bytes.clone()),
+                            20 => session.configure(c.bytes.clone()).and_then(|reply| {
+                                #[cfg(target_os="linux")]
+                                if let Some(audio)=session.prepare_direct_audio()? {
+                                    if s.direct.get().is_none() {
+                                        s.direct.set(audio.channel.clone()).map_err(|_|invalid("direct channel already prepared"))?;
+                                    }
+                                    *s.prepared_audio.lock().map_err(|_|invalid("prepared audio owner poisoned"))?=Some(Box::new(audio));
+                                    if death_watch.is_none() {death_watch=Some(DeathWatch::start(session.socket.try_clone()?,s.clone())?);}
+                                }
+                                Ok(reply)
+                            }),
                             14 => session.transition(14).map(|_| {
                                 s.processing_ready_epoch.store(0, Ordering::Release);
                                 phases.record(&s, "deactivated", session.epoch);
@@ -1519,6 +1637,7 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                     session.transition_epoch(item.kind as u16, item.epoch)?;
                     s.processing_ready_epoch.store(if item.kind == START { item.epoch } else { 0 }, Ordering::Release);
                     phases.record(&s, if item.kind == START { "processing_ready" } else { "processing_stopped" }, item.epoch);
+                    s.completion.notify();
                     s.ack.store(
                         ((item.epoch) << 8) | u64::from(item.kind + 1),
                         Ordering::Release,
@@ -1535,6 +1654,8 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
             }
         }
     })();
+    #[cfg(target_os="linux")]
+    drop(death_watch);
     s.processing_ready_epoch.store(0, Ordering::Release);
     phases.record(&s, if run.is_ok() { "closing" } else { "failed" }, session.epoch);
     if let Err(ref error) = run {
@@ -2192,6 +2313,8 @@ unsafe fn control(id: u64, op: u32, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
         }
         *c = Some(Control {
             barrier,
+            #[cfg(target_os="linux")]
+            direct_barrier:s.direct.get().map(|_|s.direct_submitted.load(Ordering::Acquire)),
             op,
             bytes,
             result: None,
@@ -2324,6 +2447,11 @@ unsafe fn setup(
                 let live=INSTANCES.lease(id).ok_or_else(||invalid("setup instance absent"))?;
                 if live.minor>=13 {live.shared.prepare_outputs(&bytes)?;}
             }
+            #[cfg(target_os="linux")]
+            INSTANCES.update(id,|l|->io::Result<()> {
+                if l.callback.get_mut().running {return Err(invalid("configuration during playback"));}
+                l.callback.get_mut().direct_audio.take();Ok(())
+            }).map_err(|_|invalid("setup instance ownership"))??;
             let reply = control(id, 20, bytes.clone())?;
             let vendor = ap1_native_client::get(&reply[..4]) as u32;
             let total = vendor
@@ -2336,6 +2464,8 @@ unsafe fn setup(
                     else { maximum.min(256) as usize };
                 let channels = l.shared.extra.get().map_or(2, |pool| pool.channels + 2);
                 callback.prepare(block_maximum, channels, delay as usize); l.max=maximum as usize;
+                #[cfg(target_os="linux")]
+                {callback.direct_audio=l.shared.prepared_audio.lock().map_err(|_|invalid("prepared audio owner poisoned"))?.take();}
                 l.setup=Some(bytes);
                 if let Some(path)=&l.report {
                     crate::preview::append_report(path,format!("{{\"event\":\"ap9_setup\",\"protocol_minor\":{minor},\"host_maximum\":{maximum},\"transport_maximum\":{},\"sample_rate\":{rate},\"bridge_frames\":{delay},\"vendor_frames\":{vendor},\"total_frames\":{total},\"vendor_precision_bits\":{}}}\n",if crate::performance::whole_block(minor) {maximum} else {maximum.min(256)},ap1_native_client::get(&reply[8..12])).as_bytes());
@@ -3472,6 +3602,95 @@ mod completion_contract_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(target_os="linux")]
+    fn direct_fixture(epoch:u64)->(Callback,Arc<Shared>,crate::direct_audio::Endpoint,
+        std::fs::File,std::path::PathBuf) {
+        use std::fs::OpenOptions;
+        let root=std::env::temp_dir().join(format!("lvb-direct-route-{}-{}",std::process::id(),crate::observer::monotonic_ns()));
+        std::fs::create_dir(&root).unwrap();
+        let file=OpenOptions::new().read(true).write(true).create_new(true).open(root.join("delivery")).unwrap();
+        file.set_len(crate::direct_audio::BYTES as u64).unwrap();
+        let channel=crate::direct_audio::Endpoint::prepare(&file).unwrap();
+        let mut mapping=ap1_native_client::mapping::Mapping::with_layout(&root.join("samples"),64,true).unwrap();
+        let render=OpenOptions::new().read(true).write(true).open(root.join("samples")).unwrap();
+        let audio=mapping.transfer_audio().unwrap();
+        assert!(mapping.transfer_audio().is_err());
+        assert!(mapping.write(ap1_native_client::INPUT,&[0]).is_err());
+        assert!(mapping.read(ap1_native_client::INPUT,1).is_err());
+        let shared=Arc::new(Shared::new());shared.direct.set(channel.clone()).ok().unwrap();
+        shared.processing_ready_epoch.store(epoch+1,Ordering::Release);
+        let mut callback=Callback::new();callback.prepare(128,2,0);callback.running=true;callback.epoch=epoch+1;
+        callback.direct_audio=Some(Box::new(crate::direct_audio_session::AudioSession::prepare(channel.clone(),audio,[7;16],0,epoch).unwrap()));
+        (callback,shared,channel,render,root)
+    }
+    #[cfg(target_os="linux")]
+    fn direct_reply(channel:&crate::direct_audio::Endpoint,mapping:&mut std::fs::File,
+        expected:(u64,u64,u64,u32)) {
+        use ap1_native_client::{Frame,get,put,INPUT,BLOCK_STRIDE,BLOCK_OUTPUT};
+        use std::io::{Seek,SeekFrom,Read,Write};
+        let bytes=channel.render_receive(Instant::now()+Duration::from_secs(2)).unwrap();
+        let frame=Frame::decode_version(&bytes,15).unwrap();let n=get(&frame.payload[..4]) as usize;
+        assert_eq!((get(&frame.payload[32..40]),frame.sequence,get(&frame.payload[40..48]),n as u32),expected);
+        for ch in 0..2 {
+            let mut bytes=vec![0;n*4];mapping.seek(SeekFrom::Start((INPUT+ch*BLOCK_STRIDE+4) as u64)).unwrap();mapping.read_exact(&mut bytes).unwrap();
+            mapping.seek(SeekFrom::Start((BLOCK_OUTPUT+ch*BLOCK_STRIDE+4) as u64)).unwrap();mapping.write_all(&bytes).unwrap();
+        }
+        let mut payload=vec![0;72];put(&mut payload[..4],n as u64);put(&mut payload[4..8],BLOCK_OUTPUT as u64);
+        put(&mut payload[16..24],expected.0);put(&mut payload[24..32],expected.2);put(&mut payload[32..40],123);
+        channel.render_reply(&Frame {kind:4,session:[7;16],sequence:frame.sequence,payload}.encode_version(15).unwrap());
+    }
+    #[cfg(target_os="linux")]
+    #[test]
+    fn direct_callback_completes_while_control_store_is_stalled_and_reprepares_epoch() {
+        for epoch in [0,1] {
+            let (mut callback,shared,channel,mut mapping,root)=direct_fixture(epoch);
+            // These exact control locks are deliberately held throughout all AUDIO calls.
+            let control=shared.control.lock().unwrap();let snapshots=shared.snapshots.lock().unwrap();
+            shared.pending_control.store(true,Ordering::Release);
+            let render=thread::spawn(move||for (ticket,position,n) in [(1,0,64),(2,64,0),(3,64,128)] {
+                direct_reply(&channel,&mut mapping,(epoch+1,ticket,position,n));
+            });
+            for n in [64,0,128] {
+                let mut item=Item::control(AUDIO,epoch+1);item.n=n;item.gain=f64::NAN;
+                item.data[0][..n as usize].fill(0.25);item.data[1][..n as usize].fill(-0.5);
+                item.completion=Some(crate::performance::CompletionPolicy {allowance:Duration::from_secs(2),deadline:Instant::now()+Duration::from_secs(2),exact:true});
+                let mut out=[[0.;CAP];2];let end=item.completion.unwrap().deadline;
+                let (result,allocations)=crate::allocation_test::measure(||callback.process_outputs_until(&shared,item,&mut out,&[],0,Some(end)));
+                assert_eq!(result,Ok(if n==0 {3} else {0}));assert_eq!(allocations,[0;3]);
+                assert_eq!(&out[0][..n as usize],&item.data[0][..n as usize]);
+                assert_eq!(&out[1][..n as usize],&item.data[1][..n as usize]);
+            }
+            assert_eq!(shared.requests.published(),0);assert_eq!(shared.processed.load(Ordering::Acquire),3);
+            assert_eq!(shared.direct_submitted.load(Ordering::Acquire),3);assert_eq!(shared.direct_completed.load(Ordering::Acquire),3);
+            render.join().unwrap();drop(control);drop(snapshots);drop(callback);
+            std::fs::remove_dir_all(root).unwrap();
+        }
+    }
+    #[cfg(target_os="linux")]
+    #[test]
+    fn direct_peer_fin_with_unread_state_wakes_callback_while_store_is_stalled() {
+        use std::io::Write;
+        let (mut callback,shared,channel,_mapping,root)=direct_fixture(0);
+        let listener=std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut peer=std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (socket,_)=listener.accept().unwrap();let watch=DeathWatch::start(socket,shared.clone()).unwrap();
+        let snapshots=shared.snapshots.lock().unwrap();let control=shared.control.lock().unwrap();
+        let (published,wait)=std::sync::mpsc::channel();
+        let render=thread::spawn(move||{
+            channel.render_receive(Instant::now()+Duration::from_secs(2)).unwrap();published.send(()).unwrap();
+        });
+        let callback_shared=shared.clone();
+        let callback=thread::spawn(move||{
+            let mut item=Item::control(AUDIO,1);item.n=64;item.gain=f64::NAN;
+            item.completion=Some(crate::performance::CompletionPolicy {allowance:Duration::from_secs(5),deadline:Instant::now()+Duration::from_secs(5),exact:true});
+            callback.process_outputs_until(&callback_shared,item,&mut [[0.;CAP];2],&[],0,Some(item.completion.unwrap().deadline))
+        });
+        wait.recv_timeout(Duration::from_secs(2)).unwrap();thread::sleep(Duration::from_millis(20));
+        let begin=Instant::now();peer.write_all(b"unread state bytes").unwrap();peer.shutdown(std::net::Shutdown::Write).unwrap();
+        assert_eq!(callback.join().unwrap(),Err(COMPLETION_CANCELLED));assert!(begin.elapsed()<Duration::from_millis(200));
+        assert_eq!(shared.fault.load(Ordering::Acquire),WORKER);
+        render.join().unwrap();drop(watch);drop(snapshots);drop(control);std::fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn pending_start_control_barrier_preserves_publication_order_across_pop() {
         let shared = Shared::new();
@@ -3481,6 +3700,8 @@ mod tests {
 
         *shared.control.lock().unwrap() = Some(Control {
             barrier: shared.requests.published(),
+            #[cfg(target_os="linux")]
+            direct_barrier:None,
             op: 16,
             bytes: vec![],
             result: None,
@@ -5305,6 +5526,7 @@ mod tests {
             gui_revision: 0,
             mailbox: None,
             mailbox_enabled: false,
+            #[cfg(target_os="linux")] direct_requested:false,
                 capture: None,
         fault_status: None,
             notices: (0, 0),
@@ -5383,7 +5605,8 @@ mod tests {
         let session=Session {
             notifications:None,configured_mode:0,
             gui:None,gui_revision:0,mapping:Some(ap1_native_client::mapping::Mapping::new(&dir.join("ap1.audio")).unwrap()),
-            mailbox:None,mailbox_enabled:false,capture:None,fault_status:Some(status),notices:(0,0),returned:Default::default(),processing:crate::ProcessingScratch::new(),socket,
+            mailbox:None,mailbox_enabled:false,
+            #[cfg(target_os="linux")] direct_requested:false,capture:None,fault_status:Some(status),notices:(0,0),returned:Default::default(),processing:crate::ProcessingScratch::new(),socket,
             state:ClientState{session:[31;16],next:104687,slot:Slot::Writable},phase:11,max:CAP,minor:11,epoch:2,position:768,
             witness:None,identity:None,trace:Default::default(),sample_rate:48000,armed:false,owner:None,
         };
@@ -5567,6 +5790,7 @@ mod tests {
                 gui_revision: 0,
                 mailbox: None,
                 mailbox_enabled: false,
+            #[cfg(target_os="linux")] direct_requested:false,
                 capture: None,
         fault_status: None,
                 notices: (0, 0),

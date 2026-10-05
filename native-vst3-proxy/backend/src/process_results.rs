@@ -1,5 +1,8 @@
 //! Owned, bounded VST3 process results. No SDK pointers cross the worker boundary.
-use ap1_native_client::{get, need};
+use ap1_native_client::get;
+fn rt_need(ok: bool, reason: &'static str) -> Result<(), &'static str> {
+    if ok { Ok(()) } else { Err(reason) }
+}
 use std::io;
 pub const EVENTS: usize = 64;
 pub const POINTS: usize = 128;
@@ -58,13 +61,16 @@ impl Default for Packet {
 }
 impl Packet {
     pub fn decode(b: &[u8], frames: usize) -> io::Result<Self> {
-        need(b.len() >= 16, "process result header")?;
+        Self::decode_rt(b, frames).map_err(ap1_native_client::invalid)
+    }
+    pub(crate) fn decode_rt(b: &[u8], frames: usize) -> Result<Self, &'static str> {
+        rt_need(b.len() >= 16, "process result header")?;
         let (ne, np, nb) = (
             get(&b[..4]) as usize,
             get(&b[4..8]) as usize,
             get(&b[8..12]) as usize,
         );
-        need(
+        rt_need(
             ne <= EVENTS
                 && np <= POINTS
                 && nb <= PAYLOAD
@@ -97,7 +103,7 @@ impl Packet {
                 value: get(&r[48..56]),
                 extra: get(&r[56..64]),
             };
-            need(
+            rt_need(
                 e.valid(frames, &p.payload[..nb]),
                 "malformed returned event",
             )?;
@@ -110,7 +116,7 @@ impl Packet {
                 id: get(&r[4..8]) as u32,
                 value: f64::from_bits(get(&r[8..16])),
             };
-            need(
+            rt_need(
                 q.offset >= 0 && (q.offset as usize) < frames.max(1) && normal(q.value),
                 "malformed returned parameter",
             )?;
