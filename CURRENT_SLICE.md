@@ -30,7 +30,7 @@ call dispatch. Routing to the actual audio caller is not yet established.
 ## Next change
 
 One opt-in diagnostic paces recurring AP10/AP11 polls to 100 ms while retaining
-the 10 ms close/focus timer, immediate bootstrap/commands and every queued event.
+the 10 ms close/focus timer, immediate bootstrap/commands and bounded queued-event delivery.
 It adds notification latency and is not an accepted production default.
 Reuse Windows/runtime bits, build the native candidate, and repeat the same
 600-second captured fixture. Keep or revert according to the drop count.
