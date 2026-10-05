@@ -986,6 +986,28 @@ physical product result is claimed.
 
 ## FC-AUDIO-001 — Residual audio deadline misses
 
+The approved D-030 ordered-completion contract now passes the
+[refresh5deck physical first-party SDK comparison](../evidence/audio-recovery/2026-10-04-refresh5deck-physical-completion.md):
+all 24 first-attempt lifetimes return complete correct audio/events/parameters,
+meaningful exact state recall and authenticated retirement. This includes short
+N13 tails, final-N0 Buffered predecessor debt and the D0/N64 main window. Across
+96,172 calls, 57,357,536 captured sample values match exactly. Source controls
+separately discriminate outstanding replies from validated owned results awaiting
+publication; they do not attribute every earlier physical failure.
+
+One originating callback-entry absolute five-second host-health containment bound
+now covers each queued AUDIO and final SDK sinks without renewing predecessors.
+This explicitly approved policy replaces the local N/Fs/N0 1 ms expiry; it does not
+define an external audio deadline or guarantee wall-clock return during descheduling
+or an unpreempted SDK sink. Six nonzero calls exceed the independent N/Fs cadence
+reference, including two main calls. All 24 native workers remain SCHED_OTHER
+0/priority 0; RTKit exit 1 still does not expose the exact DBus reason. Windows
+priority 5 effective readback exists in all 24 cells, without continuity proof.
+The first cell was cold and later 23 used the managed warm keeper in each generation.
+FC-AUDIO-001 remains open for real timing/scheduling, native reason observability,
+real DAW/musical continuity and the separate retained failures below. Complete SDK
+output under the containment policy is not dependable-audio or beta qualification.
+
 The [refresh4deck physical report](../evidence/audio-recovery/2026-10-04-refresh4deck-physical-timing.md)
 retains the complete first-attempt 24-cell Completion instrument/effect matrix at
 48 kHz, M=N=256/128/64, SameCallback D0 and Buffered D256, diagnostics OFF/ON.
@@ -1006,14 +1028,16 @@ cold; subsequent invocations retained the managed warm environment keeper.
 Single OFF/ON observations and request-histogram bucket bounds do not establish
 causality, scheduling continuity, intrinsic cost, DAW deadlines or dependable audio.
 
-The next bounded architectural target is shared legal short/zero-frame completion
-and containment, with request/result/predicate attribution and a justified deadline
+At that refresh4 checkpoint, the next bounded architectural target was shared
+legal short/zero-frame completion and containment, with request/result/predicate attribution and a justified deadline
 policy. Distinguish unfinished rendering from completed work blocked by presentation/
 control ordering. Review one callback-entry time origin without resetting/stacking
 allowances; observed N/Fs and 1 ms constants are not authoritative general policy.
 The policy needs DAW/device justification. Retain the observed main N64 failure and
 the native scheduling-reason gap.
-The measurement authorizes no additional source repair or allowance change.
+That measurement alone authorized no source repair or allowance change. The
+subsequent explicit operator-approved D-030 amendment and refresh5 result above
+are separate authority and evidence; all original failures remain retained.
 
 The [2026-10-03 config4 Ubuntu workflow](../evidence/preparation/2026-10-03-managed-configuration-installed.json)
 contains a separate confirmed missing-output result. While applying a second
@@ -2867,3 +2891,24 @@ experimental replacement was needed. The selected service is healthy and all tes
 DSP owners retired. Physical timing subsequently ran and failed full audio acceptance
 under FC-AUDIO-001. Full restoration/interruption and modern cached-caller installed
 restoration remain deferred, so FC-MGMT-008 remains open.
+
+The [refresh5deck normal update](../evidence/audio-recovery/2026-10-04-refresh5deck-physical-completion.json)
+exposes a remaining engine-delivery gap. Application files and one Update Bridge
+action select the revised manager/software/kit with confirmed service cleanup,
+but all 10 modern publication registration and revision refs remain byte-identical
+on the previous engine. The existing refresh predicate checks loaded-engine
+admission capability; it does not refresh these already-modern publications to
+the newly selected engine. Existing behavior is evidence, not authority that this
+customer journey is sufficient.
+
+Only the two first-party Completion fixtures then selected the reviewed engine
+through actual offered rescan, reinspection, preparation and experimental
+replacement actions. All 8 commercial registrations/preferences, exact artifacts
+and retained predecessors stayed unchanged on their previous engines. A first
+independent verifier's immediate-parent assertion refused; retained lineage
+readback established exact unchanged selections and reachable predecessor bytes,
+so this is not an observed preservation loss. Successful test-fixture preparation
+and its 24 passing audio/state lifetimes do not close automatic end-customer engine
+update delivery or qualify commercial processing on the revised engine. That
+connected product-update work and full restoration remain open; no update-policy
+repair was included in the audio slice.

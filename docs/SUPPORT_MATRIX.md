@@ -732,3 +732,42 @@ All test DSP owners retired, service health and cleanup are confirmed, and the
 healthy product environment keeper remains. Commercial preferences are untouched;
 both first-party fixtures end on SameCallback D0 with remembered Buffered 256.
 Manager/stream closed normally; builders and the capacity VM are stopped.
+
+### 2026-10-04: approved bounded completion on physical Deck
+
+The [refresh5deck comparison](../evidence/audio-recovery/2026-10-04-refresh5deck-physical-completion.md)
+passes all 24 first-attempt Completion 1.0.0 instrument/effect SDK lifetimes at
+Fs=48000, M=N=256/128/64, SameCallback D0/Buffered D256 and diagnostics OFF/ON.
+All 57,357,536 captured sample values, returned events/parameters and 24 meaningful
+state round trips pass; all 24 test owners/transports retire. This is the installed
+comparison of the accepted D-030 shared legal short/zero-frame completion policy,
+not commercial or DAW/device timing qualification. The refresh4 8/24 result and
+its failed main N64 observation remain retained.
+
+Five seconds is the originating AUDIO host-health containment ceiling, retained
+per queued request and checked through final SDK sinks. Earlier predecessor
+bounds never renew; requested expiry does not preempt OS descheduling or SDK sinks.
+Six nonzero N/Fs cadence reference exceedances remain, including two main callbacks;
+no SDK refusal or raw SDK span over 5s occurred. Native workers remain ordinary
+scheduled, with the exact RTKit DBus failure reason unknown. Windows priority 5
+has effective readback in all 24 cells; scheduling continuity is unproved. Both
+generations start one cell cold and use a warm keeper for the remaining 23.
+Single first attempts do not establish causal diagnostics, latency improvement,
+repeatability, real-time, DAW, soak, dependable audio or beta acceptance.
+
+Normal installer/one Update Bridge action selects refresh5 software and kit but
+leaves all 10 modern publications on their exact old native engines/revisions.
+Only the two Completion fixtures acquired the new engine through offered managed
+rescan/reinspection/preparation/experimental replacement. All 8 commercial
+preferences, registrations and current/predecessor artifacts are unchanged;
+commercial processing on the new engine is unqualified. This remains the
+FC-MGMT-008 end-customer engine-update delivery gap, alongside deferred restoration.
+Fixture preparation is not generic update completion.
+
+Final cleanup has DSP 0/maintenance 0, healthy service and all 24 test sessions retired.
+The intended product inspection keeper remains; both Completion fixtures end on
+SameCallback with remembered Buffered 256. Manager/Moonlight closed normally,
+builders/capacity VM stopped, Audiobookshelf running. FC-AUDIO-001 remains open
+for actual timing/scheduling and separate retained musical failures. Real DAW
+project/reboot, full recovery, commercial/catalogue/platform and distribution
+qualification remain separate.
