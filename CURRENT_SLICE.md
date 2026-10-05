@@ -1,42 +1,33 @@
-# Current task: native VST3 process-call timing
+# Completed task: host-to-call scheduling observation
 
-## Completed bounded outcome
+Base `72ad8ff6b69ed65f0ad2738320b67f3c9de8b066`, tree
+`3f175c88a102e89f611e766e3f7bf5ba3351b062`, branch `codex/audio-callback-timing`.
+Basis: current operator order, AGENTS.md ownership/evidence rules, GOVERNANCE.md
+completion and architecture 18.1–18.4 whole-call observations.
 
-Source/observer and installed measurement endpoint complete; commercial continuity
-remains unqualified. Base74705deb47d256326feaba8a11b4de4b39cfb0fa/tree
-43b2e347a11b79e1e0c06e0d96804d818c57bfbd. Branch codex/audio-callback-timing,
-draftPR209 stacked on completion/#207. Installed source d67b4bd5/tree
-146aa4444ee38ca8368e233cde56bafb4430eb23; CI-only successor441ef82f changes no
-executable/package input. Basis: operator order, AGENTS.md real-time/ownership,
-GOVERNANCE.md evidence/completion, architecture18.1–18.4 and D-030.
+Bounded claim completed: independently classify the authenticated SDK caller's
+measured bodies and return-to-next-entry intervals as scheduled, runnable or
+sleeping within the verified retained prefix. The one declared 180-second Pure
+LoFi editor-closed acquisition failed at the unchanged compressed recording cap.
+Full-window/audio acceptance failed; complete 79,649-call export, 14,601 joined
+bodies and 14,600 arrivals remain useful. Actual event span is 155.746834 seconds;
+post-start attribution is 155.746471 seconds. See the authoritative
+[report](evidence/audio-recovery/2026-10-05-bitwig-host-call-scheduling.md).
 
-Permanent default-off/preallocated telemetry measures original SDK entry through
-body/Guard cleanup on every exit, with actualN/context/caller PID/TID. Publication/
-epilogue tail is excluded and unbounded by the observed test maximum. Export only
-off RT; saturation/invalid/unfinished/export failures explicit. Reviewed source
-controls and CI pass. Three first-attempt180s Bitwig observations on one candidate
-retain132,040 lifetime/50,624 active calls with complete successful export and no
-observer loss. Every active caller maps through live sampled census; all actualN512.
+Fixture: frozen timing1deck source `d67b4bd5`/engine `82a78f2e`; Pure LoFi
+1.0.0.6121, saved Little Pleasures/S1 four notes at 110 BPM, SameCallback, editor
+closed; Bitwig Flatpak 6.1, actual N512/Fs48000. Caller OTHER0 and transport/render
+RR5 remain distinct. Original cap, recorder ERR+2, missing end marker, censored
+edges and ambiguous wake remain explicit. Conserved offline prefix export does
+not turn the failed acquisition into a pass; earlier export failures are retained.
 
-The [installed report](evidence/audio-recovery/2026-10-05-bitwig-process-call-timing.md)
-owns exact distributions, active graph deltas, full output/rest/zero observations,
-identities, first failures and retained hashes. Both commercial conditions have
-+3 active graph errors/three512-frame stereo-zero spans despite no measured call
-above8ms; first-party reference has different DSP and no active graph increment.
-No editor effect, causal gap, isolated bridge overhead, device-deadline or audio
-qualification follows. N/Fs is cadence context; sample alignment is not an entry
-gate. Actual callerOTHER0, transport/renderRR5 and environment wineserverOTHER0
-remain separate; no scheduling change. Next bounded observation target is
-host-to-call scheduling/admission; no implementation or run on that target now.
+Next unresolved boundary: host blocking/admission mechanism and intended wake
+schedule. Outside-call time includes normal idle time; scheduler states do not
+identify an IPC primitive, device deadline or audio-gap cause. No next experiment
+or source/priority/runner/editor/graphics repair is authorized by this pointer.
 
-## Preservation and custody
-
-All test consumers retire/DSP0/maintenance0; healthy managed keepers retained.
-Candidate stays installed. Only two offered preparations select its engine;
-eight other Published siblings, Removed record, preferences/predecessors and
-original projects preserved. Working copies saved; GUI/stream closed, owned
-builder stopped, no VM timing. Prior completion/#207 remains intact. Commercial
-continuity/recall, interaction/soak, updateUX and beta remain unqualified.
-Execution/source/SSH: Sol6.1 xhigh; GUI: Sol6.1 high; review: Astra6 xhigh;
-root orchestrates. No priority/runtime/editor repair, automatic rollback or new
-campaign. Commit/push reviewed evidence and update draft209; no merge.
+Evidence/status changes only; product source unchanged. Normal save/quit and owner
+retirement complete; GUI/stream closed, healthy keeper/service retained, original
+projects/licensed state/selections preserved. Candidate stays installed. No retry,
+rollback, merge, continuity/soak/beta or causal qualification. Execution/source/SSH:
+Sol6.1 xhigh; GUI: Sol6.1 high; review: Astra6 xhigh; root orchestrates.
