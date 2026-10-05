@@ -1,0 +1,915 @@
+{
+  "schema": 1,
+  "date": "2026-10-04",
+  "status": "INCOMPLETE_TRACE_STORAGE_CAP_BEFORE_ACTIVE_MARKER_NO_AUDIO_TIMING_CLAIM",
+  "source": {
+    "commit": "d970eda91be4bc972d38a0d4b107cc5f4ededa54",
+    "tree": "57a484beee1f28cb6d0df85f25977b458d64a1ff",
+    "engine_sha256": "add49d7a5ed38c44d55395f58d471656d33a7ef8f097cdd43de2332ebe04fbd0",
+    "windows_host_sha256": "c8587d8c75ddce80c2317a10070735c65b30b6bc1649ff219821c44689bcf05f",
+    "package": "0.12.0refresh5deck",
+    "unchanged": true
+  },
+  "fixture": {
+    "name": "Pure LoFi",
+    "version": "1.0.0.6121",
+    "class_id": "417274754156495350724C4650726F63",
+    "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+    "revision": "a31b86347649682d6dd8dfd8520425cc",
+    "delivery": "SameCallback",
+    "remembered_added_frames": 512,
+    "host": "Retained Bitwig6.1/Flatpak fixture; actual native consumer Flatpak, Windows worker outside",
+    "host_versions_currently_refreshed": false,
+    "graph_quantum": 512,
+    "graph_rate": 48000,
+    "recorder_format": {
+      "format": "F32LE",
+      "channels": 2,
+      "rate": 48000,
+      "positions": [
+        "FL",
+        "FR"
+      ],
+      "negotiated": true,
+      "explicit_bitwig_output_only": true,
+      "speaker_links_preserved": true
+    },
+    "maximum_vst3_frames_prior_baseline": 512,
+    "actual_VST3_N": "unobserved",
+    "actual_device_deadline": "unobserved",
+    "editor": "Stopped proof, launch briefly occluded existing editor, then editor raised; normal stop/quit screenshots retained",
+    "workload": "Same single S1 four-note110BPM clip; no admitted active marker or180s window",
+    "startup": "Fresh DSP consumer from an existing managed keeper; no cold claim",
+    "per_window_power_readback": "not retained; no power mutation"
+  },
+  "authorization": {
+    "user_authorized_reusable_remote_administrator_access": true,
+    "hidden_mac_terminal_enrollment": true,
+    "password_in_chat_log_argv_environment_or_repo": false,
+    "storage": "macOS login Keychain via direct Security.framework",
+    "fresh_sudo_k_validation_before_storage": true,
+    "subsequent_fixed_verify_action_root_verified": true,
+    "trace_reused_credential": true,
+    "trace_root_uid": 0,
+    "sudoers_rootfs_or_global_permission_changes": false,
+    "admin_freeze_sha256": "facf442483b94a632acbabe91670beea6dd7ec7081b42e714108e3952ed1fc04"
+  },
+  "protocol": {
+    "trace_freeze_sha256": "ac1a8d4353d735075e8d70d3d14b13f703bd1e432280687488d6186b2258e510",
+    "trace_helper_sha256": "79ef6790167e2baf21562f315487d1d6746f308a4818a90f7e324991ff1c1a39",
+    "collection_freeze_sha256": "af291ff6a824fea0527825a6ee6a09233774dbb9d2476dd4a4c7b5d547c567dc",
+    "correction": "Recorder ceiling600s; graph/trace launch and readiness<=recorder start+60s; playback<=+120s; normal stop<=playback start+240s; actual origin enforced",
+    "prior_ABBA_failure_preserved": true,
+    "single_first_attempt": true,
+    "no_rerun_cap_increase_or_product_change": true
+  },
+  "target": {
+    "monotonic_ns": 213380866919685,
+    "uid": 1000,
+    "pid": 453822,
+    "tid": 453957,
+    "pid_start": 21341962,
+    "tid_start": 21342653,
+    "namespace_pid": 162,
+    "namespace_tid": 178,
+    "session": "5c5da790afb53a35b7aa789f776e96ae",
+    "engine_sha256": "add49d7a5ed38c44d55395f58d471656d33a7ef8f097cdd43de2332ebe04fbd0",
+    "native_policy": 1073741826,
+    "native_priority": 5,
+    "nice": 0,
+    "affinity": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "rttime_us": [
+      200000,
+      200000
+    ],
+    "windows": {
+      "pid": 453931,
+      "tid": 453971,
+      "pid_start": 21342154,
+      "tid_start": 21342672,
+      "policy": 1073741826,
+      "priority": 5,
+      "affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "nice": 0,
+      "rttime_us": [
+        200000,
+        200000
+      ]
+    }
+  },
+  "scheduling": {
+    "identity_before": {
+      "monotonic_ns": 213817380050293,
+      "native": {
+        "pid_namespace": [
+          453822,
+          162
+        ],
+        "tid_namespace": [
+          453957,
+          178
+        ],
+        "policy": 1073741826,
+        "priority": 5,
+        "nice": 0,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "rttime_us": [
+          200000,
+          200000
+        ]
+      },
+      "windows": {
+        "pid_namespace": [
+          453931
+        ],
+        "tid_namespace": [
+          453971
+        ],
+        "policy": 1073741826,
+        "priority": 5,
+        "nice": 0,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "rttime_us": [
+          200000,
+          200000
+        ]
+      }
+    },
+    "identity_last": {
+      "monotonic_ns": 213829428118530,
+      "native": {
+        "pid_namespace": [
+          453822,
+          162
+        ],
+        "tid_namespace": [
+          453957,
+          178
+        ],
+        "policy": 1073741826,
+        "priority": 5,
+        "nice": 0,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "rttime_us": [
+          200000,
+          200000
+        ]
+      },
+      "windows": {
+        "pid_namespace": [
+          453931
+        ],
+        "tid_namespace": [
+          453971
+        ],
+        "policy": 1073741826,
+        "priority": 5,
+        "nice": 0,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "rttime_us": [
+          200000,
+          200000
+        ]
+      }
+    },
+    "identity_after": {
+      "monotonic_ns": 213830278056114,
+      "native": {
+        "pid_namespace": [
+          453822,
+          162
+        ],
+        "tid_namespace": [
+          453957,
+          178
+        ],
+        "policy": 1073741826,
+        "priority": 5,
+        "nice": 0,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "rttime_us": [
+          200000,
+          200000
+        ]
+      },
+      "windows": {
+        "pid_namespace": [
+          453931
+        ],
+        "tid_namespace": [
+          453971
+        ],
+        "policy": 1073741826,
+        "priority": 5,
+        "nice": 0,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "rttime_us": [
+          200000,
+          200000
+        ]
+      }
+    },
+    "windows_namespace_basis": "initial verified PID/start readback"
+  },
+  "trace": {
+    "summary": {
+      "schema": 2,
+      "completed_requested_window": false,
+      "bytes": 268428053,
+      "helper_cpu_seconds": 11.630225231999999,
+      "arm_requested_seconds": 60,
+      "active_requested_seconds": 180,
+      "hard_requested_seconds": 240,
+      "buffer_total_size_kb": 8216,
+      "overwrite": "1",
+      "active_elapsed_ns": null,
+      "capture_loss": false,
+      "unread_tail": true,
+      "storage_limit_reached": true,
+      "arm_timeout": false,
+      "drain_complete": false,
+      "instance_removed": true,
+      "tracing_disabled": true,
+      "events_disabled": true,
+      "loss_counts": {
+        "entries": 58,
+        "overrun": 0,
+        "commit overrun": 0,
+        "dropped events": 0
+      },
+      "failure_type": null,
+      "cleanup_failed": false
+    },
+    "armed_ns": 213817426147868,
+    "capture_end_ns": 213830275270546,
+    "armed_to_end_s": 12.849122678,
+    "playback_marker_seen": false,
+    "markers": [
+      {
+        "label": "armed",
+        "before_ns": 213817426085837,
+        "after_ns": 213817426144928
+      },
+      {
+        "label": "stop",
+        "before_ns": 213830275129213,
+        "after_ns": 213830275225585
+      }
+    ],
+    "events": {
+      "sched_switch": {
+        "filter": "none"
+      },
+      "sched_wakeup": {
+        "filter": "pid == 453957 || pid == 453971"
+      },
+      "sched_waking": {
+        "filter": "pid == 453957 || pid == 453971"
+      },
+      "sched_migrate_task": {
+        "filter": "pid == 453957 || pid == 453971"
+      }
+    },
+    "eligible_cpus": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "clock_readback": "local global counter uptime perf [mono] mono_raw boot tai x86-tsc",
+    "counts_before": {
+      "cpu0": {
+        "entries": 0,
+        "overrun": 0,
+        "commit overrun": 0,
+        "dropped events": 0
+      },
+      "cpu1": {
+        "entries": 0,
+        "overrun": 0,
+        "commit overrun": 0,
+        "dropped events": 0
+      },
+      "cpu2": {
+        "entries": 0,
+        "overrun": 0,
+        "commit overrun": 0,
+        "dropped events": 0
+      },
+      "cpu3": {
+        "entries": 0,
+        "overrun": 0,
+        "commit overrun": 0,
+        "dropped events": 0
+      },
+      "cpu4": {
+        "entries": 0,
+        "overrun": 0,
+        "commit overrun": 0,
+        "dropped events": 0
+      },
+      "cpu5": {
+        "entries": 0,
+        "overrun": 0,
+        "commit overrun": 0,
+        "dropped events": 0
+      },
+      "cpu6": {
+        "entries": 0,
+        "overrun": 0,
+        "commit overrun": 0,
+        "dropped events": 0
+      },
+      "cpu7": {
+        "entries": 0,
+        "overrun": 0,
+        "commit overrun": 0,
+        "dropped events": 0
+      }
+    },
+    "counts_after": {
+      "cpu0": {
+        "entries": 6,
+        "overrun": 0,
+        "commit overrun": 0,
+        "dropped events": 0
+      },
+      "cpu1": {
+        "entries": 16,
+        "overrun": 0,
+        "commit overrun": 0,
+        "dropped events": 0
+      },
+      "cpu2": {
+        "entries": 19,
+        "overrun": 0,
+        "commit overrun": 0,
+        "dropped events": 0
+      },
+      "cpu3": {
+        "entries": 5,
+        "overrun": 0,
+        "commit overrun": 0,
+        "dropped events": 0
+      },
+      "cpu4": {
+        "entries": 1,
+        "overrun": 0,
+        "commit overrun": 0,
+        "dropped events": 0
+      },
+      "cpu5": {
+        "entries": 5,
+        "overrun": 0,
+        "commit overrun": 0,
+        "dropped events": 0
+      },
+      "cpu6": {
+        "entries": 4,
+        "overrun": 0,
+        "commit overrun": 0,
+        "dropped events": 0
+      },
+      "cpu7": {
+        "entries": 2,
+        "overrun": 0,
+        "commit overrun": 0,
+        "dropped events": 0
+      }
+    },
+    "raw_file": {
+      "path": "run05-trace/scheduler.txt",
+      "bytes": 268428053,
+      "sha256": "3571fcd18538534fa2a4d1563f28fb134126d49ed8e01ca82347e9414ab94fd2"
+    },
+    "volume_cause": "unassigned; read-only partial-trace assessment pending",
+    "not_equivalent_to_loss_free_complete_capture": true
+  },
+  "paired_capture": {
+    "ready_fields": {
+      "monotonic_ns": 213810218641274,
+      "recorder_started_ns": 213810023286533,
+      "setup_deadline_ns": 213870023286533,
+      "start_admission_deadline_ns": 213930023286533,
+      "ceiling_ns": 214410023286533,
+      "recorder_pid": 454244,
+      "recorder_process_start": 21415351
+    },
+    "trace_launch": {
+      "monotonic_ns": 213816697065832,
+      "recorder_started_ns": 213810023286533,
+      "setup_deadline_ns": 213870023286533
+    },
+    "format": {
+      "rate": 48000,
+      "channels": 2,
+      "format": "F32LE",
+      "target": "explicit Bitwig-only links, no ambient source",
+      "speaker_links_preserved": true
+    },
+    "recording_capacity_seconds": 600,
+    "result": {
+      "monotonic_ns": 213909532673309,
+      "audio_bytes": 37736448,
+      "audio_sha256": "b1c8045768f9a88d22e057239ae80830ea6a1721123f9798606f2caa9597ea24",
+      "recorder_exit": 1,
+      "top_exit": 0,
+      "failure": true
+    },
+    "controlled_abort": {
+      "monotonic_ns": 213908419330356,
+      "recorder_pid": 454244,
+      "recorder_process_start": 21415351,
+      "recorder_alive": true,
+      "reason": "Trace storage cap terminated before shared active marker; GUI confirmed normal stop at displayed0:35.669; controlled paired-recorder interruption, not completed180s collection"
+    },
+    "observations": {
+      "rows": 88,
+      "recorder_alive_rows": 87,
+      "final_poll": 1,
+      "first_ns": 213810473985240,
+      "last_ns": 213909379239532,
+      "maximum_missing": 0,
+      "maximum_gaps": 0,
+      "maximum_expired": 0
+    },
+    "whole_output": {
+      "scope": "Entire partial capture; no admitted active bracket, no audio pass/zero-span attribution",
+      "audio_bytes": 37736448,
+      "audio_sha256": "b1c8045768f9a88d22e057239ae80830ea6a1721123f9798606f2caa9597ea24",
+      "frames": 4717056,
+      "sample_values": 9434112,
+      "duration_s": 98.272,
+      "nonfinite_sample_values": 0,
+      "channel_min": [
+        -0.05316374823451042,
+        -0.053172528743743896
+      ],
+      "channel_max": [
+        0.056720808148384094,
+        0.05603419989347458
+      ]
+    },
+    "active_marker_absent": true,
+    "normal_GUI_stop_display_seconds": 35.669,
+    "normal_GUI_playback_monotonic_bracket": "unobserved",
+    "GUI_source": "Dedicated Sol6.1high start/stop/editor screenshots; late discovery of trace cap failure, no deliberate continued180s window",
+    "audio_or_timing_pass": false,
+    "negotiated_recorder_format": [
+      {
+        "mediaType": "audio",
+        "mediaSubtype": "raw",
+        "format": "F32LE",
+        "rate": 48000,
+        "channels": 2,
+        "position": [
+          "FL",
+          "FR"
+        ]
+      }
+    ],
+    "Bitwig_graph_whole_capture": {
+      "first": {
+        "monotonic_ns": 213810484378107,
+        "line": "C  113      0      0    ---     ---   ---   ---     0                  Bitwig Studio"
+      },
+      "last": {
+        "monotonic_ns": 213909490083484,
+        "line": "R  113    512  48000  17.0us   2.4ms  0.00  0.22   11                   + Bitwig Studio"
+      },
+      "ERR_first": 0,
+      "ERR_last": 11,
+      "scope": "Whole partial recorder/GUI setup and playback; no admitted active bracket or causal correlation"
+    }
+  },
+  "cleanup": {
+    "tracing_disabled": true,
+    "events_disabled": true,
+    "private_instance_removed": true,
+    "test_native_windows_retired": true,
+    "DSP": 0,
+    "maintenance": 0,
+    "cleanup_confirmed": true,
+    "healthy_product_keeper_remains": 1,
+    "registry_software_preferences_unchanged": true,
+    "predecessors_retained": true,
+    "original_project_unchanged": true,
+    "working_project_final_sha256": "647f869a0c9508455f9d844c93f4d3985552661147dcd273b6bcfda2c7741b0b",
+    "GUI_stream_closed": true,
+    "current_TARGET_absent": true,
+    "no_builder_VM_or_audio_left_running": true,
+    "vendor_exit0_or_reopen_claim": false
+  },
+  "archive": {
+    "name": "refresh5-trace-first-attempt.tgz",
+    "bytes": 30380687,
+    "sha256": "ab92fd14e136cfadc16581c3091584a4350b7ad17192a375addb27f5cc589277",
+    "all38_retained_files_verified": true,
+    "files": [
+      {
+        "path": "run05-preflight/native-scheduling.reply",
+        "bytes": 28,
+        "sha256": "cfbecddd1ed5a62d860f43ea64b25f0693a5b5c173900fcd663545f841c3b07e"
+      },
+      {
+        "path": "run05-preflight/native-scheduling.request",
+        "bytes": 40,
+        "sha256": "8e336c74b569d0582a175764ddd7270aa02557c870c3a6d36d38b04e812b13ec"
+      },
+      {
+        "path": "run05-preflight/preferences-before.json",
+        "bytes": 64,
+        "sha256": "e8d74bc833af13bfe128b27409cbf835b8be31b8f698ee9f01239fe6ec8a6069"
+      },
+      {
+        "path": "run05-preflight/preflight.json",
+        "bytes": 3043,
+        "sha256": "f918837c75d1ba0fae96e89352ab73d0bacdc9c8e95d2ea3ad55b0149ced2bec"
+      },
+      {
+        "path": "run05-preflight/project-before.bwproject",
+        "bytes": 58158,
+        "sha256": "10711a49f3227adb2202d8a90158c764fc41d007b6a6ec8407625caf4d3e8141"
+      },
+      {
+        "path": "run05-preflight/registry.json",
+        "bytes": 81005,
+        "sha256": "cb05f9d0b0a7372ac0c8c88ed7766a7697efcbf3cec40d613d99e70ab4d0c83b"
+      },
+      {
+        "path": "run05-preflight/software.json",
+        "bytes": 2035,
+        "sha256": "584e400413370ab246a0c65d79d32178694202b283265a2e98753d410c77217c"
+      },
+      {
+        "path": "run05-capture/capture-result.json",
+        "bytes": 209,
+        "sha256": "d32def95b3c005cdf18704cccf2188fd8f5fdd47723a32ab5fd66f8a8a286692"
+      },
+      {
+        "path": "run05-capture/controlled-abort.json",
+        "bytes": 319,
+        "sha256": "99b37df7a818a18cff3d83fdf0249d57a688fbedfb247cda3f50664fa4a45467"
+      },
+      {
+        "path": "run05-capture/failure.json",
+        "bytes": 262,
+        "sha256": "0589d26fdf6c60221d79933d23446cb7e007e97f33efad6c0c5090b3cec4b1af"
+      },
+      {
+        "path": "run05-capture/graph-0000.json",
+        "bytes": 348791,
+        "sha256": "79c9e467f803bf45995764b703dc008978c723271bb2cc8ad42d69a3ed1bf485"
+      },
+      {
+        "path": "run05-capture/graph-0030.json",
+        "bytes": 348791,
+        "sha256": "cd2dc9cdc1e0bc25487771deff1c9b9961874704f4f8787fcec67d92804f83d8"
+      },
+      {
+        "path": "run05-capture/graph-0060.json",
+        "bytes": 348791,
+        "sha256": "1be80c37d2075fdbf2424eae3eafde71db62305e8277eb1eec36ab23188a525c"
+      },
+      {
+        "path": "run05-capture/graph-before.json",
+        "bytes": 322518,
+        "sha256": "7213a701559e369cb54cfbeaf8b3b5477b97d2e9b7923468140ed8b672120f6d"
+      },
+      {
+        "path": "run05-capture/graph-linked.json",
+        "bytes": 347164,
+        "sha256": "2b07f059f19928be006f4e4206fda80c9a755ba3d5a8327b4d0061e613980d67"
+      },
+      {
+        "path": "run05-capture/observations.ndjson",
+        "bytes": 558136,
+        "sha256": "78f765f7ca3487e18b0afd111dae71b8880e0402a1b2290b8b68b77c85059b06"
+      },
+      {
+        "path": "run05-capture/output.f32le",
+        "bytes": 37736448,
+        "sha256": "b1c8045768f9a88d22e057239ae80830ea6a1721123f9798606f2caa9597ea24"
+      },
+      {
+        "path": "run05-capture/pw-top.ndjson",
+        "bytes": 265688,
+        "sha256": "56369a5bbcfdf9018642b8dc7ec10de6d70d2e550383abd8594c97ebc37d5b64"
+      },
+      {
+        "path": "run05-capture/pw-top.stderr",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "run05-capture/ready.json",
+        "bytes": 43105,
+        "sha256": "e9581ee781f6545b78e03b9e9b7281183558b70cba79c82ee6744996cb67647a"
+      },
+      {
+        "path": "run05-capture/recorder.stderr",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "run05-capture/recorder.stdout",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "run05-capture/trace-launch.json",
+        "bytes": 120,
+        "sha256": "e744f7fd652969b1d3494333fc38ccb9b7ff5fac6b44c2ded683c6b422fd18f3"
+      },
+      {
+        "path": "run05-trace/scheduler.txt",
+        "bytes": 268428053,
+        "sha256": "3571fcd18538534fa2a4d1563f28fb134126d49ed8e01ca82347e9414ab94fd2"
+      },
+      {
+        "path": "run05-trace/trace-ready.json",
+        "bytes": 1418,
+        "sha256": "7a558310bafef5b576379fd8540bed2e2b048e4c5c4a734a95428d3388e373fc"
+      },
+      {
+        "path": "run05-trace/trace-result.json",
+        "bytes": 13578,
+        "sha256": "478cbd2c3d2cf129ca06b7fa1397c24645d4c5ab3ffc9570388aa7f6d1ba00ad"
+      },
+      {
+        "path": "run05-trace/trace-summary.json",
+        "bytes": 679,
+        "sha256": "3acb308317d64d552fb49aae415868066e3041d7a568981f02aedcce058e72f7"
+      },
+      {
+        "path": "run05-final/native-5c5da790afb53a35b7aa789f776e96ae.jsonl",
+        "bytes": 6938,
+        "sha256": "0514d4bd635ec4b504ccb5aa715594c84c1309a543143b80e0d0e2f95e7d9b1b"
+      },
+      {
+        "path": "run05-final/preferences.json",
+        "bytes": 64,
+        "sha256": "e8d74bc833af13bfe128b27409cbf835b8be31b8f698ee9f01239fe6ec8a6069"
+      },
+      {
+        "path": "run05-final/project-final.bwproject",
+        "bytes": 58180,
+        "sha256": "647f869a0c9508455f9d844c93f4d3985552661147dcd273b6bcfda2c7741b0b"
+      },
+      {
+        "path": "run05-final/registry.json",
+        "bytes": 81005,
+        "sha256": "cb05f9d0b0a7372ac0c8c88ed7766a7697efcbf3cec40d613d99e70ab4d0c83b"
+      },
+      {
+        "path": "run05-final/software.json",
+        "bytes": 2035,
+        "sha256": "584e400413370ab246a0c65d79d32178694202b283265a2e98753d410c77217c"
+      },
+      {
+        "path": "run05-final/verification.json",
+        "bytes": 4239,
+        "sha256": "f26dba2d39a9b601529ce09216c9e3c3665f0817a1a18daad3f78f6fdbefe21a"
+      },
+      {
+        "path": "run05-final/windows-5c5da790afb53a35b7aa789f776e96ae.fault.json",
+        "bytes": 1411,
+        "sha256": "0a999de4455aea3698a92928965a9b6b9e7a634ab6fa093e4685ef7e866e83e2"
+      },
+      {
+        "path": "run05-final/windows-5c5da790afb53a35b7aa789f776e96ae.json",
+        "bytes": 218509,
+        "sha256": "523cff83e4fe6bdc13ce475c2ee7ccd97cd27de7f22034a6645191eed86f2828"
+      },
+      {
+        "path": "run05-final/windows-5c5da790afb53a35b7aa789f776e96ae.ownership.json",
+        "bytes": 126,
+        "sha256": "06aeaed4dba8519ef7649da4ee74020d2468d643e155891e772a4423fb912b4d"
+      },
+      {
+        "path": "TARGET-run05-retired.json",
+        "bytes": 1095,
+        "sha256": "4401fb7d73d8161f93cbce0314c5f6ece49389b47674e8dd6245a9ec1c682543"
+      },
+      {
+        "path": "trace-one.py",
+        "bytes": 13008,
+        "sha256": "79ef6790167e2baf21562f315487d1d6746f308a4818a90f7e324991ff1c1a39"
+      }
+    ]
+  },
+  "local_protocol_and_GUI_hashes": [
+    {
+      "path": "local-protocol-and-gui/RUN05_COLLECTION_FREEZE.json",
+      "bytes": 1270,
+      "sha256": "af291ff6a824fea0527825a6ee6a09233774dbb9d2476dd4a4c7b5d547c567dc"
+    },
+    {
+      "path": "local-protocol-and-gui/TRACE_FREEZE.json",
+      "bytes": 275,
+      "sha256": "ac1a8d4353d735075e8d70d3d14b13f703bd1e432280687488d6186b2258e510"
+    },
+    {
+      "path": "local-protocol-and-gui/abort-run05.py",
+      "bytes": 804,
+      "sha256": "7708948a1e2707c572162b5e1384fa71f2f3764e5c9ed879a63fb5d73f0866a2"
+    },
+    {
+      "path": "local-protocol-and-gui/admit-trace-launch.py",
+      "bytes": 694,
+      "sha256": "00eec52864b54969a48c90f070a9d41d1475038f0422833ec4549e0a15d921c3"
+    },
+    {
+      "path": "local-protocol-and-gui/archive-run05.py",
+      "bytes": 1336,
+      "sha256": "d2c67cbbf62340aea9c60605d238f8b77d759e091b5c9714d1afcfb418193e8e"
+    },
+    {
+      "path": "local-protocol-and-gui/capture-run05.py",
+      "bytes": 10791,
+      "sha256": "b90f658834bb884b9957d6aa80c3dcf5fdace0a93d1a62ffb123031f58f7db8e"
+    },
+    {
+      "path": "local-protocol-and-gui/end-run05.py",
+      "bytes": 787,
+      "sha256": "789576d2183d0f70d3db6d942727a96c98abea4f44655040e01e985452fcf09b"
+    },
+    {
+      "path": "local-protocol-and-gui/gui-agent-active-editor.png",
+      "bytes": 506364,
+      "sha256": "a62497249f63557cb8bf0b00db2e2f0bce6ea2ed861f39db3c9eb7556df62612"
+    },
+    {
+      "path": "local-protocol-and-gui/gui-agent-bitwig-quit-final.png",
+      "bytes": 344083,
+      "sha256": "69d65b5e7f1862ef3aee35c1558dec0845ab89e2814eb96492da6f180dd4bf79"
+    },
+    {
+      "path": "local-protocol-and-gui/gui-agent-bitwig-quit.png",
+      "bytes": 361298,
+      "sha256": "eb67ba252347fac042c7cc26675253f9ccd461d16de47634e7ac3ba7cb5bead8"
+    },
+    {
+      "path": "local-protocol-and-gui/gui-agent-launch-occluded.png",
+      "bytes": 378499,
+      "sha256": "ac912073a0c34c0fabc0ced0340cbf850aa7a24a5dbef8562acc085bc98fbe54"
+    },
+    {
+      "path": "local-protocol-and-gui/gui-agent-moonlight-disconnected.png",
+      "bytes": 89666,
+      "sha256": "808f4e0a505206c7bb1f6c953c62b5a001d65e26339ab2c846e60b7b88fcf4b5"
+    },
+    {
+      "path": "local-protocol-and-gui/gui-agent-stopped-after-trace-failure.png",
+      "bytes": 502066,
+      "sha256": "535de6fa69cb88c98c0c163afda7a411ebd2eb82e8742dd6315c098d837e57fb"
+    },
+    {
+      "path": "local-protocol-and-gui/gui-agent-stopped-editor.png",
+      "bytes": 535506,
+      "sha256": "7553e5d9c107fa601bb92fa8014456a71d0e82ebaecb59e1ac91a19e2edcfdf7"
+    },
+    {
+      "path": "local-protocol-and-gui/gui-agent-working-copy-after-save.png",
+      "bytes": 351673,
+      "sha256": "d315a8ad0cb4822291c7ebd5aa473311c7342cfb374850e38cd7e4ed0597775d"
+    },
+    {
+      "path": "local-protocol-and-gui/gui-trace-stopped-editor.png",
+      "bytes": 537197,
+      "sha256": "caf05368df59231ec41c37dde18fa54cc783c91ebb2d99434d444c71abfff0d8"
+    },
+    {
+      "path": "local-protocol-and-gui/mark-run05.py",
+      "bytes": 1741,
+      "sha256": "6f5956866d07e1c59f6b63ad9b8e73c2bf792395e0ae7d79eaf141220e88ae3a"
+    },
+    {
+      "path": "local-protocol-and-gui/mint-target-trace.py",
+      "bytes": 3630,
+      "sha256": "f0e1bfde1a34bc56a294723c66676ff32fc281ef82a5d2474fae9d2931be00be"
+    },
+    {
+      "path": "local-protocol-and-gui/retire-run05.py",
+      "bytes": 3454,
+      "sha256": "d2267a8a776e2ef5d9e9885aac25f82afb19c33e11fd32ac0ce016b307234096"
+    },
+    {
+      "path": "local-protocol-and-gui/run05-collection.md",
+      "bytes": 3397,
+      "sha256": "65dac7a142ed3e1c9f051fc95c75cf36b2adc179675e8dee6c242bd8fa754313"
+    },
+    {
+      "path": "local-protocol-and-gui/stop-run05.py",
+      "bytes": 1049,
+      "sha256": "c0a4ffce23d7931cb2689faba80c060575651d75f4847ada0e5d26f0067a1ada"
+    },
+    {
+      "path": "local-protocol-and-gui/trace-access.md",
+      "bytes": 6250,
+      "sha256": "53956cf1e5fa95467fb42948fb90410412ad933e073f2d9f9c7e697cc6c80cb9"
+    },
+    {
+      "path": "local-protocol-and-gui/trace-one.py",
+      "bytes": 13008,
+      "sha256": "79ef6790167e2baf21562f315487d1d6746f308a4818a90f7e324991ff1c1a39"
+    },
+    {
+      "path": "admin-sanitized/README.md",
+      "bytes": 4145,
+      "sha256": "c9ca2f71e3226ad0b7f514e6efcfcac0630dd12332fa0ad66e05a4838c954007"
+    },
+    {
+      "path": "admin-sanitized/STATUS.json",
+      "bytes": 888,
+      "sha256": "ce586618ab0d0d8eb9d3cee50d74f6e5c90f7b640d94ec47572009d49ef97152"
+    },
+    {
+      "path": "admin-sanitized/deck-admin.py",
+      "bytes": 8435,
+      "sha256": "8dae7a58a75530903efd4e83bfdb8fcb2452af7d86bffca830139cc79fb76d91"
+    }
+  ],
+  "nonclaims": [
+    "No180s traced playback or complete scheduler distribution",
+    "No source/device deadline, isolated bridge overhead, priority inversion or dropout cause",
+    "No completedABBA/rate reduction, thirty-minute interaction/soak/beta",
+    "No automatic commercial engine-update UX closure"
+  ]
+}
