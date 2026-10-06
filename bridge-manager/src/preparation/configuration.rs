@@ -211,10 +211,9 @@ pub fn record_assessment(m: &Manager, c: &Candidate, operation: &str, result: &a
 
 /// Retained observations describe that run, not the current driver/device.
 /// Ordinary projection never launches a probe or infers accelerated rendering.
-pub fn view(m: &Manager, c: &Candidate) -> Result<Value> {
-    let registration = registration_record_for(c, &c.profile, &c.census()?, SelectionPurpose::Qualification)?;
-    let expected = assessment::Context::for_configuration(&c.selection.environment, &c.selection.module,
-        &c.selection.class.id, &c.host, &c.source_manifest.sha256, &registration.compatibility)?;
+/// Assessments retained under this candidate's exact launch context, oldest
+/// last. A run under another context, however recent, never speaks for this one.
+fn retained_assessments(m: &Manager, c: &Candidate, expected: &assessment::Context) -> Result<Vec<Value>> {
     let mut reports = Vec::new();
     for path in list(&root(m).join("graphics").join(c.id()?))? {
         if path.extension().and_then(|s| s.to_str()) != Some("json") { continue; }
@@ -223,11 +222,25 @@ pub fn view(m: &Manager, c: &Candidate) -> Result<Value> {
         let row: Value = bounded(&path)?;
         require(row["candidate"] == c.id()?, "candidate_graphics_identity")?;
         let observed: assessment::Context = serde_json::from_value(row["assessment"]["context"].clone())?;
-        if observed == expected && row["assessment"]["context_fingerprint"] == expected.fingerprint()? {
+        if observed == *expected && row["assessment"]["context_fingerprint"] == expected.fingerprint()? {
             reports.push(row["assessment"].clone());
         }
     }
     reports.sort_by_key(|row| row["observed_at"].as_u64().unwrap_or(0));
+    Ok(reports)
+}
+
+/// The latest assessment retained under this candidate's exact launch context,
+/// or none when no such run was recorded.
+pub fn latest_assessment(m: &Manager, c: &Candidate) -> Result<Option<Value>> {
+    Ok(retained_assessments(m, c, &context(c)?)?.pop())
+}
+
+pub fn view(m: &Manager, c: &Candidate) -> Result<Value> {
+    let registration = registration_record_for(c, &c.profile, &c.census()?, SelectionPurpose::Qualification)?;
+    let expected = assessment::Context::for_configuration(&c.selection.environment, &c.selection.module,
+        &c.selection.class.id, &c.host, &c.source_manifest.sha256, &registration.compatibility)?;
+    let mut reports = retained_assessments(m, c, &expected)?;
     let selected = settings(c);
     let explicit_graphics = c.local_settings.is_some() || c.settings_trial.is_some();
     let accessibility_source = match selected.accessibility {

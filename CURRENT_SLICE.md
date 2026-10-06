@@ -29,11 +29,13 @@ presentation path the pinned runner cannot show.
    call cost per block size into profile data and choose Buffered unless the
    worst case is under a quarter of the period and the DAW's audio thread is
    real-time. Plain-language latency statement to the musician.
-3. Graphics capability at intake (in progress): the assessment now decides a
-   requirement by rule from what the editor loaded and this launch's probes,
-   with a plain-language reason and next action. Still to do: apply the
-   recommendation without an operator click, and run the assessment in every
-   preparation. This is the white-screen class.
+3. Graphics capability at intake (landed): every preparation ends with the
+   editor's requirement decided by rule from what the editor loaded and this
+   launch's probes. When the rule says Wine's built-in Direct3D 11, the
+   product prepares that trial itself and assesses it too; the musician sees
+   "Try Wine D3D11 graphics" as the next offer. A DirectComposition runner is
+   still a named recommendation (runner selection is an onboarding
+   operation). Validate on Nibbi: re-prepare it and read the decision.
 4. Intake as a manager operation: the staged check above as one button, with
    the first failing stage reported in plain words and mapped to a failure
    class. The agents have run it by hand for a week; the parts exist.
