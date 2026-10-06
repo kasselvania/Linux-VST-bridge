@@ -165,14 +165,34 @@ alive, no plug-in loaded and Bitwig open:
   did not.
 - One idle supervisor made about 2,400 read system calls a second. Each
   50 ms supervision turn re-read every owned thread's child list
-  (`ProcessTracker.update`). The following change walks a tree that has not
-  changed for five seconds once a second, and once more before cleanup. Its
-  effect has not been measured yet.
+  (`ProcessTracker.update`). Test 16 walks a tree that has not changed for
+  five seconds once a second, and once more before cleanup.
+
+Test 16, measured the same way with the same three environments alive (29
+processes), no plug-in loaded and Bitwig closed:
+
+| Process | Test 15 | Test 16 |
+|---|---|---|
+| Wine device processes | not measurable | not measurable |
+| Wine servers | 0.6% | 0.6% |
+| Environment owner hosts | 1.6% | 1.6% |
+| Python supervisors | 19.6% | 3.7% |
+| Total | about 22% | about 6% |
+
+- The BEAM, Nibbi and Serum 2 sessions loaded and removed on Test 16 each
+  ended with no error, cleanup confirmed and the transport retired. No audio
+  was played in them, so they say nothing about callback duration.
+- The three environments were still alive after Bitwig quit. Nothing retires
+  an environment that has no plug-in loaded; the remaining 6% is paid for as
+  long as the desktop session lasts.
 - The operator's stuck Control key is held by the desktop compositor's
   keyboard, not by the bridge or the X test-input device, and not by the
   Deck's L1 button at the time it was checked. The default desktop controller
   layout does bind L1 to Control, R1 to Alt and the upper-left grip to Shift.
-  Its cause is not established.
+  The operator reports it appears when a plug-in editor window opens and that
+  a tap of L1 clears it. With Bitwig closed and Control still shown held, no
+  readable kernel input device reported a key down. Its cause is not
+  established.
 
 ## What is not established
 
