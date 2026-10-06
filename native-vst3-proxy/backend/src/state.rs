@@ -9,6 +9,9 @@ pub struct SaveRefusal {
 }
 impl std::fmt::Display for SaveRefusal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.stage == 3 {
+            return write!(f, "save refused: plug-in state exceeds 256 MiB save limit");
+        }
         write!(
             f,
             "save refused: operation={} stage={} SDK result={}",
@@ -20,8 +23,30 @@ impl std::error::Error for SaveRefusal {}
 pub fn save_refused(e: &io::Error) -> bool {
     e.get_ref().is_some_and(|e| e.is::<SaveRefusal>())
 }
-pub const LIMIT: usize = 1 << 20;
+pub const LIMIT: usize = ap1_native_client::STATE_LIMIT;
 pub const HEADER_SIZE: usize = 104;
+#[repr(C)]
+pub struct OwnedState {
+    pub data: *const u8,
+    pub length: u32,
+    pub abi_version: u32,
+}
+pub unsafe fn owned_output_ready(out: *mut OwnedState) -> bool {
+    !out.is_null() && (*out).abi_version == 1 && (*out).data.is_null() && (*out).length == 0
+}
+pub unsafe fn give_owned(out: *mut OwnedState, bytes: Vec<u8>) {
+    let length = bytes.len() as u32;
+    let data = Box::into_raw(bytes.into_boxed_slice()) as *const u8;
+    *out = OwnedState { data, length, abi_version: 1 };
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap4_state_release_v1(out: *mut OwnedState) {
+    if out.is_null() || (*out).abi_version != 1 || (*out).data.is_null() { return; }
+    let owned = &mut *out;
+    drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(owned.data as *mut u8, owned.length as usize)));
+    owned.data = std::ptr::null();
+    owned.length = 0;
+}
 const CLASS: [u8; 16] = [
     0x84, 0xe8, 0xde, 0x5f, 0x92, 0x55, 0x4f, 0x53, 0x96, 0xfa, 0xe4, 0x13, 0x3c, 0x93, 0x5a, 0x18,
 ];
@@ -228,7 +253,8 @@ pub(super) fn validate_reply(minor: u64, witness: &mut Option<crate::observer::O
             let stage = get(&reply.payload[8..12]) as u32;
             let sdk_result = i32::from_le_bytes(reply.payload[12..16].try_into().unwrap());
             need(
-                matches!(stage, 1 | 2) && matches!(sdk_result, 1 | -2147467263),
+                (matches!(stage, 1 | 2) && matches!(sdk_result, 1 | -2147467263))
+                    || (stage == 3 && sdk_result == 1),
                 "save refusal stage/result",
             )?;
             return Err(io::Error::other(
@@ -549,6 +575,31 @@ unsafe fn validate(identity: *const u8, blob: *const u8, n: u32, policy: Restore
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn owned_state_uses_actual_bytes_and_has_explicit_release() {
+        let mut output=OwnedState {data:std::ptr::null(),length:0,abi_version:1};
+        assert_eq!(std::mem::size_of::<OwnedState>(),16);
+        unsafe {
+            assert!(owned_output_ready(&mut output));
+            give_owned(&mut output,vec![0xd3;2*1024*1024]);
+            assert!(!owned_output_ready(&mut output));
+            assert_eq!(output.length,2*1024*1024);
+            assert!(std::slice::from_raw_parts(output.data,output.length as usize).iter().all(|b|*b==0xd3));
+            ap4_state_release_v1(&mut output);
+            assert!(owned_output_ready(&mut output));
+            ap4_state_release_v1(&mut output);
+        }
+    }
+    #[test]
+    fn oversized_save_refusal_keeps_the_specific_error_and_never_authorizes_restore() {
+        let request=Frame {kind:16,session:[7;16],sequence:8,payload:vec![]};
+        let refusal=Frame {kind:7,session:request.session,sequence:request.sequence,
+            payload:[1u32,16,3,1].into_iter().flat_map(u32::to_le_bytes).collect()};
+        let error=validate_reply(15,&mut None,&request,refusal.clone()).unwrap_err();
+        assert!(save_refused(&error));
+        assert_eq!(error.to_string(),"save refused: plug-in state exceeds 256 MiB save limit");
+        assert!(!save_refused(&validate_reply(15,&mut None,&Frame {kind:18,..request},refusal).unwrap_err()));
+    }
     #[test]
     fn historical_restore_preserves_provenance_without_authorizing_another_class() {
         let original = Identity { class: [7; 16], module: [8; 32] };

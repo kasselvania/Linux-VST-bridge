@@ -34,6 +34,16 @@ using namespace Steinberg::Vst;
 static_assert(std::size(AP8::buses)<=AP18Buses::max_buses);
 #endif
 namespace {
+struct OwnedState {
+  ap4_owned_state_v1 bytes{nullptr,0,1};
+  OwnedState() = default;
+  OwnedState(const OwnedState&) = delete;
+  OwnedState& operator=(const OwnedState&) = delete;
+  ~OwnedState() { ap4_state_release_v1(&bytes); }
+  std::vector<uint8_t> copy() const {
+    return {bytes.data,bytes.data+bytes.length};
+  }
+};
 #ifdef AP8_PREVIEW
 uint64_t monotonic_ns() {
   timespec value{};
@@ -314,10 +324,8 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
     uint64_t generation=0;
     if(!ap11_gui_generation(handle_,&generation)&&guiPoll(generation,512)!=kResultOk)return kResultFalse;
 #endif
-    std::vector<uint8_t> blob(LVBState::payloadLimit + LVBState::overhead);
-    uint32_t size = 0;
-    auto state_result=ap4_state(handle_, nullptr, 0, blob.data(),
-                  static_cast<uint32_t>(blob.size()), &size);
+    OwnedState captured;
+    auto state_result=ap4_state_owned_v1(handle_, nullptr, 0, &captured.bytes);
 #ifdef AP8_PREVIEW
     if(state_result==0||state_result==5){
       auto*m=allocateMessage();if(m){m->setMessageID("AP12.persistence");m->getAttributes()->setInt("available",state_result==0?1:0);sendMessage(m);m->release();}
@@ -329,7 +337,8 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
       if(state_result!=5)report();
       return kResultFalse;
     }
-    blob.resize(size);
+    auto blob = captured.copy();
+    auto size = captured.bytes.length;
 #ifndef AP8_PREVIEW
     double gain = 0.;
 #endif
@@ -372,17 +381,16 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
       {phase_=Failed;return kResultFalse;}
     if (!stateSession())
       return kResultFalse;
-    std::vector<uint8_t> readback(LVBState::payloadLimit + LVBState::overhead);
-    uint32_t size = 0;
-    if (ap4_state(handle_, blob.data(), static_cast<uint32_t>(blob.size()),
-                  readback.data(), static_cast<uint32_t>(readback.size()),
-                  &size)) {
+    OwnedState captured;
+    if (ap4_state_owned_v1(handle_, blob.data(), static_cast<uint32_t>(blob.size()),
+                          &captured.bytes)) {
       phase_ = Failed;
       stateFailure("set", "state_response");
       report();
       return kResultFalse;
     }
-    readback.resize(size);
+    auto readback = captured.copy();
+    auto size = captured.bytes.length;
 #ifdef AP8_PREVIEW
     if(ap8_validate(AP8::identity,readback.data(),size)){phase_=Failed;return kResultFalse;}
     state_readback_=std::move(readback);this->readback();
@@ -536,14 +544,14 @@ tresult Processor::recover(uint64_t revision) {
   }
   phase_ = Failed; // callbacks remain silent until state AND controller agree
   try {
-    std::vector<uint8_t> state(LVBState::payloadLimit + LVBState::overhead);
-    uint32_t written = 0;
-    if (ap6_recover(handle_, revision, state.data(), static_cast<uint32_t>(state.size()), &written)) {
+    OwnedState captured;
+    if (ap6_recover_owned_v1(handle_, revision, &captured.bytes)) {
       uint8_t detail[385]{}; ap2_error(detail, sizeof(detail));
       snapshotStatus(reinterpret_cast<const char *>(detail));
       return kResultFalse;
     }
-    state.resize(written);
+    auto state = captured.copy();
+    auto written = captured.bytes.length;
     if (ap5_report_path(handle_, reinterpret_cast<uint8_t *>(report_path_), sizeof(report_path_)))
       return kResultFalse;
     double restored = 0.;

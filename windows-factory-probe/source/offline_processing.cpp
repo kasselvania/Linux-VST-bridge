@@ -542,12 +542,9 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     if(sustained) {
         events.lifecycle("ap3_processing_summary",",\"processed_blocks\":"+std::to_string(processed)+
             ",\"intervals\":"+std::to_string(intervals)+",\"process_mode\":\"kRealtime\"");
-        if(primary_error&&deferred_transitions)events.lifecycle("ap3_processing_error",",\"detail\":\"Windows processing failed\"");
-        else if(primary_error)try{std::rethrow_exception(primary_error);}catch(const std::exception& e){
-            // Only our fixed explanatory errors are emitted, not paths or args.
-            // Windows/plugin exceptions retain their stage via the outer supervisor.
+        if(primary_error)try{std::rethrow_exception(primary_error);}catch(const ap1::BridgeError& e){
             events.lifecycle("ap3_processing_error",",\"detail\":\""+std::string(e.what()).substr(0,160)+"\"");
-        }catch(...){events.lifecycle("ap3_processing_error",",\"detail\":\"non-standard processing exception\"");}
+        }catch(...){events.lifecycle("ap3_processing_error",",\"detail\":\"Windows processing failed\"");}
     }
     active=!call("set_active_false",[&]{return component.setActive(false);});
     if (active) return {false,false};

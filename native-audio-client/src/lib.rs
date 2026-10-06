@@ -8,6 +8,9 @@ use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
 pub const HEADER: usize = 56;
+// State carries opaque recordings as well as settings. This is a per-save
+// extent bound, not an allocation made at activation or on the audio callback.
+pub const STATE_LIMIT: usize = 256 * 1024 * 1024;
 pub const CAP: usize = 256;
 pub const STRIDE: usize = 1032;
 pub const INPUT: usize = 64;
@@ -58,6 +61,26 @@ pub struct Frame {
     pub sequence: u64,
     pub payload: Vec<u8>,
 }
+#[cfg(test)]
+mod state_capacity_tests {
+    use super::*;
+    #[test]
+    fn recordings_cross_the_old_cap_and_headers_enforce_the_new_cap() {
+        assert_eq!(STATE_LIMIT, 256 * 1024 * 1024);
+        for kind in 17..=19 {
+            let frame = Frame { kind, session: [3;16], sequence: 4, payload: vec![0xd3;2*1024*1024] };
+            let wire = frame.encode_version(15).unwrap();
+            assert_eq!(Frame::decode_version(&wire,15).unwrap(),frame);
+            let mut header = wire[..HEADER].to_vec();
+            put(&mut header[12..16],STATE_LIMIT as u64);
+            assert_eq!(payload_length_version(&header,15).unwrap(),STATE_LIMIT);
+            put(&mut header[12..16],STATE_LIMIT as u64+1);
+            assert!(payload_length_version(&header,15).is_err());
+        }
+        let frame = Frame { kind: PROCESS, session: [3;16], sequence: 4, payload: vec![0;8361] };
+        assert!(frame.encode_version(15).is_err());
+    }
+}
 impl Frame {
     pub fn encode(&self) -> io::Result<Vec<u8>> {
         self.encode_version(1)
@@ -82,7 +105,7 @@ impl Frame {
                 && (1..=15).contains(&minor)
                 && self.payload.len()
                     <= if minor >= 4 && matches!(self.kind, 17..=19) {
-                        1 << 20
+                        STATE_LIMIT
                     } else if minor >= 9 && self.kind == DONE {
                         10312
                     } else if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15) && self.kind == PROCESS {
@@ -164,7 +187,7 @@ pub fn payload_length_version(b: &[u8], minor: u64) -> io::Result<usize> {
     let n = get(&b[12..16]);
     need(
         n <= if minor >= 4 && matches!(get(&b[8..10]), 17..=19) {
-            1 << 20
+            STATE_LIMIT as u64
         } else if minor >= 9 && get(&b[8..10]) == DONE as u64 {
             10312
         } else if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15) && get(&b[8..10]) == PROCESS as u64 {

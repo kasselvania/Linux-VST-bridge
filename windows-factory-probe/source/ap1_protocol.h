@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <vector>
 #include <cmath>
+#include "../../vst-state/limits.h"
 namespace linux_vst_bridge::ap1 {
 constexpr uint32_t magic=0x3141504c, capacity=256, header_bytes=56;
 constexpr uint32_t stride=1032, input_offset=64, output_offset=2128, mapping_bytes=4192;
@@ -19,7 +20,10 @@ constexpr Layout block_layout{block_capacity,block_stride,input_offset,block_out
 constexpr uint32_t guard=0x4b123456, poison=0x7fc12345;
 constexpr uint64_t witness_mask=0x8d396b274e105ac3ULL;
 enum Kind:uint16_t {Hello=1,Ready=2,Process=3,Done=4,Close=5,Closed=6,Error=7,Activate=8,Activated=9,Start=10,Started=11,Stop=12,Stopped=13,Deactivate=14,Deactivated=15,GetState=16,State=17,SetState=18,StateApplied=19,Configure=20,Configured=21};
-inline void require(bool ok,const char* message){if(!ok)throw std::runtime_error(message);}
+// Only bridge-authored messages may be emitted verbatim. Vendor exception text
+// can contain paths, account identifiers or licensing material.
+struct BridgeError : std::runtime_error { using std::runtime_error::runtime_error; };
+inline void require(bool ok,const char* message){if(!ok)throw BridgeError(message);}
 inline uint64_t get(const uint8_t* p,size_t n){uint64_t v=0;for(size_t i=0;i<n;++i)v|=uint64_t(p[i])<<(8*i);return v;}
 inline void put(uint8_t* p,uint64_t v,size_t n){for(size_t i=0;i<n;++i)p[i]=uint8_t(v>>(8*i));}
 struct Frame {uint16_t kind;std::array<uint8_t,16> session;uint64_t sequence;std::vector<uint8_t> payload;};
@@ -29,7 +33,7 @@ inline std::vector<uint8_t> encode(const Frame& f,uint16_t minor=1){
  std::vector<uint8_t>b;encode_into(f,minor,b);return b;
 }
 inline void encode_into(const Frame& f,uint16_t minor,std::vector<uint8_t>&b){
- require(minor>=1&&minor<=15&&f.kind>=Hello&&f.kind<=(minor>=6?Configured:minor>=4?StateApplied:minor>=2?Deactivated:Error)&&f.payload.size()<=(minor>=4&&f.kind>=State?(1u<<20):minor>=9&&f.kind==Done?10312:(minor==5||minor==7||minor==8||minor==9||minor==10||minor==11||minor==12||minor==13||minor==14||minor==15)&&f.kind==Process?(minor>=15?8360:minor>=10?8352:minor>=8?8344:8248):4040),"frame kind/length");
+ require(minor>=1&&minor<=15&&f.kind>=Hello&&f.kind<=(minor>=6?Configured:minor>=4?StateApplied:minor>=2?Deactivated:Error)&&f.payload.size()<=(minor>=4&&f.kind>=State&&f.kind<=StateApplied?LVBState::payloadLimit:minor>=9&&f.kind==Done?10312:(minor==5||minor==7||minor==8||minor==9||minor==10||minor==11||minor==12||minor==13||minor==14||minor==15)&&f.kind==Process?(minor>=15?8360:minor>=10?8352:minor>=8?8344:8248):4040),"frame kind/length");
  b.assign(header_bytes+f.payload.size(),0);put(b.data(),magic,4);put(b.data()+4,1,2);put(b.data()+6,minor,2);
  put(b.data()+8,f.kind,2);put(b.data()+12,f.payload.size(),4);std::memcpy(b.data()+16,f.session.data(),16);
  put(b.data()+32,1,8);put(b.data()+40,f.sequence,8);if(!f.payload.empty())std::memcpy(b.data()+56,f.payload.data(),f.payload.size());
@@ -37,7 +41,7 @@ inline void encode_into(const Frame& f,uint16_t minor,std::vector<uint8_t>&b){
 inline size_t payload_length(const uint8_t* b,uint16_t minor=1){
  require(get(b,4)==magic&&get(b+4,2)==1&&get(b+6,2)==minor&&(minor>=1&&minor<=15)&&get(b+10,2)==0,"protocol version/header");
  require(get(b+8,2)>=Hello&&get(b+8,2)<=uint16_t(minor>=6?Configured:minor>=4?StateApplied:minor>=2?Deactivated:Error)&&get(b+32,8)==1&&get(b+48,8)==0,"protocol kind/instance/parent");
- auto n=get(b+12,4);require(n<=(minor>=4&&get(b+8,2)>=State?(1u<<20):minor>=9&&get(b+8,2)==Done?10312:(minor==5||minor==7||minor==8||minor==9||minor==10||minor==11||minor==12||minor==13||minor==14||minor==15)&&get(b+8,2)==Process?(minor>=15?8360:minor>=10?8352:minor>=8?8344:8248):4040),"frame length");return size_t(n);
+ auto n=get(b+12,4);require(n<=(minor>=4&&get(b+8,2)>=State&&get(b+8,2)<=StateApplied?LVBState::payloadLimit:minor>=9&&get(b+8,2)==Done?10312:(minor==5||minor==7||minor==8||minor==9||minor==10||minor==11||minor==12||minor==13||minor==14||minor==15)&&get(b+8,2)==Process?(minor>=15?8360:minor>=10?8352:minor>=8?8344:8248):4040),"frame length");return size_t(n);
 }
 inline Frame decode(const std::vector<uint8_t>& b,uint16_t minor=1){
  Frame f{};decode_into(b.data(),b.size(),minor,f);return f;

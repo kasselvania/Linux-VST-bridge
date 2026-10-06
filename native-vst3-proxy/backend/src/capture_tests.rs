@@ -99,17 +99,17 @@ fn pending_save_does_not_hold_parent_callback_batches_or_replace_a_refused_snaps
                         let mut sender = socket_peer.try_clone().unwrap();
                         writers.push(thread::spawn(move || {
                             let (kind, payload) = if count == 1 {
-                                let mut p = vec![0; 16 + 262144 + 16];
-                                p[..4].copy_from_slice(&262144u32.to_le_bytes());
+                                let mut p = vec![0; 16 + 2097152 + 16];
+                                p[..4].copy_from_slice(&2097152u32.to_le_bytes());
                                 p[8..12].copy_from_slice(&1u32.to_le_bytes());
                                 p[12..16].copy_from_slice(&2u32.to_le_bytes());
-                                p[16..16 + 262144].fill(0xD3);
-                                p[16 + 262144..20 + 262144].copy_from_slice(&42u32.to_le_bytes());
+                                p[16..16 + 2097152].fill(0xD3);
+                                p[16 + 2097152..20 + 2097152].copy_from_slice(&42u32.to_le_bytes());
                                 (17, p)
                             } else {
                                 (
                                     7,
-                                    [1u32, 16, 1, 1]
+                                    [1u32, 16, 3, 1]
                                         .into_iter()
                                         .flat_map(u32::to_le_bytes)
                                         .collect(),
@@ -281,10 +281,12 @@ fn pending_save_does_not_hold_parent_callback_batches_or_replace_a_refused_snaps
         let result = saver.join().unwrap();
         if save == 1 {
             let bytes = result.unwrap();
-            assert!(bytes.len() > 262144);
+            assert!(bytes.len() > 2097152);
             original = Some(bytes);
         } else {
-            assert!(state::save_refused(&result.unwrap_err()));
+            let error=result.unwrap_err();
+            assert!(state::save_refused(&error));
+            assert!(error.to_string().contains("256 MiB save limit"));
         }
         let snapshot = shared.snapshots.lock().unwrap().latest().unwrap().clone();
         assert_eq!(snapshot.revision, 1);

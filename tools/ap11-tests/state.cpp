@@ -20,22 +20,44 @@ struct FixtureComponent final : AudioEffect {
   double value = .375;
   unsigned restores = 0;
   tresult capture_result=kResultOk;
+  bool oversized=false;
+  size_t recording=0;
   tresult PLUGIN_API getState(IBStream *s) override {
     if(capture_result!=kResultOk)return capture_result;
     int32 n = 0;
-    return s->write(&value, 8, &n) == kResultOk && n == 8 ? kResultOk
-                                                          : kResultFalse;
+    if(oversized)return s->write(&value,int32(LVBState::payloadLimit+1),&n);
+    if(s->write(&value,8,&n)!=kResultOk||n!=8)return kResultFalse;
+    std::array<uint8_t,4096> audio{};audio.fill(0xd3);
+    for(size_t sent=0;sent<recording;){
+      auto size=int32(std::min(audio.size(),recording-sent));
+      if(s->write(audio.data(),size,&n)!=kResultOk||n!=size)return kResultFalse;
+      sent+=size;
+    }
+    return kResultOk;
   }
   tresult PLUGIN_API setState(IBStream *s) override {
     int32 n = 0;
     ++restores;
-    return s->read(&value, 8, &n) == kResultOk && n == 8 ? kResultOk
-                                                         : kResultFalse;
+    if(s->read(&value,8,&n)!=kResultOk||n!=8)return kResultFalse;
+    std::array<uint8_t,4096> audio{};
+    for(size_t read=0;read<recording;){
+      auto size=int32(std::min(audio.size(),recording-read));
+      if(s->read(audio.data(),size,&n)!=kResultOk||n!=size||
+         !std::all_of(audio.begin(),audio.begin()+n,[](auto b){return b==0xd3;}))return kResultFalse;
+      read+=size;
+    }
+    return kResultOk;
   }
 };
 struct Controller final : EditController {
   unsigned synchronizations = 0, invalidations = 0;
   bool invalid_readback = false;
+  bool oversized=false;
+  tresult PLUGIN_API getState(IBStream *s) override {
+    if(!oversized)return EditController::getState(s);
+    int32 n=0;uint8_t byte=0;
+    return s->write(&byte,int32(LVBState::payloadLimit+1),&n);
+  }
   double readback_value = 0.;
   ParamValue PLUGIN_API getParamNormalized(ParamID id) override {
     return invalid_readback && id == 42 ? readback_value
@@ -108,7 +130,37 @@ int main() {
   component.capture_result=kResultOk;
   controller.invalid_readback=false;
   check(commercial_state(component,controller,true,nullptr)==original,"capture can succeed after refusal");
+  component.recording=2*1024*1024;
+  auto recorded=commercial_state(component,controller,true,nullptr);
+  check(recorded.size()>2*1024*1024,"recorded audio state exceeds the old limit");
+  component.value=.75;
+  check(commercial_state(component,controller,true,&recorded)==recorded&&component.value==.375,
+        "recorded audio and settings survive actual SDK save/restore");
+  component.recording=0;
+  for(bool controllerFailure:{false,true}){
+    component.oversized=!controllerFailure;controller.oversized=controllerFailure;
+    bool refused=false;
+    try{commercial_state(component,controller,true,nullptr);}
+    catch(const linux_vst_bridge::wf0::SaveRefusal& e){
+      refused=e.stage==3&&e.result==kResultFalse&&std::string(e.what()).find("256 MiB")!=std::string::npos;
+    }
+    check(refused,"oversized component/controller state is a specific save refusal");
+    component.oversized=controller.oversized=false;
+    check(commercial_state(component,controller,true,nullptr)==original,"same SDK instance saves after capacity refusal");
+  }
+  component.recording=LVBState::payloadLimit-8;
+  bool combinedRefused=false;
+  try{commercial_state(component,controller,true,nullptr);}
+  catch(const linux_vst_bridge::wf0::SaveRefusal& e){combinedRefused=e.stage==3;}
+  check(combinedRefused,"combined state header/parameters count toward the save limit");
+  component.recording=0;
+  LVBState::Stream sparse;
+  check(sparse.seek(int64(LVBState::payloadLimit)+1,IBStream::kIBSeekSet,nullptr)==kResultFalse&&
+        sparse.failed&&sparse.capacity_exceeded&&sparse.bytes.empty(),"oversized seek is detected before allocation");
   auto before=controller.synchronizations;
+  LVBState::Stream tooLarge({},4);component.getState(&tooLarge);
+  check(!linux_vst_bridge::wf0::synchronize_initial(controller,true,kResultFalse,tooLarge)&&
+        controller.synchronizations==before,"capacity refusal during initialization keeps the editor available");
   for(auto r:{kResultFalse,kNotImplemented}){
     LVBState::Stream partial;partial.bytes={1,2,3};
     check(!linux_vst_bridge::wf0::synchronize_initial(controller,true,r,partial)&&controller.synchronizations==before,"fresh initialization refuses no editor and never synchronizes a declined stream");

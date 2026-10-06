@@ -407,7 +407,8 @@ struct MappedSession::Impl {
                 completed();
                 events.lifecycle("ap12_save_refused",
                                  ",\"operation\":16,\"stage\":" + std::to_string(e.stage) +
-                                     ",\"sdk_result\":" + std::to_string(e.result));
+                                     ",\"sdk_result\":" + std::to_string(e.result) +
+                                     ",\"detail\":\"" + e.what() + "\"");
                 return;
             }
             if (diagnostic.enabled)

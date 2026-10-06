@@ -234,15 +234,18 @@ uint32_t __wrap_ap8_validate(const uint8_t *, const uint8_t *, uint32_t) {
 uint32_t __wrap_ap8_validate_restore(const uint8_t *, const uint8_t *, uint32_t) {
   return 0;
 }
-uint32_t __wrap_ap4_state(uint64_t, const uint8_t *, uint32_t, uint8_t *out,
-                          uint32_t cap, uint32_t *n) {
+uint32_t __wrap_ap4_state_owned_v1(uint64_t, const uint8_t *, uint32_t,
+                                  ap4_owned_state_v1 *state) {
   ++state_calls;if(save_code)return save_code;
-  check(cap >= 132, "bounded state output");
-  std::memset(out, 0, 132);
+  check(state->abi_version==1&&!state->data&&!state->length,"empty owned state output");
+  auto* out=new uint8_t[132]{};
   out[112] = 1;
   std::memcpy(out + 124, &dsp, 8);
-  *n = 132;
+  state->data=out;state->length=132;
   return 0;
+}
+void __wrap_ap4_state_release_v1(ap4_owned_state_v1 *state) {
+  delete[] state->data;state->data=nullptr;state->length=0;
 }
 uint32_t __wrap_ap23_finish_callback(uint64_t) { return 0; }
 uint32_t __wrap_ap23_process_outputs(uint64_t, uint32_t n, uint32_t mode, const ap8_event_t *e,

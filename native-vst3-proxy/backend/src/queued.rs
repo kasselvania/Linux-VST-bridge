@@ -5,7 +5,7 @@
 use crate::{binding, queue::Queue, retain, state, Session};
 use ap1_native_client::{
     events::{Event, MAX_EVENTS},
-    invalid, BLOCK_CAP as CAP, CAP as LEGACY_CAP, ERROR,
+    invalid, need, BLOCK_CAP as CAP, CAP as LEGACY_CAP, ERROR,
 };
 use std::{
     cell::UnsafeCell,
@@ -2219,22 +2219,8 @@ pub unsafe extern "C" fn ap6_snapshot(id: u64, out: *mut RecoveryInfo) -> u32 {
         0
     }) as u32
 }
-#[no_mangle]
-pub unsafe extern "C" fn ap6_recover(
-    id: u64,
-    revision: u64,
-    out: *mut u8,
-    capacity: u32,
-    size: *mut u32,
-) -> u32 {
-    crate::ffi(|| {
-        if out.is_null()
-            || size.is_null()
-            || (capacity as usize) < state::HEADER_SIZE + state::LIMIT
-        {
-            return 1;
-        }
-        match INSTANCES.update(id, |l| -> io::Result<()> {
+unsafe fn recover_state(id: u64, revision: u64, capacity: usize) -> Result<Vec<u8>, i32> {
+        match INSTANCES.update(id, |l| -> io::Result<Vec<u8>> {
             if l.recovery_blocked || l.shared.fault.load(Ordering::Acquire) == 0 {
                 return Err(invalid("recovery requires a failed, contained instance"));
             }
@@ -2244,6 +2230,7 @@ pub unsafe extern "C" fn ap6_recover(
                 .lock()
                 .map_err(|_| invalid("snapshot store poisoned"))?
                 .select(revision)?;
+            need(snapshot.bytes.len() <= capacity, "recovery output capacity")?;
             let payload = state::bound_payload(l.shared.identity, &snapshot.bytes)?;
             let end = Instant::now() + Duration::from_secs(80);
             while l.worker.as_ref().is_some_and(|t| !t.is_finished()) {
@@ -2336,13 +2323,38 @@ pub unsafe extern "C" fn ap6_recover(
             l.report = report;
             l.callback = UnsafeCell::new(l.callback.get_mut().replacement());
             l.recovery_blocked = false;
-            std::ptr::copy_nonoverlapping(snapshot.bytes.as_ptr(), out, snapshot.bytes.len());
-            *size = snapshot.bytes.len() as u32;
-            Ok(())
+            Ok(snapshot.bytes)
         }) {
-            Ok(Ok(())) => 0,
-            Ok(Err(error)) => retain(&error),
-            Err(code) => code as i32,
+            Ok(Ok(bytes)) => Ok(bytes),
+            Ok(Err(error)) => Err(retain(&error)),
+            Err(code) => Err(code as i32),
+        }
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap6_recover(
+    id: u64, revision: u64, out: *mut u8, capacity: u32, size: *mut u32,
+) -> u32 {
+    crate::ffi(|| {
+        if out.is_null() || size.is_null() { return 1; }
+        match recover_state(id, revision, capacity as usize) {
+            Ok(bytes) => {
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), out, bytes.len());
+                *size = bytes.len() as u32;
+                0
+            }
+            Err(code) => code,
+        }
+    }) as u32
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap6_recover_owned_v1(
+    id: u64, revision: u64, out: *mut state::OwnedState,
+) -> u32 {
+    crate::ffi(|| {
+        if !state::owned_output_ready(out) { return 1; }
+        match recover_state(id, revision, state::HEADER_SIZE + state::LIMIT) {
+            Ok(bytes) => { state::give_owned(out, bytes); 0 }
+            Err(code) => code,
         }
     }) as u32
 }
@@ -2586,45 +2598,46 @@ pub unsafe extern "C" fn ap4_deactivate(id: u64) -> u32 {
         Err(e) => retain(&e),
     }) as u32
 }
+unsafe fn read_state(id: u64, restore: *const u8, n: u32) -> io::Result<Vec<u8>> {
+    need(n as usize <= state::HEADER_SIZE + state::LIMIT, "restore state capacity")?;
+    let request = if restore.is_null() {
+        need(n == 0, "capture has no input bytes")?;
+        Ok((16, vec![]))
+    } else {
+        let live = INSTANCES.lease(id).ok_or_else(|| invalid("state handle"))?;
+        state::restore_payload(live.shared.identity, std::slice::from_raw_parts(restore, n as usize))
+            .map(|bytes| (18, bytes.to_vec()))
+    };
+    request.and_then(|(op, bytes)| control(id, op, bytes))
+}
 #[no_mangle]
 pub unsafe extern "C" fn ap4_state(
-    id: u64,
-    restore: *const u8,
-    n: u32,
-    out: *mut u8,
-    capacity: u32,
-    size: *mut u32,
+    id: u64, restore: *const u8, n: u32, out: *mut u8, capacity: u32, size: *mut u32,
 ) -> u32 {
     crate::ffi(|| {
-        if out.is_null()
-            || size.is_null()
-            || (capacity as usize) < state::HEADER_SIZE + state::LIMIT
-            || n as usize > state::HEADER_SIZE + state::LIMIT
-        {
-            return 1;
-        }
-        let request = if restore.is_null() {
-            if n != 0 {
-                return 1;
-            }
-            Ok((16, vec![]))
-        } else {
-            let Some(l) = INSTANCES.lease(id) else {
-                return 1;
-            };
-            state::restore_payload(
-                l.shared.identity,
-                std::slice::from_raw_parts(restore, n as usize),
-            )
-            .map(|p| (18, p.to_vec()))
-        };
-        match request.and_then(|(op, b)| control(id, op, b)) {
-            Ok(b) => {
-                std::ptr::copy_nonoverlapping(b.as_ptr(), out, b.len());
-                *size = b.len() as u32;
+        if out.is_null() || size.is_null() { return 1; }
+        match read_state(id, restore, n).and_then(|bytes| {
+            need(bytes.len() <= capacity as usize, "state output capacity")?;
+            Ok(bytes)
+        }) {
+            Ok(bytes) => {
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), out, bytes.len());
+                *size = bytes.len() as u32;
                 0
             }
-            Err(e) => retain(&e),
+            Err(error) => retain(&error),
+        }
+    }) as u32
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap4_state_owned_v1(
+    id: u64, restore: *const u8, n: u32, out: *mut state::OwnedState,
+) -> u32 {
+    crate::ffi(|| {
+        if !state::owned_output_ready(out) { return 1; }
+        match read_state(id, restore, n) {
+            Ok(bytes) => { state::give_owned(out, bytes); 0 }
+            Err(error) => retain(&error),
         }
     }) as u32
 }
