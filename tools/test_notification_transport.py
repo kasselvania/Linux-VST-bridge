@@ -112,7 +112,28 @@ void peer_loss_and_offer_refusal(){
  std::thread waiting([&]{count_network=true;try{transport.read(frame,true);}catch(const std::exception&){refused=true;}count_network=false;calls=network_calls;});
  Sleep(20);auto begin=Clock::now();disconnect.store(true,std::memory_order_release);waiting.join();peer.join();assert(refused&&calls==0&&transport.failed()&&Clock::now()-begin<std::chrono::milliseconds(500));transport.stop();
 }
-int main(){WSADATA data{};assert(WSAStartup(MAKEWORD(2,2),&data)==0);auto directory=std::filesystem::current_path();normal_and_cancel(directory);peer_loss_and_offer_refusal();assert(DeleteFileW((directory/L"ap10.delivery").c_str()));WSACleanup();std::cout<<"Windows paired pump: bounded event delivery, prepared render storage, no render socket I/O, cancellation and peer loss PASS\n";}
+void recorded_state_frames(){
+ // Opaque state larger than the owner's prepared storage crosses once in each
+ // direction and returns byte-exact; a render frame never grows its storage.
+ std::array<uint8_t,16>id{};id[0]=33;Listener control_listener,notification_listener;Peer host{control_listener.connect()};auto native_control=control_listener.accept();auto offered=offer(notification_listener,id);
+ const size_t extent=(3u<<20)+17;std::atomic<bool>finished{false};
+ std::thread native([&]{Peer control{native_control},notification{notification_listener.accept()};authenticate(notification,offered);
+  std::vector<uint8_t>state(extent);for(size_t i=0;i<extent;++i)state[i]=uint8_t(i*31+7);
+  control.write({SetState,id,1,state},true);auto applied=control.read();assert(applied.kind==StateApplied&&applied.sequence==1&&applied.payload.empty());
+  control.write({GetState,id,2,{}});auto returned=control.read();assert(returned.kind==State&&returned.sequence==2&&returned.payload==state);
+  until([&]{return finished.load(std::memory_order_acquire);});
+ });
+ {
+  wf0::NotificationTransport transport(host.fd,offered,id);Frame request{};
+  transport.read(request,false);assert(request.kind==SetState&&request.sequence==1&&request.payload.size()==extent);
+  const auto saved=request.payload;transport.write({StateApplied,id,1,{}},true);
+  transport.read(request,false);assert(request.kind==GetState&&request.sequence==2&&request.payload.empty());
+  transport.write({State,id,2,saved},true);
+  bool refused=false;try{transport.write({State,id,3,saved},false);}catch(const std::exception&){refused=true;}assert(refused&&!transport.failed());
+  finished.store(true,std::memory_order_release);native.join();transport.stop();
+ }
+}
+int main(){WSADATA data{};assert(WSAStartup(MAKEWORD(2,2),&data)==0);auto directory=std::filesystem::current_path();normal_and_cancel(directory);peer_loss_and_offer_refusal();recorded_state_frames();assert(DeleteFileW((directory/L"ap10.delivery").c_str()));WSACleanup();std::cout<<"Windows paired pump: bounded event delivery, prepared render storage, no render socket I/O, cancellation, peer loss and state frames beyond prepared storage PASS\n";}
 '''
 
 

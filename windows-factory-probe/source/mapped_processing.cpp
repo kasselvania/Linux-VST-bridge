@@ -108,7 +108,8 @@ struct Socket {
             }
         }
     }
-    void read_raw(std::vector<uint8_t>& b, bool command, size_t maximum = 1u << 20) {
+    // payload_length bounds each frame kind; only state frames reach the default.
+    void read_raw(std::vector<uint8_t>& b, bool command, size_t maximum = LVBState::payloadLimit) {
         b.resize(header_bytes);
         size_t received = 0;
         // Idle has no issued-request deadline. The first received byte starts one
@@ -145,6 +146,7 @@ struct Socket {
         transfer(b.data() + received, b.size() - received, false, end);
         auto n = payload_length(b.data(), minor);
         require(n <= maximum, "audio reply scratch extent");
+        end += std::chrono::milliseconds(n >> 14); // one millisecond per 16 KiB of payload
         b.resize(header_bytes + n);
         if (n)
             transfer(b.data() + header_bytes, n, false, end);

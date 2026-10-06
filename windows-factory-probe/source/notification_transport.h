@@ -25,7 +25,11 @@ class NotificationTransport {
  uint16_t minor_=15;
  Event cancel_,activity_,request_,control_ready_;
  NetworkEvent control_network_,notification_network_;
- Lane owner_{ap1::header_bytes+(1u<<20)},render_{ap1::header_bytes+10312};
+ // Owner frames carry opaque plug-in state, which may hold recorded audio.
+ // Their storage follows the actual frame up to the protocol's state bound.
+ // Render storage is prepared once and never grows.
+ static constexpr size_t owner_prepared=ap1::header_bytes+(1u<<20),owner_limit=ap1::header_bytes+LVBState::payloadLimit;
+ Lane owner_{owner_prepared},render_{ap1::header_bytes+10312};
  std::vector<uint8_t> incoming_;
  size_t received_=0;
  bool input_published_=false;
@@ -38,6 +42,8 @@ class NotificationTransport {
  Lane* writing_=nullptr;size_t written_=0;
  Clock::time_point input_end_{},output_end_{},wake_end_{};
  static constexpr uint8_t wake=1;
+ // Five seconds for any frame, plus one millisecond per 16 KiB transferred.
+ static Clock::duration allowance(size_t bytes){return std::chrono::seconds(5)+std::chrono::milliseconds(bytes>>14);}
  static HANDLE event(bool manual=false){auto e=CreateEventW(nullptr,manual?TRUE:FALSE,FALSE,nullptr);ap1::require(e,"transport event preparation");return e;}
  void check()const{ap1::require(!failed_.load(std::memory_order_acquire)&&!cancelled_.load(std::memory_order_acquire),"transport pump cancelled/failed");}
  static void startup_transfer(SOCKET socket,uint8_t* bytes,size_t count,bool writing,Clock::time_point end){
@@ -95,7 +101,8 @@ class NotificationTransport {
   if(n==0&&closed_sent_)return false;
   ap1::require(n>0,"control endpoint disconnected/IO");if(!received_)input_end_=Clock::now()+std::chrono::seconds(5);received_+=size_t(n);
   if(received_==incoming_.size()){
-   if(incoming_.size()==ap1::header_bytes){auto length=ap1::payload_length(incoming_.data(),minor_);ap1::require(length<=1u<<20,"control input extent");incoming_.resize(ap1::header_bytes+length);if(length)return true;}
+   // payload_length applies each frame kind's own bound; only state frames reach this one.
+   if(incoming_.size()==ap1::header_bytes){auto length=ap1::payload_length(incoming_.data(),minor_);ap1::require(length<=LVBState::payloadLimit,"control input extent");input_end_=Clock::now()+allowance(length);incoming_.resize(ap1::header_bytes+length);if(length)return true;}
    input_published_=true;input_ready_.store(true,std::memory_order_release);ap1::require(SetEvent(control_ready_.value)&&SetEvent(request_.value),"transport control wake");
   }return true;
  }
@@ -103,7 +110,7 @@ class NotificationTransport {
   if(!writing_){
    if(render_.state.load(std::memory_order_acquire)==1)writing_=&render_;
    else if(owner_.state.load(std::memory_order_acquire)==1)writing_=&owner_;
-   if(!writing_)return false;writing_->state.store(2,std::memory_order_release);written_=0;output_end_=Clock::now()+std::chrono::seconds(5);
+   if(!writing_)return false;writing_->state.store(2,std::memory_order_release);written_=0;output_end_=Clock::now()+allowance(writing_->bytes.size());
   }
   auto& lane=*writing_;auto n=send(control_,reinterpret_cast<const char*>(lane.bytes.data()+written_),int(std::min<size_t>(lane.bytes.size()-written_,16384)),0);
   if(n==SOCKET_ERROR&&WSAGetLastError()==WSAEWOULDBLOCK)return false;
@@ -197,9 +204,9 @@ public:
  }
  void write(const ap1::Frame& frame,bool owner,void(*service)(void*)=nullptr,void* context=nullptr){
   check();auto& lane=owner?owner_:render_;ap1::require(lane.state.load(std::memory_order_acquire)==0,"transport output ownership");
-  ap1::require(ap1::header_bytes+frame.payload.size()<=lane.bytes.capacity(),"transport output extent");ap1::encode_into(frame,minor_,lane.bytes);
+  ap1::require(ap1::header_bytes+frame.payload.size()<=(owner?owner_limit:lane.bytes.capacity()),"transport output extent");ap1::encode_into(frame,minor_,lane.bytes);
   lane.state.store(1,std::memory_order_release);ap1::require(SetEvent(activity_.value),"transport output wake");
-  const auto end=Clock::now()+std::chrono::seconds(5);
+  const auto end=Clock::now()+allowance(lane.bytes.size());
   while(lane.state.load(std::memory_order_acquire)!=3){check();if(service)service(context);
    std::array<HANDLE,2> handles{cancel_.value,lane.completed.value};auto result=WaitForMultipleObjects(2,handles.data(),FALSE,4);
    ap1::require(result==WAIT_TIMEOUT||result==WAIT_OBJECT_0+1,"transport output wait");ap1::require(Clock::now()<end,"transport output deadline");

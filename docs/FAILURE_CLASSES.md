@@ -2676,6 +2676,30 @@ left Nibbi on the old bridge; the Test 11 manager corrects this in
 Nibbi now selects the verified new pair on the Deck, retaining its DirectComposition
 runner and 512-frame buffering. Its recorded save/reopen in Bitwig remains pending;
 touch knobs are a separate open problem.
+
+Operator result on the Test 11 pair (2026-10-06, Bitwig 6.1): deleting Nibbi
+with a recording still ended the instance. Session `30f80725` shows the capture
+itself now succeeds, `ap4_state_result` with 1,369,067 bytes, and the host then
+fails with `transport pump cancelled/failed`; the native side reports the
+notification endpoint disconnected and the state acknowledgement missing. After
+the operator deleted the recording inside Nibbi, session `29a7644f` captured
+730,171 bytes and retired normally. The capture bound was raised but the
+Windows protocol-15 transport kept its own 1 MiB limits: the owner's output
+storage refused any larger frame (`transport output extent`), and incoming
+control frames above 1 MiB were refused (`control input extent`), which would
+also have blocked restoring such a state. The plain socket reader used below
+protocol 15 had the same default. All three now follow the protocol's state
+bound, owner storage grows to the actual frame while render storage stays
+prepared and fixed, and transfer deadlines grow by one millisecond per 16 KiB.
+The Windows pump test sends a 3 MiB state in each direction and checks it
+byte for byte. Not yet built by CI, installed or tried on the Deck.
+
+The operator also observed that while Nibbi holds a recording and its playback
+is paused, Bitwig's level meters stay at the last playing level, and return to
+zero when the recording is deleted inside Nibbi. The two session records
+account for the save failure by state size alone, so the meter behaviour is a
+separate observation tied to the same condition. Whether Nibbi itself emits a
+held level or the bridge repeats output is not established.
 Last reviewed: 2026-10-06.
 
 ## FC-UI-008 — Vendor editor removal crashes the Windows host
