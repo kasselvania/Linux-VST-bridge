@@ -1,42 +1,45 @@
-# Current task: keep the usable Pure LoFi Buffered 512 configuration
+# Current task: finish the Pure LoFi claim, then the instrument class
 
 ## Goal
 
-Pure LoFi plays in Bitwig on the Deck at 512 frames / 48 kHz without missing
-blocks or graph errors through thirty minutes of normal use and offline export.
-Preserve projects, licensed state, pinned runner and machine headroom.
+A musician plays a bridged plug-in in Bitwig on the Deck without dropouts,
+editor open or closed, through thirty minutes of normal use. Preserve projects,
+licensed state, the pinned runner and machine headroom.
 
 ## Works now
 
-The unchanged installed build, Together/Buffered 512/editor closed, completes
-1,800 seconds with Moonlight connected, transport and mixer interaction:
-zero missing blocks, Bitwig ERR+0 (1 to 1), recorder ERR0, largest gap 15.33 ms.
-All 168,747 DAW calls succeed: median/p99/max 0.038/0.056/0.095 ms.
-One offline WAV export succeeds (675 offline calls); Bitwig and both hosts
-survive. Normal quit preserves projects, publications and preferences.
-Editor OPEN with Moonlight disconnected for the full 600-second capture is
-also clean: zero missing blocks, ERR+0, recorder ERR0, largest gap 16.96 ms.
-Buffered 512 stays selected. No rebuild or scheduling change for either run.
+Pure LoFi, Buffered 512, 48 kHz: 1,800 seconds with transport and mixer use
+and an offline export, zero missing blocks, Bitwig ERR+0, DAW-side call
+0.038 ms median. Editor open with no screen streaming: 600 seconds clean.
+FC-AUDIO-001 is resolved on this fixture; Buffered 512 is the product default.
 
-## Still broken
+## Established
 
-Editor OPEN while Moonlight streams remains the failing configuration:
-two missing 512-frame blocks, Bitwig ERR+2, largest gap 20.15 ms.
-The Wine host's busiest threads are lvb-audio (13.5%) and host.exe (11.7%);
-its next host.exe thread is 9.1%. sh_opt0..2 belong to Wine host, not wineserver.
-Retained ps percentages are per-thread lifetime averages.
+The misses scaled with the vendor call inside Bitwig's window on a DAW with no
+real-time audio threads. Buffered delivery removes the call from that window.
+The two editor-open misses were Moonlight's video encoding: never stream the
+screen during an audio measurement. Final acceptance is a person at the Deck
+with headphones. The bridge's real-time grants stay; the caller grant and the
+all-grants-off switch remain opt-in experiment knobs.
 
-## Most likely cause
+## Next changes, one at a time
 
-Moonlight/Sunshine capture and video encoding load with the animated editor,
-about 80%. Disconnecting the stream removes the misses with the editor open;
-closing the editor also stays clean during thirty minutes of streamed use.
+1. Deck, no code: Pure LoFi, Buffered 512, editor OPEN, Moonlight disconnected,
+   thirty minutes with knob changes in the editor, offline export at the end.
+   Clean completes the Pure LoFi claim as a musician uses it.
+2. Deck, no code: the instrument class. Serum, Buffered 512 then Buffered 256,
+   same ten-minute method, no streaming. Record its call cost median/p99/max at
+   each block size and the misses. This is the first data point for choosing
+   delivery from measured cost, and it shows whether a live instrument can
+   have less than a block of added latency on this machine.
+3. Source: a prepare-time cost measurement per plug-in and block size, stored
+   as profile data, and a delivery default chosen from it with the rule
+   "worst-case call above a quarter of the period, or no real-time DAW thread,
+   means Buffered". Plain-language status for the musician.
 
-## Doing next
+## Done
 
-Keep Buffered 512 and the editor closed during streamed playback as the first
-usable configuration on this fixture. PR #218 is merged; Run 2 is deprioritised
-by the operator, so its supervisor switch remains uninstalled and untested.
-Raw captures stay outside Git. Any editor-open mitigation needs a new instruction.
+Both plug-ins thirty minutes clean in the configuration the product selects
+by itself, with the latency each one carries stated to the musician.
 
 Source/SSH/Deck: Sol6.1 xhigh; GUI: Sol6.1 high; root orchestrates.

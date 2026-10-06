@@ -84,7 +84,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-LIFE-002](#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state) | Failed launch cleanup and truthful recovery | Manager ownership/leases/results | causal | deployed | Steam Deck and Ubuntu fixtures | supported-with-workaround | Manager recovery UX |
 | [FC-MIDI-001](#fc-midi-001--recognized-expression-rejected-an-entire-native-input-callback) | Recognized expression rejected an entire native input callback | Native VST3 proxy input admission | causal in source; physical attribution open | source-fixed | Pinned SDK fixture; Push / Deck operator report only | unqualified for Push expression | Build and publish exact proxy successor; physical Push/Bitwig release check |
 | [FC-MIDI-002](#fc-midi-002--late-note-off-permanently-fails-processing) | Late note-off permanently fails processing | Native SDK signed timestamp conversion | causal in source and matched comparison | deployed | Pinned SDK regression; recovery1 Pure LoFi physical Deck comparison | qualified for this late-release recovery only | Residual timing and broader host/event qualification remain open |
-| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | preemption/burst loss attributed; refresh4 retains main N64, N13 tail and final N0 failures with remaining service/scheduler attribution gaps | recovery6 focused repair passes; refresh4 physical SDK matrix fails 16/24 full lifetimes | Pure LoFi Deck burst repair; Ubuntu coexistence failure; physical Completion instrument/effect matrix | blocked for dependable musical use | Shared legal short/zero-frame completion and containment, request/result/predicate attribution and justified deadline policy; native scheduling reason remains unavailable |
+| [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | preemption/burst loss attributed; refresh4 retains main N64, N13 tail and final N0 failures with remaining service/scheduler attribution gaps | recovery6 focused repair passes; refresh4 physical SDK matrix fails 16/24 full lifetimes | Pure LoFi Deck burst repair; Ubuntu coexistence failure; physical Completion instrument/effect matrix | usable on the Deck fixture: Pure LoFi, Buffered 512, 48 kHz, 30 minutes with interaction and export, zero misses; same-callback with a heavy effect stays unqualified | editor-open thirty-minute confirmation without screen streaming; instrument class at 512/256; delivery mode chosen from measured call cost |
 | [FC-AUDIO-002](#fc-audio-002--host-block-exceeds-the-selected-bridge-presentation-envelope) | Host block exceeds selected bridge presentation envelope | Proxy setup, selected delay, DAW audio settings | causal | accepted | FRAGMENTS / Ubuntu at Bitwig 512/48 kHz | supported-with-workaround | Actionable requested-versus-supported block message |
 | [FC-AUTO-001](#fc-auto-001--automation-refusal-collides-with-terminal-silence) | Automation refusal collides with terminal silence | Native curve admission / SDK result interpretation | causal collision; sparse-curve capability still incomplete | deployed collision correction; whole-block successor source-only | Ubuntu reference effect explicitly refuses 0x107; state still fails | blocked for the failed saved-automation journey | Deliver paired protocol-14 whole DAW blocks and repeat recall; audio gaps remain separate |
 | [FC-CAP-001](#fc-cap-001--capacity-enumeration-versus-lease-retirement-race) | Capacity scan versus lease retirement | Manager capacity ownership | causal | none | AP17 exact fixture | supported-with-workaround | Repair issue #93 |
@@ -985,6 +985,21 @@ physical product result is claimed.
 ---
 
 ## FC-AUDIO-001 — Residual audio deadline misses
+
+**Resolution on the Deck fixture (2026-10-06).** The symptom is gone on the
+machine where it was seen, and the change that removed it is known: Buffered
+delivery with 512 remembered frames, the product default. Pure LoFi then plays
+for 1,800 seconds with transport and mixer use and an offline export, zero
+missing blocks, Bitwig ERR+0, and the DAW-side call is 0.038 ms median. With
+the editor open and no screen streaming, 600 seconds are also clean. The cause
+was the vendor call (3.3 ms median, 6.9 ms max) sharing Bitwig's 10.67 ms window
+on a DAW whose audio threads have no real-time policy on this Deck; through the
+identical bridge the reference plug-in never missed. Denormals, hosting mode,
+the caller grant, the Flatpak RealtimeKit permission and the bridge's own
+real-time threads were each ruled out as the cause. The two editor-open misses
+under Moonlight were the test rig's video encoding, not the product. Open items:
+the editor-open thirty-minute confirmation without streaming, same-callback
+delivery with heavy effects (unqualified), and the instrument class.
 
 The [paced priority pair](../evidence/audio-recovery/2026-10-04-paced-priority-abort.md)
 retains five/four inside512-frame zero spans and seven/four active Bitwig ERR
