@@ -6,6 +6,7 @@ use crate::{profiles::*, *};
 /// number of host-changing updates, not with the number of profiles. Nothing
 /// releases an entry yet; the bound only keeps the record finite.
 pub const RETAINED_HOST_COUNT: usize = 64;
+const _: () = assert!(RETAINED_HOST_COUNT > PROFILE_COUNT);
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -581,7 +582,6 @@ mod path_tests {
             catalogue.hosts.push(host);
             assert_eq!(bound_refused(&catalogue), index == RETAINED_HOST_COUNT, "{index}");
         }
-        assert!(RETAINED_HOST_COUNT > PROFILE_COUNT);
     }
     #[test]
     fn setup_retains_ordinary_rollback_native_after_native_update() {
