@@ -231,7 +231,7 @@ def direct_audio_environment(reg,env):
     result['WINEDLLPATH']=str(root)
     return result
 
-def environment(reg,graphical=None):
+def environment(reg,graphical=None,plugin_session=False):
     root=pathlib.Path(reg['environment']['root']);user=pwd.getpwuid(os.getuid())
     env={'HOME':user.pw_dir,'USER':user.pw_name,'LOGNAME':user.pw_name,'PATH':'/usr/bin:/bin','LANG':'C.UTF-8',
          'XDG_RUNTIME_DIR':f'/run/user/{os.getuid()}','STEAM_COMPAT_DATA_PATH':str(root/'compatdata'),
@@ -281,6 +281,15 @@ def environment(reg,graphical=None):
     if retirement is not None:
         if retirement!='process_scoped_vendor_retirement' or lifetime!='retain_editor_view_until_instance_retirement':raise RuntimeError('unsupported vendor retirement')
         env['LVB_VENDOR_RETIREMENT']=retirement
+    if plugin_session:
+        # A plug-in host never uses a game controller. The runner's gaming
+        # defaults load the HID bus driver, which reads every controller's raw
+        # reports in each environment whether or not anything consumes them, and
+        # start the gamepad navigation helper. Installers and vendor
+        # applications keep the runner's defaults. Per launch; no prefix change.
+        prior=env.get('WINEDLLOVERRIDES')
+        env['WINEDLLOVERRIDES']=(prior+';' if prior else '')+'winebus.sys=d'
+        env['PROTON_USE_XALIA']='0'
     return direct_audio_environment(reg,env)
 
 def managed_home(spec,env):
@@ -1044,7 +1053,7 @@ def session_preflight(spec):
     """
     os.umask(0o077);reg=spec['registration'];session_directories(spec)
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
-    command(spec);env=environment(reg,spec.get('graphical_session'))
+    command(spec);env=environment(reg,spec.get('graphical_session'),plugin_session=True)
     managed_home(spec,env);transport_environment(spec,env);delivery_trace(spec,env)
 
 def native_generation_ended(spec,proc_root=pathlib.Path('/proc')):
@@ -1158,6 +1167,7 @@ class NativeProtonSession:
     MANAGED_RUNNER = 'managed-ge-proton11-7-slr4-20260805-r3'
     FORWARD = ('WINEDEBUG','PROTON_LOG','DXVK_LOG_LEVEL','VKD3D_DEBUG',
                'WINEDLLOVERRIDES','WINEDLLPATH','PROTON_USE_WINED3D','PROTON_DISABLE_NVAPI','PROTON_DLL_COPY',
+               'PROTON_USE_XALIA',
                'LVB_EVENT_OUTPUT_POLICY','LVB_AUDIO_LAYOUT_POLICY','LVB_EDITOR_LIFETIME',
                'LVB_VENDOR_RETIREMENT','LVB_AP10_TRACE')
     def __init__(self,spec,component):
@@ -1615,7 +1625,7 @@ class HostFootprint:
 def run_owned(spec,peer,stop_requested):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
-    cmd,binding=command(spec);env=environment(reg,spec.get('graphical_session'))
+    cmd,binding=command(spec);env=environment(reg,spec.get('graphical_session'),plugin_session=True)
     graphics_configuration={'requested_backend':reg.get('compatibility',{}).get('graphics'),
         'dll_overrides':env.get('WINEDLLOVERRIDES'),'scope':'host_process_and_children',
         'renderer_observed':False}
@@ -1897,7 +1907,7 @@ def keep(spec):
         if type(startup_seconds) is not int or startup_seconds!=60:
             raise RuntimeError('keeper startup deadline binding')
         graphical=spec.get('graphical_session')
-        env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}},graphical);managed_home(spec,env);transport_environment(spec,env)
+        env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}},graphical,plugin_session=True);managed_home(spec,env);transport_environment(spec,env)
         if command_session is not None:cmd,env=command_session.keeper_launch(cmd,env)
         root=subprocess.Popen(cmd,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
         for pipe,label in ((root.stdout,'stdout'),(root.stderr,'stderr')):

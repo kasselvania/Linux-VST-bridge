@@ -409,6 +409,28 @@ class BusCensusCommandTests(unittest.TestCase):
             self.assertEqual(session.environment(trial)['WINEDLLOVERRIDES'],
                 'd2d1,d3d11,dxgi,dcomp=b;uiautomationcore=')
 
+    def test_plugin_sessions_leave_out_the_runner_game_input_stack(self):
+        reg={'environment':{'root':'/fixture','runner':{}},
+             'compatibility':{'disable_windows_accessibility':False}}
+        with patch.object(session.subprocess,'check_output',return_value='DISPLAY=:0\n'):
+            # Installers and vendor applications keep the runner's defaults.
+            default=session.environment(reg)
+            self.assertNotIn('WINEDLLOVERRIDES',default)
+            self.assertNotIn('PROTON_USE_XALIA',default)
+            plugin=session.environment(reg,plugin_session=True)
+            self.assertEqual(plugin['WINEDLLOVERRIDES'],'winebus.sys=d')
+            self.assertEqual(plugin['PROTON_USE_XALIA'],'0')
+            self.assertEqual({k:v for k,v in plugin.items() if k not in ('WINEDLLOVERRIDES','PROTON_USE_XALIA')},default)
+            # It composes after every other per-launch choice and changes none.
+            reg['compatibility']={'graphics':'wine_d3d11','disable_windows_accessibility':True}
+            self.assertEqual(session.environment(reg,plugin_session=True)['WINEDLLOVERRIDES'],
+                'd3d11,dxgi=b;uiautomationcore=;winebus.sys=d')
+            reg['compatibility']={'disable_windows_accessibility':False}
+            reg['environment']['runner']['policy']='dcomp_wine_builtins_reference_v1'
+            self.assertEqual(session.environment(reg,plugin_session=True)['WINEDLLOVERRIDES'],
+                'd2d1,d3d11,dxgi,dcomp=b;winebus.sys=d')
+            self.assertIn('PROTON_USE_XALIA',session.NativeProtonSession.FORWARD)
+
     def test_event_policy_is_registered_not_ambient(self):
         reg={'environment':{'root':'/fixture'},'compatibility':{'disable_windows_accessibility':False}}
         with patch.object(session.subprocess,'check_output',return_value='DISPLAY=:0\nLVB_EVENT_OUTPUT_POLICY=reported_zero_event_channels_unspecified\n'):
