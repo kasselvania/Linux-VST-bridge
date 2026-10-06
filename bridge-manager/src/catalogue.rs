@@ -1,6 +1,12 @@
 //! Exact installed native artifacts, separate from portable compatibility policy.
 use crate::{profiles::*, *};
 
+/// Every update that changes the Windows host retains its predecessor for the
+/// publications and profiles still bound to it, so this list grows with the
+/// number of host-changing updates, not with the number of profiles. Nothing
+/// releases an entry yet; the bound only keeps the record finite.
+pub const RETAINED_HOST_COUNT: usize = 64;
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct HostArtifact {
@@ -233,7 +239,7 @@ impl Catalogue {
             ((self.schema == 1 && self.hosts.is_empty()) || matches!(self.schema, 2..=4))
                 && !self.natives.is_empty()
                 && self.natives.len() <= PROFILE_COUNT
-                && self.hosts.len() <= PROFILE_COUNT
+                && self.hosts.len() <= RETAINED_HOST_COUNT
                 && !self.environments.is_empty()
                 && self.environments.len() <= 16,
             "catalogue_schema_or_bound",
@@ -554,6 +560,28 @@ mod path_tests {
         fs::write(&f.r.host.path, b"changed host").unwrap();
         fs::set_permissions(&f.r.host.path, fs::Permissions::from_mode(0o400)).unwrap();
         assert!(setup_adoption_for_host(&f.m, profiles, &"cd".repeat(32), &"ef".repeat(32)).is_err());
+    }
+    #[test]
+    fn retained_hosts_are_bounded_by_updates_not_by_the_profile_count() {
+        let (f, p, c, n) = crate::test_fixture::prepared();
+        let report = crate::observation::derive(&p, &c, &n).unwrap();
+        f.m.managed_publish(&p, &c, report, &c.host, &c.host_source_sha256, None).unwrap();
+        for path in [f.r.host.path.clone(), f.r.host.path.with_file_name("host-source-manifest.json")] {
+            fs::set_permissions(path, fs::Permissions::from_mode(0o400)).unwrap();
+        }
+        let mut catalogue = setup_adoption_for_host(&f.m, std::slice::from_ref(&p), &"cd".repeat(32), &"ef".repeat(32)).unwrap().unwrap();
+        let first = catalogue.hosts.remove(0);
+        // The bound is the record's first check. A seventeenth host-changing
+        // update is no longer refused there; the list still has a declared end.
+        let bound_refused = |catalogue: &Catalogue| catalogue.validate_record(&f.m.root)
+            .is_err_and(|error| error.to_string() == "catalogue_schema_or_bound");
+        for index in 0..=RETAINED_HOST_COUNT {
+            let mut host = first.clone();
+            host.host.sha256 = format!("{index:064x}");
+            catalogue.hosts.push(host);
+            assert_eq!(bound_refused(&catalogue), index == RETAINED_HOST_COUNT, "{index}");
+        }
+        assert!(RETAINED_HOST_COUNT > PROFILE_COUNT);
     }
     #[test]
     fn setup_retains_ordinary_rollback_native_after_native_update() {

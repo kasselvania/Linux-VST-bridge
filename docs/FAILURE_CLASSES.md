@@ -2661,6 +2661,18 @@ with the same host and admission capability. The normal Test 11 update completes
 all 11 class transitions and selects Test 10's tested native/Windows binaries.
 Their actual content matches the target; plug-in modules, selected environments
 and buffering are unchanged, and the selected service is active. Installed fixed.
+
+Test 12 (2026-10-06), the first package after Test 10 to carry a different
+Windows host, was signed, staged on the Deck through the signed package API and
+then refused by `package-update` with `catalogue_schema_or_bound` after eight
+seconds. The selected Test 11 generation, service and all publications were
+unchanged. A host-changing update retains the predecessor's host in the native
+catalogue, the catalogue bounded that list by the profile count of 16, and the
+Deck's catalogue already held 16. Nothing releases a retained host, and an
+earlier failure in this document came from a retained host that was missing,
+so the list now has its own bound of 64 rather than a release rule. Releasing
+hosts that no registration, rollback ancestor or profile can select remains
+unbuilt.
 Last reviewed: 2026-10-06.
 
 ## FC-STATE-002 — Recorded audio exceeds the state cap and ends the host
