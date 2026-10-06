@@ -57,8 +57,16 @@ def run(out, kind):
             stream.flush()
             os.fsync(stream.fileno())
         temporary.replace(gate)
-        output, error = child.communicate(timeout=30)
-        assert child.returncode == 0, (kind, child.returncode, output[-2048:], error[-1024:])
+        if kind == 5:
+            try:
+                child.communicate(timeout=15)
+                raise AssertionError('hung removal fixture exited without containment')
+            except subprocess.TimeoutExpired:
+                child.kill()
+                output, error = child.communicate(timeout=5)
+        else:
+            output, error = child.communicate(timeout=30)
+            assert child.returncode == 0, (kind, child.returncode, output[-2048:], error[-1024:])
         rows = [json.loads(line) for line in output.splitlines()]
         def one(state):
             found = [r for r in rows if r.get('state') == state]
@@ -66,8 +74,9 @@ def run(out, kind):
             return found[0]
         editor = one('graphics_assessment')['editor']
         probes = {p['api']: p for p in one('graphics_runtime')['probes']}
-        assert editor['closed'] is True
-        assert editor['status'] == ('opened' if kind in (1, 2) else 'unavailable'), (editor, error[-2048:])
+        assert one('graphics_assessment')['schema'] == 2
+        assert editor['closed'] is False, 'pre-teardown observation must not claim successful removal'
+        assert editor['status'] == ('opened' if kind in (1, 2, 5) else 'unavailable'), (editor, error[-2048:])
         assert probes['d3d11_warp']['status'] == 'passed', probes
         assert probes['d3d11_warp']['rendering'] == 'reported_software', probes
         assert probes['opengl']['status'] == 'passed', probes
@@ -77,14 +86,21 @@ def run(out, kind):
         if kind == 2:
             assert 'open_gl' not in editor['before'] and 'open_gl' in editor['during'], editor
             assert b'reference OpenGL pixels matched' in error
-        assert one('ap8_inspection_closed')['exit_code'] == 0
-        assert one('scanner_completed')['inspection_complete'] is True
+            assert b'reference OpenGL context preserved' in error
+        if kind == 5:
+            assert not any(row.get('state') in ('graphics_editor_closed', 'scanner_completed', 'ap8_inspection_closed') for row in rows)
+            assert [row for row in rows if row.get('state') == 'ap8_call'][-1]['operation'] == 'closeGraphicsEditor'
+        else:
+            assert one('graphics_editor_closed')['closed'] is True
+            assert one('ap8_inspection_closed')['exit_code'] == 0
+            assert one('scanner_completed')['inspection_complete'] is True
         identity = hashlib.sha256(platform.platform().encode()).hexdigest()
         context = dict(module_sha256=sha(module), class_id=one('ap11_class')['class_id'],
                        runner_fingerprint=identity, environment_fingerprint=identity, environment_revision=1,
                        host_sha256=sha(host), host_source_sha256=source, requested_graphics='Native Windows CI defaults')
         report = dict(schema=1, session=sid, gated=True, cleanup_confirmed=True, transport_retired=True,
-                      error=None, records=rows, context=context,
+                      error='TimeoutError: Windows call deadline: closeGraphicsEditor' if kind == 5 else None,
+                      records=rows, context=context,
                       provenance='Native Windows CI reference process; no Proton, commercial plug-in or hardware qualification')
         (out / f'graphics-reference-{kind}.json').write_text(json.dumps(report, sort_keys=True))
         print(json.dumps(dict(reference=kind, editor=editor, probes=probes)), flush=True)
@@ -98,5 +114,5 @@ def run(out, kind):
 
 if __name__ == '__main__':
     output = pathlib.Path(sys.argv[1]).resolve()
-    for fixture in (1, 2, 3, 4):
+    for fixture in (1, 2, 3, 4, 5):
         run(output, fixture)

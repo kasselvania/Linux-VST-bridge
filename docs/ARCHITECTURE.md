@@ -1515,6 +1515,12 @@ displace the current selection or borrow another trial's admission result.
 The manager distinguishes selected options, their sources and scope, independent
 probe results and observed behavior; selecting a graphics option is not evidence
 of an editor's effective renderer.
+Graphics assessment retains the editor's loaded-library fingerprint before
+independent probes run, and retains both before editor teardown. A contained
+close failure may still yield a graphics recommendation from those exact facts;
+editor retirement remains a separate failed or timed-out result, never a working
+editor or successful scan. Launch validation checks the effective Direct3D/DXGI
+assignments while preserving the supervisor's other composed DLL choices.
 
 Cache observations by their actual dependencies. Module changes invalidate module
 inspection; runtime/dependency changes invalidate affected runtime and compatibility

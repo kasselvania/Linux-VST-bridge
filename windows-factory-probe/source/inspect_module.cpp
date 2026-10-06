@@ -266,11 +266,6 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
     if(initialized)cleanup("terminateComponent",[&]{return component->terminate();});
     if(component)component->release();
     {FUnknownPtr<IPluginFactory3> f3(factory);if(f3)f3->setHostContext(nullptr);}
-    if(graphics_probe && primary==0){
-        step("assessGraphicsRuntime");
-        assess_graphics_runtime(events);
-        ok(kResultOk,"assessGraphicsRuntime");
-    }
     events.lifecycle("ap8_inspection_closed",",\"exit_code\":"+std::to_string(primary));
     return primary;
 }

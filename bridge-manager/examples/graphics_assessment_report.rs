@@ -38,6 +38,11 @@ fn main() -> Result<()> {
             "fixture_joined_graphics",
         )?;
     }
+    if args[1].ends_with("-5.vst3") {
+        require(!result.editor.closed
+            && result.editor_retirement == assessment::EditorRetirement::TimedOut
+            && result.qualification == "unqualified", "fixture_failed_editor_retirement")?;
+    }
     println!("{}", serde_json::to_string(&result)?);
     Ok(())
 }

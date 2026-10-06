@@ -269,6 +269,85 @@ fn graphics_assessment_refuses_wrong_identity_incomplete_and_false_claims() {
 }
 
 #[test]
+fn graphics_launch_accepts_composed_builtins_and_refuses_conflicting_overrides() {
+    let mut c = context();
+    c.configuration_fingerprint = Some("77".repeat(32));
+    c.requested_backend = Some(crate::operator_model::GraphicsBackend::WineD3d11);
+    let imports = pe::Imports { machine: 0x8664, ordinary: vec![], delayed: vec![] };
+    let mut raw = report();
+    raw["graphics_configuration"] = json!({"requested_backend":"wine_d3d11",
+        "scope":"host_process_and_children","renderer_observed":false});
+    for overrides in ["d3d11,dxgi=b;lvb-direct-wait=b",
+        "d2d1,d3d11,dxgi,dcomp=b;uiautomationcore=;lvb-direct-wait=b",
+        "lvb-direct-wait=b; DXGI.dll = b ; D3D11 = b", "d3d11=b;dxgi=b;other=n,b"] {
+        raw["graphics_configuration"]["dll_overrides"] = json!(overrides);
+        assert!(assemble(c.clone(), imports.clone(), &raw, 100).is_ok(), "{overrides}");
+    }
+    for overrides in ["lvb-direct-wait=b", "d3d11=b", "dxgi=b", "d3d11,dxgi=n,b",
+        "d3d11,dxgi=b;dxgi=n", "dxgi=n;d3d11,dxgi=b", "d3d11,dxgi=b;*=n",
+        "d3d11,dxgi=b;*dxgi=n", "d3d11,dxgi=b;C:\\windows\\system32\\d3d11.dll=n",
+        "d3d11,dxgi=b;d3d*=n", "d3d11,dxgi=b=invalid"] {
+        raw["graphics_configuration"]["dll_overrides"] = json!(overrides);
+        assert!(assemble(c.clone(), imports.clone(), &raw, 100).is_err(), "{overrides}");
+    }
+}
+
+fn close_timeout_report() -> Value {
+    let mut raw = report();
+    raw["records"].as_array_mut().unwrap().truncate(4);
+    raw["records"][2]["schema"] = json!(2);
+    raw["records"][2]["editor"]["closed"] = json!(false);
+    raw["records"].as_array_mut().unwrap().push(json!({"state":"ap8_call","operation":"closeGraphicsEditor"}));
+    raw["error"] = json!("TimeoutError: Windows call deadline: closeGraphicsEditor");
+    raw
+}
+
+#[test]
+fn graphics_observations_survive_contained_close_failure_without_qualifying_editor() {
+    let imports = pe::Imports { machine: 0x8664, ordinary: vec![], delayed: vec![] };
+    let mut raw = close_timeout_report();
+    let assessment = assemble(context(), imports.clone(), &raw, 100).unwrap();
+    assert!(!assessment.editor.closed);
+    assert_eq!(assessment.editor_retirement, EditorRetirement::TimedOut);
+    assert_eq!(assessment.recommendation.requirement, Requirement::UnsupportedWebView2);
+    assert_eq!(assessment.qualification, "unqualified");
+    assert!(assessment.editor_device.is_none());
+    raw["records"].as_array_mut().unwrap().push(json!({"state":"graphics_editor_closed","schema":1,"closed":false}));
+    raw["error"] = json!("Windows host exited without successful close");
+    assert_eq!(assemble(context(), imports.clone(), &raw, 100).unwrap().editor_retirement, EditorRetirement::Failed);
+    raw["records"].as_array_mut().unwrap().last_mut().unwrap()["closed"] = json!(true);
+    assert!(assemble(context(), imports.clone(), &raw, 100).is_err(), "closed editor does not waive inspection failure");
+    raw["error"] = Value::Null;
+    raw["records"].as_array_mut().unwrap().extend([
+        json!({"state":"ap8_inspection_closed","exit_code":0}),
+        json!({"state":"scanner_completed","inspection_complete":true})]);
+    let assessment = assemble(context(), imports, &raw, 100).unwrap();
+    assert!(assessment.editor.closed);
+    assert_eq!(assessment.editor_retirement, EditorRetirement::Closed);
+}
+
+#[test]
+fn graphics_close_timeout_does_not_waive_binding_probes_or_cleanup() {
+    let imports = pe::Imports { machine: 0x8664, ordinary: vec![], delayed: vec![] };
+    for case in 0..10 {
+        let mut raw = close_timeout_report();
+        match case {
+            0 => raw["cleanup_confirmed"] = json!(false),
+            1 => raw["transport_retired"] = json!(false),
+            2 => raw["gated"] = json!(false),
+            3 => raw["records"][0]["scanner_sha256"] = json!("00".repeat(32)),
+            4 => raw["records"][1]["class_id"] = json!("00".repeat(16)),
+            5 => raw["records"][3]["probes"].as_array_mut().unwrap().clear(),
+            6 => raw["error"] = json!("TimeoutError: Windows call deadline: assessGraphicsRuntime"),
+            7 => raw["records"].as_array_mut().unwrap().last_mut().unwrap()["operation"] = json!("getComponentState"),
+            8 => raw["records"].as_array_mut().unwrap().push(json!({"state":"scanner_completed","inspection_complete":true})),
+            _ => raw["records"][2]["editor"]["closed"] = json!(true),
+        }
+        assert!(assemble(context(), imports.clone(), &raw, 100).is_err(), "case {case}");
+    }
+}
+
+#[test]
 fn graphics_driver_observation_changes_without_rekeying_environment() {
     let imports = pe::inspect(&mut Cursor::new(image("d3d11.dll", "opengl32.dll"))).unwrap();
     let original = assemble(context(), imports.clone(), &report(), 100).unwrap();

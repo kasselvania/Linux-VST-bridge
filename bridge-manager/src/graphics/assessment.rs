@@ -117,6 +117,13 @@ pub struct Editor {
     pub during: Vec<Library>,
     pub closed: bool,
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EditorRetirement {
+    Closed,
+    TimedOut,
+    Failed,
+}
 #[derive(Debug, Clone, Serialize)]
 pub struct Finding {
     pub library: Library,
@@ -208,6 +215,7 @@ pub struct Assessment {
     pub scope: &'static str,
     pub imports: super::pe::Imports,
     pub editor: Editor,
+    pub editor_retirement: EditorRetirement,
     pub runtime_probes: Vec<Probe>,
     pub findings: Vec<Finding>,
     pub recommendation: Recommendation,
@@ -229,6 +237,51 @@ fn one<'a>(rows: &'a [Value], state: &str) -> Result<&'a Value> {
     require(found.len() == 1, "graphics_observation_absent_or_duplicate")?;
     Ok(found[0])
 }
+
+// The supervisor composes graphics, accessibility and its builtin audio helper.
+// Check the effective graphics assignments, not one serialization of the list.
+// Conflicting assignments are refused rather than guessing their precedence.
+fn wine_d3d11_builtins(value: &str) -> bool {
+    let mut selected = [false; 2];
+    for entry in value.split(';').filter(|entry| !entry.trim().is_empty()) {
+        let Some((names, order)) = entry.split_once('=') else { return false };
+        for name in names.split(',') {
+            let name = name.trim().to_ascii_lowercase();
+            let name = name.rsplit(['\\', '/']).next().unwrap_or("");
+            let name = name.strip_suffix(".dll").unwrap_or(name);
+            let name = if name == "*" { name } else { name.strip_prefix('*').unwrap_or(name) };
+            if name.is_empty() || (name != "*" && name.contains('*')) { return false; }
+            if name == "*" {
+                if order.trim() != "b" { return false; }
+            } else if let Some(index) = ["d3d11", "dxgi"].iter().position(|target| *target == name) {
+                if order.trim() != "b" { return false; }
+                selected[index] = true;
+            }
+        }
+    }
+    selected.into_iter().all(|present| present)
+}
+
+fn editor_retirement(rows: &[Value], graphics: &Value, report: &Value,
+    editor: &mut Editor) -> Result<EditorRetirement> {
+    let closes: Vec<_> = rows.iter().filter(|row| row["state"] == "graphics_editor_closed").collect();
+    if graphics["schema"] == 1 {
+        require(editor.closed && closes.is_empty(), "graphics_editor_observation")?;
+        return Ok(EditorRetirement::Closed);
+    }
+    require(graphics["schema"] == 2 && !editor.closed && closes.len() <= 1,
+        "graphics_editor_observation")?;
+    if let Some(close) = closes.first() {
+        require(close["schema"] == 1 && close["closed"].is_boolean(), "graphics_editor_retirement")?;
+        editor.closed = close["closed"] == true;
+        return Ok(if editor.closed { EditorRetirement::Closed } else { EditorRetirement::Failed });
+    }
+    require(report["error"] == "TimeoutError: Windows call deadline: closeGraphicsEditor"
+        && rows.iter().rev().find(|row| row["state"] == "ap8_call")
+            .is_some_and(|row| row["operation"] == "closeGraphicsEditor"),
+        "graphics_editor_retirement")?;
+    Ok(EditorRetirement::TimedOut)
+}
 pub fn assemble(
     context: Context,
     imports: super::pe::Imports,
@@ -242,17 +295,14 @@ pub fn assemble(
             && applied_launch["renderer_observed"] == false,
             "graphics_launch_configuration_missing_or_changed")?;
         if context.requested_backend == Some(crate::operator_model::GraphicsBackend::WineD3d11) {
-            require(applied_launch["dll_overrides"].as_str().is_some_and(|s|
-                s == "d3d11,dxgi=b" || s == "d3d11,dxgi=b;uiautomationcore="
-                    || s == "d2d1,d3d11,dxgi,dcomp=b" || s == "d2d1,d3d11,dxgi,dcomp=b;uiautomationcore="),
+            require(applied_launch["dll_overrides"].as_str().is_some_and(wine_d3d11_builtins),
                 "graphics_launch_override_not_applied")?;
         }
     }
     require(
         report["cleanup_confirmed"] == true
             && report["transport_retired"] == true
-            && report["gated"] == true
-            && report["error"].is_null(),
+            && report["gated"] == true,
         "graphics_assessment_incomplete",
     )?;
     let rows = report["records"]
@@ -273,17 +323,24 @@ pub fn assemble(
             .is_some_and(|s| s.eq_ignore_ascii_case(&context.class_id)),
         "graphics_assessment_class",
     )?;
-    require(
-        one(rows, "ap8_inspection_closed")?["exit_code"] == 0
-            && one(rows, "scanner_completed")?["inspection_complete"] == true,
-        "graphics_assessment_terminal",
-    )?;
     let graphics = one(rows, "graphics_assessment")?;
-    require(graphics["schema"] == 1, "graphics_assessment_schema")?;
-    let editor: Editor = serde_json::from_value(graphics["editor"].clone())?;
+    let mut editor: Editor = serde_json::from_value(graphics["editor"].clone())?;
+    let editor_retirement = editor_retirement(rows, graphics, report, &mut editor)?;
+    if editor_retirement == EditorRetirement::Closed {
+        require(report["error"].is_null()
+            && one(rows, "ap8_inspection_closed")?["exit_code"] == 0
+            && one(rows, "scanner_completed")?["inspection_complete"] == true,
+            "graphics_assessment_terminal")?;
+    } else {
+        // A contained editor-close failure does not erase observations already
+        // made on this exact launch. It also cannot become a successful scan.
+        require(report["error"].as_str().is_some_and(|error| !error.is_empty())
+            && !rows.iter().any(|row| matches!(row["state"].as_str(),
+                Some("ap8_inspection_closed" | "scanner_completed"))),
+            "graphics_assessment_terminal")?;
+    }
     require(
         matches!(editor.status.as_str(), "opened" | "unavailable")
-            && editor.closed
             && editor.before.len() <= 11
             && editor.during.len() <= 11
             && editor.before.iter().collect::<BTreeSet<_>>().len() == editor.before.len()
@@ -380,11 +437,12 @@ pub fn assemble(
         &context_fingerprint,
         &imports,
         &editor,
+        &editor_retirement,
         &probes,
         &applied_launch,
     ))?));
     Ok(Assessment {schema:1,applied_launch,context_fingerprint,observations_fingerprint,context,observed_at:at,
         scope:"isolated inspection in selected environment; independent probe contexts are not the plug-in rendering context",
-        imports,editor,runtime_probes:probes,findings,recommendation,editor_device:None,child_renderers:"not_observed",
+        imports,editor,editor_retirement,runtime_probes:probes,findings,recommendation,editor_device:None,child_renderers:"not_observed",
         qualification:"unqualified",next_action})
 }

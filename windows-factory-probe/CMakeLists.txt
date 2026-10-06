@@ -7,7 +7,7 @@ add_executable(wf0-factory-probe
     source/factory_census.cpp)
 target_sources(wf0-factory-probe PRIVATE source/inspect_module.cpp source/graphics_assessment.cpp)
 
-foreach(kind RANGE 1 4)
+foreach(kind RANGE 1 5)
     add_library(graphics-reference-${kind} SHARED ../windows-fixtures/graphics/editor.cpp
         "${WF0_VST3_SDK_ROOT}/public.sdk/source/main/dllmain.cpp")
     target_include_directories(graphics-reference-${kind} PRIVATE "${WF0_VST3_SDK_ROOT}")

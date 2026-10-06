@@ -35,7 +35,9 @@ presentation path the pinned runner cannot show.
    product prepares that trial itself and assesses it too; the musician sees
    "Try Wine D3D11 graphics" as the next offer. A DirectComposition runner is
    still a named recommendation (runner selection is an onboarding
-   operation). Validate on Nibbi: re-prepare it and read the decision.
+   operation). Preserve graphics observations across failed editor teardown,
+   validate composed DLL choices, and report closure separately. Validate on
+   Nibbi: re-prepare it and read the decision.
 4. Intake as a manager operation: the staged check above as one button, with
    the first failing stage reported in plain words and mapped to a failure
    class. The agents have run it by hand for a week; the parts exist.

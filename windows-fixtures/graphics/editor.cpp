@@ -19,7 +19,16 @@ const FUID controller_id(0x4C564247,0x52415048,0x46585452,GRAPHICS_FIXTURE*16+2)
 class View final:public CPluginView {
 #if GRAPHICS_FIXTURE == 2
     HWND surface=nullptr;
-    void close_surface(){if(surface){DestroyWindow(surface);surface=nullptr;}}
+    HDC surface_dc=nullptr;
+    HGLRC surface_context=nullptr;
+    void close_surface(){
+        if(surface_context){
+            if(wglGetCurrentContext()==surface_context)wglMakeCurrent(nullptr,nullptr);
+            wglDeleteContext(surface_context);surface_context=nullptr;
+        }
+        if(surface_dc){ReleaseDC(surface,surface_dc);surface_dc=nullptr;}
+        if(surface){DestroyWindow(surface);surface=nullptr;}
+    }
 #endif
 public:
     View():CPluginView(){rect={0,0,128,128};}
@@ -55,22 +64,29 @@ public:
         if(!RegisterClassW(&wc)&&GetLastError()!=ERROR_CLASS_ALREADY_EXISTS)return kResultFalse;
         surface=CreateWindowW(wc.lpszClassName,L"",WS_CHILD|WS_VISIBLE,0,0,128,128,HWND(parent),nullptr,wc.hInstance,nullptr);
         if(!surface)return kResultFalse;
-        HDC dc=GetDC(surface);PIXELFORMATDESCRIPTOR p{};p.nSize=sizeof(p);p.nVersion=1;p.dwFlags=PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL|PFD_DOUBLEBUFFER;p.iPixelType=PFD_TYPE_RGBA;p.cColorBits=32;
+        HDC dc=surface_dc=GetDC(surface);PIXELFORMATDESCRIPTOR p{};p.nSize=sizeof(p);p.nVersion=1;p.dwFlags=PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL|PFD_DOUBLEBUFFER;p.iPixelType=PFD_TYPE_RGBA;p.cColorBits=32;
         int format=ChoosePixelFormat(dc,&p);bool matched=false;HGLRC rc=nullptr;
         if(format&&SetPixelFormat(dc,format,&p)&&(rc=wglCreateContext(dc))&&wglMakeCurrent(dc,rc)){
             glDrawBuffer(GL_BACK);glReadBuffer(GL_BACK);glClearColor(0,1,0,1);glClear(GL_COLOR_BUFFER_BIT);unsigned char pixels[4]{};glReadPixels(0,0,1,1,GL_RGB,GL_UNSIGNED_BYTE,pixels);
             const auto error=glGetError();
             std::fprintf(stderr,"reference OpenGL readback error=%u rgb=%u,%u,%u format=%d\n",unsigned(error),unsigned(pixels[0]),unsigned(pixels[1]),unsigned(pixels[2]),format);
-            matched=error==GL_NO_ERROR&&pixels[0]==0&&pixels[1]==255&&pixels[2]==0;SwapBuffers(dc);wglMakeCurrent(nullptr,nullptr);
+            matched=error==GL_NO_ERROR&&pixels[0]==0&&pixels[1]==255&&pixels[2]==0;SwapBuffers(dc);
         }
-        if(rc)wglDeleteContext(rc);ReleaseDC(surface,dc);
+        surface_context=rc;
         if(!matched){std::fprintf(stderr,"reference OpenGL refused format=%d context=%d last_error=%lu\n",format,rc!=nullptr,GetLastError());close_surface();return kResultFalse;}
         std::fputs("reference OpenGL pixels matched\n",stderr);
 #endif
         systemWindow=parent;return kResultOk;
     }
     tresult PLUGIN_API removed()override{
+#if GRAPHICS_FIXTURE == 5
+        // Deterministic hostile editor: the outer process owner must contain
+        // this call, while graphics observations remain available.
+        Sleep(INFINITE);
+#endif
 #if GRAPHICS_FIXTURE == 2
+        if(wglGetCurrentContext()!=surface_context||wglGetCurrentDC()!=surface_dc)return kResultFalse;
+        std::fputs("reference OpenGL context preserved\n",stderr);
         close_surface();
 #endif
         systemWindow=nullptr;return kResultOk;

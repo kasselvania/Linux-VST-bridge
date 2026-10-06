@@ -520,6 +520,10 @@ fn graphics_observation(ui: &mut egui::Ui, label: &str, result: &serde_json::Val
     ui.strong(label);
     if result.is_null() { ui.small("Not assessed with these settings."); return; }
     ui.label(format!("Editor check: {}", result["editor"]["status"].as_str().unwrap_or("unknown")));
+    if matches!(result["editor_retirement"].as_str(), Some("timed_out" | "failed")) {
+        ui.colored_label(egui::Color32::YELLOW,
+            "The editor did not close. Graphics findings were retained; the editor is not confirmed working.");
+    }
     if let Some(reason) = result["recommendation"]["reason"].as_str() { ui.label(reason); }
     if result["applied"]["prepared"].is_string() {
         let setup = result["applied"]["setup"].as_u64()

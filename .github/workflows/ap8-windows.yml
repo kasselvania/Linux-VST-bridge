@@ -102,7 +102,7 @@ jobs:
         run: |
           cmake -S . -B "${{ runner.temp }}/ap8-build" -G "Visual Studio 17 2022" -A x64 -T v143 "-DCMAKE_SYSTEM_VERSION=10.0.19041.0" -DWF0_BUILD_ONLY=ON "-DWF0_VST3_SDK_ROOT:PATH=${{ runner.temp }}/ap8-sdk"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build "${{ runner.temp }}/ap8-build" --config Release --target graphics-reference-1 graphics-reference-2 graphics-reference-3 graphics-reference-4 wf0-factory-probe ap10-return-fixture --parallel 4
+          cmake --build "${{ runner.temp }}/ap8-build" --config Release --target graphics-reference-1 graphics-reference-2 graphics-reference-3 graphics-reference-4 graphics-reference-5 wf0-factory-probe ap10-return-fixture --parallel 4
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/mf3/windows_inspection_test.py "${{ runner.temp }}/ap8-build/wf0/bin/Release"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -235,7 +235,7 @@ jobs:
           GRAPHICS_REFERENCE_ROOT: ${{ runner.temp }}/graphics-reference
           CARGO_BUILD_JOBS: 2
         run: |
-          for kind in 1 2 3 4; do
+          for kind in 1 2 3 4 5; do
             cargo run --quiet --locked --manifest-path bridge-manager/Cargo.toml --example graphics_assessment_report -- "$GRAPHICS_REFERENCE_ROOT/graphics-reference-$kind.vst3" "$GRAPHICS_REFERENCE_ROOT/graphics-reference-$kind.json" > "$GRAPHICS_REFERENCE_ROOT/assessment-$kind.json"
           done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

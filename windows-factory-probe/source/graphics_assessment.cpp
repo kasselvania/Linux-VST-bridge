@@ -9,6 +9,7 @@
 #include <array>
 #include <cctype>
 #include <string>
+#include <stdexcept>
 #include <utility>
 
 namespace linux_vst_bridge::wf0 {
@@ -97,6 +98,8 @@ Probe opengl(){
     Probe result("opengl");LibraryHandle library(L"opengl32.dll");
     auto create=library.get<decltype(&wglCreateContext)>("wglCreateContext");
     auto current=library.get<decltype(&wglMakeCurrent)>("wglMakeCurrent");
+    auto current_context=library.get<decltype(&wglGetCurrentContext)>("wglGetCurrentContext");
+    auto current_dc=library.get<decltype(&wglGetCurrentDC)>("wglGetCurrentDC");
     auto remove=library.get<decltype(&wglDeleteContext)>("wglDeleteContext");
     auto string=library.get<decltype(&glGetString)>("glGetString");
     auto clear_colour=library.get<decltype(&glClearColor)>("glClearColor");
@@ -105,12 +108,13 @@ Probe opengl(){
     auto error=library.get<decltype(&glGetError)>("glGetError");
     auto draw_buffer=library.get<decltype(&glDrawBuffer)>("glDrawBuffer");
     auto read_buffer=library.get<decltype(&glReadBuffer)>("glReadBuffer");
-    if(!create||!current||!remove||!string||!clear_colour||!clear||!read||!error||!draw_buffer||!read_buffer)return result;
+    if(!create||!current||!current_context||!current_dc||!remove||!string||!clear_colour||!clear||!read||!error||!draw_buffer||!read_buffer)return result;
+    const auto previous_context=current_context();const auto previous_dc=current_dc();
     WNDCLASSW wc{};wc.style=CS_OWNDC;wc.lpfnWndProc=DefWindowProcW;wc.hInstance=GetModuleHandleW(nullptr);wc.lpszClassName=L"LVBGraphicsProbe";
     if(!RegisterClassW(&wc)&&GetLastError()!=ERROR_CLASS_ALREADY_EXISTS)return result;
     HWND window=CreateWindowW(wc.lpszClassName,L"Graphics assessment",WS_POPUP,0,0,32,32,nullptr,nullptr,wc.hInstance,nullptr);
     if(!window)return result;
-    HDC dc=GetDC(window);HGLRC context=nullptr;
+    HDC dc=GetDC(window);HGLRC context=nullptr;bool restored=true;
     PIXELFORMATDESCRIPTOR request{};request.nSize=sizeof(request);request.nVersion=1;
     request.dwFlags=PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL|PFD_DOUBLEBUFFER;request.iPixelType=PFD_TYPE_RGBA;request.cColorBits=32;request.cAlphaBits=8;
     const int format=dc?ChoosePixelFormat(dc,&request):0;
@@ -126,9 +130,10 @@ Probe opengl(){
             if(described&&(actual.dwFlags&PFD_GENERIC_FORMAT)&&!(actual.dwFlags&PFD_GENERIC_ACCELERATED))result.rendering="reported_software";
             else if(described)result.rendering="reported_hardware";
         }
-        current(nullptr,nullptr);
+        restored=current(previous_dc,previous_context)!=FALSE;
     }
     if(context)remove(context);if(dc)ReleaseDC(window,dc);DestroyWindow(window);
+    if(!restored)throw std::runtime_error("graphics probe could not restore editor OpenGL context");
     return result;
 }
 std::string loaded(){
@@ -148,9 +153,18 @@ void assess_graphics_editor(Steinberg::Vst::IEditController& controller,EventWri
     const auto deadline=GetTickCount64()+750;
     while(opened&&GetTickCount64()<deadline&&VendorView::pump()&&!view.close_requested())Sleep(5);
     const auto during=loaded();
-    if(!view.close())ExitProcess(92);
-    events.lifecycle("graphics_assessment",",\"schema\":1,\"editor\":{\"status\":\""+std::string(opened?"opened":"unavailable")+
-        "\",\"before\":"+before+",\"during\":"+during+",\"closed\":true}");
+    // Keep the fingerprint before independent probes load libraries, and retain
+    // both observations before a vendor's removed() can hang or crash.
+    events.lifecycle("graphics_assessment",",\"schema\":2,\"editor\":{\"status\":\""+std::string(opened?"opened":"unavailable")+
+        "\",\"before\":"+before+",\"during\":"+during+",\"closed\":false}");
+    events.lifecycle("ap8_call",",\"operation\":\"assessGraphicsRuntime\"");
+    assess_graphics_runtime(events);
+    events.lifecycle("ap8_result",",\"operation\":\"assessGraphicsRuntime\",\"result\":0");
+    events.lifecycle("ap8_call",",\"operation\":\"closeGraphicsEditor\"");
+    const bool closed=view.close();
+    events.lifecycle("graphics_editor_closed",",\"schema\":1,\"closed\":"+std::string(closed?"true":"false"));
+    if(!closed)ExitProcess(92);
+    events.lifecycle("ap8_result",",\"operation\":\"closeGraphicsEditor\",\"result\":0");
 }
 void assess_graphics_runtime(EventWriter& events){
     const auto hardware=d3d(D3D_DRIVER_TYPE_HARDWARE);
