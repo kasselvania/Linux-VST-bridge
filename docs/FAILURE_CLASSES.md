@@ -2737,7 +2737,14 @@ count, as the SDK's own memory stream does. The SDK state test gains a
 component that reads this way over a state whose length is not a multiple of
 the block. This applies to every plug-in built on that wrapper, not only to
 recordings; earlier JUCE restores through the bridge were not verified and
-should be treated as unknown. Not yet built by CI, installed or tried.
+should be treated as unknown. On Linux with the pinned SDK the test passes with
+this stream and fails at the restore with the previous one; CI passes it on
+Linux and native Windows. Test 14 (source `90342be4`, same signer and
+inspection as Test 13) is installed on the Deck: all 11 published classes bind
+Windows host `2de547a5…` and native engine `15cc4dc4…`. The engine is a new
+build from this source in the SteamOS builder, because the stream is part of
+its sources; Tests 10 to 13 shared one engine binary. Nibbi recorded save and
+reopen on Test 14 is the operator's check and has not been run.
 
 The operator also observed that while Nibbi holds a recording and its playback
 is paused, Bitwig's level meters stay at the last playing level, and return to
