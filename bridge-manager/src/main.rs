@@ -1232,25 +1232,38 @@ fn occupied_environments(m:&Manager,owners:&[capacity::Owner])
     Ok(Some(occupied))
 }
 
-/// Retire each ready environment that has had no loaded plug-in for `idle`.
-/// This uses the registry guard that admission holds while it publishes a
-/// lease, so an instance is either visible here or not yet admitted. A busy
-/// guard, active maintenance or an unresolved owner retires nothing.
+/// Retire each ready environment that has had no loaded plug-in for `idle`,
+/// counted from the unload. The decision uses the registry guard that
+/// admission holds while it publishes a lease, so an instance is either
+/// visible here or not yet admitted. A busy guard, active maintenance or an
+/// unresolved owner retires nothing.
 fn retire_idle_keepers(m:&Manager,keepers:&Keepers,idle:Duration)->Result<()> {
+    if keepers.lock().map_err(|_|"environment ownership lock poisoned")?.is_empty() {return Ok(())}
+    // Stamp every environment that has a loaded plug-in now. This read takes
+    // no guard: an unreadable or unresolved answer stamps them all, which can
+    // only postpone a retirement. It never decides one.
+    let observed=capacity::owners(m).and_then(|owners|occupied_environments(m,&owners))
+        .ok().flatten();
     {
         let mut active=keepers.lock().map_err(|_|"environment ownership lock poisoned")?;
-        let retiring:Vec<String>=active.iter().filter(|owner|owner.retiring&&!owner.failed)
-            .map(|owner|owner.environment.clone()).collect();
-        for environment in retiring {observe_keeper(&environment,&mut active)?;}
-        if !active.iter().any(|owner|!owner.retiring&&!owner.failed
-            &&owner.last_used.elapsed()>=idle) {return Ok(())}
+        for owner in active.iter_mut().filter(|owner|!owner.retiring&&!owner.failed) {
+            if observed.as_ref().is_none_or(|occupied|occupied.contains(&owner.environment)) {
+                owner.last_used=Instant::now();
+            }
+        }
+        if !active.iter().any(|owner|!owner.failed
+            &&(owner.retiring||owner.last_used.elapsed()>=idle)) {return Ok(())}
     }
     let _registry=match m.try_lock("registry.lock")? {
         operator_lock::LockAttempt::Acquired(lock)=>lock,
         operator_lock::LockAttempt::Busy=>return Ok(()),
     };
-    let Some(occupied)=occupied_environments(m,&capacity::owners(m)?)? else {return Ok(())};
     let mut active=keepers.lock().map_err(|_|"environment ownership lock poisoned")?;
+    // Reaping removes a lease, so it also happens under the registry guard.
+    let retiring:Vec<String>=active.iter().filter(|owner|owner.retiring&&!owner.failed)
+        .map(|owner|owner.environment.clone()).collect();
+    for environment in retiring {observe_keeper(&environment,&mut active)?;}
+    let Some(occupied)=occupied_environments(m,&capacity::owners(m)?)? else {return Ok(())};
     for owner in active.iter_mut() {
         if owner.retiring||owner.failed {continue}
         if occupied.contains(&owner.environment) {
@@ -2664,8 +2677,18 @@ mod tests {
             retire_idle_keepers(&f.m,&keepers,Duration::ZERO).unwrap();
             assert!(!retiring());
         }
+        // The grace is counted from the unload, however long ago the load was.
+        let grace=Duration::from_millis(400);
+        let loaded=fixture_lease(&f,&f.r.key(),false);
+        std::thread::sleep(grace+Duration::from_millis(50));
+        retire_idle_keepers(&f.m,&keepers,grace).unwrap();
+        assert!(!retiring());
+        fs::remove_file(&loaded).unwrap();
+        retire_idle_keepers(&f.m,&keepers,grace).unwrap();
+        assert!(!retiring());
         // Nothing loaded for the whole grace: asked to retire, then reaped.
-        retire_idle_keepers(&f.m,&keepers,Duration::ZERO).unwrap();
+        std::thread::sleep(grace+Duration::from_millis(50));
+        retire_idle_keepers(&f.m,&keepers,grace).unwrap();
         assert!(retiring());
         assert!(keepers.lock().unwrap()[0].child.wait().unwrap().success());
         atomic_json(&report,&serde_json::json!({"ready":false,

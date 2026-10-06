@@ -95,7 +95,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MGMT-005](#fc-mgmt-005--partial-installation-retry-omitted-from-setup) | Partial installation retry omitted from Setup | Existing installer offers to Setup projection | causal | installed | Ubuntu internal56: two partial-stop and isolated-retry repetitions | resolved for the recorded partial retry | Remaining recovery cases and platform qualification |
 | [FC-MGMT-006](#fc-mgmt-006--exact-prebuilt-catalogue-blocks-unfamiliar-plug-ins) | Exact prebuilt catalogue blocks unfamiliar plug-ins | Preparation/descriptor/publication | causal in source; Nibbi user report | installed Ubuntu unfamiliar Windows processing, state migration and restoration | No repaired Deck/Nibbi result | Deck blocked; reference candidate unqualified | Actual DAW workflow, dependency and runtime trials |
 | [FC-STATE-001](#fc-state-001--saved-state-rejects-an-explicitly-selected-module-update) | Updated module rejects earlier saved state | Native state envelope / selected execution identity | causal for reference fixtures | installed reference repair passed | Ubuntu SDK instrument/effect; normal manager rollback | reference regression resolved; real DAW/commercial unqualified | Physical DAW update/recall and declared interaction/soak |
-| [FC-STATE-002](#fc-state-002--recorded-audio-exceeds-the-state-cap-and-ends-the-host) | Recording makes saving end the host | SDK state streams / state transport | causal in source; recording comparison agrees | 256 MiB cap and recoverable capture refusal installed in Test 11 | SDK recorded-state recall and continued audio after refusal; Deck pair verified | source regression resolved; Nibbi recorded recall pending | Nibbi recorded save/reopen in Bitwig |
+| [FC-STATE-002](#fc-state-002--recorded-audio-exceeds-the-state-cap-and-ends-the-host) | Recording makes saving end the host | SDK state streams / state transport | causal in source; recording comparison agrees | 256 MiB cap and recoverable capture refusal installed in Test 11 | SDK recorded-state recall and continued audio after refusal; Deck pair verified | resolved on the Deck in Test 14 | state near 100 MiB; flat Linux-side limits |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
@@ -818,9 +818,20 @@ Complete the current Gaming Mode product checks without weakening the exact grap
 
 No dedicated shared issue yet.
 
+### Open: an environment owner that exits without a report
+
+Since Test 17 an environment with nothing loaded is retired after 90 seconds,
+so its operation lock is free while the service runs. If a vendor application
+is then started from the command line and a plug-in of that environment is
+loaded during it, the new owner cannot take the lock and exits without a
+report; the service then refuses that environment until it is restarted. The
+same could already happen before an environment's first load. Not seen on the
+Deck. The repair is for the owner to publish an empty-cleanup result when it
+created nothing, and for the service to allow a later retry.
+
 ### Last reviewed
 
-2026-09-23.
+2026-10-06.
 
 ---
 
@@ -2768,8 +2779,15 @@ Linux and native Windows. Test 14 (source `90342be4`, same signer and
 inspection as Test 13) is installed on the Deck: all 11 published classes bind
 Windows host `2de547a5…` and native engine `15cc4dc4…`. The engine is a new
 build from this source in the SteamOS builder, because the stream is part of
-its sources; Tests 10 to 13 shared one engine binary. Nibbi recorded save and
-reopen on Test 14 is the operator's check and has not been run.
+its sources; Tests 10 to 13 shared one engine binary. The operator confirmed
+on Test 14 that Nibbi with a recording saves, reopens and keeps the recording.
+
+Open from review, none seen on the Deck: the Linux side still gives a state
+call flat limits (5 s to send, 10 s for the reply, 20 s overall) while the
+Windows side scales with size, so a state of roughly 100 MiB or more may fail
+from the Linux side first. After one large state the Windows host keeps its
+buffers at that size for the rest of the session. A save during playback
+hashes the whole state on the thread that also serves buffered audio.
 
 The operator also observed that while Nibbi holds a recording and its playback
 is paused, Bitwig's level meters stay at the last playing level, and return to
