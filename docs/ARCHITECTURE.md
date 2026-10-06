@@ -659,6 +659,13 @@ Process-group policy is profile- and host-aware:
 
 Bitwig's own plug-in sandboxing mode is fixture input. The bridge must not silently defeat it by placing unrelated plug-ins in one Windows process.
 
+Each environment has one shared Wine session that its Windows hosts start
+inside. The first load that needs it starts it, it stays while any plug-in of
+that environment is loaded, and the broker retires it after 90 seconds with
+none loaded. An environment with nothing loaded then has no running process;
+the next load starts it again. Maintenance, an owner that cannot be resolved or
+a busy registry guard retires nothing.
+
 ## 9. Compatibility profiles
 
 Profiles are declarative and schema-validated.

@@ -182,9 +182,13 @@ processes), no plug-in loaded and Bitwig closed:
 - The BEAM, Nibbi and Serum 2 sessions loaded and removed on Test 16 each
   ended with no error, cleanup confirmed and the transport retired. No audio
   was played in them, so they say nothing about callback duration.
-- The three environments were still alive after Bitwig quit. Nothing retires
-  an environment that has no plug-in loaded; the remaining 6% is paid for as
-  long as the desktop session lasts.
+- The three environments were still alive after Bitwig quit; nothing retired
+  an environment that had no plug-in loaded.
+- Test 17 retires an environment after 90 seconds with nothing loaded. On the
+  Deck, all seven environments were started through the manager's restore
+  request, ran for the grace, and were gone 107 seconds after they became
+  ready: no bridge process, no lease, cleanup confirmed. A load into a stopped
+  environment took 3.8 to 4.5 seconds; into a running one about 0.25 seconds.
 - The operator's stuck Control key is held by the desktop compositor's
   keyboard, not by the bridge or the X test-input device, and not by the
   Deck's L1 button at the time it was checked. The default desktop controller
