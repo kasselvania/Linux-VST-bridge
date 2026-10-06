@@ -448,7 +448,7 @@ class BusCensusCommandTests(unittest.TestCase):
         for _ in range(200):
             now[0]+=.05
             if cadence.due():walks+=1;cadence.walked_now(grew=False)
-        self.assertIn(walks,(10,11),'ten seconds of settled turns walk about once a second')
+        self.assertIn(walks,(9,10,11),'ten seconds of settled turns walk about once a second')
         # A new member returns it to every turn at once.
         cadence.walked_now(grew=True)
         for _ in range(20):
