@@ -521,7 +521,11 @@ fn graphics_observation(ui: &mut egui::Ui, label: &str, result: &serde_json::Val
     if result.is_null() { ui.small("Not assessed with these settings."); return; }
     ui.label(format!("Editor check: {}", result["editor"]["status"].as_str().unwrap_or("unknown")));
     if let Some(reason) = result["recommendation"]["reason"].as_str() { ui.label(reason); }
-    if let Some(action) = result["recommendation"]["action"].as_str() { ui.label(format!("Next: {action}")); }
+    if result["applied"]["prepared"].is_string() {
+        let setup = result["applied"]["setup"].as_u64()
+            .map(|n| format!(" as setup {n}")).unwrap_or_default();
+        ui.label(format!("Prepared: Wine's built-in Direct3D 11 is set up for this plug-in's next launch{setup}. Its Try offer below tests it in the DAW."));
+    } else if let Some(action) = result["recommendation"]["action"].as_str() { ui.label(format!("Next: {action}")); }
     ui.small("Effective editor renderer: not established by this assessment.");
     if let Some(probes) = result["runtime_probes"].as_array() {
         ui.small("Independent runtime probes");

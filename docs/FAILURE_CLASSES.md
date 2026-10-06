@@ -670,9 +670,19 @@ none, Wine built-in Direct3D 11 (the default path failed its probe), a
 DirectComposition-capable runner (the blank-editor class above: DirectComposition
 loaded and no composition device on this launch), unsupported WebView2, no
 editor, or undetermined. Import hints alone never decide. The manager shows the
-reason and the action with the assessment. Applying the recommendation without
-an operator click, and running the assessment as part of every preparation, are
-the next two steps of this mechanism.
+reason and the action with the assessment.
+
+The decision is now acted on without a click. Every preparation (the guided
+compatibility check and the explicit prepare) ends with the assessment: a run
+retained under the candidate's exact launch context is reused, otherwise one is
+made. When the requirement is Wine's built-in Direct3D 11, the product prepares
+that launch-only trial from the candidate and assesses the trial too, so the
+musician sees whether the Wine path passes before trying it in the DAW. Trying
+it stays the explicit publish step; a refused trial (another configuration is
+published) is reported as text. A failed assessment never fails the
+preparation. The DirectComposition-capable runner remains a named
+recommendation: selecting a runner is an environment onboarding operation, not
+a per-candidate launch setting.
 
 ### Related failure classes
 

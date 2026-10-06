@@ -1293,6 +1293,37 @@ fn probed_checkpoint(stage: &str) {
     if interrupt { panic!("source-owned interruption after {stage}"); }
 }
 
+/// The assessor every preparation runs: the same supervised launch as the
+/// explicit action, under its own registry admission.
+fn preparation_assessor(m: &Manager)
+    -> impl FnMut(&prep::Candidate) -> Result<linux_vst_bridge::graphics::assessment::Assessment> + '_ {
+    move |c| {
+        #[cfg(test)]
+        if let Some(result) = probed_assessment(c) { return result; }
+        crate::graphics_cli::assess(m, prep::configuration::registration(c)?.into(),
+            || m.lock("registry.lock"))
+    }
+}
+#[cfg(test)]
+type AssessmentProbe = Box<dyn FnMut(&prep::Candidate)
+    -> Result<linux_vst_bridge::graphics::assessment::Assessment>>;
+#[cfg(test)]
+thread_local! {
+    static ASSESSMENT_PROBE: std::cell::RefCell<Option<AssessmentProbe>> = const {
+        std::cell::RefCell::new(None)
+    };
+}
+/// Tests never launch a Windows host: without a probe the assessment fails
+/// and the preparation reports that, as it would for a host that failed.
+#[cfg(test)]
+fn probed_assessment(c: &prep::Candidate)
+    -> Option<Result<linux_vst_bridge::graphics::assessment::Assessment>> {
+    Some(ASSESSMENT_PROBE.with(|slot| match slot.borrow_mut().as_mut() {
+        Some(probe) => probe(c),
+        None => Err("graphics_assessment_not_probed".into()),
+    }))
+}
+
 fn guided_check<I, B>(
     m: &Manager, sw: &Software, action: &ui::Action, operation: &str,
     inspector: I, builder: B, mut checkpoint: impl FnMut(&str),
@@ -1383,16 +1414,21 @@ where
         require(c.preparation_basis.as_deref() == Some(basis.as_str()),
             "guided_check_preparation_basis")?;
         prep::verify_candidate(m, &c, &sw.host, &sw.source_sha256)?;
-        let _guard = m.lock("registry.lock")?;
+        let guard = m.lock("registry.lock")?;
         m.require_inactive(None)?;
         prep::retain_lineage(m, &c, operation, predecessor.as_deref())?;
         let lineage = prep::lineage(m, &c)?;
         require(lineage.preparation_identity == operation
             && lineage.predecessor == *predecessor, "guided_check_lineage_binding")?;
         let candidate = prep::record_candidate(m, &c)?;
+        drop(guard);
+        // The candidate is committed above. Graphics follows it and cannot
+        // undo it: a failed assessment is reported inside the ready result.
+        let graphics = crate::graphics_cli::follow_preparation(m, sw, &c, operation,
+            &mut preparation_assessor(m));
         Ok(json!({"stage":"candidate_ready","selection":selection,
             "inspection":i.id()?,"candidate":candidate,"artifact_reused":artifact_reused,
-            "publication_changed":false}))
+            "graphics":graphics,"publication_changed":false}))
     };
     let result = run();
     let finished = match &result {
@@ -1441,10 +1477,13 @@ pub fn execute(
             prep::verify_candidate(m, &c, &sw.host, &sw.source_sha256)?;
             let result = crate::graphics_cli::assess(m,
                 prep::configuration::registration(&c)?.into(), registry_admission)?;
-            let _guard = m.lock("registry.lock")?;
+            let guard = m.lock("registry.lock")?;
             prep::verify_candidate(m, &c, &sw.host, &sw.source_sha256)?;
             prep::configuration::record_assessment(m, &c, operation, &result)?;
-            Ok(json!({"candidate":candidate,"assessment":result,"publication_changed":false}))
+            drop(guard);
+            let applied = crate::graphics_cli::follow_assessment(m, &sw, &c, operation,
+                result.recommendation.requirement, &mut preparation_assessor(m));
+            Ok(json!({"candidate":candidate,"assessment":result,"applied":applied,"publication_changed":false}))
         }
         ui::Action::CandidateSettingsPrepare { candidate, settings, expected_current } => {
             let c = timing::measure(Stage::CandidateVerification, ||
@@ -1562,12 +1601,15 @@ pub fn execute(
             let c = prep::bind_preparation_basis(c, Some(basis))?;
             let candidate_reused = prep::retained_candidates(m)?.iter().any(|old| old == &c);
             prep::verify_candidate(m, &c, &sw.host, &sw.source_sha256)?;
-            let _guard = m.lock("registry.lock")?;
+            let guard = m.lock("registry.lock")?;
             m.require_inactive(None)?;
             prep::retain_lineage(m, &c, operation, predecessor.as_deref())?;
             let id = prep::record_candidate(m, &c)?;
+            drop(guard);
+            let graphics = crate::graphics_cli::follow_preparation(m, &sw, &c, operation,
+                &mut preparation_assessor(m));
             Ok(
-                json!({"selection":selection,"candidate":id,"prepared":true,"candidate_reused":candidate_reused,"artifact_reused":artifact_reused,"publication_changed":false}),
+                json!({"selection":selection,"candidate":id,"prepared":true,"candidate_reused":candidate_reused,"artifact_reused":artifact_reused,"graphics":graphics,"publication_changed":false}),
             )
         }
         ui::Action::ExperimentalReplace {
@@ -2035,6 +2077,152 @@ pub(crate) mod tests {
         assert!(guided_result_disposition(&f.m, &next, &expected, &operation).is_err(),
             "a later removed generation is not proof that this result finished");
     }
+    /// One supervised run as the host reports it: the editor opened and drew
+    /// through Direct3D 11; the default path fails its probe, Wine's built-in
+    /// Direct3D 11 passes. Bound to the candidate's exact launch context.
+    fn fake_assessment(c: &prep::Candidate) -> Result<linux_vst_bridge::graphics::assessment::Assessment> {
+        use linux_vst_bridge::graphics::{assessment, pe::Imports};
+        let context = prep::configuration::context(c)?;
+        let failing = if context.requested_backend.is_none() { "d3d11_default" } else { "" };
+        let probes: Vec<Value> = ["d3d11_default", "d3d11_warp", "opengl", "direct_composition"].iter()
+            .map(|api| json!({"api":api,"status":if *api == failing { "unavailable" } else { "passed" },
+                "rendering":if *api == "d3d11_warp" { "reported_software" } else { "unknown" },
+                "renderer":null,"vendor_id":null,"device_id":null,"driver_version":null,"feature_level":null}))
+            .collect();
+        let report = json!({"gated":true,"cleanup_confirmed":true,"transport_retired":true,"error":null,
+            "graphics_configuration":{"requested_backend":context.requested_backend,
+                "dll_overrides":context.requested_backend.map(|_| "d3d11,dxgi=b"),
+                "scope":"host_process_and_children","renderer_observed":false},
+            "records":[
+            {"state":"readiness_announced","module_sha256":context.module_sha256,"scanner_sha256":context.host_sha256,
+                "implementation_source_manifest_sha256":context.host_source_sha256,"mode":"graphics-assessment"},
+            {"state":"ap11_class","class_id":context.class_id},
+            {"state":"graphics_assessment","schema":1,"editor":{"status":"opened","before":[],"during":["d3d11"],"closed":true}},
+            {"state":"graphics_runtime","schema":1,"probes":probes},
+            {"state":"ap8_inspection_closed","exit_code":0},{"state":"scanner_completed","inspection_complete":true}]});
+        assessment::assemble(context, Imports { machine: 0x8664, ordinary: vec![], delayed: vec![] }, &report, 100)
+    }
+    struct AssessmentProbeReset;
+    impl Drop for AssessmentProbeReset {
+        fn drop(&mut self) { ASSESSMENT_PROBE.with(|slot| *slot.borrow_mut() = None); }
+    }
+
+    #[test]
+    fn preparation_follow_up_prepares_and_assesses_the_wine_d3d11_trial_the_rule_asks_for() {
+        let (f, base) = projection_fixture();
+        let sw = projection_software(&base);
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let runs = std::cell::Cell::new(0);
+        let graphics = crate::graphics_cli::follow_preparation(&f.m, &sw, &base, &random_id().unwrap(),
+            &mut |c| { runs.set(runs.get() + 1); fake_assessment(c) });
+        assert_eq!(graphics["stage"], "assessed");
+        assert_eq!(graphics["recommendation"]["requirement"], "wine_d3d11");
+        let trial_id = graphics["applied"]["prepared"].as_str().expect("trial prepared").to_owned();
+        let trial = prep::candidate_record(&f.m, &trial_id).unwrap();
+        assert_eq!(prep::configuration::settings(&trial).graphics, Some(ui::GraphicsBackend::WineD3d11));
+        assert_eq!(trial.settings_trial.as_ref().unwrap().predecessor, base.id().unwrap());
+        assert_eq!(graphics["applied"]["trial"]["stage"], "assessed");
+        assert_eq!(graphics["applied"]["trial"]["recommendation"]["requirement"], "none");
+        assert_eq!(runs.get(), 2);
+        assert_eq!(prep::retained_candidates(&f.m).unwrap().len(), 2);
+        assert_eq!(prep::publication_state(&f.m, &trial).unwrap(), "unpublished",
+            "preparing the trial publishes nothing");
+        // Preparing again reuses both retained runs and prepares nothing new.
+        let again = crate::graphics_cli::follow_preparation(&f.m, &sw, &base, &random_id().unwrap(),
+            &mut |_| panic!("retained assessments must not rerun"));
+        assert_eq!(again["stage"], "retained");
+        assert_eq!(again["applied"]["prepared"], trial_id);
+        assert_eq!(again["applied"]["trial"]["stage"], "retained");
+        assert_eq!(prep::retained_candidates(&f.m).unwrap().len(), 2);
+        // The projection marks the applied state next to the base's assessment
+        // and offers the trial to try in the DAW.
+        let mut products = vec![projection_product(&base)];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        let configuration = prep::configuration::view(&f.m, &base).unwrap();
+        assert_eq!(configuration["assessment"]["recommendation"]["requirement"], "wine_d3d11");
+        let shown = &products[0].details["configuration"];
+        let applied = if shown["candidate"] == trial_id { &shown["before"]["assessment"]["applied"] }
+            else { &shown["assessment"]["applied"] };
+        assert_eq!(applied["prepared"], trial_id, "{shown}");
+        assert_eq!(applied["setup"], 2);
+        assert!(products[0].actions.iter().any(|a| matches!(&a.action,
+            ui::Action::ExperimentalEnable { candidate }
+            | ui::Action::CompatibilityPublishTest { candidate, .. } if *candidate == trial_id)
+            && a.label.starts_with("Try Wine D3D11 graphics")), "{:?}",
+            products[0].actions.iter().map(|a| a.label.clone()).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn graphics_follow_up_prepares_nothing_without_a_wine_d3d11_requirement_and_reports_refusals() {
+        use linux_vst_bridge::graphics::assessment::Requirement;
+        let (f, base) = projection_fixture();
+        prep::record_candidate(&f.m, &base).unwrap();
+        for requirement in [Requirement::None, Requirement::EditorAbsent, Requirement::DirectCompositionRunner,
+            Requirement::UnsupportedWebView2, Requirement::Undetermined] {
+            let (applied, trial) = crate::graphics_cli::apply_recommendation(&f.m, &base, requirement).unwrap();
+            assert!(trial.is_none());
+            assert!(applied["prepared"].is_null() && applied["refusal"].is_null());
+        }
+        assert_eq!(prep::retained_candidates(&f.m).unwrap().len(), 1);
+        // The published candidate's trial keeps that publication as its baseline.
+        let published = prep::enable(&f.m, &base, false).unwrap();
+        let (applied, trial) = crate::graphics_cli::apply_recommendation(&f.m, &base, Requirement::WineD3d11).unwrap();
+        let trial = trial.unwrap();
+        assert_eq!(applied["prepared"], trial.id().unwrap());
+        assert_eq!(trial.settings_trial.as_ref().unwrap().baseline.as_ref(), Some(&published));
+        // A trial already on Wine D3D11 asks for nothing more.
+        let (applied, again) = crate::graphics_cli::apply_recommendation(&f.m, &trial, Requirement::WineD3d11).unwrap();
+        assert!(again.is_none() && applied["prepared"].is_null());
+        // Another prepared configuration cannot start a trial while a different
+        // one is published: the refusal is reported, not raised.
+        let other = prep::configuration::prepare_settings(&f.m, &base, &ui::LocalSettings {
+            graphics: None, accessibility: ui::AccessibilityChoice::DisabledForHost }, Some(&published)).unwrap();
+        let (applied, refused) = crate::graphics_cli::apply_recommendation(&f.m, &other, Requirement::WineD3d11).unwrap();
+        assert!(refused.is_none() && applied["prepared"].is_null());
+        assert_eq!(applied["refusal"], "settings_trial_requires_current_configuration");
+    }
+
+    #[test]
+    fn failed_graphics_assessment_never_fails_the_preparation() {
+        let (f, base) = projection_fixture();
+        let sw = projection_software(&base);
+        prep::record_candidate(&f.m, &base).unwrap();
+        let graphics = crate::graphics_cli::follow_preparation(&f.m, &sw, &base, &random_id().unwrap(),
+            &mut |_| Err("host_exited_during_editor_open".into()));
+        assert_eq!(graphics["stage"], "assessment_failed");
+        assert_eq!(graphics["failure"], "host_exited_during_editor_open");
+        assert_eq!(prep::retained_candidates(&f.m).unwrap().len(), 1);
+        assert!(prep::configuration::latest_assessment(&f.m, &base).unwrap().is_none());
+    }
+
+    #[test]
+    fn guided_check_ends_with_the_graphics_decision_and_its_trial() {
+        let (f, c, sw, action) = guided_fixture();
+        let _reset = AssessmentProbeReset;
+        ASSESSMENT_PROBE.with(|slot| *slot.borrow_mut() = Some(Box::new(fake_assessment)));
+        let result = guided_check(&f.m, &sw, &action, &random_id().unwrap(),
+            |_| Ok(c.inspection.clone()), |_, _, _| Ok((c.clone(), false)), |_| {}).unwrap();
+        assert_eq!(result["stage"], "candidate_ready");
+        assert_eq!(result["candidate"], c.id().unwrap());
+        assert_eq!(result["graphics"]["stage"], "assessed");
+        assert_eq!(result["graphics"]["recommendation"]["requirement"], "wine_d3d11");
+        let trial = prep::candidate_record(&f.m,
+            result["graphics"]["applied"]["prepared"].as_str().unwrap()).unwrap();
+        assert_eq!(trial.settings_trial.as_ref().unwrap().predecessor, c.id().unwrap());
+        assert_eq!(result["graphics"]["applied"]["trial"]["recommendation"]["requirement"], "none");
+        assert_eq!(prep::retained_candidates(&f.m).unwrap().len(), 2);
+        drop(_reset);
+        // Without a host the check still completes with its candidate and says
+        // what failed, as it would for a host that died during the editor open.
+        let (f, c, sw, action) = guided_fixture();
+        let result = guided_check(&f.m, &sw, &action, &random_id().unwrap(),
+            |_| Ok(c.inspection.clone()), |_, _, _| Ok((c.clone(), false)), |_| {}).unwrap();
+        assert_eq!(result["stage"], "candidate_ready");
+        assert_eq!(result["graphics"]["stage"], "assessment_failed");
+        assert_eq!(prep::retained_candidates(&f.m).unwrap().len(), 1);
+    }
+
     #[test]
     fn effect_offers_explicit_stereo_inspection_without_changing_default_action_shape() {
         let (f, c) = projection_fixture_with_role(true);
