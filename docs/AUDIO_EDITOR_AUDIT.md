@@ -107,6 +107,44 @@ Callback duration, Buffered 512, 2026-10-05 16:00 onward. A block lasts
   `balance_performance`, user `rtprio` limit 0, PipeWire data loops at
   `SCHED_RR` 20.
 
+## Resting cost
+
+Measured the same day by counting each thread's wake-ups and CPU time over
+five seconds. Percentages are of one of the Deck's eight CPU threads.
+
+With no plug-in loaded and Bitwig closed, three Wine environments were still
+alive on Test 14 (30 processes, about 190 threads) and used about 114%:
+
+| Process | Wake-ups per second | CPU | Count |
+|---|---|---|---|
+| Wine device processes | 33,544 | 47.9% | 6 |
+| Wine servers | 18,706 | 31.7% | 3 |
+| Python supervisors | 89 | 23.5% | 5 |
+| Xalia gamepad navigation helper | 5,981 | 9.6% | 1 |
+| Environment owner hosts | 221 | 1.8% | 3 |
+
+- In every environment one Wine device process had `winebus.sys`,
+  `winehid.sys` and `winexinput.sys` loaded and the Deck's built-in controller
+  and touchscreen open as raw HID devices. This is the runner's game-input
+  stack. A plug-in host uses none of it.
+- The supervisors wake rarely and cost a great deal per wake.
+  `bridge-manager/runtime/session.py` is about 4,900 lines of Python in the
+  runtime supervision path; `AGENTS.md` names Rust as the product language.
+- No rule was found that retires an environment whose plug-ins have all been
+  unloaded.
+- With BEAM loaded, its editor open and in use, the whole system used about
+  three CPU threads, and the audio server counted 4 to 14 errors per 30
+  seconds for Bitwig. With the editor closed it counted none. BEAM's editor is
+  an embedded Chromium (WebView2) with renderer, GPU and compositor processes.
+  The host has the Deck's GPU device open and the hardware driver loaded, so
+  this is not software rendering.
+- Bitwig's `audio-N` threads run at ordinary priority. `lvb-audio` has its
+  real-time priority.
+
+Test 15 disables the HID bus driver and Xalia for plug-in host, keeper and
+preflight launches only. Its effect has not been measured yet: the update
+leaves no environment running.
+
 ## What is not established
 
 - Whether each long callback was heard. No DAW-side or PipeWire-side
