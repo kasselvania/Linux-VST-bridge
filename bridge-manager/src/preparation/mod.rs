@@ -1783,9 +1783,14 @@ fn refresh_source(m: &Manager, predecessor: &Revision) -> Result<RefreshSource> 
     })
 }
 #[doc(hidden)]
-pub fn publication_requires_refresh(m: &Manager, predecessor: &Revision) -> Result<bool> {
+pub fn publication_requires_refresh(
+    m: &Manager, predecessor: &Revision, target_recipe: &str,
+) -> Result<bool> {
     let source = refresh_source(m, predecessor)?;
     source.candidate.as_ref().map_or(Ok(true), |candidate| {
+        // Admission support describes the retained bridge, not the bridge
+        // supplied by this update. Both halves belong to the target kit.
+        if candidate.recipe_sha256 != target_recipe { return Ok(true); }
         build::supports_loaded_engine_admission(m, candidate).map(|supported| !supported)
     })
 }

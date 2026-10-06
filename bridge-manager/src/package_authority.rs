@@ -1186,7 +1186,7 @@ fn prepare_refresh_receipt(m: &Manager, target: &Software,
         let reference = state.entry.managed_revision.as_ref()
             .ok_or("bridge_refresh_managed_predecessor_missing")?;
         let revision = m.load_revision(&state.class_id, reference)?;
-        if !preparation::publication_requires_refresh(m, &revision)? {
+        if !preparation::publication_requires_refresh(m, &revision, &runtime.kit.sha256)? {
             continue;
         }
         let report = inspect_for_package_refresh(m, target, &runtime,

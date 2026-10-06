@@ -251,10 +251,12 @@ is unproven. Dependency/alternate-runtime trials, Nibbi, commercial version upda
 reboot recall and dependable musical use remain unqualified. The operator has
 stopped fixture campaigns for the platform engineering reassessment.
 
-Nibbi recorded-audio save/reopen remains **unqualified** on the Deck's Test 9.
+Nibbi recorded-audio save/reopen remains **unqualified** on the Deck.
 The matching Test 10 Windows/Linux builds pass SDK 2-MiB save/restore and
-continued-audio tests after a capacity refusal; signed installation and the
-physical comparison are pending. See
+continued-audio tests after a capacity refusal. The signed Test 10 manager is
+installed, but [FC-MGMT-009](FAILURE_CLASSES.md#fc-mgmt-009--package-update-leaves-plug-ins-on-the-old-bridge)
+left every plug-in on its old bridge; delivery of the pair and the physical
+comparison remain pending. See
 [FC-STATE-002](FAILURE_CLASSES.md#fc-state-002--recorded-audio-exceeds-the-state-cap-and-ends-the-host).
 
 The shared graphics assessor adds reusable dependency/editor-library observations

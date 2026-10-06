@@ -136,7 +136,7 @@ fn retained_static_profile_without_candidate_authorizes_only_its_exact_refresh()
         verify_refresh_candidate(&f.m, &next, &predecessor).unwrap();
         validate_candidate_record(&f.m, &next).unwrap();
         verify_retained_candidate(&f.m, &next).unwrap();
-        assert!(publication_requires_refresh(&f.m, &predecessor).unwrap());
+        assert!(publication_requires_refresh(&f.m, &predecessor, &next.recipe_sha256).unwrap());
         assert_eq!(
             next.local_settings,
             Some(crate::operator_model::LocalSettings {
@@ -2079,6 +2079,11 @@ with zipfile.ZipFile(path,'w') as z:
         .unwrap_err().to_string().contains("artifact missing or changed"));
     fs::write(&runner_file, &runner_bytes).unwrap();
     assert!(!registry_requires_loaded_engine_refresh_record(&f.m).unwrap());
+    assert!(!publication_requires_refresh(&f.m, &installed, &prepared.recipe_sha256).unwrap());
+    // Both kits declare the same admission contract and carry the same host.
+    // Their native engines differ: an update must deliver the target engine.
+    assert!(publication_requires_refresh(&f.m, &installed,
+        &selected.preparation_kit.as_ref().unwrap().sha256).unwrap());
     // Reusable delivery predates loaded-engine admission. Only the explicit
     // immutable build fact makes this publication modern for package status.
     let build_path = prepared.native.artifact.path.with_file_name("build.json");

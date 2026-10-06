@@ -95,12 +95,13 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MGMT-005](#fc-mgmt-005--partial-installation-retry-omitted-from-setup) | Partial installation retry omitted from Setup | Existing installer offers to Setup projection | causal | installed | Ubuntu internal56: two partial-stop and isolated-retry repetitions | resolved for the recorded partial retry | Remaining recovery cases and platform qualification |
 | [FC-MGMT-006](#fc-mgmt-006--exact-prebuilt-catalogue-blocks-unfamiliar-plug-ins) | Exact prebuilt catalogue blocks unfamiliar plug-ins | Preparation/descriptor/publication | causal in source; Nibbi user report | installed Ubuntu unfamiliar Windows processing, state migration and restoration | No repaired Deck/Nibbi result | Deck blocked; reference candidate unqualified | Actual DAW workflow, dependency and runtime trials |
 | [FC-STATE-001](#fc-state-001--saved-state-rejects-an-explicitly-selected-module-update) | Updated module rejects earlier saved state | Native state envelope / selected execution identity | causal for reference fixtures | installed reference repair passed | Ubuntu SDK instrument/effect; normal manager rollback | reference regression resolved; real DAW/commercial unqualified | Physical DAW update/recall and declared interaction/soak |
-| [FC-STATE-002](#fc-state-002--recorded-audio-exceeds-the-state-cap-and-ends-the-host) | Recording makes saving end the host | SDK state streams / state transport | causal in source; recording comparison agrees | 256 MiB cap and recoverable capture refusal built | SDK recorded-state recall and continued audio after refusal | source regression resolved; Deck still on Test 9 | Signed Test 10 installation and Nibbi recorded save/reopen |
+| [FC-STATE-002](#fc-state-002--recorded-audio-exceeds-the-state-cap-and-ends-the-host) | Recording makes saving end the host | SDK state streams / state transport | causal in source; recording comparison agrees | 256 MiB cap and recoverable capture refusal built | SDK recorded-state recall and continued audio after refusal | source regression resolved; Test 10 failed to refresh plug-ins | Deliver the matching pair and test Nibbi recorded save/reopen |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
 | [FC-MGMT-007](#fc-mgmt-007--retained-proposal-displaces-selected-configuration) | Retained proposal displaces selected configuration | Manager guided projection and frontend action ownership | causal | installed-fixed on reference fixture | Ubuntu config7 full effect/instrument workflow and GUI restoration | reference configuration regression passed; musician workflow unqualified | Physical DAW integration and endurance |
 | [FC-MGMT-008](#fc-mgmt-008--loaded-native-engine-is-not-bound-during-admission) | Loaded native engine missing from admission | Cached DAW factory / selected execution pair | reproduced loader/cache mismatch | modern binding and legacy-publication refresh repaired; normal VM/Deck update passed; full recovery open | Source/loader and Unix-peer gate; VM SDK checkpoint; exact eight-publication Deck update | unqualified for complete recovery | Complete deferred predecessor/interruption and modern stale-caller installed restoration |
+| [FC-MGMT-009](#fc-mgmt-009--package-update-leaves-plug-ins-on-the-old-bridge) | Package update leaves plug-ins on the old bridge | Manager package/publication update | causal; zero refreshes for 11 Deck classes | Target kit comparison fixed in source | Engine-only update with unchanged admission capability | source regression passed; installed comparison pending | Deliver the matching bridge through the normal update |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
 ---
@@ -2649,6 +2650,17 @@ The original
 separate evidence. #204 remains draft and unmerged.
 Last reviewed: 2026-10-03.
 
+## FC-MGMT-009 — Package update leaves plug-ins on the old bridge
+
+Deck Test 10 selects the signed new manager, but all 11 published classes
+retain their old native engine and Windows host; its refresh has zero class
+transitions. The updater checked the old bridge's admission capability without
+comparing its kit to the update's kit. The source fix compares kit content
+identity first. The regression covers an engine-only change between two kits
+with the same host and admission capability. Test 11 will retain Test 10's
+tested bridge binaries and deliver them with the corrected manager.
+Last reviewed: 2026-10-06.
+
 ## FC-STATE-002 — Recorded audio exceeds the state cap and ends the host
 
 Nibbi starts at 730,156 state bytes; the operator's recording/no-recording
@@ -2656,9 +2668,11 @@ comparison matches the old 1 MiB cap. Exceeding it raised a fatal bridge error.
 The matching Windows/Linux builds now allow 256 MiB and return a specific,
 recoverable capacity refusal for read-only capture. SDK tests save and restore
 2 MiB, cover component/controller/combined capacity refusal, and keep audio
-running with the previous confirmed snapshot after refusal. The matched Test 10
-kit is built; its signed Deck installation and Nibbi recorded save/reopen remain
-pending. Test 9 still has the defect. Touch knobs are a separate open problem.
+running with the previous confirmed snapshot after refusal. Test 10's signed
+manager is installed, but its update left Nibbi on the old bridge; see
+[FC-MGMT-009](#fc-mgmt-009--package-update-leaves-plug-ins-on-the-old-bridge).
+The matching pair and Nibbi recorded save/reopen remain pending. Touch knobs are
+a separate open problem.
 Last reviewed: 2026-10-06.
 
 ## FC-UI-008 — Vendor editor removal crashes the Windows host
