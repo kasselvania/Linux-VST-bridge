@@ -2717,8 +2717,27 @@ bound, owner storage grows to the actual frame while render storage stays
 prepared and fixed, and transfer deadlines grow by one millisecond per 16 KiB.
 The Windows pump test sends a 3 MiB state in each direction and checks it
 byte for byte. CI passed it on native Windows, and Test 13 installed the
-resulting host on the Deck. Not yet tried there with a recording: Nibbi
-recorded delete, save and reopen in Bitwig remain the operator's check.
+resulting host on the Deck.
+
+Operator result on Test 13 (2026-10-06): deleting Nibbi with a recording no
+longer ends the instance (session `2904a743`, 1,600,411 bytes captured and
+delivered). A recording saved in a project did not return on reopen. The saved
+project holds it: the `.vstpreset` inside `nibbi-test-2.bwproject` carries the
+bridge envelope with a 1,299,532-byte payload whose digest equals the capture
+at save. On reopen (session `72c779c3`) the restore call succeeded and the
+state read back afterwards was the 730,156-byte default, digest `4f90ef52…`.
+The loss is in how the bridge's stream answers the plug-in. `LVBState::Stream`
+returned a failure for any read shorter than requested, while still reporting
+the bytes it supplied. JUCE's VST3 wrapper, when a stream does not implement
+`ISizeableStream`, reads 4,096-byte blocks until none arrive and uses a block
+only when its read reports success, so the final partial block of every
+restored state was discarded and Nibbi could not parse what remained. The
+stream now reports any read that reaches the end as a success with its exact
+count, as the SDK's own memory stream does. The SDK state test gains a
+component that reads this way over a state whose length is not a multiple of
+the block. This applies to every plug-in built on that wrapper, not only to
+recordings; earlier JUCE restores through the bridge were not verified and
+should be treated as unknown. Not yet built by CI, installed or tried.
 
 The operator also observed that while Nibbi holds a recording and its playback
 is paused, Bitwig's level meters stay at the last playing level, and return to

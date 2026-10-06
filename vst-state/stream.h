@@ -58,8 +58,11 @@ public:
     position += got;
     if (count)
       *count = static_cast<Steinberg::int32>(got);
-    return got == static_cast<size_t>(n) ? Steinberg::kResultOk
-                                         : Steinberg::kResultFalse;
+    // The count is the result. Reaching the end is still a successful read, as
+    // with the SDK's own memory stream. A plug-in that cannot ask a stream for
+    // its size reads fixed blocks until none arrive, and discards a block that
+    // is reported as a failure: its state would lose its final partial block.
+    return Steinberg::kResultOk;
   }
   Steinberg::tresult PLUGIN_API write(void *input, Steinberg::int32 n,
                                       Steinberg::int32 *count) override {

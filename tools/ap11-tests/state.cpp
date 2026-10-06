@@ -4,10 +4,14 @@
 #include "public.sdk/source/vst/vstaudioeffect.h"
 #include "public.sdk/source/vst/vsteditcontroller.h"
 #include "windows-factory-probe/source/ap8_state.h"
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <limits>
+#include <vector>
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 void check(bool ok, const char *why) {
@@ -21,6 +25,7 @@ struct FixtureComponent final : AudioEffect {
   unsigned restores = 0;
   tresult capture_result=kResultOk;
   bool oversized=false;
+  bool whole_stream=false;
   size_t recording=0;
   tresult PLUGIN_API getState(IBStream *s) override {
     if(capture_result!=kResultOk)return capture_result;
@@ -38,6 +43,20 @@ struct FixtureComponent final : AudioEffect {
   tresult PLUGIN_API setState(IBStream *s) override {
     int32 n = 0;
     ++restores;
+    if(whole_stream){
+      // The reader a widely deployed plug-in framework uses when a stream
+      // cannot report its size: fixed blocks until no bytes arrive, and a
+      // block is used only when its read is reported as a success.
+      std::vector<uint8_t> all;std::array<uint8_t,4096> block{};
+      for(;;){
+        n=0;auto status=s->read(block.data(),int32(block.size()),&n);
+        if(n<=0||status!=kResultTrue)break;
+        all.insert(all.end(),block.begin(),block.begin()+n);
+      }
+      if(all.size()!=8+recording||!std::all_of(all.begin()+8,all.end(),[](auto b){return b==0xd3;}))return kResultFalse;
+      std::memcpy(&value,all.data(),8);
+      return kResultOk;
+    }
     if(s->read(&value,8,&n)!=kResultOk||n!=8)return kResultFalse;
     std::array<uint8_t,4096> audio{};
     for(size_t read=0;read<recording;){
@@ -136,6 +155,20 @@ int main() {
   component.value=.75;
   check(commercial_state(component,controller,true,&recorded)==recorded&&component.value==.375,
         "recorded audio and settings survive actual SDK save/restore");
+  // The state's length is not a multiple of the reader's block, so its end
+  // arrives as a shorter read.
+  component.recording=2*1024*1024+1234;component.whole_stream=true;
+  auto uneven=commercial_state(component,controller,true,nullptr);
+  component.value=.75;
+  check(commercial_state(component,controller,true,&uneven)==uneven&&component.value==.375,
+        "a plug-in reading fixed blocks to the end restores the final partial block");
+  component.whole_stream=false;
+  {
+    LVBState::Stream ending({1,2,3});uint8_t out[8]{};int32 got=-1;
+    check(ending.read(out,8,&got)==kResultOk&&got==3&&out[2]==3&&
+          ending.read(out,8,&got)==kResultOk&&got==0&&!ending.failed,
+          "a short read and a read at the end succeed with exact counts");
+  }
   component.recording=0;
   for(bool controllerFailure:{false,true}){
     component.oversized=!controllerFailure;controller.oversized=controllerFailure;
