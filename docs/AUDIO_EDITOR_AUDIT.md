@@ -142,8 +142,37 @@ alive on Test 14 (30 processes, about 190 threads) and used about 114%:
   real-time priority.
 
 Test 15 disables the HID bus driver and Xalia for plug-in host, keeper and
-preflight launches only. Its effect has not been measured yet: the update
-leaves no environment running.
+preflight launches only. Measured afterwards with the same three environments
+alive, no plug-in loaded and Bitwig open:
+
+| Process | Before | Test 15 |
+|---|---|---|
+| Wine device processes | 47.9% | not measurable |
+| Wine servers | 31.7% | 0.6% |
+| Xalia | 9.6% | absent |
+| Environment owner hosts | 1.8% | 1.6% |
+| Python supervisors | 23.5% | 19.6% |
+| Total | about 114% | about 22% |
+
+- With BEAM, Serum 2 and Nibbi each loaded and their editors used, the three
+  `lvb-audio` threads ran on three different CPUs and the three native
+  transport workers on three others. Nothing pins plug-ins to one core.
+- Those three sessions lost no frames in 36,983, 66,964 and 48,684 blocks.
+  Each has one or two callbacks over 25 ms (2,879 ms, 1,502 ms and 29 ms at
+  the longest), and the audio server counted 539 and 281 errors in the
+  minutes in which plug-ins were loaded and 11 in the other eight minutes.
+  Loading a plug-in stalls the DAW's audio; playing with editors open mostly
+  did not.
+- One idle supervisor made about 2,400 read system calls a second. Each
+  50 ms supervision turn re-read every owned thread's child list
+  (`ProcessTracker.update`). The following change walks a tree that has not
+  changed for five seconds once a second, and once more before cleanup. Its
+  effect has not been measured yet.
+- The operator's stuck Control key is held by the desktop compositor's
+  keyboard, not by the bridge or the X test-input device, and not by the
+  Deck's L1 button at the time it was checked. The default desktop controller
+  layout does bind L1 to Control, R1 to Alt and the upper-left grip to Shift.
+  Its cause is not established.
 
 ## What is not established
 
