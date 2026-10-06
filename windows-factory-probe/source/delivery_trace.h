@@ -36,7 +36,11 @@ struct DeliveryTrace {
     void complete(){
         if(!enabled||!armed)return;
         if(current.note_on_count&&note_count<note_rows.size())note_rows[note_count++]=current;
-        const bool slow=current.at[7]-current.at[1]>frequency/200 || current.at[1]-current.at[0]>frequency*6/1000;
+        // A request that took over 10 ms from arrival to reply, or one that
+        // arrived over 30 ms after the render thread began waiting for it.
+        // The wait for the next request is the block period in normal running,
+        // so a shorter arrival threshold fills the retained rows at start-up.
+        const bool slow=current.at[7]-current.at[1]>frequency/100 || current.at[1]-current.at[0]>frequency*30/1000;
         if(!following&&slow&&count+available+33<=retained.size()){
             ++triggers;
             for(size_t i=0;i<available;++i)retained[count++]=recent[(cursor+recent.size()-available+i)%recent.size()];
