@@ -1,0 +1,59 @@
+{
+  "observed_at_utc": "2026-09-25T17:28:22.858355+00:00",
+  "scope": "Read-only HTTP index/config inspection; no package archive or rootfs downloaded, installed, booted, or verified. File names are inventory metadata, not package-content proof.",
+  "announcement_url": "https://www.collabora.com/news-and-blog/news-and-events/building-an-arch-linux-aarch64-port-for-holo-core.html",
+  "announcement_display_date": "2026-07-17",
+  "advertised_snapshot_alias": "https://holo-packages.steamos.cloud/holo-core-aarch64-preview/mash-20251118/",
+  "resolved_snapshot": "https://holo-packages.steamos.cloud/holo-core-aarch64-preview/mash-20251118.3/",
+  "source_browser_result": "GitLab source browsing returned an Anubis access denial; source tree not inspected.",
+  "records": [
+    {
+      "url": "https://holo-packages.steamos.cloud/holo-core-aarch64-preview/mash-20251118.3/",
+      "body_sha256": "16314768bad98a2395ffe516d73b53326cac8dcc2b4cc3ddeace69077f9e46c5",
+      "package_archive_count": 0,
+      "selected_entries": [
+        "../",
+        "core/",
+        "core-debug/",
+        "extra/",
+        "extra-debug/",
+        "sources/",
+        "pacman.conf",
+        "pacman.conf.debug",
+        "pacman.mirrorlist",
+        "system.rootfs.zst"
+      ]
+    },
+    {
+      "url": "https://holo-packages.steamos.cloud/holo-core-aarch64-preview/mash-20251118.3/core/os/aarch64/",
+      "body_sha256": "c64c5cc12fad6f56fc799c0abbe2424cebbec22fdbd04ea7209b5c564146fb43",
+      "package_archive_count": 254,
+      "selected_entries": [
+        "linux-6.17.8.arch1-1-aarch64.pkg.tar.zst"
+      ]
+    },
+    {
+      "url": "https://holo-packages.steamos.cloud/holo-core-aarch64-preview/mash-20251118.3/extra/os/aarch64/",
+      "body_sha256": "5c6d741e98af9c30db3f6ae2cc6c6e9edbd07dd6704fcac3be90e95cc5861dac",
+      "package_archive_count": 4306,
+      "selected_entries": [
+        "jack2-1.9.22-1-aarch64.pkg.tar.zst",
+        "mesa-1:25.2.7-1-aarch64.pkg.tar.zst",
+        "pipewire-1:1.4.9-1-aarch64.pkg.tar.zst",
+        "qemu-user-static-10.1.2-2-aarch64.pkg.tar.zst",
+        "rust-1:1.91.1-2-aarch64.pkg.tar.zst",
+        "wine-10.19-1-aarch64.pkg.tar.zst"
+      ]
+    },
+    {
+      "url": "https://holo-packages.steamos.cloud/holo-core-aarch64-preview/mash-20251118.3/pacman.conf",
+      "body_sha256": "b6b266bf638014794b2a9825b8fe219d9ac9eab2a4f7ef1958ce9bf37360d322",
+      "text": "[options]\nColor\nArchitecture = auto\n\n[core]\nSigLevel = Optional\nInclude = /etc/pacman.d/mirrorlist\n\n[extra]\nSigLevel = Optional\nInclude = /etc/pacman.d/mirrorlist\n\n"
+    },
+    {
+      "url": "https://holo-packages.steamos.cloud/holo-core-aarch64-preview/mash-20251118.3/pacman.mirrorlist",
+      "body_sha256": "3d61e3b8ff617091e7f2bf1bdd449893116887b3ee48699f60039fb60cab24e9",
+      "text": "Server = https://holo-packages.steamos.cloud/holo-core-aarch64-preview/mash-20251118/$repo/os/$arch\n"
+    }
+  ]
+}
