@@ -252,7 +252,8 @@ int main(){
   audit_begin();auto result=rejected->process(call);auto effects=audit_end();
   assert(result!=kResultOk&&effects==0);
   assert(rejected->setProcessing(false)==kResultOk&&rejected->setActive(false)==kResultOk);
-  assert(rejected->terminate()!=kResultOk);rejected->release();
+  // The refused callback stays refused; terminate reports the cleanup, which succeeds.
+  assert(rejected->terminate()==kResultOk);rejected->release();
  };
  note.sampleOffset=-1;refuse(note,32,0,UINT32_MAX);
  off.type=Event::kNoteOffEvent;off.sampleOffset=32;refuse(off,32,1,32);
