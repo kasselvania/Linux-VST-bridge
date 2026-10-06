@@ -251,6 +251,12 @@ is unproven. Dependency/alternate-runtime trials, Nibbi, commercial version upda
 reboot recall and dependable musical use remain unqualified. The operator has
 stopped fixture campaigns for the platform engineering reassessment.
 
+Nibbi recorded-audio save/reopen remains **unqualified** on the Deck's Test 9.
+The matching Test 10 Windows/Linux builds pass SDK 2-MiB save/restore and
+continued-audio tests after a capacity refusal; signed installation and the
+physical comparison are pending. See
+[FC-STATE-002](FAILURE_CLASSES.md#fc-state-002--recorded-audio-exceeds-the-state-cap-and-ends-the-host).
+
 The shared graphics assessor adds reusable dependency/editor-library observations
 and independent Windows graphics probes. Reference editors establish the tested
 assessment behavior; no commercial product, Proton runtime or distribution gains

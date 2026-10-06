@@ -16,15 +16,12 @@ confidence; the old host discarded the exception text.
 
 ## Changes
 
-- Raise the opaque payload cap to 256 MiB on both sides and the wire codecs.
-- Refuse oversized read-only capture without retiring a healthy instance;
-  keep restore failure terminal because partial application is unsafe.
-- Keep the specific bridge error while keeping vendor/private text out of logs.
-- Return actual-sized owned bytes across the versioned SDK C ABI, including
-  recovery, rather than allocating 256 MiB for every ordinary save.
-- Exercise recorded-state save/restore, oversized component/controller and
-  combined state, and continuing audio after a refused capture.
-- Build both halves and use the manager's normal matched update on the Deck.
+- Both sides and wire codecs now accept 256 MiB; oversized read-only capture
+  refuses cleanly. Partial restore failure remains terminal.
+- Specific bridge errors survive; versioned C ABI returns actual-sized bytes.
+- Windows/Linux builds and recorded-state/refusal/audio regressions pass.
+- Test 10's matched kit is assembled. The existing package signer is missing;
+  locate it, then use the manager's normal update and test Nibbi save/reopen.
 
 ## Done
 
