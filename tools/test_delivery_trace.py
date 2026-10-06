@@ -35,7 +35,7 @@ int main(){
  for(uint64_t i=0;i<2000;++i){
   d.current={};d.current.sequence=i;
   d.current.at[0]=i*100;
-  d.current.at[1]=i*100+((i==80||i%200==0)?20:2);
+  d.current.at[1]=i*100+((i==80||i%200==0)?40:2);
   d.current.at[7]=d.current.at[1]+2;
   if(i==80||i==180){
    d.current.note_on_count=1;d.current.event_count=1;
