@@ -431,6 +431,31 @@ class BusCensusCommandTests(unittest.TestCase):
                 'd2d1,d3d11,dxgi,dcomp=b;winebus.sys=d')
             self.assertIn('PROTON_USE_XALIA',session.NativeProtonSession.FORWARD)
 
+    def test_settled_process_tree_is_walked_once_a_second_and_a_changing_one_every_turn(self):
+        import ownership
+        now=[100.0]
+        cadence=ownership.TrackingCadence(clock=lambda:now[0])
+        self.assertTrue(cadence.due(),'the first walk is immediate')
+        # While members are still appearing, and for five seconds after the
+        # last one, every supervision turn walks the tree.
+        for step in range(40):
+            self.assertTrue(cadence.due(),step)
+            cadence.walked_now(grew=step<10)
+            now[0]+=.05
+        now[0]+=5
+        cadence.walked_now(grew=False)
+        walks=0
+        for _ in range(200):
+            now[0]+=.05
+            if cadence.due():walks+=1;cadence.walked_now(grew=False)
+        self.assertIn(walks,(10,11),'ten seconds of settled turns walk about once a second')
+        # A new member returns it to every turn at once.
+        cadence.walked_now(grew=True)
+        for _ in range(20):
+            now[0]+=.05
+            self.assertTrue(cadence.due())
+            cadence.walked_now(grew=False)
+
     def test_event_policy_is_registered_not_ambient(self):
         reg={'environment':{'root':'/fixture'},'compatibility':{'disable_windows_accessibility':False}}
         with patch.object(session.subprocess,'check_output',return_value='DISPLAY=:0\nLVB_EVENT_OUTPUT_POLICY=reported_zero_event_channels_unspecified\n'):

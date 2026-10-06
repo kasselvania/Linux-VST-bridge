@@ -381,6 +381,36 @@ def descendant_identities(root_pid, records=None):
     return result
 
 
+class TrackingCadence:
+    """When to walk the owned process tree again.
+
+    A tree that is still gaining members is followed on every turn, because a
+    parent can start a child and exit within moments. A tree that has stopped
+    changing is checked once a second: each walk reads every owned thread's
+    child list, and repeating that twenty times a second for an idle
+    environment was most of the supervisor's processor time. The owner walks
+    once more immediately before cleanup, so cleanup sees a current tree.
+    """
+    SETTLE_SECONDS = 5.0
+    SETTLED_INTERVAL = 1.0
+
+    def __init__(self, clock=time.monotonic):
+        self.clock = clock
+        self.changed = clock()
+        self.walked = None
+
+    def due(self):
+        now = self.clock()
+        return (self.walked is None or now - self.changed < self.SETTLE_SECONDS
+                or now - self.walked >= self.SETTLED_INTERVAL)
+
+    def walked_now(self, grew):
+        now = self.clock()
+        self.walked = now
+        if grew:
+            self.changed = now
+
+
 class ProcessTracker:
     """Follow this launch's kernel child lists, including non-main threads.
 

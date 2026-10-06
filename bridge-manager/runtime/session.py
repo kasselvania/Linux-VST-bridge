@@ -6,7 +6,7 @@ callback work. The Rust manager supplies an exact verified registration.
 """
 import ctypes,mmap,collections,re,threading
 import fcntl,hashlib,json,os,pathlib,pwd,selectors,shutil,signal,socket,stat,struct,subprocess,sys,time
-from ownership import process_identities,descendant_identities,cleanup_process,ProcessTracker,CompanionCgroup,InstallerLedger,host_writer_credentials,receive_host_writer,HostWriterLines,FinalHostCustody
+from ownership import process_identities,descendant_identities,cleanup_process,ProcessTracker,TrackingCadence,CompanionCgroup,InstallerLedger,host_writer_credentials,receive_host_writer,HostWriterLines,FinalHostCustody
 
 def atomic(path,value):
     temp=path.with_suffix(path.suffix+'.tmp')
@@ -1728,6 +1728,7 @@ def run_owned(spec,peer,stop_requested):
                 else:feed(data)
             else:
                 retain('stderr',stderr,data);capture_call('write','stderr',data)
+    tracker=None
     try:
         for stream,label in [(root.stdout,'stdout'),(root.stderr,'stderr')]:os.set_blocking(stream.fileno(),False);sel.register(stream,selectors.EVENT_READ,label)
         tracker=ProcessTracker(root.pid)
@@ -1735,12 +1736,15 @@ def run_owned(spec,peer,stop_requested):
             try:command_session.bind(root,tracker,pump)
             finally:owned.update(tracker.update())
             if command_session.host_custody is not None:sel.register(command_session.control,selectors.EVENT_READ,'host')
+        cadence=TrackingCadence()
+        def follow():
+            before=len(owned);owned.update(tracker.update());cadence.walked_now(len(owned)!=before)
         while True:
-            owned.update(tracker.update())
+            if cadence.due():follow()
             capture_call('observe',owned,root)
             pump(.05)
             if audio_scheduling:
-                if audio_scheduling.pending:owned.update(tracker.update())
+                if audio_scheduling.pending:follow()
                 audio_scheduling.poll(owned)
             if host_footprint:host_footprint.poll(owned)
             if visibility:
@@ -1817,6 +1821,10 @@ def run_owned(spec,peer,stop_requested):
                 # Exact mapping admission can precede an immediate failure or
                 # stop, before render start refreshes this cached cleanup set.
                 owned.update(tracker.owned)
+            # The settled cadence may be up to a second old; cleanup needs the current tree.
+            if tracker is not None:
+                try:owned.update(tracker.update())
+                except Exception as e:failure=failure or ('cleanup ownership walk: '+type(e).__name__)
             cleanup=cleanup_process(root,sorted(owned),during_cleanup=cleanup_drain) if capture else cleanup_process(root,sorted(owned))
             clean=all(cleanup.values())
             if command_session is not None and command_session.remote_identity is None:
@@ -1887,7 +1895,7 @@ def keep(spec):
         nonlocal stop
         stop=True
     signal.signal(signal.SIGTERM,stopped);signal.signal(signal.SIGINT,stopped)
-    directory=pathlib.Path(spec['directory']);root=None;sel=selectors.DefaultSelector()
+    directory=pathlib.Path(spec['directory']);root=None;tracker=None;sel=selectors.DefaultSelector()
     owned=set();diagnostic_hash={name:hashlib.sha256() for name in ('stdout','stderr')}
     diagnostic_tail={name:bytearray() for name in ('stdout','stderr')}
     diagnostic_bytes={'stdout':0,'stderr':0};ready=False;started=time.monotonic();error=None;clean=False
@@ -1912,9 +1920,10 @@ def keep(spec):
         root=subprocess.Popen(cmd,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
         for pipe,label in ((root.stdout,'stdout'),(root.stderr,'stderr')):
             os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,label)
-        tracker=ProcessTracker(root.pid)
+        tracker=ProcessTracker(root.pid);cadence=TrackingCadence()
         while not stop:
-            owned.update(tracker.update())
+            if cadence.due():
+                before=len(owned);owned.update(tracker.update());cadence.walked_now(len(owned)!=before)
             drain(.05)
             if not ready and (directory/'environment.ready').exists() and (command_session is None or command_session.service_ready()):
                 if (directory/'environment.ready').read_bytes()!=(spec['session']+'\n').encode():raise RuntimeError('environment readiness binding differs')
@@ -1936,6 +1945,10 @@ def keep(spec):
             except OSError as exc:error=(error+'; ' if error else '')+str(exc)
             try:root.wait(timeout=2)
             except subprocess.TimeoutExpired:pass
+            # The settled cadence may be up to a second old; cleanup needs the current tree.
+            if tracker is not None:
+                try:owned.update(tracker.update())
+                except Exception as exc:error=(error+'; ' if error else '')+str(exc)
             try:clean=all(cleanup_process(root,sorted(owned)).values())
             except Exception as exc:error=(error+'; ' if error else '')+str(exc)
             for _ in range(20):
