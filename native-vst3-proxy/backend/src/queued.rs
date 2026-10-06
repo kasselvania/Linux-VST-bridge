@@ -697,6 +697,11 @@ struct Callback {
     completion_policy: Option<crate::performance::CompletionPolicy>,
     completion_waits: u64,
     completion_wait_misses: u64,
+    // Longest a realtime callback waits for the Windows side to acknowledge a
+    // start before it answers with silence. None keeps the full wait.
+    unready_bound: Option<Duration>,
+    unready_callbacks: u64,
+    unready_frames: u64,
     callback_ns_max: u64,
     callback_us_buckets: [u64; 10],
     curve_plan: crate::parameter_curves::Plan,
@@ -730,6 +735,9 @@ impl Callback {
             windows_timing: WindowsProcessTiming::default(),
             completion_policy: None,
             completion_waits: 0,
+            unready_bound: None,
+            unready_callbacks: 0,
+            unready_frames: 0,
             completion_wait_misses: 0,
             callback_ns_max: 0,
             callback_us_buckets: [0; 10],
@@ -793,6 +801,9 @@ impl Callback {
         next.prepare(self.audio.maximum, self.audio.channels, self.delay as usize);
         next.gaps = std::mem::take(&mut self.gaps);
         next.completion_waits = std::mem::take(&mut self.completion_waits);
+        next.unready_bound = self.unready_bound;
+        next.unready_callbacks = std::mem::take(&mut self.unready_callbacks);
+        next.unready_frames = std::mem::take(&mut self.unready_frames);
         next.completion_wait_misses = std::mem::take(&mut self.completion_wait_misses);
         next.callback_ns_max = std::mem::take(&mut self.callback_ns_max);
         next.callback_us_buckets = std::mem::take(&mut self.callback_us_buckets);
@@ -879,6 +890,34 @@ impl Callback {
         for &p in extra { if !p.is_null() { unsafe {
             std::ptr::write_bytes(p.add(destination),0,request.n as usize);
         } } }
+        // The Windows side acknowledges a start from its owner thread, which
+        // may still be opening an editor. That gets a short stated bound.
+        // Past it the plug-in is not processing yet: this block is silence and
+        // is not part of its stream. Nothing is queued, its events are not
+        // delivered, and the DAW's thread does not wait for an editor.
+        if let Some(bound) = self.unready_bound.filter(|_| request.process_mode != 2) {
+            let mut until = Instant::now() + bound;
+            if let Some(end) = deadline { until = until.min(end); }
+            while s.processing_ready_epoch.load(Ordering::Acquire) != self.epoch {
+                let observed = s.completion.snapshot();
+                if s.processing_ready_epoch.load(Ordering::Acquire) == self.epoch { break; }
+                if s.cancelled.load(Ordering::Acquire) || s.quit.load(Ordering::Acquire) {
+                    return Err(COMPLETION_CANCELLED);
+                }
+                if s.fault.load(Ordering::Acquire) != 0 || s.terminal_latched.load(Ordering::Acquire) {
+                    return Err(2);
+                }
+                if Instant::now() >= until {
+                    let n = request.n as usize;
+                    for plane in out.iter_mut() { plane[..n].fill(0.); }
+                    self.unready_callbacks += 1;
+                    self.unready_frames += n as u64;
+                    self.delivery = Delivery::default();
+                    return Ok(channel_mask(2 + extra.len()));
+                }
+                s.completion.wait(observed, until);
+            }
+        }
         request.epoch = self.epoch;
         request.position = self.position;
         if request.completion.is_some() {
@@ -2903,6 +2942,15 @@ unsafe fn process_events_guarded(
             budget_now_ns, budget_now))
     } else { None };
     (*l.callback.get()).completion_policy = completion;
+    // Half of this block's duration. A zero-frame flush carries parameter
+    // changes that must reach the plug-in in order, so it keeps the full wait.
+    (*l.callback.get()).unready_bound = match (&l.setup, completion) {
+        (Some(setup), Some(_)) if !offline && n > 0 => {
+            let rate = f64::from_le_bytes(setup[8..16].try_into().unwrap());
+            (rate.is_finite() && rate > 0.).then(|| Duration::from_secs_f64(n as f64 / rate / 2.))
+        }
+        _ => None,
+    };
     let completion_deadline = completion.map(|p| p.deadline);
     if let (Some(t), Some(policy)) = (trace.as_deref_mut(), completion) {
         t.frames = n as u64;
@@ -3186,8 +3234,9 @@ unsafe fn close_instance(id: u64, contain_terminal: bool) -> u32 {
                 callback.gaps.report(path);
                 export_refusal(&l.shared,path);
                 crate::preview::append_report(path, format!(
-                    "{{\"event\":\"native_callback_completion\",\"scope\":\"successful Rust processing calls including completion wait\",\"waits\":{},\"waits_without_result\":{},\"maximum_ns\":{},\"bucket_upper_us\":[50,100,250,500,1000,2000,5000,10000,25000,null],\"buckets\":{:?}}}\n",
+                    "{{\"event\":\"native_callback_completion\",\"scope\":\"successful Rust processing calls including completion wait\",\"waits\":{},\"waits_without_result\":{},\"unready_callbacks\":{},\"unready_frames\":{},\"maximum_ns\":{},\"bucket_upper_us\":[50,100,250,500,1000,2000,5000,10000,25000,null],\"buckets\":{:?}}}\n",
                     callback.completion_waits, callback.completion_wait_misses,
+                    callback.unready_callbacks, callback.unready_frames,
                     callback.callback_ns_max, callback.callback_us_buckets).as_bytes());
             }
             if !ok {
@@ -3900,6 +3949,9 @@ mod tests {
             delivery.effective_delay(maximum, 256).unwrap() as usize);
         assert_eq!(callback.transition(&shared, START), 0);
         shared.requests.pop().unwrap();
+        // This helper stands in for the peer: it has taken the start, so it
+        // acknowledges it as the transport worker would.
+        shared.processing_ready_epoch.store(callback.epoch, Ordering::Release);
         INSTANCES.insert(|| Ok::<_, ()>(Live {
             shared, callback: UnsafeCell::new(callback), busy: AtomicBool::new(false),
             worker: None, report: None, max: maximum as usize, recovery_blocked: false,
@@ -4819,6 +4871,47 @@ mod tests {
         }
     }
     #[test]
+    fn unacknowledged_start_is_answered_with_silence_within_its_bound() {
+        let shared = Shared::new();
+        let mut callback = Callback::new();
+        callback.delay = 512;
+        callback.unready_bound = Some(Duration::from_millis(2));
+        callback.transition(&shared, START);
+        shared.requests.pop().unwrap();
+        let mut request = Item::control(AUDIO, 0);
+        request.n = 512;
+        request.data = [[0.25; CAP]; 2];
+        request.event_count = 0;
+        // The Windows side has not acknowledged the start: the callback
+        // returns silence inside its bound and queues nothing.
+        let mut output = [[9.; CAP]; 2];
+        let started = Instant::now();
+        let (result, allocations) = crate::allocation_test::measure(||
+            callback.process_outputs_until(&shared, request, &mut output, &[], 0,
+                Some(started + Duration::from_secs(5))));
+        assert_eq!(result, Ok(3));
+        assert_eq!(allocations, [0; 3]);
+        assert!(started.elapsed() < Duration::from_millis(500));
+        assert!(output[0][..512].iter().chain(&output[1][..512]).all(|v| *v == 0.));
+        assert!(shared.requests.pop().is_none(), "an unready block is not part of the stream");
+        assert_eq!((callback.position, callback.unready_callbacks, callback.unready_frames,
+            callback.completion_waits), (0, 1, 512, 0));
+        assert_eq!(callback.delivery, Delivery::default());
+        assert_eq!(shared.fault.load(Ordering::Acquire), 0);
+        // An offline render keeps the full wait: its block is queued.
+        let mut offline = request;
+        offline.process_mode = 2;
+        callback.process_outputs_until(&shared, offline, &mut output, &[], 0, None).unwrap();
+        assert_eq!(shared.requests.pop().unwrap().position, 0);
+        assert_eq!(callback.unready_callbacks, 1);
+        // Once the start is acknowledged the next realtime block is queued at
+        // the position the stream has reached.
+        shared.processing_ready_epoch.store(callback.epoch, Ordering::Release);
+        callback.process_outputs_until(&shared, request, &mut output, &[], 0, None).unwrap();
+        assert_eq!(shared.requests.pop().unwrap().position, 512);
+        assert_eq!((callback.unready_callbacks, callback.unready_frames), (1, 512));
+    }
+    #[test]
     fn completion_deadline_keeps_silence_expiry_and_control_nonwaiting() {
         let shared = Shared::new();
         let mut callback = Callback::new();
@@ -4895,6 +4988,8 @@ mod tests {
         callback.position = 1024;
         callback.next_result = 512;
         callback.submitted_operation = 1;
+        // The stream is two blocks in: its start was acknowledged long ago.
+        shared.processing_ready_epoch.store(1, Ordering::Release);
         let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
             shared: shared.clone(), callback: UnsafeCell::new(callback),
             busy: AtomicBool::new(false), worker: None, report: None,
@@ -5005,6 +5100,8 @@ mod tests {
         callback.delay = 512;
         assert_eq!(callback.transition(&shared, START), 0);
         shared.requests.pop().unwrap();
+        // The peer below has taken the start; acknowledge it as the worker would.
+        shared.processing_ready_epoch.store(1, Ordering::Release);
         let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
             shared: shared.clone(), callback: UnsafeCell::new(callback),
             busy: AtomicBool::new(false), worker: None, report: None,
