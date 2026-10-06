@@ -660,6 +660,20 @@ Blackhole Immersive 1.4.4 / Steam Deck: verified-fixed for the exact candidate.
 
 No universal graphics support or applicability to other runners/products.
 
+### General mechanism (2026-10-06)
+
+The graphics assessment now decides by rule instead of leaving findings for a
+human to read. From the libraries the plug-in actually loaded (while its editor
+opened, or with its module when its import table names them) and this launch's
+probes, it names one requirement with a plain-language reason and next action:
+none, Wine built-in Direct3D 11 (the default path failed its probe), a
+DirectComposition-capable runner (the blank-editor class above: DirectComposition
+loaded and no composition device on this launch), unsupported WebView2, no
+editor, or undetermined. Import hints alone never decide. The manager shows the
+reason and the action with the assessment. Applying the recommendation without
+an operator click, and running the assessment as part of every preparation, are
+the next two steps of this mechanism.
+
 ### Related failure classes
 
 FC-UI-006, FC-LIFE-001.

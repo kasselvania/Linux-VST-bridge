@@ -29,9 +29,11 @@ presentation path the pinned runner cannot show.
    call cost per block size into profile data and choose Buffered unless the
    worst case is under a quarter of the period and the DAW's audio thread is
    real-time. Plain-language latency statement to the musician.
-3. Graphics capability at intake: when the editor presents nothing, try the
-   alternate Wine presentation backend automatically and store the choice in
-   the profile. This is the white-screen class.
+3. Graphics capability at intake (in progress): the assessment now decides a
+   requirement by rule from what the editor loaded and this launch's probes,
+   with a plain-language reason and next action. Still to do: apply the
+   recommendation without an operator click, and run the assessment in every
+   preparation. This is the white-screen class.
 4. Intake as a manager operation: the staged check above as one button, with
    the first failing stage reported in plain words and mapped to a failure
    class. The agents have run it by hand for a week; the parts exist.

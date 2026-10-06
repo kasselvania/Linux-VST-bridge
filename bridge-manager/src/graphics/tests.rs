@@ -157,6 +157,55 @@ fn graphics_assessment_reuses_rules_without_promoting_hints_or_probe_devices() {
 }
 
 #[test]
+fn graphics_recommendation_follows_editor_loads_and_this_launch_probes() {
+    use super::assessment::{recommend, Editor, Probe, Requirement};
+    use crate::operator_model::GraphicsBackend;
+    let probe = |api: &str, status: &str| Probe { api: api.into(), status: status.into(), rendering: "unknown".into(),
+        renderer: None, vendor_id: None, device_id: None, driver_version: None, feature_level: None };
+    let probes = |failed: &[&str]| ["d3d11_default", "d3d11_warp", "opengl", "direct_composition"].iter()
+        .map(|api| probe(api, if failed.contains(api) { "readback_failed" } else { "passed" })).collect::<Vec<_>>();
+    let editor = |status: &str, before: &[Library], during: &[Library]| Editor {
+        status: status.into(), before: before.to_vec(), during: during.to_vec(), closed: true };
+    let imports = |ordinary: &[Library]| pe::Imports { machine: 0x8664, ordinary: ordinary.to_vec(), delayed: vec![] };
+    let none = imports(&[]);
+    // A plain editor on a healthy launch needs nothing.
+    let r = recommend(&editor("opened", &[], &[]), &probes(&[]), &none, None);
+    assert_eq!((r.requirement, r.editor_loaded.len()), (Requirement::None, 0));
+    // No editor decides nothing, whatever the probes say.
+    assert_eq!(recommend(&editor("unavailable", &[], &[]), &probes(&["d3d11_default"]), &none, None).requirement,
+        Requirement::EditorAbsent);
+    // WebView2 outranks every other finding.
+    assert_eq!(recommend(&editor("opened", &[], &[Library::D3d11, Library::WebView2]), &probes(&["d3d11_default"]), &none, None)
+        .requirement, Requirement::UnsupportedWebView2);
+    // DirectComposition: the blank-editor class, decided by this launch's probe.
+    assert_eq!(recommend(&editor("opened", &[], &[Library::DirectComposition, Library::D3d11]), &probes(&["direct_composition"]), &none, None)
+        .requirement, Requirement::DirectCompositionRunner);
+    assert_eq!(recommend(&editor("opened", &[], &[Library::DirectComposition, Library::D3d11]), &probes(&[]), &none, None)
+        .requirement, Requirement::None);
+    // Direct3D 11 failing on the default path asks for Wine's built-in path once.
+    assert_eq!(recommend(&editor("opened", &[], &[Library::Dxgi]), &probes(&["d3d11_default"]), &none, None).requirement,
+        Requirement::WineD3d11);
+    assert_eq!(recommend(&editor("opened", &[], &[Library::Dxgi]), &probes(&["d3d11_default"]), &none, Some(GraphicsBackend::WineD3d11))
+        .requirement, Requirement::Undetermined);
+    // OpenGL failing has no further launch choice here.
+    assert_eq!(recommend(&editor("opened", &[], &[Library::OpenGl]), &probes(&["opengl"]), &none, None).requirement,
+        Requirement::Undetermined);
+    // A library loaded with the module counts only when the module imports it;
+    // an import that was never loaded counts for nothing.
+    let r = recommend(&editor("opened", &[Library::D3d11], &[]), &probes(&["d3d11_default"]), &imports(&[Library::D3d11]), None);
+    assert_eq!((r.requirement, r.editor_loaded.clone()), (Requirement::WineD3d11, vec![Library::D3d11]));
+    assert_eq!(recommend(&editor("opened", &[Library::D3d11], &[]), &probes(&["d3d11_default"]), &none, None).requirement,
+        Requirement::None);
+    assert_eq!(recommend(&editor("opened", &[], &[]), &probes(&["d3d11_default"]), &imports(&[Library::D3d11]), None).requirement,
+        Requirement::None);
+    // The assembled assessment carries the recommendation and uses its action.
+    let a = assemble(context(), pe::inspect(&mut Cursor::new(image("d3d11.dll", "opengl32.dll"))).unwrap(), &report(), 100).unwrap();
+    assert_eq!(a.recommendation.requirement, Requirement::UnsupportedWebView2);
+    assert_eq!(a.next_action, a.recommendation.action);
+    assert_eq!(serde_json::to_value(&a).unwrap()["recommendation"]["requirement"], json!("unsupported_web_view2"));
+}
+
+#[test]
 fn candidate_assessment_binds_launch_settings_and_keeps_missing_editor_optional() {
     use crate::preparation::{self as prep, configuration};
     let (f, base) = prep::tests::fixture();
