@@ -2616,6 +2616,9 @@ Last reviewed: 2026-10-03.
 Windows host `IPlugView::removed()`; bounded. This identifies the failed SDK
 call, not whether the underlying defect belongs to the host, vendor or runner.
 
+Deck Test 8 (835d7b6f), Nibbi 0.1.4 / Bitwig 6.1 / Buffered 512 / 48 kHz: Check compatibility shows “Not assessed with these settings.” after a 30-second `assessGraphicsEditor` deadline; default graphics and the product's Wine D3D11 trial (setup 66) both show a white editor, complete opening at stage 100, then stall in `IPlugView::removed()` at stage 212 without an exception. The assessment writes its editor observations only after removal returns, so this stall also prevents the graphics requirement and independent probes from being reported. Both sessions retire; original projects are preserved, default Test 8 graphics are restored and Buffered 512 remains selected. No endurance audio capture; raw records stay outside Git.
+The same Wine D3D11 assessment falsely refuses `graphics_launch_override_not_applied`: the applied override is `d3d11,dxgi=b;lvb-direct-wait=b`, but the manager compares complete strings that exclude the supervisor's own helper. The underlying report still records `TimeoutError: Windows call deadline: assessGraphicsEditor`; accepting the composed override alone will not make Nibbi draw. Host footprint cumulative counts applied/already/skipped_audio/skipped_policy/errors are 3/64/3/14/0 (default) and 3/78/3/14/0 (trial); the trial's live family sample has 21 TS threads at nice 10, one `lvb-audio` at RR 5, and seven Batch threads left at nice 19.
+
 ### Fix chain and coverage
 
 Observed failure: Ubuntu 26.04.1, Bitwig 6.1.1 guest demo, internal25,
