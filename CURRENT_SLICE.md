@@ -20,10 +20,11 @@ confidence; the old host discarded the exception text.
   refuses cleanly. Partial restore failure remains terminal.
 - Specific bridge errors survive; versioned C ABI returns actual-sized bytes.
 - Windows/Linux builds and recorded-state/refusal/audio regressions pass.
-- Test 10 is signed and selected, but its updater left all 11 plug-ins on the
-  old bridge. Compare kit content identity before skipping a class refresh.
-- The update regression passes. Sign Test 11 with the existing homelab key,
-  reusing the tested bridge binaries; update, then test Nibbi save/reopen.
+- Test 10 exposed an update defect: it left all 11 plug-ins on the old bridge.
+  The corrected updater compares target kit content identity before skipping.
+- Signed Test 11 is installed and active; all 11 classes select the verified
+  matching new pair. Modules, environments and buffering are unchanged.
+- Next: the operator records in Nibbi, saves a test project and reopens it.
 
 ## Done
 

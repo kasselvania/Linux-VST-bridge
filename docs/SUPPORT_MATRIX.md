@@ -253,10 +253,12 @@ stopped fixture campaigns for the platform engineering reassessment.
 
 Nibbi recorded-audio save/reopen remains **unqualified** on the Deck.
 The matching Test 10 Windows/Linux builds pass SDK 2-MiB save/restore and
-continued-audio tests after a capacity refusal. The signed Test 10 manager is
-installed, but [FC-MGMT-009](FAILURE_CLASSES.md#fc-mgmt-009--package-update-leaves-plug-ins-on-the-old-bridge)
-left every plug-in on its old bridge; delivery of the pair and the physical
-comparison remain pending. See
+continued-audio tests after a capacity refusal. Test 10 is retained as a failed
+update: it left every plug-in on its old bridge.
+[FC-MGMT-009](FAILURE_CLASSES.md#fc-mgmt-009--package-update-leaves-plug-ins-on-the-old-bridge)
+is corrected in the installed Test 11 manager; all 11 published classes now use
+the matching new native/Windows pair with their original plug-in modules,
+environments and buffering. Nibbi's recorded-state comparison remains pending. See
 [FC-STATE-002](FAILURE_CLASSES.md#fc-state-002--recorded-audio-exceeds-the-state-cap-and-ends-the-host).
 
 The shared graphics assessor adds reusable dependency/editor-library observations
