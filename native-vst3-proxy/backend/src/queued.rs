@@ -700,6 +700,9 @@ struct Callback {
     // Longest a realtime callback waits for the Windows side to acknowledge a
     // start before it answers with silence. None keeps the full wait.
     unready_bound: Option<Duration>,
+    // The start whose bound has already been spent. Later callbacks of that
+    // start answer at once.
+    unready_waited_epoch: u64,
     unready_callbacks: u64,
     unready_frames: u64,
     callback_ns_max: u64,
@@ -736,6 +739,7 @@ impl Callback {
             completion_policy: None,
             completion_waits: 0,
             unready_bound: None,
+            unready_waited_epoch: 0,
             unready_callbacks: 0,
             unready_frames: 0,
             completion_wait_misses: 0,
@@ -802,6 +806,7 @@ impl Callback {
         next.gaps = std::mem::take(&mut self.gaps);
         next.completion_waits = std::mem::take(&mut self.completion_waits);
         next.unready_bound = self.unready_bound;
+        next.unready_waited_epoch = self.unready_waited_epoch;
         next.unready_callbacks = std::mem::take(&mut self.unready_callbacks);
         next.unready_frames = std::mem::take(&mut self.unready_frames);
         next.completion_wait_misses = std::mem::take(&mut self.completion_wait_misses);
@@ -891,12 +896,13 @@ impl Callback {
             std::ptr::write_bytes(p.add(destination),0,request.n as usize);
         } } }
         // The Windows side acknowledges a start from its owner thread, which
-        // may still be opening an editor. That gets a short stated bound.
-        // Past it the plug-in is not processing yet: this block is silence and
-        // is not part of its stream. Nothing is queued, its events are not
-        // delivered, and the DAW's thread does not wait for an editor.
+        // may still be opening an editor. That gets a short stated bound, once
+        // per start. Past it the plug-in is not processing yet: this block is
+        // silence and is not part of its stream. Nothing is queued, its events
+        // are not delivered, and the DAW's thread does not wait for an editor.
         if let Some(bound) = self.unready_bound.filter(|_| request.process_mode != 2) {
-            let mut until = Instant::now() + bound;
+            let mut until = Instant::now();
+            if self.unready_waited_epoch != self.epoch { until += bound; }
             if let Some(end) = deadline { until = until.min(end); }
             while s.processing_ready_epoch.load(Ordering::Acquire) != self.epoch {
                 let observed = s.completion.snapshot();
@@ -910,6 +916,7 @@ impl Callback {
                 if Instant::now() >= until {
                     let n = request.n as usize;
                     for plane in out.iter_mut() { plane[..n].fill(0.); }
+                    self.unready_waited_epoch = self.epoch;
                     self.unready_callbacks += 1;
                     self.unready_frames += n as u64;
                     self.delivery = Delivery::default();
@@ -4875,7 +4882,7 @@ mod tests {
         let shared = Shared::new();
         let mut callback = Callback::new();
         callback.delay = 512;
-        callback.unready_bound = Some(Duration::from_millis(2));
+        callback.unready_bound = Some(Duration::from_millis(40));
         callback.transition(&shared, START);
         shared.requests.pop().unwrap();
         let mut request = Item::control(AUDIO, 0);
@@ -4891,25 +4898,35 @@ mod tests {
                 Some(started + Duration::from_secs(5))));
         assert_eq!(result, Ok(3));
         assert_eq!(allocations, [0; 3]);
-        assert!(started.elapsed() < Duration::from_millis(500));
+        let waited = started.elapsed();
+        assert!(waited >= Duration::from_millis(40) && waited < Duration::from_millis(500));
         assert!(output[0][..512].iter().chain(&output[1][..512]).all(|v| *v == 0.));
         assert!(shared.requests.pop().is_none(), "an unready block is not part of the stream");
         assert_eq!((callback.position, callback.unready_callbacks, callback.unready_frames,
             callback.completion_waits), (0, 1, 512, 0));
         assert_eq!(callback.delivery, Delivery::default());
         assert_eq!(shared.fault.load(Ordering::Acquire), 0);
+        // The bound is spent once per start: the next unready block is
+        // answered without waiting again.
+        let again = Instant::now();
+        assert_eq!(callback.process_outputs_until(&shared, request, &mut output, &[], 0,
+            Some(again + Duration::from_secs(5))), Ok(3));
+        assert!(again.elapsed() < Duration::from_millis(20));
+        assert!(shared.requests.pop().is_none());
+        assert_eq!((callback.position, callback.unready_callbacks, callback.unready_frames),
+            (0, 2, 1024));
         // An offline render keeps the full wait: its block is queued.
         let mut offline = request;
         offline.process_mode = 2;
         callback.process_outputs_until(&shared, offline, &mut output, &[], 0, None).unwrap();
         assert_eq!(shared.requests.pop().unwrap().position, 0);
-        assert_eq!(callback.unready_callbacks, 1);
+        assert_eq!(callback.unready_callbacks, 2);
         // Once the start is acknowledged the next realtime block is queued at
         // the position the stream has reached.
         shared.processing_ready_epoch.store(callback.epoch, Ordering::Release);
         callback.process_outputs_until(&shared, request, &mut output, &[], 0, None).unwrap();
         assert_eq!(shared.requests.pop().unwrap().position, 512);
-        assert_eq!((callback.unready_callbacks, callback.unready_frames), (1, 512));
+        assert_eq!((callback.unready_callbacks, callback.unready_frames), (2, 1024));
     }
     #[test]
     fn completion_deadline_keeps_silence_expiry_and_control_nonwaiting() {
