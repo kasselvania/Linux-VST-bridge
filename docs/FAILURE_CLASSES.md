@@ -708,8 +708,10 @@ assessments against each other:
   setup, which `runinprefix` launches skip. When the default launch is already
   Wine's built-in, the rule no longer prepares a Wine Direct3D 11 trial that
   would repeat it, and the manager says the setting selects the same
-  implementation. Whether hosts should use the runner's DXVK instead is a
-  separate, unmade product decision.
+  implementation. The maintainer decided on 2026-10-06 to keep Wine's built-in
+  as the default. The runner's DXVK is untested here and is held as a fallback
+  to try for a single plug-in if a future editor has a Direct3D problem outside
+  this class.
 - **Renderer facts.** The OpenGL renderer name was dropped whenever it contained
   a comma, which every Mesa driver's does, so the real device was never shown
   and a software driver could not be recognised. The name is now kept and the
