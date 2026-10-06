@@ -51,6 +51,7 @@ struct KeeperOwner {
     failed: bool,
     failure_pending: bool,
     started: Instant,
+    last_used: Instant,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -58,6 +59,15 @@ enum KeeperAvailability { Starting, Retiring, Ready, Failed }
 
 const KEEPER_OWNER_STARTUP_SECONDS: u64 = 60;
 const KEEPER_MANAGER_RETIRE_SECONDS: u64 = 62;
+// An environment with no plug-in loaded keeps its Wine session this long, so
+// a removed and re-added plug-in or a reloaded project does not pay a cold
+// start, and is then retired. The next load starts it again. The grace
+// exceeds every admission deadline: an admission that observed a ready
+// environment ends before that environment can be retired under it.
+const KEEPER_IDLE_RETIRE_SECONDS: u64 = 90;
+const KEEPER_IDLE_OBSERVE_SECONDS: u64 = 10;
+const _: () = assert!(KEEPER_IDLE_RETIRE_SECONDS > KEEPER_MANAGER_RETIRE_SECONDS
+    && KEEPER_IDLE_RETIRE_SECONDS > KEEPER_OWNER_STARTUP_SECONDS);
 
 fn prepare_recovery_bindings(
     m: &Manager,
@@ -1156,6 +1166,7 @@ fn stage_keeper_with_history(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keep
     verify_history(m, &r.environment)?;
     let mut active=keepers.lock().map_err(|_|"environment ownership lock poisoned")?;
     if let Some(owner)=active.iter_mut().find(|owner|owner.environment==r.environment.id) {
+        owner.last_used=Instant::now();
         if !owner.retiring && !owner.report.exists()
             && owner.started.elapsed()>=Duration::from_secs(KEEPER_MANAGER_RETIRE_SECONDS)
             && owner.child.try_wait()?.is_none() {
@@ -1197,8 +1208,64 @@ fn stage_keeper_with_history(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keep
     // transport, or DSP lease has been exposed at this point.
     active.push(KeeperOwner{session:job.session.clone(),environment:r.environment.id.clone(),
         graphical_session:graphical_session.cloned(),child,report:job.report,lease:job.lease,
-        retiring:false,failed:false,failure_pending:false,started:Instant::now()});
+        retiring:false,failed:false,failure_pending:false,started:Instant::now(),
+        last_used:Instant::now()});
     Ok(KeeperAvailability::Starting)
+}
+
+// Environments that own a loaded plug-in now. Maintenance, or an instance
+// whose class is no longer registered, makes the answer unknown.
+fn occupied_environments(m:&Manager,owners:&[capacity::Owner])
+    -> Result<Option<std::collections::BTreeSet<String>>> {
+    let registry=m.registry()?;
+    let mut occupied=std::collections::BTreeSet::new();
+    for owner in owners {
+        match owner.kind {
+            capacity::Kind::Keeper=>{}
+            capacity::Kind::Inspection|capacity::Kind::VendorAccess=>return Ok(None),
+            capacity::Kind::Dsp=>match registry.classes.get(&owner.class_id) {
+                Some(entry)=>{occupied.insert(entry.registration.environment.id.clone());}
+                None=>return Ok(None),
+            },
+        }
+    }
+    Ok(Some(occupied))
+}
+
+/// Retire each ready environment that has had no loaded plug-in for `idle`.
+/// This uses the registry guard that admission holds while it publishes a
+/// lease, so an instance is either visible here or not yet admitted. A busy
+/// guard, active maintenance or an unresolved owner retires nothing.
+fn retire_idle_keepers(m:&Manager,keepers:&Keepers,idle:Duration)->Result<()> {
+    {
+        let mut active=keepers.lock().map_err(|_|"environment ownership lock poisoned")?;
+        let retiring:Vec<String>=active.iter().filter(|owner|owner.retiring&&!owner.failed)
+            .map(|owner|owner.environment.clone()).collect();
+        for environment in retiring {observe_keeper(&environment,&mut active)?;}
+        if !active.iter().any(|owner|!owner.retiring&&!owner.failed
+            &&owner.last_used.elapsed()>=idle) {return Ok(())}
+    }
+    let _registry=match m.try_lock("registry.lock")? {
+        operator_lock::LockAttempt::Acquired(lock)=>lock,
+        operator_lock::LockAttempt::Busy=>return Ok(()),
+    };
+    let Some(occupied)=occupied_environments(m,&capacity::owners(m)?)? else {return Ok(())};
+    let mut active=keepers.lock().map_err(|_|"environment ownership lock poisoned")?;
+    for owner in active.iter_mut() {
+        if owner.retiring||owner.failed {continue}
+        if occupied.contains(&owner.environment) {
+            owner.last_used=Instant::now();
+            continue;
+        }
+        // A starting or already exited generation keeps its existing owners:
+        // the startup deadline and the failed-generation rule in stage_keeper.
+        if owner.last_used.elapsed()<idle||!owner.report.exists()
+            ||owner.child.try_wait()?.is_some() {continue}
+        require(unsafe{libc::kill(owner.child.id() as i32,libc::SIGTERM)}==0,
+            "idle environment retirement request")?;
+        owner.retiring=true;
+    }
+    Ok(())
 }
 
 // Worker admission and DSP ownership are separate. Full musical capacity still
@@ -1405,6 +1472,28 @@ fn serve(m: Manager) -> Result<()> {
     let keepers = Arc::new(Mutex::new(Vec::new()));
     let limits = capacity::service_limits()?;
     let workers = Arc::new(AtomicUsize::new(0));
+    let idle_manager = manager.clone();
+    let idle_keepers = keepers.clone();
+    let idle_retirement = std::thread::Builder::new().spawn(move || {
+        let mut reported = String::new();
+        loop {
+            std::thread::sleep(Duration::from_secs(KEEPER_IDLE_OBSERVE_SECONDS));
+            match retire_idle_keepers(&idle_manager, &idle_keepers,
+                Duration::from_secs(KEEPER_IDLE_RETIRE_SECONDS)) {
+                Ok(()) => reported.clear(),
+                Err(error) => {
+                    let text = error.to_string();
+                    if text != reported {
+                        eprintln!("idle environment retirement did not run: {text}");
+                        reported = text;
+                    }
+                }
+            }
+        }
+    });
+    if let Err(error) = &idle_retirement {
+        eprintln!("idle environment retirement worker unavailable: {error}");
+    }
     let mut threads: Vec<std::thread::JoinHandle<()>> = Vec::new();
     for peer in listener.incoming() {
         let mut peer = peer?;
@@ -2408,7 +2497,7 @@ mod tests {
         let child=Command::new("/bin/sh").args(["-c",command]).spawn().unwrap();
         (KeeperOwner{session:random_id().unwrap(),environment:f.r.environment.id.clone(),graphical_session:None,child,
             report:report.clone(),lease:lease.clone(),retiring:false,failed:false,failure_pending:false,
-            started:Instant::now()},
+            started:Instant::now(),last_used:Instant::now()},
             report,lease)
     }
     fn graphical(display:&str,generation:u64)->transport_storage::GraphicalSession {
@@ -2525,6 +2614,76 @@ mod tests {
         assert!(status.success());
         assert_eq!(observe_keeper(&f.r.environment.id,&mut active).unwrap(),None);
         assert!(active.is_empty()&&!lease.exists());
+    }
+    fn fixture_lease(f:&test_fixture::Fixture,class:&str,inspect:bool)->PathBuf {
+        let sid=random_id().unwrap();
+        let results=f.m.root.join("runtime/results");
+        let leases=f.m.root.join("runtime/leases");
+        private_dir(&results).unwrap();
+        private_dir(&leases).unwrap();
+        let report=results.join(format!("windows-{sid}.json"));
+        let directory=f.r.environment.root.join("compatdata/pfx/drive_c/bridge/sessions").join(&sid);
+        private_dir(&directory).unwrap();
+        atomic_json(&directory.join("owner.json"),&serde_json::json!({"session":sid,"report":report,
+            "keeper":false,"inspect":inspect,"registration":{"metadata":{"class_id":class}}})).unwrap();
+        let path=leases.join(format!("{sid}.json"));
+        atomic_json(&path,&report).unwrap();
+        path
+    }
+    #[test]
+    fn idle_environment_is_retired_only_after_nothing_was_loaded_for_the_grace() {
+        let (f,_,_,_)=test_fixture::prepared();
+        let (owner,report,lease)=fixture_keeper(&f,
+            "exec python3 -c 'import signal,sys,time; signal.signal(signal.SIGTERM,lambda *_:sys.exit(0)); time.sleep(20)'");
+        atomic_json(&report,&serde_json::json!({"ready":true,
+            "environment":f.r.environment.id})).unwrap();
+        let keepers=Keepers::new(vec![owner]);
+        let retiring=|| keepers.lock().unwrap()[0].retiring;
+        std::thread::sleep(Duration::from_millis(300));
+        // Inside the grace an unused environment stays.
+        retire_idle_keepers(&f.m,&keepers,Duration::from_secs(60)).unwrap();
+        assert!(!retiring());
+        // A loaded plug-in keeps its environment and restarts the grace.
+        let loaded=fixture_lease(&f,&f.r.key(),false);
+        let before=keepers.lock().unwrap()[0].last_used;
+        retire_idle_keepers(&f.m,&keepers,Duration::ZERO).unwrap();
+        assert!(!retiring()&&keepers.lock().unwrap()[0].last_used>before);
+        fs::remove_file(&loaded).unwrap();
+        // Maintenance, an instance of an unregistered class and a busy
+        // registry guard each leave the answer unknown: nothing is retired.
+        let inspection=fixture_lease(&f,&f.r.key(),true);
+        retire_idle_keepers(&f.m,&keepers,Duration::ZERO).unwrap();
+        assert!(!retiring());
+        fs::remove_file(&inspection).unwrap();
+        let unregistered=fixture_lease(&f,&"77".repeat(16),false);
+        retire_idle_keepers(&f.m,&keepers,Duration::ZERO).unwrap();
+        assert!(!retiring());
+        fs::remove_file(&unregistered).unwrap();
+        {
+            let _registry=f.m.lock("registry.lock").unwrap();
+            retire_idle_keepers(&f.m,&keepers,Duration::ZERO).unwrap();
+            assert!(!retiring());
+        }
+        // Nothing loaded for the whole grace: asked to retire, then reaped.
+        retire_idle_keepers(&f.m,&keepers,Duration::ZERO).unwrap();
+        assert!(retiring());
+        assert!(keepers.lock().unwrap()[0].child.wait().unwrap().success());
+        atomic_json(&report,&serde_json::json!({"ready":false,
+            "cleanup_confirmed":true})).unwrap();
+        retire_idle_keepers(&f.m,&keepers,Duration::from_secs(60)).unwrap();
+        assert!(keepers.lock().unwrap().is_empty()&&!lease.exists());
+    }
+    #[test]
+    fn idle_retirement_without_confirmed_cleanup_stays_a_visible_failure() {
+        let (f,_,_,_)=test_fixture::prepared();
+        let (mut owner,report,lease)=fixture_keeper(&f,"exec sleep 0.1");
+        owner.retiring=true;
+        let keepers=Keepers::new(vec![owner]);
+        assert!(keepers.lock().unwrap()[0].child.wait().unwrap().success());
+        atomic_json(&report,&serde_json::json!({"ready":false,
+            "cleanup_confirmed":false})).unwrap();
+        assert!(retire_idle_keepers(&f.m,&keepers,Duration::from_secs(60)).is_err());
+        assert!(keepers.lock().unwrap().len()==1&&lease.exists());
     }
     #[test]
     fn timed_out_keeper_retirement_becomes_a_stable_failure() {
