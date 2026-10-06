@@ -1,40 +1,41 @@
-# Current task: save recorded plug-in audio without ending the instance
+# Current task: keep the DAW's audio running while a plug-in loads
 
 ## Goal
 
-Build and install a matching Linux proxy and Windows host that can save and
-recall plug-ins whose state includes recorded audio. Nibbi is the reported
-failure; the fix applies to every plug-in.
+Loading a bridged plug-in, or opening its editor, must not interrupt audio
+that is already playing. This is the last stability item before the operator
+soaks the Deck; portability to other distributions follows the soak.
 
 ## Best explanation
 
-The operator's recordings fail while the no-recording comparison saves.
-Nibbi starts at 730,156 state bytes. Both SDK streams and both wire codecs
-cap state at 1 MiB. Exceeding that cap throws an ordinary exception instead
-of the existing recoverable save refusal, ending the Windows host. High
-confidence; the old host discarded the exception text.
+Bitwig's audio thread waits inside the bridge's callback while the Windows
+side is slow on a new plug-in's first block. About 70%. A BEAM session on the
+Deck has one callback of 2.88 seconds and no lost frames; the editor opened
+and audio started within a tenth of a second of each other. The frame
+counters stay at zero through this, so they are not the measure.
 
-## Changes
+## Next changes
 
-- Both sides and wire codecs now accept 256 MiB; oversized read-only capture
-  refuses cleanly. Partial restore failure remains terminal.
-- Specific bridge errors survive; versioned C ABI returns actual-sized bytes.
-- Windows/Linux builds and recorded-state/refusal/audio regressions pass.
-- Test 10 exposed an update defect: it left all 11 plug-ins on the old bridge.
-  The corrected updater compares target kit content identity before skipping.
-- Signed Test 11 is installed and active; all 11 classes select the verified
-  matching new pair. Modules, environments and buffering are unchanged.
-- Next: the operator records in Nibbi, saves a test project and reopens it.
+- Read the per-callback trace (`LVB_PROCESS_CALL_TRACE=1`, switched on for
+  Bitwig on the Deck) and the Windows-side delivery trace from one session
+  that loads BEAM over playing audio. They say which callback stalled and
+  whether the time went in the vendor's call or in waiting for it.
+- If the stall is the instance's own first blocks: answer a block that is not
+  ready during start-up with silence at once, and keep the fixed delay.
+- If it is another instance's callback: find the shared resource and remove
+  it.
+- Rerun the same load on the Deck and compare the longest callback.
 
 ## Done
 
-Both builds pass. The Deck has the matching pair. Nibbi with recorded audio
-saves and reopens in Bitwig; a capacity refusal keeps a healthy host usable.
-Original projects, plug-in installations, activation and the selected runner
-are preserved. Raw build/test logs stay outside Git.
+With sound playing, loading BEAM, Nibbi and Serum 2 one after another on the
+Deck gives no callback longer than half a block (5.3 ms at 512 frames and
+48 kHz) in an instance that was already playing, and no audible gap.
 
 ## Separate open work
 
-Touch knobs, editor/audio contention and broader plug-in intake remain open.
-Wine's built-in Direct3D 11 stays the default; Nibbi uses its already-selected
-DirectComposition reference runner.
+- Nibbi's knobs do not follow touch; BEAM's do, on the same driver.
+- Control sticks on the Deck desktop; cause unknown, a passive logger runs.
+- Multi-touch capability per plug-in, and raising the six-instance ceiling.
+- The supervisor is still Python; it costs about 1% of a CPU thread per
+  running environment and nothing when none is loaded.
