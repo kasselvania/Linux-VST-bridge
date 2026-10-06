@@ -1,6 +1,13 @@
 //! Exact installed native artifacts, separate from portable compatibility policy.
 use crate::{profiles::*, *};
 
+/// Every update that changes the Windows host retains its predecessor for the
+/// publications and profiles still bound to it, so this list grows with the
+/// number of host-changing updates, not with the number of profiles. Nothing
+/// releases an entry yet; the bound only keeps the record finite.
+pub const RETAINED_HOST_COUNT: usize = 64;
+const _: () = assert!(RETAINED_HOST_COUNT > PROFILE_COUNT);
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct HostArtifact {
@@ -31,7 +38,7 @@ pub fn verify_host_path(path: &Path) -> Result<()> {
 }
 
 /// Existing immutable software record, shared by setup and ordinary admission.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Software {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -50,7 +57,23 @@ pub struct Software {
     pub native_catalogue: Option<Artifact>,
 }
 impl Software {
+    pub fn validate_record(&self) -> Result<()> {
+        require(self.source_manifest.sha256 == self.source_sha256,
+            "host source manifest differs")?;
+        for artifact in [&self.manager, &self.supervisor, &self.ownership,
+            &self.host, &self.source_manifest].into_iter().chain([
+                &self.installer_launch, &self.preparation_kit, &self.operator_frontend,
+                &self.native_catalogue].into_iter().flatten()) {
+            artifact.validate_record()?;
+        }
+        Ok(())
+    }
     pub fn catalogue(&self, m: &Manager) -> Result<Catalogue> {
+        let c = self.catalogue_record(m)?;
+        c.validate(&m.root)?;
+        Ok(c)
+    }
+    pub fn catalogue_record(&self, m: &Manager) -> Result<Catalogue> {
         let a = self
             .native_catalogue
             .as_ref()
@@ -59,13 +82,8 @@ impl Software {
             a.path.parent() == self.manager.path.parent(),
             "catalogue_software_binding",
         )?;
-        a.verify()?;
-        require(
-            file(&a.path)?.metadata()?.len() <= 512 * 1024,
-            "catalogue_size",
-        )?;
-        let c: Catalogue = read_json(&a.path)?;
-        c.validate(&m.root)?;
+        let c: Catalogue = a.read_record(512 * 1024)?;
+        c.validate_record(&m.root)?;
         Ok(c)
     }
 }
@@ -113,10 +131,25 @@ pub struct NativeArtifact {
     pub artifact: Artifact,
     pub source_commit: String,
     pub descriptor_sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub descriptor: Option<Artifact>,
     pub external_ids: [String; 2],
 }
 impl NativeArtifact {
-    pub fn matches(&self, p: &Profile) -> Result<()> {
+    pub fn matches_record(&self, p: &Profile) -> Result<()> {
+        if let Some(descriptor) = &self.descriptor {
+            require(descriptor.sha256 == self.descriptor_sha256, "native_descriptor_digest")?;
+            require(
+                descriptor.path
+                    == self
+                        .artifact
+                        .path
+                        .with_file_name(lvb_plugin_descriptor::FILE_NAME),
+                "native_descriptor_location",
+            )?;
+            descriptor.validate_record()?;
+        }
+        self.artifact.validate_record()?;
         require(
             self.class == p.class
                 && self.module_sha256 == p.module_sha256
@@ -126,6 +159,13 @@ impl NativeArtifact {
                 && self.external_ids == external_ids(&p.class.class_id)?,
             "native_artifact_mismatch",
         )
+    }
+    pub fn matches(&self, p: &Profile) -> Result<()> {
+        self.matches_record(p)?;
+        if let Some(descriptor) = &self.descriptor {
+            verify_native_descriptor(&self.artifact, descriptor, &self.class, &self.module_sha256)?;
+        }
+        Ok(())
     }
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -179,11 +219,28 @@ impl OnboardingRuntimePolicy {
 }
 impl Catalogue {
     pub fn validate(&self, root: &Path) -> Result<()> {
+        self.validate_record(root)?;
+        for native in &self.natives { native.artifact.verify()?; }
+        if self.onboarding_runtime.is_some() {
+            for binding in &self.environments {
+                let runner = &binding.environment.runner;
+                if runner.id == STANDARD_ONBOARDING_RUNNER && runner.policy.is_none() {
+                    runner.verify()?;
+                }
+            }
+        }
+        for host in &self.hosts {
+            host.host.verify()?;
+            host.source_manifest.verify()?;
+        }
+        Ok(())
+    }
+    pub fn validate_record(&self, root: &Path) -> Result<()> {
         require(
             ((self.schema == 1 && self.hosts.is_empty()) || matches!(self.schema, 2..=4))
                 && !self.natives.is_empty()
                 && self.natives.len() <= PROFILE_COUNT
-                && self.hosts.len() <= PROFILE_COUNT
+                && self.hosts.len() <= RETAINED_HOST_COUNT
                 && !self.environments.is_empty()
                 && self.environments.len() <= 16,
             "catalogue_schema_or_bound",
@@ -206,7 +263,7 @@ impl Catalogue {
                     && n.artifact.path.canonicalize()? == n.artifact.path,
                 "catalogue_identity",
             )?;
-            n.artifact.verify()?;
+            n.artifact.validate_record()?;
         }
         let mut environments = std::collections::BTreeSet::new();
         for e in &self.environments {
@@ -227,7 +284,7 @@ impl Catalogue {
             for binding in &self.environments {
                 let runner = &binding.environment.runner;
                 if runner.id == STANDARD_ONBOARDING_RUNNER && runner.policy.is_none() {
-                    runner.verify()?;
+                    runner.validate_record()?;
                     standard.insert(runner_key(runner)?);
                 }
             }
@@ -250,7 +307,7 @@ impl Catalogue {
                         && file(&a.path)?.metadata()?.mode() & 0o222 == 0,
                     "catalogue_host_identity",
                 )?;
-                a.verify()?;
+                a.validate_record()?;
             }
         }
         Ok(())
@@ -293,12 +350,31 @@ impl Catalogue {
     }
 }
 
+/// A managed generated publication supplies its own exact native authority.
+/// Keep the historical sealed FRG1 contract separate from that generic owner.
+pub fn catalogue_free_registry(m: &Manager, registry: &Registry) -> Result<bool> {
+    if crate::preparation::catalogue_free_registry(m, registry)? {
+        return Ok(true);
+    }
+    crate::frg1::catalogue_free_registry(m, registry)
+}
+
+/// Recovery views preserve managed revision ownership while projecting an
+/// incomplete or changed publication. This grants no publication admission;
+/// the separate historical FRG1 contract retains its strict predicate.
+pub fn catalogue_free_registry_readback(m: &Manager, registry: &Registry) -> Result<bool> {
+    if crate::preparation::catalogue_free_registry_readback(m, registry)? {
+        return Ok(true);
+    }
+    crate::frg1::catalogue_free_registry_readback(m, registry)
+}
+
 /// AP14 adopts only already managed, verified generated artifacts. Setup is an
 /// inactive product operation; neither playback nor managed publication needs
 /// the original generator checkout/build path after this copy.
 pub fn setup_adoption(m: &Manager, profiles: &[Profile]) -> Result<Option<Catalogue>> {
     let registry = m.registry()?;
-    if crate::frg1::catalogue_free_registry(m, &registry)? {
+    if catalogue_free_registry(m, &registry)? {
         return Ok(None);
     }
     Ok(Some(adoption(m, profiles)?))
@@ -372,6 +448,7 @@ pub fn adoption(m: &Manager, profiles: &[Profile]) -> Result<Catalogue> {
             artifact: r.native.clone(),
             source_commit: p.requirements.native_source_commit.clone(),
             descriptor_sha256: p.requirements.descriptor_sha256.clone(),
+            descriptor: r.descriptor.clone(),
             external_ids: external_ids(&r.key())?,
         };
         n.matches(p)?;
@@ -401,7 +478,7 @@ pub fn adoption(m: &Manager, profiles: &[Profile]) -> Result<Catalogue> {
             if revision.qualification.is_none() && revision.profile.claim == Claim::VerifiedExactFixture {
                 let p = &revision.profile;
                 let r = &revision.registration;
-                let n = NativeArtifact {class:r.metadata.clone(),module_sha256:r.module.sha256.clone(),artifact:r.native.clone(),source_commit:p.requirements.native_source_commit.clone(),descriptor_sha256:p.requirements.descriptor_sha256.clone(),external_ids:external_ids(&r.key())?};
+                let n = NativeArtifact {class:r.metadata.clone(),module_sha256:r.module.sha256.clone(),artifact:r.native.clone(),source_commit:p.requirements.native_source_commit.clone(),descriptor_sha256:p.requirements.descriptor_sha256.clone(),descriptor:r.descriptor.clone(),external_ids:external_ids(&r.key())?};
                 n.artifact.verify()?;
                 n.matches(p)?;
                 retain_native(&mut natives,n)?;
@@ -484,6 +561,27 @@ mod path_tests {
         fs::write(&f.r.host.path, b"changed host").unwrap();
         fs::set_permissions(&f.r.host.path, fs::Permissions::from_mode(0o400)).unwrap();
         assert!(setup_adoption_for_host(&f.m, profiles, &"cd".repeat(32), &"ef".repeat(32)).is_err());
+    }
+    #[test]
+    fn retained_hosts_are_bounded_by_updates_not_by_the_profile_count() {
+        let (f, p, c, n) = crate::test_fixture::prepared();
+        let report = crate::observation::derive(&p, &c, &n).unwrap();
+        f.m.managed_publish(&p, &c, report, &c.host, &c.host_source_sha256, None).unwrap();
+        for path in [f.r.host.path.clone(), f.r.host.path.with_file_name("host-source-manifest.json")] {
+            fs::set_permissions(path, fs::Permissions::from_mode(0o400)).unwrap();
+        }
+        let mut catalogue = setup_adoption_for_host(&f.m, std::slice::from_ref(&p), &"cd".repeat(32), &"ef".repeat(32)).unwrap().unwrap();
+        let first = catalogue.hosts.remove(0);
+        // The bound is the record's first check. A seventeenth host-changing
+        // update is no longer refused there; the list still has a declared end.
+        let bound_refused = |catalogue: &Catalogue| catalogue.validate_record(&f.m.root)
+            .is_err_and(|error| error.to_string() == "catalogue_schema_or_bound");
+        for index in 0..=RETAINED_HOST_COUNT {
+            let mut host = first.clone();
+            host.host.sha256 = format!("{index:064x}");
+            catalogue.hosts.push(host);
+            assert_eq!(bound_refused(&catalogue), index == RETAINED_HOST_COUNT, "{index}");
+        }
     }
     #[test]
     fn setup_retains_ordinary_rollback_native_after_native_update() {

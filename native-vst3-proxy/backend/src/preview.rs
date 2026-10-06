@@ -57,6 +57,7 @@ pub struct Binding {
     pub directory: PathBuf,
     pub session: [u8; 16],
     pub installed_delay: Option<u32>,
+    pub delivery_mode: crate::performance::DeliveryMode,
     // Held through Session::close. EOF tells the owner to clean up after a crash.
     pub owner: Option<Owner>,
 }
@@ -72,17 +73,38 @@ impl Owner {
             retired: false,
         }
     }
-    pub fn finish(mut self) -> io::Result<()> {
+    pub fn finish(self) -> io::Result<()> {
+        self.finish_until(Instant::now() + Duration::from_secs(60))
+    }
+    fn finish_until(mut self, deadline: Instant) -> io::Result<()> {
         if self.retired {
             return Ok(());
         }
         self.stream.shutdown(std::net::Shutdown::Write)?;
         self.stream.set_nonblocking(false)?;
-        self.stream
-            .set_read_timeout(Some(Duration::from_secs(60)))?;
-        let mut reply = [0];
-        self.stream.read_exact(&mut reply)?;
-        need(reply == [b'R'], "owner did not confirm complete retirement")
+        // A terminal failure may reach the worker before it consumes the
+        // supervisor's F notification. F preserves failure; only the separate
+        // R acknowledges process and transport retirement. Never restart the
+        // completion allowance when consuming F or retrying an interrupted read.
+        for notice in 0..2 {
+            let mut reply = [0];
+            loop {
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    return Err(io::Error::new(io::ErrorKind::TimedOut, "owner retirement deadline"));
+                }
+                self.stream.set_read_timeout(Some(remaining))?;
+                match self.stream.read(&mut reply) {
+                    Ok(1) => break,
+                    Ok(_) => return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "owner retirement acknowledgement absent")),
+                    Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+                    Err(error) => return Err(error),
+                }
+            }
+            if reply == [b'R'] { return Ok(()); }
+            need(notice == 0 && reply == [b'F'], "owner did not confirm complete retirement")?;
+        }
+        Err(invalid("owner did not confirm complete retirement"))
     }
 }
 
@@ -104,7 +126,9 @@ pub fn connect(root: &Path) -> io::Result<Binding> {
     connect_greeting(root, b"AP4\n")
 }
 pub fn connect_greeting(root: &Path, greeting: &[u8]) -> io::Result<Binding> {
-    if !greeting.starts_with(ap1_native_client::admission::GREETING) {
+    if !greeting.starts_with(ap1_native_client::admission::GREETING)
+        && !greeting.starts_with(ap1_native_client::admission::GREETING_V4)
+        && !greeting.starts_with(ap1_native_client::admission::GREETING_V5) {
         return connect_once(root, greeting, None);
     }
     connect_greeting_with_policy(root, greeting, Duration::from_secs(65), 3250)
@@ -152,10 +176,12 @@ fn connect_once(root: &Path, greeting: &[u8], deadline: Option<Instant>) -> io::
             .min(Duration::from_secs(5)),
         None => Duration::from_secs(5),
     }))?;
-    let version3 = greeting.starts_with(ap1_native_client::admission::GREETING);
+    let version5 = greeting.starts_with(ap1_native_client::admission::GREETING_V5);
+    let version4 = greeting.starts_with(ap1_native_client::admission::GREETING_V4);
+    let version3 = version5 || version4 || greeting.starts_with(ap1_native_client::admission::GREETING);
     let mut request = [0u8; 16];
     if version3 {
-        need(greeting.len() == 53, "admission greeting extent")?;
+        need(greeting.len() == if version5 { 117 } else { 53 }, "admission greeting extent")?;
         std::fs::File::open("/dev/urandom")?.read_exact(&mut request)?;
         need(request != [0; 16], "admission request identity")?;
     }
@@ -190,8 +216,10 @@ fn connect_once(root: &Path, greeting: &[u8], deadline: Option<Instant>) -> io::
     let mut bytes = vec![0; n];
     read(&mut bytes)?;
     if version3 {
-        let binding =
-            ap1_native_client::admission::decode(&bytes, request)?.map_err(io::Error::other)?;
+        let binding = (if version5 { ap1_native_client::admission::decode_v5(&bytes, request) }
+            else if version4 { ap1_native_client::admission::decode_v4(&bytes, request) }
+            else { ap1_native_client::admission::decode(&bytes, request) })?
+            .map_err(io::Error::other)?;
         let directory = PathBuf::from(binding.directory);
         private(&directory, true)?;
         owner.set_nonblocking(true)?;
@@ -199,6 +227,7 @@ fn connect_once(root: &Path, greeting: &[u8], deadline: Option<Instant>) -> io::
             directory,
             session: binding.session,
             installed_delay: Some(binding.added_frames),
+            delivery_mode: crate::performance::DeliveryMode::try_from(binding.delivery_mode)?,
             owner: Some(Owner::new(owner)),
         });
     }
@@ -213,7 +242,7 @@ fn connect_once(root: &Path, greeting: &[u8], deadline: Option<Instant>) -> io::
         let delay = delay
             .parse::<u32>()
             .map_err(|_| invalid("installed delay encoding"))?;
-        need(matches!(delay, 256 | 512), "unsupported installed delay")?;
+        need(matches!(delay, 256 | 512 | 1024), "unsupported installed delay")?;
         (Some(delay), path)
     } else {
         (None, directory)
@@ -234,6 +263,7 @@ fn connect_once(root: &Path, greeting: &[u8], deadline: Option<Instant>) -> io::
         directory,
         session,
         installed_delay,
+        delivery_mode: crate::performance::DeliveryMode::Buffered,
         owner: Some(Owner::new(owner)),
     })
 }
@@ -249,16 +279,45 @@ pub(crate) fn performance_root(commercial: bool) -> PathBuf {
         "AP9-Performance/reference"
     })
 }
-pub fn discover_performance(identity: Option<crate::state::Identity>) -> io::Result<Binding> {
-    let mut greeting = if cfg!(feature = "registered") && identity.is_some() {
-        ap1_native_client::admission::GREETING.to_vec()
+fn performance_greeting_for(
+    registered: bool,
+    identity: Option<crate::state::Identity>,
+    execution: Option<ap1_native_client::admission::ExecutionIdentity>,
+) -> io::Result<Vec<u8>> {
+    need(
+        execution.is_none() || identity.is_some(),
+        "execution identity requires class identity",
+    )?;
+    let mut greeting = if registered && execution.is_some() {
+        ap1_native_client::admission::GREETING_V5.to_vec()
+    } else if registered && identity.is_some() {
+        ap1_native_client::admission::GREETING_V4.to_vec()
     } else {
         b"AP9\n".to_vec()
     };
-    if let Some(i) = identity {
-        greeting.extend_from_slice(&i.class);
-        greeting.extend_from_slice(&i.module);
+    if let Some(identity) = identity {
+        greeting.extend_from_slice(&identity.class);
+        greeting.extend_from_slice(&identity.module);
     }
+    if registered {
+        if let Some(execution) = execution {
+            greeting.extend_from_slice(&execution.engine);
+            greeting.extend_from_slice(&execution.descriptor);
+        }
+    }
+    Ok(greeting)
+}
+fn performance_greeting(
+    identity: Option<crate::state::Identity>,
+    execution: Option<ap1_native_client::admission::ExecutionIdentity>,
+) -> io::Result<Vec<u8>> {
+    performance_greeting_for(cfg!(feature = "registered"), identity, execution)
+}
+pub fn discover_performance(
+    identity: Option<crate::state::Identity>,
+    execution: Option<ap1_native_client::admission::ExecutionIdentity>,
+) -> io::Result<Binding> {
+    let greeting = performance_greeting(identity, execution)?;
     connect_greeting(&performance_root(identity.is_some()), &greeting)
 }
 pub fn discover() -> io::Result<Binding> {
@@ -389,6 +448,105 @@ mod tests {
         }
     }
     #[test]
+    fn new_binding_preserves_delivery_and_buffered_preference() {
+        use ap1_native_client::admission;
+        let dir = Directory::new();
+        let socket = dir.0.join("owner.sock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        fs::set_permissions(&socket, fs::Permissions::from_mode(0o600)).unwrap();
+        let path = dir.0.clone();
+        let peer = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut hello = [0; 69];
+            stream.read_exact(&mut hello).unwrap();
+            assert_eq!(&hello[..5], admission::GREETING_V4);
+            let reply = admission::accepted_v4(hello[53..].try_into().unwrap(), &admission::Binding {
+                session:[9;16],added_frames:1024,delivery_mode:1,directory:path.to_str().unwrap().into(),
+            }).unwrap();
+            stream.write_all(&(reply.len() as u16).to_le_bytes()).unwrap();
+            stream.write_all(&reply).unwrap();
+            assert_eq!(stream.read(&mut [0]).unwrap(), 0);
+        });
+        let mut greeting = admission::GREETING_V4.to_vec(); greeting.extend([7;48]);
+        let binding = connect_greeting(&dir.0, &greeting).unwrap();
+        assert_eq!(binding.installed_delay, Some(1024));
+        assert_eq!(binding.delivery_mode, crate::performance::DeliveryMode::SameCallback);
+        drop(binding); peer.join().unwrap();
+    }
+    #[test]
+    fn experimental_greeting_does_not_claim_loaded_identity_support() {
+        let identity = crate::state::Identity {
+            class: [7; 16],
+            module: [6; 32],
+        };
+        let execution = ap1_native_client::admission::ExecutionIdentity {
+            engine: [8; 32],
+            descriptor: [9; 32],
+        };
+        let greeting = performance_greeting_for(false, Some(identity), Some(execution)).unwrap();
+        assert_eq!(&greeting[..4], b"AP9\n");
+        assert_eq!(&greeting[4..], &[identity.class.as_slice(), identity.module.as_slice()].concat());
+    }
+    #[cfg(feature = "registered")]
+    #[test]
+    fn loaded_engine_and_descriptor_identity_survive_update_and_restore_greetings() {
+        use ap1_native_client::admission;
+        let dir = Directory::new();
+        let socket = dir.0.join("owner.sock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        fs::set_permissions(&socket, fs::Permissions::from_mode(0o600)).unwrap();
+        let path = dir.0.clone();
+        let identity = crate::state::Identity {
+            class: [7; 16],
+            module: [6; 32],
+        };
+        let a = admission::ExecutionIdentity {
+            engine: [8; 32],
+            descriptor: [9; 32],
+        };
+        let engine_update = admission::ExecutionIdentity {
+            engine: [10; 32],
+            descriptor: [11; 32],
+        };
+        let descriptor_update = admission::ExecutionIdentity {
+            engine: [10; 32],
+            descriptor: [12; 32],
+        };
+        let expected = [a, engine_update, descriptor_update, a];
+        let peer = std::thread::spawn(move || {
+            for (index, execution) in expected.into_iter().enumerate() {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut hello = [0; 133];
+                stream.read_exact(&mut hello).unwrap();
+                assert_eq!(&hello[..5], admission::GREETING_V5);
+                assert_eq!(&hello[5..21], &[7; 16]);
+                assert_eq!(&hello[21..53], &[6; 32]);
+                assert_eq!(&hello[53..85], &execution.engine);
+                assert_eq!(&hello[85..117], &execution.descriptor);
+                let reply = admission::accepted_v5(
+                    hello[117..].try_into().unwrap(),
+                    &admission::Binding {
+                        session: [index as u8 + 1; 16],
+                        added_frames: 512,
+                        delivery_mode: 0,
+                        directory: path.to_str().unwrap().into(),
+                    },
+                )
+                .unwrap();
+                stream.write_all(&(reply.len() as u16).to_le_bytes()).unwrap();
+                stream.write_all(&reply).unwrap();
+                assert_eq!(stream.read(&mut [0]).unwrap(), 0);
+            }
+        });
+        for (index, execution) in expected.into_iter().enumerate() {
+            let greeting = performance_greeting(Some(identity), Some(execution)).unwrap();
+            let binding = connect_greeting(&dir.0, &greeting).unwrap();
+            assert_eq!(binding.session, [index as u8 + 1; 16]);
+            drop(binding);
+        }
+        peer.join().unwrap();
+    }
+    #[test]
     fn only_unowned_busy_can_retry_and_keeper_warmup_outlives_the_old_64_attempt_limit() {
         use ap1_native_client::admission::{self, Refusal};
         for (busy_replies, succeeds) in [(100usize, true), (64usize, false)] {
@@ -415,7 +573,7 @@ mod tests {
                             request,
                             &admission::Binding {
                                 session: [9; 16],
-                                added_frames: 512,
+                                added_frames: 512, delivery_mode:0,
                                 directory: path.to_str().unwrap().into(),
                             },
                         )
@@ -467,7 +625,7 @@ mod tests {
                 hello[53..].try_into().unwrap(),
                 &admission::Binding {
                     session: [9; 16],
-                    added_frames: 512,
+                    added_frames: 512, delivery_mode:0,
                     directory: path.to_str().unwrap().into(),
                 },
             )
@@ -530,7 +688,8 @@ mod tests {
                 assert_eq!(peer.read(&mut byte).unwrap(), 0);
                 peer.write_all(reply).unwrap();
             });
-            assert_eq!(Owner::new(socket).finish().is_ok(), reply == b"R");
+            let result=Owner::new(socket).finish();
+            assert_eq!(result.is_ok(), reply == b"R", "{reply:?}: {result:?}");
             t.join().unwrap();
         }
         let (mut peer, socket) = UnixStream::pair().unwrap();
@@ -539,6 +698,43 @@ mod tests {
         peer.write_all(b"R").unwrap();
         assert!(check_owner(&mut owner).is_err());
         owner.unwrap().finish().unwrap(); // acknowledged before the fault was noticed
+    }
+    #[test]
+    fn failure_notice_does_not_replace_or_prevent_retirement_acknowledgement() {
+        for reply in [b"R".as_slice(), b"".as_slice(), b"F".as_slice(), b"X".as_slice()] {
+            let (mut peer, socket) = UnixStream::pair().unwrap();
+            // Windows failed while a control call was returning. The worker
+            // can notice its terminal record before check_owner consumes F.
+            peer.write_all(b"F").unwrap();
+            let t = std::thread::spawn(move || {
+                let mut byte = [0];
+                assert_eq!(peer.read(&mut byte).unwrap(), 0);
+                // The old consumer closes on F, so retain that negative result
+                // without making a peer-side broken pipe mask the regression.
+                let _ = peer.write_all(reply);
+            });
+            assert_eq!(Owner::new(socket).finish().is_ok(), reply == b"R");
+            t.join().unwrap();
+        }
+        // The ordinary observer may instead consume F first. Both interleavings
+        // still require the independent R acknowledgement after half-close.
+        let (mut peer, socket) = UnixStream::pair().unwrap();
+        socket.set_nonblocking(true).unwrap();
+        let mut owner = Some(Owner::new(socket));
+        peer.write_all(b"F").unwrap();
+        assert!(check_owner(&mut owner).is_err());
+        let t = std::thread::spawn(move || {
+            let mut byte = [0];
+            assert_eq!(peer.read(&mut byte).unwrap(), 0);
+            peer.write_all(b"R").unwrap();
+        });
+        owner.unwrap().finish().unwrap();
+        t.join().unwrap();
+        let (mut peer, socket) = UnixStream::pair().unwrap();
+        peer.write_all(b"F").unwrap();
+        // A live peer that never supplies R must remain unconfirmed and bounded.
+        let result = Owner::new(socket).finish_until(Instant::now()+Duration::from_millis(25));
+        assert!(result.is_err());
     }
     #[test]
     fn private_discovery_fragmented_reply_and_owner_disconnect() {
@@ -578,6 +774,7 @@ mod tests {
         assert!(crate::Session::open(
             Binding {
                 installed_delay: None,
+                delivery_mode: crate::performance::DeliveryMode::Buffered,
                 directory: dir.0.clone(),
                 session: [3; 16],
                 owner: Some(Owner::new(owner))

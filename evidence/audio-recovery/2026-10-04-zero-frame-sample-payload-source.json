@@ -1,0 +1,264 @@
+{
+  "schema": 1,
+  "claim": "zero_frame_operations_do_not_access_mapped_or_private_audio_sample_payload",
+  "base_commit": "ce17477a74378c22c56f2623b6a8edc11ee5836d",
+  "base_tree": "1ef69c36df2863860b4fa573cf19037aa95a9864",
+  "full_patch_sha256": "320f3a4af19ad42d5408ea67b341b3f0702f56106ee2337e4b7945dd66cb9161",
+  "files": {
+    "native-vst3-proxy/backend/src/commercial_tests.rs": "86c0a660757cc9a8888132b59fad998178b780dd8a00e38028bb7847136cd7fd",
+    "native-vst3-proxy/backend/src/lc1_tests.rs": "464911d1f690aa6fd99c66c5821847297a631773a512bd4028ac098339510488",
+    "native-vst3-proxy/backend/src/lib.rs": "ac2d85b6a26afc96c1fc4900267dc4713132ab37aff3434746a375e467e1265f",
+    "native-vst3-proxy/backend/src/queued.rs": "4dba9cbe447957813ce08feb9f2110a0cd9e92f8c04807d24dfe2a043bf26ea8",
+    "tools/ap18-tests/lc1_session.cpp": "30027dbeaac7ec7d66d69cf2822b9de47d543ce27e0ac45a07baf7e03c5d5cde",
+    "tools/ap23-tests/windows_readiness.cpp": "f4a68eb231ddede7d1e2586fa2723d2e14537ac8d1839944a6fbe1ce66c1ea80",
+    "windows-factory-probe/CMakeLists.txt": "1a14f307b67e8300ca3d6420541a82aa70544b841189209ebd385ec1260f7a88",
+    "windows-factory-probe/source/mapped_processing.cpp": "ee0defd44578c70cbc6a1b830e58498c954ce8ceeedc934711278246530a29b1",
+    "windows-factory-probe/source/offline_processing.cpp": "abc168f4f93dc4920a0f0c91266b3b581a4129993d1fc7384e48f24788857352"
+  },
+  "red": {
+    "platform": "Linux x86_64",
+    "test": "production_processing_reuses_maximum_request_and_reply_storage",
+    "tests_only_patch_sha256": "8debdd801dd4fdc74dacf644f90e734182ea1ad0929a7047eef12767f77fbc82",
+    "exit_code": 101,
+    "observed_mapped_writes_reads": [
+      4,
+      4
+    ],
+    "expected": [
+      0,
+      0
+    ],
+    "log_sha256": "742a4eb5675e47a3bbcbade6e9f4dcadf7a06931d424159ee9b32282c07b40d8",
+    "observer_correction": "Post-run classifier initially searched a different assertion label. Same preserved log confirmed exact expected behavior; no test rerun."
+  },
+  "green": {
+    "platform": "Linux x86_64",
+    "backend_tests": {
+      "passed": 142,
+      "failed": 0,
+      "ignored": 1,
+      "ignored_case": "lc1_tests::same_session_reconfiguration_two_ended"
+    },
+    "checks": [
+      {
+        "name": "backend-registered",
+        "exit_code": 0,
+        "seconds": 34.47298972099088,
+        "log_sha256": "f06f9fd1d9d0e9a387b2e7eb86a07cfe475f5b46677d89e9652958fed2ace474"
+      },
+      {
+        "name": "backend-clippy",
+        "exit_code": 0,
+        "seconds": 3.0343750149477273,
+        "log_sha256": "80cbc96e01b7c3375af8f73b6c91f36c84d27621bb03bae3219fce5e7890f6a5"
+      }
+    ],
+    "focused_contracts": [
+      "real Session N0 returned results and zero mapped plane access",
+      "malformed N0 completion refuses without mapped sample access",
+      "nonzero 64-plane guards and tails remain validated",
+      "immediate START then N0 queue order with exact results and zero callback allocations"
+    ],
+    "local_lc2_oracle_tests": 5
+  },
+  "windows": {
+    "execution": "passed_ci_37193619361_at_cc41a030",
+    "sdk_owner": "N0/N1/variable lengths for instrument and effect; returned events and parameters; trusted frame count mutation refusal and quiescent teardown",
+    "mapped_integration": "updated LC1 fixture is compiled by CI; paired Linux/Windows runtime execution is separate and not yet claimed"
+  },
+  "review": {
+    "status": "source_and_inactive_mapping_delta_closed",
+    "fixed_finding": "Use trusted admitted frame count after vendor processing; refuse vendor mutation before publishing results.",
+    "remaining_source_delta_findings": 0,
+    "separate_admission_gap": "FC-MGMT-008"
+  },
+  "unchanged": [
+    "IPC and shared-memory layout",
+    "real-time/offline deadlines",
+    "START ordering and lightweight setProcessing",
+    "runtime and scheduling policy",
+    "nonzero guard and tail validation"
+  ],
+  "limits": [
+    "No installed timing cure or historical dropout attribution",
+    "No physical Deck, commercial workflow, endurance, serial-chain, lower-latency or beta claim",
+    "Fixed-size native result array still initializes; zero mapped sample access does not mean zero total work",
+    "Post-Done private output reset is bounded same-thread work and may delay a following request",
+    "Two-ended LC1 retains its explicit START acknowledgement wait; unpaced ordering is a separate native callback/queue regression"
+  ],
+  "custody": {
+    "durable_copy_verified": true,
+    "red_archive_sha256": "bb39b0967c5e2ed8eab2eab9455afe207a7a4806d0fa633d79940c60e5fae25c",
+    "green_archive_sha256": "26078dac5b30afa5ff1d1574309bfcaa501291a169196b4523e4ac814d114828"
+  },
+  "built_candidate": {
+    "source_head": "cc41a030ed5fa9ae5809bb7a99af5c00aa43458f",
+    "source_tree": "ab1cdb1cf5d236177b5cb1b66e82eef2ba6a58f8",
+    "version": "0.12.0audio7",
+    "installed": false,
+    "reason": "Fresh-N0 older-reader guard compatibility repair required before installing",
+    "native_sdk_tests": 13,
+    "independent_rebuild": true,
+    "package_sha256": "09e19ebcb55b779302fcfe19cccc1b2dd4141f6b11f72c7f40e88e5074c41e49",
+    "windows_host_sha256": "c8587d8c75ddce80c2317a10070735c65b30b6bc1649ff219821c44689bcf05f",
+    "archive_sha256": "d8ba15ef789cb184d3ced33da8c7383e6b6512330b4dbf5cc9b20173e4964661"
+  },
+  "compatibility_followup": {
+    "base_commit": "cc41a030ed5fa9ae5809bb7a99af5c00aa43458f",
+    "base_tree": "ab1cdb1cf5d236177b5cb1b66e82eef2ba6a58f8",
+    "change": "Initialize existing input/output mapped guard words once while inactive; no zero-frame operation sample-plane access.",
+    "red": {
+      "platform": "Darwin arm64",
+      "ipc_minor": 15,
+      "exit_code": 101,
+      "tests_only_patch_sha256": "6b88833218bf626d69df0c826f02fd7a7d1864a93805ade33ec4d1f8b0cd8a46",
+      "log_sha256": "c22bff0fe6f3672f01e0a1a4cd93fb3f4503cf329f2e7ea0395cfb26cdfbabb9",
+      "observed": "All four input guards are zero on fresh N0; following N1/N0 guards valid."
+    },
+    "initial_green": {
+      "base": "cc41a030ed5fa9ae5809bb7a99af5c00aa43458f",
+      "patch_sha256": "dba537109b1aa8b47c1c83c68ff25ff2c31cfe60caaf500b0286d6b9f13e0e5a",
+      "checks": [
+        {
+          "name": "native-client",
+          "command": [
+            "cargo",
+            "+1.95.0",
+            "test",
+            "--manifest-path",
+            "native-audio-client/Cargo.toml",
+            "--locked"
+          ],
+          "exit_code": 0,
+          "seconds": 1.9937325610080734,
+          "log_sha256": "969dbf69193fa320f2ffdf1af31f3d496962b16d2b048a4b953ea863e2fdfcba"
+        },
+        {
+          "name": "backend-registered",
+          "command": [
+            "cargo",
+            "+1.95.0",
+            "test",
+            "--manifest-path",
+            "native-vst3-proxy/backend/Cargo.toml",
+            "--locked",
+            "--features",
+            "registered",
+            "--",
+            "--test-threads=1"
+          ],
+          "exit_code": 0,
+          "seconds": 34.06409746303689,
+          "log_sha256": "61944ef23b17365e12455e07c73dc386dedefdd9364344357e89aada0fc28006"
+        },
+        {
+          "name": "backend-clippy",
+          "command": [
+            "cargo",
+            "+1.95.0",
+            "clippy",
+            "--manifest-path",
+            "native-vst3-proxy/backend/Cargo.toml",
+            "--locked",
+            "--all-targets",
+            "--features",
+            "registered",
+            "--",
+            "-D",
+            "warnings"
+          ],
+          "exit_code": 101,
+          "seconds": 3.9492251171031967,
+          "log_sha256": "bf2fc20b4e6ff313b834b116a7f4f2cc23b8588c5fceca10091524dff8fbdf71"
+        }
+      ]
+    },
+    "final_validation": {
+      "base": "cc41a030ed5fa9ae5809bb7a99af5c00aa43458f",
+      "patch_sha256": "5198d522cbeb0f7285af3a09b34f43cb0846213c0ae321e5bb0db21fbfe6fbd8",
+      "checks": [
+        {
+          "name": "compatibility-regression",
+          "command": [
+            "cargo",
+            "+1.95.0",
+            "test",
+            "--manifest-path",
+            "native-vst3-proxy/backend/Cargo.toml",
+            "--locked",
+            "--features",
+            "registered",
+            "fresh_mapping_preserves_old_peer_guards_across_zero_nonzero_zero_operations",
+            "--",
+            "--test-threads=1"
+          ],
+          "exit_code": 0,
+          "seconds": 5.752622100990266,
+          "log_sha256": "c4aa28ff6d29d29536f1f7b8881060a98f568f98e2faa9bb0da5f7b7a85c0491"
+        },
+        {
+          "name": "backend-clippy",
+          "command": [
+            "cargo",
+            "+1.95.0",
+            "clippy",
+            "--manifest-path",
+            "native-vst3-proxy/backend/Cargo.toml",
+            "--locked",
+            "--all-targets",
+            "--features",
+            "registered",
+            "--",
+            "-D",
+            "warnings"
+          ],
+          "exit_code": 0,
+          "seconds": 2.8591195850167423,
+          "log_sha256": "e1dc16a6bbf1baacbfef5b2131d7ba8a765402b04dc25341d617ab266c4fb5c9"
+        },
+        {
+          "name": "native-client-clippy",
+          "command": [
+            "cargo",
+            "+1.95.0",
+            "clippy",
+            "--manifest-path",
+            "native-audio-client/Cargo.toml",
+            "--locked",
+            "--all-targets",
+            "--",
+            "-D",
+            "warnings"
+          ],
+          "exit_code": 0,
+          "seconds": 0.4682745588943362,
+          "log_sha256": "d08030868bfebd8f5a215250aa4a0977b9c2415800fa858a14fdc25ec48d6cef"
+        }
+      ]
+    },
+    "coverage": "Actual Session IPC15 N0/N1/N0, source-matched old Windows mapped-reader guard oracle, output/sequence/position and per-operation access counts. Does not execute the old Windows binary.",
+    "remaining_admission_gap": "FC-MGMT-008",
+    "review": {
+      "model": "Astra 6 xhigh",
+      "remaining_findings": 0,
+      "initial_patch_sha256": "dba537109b1aa8b47c1c83c68ff25ff2c31cfe60caaf500b0286d6b9f13e0e5a",
+      "final_patch_sha256": "5198d522cbeb0f7285af3a09b34f43cb0846213c0ae321e5bb0db21fbfe6fbd8"
+    },
+    "unchanged_windows_inputs": 64,
+    "files": {
+      "native-audio-client/src/mapping.rs": "1979f81dc87087da2e51d09e50b9941b2d051730b96b156e253d2064c0993dcd",
+      "native-vst3-proxy/backend/src/commercial_tests.rs": "c438eee4046884c34bc0612de4270bb87674d4028ed017d80c576236254e6882"
+    },
+    "full_patch_sha256": "5198d522cbeb0f7285af3a09b34f43cb0846213c0ae321e5bb0db21fbfe6fbd8",
+    "lint_correction": "Test iterator only; production unchanged. Full suite retained before correction, focused regression and strict affected Linux lint rerun after.",
+    "final_linux_archive_sha256": "44cf6e5399c0aa8587cfe282e4daac0eb40740e39e797787b612d62e5ccca742",
+    "installed_comparison": {
+      "source_head": "d110cbc412f7b284264993508ebdd5ad66bb6d5d",
+      "version": "0.12.0audio8",
+      "evidence": "2026-10-04-audio8-zero-frame-comparison.json",
+      "sample_payload_source_claim": "passed",
+      "installed_timing_qualification": "failed",
+      "loaded_engine_admission_gap": "open"
+    }
+  }
+}

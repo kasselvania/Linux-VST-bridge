@@ -1,0 +1,265 @@
+{
+  "schema": 1,
+  "date": "2026-10-04",
+  "claim": "Setup reads bounded control records and verifies executable payloads at launch or mutation; source proof only",
+  "source": {
+    "schema": 1,
+    "base_commit": "ebcb944b1b3bf3a7d0f2604e6114dea39cb51968",
+    "patch_sha256": "8e08a98499370a59d987d8f827f0f8f0be520330570c2ff2d1181eb973a5bb13",
+    "files": {
+      "bridge-manager/src/catalogue.rs": "803e1bcad1e01717a6ce170ac5204116d57689a782ddb1602a93aa55af4f8d00",
+      "bridge-manager/src/package_authority.rs": "7792eb1c541325ab53cc2e180d1ad87db9efac8bc3d28425f5b64e92906c8476",
+      "bridge-manager/src/portable_package.rs": "8c34dd2e3c23e7c7ca0c179f7cad4b3414702a534693782371e39e63f7e5e166",
+      "bridge-manager/src/preparation/build.rs": "b0362ae2c99a0654132279ee42c4bb62b1267ddab4e4724164d99ead93d1230b",
+      "bridge-manager/src/preparation/mod.rs": "ba6034d927ffecc7f4e68bd4140b36e6191cb2edb160eef64d5bfe072b5142d9",
+      "bridge-manager/src/preparation/tests.rs": "69e0478007d721ea8efe6f7b8fdac66887fb7a862ae7275a2a0f17df4fc61726",
+      "bridge-manager/src/publication.rs": "102529e7871772bb9e498f528388a5d29f4a6f95b544dbc3b3f73c031f639938",
+      "manager-ui/src/bootstrap.rs": "b0318ec7298c0c0e29aa0d2399f975ccee9830157c6566fd9ba0e5e0a9cf2ac1",
+      "tools/mf3/native_builder.py": "8c6d2645f71b025707650c0b0897861118863c08566cd2f88db2da3ad092c3cf",
+      "tools/mf3/test_reusable_engine.py": "ee1b5826eb4a0758c77248058a911cd97ef95085a595c8a0a77b8fa25ca98bf8"
+    },
+    "delta_v2_sha256": "d3f0acca6d68c02a71802c14552df8b013acaf20c02f387cff3988b9f36bcbf9"
+  },
+  "trigger": "2026-10-04-managed-refresh-status-failure.json",
+  "repair": [
+    "Bootstrap and selected activation status use bounded owned current records, exact publication links, package identities and service readbacks; no repeated runner verification.",
+    "Portable status resolves signed source records and verifies the actual running/launching executables; full package and Python compatibility verification remains in mutation.",
+    "Selected frontend handoff uses bounded stable control reads and fresh exact executable verification before launch.",
+    "An explicit loaded-engine admission fact in the completed build record drives consistent status and deep refresh policy; missing older provenance is completed through ordinary refresh."
+  ],
+  "regressions": [
+    "The new status/activation regression fails on the unchanged base and passes after repair; strict mutation rejects modified executable bytes.",
+    "Populated publication record projection tolerates unverified bulk runner bytes, while strict execution validation refuses them.",
+    "Removing retained admission provenance offers refresh and the existing refresh owner reconstructs/publishes a successor that clears the offer.",
+    "Signed portable status ignores an altered unrelated payload; mutation still refuses it and executable launch refuses an altered manager.",
+    "Selected frontend handoff refuses altered frontend bytes, oversized control data, symlink and FIFO without launching."
+  ],
+  "validation": [
+    {
+      "snapshot": "status-fastpath-validation-v1.tgz",
+      "name": "old-status-regression",
+      "returncode": 101,
+      "expected_returncode": 101,
+      "seconds": 33.9,
+      "log_sha256": "51ac2d27806368dea0ac3a3d99f582f7ffde46f51c0362b8e9a25bd8f9eb8858",
+      "result_lines": [
+        "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 349 filtered out; finished in 0.29s"
+      ]
+    },
+    {
+      "snapshot": "status-fastpath-validation-v1.tgz",
+      "name": "fixed-library",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 289.099,
+      "log_sha256": "bcfcd56e9b1fe457787e43e64609df6d7c9e76606cac6e67896d575bd87b4f41",
+      "result_lines": [
+        "test result: ok. 256 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 270.34s"
+      ]
+    },
+    {
+      "snapshot": "status-fastpath-validation-v1.tgz",
+      "name": "fixed-package",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 84.073,
+      "log_sha256": "f8786147047fd992ea0d03ac2f1c3f65930ff0cb9f9b695d1770b60e02c55e62",
+      "result_lines": [
+        "test result: ok. 55 passed; 0 failed; 1 ignored; 0 measured; 294 filtered out; finished in 52.86s"
+      ]
+    },
+    {
+      "snapshot": "status-fastpath-validation-v1.tgz",
+      "name": "clippy-all-features",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 19.423,
+      "log_sha256": "6aeef18d832f98f5f8e8f3868f97ce44e433ffe184081e0df92c1b96a128297c",
+      "result_lines": []
+    },
+    {
+      "snapshot": "status-fastpath-validation-v1.tgz",
+      "name": "fixed-default-package",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 83.845,
+      "log_sha256": "f5bc0153749c10bc8772f192d3ae7ce60963cdcfe68dc2618c56e8a5ae9568e0",
+      "result_lines": [
+        "test result: ok. 55 passed; 0 failed; 1 ignored; 0 measured; 285 filtered out; finished in 53.89s"
+      ]
+    },
+    {
+      "snapshot": "status-fastpath-validation-v1.tgz",
+      "name": "reusable-tools",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 0.27,
+      "log_sha256": "19d99e59922b6f56fc17b30842038fcc0fd7905e78c9dfd5ca0a80d3a7fabfe0",
+      "result_lines": [
+        "Ran 3 tests in 0.056s"
+      ]
+    },
+    {
+      "snapshot": "status-fastpath-validation-v1.tgz",
+      "name": "candidate-inputs",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 0.164,
+      "log_sha256": "f70aafc8ccf27939825d77d9f62fee6cb8562dc84196c31a1331b66e2c08e43d",
+      "result_lines": [
+        "Ran 1 test in 0.040s"
+      ]
+    },
+    {
+      "snapshot": "status-fastpath-validation-v1.tgz",
+      "name": "package-assembly",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 12.969,
+      "log_sha256": "486d2e6814d4e98e2ef285d2ee24c6bd4916651121c3df2202dc07de8f193a85",
+      "result_lines": [
+        "Ran 22 tests in 12.877s"
+      ]
+    },
+    {
+      "snapshot": "status-fastpath-validation-v2.tgz",
+      "name": "candidate-library",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 295.16,
+      "log_sha256": "c2f3299bf9004f787fb1cef876e06e03f35bba3bd177617c8be3ae14414f17f9",
+      "result_lines": [
+        "test result: ok. 257 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 277.11s"
+      ]
+    },
+    {
+      "snapshot": "status-fastpath-validation-v2.tgz",
+      "name": "candidate-package",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 88.028,
+      "log_sha256": "41b8afc04a63a11972136b677ff110921dac9b6a79b53802700a150a8cda157f",
+      "result_lines": [
+        "test result: ok. 55 passed; 0 failed; 1 ignored; 0 measured; 294 filtered out; finished in 57.55s"
+      ]
+    },
+    {
+      "snapshot": "status-fastpath-validation-v2.tgz",
+      "name": "clippy-all-features",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 21.173,
+      "log_sha256": "d510f2d7eb3570ab2d12ea0a0f1fd91beca7e308f33742d85e7798d6e1cd1ab6",
+      "result_lines": []
+    },
+    {
+      "snapshot": "status-fastpath-validation-v2.tgz",
+      "name": "default-package",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 85.827,
+      "log_sha256": "2288c3876d0f11e8c3485d95d9b806d5ea61331965f7f8625f58e13989bf9a39",
+      "result_lines": [
+        "test result: ok. 55 passed; 0 failed; 1 ignored; 0 measured; 285 filtered out; finished in 55.36s"
+      ]
+    },
+    {
+      "snapshot": "status-fastpath-validation-v2.tgz",
+      "name": "ui-tests",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 42.216,
+      "log_sha256": "50b837a10fef9113381b6d7a8f08a4aba9156e9669fc8bff0a2fb51b67d19498",
+      "result_lines": [
+        "test result: ok. 101 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.82s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "snapshot": "status-fastpath-validation-v2.tgz",
+      "name": "ui-clippy",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 17.321,
+      "log_sha256": "21baa52910a8aa4a1e977340f0a500a140334fb73c5e6260bd49b33524d18f62",
+      "result_lines": []
+    },
+    {
+      "snapshot": "status-fastpath-validation-v2.tgz",
+      "name": "reusable-tools",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 0.215,
+      "log_sha256": "ac3c21a4b0c20cdbef415e0fad3c1b885bcd2bbcebdb63d24107e6a42400a744",
+      "result_lines": [
+        "Ran 3 tests in 0.052s"
+      ]
+    },
+    {
+      "snapshot": "status-fastpath-validation-v2.tgz",
+      "name": "candidate-inputs",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 0.218,
+      "log_sha256": "3636ec623a13c989bbc9c704e19d60e60fe7584c8a66360e6784d16b4d3b9cb9",
+      "result_lines": [
+        "Ran 1 test in 0.048s"
+      ]
+    },
+    {
+      "snapshot": "status-fastpath-validation-v2.tgz",
+      "name": "package-assembly",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 15.533,
+      "log_sha256": "e9671467b5c0b0513616335d933ee19573b092e3e989741de49638c7ba61dd6f",
+      "result_lines": [
+        "Ran 22 tests in 15.424s"
+      ]
+    },
+    {
+      "snapshot": "status-fastpath-validation-v3.tgz",
+      "name": "ui-tests",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 44.21,
+      "log_sha256": "15fd68ce81dba10e04270f3d84062ea567df321fef60de036808017a0b948486",
+      "result_lines": [
+        "test result: ok. 101 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.14s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "snapshot": "status-fastpath-validation-v3.tgz",
+      "name": "ui-clippy",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 19.949,
+      "log_sha256": "8730cb69a1d26dca18df9987c70f79b6e0a63d753b6e97ad2a5da98ae99080c4",
+      "result_lines": []
+    }
+  ],
+  "reused_unchanged_validation": "V3 changes only manager-ui/src/bootstrap.rs from V2. All nine other source hashes match V2 and reuse its completed Linux validation; V3 UI suite and strict clippy rerun.",
+  "review": {
+    "model": "gpt-6-astra",
+    "effort": "xhigh",
+    "exact_full_patch_sha256": "8e08a98499370a59d987d8f827f0f8f0be520330570c2ff2d1181eb973a5bb13",
+    "remaining_material_findings": [],
+    "closed_findings": [
+      "Status/action nonconvergence for missing retained capability fact",
+      "Fresh selected-frontend verification missing after lightweight status",
+      "Portable status wrapper still scanned full staged payload",
+      "Selected-control handoff read was unbounded and followed unexpected file types"
+    ],
+    "reviewer_ran_tests": false
+  },
+  "retained_artifacts": {
+    "status-fastpath-validation-v1.tgz": "79feb6342ad2b6c908d08d06b0000629252d8cf602b2099b6cb0ccdfe71359ab",
+    "status-fastpath-validation-v2.tgz": "920a71a062346ddf7db38f331c61df43b95b564f8dd7c4ed40744d710f93bbf1",
+    "status-fastpath-validation-v3.tgz": "86d035913e8169a00634ff728326add851ad60fb4e544f84bccd659cb9e43a76"
+  },
+  "nonclaims": [
+    "Installed Setup latency, populated Update, refusal, recall and recovery are still pending on the successor package",
+    "No Deck mutation, audio timing, soak or beta qualification"
+  ]
+}

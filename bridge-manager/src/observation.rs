@@ -103,8 +103,7 @@ impl Census {
         report: Artifact,
         class_id: &str,
     ) -> Result<Self> {
-        report.verify()?;
-        let value: Value = read_json(&report.path)?;
+        let value: Value = report.read_record(8 * 1024 * 1024)?;
         require(
             value["cleanup_confirmed"] == true
                 && value["transport_retired"] == true
@@ -339,9 +338,18 @@ pub fn derive_for(
     native: &NativeArtifact,
     purpose: SelectionPurpose,
 ) -> Result<Registration> {
+    let registration = derive_record_for(profile, facts, native, purpose)?;
+    native.artifact.verify()?;
+    Ok(registration)
+}
+/// Derive the same exact identity/configuration from retained census metadata;
+/// this grants no authority to execute the recorded native image.
+pub fn derive_record_for(
+    profile: &Profile, facts: &Census, native: &NativeArtifact, purpose: SelectionPurpose,
+) -> Result<Registration> {
     select_for(std::slice::from_ref(profile), facts, purpose)?;
     native.matches(profile)?;
-    native.artifact.verify()?;
+    native.artifact.validate_record()?;
     Ok(Registration {
         metadata: facts.selected.clone(),
         environment: facts.environment.environment.clone(),
@@ -349,6 +357,7 @@ pub fn derive_for(
         host: facts.host.clone(),
         host_source_sha256: facts.host_source_sha256.clone(),
         native: native.artifact.clone(),
+        descriptor: native.descriptor.clone(),
         compatibility: profile.capabilities.compatibility(),
     })
 }

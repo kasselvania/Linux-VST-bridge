@@ -65,3 +65,5 @@ core.*
 /bridge-manager/target/
 
 /manager-ui/target/
+
+/plugin-descriptor/target/

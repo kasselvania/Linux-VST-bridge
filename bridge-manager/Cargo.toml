@@ -8,11 +8,18 @@ cpi2-test-contract = []
 # Source-owned, non-product read-only convergence probe. Never included in a
 # normal manager/frontend package generation.
 pb0-r3-audit = []
+# Private, bounded manager readback/configuration timing observation; excluded
+# from normal packages and independent of installed product qualification.
 pb0-c0-audit = []
 [dependencies]
+lvb-plugin-descriptor = { path = "../plugin-descriptor" }
 ap1-native-client = { path = "../native-audio-client" }
 serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = "=1.0.150"
 sha2 = "=0.10.9"
 libc = "=0.2.189"
 sha1 = "=0.10.6"
+tar = "=0.4.46"
+flate2 = "=1.1.10"
+xz2 = { version = "=0.1.7", features = ["static"] }
+ed25519-dalek = { version = "=2.2.0", default-features = false, features = ["std"] }

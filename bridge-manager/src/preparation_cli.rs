@@ -2,17 +2,19 @@
 use super::*;
 use linux_vst_bridge::{operator_model as ui, preparation as prep};
 use serde_json::{json, Value};
+#[cfg(test)]
 pub fn project(
     m: &Manager,
     sw: &Software,
     products: &mut [ui::Product],
     busy: Option<&str>,
 ) -> Result<()> {
-    project_with_excluded_operation(m, sw, products, busy, None)
+    project_with_excluded_operation(m, sw, products, busy, None, None)
 }
 
 /// Worker validation must not let its own waiting receipt hide the action it
 /// is validating. Ordinary snapshots still show that in-flight operation.
+#[cfg(test)]
 pub(super) fn project_for_operation(
     m: &Manager,
     sw: &Software,
@@ -20,7 +22,28 @@ pub(super) fn project_for_operation(
     busy: Option<&str>,
     operation: &str,
 ) -> Result<()> {
-    project_with_excluded_operation(m, sw, products, busy, Some(operation))
+    project_with_excluded_operation(m, sw, products, busy, Some(operation), None)
+}
+
+type ClassInactivity<'a> = dyn Fn(&str) -> Option<&'static str> + 'a;
+
+#[derive(Clone, Copy)]
+struct Inactivity<'a> {
+    global: Option<&'a str>,
+    class: Option<&'a str>,
+}
+
+pub(super) fn project_scoped(
+    m: &Manager, sw: &Software, products: &mut [ui::Product], busy: Option<&str>,
+    operation: Option<&str>, scope: &ClassInactivity<'_>,
+) -> Result<()> {
+    project_with_excluded_operation(m, sw, products, busy, operation, Some(scope))
+}
+pub(super) fn project_scoped_records(
+    m: &Manager, sw: &Software, products: &mut [ui::Product], busy: Option<&str>,
+    operation: Option<&str>, scope: &ClassInactivity<'_>, records: &prep::RecordReadback,
+) -> Result<()> {
+    project_records(m, sw, products, busy, operation, Some(scope), records)
 }
 
 fn project_with_excluded_operation(
@@ -29,10 +52,17 @@ fn project_with_excluded_operation(
     products: &mut [ui::Product],
     busy: Option<&str>,
     exclude_operation: Option<&str>,
+    scope: Option<&ClassInactivity<'_>>,
 ) -> Result<()> {
-    let candidates = prep::candidates(m, &sw.host, &sw.source_sha256)?;
+    let records = prep::RecordReadback::capture(m)?;
+    project_records(m, sw, products, busy, exclude_operation, scope, &records)
+}
+fn project_records(m: &Manager, sw: &Software, products: &mut [ui::Product], busy: Option<&str>,
+    exclude_operation: Option<&str>, scope: Option<&ClassInactivity<'_>>, records: &prep::RecordReadback,
+) -> Result<()> {
+    let candidates = &records.candidates;
     let selections = product_selections(
-        prep::selections(m, &sw.host, &sw.source_sha256)?, &candidates,
+        prep::selections(m, &sw.host, &sw.source_sha256)?, candidates,
     )?;
     for s in selections {
         let Some(p) = products.iter_mut().find(|p| {
@@ -42,8 +72,42 @@ fn project_with_excluded_operation(
         }) else {
             continue;
         };
-        let mut v = prep::view_with_candidates(m, &s, &sw.host, &sw.source_sha256,
-            &candidates)?;
+        let class_busy = match scope { Some(scope) => scope(&s.class.id), None => busy };
+        let incomplete = records.incomplete_history(m, &s)?;
+        let missing_lineage = records.missing_lineage(m, &s)?;
+        if !incomplete.is_empty() || !missing_lineage.is_empty() {
+            let offers: Vec<_> = incomplete.iter().map(|recovery| ui::AvailableAction {
+                label:"Complete saved setup history".into(),
+                action:ui::Action::CandidateHistoryComplete {
+                    candidate:recovery.candidate.clone(),expected_history:recovery.expected_history.clone()},
+                disabled_reason:recovery.unavailable_reason.as_deref().or(class_busy).map(str::to_owned),
+            }).collect();
+            p.details["preparation"] = json!({"selection":s.id()?,
+                "verification_scope":"control_records",
+                "execution_verification":"deferred_to_worker_or_launch",
+                "preparation":"history_incomplete","history_recovery":incomplete,
+                "history_refusal":if missing_lineage.is_empty() {Value::Null} else {
+                    json!({"code":"candidate_predecessor_authority_missing","candidates":missing_lineage})}});
+            p.disposition = "needs_attention".into();
+            p.compatibility = Some(ui::CompatibilityWorkflow {
+                phase:ui::CompatibilityPhase::PublicationNeedsAttention,
+                summary:if missing_lineage.is_empty() {
+                    "Saved setup history is incomplete. Complete the missing original setup records before preparing or publishing another configuration."
+                } else {
+                    "Saved setup history is incomplete. Original setup records are missing, so preparing or publishing another configuration is unavailable."
+                }.into(),
+                established:vec!["The saved configuration is preserved".into()],
+                remaining:vec!["Missing original setup records".into()],
+                current_inspection:None,
+                current_candidate:if incomplete.len() + missing_lineage.len() == 1 {
+                    incomplete.first().map(|row| row.candidate.clone()).or_else(|| missing_lineage.first().cloned())
+                } else {None},
+                primary:if offers.len() == 1 {Some(offers[0].clone())} else {None},
+                alternatives:if offers.len() > 1 {offers} else {vec![]},
+            });
+            continue;
+        }
+        let mut v = prep::view_records(m, &s, &sw.host, &sw.source_sha256, records)?;
         // Ordinary registry readback remains authority; MF3 augments that card.
         let canonical = matches!(p.disposition.as_str(), "ready" | "needs_attention")
             && (v.candidates.is_empty()
@@ -52,6 +116,8 @@ fn project_with_excluded_operation(
             p.active_revision = v.current_profile_revision;
         }
         p.details["preparation"] = serde_json::to_value(&v)?;
+        p.details["preparation"]["verification_scope"] = json!("control_records");
+        p.details["preparation"]["execution_verification"] = json!("deferred_to_worker_or_launch");
         if canonical && v.candidates.is_empty() {
             p.details["preparation"]["publication"] = json!(if p.disposition == "ready" {
                 "ordinary"
@@ -66,7 +132,7 @@ fn project_with_excluded_operation(
             action,
             disabled_reason: reason.map(str::to_owned),
         };
-        let current_selection = prep::verify_selection(m, &s, &sw.host, &sw.source_sha256).is_ok();
+        let current_selection = prep::validate_selection_record(m, &s, &sw.host, &sw.source_sha256).is_ok();
         let stale = if current_selection {
             None
         } else {
@@ -76,9 +142,9 @@ fn project_with_excluded_operation(
         p.actions.push(offer(
             match (&v.recommended_inspection, &current_layout) {
                 (Some(_), Some(profiles::AudioLayoutPolicy::StereoMainPair)) => {
-                    "Refresh stereo inspection"
+                    "Check stereo compatibility again"
                 }
-                (Some(_), None) => "Refresh preliminary inspection",
+                (Some(_), None) => "Check compatibility again",
                 (None, _) => "Check compatibility",
             }
             .into(),
@@ -109,14 +175,14 @@ fn project_with_excluded_operation(
             ));
         }
         if let Some(inspection) = &v.recommended_inspection {
-            let kit = prep::build::recipe(m);
+            let kit = prep::build::recipe_available(m);
             let controller = matches!(
                 v.controller,
                 Some(prep::ControllerAssociation::Unavailable { .. })
             );
             if let Ok(kit) = kit {
                 p.actions.push(offer(
-                    "Prepare a test candidate for this inspection and recipe".into(),
+                    "Prepare a test bridge update".into(),
                     ui::Action::PluginPrepare {
                         selection: v.selection.clone(),
                         inspection: inspection.clone(),
@@ -163,9 +229,9 @@ fn project_with_excluded_operation(
                 &h.publication,
                 v.current_revision.as_ref(),
                 if matches!(h.publication.as_str(), "ordinary" | "experimental") {
-                    busy
+                    class_busy
                 } else {
-                    busy.or(historical)
+                    class_busy.or(historical)
                 },
             ) {
                 p.actions.push(a);
@@ -199,7 +265,7 @@ fn project_with_excluded_operation(
                 ui::Action::CandidatePublishOrdinary {
                     candidate: id.clone(),
                 },
-                busy.or(historical).or(
+                class_busy.or(historical).or(
                     if h.ordinary_acceptance_current
                         && !matches!(
                             h.publication.as_str(),
@@ -226,7 +292,7 @@ fn project_with_excluded_operation(
             v.operation = Some(op.clone());
             p.details["preparation"]["operation"] = op;
         }
-        let mut workflow = guided_projection(m, &s, &v, busy, stale, canonical,
+        let mut workflow = guided_projection(m, &s, &v, Inactivity {global:busy, class:class_busy}, stale, canonical,
             p.disposition == "ready")?;
         // A failed test can be removed while its accepted ancestor becomes
         // current, before the result's completion marker is retained. Search
@@ -236,6 +302,9 @@ fn project_with_excluded_operation(
             results.extend(prep::guided_results(m, &candidate.id)?);
         }
         let incomplete: Vec<_> = results.iter().filter(|row| row["completed"] != true).collect();
+        if !incomplete.is_empty() {
+            workflow.alternatives.clear();
+        }
         if incomplete.len() > 1 {
             workflow.phase = ui::CompatibilityPhase::PublicationNeedsAttention;
             workflow.summary = "Several test-result operations need reconciliation. Review their exact history before continuing.".into();
@@ -245,24 +314,24 @@ fn project_with_excluded_operation(
             let action: ui::Action = serde_json::from_value(incomplete["action"].clone())?;
             let ui::Action::CompatibilityResult { candidate, result, expected_current, .. } = action
                 else { return Err("guided_result_intent_action".into()) };
-            let candidate = prep::candidate(m, &candidate, &sw.host, &sw.source_sha256)?;
-            let (phase, summary, refusal) = match (result, prep::publication_state(m, &candidate)?.as_str()) {
+            let candidate = prep::candidate_record(m, &candidate)?;
+            let (phase, summary, refusal) = match (result, prep::publication_state_record(m, &candidate)?.as_str()) {
                 (ui::TestResultKind::Problem { .. }, "experimental")
-                    if exact_test_publication(m, &candidate, &expected_current).is_ok() => (
+                    if exact_test_publication_record(m, &candidate, &expected_current).is_ok() => (
                     ui::CompatibilityPhase::AwaitingRetirement,
                     "Problem recorded. The test configuration is still selected. Close the DAW or complete recovery, then finish this result.",
-                    busy.map(str::to_owned),
+                    class_busy.map(str::to_owned),
                 ),
-                (ui::TestResultKind::Problem { .. }, _) => match guided_result_disposition(m, &candidate, &expected_current, operation) {
+                (ui::TestResultKind::Problem { .. }, _) => match guided_result_disposition_with(m, &candidate, &expected_current, operation, false) {
                     Ok(GuidedDisposition::Restored) => (
                         ui::CompatibilityPhase::TestResultIncomplete,
-                        "Test result needs final reconciliation. The failed test configuration was removed and the previous working configuration is selected.",
-                        busy.map(str::to_owned),
+                        "Test result needs final reconciliation. The failed test configuration was removed and the previous configuration is selected.",
+                        class_busy.map(str::to_owned),
                     ),
                     Ok(GuidedDisposition::Removed) => (
                         ui::CompatibilityPhase::TestResultIncomplete,
                         "Test result needs final reconciliation. The failed test configuration was removed; finish its exact record.",
-                        busy.map(str::to_owned),
+                        class_busy.map(str::to_owned),
                     ),
                     Err(_) => (
                         ui::CompatibilityPhase::PublicationNeedsAttention,
@@ -273,7 +342,7 @@ fn project_with_excluded_operation(
                 (ui::TestResultKind::Worked, _) => (
                     ui::CompatibilityPhase::TestResultIncomplete,
                     "Test result was only partly recorded. Finish the exact disposition after confirming the plug-in is closed.",
-                    busy.map(str::to_owned),
+                    class_busy.map(str::to_owned),
                 ),
             };
             workflow.phase = phase;
@@ -315,7 +384,7 @@ fn project_with_excluded_operation(
                         } = &original {
                             if selection != &v.selection || stale.is_some() {
                                 Some("Installed selection changed; the interrupted check cannot continue".into())
-                            } else if prep::build::recipe(m).ok().as_ref().map(|kit| &kit.sha256)
+                            } else if prep::build::recipe_available(m).ok().as_ref().map(|kit| &kit.sha256)
                                 != Some(recipe) {
                                 Some("Preparation recipe changed; the interrupted check cannot continue".into())
                             } else if v.candidate != *predecessor
@@ -349,6 +418,7 @@ fn project_with_excluded_operation(
             | ui::CompatibilityPhase::TestResultIncomplete | ui::CompatibilityPhase::NeedsWork
             | ui::CompatibilityPhase::PublicationNeedsAttention | ui::CompatibilityPhase::HistoricalOnly => "needs_attention",
         }.into();
+        crate::graphics_cli::project(m, p, &mut workflow, &v, candidates, busy.or(stale))?;
         p.compatibility = Some(workflow);
     }
     Ok(())
@@ -358,21 +428,20 @@ fn guided_projection(
     m: &Manager,
     selection: &prep::Selection,
     view: &prep::View,
-    busy: Option<&str>,
+    inactivity: Inactivity<'_>,
     stale: Option<&str>,
     canonical: bool,
     ordinary_ready: bool,
 ) -> Result<ui::CompatibilityWorkflow> {
     use ui::CompatibilityPhase as Phase;
+    let Inactivity {global:busy, class:class_busy} = inactivity;
     let published = view.candidates.iter().find(|row| row.disposition == "current_published");
     let newest = view.candidates.iter().rev().find(|row| row.current_inputs
         && row.review.as_ref().is_none_or(|review| review.choice != prep::ReviewChoice::NeedsWork));
-    let selected = match (published, newest) {
-        (Some(current), Some(newer)) if newer.lineage.ordinal > current.lineage.ordinal => Some(newer),
-        (Some(current), _) => Some(current),
-        (None, Some(newest)) => Some(newest),
-        (None, None) => view.candidates.last(),
-    };
+    // A retained preparation is a proposal, not a new selected publication.
+    // Keep/result and configuration readback belong to the published candidate;
+    // independently prepared choices remain explicit alternatives below.
+    let selected = published.or(newest).or_else(|| view.candidates.last());
     let mut primary = None;
     let mut alternatives = Vec::new();
     let mut established = Vec::new();
@@ -389,6 +458,20 @@ fn guided_projection(
             requirement.split(':').next().unwrap_or(requirement).replace('_', " ")).collect();
     }
     let exact = selected.filter(|row| row.current_inputs);
+    // A coordinated package refresh remains the selected publication even
+    // when its historical discovery row is no longer current.  That retained
+    // publication may be shown and its exact test result recorded; discovery
+    // and settings actions continue to use `current_inputs` below.
+    let selected_publication = selected.filter(|row| {
+        if row.disposition != "current_published"
+            || !matches!(row.publication.as_str(), "ordinary" | "experimental") {
+            return false;
+        }
+        prep::candidate_record(m, &row.id)
+            .and_then(|candidate|
+                prep::selected_publication_candidate_record(m, &candidate))
+            .is_ok_and(|current| current)
+    });
     let offer = |label: &str, action: ui::Action, disabled: Option<&str>| ui::AvailableAction {
         label: label.into(), action, disabled_reason: disabled.map(str::to_owned),
     };
@@ -401,7 +484,7 @@ fn guided_projection(
         && view.inspections.iter().any(|row| Some(row.host_sha256.as_str()) == recommended_host
             && row.audio_layout == Some(profiles::AudioLayoutPolicy::StereoMainPair));
     if layout_ambiguous {
-        if let Ok(kit) = prep::build::recipe(m) {
+        if let Ok(kit) = prep::build::recipe_available(m) {
             for (label, audio_layout) in [
                 ("Stereo effect", Some(profiles::AudioLayoutPolicy::StereoMainPair)),
                 ("Use the plug-in's reported default layout", None),
@@ -415,7 +498,7 @@ fn guided_projection(
     }
     let check_offer = || -> Result<Option<ui::AvailableAction>> {
         if layout_ambiguous { return Ok(None); }
-        let kit = match prep::build::recipe(m) { Ok(kit) => kit, Err(_) => return Ok(None) };
+        let kit = match prep::build::recipe_available(m) { Ok(kit) => kit, Err(_) => return Ok(None) };
         Ok(Some(offer("Check compatibility", ui::Action::CompatibilityCheck {
             selection: view.selection.clone(),
             audio_layout: view.recommended_audio_layout.clone(),
@@ -426,20 +509,22 @@ fn guided_projection(
     let (phase, summary) = if canonical && view.candidates.is_empty() {
         if ordinary_ready { (Phase::OrdinarySupported, "Supported exact configuration".into()) }
         else { (Phase::PublicationNeedsAttention, "Existing publication needs attention.".into()) }
-    } else if stale.is_some() {
+    } else if stale.is_some() && selected_publication.is_none() {
         (Phase::HistoricalOnly, "This installed selection is historical. Refresh its managed inventory before checking it again.".into())
     } else if selected.is_some_and(|row| row.publication == "needs_attention") {
         (Phase::PublicationNeedsAttention, "Publication needs reconciliation before testing.".into())
-    } else if let Some(row) = exact.filter(|row| row.publication == "ordinary") {
+    } else if let Some(row) = exact.filter(|row| row.publication == "ordinary")
+        .or_else(|| selected_publication.filter(|row| row.publication == "ordinary")) {
         let _ = row;
         (Phase::OrdinarySupported, "Supported exact configuration".into())
-    } else if let Some(row) = exact.filter(|row| row.publication == "experimental") {
+    } else if let Some(row) = exact.filter(|row| row.publication == "experimental")
+        .or_else(|| selected_publication.filter(|row| row.publication == "experimental")) {
         if let Some(expected) = view.current_revision.as_ref() {
             primary = Some(offer("Record test result", ui::Action::CompatibilityResult {
                 candidate: row.id.clone(), expected_current: publication_identity(expected),
                 result: ui::TestResultKind::Worked, passed: vec![], failed_area: None,
                 note: String::new(),
-            }, None));
+            }, class_busy));
         }
         if row.review.as_ref().is_some_and(|review| review.choice == prep::ReviewChoice::AcceptExactLocal) {
             (Phase::PassedExperimental, "Recorded checks passed. This configuration remains experimental.".into())
@@ -461,7 +546,7 @@ fn guided_projection(
             } else { None };
             let ordinary_current = if publication == "another_configuration" {
                 view.current_revision.as_ref().map(|revision|
-                    m.load_revision(&selection.class.id, revision)
+                    m.load_revision_record(&selection.class.id, revision)
                         .map(|record| record.qualification.is_none())).transpose()?.unwrap_or(false)
             } else { false };
             if !ordinary_current
@@ -469,10 +554,10 @@ fn guided_projection(
                 primary = Some(offer(if publication == "another_configuration" {
                     "Replace it with this test configuration"
                 } else { "Make available for testing" },
-                ui::Action::CompatibilityPublishTest { candidate: row.id.clone(), expected_current }, busy));
+                ui::Action::CompatibilityPublishTest { candidate: row.id.clone(), expected_current }, class_busy));
             }
             (Phase::ReadyForTest, if ordinary_current {
-                "An ordinarily supported configuration is currently selected. This test configuration cannot replace it through the guided flow."
+                "Your current working bridge remains selected. Apply the test bridge update to try this configuration; the current revision is retained for rollback."
             } else if publication == "another_configuration" {
                 "A different configuration is selected. Replacing it for a test requires your explicit choice."
             } else { "Compatibility check completed. An immutable test configuration is ready." }.into())
@@ -490,7 +575,7 @@ fn guided_projection(
             let reason = operation.as_ref().and_then(|row| row["reason"].as_str())
                 .filter(|reason| !reason.is_empty()).unwrap_or("Review the retained check details");
             (Phase::CheckFailed, format!("Compatibility check stopped: {reason}. Installation is preserved; no test configuration was made available."))
-        } else if prep::build::recipe(m).is_err() {
+        } else if prep::build::recipe_available(m).is_err() {
             (Phase::CheckBlocked, "Preparation tools are unavailable. Repair or update the manager package before checking compatibility.".into())
         } else {
             primary = check_offer()?;
@@ -499,6 +584,26 @@ fn guided_projection(
             } else { "Installed · compatibility not checked" }.into())
         }
     };
+    if stale.is_none() && published.is_some_and(|row| row.current_inputs)
+        && matches!(phase, Phase::OrdinarySupported | Phase::AvailableForTest | Phase::PassedExperimental) {
+        let ordinary_current = view.current_revision.as_ref().map(|revision|
+            m.load_revision_record(&selection.class.id, revision)
+                .map(|record| record.qualification.is_none())).transpose()?.unwrap_or(false);
+        for row in view.candidates.iter().filter(|row| row.disposition == "prepared"
+            && row.current_inputs && row.publication == "another_configuration"
+            && row.review.as_ref().is_none_or(|review| review.choice != prep::ReviewChoice::NeedsWork)) {
+            if let Some(current) = view.current_revision.as_ref() {
+                let action = if ordinary_current {
+                    ui::Action::ExperimentalReplace {candidate:row.id.clone(),
+                        expected_current:publication_identity(current)}
+                } else {
+                    ui::Action::CompatibilityPublishTest {candidate:row.id.clone(),
+                        expected_current:Some(publication_identity(current))}
+                };
+                alternatives.push(offer(&format!("Try prepared setup {}", row.lineage.ordinal), action, class_busy));
+            }
+        }
+    }
     Ok(ui::CompatibilityWorkflow {
         phase, summary, established, remaining,
         current_inspection: view.recommended_inspection.clone(),
@@ -546,7 +651,16 @@ fn exact_test_publication(
     candidate: &prep::Candidate,
     expected: &ui::PublicationIdentity,
 ) -> Result<()> {
-    require(prep::publication_state(m, candidate)? == "experimental",
+    exact_test_publication_with(m, candidate, expected, true)
+}
+fn exact_test_publication_record(m: &Manager, candidate: &prep::Candidate,
+    expected: &ui::PublicationIdentity) -> Result<()> {
+    exact_test_publication_with(m, candidate, expected, false)
+}
+fn exact_test_publication_with(m: &Manager, candidate: &prep::Candidate,
+    expected: &ui::PublicationIdentity, execution: bool) -> Result<()> {
+    require((if execution { prep::publication_state(m, candidate)? }
+        else { prep::publication_state_record(m, candidate)? }) == "experimental",
         "guided_test_publication_not_current")?;
     let db = m.registry()?;
     let current = db.classes.get(&candidate.selection.class.id)
@@ -554,7 +668,8 @@ fn exact_test_publication(
         .ok_or("guided_test_publication_missing")?;
     require(current.id == expected.id && current.sha256 == expected.sha256,
         "guided_test_publication_changed")?;
-    let revision = m.load_revision(&candidate.selection.class.id, current)?;
+    let revision = if execution { m.load_revision(&candidate.selection.class.id, current)? }
+        else { m.load_revision_record(&candidate.selection.class.id, current)? };
     require(revision.profile == candidate.profile
         && revision.registration.module.sha256 == candidate.selection.module.sha256
         && revision.registration.native.sha256 == candidate.native.artifact.sha256
@@ -600,7 +715,6 @@ fn guided_result_entries(action: &ui::Action) -> Result<(Vec<(prep::Area, prep::
 
 fn guided_result(
     m: &Manager,
-    sw: &Software,
     action: &ui::Action,
     operation: &str,
     registry_admission: impl FnOnce() -> Result<Lock>,
@@ -609,7 +723,7 @@ fn guided_result(
         candidate, expected_current: expected, result, ..
     } = action else { return Err("guided_result_action".into()) };
     let (observations, detail) = guided_result_entries(action)?;
-    let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+    let c = prep::candidate_record(m, candidate)?;
     let is_problem = matches!(result, ui::TestResultKind::Problem { .. });
     let already = prep::guided_results(m, candidate)?.into_iter()
         .find(|entry| entry["operation"] == operation);
@@ -664,17 +778,25 @@ fn guided_result_disposition(
     expected: &ui::PublicationIdentity,
     source_operation: &str,
 ) -> Result<GuidedDisposition> {
+    guided_result_disposition_with(m, c, expected, source_operation, true)
+}
+fn guided_result_disposition_with(m: &Manager, c: &prep::Candidate,
+    expected: &ui::PublicationIdentity, source_operation: &str, execution: bool,
+) -> Result<GuidedDisposition> {
     require(prep::observations(m, c)?.iter().any(|row| row.operation == source_operation
         && row.status == prep::TestStatus::Failed), "guided_result_evidence_incomplete")?;
     require(prep::decisions(m, c)?.iter().any(|decision| decision.operation == source_operation
         && decision.choice == prep::ReviewChoice::NeedsWork), "guided_result_review_incomplete")?;
-    let original = m.load_revision(&c.selection.class.id, &publication_reference(expected))?;
+    let load = if execution { Manager::load_revision } else { Manager::load_revision_record };
+    let original = load(m, &c.selection.class.id, &publication_reference(expected))?;
     require(original.profile == c.profile, "guided_result_original_publication")?;
-    let state = prep::publication_state(m, c)?;
+    let state = if execution { prep::publication_state(m, c)? }
+        else { prep::publication_state_record(m, c)? };
     if state == "removed" {
         let db = m.registry()?;
         require(db.classes.get(&c.selection.class.id).is_some_and(|entry|
-            entry.publication == Publication::Removed),
+            entry.publication == Publication::Removed
+                && entry.managed_revision.as_ref() == Some(&publication_reference(expected))),
             "guided_result_removed_readback")?;
         return Ok(GuidedDisposition::Removed);
     }
@@ -682,11 +804,16 @@ fn guided_result_disposition(
     let current = m.registry()?.classes.get(&c.selection.class.id)
         .and_then(|entry| entry.managed_revision.clone())
         .ok_or("guided_result_restored_revision_missing")?;
+    if let Some(trial) = &c.settings_trial {
+        require(original.parent == trial.baseline
+            && Some(current) == trial.baseline, "guided_result_restoration_drift")?;
+        return Ok(GuidedDisposition::Restored);
+    }
     let mut parent = original.parent;
     let mut restored = false;
     for _ in 0..64 {
         let Some(reference) = parent else { break };
-        let revision = m.load_revision(&c.selection.class.id, &reference)?;
+        let revision = load(m, &c.selection.class.id, &reference)?;
         if revision.qualification.is_none()
             && revision.profile.claim == profiles::Claim::VerifiedExactFixture {
             restored = current == reference;
@@ -698,12 +825,12 @@ fn guided_result_disposition(
     Ok(GuidedDisposition::Restored)
 }
 
-fn finish_guided_result(m: &Manager, sw: &Software, source_operation: &str) -> Result<Value> {
+fn finish_guided_result(m: &Manager, source_operation: &str) -> Result<Value> {
     let action: ui::Action = serde_json::from_value(prep::guided_result_intent(m, source_operation)?)?;
     let ui::Action::CompatibilityResult { candidate, result, expected_current, .. } = &action
         else { return Err("guided_result_intent_action".into()) };
     let (observations, detail) = guided_result_entries(&action)?;
-    let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+    let c = prep::candidate_record(m, candidate)?;
     if prep::guided_results(m, candidate)?.iter().any(|row|
         row["operation"] == source_operation && row["completed"] == true) {
         return Ok(json!({"candidate":candidate,"result":"already_recorded",
@@ -734,7 +861,7 @@ fn finish_guided_result(m: &Manager, sw: &Software, source_operation: &str) -> R
                 exact_test_publication(m, &c, expected_current)?;
                 {
                     let _guard = m.lock("registry.lock")?;
-                    m.require_inactive(None)?;
+                    m.require_inactive(Some(&c.selection.class.id))?;
                 }
                 prep::record_guided_observations(m, &c, source_operation, &observations, detail)?;
                 prep::review(m, &c, source_operation, prep::ReviewChoice::NeedsWork, detail)?;
@@ -809,10 +936,7 @@ fn publication_action(
             },
         ),
         "another_configuration" => (
-            format!(
-                "Replace current revision {} with this candidate",
-                current?.id
-            ),
+            String::from("Apply test bridge update"),
             ui::Action::ExperimentalReplace {
                 candidate: id.into(),
                 expected_current: publication_identity(current?),
@@ -837,7 +961,11 @@ fn publication_action(
 pub fn is_action(a: &ui::Action) -> bool {
     matches!(
         a,
-        ui::Action::PluginReinspect { .. }
+        ui::Action::CandidateHistoryComplete { .. }
+            | ui::Action::CandidateGraphicsAssess { .. }
+            | ui::Action::CandidateGraphicsPrepare { .. }
+            | ui::Action::CandidateSettingsPrepare { .. }
+            | ui::Action::PluginReinspect { .. }
             | ui::Action::CompatibilityCheck { .. }
             | ui::Action::CompatibilityResumeCheck { .. }
             | ui::Action::CompatibilityPublishTest { .. }
@@ -859,12 +987,21 @@ pub fn is_action(a: &ui::Action) -> bool {
 /// against those offers and physically revalidated by its mutation owner.
 pub(super) fn action_selection(m: &Manager, sw: &Software,
     action: &ui::Action) -> Result<Option<prep::Selection>> {
+    action_selection_with(m, sw, action, true)
+}
+pub(super) fn action_selection_record(m: &Manager, sw: &Software,
+    action: &ui::Action) -> Result<Option<prep::Selection>> {
+    action_selection_with(m, sw, action, false)
+}
+fn action_selection_with(m: &Manager, sw: &Software, action: &ui::Action,
+    execution: bool) -> Result<Option<prep::Selection>> {
+    let select = if execution { prep::select } else { prep::select_record };
     let selection = match action {
         ui::Action::PluginInspect { selection, .. }
         | ui::Action::PluginPrepare { selection, .. }
         | ui::Action::PluginReinspect { selection, .. }
         | ui::Action::CompatibilityCheck { selection, .. } =>
-            return prep::select(m, selection, &sw.host, &sw.source_sha256).map(Some),
+            return select(m, selection, &sw.host, &sw.source_sha256).map(Some),
         ui::Action::CompatibilityResumeCheck { operation } => {
             let intent = prep::guided_check_stage(m, operation, "intent")?
                 .ok_or("guided_check_resume_intent_missing")?;
@@ -872,7 +1009,7 @@ pub(super) fn action_selection(m: &Manager, sw: &Software,
             let ui::Action::CompatibilityCheck { selection, .. } = original else {
                 return Err("guided_check_source_action".into());
             };
-            return prep::select(m, &selection, &sw.host, &sw.source_sha256).map(Some);
+            return select(m, &selection, &sw.host, &sw.source_sha256).map(Some);
         }
         ui::Action::CompatibilityFinishResult { operation } => {
             let original: ui::Action = serde_json::from_value(
@@ -882,7 +1019,11 @@ pub(super) fn action_selection(m: &Manager, sw: &Software,
             };
             candidate
         }
-        ui::Action::CompatibilityPublishTest { candidate, .. }
+        ui::Action::CandidateHistoryComplete { candidate, .. }
+        | ui::Action::CandidateGraphicsAssess { candidate }
+        | ui::Action::CandidateGraphicsPrepare { candidate, .. }
+        | ui::Action::CandidateSettingsPrepare { candidate, .. }
+        | ui::Action::CompatibilityPublishTest { candidate, .. }
         | ui::Action::CompatibilityResult { candidate, .. }
         | ui::Action::ExperimentalReplace { candidate, .. }
         | ui::Action::CandidateWithdraw { candidate, .. }
@@ -893,7 +1034,10 @@ pub(super) fn action_selection(m: &Manager, sw: &Software,
         | ui::Action::CandidatePublishOrdinary { candidate } => candidate.clone(),
         _ => return Ok(None),
     };
-    Ok(Some(prep::candidate(m, &selection, &sw.host, &sw.source_sha256)?.selection))
+    // Candidate actions are offered over already retained identities. Scope
+    // resolution must never migrate unrelated history before owner admission.
+    let c = prep::candidate_record(m, &selection)?;
+    Ok(Some(c.selection))
 }
 pub fn offered(actual: &ui::Action, offer: &ui::Action) -> bool {
     match (actual, offer) {
@@ -1019,7 +1163,7 @@ fn inspect_unretained(
         admission,
     )?;
     let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
-    let child = spawn(sw, &path, None)?;
+    let child = spawn(m, sw, &path, None)?;
     vendor_product_cli::finish_scan(child, &job, &path, pending)?;
     require(
         observation::ModuleStamp::read(&s.module.path)? == stamp,
@@ -1124,10 +1268,20 @@ fn probed_candidate() -> Option<prep::Candidate> {
             fs::copy(&probe.source_native, &probe.candidate.native.artifact.path).unwrap();
             fs::set_permissions(&probe.candidate.native.artifact.path,
                 fs::Permissions::from_mode(0o500)).unwrap();
-            atomic_json(&dir.join("build.json"), &json!({
-                "native_sha256":probe.candidate.native.artifact.sha256,
-                "kit_sha256":probe.candidate.recipe_sha256,
-            })).unwrap();
+            if let Some(descriptor) = &probe.candidate.native.descriptor {
+                let source = probe.source_native
+                    .with_file_name(lvb_plugin_descriptor::FILE_NAME);
+                assert_eq!(digest(&source).unwrap(), descriptor.sha256);
+                assert_eq!(descriptor.path, probe.candidate.native.artifact.path
+                    .with_file_name(lvb_plugin_descriptor::FILE_NAME));
+                fs::copy(source, &descriptor.path).unwrap();
+                fs::set_permissions(&descriptor.path,
+                    fs::Permissions::from_mode(0o400)).unwrap();
+            }
+            fs::copy(probe.source_native.with_file_name("build.json"),
+                dir.join("build.json")).unwrap();
+            fs::set_permissions(dir.join("build.json"),
+                fs::Permissions::from_mode(0o400)).unwrap();
         }
         probe.candidate.clone()
     }))
@@ -1137,6 +1291,37 @@ fn probed_checkpoint(stage: &str) {
     let interrupt = GUIDED_CHECK_PROBE.with(|slot| slot.borrow().as_ref()
         .is_some_and(|probe| probe.interrupt_after == Some(stage)));
     if interrupt { panic!("source-owned interruption after {stage}"); }
+}
+
+/// The assessor every preparation runs: the same supervised launch as the
+/// explicit action, under its own registry admission.
+fn preparation_assessor(m: &Manager)
+    -> impl FnMut(&prep::Candidate) -> Result<linux_vst_bridge::graphics::assessment::Assessment> + '_ {
+    move |c| {
+        #[cfg(test)]
+        if let Some(result) = probed_assessment(c) { return result; }
+        crate::graphics_cli::assess(m, prep::configuration::registration(c)?.into(),
+            || m.lock("registry.lock"))
+    }
+}
+#[cfg(test)]
+type AssessmentProbe = Box<dyn FnMut(&prep::Candidate)
+    -> Result<linux_vst_bridge::graphics::assessment::Assessment>>;
+#[cfg(test)]
+thread_local! {
+    static ASSESSMENT_PROBE: std::cell::RefCell<Option<AssessmentProbe>> = const {
+        std::cell::RefCell::new(None)
+    };
+}
+/// Tests never launch a Windows host: without a probe the assessment fails
+/// and the preparation reports that, as it would for a host that failed.
+#[cfg(test)]
+fn probed_assessment(c: &prep::Candidate)
+    -> Option<Result<linux_vst_bridge::graphics::assessment::Assessment>> {
+    Some(ASSESSMENT_PROBE.with(|slot| match slot.borrow_mut().as_mut() {
+        Some(probe) => probe(c),
+        None => Err("graphics_assessment_not_probed".into()),
+    }))
 }
 
 fn guided_check<I, B>(
@@ -1153,7 +1338,7 @@ where
     let s = prep::select(m, selection, &sw.host, &sw.source_sha256)?;
     require(prep::build::recipe(m)?.sha256 == *recipe, "preparation_recipe_changed")?;
     let prior = predecessor.as_ref().map(|id|
-        prep::candidate(m, id, &sw.host, &sw.source_sha256)).transpose()?;
+        prep::candidate_record(m, id)).transpose()?;
     if let Some(prior) = &prior {
         require(prep::same_product(&prior.selection, &s), "candidate_predecessor_selection")?;
     }
@@ -1229,16 +1414,21 @@ where
         require(c.preparation_basis.as_deref() == Some(basis.as_str()),
             "guided_check_preparation_basis")?;
         prep::verify_candidate(m, &c, &sw.host, &sw.source_sha256)?;
-        let _guard = m.lock("registry.lock")?;
+        let guard = m.lock("registry.lock")?;
         m.require_inactive(None)?;
         prep::retain_lineage(m, &c, operation, predecessor.as_deref())?;
         let lineage = prep::lineage(m, &c)?;
         require(lineage.preparation_identity == operation
             && lineage.predecessor == *predecessor, "guided_check_lineage_binding")?;
         let candidate = prep::record_candidate(m, &c)?;
+        drop(guard);
+        // The candidate is committed above. Graphics follows it and cannot
+        // undo it: a failed assessment is reported inside the ready result.
+        let graphics = crate::graphics_cli::follow_preparation(m, sw, &c, operation,
+            &mut preparation_assessor(m));
         Ok(json!({"stage":"candidate_ready","selection":selection,
             "inspection":i.id()?,"candidate":candidate,"artifact_reused":artifact_reused,
-            "publication_changed":false}))
+            "graphics":graphics,"publication_changed":false}))
     };
     let result = run();
     let finished = match &result {
@@ -1271,8 +1461,48 @@ pub fn execute(
     operation: &str,
     registry_admission: impl FnOnce() -> Result<Lock>,
 ) -> Result<Value> {
-    let sw = software(m)?;
+    use linux_vst_bridge::operator_lock::timing::{self, Stage};
+    let sw = timing::measure(Stage::SoftwareVerification, || software(m))?;
     match a {
+        ui::Action::CandidateHistoryComplete { candidate, expected_history } => {
+            let c = prep::candidate_record(m, candidate)?;
+            let guard = registry_admission()?;
+            m.require_inactive(Some(&c.selection.class.id))?;
+            drop(guard);
+            prep::complete_candidate_history(m, candidate, expected_history)?;
+            Ok(json!({"candidate":candidate,"history_complete":true,"publication_changed":false}))
+        }
+        ui::Action::CandidateGraphicsAssess { candidate } => {
+            let c = prep::candidate_record(m, candidate)?;
+            prep::verify_candidate(m, &c, &sw.host, &sw.source_sha256)?;
+            let result = crate::graphics_cli::assess(m,
+                prep::configuration::registration(&c)?.into(), registry_admission)?;
+            let guard = m.lock("registry.lock")?;
+            prep::verify_candidate(m, &c, &sw.host, &sw.source_sha256)?;
+            prep::configuration::record_assessment(m, &c, operation, &result)?;
+            drop(guard);
+            let applied = crate::graphics_cli::follow_assessment(m, &sw, &c, operation,
+                result.recommendation.requirement, &mut preparation_assessor(m));
+            Ok(json!({"candidate":candidate,"assessment":result,"applied":applied,"publication_changed":false}))
+        }
+        ui::Action::CandidateSettingsPrepare { candidate, settings, expected_current } => {
+            let c = timing::measure(Stage::CandidateVerification, ||
+                prep::candidate_record(m, candidate))?;
+            let _guard = registry_admission()?;
+            let next = prep::configuration::prepare_settings(m, &c, settings,
+                expected_current.as_ref().map(publication_reference).as_ref())?;
+            Ok(json!({"candidate":next.id()?,"predecessor":candidate,
+                "configuration":prep::configuration::view(m, &next)?,"publication_changed":false}))
+        }
+        ui::Action::CandidateGraphicsPrepare { candidate, backend, expected_current } => {
+            let c = timing::measure(Stage::CandidateVerification, ||
+                prep::candidate_record(m, candidate))?;
+            let _guard = registry_admission()?;
+            let next = prep::configuration::prepare(m, &c, *backend,
+                expected_current.as_ref().map(publication_reference).as_ref())?;
+            Ok(json!({"candidate":next.id()?,"predecessor":candidate,
+                "configuration":prep::configuration::view(m, &next)?,"publication_changed":false}))
+        }
         ui::Action::PluginInspect {
             selection,
             audio_layout,
@@ -1321,6 +1551,7 @@ pub fn execute(
                         None => prep::build::construct(m, s.clone(), i.clone(), i.host.clone(),
                             i.source_manifest.clone(), &source_operation)?,
                     };
+                    let c = prep::configuration::carry_settings(c, prior)?;
                     Ok((prep::bind_preparation_basis(c, Some(basis))?, artifact_reused))
                 }, |stage| {
                     #[cfg(test)]
@@ -1343,7 +1574,7 @@ pub fn execute(
             )?;
             let prior = predecessor
                 .as_ref()
-                .map(|id| prep::candidate(m, id, &sw.host, &sw.source_sha256))
+                .map(|id| prep::candidate_record(m, id))
                 .transpose()?;
             if let Some(c) = &prior {
                 require(
@@ -1366,22 +1597,27 @@ pub fn execute(
                     operation,
                 )?
             };
+            let c = prep::configuration::carry_settings(c, prior.as_ref())?;
             let c = prep::bind_preparation_basis(c, Some(basis))?;
             let candidate_reused = prep::retained_candidates(m)?.iter().any(|old| old == &c);
             prep::verify_candidate(m, &c, &sw.host, &sw.source_sha256)?;
-            let _guard = m.lock("registry.lock")?;
+            let guard = m.lock("registry.lock")?;
             m.require_inactive(None)?;
             prep::retain_lineage(m, &c, operation, predecessor.as_deref())?;
             let id = prep::record_candidate(m, &c)?;
+            drop(guard);
+            let graphics = crate::graphics_cli::follow_preparation(m, &sw, &c, operation,
+                &mut preparation_assessor(m));
             Ok(
-                json!({"selection":selection,"candidate":id,"prepared":true,"candidate_reused":candidate_reused,"artifact_reused":artifact_reused,"publication_changed":false}),
+                json!({"selection":selection,"candidate":id,"prepared":true,"candidate_reused":candidate_reused,"artifact_reused":artifact_reused,"graphics":graphics,"publication_changed":false}),
             )
         }
         ui::Action::ExperimentalReplace {
             candidate,
             expected_current,
         } => {
-            let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+            let c = timing::measure(Stage::CandidateVerification, ||
+                prep::candidate_record(m, candidate))?;
             let revision = prep::replace(m, &c, &publication_reference(expected_current))?;
             Ok(json!({"candidate":candidate,"replaced":expected_current,"publication":revision}))
         }
@@ -1389,7 +1625,7 @@ pub fn execute(
             candidate,
             expected_current,
         } => {
-            let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+            let c = prep::candidate_record(m, candidate)?;
             prep::withdraw(m, &c, &publication_reference(expected_current))?;
             Ok(
                 json!({"candidate":candidate,"withdrawn":expected_current,"evidence_preserved":true}),
@@ -1397,7 +1633,8 @@ pub fn execute(
         }
         ui::Action::ExperimentalEnable { candidate }
         | ui::Action::CandidatePublishOrdinary { candidate } => {
-            let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+            let c = timing::measure(Stage::CandidateVerification, ||
+                prep::candidate_record(m, candidate))?;
             let ordinary = matches!(a, ui::Action::CandidatePublishOrdinary { .. });
             let r = prep::enable(m, &c, ordinary)?;
             Ok(
@@ -1405,12 +1642,14 @@ pub fn execute(
             )
         }
         ui::Action::ExperimentalDisable { candidate } => {
-            let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+            let c = timing::measure(Stage::CandidateVerification, ||
+                prep::candidate_record(m, candidate))?;
             prep::disable(m, &c)?;
             Ok(json!({"candidate":candidate,"experimental":false,"history_preserved":true}))
         }
         ui::Action::CompatibilityPublishTest { candidate, expected_current } => {
-            let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+            let c = timing::measure(Stage::CandidateVerification, ||
+                prep::candidate_record(m, candidate))?;
             let state = prep::publication_state(m, &c)?;
             let revision = match (state.as_str(), expected_current) {
                 ("experimental", _) => {
@@ -1428,9 +1667,9 @@ pub fn execute(
                 "ordinary":false,"experimental":true}))
         }
         ui::Action::CompatibilityResult { .. } =>
-            guided_result(m, &sw, a, operation, registry_admission),
+            guided_result(m, a, operation, registry_admission),
         ui::Action::CompatibilityFinishResult { operation: source_operation } => {
-            finish_guided_result(m, &sw, source_operation)
+            finish_guided_result(m, source_operation)
         }
         ui::Action::CandidateObserve {
             candidate,
@@ -1438,7 +1677,7 @@ pub fn execute(
             status,
             note,
         } => {
-            let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+            let c = prep::candidate_record(m, candidate)?;
             prep::record_observation(m, &c, operation, parse(area)?, parse(status)?, note)?;
             Ok(
                 json!({"candidate":candidate,"observation":"operator_observation","publication_changed":false}),
@@ -1449,7 +1688,7 @@ pub fn execute(
             accept,
             rationale,
         } => {
-            let c = prep::candidate(m, candidate, &sw.host, &sw.source_sha256)?;
+            let c = prep::candidate_record(m, candidate)?;
             let decision = prep::review(
                 m,
                 &c,
@@ -1474,7 +1713,10 @@ pub fn failure(action: &ui::Action) -> Option<Value> {
         }
         ui::Action::CompatibilityCheck { .. }
         | ui::Action::CompatibilityResumeCheck { .. } => "guided_compatibility_check",
-        ui::Action::PluginPrepare { .. } => "candidate_preparation",
+        ui::Action::CandidateGraphicsAssess { .. } => "graphics_assessment",
+        ui::Action::CandidateGraphicsPrepare { .. }
+        | ui::Action::CandidateSettingsPrepare { .. }
+        | ui::Action::PluginPrepare { .. } => "candidate_preparation",
         ui::Action::ExperimentalReplace { .. }
         | ui::Action::CandidateWithdraw { .. }
         | ui::Action::ExperimentalEnable { .. }
@@ -1504,7 +1746,7 @@ pub(crate) mod tests {
         use prep::*;
         use profiles::Family;
         use test_fixture::{inspection_report, prepared_accessibility};
-        let (mut f, _, mut census, mut native) = prepared_accessibility(false);
+        let (mut f, _, mut census, _) = prepared_accessibility(false);
         f.m.unpublish(&f.r.key()).unwrap();
         atomic_json(&f.m.root.join("registry.json"), &Registry::default()).unwrap();
         let old = f.r.environment.root.clone();
@@ -1525,7 +1767,6 @@ pub(crate) mod tests {
         census.module_stamp = ModuleStamp::read(&census.module.path).unwrap();
         if effect {
             census.selected.subcategories = "Fx".into();
-            native.class.subcategories = "Fx".into();
         }
         let mut raw = inspection_report(&census);
         // Complete non-audio factory class; the production inventory validates all rows.
@@ -1537,6 +1778,14 @@ pub(crate) mod tests {
         raw["records"].as_array_mut().unwrap().push(
         json!({"state":"ap8_controller_association","combined":false,"class_id":"02".repeat(16)}),
     );
+        if effect {
+            raw["records"].as_array_mut().unwrap().push(json!({"state":"ap8_bus",
+                "media":0,"direction":0,"index":0,"channels":2,"type":0,"flags":1,
+                "arrangement":3,"name":"Input"}));
+        }
+        raw["records"].as_array_mut().unwrap().push(json!({"state":"ap8_bus",
+            "media":0,"direction":1,"index":0,"channels":2,"type":0,"flags":1,
+            "arrangement":3,"name":"Output"}));
         atomic_json(&census.report.path, &raw).unwrap();
         census.report.sha256 = digest(&census.report.path).unwrap();
         let classes = linux_vst_bridge::inventory::classes(&raw).unwrap();
@@ -1568,14 +1817,412 @@ pub(crate) mod tests {
             .unwrap()
             .pop()
             .unwrap();
-        let i = inspect_record(s.clone(), census.report, Origin::ManagedPreparation).unwrap();
         let manifest = Artifact {
             path: f.r.host.path.with_file_name("host-source-manifest.json"),
             sha256: f.r.host_source_sha256.clone(),
         };
-        let c = prepared(s, i, native, f.r.host.clone(), manifest, "aa".repeat(32)).unwrap();
+        let sw = reusable_projection_software(&f, &manifest);
+        let runtime = prep::build::stage_runtime_for_software(&f.m, &sw).unwrap();
+        let i = inspect_record_with(s.clone(), census.report, Origin::ManagedPreparation,
+            runtime.host.clone(), runtime.source_manifest.clone()).unwrap();
+        let c = prep::build::construct_with_runtime(&f.m, s, i, runtime,
+            &random_id().unwrap()).unwrap();
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         (f, c)
     }
+    #[test]
+    fn projection_fixture_uses_the_current_loaded_engine_contract() {
+        let (f, c) = projection_fixture();
+        let sw = projection_software(&c);
+        let runtime = prep::build::existing_runtime(&f.m, &c.recipe_sha256).unwrap();
+        assert_eq!(sw.host, c.selection.scanner);
+        assert_ne!(sw.host.path, c.host.path);
+        assert_eq!(sw.preparation_kit, Some(runtime.kit.clone()));
+        assert_eq!(c.host, runtime.host);
+        assert_eq!(c.source_manifest, runtime.source_manifest);
+        assert!(runtime.builder.is_some() && runtime.generator.is_some());
+        assert!(c.native.descriptor.is_some());
+        assert!(prep::build::runtime_declares_loaded_engine(&runtime).unwrap());
+        assert!(prep::build::supports_loaded_engine_admission(&f.m, &c).unwrap());
+    }
+    #[test]
+    fn configuration_offers_distinguish_selected_class_from_shared_maintenance() {
+        let (f, base) = projection_fixture();
+        let sw = projection_software(&base);
+        prep::record_candidate(&f.m, &base).unwrap();
+        let baseline = prep::enable(&f.m, &base, false).unwrap();
+        let next = prep::configuration::prepare_settings(&f.m, &base,
+            &ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+                accessibility:ui::AccessibilityChoice::ProfileDefault}, Some(&baseline)).unwrap();
+        for target_busy in [None, Some("Close instances of this plug-in")] {
+            let mut products = vec![projection_product(&base)];
+            project_scoped(&f.m, &sw, &mut products, Some("Another plug-in is active"),
+                None, &|_| target_busy).unwrap();
+            let product = &products[0];
+            let publish = product.actions.iter().chain(product.compatibility.as_ref().unwrap().primary.iter())
+                .find(|offer| matches!(&offer.action, ui::Action::ExperimentalReplace {candidate,..}
+                    | ui::Action::CompatibilityPublishTest {candidate,..} if candidate == &next.id().unwrap())).unwrap();
+            assert_eq!(publish.disabled_reason.as_deref(), target_busy);
+            assert!(product.actions.iter().any(|offer|
+                matches!(offer.action, ui::Action::PluginReinspect {..}) && offer.disabled_reason.is_some()));
+            assert!(product.actions.iter().any(|offer|
+                matches!(offer.action, ui::Action::CandidateSettingsPrepare {..}) && offer.disabled_reason.is_none()));
+        }
+    }
+
+    #[test]
+    fn graphics_settings_use_offered_actions_keep_exact_results_and_restore_prior_test() {
+        let (f, base) = projection_fixture();
+        let sw = projection_software(&base);
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let baseline = prep::enable(&f.m, &base, false).unwrap();
+        let mut products = vec![projection_product(&base)];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        let action = products[0].actions.iter().find(|offer|
+            matches!(offer.action, ui::Action::CandidateSettingsPrepare { .. })).unwrap().action.clone();
+        assert!(!action.requires_inactive());
+        let mut wrong = action.clone();
+        if let ui::Action::CandidateSettingsPrepare { expected_current, .. } = &mut wrong {
+            expected_current.as_mut().unwrap().sha256 = "ff".repeat(32);
+        }
+        assert!(!offered(&wrong, &action));
+        let prepared = execute(&f.m, &action, &random_id().unwrap(), || f.m.lock("registry.lock")).unwrap();
+        let next = prep::candidate_record(&f.m, prepared["candidate"].as_str().unwrap()).unwrap();
+        assert_eq!(prep::publication_state(&f.m, &base).unwrap(), "experimental");
+        products = vec![projection_product(&base)];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        let workflow = products[0].compatibility.as_ref().unwrap();
+        assert!(matches!(&workflow.primary.as_ref().unwrap().action,
+            ui::Action::CompatibilityResult {candidate,..} if *candidate == base.id().unwrap()));
+        let offer = workflow.alternatives.iter().find(|offer| matches!(&offer.action,
+            ui::Action::CompatibilityPublishTest {candidate,..} if *candidate == next.id().unwrap())).unwrap();
+        assert!(offer.label.contains("Wine D3D11 graphics"));
+        execute(&f.m, &offer.action, &random_id().unwrap(), || f.m.lock("registry.lock")).unwrap();
+        let current = f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision.clone().unwrap();
+        let result = ui::Action::CompatibilityResult { candidate: next.id().unwrap(),
+            expected_current: publication_identity(&current), result: ui::TestResultKind::Worked,
+            passed: vec![ui::TestArea::Editor], failed_area: None, note: "Editor was visible during this test".into() };
+        let kept = execute(&f.m, &result, &random_id().unwrap(), || f.m.lock("registry.lock")).unwrap();
+        assert_eq!(kept["ordinary_published"], false);
+        assert_eq!(prep::publication_state(&f.m, &next).unwrap(), "experimental");
+        assert!(prep::observations(&f.m, &base).unwrap().is_empty());
+        let problem = ui::Action::CompatibilityResult { candidate: next.id().unwrap(),
+            expected_current: publication_identity(&current),
+            result: ui::TestResultKind::Problem { category: ui::ProblemCategory::IncorrectAudio },
+            passed: vec![], failed_area: None, note: "Audio later failed during the same trial".into() };
+        let operation = random_id().unwrap();
+        execute(&f.m, &problem, &operation, || f.m.lock("registry.lock")).unwrap();
+        finish_guided_result(&f.m, &operation).unwrap();
+        assert_eq!(f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision, Some(baseline));
+        assert_eq!(guided_result_disposition(&f.m, &next, &publication_identity(&current), &operation).unwrap(), GuidedDisposition::Restored);
+        assert!(prep::observations(&f.m, &next).unwrap().iter().any(|row| row.status == prep::TestStatus::Failed));
+    }
+
+    #[cfg(feature = "pb0-c0-audit")]
+    #[test]
+    fn audit_observes_normal_configuration_publish_test_and_idempotent_readback() {
+        use linux_vst_bridge::operator_lock::timing::{self, Stage};
+        let (f,base) = projection_fixture();
+        let sw = projection_software(&base);
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
+        prep::record_candidate(&f.m,&base).unwrap();
+        let baseline = prep::enable(&f.m,&base,false).unwrap();
+        let baseline_registration = f.m.load_revision(&base.selection.class.id,&baseline).unwrap().registration;
+        for graphics in [Some(ui::GraphicsBackend::WineD3d11),None] {
+            let next = prep::configuration::prepare_settings(&f.m,&base,
+                &ui::LocalSettings {graphics,accessibility:ui::AccessibilityChoice::DisabledForHost},Some(&baseline)).unwrap();
+            let mut products = vec![projection_product(&base)];
+            project(&f.m,&sw,&mut products,None).unwrap();
+            let action = products[0].compatibility.as_ref().unwrap().alternatives.iter().find(|offer|
+                matches!(&offer.action, ui::Action::CompatibilityPublishTest {candidate,..}
+                    if *candidate == next.id().unwrap())).unwrap().action.clone();
+            assert!(matches!(&action,ui::Action::CompatibilityPublishTest {candidate,expected_current:Some(current)}
+                if *candidate == next.id().unwrap() && *current == publication_identity(&baseline)));
+            for idempotent in [false,true] {
+                let operation = random_id().unwrap();
+                let directory = f.m.root.join("operator").join(&operation);
+                private_dir(&directory).unwrap();
+                let result = {
+                    let _observed = timing::Session::worker(&f.m,&operation);
+                    timing::select_action(&action);
+                    timing::measure(Stage::Worker,|| execute(&f.m,&action,&operation,|| f.m.lock("registry.lock"))).unwrap()
+                };
+                let observed:Value = read_json(&directory.join("timing-worker.json")).unwrap();
+                assert_eq!(observed["kind"],"apply");
+                assert_eq!(observed["omitted"],0);
+                let marks = observed["marks"].as_array().unwrap();
+                let has = |stage:&str,edge:&str| marks.iter().any(|mark|mark["stage"] == stage && mark["edge"] == edge);
+                assert!(has("software_verification","returned") && has("candidate_verification","returned"));
+                assert_eq!(has("publication_final_authority","returned"),!idempotent);
+                assert_eq!(has("pointer_mutation","returned"),!idempotent);
+                assert_eq!(has("registry_mutation","returned"),!idempotent);
+                if idempotent {assert_eq!(result["already_available"],true);}
+                else {assert_eq!(result["experimental"],true);}
+            }
+            // Restore the exact predecessor before the independent second trial.
+            execute(&f.m,&ui::Action::ExperimentalDisable {candidate:next.id().unwrap()},
+                &random_id().unwrap(),|| f.m.lock("registry.lock")).unwrap();
+            let entry = &f.m.registry().unwrap().classes[&base.selection.class.id];
+            assert_eq!(entry.managed_revision,Some(baseline.clone()));
+            assert_eq!(entry.registration,baseline_registration);
+        }
+    }
+
+    #[test]
+    fn ordinary_selected_configuration_exposes_explicit_prepared_update() {
+        let (f, base) = projection_fixture();
+        let sw = projection_software(&base);
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let evidence = prep::AREAS.iter().map(|area| (*area, prep::TestStatus::Passed)).collect::<Vec<_>>();
+        let operation = random_id().unwrap();
+        prep::record_guided_observations(&f.m, &base, &operation, &evidence, "Source-owned exact acceptance fixture").unwrap();
+        prep::review(&f.m, &base, &operation, prep::ReviewChoice::AcceptExactLocal, "Source-owned exact acceptance fixture").unwrap();
+        let original = prep::enable(&f.m, &base, true).unwrap();
+        let original_entry = serde_json::to_value(&f.m.registry().unwrap().classes[&base.selection.class.id]).unwrap();
+        let mut retained = Vec::new();
+        for basis in ["ba".repeat(32), "cb".repeat(32)] {
+            let proposal = prep::bind_preparation_basis(base.clone(), Some(basis)).unwrap();
+            assert!(proposal.settings_trial.is_none());
+            prep::record_candidate_with_predecessor(&f.m, &proposal, Some(&base.id().unwrap())).unwrap();
+            retained.push(proposal.id().unwrap());
+        }
+        let mut products = vec![projection_product(&base)];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        let workflow = products[0].compatibility.as_ref().unwrap();
+        assert_eq!(workflow.current_candidate.as_deref(), Some(base.id().unwrap().as_str()));
+        let mut labels = Vec::new();
+        for id in &retained {
+            let row = products[0].details["preparation"]["candidates"].as_array().unwrap()
+                .iter().find(|row| row["id"] == *id).unwrap();
+            let offer = workflow.alternatives.iter().find(|offer| matches!(&offer.action,
+                ui::Action::ExperimentalReplace {candidate,expected_current}
+                if candidate == id && *expected_current == publication_identity(&original))).unwrap();
+            assert!(offer.disabled_reason.is_none());
+            assert_eq!(offer.label, format!("Try prepared setup {}", row["lineage"]["ordinal"].as_u64().unwrap()));
+            labels.push(offer.label.clone());
+        }
+        assert_ne!(labels[0], labels[1], "ordinary proposals need distinct visible choices");
+        let prepare = products[0].actions.iter().find(|offer| matches!(&offer.action,
+            ui::Action::CandidateSettingsPrepare {settings,..} if settings.graphics.is_some())).unwrap();
+        assert!(prepare.disabled_reason.is_none());
+        let prepared = execute(&f.m, &prepare.action, &random_id().unwrap(), || f.m.lock("registry.lock")).unwrap();
+        let id = prepared["candidate"].as_str().unwrap();
+        products = vec![projection_product(&base)];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        let workflow = products[0].compatibility.as_ref().unwrap();
+        assert_eq!(workflow.current_candidate.as_deref(), Some(base.id().unwrap().as_str()));
+        assert_eq!(workflow.phase, ui::CompatibilityPhase::OrdinarySupported);
+        assert_eq!(products[0].details["configuration"]["candidate"], base.id().unwrap());
+        let apply = workflow.alternatives.iter().find(|offer| matches!(&offer.action,
+            ui::Action::ExperimentalReplace {candidate,expected_current}
+            if candidate == id && *expected_current == publication_identity(&original))).unwrap();
+        assert!(apply.disabled_reason.is_none());
+        execute(&f.m, &apply.action, &random_id().unwrap(), || f.m.lock("registry.lock")).unwrap();
+        products = vec![projection_product(&base)];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        assert_eq!(products[0].compatibility.as_ref().unwrap().current_candidate.as_deref(), Some(id));
+        let restore = products[0].actions.iter().find(|offer| matches!(&offer.action,
+            ui::Action::ExperimentalDisable {candidate} if candidate == id)).unwrap();
+        execute(&f.m, &restore.action, &random_id().unwrap(), || f.m.lock("registry.lock")).unwrap();
+        assert_eq!(serde_json::to_value(&f.m.registry().unwrap().classes[&base.selection.class.id]).unwrap(), original_entry);
+    }
+
+    #[test]
+    fn graphics_assessment_is_optional_and_controls_work_before_publication() {
+        let (f, base) = projection_fixture();
+        let sw = projection_software(&base);
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let mut products = vec![projection_product(&base)];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        let assessment = products[0].actions.iter().find(|a| matches!(a.action, ui::Action::CandidateGraphicsAssess { .. })).unwrap();
+        assert!(assessment.action.requires_inactive());
+        assert!(assessment.disabled_reason.is_none());
+        let trial = products[0].actions.iter().find(|a| matches!(a.action, ui::Action::CandidateSettingsPrepare { .. })).unwrap();
+        let result = execute(&f.m, &trial.action, &random_id().unwrap(), || f.m.lock("registry.lock")).unwrap();
+        let candidate = result["candidate"].as_str().unwrap().to_owned();
+        // No assessment ran. Optional editor/driver observations cannot gate audio publication.
+        execute(&f.m, &ui::Action::CompatibilityPublishTest { candidate, expected_current: None },
+            &random_id().unwrap(), || f.m.lock("registry.lock")).unwrap();
+        products = vec![projection_product(&base)];
+        project(&f.m, &sw, &mut products, Some("Active plug-in process")).unwrap();
+        assert!(products[0].actions.iter().filter(|a| matches!(a.action,
+            ui::Action::CandidateGraphicsAssess { .. }))
+            .all(|a| a.disabled_reason.is_some()));
+        assert!(products[0].actions.iter().filter(|a| matches!(a.action,
+            ui::Action::CandidateSettingsPrepare { .. }))
+            .all(|a| a.disabled_reason.is_none()));
+    }
+
+    #[test]
+    fn graphics_trial_removal_cannot_adopt_a_later_removed_generation() {
+        let (f, base) = projection_fixture();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let next = prep::configuration::prepare(&f.m, &base, Some(ui::GraphicsBackend::WineD3d11), None).unwrap();
+        let publication = prep::enable(&f.m, &next, false).unwrap();
+        let expected = publication_identity(&publication);
+        let operation = random_id().unwrap();
+        let action = ui::Action::CompatibilityResult { candidate: next.id().unwrap(),
+            expected_current: expected.clone(),
+            result: ui::TestResultKind::Problem { category: ui::ProblemCategory::BlankEditor },
+            passed: vec![], failed_area: None, note: "Editor did not render".into() };
+        guided_result(&f.m, &action, &operation, || f.m.lock("registry.lock")).unwrap();
+        prep::review(&f.m, &next, &operation, prep::ReviewChoice::NeedsWork, "Editor did not render").unwrap();
+        prep::disable_exact(&f.m, &next, &publication).unwrap();
+        assert_eq!(guided_result_disposition(&f.m, &next, &expected, &operation).unwrap(), GuidedDisposition::Removed);
+        let later = prep::enable(&f.m, &base, false).unwrap();
+        prep::disable_exact(&f.m, &base, &later).unwrap();
+        assert!(guided_result_disposition(&f.m, &next, &expected, &operation).is_err(),
+            "a later removed generation is not proof that this result finished");
+    }
+    /// One supervised run as the host reports it: the editor opened and drew
+    /// through Direct3D 11; the default path fails its probe, Wine's built-in
+    /// Direct3D 11 passes. Bound to the candidate's exact launch context.
+    fn fake_assessment(c: &prep::Candidate) -> Result<linux_vst_bridge::graphics::assessment::Assessment> {
+        use linux_vst_bridge::graphics::{assessment, pe::Imports};
+        let context = prep::configuration::context(c)?;
+        let failing = if context.requested_backend.is_none() { "d3d11_default" } else { "" };
+        let probes: Vec<Value> = ["d3d11_default", "d3d11_warp", "opengl", "direct_composition"].iter()
+            .map(|api| json!({"api":api,"status":if *api == failing { "unavailable" } else { "passed" },
+                "rendering":if *api == "d3d11_warp" { "reported_software" } else { "unknown" },
+                "renderer":null,"vendor_id":null,"device_id":null,"driver_version":null,"feature_level":null}))
+            .collect();
+        let report = json!({"gated":true,"cleanup_confirmed":true,"transport_retired":true,"error":null,
+            "graphics_configuration":{"requested_backend":context.requested_backend,
+                "dll_overrides":context.requested_backend.map(|_| "d3d11,dxgi=b"),
+                "scope":"host_process_and_children","renderer_observed":false},
+            "records":[
+            {"state":"readiness_announced","module_sha256":context.module_sha256,"scanner_sha256":context.host_sha256,
+                "implementation_source_manifest_sha256":context.host_source_sha256,"mode":"graphics-assessment"},
+            {"state":"ap11_class","class_id":context.class_id},
+            {"state":"graphics_assessment","schema":1,"editor":{"status":"opened","before":[],"during":["d3d11"],"closed":true}},
+            {"state":"graphics_runtime","schema":1,"probes":probes},
+            {"state":"ap8_inspection_closed","exit_code":0},{"state":"scanner_completed","inspection_complete":true}]});
+        assessment::assemble(context, Imports { machine: 0x8664, ordinary: vec![], delayed: vec![] }, &report, 100)
+    }
+    struct AssessmentProbeReset;
+    impl Drop for AssessmentProbeReset {
+        fn drop(&mut self) { ASSESSMENT_PROBE.with(|slot| *slot.borrow_mut() = None); }
+    }
+
+    #[test]
+    fn preparation_follow_up_prepares_and_assesses_the_wine_d3d11_trial_the_rule_asks_for() {
+        let (f, base) = projection_fixture();
+        let sw = projection_software(&base);
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        prep::record_candidate(&f.m, &base).unwrap();
+        let runs = std::cell::Cell::new(0);
+        let graphics = crate::graphics_cli::follow_preparation(&f.m, &sw, &base, &random_id().unwrap(),
+            &mut |c| { runs.set(runs.get() + 1); fake_assessment(c) });
+        assert_eq!(graphics["stage"], "assessed");
+        assert_eq!(graphics["recommendation"]["requirement"], "wine_d3d11");
+        let trial_id = graphics["applied"]["prepared"].as_str().expect("trial prepared").to_owned();
+        let trial = prep::candidate_record(&f.m, &trial_id).unwrap();
+        assert_eq!(prep::configuration::settings(&trial).graphics, Some(ui::GraphicsBackend::WineD3d11));
+        assert_eq!(trial.settings_trial.as_ref().unwrap().predecessor, base.id().unwrap());
+        assert_eq!(graphics["applied"]["trial"]["stage"], "assessed");
+        assert_eq!(graphics["applied"]["trial"]["recommendation"]["requirement"], "none");
+        assert_eq!(runs.get(), 2);
+        assert_eq!(prep::retained_candidates(&f.m).unwrap().len(), 2);
+        assert_eq!(prep::publication_state(&f.m, &trial).unwrap(), "unpublished",
+            "preparing the trial publishes nothing");
+        // Preparing again reuses both retained runs and prepares nothing new.
+        let again = crate::graphics_cli::follow_preparation(&f.m, &sw, &base, &random_id().unwrap(),
+            &mut |_| panic!("retained assessments must not rerun"));
+        assert_eq!(again["stage"], "retained");
+        assert_eq!(again["applied"]["prepared"], trial_id);
+        assert_eq!(again["applied"]["trial"]["stage"], "retained");
+        assert_eq!(prep::retained_candidates(&f.m).unwrap().len(), 2);
+        // The projection marks the applied state next to the base's assessment
+        // and offers the trial to try in the DAW.
+        let mut products = vec![projection_product(&base)];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        let configuration = prep::configuration::view(&f.m, &base).unwrap();
+        assert_eq!(configuration["assessment"]["recommendation"]["requirement"], "wine_d3d11");
+        let shown = &products[0].details["configuration"];
+        let applied = if shown["candidate"] == trial_id { &shown["before"]["assessment"]["applied"] }
+            else { &shown["assessment"]["applied"] };
+        assert_eq!(applied["prepared"], trial_id, "{shown}");
+        assert_eq!(applied["setup"], 2);
+        assert!(products[0].actions.iter().any(|a| matches!(&a.action,
+            ui::Action::ExperimentalEnable { candidate }
+            | ui::Action::CompatibilityPublishTest { candidate, .. } if *candidate == trial_id)
+            && a.label.starts_with("Try Wine D3D11 graphics")), "{:?}",
+            products[0].actions.iter().map(|a| a.label.clone()).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn graphics_follow_up_prepares_nothing_without_a_wine_d3d11_requirement_and_reports_refusals() {
+        use linux_vst_bridge::graphics::assessment::Requirement;
+        let (f, base) = projection_fixture();
+        prep::record_candidate(&f.m, &base).unwrap();
+        for requirement in [Requirement::None, Requirement::EditorAbsent, Requirement::DirectCompositionRunner,
+            Requirement::UnsupportedWebView2, Requirement::Undetermined] {
+            let (applied, trial) = crate::graphics_cli::apply_recommendation(&f.m, &base, requirement).unwrap();
+            assert!(trial.is_none());
+            assert!(applied["prepared"].is_null() && applied["refusal"].is_null());
+        }
+        assert_eq!(prep::retained_candidates(&f.m).unwrap().len(), 1);
+        // The published candidate's trial keeps that publication as its baseline.
+        let published = prep::enable(&f.m, &base, false).unwrap();
+        let (applied, trial) = crate::graphics_cli::apply_recommendation(&f.m, &base, Requirement::WineD3d11).unwrap();
+        let trial = trial.unwrap();
+        assert_eq!(applied["prepared"], trial.id().unwrap());
+        assert_eq!(trial.settings_trial.as_ref().unwrap().baseline.as_ref(), Some(&published));
+        // A trial already on Wine D3D11 asks for nothing more.
+        let (applied, again) = crate::graphics_cli::apply_recommendation(&f.m, &trial, Requirement::WineD3d11).unwrap();
+        assert!(again.is_none() && applied["prepared"].is_null());
+        // Another prepared configuration cannot start a trial while a different
+        // one is published: the refusal is reported, not raised.
+        let other = prep::configuration::prepare_settings(&f.m, &base, &ui::LocalSettings {
+            graphics: None, accessibility: ui::AccessibilityChoice::DisabledForHost }, Some(&published)).unwrap();
+        let (applied, refused) = crate::graphics_cli::apply_recommendation(&f.m, &other, Requirement::WineD3d11).unwrap();
+        assert!(refused.is_none() && applied["prepared"].is_null());
+        assert_eq!(applied["refusal"], "settings_trial_requires_current_configuration");
+    }
+
+    #[test]
+    fn failed_graphics_assessment_never_fails_the_preparation() {
+        let (f, base) = projection_fixture();
+        let sw = projection_software(&base);
+        prep::record_candidate(&f.m, &base).unwrap();
+        let graphics = crate::graphics_cli::follow_preparation(&f.m, &sw, &base, &random_id().unwrap(),
+            &mut |_| Err("host_exited_during_editor_open".into()));
+        assert_eq!(graphics["stage"], "assessment_failed");
+        assert_eq!(graphics["failure"], "host_exited_during_editor_open");
+        assert_eq!(prep::retained_candidates(&f.m).unwrap().len(), 1);
+        assert!(prep::configuration::latest_assessment(&f.m, &base).unwrap().is_none());
+    }
+
+    #[test]
+    fn guided_check_ends_with_the_graphics_decision_and_its_trial() {
+        let (f, c, sw, action) = guided_fixture();
+        let _reset = AssessmentProbeReset;
+        ASSESSMENT_PROBE.with(|slot| *slot.borrow_mut() = Some(Box::new(fake_assessment)));
+        let result = guided_check(&f.m, &sw, &action, &random_id().unwrap(),
+            |_| Ok(c.inspection.clone()), |_, _, _| Ok((c.clone(), false)), |_| {}).unwrap();
+        assert_eq!(result["stage"], "candidate_ready");
+        assert_eq!(result["candidate"], c.id().unwrap());
+        assert_eq!(result["graphics"]["stage"], "assessed");
+        assert_eq!(result["graphics"]["recommendation"]["requirement"], "wine_d3d11");
+        let trial = prep::candidate_record(&f.m,
+            result["graphics"]["applied"]["prepared"].as_str().unwrap()).unwrap();
+        assert_eq!(trial.settings_trial.as_ref().unwrap().predecessor, c.id().unwrap());
+        assert_eq!(result["graphics"]["applied"]["trial"]["recommendation"]["requirement"], "none");
+        assert_eq!(prep::retained_candidates(&f.m).unwrap().len(), 2);
+        drop(_reset);
+        // Without a host the check still completes with its candidate and says
+        // what failed, as it would for a host that died during the editor open.
+        let (f, c, sw, action) = guided_fixture();
+        let result = guided_check(&f.m, &sw, &action, &random_id().unwrap(),
+            |_| Ok(c.inspection.clone()), |_, _, _| Ok((c.clone(), false)), |_| {}).unwrap();
+        assert_eq!(result["stage"], "candidate_ready");
+        assert_eq!(result["graphics"]["stage"], "assessment_failed");
+        assert_eq!(prep::retained_candidates(&f.m).unwrap().len(), 1);
+    }
+
     #[test]
     fn effect_offers_explicit_stereo_inspection_without_changing_default_action_shape() {
         let (f, c) = projection_fixture_with_role(true);
@@ -1779,17 +2426,65 @@ pub(crate) mod tests {
         assert!(spec(&f.m, newer.clone(), true, true, false).is_ok());
         assert!(spec(&f.m, newer, false, false, false).is_err());
     }
-    pub(crate) fn projection_software(c: &prep::Candidate) -> Software {
+    fn reusable_projection_software(f: &test_fixture::Fixture,
+        manifest: &Artifact) -> Software {
+        let path = f.m.root.join("software/ui2-projection-kit.zip");
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent().unwrap().to_path_buf();
+        let script = r#"import json,zipfile,hashlib,sys,pathlib
+path,root,host,manifest=sys.argv[1:];root=pathlib.Path(root)
+sha=lambda b:hashlib.sha256(b).hexdigest()
+files={'prebuilt/engine.so':b'\x7fELFprojection-reusable-engine',
+ 'runtime/host.exe':pathlib.Path(host).read_bytes(),
+ 'runtime/host-source-manifest.json':pathlib.Path(manifest).read_bytes()}
+for name in ('tools/mf3/native_builder.py','tools/ap8_descriptor.py'):
+ files[name]=(root/name).read_bytes()
+files['prebuilt/index.json']=json.dumps(dict(schema=3,engine='prebuilt/engine.so',
+ engine_sha256=sha(files['prebuilt/engine.so']),descriptor_schema=1,maximum_bridge_frames=1024,
+ audio_completion_contract=1,loaded_engine_admission_contract=1,native_sources={})).encode()
+recipe=dict(schema=4,source_commit='ab'*20,sdk='3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96',
+ sdk_runtime='b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8',
+ files={k:sha(v) for k,v in files.items()})
+with zipfile.ZipFile(path,'w') as z:
+ z.writestr('recipe.json',json.dumps(recipe))
+ for name,data in files.items():z.writestr(name,data)
+"#;
+        assert!(std::process::Command::new("python3")
+            .args(["-I", "-c", script]).arg(&path).arg(root)
+            .arg(&f.r.host.path).arg(&manifest.path)
+            .status().unwrap().success());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        let host = f.r.host.clone();
         Software {
             installer_launch: None,
-            preparation_kit: None,
-            manager: c.host.clone(),
+            preparation_kit: Some(Artifact { sha256: digest(&path).unwrap(), path }),
+            manager: host.clone(),
             operator_frontend: None,
-            supervisor: c.host.clone(),
-            ownership: c.host.clone(),
-            host: c.host.clone(),
-            source_manifest: c.source_manifest.clone(),
-            source_sha256: c.source_manifest.sha256.clone(),
+            supervisor: host.clone(),
+            ownership: host.clone(),
+            host,
+            source_manifest: manifest.clone(),
+            source_sha256: manifest.sha256.clone(),
+            native_catalogue: None,
+        }
+    }
+    pub(crate) fn projection_software(c: &prep::Candidate) -> Software {
+        let runtime: prep::build::Runtime = read_json(&c.host.path.parent().unwrap()
+            .join("runtime.json")).unwrap();
+        let host = c.selection.scanner.clone();
+        Software {
+            installer_launch: None,
+            preparation_kit: Some(runtime.kit),
+            manager: host.clone(),
+            operator_frontend: None,
+            supervisor: host.clone(),
+            ownership: host.clone(),
+            host: host.clone(),
+            source_manifest: Artifact {
+                path: host.path.with_file_name("host-source-manifest.json"),
+                sha256: c.selection.scanner_source.clone(),
+            },
+            source_sha256: c.selection.scanner_source.clone(),
             native_catalogue: None,
         }
     }
@@ -1815,39 +2510,44 @@ pub(crate) mod tests {
         }
     }
     fn projection_kit(f: &test_fixture::Fixture, c: &prep::Candidate) -> Software {
-        let mut sw = projection_software(c);
-        let path = f.m.root.join("software/ui2-projection-kit.zip");
-        private_dir(path.parent().unwrap()).unwrap();
-        fs::write(&path, b"source-owned test kit identity").unwrap();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
-        sw.preparation_kit = Some(Artifact { sha256: digest(&path).unwrap(), path });
+        let sw = projection_software(c);
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         sw
     }
-    fn guided_fixture() -> (test_fixture::Fixture, prep::Candidate, Software, ui::Action) {
+    fn catalogue_native(f: &test_fixture::Fixture,
+        candidate: &prep::Candidate) -> linux_vst_bridge::catalogue::NativeArtifact {
+        let directory = f.m.root.join("software/catalogue-natives")
+            .join(&candidate.native.artifact.sha256);
+        private_dir(&directory).unwrap();
+        let native_path = directory.join("native.so");
+        fs::copy(&candidate.native.artifact.path, &native_path).unwrap();
+        fs::set_permissions(&native_path, fs::Permissions::from_mode(0o500)).unwrap();
+        let mut native = candidate.native.clone();
+        native.artifact = Artifact {
+            path: native_path,
+            sha256: candidate.native.artifact.sha256.clone(),
+        };
+        if let Some(descriptor) = &candidate.native.descriptor {
+            let path = directory.join("plugin-descriptor.json");
+            fs::copy(&descriptor.path, &path).unwrap();
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+            native.descriptor = Some(Artifact {
+                path,
+                sha256: descriptor.sha256.clone(),
+            });
+        }
+        native
+    }
+    fn relocate_probed_native(candidate: &mut prep::Candidate, path: PathBuf) {
+        if let Some(descriptor) = &mut candidate.native.descriptor {
+            descriptor.path = path.with_file_name(lvb_plugin_descriptor::FILE_NAME);
+        }
+        candidate.native.artifact.path = path;
+    }
+    pub(crate) fn guided_fixture() -> (test_fixture::Fixture, prep::Candidate, Software, ui::Action) {
         let (f, mut c) = projection_fixture_with_role(true);
         let mut sw = projection_kit(&f, &c);
         let recipe = sw.preparation_kit.as_ref().unwrap().sha256.clone();
-        let root = f.m.root.join("software/preparation-kits").join(&recipe);
-        private_dir(&root).unwrap();
-        let host = root.join("host.exe");
-        let source = root.join("host-source-manifest.json");
-        fs::copy(&c.host.path, &host).unwrap();
-        fs::copy(&c.source_manifest.path, &source).unwrap();
-        fs::set_permissions(&host, fs::Permissions::from_mode(0o400)).unwrap();
-        fs::set_permissions(&source, fs::Permissions::from_mode(0o400)).unwrap();
-        let runtime = prep::build::Runtime {
-            kit: sw.preparation_kit.clone().unwrap(),
-            host: Artifact { sha256: digest(&host).unwrap(), path: host },
-            source_manifest: Artifact { sha256: digest(&source).unwrap(), path: source },
-            builder: None, generator: None,
-        };
-        atomic_json(&root.join("runtime.json"), &runtime).unwrap();
-        c.inspection.host = runtime.host.clone();
-        c.inspection.source_manifest = runtime.source_manifest.clone();
-        c.host = runtime.host;
-        c.source_manifest = runtime.source_manifest;
-        c.recipe_sha256 = recipe.clone();
         let basis = prep::preparation_basis(&f.m, None).unwrap();
         c = prep::bind_preparation_basis(c, Some(basis)).unwrap();
         let action = ui::Action::CompatibilityCheck {
@@ -1857,7 +2557,7 @@ pub(crate) mod tests {
         // The operator snapshot discovers this unqualified product through
         // its exact managed environment and inventory, with no publication.
         let catalogue = linux_vst_bridge::catalogue::Catalogue {
-            schema: 3, natives: vec![c.native.clone()],
+            schema: 3, natives: vec![catalogue_native(&f, &c)],
             environments: vec![linux_vst_bridge::catalogue::EnvironmentBinding {
                 family: profiles::Family::ManagedInstallerV1,
                 environment: c.selection.environment.clone(),
@@ -1871,6 +2571,19 @@ pub(crate) mod tests {
         (f, c, sw, action)
     }
     #[test]
+    fn guided_fixture_keeps_installed_catalogue_native_separate_from_candidate_work() {
+        let (f, candidate, software, _) = guided_fixture();
+        let catalogue = software.catalogue(&f.m).unwrap();
+        let installed = &catalogue.natives[0];
+        assert!(installed.artifact.path.starts_with(f.m.root.join("software")));
+        assert!(candidate.native.artifact.path.starts_with(f.m.root.join("preparation/work")));
+        assert_ne!(installed.artifact.path, candidate.native.artifact.path);
+        assert_eq!(installed.artifact.sha256, candidate.native.artifact.sha256);
+        assert_eq!(installed.descriptor_sha256, candidate.native.descriptor_sha256);
+        assert_ne!(installed.descriptor.as_ref().unwrap().path,
+            candidate.native.descriptor.as_ref().unwrap().path);
+    }
+    #[test]
     fn ui2_interrupted_checks_resume_through_fresh_offered_operator_requests() {
         use std::{cell::Cell, panic::{catch_unwind, AssertUnwindSafe}, rc::Rc};
         for boundary in ["inspection", "candidate"] {
@@ -1880,8 +2593,8 @@ pub(crate) mod tests {
             let builds = Rc::new(Cell::new(0));
             let source = operator_cli::test_submit_offered(&f.m, &check).unwrap();
             let mut owned = c.clone();
-            owned.native.artifact.path = f.m.root.join("preparation/work")
-                .join(&source).join("native.so");
+            relocate_probed_native(&mut owned, f.m.root.join("preparation/work")
+                .join(&source).join("native.so"));
             GUIDED_CHECK_PROBE.with(|slot| *slot.borrow_mut() = Some(GuidedCheckProbe {
                 inspection: c.inspection.clone(), candidate: owned.clone(),
                 source_native: c.native.artifact.path.clone(),
@@ -1967,7 +2680,7 @@ pub(crate) mod tests {
         let before_registry = fs::read(f.m.root.join("registry.json")).unwrap();
         let dir = f.m.root.join("preparation/work").join(&source);
         let mut owned = c.clone();
-        owned.native.artifact.path = dir.join("native.so");
+        relocate_probed_native(&mut owned, dir.join("native.so"));
         let inspections = Rc::new(Cell::new(1));
         let builds = Rc::new(Cell::new(0));
         GUIDED_CHECK_PROBE.with(|slot| *slot.borrow_mut() = Some(GuidedCheckProbe {
@@ -1990,7 +2703,7 @@ pub(crate) mod tests {
         assert!(!dir.join("build.log").exists());
         assert_eq!(fs::read(dir.join("build.json")).unwrap(), build_before);
         owned.native.artifact.verify().unwrap();
-        assert_eq!(fs::read_dir(&dir).unwrap().count(), 2);
+        assert_eq!(fs::read_dir(&dir).unwrap().count(), 3);
         assert_eq!(inspections.get(), 1);
         assert_eq!(builds.get(), 1);
         assert_eq!(prep::retained_candidates(&f.m).unwrap(), vec![owned.clone()]);
@@ -2009,7 +2722,7 @@ pub(crate) mod tests {
         let before_registry = fs::read(f.m.root.join("registry.json")).unwrap();
         let dir = f.m.root.join("preparation/work").join(&source);
         let mut owned = c.clone();
-        owned.native.artifact.path = dir.join("native.so");
+        relocate_probed_native(&mut owned, dir.join("native.so"));
         let inspections = Rc::new(Cell::new(1));
         let builds = Rc::new(Cell::new(0));
         GUIDED_CHECK_PROBE.with(|slot| *slot.borrow_mut() = Some(GuidedCheckProbe {
@@ -2039,7 +2752,7 @@ pub(crate) mod tests {
         assert_eq!(builds.get(), 2, "only the interrupted construction must restart");
         assert_eq!(prep::retained_candidates(&f.m).unwrap(), vec![owned.clone()]);
         owned.native.artifact.verify().unwrap();
-        assert_eq!(fs::read_dir(&dir).unwrap().count(), 2);
+        assert_eq!(fs::read_dir(&dir).unwrap().count(), 3);
         assert_eq!(prep::publication_state(&f.m, &owned).unwrap(), "unpublished");
         assert_eq!(fs::read(&original_receipt).unwrap(), before_receipt);
         assert_eq!(operator_cli::test_finalize_interrupted_worker(&f.m, &interrupted).unwrap(), refused);
@@ -2153,7 +2866,7 @@ pub(crate) mod tests {
             assert_eq!(prep::decisions(&f.m, &c).unwrap().iter()
                 .filter(|row| row.operation == source).count(), 1);
             assert_eq!(prep::guided_results(&f.m, &candidate).unwrap()[0]["completed"], true);
-            assert_eq!(finish_guided_result(&f.m, &software(&f.m).unwrap(), &source)
+            assert_eq!(finish_guided_result(&f.m, &source)
                 .unwrap()["result"], "already_recorded");
         }
     }
@@ -2487,14 +3200,14 @@ pub(crate) mod tests {
             passed: vec![ui::TestArea::DawLoad, ui::TestArea::Editor],
             failed_area: None, note: String::new(),
         };
-        let partial = guided_result(&f.m, &sw, &worked, &first,
+        let partial = guided_result(&f.m, &worked, &first,
             || f.m.lock("registry.lock")).unwrap();
         assert_eq!(partial["result"], "partial_experimental");
         assert_eq!(prep::publication_state(&f.m, &c).unwrap(), "experimental");
         assert!(prep::decisions(&f.m, &c).unwrap().is_empty());
         assert_eq!(prep::observations(&f.m, &c).unwrap().iter()
             .filter(|observation| observation.operation == first).count(), 2);
-        assert_eq!(guided_result(&f.m, &sw, &worked, &first,
+        assert_eq!(guided_result(&f.m, &worked, &first,
             || f.m.lock("registry.lock")).unwrap()["result"],
             "already_recorded");
         products = vec![projection_product(&c)];
@@ -2507,7 +3220,7 @@ pub(crate) mod tests {
             result: ui::TestResultKind::Problem { category: ui::ProblemCategory::BlankEditor },
             passed: vec![], failed_area: None, note: "Editor was white".into(),
         };
-        let result = guided_result(&f.m, &sw, &problem, &negative,
+        let result = guided_result(&f.m, &problem, &negative,
             || f.m.lock("registry.lock")).unwrap();
         assert_eq!(result["result"], "awaiting_retirement");
         assert_eq!(prep::publication_state(&f.m, &c).unwrap(), "experimental");
@@ -2520,7 +3233,7 @@ pub(crate) mod tests {
         project(&f.m, &sw, &mut products, None).unwrap();
         assert_eq!(products[0].compatibility.as_ref().unwrap().phase,
             ui::CompatibilityPhase::AwaitingRetirement);
-        let finished = finish_guided_result(&f.m, &sw, &negative).unwrap();
+        let finished = finish_guided_result(&f.m, &negative).unwrap();
         assert_eq!(finished["result"], "needs_work");
         assert_eq!(prep::publication_state(&f.m, &c).unwrap(), "removed");
         assert_eq!(prep::decisions(&f.m, &c).unwrap().last().unwrap().choice,
@@ -2533,7 +3246,7 @@ pub(crate) mod tests {
         assert_eq!(pending.phase, ui::CompatibilityPhase::TestResultIncomplete);
         assert!(matches!(&pending.primary.as_ref().unwrap().action,
             ui::Action::CompatibilityFinishResult { operation } if operation == &negative));
-        let resumed = finish_guided_result(&f.m, &sw, &negative).unwrap();
+        let resumed = finish_guided_result(&f.m, &negative).unwrap();
         assert_eq!(resumed["result"], "needs_work");
         assert_eq!(resumed["resumed"], true);
         assert!(prep::guided_results(&f.m, &candidate).unwrap().iter()
@@ -2547,7 +3260,6 @@ pub(crate) mod tests {
     #[test]
     fn ui2_success_result_waits_for_a_polling_registry_before_recording() {
         let (f, c) = projection_fixture_with_role(true);
-        let sw = projection_software(&c);
         prep::record_candidate(&f.m, &c).unwrap();
         prep::enable(&f.m, &c, false).unwrap();
         let candidate = c.id().unwrap();
@@ -2567,7 +3279,7 @@ pub(crate) mod tests {
                 std::thread::sleep(std::time::Duration::from_millis(100));
                 drop(held);
             });
-            guided_result(&f.m, &sw, &action, &operation, || {
+            guided_result(&f.m, &action, &operation, || {
                 let (guard, facts) = f.m.lock_bounded(
                     ui::OperatorLock::Registry,
                     ui::LockPurpose::OperatorValidationReadback,
@@ -2610,7 +3322,7 @@ pub(crate) mod tests {
             result: ui::TestResultKind::Problem { category: ui::ProblemCategory::BlankEditor },
             passed: vec![], failed_area: None, note: "Editor remained blank".into(),
         };
-        assert_eq!(guided_result(&f.m, &sw, &problem, &operation,
+        assert_eq!(guided_result(&f.m, &problem, &operation,
             || f.m.lock("registry.lock")).unwrap()["result"],
             "awaiting_retirement");
         prep::review(&f.m, &b, &operation, prep::ReviewChoice::NeedsWork,
@@ -2627,13 +3339,13 @@ pub(crate) mod tests {
         let pending = products[0].compatibility.as_ref().unwrap();
         assert_eq!(pending.current_candidate.as_deref(), Some(a.id().unwrap().as_str()));
         assert_eq!(pending.phase, ui::CompatibilityPhase::TestResultIncomplete);
-        assert!(pending.summary.contains("previous working configuration is selected"));
+        assert!(pending.summary.contains("previous configuration is selected"));
         assert!(matches!(&pending.primary.as_ref().unwrap().action,
             ui::Action::CompatibilityFinishResult { operation: source } if source == &operation));
         assert_eq!(pending.primary.as_ref().unwrap().disabled_reason, None);
         assert!(products[0].details["preparation"]["guided_results"].as_array().unwrap()
             .iter().any(|row| row["operation"] == operation && row["completed"] == false));
-        assert_eq!(finish_guided_result(&f.m, &sw, &operation).unwrap()["result"], "needs_work");
+        assert_eq!(finish_guided_result(&f.m, &operation).unwrap()["result"], "needs_work");
         assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_before);
         assert_eq!(prep::observations(&f.m, &b).unwrap(), observations_before);
         assert_eq!(prep::decisions(&f.m, &b).unwrap(), reviews_before);
@@ -2664,7 +3376,7 @@ pub(crate) mod tests {
             note: "Editor remained blank".into(),
         };
         let sid = random_id().unwrap();
-        let report = f.m.root.join("runtime/results").join(format!("{sid}.json"));
+        let report = f.m.root.join("runtime/results").join(format!("windows-{sid}.json"));
         let lease = f.m.root.join("runtime/leases").join(format!("{sid}.json"));
         private_dir(report.parent().unwrap()).unwrap();
         private_dir(lease.parent().unwrap()).unwrap();
@@ -2673,24 +3385,24 @@ pub(crate) mod tests {
             .join(&sid).join("owner.json");
         private_dir(owner.parent().unwrap()).unwrap();
         atomic_json(&owner, &json!({"session":sid,"report":report,
-            "keeper":false,"registration":{"metadata":{"class_id":c.selection.class.id}}})).unwrap();
+            "keeper":false,"inspect":false,"registration":{"metadata":{"class_id":c.selection.class.id}}})).unwrap();
         assert!(f.m.require_inactive(None).is_err());
         let mut products = vec![projection_product(&c)];
         project(&f.m, &sw, &mut products, Some("Close active bridged instances")).unwrap();
         assert!(products[0].compatibility.as_ref().unwrap().primary.as_ref().unwrap()
-            .disabled_reason.is_none());
+            .disabled_reason.is_some());
         let before = fs::read(f.m.root.join("registry.json")).unwrap();
-        let result = guided_result(&f.m, &sw, &action, &operation,
+        let result = guided_result(&f.m, &action, &operation,
             || f.m.lock("registry.lock")).unwrap();
         assert_eq!(result["result"], "awaiting_retirement");
         assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before);
         assert!(prep::decisions(&f.m, &c).unwrap().is_empty());
         assert_eq!(prep::observations(&f.m, &c).unwrap().iter()
             .filter(|row| row.operation == operation).count(), 2);
-        assert_eq!(finish_guided_result(&f.m, &sw, &operation).unwrap_err().to_string(),
+        assert_eq!(finish_guided_result(&f.m, &operation).unwrap_err().to_string(),
             "active_device_lease");
         fs::remove_file(&lease).unwrap();
-        let finished = finish_guided_result(&f.m, &sw, &operation).unwrap();
+        let finished = finish_guided_result(&f.m, &operation).unwrap();
         assert_eq!(finished["result"], "needs_work");
         assert_eq!(prep::publication_state(&f.m, &c).unwrap(), "removed");
     }
@@ -2714,9 +3426,9 @@ pub(crate) mod tests {
         let mut products = vec![projection_product(&c)];
         project(&f.m, &sw, &mut products, Some("Previous instance cleanup is unconfirmed")).unwrap();
         assert!(products[0].compatibility.as_ref().unwrap().primary.as_ref().unwrap()
-            .disabled_reason.is_none());
+            .disabled_reason.is_some());
         let before = fs::read(f.m.root.join("registry.json")).unwrap();
-        assert_eq!(guided_result(&f.m, &sw, &action, &operation,
+        assert_eq!(guided_result(&f.m, &action, &operation,
             || f.m.lock("registry.lock")).unwrap()["result"],
             "awaiting_retirement");
         assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before);
@@ -2741,14 +3453,14 @@ pub(crate) mod tests {
             result: ui::TestResultKind::Problem { category: ui::ProblemCategory::BlankEditor },
             passed: vec![], failed_area: None, note: "Blank editor".into(),
         };
-        guided_result(&f.m, &sw, &action, &operation,
+        guided_result(&f.m, &action, &operation,
             || f.m.lock("registry.lock")).unwrap();
         prep::disable(&f.m, &c).unwrap();
         let newer = prep::enable(&f.m, &c, false).unwrap();
         let ui::Action::CompatibilityResult { expected_current, .. } = &action else { unreachable!() };
         assert_ne!(newer.id, expected_current.id);
         let changed = fs::read(f.m.root.join("registry.json")).unwrap();
-        assert!(finish_guided_result(&f.m, &sw, &operation).is_err());
+        assert!(finish_guided_result(&f.m, &operation).is_err());
         assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), changed);
         assert!(prep::decisions(&f.m, &c).unwrap().is_empty());
         assert!(prep::observations(&f.m, &c).unwrap().iter()
@@ -2767,7 +3479,6 @@ pub(crate) mod tests {
     #[test]
     fn ui2_wrong_publication_refuses_before_observation_or_review() {
         let (f, c) = projection_fixture();
-        let sw = projection_software(&c);
         prep::record_candidate(&f.m, &c).unwrap();
         prep::enable(&f.m, &c, false).unwrap();
         let mut expected = publication_identity(f.m.registry().unwrap().classes
@@ -2781,7 +3492,7 @@ pub(crate) mod tests {
             result: ui::TestResultKind::Problem { category: ui::ProblemCategory::BlankEditor },
             passed: vec![], failed_area: None, note: "White editor".into(),
         };
-        let error = guided_result(&f.m, &sw, &problem, &operation,
+        let error = guided_result(&f.m, &problem, &operation,
             || f.m.lock("registry.lock")).unwrap_err().to_string();
         assert_eq!(error, "guided_test_publication_changed");
         assert_eq!(test_fixture::snapshot(&f.m.root.join("preparation/observations")), before);
@@ -2806,10 +3517,59 @@ pub(crate) mod tests {
             recorded_at: 1, ordinal: 1, ordinary_profile: None,
         });
         view.candidates.insert(0, prior);
-        let workflow = guided_projection(&f.m, &c.selection, &view, None, None, false, false).unwrap();
+        let workflow = guided_projection(&f.m, &c.selection, &view, Inactivity {global:None, class:None}, None, false, false).unwrap();
         assert_eq!(workflow.phase, ui::CompatibilityPhase::AvailableForTest);
         assert_eq!(workflow.current_candidate.as_deref(), Some(c.id().unwrap().as_str()));
         assert!(matches!(workflow.primary.unwrap().action, ui::Action::CompatibilityResult { .. }));
+    }
+    #[test]
+    fn selected_refreshed_candidate_stays_visible_without_reopening_discovery_admission() {
+        let (f, c) = projection_fixture();
+        prep::record_candidate(&f.m, &c).unwrap();
+        prep::enable(&f.m, &c, false).unwrap();
+        let sw = projection_software(&c);
+        fs::remove_file(f.m.root.join("inventory")
+            .join(format!("{}.json", c.selection.environment.id))).unwrap();
+        let view = prep::view(&f.m, &c.selection, &sw.host, &sw.source_sha256).unwrap();
+        assert!(!view.candidates.iter().any(|row| row.current_inputs));
+        let workflow = guided_projection(&f.m, &c.selection, &view,
+            Inactivity {global:None, class:None}, Some("inventory superseded"), false, false).unwrap();
+        assert_eq!(workflow.phase, ui::CompatibilityPhase::AvailableForTest);
+        assert_eq!(workflow.current_candidate.as_deref(), Some(c.id().unwrap().as_str()));
+        assert!(matches!(workflow.primary.unwrap().action,
+            ui::Action::CompatibilityResult { .. }));
+
+        let environment = c.selection.environment.root.join("environment.json");
+        let environment_bytes = fs::read(&environment).unwrap();
+        let mut changed: serde_json::Value = read_json(&environment).unwrap();
+        changed["revision"] = json!(c.selection.environment.revision + 1);
+        atomic_json(&environment, &changed).unwrap();
+        let refused = guided_projection(&f.m, &c.selection, &view,
+            Inactivity {global:None, class:None}, Some("inventory superseded"), false, false).unwrap();
+        assert_eq!(refused.phase, ui::CompatibilityPhase::HistoricalOnly);
+        assert!(refused.primary.is_none());
+        fs::write(&environment, environment_bytes).unwrap();
+
+        let reference = f.m.registry().unwrap().classes[&c.selection.class.id]
+            .managed_revision.clone().unwrap();
+        let revision = f.m.load_revision_record(&c.selection.class.id, &reference).unwrap();
+        let completion = f.m.root.join("transactions")
+            .join(format!("{}.result.json", revision.transaction));
+        let completion_bytes = fs::read(&completion).unwrap();
+        fs::remove_file(&completion).unwrap();
+        let incomplete = guided_projection(&f.m, &c.selection, &view,
+            Inactivity {global:None, class:None}, Some("inventory superseded"), false, false).unwrap();
+        assert_eq!(incomplete.phase, ui::CompatibilityPhase::HistoricalOnly);
+        fs::write(&completion, completion_bytes).unwrap();
+
+        let performance = f.m.root.join("performance")
+            .join(format!("{}.json", c.selection.class.id));
+        private_dir(performance.parent().unwrap()).unwrap();
+        fs::write(&performance, b"not a performance record").unwrap();
+        let invalid_performance = guided_projection(&f.m, &c.selection, &view,
+            Inactivity {global:None, class:None}, Some("inventory superseded"), false, false).unwrap();
+        assert_eq!(invalid_performance.phase, ui::CompatibilityPhase::HistoricalOnly);
+        fs::remove_file(performance).unwrap();
     }
     #[test]
     fn ui2_two_exact_effect_layouts_offer_only_bounded_human_choices() {
@@ -2824,7 +3584,7 @@ pub(crate) mod tests {
         stereo.audio_layout = Some(profiles::AudioLayoutPolicy::StereoMainPair);
         stereo.recommended = false;
         view.inspections.push(stereo);
-        let workflow = guided_projection(&f.m, &c.selection, &view, None, None, false, false).unwrap();
+        let workflow = guided_projection(&f.m, &c.selection, &view, Inactivity {global:None, class:None}, None, false, false).unwrap();
         assert_eq!(workflow.phase, ui::CompatibilityPhase::NotChecked);
         assert!(workflow.primary.is_none());
         assert_eq!(workflow.alternatives.len(), 2);
@@ -2956,40 +3716,11 @@ pub(crate) mod tests {
         prep::record_candidate(&f.m, &c).unwrap();
         prep::retain_inspection(&f.m, &c.inspection).unwrap();
         let original = test_fixture::snapshot(&f.m.root.join("preparation/candidates"));
-        let mut sw = projection_software(&c);
-        // A current kit host with exact runtime identities for preparation offers.
-        let kitpath = f.m.root.join("software/projection-kit.zip");
-        fs::write(&kitpath, b"generated kit identity").unwrap();
-        fs::set_permissions(&kitpath, fs::Permissions::from_mode(0o400)).unwrap();
-        let kit = Artifact {
-            sha256: digest(&kitpath).unwrap(),
-            path: kitpath,
-        };
-        let dir = f.m.root.join("software/preparation-kits").join(&kit.sha256);
-        private_dir(&dir).unwrap();
-        let copy = |a: &Artifact, name: &str| {
-            let path = dir.join(name);
-            fs::copy(&a.path, &path).unwrap();
-            fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
-            Artifact {
-                path,
-                sha256: a.sha256.clone(),
-            }
-        };
-        let host = copy(&c.host, "host.exe");
-        let source = copy(&c.source_manifest, "host-source-manifest.json");
-        atomic_json(
-            &dir.join("runtime.json"),
-            &prep::build::Runtime {
-                kit: kit.clone(),
-                host: host.clone(),
-                source_manifest: source.clone(),
-                builder: None,
-                generator: None,
-            },
-        )
-        .unwrap();
-        sw.preparation_kit = Some(kit.clone());
+        let sw = projection_software(&c);
+        // The current schema-4 kit and its exact staged host own preparation offers.
+        let kit = sw.preparation_kit.clone().unwrap();
+        let host = c.host.clone();
+        let source = c.source_manifest.clone();
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         let mut raw: Value = read_json(&c.selection.factory_report.path).unwrap();
         raw["inspection_generation"] = json!(2);

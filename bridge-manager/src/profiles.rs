@@ -83,6 +83,8 @@ closed_enum!(Limitation {
 #[serde(deny_unknown_fields)]
 pub struct Capabilities {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub graphics: Option<crate::operator_model::GraphicsBackend>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vendor_retirement: Option<VendorRetirement>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub editor_lifetime: Option<EditorLifetime>,
@@ -99,6 +101,7 @@ pub struct Capabilities {
 impl Capabilities {
     pub fn compatibility(&self) -> Compatibility {
         Compatibility {
+            graphics: self.graphics,
             disable_windows_accessibility: self.accessibility == Accessibility::DisabledForVendorProcess,
             event_output: self.event_output.clone(),
             audio_layout: self.audio_layout.clone(),

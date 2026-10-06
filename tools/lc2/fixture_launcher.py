@@ -30,6 +30,16 @@ def main():
     env = session.environment({'environment': {'root': str(root)}, 'compatibility': {'disable_windows_accessibility': False}})
     env['HOME'] = str(root / 'home')
     env['WINEDEBUG'] = '-all'
+    # Explicit source-fixture controls only. session.environment deliberately
+    # rebuilds the ordinary runtime environment and never inherits arbitrary
+    # native test variables.
+    for name, allowed in {
+        'LVB_LC1_HOLD_STARTED': {'1', '3'},
+        'LVB_LC1_REFUSE_FIRST_START': {'1'},
+    }.items():
+        if name in os.environ:
+            assert os.environ[name] in allowed
+            env[name] = os.environ[name]
     base = [runner['entry_point'], '--verb=run', '--', runner['proton']]
     # Pinned public initialization route; no Steam client/account startup.
     if not (root / 'compatdata/pfx/system.reg').is_file():
@@ -41,7 +51,8 @@ def main():
         return
     directory = pathlib.Path(sys.argv[1]).resolve(strict=True)
     sid = sys.argv[2]
-    assert directory.parent == stage and directory.name in ('normal', 'activation_only', 'wrong_sequence')
+    assert directory.parent == stage and directory.name in (
+        'normal', 'activation_only', 'wrong_sequence', 'start_refusal')
     assert sid == '1c' * 16
     deadline = time.monotonic() + 10
     while not (directory / 'ap1.control').is_file():

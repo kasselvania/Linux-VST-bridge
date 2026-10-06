@@ -5,9 +5,11 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs,
     io::{Read, Write},
+    os::fd::{AsRawFd, FromRawFd, OwnedFd},
     os::unix::{
+        ffi::OsStrExt,
         fs::{FileTypeExt, MetadataExt, OpenOptionsExt, PermissionsExt},
-        net::{UnixListener, UnixStream},
+        net::UnixStream,
     },
     path::{Path, PathBuf},
 };
@@ -35,6 +37,13 @@ pub struct GraphicalSession {
     pub xauthority: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dbus_session_bus_address: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PeerProcess {
+    pub pid: i32,
+    pub uid: u32,
+    pub start_ticks: u64,
 }
 
 impl GraphicalSession {
@@ -213,16 +222,59 @@ fn initialize_at(path: &Path) -> Result<()> {
 use std::os::unix::fs::DirBuilderExt;
 
 fn initialize_graphical_denial(root: &Path, name: &str) -> Result<()> {
+    initialize_graphical_denial_with(root, name, || {})
+}
+
+fn initialize_graphical_denial_with(root: &Path, name: &str, bound: impl FnOnce()) -> Result<()> {
     let path = root.join(name);
     match fs::symlink_metadata(&path) {
         Ok(_) => {}
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            let listener = UnixListener::bind(&path)?;
+            // A listening descriptor can survive in a concurrently forked
+            // child until that child execs, even when it has FD_CLOEXEC. The
+            // denial inode must therefore never enter the listening state.
+            #[cfg(target_os = "linux")]
+            let socket_type = libc::SOCK_STREAM | libc::SOCK_CLOEXEC;
+            #[cfg(not(target_os = "linux"))]
+            let socket_type = libc::SOCK_STREAM;
+            let raw = unsafe { libc::socket(libc::AF_UNIX, socket_type, 0) };
+            if raw < 0 {
+                return Err(std::io::Error::last_os_error().into());
+            }
+            let socket = unsafe { OwnedFd::from_raw_fd(raw) };
+            #[cfg(target_os = "macos")]
+            if unsafe { libc::fcntl(socket.as_raw_fd(), libc::F_SETFD, libc::FD_CLOEXEC) } != 0 {
+                return Err(std::io::Error::last_os_error().into());
+            }
+            let bytes = path.as_os_str().as_bytes();
+            let mut address: libc::sockaddr_un = unsafe { std::mem::zeroed() };
+            require(!bytes.contains(&0) && bytes.len() < address.sun_path.len(),
+                "graphical_denial_path")?;
+            address.sun_family = libc::AF_UNIX as libc::sa_family_t;
+            for (target, source) in address.sun_path.iter_mut().zip(bytes) {
+                *target = *source as libc::c_char;
+            }
+            let length = std::mem::offset_of!(libc::sockaddr_un, sun_path)
+                .checked_add(bytes.len() + 1).ok_or("graphical_denial_path")?;
+            #[cfg(target_os = "macos")]
+            {
+                address.sun_len = length.try_into()?;
+            }
+            if unsafe { libc::bind(socket.as_raw_fd(),
+                std::ptr::from_ref(&address).cast::<libc::sockaddr>(), length.try_into()?) } != 0 {
+                return Err(std::io::Error::last_os_error().into());
+            }
             fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
-            drop(listener); // retain the socket inode without a listening owner
+            bound();
+            drop(socket); // retain a bound stream inode that was never listening
         }
         Err(error) => return Err(error.into()),
     }
+    verify_graphical_denial(root, name)
+}
+
+fn verify_graphical_denial(root: &Path, name: &str) -> Result<()> {
+    let path = root.join(name);
     let before = fs::symlink_metadata(&path)?;
     require(
         before.file_type().is_socket()
@@ -251,6 +303,54 @@ fn initialize_graphical_denial(root: &Path, name: &str) -> Result<()> {
             ) == (after.dev(), after.ino(), after.ctime(), after.ctime_nsec()),
         "graphical_denial_replaced",
     )
+}
+
+/// A package transition may proceed only when the volatile transport root
+/// contains its exact persistent marker and denial sockets, with no session.
+/// This inspection never initializes or repairs the root.
+pub fn require_no_sessions() -> Result<()> {
+    let path = root();
+    match fs::symlink_metadata(&path) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.into()),
+        Ok(_) => require_no_sessions_at(&path),
+    }
+}
+
+fn require_no_sessions_at(path: &Path) -> Result<()> {
+    let before = private(path)?;
+    memory_filesystem(path)?;
+    let marker = path.join("storage-v1");
+    let mut source = file(&marker)?;
+    let first = source.metadata()?;
+    require(first.mode() & 0o077 == 0 && first.len() == MARKER.len() as u64,
+        "transport_root_foreign")?;
+    let mut bytes = [0u8; MARKER.len()];
+    source.read_exact(&mut bytes)?;
+    let last = source.metadata()?;
+    let named = fs::symlink_metadata(&marker)?;
+    require(bytes == MARKER && named.is_file() && !named.file_type().is_symlink()
+        && (first.dev(), first.ino(), first.len(), first.mtime(), first.mtime_nsec(),
+            first.ctime(), first.ctime_nsec())
+            == (last.dev(), last.ino(), last.len(), last.mtime(), last.mtime_nsec(),
+                last.ctime(), last.ctime_nsec())
+        && (first.dev(), first.ino()) == (named.dev(), named.ino()),
+        "transport_root_foreign")?;
+    for name in GRAPHICAL_DENIAL_SOCKETS {
+        verify_graphical_denial(path, name)?;
+    }
+    let mut count = 0;
+    for entry in fs::read_dir(path)? {
+        let entry = entry?;
+        count += 1;
+        require(count <= 3 && matches!(entry.file_name().to_str(),
+            Some("storage-v1" | ".lvb-denied-dbus" | ".lvb-denied-wayland")),
+            "package_stale_transport")?;
+    }
+    require(count == 3, "transport_root_foreign")?;
+    let after = private(path)?;
+    require((before.dev(), before.ino()) == (after.dev(), after.ino()),
+        "transport_directory_replaced")
 }
 
 pub fn create(session: &str) -> Result<(PathBuf, MemoryTransport)> {
@@ -306,31 +406,122 @@ fn peer_credentials(peer: &std::os::unix::net::UnixStream) -> Result<libc::ucred
     Ok(cred)
 }
 #[cfg(target_os = "linux")]
-pub fn visible_to_peer(peer: &std::os::unix::net::UnixStream, directory: &Path) -> Result<()> {
-    let cred = peer_credentials(peer)?;
-    let visible =
-        PathBuf::from(format!("/proc/{}/root", cred.pid)).join(directory.strip_prefix("/")?);
-    same_directory(directory, &visible)
-}
-#[cfg(target_os = "linux")]
-pub fn graphical_session(peer: &std::os::unix::net::UnixStream) -> Result<GraphicalSession> {
-    let cred = peer_credentials(peer)?;
-    let stat = fs::read_to_string(format!("/proc/{}/stat", cred.pid))?;
-    let (_, fields) = stat.rsplit_once(") ").ok_or("graphical_peer_stat")?;
+fn process_start_ticks(pid: i32) -> Result<u64> {
+    let stat = fs::read_to_string(format!("/proc/{pid}/stat"))?;
+    let (_, fields) = stat.rsplit_once(") ").ok_or("peer_process_stat")?;
     let start = fields
         .split_ascii_whitespace()
         .nth(19)
-        .ok_or("graphical_peer_stat")?
+        .ok_or("peer_process_stat")?
         .parse()?;
-    let environment = fs::read(format!("/proc/{}/environ", cred.pid))?;
-    parse_graphical_environment(cred.pid, start, &environment)
+    require(start > 0, "peer_process_generation")?;
+    Ok(start)
+}
+#[cfg(target_os = "linux")]
+impl PeerProcess {
+    fn verify(&self, peer: &std::os::unix::net::UnixStream) -> Result<()> {
+        let credentials = peer_credentials(peer)?;
+        require(
+            credentials.pid == self.pid
+                && credentials.uid == self.uid
+                && process_start_ticks(self.pid)? == self.start_ticks,
+            "peer_process_generation_changed",
+        )
+    }
+}
+#[cfg(target_os = "linux")]
+pub fn peer_process(peer: &std::os::unix::net::UnixStream) -> Result<PeerProcess> {
+    let credentials = peer_credentials(peer)?;
+    let process = PeerProcess {
+        pid: credentials.pid,
+        uid: credentials.uid,
+        start_ticks: process_start_ticks(credentials.pid)?,
+    };
+    process.verify(peer)?;
+    Ok(process)
+}
+#[cfg(any(target_os = "linux", test))]
+fn maps_artifact(bytes: &[u8], metadata: &fs::Metadata) -> Result<bool> {
+    for line in std::str::from_utf8(bytes)?.lines() {
+        let fields: Vec<_> = line.split_whitespace().take(5).collect();
+        require(fields.len() == 5, "native_caller_maps_format")?;
+        let (major, minor) = fields[3].split_once(':').ok_or("native_caller_maps_device")?;
+        if fields[1].starts_with("r-x")
+            && fields[4].parse::<u64>()? == metadata.ino()
+            && u64::from_str_radix(major, 16)? == libc::major(metadata.dev() as libc::dev_t) as u64
+            && u64::from_str_radix(minor, 16)? == libc::minor(metadata.dev() as libc::dev_t) as u64 {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+#[cfg(target_os = "linux")]
+pub fn peer_maps_artifact(
+    peer: &std::os::unix::net::UnixStream,
+    process: &PeerProcess,
+    artifact: &Path,
+) -> Result<()> {
+    process.verify(peer)?;
+    let file = crate::file(artifact)?;
+    let metadata = file.metadata()?;
+    require(
+        metadata.is_file() && metadata.uid() == process.uid,
+        "native_caller_artifact_owner",
+    )?;
+    let mut bytes = Vec::new();
+    fs::File::open(format!("/proc/{}/maps", process.pid))?.take(2 * 1024 * 1024 + 1)
+        .read_to_end(&mut bytes)?;
+    require(bytes.len() <= 2 * 1024 * 1024, "native_caller_maps_extent")?;
+    require(maps_artifact(&bytes, &metadata)?, "native_caller_image_not_mapped")?;
+    process.verify(peer)
 }
 #[cfg(not(target_os = "linux"))]
-pub fn visible_to_peer(_peer: &std::os::unix::net::UnixStream, _directory: &Path) -> Result<()> {
+pub fn peer_process(_peer: &std::os::unix::net::UnixStream) -> Result<PeerProcess> {
+    Err("peer_process_requires_linux".into())
+}
+#[cfg(not(target_os = "linux"))]
+pub fn peer_maps_artifact(
+    _peer: &std::os::unix::net::UnixStream,
+    _process: &PeerProcess,
+    _artifact: &Path,
+) -> Result<()> {
+    Err("native_caller_mapping_requires_linux".into())
+}
+#[cfg(target_os = "linux")]
+pub fn visible_to_peer(
+    peer: &std::os::unix::net::UnixStream,
+    process: &PeerProcess,
+    directory: &Path,
+) -> Result<()> {
+    process.verify(peer)?;
+    let visible =
+        PathBuf::from(format!("/proc/{}/root", process.pid)).join(directory.strip_prefix("/")?);
+    same_directory(directory, &visible)?;
+    process.verify(peer)
+}
+#[cfg(target_os = "linux")]
+pub fn graphical_session(
+    peer: &std::os::unix::net::UnixStream,
+    process: &PeerProcess,
+) -> Result<GraphicalSession> {
+    process.verify(peer)?;
+    let environment = fs::read(format!("/proc/{}/environ", process.pid))?;
+    process.verify(peer)?;
+    parse_graphical_environment(process.pid, process.start_ticks, &environment)
+}
+#[cfg(not(target_os = "linux"))]
+pub fn visible_to_peer(
+    _peer: &std::os::unix::net::UnixStream,
+    _process: &PeerProcess,
+    _directory: &Path,
+) -> Result<()> {
     Err("transport_requires_linux_tmpfs".into())
 }
 #[cfg(not(target_os = "linux"))]
-pub fn graphical_session(_peer: &std::os::unix::net::UnixStream) -> Result<GraphicalSession> {
+pub fn graphical_session(
+    _peer: &std::os::unix::net::UnixStream,
+    _process: &PeerProcess,
+) -> Result<GraphicalSession> {
     Err("transport_requires_linux_tmpfs".into())
 }
 #[cfg(any(target_os = "linux", test))]
@@ -382,6 +573,67 @@ impl Drop for PendingTransport {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(target_os = "linux")]
+    use std::os::unix::net::UnixListener;
+
+    #[cfg(target_os = "linux")]
+    struct ForkedChild {
+        pid: libc::pid_t,
+        release: OwnedFd,
+    }
+    #[cfg(target_os = "linux")]
+    impl ForkedChild {
+        fn wait_bounded(&mut self) -> Option<i32> {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+            loop {
+                let mut status = 0;
+                let result = unsafe { libc::waitpid(self.pid, &mut status, libc::WNOHANG) };
+                if result == self.pid {
+                    self.pid = -1;
+                    return Some(status);
+                }
+                if result < 0 && std::io::Error::last_os_error().kind()
+                    != std::io::ErrorKind::Interrupted {
+                    return None;
+                }
+                if std::time::Instant::now() >= deadline {
+                    return None;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+        }
+        fn release_and_wait(mut self) -> i32 {
+            let byte = [1u8];
+            assert_eq!(unsafe { libc::write(self.release.as_raw_fd(), byte.as_ptr().cast(), 1) }, 1);
+            self.wait_bounded().expect("forked child did not exit")
+        }
+    }
+    #[cfg(target_os = "linux")]
+    impl Drop for ForkedChild {
+        fn drop(&mut self) {
+            if self.pid <= 0 {
+                return;
+            }
+            unsafe { libc::kill(self.pid, libc::SIGKILL); }
+            let mut status = 0;
+            loop {
+                let result = unsafe { libc::waitpid(self.pid, &mut status, 0) };
+                if result == self.pid || (result < 0
+                    && std::io::Error::last_os_error().kind()
+                        != std::io::ErrorKind::Interrupted) {
+                    break;
+                }
+            }
+        }
+    }
+    #[cfg(target_os = "linux")]
+    struct TestDirectory(PathBuf);
+    #[cfg(target_os = "linux")]
+    impl Drop for TestDirectory {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
     #[test]
     fn graphical_context_uses_only_the_authenticated_peer_allowlist() {
         let context = parse_graphical_environment(
@@ -404,11 +656,31 @@ mod tests {
             .canonicalize()
             .unwrap()
             .join(format!("ap16-visible-{}", random_id().unwrap()));
+        fs::DirBuilder::new().mode(0o700).create(&a).unwrap();
         private_dir(&a).unwrap();
-        private_dir(&a.join("other")).unwrap();
+        let other = a.join("other");
+        fs::DirBuilder::new().mode(0o700).create(&other).unwrap();
+        private_dir(&other).unwrap();
         assert!(same_directory(&a, &a).is_ok());
-        assert!(same_directory(&a, &a.join("other")).is_err());
+        assert!(same_directory(&a, &other).is_err());
         fs::remove_dir_all(a).unwrap();
+    }
+    #[test]
+    fn mapped_native_identity_uses_device_and_inode_not_path_text() {
+        let path = std::env::temp_dir().join(format!("mapped-native-{}", random_id().unwrap()));
+        fs::write(&path, b"native image").unwrap();
+        let metadata = fs::metadata(&path).unwrap();
+        let matching = format!("1000-2000 r-xp 0 {:x}:{:x} {} /different/mount/name\n",
+            libc::major(metadata.dev() as libc::dev_t), libc::minor(metadata.dev() as libc::dev_t), metadata.ino());
+        assert!(maps_artifact(matching.as_bytes(), &metadata).unwrap());
+        let readonly = matching.replacen("r-xp", "r--p", 1);
+        assert!(!maps_artifact(readonly.as_bytes(), &metadata).unwrap());
+        let wrong = format!("1000-2000 r-xp 0 {:x}:{:x} {} {}\n",
+            libc::major(metadata.dev() as libc::dev_t), libc::minor(metadata.dev() as libc::dev_t),
+            metadata.ino()+1, path.display());
+        assert!(!maps_artifact(wrong.as_bytes(), &metadata).unwrap());
+        assert!(maps_artifact(b"malformed\n", &metadata).is_err());
+        fs::remove_file(path).unwrap();
     }
     #[cfg(target_os = "linux")]
     #[test]
@@ -431,7 +703,8 @@ mod tests {
         assert_eq!(id.inode, fs::metadata(&p).unwrap().ino());
         memory_filesystem(&p).unwrap();
         let (a, _b) = std::os::unix::net::UnixStream::pair().unwrap();
-        visible_to_peer(&a, &p).unwrap();
+        let process = peer_process(&a).unwrap();
+        visible_to_peer(&a, &process, &p).unwrap();
         assert!(create_at(&r, &sid).is_err());
         for invalid in ["../escape", "", &"AB".repeat(16)] {
             assert!(create_at(&r, invalid).is_err());
@@ -439,6 +712,29 @@ mod tests {
         fs::write(r.join("storage-v1"), b"foreign").unwrap();
         assert!(create_at(&r, &"cd".repeat(16)).is_err());
         assert!(p.exists());
+        fs::remove_dir_all(r).unwrap();
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn package_idle_readback_accepts_only_exact_static_transport_entries() {
+        let r = PathBuf::from("/dev/shm")
+            .join(format!("package-transport-{}", random_id().unwrap()));
+        require_no_sessions_at(&r).unwrap_err();
+        assert!(!r.exists());
+        initialize_at(&r).unwrap();
+        require_no_sessions_at(&r).unwrap();
+        let session = "cd".repeat(16);
+        let (directory, _) = create_at(&r, &session).unwrap();
+        assert!(require_no_sessions_at(&r).unwrap_err().to_string()
+            .contains("package_stale_transport"));
+        fs::remove_dir(&directory).unwrap();
+        require_no_sessions_at(&r).unwrap();
+        fs::write(r.join("storage-v1"), b"foreign").unwrap();
+        assert!(require_no_sessions_at(&r).is_err());
+        fs::write(r.join("storage-v1"), MARKER).unwrap();
+        fs::remove_file(r.join(GRAPHICAL_DENIAL_SOCKETS[0])).unwrap();
+        assert!(require_no_sessions_at(&r).is_err());
+        assert!(!r.join(GRAPHICAL_DENIAL_SOCKETS[0]).exists());
         fs::remove_dir_all(r).unwrap();
     }
     #[cfg(target_os = "linux")]
@@ -466,6 +762,53 @@ mod tests {
             drop(listener);
             fs::remove_dir_all(r).unwrap();
         }
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn forked_pre_exec_child_cannot_keep_a_denial_socket_listening() {
+        let r = TestDirectory(PathBuf::from("/dev/shm")
+            .join(format!("graphical-denial-fork-{}", random_id().unwrap())));
+        fs::DirBuilder::new().mode(0o700).create(&r.0).unwrap();
+        let mut ready = [-1; 2];
+        let mut release = [-1; 2];
+        assert_eq!(unsafe { libc::pipe2(ready.as_mut_ptr(), libc::O_CLOEXEC) }, 0);
+        assert_eq!(unsafe { libc::pipe2(release.as_mut_ptr(), libc::O_CLOEXEC) }, 0);
+        let ready_read = unsafe { OwnedFd::from_raw_fd(ready[0]) };
+        let ready_write = unsafe { OwnedFd::from_raw_fd(ready[1]) };
+        let release_read = unsafe { OwnedFd::from_raw_fd(release[0]) };
+        let release_write = unsafe { OwnedFd::from_raw_fd(release[1]) };
+        let mut child = None;
+        let result = initialize_graphical_denial_with(&r.0, GRAPHICAL_DENIAL_SOCKETS[0], || {
+            let pid = unsafe { libc::fork() };
+            if pid == 0 {
+                unsafe {
+                    libc::close(ready_read.as_raw_fd());
+                    libc::close(release_write.as_raw_fd());
+                    let byte = [1u8];
+                    let _ = libc::write(ready_write.as_raw_fd(), byte.as_ptr().cast(), 1);
+                    libc::close(ready_write.as_raw_fd());
+                    let mut release_byte = 0u8;
+                    let _ = libc::read(release_read.as_raw_fd(),
+                        std::ptr::from_mut(&mut release_byte).cast(), 1);
+                    libc::_exit(0);
+                }
+            }
+            assert!(pid > 0);
+            drop(ready_write);
+            drop(release_read);
+            child = Some(ForkedChild { pid, release: release_write });
+            let mut pollfd = libc::pollfd {
+                fd: ready_read.as_raw_fd(), events: libc::POLLIN, revents: 0
+            };
+            assert_eq!(unsafe { libc::poll(&mut pollfd, 1, 5_000) }, 1);
+            let mut byte = 0u8;
+            assert_eq!(unsafe { libc::read(ready_read.as_raw_fd(),
+                std::ptr::from_mut(&mut byte).cast(), 1) }, 1);
+        });
+        result.unwrap();
+        let status = child.take().unwrap().release_and_wait();
+        assert!(libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0);
+        verify_graphical_denial(&r.0, GRAPHICAL_DENIAL_SOCKETS[0]).unwrap();
     }
     #[cfg(target_os = "linux")]
     #[test]

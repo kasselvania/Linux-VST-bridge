@@ -2,11 +2,15 @@ pub mod endpoint;
 pub mod admission;
 pub mod events;
 pub mod mapping;
+pub mod notification;
 // AP1 bounded wire codec and Linux-owned slot state. No external dependencies.
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
 pub const HEADER: usize = 56;
+// State carries opaque recordings as well as settings. This is a per-save
+// extent bound, not an allocation made at activation or on the audio callback.
+pub const STATE_LIMIT: usize = 256 * 1024 * 1024;
 pub const CAP: usize = 256;
 pub const STRIDE: usize = 1032;
 pub const INPUT: usize = 64;
@@ -14,6 +18,12 @@ pub const OUTPUT: usize = 2128;
 pub const MAP_BYTES: usize = 4192;
 pub const MULTI_CHANNELS: usize = 64;
 pub const MULTI_MAP_BYTES: usize = OUTPUT + MULTI_CHANNELS * STRIDE;
+// Minor 14 / mapping 3 preserves a complete admitted DAW block. Legacy
+// fixtures retain their original 256-frame layout and wire limits.
+pub const BLOCK_CAP: usize = 1024;
+pub const BLOCK_STRIDE: usize = (BLOCK_CAP + 2) * 4;
+pub const BLOCK_OUTPUT: usize = INPUT + 2 * BLOCK_STRIDE;
+pub const BLOCK_MAP_BYTES: usize = BLOCK_OUTPUT + MULTI_CHANNELS * BLOCK_STRIDE;
 pub const GUARD: u32 = 0x4b123456;
 pub const POISON: u32 = 0x7fc12345;
 pub const WITNESS: u64 = 0x8d396b274e105ac3;
@@ -51,6 +61,26 @@ pub struct Frame {
     pub sequence: u64,
     pub payload: Vec<u8>,
 }
+#[cfg(test)]
+mod state_capacity_tests {
+    use super::*;
+    #[test]
+    fn recordings_cross_the_old_cap_and_headers_enforce_the_new_cap() {
+        assert_eq!(STATE_LIMIT, 256 * 1024 * 1024);
+        for kind in 17..=19 {
+            let frame = Frame { kind, session: [3;16], sequence: 4, payload: vec![0xd3;2*1024*1024] };
+            let wire = frame.encode_version(15).unwrap();
+            assert_eq!(Frame::decode_version(&wire,15).unwrap(),frame);
+            let mut header = wire[..HEADER].to_vec();
+            put(&mut header[12..16],STATE_LIMIT as u64);
+            assert_eq!(payload_length_version(&header,15).unwrap(),STATE_LIMIT);
+            put(&mut header[12..16],STATE_LIMIT as u64+1);
+            assert!(payload_length_version(&header,15).is_err());
+        }
+        let frame = Frame { kind: PROCESS, session: [3;16], sequence: 4, payload: vec![0;8361] };
+        assert!(frame.encode_version(15).is_err());
+    }
+}
 impl Frame {
     pub fn encode(&self) -> io::Result<Vec<u8>> {
         self.encode_version(1)
@@ -72,14 +102,16 @@ impl Frame {
                 7
             })
                 .contains(&self.kind)
-                && (1..=13).contains(&minor)
+                && (1..=15).contains(&minor)
                 && self.payload.len()
                     <= if minor >= 4 && matches!(self.kind, 17..=19) {
-                        1 << 20
+                        STATE_LIMIT
                     } else if minor >= 9 && self.kind == DONE {
                         10312
-                    } else if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) && self.kind == PROCESS {
-                        if minor >= 10 {
+                    } else if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15) && self.kind == PROCESS {
+                        if minor >= 15 {
+                            8360
+                        } else if minor >= 10 {
                             8352
                         } else if minor >= 8 {
                             8344
@@ -133,7 +165,7 @@ pub fn payload_length_version(b: &[u8], minor: u64) -> io::Result<usize> {
             && get(&b[0..4]) == 0x3141504c
             && get(&b[4..6]) == 1
             && get(&b[6..8]) == minor
-            && (1..=13).contains(&minor)
+            && (1..=15).contains(&minor)
             && get(&b[10..12]) == 0,
         "protocol version/header",
     )?;
@@ -155,11 +187,13 @@ pub fn payload_length_version(b: &[u8], minor: u64) -> io::Result<usize> {
     let n = get(&b[12..16]);
     need(
         n <= if minor >= 4 && matches!(get(&b[8..10]), 17..=19) {
-            1 << 20
+            STATE_LIMIT as u64
         } else if minor >= 9 && get(&b[8..10]) == DONE as u64 {
             10312
-        } else if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) && get(&b[8..10]) == PROCESS as u64 {
-            if minor >= 10 {
+        } else if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15) && get(&b[8..10]) == PROCESS as u64 {
+            if minor >= 15 {
+                8360
+            } else if minor >= 10 {
                 8352
             } else if minor >= 8 {
                 8344
@@ -288,6 +322,9 @@ impl ClientState {
         })
     }
     pub fn done(&mut self, f: &Frame) -> io::Result<u64> {
+        self.done_at(f, OUTPUT)
+    }
+    pub fn done_at(&mut self, f: &Frame, output: usize) -> io::Result<u64> {
         let ok = match self.slot {
             Slot::Outstanding { sequence, frames } => {
                 f.kind == DONE
@@ -295,7 +332,7 @@ impl ClientState {
                     && f.sequence == sequence
                     && f.payload.len() == 16
                     && get(&f.payload[..4]) == frames as u64
-                    && get(&f.payload[4..8]) == OUTPUT as u64
+                    && get(&f.payload[4..8]) == output as u64
             }
             _ => false,
         };

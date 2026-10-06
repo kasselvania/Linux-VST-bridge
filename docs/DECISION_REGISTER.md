@@ -2,6 +2,12 @@
 
 Decisions are separated into **accepted**, **provisional**, and **open**. Implementation convenience does not silently change their state.
 
+The 2026-10-02 recovery direction is recorded in the portable-audio D-022 below;
+the 2026-10-03 platform assessment is recorded in D-028 and architecture section 18.
+Earlier development-process entries are historical where superseded by
+AGENTS.md and GOVERNANCE.md; they do not impose additional approval or closure
+cycles on the operator's selected roadmap.
+
 ## Accepted product and architecture rulings
 
 ### D-001 — Product boundary
@@ -50,6 +56,14 @@ Decisions are separated into **accepted**, **provisional**, and **open**. Implem
 
 **Decision:** Compatibility profiles and support claims bind exact plug-in build, license channel, runner, environment, proxy/protocol, DAW, sandbox, and capability matrix.
 
+Exact support claims do not require maintainer approval before a user can try an
+unfamiliar build or local configuration. The 2026-10-02 operator correction is
+recorded in [architecture section 18.6](ARCHITECTURE.md#186-general-preparation-and-compatibility-experimentation):
+general preparation, advanced runtime/dependency controls and reversible trials
+share the existing candidate/publication owner. Reusable preparation and state
+recovery have bounded installed results; complete configuration and platform
+integration remain open under D-028.
+
 ### D-009 — No arbitrary profile code
 
 **Decision:** Compatibility profiles are declarative, closed-schema data. They cannot contain arbitrary scripts or commands.
@@ -57,6 +71,81 @@ Decisions are separated into **accepted**, **provisional**, and **open**. Implem
 ### D-010 — No automatic successor
 
 **Decision:** Completion or merge of one slice does not automatically authorize the next. A separate status closure returns the repository to no-active-slice posture, and the technical lead performs explicit successor analysis.
+
+### D-022 — Portable audio recovery contract
+
+**Decision:** Follow the operator-selected [audio recovery roadmap](AUDIO_RECOVERY_ROADMAP.md)
+and [architecture section 18](ARCHITECTURE.md#18-audio-recovery-and-portable-execution).
+Preserve the managed native/Windows ownership boundary and exact identities;
+derive explicit execution policy from host capabilities and plug-in requirements;
+prepare one coherent DAW processing configuration; distinguish audio deadlines
+from transport containment. Restore continuity before qualifying the same-callback
+low-latency design over existing transport. Existing implementations may be
+replaced when they cannot satisfy these requirements.
+
+**Acceptance:** [Integrated beta delivery](INTEGRATED_BETA_DELIVERY.md#acceptance-method)
+is the current release contract. Older short/high-buffer observations remain
+historical evidence and cannot close the recovery targets. Exact wake mechanism,
+delivery-mode promotion and per-platform policies require the contract comparisons
+in the [platform assessment](PLATFORM_ARCHITECTURE_REVIEW.md). Earlier audio-specific
+findings remain retained in the [recovery review](AUDIO_RECOVERY_REVIEW.md).
+
+**Status:** Selected design direction, 2026-10-02; not an implementation or
+physical support claim. PR #200 remains frozen and draft.
+
+### D-028 — Shared platform configuration and execution convergence
+
+**Decision:** Apply the whole-platform assessment at source
+`01590fa05f99c71b141664becd7d9fadf7fa94a7` through
+[architecture section 18.7](ARCHITECTURE.md#187-platform-execution-convergence).
+Retain the reusable engine, ownership/epoch machinery, state migration and focused
+repairs. Replace fixture-based readiness/resource policy, incomplete configuration
+selection and polling/completion policy with shared capability contracts; repair
+SDK fidelity and editor/control failure classification through their real owners.
+
+**Integration:** One resolved configuration under existing candidate/history owners
+serves preparation, ordinary controls, launch, update and restore. Capability
+observations, user choices, current liveness and exact support claims remain distinct.
+Extend runtime/dependency operations and DAW execution from that contract; graphics
+and portability inform the design throughout. Do not create a second engine,
+candidate database, lifecycle framework or approval process.
+
+**Completion:** Deliver the capability increments and representative installed
+journeys in the [assessment](PLATFORM_ARCHITECTURE_REVIEW.md#implementation-programme-and-completion),
+then the unchanged integrated beta acceptance. Source review and policy adoption
+alone do not implement those capabilities. No Deck experiment, support expansion,
+merge or release promotion follows from this decision.
+
+**Status:** Engineering direction recorded under the operator's 2026-10-03 platform
+assessment instruction. The assessment is complete at the stated source; execution
+and physical acceptance remain open. PR #204 remains draft.
+
+### D-029 — Managed refresh of pre-contract native publications
+
+**Decision:** Operator approved on 2026-10-04 after the reproduced loaded-engine
+and cached-descriptor mismatch at `22e6569c`. The normal Update Bridge operation
+prepares and verifies replacement bridge components for affected selected plug-ins
+before switching. Require the DAW to close when necessary; no per-plug-in manual
+refresh, vendor reinstall, SDK/compiler or customer terminal operation is required.
+Preserve vendor installations, licensed environment identity, stable DAW class IDs,
+saved state and supported explicit settings. Preparation failure preserves the
+prior selection and gives a specific failure. Restore previous setup remains an
+ordinary operation with verified compatible bridge components.
+
+**Identity and recovery:** Pre-contract LVB1–4 native publications cannot execute
+under the repaired manager because they cannot prove cached descriptor provenance.
+Retain their original bytes/history without falsifying provenance. Restoring a
+vendor/configuration predecessor uses an explicitly prepared compatible bridge
+pair; a full bridge-package predecessor must restore its coherent components and
+publications. Do not silently run old proxy binaries through a weaker admission
+path, fabricate lineage or replace a missing vendor version with another build.
+
+**Completion:** Extend existing package transition, preparation, publication and
+history owners rather than introducing a parallel transaction framework. Installed
+update, saved-state/audio recall, failed/interrupted update recovery and normal
+predecessor restoration must pass before this migration is considered delivered.
+The modern source binding alone does not satisfy the customer journey. This
+decision resolves the policy gap; it does not claim deployment or beta readiness.
 
 ## Accepted proof-boundary rulings
 
@@ -336,3 +425,37 @@ Select only after Serum reveals which architectural assumptions need counter-pre
 **Successor consequence:** This bounded acceptance satisfies D-026's prerequisite for considering product-capability work, while its ergonomics and invalidation rules remain binding. Current DX0 source/basis/ref guards and its proof plan are still specific: an arbitrary successor does not already execute unchanged. A successor must bind its authorized source and focused plan while reusing these owners; it must not recreate manual build/custody/SSH choreography or rebuild unchanged artifacts for renderer-only fixes. No successor is selected here.
 
 **Claim ceiling:** DX0 adds no VST3 capability, audio processing, buses, parameters, state, controller/connection, GUI/editor, native proxy, C ABI, IPC, Bitwig or Serum operation, packaging, signing, immutable hosted runner, release suitability, or general compatibility. The accepted product frontier remains WA0.
+
+
+### D-030 — Ordered audio completion under independent host-health containment
+
+**Decision:** On 2026-10-04 the operator explicitly approved the reviewed
+[bounded completion proposal](../evidence/audio-recovery/2026-10-04-short-completion-proposal.md),
+SHA-256 `a705d01d95b942931703b4d50ff28cdefe7c00d4780f1f2644ee9ffec7b77935`.
+This replaces architecture 18.4's realtime/prefetch N/Fs and N0 1-ms cutoffs and
+its prohibition on synchronous use of the existing AUDIO five-second ceiling.
+Approval accepts the possible seconds-long DAW-thread stall at failure; it does
+not qualify audio timing or establish an external device/graph deadline.
+
+**Shared contract:** One originating callback-entry absolute five-second AUDIO
+containment expiry for realtime/prefetch, retained by every admitted request after
+Buffered return. Earlier queued predecessor bounds never renew. D0 and N0 require
+exact ordered completion; Buffered nonzero requires complete due audio/events/
+parameter results despite admitted control. Rendering, validation/publication,
+presentation and final SDK sinks share the origin. Death/cancellation may fail
+sooner; reject late admission/output/success and retain custody until retirement.
+The requested expiry cannot preempt descheduling, vendor process(), or SDK sinks;
+when control returns after expiry, refuse success. Offline60, exclusive restoration,
+epoch/identity, terminal posture and ownership contracts remain intact.
+
+**Implementation pairing:** Mandatory final SDK completion checks advance the ap23
+C ABI from 1 to 2 and native initialization refuses mismatches. IPC15, descriptor,
+profile, mailbox and notification axes are unchanged. Static paired artifacts and
+normal managed update remain the delivery path.
+
+**Evidence and claim ceiling:** The retained refresh4 physical failures and
+[test-only discrimination](../evidence/audio-recovery/2026-10-04-short-completion-discrimination.json)
+remain historical observations. Approval authorizes implementation and frozen
+installed comparisons, not acceptance inferred from tests. No special N13/plugin
+rule, arbitrary budget increase, native RT privilege change, real-time/DAW/soak,
+recovery-matrix or beta claim follows. Source and installed evidence are separate.

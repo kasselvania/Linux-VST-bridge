@@ -5,9 +5,10 @@ namespace AP10Results {
 // Lives on the native processor. All SDK calls use the current callback sinks.
 // Stop/failure only requests cleanup; no host process pointer is retained.
 class Output {
- // Match the pending queue's 512-event bound. Each submitted payload gets an
- // aligned slot, independent of the reusable drain packet. Construct/touch
- // this storage with the processor, before activation; never allocate in RT.
+ // Independent SDK ownership bounds: 512 payload-bearing events per callback
+ // and 512 active notes across callbacks. Each submitted payload gets an
+ // aligned slot, independent of transport packet retention and drain reuse.
+ // Construct/touch before activation; never allocate in RT.
  alignas(TChar) std::array<std::array<uint8_t,ap10_event_payload_capacity>,512> payloads{};
  size_t payload_count=0;
  static_assert(ap10_event_payload_capacity%alignof(TChar)==0);

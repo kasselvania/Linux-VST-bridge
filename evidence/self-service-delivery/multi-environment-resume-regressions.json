@@ -1,0 +1,26 @@
+{
+  "all_targets_clippy": {
+    "frontend": "passed_warnings_denied",
+    "manager": "passed_warnings_denied"
+  },
+  "base_commit": "af2b976fbf286b233a3f83792e5e9906af46c16b",
+  "claim": "source control-plane recovery stages all exact environment bindings before bounded readiness confirmation; frontend feedback is exact-operation specific",
+  "frontend": {
+    "failed": 0,
+    "passed": 86
+  },
+  "installed_successor": "pending",
+  "manager_binary": {
+    "failed": 0,
+    "ignored": 1,
+    "passed": 274
+  },
+  "manager_library": {
+    "failed": 0,
+    "passed": 193
+  },
+  "musical_acceptance": "not_claimed",
+  "production_identity_policy_changed": false,
+  "schema": 1,
+  "test_fixture_fix": "canonical temporary home on macOS"
+}

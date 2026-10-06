@@ -1,0 +1,22 @@
+{
+  "base_source": "cb6361129e8056006a6e4b51e1ed809643b7f5ba",
+  "claim_level": "package_source_regressions",
+  "current_predecessor_mismatch_refused": true,
+  "installer_or_musical_acceptance": false,
+  "operator_schema_authority": "bridge-manager/src/operator_model.rs",
+  "predecessor_schema_14_verified_against_own_source": true,
+  "schema": 1,
+  "source_derived_construction_and_verification": true,
+  "tests": {
+    "pkg0": {
+      "passed": 21,
+      "skipped": 1,
+      "total": 22
+    },
+    "portable": {
+      "passed": 14,
+      "skipped": 2,
+      "total": 16
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{"event": "fresh_enabled_product_offer", "elapsed_ms": 15568.417, "action": {"kind": "compatibility_publish_test", "candidate": "89023a393073afc0da64a2cb2935bbeac193a0e2337c7f5973e377b46f4daf43", "expected_current": {"id": "98dc14e1c69712b0107efe09a6065b0b", "sha256": "d8bd9e7073d542c4dce1f35ce9193d6269e35c5f4df529d6e3ad7ae513e40db4"}}, "claim": "production_operator_path_development_not_frontend_qualification"}
+{"event": "request_receipt", "elapsed_ms": 24576.05, "accepted": true, "operation": "a140c726cb60036c67bcfdbfdd4e4c5c"}
+{"event": "operation_state", "elapsed_ms": 24576.499, "state": "queued"}
+{"event": "operation_state", "elapsed_ms": 24827.296, "state": "running"}
+{"event": "operation_state", "elapsed_ms": 46106.91, "state": "completed"}
+{"event": "operation_terminal", "elapsed_ms": 46107.973, "state": "completed", "reason_code": ""}
+{"event": "replacement_confirmed", "elapsed_ms": 46116.142, "host_sha256": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b", "native_sha256": "9109472240fca35ca269b169a208ae83fb34e59dda64494572e52b80c30fd2cd", "project_unchanged": true, "performance": {"schema": 1, "added_frames": 1024}}

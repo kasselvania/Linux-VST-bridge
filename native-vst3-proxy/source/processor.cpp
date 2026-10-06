@@ -9,11 +9,13 @@
 #include "input_silence.h"
 #ifdef AP8_PREVIEW
 #include "ap10_backend.h"
+#include "ap23_backend.h"
 #include "contained_terminal.h"
 #include "ap11_gui.h"
 #include "pluginterfaces/vst/ivstprocesscontext.h"
 #endif
 #include "pluginterfaces/vst/ivstevents.h"
+#include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include <algorithm>
 #include <cmath>
@@ -22,15 +24,41 @@
 #include <cstdlib>
 #include <fcntl.h>
 #include <limits>
+#include <new>
 #include <sys/stat.h>
 #include <unistd.h>
 namespace AP2 {
 using namespace Steinberg;
 using namespace Steinberg::Vst;
-#ifdef AP8_PREVIEW
+#if defined(AP8_PREVIEW) && !defined(LVB_RUNTIME_DESCRIPTOR)
 static_assert(std::size(AP8::buses)<=AP18Buses::max_buses);
 #endif
 namespace {
+struct OwnedState {
+  ap4_owned_state_v1 bytes{nullptr,0,1};
+  OwnedState() = default;
+  OwnedState(const OwnedState&) = delete;
+  OwnedState& operator=(const OwnedState&) = delete;
+  ~OwnedState() { ap4_state_release_v1(&bytes); }
+  std::vector<uint8_t> copy() const {
+    return {bytes.data,bytes.data+bytes.length};
+  }
+};
+#ifdef AP8_PREVIEW
+uint64_t monotonic_ns() {
+  timespec value{};
+  if (clock_gettime(CLOCK_MONOTONIC, &value)) return 0;
+  return uint64_t(value.tv_sec)*1000000000+uint64_t(value.tv_nsec);
+}
+static_assert(sizeof(ap23_phase_trace_t)==264);
+#endif
+uint32_t transportMaximum(int32_t maximum) {
+#ifdef AP8_PREVIEW
+  return static_cast<uint32_t>(maximum);
+#else
+  return static_cast<uint32_t>(std::min(maximum,256));
+#endif
+}
 struct Guard {
   std::atomic_flag &flag;
   bool held;
@@ -137,7 +165,7 @@ bool parameters(IParameterChanges *p, double &gain, bool &changed) {
 #endif
 bool outputs(ProcessData &d, int maximum, uint32_t mask=1) {
 #ifdef AP8_PREVIEW
-  constexpr int count=std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kOutput;});
+  const int count=std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kOutput;});
   // Trailing inactive buses may be omitted. Every active bus needs storage.
   if(d.numOutputs<1||d.numOutputs>count||!d.outputs)return false;
   if(d.numOutputs<32&&(mask>>d.numOutputs))return false;
@@ -188,7 +216,11 @@ bool Processor::stateSession() {
   queued_ = true;
   if (
 #ifdef AP8_PREVIEW
+#ifdef LVB_RUNTIME_DESCRIPTOR
+      ap24_open(AP8::identity,AP8::engine_sha256,AP8::descriptor_sha256,&handle_)
+#else
       ap9_open(AP8::identity,&handle_)
+#endif
 #else
       ap9_open(nullptr,&handle_)
 #endif
@@ -257,6 +289,24 @@ void Processor::stateFailure(const char *operation, const char *stage) {
   if (n > 0 && static_cast<size_t>(n) < sizeof(text))
     diagnostic_report(report_path_, text, static_cast<size_t>(n));
 }
+tresult PLUGIN_API Processor::connect(IConnectionPoint *peer) {
+  auto result = AudioEffect::connect(peer);
+#ifdef AP8_PREVIEW
+  if (result == kResultOk) {
+    // Either half may connect first. The controller pulls current state only
+    // once both directions exist; no saved mirror or second session is used.
+    auto *message = allocateMessage();
+    result = kResultFalse;
+    if (message) {
+      message->setMessageID("AP8.connected");
+      result = sendMessage(message);
+      message->release();
+    }
+    if (result != kResultOk) AudioEffect::disconnect(peer);
+  }
+#endif
+  return result;
+}
 tresult PLUGIN_API Processor::getState(IBStream *stream) {
   if (!preview_)
     return kNotImplemented;
@@ -274,10 +324,8 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
     uint64_t generation=0;
     if(!ap11_gui_generation(handle_,&generation)&&guiPoll(generation,512)!=kResultOk)return kResultFalse;
 #endif
-    std::vector<uint8_t> blob(LVBState::payloadLimit + LVBState::overhead);
-    uint32_t size = 0;
-    auto state_result=ap4_state(handle_, nullptr, 0, blob.data(),
-                  static_cast<uint32_t>(blob.size()), &size);
+    OwnedState captured;
+    auto state_result=ap4_state_owned_v1(handle_, nullptr, 0, &captured.bytes);
 #ifdef AP8_PREVIEW
     if(state_result==0||state_result==5){
       auto*m=allocateMessage();if(m){m->setMessageID("AP12.persistence");m->getAttributes()->setInt("available",state_result==0?1:0);sendMessage(m);m->release();}
@@ -289,7 +337,8 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
       if(state_result!=5)report();
       return kResultFalse;
     }
-    blob.resize(size);
+    auto blob = captured.copy();
+    auto size = captured.bytes.length;
 #ifndef AP8_PREVIEW
     double gain = 0.;
 #endif
@@ -325,24 +374,23 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
 #endif
     if (!LVBState::readEnvelope(stream, blob) ||
 #ifdef AP8_PREVIEW
-        ap8_validate(AP8::identity,blob.data(),static_cast<uint32_t>(blob.size())))
+        ap8_validate_restore(AP8::identity,blob.data(),static_cast<uint32_t>(blob.size())))
 #else
         ap4_validate(blob.data(), static_cast<uint32_t>(blob.size()), &restored))
 #endif
       {phase_=Failed;return kResultFalse;}
     if (!stateSession())
       return kResultFalse;
-    std::vector<uint8_t> readback(LVBState::payloadLimit + LVBState::overhead);
-    uint32_t size = 0;
-    if (ap4_state(handle_, blob.data(), static_cast<uint32_t>(blob.size()),
-                  readback.data(), static_cast<uint32_t>(readback.size()),
-                  &size)) {
+    OwnedState captured;
+    if (ap4_state_owned_v1(handle_, blob.data(), static_cast<uint32_t>(blob.size()),
+                          &captured.bytes)) {
       phase_ = Failed;
       stateFailure("set", "state_response");
       report();
       return kResultFalse;
     }
-    readback.resize(size);
+    auto readback = captured.copy();
+    auto size = captured.bytes.length;
 #ifdef AP8_PREVIEW
     if(ap8_validate(AP8::identity,readback.data(),size)){phase_=Failed;return kResultFalse;}
     state_readback_=std::move(readback);this->readback();
@@ -419,10 +467,23 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
       }
       return result;
     }
-    uint32_t notice[3]{};if(!handle_||ap10_notices(handle_,notice)||!notice[0])return kResultOk;
-    if(notice[1]>UINT32_MAX-(latency_-vendor_latency_))return kResultFalse;
-    latency_=latency_-vendor_latency_+notice[1];vendor_latency_=notice[1];tail_=notice[2];
-    auto*m=allocateMessage();if(!m)return kResultFalse;m->setMessageID("AP10.restart");m->getAttributes()->setInt("flags",notice[0]);auto r=sendMessage(m);m->release();return r;
+    uint32_t notice[3]{};if(!handle_)return kResultOk;if(ap10_notices(handle_,notice))return kResultFalse;
+    if(notice[0]){
+      const auto delay=bridge_delay_.load(std::memory_order_acquire);
+      if(notice[1]>UINT32_MAX-delay)return kResultFalse;
+      latency_.store(delay+notice[1],std::memory_order_release);
+      vendor_latency_.store(notice[1],std::memory_order_release);
+      tail_.store(notice[2],std::memory_order_release);
+      pending_restart_flags_|=notice[0];
+    }
+    if(!pending_restart_flags_)return kResultOk;
+    auto*m=allocateMessage();if(!m)return kResultFalse;
+    const auto flags=pending_restart_flags_;
+    m->setMessageID("AP10.restart");
+    if(m->getAttributes()->setInt("flags",flags)!=kResultOk){m->release();return kResultFalse;}
+    // Remove before the reentrant controller call; restore on refusal.
+    pending_restart_flags_=0;
+    auto r=sendMessage(m);m->release();if(r!=kResultOk)pending_restart_flags_|=flags;return r;
   }
   if(terminal())return kResultFalse;
   if(!std::strcmp(id,"AP11.bind")){
@@ -483,14 +544,14 @@ tresult Processor::recover(uint64_t revision) {
   }
   phase_ = Failed; // callbacks remain silent until state AND controller agree
   try {
-    std::vector<uint8_t> state(LVBState::payloadLimit + LVBState::overhead);
-    uint32_t written = 0;
-    if (ap6_recover(handle_, revision, state.data(), static_cast<uint32_t>(state.size()), &written)) {
+    OwnedState captured;
+    if (ap6_recover_owned_v1(handle_, revision, &captured.bytes)) {
       uint8_t detail[385]{}; ap2_error(detail, sizeof(detail));
       snapshotStatus(reinterpret_cast<const char *>(detail));
       return kResultFalse;
     }
-    state.resize(written);
+    auto state = captured.copy();
+    auto written = captured.bytes.length;
     if (ap5_report_path(handle_, reinterpret_cast<uint8_t *>(report_path_), sizeof(report_path_)))
       return kResultFalse;
     double restored = 0.;
@@ -509,7 +570,7 @@ tresult Processor::recover(uint64_t revision) {
     gain_ = restored; // existing reference validator; recovery transports opaque bytes
     phase_ = Deactivated;
     if (want_active_) {
-      if (ap4_activate(handle_, static_cast<uint32_t>(std::min(maximum_,256)), static_cast<uint32_t>(process_mode_))) {
+      if (ap4_activate(handle_, transportMaximum(maximum_), static_cast<uint32_t>(process_mode_))) {
         phase_ = Failed; snapshotStatus("Recovered state but activation failed"); return kResultFalse;
       }
       phase_ = Active;
@@ -534,7 +595,7 @@ Processor::~Processor() {
 }
 tresult PLUGIN_API Processor::initialize(FUnknown *context) {
 #ifdef AP8_PREVIEW
-  if(ap10_results_abi_version()!=1)return kResultFalse;
+  if(ap10_results_abi_version()!=1||!AP23::compatibleAbi(ap23_abi_version()))return kResultFalse;
 #endif
   Guard g(busy_);
   if (!g.held || phase_ != New || ap2_abi_version() != 1)
@@ -613,18 +674,18 @@ tresult PLUGIN_API Processor::canProcessSampleSize(int32 size) {
 }
 tresult PLUGIN_API Processor::setupProcessing(ProcessSetup &setup) {
   Guard g(busy_);
-  requested_maximum_ = setup.maxSamplesPerBlock;
-  requested_rate_ = setup.sampleRate;
-  requested_mode_ = setup.processMode;
   if (!g.held || owner_ != std::this_thread::get_id() ||
       terminal() ||
       (phase_ != Initialized && phase_ != Setup && phase_ != Deactivated) ||
       (setup.processMode != kOffline &&
-       !(preview_ && setup.processMode == kRealtime)) ||
+       !(preview_ && (setup.processMode == kRealtime || setup.processMode == kPrefetch))) ||
       setup.symbolicSampleSize != kSample32 ||
       (!preview_ && setup.sampleRate != 48000.) || !std::isfinite(setup.sampleRate) ||
       setup.maxSamplesPerBlock < 1 || setup.maxSamplesPerBlock > (preview_ ? 1024 : 256))
     return kResultFalse;
+  requested_maximum_ = setup.maxSamplesPerBlock;
+  requested_rate_ = setup.sampleRate;
+  requested_mode_ = setup.processMode;
   if(preview_){
     uint32_t traits[3]{};
     #ifdef AP8_PREVIEW
@@ -632,17 +693,35 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup &setup) {
 #else
     if(!stateSession()||ap9_setup(handle_,static_cast<uint32_t>(setup.maxSamplesPerBlock),static_cast<uint32_t>(setup.processMode),setup.sampleRate,traits))return kResultFalse;
 #endif
-    latency_=traits[0];tail_=traits[1];
+    auto previous=latency_.exchange(traits[0],std::memory_order_acq_rel);tail_=traits[1];
 #ifdef AP8_PREVIEW
     vendor_latency_=traits[2];
+    bridge_delay_=traits[0]-traits[2];
+    if(previous!=traits[0])pending_restart_flags_|=kLatencyChanged;
+#else
+    (void)previous;
 #endif
   }
   auto r = AudioEffect::setupProcessing(setup);
   if (r == kResultOk) {
     maximum_ = setup.maxSamplesPerBlock;
     process_mode_ = setup.processMode;
+    sample_rate_ = setup.sampleRate;
+#ifdef AP8_PREVIEW
+    if(configuration_revision_!=UINT64_MAX)++configuration_revision_;
+#endif
     queued_ = preview_ || process_mode_ == kRealtime;
     phase_ = Setup;
+#ifdef AP8_PREVIEW
+    if (preview_ && !phase_trace_sampled_) {
+      phase_trace_sampled_ = true;
+      uint32_t enabled = 0;
+      if (!ap23_phase_trace_enabled(handle_, &enabled) && enabled == 1) {
+        phase_trace_requested_ = true;
+        phase_trace_.reset(new(std::nothrow) ap23_phase_trace_t[AP23::phase_trace_capacity]{});
+      }
+    }
+#endif
   }
   return r;
 }
@@ -662,10 +741,14 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
     if(phase_!=Setup&&phase_!=Deactivated)return kResultFalse;
 #ifdef AP8_PREVIEW
     size_t i=0;for(const auto& b:AP8::buses){if(b.media==kAudio&&b.type==kMain&&b.index==0&&!bus_active_[i])return kResultFalse;++i;}
-    uint32_t traits[3]{};if(!setupBuses(uint32_t(maximum_),uint32_t(process_mode_),requested_rate_,traits))return kResultFalse;
-    latency_=traits[0];tail_=traits[1];
+    uint32_t traits[3]{};if(!setupBuses(uint32_t(maximum_),uint32_t(process_mode_),sample_rate_,traits))return kResultFalse;
+    auto previous=latency_.exchange(traits[0],std::memory_order_acq_rel);tail_=traits[1];
 #ifdef AP8_PREVIEW
     vendor_latency_=traits[2];
+    bridge_delay_=traits[0]-traits[2];
+    if(previous!=traits[0])pending_restart_flags_|=kLatencyChanged;
+#else
+    (void)previous;
 #endif
 #endif
     if ((phase_ != Setup && phase_ != Deactivated) || !input_active_ ||
@@ -673,7 +756,7 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
       return kResultFalse;
     if (preview_
             ? (!stateSession() ||
-               ap4_activate(handle_, static_cast<uint32_t>(std::min(maximum_,256)),
+               ap4_activate(handle_, transportMaximum(maximum_),
                             static_cast<uint32_t>(process_mode_)))
             : (queued_ ? ap3_open(static_cast<uint32_t>(maximum_), &handle_)
                        : ap2_open(static_cast<uint32_t>(maximum_), &handle_))) {
@@ -740,20 +823,44 @@ tresult Processor::rejected(ProcessData &d) {
 }
 tresult PLUGIN_API Processor::process(ProcessData &d) {
 #ifdef AP8_PREVIEW
-  timespec entered{};clock_gettime(CLOCK_MONOTONIC,&entered);
-  const uint64_t entered_ns=uint64_t(entered.tv_sec)*1000000000+uint64_t(entered.tv_nsec);
+  const uint64_t entered_ns=monotonic_ns();
+  LVBCallTiming::Recorder::Call observation(process_calls_,d.numSamples,d.processMode,
+                                           d.symbolicSampleSize,entered_ns);
+  const auto result=processBody(d,entered_ns,observation);
+  observation.result(static_cast<int32_t>(result));
+  return result; // Observer closes after all body locals/Guard and on unwind.
+#else
+  return processBody(d);
+#endif
+}
+#ifdef AP8_PREVIEW
+tresult Processor::processBody(ProcessData &d,uint64_t entered_ns,
+                              LVBCallTiming::Recorder::Call& observation) {
+#else
+tresult Processor::processBody(ProcessData &d) {
 #endif
   Guard g(busy_);
   auto reject = [&] { return rejected(d); };
   if (!g.held) return reject();
 #ifdef AP8_PREVIEW
+  observation.configuration(sample_rate_,maximum_,configuration_revision_,
+                            static_cast<int32_t>(phase_.load()),handle_);
+  auto expired=[&]{
+    if(!ap23_finish_callback(handle_))return false;
+    phase_=Failed;returned_.release_requested=true;return true;
+  };
   returned_.beginCallback();
   if(!terminal()&&d.numSamples>=0&&returned_.release_requested){
     auto rejected=returned_.rejected;returned_.release(d,[&](int bus){return eventOutputActive(bus);});
     if(returned_.rejected!=rejected){ap10_fail_results(handle_);phase_=Failed;return reject();}
   }
 #endif
-  if ((phase_ != Running && !(terminal() && want_processing_ && want_active_)) || d.processMode != process_mode_ ||
+  if ((phase_ != Running && !(terminal() && want_processing_ && want_active_)) ||
+#ifdef AP8_PREVIEW
+      !AP23::validMode(process_mode_,d.processMode) ||
+#else
+      d.processMode != process_mode_ ||
+#endif
       d.symbolicSampleSize != kSample32 || d.numSamples < 0 ||
       d.numSamples > maximum_)
     return reject();
@@ -785,12 +892,66 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
     if(!append(v))return reject();}}
   if(skipped_expression)skipped_expression_callbacks_.fetch_add(1,std::memory_order_relaxed);
   if(d.inputParameterChanges){auto n=d.inputParameterChanges->getParameterCount();if(n<0||n>256)return reject();for(int i=0;i<n;++i){auto*q=d.inputParameterChanges->getParameterData(i);if(!q)return reject();auto id=q->getParameterId();bool known=false;for(const auto&p:AP8::parameters)if(p.id==id){known=true;break;}if(!known)return reject();auto points=q->getPointCount();if(points<0||points>256)return reject();int previous=-1;for(int j=0;j<points;++j){int offset=0;double value=0;if(q->getPoint(j,offset,value)!=kResultOk||offset<previous)return reject();previous=offset;if(!append({static_cast<uint32_t>(offset),2,id,0,0,value,0,0}))return reject();}}}
+  ap23_phase_trace_t* phase_trace_record=nullptr;
+  auto processOutputs=[&](uint32_t n,const ap10_context_t* context,uint64_t input_flags,
+      const float* left,const float* right,float*const* output,uint32_t channels,
+      uint64_t* output_flags,ap7_delivery_t* delivery){
+    if(phase_trace_requested_){
+      const auto ordinal=phase_trace_ordinal_==std::numeric_limits<uint64_t>::max()?
+        phase_trace_ordinal_:++phase_trace_ordinal_;
+      if(ordinal&&phase_trace_&&phase_trace_count_<AP23::phase_trace_capacity){
+        phase_trace_record=&phase_trace_[phase_trace_count_++];
+        *phase_trace_record={};phase_trace_record->schema=AP23::phase_trace_schema;
+        phase_trace_record->size=sizeof(*phase_trace_record);
+        phase_trace_record->ordinal=ordinal;phase_trace_record->frames=n;
+        phase_trace_record->mode=uint32_t(d.processMode);
+        phase_trace_record->cpp_entry_ns=entered_ns;
+        phase_trace_record->phase_reached|=AP23::phase_cpp_entry;
+        if(entered_ns)phase_trace_record->clock_valid|=AP23::phase_cpp_entry;
+      }else if(phase_trace_omitted_!=std::numeric_limits<uint64_t>::max())++phase_trace_omitted_;
+    }
+    const auto result=phase_trace_record?
+      ap23_process_outputs_trace(handle_,n,uint32_t(d.processMode),events,event_count,context,
+        input_flags,left,right,output,channels,output_flags,delivery,entered_ns,phase_trace_record):
+      ap23_process_outputs(handle_,n,uint32_t(d.processMode),events,event_count,context,
+        input_flags,left,right,output,channels,output_flags,delivery,entered_ns);
+    if(phase_trace_record){phase_trace_record->backend_result=result;
+      phase_trace_record->phase_reached|=AP23::phase_backend_result;}
+    if(process_calls_.requestedEnabled()){
+      ap23_windows_process_timing_t timing{};timing.schema=1;timing.size=sizeof(timing);
+      const auto status=ap23_process_windows_timing(handle_,&timing);
+      observation.windows(timing,status);
+    }
+    return result;
+  };
+  auto deliver=[&]{
+    if(phase_trace_record){phase_trace_record->result_delivery_begin_ns=monotonic_ns();
+      phase_trace_record->phase_reached|=AP23::phase_result_delivery_begin;
+      if(phase_trace_record->result_delivery_begin_ns)phase_trace_record->clock_valid|=AP23::phase_result_delivery_begin;}
+    const auto result=deliverResults(d);
+    if(phase_trace_record){phase_trace_record->result_delivery_done_ns=monotonic_ns();
+      phase_trace_record->phase_reached|=AP23::phase_result_delivery_done;
+      if(phase_trace_record->result_delivery_done_ns)phase_trace_record->clock_valid|=AP23::phase_result_delivery_done;}
+    return result;
+  };
+  auto finish=[&](tresult result){
+    if(phase_trace_record){phase_trace_record->sdk_result=static_cast<int32_t>(result);
+      phase_trace_record->phase_reached|=AP23::phase_sdk_result;
+      phase_trace_record->cpp_pre_return_ns=monotonic_ns();
+      phase_trace_record->phase_reached|=AP23::phase_cpp_pre_return;
+      if(phase_trace_record->cpp_pre_return_ns)phase_trace_record->clock_valid|=AP23::phase_cpp_pre_return;}
+    return result;
+  };
   if(d.numSamples==0){
     if(d.numInputs||d.numOutputs)return reject();
     float dummy=0;uint64_t flags=0;ap7_delivery_t delivery{};ap10_context_t context{};
-    auto result=if2_process(handle_,0,events,event_count,&context,0,&dummy,&dummy,&dummy,&dummy,&flags,&delivery,entered_ns);
-    if(result==IF2::contained)return containedSilence(d);
-    if(result||!deliverResults(d)){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return reject();}return kResultOk;
+    float* output[]={&dummy,&dummy};
+    auto result=processOutputs(0,&context,0,&dummy,&dummy,output,2,&flags,&delivery);
+    if(result==IF2::contained)return finish(containedSilence(d));
+    if(result==AP23::mode_refused)return finish(reject());
+    if(result||!deliver()){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return finish(reject());}
+    if(expired())return finish(reject());
+    return finish(kResultOk);
   }
 #else
   bool changed = false;
@@ -834,11 +995,11 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   #endif
   auto **out = d.outputs[0].channelBuffers32;
 #ifdef AP8_PREVIEW
-  constexpr size_t output_count=std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kOutput;});
-  std::array<float*,2*output_count> output_planes{};
+  const size_t output_count=std::count_if(std::begin(AP8::buses),std::end(AP8::buses),[](const auto& b){return b.media==kAudio&&b.direction==kOutput;});
+  std::array<float*,2*AP18Buses::max_audio_outputs> output_planes{};
   for(size_t bus=0;bus<output_count;++bus)if(output_mask_&(uint32_t(1)<<bus))
     for(int ch=0;ch<2;++ch)output_planes[2*bus+ch]=d.outputs[bus].channelBuffers32[ch];
-  for(size_t ch=0;ch<output_planes.size();++ch)if(output_planes[ch]){
+  for(size_t ch=0;ch<2*output_count;++ch)if(output_planes[ch]){
     for(size_t other=0;other<ch;++other)if(output_planes[other]&&overlap(output_planes[ch],output_planes[other],d.numSamples))return reject();
     if(ch>=2&&receive_input&&(overlap(output_planes[ch],in[0],d.numSamples)||overlap(output_planes[ch],in[1],d.numSamples)))return reject();
   }
@@ -874,7 +1035,8 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
 #ifdef AP8_PREVIEW
   ap10_context_t c{};
   if(d.processContext){const auto& p=*d.processContext;c.present=1;c.state=p.state&0x2bf0e;c.rate=p.sampleRate;c.project=p.projectTimeSamples;
-   if(c.rate!=requested_rate_)return reject();
+   observation.project(p.projectTimeSamples);
+   if(c.rate!=sample_rate_)return reject();
    if(c.state&0x100)c.system=p.systemTime;
    if(c.state&0x20000)c.continuous=p.continousTimeSamples;
    if(c.state&0x200)c.music=p.projectTimeMusic;
@@ -887,7 +1049,7 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
 #endif
   auto r =
 #ifdef AP8_PREVIEW
-      output_count==1?if2_process(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,&c,input_flags,in[0],in[1],out[0],out[1],&silence,&delivery,entered_ns):ap19_process_outputs(handle_,static_cast<uint32_t>(d.numSamples),events,event_count,&c,input_flags,in[0],in[1],output_planes.data(),uint32_t(output_planes.size()),&silence,&delivery,entered_ns);
+      processOutputs(static_cast<uint32_t>(d.numSamples),&c,input_flags,in[0],in[1],output_planes.data(),uint32_t(2*output_count),&silence,&delivery);
 #else
       queued_
           ? static_cast<int32_t>(ap7_process(
@@ -902,16 +1064,45 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   #endif
   if (r) {
 #ifdef AP8_PREVIEW
-    if(r==IF2::contained)return containedSilence(d);
+    if(r==IF2::contained)return finish(containedSilence(d));
+    if(r==AP23::mode_refused)return finish(reject());
     returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});
-    if (!admission_failure_.code)
+    if (!admission_failure_.code) {
       admission_failure_ = {uint32_t(r), c.state, d.numSamples, input_flags,
                             c.rate, c.cycle_start, c.cycle_end};
+      admission_failure_.event_count = event_count;
+      // Retain one bounded input witness under the callback guard. Formatting
+      // and file output stay at termination. This does not admit, clamp or
+      // rewrite the input rejected by the transport owner.
+      if (r == 0x102) {
+        for (uint32_t i = 0; i < event_count; ++i) {
+          const auto& e = events[i];
+          const bool note = e.kind == 0 || e.kind == 1;
+          const bool extent = e.kind == 2 ? e.offset <= uint32_t(d.numSamples)
+                                         : e.offset < uint32_t(std::max(d.numSamples, 1));
+          const bool valid = extent &&
+              std::isfinite(e.value) && e.value >= 0. && e.value <= 1. &&
+              e.reserved == 0 &&
+              (note ? d.numSamples > 0 && e.channel >= 0 && e.channel < 16 &&
+                          e.pitch >= 0 && e.pitch < 128 && std::isfinite(e.tuning)
+                    : e.kind == 2 && e.channel == 0 && e.pitch == 0 && e.tuning == 0.f);
+          if (!valid) {
+            admission_failure_.invalid_event_index = i;
+            admission_failure_.invalid_event = e;
+            break;
+          }
+        }
+      }
+    }
 #endif
     if (!queued_)
       report();
     phase_ = Failed;
+    #ifdef AP8_PREVIEW
+    return finish(reject());
+    #else
     return reject();
+    #endif
   }
   last_callback_rejected_.store(false, std::memory_order_relaxed);
   if ((silence&3) == 3 && !delivery.missing_frames) {
@@ -935,12 +1126,18 @@ tresult PLUGIN_API Processor::process(ProcessData &d) {
   for(int bus=1;bus<d.numOutputs;++bus)if(output_mask_&(uint32_t(1)<<bus))d.outputs[bus].silenceFlags=(silence>>(2*bus))&3;
 #endif
 #ifdef AP8_PREVIEW
-  if(!deliverResults(d)){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return reject();}
+  if(!deliver()){phase_=Failed;returned_.release_requested=true;returned_.release(d,[&](int bus){return eventOutputActive(bus);});return finish(reject());}
+  if(expired())return finish(reject());
 #endif
+  #ifdef AP8_PREVIEW
+  return finish(kResultOk);
+  #else
   return kResultOk;
+  #endif
 }
 #ifdef AP8_PREVIEW
 tresult Processor::containedSilence(ProcessData& d) {
+  if(d.processMode==kOffline||d.numSamples==0||bridge_delay_.load(std::memory_order_acquire)==0)return rejected(d);
   terminal_latched_.store(true,std::memory_order_release);phase_=ContainedTerminal;
   returned_.release_requested=true;
   // These are locally owned Note Offs, never a request to the dead endpoint.
@@ -955,12 +1152,90 @@ int Processor::eventOutputActive(int index)const{
  size_t i=0;for(const auto&b:AP8::buses){if(b.media==kEvent&&b.direction==kOutput&&int(b.index)==index)return bus_active_[i]?1:0;++i;}return -1;
 }
 bool Processor::deliverResults(ProcessData&d){
+ // 1537 reads include the required final empty result: at most 1536 nonempty
+ // drain packets. Retained storage capacity does not widen this SDK callback
+ // bound; excess eligible results produce explicit failure, never deferral.
  for(size_t i=0;i<1537;++i){
   if(ap10_take_results(handle_,&returned_.packet))return false;
   if(!returned_.packet.events&&!returned_.packet.points)return true;
   if(!returned_.deliver(d,[&](int bus){return eventOutputActive(bus);},[](uint32_t id){for(const auto&p:AP8::parameters)if(p.id==id)return true;return false;})){ap10_fail_results(handle_);return false;}
  }
  ap10_fail_results(handle_);return false;
+}
+void Processor::reportProcessCalls(){
+ if(!process_calls_.requestedEnabled()||!process_calls_.markExported())return;
+ const auto summary=process_calls_.seal();
+ uint32_t status=1; // No export while an outer callback writer is unfinished.
+ try{
+  if(!summary.unfinished_writers){
+   std::vector<lvb_process_call_record_t> records(size_t(summary.retained));
+   if(process_calls_.snapshot(summary,records.data(),uint32_t(records.size())))
+    status=lvb_process_call_export(handle_,&summary,records.data(),uint32_t(records.size()));
+  }
+ }catch(...){status=2;} // Observation cannot change SDK retirement/result policy.
+ char text[2048];const auto n=std::snprintf(text,sizeof(text),
+  "{\"event\":\"native_process_call_summary\",\"schema\":1,\"instance\":%llu,"
+  "\"namespace_pid\":%u,\"backend_handle\":%llu,"
+  "\"flags\":%u,\"capacity\":%u,\"offered\":%llu,\"retained\":%llu,"
+  "\"capacity_dropped\":%llu,\"contention_dropped\":%llu,\"allocation_dropped\":%llu,"
+  "\"invalid_clocks\":%llu,\"invalid_identity\":%llu,\"after_seal\":%llu,"
+  "\"unfinished_writers\":%llu,\"sequence_overflow\":%llu,\"export_status\":%u,"
+  "\"clock\":\"CLOCK_MONOTONIC\",\"return_edge\":\"after_body_cleanup_before_record_publication\"}\n",
+  (unsigned long long)summary.instance,summary.namespace_pid,(unsigned long long)handle_,summary.flags,summary.capacity,
+  (unsigned long long)summary.offered,(unsigned long long)summary.retained,
+  (unsigned long long)summary.capacity_dropped,(unsigned long long)summary.contention_dropped,
+  (unsigned long long)summary.allocation_dropped,(unsigned long long)summary.invalid_clocks,
+  (unsigned long long)summary.invalid_identity,(unsigned long long)summary.after_seal,
+  (unsigned long long)summary.unfinished_writers,(unsigned long long)summary.sequence_overflow,status);
+ if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));
+}
+void Processor::reportPhaseTrace(){
+ if(!phase_trace_requested_)return;
+ if(phase_trace_)for(uint32_t i=0;i<phase_trace_count_;++i){
+  const auto&t=phase_trace_[i];char text[1280];
+  auto n=std::snprintf(text,sizeof(text),
+   "{\"event\":\"ap23_callback_phase\",\"schema\":%u,\"size\":%u,\"phase_reached\":%llu,\"clock_valid\":%llu,"
+   "\"ordinal\":%llu,\"identity\":[%llu,%llu,%llu,%llu],"
+   "\"call\":[%llu,%llu,%llu,%llu],\"policy\":[%llu,%llu,%llu],"
+   "\"predicate\":[%llu,%llu,%llu,%llu,%llu,%llu],"
+   "\"clock\":[%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu],"
+   "\"wait\":[%llu,%llu],\"result\":[%u,%d]}\n",
+   t.schema,t.size,(unsigned long long)t.phase_reached,(unsigned long long)t.clock_valid,
+   (unsigned long long)t.ordinal,
+   (unsigned long long)t.generation,(unsigned long long)t.epoch,
+   (unsigned long long)t.host_call,(unsigned long long)t.position,
+   (unsigned long long)t.frames,(unsigned long long)t.mode,
+   (unsigned long long)t.delivery_mode,(unsigned long long)t.exact,
+   (unsigned long long)t.allowance_ns,(unsigned long long)t.wait_deadline_lower_ns,
+   (unsigned long long)t.wait_deadline_upper_ns,
+   (unsigned long long)t.predicate_kind,(unsigned long long)t.predicate_required,
+   (unsigned long long)t.predicate_before,(unsigned long long)t.predicate_after,
+   (unsigned long long)t.predicate_initial_satisfied,
+   (unsigned long long)t.predicate_final_satisfied,
+   (unsigned long long)t.cpp_entry_ns,(unsigned long long)t.rust_entry_ns,
+   (unsigned long long)t.wait_begin_ns,(unsigned long long)t.wait_end_ns,
+   (unsigned long long)t.presentation_done_ns,(unsigned long long)t.rust_pre_return_ns,
+   (unsigned long long)t.result_delivery_begin_ns,(unsigned long long)t.result_delivery_done_ns,
+   (unsigned long long)t.cpp_pre_return_ns,
+   (unsigned long long)t.wait_total_ns,(unsigned long long)t.wait_count,
+   t.backend_result,t.sdk_result);
+  if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));
+ }
+ char summary[1536];auto n=std::snprintf(summary,sizeof(summary),
+  "{\"event\":\"ap23_callback_phase_summary\",\"schema\":1,\"requested\":true,"
+  "\"allocated\":%s,\"capacity\":%u,\"retained\":%u,\"omitted\":%llu,"
+  "\"scope\":\"guard-held calls reaching AP23\",\"cpp_final_stamp\":\"pre-return\","
+  "\"identity_fields\":\"generation,epoch,host_call,position\","
+  "\"call_fields\":\"frames,mode,delivery_mode,exact\","
+  "\"policy_fields\":\"allowance_ns,wait_deadline_lower_ns,wait_deadline_upper_ns\","
+  "\"predicate_fields\":\"kind,required,before,after,initial_satisfied,final_satisfied\","
+  "\"clock_fields\":\"cpp_entry_ns,rust_entry_ns,wait_begin_ns,wait_end_ns,presentation_done_ns,rust_pre_return_ns,result_delivery_begin_ns,result_delivery_done_ns,cpp_pre_return_ns\","
+  "\"wait_fields\":\"total_ns,count\",\"result_fields\":\"backend,sdk\","
+  "\"phase_bits\":\"0=cpp_entry,1=rust_entry,2=policy,3=identity,4=predicate_before,5=wait,6=predicate_after,7=presentation_done,8=rust_pre_return,9=backend_result,10=result_delivery_begin,11=cpp_pre_return,12=sdk_result,13=result_delivery_done\","
+  "\"clock_valid_uses_phase_bits\":true}\n",
+  phase_trace_?"true":"false",AP23::phase_trace_capacity,phase_trace_count_,
+  (unsigned long long)phase_trace_omitted_);
+ if(n>0&&size_t(n)<sizeof(summary))diagnostic_report(report_path_,summary,size_t(n));
 }
 #endif
 tresult PLUGIN_API Processor::terminate() {
@@ -970,7 +1245,9 @@ tresult PLUGIN_API Processor::terminate() {
     return kResultFalse;
   bool clean =
       phase_ == Initialized || phase_ == Setup || phase_ == Deactivated ||
-      (terminal() && !want_processing_ && !want_active_);
+      ((phase_ == Failed || terminal()) && !want_processing_ && !want_active_);
+  // A refused inactive restore does not prevent orderly teardown. Keep the
+  // restore failure separate from the backend cleanup result checked below.
   if (input_hint_adjustments_) {
     char text[320];
     const auto n = std::snprintf(text, sizeof(text),
@@ -982,6 +1259,8 @@ tresult PLUGIN_API Processor::terminate() {
       diagnostic_report(report_path_, text, static_cast<size_t>(n));
   }
 #ifdef AP8_PREVIEW
+  reportProcessCalls();
+  reportPhaseTrace();
   if(terminal()){
     char text[256];auto n=std::snprintf(text,sizeof(text),"{\"event\":\"if2_contained_terminal\",\"callbacks\":%llu,\"silent_frames\":%llu,\"automatic_reload\":false}\n",(unsigned long long)contained_callbacks_,(unsigned long long)contained_frames_);
     if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));
@@ -991,17 +1270,31 @@ tresult PLUGIN_API Processor::terminate() {
    if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));}
   if (admission_failure_.code) {
     const auto& f = admission_failure_;
-    char text[384];
+    char text[768];
     const auto n = std::snprintf(text, sizeof(text),
         "{\"event\":\"ap10_admission_failure\",\"code\":%u,\"frames\":%d,"
+        "\"reason\":\"%s\","
         "\"input_flags\":%llu,\"context_state\":%u,\"rate\":%.17g,"
-        "\"cycle_start\":%.17g,\"cycle_end\":%.17g,\"nonfinite_fields\":%u}\n",
-        f.code, f.frames, (unsigned long long)f.input_flags, f.context_state,
+        "\"cycle_start\":%.17g,\"cycle_end\":%.17g,\"nonfinite_fields\":%u,"
+        "\"event_count\":%u,\"invalid_event_index\":%u,"
+        "\"invalid_event\":{\"kind\":%u,\"id\":%u,\"offset\":%u,"
+        "\"channel\":%d,\"pitch\":%d,\"value\":%.17g,\"tuning\":%.9g,"
+        "\"reserved\":%u,\"nonfinite_fields\":%u}}\n",
+        f.code, f.frames, f.code == AP22::parameter_curve_unavailable ? "parameter_curve_anchor_or_capacity_unavailable" : "input_admission_refused",
+        (unsigned long long)f.input_flags, f.context_state,
         std::isfinite(f.rate) ? f.rate : 0.,
         std::isfinite(f.cycle_start) ? f.cycle_start : 0.,
         std::isfinite(f.cycle_end) ? f.cycle_end : 0.,
         unsigned(!std::isfinite(f.rate)) | (unsigned(!std::isfinite(f.cycle_start)) << 1) |
-            (unsigned(!std::isfinite(f.cycle_end)) << 2));
+            (unsigned(!std::isfinite(f.cycle_end)) << 2),
+        f.event_count, f.invalid_event_index, f.invalid_event.kind,
+        f.invalid_event.id, f.invalid_event.offset, int(f.invalid_event.channel),
+        int(f.invalid_event.pitch),
+        std::isfinite(f.invalid_event.value) ? f.invalid_event.value : 0.,
+        std::isfinite(f.invalid_event.tuning) ? double(f.invalid_event.tuning) : 0.,
+        f.invalid_event.reserved,
+        unsigned(!std::isfinite(f.invalid_event.value)) |
+            (unsigned(!std::isfinite(f.invalid_event.tuning)) << 1));
     if (n > 0 && static_cast<size_t>(n) < sizeof(text))
       diagnostic_report(report_path_, text, static_cast<size_t>(n));
   }

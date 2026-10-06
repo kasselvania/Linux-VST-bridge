@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "date": "2026-10-04",
+  "claim": "Frozen managed-refresh build and installed pre-update status failure; no update acceptance",
+  "source": {
+    "head": "ebcb944b1b3bf3a7d0f2604e6114dea39cb51968",
+    "tree": "667ccb0dc49b3d459f16284b5a74d3aad271e167"
+  },
+  "candidate": {
+    "schema": 1,
+    "source_head": "ebcb944b1b3bf3a7d0f2604e6114dea39cb51968",
+    "source_tree": "667ccb0dc49b3d459f16284b5a74d3aad271e167",
+    "version": "0.12.0refresh1",
+    "frozen_at_utc": "2026-10-04T20:27:50.443427+00:00",
+    "files": {
+      "linux-vst-bridge-beta_0.12.0refresh1-1_amd64.deb": "6dff1e59da60f9053317c4949aef5f10a81768cf217c8ff47faa651822793972",
+      "Linux-VST-Bridge-0.12.0refresh1-internal.install": "3b3ff61dfb53dc450c00307b5fcfaba1438b45e679310aa7a97cc6c63a5c52b5",
+      "preparation-kit.zip": "30e8d5d32b1faf9816182a7593f1f3bcc4786117cae0df203eaa3047b6ba0f7a",
+      "staged-refresh1/RELEASE_MANIFEST.json": "48362c030016266808bbeb6798a4c9d102b56cf21fb1dca37526c34b0b320cb5",
+      "PACKAGE_VERIFIED.json": "9f2b71c2f5811b965c80f08ff544a6958bdbffc26ffc927e60abe39c3d77e5ed"
+    },
+    "manager_features": [
+      "pb0-c0-audit"
+    ],
+    "manager_sha256": "1dd374e853868127691f5deb32b03141ca482fb6ab6bc47ce9ec040e995c3ad1",
+    "engine_sha256": "331690cf4d15c88088e76128fd2a86c781b7fd8358688d68102039a3d74efe07",
+    "windows_host_sha256": "c8587d8c75ddce80c2317a10070735c65b30b6bc1649ff219821c44689bcf05f",
+    "paired_backend_rebuild": true,
+    "claim": "managed_refresh_candidate_not_installed_acceptance_or_beta_qualification"
+  },
+  "build_checks": {
+    "native_sdk_tests_passed": 13,
+    "paired_backend_and_engine_independent_rebuild": true,
+    "instrument_and_effect_state_audio_oracle_tests": "passed",
+    "applicable_pr_ci": "passed",
+    "dispatch_only_unfamiliar_fixtures": "skipped"
+  },
+  "negative_fixture": {
+    "version": "0.12.0refresh1neg1",
+    "installer_sha256": "4bc4c11ae5a960a9a348390b7aeb27ad73b596787e5264c4e1132e10d43c2551",
+    "purpose": "Attempt ordinary Update Bridge with a kit missing loaded-engine-admission capability; assert preparation refusal and intact predecessor",
+    "production_manager_engine_host_bytes": "unchanged from frozen candidate"
+  },
+  "installed_attempt": {
+    "fixture": "Retained populated Ubuntu x86_64 VM; two CPUs; six first-party published classes; selected audio9 baseline",
+    "normal_installer_staging": "passed",
+    "normal_setup_open": "passed",
+    "initial_status": "10-second UI timeout",
+    "single_read_only_check_again": "same timeout",
+    "update_submitted": false,
+    "standalone_read_only_status": {
+      "returncode": 0,
+      "elapsed_seconds": 34.64695745999995,
+      "state": "update_active",
+      "version": "0.12.0refresh1neg1"
+    },
+    "live_process_observation": {
+      "rchar": 3184876117,
+      "open_input": "selected managed Proton runtime Wine DLL",
+      "scope": "rchar is the aggregate process read counter; the one open DLL does not attribute all bytes to the runtime",
+      "provenance": "Transcription of the original exec_command tool result, chunk_id3399f3, retained in this conversation. Not a raw archived proc trace."
+    },
+    "preservation": {
+      "exact_software_registry_classes_bundle_targets_preferences_saved_objects": true,
+      "baseline_service_active": true,
+      "dsp_owners": 0,
+      "maintenance_owners": 0,
+      "cleanup_unconfirmed": false
+    }
+  },
+  "retained_artifacts": {
+    "refresh1-frozen-build.tgz": "a1fcc3cb382e202204552643b842c3488ddc0c3b254dd46b1cbb0c762a853f91",
+    "refresh1-status-failure.tgz": "47d72029af9d4fd2f644169c82c6fdf38d3aa8db8cee39761a1a194803b95369",
+    "FROZEN_INSTALL_INPUTS.json": "10d113a9907c82b8676dbd24d07a5492e93fcc899437f974ab02408195603fea",
+    "refresh1-live-process-observation.json": "7f85a16f11490ea18d4f51067e267257dd367407d707df0352306430228b6310"
+  },
+  "screenshots": {
+    "desktop-negative-before.png": "9cbf052ddb7af6006d330f32caa61197f9db4c3c0cfe2a69fc25864a350e4ce4",
+    "desktop-negative-install-result.png": "e6d26722be339b05fc8d1753a7cbfef8513a84418f8dae5dbe99feadc6f3a2f8",
+    "desktop-negative-installed.png": "9cbf052ddb7af6006d330f32caa61197f9db4c3c0cfe2a69fc25864a350e4ce4",
+    "desktop-negative-setup-closed.png": "5bfc256876885ef28af457709d1c73f6fe1e3dff02a746167fe698eab3e61562",
+    "desktop-negative-setup-recheck-result.png": "97bab81abf679ef7f810b94d351402160ab0ff6eaa9b8c142556fa0a36ba21e0",
+    "desktop-negative-setup-rechecked.png": "b9e518b6ce80ce549c910cab9fd4de76aa76e0673a9c41ecb990a4408cc181e5",
+    "desktop-negative-setup-settled.png": "e94f3c834125952485e38892d1f2dcd3e1b866504cb6ff992ced7ba30425d602",
+    "desktop-negative-setup.png": "6d4c6d4173c83291e1f60a682b156eac9716ccff34f2b41cb089da374a88894c"
+  },
+  "next_repair": "Remove bulk runtime and executable revalidation from normal bounded status readback; preserve exact verification at mutation and launch. Do not raise the UI timeout to conceal expensive readback.",
+  "nonclaims": [
+    "Preparation failure not yet exercised: Update was unavailable",
+    "Populated update, cached caller refusal, recall and both recovery routes remain unperformed on candidate",
+    "No Deck, audio timing, soak or beta qualification"
+  ]
+}

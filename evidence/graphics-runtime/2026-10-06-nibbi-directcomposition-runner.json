@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "date_local": "2026-10-06",
+  "claim": "On the maintainer's Steam Deck, Nibbi 0.1.4's editor draws and closes when its managed environment uses the accepted DirectComposition reference runner. One observation of editor presentation and removal; not a qualification of audio, state, automation or any other plug-in.",
+  "source": {
+    "installed_software_generation": "1b82a32c1e13265c06c0b884addc58d93e6994e38abc7b3537c0ad5ac1b253da",
+    "installed_host_sha256": "5155f3e32c32144e5e0accefb33ee1aadc75acf3d19e162d5afc524ad15b5ae7",
+    "note": "Deck Test 9 software from pull request 223. The assessment fixes in this change were not installed on the Deck for this run."
+  },
+  "fixture": {
+    "host": "Steam Deck, SteamOS desktop session, KDE Wayland with XWayland",
+    "daw": "Bitwig Studio 6.1 Flatpak",
+    "plug_in": "Nibbi 0.1.4",
+    "class_id": "ABCDEF019182FAEB5444535043484D50",
+    "module_sha256": "79f4ddb52a6e52eed10ff48e904ab5f273d36387d4182c2b09cd1e7156c94a90",
+    "editor_framework": "JUCE 9.0.2, Direct2D window context; d3d11, dxgi, d2d1 and dcomp are ordinary imports and DCompositionCreateDevice is imported by name",
+    "environment": "3703fae0acdfe7b24e71c8343d42f288",
+    "delivery": "Buffered 512, unchanged"
+  },
+  "transition": {
+    "mechanism": "manager experimental-runner, DirectComposition reference candidate, after experimental_disable of the published default-graphics candidate",
+    "before": {
+      "environment_revision": 1,
+      "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+      "runner_sha256": "72d6da6c18cd30cb9027952cbbcc7ca2e7753c86933e310a7c8db32d8261be63",
+      "candidate": "d43e14c5b1d8d8df985ffff34d7107c832ae483ea99407cfed6eb0c2a2985a34",
+      "publication": "0ca8f2845726106fdb7a13b4e5c365b3"
+    },
+    "after": {
+      "environment_revision": 2,
+      "runner": "proton-11.0-2c-dcomp-c27f058-reference",
+      "runner_policy": "dcomp_wine_builtins_reference_v1",
+      "runner_sha256": "a5d6a3b0f5c059d8a9c65d0babb1d4aa26c6b7fb8ba47c83415e00b86b7dc48e",
+      "candidate_manifest_sha256": "31a5a36e9d37dfc86972270ac6ec5630f9bb1aa1fd1e38a965869f7b3515f997",
+      "candidate_tree_sha256": "5fde7d74c099818ea79cce78f329421425baecde5ed12da2ee427d7f4a0de1db"
+    },
+    "receipt": "private-rollback/experimental-runner-c07e282eb00c895d215fbbef20565453, state completed",
+    "prefix_recreated": false,
+    "installation_changed": false,
+    "publication_carried_forward": false,
+    "rollback": "Original environment marker, onboarding record and registry retained in the receipt directory; the original runner remains installed."
+  },
+  "operations": [
+    {"action": "experimental_disable", "operation": "4f3ecfa74af8eed15d175e8491ca1873", "state": "completed"},
+    {"action": "experimental-runner", "state": "completed"},
+    {"action": "installer_scan", "operation": "88d7b990a633634a4c7b3a15f63c6742", "state": "completed", "modules": 1},
+    {"action": "compatibility_check", "operation": "52c7f2e3ab13e8784e1b47f399138d2c", "state": "completed",
+      "candidate": "cb97091314ab44f31e3d70c3246f4d11e1a12efcef047190a51fa4d6843647fc",
+      "note": "The offered predecessor was the earlier Wine D3D11 trial, so this candidate inherited that label; under the reference runner policy the launch overrides are identical."},
+    {"action": "candidate_settings_prepare", "operation": "ba41bf98ed0a00c3f810109ca7af91dc", "state": "completed",
+      "candidate": "94beb939994f06496a2ddb714a145ddc05773e99a470476376d895edfbf40844", "graphics": "runtime defaults"},
+    {"action": "candidate_graphics_assess", "operation": "8fec83a78264b184f81a4f6b4ce3fc65", "state": "completed"},
+    {"action": "compatibility_publish_test", "operation": "8f548af62c4ba78b312e1406f94053d5", "state": "completed",
+      "publication": "f1442ed26baf8ef388410e4aad3564e7"}
+  ],
+  "assessment": {
+    "candidates": ["cb97091314ab44f31e3d70c3246f4d11e1a12efcef047190a51fa4d6843647fc", "94beb939994f06496a2ddb714a145ddc05773e99a470476376d895edfbf40844"],
+    "applied_dll_overrides": "d2d1,d3d11,dxgi,dcomp=b;lvb-direct-wait=b",
+    "editor": "opened",
+    "editor_retirement": "closed",
+    "probes": {
+      "d3d11_default": "passed",
+      "d3d11_warp": "passed",
+      "opengl": "passed",
+      "direct_composition": "passed"
+    },
+    "requirement": "none",
+    "predecessor_runner_same_plug_in": {
+      "direct_composition": "unavailable",
+      "editor_retirement": "timed_out",
+      "requirement": "direct_composition_runner"
+    }
+  },
+  "editor_pixels": [
+    {
+      "context": "manager graphics assessment, isolated host, default-graphics candidate",
+      "capture": "one X11 capture of the editor's own window; client area 1200x426",
+      "png_sha256": "7b70f78e1ba48c52283fbaa0f078abd2eb4e2b5547f67af387199fdc5e7d134e",
+      "distinct_colours": 12239,
+      "pure_white_pixels": 0
+    },
+    {
+      "context": "Bitwig Studio 6.1, Nibbi inserted on an instrument track of an existing project, editor window opened by the DAW",
+      "capture": "two X11 captures of the editor's own window two seconds apart, byte-identical; client area 1200x426",
+      "png_sha256": "585cc959fe1a8b9d50320038bd5fff2e8c36fd7cf15b97b5340039df9d2cebb3",
+      "distinct_colours": 14188,
+      "pure_white_pixels": 0
+    }
+  ],
+  "bitwig": {
+    "editor_close": "A polite window close removed the editor window within the first half-second poll; the earlier 30-second removal stall did not recur. The exact duration was not recorded.",
+    "after_close": "Device remained loaded and enabled with its parameters listed.",
+    "quit": "Bitwig exited within two seconds of declining to save; no error dialog was present in the window list. The project was not saved.",
+    "manager_after_quit": {"dsp": 0, "active_sessions": 0, "recent_incidents": 0, "keepers": 1}
+  },
+  "tool_observations": [
+    "Every retained assessment on this Deck, on the stock runner, the touch-routing runner and both DirectComposition runners, reports the same Direct3D 11 adapter: description 'ATI Radeon HD 5600 Series', vendor 0x1002, device 0x68D8, including the launches labelled runner defaults.",
+    "The installed Proton launcher sets its DXVK DLL overrides only inside prefix setup, which the runinprefix verb skips; a live host's WINEDLLOVERRIDES contained no d3d11 or dxgi entry.",
+    "The OpenGL probe's renderer name was null in all seven retained assessments while its driver version string was present.",
+    "Serum 2, published and listed as supported, received requirement direct_composition_runner on the touch-routing runner; its module imports d3d11 and d2d1 only."
+  ],
+  "nonclaims": [
+    "Audio, MIDI, automation, state save and recall, processing restart and endurance were not exercised.",
+    "The earlier temporary-state save error on quit was not reproduced or explained; one clean quit does not establish that it is fixed.",
+    "No loaded-module map of a live plug-in host was read, so the Direct3D 11 provider on stock-runner launches is inferred from the adapter identity and launcher behaviour, not observed directly.",
+    "No claim for other JUCE Direct2D plug-ins, other runners, Ubuntu or any other host.",
+    "Nibbi remains experimental and unqualified in the support matrix.",
+    "Captured images are not retained in Git; raw logs and captures stay outside the repository."
+  ]
+}

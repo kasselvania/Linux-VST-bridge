@@ -21,7 +21,7 @@ pub fn directory(m: &Manager, id: &str) -> Result<PathBuf> {
     require(valid_hex(id, 32), "onboarding_identity")?;
     Ok(m.root.join("onboarding").join(id))
 }
-fn load_record(m: &Manager, id: &str) -> Result<Record> {
+fn load_record_binding(m: &Manager, id: &str) -> Result<Record> {
     let r: Record = read_json(&directory(m, id)?.join("record.json"))?;
     require(
         r.schema == 1
@@ -51,9 +51,21 @@ fn load_record(m: &Manager, id: &str) -> Result<Record> {
             "onboarding_previous_binding",
         )?;
     }
+    Ok(r)
+}
+fn load_record(m: &Manager, id: &str) -> Result<Record> {
+    let r = load_record_binding(m, id)?;
     installer_import::load(m, &r.installer)?;
     r.environment.runner.verify()?;
     Ok(r)
+}
+/// Existing operation custody remains usable when installation inputs or the
+/// compatibility runtime are unavailable. This grants no execution admission.
+pub fn control_record(m: &Manager, id: &str) -> Result<Record> {
+    let record = load_record_binding(m, id)?;
+    require(!m.registry()?.classes.values().any(|entry|
+        entry.registration.environment.id == id), "onboarding_environment_qualified")?;
+    Ok(record)
 }
 fn load_bound(m: &Manager, id: &str) -> Result<(Record, bool)> {
     let r = load_record(m, id)?;
@@ -79,10 +91,18 @@ pub fn load(m: &Manager, id: &str) -> Result<Record> {
 /// Optional retained installation support for a managed-environment rescan.
 /// Registry and catalogue authority are checked by the final scan owner.
 pub fn retained_environment(m: &Manager, id: &str) -> Result<Option<Record>> {
+    let record = retained_environment_record(m, id)?;
+    if let Some(record) = &record {
+        installer_import::load(m, &record.installer)?;
+        record.environment.runner.verify()?;
+    }
+    Ok(record)
+}
+pub fn retained_environment_record(m: &Manager, id: &str) -> Result<Option<Record>> {
     if !valid_hex(id, 32) || !directory(m, id)?.join("record.json").try_exists()? {
         return Ok(None);
     }
-    Ok(Some(load_record(m, id)?))
+    Ok(Some(load_record_binding(m, id)?))
 }
 pub fn records(m: &Manager) -> Result<Vec<Record>> {
     let p = m.root.join("onboarding");
@@ -117,7 +137,9 @@ pub fn history_records(m: &Manager) -> Result<Vec<Record>> {
         if !valid_hex(id,32){continue}
         let r:Record=read_json(&path.join("record.json"))?;
         require(r.schema==1 && r.id==id && r.environment.id==id && r.environment.root==m.root.join("environments").join(id)
-           && read_json::<Environment>(&r.environment.root.join("environment.json"))?==r.environment,
+           && read_json::<Environment>(&r.environment.root.join("environment.json"))?==r.environment
+           && valid_hex(&r.creation_operation,32)
+           && r.installation_operation.as_ref().is_none_or(|op|valid_hex(op,32)),
            "onboarding_history_binding")?;
         out.push(r);
     }
@@ -128,18 +150,44 @@ pub fn runner_key(r: &Runner) -> Result<String> {
 }
 pub fn runners(m: &Manager) -> Result<Vec<(String, Runner)>> {
     let sw = software(m)?;
-    if sw.native_catalogue.is_none() {
-        require(crate::frg1::catalogue_free_registry(m, &m.registry()?)?,
+    let list = if sw.native_catalogue.is_none() {
+        require(catalogue::catalogue_free_registry(m, &m.registry()?)?,
             "native_catalogue_absent_run_product_setup")?;
-        return Ok(vec![]);
+        vec![]
+    } else { runners_from_catalogue(Some(&sw.catalogue(m)?))? };
+    with_delivered_runtime(m, list)
+}
+fn runners_for_readback(m: &Manager) -> Result<Vec<(String, Runner)>> {
+    let sw = software_record(m)?;
+    let list = if sw.native_catalogue.is_none() {
+        require(catalogue::catalogue_free_registry_readback(m, &m.registry()?)?,
+            "native_catalogue_absent_run_product_setup")?;
+        vec![]
+    } else { runners_from_catalogue_with(Some(&sw.catalogue_record(m)?), false)? };
+    let mut list = list;
+    if let Some(runner) = linux_vst_bridge::runtime_delivery::installed_record(m)? {
+        let key = runner_key(&runner)?;
+        if !list.iter().any(|(id, _)| id == &key) { list.push((key, runner)); }
     }
-    runners_from_catalogue(Some(&sw.catalogue(m)?))
+    Ok(list)
+}
+fn with_delivered_runtime(m: &Manager, mut list: Vec<(String, Runner)>)
+    -> Result<Vec<(String, Runner)>> {
+    if let Some(runner) = linux_vst_bridge::runtime_delivery::installed(m)? {
+        let key = runner_key(&runner)?;
+        if !list.iter().any(|(id, _)| id == &key) { list.push((key, runner)); }
+    }
+    Ok(list)
 }
 fn runners_from_catalogue(catalogue: Option<&catalogue::Catalogue>) -> Result<Vec<(String, Runner)>> {
+    runners_from_catalogue_with(catalogue, true)
+}
+fn runners_from_catalogue_with(catalogue: Option<&catalogue::Catalogue>, execution: bool)
+    -> Result<Vec<(String, Runner)>> {
     let mut list = vec![];
     for e in catalogue.into_iter().flat_map(|c| &c.environments) {
         let r = e.environment.runner.clone();
-        r.verify()?;
+        if execution { r.verify()?; } else { r.validate_record()?; }
         let id = runner_key(&r)?;
         if !list.iter().any(|(key, _)| key == &id) {
             list.push((id, r));
@@ -148,9 +196,13 @@ fn runners_from_catalogue(catalogue: Option<&catalogue::Catalogue>) -> Result<Ve
     Ok(list)
 }
 fn default_runtime(m: &Manager, installed: &[(String, Runner)]) -> Result<Option<(String, Runner)>> {
-    let sw = software(m)?;
+    if let Some(selected) = installed.iter().find(|(_,r)|
+        r.id == linux_vst_bridge::runtime_delivery::ID && r.policy.is_none()) {
+        return Ok(Some(selected.clone()));
+    }
+    let sw = software_record(m)?;
     let Some(_) = sw.native_catalogue else { return Ok(None) };
-    let catalogue = sw.catalogue(m)?;
+    let catalogue = sw.catalogue_record(m)?;
     Ok(default_runtime_from_catalogue(Some(&catalogue), installed))
 }
 fn default_runtime_from_catalogue(catalogue: Option<&catalogue::Catalogue>,
@@ -199,26 +251,24 @@ pub fn prepare_creation(m: &Manager, installer: &str, runner: &str) -> Result<Pr
     let software_path = m.root.join("software.json");
     let software_stamp = FileIdentity::read(&software_path)?;
     let sw = software(m)?;
-    let catalogue = sw
-        .native_catalogue
-        .as_ref()
-        .ok_or("onboarding_runner_catalogue_absent")?;
-    let catalogue_stamp = FileIdentity::read(&catalogue.path)?;
-    let installed = sw.catalogue(m)?;
-    let r = installed
-        .environments
-        .into_iter()
-        .map(|e| e.environment.runner)
-        .find(|r| runner_key(r).is_ok_and(|key| key == runner))
+    let r = runners(m)?.into_iter()
+        .find(|(key, _)| key == runner)
+        .map(|(_,r)|r)
         .ok_or("onboarding_runner_not_installed")?;
     let record_path = m.root.join("installers").join(format!("{installer}.json"));
     let record_stamp = FileIdentity::read(&record_path)?;
     let artifact = installer_import::load_record(m, installer)?;
     let mut files = vec![
         (software_path, software_stamp),
-        (catalogue.path.clone(), catalogue_stamp),
         (record_path, record_stamp),
     ];
+    if let Some(catalogue) = &sw.native_catalogue {
+        files.push((catalogue.path.clone(), FileIdentity::read(&catalogue.path)?));
+    }
+    if r.id == linux_vst_bridge::runtime_delivery::ID {
+        let path = linux_vst_bridge::runtime_delivery::record_path(m);
+        files.push((path.clone(), FileIdentity::read(&path)?));
+    }
     let mut paths = vec![artifact.artifact.path.clone()];
     paths.extend(r.files.iter().map(|a| a.path.clone()));
     files.extend(
@@ -415,6 +465,20 @@ pub fn retired(v: &Value) -> bool {
             Some("completed" | "failed" | "cancelled")
         )
 }
+/// A retained supervisor failure before the vendor launch is a safe reason for
+/// a new isolated attempt. It does not rewrite the prior durable-outcome report.
+fn failed_before_installer(v: &Value) -> bool {
+    let startup=&v["startup"];
+    v["schema"]==2 && v["state"]=="failed" && retired(v)
+        && startup["first_problem"]["code"]=="prefix_initialization_failed"
+        && v["transaction"]["first_failure"]["phase"]=="prefix_initialization"
+        && startup["target"].is_null() && startup["dropped_stages"]==0
+        && startup["stages"].as_array().is_some_and(|stages|
+            stages.iter().any(|s| s["stage"]=="prefix_initialization_exit"
+                && s["exit"].as_i64().is_some_and(|n|n!=0))
+            && !stages.iter().any(|s| matches!(s["stage"].as_str(),
+                Some("target_runner_launch_requested" | "target_runner_started" | "target_image_observed"))))
+}
 fn require_new_attempt(v: &Value, linked: bool) -> Result<()> {
     require(retired(v), "previous_attempt_not_terminal_and_retired")?;
     if let Some(t) = v.get("transaction") {
@@ -424,7 +488,9 @@ fn require_new_attempt(v: &Value, linked: bool) -> Result<()> {
         )?;
         require(t["durable_installation"] != "installed", "installed_attempt_requires_first_launch_review")?;
         require(
-            matches!(t["durable_installation"].as_str(), Some("not_installed" | "partial_installation")),
+            matches!(t["durable_installation"].as_str(), Some("not_installed" | "partial_installation"))
+                || (matches!(t["durable_installation"].as_str(),Some("unavailable" | "indeterminate"))
+                    && failed_before_installer(v)),
             "previous_installation_outcome_unresolved",
         )?;
     } else {
@@ -457,7 +523,11 @@ pub fn mark_dead(m: &Manager, r: &Record) -> Result<()> {
     Ok(())
 }
 pub fn all_retired(m: &Manager) -> Result<bool> {
-    for r in records(m)? {
+    // Retirement is receipt/resource custody, not admission to run a binary.
+    // An intact runner is not required to stop or replace a broken installation.
+    let protected: std::collections::BTreeSet<_> = m.registry()?.classes.values()
+        .map(|e|e.registration.environment.id.clone()).collect();
+    for r in history_records(m)?.into_iter().filter(|r|!protected.contains(&r.id)) {
         if r.installation_operation.is_some() && !retired(&result(m, &r)?) {
             return Ok(false);
         }
@@ -538,7 +608,8 @@ pub fn launch(m: &Manager, r: &Record, policy: Option<linux_vst_bridge::installe
     Ok(())
 }
 pub fn focus(m: &Manager, id: &str, op: &str) -> Result<Value> {
-    let r = load(m, id)?;
+    let _ownership = m.lock("onboarding.lock")?;
+    let r = control_record(m, id)?;
     require(
         r.installation_operation.as_deref() == Some(op) && live(op)?,
         "installer_focus_owner",
@@ -564,7 +635,8 @@ pub fn focus(m: &Manager, id: &str, op: &str) -> Result<Value> {
     }
 }
 pub fn stop(m: &Manager, id: &str, op: &str) -> Result<Value> {
-    let r = load(m, id)?;
+    let _ownership = m.lock("onboarding.lock")?;
+    let r = control_record(m, id)?;
     require(
         r.installation_operation.as_deref() == Some(op),
         "installer_stop_owner",
@@ -588,19 +660,20 @@ fn projection_with_live(
     busy: Option<&str>,
     is_live: impl FnMut(&str) -> Result<bool>,
 ) -> Result<Vec<ui::Onboarding>> {
-    let sw = software(m)?;
-    let catalogue = sw.native_catalogue.as_ref().map(|_| sw.catalogue(m)).transpose()?;
+    let sw = software_record(m)?;
+    let installed_runners = runners_for_readback(m)?;
+    let default = default_runtime(m, &installed_runners)?;
     let registry = m.registry()?;
     let records = history_records(m)?;
     let installers = installer_import::list(m)?;
     projection_current(m, busy, CurrentProjectionInputs {
-        sw: &sw, catalogue: catalogue.as_ref(), registry: &registry,
+        sw: &sw, default_runner: default.as_ref(), registry: &registry,
         records: &records, installers: &installers,
     }, is_live)
 }
 pub(super) struct CurrentProjectionInputs<'a> {
     pub sw: &'a Software,
-    pub catalogue: Option<&'a catalogue::Catalogue>,
+    pub default_runner: Option<&'a (String, Runner)>,
     pub registry: &'a Registry,
     pub records: &'a [Record],
     pub installers: &'a [installer_import::Installer],
@@ -608,11 +681,9 @@ pub(super) struct CurrentProjectionInputs<'a> {
 pub(super) fn projection_current(m: &Manager, busy: Option<&str>,
     inputs: CurrentProjectionInputs<'_>, mut is_live: impl FnMut(&str) -> Result<bool>,
 ) -> Result<Vec<ui::Onboarding>> {
-    let CurrentProjectionInputs { sw, catalogue, registry, records, installers } = inputs;
+    let CurrentProjectionInputs { sw, default_runner, registry, records, installers } = inputs;
     let mut rows = vec![];
-    let runners = runners_from_catalogue(catalogue)?;
-    let default = default_runtime_from_catalogue(catalogue, &runners);
-    let preferred: Vec<_> = default.iter().cloned().collect();
+    let preferred: Vec<_> = default_runner.into_iter().cloned().collect();
     for installer in installers {
         let bound: Vec<_> = records
             .iter()
@@ -712,7 +783,7 @@ pub(super) fn projection_current(m: &Manager, busy: Option<&str>,
                     disabled_reason: busy.map(Into::into),
                 });
             }
-            if r.installation_operation.is_none() && linux_vst_bridge::installer_policy::eligible_adapter(&installer.format, sw).is_ok() {
+            if r.installation_operation.is_none() && linux_vst_bridge::installer_policy::eligible_adapter_record(&installer.format, sw).is_ok() {
                 actions.push(ui::AvailableAction {
                     label: "Run installer with PowerShell intentionally unavailable".into(),
                     action: ui::Action::InstallerStartWithPolicy { onboarding: r.id.clone(),
@@ -730,13 +801,13 @@ pub(super) fn projection_current(m: &Manager, busy: Option<&str>,
             };
             if !scan.is_null() && retired(&v) {
                 let parsed: inventory::Scan = serde_json::from_value(scan.clone())?;
-                state = scan_state(&parsed, &r.environment, &sw.host, &sw.source_sha256).into();
-                human = "Review discovery below. No class has been published to Bitwig";
+                state = scan_state_with(&parsed, &r.environment, &sw.host, &sw.source_sha256, false).into();
+                human = "Review discovery below. No class has been published";
             }
             if managed {
                 actions.clear();
                 if retired(&v)
-                    && inventory_refresh_required(m, &r.environment, &sw.host, &sw.source_sha256)?
+                    && inventory_refresh_record_required(m, &r.environment, &sw.host, &sw.source_sha256)?
                 {
                     state = "needs_attention".into();
                     human = "Installation retained; use the exact managed-environment refresh below before preparing or replacing a publication";
@@ -811,6 +882,8 @@ fn setup_posture(current: &ui::Onboarding, ambiguous: bool, discovered: usize)
                 "The installer reported a problem, but durable installation files may exist. Review its result, then find installed plug-ins if offered.".into(), SetupNext::Scan),
             Some("not_installed") => (Phase::SetupNeedsAttention,
                 "The installer did not leave a durable installation. Review the result before starting another exact attempt.".into(), SetupNext::Retry),
+            _ if failed_before_installer(installation) => (Phase::SetupNeedsAttention,
+                "The runtime failed before the vendor installer started. Start a new isolated attempt with the current runtime.".into(), SetupNext::Retry),
             _ => (Phase::SetupNeedsAttention,
                 "The installer retired, but its durable installation outcome is not confirmed. Review exact history before continuing.".into(), SetupNext::None),
         };
@@ -839,9 +912,9 @@ fn compatibility_label(existing: bool, runner: Option<&Runner>,
     if !existing {
         return default.map(|_| "Recommended setup: Standard".into());
     }
-    let exact_standard = runner.is_some_and(|runner| default.is_some_and(|(key, _)|
-        runner.id == catalogue::STANDARD_ONBOARDING_RUNNER
-            && runner.policy.is_none() && runner.verify().is_ok()
+    let exact_standard = runner.is_some_and(|runner| default.is_some_and(|(key, selected)|
+        runner.id == selected.id
+            && runner.policy.is_none() && runner.validate_record().is_ok()
             && runner_key(runner).is_ok_and(|actual| &actual == key)));
     Some(if exact_standard { "Standard · recommended" }
         else { "Existing managed configuration" }.into())
@@ -855,13 +928,19 @@ fn setup_primary(actions: &[ui::AvailableAction], next: SetupNext) -> Option<ui:
         SetupNext::Scan => matches!(a.action, ui::Action::InstallerScan { .. }),
         SetupNext::Retry => matches!(a.action, ui::Action::InstallerNewAttempt { .. }),
         SetupNext::None => false,
-    }).cloned().map(|mut offer| { if matches!(offer.action, ui::Action::InstallerScan { .. }) {
-        offer.label = "Find installed plug-ins".into(); } offer })
+    }).cloned().map(|mut offer| {
+        match offer.action {
+            ui::Action::InstallerScan { .. } => offer.label = "Find installed plug-ins".into(),
+            ui::Action::InstallerNewAttempt { .. } => offer.label = "Retry installation".into(),
+            _ => {},
+        }
+        offer
+    })
 }
 
 pub fn setup_projection(m: &Manager, rows: &[ui::Onboarding], products: &[ui::Product],
     workspace_installers: &std::collections::BTreeSet<String>) -> Result<Vec<ui::InstallerSetup>> {
-    let runners = runners(m)?;
+    let runners = runners_for_readback(m)?;
     let default = default_runtime(m, &runners)?;
     let retained = history_records(m)?;
     let installers = installer_import::list(m)?;
@@ -917,7 +996,13 @@ pub(super) fn setup_projection_current(m: &Manager, rows: &[ui::Onboarding],
         let (phase, status, next) = setup_posture(current, ambiguous, discovered.len());
         let primary = setup_primary(&current.actions, next);
         let secondary = current.actions.iter().filter(|a| !ambiguous && primary.as_ref().is_none_or(|p| p.action != a.action))
-            .filter(|a| matches!(a.action, ui::Action::InstallerStop { .. })).cloned().collect();
+            .filter(|a| matches!(a.action, ui::Action::InstallerStop { .. } | ui::Action::InstallerNewAttempt { .. }))
+            .cloned().map(|mut offer| {
+                if matches!(offer.action, ui::Action::InstallerNewAttempt { .. }) {
+                    offer.label = "Retry installation".into();
+                }
+                offer
+            }).collect();
         let selected = retained.iter().find(|record|
             current.environment.as_ref() == Some(&record.id)
                 && record.installer == installer.id);
@@ -946,26 +1031,40 @@ pub fn inventory_refresh_required(
     host: &Artifact,
     source: &str,
 ) -> Result<bool> {
+    inventory_refresh_with(m, environment, host, source, true)
+}
+pub fn inventory_refresh_record_required(m: &Manager, environment: &Environment,
+    host: &Artifact, source: &str) -> Result<bool> {
+    inventory_refresh_with(m, environment, host, source, false)
+}
+fn inventory_refresh_with(m: &Manager, environment: &Environment,
+    host: &Artifact, source: &str, execution: bool) -> Result<bool> {
     let path = m.root.join("inventory").join(format!("{}.json", environment.id));
     if !path.try_exists()? {
         return Ok(true);
     }
     let scan: inventory::Scan = read_json(&path)?;
-    Ok(scan_state(&scan, environment, host, source) == "needs_attention")
+    Ok(scan_state_with(&scan, environment, host, source, execution) == "needs_attention")
 }
 
+#[cfg(test)]
 fn scan_state(
     scan: &inventory::Scan,
     environment: &Environment,
     host: &Artifact,
     source: &str,
 ) -> &'static str {
+    scan_state_with(scan, environment, host, source, true)
+}
+fn scan_state_with(scan: &inventory::Scan, environment: &Environment,
+    host: &Artifact, source: &str, execution: bool) -> &'static str {
+    let stale = if execution { inventory::stale_reason } else { inventory::record_stale_reason };
     if scan.schema != 1
         || &scan.environment != environment
         || scan.host.sha256 != host.sha256
         || scan.host_source_sha256 != source
         || scan.modules.iter().any(|m| {
-            inventory::stale_reason(
+            stale(
                 m,
                 &scan.environment,
                 &scan.host,
@@ -1030,6 +1129,7 @@ mod tests {
             let primary = setup_primary(&row.actions, choice).unwrap();
             assert_eq!(primary.action, if choice == SetupNext::Scan { scan.action.clone() } else { retry.action.clone() });
             if choice == SetupNext::Scan { assert_eq!(primary.label, "Find installed plug-ins"); }
+            else { assert_eq!(primary.label, "Retry installation"); }
             row.actions.clear();
             assert!(setup_primary(&row.actions, choice).is_none(), "no invented {state} action");
         }
@@ -1216,7 +1316,35 @@ mod tests {
         (f, i)
     }
     #[test]
-    fn policy_action_requires_current_verified_pe_adapter() {
+    fn imported_installer_uses_the_verified_delivered_default_without_catalogue() {
+        let (f, installer) = fixture();
+        let a = f.r.host.clone();
+        let sw = Software { manager:a.clone(),supervisor:a.clone(),ownership:a.clone(),host:a.clone(),
+            source_manifest:a.clone(),source_sha256:a.sha256.clone(),operator_frontend:None,
+            native_catalogue:None,preparation_kit:None,installer_launch:None };
+        let registry = f.m.registry().unwrap();
+        let installers = [installer.clone()];
+        let mut runner = f.r.environment.runner.clone();
+        runner.id = linux_vst_bridge::runtime_delivery::ID.into();
+        runner.policy = None;
+        let selected = (runner_key(&runner).unwrap(), runner.clone());
+        let project = |default_runner| projection_current(&f.m, None, CurrentProjectionInputs {
+            sw: &sw, default_runner, registry: &registry, records: &[], installers: &installers,
+        }, |_| Ok(false)).unwrap();
+        assert!(project(None)[0].actions.is_empty());
+        let rows = project(Some(&selected));
+        assert_eq!(rows[0].actions.len(), 1);
+        assert_eq!(rows[0].actions[0].action, ui::Action::InstallerEnvironmentCreate {
+            installer: installer.id, runner: selected.0.clone(),
+        });
+        let setups = setup_projection_current(&f.m, &rows, &[],
+            &Default::default(), &[], &installers, Some(&selected)).unwrap();
+        assert_eq!(setups[0].primary.as_ref().unwrap().action, rows[0].actions[0].action);
+        assert_eq!(compatibility_label(true, Some(&runner), Some(&selected), false).as_deref(),
+            Some("Standard · recommended"));
+    }
+    #[test]
+    fn policy_offer_requires_adapter_record_and_execution_verifies_bytes() {
         use linux_vst_bridge::catalogue::{Catalogue, EnvironmentBinding};
         let (f,p,_,native)=test_fixture::prepared();
         let mut b=vec![0;1024];b[..2].copy_from_slice(b"MZ");b[60]=128;
@@ -1227,7 +1355,7 @@ mod tests {
         let path=f.m.root.join("software/catalogue.json");
         atomic_json(&path,&Catalogue { schema:3,natives:vec![native],hosts:vec![],
             environments:vec![EnvironmentBinding {family:p.requirements.environment_family,environment:f.r.environment.clone()}],onboarding_runtime:None }).unwrap();
-        create_exact(&f.m,&i,f.r.environment.runner.clone(),&"ab".repeat(16),&f.m.lock("registry.lock").unwrap(),None).unwrap();
+        let created = create_exact(&f.m,&i,f.r.environment.runner.clone(),&"ab".repeat(16),&f.m.lock("registry.lock").unwrap(),None).unwrap();
         let a=f.r.host.clone();
         let mut sw=Software { manager:a.clone(),supervisor:a.clone(),ownership:a.clone(),host:a.clone(),
             source_manifest:a.clone(),source_sha256:a.sha256.clone(),operator_frontend:None,
@@ -1245,10 +1373,66 @@ mod tests {
         assert!(projection(&f.m,None).unwrap().iter().filter(|r| r.installer==msi.id)
             .flat_map(|r| &r.actions).all(|a| !matches!(a.action,ui::Action::InstallerStartWithPolicy{..})));
         sw.installer_launch.as_mut().unwrap().sha256="00".repeat(32);
-        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();assert!(projection(&f.m,None).is_err());
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();assert_eq!(count(),1);
+        let record = load(&f.m, created["onboarding"].as_str().unwrap()).unwrap();
+        let mut spec = json!({"schema":2,"operation":"ef".repeat(16),
+            "format":i.format,"installer":i.artifact,"environment":record.environment,
+            "installer_launch":sw.installer_launch});
+        let before = spec.clone();
+        assert_eq!(linux_vst_bridge::installer_policy::bind(&mut spec, &sw,
+            linux_vst_bridge::installer_policy::Powershell::IntentionallyUnavailable)
+            .unwrap_err().to_string(), "artifact missing or changed");
+        assert_eq!(spec, before, "a deferred offer cannot create an execution capability");
         sw.installer_launch=None;atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
         // Ordinary Start remains offered even when policy is ineligible.
         assert!(projection(&f.m,None).unwrap().iter().flat_map(|r| &r.actions).any(|a| matches!(a.action,ui::Action::InstallerStart{..})));
+    }
+    #[test]
+    fn retirement_checks_custody_even_when_runner_bytes_are_damaged() {
+        let (f, installer)=fixture();
+        let created=create_exact(&f.m,&installer,f.r.environment.runner.clone(),&"ab".repeat(16),
+            &f.m.lock("registry.lock").unwrap(),None).unwrap();
+        let id=created["onboarding"].as_str().unwrap();let op="cd".repeat(16);
+        reserve(&f.m,id,&op).unwrap();
+        let report=directory(&f.m,id).unwrap().join(format!("{op}-result.json"));
+        let receipt=json!({"schema":2,"operation":op,"state":"failed","owned_live":0,"cleanup_confirmed":true});
+        atomic_json(&report,&receipt).unwrap();
+        fs::write(&f.r.environment.runner.proton,b"damaged").unwrap();
+        assert!(load(&f.m,id).is_err()); // launch admission still refuses
+        assert!(all_retired(&f.m).unwrap());
+        let mut pending=receipt.clone();pending["cleanup_confirmed"]=json!(false);
+        atomic_json(&report,&pending).unwrap();assert!(!all_retired(&f.m).unwrap());
+        pending=receipt;pending["operation"]=json!("ef".repeat(16));
+        atomic_json(&report,&pending).unwrap();assert!(all_retired(&f.m).is_err());
+    }
+    #[test]
+    fn confirmed_prefix_failure_offers_isolated_retry_without_rewriting_receipt() {
+        let receipt=json!({"schema":2,"state":"failed","cleanup_confirmed":true,"owned_live":0,
+            "startup":{"first_problem":{"code":"prefix_initialization_failed"},"target":null,
+                "dropped_stages":0,"stages":[{"stage":"prefix_initialization_exit","exit":1}]},
+            "transaction":{"outcome":"completed","durable_installation":"unavailable",
+                "first_failure":{"phase":"prefix_initialization"}}});
+        assert!(require_new_attempt(&receipt,false).is_ok());
+        let mut indeterminate=receipt.clone();
+        indeterminate["transaction"]["durable_installation"]=json!("indeterminate");
+        assert!(require_new_attempt(&indeterminate,false).is_ok());
+        assert_eq!(indeterminate["transaction"]["durable_installation"],"indeterminate");
+        assert_eq!(receipt["transaction"]["durable_installation"],"unavailable");
+        assert!(require_new_attempt(&receipt,true).is_err());
+        for (field,value) in [("cleanup_confirmed",json!(false)),("owned_live",json!(1))] {
+            let mut changed=receipt.clone();changed[field]=value;
+            assert!(require_new_attempt(&changed,false).is_err());
+        }
+        for key in ["target_runner_launch_requested","target_runner_started","target_image_observed"] {
+            let mut changed=receipt.clone();changed["startup"]["stages"].as_array_mut().unwrap().push(json!({"stage":key}));
+            assert!(require_new_attempt(&changed,false).is_err());
+        }
+        let mut changed=receipt.clone();changed["startup"]["dropped_stages"]=json!(1);
+        assert!(require_new_attempt(&changed,false).is_err());
+        changed=receipt.clone();changed["transaction"]["durable_installation"]=json!("installed");
+        assert!(require_new_attempt(&changed,false).is_err());
+        changed=receipt.clone();changed["startup"]["first_problem"]["code"]=json!("target_runner_failed");
+        assert!(require_new_attempt(&changed,false).is_err());
     }
     #[test]
     fn terminal_durable_outcome_controls_projection_and_guarded_new_attempt() {
@@ -1288,6 +1472,30 @@ mod tests {
                 assert_eq!(blocked[0].disabled_reason.as_deref(), Some("active DSP"));
             } else {
                 assert!(prepare_attempt(&f.m, id, &key).is_err());
+            }
+            // The ordinary Setup card must preserve the backend's exact retry
+            // offer even when partial files make discovery its primary action.
+            let a = f.r.host.clone();
+            let sw = Software { manager:a.clone(),supervisor:a.clone(),ownership:a.clone(),host:a.clone(),
+                source_manifest:a.clone(),source_sha256:a.sha256.clone(),operator_frontend:None,
+                native_catalogue:None,preparation_kit:None,installer_launch:None };
+            let registry = f.m.registry().unwrap();
+            let retained_records = [prior.clone()];
+            let installers = [i.clone()];
+            let default = (runner_key(&runner).unwrap(), runner.clone());
+            let rows = projection_current(&f.m, None, CurrentProjectionInputs {
+                sw:&sw, default_runner:Some(&default), registry:&registry,
+                records:&retained_records, installers:&installers,
+            }, |_| Ok(false)).unwrap();
+            let cards = setup_projection_current(&f.m, &rows, &[], &Default::default(),
+                &retained_records, &installers, Some(&default)).unwrap();
+            let retries: Vec<_> = cards[0].primary.iter().chain(&cards[0].secondary)
+                .filter(|offer| matches!(offer.action, ui::Action::InstallerNewAttempt { .. }))
+                .collect();
+            assert_eq!(retries.len(), usize::from(allowed), "Setup retry: {durable}/{outcome}");
+            if allowed {
+                assert_eq!(retries[0].label, "Retry installation");
+                assert_eq!(retries[0].action, offered[0].action);
             }
             let prepared = PreparedCreation { installer:i.clone(), runner,
                 files:vec![(record.clone(), FileIdentity::read(&record).unwrap()),

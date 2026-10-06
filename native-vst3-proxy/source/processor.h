@@ -2,11 +2,19 @@
 #include "public.sdk/source/vst/vstaudioeffect.h"
 #include <atomic>
 #include <cstdint>
+#include <memory>
 #include <thread>
 #ifdef AP8_PREVIEW
+#ifdef LVB_RUNTIME_DESCRIPTOR
+#include "runtime_descriptor.h"
+#else
 #include "ap8_descriptor.h"
+#endif
+#include "ap8_backend.h"
+#include "ap23_backend.h"
 #include "ap18_bus_support.h"
 #include "output_results.h"
+#include "process_call_observer.h"
 #include <vector>
 #include <array>
 #endif
@@ -26,6 +34,7 @@ public:
   }
   ~Processor() override;
   Steinberg::tresult PLUGIN_API initialize(Steinberg::FUnknown *) override;
+  Steinberg::tresult PLUGIN_API connect(Steinberg::Vst::IConnectionPoint *) override;
   Steinberg::tresult PLUGIN_API terminate() override;
   Steinberg::tresult PLUGIN_API setActive(Steinberg::TBool) override;
   Steinberg::tresult PLUGIN_API activateBus(Steinberg::Vst::MediaType,
@@ -41,14 +50,18 @@ public:
   Steinberg::tresult PLUGIN_API canProcessSampleSize(Steinberg::int32) override;
   Steinberg::tresult PLUGIN_API process(Steinberg::Vst::ProcessData &) override;
   Steinberg::uint32 PLUGIN_API getLatencySamples() override {
-    return preview_ ? latency_ : queued_ ? 1024 : 0;
+    return preview_ ? latency_.load(std::memory_order_acquire) : queued_ ? 1024 : 0;
   }
-  Steinberg::uint32 PLUGIN_API getTailSamples() override { return tail_; }
+  Steinberg::uint32 PLUGIN_API getTailSamples() override { return tail_.load(std::memory_order_acquire); }
   Steinberg::tresult PLUGIN_API
   getControllerClassId(Steinberg::TUID id) override {
     if (preview_) {
 #ifdef AP8_PREVIEW
+#ifdef LVB_RUNTIME_DESCRIPTOR
+      std::memcpy(id,AP8::controlID,16);
+#else
       Steinberg::FUID(AP8_CONTROLLER_UID).toTUID(id);
+#endif
 #else
       controllerID.toTUID(id);
 #endif
@@ -84,11 +97,19 @@ private:
   bool gui_consumer_=false; // UI-thread capability, withdrawn before peer retirement.
   Steinberg::tresult guiPoll(uint64_t generation,unsigned limit);
   bool deliverResults(Steinberg::Vst::ProcessData&);
+  void reportPhaseTrace();
+  void reportProcessCalls();
+  LVBCallTiming::Recorder process_calls_;
+  uint64_t configuration_revision_=0; // Accepted inactive setup; busy_-owned.
+  Steinberg::tresult processBody(Steinberg::Vst::ProcessData&,uint64_t,
+                                 LVBCallTiming::Recorder::Call&);
   Steinberg::tresult containedSilence(Steinberg::Vst::ProcessData&);
   uint64_t contained_callbacks_=0, contained_frames_=0;
   int eventOutputActive(int)const;
   uint64_t terminal_notified_generation_=0;
-  bool notifications_=false;uint32_t vendor_latency_=0;
+  bool notifications_=false;
+  std::atomic<uint32_t> vendor_latency_{0},bridge_delay_{1024};
+  uint32_t pending_restart_flags_=0; // SDK owner thread; retained until acknowledged.
   std::array<bool,AP18Buses::max_buses> bus_active_{};
   int stereo_input_ordinal_=-1; // SDK-selected input lane, never product-role dispatch.
   bool setupBuses(uint32_t maximum,uint32_t mode,double rate,uint32_t* traits);
@@ -98,10 +119,19 @@ private:
     int32_t frames=0;
     uint64_t input_flags=0;
     double rate=0, cycle_start=0, cycle_end=0;
+    uint32_t event_count=0, invalid_event_index=UINT32_MAX;
+    ap8_event_t invalid_event{};
   } admission_failure_;
   std::vector<uint8_t> state_readback_;
+  std::unique_ptr<ap23_phase_trace_t[]> phase_trace_;
+  uint64_t phase_trace_ordinal_=0,phase_trace_omitted_=0;
+  uint32_t phase_trace_count_=0;
+  bool phase_trace_sampled_=false,phase_trace_requested_=false;
   Steinberg::tresult readback();
 #endif
+ #ifndef AP8_PREVIEW
+  Steinberg::tresult processBody(Steinberg::Vst::ProcessData&);
+ #endif
   void snapshotStatus(const char *status);
   Steinberg::tresult recover(uint64_t revision);
   bool controller_synced_ = false;
@@ -115,7 +145,7 @@ private:
   uint64_t handle_ = 0;
   char report_path_[4096]{};
   int maximum_ = 0;
-  uint32_t latency_ = 1024, tail_ = 0;
+  std::atomic<uint32_t> latency_{1024},tail_{0};
   unsigned blocks_ = 0;
   std::atomic<uint64_t> callback_rejections_{0};
   std::atomic<uint64_t> skipped_expression_callbacks_{0};
@@ -130,6 +160,7 @@ private:
   double gain_min_ = 1., gain_max_ = 0.;
   int requested_maximum_ = 0, requested_mode_ = -1;
   double requested_rate_ = 0.;
+  double sample_rate_ = 0.; // Accepted inactive processing configuration.
   double gain_ = 1.;
   int process_mode_ = Steinberg::Vst::kOffline;
   bool queued_ = false;

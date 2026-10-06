@@ -30,11 +30,76 @@ def run(argv, timeout=600, log=None):
     if code: raise ValueError('native_build_failed_'+str(code))
     return bytes(tail),dropped
 
+def prebuilt(request, generator, archive, recipe):
+    """Select exact shipped bytes. This path never runs a compiler or downloads."""
+    source=pathlib.Path(request['directory'])
+    source.mkdir(mode=0o700)
+    with zipfile.ZipFile(archive) as z:
+        names=z.namelist()
+        assert len(names)==len(set(names)) and set(names)==set(recipe['files'])|{'recipe.json'}
+        index_bytes=z.read('prebuilt/index.json')
+        assert digest(index_bytes)==recipe['files']['prebuilt/index.json']
+        index=json.loads(index_bytes)
+        assert index['schema'] in (1,2) and 1<=len(index['proxies'])<=64
+        matches=[p for p in index['proxies'] if p['class_id'].upper()==request['class_id'].upper()
+            and p['module_sha256']==request['module_sha256']]
+        if len(matches)!=1:raise ValueError('prebuilt_proxy_unavailable_for_exact_plugin_build')
+        selected=matches[0]
+        if index['schema']==2:assert selected['maximum_bridge_frames']==1024
+        records=json.loads(pathlib.Path(request['inspection']).read_text())['records']
+        descriptor=generator(records,request['class_id'],request['module_sha256'])
+        if digest(descriptor.encode())!=selected['descriptor_sha256']:
+            raise ValueError('prebuilt_proxy_metadata_mismatch')
+        name=selected['file']
+        assert name.startswith('prebuilt/') and pathlib.PurePosixPath(name).name.endswith('.so')
+        info=z.getinfo(name)
+        assert not info.is_dir() and info.file_size<=128*1024*1024
+        data=z.read(name)
+        assert data[:4]==b'\x7fELF' and digest(data)==recipe['files'][name]==selected['native_sha256']
+        (source/'native.so').write_bytes(data)
+        return dict(schema=1,source_commit=recipe['source_commit'],native_sha256=selected['native_sha256'],
+            descriptor_sha256=selected['descriptor_sha256'],dropped_bytes=0,sdk=SDK,
+            sdk_runtime=None,delivery='prebuilt',prebuilt_index_sha256=digest(index_bytes))
+
+def reusable_engine(request, generator, archive, recipe):
+    source = pathlib.Path(request['directory'])
+    source.mkdir(mode=0o700)
+    with zipfile.ZipFile(archive) as z:
+        names = z.namelist()
+        assert len(names) == len(set(names)) and set(names) == set(recipe['files']) | {'recipe.json'}
+        assert z.getinfo('prebuilt/index.json').file_size <= 1024*1024
+        index_bytes = z.read('prebuilt/index.json')
+        assert digest(index_bytes) == recipe['files']['prebuilt/index.json']
+        index = json.loads(index_bytes)
+        assert index['schema'] == 3 and index['descriptor_schema'] == 1
+        assert index['maximum_bridge_frames'] == 1024
+        assert index.get('loaded_engine_admission_contract') == 1
+        name = index['engine']
+        assert name == 'prebuilt/engine.so'
+        info = z.getinfo(name)
+        assert not info.is_dir() and info.file_size <= 128*1024*1024
+        data = z.read(name)
+        assert data[:4] == b'\x7fELF' and digest(data) == recipe['files'][name] == index['engine_sha256']
+        records = json.loads(pathlib.Path(request['inspection']).read_text())['records']
+        descriptor = generator(records, request['class_id'], request['module_sha256'], index['engine_sha256']).encode()
+        assert len(descriptor) <= 8*1024*1024
+        (source/'plugin-descriptor.json').write_bytes(descriptor)
+        (source/'native.so').write_bytes(data)
+        return dict(schema=1,source_commit=recipe['source_commit'],native_sha256=index['engine_sha256'],
+            descriptor_sha256=digest(descriptor),dropped_bytes=0,sdk=SDK,sdk_runtime=None,
+            delivery='reusable_engine',prebuilt_index_sha256=digest(index_bytes),
+            loaded_engine_admission_contract=1)
+
 def build(request, generator):
     source=pathlib.Path(request['directory'])
     archive=pathlib.Path(request['kit'])
     # The manager has verified the exact immutable archive before invoking us.
     assert archive.is_file() and digest(archive.read_bytes())==request['kit_sha256']
+    with zipfile.ZipFile(archive) as z:
+        assert z.getinfo('recipe.json').file_size<=65536
+        recipe=json.loads(z.read('recipe.json'))
+    if recipe['schema']==4:return reusable_engine(request,generator,archive,recipe)
+    if recipe['schema']==3:return prebuilt(request,generator,archive,recipe)
     source.mkdir(mode=0o700)
     with zipfile.ZipFile(archive) as z:
         names=z.namelist(); assert len(names)==len(set(names)) and len(names)<=512

@@ -115,6 +115,14 @@ pub(crate) fn load_for(
     p: Profile,
     purpose: Qualification,
 ) -> Result<InstalledCandidate> {
+    let candidate = load_record_for(m, p, purpose)?;
+    for artifact in [&candidate.host, &candidate.source_manifest, &candidate.native.artifact] {
+        artifact.verify()?;
+    }
+    Ok(candidate)
+}
+pub(crate) fn load_record_for(m: &Manager, p: Profile, purpose: Qualification)
+    -> Result<InstalledCandidate> {
     let dir = directory(m, &p, purpose)?;
     let host = Artifact {
         path: dir.join("host.exe"),
@@ -125,6 +133,7 @@ pub(crate) fn load_for(
         sha256: p.requirements.host_source_sha256.clone(),
     };
     let native = NativeArtifact {
+            descriptor: None,
         class: p.class.clone(),
         module_sha256: p.module_sha256.clone(),
         artifact: Artifact {
@@ -140,7 +149,7 @@ pub(crate) fn load_for(
             a.path.canonicalize()? == a.path && file(&a.path)?.metadata()?.mode() & 0o222 == 0,
             "qualification_artifact_location_or_mutability",
         )?;
-        a.verify()?;
+        a.validate_record()?;
     }
     native.matches(&p)?;
     Ok(InstalledCandidate {
@@ -318,9 +327,9 @@ impl Manager {
             &exact.native,
             SelectionPurpose::Qualification,
         )?;
-        derived.native.path = r.registration.native.path.clone();
+        derived.relocate_native(r.registration.native.path.clone());
         require(
-            derived == r.registration && r.performance.added_frames == 512,
+            derived == r.registration && r.performance.is_qualified_buffering(),
             "qualification_exact_candidate_required",
         )?;
         if purpose == Qualification::Ap18Pigments { return crate::pigments::retained(self, r, &exact); }
@@ -506,7 +515,7 @@ impl Manager {
                 && r.environment == registration.environment
                 && r.compatibility == parent_compatibility
                 && e.registration == *r
-                && self.performance(&p.class.class_id)?.added_frames == 512
+                && self.performance(&p.class.class_id)?.is_qualified_buffering()
                 && (!check_pointer
                     || crate::publication::physical(&self.link(&p.class.class_id))?
                         == Some(prior.target.clone()))

@@ -6,9 +6,14 @@ pub use crate::operator_model::Powershell;
 
 /// The production policy is qualified only for the exact PE/IS2 adapter route.
 pub fn eligible_adapter<'a>(format: &str, software: &'a Software) -> Result<&'a Artifact> {
+    let adapter = eligible_adapter_record(format, software)?;
+    adapter.verify()?;
+    Ok(adapter)
+}
+pub fn eligible_adapter_record<'a>(format: &str, software: &'a Software) -> Result<&'a Artifact> {
     require(format == "pe_executable", "installer_policy_format")?;
     let adapter = software.installer_launch.as_ref().ok_or("installer_policy_adapter_missing")?;
-    adapter.verify()?;
+    adapter.validate_record()?;
     Ok(adapter)
 }
 

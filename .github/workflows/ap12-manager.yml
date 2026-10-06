@@ -12,10 +12,12 @@ on:
       - 'evidence/naui1/**'
       - 'tools/mf2/**'
       - 'tools/mf3/**'
+      - 'tools/beta/**'
       - 'tools/lc2/**'
       - 'evidence/lc2/generated.json'
       - 'bridge-manager/**'
       - 'native-audio-client/**'
+      - 'plugin-descriptor/**'
       - 'compatibility/**'
       - '.github/workflows/ap12-manager.yml'
       - 'tools/ap8_descriptor.py'
@@ -87,12 +89,15 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - run: cargo test --manifest-path bridge-manager/Cargo.toml --locked
+      - name: Bounded configuration timing observation
+        run: cargo test --manifest-path bridge-manager/Cargo.toml --locked --features pb0-c0-audit audit_
       - run: cargo test --manifest-path bridge-manager/Cargo.toml --example uir1_report --locked
       - run: cargo clippy --manifest-path bridge-manager/Cargo.toml --locked --all-targets -- -D warnings
       - run: python3 -m unittest discover -s bridge-manager/runtime -v
       - run: python3 tools/test_ap10_descriptor.py
       - run: python3 tools/frg1/test_census.py
       - run: python3 -m unittest discover -s tools/mf3 -v
+      - run: python3 -m unittest discover -s tools/beta -v
       - run: python3 -m unittest discover -s tools/lc2 -v
       - run: python3 -m unittest discover -s tools/is3 -v
       - run: python3 -m unittest discover -s tools/is4 -v
@@ -106,6 +111,9 @@ jobs:
       - run: python3 -m unittest discover -s tools/uir2 -v
       - run: python3 -m unittest discover -s tools/if2 -v
       - run: sudo apt-get install -y xvfb libxtst6 libxcomposite1 libxi6 libarchive-tools gnupg
+      # The signing verifier rebuilds offline using the backend's own lockfile,
+      # whose transitive versions need not match the manager dependency cache.
+      - run: cargo fetch --manifest-path native-vst3-proxy/backend/Cargo.toml --locked --target x86_64-unknown-linux-gnu
       - run: python3 -m unittest discover -s tools/pkg0 -v
       - run: python3 tools/pkg0/root_intake_fixture.py
       - run: UIO1_XVFB_FIXTURE=1 timeout 20s xvfb-run -a python3 tools/uio1/x11_fixture.py

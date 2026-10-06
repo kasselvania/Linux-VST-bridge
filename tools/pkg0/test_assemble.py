@@ -91,7 +91,7 @@ class PackageAssembly(unittest.TestCase):
         self.add_file("usr/lib/linux-vst-bridge/profiles/self-test.json", "profile", b"{}", 103)
         self.add_file("usr/share/doc/linux-vst-bridge-beta/licenses/Bridge.txt", "license", b"license", 104)
         self.spec = {"schema": 1, "version": "0.1.0beta1", "source_head": "a" * 40,
-                     "source_tree": "b" * 40, "operator_schema": 12,
+                     "source_tree": "b" * 40, "operator_schema": assemble.declared_operator_schema(),
                      "external_runtime": {"id": "exact-proton-slr", "manifest_sha256": "c" * 64},
                      "files": self.files}
 
@@ -154,6 +154,107 @@ class PackageAssembly(unittest.TestCase):
                          next(item for item in self.files if item["kind"] == "preparation_kit")["sha256"])
         package = package_archive(out, self.root / "with-kit.pkg.tar.zst")
         self.assertEqual(verify_package.verify(package, release, True)["files"], len(self.files) + 2)
+
+    def test_reusable_engine_kit_packages_and_rejects_inconsistent_metadata(self):
+        files = {
+            "libap2_backend.a": b"!<arch>\n",
+            "runtime/host.exe": (self.inputs / "4").read_bytes(),
+            "runtime/host-source-manifest.json": (self.inputs / "5").read_bytes(),
+            "tools/mf3/native_builder.py": b"owned builder",
+            "tools/ap8_descriptor.py": b"owned generator",
+            "prebuilt/engine.so": b"\x7fELFreusable engine fixture",
+            **{f"licenses/{name}.txt": b"retained license"
+               for name in ("vst3sdk", "base", "pluginterfaces", "public.sdk")},
+        }
+        index = dict(schema=3, engine="prebuilt/engine.so",
+                     engine_sha256=assemble.sha(files["prebuilt/engine.so"]),
+                     descriptor_schema=1, maximum_bridge_frames=1024,
+                     audio_completion_contract=1, loaded_engine_admission_contract=1,
+                     native_sources={})
+
+        def archive_bytes(selected, extra=None):
+            contents = {**files, **(extra or {}),
+                        "prebuilt/index.json": json.dumps(selected).encode()}
+            recipe = dict(schema=4, source_commit=self.spec["source_head"],
+                          sdk=assemble.KIT_SDK, sdk_runtime=assemble.KIT_SDK_RUNTIME,
+                          files={name: assemble.sha(data) for name, data in contents.items()})
+            data = io.BytesIO()
+            with zipfile.ZipFile(data, "w") as archive:
+                for name, value in contents.items():
+                    archive.writestr(name, value)
+                archive.writestr("recipe.json", json.dumps(recipe))
+            return data.getvalue()
+
+        self.add_file(assemble.KIT_DESTINATION, "preparation_kit", archive_bytes(index), 106)
+        self.spec["schema"] = 2
+        out = self.root / "reusable-kit"
+        release = assemble.build(self.spec, out, 1234567890)
+        package = package_archive(out, self.root / "reusable.pkg.tar.zst")
+        self.assertEqual(verify_package.verify(package, release, True)["files"], len(self.files) + 2)
+        assemble.verify_kit(archive_bytes({**index, "audio_completion_contract": 1}),
+                            self.spec["source_head"], assemble.sha(files["runtime/host.exe"]),
+                            assemble.sha(files["runtime/host-source-manifest.json"]))
+        for change in ({"engine_sha256": "0" * 64}, {"descriptor_schema": 2},
+                       {"loaded_engine_admission_contract": 0},
+                       {"maximum_bridge_frames": 64}, {"proxies": []},
+                       {"audio_completion_contract": 2}, {"audio_completion_contract": True}):
+            with self.subTest(change=change), self.assertRaisesRegex(ValueError, "reusable engine index"):
+                assemble.verify_kit(archive_bytes({**index, **change}), self.spec["source_head"],
+                                    assemble.sha(files["runtime/host.exe"]),
+                                    assemble.sha(files["runtime/host-source-manifest.json"]))
+        with self.assertRaisesRegex(ValueError, "prebuilt kit entry"):
+            assemble.verify_kit(archive_bytes(index, {"unowned": b"unexpected"}),
+                                self.spec["source_head"], assemble.sha(files["runtime/host.exe"]),
+                                assemble.sha(files["runtime/host-source-manifest.json"]))
+        helpers={"runtime/lvb-direct-wait.dll":b"MZ Wine builtin DLL fixture",
+                 "runtime/x86_64-windows/lvb-direct-wait.dll":b"MZ Wine builtin DLL fixture",
+                 "runtime/x86_64-unix/lvb-direct-wait.so":b"\x7fELFowned helper"}
+        binding=dict(schema=1,abi=1,host_sha256=assemble.sha(files["runtime/host.exe"]),
+                     runner_wine_revision="46b29104e3741fe23bf5e2547196a253aab88c89",
+                     files={name.removeprefix("runtime/"):assemble.sha(data) for name,data in helpers.items()})
+        helpers["runtime/direct-audio-helper.json"]=json.dumps(binding).encode()
+        def verify_helpers(extra):
+            assemble.verify_kit(archive_bytes(index,extra),self.spec["source_head"],
+                                assemble.sha(files["runtime/host.exe"]),
+                                assemble.sha(files["runtime/host-source-manifest.json"]))
+        verify_helpers(helpers)
+        for name in helpers:
+            with self.subTest(missing=name),self.assertRaisesRegex(ValueError,"direct helper roster"):
+                verify_helpers({key:value for key,value in helpers.items() if key!=name})
+        for change in ({"host_sha256":"0"*64},{"abi":True},{"files":{}},
+                       {"runner_wine_revision":"unselected"}):
+            with self.subTest(binding=change),self.assertRaisesRegex(ValueError,"direct helper binding"):
+                verify_helpers({**helpers,"runtime/direct-audio-helper.json":json.dumps({**binding,**change}).encode()})
+
+    def test_operator_pair_uses_exact_source_and_retained_predecessor(self):
+        current = assemble.declared_operator_schema()
+        self.assertEqual(self.spec["operator_schema"], current)
+        predecessor = self.root / "predecessor-source"
+        model = predecessor / "bridge-manager/src/operator_model.rs"
+        model.parent.mkdir(parents=True)
+        model.write_text("pub const OPERATOR_SCHEMA: u32 = 14;\n")
+        old_spec = {**self.spec, "operator_schema": 14}
+        with self.assertRaisesRegex(ValueError, "paired operator schema"):
+            assemble.validate(old_spec)
+        old_staged = self.root / "old-staged"
+        release = assemble.build(old_spec, old_staged, 1234567890, predecessor)
+        package = package_archive(old_staged, self.root / "predecessor.pkg.tar.zst")
+        with self.assertRaisesRegex(ValueError, "package adoption identity"):
+            verify_package.verify(package, release, True)
+        self.assertEqual(verify_package.verify(package, release, True, predecessor)["files"],
+                         len(self.files) + 2)
+        with self.assertRaisesRegex(ValueError, "paired operator schema"):
+            assemble.validate(self.spec, predecessor)
+        with self.assertRaisesRegex(ValueError, "paired operator schema"):
+            assemble.validate({**self.spec, "operator_schema": float(current)})
+
+    def test_operator_schema_declaration_must_be_unique_and_bounded(self):
+        for source in ("", "pub const OPERATOR_SCHEMA: u32 = 0;\n",
+                       "pub const OPERATOR_SCHEMA: u32 = 4294967296;\n",
+                       "pub const OPERATOR_SCHEMA: u32 = 15;\n" * 2):
+            with self.subTest(source=source):
+                with self.assertRaisesRegex(ValueError, "declared operator schema"):
+                    assemble.parse_operator_schema(source)
 
     def test_package_adoption_manifest_binds_every_selected_artifact(self):
         self.add_kit()
@@ -296,8 +397,11 @@ class PackageAssembly(unittest.TestCase):
             desktop = tar.extractfile(assemble.SYSTEM_DESKTOP).read()
             self.assertEqual(desktop, assemble.SYSTEM_DESKTOP_BYTES)
             self.assertIn(b"Exec=/usr/bin/linux-audio-compatibility-manager\n", desktop)
+            self.assertNotEqual(assemble.SYSTEM_DESKTOP,
+                                "usr/share/applications/linux-audio-compatibility-manager.desktop")
+            self.assertIn(b"Name=Linux VST Bridge Setup and Updates\n", desktop)
             self.assertNotIn(b"package-adopt", desktop)
-            self.assertEqual(adoption["operator_schema"], 12)
+            self.assertEqual(adoption["operator_schema"], assemble.declared_operator_schema())
             self.assertEqual(adoption["package"], "linux-vst-bridge-beta")
             self.assertEqual(adoption["version"], self.spec["version"])
             self.assertEqual(adoption["pkgrel"], 1)

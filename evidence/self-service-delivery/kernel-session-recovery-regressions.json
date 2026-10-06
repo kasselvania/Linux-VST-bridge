@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "source_base": "e2ac76aa07bcda208c7794810a83d6bf83cbea3d",
+  "claim_level": "source_regressions_only",
+  "implementation": [
+    "exact_idle_service_stop_with_unconfirmed_cleanup",
+    "before_launch_kernel_lifetime_record",
+    "stopped_legacy_keeper_observation_requires_subsequent_restart",
+    "failed_results_and_selected_predecessor_preserved",
+    "ordinary_setup_restart_explanation"
+  ],
+  "tests": {
+    "macos_manager": {
+      "passed": 272,
+      "ignored": 1
+    },
+    "linux_manager": {
+      "passed": 278,
+      "ignored": 2
+    },
+    "frontend": {
+      "passed": 85,
+      "ignored": 0
+    },
+    "clippy": {
+      "macos_manager": "passed_warnings_denied",
+      "linux_manager": "passed_warnings_denied",
+      "frontend": "passed_warnings_denied"
+    }
+  },
+  "negative_cases": [
+    "same_kernel_cannot_retire",
+    "absent_kernel_identity_cannot_retire",
+    "historical_launch_kernel_not_inferred",
+    "wrong_session_report_or_kernel_identity_refuses",
+    "launch_record_cannot_be_replaced",
+    "running_service_cannot_record_stopped_observation",
+    "active_dsp_cannot_acquire_keeper_recovery",
+    "adoption_refuses_before_positive_retirement",
+    "original_failed_result_bytes_unchanged"
+  ],
+  "builder_setup": {
+    "first_linux_run_missing_system_python": "two_real_supervisor_tests_could_not_spawn",
+    "correction": "official_distribution_python3_installed_only_in_owned_build_container",
+    "repeat": "full_linux_manager_tests_passed"
+  },
+  "installed_successor_acceptance": "pending",
+  "customer_release": false
+}

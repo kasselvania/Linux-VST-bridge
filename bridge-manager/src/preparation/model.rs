@@ -49,6 +49,12 @@ pub enum ControllerAssociation {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Candidate {
+    /// Explicit launch choices, independent of support qualification. Absent in
+    /// historical records so their serialized bytes and candidate IDs stay exact.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_settings: Option<crate::operator_model::LocalSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settings_trial: Option<SettingsTrial>,
     pub schema: u32,
     pub selection: Selection,
     pub inspection: Inspection,
@@ -62,6 +68,14 @@ pub struct Candidate {
     pub preparation_basis: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub touch_carry_forward: Option<TouchCarryForward>,
+}
+/// The existing candidate owns its trial's exact prior publication. The prior
+/// may itself be experimental; restoration must not silently skip it.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct SettingsTrial {
+    pub predecessor: String,
+    pub baseline: Option<crate::publication::RevisionRef>,
 }
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]

@@ -139,7 +139,123 @@ Licensing fact:
 
 - Yabridge is GPLv3. Any reuse/fork strategy would require an explicit product and license decision; none is made here.
 
+### 2026-10-03 audio-path comparison
+
+The operator requested a renewed comparison while investigating the config4
+failure. This is source research, not a matched performance run. LVB source
+`19c5888bd3332c827c317387365b177587d9d805` is the frozen comparison; its native
+and Windows audio trees remain unchanged at `bb3cfad3`.
+
+| Boundary | LVB config4 | Yabridge at `b580a9f7` |
+| --- | --- | --- |
+| Delivery | Positioned queue with epochs and stale-result rejection; added delay requires `D >= M`. | Returns the current request's output in that callback through shared buffers and a dedicated processor channel. [Processor](https://github.com/robbert-vdh/yabridge/blob/b580a9f7fc46509767ca156d4f92872552b9e571/src/plugin/bridges/vst3-impls/plugin-proxy.cpp#L213-L260) |
+| Wakeup | Native request, Windows mailbox and native reply paths poll with approximately 50-microsecond requested sleeps; only completion toward the DAW callback has a futex notification. | Socket arrival wakes a blocked receiver. The examined reply read has no per-block deadline. That is not LVB's required bounded real-time failure contract. [Communication](https://github.com/robbert-vdh/yabridge/blob/b580a9f7fc46509767ca156d4f92872552b9e571/src/common/communication/common.h#L1029-L1036) |
+| Scheduling | Best-effort exact-owned RTKit request and effective readback; the failed fixture remained ordinary, with Windows selection failing before RTKit. | Attempts FIFO priority 5 and forwards the DAW thread's real-time priority periodically. Different policy is not evidence that adopting it repairs LVB. [Host scheduling](https://github.com/robbert-vdh/yabridge/blob/b580a9f7fc46509767ca156d4f92872552b9e571/src/wine-host/bridges/vst3.cpp#L1722-L1848) |
+| Offline work | Uses the same local `N/Fs` completion allowance; timeout can substitute silence. Whole-callback and serial-chain budgets remain unqualified. | Awaits completion and dispatches offline work to the main context, introducing its own owner coupling. [Offline dispatch](https://github.com/robbert-vdh/yabridge/blob/b580a9f7fc46509767ca156d4f92872552b9e571/src/wine-host/bridges/vst3.cpp#L1858-L1888) |
+
+This supports the already accepted handoff/completion repair direction in the
+[platform assessment](PLATFORM_ARCHITECTURE_REVIEW.md#prior-art-comparison).
+It does not identify the cause of the retained 1024-frame gap. No implementation
+code was copied. Compare measured delivery stages and actual render-thread CPU/runqueue
+time before choosing a timing repair; separately test unpaced bursts and slow valid
+offline processing through the final supplied block.
+
+Proton 11's [runtime options](https://github.com/ValveSoftware/Proton/blob/5b89db940e0ebe3a137a6009a3589232fe084c09/README.md#runtime-config-options)
+document fsync and ntsync. These affect Windows
+synchronization; they do not automatically notify LVB's mailbox. The inspected
+[Valve Wine delay implementation](https://github.com/ValveSoftware/wine/blob/dc26e61847081a1b5cb0733dc30feba6ee575482/dlls/ntdll/unix/sync.c#L2451-L2502)
+handles non-alertable `NtDelayExecution` through timed waiting/yielding. This review
+does not establish the effective synchronization backend of the installed GE-Proton11-7.
+
+Capacity is a separate measured dimension. CPU quotas cap bandwidth rather than
+reserve scheduling time; guest policy cannot guarantee prompt VM execution.
+Reclaim may stall work without an OOM. Record interval quota/pressure/fault deltas
+and both guest and outer memory limits for the authorized memory comparison.
+[Kernel resource controls](https://docs.kernel.org/admin-guide/cgroup-v2.html),
+[pressure measurements](https://docs.kernel.org/accounting/psi.html).
+A clean larger-memory repetition cannot replace the failed lifetime or establish
+its cause.
+
+The [installed comparison](../evidence/preparation/2026-10-03-controlled-capacity-observation.json)
+at source `c9117d6a` retained the same engine/Windows host and completed one short
+reference lifetime at each memory limit. Both were clean. The larger guest avoided
+the smaller run's measured swapping; fixed order and cache carryover remain
+confounds. This is neither a yabridge benchmark nor dependable-audio qualification.
+
+The exact Windows render target was unavailable at both sizes. Source review at
+`c9117d6a` traces custody to the authenticated pre-exec bootstrap in
+`bridge-manager/runtime/session.py` and descendant tracking in `ownership.py`.
+The render-start event has no authenticated final Linux-host generation; refreshing
+the tracker already occurs before scheduling. Unseen reparented or shared-service
+children cannot be acquired solely by that traversal. The observed cohort had no
+exact session-status mapping; missing final-host custody versus mapping projection
+is unassigned. The repair must bind the final host through existing launch custody,
+including namespaces and status generation, without adopting guessed processes or
+the keeper's entire cohort. Zero targets refused before RealtimeKit, so this result
+is not a permissions denial.
+
+Control timing also measured deep repeated verification during ordinary readback,
+request admission and the worker. `operator_cli/current.rs`, `operator_model.rs`,
+`preparation_cli.rs` and registration/runner validation share those paths. Bounded
+display/offer records and fresh execution/mutation admission have different jobs:
+use the existing control records for the former and retain the latter's exact
+verification at its owner. No new persisted cache authority or metadata-based claim
+of freshly verified executable bytes is justified. These measured costs and source
+ownership gaps are independent findings, not an attribution of the retained gap.
+
+### 2026-10-04 callback allowance and audio8 scope
+
+At source `d110cbc4`, `CompletionPolicy` and the SDK consumer measure real-time and
+prefetch calls against a local `N/Fs` allowance (1 ms for N=0). This is bridge policy,
+not a deadline supplied by the DAW. VST3 distinguishes negotiated
+[maximum capacity](https://steinbergmedia.github.io/vst3_doc/vstinterfaces/structSteinberg_1_1Vst_1_1ProcessSetup.html)
+from the [current processing length](https://steinbergmedia.github.io/vst3_doc/vstinterfaces/structSteinberg_1_1Vst_1_1ProcessData.html).
+Its [processing context](https://steinbergmedia.github.io/vst3_doc/vstinterfaces/structSteinberg_1_1Vst_1_1ProcessContext.html)
+allows host block subdivision around timeline jumps. Those interfaces do not
+supply the remaining device-period or serial-graph budget. Neither `N/Fs` nor
+`M/Fs` can therefore be presented as that observed budget. A minimum timeout would
+also be bridge policy, not newly discovered host time. Keep policy failures distinct
+from measured device underruns; do not relabel retained failures by changing a bound.
+
+The [audio8 comparison](../evidence/audio-recovery/2026-10-04-audio8-zero-frame-comparison.json)
+uses Buffered D=512, M=512 at 48 kHz. Its diagnostic-off output contains 198,672
+float values across four lanes: 49,668 frames, representing 1.03475 seconds of audio.
+The calls are unpaced; that duration is neither wall-clock execution nor a soak.
+The N=13 call is the residual tail after draining D=512 plus vendor L=13, immediately
+following N=512. Its 327,208 ns duration includes buffered presentation dependencies;
+it is not an isolated 13-frame transport round trip. The refused first N=0 call also
+includes START readiness. Neither establishes a fixed Wine round-trip cost.
+
+Separate legal START-to-ready work from steady exact-operation service before
+choosing another repair. The ordinary-scheduled VM can test ordering, output and
+containment, but cannot qualify physical real-time timing. Subsequent timing
+qualification must declare first/restart versus steady calls, delivery mode,
+actual block sizes, scheduling/capacity and whole host-period/chain measurements
+where available. Keep unpaced and split-block correctness coverage. No timeout,
+runtime, buffering or scheduling change follows from this audit alone.
+
 ## 2.5 Proton
+
+### Final-host custody investigation, 2026-10-03
+
+The proposed shared-runtime adapter reuses the existing per-launch stdout channel.
+[Linux v6.16 socket UAPI](https://github.com/torvalds/linux/blob/v6.16/include/uapi/asm-generic/socket.h)
+and [Unix socket implementation](https://github.com/torvalds/linux/blob/v6.16/net/unix/af_unix.c)
+provide per-message credentials and a kernel-delivered process handle through
+`SO_PASSCRED` and `SO_PASSPIDFD`. A received numeric PID alone is insufficient:
+queued output may outlive its sender. Pin the generation, then validate the exact
+host readiness identity and mapped session object. Diagnostic output grants no
+custody. This is an original adapter design, with no third-party implementation
+copied into the repository.
+
+At Wine source `dc26e61847081a1b5cb0733dc30feba6ee575482`, the
+[Unix file implementation](https://github.com/ValveSoftware/wine/blob/dc26e61847081a1b5cb0733dc30feba6ee575482/dlls/ntdll/unix/file.c)
+contains caller-side writes after descriptor resolution. Conversely, the
+[socket server](https://github.com/ValveSoftware/wine/blob/dc26e61847081a1b5cb0733dc30feba6ee575482/server/sock.c)
+performs connection operations; a newly connected socket's peer is not sufficient
+proof of the final plug-in host. These source facts motivate testing the inherited
+channel. They do not prove the pinned installed Proton stdout route, kernel
+availability on all targets, custody, cleanup, scheduling or audio continuity.
 
 Primary source:
 

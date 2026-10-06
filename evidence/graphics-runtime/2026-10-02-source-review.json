@@ -1,0 +1,192 @@
+{
+  "schema": 1,
+  "date_local": "2026-10-02",
+  "claim": "Source investigation of graphics selection, editor execution, failure propagation and missing capability evidence; no production repair or physical qualification.",
+  "source": {
+    "commit": "764af9ca5380f14a8b8967acb462dcb9814e7e17",
+    "tree": "78d5081c79999360344625cc11bf15b5387d7f86"
+  },
+  "execution": {
+    "system": "Darwin 25.4.0 arm64",
+    "python": "3.14.5",
+    "cargo": "1.95.0 (f2d3ce0bd 2026-03-21)",
+    "local_build_jobs": 1,
+    "deck_contact": false,
+    "remote_builder_or_vm_used": false,
+    "production_code_changed": false,
+    "dependency_changed": false,
+    "installed_state_changed": false,
+    "physical_acceptance": "not_performed"
+  },
+  "findings": [
+    {
+      "id": "renderer_readback",
+      "status": "confirmed_source_gap",
+      "anchors": [
+        {
+          "path": "bridge-manager/src/readiness.rs",
+          "symbol": "\"Graphics driver\"",
+          "line": 1016
+        },
+        {
+          "path": "bridge-manager/src/profiles.rs",
+          "symbol": "pub struct Capabilities",
+          "line": 84
+        },
+        {
+          "path": "bridge-manager/runtime/session.py",
+          "symbol": "def environment",
+          "line": 203
+        }
+      ],
+      "conclusion": "The exact DComp policy selects Wine built-ins/WineD3D. Manager readiness does not observe the effective driver/device or software fallback. Requested policy is not measured acceleration."
+    },
+    {
+      "id": "gui_audio_separation",
+      "status": "source_and_local_generated_checks",
+      "anchors": [
+        {
+          "path": "native-vst3-proxy/backend/src/queued.rs",
+          "symbol": "fn gui_call",
+          "line": 2277
+        },
+        {
+          "path": "windows-factory-probe/source/offline_processing.cpp",
+          "symbol": "std::thread worker",
+          "line": 160
+        },
+        {
+          "path": "windows-factory-probe/source/controller_updates.h",
+          "symbol": "class ControllerUpdates",
+          "line": 17
+        }
+      ],
+      "conclusion": "GUI queues and controller display publication have existing separate owners; stalled-GUI and coalescing checks pass. No vendor isolation or physical timing claim follows."
+    },
+    {
+      "id": "controller_failure_reaches_audio",
+      "status": "source_path_identified_not_runtime_reproduced",
+      "anchors": [
+        {
+          "path": "windows-factory-probe/source/mapped_processing.cpp",
+          "symbol": "void update_controller()",
+          "line": 106
+        },
+        {
+          "path": "windows-factory-probe/source/editor_session.h",
+          "symbol": "bool host_value",
+          "line": 221
+        },
+        {
+          "path": "windows-factory-probe/source/mapped_processing.cpp",
+          "symbol": "bool MappedSession::next(",
+          "line": 390
+        }
+      ],
+      "conclusion": "Controller display synchronization failure sets controller_update_failed; next audio admission checks it and fails the transport. GUI backlog alone is separately handled. No BEAM attribution or chosen recovery policy."
+    },
+    {
+      "id": "owner_service_and_exception_lifetime",
+      "status": "source_path_identified_not_runtime_reproduced",
+      "anchors": [
+        {
+          "path": "windows-factory-probe/source/mapped_processing.cpp",
+          "symbol": "void MappedSession::service_owner()",
+          "line": 341
+        },
+        {
+          "path": "windows-factory-probe/source/offline_processing.cpp",
+          "symbol": "if(stateful)while(!worker_done",
+          "line": 254
+        },
+        {
+          "path": "windows-factory-probe/source/editor_session.h",
+          "symbol": "void service(bool force",
+          "line": 386
+        },
+        {
+          "path": "windows-factory-probe/source/vendor_view.h",
+          "symbol": "static bool pump()",
+          "line": 557
+        }
+      ],
+      "conclusion": "Owner polling and finite item counts do not bound vendor service time. An exception from service_owner can unwind a joinable local worker before its enclosing catch; an SDK fixture reproduction is still required."
+    }
+  ],
+  "checks": [
+    {
+      "working_directory": "bridge-manager/runtime",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v test_session.GraphicalSessionTests test_session.BusCensusCommandTests.test_reference_runner_policy_is_explicit_and_closed",
+      "outcome": "passed",
+      "tests": 15,
+      "failed": 0,
+      "scope": "Generated temporary endpoint/identity fixtures and closed policy projection; no actual runtime or GPU."
+    },
+    {
+      "working_directory": ".",
+      "command": "python3 tools/test_ap10_controller_updates.py",
+      "outcome": "passed",
+      "executable_tests": 1,
+      "scope": "Compiles the actual ControllerUpdates header; 100001 concurrent publications, latest/final values, invalid values/IDs, duplicate IDs and application-callback refusal."
+    },
+    {
+      "working_directory": "native-vst3-proxy/backend",
+      "command": "CARGO_BUILD_JOBS=1 cargo test --locked --offline --lib --features registered gui -- --test-threads=1",
+      "outcome": "passed",
+      "tests": 7,
+      "failed": 0,
+      "ignored": 0,
+      "filtered_out": 89,
+      "test_names": [
+        "gui::tests::bidirectional_bounded_queues_and_close",
+        "gui::tests::invalid_counter_never_reuses_a_live_slot",
+        "gui::tests::malformed_return_layout_fails_only_gui_channel",
+        "gui::tests::versioned_close_mailbox_preserves_owner_and_refuses_exhaustion",
+        "queued::tests::gui_abi_rejects_short_prefix_before_forming_full_message",
+        "queued::tests::stalled_gui_and_stale_generation_do_not_hold_audio_delivery",
+        "queued::tests::whole_daw_block_preserves_sparse_queues_after_gui_state_and_seek_without_allocating"
+      ],
+      "scope": "macOS generated memory/queue fixtures, not the Windows SDK host, actual Linux scheduling or commercial audio."
+    }
+  ],
+  "historical_beam": {
+    "source_commit": "82bdf081c05ffb2b8d8e3cf7c9b7c1b469c74d2e",
+    "files": [
+      {
+        "path": "docs/BG1.md",
+        "sha256": "c5be5523c4f0bc9537dd702dc99ff8e4e839cedf71cdd6c64164e31086421136"
+      },
+      {
+        "path": "evidence/bg1/managed-v4-rendering.sanitized.json",
+        "sha256": "257aa6ad5c2276a13eb34833ee6951e1c5d46cb423e4cee78664d9810f774862"
+      },
+      {
+        "path": "evidence/bg1/operator-touch-2026-09-26.md",
+        "sha256": "0537fd64a23fc51cd463b269c8250caea02462cf4f792ac716d0621a0b6b10a7"
+      }
+    ],
+    "runner": "proton-11.0-2c-dcomp-bg1-v4",
+    "candidate": "5b8a7f749dbec6345a0fb0f3b43b43a32846c892295d8ec2f6f8f89599d9034e",
+    "class_id": "ABCDEF019182FAEB4C756E6170726F43",
+    "module_sha256": "b03aa949ab91f881ed29e911838209729ac21aa7eab6162ed7462efa4da64a5f",
+    "host_sha256": "5fa0907b045df5ccb993a135fccffe932b365182bec7fa16c1a48a126b1869c2",
+    "rendered_and_accepted_input": true,
+    "native_missing_frames": 205312,
+    "native_gaps": 1,
+    "signal_fixture": "Empty-input disposable project; not an audio-correctness test.",
+    "current_installed_identity_reverified": false,
+    "user_report": "Earlier audio crackled with BEAM's editor open.",
+    "reported_crackle_cause": "unassigned",
+    "new_beam_launch": false
+  },
+  "nonclaims": [
+    "GPU acceleration or rendering efficiency established",
+    "BEAM crackling reproduced or repaired",
+    "Controller or owner-exception hazard reproduced in the Windows production host",
+    "Universal editor/DSP isolation",
+    "New renderer, scheduling or process topology selected",
+    "Windows SDK, physical Deck, Ubuntu or CachyOS acceptance",
+    "Audio recovery6 interaction/soak completed",
+    "Beta readiness"
+  ]
+}

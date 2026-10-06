@@ -1,4 +1,5 @@
 #include "native-vst3-proxy/source/output_results.h"
+#include "native-vst3-proxy/include/ap23_backend.h"
 #include "windows-factory-probe/source/bus_layout.h"
 #include "windows-factory-probe/source/input_observation.h"
 #include "public.sdk/source/vst/vstaudioeffect.h"
@@ -7,6 +8,8 @@
 #include <tuple>
 #include <limits>
 using namespace AP10Results;
+static_assert(AP23::compatibleAbi(2));
+static_assert(!AP23::compatibleAbi(1) && !AP23::compatibleAbi(3));
 // Production BusLayout reads the SDK object's real bus declarations. No
 // Pigments name dispatch: a sole auxiliary input uses the one explicitly selected stereo lane.
 struct AuxiliaryInstrument final : Steinberg::Vst::AudioEffect {

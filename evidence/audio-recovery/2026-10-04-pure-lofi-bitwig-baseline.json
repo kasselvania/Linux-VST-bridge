@@ -1,0 +1,3081 @@
+{
+  "schema": 1,
+  "claim": "First commercial SameCallback Bitwig editor-open baseline; musical continuity remains unqualified",
+  "result": "unqualified",
+  "source": {
+    "commit": "d970eda91be4bc972d38a0d4b107cc5f4ededa54",
+    "tree": "57a484beee1f28cb6d0df85f25977b458d64a1ff",
+    "engine_sha256": "add49d7a5ed38c44d55395f58d471656d33a7ef8f097cdd43de2332ebe04fbd0",
+    "manager_sha256": "144f1a27075e9bccf548d333bcfaf61235503f355e35797c68b2d5e11a97d8e6",
+    "windows_host_sha256": "c8587d8c75ddce80c2317a10070735c65b30b6bc1649ff219821c44689bcf05f",
+    "package": "0.12.0refresh5deck",
+    "manifest_sha256": "7301634c12bf2015eba80257f212e3c37bd460661d1add987aa9948acebe7fb4"
+  },
+  "fixture": {
+    "plugin": "Arturia Pure LoFi",
+    "version": "1.0.0.6121",
+    "class_id": "417274754156495350724C4650726F63",
+    "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+    "runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+    "original_revision": "662d2331254633dd00d7db0bd1d52135",
+    "selected_revision": "a31b86347649682d6dd8dfd8520425cc",
+    "candidate": "a09290dfacb0a323b9831b567e48f6bd55a703ec9db61ede1104cff65a3c3989",
+    "delivery": "same_callback",
+    "active_added_frames": 0,
+    "remembered_buffered_frames": 512
+  },
+  "platform": {
+    "machine": "Galileo Steam Deck",
+    "distro": "SteamOS3.8.16 build20260716.1",
+    "kernel": "6.16.12-valve24.5-1-neptune-616-gb2f7cfe85e45",
+    "bitwig": "6.1",
+    "flatpak": "1.16.6",
+    "app": "com.bitwig.BitwigStudio/x86_64/stable",
+    "app_commit": "8a048e733e74dda8b897339436153a2d5df952f29d362dfcaca9d8e0d6f6c231",
+    "runtime": "org.freedesktop.Platform/x86_64/25.08 freedesktop-sdk25.08.16",
+    "runtime_commit": "bd44a6230581917d04f89812a4c21090c304d390edb73995af1c2f9fd8abf4e8",
+    "pipewire": "1.6.4"
+  },
+  "format": {
+    "gui_backend": "PipeWire",
+    "gui_device": "System Out",
+    "gui_sample_rate": "Automatic",
+    "gui_block": "Auto:512 samples/10.67ms",
+    "graph_rate": 48000,
+    "graph_quantum": 512,
+    "source_format": "F32P",
+    "recorder_format": "F32LE",
+    "recorder_rate": 48000,
+    "recorder_channels": 2,
+    "recorder_positions": [
+      "FL",
+      "FR"
+    ],
+    "vst3_host_maximum": 512,
+    "vst3_transport_maximum": 512,
+    "vendor_latency_frames": 48,
+    "actual_vst3_per_call_N": "unobserved",
+    "actual_DAW_device_deadline": "unobserved",
+    "links": "Only actual Bitwig output1/2 to explicitly non-autoconnecting recorder FL/FR; original speaker links retained"
+  },
+  "workload": {
+    "instances": 1,
+    "project": "Separate working copy of retained Pure LoFi check",
+    "loop": "1bar4/4 at110BPM, notesE3/G3/A3/G3, each0.25beat at100%condition,0.75beat inter-note rests",
+    "vendor_tail": "Opaque; declared MIDI rests are not a sample-exact silence oracle",
+    "interaction": false,
+    "editor": "Visible start/mid/end with meters; late display dimming and wake are retained; continuous graphics workload is not proved",
+    "startup": "Early preflight keeper1; immediately before DAW keeper0/DSP0; preparation may have warmed environment, so no forced-cold claim"
+  },
+  "markers": {
+    "start": 205401864205738,
+    "end": 206213229246222,
+    "stop": 206249555503763,
+    "monotonic_active_s": 811.365040484
+  },
+  "output": {
+    "schema": 1,
+    "method": "independent whole-capture float32 stereo scan plus10ms envelope; no vendor sample-exact oracle",
+    "raw": {
+      "bytes": 343851008,
+      "sha256": "54c736728ca206fa171d2df2427e6efd9ed2c9ab10b6307add9d27a1454b7c2f",
+      "frames": 42981376,
+      "sample_values": 85962752,
+      "rate": 48000,
+      "channels": 2,
+      "duration_s": 895.4453333333333
+    },
+    "monotonic_playback_window_s": 811.365040484,
+    "recording_byte_window": {
+      "start_frame": 2245120,
+      "end_frame": 41180672,
+      "frames": 38935552,
+      "duration_s": 811.1573333333333,
+      "scope": "Byte snapshots after positive playback/editor evidence and before stop; file buffering prevents sample-exact wall alignment"
+    },
+    "nonfinite_sample_values": 0,
+    "channel_min": [
+      -0.05757525935769081,
+      -0.05609662085771561
+    ],
+    "channel_max": [
+      0.0580441914498806,
+      0.05808956176042557
+    ],
+    "measured_rms": [
+      0.017111046526351165,
+      0.01716403571710252
+    ],
+    "zero_spans_ge1ms": [
+      {
+        "start_frame": 0,
+        "end_frame": 1114673,
+        "frames": 1114673,
+        "seconds": 23.222354166666666,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 1984512,
+        "end_frame": 1985024,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 2648064,
+        "end_frame": 2648576,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 3299840,
+        "end_frame": 3300352,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 3974144,
+        "end_frame": 3974656,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 4624384,
+        "end_frame": 4624896,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 7926784,
+        "end_frame": 7927296,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 11206144,
+        "end_frame": 11206656,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 13201408,
+        "end_frame": 13201920,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 14522880,
+        "end_frame": 14523392,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 17172992,
+        "end_frame": 17173504,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 20464640,
+        "end_frame": 20465152,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 28369408,
+        "end_frame": 28369920,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 29044224,
+        "end_frame": 29044736,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 31684096,
+        "end_frame": 31684608,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 36956672,
+        "end_frame": 36957184,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 40248832,
+        "end_frame": 40249344,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 40910848,
+        "end_frame": 40911360,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 41551872,
+        "end_frame": 41552384,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42518528,
+        "end_frame": 42519040,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42521600,
+        "end_frame": 42522112,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42523136,
+        "end_frame": 42524160,
+        "frames": 1024,
+        "seconds": 0.021333333333333333,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42530816,
+        "end_frame": 42531328,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42531840,
+        "end_frame": 42981376,
+        "frames": 449536,
+        "seconds": 9.365333333333334,
+        "scope": "boundary_or_outside"
+      }
+    ],
+    "near_zero_spans_ge1ms": [
+      {
+        "start_frame": 0,
+        "end_frame": 1114751,
+        "frames": 1114751,
+        "seconds": 23.223979166666666,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 1984512,
+        "end_frame": 1985024,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 2648064,
+        "end_frame": 2648576,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 3299840,
+        "end_frame": 3300352,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 3974144,
+        "end_frame": 3974656,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 4624384,
+        "end_frame": 4624896,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 7926784,
+        "end_frame": 7927296,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 11206144,
+        "end_frame": 11206656,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 13201408,
+        "end_frame": 13201920,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 14522880,
+        "end_frame": 14523392,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 17172992,
+        "end_frame": 17173504,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 20464640,
+        "end_frame": 20465152,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 28369408,
+        "end_frame": 28369920,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 29044224,
+        "end_frame": 29044736,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 31684096,
+        "end_frame": 31684608,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 36956672,
+        "end_frame": 36957184,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 40248832,
+        "end_frame": 40249344,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 40910848,
+        "end_frame": 40911360,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured"
+      },
+      {
+        "start_frame": 41551872,
+        "end_frame": 41552384,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42416124,
+        "end_frame": 42416216,
+        "frames": 92,
+        "seconds": 0.0019166666666666666,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42416963,
+        "end_frame": 42417071,
+        "frames": 108,
+        "seconds": 0.00225,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42437364,
+        "end_frame": 42437417,
+        "frames": 53,
+        "seconds": 0.0011041666666666667,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42438164,
+        "end_frame": 42438254,
+        "frames": 90,
+        "seconds": 0.001875,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42441246,
+        "end_frame": 42441546,
+        "frames": 300,
+        "seconds": 0.00625,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42442112,
+        "end_frame": 42442413,
+        "frames": 301,
+        "seconds": 0.006270833333333333,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42443156,
+        "end_frame": 42443295,
+        "frames": 139,
+        "seconds": 0.002895833333333333,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42444083,
+        "end_frame": 42444255,
+        "frames": 172,
+        "seconds": 0.0035833333333333333,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42444259,
+        "end_frame": 42444310,
+        "frames": 51,
+        "seconds": 0.0010625,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42444959,
+        "end_frame": 42445149,
+        "frames": 190,
+        "seconds": 0.003958333333333334,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42445339,
+        "end_frame": 42445570,
+        "frames": 231,
+        "seconds": 0.0048125,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42455870,
+        "end_frame": 42455924,
+        "frames": 54,
+        "seconds": 0.001125,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42455992,
+        "end_frame": 42456045,
+        "frames": 53,
+        "seconds": 0.0011041666666666667,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42456056,
+        "end_frame": 42456163,
+        "frames": 107,
+        "seconds": 0.0022291666666666666,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42456732,
+        "end_frame": 42456782,
+        "frames": 50,
+        "seconds": 0.0010416666666666667,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42456866,
+        "end_frame": 42457080,
+        "frames": 214,
+        "seconds": 0.004458333333333333,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42457729,
+        "end_frame": 42457810,
+        "frames": 81,
+        "seconds": 0.0016875,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42459879,
+        "end_frame": 42460040,
+        "frames": 161,
+        "seconds": 0.0033541666666666668,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42460548,
+        "end_frame": 42460646,
+        "frames": 98,
+        "seconds": 0.0020416666666666665,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42460657,
+        "end_frame": 42460950,
+        "frames": 293,
+        "seconds": 0.006104166666666667,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42461403,
+        "end_frame": 42461451,
+        "frames": 48,
+        "seconds": 0.001,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42461463,
+        "end_frame": 42461512,
+        "frames": 49,
+        "seconds": 0.0010208333333333332,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42461525,
+        "end_frame": 42461751,
+        "frames": 226,
+        "seconds": 0.0047083333333333335,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42462207,
+        "end_frame": 42462322,
+        "frames": 115,
+        "seconds": 0.002395833333333333,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42462329,
+        "end_frame": 42462385,
+        "frames": 56,
+        "seconds": 0.0011666666666666668,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42462420,
+        "end_frame": 42462472,
+        "frames": 52,
+        "seconds": 0.0010833333333333333,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42463552,
+        "end_frame": 42463601,
+        "frames": 49,
+        "seconds": 0.0010208333333333332,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42463617,
+        "end_frame": 42463670,
+        "frames": 53,
+        "seconds": 0.0011041666666666667,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42463683,
+        "end_frame": 42463966,
+        "frames": 283,
+        "seconds": 0.005895833333333334,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42464354,
+        "end_frame": 42464829,
+        "frames": 475,
+        "seconds": 0.009895833333333333,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42465218,
+        "end_frame": 42465695,
+        "frames": 477,
+        "seconds": 0.0099375,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42465702,
+        "end_frame": 42465750,
+        "frames": 48,
+        "seconds": 0.001,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42466138,
+        "end_frame": 42466419,
+        "frames": 281,
+        "seconds": 0.005854166666666666,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42466432,
+        "end_frame": 42466553,
+        "frames": 121,
+        "seconds": 0.0025208333333333333,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42466567,
+        "end_frame": 42466622,
+        "frames": 55,
+        "seconds": 0.0011458333333333333,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42466947,
+        "end_frame": 42467052,
+        "frames": 105,
+        "seconds": 0.0021875,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42467438,
+        "end_frame": 42467922,
+        "frames": 484,
+        "seconds": 0.010083333333333333,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42468306,
+        "end_frame": 42468785,
+        "frames": 479,
+        "seconds": 0.009979166666666667,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42469115,
+        "end_frame": 42469649,
+        "frames": 534,
+        "seconds": 0.011125,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42469976,
+        "end_frame": 42470582,
+        "frames": 606,
+        "seconds": 0.012625,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42470783,
+        "end_frame": 42471863,
+        "frames": 1080,
+        "seconds": 0.0225,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42472405,
+        "end_frame": 42472484,
+        "frames": 79,
+        "seconds": 0.0016458333333333333,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42472996,
+        "end_frame": 42473044,
+        "frames": 48,
+        "seconds": 0.001,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42473059,
+        "end_frame": 42473113,
+        "frames": 54,
+        "seconds": 0.001125,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42473127,
+        "end_frame": 42473181,
+        "frames": 54,
+        "seconds": 0.001125,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42473189,
+        "end_frame": 42473507,
+        "frames": 318,
+        "seconds": 0.006625,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42473851,
+        "end_frame": 42474298,
+        "frames": 447,
+        "seconds": 0.0093125,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42474650,
+        "end_frame": 42475022,
+        "frames": 372,
+        "seconds": 0.00775,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42475440,
+        "end_frame": 42475712,
+        "frames": 272,
+        "seconds": 0.005666666666666667,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42476222,
+        "end_frame": 42476529,
+        "frames": 307,
+        "seconds": 0.006395833333333333,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42476951,
+        "end_frame": 42477321,
+        "frames": 370,
+        "seconds": 0.0077083333333333335,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42477741,
+        "end_frame": 42478123,
+        "frames": 382,
+        "seconds": 0.007958333333333333,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42478472,
+        "end_frame": 42478993,
+        "frames": 521,
+        "seconds": 0.010854166666666666,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42479272,
+        "end_frame": 42479870,
+        "frames": 598,
+        "seconds": 0.012458333333333333,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42480079,
+        "end_frame": 42480809,
+        "frames": 730,
+        "seconds": 0.015208333333333334,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42480820,
+        "end_frame": 42482153,
+        "frames": 1333,
+        "seconds": 0.027770833333333335,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42482163,
+        "end_frame": 42482957,
+        "frames": 794,
+        "seconds": 0.016541666666666666,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42482971,
+        "end_frame": 42483019,
+        "frames": 48,
+        "seconds": 0.001,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42483038,
+        "end_frame": 42483089,
+        "frames": 51,
+        "seconds": 0.0010625,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42483095,
+        "end_frame": 42483757,
+        "frames": 662,
+        "seconds": 0.013791666666666667,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42483903,
+        "end_frame": 42484559,
+        "frames": 656,
+        "seconds": 0.013666666666666667,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42484702,
+        "end_frame": 42486819,
+        "frames": 2117,
+        "seconds": 0.044104166666666667,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42486822,
+        "end_frame": 42487678,
+        "frames": 856,
+        "seconds": 0.017833333333333333,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42487692,
+        "end_frame": 42488546,
+        "frames": 854,
+        "seconds": 0.017791666666666667,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42488555,
+        "end_frame": 42498653,
+        "frames": 10098,
+        "seconds": 0.210375,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42498916,
+        "end_frame": 42501877,
+        "frames": 2961,
+        "seconds": 0.0616875,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42501887,
+        "end_frame": 42501939,
+        "frames": 52,
+        "seconds": 0.0010833333333333333,
+        "scope": "boundary_or_outside"
+      },
+      {
+        "start_frame": 42501946,
+        "end_frame": 42981376,
+        "frames": 479430,
+        "seconds": 9.988125,
+        "scope": "boundary_or_outside"
+      }
+    ],
+    "sample_steps": {
+      "threshold": 0.05,
+      "count": 0,
+      "maximum": 0.03711165487766266,
+      "measured_count": 0,
+      "interpretation": "Observed sample steps, not automatic click or glitch classifications"
+    },
+    "measured_zero_frame_count": 8192,
+    "measured_near_zero_frame_count": 8192,
+    "limitations": [
+      "Input note rests are not silence predictions; vendor tails/noise remain opaque",
+      "No universal click/glitch-free claim follows from these scans",
+      "No captured sample is erased for an observed graph error",
+      "Entire capture and envelope are retained; unexplained anomalies remain unresolved"
+    ]
+  },
+  "observations": {
+    "observer": {
+      "count": 786,
+      "first_ns": 205355429694874,
+      "last_ns": 206249494725437,
+      "maximum_interval_s": 1.378799298,
+      "all_recorders_alive": true,
+      "counter_samples": 786,
+      "bridge_counters": {
+        "missing": {
+          "min": 0,
+          "max": 0
+        },
+        "gaps": {
+          "min": 0,
+          "max": 0
+        },
+        "expired": {
+          "min": 0,
+          "max": 0
+        },
+        "admitted": {
+          "min": 16446464,
+          "max": 59360768
+        },
+        "delivered": {
+          "min": 16446464,
+          "max": 59360768
+        },
+        "priming": {
+          "min": 0,
+          "max": 0
+        }
+      }
+    },
+    "nodes": [
+      {
+        "node": 69,
+        "rows": 900,
+        "first": {
+          "monotonic_ns": 205355440274011,
+          "state": "C",
+          "node": 69,
+          "quantum": 0,
+          "rate": 0,
+          "wait": "---",
+          "busy": "---",
+          "w_q": "---",
+          "b_q": "---",
+          "err": 0,
+          "format": "alsa_output.pci-0000_04_00.5-platform-nau8821-max.HiFi__Speaker__sink",
+          "name": ""
+        },
+        "before_start": {
+          "monotonic_ns": 205401437698056,
+          "state": "R",
+          "node": 69,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "5.0ms",
+          "busy": "203.7us",
+          "w_q": "0.47",
+          "b_q": "0.02",
+          "err": 1,
+          "format": "S16LE",
+          "name": "2 48000 alsa_output.pci-0000_04_00.5-platform-nau8821-max.HiFi__Speaker__sink"
+        },
+        "active_first": {
+          "monotonic_ns": 205403437465116,
+          "state": "R",
+          "node": 69,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "3.6ms",
+          "busy": "186.6us",
+          "w_q": "0.34",
+          "b_q": "0.02",
+          "err": 1,
+          "format": "S16LE",
+          "name": "2 48000 alsa_output.pci-0000_04_00.5-platform-nau8821-max.HiFi__Speaker__sink"
+        },
+        "active_last": {
+          "monotonic_ns": 206211437589483,
+          "state": "R",
+          "node": 69,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "3.5ms",
+          "busy": "183.6us",
+          "w_q": "0.33",
+          "b_q": "0.02",
+          "err": 1,
+          "format": "S16LE",
+          "name": "2 48000 alsa_output.pci-0000_04_00.5-platform-nau8821-max.HiFi__Speaker__sink"
+        },
+        "last": {
+          "monotonic_ns": 206250437681488,
+          "state": "R",
+          "node": 69,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "2.3ms",
+          "busy": "184.7us",
+          "w_q": "0.21",
+          "b_q": "0.02",
+          "err": 1,
+          "format": "S16LE",
+          "name": "2 48000 alsa_output.pci-0000_04_00.5-platform-nau8821-max.HiFi__Speaker__sink"
+        },
+        "quantums": [
+          0,
+          512
+        ],
+        "rates": [
+          0,
+          48000
+        ]
+      },
+      {
+        "node": 113,
+        "rows": 900,
+        "first": {
+          "monotonic_ns": 205355440368563,
+          "state": "C",
+          "node": 113,
+          "quantum": 0,
+          "rate": 0,
+          "wait": "---",
+          "busy": "---",
+          "w_q": "---",
+          "b_q": "---",
+          "err": 0,
+          "format": "Bitwig",
+          "name": "Studio"
+        },
+        "before_start": {
+          "monotonic_ns": 205401437709086,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "20.5us",
+          "busy": "5.0ms",
+          "w_q": "0.00",
+          "b_q": "0.46",
+          "err": 10,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "active_first": {
+          "monotonic_ns": 205403437477967,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "19.5us",
+          "busy": "3.6ms",
+          "w_q": "0.00",
+          "b_q": "0.33",
+          "err": 10,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "active_last": {
+          "monotonic_ns": 206211437602263,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "31.1us",
+          "busy": "3.5ms",
+          "w_q": "0.00",
+          "b_q": "0.33",
+          "err": 28,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "last": {
+          "monotonic_ns": 206250437692288,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "18.1us",
+          "busy": "2.2ms",
+          "w_q": "0.00",
+          "b_q": "0.21",
+          "err": 29,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "quantums": [
+          0,
+          512
+        ],
+        "rates": [
+          0,
+          48000
+        ]
+      },
+      {
+        "node": 108,
+        "rows": 900,
+        "first": {
+          "monotonic_ns": 205355440380723,
+          "state": "C",
+          "node": 108,
+          "quantum": 0,
+          "rate": 0,
+          "wait": "---",
+          "busy": "---",
+          "w_q": "---",
+          "b_q": "---",
+          "err": 0,
+          "format": "lvb-refresh5-commercial-capture",
+          "name": ""
+        },
+        "before_start": {
+          "monotonic_ns": 205401437722666,
+          "state": "R",
+          "node": 108,
+          "quantum": 1024,
+          "rate": 48000,
+          "wait": "28.8us",
+          "busy": "11.3us",
+          "w_q": "0.00",
+          "b_q": "0.00",
+          "err": 0,
+          "format": "F32LE",
+          "name": "2 48000 = lvb-refresh5-commercial-capture"
+        },
+        "active_first": {
+          "monotonic_ns": 205403437488447,
+          "state": "R",
+          "node": 108,
+          "quantum": 1024,
+          "rate": 48000,
+          "wait": "24.6us",
+          "busy": "36.5us",
+          "w_q": "0.00",
+          "b_q": "0.00",
+          "err": 0,
+          "format": "F32LE",
+          "name": "2 48000 = lvb-refresh5-commercial-capture"
+        },
+        "active_last": {
+          "monotonic_ns": 206211437442140,
+          "state": "R",
+          "node": 108,
+          "quantum": 1024,
+          "rate": 48000,
+          "wait": "24.2us",
+          "busy": "11.0us",
+          "w_q": "0.00",
+          "b_q": "0.00",
+          "err": 0,
+          "format": "F32LE",
+          "name": "2 48000 = lvb-refresh5-commercial-capture"
+        },
+        "last": {
+          "monotonic_ns": 206250437702898,
+          "state": "R",
+          "node": 108,
+          "quantum": 1024,
+          "rate": 48000,
+          "wait": "24.5us",
+          "busy": "40.8us",
+          "w_q": "0.00",
+          "b_q": "0.00",
+          "err": 0,
+          "format": "F32LE",
+          "name": "2 48000 = lvb-refresh5-commercial-capture"
+        },
+        "quantums": [
+          0,
+          1024
+        ],
+        "rates": [
+          0,
+          48000
+        ]
+      }
+    ],
+    "error_changes": [
+      {
+        "node": 69,
+        "before": {
+          "monotonic_ns": 205355440274011,
+          "state": "C",
+          "node": 69,
+          "quantum": 0,
+          "rate": 0,
+          "wait": "---",
+          "busy": "---",
+          "w_q": "---",
+          "b_q": "---",
+          "err": 0,
+          "format": "alsa_output.pci-0000_04_00.5-platform-nau8821-max.HiFi__Speaker__sink",
+          "name": ""
+        },
+        "after": {
+          "monotonic_ns": 205355440477485,
+          "state": "R",
+          "node": 69,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "3.0ms",
+          "busy": "160.6us",
+          "w_q": "0.28",
+          "b_q": "0.02",
+          "err": 1,
+          "format": "S16LE",
+          "name": "2 48000 alsa_output.pci-0000_04_00.5-platform-nau8821-max.HiFi__Speaker__sink"
+        },
+        "delta": 1,
+        "scope": "outside"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 205355440368563,
+          "state": "C",
+          "node": 113,
+          "quantum": 0,
+          "rate": 0,
+          "wait": "---",
+          "busy": "---",
+          "w_q": "---",
+          "b_q": "---",
+          "err": 0,
+          "format": "Bitwig",
+          "name": "Studio"
+        },
+        "after": {
+          "monotonic_ns": 205355440488836,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "19.8us",
+          "busy": "3.0ms",
+          "w_q": "0.00",
+          "b_q": "0.28",
+          "err": 9,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 9,
+        "scope": "outside"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 205397437552787,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "18.0us",
+          "busy": "3.2ms",
+          "w_q": "0.00",
+          "b_q": "0.30",
+          "err": 9,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 205397437778892,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "19.4us",
+          "busy": "3.7ms",
+          "w_q": "0.00",
+          "b_q": "0.34",
+          "err": 10,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "outside"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 205410437591125,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "35.4us",
+          "busy": "4.6ms",
+          "w_q": "0.00",
+          "b_q": "0.43",
+          "err": 10,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 205412437278947,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "26.8us",
+          "busy": "3.4ms",
+          "w_q": "0.00",
+          "b_q": "0.32",
+          "err": 11,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "active"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 205425437278252,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "21.5us",
+          "busy": "3.0ms",
+          "w_q": "0.00",
+          "b_q": "0.28",
+          "err": 11,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 205425437493866,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "17.4us",
+          "busy": "4.4ms",
+          "w_q": "0.00",
+          "b_q": "0.41",
+          "err": 12,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "active"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 205438437521583,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "17.2us",
+          "busy": "3.3ms",
+          "w_q": "0.00",
+          "b_q": "0.31",
+          "err": 12,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 205440437374174,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "19.0us",
+          "busy": "3.5ms",
+          "w_q": "0.00",
+          "b_q": "0.33",
+          "err": 13,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "active"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 205453437337903,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "18.7us",
+          "busy": "3.3ms",
+          "w_q": "0.00",
+          "b_q": "0.31",
+          "err": 13,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 205453437500977,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "27.0us",
+          "busy": "3.6ms",
+          "w_q": "0.00",
+          "b_q": "0.34",
+          "err": 14,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "active"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 205519437631795,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "22.1us",
+          "busy": "3.2ms",
+          "w_q": "0.00",
+          "b_q": "0.30",
+          "err": 14,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 205521437429807,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "17.3us",
+          "busy": "5.2ms",
+          "w_q": "0.00",
+          "b_q": "0.49",
+          "err": 15,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "active"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 205590437283807,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "18.1us",
+          "busy": "3.3ms",
+          "w_q": "0.00",
+          "b_q": "0.31",
+          "err": 15,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 205590437465720,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "16.2us",
+          "busy": "3.7ms",
+          "w_q": "0.00",
+          "b_q": "0.34",
+          "err": 16,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "active"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 205630437435670,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "18.2us",
+          "busy": "3.6ms",
+          "w_q": "0.00",
+          "b_q": "0.34",
+          "err": 16,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 205630437817808,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "19.5us",
+          "busy": "4.4ms",
+          "w_q": "0.00",
+          "b_q": "0.41",
+          "err": 17,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "active"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 205658437434964,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "19.5us",
+          "busy": "4.4ms",
+          "w_q": "0.00",
+          "b_q": "0.41",
+          "err": 17,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 205658437644428,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "18.2us",
+          "busy": "3.1ms",
+          "w_q": "0.00",
+          "b_q": "0.29",
+          "err": 18,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "active"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 205714437210258,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "31.2us",
+          "busy": "4.2ms",
+          "w_q": "0.00",
+          "b_q": "0.39",
+          "err": 18,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 205714437511114,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "24.7us",
+          "busy": "3.9ms",
+          "w_q": "0.00",
+          "b_q": "0.36",
+          "err": 19,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "active"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 205783437350404,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "24.7us",
+          "busy": "5.5ms",
+          "w_q": "0.00",
+          "b_q": "0.51",
+          "err": 19,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 205783437596029,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "27.8us",
+          "busy": "4.3ms",
+          "w_q": "0.00",
+          "b_q": "0.40",
+          "err": 20,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "active"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 205892437320691,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "20.2us",
+          "busy": "3.9ms",
+          "w_q": "0.00",
+          "b_q": "0.37",
+          "err": 20,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 205892437574867,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "19.4us",
+          "busy": "3.5ms",
+          "w_q": "0.00",
+          "b_q": "0.33",
+          "err": 22,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 2,
+        "scope": "active"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 205945437584611,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "20.3us",
+          "busy": "3.3ms",
+          "w_q": "0.00",
+          "b_q": "0.31",
+          "err": 22,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 205947437556668,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "20.4us",
+          "busy": "3.5ms",
+          "w_q": "0.00",
+          "b_q": "0.33",
+          "err": 23,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "active"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 205960437364439,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "20.4us",
+          "busy": "3.6ms",
+          "w_q": "0.00",
+          "b_q": "0.33",
+          "err": 23,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 205960437526132,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "30.6us",
+          "busy": "5.5ms",
+          "w_q": "0.00",
+          "b_q": "0.52",
+          "err": 24,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "active"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 206014437750838,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "20.9us",
+          "busy": "3.9ms",
+          "w_q": "0.00",
+          "b_q": "0.37",
+          "err": 24,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 206016437481958,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "16.9us",
+          "busy": "3.9ms",
+          "w_q": "0.00",
+          "b_q": "0.37",
+          "err": 25,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "active"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 206124437750486,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "20.8us",
+          "busy": "3.0ms",
+          "w_q": "0.00",
+          "b_q": "0.28",
+          "err": 25,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 206126437385840,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "16.7us",
+          "busy": "3.3ms",
+          "w_q": "0.00",
+          "b_q": "0.31",
+          "err": 26,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "active"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 206194437387595,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "25.6us",
+          "busy": "3.7ms",
+          "w_q": "0.00",
+          "b_q": "0.34",
+          "err": 26,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 206194437568238,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "19.1us",
+          "busy": "4.4ms",
+          "w_q": "0.00",
+          "b_q": "0.41",
+          "err": 27,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "active"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 206209437345361,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "19.2us",
+          "busy": "3.9ms",
+          "w_q": "0.00",
+          "b_q": "0.37",
+          "err": 27,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 206209437483944,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "15.8us",
+          "busy": "3.4ms",
+          "w_q": "0.00",
+          "b_q": "0.32",
+          "err": 28,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "active"
+      },
+      {
+        "node": 113,
+        "before": {
+          "monotonic_ns": 206220437540038,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "21.4us",
+          "busy": "3.8ms",
+          "w_q": "0.00",
+          "b_q": "0.36",
+          "err": 28,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "after": {
+          "monotonic_ns": 206223437331083,
+          "state": "R",
+          "node": 113,
+          "quantum": 512,
+          "rate": 48000,
+          "wait": "19.2us",
+          "busy": "3.0ms",
+          "w_q": "0.00",
+          "b_q": "0.28",
+          "err": 29,
+          "format": "+",
+          "name": "Bitwig Studio"
+        },
+        "delta": 1,
+        "scope": "outside"
+      }
+    ],
+    "zero_spans": [
+      {
+        "start_frame": 0,
+        "end_frame": 1114673,
+        "frames": 1114673,
+        "seconds": 23.222354166666666,
+        "scope": "boundary_or_outside",
+        "byte_bracket_observation_ns": [
+          205355429694874,
+          205379411386391
+        ],
+        "relative_start_bracket_s": [
+          -46.434510864,
+          -22.452819347
+        ],
+        "nearby_bitwig_error_changes": [
+          {
+            "node": 113,
+            "before": {
+              "monotonic_ns": 205355440368563,
+              "state": "C",
+              "node": 113,
+              "quantum": 0,
+              "rate": 0,
+              "wait": "---",
+              "busy": "---",
+              "w_q": "---",
+              "b_q": "---",
+              "err": 0,
+              "format": "Bitwig",
+              "name": "Studio"
+            },
+            "after": {
+              "monotonic_ns": 205355440488836,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "19.8us",
+              "busy": "3.0ms",
+              "w_q": "0.00",
+              "b_q": "0.28",
+              "err": 9,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "delta": 9,
+            "scope": "outside"
+          }
+        ]
+      },
+      {
+        "start_frame": 1984512,
+        "end_frame": 1985024,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "boundary_or_outside",
+        "byte_bracket_observation_ns": [
+          205395340703206,
+          205396622943321
+        ],
+        "relative_start_bracket_s": [
+          -6.523502532,
+          -5.241262417
+        ],
+        "nearby_bitwig_error_changes": [
+          {
+            "node": 113,
+            "before": {
+              "monotonic_ns": 205397437552787,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "18.0us",
+              "busy": "3.2ms",
+              "w_q": "0.00",
+              "b_q": "0.30",
+              "err": 9,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "after": {
+              "monotonic_ns": 205397437778892,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "19.4us",
+              "busy": "3.7ms",
+              "w_q": "0.00",
+              "b_q": "0.34",
+              "err": 10,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "delta": 1,
+            "scope": "outside"
+          }
+        ]
+      },
+      {
+        "start_frame": 2648064,
+        "end_frame": 2648576,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured",
+        "byte_bracket_observation_ns": [
+          205410237425998,
+          205411364704732
+        ],
+        "relative_start_bracket_s": [
+          8.37322026,
+          9.500498994
+        ],
+        "nearby_bitwig_error_changes": [
+          {
+            "node": 113,
+            "before": {
+              "monotonic_ns": 205410437591125,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "35.4us",
+              "busy": "4.6ms",
+              "w_q": "0.00",
+              "b_q": "0.43",
+              "err": 10,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "after": {
+              "monotonic_ns": 205412437278947,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "26.8us",
+              "busy": "3.4ms",
+              "w_q": "0.00",
+              "b_q": "0.32",
+              "err": 11,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "delta": 1,
+            "scope": "active"
+          }
+        ]
+      },
+      {
+        "start_frame": 3299840,
+        "end_frame": 3300352,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured",
+        "byte_bracket_observation_ns": [
+          205423848255882,
+          205425184672530
+        ],
+        "relative_start_bracket_s": [
+          21.984050144,
+          23.320466792
+        ],
+        "nearby_bitwig_error_changes": [
+          {
+            "node": 113,
+            "before": {
+              "monotonic_ns": 205425437278252,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "21.5us",
+              "busy": "3.0ms",
+              "w_q": "0.00",
+              "b_q": "0.28",
+              "err": 11,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "after": {
+              "monotonic_ns": 205425437493866,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "17.4us",
+              "busy": "4.4ms",
+              "w_q": "0.00",
+              "b_q": "0.41",
+              "err": 12,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "delta": 1,
+            "scope": "active"
+          }
+        ]
+      },
+      {
+        "start_frame": 3974144,
+        "end_frame": 3974656,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured",
+        "byte_bracket_observation_ns": [
+          205437649111427,
+          205438755330700
+        ],
+        "relative_start_bracket_s": [
+          35.784905689,
+          36.891124962
+        ],
+        "nearby_bitwig_error_changes": [
+          {
+            "node": 113,
+            "before": {
+              "monotonic_ns": 205438437521583,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "17.2us",
+              "busy": "3.3ms",
+              "w_q": "0.00",
+              "b_q": "0.31",
+              "err": 12,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "after": {
+              "monotonic_ns": 205440437374174,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "19.0us",
+              "busy": "3.5ms",
+              "w_q": "0.00",
+              "b_q": "0.33",
+              "err": 13,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "delta": 1,
+            "scope": "active"
+          }
+        ]
+      },
+      {
+        "start_frame": 4624384,
+        "end_frame": 4624896,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured",
+        "byte_bracket_observation_ns": [
+          205451230156645,
+          205452341810069
+        ],
+        "relative_start_bracket_s": [
+          49.365950907,
+          50.477604331
+        ],
+        "nearby_bitwig_error_changes": []
+      },
+      {
+        "start_frame": 7926784,
+        "end_frame": 7927296,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured",
+        "byte_bracket_observation_ns": [
+          205519618802429,
+          205520725317688
+        ],
+        "relative_start_bracket_s": [
+          117.754596691,
+          118.86111195
+        ],
+        "nearby_bitwig_error_changes": [
+          {
+            "node": 113,
+            "before": {
+              "monotonic_ns": 205519437631795,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "22.1us",
+              "busy": "3.2ms",
+              "w_q": "0.00",
+              "b_q": "0.30",
+              "err": 14,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "after": {
+              "monotonic_ns": 205521437429807,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "17.3us",
+              "busy": "5.2ms",
+              "w_q": "0.00",
+              "b_q": "0.49",
+              "err": 15,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "delta": 1,
+            "scope": "active"
+          }
+        ]
+      },
+      {
+        "start_frame": 11206144,
+        "end_frame": 11206656,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured",
+        "byte_bracket_observation_ns": [
+          205588042553999,
+          205589150179690
+        ],
+        "relative_start_bracket_s": [
+          186.178348261,
+          187.285973952
+        ],
+        "nearby_bitwig_error_changes": []
+      },
+      {
+        "start_frame": 13201408,
+        "end_frame": 13201920,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured",
+        "byte_bracket_observation_ns": [
+          205628982330034,
+          205630350097469
+        ],
+        "relative_start_bracket_s": [
+          227.118124296,
+          228.485891731
+        ],
+        "nearby_bitwig_error_changes": [
+          {
+            "node": 113,
+            "before": {
+              "monotonic_ns": 205630437435670,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "18.2us",
+              "busy": "3.6ms",
+              "w_q": "0.00",
+              "b_q": "0.34",
+              "err": 16,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "after": {
+              "monotonic_ns": 205630437817808,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "19.5us",
+              "busy": "4.4ms",
+              "w_q": "0.00",
+              "b_q": "0.41",
+              "err": 17,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "delta": 1,
+            "scope": "active"
+          }
+        ]
+      },
+      {
+        "start_frame": 14522880,
+        "end_frame": 14523392,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured",
+        "byte_bracket_observation_ns": [
+          205657509436141,
+          205658790422784
+        ],
+        "relative_start_bracket_s": [
+          255.645230403,
+          256.926217046
+        ],
+        "nearby_bitwig_error_changes": [
+          {
+            "node": 113,
+            "before": {
+              "monotonic_ns": 205658437434964,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "19.5us",
+              "busy": "4.4ms",
+              "w_q": "0.00",
+              "b_q": "0.41",
+              "err": 17,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "after": {
+              "monotonic_ns": 205658437644428,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "18.2us",
+              "busy": "3.1ms",
+              "w_q": "0.00",
+              "b_q": "0.29",
+              "err": 18,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "delta": 1,
+            "scope": "active"
+          }
+        ]
+      },
+      {
+        "start_frame": 17172992,
+        "end_frame": 17173504,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured",
+        "byte_bracket_observation_ns": [
+          205712359279136,
+          205713471753485
+        ],
+        "relative_start_bracket_s": [
+          310.495073398,
+          311.607547747
+        ],
+        "nearby_bitwig_error_changes": [
+          {
+            "node": 113,
+            "before": {
+              "monotonic_ns": 205714437210258,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "31.2us",
+              "busy": "4.2ms",
+              "w_q": "0.00",
+              "b_q": "0.39",
+              "err": 18,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "after": {
+              "monotonic_ns": 205714437511114,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "24.7us",
+              "busy": "3.9ms",
+              "w_q": "0.00",
+              "b_q": "0.36",
+              "err": 19,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "delta": 1,
+            "scope": "active"
+          }
+        ]
+      },
+      {
+        "start_frame": 20464640,
+        "end_frame": 20465152,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured",
+        "byte_bracket_observation_ns": [
+          205780720990696,
+          205781825391128
+        ],
+        "relative_start_bracket_s": [
+          378.856784958,
+          379.96118539
+        ],
+        "nearby_bitwig_error_changes": []
+      },
+      {
+        "start_frame": 28369408,
+        "end_frame": 28369920,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured",
+        "byte_bracket_observation_ns": [
+          205945824589744,
+          205946928153564
+        ],
+        "relative_start_bracket_s": [
+          543.960384006,
+          545.063947826
+        ],
+        "nearby_bitwig_error_changes": [
+          {
+            "node": 113,
+            "before": {
+              "monotonic_ns": 205945437584611,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "20.3us",
+              "busy": "3.3ms",
+              "w_q": "0.00",
+              "b_q": "0.31",
+              "err": 22,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "after": {
+              "monotonic_ns": 205947437556668,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "20.4us",
+              "busy": "3.5ms",
+              "w_q": "0.00",
+              "b_q": "0.33",
+              "err": 23,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "delta": 1,
+            "scope": "active"
+          }
+        ]
+      },
+      {
+        "start_frame": 29044224,
+        "end_frame": 29044736,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured",
+        "byte_bracket_observation_ns": [
+          205959397697161,
+          205960657805616
+        ],
+        "relative_start_bracket_s": [
+          557.533491423,
+          558.793599878
+        ],
+        "nearby_bitwig_error_changes": [
+          {
+            "node": 113,
+            "before": {
+              "monotonic_ns": 205960437364439,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "20.4us",
+              "busy": "3.6ms",
+              "w_q": "0.00",
+              "b_q": "0.33",
+              "err": 23,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "after": {
+              "monotonic_ns": 205960437526132,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "30.6us",
+              "busy": "5.5ms",
+              "w_q": "0.00",
+              "b_q": "0.52",
+              "err": 24,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "delta": 1,
+            "scope": "active"
+          }
+        ]
+      },
+      {
+        "start_frame": 31684096,
+        "end_frame": 31684608,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured",
+        "byte_bracket_observation_ns": [
+          206015187766531,
+          206016294217824
+        ],
+        "relative_start_bracket_s": [
+          613.323560793,
+          614.430012086
+        ],
+        "nearby_bitwig_error_changes": [
+          {
+            "node": 113,
+            "before": {
+              "monotonic_ns": 206014437750838,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "20.9us",
+              "busy": "3.9ms",
+              "w_q": "0.00",
+              "b_q": "0.37",
+              "err": 24,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "after": {
+              "monotonic_ns": 206016437481958,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "16.9us",
+              "busy": "3.9ms",
+              "w_q": "0.00",
+              "b_q": "0.37",
+              "err": 25,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "delta": 1,
+            "scope": "active"
+          }
+        ]
+      },
+      {
+        "start_frame": 36956672,
+        "end_frame": 36957184,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured",
+        "byte_bracket_observation_ns": [
+          206124303775263,
+          206125554813844
+        ],
+        "relative_start_bracket_s": [
+          722.439569525,
+          723.690608106
+        ],
+        "nearby_bitwig_error_changes": [
+          {
+            "node": 113,
+            "before": {
+              "monotonic_ns": 206124437750486,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "20.8us",
+              "busy": "3.0ms",
+              "w_q": "0.00",
+              "b_q": "0.28",
+              "err": 25,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "after": {
+              "monotonic_ns": 206126437385840,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "16.7us",
+              "busy": "3.3ms",
+              "w_q": "0.00",
+              "b_q": "0.31",
+              "err": 26,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "delta": 1,
+            "scope": "active"
+          }
+        ]
+      },
+      {
+        "start_frame": 40248832,
+        "end_frame": 40249344,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured",
+        "byte_bracket_observation_ns": [
+          206192587136492,
+          206193849854727
+        ],
+        "relative_start_bracket_s": [
+          790.722930754,
+          791.985648989
+        ],
+        "nearby_bitwig_error_changes": [
+          {
+            "node": 113,
+            "before": {
+              "monotonic_ns": 206194437387595,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "25.6us",
+              "busy": "3.7ms",
+              "w_q": "0.00",
+              "b_q": "0.34",
+              "err": 26,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "after": {
+              "monotonic_ns": 206194437568238,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "19.1us",
+              "busy": "4.4ms",
+              "w_q": "0.00",
+              "b_q": "0.41",
+              "err": 27,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "delta": 1,
+            "scope": "active"
+          }
+        ]
+      },
+      {
+        "start_frame": 40910848,
+        "end_frame": 40911360,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "measured",
+        "byte_bracket_observation_ns": [
+          206207398633225,
+          206208501319178
+        ],
+        "relative_start_bracket_s": [
+          805.534427487,
+          806.63711344
+        ],
+        "nearby_bitwig_error_changes": [
+          {
+            "node": 113,
+            "before": {
+              "monotonic_ns": 206209437345361,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "19.2us",
+              "busy": "3.9ms",
+              "w_q": "0.00",
+              "b_q": "0.37",
+              "err": 27,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "after": {
+              "monotonic_ns": 206209437483944,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "15.8us",
+              "busy": "3.4ms",
+              "w_q": "0.00",
+              "b_q": "0.32",
+              "err": 28,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "delta": 1,
+            "scope": "active"
+          }
+        ]
+      },
+      {
+        "start_frame": 41551872,
+        "end_frame": 41552384,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "boundary_or_outside",
+        "byte_bracket_observation_ns": [
+          206219959388306,
+          206221063059374
+        ],
+        "relative_start_bracket_s": [
+          818.095182568,
+          819.198853636
+        ],
+        "nearby_bitwig_error_changes": [
+          {
+            "node": 113,
+            "before": {
+              "monotonic_ns": 206220437540038,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "21.4us",
+              "busy": "3.8ms",
+              "w_q": "0.00",
+              "b_q": "0.36",
+              "err": 28,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "after": {
+              "monotonic_ns": 206223437331083,
+              "state": "R",
+              "node": 113,
+              "quantum": 512,
+              "rate": 48000,
+              "wait": "19.2us",
+              "busy": "3.0ms",
+              "w_q": "0.00",
+              "b_q": "0.28",
+              "err": 29,
+              "format": "+",
+              "name": "Bitwig Studio"
+            },
+            "delta": 1,
+            "scope": "outside"
+          }
+        ]
+      },
+      {
+        "start_frame": 42518528,
+        "end_frame": 42519040,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "boundary_or_outside",
+        "byte_bracket_observation_ns": [
+          206240467404623,
+          206241568841310
+        ],
+        "relative_start_bracket_s": [
+          838.603198885,
+          839.704635572
+        ],
+        "nearby_bitwig_error_changes": []
+      },
+      {
+        "start_frame": 42521600,
+        "end_frame": 42522112,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "boundary_or_outside",
+        "byte_bracket_observation_ns": [
+          206240467404623,
+          206241568841310
+        ],
+        "relative_start_bracket_s": [
+          838.603198885,
+          839.704635572
+        ],
+        "nearby_bitwig_error_changes": []
+      },
+      {
+        "start_frame": 42523136,
+        "end_frame": 42524160,
+        "frames": 1024,
+        "seconds": 0.021333333333333333,
+        "scope": "boundary_or_outside",
+        "byte_bracket_observation_ns": [
+          206240467404623,
+          206241568841310
+        ],
+        "relative_start_bracket_s": [
+          838.603198885,
+          839.704635572
+        ],
+        "nearby_bitwig_error_changes": []
+      },
+      {
+        "start_frame": 42530816,
+        "end_frame": 42531328,
+        "frames": 512,
+        "seconds": 0.010666666666666666,
+        "scope": "boundary_or_outside",
+        "byte_bracket_observation_ns": [
+          206240467404623,
+          206241568841310
+        ],
+        "relative_start_bracket_s": [
+          838.603198885,
+          839.704635572
+        ],
+        "nearby_bitwig_error_changes": []
+      },
+      {
+        "start_frame": 42531840,
+        "end_frame": 42981376,
+        "frames": 449536,
+        "seconds": 9.365333333333334,
+        "scope": "boundary_or_outside",
+        "byte_bracket_observation_ns": [
+          206240467404623,
+          206249494725437
+        ],
+        "relative_start_bracket_s": [
+          838.603198885,
+          847.630519699
+        ],
+        "nearby_bitwig_error_changes": []
+      }
+    ],
+    "active_bitwig_ERR_increment": 18,
+    "nearby_association": {
+      "tolerance_ns": 1000000000,
+      "active_spans_associated": 13,
+      "total_active_spans": 16,
+      "interpretation": "Nearby associations with byte-observation brackets expanded by +/-1s, not direct overlap or proven corresponding xruns"
+    }
+  },
+  "scheduling": {
+    "native_consumer_flatpak": true,
+    "windows_host_flatpak": false,
+    "native_worker": {
+      "pid": 449029,
+      "tid": 449390,
+      "starttime": 20533250,
+      "comm": "ap3-transport",
+      "policy": 1073741826,
+      "policy_name": "SCHED_RR|RESET_ON_FORK",
+      "priority": 5,
+      "rttime_us": [
+        200000,
+        200000
+      ]
+    },
+    "windows_worker": {
+      "pid": 449364,
+      "tid": 449402,
+      "starttime": 20533268,
+      "comm": "lvb-audio",
+      "policy": 1073741826,
+      "priority": 5,
+      "rttime_us": [
+        200000,
+        200000
+      ]
+    },
+    "native_request_reply": {
+      "namespace_pid": 322,
+      "namespace_tid": 335,
+      "reply_code": 1,
+      "meaning": "effective, not already_effective(code2); code1 is unrelated to historical busctl exit1"
+    },
+    "callback_thread": "Exact callback-owner TID unobserved; sampled AudioEngi audio/AudioTask threads ordinary0/priority0"
+  },
+  "retirement": {
+    "normal_gui_stop_save_quit": true,
+    "authenticated_transport_retired": true,
+    "cleanup_confirmed": true,
+    "windows_raw_exit": -15,
+    "windows_gated": true,
+    "vendor_retirement": null,
+    "native_clean": true,
+    "dsp": 0,
+    "maintenance": 0,
+    "healthy_keeper": 1
+  },
+  "preservation": {
+    "original_project_unchanged": true,
+    "original_project_sha256": "21dd90979a8e509c7ffaa1c713f08745bade491bb4fdbde014512958cee65eb0",
+    "working_project_sha256": "5bbb7e899d860b7683ee160485053540956f4b6d41a553b5b6df24bb8feb7ef4",
+    "working_project_bytes": 58374,
+    "unselected_class_records_unchanged": 10,
+    "unselected_published_siblings_unchanged": 9,
+    "published_total": 10,
+    "class_inventory_total": 11,
+    "predecessor_retained": true,
+    "software_unchanged": true,
+    "licensed_environment_recreated": false
+  },
+  "attempts": {
+    "setup01": "Detached recorder process later absent after SSH closure; termination cause unobserved;143360byte partial retained; playback not started",
+    "baseline02": "First actual commercial playback attempt; full interval retained without restart or clean-subsection selection",
+    "minimum_requested_seconds": 600,
+    "extension": "Actual811.365040484s bracket extended during compaction/readback, not a planned soak",
+    "recorder_exit": 1,
+    "recorder_stderr_bytes": 0,
+    "termination": "Requested SIGINT before900s sample limit; upstream1.6.4 source defaults exit1 and changes to success only on drain; signal termination is source-consistent",
+    "observer_exit": 0,
+    "wrapper_exit": 0
+  },
+  "archives": [
+    {
+      "file": "refresh5-commercial-baseline.tgz",
+      "bytes": 308316952,
+      "sha256": "ee254cf83a3d5a47e55e00ffab948d2f2e04939e2010a1b00abf24ea30188993",
+      "manifest_files": 94
+    },
+    {
+      "file": "baseline-supplement.tgz",
+      "bytes": 9567819,
+      "sha256": "4bfb58dd22ca8a493b6a88d84d5e4edae530cc8849b8ece39bf2a97e21a76fa9"
+    }
+  ],
+  "limitations": [
+    "No sample-exact vendor oracle, universal click/glitch-free claim, interaction, project reopen,30min/soak, beta or general compatibility qualification",
+    "No presumed bridge origin for output zeros/graph ERR",
+    "Native and Windows fresh RR5 requests succeeded in this Bitwig session; historical SDK RT refusal reason remains unavailable and did not run inside Flatpak",
+    "No isolated bridge-overhead claim from Rust callback completion spans; includes vendor DSP/wait and excludes final C++ SDK sinks",
+    "Native control and later forced-policy/trace diagnostics are separate first attempts on unchanged build; no production scheduler repair yet",
+    "Normal Update kept modern publication engine refs old; this commercial selection used the supported manual prepare/replace route, not repaired engine-update UX"
+  ],
+  "native_retirement_events": {
+    "native_audio_scheduling": {
+      "event": "native_audio_scheduling",
+      "schema": 1,
+      "outcome": "effective",
+      "route": "owned_supervisor_realtimekit",
+      "before": {
+        "policy": 0,
+        "priority": 0
+      },
+      "effective": {
+        "policy": 1073741826,
+        "priority": 5
+      },
+      "clock_monotonic_ns": [
+        204989008449179,
+        204989023849007
+      ],
+      "requested_priority": 5,
+      "host_limits_changed": false
+    },
+    "native_callback_completion": {
+      "event": "native_callback_completion",
+      "scope": "successful Rust processing calls including completion wait",
+      "waits": 122416,
+      "waits_without_result": 0,
+      "maximum_ns": 15187161,
+      "bucket_upper_us": [
+        50,
+        100,
+        250,
+        500,
+        1000,
+        2000,
+        5000,
+        10000,
+        25000,
+        null
+      ],
+      "buckets": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        30926,
+        84604,
+        698,
+        1,
+        0
+      ]
+    },
+    "ap3_proxy_stats": {
+      "event": "ap3_proxy_stats",
+      "fault": 0,
+      "first_position": 18446744073709551615,
+      "processed": 116229,
+      "request_high": 1,
+      "result_high": 1,
+      "position": 57591808,
+      "epoch": 2
+    },
+    "ap3_proxy_lifecycle": {
+      "event": "ap3_proxy_lifecycle",
+      "phase": 6,
+      "requested_maximum": 512,
+      "requested_rate": 48000,
+      "requested_mode": 0,
+      "frames": 59509248,
+      "blocks": 116229,
+      "callback_rejections": 0,
+      "skipped_expression_callbacks": 0,
+      "late_note_offs": 0,
+      "rejected_silent_frames": 0,
+      "discontinuities": 0,
+      "successful_silent_callbacks": 0,
+      "successful_silent_frames": 0,
+      "priming_frames": 0,
+      "underrun_frames": 0,
+      "underrun_gaps": 0,
+      "underrun_callbacks": 0,
+      "expired_output_frames": 0,
+      "delivered_frames": 59509248,
+      "zero_gain_blocks": 0,
+      "gain_min": 1,
+      "gain_max": 1,
+      "clean": true
+    },
+    "ap9_setup": {
+      "event": "ap9_setup",
+      "protocol_minor": 15,
+      "host_maximum": 512,
+      "transport_maximum": 512,
+      "sample_rate": 48000,
+      "bridge_frames": 0,
+      "vendor_frames": 48,
+      "total_frames": 48,
+      "vendor_precision_bits": 1
+    }
+  },
+  "retained_file_hashes": {
+    "capture02/start.json": {
+      "bytes": 259,
+      "sha256": "b38b559615c2291743fbabd0b21bd62c0a02b7200da3f167b18779eeb5ce61ec"
+    },
+    "capture02/end-before-stop.json": {
+      "bytes": 192,
+      "sha256": "0bf36d5da3dd5f24e6bedd2c241496b65fba29c71afef96f7e589beaa1ac1b34"
+    },
+    "capture02/stop.json": {
+      "bytes": 164,
+      "sha256": "38c254090ed88abd35f72467e6462a96d74c04d50fd28193031ba86f85c96a98"
+    },
+    "capture02/capture-result.json": {
+      "bytes": 211,
+      "sha256": "9deba7e82665d05827c7679109b16f4011be3ff226caa48049580b9a52f3e5eb"
+    },
+    "capture02/output-analysis.json": {
+      "bytes": 19837,
+      "sha256": "ba851229d609ec3a3653032629149b36d03910f238bb4867125ff03f8563f52b"
+    },
+    "capture02/observation-analysis.json": {
+      "bytes": 46033,
+      "sha256": "ecb0ee0a8e5dc4ff25a905b3d02ee9ba65d706061c54514bb9a045970c57da1a"
+    },
+    "capture02/observations.ndjson": {
+      "bytes": 4588357,
+      "sha256": "ea6a75fafc28f80ba5f43650b736610a5e8b09df2991a16078b9563198312aa1"
+    },
+    "capture02/pw-top.ndjson": {
+      "bytes": 2386996,
+      "sha256": "e5e21fdc7830a948008e9b661174d7b2fbbe5ea5d9767667d2b17b6fc4966b00"
+    },
+    "capture02/live-metadata/native-scheduling.request": {
+      "bytes": 40,
+      "sha256": "ed71467807aae4cf8815bf70658b93fc9fb279a5fbde5b34171ede776136a4b9"
+    },
+    "capture02/live-metadata/native-scheduling.reply": {
+      "bytes": 28,
+      "sha256": "4a6c55d4514f3af71ac66ee60640aa4e015d13532280d1b080915d26324ad28e"
+    },
+    "capture02/live-metadata/native-scheduling.supported": {
+      "bytes": 24,
+      "sha256": "a0b7b76ea3f08cf7b9a5b1a443c1d23089c2be792d1426ca272c80fd14ce058c"
+    },
+    "final/verification.json": {
+      "bytes": 4501,
+      "sha256": "5db57f2c9b146247fcef7a368726b66fa3ff8e9bf27195f34cafd538f18464f0"
+    },
+    "final/native-1e7591f351d57f601e5ff0a3a4470553.jsonl": {
+      "bytes": 7802,
+      "sha256": "3d2bd2959702c5f2e61b8bad4e165761d19986bce2af37e386762b8b4b94d300"
+    },
+    "final/windows-1e7591f351d57f601e5ff0a3a4470553.json": {
+      "bytes": 220388,
+      "sha256": "805b8276473e04384460dd10a432a58839e03a64efb5d683550ab6661dc04891"
+    },
+    "final/windows-1e7591f351d57f601e5ff0a3a4470553.ownership.json": {
+      "bytes": 126,
+      "sha256": "54209a4b66e3b52187448983008c3da672ea189e39b91a71ba6452717f93dd11"
+    },
+    "final/windows-1e7591f351d57f601e5ff0a3a4470553.fault.json": {
+      "bytes": 1413,
+      "sha256": "2ad25d64d0cfe3d0a4b9bef1de7718602ab4c66213c88c741cb1632a2d04c23b"
+    }
+  }
+}

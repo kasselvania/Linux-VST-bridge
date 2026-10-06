@@ -39,6 +39,7 @@ impl Fixture {
         let entry = artifact(outer.join("entry"), b"runtime");
         private_dir(&m.root.join("software")).unwrap();
         let r = Registration {
+            descriptor: None,
             metadata: Metadata {
                 class_id: "01".repeat(16),
                 name: "Actual class".into(),
@@ -133,6 +134,7 @@ pub(crate) fn prepared_accessibility(disabled: bool) -> (Fixture, Profile, Censu
             descriptor_sha256: "cd".repeat(32),
         },
         capabilities: Capabilities {
+            graphics: None,
             editor_lifetime: None,
             vendor_retirement: None,
             event_output: None,
@@ -186,6 +188,7 @@ pub(crate) fn prepared_accessibility(disabled: bool) -> (Fixture, Profile, Censu
     )
     .unwrap();
     let n = NativeArtifact {
+            descriptor: None,
         class: f.r.metadata.clone(),
         module_sha256: f.r.module.sha256.clone(),
         artifact: Artifact {

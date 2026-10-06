@@ -1,4 +1,5 @@
 #pragma once
+#include "limits.h"
 // Ordinary bounded SDK stream, shared only by the two C++ SDK edges/tests.
 // It deliberately does not implement IStreamAttributes or expose project paths.
 #include "pluginterfaces/base/ibstream.h"
@@ -9,12 +10,12 @@
 #include <limits>
 #include <vector>
 namespace LVBState {
-constexpr size_t payloadLimit = 1024 * 1024, overhead = 104;
 class Stream final : public Steinberg::IBStream {
 public:
   std::vector<uint8_t> bytes;
   size_t position = 0;
   bool failed = false;
+  bool capacity_exceeded = false;
   // Bounded state-call diagnostics; never include vendor state payloads.
   uint32_t write_calls=0,read_calls=0,seek_calls=0,unknown_queries=0;
   int32_t largest_write=0;
@@ -24,7 +25,7 @@ public:
   explicit Stream(std::vector<uint8_t> input = {}, size_t limit = payloadLimit)
       : bytes(std::move(input)), limit_(limit) {
     if (bytes.size() > limit_)
-      failed = true;
+      failed = capacity_exceeded = true;
   }
   Steinberg::tresult PLUGIN_API queryInterface(const Steinberg::TUID id,
                                                void **out) override {
@@ -57,17 +58,23 @@ public:
     position += got;
     if (count)
       *count = static_cast<Steinberg::int32>(got);
-    return got == static_cast<size_t>(n) ? Steinberg::kResultOk
-                                         : Steinberg::kResultFalse;
+    // The count is the result. Reaching the end is still a successful read, as
+    // with the SDK's own memory stream. A plug-in that cannot ask a stream for
+    // its size reads fixed blocks until none arrive, and discards a block that
+    // is reported as a failure: its state would lose its final partial block.
+    return Steinberg::kResultOk;
   }
   Steinberg::tresult PLUGIN_API write(void *input, Steinberg::int32 n,
                                       Steinberg::int32 *count) override {
     if (count)
       *count = 0;
     ++write_calls;largest_write=std::max(largest_write,n);
-    if (failed || n < 0 || (n && !input) || position > limit_ ||
-        static_cast<size_t>(n) > limit_ - position) {
+    if (failed || n < 0 || (n && !input)) {
       failed = true;
+      return Steinberg::kResultFalse;
+    }
+    if (position > limit_ || static_cast<size_t>(n) > limit_ - position) {
+      failed = capacity_exceeded = true;
       return Steinberg::kResultFalse;
     }
     try {
@@ -93,9 +100,12 @@ public:
                    : mode == kIBSeekCur ? static_cast<int64_t>(position)
                    : mode == kIBSeekEnd ? static_cast<int64_t>(bytes.size())
                                         : -1;
-    if (failed || base < 0 || offset < -base ||
-        offset > static_cast<int64_t>(limit_) - base)
+    if (failed || base < 0 || offset < -base)
       return Steinberg::kResultFalse;
+    if (offset > static_cast<int64_t>(limit_) - base) {
+      failed = capacity_exceeded = true;
+      return Steinberg::kResultFalse;
+    }
     position = static_cast<size_t>(base + offset);
     if (result)
       *result = static_cast<int64_t>(position);

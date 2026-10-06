@@ -1,0 +1,366 @@
+{
+  "schema": 1,
+  "claim": "exact_final_render_host_custody_and_bounded_ordinary_control_readback",
+  "base_commit": "9dd5367e69ec42fbf232aef4b22371fb7ba78fb3",
+  "original_failed_workflow": "evidence/preparation/2026-10-03-managed-configuration-installed.json",
+  "causal_audio_repair_claim": false,
+  "runtime_source": [
+    {
+      "path": "bridge-manager/runtime/ownership.py",
+      "sha256": "ef8604952bbb5731c325b5ef2954fe0ad8c764b1339ffd0b93c0c5a68a6396df",
+      "bytes": 47237
+    },
+    {
+      "path": "bridge-manager/runtime/session.py",
+      "sha256": "e8c3f0bbd7d1a1b595733822c802ea63b94317202ba72080f5674430b0223532",
+      "bytes": 323932
+    },
+    {
+      "path": "bridge-manager/runtime/test_final_host_custody.py",
+      "sha256": "90355bb15225ab025625ab303f77d042a4e3912a652faa7981f613b7d0657e63",
+      "bytes": 43834
+    }
+  ],
+  "runtime_validation": {
+    "platform": "Linux x86_64",
+    "kernel": "7.0.0-31-generic",
+    "python": "3.14.4",
+    "tests": 392,
+    "failures": 0,
+    "skips": 0,
+    "seconds": 58.239,
+    "test_log_sha256": "6d98d11b80b9c7b93faa46b20a5f0bc978a9939b1331a55049826b9f7cf1a93a",
+    "test_container_reaping": "test-only outer subreaper provides init-like orphan reaping; production ownership checks unchanged"
+  },
+  "runtime_review": {
+    "model": "gpt-6-astra",
+    "effort": "xhigh",
+    "scope": "late-final-drain custody admission finding",
+    "result": "closed at source level",
+    "review_sha256": "63b2a8b4a5b905e12691f5686e94ea8597dcde8bf6db57f7b56188b6eb0398af"
+  },
+  "source_validation_attempts": [
+    {
+      "attempt": "baseline-runtime",
+      "result": "Fixture ownership and container orphan reaping setup failed; isolated fixture ownership corrected and test-only outer subreaper used. Product ownership checks unchanged."
+    },
+    {
+      "attempt": "custody2",
+      "result": "EOF credential marker regression found and repaired."
+    },
+    {
+      "attempt": "production2-initial-focused",
+      "result": "Stale extraction timestamps caused no matching tests; refused as a pass, verified bytes, refreshed timestamps and rebuilt."
+    },
+    {
+      "attempt": "production2",
+      "result": "One fixture used creation-operation ID instead of the returned onboarding ID; corrected. Strict lint found redundant borrows and a dead production wrapper; corrected."
+    },
+    {
+      "attempt": "production3",
+      "result": "Synthetic legacy fixture lacked positive installer retirement; fixture corrected without relaxing product admission."
+    },
+    {
+      "attempt": "production4",
+      "result": "Corrupt-history refusal made the test service wait for requests that never occur. Exact hung test stopped, failure retained. Stub now has a deadline and checks the early-refusal request count."
+    },
+    {
+      "attempt": "production5",
+      "result": "Settings-trial regression invoked generic enable rather than exact settings replacement. Fixture corrected to exercise the normal replacement owner. Worker refusal assertion corrected to actual formatted receipt."
+    }
+  ],
+  "pending": [
+    "paired package build",
+    "installed pinned-runtime custody, controls and ordinary recovery"
+  ],
+  "resource_limits": {
+    "concurrent_test_machines": 1,
+    "builder_gib": 4,
+    "guest_gib": 6,
+    "vm_container_gib": 8,
+    "cpu_count": 2,
+    "cpuset": "2,3",
+    "pids": 256,
+    "combined_memory_swap_equals_memory": true,
+    "other_service_capacity_reserved": true
+  },
+  "nonclaims": [
+    "audio gap cause or dependable audio qualification",
+    "low latency",
+    "physical Deck acceptance",
+    "commercial editor or GPU qualification",
+    "cross-distro qualification",
+    "beta readiness"
+  ],
+  "recorded_at_utc": "2026-10-03T23:43:24.288290+00:00",
+  "source_files": [
+    {
+      "path": "bridge-manager/runtime/ownership.py",
+      "sha256": "ef8604952bbb5731c325b5ef2954fe0ad8c764b1339ffd0b93c0c5a68a6396df",
+      "bytes": 47237
+    },
+    {
+      "path": "bridge-manager/runtime/session.py",
+      "sha256": "e8c3f0bbd7d1a1b595733822c802ea63b94317202ba72080f5674430b0223532",
+      "bytes": 323932
+    },
+    {
+      "path": "bridge-manager/runtime/test_final_host_custody.py",
+      "sha256": "90355bb15225ab025625ab303f77d042a4e3912a652faa7981f613b7d0657e63",
+      "bytes": 43834
+    },
+    {
+      "path": "bridge-manager/src/capacity.rs",
+      "sha256": "6497a36b17bacae1082247ed377dd49fbbfb04e8b7d92e4190b9338e6144fac4",
+      "bytes": 67875
+    },
+    {
+      "path": "bridge-manager/src/catalogue.rs",
+      "sha256": "347dfd683c3bc135f751a7c7e29be35d05ee42feb7dc39c31e2448e2347f94d7",
+      "bytes": 31888
+    },
+    {
+      "path": "bridge-manager/src/frg1.rs",
+      "sha256": "92eec8dfb3263bc816dd2d3ad305ea10c2c8e1af8abd52e9d61664b637caca99",
+      "bytes": 49513
+    },
+    {
+      "path": "bridge-manager/src/installer_policy.rs",
+      "sha256": "40d43acbd4fec7ef13bbc53f8474e960c551aee005bf1552ee8abc8fe7bd16a0",
+      "bytes": 3561
+    },
+    {
+      "path": "bridge-manager/src/inventory.rs",
+      "sha256": "29b43a2822c84df32fcde7cf02e254422698a16130f9503e98a12e979bad0dec",
+      "bytes": 11821
+    },
+    {
+      "path": "bridge-manager/src/lib.rs",
+      "sha256": "78e0731d6378c52958a34bf577007f193e9fc154ed4c727b7a8afb20d35e1631",
+      "bytes": 53029
+    },
+    {
+      "path": "bridge-manager/src/main.rs",
+      "sha256": "549e6dad7e0d1112eb74ec0a799bd76ea2e1bc6cd45f41d0e8ae13e3e1e59a96",
+      "bytes": 143018
+    },
+    {
+      "path": "bridge-manager/src/managed_tests.rs",
+      "sha256": "4c8e4ed78c44222ff2b83b90be2fd700c5d733e94f83f7d5db6bd9daea5c7b9d",
+      "bytes": 101025
+    },
+    {
+      "path": "bridge-manager/src/observation.rs",
+      "sha256": "31ac59a4c3e9c7592d4b0f2c446206acba0824a75442e0a91877f8638bd35c4e",
+      "bytes": 13444
+    },
+    {
+      "path": "bridge-manager/src/onboarding.rs",
+      "sha256": "e926f077f4f54463d8a3c6a9ebec7cd5c003920edfebd98da80ce65a44bd7607",
+      "bytes": 99979
+    },
+    {
+      "path": "bridge-manager/src/operator_cli.rs",
+      "sha256": "6cef619a978e1a17d5e851b584409cde338c455e73d8bff3191aa86989181450",
+      "bytes": 338214
+    },
+    {
+      "path": "bridge-manager/src/operator_cli/current.rs",
+      "sha256": "8ea68fbb68609329a2fcfd6445a6d6c645bc2c70f2f359adb80777a97ba0d71b",
+      "bytes": 56688
+    },
+    {
+      "path": "bridge-manager/src/operator_model.rs",
+      "sha256": "f1b2e33e71f503719b2370f2bd78c1797925bd2c6d0ef49145e1c47bbf4dfe91",
+      "bytes": 32020
+    },
+    {
+      "path": "bridge-manager/src/preparation/build.rs",
+      "sha256": "113ff2400b17c109d912f144651559973d0fa67d6543b878b44b9a697b2ef493",
+      "bytes": 18853
+    },
+    {
+      "path": "bridge-manager/src/preparation/configuration.rs",
+      "sha256": "9b481a7ce9f22033844db28976a89258ad1dbe10db3219604dadf25fca6afafe",
+      "bytes": 35091
+    },
+    {
+      "path": "bridge-manager/src/preparation/history.rs",
+      "sha256": "d1f9148ec762dd9b2038ba22be371eae4436b98baf2eb788d729da50c0e4c631",
+      "bytes": 30998
+    },
+    {
+      "path": "bridge-manager/src/preparation/mod.rs",
+      "sha256": "ba9c0433f744089138fd6f07d7005b2a9b81476d41746ed8b2dcde045b88c864",
+      "bytes": 68276
+    },
+    {
+      "path": "bridge-manager/src/preparation/tests.rs",
+      "sha256": "d1f75d47d52019b99bf00e8e29b3642e7da3b73a102235b28e96f8e5905056bd",
+      "bytes": 76629
+    },
+    {
+      "path": "bridge-manager/src/preparation_cli.rs",
+      "sha256": "01e27cd7794eee6f8ff0e98259ce262bce140aeb23ace74d7b9186034ad30f83",
+      "bytes": 179512
+    },
+    {
+      "path": "bridge-manager/src/publication.rs",
+      "sha256": "78e86c298accacd2a72d6e2580ea30e4efd21404877eca187583726fe87be4db",
+      "bytes": 50623
+    },
+    {
+      "path": "bridge-manager/src/qualification.rs",
+      "sha256": "b24cde4fa9ae94a640063ebf42838e7d151dc519e3b9c6856a1a39dcf774301d",
+      "bytes": 28503
+    },
+    {
+      "path": "bridge-manager/src/readiness.rs",
+      "sha256": "a9106bdc03b86a1c7c31bd762903f2b8463d3b03ea11f44a3b68de082fae9776",
+      "bytes": 105833
+    },
+    {
+      "path": "bridge-manager/src/runtime_delivery.rs",
+      "sha256": "2d856317ba3a0fe5200a8f235f21b70738444e6529a42d8702035fa5e2d8085f",
+      "bytes": 25835
+    },
+    {
+      "path": "manager-ui/examples/library-preview.json",
+      "sha256": "590bb0193897a093f76872736acc892f994d2a8da85e92d247514ce025f8cf47",
+      "bytes": 4660
+    },
+    {
+      "path": "manager-ui/src/operator.rs",
+      "sha256": "d213ad38de7da28b94532622b6d045108d37ebb2b2fca4f29729767dd2951e76",
+      "bytes": 241592
+    },
+    {
+      "path": "tools/beta/run_installed_configuration.py",
+      "sha256": "3ad3f4313065b35b7adada113954942a45d180f53094ad25cf75a21a5cc110a7",
+      "bytes": 52415
+    }
+  ],
+  "validation": {
+    "focused-1": {
+      "exit": 0,
+      "seconds": 14.523,
+      "log_sha256": "e4e84143e88bd164dbaa00765059366eabab3528ad49578cdf981b8d6df970af",
+      "summaries": [
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 244 filtered out; finished in 0.00s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 317 filtered out; finished in 1.99s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "focused-2": {
+      "exit": 0,
+      "seconds": 1.823,
+      "log_sha256": "f93e801aff68ba3b564557163c0acf44d5d81a423ab3deb67498b12aa16226b1",
+      "summaries": [
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 244 filtered out; finished in 0.00s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 317 filtered out; finished in 1.67s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "focused-3": {
+      "exit": 0,
+      "seconds": 1.673,
+      "log_sha256": "3ee3055b90613da744716e8b7d111bfb500f8c6c28ef281854f398862ddfce81",
+      "summaries": [
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 244 filtered out; finished in 0.00s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 317 filtered out; finished in 1.50s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "manager-all": {
+      "exit": 0,
+      "seconds": 414.954,
+      "log_sha256": "306673e10639d51054bd7ecc279013914d8ff08f21706e36f851a1dc7f566481",
+      "summaries": [
+        "test result: ok. 244 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 271.64s",
+        "test result: ok. 316 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 137.94s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "frontend-all": {
+      "exit": 0,
+      "seconds": 42.354,
+      "log_sha256": "6285c4ceef835612c15e4496cbf68791bbaaedea0f8431ea5befc319454510ac",
+      "summaries": [
+        "test result: ok. 97 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.85s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "manager-clippy": {
+      "exit": 0,
+      "seconds": 25.809,
+      "log_sha256": "e452679dd9e386b9e4db3a62ca7895aeb604ed059996e13a85db2b8ff8cd7137",
+      "summaries": []
+    },
+    "frontend-clippy": {
+      "exit": 0,
+      "seconds": 21.237,
+      "log_sha256": "0b7b499291fcd34280db01b8b394a5411878ad3c1c9db67d062e0642ebdba859",
+      "summaries": []
+    },
+    "audit": {
+      "exit": 0,
+      "seconds": 47.711,
+      "log_sha256": "fe793665ce9c5bc7a5ae991d57203ef62c2bd52bff3d2e9d24779753cadf0178",
+      "summaries": [
+        "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 242 filtered out; finished in 2.30s",
+        "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 317 filtered out; finished in 7.32s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+      ]
+    },
+    "uir1": {
+      "exit": 0,
+      "seconds": 1.325,
+      "log_sha256": "a9d3f61428e4ebe9bc5cd494f84f0d87969f2a216bcc1416acdee6a7e69b4c29",
+      "summaries": [
+        "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
+      ]
+    },
+    "beta-tools": {
+      "exit": 0,
+      "seconds": 0.317,
+      "log_sha256": "3b9a78d563230714fe978a15e5006e4afe374c75326b3ff2c4164a4fe0f8cf46",
+      "summaries": [
+        "Ran 1 test in 0.072s"
+      ]
+    }
+  },
+  "ignored_manager_tests": [
+    "opt-in snapshot latency measurement",
+    "root-owned package-intake fixture supplied by tools/pkg0/root_intake_fixture.py"
+  ],
+  "review": {
+    "model": "gpt-6-astra",
+    "effort": "xhigh",
+    "result": "No remaining actionable production findings after closure review; source only.",
+    "records": [
+      {
+        "scope": "production-2-review.md",
+        "sha256": "e1364926186e03279188cadee9a0b5c3d668e3cc181b0e8854229983ddda1047"
+      },
+      {
+        "scope": "production-3-review.md",
+        "sha256": "9bdd54d04fc0ab275bf10c0ab7065d788f0336fb75daac15c4a38861dbcaf67a"
+      },
+      {
+        "scope": "production-4-review.md",
+        "sha256": "70701a957b4eefee7a55691b8f4c75d37418db394171fcaa7ad20018cbca4b90"
+      },
+      {
+        "scope": "production-5-review.md",
+        "sha256": "aa3b31eb00800d98ad3d1c6c274a1e370599287947e36b85cbfa6c6d1bdd7e1d"
+      },
+      {
+        "scope": "custody-5-review.md",
+        "sha256": "63b2a8b4a5b905e12691f5686e94ea8597dcde8bf6db57f7b56188b6eb0398af"
+      }
+    ],
+    "post_review_delta": "One test-only call changed from generic enable to exact settings replacement; focused regression and final full suite passed."
+  },
+  "passed": true
+}

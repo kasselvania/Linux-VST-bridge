@@ -1,0 +1,847 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-04",
+  "claim": "installed_absolute_wait_successor_failed_zero_frame_completion_with_same_boot_predecessor_control",
+  "source": {
+    "head": "2847d4b9343fa91f54110ee310746fc89a25b625",
+    "tree": "47bdcf07afb7b25ef964f209210600d30de271c7"
+  },
+  "package": {
+    "schema": 1,
+    "source_head": "2847d4b9343fa91f54110ee310746fc89a25b625",
+    "source_tree": "47bdcf07afb7b25ef964f209210600d30de271c7",
+    "version": "0.12.0audio5",
+    "frozen_at_utc": "2026-10-04T07:52:50.574824+00:00",
+    "files": {
+      "linux-vst-bridge-beta_0.12.0audio5-1_amd64.deb": "d7e77fac299749019e9512bdd10ba296dfc10c8beba43a0c8ac46715130c8ba1",
+      "preparation-kit.zip": "4abed036e96641fc9eda950db64d6d557a30fe59c3de5fd3886bceeb9dce2b76",
+      "staged-audio5/RELEASE_MANIFEST.json": "65a935826573ffbb653a12873c8065ff8ee746e81b5437089e2bcf2e7635d236",
+      "PACKAGE_VERIFIED.json": "529c1760e7089e259ce1279d0e8572ab764af7604aebef348cee19380635ebca"
+    },
+    "manager_features": [
+      "pb0-c0-audit"
+    ],
+    "manager_sha256": "e4e81197da4bcb489836ebd818e96722b201ab31002e5b13607c7f5663e98ecb",
+    "engine_sha256": "e6bf6c8c2da936fa448ae2f69c538d27d8a1efe50270ee1fde7d8de56e8185aa",
+    "windows_host_sha256": "57f23801e9cbd9f6bcab3a71ddf28dbd1f2861c88e12501635257561830a1b64",
+    "paired_backend_rebuild": true,
+    "claim": "audio_completion_candidate_not_installed_acceptance_or_beta_qualification"
+  },
+  "build": {
+    "native_sdk_tests": 13,
+    "linux_backend_tests": {
+      "passed": 133,
+      "failed": 0,
+      "ignored": 1
+    },
+    "independent_backend_and_native_rebuild": true,
+    "consumer_byte_identical_to_audio4": true,
+    "windows_host_byte_identical_to_audio4": true,
+    "package_archive_sha256": "63639b3260c8e4dcadc81c49972997dba14f932b3a7093822a74bb3694055ff5",
+    "ci": [
+      {
+        "conclusion": "success",
+        "databaseId": 37186891133,
+        "name": "Beta package portability",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 37186891174,
+        "name": "PX2 proof policy",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 37186891139,
+        "name": "AP10 native result lifetime",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 37186891200,
+        "name": "AP12 registered owner",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 37186891158,
+        "name": "AP8 Windows host",
+        "status": "completed"
+      }
+    ]
+  },
+  "fixture": {
+    "role": "instrument",
+    "class_id": "4C564242434D5031494E535400000001",
+    "native_ids": [
+      "9F2F385EF1995AAFB9B903BE757F945F",
+      "F55783DD140C5EE997498BF6549BECB6"
+    ],
+    "metadata": {
+      "class_id": "4C564242434D5031494E535400000001",
+      "name": "LVB Completion Instrument",
+      "vendor": "Linux VST Bridge",
+      "version": "1.0.0",
+      "subcategories": "Instrument|Synth",
+      "metadata_tier": "factory_3_unicode"
+    },
+    "runner": {
+      "id": "managed-ge-proton11-7-slr4-20260805-r3",
+      "version": "GE-Proton11-7; SLR 4.0.20260805.254769; managed download v3",
+      "file_digests": [
+        {
+          "component": "runtime-tree.json",
+          "sha256": "c4190a4a184e8ff3721b7495e01db0d0de09c0eaf3ffd42b87b516c077c4e7ef"
+        },
+        {
+          "component": "proton",
+          "sha256": "c0fe398829c78c82b26d39c20fbeb6b28d1e46941723962d794d7e5f67d402be"
+        },
+        {
+          "component": "wine",
+          "sha256": "7b0ca4538f365d8a225afdfe5f872715bb5f7c1908dbdcb522c9519cac7c8714"
+        },
+        {
+          "component": "_v2-entry-point",
+          "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+        },
+        {
+          "component": "pressure-vessel-wrap",
+          "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+        }
+      ]
+    },
+    "module_sha256": "dd5b062168bee829e61959c27037cb3ae339b29dbc19274ab79045bcf356dda5",
+    "host_source_sha256": "8f99a3d5d23f86b380e7f8999c8a0bbd7bfc9f9b05d5c353d88e2ff3fa07445f",
+    "preferences": {
+      "schema": 1,
+      "added_frames": 512
+    },
+    "consumer_sha256": "7ed165f39ee8e59bcb42802a3c4357d974636c35428105895335fae9fe0ef907",
+    "callback_audit_sha256": "b26516e2d3d80ab393f57dc45701f801219f0625ad8384008fd1f8f35d33a0c2",
+    "descriptor_sha256": "fcb240380a45927cbe624d4309ca917ea3389b55400bc77be75fab0481abcd34",
+    "publication": {
+      "id": "1ef62cbb3f5828947a8148f1a6a43007",
+      "sha256": "b14a2e1ca60be76f309bd5db1d07b2ffbfc4e2a2fa5f1e786c0bbf6e6e11cc63"
+    }
+  },
+  "installation": {
+    "normal_package_update": true,
+    "registry_unchanged_at_adoption": true,
+    "all_preferences_unchanged": true,
+    "normal_actions": [
+      "plugin_reinspect",
+      "plugin_prepare",
+      "experimental_replace"
+    ],
+    "retained_read_only_attempts": [
+      "requested environment_rescan was absent from current offers; no operation submitted",
+      "operator_state_changed_refresh during preparation read; no operation submitted; fresh read then completed"
+    ],
+    "archive_sha256": "1eb26f2cd72058e980adfb282d3485cc9a4f9c8cf6c0005ab8438422b2673d7d"
+  },
+  "runs": [
+    {
+      "archive": "instrument-buffered512-modes-audio5-phase-off-1.tgz",
+      "archive_sha256": "8d9f50dae73e17a10be8cc4a9aefcd3756058fb73e364ec545c6f9f427a7cab0",
+      "passed": false,
+      "retired": true,
+      "owner_validated": true,
+      "intervention": null,
+      "observer_error": null,
+      "audio": {
+        "event": "completion_audio",
+        "schema": 1,
+        "role": "instrument",
+        "delivery_frames": 512,
+        "vendor_latency_frames": 13,
+        "callbacks": 1,
+        "compared_samples": 0,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "nonzero": 0,
+        "max_error": 0,
+        "returned_events": 0,
+        "returned_points": 0,
+        "rejected_callbacks": 1,
+        "callback_max_ns": 1130203,
+        "whole_callback_overruns": 1,
+        "callback_effects": 0,
+        "callback_local_wakes": 2,
+        "local_wake_counter_available": true,
+        "callback_audited": true
+      },
+      "timing": [
+        {
+          "callback": 0,
+          "begin_ns": 338387040284,
+          "end_ns": 338388170487,
+          "N": 0,
+          "actual_mode": 0,
+          "sample_position": 0,
+          "result": 1,
+          "effects": 0,
+          "local_wakes": 2,
+          "in_place": false,
+          "threw": false,
+          "output_float_offset": 0,
+          "output_float_count": 0,
+          "output_byte_offset": 0,
+          "output_byte_count": 0
+        }
+      ],
+      "state_recall_completed": false,
+      "native_processing_ready": [
+        {
+          "epoch": 1,
+          "monotonic_ns": 338373177644
+        },
+        {
+          "epoch": 2,
+          "monotonic_ns": 338387425211
+        }
+      ],
+      "native_worker_scheduling": {
+        "outcome": "host_realtime_budget_unavailable",
+        "route": "owned_supervisor_realtimekit",
+        "before": {
+          "policy": 0,
+          "priority": 0
+        },
+        "effective": {
+          "policy": 0,
+          "priority": 0
+        },
+        "requested_priority": 5,
+        "host_limits_changed": false
+      },
+      "windows_scheduling_requests": {
+        "schema": 1,
+        "requested_policy": "SCHED_RR",
+        "requested_priority": 5,
+        "requests": 2,
+        "discarded": 0,
+        "scope": "post-start effective readback, not a continuity guarantee",
+        "records": [
+          {
+            "outcome": "unavailable",
+            "reason": "scheduling_capability_unavailable"
+          },
+          {
+            "outcome": "unavailable",
+            "reason": "scheduling_unique_owned_render_thread"
+          }
+        ]
+      },
+      "retirement": {
+        "processes_confirmed": true,
+        "transport_confirmed": true
+      },
+      "failed_callback_duration_ns": 1130203,
+      "failed_callback_allowance_ns": 1000000,
+      "first_callback_duration_ns": 1130203
+    },
+    {
+      "archive": "instrument-buffered512-modes-audio5-phase-on-1.tgz",
+      "archive_sha256": "a3643a2578d58e4d0704ff6b0296971caf8a1c287422cb04ada5e5e2c384983d",
+      "passed": false,
+      "retired": true,
+      "owner_validated": true,
+      "intervention": null,
+      "observer_error": null,
+      "audio": {
+        "event": "completion_audio",
+        "schema": 1,
+        "role": "instrument",
+        "delivery_frames": 512,
+        "vendor_latency_frames": 13,
+        "callbacks": 1,
+        "compared_samples": 0,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "nonzero": 0,
+        "max_error": 0,
+        "returned_events": 0,
+        "returned_points": 0,
+        "rejected_callbacks": 1,
+        "callback_max_ns": 1072008,
+        "whole_callback_overruns": 1,
+        "callback_effects": 0,
+        "callback_local_wakes": 2,
+        "local_wake_counter_available": true,
+        "callback_audited": true
+      },
+      "timing": [
+        {
+          "callback": 0,
+          "begin_ns": 380507550372,
+          "end_ns": 380508622380,
+          "N": 0,
+          "actual_mode": 0,
+          "sample_position": 0,
+          "result": 1,
+          "effects": 0,
+          "local_wakes": 2,
+          "in_place": false,
+          "threw": false,
+          "output_float_offset": 0,
+          "output_float_count": 0,
+          "output_byte_offset": 0,
+          "output_byte_count": 0
+        }
+      ],
+      "state_recall_completed": false,
+      "native_processing_ready": [
+        {
+          "epoch": 1,
+          "monotonic_ns": 380474197870
+        },
+        {
+          "epoch": 2,
+          "monotonic_ns": 380508339655
+        }
+      ],
+      "native_worker_scheduling": {
+        "outcome": "host_realtime_budget_unavailable",
+        "route": "owned_supervisor_realtimekit",
+        "before": {
+          "policy": 0,
+          "priority": 0
+        },
+        "effective": {
+          "policy": 0,
+          "priority": 0
+        },
+        "requested_priority": 5,
+        "host_limits_changed": false
+      },
+      "windows_scheduling_requests": {
+        "schema": 1,
+        "requested_policy": "SCHED_RR",
+        "requested_priority": 5,
+        "requests": 2,
+        "discarded": 0,
+        "scope": "post-start effective readback, not a continuity guarantee",
+        "records": [
+          {
+            "outcome": "unavailable",
+            "reason": "scheduling_capability_unavailable"
+          },
+          {
+            "outcome": "unavailable",
+            "reason": "scheduling_capability_unavailable"
+          }
+        ]
+      },
+      "retirement": {
+        "processes_confirmed": true,
+        "transport_confirmed": true
+      },
+      "failed_callback_duration_ns": 1072008,
+      "failed_callback_allowance_ns": 1000000,
+      "first_callback_duration_ns": 1072008
+    },
+    {
+      "archive": "audio4-native-control-evidence.tgz",
+      "archive_sha256": "275f5836acc087124ff63ce79c9cb3448118cd107c1e2071d15a64e09464ac38",
+      "passed": false,
+      "retired": true,
+      "owner_validated": true,
+      "intervention": null,
+      "observer_error": null,
+      "audio": {
+        "event": "completion_audio",
+        "schema": 1,
+        "role": "instrument",
+        "delivery_frames": 512,
+        "vendor_latency_frames": 13,
+        "callbacks": 13,
+        "compared_samples": 16380,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "nonzero": 14276,
+        "max_error": 0,
+        "returned_events": 12,
+        "returned_points": 22,
+        "rejected_callbacks": 1,
+        "callback_max_ns": 3425017,
+        "whole_callback_overruns": 1,
+        "callback_effects": 0,
+        "callback_local_wakes": 14,
+        "local_wake_counter_available": true,
+        "callback_audited": true
+      },
+      "timing": [
+        {
+          "callback": 0,
+          "begin_ns": 674180219371,
+          "end_ns": 674180898431,
+          "N": 0,
+          "actual_mode": 0,
+          "sample_position": 0,
+          "result": 0,
+          "effects": 0,
+          "local_wakes": 1,
+          "in_place": false,
+          "threw": false,
+          "output_float_offset": 0,
+          "output_float_count": 0,
+          "output_byte_offset": 0,
+          "output_byte_count": 0
+        },
+        {
+          "callback": 1,
+          "begin_ns": 674180900444,
+          "end_ns": 674181221649,
+          "N": 0,
+          "actual_mode": 0,
+          "sample_position": 0,
+          "result": 0,
+          "effects": 0,
+          "local_wakes": 1,
+          "in_place": false,
+          "threw": false,
+          "output_float_offset": 0,
+          "output_float_count": 0,
+          "output_byte_offset": 0,
+          "output_byte_count": 0
+        },
+        {
+          "callback": 2,
+          "begin_ns": 674181222864,
+          "end_ns": 674181515379,
+          "N": 0,
+          "actual_mode": 0,
+          "sample_position": 0,
+          "result": 0,
+          "effects": 0,
+          "local_wakes": 1,
+          "in_place": false,
+          "threw": false,
+          "output_float_offset": 0,
+          "output_float_count": 0,
+          "output_byte_offset": 0,
+          "output_byte_count": 0
+        },
+        {
+          "callback": 3,
+          "begin_ns": 674181516334,
+          "end_ns": 674182226561,
+          "N": 0,
+          "actual_mode": 0,
+          "sample_position": 0,
+          "result": 0,
+          "effects": 0,
+          "local_wakes": 1,
+          "in_place": false,
+          "threw": false,
+          "output_float_offset": 0,
+          "output_float_count": 0,
+          "output_byte_offset": 0,
+          "output_byte_count": 0
+        },
+        {
+          "callback": 4,
+          "begin_ns": 674182258120,
+          "end_ns": 674182265813,
+          "N": 512,
+          "actual_mode": 0,
+          "sample_position": 0,
+          "result": 0,
+          "effects": 0,
+          "local_wakes": 1,
+          "in_place": false,
+          "threw": false,
+          "output_float_offset": 0,
+          "output_float_count": 2048,
+          "output_byte_offset": 0,
+          "output_byte_count": 8192
+        },
+        {
+          "callback": 5,
+          "begin_ns": 674182286291,
+          "end_ns": 674182635938,
+          "N": 512,
+          "actual_mode": 1,
+          "sample_position": 512,
+          "result": 0,
+          "effects": 0,
+          "local_wakes": 1,
+          "in_place": false,
+          "threw": false,
+          "output_float_offset": 2048,
+          "output_float_count": 2048,
+          "output_byte_offset": 8192,
+          "output_byte_count": 8192
+        },
+        {
+          "callback": 6,
+          "begin_ns": 674182656858,
+          "end_ns": 674186081875,
+          "N": 512,
+          "actual_mode": 0,
+          "sample_position": 1024,
+          "result": 0,
+          "effects": 0,
+          "local_wakes": 1,
+          "in_place": false,
+          "threw": false,
+          "output_float_offset": 4096,
+          "output_float_count": 2048,
+          "output_byte_offset": 16384,
+          "output_byte_count": 8192
+        },
+        {
+          "callback": 7,
+          "begin_ns": 674186106847,
+          "end_ns": 674186455403,
+          "N": 512,
+          "actual_mode": 1,
+          "sample_position": 1536,
+          "result": 0,
+          "effects": 0,
+          "local_wakes": 1,
+          "in_place": false,
+          "threw": false,
+          "output_float_offset": 6144,
+          "output_float_count": 2048,
+          "output_byte_offset": 24576,
+          "output_byte_count": 8192
+        },
+        {
+          "callback": 8,
+          "begin_ns": 674186477563,
+          "end_ns": 674186802564,
+          "N": 512,
+          "actual_mode": 0,
+          "sample_position": 2048,
+          "result": 0,
+          "effects": 0,
+          "local_wakes": 1,
+          "in_place": false,
+          "threw": false,
+          "output_float_offset": 8192,
+          "output_float_count": 2048,
+          "output_byte_offset": 32768,
+          "output_byte_count": 8192
+        },
+        {
+          "callback": 9,
+          "begin_ns": 674186824697,
+          "end_ns": 674187202806,
+          "N": 511,
+          "actual_mode": 1,
+          "sample_position": 2560,
+          "result": 0,
+          "effects": 0,
+          "local_wakes": 1,
+          "in_place": false,
+          "threw": false,
+          "output_float_offset": 10240,
+          "output_float_count": 2044,
+          "output_byte_offset": 40960,
+          "output_byte_count": 8176
+        },
+        {
+          "callback": 10,
+          "begin_ns": 674187224635,
+          "end_ns": 674187535414,
+          "N": 512,
+          "actual_mode": 0,
+          "sample_position": 3071,
+          "result": 0,
+          "effects": 0,
+          "local_wakes": 1,
+          "in_place": false,
+          "threw": false,
+          "output_float_offset": 12284,
+          "output_float_count": 2048,
+          "output_byte_offset": 49136,
+          "output_byte_count": 8192
+        },
+        {
+          "callback": 11,
+          "begin_ns": 674187556239,
+          "end_ns": 674187990413,
+          "N": 512,
+          "actual_mode": 1,
+          "sample_position": 3583,
+          "result": 0,
+          "effects": 0,
+          "local_wakes": 1,
+          "in_place": false,
+          "threw": false,
+          "output_float_offset": 14332,
+          "output_float_count": 2048,
+          "output_byte_offset": 57328,
+          "output_byte_count": 8192
+        },
+        {
+          "callback": 12,
+          "begin_ns": 674188074274,
+          "end_ns": 674189141157,
+          "N": 0,
+          "actual_mode": 1,
+          "sample_position": 4095,
+          "result": 1,
+          "effects": 0,
+          "local_wakes": 2,
+          "in_place": false,
+          "threw": false,
+          "output_float_offset": 16380,
+          "output_float_count": 0,
+          "output_byte_offset": 65520,
+          "output_byte_count": 0
+        }
+      ],
+      "state_recall_completed": false,
+      "native_processing_ready": [
+        {
+          "epoch": 1,
+          "monotonic_ns": 674145523314
+        },
+        {
+          "epoch": 2,
+          "monotonic_ns": 674180570678
+        }
+      ],
+      "native_worker_scheduling": {
+        "outcome": "host_realtime_budget_unavailable",
+        "route": "owned_supervisor_realtimekit",
+        "before": {
+          "policy": 0,
+          "priority": 0
+        },
+        "effective": {
+          "policy": 0,
+          "priority": 0
+        },
+        "requested_priority": 5,
+        "host_limits_changed": false
+      },
+      "windows_scheduling_requests": {
+        "schema": 1,
+        "requested_policy": "SCHED_RR",
+        "requested_priority": 5,
+        "requests": 2,
+        "discarded": 0,
+        "scope": "post-start effective readback, not a continuity guarantee",
+        "records": [
+          {
+            "outcome": "unavailable",
+            "reason": "scheduling_capability_unavailable"
+          },
+          {
+            "before": {
+              "policy": 0,
+              "priority": 0
+            },
+            "effective": {
+              "policy": 1073741826,
+              "priority": 5
+            },
+            "outcome": "effective",
+            "requested_priority": 5,
+            "rttime_hard_us": 200000,
+            "rttime_soft_us": 200000
+          }
+        ]
+      },
+      "retirement": {
+        "processes_confirmed": true,
+        "transport_confirmed": true
+      },
+      "failed_callback_duration_ns": 1066883,
+      "failed_callback_allowance_ns": 1000000,
+      "first_callback_duration_ns": 679060
+    }
+  ],
+  "trace": {
+    "summary": {
+      "event": "ap23_callback_phase_summary",
+      "schema": 1,
+      "requested": true,
+      "allocated": true,
+      "capacity": 128,
+      "retained": 2,
+      "omitted": 0,
+      "scope": "guard-held calls reaching AP23",
+      "cpp_final_stamp": "pre-return",
+      "identity_fields": "generation,epoch,host_call,position",
+      "call_fields": "frames,mode,delivery_mode,exact",
+      "policy_fields": "allowance_ns,wait_deadline_lower_ns,wait_deadline_upper_ns",
+      "predicate_fields": "kind,required,before,after,initial_satisfied,final_satisfied",
+      "clock_fields": "cpp_entry_ns,rust_entry_ns,wait_begin_ns,wait_end_ns,presentation_done_ns,rust_pre_return_ns,result_delivery_begin_ns,result_delivery_done_ns,cpp_pre_return_ns",
+      "wait_fields": "total_ns,count",
+      "result_fields": "backend,sdk",
+      "phase_bits": "0=cpp_entry,1=rust_entry,2=policy,3=identity,4=predicate_before,5=wait,6=predicate_after,7=presentation_done,8=rust_pre_return,9=backend_result,10=result_delivery_begin,11=cpp_pre_return,12=sdk_result,13=result_delivery_done",
+      "clock_valid_uses_phase_bits": true
+    },
+    "initial_offline_state_flush": {
+      "event": "ap23_callback_phase",
+      "schema": 1,
+      "size": 264,
+      "phase_reached": 16383,
+      "clock_valid": 11687,
+      "ordinal": 1,
+      "identity": {
+        "generation": 1,
+        "epoch": 1,
+        "host_call": 1,
+        "position": 0
+      },
+      "call": {
+        "frames": 0,
+        "mode": 2,
+        "delivery_mode": 0,
+        "exact": 1
+      },
+      "policy": {
+        "allowance_ns": 60000000000,
+        "wait_deadline_lower_ns": 440470929821,
+        "wait_deadline_upper_ns": 440470929884
+      },
+      "predicate": {
+        "kind": 1,
+        "required": 1,
+        "before": 0,
+        "after": 1,
+        "initial_satisfied": 0,
+        "final_satisfied": 1
+      },
+      "clock": {
+        "cpp_entry_ns": 380470929865,
+        "rust_entry_ns": 380470931952,
+        "wait_begin_ns": 380470937473,
+        "wait_end_ns": 380475217739,
+        "presentation_done_ns": 380475224027,
+        "rust_pre_return_ns": 380475224451,
+        "result_delivery_begin_ns": 380475225423,
+        "result_delivery_done_ns": 380475228289,
+        "cpp_pre_return_ns": 380475228469
+      },
+      "wait": {
+        "total_ns": 4280266,
+        "count": 1
+      },
+      "result": {
+        "backend": 0,
+        "sdk": 0
+      }
+    },
+    "failed_rt_flush": {
+      "event": "ap23_callback_phase",
+      "schema": 1,
+      "size": 264,
+      "phase_reached": 7039,
+      "clock_valid": 2343,
+      "ordinal": 2,
+      "identity": {
+        "generation": 1,
+        "epoch": 2,
+        "host_call": 2,
+        "position": 0
+      },
+      "call": {
+        "frames": 0,
+        "mode": 0,
+        "delivery_mode": 0,
+        "exact": 1
+      },
+      "policy": {
+        "allowance_ns": 1000000,
+        "wait_deadline_lower_ns": 380508550699,
+        "wait_deadline_upper_ns": 380508550768
+      },
+      "predicate": {
+        "kind": 1,
+        "required": 1,
+        "before": 0,
+        "after": 0,
+        "initial_satisfied": 0,
+        "final_satisfied": 0
+      },
+      "clock": {
+        "cpp_entry_ns": 380507550749,
+        "rust_entry_ns": 380507552450,
+        "wait_begin_ns": 380507558573,
+        "wait_end_ns": 380508613733,
+        "presentation_done_ns": 0,
+        "rust_pre_return_ns": 380508619557,
+        "result_delivery_begin_ns": 0,
+        "result_delivery_done_ns": 0,
+        "cpp_pre_return_ns": 380508620745
+      },
+      "wait": {
+        "total_ns": 1055160,
+        "count": 1
+      },
+      "result": {
+        "backend": 264,
+        "sdk": 1
+      }
+    },
+    "correlation": "Native ordinal2 C++ entry is within the sole measured SDK callback; ordinal1 is initial offline state-setting flush outside measured Exercise calls.",
+    "processing_ready_marker_after_sdk_entry_ns": 789283,
+    "post_wait_stamp_past_deadline_bracket_ns": [
+      62965,
+      63034
+    ],
+    "deadline_predicate_satisfied": false
+  },
+  "predecessor_control": {
+    "declared_after_two_failed_audio5_runs": true,
+    "normal_action": "ordinary_rollback",
+    "exact_publication": {
+      "id": "7145b6f90323884c08db9a52f7b24c9c",
+      "sha256": "3b1e54e951e0e3f9d63172c2a2ee8caaa06a7d4dc6a53b1115fb3f2f636a8dac"
+    },
+    "native_source": {
+      "head": "1124c1b32637432ab9b0cf3a31b46cbb0820fcbc",
+      "tree": "f649b1399b16d8466e4c8edfa3fc4f3cf1a3f11f"
+    },
+    "native_sha256": "36300f4a387e2ee7e3652b6acbe488df614ad474bd42f5b72f0e0e2c220154be",
+    "manager_package": "0.12.0audio5",
+    "manager_sha256": "e4e81197da4bcb489836ebd818e96722b201ab31002e5b13607c7f5663e98ecb",
+    "unchanged": [
+      "Windows host and source manifest",
+      "runtime",
+      "reference module",
+      "consumer and callback audit bytes",
+      "all performance preferences",
+      "sibling registrations"
+    ],
+    "complete_workflow_passed": false
+  },
+  "interpretation": {
+    "audio5_functional_acceptance": "failed_before_measured_audio_samples",
+    "audio5_state_recall": "unperformed_after_early_processing_failure",
+    "predecessor_control": "failed_later_prefetch_zero_frame_flush_after_16380_correct_samples",
+    "native_worker_policy": "observed policy0 priority0; requested realtime budget unavailable",
+    "windows_policy": "Each audio5 run has two unavailable scheduling requests and no effective Windows policy readback. The predecessor control has one unavailable request and one effective policy1073741826/priority5 readback. This is a post-start observation, not continuity proof.",
+    "causal_limit": "Earlier engine also fails this same-boot workflow, at a different zero-frame call. Effective scheduling observations differ between the successor and predecessor runs, so this is not an isolated native-engine timing comparison. It neither attributes the first-call failures to the absolute-wait repair nor proves timing equivalence.",
+    "next_boundary": "START/readiness and queued zero-frame completion, with native and Windows request-to-presentation scheduling"
+  },
+  "nonclaims": [
+    "No successful whole lifetime among these three runs.",
+    "No output or recall pass follows from zero compared samples in the two early audio5 failures.",
+    "The traced processing-ready marker is observed after callback entry; it does not isolate transport, render, SDK or scheduling durations.",
+    "Post-wait sampling is not exact kernel-return time.",
+    "The source deadline-arming regression is independently repaired; installed audio4 overrun cause/cure remains unproven.",
+    "No physical DAW, Deck, endurance, serial-chain or low-latency qualification."
+  ],
+  "checkpoint_custody": {
+    "selected_native": "exact audio4 predecessor",
+    "manager_package": "0.12.0audio5",
+    "all_sibling_registrations_restored_unchanged": true,
+    "deck": "unchanged",
+    "audiobookshelf": "untouched; CPUs0-1 reserved",
+    "machines": "normal Ubuntu shutdown confirmed separately; builder stopped before VM start"
+  },
+  "independent_review": {
+    "status": "no_remaining_findings",
+    "scope": "exact public record against complete private archives; scheduling summary correction rechecked",
+    "reviewed_claim_payload_sha256": "eaeed7dd82e974cb2d593b34803ab7503525f8e174e5aca1b2fb267fb660e63f"
+  }
+}

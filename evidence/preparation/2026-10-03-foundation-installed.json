@@ -1,0 +1,351 @@
+{
+  "schema": 1,
+  "claim": "installed_configuration_and_custody_hardening_comparison",
+  "original_failed_workflow": "evidence/preparation/2026-10-03-managed-configuration-installed.json",
+  "fixture": {
+    "distribution": "Ubuntu 26.04.1",
+    "kernel": "7.0.0-34-generic",
+    "session": "GNOME Wayland",
+    "consumer": "independent VST3 SDK lifecycle host",
+    "plugins": "first-party reference instrument and effect, shared managed environment",
+    "sample_rate": 48000,
+    "host_frames": 1024,
+    "bridge_frames": 1024,
+    "guest_gib": 6,
+    "vm_container_gib": 8,
+    "cpus": 2,
+    "cpuset": "2,3",
+    "pids": 256,
+    "combined_memory_swap_equals_memory": true,
+    "concurrent_test_machines": 1,
+    "runtime": "GE-Proton11-7 / SLR4.0.20260805.254769 / managed delivery v3r3"
+  },
+  "attempts": [
+    {
+      "package": "0.12.0config6foundation",
+      "source_head": "21d99190988af3335963792e3c08da5866d41ae7",
+      "source_tree": "128f8bb4067e426413a0b019e0e40cf3edb12bb6",
+      "package_sha256": "f6084be53b7be2a3625268ba892bdb4ace907270c5bf4943eb42e78dc2f487f9",
+      "engine_sha256": "cc442e4a98018977aad3b97dddf3433abf6f18b157a99b628f5f760d91b12d0f",
+      "native_engine_and_windows_host_sources_unchanged": true,
+      "build_attempt_note": "Initial clean-tree assertion rejected only the two build-created cache symlinks. Exact cache destinations verified and locally excluded; fresh assembly succeeded. Both attempts retained.",
+      "installation": {
+        "paired_package_verified": true,
+        "existing_registry_unchanged": true,
+        "prior_package_retained": true
+      },
+      "custody_feasibility": {
+        "passed": true,
+        "windows_exact_mapped_render_tasks": 1,
+        "supervisor_and_independent_census_agree": true,
+        "kernel_writer_generation_and_status_binding_confirmed": true,
+        "windows_effective_policy": "SCHED_RR",
+        "windows_effective_priority": 5,
+        "native_observed_policy": "SCHED_OTHER",
+        "native_policy_changed": false,
+        "audio_blocks": 480,
+        "compared_samples": 983040,
+        "mismatches": 0,
+        "callback_overruns": 0,
+        "positive_process_and_transport_retirement": true,
+        "original_saved_state_unchanged": true,
+        "observer_effect": "One bounded independent live census; not a timing qualification."
+      },
+      "ordinary_product_readback": {
+        "reads": 10,
+        "seconds_min": 0.183,
+        "seconds_max": 0.283,
+        "prior_observation_seconds": [
+          13.24,
+          14.36
+        ],
+        "controlled_latency_benchmark_claim": false,
+        "accepted_request_ack_seconds": [
+          0.845,
+          0.672
+        ],
+        "worker_deep_validation_retained": true
+      },
+      "configuration_workflow": {
+        "passed": false,
+        "audio_tracing_enabled": false,
+        "completed_audio_lifetimes": 7,
+        "compared_samples": 32440320,
+        "mismatches": 0,
+        "callback_overruns": 0,
+        "all_completed_lifetimes_retired": true,
+        "failed_step": "trial-1-keep",
+        "failure": "Selected configuration Keep action absent; newer retained proposal displaced the selected publication in the main workflow.",
+        "source_attribution": "guidance projection preferred larger lineage ordinal over exact current_published selection; inherited at frozen19c5888b.",
+        "second_trial_performed": false,
+        "whole_workflow_pass_claim": false
+      },
+      "gui_recovery": {
+        "status": "passed",
+        "restore_on_first_click": true,
+        "exact_original_publication_restored": true,
+        "separate_512_frame_preference_retained": true,
+        "other_three_registry_entries_and_preferences_unchanged": true,
+        "cli_mutation_fallback": false,
+        "buffering_both_directions_on_first_click": true,
+        "final_all_four_preferences_1024": true,
+        "all_four_original_class_entries_verified": true,
+        "manager_closed_normally": true,
+        "original_state_recall": {
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "callback_overruns": 0,
+          "positive_process_and_transport_retirement": true,
+          "state_unchanged": true
+        }
+      },
+      "private_retained_archive_sha256": "963b386895e1600e82a421a935cc04770c0c6ffa3c342a246eeca720bfc7bb33",
+      "private_complete_archive_sha256": "cb9b9ae65772e1c4a1ac60e1d1252af0461c4350e7f6355b4e0f98aa82b9d816"
+    },
+    {
+      "package": "0.12.0config7foundation",
+      "source_head": "3fcd7bae2ee71630aa64442341b5ec66df94ea81",
+      "source_tree": "67d7f49d1cc9d59d284db8e044757e8bdfceac20",
+      "package_sha256": "a5f3a0dce1a58cee0395187850db0a18e2b7d0becc34f7f71d5f0277ee497dd9",
+      "release_manifest_sha256": "611f61a9885f8e1fcfaf9e1d5fe52a0ec9c3e70389014c8e7359155b86ee2786",
+      "manager_sha256": "7542d8c1cfd75058585715f3a435a90d7b84f87a2260464b256b716c6640a770",
+      "engine_sha256": "cc442e4a98018977aad3b97dddf3433abf6f18b157a99b628f5f760d91b12d0f",
+      "native_engine_windows_host_and_runtime_unchanged": true,
+      "installation": {
+        "paired_package_verified": true,
+        "existing_registry_unchanged": true,
+        "prior_package_retained": true
+      },
+      "retained_failed_workflow": {
+        "passed": false,
+        "audio_tracing_enabled": false,
+        "completed_audio_lifetimes": 12,
+        "compared_samples": 62914560,
+        "mismatches": 0,
+        "callback_overruns": 0,
+        "all_completed_lifetimes_retired": true,
+        "both_keep_actions_completed": true,
+        "failed_step": "buffering-512 product read before request dispatch",
+        "failure": "operator_state_changed_refresh",
+        "classification": "Expected consistency refusal was fatal to this version of the independent consumer. Actual captured input that changed is unobserved.",
+        "subsequent_read_only_repeat_succeeded": true,
+        "idle_cleanup_confirmed": true,
+        "original_attempt_retained": true,
+        "archive_sha256": "1bbb1f935b9cc5631b9bbff79817429f4e687c7e4f7dc872a4e77df362cb7a97"
+      },
+      "consumer_correction": {
+        "source_head": "71e47ba61bb95fb2e108ef8a74ba67ddfee3c0ba",
+        "sha256": "cda8a214e9a6c67dca475e1f5569444056eb79af335c85663ec9df26a9f82912",
+        "scope": "One exact product-read consistency refusal retry under original45-second deadline. Both attempts retained; no action or SDK retry.",
+        "new_regressions_passed": 11,
+        "all_local_beta_tool_tests_passed": 12,
+        "guest_python_3_14_regressions_passed": 11,
+        "independently_reviewed": true,
+        "product_unchanged": true
+      },
+      "complete_fresh_workflow": {
+        "effect": {
+          "status": "passed",
+          "output": "effect-workflow-2",
+          "whole_fresh_run": true,
+          "trials": 2,
+          "audio_lifetimes": 13,
+          "compared_samples": 63897600,
+          "mismatches": 0,
+          "callback_overruns": 0,
+          "every_lifetime_retired": true,
+          "baseline_restored": true,
+          "separate_buffering_retained": true,
+          "original_state_unchanged": true,
+          "audio_trace_flag_absent": true,
+          "single_product_refreshes": 4,
+          "action_or_audio_replays": 0,
+          "continuous_soak_claim": false
+        },
+        "instrument": {
+          "status": "passed",
+          "output": "instrument-workflow-1",
+          "whole_fresh_run": true,
+          "trials": 2,
+          "audio_lifetimes": 13,
+          "compared_samples": 63897600,
+          "mismatches": 0,
+          "callback_overruns": 0,
+          "every_lifetime_retired": true,
+          "baseline_restored": true,
+          "separate_buffering_retained": true,
+          "original_state_unchanged": true,
+          "audio_trace_flag_absent": true,
+          "single_product_refreshes": 4,
+          "action_or_audio_replays": 0,
+          "continuous_soak_claim": false
+        },
+        "passed_for_both_roles": true
+      },
+      "gui_recovery": {
+        "status": "passed",
+        "actions": [
+          {
+            "kind": "buffering_512",
+            "operation": "d258725f40c1bbe2407a2e667b769559",
+            "first_click": true
+          },
+          {
+            "kind": "exact_trial1_restore",
+            "operation": "9b57c18380e36e76b44635151e8d692b",
+            "first_click": true
+          },
+          {
+            "kind": "exact_original_restore",
+            "operation": "602384050086aa3f4902ce2e09136059",
+            "first_click": true
+          },
+          {
+            "kind": "buffering_1024",
+            "operation": "0e93e13585920f4f00f0e133de6b77ef",
+            "first_click": false
+          }
+        ],
+        "separate_512_frame_preference_retained_across_both_restores": true,
+        "other_three_registry_entries_and_preferences_unchanged": true,
+        "cli_mutation_fallback": false,
+        "all_four_original_class_entries_verified": true,
+        "final_all_four_preferences_1024": true,
+        "manager_closed_normally": true,
+        "idle_cleanup_confirmed": true,
+        "input_observation": "Initial final-1024 click on partly clipped button submitted no durable request and retained512. After independent no-pending readback, fully visible activation succeeded. Cause unassigned; not all-first-click.",
+        "private_screenshots_and_notes_manifest": {
+          "name": "checkpoint14.json",
+          "sha256": "da2dae16630ce61b3f3492c83b2af7cf28df129cd32382065721e9bb73c7fcc4",
+          "files": 34,
+          "sha256_copies_verified": true,
+          "guest_readbacks_archive": "config7-complete-observation.tgz",
+          "guest_readbacks_archive_sha256": "6656a2866760a5545d6bf5e2cf407b21023e7985403805aabe43c6cd3bde9c66"
+        }
+      },
+      "final_independent_readback": {
+        "all_four_original_class_entries": true,
+        "all_four_preferences_1024": true,
+        "old_retained_saved_state_unchanged": true,
+        "new_workflow_states_unchanged": true,
+        "manager_and_release_manifest_unchanged": true,
+        "manager_closed": true,
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false,
+        "audio_trace_flag_absent": true
+      },
+      "private_complete_archive": {
+        "name": "config7-complete-observation.tgz",
+        "sha256": "6656a2866760a5545d6bf5e2cf407b21023e7985403805aabe43c6cd3bde9c66",
+        "bytes": 23346897,
+        "entries": 1029,
+        "guest_host_local_and_durable_copies_verified": true,
+        "contains": [
+          "failed first workflow",
+          "fresh complete effect and instrument workflows",
+          "four independent GUI operation readbacks",
+          "final independent verification",
+          "frozen package and helper identities"
+        ]
+      }
+    }
+  ],
+  "ci": {
+    "head": "c3a574f749fb3ab07ede1575954a4095a114b41a",
+    "all_applicable_checks_passed": true,
+    "runtime_tests": 392,
+    "runtime_seconds": 45.795,
+    "test_only_followup": "ExitStack replaces oversized mock context chains for CI Python compiler compatibility; production unchanged.",
+    "prior_CI_failure_retained": true
+  },
+  "nonclaims": [
+    "Root cause or repair of the earlier missing audio block",
+    "Dependable audio or low latency",
+    "DAW project or commercial editor acceptance",
+    "Physical Deck or cross-distro qualification",
+    "Beta readiness"
+  ],
+  "selection_repair_source": {
+    "base": "c3a574f749fb3ab07ede1575954a4095a114b41a",
+    "files": [
+      {
+        "path": "bridge-manager/src/graphics_cli.rs",
+        "sha256": "af491b38fd3c0a0c1bb85aac4ba0ae0fa2b6034d11c07b26cbed37cdc88db2c6",
+        "bytes": 9332
+      },
+      {
+        "path": "bridge-manager/src/operator_cli.rs",
+        "sha256": "1e265574e3098f209a803d0ed30bab5eec483147bebcd9d4371c0c212588d045",
+        "bytes": 347706
+      },
+      {
+        "path": "bridge-manager/src/preparation_cli.rs",
+        "sha256": "66d4d443da76bc1bd355f9ab36fa18bc7ecc9503e2cb0f7c6cfb9aba089e7ef7",
+        "bytes": 185721
+      },
+      {
+        "path": "manager-ui/src/library.rs",
+        "sha256": "a858706cea8c03b9de5a83f20ea080b698afdbd5104805a038d9fea2f22a5752",
+        "bytes": 63640
+      }
+    ],
+    "review": "Independent Astra6 xhigh approved selection2 production and selection3 test-only cleanup. Both earlier UI findings resolved.",
+    "regression": {
+      "old_projection": "failed selected-candidate assertion",
+      "repaired_projection": "passed"
+    },
+    "linux_validation": {
+      "manager_library": {
+        "initial_passed": 243,
+        "initial_failed": 1,
+        "failed_test_passed_after_test_checkout_ownership_correction": true,
+        "source_change_for_ownership_failure": false
+      },
+      "manager_binary": {
+        "passed": 318,
+        "failed": 0,
+        "existing_opt_in_ignored": 2
+      },
+      "frontend": {
+        "passed": 98,
+        "failed": 0,
+        "earlier_test_texture_cleanup_failure_retained": true
+      },
+      "audit_feature": {
+        "library_passed": 6,
+        "binary_passed": 10
+      },
+      "report_example_passed": 5,
+      "helper_tests_passed": 1,
+      "strict_manager_clippy_passed": true,
+      "strict_frontend_clippy_passed": true
+    },
+    "installed_acceptance": "Full fresh effect and unfamiliar-instrument SDK workflows and normal GUI recovery passed on paired config7foundation; physical DAW acceptance remains unperformed."
+  },
+  "frozen_successor_ci": {
+    "head": "3fcd7bae2ee71630aa64442341b5ec66df94ea81",
+    "all_applicable_checks_passed": true,
+    "manager_library_passed": 244,
+    "manager_binary_passed": 318,
+    "existing_opt_in_ignored": 2,
+    "frontend_passed": 98,
+    "runtime_passed": 392,
+    "runtime_seconds": 43.144
+  },
+  "consumer_followup_ci": {
+    "head": "71e47ba61bb95fb2e108ef8a74ba67ddfee3c0ba",
+    "all_applicable_checks_passed": true,
+    "product_unchanged_from_frozen_successor": true
+  },
+  "closeout": {
+    "independent_scoped_claim_review": "approved",
+    "all_test_vms_and_builders_stopped": true,
+    "expanded_vm_normal_exit_code": 0,
+    "forced_vm_stop": false,
+    "audiobookshelf_running": true,
+    "deck_unchanged": true,
+    "custody_receipt_sha256": "32fc6f4a8a7df029baff2c3d22fbc60e192717d7cec1e35e94d006df271fc639"
+  }
+}

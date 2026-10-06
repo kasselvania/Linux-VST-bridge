@@ -1,0 +1,136 @@
+{
+  "schema": 1,
+  "date": "2026-10-02",
+  "claim": "First source step: catalogue-independent native factory preparation and publication",
+  "base_commit": "6d0743b809b8e8a4a5fb54aee174e884c435c3ff",
+  "fixture": {
+    "native": "Ubuntu 26.04.1 x86_64 under QEMU, generated discovery records and independent VST3 SDK consumer",
+    "manager": "macOS generated manager fixtures; actual preparation, kit loader and publication functions",
+    "sdk": "3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96",
+    "rust": "1.95.0",
+    "cxx": "Ubuntu GCC 15.2.0-16ubuntu1",
+    "cmake": "4.2.3",
+    "runtime_proton": "not used",
+    "backend_features": [
+      "registered"
+    ],
+    "engine_build_option": "LVB_REUSABLE_ENGINE=ON"
+  },
+  "checks": {
+    "manager_library": {
+      "passed": 207,
+      "failed": 0
+    },
+    "manager_actual_preparation_added_after_full_run": {
+      "passed": 1,
+      "failed": 0
+    },
+    "publication_interruption_points": 16,
+    "native_existing_sdk_regressions": {
+      "passed": 10,
+      "failed": 0
+    },
+    "rust_descriptor": {
+      "passed": 2,
+      "failed": 0
+    },
+    "python_preparation": {
+      "passed": 16,
+      "failed": 0
+    },
+    "retained_descriptor_generator": {
+      "passed": 11,
+      "failed": 0
+    },
+    "packaging": {
+      "passed": 22,
+      "failed": 0,
+      "skipped": 1,
+      "skip_reason": "GPG unavailable locally"
+    },
+    "lint": "manager library and shared descriptor crate passed"
+  },
+  "compiled_factory": {
+    "initial_engine_sha256": "ea631e741f12abad87491d4c095b01e6980631b4e6a61c4e7239c4eaffdef672",
+    "extended_engine_sha256": "9f2a72bcd0afb08d3d68d80c4c12a4b798c70c9637b97b661ccea337895e8e87",
+    "classes_chosen_after_build": 2,
+    "simultaneous_instrument_and_effect": true,
+    "simulated_module_update_stable_daw_ids": true,
+    "bus_and_parameter_metadata": true,
+    "compiler_calls_during_preparation": 0,
+    "invalid_cases": [
+      "missing descriptor",
+      "engine digest mismatch",
+      "unsupported descriptor schema",
+      "oversize descriptor"
+    ],
+    "final_bounded_reader_check": "passed",
+    "final_engine_sha256": "35588050f7864f3caf057dea34299972fc7540aa127ebbcfa9ffe8150e2d1e07",
+    "private_artifacts": "~/.local/share/linux-vst-bridge/development/reusable-engine-35588050f786"
+  },
+  "prior_failed_attempts": [
+    "Initial manager test incorrectly expected no preexisting publication; corrected to verify unchanged fixture predecessor.",
+    "Deliberate corruption initially attempted to write the correctly read-only published descriptor; the test now explicitly changes its fixture permission first.",
+    "Added preparation validation initially passed Option<Artifact> instead of Artifact; corrected before the passing manager tests.",
+    "Native fixture command initially used named arguments for positional parameters; corrected invocation.",
+    "macOS all-target manager checks reach existing Linux-only scheduling and device APIs; no macOS binary pass claimed.",
+    "Emulated Linux manager check crashed while linking the serde build script. A system-linker comparison then hit GCC cc1 SIGSEGV while compiling lzma-sys. No cgroup OOM events were recorded; native Linux CI remains required.",
+    "Extending the manager route test through installed readback and runtime admission reproduced candidate_registration_changed: a comparison relocated the engine but not its descriptor. All registration relocations now move the pair; the same regression checks the fix.",
+    "First native CI passed manager Rust, runtime and frontend checks but its offline signing-rebuild test lacked unicode-ident 1.0.26 from the backend lockfile. Reproduced with a fresh manager-only Cargo cache. CI now fetches the backend lockfile explicitly before the unchanged offline rebuild; no customer dependency is added."
+  ],
+  "resources": {
+    "builder_count": 1,
+    "cpu_limit": 2,
+    "memory_limit_bytes": 4294967296,
+    "memory_plus_swap_limit_bytes": 4294967296,
+    "pids_limit": 256
+  },
+  "not_performed": [
+    "new Windows reference modules processing through this engine",
+    "real DAW save/reopen",
+    "graphics assessment joined to candidate setup",
+    "reversible runtime/graphics trial",
+    "signed full product package",
+    "Deck or other installed deployment",
+    "Nibbi audio/editor",
+    "beta musician workflow",
+    "package downgrade to an older manager after publishing descriptor-based revisions"
+  ],
+  "preservation": {
+    "deck_changed": false,
+    "frozen_audio_worktree_changed": false,
+    "vendor_state_changed": false,
+    "builder_final_state": "idle; CPU 0.00 percent, memory 697 MiB, configured limits retained"
+  },
+  "next": "Join shared assessment and requested/effective configuration to existing candidate history, exercise a reversible supported setting, then compare actual new Windows modules and DAW recall on a frozen package.",
+  "implementation_commit": "a7ec8ab5e6cd693b57add8e15726d1d64b8dcdce",
+  "implementation_tree": "23c6fc15fc373cd6ad1050c0f73b56e1dc6323a7",
+  "ci": {
+    "native": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100530559",
+    "native_result": "passed",
+    "package_portability": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100530556",
+    "package_portability_result": "passed",
+    "policy": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100530543",
+    "policy_result": "passed",
+    "first_manager": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100530598",
+    "first_manager_result": "manager Rust, runtime, frontend and release builds passed; offline rebuild fixture failed missing dependency cache",
+    "tested_head": "d42fbc311367eaf143e36d0c0b31dc2266010271",
+    "checkout_commit": "cdf65916da5cfbcb9366c8ac0ed674b83361adf3",
+    "checkout_and_head_tree": "7dd060a26f60c99e4af914c6f7be51ad93ac5f66",
+    "manager": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100868053",
+    "manager_result": "passed: 213 library tests, 292 binary tests, 5 example tests, runtime/frontend/lint checks, release builds, package verification and existing X11 fixtures; 2 existing binary tests ignored",
+    "offline_packaging_tests": {
+      "passed": 23,
+      "failed": 0,
+      "skipped": 0
+    },
+    "native_final": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100868027",
+    "native_final_result": "passed",
+    "windows_implementation": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100530550",
+    "windows_implementation_result": "passed host and graphics-report jobs at the implementation commit; the follow-up changes only CI cache setup and evidence",
+    "package_portability_final": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100868070",
+    "package_portability_final_result": "passed",
+    "policy_final": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37100868131",
+    "policy_final_result": "passed"
+  }
+}

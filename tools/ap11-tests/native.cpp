@@ -25,7 +25,11 @@ std::vector<ap11_gui_message_t> commands;
 uint32_t gui_fault = 0, caps = 0, closes = 0, refused_sends = 0;
 uint64_t generation = 7, revision = 1;
 double dsp = .5;
-uint32_t save_code=0, state_calls=0;
+uint32_t save_code=0, state_calls=0, close_code=0;
+uint32_t process_refusal=0;
+uint32_t fixture_delay=UINT32_MAX,fixture_vendor=0,fixture_tail=0,notice_flags=0;
+uint32_t actual_mode=UINT32_MAX,process_calls=0;
+uint32_t configured_maximum=0, activated_maximum=0;
 if1_terminal_t terminal_record{};
 std::thread::id owner = std::this_thread::get_id();
 struct Host final : HostApplication,
@@ -37,7 +41,7 @@ struct Host final : HostApplication,
   AP8::Controller *controller = nullptr;
   AP2::Processor *processor = nullptr;
   bool flush = true, reentrant = false;
-  uint32 dirty = 0, restarts = 0, reload_calls = 0;
+  uint32 dirty = 0, restarts = 0, reload_calls = 0, restart_calls=0, refuse_restarts=0;
   unsigned refuse_allocations = 0;
   tresult PLUGIN_API createInstance(TUID cid, TUID iid, void **out) override {
     if (refuse_allocations) { --refuse_allocations; *out = nullptr; return kResultFalse; }
@@ -124,6 +128,8 @@ struct Host final : HostApplication,
     return kResultOk;
   }
   tresult PLUGIN_API restartComponent(int32 flags) override {
+    ++restart_calls;
+    if(refuse_restarts){--refuse_restarts;return kResultFalse;}
     restarts |= flags;
     if(flags & kReloadComponent) ++reload_calls;
     if (flags & kParamValuesChanged)
@@ -158,27 +164,33 @@ uint32_t __wrap_ap9_open(const uint8_t *, uint64_t *out) {
   *out = 1;
   return 0;
 }
+uint32_t __wrap_ap22_curve_parameters(uint64_t,const uint32_t* ids,uint32_t count) {
+  check(count==std::size(AP8::parameters),"exact SDK parameter census configured");
+  for(uint32_t i=0;i<count;++i)check(ids[i]==AP8::parameters[i].id,"exact SDK parameter ID");
+  return 0;
+}
 uint32_t __wrap_ap5_report_path(uint64_t, uint8_t *p, uint32_t n) {
   if (n)
     *p = 0;
   return 0;
 }
-uint32_t __wrap_ap10_setup(uint64_t, uint32_t, uint32_t, double,
+uint32_t __wrap_ap10_setup(uint64_t, uint32_t maximum, uint32_t, double,
                            const uint8_t *, uint32_t, uint32_t, uint32_t *t) {
-  t[0] = 512;
-  t[1] = t[2] = 0;
+  configured_maximum = maximum;
+  t[0] = (fixture_delay==UINT32_MAX?std::max(512u,maximum):fixture_delay)+fixture_vendor;
+  t[1] = fixture_tail; t[2] = fixture_vendor;
   return 0;
 }
-uint32_t __wrap_ap4_activate(uint64_t, uint32_t, uint32_t) { return 0; }
+uint32_t __wrap_ap4_activate(uint64_t, uint32_t maximum, uint32_t) { activated_maximum=maximum;return 0; }
 uint32_t __wrap_ap4_deactivate(uint64_t) { return 0; }
 uint32_t __wrap_ap3_transition(uint64_t, uint32_t) { return 0; }
 uint32_t __wrap_if2_close(uint64_t) {
   ++closes;
-  return 0;
+  return close_code;
 }
 uint32_t __wrap_if1_terminal(uint64_t,if1_terminal_t* out){*out=terminal_record;return 0;}
 uint32_t __wrap_ap10_notices(uint64_t, uint32_t *p) {
-  p[0] = 0;
+  p[0] = notice_flags;p[1]=fixture_vendor;p[2]=fixture_tail;notice_flags=0;
   return 0;
 }
 uint32_t __wrap_ap11_gui_generation(uint64_t, uint64_t *out) {
@@ -219,23 +231,33 @@ uint32_t __wrap_ap11_gui_failure(uint64_t, uint64_t g, uint32_t c) {
 uint32_t __wrap_ap8_validate(const uint8_t *, const uint8_t *, uint32_t) {
   return 0;
 }
-uint32_t __wrap_ap4_state(uint64_t, const uint8_t *, uint32_t, uint8_t *out,
-                          uint32_t cap, uint32_t *n) {
-  ++state_calls;if(save_code)return save_code;
-  check(cap >= 132, "bounded state output");
-  std::memset(out, 0, 132);
-  out[112] = 1;
-  std::memcpy(out + 124, &dsp, 8);
-  *n = 132;
+uint32_t __wrap_ap8_validate_restore(const uint8_t *, const uint8_t *, uint32_t) {
   return 0;
 }
-uint32_t __wrap_if2_process(uint64_t, uint32_t n, const ap8_event_t *e,
+uint32_t __wrap_ap4_state_owned_v1(uint64_t, const uint8_t *, uint32_t,
+                                  ap4_owned_state_v1 *state) {
+  ++state_calls;if(save_code)return save_code;
+  check(state->abi_version==1&&!state->data&&!state->length,"empty owned state output");
+  auto* out=new uint8_t[132]{};
+  out[112] = 1;
+  std::memcpy(out + 124, &dsp, 8);
+  state->data=out;state->length=132;
+  return 0;
+}
+void __wrap_ap4_state_release_v1(ap4_owned_state_v1 *state) {
+  delete[] state->data;state->data=nullptr;state->length=0;
+}
+uint32_t __wrap_ap23_finish_callback(uint64_t) { return 0; }
+uint32_t __wrap_ap23_process_outputs(uint64_t, uint32_t n, uint32_t mode, const ap8_event_t *e,
                              uint32_t count, const ap10_context_t *, uint64_t,
-                             const float *, const float *, float *, float *,
+                             const float *l, const float *r, float *const *outputs, uint32_t channels,
                              uint64_t *silence, ap7_delivery_t *delivery, uint64_t entered_ns) {
   check(entered_ns != 0, "native callback entry is propagated");
+  check(mode<=kOffline && channels==2,"actual callback mode and planar ABI");
+  actual_mode=mode;++process_calls;
   if(IF1::valid(terminal_record))return IF2::contained;
-  check(n == 0, "stopped flush is zero frames");
+  if(process_refusal)return process_refusal;
+  check(n<=configured_maximum,"callback length is within prepared maximum");
   for (uint32_t i = 0; i < count; ++i)
     if (e[i].kind == 2) {
       check(e[i].id == 0, "real parameter ID");
@@ -243,6 +265,7 @@ uint32_t __wrap_if2_process(uint64_t, uint32_t n, const ap8_event_t *e,
     }
   *silence = 0;
   *delivery = {};
+  if(n){std::copy_n(l,n,outputs[0]);std::copy_n(r,n,outputs[1]);delivery->delivered_frames=n;}
   return 0;
 }
 uint32_t __wrap_ap10_take_results(uint64_t, ap10_results_t *p) {
@@ -371,7 +394,7 @@ void contained_host_survival_regression() {
   data.numSamples=129;check(processor->process(data)==kResultFalse,"IF2 malformed extent refused");data.numSamples=128;
   check(processor->process(data)==kResultOk,"IF2 bad host call cannot erase contained state");
   data.numSamples=data.numInputs=data.numOutputs=0;data.inputs=data.outputs=nullptr;
-  check(processor->process(data)==kResultOk,"IF2 zero-frame flush stays local");
+  check(processor->process(data)==kResultFalse,"exact zero-frame terminal flush is explicit failure");
   host.tick();
   if(host.restarts & kReloadComponent) {
     processor->setProcessing(false); processor->setActive(false);
@@ -396,8 +419,134 @@ void contained_host_survival_regression() {
   check(host.timers.empty(),"IF2 no retained editor timer");
   terminal_record={};
 }
-int main(int argc,char**) {
-  if(argc>1){contained_host_survival_regression();return 0;}
+void curve_refusal_regression() {
+  events.clear();commands.clear();gui_fault=0;terminal_record={};
+  Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+  host.processor=&processor;host.controller=controller;
+  auto* context=static_cast<IHostApplication*>(&host);
+  check(processor.initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"curve refusal initialize");
+  controller->setComponentHandler(static_cast<IComponentHandler*>(&host));
+  processor.connect(controller);controller->connect(&processor);
+  ProcessSetup setup{kRealtime,kSample32,128,48000};
+  check(processor.setupProcessing(setup)==kResultOk && processor.setActive(true)==kResultOk && processor.setProcessing(true)==kResultOk,"curve refusal start");
+  std::array<float,128> inputL{},inputR{},left{},right{};
+  float* in[]={inputL.data(),inputR.data()};float* out[]={left.data(),right.data()};
+  AudioBusBuffers inputs{},outputs{};inputs.numChannels=outputs.numChannels=2;
+  inputs.channelBuffers32=in;outputs.channelBuffers32=out;
+  ProcessData data{};data.processMode=kRealtime;data.symbolicSampleSize=kSample32;
+  data.numSamples=128;data.numInputs=data.numOutputs=1;data.inputs=&inputs;data.outputs=&outputs;
+  process_refusal=AP22::parameter_curve_unavailable;
+  check(processor.process(data)==kResultFalse,"a curve refusal is not successful terminal silence");
+  check(processor.process(data)==kResultFalse,"a refused live instance cannot claim continuing terminal processing");
+  check(__wrap_if2_terminal_status(1)==0,"curve refusal has no terminal custody");
+  LVBState::Stream stream;const auto before=state_calls;
+  check(processor.getState(&stream)==kResultFalse && state_calls==before,"refused state is not fabricated");
+  process_refusal=0;
+  processor.setProcessing(false);processor.setActive(false);
+  controller->disconnect(&processor);processor.disconnect(controller);
+  controller->terminate();controller->release();processor.terminate();
+}
+void historical_controller_regression() {
+  for(bool connectedFirst : {true,false}) for(bool controllerFirst : {true,false}) {
+    events.clear();commands.clear();gui_fault=0;terminal_record={};dsp=.625;save_code=0;
+    Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+    host.controller=controller;host.processor=&processor;
+    auto* context=static_cast<IHostApplication*>(&host);
+    check(processor.initialize(context)==kResultOk&&controller->initialize(context)==kResultOk,"migration initialize");
+    auto connect=[&] {
+      if(controllerFirst) check(controller->connect(&processor)==kResultOk&&processor.connect(controller)==kResultOk,"controller-first migration connection");
+      else check(processor.connect(controller)==kResultOk&&controller->connect(&processor)==kResultOk,"processor-first migration connection");
+    };
+    if(connectedFirst) connect();
+    // This backend-double envelope contains an earlier two-parameter mirror;
+    // the selected descriptor has one parameter and the actual readback .625.
+    // Rust's separate tests cover class/provenance, integrity and bounds.
+    LVBState::Stream historical;historical.bytes.resize(144);historical.bytes[64]=40;
+    historical.bytes[112]=2;historical.bytes[120]=77;historical.bytes[132]=88;
+    check(processor.setState(&historical)==kResultOk,"vendor restore recaptures selected implementation");
+    historical.position=0;
+    check(controller->setComponentState(&historical)==kResultOk,"historical parameter inventory is not admission authority");
+    if(!connectedFirst) {check(!controller->readbackAvailable(0),"disconnected projection stays unavailable");connect();}
+    check(controller->readbackAvailable(0)&&controller->getParamNormalized(0)==.625,"current readback wins in either connection order");
+    auto* message=new HostMessage;message->setMessageID("AP8.readback");
+    message->getAttributes()->setBinary("state",historical.bytes.data(),uint32(historical.bytes.size()));
+    check(controller->notify(message)==kResultFalse&&controller->getParamNormalized(0)==.625,"current inventory validation remains strict");
+    message->release();
+    check(controller->disconnect(&processor)==kResultOk&&processor.disconnect(controller)==kResultOk,"migration disconnect");
+    check(controller->terminate()==kResultOk&&processor.terminate()==kResultOk,"migration terminate");controller->release();
+  }
+}
+void failed_restore_retirement_regression() {
+  for(bool vendorRefusal : {false,true}) for(bool closeRefusal : {false,true}) {
+    events.clear();commands.clear();gui_fault=0;terminal_record={};save_code=close_code=0;
+    Host host;AP2::Processor processor;
+    check(processor.initialize(static_cast<IHostApplication*>(&host))==kResultOk,"failed restore initialize");
+    LVBState::Stream initial;
+    check(processor.getState(&initial)==kResultOk,"failed restore owns initialized backend");
+    LVBState::Stream saved;
+    if(vendorRefusal) {saved.bytes.resize(144);saved.bytes[64]=40;save_code=7;}
+    else saved.bytes.resize(10); // Refuse a truncated envelope before vendor dispatch.
+    const auto calls=state_calls;
+    check(processor.setState(&saved)==kResultFalse,"original restore failure remains visible");
+    check(state_calls==calls+unsigned(vendorRefusal),"admission refusal never reaches vendor restore");
+    save_code=0;close_code=closeRefusal?13:0;
+    const auto before=closes;
+    check((processor.terminate()==kResultOk)==!closeRefusal,"quiescent failed restore retires only with confirmed backend cleanup");
+    check(closes==before+1,"failed restore backend closes exactly once");
+    check(processor.terminate()==kResultFalse&&closes==before+1,"failed restore cannot terminate twice");
+    close_code=0;
+  }
+}
+void completion_contract_regression() {
+  events.clear();commands.clear();gui_fault=0;terminal_record={};save_code=close_code=process_refusal=0;
+  // Deliberate C ABI fixtures isolate the SDK rule; installed manager selection
+  // and actual transport timing are qualified by the independent consumer.
+  fixture_delay=512;fixture_vendor=13;fixture_tail=7;notice_flags=0;
+  Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+  host.processor=&processor;host.controller=controller;
+  auto* context=static_cast<IHostApplication*>(&host);
+  check(processor.initialize(context)==kResultOk&&controller->initialize(context)==kResultOk,"completion initialize");
+  controller->setComponentHandler(static_cast<IComponentHandler*>(&host));
+  processor.connect(controller);controller->connect(&processor);
+  ProcessSetup setup{kRealtime,kSample32,128,48000.};
+  check(processor.setupProcessing(setup)==kResultOk&&processor.getLatencySamples()==525,"D plus vendor L reported");
+  auto* poll=new HostMessage;poll->setMessageID("AP10.poll");
+  host.refuse_allocations=1;
+  check(processor.notify(poll)==kResultFalse&&host.restart_calls==0,"latency allocation refusal retains pending notice");
+  host.refuse_restarts=1;
+  check(processor.notify(poll)==kResultFalse&&host.restart_calls==1,"host restart refusal remains pending");
+  check(processor.notify(poll)==kResultOk&&host.restart_calls==2&&(host.restarts&kLatencyChanged),"latency notice retries through existing SDK route");
+  fixture_vendor=29;fixture_tail=42;notice_flags=kLatencyChanged;
+  check(processor.notify(poll)==kResultOk&&processor.getLatencySamples()==541&&processor.getTailSamples()==42,"vendor notification preserves effective D");
+  auto restarts=host.restart_calls;check(processor.notify(poll)==kResultOk&&host.restart_calls==restarts,"acknowledged latency notice is not duplicated");
+  check(processor.setActive(true)==kResultOk&&processor.setProcessing(true)==kResultOk,"completion RT start");
+  ProcessData data{};data.symbolicSampleSize=kSample32;data.processMode=kPrefetch;
+  check(processor.process(data)==kResultOk&&actual_mode==kPrefetch,"RT to prefetch needs no setup");
+  auto calls=process_calls;data.processMode=kOffline;
+  check(processor.process(data)==kResultFalse&&process_calls==calls,"offline mode crossing refuses before C ABI admission");
+  auto illegal=setup;illegal.processMode=kOffline;illegal.sampleRate=96000.;
+  check(processor.setupProcessing(illegal)==kResultFalse,"active offline setup is refused");
+  data.processMode=kRealtime;check(processor.process(data)==kResultOk&&actual_mode==kRealtime,"refused setup preserves accepted processing contract");
+  check(processor.setProcessing(false)==kResultOk&&processor.setActive(false)==kResultOk,"completion RT stop");
+  fixture_delay=0;fixture_vendor=13;setup={kOffline,kSample32,256,96000.};
+  check(processor.setupProcessing(setup)==kResultOk&&processor.getLatencySamples()==13,"same callback effective D is zero");
+  check(processor.setActive(true)==kResultOk&&processor.setProcessing(true)==kResultOk,"inactive offline reconfiguration");
+  data.processMode=kOffline;check(processor.process(data)==kResultOk&&actual_mode==kOffline,"offline zero callback delivered with actual mode");
+  data.processMode=kPrefetch;calls=process_calls;
+  check(processor.process(data)==kResultFalse&&process_calls==calls,"offline to prefetch also requires inactive setup");
+  check(processor.setProcessing(false)==kResultOk&&processor.setActive(false)==kResultOk,"completion offline stop");
+  poll->release();controller->disconnect(&processor);processor.disconnect(controller);
+  check(controller->terminate()==kResultOk&&processor.terminate()==kResultOk,"completion retirement");controller->release();
+  fixture_delay=UINT32_MAX;fixture_vendor=fixture_tail=notice_flags=0;
+}
+int main(int argc,char** argv) {
+  if(argc>1){
+    if(!std::strcmp(argv[1],"--state-migration")){historical_controller_regression();failed_restore_retirement_regression();}
+    else if(!std::strcmp(argv[1],"--curve-refusal"))curve_refusal_regression();
+    else if(!std::strcmp(argv[1],"--completion-contract"))completion_contract_regression();
+    else contained_host_survival_regression();
+    return 0;
+  }
   lifecycle_identity_regression();
   Host host;
   auto processor = std::make_unique<AP2::Processor>();
@@ -414,11 +563,13 @@ int main(int argc,char**) {
   check(processor->connect(c) == kResultOk &&
             c->connect(processor.get()) == kResultOk && caps == 7,
         "production connection and generation capabilities");
-  ProcessSetup setup{kRealtime, kSample32, 128, 48000};
+  ProcessSetup setup{kRealtime, kSample32, 1024, 48000};
   check(processor->setupProcessing(setup) == kResultOk &&
             processor->setActive(true) == kResultOk &&
             processor->setProcessing(true) == kResultOk,
         "start processing");
+  check(configured_maximum==1024 && activated_maximum==1024,
+        "production SDK setup and activation preserve the whole DAW maximum");
   check(state_calls==0&&commands.size()==1&&commands[0].kind==AP11::Refresh&&commands[0].flags==0,"fresh native bootstrap requires no opaque saving or restart");
   commands.clear();
   auto refusedToken = c->allocateEditorView();
@@ -539,7 +690,10 @@ int main(int argc,char**) {
   c->panelOpen(viewToken);check(commands.back().kind==AP11::Open,"editor continues after refused save");
   save_code=0;
   LVBState::Stream projected;projected.bytes.resize(136);projected.bytes[64]=32;projected.bytes[112]=1;projected.bytes[116]=2;
-  check(c->setComponentState(&projected)==kResultOk&&!c->readbackAvailable(0)&&c->getParamNormalized(0)==.65,"native tagged state apply preserves unavailable ID and stale projection");
+  LVBState::Stream selectedReadback;
+  check(processor->getState(&selectedReadback)==kResultOk,"capture selected implementation before synchronization");
+  check(c->setComponentState(&projected)==kResultOk&&c->readbackAvailable(0)&&c->getParamNormalized(0)==dsp,
+        "historical mirror cannot override selected current readback");
   // Saving drains a complete accepted edit before taking the state barrier.
   event(AP11::Begin);
   event(AP11::Value, .9);

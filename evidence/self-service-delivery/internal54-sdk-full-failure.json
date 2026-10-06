@@ -1,0 +1,3144 @@
+{
+  "schema": 1,
+  "candidate": "0.12.0internal54",
+  "source_head": "65c131c88f6fc76ba4a7299b01a0889c83b1e2cd",
+  "claim": "installed SDK development regression using retained native51/host47 instrument and effect; not new-kit publication or DAW acceptance",
+  "result": "failed",
+  "maintainer_repairs": 0,
+  "resources": {
+    "exit_code": 1,
+    "duration_ms": 181417.228,
+    "before": {
+      "cpu.max": "100000 100000",
+      "memory.max": "2684354560",
+      "memory.swap.max": "0",
+      "pids.max": "512",
+      "pids.current": "342",
+      "pids.events": "max 0",
+      "memory.current": "1833197568",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+    },
+    "after": {
+      "cpu.max": "100000 100000",
+      "memory.max": "2684354560",
+      "memory.swap.max": "0",
+      "pids.max": "512",
+      "pids.current": "360",
+      "pids.events": "max 0",
+      "memory.current": "1907781632",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+    },
+    "peak_user_tasks": 379,
+    "peak_user_memory_bytes": 2038464512,
+    "stderr_bytes": 366,
+    "stderr_sha256": "0612436456fac7cbfadb3b055c9b45633f8003c5cee1312ff40296986b38fc8a"
+  },
+  "runs": [
+    {
+      "role": "effect",
+      "pair": 1,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 32587.359,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 22021
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 22066
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 39373,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "f1bf24258393212411ac1591d5ad0641",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 1787583904461,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "f1bf24258393212411ac1591d5ad0641",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 1797810622329,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "f1bf24258393212411ac1591d5ad0641",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 1797811668279,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "f1bf24258393212411ac1591d5ad0641",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 1797811730885,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "f1bf24258393212411ac1591d5ad0641",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 1797917560313,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "f1bf24258393212411ac1591d5ad0641",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "command_route_verified_in_windows_reports": true
+    },
+    {
+      "role": "effect",
+      "pair": 1,
+      "mode": "recall",
+      "frames": 1024,
+      "duration_ms": 15082.287,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 4481
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 4526
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 50449,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "47fbf1a78ecade91c78192094e12207c",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 1802651956561,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "47fbf1a78ecade91c78192094e12207c",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 1812871515127,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "47fbf1a78ecade91c78192094e12207c",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 1812872108687,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "47fbf1a78ecade91c78192094e12207c",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 1812872218220,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "47fbf1a78ecade91c78192094e12207c",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 1813006928849,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "47fbf1a78ecade91c78192094e12207c",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 143
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "command_route_verified_in_windows_reports": true
+    },
+    {
+      "role": "effect",
+      "pair": 2,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 14864.326,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 4293
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 4337
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 1
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 160051,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "6bbc322c326251fe1cc96ce6b24215b9",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 1817572884466,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "6bbc322c326251fe1cc96ce6b24215b9",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 1827795228081,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "6bbc322c326251fe1cc96ce6b24215b9",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 1827796232460,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "6bbc322c326251fe1cc96ce6b24215b9",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 1827796297821,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "6bbc322c326251fe1cc96ce6b24215b9",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 1827930243948,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "6bbc322c326251fe1cc96ce6b24215b9",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 143
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "command_route_verified_in_windows_reports": true
+    },
+    {
+      "role": "effect",
+      "pair": 2,
+      "mode": "recall",
+      "frames": 1024,
+      "duration_ms": 14722.297,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 4186
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 4232
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 157611,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "44f87b86a3706c74a620897cc74c89f7",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 1832350426912,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "44f87b86a3706c74a620897cc74c89f7",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 1842570802099,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "44f87b86a3706c74a620897cc74c89f7",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 1842574047029,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "44f87b86a3706c74a620897cc74c89f7",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 1842574151471,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "44f87b86a3706c74a620897cc74c89f7",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 1842648875137,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "44f87b86a3706c74a620897cc74c89f7",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "command_route_verified_in_windows_reports": true
+    },
+    {
+      "role": "effect",
+      "pair": 3,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 14805.723,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 4207
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 4250
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 36094,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "960091bd26575bf9cd1f5c1db73c4e53",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 1847117509169,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "960091bd26575bf9cd1f5c1db73c4e53",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 1857337545445,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "960091bd26575bf9cd1f5c1db73c4e53",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 1857339128693,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "960091bd26575bf9cd1f5c1db73c4e53",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 1857339984889,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "960091bd26575bf9cd1f5c1db73c4e53",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 1857484454255,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "960091bd26575bf9cd1f5c1db73c4e53",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 143
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "command_route_verified_in_windows_reports": true
+    },
+    {
+      "role": "effect",
+      "pair": 3,
+      "mode": "recall",
+      "frames": 1024,
+      "duration_ms": 14848.79,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 4274
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 4321
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 5
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 185530,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "b807646b32d5b34e0f78b2d8450be362",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 1862014650618,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "b807646b32d5b34e0f78b2d8450be362",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 1872233575138,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "b807646b32d5b34e0f78b2d8450be362",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 1872235113698,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "b807646b32d5b34e0f78b2d8450be362",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 1872235234232,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "b807646b32d5b34e0f78b2d8450be362",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 1872378536949,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "b807646b32d5b34e0f78b2d8450be362",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 143
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "command_route_verified_in_windows_reports": true
+    },
+    {
+      "role": "effect",
+      "pair": 4,
+      "mode": "record",
+      "frames": 1008,
+      "duration_ms": 14562.686,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 4163
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 4210
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1008,
+          "blocks": 480,
+          "compared_samples": 967680,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 965632,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 41100,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 483840,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 483840,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1008,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 482816,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "da0bea2e1ea2de8438e9ecdee03ccb94",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 1876780611682,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "da0bea2e1ea2de8438e9ecdee03ccb94",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 1886839293477,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "da0bea2e1ea2de8438e9ecdee03ccb94",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 1886839518167,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "da0bea2e1ea2de8438e9ecdee03ccb94",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 1886839637840,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "da0bea2e1ea2de8438e9ecdee03ccb94",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 1886971100116,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "da0bea2e1ea2de8438e9ecdee03ccb94",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 143
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "command_route_verified_in_windows_reports": true
+    },
+    {
+      "role": "effect",
+      "pair": 4,
+      "mode": "recall",
+      "frames": 1008,
+      "duration_ms": 14705.127,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 4260
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 4313
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1008,
+          "blocks": 480,
+          "compared_samples": 967680,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 965632,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 347476,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 483840,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 483840,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1008,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 482816,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "9aece7b6e8862d8554f635d1f7e24767",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 1891471572639,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "9aece7b6e8862d8554f635d1f7e24767",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 1901530025489,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "9aece7b6e8862d8554f635d1f7e24767",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 1901530500713,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "9aece7b6e8862d8554f635d1f7e24767",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 1901530601836,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        },
+        {
+          "session": "9aece7b6e8862d8554f635d1f7e24767",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 1901661507515,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1008,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1008
+          },
+          "processing": {
+            "admitted_frames": 482832,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 482816,
+            "priming_frames": 16
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "9aece7b6e8862d8554f635d1f7e24767",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "command_route_verified_in_windows_reports": true
+    },
+    {
+      "role": "instrument",
+      "pair": 1,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 14904.574,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "7666ebeb20aa3a110b06e97a4504edaf5f00468e001240e9a6d5e880e0b29df0",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 4298
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 4343
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cc9e269c4159c9d9da0db80cad22947120495858959188a37755947642e473f2",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 710726,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 74676,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "056b8e959647931a61e26634a5054040",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 1906250826820,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "056b8e959647931a61e26634a5054040",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 1916469667583,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "056b8e959647931a61e26634a5054040",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 1916473963827,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "056b8e959647931a61e26634a5054040",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 1916474138281,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "056b8e959647931a61e26634a5054040",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 1916610763173,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "056b8e959647931a61e26634a5054040",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "command_route_verified_in_windows_reports": true
+    },
+    {
+      "role": "instrument",
+      "pair": 1,
+      "mode": "recall",
+      "frames": 1024,
+      "duration_ms": 14774.061,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "7666ebeb20aa3a110b06e97a4504edaf5f00468e001240e9a6d5e880e0b29df0",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 4209
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 96,
+          "sha256": "cc9e269c4159c9d9da0db80cad22947120495858959188a37755947642e473f2",
+          "gain": 0
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 4254
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cc9e269c4159c9d9da0db80cad22947120495858959188a37755947642e473f2",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 3
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 710726,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 41747,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "8a716e96c77b2b8ad2d49508b6cd8485",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 1921091037650,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "8a716e96c77b2b8ad2d49508b6cd8485",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 1931308883840,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "8a716e96c77b2b8ad2d49508b6cd8485",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 1931309137624,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "8a716e96c77b2b8ad2d49508b6cd8485",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 1931309197291,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "8a716e96c77b2b8ad2d49508b6cd8485",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 1931442832630,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "8a716e96c77b2b8ad2d49508b6cd8485",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 143
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "command_route_verified_in_windows_reports": true
+    },
+    {
+      "role": "instrument",
+      "pair": 2,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 14782.503,
+      "exit_code": 1,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "7666ebeb20aa3a110b06e97a4504edaf5f00468e001240e9a6d5e880e0b29df0",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 4191
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 4233
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cc9e269c4159c9d9da0db80cad22947120495858959188a37755947642e473f2",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 3
+        },
+        {
+          "event": "audio",
+          "role": "instrument",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 2044,
+          "nonfinite": 0,
+          "nonzero": 708678,
+          "max_error": 0.0314896,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 47975,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 2,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 1024,
+          "underrun_gaps": 1,
+          "underrun_callbacks": 1,
+          "expired_output_frames": 1024,
+          "delivered_frames": 489472,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "failed",
+          "stage": "retirement",
+          "reason": "exact installed audio comparison"
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "884afe88edd02c2f81e52e12faa046e7",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 1935865079227,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "884afe88edd02c2f81e52e12faa046e7",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 1946084638691,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 1024,
+            "gaps": 1,
+            "expired_frames": 1024,
+            "delivered_frames": 489472,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "884afe88edd02c2f81e52e12faa046e7",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 1946086053484,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 1024,
+            "gaps": 1,
+            "expired_frames": 1024,
+            "delivered_frames": 489472,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "884afe88edd02c2f81e52e12faa046e7",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 1946086172891,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 1024,
+            "gaps": 1,
+            "expired_frames": 1024,
+            "delivered_frames": 489472,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "884afe88edd02c2f81e52e12faa046e7",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 1946213223381,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 1024,
+            "gaps": 1,
+            "expired_frames": 1024,
+            "delivered_frames": 489472,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "884afe88edd02c2f81e52e12faa046e7",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 143
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 2,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "command_route_verified_in_windows_reports": true
+    }
+  ],
+  "native_startup_last": {
+    "class_id": "4C564242455441314546465800000001",
+    "observed_at": 1790905713,
+    "outcome": "accepted",
+    "phases": [
+      [
+        "request_received",
+        0
+      ],
+      [
+        "binding_verified",
+        2835
+      ],
+      [
+        "keeper_ready",
+        2841
+      ],
+      [
+        "ready_binding_verified",
+        3402
+      ],
+      [
+        "transport_prepared",
+        3493
+      ],
+      [
+        "supervisor_ready",
+        3623
+      ],
+      [
+        "binding_delivered",
+        3624
+      ]
+    ],
+    "request": "e9bcffb5ef6754e8971598cf3e68ee6c",
+    "schema": 1,
+    "total_ms": 3624
+  },
+  "planned_consumers": 16,
+  "completed_consumers": 11,
+  "passed_consumers": 10,
+  "unexplained_processing_missing_frames": 1024,
+  "failed_consumer": {
+    "role": "instrument",
+    "pair": 2,
+    "mode": "record",
+    "frames": 1024,
+    "exit_code": 1
+  },
+  "native_startup_instrument_last": {
+    "class_id": "4C56424245544131494E535400000001",
+    "observed_at": 1790905757,
+    "outcome": "accepted",
+    "phases": [
+      [
+        "request_received",
+        0
+      ],
+      [
+        "binding_verified",
+        2811
+      ],
+      [
+        "keeper_ready",
+        2813
+      ],
+      [
+        "ready_binding_verified",
+        3359
+      ],
+      [
+        "transport_prepared",
+        3466
+      ],
+      [
+        "supervisor_ready",
+        3576
+      ],
+      [
+        "binding_delivered",
+        3577
+      ]
+    ],
+    "request": "fbeaf1d3ad06a7c9bfda0cad15402184",
+    "schema": 1,
+    "total_ms": 3577
+  },
+  "cpu_stat_after_only": "usage_usec 1132852051\nuser_usec 808961683\nsystem_usec 323890367\nnice_usec 0\ncore_sched.force_idle_usec 0\nnr_periods 21552\nnr_throttled 26\nthrottled_usec 4800\nnr_bursts 0\nburst_usec 0\n",
+  "attribution_gap": "Callback durations are retained, but host wake lateness and the first missing-block deadline are absent. No scheduler or transport cause is established.",
+  "command_cache_present": true
+}

@@ -1,0 +1,58 @@
+--- a/dlls/uiautomationcore/uia_client.c
++++ b/dlls/uiautomationcore/uia_client.c
+@@ -2057,7 +2057,12 @@
+     int prov_type;
+     HRESULT hr;
+ 
++    if (!out_node)
++        return E_INVALIDARG;
++
+     *out_node = NULL;
++    if (!elprov)
++        return E_INVALIDARG;
+ 
+     hr = IRawElementProviderSimple_get_ProviderOptions(elprov, &prov_opts);
+     if (FAILED(hr))
+--- a/dlls/uiautomationcore/tests/Makefile.in
++++ b/dlls/uiautomationcore/tests/Makefile.in
+@@ -2,4 +2,5 @@
+ IMPORTS = uiautomationcore user32 ole32 oleaut32 oleacc
+ 
+ SOURCES = \
++	null_provider.c \
+ 	uiautomation.c
+--- /dev/null
++++ b/dlls/uiautomationcore/tests/null_provider.c
+@@ -0,0 +1,32 @@
++/* Null UI Automation provider regression test.
++ * This new Wine test is licensed under LGPL-2.1-or-later,
++ * as described in the source tree COPYING.LIB.
++ */
++#include <windows.h>
++#include <uiautomationcore.h>
++#include <uiautomationcoreapi.h>
++#include "wine/test.h"
++
++START_TEST(null_provider)
++{
++    HRESULT (WINAPI *disconnect)(IRawElementProviderSimple *);
++    HMODULE module = LoadLibraryA("uiautomationcore.dll");
++    HUIANODE node = (HUIANODE)0xdeadbeef;
++    HRESULT hr;
++    LRESULT result;
++
++    ok(!!module, "UI Automation library failed to load\n");
++    if (!module) return;
++    hr = UiaNodeFromProvider(NULL, &node);
++    ok(hr == E_INVALIDARG, "NodeFromProvider returned %#lx\n", hr);
++    disconnect = (void *)GetProcAddress(module, "UiaDisconnectProvider");
++    ok(!!disconnect, "DisconnectProvider export missing\n");
++    if (disconnect)
++    {
++        hr = disconnect(NULL);
++        ok(hr == E_INVALIDARG, "DisconnectProvider returned %#lx\n", hr);
++    }
++    result = UiaReturnRawElementProvider(NULL, 0, UiaRootObjectId, NULL);
++    ok(!result, "ReturnRawElementProvider returned %Ix\n", result);
++    FreeLibrary(module);
++}

@@ -211,6 +211,7 @@ pub fn binding(m: &Manager) -> Result<Registration> {
     let (environment, module) = facts(m, &p)?;
     let c = crate::qualification::load_for(m, p.clone(), Qualification::Sv1Instrument)?;
     let r = Registration {
+            descriptor: None,
         metadata: p.class,
         module,
         environment,
@@ -249,7 +250,7 @@ pub(crate) fn check_publication(m: &Manager, p: &Profile, r: &Registration) -> R
     )?;
     m.require_inactive(None)?;
     require(
-        m.performance(&p.class.class_id)?.added_frames == 512,
+        m.performance(&p.class.class_id)?.is_qualified_buffering(),
         "candidate_frame_posture",
     )
 }
@@ -284,7 +285,7 @@ fn publish_with_boundary(m: &Manager, fail: Option<Boundary>) -> Result<Revision
 }
 pub(crate) fn retained(m: &Manager, r: &Revision, c: &InstalledCandidate) -> Result<()> {
     let mut expected = binding(m)?;
-    expected.native.path = r.registration.native.path.clone();
+    expected.relocate_native(r.registration.native.path.clone());
     require(
         r.profile == c.profile
             && r.registration == expected

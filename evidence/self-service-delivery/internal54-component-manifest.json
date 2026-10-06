@@ -1,0 +1,398 @@
+{
+  "schema": 1,
+  "candidate": "0.12.0internal54",
+  "customer_release": false,
+  "qualification": "installed_validation_pending",
+  "source_head": "65c131c88f6fc76ba4a7299b01a0889c83b1e2cd",
+  "source_tree": "c1c98f012b4c04fa477e5d524e2a4154e24e23b1",
+  "variants": {
+    "ubuntu": {
+      "installer_sha256": "28ba936e78a943a8ea1ef0f4c6fb4f9c4bbd6fc7c46505809354ad47a95b2f4b",
+      "release": {
+        "files": [
+          {
+            "component": "self-service-frontend",
+            "destination": "usr/bin/linux-audio-compatibility-manager",
+            "kind": "frontend",
+            "mode": "0555",
+            "sha256": "ff412a1b3865e4415e2e684edebb739e42d83721b028b75e58e2e814602f4984",
+            "size": 13637992
+          },
+          {
+            "component": "self-service-manager",
+            "destination": "usr/bin/linux-vst-bridge",
+            "kind": "manager",
+            "mode": "0555",
+            "sha256": "852bb363c629d314f7ef6f13b44d5d4ab3c669f28497af30e4bb7c33d777b9f2",
+            "size": 11328072
+          },
+          {
+            "component": "self-service-windows_host",
+            "destination": "usr/lib/linux-vst-bridge/host/bridge-host.exe",
+            "kind": "windows_host",
+            "mode": "0444",
+            "sha256": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b",
+            "size": 970240
+          },
+          {
+            "component": "self-service-host_source",
+            "destination": "usr/lib/linux-vst-bridge/host/source-manifest.json",
+            "kind": "host_source",
+            "mode": "0444",
+            "sha256": "8a3c2fb2ce3f8bd22716fb3d9827ab424b855f0626fc7456f97e0ca1a4fed8e8",
+            "size": 7023
+          },
+          {
+            "component": "self-service-preparation_kit",
+            "destination": "usr/lib/linux-vst-bridge/preparation/preparation-kit.zip",
+            "kind": "preparation_kit",
+            "mode": "0444",
+            "sha256": "b1b5a1dd886a8f932d3e827c054f1939c725f4ef374ad72f880bae49970d54ff",
+            "size": 12391603
+          },
+          {
+            "component": "self-service-profile",
+            "destination": "usr/lib/linux-vst-bridge/profiles/arturia-pure-lofi.json",
+            "kind": "profile",
+            "mode": "0444",
+            "sha256": "711147ac392dff977ed8ecb52349f7080d8678556c131531376785717990a3df",
+            "size": 4785
+          },
+          {
+            "component": "self-service-proxy",
+            "destination": "usr/lib/linux-vst-bridge/proxy/PureLoFi.so",
+            "kind": "proxy",
+            "mode": "0555",
+            "sha256": "c79a7be6f18838607339ac5ef6f1a9f0d3f886cbfafe1cde506752cdcc8be6ff",
+            "size": 2151264
+          },
+          {
+            "component": "self-service-fixture_resource",
+            "destination": "usr/lib/linux-vst-bridge/self-test/LVB_REFERENCE_MANIFEST.json",
+            "kind": "fixture_resource",
+            "mode": "0444",
+            "sha256": "e00d3a44f75144857574f2e0c732fab2032a0931116bf63d22ffa7b31b986495",
+            "size": 843
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/LVB_Reference_Partial_1_0_0.exe",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "c4a65a49a5d3ce532e33dc4132ec7db674e0b2558bbcf3c21c3490d8d8bbfaba",
+            "size": 788480
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/LVB_Reference_Plugins_1_0_0.exe",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "0910f3665fcacbe43801cbc3355c725013a1d217cfb68e46f669f24efc52490b",
+            "size": 787968
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/LVB_Reference_Recovery_1_0_0.exe",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "7501664f57916380b1425eb24447d0db742b8d5714583c8861a3260eb2bd825f",
+            "size": 787968
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/ap10-return-fixture.vst3",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "218ca87b3fa5acdb3844efd2cb3ed837620f37cbb2043c850471fc16e7c7496d",
+            "size": 263168
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/lvb-reference-effect.vst3",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "b3498eb5c8d6d440259b04a9c9b7699ab72f4f64eb31f45167f0341d3d1e719f",
+            "size": 254976
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/lvb-reference-instrument.vst3",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+            "size": 265216
+          },
+          {
+            "component": "self-service-ownership",
+            "destination": "usr/lib/linux-vst-bridge/supervisor/ownership.pyc",
+            "kind": "ownership",
+            "mode": "0444",
+            "sha256": "25412f5002bd2fe6d77e8603b17a9953adc310259e11bb51a6c9f9a97c544ffe",
+            "size": 50551
+          },
+          {
+            "component": "self-service-supervisor",
+            "destination": "usr/lib/linux-vst-bridge/supervisor/session.pyc",
+            "kind": "supervisor",
+            "mode": "0444",
+            "sha256": "c5c4017373032b0c913cc02229968c93dcf9876411e3f6257316c9c9b8e1b45f",
+            "size": 543007
+          },
+          {
+            "component": "self-service-compliance",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/COMPLIANCE_MANIFEST.json",
+            "kind": "compliance",
+            "mode": "0444",
+            "sha256": "a27c61fb934791e2bfd7550a692967f226126452da1d24fc687764bfe1de147f",
+            "size": 392
+          },
+          {
+            "component": "self-service-sbom",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/SBOM.spdx.json",
+            "kind": "sbom",
+            "mode": "0444",
+            "sha256": "25990267ca9bf119aac12900a646ab73c6026f8ceaced338e58c3a6955402fdd",
+            "size": 115639
+          },
+          {
+            "component": "self-service-guide",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/START_HERE.html",
+            "kind": "guide",
+            "mode": "0444",
+            "sha256": "8e8ff936c9ceb2c811f49767db26f61b1b0f4828a951ad9efe0f6a51982cb1ab",
+            "size": 1067
+          },
+          {
+            "component": "self-service-notices",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/THIRD_PARTY_NOTICES.txt",
+            "kind": "notices",
+            "mode": "0444",
+            "sha256": "7e8669f508f1e6fe8d99c5d8be483a3b74bd65f4faf1750a327cbf868e6fa9a5",
+            "size": 1082
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/LVB-Proprietary.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "80ac11a0aa8deaffed9a5e77530689023ddce03d574389b33c7d243ec79cf6e3",
+            "size": 1075
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/Rust-Dependency-Inventory.json",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "ed4a714ce78242c152aec6723df54e20a53c66c21ad89478d7f1ce4d1afd9113",
+            "size": 126094
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/Rust-Dependency-Notices.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "ccf6c5918e86f9b76487cb3f557dae71082a9f8c06f951e05f160b9382608ab6",
+            "size": 2159009
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/base.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "e86d79e19e4a33ebc442d2e0d083887dfc75a2a8de9fe17eeddedb84810ad74e",
+            "size": 1094
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/pluginterfaces.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "e86d79e19e4a33ebc442d2e0d083887dfc75a2a8de9fe17eeddedb84810ad74e",
+            "size": 1094
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/public.sdk.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "e86d79e19e4a33ebc442d2e0d083887dfc75a2a8de9fe17eeddedb84810ad74e",
+            "size": 1094
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/vst3sdk.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "e86d79e19e4a33ebc442d2e0d083887dfc75a2a8de9fe17eeddedb84810ad74e",
+            "size": 1094
+          },
+          {
+            "component": "linux-vst-bridge-beta",
+            "destination": "usr/share/linux-vst-bridge/pkg0-manifest.json",
+            "kind": "adoption_manifest",
+            "mode": "0444",
+            "sha256": "0a5902bcc513c11472074f14418e56598cfe60315f1fb5a95fb58a9ab8517eb7",
+            "size": 1226
+          },
+          {
+            "component": "linux-vst-bridge-beta",
+            "destination": "usr/share/applications/linux-vst-bridge-setup.desktop",
+            "kind": "system_desktop",
+            "mode": "0444",
+            "sha256": "7e1dd033a73b6814ef2be0a5632f11e115bfd6484a9e336a5ed0ff6688f1538e",
+            "size": 313
+          }
+        ],
+        "package": "linux-vst-bridge-beta",
+        "payload_sha256": "e390435a0845a650fe0886e2aa6f80a218068591f242ff15fa588e3ddd6c724a",
+        "pkgrel": 1,
+        "schema": 1,
+        "source_head": "65c131c88f6fc76ba4a7299b01a0889c83b1e2cd",
+        "source_tree": "c1c98f012b4c04fa477e5d524e2a4154e24e23b1",
+        "version": "0.12.0internal54"
+      },
+      "prebuilt_entries": [
+        {
+          "class_id": "417274754156495350724C4650726F63",
+          "descriptor": "prebuilt/417274754156495350724C4650726F63-b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636.h",
+          "descriptor_sha256": "d96c80e968be35cc208b8fd310f1d3ed28104f8a34cb06ef21a99da5485df9a1",
+          "file": "prebuilt/417274754156495350724C4650726F63-b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636.so",
+          "maximum_bridge_frames": 1024,
+          "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+          "native_sha256": "c79a7be6f18838607339ac5ef6f1a9f0d3f886cbfafe1cde506752cdcc8be6ff"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "descriptor": "prebuilt/41727475415649536772616E50726F63-d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26.h",
+          "descriptor_sha256": "bef165d0770158b4d74ff769001ad13ab52382bea54d83e7dc1d7224f19daaca",
+          "file": "prebuilt/41727475415649536772616E50726F63-d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26.so",
+          "maximum_bridge_frames": 1024,
+          "module_sha256": "d7ed0361558d6275e6ea3ce217bd0fe69cb32e9881d967899ab659b0d367fa26",
+          "native_sha256": "43bb7f131175bcbc29305bc24c1e8aac31668068df33f8da891d9bb1fb4ca2ea"
+        },
+        {
+          "class_id": "41727475415649536772616E50726F63",
+          "descriptor": "prebuilt/41727475415649536772616E50726F63-edb358f124bd35290dc2597e68c2d7f1f4061d5cf650a008f097c463fc6aef89.h",
+          "descriptor_sha256": "06d9dc90d0a77d7776c025cb1e53947aae85ebc40d61a9a2d5e2b61b5b400ce9",
+          "file": "prebuilt/41727475415649536772616E50726F63-edb358f124bd35290dc2597e68c2d7f1f4061d5cf650a008f097c463fc6aef89.so",
+          "maximum_bridge_frames": 1024,
+          "module_sha256": "edb358f124bd35290dc2597e68c2d7f1f4061d5cf650a008f097c463fc6aef89",
+          "native_sha256": "b8b4202049588a8acd1a2238a49691072569ab73e4ce652cff4f9d3ca67a6d65"
+        },
+        {
+          "class_id": "4C56424245544131494E535400000001",
+          "descriptor": "prebuilt/4C56424245544131494E535400000001-2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462.h",
+          "descriptor_sha256": "4d486c8314f6c2f383ab78a32155426f91b28dcacd07dc8390f733dec89ae84a",
+          "file": "prebuilt/4C56424245544131494E535400000001-2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462.so",
+          "maximum_bridge_frames": 1024,
+          "module_sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+          "native_sha256": "723e5cdd3ae328e29ae114fdcb88b2c7456590d64f7bdb06b81af1aaba0074aa"
+        },
+        {
+          "class_id": "4C564242455441314546465800000001",
+          "descriptor": "prebuilt/4C564242455441314546465800000001-b3498eb5c8d6d440259b04a9c9b7699ab72f4f64eb31f45167f0341d3d1e719f.h",
+          "descriptor_sha256": "7d147ee7fd17a6bea63e4cbe94a570b46a02a6601806d236e22c116d6c13dc24",
+          "file": "prebuilt/4C564242455441314546465800000001-b3498eb5c8d6d440259b04a9c9b7699ab72f4f64eb31f45167f0341d3d1e719f.so",
+          "maximum_bridge_frames": 1024,
+          "module_sha256": "b3498eb5c8d6d440259b04a9c9b7699ab72f4f64eb31f45167f0341d3d1e719f",
+          "native_sha256": "3d06e1021d94ac2a5db22efe48fed308392a91de4eff2f0b13391a0758882b10"
+        },
+        {
+          "class_id": "41727475415649534B61743150726F63",
+          "descriptor": "prebuilt/41727475415649534B61743150726F63-bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07.h",
+          "descriptor_sha256": "363358e28fe2bca3f38bee271573aec81d655925879ab99c57bf1ec098575fd5",
+          "file": "prebuilt/41727475415649534B61743150726F63-bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07.so",
+          "maximum_bridge_frames": 1024,
+          "module_sha256": "bdc91ebef8e5b486c8f998f1eef6a99626dd5a0b46d986263eeb1980b96a3c07",
+          "native_sha256": "78eb115db1934f35b2c988f7a2eff3476bbabb4c9546c430b4a982979496ba1b"
+        },
+        {
+          "class_id": "56534558667350736572756D20320000",
+          "descriptor": "prebuilt/56534558667350736572756D20320000-501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283.h",
+          "descriptor_sha256": "e531aff735c1989b65affbf60d73c0557848cca1e274972300a5e1fd3166fbfc",
+          "file": "prebuilt/56534558667350736572756D20320000-501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283.so",
+          "maximum_bridge_frames": 1024,
+          "module_sha256": "501e7bb3dd9cafe416b3412df3d4e084c01b7468201e5690b9009d7ecd4e5283",
+          "native_sha256": "f8d17038f7996b9e4cdf6d61c6538be6102cdc27e30bbb644993cb63f0aaaf05"
+        }
+      ]
+    }
+  },
+  "build": {
+    "head": "65c131c88f6fc76ba4a7299b01a0889c83b1e2cd",
+    "tree": "c1c98f012b4c04fa477e5d524e2a4154e24e23b1",
+    "steps": [
+      {
+        "step": "prebuilt_proxies",
+        "exit_code": 0,
+        "duration_ms": 223357
+      },
+      {
+        "step": "inputs",
+        "exit_code": 0,
+        "duration_ms": 3602
+      },
+      {
+        "step": "assemble",
+        "exit_code": 0,
+        "duration_ms": 893
+      },
+      {
+        "step": "deb",
+        "exit_code": 0,
+        "duration_ms": 4563
+      },
+      {
+        "step": "installer",
+        "exit_code": 0,
+        "duration_ms": 1271
+      },
+      {
+        "step": "inspect",
+        "exit_code": 0,
+        "duration_ms": 227
+      }
+    ],
+    "limits": {
+      "cpu.max": "100000 100000",
+      "memory.max": "2684354560",
+      "memory.swap.max": "0",
+      "pids.max": "256"
+    },
+    "before": {
+      "pids.events": "max 0",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+    },
+    "after": {
+      "pids.events": "max 0",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+    },
+    "installer_sha256": "28ba936e78a943a8ea1ef0f4c6fb4f9c4bbd6fc7c46505809354ad47a95b2f4b",
+    "retained_first_build": {
+      "capacity_tests": {
+        "count": 18,
+        "exit_code": 0,
+        "duration_ms": 21794
+      },
+      "manager": {
+        "exit_code": 0,
+        "duration_ms": 108456
+      },
+      "frontend": {
+        "exit_code": 0,
+        "duration_ms": 69394
+      },
+      "assembly_refusal": "prebuilt kit recipe requires exact source head",
+      "log": "internal54-ubuntu-build-stage.log"
+    }
+  },
+  "source_checks": {
+    "native_ci": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/36949331897",
+    "native_tests_run": 10,
+    "manager_runtime_ci": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/36949331896",
+    "runtime_tests_in_guest": 344,
+    "capacity_tests_in_builder": 18,
+    "all_eight_checks": "passed"
+  },
+  "limits_expanded": false
+}

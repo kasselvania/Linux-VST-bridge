@@ -160,7 +160,7 @@ fn adoption_path(m: &Manager) -> PathBuf {
     m.root.join("qualifications/frg1/adoption.json")
 }
 
-fn environment_record(m: &Manager, id: &str) -> Result<Environment> {
+fn environment_control_record(m: &Manager, id: &str) -> Result<Environment> {
     require(
         !id.is_empty()
             && id
@@ -174,13 +174,19 @@ fn environment_record(m: &Manager, id: &str) -> Result<Environment> {
         environment.id == id && environment.root == root && root.canonicalize()? == root,
         "frg1_environment_identity",
     )?;
-    environment.runner.verify()?;
+    environment.runner.validate_record()?;
     Ok(environment)
 }
 
 fn exact_environment(m: &Manager, id: &str) -> Result<(Environment, Artifact, Artifact)> {
+    let record = exact_environment_record(m, id)?;
+    record.0.runner.verify()?;
+    record.1.verify()?;
+    Ok(record)
+}
+fn exact_environment_record(m: &Manager, id: &str) -> Result<(Environment, Artifact, Artifact)> {
     let profile = candidate()?;
-    let environment = environment_record(m, id)?;
+    let environment = environment_control_record(m, id)?;
     profile.verify_environment(&environment, &Family::ArturiaPersistentV1)?;
     let relative = Path::new(&module_relative()).to_path_buf();
     require(
@@ -200,7 +206,7 @@ fn exact_environment(m: &Manager, id: &str) -> Result<(Environment, Artifact, Ar
             && module.path.canonicalize()? == module.path,
         "frg1_module_location",
     )?;
-    module.verify()?;
+    module.validate_record()?;
     let owner_marker = Artifact {
         path: environment.root.join("compatdata/.ua1-owner.json"),
         sha256: owner_sha256(),
@@ -210,7 +216,7 @@ fn exact_environment(m: &Manager, id: &str) -> Result<(Environment, Artifact, Ar
         metadata.is_file() && !metadata.file_type().is_symlink(),
         "frg1_owner_marker",
     )?;
-    owner_marker.verify()?;
+    owner_marker.record_bytes(8 * 1024 * 1024)?;
     Ok((environment, module, owner_marker))
 }
 
@@ -220,7 +226,7 @@ fn prior_inventory(m: &Manager, environment: &Environment) -> Result<Option<Stri
         .join("inventory")
         .join(format!("{}.json", environment.id));
     if path.try_exists()? {
-        Ok(Some(digest(&path)?))
+        Ok(Some(read_json_identity::<serde_json::Value>(&path)?.1))
     } else {
         Ok(None)
     }
@@ -230,13 +236,17 @@ fn prior_inventory(m: &Manager, environment: &Environment) -> Result<Option<Stri
 // only after its physical publication has been removed. It is never served by
 // the successor manager or silently substituted for the corrected proxy.
 fn retired_predecessor(m: &Manager, entry: &Entry) -> Result<bool> {
+    retired_predecessor_with(m, entry, true)
+}
+fn retired_predecessor_with(m: &Manager, entry: &Entry, execution: bool) -> Result<bool> {
     if candidate()?.revision != 12 {
         return Ok(false);
     }
     let old = predecessor()?;
-    let record = adoption(m)?;
+    let record = adoption_with(m, execution)?;
     let reference = entry.managed_revision.as_ref().ok_or("frg1_predecessor_identity")?;
-    let revision = m.load_revision(&old.class.class_id, reference)?;
+    let revision = if execution { m.load_revision(&old.class.class_id, reference)? }
+        else { m.load_revision_record(&old.class.class_id, reference)? };
     require(
         record.profile_fingerprint == old.fingerprint()?
             && entry.publication == Publication::Removed
@@ -254,7 +264,8 @@ fn retired_predecessor(m: &Manager, entry: &Entry) -> Result<bool> {
             && physical(&m.link(&old.class.class_id))?.is_none(),
         "frg1_predecessor_not_retired",
     )?;
-    revision.registration.verify(&m.root)?;
+    if execution { revision.registration.verify(&m.root)?; }
+    else { revision.registration.validate_record(&m.root)?; }
     Ok(true)
 }
 
@@ -265,8 +276,13 @@ pub(crate) fn permits_retired_predecessor(m: &Manager, entry: &Entry, prior: &Re
 }
 
 fn verify_adoption(m: &Manager, adoption: &Adoption) -> Result<()> {
+    validate_adoption_record(m, adoption)?;
+    exact_environment(m, &adoption.environment.id)?;
+    Ok(())
+}
+fn validate_adoption_record(m: &Manager, adoption: &Adoption) -> Result<()> {
     let profile = candidate()?;
-    let (environment, module, owner_marker) = exact_environment(m, &adoption.environment.id)?;
+    let (environment, module, owner_marker) = exact_environment_record(m, &adoption.environment.id)?;
     let historical_fingerprint = if profile.revision == 12 {
         Some(predecessor()?.fingerprint()?)
     } else {
@@ -290,8 +306,12 @@ fn verify_adoption(m: &Manager, adoption: &Adoption) -> Result<()> {
 }
 
 fn adoption(m: &Manager) -> Result<Adoption> {
+    adoption_with(m, true)
+}
+fn adoption_with(m: &Manager, execution: bool) -> Result<Adoption> {
     let adoption: Adoption = read_json(&adoption_path(m))?;
-    verify_adoption(m, &adoption)?;
+    if execution { verify_adoption(m, &adoption)?; }
+    else { validate_adoption_record(m, &adoption)?; }
     Ok(adoption)
 }
 
@@ -339,10 +359,16 @@ pub fn adopt(m: &Manager, environment_id: &str) -> Result<()> {
 }
 
 pub fn adopted_environment(m: &Manager) -> Result<Option<EnvironmentBinding>> {
+    adopted_environment_with(m, true)
+}
+pub fn adopted_environment_record(m: &Manager) -> Result<Option<EnvironmentBinding>> {
+    adopted_environment_with(m, false)
+}
+fn adopted_environment_with(m: &Manager, execution: bool) -> Result<Option<EnvironmentBinding>> {
     if !adoption_path(m).try_exists()? {
         return Ok(None);
     }
-    let record = adoption(m)?;
+    let record = adoption_with(m, execution)?;
     Ok(Some(EnvironmentBinding {
         family: record.family,
         environment: record.environment,
@@ -353,6 +379,12 @@ pub fn adopted_environment(m: &Manager) -> Result<Option<EnvironmentBinding>> {
 /// Operator readback may project it only after verifying the exact retained
 /// revision and its current physical publication disposition.
 pub fn catalogue_free_registry(m: &Manager, registry: &Registry) -> Result<bool> {
+    catalogue_free_registry_with(m, registry, true)
+}
+pub fn catalogue_free_registry_readback(m: &Manager, registry: &Registry) -> Result<bool> {
+    catalogue_free_registry_with(m, registry, false)
+}
+fn catalogue_free_registry_with(m: &Manager, registry: &Registry, execution: bool) -> Result<bool> {
     if registry.classes.is_empty() {
         return Ok(true);
     }
@@ -362,15 +394,16 @@ pub fn catalogue_free_registry(m: &Manager, registry: &Registry) -> Result<bool>
     }
     let entry = &registry.classes[&profile.class.class_id];
     let reference = entry.managed_revision.as_ref().ok_or("frg1_revision_absent")?;
-    let revision = m.load_revision(&profile.class.class_id, reference)?;
+    let load = if execution { Manager::load_revision } else { Manager::load_revision_record };
+    let revision = load(m, &profile.class.class_id, reference)?;
     if revision.profile == predecessor()? {
-        return retired_predecessor(m, entry);
+        return retired_predecessor_with(m, entry, execution);
     }
-    let mut expected = binding(m)?;
-    expected.native.path = revision.registration.native.path.clone();
+    let mut expected = binding_with(m, execution)?;
+    expected.relocate_native(revision.registration.native.path.clone());
     let parent_is_exact = if profile.revision == 12 {
         let parent = revision.parent.as_ref().ok_or("frg1_predecessor_absent")?;
-        m.load_revision(&profile.class.class_id, parent)?.profile == predecessor()?
+        load(m, &profile.class.class_id, parent)?.profile == predecessor()?
     } else {
         revision.parent.is_none()
     };
@@ -383,7 +416,8 @@ pub fn catalogue_free_registry(m: &Manager, registry: &Registry) -> Result<bool>
             && !m.publication_pending(&profile.class.class_id)?,
         "frg1_catalogue_free_identity",
     )?;
-    revision.registration.verify(&m.root)?;
+    if execution { revision.registration.verify(&m.root)?; }
+    else { revision.registration.validate_record(&m.root)?; }
     m.verify_completed_publication(&revision, reference)?;
     let physical = physical(&m.link(&profile.class.class_id))?;
     require(
@@ -400,7 +434,13 @@ pub fn catalogue_free_registry(m: &Manager, registry: &Registry) -> Result<bool>
 /// An adoption always requires one new default-host inventory, even when an
 /// older byte-current inventory happened to exist before custody crossed.
 pub fn inventory_refresh_required(m: &Manager, environment: &Environment) -> Result<bool> {
-    let record = adoption(m)?;
+    inventory_refresh_with(m, environment, true)
+}
+pub fn inventory_refresh_record_required(m: &Manager, environment: &Environment) -> Result<bool> {
+    inventory_refresh_with(m, environment, false)
+}
+fn inventory_refresh_with(m: &Manager, environment: &Environment, execution: bool) -> Result<bool> {
+    let record = adoption_with(m, execution)?;
     require(record.environment == *environment, "frg1_adoption_identity")?;
     let path = m
         .root
@@ -412,7 +452,8 @@ pub fn inventory_refresh_required(m: &Manager, environment: &Environment) -> Res
     Ok(record
         .prior_inventory_sha256
         .as_ref()
-        .is_some_and(|prior| digest(&path).is_ok_and(|current| current == *prior)))
+        .is_some_and(|prior| read_json_identity::<serde_json::Value>(&path)
+            .is_ok_and(|(_, current)| current == *prior)))
 }
 
 fn current_inventory(m: &Manager, software: &Software) -> Result<inventory::Scan> {
@@ -573,18 +614,27 @@ pub fn stage(m: &Manager, package: &Path) -> Result<()> {
     Ok(())
 }
 
+#[cfg(test)]
 fn installed(m: &Manager) -> Result<InstalledCandidate> {
+    installed_with(m, true)
+}
+fn installed_with(m: &Manager, execution: bool) -> Result<InstalledCandidate> {
     let profile = candidate()?;
     let expected = package_manifest(&profile)?;
     let actual: PackageManifest = read_json(&directory(m, &profile)?.join("qualification.json"))?;
     require(actual == expected, "frg1_package_manifest")?;
-    crate::qualification::load_for(m, profile, Qualification::Frg1Ubuntu)
+    if execution { crate::qualification::load_for(m, profile, Qualification::Frg1Ubuntu) }
+    else { crate::qualification::load_record_for(m, profile, Qualification::Frg1Ubuntu) }
 }
 
 pub fn binding(m: &Manager) -> Result<Registration> {
-    let record = adoption(m)?;
-    let candidate = installed(m)?;
+    binding_with(m, true)
+}
+fn binding_with(m: &Manager, execution: bool) -> Result<Registration> {
+    let record = adoption_with(m, execution)?;
+    let candidate = installed_with(m, execution)?;
     let registration = Registration {
+            descriptor: None,
         metadata: candidate.profile.class.clone(),
         module: record.module,
         environment: record.environment,
@@ -593,7 +643,8 @@ pub fn binding(m: &Manager) -> Result<Registration> {
         native: candidate.native.artifact,
         compatibility: candidate.profile.capabilities.compatibility(),
     };
-    registration.verify(&m.root)?;
+    if execution { registration.verify(&m.root)?; }
+    else { registration.validate_record(&m.root)?; }
     Ok(registration)
 }
 
@@ -604,7 +655,7 @@ pub fn check_binding(m: &Manager, profile: &Profile, registration: &Registration
     )?;
     m.require_inactive(None)?;
     require(
-        m.performance(&profile.class.class_id)?.added_frames == 512,
+        m.performance(&profile.class.class_id)?.is_qualified_buffering(),
         "candidate_frame_posture",
     )
 }
@@ -646,7 +697,7 @@ pub(crate) fn check_publication(
 
 pub(crate) fn retained(m: &Manager, revision: &Revision, exact: &InstalledCandidate) -> Result<()> {
     let mut expected = binding(m)?;
-    expected.native.path = revision.registration.native.path.clone();
+    expected.relocate_native(revision.registration.native.path.clone());
     let parent_is_exact = if candidate()?.revision == 12 {
         let reference = revision.parent.as_ref().ok_or("frg1_predecessor_absent")?;
         let prior = m.load_revision(&revision.class_id, reference)?;

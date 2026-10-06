@@ -13,7 +13,7 @@ import tempfile
 from assemble import (ADOPTED, ADOPTED_WITH_KIT, ADOPTION_MANIFEST, SUPERVISOR_PATHS,
                       KIT_DESTINATION, PKGREL, verify_kit, verify_kit_backend,
                       verify_kit_source, validate_release_roster, package_dependencies,
-                      supervisor_python_minor)
+                      supervisor_python_minor, declared_operator_schema)
 
 OPTIONAL_META = {".BUILDINFO": 1024 * 1024, ".MTREE": 4 * 1024 * 1024}
 
@@ -55,7 +55,7 @@ def bytecode_header(path):
         return source.read(16)
 
 
-def verify_adoption(adopted, manifest, expected):
+def verify_adoption(adopted, manifest, expected, source_root=None):
     names = ADOPTED_WITH_KIT if KIT_DESTINATION in expected else ADOPTED
     external = adopted.get("external_runtime")
     if (set(adopted) != {"schema", "package", "version", "pkgrel", "source_head",
@@ -66,7 +66,8 @@ def verify_adoption(adopted, manifest, expected):
             or adopted["pkgrel"] != manifest["pkgrel"]
             or adopted["source_head"] != manifest["source_head"]
             or adopted["source_tree"] != manifest["source_tree"]
-            or adopted["operator_schema"] != 12
+            or type(adopted["operator_schema"]) is not int
+            or adopted["operator_schema"] != declared_operator_schema(source_root)
             or not isinstance(external, dict)
             or set(external) != {"id", "manifest_sha256"}
             or not isinstance(external["id"], str)
@@ -147,7 +148,6 @@ def verify(package, manifest, structure_only=False, source_root=None, rebuild_ba
         })
         package_info(root / ".PKGINFO", manifest, python_minor)
         adopted = json.loads((root / ADOPTION_MANIFEST).read_bytes())
-        verify_adoption(adopted, manifest, expected)
         if KIT_DESTINATION in expected:
             kit_bytes = (root / KIT_DESTINATION).read_bytes()
             verify_kit(kit_bytes, manifest["source_head"],
@@ -160,6 +160,7 @@ def verify(package, manifest, structure_only=False, source_root=None, rebuild_ba
                     verify_kit_backend(kit_bytes, source_root)
                     verify_kit_source(kit_bytes, source_root, manifest["source_head"],
                                       manifest["source_tree"])
+        verify_adoption(adopted, manifest, expected, source_root)
     return {"package_sha256": digest(package), "files": len(expected),
             "structure_only": structure_only}
 
@@ -169,9 +170,11 @@ def main():
     p.add_argument("--package", type=Path, required=True)
     p.add_argument("--manifest", type=Path, required=True)
     p.add_argument("--structure-only", action="store_true")
+    p.add_argument("--source", type=Path,
+                   help="Exact source of the paired generation, including retained predecessors")
     a = p.parse_args()
     manifest = json.loads(a.manifest.read_bytes())
-    print(json.dumps(verify(a.package, manifest, a.structure_only), sort_keys=True))
+    print(json.dumps(verify(a.package, manifest, a.structure_only, a.source), sort_keys=True))
 
 
 if __name__ == "__main__":

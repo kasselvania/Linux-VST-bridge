@@ -1,23 +1,4 @@
-# Native late-note-off recovery and installed comparison
-
-The SDK input boundary preserves a negative-timestamp note-off's exact voice
-fields and places its release at sample zero of a nonempty block. Other input
-validity is unchanged. This exception does not normalize note-on timestamps,
-future note offsets or zero-frame notes. The wire validator remains strict.
-
-The production repair is extracted from `2e159ca7` onto trunk
-`13ed1d85e830d581ec297760e04e9f9433bfd671`; the helper retains `bad5c69c`'s
-truthful vendor latency and early-failure retirement corrections. The actual
-Processor SDK test covers -1661/-1, exact note identity and following valid
-audio under callback audit. Separate negative cases inspect unchanged offsets
-at a refusing transport stub; they do not exercise a real Windows worker.
-
-The source and CI checks for this extraction establish their own narrow scope.
-The [original physical comparison](https://github.com/kasselvania/Linux-VST-bridge/blob/a308fbf93e623ba2b8b5bc5e029f06f440ae390c/evidence/audio-recovery/2026-10-02-late-note-off.json)
-belongs to stacked base `37b5d41e` and tested source `bad5c69c`. It is retained
-provenance, not an installed qualification of this extracted tree.
-
-## Optional installed comparison
+# Installed late-note-off comparison
 
 Build `ap18-late-note-off-host` with `AP10_RESULTS_TESTS=ON` against the pinned
 SDK. This is maintainer instrumentation, not a customer's runtime requirement.
@@ -42,3 +23,10 @@ product lease retirement and cleanup before the next run.
 
 This is an installed physical SDK-host test. It does not establish ordinary
 DAW behavior, deadline reliability, save/reopen or low-latency qualification.
+
+The [2026-10-02 Deck comparison](../../evidence/audio-recovery/2026-10-02-late-note-off.json)
+binds the consumer, installed pairs, settings and whole-output hashes. The old
+late-input run rejected 600 callbacks and silenced the later note; recovery1
+accepted all 720, produced that note and captured state. Both owners retired
+under supervision. The unchanged internal57 control also had a presentation
+gap, which remains a separate failure rather than evidence about event policy.

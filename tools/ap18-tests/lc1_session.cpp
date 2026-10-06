@@ -3,7 +3,9 @@
 #include "mapped_processing.h"
 #include "component_instance_session.h"
 #include "linux_vst_bridge/wf0_probe/events.h"
+#include "pluginterfaces/base/ibstream.h"
 #include "public.sdk/source/vst/vstaudioeffect.h"
+#include "public.sdk/source/vst/vsteditcontroller.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include <cassert>
 #include <filesystem>
@@ -11,27 +13,38 @@
 using namespace Steinberg;using namespace Steinberg::Vst;
 using namespace linux_vst_bridge::wf0;
 struct Fixture final:AudioEffect {
- unsigned blocks=0,starts=0,stops=0;
+ unsigned blocks=0,starts=0,stops=0;bool processing=false;
+ bool refuse_first=[]{wchar_t v[2]{};return GetEnvironmentVariableW(L"LVB_LC1_REFUSE_FIRST_START",v,2)==1&&v[0]==L'1';}();
  tresult PLUGIN_API initialize(FUnknown* h) override {auto r=AudioEffect::initialize(h);addAudioInput(u"In",SpeakerArr::kStereo);addAudioOutput(u"Out",SpeakerArr::kStereo);return r;}
- tresult PLUGIN_API setProcessing(TBool active) override {if(active)++starts;else ++stops;return kResultOk;}
+ tresult PLUGIN_API getState(IBStream* stream) override {uint32 state=0x4c433153;int32 written=0;return stream->write(&state,4,&written)==kResultOk&&written==4?kResultOk:kResultFalse;}
+ tresult PLUGIN_API setProcessing(TBool active) override {if(active){++starts;if(refuse_first&&starts==1)return kResultFalse;processing=true;}else{++stops;processing=false;}return kResultOk;}
  tresult PLUGIN_API process(ProcessData& d) override {
-  assert(d.numSamples==256&&d.numInputs==1&&d.numOutputs==1);
-  for(int c=0;c<2;++c)for(int i=0;i<d.numSamples;++i)d.outputs[0].channelBuffers32[c][i]=d.inputs[0].channelBuffers32[c][i]*.5f;
+  assert(processing);
+  assert(d.numSamples==0||d.numSamples==1||d.numSamples==128||d.numSamples==256);
+  if(!d.numSamples)assert(!d.inputs&&!d.outputs&&d.numInputs==0&&d.numOutputs==0);
+  else {
+   assert(d.numInputs==1&&d.numOutputs==1);
+   for(int c=0;c<2;++c)for(int i=0;i<d.numSamples;++i)d.outputs[0].channelBuffers32[c][i]=d.inputs[0].channelBuffers32[c][i]*.5f;
+  }
   ++blocks;return kResultOk;
  }
 };
+struct FixtureController final:EditController {};
 int wmain(int argc,wchar_t** argv){
  if(argc!=3){std::cerr<<"LC1 requires the native test's directory and session\n";return 2;}
  try{
-  HostApplication host;Fixture plugin;assert(plugin.initialize(&host)==kResultOk);
+  HostApplication host;Fixture plugin;FixtureController controller;
+  assert(plugin.initialize(&host)==kResultOk&&controller.initialize(&host)==kResultOk);
   EventWriter events(1048576);HostCallbackSink callbacks(&events,GetCurrentThreadId());
   std::wstring wid(argv[2]);std::string id(wid.begin(),wid.end());
   MappedSession session(argv[1],id,events,true,true,true,true,true);
+  session.bind_controller(&controller,true);
   session.lc1_seed();session.ready();
   auto result=run_offline_processing(plugin,plugin,callbacks,events,&session);
+  if(plugin.refuse_first){assert(!result.success&&result.quiescent&&!result.retirement_ready);assert(plugin.blocks==0&&plugin.starts==1&&plugin.stops==1&&!plugin.processing);session.bind_controller(nullptr,true);assert(controller.terminate()==kResultOk&&plugin.terminate()==kResultOk);return 0;}
   assert(result.success&&result.quiescent&&result.retirement_ready);
-  assert(plugin.blocks==4&&plugin.starts==2&&plugin.stops==2);
-  session.finish(true);assert(plugin.terminate()==kResultOk);
+  assert(plugin.blocks==6&&plugin.starts==4&&plugin.stops==4&&!plugin.processing);
+  session.finish(true);session.bind_controller(nullptr,true);assert(controller.terminate()==kResultOk&&plugin.terminate()==kResultOk);
   return 0;
  }catch(const std::exception& e){std::cerr<<"LC1 Windows failure: "<<e.what()<<'\n';return 1;}
 }

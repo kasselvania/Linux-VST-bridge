@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "claim_level": "source and controlled development recovery; not a passing self-service journey",
+  "base_commit": "1f30be0976a388fb421d64b90dc1236c753090b2",
+  "base_tree": "1728592dd68ed8d4a8937e7af745eb1c393b9fcc",
+  "fixture": "SteamOS 3.8.16 selected internal38; existing commercial publications retained",
+  "observed_failure": {
+    "operation": "standalone Serum 2 FX inspection",
+    "session": "54f83fec52c2cde5e4aff4d884ec55f9",
+    "cause": "Exclusive environment lock acquisition occurred before the owning finalizer. A retained keeper held the shared lock. No Windows inspection child launched, and the process left its lease without a result or receipt.",
+    "ordinary_recovery": "No ordinary recovery offer was observed for this abandoned raw CLI inspection; it blocked package transition.",
+    "journey_result": "failed; maintainer intervention required"
+  },
+  "source_correction": {
+    "supervisor": "Acquire the operation lock within run's prelaunch finalizer. Record lock refusal and retire only this unstarted session.",
+    "caller": "After inspection exit, apply canonical positive-receipt reconciliation under registry.lock before reporting the retained error. A success exit with unconfirmed retirement refuses.",
+    "keeper": "Existing shared/exclusive modes and active keeper custody retained.",
+    "deployment": "Not included in internal39; successor build required."
+  },
+  "tests": {
+    "focused_linux_tests": 14,
+    "focused_pass": true,
+    "full_linux_tests": 71,
+    "full_pass": true,
+    "full_duration_seconds": 26.144,
+    "reaping_test_harness": true,
+    "nonreaping_container_failure": {
+      "test": "OwnershipTests.test_subtree_tracking_covers_thread_children_and_reparented_descendants",
+      "pid1": "sleep",
+      "remaining_state": "Z",
+      "parent_pid": 1
+    },
+    "source_changes": [
+      "bridge-manager/runtime/session.py",
+      "bridge-manager/runtime/test_session.py"
+    ],
+    "linux_inspection_tests": 9,
+    "pass": true,
+    "actual_python_owner": true,
+    "retained_failure": true,
+    "unconfirmed_receipt_refuses": true,
+    "mac_negative_test_pass": true,
+    "strict_manager_all_target_clippy": "passed",
+    "diff_check": "passed"
+  },
+  "development_repair": {
+    "time_utc": "2026-10-01T05:25:09.635638+00:00",
+    "classification": "maintainer development repair; original journey failed",
+    "session": "54f83fec52c2cde5e4aff4d884ec55f9",
+    "original_failure": "exclusive environment lock refused before run/Windows launch",
+    "original_log_sha256": "e460044c82917cb95bf22353a3a437cb2c255f7f085dde5c73c42132e413d894",
+    "owner_spec_sha256": "a99031a3904550b39b69b4c8071a12c0f7482d704e85afd88d402c7f50512a7f",
+    "selected_supervisor_sha256": "f571e3286a2afd021521e029b8146cb3b61da4cb2a1c3952c99ffa019a679f64",
+    "finalizer": "selected prelaunch_owned_failure",
+    "owned_directory_removed": true,
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "registry_and_owned_project_unchanged": true,
+    "receipt": {
+      "session": "54f83fec52c2cde5e4aff4d884ec55f9",
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "reporting_error": null
+    },
+    "exact_lease_retired_after_positive_receipt": true
+  },
+  "nonclaims": [
+    "No GUI installer Stop/Retry pass follows from this inspection repair.",
+    "No Windows plug-in launch, audio, editor or project recall was tested by the lock-refusal source tests.",
+    "No existing vendor state or selected host/proxy was replaced by the development retirement.",
+    "Internal39 continues separate installed UUID environment preparation validation."
+  ]
+}

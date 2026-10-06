@@ -75,8 +75,11 @@ int main() {
         source=(pathlib.Path(__file__).parents[1]/'windows-factory-probe/source/offline_processing.cpp').read_text()
         self.assertIn('callbacks.begin_plugin_call(events.sequence(),operation)',source)
         self.assertLess(source.index('addParameterData'),source.index('set_active_true'))
-        self.assertLess(source.index('worker.join()'),source.index('set_active_false'))
-        self.assertLess(source.index('set_processing_false'),source.index('worker.join()'))
+        # Join is now an owned guard/helper; inspect its use rather than the
+        # helper definition above the processing body. SDK regressions observe
+        # vendor false, actual thread retirement and deactivation independently.
+        self.assertLess(source.index('retirement.finish(false)'),source.index('set_active_false'))
+        self.assertLess(source.index('render_transition(false)'),source.index('retirement.finish(false)'))
         process=source[source.index('block.result=processor.process'):source.index('ap0_process_completed')]
         self.assertNotIn('new ',process)
 

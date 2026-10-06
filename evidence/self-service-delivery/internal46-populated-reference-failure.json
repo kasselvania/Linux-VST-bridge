@@ -1,0 +1,995 @@
+{
+  "schema": 1,
+  "classification": "failed_populated_first_party_journey",
+  "observed_utc": "2026-10-01",
+  "candidate": {
+    "version": "0.12.0internal46",
+    "source_head": "b8eb7fec48f9bbd7b8ec148269ea5829b9a62575",
+    "source_tree": "7a8f80d179f3be1e24429f81ed81cb7c30746198",
+    "component_manifest": "internal46-component-manifest.json",
+    "operator_schema": 14,
+    "windows_host_sha256": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13",
+    "host_source_sha256": "f21af06cbaa2f942119aa50d9ca757e303d6f4507c2d7abbd81cada21bfd1626",
+    "preparation_kit_sha256": "8e0e4f8ddd2981347940011cef9255f0e6cc6dee3791725b4ff9828cb5ac0685"
+  },
+  "fixture": {
+    "platform": "Ubuntu 26.04.1 x86-64 disposable VM",
+    "account": "retained populated reference account",
+    "daw": "Ardour 9 save-enabled development fixture",
+    "sample_rate": 48000,
+    "host_maximum": 1024,
+    "per_proxy_added_frames": 1024,
+    "displayed_pdc_ms": 42.67,
+    "displayed_io_latency_ms": 64.33,
+    "physical_listening": false,
+    "commercial_recall": false
+  },
+  "application_update": {
+    "route": "delivered installer and visible application setup; Stop, Select installed version, Start bridge",
+    "installer_sha256": "3f0fdd8211e466c439bb90200678cbcc032dbee8c523f3679ae67e3e318825f4",
+    "predecessor_software_sha256": "39307aaf2120e7233ee067c87a192873577ade576e62c9b5abc159c16b06f198",
+    "selected_software_sha256": "150d8733c0d0c76b0157baf7dde597b48c44518129ec67f0669adb43dffa02ff",
+    "registry_sha256_at_selection": "a7c940385a1976d2db802f3e13353f7dd52952f411d5a7d32ed3ea751bcd9d95",
+    "registry_unchanged_at_selection": true
+  },
+  "publications": [
+    {
+      "product": "LVB Reference Effect 1.0.0",
+      "class_id": "4C564242455441314546465800000001",
+      "check_operation": "a56e3c614a1405067e7721531d387a76",
+      "check_seconds": 100.612569856,
+      "prepare_operation": "8138c31a85bf28152f495d4037f9dbd4",
+      "prepare_seconds": 89.627090287,
+      "publish_operation": "8ab0538462d6a448975cd8902a1c80dd",
+      "publication": "564f59cf5f56d8be72d21b30c89b8fb2",
+      "revision_sha256": "a0a037a3419f4e0f215350e66939cc38b503e9795427958b524c74ea23df4c9e",
+      "predecessor_publication": "dc2d647a7a43d059a5948d961e2a06f2"
+    },
+    {
+      "product": "LVB Reference Instrument 1.0.0",
+      "class_id": "4C56424245544131494E535400000001",
+      "check_operation": "c8210201a29bc61de6c705ed8823751d",
+      "check_seconds": 92.624009864,
+      "prepare_operation": "190fdac85042d3f23de4838921a13ced",
+      "prepare_seconds": 82.269626662,
+      "publish_operation": "7243b034580c32ef13201d08da8792fe",
+      "publication": "98dc14e1c69712b0107efe09a6065b0b",
+      "revision_sha256": "d8bd9e7073d542c4dce1f35ce9193d6269e35c5f4df529d6e3ad7ae513e40db4",
+      "predecessor_publication": "cabb77d8d434129ef5364446bd9302a6"
+    }
+  ],
+  "journey": {
+    "ordinary_controls": "Check compatibility, Prepare, Replace it with this test configuration",
+    "daw_rescan": "initial missing-plugin alert; normal Discover New/Updated; normal quit and original-project reopen loaded both proxies",
+    "loop_command_utc": "2026-10-01 16:44:47 UTC",
+    "loop_observed_utc": "2026-10-01 16:45:03 UTC",
+    "snapshot_attempt_after_utc": "2026-10-01 16:55:46 UTC",
+    "quit_requested_utc": "2026-10-01 16:58:30 UTC",
+    "loop_ran_more_than_ten_minutes": true,
+    "automation_visible": true,
+    "effect_operated_for_complete_loop": false,
+    "snapshot_file_proves_recall": false,
+    "reopen_reboot_rollback": "Not qualified; effect state capture and processing failed.",
+    "maintainer_process_or_binary_repairs": 0,
+    "normal_daw_quit": true
+  },
+  "project_metadata": [
+    {
+      "file": "LVB Reference Recall.ardour",
+      "exists": true,
+      "bytes": 35696,
+      "sha256": "2a0d5d63278946fc51a714603943d619b9d99bfabaccd1ec06164f42ffd62390",
+      "plugins": [
+        {
+          "type": "vst3",
+          "name": "LVB Reference Instrument",
+          "unique_id": "AE1F229A50065EBDBB450D0F0E26D983",
+          "chunk_chars": 408,
+          "chunk_text_sha256": "866fa9334bb767aa4390349cc484d474bfdd509b59077b6aa472da049d115ac7"
+        },
+        {
+          "type": "vst3",
+          "name": "LVB Reference Effect",
+          "unique_id": "1A954DE265CF529E87C53ED21FCB2598",
+          "chunk_chars": 112,
+          "chunk_text_sha256": "e5827a5f676d86f050508db879cee7db220c2d97006ccc9c8ed682b217669185"
+        }
+      ]
+    },
+    {
+      "file": "internal46.ardour",
+      "exists": true,
+      "bytes": 35860,
+      "sha256": "e312f7893dc6bbbd7467e6e5d5ed186f1f42b4166a1a339ba3e2f77b18df8237",
+      "plugins": [
+        {
+          "type": "vst3",
+          "name": "LVB Reference Instrument",
+          "unique_id": "AE1F229A50065EBDBB450D0F0E26D983",
+          "chunk_chars": 408,
+          "chunk_text_sha256": "866fa9334bb767aa4390349cc484d474bfdd509b59077b6aa472da049d115ac7"
+        },
+        {
+          "type": "vst3",
+          "name": "LVB Reference Effect",
+          "unique_id": "1A954DE265CF529E87C53ED21FCB2598",
+          "chunk_chars": 112,
+          "chunk_text_sha256": "e5827a5f676d86f050508db879cee7db220c2d97006ccc9c8ed682b217669185"
+        }
+      ]
+    }
+  ],
+  "effect_failure": [
+    {
+      "event": "ap4_native_error",
+      "operation": "get",
+      "stage": "failed_instance",
+      "fault": 0,
+      "first_position": 18446744073709552000,
+      "processed": 108112,
+      "callback_rejections": 44618,
+      "detail": ""
+    },
+    {
+      "event": "ap10_admission_failure",
+      "code": 263,
+      "frames": 1008,
+      "reason": "parameter_curve_anchor_or_capacity_unavailable",
+      "input_flags": 0,
+      "context_state": 179974,
+      "rate": 48000,
+      "cycle_start": 0.0026041666666666665,
+      "cycle_end": 0.14739583333333334,
+      "nonfinite_fields": 0,
+      "event_count": 2,
+      "invalid_event_index": 4294967295,
+      "invalid_event": {
+        "kind": 0,
+        "id": 0,
+        "offset": 0,
+        "channel": 0,
+        "pitch": 0,
+        "value": 0,
+        "tuning": 0,
+        "reserved": 0,
+        "nonfinite_fields": 0
+      }
+    },
+    {
+      "event": "ap5_worker_fault",
+      "generation": 1,
+      "fault": 3,
+      "first_position": 27676672,
+      "processed": 108112,
+      "request_high": 12,
+      "result_high": 12,
+      "detail": "InvalidData: queued session fault or cancelled"
+    }
+  ],
+  "session_reports": [
+    {
+      "session": "3ebf98074a2a1e776f05eb4b479dc3a9",
+      "events": {
+        "ap4_native_state": 3,
+        "ap9_setup": 5,
+        "ap10_process_results": 1,
+        "ap3_proxy_stats": 1,
+        "ap5_sample_progress": 1,
+        "ap4_sample_comparison": 1,
+        "ap7_observation": 1,
+        "ap9_timing": 9,
+        "ap9_clock_resolution": 1,
+        "ap9_unpublished": 1,
+        "ap9_slow_request": 8,
+        "ap8_returned_audio": 32,
+        "ap7_gap_request": 32,
+        "ap7_audio_phase": 14,
+        "ap3_proxy_lifecycle": 1
+      },
+      "native_summary": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "7666ebeb20aa3a110b06e97a4504edaf5f00468e001240e9a6d5e880e0b29df0",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 96,
+          "sha256": "062857dd2ed44b2e598f34746e68a6227fd0fed1293094b5614511676194b4da",
+          "gain": 0
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "062857dd2ed44b2e598f34746e68a6227fd0fed1293094b5614511676194b4da",
+          "gain": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709552000,
+          "processed": 270619,
+          "request_high": 17,
+          "result_high": 18,
+          "position": 66436096,
+          "epoch": 4
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 66436096,
+          "blocks": 76015,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 433637,
+          "underrun_gaps": 380,
+          "underrun_callbacks": 634,
+          "expired_output_frames": 433637,
+          "delivered_frames": 66001435,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        }
+      ],
+      "last_phase": {
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 4,
+        "monotonic_ns": 13170883395257,
+        "startup": {
+          "admitted_frames": 0,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 0
+        },
+        "processing": {
+          "admitted_frames": 66436096,
+          "missing_frames": 433637,
+          "gaps": 380,
+          "expired_frames": 433637,
+          "delivered_frames": 66001435,
+          "priming_frames": 1024
+        },
+        "omitted_phase_markers": 0
+      },
+      "timings": [
+        {
+          "event": "ap9_timing",
+          "stage": "queue",
+          "requests": 162495,
+          "mean_ns": 1130642,
+          "p50_upper_ns": 576000,
+          "p95_upper_ns": 4096000,
+          "p99_upper_ns": 11264000,
+          "max_ns": 59806067
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "prepare",
+          "requests": 162495,
+          "mean_ns": 2267,
+          "p50_upper_ns": 1875,
+          "p95_upper_ns": 3250,
+          "p99_upper_ns": 4000,
+          "max_ns": 7885959
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "send",
+          "requests": 162495,
+          "mean_ns": 1945,
+          "p50_upper_ns": 1125,
+          "p95_upper_ns": 2500,
+          "p99_upper_ns": 3000,
+          "max_ns": 2643823
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "reply",
+          "requests": 162495,
+          "mean_ns": 400923,
+          "p50_upper_ns": 144000,
+          "p95_upper_ns": 1792000,
+          "p99_upper_ns": 4608000,
+          "max_ns": 28259991
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "validation",
+          "requests": 162495,
+          "mean_ns": 3673,
+          "p50_upper_ns": 3000,
+          "p95_upper_ns": 5000,
+          "p99_upper_ns": 11000,
+          "max_ns": 3506781
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "publication",
+          "requests": 162495,
+          "mean_ns": 2936,
+          "p50_upper_ns": 2500,
+          "p95_upper_ns": 4500,
+          "p99_upper_ns": 11000,
+          "max_ns": 4786964
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "admission_to_publication",
+          "requests": 162495,
+          "mean_ns": 1542388,
+          "p50_upper_ns": 832000,
+          "p95_upper_ns": 5632000,
+          "p99_upper_ns": 13312000,
+          "max_ns": 61656289
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "windows_process",
+          "requests": 162495,
+          "mean_ns": 15018,
+          "p50_upper_ns": 13000,
+          "p95_upper_ns": 26000,
+          "p99_upper_ns": 48000,
+          "max_ns": 15101400
+        },
+        {
+          "event": "ap9_timing",
+          "stage": "correlated_non_plugin",
+          "requests": 162495,
+          "mean_ns": 1527370,
+          "p50_upper_ns": 832000,
+          "p95_upper_ns": 5632000,
+          "p99_upper_ns": 13312000,
+          "max_ns": 61643289
+        }
+      ],
+      "audio": {
+        "windows": 32,
+        "nonzero": 233960,
+        "rms_min": 0.023785805904704086,
+        "rms_max": 0.02828635051842898,
+        "peak_max": 0.07073543965816498
+      },
+      "gap_first": [
+        {
+          "event": "ap7_gap_request",
+          "epoch": 4,
+          "gap_position": 5632,
+          "gap_frames": 256,
+          "request_position": 5632,
+          "request_frames": 256,
+          "sequence": 25,
+          "output_published": true,
+          "queue_us": 2335,
+          "prepare_us": 2,
+          "send_us": 1,
+          "reply_us": 3341,
+          "validation_us": 4,
+          "publication_us": 3,
+          "publication_after_gap_us": 1222,
+          "admission_to_gap_us": 4465,
+          "windows_reply": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 4,
+          "gap_position": 5888,
+          "gap_frames": 256,
+          "request_position": 5888,
+          "request_frames": 256,
+          "sequence": 26,
+          "output_published": true,
+          "queue_us": 5693,
+          "prepare_us": 2,
+          "send_us": 1,
+          "reply_us": 3286,
+          "validation_us": 4,
+          "publication_us": 3,
+          "publication_after_gap_us": 4526,
+          "admission_to_gap_us": 4465,
+          "windows_reply": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "gap_last": [
+        {
+          "event": "ap7_gap_request",
+          "epoch": 4,
+          "gap_position": 64661206,
+          "gap_frames": 256,
+          "request_position": 64660992,
+          "request_frames": 256,
+          "sequence": 263188,
+          "output_published": true,
+          "queue_us": 2745,
+          "prepare_us": 1,
+          "send_us": 1,
+          "reply_us": 115,
+          "validation_us": 2,
+          "publication_us": 1,
+          "publication_after_gap_us": 1378,
+          "admission_to_gap_us": 1488,
+          "windows_reply": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 4,
+          "gap_position": 64661462,
+          "gap_frames": 42,
+          "request_position": 64661248,
+          "request_frames": 256,
+          "sequence": 263189,
+          "output_published": true,
+          "queue_us": 2870,
+          "prepare_us": 1,
+          "send_us": 1,
+          "reply_us": 2234,
+          "validation_us": 4,
+          "publication_us": 3,
+          "publication_after_gap_us": 3627,
+          "admission_to_gap_us": 1488,
+          "windows_reply": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "windows": {
+        "raw_exit": -15,
+        "exit_before_cleanup": null,
+        "error": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "fault_status": {
+          "session": "3ebf98074a2a1e776f05eb4b479dc3a9",
+          "early_pending": null,
+          "before_containment": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 13170736702016,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 811857,
+              "generation": 1,
+              "epoch": 4,
+              "request_sequence": 270622,
+              "position": 66435840,
+              "stage": 3,
+              "detail": 0,
+              "ticks": 13170646623055,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 23083,
+              "admitted_frames": 66436096,
+              "missing_frames": 433637,
+              "gaps": 380,
+              "expired_frames": 433637,
+              "delivered_frames": 66001435,
+              "priming_frames": 1024,
+              "current": true
+            },
+            "delivery": {
+              "publication": 1623740,
+              "generation": 1,
+              "epoch": 4,
+              "request_sequence": 270623,
+              "position": 66436096,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 131703869132,
+              "frequency": 10000000,
+              "thread_id": 424,
+              "process_id": 372,
+              "current": true
+            },
+            "owner": {
+              "publication": 1198783,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 131703919276,
+              "frequency": 10000000,
+              "thread_id": 376,
+              "process_id": 372,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 217,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "result_status": {
+              "available": true,
+              "schema": 1,
+              "rejection": null
+            },
+            "terminal_instance": null,
+            "mailbox_flags": {
+              "request": 0,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          }
+        },
+        "vendor_retirement": null
+      }
+    },
+    {
+      "session": "67d6281dd49b267802bb52513e5693b8",
+      "events": {
+        "ap4_native_state": 1,
+        "ap9_setup": 5,
+        "ap4_native_error": 1,
+        "ap10_process_results": 1,
+        "ap10_admission_failure": 1,
+        "ap3_proxy_stats": 1,
+        "ap5_sample_progress": 1,
+        "ap4_sample_comparison": 1,
+        "ap5_worker_fault": 1,
+        "ap7_fault_progress": 1,
+        "ap7_observation": 1,
+        "ap7_gap_request": 32,
+        "ap7_audio_phase": 12,
+        "ap3_proxy_lifecycle": 1
+      },
+      "native_summary": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709552000,
+          "processed": 108112,
+          "request_high": 12,
+          "result_high": 12,
+          "position": 27676672,
+          "epoch": 4
+        },
+        {
+          "event": "ap7_fault_progress",
+          "context_ready": true,
+          "epoch": 4,
+          "worker_op": 0,
+          "worker_epoch": 4,
+          "worker_position": 27676416,
+          "request_published": 108119,
+          "request_consumed": 108119,
+          "result_published": 108112,
+          "result_consumed": 108108,
+          "service_us_max_at_report": 37599,
+          "observation_skips": 0
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 7,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 27676672,
+          "blocks": 27028,
+          "callback_rejections": 48987,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 38759424,
+          "discontinuities": 1,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 11776,
+          "underrun_gaps": 15,
+          "underrun_callbacks": 16,
+          "expired_output_frames": 11776,
+          "delivered_frames": 27663872,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": false
+        }
+      ],
+      "last_phase": {
+        "event": "ap7_audio_phase",
+        "schema": 1,
+        "phase": "retired",
+        "epoch": 4,
+        "monotonic_ns": 13173088362309,
+        "startup": {
+          "admitted_frames": 0,
+          "missing_frames": 0,
+          "gaps": 0,
+          "expired_frames": 0,
+          "delivered_frames": 0,
+          "priming_frames": 0
+        },
+        "processing": {
+          "admitted_frames": 27676672,
+          "missing_frames": 11776,
+          "gaps": 15,
+          "expired_frames": 11776,
+          "delivered_frames": 27663872,
+          "priming_frames": 1024
+        },
+        "omitted_phase_markers": 0
+      },
+      "timings": [],
+      "audio": {
+        "windows": 0,
+        "nonzero": 0,
+        "rms_min": null,
+        "rms_max": null,
+        "peak_max": null
+      },
+      "gap_first": [
+        {
+          "event": "ap7_gap_request",
+          "epoch": 4,
+          "gap_position": 4352,
+          "gap_frames": 256,
+          "request_position": 4352,
+          "request_frames": 256,
+          "sequence": 19,
+          "output_published": true,
+          "queue_us": 37667,
+          "prepare_us": 2,
+          "send_us": 1,
+          "reply_us": 889,
+          "validation_us": 4,
+          "publication_us": 3,
+          "publication_after_gap_us": 467,
+          "admission_to_gap_us": 38101,
+          "windows_reply": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 4,
+          "gap_position": 4608,
+          "gap_frames": 256,
+          "request_position": 4608,
+          "request_frames": 256,
+          "sequence": 20,
+          "output_published": true,
+          "queue_us": 38574,
+          "prepare_us": 2,
+          "send_us": 1,
+          "reply_us": 128,
+          "validation_us": 2,
+          "publication_us": 2,
+          "publication_after_gap_us": 610,
+          "admission_to_gap_us": 38101,
+          "windows_reply": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "gap_last": [
+        {
+          "event": "ap7_gap_request",
+          "epoch": 4,
+          "gap_position": 24583680,
+          "gap_frames": 256,
+          "request_position": 24583680,
+          "request_frames": 256,
+          "sequence": 96032,
+          "output_published": true,
+          "queue_us": 548,
+          "prepare_us": 1,
+          "send_us": 1,
+          "reply_us": 93,
+          "validation_us": 2,
+          "publication_us": 1,
+          "publication_after_gap_us": 551,
+          "admission_to_gap_us": 97,
+          "windows_reply": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "event": "ap7_gap_request",
+          "epoch": 4,
+          "gap_position": 24583936,
+          "gap_frames": 256,
+          "request_position": 24583936,
+          "request_frames": 256,
+          "sequence": 96033,
+          "output_published": true,
+          "queue_us": 651,
+          "prepare_us": 1,
+          "send_us": 1,
+          "reply_us": 140,
+          "validation_us": 2,
+          "publication_us": 1,
+          "publication_after_gap_us": 701,
+          "admission_to_gap_us": 97,
+          "windows_reply": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "windows": {
+        "raw_exit": -15,
+        "exit_before_cleanup": null,
+        "error": null,
+        "cleanup_confirmed": true,
+        "transport_retired": true,
+        "fault_status": {
+          "session": "67d6281dd49b267802bb52513e5693b8",
+          "early_pending": null,
+          "before_containment": {
+            "available": true,
+            "schema": 2,
+            "sample_monotonic_ns": 13172961078019,
+            "clock_domains": [
+              "linux_monotonic_ns",
+              "windows_qpc",
+              "windows_qpc"
+            ],
+            "native": {
+              "publication": 324336,
+              "generation": 1,
+              "epoch": 4,
+              "request_sequence": 108113,
+              "position": 27676416,
+              "stage": 3,
+              "detail": 0,
+              "ticks": 12359447355114,
+              "frequency": 1000000000,
+              "thread_id": 0,
+              "process_id": 23083,
+              "admitted_frames": 27676672,
+              "missing_frames": 11776,
+              "gaps": 15,
+              "expired_frames": 11776,
+              "delivered_frames": 27663872,
+              "priming_frames": 1024,
+              "current": true
+            },
+            "delivery": {
+              "publication": 648693,
+              "generation": 1,
+              "epoch": 4,
+              "request_sequence": 108113,
+              "position": 27676416,
+              "stage": 1,
+              "detail": 0,
+              "ticks": 123591101830,
+              "frequency": 10000000,
+              "thread_id": 420,
+              "process_id": 396,
+              "current": true
+            },
+            "owner": {
+              "publication": 1191835,
+              "generation": 1,
+              "epoch": 0,
+              "request_sequence": 0,
+              "position": 0,
+              "stage": 0,
+              "detail": 0,
+              "ticks": 131726163297,
+              "frequency": 10000000,
+              "thread_id": 400,
+              "process_id": 396,
+              "current": true
+            },
+            "editor": {
+              "available": true,
+              "independently_sampled": true,
+              "closed": 1,
+              "failure": 0,
+              "open": 0,
+              "view_stage": 217,
+              "open_stage": 0,
+              "exception_code": 0
+            },
+            "result_status": {
+              "available": true,
+              "schema": 1,
+              "rejection": null
+            },
+            "terminal_instance": null,
+            "mailbox_flags": {
+              "request": 0,
+              "reply": 0,
+              "independently_sampled": true
+            }
+          }
+        },
+        "vendor_retirement": null
+      }
+    }
+  ],
+  "findings": [
+    "Instrument retained 433637 missing processing frames in 380 gaps; effect retained 11776 in 15. Startup counters are zero, with separately declared 1024 priming frames per proxy. Counters cover the full processing-ready lifetime including idle before the loop.",
+    "The effect returned 0x107 on a 1008-frame callback with two input events. It did not falsely report IF2 contained-terminal success. Its exact parameter points and cache invalidation origin were not retained.",
+    "The SDK latched failed processing and later refused getState. The effect chunk in the newly written snapshot equals its old chunk; this is not a completed state capture or recall pass.",
+    "The instrument produced nonzero returned samples and captured state, but this does not establish combined output, gap-free processing, or physical audio.",
+    "Both Windows owners report no pre-cleanup exit or error and confirm transport/process retirement after normal DAW quit. A raw SIGTERM from normal containment is not a vendor DSP crash.",
+    "Gap timing retains Linux queue/reply observations. Windows per-gap timing arrays are all zero; detailed Windows-stage correlation is unavailable in this run.",
+    "Original project digest remains unchanged. The failed internal44 snapshot remains retained.",
+    "No candidate or account replacement can turn this failed fixed-build run into beta acceptance."
+  ],
+  "source_successor": {
+    "installed": false,
+    "operator_schema": 15,
+    "change": "Product detail carries its own captured capacity; selected controls, result admission and header share it. Expired status does not claim ready. A new overview with changed capacity invalidates cached product detail.",
+    "validation": {
+      "frontend_tests_passed": 84,
+      "operator_tests_passed": 74,
+      "operator_tests_ignored": 1,
+      "frontend_all_target_clippy": "passed",
+      "manager_all_target_clippy": "passed",
+      "candidate_inputs_python_compile": "passed"
+    }
+  },
+  "cachyos": {
+    "candidate_installed": false,
+    "baseline": "read-only internal11 parent with disposable internal46 child",
+    "access": "recorded credential rejected; current access requested from operator",
+    "inspection": "isolated official libguestfs tools; disk and full backing chain mounted read-only; only account and runtime metadata read",
+    "parent_root_subvolume": "@",
+    "account_uid": 1000,
+    "glibc_package": "2.44+r24+g16be1518495f-1",
+    "python_package": "3.14.7-2",
+    "authentication_changed": false,
+    "security_weakened": false,
+    "bridge_qualification": "not tested"
+  },
+  "limitations": [
+    "first-party reference fixture only",
+    "initial check/prepare times exceed responsive product expectations",
+    "audio and effect recall failed",
+    "CachyOS login unresolved",
+    "Deck and Debian unchanged during this run",
+    "customer signing and release obligations remain open"
+  ]
+}

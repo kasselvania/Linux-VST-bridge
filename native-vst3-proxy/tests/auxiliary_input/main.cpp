@@ -20,7 +20,7 @@ using namespace Steinberg;
 using namespace Steinberg::Vst;
 static unsigned setups=0,activations=0,closes=0,processes=0;
 static bool input_enabled=true,last_output=false;
-enum class InputCase { Original, MixedExpression, ExpressionOnly, NoteOffOnly, LateNoteOff, RefusedNote };
+enum class InputCase { Original, MixedExpression, ExpressionOnly, NoteOffOnly, LateNoteOff, EndpointCurve, InvalidParameterExtent, RefusedNote };
 static InputCase input_case=InputCase::Original;
 static uint32_t refused_kind=0,refused_offset=0;
 static int32_t refused_frames=0;
@@ -29,6 +29,7 @@ static uint64_t expected_silence=3;
 extern "C" {
 uint32_t __wrap_if2_terminal_status(uint64_t){return false ? 1 : 0;}
 uint32_t __wrap_ap9_open(const uint8_t*,uint64_t*h){*h=1;return 0;}
+uint32_t __wrap_ap22_curve_parameters(uint64_t,const uint32_t*,uint32_t){return 0;}
 uint32_t __wrap_ap5_report_path(uint64_t,uint8_t*p,uint32_t n){if(n)*p=0;return 0;}
 uint32_t __wrap_ap10_setup(uint64_t,uint32_t,uint32_t,double,const uint8_t*p,uint32_t n,uint32_t,uint32_t*t){
  assert(n==1060&&p[0]==33);assert(p[4+16]==kAux);
@@ -49,6 +50,16 @@ uint32_t __wrap_if2_process(uint64_t,uint32_t n,const ap8_event_t*e,uint32_t cou
   assert(e[0].kind==refused_kind&&e[0].offset==refused_offset);
   return 0x102;
  }
+ if(input_case==InputCase::InvalidParameterExtent){
+  assert(n==32&&count==1&&e[0].kind==2&&e[0].id==0&&e[0].offset==33&&e[0].value==.75);
+  return 0x102;
+ }
+ if(input_case==InputCase::EndpointCurve){
+  assert(n==32&&count==2&&e[0].kind==2&&e[1].kind==2);
+  assert(e[0].id==0&&e[1].id==0&&e[0].offset==0&&e[1].offset==32);
+  assert(e[0].value==.25&&e[1].value==.75);
+  std::copy_n(l,n,ol);std::copy_n(r,n,orr);*out=silence;*d={};d->delivered_frames=n;++processes;return 0;
+ }
  if(input_case==InputCase::Original){
   assert(count==2&&e[0].kind==0&&e[1].kind==2);
   assert(e[0].offset==(n?7u:0u)&&e[1].offset==(n?11u:0u));
@@ -58,8 +69,8 @@ uint32_t __wrap_if2_process(uint64_t,uint32_t n,const ap8_event_t*e,uint32_t cou
   assert(e[0].id==1&&e[1].id==1&&e[0].channel==9&&e[1].channel==9);
  }else if(input_case==InputCase::LateNoteOff){
   assert(n==32&&count==2&&e[0].kind==1&&e[1].kind==0);
-  // Mirror the unchanged transport extent refusal so the predecessor SDK
-  // translation fails this regression instead of hiding in a permissive stub.
+  // Mirror the strict transport extent check, so the unmodified SDK boundary
+  // reproduces the recorded permanent refusal instead of hiding it in a stub.
   if(e[0].offset>=n)return 0x102;
   assert(e[0].offset==0&&e[0].id==UINT32_MAX&&e[0].channel==9&&e[0].pitch==63);
   assert(e[0].value==.25&&e[0].tuning==0);
@@ -73,10 +84,11 @@ uint32_t __wrap_if2_process(uint64_t,uint32_t n,const ap8_event_t*e,uint32_t cou
  if(n){assert(silence==expected_silence);for(unsigned i=0;i<n;++i){assert(l[i]==expected_left[i]);assert(r[i]==expected_right[i]);}}
  std::copy_n(l,n,ol);std::copy_n(r,n,orr);*out=silence;*d={};d->delivered_frames=n;++processes;return 0;
 }
-uint32_t __wrap_ap19_process_outputs(uint64_t id,uint32_t n,const ap8_event_t*e,uint32_t count,const ap10_context_t*c,uint64_t silence,const float*l,const float*r,float*const*outputs,uint32_t channels,uint64_t*flags,ap7_delivery_t*d,uint64_t entered){
- assert(channels==64);
+uint32_t __wrap_ap23_finish_callback(uint64_t) { return 0; }
+uint32_t __wrap_ap23_process_outputs(uint64_t id,uint32_t n,uint32_t mode,const ap8_event_t*e,uint32_t count,const ap10_context_t*c,uint64_t silence,const float*l,const float*r,float*const*outputs,uint32_t channels,uint64_t*flags,ap7_delivery_t*d,uint64_t entered){
+ assert(mode==kRealtime && channels==(n?64u:2u));
  auto result=__wrap_if2_process(id,n,e,count,c,silence,l,r,outputs[0],outputs[1],flags,d,entered);
- for(unsigned ch=2;ch<64;++ch){
+ for(unsigned ch=2;ch<channels;++ch){
   assert(bool(outputs[ch])==(last_output&&ch>=62));
   if(outputs[ch])std::fill_n(outputs[ch],n,float(ch)/64.f);
  }
@@ -138,15 +150,17 @@ int main(){
  off.noteOff.noteId=1;off.noteOff.tuning=0;notes.addEvent(off);run();
  input_case=InputCase::ExpressionOnly;notes.clear();notes.addEvent(pressure);notes.addEvent(expression);notes.addEvent(text_expression);run();
  input_case=InputCase::NoteOffOnly;notes.clear();notes.addEvent(off);run();
- auto audit_begin=reinterpret_cast<void(*)()>(dlsym(RTLD_DEFAULT,"ap3_audit_begin"));
- auto audit_end=reinterpret_cast<uint64_t(*)()>(dlsym(RTLD_DEFAULT,"ap3_audit_end"));
- assert(audit_begin&&audit_end);
- // Recover the exact late voice and continue processing on the same SDK owner.
+ // A late host note-off releases its exact voice at the first available sample.
+ // Subsequent valid notes and audio must continue on the same processor. This
+ // is the observed -1661 host input, not a weakened unsigned wire validator.
+ auto late_audit_begin=reinterpret_cast<void(*)()>(dlsym(RTLD_DEFAULT,"ap3_audit_begin"));
+ auto late_audit_end=reinterpret_cast<uint64_t(*)()>(dlsym(RTLD_DEFAULT,"ap3_audit_end"));
+ assert(late_audit_begin&&late_audit_end);
  input_case=InputCase::LateNoteOff;
  Event late=off;late.noteOff.noteId=-1;late.noteOff.pitch=63;late.noteOff.velocity=.25f;
  for(int offset : {-1661,-1}){
   late.sampleOffset=offset;notes.clear();notes.addEvent(late);notes.addEvent(note);
-  audit_begin();auto result=p->process(d);auto effects=audit_end();
+  late_audit_begin();auto result=p->process(d);auto effects=late_audit_end();
   assert(result==kResultOk&&effects==0);
  }
  input_case=InputCase::NoteOffOnly;notes.clear();notes.addEvent(off);run();
@@ -190,12 +204,35 @@ int main(){
  // Zero-frame event/parameter flush remains independent of input storage.
  notes.clear();note.sampleOffset=0;notes.addEvent(note);parameters.clearQueue();parameters.addParameterData(0,qi)->addPoint(0,.5,pi);
  d.numSamples=0;d.numInputs=d.numOutputs=0;d.inputs=d.outputs=nullptr;assert(p->process(d)==kResultOk);
+ // A shortened host block with an out-of-block automation point remains a
+ // refused input. Its exact bounded witness is retained without callback I/O
+ // or allocation; later rejected callbacks cannot overwrite that witness.
+ auto audit_begin=reinterpret_cast<void(*)()>(dlsym(RTLD_DEFAULT,"ap3_audit_begin"));
+ auto audit_end=reinterpret_cast<uint64_t(*)()>(dlsym(RTLD_DEFAULT,"ap3_audit_end"));
+ assert(audit_begin&&audit_end);
+ // The SDK boundary preserves a legitimate linear-curve endpoint for the
+ // Rust owner to segment. It does not shift the endpoint onto sample 31.
+ input_case=InputCase::EndpointCurve;notes.clear();parameters.clearQueue();
+ auto* curve=parameters.addParameterData(0,qi);
+ curve->addPoint(0,.25,pi);curve->addPoint(32,.75,pi);
+ d.numSamples=32;d.numInputs=1;d.numOutputs=32;d.inputs=&ib;d.outputs=outputs.data();
+ audit_begin();auto admitted=p->process(d);auto curve_effects=audit_end();
+ assert(admitted==kResultOk&&curve_effects==0);
+ input_case=InputCase::InvalidParameterExtent;notes.clear();parameters.clearQueue();
+ parameters.addParameterData(0,qi)->addPoint(33,.75,pi);
+ d.numSamples=32;d.numInputs=1;d.numOutputs=32;d.inputs=&ib;d.outputs=outputs.data();
+ audit_begin();auto refused=p->process(d);auto effects=audit_end();
+ assert(refused!=kResultOk&&effects==0);
+ assert(p->process(d)!=kResultOk);
  assert(p->setProcessing(false)==kResultOk);assert(p->setActive(false)==kResultOk);
+ // Processing remains refused above; this result describes successful cleanup.
  assert(p->terminate()==kResultOk);p->release();assert(closes==1);
  std::ifstream report(report_path);assert(report.good());
  std::string contents(std::istreambuf_iterator<char>{report},{});
  assert(contents.find("\"skipped_expression_callbacks\":2")!=std::string::npos);
  assert(contents.find("\"late_note_offs\":2")!=std::string::npos);
+ assert(contents.find("\"event\":\"ap10_admission_failure\",\"code\":258,\"frames\":32")!=std::string::npos);
+ assert(contents.find("\"event_count\":1,\"invalid_event_index\":0,\"invalid_event\":{\"kind\":2,\"id\":0,\"offset\":33")!=std::string::npos);
  report.close();assert(unlink(report_path)==0);assert(unsetenv("LVB_AP3_REPORT")==0);
  // Fresh owners keep the inherited failure posture from obscuring the next
  // negative case. No general timestamp or zero-frame note acceptance is added.
@@ -215,7 +252,8 @@ int main(){
   audit_begin();auto result=rejected->process(call);auto effects=audit_end();
   assert(result!=kResultOk&&effects==0);
   assert(rejected->setProcessing(false)==kResultOk&&rejected->setActive(false)==kResultOk);
-  assert(rejected->terminate()!=kResultOk);rejected->release();
+  // The refused callback stays refused; terminate reports the cleanup, which succeeds.
+  assert(rejected->terminate()==kResultOk);rejected->release();
  };
  note.sampleOffset=-1;refuse(note,32,0,UINT32_MAX);
  off.type=Event::kNoteOffEvent;off.sampleOffset=32;refuse(off,32,1,32);

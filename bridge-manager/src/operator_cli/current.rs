@@ -23,6 +23,7 @@ fn stamp(path: &Path) -> Result<Option<FileStamp>> {
 fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBuf,Option<FileStamp>>> {
     let mut paths = BTreeSet::new();
     paths.insert(m.root.join("software.json"));
+    paths.insert(linux_vst_bridge::runtime_delivery::record_path(m));
     paths.insert(m.root.join("registry.json"));
     paths.insert(m.root.join("operator/latest.json"));
     paths.insert(m.root.join("daw-workspaces/fl-studio/workspace.json"));
@@ -50,7 +51,7 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
             let base = m.root.join("publications").join(class).join("revisions").join(&reference.id);
             paths.insert(base.join("revision.json"));
             paths.insert(base.join(format!("LVB_{class}.vst3/bridge-provenance.json")));
-            if let Ok(revision) = m.load_revision(class, reference) {
+            if let Ok(revision) = m.load_revision_record(class, reference) {
                 paths.insert(m.root.join("transactions").join(format!("{}.json",revision.transaction)));
                 paths.insert(m.root.join("transactions").join(format!("{}.result.json",revision.transaction)));
             }
@@ -132,15 +133,40 @@ pub(super) struct CurrentOverviewContext {
     pub profiles: Vec<profiles::Profile>,
     pub revisions: CurrentRevisions,
     pub current_generation: String,
+    pub software: Software,
+    pub registry: Registry,
+    pub preparation: preparation::RecordReadback,
+    pub bindings: Vec<catalogue::EnvironmentBinding>,
     owners: Vec<capacity::Owner>,
     watched: BTreeMap<PathBuf,Option<FileStamp>>,
     installer_live: BTreeMap<String,bool>,
     vendor_retired: bool,
+    all_vendor_retired: bool,
     cleanup_seen: Option<bool>,
     #[cfg(feature = "pb0-c0-audit")]
     captured_at: Instant,
 }
 impl CurrentOverviewContext {
+    pub(super) fn capture_preparation_watches(&mut self) -> Result<()> {
+        for path in self.preparation.watched_paths()? {
+            if !self.watched.contains_key(&path) { self.watched.insert(path.clone(), stamp(&path)?); }
+        }
+        require(self.watched.len() <= 4096, "operator_current_watch_bound")
+    }
+    pub(super) fn class_busy(&self, class: &str) -> Option<&'static str> {
+        class_inactive_reason(&self.snapshot.system, &self.owners, self.all_vendor_retired, class)
+    }
+
+    fn live_installer_progress_paths(&self, m: &Manager) -> BTreeMap<PathBuf,PathBuf> {
+        self.snapshot.onboarding.iter().filter_map(|row| {
+            let environment = row.environment.as_ref()?;
+            let operation = row.details["installation"]["operation"].as_str()?;
+            if self.installer_live.get(operation) != Some(&true) { return None; }
+            let directory = m.root.join("onboarding").join(environment);
+            let report = directory.join(format!("{operation}-result.json"));
+            Some((directory,report))
+        }).collect()
+    }
     fn recheck_external(&self, m: &Manager) -> Result<()> {
         // These fixed, bounded service observations are independent. Run at
         // most four installer cohorts alongside vendor, workspace and cleanup
@@ -198,6 +224,7 @@ impl CurrentOverviewContext {
         })
     }
     fn recheck_with(&self, m: &Manager, mut external: impl FnMut() -> Result<()>) -> Result<()> {
+        let observed = timing::span(Stage::CurrentRecheck);
         let started = Instant::now();
         // Both external observations occur without registry.lock. Manager-owned
         // bytes and owner records are compared between them under the guard.
@@ -214,8 +241,22 @@ impl CurrentOverviewContext {
                 && self.owners == capacity::owners(m)?
                 && self.snapshot.system.pending_transactions == pending_transactions(m)?,
                 "operator_state_changed_refresh")?;
+            let progress = self.live_installer_progress_paths(m);
             for (path, before) in &self.watched {
-                require(stamp(path)? == *before,"operator_current_artifact_changed_refresh")?;
+                // An active supervisor atomically replaces its progress report.
+                // Those bytes cannot authorize installation or retirement:
+                // the row offers only exact Focus/Stop, and both external
+                // rechecks require the same operation to remain live. Keep
+                // record.json and every other authority input fully watched.
+                if progress.values().any(|report| report == path) { continue; }
+                let after = stamp(path)?;
+                let unchanged = if progress.contains_key(path) {
+                    // Report replacement also changes the containing directory.
+                    // Preserve its identity/type/mode, not progress-write times.
+                    before.zip(after).is_some_and(|(a,b)|
+                        (a.device,a.inode,a.mode) == (b.device,b.inode,b.mode))
+                } else { after == *before };
+                require(unchanged,"operator_current_artifact_changed_refresh")?;
             }
         }
         #[cfg(feature = "pb0-c0-audit")]
@@ -230,6 +271,7 @@ impl CurrentOverviewContext {
             "total_manager_ms":self.captured_at.elapsed().as_millis()}));
         #[cfg(not(feature = "pb0-c0-audit"))]
         let _ = started;
+        observed.end(true);
         Ok(())
     }
     pub(super) fn recheck(&self, m: &Manager) -> Result<()> {
@@ -259,19 +301,19 @@ fn installer_liveness(operations: &[String]) -> Result<BTreeMap<String, bool>> {
 }
 
 #[derive(Default)]
-struct VerificationCache {
+struct RecordBindings {
     artifacts: BTreeMap<String, bool>,
     runners: BTreeMap<String, bool>,
     environments: BTreeMap<String, (Environment,bool)>,
 }
-impl VerificationCache {
+impl RecordBindings {
     fn artifact(&mut self, artifact: &Artifact) -> bool {
         let key = format!("{}:{}", artifact.path.display(), artifact.sha256);
-        *self.artifacts.entry(key).or_insert_with(|| artifact.verify().is_ok())
+        *self.artifacts.entry(key).or_insert_with(|| artifact.validate_record().is_ok())
     }
     fn runner(&mut self, runner: &Runner) -> Result<bool> {
         let key = catalogue::runner_key(runner)?;
-        Ok(*self.runners.entry(key).or_insert_with(|| runner.verify().is_ok()))
+        Ok(*self.runners.entry(key).or_insert_with(|| runner.validate_record().is_ok()))
     }
     fn environment(&mut self, environment: &Environment) -> Result<bool> {
         if let Some((seen, verified)) = self.environments.get(&environment.id) {
@@ -287,13 +329,13 @@ impl VerificationCache {
 
 fn current_products(m: &Manager, db: &Registry, sw: &Software,
     profiles: &[profiles::Profile]) -> Result<(Vec<ui::Product>, CurrentRevisions)> {
-    let mut cache = VerificationCache::default();
+    let mut cache = RecordBindings::default();
     let mut products = Vec::new();
     let mut revisions = BTreeMap::new();
     for (class, entry) in &db.classes {
         let r = &entry.registration;
         let revision = entry.managed_revision.as_ref().map(|reference|
-            m.load_revision(class, reference).map_err(|_| "READINESS_REVISION_UNAVAILABLE"))
+            m.load_revision_record(class, reference).map_err(|_| "READINESS_REVISION_UNAVAILABLE"))
             .transpose();
         let loaded = revision.as_ref().ok().and_then(Option::as_ref);
         let completed_publication = loaded.zip(entry.managed_revision.as_ref())
@@ -301,14 +343,19 @@ fn current_products(m: &Manager, db: &Registry, sw: &Software,
                 m.verify_completed_publication(revision, reference).is_ok());
         let performance = m.performance(class);
         let performance_valid = performance.is_ok();
-        let added_frames = performance.ok().map(|record| record.added_frames);
-        let module_valid = cache.artifact(&r.module);
-        let environment_valid = cache.environment(&r.environment)?;
-        let runner_valid = cache.runner(&r.environment.runner)?;
-        let native_valid = loaded.is_some() || (entry.managed_revision.is_none() && cache.artifact(&r.native));
+        let added_frames = performance.as_ref().ok().map(|record| record.effective_frames());
+        let buffered_frames = performance.as_ref().ok().map(|record|record.added_frames);
+        let delivery_mode = performance.as_ref().ok().map(|record|record.delivery_mode);
+        let registration_valid = r.validate_record(&m.root).is_ok();
+        let module_valid = registration_valid && cache.artifact(&r.module);
+        let environment_valid = cache.environment(&r.environment)? && registration_valid;
+        let runner_valid = cache.runner(&r.environment.runner)? && registration_valid;
+        let native_valid = registration_valid
+            && (loaded.is_some() || (entry.managed_revision.is_none() && cache.artifact(&r.native)));
         let host_source = Artifact { path:r.host.path.with_file_name("host-source-manifest.json"),
             sha256:r.host_source_sha256.clone() };
-        let host_bytes_valid = cache.artifact(&r.host) && cache.artifact(&host_source);
+        let host_bytes_valid = registration_valid
+            && cache.artifact(&r.host) && cache.artifact(&host_source);
         let host_valid = if let Some(revision) = loaded {
             host_bytes_valid && revision.registration == *r
                 && revision.profile.requirements.host_sha256 == r.host.sha256
@@ -348,11 +395,19 @@ fn current_products(m: &Manager, db: &Registry, sw: &Software,
             compatibility:None,
             details:json!({"profile":profile.map(|p|json!({"id":p.id,"revision":p.revision,"claim":p.claim})),
                 "environment_revision":r.environment.revision,
-                "module_valid":module_valid,"environment_valid":environment_valid,
-                "runner_valid":runner_valid,"native_valid":native_valid,
+                "verification_scope":"control_records",
+                "execution_verification":"deferred_to_worker_or_launch",
+                "module_binding_valid":module_valid,"environment_valid":environment_valid,
+                "runner_binding_valid":runner_valid,"native_binding_valid":native_valid,
+                "module_valid":Value::Null,"runner_valid":Value::Null,
+                "native_valid":Value::Null,"host_valid":Value::Null,
+                "runner_policy":r.environment.runner.policy,
+                "requested_graphics":linux_vst_bridge::graphics::requested_backend(r.environment.runner.policy.as_ref()),
                 "performance_valid":performance_valid,"added_frames":added_frames,
+                "buffered_frames":buffered_frames,"delivery_mode":delivery_mode,
+                "buffering_capacity":"deferred_to_mutation_or_launch",
                 "publication_complete":completed_publication,
-                "host_valid":host_valid,"publication_valid":publication_valid,
+                "host_binding_valid":host_valid,"publication_valid":publication_valid,
                 "publication_selected":publication_selected,
                 "host_sha256":r.host.sha256,"host_source_sha256":r.host_source_sha256,
                 "native_sha256":r.native.sha256,"qualification":qualification,
@@ -381,7 +436,7 @@ fn append_discovered(m: &Manager, sw: &Software, records: &[onboarding::Record],
         require(scan.schema == 1 && scan.environment.id == record.environment.id,
             "operator_inventory_environment_changed")?;
         for (index, module) in scan.modules.iter().cloned().enumerate() {
-            let stale = inventory::stale_reason(&module, &scan.environment, &scan.host,
+            let stale = inventory::record_stale_reason(&module, &scan.environment, &scan.host,
                 &scan.host_source_sha256, &record.environment, &sw.host, &sw.source_sha256);
             if module.quarantine_reason.is_some() {
                 let retry_disabled = quarantined_retry_disabled(m, bindings, db,
@@ -399,7 +454,7 @@ fn append_discovered(m: &Manager, sw: &Software, records: &[onboarding::Record],
                     disposition:if stale.is_none() {"installed_unqualified"} else {"needs_attention"}.into(),
                     active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),
                     runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256.clone(),
-                    limitations:vec![stale.unwrap_or("Installed but not published to Bitwig").into()],
+                    limitations:vec![stale.unwrap_or("Installed but not published").into()],
                     history:vec![],actions:vec![],compatibility:None,
                     details:json!({"scan":scan.id,"current":stale.is_none(),"observed_at":scan.completed_at}) });
             }
@@ -409,12 +464,19 @@ fn append_discovered(m: &Manager, sw: &Software, records: &[onboarding::Record],
 }
 
 pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
+    timing::measure(Stage::CurrentCapture, || {
+        linux_vst_bridge::with_readback_digests(|| capture_readonly(m))
+    })
+}
+fn capture_readonly(m: &Manager) -> Result<CurrentOverviewContext> {
     let started = Instant::now();
     let mut phases = Vec::new();
-    let _serialization = acquire_readback(m, ui::OperatorLock::Canonical, None,
-        OPERATOR_WAIT, &mut vec![])?;
-    let _registry_guard = acquire_readback(m, ui::OperatorLock::Registry, None,
-        OPERATOR_WAIT, &mut vec![])?;
+    // Status is an observation, not a serialized user operation. Capture the
+    // registry/owners together, then perform expensive and external probes
+    // without action ownership. The caller rechecks exact tokens, file stamps,
+    // owners and external state before exposing any offered action.
+    let _registry_guard = timing::measure(Stage::CaptureRegistry, ||
+        acquire_readback(m, ui::OperatorLock::Registry, None, OPERATOR_WAIT, &mut vec![]))?;
     let owners = capacity::owners(m)?;
     let db = m.registry()?;
     drop(_registry_guard);
@@ -428,12 +490,18 @@ pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
     let workspace_task = scope.spawn(|| daw_workspace::current_projection(m));
     let before = token_with_registry(m, &db)?;
     let token_at = Instant::now(); phases.push(("token_before",token_at.duration_since(started).as_millis()));
-    let sw = software(m)?;
-    let watched = watch_paths(m, &sw, &db)?;
-    let catalogue = operator_catalogue(m, &sw, &db)?;
+    let authority_observed = timing::span(Stage::CaptureSoftwareCatalogue);
+    let sw = software_record(m)?;
+    let preparation = preparation::RecordReadback::capture(m)?;
+    let mut watched = watch_paths(m, &sw, &db)?;
+    let catalogue = operator_catalogue_records(m, &sw, &db, &preparation)?;
+    for path in preparation.watched_paths()? { watched.insert(path.clone(), stamp(&path)?); }
+    require(watched.len() <= 4096, "operator_current_watch_bound")?;
     let profiles = profiles::installed_profiles()?;
+    authority_observed.end(true);
     let authority_at = Instant::now(); phases.push(("software_catalogue_profiles",authority_at.duration_since(token_at).as_millis()));
-    let (mut products, revisions) = current_products(m, &db, &sw, &profiles)?;
+    let (mut products, revisions) = timing::measure(Stage::CaptureProducts, ||
+        current_products(m, &db, &sw, &profiles))?;
     let product_at = Instant::now(); phases.push(("current_products",product_at.duration_since(authority_at).as_millis()));
     let pending = pending_transactions(m)?;
     let vendor = vendor_retired(m)?;
@@ -455,8 +523,14 @@ pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
     append_discovered(m, &sw, &records, &managed_bindings, &db, &mut products, None)?;
     let discovery_at = Instant::now(); phases.push(("inventory_discovery",discovery_at.duration_since(record_at).as_millis()));
     let mut installer_live = BTreeMap::new();
+    let runners = catalogue.as_ref().map(|c| &c.environments);
+    let legacy_default = runners.and_then(|environments| catalogue::OnboardingRuntimePolicy::from_environments(environments).ok().flatten())
+        .and_then(|policy| environments_runner(catalogue.as_ref(), &policy.default_runner_key));
+    let delivered = linux_vst_bridge::runtime_delivery::installed_record(m)?;
+    let default = delivered.as_ref().map(|runner| -> Result<(String, Runner)> {
+        Ok((catalogue::runner_key(runner)?,runner.clone())) }).transpose()?.or(legacy_default);
     let mut onboarding = onboarding::projection_current(m, None,
-        onboarding::CurrentProjectionInputs {sw:&sw,catalogue:catalogue.as_ref(),
+        onboarding::CurrentProjectionInputs {sw:&sw,default_runner:default.as_ref(),
             registry:&db,records:&records,installers:&installers}, |operation| {
                 let live=onboarding::live(operation)?;
                 installer_live.insert(operation.to_owned(),live);
@@ -487,9 +561,6 @@ pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
     let (workspaces, workspace_installers) = workspace_task.join()
         .map_err(|_| "operator_workspace_probe_failed")??;
     onboarding.retain(|row| !workspace_installers.contains(&row.installer));
-    let runners = catalogue.as_ref().map(|c| &c.environments);
-    let default = runners.and_then(|environments| catalogue::OnboardingRuntimePolicy::from_environments(environments).ok().flatten())
-        .and_then(|policy| environments_runner(catalogue.as_ref(), &policy.default_runner_key));
     let installer_setups = onboarding::setup_projection_current(m, &onboarding, &products,
         &workspace_installers, &records, &installers, default.as_ref())?;
     let workspace_at = Instant::now(); phases.push(("workspace_and_cards",workspace_at.duration_since(joined_at).as_millis()));
@@ -501,13 +572,16 @@ pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
     let snapshot = ui::Snapshot {schema:ui::OPERATOR_SCHEMA,state_token:before,system,
         onboarding,installer_setups,environments:vec![],vendor_applications:vec![],products,
         workspaces,active_sessions:vec![],capture:Value::Null,recent_incidents:vec![],
-        actions:vec![action("Create sanitized support export",ui::Action::SupportExport {},None),
+        actions:vec![action("Install compatibility runtime (728 MB download)",ui::Action::RuntimeInstall {},
+            if delivered.is_some() {Some("The selected compatibility runtime is already installed")} else {busy}),
+            action("Create sanitized support export",ui::Action::SupportExport {},None),
             action("Reconcile interrupted transaction",ui::Action::TransactionReconcile {},
                 inactive_reason(cap.as_ref(),retired,pending,true))],
         operation:optional(&m.root.join("operator/latest.json"))?.as_object()
             .map(|v|Value::Object(v.clone()))};
     Ok(CurrentOverviewContext {snapshot,busy,profiles,revisions,owners,watched,current_generation,
-        installer_live,vendor_retired:vendor,cleanup_seen,
+        software:sw,registry:db,preparation,bindings:managed_bindings,
+        installer_live,vendor_retired:vendor,all_vendor_retired:retired,cleanup_seen,
         #[cfg(feature = "pb0-c0-audit")]
         captured_at:started})
     })
@@ -524,6 +598,33 @@ fn environments_runner(catalogue: Option<&catalogue::Catalogue>, key: &str) -> O
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn status_readback_does_not_wait_for_user_action_serialization() {
+        let fixture = test_fixture::Fixture::new();
+        let m = &fixture.m;
+        let source = fixture.r.host.path.with_file_name("host-source-manifest.json");
+        fs::write(&source, b"fixture source").unwrap();
+        let source_sha256 = digest(&source).unwrap();
+        let sw = Software {
+            installer_launch: None, preparation_kit: None, operator_frontend: None,
+            manager: fixture.r.host.clone(), supervisor: fixture.r.host.clone(),
+            ownership: fixture.r.host.clone(), host: fixture.r.host.clone(),
+            source_manifest: Artifact { path: source.clone(), sha256: source_sha256.clone() },
+            source_sha256, native_catalogue: None,
+        };
+        atomic_json(&m.root.join("software.json"), &sw).unwrap();
+        // A user operation owns serialization while status captures and
+        // rechecks its independent registry and artifact observations.
+        let _action = canonical_lock(m).unwrap();
+        let captured = capture(m).unwrap();
+        captured.recheck(m).unwrap();
+        fs::write(&source, b"changed source").unwrap();
+        assert!(captured.recheck(m).is_err());
+        // A new observation may still display the retained software identity;
+        // the executable owner separately refuses changed source bytes.
+        capture(m).unwrap();
+        assert!(software(m).is_err());
+    }
     #[test]
     fn onboarding_only_quarantine_cannot_offer_managed_retry() {
         let fixture=test_fixture::Fixture::new();
@@ -562,6 +663,11 @@ mod tests {
         -> CurrentOverviewContext {
         let pending=pending_transactions(m).unwrap();
         let (workspaces,_)=daw_workspace::current_projection(m).unwrap();
+        let artifact = Artifact {path:m.root.join("test-context-only"),sha256:"00".repeat(32)};
+        let software = Software {manager:artifact.clone(),supervisor:artifact.clone(),
+            ownership:artifact.clone(),host:artifact.clone(),source_manifest:artifact,
+            source_sha256:"00".repeat(32),installer_launch:None,preparation_kit:None,
+            operator_frontend:None,native_catalogue:None};
         CurrentOverviewContext {
             snapshot:ui::Snapshot {schema:ui::OPERATOR_SCHEMA,state_token:token(m).unwrap(),
                 system:system_from_capacity(None,pending,0),onboarding:vec![],
@@ -570,8 +676,10 @@ mod tests {
                 recent_incidents:vec![],actions:vec![],operation:None},
             busy:None,profiles:vec![],revisions:BTreeMap::new(),
             current_generation:pulse_generation(m).unwrap(),
+            software,registry:m.registry().unwrap(),preparation:preparation::RecordReadback::capture(m).unwrap(),
+            bindings:vec![],
             owners:capacity::owners(m).unwrap(),watched,installer_live:BTreeMap::new(),
-            vendor_retired:vendor_retired(m).unwrap(),cleanup_seen:None,
+            vendor_retired:vendor_retired(m).unwrap(),all_vendor_retired:true,cleanup_seen:None,
             #[cfg(feature = "pb0-c0-audit")]
             captured_at:Instant::now(),
         }
@@ -580,7 +688,7 @@ mod tests {
     fn environment_cache_requires_complete_identity_for_shared_id() {
         let fixture=test_fixture::Fixture::new();
         let exact=fixture.r.environment.clone();
-        let mut cache=VerificationCache::default();
+        let mut cache=RecordBindings::default();
         assert!(cache.environment(&exact).unwrap());
         assert!(cache.environment(&exact).unwrap());
         let mut changed=exact.clone();
@@ -613,11 +721,11 @@ mod tests {
         assert_eq!(products[0].disposition,"ready");
         let performance=m.root.join("performance").join(format!("{class}.json"));
         private_dir(performance.parent().unwrap()).unwrap();
-        atomic_json(&performance,&Performance {schema:1,added_frames:512}).unwrap();
+        atomic_json(&performance,&Performance {schema:1,added_frames:512, delivery_mode:DeliveryMode::Buffered }).unwrap();
         let (products,_)=current_products(m,&db,&sw,std::slice::from_ref(&profile)).unwrap();
         assert_eq!(products[0].details["performance_valid"],true);
         assert_eq!(products[0].details["added_frames"],512);
-        atomic_json(&performance,&Performance {schema:1,added_frames:256}).unwrap();
+        atomic_json(&performance,&Performance {schema:1,added_frames:256, delivery_mode:DeliveryMode::Buffered }).unwrap();
         let (products,_)=current_products(m,&db,&sw,std::slice::from_ref(&profile)).unwrap();
         assert_eq!(products[0].details["performance_valid"],true);
         assert_eq!(products[0].details["added_frames"],256);
@@ -770,6 +878,45 @@ mod tests {
                 if path == &vendor {fs::remove_dir(path.parent().unwrap()).unwrap();}
             }
         }
+        // A live installer needs recovery controls while reports and private
+        // diagnostics change. Its stable record and directory custody still
+        // bind the exact operation; a retired report keeps the full byte watch.
+        let mut live=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
+        live.installer_live.insert(operation.clone(),true);
+        live.snapshot.onboarding.push(ui::Onboarding {failure:None,
+            installer:installer.id.clone(),name:"Fixture".into(),byte_size:9,
+            format:"pe_executable".into(),environment:Some(environment_id.clone()),
+            state:"running".into(),required_human_action:"Use exact Stop".into(),
+            details:json!({"installation":{"operation":operation}}),actions:vec![]});
+        atomic_json(&result,&json!({"schema":2,"operation":operation,
+            "state":"running","owned_live":2,"cleanup_confirmed":false})).unwrap();
+        live.recheck_with(m,||Ok(())).unwrap();
+        atomic_json(&result,&json!({"schema":2,"operation":operation,
+            "state":"running","owned_live":7,"cleanup_confirmed":false})).unwrap();
+        let private_report=onboarding_dir.join("diagnostic.private.json");
+        atomic_json(&private_report,&json!({"progress":1})).unwrap();
+        live.recheck_with(m,||Ok(())).unwrap();
+        // The real external recheck cannot accept our simulated live unit.
+        assert!(live.recheck(m).is_err());
+        live.installer_live.insert(operation.clone(),false);
+        assert!(live.recheck_with(m,||Ok(())).is_err());
+        live.installer_live.insert(operation.clone(),true);
+        let original_record=fs::read(&onboarding_record).unwrap();
+        let mut changed:Value=serde_json::from_slice(&original_record).unwrap();
+        changed["installation_operation"]="90".repeat(16).into();
+        atomic_json(&onboarding_record,&changed).unwrap();
+        assert!(live.recheck_with(m,||Ok(())).is_err());
+        fs::write(&onboarding_record,&original_record).unwrap();
+        // Recapture after restoring the record so only directory replacement
+        // changes custody, even when its record/result files keep their inodes.
+        live.watched=watch_paths(m,&sw,&db).unwrap();
+        let moved=onboarding_dir.with_extension("retained");
+        fs::rename(&onboarding_dir,&moved).unwrap();
+        private_dir(&onboarding_dir).unwrap();
+        for name in ["record.json".into(),format!("{operation}-result.json")] {
+            fs::rename(moved.join(&name),onboarding_dir.join(&name)).unwrap();
+        }
+        assert!(live.recheck_with(m,||Ok(())).is_err());
     }
     #[test]
     fn current_recheck_refuses_revision_and_publication_drift_before_ready() {
@@ -786,11 +933,8 @@ mod tests {
             installer_setups:vec![],environments:vec![],vendor_applications:vec![],
             products:vec![],workspaces:vec![],active_sessions:vec![],
             capture:Value::Null,recent_incidents:vec![],actions:vec![],operation:None};
-        let context = CurrentOverviewContext {snapshot,busy:None,profiles:vec![],
-            revisions:BTreeMap::new(),current_generation:pulse_generation(&fixture.m).unwrap(),
-            owners:vec![],watched,installer_live:BTreeMap::new(),vendor_retired:true,cleanup_seen:None,
-            #[cfg(feature = "pb0-c0-audit")]
-            captured_at:Instant::now()};
+        let mut context = context_for_watched(&fixture.m, watched);
+        context.snapshot = snapshot;
         context.recheck(&fixture.m).unwrap();
         fs::write(&revision,b"changed revision").unwrap();
         assert!(context.recheck(&fixture.m).is_err());

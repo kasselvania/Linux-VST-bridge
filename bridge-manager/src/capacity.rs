@@ -269,19 +269,20 @@ fn status_with_wait(
     )?;
     let extended = limits == service_limits()?;
     let ordinary_limits = fixture_limits();
-    let verified = verified_envelope(m, if extended { &ordinary_limits } else { &limits })?;
-    let additional_verified = extended && verified_additional(m)?;
+    let verified = retained_qualification_envelope(m, if extended { &ordinary_limits } else { &limits })?;
+    let additional_verified = extended && retained_additional_qualification(m)?;
     let mut engineering_classes = if extended && !additional_verified { vec![limits.classes[2].clone()] } else { Vec::new() };
     if extended { engineering_classes.push(limits.classes[3].clone()); }
     let mut current_classes=limits.classes.clone();
     for (key,e) in m.registry()?.classes {
         if e.publication!=Publication::Published || current_classes.iter().any(|c|c.class_id==key){continue;}
-        let Some(reference)=e.managed_revision else {continue};
-        let r=m.load_revision(&key,&reference)?;
-        if crate::preparation::owns_profile(m,&r.profile)? {
-            let limit=ClassLimit{class_id:key,dsp:1};
-            engineering_classes.push(limit.clone());current_classes.push(limit);
-        }
+        // Publication eligibility controls only this class's extra slots. An
+        // invalid or pending publication must not hide canonical owners or
+        // prevent its ordinary reconciliation. Admission below still returns
+        // the exact publication error; malformed owners still fail readback.
+        let Ok(Some(capacity)) = unfamiliar_managed_capacity_with(m, limits.native_image_hard, &key, false) else { continue; };
+        let limit=ClassLimit{class_id:key,dsp:capacity};
+        engineering_classes.push(limit.clone());current_classes.push(limit);
     }
     let verified_additional_classes = if additional_verified { vec![limits.classes[2].clone()] } else { Vec::new() };
     let owners = owners(m)?;
@@ -339,17 +340,19 @@ fn status_with_wait(
     })
 }
 
-/// Caller holds registry.lock. Read physical revision authority, never infer it
-/// from the manager version or from a retained candidate's mere presence.
-fn verified_envelope(m: &Manager, limits: &Limits) -> Result<bool> {
-    verified_envelope_for(m, limits, &crate::profiles::ap17_profiles()?)
+/// Caller holds registry.lock. Match retained qualification and physical
+/// publication records. This projects the evidence's claim, never fresh
+/// executable verification or permission to launch. Reservation/launch owners
+/// retain their independent current checks.
+fn retained_qualification_envelope(m: &Manager, limits: &Limits) -> Result<bool> {
+    retained_qualification_envelope_for(m, limits, &crate::profiles::ap17_profiles()?)
 }
-fn verified_additional(m: &Manager) -> Result<bool> {
+fn retained_additional_qualification(m: &Manager) -> Result<bool> {
     let p = crate::profiles::pigments_verified()?;
     let db = m.registry()?;
     let Some(e) = db.classes.get(&p.class.class_id) else { return Ok(false); };
     let Some(reference) = &e.managed_revision else { return Ok(false); };
-    let r = m.load_revision(&p.class.class_id, reference)?;
+    let r = m.load_revision_record(&p.class.class_id, reference)?;
     if (r.profile != p && r.profile != crate::profiles::pigments_eleven()?) || r.qualification.is_some() || e.publication != Publication::Published
         || r.registration != e.registration || m.publication_pending(&p.class.class_id)?
         || crate::publication::physical(&m.link(&p.class.class_id))? != Some(r.target.clone()) {
@@ -358,7 +361,7 @@ fn verified_additional(m: &Manager) -> Result<bool> {
     m.verify_completed_publication(&r, reference)?;
     Ok(true)
 }
-pub(crate) fn verified_envelope_for(
+pub(crate) fn retained_qualification_envelope_for(
     m: &Manager,
     limits: &Limits,
     profiles: &[crate::profiles::Profile],
@@ -374,7 +377,7 @@ pub(crate) fn verified_envelope_for(
         let Some(reference) = &e.managed_revision else {
             return Ok(false);
         };
-        let r = m.load_revision(&p.class.class_id, reference)?;
+        let r = m.load_revision_record(&p.class.class_id, reference)?;
         if p.revision != 10
             || p.claim != crate::profiles::Claim::VerifiedExactFixture
             || r.profile != *p
@@ -523,11 +526,6 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
     if paths.is_empty() {
         return Ok(Vec::new());
     }
-    let envs = fs::read_dir(m.root.join("environments"))?
-        .take(129)
-        .map(|e| e.map(|e| e.path()))
-        .collect::<std::io::Result<Vec<_>>>()?;
-    require(envs.len() <= 128, "active_lease_unresolved")?;
     let mut result = Vec::new();
     for lease in paths {
         let sid = lease
@@ -543,18 +541,7 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
             report.parent() == Some(m.root.join("runtime/results").as_path()),
             "lease_identity",
         )?;
-        let mut found = None;
-        for env in &envs {
-            let p = env
-                .join("compatdata/pfx/drive_c/bridge/sessions")
-                .join(sid)
-                .join("owner.json");
-            if p.try_exists()? {
-                require(found.is_none(), "duplicate_lease_identity")?;
-                found = Some((read_json::<serde_json::Value>(&p)?, p));
-            }
-        }
-        let (o, owner_path) = found.ok_or("active_lease_unresolved")?;
+        let (o, owner_path) = m.lease_owner(sid, &report)?;
         require(
             o["session"].as_str() == Some(sid) && o["report"].as_str() == report.to_str(),
             "lease_identity",
@@ -589,6 +576,16 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
                         == Some(format!("environment-{sid}.json").as_str()),
                 "lease_identity",
             )?;
+            // A retained keeper lease is not a healthy capacity owner after
+            // its exact finalizer explicitly disputes cleanup. This durable
+            // fact also survives a service restart; an in-memory DSP guard
+            // alone cannot authorize the readback or another reservation.
+            if report.try_exists()? {
+                let result: serde_json::Value = read_json(&report)?;
+                if result["ready"] == false && result["cleanup_confirmed"] == false {
+                    return Err(Refusal::CleanupUnconfirmed.into());
+                }
+            }
             Kind::Keeper
         } else {
             require(
@@ -626,7 +623,10 @@ pub fn owners(m: &Manager) -> Result<Vec<Owner>> {
     Ok(result)
 }
 
-fn check_selected(owners: &[Owner], limits: &Limits, class: Option<&str>, managed:bool) -> Result<()> {
+fn check_selected(
+    owners: &[Owner], limits: &Limits, class: Option<&str>,
+    unfamiliar_managed_capacity: Option<usize>,
+) -> Result<()> {
     limits.verify()?;
     if owners
         .iter()
@@ -642,11 +642,9 @@ fn check_selected(owners: &[Owner], limits: &Limits, class: Option<&str>, manage
             Err(Refusal::MaintenanceActive.into())
         };
     };
-    let policy = limits
-        .classes
-        .iter()
-        .find(|c| c.class_id == class);
-    let ceiling=policy.map(|p|p.dsp).or(if managed{Some(1)}else{None}).ok_or(Refusal::BindingInvalid)?;
+    let policy = limits.classes.iter().find(|c| c.class_id == class);
+    let ceiling=policy.map(|p|p.dsp).or(unfamiliar_managed_capacity)
+        .ok_or(Refusal::BindingInvalid)?;
     if dsp >= limits.global_dsp {
         return Err(Refusal::GlobalCapacity.into());
     }
@@ -676,16 +674,82 @@ pub fn reserve(m: &Manager, limits: &Limits, class: Option<&str>, blocked: bool)
             e
         }
     })?;
-    let records = owners(m).map_err(|_| Refusal::CleanupUnconfirmed)?;
-    let managed = if let Some(class)=class.filter(|class|!limits.classes.iter().any(|c|c.class_id==*class)) {
-        let db=m.registry()?;
-        if let Some(e)=db.classes.get(class).filter(|e|e.publication==Publication::Published) {
-            let r=m.load_revision(class,e.managed_revision.as_ref().ok_or(Refusal::BindingInvalid)?)?;
-            crate::preparation::owns_profile(m,&r.profile)?
-        } else {false}
-    }else{false};
-    check_selected(&records, limits, class,managed)?;
+    validate_reservation(m, limits, class)?;
     Ok(lock)
+}
+
+/// Service recovery and inspection are control-plane work. Brief fresh
+/// readback contention must not close their connection as an apparent plug-in
+/// failure. This wait grants no authority: owners and cleanup are checked only
+/// after the exact registry guard has been acquired. Native DSP admission keeps
+/// the fail-fast crossing above.
+pub fn reserve_maintenance(
+    m: &Manager, limits: &Limits, blocked: impl Fn() -> bool,
+) -> Result<Lock> {
+    reserve_maintenance_with_wait(m, limits, blocked, std::time::Duration::from_secs(2))
+}
+/// Recovery has one overall deadline. Its initial and subsequent reservations
+/// may wait for fresh readback, but cannot extend that deadline or reuse owners.
+pub fn reserve_maintenance_until(
+    m: &Manager, limits: &Limits, blocked: impl Fn() -> bool,
+    deadline: std::time::Instant,
+) -> Result<Lock> {
+    let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+    if remaining.is_zero() { return Err(Refusal::ServiceBusy.into()); }
+    reserve_maintenance_with_wait(m, limits, blocked, remaining.min(std::time::Duration::from_secs(60)))
+}
+fn reserve_maintenance_with_wait(
+    m: &Manager, limits: &Limits, blocked: impl Fn() -> bool, wait: std::time::Duration,
+) -> Result<Lock> {
+    if blocked() { return Err(Refusal::CleanupUnconfirmed.into()); }
+    let (lock, _) = m.lock_bounded(
+        operator_model::OperatorLock::Registry,
+        operator_model::LockPurpose::ServiceRecovery, None, wait,
+    )?;
+    if blocked() { return Err(Refusal::CleanupUnconfirmed.into()); }
+    validate_reservation(m, limits, None)?;
+    Ok(lock)
+}
+fn validate_reservation(m: &Manager, limits: &Limits, class: Option<&str>) -> Result<()> {
+    let records = owners(m).map_err(|_| Refusal::CleanupUnconfirmed)?;
+    let unfamiliar_managed_capacity = match class {
+        Some(class) if !limits.classes.iter().any(|policy| policy.class_id == class) =>
+            unfamiliar_managed_capacity(m, limits.native_image_hard, class)?,
+        _ => None,
+    };
+    check_selected(&records, limits, class, unfamiliar_managed_capacity)?;
+    Ok(())
+}
+
+/// An unfamiliar class with an exact, currently published managed revision may
+/// use the native image's structural slot count. This is only an admission
+/// ceiling; the shared global reservation and measured workload policy remain
+/// separate. A stale or ambiguous publication never receives this capacity.
+/// Caller holds registry.lock, the same guard used by admission and publication.
+fn unfamiliar_managed_capacity(m: &Manager, native_image_hard: usize, class: &str) -> Result<Option<usize>> {
+    unfamiliar_managed_capacity_with(m, native_image_hard, class, true)
+}
+fn unfamiliar_managed_capacity_with(m: &Manager, native_image_hard: usize, class: &str,
+    execution: bool) -> Result<Option<usize>> {
+    require(valid_hex(class, 32) && class == class.to_uppercase(), "capacity_class_identity")?;
+    let registry = m.registry()?;
+    let Some(entry) = registry.classes.get(class) else { return Ok(None); };
+    if entry.publication != Publication::Published { return Ok(None); }
+    // A legacy/manual publication is not reusable-engine admission authority,
+    // but its presence must not make the entire service readback unavailable.
+    let Some(reference) = entry.managed_revision.as_ref() else { return Ok(None); };
+    let revision = if execution { m.load_revision(class, reference)? }
+        else { m.load_revision_record(class, reference)? };
+    require(revision.class_id == class
+        && revision.registration.key() == class
+        && revision.registration.metadata.class_id == class
+        && entry.registration == revision.registration, "capacity_publication_identity")?;
+    if !crate::preparation::owns_profile(m, &revision.profile)? { return Ok(None); }
+    require(!m.publication_pending(class)?
+        && crate::publication::physical(&m.link(class))? == Some(revision.target.clone()),
+        "capacity_publication_changed")?;
+    m.verify_completed_publication(&revision, reference)?;
+    Ok(Some(native_image_hard))
 }
 
 #[cfg(test)]
@@ -740,6 +804,92 @@ mod tests {
         private_dir(path.parent().unwrap()).unwrap();
         atomic_json(&path, &report).unwrap();
         path
+    }
+    #[test]
+    fn maintenance_wait_observes_new_owner_before_granting_authority() {
+        let f = Fixture::new();
+        let held = f.m.lock("registry.lock").unwrap();
+        std::thread::scope(|scope| {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let m = &f.m;
+            let reader = scope.spawn(move || {
+                tx.send(()).unwrap();
+                reason(reserve_maintenance(m, &limits(), || false))
+            });
+            rx.recv().unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(40));
+            lease(&f, &limits().classes[0].class_id, Kind::Dsp);
+            drop(held);
+            assert_eq!(reader.join().unwrap(), Refusal::MaintenanceActive.code());
+        });
+    }
+    #[test]
+    fn maintenance_wait_rechecks_cleanup_and_has_a_bound() {
+        let f = Fixture::new();
+        let held = f.m.lock("registry.lock").unwrap();
+        let blocked = std::sync::atomic::AtomicBool::new(false);
+        std::thread::scope(|scope| {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let m = &f.m;
+            let blocked = &blocked;
+            let reader = scope.spawn(move || {
+                tx.send(()).unwrap();
+                reason(reserve_maintenance(m, &limits(), ||
+                    blocked.load(std::sync::atomic::Ordering::Acquire)))
+            });
+            rx.recv().unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(40));
+            blocked.store(true, std::sync::atomic::Ordering::Release);
+            drop(held);
+            assert_eq!(reader.join().unwrap(), Refusal::CleanupUnconfirmed.code());
+        });
+        let _held = f.m.lock("registry.lock").unwrap();
+        let error = reserve_maintenance_with_wait(&f.m, &limits(), || false,
+            std::time::Duration::from_millis(20)).err().unwrap();
+        let failure = error.downcast_ref::<operator_lock::AcquisitionFailure>().unwrap();
+        assert_eq!(failure.facts.outcome, operator_model::LockOutcome::Timeout);
+        assert_eq!(failure.facts.purpose, operator_model::LockPurpose::ServiceRecovery);
+        assert!(matches!(reserve(&f.m, &limits(), None, false).err().unwrap()
+            .downcast_ref::<Refusal>(), Some(Refusal::ServiceBusy)));
+    }
+    #[test]
+    fn maintenance_wait_returns_a_real_guard_and_refuses_broken_ownership() {
+        let f = Fixture::new();
+        let held = reserve_maintenance(&f.m, &limits(), || false).unwrap();
+        held.require_registry(&f.m).unwrap();
+        assert!(reserve(&f.m, &limits(), None, false).is_err());
+        drop(held);
+        private_dir(&f.m.root.join("runtime/leases")).unwrap();
+        fs::write(f.m.root.join("runtime/leases/broken.json"), b"invalid").unwrap();
+        assert_eq!(reason(reserve_maintenance(&f.m, &limits(), || false)),
+            Refusal::CleanupUnconfirmed.code());
+    }
+    #[test]
+    fn recovery_reservation_uses_remaining_budget_and_rechecks_cleanup() {
+        let f=Fixture::new();
+        let blocked=std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let held=f.m.lock("registry.lock").unwrap();
+        let changed=blocked.clone();
+        let owner=std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(30));
+            changed.store(true,std::sync::atomic::Ordering::Release);
+            drop(held);
+        });
+        let error=reserve_maintenance_until(&f.m,&limits(),
+            || blocked.load(std::sync::atomic::Ordering::Acquire),
+            std::time::Instant::now()+std::time::Duration::from_secs(1)).err().unwrap();
+        owner.join().unwrap();
+        assert_eq!(error.downcast_ref::<Refusal>(),Some(&Refusal::CleanupUnconfirmed));
+        assert_eq!(reason(reserve_maintenance_until(&f.m,&limits(),|| false,
+            std::time::Instant::now())),Refusal::ServiceBusy.code());
+        let held=f.m.lock("registry.lock").unwrap();
+        let started=std::time::Instant::now();
+        let error=reserve_maintenance_until(&f.m,&limits(),|| false,
+            started+std::time::Duration::from_millis(20)).err().unwrap();
+        assert!(started.elapsed()<std::time::Duration::from_secs(1));
+        assert_eq!(error.downcast_ref::<operator_lock::AcquisitionFailure>().unwrap()
+            .facts.outcome,operator_model::LockOutcome::Timeout);
+        drop(held);
     }
     #[test]
     fn status_waits_for_contention_and_reads_new_owners() {
@@ -968,6 +1118,75 @@ mod tests {
         assert!(terminal_summaries(&f.m).unwrap().is_empty());
     }
     #[test]
+    fn manager_ownership_survives_supervisor_directory_retirement() {
+        let f = Fixture::new();
+        let class = limits().classes[0].class_id.clone();
+        let lease = lease(&f, &class, Kind::Dsp);
+        let sid = lease.file_stem().unwrap().to_str().unwrap();
+        let report: PathBuf = read_json(&lease).unwrap();
+        let temporary = f.r.environment.root
+            .join("compatdata/pfx/drive_c/bridge/sessions").join(sid).join("owner.json");
+        let mut owner: serde_json::Value = read_json(&temporary).unwrap();
+        owner["lease"] = serde_json::to_value(&lease).unwrap();
+        owner["registration"]["environment"] = serde_json::to_value(&f.r.environment).unwrap();
+        atomic_json(&temporary, &owner).unwrap();
+        {
+            let _registry = f.m.lock("registry.lock").unwrap();
+            f.m.retain_lease_owner(&temporary).unwrap();
+            f.m.retain_lease_owner(&temporary).unwrap();
+        }
+        // Reproduce the actual installed ordering: the supervisor has removed
+        // its Windows session view and reported cleanup, but Rust owns the lease.
+        fs::remove_dir_all(temporary.parent().unwrap()).unwrap();
+        atomic_json(&report, &serde_json::json!({"session":sid,
+            "cleanup_confirmed":true,"transport_retired":true})).unwrap();
+        let restarted = Manager { root:f.m.root.clone(), publications:f.m.publications.clone() };
+        let _registry = restarted.lock("registry.lock").unwrap();
+        let observed = owners(&restarted).unwrap();
+        assert_eq!(observed.len(), 1);
+        assert_eq!(observed[0].kind, Kind::Dsp);
+        assert_eq!(observed[0].class_id, class);
+        assert_eq!(restarted.require_inactive(None).unwrap_err().to_string(), "active_device_lease");
+        // Only the manager's exact release makes this capacity free.
+        fs::remove_file(&lease).unwrap();
+        assert!(owners(&restarted).unwrap().is_empty());
+        restarted.require_inactive(None).unwrap();
+    }
+    #[test]
+    fn missing_legacy_owner_and_changed_retained_binding_never_count_as_free() {
+        let f = Fixture::new();
+        let class = limits().classes[0].class_id.clone();
+        let lease = lease(&f, &class, Kind::Dsp);
+        let sid = lease.file_stem().unwrap().to_str().unwrap();
+        let report: PathBuf = read_json(&lease).unwrap();
+        let temporary = f.r.environment.root
+            .join("compatdata/pfx/drive_c/bridge/sessions").join(sid).join("owner.json");
+        let mut owner: serde_json::Value = read_json(&temporary).unwrap();
+        owner["lease"] = serde_json::to_value(&lease).unwrap();
+        owner["registration"]["environment"] = serde_json::to_value(&f.r.environment).unwrap();
+        atomic_json(&temporary, &owner).unwrap();
+        let _registry = f.m.lock("registry.lock").unwrap();
+        f.m.retain_lease_owner(&temporary).unwrap();
+        let retained = f.m.root.join("runtime/lease-owners").join(format!("{sid}.json"));
+        let original: serde_json::Value = read_json(&retained).unwrap();
+        for changed in [serde_json::json!({"schema":2}),
+            serde_json::json!({"owner":{"report":f.m.root.join("runtime/results/other.json")}}),
+            serde_json::json!({"temporary_owner":f.m.root.join("outside/owner.json")})] {
+            let mut bad = original.clone();
+            for (key, value) in changed.as_object().unwrap() {
+                if key == "owner" { bad["owner"]["report"] = value["report"].clone(); }
+                else { bad[key] = value.clone(); }
+            }
+            atomic_json(&retained, &bad).unwrap();
+            assert!(owners(&f.m).is_err());
+            assert!(f.m.require_inactive(None).is_err());
+        }
+        fs::remove_file(&retained).unwrap();
+        fs::remove_dir_all(temporary.parent().unwrap()).unwrap();
+        atomic_json(&report, &serde_json::json!({"cleanup_confirmed":true,"transport_retired":true})).unwrap();
+        assert_eq!(owners(&f.m).unwrap_err().to_string(), "active_lease_unresolved");
+    }
+    #[test]
     fn durable_ownership_survives_service_reconstruction_and_exact_release() {
         let f = Fixture::new();
         let p = limits();
@@ -1023,6 +1242,24 @@ mod tests {
             reason(reserve(&f.m, &p, Some(a), false)),
             Refusal::CleanupUnconfirmed.code()
         );
+    }
+    #[test]
+    fn exact_failed_keeper_report_blocks_readback_and_admission_after_reconstruction() {
+        let f = Fixture::new();
+        let p = limits();
+        let a = &p.classes[0].class_id;
+        let retained = lease(&f, a, Kind::Keeper);
+        let report: PathBuf = read_json(&retained).unwrap();
+        atomic_json(&report, &serde_json::json!({"ready":false,"cleanup_confirmed":false})).unwrap();
+        let restarted = Manager { root:f.m.root.clone(), publications:f.m.publications.clone() };
+        let failure=status(&restarted,p.clone(),1,false).unwrap_err();
+        assert_eq!(failure.downcast_ref::<Refusal>(),Some(&Refusal::CleanupUnconfirmed));
+        assert_eq!(reason(reserve(&restarted,&p,Some(a),false)),Refusal::CleanupUnconfirmed.code());
+        assert!(retained.exists());
+        // A positive final report alone still does not remove the owner lease.
+        atomic_json(&report, &serde_json::json!({"ready":false,"cleanup_confirmed":true})).unwrap();
+        assert_eq!(owners(&restarted).unwrap().len(),1);
+        assert!(retained.exists());
     }
     #[test]
     fn concurrent_reservations_cannot_check_then_over_admit() {
@@ -1105,6 +1342,188 @@ mod tests {
         for c in &p.classes {
             assert!(records.iter().filter(|o| o.class_id == c.class_id).count() <= 2);
         }
+    }
+    #[test]
+    fn a_legacy_publication_does_not_hide_service_capacity_or_gain_managed_slots() {
+        let f = Fixture::new();
+        let key = f.r.key();
+        let mut policy = limits();
+        policy.classes[0].class_id = "03".repeat(16);
+        f.m.register(f.r.clone()).unwrap();
+        assert!(!policy.classes.iter().any(|c| c.class_id == key));
+        let observed = status(&f.m, policy.clone(), 0, false).unwrap();
+        assert_eq!(observed.dsp, 0);
+        assert!(!observed.limits.classes.iter().any(|c| c.class_id == key));
+        assert_eq!(reason(reserve(&f.m, &policy, Some(&key), false)), Refusal::BindingInvalid.code());
+    }
+
+    #[test]
+    fn readable_unfamiliar_capacity_records_do_not_grant_changed_native_admission() {
+        let (f, candidate) = crate::preparation::tests::fixture();
+        crate::preparation::record_candidate(&f.m, &candidate).unwrap();
+        let reference = crate::preparation::enable(&f.m, &candidate, false).unwrap();
+        let class = &candidate.selection.class.id;
+        let mut policy = limits();
+        policy.classes[0].class_id = "03".repeat(16);
+        let publication = f.m.load_revision(class, &reference).unwrap();
+        let path = &publication.registration.native.path;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(path, b"changed selected native bytes").unwrap();
+        let status = status(&f.m, policy.clone(), 0, false).unwrap();
+        assert_eq!(status.dsp, 0);
+        assert!(status.engineering_classes.iter().any(|row| row.class_id == *class));
+        assert!(f.m.load_revision_record(class, &reference).is_ok());
+        assert_eq!(reserve(&f.m, &policy, Some(class), false).err().unwrap().to_string(),
+            "artifact missing or changed");
+        assert_eq!(f.m.resolve(&f.identity()).err().unwrap().to_string(), "artifact missing or changed");
+        assert_eq!(f.m.registry().unwrap().classes[class].managed_revision, Some(reference));
+        assert!(owners(&f.m).unwrap().is_empty());
+    }
+    #[test]
+    fn unfamiliar_slots_require_a_current_managed_publication_and_durable_reservations() {
+        let (f, candidate) = crate::preparation::tests::fixture();
+        crate::preparation::record_candidate(&f.m, &candidate).unwrap();
+        let revision = crate::preparation::enable(&f.m, &candidate, false).unwrap();
+        let class = &candidate.selection.class.id;
+        let mut policy = limits();
+        policy.global_dsp = 6;
+        policy.classes[0] = ClassLimit {class_id:"03".repeat(16), dsp:3};
+        policy.classes[1].dsp = 4;
+        assert!(!policy.classes.iter().any(|row| row.class_id == *class));
+        let observed = status(&f.m, policy.clone(), 0, false).unwrap();
+        assert_eq!(observed.engineering_classes.iter().find(|row| row.class_id == *class).unwrap().dsp, 4);
+        for _ in 0..4 {
+            let guard = reserve(&f.m, &policy, Some(class), false).unwrap();
+            lease(&f, class, Kind::Dsp);
+            drop(guard);
+        }
+        assert_eq!(reason(reserve(&f.m, &policy, Some(class), false)), Refusal::ClassCapacity.code());
+        // Valid leases cannot grant admission for a substituted publication.
+        let selected = f.m.load_revision(class, &revision).unwrap();
+        fs::remove_file(f.m.link(class)).unwrap();
+        std::os::unix::fs::symlink(selected.target.with_extension("changed"), f.m.link(class)).unwrap();
+        let observed = status(&f.m, policy.clone(), 0, false).unwrap();
+        assert_eq!(observed.dsp, 4);
+        assert_eq!(observed.owners, owners(&f.m).unwrap());
+        assert_eq!(observed.available_dsp, 2);
+        assert!(!observed.engineering_classes.iter().any(|row| row.class_id == *class));
+        assert!(reserve(&f.m, &policy, Some(class), false).is_err());
+    }
+
+    fn interrupted_unfamiliar_replacement() -> (Fixture, crate::preparation::Candidate, Limits, PathBuf) {
+        let (f, candidate) = crate::preparation::tests::fixture();
+        crate::preparation::record_candidate(&f.m, &candidate).unwrap();
+        let baseline = crate::preparation::enable(&f.m, &candidate, false).unwrap();
+        let mut policy = limits();
+        policy.global_dsp = 6;
+        policy.classes[0].class_id = "03".repeat(16);
+        assert!(!policy.classes.iter().any(|row| row.class_id == candidate.selection.class.id));
+        let sibling = {
+            let guard = reserve(&f.m, &policy, Some(&policy.classes[1].class_id), false).unwrap();
+            let lease = lease(&f, &policy.classes[1].class_id, Kind::Dsp);
+            drop(guard);
+            lease
+        };
+        let next = crate::preparation::configuration::prepare(&f.m, &candidate,
+            Some(operator_model::GraphicsBackend::WineD3d11), Some(&baseline)).unwrap();
+        f.m.publish_with_expected(&next.profile, &next.census().unwrap(),
+            crate::preparation::configuration::registration(&next).unwrap(),
+            (&next.host, &next.source_manifest.sha256),
+            (Some(crate::publication::Qualification::ManagedExperimental), false),
+            Some(crate::publication::Boundary::Intent), Some(&baseline)).unwrap_err();
+        assert!(f.m.publication_pending(&candidate.selection.class.id).unwrap());
+        (f, candidate, policy, sibling)
+    }
+
+    #[test]
+    fn interrupted_unfamiliar_publication_keeps_canonical_owners_and_reconciliation_available() {
+        let (f, candidate, policy, sibling) = interrupted_unfamiliar_replacement();
+        let class = &candidate.selection.class.id;
+        let entry = f.m.registry().unwrap().classes[class].clone();
+        assert_eq!(entry.publication, Publication::Published);
+        let live_owners = owners(&f.m).unwrap();
+        let observed = status(&f.m, policy.clone(), 0, false).unwrap();
+        assert_eq!(observed.owners, live_owners);
+        assert_eq!(observed.dsp, 1);
+        assert_eq!(observed.per_class[&policy.classes[1].class_id], 1);
+        // Only the two eligible policy classes contribute free slots: two
+        // for the first class and one remaining beside the live sibling.
+        assert_eq!(observed.available_dsp, 3);
+        assert!(!observed.cleanup_unconfirmed);
+        assert!(!observed.maintenance_admissible);
+        assert!(!observed.engineering_classes.iter().any(|row| row.class_id == *class));
+        assert_eq!(reason(reserve(&f.m, &policy, Some(class), false)), "capacity_publication_changed");
+        drop(reserve(&f.m, &policy, Some(&policy.classes[1].class_id), false).unwrap());
+        assert_eq!(owners(&f.m).unwrap(), live_owners);
+        assert!(f.m.reconcile_inactive().is_err());
+        assert_eq!(f.m.registry().unwrap().classes[class], entry);
+
+        // Explicitly retire this fixture's exact sibling lease. A positive
+        // report alone cannot make it disappear from canonical readback.
+        let report: PathBuf = read_json(&sibling).unwrap();
+        atomic_json(&report, &serde_json::json!({"cleanup_confirmed":true,
+            "transport_retired":true})).unwrap();
+        assert_eq!(status(&f.m, policy.clone(), 0, false).unwrap().dsp, 1);
+        fs::remove_file(sibling).unwrap();
+        let retired = status(&f.m, policy.clone(), 0, false).unwrap();
+        assert!(retired.owners.is_empty() && retired.maintenance_admissible);
+        f.m.reconcile_inactive().unwrap();
+        assert!(!f.m.publication_pending(class).unwrap());
+        assert_eq!(f.m.registry().unwrap().classes[class], entry);
+        drop(reserve(&f.m, &policy, Some(class), false).unwrap());
+    }
+
+    #[test]
+    fn invalid_owner_still_refuses_readback_and_admission_during_publication_recovery() {
+        let (f, _, policy, _) = interrupted_unfamiliar_replacement();
+        private_dir(&f.m.root.join("runtime/leases")).unwrap();
+        fs::write(f.m.root.join("runtime/leases/broken.json"), b"invalid").unwrap();
+        assert!(status(&f.m, policy.clone(), 0, false).is_err());
+        assert_eq!(reason(reserve(&f.m, &policy, Some(&policy.classes[1].class_id), false)),
+            Refusal::CleanupUnconfirmed.code());
+        assert_eq!(reason(reserve_maintenance(&f.m, &policy, || false)),
+            Refusal::CleanupUnconfirmed.code());
+        assert!(f.m.reconcile_inactive().is_err());
+    }
+
+    #[test]
+    fn unfamiliar_managed_classes_use_native_slots_and_share_the_global_budget() {
+        let mut policy = limits();
+        policy.global_dsp = 6;
+        policy.classes[0].dsp = 3;
+        policy.classes[1].dsp = 4;
+        let unfamiliar = "03".repeat(16);
+        let mut active = Vec::new();
+
+        // The managed-class resolver supplies the structural native image
+        // ceiling, while every reservation still consumes the shared global
+        // pool. This does not make the limit a tested workload claim.
+        for _ in 0..policy.native_image_hard {
+            check_selected(&active, &policy, Some(&unfamiliar), Some(policy.native_image_hard)).unwrap();
+            active.push(Owner { session: random_id().unwrap(), class_id: unfamiliar.clone(), kind: Kind::Dsp, terminal: None });
+        }
+        assert_eq!(
+            check_selected(&active, &policy, Some(&unfamiliar), Some(policy.native_image_hard))
+                .unwrap_err().downcast_ref::<Refusal>(),
+            Some(&Refusal::ClassCapacity)
+        );
+
+        // A separate mixed-class run demonstrates that independent class
+        // slots still draw from one finite service-wide reservation.
+        active.clear();
+        for _ in 0..3 {
+            check_selected(&active, &policy, Some(&policy.classes[0].class_id), None).unwrap();
+            active.push(Owner { session: random_id().unwrap(), class_id: policy.classes[0].class_id.clone(), kind: Kind::Dsp, terminal: None });
+        }
+        for _ in 0..3 {
+            check_selected(&active, &policy, Some(&unfamiliar), Some(policy.native_image_hard)).unwrap();
+            active.push(Owner { session: random_id().unwrap(), class_id: unfamiliar.clone(), kind: Kind::Dsp, terminal: None });
+        }
+        assert_eq!(
+            check_selected(&active, &policy, Some(&unfamiliar), Some(policy.native_image_hard))
+                .unwrap_err().downcast_ref::<Refusal>(),
+            Some(&Refusal::GlobalCapacity)
+        );
     }
     #[test]
     fn maintenance_never_becomes_dsp_and_excludes_new_dsp() {

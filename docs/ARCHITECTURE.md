@@ -4,6 +4,13 @@
 **Primary target:** Native Linux DAW loading an exact native proxy for a supervised Windows VST3 module.  
 **First real fixture:** Serum 2 VST3 in Bitwig Studio Flatpak on the maintainer's Steam Deck.
 
+The operator selected audio recovery on 2026-10-02 and a whole-platform assessment
+on 2026-10-03. Section 18 records the current production design and takes precedence
+over provisional choices below where specified. The original proof questions remain
+historical context. The [platform assessment](PLATFORM_ARCHITECTURE_REVIEW.md) traces
+current implementation gaps; SUPPORT_MATRIX.md and retained evidence bound observed
+support. A selected design is not an implementation or qualification claim.
+
 ## 1. Architectural ruling
 
 The system has four independently versioned planes:
@@ -657,6 +664,13 @@ Process-group policy is profile- and host-aware:
 
 Bitwig's own plug-in sandboxing mode is fixture input. The bridge must not silently defeat it by placing unrelated plug-ins in one Windows process.
 
+Each environment has one shared Wine session that its Windows hosts start
+inside. The first load that needs it starts it, it stays while any plug-in of
+that environment is loaded, and the broker retires it after 90 seconds with
+none loaded. An environment with nothing loaded then has no running process;
+the next load starts it again. Maintenance, an owner that cannot be resolved or
+a busy registry guard retires nothing.
+
 ## 9. Compatibility profiles
 
 Profiles are declarative and schema-validated.
@@ -709,6 +723,11 @@ claim:
 ```
 
 Schema does not permit arbitrary commands. Implementation maps declared capabilities to reviewed code.
+
+Exact profile matching bounds recommendations and support claims; it is not a
+prerequisite for attempting an unfamiliar plug-in. Local experiments use the
+same implemented operations and publication owner. See section 18.6 for the
+preparation and advanced-control contract.
 
 ## 10. Flatpak deployment architecture
 
@@ -963,3 +982,671 @@ The first implementation sequence should produce evidence for these exact questi
 7. What detached-editor window and DPI behavior occurs under the exact session type?
 
 Until answered, later architecture remains bounded intention rather than implementation fact.
+
+## 18. Audio recovery and portable execution
+
+These decisions implement the operator's recovery direction at the design level.
+They do not claim a new installed implementation. The [roadmap](AUDIO_RECOVERY_ROADMAP.md)
+sets the sequence, the [platform assessment](PLATFORM_ARCHITECTURE_REVIEW.md) identifies
+current code and gaps, and [Integrated beta delivery](INTEGRATED_BETA_DELIVERY.md#acceptance-method)
+owns the release acceptance contract.
+
+### 18.1 Product ownership
+
+| Owner | Responsibility |
+| --- | --- |
+| DAW | Audio device/session, transport, negotiated format, automation, project persistence and delay compensation. |
+| Native proxy and Rust backend | Faithful SDK adaptation, bounded audio/event transfer, actual-block processing, result presentation, stream epochs and truthful latency. |
+| Windows SDK host | Exact module/class, vendor lifecycle and state calls, Windows editor thread and actual render thread, respecting vendor/SDK concurrency. |
+| Manager and supervisor | Capability observation, reviewed policy selection, pinned runtime/environment/publication identities, preparation, process custody, recovery and rollback outside audio callbacks. |
+| Proton-derived runner and Linux runtime | Windows compatibility, selected graphics/synchronization components and a controlled userspace, with effective host integration verified. They do not own DAW semantics or bridge presentation deadlines. |
+
+Keep Rust as the product language and C++ at the SDK edges. Preserve the existing
+versioned ABI, protocol, exact component pairing, ownership and epoch protections.
+Do not add a second lifecycle framework or a separate host architecture to work
+around an unmeasured failure in those boundaries.
+
+### 18.2 Capabilities and stable identity
+
+The manager observes host capabilities, matches them to declarative plug-in and
+runtime requirements, and prepares one explicit execution configuration. A distro
+name identifies a test target; it does not substitute for capability probes.
+
+Bounded observations cover architecture and available CPU resources, effective
+scheduling permissions and quotas, kernel/runtime synchronization support,
+graphics renderer/driver and desktop route, native or sandboxed DAW integration,
+audio/IPC access and storage needed by the selected operation. Record observation
+source and freshness. Read effective scheduling on the native worker and Windows
+render thread after launch. A launcher preference alone is not evidence.
+
+Keep capability eligibility separate from exact-fixture qualification. Missing
+required capability has an actionable failure; an unfamiliar but eligible system
+remains unqualified until exercised. Preserve identity, cleanup and integrity
+refusals. Never mark a system supported solely because its probes pass.
+
+The capability snapshot is not vendor machine identity. Preserve the licensed
+environment identity across observation refresh, software update and ordinary
+DAW reconfiguration. Never recreate a prefix to refresh a hardware assessment.
+Live DAW format facts come from the processing instance; they remain unknown
+while absent rather than being inferred from PipeWire defaults or device settings.
+
+### 18.3 Prepared processing configuration
+
+One prepared instance configuration binds the exact publication/runtime/profile
+to sample rate `Fs`, maximum block `M`, precision `P`, process mode, bus/event
+capacity, delivery mode, bridge delay `D` and vendor latency `L`. The callback
+receives actual length `N`, where `0 <= N <= M`; `N` is not a new configuration.
+Allocate for `M` while inactive. Preserve event offsets, parameter curves,
+transport context and returned results when adapting any block.
+
+The native float32 interface and existing advertised format limits remain truthful
+until successors are implemented and qualified. A rejected format must not be
+silently substituted. Ordinary changes follow legal host stop/deactivate/setup/
+activate/start transitions, retire old work and reuse the existing stream epoch
+mechanism. They do not require installing or republishing the plug-in.
+
+Keep `setProcessing` lightweight, including when called on the processing thread.
+Move preparation, process launch and state I/O outside that transition and the
+audio callback. State/control scheduling must respect vendor thread safety while
+allowing valid audio to meet its deadlines. Do not introduce concurrent state
+restoration and DSP as a shortcut around control contention. Distinguish a
+recoverable host-input error from a dead or corrupt transport.
+
+Report `D + L` as plug-in latency and expose the two components separately in
+the manager. Use the existing processor/controller notification route for latency
+changes so the DAW can recompute compensation. These requirements follow the
+[VST3 processing interface](https://steinbergmedia.github.io/vst3_doc/vstinterfaces/classSteinberg_1_1Vst_1_1IAudioProcessor.html)
+and [setup fields](https://steinbergmedia.github.io/vst3_doc/vstinterfaces/structSteinberg_1_1Vst_1_1ProcessSetup.html);
+the pinned SDK and real host transitions remain the implementation test boundary.
+
+### 18.4 Delivery and deadline policy
+
+First restore continuity in the installed queued path. Keep its `D >= M` guard,
+position checks, output ownership and stale-result rejection. A sample delay does
+not guarantee an equal amount of wall-clock execution time between callbacks.
+Test callback bursts and offline processing without artificial pacing.
+
+The selected low-latency design is a prepared direct request/reply between the
+native callback and the actual Windows render thread. AUDIO has an exclusive
+sample/slot owner and a bounded completion policy; it bypasses the native relay,
+TCP notification pump and mutable control Session.
+Its target is no added bridge presentation delay (`D = 0`): return the current
+block's result in that callback, retaining any vendor latency `L`. Transport and
+processing still consume time; this is not a zero-overhead claim. Merely accepting
+64-frame host calls while retaining a 512-frame bridge delay does not meet it.
+Select and measure the wake mechanism before promoting it. This is a DAW-execution
+qualification target; source implementation alone is not physical acceptance. Keep queued mode
+as an explicit buffered compatibility option only if it proves independent value.
+
+Separate startup/control health bounds, AUDIO host-health containment, and actual
+host/device audio deadlines. The operator accepted D-030 on 2026-10-04, explicitly
+replacing the earlier prohibition on synchronous use of the AUDIO five-second
+ceiling. Healthy valid work completes under this finite containment policy even
+when N/Fs or 1 ms has elapsed. This may stall the DAW thread for seconds; it is not
+an audio performance policy or real-time qualification. The requested absolute
+expiry does not guarantee wall-clock return while descheduled or inside a host
+SDK sink that the bridge cannot preempt. Refuse success when control returns after
+expiry. No callback allocation, filesystem/network operation, ordinary logging,
+manager wait or unbounded lock acquisition becomes permissible through this change.
+
+Bounded, preallocated observations must attribute a missing span to its actual
+stage: admission, queue/control wait, worker service, Windows wait/DSP, reply
+validation, publication or presentation. Export away from processing. Acceptance
+uses diagnostics disabled and actual captured output, with observer effects
+measured separately. Existing phase counters remain evidence, not a replacement
+for delivered signal.
+
+Whole native SDK call timing is a separate opt-in observation capability. Prepare
+and prefault a finite immutable record pool before activation; retain every entry
+sequence and actual N, including zero/partial calls, early refusal and unwind.
+The SDK edge records CLOCK_MONOTONIC at entry and after the complete processing
+body, SDK sinks and busy-guard cleanup; fixed publication/return epilogue follows
+the final stamp and must be qualified with an independent caller bracket. Capture
+actual calling namespace PID/TID and guarded rate/configuration/session context,
+then authenticate host PID/TID/starttime off RT while the caller is live. Names
+alone do not prove a callback role. Writer registration and export sealing share
+one race-safe protocol; unfinished writers, allocation/identity/clock failures,
+contention drops, saturation and counter overflow refuse complete observation.
+Rust owns private finite serialization after quiescence through a separately
+versioned plain-data observation ABI. No telemetry operation changes processing
+results, exception propagation, originating containment deadlines or scheduling.
+Durations include fixture DSP; neither N/Fs nor a single graph period establishes
+a device deadline, and several short calls may cumulatively consume one period.
+
+The 2026-10-03 audio-completion workstream selects the following implementation
+contract; its source, installed and physical acceptance remain separate gates:
+
+- The existing class performance preference carries typed Buffered or SameCallback
+  delivery and remembered buffered frames. Missing/legacy records mean Buffered.
+  Switching modes preserves that value. SameCallback has effective D=0, while
+  Buffered retains D>=M. Neither mode changes DAW capacity, rate or vendor latency.
+  Exact paired native/Windows capability is verified on selection and execution;
+  restoring an older unsupported publication requires an explicit supported choice.
+- Real-time and prefetch may alternate per call without setup. Crossing offline
+  requires legal inactive setup. Carry actual mode through the C ABI and PROCESS
+  message; do not reuse the setup mode as a substitute. Every operation has an exact
+  completion ticket, including consecutive zero-frame calls at the same position.
+- Real-time/prefetch AUDIO has one requested absolute five-second host-health
+  containment expiry from native C++ callback entry, independent of N, M and Fs.
+  Every admitted AUDIO retains that originating callback's deadline after Buffered
+  return; queued predecessors keep their earlier bounds. No stage renews, resets
+  or stacks allowances. SameCallback and every N0 require exact ordered ticket
+  completion; N0 drains prior FIFO debt without advancing sample position. Buffered
+  nonzero requires its complete due presentation frontier, including due events
+  and parameter points. Pending control cannot authorize successful missing output.
+  Keep the named contained-terminal silence posture separate from complete-output
+  success, preserving first fault identity. Death/cancellation can fail earlier.
+- The same originating absolute bound covers queue/control debt, rendering, native
+  validation/publication, presentation and final C++ SDK sink delivery. Distinguish
+  unfinished rendering from completed owned work blocked by publication/control
+  ordering. Reject expired work before publishing a new wire request and reject
+  late output before publication or success. Mandatory ap23 C ABI revision 2 pairs
+  processing with the final SDK finish check; absent, stale or incompatible policy
+  cannot authorize success. Direct AUDIO uses IPC15 with mailbox layout4; these
+  version axes remain separate from the SDK ABI and observation formats.
+- Offline operations retain their one 60-second absolute bound across callback and
+  worker, with cooperative cancellation observations no farther than 4 ms apart.
+  Vendor process() and host SDK sinks are not thereby interruptible; storage stays
+  owned until joins or existing supervisor containment establish safe retirement.
+  Offline failure remains explicit. Buffered offline still presents at D after
+  completing each operation; the host supplies its own latency/tail calls.
+- N/Fs and M/Fs remain cadence comparisons; 1 ms was the superseded local flush
+  cutoff. None establishes a serial graph/device deadline. A future audio deadline
+  policy needs actual DAW/device justification; this containment amendment supplies
+  no measured deadline, timing success, scheduling guarantee or permission to drop
+  complete due output while reporting success.
+- For prepared SameCallback, a non-clone callback AUDIO owner writes actual N
+  and admitted channels, publishes one exact epoch/ticket request and waits on
+  shared non-private Linux futex words. The actual Windows render thread reads
+  it, calls the vendor and publishes/wakes the owned reply. No AUDIO socket,
+  native worker relay, state parsing/hash or snapshot lock is in this dependency.
+  Shared mapped ownership spans request publication through reply/sample copying;
+  timeout/cancel never makes outstanding host-owned storage reusable. Keep bounded
+  canaries and actual-N finite/silence checks; prototype whole-capacity poisoning,
+  input equality and unused-plane scans remain outside normal direct processing.
+- The DAW thread that calls process() is recorded once per distinct thread on
+  the callback (one gettid, bounded atomics, no wait). Off the callback, the
+  worker asks the supervisor for the same SCHED_RR policy the render thread
+  holds, through RealtimeKit, one request at a time with a bounded reply wait.
+  An existing non-default policy on that thread is preserved, no process limit
+  is changed, and an older supervisor simply does not advertise the request.
+  The Deck records that thread as SCHED_OTHER 0 in Bitwig's plug-in host; the
+  two real-time grants otherwise protect threads that wait on it. The grant is
+  opt-in (LVB_CALLER_SCHEDULING=1): installed, it halved missing blocks but
+  doubled Bitwig's own graph errors while the rest of Bitwig's engine stays
+  ordinary priority, so it is not default behaviour until that is understood.
+- Host footprint policy: the supervisor raises every thread of the owned
+  Windows family to nice 10 except the audio render thread and any thread not
+  on the ordinary policy, once after each render start and whenever the family
+  grows. Nice is only raised, which needs no privilege; real-time grants are
+  untouched; the DAW's processes are never touched. A DAW whose engine runs
+  without real-time policy then outweighs the editor, wineserver and graphics
+  work by about ten to one. LVB_HOST_NICE tunes or disables it. The known
+  risk is a vendor lock shared between editor and DSP held by a slowed editor
+  thread; Buffered delivery's full period of slack covers ordinary hold times,
+  and the measured vendor call time shows when it does not.
+- An original product-built Rust ELF helper and marked Wine builtin PE shim supply
+  the Windows Linux wait ABI under the selected x86-64 Wine/Linux runner. Package
+  and verify their exact digests with the paired host, select their private path
+  per launch, retain the module through all waiters and refuse unsupported inactive
+  capability probes. A customer compiler or runtime rebuild is not required.
+- Control socket sequencing is independent of AUDIO tickets. Owner-thread state
+  capture and parsing/store confirmation cannot gate an already-prepared AUDIO
+  reply. Capture freshness uses callback-submitted/completed progress and its
+  admitted barrier; later parameter/audio edits cannot reuse an older snapshot.
+  Restore/setup remain inactive and exclusive. Vendor state thread affinity and
+  required DSP exclusion remain explicit, rather than assuming all state calls
+  are safe concurrently with processing.
+- START acknowledgment and epoch readiness precede direct AUDIO publication.
+  STOP is framed/validated by the owner and handed to render as a bounded prepared
+  transition; render performs no control socket read or state parsing. Legal
+  inactive reconfiguration transfers a new exclusive sample lease and seeds the
+  retained lifecycle epoch, including repeated setup/start and unique N0 tickets.
+- Peer health observation is independent of control parsing and snapshot work.
+  FIN/death, including unread state bytes, and explicit cancellation wake both
+  direct waiters before lease draining. Native health observes socket retirement
+  off path; Windows transport health only wakes/cancels prepared shared words.
+  Join or supervisor containment precedes releasing mappings/helpers. Terminal
+  AUDIO progress comes from callback-published atomics, not control sequences.
+- The legacy buffered path retains its paired notification lane and explicit
+  queue/presentation ownership. Its pending-START overlap and incremental capture
+  servicing do not prescribe the direct SameCallback dependency. Hints never grant
+  reply ownership, and all legacy workers/pumps remain owned through retirement.
+- Buffered presentation storage is sized by retained frames (`D + M`), not by
+  assuming that one host call contains a full block. Copy completed extra output
+  planes into that prepared history before releasing their transport slots.
+  Returned events and automation retain bounded operation packets separately;
+  their declared per-callback limits still apply. The native SDK output owner
+  supports 512 payload-bearing events per callback, 512 outstanding note-ons,
+  and at most 1536 nonempty drain packets followed by an empty read. These are
+  independent bounds, not consequences of retained-packet capacity. Exceeding
+  them or a host sink's capacity fails explicitly; it cannot authorize dropping
+  due results while reporting successful delivery. Inactive reconfiguration must
+  prepare the new capacity without depending on the previous maximum block.
+
+This contract uses IPC minor15 with an explicitly versioned bootstrap, mailbox
+layout4 for direct SameCallback (layout3 for the legacy worker route), notification
+schema1, admission LVB4 and the separate ap23 C ABI. Their
+versions are independent. Legacy admission remains buffered-only and older
+executable publications retain their original identities. None of these choices
+establishes lower-block qualification, whole-DAW scheduling guarantees or the cause
+of earlier physical missing audio. Those require the installed/physical comparisons
+in the current workstream.
+
+### 18.5 Runtime selection and production convergence
+
+Retain pinned runtime acquisition, side-by-side revisions and exact rollback.
+Preserve normal Proton initialization and the coherent selected runtime, rather
+than swapping isolated DLLs or adopting an ambient newer runner. Runtime
+operations have implemented, reviewed contracts; selections and local overrides
+are declarative data with exact identities and effective readback. An unfamiliar
+runner satisfying an implemented adapter may be tried as an unqualified local
+configuration under section 18.6 without an exact support-profile entry.
+
+Graphics acceleration and fallbacks are selected and verified per rendering path.
+Scheduling/affinity changes require measured benefit and actual-thread readback;
+they are not blanket product requirements. Do not change unrelated services or
+licensed machine identity to obtain an optimization. Proton's documented
+[runtime options](https://github.com/ValveSoftware/Proton#runtime-config-options)
+are configuration inputs, not audio qualification.
+
+Consolidate duplicate production settings into the prepared configuration, after
+checking callers. Isolate comparison-only controls and preserve useful tests;
+delete superseded implementations once their replacement is verified. Historical
+AP names alone do not prove code is unused or wrong. Keep app-owned runtime and
+reusable prebuilt proxy-engine delivery; no customer Steam, Wine, SDK or compiler
+prerequisite. Plug-in metadata and configuration are prepared data, not a finite
+catalogue of separately compiled per-module proxies.
+Release qualification binds the complete component roster, including retained
+predecessors needed by installed projects, to declared platform packages.
+
+### 18.6 General preparation and compatibility experimentation
+
+The operator's 2026-10-02 correction makes an unfamiliar plug-in and an advanced
+user's experiment ordinary product cases. Automatic preparation and advanced
+controls use one manager-owned configuration and the existing supervised
+installation, inspection, candidate, publication and recovery mechanisms. This
+is the required design; the complete workflow is not implemented or qualified.
+
+The original dossier already includes runtime dependencies, graphics choices,
+advanced overrides and rollback. The restriction to a shipped catalogue of
+module-specific proxy binaries contradicts that goal. A compatibility database
+helps choose settings and explain evidence; it must not determine which new
+plug-in builds are allowed to enter preparation.
+
+#### One configuration, distinct responsibilities
+
+| Concern | Owner and prepared result |
+| --- | --- |
+| Installed module | Supervised installer and scanner retain exact module/class identities, interface and bus/parameter facts, dependency hints and unresolved requirements. |
+| Machine and runtime | Capability assessment records the selected runner, actual platform capabilities, graphics paths, audio/IPC access and effective resource permissions. A distro name is not a policy selector. |
+| Suggested setup | The manager combines implemented defaults, applicable profile advice, current observations and explicit local overrides. Every selected value has a reason, scope and observed-or-untested status. |
+| Native publication | One precompiled engine per supported platform/ABI reads validated per-plug-in descriptor/configuration data outside the audio callback. Stable DAW class IDs are independent of module digest, renderer and runtime choice. |
+| Runtime execution | Existing supervisor and Windows host apply the selected configuration before use and report effective settings. Installation, editor, control and audio retain their thread and failure boundaries. |
+| DAW processing | The DAW supplies sample rate, maximum and actual blocks, precision and transport. The bridge prepares supported capacities while inactive and reports actual added latency. Installation does not invent these live facts. |
+
+The configuration identifies the engine/host protocol pair, module/class,
+descriptor, runner, environment revision, dependencies, renderer/editor policy,
+process policy and explicit overrides. Existing candidate/history records own
+these bindings; do not introduce a second candidate database or lifecycle system.
+Machine capability observations are not vendor machine identity. Presets,
+parameters, saved state and authorization data remain legitimately mutable.
+
+Hashes identify versions and detect stale observations. A vendor update triggers
+rescan and preparation of new data; it does not require a new bridge release or
+silently inherit the previous build's support claim. An unexplained changed file
+must not execute under an old receipt. The user gets a managed refresh/update
+operation, with the previous publication retained where its exact bytes remain
+available. Never promise to restore a vendor build that is no longer present.
+
+#### Normal use and advanced controls
+
+Normal use is install, assess, try and use. The manager offers a plausible initial
+setup and explains a failed stage. Missing historical qualification is visible
+but is not itself a refusal. Missing required capabilities, an unsupported
+interface or invalid data retain specific failures. Optional editor assessment
+cannot make an audio-only plug-in unsupported. Assessment failure preserves
+useful discovery results and offers another configuration when feasible.
+
+Advanced controls expose the same configuration with these operations:
+
+| User intent | Product operation and scope |
+| --- | --- |
+| Try another compatibility runtime | Select an installed revision, acquire one through product delivery, or import a user-supplied coherent runner through an implemented runner adapter. Check its structure and required capabilities; unfamiliar provenance remains explicit without becoming a plug-in whitelist. Keep the previous selection. |
+| Change editor rendering | Select a supported graphics backend or fallback, DPI and editor mode. Retain requested versus effective renderer facts and test the actual editor as well as independent capability probes. |
+| Add or change a dependency | Run a lawful user-supplied dependency installer, or a declared package acquisition, through existing installation supervision. Record version, source, resulting environment changes and affected plug-ins; rescan afterward. Fonts, redistributables and companion applications need real setup operations, not arbitrary profile scripts. |
+| Try library or synchronization options | Apply typed options supported by the selected runtime, with a visible configuration difference and reset-to-default operation. Runtime component replacements form a new coherent runner revision; do not silently replace DLLs in a working shared runner. |
+| Change process or CPU behavior | Offer implemented process grouping and bounded scheduling/affinity options. Read actual worker/render-thread policy and measure results. Shared vendor services, quotas and other applications remain accounted for. |
+| Investigate system drivers | Report actual driver/API capabilities and a specific unmet requirement. User-level runtime component selection is distinct from changing an OS/kernel driver; a plug-in check never silently changes the latter. |
+
+Reviewed operations and declarative option types are the execution boundary;
+they are not a closed list of permitted plug-in builds. A user may try an
+unqualified combination through those operations without a maintainer compiling
+a proxy or approving a new compatibility profile first. A genuinely new runner
+interface or unimplemented operation needs an adapter implementation, with the
+missing capability named. Do not disguise it as an unknown-product refusal.
+
+Each control shows whether it affects one instance, all classes of a module,
+a shared vendor environment or the whole host. Conflicting per-plug-in requests
+for one shared environment must be resolved visibly, not silently applied to
+siblings. Precedence is implemented defaults, applicable profile advice, then
+explicit local overrides; required interface/capacity constraints are checked
+separately. A profile refresh must preserve the user's overrides and show advice
+that conflicts with them.
+
+#### Try, compare, keep or restore
+
+An experiment starts from the current configuration and retains its difference
+and predecessor. Launch-only options are scoped to the trial. Dependency or
+runner changes can mutate shared environment state: determine affected owners
+and a viable restore/checkpoint strategy before applying them. Preserve licensed
+machine identity; do not assume copying or recreating a prefix is harmless.
+Where a vendor operation cannot be undone, state that fact before the user's
+action rather than promising transactional rollback that does not exist.
+
+The manager can suggest the next useful trial from a failed stage and observed
+capabilities. Record why that change might help. Compare one relevant change at
+a time by default; allow an explicit group of dependent changes and record the
+whole difference. A user can run bounded checks or enable the candidate in the
+DAW for musical testing before it has a support claim. Ordinary interaction is
+not a request to run every diagnostic again.
+
+Bridge buffering remains an explicit class preference. A publication records
+its value at publication time; that historical snapshot does not override a
+later user choice. Publication restore preserves the current preference and
+checks the target engine's supported capacity, including its exact retained kit
+when the installed package has changed. Unknown capacity refuses before the
+publication changes. Restoring graphics settings must not silently alter audio
+buffering or require it to equal an obsolete snapshot.
+
+Saved state preserves its producing module digest as provenance. Exact recovery
+snapshots and current readback validate that digest against the selected module.
+A host project restore is a distinct operation: validate the saved object's
+format, integrity, bounds and logical class, then offer its unchanged opaque
+state to the explicitly selected and independently admitted implementation.
+Only that implementation migrates it. The saved object never chooses an
+executable, publication or runtime. A successful new capture identifies its
+current producer; the original saved object remains unchanged.
+
+The historical parameter mirror cannot define a successor's inventory or values.
+After vendor restoration, use current authoritative readback and validate it
+strictly against the selected descriptor. A native controller synchronized before
+connection defers that readback until connection; it does not invent positional
+parameter mappings. Changed automation IDs remain a separate compatibility claim.
+
+Failure retirement distinguishes orderly native release from native death. A
+live consumer still owes the transport handshake. An outstanding `F` failure
+notice does not replace the independent `R` retirement acknowledgement: teardown
+may consume one notice, but still requires `R` within its original deadline.
+Unknown bytes, EOF and timeout cannot prove retirement, and positive cleanup
+cannot reclassify the original failed restoration as successful. If the
+authenticated native process generation has ended, socket closure, exact Windows-owner cleanup and
+retirement of the session's transport establish cleanup without an impossible
+acknowledgement to the dead consumer. Unknown identity or incomplete cleanup
+remains visible. No reboot or manual ownership-record deletion is a recovery step.
+
+Keep loader, audio, editor, state/recall and cleanup outcomes separately. A
+renderer probe is not editor acceleration; editor success is not uninterrupted
+audio. Combined editor/automation load requires captured audio and timing
+comparison. Keep/restore acts through the existing publication and history owner
+after affected processing stops. Failed or interrupted trials leave useful
+results and an identified recovery action rather than global unexplained
+"bridge not ready" state.
+
+A successful local setup is reusable local configuration, not universal support.
+The user can export sanitized settings and results; profiles contain no licenses,
+account state, arbitrary commands or proprietary binaries. Wider recommendations
+need evidence from the actual conditions being claimed. Reuse observations when
+their inputs remain valid and rerun affected checks when module, runtime,
+dependency, driver or host conditions change.
+
+#### Preparation history and current integration gap
+
+The following assessment describes source
+`9a0766afbf71fbb336c897c98b003b9e4bdda737`, before reusable preparation. It is retained
+for the origin of these decisions, not as a new instruction to repeat completed work:
+
+| Existing component | Required treatment |
+| --- | --- |
+| `tools/mf3/native_builder.py`, `tools/ap8_descriptor.py`, native SDK factory | Replace exact per-module binary selection and compiled metadata with the reusable engine and validated descriptor data. Preserve existing stable class-ID derivation and strict binding checks. |
+| `bridge-manager/src/preparation/{model,mod,history}.rs` | Extend the existing candidates, observations and predecessor relationships to carry the coherent configuration; do not recreate them. |
+| `bridge-manager/src/graphics_cli.rs` and `graphics/` | Consume the shared assessor during requested preparation/checks. Retain its distinction between import hints, runtime probes and actual editor observations. It decides one requirement by rule and, for Wine's built-in Direct3D 11, prepares and assesses the trial itself at the end of every preparation; publishing the trial stays an explicit owner-scoped step. |
+| `bridge-manager/src/profiles.rs`, runtime and installer owners | Separate exact support claims from permission to try; provide typed runtime/dependency/override operations without name-based policies or arbitrary command hooks. |
+| `bridge-manager/src/preparation_cli.rs` and manager UI | Present recommended setup, advanced differences, trial results and keep/restore through the same owner. Replace the late generic missing-proxy refusal with a working general preparation path. |
+
+The reusable engine, unfamiliar-class preparation, graphics settings restoration
+and state-update recovery now have bounded installed reference evidence. They do
+not yet provide a complete resolved configuration, generic runtime/dependency
+workflow or dependable physical audio. The [2026-10-03 assessment](PLATFORM_ARCHITECTURE_REVIEW.md)
+records current source and dispositions. Dependency changes and alternate-runtime
+trials extend the same candidate/history path. The full acceptance journey is specified in
+[Integrated beta delivery](INTEGRATED_BETA_DELIVERY.md#unfamiliar-plug-ins-and-advanced-compatibility).
+Removing the catalogue refusal alone does not complete that journey.
+
+Valve's [Proton documentation](https://github.com/ValveSoftware/Proton#runtime-config-options)
+describes per-game runtime overrides, restoring defaults by removing overrides,
+and selection of locally built compatibility tools. Those concepts inform the
+user workflow; their game launch commands are not the bridge protocol, and
+runtime options do not establish audio correctness.
+
+### 18.7 Platform execution convergence
+
+Selected engineering direction from the 2026-10-03 whole-platform assessment,
+recorded in D-028. These are implementation requirements. They do not reclassify
+current support, the failed Deck run or PR #204.
+
+#### Shared configuration, separate facts
+
+Use existing candidate/history, registration, environment and class-preference
+owners. Do not create another configuration database, transaction engine or support
+registry. Their shared resolution contract distinguishes:
+
+| Fact | Authority and use |
+| --- | --- |
+| Observed capability | Bounded observation with consuming context, relevant input identities, freshness and an explicit unknown result. It neither modifies licensed machine identity nor establishes support. |
+| Declared requirement | A required or optional implemented interface, runtime, resource or integration capability. Missing required capability refuses the affected operation specifically; missing optional evidence does not become a global refusal. |
+| Configuration choice | Implemented defaults, applicable advice and explicit user overrides, in that precedence. Retain source/reason, affected scope, predecessor and whether application needs processing to stop. Required constraints are checked separately. |
+| Resolved launch configuration | Exact module/class, descriptor, engine/host/protocol, coherent runner, environment revision/dependencies and applied editor/graphics/process options. Admission and launch consume this same prepared result. |
+| Live processing configuration | The DAW's negotiated and actual format under section 18.3. Installation cannot invent it; legal inactive reconfiguration does not require republishing. |
+| Effective behavior | Readback of actual worker policies, applied launch options, actual editor observations and measured workload results. Requested settings and independent probes cannot impersonate it. |
+| Qualification | A bounded support claim for observed versions and conditions. It is advice/status, not a closed permission list for trying eligible unfamiliar inputs. |
+
+The manager, CLI, admission service, supervisor and native publication must agree
+on the resolved configuration and its schema. Keep strict executable binding without
+binding mutable presets or parameters to an installation digest. Update/restore
+checks its affected inputs and supported capacities, preserves explicit unrelated
+preferences, and uses retained predecessors rather than guessing another build.
+Migrate existing records without changing class IDs or saved objects.
+
+The loaded-native admission successor binds the executing factory as well as the
+selected files. Descriptor C ABI v2 receives an anchor in the loaded image, matches
+its executable mapping to an opened image, and reads the descriptor through that
+same resolved directory handle. Cache the engine and descriptor digests with the
+factory metadata. Admission LVB5 carries this cached pair alongside logical class
+and vendor-module identity; the manager compares the selected registration and the
+peer's executable mapping before starting resources and again before admission.
+Retain one peer process generation across these checks and graphical-context capture.
+Recovery uses the original caller binding, never a fresh hash of whichever path is
+currently selected. This is a non-realtime factory/admission contract and does not
+change Windows IPC15, the sample transport, class identity or saved-state format.
+
+LVB1–4 cannot report cached descriptor provenance. A mapped legacy engine can cache
+another publication's descriptor before the selection is restored, so selected-file
+hashes or process-map presence cannot reconstruct that fact. Under accepted D-029,
+the normal bridge update prepares and verifies all affected selected publications
+before switching. Pre-contract publications must be refreshed to execute under the
+repaired manager. Preserve exact historical files and user state; a failure during
+preparation leaves the prior selection intact. Ordinary restoration prepares a
+compatible bridge pair for the exact retained vendor/configuration, while full
+package restoration must recover coherent manager/publication components. Extend
+the existing transition and history owners for interruption recovery. The customer
+receives one update action and a DAW-close request when necessary, not individual
+proxy maintenance. FC-MGMT-008 remains open until installed update, recall and
+recovery prove this workflow; a restart suggestion alone does not close it.
+
+Ordinary configuration readback validates bounded owned records and their current
+bindings, including transaction state and the selected physical publication. This
+is control-record validation, not a fresh verification of executable payloads.
+Present that distinction in readiness and offered actions. Do not traverse complete
+runtime trees, hash bulk executable payloads or execute preparation tools merely
+to display a product or validate an offered choice. Offer admission still rechecks
+the exact token, expected predecessor, settings and affected owners. The queued
+worker executable is freshly verified; mutation and launch owners retain deep
+execution verification and final binding/ownership rechecks. Neither a readable
+record nor a previously successful observation grants permission to execute it.
+
+Incomplete retained history from an older installation stays readable as needing
+recovery. An explicit scoped action invokes the existing history-completion owner
+after rechecking the selected candidate and recorded history. Projection does not
+perform migration or invent missing lineage. Corrupt existing records remain
+refusals; completing history does not replace executable admission. Paired clients
+must recognize the recovery action's operator schema, while retained earlier
+operation records preserve their original schema and bytes.
+The shared preparation owner retains valid lineage before publishing a candidate
+record. An older incomplete record without authority for its original predecessor
+stays an explicit history gap; it cannot acquire invented lineage through readback.
+Independently valid publication and exact rollback facts remain available.
+
+The initial implementation uses optional typed local settings on the retained
+candidate, preserving the serialized identity of older records when that field is
+absent. Preparation resolves graphics and Windows accessibility choices into the
+candidate profile. Publication validation, assessment and the launched host consume
+the same resulting registration. Default advice is resolved at preparation time;
+later advice cannot reinterpret an already retained configuration. Refresh carries
+explicit preferences forward and creates fresh configuration evidence.
+
+Preparing a settings trial records an immutable successor without changing a live
+publication. Applying or restoring it rechecks the exact predecessor and affected
+class under registry admission, including after artifact copying. Buffering remains
+an independent class preference and is retained when the predecessor supports it.
+The selected publication owns the main configuration readback and Keep/Restore
+workflow. A newer preparation is an explicit proposal, not a new selection.
+Prepared alternatives remain reachable alongside the selected workflow, with
+their own candidate identity and predecessor checks; stale proposals cannot
+displace the current selection or borrow another trial's admission result.
+The manager distinguishes selected options, their sources and scope, independent
+probe results and observed behavior; selecting a graphics option is not evidence
+of an editor's effective renderer.
+Graphics assessment retains the editor's loaded-library fingerprint before
+independent probes run, and retains both before editor teardown. A contained
+close failure may still yield a graphics recommendation from those exact facts;
+editor retirement remains a separate failed or timed-out result, never a working
+editor or successful scan. Launch validation checks the effective Direct3D/DXGI
+assignments while preserving the supervisor's other composed DLL choices.
+A library is attributed to an editor only when it first appears while the editor
+opens, or when the plug-in's own module imports it; the rest of the process's
+libraries decide nothing. The Direct3D 11 provider is an observation of the
+loaded module, separate from the requested graphics setting, and a provider's
+stand-in adapter name is never reported as the rendering device.
+
+Cache observations by their actual dependencies. Module changes invalidate module
+inspection; runtime/dependency changes invalidate affected runtime and compatibility
+observations; driver/display/host changes invalidate affected consuming-context
+checks. Unchanged evidence can remain reusable. Do not rebuild the engine or recreate
+a prefix merely because support prose, an observation or a user preference changed.
+
+#### Capability and ownership scope
+
+Host integration is an adapter contract for native and sandboxed DAWs: observable
+loader/architecture, publication visibility, IPC/audio/display access, storage and
+resources in the actual consuming context. Distro/DAW names identify evidence and
+select a relevant adapter, not universal eligibility. Report adapter absence as
+such. Require a display only for an operation or runtime route that needs one.
+
+Maintenance and admission scope follows affected publication, shared environment,
+runner/service and host resources. Distinguish structural capacity bounds from
+configured limits and tested workload recommendations. Preserve finite reservations
+and exact generation/ownership checks. Independent instances must not be stopped
+merely because a current implementation uses a global inactivity shortcut; shared
+mutations must not proceed until their actual affected owners are inactive.
+
+Class publication and buffering controls permit independent DSP owners while
+requiring every instance of the affected class to retire. Their final mutation
+uses the service's canonical owner classification: unresolved custody, inspection
+and vendor maintenance cannot masquerade as independent DSP. Scanner, installer,
+runtime and environment operations retain global exclusion until their narrower
+shared-resource contracts are implemented. That remaining restriction is explicit;
+it is not evidence of environment-scoped maintenance.
+
+The shared-runtime launch adapter must authenticate the final Windows host, not
+assume that its pre-exec launcher remains its parent. The existing per-launch
+channel may carry kernel-authenticated writer credentials and a pinned process
+handle. Admission additionally binds that writer to this launch's exact readiness
+identity and mapped session-status object. A claimed PID, process name, shared
+keeper membership or ordinary diagnostic line cannot grant custody. Recheck the
+binding on render restart. Unsupported kernel/runtime observation remains explicit;
+missing final-host custody cannot become confirmed retirement. Preserve exact
+instance cleanup and keeper/sibling isolation, including pre-admission failure.
+Close new custody admission before cleanup starts. Diagnostic draining cannot
+expand the ownership set after its final retirement signal or turn missing
+admission into a successful cleanup claim.
+
+An unfamiliar class with a valid managed publication may reserve the existing
+native image slot count under the shared service ceiling. This is a structural
+admission limit, not a qualified workload recommendation. Readiness separates that
+permission to try from support history. Active native/sandboxed consumer observations
+bind to authenticated process generation, mapped proxy and consuming mount paths;
+an idle host or missing observation remains unknown without inventing a failure.
+
+Advanced runtime/dependency operations apply through those same owners. An imported
+runner must satisfy an implemented coherent-runtime adapter; a new name does not
+need a new permission list. Environment mutations expose affected siblings, stable
+identity implications and a truthful recovery route before application. OS driver
+changes are outside automatic plug-in setup. No arbitrary command or profile-script
+interface replaces typed, supervised operations.
+
+#### DAW and editor execution contracts
+
+Implement event-driven request and completion notification over the existing owned
+transport. Notification is a hint to inspect authoritative queue/mailbox state;
+missed or raced notifications must not lose requests. Preserve epochs, positions,
+buffer ownership and bounded data. Compare effective wake/service tails on the
+actual threads, not requested sleep intervals or launcher priority.
+
+Real-time completion has an explicit local budget and failure policy; measure whole
+SDK callback duration and serial chains before claiming a supported workload.
+Offline completion uses bounded interruptible waits with its own progress,
+cancellation and containment policy, allowing valid work slower than real time.
+It must return the ordered results required by the declared latency/tail contract
+through the final host-supplied blocks, or an explicit failure. It must not invent
+extra host calls or report success with timeout-substituted silence.
+These requirements do not permit an unbounded real-time callback wait. Cover legal
+real-time/prefetch mode switches without inactive setup; offline transitions follow
+the SDK setup sequence. Advertise current support truthfully until implemented.
+
+Discovery, descriptor, native interface exposure and Windows implementation must
+agree on supported buses, parameters, events and host callbacks. Preserve vendor
+parameter conversions and reentrant/thread-affine behavior where implemented;
+report unsupported required contracts specifically. Generic engine reuse does not
+prove full VST3 coverage. Add contracts through both SDK edges and their consumers,
+not only by widening parser limits or returning placeholder interfaces.
+
+Failure severity belongs to the operation that can establish it:
+
+| Failure | Required policy |
+| --- | --- |
+| Optional view operation refused or bounded GUI channel overloaded, with valid owner/transport | Return an editor/control result; safely close/reset that facility where supported. Preserve DSP only when its safety is established. Do not automatically classify it as corrupted audio. |
+| Invalid identity/protocol, unsafe vendor state or vendor process crash | Contain the affected instance under existing ownership; preserve saved state and healthy independent siblings. A shared-process editor crash cannot be promised independent containment. |
+| Vendor state restore refused or partially applied | Preserve the original error and saved object; safely retire the affected instance and offer the retained predecessor. Never silently use defaults. |
+| Native consumer disappears | Reconcile exact process and transport ownership independently of polite SDK teardown. Unproven cleanup remains visible. |
+| Audio deadline missed | Record its stage/position and apply the declared processing-mode failure result. A counter, process exit and observer disappearance are different signals. |
+
+Use existing terminal records and control/result protocols; version them when their
+semantics change. Product policy belongs in Rust with narrow SDK/OS adapters.
+Consolidate production Python/C++ policy as affected owners change, preserving
+verified custody and without making a language rewrite the delivery objective.
+
+#### Integrated completion
+
+The next capability is one managed unfamiliar-plug-in configuration from preparation
+through ordinary use, meaningful recall and settings restoration. Runtime/dependency
+operations and DAW execution then extend that contract; rendering and resource
+requirements inform it from the start. The [implementation programme](PLATFORM_ARCHITECTURE_REVIEW.md#implementation-programme-and-completion)
+states owner changes and representative acceptance. A new type, probe, narrowly
+passing fixture or source-only report does not finish an integrated capability.
+
+Keep the existing commercial catalogue, platform and low-latency goals. Use shared
+contract fixtures for unfamiliar identities, SDK semantics, rendering/refusal,
+state evolution and owned failures, then validate combined installed workflows on
+frozen artifacts. Required release interaction/soak duration, project persistence,
+update/recovery and distribution remain governed by Integrated beta delivery.

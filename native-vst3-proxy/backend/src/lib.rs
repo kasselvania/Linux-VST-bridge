@@ -2,6 +2,13 @@
 #[cfg(test)]
 mod commercial_tests;
 mod context;
+#[cfg(target_os = "linux")]
+mod descriptor;
+mod completion_wait;
+#[cfg(target_os = "linux")]
+mod direct_audio;
+#[cfg(target_os="linux")]
+mod direct_audio_session;
 mod fault_status;
 mod terminal;
 mod gui;
@@ -9,13 +16,17 @@ mod instances;
 mod mailbox;
 mod observer;
 mod input_observation;
+#[cfg(target_os = "linux")]
+mod process_call_timing;
 mod output_pool;
 mod performance;
+mod parameter_curves;
 mod preview;
 mod process_results;
 mod queue;
 mod queued;
 mod recovery;
+mod scheduling;
 mod state;
 #[cfg(feature = "rpi0")]
 pub mod rpi0;
@@ -35,6 +46,13 @@ use std::{
         Mutex,
     },
 };
+// Production callback tests share one finite registry. Serialize its owners,
+// while registry contention tests continue using their independent registries.
+#[cfg(test)]
+pub(crate) fn registry_test() -> std::sync::MutexGuard<'static, ()> {
+    static OWNERS: Mutex<()> = Mutex::new(());
+    OWNERS.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
 #[cfg(test)]
 mod allocation_test {
     use std::{alloc::{GlobalAlloc, Layout, System}, cell::Cell};
@@ -68,12 +86,27 @@ mod allocation_test {
         (result, COUNTS.with(Cell::get))
     }
 }
+#[cfg(test)]
+mod sample_plane_test {
+    use std::cell::Cell;
+    thread_local! {
+        static ACCESSES: Cell<(usize, usize)> = const { Cell::new((0, 0)) };
+    }
+    pub fn reset() { ACCESSES.with(|value| value.set((0, 0))); }
+    pub fn write() { ACCESSES.with(|value| { let (writes, reads) = value.get(); value.set((writes + 1, reads)); }); }
+    pub fn read() { ACCESSES.with(|value| { let (writes, reads) = value.get(); value.set((writes, reads + 1)); }); }
+    pub fn accesses() -> (usize, usize) { ACCESSES.with(Cell::get) }
+}
 struct Session {
+    #[cfg(target_os = "linux")]
+    direct_requested: bool,
     gui: Option<std::sync::Arc<gui::Gui>>,
     gui_revision: u64,
     mapping: Option<Mapping>,
     mailbox: Option<mailbox::Mailbox>,
     mailbox_enabled: bool,
+    notifications: Option<ap1_native_client::notification::Channel>,
+    configured_mode: u32,
     capture: Option<state::Capture>,
     fault_status: Option<fault_status::Status>,
     notices: (u32, u64),
@@ -94,6 +127,9 @@ struct Session {
     owner: Option<preview::Owner>,
 }
 struct ProcessingScratch {
+    transition_request: Frame,
+    transition_reply: Frame,
+    transition_reader: ap1_native_client::endpoint::IncrementalFrame,
     request: Frame,
     reply: Frame,
     wire: Vec<u8>,
@@ -101,11 +137,31 @@ struct ProcessingScratch {
 impl ProcessingScratch {
     fn new() -> Self {
         Self {
-            request: Frame { kind: PROCESS, session: [0; 16], sequence: 0, payload: Vec::with_capacity(8352) },
+            transition_request: Frame { kind: 0, session: [0; 16], sequence: 0, payload: Vec::with_capacity(8) },
+            transition_reply: Frame { kind: 0, session: [0; 16], sequence: 0, payload: Vec::with_capacity(8) },
+            transition_reader: ap1_native_client::endpoint::IncrementalFrame::new(),
+            request: Frame { kind: PROCESS, session: [0; 16], sequence: 0, payload: Vec::with_capacity(8360) },
             reply: Frame { kind: 0, session: [0; 16], sequence: 0, payload: Vec::with_capacity(10312) },
-            wire: Vec::with_capacity(HEADER + 8352),
+            wire: Vec::with_capacity(HEADER + 8360),
         }
     }
+}
+#[derive(Clone, Copy)]
+struct PendingStart {
+    session: [u8; 16],
+    sequence: u64,
+    epoch: u64,
+    receive_deadline: std::time::Instant,
+}
+impl PendingStart {
+    fn bounded_by(self, deadline: std::time::Instant) -> Self {
+        Self { receive_deadline: self.receive_deadline.min(deadline), ..self }
+    }
+}
+#[derive(Clone, Copy)]
+enum ProcessAuthority {
+    Running,
+    PendingStart(PendingStart),
 }
 // Mapping has no escaping references; the registry serializes every access.
 unsafe impl Send for Session {}
@@ -155,18 +211,25 @@ fn binding(preview: bool) -> io::Result<preview::Binding> {
         directory: path,
         session,
         installed_delay: None,
+        delivery_mode: performance::DeliveryMode::Buffered,
         owner: None,
     })
 }
 impl Session {
     fn open(binding: preview::Binding, max: usize, minor: u64) -> io::Result<Self> {
-        Self::open_bound(
+        #[cfg(target_os = "linux")]
+        let direct=minor==15 && binding.owner.is_some()
+            && binding.delivery_mode==performance::DeliveryMode::SameCallback;
+        let mut session=Self::open_bound(
             &binding.directory,
             binding.session,
             max,
             minor,
             binding.owner,
-        )
+        )?;
+        #[cfg(target_os = "linux")]
+        {session.direct_requested=direct;}
+        Ok(session)
     }
     fn open_bound(
         path: &std::path::Path,
@@ -183,7 +246,7 @@ impl Session {
         } else {
             None
         };
-        let mailbox = if minor >= 6 && performance::use_mailbox()? {
+        let mailbox = if minor >= 15 || minor >= 6 && performance::use_mailbox()? {
             Some(mailbox::Mailbox::create(&path.join("ap10.delivery"), id)?)
         } else {
             None
@@ -193,15 +256,19 @@ impl Session {
         } else {
             None
         };
-        let prepared = Prepared::with_channels(path, id, if minor >= 13 { MULTI_CHANNELS } else { 2 })?;
-        let (mapping, socket) =
-            prepared.accept_while(minor, || preview::check_owner(&mut owner))?;
+        let prepared = Prepared::with_protocol(path, id, if minor >= 13 { MULTI_CHANNELS } else { 2 }, minor)?;
+        let (mapping, socket, notifications) =
+            prepared.accept_notified_while(minor, || preview::check_owner(&mut owner))?;
         let mut s = Self {
+            #[cfg(target_os = "linux")]
+            direct_requested: false,
             gui,
             gui_revision: 0,
             mapping: Some(mapping),
             mailbox,
             mailbox_enabled: false,
+            notifications,
+            configured_mode: 0,
             capture: None,
             fault_status,
             notices: (0, 0),
@@ -218,7 +285,9 @@ impl Session {
             minor,
             epoch: 0,
             position: 0,
-            witness: if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) {
+            witness: if matches!(minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13)
+                || (minor >= 14 && observer::delivery_enabled())
+            {
                 observer::Observer::commercial().ok()
             } else if matches!(minor, 4 | 6)
                 && (owner.is_some() || std::env::var("LVB_AP4_COMPARE").as_deref() == Ok("1"))
@@ -288,11 +357,39 @@ impl Session {
     fn send_control(&mut self, frame: &Frame) -> io::Result<()> {
         send_version(&mut self.socket, frame, 5, self.minor)?;
         if self.mailbox_enabled && self.phase == 11 {
+            #[cfg(target_os = "linux")]
+            if self.direct_requested {return Ok(());}
             self.mailbox
                 .as_mut()
                 .ok_or_else(|| invalid("delivery mapping absent"))?
                 .control()?;
+            if let Some(channel) = &mut self.notifications { channel.notify()?; }
         }
+        Ok(())
+    }
+    fn wait_control_handoff(&mut self, end: std::time::Instant,
+        mut cancelled: impl FnMut() -> bool) -> io::Result<()> {
+        while self.mailbox.as_ref().is_some_and(|mailbox| mailbox.control_handoff_pending()) {
+            need(!cancelled(), "audio operation cancelled")?;
+            need(std::time::Instant::now() < end, "control handoff deadline")?;
+            preview::check_owner(&mut self.owner)?;
+            mailbox::peer_status(&self.socket, self.capture.is_some())?;
+            if let Some(capture) = &mut self.capture { capture.service(&self.socket, self.minor)?; }
+            if let Some(channel) = &mut self.notifications { channel.service(end)?; }
+            else { std::thread::sleep(std::time::Duration::from_micros(50)); }
+        }
+        Ok(())
+    }
+    fn worker_wait_fds(&self) -> [(i32, bool); 2] {
+        use std::os::unix::io::AsRawFd;
+        [(if self.capture.as_ref().is_some_and(|capture| capture.is_unread()) { self.socket.as_raw_fd() } else { -1 }, false),
+            self.notifications.as_ref().map_or((-1, false), |channel| (channel.raw_fd(), channel.pending_wake()))]
+    }
+    fn service_worker_wakes(&mut self, _end: std::time::Instant, mut cancelled: impl FnMut() -> bool) -> io::Result<()> {
+        need(!cancelled(), "audio operation cancelled")?;
+        preview::check_owner(&mut self.owner)?;
+        mailbox::peer_status(&self.socket, self.capture.is_some())?;
+        if let Some(channel) = &mut self.notifications { channel.service(std::time::Instant::now())?; }
         Ok(())
     }
     fn configure(&mut self, mut bytes: Vec<u8>) -> io::Result<Vec<u8>> {
@@ -301,29 +398,38 @@ impl Session {
             "setup requires inactive session",
         )?;
         performance::validate_wire(&bytes)?;
+        need(get(&bytes[..4]) <= if self.minor >= 14 { BLOCK_CAP as u64 } else { CAP as u64 },
+             "setup exceeds negotiated mapping")?;
         self.sample_rate = f64::from_le_bytes(bytes[8..16].try_into().unwrap()) as u32;
         if self.minor >= 13 {
             let channels = performance::output_channels(&bytes)?;
             self.mapping.as_mut().ok_or_else(|| invalid("mapping absent"))?.output_channels = channels;
         }
-        let mailbox_version = 3 * u64::from(self.mailbox.is_some());
+        let mut mailbox_version = 3 * u64::from(self.mailbox.is_some());
+        #[cfg(target_os = "linux")]
+        if self.direct_requested {
+            self.mailbox.as_mut().ok_or_else(||invalid("direct mailbox absent"))?.prepare_direct()?;
+            mailbox_version=4;
+        }
         put(&mut bytes[16..20], mailbox_version);
+        let configured_mode = get(&bytes[4..8]) as u32;
         let reply = self.exchange(20, bytes)?;
         need(
             get(&reply.payload[12..16]) == mailbox_version
                 && matches!(get(&reply.payload[8..12]), 1 | 3),
             "invalid setup response",
         )?;
-        self.mailbox_enabled = mailbox_version == 3;
+        self.mailbox_enabled = mailbox_version >= 3;
+        self.configured_mode = configured_mode;
         Ok(reply.payload)
     }
     fn activate(&mut self, maximum: usize, mode: u32) -> io::Result<()> {
         need(
             self.minor >= 4
                 && matches!(self.phase, 17 | 15)
-                && (1..=CAP).contains(&maximum)
+                && (1..=if self.minor >= 14 { BLOCK_CAP } else { CAP }).contains(&maximum)
                 && if self.minor >= 6 {
-                    matches!(mode, 0 | 2)
+                    if self.minor >= 15 { mode <= 2 } else { matches!(mode, 0 | 2) }
                 } else {
                     mode <= 1
                 },
@@ -364,6 +470,112 @@ impl Session {
         self.phase = op + 1;
         Ok(())
     }
+    fn can_overlap_start(&self) -> bool {
+        #[cfg(target_os = "linux")]
+        if self.direct_requested {return false;}
+        self.minor == 15
+            && self.mailbox_enabled
+            && self.mailbox.is_some()
+            && self.notifications.is_some()
+    }
+    #[cfg(target_os = "linux")]
+    fn prepare_direct_audio(&mut self) -> io::Result<Option<direct_audio_session::AudioSession>> {
+        if !self.direct_requested {return Ok(None);}
+        let channel=self.mailbox.as_mut().ok_or_else(||invalid("direct mailbox absent"))?.prepare_direct()?;
+        let mapping=self.mapping.as_mut().ok_or_else(||invalid("audio mapping absent"))?.transfer_audio()?;
+        Ok(Some(direct_audio_session::AudioSession::prepare(channel,mapping,self.state.session,self.configured_mode,self.epoch).map_err(|_|invalid("direct audio owner already held"))?))
+    }
+    fn begin_start(&mut self, epoch: u64) -> io::Result<PendingStart> {
+        need(
+            self.can_overlap_start()
+                && matches!(self.phase, 9 | 13)
+                && epoch == self.epoch + 1
+                && self.state.slot == Slot::Writable
+                && self.capture.is_none()
+                && self.mailbox.as_ref().is_some_and(|mailbox| !mailbox.control_handoff_pending()),
+            "pending Start ownership/order",
+        )?;
+        self.processing.transition_reader.reset();
+        let request = &mut self.processing.transition_request;
+        request.kind = 10;
+        request.session = self.state.session;
+        request.sequence = self.state.next;
+        request.payload.clear();
+        request.payload.extend_from_slice(&epoch.to_le_bytes());
+        ap1_native_client::endpoint::send_version_with(
+            &mut self.socket,
+            request,
+            5,
+            self.minor,
+            &mut self.processing.wire,
+        )?;
+        Ok(PendingStart {
+            session: request.session,
+            sequence: request.sequence,
+            epoch,
+            receive_deadline: std::time::Instant::now() + std::time::Duration::from_secs(10),
+        })
+    }
+    fn pending_start_wait_fds(&self) -> [(i32, bool); 2] {
+        use std::os::fd::AsRawFd;
+        [(self.socket.as_raw_fd(), false), (-1, false)]
+    }
+    fn finish_start(
+        &mut self,
+        pending: PendingStart,
+        mut cancelled: impl FnMut() -> bool,
+    ) -> io::Result<()> {
+        let result = ap1_native_client::endpoint::receive_incremental_until_while(
+            &mut self.socket,
+            pending.receive_deadline,
+            self.minor,
+            &mut self.processing.transition_reader,
+            &mut self.processing.transition_reply,
+            || need(!cancelled(), "pending Start cancelled"),
+        );
+        let valid = result.and_then(|_| self.commit_start(pending));
+        if let Err(error) = valid {
+            self.phase = ERROR;
+            self.state.failed();
+            return Err(error);
+        }
+        Ok(())
+    }
+    fn commit_start(&mut self, pending: PendingStart) -> io::Result<()> {
+        {
+            let reply = &self.processing.transition_reply;
+            need(
+                reply.kind == 11
+                    && reply.session == pending.session
+                    && reply.sequence == pending.sequence
+                    && reply.payload == pending.epoch.to_le_bytes(),
+                "wrong pending Started response",
+            )?;
+        }
+        self.epoch = pending.epoch;
+        self.position = 0;
+        self.phase = 11;
+        Ok(())
+    }
+    fn poll_start(&mut self, pending: PendingStart) -> io::Result<bool> {
+        let result = (|| {
+            need(std::time::Instant::now() < pending.receive_deadline,
+                "pending Start deadline")?;
+            let complete = self.processing.transition_reader.read_available(
+                &self.socket, self.minor, &mut self.processing.transition_reply)?;
+            if !complete { return Ok(false); }
+            need(std::time::Instant::now() < pending.receive_deadline,
+                "pending Start deadline")?;
+            self.commit_start(pending)?;
+            Ok(true)
+        })();
+        if let Err(error) = result {
+            self.phase = ERROR;
+            self.state.failed();
+            return Err(error);
+        }
+        result
+    }
     #[allow(clippy::too_many_arguments)]
     fn process_positioned(
         &mut self,
@@ -374,12 +586,49 @@ impl Session {
         timeline: (u64, u64),
         events: &[events::Event],
         context: context::Context,
-    ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
+        process_mode: u32,
+        deadline: std::time::Instant,
+        cancelled: impl FnMut() -> bool,
+        capture_completed: impl FnMut(io::Result<Vec<u8>>) -> io::Result<()>,
+    ) -> io::Result<([[u32; BLOCK_CAP + 2]; 2], u64)> {
         need(
             self.minor >= 3 && timeline == (self.epoch, self.position),
             "queued audio epoch/position",
         )?;
-        self.process_events(n, gain, silence, input, events, context)
+        self.process_events_with(n, gain, silence, input, events, context, process_mode, deadline, cancelled, capture_completed)
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn process_positioned_pending_start(
+        &mut self,
+        pending: PendingStart,
+        n: usize,
+        gain: f64,
+        silence: u64,
+        input: [&[f32]; 2],
+        timeline: (u64, u64),
+        events: &[events::Event],
+        context: context::Context,
+        process_mode: u32,
+        deadline: std::time::Instant,
+        cancelled: impl FnMut() -> bool,
+        capture_completed: impl FnMut(io::Result<Vec<u8>>) -> io::Result<()>,
+        started: impl FnMut(),
+    ) -> io::Result<([[u32; BLOCK_CAP + 2]; 2], u64)> {
+        need(timeline == (pending.epoch, 0), "pending Start audio epoch/position")?;
+        self.process_events_with_authority(
+            ProcessAuthority::PendingStart(pending),
+            n,
+            gain,
+            silence,
+            input,
+            events,
+            context,
+            process_mode,
+            deadline,
+            cancelled,
+            capture_completed,
+            started,
+        )
     }
     fn process(
         &mut self,
@@ -387,7 +636,7 @@ impl Session {
         gain: f64,
         silence: u64,
         input: [&[f32]; 2],
-    ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
+    ) -> io::Result<([[u32; BLOCK_CAP + 2]; 2], u64)> {
         self.process_events(n, gain, silence, input, &[], context::Context::default())
     }
     fn process_events(
@@ -398,18 +647,72 @@ impl Session {
         input: [&[f32]; 2],
         events: &[events::Event],
         context: context::Context,
-    ) -> io::Result<([[u32; CAP + 2]; 2], u64)> {
+    ) -> io::Result<([[u32; BLOCK_CAP + 2]; 2], u64)> {
+        self.process_events_with(n, gain, silence, input, events, context, self.configured_mode,
+            std::time::Instant::now() + std::time::Duration::from_secs(5), || false, |_| Ok(()))
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn process_events_with(
+        &mut self, n: usize, gain: f64, silence: u64, input: [&[f32]; 2],
+        events: &[events::Event], context: context::Context, process_mode: u32,
+        deadline: std::time::Instant, cancelled: impl FnMut() -> bool,
+        capture_completed: impl FnMut(io::Result<Vec<u8>>) -> io::Result<()>,
+    ) -> io::Result<([[u32; BLOCK_CAP + 2]; 2], u64)> {
+        self.process_events_with_authority(
+            ProcessAuthority::Running,
+            n,
+            gain,
+            silence,
+            input,
+            events,
+            context,
+            process_mode,
+            deadline,
+            cancelled,
+            capture_completed,
+            || {},
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn process_events_with_authority(
+        &mut self, authority: ProcessAuthority,
+        n: usize, gain: f64, silence: u64, input: [&[f32]; 2],
+        events: &[events::Event], context: context::Context, process_mode: u32,
+        deadline: std::time::Instant, mut cancelled: impl FnMut() -> bool,
+        mut capture_completed: impl FnMut(io::Result<Vec<u8>>) -> io::Result<()>,
+        mut started: impl FnMut(),
+    ) -> io::Result<([[u32; BLOCK_CAP + 2]; 2], u64)> {
+        need(!cancelled(), "audio operation cancelled")?;
+        need(self.minor < 15 || process_mode <= 2 && (process_mode == 2) == (self.configured_mode == 2),
+            "process mode requires inactive setup")?;
         need(
-            matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) || events.is_empty(),
+            matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15) || events.is_empty(),
             "events require negotiated protocol",
         )?;
         need(
-            !matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) || gain.is_nan(),
+            !matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15) || gain.is_nan(),
             "commercial legacy gain refused",
         )?;
+        let (operation_epoch, operation_position) = match authority {
+            ProcessAuthority::Running => {
+                need(self.phase == 11, "process requires Started")?;
+                (self.epoch, self.position)
+            }
+            ProcessAuthority::PendingStart(pending) => {
+                need(
+                    self.can_overlap_start()
+                        && matches!(self.phase, 9 | 13)
+                        && pending.session == self.state.session
+                        && pending.sequence == self.state.next
+                        && pending.epoch == self.epoch + 1
+                        && self.capture.is_none(),
+                    "pending Start process authority",
+                )?;
+                (pending.epoch, 0)
+            }
+        };
         need(
-            self.phase == 11
-                && self.state.slot == Slot::Writable
+            self.state.slot == Slot::Writable
                 && (self.minor >= 3 || self.state.next <= 64)
                 && (n > 0 || self.minor >= 4)
                 && n <= self.max
@@ -427,8 +730,8 @@ impl Session {
         self.trace = observer::Trace {
             sample_rate: self.sample_rate,
             armed: self.armed,
-            epoch: self.epoch,
-            position: self.position,
+            epoch: operation_epoch,
+            position: operation_position,
             frames: n as u64,
             event_count: events.len() as u32,
             note_on_count: events.iter().filter(|e| e.kind == events::NOTE_ON).count() as u32,
@@ -440,31 +743,53 @@ impl Session {
             started: Some(std::time::Instant::now()),
             ..Default::default()
         };
-        let mut snapshot = [[0u32; CAP + 2]; 2];
-        let mut poison = [POISON; CAP + 2];
-        poison[0] = GUARD;
-        poison[CAP + 1] = GUARD;
-        for ch in 0..2 {
-            snapshot[ch][0] = GUARD;
-            snapshot[ch][CAP + 1] = GUARD;
-            for i in 0..n {
-                need(input[ch][i].is_finite(), "nonfinite input")?;
-                snapshot[ch][i + 1] = input[ch][i].to_bits();
+        let capacity = self.mapping.as_ref().ok_or_else(|| invalid("mapping absent"))?.capacity;
+        need(n <= capacity, "process exceeds negotiated mapping")?;
+        // A zero-frame operation still carries events, parameters, identity and
+        // an exact completion. It exposes no sample planes to the processor, so
+        // do not prepare or touch the mapped sample payload for that operation.
+        let sample_planes = if n == 0 {
+            None
+        } else {
+            let mut snapshot = [[0u32; BLOCK_CAP + 2]; 2];
+            let mut poison = [POISON; BLOCK_CAP + 2];
+            poison[0] = GUARD;
+            poison[capacity + 1] = GUARD;
+            for ch in 0..2 {
+                snapshot[ch][0] = GUARD;
+                snapshot[ch][capacity + 1] = GUARD;
+                for i in 0..n {
+                    need(input[ch][i].is_finite(), "nonfinite input")?;
+                    snapshot[ch][i + 1] = input[ch][i].to_bits();
+                }
             }
-        }
+            Some((snapshot, poison))
+        };
         self.returned.events = 0;
         self.returned.points = 0;
         self.returned.bytes = 0;
+        let (mapping_output, mapping_stride, output_channels) = {
+            let map = self.mapping.as_ref().ok_or_else(|| invalid("mapping absent"))?;
+            (map.output, map.stride, map.output_channels)
+        };
         let result = (|| {
-            let map = self
-                .mapping
-                .as_mut()
-                .ok_or_else(|| invalid("mapping absent"))?;
-            for (ch, plane) in snapshot.iter().enumerate() {
-                map.write_plane(INPUT, ch, plane)?;
+            if let Some((snapshot, poison)) = &sample_planes {
+                let map = self
+                    .mapping
+                    .as_mut()
+                    .ok_or_else(|| invalid("mapping absent"))?;
+                for (ch, plane) in snapshot.iter().enumerate() {
+                    #[cfg(test)]
+                    sample_plane_test::write();
+                    map.write_plane(INPUT, ch, plane)?;
+                }
+                for ch in 0..output_channels {
+                    #[cfg(test)]
+                    sample_plane_test::write();
+                    map.write_plane(map.output, ch, poison)?;
+                }
+                barrier();
             }
-            for ch in 0..map.output_channels { map.write_plane(OUTPUT, ch, &poison)?; }
-            barrier();
             let request = &mut self.processing.request;
             if self.minor >= 4 {
                 request.payload.clear();
@@ -473,8 +798,8 @@ impl Session {
                 for (offset, value) in [
                     (0, n as u64),
                     (4, INPUT as u64),
-                    (8, OUTPUT as u64),
-                    (12, STRIDE as u64),
+                    (8, mapping_output as u64),
+                    (12, mapping_stride as u64),
                     (24, silence),
                     (28, u64::from(!gain.is_nan())),
                 ] {
@@ -495,13 +820,13 @@ impl Session {
                 *request = self.state.process(n, gain, silence as u32)?;
             }
             if self.minor >= 3 {
-                request.payload.extend_from_slice(&self.epoch.to_le_bytes());
+                request.payload.extend_from_slice(&operation_epoch.to_le_bytes());
                 request
                     .payload
-                    .extend_from_slice(&self.position.to_le_bytes());
+                    .extend_from_slice(&operation_position.to_le_bytes());
             }
-            if matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13) {
-                events::encode_into(events, n, &mut request.payload)?;
+            if matches!(self.minor, 5 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15) {
+                events::encode_for_block(events, n, &mut request.payload, self.minor >= 14)?;
             }
             if self.minor >= 8 {
                 context.encode_into(&mut request.payload);
@@ -509,38 +834,74 @@ impl Session {
             if self.minor >= 10 {
                 request.payload.extend(self.gui_revision.to_le_bytes());
             }
+            if self.minor >= 15 {
+                request.payload.extend(process_mode.to_le_bytes());
+                request.payload.extend(0u32.to_le_bytes());
+            }
             self.trace.prepared = Some(std::time::Instant::now());
             if let Some(s) = &mut self.fault_status {
-                s.publish(self.epoch, self.state.next, self.position, 1, 0);
+                s.publish(operation_epoch, self.state.next, operation_position, 1, 0);
             }
-            let reply = &mut self.processing.reply;
             if self.mailbox_enabled {
+                need(!cancelled(), "audio operation cancelled before publication")?;
+                need(std::time::Instant::now() < deadline, "audio containment expired before publication")?;
+                self.mailbox
+                    .as_mut()
+                    .ok_or_else(|| invalid("delivery mapping absent"))?
+                    .send(request, self.minor)?;
+                if let Some(channel) = &mut self.notifications { channel.notify()?; }
+                self.trace.sent = Some(std::time::Instant::now());
+                if let Some(s) = &mut self.fault_status {
+                    s.publish(operation_epoch, self.state.next, operation_position, 2, 0);
+                }
+                if let ProcessAuthority::PendingStart(pending) = authority {
+                    self.finish_start(pending, &mut cancelled)?;
+                    started();
+                }
                 let mailbox = self
                     .mailbox
                     .as_mut()
                     .ok_or_else(|| invalid("delivery mapping absent"))?;
-                mailbox.send(request, self.minor)?;
-                self.trace.sent = Some(std::time::Instant::now());
-                if let Some(s) = &mut self.fault_status {
-                    s.publish(self.epoch, self.state.next, self.position, 2, 0);
+                let mut healthy = || {
+                    need(!cancelled(), "audio operation cancelled")?;
+                    preview::check_owner(&mut self.owner)?;
+                    mailbox::peer_status(&self.socket, self.capture.is_some())?;
+                    if let Some(capture) = &mut self.capture {
+                        if let Some(reply) = capture.poll(&self.socket, self.minor)? {
+                            let request = Frame { kind: 16, session: self.state.session, sequence: capture.sequence, payload: vec![] };
+                            let result = state::validate_reply(self.minor, &mut self.witness, &request, reply)
+                                .and_then(|payload| state::bound_envelope(self.identity, &payload));
+                            let fatal = result.as_ref().is_err_and(|error| !state::save_refused(error));
+                            self.capture = None;
+                            capture_completed(result)?;
+                            need(!fatal, "state capture failed; original result retained")?;
+                        }
+                    }
+                    Ok(())
+                };
+                if let Some(channel) = &mut self.notifications {
+                    mailbox.receive_notified_into(
+                        self.minor, deadline, &mut healthy, &mut self.processing.reply, channel)?;
+                } else {
+                    need(self.minor < 15, "paired notification channel absent")?;
+                    mailbox.receive_while_into(
+                        self.minor, deadline, &mut healthy, &mut self.processing.reply)?;
                 }
-                mailbox.receive_while_into(
-                    self.minor,
-                    std::time::Instant::now() + std::time::Duration::from_secs(5),
-                    || { preview::check_owner(&mut self.owner)?; mailbox::peer_status(&self.socket, self.capture.is_some()) },
-                    reply,
-                )?;
                 self.trace.windows = mailbox.diagnostic;
             } else {
+                need(!cancelled(), "audio operation cancelled before publication")?;
+                need(std::time::Instant::now() < deadline, "audio containment expired before publication")?;
                 ap1_native_client::endpoint::send_version_with(&mut self.socket, request, 5, self.minor, &mut self.processing.wire)?;
                 self.trace.sent = Some(std::time::Instant::now());
                 if let Some(s) = &mut self.fault_status {
-                    s.publish(self.epoch, self.state.next, self.position, 2, 0);
+                    s.publish(operation_epoch, self.state.next, operation_position, 2, 0);
                 }
-                ap1_native_client::endpoint::receive_version_into(&mut self.socket, 5, self.minor, reply)?;
+                ap1_native_client::endpoint::receive_version_into(
+                    &mut self.socket, 5, self.minor, &mut self.processing.reply)?;
             }
+            let reply = &mut self.processing.reply;
             if let Some(s) = &mut self.fault_status {
-                s.publish(self.epoch, self.state.next, self.position, 3, 0);
+                s.publish(operation_epoch, self.state.next, operation_position, 3, 0);
             }
             self.trace.replied = Some(std::time::Instant::now());
             if self.minor >= 3 {
@@ -556,8 +917,8 @@ impl Session {
                             } else {
                                 32
                             }
-                    }) && get(&reply.payload[16..24]) == self.epoch
-                        && get(&reply.payload[24..32]) == self.position,
+                    }) && get(&reply.payload[16..24]) == operation_epoch
+                        && get(&reply.payload[24..32]) == operation_position,
                     "Done epoch/position differs",
                 )?;
                 if self.minor >= 6 {
@@ -576,36 +937,54 @@ impl Session {
                 }
                 reply.payload.truncate(16);
             }
-            let flags = self.state.done(reply)?;
-            barrier();
-            let output = [map.plane(OUTPUT, 0)?, map.plane(OUTPUT, 1)?];
-            need(map.output_channels == 64 || flags >> map.output_channels == 0, "output flags")?;
-            for ch in 0..2 {
-                need(map.plane(INPUT, ch)? == snapshot[ch], "input changed")?;
-                need(
-                    output[ch][0] == GUARD
-                        && output[ch][CAP + 1] == GUARD
-                        && output[ch][n + 1..CAP + 1].iter().all(|&x| x == POISON),
-                    "output bounds",
-                )?;
-                for &bits in &output[ch][1..n + 1] {
-                    let sample = f32::from_bits(bits);
+            let flags = self.state.done_at(reply, mapping_output)?;
+            need(output_channels == 64 || flags >> output_channels == 0, "output flags")?;
+            let output = if let Some((snapshot, _)) = &sample_planes {
+                let map = self
+                    .mapping
+                    .as_mut()
+                    .ok_or_else(|| invalid("mapping absent"))?;
+                barrier();
+                #[cfg(test)]
+                sample_plane_test::read();
+                let left = map.plane(map.output, 0)?;
+                #[cfg(test)]
+                sample_plane_test::read();
+                let right = map.plane(map.output, 1)?;
+                let output: [[u32; BLOCK_CAP + 2]; 2] = [left, right];
+                for ch in 0..2 {
+                    #[cfg(test)]
+                    sample_plane_test::read();
+                    let mapped_input = map.plane(INPUT, ch)?;
+                    need(mapped_input == snapshot[ch], "input changed")?;
                     need(
-                        sample.is_finite() && ((flags & (1 << ch)) == 0 || sample == 0.0),
-                        "invalid output claim",
+                        output[ch][0] == GUARD
+                            && output[ch][capacity + 1] == GUARD
+                            && output[ch][n + 1..capacity + 1].iter().all(|&x| x == POISON),
+                        "output bounds",
                     )?;
+                    for &bits in &output[ch][1..n + 1] {
+                        let sample = f32::from_bits(bits);
+                        need(
+                            sample.is_finite() && ((flags & (1 << ch)) == 0 || sample == 0.0),
+                            "invalid output claim",
+                        )?;
+                    }
                 }
-            }
-            for ch in 2..map.output_channels {
-                let plane = map.plane(OUTPUT, ch)?;
-                need(plane[0] == GUARD && plane[CAP+1] == GUARD
-                    && plane[n+1..CAP+1].iter().all(|&x| x == POISON), "extra output bounds")?;
-                for i in 0..n {
-                    let sample = f32::from_bits(plane[i+1]);
-                    need(sample.is_finite() && (flags & (1u64 << ch) == 0 || sample == 0.), "extra output claim")?;
-                    map.extra[ch-2][i] = sample;
+                for ch in 2..output_channels {
+                    #[cfg(test)]
+                    sample_plane_test::read();
+                    let plane: [u32; BLOCK_CAP + 2] = map.plane(map.output, ch)?;
+                    need(plane[0] == GUARD && plane[capacity+1] == GUARD
+                        && plane[n+1..capacity+1].iter().all(|&x| x == POISON), "extra output bounds")?;
+                    for i in 0..n {
+                        let sample = f32::from_bits(plane[i+1]);
+                        need(sample.is_finite() && (flags & (1u64 << ch) == 0 || sample == 0.), "extra output claim")?;
+                        map.extra[ch-2][i] = sample;
+                    }
                 }
-            }
+                output
+            } else { [[0; BLOCK_CAP + 2]; 2] };
             self.trace.validated = Some(std::time::Instant::now());
             self.position += n as u64;
             Ok((output, flags))
@@ -631,6 +1010,7 @@ impl Session {
         // No native asynchronous worker exists. Shutdown prevents replay; the external
         // supervisor owns the independently mapped Windows endpoint on failure.
         let _ = self.socket.shutdown(std::net::Shutdown::Both);
+        self.notifications.take();
         let unmap = self
             .mapping
             .take()
@@ -779,6 +1159,96 @@ pub unsafe extern "C" fn ap2_error(out: *mut u8, capacity: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+    use std::time::{Duration, Instant};
+    fn pending_session(socket: TcpStream, path: &std::path::Path, session: [u8; 16]) -> Session {
+        Session {
+            gui: None,
+            gui_revision: 0,
+            mapping: Some(Mapping::new(path).unwrap()),
+            mailbox: None,
+            mailbox_enabled: false,
+            #[cfg(target_os="linux")] direct_requested:false,
+            notifications: None,
+            configured_mode: 0,
+            capture: None,
+            fault_status: None,
+            notices: (0, 0),
+            returned: Default::default(),
+            processing: ProcessingScratch::new(),
+            socket,
+            state: ClientState { session, next: 17, slot: Slot::Writable },
+            phase: 9,
+            max: 256,
+            minor: 15,
+            epoch: 0,
+            position: 0,
+            witness: None,
+            identity: None,
+            trace: Default::default(),
+            sample_rate: 48000,
+            armed: false,
+            owner: None,
+        }
+    }
+    fn socket_pair() -> (TcpStream, TcpStream) {
+        let listener = std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (server, _) = listener.accept().unwrap();
+        (client, server)
+    }
+    #[cfg(target_os="linux")]
+    #[test]
+    fn direct_second_setup_and_start_preserve_epoch_and_unique_audio_owner() {
+        use std::os::unix::fs::FileExt;
+        let root=std::env::temp_dir().join(format!("direct-reconfigure-{:032x}",u128::from_le_bytes(mapping::random().unwrap())));
+        std::fs::create_dir(&root).unwrap();let (socket,mut peer)=socket_pair();
+        let mut session=pending_session(socket,&root.join("samples"),[29;16]);
+        session.mapping=Some(Mapping::with_layout(&root.join("whole"),64,true).unwrap());
+        session.phase=17;session.direct_requested=true;
+        session.mailbox=Some(mailbox::Mailbox::create(&root.join("mailbox"),[29;16]).unwrap());
+        let channel=session.mailbox.as_mut().unwrap().prepare_direct().unwrap();
+        let samples=std::fs::File::options().read(true).write(true).open(root.join("whole")).unwrap();
+        let owner=std::thread::spawn(move|| {
+            for _ in 0..10 {
+                let sequence=17;
+                let request=ap1_native_client::endpoint::receive_version(&mut peer,5,15).unwrap();
+                assert_eq!(request.sequence,sequence);
+                let payload=if request.kind==20 {
+                    assert_eq!(get(&request.payload[16..20]),4);
+                    let mut p=vec![0;16];p[..8].copy_from_slice(&request.payload[..8]);
+                    put(&mut p[8..12],1);put(&mut p[12..16],4);p
+                } else if matches!(request.kind,10|12) {request.payload.clone()} else {vec![]};
+                ap1_native_client::endpoint::send_version(&mut peer,&Frame {kind:request.kind+1,
+                    session:[29;16],sequence,payload},5,15).unwrap();
+            }
+        });
+        let render=std::thread::spawn(move||for (epoch,n) in [(1,64),(2,128)] {
+            let bytes=channel.render_receive(Instant::now()+Duration::from_secs(3)).unwrap();
+            let request=Frame::decode_version(&bytes,15).unwrap();
+            assert_eq!((request.sequence,get(&request.payload[32..40]),get(&request.payload[..4])),(1,epoch,n));
+            for ch in 0..2 {
+                let mut plane=vec![0;n as usize*4];samples.read_exact_at(&mut plane,(INPUT+ch*BLOCK_STRIDE+4) as u64).unwrap();
+                samples.write_all_at(&plane,(BLOCK_OUTPUT+ch*BLOCK_STRIDE+4) as u64).unwrap();
+            }
+            let mut payload=vec![0;72];put(&mut payload[..4],n);put(&mut payload[4..8],BLOCK_OUTPUT as u64);
+            put(&mut payload[16..24],epoch);
+            channel.render_reply(&Frame {kind:4,session:[29;16],sequence:1,payload}.encode_version(15).unwrap());
+        });
+        for (epoch,n) in [(1,64),(2,128)] {
+            session.configure(performance::wire_version(n,0,48000.,true).unwrap()).unwrap();
+            let mut audio=session.prepare_direct_audio().unwrap().unwrap();
+            assert!(session.prepare_direct_audio().is_err());
+            session.activate(n as usize,0).unwrap();session.transition_epoch(10,epoch).unwrap();
+            let mut item=queued::Item {gui_revision:0,kind:3,n,epoch,position:0,ticket:1,process_mode:0,
+                completion:None,gain:f64::NAN,flags:0,queued:None,parent:[0;4],
+                context:context::Context::default(),event_count:0,events:[events::Event::default();events::MAX_EVENTS],
+                data:[[0.25;BLOCK_CAP];2]};
+            assert_eq!(audio.process(&mut item,Instant::now()+Duration::from_secs(2)).unwrap().sequence,1);
+            session.transition_epoch(12,epoch).unwrap();session.transition(14).unwrap();drop(audio);
+        }
+        owner.join().unwrap();render.join().unwrap();drop(session);std::fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn invalid_ownership_has_no_effect() {
         assert_eq!(ap2_abi_version(), 1);
@@ -804,5 +1274,91 @@ mod tests {
         let raw = f.encode_version(2).unwrap();
         assert!(Frame::decode(&raw).is_err());
         assert_eq!(Frame::decode_version(&raw, 2).unwrap(), f);
+    }
+    #[test]
+    fn pending_start_refusal_fails_exact_session_and_fresh_session_can_restart() {
+        let directory = std::env::temp_dir().join(format!(
+            "lvb-pending-start-{}-{}",
+            std::process::id(),
+            u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())
+        ));
+        std::fs::create_dir(&directory).unwrap();
+        let identity = [45; 16];
+        let pending = PendingStart {
+            session: identity,
+            sequence: 17,
+            epoch: 1,
+            receive_deadline: Instant::now() + Duration::from_secs(1),
+        };
+        let (client, mut peer) = socket_pair();
+        let mut refused = pending_session(client, &directory.join("refused.audio"), identity);
+        let writer = std::thread::spawn(move || {
+            send_version(&mut peer, &Frame {
+                kind: 7,
+                session: identity,
+                sequence: 17,
+                payload: vec![1, 0, 0, 0],
+            }, 1, 15).unwrap();
+        });
+        assert_eq!(refused.finish_start(pending, || false).unwrap_err().to_string(),
+            "wrong pending Started response");
+        writer.join().unwrap();
+        assert_eq!(refused.phase, ERROR);
+        assert_eq!(refused.state.slot, Slot::Failed);
+
+        let (client, mut peer) = socket_pair();
+        let mut restarted = pending_session(client, &directory.join("restarted.audio"), identity);
+        let writer = std::thread::spawn(move || {
+            send_version(&mut peer, &Frame {
+                kind: 11,
+                session: identity,
+                sequence: 17,
+                payload: 1u64.to_le_bytes().to_vec(),
+            }, 1, 15).unwrap();
+        });
+        restarted.finish_start(pending, || false).unwrap();
+        writer.join().unwrap();
+        assert_eq!((restarted.phase, restarted.epoch, restarted.position), (11, 1, 0));
+        assert_eq!(restarted.state.slot, Slot::Writable);
+        drop(refused);
+        drop(restarted);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+    #[test]
+    fn pending_start_partial_ack_cannot_outlive_the_audio_deadline() {
+        let directory = std::env::temp_dir().join(format!(
+            "lvb-pending-start-audio-deadline-{}-{}",
+            std::process::id(),
+            u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())
+        ));
+        std::fs::create_dir(&directory).unwrap();
+        let identity = [46; 16];
+        let (client, mut peer) = socket_pair();
+        let mut session = pending_session(client, &directory.join("deadline.audio"), identity);
+        let pending = PendingStart {
+            session: identity,
+            sequence: 17,
+            epoch: 1,
+            receive_deadline: Instant::now() + Duration::from_secs(10),
+        };
+        let reply = Frame {
+            kind: 11,
+            session: identity,
+            sequence: 17,
+            payload: 1u64.to_le_bytes().to_vec(),
+        }
+        .encode_version(15)
+        .unwrap();
+        peer.write_all(&reply[..13]).unwrap();
+        let audio_deadline = Instant::now() - Duration::from_nanos(1);
+        let bounded = pending.bounded_by(audio_deadline);
+        assert_eq!(bounded.receive_deadline, audio_deadline);
+        assert_eq!(session.finish_start(bounded, || false).unwrap_err().kind(),
+            io::ErrorKind::TimedOut);
+        assert_eq!(session.phase, ERROR);
+        assert_eq!(session.state.slot, Slot::Failed);
+        drop(session);
+        drop(peer);
+        std::fs::remove_dir_all(directory).unwrap();
     }
 }

@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "date": "2026-10-04",
+  "claim": "Graphical denial socket remains non-listening while a forked pre-exec child inherits its descriptor",
+  "source": {
+    "base": "1a173feeed57ff50b32c05d86c403644528e19ec",
+    "base_tree": "d76939916bf2ea144b87dffa13da1a2bc63f4d43",
+    "patch_sha256": "8ac76e40658bc9cc901e95a630482656206db3f7a84eb29c417f58caa49a137e",
+    "files": {
+      "bridge-manager/src/transport_storage.rs": "52703cb3bb34ce26f28fb66f3d3caae3b41ed4d118ac9fd34750b8f3fb520a9d"
+    }
+  },
+  "trigger": {
+    "ci_run": 37230693058,
+    "job": 111519516373,
+    "source_head": "1a173feeed57ff50b32c05d86c403644528e19ec",
+    "failure": "unexposed_memory_is_removed_but_exposed_ownership_is_retained failed during initialize_at with graphical_denial_listening",
+    "ci_log_sha256": "8dea4ef6aed7bee4c65c041208b8255cf3e64ad6f92f4b96565989cf905e12c0"
+  },
+  "cause": "UnixListener::bind starts listening. A concurrent fork retains that open file description even after the parent closes it, until child exec/exit. CLOEXEC does not prevent pre-exec inheritance.",
+  "repair": "Bind AF_UNIX stream inode without calling listen; atomically request CLOEXEC on Linux. Retain existing private permissions, owner/type, connect-refused and inode-stability checks.",
+  "regression": "Fork while the same initialization descriptor is alive; child signals ready and holds inherited descriptor while parent performs normal verification. Old listening implementation fails, bound-only implementation passes. Child uses async-signal-safe syscalls and parent owns bounded release and failure cleanup.",
+  "test_fixture_correction": "Standalone hidden-mount test now creates explicit private directories; it previously depended on another test setting process-global umask. Production private_dir unchanged.",
+  "checks": [
+    {
+      "snapshot": "transport-fix-validation-v1.tgz",
+      "name": "old-fork-regression",
+      "returncode": 101,
+      "expected_returncode": 101,
+      "seconds": 18.797,
+      "log_sha256": "f0f18fb0dae69db7658e9170cb4ac33577a49e29d341b0519e505a773140e909",
+      "result_lines": [
+        "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 251 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "snapshot": "transport-fix-validation-v1.tgz",
+      "name": "fixed-default",
+      "returncode": 101,
+      "expected_returncode": 0,
+      "seconds": 18.253,
+      "log_sha256": "882c944b3f389ffdd81506b00a7f5099fae0d351b41cdec5098e095ee53123e0",
+      "result_lines": [
+        "test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 243 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "snapshot": "transport-fix-validation-v2.tgz",
+      "name": "fixed-default",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 17.97,
+      "log_sha256": "3fb3797a2635918f53299c4efa5cc6d45c7c71ca950a3fb5426e3a9263fa9b57",
+      "result_lines": [
+        "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 243 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "snapshot": "transport-fix-validation-v2.tgz",
+      "name": "clippy-default",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 22.549,
+      "log_sha256": "d2bd2619df37d85a40c284534f64c601f38e34c8322337ae0fac989578f01399",
+      "result_lines": []
+    },
+    {
+      "snapshot": "transport-fix-validation-v2.tgz",
+      "name": "fixed-candidate",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 17.135,
+      "log_sha256": "bec7266f9fdd808674d6075028b22d27efa3da9fbeee656391b52df8bfb852a7",
+      "result_lines": [
+        "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 247 filtered out; finished in 0.00s"
+      ]
+    },
+    {
+      "snapshot": "transport-fix-validation-v2.tgz",
+      "name": "clippy-candidate",
+      "returncode": 0,
+      "expected_returncode": 0,
+      "seconds": 18.767,
+      "log_sha256": "5434dbfef237f44866ac3962654d8d4bb891850ffe4a5af574f131fc21028a3a",
+      "result_lines": []
+    }
+  ],
+  "review": {
+    "model": "gpt-6-astra",
+    "effort": "xhigh",
+    "remaining_actionable_findings": [],
+    "scope": "Bound-only socket creation and deterministic fork regression; explicit700 fixture delta reviewed separately."
+  },
+  "retained_artifacts": {
+    "transport-fix-validation-v1.tgz": "cac7844dd86541f5e1bcb7265ea9f1abf29b40d686a4b2fd080b97312167d7ff",
+    "transport-fix-validation-v2.tgz": "ad2a99cbfd06c7c78cd4e3d597806233a43ec8fb822c9f6ed7c45dfe28e87e38",
+    "refresh1-incomplete-build.tgz": "2a7b03761c28ead10119352b58188ac2ec0aca3b7a1efca75bd8622e5af0eb9c"
+  },
+  "incomplete_package_build": {
+    "source_head": "1a173feeed57ff50b32c05d86c403644528e19ec",
+    "completed": false,
+    "installed": false,
+    "refusals": [
+      "Private cache symlinks did not match directory-only generated-file ignores; corrected private driver to real generated directories",
+      "Audio9 Windows source roster differs at shared ap4_backend.h; retained refusal and obtained matching CI artifact instead"
+    ],
+    "native_sdk_tests_passed": 13
+  },
+  "limits": [
+    "Exact new package build and installed managed update/recovery still pending",
+    "No audio timing, graphics rendering, Deck or beta acceptance claim"
+  ]
+}

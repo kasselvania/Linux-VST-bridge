@@ -1,0 +1,803 @@
+{
+  "schema": 1,
+  "claim": "installed_reference_audio_completion_checkpoint_not_beta_qualification",
+  "candidate": {
+    "schema": 1,
+    "source_head": "29e820402851a3d5f05395f6f4f923456a5afa0c",
+    "source_tree": "fd75321eaa8289ffc968bd1c9ffabdfd52e06bae",
+    "version": "0.12.0audio3",
+    "frozen_at_utc": "2026-10-04T05:20:21.647062+00:00",
+    "files": {
+      "linux-vst-bridge-beta_0.12.0audio3-1_amd64.deb": "a8968adfd0dd14735b21b72d2bca0f52566ccf8f33d4fca7c19b6644e943f993",
+      "preparation-kit.zip": "752fdb6c92ba9f6898a2f5cf6385667830e774181b7e51d6044bc47b98afc1f9",
+      "staged-audio3/RELEASE_MANIFEST.json": "4c1f53bb1245a47c4a57eacc9e2413b3a2583673da7ca53da3f4b6d304fe0cb0",
+      "PACKAGE_VERIFIED.json": "8825fd764ee59671e66497fe9bb2485ce0a5f1c9de6ca182e708e77869b68103"
+    },
+    "manager_features": [
+      "pb0-c0-audit"
+    ],
+    "manager_sha256": "dd338b422c24f7bbed09584fabd8633bc12abe098fa41886632b6ccab65bc776",
+    "engine_sha256": "0c3c3b627a8714868c1e42220d232f098d34b7364c864d67759651b3c795d5e3",
+    "windows_host_sha256": "57f23801e9cbd9f6bcab3a71ddf28dbd1f2861c88e12501635257561830a1b64",
+    "paired_backend_rebuild": true,
+    "claim": "audio_completion_candidate_not_installed_acceptance_or_beta_qualification"
+  },
+  "windows_component_provenance": {
+    "declared_input_count": 64,
+    "host_sha256": "57f23801e9cbd9f6bcab3a71ddf28dbd1f2861c88e12501635257561830a1b64",
+    "ordinary_build_validation_passed": true,
+    "source_commit": "f57a4a4dd357b22c610daa20ab64be2cac634375",
+    "source_manifest_sha256": "684ff2fd0b9b872973656098a53c8cd0616c475502f4e41f7dfd3bcd3c75fb4d"
+  },
+  "observer": {
+    "observer_sources": {
+      "completion_host.cpp": "7aaca9e865f100240d62cbc3eb129cb57563a91923fbbdb69f754449ad6850ae",
+      "completion_host_tests.cpp": "d7660846e70fe9e938cc2b5325312ee785cffdf9783819252ecb42adce616e90"
+    },
+    "oracle_logs": {
+      "oracle-effect.log": "aa43f999075674b1c1f71182383890f1fda8d3889911c1ac100b19bc0a65533f",
+      "oracle-instrument.log": "137a8ad0cab3bd6847335c97d2f8d1d6445c3742997f2a5424cef6ff06e17ca9"
+    },
+    "sdk_tools": {
+      "completion-host": "7ed165f39ee8e59bcb42802a3c4357d974636c35428105895335fae9fe0ef907",
+      "completion-host-effect-tests": "e28085ef70eed3ae00b9239c811d8d2b73aca6e7e48438b11c2276d35286996b",
+      "completion-host-instrument-tests": "cb33654a94db6db19e4dc7b5b63ff7d5096481496bf41cab3067ba7a66ffe00a",
+      "libap3-callback-audit.so": "b26516e2d3d80ab393f57dc45701f801219f0625ad8384008fd1f8f35d33a0c2"
+    }
+  },
+  "source_ci": [
+    {
+      "conclusion": "success",
+      "databaseId": 37179310757,
+      "status": "completed",
+      "workflowName": "Beta package portability"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 37179310754,
+      "status": "completed",
+      "workflowName": "PX2 proof policy"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 37179310787,
+      "status": "completed",
+      "workflowName": "AP12 registered owner"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 37179310658,
+      "status": "completed",
+      "workflowName": "AP10 native result lifetime"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 37179310702,
+      "status": "completed",
+      "workflowName": "AP8 Windows host"
+    }
+  ],
+  "machine": {
+    "fixture": "Ubuntu 26.04.1 disposable x86_64 VM",
+    "guest_memory_gib": 6,
+    "outer_memory_gib": 8,
+    "outer_memory_swap_equal": true,
+    "cpus": 2,
+    "cpuset": "2,3",
+    "pids": 256,
+    "one_project_machine_at_a_time": true,
+    "deck_changed": false
+  },
+  "builder_evidence_sha256": "4300c7640b6c1cbf6344cdf33bb7ff2b726664fbefeb7d9a23318215b76a8777",
+  "candidate_archive_sha256": "21eca5dd3fe7fff9b5cd690366d79886dda57b7aea4eed67c722254232339c2e",
+  "runs": [
+    {
+      "role": "effect",
+      "scenario": "offline",
+      "maximum": 512,
+      "rate": 48000,
+      "delay": 0,
+      "exit_code": 0,
+      "intervention": null,
+      "observer_error": null,
+      "owner_validated": true,
+      "retired": true,
+      "passed": true,
+      "physical_daw_claim": false,
+      "name": "effect-samecallback-d0-offline-audio3-1",
+      "private_archive_sha256": "07868a338e4b78fdb028462d8cc9f716fa32134df1b3507b554b647a7c1de80d",
+      "result_record_sha256": "60d8a5936c96a96fc897069fb779b084cae69f85e9213249a622b79b1eecbaf7",
+      "remaining_owner_count": 0,
+      "events": [
+        {
+          "event": "completion_state",
+          "component_bytes": 232,
+          "controller_bytes": 8,
+          "component_recall": true,
+          "controller_recall": true
+        },
+        {
+          "event": "completion_audio",
+          "schema": 1,
+          "role": "effect",
+          "delivery_frames": 0,
+          "vendor_latency_frames": 13,
+          "callbacks": 787,
+          "compared_samples": 664180,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 661492,
+          "max_error": 0,
+          "returned_events": 791,
+          "returned_points": 1574,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 3584022,
+          "whole_callback_overruns": 0,
+          "callback_effects": 0,
+          "callback_local_wakes": 787,
+          "local_wake_counter_available": true,
+          "callback_audited": true
+        }
+      ],
+      "retirement": [
+        {
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "process_exit_code": 0,
+          "reported_error": false
+        }
+      ],
+      "independent_audio": {
+        "schema": 1,
+        "claim": "independent_whole_retained_output_comparison",
+        "role": "effect",
+        "scenario": "offline",
+        "maximum": 512,
+        "rate": 48000,
+        "bridge_delay": 0,
+        "vendor_latency": 13,
+        "raw_sha256": "34c8b457a96ef745d3677b1a005540584eadb24b2b18930248ae844564ca2793",
+        "log_sha256": "4574a7242df2c53cb261e5620f9a80160da4b57673041ac522a32b11ff9c0ad5",
+        "complete_plan": true,
+        "callbacks": 787,
+        "expected_callbacks": 787,
+        "samples": 664180,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "unexpected_zero_samples": 0,
+        "maximum_error": 0.0,
+        "consumer_success": true,
+        "output_complete": true,
+        "passed": true,
+        "physical_daw_claim": false
+      }
+    },
+    {
+      "role": "instrument",
+      "scenario": "abrupt-offline",
+      "maximum": 512,
+      "rate": 48000,
+      "delay": 512,
+      "exit_code": 23,
+      "intervention": null,
+      "observer_error": null,
+      "owner_validated": true,
+      "retired": true,
+      "passed": true,
+      "physical_daw_claim": false,
+      "name": "instrument-buffered512-abrupt-offline-audio3-1",
+      "private_archive_sha256": "ef4e9224de3e966d5f3a801aea587cac82e086e028fb48dcdf3bbd8ca964b2de",
+      "result_record_sha256": "f47b94122a70361b9bec13d9609ecb8f4b4991bbe8eaafd79baac0743b4505bd",
+      "remaining_owner_count": 0,
+      "events": [
+        {
+          "event": "intentional_consumer_disappearance",
+          "audio_call_begin_ns": 476721404240,
+          "disappearance_ns": 477221511196,
+          "audio_inflight": true,
+          "sdk_teardown": false,
+          "cancellation_success_claim": false
+        }
+      ],
+      "retirement": [
+        {
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "process_exit_code": 143,
+          "reported_error": false
+        }
+      ]
+    },
+    {
+      "role": "instrument",
+      "scenario": "offline-failure",
+      "maximum": 512,
+      "rate": 48000,
+      "delay": 512,
+      "exit_code": 0,
+      "intervention": null,
+      "observer_error": null,
+      "owner_validated": true,
+      "retired": true,
+      "passed": true,
+      "physical_daw_claim": false,
+      "name": "instrument-buffered512-offline-failure-audio3-1",
+      "private_archive_sha256": "2e830cfe43f76716dfdcf83ab200fb5b364e3390e8d4f3e888f8eeebe375c61c",
+      "result_record_sha256": "35dd5de8ca5c8fa9b2839c41c62739462c8f540cb4adb4b9b72b41ff5be04139",
+      "remaining_owner_count": 0,
+      "events": [
+        {
+          "event": "expected_failure",
+          "kind": "vendor_failure",
+          "result": 1,
+          "callback_ns": 1535749,
+          "successful_audio_claim": false
+        },
+        {
+          "event": "completion_audio",
+          "schema": 1,
+          "role": "instrument",
+          "delivery_frames": 512,
+          "vendor_latency_frames": 13,
+          "callbacks": 5,
+          "compared_samples": 0,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 0,
+          "max_error": 0,
+          "returned_events": 4,
+          "returned_points": 8,
+          "rejected_callbacks": 1,
+          "callback_max_ns": 1535749,
+          "whole_callback_overruns": 0,
+          "callback_effects": 0,
+          "callback_local_wakes": 5,
+          "local_wake_counter_available": true,
+          "callback_audited": true
+        }
+      ],
+      "retirement": [
+        {
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "process_exit_code": 90,
+          "reported_error": true
+        }
+      ]
+    },
+    {
+      "role": "instrument",
+      "scenario": "offline-timeout",
+      "maximum": 512,
+      "rate": 48000,
+      "delay": 512,
+      "exit_code": 0,
+      "intervention": null,
+      "observer_error": null,
+      "owner_validated": true,
+      "retired": true,
+      "passed": true,
+      "physical_daw_claim": false,
+      "name": "instrument-buffered512-offline-timeout-audio3-1",
+      "private_archive_sha256": "925b9a7448b2c09e24e9a14f38f5b19bf411ef9c9b8a75c73c51d3d74a11429a",
+      "result_record_sha256": "5608662e112e71120bd697b28f3da04aa3cbb3dc25b51881b0de3f9d8e692e88",
+      "remaining_owner_count": 0,
+      "events": [
+        {
+          "event": "expected_failure",
+          "kind": "offline_deadline",
+          "result": 1,
+          "callback_ns": 60000078796,
+          "successful_audio_claim": false
+        },
+        {
+          "event": "completion_audio",
+          "schema": 1,
+          "role": "instrument",
+          "delivery_frames": 512,
+          "vendor_latency_frames": 13,
+          "callbacks": 5,
+          "compared_samples": 0,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 0,
+          "max_error": 0,
+          "returned_events": 4,
+          "returned_points": 8,
+          "rejected_callbacks": 1,
+          "callback_max_ns": 60000078796,
+          "whole_callback_overruns": 1,
+          "callback_effects": 0,
+          "callback_local_wakes": 6,
+          "local_wake_counter_available": true,
+          "callback_audited": true
+        }
+      ],
+      "retirement": [
+        {
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "process_exit_code": 143,
+          "reported_error": false
+        }
+      ]
+    },
+    {
+      "role": "instrument",
+      "scenario": "slow-offline",
+      "maximum": 512,
+      "rate": 48000,
+      "delay": 512,
+      "exit_code": 0,
+      "intervention": null,
+      "observer_error": null,
+      "owner_validated": true,
+      "retired": true,
+      "passed": true,
+      "physical_daw_claim": false,
+      "name": "instrument-buffered512-slow-offline-audio3-cold-1",
+      "private_archive_sha256": "0630481941a70927a707c226f9c7d39adb7c5439dbe8cc225f5a3ee3d8583fb7",
+      "result_record_sha256": "a75f83c65c36c72aeb216f1bcdaf5c9d9b96ff92e11e9a8b0f0bb59eca486e02",
+      "remaining_owner_count": 0,
+      "events": [
+        {
+          "event": "capture_overlap_observation",
+          "capture_begin_ns": 53364682178,
+          "capture_end_ns": 53574142807,
+          "audio_begin_ns": 53414907510,
+          "audio_end_ns": 65417110693,
+          "audio_inflight_at_capture_return": true,
+          "audio_callback_interval_recorded": true,
+          "capture_issued_before_audio_begin": true,
+          "capture_within_original_10s": true,
+          "audio_remaining_after_capture_start_ns": 12052428515,
+          "transport_capture_admission_proven_by_sdk_timestamps": false
+        },
+        {
+          "event": "completion_state",
+          "component_bytes": 232,
+          "controller_bytes": 8,
+          "component_recall": true,
+          "controller_recall": true
+        },
+        {
+          "event": "completion_audio",
+          "schema": 1,
+          "role": "instrument",
+          "delivery_frames": 512,
+          "vendor_latency_frames": 13,
+          "callbacks": 10,
+          "compared_samples": 4148,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 2040,
+          "max_error": 0,
+          "returned_events": 11,
+          "returned_points": 17,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 12002203183,
+          "whole_callback_overruns": 0,
+          "callback_effects": 0,
+          "callback_local_wakes": 10,
+          "local_wake_counter_available": true,
+          "callback_audited": true
+        }
+      ],
+      "retirement": [
+        {
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "process_exit_code": 0,
+          "reported_error": false
+        }
+      ],
+      "independent_audio": {
+        "schema": 1,
+        "claim": "independent_whole_retained_output_comparison",
+        "role": "instrument",
+        "scenario": "slow-offline",
+        "maximum": 512,
+        "rate": 48000,
+        "bridge_delay": 512,
+        "vendor_latency": 13,
+        "raw_sha256": "ed5a0610ab0d4b9d12bd5432403ecaee11844768275a7ae5a50348e5e30b9d60",
+        "log_sha256": "f7c641fff7139801be2686f63944f195bb4ff58b47a9ce9b68d1b5fb8b24b6dd",
+        "complete_plan": true,
+        "callbacks": 10,
+        "expected_callbacks": 10,
+        "samples": 4148,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "unexpected_zero_samples": 0,
+        "maximum_error": 0.0,
+        "consumer_success": true,
+        "output_complete": true,
+        "passed": true,
+        "physical_daw_claim": false
+      },
+      "cold_start": {
+        "container_started_at_utc": "2026-10-04T05:34:13.991635075Z",
+        "manager_started_at_utc": "2026-10-04T05:34:24.791977Z",
+        "first_consumer_invoked_at_utc": "2026-10-04T05:34:56,784107911+00:00",
+        "first_owner_ledger_written_at_utc": "2026-10-04T05:35:08.306138830Z",
+        "no_intervening_consumer_launch": true,
+        "automatic_warm_preparation_finish_time_observed": false,
+        "late_preparation_branch_exercised": "not established by this installed pass",
+        "ordinary_prelaunch_observations": [
+          "SSH readiness",
+          "systemd service timestamp",
+          "service journal; runner performed its required capacity-before readback"
+        ]
+      }
+    },
+    {
+      "role": "instrument",
+      "scenario": "modes",
+      "maximum": 512,
+      "rate": 48000,
+      "delay": 512,
+      "exit_code": 0,
+      "intervention": null,
+      "observer_error": null,
+      "owner_validated": true,
+      "retired": true,
+      "passed": true,
+      "physical_daw_claim": false,
+      "name": "instrument-restored-buffered512-modes-audio3-1",
+      "private_archive_sha256": "3c4d40dde6b341e6a1d1dbe2cadae91a023a8e59e6e1ac1b8c1a978941cc1754",
+      "result_record_sha256": "b118a1b162cd2edc783885fdaffcad065fe905e615c93200e37e01e034a008d1",
+      "remaining_owner_count": 0,
+      "events": [
+        {
+          "event": "completion_state",
+          "component_bytes": 232,
+          "controller_bytes": 8,
+          "component_recall": true,
+          "controller_recall": true
+        },
+        {
+          "event": "completion_audio",
+          "schema": 1,
+          "role": "instrument",
+          "delivery_frames": 512,
+          "vendor_latency_frames": 13,
+          "callbacks": 107,
+          "compared_samples": 198672,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 196564,
+          "max_error": 0,
+          "returned_events": 108,
+          "returned_points": 211,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 1160450,
+          "whole_callback_overruns": 1,
+          "callback_effects": 0,
+          "callback_local_wakes": 107,
+          "local_wake_counter_available": true,
+          "callback_audited": true
+        }
+      ],
+      "retirement": [
+        {
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "process_exit_code": 0,
+          "reported_error": false
+        }
+      ],
+      "independent_audio": {
+        "schema": 1,
+        "claim": "independent_whole_retained_output_comparison",
+        "role": "instrument",
+        "scenario": "modes",
+        "maximum": 512,
+        "rate": 48000,
+        "bridge_delay": 512,
+        "vendor_latency": 13,
+        "raw_sha256": "74c26e69df151985702e71ee6fb477a4f8e10f0708962f0331c49be3fd9d0422",
+        "log_sha256": "65589af9745c303cdfe8c73a986e8dbcfa0bd536bb2c40ce2b577967b0d6b087",
+        "complete_plan": true,
+        "callbacks": 107,
+        "expected_callbacks": 107,
+        "samples": 198672,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "unexpected_zero_samples": 0,
+        "maximum_error": 0.0,
+        "consumer_success": true,
+        "output_complete": true,
+        "passed": true,
+        "physical_daw_claim": false
+      }
+    },
+    {
+      "role": "instrument",
+      "scenario": "offline",
+      "maximum": 512,
+      "rate": 48000,
+      "delay": 512,
+      "exit_code": 0,
+      "intervention": null,
+      "observer_error": null,
+      "owner_validated": true,
+      "retired": true,
+      "passed": true,
+      "physical_daw_claim": false,
+      "name": "instrument-restored-buffered512-offline-audio3-1",
+      "private_archive_sha256": "3e0b14d16e02b13d588955c98b4c0e02843e183bdea196950c85bcb6e7d737b7",
+      "result_record_sha256": "6a01d7194fe1f14721fc8f444f384fe0ad09b0e2787d13fdcff0a0a2c3345af5",
+      "remaining_owner_count": 0,
+      "events": [
+        {
+          "event": "completion_state",
+          "component_bytes": 232,
+          "controller_bytes": 8,
+          "component_recall": true,
+          "controller_recall": true
+        },
+        {
+          "event": "completion_audio",
+          "schema": 1,
+          "role": "instrument",
+          "delivery_frames": 512,
+          "vendor_latency_frames": 13,
+          "callbacks": 790,
+          "compared_samples": 668276,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 664060,
+          "max_error": 0,
+          "returned_events": 791,
+          "returned_points": 1572,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 4032986,
+          "whole_callback_overruns": 0,
+          "callback_effects": 0,
+          "callback_local_wakes": 790,
+          "local_wake_counter_available": true,
+          "callback_audited": true
+        }
+      ],
+      "retirement": [
+        {
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "process_exit_code": 0,
+          "reported_error": false
+        }
+      ],
+      "independent_audio": {
+        "schema": 1,
+        "claim": "independent_whole_retained_output_comparison",
+        "role": "instrument",
+        "scenario": "offline",
+        "maximum": 512,
+        "rate": 48000,
+        "bridge_delay": 512,
+        "vendor_latency": 13,
+        "raw_sha256": "b3b562c7df2ddbab5109966d2d2d135d0cd5da9913791dd11344fe7da13e44d8",
+        "log_sha256": "14f724b3c4288e204db49bef3bb353c488900d80347fc4c6cc27c00243a4b183",
+        "complete_plan": true,
+        "callbacks": 790,
+        "expected_callbacks": 790,
+        "samples": 668276,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "unexpected_zero_samples": 0,
+        "maximum_error": 0.0,
+        "consumer_success": true,
+        "output_complete": true,
+        "passed": true,
+        "physical_daw_claim": false
+      }
+    },
+    {
+      "role": "instrument",
+      "scenario": "offline",
+      "maximum": 512,
+      "rate": 48000,
+      "delay": 0,
+      "exit_code": 0,
+      "intervention": null,
+      "observer_error": null,
+      "owner_validated": true,
+      "retired": true,
+      "passed": true,
+      "physical_daw_claim": false,
+      "name": "instrument-samecallback-d0-offline-audio3-1",
+      "private_archive_sha256": "0367fe14bc471cf26a93c35eccb0693867bc18f4ed7d29136e092910d59104c9",
+      "result_record_sha256": "4709359008eb3e9c2ed85a392ea09178ec8ddee1b7d751c40a86c282315b46a3",
+      "remaining_owner_count": 0,
+      "events": [
+        {
+          "event": "completion_state",
+          "component_bytes": 232,
+          "controller_bytes": 8,
+          "component_recall": true,
+          "controller_recall": true
+        },
+        {
+          "event": "completion_audio",
+          "schema": 1,
+          "role": "instrument",
+          "delivery_frames": 0,
+          "vendor_latency_frames": 13,
+          "callbacks": 787,
+          "compared_samples": 664180,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 664060,
+          "max_error": 0,
+          "returned_events": 791,
+          "returned_points": 1574,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 5158155,
+          "whole_callback_overruns": 0,
+          "callback_effects": 0,
+          "callback_local_wakes": 787,
+          "local_wake_counter_available": true,
+          "callback_audited": true
+        }
+      ],
+      "retirement": [
+        {
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "process_exit_code": 0,
+          "reported_error": false
+        }
+      ],
+      "independent_audio": {
+        "schema": 1,
+        "claim": "independent_whole_retained_output_comparison",
+        "role": "instrument",
+        "scenario": "offline",
+        "maximum": 512,
+        "rate": 48000,
+        "bridge_delay": 0,
+        "vendor_latency": 13,
+        "raw_sha256": "471418757163a518b5826853e76d6fa9952990559d3f4e3c1c475672a3f5efba",
+        "log_sha256": "bc591655dcf49263df540807e35f69aa363bb2bcbf9d15128c8c5de7fc854a5f",
+        "complete_plan": true,
+        "callbacks": 787,
+        "expected_callbacks": 787,
+        "samples": 664180,
+        "mismatches": 0,
+        "nonfinite": 0,
+        "unexpected_zero_samples": 0,
+        "maximum_error": 0.0,
+        "consumer_success": true,
+        "output_complete": true,
+        "passed": true,
+        "physical_daw_claim": false
+      }
+    }
+  ],
+  "normal_delivery_selection": {
+    "private_archive_sha256": "08efb3b3243f14588d12de4c695c316886bd40bec028c0febd4adeae24a4ed20",
+    "operations": [
+      {
+        "role": "effect",
+        "action": {
+          "kind": "delivery_set",
+          "class_id": "4C564242434D50314546465800000001",
+          "mode": "same_callback"
+        },
+        "accepted": true,
+        "state": "completed",
+        "result": {
+          "added_bridge_frames": 0,
+          "applies_to": "next_activation",
+          "compatibility_qualified": false,
+          "delivery_mode": "same_callback",
+          "remembered_buffered_frames": 512
+        }
+      },
+      {
+        "role": "instrument",
+        "action": {
+          "kind": "delivery_set",
+          "class_id": "4C564242434D5031494E535400000001",
+          "mode": "same_callback"
+        },
+        "accepted": true,
+        "state": "completed",
+        "result": {
+          "added_bridge_frames": 0,
+          "applies_to": "next_activation",
+          "compatibility_qualified": false,
+          "delivery_mode": "same_callback",
+          "remembered_buffered_frames": 512
+        }
+      }
+    ],
+    "preferences": [
+      {
+        "class_id": "4C564242434D5031494E535400000001",
+        "preference": {
+          "added_frames": 512,
+          "delivery_mode": "same_callback",
+          "schema": 2
+        }
+      },
+      {
+        "class_id": "4C564242434D50314546465800000001",
+        "preference": {
+          "added_frames": 512,
+          "delivery_mode": "same_callback",
+          "schema": 2
+        }
+      }
+    ]
+  },
+  "private_master_summary_sha256": "470015ee1c42e889ddb5ae951eea53bc1eb49a4c44e229f7ce1b4842837dac2f",
+  "scope": {
+    "failure_cases": "Explicit vendor failure, original offline deadline, and abrupt native-consumer disappearance are separate tests; successful failure containment is not a successful-audio claim.",
+    "timeout_timing": "The observed timeout callback returned 78,796 ns beyond 60 seconds with explicit failure. Retain this measured overshoot; do not claim a strict whole-callback wall-clock guarantee.",
+    "cold_start": "One first-consumer success after normal restart; source regression separately establishes the late observation publication defect. Prior audio2 cold failure remains failed.",
+    "nonclaims": [
+      "No physical DAW or Deck acceptance",
+      "No continuous soak",
+      "No attribution of historical Deck or config4 gaps",
+      "No complete real-time or serial-chain timing qualification",
+      "No lower-block qualification",
+      "No beta readiness"
+    ]
+  },
+  "private_setup_records_sha256": "617ace8d813c82d3fb72dfcc6ada2f666a2971014b4023a4944e822e7e561a35",
+  "normal_buffered_restoration": {
+    "private_archive_sha256": "3bd126cd6b8c96dd172c93d662c283f63ba5c0ef6fd7b87c7b74113a4ebbcebe",
+    "gui_evidence_manifest_sha256": "76006e8ff44526c680f67dce11d01d1d2b1ed1932488a8b702d6acb4cf3caf40",
+    "target": "LVB Completion Instrument",
+    "ui_action": "Restore buffered delivery with remembered buffering",
+    "separate_confirmation_dialog": false,
+    "observed_ui_result": "Buffered delivery; 512 added bridge frames",
+    "manager_closed_before_measured_callbacks": true,
+    "instrument_preference": {
+      "schema": 1,
+      "added_frames": 512
+    },
+    "effect_preference": {
+      "schema": 2,
+      "added_frames": 512,
+      "delivery_mode": "same_callback"
+    },
+    "effect_unchanged": true,
+    "comparison": {
+      "audio2_modes_timing_qualified": false,
+      "audio2_overrun_duration_ns": 338592,
+      "audio3_modes_timing_qualified": false,
+      "audio3_overrun_duration_ns": 280722,
+      "modes_output_and_state_byte_exact_to_audio2": true,
+      "offline_output_and_state_byte_exact_to_audio2": true,
+      "same_single_overrun_identity": true
+    },
+    "current_modes_timing": {
+      "callbacks": 107,
+      "overruns": [
+        {
+          "N": 13,
+          "allowance_ns": 270833,
+          "callback": 105,
+          "duration_ns": 280722,
+          "mode": 0,
+          "sample_position": 49655
+        }
+      ],
+      "rate": 48000,
+      "schema": 1,
+      "timing_qualified": false
+    }
+  },
+  "independent_review": {
+    "scope": "Six retained installed lifetimes and normal SameCallback selection; excludes later buffering restoration.",
+    "result": "No concrete misclaims; archive/result/output hashes, state identities and matching retirement records checked."
+  },
+  "checkpoint_custody": {
+    "ubuntu": "normally shut down; exited0; no OOM; pid0",
+    "builder": "stopped; no OOM; pid0",
+    "other_service": "Audiobookshelf running unchanged",
+    "private_shutdown_manifest_sha256": "f2849d19754cac745d5975ae1a925ea7a48e264a26a706dd04ef53ab08341f91"
+  }
+}

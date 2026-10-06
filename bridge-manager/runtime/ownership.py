@@ -3,12 +3,344 @@
 Extracted from pc0_diagnostic_primitives; installed playback has no proof-harness
 or git imports. PID/start-time identity is never replaced with process names.
 """
-import os,pathlib,signal,subprocess,time
+import os,pathlib,select,signal,socket,stat,struct,subprocess,time
 from collections import deque
 from typing import Any
 CLEANUP_SECONDS=10.0
 POLL_SECONDS=0.05
 def fail(message): raise RuntimeError(message)
+
+# Linux's receiving namespace supplies both the writer PID and its pinned
+# generation. These UAPI values are used only on the managed Linux launch path.
+SO_PASSPIDFD = 76
+SCM_PIDFD = 4
+
+
+def host_writer_credentials(channel):
+    """Check capability before starting a command, never downgrade custody."""
+    try:
+        if not hasattr(signal, 'pidfd_send_signal'):
+            fail('final_host_writer_capability_unavailable')
+        channel.setsockopt(socket.SOL_SOCKET, socket.SO_PASSCRED, 1)
+        channel.setsockopt(socket.SOL_SOCKET, SO_PASSPIDFD, 1)
+    except (AttributeError, OSError) as exc:
+        raise RuntimeError('final_host_writer_capability_unavailable') from exc
+
+
+def host_bounded(path, extent):
+    with open(path, 'rb') as source:
+        value = source.read(extent + 1)
+    if len(value) > extent:
+        fail('final_host_identity_extent')
+    return value
+
+
+class HostWriter:
+    """Own the kernel envelope immediately; validate liveness only for custody.
+
+    Benign text may have been queued by a writer that has already exited. Its
+    bytes are diagnostic input, never a requirement that that helper stay live.
+    """
+    def __init__(self, pidfd, pid, uid, proc_root='/proc'):
+        self.fd = pidfd
+        self.namespace_fd = None
+        self.pid, self.uid, self.proc_root = pid, uid, proc_root
+        self.identity = None
+
+    def alive(self):
+        poll = select.poll(); poll.register(self.fd, select.POLLIN)
+        return not poll.poll(0)
+
+    def same(self, other):
+        # Two still-live kernel handles with the same receiving-namespace PID
+        # cannot refer to different generations. Dead handles are never used to
+        # combine authority-bearing frames, even if their numeric PID matches.
+        return self.pid == other.pid and self.uid == other.uid and self.alive() and other.alive()
+
+    def snapshot(self):
+        if self.pid <= 0 or self.uid != os.getuid():
+            fail('final_host_writer_credentials')
+        if not self.alive():
+            fail('final_host_writer_retired')
+        info = host_bounded(f'{self.proc_root}/self/fdinfo/{self.fd}', 4096).decode('ascii')
+        fields = dict(line.split(':', 1) for line in info.splitlines() if ':' in line)
+        if int(fields.get('Pid', '-1')) != self.pid:
+            fail('final_host_writer_generation')
+        pidfd_nspid = tuple(map(int, fields.get('NSpid', '').split()))
+        p = pathlib.Path(self.proc_root) / str(self.pid)
+        raw = host_bounded(p / 'stat', 4096).decode('utf-8', errors='replace')
+        actual, separator, _ = raw.partition(' (')
+        values = raw.rsplit(')', 1)[1].split()
+        if not separator or int(actual) != self.pid or p.stat().st_uid != self.uid:
+            fail('final_host_writer_generation')
+        start = int(values[19])
+        status = host_bounded(p / 'status', 16384).decode('ascii')
+        nspid = [line.split()[1:] for line in status.splitlines() if line.startswith('NSpid:')]
+        if len(nspid) != 1 or not 1 <= len(nspid[0]) <= 32:
+            fail('final_host_writer_namespace')
+        nspid = tuple(map(int, nspid[0]))
+        n = (p / 'ns/pid').stat()
+        if nspid != pidfd_nspid or nspid[0] != self.pid or (n.st_dev, n.st_ino) != self.namespace:
+            fail('final_host_writer_namespace')
+        again = host_bounded(p / 'stat', 4096).decode('utf-8', errors='replace')
+        if int(again.rsplit(')', 1)[1].split()[19]) != start or not self.alive():
+            fail('final_host_writer_generation')
+        identity = (self.pid, start, nspid, self.namespace)
+        if self.identity is not None and identity != self.identity:
+            fail('final_host_writer_generation')
+        return identity
+
+    def pin(self):
+        if self.pid <= 0 or self.uid != os.getuid():
+            fail('final_host_writer_credentials')
+        if not self.alive():
+            fail('final_host_writer_retired')
+        if self.namespace_fd is None:
+            self.namespace_fd = os.open(pathlib.Path(self.proc_root) / str(self.pid) / 'ns/pid', os.O_RDONLY | os.O_CLOEXEC)
+            n = os.fstat(self.namespace_fd)
+            self.namespace = (n.st_dev, n.st_ino)
+        self.identity = self.snapshot()
+        return self.identity
+
+    def duplicate(self):
+        result = HostWriter(os.dup(self.fd), self.pid, self.uid, self.proc_root)
+        try:
+            result.pin()
+            return result
+        except BaseException:
+            result.close()
+            raise
+
+    def close(self):
+        for name in ('fd', 'namespace_fd'):
+            fd = getattr(self, name, None)
+            if fd is not None:
+                os.close(fd); setattr(self, name, None)
+
+
+def receive_host_writer(channel, extent=16384, proc_root='/proc'):
+    """Own/close every delivered FD, including refused or truncated ancillary data."""
+    data, ancillary, flags, _ = channel.recvmsg(extent,
+        socket.CMSG_SPACE(12) + socket.CMSG_SPACE(4), socket.MSG_CMSG_CLOEXEC)
+    descriptors = []
+    credentials = []; generations = []; unexpected = False
+    try:
+        for level, kind, value in ancillary:
+            if level == socket.SOL_SOCKET and kind in (SCM_PIDFD, socket.SCM_RIGHTS):
+                if len(value) % 4:
+                    unexpected = True
+                fds = list(struct.unpack(f'{len(value) // 4}i', value[:len(value) // 4 * 4]))
+                descriptors.extend(fd for fd in fds if fd >= 0)
+                if kind == SCM_PIDFD and len(fds) == 1 and fds[0] >= 0:
+                    generations.append(fds[0])
+                else:
+                    unexpected = True
+            elif level == socket.SOL_SOCKET and kind == socket.SCM_CREDENTIALS and len(value) == 12:
+                credentials.append(struct.unpack('3i', value))
+            else:
+                unexpected = True
+        if not data:
+            # Linux may accompany stream EOF with a zeroed credential marker.
+            # It names no writer and carries no generation or custody authority.
+            eof_marker = len(ancillary) == 1 and credentials == [(0, 0, 0)] and not unexpected and not descriptors
+            if flags & (socket.MSG_CTRUNC | socket.MSG_TRUNC) or (ancillary and not eof_marker):
+                fail('final_host_writer_ancillary')
+            return data, None
+        if unexpected or flags & (socket.MSG_CTRUNC | socket.MSG_TRUNC) or len(credentials) != 1 or len(generations) != 1:
+            fail('final_host_writer_ancillary')
+        pid, uid, _ = credentials[0]
+        fd = generations[0]
+        descriptors.remove(fd)
+        return data, HostWriter(fd, pid, uid, proc_root)
+    finally:
+        for fd in descriptors:
+            os.close(fd)
+
+
+class HostWriterLines:
+    """One bounded line; mixed writers remain untrusted diagnostic input.
+
+    A mixed line that resembles protocol is refused before JSON decoding. No
+    discarded or dead diagnostic writer grants any process or event authority.
+    """
+    def __init__(self):
+        self.pending = bytearray()
+        self.writer = None
+        self.mixed = False
+
+    def feed(self, data, writer, emit):
+        try:
+            if self.writer is not None:
+                if not self.writer.same(writer):
+                    self.mixed = True
+            else:
+                self.writer = writer
+            self.pending.extend(data)
+            while b'\n' in self.pending:
+                line, _, rest = self.pending.partition(b'\n')
+                if len(line) > 65536:
+                    fail('host output line capacity exceeded')
+                self.pending[:] = rest
+                if line.startswith(b'{"event":'):
+                    if self.mixed:
+                        fail('final_host_cross_sender_frame')
+                    emit(line, self.writer)
+                else:
+                    emit(line, None)
+                # A remainder belongs to this receive's writer, regardless of
+                # the previous line's diagnostic interleaving.
+                if self.writer is not writer:
+                    self.writer.close(); self.writer = writer
+                self.mixed = False
+            if len(self.pending) > 65536:
+                fail('host output line capacity exceeded')
+            if not self.pending:
+                self.writer.close(); self.writer = None
+            elif self.writer is not writer:
+                writer.close()
+        except BaseException:
+            if writer is not self.writer:
+                writer.close()
+            self.close()
+            raise
+
+    def close(self):
+        if self.writer is not None:
+            self.writer.close(); self.writer = None
+        self.pending.clear()
+        self.mixed = False
+
+    def finish(self, emit):
+        try:
+            if self.pending:
+                if self.pending.startswith(b'{"event":'):
+                    fail('final_host_incomplete_frame')
+                emit(bytes(self.pending), None)
+        finally:
+            self.close()
+
+
+class FinalHostCustody:
+    """Extend this launch by exactly one authenticated, session-mapped host.
+
+    Candidate writer custody and mapped status are separate observations. Neither
+    SDK readiness nor scheduling policy follows from this process witness.
+    """
+    def __init__(self, directory, session, ready_fields):
+        self.directory = pathlib.Path(directory)
+        self.session, self.ready_fields = session, ready_fields
+        self.directory_fd = self.status_fd = None
+        self.candidate = None
+        self.admitted = False
+        self.admission_open = True
+        self.mapping_verified = False
+        self.reason = 'final_host_witness_absent'
+        try:
+            self.directory_fd = os.open(self.directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            d = os.fstat(self.directory_fd)
+            if d.st_uid != os.getuid() or d.st_mode & 0o077:
+                fail('final_host_session_custody')
+            self.directory_identity = (d.st_dev, d.st_ino)
+            self.status_fd = os.open('ap12.status', os.O_RDONLY | os.O_NOFOLLOW, dir_fd=self.directory_fd)
+            m = os.fstat(self.status_fd)
+            self.status_identity = (m.st_dev, m.st_ino)
+            self.header = os.pread(self.status_fd, 32, 0)
+            if (not stat.S_ISREG(m.st_mode) or m.st_uid != os.getuid() or m.st_mode & 0o077 or m.st_size != 1024
+                or len(self.header) != 32 or self.header[:4] != b'LVFS'
+                or struct.unpack_from('<I', self.header, 4)[0] not in (1, 2)
+                or self.header[8:16] != struct.pack('<II', 1024, 0) or self.header[16:] != bytes.fromhex(session)):
+                fail('final_host_status_binding')
+            self.revalidate()
+        except BaseException:
+            self.close()
+            raise
+
+    def revalidate(self):
+        d = self.directory.lstat()
+        m = os.stat('ap12.status', dir_fd=self.directory_fd, follow_symlinks=False)
+        if (not stat.S_ISDIR(d.st_mode) or d.st_uid != os.getuid() or d.st_mode & 0o077
+            or (d.st_dev, d.st_ino) != self.directory_identity
+            or not stat.S_ISREG(m.st_mode) or m.st_uid != os.getuid() or m.st_mode & 0o077 or m.st_size != 1024
+            or (m.st_dev, m.st_ino) != self.status_identity or os.pread(self.status_fd, 32, 0) != self.header):
+            fail('final_host_status_changed')
+
+    def begin_cleanup(self):
+        # Queued output remains diagnostic input once retirement has started.
+        # It cannot expand the fixed cohort that cleanup will signal and verify.
+        self.admission_open = False
+
+    def observe(self, record, writer, tracker, root):
+        if not self.admission_open:
+            return
+        if record.get('event') != 'lifecycle':
+            return
+        state = record.get('state')
+        if state not in ('readiness_announced', 'ap1_mapping_ready', 'ap0_processing_thread_started'):
+            return
+        if state == 'readiness_announced':
+            if (self.candidate is not None or set(record) != {'event', 'sequence', 'state', *self.ready_fields}
+                or any(record.get(k) != v for k, v in self.ready_fields.items())
+                or type(record.get('run_ordinal')) is not int
+                or type(record.get('sequence')) is not int or record['sequence'] <= 0):
+                fail('final_host_readiness_binding')
+            self.revalidate()
+            self.candidate = writer.duplicate()
+            self.reason = 'final_host_mapping_unassigned'
+        if self.candidate is not None and not self.candidate.same(writer):
+            fail('final_host_sender_changed')
+        if state == 'readiness_announced':
+            return
+        if self.candidate is None:
+            fail('final_host_witness_absent')
+        self.mapping_verified = False
+        self.reason = 'final_host_mapping_unassigned'
+        try:
+            self.candidate.snapshot()
+            self.revalidate()
+            process = pathlib.Path(self.candidate.proc_root) / str(self.candidate.pid)
+            mapped = False
+            for line in host_bounded(process / 'maps', 2 * 1024 * 1024).splitlines():
+                fields = line.split(None, 5)
+                if len(fields) < 5:
+                    fail('final_host_mapping_projection')
+                major, minor = map(lambda x: int(x, 16), fields[3].split(b':'))
+                if (os.makedev(major, minor), int(fields[4])) == self.status_identity:
+                    mapped = True
+            self.candidate.snapshot(); self.revalidate()
+            if not mapped:
+                fail('final_host_mapping_unassigned')
+        except (OSError, ValueError):
+            self.reason = 'final_host_mapping_projection_unavailable'
+            raise
+        except RuntimeError as exc:
+            self.reason = str(exc)
+            raise
+        key = self.candidate.identity[:2]
+        tracker.owned.add(key)
+        # This exact handle may retire an instance reparented outside the
+        # bootstrap group. It never grants authority over a keeper group.
+        root.lvb_host_pidfd = (key, self.candidate.fd)
+        self.admitted = True
+        self.mapping_verified = True
+        self.reason = None
+
+    def value(self):
+        identity = self.candidate.identity if self.candidate else None
+        return dict(schema=1, session=self.session, basis='per_launch_kernel_writer',
+            availability='owned' if self.admitted else 'candidate' if identity else 'unavailable',
+            reason=self.reason, pid=identity[0] if identity else None,
+            start_ticks=identity[1] if identity else None, nspid=list(identity[2]) if identity else None,
+            pid_namespace=list(identity[3]) if identity else None,
+            status=dict(device=self.status_identity[0], inode=self.status_identity[1], version=struct.unpack_from('<I', self.header, 4)[0], extent=1024),
+            status_mapped=self.mapping_verified)
+
+    def close(self):
+        if self.candidate is not None:
+            self.candidate.close(); self.candidate = None
+        for name in ('status_fd', 'directory_fd'):
+            fd = getattr(self, name, None)
+            if fd is not None:
+                os.close(fd); setattr(self, name, None)
 
 def process_identities(proc_root="/proc"):
     """Fresh stat-only census shared by ongoing tracking and cleanup."""
@@ -47,6 +379,36 @@ def descendant_identities(root_pid, records=None):
             result.append(child)
             queue.append(child["pid"])
     return result
+
+
+class TrackingCadence:
+    """When to walk the owned process tree again.
+
+    A tree that is still gaining members is followed on every turn, because a
+    parent can start a child and exit within moments. A tree that has stopped
+    changing is checked once a second: each walk reads every owned thread's
+    child list, and repeating that twenty times a second for an idle
+    environment was most of the supervisor's processor time. The owner walks
+    once more immediately before cleanup, so cleanup sees a current tree.
+    """
+    SETTLE_SECONDS = 5.0
+    SETTLED_INTERVAL = 1.0
+
+    def __init__(self, clock=time.monotonic):
+        self.clock = clock
+        self.changed = clock()
+        self.walked = None
+
+    def due(self):
+        now = self.clock()
+        return (self.walked is None or now - self.changed < self.SETTLE_SECONDS
+                or now - self.walked >= self.SETTLED_INTERVAL)
+
+    def walked_now(self, grew):
+        now = self.clock()
+        self.walked = now
+        if grew:
+            self.changed = now
 
 
 class ProcessTracker:
@@ -147,6 +509,18 @@ def signal_local_group(root, owned, signum):
             pass
 
 
+def signal_final_host(root, owned, signum):
+    target = getattr(root, 'lvb_host_pidfd', None)
+    if target is not None:
+        key, fd = target
+        if key not in owned:
+            fail('final_host_retirement_custody')
+        try:
+            signal.pidfd_send_signal(fd, signum)
+        except ProcessLookupError:
+            pass
+
+
 def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]], during_cleanup=None) -> dict[str, Any]:
     # Cleanup ownership is an observed PID/start identity or this root's
     # process group/session, never a stage-shaped string in another command.
@@ -159,6 +533,7 @@ def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]],
     } & set(owned)
     signal_local_group(root, owned, signal.SIGTERM)
     signal_remote_group(root, owned, signal.SIGTERM)
+    signal_final_host(root, owned, signal.SIGTERM)
     while time.monotonic() < deadline - 3:
         if during_cleanup is not None:
             during_cleanup()
@@ -170,19 +545,29 @@ def cleanup_process(root: subprocess.Popen[bytes], owned: list[tuple[int, int]],
         time.sleep(POLL_SECONDS)
     signal_local_group(root, owned, signal.SIGKILL)
     signal_remote_group(root, owned, signal.SIGKILL)
+    signal_final_host(root, owned, signal.SIGKILL)
     try:
         root.wait(timeout=max(0.1, deadline - time.monotonic()))
     except subprocess.TimeoutExpired:
         fail("Runtime root did not terminate inside cleanup bound")
-    remaining = []
-    for record in process_identities():
-        if ((record["pid"], record["start_ticks"]) in owned or
-                (record["pgrp"] == root.pid and record["session"] == root.pid) or
-                (remote is not None and record["pgrp"] == remote[0])):
-            remaining.append(record["pid"])
-    if remaining:
-        fail(f"owned descendants survived cleanup: {remaining}")
-    return {"owned_descendants_zero": True, "process_group_empty": True}
+    # KILL delivery and reaping are asynchronous, including when a command
+    # service owns the remote child. Use the remainder of the same deadline;
+    # a sent signal or an exited-but-unreaped owner is not positive cleanup.
+    while True:
+        if during_cleanup is not None:
+            during_cleanup()
+        remaining = []
+        for record in process_identities():
+            if ((record["pid"], record["start_ticks"]) in owned or
+                    (record["pgrp"] == root.pid and record["session"] == root.pid) or
+                    (remote is not None and record["pgrp"] == remote[0])):
+                remaining.append(record["pid"])
+        if not remaining:
+            return {"owned_descendants_zero": True, "process_group_empty": True}
+        wait = deadline - time.monotonic()
+        if wait <= 0:
+            fail(f"owned descendants survived cleanup: {remaining}")
+        time.sleep(min(POLL_SECONDS, wait))
 
 
 

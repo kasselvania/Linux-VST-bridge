@@ -6,7 +6,7 @@ callback work. The Rust manager supplies an exact verified registration.
 """
 import ctypes,mmap,collections,re,threading
 import fcntl,hashlib,json,os,pathlib,pwd,selectors,shutil,signal,socket,stat,struct,subprocess,sys,time
-from ownership import process_identities,descendant_identities,cleanup_process,ProcessTracker,CompanionCgroup,InstallerLedger
+from ownership import process_identities,descendant_identities,cleanup_process,ProcessTracker,TrackingCadence,CompanionCgroup,InstallerLedger,host_writer_credentials,receive_host_writer,HostWriterLines,FinalHostCustody
 
 def atomic(path,value):
     temp=path.with_suffix(path.suffix+'.tmp')
@@ -44,18 +44,22 @@ def peer_absolute(proc,value,label):
         raise RuntimeError(label+' path invalid')
     return proc/'root'/path.relative_to('/')
 
-def private_file_bytes(path,label):
+def private_file_bytes(path,label,max_bytes=1024*1024):
     before=path.lstat()
     if (not stat.S_ISREG(before.st_mode) or before.st_uid!=os.getuid()
-        or before.st_mode & 0o077 or before.st_size>1024*1024):
+        or before.st_mode & 0o077 or before.st_size>max_bytes):
         raise RuntimeError(label+' is not private')
     descriptor=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)
     try:
         opened=os.fstat(descriptor)
         if (opened.st_dev,opened.st_ino)!=(before.st_dev,before.st_ino):
             raise RuntimeError(label+' changed')
-        with os.fdopen(descriptor,'rb',closefd=False) as source:data=source.read(1024*1024+1)
+        with os.fdopen(descriptor,'rb',closefd=False) as source:data=source.read(max_bytes+1)
         if len(data)!=before.st_size:raise RuntimeError(label+' changed')
+        after=os.fstat(descriptor);named=path.lstat()
+        identity=lambda m:(m.st_dev,m.st_ino,m.st_uid,m.st_mode,m.st_size,m.st_mtime_ns,m.st_ctime_ns)
+        if identity(before)!=identity(after) or identity(after)!=identity(named):
+            raise RuntimeError(label+' changed')
     finally:os.close(descriptor)
     return data
 
@@ -71,7 +75,18 @@ def private_runtime_root(runtime_root):
         raise RuntimeError('host graphical runtime is not private')
 
 def host_xauthority(proc,value,runtime_root):
-    source=private_file_bytes(peer_absolute(proc,value,'Xauthority'),'Xauthority')
+    peer_path=peer_absolute(proc,value,'Xauthority')
+    source=private_file_bytes(peer_path,'Xauthority')
+    # A native host's selected file can already be visible at that exact path.
+    # A sandbox's path may name another file on the host: require the same
+    # actual private file before using it, otherwise resolve its exact alias.
+    direct=pathlib.Path(value)
+    try:
+        data=private_file_bytes(direct,'host Xauthority')
+        peer_identity=peer_path.lstat();host_identity=direct.lstat()
+        if ((peer_identity.st_dev,peer_identity.st_ino)==(host_identity.st_dev,host_identity.st_ino)
+            and data==source):return str(direct)
+    except (FileNotFoundError,PermissionError,RuntimeError):pass
     private_runtime_root(runtime_root)
     try:candidates=list(runtime_root.iterdir())
     except FileNotFoundError:raise RuntimeError('host Xauthority directory unavailable')
@@ -93,6 +108,28 @@ def host_socket(proc,value,candidate,label):
     except FileNotFoundError:return None
     if host!=source:return None
     return str(candidate)
+
+DBUS_ADDRESS_BYTES=b'-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_/.*\\'
+def dbus_path_address(value):
+    # One filesystem socket remains the supported authority. The standard
+    # optional server GUID identifies that same address, not another endpoint.
+    if not value.startswith('unix:') or ';' in value:raise RuntimeError('DBus address unsupported')
+    fields={}
+    for field in value[5:].split(','):
+        key,separator,encoded=field.partition('=')
+        if (not separator or key not in ('path','guid') or key in fields
+            or not re.fullmatch(r'(?:[-0-9A-Za-z_/.*\\]|%[0-9a-fA-F]{2})+',encoded)):
+            raise RuntimeError('DBus address unsupported')
+        fields[key]=os.fsdecode(re.sub(rb'%([0-9a-fA-F]{2})',
+            lambda match:bytes.fromhex(match[1].decode('ascii')),encoded.encode('ascii')))
+    if 'path' not in fields or '\0' in fields['path']:raise RuntimeError('DBus address unsupported')
+    guid=fields.get('guid')
+    if guid is not None and not re.fullmatch('[0-9a-fA-F]{32}',guid):raise RuntimeError('DBus address unsupported')
+    return fields['path'],guid
+
+def dbus_address(endpoint,guid):
+    encoded=''.join(chr(byte) if byte in DBUS_ADDRESS_BYTES else f'%{byte:02x}' for byte in os.fsencode(endpoint))
+    return 'unix:path='+encoded+('' if guid is None else ',guid='+guid)
 
 GRAPHICAL_DENIAL_NAMES={'dbus':'.lvb-denied-dbus','wayland':'.lvb-denied-wayland'}
 def denied_graphical_endpoint(name):
@@ -144,11 +181,9 @@ def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root
             if source=='xauthority':
                 result[target]=host_xauthority(proc,value,runtime_root)
             elif source=='dbus_session_bus_address':
-                prefix='unix:path='
-                if not value.startswith(prefix) or ',' in value:
-                    raise RuntimeError('DBus address unsupported')
-                endpoint=host_socket(proc,value[len(prefix):],runtime_root/'bus','DBus endpoint')
-                result[target]=prefix+(endpoint if endpoint is not None else denied_graphical_endpoint('dbus'))
+                path,guid=dbus_path_address(value)
+                endpoint=host_socket(proc,path,runtime_root/'bus','DBus endpoint')
+                result[target]=dbus_address(endpoint if endpoint is not None else denied_graphical_endpoint('dbus'),guid)
             elif source=='wayland_display':
                 wayland=pathlib.PurePosixPath(value)
                 if wayland.is_absolute():endpoint=value
@@ -165,12 +200,44 @@ def graphical_environment(graphical,proc_root=pathlib.Path('/proc'),runtime_root
         result['DBUS_SESSION_BUS_ADDRESS']='unix:path='+denied_graphical_endpoint('dbus')
     return result
 
-def environment(reg,graphical=None):
+def direct_audio_environment(reg,env):
+    # Only an immutable preparation runtime declaring the paired helper can
+    # select it. Older retained hosts keep their original launch environment,
+    # as does a registration that carries no host record at all.
+    if 'host' not in reg:return env
+    root=pathlib.Path(reg['host']['path']).parent
+    manifest=root/'direct-audio-helper.json'
+    if not manifest.exists():return env
+    runtime=json.loads((root/'runtime.json').read_bytes())
+    names=['lvb-direct-wait.dll','x86_64-windows/lvb-direct-wait.dll',
+           'x86_64-unix/lvb-direct-wait.so','direct-audio-helper.json']
+    records=runtime.get('direct_audio_helpers',[])
+    if runtime['host']!=reg['host'] or len(records)!=4:raise RuntimeError('direct helper runtime binding differs')
+    for name,artifact in zip(names,records):
+        path=root/name
+        if artifact['path']!=str(path) or path.resolve()!=path or path.stat().st_mode&0o222:
+            raise RuntimeError('direct helper path/mutability differs')
+        verify(artifact)
+    if manifest.stat().st_size>65536:raise RuntimeError('direct helper manifest extent')
+    helper=json.loads(manifest.read_bytes())
+    if (helper.get('schema')!=1 or helper.get('abi')!=1 or helper.get('host_sha256')!=reg['host']['sha256']
+        or helper.get('runner_wine_revision')!='46b29104e3741fe23bf5e2547196a253aab88c89'
+        or set(helper.get('files',{}))!=set(names[:3])):raise RuntimeError('direct helper manifest binding differs')
+    for name,artifact in zip(names,records):
+        if name in helper['files'] and helper['files'][name]!=artifact['sha256']:
+            raise RuntimeError('direct helper recipe binding differs')
+    result=dict(env);prior=result.get('WINEDLLOVERRIDES','')
+    result['WINEDLLOVERRIDES']=(prior+';' if prior else '')+'lvb-direct-wait=b'
+    result['WINEDLLPATH']=str(root)
+    return result
+
+def environment(reg,graphical=None,plugin_session=False):
     root=pathlib.Path(reg['environment']['root']);user=pwd.getpwuid(os.getuid())
     env={'HOME':user.pw_dir,'USER':user.pw_name,'LOGNAME':user.pw_name,'PATH':'/usr/bin:/bin','LANG':'C.UTF-8',
          'XDG_RUNTIME_DIR':f'/run/user/{os.getuid()}','STEAM_COMPAT_DATA_PATH':str(root/'compatdata'),
          'STEAM_COMPAT_CLIENT_INSTALL_PATH':str(root/'client'),'STEAM_COMPAT_APP_ID':'0','SteamAppId':'0','SteamGameId':'0',
-         'STEAM_ZENITY':'','PRESSURE_VESSEL_VARIABLE_DIR':str(root/'runtime-var')}
+         'STEAM_ZENITY':'','PRESSURE_VESSEL_VARIABLE_DIR':str(root/'runtime-var'),
+         'PYTHONDONTWRITEBYTECODE':'1'}
     for key,folder in [('XDG_CACHE_HOME','host-cache'),('XDG_CONFIG_HOME','host-config'),('XDG_DATA_HOME','host-data'),('TMPDIR','host-tmp')]:env[key]=str(root/folder)
     if graphical is not None:
         env.update(graphical_environment(graphical))
@@ -188,6 +255,16 @@ def environment(reg,graphical=None):
         env.update(PROTON_USE_WINED3D='1',PROTON_DISABLE_NVAPI='1',PROTON_DLL_COPY='*')
     elif runner_policy not in (None,'x11_touch_release_v1','x11_touch_routing_v2'):
         raise RuntimeError('unsupported runner policy')
+    graphics=reg['compatibility'].get('graphics')
+    if graphics is not None:
+        if graphics!='wine_d3d11':raise RuntimeError('unsupported graphics backend')
+        # Per-host DLL selection only. Do not set PROTON_USE_WINED3D/DLL_COPY:
+        # those can change the shared prefix. Preserve the runner's other DLL
+        # choices and accessibility policy. The inherited DComp policy already
+        # selects these exact builtins and needs no duplicate override.
+        if runner_policy!='dcomp_wine_builtins_reference_v1':
+            prior=env.get('WINEDLLOVERRIDES')
+            env['WINEDLLOVERRIDES']='d3d11,dxgi=b'+(';' + prior if prior else '')
     policy=reg['compatibility'].get('event_output')
     if policy is not None:
         if policy!='reported_zero_event_channels_unspecified':raise RuntimeError('unsupported event output policy')
@@ -204,7 +281,16 @@ def environment(reg,graphical=None):
     if retirement is not None:
         if retirement!='process_scoped_vendor_retirement' or lifetime!='retain_editor_view_until_instance_retirement':raise RuntimeError('unsupported vendor retirement')
         env['LVB_VENDOR_RETIREMENT']=retirement
-    return env
+    if plugin_session:
+        # A plug-in host never uses a game controller. The runner's gaming
+        # defaults load the HID bus driver, which reads every controller's raw
+        # reports in each environment whether or not anything consumes them, and
+        # start the gamepad navigation helper. Installers and vendor
+        # applications keep the runner's defaults. Per launch; no prefix change.
+        prior=env.get('WINEDLLOVERRIDES')
+        env['WINEDLLOVERRIDES']=(prior+';' if prior else '')+'winebus.sys=d'
+        env['PROTON_USE_XALIA']='0'
+    return direct_audio_environment(reg,env)
 
 def managed_home(spec,env):
     # The Rust owner verifies the exact onboarding/environment record before
@@ -221,6 +307,10 @@ def command(spec):
         if spec['inspect'] is not True or spec.get('keeper') or spec.get('vendor_access'):
             raise RuntimeError('bus lifecycle probe requires isolated inspection')
         mode='ap18-bus-lifecycle'
+    if spec.get('graphics_assessment'):
+        if spec['inspect'] is not True or spec.get('keeper') or spec.get('vendor_access') or spec.get('bus_lifecycle_probe') or spec.get('first_audio'):
+            raise RuntimeError('graphics assessment requires exact inactive inspection')
+        mode='graphics-assessment'
     case='first-audio' if spec.get('first_audio') else 'class:'+reg['metadata']['class_id']
     handshake_directory=prefix/'drive_c/bridge/sessions'/sid
     pairs=[('session',sid),('scanner-sha256',reg['host']['sha256']),('implementation-source-manifest-sha256',reg['host_source_sha256']),
@@ -325,8 +415,12 @@ def delivery_trace(spec,env):
     # Match the registered native observer's opt-in flag. The supervisor's
     # deliberately small environment must not drop the Windows half of a trace.
     # This is read once before launch, never by either audio delivery thread.
+    env.pop('LVB_AP10_TRACE',None)
     if spec['inspect'] or spec.get('vendor_access'):return
-    flag=pathlib.Path(env['HOME'])/'.local/share/linux-vst-bridge/managed/runtime/trace-enable'
+    # Windows HOME may be an isolated onboarding home. The diagnostic switch
+    # belongs to the user-owned manager, outside the vendor environment, just
+    # like the registered native proxy's switch. Never read it from a prefix.
+    flag=pathlib.Path(pwd.getpwuid(os.getuid()).pw_dir)/'.local/share/linux-vst-bridge/managed/runtime/trace-enable'
     try:
         with flag.open('rb') as f:enabled=f.read(3)==b'1\n'
     except OSError:enabled=False
@@ -959,52 +1053,121 @@ def session_preflight(spec):
     """
     os.umask(0o077);reg=spec['registration'];session_directories(spec)
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
-    command(spec);env=environment(reg,spec.get('graphical_session'))
+    command(spec);env=environment(reg,spec.get('graphical_session'),plugin_session=True)
     managed_home(spec,env);transport_environment(spec,env);delivery_trace(spec,env)
+
+def native_generation_ended(spec,proc_root=pathlib.Path('/proc')):
+    """Positive kernel evidence for the socket-authenticated native generation.
+
+    Missing/denied/malformed ownership is unknown, never permission to erase a
+    reservation. A vanished PID, reused PID or zombie proves the original
+    process no longer owns an address space. Socket EOF is checked separately.
+    """
+    peer=spec.get('graphical_session') or {}
+    pid,start=peer.get('peer_pid'),peer.get('peer_start_ticks')
+    if type(pid) is not int or pid<=0 or type(start) is not int or start<=0:return False
+    try:
+        raw=(proc_root/str(pid)/'stat').read_text()
+        actual,separator,_=raw.partition(' (');fields=raw.rsplit(')',1)[1].split()
+        if not separator or int(actual)!=pid:return False
+        return int(fields[19])!=start or fields[0]=='Z'
+    except (FileNotFoundError,ProcessLookupError):return True
+    except (OSError,ValueError,IndexError):return False
+
+def retire_native_transport(spec,peer,failure=False):
+    """Windows owners must already be retired. Release only this session.
+
+    A live consumer must half-close and receive R. A dead authenticated native
+    generation cannot receive R: EOF plus kernel death and retired directories
+    establishes containment independently of polite SDK teardown.
+    """
+    result={'transport_retired':False}
+    try:
+        if peer is not None:
+            peer.setblocking(False)
+            if failure:
+                try:peer.sendall(b'F')
+                except (BrokenPipeError,ConnectionResetError):pass
+            end=time.monotonic()+10
+            while True:
+                try:
+                    if peer.recv(1)==b'':break
+                    raise RuntimeError('unexpected native owner bytes')
+                except BlockingIOError:
+                    if time.monotonic()>=end:raise TimeoutError('native owner release deadline')
+                    time.sleep(.02)
+                except ConnectionResetError:
+                    if native_generation_ended(spec):break
+                    raise
+        retire_directories(spec)
+        if peer is not None:
+            try:peer.settimeout(5);peer.sendall(b'R')
+            except OSError as error:
+                if not native_generation_ended(spec):raise
+                result['native_retirement_basis']='authenticated_process_generation_ended'
+                result['retirement_ack_error']=type(error).__name__+': '+str(error)[:256]
+        result['transport_retired']=True
+    except Exception as error:
+        result['retirement_error']=type(error).__name__+': '+str(error)[:256]
+    return result
 
 def prelaunch_owned_failure(spec,peer,error):
     """Retire an exposed native transport when Windows ownership never began."""
-    sid=spec['session'];report=pathlib.Path(spec['report']);released=peer is None
-    directories_retired=False;retirement_error=None
-    try:
-        session_directories(spec)
-        if peer is not None:
-            peer.setblocking(False)
-            peer.sendall(b'F')
-            end=time.monotonic()+10
-            while time.monotonic()<end:
-                try:
-                    if peer.recv(1)==b'':released=True;break
-                    raise RuntimeError('unexpected native owner bytes')
-                except BlockingIOError:time.sleep(.02)
-            if not released:raise TimeoutError('native owner release deadline')
-        retire_directories(spec);directories_retired=True
-        if peer is not None:
-            peer.settimeout(5);peer.sendall(b'R')
-    except Exception as exc:
-        retirement_error=type(exc).__name__+': '+str(exc)[:256]
-    retired=directories_retired and (peer is None or retirement_error is None)
+    sid=spec['session'];report=pathlib.Path(spec['report'])
+    retirement=retire_native_transport(spec,peer,True)
     outcome={'vendor_retirement':None,'transport_storage':spec.get('transport'),
       'fault_status':None,'fault_reporting_error':None,'ownership_schema':1,
       'session':sid,'records':[],'exit_before_cleanup':None,'raw_exit':None,
       'error':'prelaunch_owner_failure: '+type(error).__name__+': '+str(error)[:256],
       'cleanup_confirmed':True,'gated':False,
       'discarded_diagnostic_bytes':{'vendor':0,'stderr':0},'vendor_stdout':'','stderr':'',
-      'transport_retired':retired}
-    if retirement_error is not None:outcome['retirement_error']=retirement_error
+      **retirement}
     atomic(report,outcome)
     receipt={k:outcome.get(k,False) for k in ('session','cleanup_confirmed','transport_retired')}
     receipt['reporting_error']=None
     atomic(report.with_suffix('.ownership.json'),receipt)
     return outcome
 
+# Only this fixed bootstrap crosses into the runtime's Python interpreter.
+# Packaged supervisor bytecode belongs to the host interpreter. The bootstrap
+# imports no product module and transfers kernel custody before the target exec.
+NATIVE_COMMAND_CHILD = r'''
+import json,os,pathlib,re,socket,sys
+args=sys.argv[1:]
+capture=len(args)>2 and args[2]=='--credential-stdout'
+target=4 if capture else 3
+if (len(args)<=target or args[target-1]!='--' or not re.fullmatch('[0-9a-f]{64}',args[1])
+        or not pathlib.Path(args[target]).is_absolute()):
+    raise RuntimeError('native command child arguments')
+channel=socket.socket(fileno=int(args[0]));channel.settimeout(5)
+pid=os.getpid()
+if os.getpgrp()!=pid:os.setsid()
+with open('/proc/self/stat',encoding='utf-8') as source:raw=source.read()
+actual,separator,_=raw.partition(' (');fields=raw.rsplit(')',1)[1].split()
+if not separator or int(actual)!=pid:raise RuntimeError('native command child absent')
+channel.sendall((json.dumps({'nonce':args[1],'pid':pid,'start':int(fields[19])})+'\n').encode())
+acknowledgement=bytearray()
+while b'\n' not in acknowledgement and len(acknowledgement)<128:
+    part=channel.recv(128-len(acknowledgement))
+    if not part:break
+    acknowledgement.extend(part)
+if acknowledgement!=(args[1]+'\n').encode():raise RuntimeError('native command child not admitted')
+if capture:
+    channel.setblocking(True)
+    os.dup2(channel.fileno(),1)
+channel.close()
+os.execv(args[target],args[target:])
+'''
+
 # Native instances share their keeper's initialized Proton namespace. Selection
 # is an immutable runner component; the manager still owns the one environment
 # keeper and the existing per-instance lease. No audio callback enters this code.
 class NativeProtonSession:
     COMPONENT = 'native-command-session.json'
+    MANAGED_RUNNER = 'managed-ge-proton11-7-slr4-20260805-r3'
     FORWARD = ('WINEDEBUG','PROTON_LOG','DXVK_LOG_LEVEL','VKD3D_DEBUG',
-               'WINEDLLOVERRIDES','PROTON_USE_WINED3D','PROTON_DISABLE_NVAPI','PROTON_DLL_COPY',
+               'WINEDLLOVERRIDES','WINEDLLPATH','PROTON_USE_WINED3D','PROTON_DISABLE_NVAPI','PROTON_DLL_COPY',
+               'PROTON_USE_XALIA',
                'LVB_EVENT_OUTPUT_POLICY','LVB_AUDIO_LAYOUT_POLICY','LVB_EDITOR_LIFETIME',
                'LVB_VENDOR_RETIREMENT','LVB_AP10_TRACE')
     def __init__(self,spec,component):
@@ -1012,18 +1175,53 @@ class NativeProtonSession:
         self.canonical_runner_key=spec.get('runner_key')
         if not isinstance(self.canonical_runner_key,str) or not re.fullmatch('[0-9a-f]{64}',self.canonical_runner_key):
             raise RuntimeError('native command canonical runner key absent')
-        self.component=component;self.endpoint=None;self.control=None
+        self.component=component;self.endpoint=None;self.endpoint_directory_identity=None;self.control=None
         self.remote_identity=None;self.started=False;self.client=None;self.service=None
+        self.host_custody=None;self.host_lines=None
         base=pathlib.Path(self.runner['entry_point']).parent/'pressure-vessel/bin'
         self.client=base/'steam-runtime-launch-client';self.service=base.parent/'libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service'
         self.verify_tools()
+    @classmethod
+    def managed_component(cls,runner):
+        # The acquired runner already pins the complete runtime tree. Select
+        # only its two exact command tools; no ambient component, newer runtime
+        # or caller command can grant this route. Keep the installed tree and
+        # environment identity unchanged across the software update.
+        if runner.get('id')!=cls.MANAGED_RUNNER:return None
+        proton=pathlib.Path(runner['proton']);base=proton.parent.parent
+        if (not proton.is_absolute() or proton!=base/'GE-Proton11-7-x86_64/proton'
+            or pathlib.Path(runner['entry_point'])!=base/'SteamLinuxRuntime_4/_v2-entry-point'):
+            raise RuntimeError('managed command runner binding')
+        manifest=base/'runtime-tree.json'
+        declared=[a for a in runner['files'] if a['path']==str(manifest)]
+        if len(declared)!=1:raise RuntimeError('managed command manifest binding')
+        data=private_file_bytes(manifest,'managed command manifest',16*1024*1024)
+        if hashlib.sha256(data).hexdigest()!=declared[0]['sha256']:
+            raise RuntimeError('managed command manifest changed')
+        rows=json.loads(data)
+        if not isinstance(rows,list) or not 1<=len(rows)<=40000:
+            raise RuntimeError('managed command manifest extent')
+        component={'schema':1,'kind':'native_proton_command_session'}
+        for key,relative in [
+            ('client_sha256','SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client'),
+            ('service_sha256','SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service')]:
+            matches=[r for r in rows if isinstance(r,dict) and r.get('path')==relative]
+            if (len(matches)!=1 or matches[0].get('directory') is not False
+                or matches[0].get('target') is not None
+                or not isinstance(matches[0].get('sha256'),str)
+                or not re.fullmatch('[0-9a-f]{64}',matches[0]['sha256'])):
+                raise RuntimeError('managed command tool declaration')
+            component[key]=matches[0]['sha256']
+        return component
     @classmethod
     def selected(cls,spec):
         if not spec.get('shared_runtime'):return None
         runner=spec['registration']['environment']['runner']
         path=pathlib.Path(runner['proton']).parent/cls.COMPONENT
         rows=[a for a in runner['files'] if a['path']==str(path)]
-        if not rows:return None
+        if not rows:
+            component=cls.managed_component(runner)
+            return None if component is None else cls(spec,component)
         if len(rows)!=1:raise RuntimeError('native command component ambiguous')
         component_bytes=private_file_bytes(path,'native command component')
         if hashlib.sha256(component_bytes).hexdigest()!=rows[0]['sha256']:
@@ -1053,11 +1251,23 @@ class NativeProtonSession:
     def keeper_launch(self,cmd,env):
         # This is private bridge IPC. The plug-in retains the caller's exact
         # graphical bus denial; no desktop session bus is used for launch.
-        self.endpoint=self.endpoint_for(self.spec['session'])
-        self.endpoint.parent.parent.mkdir(mode=0o700,exist_ok=True)
-        private_runtime_root(self.endpoint.parent.parent)
-        if len(os.fsencode(self.endpoint))>100:raise RuntimeError('native command socket path extent')
-        self.endpoint.parent.mkdir(mode=0o700)
+        endpoint=self.endpoint_for(self.spec['session'])
+        if len(os.fsencode(endpoint))>100:raise RuntimeError('native command socket path extent')
+        # The shared cache may be public; the application and command roots
+        # must be private. Create each level with its own explicit mode rather
+        # than assuming another feature has already created these parents.
+        cache=endpoint.parents[3];cache.mkdir(mode=0o700,exist_ok=True)
+        metadata=cache.lstat()
+        if not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid!=os.getuid():
+            raise RuntimeError('native command cache ownership differs')
+        for directory in (endpoint.parents[2],endpoint.parents[1]):
+            directory.mkdir(mode=0o700,exist_ok=True);private_runtime_root(directory)
+        endpoint.parent.mkdir(mode=0o700)
+        # No exclusive directory was owned before mkdir succeeded. A refusal
+        # must never make the finalizer retire a nonexistent or foreign path.
+        self.endpoint=endpoint
+        metadata=endpoint.parent.lstat()
+        self.endpoint_directory_identity=(metadata.st_dev,metadata.st_ino)
         return cmd[:3]+[str(self.service),'--socket='+str(self.endpoint),
             '--stop-on-exit','--stop-on-parent-exit','--']+cmd[3:],env
     def service_ready(self):
@@ -1082,6 +1292,9 @@ class NativeProtonSession:
         if self.endpoint is not None:
             # Only our exclusive directory, after positive process retirement.
             private_runtime_root(self.endpoint.parent)
+            metadata=self.endpoint.parent.lstat()
+            if (metadata.st_dev,metadata.st_ino)!=self.endpoint_directory_identity:
+                raise RuntimeError('native command directory changed before retirement')
             if self.endpoint.exists():
                 if socket_identity(self.endpoint,'native command endpoint')!=getattr(self,'socket_identity',None):
                     raise RuntimeError('native command endpoint changed before retirement')
@@ -1130,9 +1343,20 @@ class NativeProtonSession:
         self.find_keeper();self.verify_tools()
         self.control,child=socket.socketpair();self.control.setblocking(False)
         self.nonce=os.urandom(32).hex()
+        capture=self.spec.get('inspect') is False and not self.spec.get('vendor_access') and not self.spec.get('keeper')
+        try:
+            if capture:
+                host_writer_credentials(self.control)
+                pairs=dict(zip(cmd[6::2],cmd[7::2]))
+                fields={name:pairs['--'+name.replace('_','-')] for name in ('session','scanner_sha256','module_sha256','bundle_manifest_sha256','implementation_source_manifest_sha256','mode','component_case')}
+                fields['run_ordinal']=1
+                self.host_custody=FinalHostCustody(self.spec['directory'],self.spec['session'],fields)
+                self.host_lines=HostWriterLines()
+        except BaseException:
+            child.close();self.close();raise
         command=[str(self.client),'--socket='+str(self.endpoint),'--directory='+str(pathlib.Path(self.reg['environment']['root'])/'home'),
             *['--pass-env='+key for key in self.FORWARD],'--forward-fd='+str(child.fileno()),'--',
-            '/usr/bin/python3',str(pathlib.Path(__file__).resolve()),'--native-command-child',str(child.fileno()),self.nonce,'--',*cmd[3:]]
+            '/usr/bin/python3','-I','-c',NATIVE_COMMAND_CHILD,str(child.fileno()),self.nonce,*(['--credential-stdout'] if capture else []),'--',*cmd[3:]]
         try:
             root=subprocess.Popen(command,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
                 start_new_session=True,bufsize=0,pass_fds=(child.fileno(),))
@@ -1142,72 +1366,269 @@ class NativeProtonSession:
             self.close();raise
         finally:child.close()
     def bind(self,root,tracker,pump):
-        deadline=time.monotonic()+5;data=bytearray()
-        while b'\n' not in data:
-            pump(0)
-            try:
-                part=self.control.recv(512)
-                if not part:raise RuntimeError('native command child disconnected before binding')
-                data.extend(part)
-            except BlockingIOError:time.sleep(.01)
-            if len(data)>512:raise RuntimeError('native command child binding extent')
-            if root.poll() is not None or time.monotonic()>deadline:raise RuntimeError('native command child binding timeout')
-        value=json.loads(data)
-        if set(value)!={'nonce','pid','start'} or value['nonce']!=self.nonce or type(value['pid']) is not int or type(value['start']) is not int:
-            raise RuntimeError('native command child binding invalid')
-        if root.poll() is not None:raise RuntimeError('native command launcher exited before binding')
-        identity=tracker.identity(value['pid'])
-        if identity is None or identity[0]!=value['start'] or os.getpgid(value['pid'])!=value['pid']:
-            raise RuntimeError('native command child identity changed')
-        self.remote_identity=(value['pid'],value['start']);tracker.owned.add(self.remote_identity)
-        root.lvb_remote_group=self.remote_identity
-        self.control.sendall((self.nonce+'\n').encode())
-        self.control.close();self.control=None
+        deadline=time.monotonic()+5;data=bytearray();writer=None
+        custody=getattr(self,'host_custody',None)
+        try:
+            while b'\n' not in data:
+                pump(0)
+                try:
+                    if custody is not None:
+                        part,current=receive_host_writer(self.control,512)
+                        if writer is None:writer=current
+                        elif current is not None:
+                            try:
+                                if not current.same(writer):raise RuntimeError('native command child sender changed')
+                            finally:current.close()
+                    else:part=self.control.recv(512)
+                    if not part:raise RuntimeError('native command child disconnected before binding')
+                    data.extend(part)
+                except BlockingIOError:time.sleep(.01)
+                if len(data)>512:raise RuntimeError('native command child binding extent')
+                if root.poll() is not None or time.monotonic()>deadline:raise RuntimeError('native command child binding timeout')
+            value=json.loads(data)
+            if set(value)!={'nonce','pid','start'} or value['nonce']!=self.nonce or type(value['pid']) is not int or type(value['start']) is not int:
+                raise RuntimeError('native command child binding invalid')
+            if root.poll() is not None:raise RuntimeError('native command launcher exited before binding')
+            pid=value['pid']
+            if writer is not None:
+                writer.pin()
+                if writer.identity[1]!=value['start'] or writer.identity[2][-1]!=pid:
+                    raise RuntimeError('native command child namespace changed')
+                pid=writer.pid
+            identity=tracker.identity(pid)
+            if identity is None or identity[0]!=value['start'] or os.getpgid(pid)!=pid:
+                raise RuntimeError('native command child identity changed')
+            self.remote_identity=(pid,value['start']);tracker.owned.add(self.remote_identity)
+            root.lvb_remote_group=self.remote_identity
+            self.control.sendall((self.nonce+'\n').encode())
+            if custody is None:self.control.close();self.control=None
+        finally:
+            if writer is not None:writer.close()
     def close(self):
         if self.control is not None:self.control.close();self.control=None
-
-
-def native_command_child(args):
-    # An inherited socket, not vendor stdout, transfers kernel process custody
-    # before exec. The Windows program never receives this descriptor.
-    if (len(args)<4 or args[2]!='--' or not re.fullmatch('[0-9a-f]{64}',args[1])
-            or not pathlib.Path(args[3]).is_absolute()):raise RuntimeError('native command child arguments')
-    channel=socket.socket(fileno=int(args[0]));channel.settimeout(5)
-    pid=os.getpid()
-    if os.getpgrp()!=pid:os.setsid()
-    identity=ProcessTracker(pid).identity(pid)
-    if identity is None:raise RuntimeError('native command child absent')
-    channel.sendall((json.dumps({'nonce':args[1],'pid':pid,'start':identity[0]})+'\n').encode())
-    acknowledgement=bytearray()
-    while b'\n' not in acknowledgement and len(acknowledgement)<128:
-        part=channel.recv(128-len(acknowledgement))
-        if not part:break
-        acknowledgement.extend(part)
-    if acknowledgement!=(args[1]+'\n').encode():raise RuntimeError('native command child not admitted')
-    channel.close()
-    os.execv(args[3],args[3:])
+        if getattr(self,'host_lines',None) is not None:self.host_lines.close()
+        if getattr(self,'host_custody',None) is not None:self.host_custody.close()
 
 
 def run(spec,peer=None):
     session_preflight(spec)
     stop_requested=[False]
+    operation=None
     def before_owner_stop(*_):
         stop_requested[0]=True
     signal.signal(signal.SIGTERM,before_owner_stop);signal.signal(signal.SIGINT,before_owner_stop)
     try:
-        print('LVO0 '+spec['session']+' ready',flush=True)
+        graphics=spec['registration'].get('compatibility',{}).get('graphics')
+        print('LVO0 '+spec['session']+' ready'+(' graphics-v1' if graphics is not None else ''),flush=True)
         if stop_requested[0]:raise InterruptedError('supervisor interrupted after readiness')
+        # Lock refusal is still a prelaunch owner failure. No Windows child
+        # exists yet, so the same finalizer must retain the refusal and retire
+        # this exact reservation instead of leaving a missing receipt behind.
+        operation=(pathlib.Path(spec['registration']['environment']['root'])/'operation.lock').open('a+b')
+        fcntl.flock(operation,operation_lock_mode(spec)|fcntl.LOCK_NB)
         return run_owned(spec,peer,stop_requested)
     except Exception as error:
         # Ordinary setup errors after LVO0 are all owned by the same finalizer.
         # Do not let a missing LVO1 poison an
         # exposed lease merely because the Windows root was never created.
         return prelaunch_owned_failure(spec,peer,error)
+    finally:
+        if operation is not None:operation.close()
+
+class AudioScheduling:
+    """Bounded Rust policy requests for the owned Windows render thread.
+
+    This is a best-effort capability request, not an audio-readiness gate. It
+    does not delay setProcessing/process or claim a policy before readback.
+    The existing tracker remains the only process ownership authority.
+
+    A render-thread request that comes back unavailable for a transient reason
+    (bus client failure, RealtimeKit activation, a render thread not yet or no
+    longer unique) is retried on a bounded backoff until the policy is effective
+    or the chain is spent. Each render restart begins a new chain.
+    """
+    RETRY_DELAYS=(0.5,1.0,2.0,4.0,8.0)
+    FINAL_REASONS=frozenset(('scheduler_artifact_unavailable','scheduling_disabled_by_operator',
+                             'scheduling_existing_policy_preserved'))
+    # Distinct DAW threads the proxy may record calling process(); matches the
+    # proxy's own slot count, so a runaway peer cannot keep this loop busy.
+    CALLER_REQUESTS_MAX=8
+    def __init__(self,spec,clock=time.monotonic):
+        self.spec=spec;self.clock=clock;self.pending=0;self.requests=0;self.retries=0;self.rows=collections.deque(maxlen=64)
+        self.artifact=None;self.unavailable=None
+        self.attempt=0;self.retry_at=None
+        self.native_done=False;self.native_header=None;self.caller_requests=0
+        # Experiment switch: LVB_AUDIO_SCHEDULING=0 in the manager's environment
+        # makes no RealtimeKit request at all, so a run can compare the bridge's
+        # threads at ordinary priority against the default real-time grants.
+        if os.environ.get('LVB_AUDIO_SCHEDULING')=='0':
+            self.unavailable='scheduling_disabled_by_operator';return
+        try:
+            self.artifact=json.loads(os.environ['LVB_AUDIO_SCHEDULER'])
+            verify(self.artifact)
+        except Exception:self.unavailable='scheduler_artifact_unavailable'
+        if spec.get('graphical_session') and not self.unavailable:
+            try:
+                self.native_header=b'LVNS'+struct.pack('<I',1)+bytes.fromhex(spec['session'])
+                if len(self.native_header)!=24:raise ValueError('session identity')
+                atomic_bytes(pathlib.Path(spec['directory'])/'native-scheduling.supported',self.native_header)
+                # The DAW caller-thread grant is an experiment, off by default: on
+                # the Deck it made Bitwig's own graph errors worse while the rest
+                # of Bitwig's engine stays ordinary priority. Without this
+                # advertisement the proxy records "unsupported_supervisor".
+                if os.environ.get('LVB_CALLER_SCHEDULING')=='1':
+                    atomic_bytes(pathlib.Path(spec['directory'])/'caller-scheduling.supported',self.native_header)
+            except Exception:self.native_header=None
+    def started(self):
+        # A new render thread supersedes any pending retry for the previous one.
+        self.pending+=1;self.attempt=0;self.retry_at=None
+    def poll(self,owned):
+        self.poll_native();self.poll_caller()
+        if not self.pending:
+            if self.retry_at is None or self.clock()<self.retry_at:return
+            self.retry_at=None;self.retries+=1
+        else:
+            self.pending-=1;self.attempt=0
+        self.attempt+=1;self.requests+=1
+        if self.unavailable:
+            self.rows.append({'outcome':'unavailable','reason':self.unavailable,'attempt':self.attempt});return
+        request={'schema':1,'session':self.spec['session'],
+            'status':str(pathlib.Path(self.spec['directory'])/'ap12.status'),
+            'owned':sorted(owned)}
+        result=self.invoke(request);result['attempt']=self.attempt;self.rows.append(result)
+        if (result['outcome']=='unavailable' and result.get('reason') not in self.FINAL_REASONS
+            and self.attempt<=len(self.RETRY_DELAYS)):
+            self.retry_at=self.clock()+self.RETRY_DELAYS[self.attempt-1]
+    def invoke(self,request):
+        child=None
+        try:
+            data=json.dumps(request).encode()
+            if len(data)>32768:raise ValueError('request extent')
+            child=subprocess.Popen([self.artifact['path'],'owned-audio-scheduling'],
+                stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,
+                start_new_session=True)
+            stdout,_=child.communicate(data,timeout=2)
+            if child.returncode!=0 or len(stdout)>4096:raise ValueError('reply extent')
+            result=json.loads(stdout)
+            if result.get('outcome') not in ('effective','already_effective','unavailable'):
+                raise ValueError('reply outcome')
+            return result
+        except Exception:
+            return {'outcome':'unavailable','reason':'scheduling_request_failed'}
+        finally:
+            if child is not None and child.poll() is None:
+                # This direct child is unreaped, so its new process group has
+                # not been recycled. Retire its bounded bus client too.
+                try:os.killpg(child.pid,signal.SIGKILL)
+                except ProcessLookupError:pass
+                child.communicate(timeout=2)
+    def poll_native(self):
+        if self.native_done or self.native_header is None:return
+        directory=pathlib.Path(self.spec['directory'])
+        if not (directory/'native-scheduling.request').exists():return
+        self.native_done=True;self.requests+=1
+        peer=self.spec['graphical_session']
+        request={'schema':2,'session':self.spec['session'],'status':str(directory/'ap12.status'),
+            'owned':[],'native_peer':[peer['peer_pid'],peer['peer_start_ticks']]}
+        # Rust checks the bounded file, session mapping, namespace ID and exact
+        # thread start against this socket-authenticated process identity.
+        result=self.invoke(request);result['role']='native_worker';self.rows.append(result)
+        code={'effective':1,'already_effective':2}.get(result['outcome'],3)
+        try:atomic_bytes(directory/'native-scheduling.reply',self.native_header+struct.pack('<I',code))
+        except OSError:pass # native preparation has a bounded unavailable result
+    def poll_caller(self):
+        """Serve one recorded DAW caller thread per poll, bounded per session.
+
+        The proxy publishes one 40-byte request at a time and waits off its
+        audio path for a reply naming the same thread. The Rust helper reads
+        and verifies the request file itself; Python only echoes the thread.
+        """
+        if self.native_header is None or self.caller_requests>=self.CALLER_REQUESTS_MAX:return
+        directory=pathlib.Path(self.spec['directory']);request=directory/'caller-scheduling.request'
+        try:data=request.read_bytes()
+        except OSError:return
+        self.caller_requests+=1;self.requests+=1
+        peer=self.spec['graphical_session']
+        thread=data[28:32] if len(data)==40 and data[:24]==self.native_header else b'\0\0\0\0'
+        result=self.invoke({'schema':2,'session':self.spec['session'],'status':str(directory/'ap12.status'),
+            'owned':[],'native_peer':[peer['peer_pid'],peer['peer_start_ticks']],'native_role':'caller'})
+        result['role']='caller';self.rows.append(result)
+        try:request.unlink()
+        except OSError:pass
+        code={'effective':1,'already_effective':2}.get(result['outcome'],3)
+        try:atomic_bytes(directory/'caller-scheduling.reply',self.native_header+thread+struct.pack('<I',code))
+        except OSError:pass # the proxy's bounded wait reports unavailable
+    def value(self):
+        return {'schema':1,'requested_policy':'SCHED_RR','requested_priority':5,
+            'requests':self.requests,'retries':self.retries,'retry_delays_seconds':list(self.RETRY_DELAYS),
+            'discarded':max(0,self.requests-len(self.rows)),
+            'records':list(self.rows),'scope':'post-start effective readback, not a continuity guarantee'}
+
+def _start_ticks(stat_path,pid):
+    """Kernel start tick of a process or thread from its /proc stat line."""
+    raw=stat_path.read_text()
+    first,separator,_=raw.partition(' (')
+    if not separator or int(first)!=pid:raise ValueError('stat identity')
+    return int(raw.rsplit(')',1)[1].split()[19])
+
+class HostFootprint:
+    """Keep the Windows host family below the DAW's audio threads.
+
+    Every thread of the owned Windows processes except the audio render thread
+    (lvb-audio) and any thread that is not ordinary policy is raised to the nice
+    value in LVB_HOST_NICE (default 10; 0 disables). A DAW whose engine has no
+    real-time policy, as Bitwig's does not on the Deck, then wins contention
+    against the editor, wineserver and graphics work by roughly ten to one, while
+    our render thread keeps its real-time grant. Nice is only ever raised, which
+    needs no privilege. Threads created later inherit their creator's value, so
+    one pass after each render start plus a pass whenever the family grows covers
+    the editor's helper threads. This never runs on an audio thread and never
+    touches the DAW's processes.
+    """
+    DEFAULT=10
+    def __init__(self,spec,proc_root='/proc',system=os,clock=time.monotonic):
+        self.spec=spec;self.proc_root=pathlib.Path(proc_root);self.system=system;self.clock=clock
+        self.pending=False;self.known=set();self.last=None;self.unavailable=None
+        self.passes=0;self.applied=0;self.already=0;self.skipped_audio=0;self.skipped_policy=0;self.errors=0
+        raw=os.environ.get('LVB_HOST_NICE',str(self.DEFAULT))
+        try:
+            self.nice=int(raw)
+            if not 0<=self.nice<=19:raise ValueError('range')
+        except ValueError:self.nice=0;self.unavailable='host_nice_value_invalid'
+    def started(self):self.pending=True
+    def poll(self,owned):
+        if not self.nice:return
+        owned=set(owned);grew=not owned<=self.known
+        if not (self.pending or grew):return
+        if not self.pending and self.last is not None and self.clock()-self.last<1.0:return
+        self.pending=False;self.known|=owned;self.last=self.clock();self.passes+=1
+        for pid,start in sorted(owned):
+            process=self.proc_root/str(pid)
+            try:
+                if _start_ticks(process/'stat',pid)!=start:continue
+                tasks=sorted((p for p in (process/'task').iterdir() if p.name.isdigit()),key=lambda p:int(p.name))
+            except (OSError,ValueError):continue
+            for task in tasks[:4096]:
+                tid=int(task.name)
+                try:
+                    if (task/'comm').read_text().strip()=='lvb-audio':self.skipped_audio+=1;continue
+                    if self.system.sched_getscheduler(tid)!=self.system.SCHED_OTHER:self.skipped_policy+=1;continue
+                    if self.system.getpriority(self.system.PRIO_PROCESS,tid)>=self.nice:self.already+=1;continue
+                    self.system.setpriority(self.system.PRIO_PROCESS,tid,self.nice);self.applied+=1
+                except (OSError,ValueError):self.errors+=1
+    def value(self):
+        return {'schema':1,'nice':self.nice,'unavailable':self.unavailable,'passes':self.passes,
+            'applied':self.applied,'already':self.already,'skipped_audio':self.skipped_audio,
+            'skipped_policy':self.skipped_policy,'errors':self.errors,
+            'scope':'owned Windows family except the audio render thread; nice only raised'}
 
 def run_owned(spec,peer,stop_requested):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
-    cmd,binding=command(spec);env=environment(reg,spec.get('graphical_session'))
+    cmd,binding=command(spec);env=environment(reg,spec.get('graphical_session'),plugin_session=True)
+    graphics_configuration={'requested_backend':reg.get('compatibility',{}).get('graphics'),
+        'dll_overrides':env.get('WINEDLLOVERRIDES'),'scope':'host_process_and_children',
+        'renderer_observed':False}
     managed_home(spec,env)
     transport_environment(spec,env);delivery_trace(spec,env)
     capture=None;capture_error=None
@@ -1263,6 +1684,8 @@ def run_owned(spec,peer,stop_requested):
     root=(command_session.spawn(cmd,env) if command_session is not None else
         subprocess.Popen(cmd,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0))
     records=[];owned=set();pending=bytearray();vendor=bytearray();stderr=bytearray();dropped={'vendor':0,'stderr':0};protocol_bytes=0;gated=False;call=None;started=time.monotonic();failure=None;clean=False;code=None
+    audio_scheduling=AudioScheduling(spec) if not spec['inspect'] and not spec.get('vendor_access') else None
+    host_footprint=HostFootprint(spec) if audio_scheduling else None
     sel=selectors.DefaultSelector()
     def retain(key,target,data):
         n=min(len(data),max(0,65536-len(target)));target.extend(data[:n]);dropped[key]+=len(data)-n
@@ -1271,31 +1694,59 @@ def run_owned(spec,peer,stop_requested):
         pending.extend(data)
         while b'\n' in pending:
             line,_,rest=pending.partition(b'\n');pending[:]=rest
-            if not line.startswith(b'{"event":'):
-                retain('vendor',vendor,line+b'\n');capture_call('write','vendor',line+b'\n');continue
-            protocol_bytes+=len(line)+1
-            if protocol_bytes>1048576:raise RuntimeError('host protocol output capacity exceeded')
-            record=json.loads(line);records.append(record);state=record.get('state')
-            if state=='ap8_call' or record.get('event')=='call_started':call=(record.get('operation'),time.monotonic())
-            elif state in ('ap8_result','ap8_failure','ap8_inspection_closed') or record.get('event')=='call_completed':call=None
+            host_line(line)
         if len(pending)>65536:raise RuntimeError('host output line capacity exceeded')
+    def host_line(line,writer=None):
+        nonlocal protocol_bytes,call
+        if not line.startswith(b'{"event":'):
+            retain('vendor',vendor,line+b'\n');capture_call('write','vendor',line+b'\n');return
+        protocol_bytes+=len(line)+1
+        if protocol_bytes>1048576:raise RuntimeError('host protocol output capacity exceeded')
+        record=json.loads(line)
+        if writer is not None:command_session.host_custody.observe(record,writer,tracker,root)
+        records.append(record);state=record.get('state')
+        if audio_scheduling and state=='ap0_processing_thread_started':
+            audio_scheduling.started()
+            if host_footprint:host_footprint.started()
+        if state=='ap8_call' or record.get('event')=='call_started':call=(record.get('operation'),time.monotonic())
+        elif state in ('ap8_result','ap8_failure','ap8_inspection_closed') or record.get('event')=='call_completed':call=None
     def pump(timeout):
         for key,_ in sel.select(timeout):
+            if key.data=='host':
+                data,writer=receive_host_writer(key.fileobj)
+                if not data:
+                    sel.unregister(key.fileobj)
+                    command_session.host_lines.finish(host_line)
+                    continue
+                command_session.host_lines.feed(data,writer,host_line)
+                continue
             data=os.read(key.fileobj.fileno(),16384)
             if not data:sel.unregister(key.fileobj);continue
-            if key.data=='stdout':feed(data)
+            if key.data=='stdout':
+                if command_session is not None and command_session.host_custody is not None:
+                    retain('vendor',vendor,data);capture_call('write','vendor',data)
+                else:feed(data)
             else:
                 retain('stderr',stderr,data);capture_call('write','stderr',data)
+    tracker=None
     try:
         for stream,label in [(root.stdout,'stdout'),(root.stderr,'stderr')]:os.set_blocking(stream.fileno(),False);sel.register(stream,selectors.EVENT_READ,label)
         tracker=ProcessTracker(root.pid)
         if command_session is not None:
             try:command_session.bind(root,tracker,pump)
             finally:owned.update(tracker.update())
+            if command_session.host_custody is not None:sel.register(command_session.control,selectors.EVENT_READ,'host')
+        cadence=TrackingCadence()
+        def follow():
+            before=len(owned);owned.update(tracker.update());cadence.walked_now(len(owned)!=before)
         while True:
-            owned.update(tracker.update())
+            if cadence.due():follow()
             capture_call('observe',owned,root)
             pump(.05)
+            if audio_scheduling:
+                if audio_scheduling.pending:follow()
+                audio_scheduling.poll(owned)
+            if host_footprint:host_footprint.poll(owned)
             if visibility:
                 was=visibility.suspect
                 visibility.poll()
@@ -1347,6 +1798,8 @@ def run_owned(spec,peer,stop_requested):
                 break
     except Exception as e:failure=f'{type(e).__name__}: {e}'
     finally:
+        if command_session is not None and command_session.host_custody is not None:
+            command_session.host_custody.begin_cleanup()
         if retirement:
             retirement.close()
             if retirement_ready is None and failure is None:failure='Windows retirement status absent'
@@ -1364,11 +1817,22 @@ def run_owned(spec,peer,stop_requested):
                 nonlocal failure
                 try:pump(0)
                 except Exception as e:failure=failure or ('cleanup diagnostic drain: '+type(e).__name__)
+            if command_session is not None and command_session.host_custody is not None and command_session.host_custody.admitted:
+                # Exact mapping admission can precede an immediate failure or
+                # stop, before render start refreshes this cached cleanup set.
+                owned.update(tracker.owned)
+            # The settled cadence may be up to a second old; cleanup needs the current tree.
+            if tracker is not None:
+                try:owned.update(tracker.update())
+                except Exception as e:failure=failure or ('cleanup ownership walk: '+type(e).__name__)
             cleanup=cleanup_process(root,sorted(owned),during_cleanup=cleanup_drain) if capture else cleanup_process(root,sorted(owned))
             clean=all(cleanup.values())
             if command_session is not None and command_session.remote_identity is None:
                 clean=False
                 raise RuntimeError('native command child retirement unconfirmed before binding')
+            if command_session is not None and command_session.host_custody is not None and not command_session.host_custody.admitted:
+                clean=False
+                raise RuntimeError('final Windows host custody incomplete; retirement unconfirmed')
             if capture:
                 # The process owner is already retired. A closed or saturated
                 # logging stream cannot introduce an unbounded final wait.
@@ -1377,39 +1841,21 @@ def run_owned(spec,peer,stop_requested):
                 capture.counts['final_drain_incomplete']=bool(sel.get_map())
         except Exception as e:
             failure=(failure+'; ' if failure else '')+'cleanup: '+str(e)
+        host_custody=command_session.host_custody.value() if command_session is not None and command_session.host_custody is not None else None
         if command_session is not None:command_session.close()
         sel.close()
         for stream in (root.stdout,root.stderr):stream.close()
-        outcome={'vendor_retirement':retirement_ready,'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
-        if command_session is not None:outcome['native_command_child']=command_session.remote_identity
+        outcome={'graphics_configuration':graphics_configuration,'vendor_retirement':retirement_ready,'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
+        if audio_scheduling:outcome['audio_scheduling']=audio_scheduling.value()
+        if host_footprint:outcome['host_footprint']=host_footprint.value()
+        if command_session is not None:
+            outcome['native_command_child']=command_session.remote_identity
+            if host_custody is not None:outcome['final_windows_host']=host_custody
         # Diagnostic persistence cannot skip physical cleanup or peer retirement.
         try:atomic(report,outcome)
         except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
     if clean:
-        retired=peer is None or disconnected is not None
-        if peer is not None and not retired:
-            # Wake the native transport accept/worker on early Windows failure.
-            # Never acknowledge retirement until the native owner releases it.
-            try:
-                if failure:peer.sendall(b'F')
-                end=time.monotonic()+10
-                while time.monotonic()<end:
-                    if native_released():retired=True;break
-                    time.sleep(.02)
-            except OSError:pass
-        outcome['transport_retired']=retired
-        if retired:
-            # Only this random, private session is removed. Reports live outside
-            # it; no environment, vendor, publication or sibling path is touched.
-            try:retire_directories(spec)
-            except (OSError,RuntimeError) as e:
-                outcome['transport_retired']=False
-                outcome['retirement_error']=type(e).__name__+': '+str(e)[:256]
-            if outcome['transport_retired'] and peer is not None:
-                try:peer.settimeout(5);peer.sendall(b'R')
-                except OSError as e:
-                    outcome['transport_retired']=False
-                    outcome['retirement_error']=type(e).__name__+': '+str(e)[:256]
+        outcome.update(retire_native_transport(spec,peer,bool(failure)))
         try:atomic(report,outcome)
         except OSError as e:outcome['reporting_error']=type(e).__name__+': '+str(e)[:256]
     if retirement_ready is not None and clean and outcome.get('transport_retired') and not failure:
@@ -1449,7 +1895,7 @@ def keep(spec):
         nonlocal stop
         stop=True
     signal.signal(signal.SIGTERM,stopped);signal.signal(signal.SIGINT,stopped)
-    directory=pathlib.Path(spec['directory']);root=None;sel=selectors.DefaultSelector()
+    directory=pathlib.Path(spec['directory']);root=None;tracker=None;sel=selectors.DefaultSelector()
     owned=set();diagnostic_hash={name:hashlib.sha256() for name in ('stdout','stderr')}
     diagnostic_tail={name:bytearray() for name in ('stdout','stderr')}
     diagnostic_bytes={'stdout':0,'stderr':0};ready=False;started=time.monotonic();error=None;clean=False
@@ -1469,14 +1915,15 @@ def keep(spec):
         if type(startup_seconds) is not int or startup_seconds!=60:
             raise RuntimeError('keeper startup deadline binding')
         graphical=spec.get('graphical_session')
-        env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}},graphical);managed_home(spec,env);transport_environment(spec,env)
+        env=environment({**reg,'compatibility':{'disable_windows_accessibility':False}},graphical,plugin_session=True);managed_home(spec,env);transport_environment(spec,env)
         if command_session is not None:cmd,env=command_session.keeper_launch(cmd,env)
         root=subprocess.Popen(cmd,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
         for pipe,label in ((root.stdout,'stdout'),(root.stderr,'stderr')):
             os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,label)
-        tracker=ProcessTracker(root.pid)
+        tracker=ProcessTracker(root.pid);cadence=TrackingCadence()
         while not stop:
-            owned.update(tracker.update())
+            if cadence.due():
+                before=len(owned);owned.update(tracker.update());cadence.walked_now(len(owned)!=before)
             drain(.05)
             if not ready and (directory/'environment.ready').exists() and (command_session is None or command_session.service_ready()):
                 if (directory/'environment.ready').read_bytes()!=(spec['session']+'\n').encode():raise RuntimeError('environment readiness binding differs')
@@ -1498,6 +1945,10 @@ def keep(spec):
             except OSError as exc:error=(error+'; ' if error else '')+str(exc)
             try:root.wait(timeout=2)
             except subprocess.TimeoutExpired:pass
+            # The settled cadence may be up to a second old; cleanup needs the current tree.
+            if tracker is not None:
+                try:owned.update(tracker.update())
+                except Exception as exc:error=(error+'; ' if error else '')+str(exc)
             try:clean=all(cleanup_process(root,sorted(owned)).values())
             except Exception as exc:error=(error+'; ' if error else '')+str(exc)
             for _ in range(20):
@@ -1750,7 +2201,7 @@ class InstallerWitnesses:
                 if count>8192 or time.monotonic()>deadline:out['incomplete'].append('file_count_or_time_bound');break
                 for name in sorted(files):
                     p=pathlib.Path(directory)/name;suffix=p.suffix.lower()
-                    if suffix not in ('.exe','.dll','.msi','.log'):continue
+                    if suffix not in ('.exe','.dll','.vst3','.msi','.log'):continue
                     try:
                         m=p.lstat()
                         if not stat.S_ISREG(m.st_mode):continue
@@ -1807,7 +2258,11 @@ class InstallerWitnesses:
             location=after['uninstall'][key].get('InstallLocation','').replace('\\','/').rstrip('/')
             if not location.lower().startswith('c:/'):continue
             relative=location[3:].lower()+'/'
-            images=[p for p in delta['files']['added']+delta['files']['changed'] if p.lower().startswith(relative) and p.lower().endswith('.exe') and after['files'][p].get('sha256') and after['files'][p].get('format')=='pe_executable']
+            # A registered Windows audio product may contain only plug-in DLLs,
+            # including single-file or bundled VST3 modules. Its exact changed
+            # PE image is an installation witness, never factory/audio/license
+            # or installation-completeness authority.
+            images=[p for p in delta['files']['added']+delta['files']['changed'] if p.lower().startswith(relative) and p.lower().endswith(('.exe','.dll','.vst3')) and after['files'][p].get('sha256') and after['files'][p].get('format')=='pe_executable']
             if images:registrations.append({'registration':key,'images':images})
         changed=any(delta[k][change] for k in ('files','uninstall','services') for change in ('added','changed','removed'))
         return {'delta':delta,'application_registrations':registrations,
@@ -4420,16 +4875,18 @@ def vendor_application(spec):
 
 if __name__=='__main__':
     os.umask(0o077)
-    if sys.argv[1]=='--native-command-child':native_command_child(sys.argv[2:]);sys.exit(1)
     if sys.argv[1]=='--install':sys.exit(0 if install(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
     if sys.argv[1]=='--vendor-application':sys.exit(0 if vendor_application(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
-    spec=json.loads(pathlib.Path(sys.argv[1]).read_text());peer=None if spec['inspect'] or spec.get('vendor_access') else socket.socket(fileno=0)
-    operation=(pathlib.Path(spec['registration']['environment']['root'])/'operation.lock').open('a+b')
-    # Standalone setup inspection is exclusive: it may start Wine services and
-    # must never become their transient owner underneath a live audio instance.
-    mode=operation_lock_mode(spec)
-    fcntl.flock(operation,mode|fcntl.LOCK_NB)
+    graphics_entry=sys.argv[1]=='--graphics-settings-v1'
+    spec=json.loads(pathlib.Path(sys.argv[2 if graphics_entry else 1]).read_text())
+    if graphics_entry and (spec.get('keeper') or spec['registration'].get('compatibility',{}).get('graphics')!='wine_d3d11'):
+        raise RuntimeError('graphics settings entry requires a supported process-scoped choice')
+    peer=None if spec['inspect'] or spec.get('vendor_access') else socket.socket(fileno=0)
+    operation=None
     try:
+        if spec.get('keeper'):
+            operation=(pathlib.Path(spec['registration']['environment']['root'])/'operation.lock').open('a+b')
+            fcntl.flock(operation,operation_lock_mode(spec)|fcntl.LOCK_NB)
         outcome=keep(spec) if spec.get('keeper') else run(spec,peer)
         complete=outcome['cleanup_confirmed'] and (spec.get('keeper') or outcome.get('transport_retired',False))
         # This is an owner result, not the vendor launcher's exit status.
@@ -4437,5 +4894,5 @@ if __name__=='__main__':
         if outcome.get('reporting_error'):print('Bridge reporting failure: '+outcome['reporting_error'],file=sys.stderr)
         sys.exit(0 if complete else 2)
     finally:
-        operation.close()
+        if operation is not None:operation.close()
         if peer is not None:peer.close()

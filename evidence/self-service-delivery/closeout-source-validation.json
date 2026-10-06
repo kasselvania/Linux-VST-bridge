@@ -1,0 +1,133 @@
+{
+  "schema": 1,
+  "source_base": "ed316ba634af3afe7864ccbf050e3515adcce752",
+  "claim": "source validation only; no installed audio or recovery qualification",
+  "changed_source_sha256": {
+    "bridge-manager/runtime/ownership.py": "6ca42e6a20e7bac6f740d0b7004ec1b9dee552c4cfc854c68e1a499015d4dd3f",
+    "bridge-manager/runtime/session.py": "aa3f28bbf875844eb3abba5d16bfa7324c97be6f79a6f51bb8593ab29566d5e2",
+    "bridge-manager/runtime/test_session.py": "736f4d8eb27240078700583c63192b323417ac18df3b2776ea420a8d1b991262",
+    "bridge-manager/src/main.rs": "e359256f66e56dd48f96035f34e4900027b0573df04e0ac13243714afe5ee65c",
+    "bridge-manager/src/operator_cli.rs": "d2ae188b17f0c190b4ba3e695b16652898e08c62c05c62d60c5b7f21a195336f",
+    "bridge-manager/src/preparation_cli.rs": "b186b750f2a6d8b5bb40225e36c532175e9db4c27cb3c77e89ef05a1960c715f",
+    "native-vst3-proxy/backend/src/lib.rs": "a453814a5c361efca8505c8f9c42c4a611d722ead02883364733e474fac27b22",
+    "native-vst3-proxy/backend/src/queued.rs": "d5018cec9639b2dd3b4a6a9e7c391d3f9dcd54f265ac65bc088b8af904c770ba",
+    "tools/beta/README.md": "9f95e767c2a8833f08f5b193238b3bf76c5b80a09784658f45d51c7b06d35723",
+    "tools/beta/lifecycle_host.cpp": "9f900a6aa3fb7bcf423731974ccea44b2d7bb9026e413202897d2ec41a8907e4",
+    "windows-factory-probe/source/delivery_trace.h": "a2c13b9a2ed88a9d3c8c7e551325d0a7be5f9e69e586ede653729884d44ecc46"
+  },
+  "resources": {
+    "cpu_cores": 1,
+    "memory_bytes": 2684354560,
+    "swap_bytes": 0,
+    "tasks": 256,
+    "init_reaper": true,
+    "memory_limit_events": 0,
+    "task_limit_events": 0
+  },
+  "runtime": {
+    "passed": 347,
+    "failed": 0,
+    "seconds": 54.343,
+    "log_sha256": "301920b67f5e66c069ee303b4081a40379c7369e21c03a0a90d0a454b0fda385"
+  },
+  "rust": {
+    "manager_library_original": {
+      "passed": 200,
+      "failed": 1,
+      "reason": "historical fixture owned by a different build user"
+    },
+    "manager_library_owned_fixture_retest": {
+      "passed": 1,
+      "failed": 0,
+      "fixture_bytes_unchanged": true
+    },
+    "manager_binary": {
+      "passed": 287,
+      "failed": 0,
+      "ignored": 2
+    },
+    "native_registered": {
+      "passed": 88,
+      "failed": 0,
+      "ignored": 1
+    },
+    "manager_clippy": "passed with warnings denied",
+    "native_clippy": "passed with warnings denied"
+  },
+  "retained_steps": [
+    {
+      "step": "manager",
+      "exit_code": 101,
+      "seconds": 300.602,
+      "log_sha256": "e0d1edeed4ec8cbd7e0c059954af6d3f6b95c943f4b0a63846b12d116c2dc361"
+    },
+    {
+      "step": "manager-profile",
+      "exit_code": 0,
+      "seconds": 0.321,
+      "log_sha256": "cf709461675fc7b65832de2e49e836e4920e9e8028c18e778d9735002fa35141"
+    },
+    {
+      "step": "manager-binary",
+      "exit_code": 0,
+      "seconds": 152.944,
+      "log_sha256": "88554f926c327bf734ff646483a9c84f5c9eb208b84765c92041c58cb5623cb4"
+    },
+    {
+      "step": "native",
+      "exit_code": 101,
+      "seconds": 4.076,
+      "log_sha256": "7c1e1e37b30aec102b6339a707129f0ae0b6d9af6fea65e241fd3e3e266d50a4"
+    },
+    {
+      "step": "native",
+      "exit_code": 0,
+      "seconds": 16.86,
+      "log_sha256": "85a702ce9906ae08dcc646f403f0641a76a29b87865374e14ae6dc3c0f92157e"
+    },
+    {
+      "step": "manager-clippy",
+      "exit_code": 0,
+      "seconds": 30.389,
+      "log_sha256": "a67b0ae883fa3f2e1af58b6a2cc474028665da600a675e62ce451f148fcbf33c"
+    },
+    {
+      "step": "native-clippy",
+      "exit_code": 0,
+      "seconds": 3.475,
+      "log_sha256": "7f5063bd73473fce5d2d67a594f1bdd6f5638119cf5372e777ccebcf0cab1ff6"
+    },
+    {
+      "step": "windows-trace",
+      "exit_code": 1,
+      "seconds": 0.515,
+      "log_sha256": "40f5f7bd58f4b7665455d2bef96e8618bd333ca579d6bf753795f81479727f88"
+    }
+  ],
+  "windows_history": {
+    "initial": "failed GCC misleading-indentation warning in unchanged header",
+    "correction": "split early return and dumped assignment into separate lines; no behavior change",
+    "result": "passed fixed history bounds, startup filtering, exactly-once dump and note traces",
+    "log_sha256": "930fd045a02052d6bffc68441cf1c7cb7b03dea4cd8aba154d6709d38855c3b4",
+    "installed_host_rebuild_required": true
+  },
+  "sdk_consumer": {
+    "result": "compiled with warnings denied",
+    "host_sha256": "b985fffaee72f7ddfcd1a6b81d2d049512eada5f64bea41e876a9dc794c95f61",
+    "audit_sha256": "9d497104f783a179b4039a0a0d375713aacc38f38c0312f0380e9b2c2af3a8ad"
+  },
+  "cleanup": {
+    "regression_before": "deterministic delayed-retirement case fails before repair",
+    "regression_after": "delayed retirement passes; owner still present at deadline refuses",
+    "original_real_process_tests": "both pass with init reaper",
+    "positive_retirement_required": true,
+    "deadline_increased": false
+  },
+  "remaining": [
+    "exact committed-head CI and paired Windows/native build",
+    "installed recovery and native/Windows timing observation",
+    "audio gap attribution and repair",
+    "fixed-candidate commercial musician journeys and platform qualification",
+    "customer signing and complete release obligations"
+  ]
+}

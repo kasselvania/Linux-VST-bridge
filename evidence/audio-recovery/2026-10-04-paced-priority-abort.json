@@ -1,0 +1,1875 @@
+{
+  "schema": 1,
+  "status": "ABBA_ABORTED_CAPTURE_LOSS_NO_PRIORITY_CAUSE_CLAIM",
+  "date": "2026-10-04",
+  "source": {
+    "commit": "d970eda91be4bc972d38a0d4b107cc5f4ededa54",
+    "tree": "57a484beee1f28cb6d0df85f25977b458d64a1ff",
+    "engine_sha256": "add49d7a5ed38c44d55395f58d471656d33a7ef8f097cdd43de2332ebe04fbd0",
+    "windows_host_sha256": "c8587d8c75ddce80c2317a10070735c65b30b6bc1649ff219821c44689bcf05f",
+    "package": "0.12.0refresh5deck",
+    "unchanged": true
+  },
+  "fixture": {
+    "name": "Pure LoFi",
+    "version": "1.0.0.6121",
+    "class_id": "417274754156495350724C4650726F63",
+    "module_sha256": "b3e8ca7477487d0dc7fbd3f8815e2f9aec7c8b701f4cb65cf96433c14fa11636",
+    "revision": "a31b86347649682d6dd8dfd8520425cc",
+    "delivery": "SameCallback",
+    "remembered_added_frames": 512,
+    "host": "Retained Bitwig6.1/Flatpak fixture; actual native consumer Flatpak, Windows worker outside",
+    "host_versions_currently_refreshed": false,
+    "graph_quantum": 512,
+    "graph_rate": 48000,
+    "recorder_format": {
+      "format": "F32LE",
+      "channels": 2,
+      "rate": 48000,
+      "positions": [
+        "FL",
+        "FR"
+      ],
+      "negotiated": true,
+      "explicit_bitwig_output_only": true,
+      "speaker_links_preserved": true
+    },
+    "maximum_vst3_frames_prior_baseline": 512,
+    "actual_VST3_N": "unobserved",
+    "actual_device_deadline": "unobserved",
+    "editor": "Same visible Little Pleasures preset; sparse start/mid/end proof, not constant graphics workload",
+    "workload": "Single S1 one-bar four-note110BPM clip; quarter-beat E3/G3/A3/G3 notes and rests; opaque vendor tails/noise",
+    "startup": "Fresh DSP consumer from an existing managed keeper; no cold claim",
+    "per_window_power_readback": "not retained; no power mutation performed"
+  },
+  "protocol": {
+    "freeze_sha256": "38f2d0af1bd8ff2b031685711fe702bfb320c85769bd8c6cab3f770d22b0edc1",
+    "helper_sha256": "6d910bdb5ee3281a4989a86ad4a48bfa6f26603147ffe63393c26d826626f834",
+    "planned": [
+      "run01-A",
+      "run02-B",
+      "run03-B",
+      "run04-A"
+    ],
+    "seconds_each": 180,
+    "recorder_ceiling_s": 360,
+    "attempted": [
+      "run01-A",
+      "run02-B"
+    ],
+    "unperformed": [
+      "run03-B",
+      "run04-A"
+    ],
+    "no_rerun_or_limit_change": true
+  },
+  "target": {
+    "pid": 452013,
+    "tid": 452148,
+    "pid_start": 20963216,
+    "tid_start": 20963911,
+    "namespace_pid": 155,
+    "namespace_tid": 168,
+    "session": "c9fb2e2dadd9c2eb7a18be4332b2c4d0",
+    "nice": 0,
+    "affinity": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "rttime_us": [
+      200000,
+      200000
+    ],
+    "windows": {
+      "pid": 452122,
+      "tid": 452160,
+      "pid_start": 20963408,
+      "tid_start": 20963932,
+      "policy": 1073741826,
+      "priority": 5,
+      "affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "nice": 0,
+      "rttime_us": [
+        200000,
+        200000
+      ]
+    }
+  },
+  "actions": {
+    "setup-A": {
+      "action": "ordinary",
+      "label": "setup-A",
+      "before": {
+        "monotonic_ns": 209392254973887,
+        "policy": 1073741826,
+        "priority": 5,
+        "nice": 0,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "rttime_us": [
+          200000,
+          200000
+        ]
+      },
+      "after": {
+        "monotonic_ns": 209392261737108,
+        "policy": 1073741824,
+        "priority": 0,
+        "nice": 0,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "rttime_us": [
+          200000,
+          200000
+        ]
+      },
+      "passed": true
+    },
+    "setup-B": {
+      "action": "restore",
+      "label": "setup-B",
+      "before": {
+        "monotonic_ns": 209397898298033,
+        "policy": 1073741824,
+        "priority": 0,
+        "nice": 0,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "rttime_us": [
+          200000,
+          200000
+        ]
+      },
+      "request": {
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "after": {
+        "monotonic_ns": 209397917657346,
+        "policy": 1073741826,
+        "priority": 5,
+        "nice": 0,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "rttime_us": [
+          200000,
+          200000
+        ]
+      },
+      "passed": true
+    },
+    "run01-A": {
+      "action": "ordinary",
+      "label": "run01-A",
+      "before": {
+        "monotonic_ns": 209484851039807,
+        "policy": 1073741826,
+        "priority": 5,
+        "nice": 0,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "rttime_us": [
+          200000,
+          200000
+        ]
+      },
+      "after": {
+        "monotonic_ns": 209484857986020,
+        "policy": 1073741824,
+        "priority": 0,
+        "nice": 0,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "rttime_us": [
+          200000,
+          200000
+        ]
+      },
+      "passed": true
+    },
+    "run01-restore": {
+      "action": "restore",
+      "label": "run01-restore",
+      "before": {
+        "monotonic_ns": 209958391852372,
+        "policy": 1073741824,
+        "priority": 0,
+        "nice": 0,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "rttime_us": [
+          200000,
+          200000
+        ]
+      },
+      "request": {
+        "exit": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "after": {
+        "monotonic_ns": 209958411676611,
+        "policy": 1073741826,
+        "priority": 5,
+        "nice": 0,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "rttime_us": [
+          200000,
+          200000
+        ]
+      },
+      "passed": true
+    },
+    "run02-B": {
+      "action": "restore",
+      "label": "run02-B",
+      "before": {
+        "monotonic_ns": 209973673857718,
+        "policy": 1073741826,
+        "priority": 5,
+        "nice": 0,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "rttime_us": [
+          200000,
+          200000
+        ]
+      },
+      "request": {
+        "skipped": "already exact RR|RESET5; no new request"
+      },
+      "after": {
+        "monotonic_ns": 209973680571686,
+        "policy": 1073741826,
+        "priority": 5,
+        "nice": 0,
+        "affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "rttime_us": [
+          200000,
+          200000
+        ]
+      },
+      "passed": true
+    }
+  },
+  "windows": [
+    {
+      "label": "run01-A",
+      "status": "declared_bracket_captured_normal_recorder_stop",
+      "markers": {
+        "start": 209742241388768,
+        "end": 209922275537649,
+        "stop_request": 209952399279625
+      },
+      "output": {
+        "schema": 1,
+        "method": "independent whole-capture float32 stereo scan plus10ms envelope; no vendor sample-exact oracle",
+        "raw": {
+          "bytes": 102502400,
+          "sha256": "5b605a36078e78ce158946bc9294c17146ee5694f7c9a694ea83ca182ff72f4e",
+          "frames": 12812800,
+          "sample_values": 25625600,
+          "rate": 48000,
+          "channels": 2,
+          "duration_s": 266.93333333333334
+        },
+        "monotonic_playback_window_s": 180.034148881,
+        "recording_byte_window": {
+          "start_frame": 2712064,
+          "end_frame": 11349504,
+          "frames": 8637440,
+          "duration_s": 179.94666666666666,
+          "scope": "Byte snapshots after positive playback/editor evidence and before stop; file buffering prevents sample-exact wall alignment"
+        },
+        "nonfinite_sample_values": 0,
+        "channel_min": [
+          -0.053171541541814804,
+          -0.05402517691254616
+        ],
+        "channel_max": [
+          0.058244846761226654,
+          0.05582322180271149
+        ],
+        "measured_rms": [
+          0.01705849507539282,
+          0.017094971067954094
+        ],
+        "zero_spans_ge1ms": [
+          {
+            "start_frame": 0,
+            "end_frame": 917552,
+            "frames": 917552,
+            "seconds": 19.115666666666666,
+            "scope": "boundary_or_outside"
+          },
+          {
+            "start_frame": 1254912,
+            "end_frame": 1255424,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "boundary_or_outside"
+          },
+          {
+            "start_frame": 2215424,
+            "end_frame": 2215936,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "boundary_or_outside"
+          },
+          {
+            "start_frame": 3535360,
+            "end_frame": 3535872,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          },
+          {
+            "start_frame": 6175744,
+            "end_frame": 6176256,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          },
+          {
+            "start_frame": 6826496,
+            "end_frame": 6827008,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          },
+          {
+            "start_frame": 8142336,
+            "end_frame": 8142848,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          },
+          {
+            "start_frame": 8804352,
+            "end_frame": 8804864,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          },
+          {
+            "start_frame": 11432448,
+            "end_frame": 11432960,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "boundary_or_outside"
+          }
+        ],
+        "near_zero_spans_ge1ms": [
+          {
+            "start_frame": 0,
+            "end_frame": 917643,
+            "frames": 917643,
+            "seconds": 19.1175625,
+            "scope": "boundary_or_outside"
+          },
+          {
+            "start_frame": 1254912,
+            "end_frame": 1255424,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "boundary_or_outside"
+          },
+          {
+            "start_frame": 2215424,
+            "end_frame": 2215936,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "boundary_or_outside"
+          },
+          {
+            "start_frame": 3535360,
+            "end_frame": 3535872,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          },
+          {
+            "start_frame": 6175744,
+            "end_frame": 6176256,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          },
+          {
+            "start_frame": 6826496,
+            "end_frame": 6827008,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          },
+          {
+            "start_frame": 8142336,
+            "end_frame": 8142848,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          },
+          {
+            "start_frame": 8804352,
+            "end_frame": 8804864,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          },
+          {
+            "start_frame": 11432448,
+            "end_frame": 11432960,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "boundary_or_outside"
+          }
+        ],
+        "sample_steps": {
+          "threshold": 0.05,
+          "count": 0,
+          "maximum": 0.0368746854364872,
+          "measured_count": 0,
+          "interpretation": "Observed sample steps, not automatic click or glitch classifications"
+        },
+        "measured_zero_frame_count": 2560,
+        "measured_near_zero_frame_count": 2560,
+        "limitations": [
+          "Input note rests are not silence predictions; vendor tails/noise remain opaque",
+          "No universal click/glitch-free claim follows from these scans",
+          "No captured sample is erased for an observed graph error",
+          "Entire capture and envelope are retained; unexplained anomalies remain unresolved"
+        ]
+      },
+      "observer": {
+        "count": 234,
+        "first_ns": 209686045811270,
+        "last_ns": 209951656494493,
+        "maximum_interval_s": 1.348643928,
+        "all_recorders_alive": true,
+        "counter_samples": 234,
+        "bridge_counters": {
+          "missing": {
+            "min": 0,
+            "max": 0
+          },
+          "gaps": {
+            "min": 0,
+            "max": 0
+          },
+          "expired": {
+            "min": 0,
+            "max": 0
+          },
+          "admitted": {
+            "min": 18720768,
+            "max": 31469056
+          },
+          "delivered": {
+            "min": 18720768,
+            "max": 31469056
+          },
+          "priming": {
+            "min": 0,
+            "max": 0
+          }
+        },
+        "declared_bracket_samples": 158,
+        "all_declared_bracket_recorders_alive": true
+      },
+      "policies": {
+        "native": [
+          {
+            "policy": 1073741824,
+            "priority": 0,
+            "nice": 0,
+            "affinity": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7
+            ],
+            "rttime_us": [
+              200000,
+              200000
+            ]
+          }
+        ],
+        "windows": [
+          {
+            "policy": 1073741826,
+            "priority": 5,
+            "nice": 0,
+            "affinity": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7
+            ],
+            "rttime_us": [
+              200000,
+              200000
+            ]
+          }
+        ]
+      },
+      "graph_nodes": [
+        {
+          "node": 69,
+          "rows": 270,
+          "first": {
+            "monotonic_ns": 209686059332309,
+            "state": "C",
+            "node": 69,
+            "quantum": 0,
+            "rate": 0,
+            "wait": "---",
+            "busy": "---",
+            "w_q": "---",
+            "b_q": "---",
+            "err": 0,
+            "format": "alsa_output.pci-0000_04_00.5-platform-nau8821-max.HiFi__Speaker__sink",
+            "name": ""
+          },
+          "before_start": {
+            "monotonic_ns": 209741053777116,
+            "state": "R",
+            "node": 69,
+            "quantum": 512,
+            "rate": 48000,
+            "wait": "3.2ms",
+            "busy": "201.1us",
+            "w_q": "0.30",
+            "b_q": "0.02",
+            "err": 1,
+            "format": "S16LE",
+            "name": "2 48000 alsa_output.pci-0000_04_00.5-platform-nau8821-max.HiFi__Speaker__sink"
+          },
+          "active_first": {
+            "monotonic_ns": 209744053567210,
+            "state": "R",
+            "node": 69,
+            "quantum": 512,
+            "rate": 48000,
+            "wait": "3.8ms",
+            "busy": "182.5us",
+            "w_q": "0.36",
+            "b_q": "0.02",
+            "err": 1,
+            "format": "S16LE",
+            "name": "2 48000 alsa_output.pci-0000_04_00.5-platform-nau8821-max.HiFi__Speaker__sink"
+          },
+          "active_last": {
+            "monotonic_ns": 209922053867988,
+            "state": "R",
+            "node": 69,
+            "quantum": 512,
+            "rate": 48000,
+            "wait": "3.9ms",
+            "busy": "189.9us",
+            "w_q": "0.36",
+            "b_q": "0.02",
+            "err": 1,
+            "format": "S16LE",
+            "name": "2 48000 alsa_output.pci-0000_04_00.5-platform-nau8821-max.HiFi__Speaker__sink"
+          },
+          "last": {
+            "monotonic_ns": 209952762694199,
+            "state": "R",
+            "node": 69,
+            "quantum": 512,
+            "rate": 48000,
+            "wait": "2.6ms",
+            "busy": "200.0us",
+            "w_q": "0.25",
+            "b_q": "0.02",
+            "err": 1,
+            "format": "S16LE",
+            "name": "2 48000 alsa_output.pci-0000_04_00.5-platform-nau8821-max.HiFi__Speaker__sink"
+          },
+          "quantums": [
+            0,
+            512
+          ],
+          "rates": [
+            0,
+            48000
+          ]
+        },
+        {
+          "node": 113,
+          "rows": 270,
+          "first": {
+            "monotonic_ns": 209686059410161,
+            "state": "C",
+            "node": 113,
+            "quantum": 0,
+            "rate": 0,
+            "wait": "---",
+            "busy": "---",
+            "w_q": "---",
+            "b_q": "---",
+            "err": 0,
+            "format": "Bitwig",
+            "name": "Studio"
+          },
+          "before_start": {
+            "monotonic_ns": 209741053785196,
+            "state": "R",
+            "node": 113,
+            "quantum": 512,
+            "rate": 48000,
+            "wait": "18.9us",
+            "busy": "3.1ms",
+            "w_q": "0.00",
+            "b_q": "0.29",
+            "err": 15,
+            "format": "+",
+            "name": "Bitwig Studio"
+          },
+          "active_first": {
+            "monotonic_ns": 209744053582530,
+            "state": "R",
+            "node": 113,
+            "quantum": 512,
+            "rate": 48000,
+            "wait": "16.4us",
+            "busy": "3.8ms",
+            "w_q": "0.00",
+            "b_q": "0.35",
+            "err": 15,
+            "format": "+",
+            "name": "Bitwig Studio"
+          },
+          "active_last": {
+            "monotonic_ns": 209922053881988,
+            "state": "R",
+            "node": 113,
+            "quantum": 512,
+            "rate": 48000,
+            "wait": "72.2us",
+            "busy": "3.8ms",
+            "w_q": "0.01",
+            "b_q": "0.36",
+            "err": 22,
+            "format": "+",
+            "name": "Bitwig Studio"
+          },
+          "last": {
+            "monotonic_ns": 209952762705470,
+            "state": "R",
+            "node": 113,
+            "quantum": 512,
+            "rate": 48000,
+            "wait": "20.5us",
+            "busy": "2.6ms",
+            "w_q": "0.00",
+            "b_q": "0.24",
+            "err": 23,
+            "format": "+",
+            "name": "Bitwig Studio"
+          },
+          "quantums": [
+            0,
+            512
+          ],
+          "rates": [
+            0,
+            48000
+          ]
+        },
+        {
+          "node": 117,
+          "rows": 270,
+          "first": {
+            "monotonic_ns": 209686059422611,
+            "state": "C",
+            "node": 117,
+            "quantum": 0,
+            "rate": 0,
+            "wait": "---",
+            "busy": "---",
+            "w_q": "---",
+            "b_q": "---",
+            "err": 0,
+            "format": "lvb-refresh5-priority-capture",
+            "name": ""
+          },
+          "before_start": {
+            "monotonic_ns": 209741053797526,
+            "state": "R",
+            "node": 117,
+            "quantum": 1024,
+            "rate": 48000,
+            "wait": "27.1us",
+            "busy": "41.2us",
+            "w_q": "0.00",
+            "b_q": "0.00",
+            "err": 0,
+            "format": "F32LE",
+            "name": "2 48000 = lvb-refresh5-priority-capture"
+          },
+          "active_first": {
+            "monotonic_ns": 209744053593240,
+            "state": "R",
+            "node": 117,
+            "quantum": 1024,
+            "rate": 48000,
+            "wait": "30.9us",
+            "busy": "71.2us",
+            "w_q": "0.00",
+            "b_q": "0.01",
+            "err": 0,
+            "format": "F32LE",
+            "name": "2 48000 = lvb-refresh5-priority-capture"
+          },
+          "active_last": {
+            "monotonic_ns": 209922053889819,
+            "state": "R",
+            "node": 117,
+            "quantum": 1024,
+            "rate": 48000,
+            "wait": "31.5us",
+            "busy": "13.3us",
+            "w_q": "0.00",
+            "b_q": "0.00",
+            "err": 0,
+            "format": "F32LE",
+            "name": "2 48000 = lvb-refresh5-priority-capture"
+          },
+          "last": {
+            "monotonic_ns": 209952762715610,
+            "state": "R",
+            "node": 117,
+            "quantum": 1024,
+            "rate": 48000,
+            "wait": "24.5us",
+            "busy": "14.2us",
+            "w_q": "0.00",
+            "b_q": "0.00",
+            "err": 0,
+            "format": "F32LE",
+            "name": "2 48000 = lvb-refresh5-priority-capture"
+          },
+          "quantums": [
+            0,
+            1024
+          ],
+          "rates": [
+            0,
+            48000
+          ]
+        }
+      ],
+      "active_bitwig_ERR_increment_sum": 7,
+      "zero_associations": {
+        "tolerance_s": 1,
+        "scope": "Byte-observation bracket expanded by +/-1s; nearby association, not exact overlap or cause",
+        "inside": 5,
+        "inside_with_nearby_ERR": 4
+      },
+      "capture_result": {
+        "monotonic_ns": 209952875839008,
+        "audio_bytes": 102502400,
+        "audio_sha256": "5b605a36078e78ce158946bc9294c17146ee5694f7c9a694ea83ca182ff72f4e",
+        "recorder_exit": 1,
+        "top_exit": 0,
+        "failure": false
+      },
+      "recorder_stderr_bytes": 0,
+      "failure": null
+    },
+    {
+      "label": "run02-B",
+      "status": "declared_bracket_captured_lifecycle_capture_incomplete",
+      "markers": {
+        "start": 210131301807143,
+        "end": 210311303386845,
+        "stop_request": 210338832053313
+      },
+      "output": {
+        "schema": 1,
+        "method": "independent whole-capture float32 stereo scan plus10ms envelope; no vendor sample-exact oracle",
+        "raw": {
+          "bytes": 138240000,
+          "sha256": "d7e67bee98beec8b83e8b933ddc5eb7a77018173077f49b19615a2936073babf",
+          "frames": 17280000,
+          "sample_values": 34560000,
+          "rate": 48000,
+          "channels": 2,
+          "duration_s": 360.0
+        },
+        "monotonic_playback_window_s": 180.001579702,
+        "recording_byte_window": {
+          "start_frame": 7542272,
+          "end_frame": 16180736,
+          "frames": 8638464,
+          "duration_s": 179.968,
+          "scope": "Byte snapshots after positive playback/editor evidence and before stop; file buffering prevents sample-exact wall alignment"
+        },
+        "nonfinite_sample_values": 0,
+        "channel_min": [
+          -0.05276573449373245,
+          -0.05426566302776337
+        ],
+        "channel_max": [
+          0.05427053943276405,
+          0.05593273043632507
+        ],
+        "measured_rms": [
+          0.01715809372895599,
+          0.017123515036007293
+        ],
+        "zero_spans_ge1ms": [
+          {
+            "start_frame": 0,
+            "end_frame": 5675520,
+            "frames": 5675520,
+            "seconds": 118.24,
+            "scope": "boundary_or_outside"
+          },
+          {
+            "start_frame": 6813184,
+            "end_frame": 6813696,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "boundary_or_outside"
+          },
+          {
+            "start_frame": 8112640,
+            "end_frame": 8113152,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          },
+          {
+            "start_frame": 8763392,
+            "end_frame": 8763904,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          },
+          {
+            "start_frame": 11394560,
+            "end_frame": 11395072,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          },
+          {
+            "start_frame": 12709376,
+            "end_frame": 12709888,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          }
+        ],
+        "near_zero_spans_ge1ms": [
+          {
+            "start_frame": 0,
+            "end_frame": 5675648,
+            "frames": 5675648,
+            "seconds": 118.24266666666666,
+            "scope": "boundary_or_outside"
+          },
+          {
+            "start_frame": 6813184,
+            "end_frame": 6813696,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "boundary_or_outside"
+          },
+          {
+            "start_frame": 8112640,
+            "end_frame": 8113152,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          },
+          {
+            "start_frame": 8763392,
+            "end_frame": 8763904,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          },
+          {
+            "start_frame": 11394560,
+            "end_frame": 11395072,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          },
+          {
+            "start_frame": 12709376,
+            "end_frame": 12709888,
+            "frames": 512,
+            "seconds": 0.010666666666666666,
+            "scope": "measured"
+          }
+        ],
+        "sample_steps": {
+          "threshold": 0.05,
+          "count": 0,
+          "maximum": 0.034070711582899094,
+          "measured_count": 0,
+          "interpretation": "Observed sample steps, not automatic click or glitch classifications"
+        },
+        "measured_zero_frame_count": 2048,
+        "measured_near_zero_frame_count": 2048,
+        "limitations": [
+          "Input note rests are not silence predictions; vendor tails/noise remain opaque",
+          "No universal click/glitch-free claim follows from these scans",
+          "No captured sample is erased for an observed graph error",
+          "Entire capture and envelope are retained; unexplained anomalies remain unresolved"
+        ]
+      },
+      "observer": {
+        "count": 317,
+        "first_ns": 209974504706767,
+        "last_ns": 210334355237808,
+        "maximum_interval_s": 1.36429305,
+        "all_recorders_alive": false,
+        "counter_samples": 317,
+        "bridge_counters": {
+          "missing": {
+            "min": 0,
+            "max": 0
+          },
+          "gaps": {
+            "min": 0,
+            "max": 0
+          },
+          "expired": {
+            "min": 0,
+            "max": 0
+          },
+          "admitted": {
+            "min": 32566272,
+            "max": 49838592
+          },
+          "delivered": {
+            "min": 32566272,
+            "max": 49838592
+          },
+          "priming": {
+            "min": 0,
+            "max": 0
+          }
+        },
+        "declared_bracket_samples": 157,
+        "all_declared_bracket_recorders_alive": true
+      },
+      "policies": {
+        "native": [
+          {
+            "policy": 1073741826,
+            "priority": 5,
+            "nice": 0,
+            "affinity": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7
+            ],
+            "rttime_us": [
+              200000,
+              200000
+            ]
+          }
+        ],
+        "windows": [
+          {
+            "policy": 1073741826,
+            "priority": 5,
+            "nice": 0,
+            "affinity": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7
+            ],
+            "rttime_us": [
+              200000,
+              200000
+            ]
+          }
+        ]
+      },
+      "graph_nodes": [
+        {
+          "node": 69,
+          "rows": 363,
+          "first": {
+            "monotonic_ns": 209974518930499,
+            "state": "C",
+            "node": 69,
+            "quantum": 0,
+            "rate": 0,
+            "wait": "---",
+            "busy": "---",
+            "w_q": "---",
+            "b_q": "---",
+            "err": 0,
+            "format": "alsa_output.pci-0000_04_00.5-platform-nau8821-max.HiFi__Speaker__sink",
+            "name": ""
+          },
+          "before_start": {
+            "monotonic_ns": 210130514039466,
+            "state": "R",
+            "node": 69,
+            "quantum": 512,
+            "rate": 48000,
+            "wait": "3.6ms",
+            "busy": "214.7us",
+            "w_q": "0.33",
+            "b_q": "0.02",
+            "err": 1,
+            "format": "S16LE",
+            "name": "2 48000 alsa_output.pci-0000_04_00.5-platform-nau8821-max.HiFi__Speaker__sink"
+          },
+          "active_first": {
+            "monotonic_ns": 210133513765180,
+            "state": "R",
+            "node": 69,
+            "quantum": 512,
+            "rate": 48000,
+            "wait": "3.2ms",
+            "busy": "192.6us",
+            "w_q": "0.30",
+            "b_q": "0.02",
+            "err": 1,
+            "format": "S16LE",
+            "name": "2 48000 alsa_output.pci-0000_04_00.5-platform-nau8821-max.HiFi__Speaker__sink"
+          },
+          "active_last": {
+            "monotonic_ns": 210309514040796,
+            "state": "R",
+            "node": 69,
+            "quantum": 512,
+            "rate": 48000,
+            "wait": "3.5ms",
+            "busy": "288.2us",
+            "w_q": "0.32",
+            "b_q": "0.03",
+            "err": 1,
+            "format": "S16LE",
+            "name": "2 48000 alsa_output.pci-0000_04_00.5-platform-nau8821-max.HiFi__Speaker__sink"
+          },
+          "last": {
+            "monotonic_ns": 210334459360569,
+            "state": "R",
+            "node": 69,
+            "quantum": 512,
+            "rate": 48000,
+            "wait": "2.1ms",
+            "busy": "182.1us",
+            "w_q": "0.19",
+            "b_q": "0.02",
+            "err": 1,
+            "format": "S16LE",
+            "name": "2 48000 alsa_output.pci-0000_04_00.5-platform-nau8821-max.HiFi__Speaker__sink"
+          },
+          "quantums": [
+            0,
+            512
+          ],
+          "rates": [
+            0,
+            48000
+          ]
+        },
+        {
+          "node": 113,
+          "rows": 363,
+          "first": {
+            "monotonic_ns": 209974519068011,
+            "state": "C",
+            "node": 113,
+            "quantum": 0,
+            "rate": 0,
+            "wait": "---",
+            "busy": "---",
+            "w_q": "---",
+            "b_q": "---",
+            "err": 0,
+            "format": "Bitwig",
+            "name": "Studio"
+          },
+          "before_start": {
+            "monotonic_ns": 210130514058686,
+            "state": "R",
+            "node": 113,
+            "quantum": 512,
+            "rate": 48000,
+            "wait": "21.5us",
+            "busy": "3.5ms",
+            "w_q": "0.00",
+            "b_q": "0.33",
+            "err": 24,
+            "format": "+",
+            "name": "Bitwig Studio"
+          },
+          "active_first": {
+            "monotonic_ns": 210133513778480,
+            "state": "R",
+            "node": 113,
+            "quantum": 512,
+            "rate": 48000,
+            "wait": "29.5us",
+            "busy": "3.2ms",
+            "w_q": "0.00",
+            "b_q": "0.30",
+            "err": 24,
+            "format": "+",
+            "name": "Bitwig Studio"
+          },
+          "active_last": {
+            "monotonic_ns": 210309514048547,
+            "state": "R",
+            "node": 113,
+            "quantum": 512,
+            "rate": 48000,
+            "wait": "17.8us",
+            "busy": "3.4ms",
+            "w_q": "0.00",
+            "b_q": "0.32",
+            "err": 28,
+            "format": "+",
+            "name": "Bitwig Studio"
+          },
+          "last": {
+            "monotonic_ns": 210334459377799,
+            "state": "R",
+            "node": 113,
+            "quantum": 512,
+            "rate": 48000,
+            "wait": "37.9us",
+            "busy": "2.0ms",
+            "w_q": "0.00",
+            "b_q": "0.19",
+            "err": 28,
+            "format": "+",
+            "name": "Bitwig Studio"
+          },
+          "quantums": [
+            0,
+            512
+          ],
+          "rates": [
+            0,
+            48000
+          ]
+        },
+        {
+          "node": 117,
+          "rows": 363,
+          "first": {
+            "monotonic_ns": 209974519081132,
+            "state": "C",
+            "node": 117,
+            "quantum": 0,
+            "rate": 0,
+            "wait": "---",
+            "busy": "---",
+            "w_q": "---",
+            "b_q": "---",
+            "err": 0,
+            "format": "lvb-refresh5-priority-capture",
+            "name": ""
+          },
+          "before_start": {
+            "monotonic_ns": 210130514066846,
+            "state": "R",
+            "node": 117,
+            "quantum": 1024,
+            "rate": 48000,
+            "wait": "26.5us",
+            "busy": "50.3us",
+            "w_q": "0.00",
+            "b_q": "0.00",
+            "err": 0,
+            "format": "F32LE",
+            "name": "2 48000 = lvb-refresh5-priority-capture"
+          },
+          "active_first": {
+            "monotonic_ns": 210133513790051,
+            "state": "R",
+            "node": 117,
+            "quantum": 1024,
+            "rate": 48000,
+            "wait": "45.1us",
+            "busy": "34.3us",
+            "w_q": "0.00",
+            "b_q": "0.00",
+            "err": 0,
+            "format": "F32LE",
+            "name": "2 48000 = lvb-refresh5-priority-capture"
+          },
+          "active_last": {
+            "monotonic_ns": 210309513867603,
+            "state": "R",
+            "node": 117,
+            "quantum": 1024,
+            "rate": 48000,
+            "wait": "27.2us",
+            "busy": "12.1us",
+            "w_q": "0.00",
+            "b_q": "0.00",
+            "err": 0,
+            "format": "F32LE",
+            "name": "2 48000 = lvb-refresh5-priority-capture"
+          },
+          "last": {
+            "monotonic_ns": 210334459389389,
+            "state": "R",
+            "node": 117,
+            "quantum": 1024,
+            "rate": 48000,
+            "wait": "32.6us",
+            "busy": "14.1us",
+            "w_q": "0.00",
+            "b_q": "0.00",
+            "err": 0,
+            "format": "F32LE",
+            "name": "2 48000 = lvb-refresh5-priority-capture"
+          },
+          "quantums": [
+            0,
+            1024
+          ],
+          "rates": [
+            0,
+            48000
+          ]
+        }
+      ],
+      "active_bitwig_ERR_increment_sum": 4,
+      "zero_associations": {
+        "tolerance_s": 1,
+        "scope": "Byte-observation bracket expanded by +/-1s; nearby association, not exact overlap or cause",
+        "inside": 4,
+        "inside_with_nearby_ERR": 3
+      },
+      "capture_result": {
+        "monotonic_ns": 210334607400995,
+        "audio_bytes": 138240000,
+        "audio_sha256": "d7e67bee98beec8b83e8b933ddc5eb7a77018173077f49b19615a2936073babf",
+        "recorder_exit": 1,
+        "top_exit": 0,
+        "failure": true
+      },
+      "recorder_stderr_bytes": 0,
+      "failure": {
+        "monotonic_ns": 210334455463184,
+        "type": "AssertionError",
+        "message": "capture ended before normal stop",
+        "traceback": "Traceback (most recent call last):\n  File \"<stdin>\", line 82, in <module>\nAssertionError: capture ended before normal stop\n"
+      }
+    }
+  ],
+  "retirement": {
+    "monotonic_ns": 210628236918945,
+    "owned_native_and_windows_retired": true,
+    "remaining_test_processes": [],
+    "dsp": 0,
+    "maintenance": 0,
+    "cleanup_unconfirmed": false,
+    "keepers": 1,
+    "keeper_role": "Healthy managed PureLoFi keeper retained; not a test DSP owner",
+    "registry_software_all_preferences_and_predecessors_exact": true,
+    "original_project_exact": true,
+    "working_project_final_sha256": "10711a49f3227adb2202d8a90158c764fc41d007b6a6ec8407625caf4d3e8141",
+    "gated": true,
+    "transport_retired": true,
+    "cleanup_confirmed": true,
+    "raw_exit": -15,
+    "vendor_retirement": null,
+    "audio_scheduling": {
+      "schema": 1,
+      "requested_policy": "SCHED_RR",
+      "requested_priority": 5,
+      "requests": 4,
+      "discarded": 0,
+      "records": [
+        {
+          "before": {
+            "policy": 0,
+            "priority": 0
+          },
+          "command_exit_code": 0,
+          "command_exited": true,
+          "command_timed_out": false,
+          "effective": {
+            "policy": 1073741826,
+            "priority": 5
+          },
+          "outcome": "effective",
+          "request_accepted": true,
+          "request_attempted": true,
+          "request_refused": false,
+          "request_unknown": false,
+          "requested_priority": 5,
+          "rttime_hard_us": 200000,
+          "rttime_soft_us": 200000,
+          "target": {
+            "pid": 452013,
+            "process_start": 20963216,
+            "thread_start": 20963911,
+            "tid": 452148
+          },
+          "role": "native_worker"
+        },
+        {
+          "before": {
+            "policy": 0,
+            "priority": 0
+          },
+          "command_exit_code": 0,
+          "command_exited": true,
+          "command_timed_out": false,
+          "effective": {
+            "policy": 1073741826,
+            "priority": 5
+          },
+          "outcome": "effective",
+          "request_accepted": true,
+          "request_attempted": true,
+          "request_refused": false,
+          "request_unknown": false,
+          "requested_priority": 5,
+          "rttime_hard_us": 200000,
+          "rttime_soft_us": 200000,
+          "target": {
+            "pid": 452122,
+            "process_start": 20963408,
+            "thread_start": 20963928,
+            "tid": 452154
+          }
+        },
+        {
+          "before": {
+            "policy": 0,
+            "priority": 0
+          },
+          "command_exit_code": 0,
+          "command_exited": true,
+          "command_timed_out": false,
+          "effective": {
+            "policy": 1073741826,
+            "priority": 5
+          },
+          "outcome": "effective",
+          "request_accepted": true,
+          "request_attempted": true,
+          "request_refused": false,
+          "request_unknown": false,
+          "requested_priority": 5,
+          "rttime_hard_us": 200000,
+          "rttime_soft_us": 200000,
+          "target": {
+            "pid": 452122,
+            "process_start": 20963408,
+            "thread_start": 20963932,
+            "tid": 452160
+          }
+        },
+        {
+          "command_exit_code": null,
+          "command_exited": false,
+          "command_timed_out": false,
+          "effective": {
+            "policy": 1073741826,
+            "priority": 5
+          },
+          "outcome": "already_effective",
+          "request_accepted": null,
+          "request_attempted": false,
+          "request_refused": null,
+          "request_unknown": false,
+          "target": {
+            "pid": 452122,
+            "process_start": 20963408,
+            "thread_start": 20963932,
+            "tid": 452160
+          }
+        }
+      ],
+      "scope": "post-start effective readback, not a continuity guarantee"
+    },
+    "GUI_and_stream_closed": true
+  },
+  "trace": {
+    "freeze_sha256": "ac1a8d4353d735075e8d70d3d14b13f703bd1e432280687488d6186b2258e510",
+    "helper_sha256": "79ef6790167e2baf21562f315487d1d6746f308a4818a90f7e324991ff1c1a39",
+    "staged": true,
+    "executed": false,
+    "current_TARGET_absent": true,
+    "needs": "Fresh stopped BitwigRR5 owner, authenticated new TARGET, recorder/setup, and user-local OS authentication before exact reviewed command",
+    "command": "sudo -- /usr/bin/python3 -I /home/deck/refresh5-scheduler-diagnostic/trace-one.py",
+    "access_gap": "tracefs root-only; sudo-n unavailable; no permission/sysctl workaround"
+  },
+  "private_archives": {
+    "first_pair": {
+      "bytes": 175273545,
+      "sha256": "e950796a0fb696140861016df9d1f99f791380cd2d127bd59383392e5ebfc5a6",
+      "verified_files": 54
+    },
+    "final": {
+      "bytes": 175422754,
+      "sha256": "b3ca12ab4b032b882618533bc7bf7eb71f4aa3a3fec9943a66af1a74bdb431d2",
+      "verified_files": 81
+    }
+  },
+  "retained_files": {
+    "FIRST_PAIR_FILES.json": {
+      "bytes": 7357,
+      "sha256": "b93d44e7be93ce3f13db12d8c452205676b86b91d311a7460fdb56b97b515a55"
+    },
+    "TARGET-retired.json": {
+      "bytes": 1095,
+      "sha256": "234c1d6f8e450ac3dc4647173d069d8a5eddef1e35a716d71582d34453d0fad6"
+    },
+    "TRACE_FREEZE.json": {
+      "bytes": 275,
+      "sha256": "ac1a8d4353d735075e8d70d3d14b13f703bd1e432280687488d6186b2258e510"
+    },
+    "final/native-c9fb2e2dadd9c2eb7a18be4332b2c4d0.jsonl": {
+      "bytes": 8505,
+      "sha256": "6780e0a578a16f721c6f17677737e57536a0f4cfd2a438a7be2b239a171b8de4"
+    },
+    "final/preferences.json": {
+      "bytes": 64,
+      "sha256": "e8d74bc833af13bfe128b27409cbf835b8be31b8f698ee9f01239fe6ec8a6069"
+    },
+    "final/project-final.bwproject": {
+      "bytes": 58158,
+      "sha256": "10711a49f3227adb2202d8a90158c764fc41d007b6a6ec8407625caf4d3e8141"
+    },
+    "final/registry.json": {
+      "bytes": 81005,
+      "sha256": "cb05f9d0b0a7372ac0c8c88ed7766a7697efcbf3cec40d613d99e70ab4d0c83b"
+    },
+    "final/software.json": {
+      "bytes": 2035,
+      "sha256": "584e400413370ab246a0c65d79d32178694202b283265a2e98753d410c77217c"
+    },
+    "final/verification.json": {
+      "bytes": 4170,
+      "sha256": "ab6f907d61fefb973943c63fb3c0df1f3fbdd576dc205182946f3d6f4f88bed6"
+    },
+    "final/windows-c9fb2e2dadd9c2eb7a18be4332b2c4d0.fault.json": {
+      "bytes": 1413,
+      "sha256": "d0f198a7d08f86b9281a9880191a10994313d2f08db6f2f12e7bead567b9e706"
+    },
+    "final/windows-c9fb2e2dadd9c2eb7a18be4332b2c4d0.json": {
+      "bytes": 218617,
+      "sha256": "53781d3ab07875d6a47c447b15d253cdaaf476df55cd74aedd2c4d50c3fc7eb2"
+    },
+    "final/windows-c9fb2e2dadd9c2eb7a18be4332b2c4d0.ownership.json": {
+      "bytes": 126,
+      "sha256": "f6600260171cb65013b245dca6241d3878b0fa3d15b2d9be0463aa9abc9cb92d"
+    },
+    "native-scheduling.reply": {
+      "bytes": 28,
+      "sha256": "839e91207297275068e1ed62769abd06651094135178d9cf6532339d3ae6a4a0"
+    },
+    "native-scheduling.request": {
+      "bytes": 40,
+      "sha256": "b9db8e9cce9c4853032ad3f3c945e48fb85d62ec091e3ab25565fd0e118044df"
+    },
+    "preferences-before.json": {
+      "bytes": 64,
+      "sha256": "e8d74bc833af13bfe128b27409cbf835b8be31b8f698ee9f01239fe6ec8a6069"
+    },
+    "preflight.json": {
+      "bytes": 3063,
+      "sha256": "17b44df806d23fd4c309a08ed7a973f3f52cd1d90f209c6840375bac0ed19b39"
+    },
+    "priority-one.py": {
+      "bytes": 3551,
+      "sha256": "6d910bdb5ee3281a4989a86ad4a48bfa6f26603147ffe63393c26d826626f834"
+    },
+    "project-before.bwproject": {
+      "bytes": 58374,
+      "sha256": "5bbb7e899d860b7683ee160485053540956f4b6d41a553b5b6df24bb8feb7ef4"
+    },
+    "registry.json": {
+      "bytes": 81005,
+      "sha256": "cb05f9d0b0a7372ac0c8c88ed7766a7697efcbf3cec40d613d99e70ab4d0c83b"
+    },
+    "run01-A/capture-result.json": {
+      "bytes": 211,
+      "sha256": "e6552195d16b058ace309b546fd0b28d3279ba7640ff36912393d77a3ebc2804"
+    },
+    "run01-A/end-before-stop.json": {
+      "bytes": 208,
+      "sha256": "865274e357e3861e8d17eef1767636c06866752810036fca46f20c70f59956db"
+    },
+    "run01-A/graph-0000.json": {
+      "bytes": 348780,
+      "sha256": "694441d1ed7ce7d83fb989278c8b2311ff680bad957fe6ff48032a937158fcd1"
+    },
+    "run01-A/graph-0030.json": {
+      "bytes": 348780,
+      "sha256": "066886813fbd7b77169e063b62b1aa8cd077d53312426f45ff7ac519f26d8802"
+    },
+    "run01-A/graph-0060.json": {
+      "bytes": 348780,
+      "sha256": "f9022a02eae2fb25811c2440c5977e769a90bb952804394e6a91a7f77058941c"
+    },
+    "run01-A/graph-0090.json": {
+      "bytes": 348780,
+      "sha256": "9c8f899402f53c38504673149b6104c2ad857c22a5a3069736c5a13291824747"
+    },
+    "run01-A/graph-0120.json": {
+      "bytes": 348780,
+      "sha256": "77d1c3faa32ce059fdb4159bce956b659bd747f8ec723ba8372260a6742a002f"
+    },
+    "run01-A/graph-0150.json": {
+      "bytes": 348780,
+      "sha256": "d6e6365d49bef01bc9dbaf137e423a29061b0bb505cba3beb4edb2277d6342c3"
+    },
+    "run01-A/graph-0180.json": {
+      "bytes": 348780,
+      "sha256": "4cdbbe1d2a15a84a25bed0724870581c9d3dd224e4bf697cdced0a4ca15c32a3"
+    },
+    "run01-A/graph-0210.json": {
+      "bytes": 348780,
+      "sha256": "ce6c249a92b869c76ea21f939c16cfd8a82328307d8b457dd2f93ba753081cdf"
+    },
+    "run01-A/graph-before.json": {
+      "bytes": 322519,
+      "sha256": "38fccee89217520480216bf6b4e7098a9d4f4298c215e22feabac7d72b1da50f"
+    },
+    "run01-A/graph-linked.json": {
+      "bytes": 347153,
+      "sha256": "e4b4eaefee3a0191a6ad214548ee364107bc5b09c4bd1665a04c8ee6a5ebeb86"
+    },
+    "run01-A/monitor-end.json": {
+      "bytes": 110,
+      "sha256": "8dd5706f0f5d251c77d1486a0f11f30765bb50f6fe863172a6b592a4a4807d1e"
+    },
+    "run01-A/observations.ndjson": {
+      "bytes": 1429134,
+      "sha256": "0f945c5d53b5aeebc6c07e3119e26f54ef7a00cd1e2c4cea7cf67fc402f91abe"
+    },
+    "run01-A/output.f32le": {
+      "bytes": 102502400,
+      "sha256": "5b605a36078e78ce158946bc9294c17146ee5694f7c9a694ea83ca182ff72f4e"
+    },
+    "run01-A/pw-top.ndjson": {
+      "bytes": 664959,
+      "sha256": "e282722ed0e8432f61ad56cb4f50ff2e292a3f229e99ef9f0c2cc6aecfb6687c"
+    },
+    "run01-A/pw-top.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "run01-A/ready.json": {
+      "bytes": 42900,
+      "sha256": "dda6cebc59dd7f07c0f23add98e068f00e8d27a552724c884df6cd3f91f86ecf"
+    },
+    "run01-A/recorder.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "run01-A/recorder.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "run01-A/start.json": {
+      "bytes": 380,
+      "sha256": "25297f40c54e9db2b6813bb03cb49f7158ba4a2ee0219f4a22db77a74f770d55"
+    },
+    "run01-A/stop.json": {
+      "bytes": 222,
+      "sha256": "4d470cd2b852e1d2a7849e38975621a8318053dfa9000d2c42a2f6ee82bd5fac"
+    },
+    "run01-A-execution.json": {
+      "bytes": 504,
+      "sha256": "407b766d28d222f6148875ee39264d720b83a35922fcf4c0ebe597096811480d"
+    },
+    "run01-A.json": {
+      "bytes": 913,
+      "sha256": "b8473c5eb4c74c71a71c68f4fbdd24a44e716397f2b2e5049ccd08b61188ec29"
+    },
+    "run01-restore-execution.json": {
+      "bytes": 509,
+      "sha256": "e5ff0322ee4c5d20a7a8b03ee5e58a5eff22021a6b1476eeba93a660a7e38736"
+    },
+    "run01-restore.json": {
+      "bytes": 988,
+      "sha256": "bfe9510389a0d76cae0dbe6a9e3e13ec9349b8c039f829970f7dd8fee33745e9"
+    },
+    "run02-B/capture-result.json": {
+      "bytes": 210,
+      "sha256": "872215ac84e8ccf70abf2712bd2a742b5001816449e9ce836371fcf06b16c65b"
+    },
+    "run02-B/end-before-stop.json": {
+      "bytes": 209,
+      "sha256": "af2a7f439da6108c12a0a2dd8a6802d998a5001b261f33a7550e128b6742ee9c"
+    },
+    "run02-B/failure.json": {
+      "bytes": 262,
+      "sha256": "354a324933f001146c91eb688a39a2984aa595178e174a107caddc2a0d45ce54"
+    },
+    "run02-B/graph-0000.json": {
+      "bytes": 348780,
+      "sha256": "4906bdd1019b22fbb3fb59e9d414da557384554e690006d8d3346aa905a857d5"
+    },
+    "run02-B/graph-0030.json": {
+      "bytes": 348780,
+      "sha256": "b0e4dcd58aef328b6fc8ed2ef03cfb476c5bd8f6a808ecff04e5c151e5e0106f"
+    },
+    "run02-B/graph-0060.json": {
+      "bytes": 348780,
+      "sha256": "cfd72018fa431b28039f41557894261dbe8d9ccf6c12c299c64d9b023212ddf8"
+    },
+    "run02-B/graph-0090.json": {
+      "bytes": 348780,
+      "sha256": "d55f3418903ab8e02c5fc1b1d412b2a4566e8731fc4b1e4301881422fec51d7d"
+    },
+    "run02-B/graph-0120.json": {
+      "bytes": 348780,
+      "sha256": "bcc2990b2efccb0bebdd42d6b448f7841d85d00592f3ce5bf99a129ef13ecae5"
+    },
+    "run02-B/graph-0150.json": {
+      "bytes": 348780,
+      "sha256": "0d6d8b5f2e4a80b72e82b80f8dbaaa7a90bd31fb04f0eb13ed03979cf769c176"
+    },
+    "run02-B/graph-0180.json": {
+      "bytes": 348780,
+      "sha256": "e59291512b2bba60c916d6b5d150ba80d40cc14c82127bf883c798e6d8aee3b6"
+    },
+    "run02-B/graph-0210.json": {
+      "bytes": 348780,
+      "sha256": "602e8c76d4a82e5e4e7894f4a150430add8bc1c7aeef16c92aecc37ec3ea73ce"
+    },
+    "run02-B/graph-0240.json": {
+      "bytes": 348780,
+      "sha256": "ab6dd88e673934aa7d1d910d0094f32b41a9d16f908f6ccb27ff634067deca77"
+    },
+    "run02-B/graph-0270.json": {
+      "bytes": 348780,
+      "sha256": "882d2a38d301d0801df7043bc3a4676478741d85cb5550b124094bb432beed36"
+    },
+    "run02-B/graph-0300.json": {
+      "bytes": 348780,
+      "sha256": "fedf17ca4df2bc539644453d75a2f0b9f280ef721907354e95d0eb98f9628cd3"
+    },
+    "run02-B/graph-before.json": {
+      "bytes": 322519,
+      "sha256": "76fc7a5e607b2ce0e28fa4e73a1b0cb2369f00eb744ef7703ad9c307ba6962b0"
+    },
+    "run02-B/graph-linked.json": {
+      "bytes": 347153,
+      "sha256": "b1c5937421762397a6dc116b8ef5d18619f12de2185ae061ded04cad90f9513e"
+    },
+    "run02-B/observations.ndjson": {
+      "bytes": 1953531,
+      "sha256": "14233ae981a5b6de80a721f21058f8c5033db84098be0ec634c12c2e7c90faf1"
+    },
+    "run02-B/output.f32le": {
+      "bytes": 138240000,
+      "sha256": "d7e67bee98beec8b83e8b933ddc5eb7a77018173077f49b19615a2936073babf"
+    },
+    "run02-B/pw-top.ndjson": {
+      "bytes": 894024,
+      "sha256": "14c252168ca805694d2b676ab1de78eacc606d3cdcffcdb1b69c8748a45d1982"
+    },
+    "run02-B/pw-top.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "run02-B/ready.json": {
+      "bytes": 42561,
+      "sha256": "be4ba230468035843d0f2ab7aa8f02e7457751e79f11a7697ca5aa3e874da31f"
+    },
+    "run02-B/recorder.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "run02-B/recorder.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "run02-B/start.json": {
+      "bytes": 378,
+      "sha256": "efbd044555b78fcb770a694d96e728416c113723af9c6aeebeb57204520953eb"
+    },
+    "run02-B/stop.json": {
+      "bytes": 222,
+      "sha256": "5f1005c6f05cea4d192d56aa67ea0eea3079ae1b0c15a3dc9ab6646d56b19bc7"
+    },
+    "run02-B-execution.json": {
+      "bytes": 503,
+      "sha256": "92affe5964813bfe8cd92ffe6e90363f82bbd0c22fc8be28b3eeb126899aa7fb"
+    },
+    "run02-B.json": {
+      "bytes": 989,
+      "sha256": "f894e13282758abb40321b236bbeebb1613d86be4af4bffff6b24b96cbec6565"
+    },
+    "setup-A-execution.json": {
+      "bytes": 504,
+      "sha256": "e6fad9112ddcb57f872b1f10341843624d667ec8d094398c9c6962239477190a"
+    },
+    "setup-A.json": {
+      "bytes": 913,
+      "sha256": "ddb03897bea6c4495d6b2b794871278cd2e0793d9fa5033f108b45790ff37819"
+    },
+    "setup-B-execution.json": {
+      "bytes": 503,
+      "sha256": "f50fc8c052bd84a03e2e260a594484d06199d63213b4b35fe569cef2834e16e1"
+    },
+    "setup-B.json": {
+      "bytes": 982,
+      "sha256": "a5b0b0b274a73a8a2bbf7b21e352575e95f160ffb935ef2e9e1165e6923fb5f2"
+    },
+    "software.json": {
+      "bytes": 2035,
+      "sha256": "584e400413370ab246a0c65d79d32178694202b283265a2e98753d410c77217c"
+    },
+    "trace-access.md": {
+      "bytes": 6250,
+      "sha256": "53956cf1e5fa95467fb42948fb90410412ad933e073f2d9f9c7e697cc6c80cb9"
+    },
+    "trace-local-checks.json": {
+      "bytes": 549,
+      "sha256": "c9ab2d4cf006691aa5525150c65acf6023fb67aa820a9737b646b9ad619101f5"
+    },
+    "trace-one.py": {
+      "bytes": 13008,
+      "sha256": "79ef6790167e2baf21562f315487d1d6746f308a4818a90f7e324991ff1c1a39"
+    },
+    "trace-staging.json": {
+      "bytes": 381,
+      "sha256": "e1b29c9b0c55bd04eb3ff4a33c1d6c3876776a500956aa8dfff936347df429c6"
+    }
+  },
+  "analysis_sources": {
+    "analyze-output.py": "445b6ad67ebedf2a3f147446d7c2f5e4a6882f119f77c70e1d26d8052a67c3e7",
+    "analyze-observations.py": "8e3caa124ec4e9d7233b86257b1484d30fa0295d6735a99c6578e7d48bbde1f4"
+  },
+  "limitations": [
+    "Single A/B pair after abort is not completedABBA, a rate-reduction estimate or scheduling cause",
+    "All captured pre/post-roll and outside-bracket anomalies remain; no window selected until green",
+    "Recorder buffering/1s observation and remoteGUI lag limit exact sample/time/stop alignment",
+    "B finite cutoff occurred before stop marker; actual GUI stop instant and any uncaptured audible duration unobserved",
+    "No per-callback DAW histogram, isolated bridge overhead, exact vendor oracle, DAW deadline, priority-inversion, 30mininteraction, soak or beta claim",
+    "Historical native outside-Flatpak SDK RT refusal cause remains unobserved; current Bitwig product and manual native promotion succeed"
+  ]
+}

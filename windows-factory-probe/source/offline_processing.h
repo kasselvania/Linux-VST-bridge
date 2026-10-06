@@ -11,7 +11,10 @@ namespace linux_vst_bridge::wf0 {
 class ResultStatus;
 class HostCallbackSink;
 class EventWriter;
-struct ExternalBlock { Steinberg::Vst::ProcessContext context{};uint64_t gui_revision=0,generation=0,epoch=0,sequence=0,position=0;bool has_context=false; int frames; double gain; unsigned silence; bool gain_present=true;std::array<InputEvent,event_capacity> events{};size_t event_count=0; };
+struct ExternalBlock { Steinberg::Vst::ProcessContext context{};uint64_t gui_revision=0,generation=0,epoch=0,sequence=0,position=0;uint32_t process_mode=0;bool authoritative_process_mode=false;bool has_context=false; int frames; double gain; unsigned silence; bool gain_present=true;std::array<InputEvent,event_capacity> events{};size_t event_count=0; };
+constexpr int32_t callback_process_mode(const ExternalBlock& request,int32_t accepted_mode) noexcept {
+    return request.authoritative_process_mode?static_cast<int32_t>(request.process_mode):accepted_mode;
+}
 // Private C++ edge interface; no object/layout crosses the process boundary.
 class ExternalProcessing {
 public:
@@ -30,7 +33,11 @@ public:
     virtual bool sustained() const { return false; }
     virtual bool stateful() const { return false; }
     virtual void bind_component(Steinberg::Vst::IComponent*) {}
+    virtual bool direct_audio() const {return false;}
     virtual void service_owner() {}
+    // Owner thread only, after service_owner throws. Wake transport/state
+    // waits without touching vendor objects or releasing worker-owned storage.
+    virtual void owner_failed() noexcept {}
     virtual void retire_vendor_process(bool) {}
     virtual bool initial_transition() {return true;}
     virtual uint32_t process_mode() const {return 0;}
@@ -42,6 +49,9 @@ public:
     virtual uint32_t lifecycle_request(uint16_t) { return 256; }
     virtual void lifecycle_ack(uint16_t) {}
     virtual void lifecycle_activity(bool,uint64_t) {}
+#ifdef LVB_LC1_TEST
+    virtual void lc1_hold_started() {}
+#endif
     virtual ResultStatus* result_status() {return nullptr;}
     virtual void before_process() {}
     virtual void after_process() {}

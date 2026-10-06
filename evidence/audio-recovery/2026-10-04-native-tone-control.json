@@ -1,0 +1,555 @@
+{
+  "schema": 1,
+  "claim": "Positive native continuous-source control at matched graph/output capture conditions; nominal model failure retained",
+  "result": {
+    "original_1000Hz_oracle_passed": false,
+    "observed_active_zero_spans": 0,
+    "observed_active_ERR_increments": 0,
+    "supplemental_single_global_fit_exceedances_per_channel": 0,
+    "interpretation": "Continuous retained tone is consistent with a slight nominal-frequency discrepancy; no cause assigned to oscillator/resampler/clock. This does not qualify the commercial path."
+  },
+  "source_commit": "d970eda91be4bc972d38a0d4b107cc5f4ededa54",
+  "engine_sha256": "add49d7a5ed38c44d55395f58d471656d33a7ef8f097cdd43de2332ebe04fbd0",
+  "fixture": {
+    "host": "Bitwig6.1 Flatpak on physical Galileo SteamOS3.8.16",
+    "native_device": "Bitwig Test Tone",
+    "waveform": "Sine",
+    "visible_frequency": "1.00kHz after explicit1000Hz entry",
+    "visible_gain_db": -24.0,
+    "mix_percent": 100,
+    "track_gain_db": -10,
+    "master_gain_db": 0,
+    "sole_active_source": true,
+    "clips_or_MIDI": false,
+    "project": "Separate native-only working project",
+    "gui_backend": "PipeWire/System Out/Automatic rate/Auto512samples10.67ms",
+    "graph_quantum": 512,
+    "graph_rate": 48000,
+    "recorder_quantum": 1024,
+    "negotiated_output": "F32P stereo linked solely from Bitwig output",
+    "negotiated_recording": "F32LE/48000/FL+FR",
+    "recorder_version": "pw-record compiled and linkedlibpipewire1.6.4",
+    "startup": {
+      "dsp": 0,
+      "maintenance": 0,
+      "healthy_keeper": 1,
+      "cold_claim": false
+    }
+  },
+  "markers": {
+    "start": {
+      "monotonic_ns": 207495328984461,
+      "wall_time_ns": 1791168438157699730,
+      "audio_bytes": 109907968,
+      "gui": "Test Tone enabled and transport active; meters visibly moving",
+      "minimum_seconds": 600,
+      "positive_recent_output": {
+        "values": 9600,
+        "minimum": -0.019954413175582886,
+        "maximum": 0.019954409450292587,
+        "rms": 0.014111074144009821
+      }
+    },
+    "end_before_stop": {
+      "monotonic_ns": 208095329610469,
+      "wall_time_ns": 1791169038158325608,
+      "audio_bytes": 340307968,
+      "reason": "Declared >=600s active window reached; transport still running; marker precedes GUI stop"
+    },
+    "stop": {
+      "monotonic_ns": 208108463067615,
+      "wall_time_ns": 1791169051291782644,
+      "gui": "Transport stopped normally and native Test Tone disabled after declared bracket",
+      "audio_bytes": 345346048
+    },
+    "monitor_end": {
+      "monotonic_ns": 208109238049422,
+      "iterations": 803,
+      "stop_requested": true,
+      "recorder_poll": 1
+    }
+  },
+  "original_oracle": {
+    "schema": 1,
+    "method": "Fixed1000Hz/48k sine model fitted ONCE from first4800 activeframes; wholeactive fixed-phase/amplitude errors plus independent recurrence",
+    "threshold_absolute": 1e-05,
+    "frequency_hz": 1000,
+    "rate": 48000,
+    "channels": 2,
+    "monotonic_active_s": 600.000626008,
+    "raw": {
+      "bytes": 345600000,
+      "sha256": "ef60d862b08f13a60433f8e5781a9f603a1faad962a9e8eb4e8d35e535b224a2",
+      "frames": 43200000,
+      "sample_values": 86400000,
+      "duration_s": 900.0,
+      "nonfinite_values": 0
+    },
+    "byte_window": {
+      "first_frame": 13738496,
+      "end_frame": 42538496,
+      "frames": 28800000,
+      "duration_s": 600.0,
+      "alignment": "Filebuffering prevents sampleexact wallalignment; entirefile retained"
+    },
+    "active": {
+      "fitted_coefficients": [
+        [
+          0.0054055798114245,
+          0.0054055798114245
+        ],
+        [
+          -0.019210010659025906,
+          -0.019210010659025906
+        ],
+        [
+          -7.94968098030141e-10,
+          -7.94968098030141e-10
+        ]
+      ],
+      "fitted_amplitude": [
+        0.01995607182332157,
+        0.01995607182332157
+      ],
+      "fitted_phase_radians": [
+        -1.2964955293387532,
+        -1.2964955293387532
+      ],
+      "fitted_dc": [
+        -7.94968098030141e-10,
+        -7.94968098030141e-10
+      ],
+      "model_error_max": [
+        0.03991060277504505,
+        0.03991060277504505
+      ],
+      "model_error_values_over_threshold": [
+        28773700,
+        28773700
+      ],
+      "recurrence_error_max": [
+        2.694626815430423e-08,
+        2.694626815430423e-08
+      ],
+      "recurrence_error_values_over_threshold": [
+        0,
+        0
+      ],
+      "zero_spans_ge48frames": [],
+      "passed": false
+    },
+    "limitations": [
+      "Sourcefixed model/recurrence failure is retained without threshold retuning",
+      "Zeroabsence alone cannot establish continuity",
+      "Native graphics/workload is distinct from vendor editor; no bridge causation or general device-deadline claim"
+    ]
+  },
+  "supplemental_global_model": {
+    "schema": 1,
+    "scope": "Supplemental audit only; original predeclared1000Hz oracle passed=false remains unchanged",
+    "method": "One global least-squares recurrence frequency estimate across ALL600s; one global sine/cos/DC amplitude and phase fit across ALL600s; no per-window alignment or fitting",
+    "channels_identical": true,
+    "active_frames": 28800000,
+    "global_frequency_hz": 999.9985694953406,
+    "global_coefficients": [
+      0.00541302776957553,
+      -0.019207927575337635,
+      -2.873104968112378e-08
+    ],
+    "global_amplitude": 0.019956085572416543,
+    "global_phase_radians": -1.296107989998336,
+    "global_dc": -2.873104968112378e-08,
+    "residual_max": 1.2749315559023786e-06,
+    "residual_rms": 5.005246216767587e-07,
+    "absolute_threshold_unchanged": 1e-05,
+    "residual_values_over_threshold_per_channel": 0,
+    "original_oracle_sha256": "3b89f1fcb52a289196a01866cdb85efd34e6a1b3b81892bdedef4ca745f4f741",
+    "limitations": [
+      "A fitted model is diagnostic evidence, not replacement of the declared1000Hz acceptance model",
+      "Wholewindow residuals retained; no source rerun or threshold tuning",
+      "Nominal UI1.00kHz is rounded; actual internal frequency is unobserved",
+      "No bridge/vendor/editor or universal glitch-free qualification"
+    ]
+  },
+  "full_recording_zero_spans": [
+    {
+      "start_frame": 0,
+      "end_frame": 2112957,
+      "frames": 2112957,
+      "scope": "before declared window"
+    },
+    {
+      "start_frame": 42839587,
+      "end_frame": 43200000,
+      "frames": 360413,
+      "scope": "after declared window"
+    }
+  ],
+  "nodes": [
+    {
+      "node": 69,
+      "before": {
+        "monotonic_ns": 207493410749049,
+        "node": 69,
+        "err": 1,
+        "quantum": 512,
+        "rate": 48000
+      },
+      "active_end": {
+        "monotonic_ns": 208094410908819,
+        "node": 69,
+        "err": 1,
+        "quantum": 512,
+        "rate": 48000
+      },
+      "last": {
+        "monotonic_ns": 208108410832965,
+        "node": 69,
+        "err": 1,
+        "quantum": 512,
+        "rate": 48000
+      },
+      "all_err_counts": [
+        0,
+        1
+      ],
+      "rows": 904
+    },
+    {
+      "node": 108,
+      "before": {
+        "monotonic_ns": 207493410780110,
+        "node": 108,
+        "err": 0,
+        "quantum": 1024,
+        "rate": 48000
+      },
+      "active_end": {
+        "monotonic_ns": 208094410931550,
+        "node": 108,
+        "err": 0,
+        "quantum": 1024,
+        "rate": 48000
+      },
+      "last": {
+        "monotonic_ns": 208108410856775,
+        "node": 108,
+        "err": 0,
+        "quantum": 1024,
+        "rate": 48000
+      },
+      "all_err_counts": [
+        0
+      ],
+      "rows": 904
+    },
+    {
+      "node": 113,
+      "before": {
+        "monotonic_ns": 207493410772320,
+        "node": 113,
+        "err": 0,
+        "quantum": 512,
+        "rate": 48000
+      },
+      "active_end": {
+        "monotonic_ns": 208094410921210,
+        "node": 113,
+        "err": 0,
+        "quantum": 512,
+        "rate": 48000
+      },
+      "last": {
+        "monotonic_ns": 208108410842785,
+        "node": 113,
+        "err": 0,
+        "quantum": 512,
+        "rate": 48000
+      },
+      "all_err_counts": [
+        0
+      ],
+      "rows": 904
+    }
+  ],
+  "observer": {
+    "count": 803,
+    "all_live_during_observed_loop": true,
+    "maximum_interval_s": 1.347778458,
+    "status_counter_samples": 0,
+    "mapped_bridge_sessions_seen": [],
+    "concurrent_activity": "Read-only tracing capability checks on Deck; off-machine baseline drafting and analysis. Display dimming and late title-bar wake retained; no fixed graphics-load claim"
+  },
+  "recorder": {
+    "result": {
+      "monotonic_ns": 208109598463473,
+      "audio_bytes": 345600000,
+      "audio_sha256": "ef60d862b08f13a60433f8e5781a9f603a1faad962a9e8eb4e8d35e535b224a2",
+      "recorder_exit": 1,
+      "top_exit": 0,
+      "failure": false
+    },
+    "stderr_bytes": 0,
+    "termination": "Exact900second finite sample extent; already exited1 at stop observer before finally could send SIGINT. PipeWire1.6.4 finite-record limit quits without setting drained, consistent with exit1; no unobserved signal claimed"
+  },
+  "preservation": {
+    "registry_and_software_unchanged": true,
+    "pure_lofi_preference_unchanged": true,
+    "native_project_before_sha256": "2124dc9a9974e47327b98f3e02fb60d69c2458e5cd8bda97be5db6a0e539d3b1",
+    "native_project_final_sha256": "f8453fadd88da53974fdf2a63c0d8328b774b3d8b2b6e25cd8f46ec899519f23",
+    "native_project_final_bytes": 27050
+  },
+  "cleanup": {
+    "normal_transport_stop_device_disable_save_quit": true,
+    "normal_stream_disconnect": true,
+    "remaining_test_processes": [],
+    "dsp": 0,
+    "maintenance": 0,
+    "keepers": 1,
+    "cleanup_unconfirmed": false
+  },
+  "retained": {
+    "archive": {
+      "archive_sha256": "a298845002fc7a0124341297c61b7a40f7494fc3e99ad45284ecf24b113de771",
+      "archive_bytes": 144386059,
+      "manifest_files_verified": 50,
+      "supplement": {
+        "bytes": 1722209,
+        "sha256": "5d5ab6bfcccdd1a149dc06e80f24e80b027bc4cb944d9f88de44e8cab2383700",
+        "manifest_files": 31
+      }
+    },
+    "files": {
+      "capture01/capture-result.json": {
+        "bytes": 211,
+        "sha256": "cb7439f8f4d9624dbebd379ca4d6fe260186e8caf3f6f3186386fbd21d30cfcf"
+      },
+      "capture01/end-before-stop.json": {
+        "bytes": 209,
+        "sha256": "aba5fbf998d80efcb40a617fdd1306eda6e61be9a523fa49a803b4880b3691ee"
+      },
+      "capture01/graph-0000.json": {
+        "bytes": 348779,
+        "sha256": "943baf4ffb0c6e032cee222c4cab6d4ba4ec060d3a290cca4f3dc3ab2f0e3b35"
+      },
+      "capture01/graph-0030.json": {
+        "bytes": 348779,
+        "sha256": "ba027849cb4a85bc73a4cc7fb7c42bde56172279611c3e38c2dade4dcc4bf1b6"
+      },
+      "capture01/graph-0060.json": {
+        "bytes": 348779,
+        "sha256": "a584e68f15b2cdf3e2d0fb99956912cbf90cda9263e9fce5e99b85eef1874519"
+      },
+      "capture01/graph-0090.json": {
+        "bytes": 348779,
+        "sha256": "5406ca7171dd6738e787af1d2aa5f1f7627b79d191ce712fe456e687d9267ac9"
+      },
+      "capture01/graph-0120.json": {
+        "bytes": 348779,
+        "sha256": "107476031bbc9c1443b4173317fb7a8d13eba2f2daeaf9429ae4651374640d90"
+      },
+      "capture01/graph-0150.json": {
+        "bytes": 348779,
+        "sha256": "846f75c74ea1a927655b35a85e2c83b8c4e5f380c60c0ad57a2124aa350811bf"
+      },
+      "capture01/graph-0180.json": {
+        "bytes": 348779,
+        "sha256": "4be95cd95ac93ddb218d67573ec2483e92884a408092436aac46007eb6eae1df"
+      },
+      "capture01/graph-0210.json": {
+        "bytes": 348779,
+        "sha256": "106a56f1eacbbb8df62ecbaff60e000024861d9b3cc3c9e36d3c3fada79bee57"
+      },
+      "capture01/graph-0240.json": {
+        "bytes": 348779,
+        "sha256": "6edf61201a403b28b48c19b7fb1617c6a378a1120a54928d26a56e7447908ad2"
+      },
+      "capture01/graph-0270.json": {
+        "bytes": 348779,
+        "sha256": "925bd8b7bbbe0490ccae9a2186009cb13f6689fa900a0aff8d7c7155f62f3c6d"
+      },
+      "capture01/graph-0300.json": {
+        "bytes": 348779,
+        "sha256": "2c454bff43c759c53ef6f345491a3789cca80a5247eaf08cf08d935cf2842357"
+      },
+      "capture01/graph-0330.json": {
+        "bytes": 348779,
+        "sha256": "21b382dfb00c4899b6d10528a9cab28d0a3d20d8fbd0783b2409656231905802"
+      },
+      "capture01/graph-0360.json": {
+        "bytes": 348779,
+        "sha256": "8d5c0309fe3cdcc4f80dc44049b2d98f5d775cfd4e9f691318ac58c5c3a0b632"
+      },
+      "capture01/graph-0390.json": {
+        "bytes": 348779,
+        "sha256": "5021e7088ed925a5b407780001c244634752303fd0571b6f72abfc9ace8daee2"
+      },
+      "capture01/graph-0420.json": {
+        "bytes": 348779,
+        "sha256": "827dc99cc9288afe141352eb828c3a560481a3771e9d7160290a3c9655785574"
+      },
+      "capture01/graph-0450.json": {
+        "bytes": 348779,
+        "sha256": "94197372c467623c4101756725da5a0cc8da1459762f9db744f90bc42208ac99"
+      },
+      "capture01/graph-0480.json": {
+        "bytes": 348779,
+        "sha256": "a3b54103960d29094b6067413d968222aac65869a342eeebfe89b44264a86810"
+      },
+      "capture01/graph-0510.json": {
+        "bytes": 348779,
+        "sha256": "875daca438765660446600257dd36cdcd709ee30c9c6db5e5df9f77b5524421c"
+      },
+      "capture01/graph-0540.json": {
+        "bytes": 348779,
+        "sha256": "ed1a9566c2b56037d8e622288f8904598661e6b6f897f8e493c4bdcca7d9491f"
+      },
+      "capture01/graph-0570.json": {
+        "bytes": 348779,
+        "sha256": "7c3ceac8abb528e3405af6cefa8a318f4715154d569f247d4896c3deda15eece"
+      },
+      "capture01/graph-0600.json": {
+        "bytes": 348779,
+        "sha256": "40ecddf2785907f672bb8f8878638a70316af5f012e3c8378c6d70023c97107c"
+      },
+      "capture01/graph-0630.json": {
+        "bytes": 348779,
+        "sha256": "44b659b91d820133f6b3ce374524f64aa7bd452fc7bba525cc429f571eaf6b9d"
+      },
+      "capture01/graph-0660.json": {
+        "bytes": 348779,
+        "sha256": "d16599fa98471bca2f012c90084134da36bd56da8672b7ec5ebf88cf59b79177"
+      },
+      "capture01/graph-0690.json": {
+        "bytes": 348779,
+        "sha256": "d2bc12f1144be2687551854e2d84b562404cee510e316dfb6ca8dbdcd84bcaa0"
+      },
+      "capture01/graph-0720.json": {
+        "bytes": 348779,
+        "sha256": "dad3be7668b035adb817547eca694fda9e999b4e859ce1047ddeb084fc287d26"
+      },
+      "capture01/graph-0750.json": {
+        "bytes": 348779,
+        "sha256": "a1089be0305a76996b2fb72730929eee63548fa470265677a0130a462f392236"
+      },
+      "capture01/graph-0780.json": {
+        "bytes": 348779,
+        "sha256": "0fe4035554531e36eea1a1728235a936429d93cc3cbaad6f3e34663f502047a6"
+      },
+      "capture01/graph-before.json": {
+        "bytes": 322522,
+        "sha256": "5d6c529e0d9f511b0364a829456395dc0c81de6b016bc7ca5e9b53e7cfbd39c6"
+      },
+      "capture01/graph-linked.json": {
+        "bytes": 347152,
+        "sha256": "f4c1044728c0b667777e8c3a4b7628d0aefd2c91fd19df57c212f2532f40b9f7"
+      },
+      "capture01/monitor-end.json": {
+        "bytes": 107,
+        "sha256": "2fb43ca5ece9a0d494ab9c48ce22df522147ba529cf43c3348f1c9c405c35fcf"
+      },
+      "capture01/observations.ndjson": {
+        "bytes": 3161332,
+        "sha256": "8b865807c0b4bf3deafb1b046d6f48ab2eea8b1844950f5f9b610c0dd9a8c298"
+      },
+      "capture01/output.f32le": {
+        "bytes": 345600000,
+        "sha256": "ef60d862b08f13a60433f8e5781a9f603a1faad962a9e8eb4e8d35e535b224a2"
+      },
+      "capture01/pw-top.ndjson": {
+        "bytes": 2224210,
+        "sha256": "3f3804d7b19935d18d0e9dcdc8e46b78d53cf04048d6141dc842b56a9da1dead"
+      },
+      "capture01/pw-top.stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "capture01/ready.json": {
+        "bytes": 30833,
+        "sha256": "f223eea4708c99ba2ccfb1d1a78daf37093b062824fb8d991c0b23934f3f2a27"
+      },
+      "capture01/recorder.stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "capture01/recorder.stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "capture01/start.json": {
+        "bytes": 367,
+        "sha256": "6f7b791fc955da500dce721b6183c43b4cb307e249303963c51f25055565aea9"
+      },
+      "capture01/stop.json": {
+        "bytes": 197,
+        "sha256": "6437a0214e99027cc6f87989c6b4dbf3831d705f08032ce7752769d420336d7e"
+      },
+      "final-verification.json": {
+        "bytes": 3334,
+        "sha256": "ac11da860e6a5c1da1a63c420705386379f7b1205455f307e0833179f4a84377"
+      },
+      "graph-final.json": {
+        "bytes": 282144,
+        "sha256": "c5e41db4d2b83666bc5a8206128c9c128bc71103af6e95c4d03692afd3a1d4f0"
+      },
+      "native-project-before.bwproject": {
+        "bytes": 27050,
+        "sha256": "2124dc9a9974e47327b98f3e02fb60d69c2458e5cd8bda97be5db6a0e539d3b1"
+      },
+      "native-project-final.bwproject": {
+        "bytes": 27050,
+        "sha256": "f8453fadd88da53974fdf2a63c0d8328b774b3d8b2b6e25cd8f46ec899519f23"
+      },
+      "preflight.json": {
+        "bytes": 3426,
+        "sha256": "07d699220b6029cb727e6dc744f84df911defe0174cb15fa12051a5ecf53f8e8"
+      },
+      "registry.json": {
+        "bytes": 81005,
+        "sha256": "cb05f9d0b0a7372ac0c8c88ed7766a7697efcbf3cec40d613d99e70ab4d0c83b"
+      },
+      "retention-first-failure.json": {
+        "bytes": 142,
+        "sha256": "98b8492203e9b4f48f3d6d1f8e3c60c8f2ccb78c2009970e8b3b6388f47632eb"
+      },
+      "software.json": {
+        "bytes": 2035,
+        "sha256": "584e400413370ab246a0c65d79d32178694202b283265a2e98753d410c77217c"
+      },
+      "tracing-capabilities.json": {
+        "bytes": 4058,
+        "sha256": "11922bd345d92608b918fa80287880b24106dde69cb1010e1459828c14f009be"
+      }
+    }
+  },
+  "trace_capability": {
+    "perf_available": true,
+    "trace_cmd_available": true,
+    "perf_version": "6.15-3",
+    "perf_event_paranoid": 2,
+    "tracefs_controls_access": "root-only; private instances unavailable to current user",
+    "sudo_n_exit": 1,
+    "privilege_or_global_changes": false
+  },
+  "helper_failures": [
+    {
+      "boundary": "Read-only stat of inaccessible debug-tracefs during preflight",
+      "errno": 13,
+      "impact": "preflight helper stopped before capability file, then corrected error handling; control continued unchanged"
+    },
+    {
+      "boundary": "post-retirement pw-dump without XDG_RUNTIME_DIR",
+      "exit": 255,
+      "recording_already_finished": true,
+      "audio_hash_verified": true
+    }
+  ],
+  "limits": [
+    "Original declared1000Hz oracle remainsFAILED; supplemental data characterization is separately labeled, no threshold retuning or rerun",
+    "Global fit evaluates every active sample with one frequency/phase/amplitude; no per-window rephasing or clean-subset omission",
+    "Entire900s capture retained, including about242s of source-on preroll before declared start and normal setup/stop boundaries",
+    "No bridge DSP source is running; managed keeper remains healthy, not forcibly killed",
+    "Native graphics/DSP load differs from commercial editor/vendor; no general capture/scheduling elimination or universal glitch-free/DAW deadline qualification",
+    "No thirty-minute interaction/soak, product scheduler fix, RT privilege change or kernel trace performed"
+  ]
+}

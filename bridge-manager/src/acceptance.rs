@@ -164,7 +164,7 @@ pub(crate) fn prepare_selected_for(
                 && retained.parent.as_ref() == Some(&seal.parent)
                 && retained.qualification == Some(purpose)
                 && retained.external_ids == external_ids(&p.class.class_id)?
-                && retained.performance.added_frames == 512,
+                && retained.performance.is_qualified_buffering(),
             "acceptance_candidate_identity",
         )?;
         m.verify_completed_publication(&retained, &seal.candidate)?;

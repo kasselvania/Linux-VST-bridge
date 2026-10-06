@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "candidate": "0.12.0internal52",
+  "source_head": "2446836aa8d75033d85bf9c4636c780aaf818130",
+  "claim": "installed_OS_thread_denial_regression",
+  "result": "passed",
+  "qualification_claim": false,
+  "events": [
+    {
+      "event": "fixture",
+      "manager_sha256": "b9039ef4fcd3ee5b28373135ddbf061fc8c17276508d887cb3f59b7acea31aad",
+      "previous_service_tasks_max": "1383",
+      "claim": "installed_development_fault_injection"
+    },
+    {
+      "event": "thread_denial_contained",
+      "attempt": 1,
+      "manager_pid_unchanged": true,
+      "refusal_bytes": 26,
+      "incident_source": "worker_unavailable",
+      "live_leases": 0
+    },
+    {
+      "event": "thread_denial_contained",
+      "attempt": 2,
+      "manager_pid_unchanged": true,
+      "refusal_bytes": 26,
+      "incident_source": "worker_unavailable",
+      "live_leases": 0
+    },
+    {
+      "event": "thread_denial_contained",
+      "attempt": 3,
+      "manager_pid_unchanged": true,
+      "refusal_bytes": 26,
+      "incident_source": "worker_unavailable",
+      "live_leases": 0
+    },
+    {
+      "event": "fault_case_passed",
+      "maintainer_repair": false
+    },
+    {
+      "event": "classifier_recovered_without_restart",
+      "worker_count_including_this_request": 1,
+      "failed_spawn_worker_counts_released": true
+    },
+    {
+      "event": "exact_service_limit_restored",
+      "tasks_max": "1383",
+      "enclosing_cpu_memory_swap_and_task_caps_unchanged": true
+    }
+  ],
+  "resource": {
+    "event": "installed_fault_result",
+    "exit_code": 0,
+    "duration_ms": 1098.06,
+    "before": {
+      "cpu.max": "100000 100000",
+      "memory.max": "2684354560",
+      "memory.swap.max": "0",
+      "pids.max": "512",
+      "pids.current": "204",
+      "pids.events": "max 0",
+      "memory.current": "1546256384",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+    },
+    "after": {
+      "cpu.max": "100000 100000",
+      "memory.max": "2684354560",
+      "memory.swap.max": "0",
+      "pids.max": "512",
+      "pids.current": "215",
+      "pids.events": "max 4",
+      "memory.current": "1582407680",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+    },
+    "peak_user_tasks": 218,
+    "stderr_bytes": 0,
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "intentional_service_task_limit": 1,
+  "intentional_thread_denials": 4,
+  "enclosing_task_limit": 512,
+  "budget_exhaustion_claim": false,
+  "original_project_sha256": "2a0d5d63278946fc51a714603943d619b9d99bfabaccd1ec06164f42ffd62390"
+}

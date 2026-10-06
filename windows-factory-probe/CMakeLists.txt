@@ -5,7 +5,20 @@ add_executable(wf0-factory-probe
     source/mapped_processing.cpp
     source/win32_module.cpp
     source/factory_census.cpp)
-target_sources(wf0-factory-probe PRIVATE source/inspect_module.cpp)
+target_sources(wf0-factory-probe PRIVATE source/inspect_module.cpp source/graphics_assessment.cpp)
+
+foreach(kind RANGE 1 5)
+    add_library(graphics-reference-${kind} SHARED ../windows-fixtures/graphics/editor.cpp
+        "${WF0_VST3_SDK_ROOT}/public.sdk/source/main/dllmain.cpp")
+    target_include_directories(graphics-reference-${kind} PRIVATE "${WF0_VST3_SDK_ROOT}")
+    target_compile_definitions(graphics-reference-${kind} PRIVATE GRAPHICS_FIXTURE=${kind} UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+    target_compile_options(graphics-reference-${kind} PRIVATE /W4 /permissive- /EHsc /Brepro)
+    target_link_libraries(graphics-reference-${kind} PRIVATE sdk user32 gdi32)
+    set_target_properties(graphics-reference-${kind} PROPERTIES PREFIX "" SUFFIX ".vst3" RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+endforeach()
+target_link_libraries(graphics-reference-1 PRIVATE d3d11)
+target_link_libraries(graphics-reference-2 PRIVATE opengl32 delayimp)
+target_link_options(graphics-reference-2 PRIVATE /DELAYLOAD:opengl32.dll)
 
 target_include_directories(wf0-factory-probe PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
@@ -14,10 +27,18 @@ target_include_directories(wf0-factory-probe PRIVATE
 target_compile_definitions(wf0-factory-probe PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(wf0-factory-probe PRIVATE /W4 /permissive- /EHsc /Brepro)
 target_link_options(wf0-factory-probe PRIVATE /Brepro /INCREMENTAL:NO)
-target_link_libraries(wf0-factory-probe PRIVATE sdk_hosting base pluginterfaces advapi32 ws2_32 user32 ole32)
+target_link_libraries(wf0-factory-probe PRIVATE sdk_hosting base pluginterfaces advapi32 ws2_32 user32 ole32 gdi32)
 set_target_properties(wf0-factory-probe PROPERTIES
     OUTPUT_NAME "wf0-factory-probe"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+# Product-owned Wine builtin shim; the paired ELF is built by the Linux kit.
+add_library(lvb-direct-wait SHARED ../tools/direct-audio-handoff/shim.cpp)
+target_compile_features(lvb-direct-wait PRIVATE cxx_std_20)
+target_compile_options(lvb-direct-wait PRIVATE /W4 /WX /permissive- /EHsc /Brepro)
+target_link_options(lvb-direct-wait PRIVATE /Brepro /INCREMENTAL:NO)
+set_target_properties(lvb-direct-wait PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+add_dependencies(wf0-factory-probe lvb-direct-wait)
 
 add_executable(wf0-loader-adapter-tests
     source/main.cpp
@@ -33,7 +54,7 @@ target_compile_definitions(wf0-loader-adapter-tests PRIVATE
     WF0_LOADER_ADAPTER_TEST UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(wf0-loader-adapter-tests PRIVATE /W4 /permissive- /EHsc /Brepro)
 target_link_options(wf0-loader-adapter-tests PRIVATE /Brepro /INCREMENTAL:NO)
-target_link_libraries(wf0-loader-adapter-tests PRIVATE sdk_hosting base pluginterfaces advapi32 ws2_32 user32 ole32)
+target_link_libraries(wf0-loader-adapter-tests PRIVATE sdk_hosting base pluginterfaces advapi32 ws2_32 user32 ole32 gdi32)
 set_target_properties(wf0-loader-adapter-tests PROPERTIES
     OUTPUT_NAME "wf0-loader-adapter-tests"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
@@ -46,6 +67,31 @@ target_include_directories(ap10-return-fixture PRIVATE "${WF0_VST3_SDK_ROOT}")
 target_compile_definitions(ap10-return-fixture PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_link_libraries(ap10-return-fixture PRIVATE sdk)
 set_target_properties(ap10-return-fixture PROPERTIES PREFIX "" SUFFIX ".vst3" RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+foreach(role IN ITEMS instrument effect)
+    if(role STREQUAL "instrument")
+        set(is_instrument 1)
+    else()
+        set(is_instrument 0)
+    endif()
+    add_library(lvb-reference-${role} SHARED ../windows-fixtures/beta/stateful.cpp
+        "${WF0_VST3_SDK_ROOT}/public.sdk/source/main/dllmain.cpp")
+    target_include_directories(lvb-reference-${role} PRIVATE "${WF0_VST3_SDK_ROOT}")
+    target_compile_definitions(lvb-reference-${role} PRIVATE LVB_BETA_INSTRUMENT=${is_instrument}
+        UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+    target_compile_options(lvb-reference-${role} PRIVATE /W4 /permissive- /Brepro)
+    target_link_options(lvb-reference-${role} PRIVATE /Brepro /INCREMENTAL:NO)
+    target_link_libraries(lvb-reference-${role} PRIVATE sdk)
+    set_target_properties(lvb-reference-${role} PROPERTIES PREFIX "" SUFFIX ".vst3"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+    add_executable(lvb-reference-${role}-tests ../windows-fixtures/beta/contract_tests.cpp)
+    target_include_directories(lvb-reference-${role}-tests PRIVATE "${WF0_VST3_SDK_ROOT}" "${CMAKE_SOURCE_DIR}")
+    target_compile_definitions(lvb-reference-${role}-tests PRIVATE LVB_BETA_INSTRUMENT=${is_instrument}
+        UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+    target_compile_options(lvb-reference-${role}-tests PRIVATE /W4 /permissive- /EHsc)
+    target_link_libraries(lvb-reference-${role}-tests PRIVATE sdk sdk_hosting)
+    set_target_properties(lvb-reference-${role}-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+endforeach()
+include("${CMAKE_CURRENT_SOURCE_DIR}/../windows-fixtures/beta/completion.cmake")
 add_executable(ap10-results-tests ../tools/ap10-tests/results.cpp)
 target_include_directories(ap10-results-tests PRIVATE "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/native-vst3-proxy/include" "${WF0_VST3_SDK_ROOT}")
 target_compile_options(ap10-results-tests PRIVATE /UNDEBUG)
@@ -60,6 +106,24 @@ target_link_libraries(ap11-editor-tests PRIVATE sdk sdk_hosting user32 ole32)
 set_target_properties(ap11-editor-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
 
 add_executable(ap11-state-tests ../tools/ap11-tests/state.cpp)
+add_executable(ap11-owner-failure-tests ../tools/ap11-tests/owner_failure.cpp source/offline_processing.cpp source/component_instance_session.cpp)
+target_include_directories(ap11-owner-failure-tests PRIVATE source include "${WF0_VST3_SDK_ROOT}")
+target_compile_definitions(ap11-owner-failure-tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(ap11-owner-failure-tests PRIVATE /W4 /permissive- /EHsc /UNDEBUG)
+target_link_libraries(ap11-owner-failure-tests PRIVATE sdk sdk_hosting user32 ole32)
+set_target_properties(ap11-owner-failure-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+add_executable(ap23-windows-readiness-tests ../tools/ap23-tests/windows_readiness.cpp source/offline_processing.cpp source/component_instance_session.cpp)
+target_include_directories(ap23-windows-readiness-tests PRIVATE source include "${WF0_VST3_SDK_ROOT}")
+target_compile_definitions(ap23-windows-readiness-tests PRIVATE LVB_SAMPLE_PLANE_TEST UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(ap23-windows-readiness-tests PRIVATE /W4 /permissive- /EHsc /UNDEBUG)
+target_link_libraries(ap23-windows-readiness-tests PRIVATE sdk sdk_hosting user32 ole32)
+set_target_properties(ap23-windows-readiness-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+add_executable(ap11-controller-failure-tests ../tools/ap11-tests/controller_failure.cpp source/offline_processing.cpp source/component_instance_session.cpp source/mapped_processing.cpp)
+target_include_directories(ap11-controller-failure-tests PRIVATE source include "${WF0_VST3_SDK_ROOT}")
+target_compile_definitions(ap11-controller-failure-tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(ap11-controller-failure-tests PRIVATE /W4 /permissive- /EHsc /UNDEBUG)
+target_link_libraries(ap11-controller-failure-tests PRIVATE sdk sdk_hosting user32 ole32 ws2_32)
+set_target_properties(ap11-controller-failure-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
 target_include_directories(ap11-state-tests PRIVATE "${CMAKE_SOURCE_DIR}" "${WF0_VST3_SDK_ROOT}")
 target_link_libraries(ap11-state-tests PRIVATE sdk sdk_hosting)
 set_target_properties(ap11-state-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
@@ -109,6 +173,13 @@ target_compile_definitions(ap18-bus-census-tests PRIVATE UNICODE _UNICODE WIN32_
 target_compile_options(ap18-bus-census-tests PRIVATE /UNDEBUG /W4 /permissive- /EHsc)
 target_link_libraries(ap18-bus-census-tests PRIVATE sdk sdk_hosting)
 set_target_properties(ap18-bus-census-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
+add_executable(ap18-whole-block-tests ../tools/ap18-tests/whole_block.cpp)
+target_include_directories(ap18-whole-block-tests PRIVATE source "${WF0_VST3_SDK_ROOT}")
+target_compile_definitions(ap18-whole-block-tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(ap18-whole-block-tests PRIVATE /UNDEBUG /W4 /permissive- /EHsc)
+target_link_libraries(ap18-whole-block-tests PRIVATE sdk sdk_hosting)
+set_target_properties(ap18-whole-block-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
 
 add_executable(ap18-lc1-session ../tools/ap18-tests/lc1_session.cpp source/mapped_processing.cpp source/offline_processing.cpp source/component_instance_session.cpp)
 target_include_directories(ap18-lc1-session PRIVATE source include "${WF0_VST3_SDK_ROOT}")

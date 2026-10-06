@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "source_head": "e9107f4685182cc6de4390beddb4b2044c342622",
+  "candidate": "0.12.0internal51",
+  "authorization": {
+    "source": "direct_user_message",
+    "text": "You can raise it to 512.",
+    "change": "guest user.slice TasksMax only"
+  },
+  "outer_vm": {
+    "cpu_max": "100000 100000",
+    "memory_max_bytes": 4294967296,
+    "memory_swap_max_bytes": 0,
+    "pids_max": 256,
+    "guest_vcpus": 1,
+    "guest_configured_ram_bytes": 3221225472
+  },
+  "guest_user_slice": {
+    "cpu_max": "100000 100000",
+    "memory_max_bytes": 2684354560,
+    "memory_swap_max_bytes": 0,
+    "pids_max": 512,
+    "initial_tasks_current": 168,
+    "initial_pids_limit_hits": 0,
+    "initial_oom_events": 0,
+    "guest_swap_disabled": true
+  },
+  "viewer": {
+    "cpu_max": "10000 100000",
+    "memory_max_bytes": 134217728,
+    "memory_swap_max_bytes": 0,
+    "pids_max": 32
+  },
+  "concurrency": {
+    "max_principal_vm_or_builder": 1,
+    "active": "ubuntu",
+    "other_principal_workloads_off": true
+  },
+  "preservation": {
+    "selected_manager_before_sha256": "ebb8c123783af01ecb30c9bcc8f79f41d2000bc470567ef019fab182c3931aa1",
+    "original_project_sha256": "2a0d5d63278946fc51a714603943d619b9d99bfabaccd1ec06164f42ffd62390",
+    "internal49_failed_result_unchanged": true
+  },
+  "claim": "resource_envelope_verified_before_candidate_launch",
+  "installed_product_acceptance": false
+}

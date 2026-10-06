@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "date": "2026-10-04",
+  "claim": "Bounded maintainer-only cached-factory orchestration for existing six-class managed update; no audio deadline change",
+  "base": {
+    "commit": "12c71651612591a63a1654f07449dbeebeabc730",
+    "tree": "c979cca259bc67ad4b2378947c5ede8759eb3ac1"
+  },
+  "source_files": {
+    "tools/beta/completion_host.cpp": "6c1a80842751ac75dea353ff021f76af4f69688bcc9bc30772f01b1a2f796ac5",
+    "tools/beta/completion_host_tests.cpp": "cfb20ad0497a58777d12527ae63360de246e923e9ef4de2916523b78b6c88b93"
+  },
+  "sdk_patch_sha256": "798a5668b61bd9ceb9cfb10b8d92c0f6f5cf520bbe48fc1927b27f2ac2d9392c",
+  "private_patch_sha256": "c33c7b63dc5a1ce58f7eb7d50179fc07cf942f0aa608725ebb6bfc06f2800742",
+  "private_manifest_sha256": "82cab1c542f3433c9b31e34dc909b716390d27dc716ccf94aee57141c33eeaf0",
+  "bounds": {
+    "after_identity_seconds": 9600,
+    "connections": 1,
+    "factory_gate_seconds": 9750,
+    "factory_ready_seconds": 120,
+    "held_communicate_seconds": 9810,
+    "kill_seconds": 10,
+    "product_refresh_envelope_seconds": 9120,
+    "rx_bytes": 64,
+    "terminate_seconds": 20,
+    "tx_bytes": 160
+  },
+  "reason": "Previous observer450s/factory600s did not cover the existing six-class9120s package preparation control envelope. These new maxima are not expected update durations or audio timing allowances. Release immediately on actual success; abort promptly on actual failure.",
+  "abort": "Exact generation-bound private failure marker retained before bounded child termination/reaping; service/capacity failure stays separate evidence. No target identity or factory release is fabricated.",
+  "positive_claim_unchanged": "Actual caller greeting and matching request/refusal8, exact after-identity and pre-release boundary, no newly admitted owners/results, final exact readback are still mandatory.",
+  "linux_validation": {
+    "sdk_strict_build": "passed",
+    "instrument_oracle": "passed",
+    "effect_oracle": "passed",
+    "consumer_sha256": "0fc4613eb1883e1507b8dbb79ab60749a5e8e49b44234c863aa32113caf3a8ef",
+    "private_control_records_collector_tests_passed": 16,
+    "python_compile_and_help": "passed",
+    "wire_interposer": "Unchanged V2 source/binary and retained Linux forwarded-byte/preload-chain proof reused"
+  },
+  "review": {
+    "model": "gpt-6-astra",
+    "effort": "xhigh",
+    "result": "No remaining source blockers at exact frozen SDK/private patches",
+    "closed_findings": [
+      "Bounded retry for atomic hardlink publication window; persistent foreign links refuse",
+      "Retain valid Update failure before best-effort service/capacity collection",
+      "Observe held child exit during update wait"
+    ]
+  },
+  "retained_artifacts": {
+    "refusal-observer-v3-source.tgz": "c3ea481509db2ba96e23ddf0344de27fd1cd838b38c442afc31b346b539308f2",
+    "refusal-observer-v3-linux.tgz": "d28d5a2c97bb29fef473c6911768973e040e2975f905c93d2a7f94b20632f387",
+    "sdk-control-v3-linux.tgz": "41a76c10fff4eba6818f90b15085157b5c339c4cc553c16c423cc07be926d71a"
+  },
+  "next_run_requirement": "Capture a fresh baseline identity using newly compiled9750s SDK consumer against the unchanged old publication. V3 refuses old600s readiness metadata.",
+  "nonclaims": [
+    "No installed stale-caller refusal or abort acceptance is claimed by source/unit checks",
+    "No product preparation ceiling, audio callback wait, Windows DSP, transport, vendor module or runner change"
+  ]
+}

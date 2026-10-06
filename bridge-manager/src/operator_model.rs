@@ -2,7 +2,34 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 12;
+pub const OPERATOR_SCHEMA: u32 = 19;
+/// Explicit delivery policy, independent from the remembered buffered delay.
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+#[repr(u32)]
+pub enum DeliveryMode { #[default] Buffered = 0, SameCallback = 1 }
+
+/// A launch-only DLL selection, never a Proton prefix conversion or driver install.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GraphicsBackend {
+    WineD3d11,
+}
+/// Explicit launch choices retained independently of profile advice.
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AccessibilityChoice {
+    #[default]
+    ProfileDefault,
+    WindowsDefault,
+    DisabledForHost,
+}
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct LocalSettings {
+    pub graphics: Option<GraphicsBackend>,
+    pub accessibility: AccessibilityChoice,
+}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AudioLayoutPolicy {
@@ -44,6 +71,22 @@ pub struct PublicationIdentity {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    /// Complete the exact retained legacy history, without replacing publication.
+    CandidateHistoryComplete { candidate: String, expected_history: String },
+    CandidateGraphicsAssess { candidate: String },
+    /// Prepare a retained trial; publication and shared environment are unchanged.
+    CandidateSettingsPrepare {
+        candidate: String,
+        settings: LocalSettings,
+        expected_current: Option<PublicationIdentity>,
+    },
+    CandidateGraphicsPrepare {
+        candidate: String,
+        backend: Option<GraphicsBackend>,
+        expected_current: Option<PublicationIdentity>,
+    },
+    /// Explicit fixed-source runtime download; no caller path or URL.
+    RuntimeInstall {},
     /// Explicit local allowlisted support report; no caller-selected path.
     SupportExport {},
     DependencyPrepare {},
@@ -188,6 +231,14 @@ pub enum Action {
     OrdinaryRestoreRecommended {
         class_id: String,
     },
+    DeliverySet {
+        class_id: String,
+        mode: DeliveryMode,
+    },
+    BufferingSet {
+        class_id: String,
+        added_frames: u32,
+    },
     TransactionReconcile {},
     CaptureArm {
         class_id: String,
@@ -239,6 +290,10 @@ pub struct History {
     pub publication: String,
     pub active: bool,
     pub rollback_allowed: bool,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub rollback_unavailable: Option<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -418,6 +473,8 @@ pub struct CurrentProductDetail {
     pub operator_schema: u32,
     pub state_token: String,
     pub current_generation: String,
+    /// Capacity from the same capture that supplied this product's offers.
+    pub system: System,
     pub product: Product,
     pub environments: Vec<Environment>,
     pub vendor_applications: Vec<VendorApplication>,
@@ -615,10 +672,15 @@ impl System {
     }
 }
 impl Action {
+    /// Whether the operation needs any affected DSP owners to be inactive.
     pub fn requires_inactive(&self) -> bool {
         matches!(
             self,
-            Self::DependencyPrepare {}
+            Self::RuntimeInstall {}
+                | Self::CandidateHistoryComplete { .. }
+                | Self::CandidateGraphicsAssess { .. }
+                | Self::CandidateGraphicsPrepare { .. }
+                | Self::DependencyPrepare {}
                 | Self::RendererDiscover {}
                 | Self::RendererOpen { .. }
                 | Self::PluginReinspect { .. }
@@ -644,13 +706,95 @@ impl Action {
                 | Self::QuarantinedModuleRetry { .. }
                 | Self::OrdinaryRollback { .. }
                 | Self::OrdinaryRestoreRecommended { .. }
+                | Self::BufferingSet { .. }
+                | Self::DeliverySet { .. }
                 | Self::TransactionReconcile {}
+        )
+    }
+    /// Shared-resource operations use the global status. Class-scoped operations
+    /// use the manager's exact offered refusal and repeat that check on execution.
+    pub fn requires_global_inactive(&self) -> bool {
+        self.requires_inactive() && !matches!(self,
+            Self::CandidateHistoryComplete { .. }
+                | Self::CompatibilityPublishTest { .. }
+                | Self::CompatibilityResult { .. }
+                | Self::CompatibilityFinishResult { .. }
+                | Self::ExperimentalReplace { .. }
+                | Self::CandidateWithdraw { .. }
+                | Self::ExperimentalEnable { .. }
+                | Self::ExperimentalDisable { .. }
+                | Self::CandidatePublishOrdinary { .. }
+                | Self::OrdinaryRollback { .. }
+                | Self::BufferingSet { .. }
+                | Self::DeliverySet { .. }
         )
     }
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn inactivity_scope_distinguishes_class_changes_from_shared_operations() {
+        let candidate = "candidate".to_string();
+        let current = PublicationIdentity {id:"publication".into(),sha256:"digest".into()};
+        for action in [
+            Action::CandidateHistoryComplete {candidate:candidate.clone(),expected_history:"history".into()},
+            Action::CompatibilityPublishTest {candidate:candidate.clone(),expected_current:Some(current.clone())},
+            Action::CompatibilityResult {candidate:candidate.clone(),expected_current:current.clone(),
+                result:TestResultKind::Worked,passed:vec![],failed_area:None,note:String::new()},
+            Action::CompatibilityFinishResult {operation:"operation".into()},
+            Action::ExperimentalReplace {candidate:candidate.clone(),expected_current:current.clone()},
+            Action::CandidateWithdraw {candidate:candidate.clone(),expected_current:current},
+            Action::ExperimentalEnable {candidate:candidate.clone()},
+            Action::ExperimentalDisable {candidate:candidate.clone()},
+            Action::CandidatePublishOrdinary {candidate},
+            Action::OrdinaryRollback {class_id:"class".into(),publication:"publication".into()},
+            Action::BufferingSet {class_id:"class".into(),added_frames:512},
+            Action::DeliverySet {class_id:"class".into(),mode:DeliveryMode::SameCallback},
+        ] {
+            assert!(action.requires_inactive(), "Affected owners still need inactivity: {action:?}");
+            assert!(!action.requires_global_inactive(), "Unrelated DSP must remain independent: {action:?}");
+        }
+        for action in [Action::RuntimeInstall {}, Action::DependencyPrepare {},
+            Action::EnvironmentRescan {environment:"environment".into()},
+            Action::PluginInspect {selection:"selection".into(),audio_layout:None},
+            Action::OrdinaryRestoreRecommended {class_id:"class".into()},
+            Action::TransactionReconcile {}] {
+            assert!(action.requires_global_inactive(), "Shared operation stays global: {action:?}");
+        }
+    }
+    #[test]
+    fn local_settings_trial_is_closed_typed_and_does_not_require_inactivity() {
+        let action = Action::CandidateSettingsPrepare {
+            candidate: "candidate".into(),
+            settings: LocalSettings {
+                graphics: Some(GraphicsBackend::WineD3d11),
+                accessibility: AccessibilityChoice::WindowsDefault,
+            },
+            expected_current: Some(PublicationIdentity { id: "publication".into(), sha256: "digest".into() }),
+        };
+        let mut wire = serde_json::to_value(&action).unwrap();
+        assert_eq!(wire["kind"], "candidate_settings_prepare");
+        assert_eq!(wire["settings"]["accessibility"], "windows_default");
+        assert_eq!(serde_json::from_value::<Action>(wire.clone()).unwrap(), action);
+        assert!(!action.requires_inactive());
+        assert!(!action.requires_global_inactive());
+        wire["settings"]["command"] = serde_json::json!("arbitrary");
+        assert!(serde_json::from_value::<Action>(wire).is_err());
+        for value in ["profile_default", "windows_default", "disabled_for_host"] {
+            assert!(serde_json::from_value::<AccessibilityChoice>(serde_json::json!(value)).is_ok());
+        }
+        assert!(serde_json::from_value::<LocalSettings>(serde_json::json!({
+            "graphics": "arbitrary_driver", "accessibility": "profile_default"
+        })).is_err());
+        assert!(serde_json::from_value::<LocalSettings>(serde_json::json!({
+            "graphics": null, "accessibility": "arbitrary_override"
+        })).is_err());
+        let legacy = serde_json::json!({"kind":"candidate_graphics_prepare",
+            "candidate":"old", "backend":"wine_d3d11", "expected_current":null});
+        assert!(matches!(serde_json::from_value::<Action>(legacy).unwrap(),
+            Action::CandidateGraphicsPrepare { .. }));
+    }
     #[test]
     fn unavailable_and_blocked_capacity_are_not_presented_as_active_dsp() {
         let mut s = System {

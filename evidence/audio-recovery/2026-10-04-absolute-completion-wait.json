@@ -1,0 +1,183 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-04",
+  "claim": "linux_source_regression_absolute_completion_wait_deadline_arming",
+  "basis": {
+    "architecture": "docs/ARCHITECTURE.md 18.4 Delivery and deadline policy",
+    "linux_abi_reference": "https://man7.org/linux/man-pages/man2/FUTEX_WAIT_BITSET.2const.html",
+    "contract": "A prepared finite Signal wait cannot extend its caller-supplied Instant deadline while entering the Linux kernel."
+  },
+  "source": {
+    "product_baseline": {
+      "head": "1124c1b32637432ab9b0cf3a31b46cbb0820fcbc",
+      "tree": "f649b1399b16d8466e4c8edfa3fc4f3cf1a3f11f"
+    },
+    "regression_base": {
+      "head": "2a136d543b80f58d14f9e8f102b2d8d85038605e",
+      "tree": "42708fc2f5959d78a238e12f8066d9bf8ad564f0",
+      "completion_wait_rs_sha256": "02eddee9dae8417b72ce519ea512d8dc8835eaa496d78ce8a011a0bff1d433fd"
+    },
+    "repair": {
+      "head": "2847d4b9343fa91f54110ee310746fc89a25b625",
+      "tree": "47bdcf07afb7b25ef964f209210600d30de271c7",
+      "completion_wait_rs_sha256": "418e42fade2509de8fdaaa9e052ab2908c281b438fc39fd0772f32a982957424",
+      "patch_sha256": "fdfe09799972b9ae99397df48513111a1893a984beb38b32326b78df895a1e2f",
+      "files_changed": [
+        "native-vst3-proxy/backend/src/completion_wait.rs"
+      ]
+    }
+  },
+  "behavior": {
+    "before": "Signal::wait converted the remaining Instant duration and later entered FUTEX_WAIT with that relative duration, so descheduling between conversion and syscall entry renewed the effective kernel expiry.",
+    "after": [
+      "Sample CLOCK_MONOTONIC before sampling Instant and conservatively convert the unchanged Instant deadline to a checked absolute timespec.",
+      "Use FUTEX_WAIT_BITSET with FUTEX_PRIVATE_FLAG, no FUTEX_CLOCK_REALTIME, null uaddr2 and FUTEX_BITSET_MATCH_ANY.",
+      "Clock failure, invalid values, an already-expired Instant or timespec overflow refuses the wait.",
+      "A conservative early ETIMEDOUT requests ordinary queue reinspection while the original Instant deadline remains live; at or after that deadline it remains a timeout.",
+      "EAGAIN and EINTR retain their prior queue-reinspection result; the sequence comparison guards waiting and the queue remains the authority for completion."
+    ],
+    "unchanged": [
+      "completion allowances and processing modes",
+      "queue ownership and inspection",
+      "notification and Windows behavior",
+      "buffering and runtime selection",
+      "privileges"
+    ]
+  },
+  "linux_red": {
+    "initial_compile_attempt": {
+      "classification": "test_harness_compile_failure_before_behavioral_oracle",
+      "behavioral_red": false,
+      "base_head": "2a136d543b80f58d14f9e8f102b2d8d85038605e",
+      "patch_sha256": "b863d8d0609317b31b8c6a66fba69554f45ae6f7a39f92b56d6995c1f1026796",
+      "command": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "futex_wait_never_renews_the_deadline_before_kernel_entry",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "log_sha256": "1a3651f9be8d39ad0f2e624a124a54cec4548fcb65bbfe0bf18adb5512a05b10",
+      "failure": "The Linux libc MATCH_ANY constant is i32 while the six-argument test seam deliberately carries the val3 bit pattern as u32; two sites required an explicit nonpanicking bit-pattern cast.",
+      "test_executed": false
+    },
+    "behavioral_attempt": {
+      "classification": "expected_behavioral_red",
+      "behavioral_red": true,
+      "base_head": "2a136d543b80f58d14f9e8f102b2d8d85038605e",
+      "patch_sha256": "3ca0c7c002a859d43ff9fd540589481f4b111015740c7e88b17f0d11e4cf6b64",
+      "command": [
+        "cargo",
+        "+1.95.0",
+        "test",
+        "--locked",
+        "futex_wait_never_renews_the_deadline_before_kernel_entry",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "passed": 0,
+      "failed": 1,
+      "log_sha256": "a555d0cda8ceb1a84c8e80b608b4abb1803ac5bb1d162422e7d8bd943e5eae9e",
+      "oracle": {
+        "kind": "controlled_modeled_kernel_entry",
+        "original_deadline_monotonic_upper_ns": 873161543560958,
+        "effective_kernel_expiry_ns": 873176543560532,
+        "renewal_beyond_upper_ns": 14999999574,
+        "interpretation": "The oracle interpreted the captured timeout according to the actual FUTEX_WAIT relative operation after an injected late entry. It did not sleep in the kernel and is not an observed syscall-return latency."
+      }
+    }
+  },
+  "linux_green": {
+    "base_head": "2a136d543b80f58d14f9e8f102b2d8d85038605e",
+    "patch_sha256": "fdfe09799972b9ae99397df48513111a1893a984beb38b32326b78df895a1e2f",
+    "command": [
+      "cargo",
+      "+1.95.0",
+      "test",
+      "--locked",
+      "--",
+      "--nocapture"
+    ],
+    "started_at_utc": "2026-10-04T07:47:05.203448+00:00",
+    "ended_at_utc": "2026-10-04T07:47:32.745581+00:00",
+    "exit_code": 0,
+    "passed": 133,
+    "failed": 0,
+    "ignored": 1,
+    "log_sha256": "bf2197a9781d40faefac20c4bcb5f695d418186d779eae84874767afd51f2e6a",
+    "absolute_wait_regressions": [
+      "absolute_target_is_conservative_and_refuses_invalid_clock_or_overflow",
+      "conservative_early_timeout_reinspects_only_until_the_original_deadline",
+      "expired_absolute_target_reaches_linux_and_interruption_keeps_existing_result",
+      "futex_wait_never_renews_the_deadline_before_kernel_entry",
+      "futex_wait_uses_the_full_bitset_syscall_abi",
+      "publication_between_inspection_and_sleep_cannot_lose_wake"
+    ],
+    "adjacent_regressions": [
+      "current_control_acknowledgement_delivers_a_result_across_racing_wait_entry",
+      "current_control_wait_is_woken_by_cancellation_without_fabricating_an_acknowledgement",
+      "current_control_wait_is_woken_by_fault_without_replacing_the_first_failure",
+      "close_publishes_offline_cancellation_before_waiting_for_the_callback_lease"
+    ],
+    "asserted_linux_syscall_result": {
+      "operation": "FUTEX_WAIT_BITSET | FUTEX_PRIVATE_FLAG",
+      "clock": "CLOCK_MONOTONIC because FUTEX_CLOCK_REALTIME is absent",
+      "uaddr2": null,
+      "val3": "FUTEX_BITSET_MATCH_ANY",
+      "already_expired_absolute_target": {
+        "result": -1,
+        "errno": "ETIMEDOUT",
+        "target_source": "test-owned valid monotonic timespec one nanosecond before a current sample; production target arming is validated by the separate modeled-entry oracle",
+        "intentional_kernel_wait": false
+      }
+    },
+    "callback_allocation_assertion": [
+      0,
+      0,
+      0
+    ]
+  },
+  "review": {
+    "kind": "scoped_independent_read_only_source_review",
+    "final_patch_sha256": "fdfe09799972b9ae99397df48513111a1893a984beb38b32326b78df895a1e2f",
+    "disposition": "no_findings",
+    "checked": [
+      "conservative clock ordering and checked conversion",
+      "six-argument Linux futex ABI",
+      "early and true expiry policy",
+      "publication, interruption, ACK and cancellation consumers",
+      "test determinism and no intentional kernel sleep in the expired-target check"
+    ]
+  },
+  "execution_environment": {
+    "fixture": "bounded Linux builder container",
+    "cpus": 2,
+    "cpuset": "2,3",
+    "memory_bytes": 4294967296,
+    "pids": 256,
+    "installed_audio_vm_running": false
+  },
+  "retained_private_evidence": {
+    "absolute-wait-red-evidence-20261004.tgz": "09a963389ad24c61af644b34249721ecdef8685b1f2d0c5a0b6daf2ec1c025c7",
+    "absolute-wait-green-fdfe0979-evidence.tgz": "0b3f95385eee52b5cea1846f314b53de240e8df26f2a16a5ae03df1f4129d86b",
+    "PRESERVED.json": "4a212d2dc9ea5781c545ba1ab6c57db2d13201946ad390c6fa9b4ddce9b40f42",
+    "archive_members": {
+      "red_compile_result_json_sha256": "c422f48199321f63eda92d1ff96d55077ee551b2aa0f8407ca3643a5ebe3563c",
+      "red_behavioral_result_json_sha256": "5dc3748b8a0789cdc46c7314b509f5698fd7e6f56e32f3db978c4209792908c2",
+      "green_results_json_sha256": "64aa42aea6a22f82d8493b4ab6e745001296b819e0cf2e7cb73c291bcfc3c357",
+      "green_reproduction_helper_sha256": "fd43d3f984a5f0437288ee2cee22b1e69429337adf271b6436ff7045b949d142"
+    }
+  },
+  "nonclaims": [
+    "This is source-level Linux regression evidence, not installed audio acceptance or beta qualification.",
+    "The modeled RED effective expiry is not an observed kernel wait or syscall-return duration.",
+    "The repair is not established as the cause or cure of the audio4 callback-105 overrun.",
+    "Absolute kernel expiry does not guarantee when a descheduled thread returns to userspace.",
+    "The audio4 phase wait was an enclosing observer interval; its post-wait stamp cannot identify exact syscall-return lateness.",
+    "No timing-qualified, whole-DAW, serial-chain, lower-block or physical musician claim is made."
+  ]
+}

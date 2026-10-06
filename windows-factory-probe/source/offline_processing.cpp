@@ -15,14 +15,29 @@
 #include <thread>
 #include <string>
 #include <exception>
+#include <memory>
 #include <stdexcept>
+#include <xmmintrin.h>
+namespace {
+// Audio hosts run vendor DSP with denormals flushed to zero, and plug-ins rely
+// on it. With the default MXCSR, decaying filter, delay and reverb tails fall
+// onto the CPU's denormal slow path and one block can cost many times more.
+struct FlushDenormals {
+    unsigned saved = _mm_getcsr();
+    FlushDenormals() { _mm_setcsr(saved | 0x8040); } // FTZ | DAZ
+    ~FlushDenormals() { _mm_setcsr(saved); }
+};
+}
+#ifdef LVB_SAMPLE_PLANE_TEST
+#include <cassert>
+#endif
 
 namespace linux_vst_bridge::wf0 {
 namespace {
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 constexpr int frames = 16;
-constexpr int capacity = 256;
+constexpr int capacity = ap1::block_capacity;
 constexpr uint32 guard = 0x4b123456;
 constexpr uint32 sentinel = 0x7fc12345;
 struct Block {
@@ -43,6 +58,51 @@ struct Block {
     double gain{};
     tresult result{kNotInitialized};
     bool worker_thread{false};
+#ifdef LVB_SAMPLE_PLANE_TEST
+    size_t sample_plane_reads=0,sample_plane_writes=0;
+#endif
+};
+// The existing owner selects commands; the existing render thread consumes
+// them. Events are hints, while the exact generation transfers the pending
+// frame and interval results. No event left by preparation/Stop can satisfy a
+// later Run. All objects are prepared before Activated is acknowledged.
+struct ProcessingSignals {
+    HANDLE command=CreateEventW(nullptr,FALSE,FALSE,nullptr);
+    HANDLE quiescent=CreateEventW(nullptr,FALSE,FALSE,nullptr);
+    std::atomic<uint64_t> issued{0},completed{UINT64_MAX};
+    std::atomic<bool> exit{false},done{false};
+    ~ProcessingSignals(){if(command)CloseHandle(command);if(quiescent)CloseHandle(quiescent);}
+    void publish(uint64_t generation)noexcept{
+        completed.store(generation,std::memory_order_release);
+        SetEvent(quiescent);
+    }
+    void request_exit()noexcept{
+        exit.store(true,std::memory_order_release);
+        if(command)SetEvent(command);
+    }
+};
+// Installed immediately after thread construction, including before an
+// acknowledgement or owner command selection that can throw. Storage and SDK
+// leases remain alive until join; a hung borrower is contained in this process.
+struct ProcessingJoin {
+    std::thread& worker;
+    ProcessingSignals& signals;
+    ExternalProcessing* external;
+    bool joined=false;
+    void finish(bool cancel)noexcept{
+        if(!worker.joinable())return;
+        if(cancel&&external)external->owner_failed();
+        signals.request_exit();
+        if(WaitForSingleObject(worker.native_handle(),5000)!=WAIT_OBJECT_0){
+            TerminateProcess(GetCurrentProcess(),93);std::terminate();
+        }
+        try{worker.join();joined=true;}catch(...){TerminateProcess(GetCurrentProcess(),93);std::terminate();}
+    }
+    ~ProcessingJoin(){finish(true);}
+};
+struct TransitionRecord {
+    bool attempted=false,returned=false;
+    tresult result=kNotInitialized;
 };
 std::string bits(const std::array<float, capacity + 2>& values) {
     std::string text="[";
@@ -67,21 +127,36 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     if(external&&external->bus_layout())layout=*external->bus_layout();
     uint32_t maximum=external?capacity:frames;
     const auto owner = std::this_thread::get_id();
-    std::array<Block,3> blocks;
+    // The full multi-output buffers are owned and allocated before activation.
+    // Keeping them off the Windows owner stack also avoids its default 1 MiB
+    // stack ceiling; processing only borrows this fixed storage.
+    auto storage = std::make_unique<std::array<Block,3>>();
+    auto& blocks = *storage;
     // All buffers and SDK parameter queues are allocated/populated on the owner
     // thread before activation. Each process call receives a separate block.
     for (int b=0;b<3;++b) {
         auto& block=blocks[b];
-        for(size_t ch=0;ch<64;++ch)block.output_channels[ch]=ch<2?block.output[ch].data()+1:block.extra_output[ch-2].data()+1;block.silent_input.front()=block.silent_input.back()=std::bit_cast<float>(guard); block.gain=b==0?0.5:0.25;
+        block.silent_input.fill(0.f);
+        block.silent_input.front()=block.silent_input.back()=std::bit_cast<float>(guard);
+        for(size_t ch=0;ch<64;++ch){
+            auto& plane=ch<2?block.output[ch]:block.extra_output[ch-2];
+            plane.fill(std::bit_cast<float>(sentinel));
+            plane.front()=plane.back()=std::bit_cast<float>(guard);
+            block.output_channels[ch]=plane.data()+1;
+        }
+        block.gain=b==0?0.5:0.25;
         block.returned.buses=uint32_t(layout.counts[3]);
         size_t event_out=0;for(size_t i=0;i<layout.size;++i)if(layout.buses[i].info.mediaType==kEvent&&layout.buses[i].info.direction==kOutput){block.returned.channels[event_out]=layout.buses[i].effective_channels;block.returned.bus_active[event_out++]=layout.buses[i].active?1:0;}
         for (int ch=0;ch<2;++ch) {
-            block.input[ch].front()=block.input[ch][frames+1]=std::bit_cast<float>(guard);
-            block.output[ch].fill(std::bit_cast<float>(sentinel));
-            block.output[ch].front()=block.output[ch][frames+1]=std::bit_cast<float>(guard);
+            block.input[ch].fill(0.f);
+            block.input[ch].front()=block.input[ch].back()=std::bit_cast<float>(guard);
             for(int i=0;i<frames;++i) {
                 const int numerator=ch==0?((i+b*2)%9)-4:((i*3+b+2)%11)-5;
                 block.input[ch][i+1]=(external||b==2)?0.f:static_cast<float>(numerator)/8.f;
+            }
+            if(!external){
+                block.input[ch][frames+1]=std::bit_cast<float>(guard);
+                block.output[ch][frames+1]=std::bit_cast<float>(guard);
             }
             block.in[ch]=block.input[ch].data()+1;block.out[ch]=block.output[ch].data()+1;
         }
@@ -136,50 +211,93 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
     layout.activate(component,true);
     active=call("set_active_true",[&]{return component.setActive(true);});
     if (!active) return {false,false};
-    if(hosted) external->lifecycle_ack(9);
     uint64_t processed=0,intervals=0;
-    bool restart=false;
     std::exception_ptr primary_error;
     AP10Results::RejectionRecord first_rejection{};
     uint64_t rejected_generation=0,rejected_epoch=0,rejected_sequence=0,rejected_position=0,rejected_callback=0;
     uint32_t rejected_input_notes=0,rejected_input_parameters=0;
-    // An activated component need not enter processing. A DAW may deactivate
-    // it again while negotiating routing. Select the exact pending command on
-    // the owner before creating a worker; only Start belongs to that worker.
-    const bool processing_requested=!sustained||external->next_transition()==10;
-    if(!processing_requested)external->lifecycle_request(14);
-    if(processing_requested) do {
-    joined=false;restart=false;
+    bool processing_requested=false;
+    bool join_recorded=false;
+    bool transitions_exported=true;
+    std::array<TransitionRecord,2> transitions{};
+    // The installed sustained path initializes the plug-in with the SDK
+    // HostApplication (inspect_module), not this wrapper's observer sink.
+    // Its transition wrapper therefore touches only fixed records/status on
+    // render. Noncommercial reference admission retains its legacy observer.
+    const bool deferred_transitions=commercial&&sustained;
+    auto render_transition=[&](bool running){
+        if(!deferred_transitions)return call(running?"set_processing_true":"set_processing_false",
+            [&]{return processor.setProcessing(running);},true);
+        auto& record=transitions[running?0:1];record.attempted=true;
+        external->lifecycle_activity(false,running?3:4);
+        // A throw/refusal retains its fixed in-flight stage until the owner
+        // acquires and exports the scalar failure. Cleanup may publish its own
+        // stage, while this exact attempted/returned/result record survives.
+        record.result=processor.setProcessing(running);record.returned=true;
+        const bool accepted=record.result==kResultOk||record.result==kNotImplemented;
+        if(accepted)external->lifecycle_activity(false,0);
+        ok=ok&&accepted;return accepted;
+    };
+    auto export_transitions=[&]{
+        if(transitions_exported)return;
+        transitions_exported=true; // one export attempt, including output failure
+        if(!deferred_transitions)return;
+        constexpr std::array<const char*,2> names{"set_processing_true","set_processing_false"};
+        for(size_t i=0;i<transitions.size();++i){
+            const auto& record=transitions[i];if(!record.attempted)continue;
+            events.lifecycle("ap0_call_started",",\"operation\":\""+std::string(names[i])+"\",\"owner_thread\":false,\"exported_after_quiescence\":true,\"returned\":"+(record.returned?"true":"false"));
+            if(record.returned)events.lifecycle("ap0_call_completed",",\"operation\":\""+std::string(names[i])+"\",\"result\":"+std::to_string(record.result));
+        }
+    };
     try {
-        std::atomic<bool> worker_done{false};
+        ProcessingSignals signals;
+        if(!signals.command||!signals.quiescent)throw std::runtime_error("processing event preparation failed");
+        uint32_t preparation_error=0;
         std::thread worker([&] {
-            // No owner-thread call overlaps this thread. Logging surrounds calls;
-            // the sample comparison and buffer serialization happen after join.
+            // Processor lifecycle and DSP belong to this thread. Controller/
+            // editor work remains on the owner; state requests use the existing
+            // ExternalProcessing handoff. Storage stays alive through join.
+            // Naming supports diagnostics; worker/event preparation supplies
+            // readiness even on runners without this optional naming support.
             SetThreadDescription(GetCurrentThread(),L"lvb-audio");
-            bool started=false;
+            signals.publish(0); // prepared; no vendor Start or DSP has occurred
+            uint64_t handled=0;
+            for(;;){
+            const auto wake=WaitForSingleObject(signals.command,INFINITE);
+            if(signals.exit.load(std::memory_order_acquire))break;
+            if(wake!=WAIT_OBJECT_0){preparation_error=2;ok=false;worker_exception=true;break;}
+            const auto generation=signals.issued.load(std::memory_order_acquire);
+            if(generation==handled)continue;
+            if(generation!=handled+1){preparation_error=3;ok=false;worker_exception=true;break;}
+            bool started=false,processing_attempted=false;
             try {
-                events.lifecycle("ap0_processing_thread_started",",\"distinct_from_owner\":"+
-                    std::string(std::this_thread::get_id()!=owner?"true":"false"));
                 if(hosted) external->lifecycle_request(10);
-                stopped=false;
-                started=call("set_processing_true",[&]{return processor.setProcessing(true);},true);
-                if (started && external) {if(hosted) external->lifecycle_ack(11);else external->ready();}
+                if(signals.exit.load(std::memory_order_acquire))break;
+                processing_attempted=true;stopped=false;
+                started=render_transition(true);
+                if (started && external) {
+#ifdef LVB_LC1_TEST
+                    external->lc1_hold_started();
+#endif
+                    if(hosted) external->lifecycle_ack(11);else external->ready();
+                }
                 if (started) for(uint64_t b=0;sustained||b<uint64_t(external?65:3);++b) {
                     auto& block=blocks[external?0:b];
                     if (external) {
-                        block.silent_input.fill(0.f);
-                        block.silent_input.front()=block.silent_input.back()=std::bit_cast<float>(guard);
-                        for(int ch=0;ch<2;++ch) {
-                            block.input[ch].fill(0.f);block.output[ch].fill(std::bit_cast<float>(sentinel));
-                            block.input[ch].front()=block.input[ch].back()=std::bit_cast<float>(guard);
-                            block.output[ch].front()=block.output[ch].back()=std::bit_cast<float>(guard);
-                        }
-                        for(auto& plane:block.extra_output){plane.fill(std::bit_cast<float>(sentinel));plane.front()=plane.back()=std::bit_cast<float>(guard);}
+#ifdef LVB_SAMPLE_PLANE_TEST
+                        block.sample_plane_reads=block.sample_plane_writes=0;
+#endif
                         auto& request=block.request;
                         if (!external->next(request,block.in[0],block.in[1])) break;
                         if(request.frames>static_cast<int>(maximum)) throw std::runtime_error("negotiated maximum exceeded");
-                        block.input_before=block.input;
+                        if(request.frames&& !external->direct_audio()){
+                            block.input_before=block.input;
+#ifdef LVB_SAMPLE_PLANE_TEST
+                            block.sample_plane_reads+=2;block.sample_plane_writes+=2;
+#endif
+                        }
                         block.gain=request.gain;block.data.numSamples=request.frames;
+                        block.data.processMode=callback_process_mode(request,setup.processMode);
                         block.input_bus.silenceFlags=request.silence;
                         layout.map_inputs(block.all_inputs,block.in.data(),block.silent_channels.data(),request.silence);layout.map_outputs(block.all_outputs,block.output_channels.data(),block.inactive_output_channels.data());
                         block.parameters.clearQueue();int32 parameter=0,point=0;
@@ -197,10 +315,12 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                     block.data.outputParameterChanges=external&&external->returned_results()?&block.returned:nullptr;
                     block.data.processContext=block.request.has_context?&block.request.context:nullptr;
                     block.worker_thread=std::this_thread::get_id()!=owner;
+                    const auto admitted_samples=block.data.numSamples;
                     if(!sustained)events.lifecycle("ap0_process_started",",\"block\":"+std::to_string(b));
                     if(external)external->before_process();
                     const auto process_start=std::chrono::steady_clock::now();
-                    block.result=processor.process(block.data);
+                    {FlushDenormals flush;block.result=processor.process(block.data);}
+                    const auto process_ns=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-process_start).count();
                     // Custody immediately after the vendor call, before any throw/teardown.
                     if(block.returned.failed&&first_rejection.reason==AP10Results::Rejection::None){
                         first_rejection=block.returned.rejection;rejected_callback=processed+1;
@@ -209,49 +329,178 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                         for(size_t i=0;i<block.request.event_count;++i){if(block.request.events[i].kind==2)++rejected_input_parameters;else ++rejected_input_notes;}
                         if(external&&external->result_status())external->result_status()->publish(first_rejection,rejected_generation,rejected_epoch,rejected_sequence,rejected_position,rejected_callback,rejected_input_notes,rejected_input_parameters);
                     }
-                    const auto process_ns=std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now()-process_start).count();
                     if(external)external->after_process();
                     if(!sustained)events.lifecycle("ap0_process_completed",",\"block\":"+std::to_string(b)+
                         ",\"result\":"+std::to_string(block.result));
                     if(block.result!=kResultOk) {ok=false;if(sustained)throw std::runtime_error("Windows processor returned failure");break;}
                     if(block.returned.failed)throw std::runtime_error("malformed or oversized process results");
-                    if(std::bit_cast<uint32>(block.silent_input.front())!=guard||std::bit_cast<uint32>(block.silent_input.back())!=guard||
-                       std::any_of(block.silent_input.begin()+1,block.silent_input.end()-1,[](float v){return v!=0.f;}))
+                    if(block.data.numSamples!=admitted_samples)
+                        throw std::runtime_error("Windows processor changed admitted sample extent");
+                    if(admitted_samples&&external&&external->direct_audio()) {
+                        // Two constant canaries per exposed SDK plane. Keep
+                        // overwrite containment without proof-time Nmax scans.
+                        std::array<int,2> bus_index{};
+                        for(size_t i=0;i<layout.size;++i) {
+                            const auto& bus=layout.buses[i];
+                            if(bus.info.mediaType!=kAudio)continue;
+                            const auto direction=bus.info.direction;const int index=bus_index[direction]++;
+                            const bool selected=bus.supported&&bus.active&&
+                                (direction==kOutput||index==layout.transported_input);
+                            for(int ch=0;ch<bus.info.channelCount;++ch) {
+                                // Use prepared addresses/extent, never a pointer
+                                // or count the vendor could replace in ProcessData.
+                                const int lane=2*index+ch;
+                                const auto* plane=direction==kInput?(selected?block.input[ch].data()+1:block.silent_input.data()+1):
+                                    (selected?(lane<2?block.output[lane].data()+1:block.extra_output[lane-2].data()+1):nullptr);
+                                if(plane&&(std::bit_cast<uint32>(plane[-1])!=guard||
+                                           std::bit_cast<uint32>(plane[capacity])!=guard))
+                                    throw std::runtime_error("direct private plane guard");
+                            }
+                        }
+                    }
+                    if(admitted_samples&&(!external||!external->direct_audio())&&
+                       (std::bit_cast<uint32>(block.silent_input.front())!=guard||std::bit_cast<uint32>(block.silent_input.back())!=guard||
+                        std::any_of(block.silent_input.begin()+1,block.silent_input.end()-1,[](float v){return v!=0.f;})))
                         throw std::runtime_error("AP18 inactive input modified");
                     ++processed;
-                    if(external) {
+                    if(external&&admitted_samples&&!external->direct_audio()) {
+#ifdef LVB_SAMPLE_PLANE_TEST
+                        block.sample_plane_reads+=65;
+#endif
                         for(int ch=0;ch<2;++ch) {
                             if(block.input[ch]!=block.input_before[ch] ||
                                std::bit_cast<uint32>(block.output[ch].front())!=guard ||
                                std::bit_cast<uint32>(block.output[ch].back())!=guard)
                                 throw std::runtime_error("AP1 private buffer guard/input");
-                            for(int i=block.data.numSamples+1;i<=capacity;++i)
+                            for(int i=admitted_samples+1;i<=capacity;++i)
                                 if(std::bit_cast<uint32>(block.output[ch][i])!=sentinel)
                                     throw std::runtime_error("AP1 unused private output modified");
                         }
                         for(const auto& plane:block.extra_output){
                             if(std::bit_cast<uint32>(plane.front())!=guard||std::bit_cast<uint32>(plane.back())!=guard)
                                 throw std::runtime_error("extra private output guard");
-                            for(int i=block.data.numSamples+1;i<=capacity;++i)if(std::bit_cast<uint32>(plane[i])!=sentinel)
+                            for(int i=admitted_samples+1;i<=capacity;++i)if(std::bit_cast<uint32>(plane[i])!=sentinel)
                                 throw std::runtime_error("extra private output extent");
                         }
                         if(!sustained)events.lifecycle("ap1_private_buffers_valid",",\"block\":"+std::to_string(b));
                     }
                     if(external) external->done_outputs(block.all_outputs.data(),layout.counts[1],uint64_t(process_ns),&block.returned.values);
+                    if(external&&admitted_samples&&!external->direct_audio()){
+                        const auto end=admitted_samples+1;
+                        for(int ch=0;ch<2;++ch)
+                            std::fill(block.output[ch].begin()+1,block.output[ch].begin()+end,std::bit_cast<float>(sentinel));
+                        for(auto& plane:block.extra_output)
+                            std::fill(plane.begin()+1,plane.begin()+end,std::bit_cast<float>(sentinel));
+#ifdef LVB_SAMPLE_PLANE_TEST
+                        block.sample_plane_writes+=64;
+#endif
+                    }
+#ifdef LVB_SAMPLE_PLANE_TEST
+                    assert(admitted_samples||
+                           (block.sample_plane_reads==0&&block.sample_plane_writes==0));
+                    assert(!admitted_samples||
+                           (block.sample_plane_reads!=0&&block.sample_plane_writes!=0));
+#endif
                 }
             } catch (...) {primary_error=std::current_exception();worker_exception=true;ok=false;}
             // Attempt bounded teardown through the same supervisor even after
             // a failed process result. A hang is owned by the outer timeout.
-            try {stopped=call("set_processing_false",[&]{return processor.setProcessing(false);},true);}
-            catch (...) {if(!primary_error)primary_error=std::current_exception();stopped=false;ok=false;}
-            worker_done.store(true,std::memory_order_release);
+            if(processing_attempted){
+                try {stopped=render_transition(false);}
+                catch (...) {if(!primary_error)primary_error=std::current_exception();stopped=false;ok=false;}
+            }
+            handled=generation;
+            // This is the publication barrier previously provided by joining
+            // every interval. All pending/session/frame/capture borrows and
+            // vendor false are complete before the owner may inspect fields,
+            // acknowledge Stopped or publish another Run.
+            signals.publish(generation);
+            if(!ok||!sustained)break;
+            }
+            signals.done.store(true,std::memory_order_release);SetEvent(signals.quiescent);
         });
-        if(stateful)while(!worker_done.load(std::memory_order_acquire)){
-            external->service_owner();std::this_thread::sleep_for(std::chrono::microseconds(50));
+        ProcessingJoin retirement{worker,signals,external};
+        bool owner_error=false;
+        try {
+            auto await_quiescence=[&](uint64_t generation,bool preparing){
+                const auto end=std::chrono::steady_clock::now()+std::chrono::seconds(5);
+                while(signals.completed.load(std::memory_order_acquire)!=generation){
+                    if(signals.done.load(std::memory_order_acquire)){
+                        // A finite worker publishes completion immediately
+                        // before done. Accept that exact completion even if
+                        // the first load raced with its publication.
+                        if(signals.completed.load(std::memory_order_acquire)==generation)break;
+                        throw std::runtime_error("processing worker stopped before quiescence");
+                    }
+                    if(preparing&&std::chrono::steady_clock::now()>=end)throw std::runtime_error("processing preparation deadline");
+                    if(stateful)external->service_owner();
+                    const auto wake=WaitForSingleObject(signals.quiescent,stateful&&!preparing?0:4);
+                    if(wake!=WAIT_OBJECT_0&&wake!=WAIT_TIMEOUT)throw std::runtime_error("processing quiescence wait failed");
+                    // Preserve the existing owner state/GUI service cadence
+                    // during an interval. Render/start work does not poll it.
+                    if(stateful&&!preparing&&wake==WAIT_TIMEOUT)
+                        std::this_thread::sleep_for(std::chrono::microseconds(50));
+                }
+            };
+            await_quiescence(0,true);
+            if(hosted&&!sustained)external->lifecycle_ack(9);
+            events.lifecycle("ap0_processing_thread_started",",\"distinct_from_owner\":"+
+                std::string(worker.get_id()!=owner?"true":"false"));
+            if(hosted&&sustained)external->lifecycle_ack(9); // prepared, never processing_ready
+            uint64_t generation=0;
+            uint16_t command=sustained?external->next_transition():10;
+            for(;;){
+                if(command==14){external->lifecycle_request(14);break;}
+                if(command!=10||generation==UINT64_MAX)throw std::runtime_error("processing command generation invalid");
+                processing_requested=true;
+                // Owner owns these fields while the previous generation is
+                // quiescent. Clearing before Run publication also prevents an
+                // Exit that wins over pending Run from exporting stale fields.
+                transitions={};transitions_exported=false;
+                signals.issued.store(++generation,std::memory_order_release);
+                if(!SetEvent(signals.command))throw std::runtime_error("processing command wake failed");
+                await_quiescence(generation,false);
+                ++intervals;
+                export_transitions();
+                if(!stopped){
+                    // A failed vendor false never grants deactivation or
+                    // permission to release its processing storage/interfaces.
+                    TerminateProcess(GetCurrentProcess(),93);std::terminate();
+                }
+                if(!ok)break;
+                if(!sustained){
+                    // AP0/AP1/AP2 finite admission retains its real joined
+                    // worker before Stopped. Sustained intervals instead
+                    // retain the prepared live thread until deactivation.
+                    retirement.finish(false);joined=retirement.joined;
+                    events.lifecycle("ap0_thread_joined",",\"joined\":true,\"processing_stopped\":true,\"worker_exception\":false");
+                    join_recorded=true;
+                }
+                if(hosted)external->lifecycle_ack(13);
+                if(!sustained){if(hosted)external->lifecycle_request(14);break;}
+                command=external->next_transition();
+            }
+        } catch (...) {
+            // Do not unwind a joinable std::thread, detach a borrower of our
+            // buffers, or race the worker's error/result fields. Ask the owned
+            // transport to stop, then join before touching shared results.
+            owner_error=true;
+            retirement.finish(true);
         }
-        worker.join();joined=true;
+        retirement.finish(false);joined=retirement.joined;
+        // Owner cancellation can leave an attempted Start/Stop after the
+        // ordinary quiescence wait has thrown. Join supplies its final acquire
+        // barrier; export the same generation once before containment/cleanup.
+        try{export_transitions();}catch(...){owner_error=true;}
+        if(!stopped){TerminateProcess(GetCurrentProcess(),93);std::terminate();}
+        // A preparation failure does not grant ACK9. Its fixed code is read
+        // only after join, when no render thread can still write the results.
+        if(preparation_error&&!primary_error)primary_error=std::make_exception_ptr(std::runtime_error("Windows processing preparation failed"));
+        // Vendor exception text can contain private paths/account data. Keep
+        // the fault stage in its existing status owner and emit only our code.
+        if(owner_error){primary_error=std::make_exception_ptr(std::runtime_error("Windows owner service failed"));ok=false;}
     } catch (...) {if(!primary_error)primary_error=std::current_exception();ok=false;}
-    events.lifecycle("ap0_thread_joined",",\"joined\":"+std::string(joined?"true":"false")+
+    if(!join_recorded)events.lifecycle("ap0_thread_joined",",\"joined\":"+std::string(joined?"true":"false")+
         ",\"processing_stopped\":"+(stopped?"true":"false")+
         ",\"worker_exception\":"+(worker_exception?"true":"false"));
     if(first_rejection.reason!=AP10Results::Rejection::None){
@@ -289,22 +538,13 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         detail+=",\"input_parameters\":"+std::to_string(rejected_input_parameters);
         events.lifecycle("ap18_result_rejection",detail);
     }
-    if (!stopped) return {false,false};
-    if(hosted&&ok) {
-        external->lifecycle_ack(13);
-        if(sustained)restart=external->next_transition()==10;
-        if(!restart)external->lifecycle_request(14);
-    }
-    ++intervals;
-    } while(restart&&ok);
+    if (!stopped){TerminateProcess(GetCurrentProcess(),93);std::terminate();}
     if(sustained) {
         events.lifecycle("ap3_processing_summary",",\"processed_blocks\":"+std::to_string(processed)+
             ",\"intervals\":"+std::to_string(intervals)+",\"process_mode\":\"kRealtime\"");
-        if(primary_error)try{std::rethrow_exception(primary_error);}catch(const std::exception& e){
-            // Only our fixed explanatory errors are emitted, not paths or args.
-            // Windows/plugin exceptions retain their stage via the outer supervisor.
+        if(primary_error)try{std::rethrow_exception(primary_error);}catch(const ap1::BridgeError& e){
             events.lifecycle("ap3_processing_error",",\"detail\":\""+std::string(e.what()).substr(0,160)+"\"");
-        }catch(...){events.lifecycle("ap3_processing_error",",\"detail\":\"non-standard processing exception\"");}
+        }catch(...){events.lifecycle("ap3_processing_error",",\"detail\":\"Windows processing failed\"");}
     }
     active=!call("set_active_false",[&]{return component.setActive(false);});
     if (active) return {false,false};

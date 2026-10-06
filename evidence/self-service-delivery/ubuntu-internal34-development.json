@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "classification": "installed_development_result_not_beta_qualification",
+  "date": "2026-09-30",
+  "platform": {"distro": "Ubuntu 26.04.1", "architecture": "x86_64", "kind": "disposable_vm", "daw": "Bitwig 6.1.1 demo", "physical_audio": false},
+  "candidate": {
+    "version": "0.12.0internal34-1",
+    "source_head": "358a5ee07e9e17a087e32c0741e8f056dd2da270",
+    "source_tree": "83031464b29ad1bcdedd4a454b388e505bf486c0",
+    "deb_sha256": "a30583badbc0f90c78223098f4d0f377695e5fd31f92550fd8a9dcdbbb6a7144",
+    "release_manifest_sha256": "39a83877894ea3c2b795c2164d7c2c0b3c0c424aec2aad2bc856cf96e9641bc9",
+    "preparation_kit_sha256": "dbdc470cd4515caeb053dcd28ac3f105270ef8e943d65ab05a915d7e235a44eb",
+    "generation": "c0f7b23452004616570df0b8a2f5f7f6a55ecea41ba8358d1334fefc3cd44afa"
+  },
+  "populated_selection": {
+    "ordinary_controls": ["Stop bridge", "Select version", "Start bridge"],
+    "home": "Bridge ready",
+    "compatibility": "unqualified",
+    "retained_fragments_registration_sha256": "a695845500cdaddc3f50d6548db0500be85a00ac116e1db9581467776b099a81",
+    "retained_proxy_capacity_readback": "passed",
+    "saved_project_recall": "not_tested"
+  },
+  "held_installer": {
+    "installer_sha256": "7501664f57916380b1425eb24447d0db742b8d5714583c8861a3260eb2bd825f",
+    "protected_system_source_import": "passed_through_Setup_file_chooser",
+    "onboarding": "15ddb23486d8903fadb23df83430ee52",
+    "operation": "92d9c3f2fe6a92273791d233a855b426",
+    "visible_stop_operation": "a3faa219fd46341f3e8c42c5177c5b49",
+    "stop_while_general_capacity_unavailable": "passed",
+    "state": "cancelled", "raw_exit": -15,
+    "cleanup_confirmed": true, "owned_live": 0,
+    "durable_installation": "not_installed",
+    "focus": "not_proven"
+  },
+  "retry": {
+    "ordinary_same_card_action": "New isolated attempt",
+    "creation_operation": "5035e81086fc0bde83e89c565f16b164",
+    "new_onboarding": "e5dc20a0b6003f4d3755e05cf53f48e3",
+    "previous_attempt_retained": true,
+    "operation_read_volume_at_189_seconds": {"rchar": 25192834958, "read_bytes": 13099487232, "cpu_percent": 68.3},
+    "installed_worker_scope_optimization": false,
+    "run_operation": "da3b18b5e372a40f79bc7a76d7b6433c",
+    "vendor_window_actions": ["Continue held fixture", "Install reference modules", "Finish"],
+    "state": "completed", "raw_exit": 0,
+    "cleanup_confirmed": true, "owned_live": 0,
+    "reported_transaction": "partial_installation",
+    "reported_installation_completeness": "unproved",
+    "retained_first_failure": {"role": "unknown", "phase": "target_runner", "relationship": "descendant", "domain": "linux_wait", "status": 1, "cause": "unestablished"},
+    "witness_delta_counts": {"files_added": 0, "uninstall_added": 1, "incomplete": []},
+    "partial_label_source_cause": "witness detector omitted .vst3 files and required a registered .exe",
+    "following_source_correction_installed": false,
+    "ordinary_discovery_operation": "0bedc32e04c0d7867608faf3ac57caa0",
+    "discovered_products": ["LVB Reference Instrument 1.0.0", "LVB Reference Effect 1.0.0"]
+  },
+  "reference_effect": {
+    "class_id": "4C564242455441314546465800000001",
+    "module_sha256": "b3498eb5c8d6d440259b04a9c9b7699ab72f4f64eb31f45167f0341d3d1e719f",
+    "ordinary_compatibility_check_operation": "52256a75fbdb9e79fbe76b56f9197824",
+    "candidate": "308c36515e42fc7e8b96869ba5e5354307cb85de40426710ad487d6bc5f42777",
+    "publication_operation": "b2460a23327097ba2d0d015f61a6fb8e",
+    "publication": {"id": "bed1c6da94df2eb340d3350fef969d1f", "sha256": "efaa57521833114f0c89d28cc54d677996105ab2f15db493c4b2a8283a0cb072"},
+    "frontend_posture": "Available experimentally",
+    "daw_use": "not_yet_tested"
+  },
+  "maintainer_repairs_during_recorded_recovery_journey": 0,
+  "unqualified": ["clean completion classification", "Focus", "interrupted frontend recovery", "steady audio", "DAW project recall", "reboot recall", "saved-project update and rollback", "commercial multi-product acceptance", "CachyOS", "SteamOS", "customer release"]
+}

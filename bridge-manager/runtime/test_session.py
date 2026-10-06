@@ -14,7 +14,8 @@ import tempfile
 import threading
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+from types import SimpleNamespace
 
 import ownership
 import session
@@ -29,6 +30,50 @@ def graphical_denial_fixture(root):
 
 
 class GraphicalSessionTests(unittest.TestCase):
+    def direct_authority_fixture(self,root,shared_inode):
+        proc,peer,runtime,bound,bus,wayland,denial=self.graphical_fixture(root)
+        (runtime/'xauth_fixture').unlink()
+        native=root.resolve()/'home/.Xauthority';native.parent.mkdir()
+        native.write_bytes(b'native-private-fixture');native.chmod(0o600)
+        visible=peer/'root'/native.relative_to('/')
+        visible.parent.mkdir(parents=True)
+        if shared_inode:os.link(native,visible)
+        else:visible.write_bytes(native.read_bytes());visible.chmod(0o600)
+        bound['xauthority']=str(native)
+        environment=(peer/'environ').read_bytes().replace(
+            b'XAUTHORITY=/run/flatpak/Xauthority',b'XAUTHORITY='+os.fsencode(native))
+        (peer/'environ').write_bytes(environment)
+        return proc,runtime,bound,bus,wayland,denial,native
+
+    def test_native_private_authority_uses_the_same_host_file_without_a_runtime_alias(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,runtime,bound,bus,wayland,denial,native=self.direct_authority_fixture(pathlib.Path(tmp),True)
+            try:
+                with patch.object(session,'validate_runtime',return_value=denial):
+                    result=session.graphical_environment(bound,proc,runtime)
+                self.assertEqual(result['XAUTHORITY'],str(native))
+                self.assertEqual(list(runtime.iterdir()),[])
+            finally:bus.close();wayland.close()
+
+    def test_same_bytes_at_a_different_host_file_do_not_grant_direct_authority(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,runtime,bound,bus,wayland,denial,native=self.direct_authority_fixture(pathlib.Path(tmp),False)
+            try:
+                with patch.object(session,'validate_runtime',return_value=denial):
+                    with self.assertRaisesRegex(RuntimeError,'exact alias unavailable'):
+                        session.graphical_environment(bound,proc,runtime)
+            finally:bus.close();wayland.close()
+
+    def test_host_authority_symlink_does_not_grant_direct_authority(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,runtime,bound,bus,wayland,denial,native=self.direct_authority_fixture(pathlib.Path(tmp),False)
+            try:
+                target=native.with_name('actual');native.rename(target);native.symlink_to(target)
+                with patch.object(session,'validate_runtime',return_value=denial):
+                    with self.assertRaisesRegex(RuntimeError,'exact alias unavailable'):
+                        session.graphical_environment(bound,proc,runtime)
+            finally:bus.close();wayland.close()
+
     def graphical_fixture(self,root):
         root=root.resolve()
         sid='0123456789abcdef0123456789abcdef'
@@ -107,6 +152,47 @@ class GraphicalSessionTests(unittest.TestCase):
                 self.assertEqual(result['WAYLAND_DISPLAY'],str(host_runtime/'wayland-1'))
             finally:
                 bus.close();wayland.close()
+
+    def test_standard_bus_guid_and_escaped_socket_keep_exact_endpoint_authority(self):
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            proc,peer,host_runtime,bound,bus,wayland,denial=self.graphical_fixture(pathlib.Path(tmp))
+            guid='0123456789abcdef0123456789abcdef'
+            try:
+                os.link(peer/'root/run/flatpak/bus',host_runtime/'bus')
+                for address in ('unix:path=/run/flatpak/bus,guid='+guid,
+                    'unix:guid='+guid+',path=%2frun%2fflatpak%2fbus'):
+                    bound['dbus_session_bus_address']=address
+                    (peer/'environ').write_bytes(b'DISPLAY=:7\0WAYLAND_DISPLAY=wayland-1\0'
+                        b'XAUTHORITY=/run/flatpak/Xauthority\0DBUS_SESSION_BUS_ADDRESS='+address.encode()+b'\0')
+                    with patch.object(session,'validate_runtime',return_value=denial):
+                        result=session.graphical_environment(bound,proc,host_runtime)
+                    self.assertEqual(result['DBUS_SESSION_BUS_ADDRESS'],
+                        'unix:path='+str(host_runtime/'bus')+',guid='+guid)
+                (host_runtime/'bus').unlink()
+                with patch.object(session,'validate_runtime',return_value=denial):
+                    result=session.graphical_environment(bound,proc,host_runtime)
+                path,retained_guid=session.dbus_path_address(result['DBUS_SESSION_BUS_ADDRESS'])
+                self.assertEqual(retained_guid,guid)
+                self.assertEqual(path,str(denial/'.lvb-denied-dbus'))
+                client=socket.socket(socket.AF_UNIX)
+                try:
+                    with self.assertRaises(ConnectionRefusedError):client.connect(path)
+                finally:client.close()
+            finally:
+                bus.close();wayland.close()
+
+    def test_bus_address_refuses_other_transports_ambiguous_or_malformed_fields(self):
+        guid='0123456789abcdef0123456789abcdef'
+        for address in ('unix:abstract=foreign', 'tcp:host=localhost,port=1',
+            'unix:path=/run/one;unix:path=/run/two', 'unix:path=/run/one,path=/run/two',
+            'unix:path=/run/one,guid='+guid+',guid='+guid,
+            'unix:path=/run/one,unknown=x', 'unix:path=/run/one,guid=short',
+            'unix:path=/run/%', 'unix:path=/run/%gg', 'unix:path=/run/%00',
+            'unix:path=/run/space here'):
+            with self.subTest(address=address),self.assertRaisesRegex(RuntimeError,'DBus address unsupported'):
+                session.dbus_path_address(address)
+        endpoint='/run/a space,a=semi;percent%'
+        self.assertEqual(session.dbus_path_address(session.dbus_address(endpoint,guid)),(endpoint,guid))
 
     def test_denial_endpoint_refuses_wrong_type_public_alias_and_listener(self):
         with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
@@ -245,25 +331,25 @@ class GraphicalNamespaceIntegrationTests(unittest.TestCase):
             root=pathlib.Path(tmp).resolve();authority=root/'Xauthority';authority.write_bytes(b'fixture')
             authority.chmod(0o600);bus=socket.socket(socket.AF_UNIX);bus.bind(str(root/'bus'));bus.listen(1)
             denial=graphical_denial_fixture(root)
+            address=session.dbus_address(str(root/'bus'),'0123456789abcdef0123456789abcdef')
             child=subprocess.Popen(['/bin/sleep','30'],env={**os.environ,'DISPLAY':':9',
-              'XAUTHORITY':str(authority),'DBUS_SESSION_BUS_ADDRESS':'unix:path='+str(root/'bus')})
+              'XAUTHORITY':str(authority),'DBUS_SESSION_BUS_ADDRESS':address})
             try:
                 raw=pathlib.Path(f'/proc/{child.pid}/stat').read_text();parts=raw.rsplit(') ',1)
                 start=int(parts[1].split()[19])
                 bound={'schema':1,'peer_pid':child.pid,'peer_start_ticks':start,'display':':9',
-                  'xauthority':str(authority),'dbus_session_bus_address':'unix:path='+str(root/'bus')}
+                  'xauthority':str(authority),'dbus_session_bus_address':address}
                 with patch.object(session,'validate_runtime',return_value=denial):
                     result=session.graphical_environment(bound,runtime_root=root)
                 projected=pathlib.Path(f'/proc/{child.pid}/root')/authority.relative_to('/')
                 self.assertEqual(result['XAUTHORITY'],str(authority))
-                self.assertEqual(result['DBUS_SESSION_BUS_ADDRESS'],
-                  'unix:path='+str(root/'bus'))
+                self.assertEqual(result['DBUS_SESSION_BUS_ADDRESS'],address)
                 denied_wayland=pathlib.Path(result['WAYLAND_DISPLAY'])
                 self.assertEqual(denied_wayland.parent,denial)
                 self.assertTrue(denied_wayland.is_socket())
                 self.assertEqual(pathlib.Path(result['XAUTHORITY']).read_bytes(),b'fixture')
                 client=socket.socket(socket.AF_UNIX)
-                try:client.connect(result['DBUS_SESSION_BUS_ADDRESS'].removeprefix('unix:path='))
+                try:client.connect(session.dbus_path_address(result['DBUS_SESSION_BUS_ADDRESS'])[0])
                 finally:client.close()
             finally:
                 child.terminate();child.wait(timeout=5);bus.close()
@@ -301,6 +387,75 @@ class VendorOperationTests(unittest.TestCase):
 
 
 class BusCensusCommandTests(unittest.TestCase):
+    def test_graphics_trial_is_closed_process_scoped_and_does_not_convert_prefix(self):
+        reg={'environment':{'root':'/fixture','runner':{}},
+             'compatibility':{'disable_windows_accessibility':False}}
+        with patch.object(session.subprocess,'check_output',return_value='DISPLAY=:0\n'):
+            before=session.environment(reg)
+            for accessibility in (False,True):
+                trial={**reg,'compatibility':{'graphics':'wine_d3d11',
+                    'disable_windows_accessibility':accessibility}}
+                selected=session.environment(trial)
+                self.assertEqual(selected['WINEDLLOVERRIDES'],
+                    'd3d11,dxgi=b'+(';uiautomationcore=' if accessibility else ''))
+                self.assertEqual({k:v for k,v in selected.items() if k!='WINEDLLOVERRIDES'},before)
+                for key in ('PROTON_USE_WINED3D','PROTON_DLL_COPY','PROTON_DISABLE_NVAPI'):
+                    self.assertNotIn(key,selected)
+                self.assertIn('WINEDLLOVERRIDES',session.NativeProtonSession.FORWARD)
+                self.assertEqual(session.environment(reg),before, 'sibling/keeper/default launch unchanged')
+            bad={**reg,'compatibility':{'graphics':'arbitrary=dll','disable_windows_accessibility':False}}
+            with self.assertRaisesRegex(RuntimeError,'unsupported graphics backend'):session.environment(bad)
+            trial['environment']={**reg['environment'],'runner':{'policy':'dcomp_wine_builtins_reference_v1'}}
+            self.assertEqual(session.environment(trial)['WINEDLLOVERRIDES'],
+                'd2d1,d3d11,dxgi,dcomp=b;uiautomationcore=')
+
+    def test_plugin_sessions_leave_out_the_runner_game_input_stack(self):
+        reg={'environment':{'root':'/fixture','runner':{}},
+             'compatibility':{'disable_windows_accessibility':False}}
+        with patch.object(session.subprocess,'check_output',return_value='DISPLAY=:0\n'):
+            # Installers and vendor applications keep the runner's defaults.
+            default=session.environment(reg)
+            self.assertNotIn('WINEDLLOVERRIDES',default)
+            self.assertNotIn('PROTON_USE_XALIA',default)
+            plugin=session.environment(reg,plugin_session=True)
+            self.assertEqual(plugin['WINEDLLOVERRIDES'],'winebus.sys=d')
+            self.assertEqual(plugin['PROTON_USE_XALIA'],'0')
+            self.assertEqual({k:v for k,v in plugin.items() if k not in ('WINEDLLOVERRIDES','PROTON_USE_XALIA')},default)
+            # It composes after every other per-launch choice and changes none.
+            reg['compatibility']={'graphics':'wine_d3d11','disable_windows_accessibility':True}
+            self.assertEqual(session.environment(reg,plugin_session=True)['WINEDLLOVERRIDES'],
+                'd3d11,dxgi=b;uiautomationcore=;winebus.sys=d')
+            reg['compatibility']={'disable_windows_accessibility':False}
+            reg['environment']['runner']['policy']='dcomp_wine_builtins_reference_v1'
+            self.assertEqual(session.environment(reg,plugin_session=True)['WINEDLLOVERRIDES'],
+                'd2d1,d3d11,dxgi,dcomp=b;winebus.sys=d')
+            self.assertIn('PROTON_USE_XALIA',session.NativeProtonSession.FORWARD)
+
+    def test_settled_process_tree_is_walked_once_a_second_and_a_changing_one_every_turn(self):
+        import ownership
+        now=[100.0]
+        cadence=ownership.TrackingCadence(clock=lambda:now[0])
+        self.assertTrue(cadence.due(),'the first walk is immediate')
+        # While members are still appearing, and for five seconds after the
+        # last one, every supervision turn walks the tree.
+        for step in range(40):
+            self.assertTrue(cadence.due(),step)
+            cadence.walked_now(grew=step<10)
+            now[0]+=.05
+        now[0]+=5
+        cadence.walked_now(grew=False)
+        walks=0
+        for _ in range(200):
+            now[0]+=.05
+            if cadence.due():walks+=1;cadence.walked_now(grew=False)
+        self.assertIn(walks,(9,10,11),'ten seconds of settled turns walk about once a second')
+        # A new member returns it to every turn at once.
+        cadence.walked_now(grew=True)
+        for _ in range(20):
+            now[0]+=.05
+            self.assertTrue(cadence.due())
+            cadence.walked_now(grew=False)
+
     def test_event_policy_is_registered_not_ambient(self):
         reg={'environment':{'root':'/fixture'},'compatibility':{'disable_windows_accessibility':False}}
         with patch.object(session.subprocess,'check_output',return_value='DISPLAY=:0\nLVB_EVENT_OUTPUT_POLICY=reported_zero_event_channels_unspecified\n'):
@@ -414,6 +569,20 @@ class BusCensusCommandTests(unittest.TestCase):
             self.assertIn(('component_case=class:'+selected+'\n').encode(),binding)
             self.assertNotIn(b'component_case=first-audio',binding)
 
+    def test_graphics_assessment_is_explicit_exact_inspection(self):
+        reg={'environment':{'root':'/fixture','runner':{'entry_point':'/entry','proton':'/proton'}},
+             'metadata':{'class_id':'A'*32},'host':{'path':'/fixture/host.exe','sha256':'1'*64},
+             'host_source_sha256':'2'*64,'module':{'path':'/fixture/module.vst3','sha256':'3'*64}}
+        spec={'registration':reg,'session':'4'*32,'inspect':True,'first_audio':False,'graphics_assessment':True}
+        argv,binding=session.command(spec)
+        self.assertEqual(argv[argv.index('--mode')+1],'graphics-assessment')
+        self.assertIn(b'mode=graphics-assessment\n',binding)
+        self.assertIn(('component_case=class:'+'A'*32+'\n').encode(),binding)
+        for key,value in [('inspect',False),('keeper',True),('vendor_access',True),('first_audio',True),('bus_lifecycle_probe',True)]:
+            with self.assertRaises(RuntimeError):session.command(dict(spec,**{key:value}))
+        del spec['graphics_assessment']
+        self.assertEqual(session.command(spec)[0][-3],'ap8-module-inspection')
+
     def test_probe_is_inspection_only_and_handshake_bound(self):
         reg={'environment':{'root':'/fixture','runner':{'entry_point':'/entry','proton':'/proton'}},
              'metadata':{'class_id':'A'*32},'host':{'path':'/fixture/compatdata/pfx/drive_c/host.exe','sha256':'1'*64},
@@ -428,6 +597,38 @@ class BusCensusCommandTests(unittest.TestCase):
         del spec['bus_lifecycle_probe']
         argv,_=session.command(spec)
         self.assertEqual(argv[argv.index('--mode')+1],'ap8-module-inspection')
+
+
+class CleanupRetirementTests(unittest.TestCase):
+    def test_killed_remote_owner_can_retire_before_original_deadline(self):
+        root = SimpleNamespace(pid=98, lvb_remote_group=(123, 456),
+                               poll=lambda: 0, wait=Mock())
+        remote = {'pid': 123, 'start_ticks': 456, 'pgrp': 123, 'session': 123}
+        # TERM's grace is over. KILL is asynchronous: the first census still
+        # sees the owner, and the next sees its independently reaped exit.
+        with patch.object(ownership, 'CLEANUP_SECONDS', 3), \
+             patch.object(ownership, 'process_identities', side_effect=[[remote], [remote], []]), \
+             patch.object(ownership, 'signal_local_group'), \
+             patch.object(ownership, 'signal_remote_group'), \
+             patch.object(ownership.time, 'monotonic', return_value=10), \
+             patch.object(ownership.time, 'sleep') as sleep:
+            result = ownership.cleanup_process(root, [(123, 456)])
+        self.assertEqual(result, {'owned_descendants_zero': True, 'process_group_empty': True})
+        sleep.assert_called_once_with(ownership.POLL_SECONDS)
+
+    def test_unreaped_owner_still_refuses_at_original_deadline(self):
+        root = SimpleNamespace(pid=98, lvb_remote_group=(123, 456),
+                               poll=lambda: 0, wait=Mock())
+        remote = {'pid': 123, 'start_ticks': 456, 'pgrp': 123, 'session': 123}
+        with patch.object(ownership, 'CLEANUP_SECONDS', 3), \
+             patch.object(ownership, 'process_identities', return_value=[remote]), \
+             patch.object(ownership, 'signal_local_group'), \
+             patch.object(ownership, 'signal_remote_group'), \
+             patch.object(ownership.time, 'monotonic', side_effect=[10, 10, 10, 13]), \
+             patch.object(ownership.time, 'sleep') as sleep:
+            with self.assertRaisesRegex(RuntimeError, 'owned descendants survived cleanup'):
+                ownership.cleanup_process(root, [(123, 456)])
+        sleep.assert_not_called()
 
 
 @unittest.skipUnless(sys.platform == "linux", "PID/start tracking uses Linux procfs")
@@ -716,8 +917,31 @@ class CensusTests(unittest.TestCase):
                 flag.write_bytes(contents)
                 for spec in [{'inspect':False},{'inspect':True},{'inspect':False,'vendor_access':True}]:
                     env={'HOME':tmp}
-                    session.delivery_trace(spec,env)
+                    with patch.object(session.pwd,'getpwuid',return_value=SimpleNamespace(pw_dir=tmp)):
+                        session.delivery_trace(spec,env)
                     self.assertEqual(env.get('LVB_AP10_TRACE')=='1',expected and not spec['inspect'] and not spec.get('vendor_access',False))
+
+    def test_audio_trace_survives_managed_home_and_ignores_private_home_flag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            user=pathlib.Path(tmp)/'user';private=pathlib.Path(tmp)/'environment'
+            user.mkdir(mode=0o700);private.mkdir(mode=0o700)
+            (private/'home').mkdir(mode=0o700)
+            relative=pathlib.Path('.local/share/linux-vst-bridge/managed/runtime/trace-enable')
+            flag=user/relative;flag.parent.mkdir(parents=True);flag.write_bytes(b'1\n')
+            spec={'inspect':False,'onboarding_home':True,
+                  'registration':{'environment':{'root':str(private)}}}
+            env={'HOME':str(user)}
+            with patch.object(session.pwd,'getpwuid',return_value=SimpleNamespace(pw_dir=str(user))):
+                session.managed_home(spec,env)
+                self.assertEqual(env['HOME'],str(private/'home'))
+                session.delivery_trace(spec,env)
+                self.assertEqual(env.get('LVB_AP10_TRACE'),'1')
+                self.assertIn('LVB_AP10_TRACE',session.NativeProtonSession.FORWARD)
+                flag.unlink()
+                impostor=private/'home'/relative;impostor.parent.mkdir(parents=True);impostor.write_bytes(b'1\n')
+                env={'HOME':str(private/'home')}
+                session.delivery_trace(spec,env)
+                self.assertNotIn('LVB_AP10_TRACE',env)
 
     def test_stat_only_parsing_and_descendant_identity(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1447,6 +1671,44 @@ class KeeperDiagnosticsTests(SupervisorFixture,unittest.TestCase):
 
 @unittest.skipUnless(sys.platform.startswith('linux'),'Linux supervisor ownership boundary')
 class SupervisorOwnershipBoundaryTests(SupervisorFixture,unittest.TestCase):
+    def test_exclusive_inspection_lock_refusal_retires_only_its_unstarted_owner(self):
+        import fcntl
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);spec,durable=self.fixture(root)
+            spec.update(inspect=True,binding_sent=False)
+            vendor=root/'vendor-state';vendor.write_bytes(b'retained')
+            with (root/'operation.lock').open('a+b') as keeper:
+                fcntl.flock(keeper,fcntl.LOCK_SH|fcntl.LOCK_NB)
+                with patch.object(session,'environment',return_value=os.environ.copy()), \
+                     patch.object(session.subprocess,'Popen') as launch, \
+                     contextlib.redirect_stdout(io.StringIO()):
+                    result=session.run(spec)
+                launch.assert_not_called()
+                self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
+                self.assertIn('BlockingIOError',result['error'])
+                self.assertFalse(durable.exists())
+                self.assertEqual(vendor.read_bytes(),b'retained')
+                receipt=json.loads(pathlib.Path(spec['report']).with_suffix('.ownership.json').read_text())
+                self.assertEqual(receipt['session'],spec['session'])
+                self.assertTrue(receipt['cleanup_confirmed'] and receipt['transport_retired'])
+                with (root/'operation.lock').open('a+b') as contender:
+                    with self.assertRaises(BlockingIOError):
+                        fcntl.flock(contender,fcntl.LOCK_EX|fcntl.LOCK_NB)
+
+    def test_coordinated_inspection_keeps_its_declared_shared_lock(self):
+        import fcntl
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);spec,_=self.fixture(root)
+            spec.update(inspect=True,shared_inspection=True,binding_sent=False)
+            with (root/'operation.lock').open('a+b') as keeper:
+                fcntl.flock(keeper,fcntl.LOCK_SH|fcntl.LOCK_NB)
+                with patch.object(session,'environment',return_value=os.environ.copy()), \
+                     patch.object(session,'run_owned',return_value={'cleanup_confirmed':True}) as owned, \
+                     contextlib.redirect_stdout(io.StringIO()):
+                    result=session.run(spec)
+                owned.assert_called_once()
+                self.assertTrue(result['cleanup_confirmed'])
+
 
     def native_finish(self,native,durable,observed):
         try:
@@ -1521,6 +1783,57 @@ class SupervisorOwnershipBoundaryTests(SupervisorFixture,unittest.TestCase):
             self.assertEqual(result,json.loads(pathlib.Path(spec['report']).read_text()))
             launch.assert_not_called()
 
+    @unittest.skipUnless(sys.platform=='linux','Linux native generation proof')
+    def test_abrupt_native_exit_retires_exact_transport_without_ack(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp));owner,native=socket.socketpair()
+            sibling=pathlib.Path(tmp)/'sibling';sibling.mkdir();(sibling/'keep').write_bytes(b'unchanged')
+            child=subprocess.Popen([sys.executable,'-c',
+                'import sys;sys.stdout.write("ready\\n");sys.stdout.flush();sys.stdin.read()'],
+                pass_fds=(native.fileno(),),stdin=subprocess.PIPE,stdout=subprocess.PIPE)
+            try:
+                self.assertEqual(child.stdout.readline(),b'ready\n')
+                identity=session.IncidentCapture.identity(child.pid)
+                spec['graphical_session']={'schema':1,'peer_pid':child.pid,'peer_start_ticks':identity['start_ticks']}
+                native.close();child.kill();child.wait(timeout=5)
+                result=session.retire_native_transport(spec,owner,True)
+                self.assertTrue(result['transport_retired'])
+                self.assertEqual(result['native_retirement_basis'],'authenticated_process_generation_ended')
+                self.assertIn('BrokenPipeError',result['retirement_ack_error'])
+                self.assertFalse(durable.exists());self.assertEqual((sibling/'keep').read_bytes(),b'unchanged')
+            finally:
+                owner.close();native.close()
+                if child.poll() is None:child.kill();child.wait(timeout=5)
+                child.stdin.close();child.stdout.close()
+
+    def test_unknown_native_generation_cannot_turn_lost_ack_into_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp));owner,native=socket.socketpair();native.close()
+            try:
+                result=session.retire_native_transport(spec,owner,True)
+                self.assertFalse(result['transport_retired'])
+                self.assertIn('BrokenPipeError',result['retirement_error'])
+                self.assertNotIn('native_retirement_basis',result)
+            finally:owner.close()
+
+    def test_generation_proof_distinguishes_live_unknown_and_ended(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);process=root/'42';process.mkdir()
+            spec={'graphical_session':{'peer_pid':42,'peer_start_ticks':19}}
+            fields=['S']+['0']*18+['19']
+            (process/'stat').write_text('42 (native (host)) '+' '.join(fields))
+            self.assertFalse(session.native_generation_ended(spec,root))
+            fields[0]='Z';(process/'stat').write_text('42 (native) '+' '.join(fields))
+            self.assertTrue(session.native_generation_ended(spec,root))
+            fields[0]='S';fields[19]='20';(process/'stat').write_text('42 (reused) '+' '.join(fields))
+            self.assertTrue(session.native_generation_ended(spec,root))
+            (process/'stat').write_text('malformed')
+            self.assertFalse(session.native_generation_ended(spec,root))
+            (process/'stat').unlink();self.assertTrue(session.native_generation_ended(spec,root))
+            self.assertFalse(session.native_generation_ended({},root))
+            with patch.object(pathlib.Path,'read_text',side_effect=PermissionError('unknown')):
+                self.assertFalse(session.native_generation_ended(spec,root))
+
     def test_failed_retirement_ack_never_publishes_positive_transport_retirement(self):
         class RefuseRetirementAck:
             def __init__(self,peer):self.peer=peer
@@ -1568,6 +1881,19 @@ class SupervisorOwnershipBoundaryTests(SupervisorFixture,unittest.TestCase):
             self.assertEqual(output.getvalue(),'LVO0 '+spec['session']+' ready\n')
             self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
             self.assertIn('FileNotFoundError',result['error'])
+            self.assertFalse(durable.exists())
+
+    def test_graphics_capability_acknowledgment_keeps_prelaunch_failure_owned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec,durable=self.fixture(pathlib.Path(tmp));output=io.StringIO()
+            spec['registration']['compatibility']['graphics']='wine_d3d11'
+            with patch.object(session,'environment',return_value=dict(os.environ,WINEDLLOVERRIDES='d3d11,dxgi=b')),\
+                 patch.object(session,'command',return_value=(['/missing/windows-root'],b'binding')),\
+                 patch.object(session.subprocess,'Popen',side_effect=FileNotFoundError('fixture root absent')),\
+                 contextlib.redirect_stdout(output):
+                result=session.run(spec)
+            self.assertEqual(output.getvalue(),'LVO0 '+spec['session']+' ready graphics-v1\n')
+            self.assertTrue(result['cleanup_confirmed'] and result['transport_retired'])
             self.assertFalse(durable.exists())
 
     def test_keeper_graphical_preflight_failure_publishes_empty_cleanup(self):

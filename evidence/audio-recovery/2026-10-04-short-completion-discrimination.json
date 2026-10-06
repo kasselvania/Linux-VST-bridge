@@ -1,0 +1,247 @@
+{
+  "schema": 1,
+  "date": "2026-10-04",
+  "claim": "test-only discrimination of ordered short/zero-frame completion and predecessor dependency",
+  "status": "source tests pass; production repair and policy amendment pending operator decision",
+  "base": {
+    "commit": "35bbcac4f3399d18d4de57f10ff2848fe4414d1d",
+    "tree": "8782bca8c4b56f8d3197f1d1d88e8adbbb633c10",
+    "branch": "codex/audio-completion-contract"
+  },
+  "source_sha256": {
+    "native-vst3-proxy/backend/src/queued.rs": "f2b3787fd6bd2e4bdc0b657cf22e6ddda53ca0618292bba0edf641bcc350c40a",
+    "native-vst3-proxy/backend/src/completion_contract_tests.rs": "d7aadb25b687c7ca4b2bf847565f68e436d965c362c2242f4bcd3becdca97426"
+  },
+  "production_behavior_unchanged": true,
+  "test_hook": "cfg(test) only: hold exact ticket after Session::process_positioned validated owned reply/output, before native copy/publication; no production storage or branch",
+  "fixture": {
+    "host_os": "Darwin",
+    "host_architecture": "arm64",
+    "transport": "real native Session/IPC15 worker with prepared sample/mailbox maps and paired notification Channel; instrumented protocol counterpart",
+    "sample_rate": 48000,
+    "maximum": 64,
+    "buffered_delay": 256,
+    "same_callback_delay": 0,
+    "vendor_dsp": "not exercised; protocol peer instrumentation",
+    "callback_allocation_audit": "not measured in this harness",
+    "retirement": "test cancellation wakes and joins native worker before mappings are removed; no external product owner/retirement qualification"
+  },
+  "negative_controls": [
+    {
+      "case": "Buffered N0 behind withheld predecessor reply",
+      "preceding_calls": 4,
+      "preceding_frames_each": 64,
+      "refused_ticket": 5,
+      "completed_ticket": 0,
+      "position_before_and_after": 256,
+      "policy": "unchanged local N0 1ms",
+      "backend_result": 264,
+      "first_fault": 6,
+      "reply_state": "request observed and owned by peer; no reply fabricated before refusal"
+    },
+    {
+      "case": "Buffered N0 behind validated reply awaiting native publication",
+      "preceding_calls": 4,
+      "preceding_frames_each": 64,
+      "refused_ticket": 5,
+      "completed_ticket": 0,
+      "position_before_and_after": 256,
+      "policy": "unchanged local N0 1ms",
+      "backend_result": 264,
+      "first_fault": 6,
+      "reply_state": "Session validation complete; owned output/result exists; test hook prevents native publication until cancellation/fault",
+      "late_success": "subsequent call refuses existing fault even if late owned completion is published"
+    },
+    {
+      "case": "SameCallback main N64 with reply withheld if request observed",
+      "policy": "unchanged local N/Fs=1.333333ms",
+      "backend_result": 264,
+      "first_fault": 6,
+      "position_before_and_after": 0,
+      "completion_ticket": 0,
+      "wire_observation": "final default and registered runs observed request; if not observed, admission/render stage remains unobserved rather than proven absent",
+      "physical_cause": "not assigned by controlled peer hold"
+    }
+  ],
+  "positive_control": {
+    "harness_containment_seconds": 1,
+    "product_policy_authority": false,
+    "frames": [
+      64,
+      13,
+      32,
+      0,
+      0,
+      13,
+      0
+    ],
+    "request_sequence_position_frames": [
+      [
+        1,
+        0,
+        64
+      ],
+      [
+        2,
+        64,
+        13
+      ],
+      [
+        3,
+        77,
+        32
+      ],
+      [
+        4,
+        109,
+        0
+      ],
+      [
+        5,
+        109,
+        0
+      ],
+      [
+        6,
+        109,
+        13
+      ],
+      [
+        7,
+        122,
+        0
+      ]
+    ],
+    "submitted_and_completed_ticket": 7,
+    "first_fault": 0,
+    "zero_frame_results": "one exact returned parameter point at offset0/id7/value sequence/100 in each N0 callback",
+    "output_scope": "priming samples and validated owned sample replies; not full physical audio acceptance"
+  },
+  "validation": {
+    "full_default": {
+      "command": "cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --lib",
+      "passed": 145,
+      "ignored": 2,
+      "failed": 0,
+      "tested_test_source_sha256": "b9cb7e772b76b8e59d7f964f33c5e14e13a27de1780650f3a0315694a2ff19a9"
+    },
+    "full_registered": {
+      "command": "cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --features registered --lib",
+      "passed": 146,
+      "ignored": 2,
+      "failed": 0,
+      "tested_test_source_sha256": "b9cb7e772b76b8e59d7f964f33c5e14e13a27de1780650f3a0315694a2ff19a9"
+    },
+    "final_targeted_default": {
+      "passed": 3,
+      "failed": 0,
+      "filtered": 144,
+      "source_sha256": "d7aadb25b687c7ca4b2bf847565f68e436d965c362c2242f4bcd3becdca97426"
+    },
+    "final_targeted_registered": {
+      "passed": 3,
+      "failed": 0,
+      "filtered": 145,
+      "source_sha256": "d7aadb25b687c7ca4b2bf847565f68e436d965c362c2242f4bcd3becdca97426"
+    },
+    "strict_clippy_all_features": {
+      "result": "failed",
+      "signal": "E0063 missing delivery_mode in preview::Binding initializer at rpi0.rs:94",
+      "scope": "inherited unchanged base RPI0 source; not repaired"
+    },
+    "strict_clippy_default_and_registered": {
+      "result": "failed",
+      "signal": "9 inherited non-Linux scheduling.rs dead-code errors on macOS with -D warnings",
+      "scope": "unchanged base scheduling source; no warning suppression or unrelated repair"
+    },
+    "final_vs_full_suite_change": "final test reporting text only, corrected observation uncertainty; behavior/assertions unchanged; final targeted tests validate both configurations"
+  },
+  "unchanged_base_evidence": {
+    "native-vst3-proxy/backend/src/rpi0.rs": {
+      "sha256": "6fde20c011f163a5dd5b4978bfdef896e427f294a3133e04b18d251fee2b79dc",
+      "identical_to_base": true
+    },
+    "native-vst3-proxy/backend/src/preview.rs": {
+      "sha256": "c62c964c6c8a439d2036f1178a7c412abf8b2f076339c57d2ff37a7295013518",
+      "identical_to_base": true
+    },
+    "native-vst3-proxy/backend/src/scheduling.rs": {
+      "sha256": "ad91361b1b50d181ae8046ac5168132c470befdb119a0ed95b385818687da056",
+      "identical_to_base": true
+    },
+    "native-vst3-proxy/backend/src/performance.rs": {
+      "sha256": "0cd4866543d7128d3823f05fb154bbbbd142c1f7aa9c3e92f9f6685ce02753f9",
+      "identical_to_base": true
+    },
+    "native-vst3-proxy/backend/src/lib.rs": {
+      "sha256": "db99cdf7bf9416db890517b9f23929cb34709f92aa355c85442e950251891e5e",
+      "identical_to_base": true
+    },
+    "native-vst3-proxy/source/processor.cpp": {
+      "sha256": "9f4f6ae74aa091f1a98462fbe843cbc96f6d787157f7b8bf9e3da468523dcd8c",
+      "identical_to_base": true
+    },
+    "docs/ARCHITECTURE.md": {
+      "sha256": "b75b5f4085360267569c9d2a38b1b872df1c37daab036a22f247af7f29807979",
+      "identical_to_base": true
+    }
+  },
+  "retained_private_logs": {
+    "backend-clippy-default.log": {
+      "sha256": "7b1f9c4af88b9081123848f2d19a5e4c6a977a6208f098155043453386ef3214",
+      "bytes": 2302
+    },
+    "backend-clippy-registered.log": {
+      "sha256": "7b1f9c4af88b9081123848f2d19a5e4c6a977a6208f098155043453386ef3214",
+      "bytes": 2302
+    },
+    "backend-clippy.log": {
+      "sha256": "733c7ef888c8ddadd98368a36d7f612a7eecb36d9b0dbc70e0d587152c871da6",
+      "bytes": 789
+    },
+    "backend-default.log": {
+      "sha256": "ddd0ccee809c0699fc778f3c49d25607a6ca502713e0ed3ff507944597f45408",
+      "bytes": 13961
+    },
+    "backend-registered.log": {
+      "sha256": "eafe9d5b00519039be2da6088cf45d9ea7bd10f194bb71fed66520b01958ac67",
+      "bytes": 13917
+    },
+    "discrimination-default-final.log": {
+      "sha256": "5dfd7ccdc38e8994fd62161c82a752d3dd7dc7dccf0dc15bdb222fe834343332",
+      "bytes": 1353
+    },
+    "discrimination-registered-final.log": {
+      "sha256": "41ef3a2c89391ebc47072b0c16c7bd55e80ee71103a6ca6bcf32cf39bb7a2518",
+      "bytes": 1410
+    }
+  },
+  "retained_first_attempts": {
+    "file": "first-tool-excerpts.json",
+    "sha256": "ccd6ad8af1d03fced0f8fa1de671ba0df05d759383be3d84841c7d5cbf184a61",
+    "scope": "initial new-harness compile error and first targeted observations retained as labeled tool-output excerpts"
+  },
+  "proposed_contract": {
+    "path": "evidence/audio-recovery/2026-10-04-short-completion-proposal.md",
+    "sha256": "a705d01d95b942931703b4d50ff28cdefe7c00d4780f1f2644ee9ffec7b77935",
+    "review": "Astra6 xhigh cleared exact pending-decision proposal and test-only freeze",
+    "status": "pending operator decision; not production policy approval",
+    "tradeoff": "requested5s absolute expiry can impose seconds-long DAW-thread wait; not guaranteed wall-clock return during descheduling/host SDK sink"
+  },
+  "retained_physical_result": {
+    "path": "evidence/audio-recovery/2026-10-04-refresh4deck-physical-timing.json",
+    "full_lifetime_passes": 8,
+    "full_lifetime_failures": 16,
+    "new_physical_attempts": 0,
+    "installed_source_unchanged": "b137ca61043f1086cde1a71727f446985e0710cf"
+  },
+  "nonclaims": [
+    "lost-wakeup or correlation bug",
+    "causes of all retained physical failures",
+    "new real-time/DAW deadline policy",
+    "native real-time scheduling",
+    "physical source repair",
+    "full output/state or retirement qualification",
+    "beta/support promotion"
+  ]
+}

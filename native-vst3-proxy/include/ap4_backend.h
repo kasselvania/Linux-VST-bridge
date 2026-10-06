@@ -3,6 +3,8 @@
 #ifdef __cplusplus
 extern "C" {
 uint32_t ap9_open(const uint8_t* identity,uint64_t* handle);
+uint32_t ap24_open(const uint8_t* identity,const uint8_t* engine_sha256,
+                   const uint8_t* descriptor_sha256,uint64_t* handle);
 uint32_t ap9_setup(uint64_t handle,uint32_t maximum,uint32_t mode,double sample_rate,uint32_t* latency_and_tail);
 #endif
 /* ABI 1: all AP4 functions are owner-thread only, never concurrent with close.
@@ -19,6 +21,17 @@ uint32_t ap4_activate(uint64_t handle, uint32_t maximum, uint32_t mode);
 uint32_t ap4_deactivate(uint64_t handle);
 uint32_t ap4_state(uint64_t handle, const uint8_t *restore, uint32_t length,
                    uint8_t *output, uint32_t capacity, uint32_t *written);
+/* Additive ABI 1 owned-byte result. Initialize {NULL, 0, 1}; only success
+   transfers ownership. Bytes remain valid until ap4_state_release_v1, called
+   exactly once by the owner, including after backend close. Never on audio.
+   Allocation follows the actual state size; no maximum-sized scratch buffer. */
+struct ap4_owned_state_v1 {
+  const uint8_t *data;
+  uint32_t length, abi_version;
+};
+uint32_t ap4_state_owned_v1(uint64_t handle, const uint8_t *restore,
+                          uint32_t length, struct ap4_owned_state_v1 *output);
+void ap4_state_release_v1(struct ap4_owned_state_v1 *state);
 uint32_t ap4_validate(const uint8_t *blob, uint32_t length, double *gain);
 struct ap4_witness_t {
   uint64_t samples, restored_samples, before_edit_samples, restores, edits,
@@ -51,6 +64,8 @@ struct ap6_snapshot_t {
 uint32_t ap6_snapshot(uint64_t handle, struct ap6_snapshot_t *out);
 uint32_t ap6_recover(uint64_t handle, uint64_t revision, uint8_t *out,
                     uint32_t capacity, uint32_t *written);
+uint32_t ap6_recover_owned_v1(uint64_t handle, uint64_t revision,
+                            struct ap4_owned_state_v1 *output);
 
 #ifdef __cplusplus
 }

@@ -1,0 +1,105 @@
+# Delivered host-block configuration
+
+The disposable Ubuntu first run exposed a shared host configuration boundary:
+Bitwig 6.1.1's native PipeWire backend requested a maximum of 1024 samples while
+the bridge's selected buffering was 512. Typing 512 with an explicit 48 kHz
+sample rate still returned to 1024. ALSA reported the device busy; JACK reported
+no server. These observations do not establish a vendor-specific audio fault.
+
+The delivery repair adds an explicit 1024-frame testing configuration. It keeps
+the default at 512, leaves the DAW in charge of the device and rate, and never
+silently changes the buffering of a working installation. A stopped product's
+normal controls can select 1024 or restore 512. The manager verifies the exact
+module, class and native digest against the selected prebuilt kit's declared
+capability before allowing the larger setting. Legacy kits and binaries do not
+inherit it from a manager update. Active instances prevent a change; new
+activation reads the selected value. Vendor state and stable class IDs remain
+separate from this preference.
+
+The native proxy accepts a maximum of at most 1024 samples only when the
+selected delay covers it. The current source successor uses protocol minor 14
+and mapping generation 3 to carry one complete DAW callback, at most 1024
+frames, through preallocated storage to one Windows processing call. Incoming
+parameter queues and context keep their original offsets and values. The
+plug-in owns its implicit preceding parameter value; the bridge does not
+reconstruct or seed that value. Historical protocol versions retain their
+256-frame transport for declared legacy fixtures. The native SDK boundary reports actual vendor
+latency plus the selected bridge delay. 1024 bridge frames adds 21.33 ms at
+48 kHz; it does not become the historical qualified 512-frame configuration.
+The setup owner verifies the reported delay, and one/two chained proxy tests
+assert exact delayed sample order across full and partial host blocks. No
+callback performs configuration, allocation or manager work.
+
+Prebuilt index schema 2 declares each exact proxy's maximum bridge buffering.
+Index schema 1 remains readable with its old 512-frame limit. The manager and
+frontend source uses operator schema 15; internal46 retains schema 14 and its
+older transport. Retained request history keeps its original
+schema. Restore 512 before selecting an older proxy that lacks the larger
+envelope. Package-wide populated update and rollback remain required installed
+acceptance in the integrated delivery assignment.
+
+This source repair must be exercised through normal package selection,
+compatibility checking, publication and product controls before an installed
+audio result is claimed. Vendor state refusal remains inspectable; no state is
+fabricated and no trial or license restriction is bypassed.
+
+The installed successor also exposed interrupted navigation during periodic
+status refresh. The frontend now retains the exact matching product card while
+refreshing, with actions disabled until fresh readback completes. An unchanged
+state token and generation preserve the card; a changed identity discards it.
+This is display continuity, not additional action authority.
+
+Internal25 completed the normal package selection, inspection, prebuilt
+preparation, experimental publication and explicit 1024-frame selection. The
+cold Bitwig load failed after 65.626 seconds while its keeper was starting.
+A subsequent ordinary Reload Plug-in loaded in 38.029 seconds and rendered the
+official vendor's DEMO editor. The actual processing setup accepted host
+maximum 1024 at 48 kHz, with 1024 bridge frames and 192 vendor frames (1216
+total). This proves the installed buffering boundary, not sound or usability.
+Closing the vendor window crashed in `IPlugView::removed()`; the Windows host
+and transport retired with confirmed cleanup. Initial state capture remained
+refused with SDK result 1 and zero bytes. Guest Bitwig demo disables project
+save/export. These gaps remain distinct.
+
+The next startup correction keeps the final keeper/history recheck inside the
+same fresh-byte admission scope as preparation. It still reopens and matches
+every exact file identity, and still hashes all runtime bytes on a new
+admission. No saved status cache authorizes execution; no timeout or real-time
+behavior changes. Internal26 loaded from an idle service without a manual
+reload, rendered the official demo editor and captured output through the
+active effect. Complete DAW load took 72.440 seconds, so startup responsiveness
+is unqualified. Normal close reproduced the removed() access violation, with
+positive containment. The shared host now clears IPlugFrame before removed(),
+matching the SDK editorhost; build and commercial close/reopen checks remain
+necessary. Vendor state capture and demo project persistence remain open.
+
+Internal28 delivered that host order and captured processed stereo audio, but
+two ordinary editor closes reproduced the same Wine UI Automation fault.
+Internal29 prepared and published the exact process accessibility policy in
+[the separate correction](RUNTIME_UIA_GUARD.md). That replacement retained the
+already selected 1024-frame preference in its immutable publication revision.
+The old retained-revision verifier nevertheless required 512, so all three
+normal Bitwig load attempts refused `candidate_runtime_contract` before a
+Windows DSP session or editor existed. The earlier keeper-starting attribution
+does not apply to these attempts.
+
+The shared admission repair accepts a 1024-frame snapshot only when the selected
+sealed kit binds the exact module, class and native bytes to that capacity.
+512-frame history remains readable. The owner regression exercises explicit
+selection, successor replacement, retained admission and catalogue ownership;
+an older or absent kit refuses the larger snapshot. All 37 preparation tests
+and warnings-denied all-target Clippy pass; all eight CI checks passed at source
+`3429349438624d04a9d30e46ba42433c0f4a27d0`.
+
+Internal30 selected that exact package through normal stop/select/start controls
+and admitted the retained 1024-frame publication. Cold live preview refused
+`admission_service_busy`; the ordinary inserted instance subsequently loaded
+without manual Reload Plug-in. The exact accessibility policy completed three
+editor close/reopen cycles and normal instance retirement. A fresh demo instance
+also closed/reopened its editor, produced altered stereo output through the
+active effect, and retired with host/transport cleanup confirmed. Both terminal
+observations report editor stage 217, no editor failure or exception, and no
+terminal instance fault. Whole-session missing-frame counters remain nonzero;
+startup responsiveness, dropout-free audio, state/project recall and ordinary
+installer recovery remain unqualified. The larger-buffer admission result does
+not promote the separate accessibility candidate to ordinary support.

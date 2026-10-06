@@ -14,6 +14,28 @@ fn reason<T>(r: Result<T>, expected: &str) {
 }
 
 #[test]
+fn revision_and_provenance_records_refuse_oversized_and_changed_exact_objects() {
+    let (f, p, census, native) = prepared();
+    let reference = publish(&f, &p, &census, &native, None).unwrap();
+    let revision = f.m.load_revision(&p.class.class_id, &reference).unwrap();
+    let registry = fs::read(f.m.root.join("registry.json")).unwrap();
+    for path in [revision.target.parent().unwrap().join("revision.json"),
+        revision.target.join("bridge-provenance.json")] {
+        let original = fs::read(&path).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        OpenOptions::new().write(true).open(&path).unwrap().set_len(8 * 1024 * 1024 + 1).unwrap();
+        assert_eq!(f.m.load_revision_record(&p.class.class_id, &reference).unwrap_err().to_string(),
+            "control_record_bound");
+        fs::write(&path, b"{}\n").unwrap();
+        assert_eq!(f.m.load_revision_record(&p.class.class_id, &reference).unwrap_err().to_string(),
+            "control_record_digest_changed");
+        fs::write(&path, original).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        assert_eq!(f.m.load_revision_record(&p.class.class_id, &reference).unwrap(), revision);
+    }
+    assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry);
+}
+#[test]
 fn explicit_host_update_preserves_exact_prior_host_for_rollback_only() {
     let (f, mut p, c, n) = prepared();
     p.revision = 3;
@@ -301,7 +323,7 @@ fn foreign_publication_is_never_overwritten() {
     assert_eq!(fs::read(link.join("foreign")).unwrap(), b"keep");
 }
 
-fn lease(f: &Fixture, key: &str, keeper: bool) -> PathBuf {
+pub(crate) fn lease(f: &Fixture, key: &str, keeper: bool) -> PathBuf {
     let sid = random_id().unwrap();
     let results = f.m.root.join("runtime/results");
     let leases = f.m.root.join("runtime/leases");
@@ -317,7 +339,7 @@ fn lease(f: &Fixture, key: &str, keeper: bool) -> PathBuf {
             .join("compatdata/pfx/drive_c/bridge/sessions")
             .join(&sid);
     private_dir(&directory).unwrap();
-    atomic_json(&directory.join("owner.json"),&serde_json::json!({"session":sid,"report":report,"keeper":keeper,"registration":{"metadata":{"class_id":key}}})).unwrap();
+    atomic_json(&directory.join("owner.json"),&serde_json::json!({"session":sid,"report":report,"keeper":keeper,"inspect":keeper,"registration":{"metadata":{"class_id":key}}})).unwrap();
     let path = leases.join(format!("{sid}.json"));
     atomic_json(&path, &report).unwrap();
     path
@@ -340,6 +362,73 @@ fn active_target_refuses_mutation_but_keeper_and_healthy_sibling_survive() {
     f.m.rollback(&key, &one.id, None).unwrap();
     assert!(keeper.exists() && sibling.exists());
     assert_ne!(one, two);
+}
+#[test]
+fn sibling_maintenance_arriving_after_preflight_refuses_class_mutations() {
+    use crate::preparation as prep;
+    for kind in [capacity::Kind::Inspection, capacity::Kind::VendorAccess] {
+        let (f, c) = prep::tests::fixture();
+        let key = &c.selection.class.id;
+        prep::retain_inspection(&f.m, &c.inspection).unwrap();
+        let prior = prep::enable(&f.m, &c, false).unwrap();
+        for area in prep::AREAS {
+            prep::record_observation(
+                &f.m, &c, &random_id().unwrap(), area, prep::TestStatus::Passed,
+                "Generated mutation-scope fixture; no live qualification claimed",
+            ).unwrap();
+        }
+        prep::review(
+            &f.m, &c, &random_id().unwrap(), prep::ReviewChoice::AcceptExactLocal,
+            "Generated exact local review for mutation-scope regression",
+        ).unwrap();
+        let current = prep::enable(&f.m, &c, true).unwrap();
+        let trial = prep::configuration::prepare(
+            &f.m, &c, Some(operator_model::GraphicsBackend::WineD3d11), Some(&current),
+        ).unwrap();
+        {
+            let _guard = f.m.lock("registry.lock").unwrap();
+            f.m.require_inactive(Some(key)).unwrap();
+        }
+        // An initial UI check does not retain admission. A sibling maintenance
+        // owner arriving afterwards must be seen by each mutation's final guard.
+        let active = lease(&f, &"02".repeat(16), false);
+        let sid = active.file_stem().unwrap().to_str().unwrap();
+        let report: PathBuf = read_json(&active).unwrap();
+        let (mut owner, path) = f.m.lease_owner(sid, &report).unwrap();
+        owner["inspect"] = serde_json::json!(kind == capacity::Kind::Inspection);
+        owner["vendor_access"] = serde_json::json!(kind == capacity::Kind::VendorAccess);
+        atomic_json(&path, &owner).unwrap();
+        let mutation_state = || {
+            let mut state = snapshot(&f.outer);
+            // Re-presenting a retained candidate may invalidate the readback
+            // token. It grants no publication or runtime mutation authority.
+            state.remove(&f.m.root.join("preparation/revision.json"));
+            state
+        };
+        let before = mutation_state();
+        reason(prep::replace(&f.m, &trial, &current), "active_maintenance_lease");
+        assert_eq!(mutation_state(), before);
+        reason(f.m.rollback(key, &prior.id, None), "active_maintenance_lease");
+        assert_eq!(mutation_state(), before);
+        reason(f.m.select_delay(key, 256), "active_maintenance_lease");
+        assert_eq!(mutation_state(), before);
+        reason(prep::withdraw(&f.m, &c, &current), "active_maintenance_lease");
+        assert_eq!(mutation_state(), before);
+        fs::remove_file(active).unwrap();
+        f.m.select_delay(key, 256).unwrap();
+        let changed = prep::replace(&f.m, &trial, &current).unwrap();
+        let selected = f.m.load_revision(key, &changed).unwrap();
+        assert_eq!(selected.performance.added_frames, 256);
+        prep::retained(&f.m, &selected).unwrap();
+        f.m.verify_served_host(
+            &selected.registration, &c.host, &c.source_manifest.sha256,
+            &crate::profiles::installed_profiles().unwrap(),
+        ).unwrap();
+        prep::disable_exact(&f.m, &trial, &changed).unwrap();
+        assert_eq!(prep::publication_state(&f.m, &c).unwrap(), "ordinary");
+        assert_eq!(f.m.performance(key).unwrap().added_frames, 256);
+        prep::withdraw(&f.m, &c, &current).unwrap();
+    }
 }
 #[test]
 fn failed_updates_and_profile_revision_reuse_keep_the_prior_exact() {
@@ -1755,7 +1844,7 @@ fn capacity_qualification_is_exact_separate_and_never_ordinary_authority() {
     assert_eq!(active.parent, Some(parent.clone()));
     assert_eq!(active.external_ids, prior.external_ids);
     assert_eq!(active.performance.added_frames, 512);
-    registration.native.path = active.registration.native.path.clone();
+    registration.relocate_native(active.registration.native.path.clone());
     assert_eq!(registration, active.registration);
     f.m.verify_retained_authority(&active, std::slice::from_ref(&candidate))
         .unwrap();
@@ -1899,8 +1988,8 @@ fn capacity_acceptance_exact_nine_to_ten_and_rollback_ancestry() {
     assert_eq!(publish(&x.f, &x.verified, &x.census, &x.native, None).unwrap(), ten);
     let revision = x.f.m.load_revision(key, &ten).unwrap();
     assert!(revision.qualification.is_none());
-    assert!(capacity::verified_envelope_for(&x.f.m, &capacity::fixture_limits(), std::slice::from_ref(&x.verified)).unwrap());
-    assert!(!capacity::verified_envelope_for(&x.f.m, &capacity::fixture_limits(), std::slice::from_ref(&x.candidate)).unwrap());
+    assert!(capacity::retained_qualification_envelope_for(&x.f.m, &capacity::fixture_limits(), std::slice::from_ref(&x.verified)).unwrap());
+    assert!(!capacity::retained_qualification_envelope_for(&x.f.m, &capacity::fixture_limits(), std::slice::from_ref(&x.candidate)).unwrap());
     assert_eq!(revision.parent.as_ref(), Some(&x.review.products[0].parent));
     assert_eq!(revision.performance.added_frames, 512);
     assert_eq!(revision.external_ids, external_ids(key).unwrap());
@@ -1911,6 +2000,20 @@ fn capacity_acceptance_exact_nine_to_ten_and_rollback_ancestry() {
     assert_eq!(fs::read_link(x.f.m.link(key)).unwrap(), seven.target);
     assert_eq!(snapshot(seven.target.parent().unwrap()), preserved);
     x.f.m.rollback(key, &t.three.id, None).unwrap();
+}
+#[test]
+fn retained_capacity_qualification_is_not_fresh_native_verification() {
+    let t = CapacityAcceptanceFixture::new();
+    let x = &t.t;
+    let key = &x.prior.class.class_id;
+    let reference = publish(&x.f, &x.verified, &x.census, &x.native, None).unwrap();
+    let revision = x.f.m.load_revision(key, &reference).unwrap();
+    fs::set_permissions(&revision.registration.native.path, fs::Permissions::from_mode(0o600)).unwrap();
+    fs::write(&revision.registration.native.path, b"changed selected native bytes").unwrap();
+    assert!(capacity::retained_qualification_envelope_for(&x.f.m, &capacity::fixture_limits(),
+        std::slice::from_ref(&x.verified)).unwrap());
+    assert_eq!(x.f.m.load_revision(key, &reference).unwrap_err().to_string(), "artifact missing or changed");
+    assert!(x.f.m.resolve(&x.f.identity()).is_err());
 }
 #[test]
 fn capacity_acceptance_mismatches_and_ownership_refuse_without_mutation() {
@@ -2120,5 +2223,192 @@ fn if1_candidate_retains_ordinary_eleven_and_all_rollback_boundaries() {
         assert_eq!(fs::read_link(f.m.link(&p.class.class_id)).unwrap(), prior.target);
         assert_eq!(snapshot(prior.target.parent().unwrap()), untouched);
         assert!(!f.m.publication_pending(&p.class.class_id).unwrap());
+    }
+}
+
+fn runtime_descriptor_fixture(
+    f: &Fixture,
+    p: &mut Profile,
+    n: &mut NativeArtifact,
+    initial: f64,
+    name: &str,
+) {
+    let directory = f.outer.join(name);
+    private_dir(&directory).unwrap();
+    let engine = directory.join("native.so");
+    fs::copy(&n.artifact.path, &engine).unwrap();
+    n.artifact.path = engine;
+    let descriptor = lvb_plugin_descriptor::Descriptor {
+        schema: 1,
+        engine_sha256: n.artifact.sha256.clone(),
+        class_id: n.class.class_id.clone(),
+        module_sha256: n.module_sha256.clone(),
+        class_name: n.class.name.clone(),
+        vendor: n.class.vendor.clone(),
+        version: n.class.version.clone(),
+        subcategories: n.class.subcategories.clone(),
+        buses: vec![lvb_plugin_descriptor::Bus {
+            media: 0,
+            direction: 1,
+            index: 0,
+            channels: 2,
+            r#type: 0,
+            flags: 1,
+            arrangement: 3,
+            name: "Output".into(),
+        }],
+        parameters: vec![lvb_plugin_descriptor::Parameter {
+            id: 7,
+            title: "Level".into(),
+            units: "".into(),
+            steps: 0,
+            flags: 1,
+            initial,
+            available: true,
+        }],
+    };
+    let path = n
+        .artifact
+        .path
+        .with_file_name(lvb_plugin_descriptor::FILE_NAME);
+    atomic_json(&path, &descriptor).unwrap();
+    let data = Artifact {
+        sha256: digest(&path).unwrap(),
+        path,
+    };
+    n.descriptor_sha256 = data.sha256.clone();
+    p.requirements.descriptor_sha256 = data.sha256.clone();
+    n.descriptor = Some(data);
+}
+fn loaded_execution(registration: &Registration) -> ap1_native_client::admission::ExecutionIdentity {
+    let parse = |value: &str| -> [u8;32] {
+        std::array::from_fn(|index| u8::from_str_radix(&value[index*2..index*2+2],16).unwrap())
+    };
+    ap1_native_client::admission::ExecutionIdentity {
+        engine:parse(&registration.native.sha256),
+        descriptor:parse(&registration.descriptor.as_ref().unwrap().sha256),
+    }
+}
+#[test]
+fn reusable_engine_publication_keeps_distinct_descriptors_and_rolls_back_exactly() {
+    let (f, mut p, c, mut n) = prepared();
+    runtime_descriptor_fixture(&f, &mut p, &mut n, 0.25, "first-engine");
+    let first = publish(&f, &p, &c, &n, None).unwrap();
+    let first_record = f.m.load_revision(&f.r.key(), &first).unwrap();
+    let original = first_record.registration.descriptor.as_ref().unwrap();
+    assert_eq!(
+        fs::read(&original.path).unwrap(),
+        fs::read(&n.descriptor.as_ref().unwrap().path).unwrap()
+    );
+    let mut next = n.clone();
+    let mut updated = p.clone();
+    updated.revision += 1;
+    runtime_descriptor_fixture(&f, &mut updated, &mut next, 0.75, "second-engine");
+    assert_eq!(n.artifact.sha256, next.artifact.sha256);
+    assert_ne!(n.descriptor_sha256, next.descriptor_sha256);
+    let second = publish(&f, &updated, &c, &next, None).unwrap();
+    let second_record = f.m.load_revision(&f.r.key(), &second).unwrap();
+    assert_ne!(first_record.target, second_record.target);
+    assert_eq!(first_record.external_ids, second_record.external_ids);
+    f.m.rollback(&f.r.key(), &first.id, None).unwrap();
+    assert_eq!(
+        fs::read_link(f.m.link(&f.r.key())).unwrap(),
+        first_record.target
+    );
+    assert_eq!(digest(&original.path).unwrap(), original.sha256);
+    fs::set_permissions(&original.path, fs::Permissions::from_mode(0o600)).unwrap();
+    fs::write(&original.path, b"changed descriptor").unwrap();
+    assert!(f.m.load_revision(&f.r.key(), &first).is_err());
+}
+#[test]
+fn loaded_execution_binding_refuses_stale_engine_and_descriptor_then_accepts_exact_restore() {
+    let (f, mut p, c, mut n) = prepared();
+    runtime_descriptor_fixture(&f, &mut p, &mut n, 0.25, "loaded-first");
+    let first = publish(&f, &p, &c, &n, None).unwrap();
+    let first_record = f.m.load_revision(&f.r.key(), &first).unwrap();
+    let first_loaded = loaded_execution(&first_record.registration);
+    first_record.registration.verify_loaded_execution(&first_loaded).unwrap();
+
+    let mut updated = p.clone(); updated.revision += 1;
+    let mut next = n.clone();
+    runtime_descriptor_fixture(&f, &mut updated, &mut next, 0.75, "loaded-second");
+    let second = publish(&f, &updated, &c, &next, None).unwrap();
+    let second_record = f.m.load_revision(&f.r.key(), &second).unwrap();
+    let second_loaded = loaded_execution(&second_record.registration);
+    assert_eq!(first_loaded.engine, second_loaded.engine, "descriptor-only update retains engine bytes");
+    assert_ne!(first_loaded.descriptor, second_loaded.descriptor);
+    let before = snapshot(&f.m.root);
+    assert!(second_record.registration.verify_loaded_execution(&first_loaded).is_err());
+    let mut wrong_engine = second_loaded;
+    wrong_engine.engine[0] ^= 1;
+    assert!(second_record.registration.verify_loaded_execution(&wrong_engine).is_err());
+    assert_eq!(snapshot(&f.m.root), before, "stale caller checks create no owner or transport state");
+
+    f.m.rollback(&f.r.key(), &first.id, None).unwrap();
+    let selected = f.m.registry().unwrap().classes.remove(&f.r.key()).unwrap().registration;
+    assert_eq!(selected, first_record.registration);
+    selected.verify_loaded_execution(&first_loaded).unwrap();
+    assert!(selected.verify_loaded_execution(&second_loaded).is_err());
+    let mut missing = selected.clone(); missing.descriptor = None;
+    assert!(missing.verify_loaded_execution(&first_loaded).is_err());
+}
+#[test]
+fn reusable_engine_rejects_wrong_module_or_engine_descriptor_before_publication() {
+    let (f, mut p, c, mut n) = prepared();
+    runtime_descriptor_fixture(&f, &mut p, &mut n, 0.25, "engine");
+    let path = n.descriptor.as_ref().unwrap().path.clone();
+    let original: lvb_plugin_descriptor::Descriptor = read_json(&path).unwrap();
+    let baseline = fs::read_link(f.m.link(&f.r.key())).unwrap();
+    for wrong_engine in [false, true] {
+        let mut d = original.clone();
+        if wrong_engine {
+            d.engine_sha256 = "00".repeat(32);
+        } else {
+            d.module_sha256 = "00".repeat(32);
+        }
+        atomic_json(&path, &d).unwrap();
+        let sha = digest(&path).unwrap();
+        n.descriptor.as_mut().unwrap().sha256 = sha.clone();
+        n.descriptor_sha256 = sha.clone();
+        p.requirements.descriptor_sha256 = sha;
+        assert!(publish(&f, &p, &c, &n, None).is_err());
+        assert_eq!(fs::read_link(f.m.link(&f.r.key())).unwrap(), baseline);
+    }
+}
+
+#[test]
+fn reusable_engine_interrupted_publication_recovers_engine_and_descriptor_together() {
+    for point in BOUNDARIES {
+        let (f, mut p, c, mut n) = prepared();
+        runtime_descriptor_fixture(&f, &mut p, &mut n, 0.25, "first-engine");
+        let first = publish(&f, &p, &c, &n, None).unwrap();
+        let original = f.m.load_revision(&f.r.key(), &first).unwrap();
+        p.revision += 1;
+        runtime_descriptor_fixture(&f, &mut p, &mut n, 0.75, "second-engine");
+        assert!(publish(&f, &p, &c, &n, Some(point)).is_err(), "{point:?}");
+        f.m.reconcile().unwrap();
+        f.m.reconcile().unwrap();
+        let entry = f.m.registry().unwrap().classes.remove(&f.r.key()).unwrap();
+        entry.registration.verify_descriptor().unwrap();
+        let activated = matches!(
+            point,
+            Boundary::PointerExchanged
+                | Boundary::PointerSynced
+                | Boundary::RegistryCommitted
+                | Boundary::ResultWritten
+                | Boundary::Cleanup
+        );
+        let expected = if activated {
+            n.descriptor.as_ref()
+        } else {
+            original.registration.descriptor.as_ref()
+        };
+        assert_eq!(
+            entry.registration.descriptor.as_ref().unwrap().sha256,
+            expected.unwrap().sha256,
+            "{point:?}"
+        );
+        original.registration.verify_descriptor().unwrap();
+        assert!(!f.m.publication_pending(&f.r.key()).unwrap());
     }
 }

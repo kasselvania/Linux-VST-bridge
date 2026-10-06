@@ -1,0 +1,3005 @@
+{
+  "schema": 1,
+  "date": "2026-10-01",
+  "claim_level": "installed populated update, recall and audio failure; no beta qualification",
+  "source_commit": "729213a4a3f58d8510f034b847a184399e757ca7",
+  "source_tree": "566e17953848dff0f27a5f22cb2e09f60fb848d9",
+  "artifacts": {
+    "steamos": {
+      "version": "0.12.0internal42",
+      "sha256": "cfe4442c45777c166ac05fd4f759930740e3a412c50996195d546124e274fde7",
+      "bytes": 57972781,
+      "manifest": {
+        "schema": 2,
+        "package": "linux-vst-bridge-beta",
+        "version": "0.12.0internal42",
+        "pkgrel": 1,
+        "source_head": "729213a4a3f58d8510f034b847a184399e757ca7",
+        "source_tree": "566e17953848dff0f27a5f22cb2e09f60fb848d9",
+        "operator_schema": 14,
+        "files": [
+          {
+            "name": "linux-vst-bridge",
+            "sha256": "0ce3ef0a2c120fd25467f6e3024e7f782c8f712422a4d97c052fda9f69d80161",
+            "size": 11203984
+          },
+          {
+            "name": "linux-audio-compatibility-manager",
+            "sha256": "2f7180a068edb05c09dead60840269c9f75f94064b35fcf1d284b5e4bd3ac4c4",
+            "size": 13621552
+          },
+          {
+            "name": "session.pyc",
+            "sha256": "fc4bf5c03254861813a65bb9086788774e2c7d6a3ccd68df3d9d3389273e8027",
+            "size": 505452
+          },
+          {
+            "name": "ownership.pyc",
+            "sha256": "63b03e1a3d4c184e002c3c384494c761a97da1f634e7bf5280e5933214835148",
+            "size": 47501
+          },
+          {
+            "name": "host.exe",
+            "sha256": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13",
+            "size": 969216
+          },
+          {
+            "name": "host-source-manifest.json",
+            "sha256": "f21af06cbaa2f942119aa50d9ca757e303d6f4507c2d7abbd81cada21bfd1626",
+            "size": 6911
+          },
+          {
+            "name": "preparation-kit.zip",
+            "sha256": "c5eef864ee349e5a7bf09920f7f6f96ca73d7a16258f046994d483b4be0bd7e2",
+            "size": 12299802
+          }
+        ],
+        "external_runtime": {
+          "id": "managed-ge-proton11-7-slr4-20260805-r3",
+          "manifest_sha256": "97119a36866bf93fcf0cc6e9a0c118a1ba7c2417862739da429e0ec6685d6499"
+        }
+      }
+    },
+    "ubuntu": {
+      "version": "0.12.0internal42",
+      "sha256": "f13249ebca0f81a05b0fcf0a051ebcfcc4276e4172ae1977331ab16f4117ea9e",
+      "bytes": 58016261,
+      "manifest": {
+        "files": [
+          {
+            "component": "self-service-frontend",
+            "destination": "usr/bin/linux-audio-compatibility-manager",
+            "kind": "frontend",
+            "mode": "0555",
+            "sha256": "d3850c6ba6c47a8d1efbfe7c7b2febd1345a08b2adb0d09abe5d28a84dcd22c5",
+            "size": 13624104
+          },
+          {
+            "component": "self-service-manager",
+            "destination": "usr/bin/linux-vst-bridge",
+            "kind": "manager",
+            "mode": "0555",
+            "sha256": "9fada077e16e3252e354682acb66239b5e0d79b1e445fa9abd713bd351d996ed",
+            "size": 11206856
+          },
+          {
+            "component": "self-service-windows_host",
+            "destination": "usr/lib/linux-vst-bridge/host/bridge-host.exe",
+            "kind": "windows_host",
+            "mode": "0444",
+            "sha256": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13",
+            "size": 969216
+          },
+          {
+            "component": "self-service-host_source",
+            "destination": "usr/lib/linux-vst-bridge/host/source-manifest.json",
+            "kind": "host_source",
+            "mode": "0444",
+            "sha256": "f21af06cbaa2f942119aa50d9ca757e303d6f4507c2d7abbd81cada21bfd1626",
+            "size": 6911
+          },
+          {
+            "component": "self-service-preparation_kit",
+            "destination": "usr/lib/linux-vst-bridge/preparation/preparation-kit.zip",
+            "kind": "preparation_kit",
+            "mode": "0444",
+            "sha256": "c5eef864ee349e5a7bf09920f7f6f96ca73d7a16258f046994d483b4be0bd7e2",
+            "size": 12299802
+          },
+          {
+            "component": "self-service-profile",
+            "destination": "usr/lib/linux-vst-bridge/profiles/arturia-pure-lofi.json",
+            "kind": "profile",
+            "mode": "0444",
+            "sha256": "711147ac392dff977ed8ecb52349f7080d8678556c131531376785717990a3df",
+            "size": 4785
+          },
+          {
+            "component": "self-service-proxy",
+            "destination": "usr/lib/linux-vst-bridge/proxy/PureLoFi.so",
+            "kind": "proxy",
+            "mode": "0555",
+            "sha256": "da866f6c8450e983866b06ad84c4091312b9a6ebedff52025fcd1c2c05acfd09",
+            "size": 2126632
+          },
+          {
+            "component": "self-service-fixture_resource",
+            "destination": "usr/lib/linux-vst-bridge/self-test/LVB_REFERENCE_MANIFEST.json",
+            "kind": "fixture_resource",
+            "mode": "0444",
+            "sha256": "e00d3a44f75144857574f2e0c732fab2032a0931116bf63d22ffa7b31b986495",
+            "size": 843
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/LVB_Reference_Partial_1_0_0.exe",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "c4a65a49a5d3ce532e33dc4132ec7db674e0b2558bbcf3c21c3490d8d8bbfaba",
+            "size": 788480
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/LVB_Reference_Plugins_1_0_0.exe",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "0910f3665fcacbe43801cbc3355c725013a1d217cfb68e46f669f24efc52490b",
+            "size": 787968
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/LVB_Reference_Recovery_1_0_0.exe",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "7501664f57916380b1425eb24447d0db742b8d5714583c8861a3260eb2bd825f",
+            "size": 787968
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/ap10-return-fixture.vst3",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "218ca87b3fa5acdb3844efd2cb3ed837620f37cbb2043c850471fc16e7c7496d",
+            "size": 263168
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/lvb-reference-effect.vst3",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "b3498eb5c8d6d440259b04a9c9b7699ab72f4f64eb31f45167f0341d3d1e719f",
+            "size": 254976
+          },
+          {
+            "component": "self-service-fixture",
+            "destination": "usr/lib/linux-vst-bridge/self-test/lvb-reference-instrument.vst3",
+            "kind": "fixture",
+            "mode": "0444",
+            "sha256": "2a117a128c0e84f53c92c4b1d977325f8eb198c1221497677dd3fec395817462",
+            "size": 265216
+          },
+          {
+            "component": "self-service-ownership",
+            "destination": "usr/lib/linux-vst-bridge/supervisor/ownership.pyc",
+            "kind": "ownership",
+            "mode": "0444",
+            "sha256": "25412f5002bd2fe6d77e8603b17a9953adc310259e11bb51a6c9f9a97c544ffe",
+            "size": 50551
+          },
+          {
+            "component": "self-service-supervisor",
+            "destination": "usr/lib/linux-vst-bridge/supervisor/session.pyc",
+            "kind": "supervisor",
+            "mode": "0444",
+            "sha256": "b0e67006b939bf09a76934f62c3a13dddfa71cb5859cc50fcf6ef6e0d1cb2c31",
+            "size": 538984
+          },
+          {
+            "component": "self-service-compliance",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/COMPLIANCE_MANIFEST.json",
+            "kind": "compliance",
+            "mode": "0444",
+            "sha256": "5a7150ec99e96aaa9cfecdb8e9bb7f8cafdb883511ceb02ad2883a37b614e70e",
+            "size": 392
+          },
+          {
+            "component": "self-service-sbom",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/SBOM.spdx.json",
+            "kind": "sbom",
+            "mode": "0444",
+            "sha256": "876369c18c0f7015d9c4d2e8c0a012e15de629eefd73a2d0f0625211dc23a851",
+            "size": 115639
+          },
+          {
+            "component": "self-service-guide",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/START_HERE.html",
+            "kind": "guide",
+            "mode": "0444",
+            "sha256": "8e8ff936c9ceb2c811f49767db26f61b1b0f4828a951ad9efe0f6a51982cb1ab",
+            "size": 1067
+          },
+          {
+            "component": "self-service-notices",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/THIRD_PARTY_NOTICES.txt",
+            "kind": "notices",
+            "mode": "0444",
+            "sha256": "7e8669f508f1e6fe8d99c5d8be483a3b74bd65f4faf1750a327cbf868e6fa9a5",
+            "size": 1082
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/LVB-Proprietary.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "80ac11a0aa8deaffed9a5e77530689023ddce03d574389b33c7d243ec79cf6e3",
+            "size": 1075
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/Rust-Dependency-Inventory.json",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "ed4a714ce78242c152aec6723df54e20a53c66c21ad89478d7f1ce4d1afd9113",
+            "size": 126094
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/Rust-Dependency-Notices.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "ccf6c5918e86f9b76487cb3f557dae71082a9f8c06f951e05f160b9382608ab6",
+            "size": 2159009
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/base.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "e86d79e19e4a33ebc442d2e0d083887dfc75a2a8de9fe17eeddedb84810ad74e",
+            "size": 1094
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/pluginterfaces.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "e86d79e19e4a33ebc442d2e0d083887dfc75a2a8de9fe17eeddedb84810ad74e",
+            "size": 1094
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/public.sdk.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "e86d79e19e4a33ebc442d2e0d083887dfc75a2a8de9fe17eeddedb84810ad74e",
+            "size": 1094
+          },
+          {
+            "component": "self-service-license",
+            "destination": "usr/share/doc/linux-vst-bridge-beta/licenses/vst3sdk.txt",
+            "kind": "license",
+            "mode": "0444",
+            "sha256": "e86d79e19e4a33ebc442d2e0d083887dfc75a2a8de9fe17eeddedb84810ad74e",
+            "size": 1094
+          },
+          {
+            "component": "linux-vst-bridge-beta",
+            "destination": "usr/share/linux-vst-bridge/pkg0-manifest.json",
+            "kind": "adoption_manifest",
+            "mode": "0444",
+            "sha256": "b99791cd30eef8848364b6401fa02641510b463dd126422d0592565fcf4a036a",
+            "size": 1226
+          },
+          {
+            "component": "linux-vst-bridge-beta",
+            "destination": "usr/share/applications/linux-vst-bridge-setup.desktop",
+            "kind": "system_desktop",
+            "mode": "0444",
+            "sha256": "7e1dd033a73b6814ef2be0a5632f11e115bfd6484a9e336a5ed0ff6688f1538e",
+            "size": 313
+          }
+        ],
+        "package": "linux-vst-bridge-beta",
+        "payload_sha256": "6cfd4518fcc7f71f9aa98f442cc7f762d7f712acb4f4941977a0a7b3d4a2b636",
+        "pkgrel": 1,
+        "schema": 1,
+        "source_head": "729213a4a3f58d8510f034b847a184399e757ca7",
+        "source_tree": "566e17953848dff0f27a5f22cb2e09f60fb848d9",
+        "version": "0.12.0internal42"
+      }
+    }
+  },
+  "deck": {
+    "fixture": "Steam Deck, SteamOS 3.8.16, licensed Bitwig Studio 6.1; existing licensed Pure LoFi and FRAGMENTS",
+    "delivery": "signed internal-test installer through ordinary user-space package controls; protected base unchanged",
+    "selected_generation": "5cee480bf5410f9776181f786fad5e003784535d6e5a8ed310c43b33992c2a30",
+    "components": {
+      "preparation_kit": {
+        "sha256": "c5eef864ee349e5a7bf09920f7f6f96ca73d7a16258f046994d483b4be0bd7e2"
+      },
+      "operator_frontend": {
+        "sha256": "2f7180a068edb05c09dead60840269c9f75f94064b35fcf1d284b5e4bd3ac4c4"
+      },
+      "manager": {
+        "sha256": "0ce3ef0a2c120fd25467f6e3024e7f782c8f712422a4d97c052fda9f69d80161"
+      },
+      "supervisor": {
+        "sha256": "fc4bf5c03254861813a65bb9086788774e2c7d6a3ccd68df3d9d3389273e8027"
+      },
+      "ownership": {
+        "sha256": "63b03e1a3d4c184e002c3c384494c761a97da1f634e7bf5280e5933214835148"
+      },
+      "host": {
+        "sha256": "a90de3ca2f7360e8c9477184acb8224ebf394d4e46cf00fd905892002a79cd13"
+      },
+      "source_manifest": {
+        "sha256": "f21af06cbaa2f942119aa50d9ca757e303d6f4507c2d7abbd81cada21bfd1626"
+      },
+      "native_catalogue": {
+        "sha256": "3bd7c772d2e95675bfe080aad50745acda524740703ace0fd5de8a54203b5590"
+      }
+    },
+    "publication_updates": {
+      "pure_lofi": {
+        "lock_waits": [
+          {
+            "attempts": 20,
+            "elapsed_wait_us": 227762,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "operator-canonical.lock",
+            "operation": "2e4c1bf14a730be66d65d272986696fd",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "action_serialization",
+            "timeout_ms": 10000
+          },
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 43,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "registry.lock",
+            "operation": "2e4c1bf14a730be66d65d272986696fd",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "operator_validation_readback",
+            "timeout_ms": 9922
+          },
+          {
+            "attempts": 70,
+            "elapsed_wait_us": 702802,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "operator-canonical.lock",
+            "operation": "2e4c1bf14a730be66d65d272986696fd",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "action_serialization",
+            "timeout_ms": 10000
+          },
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 47,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "registry.lock",
+            "operation": "2e4c1bf14a730be66d65d272986696fd",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "operator_validation_readback",
+            "timeout_ms": 10000
+          }
+        ],
+        "operation": "2e4c1bf14a730be66d65d272986696fd",
+        "result": {
+          "candidate": "0fda493520d936931afa409e1aa4ac5a4924d4f8c99f917818ee8a3174366651",
+          "publication": {
+            "id": "70ac3bc5273487792e049dc87bbb4e6d",
+            "sha256": "fee4dcdfe53e5f8c6d885049e7a30513343237df03c2a0a65baa920ffa1dc490"
+          },
+          "replaced": {
+            "id": "51f241c4da508aa1fbbc9d6d172eb123",
+            "sha256": "d5832a36f59c63ef153e90334b31cc0aacaccb361de5569426ce0f450dce7853"
+          }
+        },
+        "schema": 1,
+        "state": "completed"
+      },
+      "fragments": {
+        "lock_waits": [
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 46,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "operator-canonical.lock",
+            "operation": "748ef370584ebef510ddd72236148057",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "action_serialization",
+            "timeout_ms": 10000
+          },
+          {
+            "attempts": 2,
+            "elapsed_wait_us": 10135,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "registry.lock",
+            "operation": "748ef370584ebef510ddd72236148057",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "operator_validation_readback",
+            "timeout_ms": 9930
+          },
+          {
+            "attempts": 74,
+            "elapsed_wait_us": 750797,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "operator-canonical.lock",
+            "operation": "748ef370584ebef510ddd72236148057",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "action_serialization",
+            "timeout_ms": 10000
+          },
+          {
+            "attempts": 1,
+            "elapsed_wait_us": 32,
+            "holder": "unknown",
+            "mode": "exclusive",
+            "name": "registry.lock",
+            "operation": "748ef370584ebef510ddd72236148057",
+            "outcome": "acquired",
+            "policy": "bounded",
+            "purpose": "operator_validation_readback",
+            "timeout_ms": 10000
+          }
+        ],
+        "operation": "748ef370584ebef510ddd72236148057",
+        "result": {
+          "candidate": "4d01c9ab57737152a9af12c36ee488fda82404e757efc367da6840b262f9b795",
+          "publication": {
+            "id": "547c9b1663724f33c98a34e0ff618753",
+            "sha256": "c84e5c16e607f3a8ddc8c6b667fb7cebe71805ff57a1738b5c034126cd614d22"
+          },
+          "replaced": {
+            "id": "e340c6f8ad5ca494d2fb477214c9937e",
+            "sha256": "1bc9d3769afd8dbf7e6f84b7aa495b2c7ee04e48d9451929e63d413f6abde847"
+          }
+        },
+        "schema": 1,
+        "state": "completed"
+      }
+    },
+    "reboot": {
+      "normal_kde_restart": true,
+      "generation_preserved": true,
+      "project_sha256": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+      "service": "active"
+    },
+    "viewer_infrastructure": {
+      "interrupted": true,
+      "recovery": "Official transient desktop-session selection and existing Sunshine capture override to x11; exact owned stale Sunshine scope retired.",
+      "persistent_protected_base_or_configuration_edits": false,
+      "bridge_repair": false,
+      "cold_launch_latency_qualification": false
+    },
+    "project": {
+      "normal_open_save_as_close_reopen": true,
+      "original_sha256_before_and_after": "809f96b5a4a2fafef2cc293e307c5a5a00d195999a33f4b83b224c9f2822d376",
+      "initial_saved_copy": {
+        "name": "LVB Beta Delivery Recall internal42.bwproject",
+        "bytes": 86186,
+        "sha256": "02ca66090668a77b52ed6123eafe071e96a04e7709c7a58694a0a662bd4a10e6"
+      },
+      "final_saved_copy": {
+        "name": "LVB Beta Delivery Recall internal42.bwproject",
+        "sha256": "4b1a82fd985ac0c0b9314b27ec414ee9f09ff9512ec471b0ebe52771a359fb66",
+        "bytes": 86192
+      },
+      "preset_labels": [
+        "Intro EP*",
+        "1 Bar Glimmers*"
+      ],
+      "restored_visuals": {
+        "notes": 4,
+        "master_volume_automation": true,
+        "grain_mix": 0.572,
+        "grain_volume": 0.788
+      },
+      "readback_semantics": "opaque_set is the vendor's recaptured state after setState. Original project readbacks match the retained baseline; the newly saved Pure LoFi state recaptures different bytes. This is visible musical recall, not a universal byte-identical vendor-state claim.",
+      "post_reboot_state": [
+        {
+          "observer": "native-014dbdba9750dd60f54e24fd081b256b.jsonl",
+          "age_s": 7.823,
+          "rows": 6,
+          "events": [
+            "ap4_native_state",
+            "ap9_setup"
+          ],
+          "state": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 138924,
+              "sha256": "b4b7898b84d39c9d6cb838f58867fb022bf3f45788f67e01349a4fec94f72ca4",
+              "gain": 0
+            }
+          ],
+          "errors": [],
+          "setup": [
+            {
+              "event": "ap9_setup",
+              "host_maximum": 512,
+              "transport_maximum": 256,
+              "sample_rate": 48000,
+              "bridge_frames": 512,
+              "vendor_frames": 192,
+              "total_frames": 704,
+              "vendor_precision_bits": 1
+            },
+            {
+              "event": "ap9_setup",
+              "host_maximum": 512,
+              "transport_maximum": 256,
+              "sample_rate": 48000,
+              "bridge_frames": 512,
+              "vendor_frames": 192,
+              "total_frames": 704,
+              "vendor_precision_bits": 1
+            },
+            {
+              "event": "ap9_setup",
+              "host_maximum": 512,
+              "transport_maximum": 256,
+              "sample_rate": 48000,
+              "bridge_frames": 512,
+              "vendor_frames": 192,
+              "total_frames": 704,
+              "vendor_precision_bits": 1
+            }
+          ]
+        },
+        {
+          "observer": "native-3f5ee070a1f76c093146b827c0425f75.jsonl",
+          "age_s": 13.162,
+          "rows": 6,
+          "events": [
+            "ap4_native_state",
+            "ap9_setup"
+          ],
+          "state": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 198002,
+              "sha256": "1546100b51a9ed8647b655edbb4a68f5efcbb40d0c66e794564d3039a0c74749",
+              "gain": 0
+            }
+          ],
+          "errors": [],
+          "setup": [
+            {
+              "event": "ap9_setup",
+              "host_maximum": 512,
+              "transport_maximum": 256,
+              "sample_rate": 48000,
+              "bridge_frames": 512,
+              "vendor_frames": 48,
+              "total_frames": 560,
+              "vendor_precision_bits": 1
+            },
+            {
+              "event": "ap9_setup",
+              "host_maximum": 512,
+              "transport_maximum": 256,
+              "sample_rate": 48000,
+              "bridge_frames": 512,
+              "vendor_frames": 48,
+              "total_frames": 560,
+              "vendor_precision_bits": 1
+            },
+            {
+              "event": "ap9_setup",
+              "host_maximum": 512,
+              "transport_maximum": 256,
+              "sample_rate": 48000,
+              "bridge_frames": 512,
+              "vendor_frames": 48,
+              "total_frames": 560,
+              "vendor_precision_bits": 1
+            }
+          ]
+        }
+      ],
+      "saved_state": [
+        {
+          "observer": "native-3f5ee070a1f76c093146b827c0425f75.jsonl",
+          "state": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 198002,
+              "sha256": "1546100b51a9ed8647b655edbb4a68f5efcbb40d0c66e794564d3039a0c74749",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 198268,
+              "sha256": "70b0d6be65e3a3c4b688703e04e16cc2f4ce7d78e374aae9a47b56812f6796f8",
+              "gain": 0
+            }
+          ],
+          "error_count": 0
+        },
+        {
+          "observer": "native-014dbdba9750dd60f54e24fd081b256b.jsonl",
+          "state": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 138924,
+              "sha256": "b4b7898b84d39c9d6cb838f58867fb022bf3f45788f67e01349a4fec94f72ca4",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 138924,
+              "sha256": "b4b7898b84d39c9d6cb838f58867fb022bf3f45788f67e01349a4fec94f72ca4",
+              "gain": 0
+            }
+          ],
+          "error_count": 0
+        }
+      ],
+      "saved_copy_recall": [
+        {
+          "session": "51ebee84cfd8464a52935b7e1fec5c42",
+          "state": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 196838,
+              "sha256": "e83debe6d91dff87eb12983c2f9441849517e64a7174ac5771379e71a4a00b11",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 198004,
+              "sha256": "bea90fceae9710ac98f6a80bb42d2edc590329a47b1bf893ec6d242119fc84c7",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 198268,
+              "sha256": "e95ec18ea3a230a84ac0f996979596a2e519c3da0958856f4dd90d8e0a972659",
+              "gain": 0
+            }
+          ],
+          "phases": [
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "processing_ready",
+              "epoch": 1,
+              "monotonic_ns": 2184730328610,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 0,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            },
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "processing_stopped",
+              "epoch": 1,
+              "monotonic_ns": 2701059580814,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 24782848,
+                "missing_frames": 2816,
+                "gaps": 9,
+                "expired_frames": 2816,
+                "delivered_frames": 24780032,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            },
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "deactivated",
+              "epoch": 1,
+              "monotonic_ns": 2701102919381,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 24782848,
+                "missing_frames": 2816,
+                "gaps": 9,
+                "expired_frames": 2816,
+                "delivered_frames": 24780032,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            },
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "closing",
+              "epoch": 1,
+              "monotonic_ns": 2701103613504,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 24782848,
+                "missing_frames": 2816,
+                "gaps": 9,
+                "expired_frames": 2816,
+                "delivered_frames": 24780032,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            },
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "retired",
+              "epoch": 1,
+              "monotonic_ns": 2701583227337,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 24782848,
+                "missing_frames": 2816,
+                "gaps": 9,
+                "expired_frames": 2816,
+                "delivered_frames": 24780032,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            }
+          ],
+          "error_count": 0,
+          "cleanup_confirmed": true,
+          "transport_retired": true
+        },
+        {
+          "session": "0f1eb51308bfabac10e9fc80ce88baf8",
+          "state": [
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_get",
+              "payload_bytes": 139092,
+              "sha256": "2fa1bf1f33d49ce0fc2cb59680bd43a507b5e55ec4458aee03a96db8be9cf37f",
+              "gain": 0
+            },
+            {
+              "event": "ap4_native_state",
+              "operation": "opaque_set",
+              "payload_bytes": 138924,
+              "sha256": "b4b7898b84d39c9d6cb838f58867fb022bf3f45788f67e01349a4fec94f72ca4",
+              "gain": 0
+            }
+          ],
+          "phases": [
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "processing_ready",
+              "epoch": 1,
+              "monotonic_ns": 2189613517499,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 0,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            },
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "processing_stopped",
+              "epoch": 1,
+              "monotonic_ns": 2701065130859,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 24548352,
+                "missing_frames": 2304,
+                "gaps": 5,
+                "expired_frames": 2304,
+                "delivered_frames": 24546048,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            },
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "deactivated",
+              "epoch": 1,
+              "monotonic_ns": 2701586554790,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 24548352,
+                "missing_frames": 2304,
+                "gaps": 5,
+                "expired_frames": 2304,
+                "delivered_frames": 24546048,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            },
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "closing",
+              "epoch": 1,
+              "monotonic_ns": 2701587032389,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 24548352,
+                "missing_frames": 2304,
+                "gaps": 5,
+                "expired_frames": 2304,
+                "delivered_frames": 24546048,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            },
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "retired",
+              "epoch": 1,
+              "monotonic_ns": 2701805337464,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 24548352,
+                "missing_frames": 2304,
+                "gaps": 5,
+                "expired_frames": 2304,
+                "delivered_frames": 24546048,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            }
+          ],
+          "error_count": 0,
+          "cleanup_confirmed": true,
+          "transport_retired": true
+        }
+      ]
+    },
+    "editors": {
+      "during_processing": {
+        "pure_lofi_complete_close_reopen_cycles": 3,
+        "fragments_complete_close_reopen_cycles": 3
+      },
+      "both_rendered_retained_presets": true
+    },
+    "audio": {
+      "sample_rate": 48000,
+      "host_frames": 512,
+      "transport_frames": 256,
+      "bridge_frames": 512,
+      "total_latency_frames": {
+        "pure_lofi": 560,
+        "fragments": 704
+      },
+      "musical_loop_playback_minutes_at_least": 10,
+      "phase_measurement": "Counters cover the whole processing-ready lifetime, including transport-idle and editor time. Playback is a subset; no favorable window is substituted.",
+      "result": "failed",
+      "reason": "Nonzero unexplained processing-phase missing frames in both instances; startup separately has only the declared 512-frame priming.",
+      "capture": {
+        "claim": "captured selected speaker signal; listening and deadline correctness separate",
+        "duration_s": 8,
+        "sample_rate": 48000,
+        "channels": 2,
+        "sha256": "2d904532579e75643324641dc02b83d6cc38bfc02207096a0be679b712a44cd8",
+        "peak": 0.36207082867622375,
+        "rms": 0.056846630976275445,
+        "nonzero_samples": 765952,
+        "nonfinite": 0
+      },
+      "native_retirement": [
+        {
+          "observer": "native-3f5ee070a1f76c093146b827c0425f75.jsonl",
+          "error_count": 0,
+          "errors_first": [],
+          "phases": [
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "processing_ready",
+              "epoch": 1,
+              "monotonic_ns": 1109883304216,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 0,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            },
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "processing_stopped",
+              "epoch": 1,
+              "monotonic_ns": 2096826159213,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 47367680,
+                "missing_frames": 13056,
+                "gaps": 35,
+                "expired_frames": 13056,
+                "delivered_frames": 47354624,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            },
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "deactivated",
+              "epoch": 1,
+              "monotonic_ns": 2096836098905,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 47367680,
+                "missing_frames": 13056,
+                "gaps": 35,
+                "expired_frames": 13056,
+                "delivered_frames": 47354624,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            },
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "closing",
+              "epoch": 1,
+              "monotonic_ns": 2096836753281,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 47367680,
+                "missing_frames": 13056,
+                "gaps": 35,
+                "expired_frames": 13056,
+                "delivered_frames": 47354624,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            },
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "retired",
+              "epoch": 1,
+              "monotonic_ns": 2097424501439,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 47367680,
+                "missing_frames": 13056,
+                "gaps": 35,
+                "expired_frames": 13056,
+                "delivered_frames": 47354624,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            }
+          ],
+          "event_counts": {
+            "ap10_process_results": 1,
+            "ap11_editor_status": 9,
+            "ap3_proxy_lifecycle": 1,
+            "ap3_proxy_stats": 1,
+            "ap4_native_state": 4,
+            "ap4_sample_comparison": 1,
+            "ap5_sample_progress": 1,
+            "ap7_audio_phase": 5,
+            "ap7_gap_request": 32,
+            "ap7_observation": 1,
+            "ap8_returned_audio": 32,
+            "ap9_clock_resolution": 1,
+            "ap9_setup": 3,
+            "ap9_slow_request": 8,
+            "ap9_timing": 9,
+            "ap9_unpublished": 1
+          }
+        },
+        {
+          "observer": "native-014dbdba9750dd60f54e24fd081b256b.jsonl",
+          "error_count": 0,
+          "errors_first": [],
+          "phases": [
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "processing_ready",
+              "epoch": 1,
+              "monotonic_ns": 1115001667509,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 0,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            },
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "processing_stopped",
+              "epoch": 1,
+              "monotonic_ns": 2096832150549,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 47121920,
+                "missing_frames": 3328,
+                "gaps": 8,
+                "expired_frames": 3328,
+                "delivered_frames": 47118592,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            },
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "deactivated",
+              "epoch": 1,
+              "monotonic_ns": 2097428174678,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 47121920,
+                "missing_frames": 3328,
+                "gaps": 8,
+                "expired_frames": 3328,
+                "delivered_frames": 47118592,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            },
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "closing",
+              "epoch": 1,
+              "monotonic_ns": 2097428758822,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 47121920,
+                "missing_frames": 3328,
+                "gaps": 8,
+                "expired_frames": 3328,
+                "delivered_frames": 47118592,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            },
+            {
+              "event": "ap7_audio_phase",
+              "schema": 1,
+              "phase": "retired",
+              "epoch": 1,
+              "monotonic_ns": 2097688592782,
+              "startup": {
+                "admitted_frames": 512,
+                "missing_frames": 0,
+                "gaps": 0,
+                "expired_frames": 0,
+                "delivered_frames": 0,
+                "priming_frames": 512
+              },
+              "processing": {
+                "admitted_frames": 47121920,
+                "missing_frames": 3328,
+                "gaps": 8,
+                "expired_frames": 3328,
+                "delivered_frames": 47118592,
+                "priming_frames": 0
+              },
+              "omitted_phase_markers": 0
+            }
+          ],
+          "event_counts": {
+            "ap10_process_results": 1,
+            "ap11_editor_status": 9,
+            "ap3_proxy_lifecycle": 1,
+            "ap3_proxy_stats": 1,
+            "ap4_native_state": 4,
+            "ap4_sample_comparison": 1,
+            "ap5_sample_progress": 1,
+            "ap7_audio_phase": 5,
+            "ap7_gap_request": 13,
+            "ap7_observation": 1,
+            "ap8_returned_audio": 32,
+            "ap9_clock_resolution": 1,
+            "ap9_setup": 3,
+            "ap9_slow_request": 8,
+            "ap9_timing": 9,
+            "ap9_unpublished": 1
+          }
+        }
+      ],
+      "native_timing": [
+        {
+          "observer": "native-3f5ee070a1f76c093146b827c0425f75.jsonl",
+          "events": [
+            {
+              "event": "ap10_process_results",
+              "stats_status": 0,
+              "events_delivered": 0,
+              "points_delivered": 0,
+              "late_events": 0,
+              "late_points": 0,
+              "host_unrequested_events": 0,
+              "host_unrequested_points": 0,
+              "rejected": 0,
+              "cleanup_sent": 0,
+              "cleanup_unavailable": 0,
+              "active_notes_unreleased": 0,
+              "discarded_on_reset": 0,
+              "pending_events": 0,
+              "pending_points": 0
+            },
+            {
+              "event": "ap3_proxy_stats",
+              "fault": 0,
+              "first_position": 18446744073709552000,
+              "processed": 185032,
+              "request_high": 4,
+              "result_high": 4,
+              "position": 47368192,
+              "epoch": 1
+            },
+            {
+              "event": "ap7_observation",
+              "offered_samples": 94736384,
+              "verified_returned_samples": 0,
+              "unchecked_samples": 94736384,
+              "dropped_jobs": 0,
+              "dropped_samples": 0,
+              "reader_skips": 0,
+              "unretained_gap_traces": 19,
+              "maximum_error": 0,
+              "before_edit_samples": 0,
+              "edits": 0
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "queue",
+              "requests": 175266,
+              "mean_ns": 847786,
+              "p50_upper_ns": 896000,
+              "p95_upper_ns": 2816000,
+              "p99_upper_ns": 3328000,
+              "max_ns": 20657652
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "prepare",
+              "requests": 175266,
+              "mean_ns": 5200,
+              "p50_upper_ns": 5000,
+              "p95_upper_ns": 7000,
+              "p99_upper_ns": 12000,
+              "max_ns": 5258470
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "send",
+              "requests": 175266,
+              "mean_ns": 2056,
+              "p50_upper_ns": 2250,
+              "p95_upper_ns": 3500,
+              "p99_upper_ns": 5500,
+              "max_ns": 643426
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "reply",
+              "requests": 175266,
+              "mean_ns": 1408136,
+              "p50_upper_ns": 1152000,
+              "p95_upper_ns": 2816000,
+              "p99_upper_ns": 3328000,
+              "max_ns": 13808041
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "validation",
+              "requests": 175266,
+              "mean_ns": 10973,
+              "p50_upper_ns": 11000,
+              "p95_upper_ns": 16000,
+              "p99_upper_ns": 24000,
+              "max_ns": 973545
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "publication",
+              "requests": 175266,
+              "mean_ns": 6434,
+              "p50_upper_ns": 6500,
+              "p95_upper_ns": 10000,
+              "p99_upper_ns": 16000,
+              "max_ns": 883880
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "admission_to_publication",
+              "requests": 175266,
+              "mean_ns": 2280588,
+              "p50_upper_ns": 2048000,
+              "p95_upper_ns": 5120000,
+              "p99_upper_ns": 6144000,
+              "max_ns": 24251266
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "windows_process",
+              "requests": 175266,
+              "mean_ns": 1262945,
+              "p50_upper_ns": 1024000,
+              "p95_upper_ns": 2560000,
+              "p99_upper_ns": 3328000,
+              "max_ns": 12690800
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "correlated_non_plugin",
+              "requests": 175266,
+              "mean_ns": 1017642,
+              "p50_upper_ns": 1024000,
+              "p95_upper_ns": 2816000,
+              "p99_upper_ns": 3584000,
+              "max_ns": 20775376
+            },
+            {
+              "event": "ap9_slow_request",
+              "epoch": 1,
+              "sequence": 15177,
+              "position": 3884288,
+              "service_ns": 24251266,
+              "windows_process_ns": 4493600
+            },
+            {
+              "event": "ap9_slow_request",
+              "epoch": 1,
+              "sequence": 15179,
+              "position": 3884800,
+              "service_ns": 22007476,
+              "windows_process_ns": 1232100
+            },
+            {
+              "event": "ap9_slow_request",
+              "epoch": 1,
+              "sequence": 15175,
+              "position": 3883776,
+              "service_ns": 21383079,
+              "windows_process_ns": 10419900
+            },
+            {
+              "event": "ap9_slow_request",
+              "epoch": 1,
+              "sequence": 15178,
+              "position": 3884544,
+              "service_ns": 20656202,
+              "windows_process_ns": 6869200
+            },
+            {
+              "event": "ap9_slow_request",
+              "epoch": 1,
+              "sequence": 107169,
+              "position": 27434240,
+              "service_ns": 20325863,
+              "windows_process_ns": 4288200
+            },
+            {
+              "event": "ap9_slow_request",
+              "epoch": 1,
+              "sequence": 15176,
+              "position": 3884032,
+              "service_ns": 19552888,
+              "windows_process_ns": 8156900
+            },
+            {
+              "event": "ap9_slow_request",
+              "epoch": 1,
+              "sequence": 15181,
+              "position": 3885312,
+              "service_ns": 17780326,
+              "windows_process_ns": 3158300
+            },
+            {
+              "event": "ap9_slow_request",
+              "epoch": 1,
+              "sequence": 172877,
+              "position": 44255488,
+              "service_ns": 17452866,
+              "windows_process_ns": 8671000
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 519936,
+              "gap_frames": 256,
+              "request_position": 519936,
+              "request_frames": 256,
+              "sequence": 2035,
+              "output_published": true,
+              "queue_us": 7202,
+              "prepare_us": 5,
+              "send_us": 1,
+              "reply_us": 3303,
+              "validation_us": 11,
+              "publication_us": 8,
+              "publication_after_gap_us": 74,
+              "admission_to_gap_us": 10457
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 3883520,
+              "gap_frames": 256,
+              "request_position": 3883520,
+              "request_frames": 256,
+              "sequence": 15174,
+              "output_published": true,
+              "queue_us": 23,
+              "prepare_us": 6,
+              "send_us": 2,
+              "reply_us": 10560,
+              "validation_us": 12,
+              "publication_us": 8,
+              "publication_after_gap_us": 273,
+              "admission_to_gap_us": 10339
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 3883776,
+              "gap_frames": 256,
+              "request_position": 3883776,
+              "request_frames": 256,
+              "sequence": 15175,
+              "output_published": true,
+              "queue_us": 10614,
+              "prepare_us": 4,
+              "send_us": 1,
+              "reply_us": 10740,
+              "validation_us": 14,
+              "publication_us": 7,
+              "publication_after_gap_us": 11050,
+              "admission_to_gap_us": 10332
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 3884032,
+              "gap_frames": 256,
+              "request_position": 3884032,
+              "request_frames": 256,
+              "sequence": 15176,
+              "output_published": true,
+              "queue_us": 11066,
+              "prepare_us": 4,
+              "send_us": 1,
+              "reply_us": 8449,
+              "validation_us": 21,
+              "publication_us": 8,
+              "publication_after_gap_us": 8840,
+              "admission_to_gap_us": 10712
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 3884288,
+              "gap_frames": 256,
+              "request_position": 3884288,
+              "request_frames": 256,
+              "sequence": 15177,
+              "output_published": true,
+              "queue_us": 19560,
+              "prepare_us": 5,
+              "send_us": 1,
+              "reply_us": 4665,
+              "validation_us": 11,
+              "publication_us": 7,
+              "publication_after_gap_us": 13538,
+              "admission_to_gap_us": 10712
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 3884544,
+              "gap_frames": 256,
+              "request_position": 3884544,
+              "request_frames": 256,
+              "sequence": 15178,
+              "output_published": true,
+              "queue_us": 13559,
+              "prepare_us": 4,
+              "send_us": 0,
+              "reply_us": 7071,
+              "validation_us": 11,
+              "publication_us": 7,
+              "publication_after_gap_us": 9769,
+              "admission_to_gap_us": 10886
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 3884800,
+              "gap_frames": 256,
+              "request_position": 3884800,
+              "request_frames": 256,
+              "sequence": 15179,
+              "output_published": true,
+              "queue_us": 20657,
+              "prepare_us": 5,
+              "send_us": 1,
+              "reply_us": 1323,
+              "validation_us": 12,
+              "publication_us": 7,
+              "publication_after_gap_us": 11122,
+              "admission_to_gap_us": 10884
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 3885056,
+              "gap_frames": 256,
+              "request_position": 3885056,
+              "request_frames": 256,
+              "sequence": 15180,
+              "output_published": true,
+              "queue_us": 11413,
+              "prepare_us": 5,
+              "send_us": 1,
+              "reply_us": 3354,
+              "validation_us": 11,
+              "publication_us": 7,
+              "publication_after_gap_us": 4074,
+              "admission_to_gap_us": 10719
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 3885312,
+              "gap_frames": 256,
+              "request_position": 3885312,
+              "request_frames": 256,
+              "sequence": 15181,
+              "output_published": true,
+              "queue_us": 14525,
+              "prepare_us": 5,
+              "send_us": 1,
+              "reply_us": 3220,
+              "validation_us": 16,
+              "publication_us": 10,
+              "publication_after_gap_us": 7336,
+              "admission_to_gap_us": 10443
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 3885568,
+              "gap_frames": 256,
+              "request_position": 3885568,
+              "request_frames": 256,
+              "sequence": 15182,
+              "output_published": true,
+              "queue_us": 7377,
+              "prepare_us": 4,
+              "send_us": 1,
+              "reply_us": 3603,
+              "validation_us": 13,
+              "publication_us": 7,
+              "publication_after_gap_us": 338,
+              "admission_to_gap_us": 10669
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 3885824,
+              "gap_frames": 256,
+              "request_position": 3885824,
+              "request_frames": 256,
+              "sequence": 15183,
+              "output_published": true,
+              "queue_us": 11008,
+              "prepare_us": 4,
+              "send_us": 1,
+              "reply_us": 1648,
+              "validation_us": 12,
+              "publication_us": 6,
+              "publication_after_gap_us": 2019,
+              "admission_to_gap_us": 10662
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 7247616,
+              "gap_frames": 256,
+              "request_position": 7247616,
+              "request_frames": 256,
+              "sequence": 28315,
+              "output_published": true,
+              "queue_us": 5216,
+              "prepare_us": 5,
+              "send_us": 1,
+              "reply_us": 6051,
+              "validation_us": 14,
+              "publication_us": 7,
+              "publication_after_gap_us": 618,
+              "admission_to_gap_us": 10678
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 7249152,
+              "gap_frames": 256,
+              "request_position": 7249152,
+              "request_frames": 256,
+              "sequence": 28321,
+              "output_published": true,
+              "queue_us": 8830,
+              "prepare_us": 4,
+              "send_us": 1,
+              "reply_us": 7985,
+              "validation_us": 12,
+              "publication_us": 6,
+              "publication_after_gap_us": 3848,
+              "admission_to_gap_us": 12992
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 7249664,
+              "gap_frames": 256,
+              "request_position": 7249664,
+              "request_frames": 256,
+              "sequence": 28323,
+              "output_published": true,
+              "queue_us": 7146,
+              "prepare_us": 1316,
+              "send_us": 3,
+              "reply_us": 3573,
+              "validation_us": 71,
+              "publication_us": 6,
+              "publication_after_gap_us": 3928,
+              "admission_to_gap_us": 8190
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 10615040,
+              "gap_frames": 256,
+              "request_position": 10615040,
+              "request_frames": 256,
+              "sequence": 41469,
+              "output_published": true,
+              "queue_us": 4651,
+              "prepare_us": 229,
+              "send_us": 1,
+              "reply_us": 2518,
+              "validation_us": 62,
+              "publication_us": 55,
+              "publication_after_gap_us": 324,
+              "admission_to_gap_us": 7194
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 12696832,
+              "gap_frames": 256,
+              "request_position": 12696832,
+              "request_frames": 256,
+              "sequence": 49601,
+              "output_published": true,
+              "queue_us": 5466,
+              "prepare_us": 160,
+              "send_us": 2,
+              "reply_us": 3308,
+              "validation_us": 14,
+              "publication_us": 8,
+              "publication_after_gap_us": 299,
+              "admission_to_gap_us": 8661
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 12742400,
+              "gap_frames": 256,
+              "request_position": 12742400,
+              "request_frames": 256,
+              "sequence": 49779,
+              "output_published": true,
+              "queue_us": 4483,
+              "prepare_us": 5,
+              "send_us": 1,
+              "reply_us": 6319,
+              "validation_us": 14,
+              "publication_us": 8,
+              "publication_after_gap_us": 142,
+              "admission_to_gap_us": 10689
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 13978368,
+              "gap_frames": 256,
+              "request_position": 13978368,
+              "request_frames": 256,
+              "sequence": 54607,
+              "output_published": true,
+              "queue_us": 8821,
+              "prepare_us": 5,
+              "send_us": 1,
+              "reply_us": 2618,
+              "validation_us": 12,
+              "publication_us": 7,
+              "publication_after_gap_us": 605,
+              "admission_to_gap_us": 10860
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 17018112,
+              "gap_frames": 256,
+              "request_position": 17018112,
+              "request_frames": 256,
+              "sequence": 66481,
+              "output_published": true,
+              "queue_us": 8449,
+              "prepare_us": 4,
+              "send_us": 1,
+              "reply_us": 4347,
+              "validation_us": 11,
+              "publication_us": 6,
+              "publication_after_gap_us": 3284,
+              "admission_to_gap_us": 9537
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 17018624,
+              "gap_frames": 256,
+              "request_position": 17018624,
+              "request_frames": 256,
+              "sequence": 66483,
+              "output_published": true,
+              "queue_us": 6704,
+              "prepare_us": 12,
+              "send_us": 1,
+              "reply_us": 4095,
+              "validation_us": 12,
+              "publication_us": 7,
+              "publication_after_gap_us": 382,
+              "admission_to_gap_us": 10450
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 17341952,
+              "gap_frames": 256,
+              "request_position": 17341952,
+              "request_frames": 256,
+              "sequence": 67746,
+              "output_published": true,
+              "queue_us": 66,
+              "prepare_us": 6,
+              "send_us": 3,
+              "reply_us": 3645,
+              "validation_us": 12,
+              "publication_us": 7,
+              "publication_after_gap_us": 2961,
+              "admission_to_gap_us": 780
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 17342208,
+              "gap_frames": 256,
+              "request_position": 17342208,
+              "request_frames": 256,
+              "sequence": 67747,
+              "output_published": true,
+              "queue_us": 3743,
+              "prepare_us": 4,
+              "send_us": 1,
+              "reply_us": 1992,
+              "validation_us": 35,
+              "publication_us": 6,
+              "publication_after_gap_us": 5011,
+              "admission_to_gap_us": 772
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 19143936,
+              "gap_frames": 256,
+              "request_position": 19143936,
+              "request_frames": 256,
+              "sequence": 74785,
+              "output_published": true,
+              "queue_us": 7126,
+              "prepare_us": 4,
+              "send_us": 1,
+              "reply_us": 3621,
+              "validation_us": 12,
+              "publication_us": 7,
+              "publication_after_gap_us": 159,
+              "admission_to_gap_us": 10614
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 19159808,
+              "gap_frames": 256,
+              "request_position": 19159808,
+              "request_frames": 256,
+              "sequence": 74847,
+              "output_published": true,
+              "queue_us": 8885,
+              "prepare_us": 4,
+              "send_us": 1,
+              "reply_us": 4593,
+              "validation_us": 13,
+              "publication_us": 7,
+              "publication_after_gap_us": 1310,
+              "admission_to_gap_us": 12194
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 23503616,
+              "gap_frames": 256,
+              "request_position": 23503616,
+              "request_frames": 256,
+              "sequence": 91815,
+              "output_published": true,
+              "queue_us": 7451,
+              "prepare_us": 5,
+              "send_us": 1,
+              "reply_us": 4100,
+              "validation_us": 12,
+              "publication_us": 37,
+              "publication_after_gap_us": 237,
+              "admission_to_gap_us": 11370
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 23504640,
+              "gap_frames": 256,
+              "request_position": 23504640,
+              "request_frames": 256,
+              "sequence": 91819,
+              "output_published": true,
+              "queue_us": 7388,
+              "prepare_us": 4,
+              "send_us": 1,
+              "reply_us": 2985,
+              "validation_us": 29,
+              "publication_us": 7,
+              "publication_after_gap_us": 1173,
+              "admission_to_gap_us": 9242
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 23507712,
+              "gap_frames": 256,
+              "request_position": 23507712,
+              "request_frames": 256,
+              "sequence": 91831,
+              "output_published": true,
+              "queue_us": 5287,
+              "prepare_us": 5,
+              "send_us": 1,
+              "reply_us": 3096,
+              "validation_us": 12,
+              "publication_us": 8,
+              "publication_after_gap_us": 620,
+              "admission_to_gap_us": 7793
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 24072448,
+              "gap_frames": 256,
+              "request_position": 24072448,
+              "request_frames": 256,
+              "sequence": 94037,
+              "output_published": true,
+              "queue_us": 8257,
+              "prepare_us": 5,
+              "send_us": 1,
+              "reply_us": 2135,
+              "validation_us": 12,
+              "publication_us": 7,
+              "publication_after_gap_us": 943,
+              "admission_to_gap_us": 9475
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 27432192,
+              "gap_frames": 256,
+              "request_position": 27432192,
+              "request_frames": 256,
+              "sequence": 107161,
+              "output_published": true,
+              "queue_us": 4213,
+              "prepare_us": 4,
+              "send_us": 1,
+              "reply_us": 6798,
+              "validation_us": 12,
+              "publication_us": 7,
+              "publication_after_gap_us": 216,
+              "admission_to_gap_us": 10820
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 27433728,
+              "gap_frames": 256,
+              "request_position": 27433728,
+              "request_frames": 256,
+              "sequence": 107167,
+              "output_published": true,
+              "queue_us": 3770,
+              "prepare_us": 4,
+              "send_us": 1,
+              "reply_us": 10661,
+              "validation_us": 12,
+              "publication_us": 6,
+              "publication_after_gap_us": 6199,
+              "admission_to_gap_us": 8258
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 27435264,
+              "gap_frames": 256,
+              "request_position": 27435264,
+              "request_frames": 256,
+              "sequence": 107173,
+              "output_published": true,
+              "queue_us": 4823,
+              "prepare_us": 5,
+              "send_us": 1,
+              "reply_us": 7865,
+              "validation_us": 18,
+              "publication_us": 28,
+              "publication_after_gap_us": 2130,
+              "admission_to_gap_us": 10612
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 27435776,
+              "gap_frames": 256,
+              "request_position": 27435776,
+              "request_frames": 256,
+              "sequence": 107175,
+              "output_published": true,
+              "queue_us": 7021,
+              "prepare_us": 5,
+              "send_us": 1,
+              "reply_us": 3743,
+              "validation_us": 13,
+              "publication_us": 7,
+              "publication_after_gap_us": 1343,
+              "admission_to_gap_us": 9448
+            }
+          ]
+        },
+        {
+          "observer": "native-014dbdba9750dd60f54e24fd081b256b.jsonl",
+          "events": [
+            {
+              "event": "ap10_process_results",
+              "stats_status": 0,
+              "events_delivered": 0,
+              "points_delivered": 0,
+              "late_events": 0,
+              "late_points": 0,
+              "host_unrequested_events": 0,
+              "host_unrequested_points": 0,
+              "rejected": 0,
+              "cleanup_sent": 0,
+              "cleanup_unavailable": 0,
+              "active_notes_unreleased": 0,
+              "discarded_on_reset": 0,
+              "pending_events": 0,
+              "pending_points": 0
+            },
+            {
+              "event": "ap3_proxy_stats",
+              "fault": 0,
+              "first_position": 18446744073709552000,
+              "processed": 184072,
+              "request_high": 3,
+              "result_high": 4,
+              "position": 47122432,
+              "epoch": 1
+            },
+            {
+              "event": "ap7_observation",
+              "offered_samples": 94244864,
+              "verified_returned_samples": 0,
+              "unchecked_samples": 94244864,
+              "dropped_jobs": 0,
+              "dropped_samples": 0,
+              "reader_skips": 0,
+              "unretained_gap_traces": 0,
+              "maximum_error": 0,
+              "before_edit_samples": 0,
+              "edits": 0
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "queue",
+              "requests": 175264,
+              "mean_ns": 397287,
+              "p50_upper_ns": 480000,
+              "p95_upper_ns": 960000,
+              "p99_upper_ns": 1152000,
+              "max_ns": 19263686
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "prepare",
+              "requests": 175264,
+              "mean_ns": 5344,
+              "p50_upper_ns": 5000,
+              "p95_upper_ns": 7500,
+              "p99_upper_ns": 14000,
+              "max_ns": 2009781
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "send",
+              "requests": 175264,
+              "mean_ns": 1973,
+              "p50_upper_ns": 1875,
+              "p95_upper_ns": 3250,
+              "p99_upper_ns": 4500,
+              "max_ns": 1074755
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "reply",
+              "requests": 175264,
+              "mean_ns": 576594,
+              "p50_upper_ns": 576000,
+              "p95_upper_ns": 832000,
+              "p99_upper_ns": 1152000,
+              "max_ns": 18468106
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "validation",
+              "requests": 175264,
+              "mean_ns": 10525,
+              "p50_upper_ns": 11000,
+              "p95_upper_ns": 16000,
+              "p99_upper_ns": 26000,
+              "max_ns": 5061800
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "publication",
+              "requests": 175264,
+              "mean_ns": 6239,
+              "p50_upper_ns": 6000,
+              "p95_upper_ns": 10000,
+              "p99_upper_ns": 18000,
+              "max_ns": 3325942
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "admission_to_publication",
+              "requests": 175264,
+              "mean_ns": 997965,
+              "p50_upper_ns": 1024000,
+              "p95_upper_ns": 1664000,
+              "p99_upper_ns": 1920000,
+              "max_ns": 20031545
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "windows_process",
+              "requests": 175264,
+              "mean_ns": 428705,
+              "p50_upper_ns": 416000,
+              "p95_upper_ns": 640000,
+              "p99_upper_ns": 832000,
+              "max_ns": 17104100
+            },
+            {
+              "event": "ap9_timing",
+              "stage": "correlated_non_plugin",
+              "requests": 175264,
+              "mean_ns": 569259,
+              "p50_upper_ns": 640000,
+              "p95_upper_ns": 1152000,
+              "p99_upper_ns": 1408000,
+              "max_ns": 19391845
+            },
+            {
+              "event": "ap9_slow_request",
+              "epoch": 1,
+              "sequence": 179195,
+              "position": 45872896,
+              "service_ns": 20031545,
+              "windows_process_ns": 639700
+            },
+            {
+              "event": "ap9_slow_request",
+              "epoch": 1,
+              "sequence": 179194,
+              "position": 45872640,
+              "service_ns": 19261117,
+              "windows_process_ns": 17104100
+            },
+            {
+              "event": "ap9_slow_request",
+              "epoch": 1,
+              "sequence": 73825,
+              "position": 18898176,
+              "service_ns": 13979674,
+              "windows_process_ns": 10644100
+            },
+            {
+              "event": "ap9_slow_request",
+              "epoch": 1,
+              "sequence": 179197,
+              "position": 45873408,
+              "service_ns": 13326739,
+              "windows_process_ns": 1928700
+            },
+            {
+              "event": "ap9_slow_request",
+              "epoch": 1,
+              "sequence": 48999,
+              "position": 12542720,
+              "service_ns": 12482301,
+              "windows_process_ns": 1916400
+            },
+            {
+              "event": "ap9_slow_request",
+              "epoch": 1,
+              "sequence": 179199,
+              "position": 45873920,
+              "service_ns": 11673718,
+              "windows_process_ns": 6488000
+            },
+            {
+              "event": "ap9_slow_request",
+              "epoch": 1,
+              "sequence": 119347,
+              "position": 30551808,
+              "service_ns": 11525962,
+              "windows_process_ns": 4994900
+            },
+            {
+              "event": "ap9_slow_request",
+              "epoch": 1,
+              "sequence": 27361,
+              "position": 7003392,
+              "service_ns": 11184791,
+              "windows_process_ns": 850600
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 7001856,
+              "gap_frames": 256,
+              "request_position": 7001856,
+              "request_frames": 256,
+              "sequence": 27355,
+              "output_published": true,
+              "queue_us": 1259,
+              "prepare_us": 6,
+              "send_us": 1,
+              "reply_us": 9819,
+              "validation_us": 12,
+              "publication_us": 7,
+              "publication_after_gap_us": 360,
+              "admission_to_gap_us": 10746
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 7003136,
+              "gap_frames": 256,
+              "request_position": 7003136,
+              "request_frames": 256,
+              "sequence": 27360,
+              "output_published": true,
+              "queue_us": 80,
+              "prepare_us": 203,
+              "send_us": 42,
+              "reply_us": 4472,
+              "validation_us": 5061,
+              "publication_us": 7,
+              "publication_after_gap_us": 5215,
+              "admission_to_gap_us": 4652
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 7003392,
+              "gap_frames": 256,
+              "request_position": 7003392,
+              "request_frames": 256,
+              "sequence": 27361,
+              "output_published": true,
+              "queue_us": 10206,
+              "prepare_us": 5,
+              "send_us": 3,
+              "reply_us": 950,
+              "validation_us": 11,
+              "publication_us": 6,
+              "publication_after_gap_us": 6573,
+              "admission_to_gap_us": 4611
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 7003648,
+              "gap_frames": 256,
+              "request_position": 7003648,
+              "request_frames": 256,
+              "sequence": 27362,
+              "output_published": true,
+              "queue_us": 6590,
+              "prepare_us": 5,
+              "send_us": 1,
+              "reply_us": 1780,
+              "validation_us": 23,
+              "publication_us": 7,
+              "publication_after_gap_us": 146,
+              "admission_to_gap_us": 8261
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 7003904,
+              "gap_frames": 256,
+              "request_position": 7003904,
+              "request_frames": 256,
+              "sequence": 27363,
+              "output_published": true,
+              "queue_us": 8417,
+              "prepare_us": 4,
+              "send_us": 1,
+              "reply_us": 1756,
+              "validation_us": 29,
+              "publication_us": 7,
+              "publication_after_gap_us": 1954,
+              "admission_to_gap_us": 8261
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 12542720,
+              "gap_frames": 256,
+              "request_position": 12542720,
+              "request_frames": 256,
+              "sequence": 48999,
+              "output_published": true,
+              "queue_us": 4862,
+              "prepare_us": 4,
+              "send_us": 1,
+              "reply_us": 7589,
+              "validation_us": 14,
+              "publication_us": 9,
+              "publication_after_gap_us": 1480,
+              "admission_to_gap_us": 11002
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 17096192,
+              "gap_frames": 256,
+              "request_position": 17096192,
+              "request_frames": 256,
+              "sequence": 66786,
+              "output_published": true,
+              "queue_us": 97,
+              "prepare_us": 8,
+              "send_us": 2,
+              "reply_us": 871,
+              "validation_us": 13,
+              "publication_us": 8,
+              "publication_after_gap_us": 281,
+              "admission_to_gap_us": 719
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 17096448,
+              "gap_frames": 256,
+              "request_position": 17096448,
+              "request_frames": 256,
+              "sequence": 66787,
+              "output_published": true,
+              "queue_us": 992,
+              "prepare_us": 4,
+              "send_us": 1,
+              "reply_us": 2626,
+              "validation_us": 12,
+              "publication_us": 107,
+              "publication_after_gap_us": 3044,
+              "admission_to_gap_us": 700
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 18898176,
+              "gap_frames": 256,
+              "request_position": 18898176,
+              "request_frames": 256,
+              "sequence": 73825,
+              "output_published": true,
+              "queue_us": 1310,
+              "prepare_us": 5,
+              "send_us": 1,
+              "reply_us": 12643,
+              "validation_us": 12,
+              "publication_us": 7,
+              "publication_after_gap_us": 3603,
+              "admission_to_gap_us": 10375
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 30551808,
+              "gap_frames": 256,
+              "request_position": 30551808,
+              "request_frames": 256,
+              "sequence": 119347,
+              "output_published": true,
+              "queue_us": 5459,
+              "prepare_us": 4,
+              "send_us": 1,
+              "reply_us": 6043,
+              "validation_us": 10,
+              "publication_us": 7,
+              "publication_after_gap_us": 1556,
+              "admission_to_gap_us": 9969
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 45872640,
+              "gap_frames": 256,
+              "request_position": 45872640,
+              "request_frames": 256,
+              "sequence": 179194,
+              "output_published": true,
+              "queue_us": 764,
+              "prepare_us": 6,
+              "send_us": 2,
+              "reply_us": 18468,
+              "validation_us": 11,
+              "publication_us": 7,
+              "publication_after_gap_us": 8563,
+              "admission_to_gap_us": 10697
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 45872896,
+              "gap_frames": 256,
+              "request_position": 45872896,
+              "request_frames": 256,
+              "sequence": 179195,
+              "output_published": true,
+              "queue_us": 19263,
+              "prepare_us": 5,
+              "send_us": 1,
+              "reply_us": 741,
+              "validation_us": 11,
+              "publication_us": 7,
+              "publication_after_gap_us": 9339,
+              "admission_to_gap_us": 10692
+            },
+            {
+              "event": "ap7_gap_request",
+              "epoch": 1,
+              "gap_position": 45873408,
+              "gap_frames": 256,
+              "request_position": 45873408,
+              "request_frames": 256,
+              "sequence": 179197,
+              "output_published": true,
+              "queue_us": 10320,
+              "prepare_us": 4,
+              "send_us": 1,
+              "reply_us": 2979,
+              "validation_us": 12,
+              "publication_us": 7,
+              "publication_after_gap_us": 2561,
+              "admission_to_gap_us": 10765
+            }
+          ]
+        }
+      ],
+      "windows_cleanup": {
+        "pure_lofi": {
+          "cleanup_confirmed": true,
+          "transport_retired": true
+        },
+        "fragments": {
+          "cleanup_confirmed": true,
+          "transport_retired": true
+        }
+      },
+      "scheduling_observation": {
+        "processes": [
+          {
+            "pid": 7667,
+            "process": "sunshine",
+            "threads": []
+          },
+          {
+            "pid": 7993,
+            "process": "bitwig-studio",
+            "threads": []
+          },
+          {
+            "pid": 7995,
+            "process": "BitwigStudio",
+            "threads": []
+          },
+          {
+            "pid": 8186,
+            "process": "BitwigAudioEngi",
+            "threads": [
+              {
+                "thread": "audio-1",
+                "tid": 8271,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "futex_do_wait"
+              },
+              {
+                "thread": "audio-2",
+                "tid": 8272,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "futex_do_wait"
+              },
+              {
+                "thread": "audio-3",
+                "tid": 8273,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "futex_do_wait"
+              },
+              {
+                "thread": "audio-4",
+                "tid": 8274,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "futex_do_wait"
+              },
+              {
+                "thread": "audio-5",
+                "tid": 8275,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "futex_do_wait"
+              },
+              {
+                "thread": "audio-6",
+                "tid": 8276,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "futex_do_wait"
+              },
+              {
+                "thread": "audio-7",
+                "tid": 8277,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "futex_do_wait"
+              },
+              {
+                "thread": "audio-8",
+                "tid": 8278,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "futex_do_wait"
+              },
+              {
+                "thread": "Audio Task 1",
+                "tid": 8280,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "futex_do_wait"
+              },
+              {
+                "thread": "Audio Task 2",
+                "tid": 8281,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "futex_do_wait"
+              },
+              {
+                "thread": "Audio Task 3",
+                "tid": 8282,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "futex_do_wait"
+              },
+              {
+                "thread": "Audio Task 4",
+                "tid": 8283,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "futex_do_wait"
+              },
+              {
+                "thread": "Audio Task 5",
+                "tid": 8284,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "futex_do_wait"
+              },
+              {
+                "thread": "Audio Task 6",
+                "tid": 8285,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "futex_do_wait"
+              },
+              {
+                "thread": "Audio Task 7",
+                "tid": 8286,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "futex_do_wait"
+              },
+              {
+                "thread": "Audio Task 8",
+                "tid": 8287,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "futex_do_wait"
+              },
+              {
+                "thread": "Audio Task Prod",
+                "tid": 8288,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "futex_do_wait"
+              }
+            ]
+          },
+          {
+            "pid": 8292,
+            "process": "BitwigPluginHos",
+            "threads": [
+              {
+                "thread": "BitwigPluginHos",
+                "tid": 8292,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "do_epoll_wait"
+              },
+              {
+                "thread": "ap3-transport",
+                "tid": 8766,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "hrtimer_nanosleep"
+              },
+              {
+                "thread": "ap3-transport",
+                "tid": 8973,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "hrtimer_nanosleep"
+              }
+            ]
+          },
+          {
+            "pid": 8401,
+            "process": "wineserver",
+            "threads": []
+          },
+          {
+            "pid": 8408,
+            "process": "winedevice.exe",
+            "threads": []
+          },
+          {
+            "pid": 8423,
+            "process": "svchost.exe",
+            "threads": []
+          },
+          {
+            "pid": 8430,
+            "process": "winedevice.exe",
+            "threads": []
+          },
+          {
+            "pid": 8502,
+            "process": "host.exe",
+            "threads": []
+          },
+          {
+            "pid": 8718,
+            "process": "host.exe",
+            "threads": [
+              {
+                "thread": "lvb-audio",
+                "tid": 8804,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "poll_schedule_timeout.constprop.0"
+              }
+            ]
+          },
+          {
+            "pid": 8946,
+            "process": "host.exe",
+            "threads": [
+              {
+                "thread": "lvb-audio",
+                "tid": 8977,
+                "policy": 0,
+                "priority": 0,
+                "nice": 0,
+                "wchan": "0"
+              }
+            ]
+          },
+          {
+            "pid": 8964,
+            "process": "conhost.exe",
+            "threads": []
+          }
+        ],
+        "capture_sources": ""
+      },
+      "attribution": "Queue and reply delays are observed; ordinary thread scheduling was read. These observations do not prove a unique OS scheduler cause."
+    },
+    "maintainer_bridge_repairs_in_retained_musical_run": 0,
+    "acceptance_still_open": [
+      "populated publication/package rollback with the original and post-update saved project",
+      "repeat cold/warm loading within declared bounds",
+      "individual ten-minute workloads",
+      "zero unexplained processing-phase audio gaps",
+      "physical listening and Push 3"
+    ]
+  },
+  "ubuntu": {
+    "fixture": "Ubuntu 26.04.1, populated existing reference instrument/effect account",
+    "ordinary_reference_effect_inspection": {
+      "failure": {
+        "code": "serialization_lock_timeout",
+        "environment_created": false,
+        "installer_launched": false,
+        "layer": "manager_control_plane",
+        "lock": {
+          "attempts": 982,
+          "elapsed_wait_us": 10000967,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "operator-canonical.lock",
+          "operation": "6a1088a3db2c0d7e54fd2f122cd8c171",
+          "outcome": "timeout",
+          "policy": "bounded",
+          "purpose": "action_serialization",
+          "timeout_ms": 10000
+        },
+        "mutation_started": false,
+        "retryable": true,
+        "stage": "operator_validation_readback"
+      },
+      "lock_waits": [
+        {
+          "attempts": 982,
+          "elapsed_wait_us": 10000967,
+          "holder": "unknown",
+          "mode": "exclusive",
+          "name": "operator-canonical.lock",
+          "operation": "6a1088a3db2c0d7e54fd2f122cd8c171",
+          "outcome": "timeout",
+          "policy": "bounded",
+          "purpose": "action_serialization",
+          "timeout_ms": 10000
+        }
+      ],
+      "operation": "6a1088a3db2c0d7e54fd2f122cd8c171",
+      "preparation_failure": {
+        "attempted_stage": "preliminary_inspection",
+        "automatic_retry": false,
+        "installation_preserved": true,
+        "layer": "manager_control_plane",
+        "prior_publication_provenance_preserved": true,
+        "recovery": "Refresh canonical state; reconcile a pending publication before another explicit action. A refusal is not a plug-in crash.",
+        "result": "refused",
+        "schema": 1
+      },
+      "reason": "Manager busy validating state. The requested action did not start. Retry after canonical state is healthy.",
+      "schema": 1,
+      "state": "refused"
+    },
+    "later_lock_observation": [
+      {
+        "second": 27.2,
+        "lock": "operator-canonical.lock",
+        "pid": 49190,
+        "command": "operator overview",
+        "wait": "0",
+        "cpu_ticks": 43
+      },
+      {
+        "second": 27.7,
+        "lock": "operator-canonical.lock",
+        "pid": 49190,
+        "command": "operator overview",
+        "wait": "0",
+        "cpu_ticks": 93
+      },
+      {
+        "second": 28.2,
+        "lock": "operator-canonical.lock",
+        "pid": 49190,
+        "command": "operator overview",
+        "wait": "0",
+        "cpu_ticks": 139
+      },
+      {
+        "second": 28.7,
+        "lock": "operator-canonical.lock",
+        "pid": 49190,
+        "command": "operator overview",
+        "wait": "0",
+        "cpu_ticks": 184
+      },
+      {
+        "second": 29.2,
+        "lock": "operator-canonical.lock",
+        "pid": 49190,
+        "command": "operator overview",
+        "wait": "0",
+        "cpu_ticks": 233
+      },
+      {
+        "second": 29.8,
+        "lock": "operator-canonical.lock",
+        "pid": 49190,
+        "command": "operator overview",
+        "wait": "0",
+        "cpu_ticks": 277
+      },
+      {
+        "second": 30.3,
+        "lock": "operator-canonical.lock",
+        "pid": 49190,
+        "command": "operator overview",
+        "wait": "0",
+        "cpu_ticks": 322
+      },
+      {
+        "second": 30.8,
+        "lock": "operator-canonical.lock",
+        "pid": 49190,
+        "command": "operator overview",
+        "wait": "0",
+        "cpu_ticks": 370
+      },
+      {
+        "second": 31.3,
+        "lock": "operator-canonical.lock",
+        "pid": 49190,
+        "command": "operator overview",
+        "wait": "0",
+        "cpu_ticks": 420
+      },
+      {
+        "second": 31.8,
+        "lock": "operator-canonical.lock",
+        "pid": 49190,
+        "command": "operator overview",
+        "wait": "0",
+        "cpu_ticks": 462
+      },
+      {
+        "second": 32.3,
+        "lock": "operator-canonical.lock",
+        "pid": 49190,
+        "command": "operator overview",
+        "wait": "0",
+        "cpu_ticks": 511
+      }
+    ],
+    "attribution": "The failed action did not retain its lock holder. A later observation separately saw operator overview hold the canonical lock for at least 5.1 seconds. Do not assign the original refusal solely from that observation.",
+    "result": "refused_before_inspection",
+    "publication_and_environment_preserved": true
+  },
+  "source_correction": {
+    "components": [
+      "bridge-manager/src/operator_cli/current.rs",
+      "bridge-manager/src/operator_cli.rs"
+    ],
+    "behavior": "Current status capture uses the registry/owner observation and exact final recheck without owning user-action serialization across external probes. Mutating user actions retain canonical serialization.",
+    "negative_check": "A held canonical action lock no longer blocks status. Changed watched host source still refuses recheck and new capture.",
+    "tests": {
+      "red_before_correction": "serialization timeout after approximately 10 seconds",
+      "current_readback": {
+        "passed": 8
+      },
+      "operator_cli": {
+        "passed": 74,
+        "ignored": 1
+      },
+      "clippy_all_targets_deny_warnings": "passed",
+      "diff_check": "passed"
+    },
+    "test_fixture_repair": "Support export's previously invalid synthetic package was replaced with an immutable paired retained-layout fixture. Modern missing generation records are not accepted as legacy.",
+    "installed_successor": "not yet tested"
+  },
+  "release_status": {
+    "customer_release": false,
+    "ubuntu_cachyos_common_catalogue_not_qualified": true,
+    "signing_and_distribution_authority_unselected": true
+  }
+}

@@ -1,4 +1,4 @@
-//! Durable state binds only logical processor/module/content, never a session.
+//! Durable state preserves logical class and producing-module provenance, never a session.
 use crate::*;
 use sha2::{Digest, Sha256};
 #[derive(Debug)]
@@ -9,6 +9,9 @@ pub struct SaveRefusal {
 }
 impl std::fmt::Display for SaveRefusal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.stage == 3 {
+            return write!(f, "save refused: plug-in state exceeds 256 MiB save limit");
+        }
         write!(
             f,
             "save refused: operation={} stage={} SDK result={}",
@@ -20,8 +23,30 @@ impl std::error::Error for SaveRefusal {}
 pub fn save_refused(e: &io::Error) -> bool {
     e.get_ref().is_some_and(|e| e.is::<SaveRefusal>())
 }
-pub const LIMIT: usize = 1 << 20;
+pub const LIMIT: usize = ap1_native_client::STATE_LIMIT;
 pub const HEADER_SIZE: usize = 104;
+#[repr(C)]
+pub struct OwnedState {
+    pub data: *const u8,
+    pub length: u32,
+    pub abi_version: u32,
+}
+pub unsafe fn owned_output_ready(out: *mut OwnedState) -> bool {
+    !out.is_null() && (*out).abi_version == 1 && (*out).data.is_null() && (*out).length == 0
+}
+pub unsafe fn give_owned(out: *mut OwnedState, bytes: Vec<u8>) {
+    let length = bytes.len() as u32;
+    let data = Box::into_raw(bytes.into_boxed_slice()) as *const u8;
+    *out = OwnedState { data, length, abi_version: 1 };
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap4_state_release_v1(out: *mut OwnedState) {
+    if out.is_null() || (*out).abi_version != 1 || (*out).data.is_null() { return; }
+    let owned = &mut *out;
+    drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(owned.data as *mut u8, owned.length as usize)));
+    owned.data = std::ptr::null();
+    owned.length = 0;
+}
 const CLASS: [u8; 16] = [
     0x84, 0xe8, 0xde, 0x5f, 0x92, 0x55, 0x4f, 0x53, 0x96, 0xfa, 0xe4, 0x13, 0x3c, 0x93, 0x5a, 0x18,
 ];
@@ -78,6 +103,14 @@ pub fn payload(blob: &[u8]) -> io::Result<&[u8]> {
     Ok(p)
 }
 pub fn payload_for(identity: Identity, version: u32, blob: &[u8]) -> io::Result<&[u8]> {
+    checked_payload(identity, version, blob, RestoreIdentity::ExactSnapshot)
+}
+#[derive(Clone, Copy)]
+enum RestoreIdentity {
+    ExactSnapshot,
+    SelectedSuccessor,
+}
+fn checked_payload(identity: Identity, version: u32, blob: &[u8], policy: RestoreIdentity) -> io::Result<&[u8]> {
     need(
         blob.len() >= HEADER_SIZE && blob.len() <= HEADER_SIZE + LIMIT,
         "state envelope extent",
@@ -89,7 +122,9 @@ pub fn payload_for(identity: Identity, version: u32, blob: &[u8]) -> io::Result<
         "state envelope version",
     )?;
     need(
-        blob[16..32] == identity.class && blob[32..64] == identity.module,
+        blob[16..32] == identity.class
+            && (matches!(policy, RestoreIdentity::SelectedSuccessor)
+                || blob[32..64] == identity.module),
         "state class/module mismatch",
     )?;
     need(
@@ -122,21 +157,34 @@ pub unsafe extern "C" fn ap4_validate(blob: *const u8, n: u32, gain: *mut f64) -
 // This reader is used only by the transport worker: one nonblocking read of
 // at most 16 KiB per service turn. It never changes socket blocking mode.
 pub struct Capture {
-    sequence: u64,
+    pub(super) sequence: u64,
     bytes: Vec<u8>,
     received: usize,
     end: std::time::Instant,
+    completed: Option<Frame>,
 }
 impl Capture {
+    pub(super) fn is_unread(&self) -> bool { self.completed.is_none() }
     fn new(sequence: u64) -> Self {
         Self {
             sequence,
             bytes: vec![0; HEADER],
             received: 0,
             end: std::time::Instant::now() + std::time::Duration::from_secs(10),
+            completed: None,
         }
     }
-    fn poll(&mut self, socket: &TcpStream, minor: u64) -> io::Result<Option<Frame>> {
+    /// Service admitted capture while a slower audio operation waits. Its
+    /// original deadline is unchanged and normal control service consumes it.
+    pub(super) fn service(&mut self, socket: &TcpStream, minor: u64) -> io::Result<()> {
+        if self.completed.is_none() { self.completed = self.read(socket, minor)?; }
+        Ok(())
+    }
+    pub(super) fn poll(&mut self, socket: &TcpStream, minor: u64) -> io::Result<Option<Frame>> {
+        if let Some(frame) = self.completed.take() { return Ok(Some(frame)); }
+        self.read(socket, minor)
+    }
+    fn read(&mut self, socket: &TcpStream, minor: u64) -> io::Result<Option<Frame>> {
         use std::os::fd::AsRawFd;
         unsafe extern "C" {
             fn recv(fd: i32, p: *mut u8, n: usize, flags: i32) -> isize;
@@ -189,13 +237,13 @@ impl Capture {
         Ok(Some(Frame::decode_version(&self.bytes, minor)?))
     }
 }
-impl Session {
-    fn state_reply(&mut self, request: &Frame, reply: Frame) -> io::Result<Vec<u8>> {
+pub(super) fn validate_reply(minor: u64, witness: &mut Option<crate::observer::Observer>,
+    request: &Frame, reply: Frame) -> io::Result<Vec<u8>> {
         need(
             reply.session == request.session && reply.sequence == request.sequence,
             "state response correlation",
         )?;
-        if reply.kind == 7 && self.minor >= 11 && request.kind == 16 {
+        if reply.kind == 7 && minor >= 11 && request.kind == 16 {
             need(
                 reply.payload.len() == 16
                     && get(&reply.payload[..4]) == 1
@@ -205,7 +253,8 @@ impl Session {
             let stage = get(&reply.payload[8..12]) as u32;
             let sdk_result = i32::from_le_bytes(reply.payload[12..16].try_into().unwrap());
             need(
-                matches!(stage, 1 | 2) && matches!(sdk_result, 1 | -2147467263),
+                (matches!(stage, 1 | 2) && matches!(sdk_result, 1 | -2147467263))
+                    || (stage == 3 && sdk_result == 1),
                 "save refusal stage/result",
             )?;
             return Err(io::Error::other(
@@ -218,7 +267,7 @@ impl Session {
         }
         need(reply.kind == request.kind + 1, "state response kind")?;
         need(reply.payload.len() <= LIMIT, "state response cap")?;
-        if matches!(self.minor, 4 | 6) {
+        if matches!(minor, 4 | 6) {
             if request.kind == 18 {
                 need(
                     reply.payload == request.payload,
@@ -229,10 +278,15 @@ impl Session {
         } else {
             commercial_payload(&reply.payload)?;
         }
-        if let Some(w) = &mut self.witness {
+        if let Some(w) = witness {
             w.state(&reply.payload, request.kind == 18);
         }
         Ok(reply.payload)
+
+}
+impl Session {
+    fn state_reply(&mut self, request: &Frame, reply: Frame) -> io::Result<Vec<u8>> {
+        validate_reply(self.minor, &mut self.witness, request, reply)
     }
     fn state_result(&mut self, result: io::Result<Vec<u8>>) -> io::Result<Vec<u8>> {
         if result.as_ref().is_err_and(|e| !save_refused(e)) {
@@ -369,12 +423,12 @@ impl Witness {
         }
         Ok(())
     }
-    pub fn compare(
+    pub fn compare<const N: usize>(
         &mut self,
         n: usize,
         gain: f64,
         input: [&[f32]; 2],
-        output: &[[u32; CAP + 2]; 2],
+        output: &[[u32; N]; 2],
     ) -> io::Result<()> {
         need(
             self.ready,
@@ -469,11 +523,20 @@ pub fn bound_envelope(identity: Option<Identity>, p: &[u8]) -> io::Result<Vec<u8
     }
 }
 pub fn bound_payload(identity: Option<Identity>, b: &[u8]) -> io::Result<&[u8]> {
+    commercial_envelope_payload(identity, b, RestoreIdentity::ExactSnapshot)
+}
+/// Host project restore only. Execution is already selected and admitted by
+/// the publication/session, never by this historical producing-module digest.
+/// Keep the source envelope intact; the selected vendor owns opaque migration.
+pub fn restore_payload(identity: Option<Identity>, b: &[u8]) -> io::Result<&[u8]> {
+    commercial_envelope_payload(identity, b, RestoreIdentity::SelectedSuccessor)
+}
+fn commercial_envelope_payload(identity: Option<Identity>, b: &[u8], policy: RestoreIdentity) -> io::Result<&[u8]> {
     if let Some(id) = identity {
         need(b.len() >= HEADER_SIZE, "commercial envelope header")?;
         let version = get(&b[8..12]) as u32;
         need(matches!(version, 2 | 3), "commercial envelope version")?;
-        let p = payload_for(id, version, b)?;
+        let p = checked_payload(id, version, b, policy)?;
         commercial_payload(p)?;
         need(
             (get(&p[12..16]) & 2 != 0) == (version == 3),
@@ -486,6 +549,13 @@ pub fn bound_payload(identity: Option<Identity>, b: &[u8]) -> io::Result<&[u8]> 
 }
 #[no_mangle]
 pub unsafe extern "C" fn ap8_validate(identity: *const u8, blob: *const u8, n: u32) -> u32 {
+    validate(identity, blob, n, RestoreIdentity::ExactSnapshot)
+}
+#[no_mangle]
+pub unsafe extern "C" fn ap8_validate_restore(identity: *const u8, blob: *const u8, n: u32) -> u32 {
+    validate(identity, blob, n, RestoreIdentity::SelectedSuccessor)
+}
+unsafe fn validate(identity: *const u8, blob: *const u8, n: u32, policy: RestoreIdentity) -> u32 {
     crate::ffi(|| {
         if identity.is_null() || blob.is_null() || n as usize > LIMIT + HEADER_SIZE {
             return 1;
@@ -495,7 +565,7 @@ pub unsafe extern "C" fn ap8_validate(identity: *const u8, blob: *const u8, n: u
             class: b[..16].try_into().unwrap(),
             module: b[16..].try_into().unwrap(),
         };
-        match bound_payload(Some(id), std::slice::from_raw_parts(blob, n as usize)) {
+        match commercial_envelope_payload(Some(id), std::slice::from_raw_parts(blob, n as usize), policy) {
             Ok(_) => 0,
             Err(e) => retain(&e),
         }
@@ -505,6 +575,64 @@ pub unsafe extern "C" fn ap8_validate(identity: *const u8, blob: *const u8, n: u
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn owned_state_uses_actual_bytes_and_has_explicit_release() {
+        let mut output=OwnedState {data:std::ptr::null(),length:0,abi_version:1};
+        assert_eq!(std::mem::size_of::<OwnedState>(),16);
+        unsafe {
+            assert!(owned_output_ready(&mut output));
+            give_owned(&mut output,vec![0xd3;2*1024*1024]);
+            assert!(!owned_output_ready(&mut output));
+            assert_eq!(output.length,2*1024*1024);
+            assert!(std::slice::from_raw_parts(output.data,output.length as usize).iter().all(|b|*b==0xd3));
+            ap4_state_release_v1(&mut output);
+            assert!(owned_output_ready(&mut output));
+            ap4_state_release_v1(&mut output);
+        }
+    }
+    #[test]
+    fn oversized_save_refusal_keeps_the_specific_error_and_never_authorizes_restore() {
+        let request=Frame {kind:16,session:[7;16],sequence:8,payload:vec![]};
+        let refusal=Frame {kind:7,session:request.session,sequence:request.sequence,
+            payload:[1u32,16,3,1].into_iter().flat_map(u32::to_le_bytes).collect()};
+        let error=validate_reply(15,&mut None,&request,refusal.clone()).unwrap_err();
+        assert!(save_refused(&error));
+        assert_eq!(error.to_string(),"save refused: plug-in state exceeds 256 MiB save limit");
+        assert!(!save_refused(&validate_reply(15,&mut None,&Frame {kind:18,..request},refusal).unwrap_err()));
+    }
+    #[test]
+    fn historical_restore_preserves_provenance_without_authorizing_another_class() {
+        let original = Identity { class: [7; 16], module: [8; 32] };
+        let selected = Identity { module: [9; 32], ..original };
+        let mut payload = vec![0; 35];
+        payload[0] = 3; payload[8] = 1; payload[12] = 2;
+        payload[16..19].copy_from_slice(b"old");
+        payload[19] = 42; payload[23] = 1;
+        payload[27..35].copy_from_slice(&0.625f64.to_le_bytes());
+        let saved = bound_envelope(Some(original), &payload).unwrap();
+        assert!(bound_payload(Some(selected), &saved).is_err());
+        assert_eq!(restore_payload(Some(selected), &saved).unwrap(), payload);
+        assert_eq!(saved[32..64], original.module);
+        let current = bound_envelope(Some(selected), &payload).unwrap();
+        assert_eq!(current[32..64], selected.module);
+        assert_ne!(saved, current);
+        assert!(restore_payload(Some(Identity { class: [6; 16], ..selected }), &saved).is_err());
+        for offset in [0, 8, 12, 16, 64, 68, 72, 104] {
+            let mut corrupt = saved.clone(); corrupt[offset] ^= 1;
+            assert!(restore_payload(Some(selected), &corrupt).is_err(), "offset {offset}");
+        }
+        for n in 0..saved.len() {
+            assert!(restore_payload(Some(selected), &saved[..n]).is_err());
+        }
+        assert!(restore_payload(Some(selected), &vec![0; HEADER_SIZE + LIMIT + 1]).is_err());
+        // The strict reference fixture/recovery path does not acquire migration.
+        assert!(restore_payload(None, &saved).is_err());
+        unsafe {
+            let id = [selected.class.as_slice(), selected.module.as_slice()].concat();
+            assert_eq!(ap8_validate_restore(id.as_ptr(), saved.as_ptr(), saved.len() as u32), 0);
+            assert_ne!(ap8_validate(id.as_ptr(), saved.as_ptr(), saved.len() as u32), 0);
+        }
+    }
     #[test]
     fn opaque_commercial_state_has_identity_integrity_and_no_gain_layout() {
         let identity = Identity {

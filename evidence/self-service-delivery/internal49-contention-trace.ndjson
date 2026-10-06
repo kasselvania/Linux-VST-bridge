@@ -1,0 +1,11 @@
+{"event": "fixture", "elapsed_ms": 118.472, "utc": "2026-10-01T20:53:55.184583+00:00", "manager_sha256": "94bc8ea49968326cd9297f5971e079e8ae455afef2c40de36e6ece395ea9fdfc", "host_sha256": "a49c6be190f3e018ce5f253b93750701c10f93b877fccf7066cd55ebdfd6b17b", "environment": "e5dc20a0b6003f4d3755e05cf53f48e3", "capacity_traffic": true, "claim": "installed_development_regression_not_frontend_qualification"}
+{"event": "idle_service_restart_begin", "elapsed_ms": 188.369, "utc": "2026-10-01T20:53:55.254464+00:00", "claim": "development_test_arrangement"}
+{"event": "lock_owners", "elapsed_ms": 191.449, "utc": "2026-10-01T20:53:55.257544+00:00", "owners": [], "sampling_interval_ms": 100}
+{"event": "idle_service_restart_returned", "elapsed_ms": 229.784, "utc": "2026-10-01T20:53:55.295880+00:00"}
+{"event": "capacity_unavailable", "elapsed_ms": 230.269, "utc": "2026-10-01T20:53:55.296361+00:00", "duration_ms": 0.191}
+{"event": "registry_contention_acquired", "elapsed_ms": 680.778, "utc": "2026-10-01T20:53:55.746875+00:00", "duration_ms": 3000, "claim": "controlled_negative_arrangement_not_original_failure_attribution"}
+{"event": "restoration_request_begin", "elapsed_ms": 681.518, "utc": "2026-10-01T20:53:55.747611+00:00"}
+{"event": "lock_owners", "elapsed_ms": 705.238, "utc": "2026-10-01T20:53:55.771334+00:00", "owners": [{"lock": "registry.lock", "pid": 2641}], "sampling_interval_ms": 100}
+{"event": "restoration_acknowledgment_failed", "elapsed_ms": 2684.151, "utc": "2026-10-01T20:53:57.750249+00:00"}
+{"event": "capacity_unavailable", "elapsed_ms": 3233.193, "utc": "2026-10-01T20:53:58.299285+00:00", "duration_ms": 2002.732}
+{"event": "registry_contention_released", "elapsed_ms": 3681.604, "utc": "2026-10-01T20:53:58.747702+00:00"}

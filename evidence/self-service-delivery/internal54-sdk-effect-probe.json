@@ -1,0 +1,626 @@
+{
+  "schema": 1,
+  "candidate": "0.12.0internal54",
+  "source_head": "65c131c88f6fc76ba4a7299b01a0889c83b1e2cd",
+  "claim": "installed SDK development regression using retained native51/host47 effect; not new-kit publication or DAW acceptance",
+  "result": "passed",
+  "maintainer_repairs": 0,
+  "resources": {
+    "exit_code": 0,
+    "duration_ms": 44506.231,
+    "before": {
+      "cpu.max": "100000 100000",
+      "memory.max": "2684354560",
+      "memory.swap.max": "0",
+      "pids.max": "512",
+      "pids.current": "203",
+      "pids.events": "max 0",
+      "memory.current": "1687060480",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+    },
+    "after": {
+      "cpu.max": "100000 100000",
+      "memory.max": "2684354560",
+      "memory.swap.max": "0",
+      "pids.max": "512",
+      "pids.current": "288",
+      "pids.events": "max 0",
+      "memory.current": "1689612288",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+    },
+    "peak_user_tasks": 302,
+    "peak_user_memory_bytes": 1846321152,
+    "stderr_bytes": 0,
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "runs": [
+    {
+      "role": "effect",
+      "pair": 1,
+      "mode": "record",
+      "frames": 1024,
+      "duration_ms": 29311.481,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 18759
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 18810
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 6
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 193442,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "52fae11fdf80d1de77ed77d9924d8178",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 275457030936,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "52fae11fdf80d1de77ed77d9924d8178",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 285676690073,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "52fae11fdf80d1de77ed77d9924d8178",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 285677655823,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "52fae11fdf80d1de77ed77d9924d8178",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 285677773898,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "52fae11fdf80d1de77ed77d9924d8178",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 285751091152,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "52fae11fdf80d1de77ed77d9924d8178",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 0,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "command_route_verified_in_windows_reports": true
+    },
+    {
+      "role": "effect",
+      "pair": 1,
+      "mode": "recall",
+      "frames": 1024,
+      "duration_ms": 14840.922,
+      "exit_code": 0,
+      "host_events": [
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "a05c77e2fba6b93d860df0ed3bc3894dc535683badd1fb8ff9f6ba56495b8a37",
+          "gain": 0
+        },
+        {
+          "event": "initialized_state",
+          "bytes": 200,
+          "elapsed_ms": 4324
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_set",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "activated",
+          "latency_samples": 1024,
+          "elapsed_ms": 4369
+        },
+        {
+          "event": "ap4_native_state",
+          "operation": "opaque_get",
+          "payload_bytes": 96,
+          "sha256": "cfc8bf97a6631b5ff71e4604bc2ad065c34f69deacc2166c30c59704fd7a203d",
+          "gain": 0
+        },
+        {
+          "event": "processing_state",
+          "component_bytes": 200,
+          "controller_bytes": 8,
+          "gain": 0.625,
+          "colour": 0.125,
+          "duration_ms": 2
+        },
+        {
+          "event": "audio",
+          "role": "effect",
+          "frames_per_callback": 1024,
+          "blocks": 480,
+          "compared_samples": 983040,
+          "mismatches": 0,
+          "nonfinite": 0,
+          "nonzero": 980992,
+          "max_error": 0,
+          "rejected_callbacks": 0,
+          "callback_max_ns": 343215,
+          "callback_overruns": 0,
+          "callback_audited": true
+        },
+        {
+          "event": "ap10_process_results",
+          "stats_status": 0,
+          "events_delivered": 0,
+          "points_delivered": 0,
+          "late_events": 0,
+          "late_points": 0,
+          "host_unrequested_events": 0,
+          "host_unrequested_points": 0,
+          "rejected": 0,
+          "cleanup_sent": 0,
+          "cleanup_unavailable": 0,
+          "active_notes_unreleased": 0,
+          "discarded_on_reset": 0,
+          "pending_events": 0,
+          "pending_points": 0
+        },
+        {
+          "event": "ap3_proxy_stats",
+          "fault": 0,
+          "first_position": 18446744073709551615,
+          "processed": 480,
+          "request_high": 2,
+          "result_high": 1,
+          "position": 491520,
+          "epoch": 1
+        },
+        {
+          "event": "ap3_proxy_lifecycle",
+          "phase": 6,
+          "requested_maximum": 1024,
+          "requested_rate": 48000,
+          "requested_mode": 0,
+          "frames": 491520,
+          "blocks": 480,
+          "callback_rejections": 0,
+          "skipped_expression_callbacks": 0,
+          "rejected_silent_frames": 0,
+          "discontinuities": 0,
+          "successful_silent_callbacks": 1,
+          "successful_silent_frames": 1024,
+          "priming_frames": 1024,
+          "underrun_frames": 0,
+          "underrun_gaps": 0,
+          "underrun_callbacks": 0,
+          "expired_output_frames": 0,
+          "delivered_frames": 490496,
+          "zero_gain_blocks": 0,
+          "gain_min": 1,
+          "gain_max": 1,
+          "clean": true
+        },
+        {
+          "event": "host_retired",
+          "deactivate_result": 0,
+          "terminate_result": 0,
+          "controller_terminate_result": 0,
+          "module_unloaded": true
+        },
+        {
+          "event": "passed",
+          "claim": "installed_sdk_development_regression",
+          "real_daw_project_claim": false
+        }
+      ],
+      "audio_phases": [
+        {
+          "session": "c09c289681b3daadffa87cae5cd6556f",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_ready",
+          "epoch": 1,
+          "monotonic_ns": 290350717029,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 0,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "c09c289681b3daadffa87cae5cd6556f",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "processing_stopped",
+          "epoch": 1,
+          "monotonic_ns": 300569817140,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "c09c289681b3daadffa87cae5cd6556f",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "deactivated",
+          "epoch": 1,
+          "monotonic_ns": 300569983719,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "c09c289681b3daadffa87cae5cd6556f",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "closing",
+          "epoch": 1,
+          "monotonic_ns": 300570100776,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        },
+        {
+          "session": "c09c289681b3daadffa87cae5cd6556f",
+          "event": "ap7_audio_phase",
+          "schema": 1,
+          "phase": "retired",
+          "epoch": 1,
+          "monotonic_ns": 300650602603,
+          "omitted_phase_markers": 0,
+          "startup": {
+            "admitted_frames": 1024,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 0,
+            "priming_frames": 1024
+          },
+          "processing": {
+            "admitted_frames": 490496,
+            "missing_frames": 0,
+            "gaps": 0,
+            "expired_frames": 0,
+            "delivered_frames": 490496,
+            "priming_frames": 0
+          }
+        }
+      ],
+      "dsp_retirement": [
+        {
+          "session": "c09c289681b3daadffa87cae5cd6556f",
+          "cleanup_confirmed": true,
+          "transport_retired": true,
+          "gated": true,
+          "raw_exit": 0
+        }
+      ],
+      "capacity_before": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "capacity_after": {
+        "dsp": 0,
+        "maintenance": 0,
+        "keepers": 1,
+        "cleanup_unconfirmed": false
+      },
+      "retirement_readback_failed": false,
+      "command_route_verified_in_windows_reports": true
+    }
+  ],
+  "new_command_cache_created_by_application": true,
+  "native_startup_last": {
+    "class_id": "4C564242455441314546465800000001",
+    "observed_at": 1790904112,
+    "outcome": "accepted",
+    "phases": [
+      [
+        "request_received",
+        0
+      ],
+      [
+        "binding_verified",
+        2768
+      ],
+      [
+        "keeper_ready",
+        2771
+      ],
+      [
+        "ready_binding_verified",
+        3300
+      ],
+      [
+        "transport_prepared",
+        3568
+      ],
+      [
+        "supervisor_ready",
+        3689
+      ],
+      [
+        "binding_delivered",
+        3690
+      ]
+    ],
+    "request": "a5e3ca54e0657f4f32e975d80a22bfa3",
+    "schema": 1,
+    "total_ms": 3690
+  }
+}

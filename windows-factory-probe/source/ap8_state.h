@@ -9,23 +9,27 @@ namespace linux_vst_bridge::wf0 {
 // Payload v2 (flags bit 1): 16-byte ID/availability/value records. Legacy
 // 12-byte records remain readable. Unavailable records have no numeric value
 // (canonical zero bytes), never an instruction to write zero to a plug-in.
-struct SaveRefusal : std::runtime_error {
+struct SaveRefusal : ap1::BridgeError {
  uint32_t stage; Steinberg::tresult result;
- SaveRefusal(uint32_t s,Steinberg::tresult r):std::runtime_error("vendor declined state capture"),stage(s),result(r){}
+ SaveRefusal(uint32_t s,Steinberg::tresult r):ap1::BridgeError(s==3?"plug-in state exceeds 256 MiB save limit":"vendor declined state capture"),stage(s),result(r){}
 };
 inline bool ordinary_refusal(Steinberg::tresult r){return r==Steinberg::kResultFalse||r==Steinberg::kNotImplemented;}
 inline void capture_result(Steinberg::tresult r,LVBState::Stream&s,uint32_t stage,bool restoring){
- ap1::require(!s.failed&&s.quiescent(),"state stream bounds/lifetime");
+ ap1::require(s.quiescent(),"state stream lifetime");
+ if(s.capacity_exceeded&&!restoring)throw SaveRefusal(3,Steinberg::kResultFalse);
+ ap1::require(!s.failed,"state stream bounds/allocation");
  if(r!=Steinberg::kResultOk){
   if(!restoring&&ordinary_refusal(r))throw SaveRefusal(stage,r);
-  throw std::runtime_error("unsafe state SDK result");
+  throw ap1::BridgeError("unsafe state SDK result");
  }
 }
 // Fresh initialization can expose the real editor without persistence. A
 // successful stream still synchronizes a separate controller exactly once.
 inline bool synchronize_initial(Steinberg::Vst::IEditController&controller,bool separate,Steinberg::tresult result,LVBState::Stream&state){
  using namespace Steinberg;
- ap1::require(!state.failed&&state.quiescent(),"initial state stream bounds/lifetime");
+ ap1::require(state.quiescent(),"initial state stream lifetime");
+ if(state.capacity_exceeded)return false;
+ ap1::require(!state.failed,"initial state stream bounds/allocation");
  if(result!=kResultOk){ap1::require(ordinary_refusal(result),"initial state SDK failure");return false;}
  if(separate){state.position=0;auto r=controller.setComponentState(&state);ap1::require(r==kResultOk&&!state.failed&&state.quiescent(),"initial controller synchronization failed");}
  return true;
@@ -62,10 +66,14 @@ inline std::vector<uint8_t> commercial_state(Steinberg::Vst::IComponent&componen
  LVBState::Stream v;auto result=controller.getState(&v);
  if(timing)timing->controller_ns=StateTiming::elapsed(stage_start);
  bool supported=result==kResultOk;
- require(!v.failed&&v.quiescent(),"controller state stream bounds/lifetime");
+ require(v.quiescent(),"controller state stream lifetime");
+ if(v.capacity_exceeded&&!restore)throw SaveRefusal(3,kResultFalse);
+ require(!v.failed,"controller state stream bounds/allocation");
  if(!supported&&!(result==kNotImplemented&&v.bytes.empty()))capture_result(result,v,2,restore!=nullptr);
  int n=controller.getParameterCount();require(n>=0&&n<=8192,"controller parameter count");
- size_t length=16+c.bytes.size()+v.bytes.size()+size_t(n)*16;require(length<=LVBState::payloadLimit,"complete commercial state bound");
+ size_t length=16+c.bytes.size()+v.bytes.size()+size_t(n)*16;
+ if(length>LVBState::payloadLimit&&!restore)throw SaveRefusal(3,kResultFalse);
+ require(length<=LVBState::payloadLimit,"complete commercial state bound");
  std::vector<uint8_t> out(length);put(out.data(),c.bytes.size(),4);put(out.data()+4,v.bytes.size(),4);put(out.data()+8,uint32_t(n),4);put(out.data()+12,(supported?1:0)|2,4);
  std::copy(c.bytes.begin(),c.bytes.end(),out.begin()+16);std::copy(v.bytes.begin(),v.bytes.end(),out.begin()+16+c.bytes.size());
  auto*p=out.data()+16+c.bytes.size()+v.bytes.size();

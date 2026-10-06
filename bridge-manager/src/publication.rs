@@ -1,6 +1,7 @@
 //! Revisioned transactions around the existing registry and discovery links.
 //! Intent and immutable records precede activation; physical links decide recovery.
 use crate::{observation::Census, profiles::*, *};
+use crate::operator_lock::timing::{self, Stage};
 use std::{ffi::CString, os::unix::ffi::OsStrExt};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -48,7 +49,7 @@ struct Prior {
     revision: RevisionRef,
     target: Option<PathBuf>,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 struct Intent {
     schema: u32,
@@ -57,6 +58,25 @@ struct Intent {
     prior: Option<Prior>,
     candidate: Option<RevisionRef>,
     candidate_target: Option<PathBuf>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+#[doc(hidden)]
+pub struct PublicationState {
+    pub class_id: String,
+    pub entry: Entry,
+    pub target: Option<PathBuf>,
+    pub performance: Performance,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[doc(hidden)]
+pub struct PreparedTransition {
+    pub schema: u32,
+    pub before: PublicationState,
+    pub after: PublicationState,
+    intent: Intent,
+    reverse_intent: Intent,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -300,11 +320,8 @@ impl Manager {
             "publication_revision_hash",
         )?;
         let path = self.revision_dir(key, &reference.id)?.join("revision.json");
-        require(
-            digest(&path)? == reference.sha256,
-            "publication_revision_changed",
-        )?;
-        let r: Revision = read_json(&path)?;
+        let r: Revision = Artifact { path, sha256:reference.sha256.clone() }
+            .read_record(8 * 1024 * 1024)?;
         r.profile.validate()?;
         require(
             r.schema == 1
@@ -335,13 +352,20 @@ impl Manager {
         Ok(r)
     }
     pub fn load_revision(&self, key: &str, reference: &RevisionRef) -> Result<Revision> {
-        let r = self.revision_record(key, reference)?;
+        let r = self.load_revision_record(key, reference)?;
         r.registration.native.verify()?;
+        Ok(r)
+    }
+    /// Immutable revision/provenance/descriptor bindings. Executable bytes are
+    /// deliberately left to load_revision and the mutation/launch owners.
+    pub fn load_revision_record(&self, key: &str, reference: &RevisionRef) -> Result<Revision> {
+        let r = self.revision_record(key, reference)?;
+        r.registration.native.validate_record()?;
+        r.registration.verify_descriptor()?;
         if !r.adopted_legacy {
-            require(
-                digest(&r.target.join("bridge-provenance.json"))? == reference.sha256,
-                "publication_provenance_changed",
-            )?;
+            let provenance: Revision = Artifact { path:r.target.join("bridge-provenance.json"),
+                sha256:reference.sha256.clone() }.read_record(8 * 1024 * 1024)?;
+            require(provenance == r, "publication_provenance_changed")?;
         }
         r.performance.verify()?;
         Ok(r)
@@ -349,6 +373,18 @@ impl Manager {
     pub fn entry_target(&self, e: &Entry) -> Result<PathBuf> {
         if let Some(reference) = &e.managed_revision {
             let r = self.load_revision(&e.registration.key(), reference)?;
+            require(
+                r.registration == e.registration,
+                "registry_revision_mismatch",
+            )?;
+            Ok(r.target)
+        } else {
+            Ok(self.target(&e.registration))
+        }
+    }
+    fn entry_target_record(&self, e: &Entry) -> Result<PathBuf> {
+        if let Some(reference) = &e.managed_revision {
+            let r = self.load_revision_record(&e.registration.key(), reference)?;
             require(
                 r.registration == e.registration,
                 "registry_revision_mismatch",
@@ -448,6 +484,76 @@ impl Manager {
     pub fn publication_pending(&self, key: &str) -> Result<bool> {
         Ok(fs::symlink_metadata(self.pending_path(key)).is_ok())
     }
+    fn package_publication_state(&self, key: &str, entry: &Entry) -> Result<PublicationState> {
+        require(entry.registration.key() == key && entry.publication != Publication::Pending,
+            "package_publication_state")?;
+        let target = match entry.publication {
+            Publication::Published => Some(self.entry_target(entry)?),
+            Publication::Removed => None,
+            Publication::Pending => unreachable!(),
+        };
+        require(physical(&self.link(key))? == target && !self.publication_pending(key)?,
+            "package_publication_state")?;
+        Ok(PublicationState { class_id:key.into(), entry:entry.clone(), target,
+            performance:self.performance(key)? })
+    }
+    fn package_publication_record_state(
+        &self,
+        key: &str,
+        entry: &Entry,
+    ) -> Result<PublicationState> {
+        require(
+            entry.registration.key() == key && entry.publication != Publication::Pending,
+            "package_publication_state",
+        )?;
+        let target = match entry.publication {
+            Publication::Published => Some(self.entry_target_record(entry)?),
+            Publication::Removed => None,
+            Publication::Pending => unreachable!(),
+        };
+        require(
+            physical(&self.link(key))? == target && !self.publication_pending(key)?,
+            "package_publication_state",
+        )?;
+        Ok(PublicationState {
+            class_id: key.into(),
+            entry: entry.clone(),
+            target,
+            performance: self.performance(key)?,
+        })
+    }
+    #[doc(hidden)]
+    pub fn package_publication_snapshot(&self) -> Result<Vec<PublicationState>> {
+        let _lock = self.lock("registry.lock")?;
+        let db = self.registry()?;
+        require(db.classes.len() <= 256, "package_publication_bound")?;
+        db.classes.iter().map(|(key, entry)| self.package_publication_state(key, entry)).collect()
+    }
+    /// Current registry/revision/link/performance control bindings without
+    /// executable payload verification. Package status is its only authority.
+    #[doc(hidden)]
+    pub fn package_publication_record_snapshot(&self) -> Result<Vec<PublicationState>> {
+        let _lock = self.lock("registry.lock")?;
+        let db = self.registry()?;
+        require(db.classes.len() <= 256, "package_publication_bound")?;
+        db.classes
+            .iter()
+            .map(|(key, entry)| self.package_publication_record_state(key, entry))
+            .collect()
+    }
+    #[doc(hidden)]
+    pub fn verify_package_publication_snapshot(&self,
+        expected: &[PublicationState]) -> Result<()> {
+        require(expected.len() <= 256
+            && expected.windows(2).all(|pair| pair[0].class_id < pair[1].class_id),
+            "package_publication_order")?;
+        let _lock = self.lock("registry.lock")?;
+        let db = self.registry()?;
+        let actual = db.classes.iter().map(|(key, entry)|
+            self.package_publication_state(key, entry)).collect::<Result<Vec<_>>>()?;
+        require(actual == expected,
+            "package_publication_set_changed")
+    }
     fn retain_profile(&self, profile: &Profile) -> Result<()> {
         let dir = self.root.join("profiles").join(&profile.id);
         self.durable_dir(&dir)?;
@@ -481,9 +587,10 @@ impl Manager {
             // The old target is checked in place and retained verbatim. It is
             // never rebuilt from a current input artifact during rollback.
             entry.registration.native.verify()?;
+            entry.registration.verify_descriptor()?;
             let provenance: Registration = read_json(&target.join("bridge-provenance.json"))?;
             let mut normalized = provenance;
-            normalized.native.path = entry.registration.native.path.clone();
+            normalized.relocate_native(entry.registration.native.path.clone());
             require(
                 normalized == entry.registration,
                 "legacy_provenance_mismatch",
@@ -530,6 +637,7 @@ impl Manager {
         })
     }
     fn write_intent(&self, intent: &Intent, fail: Option<Boundary>) -> Result<()> {
+        let mutation = timing::span(Stage::IntentMutation);
         self.durable_dir(&self.root.join("transactions"))?;
         immutable(
             &self
@@ -539,7 +647,9 @@ impl Manager {
             intent,
         )?;
         boundary(fail, Boundary::IntentArchived)?;
-        immutable(&self.pending_path(&intent.class_id), intent)
+        let result = immutable(&self.pending_path(&intent.class_id), intent);
+        mutation.end(result.is_ok());
+        result
     }
     fn make_candidate(
         &self,
@@ -547,6 +657,7 @@ impl Manager {
         source: &Artifact,
         fail: Option<Boundary>,
     ) -> Result<()> {
+        let mutation = timing::span(Stage::PublicationStageMutation);
         self.durable_dir(&self.revisions(&r.class_id))?;
         let stage = self.revisions(&r.class_id).join(format!(".stage-{}", r.id));
         private_dir(&stage)?;
@@ -560,6 +671,7 @@ impl Manager {
         require(digest(&copy)? == source.sha256, "candidate_copy_changed")?;
         fs::set_permissions(&copy, fs::Permissions::from_mode(0o500))?;
         sync(&copy)?;
+        copy_native_descriptor(&source.path, &copy, &r.registration.descriptor)?;
         sync(&binaries)?;
         boundary(fail, Boundary::NativeCopied)?;
         immutable(&bundle.join("bridge-provenance.json"), r)?;
@@ -575,7 +687,9 @@ impl Manager {
         rename_link(&stage, &self.revision_dir(&r.class_id, &r.id)?, false)?;
         sync(&self.revisions(&r.class_id))?;
         self.load_revision(&r.class_id, &Self::revision_ref(r)?)?;
-        boundary(fail, Boundary::CandidateReady)
+        let result = boundary(fail, Boundary::CandidateReady);
+        mutation.end(result.is_ok());
+        result
     }
     fn activate(&self, intent: &Intent, fail: Option<Boundary>) -> Result<()> {
         fs::create_dir_all(&self.publications)?;
@@ -597,6 +711,7 @@ impl Manager {
             fs::symlink_metadata(&temp).is_err(),
             "transaction_pointer_occupied",
         )?;
+        let mutation = timing::span(Stage::PointerMutation);
         if let Some(candidate) = candidate {
             symlink(&candidate.target, &temp)?;
             sync(&self.publications)?;
@@ -619,7 +734,9 @@ impl Manager {
         }
         boundary(fail, Boundary::PointerExchanged)?;
         sync(&self.publications)?;
-        boundary(fail, Boundary::PointerSynced)
+        let result = boundary(fail, Boundary::PointerSynced);
+        mutation.end(result.is_ok());
+        result
     }
     fn finish(
         &self,
@@ -652,6 +769,7 @@ impl Manager {
         } else {
             db.classes.remove(&intent.class_id);
         }
+        let mutation = timing::span(Stage::RegistryMutation);
         self.save(db)?;
         boundary(fail, Boundary::RegistryCommitted)?;
         let complete = Completion {
@@ -689,7 +807,9 @@ impl Manager {
         }
         fs::remove_file(self.pending_path(&intent.class_id))?;
         sync(&self.root.join("transactions"))?;
-        boundary(fail, Boundary::Cleanup)
+        let result = boundary(fail, Boundary::Cleanup);
+        mutation.end(result.is_ok());
+        result
     }
     fn read_intent(&self, path: &Path) -> Result<Intent> {
         let i: Intent = read_json(path)?;
@@ -815,6 +935,208 @@ impl Manager {
             fail,
         )
     }
+    #[doc(hidden)]
+    pub fn prepare_package_refresh(
+        &self,
+        candidate: &crate::preparation::Candidate,
+        expected: &RevisionRef,
+    ) -> Result<PreparedTransition> {
+        let prior_revision = self.load_revision(&candidate.selection.class.id, expected)?;
+        crate::preparation::verify_refresh_candidate(self, candidate, &prior_revision)?;
+        require(candidate.profile.claim == Claim::ReviewCandidate
+            && crate::preparation::build::supports_loaded_engine_admission(self, candidate)?,
+            "loaded_engine_admission_contract_missing")?;
+        let census = candidate.census()?;
+        census.verify_current(&self.root, &candidate.host,
+            &candidate.source_manifest.sha256, crate::observation::now()?)?;
+        let registration = crate::preparation::configuration::registration(candidate)?;
+        registration.verify(&self.root)?;
+        let key = registration.key();
+        let _lock = self.lock("registry.lock")?;
+        let db = self.registry()?;
+        let entry = db.classes.get(&key).ok_or("registration_absent")?;
+        require(entry.publication == Publication::Published
+            && entry.managed_revision.as_ref() == Some(expected),
+            "bridge_refresh_current_changed")?;
+        let before = self.package_publication_state(&key, entry)?;
+        require(prior_revision.registration.module == registration.module
+            && prior_revision.registration.environment == registration.environment
+            && prior_revision.registration.metadata == registration.metadata
+            && prior_revision.registration.compatibility == registration.compatibility
+            && prior_revision.external_ids == candidate.native.external_ids,
+            "bridge_refresh_configuration_changed")?;
+        require(before.performance.added_frames != 1024
+            || crate::preparation::build::candidate_maximum_bridge_frames(self, candidate)?
+                == Some(1024),
+            "bridge_refresh_buffering_unsupported")?;
+        require(before.performance.delivery_mode != DeliveryMode::SameCallback
+            || crate::preparation::build::candidate_supports_audio_completion(self, candidate)?,
+            "bridge_refresh_delivery_unsupported")?;
+        self.retain_profile(&candidate.profile)?;
+        let transaction = random_id()?;
+        let prior = self.adopt_prior(entry, &candidate.profile, &census, &transaction)?;
+        require(prior.revision == *expected, "bridge_refresh_current_changed")?;
+        let id = random_id()?;
+        let target = self.revision_dir(&key, &id)?
+            .join(format!("LVB_{key}.vst3"));
+        let source = registration.native.clone();
+        let mut installed = registration;
+        installed.relocate_native(target.join("Contents/x86_64-linux")
+            .join(format!("LVB_{key}.so")));
+        let revision = Revision {
+            schema:1, id, class_id:key.clone(), external_ids:external_ids(&key)?,
+            profile:candidate.profile.clone(), profile_sha256:candidate.profile.fingerprint()?,
+            census, registration:installed.clone(), performance:before.performance.clone(),
+            target:target.clone(), parent:Some(expected.clone()), transaction:transaction.clone(),
+            adopted_legacy:false, qualification:Some(Qualification::ManagedExperimental),
+        };
+        let reference = Self::revision_ref(&revision)?;
+        let intent = Intent { schema:1, id:transaction, class_id:key.clone(),
+            prior:Some(prior), candidate:Some(reference.clone()),
+            candidate_target:Some(target.clone()) };
+        self.make_candidate(&revision, &source, None)?;
+        let after = PublicationState { class_id:key,
+            entry:Entry { registration:installed, publication:Publication::Published,
+                managed_revision:Some(reference) },
+            target:Some(target), performance:before.performance.clone() };
+        let reverse_intent = Intent { schema:1, id:random_id()?,
+            class_id:after.class_id.clone(),
+            prior:Some(Prior {
+                entry:after.entry.clone(),
+                revision:after.entry.managed_revision.clone()
+                    .ok_or("package_publication_transition_changed")?,
+                target:after.target.clone(),
+            }),
+            candidate:before.entry.managed_revision.clone(),
+            candidate_target:before.target.clone(),
+        };
+        Ok(PreparedTransition { schema:2, before, after, intent, reverse_intent })
+    }
+    #[doc(hidden)]
+    pub fn package_transition_states(t: &PreparedTransition)
+        -> (&PublicationState, &PublicationState) {
+        (&t.before, &t.after)
+    }
+    fn verify_prepared_transition(&self, transition: &PreparedTransition) -> Result<()> {
+        let t = transition;
+        require(t.schema == 2 && t.before.class_id == t.after.class_id
+            && t.intent.class_id == t.before.class_id
+            && t.intent.prior.as_ref().map(|prior| &prior.entry) == Some(&t.before.entry)
+            && t.intent.prior.as_ref().and_then(|prior| prior.target.as_ref()) == t.before.target.as_ref()
+            && t.intent.candidate.as_ref() == t.after.entry.managed_revision.as_ref()
+            && t.intent.candidate_target.as_ref() == t.after.target.as_ref()
+            && t.reverse_intent.schema == 1
+            && valid_hex(&t.reverse_intent.id, 32)
+            && t.reverse_intent.class_id == t.before.class_id
+            && t.reverse_intent.id != t.intent.id
+            && t.reverse_intent.prior.as_ref().map(|prior| &prior.entry)
+                == Some(&t.after.entry)
+            && t.reverse_intent.prior.as_ref().and_then(|prior| prior.target.as_ref())
+                == t.after.target.as_ref()
+            && t.reverse_intent.prior.as_ref().map(|prior| &prior.revision)
+                == t.after.entry.managed_revision.as_ref()
+            && t.reverse_intent.candidate.as_ref()
+                == t.before.entry.managed_revision.as_ref()
+            && t.reverse_intent.candidate_target.as_ref() == t.before.target.as_ref()
+            && t.before.performance == t.after.performance,
+            "package_publication_transition_changed")?;
+        let reference = t.after.entry.managed_revision.as_ref()
+            .ok_or("package_publication_transition_changed")?;
+        let revision = self.load_revision(&t.after.class_id, reference)?;
+        require(revision.registration == t.after.entry.registration
+            && Some(&revision.target) == t.after.target.as_ref()
+            && revision.performance == t.after.performance
+            && revision.transaction == t.intent.id,
+            "package_publication_transition_changed")
+    }
+    #[doc(hidden)]
+    pub fn verify_package_pending_intents(&self,
+        transitions: &[PreparedTransition]) -> Result<()> {
+        for transition in transitions {
+            self.verify_prepared_transition(transition)?;
+        }
+        let directory = self.root.join("transactions");
+        if !directory.try_exists()? { return Ok(()); }
+        let mut count = 0usize;
+        for entry in fs::read_dir(directory)? {
+            let path = entry?.path();
+            if !path.file_name().and_then(|name| name.to_str())
+                .is_some_and(|name| name.ends_with(".pending.json")) {
+                continue;
+            }
+            count += 1;
+            require(count <= transitions.len(),
+                "package_transaction_pending")?;
+            let intent = self.read_intent(&path)?;
+            let owned = transitions.iter().any(|transition|
+                intent == transition.intent || intent == transition.reverse_intent);
+            require(owned, "package_transaction_pending")?;
+        }
+        Ok(())
+    }
+    #[doc(hidden)]
+    pub fn reconcile_package_pending_intent(&self,
+        transition: &PreparedTransition) -> Result<()> {
+        self.verify_prepared_transition(transition)?;
+        let key = &transition.before.class_id;
+        let _lock = self.lock("registry.lock")?;
+        let pending = self.pending_path(key);
+        if !pending.try_exists()? { return Ok(()); }
+        let intent = self.read_intent(&pending)?;
+        require(intent == transition.intent || intent == transition.reverse_intent,
+            "package_publication_transaction_changed")?;
+        let mut db = self.registry()?;
+        let actual = physical(&self.link(key))?;
+        let prior = intent.prior.as_ref().and_then(|value| value.target.clone());
+        if actual == prior {
+            self.finish(&mut db, &intent, Outcome::Aborted, None)
+        } else {
+            require(actual == intent.candidate_target,
+                "foreign_publication")?;
+            self.finish(&mut db, &intent, Outcome::Committed, None)
+        }
+    }
+    #[doc(hidden)]
+    pub fn commit_package_publication(&self,
+        transition: &PreparedTransition) -> Result<()> {
+        self.reconcile_package_pending_intent(transition)?;
+        let _lock = self.lock("registry.lock")?;
+        self.verify_prepared_transition(transition)?;
+        let current = self.package_publication_state(&transition.before.class_id,
+            self.registry()?.classes.get(&transition.before.class_id)
+                .ok_or("package_publication_set_changed")?)?;
+        if current == transition.after { return Ok(()); }
+        require(current == transition.before, "package_publication_set_changed")?;
+        let mut db = self.registry()?;
+        self.write_intent(&transition.intent, None)?;
+        self.activate(&transition.intent, None)?;
+        self.finish(&mut db, &transition.intent, Outcome::Committed, None)?;
+        require(self.package_publication_state(&transition.after.class_id,
+            self.registry()?.classes.get(&transition.after.class_id)
+                .ok_or("package_publication_set_changed")?)? == transition.after,
+            "package_publication_set_changed")
+    }
+    #[doc(hidden)]
+    pub fn restore_package_publication(&self,
+        transition: &PreparedTransition) -> Result<()> {
+        self.verify_prepared_transition(transition)?;
+        let key = &transition.before.class_id;
+        self.reconcile_package_pending_intent(transition)?;
+        let _lock = self.lock("registry.lock")?;
+        let current = self.registry()?.classes.get(key)
+            .ok_or("package_publication_set_changed")?.clone();
+        let state = self.package_publication_state(key, &current)?;
+        if state == transition.before { return Ok(()); }
+        require(state == transition.after, "package_publication_set_changed")?;
+        self.require_inactive(Some(key))?;
+        let mut db = self.registry()?;
+        self.write_intent(&transition.reverse_intent, None)?;
+        self.activate(&transition.reverse_intent, None)?;
+        self.finish(&mut db, &transition.reverse_intent, Outcome::Committed, None)?;
+        require(self.package_publication_state(key,
+            self.registry()?.classes.get(key).ok_or("package_publication_set_changed")?)?
+            == transition.before, "package_publication_set_changed")
+    }
     /// MF1's global inactivity law is checked again under the publication lock.
     pub fn managed_publish_inactive(
         &self,
@@ -861,16 +1183,33 @@ impl Manager {
         host:(&Artifact,&str),scope:(Option<Qualification>,bool),fail:Option<Boundary>,
         expected:Option<&RevisionRef>,
     )->Result<RevisionRef> {
+        require(!self.root.join("package-transition.json").try_exists()?,
+            "package_transition_needs_recovery")?;
+        let validation = timing::span(Stage::PublicationValidation);
         let (qualification, global_inactive) = scope;
         let (installed_host, source) = host;
         let managed = qualification == Some(Qualification::ManagedExperimental) || crate::preparation::owns_profile(self,profile)?;
         if managed {crate::preparation::check_publication(self,profile,&registration)?;}
+        #[cfg(test)]
+        let enforce_loaded_engine = self.root.join("test-loaded-engine-enforcement").exists();
+        #[cfg(not(test))]
+        let enforce_loaded_engine = true;
+        if managed && enforce_loaded_engine {
+            require(crate::preparation::build::publication_supports_loaded_engine_admission(
+                self, profile, &registration)?,
+                "bridge_update_required: use Update Bridge")?;
+        }
         // Digest and inspection work precede registry admission. Immutable inputs
         // are rechecked outside the guard again before the short commit below.
         census.verify_current(&self.root,installed_host,source,crate::observation::now()?)?;
         registration.verify(&self.root)?;
-        let mut guard = Some(self.lock("registry.lock")?);
         let key = registration.key();
+        let performance = self.performance(&key)?;
+        require(performance.delivery_mode != DeliveryMode::SameCallback || managed
+            && crate::preparation::build::publication_supports_audio_completion(self, profile, &registration)?,
+            "publication_delivery_unsupported_by_target: Select buffered delivery before selecting this older publication.")?;
+        let mut guard = Some(timing::measure(Stage::RegistryLock, || self.lock("registry.lock"))?);
+        require(self.performance(&key)? == performance, "publication_performance_changed")?;
         self.require_inactive(if global_inactive { None } else { Some(&key) })?;
         let mut db = self.registry()?;
         if let Some(expected)=expected {
@@ -887,7 +1226,7 @@ impl Manager {
                 }
             }
         }
-        self.reconcile_revisions(&mut db)?;
+        timing::measure(Stage::PublicationRecovery, || self.reconcile_revisions(&mut db))?;
         let purpose = if qualification.is_some() {
             SelectionPurpose::Qualification
         } else {
@@ -937,12 +1276,12 @@ impl Manager {
                 && registration.compatibility == profile.capabilities.compatibility(),
             "derived_registration_mismatch",
         )?;
-        let performance = self.performance(&key)?;
         if let Some(e) = db.classes.get(&key) {
             if let Some(reference) = &e.managed_revision {
                 let r = self.load_revision(&key, reference)?;
                 let mut old = r.registration.clone();
                 old.native = registration.native.clone();
+                old.descriptor = registration.descriptor.clone();
                 old.host = registration.host.clone();
                 if fail.is_none()
                     && e.publication == Publication::Published
@@ -954,10 +1293,13 @@ impl Manager {
                         physical(&self.link(&key))? == Some(r.target),
                         "foreign_or_missing_publication",
                     )?;
+                    validation.end(true);
                     return Ok(reference.clone());
                 }
             }
         }
+        validation.end(true);
+        let retained_mutation = timing::span(Stage::PublicationRetainMutation);
         self.retain_profile(profile)?;
         boundary(fail, Boundary::ProfileRetained)?;
         let transaction = random_id()?;
@@ -970,15 +1312,16 @@ impl Manager {
         if prior.is_none() {
             require(physical(&self.link(&key))?.is_none(), "foreign_publication")?;
         }
+        retained_mutation.end(true);
         let id = random_id()?;
         let target = self
             .revision_dir(&key, &id)?
             .join(format!("LVB_{key}.vst3"));
         let source_artifact = registration.native.clone();
         let mut installed = registration;
-        installed.native.path = target
+        installed.relocate_native(target
             .join("Contents/x86_64-linux")
-            .join(format!("LVB_{key}.so"));
+            .join(format!("LVB_{key}.so")));
         let r = Revision {
             schema: 1,
             id,
@@ -1010,12 +1353,15 @@ impl Manager {
             // No physical pointer or transaction is exposed during package copy.
             // A failed/interrupted copy cannot authorize service admission.
             self.make_candidate(&r,&source_artifact,fail)?;
+            let authority = timing::span(Stage::PublicationFinalAuthority);
             census.verify_current(&self.root,installed_host,source,crate::observation::now()?)?;
             source_artifact.verify()?;
-            guard=Some(self.lock("registry.lock")?);
-            self.require_inactive(None)?;
+            guard=Some(timing::measure(Stage::RegistryLock, || self.lock("registry.lock"))?);
+            self.require_inactive(if global_inactive { None } else { Some(&r.class_id) })?;
+            require(self.performance(&r.class_id)? == r.performance, "publication_performance_changed")?;
             require(serde_json::to_vec(&self.registry()?)?==snapshot && !self.publication_pending(&r.class_id)?
                 && physical(&self.link(&r.class_id))?==intent.prior.as_ref().and_then(|p|p.target.clone()),"preparation_publication_state_changed")?;
+            authority.end(true);
             self.write_intent(&intent,fail)?;
             boundary(fail,Boundary::Intent)?;
         } else {
@@ -1023,8 +1369,10 @@ impl Manager {
             boundary(fail, Boundary::Intent)?;
             self.make_candidate(&r, &source_artifact, fail)?;
         }
-        self.activate(&intent, fail)?;
-        self.finish(&mut db, &intent, Outcome::Committed, fail)?;
+        timing::measure(Stage::PublicationMutation, || {
+            self.activate(&intent, fail)?;
+            self.finish(&mut db, &intent, Outcome::Committed, fail)
+        })?;
         drop(guard);
         Ok(reference)
     }
@@ -1038,13 +1386,18 @@ impl Manager {
         fail: Option<Boundary>,
         expected: Option<&RevisionRef>,
     ) -> Result<RevisionRef> {
-        self.rollback_with_scope(key, id, fail, expected, false)
+        self.rollback_with_scope(key, id, fail, expected, false, false)
+    }
+    #[doc(hidden)]
+    pub fn rollback_managed_expected(&self, key: &str, id: &str,
+        expected: &RevisionRef) -> Result<RevisionRef> {
+        self.rollback_expected(key, id, None, Some(expected))
     }
     pub fn rollback_inactive(&self, key: &str, id: &str, fail: Option<Boundary>) -> Result<RevisionRef> {
-        self.rollback_with_scope(key, id, fail, None, true)
+        self.rollback_with_scope(key, id, fail, None, true, false)
     }
-    pub(crate) fn rollback_exact_inactive(&self, key: &str, id: &str, expected: &RevisionRef) -> Result<RevisionRef> {
-        self.rollback_with_scope(key, id, None, Some(expected), true)
+    pub(crate) fn rollback_exact(&self, key: &str, id: &str, expected: &RevisionRef) -> Result<RevisionRef> {
+        self.rollback_with_scope(key, id, None, Some(expected), false, false)
     }
     fn rollback_with_scope(
         &self,
@@ -1053,12 +1406,16 @@ impl Manager {
         fail: Option<Boundary>,
         expected: Option<&RevisionRef>,
         global_inactive: bool,
+        package_transition: bool,
     ) -> Result<RevisionRef> {
+        require(package_transition || !self.root.join("package-transition.json").try_exists()?,
+            "package_transition_needs_recovery")?;
+        let authority = timing::span(Stage::RestoreAuthority);
         require(valid_hex(key, 32) && valid_hex(id, 32), "rollback_identity")?;
-        let _lock = self.lock("registry.lock")?;
+        let _lock = timing::measure(Stage::RegistryLock, || self.lock("registry.lock"))?;
         self.require_inactive(if global_inactive { None } else { Some(key) })?;
         let mut db = self.registry()?;
-        self.reconcile_revisions(&mut db)?;
+        timing::measure(Stage::PublicationRecovery, || self.reconcile_revisions(&mut db))?;
         let e = db.classes.get(key).ok_or("registration_absent")?.clone();
         let current = e.managed_revision.as_ref().ok_or("no_managed_revision")?;
         require(
@@ -1079,16 +1436,36 @@ impl Manager {
             reference = r.parent;
         }
         let (selected, r) = selected.ok_or("rollback_revision_not_retained_ancestor")?;
-        r.registration.verify(&self.root)?;
-        require(
-            self.performance(key)? == r.performance,
-            "rollback_performance_mismatch",
-        )?;
+        timing::measure(Stage::CandidateVerification, || r.registration.verify(&self.root))?;
+        #[cfg(test)]
+        let enforce_loaded_engine = self.root.join("test-loaded-engine-enforcement").exists();
+        #[cfg(not(test))]
+        let enforce_loaded_engine = true;
+        if !package_transition && enforce_loaded_engine {
+            let modern = crate::preparation::publication_candidate(
+                self, &r.profile, &r.registration).and_then(|candidate|
+                    crate::preparation::build::supports_loaded_engine_admission(self, &candidate))
+                .unwrap_or(false);
+            require(modern,
+                "bridge_update_required: use Update Bridge or Restore previous setup")?;
+        }
+        // The revision retains the publication-time preference as evidence.
+        // Explicit buffering changes are independently owned class settings;
+        // restoring a publication preserves them, subject to the target's
+        // actual capacity, rather than demanding the historical value.
+        let performance = self.performance(key)?;
+        require(performance.added_frames != 1024
+            || preparation::build::revision_maximum_bridge_frames(self, &r)? == Some(1024),
+            "rollback_buffering_unsupported_by_target")?;
+        require(performance.delivery_mode != DeliveryMode::SameCallback
+            || preparation::build::revision_supports_audio_completion(self, &r)?,
+            "rollback_delivery_unsupported_by_target: Select buffered delivery before restoring this older publication.")?;
         if e.publication == Publication::Published && current == &selected {
             require(
                 physical(&self.link(key))? == Some(r.target),
                 "foreign_or_missing_publication",
             )?;
+            authority.end(true);
             return Ok(selected);
         }
         let transaction = random_id()?;
@@ -1101,10 +1478,13 @@ impl Manager {
             candidate: Some(selected.clone()),
             candidate_target: Some(r.target.clone()),
         };
-        self.write_intent(&intent, fail)?;
-        boundary(fail, Boundary::Intent)?;
-        self.activate(&intent, fail)?;
-        self.finish(&mut db, &intent, Outcome::Committed, fail)?;
+        authority.end(true);
+        timing::measure(Stage::RestoreMutation, || {
+            self.write_intent(&intent, fail)?;
+            boundary(fail, Boundary::Intent)?;
+            self.activate(&intent, fail)?;
+            self.finish(&mut db, &intent, Outcome::Committed, fail)
+        })?;
         Ok(selected)
     }
     pub(crate) fn remove_revision(
@@ -1113,6 +1493,8 @@ impl Manager {
         key: &str,
         fail: Option<Boundary>,
     ) -> Result<()> {
+        require(!self.root.join("package-transition.json").try_exists()?,
+            "package_transition_needs_recovery")?;
         self.require_inactive(Some(key))?;
         self.reconcile_revisions(db)?;
         let e = db.classes.get(key).ok_or("registration_absent")?.clone();
@@ -1164,9 +1546,9 @@ pub(crate) fn retained_candidate_fixture(
         .join(format!("LVB_{key}.vst3"));
     let source = registration.native.clone();
     let mut registration = registration;
-    registration.native.path = target
+    registration.relocate_native(target
         .join("Contents/x86_64-linux")
-        .join(format!("LVB_{key}.so"));
+        .join(format!("LVB_{key}.so")));
     let r = Revision {
         schema: 1,
         id,

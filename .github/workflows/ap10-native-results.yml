@@ -8,9 +8,18 @@ on:
       - 'cmake/HP0*.cmake'
       - 'native-vst3-proxy/**'
       - 'native-audio-client/**'
+      - 'plugin-descriptor/**'
       - 'vst-state/**'
+      - 'tools/ap8_descriptor.py'
+      - 'tools/mf3/**'
       - 'tools/ap10-tests/**'
       - 'tools/ap11-tests/**'
+      - 'tools/beta/lifecycle_host.cpp'
+      - 'tools/beta/build_lifecycle_host.sh'
+      - 'tools/beta/completion_host.cpp'
+      - 'tools/beta/completion_host_tests.cpp'
+      - 'tools/beta/sdk_buffers.h'
+      - 'windows-fixtures/beta/**'
       - 'windows-factory-probe/source/*.h'
 permissions:
   contents: read
@@ -21,6 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Install native build dependency
         run: |
@@ -34,6 +44,7 @@ jobs:
         run: python3 tools/wf0-factory-census/build.py acquire --sdk-root "${{ runner.temp }}/ap10-sdk"
       - name: Test production transport including first idle reply deadline
         run: |
+          cargo test --manifest-path plugin-descriptor/Cargo.toml --locked
           cargo test --manifest-path native-audio-client/Cargo.toml --locked admission
           cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked
       - name: Build Rust backend
@@ -46,6 +57,39 @@ jobs:
             -DAP2_RUST_LIBRARY="$PWD/native-vst3-proxy/backend/target/release/libap2_backend.a" \
             -DAP8_DESCRIPTOR="$PWD/native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h"
           cmake --build "${{ runner.temp }}/ap10-build" --target \
-            ap10-result-lifetime ap10-results-tests ap18-auxiliary-input ap18-late-note-off-host ap11-native-tests ap11-state-tests ap11-panel-tests ap11-activation-tests ap3-callback-audit CommercialInstrumentBridge -j 4
+            ap10-result-lifetime process-call-observer-tests ap10-results-tests ap18-whole-block-tests ap18-auxiliary-input ap18-late-note-off-host ap11-native-tests ap11-state-tests ap11-panel-tests ap11-activation-tests ap3-callback-audit ap23-local-wake-audit CommercialInstrumentBridge -j 4
+      - name: Compile independent installed lifecycle and completion consumers
+        run: sh tools/beta/build_lifecycle_host.sh "${{ runner.temp }}/ap10-sdk" "${{ runner.temp }}/ap10-build/lib/Release" "${{ runner.temp }}/lifecycle-tools"
+      - name: Test independent completion consumer against the actual first-party producer
+        run: |
+          "${{ runner.temp }}/lifecycle-tools/completion-host-instrument-tests"
+          "${{ runner.temp }}/lifecycle-tools/completion-host-effect-tests"
+      - name: Verify bounded local wakes and native completion ABI through SDK processing
+        run: ctest --test-dir "${{ runner.temp }}/ap10-build/native-vst3-proxy" --verbose -R '^ap23-(local-wake-audit|native-completion-contract)$' --no-tests=error
       - name: Test shallow host lifetime and existing collector behavior
         run: ctest --test-dir "${{ runner.temp }}/ap10-build/native-vst3-proxy" --verbose
+      - name: Retain independent installed-test instrumentation
+        run: |
+          cp tools/beta/lifecycle_host.cpp "${{ runner.temp }}/lifecycle-tools/"
+          cp tools/beta/completion_host.cpp tools/beta/completion_host_tests.cpp tools/beta/sdk_buffers.h "${{ runner.temp }}/lifecycle-tools/"
+          cp windows-fixtures/beta/stateful.cpp "${{ runner.temp }}/lifecycle-tools/completion-fixture-source.cpp"
+          cp native-vst3-proxy/tests/local_wake_audit.cpp native-vst3-proxy/include/ap23_backend.h native-vst3-proxy/backend/src/completion_wait.rs native-vst3-proxy/source/processor.h "${{ runner.temp }}/lifecycle-tools/"
+          cp tools/ap11-tests/native.cpp "${{ runner.temp }}/lifecycle-tools/ap23-sdk-contract-source.cpp"
+          git rev-parse HEAD > "${{ runner.temp }}/lifecycle-tools/SOURCE_HEAD"
+          cd "${{ runner.temp }}/lifecycle-tools"
+          sha256sum lifecycle-host completion-host completion-host-instrument-tests completion-host-effect-tests libap3-callback-audit.so lifecycle_host.cpp completion_host.cpp completion_host_tests.cpp sdk_buffers.h completion-fixture-source.cpp local_wake_audit.cpp ap23_backend.h completion_wait.rs processor.h ap23-sdk-contract-source.cpp SOURCE_HEAD > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: installed-lifecycle-tools-${{ github.sha }}
+          path: ${{ runner.temp }}/lifecycle-tools
+      - name: Build reusable engine before choosing plug-in metadata
+        run: |
+          cmake -S . -B "${{ runner.temp }}/reusable-build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DAP2_BUILD_ONLY=ON -DLVB_REUSABLE_ENGINE=ON \
+            -DVST3_SDK_ROOT="${{ runner.temp }}/ap10-sdk" \
+            -DAP2_RUST_LIBRARY="$PWD/native-vst3-proxy/backend/target/release/libap2_backend.a"
+          cmake --build "${{ runner.temp }}/reusable-build" --target CommercialInstrumentBridge lvb-reusable-factory-check -j 4
+          python3 -m unittest discover -s tools/mf3 -v
+          python3 tools/mf3/check_reusable_engine.py \
+            "${{ runner.temp }}/reusable-build/VST3/Release/CommercialInstrumentBridge.vst3/Contents/x86_64-linux/CommercialInstrumentBridge.so" \
+            "${{ runner.temp }}/reusable-build/native-vst3-proxy/lvb-reusable-factory-check"

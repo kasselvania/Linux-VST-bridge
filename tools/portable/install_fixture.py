@@ -57,7 +57,7 @@ def main():
         "dpkg-query", "-W", "-f=${Status} ${Version}", "linux-vst-bridge-beta"], text=True).strip()
     if installed != "install ok installed 0.1.0beta1-1":
         raise ValueError("package installation state")
-    desktop = Path("/usr/share/applications/linux-audio-compatibility-manager.desktop")
+    desktop = Path("/usr/share/applications/linux-vst-bridge-setup.desktop")
     if (desktop.read_bytes() != assemble.SYSTEM_DESKTOP_BYTES
             or desktop.stat().st_uid != 0 or desktop.stat().st_gid != 0):
         raise ValueError("system desktop identity")

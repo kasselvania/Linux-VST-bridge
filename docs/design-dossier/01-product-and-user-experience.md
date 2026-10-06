@@ -134,7 +134,7 @@ A cooperative vendor may want a tested Linux compatibility profile, a supportabl
 5. **Authorization is vendor-owned.** The product presents and supervises lawful flows; it never fabricates or bypasses them.
 6. **Secrets are not evidence.** Credentials, cookies, serials, activation files, tokens, and proprietary account data are excluded from logs and repository evidence.
 7. **Compatibility is versioned.** A profile applies to exact declared conditions and can be superseded, withdrawn, or known-regressed.
-8. **Working environments are immutable by default.** Updates create explicit revisions and rollback points rather than silently mutating a known-good runtime.
+8. **Working runtime selections and setup changes are versioned.** Updates and experiments create explicit revisions and viable rollback points. Vendor settings, presets, saved state and authorization remain mutable; the environment is not a frozen filesystem. See [the preparation and experimentation contract](../ARCHITECTURE.md#186-general-preparation-and-compatibility-experimentation).
 9. **Audio cannot depend on management.** The manager, installer, scanner, profile service, and UI are absent from the real-time callback path.
 10. **Failure ownership is visible.** Installer, authorization, scanner, VST3 lifecycle, audio, editor, content, sandbox, and runtime failures retain distinct identities.
 11. **A plug-in is not usable until it recalls.** Save/reopen, automation identity, parameter state, content resolution, and editor reopening are first-class acceptance.

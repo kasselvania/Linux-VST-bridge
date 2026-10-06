@@ -1,0 +1,238 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-04",
+  "claim": "IPC15 first mapped AUDIO can be published while exact Started acknowledgement is pending; readiness and results still require that acknowledgement",
+  "production_source": {
+    "head": "84bc1c621a974c841580f38dc51790b93f8b6754",
+    "tree": "66cbb10c71b1d26945caead615feae20be6ccaa5"
+  },
+  "fixture_source": {
+    "head": "7b5a7287711322b62b72a70c3e4412605d351c1e",
+    "tree": "498231b736ef8ac67c7de83b05af49785bbceb86",
+    "only_changed_from_product": [
+      "native-vst3-proxy/backend/src/lc1_tests.rs"
+    ]
+  },
+  "baseline": {
+    "head": "ad1c57f612844fc47c90aacad9d06b556f9424ca",
+    "tests_only_patch_sha256": "d1a791e6688fc148edbe03e86ef123664417a705ddab758cad8dc678e0469bee",
+    "windows_fixture_sha256": "84b49fdfbe453eb79fa41b9fc3df4d8716819cfe35c94cd7b1017c539029e441",
+    "exit_status": 101,
+    "held_started": true,
+    "native_fault": 3,
+    "detail": "WouldBlock: Resource temporarily unavailable (os error 11)",
+    "mapped_request_flag": 0,
+    "mapped_request_size": 0,
+    "log_sha256": "cce480aa53b53372ad20272d8a9ad9362cb9d0a0fcf29895ad9fbaee19218d9e",
+    "claim": "Old native remains blocked receiving Started and cannot publish the first N0 while the fixture holds the reply. This is a dependency reproducer, not a real-time deadline experiment.",
+    "harness_scope": "Tests-only adaptation of the old LC1 test; not byte-identical to the expanded repaired fixture."
+  },
+  "repair": {
+    "publication": "One first-position mapped request through existing Session and ownership machinery",
+    "completion": "Exact original session/sequence/epoch Started validation precedes readiness and result acceptance",
+    "control": "Already-admitted control retains its barrier; no additional control reader while Started is pending",
+    "deadlines": "Original pending START and actual worker AUDIO transport/offline deadlines remain bounded; buffered local presentation expiry does not become fatal startup expiry",
+    "cancellation": "Work snapshot precedes cancellation/fault/quit predicates to avoid absorbing a terminal wake",
+    "prepared_storage": true,
+    "windows_production_logic_changed": false,
+    "callback_allowance_changed": false,
+    "runtime_or_scheduling_changed": false
+  },
+  "validation": {
+    "local_macos_backend": {
+      "passed": 141,
+      "failed": 0,
+      "ignored_two_ended": 2
+    },
+    "linux_client": {
+      "passed": 21,
+      "failed": 0
+    },
+    "linux_backend": {
+      "default": {
+        "passed": 148,
+        "failed": 0,
+        "ignored_two_ended": 2
+      },
+      "registered": {
+        "passed": 148,
+        "failed": 0,
+        "ignored_two_ended": 2
+      }
+    },
+    "strict_affected_linux_clippy": true,
+    "native_sdk_tests": 13,
+    "independent_paired_package_rebuild": true,
+    "ci": [
+      {
+        "conclusion": "success",
+        "databaseId": 37212710420,
+        "headSha": "84bc1c621a974c841580f38dc51790b93f8b6754",
+        "name": "Beta package portability",
+        "status": "completed",
+        "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37212710420"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 37212710378,
+        "headSha": "84bc1c621a974c841580f38dc51790b93f8b6754",
+        "name": "PX2 proof policy",
+        "status": "completed",
+        "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37212710378"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 37212710402,
+        "headSha": "84bc1c621a974c841580f38dc51790b93f8b6754",
+        "name": "AP10 native result lifetime",
+        "status": "completed",
+        "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37212710402"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 37212710389,
+        "headSha": "84bc1c621a974c841580f38dc51790b93f8b6754",
+        "name": "AP12 registered owner",
+        "status": "completed",
+        "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37212710389"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 37212710423,
+        "headSha": "84bc1c621a974c841580f38dc51790b93f8b6754",
+        "name": "AP8 Windows host",
+        "status": "completed",
+        "url": "https://github.com/kasselvania/Linux-VST-bridge/actions/runs/37212710423"
+      }
+    ],
+    "build_evidence_sha256": "bf96df2f9274928c78619594091d0cafb67dca0b9a380d5c00d5b423c447c719"
+  },
+  "two_ended": {
+    "artifacts": {
+      "native_test_sha256": "3d47e6e02afb6e5563e1c980c1b0db17732645e525d12a90514ef4bd553017e0",
+      "windows_fixture_sha256": "84b49fdfbe453eb79fa41b9fc3df4d8716819cfe35c94cd7b1017c539029e441",
+      "fixture_json_sha256": "23ffe375fad8e512885f267c49f72035f6e001138b9682a05e4fa3648d590dfa",
+      "green3_manifest_sha256": "282967d88a953d484892ab8e7ff377b340d81dd21a7e615e03a2e12772bcdfe1"
+    },
+    "positive": {
+      "status": 0,
+      "test": "queued::lc1_tests::same_session_reconfiguration_two_ended",
+      "log_sha256": "a969eeb1aea0c823494f0d7dec60decb484455cb2a7a105ba2622049abf16d65",
+      "held_release_markers": {
+        "held": [
+          1,
+          2,
+          3
+        ],
+        "released": [
+          1,
+          2,
+          3
+        ]
+      },
+      "start_epochs": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "processed_blocks_by_epoch": [
+        3,
+        2,
+        1,
+        0
+      ],
+      "processed_blocks_total": 6,
+      "vendor_start_results": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "vendor_stop_results": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "commercial_state_result": {
+        "bytes": 20,
+        "result": 0,
+        "native_oracle": "exact identity-bound v3 payload"
+      },
+      "endpoint_closed_and_unmapped": true
+    },
+    "refusal": {
+      "status": 0,
+      "test": "queued::lc1_tests::refused_vendor_start_never_grants_audio_authority",
+      "log_sha256": "bb93490c9f1b803a82f37401b90e862f8901b1fd93de2b792af6751a209d1ddc",
+      "vendor_start_results": [
+        1
+      ],
+      "processed_blocks": [
+        0
+      ],
+      "native_oracle": "readiness0 processed0 empty request and failed close; ACK sampled as prior17 or terminal6, never Started267"
+    },
+    "cleanup": {
+      "units_inactive": true,
+      "owned_processes": 0,
+      "normal_endpoint_closed_and_unmapped": true,
+      "product_supervisor_retirement_claim": false
+    },
+    "allowlisted_archive_sha256": "1abb6244bd40e02bc2046cc8e60300fb6feb078003138cdf78192e1587c0891c",
+    "observation_sha256": "94cfbbd9be0bddc2ef50d59eb75d204700f78e2fe2f2a6f3795325f748bddc4b",
+    "executed_cases": [
+      "same_session_reconfiguration_two_ended",
+      "refused_vendor_start_never_grants_audio_authority"
+    ],
+    "optional_prestart_deactivation_and_wrong_sequence_branches_executed": false,
+    "runner": {
+      "id": "managed-ge-proton11-7-slr4-20260805-r3",
+      "version": "GE-Proton11-7; SLR 4.0.20260805.254769; managed download v3",
+      "files": [
+        {
+          "runner_relative_path": "runtime-tree.json",
+          "sha256": "c4190a4a184e8ff3721b7495e01db0d0de09c0eaf3ffd42b87b516c077c4e7ef"
+        },
+        {
+          "runner_relative_path": "GE-Proton11-7-x86_64/proton",
+          "sha256": "c0fe398829c78c82b26d39c20fbeb6b28d1e46941723962d794d7e5f67d402be"
+        },
+        {
+          "runner_relative_path": "GE-Proton11-7-x86_64/files/bin/wine",
+          "sha256": "7b0ca4538f365d8a225afdfe5f872715bb5f7c1908dbdcb522c9519cac7c8714"
+        },
+        {
+          "runner_relative_path": "SteamLinuxRuntime_4/_v2-entry-point",
+          "sha256": "caa39b5cde8ea955288b574b49b3416fd16e7be3f53a17249d673f5ecfdce2c1"
+        },
+        {
+          "runner_relative_path": "SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-wrap",
+          "sha256": "0439811997a081e4f90f898b7e98e34e46cff3745a0611c17309947fd47f4da9"
+        }
+      ]
+    }
+  },
+  "retained_failures": {
+    "initial_windows_fixture_compile": "Duplicate parse pointer/deadline identifier; corrected before runtime proof. Original CI failure retained.",
+    "baseline_initial_empty_filter": "Zero tests executed; not a baseline result. Actual failing test log is separately retained.",
+    "first_repaired_attempt": "First N0 was published; erroneous fixed ACK9 assertion stopped the fixture (actual prior ACK17).",
+    "second_repaired_attempt": "Early publication passed in epochs1 and2; omitted fixture Identity selected the reference decoder for valid commercial state.",
+    "corrections": "Exact pre-START ACK observation, fixture Identity bound to Session and Shared, exact v3 state oracle and terminal ACK6 race handling; production source unchanged.",
+    "through_second_attempt_archive_sha256": "ce4ca4543cff472af5c4416ea7a5cec74e20662c5142063e318f2110b35933eb",
+    "truncated_transfer": "Retained as unusable; replaced by verified allow-listed copies excluding prefixes."
+  },
+  "review": {
+    "model": "gpt-6-astra",
+    "reasoning": "xhigh",
+    "status": "no_remaining_source_findings",
+    "corrected_fixture_patch_sha256": "d32c77b534acdf2c1b2f397449e7e8cf6059ccb98ac5bbf8b3afd91e87db3393"
+  },
+  "nonclaims": [
+    "No installed audio timing cure, historical dropout attribution or whole-DAW deadline guarantee.",
+    "A 15-second held-gate test establishes ordering, not real-time performance.",
+    "First-party LC1 closure does not substitute for product supervisor process/transport retirement.",
+    "No physical Deck/DAW, serial-chain, lower-block, endurance or beta qualification."
+  ]
+}

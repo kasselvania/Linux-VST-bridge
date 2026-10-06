@@ -1,16 +1,292 @@
 use super::*;
 use crate::test_fixture::{inspection_report, prepared_accessibility, snapshot, Fixture};
 use serde_json::json;
-fn fixture() -> (Fixture, Candidate) {
+pub(crate) fn fixture() -> (Fixture, Candidate) {
+    fixture_with_environment(&"13".repeat(16))
+}
+#[test]
+fn candidate_commit_requires_valid_retained_lineage() {
+    let (f, c) = fixture();
+    let id = c.id().unwrap();
+    let record = object(&f.m, "candidates", &id).unwrap().join("candidate.json");
+    assert_eq!(record_candidate_with_predecessor(&f.m, &c, Some(&"ff".repeat(32)))
+        .unwrap_err().to_string(), "candidate_predecessor_absent");
+    assert!(!record.exists());
+    assert!(retained_candidates(&f.m).unwrap().is_empty());
+    let lineage_path = object(&f.m, "lineage", &id).unwrap().join("record.json");
+    immutable(&lineage_path, &CandidateLineage {schema:1,candidate:"ff".repeat(32),
+        preparation_identity:"original".into(),ordinal:7,predecessor:None}).unwrap();
+    let original = fs::read(&lineage_path).unwrap();
+    assert_eq!(record_candidate(&f.m, &c).unwrap_err().to_string(), "candidate_lineage_identity");
+    assert!(!record.exists());
+    assert!(retained_candidates(&f.m).unwrap().is_empty());
+    assert_eq!(fs::read(&lineage_path).unwrap(), original);
+    assert!(!root(&f.m).join("revision.json").exists());
+}
+#[test]
+fn retained_static_profile_without_candidate_authorizes_only_its_exact_refresh() {
+    let (f, mut profile, mut census, native) = prepared_accessibility(false);
+    let mut raw: Value = read_json(&census.report.path).unwrap();
+    let mut controller = raw["records"][1]["classes"][0].clone();
+    controller["raw_tuid_hex"] = json!("02".repeat(16));
+    controller["category_hex"] = json!(hex(b"Component Controller Class"));
+    raw["records"][1]["classes"][1] = controller;
+    atomic_json(&census.report.path, &raw).unwrap();
+    let report = census.report.path.clone();
+    census = Census::from_report(
+        census.environment,
+        census.module,
+        census.module_stamp,
+        census.host,
+        census.host_source_sha256,
+        Artifact { sha256:digest(&report).unwrap(), path:report },
+        &f.r.key(),
+    ).unwrap();
+    let reference =
+        f.m.managed_publish(
+            &profile,
+            &census,
+            f.r.clone(),
+            &f.r.host,
+            &f.r.host_source_sha256,
+            None,
+        )
+        .unwrap();
+    let predecessor = f.m.load_revision(&f.r.key(), &reference).unwrap();
+    profile.capabilities.accessibility = Accessibility::DisabledForVendorProcess;
+    profile.capabilities.vendor_retirement =
+        Some(VendorRetirement::ProcessScopedVendorRetirement);
+    profile.capabilities.editor_lifetime =
+        Some(EditorLifetime::RetainEditorViewUntilInstanceRetirement);
+    profile.capabilities.event_output =
+        Some(EventOutputPolicy::ReportedZeroEventChannelsUnspecified);
+    profile
+        .limitations
+        .push(Limitation::WindowsAccessibilityUnavailable);
+    profile.validate().unwrap();
+    let mut predecessor = predecessor;
+    predecessor.id = random_id().unwrap();
+    predecessor.transaction = random_id().unwrap();
+    predecessor.profile = profile.clone();
+    predecessor.profile_sha256 = profile.fingerprint().unwrap();
+    predecessor.registration.compatibility = profile.capabilities.compatibility();
+    let revision_dir = f
+        .m
+        .root
+        .join("publications")
+        .join(&predecessor.class_id)
+        .join("revisions")
+        .join(&predecessor.id);
+    private_dir(&revision_dir).unwrap();
+    predecessor.target = revision_dir.join(format!("LVB_{}.vst3", predecessor.class_id));
+    let native_dir = predecessor.target.join("Contents/x86_64-linux");
+    private_dir(&native_dir).unwrap();
+    let installed_native = native_dir.join(format!("LVB_{}.so", predecessor.class_id));
+    fs::copy(&predecessor.registration.native.path, &installed_native).unwrap();
+    predecessor.registration.relocate_native(installed_native);
+    atomic_json(&predecessor.target.join("bridge-provenance.json"), &predecessor).unwrap();
+    atomic_json(&revision_dir.join("revision.json"), &predecessor).unwrap();
+    assert_eq!(
+        publication_candidate(&f.m, &predecessor.profile, &predecessor.registration)
+            .unwrap_err()
+            .to_string(),
+        "candidate_preparation_required"
+    );
+
+    with_retained_refresh_profiles(vec![profile.clone()], || {
+        let source = refresh_source(&f.m, &predecessor).unwrap();
+        assert!(source.candidate.is_none());
+        assert_eq!(
+            source.selection.environment,
+            predecessor.registration.environment
+        );
+        assert_eq!(source.selection.module, predecessor.registration.module);
+        assert_eq!(source.selection.class.id, predecessor.class_id);
+        assert_eq!(source.basis, retained_revision_basis(&predecessor).unwrap());
+
+        let manifest = Artifact {
+            path: predecessor
+                .registration
+                .host
+                .path
+                .with_file_name("host-source-manifest.json"),
+            sha256: predecessor.registration.host_source_sha256.clone(),
+        };
+        let inspection = inspect_record_with_layout(
+            source.selection.clone(),
+            predecessor.census.report.clone(),
+            Origin::ManagedPreparation,
+            predecessor.registration.host.clone(),
+            manifest.clone(),
+            predecessor.registration.compatibility.audio_layout.clone(),
+        )
+        .unwrap();
+        let next = prepared(
+            source.selection,
+            inspection,
+            native,
+            predecessor.registration.host.clone(),
+            manifest,
+            "aa".repeat(32),
+        )
+        .unwrap();
+        let next = bind_preparation_basis(next, Some(source.basis.clone())).unwrap();
+        let next = carry_retained_revision_configuration(next, &predecessor).unwrap();
+        retain_refresh_lineage(&f.m, &next, &predecessor, None).unwrap();
+        verify_refresh_candidate(&f.m, &next, &predecessor).unwrap();
+        validate_candidate_record(&f.m, &next).unwrap();
+        verify_retained_candidate(&f.m, &next).unwrap();
+        assert!(publication_requires_refresh(&f.m, &predecessor, &next.recipe_sha256).unwrap());
+        assert_eq!(
+            next.local_settings,
+            Some(crate::operator_model::LocalSettings {
+                graphics: predecessor.profile.capabilities.graphics,
+                accessibility: crate::operator_model::AccessibilityChoice::DisabledForHost,
+            })
+        );
+        assert_eq!(
+            next.profile.capabilities.compatibility(),
+            predecessor.registration.compatibility
+        );
+        assert_eq!(
+            next.profile.capabilities.vendor_retirement,
+            Some(VendorRetirement::ProcessScopedVendorRetirement)
+        );
+        assert_eq!(
+            next.profile.capabilities.editor_lifetime,
+            Some(EditorLifetime::RetainEditorViewUntilInstanceRetirement)
+        );
+        assert_eq!(
+            next.profile.capabilities.event_output,
+            Some(EventOutputPolicy::ReportedZeroEventChannelsUnspecified)
+        );
+
+        record_candidate(&f.m, &next).unwrap();
+        let mut second_predecessor = predecessor.clone();
+        second_predecessor.profile = next.profile.clone();
+        second_predecessor.profile_sha256 = next.profile.fingerprint().unwrap();
+        second_predecessor.census = next.census().unwrap();
+        second_predecessor.registration = configuration::registration(&next).unwrap();
+        second_predecessor.qualification = Some(Qualification::ManagedExperimental);
+        let second_source = refresh_source(&f.m, &second_predecessor).unwrap();
+        assert!(second_source.candidate.is_some());
+        assert_eq!(
+            second_source
+                .retained_configuration
+                .as_ref()
+                .unwrap()
+                .id,
+            predecessor.id
+        );
+        let mut successor = next.clone();
+        successor.recipe_sha256 = "bb".repeat(32);
+        let successor = bind_preparation_basis(
+            configuration::carry_settings(successor, Some(&next)).unwrap(),
+            Some(second_source.basis.clone()),
+        )
+        .unwrap();
+        let successor =
+            carry_retained_revision_configuration(successor, &second_predecessor).unwrap();
+        retain_refresh_lineage(
+            &f.m,
+            &successor,
+            second_source.retained_configuration.as_ref().unwrap(),
+            Some(&next.id().unwrap()),
+        )
+        .unwrap();
+        verify_refresh_candidate(&f.m, &successor, &second_predecessor).unwrap();
+        validate_candidate_record(&f.m, &successor).unwrap();
+        assert_eq!(
+            successor.profile.capabilities.compatibility(),
+            predecessor.registration.compatibility
+        );
+
+        let mut stale = predecessor.clone();
+        stale.id = random_id().unwrap();
+        assert_eq!(
+            verify_refresh_candidate(&f.m, &next, &stale)
+                .unwrap_err()
+                .to_string(),
+            "bridge_refresh_predecessor_configuration"
+        );
+        let mut qualified = predecessor.clone();
+        qualified.qualification = Some(Qualification::ManagedExperimental);
+        assert_eq!(
+            refresh_source(&f.m, &qualified).unwrap_err().to_string(),
+            "bridge_refresh_predecessor_claim"
+        );
+        let mut malformed = predecessor.clone();
+        malformed.census.selected.name = "Different class".into();
+        assert!(refresh_source(&f.m, &malformed).is_err());
+        let mut wrong_class = next;
+        wrong_class.selection.class.id = "03".repeat(16);
+        assert_eq!(
+            verify_refresh_candidate(&f.m, &wrong_class, &predecessor)
+                .unwrap_err()
+                .to_string(),
+            "bridge_refresh_predecessor_changed"
+        );
+    });
+}
+
+#[test]
+fn lost_managed_candidate_is_not_reclassified_as_a_legacy_profile() {
+    let (f, c) = fixture();
+    record_candidate(&f.m, &c).unwrap();
+    for area in AREAS {
+        record_observation(
+            &f.m,
+            &c,
+            &random_id().unwrap(),
+            area,
+            TestStatus::Passed,
+            "Exact local observation",
+        )
+        .unwrap();
+    }
+    review(
+        &f.m,
+        &c,
+        &random_id().unwrap(),
+        ReviewChoice::AcceptExactLocal,
+        "Exact local review",
+    )
+    .unwrap();
+    let reference = enable(&f.m, &c, true).unwrap();
+    let predecessor =
+        f.m.load_revision(&c.selection.class.id, &reference)
+            .unwrap();
+    let lineage_path = object(&f.m, "lineage", &c.id().unwrap())
+        .unwrap()
+        .join("record.json");
+    let lineage: CandidateLineage = read_json(&lineage_path).unwrap();
+    fs::remove_file(&lineage_path).unwrap();
+    assert_eq!(
+        refresh_source(&f.m, &predecessor).unwrap_err().to_string(),
+        "candidate_lineage_absent"
+    );
+    atomic_json(&lineage_path, &lineage).unwrap();
+    fs::remove_dir_all(root(&f.m).join("candidates")).unwrap();
+    assert_eq!(
+        publication_candidate(&f.m, &predecessor.profile, &predecessor.registration)
+            .unwrap_err()
+            .to_string(),
+        "candidate_preparation_required"
+    );
+    assert_eq!(
+        refresh_source(&f.m, &predecessor).unwrap_err().to_string(),
+        "bridge_refresh_predecessor_profile"
+    );
+}
+fn fixture_with_environment(id: &str) -> (Fixture, Candidate) {
     let (mut f, _, mut census, native) = prepared_accessibility(false);
     f.m.unpublish(&f.r.key()).unwrap();
     atomic_json(&f.m.root.join("registry.json"), &Registry::default()).unwrap();
     let old = f.r.environment.root.clone();
-    let id = "13".repeat(16);
-    let envroot = f.m.root.join("environments").join(&id);
+    let envroot = f.m.root.join("environments").join(id);
     fs::rename(&old, &envroot).unwrap();
     f.r.module.path = envroot.join(f.r.module.path.strip_prefix(&old).unwrap());
-    f.r.environment.id = id;
+    f.r.environment.id = id.into();
     f.r.environment.root = envroot;
     atomic_json(
         &f.r.environment.root.join("environment.json"),
@@ -69,6 +345,262 @@ fn fixture() -> (Fixture, Candidate) {
     };
     let c = prepared(s, i, native, f.r.host.clone(), manifest, "aa".repeat(32)).unwrap();
     (f, c)
+}
+#[test]
+fn record_readback_watches_only_used_product_records_not_unrelated_history_payloads() {
+    let (f, current) = fixture();
+    record_candidate(&f.m, &current).unwrap();
+    enable(&f.m, &current, false).unwrap();
+    let mut unrelated = current.clone();
+    unrelated.selection.class.id = "ef".repeat(16);
+    unrelated.inspection.selection = unrelated.selection.clone();
+    unrelated.profile.class.class_id = unrelated.selection.class.id.clone();
+    unrelated.native.class.class_id = unrelated.selection.class.id.clone();
+    unrelated.native.artifact.path = f.outer.join("unrelated-history-payload");
+    let id = unrelated.id().unwrap();
+    let directory = object(&f.m, "candidates", &id).unwrap();
+    private_dir(&directory).unwrap();
+    atomic_json(&directory.join("candidate.json"), &unrelated).unwrap();
+    let records = RecordReadback::capture(&f.m).unwrap();
+    assert_eq!(records.candidates.len(), 2);
+    assert_eq!(records.watched_paths().unwrap(), vec![root(&f.m).join("candidates")]);
+    assert!(records.catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
+    let watches = records.watched_paths().unwrap();
+    assert!(watches.contains(&current.native.artifact.path));
+    assert!(!watches.contains(&unrelated.native.artifact.path));
+    assert!(!watches.contains(&directory.join("candidate.json")));
+    assert!(!watches.contains(&object(&f.m, "lineage", &id).unwrap().join("record.json")));
+}
+#[test]
+fn retained_uuid_environment_can_prepare_from_current_exact_inventory() {
+    let (f, c) = fixture_with_environment("11111111-1111-4111-8111-111111111111");
+    let before = snapshot(&f.r.environment.root);
+    let current = select(&f.m, &c.selection.id().unwrap(), &f.r.host,
+        &f.r.host_source_sha256).unwrap();
+    assert_eq!(current, c.selection);
+    verify_selection(&f.m, &current, &f.r.host, &f.r.host_source_sha256).unwrap();
+    retain_inspection(&f.m, &c.inspection).unwrap();
+    record_candidate(&f.m, &c).unwrap();
+    let reference = enable(&f.m, &c, false).unwrap();
+    let published = f.m.load_revision(&c.selection.class.id, &reference).unwrap();
+    assert_eq!(published.registration.environment, f.r.environment);
+    assert_eq!(snapshot(&f.r.environment.root), before);
+    // A current source/host census is still required; preserving the identifier
+    // grants no authority to use stale scanner evidence or another location.
+    assert!(select(&f.m, &current.id().unwrap(), &f.r.host, &"ff".repeat(32)).is_err());
+    let mut wrong = current.clone();
+    wrong.environment.id = "../11111111-1111-4111-8111-111111111111".into();
+    assert!(verify_selection_data(&f.m, &wrong, &f.r.host,
+        &f.r.host_source_sha256).is_err());
+    wrong = current.clone();
+    wrong.environment.root = f.m.root.join("outside").join(&wrong.environment.id);
+    assert!(verify_selection_data(&f.m, &wrong, &f.r.host,
+        &f.r.host_source_sha256).is_err());
+}
+#[test]
+fn retained_accessibility_configuration_requires_consistent_advice_and_limits() {
+    let (f, mut candidate) = fixture();
+    candidate.profile.capabilities.accessibility = Accessibility::DisabledForVendorProcess;
+    assert!(verify_retained_candidate(&f.m, &candidate).unwrap_err().to_string()
+        .contains("candidate_accessibility_limitation_changed"));
+    candidate.profile.limitations.push(Limitation::WindowsAccessibilityUnavailable);
+    assert!(verify_retained_candidate(&f.m, &candidate).unwrap_err().to_string()
+        .contains("candidate_policy_requires_explicit_support"));
+    candidate.profile.evidence.push("evidence/default-accessibility-advice.json".into());
+    verify_retained_candidate(&f.m, &candidate).unwrap();
+    candidate.origin = Origin::RetainedSv1;
+    assert!(verify_retained_candidate(&f.m, &candidate).is_err());
+    candidate.origin = Origin::ManagedPreparation;
+    candidate.profile.capabilities.accessibility = Accessibility::WindowsDefault;
+    assert!(verify_retained_candidate(&f.m, &candidate).unwrap_err().to_string()
+        .contains("candidate_accessibility_limitation_changed"));
+}
+#[test]
+fn managed_publication_needs_no_static_catalogue_but_keeps_exact_authority() {
+    let (f, c) = fixture();
+    retain_inspection(&f.m, &c.inspection).unwrap();
+    record_candidate(&f.m, &c).unwrap();
+    let reference = enable(&f.m, &c, false).unwrap();
+    assert!(crate::catalogue::catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
+    assert!(crate::catalogue::catalogue_free_registry_readback(&f.m, &f.m.registry().unwrap()).unwrap());
+    let mut foreign = f.m.registry().unwrap();
+    foreign.classes.get_mut(&c.selection.class.id).unwrap().registration.native.sha256 = "ff".repeat(32);
+    assert!(catalogue_free_registry(&f.m, &foreign).is_err());
+    assert!(catalogue_free_registry_readback(&f.m, &foreign).is_err());
+    let mut legacy = f.m.registry().unwrap();
+    legacy.classes.get_mut(&c.selection.class.id).unwrap().managed_revision = None;
+    assert!(!catalogue_free_registry(&f.m, &legacy).unwrap());
+    assert!(!catalogue_free_registry_readback(&f.m, &legacy).unwrap());
+    let revision = f.m.load_revision(&c.selection.class.id, &reference).unwrap();
+    let completion = f.m.root.join("transactions").join(format!("{}.result.json",revision.transaction));
+    let saved = completion.with_extension("saved");
+    fs::rename(&completion, &saved).unwrap();
+    assert!(catalogue_free_registry(&f.m, &f.m.registry().unwrap()).is_err());
+    assert!(catalogue_free_registry_readback(&f.m, &f.m.registry().unwrap()).unwrap());
+    fs::rename(&saved, &completion).unwrap();
+    let link = f.m.link(&c.selection.class.id);
+    let target = fs::read_link(&link).unwrap();
+    fs::remove_file(&link).unwrap();
+    symlink(&f.m.root, &link).unwrap();
+    assert!(catalogue_free_registry(&f.m, &f.m.registry().unwrap()).is_err());
+    assert!(catalogue_free_registry_readback(&f.m, &f.m.registry().unwrap()).unwrap());
+    fs::remove_file(&link).unwrap();
+    symlink(target, &link).unwrap();
+    disable(&f.m, &c).unwrap();
+    assert!(crate::catalogue::catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
+    assert!(crate::catalogue::catalogue_free_registry_readback(&f.m, &f.m.registry().unwrap()).unwrap());
+}
+#[test]
+fn successor_publication_keeps_explicit_buffering_and_requires_exact_proxy_capacity() {
+    let (f, c) = fixture();
+    retain_inspection(&f.m, &c.inspection).unwrap();
+    record_candidate(&f.m, &c).unwrap();
+    let original = enable(&f.m, &c, false).unwrap();
+    fn kit(f: &Fixture, c: &Candidate, schema: u32) -> Artifact {
+        let path = f.m.root.join("software").join(format!("envelope-{schema}.zip"));
+        private_dir(path.parent().unwrap()).unwrap();
+        let row = json!({"class_id":c.selection.class.id,"module_sha256":c.selection.module.sha256,
+            "native_sha256":c.native.artifact.sha256,"file":"prebuilt/proxy.so",
+            "maximum_bridge_frames":1024});
+        let index = json!({"schema":schema,"proxies":[row]}).to_string();
+        let status = std::process::Command::new("python3").args(["-I", "-c", r#"
+import hashlib,json,sys,zipfile
+index=sys.argv[2].encode()
+with zipfile.ZipFile(sys.argv[1],'w') as archive:
+ archive.writestr('prebuilt/index.json',index)
+ archive.writestr('recipe.json',json.dumps({'schema':3,'files':{
+  'prebuilt/index.json':hashlib.sha256(index).hexdigest(),'prebuilt/proxy.so':sys.argv[3]}}))
+"#]).arg(&path).arg(index).arg(&c.native.artifact.sha256).status().unwrap();
+        assert!(status.success());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        Artifact {sha256:digest(&path).unwrap(),path}
+    }
+    let mut software = crate::catalogue::Software {
+        installer_launch: None, preparation_kit: None,
+        manager: c.host.clone(), operator_frontend: None,
+        supervisor: c.host.clone(), ownership: c.host.clone(), host: c.host.clone(),
+        source_manifest: c.source_manifest.clone(),
+        source_sha256: c.source_manifest.sha256.clone(), native_catalogue: None,
+    };
+    software.preparation_kit = Some(kit(&f, &c, 2));
+    atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+    f.m.select_delay(&c.selection.class.id, 1024).unwrap();
+    // Buffering is an independent, explicit preference. A later graphics trial
+    // must restore the original publication without reverting that preference
+    // to the publication-time snapshot (512).
+    let trial = configuration::prepare(&f.m, &c,
+        Some(crate::operator_model::GraphicsBackend::WineD3d11), Some(&original)).unwrap();
+    let trial_ref = replace(&f.m, &trial, &original).unwrap();
+    let before_restore = fs::read(f.m.root.join("registry.json")).unwrap();
+    let capable_kit = software.preparation_kit.take();
+    atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+    assert!(disable_exact(&f.m, &trial, &trial_ref).is_err(), "unknown target capacity must still refuse");
+    assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before_restore);
+    assert_eq!(f.m.performance(&c.selection.class.id).unwrap().added_frames, 1024);
+    software.preparation_kit = capable_kit;
+    atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+    disable_exact(&f.m, &trial, &trial_ref).unwrap();
+    assert_eq!(f.m.registry().unwrap().classes[&c.selection.class.id].managed_revision, Some(original.clone()));
+    assert_eq!(f.m.performance(&c.selection.class.id).unwrap().added_frames, 1024);
+    let next = prepared(c.selection.clone(), c.inspection.clone(), c.native.clone(),
+        c.host.clone(), c.source_manifest.clone(), software.preparation_kit.as_ref().unwrap().sha256.clone()).unwrap();
+    record_candidate(&f.m, &next).unwrap();
+    let reference = replace(&f.m, &next, &original).unwrap();
+    let revision = f.m.load_revision(&c.selection.class.id, &reference).unwrap();
+    assert_eq!(revision.performance.added_frames, 1024);
+    retained(&f.m, &revision).unwrap();
+    assert!(catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
+    // An older exact kit or absent capability cannot authorize this snapshot.
+    software.preparation_kit = Some(kit(&f, &c, 1));
+    atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+    assert!(retained(&f.m, &revision).unwrap_err().to_string().contains("candidate_runtime_contract"));
+    software.preparation_kit = None;
+    atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+    assert!(retained(&f.m, &revision).is_err());
+    let prior = f.m.load_revision(&c.selection.class.id, &original).unwrap();
+    verify_retained_revision(&f.m, &prior).unwrap();
+}
+#[test]
+fn populated_kit_update_retains_exact_published_proxy_capacity() {
+    let (f, c) = fixture();
+    retain_inspection(&f.m, &c.inspection).unwrap();
+    record_candidate(&f.m, &c).unwrap();
+    let original = enable(&f.m, &c, false).unwrap();
+    fn kit(f: &Fixture, c: &Candidate, name: &str, successor: bool) -> Artifact {
+        let path = f.m.root.join("software").join(format!("capacity-{name}.zip"));
+        private_dir(path.parent().unwrap()).unwrap();
+        let status = std::process::Command::new("python3").args(["-I", "-c", r#"
+import hashlib,json,pathlib,sys,zipfile
+out,host,source,native,klass,module,successor=sys.argv[1:]
+proxy=b'successor proxy fixture' if successor=='true' else pathlib.Path(native).read_bytes()
+digest=lambda data:hashlib.sha256(data).hexdigest()
+index={'schema':2,'proxies':[{'class_id':klass,'module_sha256':module,
+ 'native_sha256':digest(proxy),'file':'prebuilt/proxy.so','maximum_bridge_frames':1024}]}
+files={'prebuilt/index.json':json.dumps(index).encode(),'prebuilt/proxy.so':proxy,
+ 'runtime/host.exe':pathlib.Path(host).read_bytes(),
+ 'runtime/host-source-manifest.json':pathlib.Path(source).read_bytes(),
+ 'tools/mf3/native_builder.py':b'# test instrumentation',
+ 'tools/ap8_descriptor.py':b'# test instrumentation'}
+with zipfile.ZipFile(out,'w') as archive:
+ for key,data in files.items():archive.writestr(key,data)
+ archive.writestr('recipe.json',json.dumps({'schema':3,'files':{key:digest(data) for key,data in files.items()}}))
+"#]).arg(&path).arg(&c.host.path).arg(&c.source_manifest.path)
+            .arg(&c.native.artifact.path).arg(&c.selection.class.id)
+            .arg(&c.selection.module.sha256).arg(successor.to_string()).status().unwrap();
+        assert!(status.success());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        Artifact {sha256:digest(&path).unwrap(),path}
+    }
+    let old_kit = kit(&f, &c, "old", false);
+    let mut software = crate::catalogue::Software {
+        installer_launch: None, preparation_kit: Some(old_kit.clone()),
+        manager: c.host.clone(), operator_frontend: None,
+        supervisor: c.host.clone(), ownership: c.host.clone(), host: c.host.clone(),
+        source_manifest: c.source_manifest.clone(),
+        source_sha256: c.source_manifest.sha256.clone(), native_catalogue: None,
+    };
+    atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+    f.m.select_delay(&c.selection.class.id, 1024).unwrap();
+    let runtime = build::stage_runtime(&f.m).unwrap();
+    let mut inspection = c.inspection.clone();
+    inspection.host = runtime.host.clone();
+    inspection.source_manifest = runtime.source_manifest.clone();
+    let retained_candidate = prepared(c.selection.clone(), inspection, c.native.clone(),
+        runtime.host, runtime.source_manifest, old_kit.sha256.clone()).unwrap();
+    retain_inspection(&f.m, &retained_candidate.inspection).unwrap();
+    record_candidate(&f.m, &retained_candidate).unwrap();
+    let reference = replace(&f.m, &retained_candidate, &original).unwrap();
+    let revision = f.m.load_revision(&c.selection.class.id, &reference).unwrap();
+    assert_eq!(revision.performance.added_frames, 1024);
+    let registry_before = fs::read(f.m.root.join("registry.json")).unwrap();
+    software.preparation_kit = Some(kit(&f, &c, "new", true));
+    atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+    retained(&f.m, &revision).unwrap();
+    assert!(catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
+    f.m.select_delay(&c.selection.class.id, 512).unwrap();
+    f.m.select_delay(&c.selection.class.id, 1024).unwrap();
+    assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_before);
+    let trial = configuration::prepare(&f.m, &retained_candidate,
+        Some(crate::operator_model::GraphicsBackend::WineD3d11), Some(&reference)).unwrap();
+    let trial_ref = replace(&f.m, &trial, &reference).unwrap();
+    disable_exact(&f.m, &trial, &trial_ref).unwrap();
+    assert_eq!(f.m.registry().unwrap().classes[&c.selection.class.id].managed_revision, Some(reference.clone()));
+    assert_eq!(f.m.performance(&c.selection.class.id).unwrap().added_frames, 1024);
+    let mut foreign = revision.registration.clone();
+    foreign.module.sha256 = "ff".repeat(32);
+    assert_eq!(build::maximum_bridge_frames(&f.m, &foreign).unwrap(), None);
+    software.preparation_kit = None;
+    atomic_json(&f.m.root.join("software.json"), &software).unwrap();
+    retained(&f.m, &revision).unwrap();
+    let record = f.m.root.join("software/preparation-kits")
+        .join(&old_kit.sha256).join("runtime.json");
+    let saved = fs::read(&record).unwrap();
+    fs::remove_file(&record).unwrap();
+    assert!(retained(&f.m, &revision).is_err());
+    immutable(&record, &serde_json::from_slice::<build::Runtime>(&saved).unwrap()).unwrap();
+    fs::set_permissions(&old_kit.path, fs::Permissions::from_mode(0o600)).unwrap();
+    fs::write(&old_kit.path, b"changed retained recipe").unwrap();
+    assert!(retained(&f.m, &revision).is_err());
 }
 #[test]
 fn touch_carry_forward_keeps_factory_and_selected_class_without_claiming_a_new_scan() {
@@ -154,7 +686,7 @@ fn generic_selection_controller_and_exact_reuse() {
     let id = record_candidate(&f.m, &c).unwrap();
     assert_eq!(record_candidate(&f.m, &c).unwrap(), id);
     assert_eq!(
-        candidate(&f.m, &id, &c.host, &c.source_manifest.sha256).unwrap(),
+        candidate_record(&f.m, &id).unwrap(),
         c
     );
     assert!(f.m.registry().unwrap().classes.is_empty());
@@ -744,7 +1276,7 @@ fn candidate_and_inspection_generations_coexist_and_actions_are_exact() {
         Some(a.id().unwrap())
     );
     assert_eq!(
-        candidate(&f.m, &b.id().unwrap(), &b.host, &b.source_manifest.sha256).unwrap(),
+        candidate_record(&f.m, &b.id().unwrap()).unwrap(),
         b
     );
     assert!(observations(&f.m, &b).unwrap().is_empty());
@@ -871,7 +1403,7 @@ fn durable_legacy_provenance_survives_current_host_inventory_advance() {
     atomic_json(&inv, &json!({"new":"scanner generation"})).unwrap();
     fs::remove_file(&on).unwrap();
     verify_legacy(&f.m, &c).unwrap(); // Never kit verification for retained-sv1.
-    assert_eq!(candidate(&f.m, &id, &c.host, &"ff".repeat(32)).unwrap(), c);
+    assert_eq!(candidate_record(&f.m, &id).unwrap(), c);
     assert_eq!(
         before,
         fs::read(object(&f.m, "legacy", &id).unwrap().join("provenance.json")).unwrap()
@@ -935,6 +1467,7 @@ fn complete_build_identity_reuses_only_the_exact_generation() {
         source_manifest: manifest.clone(),
         builder: Some(builder.clone()),
         generator: Some(generator.clone()),
+        direct_audio_helpers:vec![],
     };
     immutable(&dir.join("runtime.json"), &runtime).unwrap();
     let i = inspect_record_with(
@@ -961,6 +1494,24 @@ fn complete_build_identity_reuses_only_the_exact_generation() {
         build::reusable(&f.m, &c.selection, &i, &kit.sha256).unwrap(),
         Some(c.clone())
     );
+    // Several settings candidates share one compiled artifact. Refresh keeps
+    // the selected override without mistaking the candidates for two engines.
+    let trial = configuration::prepare(&f.m, &c,
+        Some(crate::operator_model::GraphicsBackend::WineD3d11), None).unwrap();
+    let reusable = build::reusable(&f.m, &c.selection, &i, &kit.sha256).unwrap().unwrap();
+    let refreshed = configuration::carry_settings(reusable, Some(&trial)).unwrap();
+    let refreshed = bind_preparation_basis(refreshed, Some("bc".repeat(32))).unwrap();
+    record_candidate_with_predecessor(&f.m, &refreshed, Some(&trial.id().unwrap())).unwrap();
+    assert_eq!(refreshed.profile.capabilities.graphics, trial.profile.capabilities.graphics);
+    assert_eq!(build::reusable(&f.m, &c.selection, &i, &kit.sha256).unwrap(), Some(c.clone()));
+    // A historical default recommendation does not select native code or
+    // reinterpret its configuration when today's advice changes.
+    let advised = prepared_with_advice(c.selection.clone(), i.clone(), c.native.clone(),
+        c.host.clone(), c.source_manifest.clone(), kit.sha256.clone(),
+        (Accessibility::DisabledForVendorProcess,
+            vec!["docs/MF3.md".into(), "evidence/default-accessibility-advice.json".into()])).unwrap();
+    record_candidate(&f.m, &advised).unwrap();
+    assert_eq!(build::reusable(&f.m, &c.selection, &i, &kit.sha256).unwrap(), Some(c.clone()));
     assert!(build::reusable(&f.m, &c.selection, &i, &"ff".repeat(32))
         .unwrap()
         .is_none());
@@ -1236,6 +1787,91 @@ fn installed_candidate_only_upgrade_materializes_history_without_replacing_candi
 }
 
 #[test]
+fn scoped_history_recovery_rechecks_records_preserves_lineage_and_ignores_unrelated_candidates() {
+    let (f, c, binding) = legacy_fixture();
+    let id = c.id().unwrap();
+    let record = object(&f.m, "candidates", &id).unwrap().join("candidate.json");
+    immutable(&record, &c).unwrap();
+    let candidate_bytes = fs::read(&record).unwrap();
+    let mut unrelated = c.clone();
+    unrelated.selection.environment.id = "14".repeat(16);
+    unrelated.selection.environment.root = f.m.root.join("environments").join(&unrelated.selection.environment.id);
+    let unrelated_record = object(&f.m, "candidates", &unrelated.id().unwrap()).unwrap().join("candidate.json");
+    immutable(&unrelated_record, &unrelated).unwrap();
+    let unrelated_bytes = fs::read(&unrelated_record).unwrap();
+    let line = CandidateLineage {schema:1,candidate:id.clone(),preparation_identity:"original-generation".into(),
+        ordinal:17,predecessor:None};
+    let lineage_path = object(&f.m, "lineage", &id).unwrap().join("record.json");
+    immutable(&lineage_path, &line).unwrap();
+    let lineage_bytes = fs::read(&lineage_path).unwrap();
+    let recovery = history::retained_history_recovery_with_binding(&f.m, &c, &binding).unwrap().unwrap();
+    assert!(!recovery.missing.iter().any(|slot| slot == "lineage"));
+    let inventory_path = f.m.root.join("inventory").join(format!("{}.json", c.selection.environment.id));
+    let inventory_bytes = fs::read(&inventory_path).unwrap();
+    let mut inventory: Value = read_json(&inventory_path).unwrap();
+    inventory["completed_at"] = json!(999);
+    atomic_json(&inventory_path, &inventory).unwrap();
+    assert_eq!(history::complete_candidate_history_with_binding(&f.m, &id,
+        &recovery.expected_history, &binding).unwrap_err().to_string(), "candidate_history_changed");
+    assert!(!object(&f.m, "legacy", &id).unwrap().exists());
+    fs::write(&inventory_path, &inventory_bytes).unwrap();
+    history::complete_candidate_history_with_binding(&f.m, &id, &recovery.expected_history, &binding).unwrap();
+    assert!(history::retained_history_recovery_with_binding(&f.m, &c, &binding).unwrap().is_none());
+    verify_legacy(&f.m, &c).unwrap();
+    assert_eq!(lineage(&f.m, &c).unwrap(), line);
+    assert_eq!(fs::read(&lineage_path).unwrap(), lineage_bytes);
+    assert_eq!(fs::read(&record).unwrap(), candidate_bytes);
+    assert_eq!(fs::read(&unrelated_record).unwrap(), unrelated_bytes);
+    assert!(!object(&f.m, "legacy", &unrelated.id().unwrap()).unwrap().exists());
+}
+#[test]
+fn scoped_history_recovery_reports_absent_source_without_materializing_history() {
+    let (f, c, binding) = legacy_fixture();
+    let id = c.id().unwrap();
+    let record = object(&f.m, "candidates", &id).unwrap().join("candidate.json");
+    immutable(&record, &c).unwrap();
+    let original = fs::read(&record).unwrap();
+    fs::remove_file(f.m.root.join("inventory").join(format!("{}.json", c.selection.environment.id))).unwrap();
+    let recovery = history::retained_history_recovery_with_binding(&f.m, &c, &binding).unwrap().unwrap();
+    assert_eq!(recovery.unavailable_reason.as_deref(), Some(
+        "Saved setup history cannot be completed because original setup records are missing."));
+    assert_eq!(history::complete_candidate_history_with_binding(&f.m, &id,
+        &recovery.expected_history, &binding).unwrap_err().to_string(), "candidate_history_source_unavailable");
+    assert_eq!(fs::read(&record).unwrap(), original);
+    assert!(!object(&f.m, "legacy", &id).unwrap().exists());
+    assert!(!object(&f.m, "lineage", &id).unwrap().exists());
+}
+#[test]
+fn scoped_history_recovery_finishes_each_partial_snapshot_without_false_corruption_fallback() {
+    use history::MaterializeBoundary::*;
+    for boundary in [Environment, Onboarding, Inventory, ProvenanceStaged, ProvenanceInstalled] {
+        let (f, c, binding) = legacy_fixture();
+        let id = c.id().unwrap();
+        let record = object(&f.m, "candidates", &id).unwrap().join("candidate.json");
+        immutable(&record, &c).unwrap();
+        let candidate_bytes = fs::read(&record).unwrap();
+        assert_eq!(history::materialize_legacy_with(&f.m, &c, &binding, Some(boundary))
+            .unwrap_err().to_string(), "legacy_materialization_interrupted");
+        let recovery = history::retained_history_recovery_with_binding(&f.m, &c, &binding).unwrap().unwrap();
+        let snapshots = snapshot(&object(&f.m, "legacy", &id).unwrap());
+        history::complete_candidate_history_with_binding(&f.m, &id, &recovery.expected_history, &binding).unwrap();
+        let completed = snapshot(&object(&f.m, "legacy", &id).unwrap());
+        for (path, bytes) in snapshots {
+            assert_eq!(completed.get(&path), Some(&bytes), "existing immutable snapshots must win");
+        }
+        verify_legacy(&f.m, &c).unwrap();
+        assert_eq!(fs::read(&record).unwrap(), candidate_bytes);
+        assert!(history::retained_history_recovery_with_binding(&f.m, &c, &binding).unwrap().is_none());
+    }
+    let (f, c, binding) = legacy_fixture();
+    let conflict = object(&f.m, "legacy", &c.id().unwrap()).unwrap().join("environment.json");
+    immutable(&conflict, &json!({"conflicting":"snapshot"})).unwrap();
+    let bytes = fs::read(&conflict).unwrap();
+    assert_eq!(history::retained_history_recovery_with_binding(&f.m, &c, &binding)
+        .unwrap_err().to_string(), "legacy_input_binding");
+    assert_eq!(fs::read(&conflict).unwrap(), bytes);
+}
+#[test]
 fn candidate_only_upgrade_retries_each_interruption_through_readback_owner() {
     use history::MaterializeBoundary::*;
     for boundary in [Environment, Onboarding, Inventory, ProvenanceStaged,
@@ -1270,4 +1906,263 @@ fn candidate_only_upgrade_refuses_bound_snapshot_conflict_without_rewriting_it()
     assert_eq!(fs::read(&conflict).unwrap(), b"conflicting immutable material");
     assert_eq!(fs::read(&record).unwrap(), before);
     assert!(!conflict.with_file_name("provenance.json").exists());
+}
+
+#[test]
+fn reusable_engine_actual_preparation_retains_and_publishes_descriptor() {
+    let (f, c) = fixture();
+    retain_inspection(&f.m, &c.inspection).unwrap();
+    record_candidate(&f.m, &c).unwrap();
+    let predecessor = enable(&f.m, &c, false).unwrap();
+    private_dir(&f.m.root.join("performance")).unwrap();
+    atomic_json(&f.m.root.join("performance").join(format!("{}.json",
+        c.selection.class.id)), &Performance { schema:1, added_frames:1024,
+        delivery_mode:DeliveryMode::Buffered }).unwrap();
+    let path = f.m.root.join("software/reusable-kit.zip");
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    let script = r#"import json,zipfile,hashlib,sys,pathlib
+path,root,host,manifest,engine=sys.argv[1:];root=pathlib.Path(root)
+sha=lambda b:hashlib.sha256(b).hexdigest()
+files={'prebuilt/engine.so':b'\x7fELF'+engine.encode(),
+ 'runtime/host.exe':pathlib.Path(host).read_bytes(),
+ 'runtime/host-source-manifest.json':pathlib.Path(manifest).read_bytes()}
+helper_names=['lvb-direct-wait.dll','x86_64-windows/lvb-direct-wait.dll','x86_64-unix/lvb-direct-wait.so']
+for name in helper_names:files['runtime/'+name]=name.encode()
+files['runtime/direct-audio-helper.json']=json.dumps(dict(schema=1,abi=1,
+ host_sha256=sha(files['runtime/host.exe']),runner_wine_revision='46b29104e3741fe23bf5e2547196a253aab88c89',
+ files={name:sha(files['runtime/'+name]) for name in helper_names})).encode()
+for name in ('tools/mf3/native_builder.py','tools/ap8_descriptor.py'):files[name]=(root/name).read_bytes()
+files['prebuilt/index.json']=json.dumps(dict(schema=3,engine='prebuilt/engine.so',
+ engine_sha256=sha(files['prebuilt/engine.so']),descriptor_schema=1,maximum_bridge_frames=1024,
+ audio_completion_contract=1,loaded_engine_admission_contract=1,native_sources={})).encode()
+recipe=dict(schema=4,source_commit='ab'*20,sdk='3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96',
+ sdk_runtime='b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8',files={k:sha(v) for k,v in files.items()})
+with zipfile.ZipFile(path,'w') as z:
+ z.writestr('recipe.json',json.dumps(recipe))
+ for k,v in files.items():z.writestr(k,v)
+"#;
+    let make_kit = |path: &Path, engine: &str| {
+        assert!(std::process::Command::new("python3")
+            .args(["-I", "-c", script])
+            .arg(path)
+            .arg(&root)
+            .arg(&c.host.path)
+            .arg(&c.source_manifest.path)
+            .arg(engine)
+            .status()
+            .unwrap()
+            .success());
+        fs::set_permissions(path, fs::Permissions::from_mode(0o400)).unwrap();
+    };
+    make_kit(&path, "reusable-engine-fixture");
+    let a = c.host.clone();
+    let sw = crate::catalogue::Software {
+        manager: a.clone(),
+        operator_frontend: None,
+        installer_launch: None,
+        preparation_kit: Some(Artifact {
+            sha256: digest(&path).unwrap(),
+            path,
+        }),
+        supervisor: a.clone(),
+        ownership: a.clone(),
+        host: a,
+        source_manifest: c.source_manifest.clone(),
+        source_sha256: c.source_manifest.sha256.clone(),
+        native_catalogue: None,
+    };
+    let old_kit = f.m.root.join("software/old-selected-kit.zip");
+    make_kit(&old_kit, "old-selected-engine-fixture");
+    let mut selected = sw.clone();
+    selected.preparation_kit = Some(Artifact {
+        sha256:digest(&old_kit).unwrap(), path:old_kit,
+    });
+    atomic_json(&f.m.root.join("software.json"), &selected).unwrap();
+    let selected_before = fs::read(f.m.root.join("software.json")).unwrap();
+    assert_ne!(selected.preparation_kit.as_ref().unwrap().sha256,
+        sw.preparation_kit.as_ref().unwrap().sha256);
+    let runtime = build::stage_runtime_for_software(&f.m, &sw).unwrap();
+    assert_eq!(runtime.direct_audio_helpers.len(),4);
+    for artifact in &runtime.direct_audio_helpers {
+        artifact.verify().unwrap();assert_eq!(fs::metadata(&artifact.path).unwrap().mode()&0o222,0);
+    }
+    assert_eq!(fs::read(f.m.root.join("software.json")).unwrap(), selected_before);
+    let mut raw: Value = read_json(&c.inspection.report.path).unwrap();
+    raw["records"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"state":"ap8_bus","media":0,
+        "direction":1,"index":0,"channels":2,"type":0,"flags":1,"arrangement":3,"name":"Output"}));
+    let report = f.outer.join("preparation-inspection.json");
+    atomic_json(&report, &raw).unwrap();
+    let inspection = inspect_record_with(
+        c.selection.clone(),
+        Artifact {
+            sha256: digest(&report).unwrap(),
+            path: report,
+        },
+        Origin::ManagedPreparation,
+        runtime.host.clone(),
+        runtime.source_manifest.clone(),
+    )
+    .unwrap();
+    let operation = random_id().unwrap();
+    let prepared = build::construct_with_runtime(
+        &f.m,
+        c.selection,
+        inspection,
+        runtime,
+        &operation,
+    )
+    .unwrap();
+    let descriptor = prepared.native.descriptor.as_ref().unwrap();
+    assert_eq!(prepared.profile.claim, Claim::ReviewCandidate);
+    assert_eq!(
+        fs::read(&prepared.native.artifact.path).unwrap(),
+        b"\x7fELFreusable-engine-fixture"
+    );
+    let data: lvb_plugin_descriptor::Descriptor = read_json(&descriptor.path).unwrap();
+    assert_eq!(data.parameters[0].initial, 0.5);
+    assert!(!data.parameters[0].available);
+    verify_candidate(
+        &f.m,
+        &prepared,
+        &prepared.selection.scanner,
+        &prepared.selection.scanner_source,
+    )
+    .unwrap();
+    retain_inspection(&f.m, &prepared.inspection).unwrap();
+    record_candidate(&f.m, &prepared).unwrap();
+    build::cleanup_work(&f.m, &operation).unwrap();
+    descriptor.verify().unwrap();
+    // Status reconstructs the exact publication from bounded immutable
+    // records without reading the multi-gigabyte runner tree. A later
+    // mutation still performs full-byte verification and refuses a change.
+    let registration = configuration::registration(&prepared).unwrap();
+    let runner_file = prepared.selection.environment.runner.files[0].path.clone();
+    let runner_bytes = fs::read(&runner_file).unwrap();
+    fs::write(&runner_file, vec![b'X'; runner_bytes.len()]).unwrap();
+    let records = RecordReadback::capture(&f.m).unwrap();
+    let projected = records.publication_candidate_record(
+        &f.m, &prepared.profile, &registration).unwrap().unwrap();
+    assert!(build::supports_loaded_engine_admission_record(&f.m, projected).unwrap());
+    assert!(verify_candidate(&f.m, &prepared, &prepared.selection.scanner,
+        &prepared.selection.scanner_source).unwrap_err().to_string()
+        .contains("artifact missing or changed"));
+    fs::write(&runner_file, &runner_bytes).unwrap();
+    let transition = f.m.prepare_package_refresh(&prepared, &predecessor).unwrap();
+    assert_eq!(fs::read(f.m.root.join("software.json")).unwrap(), selected_before);
+    assert_eq!(transition.before.performance.added_frames, 1024);
+    assert_eq!(transition.after.performance.added_frames, 1024);
+    assert_ne!(transition.before.entry.registration.native.sha256,
+        transition.after.entry.registration.native.sha256);
+    for (field, changed) in [("schema", json!(2)),
+        ("id", json!("../reverse-intent-escape"))] {
+        let mut value = serde_json::to_value(&transition).unwrap();
+        value["reverse_intent"][field] = changed;
+        let tampered = serde_json::from_value(value).unwrap();
+        assert_eq!(f.m.restore_package_publication(&tampered)
+            .unwrap_err().to_string(), "package_publication_transition_changed");
+        assert!(!f.m.root.join("reverse-intent-escape.json").exists());
+    }
+    f.m.commit_package_publication(&transition).unwrap();
+    let revision = transition.after.entry.managed_revision.clone().unwrap();
+    let installed =
+        f.m.load_revision(&prepared.selection.class.id, &revision)
+            .unwrap();
+    fs::write(&runner_file, vec![b'Y'; runner_bytes.len()]).unwrap();
+    assert!(!registry_requires_loaded_engine_refresh_record(&f.m).unwrap());
+    assert!(publication_candidate(&f.m, &installed.profile, &installed.registration)
+        .unwrap_err().to_string().contains("artifact missing or changed"));
+    fs::write(&runner_file, &runner_bytes).unwrap();
+    assert!(!registry_requires_loaded_engine_refresh_record(&f.m).unwrap());
+    assert!(!publication_requires_refresh(&f.m, &installed, &prepared.recipe_sha256).unwrap());
+    // Both kits declare the same admission contract and carry the same host.
+    // Their native engines differ: an update must deliver the target engine.
+    assert!(publication_requires_refresh(&f.m, &installed,
+        &selected.preparation_kit.as_ref().unwrap().sha256).unwrap());
+    // Reusable delivery predates loaded-engine admission. Only the explicit
+    // immutable build fact makes this publication modern for package status.
+    let build_path = prepared.native.artifact.path.with_file_name("build.json");
+    let build_bytes = fs::read(&build_path).unwrap();
+    let mut legacy_build: serde_json::Value =
+        serde_json::from_slice(&build_bytes).unwrap();
+    legacy_build.as_object_mut().unwrap()
+        .remove("loaded_engine_admission_contract");
+    fs::set_permissions(&build_path, fs::Permissions::from_mode(0o600)).unwrap();
+    fs::write(&build_path, serde_json::to_vec(&legacy_build).unwrap()).unwrap();
+    fs::set_permissions(&build_path, fs::Permissions::from_mode(0o400)).unwrap();
+    assert!(registry_requires_loaded_engine_refresh_record(&f.m).unwrap());
+    assert!(registry_requires_loaded_engine_refresh(&f.m).unwrap());
+    assert_eq!(
+        installed.registration.descriptor.as_ref().unwrap().sha256,
+        descriptor.sha256
+    );
+    assert_eq!(
+        fs::read_link(f.m.link(&prepared.selection.class.id)).unwrap(),
+        installed.target
+    );
+    atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+    check_publication(&f.m, &installed.profile, &installed.registration).unwrap();
+    assert!(catalogue_free_registry(&f.m, &f.m.registry().unwrap()).unwrap());
+    assert_eq!(f.m.resolve(&f.identity()).unwrap(), installed.registration);
+    // A retained selected publication is independent of the mutable discovery
+    // projection.  This is the installed refresh shape: CMP1 remains selected
+    // and exact after a later scan has superseded its original inventory row.
+    let inventory = f.m.root.join("inventory")
+        .join(format!("{}.json", prepared.selection.environment.id));
+    fs::remove_file(&inventory).unwrap();
+    assert_eq!(verify_candidate(&f.m, &prepared, &prepared.selection.scanner,
+        &prepared.selection.scanner_source).unwrap_err().to_string(),
+        "preparation_inventory_superseded");
+    check_publication(&f.m, &installed.profile, &installed.registration).unwrap();
+    let refresh_operation = random_id().unwrap();
+    let replacement = refresh_candidate(
+        &f.m,
+        &installed,
+        build::existing_runtime(&f.m, &prepared.recipe_sha256).unwrap(),
+        prepared.inspection.report.clone(),
+        &refresh_operation,
+    )
+    .unwrap();
+    build::cleanup_work(&f.m, &refresh_operation).unwrap();
+    let mut changed_predecessor = replacement.clone();
+    changed_predecessor.selection.module.sha256 = "ee".repeat(32);
+    assert_eq!(verify_refresh_candidate(&f.m, &changed_predecessor, &installed)
+        .unwrap_err().to_string(), "bridge_refresh_predecessor_changed");
+    changed_predecessor = replacement.clone();
+    changed_predecessor.selection.environment.revision += 1;
+    assert_eq!(verify_refresh_candidate(&f.m, &changed_predecessor, &installed)
+        .unwrap_err().to_string(), "bridge_refresh_predecessor_changed");
+    let mut changed_origin = replacement.clone();
+    changed_origin.origin = Origin::RetainedSv1;
+    assert_eq!(verify_refresh_candidate(&f.m, &changed_origin, &installed)
+        .unwrap_err().to_string(), "bridge_refresh_candidate_origin");
+    let mut changed_report = replacement.clone();
+    changed_report.inspection.report.sha256 = "ff".repeat(32);
+    assert!(f.m.prepare_package_refresh(&changed_report, &revision).is_err());
+    let mut stale_expected = revision.clone();
+    stale_expected.id = "dd".repeat(16);
+    let selected = fs::read(f.m.root.join("registry.json")).unwrap();
+    assert!(replace_refreshed(&f.m, &replacement, &installed, &stale_expected).is_err());
+    assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), selected);
+    let refreshed = f.m.prepare_package_refresh(&replacement, &revision).unwrap();
+    f.m.commit_package_publication(&refreshed).unwrap();
+    assert!(!registry_requires_loaded_engine_refresh_record(&f.m).unwrap());
+    assert!(!registry_requires_loaded_engine_refresh(&f.m).unwrap());
+    assert_ne!(refreshed.before.entry.registration.native.path,
+        refreshed.after.entry.registration.native.path);
+    assert_eq!(fs::read(&build_path).unwrap(), serde_json::to_vec(&legacy_build).unwrap());
+    assert_ne!(replacement.native.artifact.path.with_file_name("build.json"), build_path);
+    f.m.restore_package_publication(&refreshed).unwrap();
+    assert_eq!(f.m.registry().unwrap().classes[&prepared.selection.class.id]
+        .managed_revision.as_ref(), Some(&revision));
+    let restored = replace_refreshed(&f.m, &replacement, &installed, &revision).unwrap();
+    let restored = f.m.load_revision(&prepared.selection.class.id, &restored).unwrap();
+    assert_eq!(restored.registration.environment, installed.registration.environment);
+    assert_eq!(restored.registration.module, installed.registration.module);
+    assert_eq!(restored.registration.native.sha256, replacement.native.artifact.sha256);
 }
