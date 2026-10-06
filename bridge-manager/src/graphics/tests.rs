@@ -132,9 +132,12 @@ fn graphics_assessment_reuses_rules_without_promoting_hints_or_probe_devices() {
             .iter()
             .find(|f| f.library == Library::D3d11)
             .unwrap()
-            .sources
-            .len(),
-        3
+            .sources,
+        vec!["ordinary_import_hint", "loaded_before_editor"]
+    );
+    assert_eq!(
+        a.findings.iter().find(|f| f.library == Library::WebView2).unwrap().sources,
+        vec!["loaded_during_editor"]
     );
     let original = context().fingerprint().unwrap();
     for field in [
@@ -161,7 +164,7 @@ fn graphics_recommendation_follows_editor_loads_and_this_launch_probes() {
     use super::assessment::{recommend, Editor, Probe, Requirement};
     use crate::operator_model::GraphicsBackend;
     let probe = |api: &str, status: &str| Probe { api: api.into(), status: status.into(), rendering: "unknown".into(),
-        renderer: None, vendor_id: None, device_id: None, driver_version: None, feature_level: None };
+        renderer: None, vendor_id: None, device_id: None, driver_version: None, feature_level: None, implementation: None };
     let probes = |failed: &[&str]| ["d3d11_default", "d3d11_warp", "opengl", "direct_composition"].iter()
         .map(|api| probe(api, if failed.contains(api) { "readback_failed" } else { "passed" })).collect::<Vec<_>>();
     let editor = |status: &str, before: &[Library], during: &[Library]| Editor {
@@ -198,6 +201,27 @@ fn graphics_recommendation_follows_editor_loads_and_this_launch_probes() {
         Requirement::None);
     assert_eq!(recommend(&editor("opened", &[], &[]), &probes(&["d3d11_default"]), &imports(&[Library::D3d11]), None).requirement,
         Requirement::None);
+    // `during` repeats what was loaded before the editor. A library the module
+    // does not import, loaded by something else before the editor opened, is
+    // not the editor's: a working Direct2D editor with DirectComposition in the
+    // process is left alone, while a module that imports it is still decided.
+    let process = [Library::D3d11, Library::Dxgi, Library::Direct2d, Library::DirectComposition, Library::OpenGl];
+    let r = recommend(&editor("opened", &process, &process), &probes(&["direct_composition"]),
+        &imports(&[Library::D3d11, Library::Direct2d]), None);
+    assert_eq!((r.requirement, r.editor_loaded), (Requirement::None, vec![Library::D3d11, Library::Direct2d]));
+    let r = recommend(&editor("opened", &process, &process), &probes(&["direct_composition"]),
+        &imports(&[Library::D3d11, Library::Dxgi, Library::Direct2d, Library::DirectComposition]), None);
+    assert_eq!(r.requirement, Requirement::DirectCompositionRunner);
+    assert!(!r.editor_loaded.contains(&Library::OpenGl), "a dependency of the runner's Direct3D is not the editor's");
+    assert!(r.reason.contains("cannot create a composition device"));
+    // A default launch that is already Wine's built-in Direct3D 11 has no Wine
+    // trial left to offer; another provider still gets the one trial.
+    let with_provider = |provider: &str| { let mut all = probes(&["d3d11_default"]);
+        all[0].implementation = Some(provider.into()); all };
+    assert_eq!(recommend(&editor("opened", &[], &[Library::Dxgi]), &with_provider("wine_builtin"), &none, None).requirement,
+        Requirement::Undetermined);
+    assert_eq!(recommend(&editor("opened", &[], &[Library::Dxgi]), &with_provider("other"), &none, None).requirement,
+        Requirement::WineD3d11);
     // The assembled assessment carries the recommendation and uses its action.
     let a = assemble(context(), pe::inspect(&mut Cursor::new(image("d3d11.dll", "opengl32.dll"))).unwrap(), &report(), 100).unwrap();
     assert_eq!(a.recommendation.requirement, Requirement::UnsupportedWebView2);
@@ -364,4 +388,62 @@ fn graphics_driver_observation_changes_without_rekeying_environment() {
     );
     assert_eq!(next.runtime_probes[0].rendering, "reported_software");
     assert!(next.editor_device.is_none());
+}
+
+fn provider_report(default: Value, warp: Value) -> Value {
+    let mut raw = report();
+    raw["records"][3]["schema"] = json!(2);
+    raw["records"][3]["probes"][0]["implementation"] = default;
+    raw["records"][3]["probes"][1]["implementation"] = warp;
+    raw
+}
+
+#[test]
+fn graphics_probes_report_the_observed_direct3d_provider_and_never_an_unfounded_device() {
+    let imports = pe::Imports { machine: 0x8664, ordinary: vec![], delayed: vec![] };
+    let check = |raw: &Value| assemble(context(), imports.clone(), raw, 100);
+    // Wine's built-in Direct3D names a stand-in adapter and ignores the WARP
+    // request: the name is kept as reported, the device claim is not.
+    let mut raw = provider_report(json!("wine_builtin"), json!("wine_builtin"));
+    for index in [0, 1] {
+        raw["records"][3]["probes"][index]["renderer"] = json!("ATI Radeon HD 5600 Series");
+        raw["records"][3]["probes"][index]["rendering"] = json!("unknown");
+    }
+    raw["records"][3]["probes"][2]["renderer"] = json!("AMD Custom GPU 0405 (radeonsi, vangogh, LLVM 20.1.8, DRM 3.64, 6.16.12-valve24.5-1-neptune-616)");
+    raw["records"][3]["probes"][2]["rendering"] = json!("reported_hardware");
+    let a = check(&raw).unwrap();
+    assert_eq!(a.runtime_probes[0].implementation.as_deref(), Some("wine_builtin"));
+    assert_eq!(a.runtime_probes[0].rendering, "unknown");
+    assert!(a.runtime_probes[2].renderer.as_deref().unwrap().starts_with("AMD Custom GPU"));
+    assert_eq!(a.runtime_probes[2].rendering, "reported_hardware");
+    assert_eq!(serde_json::to_value(&a).unwrap()["runtime_probes"][0]["implementation"], json!("wine_builtin"));
+    assert!(serde_json::to_value(&a).unwrap()["runtime_probes"][2].get("implementation").is_none());
+    for index in [0, 1] {
+        let mut claimed = raw.clone();
+        claimed["records"][3]["probes"][index]["rendering"] = json!("reported_hardware");
+        assert!(check(&claimed).is_err(), "probe {index}");
+    }
+    // A software Mesa driver keeps its name and is software whatever the host said.
+    raw["records"][3]["probes"][2]["renderer"] = json!("llvmpipe (LLVM 20.1.8, 256 bits)");
+    assert_eq!(check(&raw).unwrap().runtime_probes[2].rendering, "reported_software");
+    // The provider is required from a host that reports it, bounded to the two
+    // known values, and belongs only to the Direct3D probes.
+    assert!(check(&provider_report(json!("other"), json!("other"))).is_ok());
+    assert!(check(&provider_report(Value::Null, json!("other"))).is_err());
+    assert!(check(&provider_report(json!("dxvk"), json!("other"))).is_err());
+    let mut misplaced = provider_report(json!("other"), json!("other"));
+    misplaced["records"][3]["probes"][2]["implementation"] = json!("other");
+    assert!(check(&misplaced).is_err());
+    let mut unloaded = provider_report(Value::Null, json!("other"));
+    unloaded["records"][3]["probes"][0]["status"] = json!("unavailable");
+    unloaded["records"][3]["probes"][0]["rendering"] = json!("unknown");
+    assert!(check(&unloaded).is_ok(), "a Direct3D library that did not load has no provider");
+    // An earlier host cannot name a provider, and its hardware claim for an
+    // OpenGL renderer it could not retain is not kept.
+    let mut earlier = report();
+    earlier["records"][3]["probes"][0]["implementation"] = json!("other");
+    assert!(check(&earlier).is_err());
+    let mut earlier = report();
+    earlier["records"][3]["probes"][2]["rendering"] = json!("reported_hardware");
+    assert_eq!(check(&earlier).unwrap().runtime_probes[2].rendering, "unknown");
 }

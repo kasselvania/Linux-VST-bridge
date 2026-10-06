@@ -8,6 +8,8 @@
 #include <wrl/client.h>
 #include <array>
 #include <cctype>
+#include <cstring>
+#include <initializer_list>
 #include <string>
 #include <stdexcept>
 #include <utility>
@@ -27,7 +29,8 @@ std::string safe_text(const char* value) {
     for(size_t i=0;i<256;++i){
         auto c=static_cast<unsigned char>(value[i]);
         if(!c)return out.empty()?"null":"\""+out+"\"";
-        if(c>127||(!std::isalnum(c)&&std::string(" ._()-:+").find(char(c))==std::string::npos))return "null";
+        // The comma keeps Mesa's renderer strings, which list driver details.
+        if(c>127||(!std::isalnum(c)&&std::string(" ._()-:+,").find(char(c))==std::string::npos))return "null";
         out+=char(c);
     }
     return "null";
@@ -41,20 +44,37 @@ std::string safe_text(const wchar_t* value, size_t length) {
     return "null";
 }
 struct Probe {
-    std::string api,status="unavailable",rendering="unknown",renderer="null",vendor="null",device="null",driver="null",level="null";
+    std::string api,status="unavailable",rendering="unknown",renderer="null",vendor="null",device="null",driver="null",level="null",implementation="null";
     explicit Probe(const char* name):api(name){}
     std::string json()const{
         return "{\"api\":\""+api+"\",\"status\":\""+status+"\",\"rendering\":\""+rendering+
             "\",\"renderer\":"+renderer+",\"vendor_id\":"+vendor+",\"device_id\":"+device+
-            ",\"driver_version\":"+driver+",\"feature_level\":"+level+"}";
+            ",\"driver_version\":"+driver+",\"feature_level\":"+level+",\"implementation\":"+implementation+"}";
     }
 };
+// Wine marks its own built-in modules immediately after the DOS header. A
+// module without the mark is another provider: DXVK under Proton, or Windows.
+bool wine_builtin(HMODULE module){
+    static const char mark[]="Wine builtin DLL";
+    const auto* base=reinterpret_cast<const unsigned char*>(module);
+    return base&&base[0]=='M'&&base[1]=='Z'&&std::memcmp(base+sizeof(IMAGE_DOS_HEADER),mark,sizeof(mark)-1)==0;
+}
+// The driver's own name decides software rendering. Pixel-format flags do not:
+// Wine reports accelerated formats over a software Mesa driver too.
+bool software_name(const char* renderer){
+    std::string lower;
+    for(size_t i=0;renderer&&renderer[i]&&i<256;++i)lower+=char(std::tolower(static_cast<unsigned char>(renderer[i])));
+    for(const char* name:{"llvmpipe","softpipe","swrast","software rasterizer","gdi generic"})if(lower.rfind(name,0)==0)return true;
+    return false;
+}
 bool pixels(const unsigned char* p){return p&&p[0]>=63&&p[0]<=65&&p[1]>=127&&p[1]<=129&&p[2]>=190&&p[2]<=192&&p[3]==255;}
 std::pair<Probe,Probe> d3d(D3D_DRIVER_TYPE type){
     Probe result(type==D3D_DRIVER_TYPE_WARP?"d3d11_warp":"d3d11_default"),composition("direct_composition");
     LibraryHandle library(L"d3d11.dll");
     auto create=library.get<PFN_D3D11_CREATE_DEVICE>("D3D11CreateDevice");
     if(!create)return {result,composition};
+    const bool builtin=wine_builtin(library.handle);
+    result.implementation=builtin?"\"wine_builtin\"":"\"other\"";
     ComPtr<ID3D11Device> device;ComPtr<ID3D11DeviceContext> context;D3D_FEATURE_LEVEL level{};
     if(FAILED(create(nullptr,type,nullptr,D3D11_CREATE_DEVICE_BGRA_SUPPORT,nullptr,0,D3D11_SDK_VERSION,&device,&level,&context)))return {result,composition};
     result.level=std::to_string(unsigned(level));
@@ -62,13 +82,16 @@ std::pair<Probe,Probe> d3d(D3D_DRIVER_TYPE type){
     ComPtr<IDXGIDevice> dxgi;ComPtr<IDXGIAdapter> adapter;DXGI_ADAPTER_DESC description{};
     if(SUCCEEDED(device.As(&dxgi))&&SUCCEEDED(dxgi->GetAdapter(&adapter))&&SUCCEEDED(adapter->GetDesc(&description))){
         result.renderer=safe_text(description.Description,128);result.vendor=std::to_string(description.VendorId);result.device=std::to_string(description.DeviceId);
-        rendering=type==D3D_DRIVER_TYPE_WARP?"reported_software":"reported_hardware";
+        // Only the Microsoft Basic Render Driver is a software adapter here. A
+        // provider that ignores the WARP request returns its ordinary adapter,
+        // and Wine's built-in Direct3D names a stand-in card, not the device.
+        const bool basic_render=description.VendorId==0x1414&&description.DeviceId==0x8c;
+        rendering=basic_render?"reported_software":type==D3D_DRIVER_TYPE_WARP||builtin?"unknown":"reported_hardware";
         LARGE_INTEGER version{};
         if(SUCCEEDED(adapter->CheckInterfaceSupport(__uuidof(ID3D11Device),&version)))
             result.driver="\""+std::to_string(HIWORD(version.HighPart))+"."+std::to_string(LOWORD(version.HighPart))+"."+
                 std::to_string(HIWORD(version.LowPart))+"."+std::to_string(LOWORD(version.LowPart))+"\"";
     }
-    if(type==D3D_DRIVER_TYPE_WARP)rendering="reported_software";
     D3D11_TEXTURE2D_DESC desc{};desc.Width=2;desc.Height=2;desc.MipLevels=1;desc.ArraySize=1;
     desc.Format=DXGI_FORMAT_R8G8B8A8_UNORM;desc.SampleDesc.Count=1;desc.Usage=D3D11_USAGE_DEFAULT;desc.BindFlags=D3D11_BIND_RENDER_TARGET;
     ComPtr<ID3D11Texture2D> target,readback;ComPtr<ID3D11RenderTargetView> view;
@@ -119,7 +142,8 @@ Probe opengl(){
     request.dwFlags=PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL|PFD_DOUBLEBUFFER;request.iPixelType=PFD_TYPE_RGBA;request.cColorBits=32;request.cAlphaBits=8;
     const int format=dc?ChoosePixelFormat(dc,&request):0;
     if(format&&SetPixelFormat(dc,format,&request)&&(context=create(dc))&&current(dc,context)){
-        result.renderer=safe_text(reinterpret_cast<const char*>(string(GL_RENDERER)));
+        const auto* name=reinterpret_cast<const char*>(string(GL_RENDERER));
+        result.renderer=safe_text(name);
         result.driver=safe_text(reinterpret_cast<const char*>(string(GL_VERSION)));
         PIXELFORMATDESCRIPTOR actual{};const bool described=DescribePixelFormat(dc,format,sizeof(actual),&actual)!=0;
         draw_buffer(GL_BACK);read_buffer(GL_BACK);
@@ -127,8 +151,8 @@ Probe opengl(){
         result.status="readback_failed";
         if(error()==GL_NO_ERROR&&pixels(bytes.data())&&pixels(bytes.data()+4)&&pixels(bytes.data()+8)&&pixels(bytes.data()+12)){
             result.status="passed";
-            if(described&&(actual.dwFlags&PFD_GENERIC_FORMAT)&&!(actual.dwFlags&PFD_GENERIC_ACCELERATED))result.rendering="reported_software";
-            else if(described)result.rendering="reported_hardware";
+            if(software_name(name)||(described&&(actual.dwFlags&PFD_GENERIC_FORMAT)&&!(actual.dwFlags&PFD_GENERIC_ACCELERATED)))result.rendering="reported_software";
+            else if(name&&described)result.rendering="reported_hardware";
         }
         restored=current(previous_dc,previous_context)!=FALSE;
     }
@@ -170,6 +194,6 @@ void assess_graphics_runtime(EventWriter& events){
     const auto hardware=d3d(D3D_DRIVER_TYPE_HARDWARE);
     const auto warp=d3d(D3D_DRIVER_TYPE_WARP);
     const auto gl=opengl();
-    events.lifecycle("graphics_runtime",",\"schema\":1,\"probes\":["+hardware.first.json()+","+warp.first.json()+","+gl.json()+","+hardware.second.json()+"]");
+    events.lifecycle("graphics_runtime",",\"schema\":2,\"probes\":["+hardware.first.json()+","+warp.first.json()+","+gl.json()+","+hardware.second.json()+"]");
 }
 }

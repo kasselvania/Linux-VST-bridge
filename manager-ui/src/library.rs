@@ -532,11 +532,23 @@ fn graphics_observation(ui: &mut egui::Ui, label: &str, result: &serde_json::Val
     } else if let Some(action) = result["recommendation"]["action"].as_str() { ui.label(format!("Next: {action}")); }
     ui.small("Effective editor renderer: not established by this assessment.");
     if let Some(probes) = result["runtime_probes"].as_array() {
+        // What the probe found loaded, whatever graphics setting was requested.
+        match probes.iter().find(|probe| probe["api"] == "d3d11_default")
+            .and_then(|probe| probe["implementation"].as_str()) {
+            Some("wine_builtin") if result["context"]["requested_backend"].is_null() =>
+                { ui.small("Direct3D 11 on this launch: Wine's built-in. The Wine D3D11 setting selects this same implementation."); }
+            Some("wine_builtin") => { ui.small("Direct3D 11 on this launch: Wine's built-in."); }
+            Some(_) => { ui.small("Direct3D 11 on this launch: the runner's own provider, not Wine's built-in."); }
+            None => {}
+        }
         ui.small("Independent runtime probes");
         for probe in probes {
-            ui.small(format!("{}: {} · {}", probe["api"].as_str().unwrap_or("API"),
-                probe["status"].as_str().unwrap_or("unknown"),
-                probe["renderer"].as_str().unwrap_or("renderer unknown")));
+            let renderer = probe["renderer"].as_str().unwrap_or("renderer unknown");
+            // Wine's built-in Direct3D reports a fixed stand-in card.
+            let note = if probe["implementation"] == "wine_builtin" && probe["renderer"].is_string() {
+                " (Wine's stand-in adapter name, not the graphics device)" } else { "" };
+            ui.small(format!("{}: {} · {renderer}{note}", probe["api"].as_str().unwrap_or("API"),
+                probe["status"].as_str().unwrap_or("unknown")));
         }
     }
     ui.small("Recorded run; current driver/device freshness is unverified.");
@@ -811,7 +823,7 @@ mod tests {
             "buffering":{"added_frames":512,"source":"Explicit class preference"},
             "qualification":"Not yet qualified",
             "assessment":{"editor":{"status":"opened"}, "runtime_probes":[
-                {"api":"D3D11", "status":"available", "renderer":"Probe renderer only"}]}
+                {"api":"d3d11_default", "status":"passed", "renderer":"Probe renderer only", "implementation":"wine_builtin"}]}
         }, "graphics":{"requested":"Legacy duplicate"}});
         product.actions = vec![
             AvailableAction {label:"Prepare compatibility trial".into(), disabled_reason:None,
@@ -837,6 +849,7 @@ mod tests {
                 "Selected environment: existing-environment", "Environment revision: 4", "Not yet qualified",
                 "512 added bridge frames", "The DAW sets the live sample rate", "Prepared only.",
                 "Effective editor renderer: not established", "Independent runtime probes", "Probe renderer only",
+                "Direct3D 11 on this launch: Wine's built-in", "Wine's stand-in adapter name",
                 "Prepare compatibility trial", "Assessment unavailable while this class is active"] {
                 assert!(labels.iter().any(|line| line.contains(expected)),
                     "{expected} missing at {width}: {labels:?}");

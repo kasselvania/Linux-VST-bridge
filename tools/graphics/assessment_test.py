@@ -77,8 +77,12 @@ def run(out, kind):
         assert one('graphics_assessment')['schema'] == 2
         assert editor['closed'] is False, 'pre-teardown observation must not claim successful removal'
         assert editor['status'] == ('opened' if kind in (1, 2, 5) else 'unavailable'), (editor, error[-2048:])
+        assert one('graphics_runtime')['schema'] == 2
         assert probes['d3d11_warp']['status'] == 'passed', probes
         assert probes['d3d11_warp']['rendering'] == 'reported_software', probes
+        # Native Windows Direct3D is never Wine's built-in; only D3D probes name a provider.
+        assert probes['d3d11_warp']['implementation'] == 'other', probes
+        assert probes['opengl']['implementation'] is None and probes['direct_composition']['implementation'] is None, probes
         assert probes['opengl']['status'] == 'passed', probes
         if kind == 1:
             assert 'd3d11' in editor['during']

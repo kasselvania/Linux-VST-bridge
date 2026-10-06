@@ -108,14 +108,30 @@ pub struct Probe {
     pub device_id: Option<u32>,
     pub driver_version: Option<String>,
     pub feature_level: Option<u32>,
+    /// Which `d3d11.dll` the Direct3D probes ran on: Wine's built-in or another
+    /// provider. Observed from the loaded module, never from the requested
+    /// launch settings. Absent on other probes and from hosts that predate it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub implementation: Option<String>,
+}
+impl Probe {
+    fn wine_builtin(&self) -> bool { self.implementation.as_deref() == Some("wine_builtin") }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Editor {
     pub status: String,
     pub before: Vec<Library>,
+    /// Every graphics library in the process while the editor was open. This
+    /// includes everything in `before`; use `opened_with_editor` for the change.
     pub during: Vec<Library>,
     pub closed: bool,
+}
+impl Editor {
+    /// Libraries that appeared while the editor opened.
+    pub fn opened_with_editor(&self) -> impl Iterator<Item = Library> + '_ {
+        self.during.iter().copied().filter(|library| !self.before.contains(library))
+    }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -139,9 +155,11 @@ pub struct Finding {
 pub enum Requirement {
     /// Every graphics library the editor loaded passed its probe on this launch.
     None,
-    /// Direct3D 11 is used and the default path failed its probe; Wine's built-in D3D11/DXGI is the next launch.
+    /// Direct3D 11 is used, the default path failed its probe and is not already Wine's built-in:
+    /// Wine's built-in D3D11/DXGI is the next launch.
     WineD3d11,
-    /// DirectComposition is used and this launch cannot create a composition device: a blank editor.
+    /// The editor's own module uses DirectComposition and this launch cannot create a
+    /// composition device: the blank-editor class.
     DirectCompositionRunner,
     /// Microsoft WebView2 is used and no runner here provides it.
     UnsupportedWebView2,
@@ -153,8 +171,8 @@ pub enum Requirement {
 #[derive(Debug, Clone, Serialize)]
 pub struct Recommendation {
     pub requirement: Requirement,
-    /// Libraries attributable to the plug-in: loaded while its editor opened, or
-    /// loaded with the module and named in its import table.
+    /// Libraries attributable to the plug-in: first loaded while its editor
+    /// opened, or loaded earlier and named in its module's import table.
     pub editor_loaded: Vec<Library>,
     pub reason: &'static str,
     pub action: &'static str,
@@ -163,10 +181,13 @@ pub fn recommend(editor: &Editor, probes: &[Probe], imports: &super::pe::Imports
     requested_backend: Option<GraphicsBackend>) -> Recommendation {
     let passed = |api: &str| probes.iter().any(|p| p.api == api && p.status == "passed");
     let imported = |l: &Library| imports.ordinary.contains(l) || imports.delayed.contains(l);
-    let mut loaded: Vec<Library> = editor.during.iter().copied()
+    // `during` repeats everything already loaded before the editor opened: the
+    // host's own libraries, and whatever those pulled in. Only the change is the
+    // editor's; an earlier library is the plug-in's when its module imports it.
+    let loaded: Vec<Library> = editor.opened_with_editor()
         .chain(editor.before.iter().copied().filter(imported))
         .collect::<BTreeSet<_>>().into_iter().collect();
-    loaded.sort();
+    let builtin_d3d11 = probes.iter().any(|p| p.api == "d3d11_default" && p.wine_builtin());
     let has = |l: Library| loaded.contains(&l);
     let finish = |requirement, reason, action| Recommendation { requirement, editor_loaded: loaded.clone(), reason, action };
     if editor.status != "opened" {
@@ -181,13 +202,19 @@ pub fn recommend(editor: &Editor, probes: &[Probe], imports: &super::pe::Imports
     }
     if has(Library::DirectComposition) && !passed("direct_composition") {
         return finish(Requirement::DirectCompositionRunner,
-            "The editor draws through DirectComposition and this launch cannot create a composition device, which shows as a blank or white editor.",
+            "The editor's module uses DirectComposition and this launch cannot create a composition device. An editor that presents through it shows blank or white.",
             "Select the DirectComposition-capable runner for this plug-in and prepare again.");
     }
     if (has(Library::D3d11) || has(Library::Dxgi)) && !passed("d3d11_default") {
         return if requested_backend == Some(GraphicsBackend::WineD3d11) {
             finish(Requirement::Undetermined,
                 "The editor draws through Direct3D 11 and it failed its rendering probe with Wine's built-in path too.",
+                "Keep the recorded observations and report the editor as not displaying on this runner.")
+        } else if builtin_d3d11 {
+            // The default launch is already Wine's built-in Direct3D 11, so
+            // preparing that trial would repeat this exact launch.
+            finish(Requirement::Undetermined,
+                "The editor draws through Direct3D 11, this launch already uses Wine's built-in Direct3D 11, and it failed its rendering probe.",
                 "Keep the recorded observations and report the editor as not displaying on this runner.")
         } else {
             finish(Requirement::WineD3d11,
@@ -229,7 +256,7 @@ fn bounded_text(value: &Option<String>) -> bool {
         !s.is_empty()
             && s.len() <= 256
             && s.chars()
-                .all(|c| c.is_ascii_alphanumeric() || " ._()-:+".contains(c))
+                .all(|c| c.is_ascii_alphanumeric() || " ._()-:+,".contains(c))
     })
 }
 fn one<'a>(rows: &'a [Value], state: &str) -> Result<&'a Value> {
@@ -348,7 +375,10 @@ pub fn assemble(
         "graphics_editor_observation",
     )?;
     let runtime = one(rows, "graphics_runtime")?;
-    require(runtime["schema"] == 1, "graphics_runtime_schema")?;
+    // Schema 2 hosts report the Direct3D 11 provider and classify software
+    // rendering from the driver's own renderer string.
+    let reports_provider = runtime["schema"] == 2;
+    require(runtime["schema"] == 1 || reports_provider, "graphics_runtime_schema")?;
     let mut probes: Vec<Probe> = serde_json::from_value(runtime["probes"].clone())?;
     require(probes.len() == 4, "graphics_probe_count")?;
     let expected = BTreeSet::from([
@@ -377,6 +407,19 @@ pub fn assemble(
                 && bounded_text(&p.driver_version),
             "graphics_probe_fields",
         )?;
+        require(
+            match p.implementation.as_deref() {
+                None => !reports_provider || !p.api.starts_with("d3d11_") || p.status == "unavailable",
+                Some("wine_builtin" | "other") => reports_provider && p.api.starts_with("d3d11_"),
+                Some(_) => false,
+            },
+            "graphics_probe_implementation",
+        )?;
+        // An earlier host lost any renderer name containing a comma, which is
+        // every Mesa driver, and so could not have checked it for software.
+        if !reports_provider && p.api == "opengl" && p.renderer.is_none() && p.rendering == "reported_hardware" {
+            p.rendering = "unknown".into();
+        }
         if p.status == "passed"
             && p.renderer
                 .as_ref()
@@ -388,9 +431,12 @@ pub fn assemble(
             p.status == "passed" || p.rendering == "unknown",
             "graphics_probe_failure_claim",
         )?;
+        // A WARP request that the provider did not honour is not a software
+        // result, and Wine's built-in Direct3D reports a stand-in adapter, not
+        // the device that drew. Neither may be called hardware.
         require(
-            p.api != "d3d11_warp" || p.status != "passed" || p.rendering == "reported_software",
-            "graphics_warp_claim",
+            (p.api != "d3d11_warp" && !p.wine_builtin()) || p.rendering != "reported_hardware",
+            "graphics_unfounded_hardware_claim",
         )?;
     }
     let all: BTreeSet<_> = imports
@@ -414,7 +460,7 @@ pub fn assemble(
             if editor.before.contains(&library) {
                 sources.push("loaded_before_editor");
             }
-            if editor.during.contains(&library) {
+            if editor.opened_with_editor().any(|opened| opened == library) {
                 sources.push("loaded_during_editor");
             }
             let capability = library
