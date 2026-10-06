@@ -1554,6 +1554,64 @@ class AudioScheduling:
             'discarded':max(0,self.requests-len(self.rows)),
             'records':list(self.rows),'scope':'post-start effective readback, not a continuity guarantee'}
 
+def _start_ticks(stat_path,pid):
+    """Kernel start tick of a process or thread from its /proc stat line."""
+    raw=stat_path.read_text()
+    first,separator,_=raw.partition(' (')
+    if not separator or int(first)!=pid:raise ValueError('stat identity')
+    return int(raw.rsplit(')',1)[1].split()[19])
+
+class HostFootprint:
+    """Keep the Windows host family below the DAW's audio threads.
+
+    Every thread of the owned Windows processes except the audio render thread
+    (lvb-audio) and any thread that is not ordinary policy is raised to the nice
+    value in LVB_HOST_NICE (default 10; 0 disables). A DAW whose engine has no
+    real-time policy, as Bitwig's does not on the Deck, then wins contention
+    against the editor, wineserver and graphics work by roughly ten to one, while
+    our render thread keeps its real-time grant. Nice is only ever raised, which
+    needs no privilege. Threads created later inherit their creator's value, so
+    one pass after each render start plus a pass whenever the family grows covers
+    the editor's helper threads. This never runs on an audio thread and never
+    touches the DAW's processes.
+    """
+    DEFAULT=10
+    def __init__(self,spec,proc_root='/proc',system=os,clock=time.monotonic):
+        self.spec=spec;self.proc_root=pathlib.Path(proc_root);self.system=system;self.clock=clock
+        self.pending=False;self.known=set();self.last=None;self.unavailable=None
+        self.passes=0;self.applied=0;self.already=0;self.skipped_audio=0;self.skipped_policy=0;self.errors=0
+        raw=os.environ.get('LVB_HOST_NICE',str(self.DEFAULT))
+        try:
+            self.nice=int(raw)
+            if not 0<=self.nice<=19:raise ValueError('range')
+        except ValueError:self.nice=0;self.unavailable='host_nice_value_invalid'
+    def started(self):self.pending=True
+    def poll(self,owned):
+        if not self.nice:return
+        owned=set(owned);grew=not owned<=self.known
+        if not (self.pending or grew):return
+        if not self.pending and self.last is not None and self.clock()-self.last<1.0:return
+        self.pending=False;self.known|=owned;self.last=self.clock();self.passes+=1
+        for pid,start in sorted(owned):
+            process=self.proc_root/str(pid)
+            try:
+                if _start_ticks(process/'stat',pid)!=start:continue
+                tasks=sorted((p for p in (process/'task').iterdir() if p.name.isdigit()),key=lambda p:int(p.name))
+            except (OSError,ValueError):continue
+            for task in tasks[:4096]:
+                tid=int(task.name)
+                try:
+                    if (task/'comm').read_text().strip()=='lvb-audio':self.skipped_audio+=1;continue
+                    if self.system.sched_getscheduler(tid)!=self.system.SCHED_OTHER:self.skipped_policy+=1;continue
+                    if self.system.getpriority(self.system.PRIO_PROCESS,tid)>=self.nice:self.already+=1;continue
+                    self.system.setpriority(self.system.PRIO_PROCESS,tid,self.nice);self.applied+=1
+                except (OSError,ValueError):self.errors+=1
+    def value(self):
+        return {'schema':1,'nice':self.nice,'unavailable':self.unavailable,'passes':self.passes,
+            'applied':self.applied,'already':self.already,'skipped_audio':self.skipped_audio,
+            'skipped_policy':self.skipped_policy,'errors':self.errors,
+            'scope':'owned Windows family except the audio render thread; nice only raised'}
+
 def run_owned(spec,peer,stop_requested):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
@@ -1617,6 +1675,7 @@ def run_owned(spec,peer,stop_requested):
         subprocess.Popen(cmd,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0))
     records=[];owned=set();pending=bytearray();vendor=bytearray();stderr=bytearray();dropped={'vendor':0,'stderr':0};protocol_bytes=0;gated=False;call=None;started=time.monotonic();failure=None;clean=False;code=None
     audio_scheduling=AudioScheduling(spec) if not spec['inspect'] and not spec.get('vendor_access') else None
+    host_footprint=HostFootprint(spec) if audio_scheduling else None
     sel=selectors.DefaultSelector()
     def retain(key,target,data):
         n=min(len(data),max(0,65536-len(target)));target.extend(data[:n]);dropped[key]+=len(data)-n
@@ -1636,7 +1695,9 @@ def run_owned(spec,peer,stop_requested):
         record=json.loads(line)
         if writer is not None:command_session.host_custody.observe(record,writer,tracker,root)
         records.append(record);state=record.get('state')
-        if audio_scheduling and state=='ap0_processing_thread_started':audio_scheduling.started()
+        if audio_scheduling and state=='ap0_processing_thread_started':
+            audio_scheduling.started()
+            if host_footprint:host_footprint.started()
         if state=='ap8_call' or record.get('event')=='call_started':call=(record.get('operation'),time.monotonic())
         elif state in ('ap8_result','ap8_failure','ap8_inspection_closed') or record.get('event')=='call_completed':call=None
     def pump(timeout):
@@ -1671,6 +1732,7 @@ def run_owned(spec,peer,stop_requested):
             if audio_scheduling:
                 if audio_scheduling.pending:owned.update(tracker.update())
                 audio_scheduling.poll(owned)
+            if host_footprint:host_footprint.poll(owned)
             if visibility:
                 was=visibility.suspect
                 visibility.poll()
@@ -1767,6 +1829,7 @@ def run_owned(spec,peer,stop_requested):
         for stream in (root.stdout,root.stderr):stream.close()
         outcome={'graphics_configuration':graphics_configuration,'vendor_retirement':retirement_ready,'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
         if audio_scheduling:outcome['audio_scheduling']=audio_scheduling.value()
+        if host_footprint:outcome['host_footprint']=host_footprint.value()
         if command_session is not None:
             outcome['native_command_child']=command_session.remote_identity
             if host_custody is not None:outcome['final_windows_host']=host_custody
