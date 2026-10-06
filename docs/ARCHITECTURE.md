@@ -1163,6 +1163,16 @@ contract; its source, installed and physical acceptance remain separate gates:
   opt-in (LVB_CALLER_SCHEDULING=1): installed, it halved missing blocks but
   doubled Bitwig's own graph errors while the rest of Bitwig's engine stays
   ordinary priority, so it is not default behaviour until that is understood.
+- Host footprint policy: the supervisor raises every thread of the owned
+  Windows family to nice 10 except the audio render thread and any thread not
+  on the ordinary policy, once after each render start and whenever the family
+  grows. Nice is only raised, which needs no privilege; real-time grants are
+  untouched; the DAW's processes are never touched. A DAW whose engine runs
+  without real-time policy then outweighs the editor, wineserver and graphics
+  work by about ten to one. LVB_HOST_NICE tunes or disables it. The known
+  risk is a vendor lock shared between editor and DSP held by a slowed editor
+  thread; Buffered delivery's full period of slack covers ordinary hold times,
+  and the measured vendor call time shows when it does not.
 - An original product-built Rust ELF helper and marked Wine builtin PE shim supply
   the Windows Linux wait ABI under the selected x86-64 Wine/Linux runner. Package
   and verify their exact digests with the paired host, select their private path
