@@ -37,7 +37,12 @@ presentation path the pinned runner cannot show.
    still a named recommendation (runner selection is an onboarding
    operation). Preserve graphics observations across failed editor teardown,
    validate composed DLL choices, and report closure separately. Validate on
-   Nibbi: re-prepare it and read the decision.
+   Nibbi: re-prepare it and read the decision. Done on the Deck 2026-10-06:
+   on the DirectComposition reference runner Nibbi's editor draws and closes
+   in the assessment and in Bitwig; audio and state are still to be tested.
+   The rule now attributes only the editor's own libraries, reports which
+   Direct3D 11 the launch actually loaded, and keeps the real renderer name;
+   those corrections are not yet installed on the Deck.
 4. Intake as a manager operation: the staged check above as one button, with
    the first failing stage reported in plain words and mapped to a failure
    class. The agents have run it by hand for a week; the parts exist.

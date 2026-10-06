@@ -656,6 +656,12 @@ Its `CreateSwapChainForComposition` returned `E_NOTIMPL`; the exact selected ref
 
 Blackhole Immersive 1.4.4 / Steam Deck: verified-fixed for the exact candidate.
 
+Nibbi 0.1.4 / Steam Deck (2026-10-06): the same symptom pair on the standard
+runner, a white editor and a stalled `IPlugView::removed()`, did not occur on
+the same reference runner; the editor drew in the isolated assessment and in
+Bitwig 6.1 and closed normally. Editor presentation and removal only; see the
+[receipt](../evidence/graphics-runtime/2026-10-06-nibbi-directcomposition-runner.json).
+
 ### Claim limit
 
 No universal graphics support or applicability to other runners/products.
@@ -683,6 +689,37 @@ published) is reported as text. A failed assessment never fails the
 preparation. The DirectComposition-capable runner remains a named
 recommendation: selecting a runner is an environment onboarding operation, not
 a per-candidate launch setting.
+
+Corrections to that rule (2026-10-06), from reading the Deck's retained
+assessments against each other:
+
+- **Attribution.** The host reports every graphics library in the process while
+  the editor is open, which repeats everything loaded before it. The rule used
+  that whole list, so a library that the plug-in's module does not import but
+  that was already in the process counted as the editor's. Serum 2, published
+  and supported, was told to select a DirectComposition runner for that reason.
+  The rule now takes only what appeared with the editor, plus earlier libraries
+  the module itself imports. A module that imports DirectComposition, as
+  Blackhole and Nibbi do, is still decided by the composition probe.
+- **Direct3D 11 provider.** The probe now reports whether the `d3d11.dll` it ran
+  on is Wine's built-in or another provider, read from the loaded module. Every
+  assessment retained on the Deck names Wine's stand-in adapter under runner
+  defaults, and the Proton launcher applies its DXVK overrides only during prefix
+  setup, which `runinprefix` launches skip. When the default launch is already
+  Wine's built-in, the rule no longer prepares a Wine Direct3D 11 trial that
+  would repeat it, and the manager says the setting selects the same
+  implementation. Whether hosts should use the runner's DXVK instead is a
+  separate, unmade product decision.
+- **Renderer facts.** The OpenGL renderer name was dropped whenever it contained
+  a comma, which every Mesa driver's does, so the real device was never shown
+  and a software driver could not be recognised. The name is now kept and the
+  host classifies software from it. An adapter returned for a WARP request is
+  called software only when it is the Microsoft Basic Render Driver, and Wine's
+  stand-in adapter is never called hardware.
+
+These are source corrections with unit and native-Windows reference coverage.
+They are not yet installed on the Deck; the provider report has not been read
+from a physical launch.
 
 ### Related failure classes
 
@@ -2620,6 +2657,7 @@ Deck Test 8 (835d7b6f), Nibbi 0.1.4 / Bitwig 6.1 / Buffered 512 / 48 kHz: Check 
 The same Wine D3D11 assessment falsely refuses `graphics_launch_override_not_applied`: the applied override is `d3d11,dxgi=b;lvb-direct-wait=b`, but the manager compares complete strings that exclude the supervisor's own helper. The underlying report still records `TimeoutError: Windows call deadline: assessGraphicsEditor`; accepting the composed override alone will not make Nibbi draw. Host footprint cumulative counts applied/already/skipped_audio/skipped_policy/errors are 3/64/3/14/0 (default) and 3/78/3/14/0 (trial); the trial's live family sample has 21 TS threads at nice 10, one `lvb-audio` at RR 5, and seven Batch threads left at nice 19.
 Deck Test 9 ([#223](https://github.com/kasselvania/Linux-VST-bridge/pull/223)), same Nibbi fixture: default and Wine D3D11 assessments now retain the editor fingerprint and all four probes before a 30-second `closeGraphicsEditor` timeout; the composed override is accepted. D3D11 hardware/WARP and OpenGL pass; DirectComposition is unavailable. Configuration assessment says verbatim: “The editor draws through DirectComposition and this launch cannot create a composition device, which shows as a blank or white editor.” Next: “Select the DirectComposition-capable runner for this plug-in and prepare again.” Both remain unqualified with `editor_retirement: timed_out`; the actual renderer still needs the accepted DirectComposition reference comparison.
 Bitwig loads the verified Test 9 native/Windows pair, but Nibbi's Wine D3D11 editor stays white and removal stalls at stage 212; quitting also reports a Nibbi temporary-state save failure. Bitwig then exits normally and host/transport retirement is confirmed. Footprint cumulative counts are 3/64/2/14/0; live threads are 21 TS/nice 10, one `lvb-audio` RR/5 and seven Batch/nice 19. Default Test 9 graphics and remembered Buffered 512 are restored; original projects are unchanged, the build container is stopped again, and no endurance audio capture was run. Raw records stay outside Git.
+Deck reference-runner comparison (2026-10-06, Test 9 software, same Nibbi fixture): the Nibbi environment was moved by the manager's `experimental-runner` transition from the standard runner to `proton-11.0-2c-dcomp-c27f058-reference` (environment revision 2, prefix not recreated, rollback retained), then scanned, checked and published as a default-graphics test configuration. Both assessments report DirectComposition passed and `editor_retirement: closed`. The isolated assessment editor and the editor hosted by Bitwig 6.1 both drew (1200×426 captures, no pure-white pixels); the Bitwig editor window closed on request without the 30-second stall, the device stayed loaded, and Bitwig quit without an error dialog. The white editor and the stage-212 removal stall on the standard runner therefore belong to [FC-GFX-001](#fc-gfx-001--directcomposition-presentation-capability) for this fixture, not to this class. Audio, state recall and the earlier temporary-state save error were not exercised; Nibbi stays experimental. [Receipt](../evidence/graphics-runtime/2026-10-06-nibbi-directcomposition-runner.json).
 
 ### Fix chain and coverage
 

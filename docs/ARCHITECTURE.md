@@ -1521,6 +1521,11 @@ close failure may still yield a graphics recommendation from those exact facts;
 editor retirement remains a separate failed or timed-out result, never a working
 editor or successful scan. Launch validation checks the effective Direct3D/DXGI
 assignments while preserving the supervisor's other composed DLL choices.
+A library is attributed to an editor only when it first appears while the editor
+opens, or when the plug-in's own module imports it; the rest of the process's
+libraries decide nothing. The Direct3D 11 provider is an observation of the
+loaded module, separate from the requested graphics setting, and a provider's
+stand-in adapter name is never reported as the rendering device.
 
 Cache observations by their actual dependencies. Module changes invalidate module
 inspection; runtime/dependency changes invalidate affected runtime and compatibility
