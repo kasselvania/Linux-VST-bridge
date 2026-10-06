@@ -2673,6 +2673,18 @@ earlier failure in this document came from a retained host that was missing,
 so the list now has its own bound of 64 rather than a release rule. Releasing
 hosts that no registration, rollback ancestor or profile can select remains
 unbuilt.
+
+Test 13 (source `96f518b6`, signed with the existing internal-test signer,
+`package-user-inspect` passed) carries that bound and the transport correction
+in [FC-STATE-002](#fc-state-002--recorded-audio-exceeds-the-state-cap-and-ends-the-host).
+Its `package-update` on the Deck completed in 2 min 34 s. Readback: the selected
+generation's Windows host is `415e52d9…`, all 11 published classes bind that
+host and the unchanged native engine `e05dda40…`, each keeps its runner, the
+catalogue holds 17 retained hosts, and the service is active with no pending
+transactions. The package was staged through the signed package API without
+the installer window. Its Windows host is the AP8 CI build of `f9237b45`, whose
+host sources are identical at `96f518b6`; the engine is the Test 10 binary,
+whose sources are likewise unchanged.
 Last reviewed: 2026-10-06.
 
 ## FC-STATE-002 — Recorded audio exceeds the state cap and ends the host
@@ -2704,7 +2716,9 @@ protocol 15 had the same default. All three now follow the protocol's state
 bound, owner storage grows to the actual frame while render storage stays
 prepared and fixed, and transfer deadlines grow by one millisecond per 16 KiB.
 The Windows pump test sends a 3 MiB state in each direction and checks it
-byte for byte. Not yet built by CI, installed or tried on the Deck.
+byte for byte. CI passed it on native Windows, and Test 13 installed the
+resulting host on the Deck. Not yet tried there with a recording: Nibbi
+recorded delete, save and reopen in Bitwig remain the operator's check.
 
 The operator also observed that while Nibbi holds a recording and its playback
 is paused, Bitwig's level meters stay at the last playing level, and return to
