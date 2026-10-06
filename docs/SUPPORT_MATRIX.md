@@ -456,6 +456,13 @@ installed native proxy and publications do not yet contain it. Push 3 note
 release and expression are unqualified for every row below. The existing
 product results remain scoped to their recorded input fixtures.
 
+**Late host note-off:** [FC-MIDI-002](FAILURE_CLASSES.md#fc-midi-002--late-note-off-permanently-fails-processing)
+has a separate native SDK correction extracted onto trunk. Source tests cover
+negative release timestamps without expanding other event validity. The old
+stacked Pure LoFi comparison is retained provenance; no installed or DAW
+qualification of this extracted build is recorded here. Existing product rows
+retain their original scope.
+
 | Product / exact class | User posture | Accepted profile or selected candidate | Runner/policy | Physically accepted behavior | Current limitations and linked failure classes | Last physical evidence |
 |---|---|---|---|---|---|---|
 | Pure LoFi 1.0.0.6121 · `417274754156495350724C4650726F63` (instrument) | blocked for dependable audio | general5deck experimental publication `b8b74187bbba9b73fd52c2568ee9973f`, reusable engine `cc442e4a`; original reference `90b164371f317f4cd341cfbff726af86` retained; historical [profile](../compatibility/arturia-pure-lofi.json) | `proton-11.0-2c-25118279-slr4-4.0.20260805.254769`; default policy | Historical Deck instrument/audio, editor, automation, distinct state and save/reopen, sibling isolation and retirement retain their original scope; recovery1 additionally fixes the bounded late note-off | General5deck recalls a changed control but its interaction run terminates the instrument; see the [physical result](../evidence/audio-recovery/2026-10-03-general5-deck-installation.json). Recovery6 passes focused burst repair and two short Bitwig lifetimes; longer continuity and older startup/output silence remain unqualified; no gap-free reference or 256-frame qualification: [FC-AUDIO-001](FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses). Concurrent lease race: [FC-CAP-001](FAILURE_CLASSES.md#fc-cap-001--capacity-enumeration-versus-lease-retirement-race). | [General5 Deck installed result](../evidence/audio-recovery/2026-10-03-general5-deck-installation.json); [Recovery6 focused comparison and reference restoration](../evidence/audio-recovery/2026-10-02-queued-completion-deadline.json); historical [AP17 recall](AP17.md#r1-fixture-completion-and-recovery-result) |

@@ -1049,6 +1049,31 @@ physical product result is claimed.
 
 ---
 
+## FC-MIDI-002 — Late note-off permanently fails processing
+
+The native SDK cast a negative signed note-off timestamp directly to an unsigned
+wire offset. The strict transport refused that extent and the Processor entered
+Failed. The retained -1661 witness and old physical comparison are in
+[the original audio recovery report](https://github.com/kasselvania/Linux-VST-bridge/blob/a308fbf93e623ba2b8b5bc5e029f06f440ae390c/evidence/audio-recovery/2026-10-02-late-note-off.json).
+They belong to the preserved stack and do not establish a new trunk installation.
+
+The extraction from `2e159ca7` places only a negative-timestamp note-off in a
+nonempty callback at offset zero, preserving voice identity, channel, pitch,
+velocity, tuning and order. A bounded counter is exported at termination.
+The independent host includes `bad5c69c`'s latency/early-retirement correction.
+Negative note-on, future offset and zero-frame note validity remain unchanged;
+the Rust transport, epochs, Windows host and runtime are untouched.
+
+The adapted actual Processor SDK regression covers -1661/-1, exact voice fields,
+following processing and callback audit. Additional negative cases inspect
+unchanged timestamp conversion at a refusing transport stub. Linux SDK CI is
+required on the extracted head; local source readback is retained
+[separately](../evidence/audio-split/native-note-off-source.json).
+No installed Deck or DAW qualification follows. This failure is distinct from
+FC-MIDI-001 expression filtering and FC-AUDIO-001 residual deadline misses.
+
+---
+
 ## FC-AUDIO-001 — Residual audio deadline misses
 
 **Resolution on the Deck fixture (2026-10-06).** The symptom is gone on the

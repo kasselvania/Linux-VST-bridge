@@ -20,8 +20,10 @@ using namespace Steinberg;
 using namespace Steinberg::Vst;
 static unsigned setups=0,activations=0,closes=0,processes=0;
 static bool input_enabled=true,last_output=false;
-enum class InputCase { Original, MixedExpression, ExpressionOnly, NoteOffOnly, LateNoteOff, EndpointCurve, InvalidParameterExtent };
+enum class InputCase { Original, MixedExpression, ExpressionOnly, NoteOffOnly, LateNoteOff, EndpointCurve, InvalidParameterExtent, RefusedNote };
 static InputCase input_case=InputCase::Original;
+static uint32_t refused_kind=0,refused_offset=0;
+static int32_t refused_frames=0;
 static std::array<float,32> expected_left{},expected_right{};
 static uint64_t expected_silence=3;
 extern "C" {
@@ -41,6 +43,13 @@ uint32_t __wrap_ap3_transition(uint64_t,uint32_t){return 0;}
 uint32_t __wrap_ap10_take_results(uint64_t,ap10_results_t*p){static const ap10_results_t empty{};*p=empty;return 0;}
 uint32_t __wrap_if2_process(uint64_t,uint32_t n,const ap8_event_t*e,uint32_t count,const ap10_context_t*,uint64_t silence,const float*l,const float*r,float*ol,float*orr,uint64_t*out,ap7_delivery_t*d,uint64_t entered){
  assert(entered);
+ if(input_case==InputCase::RefusedNote){
+  // The SDK translation must preserve these refused inputs. The production
+  // transport's unchanged event validator refuses this kind/extent pair.
+  assert(n==uint32_t(refused_frames)&&count==1);
+  assert(e[0].kind==refused_kind&&e[0].offset==refused_offset);
+  return 0x102;
+ }
  if(input_case==InputCase::InvalidParameterExtent){
   assert(n==32&&count==1&&e[0].kind==2&&e[0].id==0&&e[0].offset==33&&e[0].value==.75);
   return 0x102;
@@ -225,5 +234,30 @@ int main(){
  assert(contents.find("\"event\":\"ap10_admission_failure\",\"code\":258,\"frames\":32")!=std::string::npos);
  assert(contents.find("\"event_count\":1,\"invalid_event_index\":0,\"invalid_event\":{\"kind\":2,\"id\":0,\"offset\":33")!=std::string::npos);
  report.close();assert(unlink(report_path)==0);assert(unsetenv("LVB_AP3_REPORT")==0);
+ // Fresh owners keep the inherited failure posture from obscuring the next
+ // negative case. No general timestamp or zero-frame note acceptance is added.
+ input_enabled=true;last_output=false;input_case=InputCase::RefusedNote;
+ auto refuse=[&](Event event,int32 frames,uint32_t kind,uint32_t offset){
+  auto* rejected=new AP2::Processor;assert(rejected->initialize(&host)==kResultOk);
+  // Fresh descriptor owners begin with every default-active output enabled.
+  // Match the original test owner's inactive trailing buses before setup.
+  for(int bus=1;bus<32;++bus)assert(rejected->activateBus(kAudio,kOutput,bus,false)==kResultOk);
+  assert(rejected->setupProcessing(setup)==kResultOk);
+  assert(rejected->setActive(true)==kResultOk&&rejected->setProcessing(true)==kResultOk);
+  EventList invalid;invalid.addEvent(event);
+  ProcessData call{};call.processMode=kRealtime;call.symbolicSampleSize=kSample32;
+  call.numSamples=frames;call.inputEvents=&invalid;
+  if(frames){call.numInputs=call.numOutputs=1;call.inputs=&ib;call.outputs=&ob;ib.channelBuffers32=in;}
+  refused_kind=kind;refused_offset=offset;refused_frames=frames;
+  audit_begin();auto result=rejected->process(call);auto effects=audit_end();
+  assert(result!=kResultOk&&effects==0);
+  assert(rejected->setProcessing(false)==kResultOk&&rejected->setActive(false)==kResultOk);
+  assert(rejected->terminate()!=kResultOk);rejected->release();
+ };
+ note.sampleOffset=-1;refuse(note,32,0,UINT32_MAX);
+ off.type=Event::kNoteOffEvent;off.sampleOffset=32;refuse(off,32,1,32);
+ off.sampleOffset=-1;refuse(off,0,1,UINT32_MAX);
+ off.sampleOffset=0;refuse(off,0,1,0);
+ assert(closes==5);
  std::puts("AP18 native sole auxiliary samples/silence/guards/events PASS");
 }

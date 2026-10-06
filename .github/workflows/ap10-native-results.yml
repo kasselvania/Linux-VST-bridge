@@ -57,7 +57,7 @@ jobs:
             -DAP2_RUST_LIBRARY="$PWD/native-vst3-proxy/backend/target/release/libap2_backend.a" \
             -DAP8_DESCRIPTOR="$PWD/native-vst3-proxy/tests/result_lifetime/ap8_descriptor.h"
           cmake --build "${{ runner.temp }}/ap10-build" --target \
-            ap10-result-lifetime process-call-observer-tests ap10-results-tests ap18-whole-block-tests ap18-auxiliary-input ap11-native-tests ap11-state-tests ap11-panel-tests ap11-activation-tests ap3-callback-audit ap23-local-wake-audit CommercialInstrumentBridge -j 4
+            ap10-result-lifetime process-call-observer-tests ap10-results-tests ap18-whole-block-tests ap18-auxiliary-input ap18-late-note-off-host ap11-native-tests ap11-state-tests ap11-panel-tests ap11-activation-tests ap3-callback-audit ap23-local-wake-audit CommercialInstrumentBridge -j 4
       - name: Compile independent installed lifecycle and completion consumers
         run: sh tools/beta/build_lifecycle_host.sh "${{ runner.temp }}/ap10-sdk" "${{ runner.temp }}/ap10-build/lib/Release" "${{ runner.temp }}/lifecycle-tools"
       - name: Test independent completion consumer against the actual first-party producer
