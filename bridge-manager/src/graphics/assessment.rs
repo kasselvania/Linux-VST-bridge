@@ -1,5 +1,5 @@
 //! Shared observation vocabulary. No product/distro selector and no activation authority.
-use crate::{require, valid_hex, Result};
+use crate::{operator_model::GraphicsBackend, require, valid_hex, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -124,6 +124,79 @@ pub struct Finding {
     pub probe_api: Option<String>,
     pub probe_status: String,
 }
+/// What the editor needs from the runner, decided by rule from the libraries
+/// the plug-in actually loaded and this launch's probes. Import hints alone
+/// never decide; a plug-in without an editor decides nothing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Requirement {
+    /// Every graphics library the editor loaded passed its probe on this launch.
+    None,
+    /// Direct3D 11 is used and the default path failed its probe; Wine's built-in D3D11/DXGI is the next launch.
+    WineD3d11,
+    /// DirectComposition is used and this launch cannot create a composition device: a blank editor.
+    DirectCompositionRunner,
+    /// Microsoft WebView2 is used and no runner here provides it.
+    UnsupportedWebView2,
+    /// The plug-in opened no editor in this inspection.
+    EditorAbsent,
+    /// The editor's path failed its probe and no further launch choice exists here.
+    Undetermined,
+}
+#[derive(Debug, Clone, Serialize)]
+pub struct Recommendation {
+    pub requirement: Requirement,
+    /// Libraries attributable to the plug-in: loaded while its editor opened, or
+    /// loaded with the module and named in its import table.
+    pub editor_loaded: Vec<Library>,
+    pub reason: &'static str,
+    pub action: &'static str,
+}
+pub fn recommend(editor: &Editor, probes: &[Probe], imports: &super::pe::Imports,
+    requested_backend: Option<GraphicsBackend>) -> Recommendation {
+    let passed = |api: &str| probes.iter().any(|p| p.api == api && p.status == "passed");
+    let imported = |l: &Library| imports.ordinary.contains(l) || imports.delayed.contains(l);
+    let mut loaded: Vec<Library> = editor.during.iter().copied()
+        .chain(editor.before.iter().copied().filter(imported))
+        .collect::<BTreeSet<_>>().into_iter().collect();
+    loaded.sort();
+    let has = |l: Library| loaded.contains(&l);
+    let finish = |requirement, reason, action| Recommendation { requirement, editor_loaded: loaded.clone(), reason, action };
+    if editor.status != "opened" {
+        return finish(Requirement::EditorAbsent,
+            "The plug-in opened no editor in this inspection.",
+            "Nothing to change for graphics.");
+    }
+    if has(Library::WebView2) {
+        return finish(Requirement::UnsupportedWebView2,
+            "The editor loads Microsoft WebView2, which the Wine runner cannot provide, so the editor will not display.",
+            "Audio and state still work through the DAW's generic controls. No graphics setting fixes this.");
+    }
+    if has(Library::DirectComposition) && !passed("direct_composition") {
+        return finish(Requirement::DirectCompositionRunner,
+            "The editor draws through DirectComposition and this launch cannot create a composition device, which shows as a blank or white editor.",
+            "Select the DirectComposition-capable runner for this plug-in and prepare again.");
+    }
+    if (has(Library::D3d11) || has(Library::Dxgi)) && !passed("d3d11_default") {
+        return if requested_backend == Some(GraphicsBackend::WineD3d11) {
+            finish(Requirement::Undetermined,
+                "The editor draws through Direct3D 11 and it failed its rendering probe with Wine's built-in path too.",
+                "Keep the recorded observations and report the editor as not displaying on this runner.")
+        } else {
+            finish(Requirement::WineD3d11,
+                "The editor draws through Direct3D 11 and the default path failed its rendering probe on this launch.",
+                "Prepare with Wine's built-in Direct3D 11 and DXGI for this plug-in host, then assess again.")
+        };
+    }
+    if has(Library::OpenGl) && !passed("opengl") {
+        return finish(Requirement::Undetermined,
+            "The editor draws through OpenGL and it failed its rendering probe on this launch.",
+            "Keep the recorded observations and report the editor as not displaying on this runner.");
+    }
+    finish(Requirement::None,
+        "Every graphics library the editor loaded passed its probe on this launch.",
+        "No graphics change needed.")
+}
 #[derive(Debug, Clone, Serialize)]
 pub struct Assessment {
     pub applied_launch: Value,
@@ -137,6 +210,7 @@ pub struct Assessment {
     pub editor: Editor,
     pub runtime_probes: Vec<Probe>,
     pub findings: Vec<Finding>,
+    pub recommendation: Recommendation,
     pub editor_device: Option<String>,
     pub child_renderers: &'static str,
     pub qualification: &'static str,
@@ -299,6 +373,8 @@ pub fn assemble(
             }
         })
         .collect();
+    let recommendation = recommend(&editor, &probes, &imports, context.requested_backend);
+    let next_action = recommendation.action;
     let context_fingerprint = context.fingerprint()?;
     let observations_fingerprint = crate::hex(&Sha256::digest(serde_json::to_vec(&(
         &context_fingerprint,
@@ -309,6 +385,6 @@ pub fn assemble(
     ))?));
     Ok(Assessment {schema:1,applied_launch,context_fingerprint,observations_fingerprint,context,observed_at:at,
         scope:"isolated inspection in selected environment; independent probe contexts are not the plug-in rendering context",
-        imports,editor,runtime_probes:probes,findings,editor_device:None,child_renderers:"not_observed",
-        qualification:"unqualified",next_action:"Review candidate API observations, then run editor/audio coexistence and recall tests; no settings were selected"})
+        imports,editor,runtime_probes:probes,findings,recommendation,editor_device:None,child_renderers:"not_observed",
+        qualification:"unqualified",next_action})
 }
