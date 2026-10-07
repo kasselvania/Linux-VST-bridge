@@ -243,31 +243,33 @@ def main():
             for role in ('instrument', 'effect'):
                 test_command = [str(binaries / f'lvb-reference-{role}-tests.exe')]
                 if args.with_companion:
-                    # Each rejected load is a new process. Test-only environment
-                    # variables never alter an installed product environment.
-                    common = work / ('common-' + role)
-                    dependency = common / 'LVBUnfamiliar' / generation / 'companion.dll'
-                    dependency.parent.mkdir(parents=True, exist_ok=True)
-                    # Windows normalizes os.environ keys to uppercase; replace
-                    # the inherited key instead of adding a case alias.
-                    test_environment = dict(os.environ, COMMONPROGRAMFILES=str(common),
-                                            LVB_BETA_EXPECT_COMPANION_REFUSAL='1')
-                    refusal_tests = []
-                    for case in ('missing', 'wrong-exports', 'wrong-generation'):
-                        if case == 'wrong-exports':
-                            shutil.copyfile(binaries / f'lvb-reference-{role}.vst3', dependency)
-                        elif case == 'wrong-generation':
-                            shutil.copyfile(wrong_companion, dependency)
-                        result = subprocess.check_output(test_command, env=test_environment, timeout=30)
-                        if result.decode().strip() != 'LVB_COMPANION_CONTRACT_V1 unusable_dependency=refused':
-                            raise ValueError('Actual dependency refusal was not observed')
-                        refusal_tests.append(dict(case=case, result=result.decode().strip()))
-                    shutil.copyfile(args.output / manifest['companion']['file'], dependency)
-                    test_environment.pop('LVB_BETA_EXPECT_COMPANION_REFUSAL')
-                    test = subprocess.check_output(test_command, env=test_environment, timeout=30)
-                    row['contract_tests'].append(dict(role=role, result=test.decode().strip(),
-                        dependency_refusals=refusal_tests, installed_dependency='required_and_used'))
-                    shutil.rmtree(common)
+                    # Use the real installed lookup on this disposable Windows
+                    # runner. Never overwrite or clean up an existing generation.
+                    common = pathlib.Path(os.environ['COMMONPROGRAMFILES']).resolve(strict=True)
+                    owned = common / 'LVBUnfamiliar' / generation
+                    owned.mkdir(parents=True, exist_ok=False)
+                    dependency = owned / 'companion.dll'
+                    try:
+                        test_environment = dict(os.environ, LVB_BETA_EXPECT_COMPANION_REFUSAL='1')
+                        refusal_tests = []
+                        for case in ('missing', 'wrong-exports', 'wrong-generation'):
+                            if case == 'wrong-exports':
+                                shutil.copyfile(binaries / f'lvb-reference-{role}.vst3', dependency)
+                            elif case == 'wrong-generation':
+                                shutil.copyfile(wrong_companion, dependency)
+                            result = subprocess.check_output(test_command, env=test_environment, timeout=30)
+                            if result.decode().strip() != 'LVB_COMPANION_CONTRACT_V1 unusable_dependency=refused':
+                                raise ValueError('Actual dependency refusal was not observed')
+                            refusal_tests.append(dict(case=case, result=result.decode().strip()))
+                        shutil.copyfile(args.output / manifest['companion']['file'], dependency)
+                        test_environment.pop('LVB_BETA_EXPECT_COMPANION_REFUSAL')
+                        test = subprocess.check_output(test_command, env=test_environment, timeout=30)
+                        row['contract_tests'].append(dict(role=role, result=test.decode().strip(),
+                            dependency_refusals=refusal_tests, installed_dependency='required_and_used'))
+                    finally:
+                        # check_output waits for exit, including on failure/timeout.
+                        # Preserve Common Files and the shared family parent.
+                        shutil.rmtree(owned)
                 else:
                     test = subprocess.check_output(test_command, timeout=30)
                     row['contract_tests'].append(dict(role=role, result=test.decode().strip()))
