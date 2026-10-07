@@ -1,39 +1,37 @@
-# Current task: finish smooth effect insertion
+# Current task: preserve smooth insertion through ordinary use
 
 ## Goal
 
-Keep effect insertion audible from its first callback through the latency-aligned
-50 ms dry-to-wet transition. Discuss the remaining initial hiccup before changing it.
+Keep BEAM's smooth insertion and 50 ms dry-to-wet handoff, then verify automation
+and fresh save/reopen with its selected SameCallback delivery.
 
 ## Current result
 
-Test 23 is installed on all 11 Deck publications. The operator says BEAM's
-dry-to-wet transition is much better and super smooth; a slight earlier loading
-hiccup before the UI appears remains. All 1,891 calls are retained, maximum
-6.891 ms (first 5.546 ms); server ERR stays 0 over 54 Bitwig samples at 512/48k.
+The operator reports completely smooth insertion and handoff in unchanged Test 23
+at 512/48k, SameCallback D=0/L=0, direct mailbox v4. All 2,538 SDK calls are complete,
+with zero fully silent callbacks. First call: 5.598 ms; first wet: 1.067 ms;
+later maximum: 1.768 ms. The first call retains the half-block START wait.
+BEAM now retains D=0 with Buffered 512 remembered; other class settings and the
+global default are unchanged. All 11 publications retain their identities.
 
-## Best explanation
+## Still broken and best explanation
 
-One silent 512-sample callback (10.7 ms) matches the initially empty dry delay
-history with D=512 and L=0. This is a strong candidate for the earlier hiccup,
-but its audible attribution is unproven. The later Wine wake fix remains parked.
+The SameCallback comparison eliminated the reported hiccup, implicating empty Buffered
+delay history or the DAW's latency-compensation response, about 80% confidence.
+The comparison does not distinguish those causes. PipeWire's 64 Bitwig samples
+show ERR 0 to 1 later, 20.516–23.516 s after the first callback; the 281 calls
+in that bracket peak at 1.025 ms. The server error's cause remains unassigned.
 
-## Next changes
+## Next changes and done
 
-- Discuss insertion sequencing and the initial delay-history priming with the operator.
-- Keep Buffered nonwaiting startup and its current, aligned 50 ms linear fade.
-- Preserve SameCallback D=0 synchronous completion, instruments, public N0 and
-  offline rendering; repeat startup automation and fresh save/reopen.
-
-## Done
-
-Loading BEAM, Nibbi and Serum 2 over a playing session produces no audible gap,
-and no call in an already playing instance exceeds half a block (5.3 ms at
-512/48k). Startup automation reaches the plug-in and save/reopen preserves it.
-The earlier editor-gesture stall remains open until a repeat captures it.
+- Verify ordinary BEAM automation and fresh save/reopen with D=0.
+- Repeat normal use and resolve the later server error; retain whole-call bounds.
+- Extend smooth loading to Nibbi and Serum 2 before claiming it for them.
+- Done: these workflows preserve sound and state, with no audible gaps or later
+  server errors and no already-playing call above 5.3 ms at 512/48k.
 
 ## Separate open work
 
-- Later Wine wake stall: nice 0 failed; baseline restored. Nibbi touch, multi-touch and the six-instance ceiling.
-- Ctrl cleared after reboot locally without streaming; its source remains a gap.
-- Inspection crash rollback, general preparation/manager/UI, supervisor replacement and portability.
+- Later Wine wake repair remains parked; earlier editor-gesture stall remains open.
+- Nibbi touch, multi-touch, concurrency ceiling and other platforms remain open.
+- Ctrl source, inspection rollback, manager/UI, supervisor replacement and portability.
