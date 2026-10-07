@@ -7,20 +7,20 @@ then engages. Instruments stay silent. The operator approved this on 2026-10-06.
 
 ## Current result
 
-Test 21 is installed on the Deck; all 11 published plug-ins use the updated pair.
-On 2026-10-07 the operator heard no audible gap loading BEAM over sound and
+Test 22 is installed on all 11 Deck publications with expanded diagnostics; audio and scheduling behavior are unchanged.
+On 2026-10-07, using Test 21, the operator heard no audible gap loading BEAM over sound and
 confirmed touchscreen knob dragging. Startup carried dry audio for 334 blocks
 (3.56 seconds); the first ready call took 0.293 ms. The server recorder missed this run.
 
 ## Best explanation
 
 The loading gap came from deliberately silent effect startup blocks; dry audio
-removed the reported symptom. A later 53.7 ms callback remains; vendor DSP took
-3.93 ms. The long Windows receive interval is the next candidate; its owner is a gap.
+removed the reported symptom. A later 53.7 ms callback had a 3.93 ms vendor call.
+The Windows receive interval includes idle; the delayed queue/wait owner remains a gap.
 
 ## Next changes
 
-- Use the saved callback trace to locate the later receive delay and choose a fix.
+- Repeat BEAM locally with paired slow-request timing; locate the delayed owner and fix it.
 - Repeat editor gestures and loading with Nibbi and Serum 2; check instruments,
   startup automation, fresh save/reopen and offline export on the installed pair.
 
