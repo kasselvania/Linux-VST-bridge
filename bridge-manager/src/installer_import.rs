@@ -329,9 +329,6 @@ fn load_identity_record(m: &Manager, id: &str) -> Result<Installer> {
     });
     Ok(r)
 }
-pub fn list(m: &Manager) -> Result<Vec<Installer>> {
-    list_with(m, load)
-}
 pub(super) fn list_identity_records(m: &Manager) -> Result<Vec<Installer>> {
     list_with(m,load_identity_record)
 }
@@ -440,7 +437,7 @@ mod tests {
         let second = import_named(&f.m, file(&source).unwrap(), "other.exe").unwrap();
         assert!(!second.newly_imported);
         assert_eq!(second.display_label, "Lunacy Audio");
-        assert_eq!(list(&f.m).unwrap(), vec![artifact]);
+        assert_eq!(list_identity_records(&f.m).unwrap(), vec![artifact]);
         assert_eq!(fs::read(f.m.root.join("installers").join(format!("{sha}.json"))).unwrap(), record);
         assert!(!serde_json::to_string(&second).unwrap().contains(f.outer.to_str().unwrap()));
     }

@@ -373,6 +373,94 @@ pub fn session_display_name<'a>(snapshot: &'a Snapshot, class_id: &str) -> &'a s
     }
 }
 
+pub(crate) fn installer_lines(v: &serde_json::Value) -> Vec<String> {
+    let t = &v["transaction"];
+    if t["schema"] != 1 || t["operation"] != v["operation"] {
+        return if v["error"] == "installer_launcher_failed" {
+            vec!["Earlier installer result: outer launch route exited nonzero; the failing later stage and installation completeness were not captured.".into()]
+        } else {
+            vec![]
+        };
+    }
+    let outcome=match t["outcome"].as_str() {
+        Some("in_progress")=>"Installer supervision is ongoing. Exact Focus and Stop controls remain available; cleanup will be checked after retirement.",
+        Some("outer_nonzero_stage_unknown")=>"The outer installer route exited nonzero. The failing child or stage is not established.",
+        Some("installed_dependency_failed")=>"Application files are installed, but a process performing service/dependency work exited nonzero. Review that stage before reinstalling.",
+        Some("child_failed")=>"An owned child exited nonzero. Its role and underlying cause may still be unknown.",
+        Some("cancelled")=>"This attempt was cancelled. Earlier failure observations remain retained.",
+        Some("cleanup_unconfirmed")=>"Installer cleanup is unconfirmed. Further work is blocked.",
+        Some("installed")=>"Application files and installation registration were observed. First launch and dependency health remain unproved.",
+        Some("partial_installation")=>"Partial installation: durable changes exist, but a complete application installation is not established.",
+        Some("not_installed")=>"No durable installation was found in the inspected surfaces.",
+        _=>"Review the installer stage record; completion does not qualify or publish a plug-in.",
+    };
+    let mut lines = vec![outcome.into()];
+    if let Some(code) = v["startup"]["first_problem"]["code"].as_str() {
+        let observation = match code {
+            "native_steamclient_load_failed" => "native runtime dependency load failed",
+            "native_steamclient_export_unavailable" => "native runtime export unavailable",
+            "runtime_assertion_observed" => "runtime assertion observed",
+            "prefix_initialization_failed" | "prefix_initialization_timeout" => {
+                "environment initialization did not complete"
+            }
+            _ => "startup problem retained; inspect bounded details",
+        };
+        lines.push(format!(
+            "Earlier startup observation: {observation}. Cancellation and cleanup do not erase it."
+        ));
+    }
+    if let Some(n) = t["outer_launcher_exit"].as_i64() {
+        lines.push(format!(
+            "Outer launcher exit: {n} (separate from payload and service exits)"
+        ));
+    }
+    lines.push(format!(
+        "Durable installation: {}",
+        t["durable_installation"]
+            .as_str()
+            .unwrap_or("unavailable")
+            .replace('_', " ")
+    ));
+    if !t["first_failure"].is_null() {
+        let f = &t["first_failure"];
+        lines.push(format!("First retained process result: phase {} · role {} · relationship {} · domain {} · status {} · cause unestablished",
+            f["phase"].as_str().unwrap_or("unknown"), f["role"].as_str().unwrap_or("unknown"),
+            f["relationship"].as_str().unwrap_or("unknown"), f["domain"].as_str().unwrap_or("unknown"), f["status"]));
+    }
+    let binding = &t["launch_binding"];
+    if binding["schema"] == 1 && binding["operation"] == v["operation"] {
+        lines.push(if binding["status"] == "bound" {
+            "Installer Windows root: exact operation and launch generation observed.".into()
+        } else {
+            format!(
+                "Installer Windows root unavailable: {}. Child attribution may be incomplete.",
+                binding["reason"].as_str().unwrap_or("missing observation")
+            )
+        });
+    }
+    if t["presence_close"]["schema"] == 1 {
+        lines.push(format!("Application presence/close requests observed: {}. Helper success does not prove a match or successful closure; exact match and recheck results remain unavailable.",t["presence_close"]["observation_count"]));
+        if t["presence_close"]["operation_classes"]
+            .as_array()
+            .is_some_and(|rows| {
+                rows.iter()
+                    .any(|r| r == "presence_query" || r == "close_request")
+            })
+        {
+            lines.push("Observed request mechanism: PowerShell/CIM process query or script process close. The matched object and actual close outcome are unavailable.".into());
+        }
+    }
+    lines.push(
+        if v["cleanup_confirmed"] == true {
+            "Owned process cleanup confirmed."
+        } else {
+            "Owned process cleanup not yet confirmed."
+        }
+        .into(),
+    );
+    lines
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -530,92 +618,4 @@ mod tests {
             .iter()
             .any(|item| item.destination == Destination::Session("exact-session".into())));
     }
-}
-
-pub(crate) fn installer_lines(v: &serde_json::Value) -> Vec<String> {
-    let t = &v["transaction"];
-    if t["schema"] != 1 || t["operation"] != v["operation"] {
-        return if v["error"] == "installer_launcher_failed" {
-            vec!["Earlier installer result: outer launch route exited nonzero; the failing later stage and installation completeness were not captured.".into()]
-        } else {
-            vec![]
-        };
-    }
-    let outcome=match t["outcome"].as_str() {
-        Some("in_progress")=>"Installer supervision is ongoing. Exact Focus and Stop controls remain available; cleanup will be checked after retirement.",
-        Some("outer_nonzero_stage_unknown")=>"The outer installer route exited nonzero. The failing child or stage is not established.",
-        Some("installed_dependency_failed")=>"Application files are installed, but a process performing service/dependency work exited nonzero. Review that stage before reinstalling.",
-        Some("child_failed")=>"An owned child exited nonzero. Its role and underlying cause may still be unknown.",
-        Some("cancelled")=>"This attempt was cancelled. Earlier failure observations remain retained.",
-        Some("cleanup_unconfirmed")=>"Installer cleanup is unconfirmed. Further work is blocked.",
-        Some("installed")=>"Application files and installation registration were observed. First launch and dependency health remain unproved.",
-        Some("partial_installation")=>"Partial installation: durable changes exist, but a complete application installation is not established.",
-        Some("not_installed")=>"No durable installation was found in the inspected surfaces.",
-        _=>"Review the installer stage record; completion does not qualify or publish a plug-in.",
-    };
-    let mut lines = vec![outcome.into()];
-    if let Some(code) = v["startup"]["first_problem"]["code"].as_str() {
-        let observation = match code {
-            "native_steamclient_load_failed" => "native runtime dependency load failed",
-            "native_steamclient_export_unavailable" => "native runtime export unavailable",
-            "runtime_assertion_observed" => "runtime assertion observed",
-            "prefix_initialization_failed" | "prefix_initialization_timeout" => {
-                "environment initialization did not complete"
-            }
-            _ => "startup problem retained; inspect bounded details",
-        };
-        lines.push(format!(
-            "Earlier startup observation: {observation}. Cancellation and cleanup do not erase it."
-        ));
-    }
-    if let Some(n) = t["outer_launcher_exit"].as_i64() {
-        lines.push(format!(
-            "Outer launcher exit: {n} (separate from payload and service exits)"
-        ));
-    }
-    lines.push(format!(
-        "Durable installation: {}",
-        t["durable_installation"]
-            .as_str()
-            .unwrap_or("unavailable")
-            .replace('_', " ")
-    ));
-    if !t["first_failure"].is_null() {
-        let f = &t["first_failure"];
-        lines.push(format!("First retained process result: phase {} · role {} · relationship {} · domain {} · status {} · cause unestablished",
-            f["phase"].as_str().unwrap_or("unknown"), f["role"].as_str().unwrap_or("unknown"),
-            f["relationship"].as_str().unwrap_or("unknown"), f["domain"].as_str().unwrap_or("unknown"), f["status"]));
-    }
-    let binding = &t["launch_binding"];
-    if binding["schema"] == 1 && binding["operation"] == v["operation"] {
-        lines.push(if binding["status"] == "bound" {
-            "Installer Windows root: exact operation and launch generation observed.".into()
-        } else {
-            format!(
-                "Installer Windows root unavailable: {}. Child attribution may be incomplete.",
-                binding["reason"].as_str().unwrap_or("missing observation")
-            )
-        });
-    }
-    if t["presence_close"]["schema"] == 1 {
-        lines.push(format!("Application presence/close requests observed: {}. Helper success does not prove a match or successful closure; exact match and recheck results remain unavailable.",t["presence_close"]["observation_count"]));
-        if t["presence_close"]["operation_classes"]
-            .as_array()
-            .is_some_and(|rows| {
-                rows.iter()
-                    .any(|r| r == "presence_query" || r == "close_request")
-            })
-        {
-            lines.push("Observed request mechanism: PowerShell/CIM process query or script process close. The matched object and actual close outcome are unavailable.".into());
-        }
-    }
-    lines.push(
-        if v["cleanup_confirmed"] == true {
-            "Owned process cleanup confirmed."
-        } else {
-            "Owned process cleanup not yet confirmed."
-        }
-        .into(),
-    );
-    lines
 }
