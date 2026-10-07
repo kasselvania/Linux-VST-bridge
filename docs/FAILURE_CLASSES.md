@@ -1618,6 +1618,8 @@ approved latency-aligned dry effect audio until ready; instruments stay silent.
 The source successor preserves pending parameters and refuses stale saves.
 On 2026-10-07, installed Test 21 passed the operator's BEAM load-continuity and touchscreen-knob check; its first ready call took 0.293 ms.
 A later 53.7 ms callback remains open, with vendor DSP taking 3.93 ms; the server recorder missed this run, and editor-stall/timing closure is still pending.
+On 2026-10-07, local Test 22 had no audible pause per the operator, but 8,867 complete calls include a 29.749 ms maximum and server ERR rose 0 to 5; first +1 is unassigned, while the buffered +4 batch is consistent with the later stall without exact event attribution.
+Paired requests bound at least 38.086 ms between completed native send and Windows receive-handoff completion, with a 1.007 ms vendor call; a fresh-host LVB_HOST_NICE=0 comparison is next, preserving the Test 22 binaries and native/render RR 5.
 
 ### Last reviewed
 
