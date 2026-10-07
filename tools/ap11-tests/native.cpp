@@ -169,6 +169,12 @@ uint32_t __wrap_ap22_curve_parameters(uint64_t,const uint32_t* ids,uint32_t coun
   for(uint32_t i=0;i<count;++i)check(ids[i]==AP8::parameters[i].id,"exact SDK parameter ID");
   return 0;
 }
+uint32_t __wrap_ap23_startup_prepare(uint64_t,const uint32_t* ids,uint32_t count,uint32_t role) {
+  check(role<=1,"SDK role bounded");
+  check(count==std::size(AP8::parameters),"exact startup SDK parameter census configured");
+  for(uint32_t i=0;i<count;++i)check(ids[i]==AP8::parameters[i].id,"exact startup parameter identity");
+  return 0;
+}
 uint32_t __wrap_ap5_report_path(uint64_t, uint8_t *p, uint32_t n) {
   if (n)
     *p = 0;

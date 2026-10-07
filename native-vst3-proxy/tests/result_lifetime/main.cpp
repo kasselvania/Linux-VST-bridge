@@ -25,7 +25,7 @@ namespace {
 void require(bool ok, const char* why) {
  if (!ok) { std::fprintf(stderr,"FAIL: %s\n",why); std::exit(1); }
 }
-uint32_t backend_abi=2, finish_calls=0, finish_result=0;
+uint32_t backend_abi=3, finish_calls=0, finish_result=0;
 uint32_t ordinary_result=0;
 uint64_t finish_completed=0,sink_completed=0;
 uint32_t total=0, cursor=0, drains=0, failures=0, closes=0, seed=0;
@@ -117,6 +117,7 @@ uint32_t __wrap_ap23_finish_callback(uint64_t){
 uint32_t __wrap_if2_terminal_status(uint64_t){return terminal_result ? 1 : 0;}
 uint32_t __wrap_ap9_open(const uint8_t*,uint64_t* h) {*h=1;return 0;}
 uint32_t __wrap_ap22_curve_parameters(uint64_t,const uint32_t*,uint32_t){return 0;}
+uint32_t __wrap_ap23_startup_prepare(uint64_t,const uint32_t*,uint32_t,uint32_t){return 0;}
 uint32_t __wrap_ap5_report_path(uint64_t,uint8_t* p,uint32_t n) {if(n)*p=0;return 0;}
 uint32_t __wrap_ap10_setup(uint64_t,uint32_t,uint32_t,double,const uint8_t*,uint32_t,uint32_t,uint32_t* traits) {
  traits[0]=512;traits[1]=traits[2]=0;return 0;
@@ -194,11 +195,11 @@ int main() {
  auto end=reinterpret_cast<uint64_t(*)()>(dlsym(RTLD_DEFAULT,"ap3_audit_end"));
  require(begin && end,"run with the existing callback audit library preloaded");
  HostApplication host;
- for(uint32_t incompatible:{1u,3u}) {
+ for(uint32_t incompatible:{1u,2u,4u}) {
   backend_abi=incompatible;AP2::Processor refused;
   require(refused.initialize(&host)==kResultFalse,"mandatory completion ABI mismatch refuses initialization");
  }
- backend_abi=2;
+ backend_abi=3;
  auto p=std::make_unique<AP2::Processor>();
  require(p->initialize(&host)==kResultOk,"initialize");
  require(p->activateBus(kEvent,kOutput,0,true)==kResultOk,"activate declared output");

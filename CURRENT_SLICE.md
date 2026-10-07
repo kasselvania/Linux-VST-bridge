@@ -1,41 +1,43 @@
-# Current task: keep the DAW's audio running while a plug-in loads
+# Current task: keep playing audio audible while a plug-in loads
 
 ## Goal
 
-Loading a bridged plug-in, or opening its editor, must not interrupt audio
-that is already playing. This is the last stability item before the operator
-soaks the Deck; portability to other distributions follows the soak.
+An effect on a sounding track passes incoming audio through until it can process,
+then engages. Instruments stay silent. The operator approved this on 2026-10-06.
 
 ## Best explanation
 
-Bitwig's audio thread waits inside the bridge's callback while the Windows
-side is slow on a new plug-in's first block. About 70%. A BEAM session on the
-Deck has one callback of 2.88 seconds and no lost frames; the editor opened
-and audio started within a tenth of a second of each other. The frame
-counters stay at zero through this, so they are not the measure.
+Test 20 answers promptly but deliberately mutes the loading effect's track.
+About 95%. Its latest BEAM run returned 281 silent startup blocks (3.0 seconds).
+The whole callback maximum was 5.78 ms, median 0.041 ms, with no bridge gap.
+The audio-server recorder had stopped and did not cover that run.
 
 ## Next changes
 
-- Read the per-callback trace (`LVB_PROCESS_CALL_TRACE=1`, switched on for
-  Bitwig on the Deck) and the Windows-side delivery trace from one session
-  that loads BEAM over playing audio. They say which callback stalled and
-  whether the time went in the vendor's call or in waiting for it.
-- If the stall is the instance's own first blocks: answer a block that is not
-  ready during start-up with silence at once, and keep the fixed delay.
-- If it is another instance's callback: find the shared resource and remove
-  it.
-- Rerun the same load on the Deck and compare the longest callback.
+- Keep dry effect audio at the reported bridge plus vendor latency through
+  startup and priming, then crossfade to the ready result over one maximum block.
+  Use the admitted main stereo buses; auxiliary outputs stay silent until ready.
+- Retain final parameter values from skipped startup blocks and flush them in
+  order before the unchanged first ready curve. Keep one originating deadline.
+  Refuse a fresh save while accepted edits have not reached the plug-in.
+- Before offline rendering, synchronize pending settings internally at N0 under
+  the first call's 60-second bound. Add no DAW audio/tail blocks or samples;
+  report failure if synchronization cannot complete. Preserve export length.
+- Build the reviewed pair as Test 21 with the existing builder signer, install,
+  and repeat loading BEAM over sound. Measure the first ready callback too:
+  deferred parameter synchronization can itself take time.
 
 ## Done
 
-With sound playing, loading BEAM, Nibbi and Serum 2 one after another on the
-Deck gives no callback longer than half a block (5.3 ms at 512 frames and
-48 kHz) in an instance that was already playing, and no audible gap.
+Loading BEAM, Nibbi and Serum 2 over a playing session produces no audible gap,
+and no call in an already playing instance exceeds half a block (5.3 ms at
+512/48k). Startup automation reaches the plug-in and save/reopen preserves it.
+The earlier editor-gesture stall remains open until a repeat captures it.
 
 ## Separate open work
 
-- Nibbi's knobs do not follow touch; BEAM's do, on the same driver.
-- Control sticks on the Deck desktop; cause unknown, a passive logger runs.
-- Multi-touch capability per plug-in, and raising the six-instance ceiling.
-- The supervisor is still Python; it costs about 1% of a CPU thread per
-  running environment and nothing when none is loaded.
+- Nibbi touch, per-plug-in multi-touch and the configured six-instance ceiling.
+- Control is held in XWayland; the unread SteamOS virtual input remains a gap.
+- A plug-in inspection crash can roll back an update for unrelated plug-ins.
+- General preparation, manager/UI and replacing the Python supervisor continue
+  after this stability repair; portability remains part of the product.

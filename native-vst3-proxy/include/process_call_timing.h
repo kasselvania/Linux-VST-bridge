@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-// Optional observation ABI2; independent of AP23 completion ABI2 and IPC15.
+// Optional observation ABI2; independent of AP23 completion ABI3 and IPC15.
 // Borrowed immutable POD spans only, consumed synchronously off the audio thread.
 extern "C" {
 struct lvb_process_call_record_t {

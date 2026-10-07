@@ -1,6 +1,6 @@
 #pragma once
 #include "ap10_backend.h"
-// Audio completion C ABI v2. SDK objects/pointers do not cross this boundary;
+// Audio completion C ABI v3. SDK objects/pointers do not cross this boundary;
 // only the existing bounded borrowed planar/event spans and explicit mode do.
 extern "C" {
 struct ap23_windows_process_timing_t {
@@ -64,10 +64,12 @@ uint32_t ap23_deadline_failed(uint64_t);
 // Refuses missing/reused policy, cancellation, fault or expired completion.
 uint32_t ap23_finish_callback(uint64_t);
 uint32_t ap23_abi_version();
+// Once per inactive exact SDK instance: admitted parameter IDs and class role.
+uint32_t ap23_startup_prepare(uint64_t,const uint32_t*,uint32_t,uint32_t);
 }
 namespace AP23 {
 static_assert(sizeof(ap23_windows_process_timing_t)==64);
-inline constexpr uint32_t abi_version=2;
+inline constexpr uint32_t abi_version=3;
 inline constexpr bool compatibleAbi(uint32_t version) { return version==abi_version; }
 inline constexpr uint32_t deadline_expired=0x108, cancelled=0x109, mode_refused=0x10A;
 inline constexpr uint32_t phase_trace_schema=1, phase_trace_capacity=128;
