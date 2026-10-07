@@ -1,31 +1,28 @@
-# Current task: keep playing audio audible while a plug-in loads
+# Current task: finish playing-audio continuity
 
 ## Goal
 
 An effect on a sounding track passes incoming audio through until it can process,
 then engages. Instruments stay silent. The operator approved this on 2026-10-06.
 
+## Current result
+
+Test 21 is installed on the Deck; all 11 published plug-ins use the updated pair.
+On 2026-10-07 the operator heard no audible gap loading BEAM over sound and
+confirmed touchscreen knob dragging. Startup carried dry audio for 334 blocks
+(3.56 seconds); the first ready call took 0.293 ms. The server recorder missed this run.
+
 ## Best explanation
 
-Test 20 answers promptly but deliberately mutes the loading effect's track.
-About 95%. Its latest BEAM run returned 281 silent startup blocks (3.0 seconds).
-The whole callback maximum was 5.78 ms, median 0.041 ms, with no bridge gap.
-The audio-server recorder had stopped and did not cover that run.
+The loading gap came from deliberately silent effect startup blocks; dry audio
+removed the reported symptom. A later 53.7 ms callback remains; vendor DSP took
+3.93 ms. The long Windows receive interval is the next candidate; its owner is a gap.
 
 ## Next changes
 
-- Keep dry effect audio at the reported bridge plus vendor latency through
-  startup and priming, then crossfade to the ready result over one maximum block.
-  Use the admitted main stereo buses; auxiliary outputs stay silent until ready.
-- Retain final parameter values from skipped startup blocks and flush them in
-  order before the unchanged first ready curve. Keep one originating deadline.
-  Refuse a fresh save while accepted edits have not reached the plug-in.
-- Before offline rendering, synchronize pending settings internally at N0 under
-  the first call's 60-second bound. Add no DAW audio/tail blocks or samples;
-  report failure if synchronization cannot complete. Preserve export length.
-- Build the reviewed pair as Test 21 with the existing builder signer, install,
-  and repeat loading BEAM over sound. Measure the first ready callback too:
-  deferred parameter synchronization can itself take time.
+- Use the saved callback trace to locate the later receive delay and choose a fix.
+- Repeat editor gestures and loading with Nibbi and Serum 2; check instruments,
+  startup automation, fresh save/reopen and offline export on the installed pair.
 
 ## Done
 
@@ -37,7 +34,7 @@ The earlier editor-gesture stall remains open until a repeat captures it.
 ## Separate open work
 
 - Nibbi touch, per-plug-in multi-touch and the configured six-instance ceiling.
-- Control is held in XWayland; the unread SteamOS virtual input remains a gap.
+- Ctrl cleared after reboot while the Deck stayed local with Moonlight/Sunshine disconnected; its source remains a gap.
 - A plug-in inspection crash can roll back an update for unrelated plug-ins.
 - General preparation, manager/UI and replacing the Python supervisor continue
   after this stability repair; portability remains part of the product.
