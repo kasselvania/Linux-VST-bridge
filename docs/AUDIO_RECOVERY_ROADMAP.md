@@ -23,6 +23,9 @@ remains frozen and draft; [PR #204](https://github.com/kasselvania/Linux-VST-bri
 remains draft and unmerged. Do not promote their inherited integration wholesale.
 
 [CURRENT_SLICE.md](../CURRENT_SLICE.md) is the current task pointer.
+The operator selected **shared workflow first; validate alongside** on 2026-10-07.
+Advance one ordinary-product capability increment, review it and prove it on a
+real machine; keep the scoped Test 23 result and open audio/state checks alongside.
 [Architecture section 18](ARCHITECTURE.md#18-audio-recovery-and-portable-execution)
 and D-028 own the design. The assessment holds source findings and implementation
 criteria. Existing failure cards and SUPPORT_MATRIX.md hold observed support;
@@ -85,8 +88,8 @@ The following work closes specific omissions without opening another workstream:
 - **Landing decision: split #200, then integrate retained capabilities in dependency
   order.** Preserve the existing #200–#207 history and evidence as the comparison
   stack. Do not merge #200 wholesale or rewrite that history during audio repair.
-  After the current audio work reaches its declared acceptance boundary, map the
-  necessary #200 foundations and subsequent repairs to coherent capability groups
+  When a current capability increment needs retained #200 foundations, map those
+  foundations and subsequent repairs to coherent capability groups
   against an exact trunk base. Each group records its source commits, dependencies,
   retained/replaced behavior and applicable evidence; follow-up repairs must travel
   with the foundations they correct. Do not cherry-pick a leaf repair that silently
@@ -135,9 +138,10 @@ audio; final queued-underrun counters were zero. The trigger remains unattribute
 and the soak never began. Source-level editor failure propagation is an architectural
 finding, not a demonstrated explanation of this incident.
 
-Physical testing remains stopped. This assessment does not launch a new Deck,
+The assessment stopped the general5 physical run. It does not launch a new Deck,
 runtime, vendor, ARM or Windows-DAW campaign. Existing independent workstreams keep
-their authority and machine custody. Builders/VMs used by the stopped run are off.
+their authority and machine custody. CURRENT_SLICE.md owns subsequent work and its
+validation; the general5 stop is historical, not a stop on the current workflow.
 When build/test work resumes, use one VM or builder at a time, at most two CPUs,
 and 256 processes on the declared fixture; reserve host CPU 0–1 and capacity for
 Audiobookshelf. The operator authorized the controlled comparison of 3 GiB guest /
