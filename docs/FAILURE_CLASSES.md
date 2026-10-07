@@ -1616,10 +1616,11 @@ Test 20 still muted a sounding track while BEAM loaded: 281 startup blocks
 and zero bridge gaps. The audio-server recorder missed this run. The operator
 approved latency-aligned dry effect audio until ready; instruments stay silent.
 The source successor preserves pending parameters and refuses stale saves.
-On 2026-10-07, installed Test 21 passed the operator's BEAM load-continuity and touchscreen-knob check; its first ready call took 0.293 ms.
+On 2026-10-07, installed Test 21 removed BEAM's sustained loading silence per the operator, and touchscreen knob dragging worked; its first ready call took 0.293 ms. The operator later clarified a brief dry-to-BEAM handoff hiccup remains.
 A later 53.7 ms callback remains open, with vendor DSP taking 3.93 ms; the server recorder missed this run, and editor-stall/timing closure is still pending.
 On 2026-10-07, local Test 22 had no audible pause per the operator, but 8,867 complete calls include a 29.749 ms maximum and server ERR rose 0 to 5; first +1 is unassigned, while the buffered +4 batch is consistent with the later stall without exact event attribution.
-Paired requests bound at least 38.086 ms between completed native send and Windows receive-handoff completion, with a 1.007 ms vendor call; a fresh-host LVB_HOST_NICE=0 comparison is next, preserving the Test 22 binaries and native/render RR 5.
+Paired requests bound at least 38.086 ms between completed native send and Windows receive-handoff completion, with a 1.007 ms vendor call. The unchanged Test 22 nice-0 comparison retained all 7,197 calls, maximum 27.188 ms, with server ERR 0 to 4: the later stall persists and baseline priority is restored. Reports confirm requested nice 0 and effective native/render RR 5; live ordinary-task priority readback was missed. The preceding reply took 39.762 ms after its pre-publication stamp through notification completion, implicating the Wine event wake; that separate fix is parked.
+The approved Test 23 source candidate keeps Buffered startup dry while legitimate current wet work is unfinished, then commits an aligned 50 ms linear fade. SameCallback keeps synchronous D=0 completion, instruments remain silent, and offline rendering stays exact. This handoff candidate has no installed or audible outcome yet.
 
 ### Last reviewed
 

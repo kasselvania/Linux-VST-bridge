@@ -43,6 +43,7 @@ pub struct Item {
     pub position: u64,
     pub ticket: u64,
     pub process_mode: u32,
+    pub(crate) startup_sync: bool,
     pub(crate) completion: Option<crate::performance::CompletionPolicy>,
     pub gain: f64,
     pub flags: u64,
@@ -63,6 +64,7 @@ impl Item {
             position: 0,
             ticket: 0,
             process_mode: 0,
+            startup_sync: false,
             completion: None,
             gain: 0.,
             flags: 0,
@@ -361,7 +363,9 @@ struct Shared {
     // remain separate from terminal/queue snapshots and never perform I/O.
     processing_ready_epoch: AtomicU64,
     startup_vendor_latency: AtomicU64,
-    startup_edits_pending: AtomicBool,
+    // Zero means applied; otherwise this names the epoch that owns unsent or
+    // in-flight startup settings. Old completion cannot clear a newer epoch.
+    startup_edits_pending: AtomicU64,
     delivery_phases: [[AtomicU64; 6]; 2],
     first_context_ready: AtomicBool,
     first_epoch: AtomicU64,
@@ -451,7 +455,7 @@ impl Shared {
             delivery_totals: std::array::from_fn(|_| AtomicU64::new(0)),
             processing_ready_epoch: AtomicU64::new(0),
             startup_vendor_latency: AtomicU64::new(0),
-            startup_edits_pending: AtomicBool::new(false),
+            startup_edits_pending: AtomicU64::new(0),
             delivery_phases: std::array::from_fn(|_| std::array::from_fn(|_| AtomicU64::new(0))),
             first_context_ready: AtomicBool::new(false),
             first_epoch: AtomicU64::new(0),
@@ -595,11 +599,11 @@ fn startup_save_refusal() -> io::Error {
 // therefore acknowledge its owner while a slower offline AUDIO is still pending.
 fn complete_control(s: &Shared, c: &mut Control, mut result: io::Result<Vec<u8>>,
     progress: ([u64; 5],Option<u64>)) -> io::Result<()> {
-    if c.op == 16 && result.is_ok() && s.startup_edits_pending.load(Ordering::Acquire) {
+    if c.op == 16 && result.is_ok() && (s.startup_edits_pending.load(Ordering::Acquire) != 0) {
         result = Err(startup_save_refusal());
     }
     if c.op == 18 && result.is_ok() {
-        s.startup_edits_pending.store(false, Ordering::Release);
+        s.startup_edits_pending.store(0, Ordering::Release);
     }
     let failed = result.as_ref().is_err_and(|e| !state::save_refused(e));
     if let Ok(bytes) = &result {
@@ -723,6 +727,7 @@ struct Callback {
     startup_state_revision: u64,
     startup_dry: Option<crate::startup::Dry>,
     startup_replaying: bool,
+    startup_sync_ticket: Option<u64>,
     callback_ns_max: u64,
     callback_us_buckets: [u64; 10],
     curve_plan: crate::parameter_curves::Plan,
@@ -765,6 +770,7 @@ impl Callback {
             startup_state_revision: 0,
             startup_dry: None,
             startup_replaying: false,
+            startup_sync_ticket: None,
             completion_wait_misses: 0,
             callback_ns_max: 0,
             callback_us_buckets: [0; 10],
@@ -862,6 +868,7 @@ impl Callback {
                 self.next_result = 0;
                 self.submitted_operation = 0;
                 self.completed_operation = 0;
+                self.startup_sync_ticket = None;
                 self.in_gap = false;
 
                 self.returned.reset();
@@ -930,11 +937,19 @@ impl Callback {
         let state_revision = s.curve_state_revision.load(Ordering::Acquire);
         if self.startup_state_revision != state_revision {
             self.startup_parameters.clear();
-            s.startup_edits_pending.store(false, Ordering::Release);
+            self.startup_sync_ticket = None;
+            s.startup_edits_pending.store(0, Ordering::Release);
             self.startup_state_revision = state_revision;
         }
         let dry_enabled = request.process_mode != 2 && request.n != 0
             && self.startup_dry.as_ref().is_some_and(|dry| dry.active());
+        // Buffered startup may present its independently owned dry stream
+        // while the first wet tickets are still running. Once any aligned wet
+        // sample enters the fade, ordinary complete-output delivery resumes.
+        // D=0 SameCallback and public N0 calls retain synchronous completion.
+        let warming = request.completion.is_some() && request.process_mode != 2 && self.delay != 0
+            && (request.n != 0 || self.startup_replaying)
+            && self.startup_dry.as_ref().is_some_and(|dry| !dry.committed());
         if dry_enabled {
             if let Some(dry) = &mut self.startup_dry {
                 let total = self.delay.checked_add(s.startup_vendor_latency.load(Ordering::Acquire));
@@ -969,7 +984,7 @@ impl Callback {
                         s.fail(CORRELATION, self.position); return Err(2);
                     }
                     if request.events[..request.event_count as usize].iter().any(|e| e.kind == 2) {
-                        s.startup_edits_pending.store(true, Ordering::Release);
+                        s.startup_edits_pending.store(self.epoch, Ordering::Release);
                     }
                     self.unready_waited_epoch = self.epoch;
                     self.unready_callbacks += 1;
@@ -989,12 +1004,18 @@ impl Callback {
         // final parameter values through the existing AUDIO owner at N=0 first,
         // restoring the vendor's implicit predecessor without rewriting the
         // DAW's first ready curve. All packets retain this callback's deadline.
-        if !self.startup_replaying && s.startup_edits_pending.load(Ordering::Acquire) {
+        if !self.startup_replaying && self.startup_sync_ticket.is_none()
+            && (s.startup_edits_pending.load(Ordering::Acquire) != 0) {
+        if self.startup_parameters.pending() {
+            // Unsent values survive STOP/START and now belong to this replay.
+            s.startup_edits_pending.store(self.epoch,Ordering::Release);
+        }
         self.startup_replaying = true;
         for _ in 0..crate::startup::MAX_PARAMETER_PACKETS {
             let mut flush = Item::control(AUDIO, 0);
             let count = self.startup_parameters.packet(&mut flush.events);
             if count == 0 { break; }
+            flush.startup_sync = !self.startup_parameters.pending();
             flush.event_count = count as u32;
             flush.gain = f64::NAN;
             flush.process_mode = request.process_mode;
@@ -1006,7 +1027,11 @@ impl Callback {
             if let Err(code) = result { self.startup_replaying = false; return Err(code); }
         }
         self.startup_replaying = false;
-        s.startup_edits_pending.store(false, Ordering::Release);
+        if self.completed_operation < self.submitted_operation {
+            self.startup_sync_ticket = Some(self.submitted_operation);
+        } else {
+            let _=s.startup_edits_pending.compare_exchange(self.epoch,0,Ordering::AcqRel,Ordering::Acquire);
+        }
         }
         request.epoch = self.epoch;
         request.position = self.position;
@@ -1113,6 +1138,7 @@ impl Callback {
                 }
                 if let Some(item)=direct_result.take() {direct_slot.slot=crate::output_pool::NONE;break Some(item);}
                 if let Some(item)=s.results.pop() {break Some(item);}
+                if warming { break None; }
                 let Some(until) = deadline else { break None; };
                 let satisfied = if exact { self.completed_operation >= request.ticket }
                     else { n == 0 || self.next_result >= required_end };
@@ -1163,6 +1189,10 @@ impl Callback {
                     self.windows_timing.add(item.epoch, item.windows_sequence, item.windows_process_ns);
                 }
                 self.completed_operation = item.ticket;
+                if self.startup_sync_ticket.is_some_and(|ticket| item.ticket >= ticket) {
+                    self.startup_sync_ticket = None;
+                    let _=s.startup_edits_pending.compare_exchange(item.epoch,0,Ordering::AcqRel,Ordering::Acquire);
+                }
             } else if request.completion.is_some() {
                 s.release_output(&a); s.fail(CORRELATION, self.position); return Err(2);
             }
@@ -1201,10 +1231,26 @@ impl Callback {
         }
         let unsatisfied = if exact { self.completed_operation < request.ticket }
             else { self.next_result < required_end };
-        if request.completion.is_some() && (unsatisfied
+        if request.completion.is_some() && ((!warming && unsatisfied)
             || deadline.is_some_and(|end| Instant::now() >= end)) {
             s.fail_deadline(self.position, self.deadline_identity(s, true));
             return Err(COMPLETION_EXPIRED);
+        }
+        if warming && (n == 0 || unsatisfied || self.position.saturating_add(n as u64)
+            <= self.delay.saturating_add(s.startup_vendor_latency.load(Ordering::Acquire))) {
+            // No part of this callback claims wet presentation. Keep completed
+            // results/events owned; the next current presentation floor expires
+            // only samples whose time passed while dry audio was audible.
+            for plane in out.iter_mut() { plane[..n].fill(0.); }
+            if let Some(dry) = &mut self.startup_dry {
+                let total = self.delay.checked_add(s.startup_vendor_latency.load(Ordering::Acquire));
+                if total.is_none_or(|delay| dry.delay(delay as usize).is_err()) {
+                    s.fail(CORRELATION, self.position); return Err(2);
+                }
+                flags = unsafe { dry.present(out, extra, destination, n, None, 0) };
+            }
+            self.position += request.n as u64;
+            return Ok(flags);
         }
         let mut i = 0;
         while i < n {
@@ -1836,6 +1882,13 @@ fn worker(mut session: Session, s: Arc<Shared>, report: Option<std::path::PathBu
                         s.fail(OVERFLOW, item.position);
                         return Err(invalid("completed output capacity"));
                     }
+                    if item.startup_sync {
+                        // A stopped callback need not run again to permit a
+                        // fresh save. Only this validated final sync ticket can
+                        // acknowledge its epoch, even if STOP retired its audio.
+                        let _=s.startup_edits_pending.compare_exchange(item.epoch,0,
+                            Ordering::AcqRel,Ordering::Acquire);
+                    }
                     session.trace.queued = item.queued;
                     session.trace.parent = item.parent;
                     session.trace.previous_control = previous_control;
@@ -2351,7 +2404,7 @@ pub unsafe extern "C" fn ap6_snapshot(id: u64, out: *mut RecoveryInfo) -> u32 {
             digest: snapshot.digest,
             uncaptured: u32::from(
                 snapshot.generation != l.shared.generation
-                    || l.shared.startup_edits_pending.load(Ordering::Acquire)
+                    || (l.shared.startup_edits_pending.load(Ordering::Acquire) != 0)
                     || l.shared.last_edit.load(Ordering::Acquire) > snapshot.through,
             ),
         };
@@ -2539,7 +2592,7 @@ unsafe fn control(id: u64, op: u32, bytes: Vec<u8>) -> io::Result<Vec<u8>> {
     if !s.state_capable.load(Ordering::Acquire) || s.fault.load(Ordering::Acquire) != 0 {
         return Err(invalid("state unavailable"));
     }
-    if op == 16 && s.startup_edits_pending.load(Ordering::Acquire) {
+    if op == 16 && (s.startup_edits_pending.load(Ordering::Acquire) != 0) {
         return Err(startup_save_refusal());
     }
     let barrier = s.requests.published();
@@ -5093,6 +5146,7 @@ mod tests {
                 assert!(shared.requests.pop().is_none(),"dry startup must not queue audio");
             }
             shared.processing_ready_epoch.store(1,Ordering::Release);
+            let completions=Arc::new(AtomicU64::new(0));let completed=completions.clone();
             let owner=shared.clone();let renderer=thread::spawn(move|| {
                 let until=Instant::now()+Duration::from_secs(3);
                 for _ in 0..10 {
@@ -5103,10 +5157,17 @@ mod tests {
                         completed.audio.data[ch][i]=if request.position+(i as u64)<32 {0.} else {0.5};
                     }}
                     assert!(owner.publish_result(completed).is_some());
+                    completions.fetch_add(1,Ordering::Release);
                 }
             });
             let mut ready_position:usize=0;
-            for _ in 0..10 {
+            for block in 0..10 {
+                if delivery==crate::performance::DeliveryMode::Buffered {
+                    let until=Instant::now()+Duration::from_secs(3);
+                    while completed.load(Ordering::Acquire)<block {
+                        assert!(Instant::now()<until);thread::yield_now();
+                    }
+                }
                 audio[0][..64].fill(0.25);audio[1][..64].fill(0.25);
                 let planes=[audio[0].as_mut_ptr(),audio[1].as_mut_ptr()];
                 let (result,allocations)=crate::allocation_test::measure(|| unsafe {
@@ -5116,13 +5177,287 @@ mod tests {
                 assert_eq!(result,0);assert_eq!(allocations,[0;3]);assert_eq!(flags,0);
                 for i in 0..64 {
                     let wet=(ready_position+i).saturating_sub(total as usize);
-                    let mix=if ready_position+i<total as usize {0.} else {((wet+1).min(256)) as f32/256.};
+                    let mix=if ready_position+i<total as usize {0.} else {((wet+1).min(2400)) as f32/2400.};
                     assert_eq!(audio[0][i],0.25*(1.-mix)+0.5*mix);
                 }
                 ready_position+=64;
             }
             renderer.join().unwrap();INSTANCES.remove(id,|_|()).unwrap();
         }
+    }
+    #[test]
+    fn buffered_startup_returns_current_dry_while_wet_and_parameter_fence_are_pending() {
+        let _registry_owner=crate::registry_test();
+        let mut shared=Shared::new();shared.state_capable.store(true,Ordering::Release);
+        shared.identity=Some(state::Identity {class:[1;16],module:[2;32]});
+        let shared=Arc::new(shared);
+        let id=prepared_live(shared.clone(),64,0,crate::performance::DeliveryMode::Buffered);
+        let mut setup=crate::performance::wire_version(64,0,48000.,true).unwrap();
+        setup.extend(2u32.to_le_bytes());
+        for direction in [0u32,1] {
+            for word in [0u32,direction,0,2,0,1] {setup.extend(word.to_le_bytes());}
+            setup.extend(3u64.to_le_bytes());
+        }
+        INSTANCES.update(id,|l| {
+            l.setup=Some(setup.clone());let c=l.callback.get_mut();
+            c.startup_dry=crate::startup::Dry::prepare(true,&setup,16,256).unwrap();
+            c.startup_parameters.configure(&(0..300).collect::<Vec<_>>()).unwrap();
+            for parameter in 0..300 {
+                c.startup_parameters.retain(&[Event {kind:2,id:parameter,value:0.25,..Event::default()}]).unwrap();
+            }
+        }).unwrap();
+        shared.startup_vendor_latency.store(16,Ordering::Release);
+        shared.startup_edits_pending.store(1,Ordering::Release);
+        let mut position=0;let mut flags=0;let mut input=[[0.;CAP];2];let mut output=[[0.;CAP];2];
+        let curve=[Event {kind:2,id:7,offset:3,value:0.5,..Event::default()}];
+        let mut run=|n:usize,events:&[Event],position:usize,wet:bool| {
+            for ch in 0..2 {for i in 0..n {input[ch][i]=(100+position+i) as f32;}}
+            let planes=[output[0].as_mut_ptr(),output[1].as_mut_ptr()];
+            let begin=Instant::now();
+            let (result,allocations)=crate::allocation_test::measure(|| unsafe {
+                ap23_process_outputs(id,n as u32,0,events.as_ptr(),events.len() as u32,
+                    &crate::context::Context::default(),0,input[0].as_ptr(),input[1].as_ptr(),
+                    planes.as_ptr(),2,&mut flags,std::ptr::null_mut(),0)
+            });
+            assert_eq!(result,0);assert_eq!(ap23_finish_callback(id),0);
+            assert_eq!(allocations,[0;3]);
+            assert!(begin.elapsed()<Duration::from_millis(250),"startup call waited for unfinished wet work");
+            for i in 0..n {
+                let dry=if position+i<272 {0.} else {(100+position+i-272) as f32};
+                let expected=if wet {
+                    let mix=(i+1) as f32/2400.;
+                    dry*(1.-mix)+(1000+position+i-272) as f32*mix
+                } else {dry};
+                assert_eq!(output[0][i],expected);assert_eq!(output[1][i],expected);
+            }
+        };
+        // No renderer is released yet. Even the first exact N0 carry packet
+        // remains unfinished while these complete ABI calls return aligned dry.
+        for n in [64,32,64,64,64] {
+            run(n,if position==0 {&curve} else {&[]},position,false);position+=n;
+        }
+        assert_eq!(position,288);assert_eq!(shared.phase_waits.load(Ordering::Acquire),0);
+        assert!((shared.startup_edits_pending.load(Ordering::Acquire) != 0));
+        assert!(state::save_refused(&unsafe {control(id,16,vec![])}.unwrap_err()));
+        let first=shared.requests.pop().unwrap();let second=shared.requests.pop().unwrap();
+        assert_eq!((first.n,first.ticket,first.event_count),(0,1,256));
+        assert_eq!((second.n,second.ticket,second.event_count),(0,2,44));
+        assert!(!first.startup_sync);assert!(second.startup_sync);
+        assert_eq!(first.completion.unwrap().deadline,second.completion.unwrap().deadline);
+        let audio=shared.requests.pop().unwrap();
+        assert_eq!((audio.n,audio.position,audio.ticket),(64,0,3));
+        assert_eq!(audio.events[..audio.event_count as usize],curve);
+        assert_eq!(first.completion.unwrap().deadline,audio.completion.unwrap().deadline);
+        let publish=|request:Item| {
+            let mut c=Completion::from(request);
+            if request.n==0 {
+                c.returned.points=1;c.returned.point[0]=crate::process_results::Point {
+                    offset:0,id:7,value:request.ticket as f64/4.};
+            } else {
+                for ch in 0..2 {for i in 0..request.n as usize {
+                    let p=request.position+i as u64;
+                    c.audio.data[ch][i]=if p<16 {0.} else {(1000+p-16) as f32};
+                }}
+            }
+            assert!(shared.publish_result(c).is_some());
+        };
+        publish(first);publish(second);publish(audio);
+        // A stale/partial frontier cannot start the fade: the complete due
+        // interval is [32,96), while only wet [0,64) has finished.
+        run(64,&[],position,false);position+=64;
+        assert!(!(shared.startup_edits_pending.load(Ordering::Acquire) != 0));
+        {
+            let live=INSTANCES.lease(id).unwrap();let callback=unsafe {&*live.callback.get()};
+            assert!(!callback.startup_dry.as_ref().unwrap().committed());
+            assert_eq!(callback.completed_operation,3);
+            assert_eq!(callback.delivery.expired_frames,32);
+        }
+        let mut returned=crate::process_results::Packet::default();
+        assert_eq!(unsafe {ap10_take_results(id,&mut returned)},0);
+        assert_eq!(returned.points,2);
+        assert_eq!((returned.point[0].value,returned.point[1].value),(0.25,0.5));
+        while let Some(request)=shared.requests.pop() {publish(request);}
+        // Current due output is now available, and it refers to exactly the
+        // same delayed input samples as dry, including vendor latency.
+        run(31,&[],position,true);position+=31;
+        {
+            let live=INSTANCES.lease(id).unwrap();let callback=unsafe {&mut *live.callback.get()};
+            assert!(callback.startup_dry.as_ref().unwrap().committed());
+            assert_eq!(callback.delivery.expired_frames,64);
+            let mut request=Item::control(AUDIO,0);request.n=64;request.gain=f64::NAN;
+            request.completion=Some(crate::performance::CompletionPolicy {
+                allowance:Duration::from_millis(5),deadline:Instant::now()+Duration::from_millis(5),exact:false });
+            // Previously available wet ends at352. Force the next due frontier
+            // past that end; commitment must keep ordinary ordered failure.
+            callback.position=600;
+            let result=callback.process_outputs_until(&shared,request,&mut [[0.;CAP];2],&[],0,
+                Some(request.completion.unwrap().deadline));
+            assert_eq!(result,Err(COMPLETION_EXPIRED));
+            assert!(shared.phase_waits.load(Ordering::Acquire)>0);
+            assert_eq!(callback.position,600);
+        }
+        assert_eq!(position,383);INSTANCES.remove(id,|_|()).unwrap();
+    }
+    #[test]
+    fn startup_sync_stop_acknowledges_applied_settings_without_clearing_a_new_epoch() {
+        let _registry_owner=crate::registry_test();
+        use ap1_native_client::{endpoint::{receive_version,send_version},mapping::Mapping,
+            ClientState,Frame,Slot,OUTPUT,STRIDE};
+        use std::os::unix::fs::FileExt;
+        for next_epoch in [false,true] {
+            let mut stateful=Shared::new();stateful.state_capable.store(true,Ordering::Release);
+            stateful.identity=Some(state::Identity {class:[4;16],module:[5;32]});
+            let shared=Arc::new(stateful);
+            let id=prepared_live(shared.clone(),64,0,crate::performance::DeliveryMode::Buffered);
+            let mut setup=crate::performance::wire_version(64,0,48000.,true).unwrap();
+            setup.extend(2u32.to_le_bytes());
+            for direction in [0u32,1] {
+                for value in [0u32,direction,0,2,0,1] {setup.extend(value.to_le_bytes());}
+                setup.extend(3u64.to_le_bytes());
+            }
+            INSTANCES.update(id,|l| {
+                let c=l.callback.get_mut();
+                c.startup_dry=crate::startup::Dry::prepare(true,&setup,0,256).unwrap();
+                c.startup_parameters.configure(&[7]).unwrap();
+                c.startup_parameters.retain(&[Event {kind:2,id:7,value:0.75,..Event::default()}]).unwrap();
+            }).unwrap();
+            shared.startup_edits_pending.store(1,Ordering::Release);
+            let input=[0.25;CAP];let mut output=[[0.;CAP];2];let mut flags=0;
+            let call=|output:&mut [[f32;CAP];2],flags:&mut u64,events:&[Event]| unsafe {
+                let planes=[output[0].as_mut_ptr(),output[1].as_mut_ptr()];
+                ap23_process_outputs(id,4,0,events.as_ptr(),events.len() as u32,
+                    &crate::context::Context::default(),0,input.as_ptr(),input.as_ptr(),
+                    planes.as_ptr(),2,flags,std::ptr::null_mut(),0)
+            };
+            assert_eq!(call(&mut output,&mut flags,&[]),0);assert_eq!(ap23_finish_callback(id),0);
+            assert_eq!(unsafe {ap3_transition(id,STOP)},0);
+            assert!(state::save_refused(&unsafe {control(id,16,vec![])}.unwrap_err()));
+            // The real transport worker will validate these queued operations;
+            // no stopped callback drains a result to authorize the later save.
+            let path=std::env::temp_dir().join(format!("startup-stop-{}",
+                u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())));
+            let mapping=Mapping::new(&path).unwrap();
+            let file=std::fs::OpenOptions::new().read(true).write(true).open(&path).unwrap();
+            let listener=std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let socket=std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+            let (mut remote,_)=listener.accept().unwrap();
+            let held=Arc::new(AtomicBool::new(false));let release=Arc::new(AtomicBool::new(false));
+            let first_held=held.clone();let first_release=release.clone();
+            let peer=thread::spawn(move|| {
+                let mut applied=0.;let mut processed=0;
+                while let Ok(f)=receive_version(&mut remote,5,15) {
+                    let payload=match f.kind {
+                        3=>{
+                            let n=ap1_native_client::get(&f.payload[..4]) as usize;
+                            let count=ap1_native_client::get(&f.payload[48..52]) as usize;
+                            let events=ap1_native_client::events::decode_for_block(&f.payload[48..56+count*32],n,true).unwrap();
+                            if processed==0 {
+                                assert_eq!(n,0);assert_eq!(events.len(),1);
+                                assert_eq!((events[0].id,events[0].value),(7,0.75));
+                                first_held.store(true,Ordering::Release);
+                                let until=Instant::now()+Duration::from_secs(3);
+                                while !first_release.load(Ordering::Acquire) {
+                                    assert!(Instant::now()<until);thread::yield_now();
+                                }
+                                applied=events[0].value;
+                            }
+                            processed+=1;
+                            for ch in 0..2 {for i in 0..n {
+                                file.write_all_at(&0.25f32.to_le_bytes(),(OUTPUT+ch*STRIDE+4+i*4) as u64).unwrap();
+                            }}
+                            let mut reply=vec![0;72];reply[..4].copy_from_slice(&(n as u32).to_le_bytes());
+                            reply[4..8].copy_from_slice(&(OUTPUT as u32).to_le_bytes());
+                            reply[16..32].copy_from_slice(&f.payload[32..48]);reply
+                        }
+                        10|12=>f.payload.clone(),
+                        16=>{
+                            assert_eq!(applied,0.75);
+                            let mut state=vec![0;24];state[0]=8;state[12]=2;
+                            state[16..].copy_from_slice(&applied.to_le_bytes());state
+                        }
+                        _=>vec![],
+                    };
+                    send_version(&mut remote,&Frame {kind:f.kind+1,session:f.session,
+                        sequence:f.sequence,payload},5,15).unwrap();
+                    if f.kind==5 {break;}
+                }
+            });
+            let session=Session {notifications:None,configured_mode:0,gui:None,gui_revision:0,
+                mailbox:None,mailbox_enabled:false,
+                #[cfg(target_os="linux")] direct_requested:false,
+                capture:None,fault_status:None,notices:(0,0),returned:Default::default(),
+                processing:crate::ProcessingScratch::new(),mapping:Some(mapping),socket,
+                state:ClientState {session:[4;16],next:1,slot:Slot::Writable},phase:11,max:64,minor:15,
+                identity:shared.identity,epoch:1,position:0,witness:None,trace:Default::default(),
+                sample_rate:48000,armed:false,owner:None};
+            let service=shared.clone();let transport=thread::spawn(move||worker(session,service,None,None));
+            let until=Instant::now()+Duration::from_secs(3);
+            while !held.load(Ordering::Acquire) {assert!(Instant::now()<until);thread::yield_now();}
+            if next_epoch {
+                assert_eq!(unsafe {ap3_transition(id,START)},0);
+                assert_eq!(call(&mut output,&mut flags,&[Event {kind:2,id:7,value:0.9,..Event::default()}]),0);
+                assert_eq!(ap23_finish_callback(id),0);
+                assert_eq!(shared.startup_edits_pending.load(Ordering::Acquire),2);
+            }
+            release.store(true,Ordering::Release);
+            let expected=(if next_epoch {2u64} else {1u64}<<8)|u64::from(if next_epoch {START+1} else {STOP+1});
+            while shared.ack.load(Ordering::Acquire)!=expected {
+                assert_eq!(shared.fault.load(Ordering::Acquire),0,"{:?}",shared.detail.lock().unwrap());
+                assert!(Instant::now()<until);thread::yield_now();
+            }
+            assert!(shared.results.pop().is_none(),"STOP retired the old presentation owner");
+            if next_epoch {
+                assert_eq!(shared.startup_edits_pending.load(Ordering::Acquire),2);
+                assert!(state::save_refused(&unsafe {control(id,16,vec![])}.unwrap_err()));
+                assert_eq!(unsafe {ap3_transition(id,STOP)},0);
+                while shared.ack.load(Ordering::Acquire)!=(2u64<<8)|u64::from(STOP+1) {
+                    assert!(Instant::now()<until);thread::yield_now();
+                }
+            } else {
+                assert_eq!(shared.startup_edits_pending.load(Ordering::Acquire),0);
+                let saved=unsafe {control(id,16,vec![])}.unwrap();
+                let payload=state::bound_payload(shared.identity,&saved).unwrap();
+                assert_eq!(f64::from_le_bytes(payload[16..24].try_into().unwrap()),0.75);
+            }
+            assert!(shared.requests.push(Item::control(DEACTIVATE,0)));
+            assert!(shared.requests.push(Item::control(CLOSE,0)));shared.work.notify();
+            transport.join().unwrap();peer.join().unwrap();assert_eq!(shared.fault.load(Ordering::Acquire),0);
+            INSTANCES.remove(id,|_|()).unwrap();std::fs::remove_file(path).unwrap();
+        }
+    }
+    #[test]
+    fn buffered_dry_warmup_preserves_ticket_expiry_and_refuses_bounded_queue_overflow() {
+        let shared=Shared::new();let mut callback=Callback::new();callback.prepare(4,2,4);
+        assert_eq!(callback.transition(&shared,START),0);shared.requests.pop().unwrap();
+        shared.processing_ready_epoch.store(1,Ordering::Release);
+        let mut setup=crate::performance::wire_version(4,0,48000.,true).unwrap();
+        setup.extend(2u32.to_le_bytes());
+        for direction in [0u32,1] {
+            for value in [0u32,direction,0,2,0,1] {setup.extend(value.to_le_bytes());}
+            setup.extend(3u64.to_le_bytes());
+        }
+        callback.startup_dry=crate::startup::Dry::prepare(true,&setup,0,4).unwrap();
+        let deadline=Instant::now()+Duration::from_secs(5);
+        let mut request=Item::control(AUDIO,0);request.n=1;request.gain=f64::NAN;
+        request.data=[[0.25;CAP];2];request.completion=Some(crate::performance::CompletionPolicy {
+            allowance:Duration::from_secs(5),deadline,exact:false});
+        let mut out=[[0.;CAP];2];
+        let (_,allocations)=crate::allocation_test::measure(|| {
+            for position in 0..DESCRIPTORS {
+                assert_eq!(callback.process_outputs_until(&shared,request,&mut out,&[],0,Some(deadline)),
+                    Ok(if position<4 {3} else {0}));
+                assert_eq!(out[0][0],if position<4 {0.} else {0.25});
+            }
+        });
+        assert_eq!(allocations,[0;3]);assert_eq!(callback.position,DESCRIPTORS as u64);
+        assert_eq!(callback.process_outputs_until(&shared,request,&mut out,&[],0,Some(deadline)),Err(2));
+        assert_eq!(shared.fault.load(Ordering::Acquire),OVERFLOW);
+        for ticket in 1..=DESCRIPTORS {
+            let admitted=shared.requests.pop().unwrap();
+            assert_eq!((admitted.ticket,admitted.position),(ticket as u64,ticket as u64-1));
+            assert_eq!(admitted.completion.unwrap().deadline,deadline);
+        }
+        assert!(shared.requests.pop().is_none());
     }
     #[test]
     fn startup_edits_survive_transport_restart_and_replay_before_unchanged_ready_curve() {
@@ -5151,7 +5486,7 @@ mod tests {
         let mut change=Item::control(AUDIO,0);change.n=512;change.gain=f64::NAN;
         change.events[0]=Event {kind:2,id:7,offset:511,value:0.75,..Event::default()};change.event_count=1;
         callback.process_outputs_until(&shared,change,&mut output,&[],0,None).unwrap();
-        assert!(shared.startup_edits_pending.load(Ordering::Acquire));
+        assert!((shared.startup_edits_pending.load(Ordering::Acquire) != 0));
         assert!(shared.requests.pop().is_none());
         assert_eq!(callback.transition(&shared,STOP),0);shared.requests.pop().unwrap();
         assert_eq!(callback.transition(&shared,START),0);shared.requests.pop().unwrap();
@@ -5194,7 +5529,7 @@ mod tests {
         let (result,allocations)=crate::allocation_test::measure(|| callback.process_outputs_until(
             &shared,ready,&mut output,&[],0,Some(ready.completion.unwrap().deadline)));
         assert!(result.is_ok());assert_eq!(allocations,[0;3]);worker.join().unwrap();
-        assert!(!shared.startup_edits_pending.load(Ordering::Acquire));
+        assert!(!(shared.startup_edits_pending.load(Ordering::Acquire) != 0));
         let returned_count=if delivery==crate::performance::DeliveryMode::SameCallback {3} else {2};
         assert_eq!((callback.position,callback.submitted_operation,callback.completed_operation),(512,3,returned_count));
         let mut returned=crate::process_results::Packet::default();
@@ -5259,7 +5594,7 @@ mod tests {
             assert_eq!(unsafe {ap23_process_outputs(id,32,0,skipped.as_ptr(),2,&crate::context::Context::default(),
                 0,input.as_ptr(),input.as_ptr(),planes.as_ptr(),2,&mut flags,std::ptr::null_mut(),0)},0);
             assert_eq!(ap23_finish_callback(id),0);
-            assert!(shared.startup_edits_pending.load(Ordering::Acquire));
+            assert!((shared.startup_edits_pending.load(Ordering::Acquire) != 0));
             assert!(shared.requests.pop().is_none(),"unready realtime block was not rendered");
             assert_eq!(unsafe {ap3_transition(id,STOP)},0);
             assert_eq!(shared.requests.pop().unwrap().kind,STOP);
@@ -5323,7 +5658,7 @@ mod tests {
                 }
             }
             renderer.join().unwrap();
-            assert!(!shared.startup_edits_pending.load(Ordering::Acquire));
+            assert!(!(shared.startup_edits_pending.load(Ordering::Acquire) != 0));
             let live=INSTANCES.lease(id).unwrap();let callback=unsafe {&*live.callback.get()};
             assert_eq!((callback.position,callback.submitted_operation,callback.completed_operation),(273,3,3));
             assert_eq!(shared.fault.load(Ordering::Acquire),0);
@@ -5335,7 +5670,7 @@ mod tests {
         let _registry_owner=crate::registry_test();
         let shared=Arc::new(Shared::new());shared.state_capable.store(true,Ordering::Release);
         let id=control_live(shared.clone());
-        shared.startup_edits_pending.store(true,Ordering::Release);
+        shared.startup_edits_pending.store(1,Ordering::Release);
         let error=unsafe {control(id,16,vec![])}.unwrap_err();assert!(state::save_refused(&error));
         assert!(!shared.pending_control.load(Ordering::Acquire));
         let mut pending=Control {barrier:0,#[cfg(target_os="linux")] direct_barrier:None,
@@ -5351,9 +5686,9 @@ mod tests {
         shared.curve_state_revision.store(1,Ordering::Release);
         let mut request=Item::control(AUDIO,0);request.n=1;request.gain=f64::NAN;
         callback.process_outputs_until(&shared,request,&mut [[0.;CAP];2],&[],0,None).unwrap();
-        assert!(!shared.startup_edits_pending.load(Ordering::Acquire));
+        assert!(!(shared.startup_edits_pending.load(Ordering::Acquire) != 0));
         assert_eq!(callback.startup_parameters.packet(&mut [Event::default();MAX_EVENTS]),0);
-        shared.startup_edits_pending.store(true,Ordering::Release);shared.fail(WORKER,0);
+        shared.startup_edits_pending.store(1,Ordering::Release);shared.fail(WORKER,0);
         let error=unsafe {control(id,16,vec![])}.unwrap_err();
         assert!(!state::save_refused(&error));assert_eq!(error.to_string(),"state unavailable");
         INSTANCES.remove(id,|_|()).unwrap();
@@ -5391,7 +5726,7 @@ mod tests {
             assert_eq!(allocations,[0;3]);assert!(started.elapsed()<Duration::from_millis(500));
             assert_eq!((callback.position,callback.submitted_operation,callback.completed_operation),(0,1,0));
             assert!(!callback.startup_replaying);
-            assert!(shared.startup_edits_pending.load(Ordering::Acquire));
+            assert!((shared.startup_edits_pending.load(Ordering::Acquire) != 0));
             assert!(shared.requests.pop().is_none(),"failed replay must not submit the ready audio block");
         }
     }
