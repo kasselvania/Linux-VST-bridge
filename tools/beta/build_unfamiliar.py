@@ -234,7 +234,9 @@ def main():
                     common = work / ('common-' + role)
                     dependency = common / 'LVBUnfamiliar' / generation / 'companion.dll'
                     dependency.parent.mkdir(parents=True, exist_ok=True)
-                    test_environment = dict(os.environ, CommonProgramFiles=str(common),
+                    # Windows normalizes os.environ keys to uppercase; replace
+                    # the inherited key instead of adding a case alias.
+                    test_environment = dict(os.environ, COMMONPROGRAMFILES=str(common),
                                             LVB_BETA_EXPECT_COMPANION_REFUSAL='1')
                     refusal_tests = []
                     for case in ('missing', 'wrong-exports', 'wrong-generation'):
