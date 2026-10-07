@@ -1611,9 +1611,16 @@ callback-side policy from the old fork.
 
 [#90](https://github.com/kasselvania/Linux-VST-bridge/issues/90).
 
+Test 20 still muted a sounding track while BEAM loaded: 281 startup blocks
+(3.0 seconds) were returned as silence, despite a 5.78 ms whole-call maximum
+and zero bridge gaps. The audio-server recorder missed this run. The operator
+approved latency-aligned dry effect audio until ready; instruments stay silent.
+The source successor preserves pending parameters and refuses stale saves;
+Test 21 still needs the same physical load and first-ready-call comparison.
+
 ### Last reviewed
 
-2026-10-02.
+2026-10-06.
 
 ---
 

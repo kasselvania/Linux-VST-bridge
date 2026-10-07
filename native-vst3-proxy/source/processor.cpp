@@ -25,6 +25,7 @@
 #include <fcntl.h>
 #include <limits>
 #include <new>
+#include <string_view>
 #include <sys/stat.h>
 #include <unistd.h>
 namespace AP2 {
@@ -229,6 +230,22 @@ bool Processor::stateSession() {
     report();
     return false;
   }
+#ifdef AP8_PREVIEW
+  std::vector<uint32_t> ids;
+  ids.reserve(std::size(AP8::parameters));
+  for(const auto& p:AP8::parameters)ids.push_back(p.id);
+  std::string_view categories(AP8::subcategories);
+  bool effect=false;
+  while(!categories.empty()){
+    const auto split=categories.find('|');
+    if(categories.substr(0,split)=="Fx")effect=true;
+    if(split==std::string_view::npos)break;
+    categories.remove_prefix(split+1);
+  }
+  if(ap23_startup_prepare(handle_,ids.data(),uint32_t(ids.size()),effect?1:0)){
+    phase_=Failed;return false;
+  }
+#endif
   if (ap5_report_path(handle_, reinterpret_cast<uint8_t *>(report_path_), sizeof(report_path_))) {
     phase_ = Failed;
     return false;

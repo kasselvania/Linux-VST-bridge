@@ -12,6 +12,9 @@ impl std::fmt::Display for SaveRefusal {
         if self.stage == 3 {
             return write!(f, "save refused: plug-in state exceeds 256 MiB save limit");
         }
+        if self.stage == 4 {
+            return write!(f, "save refused: accepted start-up parameter changes have not reached the plug-in yet");
+        }
         write!(
             f,
             "save refused: operation={} stage={} SDK result={}",

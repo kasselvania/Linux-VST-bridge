@@ -1113,6 +1113,19 @@ results, exception propagation, originating containment deadlines or scheduling.
 Durations include fixture DSP; neither N/Fs nor a single graph period establishes
 a device deadline, and several short calls may cumulatively consume one period.
 
+The operator approved dry effect start-up on 2026-10-06. Until START is ready,
+realtime nonzero calls use the admitted main stereo input/output route at the
+reported D+L delay; instruments remain silent. Continue dry through D+L priming
+and crossfade over one maximum block without changing reported latency. Retain
+the last accepted value per parameter in prepared census storage; bounded real-time
+N0 replay through the existing AUDIO owner restores the implicit predecessor before
+the first ready DAW curve. Replay retains that callback's originating expiry and
+whole-call measurement. A save cannot claim fresh state while those edits remain
+unapplied. Ordinary stop/start preserves them; authoritative restore supersedes
+them. This policy does not authorize replaying expired note events. Whether an
+internal N0 synchronization is permitted before offline rendering remains an
+operator interpretation question; this paragraph grants no offline exception.
+
 The 2026-10-03 audio-completion workstream selects the following implementation
 contract; its source, installed and physical acceptance remain separate gates:
 
@@ -1140,7 +1153,7 @@ contract; its source, installed and physical acceptance remain separate gates:
   validation/publication, presentation and final C++ SDK sink delivery. Distinguish
   unfinished rendering from completed owned work blocked by publication/control
   ordering. Reject expired work before publishing a new wire request and reject
-  late output before publication or success. Mandatory ap23 C ABI revision 2 pairs
+  late output before publication or success. Mandatory ap23 C ABI revision 3 pairs
   processing with the final SDK finish check; absent, stale or incompatible policy
   cannot authorize success. Direct AUDIO uses IPC15 with mailbox layout4; these
   version axes remain separate from the SDK ABI and observation formats.
