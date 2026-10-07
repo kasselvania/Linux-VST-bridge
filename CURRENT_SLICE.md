@@ -17,9 +17,10 @@ existing supervised custody, then rescan/reprepare. Stop/retry preserve the spac
 Advance the existing revision before mutation; keep ID, initial history, prior
 publications and unrelated spaces. Stale siblings need fresh preparation; vendor
 state cannot be promised rollback. Global exclusion and onboarding guards remain.
-Linux owner regressions pass; full review, suite and installed acceptance are in progress.
-Test25 confirms REAPER restores while Processing; the native guard refuses both roles' correctly saved state.
-Source now pauses/restores/resumes the same instance; regressions and unchanged-project recall remain required.
+Source review and CI pass; old-guard regression fails, corrected SDK 6/6 and worker/capture 3/3 pass.
+Test25 confirms the guard refused legal Processing restore; signed, inspected Test26 (1afce8ff) pauses/restores/resumes the same instance.
+Two fresh Windows fixture families pass 8 positive DSP/state and 24 dependency-refusal contracts.
+Repaired original-project recall and installed companion cases wait for the offline homelab; VM stays stopped, original project unchanged.
 
 ## Validation alongside and done
 
