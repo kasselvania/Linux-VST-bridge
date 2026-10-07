@@ -96,6 +96,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MGMT-006](#fc-mgmt-006--exact-prebuilt-catalogue-blocks-unfamiliar-plug-ins) | Exact prebuilt catalogue blocks unfamiliar plug-ins | Preparation/descriptor/publication | causal in source; Nibbi user report | installed Ubuntu unfamiliar Windows processing, state migration and restoration | No repaired Deck/Nibbi result | Deck blocked; reference candidate unqualified | Actual DAW workflow, dependency and runtime trials |
 | [FC-STATE-001](#fc-state-001--saved-state-rejects-an-explicitly-selected-module-update) | Updated module rejects earlier saved state | Native state envelope / selected execution identity | causal for reference fixtures | installed reference repair passed | Ubuntu SDK instrument/effect; normal manager rollback | reference regression resolved; real DAW/commercial unqualified | Physical DAW update/recall and declared interaction/soak |
 | [FC-STATE-002](#fc-state-002--recorded-audio-exceeds-the-state-cap-and-ends-the-host) | Recording makes saving end the host | SDK state streams / state transport | causal in source; recording comparison agrees | 256 MiB cap and recoverable capture refusal installed in Test 11 | SDK recorded-state recall and continued audio after refusal; Deck pair verified | resolved on the Deck in Test 14 | state near 100 MiB; flat Linux-side limits |
+| [FC-STATE-003](#fc-state-003--saved-project-reopens-with-default-state) | Saved project reopens with default state | Native component state restore | causal | Processing restore correction prepared | Test25 Ubuntu REAPER 7.82 refuses both legal Processing-state restores | blocked | SDK/worker regressions and unchanged-project recall |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
@@ -2820,6 +2821,11 @@ account for the save failure by state size alone, so the meter behaviour is a
 separate observation tied to the same condition. Whether Nibbi itself emits a
 held level or the bridge repeats output is not established.
 Last reviewed: 2026-10-06.
+
+## FC-STATE-003 — Saved project reopens with default state
+
+Test24 Ubuntu REAPER 7.82 saves the correct changed opaque component/controller bytes for both Reference roles, but normal close/reopen resets controls and sound before any companion mutation (effect: 352,482 of 352,800 samples differ).
+Test25 confirms both UI-thread restore calls arrive while Processing and the native guard refuses them before envelope validation or vendor restore. Source now uses the existing bounded owner to stop, restore/read back, and restart the same instance; regressions and unchanged-project recall remain required.
 
 ## FC-UI-008 — Vendor editor removal crashes the Windows host
 

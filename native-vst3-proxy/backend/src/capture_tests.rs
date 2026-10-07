@@ -16,6 +16,110 @@ fn until(mut f: impl FnMut() -> bool) {
     }
 }
 #[test]
+fn processing_restore_waits_for_stop_ack_and_restarts_the_same_session_at_a_fresh_epoch() {
+    let _registry_owner = crate::registry_test();
+    let directory = std::env::temp_dir().join(format!(
+        "processing-restore-{:032x}",
+        u128::from_le_bytes(ap1_native_client::mapping::random().unwrap())
+    ));
+    std::fs::create_dir(&directory).unwrap();
+    let mapping = Mapping::new(&directory.join("audio")).unwrap();
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let socket = std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    let (mut remote, _) = listener.accept().unwrap();
+    let (stop_seen, await_stop) = std::sync::mpsc::channel();
+    let (release_stop, await_release) = std::sync::mpsc::channel();
+    let mut payload = vec![0; 24];
+    payload[0] = 8;
+    payload[12] = 2;
+    payload[16..].copy_from_slice(&0.375f64.to_le_bytes());
+    let peer_payload = payload.clone();
+    let peer = thread::spawn(move || {
+        let stopped = receive_version(&mut remote, 3, 15).unwrap();
+        assert_eq!((stopped.kind, stopped.session, stopped.sequence), (12, [31; 16], 1));
+        assert_eq!(get(&stopped.payload), 1);
+        stop_seen.send(()).unwrap();
+        await_release.recv_timeout(Duration::from_secs(3)).unwrap();
+        // The real worker is still awaiting this STOP acknowledgment. An
+        // admitted restore must not already have crossed the socket boundary.
+        remote.set_nonblocking(true).unwrap();
+        let mut byte = [0];
+        assert_eq!(remote.peek(&mut byte).unwrap_err().kind(), io::ErrorKind::WouldBlock);
+        remote.set_nonblocking(false).unwrap();
+        send_version(&mut remote, &Frame { kind: 13, ..stopped }, 3, 15).unwrap();
+        let restored = receive_version(&mut remote, 3, 15).unwrap();
+        assert_eq!((restored.kind, restored.session, restored.sequence), (18, [31; 16], 1));
+        assert_eq!(restored.payload, peer_payload);
+        send_version(&mut remote, &Frame { kind: 19, ..restored }, 3, 15).unwrap();
+        let started = receive_version(&mut remote, 3, 15).unwrap();
+        assert_eq!((started.kind, started.session, started.sequence), (10, [31; 16], 2));
+        assert_eq!(get(&started.payload), 2);
+        send_version(&mut remote, &Frame { kind: 11, ..started }, 3, 15).unwrap();
+        for expected in [12, 14, 5] {
+            let request = receive_version(&mut remote, 3, 15).unwrap();
+            assert_eq!((request.kind, request.session, request.sequence), (expected, [31; 16], 2));
+            if expected == 12 { assert_eq!(get(&request.payload), 2); }
+            send_version(&mut remote, &Frame { kind: expected + 1, ..request }, 3, 15).unwrap();
+        }
+    });
+    let identity = Some(state::Identity { class: [31; 16], module: [32; 32] });
+    let session = Session {
+        gui: None, gui_revision: 0, mapping: Some(mapping), socket,
+        mailbox: None, mailbox_enabled: false,
+        #[cfg(target_os = "linux")]
+        direct_requested: false,
+        notifications: None, configured_mode: 0, capture: None, fault_status: None,
+        notices: (0, 0), returned: Default::default(), processing: crate::ProcessingScratch::new(),
+        state: ClientState { session: [31; 16], next: 1, slot: Slot::Writable },
+        phase: 11, max: 64, minor: 15, identity, epoch: 1, position: 0,
+        witness: None, trace: Default::default(), sample_rate: 48000, armed: false, owner: None,
+    };
+    let mut shared = Shared::new();
+    shared.identity = identity;
+    shared.state_capable.store(true, Ordering::Release);
+    shared.wanted.store(1, Ordering::Release);
+    let shared = Arc::new(shared);
+    let mut callback = Callback::new();
+    callback.prepare(64, 2, 0);
+    callback.running = true;
+    callback.epoch = 1;
+    let service = shared.clone();
+    let worker = thread::spawn(move || worker(session, service, None, None));
+    let id = INSTANCES.insert(|| Ok::<_, ()>(Live {
+        shared: shared.clone(), callback: UnsafeCell::new(callback), busy: AtomicBool::new(false),
+        worker: Some(worker), report: None, max: 64, recovery_blocked: false,
+        installed_delay: Some(0), delivery_mode: crate::performance::DeliveryMode::SameCallback,
+        minor: 15, setup: None,
+    })).unwrap().unwrap();
+    assert_eq!(unsafe { ap3_transition(id, STOP) }, 0);
+    await_stop.recv_timeout(Duration::from_secs(3)).unwrap();
+    let saved = state::bound_envelope(identity, &payload).unwrap();
+    let restore = thread::spawn(move || unsafe {
+        let mut owned = state::OwnedState { data: std::ptr::null(), length: 0, abi_version: 1 };
+        assert_eq!(ap4_state_owned_v1(id, saved.as_ptr(), saved.len() as u32, &mut owned), 0);
+        let captured = std::slice::from_raw_parts(owned.data, owned.length as usize).to_vec();
+        state::ap4_state_release_v1(&mut owned);
+        captured
+    });
+    until(|| shared.pending_control.load(Ordering::Acquire));
+    assert!(!restore.is_finished());
+    release_stop.send(()).unwrap();
+    let captured = restore.join().unwrap();
+    assert_eq!(state::bound_payload(identity, &captured).unwrap(), payload);
+    assert_eq!(shared.ack.load(Ordering::Acquire), (1 << 8) | 13);
+    assert_eq!(shared.curve_state_revision.load(Ordering::Acquire), 1);
+    assert_eq!(unsafe { ap3_transition(id, START) }, 0);
+    until(|| shared.ack.load(Ordering::Acquire) == (2 << 8) | 11);
+    assert_eq!(shared.processing_ready_epoch.load(Ordering::Acquire), 2);
+    assert_eq!(unsafe { ap3_transition(id, STOP) }, 0);
+    until(|| shared.ack.load(Ordering::Acquire) == (2 << 8) | 13);
+    assert_eq!(unsafe { ap3_transition(id, DEACTIVATE) }, 0);
+    assert_eq!(unsafe { ap3_close(id) }, 0);
+    peer.join().unwrap();
+    assert_eq!(shared.fault.load(Ordering::Acquire), 0);
+    std::fs::remove_dir_all(directory).unwrap();
+}
+#[test]
 fn pending_save_does_not_hold_parent_callback_batches_or_replace_a_refused_snapshot() {
         let _registry_owner = crate::registry_test();
     let dir = std::env::temp_dir().join(format!(

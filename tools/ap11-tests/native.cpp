@@ -9,8 +9,11 @@
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "public.sdk/source/vst/hosting/parameterchanges.h"
 #include <deque>
+#include <chrono>
+#include <condition_variable>
 #include <iostream>
 #include <memory>
+#include <mutex>
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 namespace {
@@ -26,6 +29,18 @@ uint32_t gui_fault = 0, caps = 0, closes = 0, refused_sends = 0;
 uint64_t generation = 7, revision = 1;
 double dsp = .5;
 uint32_t save_code=0, state_calls=0, close_code=0;
+bool processing_state_fixture=false;
+std::vector<uint32_t> state_operations;
+uint32_t transition_refusal=0, successful_starts=0;
+std::mutex state_hold_mutex;
+std::condition_variable state_hold_changed;
+bool hold_process=false, process_entered=false, process_released=false;
+bool hold_restore=false, restore_entered=false, restore_released=false;
+void held_call(bool& entered, bool& released) {
+  std::unique_lock lock(state_hold_mutex);
+  entered=true;state_hold_changed.notify_all();
+  check(state_hold_changed.wait_for(lock,std::chrono::seconds(3),[&]{return released;}),"bounded held SDK operation");
+}
 uint32_t process_refusal=0;
 uint32_t fixture_delay=UINT32_MAX,fixture_vendor=0,fixture_tail=0,notice_flags=0;
 uint32_t actual_mode=UINT32_MAX,process_calls=0;
@@ -189,7 +204,14 @@ uint32_t __wrap_ap10_setup(uint64_t, uint32_t maximum, uint32_t, double,
 }
 uint32_t __wrap_ap4_activate(uint64_t, uint32_t maximum, uint32_t) { activated_maximum=maximum;return 0; }
 uint32_t __wrap_ap4_deactivate(uint64_t) { return 0; }
-uint32_t __wrap_ap3_transition(uint64_t, uint32_t) { return 0; }
+uint32_t __wrap_ap3_transition(uint64_t, uint32_t op) {
+  if(processing_state_fixture){
+    state_operations.push_back(op);
+    if(op==transition_refusal)return 7;
+    if(op==10)++successful_starts;
+  }
+  return 0;
+}
 uint32_t __wrap_if2_close(uint64_t) {
   ++closes;
   return close_code;
@@ -240,10 +262,29 @@ uint32_t __wrap_ap8_validate(const uint8_t *, const uint8_t *, uint32_t) {
 uint32_t __wrap_ap8_validate_restore(const uint8_t *, const uint8_t *, uint32_t) {
   return 0;
 }
-uint32_t __wrap_ap4_state_owned_v1(uint64_t, const uint8_t *, uint32_t,
+uint32_t __wrap_ap4_state_owned_v1(uint64_t, const uint8_t *restore, uint32_t restore_size,
                                   ap4_owned_state_v1 *state) {
-  ++state_calls;if(save_code)return save_code;
+  ++state_calls;
+  if(processing_state_fixture&&restore){
+    state_operations.push_back(18);
+    if(hold_restore)held_call(restore_entered,restore_released);
+  }
+  if(save_code)return save_code;
   check(state->abi_version==1&&!state->data&&!state->length,"empty owned state output");
+  if(processing_state_fixture){
+    // One opaque component double, distinct from the presentation mirror.
+    // Rust tests own the real envelope integrity/identity checks.
+    if(restore){
+      check(restore_size==140&&restore[104]==8,"Processing restore owns complete opaque component");
+      std::memcpy(&dsp,restore+120,8);
+    }
+    auto* out=new uint8_t[140]{};
+    out[64]=36;out[104]=8;out[112]=1;
+    std::memcpy(out+120,&dsp,8);
+    std::memcpy(out+132,&dsp,8);
+    state->data=out;state->length=140;
+    return 0;
+  }
   auto* out=new uint8_t[132]{};
   out[112] = 1;
   std::memcpy(out + 124, &dsp, 8);
@@ -261,6 +302,7 @@ uint32_t __wrap_ap23_process_outputs(uint64_t, uint32_t n, uint32_t mode, const 
   check(entered_ns != 0, "native callback entry is propagated");
   check(mode<=kOffline && channels==2,"actual callback mode and planar ABI");
   actual_mode=mode;++process_calls;
+  if(processing_state_fixture&&hold_process)held_call(process_entered,process_released);
   if(IF1::valid(terminal_record))return IF2::contained;
   if(process_refusal)return process_refusal;
   check(n<=configured_maximum,"callback length is within prepared maximum");
@@ -271,7 +313,12 @@ uint32_t __wrap_ap23_process_outputs(uint64_t, uint32_t n, uint32_t mode, const 
     }
   *silence = 0;
   *delivery = {};
-  if(n){std::copy_n(l,n,outputs[0]);std::copy_n(r,n,outputs[1]);delivery->delivered_frames=n;}
+  if(n){
+    if(processing_state_fixture){
+      for(uint32_t i=0;i<n;++i){outputs[0][i]=float(l[i]*dsp);outputs[1][i]=float(r[i]*dsp);}
+    }else{std::copy_n(l,n,outputs[0]);std::copy_n(r,n,outputs[1]);}
+    delivery->delivered_frames=n;
+  }
   return 0;
 }
 uint32_t __wrap_ap10_take_results(uint64_t, ap10_results_t *p) {
@@ -503,6 +550,92 @@ void failed_restore_retirement_regression() {
     close_code=0;
   }
 }
+void processing_state_restore_regression() {
+  for(unsigned scenario=0;scenario<7;++scenario){
+  events.clear();commands.clear();gui_fault=0;terminal_record={};
+  save_code=close_code=process_refusal=0;processing_state_fixture=true;dsp=.375;
+  transition_refusal=0;hold_process=hold_restore=false;
+  process_entered=process_released=restore_entered=restore_released=false;
+  Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+  host.processor=&processor;host.controller=controller;
+  auto* context=static_cast<IHostApplication*>(&host);
+  check(processor.initialize(context)==kResultOk&&controller->initialize(context)==kResultOk,"Processing restore initialize");
+  check(controller->setComponentHandler(static_cast<IComponentHandler*>(&host))==kResultOk&&
+        processor.connect(controller)==kResultOk&&controller->connect(&processor)==kResultOk,"Processing restore connection");
+  LVBState::Stream saved;
+  check(processor.getState(&saved)==kResultOk,"capture changed opaque component before Processing restore");
+  dsp=.25;
+  // A historical display value must not replace the opaque vendor setting.
+  const double old_projection=.875;std::memcpy(saved.bytes.data()+132,&old_projection,8);
+  ProcessSetup setup{kRealtime,kSample32,128,48000};
+  check(processor.setupProcessing(setup)==kResultOk&&processor.setActive(true)==kResultOk&&
+        processor.setProcessing(true)==kResultOk,"Processing restore start");
+  std::array<float,128> inputL{},inputR{},left{},right{};
+  inputL.fill(.5f);inputR.fill(-.25f);
+  float* in[]={inputL.data(),inputR.data()};float* out[]={left.data(),right.data()};
+  AudioBusBuffers inputs{},outputs{};inputs.numChannels=outputs.numChannels=2;
+  inputs.channelBuffers32=in;outputs.channelBuffers32=out;
+  ProcessData data{};data.processMode=kRealtime;data.symbolicSampleSize=kSample32;
+  data.numSamples=128;data.numInputs=data.numOutputs=1;data.inputs=&inputs;data.outputs=&outputs;
+  std::thread callback, release;
+  if(scenario==1){
+    hold_process=true;
+    callback=std::thread([&]{check(processor.process(data)==kResultOk,"in-flight callback finishes before restore");});
+    {std::unique_lock lock(state_hold_mutex);
+      check(state_hold_changed.wait_for(lock,std::chrono::seconds(3),[]{return process_entered;}),"in-flight callback owns native guard");}
+    release=std::thread([]{
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      std::lock_guard lock(state_hold_mutex);process_released=true;state_hold_changed.notify_all();
+    });
+  }else if(scenario==2){
+    hold_restore=true;
+    callback=std::thread([&]{
+      {std::unique_lock lock(state_hold_mutex);
+        check(state_hold_changed.wait_for(lock,std::chrono::seconds(3),[]{return restore_entered;}),"restore owns native guard");}
+      left.fill(9.f);right.fill(9.f);
+      auto begin=std::chrono::steady_clock::now();
+      check(processor.process(data)==kResultFalse,"callback during restore is explicitly refused");
+      check(std::chrono::steady_clock::now()-begin<std::chrono::milliseconds(50),"callback never waits on state work");
+      for(size_t i=0;i<left.size();++i)check(left[i]==0.f&&right[i]==0.f,"refused callback returns silence");
+      check(processor.setProcessing(false)==kResultFalse,"concurrent host stop is never falsely accepted");
+      std::lock_guard lock(state_hold_mutex);restore_released=true;state_hold_changed.notify_all();
+    });
+  }else if(scenario==3)save_code=7;
+  else if(scenario==4)transition_refusal=12;
+  else if(scenario==5)host.refuse_allocations=1;
+  else if(scenario==6)transition_refusal=10;
+  const auto before=state_calls, before_process=process_calls;
+  state_operations.clear();successful_starts=0;saved.position=0;
+  // The pinned IComponent contract permits UI-thread setState in Processing,
+  // including before its first process() call and while a callback retires.
+  const auto restored=processor.setState(&saved);
+  if(callback.joinable())callback.join();
+  if(release.joinable())release.join();
+  hold_process=hold_restore=false;
+  if(scenario>=3){
+    check(restored==kResultFalse&&successful_starts==0,"failed state transition never restarts processing");
+    check(state_operations==(scenario==4?std::vector<uint32_t>{12}:
+          scenario==6?std::vector<uint32_t>{12,18,10}:std::vector<uint32_t>{12,18}),"failure stops the ordered restore route");
+    check(processor.process(data)==kResultFalse,"failed restore refuses subsequent processing");
+    save_code=transition_refusal=0;
+  }else{
+  check(restored==kResultOk,"legal Processing state restore accepted");
+  check(state_operations==std::vector<uint32_t>({12,18,10})&&successful_starts==1,"same instance stops, restores, then starts once");
+  check(state_calls==before+1&&process_calls==before_process&&dsp==.375,"actual opaque state restored without fabricated processing");
+  saved.position=0;
+  check(controller->setComponentState(&saved)==kResultOk&&controller->readbackAvailable(0)&&
+        controller->getParamNormalized(0)==.375,"current recaptured controller value wins over historical projection");
+  check(processor.process(data)==kResultOk&&process_calls==before_process+1,
+        "Processing intent survives state restoration");
+  for(size_t i=0;i<left.size();++i)
+    check(left[i]==.1875f&&right[i]==-.09375f,"next real callback uses restored opaque sound setting");
+  }
+  check(processor.setProcessing(false)==kResultOk&&processor.setActive(false)==kResultOk,"Processing restore normal stop");
+  check(controller->disconnect(&processor)==kResultOk&&processor.disconnect(controller)==kResultOk,"Processing restore disconnect");
+  check(controller->terminate()==kResultOk&&processor.terminate()==kResultOk,"Processing restore retirement");
+  controller->release();processing_state_fixture=false;
+  }
+}
 void completion_contract_regression() {
   events.clear();commands.clear();gui_fault=0;terminal_record={};save_code=close_code=process_refusal=0;
   // Deliberate C ABI fixtures isolate the SDK rule; installed manager selection
@@ -547,7 +680,7 @@ void completion_contract_regression() {
 }
 int main(int argc,char** argv) {
   if(argc>1){
-    if(!std::strcmp(argv[1],"--state-migration")){historical_controller_regression();failed_restore_retirement_regression();}
+    if(!std::strcmp(argv[1],"--state-migration")){historical_controller_regression();processing_state_restore_regression();failed_restore_retirement_regression();}
     else if(!std::strcmp(argv[1],"--curve-refusal"))curve_refusal_regression();
     else if(!std::strcmp(argv[1],"--completion-contract"))completion_contract_regression();
     else contained_host_survival_regression();

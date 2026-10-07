@@ -18,6 +18,8 @@ Advance the existing revision before mutation; keep ID, initial history, prior
 publications and unrelated spaces. Stale siblings need fresh preparation; vendor
 state cannot be promised rollback. Global exclusion and onboarding guards remain.
 Linux owner regressions pass; full review, suite and installed acceptance are in progress.
+Test25 confirms REAPER restores while Processing; the native guard refuses both roles' correctly saved state.
+Source now pauses/restores/resumes the same instance; regressions and unchanged-project recall remain required.
 
 ## Validation alongside and done
 
