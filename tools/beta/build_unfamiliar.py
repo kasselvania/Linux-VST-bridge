@@ -36,6 +36,7 @@ def require_companion(source, generation):
         raise ValueError('Exact first-party generation required')
     source = '#define NOMINMAX\n#define WIN32_LEAN_AND_MEAN\n' + source
     loader = '''#include <cstring>
+#include <cstdio>
 #include <windows.h>
 #include <string>
 // The separate installer owns this dependency; no fallback or loader search.
@@ -54,14 +55,23 @@ struct FixtureCompanion {
     bool open() {
         wchar_t common[32768]{};
         const DWORD size = GetEnvironmentVariableW(L"CommonProgramFiles", common, 32768);
+        std::fprintf(stderr, "LVB_COMPANION_LOAD_V1 common=%.*ls size=%lu\\n",
+            32767, common, static_cast<unsigned long>(size));
         if (!size || size >= 32768 || size < 3 || common[1] != L':' || common[2] != L'\\\\') return false;
         const std::wstring path = std::wstring(common) + L"\\\\LVBUnfamiliar\\\\GENERATION\\\\companion.dll";
+        std::fprintf(stderr, "LVB_COMPANION_LOAD_V1 path=%ls\\n", path.c_str());
         module = LoadLibraryExW(path.c_str(), nullptr,
             LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
+        const DWORD load_error = module ? ERROR_SUCCESS : GetLastError();
+        std::fprintf(stderr, "LVB_COMPANION_LOAD_V1 module=%p win32=%lu\\n",
+            static_cast<void*>(module), static_cast<unsigned long>(load_error));
         if (!module) return false;
         const auto version = reinterpret_cast<Generation>(GetProcAddress(module, "lvb_companion_generation"));
         gain = reinterpret_cast<Gain>(GetProcAddress(module, "lvb_companion_gain"));
-        if (!version || !gain || version() != 0xGENERATIONu) { gain = nullptr; return false; }
+        const auto actual = version ? version() : 0;
+        std::fprintf(stderr, "LVB_COMPANION_LOAD_V1 version=%p gain=%p expected=%08X actual=%08X\\n",
+            reinterpret_cast<void*>(version), reinterpret_cast<void*>(gain), 0xGENERATIONu, actual);
+        if (!version || !gain || actual != 0xGENERATIONu) { gain = nullptr; return false; }
         return true;
     }
 };'''.replace('GENERATION', generation)
@@ -83,6 +93,10 @@ struct FixtureCompanion {
 
 
 def companion_contract(source):
+    source = replace_once(source,
+        '    need(processor.initialize(&host) == kResultOk && controller.initialize(&host) == kResultOk, "initialize");',
+        '''    need(processor.initialize(&host) == kResultOk, "processor initialize");
+    need(controller.initialize(&host) == kResultOk, "controller initialize");''')
     anchor = 'int main() {\n    HostApplication host;'
     return replace_once(source, anchor, anchor + '''
     if (std::getenv("LVB_BETA_EXPECT_COMPANION_REFUSAL")) {
