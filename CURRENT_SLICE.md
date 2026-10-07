@@ -1,28 +1,29 @@
-# Current task: finish playing-audio continuity
+# Current task: finish smooth effect insertion
 
 ## Goal
 
-An effect on a sounding track passes incoming audio through until it can process,
-then engages. Instruments stay silent. The operator approved this on 2026-10-06.
+Keep effect insertion audible from its first callback through the latency-aligned
+50 ms dry-to-wet transition. Discuss the remaining initial hiccup before changing it.
 
 ## Current result
 
-Test 22 is installed on all 11 Deck publications with expanded diagnostics; audio and scheduling behavior are unchanged.
-On 2026-10-07, local Test 22 had no audible pause per the operator; all 8,867 calls were retained, maximum 29.749 ms.
-Server ERR rose 0 to 5: first +1 unassigned; the +4 batch is consistent with the later stall, with exact attribution open.
-Test 21's 2026-10-07 BEAM loading/touch pass and 0.293 ms first-ready result remain.
+Test 23 is installed on all 11 Deck publications. The operator says BEAM's
+dry-to-wet transition is much better and super smooth; a slight earlier loading
+hiccup before the UI appears remains. All 1,891 calls are retained, maximum
+6.891 ms (first 5.546 ms); server ERR stays 0 over 54 Bitwig samples at 512/48k.
 
 ## Best explanation
 
-Dry audio removed the observed loading silence. The later delay is in the Windows
-receive handoff: at least 38.086 ms from native send until receive completion,
-with a 1.007 ms vendor call. A Wine wait/scheduling dependency is likely (about 70%).
+One silent 512-sample callback (10.7 ms) matches the initially empty dry delay
+history with D=512 and L=0. This is a strong candidate for the earlier hiccup,
+but its audible attribution is unproven. The later Wine wake fix remains parked.
 
 ## Next changes
 
-- Compare a fresh Test 22 host with LVB_HOST_NICE=0; verify ordinary tasks at nice 0 and native/render RR 5.
-- Repeat editor gestures and loading with Nibbi and Serum 2; check instruments,
-  startup automation, fresh save/reopen and offline export on the installed pair.
+- Discuss insertion sequencing and the initial delay-history priming with the operator.
+- Keep Buffered nonwaiting startup and its current, aligned 50 ms linear fade.
+- Preserve SameCallback D=0 synchronous completion, instruments, public N0 and
+  offline rendering; repeat startup automation and fresh save/reopen.
 
 ## Done
 
@@ -33,8 +34,6 @@ The earlier editor-gesture stall remains open until a repeat captures it.
 
 ## Separate open work
 
-- Nibbi touch, per-plug-in multi-touch and the configured six-instance ceiling.
-- Ctrl cleared after reboot while the Deck stayed local with Moonlight/Sunshine disconnected; its source remains a gap.
-- A plug-in inspection crash can roll back an update for unrelated plug-ins.
-- General preparation, manager/UI and replacing the Python supervisor continue
-  after this stability repair; portability remains part of the product.
+- Later Wine wake stall: nice 0 failed; baseline restored. Nibbi touch, multi-touch and the six-instance ceiling.
+- Ctrl cleared after reboot locally without streaming; its source remains a gap.
+- Inspection crash rollback, general preparation/manager/UI, supervisor replacement and portability.

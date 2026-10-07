@@ -19,6 +19,7 @@ impl Parameters {
         self.values = values; self.configured = true; Ok(())
     }
     pub fn clear(&mut self) { for v in &mut self.values { v.value = None; } }
+    pub fn pending(&self) -> bool { self.values.iter().any(|v| v.value.is_some()) }
     pub fn retain(&mut self, events: &[Event]) -> Result<(), ()> {
         for event in events.iter().filter(|e| e.kind == PARAMETER) {
             let index = self.values.binary_search_by_key(&event.id, |v| v.id).map_err(|_| ())?;
@@ -43,7 +44,7 @@ pub(crate) struct Dry {
     samples: Box<[f32]>,
     delayed: [[f32; BLOCK_CAP]; 2],
     delay: usize,
-    maximum: usize,
+    fade_frames: usize,
     output: usize,
     cursor: usize,
     populated: usize,
@@ -63,22 +64,27 @@ impl Dry {
         let delay = bridge.checked_add(vendor as usize).ok_or_else(|| invalid("start-up latency overflow"))?;
         need(delay <= MAX_DELAY, "start-up dry latency exceeds retained sample capacity")?;
         let maximum = get(&setup[..4]) as usize;
+        let rate = f64::from_le_bytes(setup[8..16].try_into().unwrap());
+        need(rate.is_finite() && rate > 0. && rate <= u32::MAX as f64,
+            "start-up crossfade sample rate")?;
+        let fade_frames = (rate * 0.05).ceil() as usize;
         // A latency-changing parameter can change L while starting. Reserve the
         // existing finite frame ceiling now, then adjust the read distance only.
         let capacity = MAX_DELAY + maximum;
         let mut samples = crate::queue::preallocated(2 * capacity);
         samples.resize(2 * capacity, 0.);
         Ok(Some(Self { samples: samples.into_boxed_slice(), delayed: [[0.; BLOCK_CAP]; 2],
-            delay, maximum, output, cursor: 0, populated: 0, fade: 0 }))
+            delay, fade_frames, output, cursor: 0, populated: 0, fade: 0 }))
     }
     pub fn reset(&mut self) { self.cursor = 0; self.populated = 0; self.fade = 0; }
-    pub fn active(&self) -> bool { self.fade < self.maximum }
+    pub fn active(&self) -> bool { self.fade < self.fade_frames }
+    pub fn committed(&self) -> bool { self.fade != 0 }
     pub fn delay(&mut self, delay: usize) -> Result<(), ()> {
         if delay > MAX_DELAY { return Err(()); }
         self.delay = delay; Ok(())
     }
     pub fn feed(&mut self, input: &[[f32; BLOCK_CAP]; 2], n: usize) {
-        if self.fade == self.maximum { return; }
+        if !self.active() { return; }
         let capacity = self.samples.len() / 2;
         for i in 0..n {
             for (ch, plane) in input.iter().enumerate() {
@@ -94,7 +100,7 @@ impl Dry {
         let channels = extra.len() + 2;
         // N0 parameter replay may have changed L after this block was copied.
         // Read the prepared history at the latest delay without feeding twice.
-        if self.fade < self.maximum {
+        if self.active() {
             let capacity = self.samples.len() / 2;
             for i in 0..n {
                 for ch in 0..2 {
@@ -108,8 +114,8 @@ impl Dry {
         for i in 0..n {
             let ready = wet_position.is_some_and(|p| p.saturating_add(i as u64) >= wet_delay);
             let mix = if ready {
-                self.fade = (self.fade + 1).min(self.maximum);
-                self.fade as f32 / self.maximum as f32
+                self.fade = (self.fade + 1).min(self.fade_frames);
+                self.fade as f32 / self.fade_frames as f32
             } else { 0. };
             for ch in 0..channels {
                 let pointer = if ch < 2 { main[ch].as_mut_ptr().add(i) }
@@ -207,10 +213,40 @@ mod tests {
         dry.feed(&input,4); dry.delay(2).unwrap();
         output[0][..4].fill(1.); output[1][..4].fill(1.);
         unsafe { dry.present(&mut output,&[],0,4,Some(0),2); }
-        assert_eq!(&output[0][..4],&[10.,10.,15.25,15.5]);
+        let blend = |a,frame| a*(1.-frame as f32/2400.)+frame as f32/2400.;
+        assert_eq!(&output[0][..4],&[10.,10.,blend(20.,1),blend(30.,2)]);
         dry.feed(&input,2); output[0][..2].fill(1.); output[1][..2].fill(1.);
         unsafe { dry.present(&mut output,&[],0,2,Some(4),2); }
-        assert_eq!(&output[0][..2],&[10.75,1.]);
-        assert!(!dry.active());
+        assert_eq!(&output[0][..2],&[blend(40.,3),blend(50.,4)]);
+        assert!(dry.active()); assert!(dry.committed());
+    }
+    #[test]
+    fn crossfade_is_fifty_milliseconds_across_rates_variable_blocks_and_silent_wet() {
+        for rate in [44100u32,48000,96000,192000] {
+            let mut bytes=setup(false);
+            bytes[8..16].copy_from_slice(&(rate as f64).to_le_bytes());
+            let mut dry=Dry::prepare(true,&bytes,0,0).unwrap().unwrap();
+            let frames=rate as usize/20;let mut position=0;let input=[[1.;BLOCK_CAP];2];
+            let mut output=[[0.;BLOCK_CAP];2];
+            while position<frames+7 {
+                let n=[1,3,4,2][position%4].min(frames+7-position);
+                for plane in &mut output {plane[..n].fill(0.);} // valid silent effect output
+                let (_,allocations)=crate::allocation_test::measure(|| {
+                    dry.feed(&input,n);
+                    unsafe {dry.present(&mut output,&[],0,n,Some(position as u64),0)}
+                });
+                assert_eq!(allocations,[0;3]);
+                for i in 0..n {
+                    let mix=((position+i+1).min(frames)) as f32/frames as f32;
+                    assert_eq!(output[0][i],1.-mix);
+                    assert_eq!(output[1][i],output[0][i]);
+                }
+                position+=n;assert_eq!(dry.active(),position<frames);
+            }
+            dry.reset();assert!(dry.active());assert!(!dry.committed());
+            dry.feed(&input,4);output=[[0.;BLOCK_CAP];2];
+            unsafe {dry.present(&mut output,&[],0,4,None,0);}
+            assert_eq!(&output[0][..4],&[1.;4]);assert!(!dry.committed());
+        }
     }
 }

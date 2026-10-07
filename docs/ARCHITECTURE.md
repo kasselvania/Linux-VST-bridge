@@ -1116,12 +1116,28 @@ a device deadline, and several short calls may cumulatively consume one period.
 The operator approved dry effect start-up on 2026-10-06. Until START is ready,
 realtime nonzero calls use the admitted main stereo input/output route at the
 reported D+L delay; instruments remain silent. Continue dry through D+L priming
-and crossfade over one maximum block without changing reported latency. Retain
+and crossfade linearly over 50 ms of samples at the configured rate, independent
+of maximum M and actual callback N, without changing reported latency. The
+operator approved this handoff direction on 2026-10-07. In Buffered realtime or
+prefetch startup, submit genuine current input through the existing bounded FIFO
+and return latency-aligned dry without waiting for unfinished wet work. Commit
+the fade only when the complete current due wet interval is available and vendor
+priming has passed; silence is valid wet output, and editor visibility is no
+readiness condition. Once committed, retain ordinary ordered completion/failure
+through the fade and afterward. Expire past startup wet samples explicitly,
+preserve their returned events/parameter results, and retain originating ticket
+expiries and finite queue/history capacities. Overflow, cancellation and host
+failure remain failures. SameCallback D=0 retains its synchronous current-call
+contract; its fade also lasts 50 ms. Offline rendering uses neither dry nor fade.
+Retain
 the last accepted value per parameter in prepared census storage; bounded
 N0 replay through the existing AUDIO owner restores the implicit predecessor before
-the first ready DAW curve. Replay retains that callback's originating expiry and
-whole-call measurement. A save cannot claim fresh state while those edits remain
-unapplied. Ordinary stop/start preserves them; authoritative restore supersedes
+the first ready DAW curve. During Buffered dry warmup only, internal N0 packets
+may remain queued ahead of current audio; public N0 calls keep ordered completion.
+Replay retains that callback's originating expiry and whole-call measurement.
+A save cannot claim fresh state until the final synchronization ticket completes;
+its epoch-bound worker proof also permits a fresh save after STOP without another
+audio callback. Ordinary stop/start preserves unsent values; authoritative restore supersedes
 them. This policy does not authorize replaying expired note events. Before offline
 rendering, apply pending settings through internal N0 synchronization under the
 first rendering call's existing 60-second absolute bound, then render that call

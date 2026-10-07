@@ -1241,7 +1241,7 @@ mod tests {
             let mut audio=session.prepare_direct_audio().unwrap().unwrap();
             assert!(session.prepare_direct_audio().is_err());
             session.activate(n as usize,0).unwrap();session.transition_epoch(10,epoch).unwrap();
-            let mut item=queued::Item {gui_revision:0,kind:3,n,epoch,position:0,ticket:1,process_mode:0,
+            let mut item=queued::Item {gui_revision:0,kind:3,n,epoch,position:0,ticket:1,process_mode:0,startup_sync:false,
                 completion:None,gain:f64::NAN,flags:0,queued:None,parent:[0;4],
                 context:context::Context::default(),event_count:0,events:[events::Event::default();events::MAX_EVENTS],
                 data:[[0.25;BLOCK_CAP];2]};
