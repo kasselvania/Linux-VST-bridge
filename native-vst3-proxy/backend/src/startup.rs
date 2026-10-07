@@ -4,6 +4,7 @@ use ap1_native_client::{events::{Event, MAX_EVENTS, PARAMETER}, get, invalid, ne
 use std::io;
 
 pub(crate) const MAX_PARAMETERS: usize = 8192;
+pub(crate) const MAX_PARAMETER_PACKETS: usize = MAX_PARAMETERS.div_ceil(MAX_EVENTS);
 // The existing transport admits at most this many retained sample frames.
 pub(crate) const MAX_DELAY: usize = crate::queued::DESCRIPTORS * BLOCK_CAP;
 struct Value { id: u32, value: Option<f64> }

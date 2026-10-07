@@ -20,6 +20,9 @@ The audio-server recorder had stopped and did not cover that run.
 - Retain final parameter values from skipped startup blocks and flush them in
   order before the unchanged first ready curve. Keep one originating deadline.
   Refuse a fresh save while accepted edits have not reached the plug-in.
+- Before offline rendering, synchronize pending settings internally at N0 under
+  the first call's 60-second bound. Add no DAW audio/tail blocks or samples;
+  report failure if synchronization cannot complete. Preserve export length.
 - Build the reviewed pair as Test 21 with the existing builder signer, install,
   and repeat loading BEAM over sound. Measure the first ready callback too:
   deferred parameter synchronization can itself take time.

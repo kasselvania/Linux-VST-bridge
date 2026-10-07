@@ -270,7 +270,8 @@ impl Heap {
 /// One owned bounded packet per retained operation. This shares its 4096-byte
 /// payload among that operation's <=64 events instead of reserving 512 bytes
 /// for every event across every delayed N=1 operation. The owner prepares
-/// capacity D+queue_depth+1 for Buffered and 1 for exact D=0 presentation.
+/// capacity D+queue_depth+1 for Buffered or 1 for exact D=0 presentation,
+/// plus the bounded internal startup synchronization operations.
 /// Storage bytes = capacity*(sizeof(PendingPacket)+4*sizeof(usize)); the heaps
 /// contain one next-result index per packet, never one node per event/point.
 /// Sorting <=64/128 indices and heap depth <=ceil(log2(capacity)) bound work.

@@ -8,8 +8,9 @@
 #include <tuple>
 #include <limits>
 using namespace AP10Results;
-static_assert(AP23::compatibleAbi(2));
-static_assert(!AP23::compatibleAbi(1) && !AP23::compatibleAbi(3));
+static_assert(AP23::compatibleAbi(3));
+static_assert(!AP23::compatibleAbi(1) && !AP23::compatibleAbi(2) &&
+              !AP23::compatibleAbi(4));
 // Production BusLayout reads the SDK object's real bus declarations. No
 // Pigments name dispatch: a sole auxiliary input uses the one explicitly selected stereo lane.
 struct AuxiliaryInstrument final : Steinberg::Vst::AudioEffect {

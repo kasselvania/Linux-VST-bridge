@@ -795,10 +795,12 @@ impl Callback {
     fn prepare(&mut self, maximum: usize, channels: usize, delay: usize) {
         // Inactive owner only. One positive operation can occur per retained
         // frame (N=1), plus bounded queued completions and the current operation.
-        // D=0 exact delivery has no delayed or queued operation backlog.
+        // D=0 exact delivery has no delayed or queued operation backlog. Retain
+        // returned results from every bounded N0 startup packet until SDK drain.
         self.audio = crate::output_pool::Retained::new(channels, maximum, delay);
         self.returned = crate::process_results::Pending::with_capacity(
-            if delay == 0 { 1 } else { delay + DESCRIPTORS + 1 });
+            (if delay == 0 { 1 } else { delay + DESCRIPTORS + 1 })
+                + crate::startup::MAX_PARAMETER_PACKETS);
         self.delay = delay as u64;
     }
     fn deadline_identity(&self, s: &Shared, submitted: bool) -> DeadlineIdentity {
@@ -989,7 +991,7 @@ impl Callback {
         // DAW's first ready curve. All packets retain this callback's deadline.
         if !self.startup_replaying && s.startup_edits_pending.load(Ordering::Acquire) {
         self.startup_replaying = true;
-        for _ in 0..crate::startup::MAX_PARAMETERS.div_ceil(MAX_EVENTS) {
+        for _ in 0..crate::startup::MAX_PARAMETER_PACKETS {
             let mut flush = Item::control(AUDIO, 0);
             let count = self.startup_parameters.packet(&mut flush.events);
             if count == 0 { break; }
@@ -3307,7 +3309,7 @@ pub extern "C" fn ap23_deadline_failed(id: u64) -> u32 {
     );
     0
 }
-// Mandatory C ABI v2 final check, after the SDK sinks return. The C++ instance
+// Mandatory C ABI v3 final check, after the SDK sinks return. The C++ instance
 // guard spans processing and this check; it cannot finish another call's policy.
 #[no_mangle]
 pub extern "C" fn ap23_finish_callback(id: u64) -> u32 {
@@ -5124,9 +5126,10 @@ mod tests {
     }
     #[test]
     fn startup_edits_survive_transport_restart_and_replay_before_unchanged_ready_curve() {
+        for delivery in [crate::performance::DeliveryMode::Buffered,crate::performance::DeliveryMode::SameCallback] {
         let shared = Arc::new(Shared::new());
         let mut callback = Callback::new();
-        callback.prepare(512,2,512);
+        callback.prepare(512,2,if delivery==crate::performance::DeliveryMode::Buffered {512} else {0});
         callback.unready_bound = Some(Duration::ZERO);
         let ids: Vec<_> = (0..300).collect();
         callback.startup_parameters.configure(&ids).unwrap();
@@ -5174,22 +5177,158 @@ mod tests {
                     assert_eq!(baseline,Some(0.75),"implicit predecessor set before ready curve");
                     assert_eq!(request.n,512);assert_eq!(request.event_count,1);
                     assert_eq!(request.events[0],Event {kind:2,id:7,offset:100,value:0.5,..Event::default()});
+                    if delivery==crate::performance::DeliveryMode::SameCallback {
+                        let mut completed=Completion::from(request);completed.returned.points=1;
+                        completed.returned.point[0]=crate::process_results::Point {offset:100,id:7,value:0.75};
+                        assert!(peer.publish_result(completed).is_some());
+                    }
                 }
             }
         });
         let mut ready=Item::control(AUDIO,0);ready.n=512;ready.gain=f64::NAN;
         ready.completion=Some(crate::performance::CompletionPolicy {
-            allowance:Duration::from_secs(5),deadline:Instant::now()+Duration::from_secs(5),exact:false });
+            allowance:Duration::from_secs(5),deadline:Instant::now()+Duration::from_secs(5),
+            exact:delivery==crate::performance::DeliveryMode::SameCallback });
         ready.events[0]=Event {kind:2,id:7,offset:100,value:0.5,..Event::default()};ready.event_count=1;
         callback.returned.window(0,512);
         let (result,allocations)=crate::allocation_test::measure(|| callback.process_outputs_until(
             &shared,ready,&mut output,&[],0,Some(ready.completion.unwrap().deadline)));
         assert!(result.is_ok());assert_eq!(allocations,[0;3]);worker.join().unwrap();
         assert!(!shared.startup_edits_pending.load(Ordering::Acquire));
-        assert_eq!((callback.position,callback.submitted_operation,callback.completed_operation),(512,3,2));
+        let returned_count=if delivery==crate::performance::DeliveryMode::SameCallback {3} else {2};
+        assert_eq!((callback.position,callback.submitted_operation,callback.completed_operation),(512,3,returned_count));
         let mut returned=crate::process_results::Packet::default();
-        callback.returned.take(&mut returned);assert_eq!(returned.points,2);
+        callback.returned.take(&mut returned);assert_eq!(returned.points,returned_count as u32);
         assert_eq!((returned.point[0].value,returned.point[1].value),(0.25,0.5));
+        if returned_count==3 {assert_eq!((returned.point[2].offset,returned.point[2].value),(100,0.75));}
+        assert_eq!(callback.returned.stats().pending_points,0);
+        assert_eq!(shared.fault.load(Ordering::Acquire),0);
+        }
+    }
+    #[test]
+    fn startup_edits_reach_first_offline_render_without_added_samples_or_dry_audio() {
+        let _registry_owner=crate::registry_test();
+        for delivery in [crate::performance::DeliveryMode::Buffered,crate::performance::DeliveryMode::SameCallback] {
+            let mut shared=Shared::new();
+            shared.identity=Some(state::Identity {class:[1;16],module:[2;32]});
+            shared.state_capable.store(true,Ordering::Release);let shared=Arc::new(shared);
+            let id=control_live(shared.clone());
+            INSTANCES.update(id,|l|l.delivery_mode=delivery).unwrap();
+            let ids=[7u32];
+            assert_eq!(unsafe {ap23_startup_prepare(id,ids.as_ptr(),1,1)},0);
+            let mut buses=2u32.to_le_bytes().to_vec();
+            for direction in [0u32,1] {
+                for word in [0u32,direction,0,2,0,1] {buses.extend(word.to_le_bytes());}
+                buses.extend(3u64.to_le_bytes());
+            }
+            let configure=|mode:u32,deactivate:bool| {
+                let peer=shared.clone();
+                let worker=thread::spawn(move|| {
+                    let until=Instant::now()+Duration::from_secs(3);
+                    let ops=if deactivate {vec![14,20,8]} else {vec![20,8]};
+                    for op in ops {
+                        loop {
+                            if let Some(pending)=peer.control.lock().unwrap().as_mut().filter(|p|p.result.is_none()) {
+                                assert_eq!(pending.op,op);
+                                let reply=if op==20 {
+                                    assert_eq!(u32::from_le_bytes(pending.bytes[4..8].try_into().unwrap()),mode);
+                                    let mut reply=vec![0;16];reply[8]=1;reply
+                                } else {
+                                    if op==8 {assert_eq!(pending.bytes,[256u32.to_le_bytes(),mode.to_le_bytes()].concat());}
+                                    vec![]
+                                };
+                                complete_control(&peer,pending,Ok(reply),([0;5],None)).unwrap();break;
+                            }
+                            assert!(Instant::now()<until,"offline lifecycle control missing");thread::yield_now();
+                        }
+                    }
+                });
+                if deactivate {assert_eq!(unsafe {ap4_deactivate(id)},0);}
+                let mut traits=[0u32;3];
+                assert_eq!(unsafe {ap10_setup(id,256,mode,48000.,buses.as_ptr(),buses.len() as u32,1,traits.as_mut_ptr())},0);
+                assert_eq!(unsafe {ap4_activate(id,256,mode)},0);
+                worker.join().unwrap();
+            };
+            configure(0,false);
+            assert_eq!(unsafe {ap3_transition(id,START)},0);
+            assert_eq!(shared.requests.pop().unwrap().kind,START);
+            let input=[0.25;CAP];let mut output=[[9.;CAP];2];
+            let planes=[output[0].as_mut_ptr(),output[1].as_mut_ptr()];let mut flags=0;
+            let skipped=[Event {kind:0,id:333,pitch:67,offset:4,value:0.5,..Event::default()},
+                Event {kind:2,id:7,offset:31,value:0.75,..Event::default()}];
+            assert_eq!(unsafe {ap23_process_outputs(id,32,0,skipped.as_ptr(),2,&crate::context::Context::default(),
+                0,input.as_ptr(),input.as_ptr(),planes.as_ptr(),2,&mut flags,std::ptr::null_mut(),0)},0);
+            assert_eq!(ap23_finish_callback(id),0);
+            assert!(shared.startup_edits_pending.load(Ordering::Acquire));
+            assert!(shared.requests.pop().is_none(),"unready realtime block was not rendered");
+            assert_eq!(unsafe {ap3_transition(id,STOP)},0);
+            assert_eq!(shared.requests.pop().unwrap().kind,STOP);
+            configure(2,true);
+            assert_eq!(unsafe {ap3_transition(id,START)},0);
+            assert_eq!(shared.requests.pop().unwrap().kind,START);
+            let first=crate::context::Context {present:1,rate:48000.,state:0x20002,
+                project:1000,continuous:1000,..Default::default()};
+            let contexts=[first,first.chunk(256).unwrap()];
+            let curve=[Event {kind:0,id:1,pitch:60,offset:4,value:0.5,..Event::default()},
+                Event {kind:2,id:7,offset:127,value:0.5,..Event::default()}];
+            let peer=shared.clone();
+            let renderer=thread::spawn(move|| {
+                let until=Instant::now()+Duration::from_secs(3);
+                let mut value=0.;let mut originating=None;
+                for (ordinal,n,position) in [(1u64,0u32,0u64),(2,256,0),(3,17,256)] {
+                    let request=loop {if let Some(request)=peer.requests.pop(){break request;}
+                        assert!(Instant::now()<until,"offline AUDIO missing");thread::yield_now();};
+                    assert_eq!((request.kind,request.epoch,request.ticket,request.process_mode,request.n,request.position),
+                        (AUDIO,2,ordinal,2,n,position));
+                    let policy=request.completion.unwrap();
+                    assert_eq!(policy.allowance,crate::performance::OFFLINE_ALLOWANCE);assert!(policy.exact);
+                    assert_eq!(request.context.encode(),contexts[usize::from(ordinal==3)].encode());
+                    if ordinal==1 {
+                        assert_eq!(request.event_count,1);
+                        assert_eq!(request.events[0],Event {kind:2,id:7,value:0.75,..Event::default()});
+                        value=request.events[0].value;originating=Some((policy.deadline,request.parent));
+                    } else if ordinal==2 {
+                        assert_eq!(originating,Some((policy.deadline,request.parent)));
+                        assert_eq!(value,0.75,"retained setting applied before the first rendered sample");
+                        assert_eq!(request.events[..request.event_count as usize],curve);
+                    } else {assert_eq!(request.event_count,0);}
+                    let mut completed=Completion::from(request);completed.audio.flags=0;
+                    for i in 0..n as usize {
+                        for event in &request.events[..request.event_count as usize] {
+                            if event.kind==2&&event.offset==i as u32 {value=event.value;}
+                        }
+                        for ch in 0..2 {completed.audio.data[ch][i]=request.data[ch][i]*value as f32;}
+                    }
+                    assert!(peer.publish_result(completed).is_some());
+                }
+                assert!(peer.requests.pop().is_none(),"bridge fabricated no extra render or tail blocks");
+            });
+            for (index,n) in [256u32,17].into_iter().enumerate() {
+                for plane in &mut output {plane.fill(9.);}
+                let planes=[output[0].as_mut_ptr(),output[1].as_mut_ptr()];
+                let events=if index==0 {curve.as_slice()} else {&[]};
+                let (result,allocations)=crate::allocation_test::measure(|| unsafe {
+                    ap23_process_outputs(id,n,2,events.as_ptr(),events.len() as u32,&contexts[index],
+                        0,input.as_ptr(),input.as_ptr(),planes.as_ptr(),2,&mut flags,std::ptr::null_mut(),0)
+                });
+                assert_eq!(result,0);assert_eq!(allocations,[0;3]);assert_eq!(ap23_finish_callback(id),0);
+                for plane in &output {
+                    for (i,&sample) in plane[..n as usize].iter().enumerate() {
+                        let expected=if delivery==crate::performance::DeliveryMode::Buffered {
+                            if index==0 {0.} else {0.25*0.75}
+                        } else if index==0&&i<127 {0.25*0.75} else {0.25*0.5};
+                        assert_eq!(sample,expected,"offline audio is the processed result at the declared delay");
+                    }
+                    assert!(plane[n as usize..].iter().all(|&sample|sample==9.));
+                }
+            }
+            renderer.join().unwrap();
+            assert!(!shared.startup_edits_pending.load(Ordering::Acquire));
+            let live=INSTANCES.lease(id).unwrap();let callback=unsafe {&*live.callback.get()};
+            assert_eq!((callback.position,callback.submitted_operation,callback.completed_operation),(273,3,3));
+            assert_eq!(shared.fault.load(Ordering::Acquire),0);
+            drop(live);INSTANCES.remove(id,|_|()).unwrap();
+        }
     }
     #[test]
     fn startup_pending_edits_refuse_stale_saves_and_state_restore_supersedes_them() {

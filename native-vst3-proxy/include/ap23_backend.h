@@ -1,6 +1,6 @@
 #pragma once
 #include "ap10_backend.h"
-// Audio completion C ABI v2. SDK objects/pointers do not cross this boundary;
+// Audio completion C ABI v3. SDK objects/pointers do not cross this boundary;
 // only the existing bounded borrowed planar/event spans and explicit mode do.
 extern "C" {
 struct ap23_windows_process_timing_t {

@@ -1117,14 +1117,17 @@ The operator approved dry effect start-up on 2026-10-06. Until START is ready,
 realtime nonzero calls use the admitted main stereo input/output route at the
 reported D+L delay; instruments remain silent. Continue dry through D+L priming
 and crossfade over one maximum block without changing reported latency. Retain
-the last accepted value per parameter in prepared census storage; bounded real-time
+the last accepted value per parameter in prepared census storage; bounded
 N0 replay through the existing AUDIO owner restores the implicit predecessor before
 the first ready DAW curve. Replay retains that callback's originating expiry and
 whole-call measurement. A save cannot claim fresh state while those edits remain
 unapplied. Ordinary stop/start preserves them; authoritative restore supersedes
-them. This policy does not authorize replaying expired note events. Whether an
-internal N0 synchronization is permitted before offline rendering remains an
-operator interpretation question; this paragraph grants no offline exception.
+them. This policy does not authorize replaying expired note events. Before offline
+rendering, apply pending settings through internal N0 synchronization under the
+first rendering call's existing 60-second absolute bound, then render that call
+unchanged. Synchronization advances no sample position and adds no DAW audio or
+tail blocks. Preserve the DAW's context, curves, sample count and export length;
+report an explicit failure if synchronization cannot complete.
 
 The 2026-10-03 audio-completion workstream selects the following implementation
 contract; its source, installed and physical acceptance remain separate gates:
