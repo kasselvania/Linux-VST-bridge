@@ -475,7 +475,11 @@ pub fn report_text(s: &Shared) -> String {
     if let Some(clock) = r.clock {
         let end = ClockSample::sample();
         let _=writeln!(text,"{{\"event\":\"ap10_linux_clock\",\"start_before_ns\":{},\"start_after_ns\":{},\"end_before_ns\":{},\"end_after_ns\":{},\"instant_elapsed_ns\":{}}}",clock.before,clock.after,end.before,end.after,end.instant.duration_since(clock.instant).as_nanos());
-        for t in &r.delivery {
+        // Slow complete requests need their exact clock points even when no
+        // presentation gap occurs. Reuse the existing bounded top eight and
+        // avoid duplicates from note/gap history; no callback work is added.
+        for t in r.delivery.iter().chain(r.timing.slow_traces().filter(|slow|
+            !r.delivery.iter().any(|saved| saved.epoch == slow.epoch && saved.sequence == slow.sequence))) {
             let points = [
                 t.queued,
                 t.started,
@@ -521,6 +525,35 @@ pub fn report_text(s: &Shared) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn slow_requests_keep_exact_clock_and_windows_pairs_without_a_gap() {
+        let shared = Shared::new();
+        let mut consumer = Consumer::new();
+        consumer.clock = Some(ClockSample::sample());
+        let mut producer = Observer { shared: shared.clone(), sequence: 0, thread: None };
+        let now = Instant::now();
+        for sequence in 1..=12 {
+            let end = now + Duration::from_millis(sequence);
+            producer.audio(0, f64::NAN, [&[], &[]], [[0; CAP + 2]; 2], Trace {
+                epoch: 3, sequence, position: sequence * 512, process_ns: Some(5),
+                armed: true, queued: Some(now), started: Some(now), prepared: Some(now),
+                sent: Some(now), replied: Some(end), validated: Some(end), published: Some(end),
+                windows: [sequence; 15], parent: [sequence + 100, 512, 0, 7],
+                ..Default::default()
+            });
+            assert!(consumer.step(&shared));
+        }
+        assert!(consumer.delivery.is_empty());
+        assert!(consumer.gaps.is_empty());
+        let text = report_text(&shared);
+        let rows: Vec<_> = text.lines().filter(|line| line.contains("ap10_linux_request")).collect();
+        assert_eq!(rows.len(), 8);
+        assert!(rows[0].contains("\"sequence\":12,\"position\":6144"));
+        assert!(rows[0].contains("\"windows_reply\":[12, 12, 12"));
+        assert!(rows[0].contains("\"parent_callback\":[112, 512, 0, 7]"));
+        assert!(!rows[0].contains("\"monotonic_ns\":[0"));
+        assert!(rows[7].contains("\"sequence\":5,\"position\":2560"));
+    }
     #[test]
     fn first_two_note_requests_are_retained_with_exact_identity() {
         let shared = Shared::new();

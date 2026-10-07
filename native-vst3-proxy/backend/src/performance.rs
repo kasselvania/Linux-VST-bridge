@@ -365,9 +365,15 @@ impl Distribution {
 #[derive(Default, Clone)]
 pub struct Timings {
     stages: [Distribution; 9],
-    slow: Vec<(u64, u64, u64, u64, u64)>,
+    slow: Vec<SlowRequest>,
     negative_residuals: u64,
     unpublished: u64,
+}
+#[derive(Clone)]
+struct SlowRequest {
+    total: u64,
+    trace: crate::observer::Trace,
+    stages: [Option<u64>; 9],
 }
 impl Timings {
     pub fn add(&mut self, t: crate::observer::Trace) {
@@ -403,11 +409,15 @@ impl Timings {
             }
         }
         if let Some(total) = durations[6] {
-            self.slow
-                .push((total, t.epoch, t.sequence, t.position, win));
-            self.slow.sort_unstable_by_key(|b| std::cmp::Reverse(b.0));
+            // Already-produced observations, retained only on the optional
+            // consumer. Aggregate stage maxima cannot identify this request.
+            self.slow.push(SlowRequest { total, trace: t, stages: durations });
+            self.slow.sort_unstable_by_key(|b| std::cmp::Reverse(b.total));
             self.slow.truncate(8);
         }
+    }
+    pub(crate) fn slow_traces(&self) -> impl Iterator<Item = &crate::observer::Trace> {
+        self.slow.iter().map(|request| &request.trace)
     }
     pub fn json(&self) -> String {
         if self.stages[6].count == 0 {
@@ -435,10 +445,60 @@ impl Timings {
             "{{\"event\":\"ap9_unpublished\",\"requests\":{}}}\n",
             self.unpublished
         ));
-        for (total, epoch, seq, pos, win) in &self.slow {
-            text.push_str(&format!("{{\"event\":\"ap9_slow_request\",\"epoch\":{epoch},\"sequence\":{seq},\"position\":{pos},\"service_ns\":{total},\"windows_process_ns\":{win}}}\n"));
+        for request in &self.slow {
+            let t = request.trace;
+            let stages = request.stages.map(|ns| ns.map_or_else(|| "null".to_owned(), |ns| ns.to_string()));
+            text.push_str(&format!("{{\"event\":\"ap9_slow_request\",\"epoch\":{},\"sequence\":{},\"position\":{},\"service_ns\":{},\"windows_process_ns\":{},\"queue_ns\":{},\"prepare_ns\":{},\"send_ns\":{},\"reply_ns\":{},\"validation_ns\":{},\"publication_ns\":{}}}\n",
+                t.epoch, t.sequence, t.position, request.total, stages[7], stages[0], stages[1], stages[2], stages[3], stages[4], stages[5]));
         }
         text
+    }
+}
+
+#[cfg(test)]
+mod timing_tests {
+    use super::*;
+    use crate::observer::Trace;
+
+    #[test]
+    fn slow_requests_keep_their_own_stages_instead_of_histogram_maxima() {
+        let start = Instant::now();
+        let mut timing = Timings::default();
+        for (sequence, queue, reply) in [(11, 2, 60), (22, 50, 3)] {
+            let points = [0, queue, queue + 1, queue + 2, queue + 2 + reply,
+                queue + 3 + reply, queue + 4 + reply].map(|ns| Some(start + Duration::from_nanos(ns)));
+            timing.add(Trace {
+                epoch: 3, sequence, position: sequence * 512, process_ns: Some(2),
+                queued: points[0], started: points[1], prepared: points[2], sent: points[3],
+                replied: points[4], validated: points[5], published: points[6],
+                ..Default::default()
+            });
+        }
+        let text = timing.json();
+        let rows: Vec<_> = text.lines().filter(|line| line.contains("ap9_slow_request")).collect();
+        assert_eq!(rows.len(), 2);
+        assert!(rows[0].contains("\"sequence\":11,\"position\":5632,\"service_ns\":66"));
+        assert!(rows[0].contains("\"queue_ns\":2,\"prepare_ns\":1,\"send_ns\":1,\"reply_ns\":60"));
+        assert!(rows[1].contains("\"sequence\":22,\"position\":11264,\"service_ns\":57"));
+        assert!(rows[1].contains("\"queue_ns\":50,\"prepare_ns\":1,\"send_ns\":1,\"reply_ns\":3"));
+    }
+
+    #[test]
+    fn unavailable_or_backward_stages_are_explicitly_null() {
+        let start = Instant::now();
+        let mut timing = Timings::default();
+        timing.add(Trace {
+            epoch: 4, sequence: 7, process_ns: Some(1), queued: Some(start),
+            prepared: Some(start + Duration::from_nanos(5)),
+            sent: Some(start + Duration::from_nanos(4)),
+            replied: Some(start + Duration::from_nanos(8)),
+            published: Some(start + Duration::from_nanos(10)),
+            ..Default::default()
+        });
+        let text = timing.json();
+        let row = text.lines().find(|line| line.contains("ap9_slow_request")).unwrap();
+        assert!(row.contains("\"service_ns\":10,\"windows_process_ns\":1"));
+        assert!(row.contains("\"queue_ns\":null,\"prepare_ns\":null,\"send_ns\":null,\"reply_ns\":4,\"validation_ns\":null,\"publication_ns\":null"));
     }
 }
 
