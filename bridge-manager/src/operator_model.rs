@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 19;
+pub const OPERATOR_SCHEMA: u32 = 20;
 /// Explicit delivery policy, independent from the remembered buffered delay.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -205,6 +205,11 @@ pub enum Action {
     InstallerScan {
         onboarding: String,
     },
+    /// Runs an imported companion/dependency installer in an existing setup.
+    EnvironmentInstallerStart { environment: String, installer: String },
+    EnvironmentInstallerFocus { operation: String },
+    EnvironmentInstallerStop { operation: String },
+    EnvironmentInstallerScan { environment: String },
     VendorApplicationOpen {
         application: String,
     },
@@ -437,6 +442,8 @@ pub struct Snapshot {
     pub onboarding: Vec<Onboarding>,
     #[serde(default)]
     pub installer_setups: Vec<InstallerSetup>,
+    #[serde(default)]
+    pub environment_installers: Vec<EnvironmentInstaller>,
     pub schema: u32,
     pub state_token: String,
     pub system: System,
@@ -450,6 +457,19 @@ pub struct Snapshot {
     pub recent_incidents: Vec<Incident>,
     pub actions: Vec<AvailableAction>,
     pub operation: Option<serde_json::Value>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EnvironmentInstaller {
+    pub environment: String,
+    pub name: String,
+    pub affected: Vec<String>,
+    pub consequence: String,
+    pub choices: Vec<AvailableAction>,
+    pub operation: Option<String>,
+    pub installer: Option<String>,
+    pub result: serde_json::Value,
+    pub actions: Vec<AvailableAction>,
 }
 /// Current presentation only. The nested snapshot is deliberately scoped to
 /// current products and setup: histories and diagnostic detail are absent.
@@ -701,6 +721,8 @@ impl Action {
                 | Self::InstallerStart { .. }
                 | Self::InstallerStartWithPolicy { .. }
                 | Self::InstallerScan { .. }
+                | Self::EnvironmentInstallerStart { .. }
+                | Self::EnvironmentInstallerScan { .. }
                 | Self::VendorApplicationOpen { .. }
                 | Self::EnvironmentRescan { .. }
                 | Self::QuarantinedModuleRetry { .. }

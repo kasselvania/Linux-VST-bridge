@@ -88,10 +88,11 @@ def frozen_candidate(directory):
     frozen = read(directory/'FROZEN_CANDIDATE.json')
     assert frozen['schema'] == 1
     package_name, = [name for name in frozen['files']
-                     if re.fullmatch(r'linux-vst-bridge-beta_[0-9A-Za-z.]+-1_amd64\.deb', name)]
+                     if (re.fullmatch(r'linux-vst-bridge-beta_[0-9A-Za-z.]+-1_amd64\.deb', name)
+                         or re.fullmatch(r'Linux-VST-Bridge-[0-9A-Za-z.]+-(?:(?:ubuntu26\.04|debian13)-)?internal\.install', name))]
     assert sha(directory/package_name) == frozen['files'][package_name], 'retained package changed'
     release_name, = [name for name in frozen['files']
-                     if re.fullmatch(r'staged-[0-9A-Za-z]+/RELEASE_MANIFEST\.json', name)]
+                     if re.fullmatch(r'staged(?:-[0-9A-Za-z]+)?/RELEASE_MANIFEST\.json', name)]
     release_path = directory/release_name
     assert sha(release_path) == frozen['files'][release_name]
     release = read(release_path)

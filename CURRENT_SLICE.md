@@ -7,20 +7,17 @@ install, vendor authorization, discovery/preparation/publication, musical use,
 meaningful save/reopen, and configuration trial/keep/restore. Reuse existing owners.
 An unfamiliar instrument or effect is a normal case, not a catalogue refusal.
 
-## First source gap and proposed increment
+## Current increment
 
 Source already offers unfamiliar-class checks/publication and graphics/accessibility
 trial/keep/restore; the full ordinary installed journey still needs physical proof.
-Setup cannot run a second companion/dependency installer in the same environment:
-initial setup creates a new environment per installer, with one initial operation.
-That route closes after registration; the separate dependency action is Native Access only.
-
-The proposed first increment lets the musician select the existing setup or affected
-plug-in and a locally supplied installer, see affected siblings, and run it through existing
-supervised custody in the intended environment, then rescan/reprepare. Validate
-first in disposable first-party environments, both before and after registration.
-Preserve environment ID, onboarding protections and unrelated products. Keep global
-installer exclusion; vendor-state mutations need truthful recovery, not a rollback promise.
+Source now lets the musician select an existing setup or affected plug-in and an
+imported companion/dependency installer, see affected siblings, and run it through
+existing supervised custody, then rescan/reprepare. Stop/retry preserve the space.
+Advance the existing revision before mutation; keep ID, initial history, prior
+publications and unrelated spaces. Stale siblings need fresh preparation; vendor
+state cannot be promised rollback. Global exclusion and onboarding guards remain.
+Linux owner regressions pass; full review, suite and installed acceptance are in progress.
 
 ## Validation alongside and done
 

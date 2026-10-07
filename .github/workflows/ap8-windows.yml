@@ -10,6 +10,10 @@ on:
         description: 'Optional existing first-party generation for state-schema migration and refusal successors'
         type: string
         default: ''
+      with_companion:
+        description: 'Require a separately installed same-environment DSP companion'
+        type: boolean
+        default: false
       frozen_engine_sha256:
         description: 'Reusable engine digest paired with that frozen package'
         type: string
@@ -37,6 +41,8 @@ on:
       - 'tools/beta/reference_installer.rs'
       - 'tools/beta/build_reference.py'
       - 'tools/beta/build_unfamiliar.py'
+      - 'tools/beta/companion.rs'
+      - 'tools/beta/companion_installer.rs'
       - 'tools/beta/sdk_buffers.h'
       - 'tools/test_ap4_socket.py'
       - 'native-vst3-proxy/include/ap10*'
@@ -73,11 +79,13 @@ jobs:
         shell: pwsh
         env:
           EVOLVE_GENERATION: ${{ inputs.evolve_generation }}
+          WITH_COMPANION: ${{ inputs.with_companion }}
           FROZEN_PACKAGE_SHA256: ${{ inputs.frozen_package_sha256 }}
           FROZEN_ENGINE_SHA256: ${{ inputs.frozen_engine_sha256 }}
         run: |
           $extra = @()
           if ($env:EVOLVE_GENERATION) { $extra = @('--evolve-generation', $env:EVOLVE_GENERATION) }
+          if ($env:WITH_COMPANION -eq 'true') { $extra += '--with-companion' }
           python tools/beta/build_unfamiliar.py @extra --sdk "${{ runner.temp }}/unfamiliar-sdk" --output "${{ runner.temp }}/unfamiliar-fixtures" --frozen-package-sha256 $env:FROZEN_PACKAGE_SHA256 --frozen-engine-sha256 $env:FROZEN_ENGINE_SHA256
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

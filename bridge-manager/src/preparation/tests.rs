@@ -5,6 +5,62 @@ pub(crate) fn fixture() -> (Fixture, Candidate) {
     fixture_with_environment(&"13".repeat(16))
 }
 #[test]
+fn changed_environment_keeps_history_readable_and_requires_fresh_preparation() {
+    let (f,old)=fixture();
+    let live=old.census().unwrap();let retained=old.census_record().unwrap();
+    assert!(live.module_stamp.is_some());assert!(retained.module_stamp.is_none());
+    assert!(live.verify_current(&f.m.root,&old.host,&old.source_manifest.sha256,live.captured_at).is_ok());
+    assert!(retained.verify_current(&f.m.root,&old.host,&old.source_manifest.sha256,retained.captured_at).is_err());
+    let encoded=serde_json::to_value(&live).unwrap();
+    assert!(encoded["module_stamp"].is_object());
+    let decoded:Census=serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&decoded).unwrap(),encoded);
+    assert_eq!(serde_json::to_vec(&decoded).unwrap(),serde_json::to_vec(&live).unwrap());
+    record_candidate(&f.m,&old).unwrap();retain_inspection(&f.m,&old.inspection).unwrap();
+    let publication=enable(&f.m,&old,false).unwrap();
+    let original=f.m.load_revision_record(&old.selection.class.id,&publication).unwrap();
+    let mut environment=old.selection.environment.clone();environment.revision+=1;
+    atomic_json(&environment.root.join("environment.json"),&environment).unwrap();
+    assert!(validate_candidate_record(&f.m,&old).is_ok());
+    assert!(verify_retained_candidate(&f.m,&old).is_err());
+    assert!(validate_current_candidate_record(&f.m,&old,&old.selection.scanner,
+        &old.selection.scanner_source).is_err());
+    for origin in [Origin::X11TouchReleaseV1,Origin::X11TouchRoutingV2] {
+        let mut historical=old.clone();historical.origin=origin;
+        assert_eq!(validate_current_candidate_record(&f.m,&historical,&old.selection.scanner,
+            &old.selection.scanner_source).unwrap_err().to_string(),"preparation_environment_changed");
+    }
+    assert!(RecordReadback::capture(&f.m).unwrap().catalogue_free_registry(&f.m,
+        &f.m.registry().unwrap()).unwrap());
+    assert_eq!(publication_state_record(&f.m,&old).unwrap(),"environment_changed");
+    assert!(!selected_publication_candidate_record(&f.m,&old).unwrap());
+    assert_eq!(f.m.load_revision_record(&old.selection.class.id,&publication).unwrap(),original);
+    let mut selection=old.selection.clone();selection.environment=environment.clone();
+    let scan=crate::inventory::Scan {schema:1,id:random_id().unwrap(),environment,
+        host:selection.scanner.clone(),host_source_sha256:selection.scanner_source.clone(),
+        completed_at:crate::observation::now().unwrap(),changes:Default::default(),
+        modules:vec![crate::inventory::Module {artifact:selection.module.clone(),
+            classes:vec![selection.class.clone()],report:selection.factory_report.clone(),
+            inspection_error:None,quarantine_reason:None}]};
+    atomic_json(&f.m.root.join("inventory").join(format!("{}.json",scan.environment.id)),&scan).unwrap();
+    let inspection=inspect_record_with_layout(selection.clone(),old.inspection.report.clone(),
+        Origin::ManagedPreparation,old.host.clone(),old.source_manifest.clone(),old.inspection.audio_layout.clone()).unwrap();
+    let next=prepared(selection,inspection,old.native.clone(),old.host.clone(),
+        old.source_manifest.clone(),old.recipe_sha256.clone()).unwrap();
+    record_candidate_with_predecessor(&f.m,&next,Some(&old.id().unwrap())).unwrap();
+    let fresh=replace(&f.m,&next,&publication).unwrap();
+    let current=f.m.load_revision_record(&next.selection.class.id,&fresh).unwrap();
+    assert_eq!(current.registration.environment.revision,2);
+    assert!(current.registration.validate_record(&f.m.root).is_ok());
+    assert_eq!(current.external_ids,original.external_ids);
+    assert_eq!(publication_state_record(&f.m,&next).unwrap(),"experimental");
+    fs::remove_file(&next.selection.module.path).unwrap();
+    assert!(validate_candidate_record(&f.m,&old).is_ok());
+    assert!(RecordReadback::capture(&f.m).unwrap().catalogue_free_registry(&f.m,
+        &f.m.registry().unwrap()).unwrap());
+    assert!(verify_candidate(&f.m,&next,&next.selection.scanner,&next.selection.scanner_source).is_err());
+}
+#[test]
 fn candidate_commit_requires_valid_retained_lineage() {
     let (f, c) = fixture();
     let id = c.id().unwrap();
@@ -296,7 +352,7 @@ fn fixture_with_environment(id: &str) -> (Fixture, Candidate) {
     census.environment.environment = f.r.environment.clone();
     census.environment.family = Family::ManagedInstallerV1;
     census.module = f.r.module.clone();
-    census.module_stamp = ModuleStamp::read(&census.module.path).unwrap();
+    census.module_stamp = Some(ModuleStamp::read(&census.module.path).unwrap());
     let mut raw = inspection_report(&census);
     // Complete non-audio factory class; the production inventory validates all rows.
     let class = raw["records"][1]["classes"][0].clone();

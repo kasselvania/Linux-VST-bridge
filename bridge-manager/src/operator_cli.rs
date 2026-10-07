@@ -5,6 +5,7 @@ use linux_vst_bridge::operator_lock::timing::{self, Stage};
 use linux_vst_bridge::renderer_application as renderer;
 use serde_json::{json, Value};
 mod current;
+pub(super) mod environment_install;
 const ASC: &str = "arturia-software-center";
 const SERVICE: &str = "linux-vst-bridge.service";
 const VENDOR: &str = "linux-vst-bridge-vendor-arturia-software-center.service";
@@ -84,6 +85,7 @@ fn token_with_registry(m: &Manager, registry: &Registry) -> Result<String> {
             "workspace":optional(&m.root.join("daw-workspaces/fl-studio/workspace.json"))?,
             "terminal_summaries":capacity::terminal_summaries(m)?,
             "installer_presentations":installer_import::presentation_token(m)?,
+            "environment_installations":environment_install::records(m)?,
             "onboarding_history":onboarding::history_records(m)?}),
     )?)))
 }
@@ -492,7 +494,9 @@ fn history_records(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::Hist
     history_with(m, key, entry, false)
 }
 fn history_with(m: &Manager, key: &str, entry: &Entry, execution: bool) -> Result<Vec<ui::History>> {
-    let load = if execution { Manager::load_revision } else { Manager::load_revision_record };
+    // History describes retained identities. Live execution is admitted by the
+    // restore worker; changed vendor state must not erase readable history.
+    let load = Manager::load_revision_record;
     let mut ancestors = std::collections::BTreeSet::new();
     let mut current = entry.managed_revision.clone();
     for _ in 0..256 {
@@ -523,7 +527,12 @@ fn history_with(m: &Manager, key: &str, entry: &Entry, execution: bool) -> Resul
             || r.qualification == Some(publication::Qualification::ManagedExperimental);
         let performance = m.performance(key)?;
         let buffering = performance.added_frames;
-        let mut rollback_unavailable = if execution && buffering == 1024 {
+        let environment_current = read_json::<Environment>(
+            &r.registration.environment.root.join("environment.json"))
+            .is_ok_and(|current|current == r.registration.environment);
+        let mut rollback_unavailable = if !environment_current {
+            Some("The compatibility space changed. Bridge records are retained, but vendor changes cannot be rolled back. Prepare this version in the current setup before using it.".into())
+        } else if execution && buffering == 1024 {
             match preparation::build::revision_maximum_bridge_frames(m, &r) {
                 Ok(Some(1024)) => None,
                 Ok(_) => Some("This version cannot retain the selected 1024-frame buffering. Select supported buffering before restoring it.".into()),
@@ -584,7 +593,7 @@ fn managed_environment_bindings(
             .find(|candidate| candidate.environment.id == binding.environment.id)
         {
             require(
-                existing == &binding,
+                existing.family == binding.family && environment_install::same_space(&existing.environment,&binding.environment),
                 "operator_managed_environment_binding_conflict",
             )?;
         } else {
@@ -601,6 +610,14 @@ fn managed_environment_bindings(
             bindings.push(binding);
         }
     }
+    for binding in &mut bindings {
+        // Catalogue runner templates are not installed environment ownership.
+        if registry.classes.values().any(|entry|entry.registration.environment.id == binding.environment.id)
+            || linux_vst_bridge::frg1::adopted_environment_record(m)?.as_ref()
+                .is_some_and(|adopted|adopted.environment.id == binding.environment.id) {
+            binding.environment=environment_install::current_environment(m,&binding.environment)?;
+        }
+    }
     Ok(bindings)
 }
 fn managed_rescan_binding_from(
@@ -613,7 +630,7 @@ fn managed_rescan_binding_from(
 }
 fn managed_rescan_binding_with(m: &Manager, bindings: &[catalogue::EnvironmentBinding],
     registry: &Registry, environment: &str, execution: bool) -> Result<Option<Environment>> {
-    let env = &bindings
+    let bound = &bindings
         .iter()
         .find(|candidate| candidate.environment.id == environment)
         .ok_or("operator_environment_absent")?
@@ -626,21 +643,20 @@ fn managed_rescan_binding_with(m: &Manager, bindings: &[catalogue::EnvironmentBi
     if owners.is_empty() {
         let adopted = if execution { linux_vst_bridge::frg1::adopted_environment(m)? }
             else { linux_vst_bridge::frg1::adopted_environment_record(m)? };
-        return Ok(adopted
-            .filter(|binding| binding.environment == *env)
-            .map(|binding| binding.environment));
+        return adopted.filter(|binding|environment_install::same_space(bound,&binding.environment))
+            .map(|binding|environment_install::current_environment(m,&binding.environment)).transpose();
     }
+    let env = environment_install::current_environment(m,bound)?;
     require(
         owners
             .iter()
-            .all(|entry| entry.registration.environment == *env),
+            .all(|entry| environment_install::same_space(&entry.registration.environment,&env)),
         "operator_managed_environment_mismatch",
     )?;
-    let retained = if execution { onboarding::retained_environment(m, environment)? }
-        else { onboarding::retained_environment_record(m, environment)? };
+    let retained = onboarding::retained_environment_record(m, environment)?;
     if let Some(retained) = retained {
         require(
-            retained.environment == *env,
+            retained.environment == env,
             "operator_onboarding_environment_mismatch",
         )?;
         require(
@@ -648,7 +664,8 @@ fn managed_rescan_binding_with(m: &Manager, bindings: &[catalogue::EnvironmentBi
             "installer_retirement_required",
         )?;
     }
-    Ok(Some(env.clone()))
+    if execution {env.runner.verify()?;}
+    Ok(Some(env))
 }
 fn quarantined_retry_disabled(m: &Manager,
     bindings: &[linux_vst_bridge::catalogue::EnvironmentBinding],
@@ -853,6 +870,17 @@ fn valid_product_environment(id: &str) -> bool {
         }
     }))
 }
+fn recommended_restore_unavailable(m: &Manager, sw: &Software, registration: &Registration)
+    -> Result<Option<&'static str>> {
+    let current=read_json::<Environment>(&registration.environment.root.join("environment.json"))
+        .is_ok_and(|environment|environment == registration.environment);
+    let bound=if sw.native_catalogue.is_some() {
+        sw.catalogue_record(m)?.environments.iter().any(|binding|
+            binding.environment == registration.environment)
+    } else {false};
+    Ok((!current || !bound).then_some(
+        "The recommended revision's retained environment changed. Fresh preparation in the current setup is required before restoring this build."))
+}
 fn project_current_product(m: &Manager, captured: &current::CurrentOverviewContext,
     sw: &Software, db: &Registry,
     environment: &str, module: &str, class: &str) -> Result<ui::Product> {
@@ -876,7 +904,8 @@ fn project_current_product(m: &Manager, captured: &current::CurrentOverviewConte
         if captured.profiles.iter().any(|profile|
             profile.class.class_id == class && Some(profile.revision) != product.active_revision) {
             product.actions.push(action("Restore recommended revision",
-                ui::Action::OrdinaryRestoreRecommended {class_id:class.into()}, captured.busy));
+                ui::Action::OrdinaryRestoreRecommended {class_id:class.into()}, captured.busy
+                    .or(recommended_restore_unavailable(m,sw,&entry.registration)?)));
         }
         product.actions.push(action("Arm crash capture for next launch",
             ui::Action::CaptureArm {class_id:class.into()},
@@ -1127,7 +1156,7 @@ fn snapshot_readonly_depth(
                 ui::Action::OrdinaryRestoreRecommended {
                     class_id: p.class_id.clone(),
                 },
-                busy,
+                busy.or(recommended_restore_unavailable(m,&sw,&entry.registration)?),
             ));
         }
         actions.push(action(
@@ -1250,6 +1279,7 @@ fn snapshot_readonly_depth(
         project_onboarding_failure(m, receipt, &mut onboarding)?;
     }
     let installer_setups = onboarding::setup_projection(m, &onboarding, &products, &workspace_installers)?;
+    let environment_installers = environment_install::projection(m,&products,busy,onboarding::live)?;
     let recheck = acquire_readback(m, ui::OperatorLock::Registry, id, timeout, waits)?;
     let after = token(m)?;
     require(
@@ -1262,6 +1292,7 @@ fn snapshot_readonly_depth(
     Ok(ui::Snapshot {
         onboarding,
         installer_setups,
+        environment_installers,
         schema: ui::OPERATOR_SCHEMA,
         state_token: after,
         system: live.system,
@@ -1274,7 +1305,7 @@ fn snapshot_readonly_depth(
         recent_incidents: incidents,
         actions: vec![
             action("Install compatibility runtime (728 MB download)", ui::Action::RuntimeInstall {},
-                if linux_vst_bridge::runtime_delivery::installed(m)?.is_some() {
+                if linux_vst_bridge::runtime_delivery::installed_identity_record(m)?.is_some() {
                     Some("The selected compatibility runtime is already installed")
                 } else {busy}),
             action("Create sanitized support export", ui::Action::SupportExport {}, None),
@@ -1333,6 +1364,7 @@ pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
         .actions
         .iter()
         .chain(snapshot.installer_setups.iter().map(|s| &s.rename))
+        .chain(snapshot.environment_installers.iter().flat_map(|s|s.choices.iter().chain(s.actions.iter())))
         .chain(snapshot.onboarding.iter().flat_map(|p| p.actions.iter()))
         .chain(snapshot.products.iter().flat_map(|p| p.actions.iter()))
         .chain(snapshot.products.iter().flat_map(|p| p.compatibility.iter()
@@ -1384,7 +1416,8 @@ fn validate_current_request(m: &Manager, request: &ui::Request) -> Result<()> {
 fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Result<()> {
     require(request.schema == ui::OPERATOR_SCHEMA,
         "operator_schema_mismatch_update_manager_frontend")?;
-    if installer_control(&request.action).is_some() {
+    if installer_control(&request.action).is_some() || matches!(request.action,
+        ui::Action::EnvironmentInstallerFocus { .. } | ui::Action::EnvironmentInstallerStop { .. }) {
         return validate_installer_control_with(m, request, onboarding::live);
     }
     if current_offer_action(&request.action) {
@@ -1479,6 +1512,10 @@ fn current_offer_action(action: &ui::Action) -> bool {
         | ui::Action::InstallerFocus { .. }
         | ui::Action::InstallerStop { .. }
         | ui::Action::InstallerScan { .. }
+        | ui::Action::EnvironmentInstallerStart { .. }
+        | ui::Action::EnvironmentInstallerFocus { .. }
+        | ui::Action::EnvironmentInstallerStop { .. }
+        | ui::Action::EnvironmentInstallerScan { .. }
         | ui::Action::QuarantinedModuleRetry { .. })
 }
 fn installer_control(action: &ui::Action) -> Option<(&str, &str)> {
@@ -1492,10 +1529,15 @@ fn validate_installer_control_with(m: &Manager, request: &ui::Request,
     is_live: impl FnOnce(&str) -> Result<bool>) -> Result<()> {
     require(request.schema == ui::OPERATOR_SCHEMA,
         "operator_schema_mismatch_update_manager_frontend")?;
-    let (id, operation) = installer_control(&request.action)
-        .ok_or("installer_control_action")?;
     let _ownership = m.lock("onboarding.lock")?;
     require(request.state_token == token(m)?, "operator_stale_request_refresh")?;
+    if let ui::Action::EnvironmentInstallerFocus {operation}
+        | ui::Action::EnvironmentInstallerStop {operation} = &request.action {
+        environment_install::control(m,operation)?;
+        return require(is_live(operation)?,"installer_control_owner");
+    }
+    let (id, operation) = installer_control(&request.action)
+        .ok_or("installer_control_action")?;
     let record = onboarding::control_record(m, id)?;
     require(record.installation_operation.as_deref() == Some(operation)
         && valid_hex(operation, 32) && is_live(operation)?, "installer_control_owner")
@@ -1509,7 +1551,8 @@ fn validate_current_worker(m: &Manager, request: &ui::Request, id: &str,
         Some(id), timeout, waits)?;
     // Recovery controls recheck this exact owned cohort. A suspended DSP
     // service cannot grant new-work capacity, and is not needed to stop it.
-    if installer_control(&request.action).is_some() {
+    if installer_control(&request.action).is_some() || matches!(request.action,
+        ui::Action::EnvironmentInstallerFocus { .. } | ui::Action::EnvironmentInstallerStop { .. }) {
         return validate_installer_control_with(m, request, onboarding::live);
     }
     let deadline = Instant::now() + timeout;
@@ -1670,6 +1713,9 @@ fn finish_operation(m: &Manager, id: &str) -> Result<()> {
                 }
                 onboarding::mark_dead(m, &r)?;
             }
+        }
+        if matches!(request.action,ui::Action::EnvironmentInstallerStart { .. }) {
+            environment_install::finish(m,id)?;
         }
         Ok(())
     })();
@@ -2191,6 +2237,40 @@ fn execute_with_receipt_policy(
             cleanup?;
             Ok(value)
         }
+        ui::Action::EnvironmentInstallerStart {environment,installer} => {
+            let _environment = m.lock("operator-environment.lock")?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            suspend(m,owner,None,timeout,waits)?;
+            let r = environment_install::reserve(m,environment,installer,owner)?;
+            let launched = environment_install::launch(m,&r);
+            drop(projection.take());
+            if launched.is_ok() {
+                write_operation(m,owner,&json!({"schema":2,"operation":owner,
+                    "state":"vendor_running","action":a}),false)?;
+                while onboarding::live(owner)? {std::thread::sleep(Duration::from_millis(500));}
+            }
+            let value = environment_install::result(m,&r)?;
+            require(onboarding::retired(&value),"installer_cleanup_unconfirmed")?;
+            resume_owned(m,owner)?;
+            launched?;
+            Ok(value)
+        }
+        ui::Action::EnvironmentInstallerFocus {operation} => environment_install::focus(m,operation),
+        ui::Action::EnvironmentInstallerStop {operation} => {
+            let value = environment_install::stop(m,operation)?;
+            resume_owned(m,operation)?;
+            Ok(value)
+        }
+        ui::Action::EnvironmentInstallerScan {environment} => {
+            let _environment = m.lock("operator-environment.lock")?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            let env = environment_install::target(m,environment)?;
+            require(onboarding::all_retired(m)?,"installer_retirement_required")?;
+            suspend(m,owner,None,timeout,waits)?;
+            let scanned = rescan_environment(m,env);
+            let resumed = resume_owned(m,owner);
+            let value = scanned?;resumed?;Ok(value)
+        }
         ui::Action::CaptureArm { class_id } => {
             crash_capture::arm(m, Some(class_id))?;
             Ok(json!({"capture":"armed"}))
@@ -2710,6 +2790,8 @@ fn resume_interrupted_with(
             ui::Action::InstallerStart { .. }
                 | ui::Action::InstallerStartWithPolicy { .. }
                 | ui::Action::InstallerScan { .. }
+                | ui::Action::EnvironmentInstallerStart { .. }
+                | ui::Action::EnvironmentInstallerScan { .. }
                 | ui::Action::RendererOpen { .. }
                 | ui::Action::VendorApplicationOpen { .. }
                 | ui::Action::EnvironmentRescan { .. }
@@ -2778,9 +2860,12 @@ fn restore_service(m: &Manager, saved: &ResumeRecord) -> Result<()> {
 pub(super) fn rescan(m: &Manager, environment: &str) -> Result<Value> {
     let _lock = m.lock("registry.lock")?;
     m.require_inactive(None)?;
+    require(pending_transactions(m)? == 0,"operator_pending_transaction_reconcile")?;
     let sw = software(m)?;
     let db = m.registry()?;
-    let c = operator_catalogue(m, &sw, &db)?;
+    // A scan refreshes changed vendor state. Retained ownership identifies its
+    // space; old DSP admission cannot authorize or veto that inspection.
+    let c = operator_catalogue_readback(m, &sw, &db)?;
     let env = managed_rescan_binding(m, c.as_ref(), &db, environment)?
         .ok_or("operator_environment_unmanaged")?;
     require(
@@ -3451,6 +3536,7 @@ mod tests {
         ui::Snapshot {
             onboarding: vec![],
             installer_setups: vec![],
+            environment_installers: vec![],
             schema: ui::OPERATOR_SCHEMA,
             state_token: token.into(),
             system: ui::System {
@@ -3781,7 +3867,7 @@ mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 19);
+        assert_eq!(ui::OPERATOR_SCHEMA, 20);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
@@ -5559,6 +5645,49 @@ mod tests {
         assert_eq!(test_fixture::snapshot(&f.m.root.join("preparation/candidates")), candidates_before);
     }
     #[test]
+    fn changed_vendor_environment_retains_history_with_unavailable_restore() {
+        use linux_vst_bridge::preparation as prep;
+        let (f,base)=preparation_cli::tests::projection_fixture();
+        prep::record_candidate(&f.m,&base).unwrap();
+        let selected=prep::enable(&f.m,&base,false).unwrap();
+        let key=base.selection.class.id.clone();
+        let mut sw=preparation_cli::tests::projection_software(&base);
+        let mut native=base.native.clone();
+        let native_path=f.m.root.join("software/recommended/engine.so");
+        private_dir(native_path.parent().unwrap()).unwrap();fs::copy(&native.artifact.path,&native_path).unwrap();
+        native.artifact.path=native_path;
+        if let Some(descriptor)=&mut native.descriptor {
+            let path=native.artifact.path.with_file_name(lvb_plugin_descriptor::FILE_NAME);
+            fs::copy(&descriptor.path,&path).unwrap();descriptor.path=path;
+        }
+        let catalogue=catalogue::Catalogue {schema:3,natives:vec![native],hosts:vec![],
+            onboarding_runtime:None,environments:vec![catalogue::EnvironmentBinding {
+                family:profiles::Family::ManagedInstallerV1,environment:base.selection.environment.clone()}]};
+        let path=f.m.root.join("software/catalogue.json");atomic_json(&path,&catalogue).unwrap();
+        sw.native_catalogue=Some(Artifact {sha256:digest(&path).unwrap(),path});
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
+        let mut captured=current::capture(&f.m).unwrap();captured.busy=None;
+        let mut recommended=base.profile.clone();recommended.revision+=1;
+        captured.profiles=vec![recommended];
+        let project=||project_current_product(&f.m,&captured,&sw,&f.m.registry().unwrap(),
+            &base.selection.environment.id,&base.selection.module.sha256,&key).unwrap();
+        let before=project();
+        assert!(before.actions.iter().find(|offer|matches!(offer.action,
+            ui::Action::OrdinaryRestoreRecommended { .. })).unwrap().disabled_reason.is_none());
+        let mut changed=base.selection.environment.clone();changed.revision+=1;
+        atomic_json(&changed.root.join("environment.json"),&changed).unwrap();
+        let entry=f.m.registry().unwrap().classes[&key].clone();
+        for rows in [history_records(&f.m,&key,&entry).unwrap(),history(&f.m,&key,&entry).unwrap()] {
+            let prior=rows.iter().find(|h|h.publication==selected.id).unwrap();
+            assert!(prior.rollback_unavailable.as_ref().unwrap().contains("vendor changes cannot be rolled back"));
+        }
+        assert!(f.m.rollback(&key,&selected.id,None).is_err());
+        let after=project();
+        assert!(after.actions.iter().find(|offer|matches!(offer.action,
+            ui::Action::OrdinaryRestoreRecommended { .. })).unwrap().disabled_reason.as_ref()
+            .unwrap().contains("Fresh preparation"));
+    }
+    #[test]
     fn ordinary_views_and_offer_admission_defer_payload_tree_and_kit_verification() {
         use linux_vst_bridge::{preparation as prep, runtime_delivery};
         let (f, base) = preparation_cli::tests::projection_fixture();
@@ -6275,7 +6404,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         assert_eq!(read().unwrap().dsp, 1);
         fs::remove_file(lease).unwrap();
         assert!(rescan(&f.m, &candidate.selection.environment.id).unwrap_err()
-            .to_string().contains("candidate_catalogue_free_identity"));
+            .to_string().contains("operator_pending_transaction_reconcile"));
         let retired = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &read).unwrap();
         assert!(retired.system.capacity_available());
         assert_eq!(retired.system.dsp, 0);
@@ -6646,13 +6775,13 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         );
     }
     #[test]
-    fn projection_recheck_refuses_registry_change_during_expensive_work() {
+    fn projection_recheck_refuses_registry_change_during_installer_record_readback() {
         let (f, _) = onboarding_worker_fixture();
         let m = Manager {
             root: f.m.root.clone(),
             publications: f.m.publications.clone(),
         };
-        installer_import::VERIFY_BARRIER.with(|h| {
+        installer_import::IDENTITY_READ_BARRIER.with(|h| {
             *h.borrow_mut() = Some(Box::new(move || {
                 let _guard = m.lock("registry.lock").unwrap();
                 let mut db = m.registry().unwrap();
@@ -6915,7 +7044,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         );
     }
     #[test]
-    fn expensive_installer_projection_leaves_registry_available() {
+    fn installer_record_projection_leaves_registry_available() {
         let (f, _) = onboarding_worker_fixture();
         let m = Manager {
             root: f.m.root.clone(),
@@ -6924,7 +7053,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         let (entered, arrival) = std::sync::mpsc::channel();
         let (release, barrier) = std::sync::mpsc::channel();
         let thread = std::thread::spawn(move || {
-            installer_import::VERIFY_BARRIER.with(|h| {
+            installer_import::IDENTITY_READ_BARRIER.with(|h| {
                 *h.borrow_mut() = Some(Box::new(move || {
                     entered.send(()).unwrap();
                     barrier.recv_timeout(Duration::from_secs(3)).unwrap();
@@ -6943,7 +7072,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         let result = thread.join().unwrap();
         assert!(
             available,
-            "installer verification blocked registry authority"
+            "installer record readback blocked registry authority"
         );
         result.unwrap();
     }

@@ -342,19 +342,21 @@ pub struct Runner {
     pub policy: Option<RunnerPolicy>,
 }
 impl Runner {
+    /// Immutable runner identity, including pinned entry points, without live files.
+    pub fn validate_identity(&self) -> Result<()> {
+        require(!self.id.is_empty() && !self.version.is_empty()
+            && (2..=128).contains(&self.files.len()), "runner identity incomplete")?;
+        require(self.files.iter().any(|f|f.path == self.proton)
+            && self.files.iter().any(|f|f.path == self.entry_point),
+            "runner entry points not pinned")?;
+        for f in &self.files {
+            require(f.path.is_absolute() && valid_hex(&f.sha256,64),"runner artifact identity")?;
+        }
+        Ok(())
+    }
     /// Bounded runner record/entry-point validation, without a runtime census.
     pub fn validate_record(&self) -> Result<()> {
-        require(
-            !self.id.is_empty()
-                && !self.version.is_empty()
-                && (2..=128).contains(&self.files.len()),
-            "runner identity incomplete",
-        )?;
-        require(
-            self.files.iter().any(|f| f.path == self.proton)
-                && self.files.iter().any(|f| f.path == self.entry_point),
-            "runner entry points not pinned",
-        )?;
+        self.validate_identity()?;
         for f in &self.files {
             f.validate_record()?;
         }

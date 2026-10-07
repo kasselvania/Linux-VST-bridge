@@ -185,13 +185,19 @@ impl Candidate {
         super::key(self)
     }
     pub fn census(&self) -> Result<Census> {
+        self.census_with_stamp(Some(crate::observation::ModuleStamp::read(&self.selection.module.path)?))
+    }
+    pub(super) fn census_record(&self) -> Result<Census> {
+        self.census_with_stamp(None)
+    }
+    fn census_with_stamp(&self, stamp: Option<crate::observation::ModuleStamp>) -> Result<Census> {
         Census::from_report(
             crate::catalogue::EnvironmentBinding {
                 family: crate::profiles::Family::ManagedInstallerV1,
                 environment: self.selection.environment.clone(),
             },
             self.selection.module.clone(),
-            crate::observation::ModuleStamp::read(&self.selection.module.path)?,
+            stamp,
             self.inspection.host.clone(),
             self.inspection.source_manifest.sha256.clone(),
             self.inspection.report.clone(),

@@ -328,6 +328,24 @@ impl RequestFeedback {
             && s.operation
                 .as_ref()
                 .is_some_and(|op| op["operation"].as_str() == self.operation.as_deref());
+        if let Action::EnvironmentInstallerStart {environment,installer} = &self.action {
+            if let Some(target) = s.environment_installers.iter().find(|row|
+                &row.environment == environment && row.operation.as_deref() == self.operation.as_deref()) {
+                self.observe(&target.result);
+            } else if self.acknowledgment_uncertain && self.operation.is_none() {
+                let owners:Vec<_> = s.environment_installers.iter().filter(|row|&row.environment == environment
+                    && row.installer.as_ref() == Some(installer))
+                    .filter_map(|row|row.operation.as_ref().filter(|op|row.actions.iter().any(|offer|
+                        matches!(&offer.action,Action::EnvironmentInstallerStop {operation} if operation == *op))))
+                    .cloned().collect();
+                if owners.len() == 1 {
+                    // The exact start request in the live owner is checked by the
+                    // manager. Never infer ownership from a display name.
+                    self.operation = Some(owners[0].clone());
+                    self.release_after_snapshot = true;
+                }
+            }
+        }
         let exact_recovery = if let Action::InstallerStart { onboarding }
         | Action::InstallerStartWithPolicy { onboarding, .. } = &self.action
         {
@@ -338,9 +356,17 @@ impl RequestFeedback {
                     if id==onboarding && Some(operation.as_str())==self.operation.as_deref())
                     })
             })
+        } else if let Action::EnvironmentInstallerStart {environment,..} = &self.action {
+            s.environment_installers.iter().any(|row|&row.environment == environment
+                && row.actions.iter().any(|offer|matches!(&offer.action,
+                    Action::EnvironmentInstallerStop {operation} if Some(operation.as_str()) == self.operation.as_deref())))
         } else {
             false
         };
+        if exact_recovery && matches!(self.action,Action::EnvironmentInstallerStart { .. }) {
+            self.release_after_snapshot = true;
+            self.text = "The companion installer is supervised and running. Its exact Focus and Stop controls are available.".into();
+        }
         for product in &s.products {
             if let Some(op) = product.details["preparation"].get("operation") {
                 self.observe(op);
@@ -1073,6 +1099,35 @@ fn navigate(
     }
 }
 
+
+fn existing_setup_installer(ui: &mut egui::Ui, snapshot: &Snapshot,
+    pending: bool, chosen: &mut Option<Action>) {
+    if snapshot.environment_installers.is_empty() {return;}
+    ui.separator();
+    ui.strong("Install a companion or dependency in an existing setup");
+    let key = egui::Id::new("companion_environment");
+    let mut selected = ui.data_mut(|data|data.get_temp::<String>(key)).unwrap_or_default();
+    egui::ComboBox::from_id_salt("companion_environment_choice")
+        .selected_text(snapshot.environment_installers.iter().find(|target|target.environment == selected)
+            .map(|target|target.name.as_str()).unwrap_or("Choose the existing setup or plug-in"))
+        .show_ui(ui,|ui| {
+            for target in &snapshot.environment_installers {
+                ui.selectable_value(&mut selected,target.environment.clone(),&target.name);
+            }
+        });
+    ui.data_mut(|data|data.insert_temp(key,selected.clone()));
+    if let Some(target) = snapshot.environment_installers.iter().find(|target|target.environment == selected) {
+        ui.push_id(&target.environment,|ui|crate::library::environment_installer_controls(ui,target,pending,chosen));
+    }
+    // An exact running owner's Stop remains visible even if no setup is selected.
+    for target in snapshot.environment_installers.iter().filter(|target|target.environment != selected) {
+        if target.actions.iter().any(|a|matches!(a.action,Action::EnvironmentInstallerStop { .. })) {
+            ui.strong(&target.name);
+            crate::library::action_buttons(ui,&target.actions,None,pending,chosen);
+        }
+    }
+}
+
 fn show_discovered_products(setup: &InstallerSetup,
     library: &mut crate::library::Library, page: &mut Page) {
     library.focus_products(setup.discovered.iter().map(|product| ProductKey {
@@ -1176,6 +1231,7 @@ impl Operator {
         let pending = pending || !fresh;
         let _ = refresh; // Home owns the full readiness assessment.
         ui.heading("Setup");
+        existing_setup_installer(ui,&overview.current,pending,chosen);
         if focus.setup_installer.is_some() {
             ui.horizontal_wrapped(|ui| {
                 ui.strong("Showing the selected installer");
@@ -1744,6 +1800,7 @@ impl Operator {
         let (page, library, focus) = navigation;
         let busy = snapshot.system.inactive_reason();
         ui.heading("Setup");
+        existing_setup_installer(ui,snapshot,pending,chosen);
         ui.small("Installers, vendor applications, environments and exact recovery controls.");
         for offer in &snapshot.actions {
             if matches!(offer.action, Action::TransactionReconcile {})
@@ -2458,93 +2515,7 @@ fn compatibility_result_refusal<'a>(offer: Option<&'a Result<Option<String>, &'s
     }
 }
 
-fn installer_lines(v: &serde_json::Value) -> Vec<String> {
-    let t = &v["transaction"];
-    if t["schema"] != 1 || t["operation"] != v["operation"] {
-        return if v["error"] == "installer_launcher_failed" {
-            vec!["Earlier installer result: outer launch route exited nonzero; the failing later stage and installation completeness were not captured.".into()]
-        } else {
-            vec![]
-        };
-    }
-    let outcome=match t["outcome"].as_str() {
-        Some("in_progress")=>"Installer supervision is ongoing. Exact Focus and Stop controls remain available; cleanup will be checked after retirement.",
-        Some("outer_nonzero_stage_unknown")=>"The outer installer route exited nonzero. The failing child or stage is not established.",
-        Some("installed_dependency_failed")=>"Application files are installed, but a process performing service/dependency work exited nonzero. Review that stage before reinstalling.",
-        Some("child_failed")=>"An owned child exited nonzero. Its role and underlying cause may still be unknown.",
-        Some("cancelled")=>"This attempt was cancelled. Earlier failure observations remain retained.",
-        Some("cleanup_unconfirmed")=>"Installer cleanup is unconfirmed. Further work is blocked.",
-        Some("installed")=>"Application files and installation registration were observed. First launch and dependency health remain unproved.",
-        Some("partial_installation")=>"Partial installation: durable changes exist, but a complete application installation is not established.",
-        Some("not_installed")=>"No durable installation was found in the inspected surfaces.",
-        _=>"Review the installer stage record; completion does not qualify or publish a plug-in.",
-    };
-    let mut lines = vec![outcome.into()];
-    if let Some(code) = v["startup"]["first_problem"]["code"].as_str() {
-        let observation = match code {
-            "native_steamclient_load_failed" => "native runtime dependency load failed",
-            "native_steamclient_export_unavailable" => "native runtime export unavailable",
-            "runtime_assertion_observed" => "runtime assertion observed",
-            "prefix_initialization_failed" | "prefix_initialization_timeout" => {
-                "environment initialization did not complete"
-            }
-            _ => "startup problem retained; inspect bounded details",
-        };
-        lines.push(format!(
-            "Earlier startup observation: {observation}. Cancellation and cleanup do not erase it."
-        ));
-    }
-    if let Some(n) = t["outer_launcher_exit"].as_i64() {
-        lines.push(format!(
-            "Outer launcher exit: {n} (separate from payload and service exits)"
-        ));
-    }
-    lines.push(format!(
-        "Durable installation: {}",
-        t["durable_installation"]
-            .as_str()
-            .unwrap_or("unavailable")
-            .replace('_', " ")
-    ));
-    if !t["first_failure"].is_null() {
-        let f = &t["first_failure"];
-        lines.push(format!("First retained process result: phase {} · role {} · relationship {} · domain {} · status {} · cause unestablished",
-            f["phase"].as_str().unwrap_or("unknown"), f["role"].as_str().unwrap_or("unknown"),
-            f["relationship"].as_str().unwrap_or("unknown"), f["domain"].as_str().unwrap_or("unknown"), f["status"]));
-    }
-    let binding = &t["launch_binding"];
-    if binding["schema"] == 1 && binding["operation"] == v["operation"] {
-        lines.push(if binding["status"] == "bound" {
-            "Installer Windows root: exact operation and launch generation observed.".into()
-        } else {
-            format!(
-                "Installer Windows root unavailable: {}. Child attribution may be incomplete.",
-                binding["reason"].as_str().unwrap_or("missing observation")
-            )
-        });
-    }
-    if t["presence_close"]["schema"] == 1 {
-        lines.push(format!("Application presence/close requests observed: {}. Helper success does not prove a match or successful closure; exact match and recheck results remain unavailable.",t["presence_close"]["observation_count"]));
-        if t["presence_close"]["operation_classes"]
-            .as_array()
-            .is_some_and(|rows| {
-                rows.iter()
-                    .any(|r| r == "presence_query" || r == "close_request")
-            })
-        {
-            lines.push("Observed request mechanism: PowerShell/CIM process query or script process close. The matched object and actual close outcome are unavailable.".into());
-        }
-    }
-    lines.push(
-        if v["cleanup_confirmed"] == true {
-            "Owned process cleanup confirmed."
-        } else {
-            "Owned process cleanup not yet confirmed."
-        }
-        .into(),
-    );
-    lines
-}
+fn installer_lines(v: &serde_json::Value) -> Vec<String> { crate::presentation::installer_lines(v) }
 
 fn dependency_retirement_lines(v: &serde_json::Value) -> Vec<String> {
     if v.is_null() {
@@ -3674,6 +3645,57 @@ mod tests {
         }
     }
     #[test]
+    fn companion_choice_shows_scope_before_run_and_exact_stop_survives_suspension() {
+        fn text_position(shape:&egui::epaint::Shape,label:&str)->Option<egui::Pos2> {
+            match shape {
+                egui::epaint::Shape::Text(text) if text.galley.text()==label =>
+                    Some(text.pos+text.galley.size()*0.5),
+                egui::epaint::Shape::Vec(shapes)=>shapes.iter().rev().find_map(|shape|text_position(shape,label)),
+                _=>None,
+            }
+        }
+        let environment="ab".repeat(16);let installer="cd".repeat(32);let operation="ef".repeat(16);
+        let run=Action::EnvironmentInstallerStart {environment:environment.clone(),installer:installer.clone()};
+        let stop=Action::EnvironmentInstallerStop {operation:operation.clone()};
+        for (width,running) in [(960.0,false),(560.0,false),(960.0,true),(560.0,true)] {
+            let ctx=egui::Context::default();
+            let target=crate::model::EnvironmentInstaller {environment:environment.clone(),
+                name:"Synth setup".into(),affected:vec!["Synth".into(),"Effect sibling".into()],
+                consequence:"Stopping cannot undo vendor changes. Both plug-ins need fresh preparation.".into(),
+                choices:vec![AvailableAction {label:"Run companion in this setup".into(),action:run.clone(),
+                    disabled_reason:running.then(||"Installer is running".into())}],
+                operation:running.then(||operation.clone()),installer:running.then(||installer.clone()),
+                result:if running {serde_json::json!({"operation":operation,"state":"running"})} else {serde_json::Value::Null},
+                actions:if running {vec![AvailableAction {label:"Stop installer".into(),action:stop.clone(),disabled_reason:None}]} else {vec![]}};
+            ctx.data_mut(|data| {
+                data.insert_temp(egui::Id::new("companion_environment"),environment.clone());
+                data.insert_temp(egui::Id::new(("companion_installer",&environment)),installer.clone());
+            });
+            let mut overview=overview_fixture();overview.current.environment_installers=vec![target];
+            if running {overview.current.system.service="capacity unavailable".into();}
+            let mut chosen=None;let mut position=egui::Pos2::ZERO;
+            let label=if running {"Stop installer"} else {"Run companion in this setup"};
+            for pressed in [None,Some(true),Some(false)] {
+                let events=pressed.map(|pressed|vec![egui::Event::PointerMoved(position),
+                    egui::Event::PointerButton {pos:position,button:egui::PointerButton::Primary,
+                        pressed,modifiers:egui::Modifiers::NONE}]).unwrap_or_default();
+                let mut output=ctx.run_ui(egui::RawInput {events,..Default::default()},|ui| {
+                    ui.set_max_width(width-32.0);ui.add_space(410.0);
+                    Operator::fast_setup(ui,&overview,true,false,(&mut false,&mut chosen,&mut false,
+                        &mut Page::Setup,&mut crate::library::Library::default(),&mut RouteFocus::default()));
+                });
+                if pressed.is_none() {
+                    position=output.shapes.iter().rev().find_map(|shape|text_position(&shape.shape,label)).unwrap();
+                    if running {assert!(position.y<800.0,"Stop below viewport: {position:?}");}
+                    assert!(output.shapes.iter().any(|shape|text_position(&shape.shape,
+                        "Affected plug-ins: Synth, Effect sibling").is_some()));
+                }
+                output.textures_delta.clear();
+            }
+            assert_eq!(chosen,Some(if running {stop.clone()} else {run.clone()}));
+        }
+    }
+    #[test]
     fn ordinary_and_narrow_navigation_keeps_every_page_touch_reachable() {
         for (width, selected_page) in [(960.0, Page::Home), (560.0, Page::Activity)] {
             let ctx = egui::Context::default();
@@ -4006,6 +4028,7 @@ mod tests {
             schema: crate::model::OPERATOR_SCHEMA,
             state_token: "current".into(),
             installer_setups: vec![],
+            environment_installers: vec![],
             system: System {
                 service: "capacity unavailable".into(),
                 keepers: 0,

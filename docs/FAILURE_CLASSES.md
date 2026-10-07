@@ -2510,6 +2510,13 @@ Last reviewed: 2026-09-29.
 
 ## FC-MGMT-006 — Exact prebuilt catalogue blocks unfamiliar plug-ins
 
+Same-environment companion/dependency installation now has a source implementation
+through ordinary Setup/plug-in controls and existing installation custody. Revision
+invalidation, retained history and fresh preparation replace stale sibling claims;
+physical completion, partial Stop/retry and musical recall remain unqualified.
+Older-manager downgrade usability after the revision change is also unqualified;
+package restoration cannot rewind the vendor environment or admit its stale plug-ins.
+
 The operator reported a missing exact prebuilt proxy while preparing newly
 installed Nibbi. Source `9a0766afbf71fbb336c897c98b003b9e4bdda737` confirms the
 shared refusal: `tools/mf3/native_builder.py::prebuilt` requires exactly one

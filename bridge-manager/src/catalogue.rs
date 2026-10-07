@@ -284,7 +284,7 @@ impl Catalogue {
             for binding in &self.environments {
                 let runner = &binding.environment.runner;
                 if runner.id == STANDARD_ONBOARDING_RUNNER && runner.policy.is_none() {
-                    runner.validate_record()?;
+                    runner.validate_identity()?;
                     standard.insert(runner_key(runner)?);
                 }
             }

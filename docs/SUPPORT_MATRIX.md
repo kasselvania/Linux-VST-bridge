@@ -11,6 +11,14 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Same-environment companion/dependency installation is **unqualified**: ordinary
+manager controls now select an existing setup or plug-in, show affected siblings,
+and retain supervised Stop/retry/rescan with fresh preparation after a revision
+change. Installed completion, partial recovery and musical save/reopen still need
+disposable first-party acceptance; vendor-state rollback is not supported.
+Downgrading to an older manager after a shared-environment change is unqualified;
+the old publication remains stale and does not restore the vendor environment.
+
 The [paced priority comparison](../evidence/audio-recovery/2026-10-04-paced-priority-abort.md)
 remains **unqualified**: its first A/B pair retains five/four inside512-frame zero
 spans and seven/four active Bitwig ERR increments. B's post-window recording loss

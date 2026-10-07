@@ -626,7 +626,7 @@ mod tests {
             .census;
         census.selected = c.class.clone();
         census.module.path = census.module.path.with_file_name("Pigments.vst3");
-        census.module_stamp = ModuleStamp::read(&census.module.path).unwrap();
+        census.module_stamp = Some(ModuleStamp::read(&census.module.path).unwrap());
         census.host = exact.host.clone();
         census.host_source_sha256 = exact.source_manifest.sha256.clone();
         census.report.path = f.outer.join("accepted-census.json");

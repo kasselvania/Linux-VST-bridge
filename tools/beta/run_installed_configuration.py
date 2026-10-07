@@ -316,7 +316,7 @@ class Run:
         if attempt:
             save(self.out / (stem + ".json"), value)
         save(self.out / (label + "-product.json"), value)
-        need(value["schema"] == 1 and value["operator_schema"] in (18, 19), "operator_schema")
+        need(value["schema"] == 1 and value["operator_schema"] in (18, 19, 20), "operator_schema")
         return value
 
     def select(self, detail, predicate, disabled=False):

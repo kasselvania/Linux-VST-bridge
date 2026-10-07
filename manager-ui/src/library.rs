@@ -323,6 +323,13 @@ impl Library {
                         action_buttons(ui, &management, snapshot.system.inactive_reason(), pending, chosen);
                         compatibility_settings(ui, p, snapshot.system.inactive_reason(), pending,
                             chosen, self.expand_details);
+                        if let Some(target) = snapshot.environment_installers.iter()
+                            .find(|target|target.environment == p.environment) {
+                            egui::CollapsingHeader::new("Install a companion or dependency")
+                                .default_open(target.actions.iter().any(|offer|
+                                    matches!(offer.action,Action::EnvironmentInstallerStop { .. })))
+                                .show(ui,|ui|environment_installer_controls(ui,target,pending,chosen));
+                        }
                         ui.label(format!(
                             "{} · {}",
                             role(p),
@@ -1332,4 +1339,53 @@ mod tests {
             assert_eq!(chosen,clickable.then_some(action));
         }
     }
+}
+
+pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
+    target: &crate::model::EnvironmentInstaller, pending: bool, chosen: &mut Option<Action>) {
+    let controls:Vec<_>=target.actions.iter().filter(|offer|matches!(offer.action,
+        Action::EnvironmentInstallerFocus { .. } | Action::EnvironmentInstallerStop { .. })).cloned().collect();
+    crate::library::action_buttons(ui,&controls,None,pending,chosen);
+    ui.label(&target.consequence);
+    if target.affected.is_empty() {
+        ui.small("This existing setup has no discovered plug-ins yet.");
+    } else {
+        ui.strong(format!("Affected plug-ins: {}", target.affected.join(", ")));
+    }
+    ui.small(format!("Compatibility space: {}",target.environment));
+    if target.operation.is_some() {
+        let state = target.result["state"].as_str().unwrap_or("unavailable").replace('_'," ");
+        ui.label(format!("Last installer: {state}"));
+        if let Some(outcome) = target.result["transaction"]["durable_installation"].as_str() {
+            ui.label(format!("Vendor installation result: {}",outcome.replace('_'," ")));
+        }
+        if target.result["state"] == "failed" || target.result["state"] == "cancelled" {
+            ui.colored_label(warning_color(ui),"Files or vendor state may already have changed. Rescan to see what remains, or retry in this same compatibility space. Stopping does not restore prior vendor state.");
+        }
+        egui::CollapsingHeader::new("Installer details").show(ui,|ui| {
+            for line in presentation::installer_lines(&target.result) {ui.small(line);}
+        });
+    }
+    let continuation:Vec<_>=target.actions.iter().filter(|offer|!matches!(offer.action,
+        Action::EnvironmentInstallerFocus { .. } | Action::EnvironmentInstallerStop { .. })).cloned().collect();
+    crate::library::action_buttons(ui,&continuation,None,pending,chosen);
+    let key = egui::Id::new(("companion_installer",&target.environment));
+    let mut selected = ui.data_mut(|data|data.get_temp::<String>(key)).unwrap_or_default();
+    egui::ComboBox::from_id_salt(("companion_choice",&target.environment))
+        .selected_text(target.choices.iter().find(|offer|matches!(&offer.action,
+            Action::EnvironmentInstallerStart {installer,..} if installer == &selected))
+            .map(|offer|offer.label.as_str()).unwrap_or("Choose an imported companion installer"))
+        .show_ui(ui,|ui| {
+            for offer in &target.choices {
+                if let Action::EnvironmentInstallerStart {installer,..} = &offer.action {
+                    ui.selectable_value(&mut selected,installer.clone(),&offer.label);
+                }
+            }
+        });
+    ui.data_mut(|data|data.insert_temp(key,selected.clone()));
+    if let Some(offer) = target.choices.iter().find(|offer|matches!(&offer.action,
+        Action::EnvironmentInstallerStart {installer,..} if installer == &selected)) {
+        crate::library::action_buttons(ui,std::slice::from_ref(offer),None,pending,chosen);
+    }
+    if target.choices.is_empty() {ui.small("Choose a Windows installer to import a local companion or dependency first.");}
 }
