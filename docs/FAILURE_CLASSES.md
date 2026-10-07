@@ -1615,12 +1615,13 @@ Test 20 still muted a sounding track while BEAM loaded: 281 startup blocks
 (3.0 seconds) were returned as silence, despite a 5.78 ms whole-call maximum
 and zero bridge gaps. The audio-server recorder missed this run. The operator
 approved latency-aligned dry effect audio until ready; instruments stay silent.
-The source successor preserves pending parameters and refuses stale saves;
-Test 21 still needs the same physical load and first-ready-call comparison.
+The source successor preserves pending parameters and refuses stale saves.
+On 2026-10-07, installed Test 21 passed the operator's BEAM load-continuity and touchscreen-knob check; its first ready call took 0.293 ms.
+A later 53.7 ms callback remains open, with vendor DSP taking 3.93 ms; the server recorder missed this run, and editor-stall/timing closure is still pending.
 
 ### Last reviewed
 
-2026-10-06.
+2026-10-07.
 
 ---
 
