@@ -377,22 +377,46 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
   }
 }
 tresult PLUGIN_API Processor::setState(IBStream *stream) {
+#ifdef AP8_PREVIEW
+  // Disposable restore-order diagnostic. The host may call before a managed
+  // report path exists; the ordinary DAW launch captures stderr privately.
+  auto restoreTrace = [&](const char *stage, uint32_t result) {
+    std::fprintf(stderr,
+        "{\"event\":\"ap4_native_restore_entry\",\"stage\":\"%s\","
+        "\"phase\":%u,\"owner_thread\":%s,\"stream_present\":%s,\"result\":%u}\n",
+        stage, unsigned(phase_.load()),
+        owner_ == std::this_thread::get_id() ? "true" : "false",
+        stream ? "true" : "false", result);
+  };
+  restoreTrace("entry", 0);
+#endif
   if (!preview_)
     return kNotImplemented;
   if (phase_ == Failed || terminal())
     stateFailure("set", "failed_instance");
   if (!stream || owner_ != std::this_thread::get_id() || phase_ == New ||
       phase_ == Running || phase_ == Failed || phase_ == Terminated || terminal())
+  {
+#ifdef AP8_PREVIEW
+    restoreTrace("guard_refused", 1);
+#endif
     return kResultFalse;
+  }
   try {
     std::vector<uint8_t> blob;
 #ifndef AP8_PREVIEW
     double restored = 0.;
 #endif
-    if (!LVBState::readEnvelope(stream, blob) ||
 #ifdef AP8_PREVIEW
-        ap8_validate_restore(AP8::identity,blob.data(),static_cast<uint32_t>(blob.size())))
+    const bool envelope = LVBState::readEnvelope(stream, blob);
+    restoreTrace("envelope", envelope ? 0 : 1);
+    const auto identity_result = envelope
+        ? ap8_validate_restore(AP8::identity, blob.data(), static_cast<uint32_t>(blob.size()))
+        : UINT32_MAX;
+    if (envelope) restoreTrace("identity", identity_result);
+    if (!envelope || identity_result)
 #else
+    if (!LVBState::readEnvelope(stream, blob) ||
         ap4_validate(blob.data(), static_cast<uint32_t>(blob.size()), &restored))
 #endif
       {phase_=Failed;return kResultFalse;}

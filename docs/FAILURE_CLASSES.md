@@ -2203,6 +2203,9 @@ normal successor selection and activation, retaining internal20. Product readbac
 took 2.173 seconds, and the normal GUI loaded exact FRAGMENTS controls and
 accepted Check compatibility. The earlier 28.110-second failure remains retained.
 
+Test24 Ubuntu's normal UI Update Bridge completed in 13–16 minutes; a roughly six-minute sample recorded 47.7 GB logical and 36.9 GB physical reads.
+Package update omits operation-scoped `with_launch_verification`, repeatedly verifying unchanged runner trees per class; this pre-existing delay remains open.
+
 ### Claim limit and remaining gate
 
 The setup admission retest passed. Prove actual runtime execution and retain
