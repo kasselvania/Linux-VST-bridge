@@ -1,28 +1,27 @@
-# Current task: smooth the effect startup handoff
+# Current task: finish smooth effect insertion
 
 ## Goal
 
-Keep latency-aligned dry audio audible while an effect starts its current wet
-stream, then engage over 50 ms. The operator approved this on 2026-10-07.
+Keep effect insertion audible from its first callback through the latency-aligned
+50 ms dry-to-wet transition. Discuss the remaining initial hiccup before changing it.
 
 ## Current result
 
-Test 22 is installed on all 11 Deck publications. The operator clarified that
-BEAM's sustained loading silence is gone; a brief dry-to-BEAM hiccup remains.
-Touchscreen knob dragging works. The later stall persists with nice 0: all
-7,197 calls retained, maximum 27.188 ms, server ERR 0 to 4. Baseline restored.
+Test 23 is installed on all 11 Deck publications. The operator says BEAM's
+dry-to-wet transition is much better and super smooth; a slight earlier loading
+hiccup before the UI appears remains. All 1,891 calls are retained, maximum
+6.891 ms (first 5.546 ms); server ERR stays 0 over 54 Bitwig samples at 512/48k.
 
 ## Best explanation
 
-The handoff waits for due wet work, then fades over one maximum block (10.7 ms
-at 512/48k). A longer transition is a plausible repair; audible proof is pending.
-The separate later stall points to a slow Wine event wake after the prior reply.
+One silent 512-sample callback (10.7 ms) matches the initially empty dry delay
+history with D=512 and L=0. This is a strong candidate for the earlier hiccup,
+but its audible attribution is unproven. The later Wine wake fix remains parked.
 
 ## Next changes
 
-- Test 23 source keeps Buffered startup dry without waiting for unfinished wet
-  work, then commits a current, aligned 50 ms linear fade across variable N.
-- Compare BEAM loading and dry-to-wet engagement without moving a knob.
+- Discuss insertion sequencing and the initial delay-history priming with the operator.
+- Keep Buffered nonwaiting startup and its current, aligned 50 ms linear fade.
 - Preserve SameCallback D=0 synchronous completion, instruments, public N0 and
   offline rendering; repeat startup automation and fresh save/reopen.
 
@@ -35,6 +34,6 @@ The earlier editor-gesture stall remains open until a repeat captures it.
 
 ## Separate open work
 
-- Later Wine wake stall; Nibbi touch, multi-touch and the six-instance ceiling.
+- Later Wine wake stall: nice 0 failed; baseline restored. Nibbi touch, multi-touch and the six-instance ceiling.
 - Ctrl cleared after reboot locally without streaming; its source remains a gap.
 - Inspection crash rollback, general preparation/manager/UI, supervisor replacement and portability.
