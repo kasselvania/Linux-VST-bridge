@@ -816,8 +816,8 @@ pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
     if target.operation.is_some() {
         let state = target.result["state"].as_str().unwrap_or("unavailable").replace('_'," ");
         ui.label(format!("Last installer: {state}"));
-        if let Some(outcome) = target.result["transaction"]["durable_installation"].as_str() {
-            ui.label(format!("Vendor installation result: {}",outcome.replace('_'," ")));
+        if target.result["transaction"]["durable_installation"].is_string() {
+            ui.label(presentation::installer_installation_label(&target.result["transaction"]));
         }
         if target.result["state"] == "failed" || target.result["state"] == "cancelled" {
             ui.colored_label(warning_color(ui),"Files or vendor state may already have changed. Rescan to see what remains, or retry in this same compatibility space. Stopping does not restore prior vendor state.");

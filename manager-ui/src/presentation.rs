@@ -373,6 +373,17 @@ pub fn session_display_name<'a>(snapshot: &'a Snapshot, class_id: &str) -> &'a s
     }
 }
 
+pub(crate) fn installer_installation_label(t: &serde_json::Value) -> String {
+    if t["durable_installation"] == "partial_installation"
+        && t["installation_completeness"] == "unproved"
+    {
+        "Installation changes observed; completion not verified".into()
+    } else {
+        format!("Installation observation: {}",
+            t["durable_installation"].as_str().unwrap_or("unavailable").replace('_', " "))
+    }
+}
+
 pub(crate) fn installer_lines(v: &serde_json::Value) -> Vec<String> {
     let t = &v["transaction"];
     if t["schema"] != 1 || t["operation"] != v["operation"] {
@@ -382,6 +393,7 @@ pub(crate) fn installer_lines(v: &serde_json::Value) -> Vec<String> {
             vec![]
         };
     }
+    let installation = installer_installation_label(t);
     let outcome=match t["outcome"].as_str() {
         Some("in_progress")=>"Installer supervision is ongoing. Exact Focus and Stop controls remain available; cleanup will be checked after retirement.",
         Some("outer_nonzero_stage_unknown")=>"The outer installer route exited nonzero. The failing child or stage is not established.",
@@ -390,6 +402,8 @@ pub(crate) fn installer_lines(v: &serde_json::Value) -> Vec<String> {
         Some("cancelled")=>"This attempt was cancelled. Earlier failure observations remain retained.",
         Some("cleanup_unconfirmed")=>"Installer cleanup is unconfirmed. Further work is blocked.",
         Some("installed")=>"Application files and installation registration were observed. First launch and dependency health remain unproved.",
+        Some("partial_installation") if t["durable_installation"] == "partial_installation"
+            && t["installation_completeness"] == "unproved"=>installation.as_str(),
         Some("partial_installation")=>"Partial installation: durable changes exist, but a complete application installation is not established.",
         Some("not_installed")=>"No durable installation was found in the inspected surfaces.",
         _=>"Review the installer stage record; completion does not qualify or publish a plug-in.",
@@ -414,13 +428,9 @@ pub(crate) fn installer_lines(v: &serde_json::Value) -> Vec<String> {
             "Outer launcher exit: {n} (separate from payload and service exits)"
         ));
     }
-    lines.push(format!(
-        "Durable installation: {}",
-        t["durable_installation"]
-            .as_str()
-            .unwrap_or("unavailable")
-            .replace('_', " ")
-    ));
+    if outcome != installation.as_str() {
+        lines.push(installation);
+    }
     if !t["first_failure"].is_null() {
         let f = &t["first_failure"];
         lines.push(format!("First retained process result: phase {} · role {} · relationship {} · domain {} · status {} · cause unestablished",
