@@ -29,6 +29,68 @@ class Clock:
         self.ns += int(seconds * 1_000_000_000)
 
 
+class AppliedLaunch(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name).resolve()
+        self.registration = {"host": {"path": str(self.root / "host.exe"), "sha256": "a" * 64},
+                             "environment": {"runner": {}},
+                             "compatibility": {"disable_windows_accessibility": False}}
+
+    def report(self, overrides, backend=None):
+        return {"graphics_configuration": {"requested_backend": backend, "dll_overrides": overrides,
+                "scope": "host_process_and_children", "renderer_observed": False}}
+
+    def paired_runtime(self):
+        files = {}
+        artifacts = []
+        for name in ("lvb-direct-wait.dll", "x86_64-windows/lvb-direct-wait.dll",
+                     "x86_64-unix/lvb-direct-wait.so"):
+            path = self.root / name
+            path.parent.mkdir(exist_ok=True)
+            path.write_bytes(name.encode())
+            path.chmod(0o444)
+            files[name] = helper.sha(path)
+            artifacts.append({"path": str(path), "sha256": files[name]})
+        path = self.root / "direct-audio-helper.json"
+        helper.save(path, {"schema": 1, "abi": 1, "host_sha256": "a" * 64, "files": files})
+        path.chmod(0o444)
+        artifacts.append({"path": str(path), "sha256": helper.sha(path)})
+        helper.save(self.root / "runtime.json", {"host": self.registration["host"],
+                                                "direct_audio_helpers": artifacts})
+
+    def test_exact_options_include_plugin_defaults_and_bound_paired_helper(self):
+        helper.applied_launch(self.registration, self.report("winebus.sys=d"))
+        self.paired_runtime()
+        self.registration["compatibility"].update(graphics="wine_d3d11", disable_windows_accessibility=True)
+        overrides = "d3d11,dxgi=b;uiautomationcore=;winebus.sys=d;lvb-direct-wait=b"
+        helper.applied_launch(self.registration, self.report(overrides, "wine_d3d11"))
+        for wrong in ("d3d11,dxgi=b;winebus.sys=d;lvb-direct-wait=b",
+                      overrides + ";unexpected=b", overrides.replace("dxgi=b", "dxgi=n,b")):
+            with self.subTest(overrides=wrong), self.assertRaises(helper.Failed):
+                helper.applied_launch(self.registration, self.report(wrong, "wine_d3d11"))
+
+    def test_observed_report_cannot_authorize_changed_helper_bytes_or_host(self):
+        self.paired_runtime()
+        report = self.report("winebus.sys=d;lvb-direct-wait=b")
+        helper.applied_launch(self.registration, report)
+        path = self.root / "lvb-direct-wait.dll"
+        original = path.read_bytes()
+        path.chmod(0o644)
+        path.write_bytes(b"changed")
+        path.chmod(0o444)
+        with self.assertRaises(helper.Failed):
+            helper.applied_launch(self.registration, report)
+        path.chmod(0o644)
+        path.write_bytes(original)
+        path.chmod(0o444)
+        helper.applied_launch(self.registration, report)
+        self.registration["host"]["sha256"] = "b" * 64
+        with self.assertRaises(helper.Failed):
+            helper.applied_launch(self.registration, report)
+
+
 class ProductReadRefresh(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
