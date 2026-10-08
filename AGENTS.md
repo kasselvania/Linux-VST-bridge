@@ -64,14 +64,9 @@ answer.
 
 ## How to report
 
-Write for a musician who owns the project, not for an auditor. Every update, PR
-description and status note uses this shape and stays under about fifteen lines:
-
-- **Works now:** what a user can do that they could not before.
-- **Still broken:** the symptom, in plain words, with the one or two numbers
-  that matter.
-- **Most likely cause:** your best explanation and confidence.
-- **Doing next:** the next change you will make.
+Write naturally and concisely for a musician who owns the project. Use the
+format and level of detail that suit the task. Explain results and remaining
+problems in plain language, including relevant numbers when they help.
 
 Leave out commit hashes, package names, tree IDs and lists of things you are not
 claiming, unless the operator asks. Do not write a sentence whose only purpose is
