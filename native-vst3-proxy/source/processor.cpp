@@ -18,6 +18,7 @@
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <ctime>
 #include <cstdio>
@@ -64,6 +65,13 @@ struct Guard {
   std::atomic_flag &flag;
   bool held;
   explicit Guard(std::atomic_flag &f) : flag(f), held(!f.test_and_set()) {}
+  Guard(std::atomic_flag &f, std::chrono::steady_clock::time_point until) : Guard(f) {
+    // SDK state work is non-RT. Audio keeps the single nonwaiting attempt.
+    while (!held && std::chrono::steady_clock::now() < until) {
+      std::this_thread::sleep_for(std::chrono::microseconds(50));
+      if (std::chrono::steady_clock::now() < until) held = !flag.test_and_set();
+    }
+  }
   ~Guard() {
     if (held)
       flag.clear();
@@ -382,22 +390,47 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
   if (phase_ == Failed || terminal())
     stateFailure("set", "failed_instance");
   if (!stream || owner_ != std::this_thread::get_id() || phase_ == New ||
-      phase_ == Running || phase_ == Failed || phase_ == Terminated || terminal())
+      phase_ == Failed || phase_ == Terminated || terminal())
     return kResultFalse;
+  // The pinned IComponent contract permits setState while Processing. Reserve
+  // the existing callback owner before pausing its transport. This non-RT
+  // acquisition waits at most 20 seconds, independently of callback deadlines.
+  Guard g(busy_, std::chrono::steady_clock::now() + std::chrono::seconds(20));
+  if (!g.held) {
+    stateFailure("set", "callback_owner_timeout");
+    return kResultFalse;
+  }
+  if (phase_ == New || phase_ == Failed || phase_ == Terminated || terminal())
+    return kResultFalse;
+  const bool resume = phase_ == Running;
   try {
     std::vector<uint8_t> blob;
 #ifndef AP8_PREVIEW
     double restored = 0.;
 #endif
-    if (!LVBState::readEnvelope(stream, blob) ||
 #ifdef AP8_PREVIEW
-        ap8_validate_restore(AP8::identity,blob.data(),static_cast<uint32_t>(blob.size())))
+    if (!LVBState::readEnvelope(stream, blob) ||
+        ap8_validate_restore(AP8::identity, blob.data(), static_cast<uint32_t>(blob.size())))
 #else
+    if (!LVBState::readEnvelope(stream, blob) ||
         ap4_validate(blob.data(), static_cast<uint32_t>(blob.size()), &restored))
 #endif
       {phase_=Failed;return kResultFalse;}
     if (!stateSession())
       return kResultFalse;
+    if (resume) {
+#ifdef AP8_PREVIEW
+      returned_.release_requested = true;
+#endif
+      if (ap3_transition(handle_, 12)) {
+        phase_ = Failed;
+        stateFailure("set", "processing_stop");
+        return kResultFalse;
+      }
+      phase_ = Stopped;
+      // op18's existing published-queue/direct-completion barrier includes
+      // STOP. The Windows owner acknowledges it before any vendor mutation.
+    }
     OwnedState captured;
     if (ap4_state_owned_v1(handle_, blob.data(), static_cast<uint32_t>(blob.size()),
                           &captured.bytes)) {
@@ -410,7 +443,14 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
     auto size = captured.bytes.length;
 #ifdef AP8_PREVIEW
     if(ap8_validate(AP8::identity,readback.data(),size)){phase_=Failed;return kResultFalse;}
-    state_readback_=std::move(readback);this->readback();
+    state_readback_=std::move(readback);
+    // Initialized restore may precede controller connection. Its later pull
+    // receives this same actual readback; no saved projection is replayed.
+    if (getPeer() && this->readback() != kResultOk) {
+      phase_ = Failed;
+      stateFailure("set", "controller_readback");
+      return kResultFalse;
+    }
     stateReport(report_path_,"opaque_set",state_readback_,0.);
 #else
     if (readback != blob) {
@@ -421,9 +461,20 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
     stateReport(report_path_, "set", readback, restored);
     snapshotStatus("Confirmed project/component restore");
 #endif
+    if (resume) {
+      if (ap3_transition(handle_, 10)) {
+        phase_ = Failed;
+        stateFailure("set", "processing_restart");
+        return kResultFalse;
+      }
+      // START advances the existing epoch; the host's Processing intent stays
+      // unchanged across this private pause of the same Windows instance.
+      phase_ = Running;
+    }
     return kResultOk;
   } catch (...) {
     phase_ = Failed;
+    stateFailure("set", "state_exception");
     return kResultFalse;
   }
 }

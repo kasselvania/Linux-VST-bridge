@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "date": "2026-10-07",
+  "claim": "Ordinary unchanged-project recall for the first-party Reference instrument and effect in Ubuntu REAPER",
+  "package_version": "0.12.0test26",
+  "package_source_head": "1afce8fffcba74812c19b5dcda53d7b8d6e4cc34",
+  "package_sha256": "e1209e794bcdd5dd60803d1a5c73946cadae14d7d25b66a0e8131190169a6211",
+  "fresh_mapped_engine_sha256": "1f5dccd89350b9b5c072fb129c9c0872e44117e7bcbe3f1d30438e2d0bbac118",
+  "matching_native_producing_files": 105,
+  "matching_windows_producing_files": 72,
+  "os": "Ubuntu 26.04.1",
+  "kernel": "7.0.0-34-generic",
+  "daw": "REAPER 7.82 linux-x86_64 rev338578",
+  "ordinary_fresh_reopens": 1,
+  "fresh_mapped_engines": 2,
+  "original_project_sha256_before_after": "14f5cacc468759e6bf9836910dfe689d87b841b827c762969187112e3a611632",
+  "instrument_level_envelope_preserved": true,
+  "render": {
+    "mode": "Full-speed offline",
+    "seconds_per_stem": 4,
+    "channels": 2,
+    "pcm_bits": 24,
+    "sample_rate": 44100,
+    "frames_per_stem": 176400
+  },
+  "roles": [
+    {
+      "role": "effect",
+      "windows_class": "4C564242455441314546465800000001",
+      "native_class": "1A954DE265CF529E87C53ED21FCB2598",
+      "restored_level": 0.766,
+      "restored_colour": 0.655,
+      "saved_and_restored_opaque_payload_sha256": "06c13a7642cf5a66cc042fdbf3efcb2be651c86f148c8b89e4934a9d8af00a47",
+      "baseline_and_reopened_pcm_sha256": "419f04fee85d266ff1bd7cf53ecb709480e313cb6e4ad8bfc65ac8938d17178b",
+      "compared_samples": 352800,
+      "differing_samples": 0,
+      "maximum_pcm24_delta": 0
+    },
+    {
+      "role": "instrument",
+      "windows_class": "4C56424245544131494E535400000001",
+      "native_class": "AE1F229A50065EBDBB450D0F0E26D983",
+      "restored_level": 0.61,
+      "restored_colour": 0.33,
+      "saved_and_restored_opaque_payload_sha256": "a8b60043092e332e9b25fec951402084f9dc92027ee544e66b258e5a3b982144",
+      "baseline_and_reopened_pcm_sha256": "8f9412fb32ac2cb84632c0395178797b732566a81e1d220bbde1e9fc1b866dab",
+      "compared_samples": 352800,
+      "differing_samples": 0,
+      "maximum_pcm24_delta": 0
+    }
+  ]
+}
