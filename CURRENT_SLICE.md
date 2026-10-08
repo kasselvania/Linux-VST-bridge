@@ -18,9 +18,11 @@ settings trials/restoration retain their scoped passing results.
 
 ## Best explanation and next changes
 
-Shared mechanisms exist; prove ordinary automatic setup with a new real input.
-After Deck preflight selects an owned untested Arturia candidate, use normal setup
-and vendor authorization.
+Current known inventory hid and refused discovery of vendor additions. The shared
+repair offers **Find installed plug-ins** for exact managed environments; the regression
+finds additions without changing sibling publications, preferences or identity.
+Ownership/inactivity checks remain. Installed Deck acceptance is pending.
+Select an owned untested candidate through normal ASC setup and authorization.
 Repair a specific missing capability through shared mechanisms or justified
 declarative profile data. Unfamiliar status does not prohibit the attempt.
 
