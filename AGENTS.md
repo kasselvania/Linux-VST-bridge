@@ -49,6 +49,12 @@ These are routine. Do them, then report what happened.
 - Build, install and roll back test packages on project machines.
 - Rerun a test.
 
+On `deskboard-homelab`, keep project worktrees, build outputs, VM files and test
+files under `/mnt/Storage2/LinuxPluginBridge`; do not create new project roots
+on the system drive. Existing `/home/pk/lvb-*` paths may be compatibility
+symlinks. Before large writes, confirm Storage2 is mounted at `/mnt/Storage2`
+and stop if it is not, so a missing mount cannot silently use the system drive.
+
 ## What needs the operator first
 
 - Anything that could destroy or alter user projects, licensed plug-in
