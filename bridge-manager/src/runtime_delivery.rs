@@ -89,6 +89,13 @@ pub fn installed(m: &Manager) -> Result<Option<Runner>> {
 }
 /// Current owned runtime selection, without walking or verifying its payload.
 pub fn installed_record(m: &Manager) -> Result<Option<Runner>> {
+    let runner = installed_identity_record(m)?;
+    if let Some(runner) = &runner { runner.validate_record()?; }
+    Ok(runner)
+}
+/// Retained ownership identity for recovery readback. This grants no runtime
+/// admission: even entry-point metadata is checked separately before selection.
+pub fn installed_identity_record(m: &Manager) -> Result<Option<Runner>> {
     let path = record_path(m);
     if !path.try_exists()? { return Ok(None); }
     let record: Record = read_json(&path)?;
@@ -100,7 +107,7 @@ pub fn installed_record(m: &Manager) -> Result<Option<Runner>> {
         && record.runner.policy.is_none(), "managed_runtime_binding")?;
     require(file(&path)?.metadata()?.mode() & 0o222 == 0,
         "managed_runtime_record_writable")?;
-    record.runner.validate_record()?;
+    record.runner.validate_identity()?;
     Ok(Some(record.runner))
 }
 /// Install and each launch admission hash every byte. Repeated checks within

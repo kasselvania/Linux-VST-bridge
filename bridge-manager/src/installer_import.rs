@@ -280,6 +280,7 @@ fn import_with(
 #[cfg(test)]
 thread_local! {
     pub(super) static VERIFY_BARRIER: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = std::cell::RefCell::new(None);
+    pub(super) static IDENTITY_READ_BARRIER: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = std::cell::RefCell::new(None);
 }
 pub fn load(m: &Manager, id: &str) -> Result<Installer> {
     let r = load_record(m, id)?;
@@ -294,6 +295,15 @@ pub fn load(m: &Manager, id: &str) -> Result<Installer> {
 }
 /// Small immutable-record validation; this grants no digest verification.
 pub fn load_record(m: &Manager, id: &str) -> Result<Installer> {
+    let r=load_identity_record(m,id)?;
+    let meta = file(&r.artifact.path)?.metadata()?;
+    require(meta.len() == r.byte_size && meta.mode() & 0o222 == 0,
+        "installer_size_or_permissions_changed")?;
+    Ok(r)
+}
+/// Immutable identity remains readable when payload custody needs repair.
+/// Execution continues through load/load_record, which require the exact file.
+fn load_identity_record(m: &Manager, id: &str) -> Result<Installer> {
     require(valid_hex(id, 64), "installer_identity")?;
     let d = m.root.join("installers");
     let r: Installer = read_json(&d.join(format!("{id}.json")))?;
@@ -313,20 +323,14 @@ pub fn load_record(m: &Manager, id: &str) -> Result<Installer> {
             && r.import_result == "imported",
         "installer_record_binding",
     )?;
-    let meta = file(&r.artifact.path)?.metadata()?;
-    require(
-        meta.len() == r.byte_size && meta.mode() & 0o222 == 0,
-        "installer_size_or_permissions_changed",
-    )?;
+    #[cfg(test)]
+    IDENTITY_READ_BARRIER.with(|hook| {
+        if let Some(hook)=hook.borrow_mut().take() {hook();}
+    });
     Ok(r)
 }
-pub fn list(m: &Manager) -> Result<Vec<Installer>> {
-    list_with(m, load)
-}
-/// Current Setup presentation checks immutable record binding and cheap file
-/// posture. The owning action still calls `load` to hash installer bytes.
-pub fn list_records(m: &Manager) -> Result<Vec<Installer>> {
-    list_with(m, load_record)
+pub(super) fn list_identity_records(m: &Manager) -> Result<Vec<Installer>> {
+    list_with(m,load_identity_record)
 }
 fn list_with(m: &Manager, read: fn(&Manager, &str) -> Result<Installer>) -> Result<Vec<Installer>> {
     let dir = m.root.join("installers");
@@ -433,7 +437,7 @@ mod tests {
         let second = import_named(&f.m, file(&source).unwrap(), "other.exe").unwrap();
         assert!(!second.newly_imported);
         assert_eq!(second.display_label, "Lunacy Audio");
-        assert_eq!(list(&f.m).unwrap(), vec![artifact]);
+        assert_eq!(list_identity_records(&f.m).unwrap(), vec![artifact]);
         assert_eq!(fs::read(f.m.root.join("installers").join(format!("{sha}.json"))).unwrap(), record);
         assert!(!serde_json::to_string(&second).unwrap().contains(f.outer.to_str().unwrap()));
     }

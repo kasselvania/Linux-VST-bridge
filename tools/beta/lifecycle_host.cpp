@@ -274,7 +274,21 @@ int main(int argc,char** argv) {
                 if(result!=kResultOk) {++rejected;throw std::runtime_error("processing refused");}
                 const auto priorMismatches=mismatches;
                 for(int i=0;i<frames;++i) for(int ch=0;ch<2;++ch) {
-                    auto actual=out[ch][i];auto difference=std::abs(double(actual)-expected[size_t(b*frames+i)][ch]);
+                    const auto position=size_t(b*frames+i);
+                    auto wanted=expected[position][ch];
+                    // The managed realtime effect starts with latency-aligned
+                    // dry audio and a 50 ms dry-to-wet transition. This oracle
+                    // still requires the controlled fixture's wet output by
+                    // the advertised latency; no startup samples are skipped.
+                    if(!instrument&&position>=latency) {
+                        const auto wetFrame=position-latency;
+                        constexpr size_t fadeFrames=2400; // 50 ms at this host's 48 kHz.
+                        if(wetFrame<fadeFrames) {
+                            const float mix=float(wetFrame+1)/float(fadeFrames);
+                            wanted=in[ch][i]*(1.f-mix)+wanted*mix;
+                        }
+                    }
+                    auto actual=out[ch][i];auto difference=std::abs(double(actual)-wanted);
                     nonfinite+=!std::isfinite(actual);nonzero+=actual!=0.;maxError=std::max(maxError,difference);
                     mismatches+=difference>1e-7;
                 }

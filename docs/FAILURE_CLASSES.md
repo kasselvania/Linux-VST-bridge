@@ -1088,6 +1088,11 @@ FC-MIDI-001 expression filtering and FC-AUDIO-001 residual deadline misses.
 
 ## FC-AUDIO-001 — Residual audio deadline misses
 
+Test28 Ubuntu VM settings checks retain two overruns against a 21.333 ms callback
+deadline: 70.469146 ms on the sibling during trial Apply and 25.700938 ms on the
+target's first callback. Thirteen SDK runs / 31,200 callbacks match all 63,897,600
+samples, but these deadline misses remain open.
+
 **Resolution on the Deck fixture (2026-10-06).** The symptom is gone on the
 machine where it was seen, and the change that removed it is known: Buffered
 delivery with 512 remembered frames, the product default. Pure LoFi then plays
@@ -2204,6 +2209,13 @@ normal successor selection and activation, retaining internal20. Product readbac
 took 2.173 seconds, and the normal GUI loaded exact FRAGMENTS controls and
 accepted Check compatibility. The earlier 28.110-second failure remains retained.
 
+Test24 Ubuntu's normal UI Update Bridge completed in 13–16 minutes; a roughly six-minute sample recorded 47.7 GB logical and 36.9 GB physical reads.
+Repeated runner scans within retained verification and package-refresh preparation
+were removed. In the same 2-vCPU/3-GiB Ubuntu HDD VM, the Test28 update took
+1,488.99 s versus 4,253.42 s for Test27 (64.99% shorter), preserving all seven
+publications. The roughly 25-minute update and slow cold start remain open
+performance defects.
+
 ### Claim limit and remaining gate
 
 The setup admission retest passed. Prove actual runtime execution and retain
@@ -2510,6 +2522,21 @@ sound, editor and persistence remain open.
 Last reviewed: 2026-09-29.
 
 ## FC-MGMT-006 — Exact prebuilt catalogue blocks unfamiliar plug-ins
+
+Installed Ubuntu VM first-party companion cases now pass pre-registration Stop/retry,
+rescan/preparation/publication and changed-state/automation recall at the explicit
+.625→.25 endpoint. The earlier ramp retains 20 one-LSB PCM24 differences; rounding
+is an inference, and the isolated REAPER exit did not reproduce under capture.
+Registered partial Stop/retry and explicit Check/Replace of both siblings pass. The UI
+reports observed changes without claiming installation completion. Protected
+Reference state and exact baseline PCM survive mutation and both Test27/28 updates.
+Post-family changed-state/automation recall also gives exact PCM after fresh reopen;
+two graphics/accessibility Try/Apply/Keep trials and reverse predecessor Restores
+pass with exact launch bindings and original state. Keep remains `partial_experimental`;
+four active-target Restore/buffering refusals preserve state. All eight class entries
+and original settings/preferences are restored. Final buffering reset needed a manual tail.
+Older-manager downgrade usability after the revision change is also unqualified;
+package restoration cannot rewind the vendor environment or admit its stale plug-ins.
 
 The operator reported a missing exact prebuilt proxy while preparing newly
 installed Nibbi. Source `9a0766afbf71fbb336c897c98b003b9e4bdda737` confirms the
@@ -3098,6 +3125,12 @@ deadline; it replays neither actions nor audio. Four such refreshes occurred in
 each passing full run. Config6's Keep failure and the earlier missing audio block
 remain retained; this reference repair neither establishes the audio cause nor
 qualifies the physical musician workflow.
+
+Test28 Ubuntu VM settings checks encountered two fresh-read refusals and a terminal
+“Operator action: operation already running” refusal with no operation owner. Normal retry
+with the frontend closed completed the final buffering reset; reopened-frontend
+512/1024 requests both succeeded. The uninterrupted helper run remains failed;
+the transient read/Busy issue has no established cause or fix.
 
 ## FC-MGMT-008 — Loaded native engine is not bound during admission
 

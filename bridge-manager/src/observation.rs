@@ -36,7 +36,9 @@ pub struct Census {
     pub captured_at: u64,
     pub environment: EnvironmentBinding,
     pub module: Artifact,
-    pub module_stamp: ModuleStamp,
+    /// Retained report reconstruction has no observation of current module files.
+    /// Older durable stamps remain readable; execution requires Some exact stamp.
+    pub module_stamp: Option<ModuleStamp>,
     pub host: Artifact,
     pub host_source_sha256: String,
     pub report: Artifact,
@@ -97,7 +99,7 @@ impl Census {
     pub fn from_report(
         environment: EnvironmentBinding,
         module: Artifact,
-        stamp: ModuleStamp,
+        stamp: impl Into<Option<ModuleStamp>>,
         host: Artifact,
         source: String,
         report: Artifact,
@@ -210,7 +212,7 @@ impl Census {
             captured_at: now()?,
             environment,
             module,
-            module_stamp: stamp,
+            module_stamp: stamp.into(),
             host,
             host_source_sha256: source,
             report,
@@ -229,6 +231,17 @@ impl Census {
         source: &str,
         at: u64,
     ) -> Result<()> {
+        self.verify_current_artifacts(root, host, source, at)?;
+        self.environment.environment.runner.verify().map_err(|_| "runner_mismatch")?;
+        Ok(())
+    }
+    pub(crate) fn verify_current_artifacts(
+        &self,
+        root: &Path,
+        host: &Artifact,
+        source: &str,
+        at: u64,
+    ) -> Result<()> {
         require(
             self.schema == 1
                 && valid_hex(&self.id, 32)
@@ -237,7 +250,7 @@ impl Census {
             "stale_census",
         )?;
         require(
-            self.module_stamp == ModuleStamp::read(&self.module.path)?,
+            self.module_stamp == Some(ModuleStamp::read(&self.module.path)?),
             "stale_census",
         )?;
         self.module.verify().map_err(|_| "module_digest_changed")?;
@@ -267,7 +280,6 @@ impl Census {
                 && read_json::<Environment>(&e.root.join("environment.json"))? == *e,
             "environment_mismatch",
         )?;
-        e.runner.verify().map_err(|_| "runner_mismatch")?;
         require(
             self.module
                 .path

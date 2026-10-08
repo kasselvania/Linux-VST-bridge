@@ -947,10 +947,13 @@ impl Manager {
             && crate::preparation::build::supports_loaded_engine_admission(self, candidate)?,
             "loaded_engine_admission_contract_missing")?;
         let census = candidate.census()?;
-        census.verify_current(&self.root, &candidate.host,
+        // verify_refresh_candidate has just fully verified this candidate's
+        // runner and artifacts. Retain the census freshness/projection checks
+        // and registration constraints without repeating that tree traversal.
+        census.verify_current_artifacts(&self.root, &candidate.host,
             &candidate.source_manifest.sha256, crate::observation::now()?)?;
         let registration = crate::preparation::configuration::registration(candidate)?;
-        registration.verify(&self.root)?;
+        registration.validate_record(&self.root)?;
         let key = registration.key();
         let _lock = self.lock("registry.lock")?;
         let db = self.registry()?;

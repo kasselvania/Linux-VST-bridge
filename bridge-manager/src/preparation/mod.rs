@@ -289,12 +289,19 @@ pub fn validate_selection_record(m: &Manager, s: &Selection, host: &Artifact, so
     validate_selection_data(m, s, host, source)
 }
 fn verify_selection_data(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result<()> {
-    validate_selection_data(m, s, host, source)?;
-    s.module.verify()?;
-    s.scanner.verify()?;
+    verify_selection_artifacts(m, s, host, source)?;
     s.environment.runner.verify()
 }
+fn verify_selection_artifacts(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result<()> {
+    validate_selection_data(m, s, host, source)?;
+    s.module.verify()?;
+    s.scanner.verify()
+}
 fn validate_selection_data(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result<()> {
+    validate_selection_data_with_current(m,s,host,source,true)
+}
+fn validate_selection_data_with_current(m: &Manager, s: &Selection, host: &Artifact,
+    source: &str, current: bool) -> Result<()> {
     require(
         s.schema == 1 && s.scanner.sha256 == host.sha256 && s.scanner_source == source,
         "preparation_scanner_changed",
@@ -304,19 +311,25 @@ fn validate_selection_data(m: &Manager, s: &Selection, host: &Artifact, source: 
         "preparation_environment_location",
     )?;
     require(
-        bounded::<Environment>(&s.environment.root.join("environment.json"))? == s.environment,
+        !current || bounded::<Environment>(&s.environment.root.join("environment.json"))? == s.environment,
         "preparation_environment_changed",
     )?;
     require(
         s.module
             .path
             .starts_with(s.environment.root.join("compatdata/pfx/drive_c"))
-            && s.module.path.canonicalize()? == s.module.path,
+            && (!current || s.module.path.canonicalize()? == s.module.path),
         "preparation_module_location",
     )?;
-    s.module.validate_record()?;
-    s.scanner.validate_record()?;
-    s.environment.runner.validate_record()?;
+    if current {
+        s.module.validate_record()?;
+        s.scanner.validate_record()?;
+        s.environment.runner.validate_record()?;
+    } else {
+        require(s.module.path.is_absolute() && valid_hex(&s.module.sha256,64)
+            && s.scanner.path.is_absolute() && valid_hex(&s.scanner.sha256,64),
+            "preparation_artifact_identity")?;
+    }
     let raw: Value = s.factory_report.read_record(8 * 1024 * 1024)?;
     let classes = crate::inventory::classes(&raw)?;
     require(
@@ -384,6 +397,12 @@ fn inspection_record_with_layout(
     s: Selection, report: Artifact, origin: Origin, host: Artifact,
     source_manifest: Artifact, audio_layout: Option<AudioLayoutPolicy>,
 ) -> Result<Inspection> {
+    let stamp=Some(ModuleStamp::read(&s.module.path)?);
+    inspection_record_with_stamp(s,report,origin,host,source_manifest,audio_layout,stamp)
+}
+fn inspection_record_with_stamp(s: Selection, report: Artifact, origin: Origin, host: Artifact,
+    source_manifest: Artifact, audio_layout: Option<AudioLayoutPolicy>, stamp:Option<ModuleStamp>)
+    -> Result<Inspection> {
     host.validate_record()?;
     source_manifest.validate_record()?;
     let raw: Value = report.read_record(8 * 1024 * 1024)?;
@@ -393,7 +412,7 @@ fn inspection_record_with_layout(
             environment: s.environment.clone(),
         },
         s.module.clone(),
-        ModuleStamp::read(&s.module.path)?,
+        stamp,
         host.clone(),
         source_manifest.sha256.clone(),
         report.clone(),
@@ -602,12 +621,15 @@ pub fn verify_candidate(m: &Manager, c: &Candidate, host: &Artifact, source: &st
         verify_touch_carry_forward(m, c)?;
     } else {
         require(c.touch_carry_forward.is_none(), "touch_carry_forward_origin")?;
-        verify_selection(m, &c.selection, host, source)?;
+        // Keep the current inventory and caller binding. Retained verification
+        // below checks these artifacts and fully verifies the same runner.
+        validate_selection_record(m, &c.selection, host, source)?;
     }
     verify_retained_candidate(m, c)
 }
 pub fn validate_current_candidate_record(m: &Manager, c: &Candidate,
     host: &Artifact, source: &str) -> Result<()> {
+    validate_selection_data(m,&c.selection,&c.selection.scanner,&c.selection.scanner_source)?;
     if matches!(c.origin, Origin::X11TouchReleaseV1 | Origin::X11TouchRoutingV2) {
         require((c.selection.scanner.sha256 == host.sha256 && c.selection.scanner_source == source)
             || (c.host.sha256 == host.sha256 && c.source_manifest.sha256 == source),
@@ -760,7 +782,10 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
     configuration::verify_trial(m, c)?;
     let host = &c.selection.scanner;
     let source = c.selection.scanner_source.as_str();
-    verify_selection_data(m, &c.selection, host, source)?;
+    // Registration::verify below performs the full runner verification for
+    // this candidate. Verify the selection artifacts here without hashing
+    // the same runtime tree twice in one verification call.
+    verify_selection_artifacts(m, &c.selection, host, source)?;
     if c.origin == Origin::RetainedSv1 {
         verify_legacy(m, c)?;
     } else if c.host.sha256 != host.sha256 || c.source_manifest.sha256 != source {
@@ -776,7 +801,10 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
 pub fn validate_candidate_record(m: &Manager, c: &Candidate) -> Result<()> {
     let host = &c.selection.scanner;
     let source = c.selection.scanner_source.as_str();
-    validate_selection_data(m, &c.selection, host, source)?;
+    // Historical configuration is readable after a supervised dependency mutation.
+    // Current preparation/publication and native admission check the exact current
+    // environment separately; this record consistency check grants none of them.
+    validate_selection_data_with_current(m, &c.selection, host, source, false)?;
     require(
         c.schema == 1
             && c.inspection.selection == c.selection
@@ -831,20 +859,25 @@ pub fn validate_candidate_record(m: &Manager, c: &Candidate) -> Result<()> {
     c.native.matches_record(&c.profile)?;
     c.native.artifact.validate_record()?;
     require(
-        inspection_record_with_layout(
+        inspection_record_with_stamp(
             c.selection.clone(),
             c.inspection.report.clone(),
             c.inspection.origin.clone(),
             c.host.clone(),
             c.source_manifest.clone(),
             c.inspection.audio_layout.clone(),
+            None,
         )? == c.inspection,
         "candidate_inspection_changed",
     )?;
-    let census = c.census()?;
+    let census = c.census_record()?;
     let reg = configuration::registration_record_for(c, &c.profile, &census,
         SelectionPurpose::Qualification)?;
-    reg.validate_record(&m.root)
+    reg.metadata.verify()?;
+    require(reg.host.path.starts_with(m.root.join("software"))
+        && reg.environment.root.canonicalize()? == reg.environment.root,
+        "candidate_retained_location")?;
+    reg.verify_descriptor()
 }
 pub fn record_candidate(m: &Manager, c: &Candidate) -> Result<String> {
     record_candidate_with_predecessor(m, c, None)
@@ -1222,6 +1255,8 @@ pub fn publication_state_record(m: &Manager, c: &Candidate) -> Result<String> {
 /// only prevents the operator projection from hiding an exact publication
 /// after a coordinated package refresh.
 pub fn selected_publication_candidate_record(m: &Manager, c: &Candidate) -> Result<bool> {
+    if bounded::<Environment>(&c.selection.environment.root.join("environment.json"))?
+        != c.selection.environment { return Ok(false); }
     if !matches!(publication_state_record(m, c)?.as_str(), "ordinary" | "experimental") {
         return Ok(false);
     }
@@ -1277,6 +1312,10 @@ fn publication_state_with(m: &Manager, c: &Candidate,
     }
     if r.profile != c.profile && !accepted_profile(m, c, &r.profile)? {
         return Ok("another_configuration".into());
+    }
+    if bounded::<Environment>(&r.registration.environment.root.join("environment.json"))?
+        != r.registration.environment {
+        return Ok("environment_changed".into());
     }
     Ok(if r.qualification.is_some() {
         "experimental"
@@ -1367,7 +1406,7 @@ impl RecordReadback {
         let mut expected = configuration::registration_record_for(
             c,
             p,
-            &c.census()?,
+            &c.census_record()?,
             if p.claim == Claim::ReviewCandidate {
                 SelectionPurpose::Qualification
             } else {
@@ -1434,7 +1473,7 @@ impl RecordReadback {
             let Some(c) = self.for_profile(m, &r.profile)? else { return Ok(false); };
             self.watch_candidate(m, c)?;
             validate_candidate_record(m, c)?;
-            let mut expected = configuration::registration_record_for(c, &r.profile, &c.census()?,
+            let mut expected = configuration::registration_record_for(c, &r.profile, &c.census_record()?,
                 if r.profile.claim == Claim::ReviewCandidate { SelectionPurpose::Qualification }
                 else { SelectionPurpose::Activation })?;
             expected.relocate_native(r.registration.native.path.clone());
@@ -1724,7 +1763,7 @@ fn retained_revision_selection(m: &Manager, predecessor: &Revision) -> Result<Se
             && predecessor.census.host_source_sha256 == predecessor.registration.host_source_sha256
             && predecessor.census.selected == predecessor.registration.metadata
             && predecessor.census.module_stamp
-                == ModuleStamp::read(&predecessor.census.module.path)?
+                == Some(ModuleStamp::read(&predecessor.census.module.path)?)
             && predecessor.profile.requirements.native_sha256
                 == predecessor.registration.native.sha256
             && predecessor.profile.capabilities.compatibility()

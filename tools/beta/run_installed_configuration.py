@@ -101,6 +101,31 @@ def applied_launch(registration, report):
         overrides.append("d3d11,dxgi=b")
     if compatibility["disable_windows_accessibility"]:
         overrides.append("uiautomationcore=")
+    # The current plug-in launch disables the runner's unused gaming HID bus.
+    # The paired wait override is selected by the retained host runtime, not by
+    # the observed report or the observer's inherited environment.
+    overrides.append("winebus.sys=d")
+    host = registration["host"]
+    root = Path(host["path"]).parent
+    manifest_path = root / "direct-audio-helper.json"
+    if manifest_path.exists():
+        runtime = read(root / "runtime.json")
+        names = ("lvb-direct-wait.dll", "x86_64-windows/lvb-direct-wait.dll",
+                 "x86_64-unix/lvb-direct-wait.so", "direct-audio-helper.json")
+        artifacts = runtime.get("direct_audio_helpers", [])
+        need(runtime.get("host") == host and len(artifacts) == len(names), "paired_helper_runtime_binding")
+        for name, artifact in zip(names, artifacts):
+            path = root / name
+            need(artifact["path"] == str(path) and path.resolve(strict=True) == path
+                 and not path.stat().st_mode & 0o222 and sha(path) == artifact["sha256"],
+                 "paired_helper_artifact_binding")
+        manifest = read(manifest_path)
+        need(manifest.get("schema") == 1 and manifest.get("abi") == 1
+             and manifest.get("host_sha256") == host["sha256"]
+             and manifest.get("files") == {name: artifact["sha256"]
+                                          for name, artifact in zip(names[:3], artifacts[:3])},
+             "paired_helper_manifest_binding")
+        overrides.append("lvb-direct-wait=b")
     expected = {"requested_backend": backend, "dll_overrides": ";".join(overrides) or None,
                 "scope": "host_process_and_children", "renderer_observed": False}
     need(report.get("graphics_configuration") == expected, "applied_launch_environment_mismatch")
@@ -316,7 +341,7 @@ class Run:
         if attempt:
             save(self.out / (stem + ".json"), value)
         save(self.out / (label + "-product.json"), value)
-        need(value["schema"] == 1 and value["operator_schema"] in (18, 19), "operator_schema")
+        need(value["schema"] == 1 and value["operator_schema"] in (18, 19, 20), "operator_schema")
         return value
 
     def select(self, detail, predicate, disabled=False):

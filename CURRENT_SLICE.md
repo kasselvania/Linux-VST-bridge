@@ -7,20 +7,20 @@ install, vendor authorization, discovery/preparation/publication, musical use,
 meaningful save/reopen, and configuration trial/keep/restore. Reuse existing owners.
 An unfamiliar instrument or effect is a normal case, not a catalogue refusal.
 
-## First source gap and proposed increment
+## Current increment
 
-Source already offers unfamiliar-class checks/publication and graphics/accessibility
-trial/keep/restore; the full ordinary installed journey still needs physical proof.
-Setup cannot run a second companion/dependency installer in the same environment:
-initial setup creates a new environment per installer, with one initial operation.
-That route closes after registration; the separate dependency action is Native Access only.
-
-The proposed first increment lets the musician select the existing setup or affected
-plug-in and a locally supplied installer, see affected siblings, and run it through existing
-supervised custody in the intended environment, then rescan/reprepare. Validate
-first in disposable first-party environments, both before and after registration.
-Preserve environment ID, onboarding protections and unrelated products. Keep global
-installer exclusion; vendor-state mutations need truthful recovery, not a rollback promise.
+Installed Ubuntu VM first-party companion cases pass pre-registration Stop/retry,
+rescan/publication and changed-state/automation recall; the explicit .625→.25
+endpoint gives exact PCM. The earlier ramp retains 20 one-LSB PCM24 differences.
+Registered partial Stop/retry preserves the setup; explicit Check/Replace refreshes both siblings.
+The installed UI says changes were observed when completion remains unverified.
+Protected Reference after mutation/both updates and post-family changed-state/
+automation recall match all 352,800 baseline PCM24 channel samples in each stem.
+Two settings Try/Apply/Keep trials and reverse Restores pass; Keep remains partial_experimental.
+Test28 update took 1,488.99 s versus 4,253.42 s for Test27 (64.99% shorter),
+preserving seven publications. Final buffering reset needed a manual retry; refresh/Busy refusals,
+two audio deadline misses, the roughly 25-minute update and slow cold start remain open.
+Vendor-state rollback and older-manager usability after mutation remain unqualified.
 
 ## Validation alongside and done
 

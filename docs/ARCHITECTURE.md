@@ -1376,6 +1376,20 @@ machine identity; do not assume copying or recreating a prefix is harmless.
 Where a vendor operation cannot be undone, state that fact before the user's
 action rather than promising transactional rollback that does not exist.
 
+Companion/dependency installation selects an existing setup or registered plug-in
+and an imported installer. The ordinary UI shows every affected sibling and the
+vendor-state consequence before launch. The existing operator job retains the
+installation binding and the existing installer supervisor owns its processes,
+Focus, Stop and result. A retry uses that same space after confirmed retirement.
+Before launch, advance its existing environment revision, preserving ID, root and
+runner. Retain initial onboarding records and prior publications unchanged;
+resolve only revision transitions bound to those supervised jobs. Old DSP and
+preparation inputs then refuse current admission, while historical identities
+remain readable. Rescan uses the new revision, so old quarantine results cannot
+hide a repaired module. Fresh checks and explicit replacement use the existing
+candidate/history/publication owners. Global installer exclusion includes these
+registered-environment operations; no vendor-state rollback is claimed.
+
 The manager can suggest the next useful trial from a failed stage and observed
 capabilities. Record why that change might help. Compare one relevant change at
 a time by default; allow an explicit group of dependent changes and record the

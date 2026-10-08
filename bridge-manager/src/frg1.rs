@@ -880,7 +880,7 @@ mod tests {
         census.factory_vendor = profile.factory_vendor.clone();
         census.classes = vec![profile.class.class_id.clone()];
         census.module = fixture.r.module.clone();
-        census.module_stamp = crate::observation::ModuleStamp::read(&census.module.path).unwrap();
+        census.module_stamp = Some(crate::observation::ModuleStamp::read(&census.module.path).unwrap());
         atomic_json(&census.report.path, &inspection_report(&census)).unwrap();
         census.report.sha256 = digest(&census.report.path).unwrap();
         census = Census::from_report(
@@ -1000,7 +1000,7 @@ mod tests {
             environment: scan.environment.clone(),
         };
         source.module = scan.modules[0].artifact.clone();
-        source.module_stamp = crate::observation::ModuleStamp::read(&source.module.path).unwrap();
+        source.module_stamp = Some(crate::observation::ModuleStamp::read(&source.module.path).unwrap());
         source.host = installed.host;
         source.host_source_sha256 = installed.source_manifest.sha256;
         let report = prepared.fixture.outer.join("frg1-fresh-inspection.json");

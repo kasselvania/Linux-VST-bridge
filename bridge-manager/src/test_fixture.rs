@@ -159,7 +159,7 @@ pub(crate) fn prepared_accessibility(disabled: bool) -> (Fixture, Profile, Censu
             environment: f.r.environment.clone(),
         },
         module: f.r.module.clone(),
-        module_stamp: ModuleStamp::read(&f.r.module.path).unwrap(),
+        module_stamp: Some(ModuleStamp::read(&f.r.module.path).unwrap()),
         host: f.r.host.clone(),
         host_source_sha256: f.r.host_source_sha256.clone(),
         report: Artifact {

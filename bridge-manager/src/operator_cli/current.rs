@@ -112,6 +112,15 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
     }
     let inventory = m.root.join("inventory");
     paths.insert(inventory);
+    paths.insert(m.root.join("operator"));
+    for installation in environment_install::records(m)? {
+        let dir = job_dir(m,&installation.operation)?;
+        paths.insert(dir.clone());
+        paths.insert(dir.join("installation.json"));
+        paths.insert(dir.join("installation-result.json"));
+        paths.insert(installation.environment.root.join("environment.json"));
+        paths.insert(m.root.join("inventory").join(format!("{}.json",installation.environment.id)));
+    }
     let transactions = m.root.join("transactions");
     paths.insert(transactions.clone());
     if transactions.is_dir() {
@@ -158,14 +167,21 @@ impl CurrentOverviewContext {
     }
 
     fn live_installer_progress_paths(&self, m: &Manager) -> BTreeMap<PathBuf,PathBuf> {
-        self.snapshot.onboarding.iter().filter_map(|row| {
+        let mut paths: BTreeMap<_,_> = self.snapshot.onboarding.iter().filter_map(|row| {
             let environment = row.environment.as_ref()?;
             let operation = row.details["installation"]["operation"].as_str()?;
             if self.installer_live.get(operation) != Some(&true) { return None; }
             let directory = m.root.join("onboarding").join(environment);
             let report = directory.join(format!("{operation}-result.json"));
             Some((directory,report))
-        }).collect()
+        }).collect();
+        for row in &self.snapshot.environment_installers {
+            if let Some(op) = row.operation.as_ref().filter(|op|self.installer_live.get(*op) == Some(&true)) {
+                let dir = m.root.join("operator").join(op);
+                paths.insert(dir.clone(),dir.join("installation-result.json"));
+            }
+        }
+        paths
     }
     fn recheck_external(&self, m: &Manager) -> Result<()> {
         // These fixed, bounded service observations are independent. Run at
@@ -304,7 +320,7 @@ fn installer_liveness(operations: &[String]) -> Result<BTreeMap<String, bool>> {
 struct RecordBindings {
     artifacts: BTreeMap<String, bool>,
     runners: BTreeMap<String, bool>,
-    environments: BTreeMap<String, (Environment,bool)>,
+    environments: BTreeMap<String, bool>,
 }
 impl RecordBindings {
     fn artifact(&mut self, artifact: &Artifact) -> bool {
@@ -316,13 +332,13 @@ impl RecordBindings {
         Ok(*self.runners.entry(key).or_insert_with(|| runner.validate_record().is_ok()))
     }
     fn environment(&mut self, environment: &Environment) -> Result<bool> {
-        if let Some((seen, verified)) = self.environments.get(&environment.id) {
-            require(seen == environment,"operator_current_environment_conflict")?;
+        let key = hex(&sha2::Sha256::digest(serde_json::to_vec(environment)?));
+        if let Some(verified) = self.environments.get(&key) {
             return Ok(*verified);
         }
         let verified = read_json::<Environment>(&environment.root.join("environment.json"))
             .is_ok_and(|actual| actual == *environment);
-        self.environments.insert(environment.id.clone(),(environment.clone(),verified));
+        self.environments.insert(key,verified);
         Ok(verified)
     }
 }
@@ -469,6 +485,15 @@ pub(super) fn capture(m: &Manager) -> Result<CurrentOverviewContext> {
     })
 }
 fn capture_readonly(m: &Manager) -> Result<CurrentOverviewContext> {
+    capture_readonly_with(m,onboarding::live)
+}
+#[cfg(test)]
+pub(super) fn capture_with_installer_live(m: &Manager, is_live: impl FnMut(&str)->Result<bool>)
+    -> Result<CurrentOverviewContext> {
+    capture_readonly_with(m,is_live)
+}
+fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->Result<bool>)
+    -> Result<CurrentOverviewContext> {
     let started = Instant::now();
     let mut phases = Vec::new();
     // Status is an observation, not a serialized user operation. Capture the
@@ -515,9 +540,9 @@ fn capture_readonly(m: &Manager) -> Result<CurrentOverviewContext> {
             Ok(record.installation_operation.is_none()
                 || onboarding::retired(&onboarding::result(m, record)?))
         })?;
-    let retired = vendor && installers_retired;
+    let retired = vendor && installers_retired && environment_install::all_retired(m)?;
     let owner_at = Instant::now(); phases.push(("current_owners",owner_at.duration_since(product_at).as_millis()));
-    let installers = installer_import::list_records(m)?;
+    let installers = installer_import::list_identity_records(m)?;
     let record_at = Instant::now(); phases.push(("setup_records",record_at.duration_since(owner_at).as_millis()));
     let managed_bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
     append_discovered(m, &sw, &records, &managed_bindings, &db, &mut products, None)?;
@@ -525,14 +550,17 @@ fn capture_readonly(m: &Manager) -> Result<CurrentOverviewContext> {
     let mut installer_live = BTreeMap::new();
     let runners = catalogue.as_ref().map(|c| &c.environments);
     let legacy_default = runners.and_then(|environments| catalogue::OnboardingRuntimePolicy::from_environments(environments).ok().flatten())
-        .and_then(|policy| environments_runner(catalogue.as_ref(), &policy.default_runner_key));
-    let delivered = linux_vst_bridge::runtime_delivery::installed_record(m)?;
-    let default = delivered.as_ref().map(|runner| -> Result<(String, Runner)> {
-        Ok((catalogue::runner_key(runner)?,runner.clone())) }).transpose()?.or(legacy_default);
+        .and_then(|policy| environments_runner(catalogue.as_ref(), &policy.default_runner_key))
+        .filter(|(_,r)|r.validate_record().is_ok());
+    let delivered = linux_vst_bridge::runtime_delivery::installed_identity_record(m)?;
+    let default = if let Some(runner)=&delivered {
+        if runner.validate_record().is_ok() {Some((catalogue::runner_key(runner)?,runner.clone()))}
+        else {None}
+    } else {legacy_default};
     let mut onboarding = onboarding::projection_current(m, None,
         onboarding::CurrentProjectionInputs {sw:&sw,default_runner:default.as_ref(),
             registry:&db,records:&records,installers:&installers}, |operation| {
-                let live=onboarding::live(operation)?;
+                let live=installer_is_live(operation)?;
                 installer_live.insert(operation.to_owned(),live);
                 Ok(live)
             })?;
@@ -563,6 +591,10 @@ fn capture_readonly(m: &Manager) -> Result<CurrentOverviewContext> {
     onboarding.retain(|row| !workspace_installers.contains(&row.installer));
     let installer_setups = onboarding::setup_projection_current(m, &onboarding, &products,
         &workspace_installers, &records, &installers, default.as_ref())?;
+    let environment_installers = environment_install::projection(m,&products,busy,|operation| {
+        let live = installer_is_live(operation)?;
+        installer_live.insert(operation.to_owned(),live);Ok(live)
+    })?;
     let workspace_at = Instant::now(); phases.push(("workspace_and_cards",workspace_at.duration_since(joined_at).as_millis()));
     #[cfg(feature = "pb0-c0-audit")]
     eprintln!("PB0_PHASE {}", serde_json::to_string(&phases)?);
@@ -570,10 +602,12 @@ fn capture_readonly(m: &Manager) -> Result<CurrentOverviewContext> {
     let _ = phases;
     let system = system_from_capacity(cap.as_ref(),pending,stale_transports(cap.as_ref())?);
     let snapshot = ui::Snapshot {schema:ui::OPERATOR_SCHEMA,state_token:before,system,
-        onboarding,installer_setups,environments:vec![],vendor_applications:vec![],products,
+        onboarding,installer_setups,environment_installers,environments:vec![],vendor_applications:vec![],products,
         workspaces,active_sessions:vec![],capture:Value::Null,recent_incidents:vec![],
         actions:vec![action("Install compatibility runtime (728 MB download)",ui::Action::RuntimeInstall {},
-            if delivered.is_some() {Some("The selected compatibility runtime is already installed")} else {busy}),
+            if delivered.as_ref().is_some_and(|r|r.validate_record().is_err()) {
+                Some("The retained compatibility runtime is unavailable. Restore its original files before starting new work.")
+            } else if delivered.is_some() {Some("The selected compatibility runtime is already installed")} else {busy}),
             action("Create sanitized support export",ui::Action::SupportExport {},None),
             action("Reconcile interrupted transaction",ui::Action::TransactionReconcile {},
                 inactive_reason(cap.as_ref(),retired,pending,true))],
@@ -671,7 +705,7 @@ mod tests {
         CurrentOverviewContext {
             snapshot:ui::Snapshot {schema:ui::OPERATOR_SCHEMA,state_token:token(m).unwrap(),
                 system:system_from_capacity(None,pending,0),onboarding:vec![],
-                installer_setups:vec![],environments:vec![],vendor_applications:vec![],
+                installer_setups:vec![],environment_installers:vec![],environments:vec![],vendor_applications:vec![],
                 products:vec![],workspaces,active_sessions:vec![],capture:Value::Null,
                 recent_incidents:vec![],actions:vec![],operation:None},
             busy:None,profiles:vec![],revisions:BTreeMap::new(),
@@ -693,13 +727,43 @@ mod tests {
         assert!(cache.environment(&exact).unwrap());
         let mut changed=exact.clone();
         changed.revision+=1;
-        assert!(cache.environment(&changed).is_err());
+        assert!(!cache.environment(&changed).unwrap());
         changed=exact.clone();
         changed.root=fixture.outer.join("other-root");
-        assert!(cache.environment(&changed).is_err());
+        assert!(!cache.environment(&changed).unwrap());
         changed=exact.clone();
         changed.runner.id.push_str("-other");
-        assert!(cache.environment(&changed).is_err());
+        assert!(!cache.environment(&changed).unwrap());
+    }
+    #[test]
+    fn partially_refreshed_siblings_and_unrelated_product_remain_readable() {
+        let (f,_,_,_)=test_fixture::prepared();
+        let mut sibling=f.r.clone();sibling.metadata.class_id="02".repeat(16);
+        sibling.metadata.name="Sibling".into();f.m.register(sibling.clone()).unwrap();
+        let mut unrelated=f.r.clone();unrelated.metadata.class_id="03".repeat(16);
+        unrelated.metadata.name="Unrelated".into();
+        unrelated.environment.id="44".repeat(16);
+        unrelated.environment.root=f.m.root.join("environments").join(&unrelated.environment.id);
+        let module=unrelated.environment.root.join("compatdata/pfx/drive_c/a.vst3");
+        private_dir(module.parent().unwrap()).unwrap();fs::copy(&unrelated.module.path,&module).unwrap();
+        unrelated.module.path=module;
+        atomic_json(&unrelated.environment.root.join("environment.json"),&unrelated.environment).unwrap();
+        f.m.register(unrelated.clone()).unwrap();
+        let mut current=f.r.environment.clone();current.revision+=1;
+        atomic_json(&current.root.join("environment.json"),&current).unwrap();
+        let mut db=f.m.registry().unwrap();db.classes.remove(&sibling.metadata.class_id);
+        atomic_json(&f.m.root.join("registry.json"),&db).unwrap();
+        sibling.environment=current;f.m.register(sibling.clone()).unwrap();
+        let a=f.r.host.clone();
+        let sw=Software {manager:a.clone(),supervisor:a.clone(),ownership:a.clone(),host:a,
+            source_manifest:Artifact {path:f.r.host.path.with_file_name("host-source-manifest.json"),
+                sha256:f.r.host_source_sha256.clone()},source_sha256:f.r.host_source_sha256.clone(),
+            operator_frontend:None,native_catalogue:None,preparation_kit:None,installer_launch:None};
+        let (products,_)=current_products(&f.m,&f.m.registry().unwrap(),&sw,&[]).unwrap();
+        assert_eq!(products.len(),3);
+        assert_eq!(products.iter().find(|p|p.class_id==f.r.metadata.class_id).unwrap().disposition,"needs_attention");
+        assert_eq!(products.iter().find(|p|p.class_id==sibling.metadata.class_id).unwrap().disposition,"ready");
+        assert_eq!(products.iter().find(|p|p.class_id==unrelated.metadata.class_id).unwrap().disposition,"ready");
     }
     #[test]
     fn current_product_requires_committed_publication_and_reads_selected_delay() {
@@ -930,7 +994,7 @@ mod tests {
         let snapshot = ui::Snapshot {schema:ui::OPERATOR_SCHEMA,
             state_token:token(&fixture.m).unwrap(),
             system:system_from_capacity(None,0,0),onboarding:vec![],
-            installer_setups:vec![],environments:vec![],vendor_applications:vec![],
+            installer_setups:vec![],environment_installers:vec![],environments:vec![],vendor_applications:vec![],
             products:vec![],workspaces:vec![],active_sessions:vec![],
             capture:Value::Null,recent_incidents:vec![],actions:vec![],operation:None};
         let mut context = context_for_watched(&fixture.m, watched);

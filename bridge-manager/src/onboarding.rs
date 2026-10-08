@@ -22,21 +22,20 @@ pub fn directory(m: &Manager, id: &str) -> Result<PathBuf> {
     Ok(m.root.join("onboarding").join(id))
 }
 fn load_record_binding(m: &Manager, id: &str) -> Result<Record> {
-    let r: Record = read_json(&directory(m, id)?.join("record.json"))?;
+    let mut r: Record = read_json(&directory(m, id)?.join("record.json"))?;
     require(
         r.schema == 1
             && r.id == id
             && !r.published
             && r.environment.id == id
             && r.environment.root == m.root.join("environments").join(id)
-            && read_json::<Environment>(&r.environment.root.join("environment.json"))?
-                == r.environment
             && valid_hex(&r.creation_operation, 32)
             && r.installation_operation
                 .as_ref()
                 .is_none_or(|s| valid_hex(s, 32)),
         "onboarding_binding",
     )?;
+    r.environment = operator_cli::environment_install::current_environment(m,&r.environment)?;
     if let Some(previous) = &r.previous_attempt {
         require(
             valid_hex(previous, 32) && previous != id,
@@ -78,7 +77,7 @@ fn load_bound(m: &Manager, id: &str) -> Result<(Record, bool)> {
     require(
         managed
             .iter()
-            .all(|e| e.registration.environment == r.environment),
+            .all(|e| operator_cli::environment_install::same_space(&e.registration.environment,&r.environment)),
         "onboarding_managed_environment_mismatch",
     )?;
     Ok((r, !managed.is_empty()))
@@ -90,6 +89,7 @@ pub fn load(m: &Manager, id: &str) -> Result<Record> {
 }
 /// Optional retained installation support for a managed-environment rescan.
 /// Registry and catalogue authority are checked by the final scan owner.
+#[cfg(any(test, feature = "pb0-r3-audit"))]
 pub fn retained_environment(m: &Manager, id: &str) -> Result<Option<Record>> {
     let record = retained_environment_record(m, id)?;
     if let Some(record) = &record {
@@ -135,12 +135,12 @@ pub fn history_records(m: &Manager) -> Result<Vec<Record>> {
         require(out.len()<128,"onboarding_count_bound")?;
         let path=entry?.path();let id=path.file_name().and_then(|v|v.to_str()).ok_or("onboarding_identity")?;
         if !valid_hex(id,32){continue}
-        let r:Record=read_json(&path.join("record.json"))?;
+        let mut r:Record=read_json(&path.join("record.json"))?;
         require(r.schema==1 && r.id==id && r.environment.id==id && r.environment.root==m.root.join("environments").join(id)
-           && read_json::<Environment>(&r.environment.root.join("environment.json"))?==r.environment
            && valid_hex(&r.creation_operation,32)
            && r.installation_operation.as_ref().is_none_or(|op|valid_hex(op,32)),
            "onboarding_history_binding")?;
+        r.environment = operator_cli::environment_install::current_environment(m,&r.environment)?;
         out.push(r);
     }
     out.sort_by_key(|r|r.created_at);Ok(out)
@@ -165,7 +165,8 @@ fn runners_for_readback(m: &Manager) -> Result<Vec<(String, Runner)>> {
         vec![]
     } else { runners_from_catalogue_with(Some(&sw.catalogue_record(m)?), false)? };
     let mut list = list;
-    if let Some(runner) = linux_vst_bridge::runtime_delivery::installed_record(m)? {
+    if let Some(runner) = linux_vst_bridge::runtime_delivery::installed_identity_record(m)?
+        .filter(|r|r.validate_record().is_ok()) {
         let key = runner_key(&runner)?;
         if !list.iter().any(|(id, _)| id == &key) { list.push((key, runner)); }
     }
@@ -187,7 +188,10 @@ fn runners_from_catalogue_with(catalogue: Option<&catalogue::Catalogue>, executi
     let mut list = vec![];
     for e in catalogue.into_iter().flat_map(|c| &c.environments) {
         let r = e.environment.runner.clone();
-        if execution { r.verify()?; } else { r.validate_record()?; }
+        if execution { r.verify()?; } else {
+            r.validate_identity()?;
+            if r.validate_record().is_err() {continue;}
+        }
         let id = runner_key(&r)?;
         if !list.iter().any(|(key, _)| key == &id) {
             list.push((id, r));
@@ -199,6 +203,11 @@ fn default_runtime(m: &Manager, installed: &[(String, Runner)]) -> Result<Option
     if let Some(selected) = installed.iter().find(|(_,r)|
         r.id == linux_vst_bridge::runtime_delivery::ID && r.policy.is_none()) {
         return Ok(Some(selected.clone()));
+    }
+    // A retained delivered selection never silently becomes a different runtime
+    // just because its files are unavailable during recovery readback.
+    if linux_vst_bridge::runtime_delivery::installed_identity_record(m)?.is_some() {
+        return Ok(None);
     }
     let sw = software_record(m)?;
     let Some(_) = sw.native_catalogue else { return Ok(None) };
@@ -438,7 +447,7 @@ pub fn result(m: &Manager, r: &Record) -> Result<Value> {
     validate_installer_transaction(&v, op)?;
     Ok(v)
 }
-fn validate_installer_transaction(v: &Value, op: &str) -> Result<()> {
+pub(super) fn validate_installer_transaction(v: &Value, op: &str) -> Result<()> {
     let Some(t) = v.get("transaction") else { return Ok(()) }; // retained MF2
     require(t["schema"] == 1 && t["operation"] == op, "installer_transaction_identity")?;
     require(matches!(t["outcome"].as_str(), Some("in_progress" | "completed" | "not_installed" | "partial_installation" | "installed" | "installed_dependency_failed" | "installed_postlaunch_failed" | "child_failed" | "outer_nonzero_stage_unknown" | "cancelled" | "cleanup_unconfirmed")), "installer_transaction_outcome")?;
@@ -532,7 +541,7 @@ pub fn all_retired(m: &Manager) -> Result<bool> {
             return Ok(false);
         }
     }
-    Ok(true)
+    operator_cli::environment_install::all_retired(m)
 }
 pub fn unit(op: &str) -> Result<String> {
     require(valid_hex(op, 32), "installer_operation_identity")?;
@@ -579,6 +588,10 @@ pub fn launch(m: &Manager, r: &Record, policy: Option<linux_vst_bridge::installe
         linux_vst_bridge::installer_policy::bind(&mut spec, &sw, policy)?;
     }
     atomic_json(&path, &spec)?;
+    launch_spec(m, op, &path, &dir.join(format!("{op}-result.json")))
+}
+pub(super) fn launch_spec(m: &Manager, op: &str, path: &Path, report: &Path) -> Result<()> {
+    let sw = software(m)?;
     let status = Command::new("systemd-run")
         .args([
             "--user",
@@ -599,7 +612,7 @@ pub fn launch(m: &Manager, r: &Record, policy: Option<linux_vst_bridge::installe
         // No success is inferred from systemd-run refusal. Confirm no owned unit.
         if !live(op)? {
             atomic_json(
-                &dir.join(format!("{op}-result.json")),
+                report,
                 &json!({"schema":2,"operation":op,"state":"failed","reason":"installer_launch_failed","cleanup_confirmed":true,"owned_live":0}),
             )?;
         }
@@ -665,7 +678,7 @@ fn projection_with_live(
     let default = default_runtime(m, &installed_runners)?;
     let registry = m.registry()?;
     let records = history_records(m)?;
-    let installers = installer_import::list(m)?;
+    let installers = installer_import::list_identity_records(m)?;
     projection_current(m, busy, CurrentProjectionInputs {
         sw: &sw, default_runner: default.as_ref(), registry: &registry,
         records: &records, installers: &installers,
@@ -943,7 +956,7 @@ pub fn setup_projection(m: &Manager, rows: &[ui::Onboarding], products: &[ui::Pr
     let runners = runners_for_readback(m)?;
     let default = default_runtime(m, &runners)?;
     let retained = history_records(m)?;
-    let installers = installer_import::list(m)?;
+    let installers = installer_import::list_identity_records(m)?;
     setup_projection_current(m, rows, products, workspace_installers,
         &retained, &installers, default.as_ref())
 }
@@ -1727,6 +1740,7 @@ mod tests {
             },
             onboarding,
             installer_setups: vec![],
+            environment_installers: vec![],
             environments,
             vendor_applications: vec![],
             products: vec![],

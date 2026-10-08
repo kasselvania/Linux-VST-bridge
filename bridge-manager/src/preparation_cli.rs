@@ -202,7 +202,7 @@ fn project_records(m: &Manager, sw: &Software, products: &mut [ui::Product], bus
         }
         if !canonical {
             p.disposition = match v.publication.as_str() {
-                "needs_attention" => "needs_attention",
+                "needs_attention" | "environment_changed" => "needs_attention",
                 "another_configuration" => "another_configuration",
                 "experimental" => "experimental",
                 "ordinary" => "ready",
@@ -446,7 +446,9 @@ fn guided_projection(
     let mut alternatives = Vec::new();
     let mut established = Vec::new();
     let mut remaining = Vec::new();
-    if let Some(row) = selected {
+    if let Some(row) = selected.filter(|row|row.current_inputs ||
+        prep::candidate_record(m,&row.id).and_then(|candidate|
+            prep::selected_publication_candidate_record(m,&candidate)).unwrap_or(false)) {
         for observation in &row.evidence {
             if observation.status == prep::TestStatus::Passed
                 && observation.witness != prep::Witness::GeneratedRegression {
@@ -549,6 +551,15 @@ fn guided_projection(
                     m.load_revision_record(&selection.class.id, revision)
                         .map(|record| record.qualification.is_none())).transpose()?.unwrap_or(false)
             } else { false };
+            let environment_changed = view.current_revision.as_ref().map(|revision|
+                m.load_revision_record(&selection.class.id,revision)
+                    .map(|record|record.registration.environment != selection.environment))
+                .transpose()?.unwrap_or(false);
+            if ordinary_current && environment_changed {
+                primary = Some(offer("Apply the repaired test configuration",ui::Action::ExperimentalReplace {
+                    candidate:row.id.clone(),expected_current:publication_identity(view.current_revision.as_ref()
+                        .ok_or("publication_revision_missing")?)},class_busy));
+            }
             if !ordinary_current
                 && (publication != "another_configuration" || expected_current.is_some()) {
                 primary = Some(offer(if publication == "another_configuration" {
@@ -556,7 +567,9 @@ fn guided_projection(
                 } else { "Make available for testing" },
                 ui::Action::CompatibilityPublishTest { candidate: row.id.clone(), expected_current }, class_busy));
             }
-            (Phase::ReadyForTest, if ordinary_current {
+            (Phase::ReadyForTest, if environment_changed {
+                "The environment changed. Apply this fresh configuration to try the repaired plug-in. Previous bridge records are retained; vendor changes cannot be rolled back."
+            } else if ordinary_current {
                 "Your current working bridge remains selected. Apply the test bridge update to try this configuration; the current revision is retained for rollback."
             } else if publication == "another_configuration" {
                 "A different configuration is selected. Replacing it for a test requires your explicit choice."
@@ -1764,7 +1777,7 @@ pub(crate) mod tests {
         census.environment.environment = f.r.environment.clone();
         census.environment.family = Family::ManagedInstallerV1;
         census.module = f.r.module.clone();
-        census.module_stamp = ModuleStamp::read(&census.module.path).unwrap();
+        census.module_stamp = Some(ModuleStamp::read(&census.module.path).unwrap());
         if effect {
             census.selected.subcategories = "Fx".into();
         }
