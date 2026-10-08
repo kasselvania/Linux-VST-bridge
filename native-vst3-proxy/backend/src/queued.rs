@@ -5705,25 +5705,44 @@ mod tests {
             let mut output=[[0.;CAP];2];
             callback.process_outputs_until(&shared,request,&mut output,&[],0,None).unwrap();
             shared.processing_ready_epoch.store(callback.epoch,Ordering::Release);
-            let deadline=Instant::now()+Duration::from_millis(100);
-            request.event_count=0;request.parent=[123,0,0,0];
-            request.completion=Some(crate::performance::CompletionPolicy {
-                allowance:Duration::from_millis(100),deadline,exact:false });
+            // Start the peer before arming the originating callback bound.
+            // Terminal failure tests exercise an in-flight replay, separately
+            // from the short no-completion expiry case.
+            let (ready,wait_ready)=std::sync::mpsc::sync_channel(0);
+            let (arm,armed)=std::sync::mpsc::sync_channel(0);
             let peer=shared.clone();let worker=thread::spawn(move|| {
-                let until=Instant::now()+Duration::from_secs(1);
+                ready.send(()).unwrap();
+                let deadline=armed.recv_timeout(Duration::from_secs(2)).unwrap();
+                let until=Instant::now()+Duration::from_secs(2);
                 let replay=loop {if let Some(item)=peer.requests.pop(){break item;}
                     assert!(Instant::now()<until);thread::yield_now();};
                 assert_eq!((replay.n,replay.event_count,replay.ticket,replay.parent[0]),(0,1,1,123));
                 assert_eq!(replay.completion.unwrap().deadline,deadline);
                 assert!(replay.completion.unwrap().exact);
-                match failure {0=>peer.cancel(),1=>peer.fail(WORKER,0),_=>{}}
+                if failure==2 {return None;}
+                while peer.phase_waits.load(Ordering::Acquire)==0 {
+                    assert!(Instant::now()<until);thread::yield_now();
+                }
+                let injected=Instant::now();assert!(injected<deadline);
+                if failure==0 {peer.cancel();} else {peer.fail(WORKER,0);}
+                Some(injected)
             });
+            wait_ready.recv_timeout(Duration::from_secs(2)).unwrap();
+            let allowance=if failure==2 {Duration::from_millis(100)}
+                else {crate::performance::AUDIO_CONTAINMENT};
+            let deadline=Instant::now()+allowance;
+            request.event_count=0;request.parent=[123,0,0,0];
+            request.completion=Some(crate::performance::CompletionPolicy {
+                allowance,deadline,exact:false });
+            arm.send(deadline).unwrap();
             let started=Instant::now();
             let (result,allocations)=crate::allocation_test::measure(|| callback.process_outputs_until(
                 &shared,request,&mut output,&[],0,Some(deadline)));
-            worker.join().unwrap();
+            let completed=Instant::now();let injected=worker.join().unwrap();
             assert_eq!(result,Err(match failure {0=>COMPLETION_CANCELLED,1=>2,_=>COMPLETION_EXPIRED}));
-            assert_eq!(allocations,[0;3]);assert!(started.elapsed()<Duration::from_millis(500));
+            assert_eq!(allocations,[0;3]);
+            assert!(completed.duration_since(injected.unwrap_or(started))<Duration::from_millis(500));
+            assert_eq!(shared.fault.load(Ordering::Acquire),match failure {0=>0,1=>WORKER,_=>COMPLETION_DEADLINE});
             assert_eq!((callback.position,callback.submitted_operation,callback.completed_operation),(0,1,0));
             assert!(!callback.startup_replaying);
             assert!((shared.startup_edits_pending.load(Ordering::Acquire) != 0));
