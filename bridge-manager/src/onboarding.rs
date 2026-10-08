@@ -1039,6 +1039,7 @@ pub(super) fn setup_projection_current(m: &Manager, rows: &[ui::Onboarding],
 /// Whether known inventory evidence is absent or stale against the exact
 /// environment and scanner source. Current evidence does not rule out additions
 /// by a vendor application or remove the managed installation's rescan action.
+#[cfg(test)]
 pub fn inventory_refresh_required(
     m: &Manager,
     environment: &Environment,
