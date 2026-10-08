@@ -3129,8 +3129,19 @@ qualifies the physical musician workflow.
 Test28 Ubuntu VM settings checks encountered two fresh-read refusals and a terminal
 “Operator action: operation already running” refusal with no operation owner. Normal retry
 with the frontend closed completed the final buffering reset; reopened-frontend
-512/1024 requests both succeeded. The uninterrupted helper run remains failed;
-the transient read/Busy issue has no established cause or fix.
+512/1024 requests both succeeded. The uninterrupted helper run remains failed.
+Fresh-read refusals remain open. A synchronized ordinary-action regression
+reproduces the Busy failure: read-only registry capture races buffering/delivery's
+fail-fast final preference lock. Those operator actions now wait within the existing
+bound, then recheck the exact target, preference and affected owners before writing.
+Test29's normal update preserves all eight classes, their module/environment
+identities, environment revisions and preferences. With the selected frontend
+continuously open, normal 512→1024→512 requests complete on their first submission;
+registry bytes, publications and the sibling preference remain unchanged.
+Ordinary frontend polls are observed before and after the actions; the regression
+supplies forced lock contention. One separate normal action restores the original
+1024 preference.
+Two precise read-only freshness retries occur; that defect remains open.
 
 ## FC-MGMT-008 — Loaded native engine is not bound during admission
 
