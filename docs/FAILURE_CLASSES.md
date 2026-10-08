@@ -2216,6 +2216,9 @@ were removed. In the same 2-vCPU/3-GiB Ubuntu HDD VM, the Test28 update took
 publications. The roughly 25-minute update and slow cold start remain open
 performance defects.
 
+Tracking: [installed update #240](https://github.com/kasselvania/Linux-VST-bridge/issues/240)
+and [cold startup #241](https://github.com/kasselvania/Linux-VST-bridge/issues/241).
+
 ### Claim limit and remaining gate
 
 The setup admission retest passed. Prove actual runtime execution and retain
@@ -2537,6 +2540,8 @@ four active-target Restore/buffering refusals preserve state. All eight class en
 and original settings/preferences are restored. Final buffering reset needed a manual tail.
 Older-manager downgrade usability after the revision change is also unqualified;
 package restoration cannot rewind the vendor environment or admit its stale plug-ins.
+The remaining coherent-restoration qualification is tracked in
+[#242](https://github.com/kasselvania/Linux-VST-bridge/issues/242).
 
 The operator reported a missing exact prebuilt proxy while preparing newly
 installed Nibbi. Source `9a0766afbf71fbb336c897c98b003b9e4bdda737` confirms the
@@ -3142,6 +3147,8 @@ Ordinary frontend polls are observed before and after the actions; the regressio
 supplies forced lock contention. One separate normal action restores the original
 1024 preference.
 Two precise read-only freshness retries occur; that defect remains open.
+Bounded ordinary read handling is tracked in
+[#239](https://github.com/kasselvania/Linux-VST-bridge/issues/239).
 
 ## FC-MGMT-008 — Loaded native engine is not bound during admission
 
