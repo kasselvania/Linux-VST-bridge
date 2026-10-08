@@ -33,6 +33,9 @@ fn preparation_failure(action: &ui::Action, error: &(dyn std::error::Error + 'st
 #[cfg(test)]
 thread_local! {
     static SCAN_SPAWN_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    // Synchronize an ordinary readback in the gap between admission and the
+    // final preference commit. This hook is absent from product builds.
+    static PERFORMANCE_COMMIT_BARRIER: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = const { std::cell::RefCell::new(None) };
 }
 fn text(v: &Value, key: &str) -> String {
     v[key].as_str().unwrap_or("unknown").into()
@@ -2041,6 +2044,12 @@ fn execute_with_receipt_policy(
     }
     timing::measure(Stage::WorkerAdmission, ||
         require_operator_inactive_with(m, a, capacity_read, operation, timeout, waits))?;
+    #[cfg(test)]
+    if matches!(a, ui::Action::BufferingSet { .. } | ui::Action::DeliverySet { .. }) {
+        PERFORMANCE_COMMIT_BARRIER.with(|barrier| {
+            if let Some(run) = barrier.borrow_mut().take() { run(); }
+        });
+    }
 
     if let ui::Action::OrdinaryRollback { class_id, publication } = a {
         drop(projection.take());
@@ -2297,7 +2306,9 @@ fn execute_with_receipt_policy(
             Ok(json!({"restored":true}))
         }
         ui::Action::DeliverySet { class_id, mode } => {
-            m.select_delivery(class_id, *mode)?;
+            m.select_delivery_with_registry(class_id, *mode, || {
+                acquire_readback(m, ui::OperatorLock::Registry, operation, timeout, waits)
+            })?;
             let performance = m.performance(class_id)?;
             Ok(json!({"delivery_mode":performance.delivery_mode,
                 "added_bridge_frames":performance.effective_frames(),
@@ -2306,7 +2317,9 @@ fn execute_with_receipt_policy(
         }
         ui::Action::BufferingSet { class_id, added_frames } => {
             require(matches!(added_frames, 256 | 512 | 1024), "operator_buffering_value")?;
-            m.select_delay(class_id, *added_frames)?;
+            m.select_delay_with_registry(class_id, *added_frames, || {
+                acquire_readback(m, ui::OperatorLock::Registry, operation, timeout, waits)
+            })?;
             Ok(json!({"remembered_buffered_frames":added_frames,
                 "added_bridge_frames":m.performance(class_id)?.effective_frames(),"applies_to":"next_activation",
                 "compatibility_qualified":false}))
@@ -3290,6 +3303,72 @@ pub(super) fn product_receipt(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn contend_preference_commit(m: &Manager, release_after: Option<Duration>)
+        -> (std::thread::JoinHandle<()>, std::sync::mpsc::Sender<()>) {
+        let reader = Manager {root:m.root.clone(), publications:m.publications.clone()};
+        let (start, started) = std::sync::mpsc::channel();
+        let (held, acquired) = std::sync::mpsc::channel();
+        let (release, released) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            started.recv_timeout(Duration::from_secs(3)).unwrap();
+            // Pulse and current overview both take this guard without owning
+            // operator-canonical.lock; neither is an active mutation.
+            let _readback = reader.lock("registry.lock").unwrap();
+            capacity::owners(&reader).unwrap();
+            held.send(()).unwrap();
+            if let Some(delay) = release_after { std::thread::sleep(delay); }
+            else { released.recv_timeout(Duration::from_secs(3)).unwrap(); }
+        });
+        PERFORMANCE_COMMIT_BARRIER.with(|barrier| *barrier.borrow_mut() = Some(Box::new(move || {
+            start.send(()).unwrap();
+            acquired.recv_timeout(Duration::from_secs(3)).unwrap();
+        })));
+        (thread, release)
+    }
+    #[test]
+    fn ordinary_performance_actions_wait_for_readback_at_final_commit() {
+        for delivery in [false, true] {
+            let f = test_fixture::Fixture::new();
+            f.m.register(f.r.clone()).unwrap();
+            let class_id = f.r.key();
+            let action = if delivery { ui::Action::DeliverySet {
+                class_id:class_id.clone(), mode:DeliveryMode::Buffered,
+            }} else { ui::Action::BufferingSet {class_id:class_id.clone(),added_frames:256} };
+            let (reader, _) = contend_preference_commit(&f.m, Some(Duration::from_millis(100)));
+            let mut waits = vec![];
+            let result = execute_with_receipt_policy(&f.m, &action, Some(&"ab".repeat(16)),
+                &|| capacity_fixture(&f.m), Duration::from_secs(1), &mut waits);
+            reader.join().unwrap();
+            result.unwrap();
+            assert!(waits.iter().any(|wait| wait.name == ui::OperatorLock::Registry
+                && wait.attempts > 1 && wait.outcome == ui::LockOutcome::Acquired));
+            let preference = f.m.performance(&class_id).unwrap();
+            assert_eq!(preference.delivery_mode, DeliveryMode::Buffered);
+            assert_eq!(preference.added_frames, if delivery {512} else {256});
+            assert!(matches!(f.m.try_lock("registry.lock").unwrap(),
+                linux_vst_bridge::operator_lock::LockAttempt::Acquired(_)));
+        }
+    }
+    #[test]
+    fn ordinary_performance_readback_timeout_preserves_preferences() {
+        let f = test_fixture::Fixture::new();
+        f.m.register(f.r.clone()).unwrap();
+        let before = f.m.performance(&f.r.key()).unwrap();
+        let action = ui::Action::BufferingSet {class_id:f.r.key(),added_frames:256};
+        let (reader, release) = contend_preference_commit(&f.m, None);
+        let mut waits = vec![];
+        let result = execute_with_receipt_policy(&f.m, &action, Some(&"ab".repeat(16)),
+            &|| capacity_fixture(&f.m), Duration::from_millis(30), &mut waits);
+        release.send(()).unwrap();
+        reader.join().unwrap();
+        let error = result.unwrap_err();
+        let failure = error.downcast_ref::<linux_vst_bridge::operator_lock::AcquisitionFailure>().unwrap();
+        assert_eq!(failure.facts.name, ui::OperatorLock::Registry);
+        assert_eq!(failure.facts.outcome, ui::LockOutcome::Timeout);
+        assert!(failure.facts.attempts > 1);
+        assert_eq!(f.m.performance(&f.r.key()).unwrap(), before);
+        assert!(!f.m.root.join("performance").exists());
+    }
     #[test]
     fn class_controls_preserve_siblings_but_refuse_maintenance_and_unknown_custody() {
         let target = "01".repeat(16);

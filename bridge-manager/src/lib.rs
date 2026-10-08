@@ -768,12 +768,25 @@ impl Manager {
         Ok(value)
     }
     pub fn select_delay(&self, key: &str, frames: u32) -> Result<()> {
-        self.select_performance(key, Some(frames), None)
+        self.select_delay_with_registry(key, frames, || self.lock("registry.lock"))
+    }
+    pub fn select_delay_with_registry(
+        &self, key: &str, frames: u32, acquire_registry: impl FnOnce() -> Result<Lock>,
+    ) -> Result<()> {
+        self.select_performance(key, Some(frames), None, acquire_registry)
     }
     pub fn select_delivery(&self, key: &str, mode: DeliveryMode) -> Result<()> {
-        self.select_performance(key, None, Some(mode))
+        self.select_delivery_with_registry(key, mode, || self.lock("registry.lock"))
     }
-    fn select_performance(&self, key: &str, frames: Option<u32>, mode: Option<DeliveryMode>) -> Result<()> {
+    pub fn select_delivery_with_registry(
+        &self, key: &str, mode: DeliveryMode, acquire_registry: impl FnOnce() -> Result<Lock>,
+    ) -> Result<()> {
+        self.select_performance(key, None, Some(mode), acquire_registry)
+    }
+    fn select_performance(
+        &self, key: &str, frames: Option<u32>, mode: Option<DeliveryMode>,
+        acquire_registry: impl FnOnce() -> Result<Lock>,
+    ) -> Result<()> {
         require(valid_hex(key, 32), "class ID syntax")?;
         let key = key.to_uppercase();
         let registration = self.registry()?.classes.get(&key)
@@ -797,7 +810,11 @@ impl Manager {
         require(value.delivery_mode != DeliveryMode::SameCallback
             || preparation::build::supports_audio_completion(self, &registration)?,
             "The selected native bridge and Windows host do not support same-callback delivery. Prepare them with the current package first.")?;
-        let _lock = self.lock("registry.lock")?;
+        // Ordinary operator actions may wait for a short readback here. Neither
+        // waiting nor the earlier admission grants mutation authority: recheck
+        // the exact pair, preference and affected owners under this guard.
+        let lock = acquire_registry()?;
+        lock.require_registry(self)?;
         let registry = self.registry()?;
         let entry = registry.classes.get(&key).ok_or("class not registered")?;
         require(entry.registration == registration, "performance_target_changed")?;
@@ -1315,6 +1332,49 @@ with zipfile.ZipFile(path,'x') as z:
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         assert!(f.m.select_delivery(&key, DeliveryMode::SameCallback).is_err());
         assert_eq!(f.m.performance(&key).unwrap().effective_frames(), 256);
+    }
+    #[test]
+    fn preference_commit_rechecks_guard_target_preference_and_owners() {
+        for change in ["guard", "manager", "target", "preference", "owner"] {
+            let f = Fixture::new();
+            let other = Fixture::new();
+            f.m.register(f.r.clone()).unwrap();
+            let key = f.r.key();
+            let result = f.m.select_delay_with_registry(&key, 256, || {
+                if change == "guard" { return f.m.lock("operator-canonical.lock"); }
+                if change == "manager" { return other.m.lock("registry.lock"); }
+                let guard = f.m.lock("registry.lock")?;
+                match change {
+                    "target" => {
+                        let mut db = f.m.registry()?;
+                        db.classes.get_mut(&key).unwrap().registration.metadata.version = "next".into();
+                        atomic_json(&f.m.root.join("registry.json"), &db)?;
+                    }
+                    "preference" => {
+                        private_dir(&f.m.root.join("performance"))?;
+                        // Use a distinct valid value so the stale read is observable.
+                        atomic_json(&f.m.root.join("performance").join(format!("{key}.json")),
+                            &Performance {schema:1,added_frames:1024,delivery_mode:DeliveryMode::Buffered})?;
+                    }
+                    "owner" => {
+                        managed_tests::lease(&f, &key, false);
+                    }
+                    _ => unreachable!(),
+                }
+                Ok(guard)
+            });
+            let error = result.unwrap_err().to_string();
+            match change {
+                "guard" | "manager" => assert_eq!(error, "registry_guard_identity"),
+                "target" => assert_eq!(error, "performance_target_changed"),
+                "preference" => assert_eq!(error, "performance_preference_changed"),
+                "owner" => assert_eq!(error, "active_device_lease"),
+                _ => unreachable!(),
+            }
+            assert_eq!(f.m.performance(&key).unwrap().added_frames,
+                if change == "preference" {1024} else {512});
+            if change != "preference" { assert!(!f.m.root.join("performance").exists()); }
+        }
     }
     #[test]
     fn installed_delay_is_inactive_versioned_and_separate_from_identity() {
