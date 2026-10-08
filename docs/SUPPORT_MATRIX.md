@@ -11,11 +11,35 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
-Same-environment companion/dependency installation is **unqualified**: ordinary
-manager controls now select an existing setup or plug-in, show affected siblings,
-and retain supervised Stop/retry/rescan with fresh preparation after a revision
-change. Installed completion, partial recovery and musical save/reopen still need
-disposable first-party acceptance; vendor-state rollback is not supported.
+Installed functional checks pass in the Ubuntu 26.04.1 VM / REAPER 7.82 for
+first-party same-environment companion cases: pre-registration Stop/retry,
+rescan/preparation/publication and changed-state/automation save/reopen; registered
+partial Stop/retry and explicit Check/Replace of both affected siblings. The explicit
+.625→.25 recall endpoint matches PCM exactly; the earlier ramp retains 20 channel
+samples differing by one PCM24 LSB. The installed UI reports “Installation changes
+observed; completion not verified” for the partial/unproved observation.
+
+Protected Reference recall after environment mutation and both Test27/28 updates
+preserves the original project and matches both baseline renders exactly over
+352,800 PCM24 channel samples each. Both updates preserve seven publications.
+Post-family first-party instrument/effect changed-state/automation recall also
+preserves project/state and matches both nonzero baseline stems exactly over
+352,800 PCM24 channel samples each after a fresh-process reopen.
+
+Two normal graphics/accessibility Try/Apply/Keep trials and reverse predecessor
+Restores pass with exact requested/mandatory launch overrides and saved state;
+Keep remains `partial_experimental`. Four active-target Restore/buffering requests
+refuse without mutation; all eight class entries and original settings/preferences
+are restored. Thirteen SDK runs match all 63,897,600 samples, with two callback
+deadline misses retained (70.469146 ms and 25.700938 ms against 21.333 ms).
+The final buffering reset required an explicit normal retry after fresh-read/Busy
+refusals; a reopened frontend's 512/1024 requests then both succeeded.
+
+On the same 2-vCPU/3-GiB HDD VM, Test28 takes 1,488.99 s versus 4,253.42 s for
+Test27 (64.99% shorter), still roughly 25 minutes. Slow update/cold start,
+callback overruns and transient refresh/Busy refusals remain open; vendor-state
+rollback is not supported.
+
 Downgrading to an older manager after a shared-environment change is unqualified;
 the old publication remains stale and does not restore the vendor environment.
 

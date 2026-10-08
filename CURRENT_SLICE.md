@@ -9,16 +9,18 @@ An unfamiliar instrument or effect is a normal case, not a catalogue refusal.
 
 ## Current increment
 
-Unfamiliar-class checks/publication and graphics/accessibility trial/keep/restore are available; installed acceptance continues.
-Source now lets the musician select an existing setup or affected plug-in and an
-imported companion/dependency installer, see affected siblings, and run it through
-existing supervised custody, then rescan/reprepare. Stop/retry preserve the space.
-Advance the existing revision before mutation; keep ID, initial history, prior
-publications and unrelated spaces. Stale siblings need fresh preparation; vendor
-state cannot be promised rollback. Global exclusion and onboarding guards remain.
-Source review/CI and SDK/worker regressions pass. Test26 Reference REAPER recall restores controls/automation and exact baseline PCM.
-Two fresh families pass 8 positive/24 refusal contracts; pre-registration held companion Focus/Stop survives manager restart and retires cleanly.
-Installed held retry/rescan/preparation/recall, registered partial Stop/retry/sibling refresh and settings trials continue.
+Installed Ubuntu VM first-party companion cases pass pre-registration Stop/retry,
+rescan/publication and changed-state/automation recall; the explicit .625→.25
+endpoint gives exact PCM. The earlier ramp retains 20 one-LSB PCM24 differences.
+Registered partial Stop/retry preserves the setup; explicit Check/Replace refreshes both siblings.
+The installed UI says changes were observed when completion remains unverified.
+Protected Reference after mutation/both updates and post-family changed-state/
+automation recall match all 352,800 baseline PCM24 channel samples in each stem.
+Two settings Try/Apply/Keep trials and reverse Restores pass; Keep remains partial_experimental.
+Test28 update took 1,488.99 s versus 4,253.42 s for Test27 (64.99% shorter),
+preserving seven publications. Final buffering reset needed a manual retry; refresh/Busy refusals,
+two audio deadline misses, the roughly 25-minute update and slow cold start remain open.
+Vendor-state rollback and older-manager usability after mutation remain unqualified.
 
 ## Validation alongside and done
 
