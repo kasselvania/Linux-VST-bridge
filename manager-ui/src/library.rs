@@ -1306,6 +1306,64 @@ mod tests {
     }
 
     #[test]
+    fn current_published_product_exposes_discovery_without_expanding_details() {
+        fn position(shape: &egui::epaint::Shape) -> Option<egui::Pos2> {
+            match shape {
+                egui::epaint::Shape::Text(text)
+                    if text.galley.text() == "Find installed plug-ins" =>
+                    Some(text.pos + text.galley.size() * 0.5),
+                egui::epaint::Shape::Vec(shapes) => shapes.iter().find_map(position),
+                _ => None,
+            }
+        }
+        let mut s = snapshot();
+        s.products = vec![s.products[1].clone()];
+        let product = &mut s.products[0];
+        product.active_revision = Some(7);
+        product.actions.clear();
+        product.compatibility = Some(CompatibilityWorkflow {
+            phase: CompatibilityPhase::OrdinarySupported, summary: "Published".into(),
+            established: vec![], remaining: vec![], current_inspection: None,
+            current_candidate: None, primary: None, alternatives: vec![],
+        });
+        let action = Action::EnvironmentRescan { environment: product.environment.clone() };
+        s.environments.retain(|environment| environment.id == product.environment);
+        s.environments[0].last_scan = serde_json::json!({"module_count":3,"stale":false});
+        s.environments[0].actions = vec![AvailableAction {
+            label: "Find installed plug-ins".into(), action: action.clone(), disabled_reason: None,
+        }];
+        assert_eq!(s.vendor_applications[0].state,"closed");
+        for width in [960.0,560.0] {
+            for (refusal,dsp,clickable) in [
+                (None,0,true), (Some("Vendor application is active"),0,false), (None,1,false),
+            ] {
+                s.environments[0].actions[0].disabled_reason = refusal.map(str::to_owned);
+                s.system.dsp = dsp;
+                let ctx = egui::Context::default();
+                let mut library = Library::default();
+                let mut point = egui::Pos2::ZERO;
+                let mut chosen = None;
+                for pressed in [None,Some(true),Some(false)] {
+                    let events = pressed.map(|pressed| vec![egui::Event::PointerMoved(point),
+                        egui::Event::PointerButton {pos:point,button:egui::PointerButton::Primary,
+                            pressed,modifiers:egui::Modifiers::NONE}]).unwrap_or_default();
+                    let mut output = ctx.run_ui(egui::RawInput {events,..Default::default()},|ui| {
+                        ui.set_max_width(width-32.0);
+                        library.show(ui,&s,false,&mut chosen,|_,_|{});
+                    });
+                    if pressed.is_none() {
+                        point = output.shapes.iter().find_map(|shape|position(&shape.shape))
+                            .expect("discovery must be visible with details collapsed");
+                    }
+                    output.textures_delta.clear();
+                }
+                assert!(!library.expand_details);
+                assert_eq!(chosen,clickable.then(||action.clone()));
+            }
+        }
+    }
+
+    #[test]
     fn focused_product_is_selected_by_exact_identity_even_after_search() {
         let mut s = snapshot();
         let mut library = Library {

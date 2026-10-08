@@ -712,12 +712,13 @@ pub(super) fn environment_projection(
 }
 fn environment_projection_from(
     m: &Manager,
-    sw: &Software,
+    _sw: &Software,
     bindings: &[linux_vst_bridge::catalogue::EnvironmentBinding],
     registry: &Registry,
     busy: Option<&str>,
 ) -> Result<Vec<ui::Environment>> {
-    let adopted = linux_vst_bridge::frg1::adopted_environment_record(m)?;
+    // Current evidence covers known modules; vendor applications can add others
+    // without changing the managed environment or its existing publications.
     bindings
         .iter()
         .map(|entry| {
@@ -733,20 +734,13 @@ fn environment_projection_from(
                 &entry.environment.id,
             )?
             {
-                if onboarding::inventory_refresh_record_required(
-                    m, &environment, &sw.host, &sw.source_sha256,
-                )? || (adopted.as_ref().is_some_and(|binding| binding.environment == environment)
-                    && linux_vst_bridge::frg1::inventory_refresh_record_required(m, &environment)?) {
-                    vec![action(
-                        "Refresh installed products",
-                        ui::Action::EnvironmentRescan {
-                            environment: environment.id,
-                        },
-                        busy,
-                    )]
-                } else {
-                    vec![]
-                }
+                vec![action(
+                    "Find installed plug-ins",
+                    ui::Action::EnvironmentRescan {
+                        environment: environment.id,
+                    },
+                    busy,
+                )]
             } else {
                 vec![]
             };
@@ -2876,22 +2870,11 @@ pub(super) fn rescan(m: &Manager, environment: &str) -> Result<Value> {
     require(pending_transactions(m)? == 0,"operator_pending_transaction_reconcile")?;
     let sw = software(m)?;
     let db = m.registry()?;
-    // A scan refreshes changed vendor state. Retained ownership identifies its
+    // A scan discovers current vendor state. Retained ownership identifies its
     // space; old DSP admission cannot authorize or veto that inspection.
     let c = operator_catalogue_readback(m, &sw, &db)?;
     let env = managed_rescan_binding(m, c.as_ref(), &db, environment)?
         .ok_or("operator_environment_unmanaged")?;
-    require(
-        onboarding::inventory_refresh_required(
-            m,
-            &env,
-            &sw.host,
-            &sw.source_sha256,
-        )? || linux_vst_bridge::frg1::adopted_environment(m)?
-            .is_some_and(|binding| binding.environment == env)
-            && linux_vst_bridge::frg1::inventory_refresh_required(m,&env)?,
-        "managed_inventory_current",
-    )?;
     rescan_environment_locked(m, env, sw, None)
 }
 #[derive(Clone, Debug)]
@@ -3767,8 +3750,13 @@ mod tests {
         atomic_json(&m.root.join("software.json"),&sw).unwrap();
 
         let snapshot = snapshot_idle_test(m).unwrap();
-        assert!(available(&snapshot).into_iter().all(|item|
-            !matches!(item.action,ui::Action::EnvironmentRescan { .. })));
+        let refresh:Vec<_> = available(&snapshot).into_iter().filter(|item|
+            matches!(item.action,ui::Action::EnvironmentRescan { .. })).collect();
+        assert_eq!(refresh.len(),1);
+        assert_eq!(refresh[0].action,ui::Action::EnvironmentRescan {
+            environment:prior.environment.id.clone(),
+        });
+        assert!(refresh[0].disabled_reason.is_none());
         let offered:Vec<_> = available(&snapshot).into_iter().filter(|item|
             matches!(item.action,ui::Action::QuarantinedModuleRetry { .. })).collect();
         assert_eq!(offered.len(),1);
@@ -5226,6 +5214,95 @@ mod tests {
         (f, receipt.operation.unwrap())
     }
     #[test]
+    fn managed_rescan_discovers_added_module_after_current_inventory() {
+        let (f, creation) = onboarding_worker_fixture();
+        write_operation(&f.m, &creation,
+            &json!({"schema":1,"operation":creation,"state":"completed"}), false).unwrap();
+        let mut sw = software(&f.m).unwrap();
+        let module_root = f.r.module.path.parent().unwrap();
+        let added = module_root.join("new-install.vst3");
+        let report = |id: &str, name: &[u8]| json!({
+            "cleanup_confirmed":true,"transport_retired":true,"records":[{
+                "state":"ap8_factory","factory":{"vendor_hex":hex(b"Fixture Vendor")},
+                "class_count":1,"classes":[{
+                    "raw_tuid_hex":id,"tier":"IPluginFactory2.PClassInfo2",
+                    "name_hex":hex(name),"category_hex":hex(b"Audio Module Class"),
+                    "subcategories_hex":hex(b"Instrument|Synth"),"vendor_hex":"",
+                    "version_hex":hex(b"1.0")
+                }]
+            }]
+        });
+        let known_report = report(&f.r.metadata.class_id, b"Existing fixture");
+        let known_report_path = f.outer.join("known-report.json");
+        atomic_json(&known_report_path, &known_report).unwrap();
+        let scan = inventory::Scan {
+            schema:1,id:"ef".repeat(16),environment:f.r.environment.clone(),
+            host:sw.host.clone(),host_source_sha256:sw.source_sha256.clone(),
+            completed_at:1,changes:Default::default(),modules:vec![inventory::Module {
+                artifact:f.r.module.clone(),classes:inventory::classes(&known_report).unwrap(),
+                report:Artifact {sha256:digest(&known_report_path).unwrap(),path:known_report_path},
+                inspection_error:None,quarantine_reason:None,
+            }],
+        };
+        let inventory_path = f.m.root.join("inventory").join(format!("{}.json",scan.environment.id));
+        private_dir(inventory_path.parent().unwrap()).unwrap();
+        atomic_json(&inventory_path, &scan).unwrap();
+        assert!(!onboarding::inventory_refresh_required(&f.m, &scan.environment,
+            &sw.host, &sw.source_sha256).unwrap());
+
+        // A vendor application adds one unfamiliar module without changing the
+        // installed sibling or the manager's environment identity/revision.
+        fs::write(&added, b"new first-party module").unwrap();
+        assert!(!onboarding::inventory_refresh_required(&f.m, &scan.environment,
+            &sw.host, &sw.source_sha256).unwrap());
+        assert!(!onboarding::inventory_refresh_record_required(&f.m, &scan.environment,
+            &sw.host, &sw.source_sha256).unwrap());
+
+        // The external supervisor/SDK execution is a fixture. Discovery,
+        // admission, retirement and inventory replacement use the normal owner.
+        let reports = f.outer.join("scanner-reports.json");
+        atomic_json(&reports, &json!({
+            f.r.module.sha256.clone():known_report,
+            digest(&added).unwrap():report(&"02".repeat(16),b"New fixture"),
+        })).unwrap();
+        let supervisor = f.m.root.join("software/test-supervisor.py");
+        fs::write(&supervisor, format!(
+            "import json,shutil,sys\njob=json.load(open(sys.argv[1]))\nreports=json.load(open({}))\nwith open(job['report'],'w') as target: json.dump(reports[job['registration']['module']['sha256']],target)\nprint('LVO0 '+job['session']+' ready',flush=True)\nshutil.rmtree(job['directory'])\nprint('LVO1 '+job['session']+' retired',flush=True)\n",
+            serde_json::to_string(&reports).unwrap())).unwrap();
+        sw.supervisor = Artifact {sha256:digest(&supervisor).unwrap(),path:supervisor};
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let preference = f.m.root.join("performance").join(format!("{}.json",f.r.key()));
+        private_dir(preference.parent().unwrap()).unwrap();
+        atomic_json(&preference,&Performance {schema:2,added_frames:1024,
+            delivery_mode:DeliveryMode::Buffered}).unwrap();
+        let registry_before = fs::read(f.m.root.join("registry.json")).unwrap();
+        let preferences_before = fs::read(&preference).unwrap();
+        let environment_before = fs::read(scan.environment.root.join("environment.json")).unwrap();
+        let publications_before = test_fixture::snapshot(&f.m.publications);
+        let current = snapshot_idle_test(&f.m).unwrap();
+        let offered = available(&current).into_iter().find(|offer|
+            offer.action == ui::Action::EnvironmentRescan {environment:scan.environment.id.clone()})
+            .expect("a current known inventory must still offer discovery of vendor additions");
+        assert_eq!(offered.label,"Find installed plug-ins");
+        assert!(offered.disabled_reason.is_none());
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:current.state_token.clone(),action:offered.action.clone()};
+        validate(&request,&current).unwrap();
+        let refreshed = rescan(&f.m,&scan.environment.id).unwrap();
+        assert_eq!(refreshed["modules"],2);
+        assert_eq!(refreshed["activation_permitted"],false);
+        let after:inventory::Scan = read_json(&inventory_path).unwrap();
+        assert_eq!(after.changes,inventory::Changes {
+            initial_scan:false,added:1,unchanged:1,changed:0,removed:0,
+        });
+        assert!(after.modules.iter().any(|module| module.artifact.path == added
+            && module.classes.iter().any(|class|class.name == "New fixture")));
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(),registry_before);
+        assert_eq!(fs::read(&preference).unwrap(),preferences_before);
+        assert_eq!(fs::read(scan.environment.root.join("environment.json")).unwrap(),environment_before);
+        assert_eq!(test_fixture::snapshot(&f.m.publications),publications_before);
+    }
+    #[test]
     fn installer_controls_use_current_owned_operation_without_runtime_admission() {
         let (f, creation) = onboarding_worker_fixture();
         let create: ui::Request = read_json(&job_dir(&f.m, &creation).unwrap()
@@ -6641,11 +6718,16 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
             changes: Default::default(),
             modules: vec![],
         }).unwrap();
-        assert!(available(&snapshot_idle_test(&f.m).unwrap())
+        let current_snapshot = snapshot_idle_test(&f.m).unwrap();
+        let current_actions = available(&current_snapshot);
+        assert!(current_actions.iter().any(|available|
+            available.action == ui::Action::EnvironmentRescan {environment:environment.clone()}
+                && available.disabled_reason.is_none()));
+        assert!(current_actions
             .into_iter()
             .all(|available| !matches!(
                 available.action,
-                ui::Action::InstallerScan { .. } | ui::Action::EnvironmentRescan { .. }
+                ui::Action::InstallerScan { .. }
             )));
         fs::remove_file(&current).unwrap();
         assert!(!history.exists());

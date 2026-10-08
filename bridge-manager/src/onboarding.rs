@@ -1036,8 +1036,10 @@ pub(super) fn setup_projection_current(m: &Manager, rows: &[ui::Onboarding],
     Ok(setups)
 }
 
-/// A managed installation may be rescanned only when its retained inventory is
-/// absent or stale against the exact installed environment and scanner source.
+/// Whether known inventory evidence is absent or stale against the exact
+/// environment and scanner source. Current evidence does not rule out additions
+/// by a vendor application or remove the managed installation's rescan action.
+#[cfg(test)]
 pub fn inventory_refresh_required(
     m: &Manager,
     environment: &Environment,
@@ -1571,7 +1573,7 @@ mod tests {
         assert_eq!(fs::read(path).unwrap(),before);
     }
     #[test]
-    fn managed_stale_inventory_offers_only_exact_rescan_and_current_inventory_closes_it() {
+    fn managed_inventory_rescan_preserves_setup_history_and_initial_install_exclusion() {
         use linux_vst_bridge::catalogue::{Catalogue, EnvironmentBinding};
         let (f, _, _, native) = test_fixture::prepared();
         let mut installer_bytes = vec![0; 1024];
@@ -1811,10 +1813,6 @@ mod tests {
             &sw.source_sha256
         )
         .unwrap());
-        assert!(crate::operator_cli::rescan(&f.m, id)
-            .unwrap_err()
-            .to_string()
-            .contains("managed_inventory_current"));
         assert!(crate::operator_cli::execute_idle_test_action(
             &f.m,
             &ui::Action::InstallerScan {
@@ -1830,17 +1828,20 @@ mod tests {
             .find(|row| row.environment.as_deref() == Some(id))
             .unwrap();
         assert!(row.actions.is_empty());
-        assert!(crate::operator_cli::environment_projection(
+        let current_environments = crate::operator_cli::environment_projection(
             &f.m,
             &sw,
             Some(&catalogue),
             &db,
             None
-        )
-        .unwrap()
-        .iter()
-        .flat_map(|row| &row.actions)
-        .all(|available| !matches!(available.action, ui::Action::EnvironmentRescan { .. })));
+        ).unwrap();
+        let current_refresh:Vec<_> = current_environments.iter()
+            .flat_map(|row| &row.actions)
+            .filter(|available| matches!(available.action, ui::Action::EnvironmentRescan { .. }))
+            .collect();
+        assert_eq!(current_refresh.len(),1);
+        assert_eq!(current_refresh[0].action,ui::Action::EnvironmentRescan {environment:id.into()});
+        assert!(current_refresh[0].disabled_reason.is_none());
         assert_eq!(fs::read(record_path).unwrap(), record_bytes);
         assert_eq!(fs::read(registry_path).unwrap(), registry_bytes);
     }

@@ -1818,6 +1818,8 @@ Managed experimental environments could have stale scanner evidence yet no lawfu
 
 The earlier action route equated catalogue presence with all managed authority. Canonical rescan/retry now derives authority from current catalogue plus exact retained managed ownership and revalidates under the final scanner lock.
 
+Current known inventory also hid and refused discovery after a vendor application added a module. The shared rescan now remains offered for exact managed environments; the source regression discovers the addition without changing sibling publications, preferences or environment identity. Installed Deck acceptance is pending.
+
 ### Fix chain
 
 - **Source correction:** merged managed-environment refresh and exact quarantine retry authority in canonical product [PR #143](https://github.com/kasselvania/Linux-VST-bridge/pull/143) and predecessor manager work.
@@ -1832,7 +1834,7 @@ Blackhole and Kontakt on Steam Deck; FRAGMENTS catalogue-free retry on Ubuntu.
 
 ### Claim limit
 
-This does not reopen installation or grant arbitrary rescans.
+This does not reopen installation or grant rescan authority for unowned environments.
 
 ### Related failure classes
 
