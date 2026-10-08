@@ -9,18 +9,16 @@ An unfamiliar instrument or effect is a normal case, not a catalogue refusal.
 
 ## Current increment
 
-Source already offers unfamiliar-class checks/publication and graphics/accessibility
-trial/keep/restore; the full ordinary installed journey still needs physical proof.
+Unfamiliar-class checks/publication and graphics/accessibility trial/keep/restore are available; installed acceptance continues.
 Source now lets the musician select an existing setup or affected plug-in and an
 imported companion/dependency installer, see affected siblings, and run it through
 existing supervised custody, then rescan/reprepare. Stop/retry preserve the space.
 Advance the existing revision before mutation; keep ID, initial history, prior
 publications and unrelated spaces. Stale siblings need fresh preparation; vendor
 state cannot be promised rollback. Global exclusion and onboarding guards remain.
-Source review and CI pass; old-guard regression fails, corrected SDK 6/6 and worker/capture 3/3 pass.
-Test25 confirms the guard refused legal Processing restore; signed, inspected Test26 (1afce8ff) pauses/restores/resumes the same instance.
-Two fresh Windows fixture families pass 8 positive DSP/state and 24 dependency-refusal contracts.
-Repaired original-project recall and installed companion cases wait for the offline homelab; VM stays stopped, original project unchanged.
+Source review/CI and SDK/worker regressions pass. Test26 Reference REAPER recall restores controls/automation and exact baseline PCM.
+Two fresh families pass 8 positive/24 refusal contracts; pre-registration held companion Focus/Stop survives manager restart and retires cleanly.
+Installed held retry/rescan/preparation/recall, registered partial Stop/retry/sibling refresh and settings trials continue.
 
 ## Validation alongside and done
 
