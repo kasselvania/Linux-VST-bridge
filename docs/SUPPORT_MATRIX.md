@@ -35,9 +35,14 @@ deadline misses retained (70.469146 ms and 25.700938 ms against 21.333 ms).
 The final buffering reset required an explicit normal retry after fresh-read/Busy
 refusals; a reopened frontend's 512/1024 requests then both succeeded.
 
+Test29's frontend-open 512→1024→512 requests complete without mutation retry;
+one separate normal action restores the original 1024 preference. The narrow
+Busy repair and two still-open read freshness retries are recorded in
+[FC-MGMT-007](FAILURE_CLASSES.md#fc-mgmt-007--retained-proposal-displaces-selected-configuration).
+
 On the same 2-vCPU/3-GiB HDD VM, Test28 takes 1,488.99 s versus 4,253.42 s for
 Test27 (64.99% shorter), still roughly 25 minutes. Slow update/cold start,
-callback overruns and transient refresh/Busy refusals remain open; vendor-state
+callback overruns and transient fresh-read refusals remain open; vendor-state
 rollback is not supported.
 
 Downgrading to an older manager after a shared-environment change is unqualified;

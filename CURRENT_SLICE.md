@@ -1,36 +1,40 @@
-# Current task: buffering and delivery controls with the frontend open
+# Next milestone: ordinary setup for an unfamiliar real plug-in
 
 ## Goal
 
-Make ordinary buffering and delivery changes complete while the frontend remains
-open. A read-only refresh must not become a false "operation already running"
-refusal. Preserve exact target, preference and affected-owner mutation checks.
+A musician can make an ordinary first attempt with a previously untested,
+user-owned Windows plug-in: install, authorize, play, save and reopen through the
+product. Shared defaults, applicable profiles and capability observations should
+usually make the first attempt work. Qualification records evidence; it is not
+per-plug-in permission, a named catalogue gate or a reason for a separate build.
 
-## Best explanation and next change
+## Completed increment
 
-Pulse and current readback take the registry guard without action serialization.
-Buffering/delivery admission releases its registry guard; the preference owner
-then takes that guard fail-fast. A harmless overlapping read can therefore refuse
-the action after admission. Wait within the existing non-audio operation bound
-at that final acquisition, then recheck identities and owners before one write.
-Keep standalone controls and real-time admission fail-fast; replay no action.
+Buffering and delivery now wait within the existing non-audio bound when readback
+holds their final preference lock, then recheck exact identities and affected
+owners before one write. Synchronized regressions force the old false Busy
+refusal and prove completion, timeout and changed-authority behavior.
+Test29's normal update preserves eight exact classes and preferences. With the
+frontend continuously open, 512→1024→512 completes without mutation retry;
+registry/publications/sibling preference stay unchanged. Ordinary polling is
+observed before and after. A separate normal action restores the original 1024.
 
-## Done
+## Best explanation and next changes
 
-- A synchronized concurrency regression reaches both ordinary action owners,
-  reproduces the old refusal and proves completion after readback releases.
-- Sustained contention, stale target/preference and active affected owners refuse
-  without changing the requested preference.
-- Independent review, green checks and a normal installed update; the frontend
-  stays open through 512→1024→512, with completed receipts and exact readback.
+Shared mechanisms exist; show the ordinary first attempt with another real owned
+plug-in. Choose the attempt with the operator and use normal product setup.
+Repair a specific missing capability through shared mechanisms or justified
+declarative profile data; untested status does not forbid an ordinary attempt.
 
-## Retained capability and following work
+## Done and retained capability
 
-Test28 companion Stop/retry, sibling rescan/publication, changed-state/automation
-recall and settings Try/Apply/Keep/Restore pass; protected-reference PCM is exact.
-Fresh-read refusals remain a separate open defect. Two audio deadline misses,
-slow cold start/update and older-manager usability remain open.
-Vendor-state rollback is not promised.
+Install and authorize a previously untested real plug-in; discover and prepare it
+through shared product mechanisms, then play and save/reopen it on the first
+ordinary attempt without maintainer repair or a per-plug-in permission entry.
+Test28 companion recovery, sibling publication, state/automation recall and
+settings trials/restoration pass. Two precise read freshness retries recur in
+Test29; freshness remains open. Slow cold start/update, two audio deadline misses
+and older-manager usability remain open. Vendor-state rollback is not promised.
 Test23 BEAM handoff is operator-reported smooth at 512/48k, SameCallback D=0/L=0.
-The shared workflow still comes first; beta/platform/audio acceptance and later
-work remain in docs/AUDIO_RECOVERY_ROADMAP.md and docs/INTEGRATED_BETA_DELIVERY.md.
+The larger beta/platform/audio scope remains in docs/AUDIO_RECOVERY_ROADMAP.md
+and docs/INTEGRATED_BETA_DELIVERY.md.
