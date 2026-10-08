@@ -457,13 +457,17 @@ fn retained_uuid_environment_can_prepare_from_current_exact_inventory() {
 fn retained_candidate_rechecks_runner_bytes_after_prior_success() {
     let (f, c) = fixture();
     verify_retained_candidate(&f.m, &c).unwrap();
+    verify_candidate(&f.m, &c, &c.selection.scanner, &c.selection.scanner_source).unwrap();
     let artifact = &c.selection.environment.runner.files[0];
     let bytes = fs::read(&artifact.path).unwrap();
     fs::write(&artifact.path, vec![b'X'; bytes.len()]).unwrap();
     assert!(verify_retained_candidate(&f.m, &c).unwrap_err().to_string()
         .contains("artifact missing or changed"));
+    assert!(verify_candidate(&f.m, &c, &c.selection.scanner, &c.selection.scanner_source)
+        .unwrap_err().to_string().contains("artifact missing or changed"));
     fs::write(&artifact.path, bytes).unwrap();
     verify_retained_candidate(&f.m, &c).unwrap();
+    verify_candidate(&f.m, &c, &c.selection.scanner, &c.selection.scanner_source).unwrap();
 }
 #[test]
 fn retained_accessibility_configuration_requires_consistent_advice_and_limits() {

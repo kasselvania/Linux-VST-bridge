@@ -621,7 +621,9 @@ pub fn verify_candidate(m: &Manager, c: &Candidate, host: &Artifact, source: &st
         verify_touch_carry_forward(m, c)?;
     } else {
         require(c.touch_carry_forward.is_none(), "touch_carry_forward_origin")?;
-        verify_selection(m, &c.selection, host, source)?;
+        // Keep the current inventory and caller binding. Retained verification
+        // below checks these artifacts and fully verifies the same runner.
+        validate_selection_record(m, &c.selection, host, source)?;
     }
     verify_retained_candidate(m, c)
 }
