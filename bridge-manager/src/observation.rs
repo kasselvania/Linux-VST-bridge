@@ -231,6 +231,17 @@ impl Census {
         source: &str,
         at: u64,
     ) -> Result<()> {
+        self.verify_current_artifacts(root, host, source, at)?;
+        self.environment.environment.runner.verify().map_err(|_| "runner_mismatch")?;
+        Ok(())
+    }
+    pub(crate) fn verify_current_artifacts(
+        &self,
+        root: &Path,
+        host: &Artifact,
+        source: &str,
+        at: u64,
+    ) -> Result<()> {
         require(
             self.schema == 1
                 && valid_hex(&self.id, 32)
@@ -269,7 +280,6 @@ impl Census {
                 && read_json::<Environment>(&e.root.join("environment.json"))? == *e,
             "environment_mismatch",
         )?;
-        e.runner.verify().map_err(|_| "runner_mismatch")?;
         require(
             self.module
                 .path

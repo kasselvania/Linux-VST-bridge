@@ -289,10 +289,13 @@ pub fn validate_selection_record(m: &Manager, s: &Selection, host: &Artifact, so
     validate_selection_data(m, s, host, source)
 }
 fn verify_selection_data(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result<()> {
+    verify_selection_artifacts(m, s, host, source)?;
+    s.environment.runner.verify()
+}
+fn verify_selection_artifacts(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result<()> {
     validate_selection_data(m, s, host, source)?;
     s.module.verify()?;
-    s.scanner.verify()?;
-    s.environment.runner.verify()
+    s.scanner.verify()
 }
 fn validate_selection_data(m: &Manager, s: &Selection, host: &Artifact, source: &str) -> Result<()> {
     validate_selection_data_with_current(m,s,host,source,true)
@@ -777,7 +780,10 @@ pub fn verify_retained_candidate(m: &Manager, c: &Candidate) -> Result<()> {
     configuration::verify_trial(m, c)?;
     let host = &c.selection.scanner;
     let source = c.selection.scanner_source.as_str();
-    verify_selection_data(m, &c.selection, host, source)?;
+    // Registration::verify below performs the full runner verification for
+    // this candidate. Verify the selection artifacts here without hashing
+    // the same runtime tree twice in one verification call.
+    verify_selection_artifacts(m, &c.selection, host, source)?;
     if c.origin == Origin::RetainedSv1 {
         verify_legacy(m, c)?;
     } else if c.host.sha256 != host.sha256 || c.source_manifest.sha256 != source {

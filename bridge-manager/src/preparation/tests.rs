@@ -454,6 +454,18 @@ fn retained_uuid_environment_can_prepare_from_current_exact_inventory() {
         &f.r.host_source_sha256).is_err());
 }
 #[test]
+fn retained_candidate_rechecks_runner_bytes_after_prior_success() {
+    let (f, c) = fixture();
+    verify_retained_candidate(&f.m, &c).unwrap();
+    let artifact = &c.selection.environment.runner.files[0];
+    let bytes = fs::read(&artifact.path).unwrap();
+    fs::write(&artifact.path, vec![b'X'; bytes.len()]).unwrap();
+    assert!(verify_retained_candidate(&f.m, &c).unwrap_err().to_string()
+        .contains("artifact missing or changed"));
+    fs::write(&artifact.path, bytes).unwrap();
+    verify_retained_candidate(&f.m, &c).unwrap();
+}
+#[test]
 fn retained_accessibility_configuration_requires_consistent_advice_and_limits() {
     let (f, mut candidate) = fixture();
     candidate.profile.capabilities.accessibility = Accessibility::DisabledForVendorProcess;
@@ -2185,6 +2197,13 @@ with zipfile.ZipFile(path,'w') as z:
     )
     .unwrap();
     build::cleanup_work(&f.m, &refresh_operation).unwrap();
+    // Prior successful refresh preparation never authorizes changed runtime
+    // bytes at the next publication-preparation boundary.
+    let registry_before = fs::read(f.m.root.join("registry.json")).unwrap();
+    fs::write(&runner_file, vec![b'Z'; runner_bytes.len()]).unwrap();
+    assert!(f.m.prepare_package_refresh(&replacement, &revision).is_err());
+    assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry_before);
+    fs::write(&runner_file, &runner_bytes).unwrap();
     let mut changed_predecessor = replacement.clone();
     changed_predecessor.selection.module.sha256 = "ee".repeat(32);
     assert_eq!(verify_refresh_candidate(&f.m, &changed_predecessor, &installed)
