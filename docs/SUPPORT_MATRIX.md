@@ -475,6 +475,12 @@ retain their original scope.
 
 ## Ubuntu
 
+**Supported case:** Ubuntu 26.04.1 / REAPER 7.82 / first-party Reference instrument
+and effect saved-project recall on Test26. Both changed control pairs and the
+instrument Level envelope restore; both four-second stereo 24-bit/44.1-kHz offline
+renders exactly match the unchanged project's baseline PCM. See the
+[bounded recall result](../evidence/state-recall/2026-10-07-reaper-processing-restore.json).
+
 | Product / exact class | User posture | Accepted profile or selected candidate | Runner/policy | Physically accepted behavior | Current limitations and linked failure classes | Last physical evidence |
 |---|---|---|---|---|---|---|
 | Efx FRAGMENTS 1.3.1.6566 · `41727475415649536772616E50726F63` (effect) | supported-with-workaround | engineering `review_candidate` revision 12; [exact profile](../compatibility/frg1/revision-12/arturia-efx-fragments.json); retained publication `d1273fdb5a50d9f73009bc6473cd3f36` | `ge-proton11-7-ubuntu2604-frg1`; Ubuntu shared-private-loopback adapter | Inventory/publication, Bitwig editor, audible processing and parameter response, save/reopen, clean retirement, controlled restart and actual cold boot with exact same-revision reselection | Required explicit Bitwig 512/48-kHz configuration: [FC-AUDIO-002](FAILURE_CLASSES.md#fc-audio-002--host-block-exceeds-the-selected-bridge-presentation-envelope). Recorded underruns: [FC-AUDIO-001](FAILURE_CLASSES.md#fc-audio-001--residual-audio-deadline-misses). Abrupt active-owner recovery not generalized: [FC-LIFE-002](FAILURE_CLASSES.md#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state). Namespace and startup laws: [FC-PLAT-001](FAILURE_CLASSES.md#fc-plat-001--nativewindows-transport-requires-shared-private-loopback), [FC-BOOT-001](FAILURE_CLASSES.md#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot). | [Ubuntu-lab merged PR #5](https://github.com/kasselvania/Linux-VST-bridge-ubuntu-lab/pull/5), [machine-reboot receipt](https://github.com/kasselvania/Linux-VST-bridge-ubuntu-lab/blob/473ac0a926e6d95d470c002244b851857b83f41c/evidence/UA1/20260923T1818Z-frg1-machine-reboot/result.json) |
