@@ -1497,7 +1497,8 @@ pub fn registry_requires_loaded_engine_refresh_record(m: &Manager) -> Result<boo
 pub fn registry_requires_loaded_engine_refresh_record_with_registry(m: &Manager,
     acquire_registry: impl FnOnce() -> Result<Lock>) -> Result<bool> {
     let records = RecordReadback::capture(m)?;
-    for state in m.package_publication_record_snapshot_locked(&acquire_registry()?)? {
+    let snapshot = m.package_publication_record_snapshot_locked(&acquire_registry()?)?;
+    for state in snapshot {
         if state.entry.publication != Publication::Published {
             continue;
         }
@@ -1526,7 +1527,8 @@ pub fn registry_requires_loaded_engine_refresh(m: &Manager) -> Result<bool> {
 #[doc(hidden)]
 pub fn registry_requires_loaded_engine_refresh_with_registry(m: &Manager,
     acquire_registry: impl FnOnce() -> Result<Lock>) -> Result<bool> {
-    for state in m.package_publication_snapshot_locked(&acquire_registry()?)? {
+    let snapshot = m.package_publication_snapshot_locked(&acquire_registry()?)?;
+    for state in snapshot {
         if state.entry.publication != Publication::Published {
             continue;
         }
