@@ -1491,8 +1491,13 @@ impl RecordReadback {
 /// Read-only package status classification from retained control records.
 /// Execution and mutation owners must still perform full artifact verification.
 pub fn registry_requires_loaded_engine_refresh_record(m: &Manager) -> Result<bool> {
+    registry_requires_loaded_engine_refresh_record_with_registry(m, || m.lock("registry.lock"))
+}
+#[doc(hidden)]
+pub fn registry_requires_loaded_engine_refresh_record_with_registry(m: &Manager,
+    acquire_registry: impl FnOnce() -> Result<Lock>) -> Result<bool> {
     let records = RecordReadback::capture(m)?;
-    for state in m.package_publication_record_snapshot()? {
+    for state in m.package_publication_record_snapshot_locked(&acquire_registry()?)? {
         if state.entry.publication != Publication::Published {
             continue;
         }
@@ -1516,7 +1521,12 @@ pub fn registry_requires_loaded_engine_refresh_record(m: &Manager) -> Result<boo
 /// Mutation classification preserves full candidate/runtime byte verification
 /// while sharing the same explicit retained admission provenance as status.
 pub fn registry_requires_loaded_engine_refresh(m: &Manager) -> Result<bool> {
-    for state in m.package_publication_snapshot()? {
+    registry_requires_loaded_engine_refresh_with_registry(m, || m.lock("registry.lock"))
+}
+#[doc(hidden)]
+pub fn registry_requires_loaded_engine_refresh_with_registry(m: &Manager,
+    acquire_registry: impl FnOnce() -> Result<Lock>) -> Result<bool> {
+    for state in m.package_publication_snapshot_locked(&acquire_registry()?)? {
         if state.entry.publication != Publication::Published {
             continue;
         }

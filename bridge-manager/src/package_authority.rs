@@ -1122,9 +1122,6 @@ fn with_locks<T>(m: &Manager, work: impl FnOnce() -> Result<T>) -> Result<T> {
     work()
 }
 
-fn publications_need_refresh(m: &Manager) -> Result<bool> {
-    preparation::registry_requires_loaded_engine_refresh(m)
-}
 fn retained_publication_ancestor(m: &Manager, key: &str, id: &str)
     -> Result<(publication::RevisionRef, publication::Revision)> {
     require(valid_hex(key, 32) && valid_hex(id, 32), "rollback_identity")?;
@@ -1186,8 +1183,9 @@ pub(super) fn restore_publication(m: &Manager, key: &str, id: &str,
 }
 
 fn prepare_refresh_receipt(m: &Manager, target: &Software,
-    predecessor: Software) -> Result<RefreshReceipt> {
-    let before = m.package_publication_snapshot()?;
+    predecessor: Software,
+    acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<RefreshReceipt> {
+    let before = m.package_publication_snapshot_locked(&acquire_registry()?)?;
     // The fixed population bound is 256. Each class gets the supervisor's
     // 190-second outer inspection bound plus the existing 1,250-second build
     // owner and retirement allowance; setup/staging gets a separate base.
@@ -1214,15 +1212,16 @@ fn prepare_refresh_receipt(m: &Manager, target: &Software,
         if !preparation::publication_requires_refresh(m, &revision, &runtime.kit.sha256)? {
             continue;
         }
-        let report = inspect_for_package_refresh(m, target, &runtime,
-            &revision.registration)?;
+        let report = inspect_for_package_refresh_with_registry(m, target, &runtime,
+            &revision.registration, &mut *acquire_registry)?;
         let operation = random_id()?;
         let prepared = preparation::refresh_candidate(m, &revision,
             runtime.clone(), report, &operation);
         let cleanup = preparation::build::cleanup_work(m, &operation);
         let candidate = prepared?;
         cleanup?;
-        transitions.push(m.prepare_package_refresh(&candidate, reference)?);
+        transitions.push(m.prepare_package_refresh_with_registry(
+            &candidate, reference, &mut *acquire_registry)?);
         require(std::time::Instant::now() < deadline,
             "package_refresh_deadline")?;
     }
@@ -1235,7 +1234,7 @@ fn prepare_refresh_receipt(m: &Manager, target: &Software,
         require(*state == transition.before, "package_publication_set_changed")?;
         *state = transition.after.clone();
     }
-    m.verify_package_publication_snapshot(&before)?;
+    m.verify_package_publication_snapshot_locked(&before, &acquire_registry()?)?;
     let receipt = RefreshReceipt { schema:1, predecessor,
         successor:target.clone(), before_publications:before,
         after_publications:after, transitions, resume_history:None };
@@ -1251,16 +1250,33 @@ fn start_and_health(service: &impl ServiceControl, m: &Manager, home: &Path,
     require(state.load == "loaded" && state.active == "active"
         && effective_exec_is(&state.exec, &selected.manager.path),
         "package_service_did_not_start")?;
-    for _ in 0..20 {
-        if service.healthy(m).is_ok() { return Ok(()); }
-        std::thread::sleep(std::time::Duration::from_millis(100));
+    if !m.root.join("package-transition.json").try_exists()? {
+        for _ in 0..20 {
+            if service.healthy(m).is_ok() { return Ok(()); }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        return service.healthy(m);
     }
-    service.healthy(m)
+    // The transition's new service may spend the existing registry allowance
+    // before creating its endpoint, plus systemd's two-second restart delay.
+    let deadline = Instant::now() + operator_cli::OPERATOR_WAIT + Duration::from_secs(4);
+    loop {
+        let result = service.healthy(m);
+        if result.is_ok() || Instant::now() >= deadline { return result; }
+        std::thread::sleep(Duration::from_millis(100).min(deadline.saturating_duration_since(Instant::now())));
+    }
 }
 
 fn stop_transition_service(m: &Manager, home: &Path,
     service: &impl ServiceControl, software: &[&Software],
     publications: &[publication::PreparedTransition]) -> Result<()> {
+    stop_transition_service_with_registry(m, home, service, software, publications,
+        &mut || m.lock("registry.lock"))
+}
+fn stop_transition_service_with_registry(m: &Manager, home: &Path,
+    service: &impl ServiceControl, software: &[&Software],
+    publications: &[publication::PreparedTransition],
+    acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<()> {
     let state = service.show()?;
     if matches!(state.active.as_str(), "active" | "activating") {
         require(state.load == "loaded"
@@ -1275,7 +1291,8 @@ fn stop_transition_service(m: &Manager, home: &Path,
         // that socket; only exact durable absence can authorize stopping it.
         let observed = (state.active == "active").then(|| service.idle(m)).transpose()?;
         {
-            let _registry = m.lock("registry.lock")?;
+            let registry = acquire_registry()?;
+            registry.require_registry(m)?;
             m.require_inactive(None)?;
             let owners = capacity::owners(m)?;
             if let Some(observed) = observed {
@@ -1294,23 +1311,28 @@ fn stop_transition_service(m: &Manager, home: &Path,
     reconcile_stopped_service(m, service)
 }
 
+#[cfg(test)]
 fn apply_coordinated(m: &Manager, transition: &CoordinatedTransition) -> Result<()> {
+    apply_coordinated_with_registry(m, transition, &mut || m.lock("registry.lock"))
+}
+fn apply_coordinated_with_registry(m: &Manager, transition: &CoordinatedTransition,
+    acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<()> {
     match transition.kind {
         TransitionKind::Update => {
             setup_install::apply_plan(&transition.setup)?;
             for publication in &transition.receipt.transitions {
-                m.commit_package_publication(publication)?;
+                m.commit_package_publication_with_registry(publication, &mut *acquire_registry)?;
             }
             require(transition.setup.is_after()?, "package_transition_incomplete")?;
-            m.verify_package_publication_snapshot(
-                &transition.receipt.after_publications)
+            m.verify_package_publication_snapshot_locked(
+                &transition.receipt.after_publications, &acquire_registry()?)
         }
         TransitionKind::Restore => {
             for publication in transition.receipt.transitions.iter().rev() {
-                m.restore_package_publication(publication)?;
+                m.restore_package_publication_with_registry(publication, &mut *acquire_registry)?;
             }
-            m.verify_package_publication_snapshot(
-                &transition.receipt.before_publications)?;
+            m.verify_package_publication_snapshot_locked(
+                &transition.receipt.before_publications, &acquire_registry()?)?;
             setup_install::apply_restore_plan(&transition.setup)
         }
     }
@@ -1318,24 +1340,29 @@ fn apply_coordinated(m: &Manager, transition: &CoordinatedTransition) -> Result<
 
 fn restore_coordinated_origin(m: &Manager,
     transition: &CoordinatedTransition) -> Result<()> {
+    restore_coordinated_origin_with_registry(m, transition, &mut || m.lock("registry.lock"))
+}
+fn restore_coordinated_origin_with_registry(m: &Manager,
+    transition: &CoordinatedTransition,
+    acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<()> {
     match transition.kind {
         TransitionKind::Update => {
             for publication in transition.receipt.transitions.iter().rev() {
-                m.restore_package_publication(publication)?;
+                m.restore_package_publication_with_registry(publication, &mut *acquire_registry)?;
             }
-            m.verify_package_publication_snapshot(
-                &transition.receipt.before_publications)?;
+            m.verify_package_publication_snapshot_locked(
+                &transition.receipt.before_publications, &acquire_registry()?)?;
             setup_install::restore_plan(&transition.setup)?;
             require(transition.setup.is_before()?, "package_transition_recovery_incomplete")
         }
         TransitionKind::Restore => {
             setup_install::restore_successor_plan(&transition.setup)?;
             for publication in &transition.receipt.transitions {
-                m.commit_package_publication(publication)?;
+                m.commit_package_publication_with_registry(publication, &mut *acquire_registry)?;
             }
             require(transition.setup.is_before()?, "package_transition_recovery_incomplete")?;
-            m.verify_package_publication_snapshot(
-                &transition.receipt.after_publications)
+            m.verify_package_publication_snapshot_locked(
+                &transition.receipt.after_publications, &acquire_registry()?)
         }
     }
 }
@@ -1355,8 +1382,14 @@ fn coordinated_origin_publications(transition: &CoordinatedTransition)
     }
 }
 
+#[cfg(test)]
 fn require_service_transition_coherent_at(m: &Manager, selected: &Software,
     home: &Path) -> Result<()> {
+    require_service_transition_coherent_with_registry(m, selected, home,
+        &mut || m.lock("registry.lock"))
+}
+fn require_service_transition_coherent_with_registry(m: &Manager, selected: &Software,
+    home: &Path, acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<()> {
     let journal = m.root.join("package-transition.json");
     if !journal.try_exists()? { return Ok(()); }
     let value: serde_json::Value = read_json(&journal)?;
@@ -1364,7 +1397,7 @@ fn require_service_transition_coherent_at(m: &Manager, selected: &Software,
         "package_transition_needs_recovery")?;
     let transition: CoordinatedTransition = serde_json::from_value(value)?;
     validate_coordinated(m, home, &transition)?;
-    let publications = m.package_publication_snapshot()?;
+    let publications = m.package_publication_snapshot_locked(&acquire_registry()?)?;
     let coherent = match transition.kind {
         TransitionKind::Update => (transition.setup.is_before()?
             && *selected == transition.recovery_before
@@ -1382,19 +1415,26 @@ fn require_service_transition_coherent_at(m: &Manager, selected: &Software,
     require(coherent, "package_transition_needs_recovery")
 }
 
-pub(super) fn require_service_transition_coherent(m: &Manager,
+pub(super) fn reconcile_service_startup(m: &Manager,
     selected: &Software) -> Result<()> {
     let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
-    require_service_transition_coherent_at(m, selected, &home)
+    reconcile_service_startup_at(m, selected, &home, bounded_registry(m))
+}
+fn reconcile_service_startup_at(m: &Manager, selected: &Software,
+    home: &Path, mut acquire_registry: impl FnMut() -> Result<Lock>) -> Result<()> {
+    if !m.root.join("package-transition.json").try_exists()? { return m.reconcile(); }
+    require_service_transition_coherent_with_registry(m, selected, home, &mut acquire_registry)?;
+    m.reconcile_with_registry(acquire_registry)
 }
 
 fn complete_coordinated(m: &Manager, home: &Path, service: &impl ServiceControl,
-    transition: &CoordinatedTransition) -> Result<()> {
+    transition: &CoordinatedTransition,
+    acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<()> {
     let journal = m.root.join("package-transition.json");
-    apply_coordinated(m, transition)?;
+    apply_coordinated_with_registry(m, transition, acquire_registry)?;
     let selected = coordinated_final_software(transition);
     start_and_health(service, m, home, selected)?;
-    settle_resume_handoff(m,service,transition)?;
+    settle_resume_handoff_with_registry(m,service,transition,acquire_registry)?;
     if transition.kind == TransitionKind::Update {
         retain_transition_receipt(m,transition)?;
     }
@@ -1424,10 +1464,16 @@ fn validate_resume_handoff(m: &Manager, service: &impl ServiceControl,
 }
 fn settle_resume_handoff(m: &Manager, service: &impl ServiceControl,
     transition: &CoordinatedTransition) -> Result<()> {
+    settle_resume_handoff_with_registry(m, service, transition, &mut || m.lock("registry.lock"))
+}
+fn settle_resume_handoff_with_registry(m: &Manager, service: &impl ServiceControl,
+    transition: &CoordinatedTransition,
+    acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<()> {
     let Some(handoff) = &transition.resume_handoff else {return Ok(())};
     let owners = service.clean_idle(m)?;
     {
-        let registry = m.lock("registry.lock")?;
+        let registry = acquire_registry()?;
+        registry.require_registry(m)?;
         m.require_inactive(None)?;
         require(owners == capacity::owners(m)?,"package_owners_changed")?;
         require(transition.setup.is_after()?
@@ -1482,7 +1528,8 @@ fn restore_origin_service(m: &Manager, home: &Path, service: &impl ServiceContro
 
 fn recover_coordinated_error(m: &Manager, home: &Path,
     service: &impl ServiceControl, transition: &CoordinatedTransition,
-    original: Box<dyn std::error::Error + Send + Sync>) -> Result<()> {
+    original: Box<dyn std::error::Error + Send + Sync>,
+    acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<()> {
     let journal = m.root.join("package-transition.json");
     let recovery = (|| -> Result<()> {
         let observed: CoordinatedTransition = read_json(&journal)?;
@@ -1493,13 +1540,13 @@ fn recover_coordinated_error(m: &Manager, home: &Path,
         require(serde_json::to_value(&expected)? == serde_json::to_value(&observed)?,
             "package_transition_changed")?;
         validate_resume_handoff(m,service,&observed)?;
-        stop_transition_service(m, home, service,
+        stop_transition_service_with_registry(m, home, service,
             &[&transition.recovery_before, coordinated_final_software(transition)],
-            &transition.receipt.transitions)?;
-        restore_coordinated_origin(m, transition)?;
+            &transition.receipt.transitions, acquire_registry)?;
+        restore_coordinated_origin_with_registry(m, transition, acquire_registry)?;
         restore_origin_service(m,home,service,transition)?;
-        m.verify_package_publication_snapshot(
-            coordinated_origin_publications(transition))?;
+        m.verify_package_publication_snapshot_locked(
+            coordinated_origin_publications(transition), &acquire_registry()?)?;
         fs::remove_file(&journal)?;
         fs::File::open(&m.root)?.sync_all()?;
         Ok(())
@@ -1512,7 +1559,14 @@ fn recover_coordinated_error(m: &Manager, home: &Path,
 }
 
 fn run_coordinated(m: &Manager, home: &Path, service: &impl ServiceControl,
-    mut transition: CoordinatedTransition, restart_prior: bool) -> Result<()> {
+    transition: CoordinatedTransition, restart_prior: bool) -> Result<()> {
+    run_coordinated_with_registry(m, home, service, transition, restart_prior,
+        &mut || m.lock("registry.lock"), &mut || m.lock("registry.lock"))
+}
+fn run_coordinated_with_registry(m: &Manager, home: &Path, service: &impl ServiceControl,
+    mut transition: CoordinatedTransition, restart_prior: bool,
+    acquire_registry: &mut impl FnMut() -> Result<Lock>,
+    acquire_recovery_registry: &mut impl FnMut() -> Result<Lock>) -> Result<()> {
     let journal = m.root.join("package-transition.json");
     let prepared = (|| -> Result<()> {
         if transition.resume_handoff.is_none() {
@@ -1538,15 +1592,15 @@ fn run_coordinated(m: &Manager, home: &Path, service: &impl ServiceControl,
     if let Err(original) = atomic_json(&journal, &transition) {
         if journal.try_exists()? {
             return recover_coordinated_error(m, home, service,
-                &transition, original);
+                &transition, original, acquire_recovery_registry);
         }
         return restart_prior_after_error(m, home, service,
             &transition.recovery_before, original, restart_prior);
     }
-    match complete_coordinated(m, home, service, &transition) {
+    match complete_coordinated(m, home, service, &transition, acquire_registry) {
         Ok(()) => Ok(()),
         Err(original) => recover_coordinated_error(m, home, service,
-            &transition, original),
+            &transition, original, acquire_recovery_registry),
     }
 }
 
@@ -1564,9 +1618,15 @@ fn restart_prior_after_error<T>(m: &Manager, home: &Path,
 
 fn stop_for_coordinated(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl, prior: &Software) -> Result<bool> {
+    stop_for_coordinated_with_registry(m, home, inputs, owner, service, prior,
+        &mut || m.lock("registry.lock"))
+}
+fn stop_for_coordinated_with_registry(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
+    service: &impl ServiceControl, prior: &Software,
+    acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<bool> {
     let before = service.show()?;
     let was_active = before.active == "active";
-    match stop_for_repair_locked(m, home, inputs, owner, service) {
+    match stop_for_repair_locked_with_registry(m, home, inputs, owner, service, acquire_registry) {
         Ok(()) => Ok(was_active),
         Err(original) => {
             let after = service.show().map_err(|observation| format!(
@@ -1628,12 +1688,33 @@ fn rollback_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Res
 }
 fn update_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl) -> Result<()> {
+    update_from_with_registry(m, home, inputs, owner, service,
+        bounded_registry(m), bounded_registry(m))
+}
+fn bounded_registry(m: &Manager) -> impl FnMut() -> Result<Lock> + '_ {
+    registry_wait_budget(m, operator_cli::OPERATOR_WAIT)
+}
+fn registry_wait_budget(m: &Manager, mut remaining_wait: Duration)
+    -> impl FnMut() -> Result<Lock> + '_ {
+    move || {
+        let started = Instant::now();
+        let result = m.lock_bounded(operator_model::OperatorLock::Registry,
+            operator_model::LockPurpose::OperatorValidationReadback, None, remaining_wait);
+        remaining_wait = remaining_wait.saturating_sub(started.elapsed());
+        result.map(|(guard, _)| guard)
+    }
+}
+fn update_from_with_registry(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
+    service: &impl ServiceControl,
+    mut acquire_registry: impl FnMut() -> Result<Lock>,
+    mut acquire_recovery_registry: impl FnMut() -> Result<Lock>) -> Result<()> {
     let _package = m.lock("package.lock")?;
     let _setup = m.lock("setup.lock")?;
     let _resume = operator_cli::resume_lock(m)?;
     let current = old_software(m)?.ok_or("package_not_installed")?;
     let captured = operator_cli::capture_package_resume_with(m,&current,|op|service.worker_live(op))?;
-    let restart_prior = stop_for_coordinated(m, home, inputs, owner, service, &current)?;
+    let restart_prior = stop_for_coordinated_with_registry(m, home, inputs, owner, service,
+        &current, &mut acquire_registry)?;
     let prepared = (|| -> Result<CoordinatedTransition> {
         require_service_stopped(service)?;
         require(!m.root.join("package-transition.json").try_exists()?,
@@ -1655,7 +1736,8 @@ fn update_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
             let _ = predecessor_plan(m, home, manifest.clone(), sha.clone())?;
             stage(m, inputs, manifest, sha, Some(current.clone()))?
         };
-        let needs_refresh = publications_need_refresh(m)?;
+        let needs_refresh = preparation::registry_requires_loaded_engine_refresh_with_registry(
+            m, &mut acquire_registry)?;
         require(target != current || needs_refresh,
             "package_update_not_required")?;
         let predecessor = if target == current && needs_refresh {
@@ -1663,7 +1745,8 @@ fn update_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
                 .ok_or("package_restore_predecessor_unavailable")?
         } else { current.clone() };
         verify_software_identity(m, &predecessor)?;
-        let receipt = prepare_refresh_receipt(m, &target, predecessor)?;
+        let receipt = prepare_refresh_receipt(m, &target, predecessor,
+            &mut acquire_registry)?;
         for state in &receipt.before_publications {
             if state.entry.publication == Publication::Published {
                 let _ = paired_components(m, &receipt.predecessor,
@@ -1683,7 +1766,8 @@ fn update_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
                 original, restart_prior);
         }
     };
-    run_coordinated(m, home, service, transition, restart_prior)
+    run_coordinated_with_registry(m, home, service, transition, restart_prior,
+        &mut acquire_registry, &mut acquire_recovery_registry)
 }
 
 fn restore_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
@@ -2015,6 +2099,11 @@ fn activation_status_from(m: &Manager, home: &Path,
 /// a damaged package generation cannot become an adoptable predecessor.
 fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl) -> Result<ActivationStatus> {
+    bootstrap_status_with_registry(m, home, inputs, owner, service, &mut || m.lock("registry.lock"))
+}
+fn bootstrap_status_with_registry(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
+    service: &impl ServiceControl,
+    acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<ActivationStatus> {
     require(!m.root.join("package-transition.json").try_exists()?,
         "package_transition_needs_recovery")?;
     let Some(selected) = old_software_record(m)? else {
@@ -2028,7 +2117,8 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     };
     let generation = selected_generation_record(m, &selected)?;
     let legacy = generation.is_none();
-    let refresh_required = preparation::registry_requires_loaded_engine_refresh_record(m)?;
+    let refresh_required = preparation::registry_requires_loaded_engine_refresh_record_with_registry(
+        m, &mut *acquire_registry)?;
     let (manifest, sha) = read_manifest_record(inputs, owner)?;
     let (version, update_available, rollback_available) = if legacy {
         require_retained_host_pair_record(m, &selected, &manifest)?;
@@ -2039,7 +2129,7 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
         if let Some(predecessor) = &generation.predecessor {
             validate_software_record(m, predecessor)?;
         }
-        let current_publications = m.package_publication_record_snapshot()?;
+        let current_publications = m.package_publication_record_snapshot_locked(&acquire_registry()?)?;
         let receipts = matching_refresh_receipts(m, &selected, &current_publications)?;
         require(receipts.len() <= 1, "package_restore_receipt_ambiguous")?;
         let has_published = current_publications.iter().any(|state|
@@ -2068,7 +2158,7 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
         "active" => {
             require(effective_exact, "package_active_service_identity_changed")?;
             if legacy || update_available || rollback_available || !routes_exact {
-                stop_gate(m, service)?;
+                stop_gate(m, service, acquire_registry)?;
             }
             if legacy { "legacy_active" }
             else if update_available { "update_active" }
@@ -2081,7 +2171,8 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
             || (state.load == "not-found" && state.active == "inactive"
                 && state.fragment.is_empty() && state.exec.is_empty()) => {
             let keeper_retirement_pending = {
-                let _registry = m.lock("registry.lock")?;
+                let registry = acquire_registry()?;
+                registry.require_registry(m)?;
                 let _unconfirmed = reconcile_leases(m)?;
                 m.require_inactive(None)?;
                 let owners = capacity::owners(m)?;
@@ -2105,7 +2196,8 @@ fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     };
     Ok(ActivationStatus { schema: 3, state: posture, package_version: version })
 }
-fn stop_gate(m: &Manager, service: &impl ServiceControl) -> Result<Vec<capacity::Owner>> {
+fn stop_gate(m: &Manager, service: &impl ServiceControl,
+    acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<Vec<capacity::Owner>> {
     let before = service.idle(m)?;
     let latest = m.root.join("operator/latest.json");
     if latest.try_exists()? {
@@ -2130,7 +2222,8 @@ fn stop_gate(m: &Manager, service: &impl ServiceControl) -> Result<Vec<capacity:
         }
     }
     {
-        let _registry = m.lock("registry.lock")?;
+        let registry = acquire_registry()?;
+        registry.require_registry(m)?;
         m.require_inactive(None)?;
         require(capacity::owners(m)? == before, "package_owners_changed")?;
         require(operator_cli::pending_transactions(m)? == 0,
@@ -2144,12 +2237,20 @@ fn stop_gate(m: &Manager, service: &impl ServiceControl) -> Result<Vec<capacity:
     require(after == before, "package_owners_changed")?;
     Ok(after)
 }
+#[cfg(test)]
 fn stop_selected_service(m: &Manager, home: &Path, selected: &Software,
     service: &impl ServiceControl,
     observed_keepers: &[capacity::Owner]) -> Result<()> {
+    stop_selected_service_with_registry(m, home, selected, service, observed_keepers,
+        &mut || m.lock("registry.lock"))
+}
+fn stop_selected_service_with_registry(m: &Manager, home: &Path, selected: &Software,
+    service: &impl ServiceControl, observed_keepers: &[capacity::Owner],
+    acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<()> {
     // Bounded systemctl stop intentionally runs under the admission lock,
     // matching operator suspension. Read-only status probes never do this.
-    let _registry = m.lock("registry.lock")?;
+    let registry = acquire_registry()?;
+    registry.require_registry(m)?;
     m.require_inactive(None)?;
     require(capacity::owners(m)? == observed_keepers, "package_owners_changed")?;
     require(operator_cli::pending_transactions(m)? == 0,
@@ -2187,8 +2288,14 @@ fn stop_for_repair_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
 }
 fn stop_for_repair_locked(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl) -> Result<()> {
+    stop_for_repair_locked_with_registry(m, home, inputs, owner, service,
+        &mut || m.lock("registry.lock"))
+}
+fn stop_for_repair_locked_with_registry(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
+    service: &impl ServiceControl,
+    acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<()> {
     let (_, package_sha) = read_manifest(inputs, owner)?;
-    let status = bootstrap_status_from(m, home, inputs, owner, service)?;
+    let status = bootstrap_status_with_registry(m, home, inputs, owner, service, acquire_registry)?;
     require(matches!(status.state, "legacy_active" | "repair_active" | "update_active"
         | "rollback_active"
         | "legacy_adoptable" | "repair_inactive" | "update_adoptable"
@@ -2199,12 +2306,13 @@ fn stop_for_repair_locked(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
         | "rollback_inactive") { return Ok(()); }
     if matches!(status.state, "legacy_retirement_pending" | "repair_retirement_pending"
         | "update_retirement_pending" | "rollback_retirement_pending") {
-        let _registry = m.lock("registry.lock")?;
+        let registry = acquire_registry()?;
+        registry.require_registry(m)?;
         m.require_inactive(None)?;
         reconcile_stopped_service(m, service)?;
         require(capacity::owners(m)?.is_empty(), "package_owner_active")?;
-        drop(_registry);
-        let after = bootstrap_status_from(m, home, inputs, owner, service)?;
+        drop(registry);
+        let after = bootstrap_status_with_registry(m, home, inputs, owner, service, acquire_registry)?;
         require(read_manifest(inputs, owner)?.1 == package_sha,
             "package_input_changed_during_stop")?;
         return require(after.package_version == status.package_version
@@ -2216,14 +2324,14 @@ fn stop_for_repair_locked(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
                 | ("rollback_retirement_pending", "rollback_inactive")),
             "package_service_did_not_stop_cleanly");
     }
-    let before = bootstrap_status_from(m, home, inputs, owner, service)?;
+    let before = bootstrap_status_with_registry(m, home, inputs, owner, service, acquire_registry)?;
     require(read_manifest(inputs, owner)?.1 == package_sha
         && before.state == status.state && before.package_version == status.package_version,
         "package_stop_state_changed")?;
     let observed_keepers = service.idle(m)?;
     let selected = old_software(m)?.ok_or("package_not_installed")?;
-    stop_selected_service(m, home, &selected, service, &observed_keepers)?;
-    let after = bootstrap_status_from(m, home, inputs, owner, service)?;
+    stop_selected_service_with_registry(m, home, &selected, service, &observed_keepers, acquire_registry)?;
+    let after = bootstrap_status_with_registry(m, home, inputs, owner, service, acquire_registry)?;
     require(read_manifest(inputs, owner)?.1 == package_sha,
         "package_input_changed_during_stop")?;
     require(after.package_version == status.package_version
@@ -2335,6 +2443,7 @@ mod tests {
         fail_start: Cell<bool>,
         fail_starts: Cell<usize>,
         fail_health: Cell<bool>,
+        fail_health_reads: Cell<usize>,
         fail_idle: Cell<bool>,
         fail_clean: Cell<bool>,
         worker_active: Cell<bool>,
@@ -2353,7 +2462,7 @@ mod tests {
             }), fail_reload: Cell::new(false), fail_show: Cell::new(false),
                 stale_reload: Cell::new(false), fail_start: Cell::new(false),
                 fail_starts: Cell::new(0),
-                fail_health: Cell::new(false), fail_idle: Cell::new(false),
+                fail_health: Cell::new(false), fail_health_reads: Cell::new(0), fail_idle: Cell::new(false),
                 fail_clean: Cell::new(false),worker_active:Cell::new(false),
                 before_clean:RefCell::new(None),
                 legacy_start_manager:RefCell::new(None),
@@ -2410,6 +2519,10 @@ mod tests {
             Ok(())
         }
         fn healthy(&self, _: &Manager) -> Result<()> {
+            if self.fail_health_reads.get() > 0 {
+                self.fail_health_reads.set(self.fail_health_reads.get() - 1);
+                return Err("package_service_health_unavailable".into());
+            }
             require(!self.fail_health.get(), "package_service_health_unavailable")
         }
         fn idle(&self, m: &Manager) -> Result<Vec<capacity::Owner>> {
@@ -3918,6 +4031,221 @@ mod tests {
         (f, transition)
     }
 
+    fn refreshing_update_fixture() -> Fixture {
+        let (base, candidate) = test_fixture::prepared_candidate(&"13".repeat(16));
+        let f = Fixture::with_base(base);
+        let mut report: serde_json::Value = read_json(&candidate.inspection.report.path).unwrap();
+        report["records"].as_array_mut().unwrap().push(serde_json::json!({"state":"ap8_bus",
+            "media":0,"direction":1,"index":0,"channels":2,"type":0,"flags":1,
+            "arrangement":3,"name":"Output"}));
+        let report_path = f.base.outer.join("baseline-inspection.json");
+        atomic_json(&report_path, &report).unwrap();
+        let kit = f.base.m.root.join("software/baseline-kit.zip");
+        test_fixture::reusable_kit(&kit, &candidate.host, &candidate.source_manifest, "retained-engine");
+        let temporary = Software { manager:candidate.host.clone(),operator_frontend:None,
+            installer_launch:None,preparation_kit:Some(Artifact {sha256:digest(&kit).unwrap(),path:kit}),
+            supervisor:candidate.host.clone(),ownership:candidate.host.clone(),host:candidate.host.clone(),
+            source_manifest:candidate.source_manifest.clone(),source_sha256:candidate.source_manifest.sha256.clone(),
+            native_catalogue:None };
+        let runtime = preparation::build::stage_runtime_for_software(&f.base.m, &temporary).unwrap();
+        let inspection = preparation::inspect_record_with(candidate.selection.clone(),
+            Artifact {sha256:digest(&report_path).unwrap(),path:report_path},
+            preparation::Origin::ManagedPreparation,runtime.host.clone(),runtime.source_manifest.clone()).unwrap();
+        let operation = random_id().unwrap();
+        let retained = preparation::build::construct_with_runtime(&f.base.m, candidate.selection,
+            inspection, runtime, &operation).unwrap();
+        preparation::retain_inspection(&f.base.m, &retained.inspection).unwrap();
+        preparation::record_candidate(&f.base.m, &retained).unwrap();
+        preparation::build::cleanup_work(&f.base.m, &operation).unwrap();
+        preparation::enable(&f.base.m, &retained, false).unwrap();
+        f.adopt().unwrap();
+        let kit = f.base.outer.join("update-kit.zip");
+        test_fixture::reusable_kit(&kit, &retained.host, &retained.source_manifest, "updated-engine");
+        f.add_kit(&fs::read(kit).unwrap());
+        let template = serde_json::to_string(&serde_json::to_string(&report).unwrap()).unwrap();
+        let supervisor = f.base.outer.join("update-supervisor.py");
+        fs::write(&supervisor, format!(r#"import json,sys,pathlib
+j=json.loads(pathlib.Path(sys.argv[1]).read_text())
+r=json.loads({template})
+p=pathlib.Path(j['report']);p.write_text(json.dumps(r))
+p.with_suffix('.ownership.json').write_text(json.dumps(dict(session=j['session'],cleanup_confirmed=True,transport_retired=True)))
+print('LVO0 '+j['session']+' ready',flush=True)
+"#)).unwrap();
+        let compiled = f.base.outer.join("update-supervisor.pyc");
+        assert!(Command::new("python3").args(["-I", "-c",
+            "import py_compile,sys;py_compile.compile(sys.argv[1],cfile=sys.argv[2],doraise=True)"])
+            .arg(supervisor).arg(&compiled).status().unwrap().success());
+        f.replace("session.pyc", &fs::read(compiled).unwrap(), true);
+        f.replace("linux-vst-bridge", b"updated manager", true);
+        f.service.enable_start().unwrap();
+        f
+    }
+
+    #[test]
+    fn updater_registry_admission_covers_stop_refresh_commit_and_contended_recovery() {
+        use operator_model::LockOutcome;
+        // Cleanup refusal (13), and refusal during resumed target settlement (19).
+        // The success case also settles the retained suspension (19).
+        for fail_at in [Some(13), Some(19), None] {
+            let f = refreshing_update_fixture();
+            let before = f.current();
+            let publications = f.base.m.package_publication_snapshot().unwrap();
+            let preferences = f.base.m.performance(&f.base.r.key()).unwrap();
+            let (reservation, bytes, failed, failed_bytes) = retired_suspension(&f, &before);
+            let project = f.base.outer.join("saved-project");
+            fs::write(&project, b"saved musician project").unwrap();
+            let mut calls = 0;
+            let mut waits = vec![];
+            let mut forward = registry_wait_budget(&f.base.m, Duration::from_millis(20));
+            let mut recovery_calls = 0;
+            let mut recovery = registry_wait_budget(&f.base.m, Duration::from_millis(20));
+            let mut initial_contention = Some(f.base.m.lock("registry.lock").unwrap());
+            let result = update_from_with_registry(&f.base.m, &f.home, &f.inputs, f.owner,
+                &f.service, || {
+                    calls += 1;
+                    let held = match initial_contention.take() {
+                        Some(held) => held,
+                        None => f.base.m.lock("registry.lock")?,
+                    };
+                    assert!(matches!(f.base.m.try_lock("registry.lock")?, operator_lock::LockAttempt::Busy));
+                    // Every reachable crossing sees a real busy registry then
+                    // release. The chosen failure keeps that exact guard held.
+                    let held = if fail_at == Some(calls) { Some(held) } else { drop(held); None };
+                    let acquired = forward();
+                    drop(held);
+                    match acquired {
+                        Ok(guard) => Ok(guard),
+                        Err(error) => {
+                            waits.push(error.downcast_ref::<operator_lock::AcquisitionFailure>()
+                                .unwrap().facts.clone());
+                            Err(error)
+                        }
+                    }
+                }, || {
+                    recovery_calls += 1;
+                    let held = f.base.m.lock("registry.lock")?;
+                    assert!(matches!(f.base.m.try_lock("registry.lock")?, operator_lock::LockAttempt::Busy));
+                    drop(held);
+                    recovery()
+                });
+            assert_eq!(calls, fail_at.unwrap_or(19), "ordinary updater admission bypassed: {result:?}");
+            assert_eq!(recovery_calls, if fail_at == Some(19) { 5 } else { 0 });
+            if fail_at.is_some() {
+                let error = result.unwrap_err();
+                let facts = &error.downcast_ref::<operator_lock::AcquisitionFailure>().unwrap().facts;
+                assert!(facts.attempts > 1 && facts.outcome == LockOutcome::Timeout);
+                assert!(f.current() == before);
+                assert_eq!(f.base.m.package_publication_snapshot().unwrap(), publications);
+                assert_eq!(fs::read(&reservation).unwrap(), bytes);
+            } else {
+                result.unwrap();
+                assert!(f.current() != before);
+                let current = f.base.m.package_publication_snapshot().unwrap();
+                assert_eq!(current[0].entry.registration.environment,
+                    publications[0].entry.registration.environment);
+                assert_eq!(current[0].entry.registration.module,
+                    publications[0].entry.registration.module);
+                assert!(!reservation.exists());
+            }
+            assert_eq!(fs::read(failed).unwrap(), failed_bytes);
+            assert_eq!(waits.len(), usize::from(fail_at.is_some()));
+            assert_eq!(f.base.m.performance(&f.base.r.key()).unwrap(), preferences);
+            assert_eq!(fs::read(project).unwrap(), b"saved musician project");
+            assert_eq!(f.service.show().unwrap().active, "active");
+            assert!(!f.base.m.root.join("package-transition.json").exists());
+            assert!(!f.base.m.publication_pending(&f.base.r.key()).unwrap());
+        }
+    }
+
+    #[test]
+    fn updater_wait_rechecks_stop_identity_and_final_refresh_snapshot() {
+        for change_at in [7, 15] {
+            let f = refreshing_update_fixture();
+            let before = f.current();
+            let mut calls = 0;
+            let result = update_from_with_registry(&f.base.m, &f.home, &f.inputs, f.owner,
+                &f.service, || {
+                    calls += 1;
+                    let held = f.base.m.lock("registry.lock")?;
+                    assert!(matches!(f.base.m.try_lock("registry.lock")?, operator_lock::LockAttempt::Busy));
+                    if calls == 7 && change_at == 7 {
+                        f.service.loaded.borrow_mut().exec = "foreign service".into();
+                    }
+                    drop(held);
+                    if calls == 15 && change_at == 15 {
+                        f.base.m.select_delay(&f.base.r.key(), 1024)?;
+                    }
+                    bounded_registry(&f.base.m)()
+                }, bounded_registry(&f.base.m));
+            let error = result.unwrap_err().to_string();
+            assert_eq!(calls, change_at);
+            assert!(error.contains(if change_at == 7 { "package_active_service_identity_changed" }
+                else { "package_publication_set_changed" }), "{error}");
+            assert!(f.current() == before);
+            assert!(!f.base.m.root.join("package-transition.json").exists());
+            assert!(!f.base.m.publication_pending(&f.base.r.key()).unwrap());
+            if change_at == 7 { assert_eq!(f.service.stops.get(), 0); }
+            else {
+                assert_eq!(f.base.m.performance(&f.base.r.key()).unwrap().added_frames, 1024);
+                assert_eq!(f.service.show().unwrap().active, "active");
+            }
+        }
+    }
+
+    #[test]
+    fn updater_wait_budget_is_shared_and_recovery_gets_a_finite_fresh_allowance() {
+        let f = Fixture::new();
+        let held = f.base.m.lock("registry.lock").unwrap();
+        let mut forward = registry_wait_budget(&f.base.m, Duration::from_millis(20));
+        let exhausted = forward().err().unwrap();
+        let facts = &exhausted.downcast_ref::<operator_lock::AcquisitionFailure>().unwrap().facts;
+        assert!(facts.attempts > 1 && facts.timeout_ms == 20);
+        let refused = forward().err().unwrap();
+        let facts = &refused.downcast_ref::<operator_lock::AcquisitionFailure>().unwrap().facts;
+        assert_eq!((facts.attempts, facts.timeout_ms), (1, 0));
+        let mut recovery = registry_wait_budget(&f.base.m, Duration::from_millis(20));
+        let refused = recovery().err().unwrap();
+        let facts = &refused.downcast_ref::<operator_lock::AcquisitionFailure>().unwrap().facts;
+        assert!(facts.attempts > 1 && facts.timeout_ms == 20);
+        drop(held);
+        assert!(forward().is_ok());
+        assert!(recovery().is_ok());
+    }
+
+    #[test]
+    fn coordinated_service_startup_waits_for_both_guards_and_health_endpoint() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let (first, _, receipt, setup) = staged_transition(&f);
+        let transition = CoordinatedTransition { schema:2, id:random_id().unwrap(),
+            kind:TransitionKind::Update, recovery_before:first.clone(), setup, receipt, resume_handoff:None };
+        let journal = f.base.m.root.join("package-transition.json");
+        atomic_json(&journal, &transition).unwrap();
+        let mut calls = 0;
+        let mut initial_contention = Some(f.base.m.lock("registry.lock").unwrap());
+        reconcile_service_startup_at(&f.base.m, &first, &f.home, || {
+            calls += 1;
+            let held = match initial_contention.take() {
+                Some(held) => held,
+                None => f.base.m.lock("registry.lock")?,
+            };
+            assert!(matches!(f.base.m.try_lock("registry.lock")?, operator_lock::LockAttempt::Busy));
+            drop(held);
+            bounded_registry(&f.base.m)()
+        }).unwrap();
+        assert_eq!(calls, 2, "coherence and reconciliation must both use the startup allowance");
+        // Twenty-one refused probes cross the former two-second window.
+        f.service.fail_health_reads.set(21);
+        start_and_health(&f.service, &f.base.m, &f.home, &first).unwrap();
+        assert_eq!(f.service.fail_health_reads.get(), 0);
+        fs::remove_file(journal).unwrap();
+        let held = f.base.m.lock("registry.lock").unwrap();
+        let error = reconcile_service_startup_at(&f.base.m, &first, &f.home,
+            || panic!("ordinary startup must retain fail-fast admission")).unwrap_err();
+        assert!(error.downcast_ref::<operator_lock::LockBusy>().is_some());
+        drop(held);
+    }
+
     fn interrupt_publication(transition: &publication::PreparedTransition,
         m: &Manager, reverse: bool) {
         let value = serde_json::to_value(transition).unwrap();
@@ -4008,6 +4336,10 @@ mod tests {
         f.adopt().unwrap();
         let expected = f.base.m.package_publication_snapshot().unwrap();
         let wrong_lock = f.base.m.lock("package.lock").unwrap();
+        assert_eq!(f.base.m.package_publication_snapshot_locked(&wrong_lock)
+            .unwrap_err().to_string(), "registry_guard_identity");
+        assert_eq!(f.base.m.package_publication_record_snapshot_locked(&wrong_lock)
+            .unwrap_err().to_string(), "registry_guard_identity");
         assert_eq!(f.base.m.verify_package_publication_snapshot_locked(&expected, &wrong_lock)
             .unwrap_err().to_string(), "registry_guard_identity");
         let other = Fixture::new();

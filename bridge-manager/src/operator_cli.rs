@@ -820,7 +820,7 @@ fn operator_catalogue_records(m: &Manager, sw: &Software, registry: &Registry,
         Ok(Some(sw.catalogue_record(m)?))
     }
 }
-const OPERATOR_WAIT: Duration = Duration::from_secs(10);
+pub(super) const OPERATOR_WAIT: Duration = Duration::from_secs(10);
 #[cfg(test)]
 fn canonical_lock(m: &Manager) -> Result<Lock> {
     Ok(m.lock_bounded(

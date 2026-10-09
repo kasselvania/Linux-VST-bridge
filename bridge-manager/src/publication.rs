@@ -524,7 +524,11 @@ impl Manager {
     }
     #[doc(hidden)]
     pub fn package_publication_snapshot(&self) -> Result<Vec<PublicationState>> {
-        let _lock = self.lock("registry.lock")?;
+        self.package_publication_snapshot_locked(&self.lock("registry.lock")?)
+    }
+    #[doc(hidden)]
+    pub fn package_publication_snapshot_locked(&self, lock: &Lock) -> Result<Vec<PublicationState>> {
+        lock.require_registry(self)?;
         let db = self.registry()?;
         require(db.classes.len() <= 256, "package_publication_bound")?;
         db.classes.iter().map(|(key, entry)| self.package_publication_state(key, entry)).collect()
@@ -533,7 +537,11 @@ impl Manager {
     /// executable payload verification. Package status is its only authority.
     #[doc(hidden)]
     pub fn package_publication_record_snapshot(&self) -> Result<Vec<PublicationState>> {
-        let _lock = self.lock("registry.lock")?;
+        self.package_publication_record_snapshot_locked(&self.lock("registry.lock")?)
+    }
+    #[doc(hidden)]
+    pub fn package_publication_record_snapshot_locked(&self, lock: &Lock) -> Result<Vec<PublicationState>> {
+        lock.require_registry(self)?;
         let db = self.registry()?;
         require(db.classes.len() <= 256, "package_publication_bound")?;
         db.classes
@@ -947,6 +955,16 @@ impl Manager {
         candidate: &crate::preparation::Candidate,
         expected: &RevisionRef,
     ) -> Result<PreparedTransition> {
+        self.prepare_package_refresh_with_registry(candidate, expected,
+            || self.lock("registry.lock"))
+    }
+    #[doc(hidden)]
+    pub fn prepare_package_refresh_with_registry(
+        &self,
+        candidate: &crate::preparation::Candidate,
+        expected: &RevisionRef,
+        acquire_registry: impl FnOnce() -> Result<Lock>,
+    ) -> Result<PreparedTransition> {
         let prior_revision = self.load_revision(&candidate.selection.class.id, expected)?;
         crate::preparation::verify_refresh_candidate(self, candidate, &prior_revision)?;
         require(candidate.profile.claim == Claim::ReviewCandidate
@@ -961,7 +979,8 @@ impl Manager {
         let registration = crate::preparation::configuration::registration(candidate)?;
         registration.validate_record(&self.root)?;
         let key = registration.key();
-        let _lock = self.lock("registry.lock")?;
+        let lock = timing::measure(Stage::RegistryLock, acquire_registry)?;
+        lock.require_registry(self)?;
         let db = self.registry()?;
         let entry = db.classes.get(&key).ok_or("registration_absent")?;
         require(entry.publication == Publication::Published
@@ -1086,9 +1105,15 @@ impl Manager {
     #[doc(hidden)]
     pub fn reconcile_package_pending_intent(&self,
         transition: &PreparedTransition) -> Result<()> {
+        self.reconcile_package_pending_intent_with_registry(transition, || self.lock("registry.lock"))
+    }
+    #[doc(hidden)]
+    pub fn reconcile_package_pending_intent_with_registry(&self,
+        transition: &PreparedTransition, acquire_registry: impl FnOnce() -> Result<Lock>) -> Result<()> {
         self.verify_prepared_transition(transition)?;
         let key = &transition.before.class_id;
-        let _lock = self.lock("registry.lock")?;
+        let lock = acquire_registry()?;
+        lock.require_registry(self)?;
         let pending = self.pending_path(key);
         if !pending.try_exists()? { return Ok(()); }
         let intent = self.read_intent(&pending)?;
@@ -1108,8 +1133,14 @@ impl Manager {
     #[doc(hidden)]
     pub fn commit_package_publication(&self,
         transition: &PreparedTransition) -> Result<()> {
-        self.reconcile_package_pending_intent(transition)?;
-        let _lock = self.lock("registry.lock")?;
+        self.commit_package_publication_with_registry(transition, || self.lock("registry.lock"))
+    }
+    #[doc(hidden)]
+    pub fn commit_package_publication_with_registry(&self,
+        transition: &PreparedTransition, mut acquire_registry: impl FnMut() -> Result<Lock>) -> Result<()> {
+        self.reconcile_package_pending_intent_with_registry(transition, &mut acquire_registry)?;
+        let lock = acquire_registry()?;
+        lock.require_registry(self)?;
         self.verify_prepared_transition(transition)?;
         let current = self.package_publication_state(&transition.before.class_id,
             self.registry()?.classes.get(&transition.before.class_id)
@@ -1128,10 +1159,16 @@ impl Manager {
     #[doc(hidden)]
     pub fn restore_package_publication(&self,
         transition: &PreparedTransition) -> Result<()> {
+        self.restore_package_publication_with_registry(transition, || self.lock("registry.lock"))
+    }
+    #[doc(hidden)]
+    pub fn restore_package_publication_with_registry(&self,
+        transition: &PreparedTransition, mut acquire_registry: impl FnMut() -> Result<Lock>) -> Result<()> {
         self.verify_prepared_transition(transition)?;
         let key = &transition.before.class_id;
-        self.reconcile_package_pending_intent(transition)?;
-        let _lock = self.lock("registry.lock")?;
+        self.reconcile_package_pending_intent_with_registry(transition, &mut acquire_registry)?;
+        let lock = acquire_registry()?;
+        lock.require_registry(self)?;
         let current = self.registry()?.classes.get(key)
             .ok_or("package_publication_set_changed")?.clone();
         let state = self.package_publication_state(key, &current)?;
