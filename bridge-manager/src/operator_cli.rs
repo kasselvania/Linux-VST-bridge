@@ -626,6 +626,19 @@ fn managed_environment_bindings(
     }
     Ok(bindings)
 }
+fn discovery_environments(bindings: &[catalogue::EnvironmentBinding],
+    records: &[onboarding::Record]) -> Result<Vec<Environment>> {
+    let mut environments = std::collections::BTreeMap::new();
+    for environment in bindings.iter().map(|binding| &binding.environment)
+        .chain(records.iter().map(|record| &record.environment)) {
+        if let Some(current) = environments.get(&environment.id) {
+            require(current == environment,"operator_managed_environment_binding_conflict")?;
+        } else {
+            environments.insert(environment.id.clone(),environment.clone());
+        }
+    }
+    Ok(environments.into_values().collect())
+}
 fn managed_rescan_binding_from(
     m: &Manager,
     bindings: &[linux_vst_bridge::catalogue::EnvironmentBinding],
@@ -1175,17 +1188,8 @@ fn snapshot_readonly_depth(
     let catalogue = operator_catalogue_readback(m, &sw, &db)?;
     let managed_bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
     let environments = environment_projection_from(m, &sw, &managed_bindings, &db, busy)?;
-    let mut inventory_environments: Vec<Environment> = managed_bindings.iter()
-        .map(|e| e.environment.clone()).collect();
-    for retained in onboarding::history_records(m)? {
-        if let Some(current) = inventory_environments.iter()
-            .find(|environment| environment.id == retained.environment.id) {
-            require(current == &retained.environment,
-                "operator_managed_environment_binding_conflict")?;
-        } else {
-            inventory_environments.push(retained.environment);
-        }
-    }
+    let inventory_environments = discovery_environments(&managed_bindings,
+        &onboarding::history_records(m)?)?;
     for env in &inventory_environments {
         let retry_disabled = quarantined_retry_disabled(m, &managed_bindings, &db, env)?;
         let path = m.root.join("inventory").join(format!("{}.json", env.id));
@@ -4245,7 +4249,7 @@ mod tests {
         };
         assert!(validate(&request, &snapshot).is_err());
     }
-    fn capacity_json(blocked: bool, dsp: usize, maintenance: usize) -> Value {
+    pub(super) fn capacity_json(blocked: bool, dsp: usize, maintenance: usize) -> Value {
         json!({"ok":true,"capacity":{"schema":1,"dsp":dsp,"maintenance":maintenance,"keepers":1,"cleanup_unconfirmed":blocked,"owners":[],"limits":{"global_dsp":6}}})
     }
     fn service_reply(m: &Manager, value: Value) -> std::thread::JoinHandle<()> {
@@ -4265,7 +4269,7 @@ mod tests {
             peer.write_all(&bytes).unwrap();
         })
     }
-    fn overview_service_reply(m: &Manager, value: Value) -> std::thread::JoinHandle<()> {
+    pub(super) fn overview_service_reply(m: &Manager, value: Value) -> std::thread::JoinHandle<()> {
         overview_service_reply_with_counts(m, value, (1, 3))
     }
     fn overview_service_reply_with_counts(m: &Manager, value: Value, expected: (usize, usize))
