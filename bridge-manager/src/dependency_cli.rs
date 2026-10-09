@@ -2,7 +2,6 @@
 use super::*;
 use linux_vst_bridge::{
     dependency_session as life, native_access_dependency as dep, operator_model as ui,
-    renderer_application as app,
 };
 use serde_json::{json, Value};
 pub(super) fn all_retired(m: &Manager) -> Result<bool> {
@@ -13,8 +12,7 @@ pub(super) fn all_retired(m: &Manager) -> Result<bool> {
     life::retired(m, c["operation"].as_str().ok_or("dependency_current")?)
 }
 pub(super) fn launch(m: &Manager, op: &str) -> Result<life::Submission> {
-    let application: app::Application =
-        read_json(&renderer_cli::directory(m).join("application.json"))?;
+    let application=renderer_cli::current_application(m)?;
     application.verify(&m.root)?;
     let software = software(m)?;
     let directory = life::operation_dir(m, op)?;
@@ -52,12 +50,11 @@ pub(super) fn launch(m: &Manager, op: &str) -> Result<life::Submission> {
     )
 }
 pub(super) fn retain(m: &Manager, op: &str) -> Result<()> {
-    let application: app::Application =
-        read_json(&renderer_cli::directory(m).join("application.json"))?;
+    let application=renderer_cli::current_application(m)?;
     dep::retain_prepared(m, &application, &software(m)?, op)
 }
 pub(super) fn prepared(m: &Manager) -> Result<Value> {
-    let app = read_json(&renderer_cli::directory(m).join("application.json"))?;
+    let app=renderer_cli::current_application(m)?;
     dep::prepared(m, &app, &software(m)?)
 }
 pub(super) fn project(

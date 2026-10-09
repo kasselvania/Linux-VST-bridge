@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 21;
+pub const OPERATOR_SCHEMA: u32 = 22;
 /// Explicit delivery policy, independent from the remembered buffered delay.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -210,6 +210,8 @@ pub enum Action {
     EnvironmentInstallerFocus { operation: String },
     EnvironmentInstallerStop { operation: String },
     EnvironmentInstallerScan { environment: String },
+    /// Advance an existing space to an exact installed runner, then rescan.
+    EnvironmentRuntimeSelect { environment: String, runner: String, expected_environment: String },
     VendorApplicationOpen {
         application: String,
     },
@@ -472,6 +474,17 @@ pub struct EnvironmentInstaller {
     pub installer: Option<String>,
     pub result: serde_json::Value,
     pub actions: Vec<AvailableAction>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<EnvironmentRuntime>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EnvironmentRuntime {
+    pub runner: String,
+    pub revision: u64,
+    pub affected: Vec<String>,
+    pub consequence: String,
+    pub choices: Vec<AvailableAction>,
 }
 /// Current presentation only. The nested snapshot is deliberately scoped to
 /// current products and setup: histories and diagnostic detail are absent.
@@ -725,6 +738,7 @@ impl Action {
                 | Self::InstallerScan { .. }
                 | Self::EnvironmentInstallerStart { .. }
                 | Self::EnvironmentInstallerScan { .. }
+                | Self::EnvironmentRuntimeSelect { .. }
                 | Self::VendorApplicationOpen { .. }
                 | Self::EnvironmentRescan { .. }
                 | Self::QuarantinedModuleRetry { .. }

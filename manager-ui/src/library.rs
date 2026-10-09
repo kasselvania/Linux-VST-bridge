@@ -325,7 +325,7 @@ impl Library {
                             chosen, self.expand_details);
                         if let Some(target) = snapshot.environment_installers.iter()
                             .find(|target|target.environment == p.environment) {
-                            egui::CollapsingHeader::new("Install a companion or dependency")
+                            egui::CollapsingHeader::new("Manage shared setup")
                                 .default_open(target.actions.iter().any(|offer|
                                     matches!(offer.action,Action::EnvironmentInstallerStop { .. })))
                                 .show(ui,|ui|environment_installer_controls(ui,target,pending,chosen));
@@ -813,6 +813,31 @@ pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
         ui.strong(format!("Affected plug-ins: {}", target.affected.join(", ")));
     }
     ui.small(format!("Compatibility space: {}",target.environment));
+    if let Some(runtime)=&target.runtime {
+        egui::CollapsingHeader::new("Compatibility runtime").show(ui,|ui| {
+            ui.label(format!("Current runtime: {} · setup revision {}",runtime.runner,runtime.revision));
+            ui.label(&runtime.consequence);
+            ui.strong("Affected plug-ins and applications");
+            for owner in &runtime.affected {ui.label(owner);}
+            let key=egui::Id::new(("environment_runtime",&target.environment));
+            let mut selected=ui.data_mut(|data|data.get_temp::<String>(key)).unwrap_or_default();
+            egui::ComboBox::from_id_salt(("environment_runtime_choice",&target.environment))
+                .selected_text(runtime.choices.iter().find(|offer|matches!(&offer.action,
+                    Action::EnvironmentRuntimeSelect {runner,..} if runner==&selected))
+                    .map(|offer|offer.label.as_str()).unwrap_or("Choose an installed runtime"))
+                .show_ui(ui,|ui|for offer in &runtime.choices {
+                    if let Action::EnvironmentRuntimeSelect {runner,..}=&offer.action {
+                        ui.selectable_value(&mut selected,runner.clone(),&offer.label);
+                    }
+                });
+            ui.data_mut(|data|data.insert_temp(key,selected.clone()));
+            if let Some(offer)=runtime.choices.iter().find(|offer|matches!(&offer.action,
+                Action::EnvironmentRuntimeSelect {runner,..} if runner==&selected)) {
+                action_buttons(ui,std::slice::from_ref(offer),None,pending,chosen);
+            }
+            if runtime.choices.is_empty() {ui.small("Install another compatibility runtime through Setup to try it here.");}
+        });
+    }
     if target.operation.is_some() {
         let state = target.result["state"].as_str().unwrap_or("unavailable").replace('_'," ");
         ui.label(format!("Last installer: {state}"));

@@ -14,8 +14,11 @@ pub(super) struct Binding {
 }
 
 pub(crate) fn same_space(before: &Environment, after: &Environment) -> bool {
-    before.id == after.id && before.root == after.root && before.runner == after.runner
+    before.id == after.id && before.root == after.root
         && before.revision <= after.revision
+}
+pub(crate) fn resolves_to(m: &Manager, before: &Environment, after: &Environment) -> Result<bool> {
+    Ok(same_space(before,after) && current_environment(m,before)?==*after)
 }
 
 pub(crate) fn current_environment(m: &Manager, bound: &Environment) -> Result<Environment> {
@@ -24,13 +27,19 @@ pub(crate) fn current_environment(m: &Manager, bound: &Environment) -> Result<En
     let current: Environment = read_json(&bound.root.join("environment.json"))?;
     require(same_space(bound, &current), "installer_environment_binding_changed")?;
     if current != *bound {
-        // Only a retained installation transaction authorizes a revision change.
+        // Every exact revision edge belongs to its retained typed operator job.
         let history=records(m)?;
+        let runtime=environment_runtime::records(m)?;
+        let edges:Vec<_>=history.iter().map(|r|(&r.before,&r.environment))
+            .chain(runtime.iter().filter(|r|r.state != environment_runtime::State::Cancelled)
+                .map(|r|(&r.before,&r.environment))).collect();
         let mut step=bound.clone();
-        for _ in 0..history.len() {
+        for _ in 0..edges.len() {
             if step == current {break;}
-            step=history.iter().find(|r|r.before == step)
-                .ok_or("installer_environment_revision_unowned")?.environment.clone();
+            let mut successors=edges.iter().filter(|(before,_)|**before==step);
+            let next=successors.next().ok_or("installer_environment_revision_unowned")?.1;
+            require(successors.next().is_none(),"environment_revision_ownership_conflict")?;
+            step=next.clone();
         }
         require(step == current,"installer_environment_revision_unowned")?;
     }
@@ -45,6 +54,7 @@ pub(super) fn load(m: &Manager, operation: &str) -> Result<Binding> {
         && request.action == (ui::Action::EnvironmentInstallerStart {
             environment:r.environment.id.clone(), installer:r.installer.clone() })
         && same_space(&r.before,&r.environment)
+        && r.before.runner == r.environment.runner
         && r.before.revision.checked_add(1) == Some(r.environment.revision)
         && r.environment.root == m.root.join("environments").join(&r.environment.id)
         && valid_product_environment(&r.environment.id), "installer_transaction_binding")?;
@@ -88,16 +98,20 @@ pub(super) fn target(m: &Manager, environment: &str) -> Result<Environment> {
         require(r.installation_operation.is_some()
             && onboarding::retired(&onboarding::result(m,&r)?),
             "installer_initial_retirement_required")?;
-        require(db.classes.values().filter(|e|e.registration.environment.id == environment)
-            .all(|e|same_space(&e.registration.environment,&r.environment)),
-            "installer_environment_binding_changed")?;
-        return current_environment(m,&r.environment);
+        let current=current_environment(m,&r.environment)?;
+        for entry in db.classes.values().filter(|e|e.registration.environment.id == environment) {
+            require(resolves_to(m,&entry.registration.environment,&current)?,
+                "installer_environment_binding_changed")?;
+        }
+        return Ok(current);
     }
     let mut owners = db.classes.values().filter(|e|e.registration.environment.id == environment);
     let first = owners.next().ok_or("installer_existing_setup_required")?;
     let current = current_environment(m,&first.registration.environment)?;
-    require(owners.all(|e|same_space(&e.registration.environment,&current)),
-        "installer_environment_binding_changed")?;
+    for entry in owners {
+        require(resolves_to(m,&entry.registration.environment,&current)?,
+            "installer_environment_binding_changed")?;
+    }
     Ok(current)
 }
 
@@ -111,6 +125,7 @@ fn reserve_with(m: &Manager, environment: &str, installer: &str,
     let _registry = m.lock("registry.lock")?;
     m.require_inactive(None)?;
     require(onboarding::all_retired(m)? && vendor_retirement()?, "operator_installer_active")?;
+    environment_runtime::require_settled(m,environment)?;
     let before = target(m,environment)?;
     before.runner.verify()?;
     installer_import::load(m,installer)?;
@@ -243,7 +258,11 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
         let runtime_unavailable=env.runner.validate_record().err();
         let new_work_reason=busy.or(runtime_unavailable.as_ref().map(|_|
             "This setup's pinned compatibility runtime is unavailable. Restore its original files before starting new work."));
-        let mut reason = new_work_reason.map(str::to_owned);
+        let pending_runtime=environment_runtime::pending(m,&id)?;
+        let mut reason = if pending_runtime {
+            actions.push(action("Finish interrupted runtime change",ui::Action::TransactionReconcile {},new_work_reason));
+            Some("Finish the interrupted runtime change before running another installer in this setup.".into())
+        } else {new_work_reason.map(str::to_owned)};
         if let Some(r) = last {
             if !onboarding::retired(&result) {
                 reason = Some("Finish or stop this installer; its cleanup must be confirmed".into());
@@ -253,17 +272,18 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
                     actions.push(action("Stop installer",ui::Action::EnvironmentInstallerStop {
                         operation:r.operation.clone()},None));
                 }
-            } else if onboarding::inventory_refresh_record_required(m,&env,
-                &software_record(m)?.host,&software_record(m)?.source_sha256)? {
-                actions.push(action("Rescan and continue preparation",ui::Action::EnvironmentInstallerScan {
-                    environment:id.clone()},new_work_reason));
             }
             if onboarding::retired(&result) && result["state"] != "completed" {
                 let unavailable=installer_import::load_record(m,&r.installer).err();
                 actions.push(action("Retry this installer in the same setup",ui::Action::EnvironmentInstallerStart {
-                    environment:id.clone(),installer:r.installer.clone()},new_work_reason.or(unavailable.as_ref()
+                    environment:id.clone(),installer:r.installer.clone()},reason.as_deref().or(unavailable.as_ref()
                     .map(|_|"Imported installer file is unavailable. Import the original file again."))));
             }
+        }
+        if active.is_none() && onboarding::inventory_refresh_record_required(m,&env,
+            &software_record(m)?.host,&software_record(m)?.source_sha256)? {
+            actions.push(action("Rescan and continue preparation",ui::Action::EnvironmentInstallerScan {
+                environment:id.clone()},reason.as_deref()));
         }
         let choices = installers.iter().map(|i| {
             let label = installer_import::presentation(m,i)?.display_label;
@@ -272,7 +292,14 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
                 environment:id.clone(),installer:i.id.clone()},reason.as_deref().or(missing.as_ref()
                     .map(|_|"Imported installer file is unavailable. Import the original file again."))))
         }).collect::<Result<Vec<_>>>()?;
-        out.push(ui::EnvironmentInstaller {environment:id,name,affected,
+        let mut runtime=environment_runtime::projection(m,&env,reason.as_deref())?;
+        // Discovered plug-ins can belong to the owned setup before their first
+        // publication. Name them in the same pre-execution consequence panel.
+        for name in &affected {
+            if !runtime.affected.contains(name) {runtime.affected.push(name.clone());}
+        }
+        let runtime=Some(runtime);
+        out.push(ui::EnvironmentInstaller {environment:id,name,affected,runtime,
             consequence:"This installer can change every plug-in in this compatibility space, vendor applications, authorization and shared dependencies. Stopping ends owned processes; it cannot undo vendor changes. Existing plug-ins need a fresh scan and preparation before use. The environment identity is preserved; vendor state is not copied or rolled back.".into(),
             choices,operation:last.map(|r|r.operation.clone()),installer:last.map(|r|r.installer.clone()),result,actions});
     }

@@ -305,7 +305,7 @@ mod tests {
         assert_eq!(decoded.managed_runtime_records[0]["failure"],"managed_runtime_binding");
         with_runtime["schema"]=20.into();
         assert!(decode_reply(Query::Snapshot,&serde_json::to_vec(&with_runtime).unwrap()).err().unwrap()
-            .contains("operator model 21 required"));
+            .contains(&format!("operator model {} required",crate::model::OPERATOR_SCHEMA)));
         for schema in [
             serde_json::json!(6),
             serde_json::json!(7),

@@ -133,6 +133,14 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
         paths.insert(installation.environment.root.join("environment.json"));
         paths.insert(m.root.join("inventory").join(format!("{}.json",installation.environment.id)));
     }
+    for transition in environment_runtime::records(m)? {
+        paths.insert(job_dir(m,&transition.operation)?.join("runtime-transition.json"));
+        paths.insert(transition.environment.root.join("environment.json"));
+        paths.insert(m.root.join("inventory").join(format!("{}.json",transition.environment.id)));
+        for runner in [&transition.before.runner,&transition.environment.runner] {
+            for artifact in &runner.files {paths.insert(artifact.path.clone());}
+        }
+    }
     let transactions = m.root.join("transactions");
     paths.insert(transactions.clone());
     if transactions.is_dir() {
@@ -332,11 +340,12 @@ fn require_live_vendor_report(operation: &vendor_application::Operation) -> Resu
 fn live_vendor_progress(m: &Manager) -> Result<Option<vendor_application::Operation>> {
     live_vendor_progress_with(m,vendor_live)
 }
-fn live_vendor_progress_with(m: &Manager, is_live: impl FnOnce() -> Result<bool>)
+pub(super) fn live_vendor_progress_with(m: &Manager, is_live: impl FnOnce() -> Result<bool>)
     -> Result<Option<vendor_application::Operation>> {
     let directory = app_directory(m);
     if !directory.exists() || !is_live()? { return Ok(None); }
-    let app: vendor_application::Application = read_json(&directory.join("application.json"))?;
+    let mut app: vendor_application::Application = read_json(&directory.join("application.json"))?;
+    app.environment=environment_install::current_environment(m,&app.environment)?;
     let operation: vendor_application::Operation = read_json(&directory.join("operation.json"))?;
     require(app.schema == 1 && operation.application == app
         && valid_hex(&operation.operation_id,32)
