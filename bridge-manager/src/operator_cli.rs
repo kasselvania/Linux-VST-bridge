@@ -6,6 +6,7 @@ use linux_vst_bridge::renderer_application as renderer;
 use serde_json::{json, Value};
 mod current;
 pub(super) mod environment_install;
+mod environment_runtime;
 const ASC: &str = "arturia-software-center";
 const SERVICE: &str = "linux-vst-bridge.service";
 const VENDOR: &str = "linux-vst-bridge-vendor-arturia-software-center.service";
@@ -34,7 +35,7 @@ fn preparation_failure(action: &ui::Action, error: &(dyn std::error::Error + 'st
 thread_local! {
     static SCAN_SPAWN_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     // Synchronize an ordinary readback in the gap between admission and the
-    // final preference commit. This hook is absent from product builds.
+    // final mutation. This hook is absent from product builds.
     static PERFORMANCE_COMMIT_BARRIER: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = const { std::cell::RefCell::new(None) };
 }
 fn text(v: &Value, key: &str) -> String {
@@ -90,6 +91,7 @@ fn token_with_registry(m: &Manager, registry: &Registry) -> Result<String> {
             "terminal_summaries":capacity::terminal_summaries(m)?,
             "installer_presentations":installer_import::presentation_token(m)?,
             "environment_installations":environment_install::records(m)?,
+            "environment_runtime_transitions":environment_runtime::records(m)?,
             "onboarding_history":onboarding::history_records(m)?}),
     )?)))
 }
@@ -165,7 +167,8 @@ fn app_directory(m: &Manager) -> PathBuf {
 fn asc_projection(m: &Manager, busy: Option<&str>) -> Result<Option<ui::VendorApplication>> {
     let app = app_directory(m).join("application.json");
     if !app.exists() { return Ok(None); }
-    let a: vendor_application::Application = read_json(&app)?;
+    let mut a: vendor_application::Application = read_json(&app)?;
+    a.environment=environment_install::current_environment(m,&a.environment)?;
     let live = vendor_live()?;
     let valid = a.verify(&m.root).is_ok();
     let reason = if !valid {
@@ -606,7 +609,8 @@ fn managed_environment_bindings(
             .find(|candidate| candidate.environment.id == binding.environment.id)
         {
             require(
-                existing.family == binding.family && environment_install::same_space(&existing.environment,&binding.environment),
+                existing.family == binding.family && environment_install::current_environment(m,&existing.environment)?
+                    == environment_install::current_environment(m,&binding.environment)?,
                 "operator_managed_environment_binding_conflict",
             )?;
         } else {
@@ -617,7 +621,10 @@ fn managed_environment_bindings(
     if let Some(binding) = linux_vst_bridge::frg1::adopted_environment_record(m)? {
         if let Some(existing) = bindings.iter()
             .find(|candidate| candidate.environment.id == binding.environment.id) {
-            require(existing == &binding,"operator_managed_environment_binding_conflict")?;
+            require(existing.family==binding.family
+                && environment_install::current_environment(m,&existing.environment)?
+                    ==environment_install::current_environment(m,&binding.environment)?,
+                "operator_managed_environment_binding_conflict")?;
         } else {
             require(bindings.len() < 16,"operator_environment_bound")?;
             bindings.push(binding);
@@ -669,16 +676,19 @@ fn managed_rescan_binding_with(m: &Manager, bindings: &[catalogue::EnvironmentBi
     if owners.is_empty() {
         let adopted = if execution { linux_vst_bridge::frg1::adopted_environment(m)? }
             else { linux_vst_bridge::frg1::adopted_environment_record(m)? };
-        return adopted.filter(|binding|environment_install::same_space(bound,&binding.environment))
-            .map(|binding|environment_install::current_environment(m,&binding.environment)).transpose();
+        if let Some(binding)=adopted {
+            if binding.environment.id != bound.id {return Ok(None);}
+            let current=environment_install::current_environment(m,&binding.environment)?;
+            require(environment_install::resolves_to(m,bound,&current)?,"operator_managed_environment_mismatch")?;
+            return Ok(Some(current));
+        }
+        return Ok(None);
     }
     let env = environment_install::current_environment(m,bound)?;
-    require(
-        owners
-            .iter()
-            .all(|entry| environment_install::same_space(&entry.registration.environment,&env)),
-        "operator_managed_environment_mismatch",
-    )?;
+    for entry in &owners {
+        require(environment_install::resolves_to(m,&entry.registration.environment,&env)?,
+            "operator_managed_environment_mismatch")?;
+    }
     let retained = onboarding::retained_environment_record(m, environment)?;
     if let Some(retained) = retained {
         require(
@@ -1376,6 +1386,7 @@ pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
         .iter()
         .chain(snapshot.installer_setups.iter().map(|s| &s.rename))
         .chain(snapshot.environment_installers.iter().flat_map(|s|s.choices.iter().chain(s.actions.iter())))
+        .chain(snapshot.environment_installers.iter().flat_map(|s|s.runtime.iter().flat_map(|r|&r.choices)))
         .chain(snapshot.onboarding.iter().flat_map(|p| p.actions.iter()))
         .chain(snapshot.products.iter().flat_map(|p| p.actions.iter()))
         .chain(snapshot.products.iter().flat_map(|p| p.compatibility.iter()
@@ -1527,6 +1538,7 @@ fn current_offer_action(action: &ui::Action) -> bool {
         | ui::Action::EnvironmentInstallerFocus { .. }
         | ui::Action::EnvironmentInstallerStop { .. }
         | ui::Action::EnvironmentInstallerScan { .. }
+        | ui::Action::EnvironmentRuntimeSelect { .. }
         | ui::Action::QuarantinedModuleRetry { .. })
 }
 fn installer_control(action: &ui::Action) -> Option<(&str, &str)> {
@@ -1727,6 +1739,9 @@ fn finish_operation(m: &Manager, id: &str) -> Result<()> {
         }
         if matches!(request.action,ui::Action::EnvironmentInstallerStart { .. }) {
             environment_install::finish(m,id)?;
+        }
+        if matches!(request.action,ui::Action::EnvironmentRuntimeSelect { .. }) {
+            environment_runtime::finish(m,id)?;
         }
         Ok(())
     })();
@@ -2053,7 +2068,8 @@ fn execute_with_receipt_policy(
     timing::measure(Stage::WorkerAdmission, ||
         require_operator_inactive_with(m, a, capacity_read, operation, timeout, waits))?;
     #[cfg(test)]
-    if matches!(a, ui::Action::BufferingSet { .. } | ui::Action::DeliverySet { .. }) {
+    if matches!(a, ui::Action::BufferingSet { .. } | ui::Action::DeliverySet { .. }
+        | ui::Action::TransactionReconcile {}) {
         PERFORMANCE_COMMIT_BARRIER.with(|barrier| {
             if let Some(run) = barrier.borrow_mut().take() { run(); }
         });
@@ -2295,6 +2311,21 @@ fn execute_with_receipt_policy(
             let resumed = resume_owned(m,owner);
             let value = scanned?;resumed?;Ok(value)
         }
+        ui::Action::EnvironmentRuntimeSelect {environment,runner,expected_environment} => {
+            let _environment = m.lock("operator-environment.lock")?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            suspend(m,owner,None,timeout,waits)?;
+            drop(projection.take());
+            let mut remaining_wait=timeout;
+            let result = environment_runtime::change_and_scan(m,environment,runner,expected_environment,owner,|| {
+                    let started=Instant::now();
+                    let result=acquire_readback(m,ui::OperatorLock::Registry,Some(owner),remaining_wait,waits);
+                    remaining_wait=remaining_wait.saturating_sub(started.elapsed());
+                    result
+                });
+            let resumed = resume_owned(m,owner);
+            let value = result?;resumed?;Ok(value)
+        }
         ui::Action::CaptureArm { class_id } => {
             crash_capture::arm(m, Some(class_id))?;
             Ok(json!({"capture":"armed"}))
@@ -2304,7 +2335,15 @@ fn execute_with_receipt_policy(
             Ok(json!({"capture":"disarmed"}))
         }
         ui::Action::TransactionReconcile {} => {
-            m.reconcile_inactive()?;
+            let mut remaining_wait=timeout;
+            let mut registry_admission=|| {
+                let started=Instant::now();
+                let result=acquire_readback(m,ui::OperatorLock::Registry,operation,remaining_wait,waits);
+                remaining_wait=remaining_wait.saturating_sub(started.elapsed());
+                result
+            };
+            m.reconcile_inactive_with_registry(&mut registry_admission)?;
+            environment_runtime::reconcile(m,&mut registry_admission)?;
             resume_interrupted(m)?;
             Ok(json!({"reconciled":true}))
         }
@@ -2609,6 +2648,7 @@ fn resumable_action(action: &ui::Action) -> bool {
     matches!(action,ui::Action::InstallerStart {..} | ui::Action::InstallerStartWithPolicy {..}
         | ui::Action::InstallerScan {..} | ui::Action::EnvironmentInstallerStart {..}
         | ui::Action::EnvironmentInstallerScan {..} | ui::Action::RendererOpen {..}
+        | ui::Action::EnvironmentRuntimeSelect {..}
         | ui::Action::DependencyPrepare {} | ui::Action::VendorApplicationOpen {..}
         | ui::Action::EnvironmentRescan {..} | ui::Action::QuarantinedModuleRetry {..}
         | ui::Action::PluginReinspect {..} | ui::Action::PluginInspect {..}
@@ -2643,7 +2683,8 @@ fn package_resume_custody(m: &Manager, saved: &ResumeRecord, action: &ui::Action
             vendor_application::ApplicationId::parse(application)?;
             let directory = m.root.join("vendor-applications").join(application);
             let job: vendor_application::Operation = read_json(&directory.join("operation.json"))?;
-            let app: vendor_application::Application = read_json(&directory.join("application.json"))?;
+            let mut app: vendor_application::Application = read_json(&directory.join("application.json"))?;
+            app.environment=environment_install::current_environment(m,&app.environment)?;
             require(saved.vendor_operation.as_deref() == Some(job.operation_id.as_str())
                 && job.application == app && job.report == directory.join("operation-result.json")
                 && app.environment.root == m.root.join("environments").join(&app.environment.id)
@@ -2676,6 +2717,19 @@ fn package_resume_custody(m: &Manager, saved: &ResumeRecord, action: &ui::Action
             for name in ["spec.json","result.json","recovery-result.json"] {
                 let path = operation.join(name);
                 if path.try_exists()? {custody.push(control_artifact(path)?);}
+            }
+        }
+        ui::Action::EnvironmentRuntimeSelect {..} => {
+            require(saved.vendor_operation.is_none(),"package_resume_vendor_binding")?;
+            let path=job_dir(m,&saved.owner_operation)?.join("runtime-transition.json");
+            if path.try_exists()? {
+                let transition=environment_runtime::load(m,&saved.owner_operation)?;
+                let current:Environment=read_json(&transition.environment.root.join("environment.json"))?;
+                require(current==if transition.state==environment_runtime::State::Cancelled {
+                    transition.before.clone()
+                } else {transition.environment.clone()},"package_resume_runtime_binding")?;
+                custody.push(control_artifact(path)?);
+                custody.push(control_artifact(current.root.join("environment.json"))?);
             }
         }
         _ => require(saved.vendor_operation.is_none(),"package_resume_vendor_binding")?,
@@ -3107,7 +3161,12 @@ fn exact_retry_target<'a>(prior: Option<&'a inventory::Scan>, env: &Environment,
 }
 fn rescan_environment_with_retry(m: &Manager, env: Environment,
     retry: Option<QuarantinedRetry>) -> Result<Value> {
-    let _lock = m.lock("registry.lock")?;
+    rescan_environment_admitted(m,env,retry,||m.lock("registry.lock"))
+}
+fn rescan_environment_admitted(m:&Manager,env:Environment,retry:Option<QuarantinedRetry>,
+    registry_admission:impl FnOnce()->Result<Lock>)->Result<Value> {
+    let _lock = registry_admission()?;
+    _lock.require_registry(m)?;
     m.require_inactive(None)?;
     let sw = software(m)?;
     rescan_environment_locked(m, env, sw, retry)
@@ -4097,7 +4156,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 21);
+        assert_eq!(ui::OPERATOR_SCHEMA, 22);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();

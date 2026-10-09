@@ -5,6 +5,11 @@ use serde_json::{json, Value};
 use linux_vst_bridge::renderer_session as lifecycle;
 
 pub(super) fn directory(m: &Manager) -> PathBuf {m.root.join("vendor-applications/native-access")}
+pub(super) fn current_application(m: &Manager) -> Result<renderer::Application> {
+    let mut app:renderer::Application=read_json(&directory(m).join("application.json"))?;
+    app.environment=operator_cli::environment_install::current_environment(m,&app.environment)?;
+    Ok(app)
+}
 pub(super) fn current(m: &Manager) -> Result<Value> {
     let p=directory(m).join("current.json");
     if p.exists(){read_json(&p)}else{Ok(Value::Null)}
@@ -30,12 +35,12 @@ pub(super) fn discover(m: &Manager) -> Result<Value> {
     let _guard=m.lock("registry.lock")?;m.require_inactive(None)?;
     require(all_retired(m)?,"renderer_previous_cleanup_unconfirmed")?;
     let d=directory(m);private_dir(&d)?;let p=d.join("application.json");
-    if p.exists(){require(read_json::<renderer::Application>(&p)?==app,"renderer_application_update_requires_transition")?;}
+    if p.exists(){require(current_application(m)?==app,"renderer_application_update_requires_transition")?;}
     else{atomic_json(&p,&app)?;}
     Ok(json!({"application":app.identity()?,"installed_identity":"verified","renderer_cause":"unresolved"}))
 }
 pub(super) fn launch(m: &Manager, identity: &str, policy: renderer::RendererPolicy, op: &str) -> Result<lifecycle::Submission> {
-    let app:renderer::Application=read_json(&directory(m).join("application.json"))?;
+    let app=current_application(m)?;
     require(app.identity()?==identity,"renderer_application_selection_changed")?;app.verify(&m.root)?;
     let sw=software(m)?;let d=operation_dir(m,op)?;
     let spec=native_access_dependency::bind_session(m,&app,&sw,op,policy,&d.join("result.json"))?;
@@ -81,7 +86,7 @@ pub(super) fn project(m: &Manager, busy: Option<&str>) -> Result<Option<ui::Vend
     let action=|label:&str,a:ui::Action,reason:Option<&str>|ui::AvailableAction{label:label.into(),action:a,disabled_reason:reason.map(Into::into)};
     if !p.exists(){actions.push(action("Verify installed Native Access",ui::Action::RendererDiscover{},busy));}
     else {
-        let app:renderer::Application=read_json(&p)?;let id=app.identity()?;let c=current(m)?;
+        let app=current_application(m)?;let id=app.identity()?;let c=current(m)?;
         let op=c["operation"].as_str();let retired=all_retired(m)?;
         state=if retired{"closed"}else{"supervised / cleanup pending"}.into();
         // Do not hash the 215 MiB application on every UI poll. Launch revalidates

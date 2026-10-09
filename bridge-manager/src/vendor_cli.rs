@@ -12,6 +12,11 @@ pub(super) fn launch_owned(m: &Manager, application: &str, operation: &str) -> R
 pub(super) fn cancel_owned(m: &Manager, application: &str, operation: &str) -> Result<()> {
     run_selected(m, &["cancel".into(), application.into()], Some(operation))
 }
+fn current_application(m: &Manager, record: &Path) -> Result<Application> {
+    let mut app:Application=read_json(record)?;
+    app.environment=operator_cli::environment_install::current_environment(m,&app.environment)?;
+    Ok(app)
+}
 fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result<()> {
     if let Some(id) = operation {
         require(valid_hex(id, 32), "vendor_application_operation_identity")?;
@@ -44,6 +49,7 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
                 .into_values()
                 .next()
                 .ok_or("vendor_application_environment_absent")?;
+            let env=operator_cli::environment_install::current_environment(m,&env)?;
             let operation = fs::OpenOptions::new()
                 .read(true)
                 .write(true)
@@ -56,7 +62,7 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             let app = vendor_application::discover(&m.root, env)?;
             if record.exists() {
                 require(
-                    read_json::<Application>(&record)? == app,
+                    current_application(m,&record)? == app,
                     "vendor_application_update_requires_transition",
                 )?;
             } else {
@@ -66,7 +72,7 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             Ok(())
         }
         "status" => {
-            let app: Application = read_json(&record)?;
+            let app=current_application(m,&record)?;
             app.verify(&m.root)?;
             let report = directory.join("operation-result.json");
             let mut operation = if report.exists() {
@@ -123,7 +129,7 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
                     return Ok(());
                 }
             }
-            let app: Application = read_json(&record)?;
+            let app=current_application(m,&record)?;
             app.verify(&m.root)?;
             let result = Command::new("systemctl")
                 .args([
@@ -155,7 +161,7 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             let mode = LaunchMode::action(&args[0])?;
             let _guard = m.lock("registry.lock")?;
             m.require_inactive(None)?;
-            let app: Application = read_json(&record)?;
+            let app=current_application(m,&record)?;
             app.verify(&m.root)?;
             let sw = software(m)?;
             let unit = "linux-vst-bridge-vendor-arturia-software-center";

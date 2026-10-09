@@ -74,12 +74,10 @@ fn load_bound(m: &Manager, id: &str) -> Result<(Record, bool)> {
         .values()
         .filter(|e| e.registration.environment.id == id)
         .collect();
-    require(
-        managed
-            .iter()
-            .all(|e| operator_cli::environment_install::same_space(&e.registration.environment,&r.environment)),
-        "onboarding_managed_environment_mismatch",
-    )?;
+    for entry in &managed {
+        require(operator_cli::environment_install::resolves_to(m,&entry.registration.environment,&r.environment)?,
+            "onboarding_managed_environment_mismatch")?;
+    }
     Ok((r, !managed.is_empty()))
 }
 pub fn load(m: &Manager, id: &str) -> Result<Record> {
@@ -180,7 +178,7 @@ fn with_delivered_runtime(m: &Manager, mut list: Vec<(String, Runner)>)
     }
     Ok(list)
 }
-fn runners_from_catalogue_with(catalogue: Option<&catalogue::Catalogue>, include_unavailable: bool)
+pub(crate) fn runners_from_catalogue_with(catalogue: Option<&catalogue::Catalogue>, include_unavailable: bool)
     -> Result<Vec<(String, Runner)>> {
     let mut list = vec![];
     for e in catalogue.into_iter().flat_map(|c| &c.environments) {

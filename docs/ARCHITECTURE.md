@@ -1390,6 +1390,17 @@ hide a repaired module. Fresh checks and explicit replacement use the existing
 candidate/history/publication owners. Global installer exclusion includes these
 registered-environment operations; no vendor-state rollback is claimed.
 
+An existing setup's runtime selection is another typed revision edge owned by
+its operator job. The UI names the exact installed runner and every affected
+plug-in, initial setup and vendor application before execution. Retire DSP,
+inspection, keeper, installer and vendor owners before changing authority.
+Keep environment ID, root, installation history and prior publications; advance
+the revision and rescan under the selected runner. Historical onboarding and
+vendor bindings resolve through exact owned revision edges, while old execution
+and preparation records refuse current admission. Fresh checks and explicit test
+publication use the ordinary preparation path. Returning to a previous runner
+creates another revision and fresh preparation; it does not reverse vendor changes.
+
 The manager can suggest the next useful trial from a failed stage and observed
 capabilities. Record why that change might help. Compare one relevant change at
 a time by default; allow an explicit group of dependent changes and record the

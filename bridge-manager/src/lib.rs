@@ -988,12 +988,28 @@ impl Manager {
     pub fn reconcile(&self) -> Result<()> {
         self.reconcile_checked(false)
     }
+    pub fn reconcile_with_registry(
+        &self, acquire_registry: impl FnOnce() -> Result<Lock>,
+    ) -> Result<()> {
+        self.reconcile_admitted(false, acquire_registry)
+    }
     /// Operator reconciliation must not repair publication while any instance or maintenance owner remains.
     pub fn reconcile_inactive(&self) -> Result<()> {
         self.reconcile_checked(true)
     }
+    pub fn reconcile_inactive_with_registry(
+        &self, acquire_registry: impl FnOnce() -> Result<Lock>,
+    ) -> Result<()> {
+        self.reconcile_admitted(true, acquire_registry)
+    }
     fn reconcile_checked(&self, inactive: bool) -> Result<()> {
-        let _lock = self.lock("registry.lock")?;
+        self.reconcile_admitted(inactive, || self.lock("registry.lock"))
+    }
+    fn reconcile_admitted(
+        &self, inactive: bool, acquire_registry: impl FnOnce() -> Result<Lock>,
+    ) -> Result<()> {
+        let _lock = acquire_registry()?;
+        _lock.require_registry(self)?;
         if inactive {
             self.require_inactive(None)?;
         }

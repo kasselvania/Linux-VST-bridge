@@ -221,6 +221,8 @@ impl RequestFeedback {
                     "Downloading and preparing the compatibility runtime. This may take several minutes.".into(),
                 Action::EnvironmentRescan { .. } =>
                     "Checking the installed products. The bridge will resume when this finishes.".into(),
+                Action::EnvironmentRuntimeSelect { .. } =>
+                    "Changing the setup's runtime and checking its installed plug-ins. Next, choose Check compatibility for each plug-in.".into(),
                 Action::CompatibilityCheck { .. } | Action::CompatibilityResumeCheck { .. } =>
                     "Checking this plug-in and preparing its matching bridge.".into(),
                 Action::PluginPrepare { .. } => "Preparing this plug-in's matching bridge.".into(),
@@ -1104,7 +1106,7 @@ fn existing_setup_installer(ui: &mut egui::Ui, snapshot: &Snapshot,
     pending: bool, chosen: &mut Option<Action>) {
     if snapshot.environment_installers.is_empty() {return;}
     ui.separator();
-    ui.strong("Install a companion or dependency in an existing setup");
+    ui.strong("Manage an existing setup");
     let key = egui::Id::new("companion_environment");
     let mut selected = ui.data_mut(|data|data.get_temp::<String>(key)).unwrap_or_default();
     egui::ComboBox::from_id_salt("companion_environment_choice")
@@ -3824,7 +3826,7 @@ mod tests {
         let stop=Action::EnvironmentInstallerStop {operation:operation.clone()};
         for (width,running) in [(960.0,false),(560.0,false),(960.0,true),(560.0,true)] {
             let ctx=egui::Context::default();
-            let target=crate::model::EnvironmentInstaller {environment:environment.clone(),
+            let target=crate::model::EnvironmentInstaller {environment:environment.clone(),runtime:None,
                 name:"Synth setup".into(),affected:vec!["Synth".into(),"Effect sibling".into()],
                 consequence:"Stopping cannot undo vendor changes. Both plug-ins need fresh preparation.".into(),
                 choices:vec![AvailableAction {label:"Run companion in this setup".into(),action:run.clone(),
