@@ -100,7 +100,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
-| [FC-UI-010](#fc-ui-010--result-form-footer-cannot-be-reached-on-deck) | Unreachable result-form footer | Manager dialog / Deck viewport | initially hidden footer; scrolling reproduced | source fixed, installed comparison pending | Touch-sized fields hide footer initially; later awake Test32 scroll exposed it | Typed result recorded; persistent actions pass viewport/click tests | Verify ordinary GUI completion on Deck |
+| [FC-UI-010](#fc-ui-010--result-form-footer-cannot-be-reached-on-deck) | Result form initially hides actions | Manager dialog / Deck viewport | initially hidden footer; scrolling reproduced | installed in Test33 | Fields scroll while actions remain visible; four fresh checks submitted normally | resolved on the tested Deck form | Preserve viewport/click regression coverage |
 | [FC-MGMT-007](#fc-mgmt-007--retained-proposal-displaces-selected-configuration) | Retained proposal displaces selected configuration | Manager guided projection and frontend action ownership | causal | installed-fixed on reference fixture | Ubuntu config7 full effect/instrument workflow and GUI restoration | reference configuration regression passed; musician workflow unqualified | Physical DAW integration and endurance |
 | [FC-MGMT-008](#fc-mgmt-008--loaded-native-engine-is-not-bound-during-admission) | Loaded native engine missing from admission | Cached DAW factory / selected execution pair | reproduced loader/cache mismatch | modern binding and legacy-publication refresh repaired; normal VM/Deck update passed; full recovery open | Source/loader and Unix-peer gate; VM SDK checkpoint; exact eight-publication Deck update | unqualified for complete recovery | Complete deferred predecessor/interruption and modern stale-caller installed restoration |
 | [FC-MGMT-009](#fc-mgmt-009--package-update-leaves-plug-ins-on-the-old-bridge) | Package update leaves plug-ins on the old bridge | Manager package/publication update | causal; zero refreshes for 11 Deck classes | Target kit comparison installed in Test 11 | All 11 Deck classes switched to the target native/Windows pair | installed regression resolved | Nibbi recorded-state DAW comparison remains separate |
@@ -678,9 +678,14 @@ opened, or with its module when its import table names them) and this launch's
 probes, it names one requirement with a plain-language reason and next action:
 none, Wine built-in Direct3D 11 (the default path failed its probe), a
 DirectComposition-capable runner (the blank-editor class above: DirectComposition
-loaded and no composition device on this launch), unsupported WebView2, no
-editor, or undetermined. Import hints alone never decide. The manager shows the
-reason and the action with the assessment.
+loaded and no composition device on this launch), no editor, or undetermined.
+Loaded WebView2 remains unassessed: detection does not establish a missing required
+capability or prove editor, audio or state behavior. Import hints alone never decide.
+The manager shows the reason and the action with the assessment.
+
+Test33's ordinary Deck assessment reports detected WebView2 as undetermined with
+editor attachment and clean retirement retained as separate facts. The GUI records
+the four fresh DAW/editor/state/retirement observations independently.
 
 The decision is now acted on without a click. Every preparation (the guided
 compatibility check and the explicit prepare) ends with the assessment: a run
@@ -3316,7 +3321,8 @@ The installed direct mailbox v4 reference passes output/state, second setup and 
 
 Test32's long form initially hid its action footer; earlier resize/scroll attempts did
 not reveal it, but a later awake scroll did. That disabled button correctly reported
-unavailable manager readback. The source repair scrolls the fields while keeping both
-actions and refusal text visible; viewport/click tests pass at 1280×800 and
-560×360. The six checks remain recorded through the typed owner; installed GUI
-completion still needs the Test33 comparison.
+unavailable manager readback. Test33 scrolls the fields while keeping both actions
+and refusal text visible. On Deck, the ordinary GUI reaches the form's fields and
+completes a result with four fresh checks: DAW load, editor, saved-state recall and
+retirement. Viewport/click regressions pass at 1280×800 and 560×360. The six Test32
+checks remain historical typed results. [Scoped result](../evidence/analog-lab-deck.json).

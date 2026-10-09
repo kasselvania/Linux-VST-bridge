@@ -495,9 +495,17 @@ preferences. With explicit local Windows accessibility disabled, Analog Lab V pl
 vendor keyboard in native Bitwig and retains P1 Brightness 0.3667 after saving and
 reopening in a new DAW process. Two 30-second stereo captures contain nonzero finite
 audio; normal editor close/reopen and both host retirements pass. Windows screen-reader
-support is unavailable for this plug-in's Windows processes. Six observed checks were
-recorded through the existing typed action because the GUI result footer was inaccessible.
+support is unavailable for this plug-in's Windows processes. Six observed Test32 checks
+were recorded through the typed action after the initial GUI footer attempts failed.
 [Scoped result](../evidence/analog-lab-deck.json).
+Test33's ordinary GUI update preserves all twelve current identities/publication
+dispositions, five preferences and the saved project, refreshes native/descriptor
+bindings, and retains exact Test32 as predecessor. Its fresh native Bitwig session
+reopens saved Brightness 0.3667 and passes editor close/reopen and clean retirement.
+Four fresh checks (DAW load, editor, saved-state recall and retirement) complete
+through the ordinary result form. One ordinary graphics assessment reports loaded
+WebView2 as undetermined and editor retirement as closed; graphics detection stays
+separate from audio and state observations.
 This repaired journey required several shared fixes; first-attempt qualification remains unmet.
 
 These are exact-fixture claims, not universal vendor support. The 2026-09-23 fleet readback predates both the merged host-retention repair [#149](https://github.com/kasselvania/Linux-VST-bridge/pull/149) and Serum's installed candidate D; its older `needs_attention` and candidate-B fields are **historical**, not silently treated as current. The [candidate-D physical receipt](../evidence/serum-x11-touch-routing/candidate-d-physical.json) includes a current six-publication manager readback for this experiment, not a new six-product physical campaign.
