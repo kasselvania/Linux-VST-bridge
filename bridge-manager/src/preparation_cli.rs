@@ -2167,12 +2167,74 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn retained_webview_advice_is_rederived_without_probing_or_rewriting_working_editor_observations() {
+        use linux_vst_bridge::graphics::assessment::{EditorRetirement, Library};
+        use sha2::{Digest, Sha256};
+        let (f, base) = projection_fixture();
+        let sw = projection_software(&base);
+        prep::record_candidate(&f.m, &base).unwrap();
+        // A later ordinary user saw a usable editor; neither audio nor state was tested.
+        prep::record_observation(&f.m, &base, &random_id().unwrap(), prep::Area::Editor,
+            prep::TestStatus::Passed, "Editor rendered and its controls responded").unwrap();
+        let observations = prep::observations(&f.m, &base).unwrap();
+        assert_eq!(observations.len(), 1);
+        assert_eq!(observations[0].area, prep::Area::Editor);
+        for unavailable in [false, true] {
+            let mut result = fake_assessment(&base).unwrap();
+            for probe in &mut result.runtime_probes {
+                probe.status = "passed".into();
+                if unavailable && probe.api == "direct_composition" {
+                    probe.status = "unavailable".into();
+                    probe.rendering = "unknown".into();
+                }
+            }
+            result.editor.during = if unavailable { vec![Library::WebView2, Library::DirectComposition] }
+                else { vec![Library::WebView2] };
+            result.editor.closed = false;
+            result.editor_retirement = EditorRetirement::Failed;
+            result.observed_at += u64::from(unavailable);
+            result.observations_fingerprint = crate::hex(&Sha256::digest(serde_json::to_vec(&(
+                &result.context_fingerprint, &result.imports, &result.editor, &result.editor_retirement,
+                &result.runtime_probes, &result.applied_launch)).unwrap()));
+            let operation = random_id().unwrap();
+            prep::configuration::record_assessment(&f.m, &base, &operation, &result).unwrap();
+            let path = f.m.root.join("preparation/graphics").join(base.id().unwrap()).join(format!("{operation}.json"));
+            let mut historical: Value = read_json(&path).unwrap();
+            historical["assessment"]["recommendation"] = json!({"requirement":"unsupported_web_view2",
+                "editor_loaded":["web_view2"],"reason":"The editor will not display.",
+                "action":"Audio and state still work."});
+            historical["assessment"]["next_action"] = json!("Audio and state still work.");
+            atomic_json(&path, &historical).unwrap();
+            let bytes = fs::read(&path).unwrap();
+            let expected = if unavailable { "direct_composition_runner" } else { "undetermined" };
+            let projected = prep::configuration::latest_assessment(&f.m, &base).unwrap().unwrap();
+            assert_eq!(projected["recommendation"]["requirement"], expected);
+            assert!(!projected["recommendation"]["reason"].as_str().unwrap().contains("will not display"));
+            assert!(!projected["next_action"].as_str().unwrap().contains("still work"));
+            for field in ["context", "context_fingerprint", "observations_fingerprint", "observed_at", "imports",
+                "editor", "editor_retirement", "runtime_probes", "findings", "qualification", "applied_launch"] {
+                assert_eq!(projected[field], historical["assessment"][field], "{field} changed");
+            }
+            assert_eq!(projected["editor_retirement"], "failed", "a usable editor does not erase its separate close failure");
+            let shown = prep::configuration::view(&f.m, &base).unwrap();
+            assert_eq!(shown["assessment"], projected);
+            let follow = crate::graphics_cli::follow_preparation(&f.m, &sw, &base, &random_id().unwrap(),
+                &mut |_| panic!("retained exact-context observations must not rerun a probe"));
+            assert_eq!(follow["stage"], "retained");
+            assert_eq!(follow["recommendation"], projected["recommendation"]);
+            assert!(follow["applied"]["prepared"].is_null());
+            assert_eq!(fs::read(&path).unwrap(), bytes, "historical assessment bytes changed");
+            assert_eq!(prep::observations(&f.m, &base).unwrap(), observations);
+        }
+    }
+
+    #[test]
     fn graphics_follow_up_prepares_nothing_without_a_wine_d3d11_requirement_and_reports_refusals() {
         use linux_vst_bridge::graphics::assessment::Requirement;
         let (f, base) = projection_fixture();
         prep::record_candidate(&f.m, &base).unwrap();
         for requirement in [Requirement::None, Requirement::EditorAbsent, Requirement::DirectCompositionRunner,
-            Requirement::UnsupportedWebView2, Requirement::Undetermined] {
+            Requirement::Undetermined] {
             let (applied, trial) = crate::graphics_cli::apply_recommendation(&f.m, &base, requirement).unwrap();
             assert!(trial.is_none());
             assert!(applied["prepared"].is_null() && applied["refusal"].is_null());

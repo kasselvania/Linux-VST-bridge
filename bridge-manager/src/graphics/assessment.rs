@@ -153,7 +153,7 @@ pub struct Finding {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Requirement {
-    /// Every graphics library the editor loaded passed its probe on this launch.
+    /// The available observations indicate no graphics change. Visual rendering remains untested.
     None,
     /// Direct3D 11 is used, the default path failed its probe and is not already Wine's built-in:
     /// Wine's built-in D3D11/DXGI is the next launch.
@@ -161,11 +161,9 @@ pub enum Requirement {
     /// The editor's own module uses DirectComposition and this launch cannot create a
     /// composition device: the blank-editor class.
     DirectCompositionRunner,
-    /// Microsoft WebView2 is used and no runner here provides it.
-    UnsupportedWebView2,
     /// The plug-in opened no editor in this inspection.
     EditorAbsent,
-    /// The editor's path failed its probe and no further launch choice exists here.
+    /// An editor dependency is unassessed, or its path failed a probe with no further launch choice.
     Undetermined,
 }
 #[derive(Debug, Clone, Serialize)]
@@ -195,11 +193,6 @@ pub fn recommend(editor: &Editor, probes: &[Probe], imports: &super::pe::Imports
             "The plug-in opened no editor in this inspection.",
             "Nothing to change for graphics.");
     }
-    if has(Library::WebView2) {
-        return finish(Requirement::UnsupportedWebView2,
-            "The editor loads Microsoft WebView2, which the Wine runner cannot provide, so the editor will not display.",
-            "Audio and state still work through the DAW's generic controls. No graphics setting fixes this.");
-    }
     if has(Library::DirectComposition) && !passed("direct_composition") {
         return finish(Requirement::DirectCompositionRunner,
             "The editor's module uses DirectComposition and this launch cannot create a composition device. An editor that presents through it shows blank or white.",
@@ -227,9 +220,14 @@ pub fn recommend(editor: &Editor, probes: &[Probe], imports: &super::pe::Imports
             "The editor draws through OpenGL and it failed its rendering probe on this launch.",
             "Keep the recorded observations and report the editor as not displaying on this runner.");
     }
+    if has(Library::WebView2) {
+        return finish(Requirement::Undetermined,
+            "A WebView2-related library loaded with the editor. This inspection does not establish whether the editor requires WebView2 or whether it is available.",
+            "Check the actual editor before changing settings. Audio and state recall need their own tests.");
+    }
     finish(Requirement::None,
-        "Every graphics library the editor loaded passed its probe on this launch.",
-        "No graphics change needed.")
+        "The available runtime probes indicate no graphics change. Opening the editor does not establish that it rendered correctly.",
+        "Check the actual editor; audio and state recall need their own tests.")
 }
 #[derive(Debug, Clone, Serialize)]
 pub struct Assessment {
@@ -251,6 +249,18 @@ pub struct Assessment {
     pub qualification: &'static str,
     pub next_action: &'static str,
 }
+/// Reapply current advice to retained facts without probing or rewriting the run.
+pub fn project_recommendation(value: &mut Value) -> Result<()> {
+    let context: Context = serde_json::from_value(value["context"].clone())?;
+    let editor: Editor = serde_json::from_value(value["editor"].clone())?;
+    let probes: Vec<Probe> = serde_json::from_value(value["runtime_probes"].clone())?;
+    let imports: super::pe::Imports = serde_json::from_value(value["imports"].clone())?;
+    let recommendation = recommend(&editor, &probes, &imports, context.requested_backend);
+    value["next_action"] = Value::from(recommendation.action);
+    value["recommendation"] = serde_json::to_value(recommendation)?;
+    Ok(())
+}
+
 fn bounded_text(value: &Option<String>) -> bool {
     value.as_ref().is_none_or(|s| {
         !s.is_empty()

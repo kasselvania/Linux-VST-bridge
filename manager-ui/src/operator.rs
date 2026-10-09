@@ -2351,91 +2351,8 @@ impl eframe::App for Operator {
             Some(compatibility_result_offer(snapshot, candidate, expected_current))
         });
         if let Some(form) = self.product_form.as_mut() {
-            let mut submit = false;
-            let mut cancel = false;
-            egui::Window::new(if matches!(form, Action::CompatibilityResult { .. }) {
-                "Record plug-in test result"
-            } else { "Exact candidate observation / review" })
-                .collapsible(false)
-                .max_height((ui.ctx().content_rect().height() - 40.0).max(200.0))
-                .max_width((ui.ctx().content_rect().width() - 40.0).max(300.0))
-                .vscroll(true)
-                .show(ui.ctx(),|ui|{
-                match form {
-                    Action::CompatibilityResult { result, passed, failed_area, note, .. } => {
-                        ui.label("Mark only what you actually observed. The test configuration stays experimental after a successful result.");
-                        ui.horizontal_wrapped(|ui| {
-                            ui.selectable_value(result, TestResultKind::Worked, "It worked");
-                            ui.selectable_value(result, TestResultKind::Problem {
-                                category: ProblemCategory::Other }, "Report a problem");
-                        });
-                        if let TestResultKind::Problem { category } = result {
-                            egui::ComboBox::from_id_salt("guided-problem-category")
-                                .selected_text(problem_category_label(*category))
-                                .show_ui(ui, |ui| {
-                                    for choice in [ProblemCategory::FailedToLoad,
-                                        ProblemCategory::BlankEditor, ProblemCategory::EditorFroze,
-                                        ProblemCategory::EditorDisappeared, ProblemCategory::NoAudio,
-                                        ProblemCategory::IncorrectAudio, ProblemCategory::ControlsUnresponsive,
-                                        ProblemCategory::HostCrashed, ProblemCategory::CleanupIncomplete,
-                                        ProblemCategory::Other] {
-                                        ui.selectable_value(category, choice, problem_category_label(choice));
-                                    }
-                                });
-                            if *category == ProblemCategory::Other {
-                                ui.label("Which part had the problem?");
-                                egui::ComboBox::from_id_salt("guided-problem-area")
-                                    .selected_text(failed_area.map(test_area_label).unwrap_or("Choose an area"))
-                                    .show_ui(ui, |ui| {
-                                        for area in test_areas() {
-                                            ui.selectable_value(failed_area, Some(area), test_area_label(area));
-                                        }
-                                    });
-                            } else { *failed_area = None; }
-                        } else { *failed_area = None; }
-                        ui.label("Checks you confirmed");
-                        for area in test_areas() {
-                            let mut checked = passed.contains(&area);
-                            if ui.checkbox(&mut checked, test_area_label(area)).changed() {
-                                if checked { passed.push(area); } else { passed.retain(|item| *item != area); }
-                            }
-                        }
-                        ui.label("Optional detail for a successful test; describe a problem when reporting one");
-                        ui.add(egui::TextEdit::singleline(note).char_limit(512)
-                            .desired_width(360.0));
-                        let valid = match result {
-                            TestResultKind::Worked => !passed.is_empty(),
-                            TestResultKind::Problem { category } => !note.trim().is_empty()
-                                && (*category != ProblemCategory::Other || failed_area.is_some()),
-                        };
-                        let refusal = compatibility_result_refusal(result_offer.as_ref(), result);
-                        submit = ui.add_enabled(valid && !action_controls_pending && refusal.is_none(),
-                            egui::Button::new("Record this test result")
-                                .min_size(egui::vec2(240.0, 44.0))).clicked();
-                        if !valid { ui.small("Select an observed check, or choose a problem and describe it."); }
-                        if let Some(reason) = refusal {
-                            ui.small(reason);
-                            if matches!(&result_offer, Some(Ok(_))) {
-                                ui.small("You can report a problem now. A successful result needs this plug-in's clean retirement.");
-                            }
-                        }
-                    }
-                    Action::CandidateObserve{area,status,note,..}=>{
-                        ui.label("This records your observation. It does not create a machine measurement or qualification decision.");
-                        egui::ComboBox::from_id_salt("area").selected_text(area.as_str()).show_ui(ui,|ui|{for a in ["daw_load","midi","audio","editor","parameters","automation","state_recall","processing_restart","retirement"]{ui.selectable_value(area,a.into(),a.replace('_'," "));}});
-                        egui::ComboBox::from_id_salt("status").selected_text(status.as_str()).show_ui(ui,|ui|{for a in ["passed","failed","not_tested","unavailable","not_applicable"]{ui.selectable_value(status,a.into(),a.replace('_'," "));}});
-                        ui.add(egui::TextEdit::multiline(note).char_limit(512));
-                        submit=ui.add_enabled(!note.trim().is_empty() && !action_controls_pending,egui::Button::new("Record operator observation")).clicked();
-                    }
-                    Action::CandidateReview{accept,rationale,..}=>{
-                        ui.label(if *accept{"Maintainer review: accept this exact local configuration against the retained results. This is not a project-wide support claim. Publication remains a separate action."}else{"Record why this exact configuration needs more work. Publication is unchanged."});
-                        ui.add(egui::TextEdit::multiline(rationale).char_limit(512));
-                        submit=ui.add_enabled(!rationale.trim().is_empty() && !action_controls_pending,egui::Button::new("Record explicit review decision")).clicked();
-                    }
-                    _=>cancel=true,
-                }
-                cancel|=ui.button("Cancel").clicked();
-            });
+            let (submit, cancel) = show_product_form(ui.ctx(), form, result_offer.as_ref(), action_controls_pending)
+                .map(|(submit, cancel)| (submit.clicked(), cancel.clicked())).unwrap_or_default();
             if submit {
                 chosen = self.product_form.clone();
             } else if cancel {
@@ -2492,6 +2409,108 @@ impl eframe::App for Operator {
         ui.ctx().request_repaint_after(self.repaint_delay());
     }
 }
+fn show_product_form(ctx: &egui::Context, form: &mut Action,
+    result_offer: Option<&Result<Option<String>, &'static str>>,
+    action_controls_pending: bool) -> Option<(egui::Response, egui::Response)> {
+    egui::Window::new(if matches!(form, Action::CompatibilityResult { .. }) {
+        "Record plug-in test result"
+    } else { "Exact candidate observation / review" })
+        .collapsible(false)
+        .max_height((ctx.content_rect().height() - 40.0).max(200.0))
+        .max_width((ctx.content_rect().width() - 40.0).max(300.0))
+        .show(ctx, |ui| {
+            // Keep both actions visible; only the fields and their explanations scroll.
+            let refusal_height = if matches!(form, Action::CompatibilityResult { .. }) {
+                compatibility_result_refusal(result_offer, &TestResultKind::Worked).map(|reason| {
+                    ui.painter().layout(reason.to_owned(), egui::TextStyle::Small.resolve(ui.style()),
+                        ui.visuals().text_color(), ui.available_width()).size().y
+                        + ui.spacing().item_spacing.y
+                }).unwrap_or(0.0)
+            } else { 0.0 };
+            let footer_height = 2.0 * (44.0 + ui.spacing().item_spacing.y) + refusal_height;
+            let (valid, label, refusal) = egui::ScrollArea::vertical()
+                .id_salt("product-form-fields")
+                .max_height((ui.available_height() - footer_height).max(0.0))
+                .min_scrolled_height(0.0)
+                .auto_shrink([false, true])
+                .show(ui, |ui| {
+                    match form {
+                        Action::CompatibilityResult { result, passed, failed_area, note, .. } => {
+                            ui.label("Mark only what you actually observed. The test configuration stays experimental after a successful result.");
+                            ui.horizontal_wrapped(|ui| {
+                                ui.selectable_value(result, TestResultKind::Worked, "It worked");
+                                ui.selectable_value(result, TestResultKind::Problem {
+                                    category: ProblemCategory::Other }, "Report a problem");
+                            });
+                            if let TestResultKind::Problem { category } = result {
+                                egui::ComboBox::from_id_salt("guided-problem-category")
+                                    .selected_text(problem_category_label(*category))
+                                    .show_ui(ui, |ui| {
+                                        for choice in [ProblemCategory::FailedToLoad,
+                                            ProblemCategory::BlankEditor, ProblemCategory::EditorFroze,
+                                            ProblemCategory::EditorDisappeared, ProblemCategory::NoAudio,
+                                            ProblemCategory::IncorrectAudio, ProblemCategory::ControlsUnresponsive,
+                                            ProblemCategory::HostCrashed, ProblemCategory::CleanupIncomplete,
+                                            ProblemCategory::Other] {
+                                            ui.selectable_value(category, choice, problem_category_label(choice));
+                                        }
+                                    });
+                                if *category == ProblemCategory::Other {
+                                    ui.label("Which part had the problem?");
+                                    egui::ComboBox::from_id_salt("guided-problem-area")
+                                        .selected_text(failed_area.map(test_area_label).unwrap_or("Choose an area"))
+                                        .show_ui(ui, |ui| {
+                                            for area in test_areas() {
+                                                ui.selectable_value(failed_area, Some(area), test_area_label(area));
+                                            }
+                                        });
+                                } else { *failed_area = None; }
+                            } else { *failed_area = None; }
+                            ui.label("Checks you confirmed");
+                            for area in test_areas() {
+                                let mut checked = passed.contains(&area);
+                                if ui.checkbox(&mut checked, test_area_label(area)).changed() {
+                                    if checked { passed.push(area); } else { passed.retain(|item| *item != area); }
+                                }
+                            }
+                            ui.label("Optional detail for a successful test; describe a problem when reporting one");
+                            ui.add(egui::TextEdit::singleline(note).char_limit(512)
+                                .desired_width(360.0));
+                            let valid = match result {
+                                TestResultKind::Worked => !passed.is_empty(),
+                                TestResultKind::Problem { category } => !note.trim().is_empty()
+                                    && (*category != ProblemCategory::Other || failed_area.is_some()),
+                            };
+                            let refusal = compatibility_result_refusal(result_offer, result);
+                            if !valid { ui.small("Select an observed check, or choose a problem and describe it."); }
+                            if refusal.is_some() && matches!(result_offer, Some(Ok(_))) {
+                                ui.small("You can report a problem now. A successful result needs this plug-in's clean retirement.");
+                            }
+                            (valid && refusal.is_none(), "Record this test result", refusal)
+                        }
+                        Action::CandidateObserve{area,status,note,..}=>{
+                            ui.label("This records your observation. It does not create a machine measurement or qualification decision.");
+                            egui::ComboBox::from_id_salt("area").selected_text(area.as_str()).show_ui(ui,|ui|{for a in ["daw_load","midi","audio","editor","parameters","automation","state_recall","processing_restart","retirement"]{ui.selectable_value(area,a.into(),a.replace('_'," "));}});
+                            egui::ComboBox::from_id_salt("status").selected_text(status.as_str()).show_ui(ui,|ui|{for a in ["passed","failed","not_tested","unavailable","not_applicable"]{ui.selectable_value(status,a.into(),a.replace('_'," "));}});
+                            ui.add(egui::TextEdit::multiline(note).char_limit(512));
+                            (!note.trim().is_empty(), "Record operator observation", None)
+                        }
+                        Action::CandidateReview{accept,rationale,..}=>{
+                            ui.label(if *accept{"Maintainer review: accept this exact local configuration against the retained results. This is not a project-wide support claim. Publication remains a separate action."}else{"Record why this exact configuration needs more work. Publication is unchanged."});
+                            ui.add(egui::TextEdit::multiline(rationale).char_limit(512));
+                            (!rationale.trim().is_empty(), "Record explicit review decision", None)
+                        }
+                        _ => (false, "Record result", None),
+                    }
+                }).inner;
+            let submit = ui.add_enabled(valid && !action_controls_pending,
+                egui::Button::new(label).min_size(egui::vec2(240.0, 44.0)));
+            if let Some(reason) = refusal { ui.small(reason); }
+            let cancel = ui.add_sized([100.0, 44.0], egui::Button::new("Cancel"));
+            (submit, cancel)
+        }).and_then(|window| window.inner)
+}
+
 fn compatibility_result_offer(snapshot: Option<&Snapshot>, candidate: &str,
     expected_current: &PublicationIdentity) -> Result<Option<String>, &'static str> {
     let snapshot = snapshot.ok_or("Current manager readback unavailable")?;
@@ -3053,6 +3072,148 @@ mod tests {
         };
         InteractiveOverview {schema:1,operator_schema:crate::model::OPERATOR_SCHEMA,
             scope:"current_only".into(),current_generation:"same".into(),current:snapshot,readiness}
+    }
+    fn result_form_fixture() -> Action {
+        Action::CompatibilityResult {
+            candidate: "ab".repeat(32),
+            expected_current: PublicationIdentity { id: "cd".repeat(16), sha256: "ef".repeat(32) },
+            result: TestResultKind::Worked, passed: vec![TestArea::DawLoad],
+            failed_area: None, note: "Layout test detail".into(),
+        }
+    }
+
+    fn result_form_context() -> egui::Context {
+        let ctx = egui::Context::default();
+        let mut style = (*ctx.global_style()).clone();
+        // Match the ordinary native frontend's touch-sized controls.
+        style.spacing.interact_size.y = 42.0;
+        style.spacing.item_spacing = egui::vec2(12.0, 12.0);
+        ctx.set_global_style(style);
+        ctx
+    }
+
+    fn visible_form_text(shape: &egui::epaint::Shape, clip: egui::Rect,
+        visible: &mut std::collections::BTreeSet<String>) {
+        match shape {
+            egui::epaint::Shape::Text(text) if clip.contains_rect(text.visual_bounding_rect()) => {
+                visible.insert(text.galley.text().into());
+            }
+            egui::epaint::Shape::Vec(shapes) => for shape in shapes {
+                visible_form_text(shape, clip, visible);
+            },
+            _ => {},
+        }
+    }
+
+    #[test]
+    fn result_form_actions_stay_visible_and_every_field_can_be_scrolled_into_view() {
+        for size in [egui::vec2(1280.0, 800.0), egui::vec2(960.0, 720.0), egui::vec2(560.0, 360.0)] {
+            for problem in [false, true] {
+                let ctx = result_form_context();
+                let mut form = result_form_fixture();
+                if problem {
+                    if let Action::CompatibilityResult { result, failed_area, .. } = &mut form {
+                        *result = TestResultKind::Problem { category: ProblemCategory::Other };
+                        *failed_area = Some(TestArea::Editor);
+                    }
+                }
+                let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, size);
+                let mut visible = std::collections::BTreeSet::new();
+                let mut pointer = egui::pos2(200.0, 100.0);
+                let mut initial_actions = None;
+                for frame in 0..36 {
+                    let events = if frame > 3 { vec![egui::Event::PointerMoved(pointer),
+                        egui::Event::MouseWheel { unit: egui::MouseWheelUnit::Point,
+                            delta: egui::vec2(0.0, -60.0), phase: egui::TouchPhase::Move,
+                            modifiers: egui::Modifiers::NONE }] } else { vec![] };
+                    let mut output = ctx.run_ui(egui::RawInput { screen_rect: Some(screen), events,
+                        ..Default::default() }, |_ui| {
+                        let (submit, cancel) = show_product_form(&ctx, &mut form, Some(&Ok(None)), false).unwrap();
+                        if frame >= 3 {
+                            for response in [&submit, &cancel] {
+                                assert!(screen.contains_rect(response.rect), "{size:?}: {:?}", response.rect);
+                                assert!(response.rect.height() >= 44.0);
+                            }
+                            let actions = (submit.rect, cancel.rect);
+                            if let Some(initial) = initial_actions { assert_eq!(actions, initial); }
+                            else { initial_actions = Some(actions); }
+                            assert!(submit.enabled());
+                            pointer = egui::pos2(submit.rect.center().x, (submit.rect.top() + 57.0) / 2.0);
+                        }
+                    });
+                    if frame >= 3 {
+                        for clipped in &output.shapes {
+                            visible_form_text(&clipped.shape, clipped.clip_rect.intersect(screen), &mut visible);
+                        }
+                    }
+                    output.textures_delta.clear();
+                }
+                for area in test_areas() {
+                    assert!(visible.contains(test_area_label(area)), "{size:?}, problem={problem}: {}", test_area_label(area));
+                }
+                assert!(visible.contains("Layout test detail"), "note field is inaccessible at {size:?}");
+                if problem { assert!(visible.contains("Which part had the problem?")); }
+                assert!(visible.contains("Record this test result"));
+                assert!(visible.contains("Cancel"));
+            }
+        }
+    }
+
+    #[test]
+    fn result_form_visible_submit_still_enforces_readback_validation_and_pending_authority() {
+        for (offer, pending, problem, expected) in [
+            (Ok(None), false, false, true),
+            (Ok(None), true, false, false),
+            (Err("Current manager readback unavailable"), false, false, false),
+            (Err("Current manager readback unavailable"), false, true, false),
+            (Ok(Some("This plug-in has not retired".into())), false, false, false),
+            (Ok(Some("This plug-in has not retired".into())), false, true, true),
+        ] {
+            let ctx = result_form_context();
+            let mut form = result_form_fixture();
+            if problem {
+                if let Action::CompatibilityResult { result, .. } = &mut form {
+                    *result = TestResultKind::Problem { category: ProblemCategory::BlankEditor };
+                }
+            }
+            let mut point = egui::Pos2::ZERO;
+            let mut clicked = false;
+            for frame in 0..6 {
+                let events = if frame == 4 || frame == 5 { vec![egui::Event::PointerMoved(point),
+                    egui::Event::PointerButton { pos: point, button: egui::PointerButton::Primary,
+                        pressed: frame == 4, modifiers: egui::Modifiers::NONE }] } else { vec![] };
+                let mut output = ctx.run_ui(egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(560.0, 360.0))),
+                    events, ..Default::default()
+                }, |_ui| {
+                    let (submit, cancel) = show_product_form(&ctx, &mut form, Some(&offer), pending).unwrap();
+                    if frame >= 3 {
+                        assert_eq!(submit.enabled(), expected);
+                        assert!(cancel.enabled());
+                        assert!(ctx.content_rect().contains_rect(submit.rect));
+                        assert!(ctx.content_rect().contains_rect(cancel.rect));
+                    }
+                    point = submit.rect.center();
+                    clicked |= submit.clicked();
+                });
+                output.textures_delta.clear();
+            }
+            assert_eq!(clicked, expected, "pending={pending}, problem={problem}, offer={offer:?}");
+        }
+        for problem in [false, true] {
+            let ctx = result_form_context();
+            let mut form = result_form_fixture();
+            if let Action::CompatibilityResult { result, passed, note, .. } = &mut form {
+                passed.clear();
+                note.clear();
+                if problem { *result = TestResultKind::Problem { category: ProblemCategory::Other }; }
+            }
+            let mut output = ctx.run_ui(egui::RawInput::default(), |_ui| {
+                let (submit, _) = show_product_form(&ctx, &mut form, Some(&Ok(None)), false).unwrap();
+                assert!(!submit.enabled(), "an incomplete result cannot be submitted");
+            });
+            output.textures_delta.clear();
+        }
     }
     #[test]
     fn test_result_uses_exact_class_offer_and_keeps_problem_reporting_available() {
