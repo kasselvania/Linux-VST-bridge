@@ -506,6 +506,14 @@ Four fresh checks (DAW load, editor, saved-state recall and retirement) complete
 through the ordinary result form. One ordinary graphics assessment reports loaded
 WebView2 as undetermined and editor retirement as closed; graphics detection stays
 separate from audio and state observations.
+Test33 also plays eight identical DAW MIDI notes with explicit releases and a Brightness
+ramp to 1.0, then saves the clip/automation and repeats playback after a fresh-process
+reopen. Vendor parameter readback and matching note-window spectra show the automation
+changes the sound. Both 40-second stereo captures are finite; note gaps decay, the first
+release returns to captured idle and the second release is still decaying at capture end.
+Both hosts retire cleanly. The ordinary GUI records eight observed checks, leaving
+processing restart unchecked. The original project, twelve registrations and five
+preferences are unchanged. This is a short functional test, not audio deadline qualification.
 This repaired journey required several shared fixes; first-attempt qualification remains unmet.
 
 These are exact-fixture claims, not universal vendor support. The 2026-09-23 fleet readback predates both the merged host-retention repair [#149](https://github.com/kasselvania/Linux-VST-bridge/pull/149) and Serum's installed candidate D; its older `needs_attention` and candidate-B fields are **historical**, not silently treated as current. The [candidate-D physical receipt](../evidence/serum-x11-touch-routing/candidate-d-physical.json) includes a current six-publication manager readback for this experiment, not a new six-product physical campaign.
