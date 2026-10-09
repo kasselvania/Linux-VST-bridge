@@ -22,9 +22,10 @@ fn stamp(path: &Path) -> Result<Option<FileStamp>> {
 }
 fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBuf,Option<FileStamp>>> {
     let mut paths = BTreeSet::new();
+    let runtime_records: BTreeSet<_>=linux_vst_bridge::runtime_delivery::record_paths(m).into_iter().collect();
     paths.insert(m.root.join("software.json"));
     paths.insert(m.root.join("runners"));
-    paths.extend(linux_vst_bridge::runtime_delivery::record_paths(m));
+    paths.extend(runtime_records.iter().cloned());
     paths.insert(m.root.join("registry.json"));
     paths.insert(m.root.join("operator/latest.json"));
     paths.insert(m.root.join("daw-workspaces/fl-studio/workspace.json"));
@@ -144,7 +145,13 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
         }
     }
     require(paths.len() <= 4096,"operator_current_watch_bound")?;
-    paths.into_iter().map(|path| Ok((path.clone(),stamp(&path)?))).collect()
+    // Declared-runtime read failures are bound by the token's per-record
+    // failure observation. This watch cannot grant runtime admission.
+    paths.into_iter().map(|path| {
+        let observed=stamp(&path).or_else(|error|
+            if runtime_records.contains(&path) {Ok(None)} else {Err(error)})?;
+        Ok((path,observed))
+    }).collect()
 }
 
 pub(super) struct CurrentOverviewContext {
@@ -275,13 +282,15 @@ impl CurrentOverviewContext {
                 require_live_vendor_report(vendor)?;
                 progress.insert(app_directory(m),vendor.report.clone());
             }
+            let runtime_records: BTreeSet<_>=linux_vst_bridge::runtime_delivery::record_paths(m).into_iter().collect();
             for (path, before) in &self.watched {
                 // An active supervisor atomically replaces its progress report.
                 // Those bytes cannot authorize launch or retirement: both
                 // external rechecks require the same operation to remain live.
                 // Keep stable application/job/environment/record inputs watched.
                 if progress.values().any(|report| report == path) { continue; }
-                let after = stamp(path)?;
+                let after = stamp(path).or_else(|error|
+                    if runtime_records.contains(path) {Ok(None)} else {Err(error)})?;
                 let unchanged = if progress.contains_key(path) {
                     // Report replacement also changes the containing directory.
                     // Preserve its identity/type/mode, not progress-write times.

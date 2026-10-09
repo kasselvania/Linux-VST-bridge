@@ -658,6 +658,23 @@ mod tests {
         assert_eq!(failure_text(&"x".repeat(8192)).len(),2048);
     }
     #[test]
+    fn unreadable_old_record_does_not_hide_an_independent_owned_revision() {
+        if unsafe {libc::getuid()}==0 {return;}
+        let tmp=Scratch::new();
+        let m=Manager {root:tmp.0.clone(),publications:tmp.0.join("publications")};
+        let old=recommended();
+        let new=Revision {id:"managed-next-test",version:"next-test",downloads:downloads(),uia_guard:false};
+        retained_revision(&m,&old);let next=retained_revision(&m,&new);
+        let directory=revision_record_path(&m,&old).parent().unwrap().to_owned();
+        fs::set_permissions(&directory,fs::Permissions::from_mode(0o000)).unwrap();
+        let states=states_for(&m,&[old,new]);
+        fs::set_permissions(&directory,fs::Permissions::from_mode(0o700)).unwrap();
+        let states=states.unwrap();
+        assert!(states[0].runner.is_none() && states[0].metadata.is_none() && states[0].sha256.is_none());
+        assert!(states[0].failure.is_some());assert_eq!(states[1].runner,Some(next.clone()));
+        next.verify().unwrap();
+    }
+    #[test]
     fn managed_record_stamp_requires_exact_owned_runner_and_does_not_claim_another_root() {
         let tmp=Scratch::new();
         let m=Manager {root:tmp.0.clone(),publications:tmp.0.join("publications")};

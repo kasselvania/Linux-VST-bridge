@@ -333,9 +333,10 @@ fn pulse_generation(m: &Manager) -> Result<String> {
         "daw-workspaces/fl-studio/workspace.json", "operator/latest.json",
         "installers", "onboarding", "inventory", "transactions", "performance",
         "runtime/leases", "runtime/owner.sock"];
+    let runtime_records=linux_vst_bridge::runtime_delivery::record_paths(m);
     let paths = paths.into_iter().map(|relative|m.root.join(relative))
         .chain(std::iter::once(m.root.join("runners")))
-        .chain(linux_vst_bridge::runtime_delivery::record_paths(m));
+        .chain(runtime_records.iter().cloned());
     let mut stamps = Vec::new();
     for path in paths {
         let relative = path.strip_prefix(&m.root)?;
@@ -344,6 +345,8 @@ fn pulse_generation(m: &Manager) -> Result<String> {
                 meta.mtime(),meta.mtime_nsec(),meta.ctime(),meta.ctime_nsec()])),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound =>
                 stamps.push(json!([relative,"absent"])),
+            Err(e) if runtime_records.contains(&path) =>
+                stamps.push(json!([relative,"unavailable",format!("{:?}",e.kind())])),
             Err(e) => return Err(e.into()),
         }
     }
@@ -6061,6 +6064,19 @@ mod tests {
         assert_eq!(observed["sha256"],digest(&path).unwrap());
         assert_eq!(fs::read(&path).unwrap(),before);
         assert!(runtime_delivery::installed(&f.m).is_err());
+        if unsafe {libc::getuid()}!=0 {
+            let directory=path.parent().unwrap();
+            fs::set_permissions(directory,fs::Permissions::from_mode(0o000)).unwrap();
+            let unreadable=current::capture(&f.m);
+            let pulse=pulse_generation(&f.m);
+            let checked=unreadable.as_ref().is_ok_and(|context|context.recheck(&f.m).is_ok());
+            fs::set_permissions(directory,fs::Permissions::from_mode(0o700)).unwrap();
+            let unreadable=unreadable.unwrap();
+            assert!(checked);assert!(pulse.is_ok());
+            assert!(unreadable.snapshot.managed_runtime_records[0]["runner"].is_null());
+            assert!(unreadable.snapshot.managed_runtime_records[0]["failure"].is_string());
+            assert!(unreadable.recheck(&f.m).is_err(),"restoring read access changes the observed custody");
+        }
         fs::set_permissions(&path,fs::Permissions::from_mode(0o600)).unwrap();
         fs::write(&path,b"different invalid runtime ownership record").unwrap();
         fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();

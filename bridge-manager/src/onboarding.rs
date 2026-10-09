@@ -1367,7 +1367,7 @@ mod tests {
         let prior=reserve(&f.m,id,&op).unwrap();
         let report=directory(&f.m,id).unwrap().join(format!("{op}-result.json"));
         atomic_json(&report,&json!({"schema":2,"operation":op,"state":"failed",
-            "cleanup_confirmed":true,"owned_live":0,"transaction":{"schema":1,
+            "cleanup_confirmed":true,"owned_live":0,"transaction":{"schema":1,"operation":op,
                 "outcome":"not_installed","durable_installation":"not_installed"}})).unwrap();
         let before=fs::read(&report).unwrap();
         let a=f.r.host.clone();
