@@ -2191,6 +2191,47 @@ with zipfile.ZipFile(path,'w') as z:
         &prepared.selection.scanner_source).unwrap_err().to_string(),
         "preparation_inventory_superseded");
     check_publication(&f.m, &installed.profile, &installed.registration).unwrap();
+    // Normal package refresh must read complete lifetime history across classes,
+    // rather than treating the number of retained configurations as capacity.
+    // Seed exact immutable records so the refresh caller encounters the old
+    // limit itself, instead of stopping while the fixture creates its history.
+    for class in 0x10..0x1c {
+        let class_id = format!("{class:02X}").repeat(16);
+        let mut raw: Value = read_json(&prepared.inspection.report.path).unwrap();
+        raw["records"][1]["classes"][0]["raw_tuid_hex"] = json!(class_id);
+        raw["records"][2]["class_id"] = json!(class_id);
+        let report = f.outer.join(format!("retained-inspection-{class_id}.json"));
+        atomic_json(&report, &raw).unwrap();
+        let report = Artifact { sha256:digest(&report).unwrap(), path:report };
+        let mut selection = prepared.selection.clone();
+        selection.class = crate::inventory::classes(&raw).unwrap().into_iter()
+            .find(|row| row.id == class_id).unwrap();
+        selection.factory_report = report.clone();
+        let inspection = inspect_record(selection.clone(), report, Origin::ManagedPreparation).unwrap();
+        let mut native = c.native.clone();
+        native.class.class_id = class_id.clone();
+        native.external_ids = external_ids(&class_id).unwrap();
+        let mut predecessor = None;
+        for generation in 1..=22 {
+            let historical = super::prepared(selection.clone(), inspection.clone(), native.clone(),
+                inspection.host.clone(), inspection.source_manifest.clone(),
+                format!("{generation:064x}")).unwrap();
+            validate_candidate_record(&f.m, &historical).unwrap();
+            let id = historical.id().unwrap();
+            immutable(&object(&f.m, "lineage", &id).unwrap().join("record.json"),
+                &CandidateLineage {schema:1,candidate:id.clone(),preparation_identity:id.clone(),
+                    ordinal:(class - 0x10) * 22 + generation + 3,
+                    predecessor:predecessor.clone()}).unwrap();
+            immutable(&object(&f.m, "candidates", &id).unwrap().join("candidate.json"),
+                &historical).unwrap();
+            predecessor = Some(id);
+        }
+    }
+    let retained_candidates_before = snapshot(&super::root(&f.m).join("candidates"));
+    let retained_lineage_before = snapshot(&super::root(&f.m).join("lineage"));
+    let selected_before_refresh = fs::read(f.m.root.join("registry.json")).unwrap();
+    assert!(fs::read_dir(super::root(&f.m).join("candidates")).unwrap().count() > 256);
+    assert!(fs::read_dir(super::root(&f.m).join("lineage")).unwrap().count() > 256);
     let refresh_operation = random_id().unwrap();
     let replacement = refresh_candidate(
         &f.m,
@@ -2200,6 +2241,10 @@ with zipfile.ZipFile(path,'w') as z:
         &refresh_operation,
     )
     .unwrap();
+    assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), selected_before_refresh);
+    let replacement_lineage = lineage_record(&f.m, &replacement).unwrap();
+    assert_eq!(replacement_lineage.predecessor, Some(prepared.id().unwrap()));
+    assert!(replacement_lineage.ordinal > 256);
     build::cleanup_work(&f.m, &refresh_operation).unwrap();
     // Prior successful refresh preparation never authorizes changed runtime
     // bytes at the next publication-preparation boundary.
@@ -2230,6 +2275,14 @@ with zipfile.ZipFile(path,'w') as z:
     assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), selected);
     let refreshed = f.m.prepare_package_refresh(&replacement, &revision).unwrap();
     f.m.commit_package_publication(&refreshed).unwrap();
+    let retained_after = snapshot(&super::root(&f.m).join("candidates")).into_iter()
+        .chain(snapshot(&super::root(&f.m).join("lineage"))).collect::<BTreeMap<_,_>>();
+    for (path, bytes) in retained_candidates_before.into_iter().chain(retained_lineage_before) {
+        assert_eq!(retained_after[&path], bytes, "retained history changed: {}", path.display());
+    }
+    assert_eq!(f.m.registry().unwrap().classes[&prepared.selection.class.id]
+        .managed_revision, refreshed.after.entry.managed_revision);
+    assert_eq!(refreshed.after.performance, refreshed.before.performance);
     assert!(!registry_requires_loaded_engine_refresh_record(&f.m).unwrap());
     assert!(!registry_requires_loaded_engine_refresh(&f.m).unwrap());
     assert_ne!(refreshed.before.entry.registration.native.path,

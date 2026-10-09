@@ -129,8 +129,7 @@ fn list(dir: &Path) -> Result<Vec<PathBuf>> {
         return Ok(vec![]);
     }
     let mut out = vec![];
-    for e in fs::read_dir(dir)?.take(257) {
-        require(out.len() < 256, "preparation_count_bound")?;
+    for e in fs::read_dir(dir)? {
         out.push(e?.path());
     }
     out.sort();
@@ -1365,7 +1364,7 @@ fn for_profile(m: &Manager, p: &Profile) -> Result<Option<Candidate>> {
     let records = RecordReadback::capture(m)?;
     Ok(records.for_profile(m, p)?.cloned())
 }
-/// One bounded census of existing immutable metadata for a control projection.
+/// One census of bounded immutable metadata for a control projection.
 /// It has no execution-verification result and never survives that projection.
 pub struct RecordReadback {
     pub candidates: Vec<Candidate>,
