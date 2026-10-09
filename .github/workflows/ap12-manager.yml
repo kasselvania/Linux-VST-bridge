@@ -110,6 +110,7 @@ jobs:
       - run: python3 -m unittest discover -s tools/uio3 -v
       - run: python3 -m unittest discover -s tools/uir2 -v
       - run: python3 -m unittest discover -s tools/if2 -v
+      - run: sudo apt-get update
       - run: sudo apt-get install -y xvfb libxtst6 libxcomposite1 libxi6 libarchive-tools gnupg
       # The signing verifier rebuilds offline using the backend's own lockfile,
       # whose transitive versions need not match the manager dependency cache.
