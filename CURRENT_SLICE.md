@@ -16,17 +16,19 @@ Test33's ordinary GUI update preserves twelve class/module/environment/compatibi
 identities, publication dispositions, five preferences and the saved project, with
 the exact Test32 predecessor.
 Ordinary **Check compatibility** and **Make available for testing** publish Analog Lab V.
-With local Windows accessibility disabled, Test32 Bitwig plays its vendor keyboard
-and recalls changed Brightness after save/new-process reopen; both hosts retire cleanly.
-Test33 reopens that saved state and passes editor close/reopen and clean retirement.
+With local Windows accessibility disabled, Test33 Bitwig plays an eight-note DAW clip
+with a Brightness automation ramp, saves it and repeats it after fresh-process reopen.
+Both stereo captures are finite; all hosts retire cleanly and prior settings/project survive.
 
 ## Best explanation and next changes
 
 Windows-default editor release reproduces the runtime UIA null-provider crash.
 The local setting avoids it but disables Windows screen readers for this plug-in.
-Test33's ordinary GUI form records four fresh checks with persistent actions.
+Test33's ordinary GUI form records eight fresh checks with persistent actions.
 Its graphics assessment treats detected WebView2 as unassessed, separate from
 editor, audio and state results. First-attempt qualification remains unmet.
+Next, construct and test a coherent corrected runtime for new environments, preserving
+earlier runner records. Existing licensed-environment runtime transition is a separate gap.
 
 ## Done and interruption rule
 

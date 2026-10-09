@@ -2954,6 +2954,8 @@ Deck Test32 Analog Lab V 5.12.6.6914 reproduces the null-read `c0000005` at UIA
 RVA `0x7988` during `IPlugView::release()` (stage 215), after successful frame detach
 and removal. The normal local Windows accessibility-off trial passes editor close/reopen,
 vendor-keyboard audio, save/new-process parameter recall and both normal retirements.
+Test33 adds DAW MIDI and automation playback before and after saved-project reopen,
+with both hosts retiring cleanly; the explicit accessibility-off limitation remains.
 Windows screen-reader support is unavailable for this plug-in's Windows processes. [Scoped result](../evidence/analog-lab-deck.json).
 
 ### User posture and next gate
@@ -3323,6 +3325,7 @@ Test32's long form initially hid its action footer; earlier resize/scroll attemp
 not reveal it, but a later awake scroll did. That disabled button correctly reported
 unavailable manager readback. Test33 scrolls the fields while keeping both actions
 and refusal text visible. On Deck, the ordinary GUI reaches the form's fields and
-completes a result with four fresh checks: DAW load, editor, saved-state recall and
-retirement. Viewport/click regressions pass at 1280×800 and 560×360. The six Test32
+completes four fresh checks, then eight after actual DAW MIDI/automation and saved-project
+replay. Processing restart remains unchecked. Viewport/click regressions pass at
+1280×800 and 560×360. The six Test32
 checks remain historical typed results. [Scoped result](../evidence/analog-lab-deck.json).
