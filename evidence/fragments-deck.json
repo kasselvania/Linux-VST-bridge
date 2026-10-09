@@ -1,5 +1,5 @@
 {
-  "scope": "Owned Efx FRAGMENTS normal ASC activation, saved preset/control recall, short notes-and-tail playback and retirement before/after a fresh native Bitwig process on the retained Deck environment.",
+  "scope": "Owned Efx FRAGMENTS normal ASC activation, saved preset/control recall, short notes-and-tail playback and retirement before/after a fresh native Bitwig process on the retained Deck environment; saved-project recall after Test37 bridge software Update.",
   "platform": "Steam Deck / Bitwig 6.1 / Test36",
   "version": "1.0.0.2925",
   "class_id": "41727475415649536772616E50726F63",
@@ -69,5 +69,40 @@
     "selected_software_unchanged": true,
     "service_active": true,
     "final_active_leases": 0
+  },
+  "test37_update_recall": {
+    "source_head": "0b4ac5223de108484fb12b9403d9d26416b3282d",
+    "fresh_process_saved_preset_and_three_controls_match": true,
+    "full_editor_without_demo_or_license_prompt": true,
+    "activation_actions": 0,
+    "environment_runner_module_and_compatibility_unchanged": true,
+    "protected_saved_project_sha256": "c281671f6c6fb9946b1902fd992d4be5e21bc37ee350c5d944c56734f4ef3578",
+    "audio": {
+      "rate": 48000,
+      "channels": 2,
+      "frames": 1920000,
+      "nonzero_samples": 3352990,
+      "nonfinite_samples": 0,
+      "recorder_exit": 1,
+      "original_output_links_preserved": 2
+    },
+    "retirement": {
+      "confirmed_dsp_host_transport_retirements": 2,
+      "fragments_editor_open_stage": 100,
+      "fragments_editor_terminal_view_stage": 217,
+      "editor_closed": 1,
+      "editor_open": 0,
+      "editor_failure": 0,
+      "editor_exception": 0
+    },
+    "normal_idle_keeper_retirement_confirmed": true,
+    "preservation": {
+      "registration_identity_projections_unchanged": 15,
+      "preferences_unchanged": 5,
+      "protected_project_hashes_unchanged": 4,
+      "selected_software_unchanged": true,
+      "service_active": true,
+      "final_active_leases": 0
+    }
   }
 }

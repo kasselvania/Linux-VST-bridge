@@ -99,7 +99,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-STATE-003](#fc-state-003--saved-project-reopens-with-default-state) | Saved project reopens with default state | Native component state restore | causal | Processing restore correction installed in Test26 | Ubuntu 26.04.1 / REAPER 7.82 Reference instrument/effect recall | resolved for this tested case | Broader plug-in and DAW recall qualification |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
-| [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process policy installed; corrected r4 installed | Ubuntu FRAGMENTS/Deck Analog Lab policy lifecycle; Deck FRAGMENTS retained-policy recall/retirement; Deck MOTIONS r4 Windows-default editor lifecycle | review candidate; old policy disables Windows screen readers | Existing licensed-environment runtime transition |
+| [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process policy installed; corrected r4 installed | Ubuntu FRAGMENTS/Deck Analog Lab policy lifecycle; Deck FRAGMENTS retained-policy recall/retirement; Deck MOTIONS r4 Windows-default editor lifecycle | review candidate; old policy disables Windows screen readers | Restore preparation and approval before licensed runtime transition |
 | [FC-UI-010](#fc-ui-010--result-form-footer-cannot-be-reached-on-deck) | Result form initially hides actions | Manager dialog / Deck viewport | initially hidden footer; scrolling reproduced | installed in Test33 | Fields scroll while actions remain visible; four fresh checks submitted normally | resolved on the tested Deck form | Preserve viewport/click regression coverage |
 | [FC-UI-011](#fc-ui-011--native-editor-remains-blank-in-reaper) | Native editor remains blank in REAPER | Native IPlugView/controller admission | suspected attachment gap; exact guard unproved | none | Deck REAPER 7.82 / Test36 MOTIONS | open | Establish parent/frame refusal; preserve Bitwig lifecycle |
 | [FC-MGMT-007](#fc-mgmt-007--retained-proposal-displaces-selected-configuration) | Retained proposal displaces selected configuration | Manager guided projection and frontend action ownership | causal | installed-fixed on reference fixture | Ubuntu config7 full effect/instrument workflow and GUI restoration | reference configuration regression passed; musician workflow unqualified | Physical DAW integration and endurance |
@@ -1095,6 +1095,13 @@ FC-MIDI-001 expression filtering and FC-AUDIO-001 residual deadline misses.
 ---
 
 ## FC-AUDIO-001 — Residual audio deadline misses
+
+Test37's Reference saved-project reopen recalls all four controls. One finite
+stereo capture has a 512-frame (10.67 ms at 48 kHz) discontinuity relative
+to both pre-update baseline phrases. Subsequent same-process manager-closed and
+manager-open captures each match the 762,000-frame baseline phrase exactly.
+The observed gap remains in [#90](https://github.com/kasselvania/Linux-VST-bridge/issues/90);
+neither the product-path attribution nor a Library/update cause is established.
 
 Test28 Ubuntu VM settings checks retain two overruns against a 21.333 ms callback
 deadline: 70.469146 ms on the sibling during trial Apply and 25.700938 ms on the
@@ -2776,9 +2783,12 @@ Test36's first GUI update separately refuses `LockBusy` after five candidate/lin
 records, preserving selected software and prior data. Retry succeeds with reduced
 obsolete frontend contention. Two raw registry sites remain plausible; exact attribution
 is a gap. This updater correctness defect is [#259](https://github.com/kasselvania/Linux-VST-bridge/issues/259), separate from [#240](https://github.com/kasselvania/Linux-VST-bridge/issues/240) latency.
-Source now carries one bounded registry wait budget through the update, with separate
-finite recovery/startup allowances and authority/cleanup rechecks. Deterministic tests
-cover these crossings; populated ordinary GUI acceptance remains pending.
+One bounded registry wait budget now covers the update, with separate finite recovery/startup
+allowances and authority/cleanup rechecks. Deterministic tests cover these crossings;
+Test37's first ordinary GUI Update succeeds with two healthy selected Library frontends
+refreshing, preserving fifteen registration identities, five preferences, four project
+hashes and all 289 prior candidate/lineage hashes. The updater completes in about three
+and a half minutes; no latency improvement is established. [Scoped result](../evidence/runtime-delivery-deck.json).
 
 Test 12 (2026-10-06), the first package after Test 10 to carry a different
 Windows host, was signed, staged on the Deck through the signed package API and
@@ -2992,7 +3002,10 @@ Demo save/load is disabled and DAW close refuses MOTIONS preset saving, expected
 unowned demo-only proof. Owned Efx FRAGMENTS activates normally through ASC and recalls
 its changed preset and checked controls in a fresh Bitwig process on the retained Steam Proton 11
 runner with Windows accessibility disabled; both editor lifetimes and host/transport retirements pass.
-Existing licensed-environment runtime transition remains next. [Scoped result](../evidence/fragments-deck.json).
+Test37 Update preserves that saved FRAGMENTS preset/control recall, full editor,
+finite playback and clean DSP retirement on the same retained runner, without activation actions.
+Prepare a vendor-state restore path and obtain operator approval before changing
+the licensed environment's runtime. [Scoped result](../evidence/fragments-deck.json).
 [Construction](RUNTIME_UIA_GUARD.md), [acquisition and publication](../evidence/runtime-delivery-deck.json).
 
 ### User posture and next gate
