@@ -230,6 +230,35 @@ pub(crate) fn inspection_report(c: &Census) -> serde_json::Value {
         {"state":"ap8_inspection_closed","exit_code":0},{"state":"scanner_completed","inspection_complete":true}]})
 }
 
+pub(crate) fn reusable_kit(path: &Path, host: &Artifact, source: &Artifact, engine: &str) {
+    let script = r#"import json,zipfile,hashlib,sys,pathlib
+path,root,host,manifest,engine=sys.argv[1:];root=pathlib.Path(root)
+sha=lambda b:hashlib.sha256(b).hexdigest()
+files={'prebuilt/engine.so':b'\x7fELF'+engine.encode(),
+ 'runtime/host.exe':pathlib.Path(host).read_bytes(),
+ 'runtime/host-source-manifest.json':pathlib.Path(manifest).read_bytes()}
+helper_names=['lvb-direct-wait.dll','x86_64-windows/lvb-direct-wait.dll','x86_64-unix/lvb-direct-wait.so']
+for name in helper_names:files['runtime/'+name]=name.encode()
+files['runtime/direct-audio-helper.json']=json.dumps(dict(schema=1,abi=1,
+ host_sha256=sha(files['runtime/host.exe']),runner_wine_revision='46b29104e3741fe23bf5e2547196a253aab88c89',
+ files={name:sha(files['runtime/'+name]) for name in helper_names})).encode()
+for name in ('tools/mf3/native_builder.py','tools/ap8_descriptor.py'):files[name]=(root/name).read_bytes()
+files['prebuilt/index.json']=json.dumps(dict(schema=3,engine='prebuilt/engine.so',
+ engine_sha256=sha(files['prebuilt/engine.so']),descriptor_schema=1,maximum_bridge_frames=1024,
+ audio_completion_contract=1,loaded_engine_admission_contract=1,native_sources={})).encode()
+recipe=dict(schema=4,source_commit='ab'*20,sdk='3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96',
+ sdk_runtime='b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8',files={k:sha(v) for k,v in files.items()})
+with zipfile.ZipFile(path,'w') as z:
+ z.writestr('recipe.json',json.dumps(recipe))
+ for k,v in files.items():z.writestr(k,v)
+"#;
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    assert!(std::process::Command::new("python3").args(["-I", "-c", script])
+        .arg(path).arg(root).arg(&host.path).arg(&source.path).arg(engine)
+        .status().unwrap().success());
+    fs::set_permissions(path, fs::Permissions::from_mode(0o400)).unwrap();
+}
+
 /// Compare every file byte, directory and symlink, including publication and
 /// transaction records. Reading a candidate cannot leave hidden durable work.
 pub(crate) fn snapshot(root: &Path) -> std::collections::BTreeMap<PathBuf, Vec<u8>> {
@@ -250,4 +279,75 @@ pub(crate) fn snapshot(root: &Path) -> std::collections::BTreeMap<PathBuf, Vec<u
     let mut result = std::collections::BTreeMap::new();
     visit(root, &mut result);
     result
+}
+
+pub(crate) fn prepared_candidate(id: &str) -> (Fixture, preparation::Candidate) {
+    use preparation::{selections, inspect_record, Origin};
+    use serde_json::json;
+    let (mut f, _, mut census, native) = prepared_accessibility(false);
+    f.m.unpublish(&f.r.key()).unwrap();
+    atomic_json(&f.m.root.join("registry.json"), &Registry::default()).unwrap();
+    let old = f.r.environment.root.clone();
+    let envroot = f.m.root.join("environments").join(id);
+    fs::rename(&old, &envroot).unwrap();
+    f.r.module.path = envroot.join(f.r.module.path.strip_prefix(&old).unwrap());
+    f.r.environment.id = id.into();
+    f.r.environment.root = envroot;
+    atomic_json(
+        &f.r.environment.root.join("environment.json"),
+        &f.r.environment,
+    )
+    .unwrap();
+    census.environment.environment = f.r.environment.clone();
+    census.environment.family = Family::ManagedInstallerV1;
+    census.module = f.r.module.clone();
+    census.module_stamp = Some(ModuleStamp::read(&census.module.path).unwrap());
+    let mut raw = inspection_report(&census);
+    // Complete non-audio factory class; the production inventory validates all rows.
+    let class = raw["records"][1]["classes"][0].clone();
+    let mut controller = class;
+    controller["raw_tuid_hex"] = json!("02".repeat(16));
+    controller["category_hex"] = json!(hex(b"Component Controller Class"));
+    raw["records"][1]["classes"][1] = controller;
+    raw["records"].as_array_mut().unwrap().push(
+        json!({"state":"ap8_controller_association","combined":false,"class_id":"02".repeat(16)}),
+    );
+    atomic_json(&census.report.path, &raw).unwrap();
+    census.report.sha256 = digest(&census.report.path).unwrap();
+    let classes = crate::inventory::classes(&raw).unwrap();
+    let scan = crate::inventory::Scan {
+        schema: 1,
+        id: random_id().unwrap(),
+        environment: f.r.environment.clone(),
+        host: f.r.host.clone(),
+        host_source_sha256: f.r.host_source_sha256.clone(),
+        completed_at: observation::now().unwrap(),
+        modules: vec![crate::inventory::Module {
+            artifact: f.r.module.clone(),
+            classes,
+            report: census.report.clone(),
+            inspection_error: None,
+            quarantine_reason: None,
+        }],
+        changes: Default::default(),
+    };
+    private_dir(&f.m.root.join("inventory")).unwrap();
+    atomic_json(
+        &f.m.root
+            .join("inventory")
+            .join(format!("{}.json", f.r.environment.id)),
+        &scan,
+    )
+    .unwrap();
+    let s = selections(&f.m, &f.r.host, &f.r.host_source_sha256)
+        .unwrap()
+        .pop()
+        .unwrap();
+    let i = inspect_record(s.clone(), census.report, Origin::ManagedPreparation).unwrap();
+    let manifest = Artifact {
+        path: f.r.host.path.with_file_name("host-source-manifest.json"),
+        sha256: f.r.host_source_sha256.clone(),
+    };
+    let c = preparation::prepared(s, i, native, f.r.host.clone(), manifest, "aa".repeat(32)).unwrap();
+    (f, c)
 }

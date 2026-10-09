@@ -888,6 +888,12 @@ fn verify_package_refresh_runtime(target: &Software,
 
 pub(crate) fn inspect_for_package_refresh(m: &Manager, target: &Software,
     runtime: &preparation::build::Runtime, prior: &Registration) -> Result<Artifact> {
+    inspect_for_package_refresh_with_registry(m, target, runtime, prior,
+        || m.lock("registry.lock"))
+}
+fn inspect_for_package_refresh_with_registry(m: &Manager, target: &Software,
+    runtime: &preparation::build::Runtime, prior: &Registration,
+    acquire_registry: impl FnOnce() -> Result<Lock>) -> Result<Artifact> {
     verify_package_refresh_runtime(target, runtime)?;
     m.require_inactive(None)?;
     prior.module.verify()?;
@@ -922,7 +928,7 @@ pub(crate) fn inspect_for_package_refresh(m: &Manager, target: &Software,
         }
         std::thread::sleep(Duration::from_millis(20));
     };
-    finish_inspection(m, &job, status)?;
+    finish_inspection_with_registry(m, &job, status, acquire_registry)?;
     Ok(Artifact { sha256:digest(&job.report)?, path:job.report })
 }
 fn spawn(m: &Manager, s: &Software, path: &Path, peer: Option<UnixStream>) -> Result<Child> {
@@ -1443,8 +1449,7 @@ fn capacity_read(m: &Manager) -> Result<()> {
 fn serve(m: Manager) -> Result<()> {
     let _lock = m.lock("service.lock")?;
     let s = software(&m)?;
-    package_authority::require_service_transition_coherent(&m, &s)?;
-    m.reconcile()?;
+    package_authority::reconcile_service_startup(&m, &s)?;
     transport_storage::initialize()?;
     let runtime = m.root.join("runtime");
     private_dir(&runtime)?;
@@ -2119,10 +2124,15 @@ fn inspect(m: &Manager, path: &Path) -> Result<()> {
     finish_inspection(m, &job, status)
 }
 fn finish_inspection(m: &Manager, job: &SessionSpec, status: ExitStatus) -> Result<()> {
+    finish_inspection_with_registry(m, job, status, || m.lock("registry.lock"))
+}
+fn finish_inspection_with_registry(m: &Manager, job: &SessionSpec, status: ExitStatus,
+    acquire_registry: impl FnOnce() -> Result<Lock>) -> Result<()> {
     // A refused prelaunch still has an owned reservation. Retire it through
     // the existing positive receipt rule before reporting the inspection error.
     {
-        let _registry = m.lock("registry.lock")?;
+        let registry = acquire_registry()?;
+        registry.require_registry(m)?;
         let _unresolved = reconcile_leases(m)?;
         require(!job.lease.try_exists()?, "inspection cleanup unconfirmed")?;
     }
@@ -3151,6 +3161,78 @@ mod tests {
         assert!(finish_inspection(&f.m, &job, status).unwrap_err().to_string()
             .contains("inspection cleanup unconfirmed"));
         assert!(job.directory.exists() && job.lease.exists());
+    }
+    fn retired_inspection_fixture() -> (test_fixture::Fixture, SessionSpec, ExitStatus) {
+        let f = test_fixture::Fixture::new();
+        f.m.register(f.r.clone()).unwrap();
+        let (job, _) = spec(&f.m, f.r.clone().into(), true, false, false).unwrap();
+        atomic_json(&job.lease, &job.report).unwrap();
+        atomic_json(&job.report, &serde_json::json!({"ownership_schema":1,
+            "error":null,"cleanup_confirmed":true,"transport_retired":true})).unwrap();
+        atomic_json(&job.report.with_extension("ownership.json"), &serde_json::json!({
+            "session":job.session,"cleanup_confirmed":true,"transport_retired":true})).unwrap();
+        let status = Command::new("/bin/sh").args(["-c", "exit 0"]).status().unwrap();
+        (f, job, status)
+    }
+    #[test]
+    fn package_inspection_finish_accepts_contended_registry_admission() {
+        let (f, job, status) = retired_inspection_fixture();
+        let held = f.m.lock("registry.lock").unwrap();
+        let mut admitted = false;
+        finish_inspection_with_registry(&f.m, &job, status, || {
+            assert!(matches!(f.m.try_lock("registry.lock")?,
+                operator_lock::LockAttempt::Busy));
+            drop(held);
+            let (guard, _) = f.m.lock_bounded(operator_model::OperatorLock::Registry,
+                operator_model::LockPurpose::OperatorValidationReadback, None,
+                Duration::from_secs(1))?;
+            admitted = true;
+            Ok(guard)
+        }).unwrap();
+        assert!(admitted && !job.lease.exists());
+        assert!(job.report.exists() && job.report.with_extension("ownership.json").exists());
+    }
+    #[test]
+    fn package_inspection_finish_timeout_preserves_owned_recovery_and_project() {
+        let (f, job, status) = retired_inspection_fixture();
+        let project = f.outer.join("saved-project");
+        fs::write(&project, b"saved musician project").unwrap();
+        let before = test_fixture::snapshot(&f.m.root);
+        let held = f.m.lock("registry.lock").unwrap();
+        let error = finish_inspection_with_registry(&f.m, &job, status, || {
+            Ok(f.m.lock_bounded(operator_model::OperatorLock::Registry,
+                operator_model::LockPurpose::OperatorValidationReadback, None,
+                Duration::from_millis(20))?.0)
+        }).unwrap_err();
+        let facts = &error.downcast_ref::<operator_lock::AcquisitionFailure>().unwrap().facts;
+        assert!(facts.attempts > 1 && facts.outcome == operator_model::LockOutcome::Timeout);
+        drop(held);
+        assert_eq!(test_fixture::snapshot(&f.m.root), before);
+        assert_eq!(fs::read(project).unwrap(), b"saved musician project");
+        assert!(job.directory.exists() && job.lease.exists());
+        assert!(!f.m.root.join("package-transition.json").exists());
+    }
+    #[test]
+    fn package_inspection_finish_rechecks_retirement_and_registry_guard() {
+        for wrong_guard in [false, true] {
+            let (f, job, status) = retired_inspection_fixture();
+            let error = finish_inspection_with_registry(&f.m, &job, status, || {
+                if wrong_guard { return f.m.lock("package.lock"); }
+                let held = f.m.lock("registry.lock")?;
+                assert!(matches!(f.m.try_lock("registry.lock")?,
+                    operator_lock::LockAttempt::Busy));
+                atomic_json(&job.report.with_extension("ownership.json"), &serde_json::json!({
+                    "session":job.session,"cleanup_confirmed":false,"transport_retired":true}))?;
+                drop(held);
+                Ok(f.m.lock_bounded(operator_model::OperatorLock::Registry,
+                    operator_model::LockPurpose::OperatorValidationReadback, None,
+                    Duration::from_secs(1))?.0)
+            }).unwrap_err();
+            assert_eq!(error.to_string(), if wrong_guard { "registry_guard_identity" }
+                else { "inspection cleanup unconfirmed" });
+            assert!(job.directory.exists() && job.lease.exists());
+            assert!(job.report.with_extension("ownership.json").exists());
+        }
     }
     #[test]
     fn kernel_restart_retires_bound_leases_and_preserves_failed_result() {

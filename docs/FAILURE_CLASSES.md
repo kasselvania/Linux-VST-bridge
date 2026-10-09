@@ -2776,6 +2776,9 @@ Test36's first GUI update separately refuses `LockBusy` after five candidate/lin
 records, preserving selected software and prior data. Retry succeeds with reduced
 obsolete frontend contention. Two raw registry sites remain plausible; exact attribution
 is a gap. This updater correctness defect is [#259](https://github.com/kasselvania/Linux-VST-bridge/issues/259), separate from [#240](https://github.com/kasselvania/Linux-VST-bridge/issues/240) latency.
+Source now carries one bounded registry wait budget through the update, with separate
+finite recovery/startup allowances and authority/cleanup rechecks. Deterministic tests
+cover these crossings; populated ordinary GUI acceptance remains pending.
 
 Test 12 (2026-10-06), the first package after Test 10 to carry a different
 Windows host, was signed, staged on the Deck through the signed package API and

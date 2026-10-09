@@ -1,5 +1,5 @@
 use super::*;
-use crate::test_fixture::{inspection_report, prepared_accessibility, snapshot, Fixture};
+use crate::test_fixture::{prepared_accessibility, snapshot, Fixture};
 use serde_json::json;
 pub(crate) fn fixture() -> (Fixture, Candidate) {
     fixture_with_environment(&"13".repeat(16))
@@ -335,73 +335,9 @@ fn lost_managed_candidate_is_not_reclassified_as_a_legacy_profile() {
     );
 }
 fn fixture_with_environment(id: &str) -> (Fixture, Candidate) {
-    let (mut f, _, mut census, native) = prepared_accessibility(false);
-    f.m.unpublish(&f.r.key()).unwrap();
-    atomic_json(&f.m.root.join("registry.json"), &Registry::default()).unwrap();
-    let old = f.r.environment.root.clone();
-    let envroot = f.m.root.join("environments").join(id);
-    fs::rename(&old, &envroot).unwrap();
-    f.r.module.path = envroot.join(f.r.module.path.strip_prefix(&old).unwrap());
-    f.r.environment.id = id.into();
-    f.r.environment.root = envroot;
-    atomic_json(
-        &f.r.environment.root.join("environment.json"),
-        &f.r.environment,
-    )
-    .unwrap();
-    census.environment.environment = f.r.environment.clone();
-    census.environment.family = Family::ManagedInstallerV1;
-    census.module = f.r.module.clone();
-    census.module_stamp = Some(ModuleStamp::read(&census.module.path).unwrap());
-    let mut raw = inspection_report(&census);
-    // Complete non-audio factory class; the production inventory validates all rows.
-    let class = raw["records"][1]["classes"][0].clone();
-    let mut controller = class;
-    controller["raw_tuid_hex"] = json!("02".repeat(16));
-    controller["category_hex"] = json!(hex(b"Component Controller Class"));
-    raw["records"][1]["classes"][1] = controller;
-    raw["records"].as_array_mut().unwrap().push(
-        json!({"state":"ap8_controller_association","combined":false,"class_id":"02".repeat(16)}),
-    );
-    atomic_json(&census.report.path, &raw).unwrap();
-    census.report.sha256 = digest(&census.report.path).unwrap();
-    let classes = crate::inventory::classes(&raw).unwrap();
-    let scan = crate::inventory::Scan {
-        schema: 1,
-        id: random_id().unwrap(),
-        environment: f.r.environment.clone(),
-        host: f.r.host.clone(),
-        host_source_sha256: f.r.host_source_sha256.clone(),
-        completed_at: observation::now().unwrap(),
-        modules: vec![crate::inventory::Module {
-            artifact: f.r.module.clone(),
-            classes,
-            report: census.report.clone(),
-            inspection_error: None,
-            quarantine_reason: None,
-        }],
-        changes: Default::default(),
-    };
-    private_dir(&f.m.root.join("inventory")).unwrap();
-    atomic_json(
-        &f.m.root
-            .join("inventory")
-            .join(format!("{}.json", f.r.environment.id)),
-        &scan,
-    )
-    .unwrap();
-    let s = selections(&f.m, &f.r.host, &f.r.host_source_sha256)
-        .unwrap()
-        .pop()
-        .unwrap();
-    let i = inspect_record(s.clone(), census.report, Origin::ManagedPreparation).unwrap();
-    let manifest = Artifact {
-        path: f.r.host.path.with_file_name("host-source-manifest.json"),
-        sha256: f.r.host_source_sha256.clone(),
-    };
-    let c = prepared(s, i, native, f.r.host.clone(), manifest, "aa".repeat(32)).unwrap();
-    (f, c)
+    crate::test_fixture::prepared_candidate(id)
 }
+
 #[test]
 fn record_readback_watches_only_used_product_records_not_unrelated_history_payloads() {
     let (f, current) = fixture();
@@ -2067,43 +2003,8 @@ fn reusable_engine_actual_preparation_retains_and_publishes_descriptor() {
         c.selection.class.id)), &Performance { schema:1, added_frames:1024,
         delivery_mode:DeliveryMode::Buffered }).unwrap();
     let path = f.m.root.join("software/reusable-kit.zip");
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .to_path_buf();
-    let script = r#"import json,zipfile,hashlib,sys,pathlib
-path,root,host,manifest,engine=sys.argv[1:];root=pathlib.Path(root)
-sha=lambda b:hashlib.sha256(b).hexdigest()
-files={'prebuilt/engine.so':b'\x7fELF'+engine.encode(),
- 'runtime/host.exe':pathlib.Path(host).read_bytes(),
- 'runtime/host-source-manifest.json':pathlib.Path(manifest).read_bytes()}
-helper_names=['lvb-direct-wait.dll','x86_64-windows/lvb-direct-wait.dll','x86_64-unix/lvb-direct-wait.so']
-for name in helper_names:files['runtime/'+name]=name.encode()
-files['runtime/direct-audio-helper.json']=json.dumps(dict(schema=1,abi=1,
- host_sha256=sha(files['runtime/host.exe']),runner_wine_revision='46b29104e3741fe23bf5e2547196a253aab88c89',
- files={name:sha(files['runtime/'+name]) for name in helper_names})).encode()
-for name in ('tools/mf3/native_builder.py','tools/ap8_descriptor.py'):files[name]=(root/name).read_bytes()
-files['prebuilt/index.json']=json.dumps(dict(schema=3,engine='prebuilt/engine.so',
- engine_sha256=sha(files['prebuilt/engine.so']),descriptor_schema=1,maximum_bridge_frames=1024,
- audio_completion_contract=1,loaded_engine_admission_contract=1,native_sources={})).encode()
-recipe=dict(schema=4,source_commit='ab'*20,sdk='3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96',
- sdk_runtime='b90ed309cc1d505dea48b6a2121c5dcfac22868120eee643b0596d31f96b9bb8',files={k:sha(v) for k,v in files.items()})
-with zipfile.ZipFile(path,'w') as z:
- z.writestr('recipe.json',json.dumps(recipe))
- for k,v in files.items():z.writestr(k,v)
-"#;
     let make_kit = |path: &Path, engine: &str| {
-        assert!(std::process::Command::new("python3")
-            .args(["-I", "-c", script])
-            .arg(path)
-            .arg(&root)
-            .arg(&c.host.path)
-            .arg(&c.source_manifest.path)
-            .arg(engine)
-            .status()
-            .unwrap()
-            .success());
-        fs::set_permissions(path, fs::Permissions::from_mode(0o400)).unwrap();
+        crate::test_fixture::reusable_kit(path, &c.host, &c.source_manifest, engine);
     };
     make_kit(&path, "reusable-engine-fixture");
     let a = c.host.clone();
@@ -2373,4 +2274,198 @@ with zipfile.ZipFile(path,'w') as z:
     assert_eq!(restored.registration.environment, installed.registration.environment);
     assert_eq!(restored.registration.module, installed.registration.module);
     assert_eq!(restored.registration.native.sha256, replacement.native.artifact.sha256);
+}
+
+fn refresh_lock_fixture() -> (Fixture, Candidate, crate::publication::RevisionRef) {
+    let (f, c) = fixture();
+    retain_inspection(&f.m, &c.inspection).unwrap();
+    record_candidate(&f.m, &c).unwrap();
+    let predecessor = enable(&f.m, &c, false).unwrap();
+    let kit = f.m.root.join("software/refresh-lock-kit.zip");
+    crate::test_fixture::reusable_kit(&kit, &c.host, &c.source_manifest, "updated-engine");
+    let sw = crate::catalogue::Software { manager:c.host.clone(),
+        operator_frontend:None, installer_launch:None,
+        preparation_kit:Some(Artifact {sha256:digest(&kit).unwrap(),path:kit}),
+        supervisor:c.host.clone(),ownership:c.host.clone(),host:c.host.clone(),
+        source_manifest:c.source_manifest.clone(),source_sha256:c.source_manifest.sha256.clone(),
+        native_catalogue:None };
+    atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+    let runtime = build::stage_runtime_for_software(&f.m, &sw).unwrap();
+    let mut raw: Value = read_json(&c.inspection.report.path).unwrap();
+    raw["records"].as_array_mut().unwrap().push(json!({"state":"ap8_bus",
+        "media":0,"direction":1,"index":0,"channels":2,"type":0,"flags":1,
+        "arrangement":3,"name":"Output"}));
+    let report = f.outer.join("refresh-lock-inspection.json");
+    atomic_json(&report, &raw).unwrap();
+    let prior = f.m.load_revision(&c.selection.class.id, &predecessor).unwrap();
+    let operation = random_id().unwrap();
+    let refreshed = refresh_candidate(&f.m, &prior, runtime,
+        Artifact {sha256:digest(&report).unwrap(),path:report}, &operation).unwrap();
+    build::cleanup_work(&f.m, &operation).unwrap();
+    (f, refreshed, predecessor)
+}
+
+#[test]
+fn package_refresh_preparation_waits_for_contention_and_rechecks_authority() {
+    use crate::operator_model::{LockOutcome, LockPurpose, OperatorLock};
+    for change_authority in [false, true] {
+        let (f, c, predecessor) = refresh_lock_fixture();
+        let before = f.m.registry().unwrap();
+        let selected = fs::read(f.m.root.join("software.json")).unwrap();
+        let held = f.m.lock("registry.lock").unwrap();
+        let reader = Manager {root:f.m.root.clone(),publications:f.m.publications.clone()};
+        let class = c.selection.class.id.clone();
+        crate::operator_lock::BUSY_OBSERVER.with(|observer| {
+            *observer.borrow_mut() = Some(Box::new(move || {
+                if change_authority {
+                    let mut db = reader.registry().unwrap();
+                    db.classes.get_mut(&class).unwrap().managed_revision = None;
+                    atomic_json(&reader.root.join("registry.json"), &db).unwrap();
+                }
+                drop(held);
+            }));
+        });
+        let mut facts = None;
+        let result = f.m.prepare_package_refresh_with_registry(&c, &predecessor, || {
+            let (guard, wait) = f.m.lock_bounded(OperatorLock::Registry,
+                LockPurpose::OperatorValidationReadback, None, std::time::Duration::from_secs(1))?;
+            facts = Some(wait);
+            Ok(guard)
+        });
+        assert!(facts.is_some(), "registry admission bypassed: {result:?}");
+        let facts = facts.unwrap();
+        assert!(facts.attempts > 1 && facts.outcome == LockOutcome::Acquired);
+        if change_authority {
+            assert_eq!(result.unwrap_err().to_string(), "bridge_refresh_current_changed");
+        } else {
+            let transition = result.unwrap();
+            assert_eq!(transition.before.entry.managed_revision, Some(predecessor));
+            assert_eq!(f.m.registry().unwrap().classes, before.classes);
+        }
+        assert_eq!(fs::read(f.m.root.join("software.json")).unwrap(), selected);
+        assert!(!f.m.publication_pending(&c.selection.class.id).unwrap());
+    }
+}
+
+#[test]
+fn package_refresh_preparation_timeout_preserves_selected_state_and_recovery() {
+    use crate::operator_model::{LockOutcome, LockPurpose, OperatorLock};
+    let (f, c, predecessor) = refresh_lock_fixture();
+    let project = f.outer.join("saved-project");
+    fs::write(&project, b"saved musician project").unwrap();
+    let before = snapshot(&f.m.root);
+    let held = f.m.lock("registry.lock").unwrap();
+    let result = f.m.prepare_package_refresh_with_registry(&c, &predecessor, || {
+        Ok(f.m.lock_bounded(OperatorLock::Registry,
+            LockPurpose::OperatorValidationReadback, None,
+            std::time::Duration::from_millis(20))?.0)
+    });
+    let error = result.unwrap_err();
+    let facts = &error.downcast_ref::<crate::operator_lock::AcquisitionFailure>().unwrap().facts;
+    assert!(facts.attempts > 1 && facts.outcome == LockOutcome::Timeout);
+    drop(held);
+    assert_eq!(snapshot(&f.m.root), before);
+    assert_eq!(fs::read(project).unwrap(), b"saved musician project");
+    assert!(!f.m.publication_pending(&c.selection.class.id).unwrap());
+    assert!(!f.m.root.join("package-transition.json").exists());
+}
+
+#[test]
+fn package_publication_commit_and_restore_wait_and_recheck_the_selected_binding() {
+    use crate::operator_model::{LockOutcome, LockPurpose, OperatorLock};
+    use std::{cell::RefCell, rc::Rc, time::Duration};
+    for change_at_commit in [false, true] {
+        let (f, c, predecessor) = refresh_lock_fixture();
+        let transition = f.m.prepare_package_refresh(&c, &predecessor).unwrap();
+        let held = Rc::new(RefCell::new(Some(f.m.lock("registry.lock").unwrap())));
+        let mut calls = 0;
+        let mut remaining = Duration::from_secs(1);
+        let mut acquire = || -> Result<Lock> {
+            calls += 1;
+            if held.borrow().is_none() { *held.borrow_mut() = Some(f.m.lock("registry.lock")?); }
+            let release = held.clone();
+            let change = change_at_commit && calls == 2;
+            let reader = Manager {root:f.m.root.clone(),publications:f.m.publications.clone()};
+            let key = c.selection.class.id.clone();
+            crate::operator_lock::BUSY_OBSERVER.with(|observer| {
+                *observer.borrow_mut() = Some(Box::new(move || {
+                    if change {
+                        let mut db = reader.registry().unwrap();
+                        db.classes.get_mut(&key).unwrap().managed_revision = None;
+                        atomic_json(&reader.root.join("registry.json"), &db).unwrap();
+                    }
+                    release.borrow_mut().take();
+                }));
+            });
+            let started = std::time::Instant::now();
+            let (guard, facts) = f.m.lock_bounded(OperatorLock::Registry,
+                LockPurpose::OperatorValidationReadback, None, remaining)?;
+            remaining = remaining.saturating_sub(started.elapsed());
+            assert!(facts.attempts > 1 && facts.outcome == LockOutcome::Acquired);
+            Ok(guard)
+        };
+        let result = f.m.commit_package_publication_with_registry(&transition, &mut acquire);
+        if change_at_commit {
+            assert!(result.is_err(), "changed binding was overwritten after admission wait");
+            assert!(f.m.registry().unwrap().classes[&c.selection.class.id].managed_revision.is_none());
+            assert!(!f.m.publication_pending(&c.selection.class.id).unwrap());
+        } else {
+            assert!(result.is_ok(), "contended commit refused: {result:?}");
+            assert_eq!(f.m.package_publication_snapshot().unwrap(), vec![transition.after.clone()]);
+            f.m.restore_package_publication_with_registry(&transition, &mut acquire).unwrap();
+            assert_eq!(f.m.package_publication_snapshot().unwrap(), vec![transition.before]);
+        }
+        assert_eq!(calls, if change_at_commit { 2 } else { 4 });
+    }
+}
+
+fn check_package_classification_registry(record: bool) {
+    use crate::operator_model::{LockOutcome, LockPurpose, OperatorLock};
+    for timeout in [false, true] {
+        let (f, _, _) = refresh_lock_fixture();
+        let expected = if record { registry_requires_loaded_engine_refresh_record(&f.m) }
+            else { registry_requires_loaded_engine_refresh(&f.m) }.unwrap();
+        let before = snapshot(&f.m.root);
+        let mut held = Some(f.m.lock("registry.lock").unwrap());
+        if !timeout {
+            let owner = held.take().unwrap();
+            crate::operator_lock::BUSY_OBSERVER.with(|observer| {
+                *observer.borrow_mut() = Some(Box::new(move || drop(owner)));
+            });
+        }
+        let mut facts = None;
+        let acquire = || {
+            let result = f.m.lock_bounded(OperatorLock::Registry,
+                LockPurpose::OperatorValidationReadback, None, std::time::Duration::from_millis(20));
+            match result {
+                Ok((guard, wait)) => { facts = Some(wait); Ok(guard) },
+                Err(error) => {
+                    facts = Some(error.downcast_ref::<crate::operator_lock::AcquisitionFailure>()
+                        .unwrap().facts.clone());
+                    Err(error)
+                }
+            }
+        };
+        let result = if record { registry_requires_loaded_engine_refresh_record_with_registry(&f.m, acquire) }
+            else { registry_requires_loaded_engine_refresh_with_registry(&f.m, acquire) };
+        assert!(facts.is_some(), "classification admission bypassed: {result:?}");
+        let facts = facts.unwrap();
+        assert!(facts.attempts > 1);
+        if timeout {
+            assert!(result.is_err() && facts.outcome == LockOutcome::Timeout);
+        } else {
+            assert_eq!(result.unwrap(), expected);
+            assert_eq!(facts.outcome, LockOutcome::Acquired);
+        }
+        drop(held);
+        assert_eq!(snapshot(&f.m.root), before);
+    }
+}
+#[test]
+fn package_refresh_record_classification_waits_and_refuses_within_bound() {
+    check_package_classification_registry(true);
+}
+#[test]
+fn package_refresh_full_classification_waits_and_refuses_within_bound() {
+    check_package_classification_registry(false);
 }
