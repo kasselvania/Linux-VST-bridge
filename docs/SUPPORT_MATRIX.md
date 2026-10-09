@@ -533,7 +533,19 @@ environment and passes ordinary compatibility. With two current frontends refres
 **Make available for testing** adds the thirteenth class with prior bindings/preferences/project hashes unchanged:
 both contended publication locks acquire in 13/34 attempts and 121,732/334,355 µs,
 within their shared existing wait budget. Windows accessibility remains enabled.
-Windows-default editor/audio acceptance is pending; the demo disables saving/loading.
+Bitwig 6.1 visibly opens the full MOTIONS demo editor with the corrected r4 UIA DLL
+mapped and no Windows-accessibility disabling override. One baseline and two enabled-MOTIONS
+captures (before close/after reopen) each contain 1,920,000 finite stereo frames
+at 48 kHz: about sixteen seconds of notes plus tail in each forty-second window.
+Editor close reaches stage 217 and the full vendor UI reopens at stage 100 without
+failure/exception on the same live host. Both host/transport retirements are confirmed;
+all thirteen bindings, five preferences, both protected project hashes and selected software
+remain exact, with service active and zero leases. The demo disables save/load and DAW close
+reports a MOTIONS preset-save refusal; licensed recall and existing-environment runtime
+transition remain pending.
+On Deck REAPER 7.82, the custom editor stays blank while generic parameters work;
+no editor-open request reaches Windows. Host cleanup after DAW close is confirmed.
+The native attachment/admission gap remains [#261](https://github.com/kasselvania/Linux-VST-bridge/issues/261).
 [Scoped result](../evidence/runtime-delivery-deck.json).
 
 These are exact-fixture claims, not universal vendor support. The 2026-09-23 fleet readback predates both the merged host-retention repair [#149](https://github.com/kasselvania/Linux-VST-bridge/pull/149) and Serum's installed candidate D; its older `needs_attention` and candidate-B fields are **historical**, not silently treated as current. The [candidate-D physical receipt](../evidence/serum-x11-touch-routing/candidate-d-physical.json) includes a current six-publication manager readback for this experiment, not a new six-product physical campaign.

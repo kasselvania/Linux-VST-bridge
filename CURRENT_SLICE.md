@@ -17,16 +17,18 @@ and all 270 original candidate/lineage hashes; histories reach 287 each. Service
 MOTIONS installs in a new recommended r4 environment and passes compatibility.
 With two current frontends refreshing, Make available for testing completes both
 contended publication locks, adding the thirteenth class; prior bindings/preferences/project hashes match.
+Bitwig 6.1 opens/closes/reopens MOTIONS's full demo editor with Windows accessibility enabled;
+baseline and two enabled-MOTIONS captures contain finite notes-and-tail audio.
+Both hosts and transports retire; thirteen bindings, five preferences and both protected
+project hashes match, with the selected service active and zero leases.
 
 ## Best explanation and next changes
 
-The old runner's UIA editor-release crash is avoided by disabling Windows accessibility.
-Ordinary publication now uses its existing bounded registry wait at both guards.
 The first Test36 update refused LockBusy; retry after reducing obsolete frontend
 contention succeeded. The updater acquisition gap remains [#259](https://github.com/kasselvania/Linux-VST-bridge/issues/259).
-Next, test MOTIONS audio, Windows-default editor close/reopen and retirement on r4.
-Its demo disables saving/loading; licensed recall and existing licensed-environment
-runtime transition remain gaps. The earlier paused installation remains failed.
+Next, complete owned licensed state recall and runtime transition for existing licensed environments.
+The demo disables save/load and refuses preset saving on DAW close.
+REAPER's custom editor stays blank; the native attachment gap is [#261](https://github.com/kasselvania/Linux-VST-bridge/issues/261).
 
 ## Done and interruption rule
 

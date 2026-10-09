@@ -1,5 +1,5 @@
 {
-  "scope": "Test35 runtime acquisition/update and Test36 ordinary GUI update/publication; Steam Deck Desktop Mode, 2026-10-09.",
+  "scope": "Test35 runtime acquisition/update; Test36 GUI update/publication and Bitwig r4 editor lifecycle/finite audio; Steam Deck Desktop Mode, 2026-10-09.",
   "platform": "SteamOS 3.8.16",
   "test35_source_head": "d5bcf4f95e6afd1e8104726b43ae43cb10083236",
   "software_update": {
@@ -56,6 +56,39 @@
       "commit": { "attempts": 34, "wait_microseconds": 334355, "remaining_budget_milliseconds": 9878 },
       "pending_transactions": 0,
       "disable_windows_accessibility": false
+    },
+    "bitwig_trial": {
+      "daw": "Bitwig 6.1",
+      "class_id": "41727475415649534D6F746950726F63",
+      "module_sha256": "b4a5274fb8ca52cf7420d461b283d43a44195fdc8981714a03a8a936463b8558",
+      "disable_windows_accessibility": false,
+      "mapped_uia_dll_sha256": "9f7217f558986ae295c6abe931312e73c96d9007b4b1e93cf9dc6aaa023ff0ad",
+      "editor_open_observed": 1,
+      "editor_open_stage": 100,
+      "editor_closed_stage": 217,
+      "same_host_alive_after_close": true,
+      "editor_reopen_observed": 1,
+      "same_host_alive_after_reopen": true,
+      "editor_failures": 0,
+      "editor_exception_code": 0,
+      "demo_state_save_refused": true,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "identities_preserved": 13,
+      "preferences_preserved": 5,
+      "protected_project_hashes_preserved": 2,
+      "selected_software_unchanged": true,
+      "final_service": "active",
+      "final_leases": 0,
+      "audio": {
+        "sample_rate": 48000,
+        "channels": 2,
+        "approximately_seconds_of_notes": 16,
+        "original_output_links_preserved": 2,
+        "baseline": { "frames": 1920000, "nonzero_samples": 1849086, "nonfinite_samples": 0, "recorder_exit": 1 },
+        "enabled_motions_before_close": { "frames": 1920000, "nonzero_samples": 1841830, "nonfinite_samples": 0, "recorder_exit": 1 },
+        "enabled_motions_after_reopen": { "frames": 1920000, "nonzero_samples": 1846886, "nonfinite_samples": 0, "recorder_exit": 1 }
+      }
     }
   }
 }
