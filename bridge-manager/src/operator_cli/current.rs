@@ -613,17 +613,11 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     append_discovered(m, &sw, &inventory_environments, &managed_bindings, &db, &mut products, None)?;
     let discovery_at = Instant::now(); phases.push(("inventory_discovery",discovery_at.duration_since(record_at).as_millis()));
     let mut installer_live = BTreeMap::new();
-    let runners = catalogue.as_ref().map(|c| &c.environments);
-    let legacy_default = runners.and_then(|environments| catalogue::OnboardingRuntimePolicy::from_environments(environments).ok().flatten())
-        .and_then(|policy| environments_runner(catalogue.as_ref(), &policy.default_runner_key))
-        .filter(|(_,r)|r.validate_record().is_ok());
     let delivered = linux_vst_bridge::runtime_delivery::recommended_record_state(m)?;
     let default = if let Some(state)=&delivered {
         if let Some(runner)=state.runner.as_ref().filter(|_|state.failure.is_none()) {
             Some((catalogue::runner_key(runner)?,runner.clone()))
         } else {None}
-    } else if linux_vst_bridge::runtime_delivery::record_states(m)?.is_empty() {
-        legacy_default
     } else {None};
     let mut onboarding = onboarding::projection_current(m, None,
         onboarding::CurrentProjectionInputs {sw:&sw,default_runner:default.as_ref(),
@@ -686,14 +680,6 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
         installer_live,vendor_progress,vendor_retired:vendor,all_vendor_retired:retired,cleanup_seen,
         #[cfg(feature = "pb0-c0-audit")]
         captured_at:started})
-    })
-}
-
-fn environments_runner(catalogue: Option<&catalogue::Catalogue>, key: &str) -> Option<(String, Runner)> {
-    catalogue?.environments.iter().find_map(|binding| {
-        let runner = &binding.environment.runner;
-        (catalogue::runner_key(runner).ok().as_deref() == Some(key))
-            .then(||(key.into(),runner.clone()))
     })
 }
 

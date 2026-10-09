@@ -398,7 +398,7 @@ mod tests {
         let installer=installer_import::import(&f.m,file(&source).unwrap()).unwrap();
         let op=job(&f.m,&base.selection.environment.id,&installer.id);
         let r=reserve_with(&f.m,&base.selection.environment.id,&installer.id,&op,||Ok(true)).unwrap();
-        let runtime_path=runtime_delivery::record_path(&f.m);
+        let runtime_path=f.m.root.join("runners").join(runtime_delivery::ID).join("runtime.json");
         let runtime_dir=runtime_path.parent().unwrap();
         let artifact=|relative:&str| {
             let path=runtime_dir.join(relative);private_dir(path.parent().unwrap()).unwrap();
@@ -407,8 +407,9 @@ mod tests {
         };
         let proton=artifact("GE-Proton11-7-x86_64/proton");
         let entry=artifact("SteamLinuxRuntime_4/_v2-entry-point");
+        let tree=artifact("runtime-tree.json");
         let runner=Runner {id:runtime_delivery::ID.into(),version:"retained-test".into(),
-            proton:proton.path.clone(),entry_point:entry.path.clone(),files:vec![proton,entry],policy:None};
+            proton:proton.path.clone(),entry_point:entry.path.clone(),files:vec![proton,entry,tree],policy:None};
         atomic_json(&runtime_path,&json!({"schema":1,"id":runtime_delivery::ID,
             "downloads":runtime_delivery::downloads(),"runner":runner})).unwrap();
         fs::set_permissions(&runtime_path,fs::Permissions::from_mode(0o400)).unwrap();

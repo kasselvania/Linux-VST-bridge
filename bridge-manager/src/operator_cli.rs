@@ -3439,7 +3439,7 @@ pub(super) fn product_receipt(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     fn contend_preference_commit(m: &Manager, release_after: Option<Duration>)
         -> (std::thread::JoinHandle<()>, std::sync::mpsc::Sender<()>) {
@@ -5350,6 +5350,54 @@ mod tests {
         assert!(require_operator_inactive_with(&f.m, &finish, &|| None,
             None, Duration::from_millis(100), &mut vec![]).is_err());
     }
+    pub(crate) fn retained_managed_runtime(m: &Manager, legacy: bool) -> Runner {
+        use linux_vst_bridge::runtime_delivery;
+        use std::{collections::BTreeMap,os::unix::fs::MetadataExt};
+        let (id,downloads)=if legacy {(runtime_delivery::ID,runtime_delivery::downloads())}
+            else {(runtime_delivery::recommended_id(),runtime_delivery::recommended_downloads())};
+        let base=m.root.join("runners").join(id);private_dir(&base).unwrap();
+        let mut artifacts=Vec::new();
+        for (relative,bytes) in [
+            ("GE-Proton11-7-x86_64/proton",b"fixture proton".as_slice()),
+            ("SteamLinuxRuntime_4/_v2-entry-point",b"fixture entry".as_slice()),
+            ("GE-Proton11-7-x86_64/files/lib/wine/x86_64-windows/uiautomationcore.dll",
+                if legacy {b"original UIA fixture".as_slice()} else {b"corrected UIA fixture".as_slice()}),
+            ("SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client",b"fixture client".as_slice()),
+            ("SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service",b"fixture service".as_slice()),
+        ] {
+            let path=base.join(relative);private_dir(path.parent().unwrap()).unwrap();
+            fs::write(&path,bytes).unwrap();fs::set_permissions(&path,fs::Permissions::from_mode(0o500)).unwrap();
+            artifacts.push(Artifact {sha256:digest(&path).unwrap(),path});
+        }
+        if !legacy {
+            let path=base.join("GE-Proton11-7-x86_64/native-command-session.json");
+            atomic_json(&path,&json!({"schema":1,"kind":"native_proton_command_session",
+                "client_sha256":artifacts[3].sha256,"service_sha256":artifacts[4].sha256})).unwrap();
+            fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
+            artifacts.push(Artifact {sha256:digest(&path).unwrap(),path});
+        }
+        let mut rows=BTreeMap::new();
+        for artifact in &artifacts {
+            let relative=artifact.path.strip_prefix(&base).unwrap();
+            let metadata=fs::metadata(&artifact.path).unwrap();
+            rows.insert(relative.to_owned(),json!({"path":relative,"sha256":artifact.sha256,
+                "target":null,"size":metadata.len(),"mode":metadata.mode()&0o777,"directory":false}));
+            for parent in relative.ancestors().skip(1).filter(|p|!p.as_os_str().is_empty()) {
+                rows.insert(parent.to_owned(),json!({"path":parent,"sha256":null,"target":null,
+                    "size":0,"mode":0o700,"directory":true}));
+            }
+        }
+        let tree=base.join("runtime-tree.json");atomic_json(&tree,&rows.into_values().collect::<Vec<_>>()).unwrap();
+        fs::set_permissions(&tree,fs::Permissions::from_mode(0o400)).unwrap();
+        let mut files=vec![artifacts[0].clone(),artifacts[1].clone(),Artifact {sha256:digest(&tree).unwrap(),path:tree}];
+        if !legacy {files.push(artifacts.last().unwrap().clone());}
+        let runner=Runner {id:id.into(),version:"sealed managed fixture".into(),
+            proton:artifacts[0].path.clone(),entry_point:artifacts[1].path.clone(),files,policy:None};
+        runner.verify().unwrap();
+        let path=base.join("runtime.json");atomic_json(&path,&json!({"schema":1,"id":id,"downloads":downloads,"runner":runner})).unwrap();
+        fs::set_permissions(path,fs::Permissions::from_mode(0o400)).unwrap();
+        runner
+    }
     fn onboarding_worker_fixture() -> (test_fixture::Fixture, String) {
         use linux_vst_bridge::catalogue::{Catalogue, EnvironmentBinding, OnboardingRuntimePolicy,
             STANDARD_ONBOARDING_RUNNER};
@@ -5395,6 +5443,7 @@ mod tests {
             }),
         };
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let recommended=retained_managed_runtime(&f.m,false);
         let mut bytes = vec![0; 1024];
         bytes[..2].copy_from_slice(b"MZ");
         bytes[60] = 128;
@@ -5411,7 +5460,7 @@ mod tests {
             state_token: token(&f.m).unwrap(),
             action: ui::Action::InstallerEnvironmentCreate {
                 installer: installer.id,
-                runner: onboarding::runner_key(&standard.runner).unwrap(),
+                runner: onboarding::runner_key(&recommended).unwrap(),
             },
         };
         let receipt = launch_queued(&f.m, &request, |_| Ok(true)).unwrap();
@@ -5521,7 +5570,9 @@ mod tests {
                 onboarding: id.into(), operation: operation.clone() } };
         // Recovery owns no binary launch. A damaged runner cannot prevent
         // stopping the still-owned installer or confer new-work authority.
+        fs::set_permissions(&record.environment.runner.entry_point,fs::Permissions::from_mode(0o600)).unwrap();
         fs::write(&record.environment.runner.entry_point, b"damaged runtime").unwrap();
+        fs::set_permissions(&record.environment.runner.entry_point,fs::Permissions::from_mode(0o500)).unwrap();
         assert!(onboarding::load(&f.m, id).is_err());
         validate_installer_control_with(&f.m, &request, |op| {
             assert_eq!(op, operation); Ok(true)
@@ -5553,7 +5604,7 @@ mod tests {
             warm[12], warm[23], warm[24]);
     }
     #[test]
-    fn ui1_default_offer_is_one_exact_standard_runner_and_missing_policy_refuses_setup() {
+    fn new_setup_uses_exact_managed_recommendation_without_catalogue_default_authority() {
         let (f, _) = onboarding_worker_fixture();
         let rows = onboarding::projection(&f.m, None).unwrap();
         let setups = onboarding::setup_projection(&f.m, &rows, &[], &Default::default()).unwrap();
@@ -5563,7 +5614,9 @@ mod tests {
         let offer = setups[0].primary.as_ref().unwrap();
         let ui::Action::InstallerEnvironmentCreate { runner, .. } = &offer.action else { panic!("expected exact setup offer") };
         let catalogue = software(&f.m).unwrap().catalogue(&f.m).unwrap();
-        assert_eq!(runner, &catalogue.onboarding_runtime.as_ref().unwrap().default_runner_key);
+        let delivered=linux_vst_bridge::runtime_delivery::installed(&f.m).unwrap().unwrap();
+        assert_eq!(runner, &onboarding::runner_key(&delivered).unwrap());
+        assert_ne!(runner, &catalogue.onboarding_runtime.as_ref().unwrap().default_runner_key);
         assert_eq!(offer.label, "Continue setup");
         assert_eq!(rows[0].actions.len(), 1);
         let mut changed = catalogue.clone();
@@ -5581,9 +5634,72 @@ mod tests {
         sw.native_catalogue.as_mut().unwrap().sha256 = digest(&path).unwrap();
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         let rows = onboarding::projection(&f.m, None).unwrap();
-        assert!(rows[0].actions.is_empty());
+        assert_eq!(rows[0].actions.len(),1);
         let setups = onboarding::setup_projection(&f.m, &rows, &[], &Default::default()).unwrap();
-        assert!(setups[0].primary.is_none());
+        assert!(matches!(&setups[0].primary.as_ref().unwrap().action,
+            ui::Action::InstallerEnvironmentCreate {runner,..} if *runner==onboarding::runner_key(&delivered).unwrap()));
+    }
+    #[test]
+    fn ordinary_new_setup_requires_recommended_revision_and_keeps_acquisition_reachable() {
+        use linux_vst_bridge::runtime_delivery;
+        for case in ["empty","catalogue_only","r3_only","malformed_r3","partial_r4",
+            "r4_present","malformed_r3_with_r4","missing_r3_with_r4"] {
+            let (f,creation)=onboarding_worker_fixture();
+            write_operation(&f.m,&creation,&json!({"schema":1,"operation":creation,"state":"completed"}),false).unwrap();
+            let has_recommended=case.ends_with("with_r4") || case=="r4_present";
+            if !has_recommended {fs::remove_dir_all(runtime_delivery::record_path(&f.m).parent().unwrap()).unwrap();}
+            if case=="empty" {
+                let mut sw=software(&f.m).unwrap();sw.native_catalogue=None;
+                atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
+                atomic_json(&f.m.root.join("registry.json"),&Registry::default()).unwrap();
+            }
+            let registry=fs::read(f.m.root.join("registry.json")).unwrap();
+            let environment=fs::read(f.r.environment.root.join("environment.json")).unwrap();
+            let publications=test_fixture::snapshot(&f.m.publications);
+            let mut retained=None;
+            if case.contains("r3") {
+                let old=retained_managed_runtime(&f.m,true);
+                let path=f.m.root.join("runners").join(runtime_delivery::ID).join("runtime.json");
+                if case.starts_with("malformed") {
+                    fs::set_permissions(&path,fs::Permissions::from_mode(0o600)).unwrap();
+                    fs::write(&path,b"malformed retained ownership").unwrap();
+                    fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
+                } else if case.starts_with("missing") {fs::remove_file(&old.proton).unwrap();}
+                retained=Some((path.clone(),fs::read(path).unwrap()));
+            }
+            if case=="partial_r4" {
+                let path=runtime_delivery::record_path(&f.m).parent().unwrap().join("download-0");
+                private_dir(path.parent().unwrap()).unwrap();fs::write(path,b"partial acquisition").unwrap();
+                assert!(runtime_delivery::install(&f.m).unwrap_err().to_string()
+                    .contains("managed_runtime_incomplete_requires_attention"));
+            }
+            let projected=onboarding::projection(&f.m,None).unwrap();
+            let service=overview_service_reply(&f.m,capacity_json(false,0,0));
+            let current=current::capture(&f.m).unwrap();service.join().unwrap();current.recheck(&f.m).unwrap();
+            let acquire=current.snapshot.actions.iter().find(|offer|matches!(offer.action,ui::Action::RuntimeInstall {})).unwrap();
+            assert_eq!(acquire.disabled_reason.is_none(),!has_recommended,"{case}: {acquire:?}");
+            let primary=current.snapshot.installer_setups[0].primary.as_ref();
+            assert_eq!(primary.is_some(),has_recommended,"{case}");
+            if has_recommended {
+                let selected=runtime_delivery::installed(&f.m).unwrap().unwrap();
+                let key=onboarding::runner_key(&selected).unwrap();
+                assert!(matches!(&primary.unwrap().action,ui::Action::InstallerEnvironmentCreate {runner,..} if runner==&key),"{case}");
+                assert!(projected[0].actions.iter().any(|offer|matches!(&offer.action,
+                    ui::Action::InstallerEnvironmentCreate {runner,..} if runner==&key)),"{case}");
+                if case.starts_with("malformed") {
+                    let old=&current.snapshot.managed_runtime_records[0];
+                    assert_eq!(old["id"],runtime_delivery::ID);
+                    assert!(old["runner"].is_null() && old["failure"].is_string());
+                }
+            } else {
+                assert!(projected[0].actions.is_empty(),"{case}");
+                assert!(current.snapshot.installer_setups[0].status.contains("Install compatibility runtime"),"{case}");
+            }
+            if let Some((path,bytes))=retained {assert_eq!(fs::read(path).unwrap(),bytes,"{case}");}
+            assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(),registry,"{case}");
+            assert_eq!(fs::read(f.r.environment.root.join("environment.json")).unwrap(),environment,"{case}");
+            assert_eq!(test_fixture::snapshot(&f.m.publications),publications,"{case}");
+        }
     }
     #[test]
     fn native_catalogue_views_require_the_shared_registration_record_binding() {
@@ -6059,7 +6175,7 @@ mod tests {
         let before=fs::read(&path).unwrap();let token_before=token(&f.m).unwrap();
         let current=current::capture(&f.m).unwrap();current.recheck(&f.m).unwrap();
         let observed=&current.snapshot.managed_runtime_records[0];
-        assert_eq!(observed["id"],runtime_delivery::ID);
+        assert_eq!(observed["id"],runtime_delivery::recommended_id());
         assert!(observed["runner"].is_null());assert!(observed["failure"].is_string());
         assert_eq!(observed["sha256"],digest(&path).unwrap());
         assert_eq!(fs::read(&path).unwrap(),before);
@@ -6100,7 +6216,7 @@ mod tests {
                 accessibility:ui::AccessibilityChoice::ProfileDefault}, Some(&baseline)).unwrap();
         // A default runtime's executable tree is not needed to display the
         // selected product. Its metadata is readable; execution still refuses.
-        let runtime_path = runtime_delivery::record_path(&f.m);
+        let runtime_path = f.m.root.join("runners").join(runtime_delivery::ID).join("runtime.json");
         let runtime_dir = runtime_path.parent().unwrap();
         let artifact = |relative: &str, bytes: &[u8]| {
             let path = runtime_dir.join(relative);
@@ -6117,8 +6233,9 @@ mod tests {
         atomic_json(&runtime_path, &json!({"schema":1,"id":runtime_delivery::ID,
             "downloads":runtime_delivery::downloads(),"runner":runner})).unwrap();
         fs::set_permissions(&runtime_path, fs::Permissions::from_mode(0o400)).unwrap();
-        assert!(runtime_delivery::installed_record(&f.m).unwrap().is_some());
-        assert!(runtime_delivery::installed(&f.m).is_err());
+        assert_eq!(runtime_delivery::installed_identity_records(&f.m).unwrap(),vec![runner.clone()]);
+        assert!(runner.verify().is_err());
+        assert!(runtime_delivery::installed(&f.m).unwrap().is_none());
         let service = overview_service_reply(&f.m, capacity_json(false,0,0));
         let overview = overview(&f.m).unwrap();
         service.join().unwrap();
@@ -7256,7 +7373,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
                         .artifact
                         .path
                 }
-                "runner" => f.r.environment.runner.proton.clone(),
+                "runner" => linux_vst_bridge::runtime_delivery::installed_identity_record(&f.m).unwrap().unwrap().proton,
                 _ => software(&f.m).unwrap().native_catalogue.unwrap().path,
             };
             let e = execute_with_receipt_capacity(&f.m, &request.action, Some(&id), &|| {
