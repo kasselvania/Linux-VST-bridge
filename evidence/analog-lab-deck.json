@@ -48,5 +48,27 @@
   "prior_registry_records_preserved": 11,
   "raw_preferences_preserved": 5,
   "observed_checks_recorded": 6,
-  "result_submission": "existing typed operator action; GUI footer inaccessible"
+  "result_submission": "Test32: existing typed operator action; GUI footer initially hidden",
+  "test33": {
+    "scope": "Ordinary GUI update and fresh native Bitwig editor/project reopen; audio was not retested.",
+    "stable_registry_records_preserved": 12,
+    "raw_preferences_preserved": 5,
+    "native_descriptor_bindings_verified": 12,
+    "exact_predecessor": "Test32",
+    "saved_project_unchanged": true,
+    "fresh_process_brightness": 0.3667,
+    "normal_host_retirements": 1,
+    "observed_checks_recorded": 4,
+    "checks": ["daw_load", "editor", "state_recall", "retirement"],
+    "result_submission": "normal GUI completed",
+    "graphics": {
+      "before_editor": ["open_gl"],
+      "during_editor": ["open_gl", "web_view2"],
+      "recommendation": "undetermined",
+      "editor_status": "opened",
+      "editor_closed": true,
+      "editor_retirement": "closed",
+      "publication_changed": false
+    }
+  }
 }
