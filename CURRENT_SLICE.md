@@ -23,8 +23,9 @@ recalls changed Brightness after save/new-process reopen; both hosts retire clea
 
 Windows-default editor release reproduces the runtime UIA null-provider crash.
 The local setting avoids it but disables Windows screen readers for this plug-in.
-Six observed checks are recorded through the typed owner; repair the GUI result footer.
-First-attempt qualification remains unmet.
+Six observed checks are recorded through the typed owner. Source repairs keep result
+actions visible and rederive WebView2 advice from observations; verify the ordinary
+Test33 update and GUI result on Deck. First-attempt qualification remains unmet.
 
 ## Done and interruption rule
 

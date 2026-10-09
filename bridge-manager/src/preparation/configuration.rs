@@ -223,7 +223,9 @@ fn retained_assessments(m: &Manager, c: &Candidate, expected: &assessment::Conte
         require(row["candidate"] == c.id()?, "candidate_graphics_identity")?;
         let observed: assessment::Context = serde_json::from_value(row["assessment"]["context"].clone())?;
         if observed == *expected && row["assessment"]["context_fingerprint"] == expected.fingerprint()? {
-            reports.push(row["assessment"].clone());
+            let mut projected = row["assessment"].clone();
+            assessment::project_recommendation(&mut projected)?;
+            reports.push(projected);
         }
     }
     reports.sort_by_key(|row| row["observed_at"].as_u64().unwrap_or(0));

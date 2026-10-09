@@ -177,9 +177,9 @@ fn graphics_recommendation_follows_editor_loads_and_this_launch_probes() {
     // No editor decides nothing, whatever the probes say.
     assert_eq!(recommend(&editor("unavailable", &[], &[]), &probes(&["d3d11_default"]), &none, None).requirement,
         Requirement::EditorAbsent);
-    // WebView2 outranks every other finding.
+    // An unassessed WebView2 dependency cannot hide a failed Direct3D probe.
     assert_eq!(recommend(&editor("opened", &[], &[Library::D3d11, Library::WebView2]), &probes(&["d3d11_default"]), &none, None)
-        .requirement, Requirement::UnsupportedWebView2);
+        .requirement, Requirement::WineD3d11);
     // DirectComposition: the blank-editor class, decided by this launch's probe.
     assert_eq!(recommend(&editor("opened", &[], &[Library::DirectComposition, Library::D3d11]), &probes(&["direct_composition"]), &none, None)
         .requirement, Requirement::DirectCompositionRunner);
@@ -224,9 +224,51 @@ fn graphics_recommendation_follows_editor_loads_and_this_launch_probes() {
         Requirement::WineD3d11);
     // The assembled assessment carries the recommendation and uses its action.
     let a = assemble(context(), pe::inspect(&mut Cursor::new(image("d3d11.dll", "opengl32.dll"))).unwrap(), &report(), 100).unwrap();
-    assert_eq!(a.recommendation.requirement, Requirement::UnsupportedWebView2);
+    assert_eq!(a.recommendation.requirement, Requirement::Undetermined);
     assert_eq!(a.next_action, a.recommendation.action);
-    assert_eq!(serde_json::to_value(&a).unwrap()["recommendation"]["requirement"], json!("unsupported_web_view2"));
+    assert_eq!(serde_json::to_value(&a).unwrap()["recommendation"]["requirement"], json!("undetermined"));
+}
+
+#[test]
+fn detected_webview2_stays_unassessed_and_does_not_mask_unavailable_capabilities() {
+    let imports = pe::Imports { machine: 0x8664, ordinary: vec![], delayed: vec![Library::WebView2] };
+    for (library, failed_api, expected) in [
+        (Library::OpenGl, None, Requirement::Undetermined),
+        (Library::DirectComposition, Some("direct_composition"), Requirement::DirectCompositionRunner),
+        (Library::D3d11, Some("d3d11_default"), Requirement::WineD3d11),
+        (Library::OpenGl, Some("opengl"), Requirement::Undetermined),
+    ] {
+        let mut raw = report();
+        raw["records"][2]["editor"]["before"] = json!([]);
+        raw["records"][2]["editor"]["during"] = json!([library, Library::WebView2]);
+        if let Some(api) = failed_api {
+            let probe = raw["records"][3]["probes"].as_array_mut().unwrap().iter_mut()
+                .find(|probe| probe["api"] == api).unwrap();
+            probe["status"] = json!("unavailable");
+            probe["rendering"] = json!("unknown");
+        }
+        let assessment = assemble(context(), imports.clone(), &raw, 100).unwrap();
+        assert_eq!(assessment.recommendation.requirement, expected);
+        let webview = assessment.findings.iter().find(|finding| finding.library == Library::WebView2).unwrap();
+        assert_eq!(webview.probe_status, "not_tested");
+        assert!(webview.probe_api.is_none());
+        assert!(assessment.recommendation.editor_loaded.contains(&Library::WebView2));
+        assert!(!assessment.recommendation.reason.contains("will not display"));
+        assert!(!assessment.recommendation.action.contains("still work"));
+        if failed_api.is_none() {
+            assert!(assessment.recommendation.reason.contains("does not establish whether"));
+            assert!(assessment.recommendation.action.contains("Audio and state recall need their own tests"));
+        } else {
+            assert!(!assessment.recommendation.reason.contains("WebView2"), "a dependency hint cannot mask the actual failed probe");
+        }
+    }
+    // An import hint that never loaded also cannot invent a runner requirement.
+    let mut raw = report();
+    raw["records"][2]["editor"]["during"] = json!(["d3d11"]);
+    let assessment = assemble(context(), imports, &raw, 100).unwrap();
+    assert_eq!(assessment.recommendation.requirement, Requirement::None);
+    assert!(!assessment.recommendation.reason.contains("Every graphics library"));
+    assert!(assessment.recommendation.reason.contains("does not establish that it rendered"));
 }
 
 #[test]
@@ -333,7 +375,7 @@ fn graphics_observations_survive_contained_close_failure_without_qualifying_edit
     let assessment = assemble(context(), imports.clone(), &raw, 100).unwrap();
     assert!(!assessment.editor.closed);
     assert_eq!(assessment.editor_retirement, EditorRetirement::TimedOut);
-    assert_eq!(assessment.recommendation.requirement, Requirement::UnsupportedWebView2);
+    assert_eq!(assessment.recommendation.requirement, Requirement::Undetermined);
     assert_eq!(assessment.qualification, "unqualified");
     assert!(assessment.editor_device.is_none());
     raw["records"].as_array_mut().unwrap().push(json!({"state":"graphics_editor_closed","schema":1,"closed":false}));
