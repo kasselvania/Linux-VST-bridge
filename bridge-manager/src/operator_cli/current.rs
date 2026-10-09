@@ -27,7 +27,17 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
     paths.insert(m.root.join("registry.json"));
     paths.insert(m.root.join("operator/latest.json"));
     paths.insert(m.root.join("daw-workspaces/fl-studio/workspace.json"));
-    paths.insert(m.root.join("vendor-applications").join(ASC).join("operation-result.json"));
+    let vendor = app_directory(m);
+    for path in [&vendor,&vendor.join("application.json"),&vendor.join("operation.json"),
+        &vendor.join("operation-result.json")] { paths.insert(path.clone()); }
+    let application = vendor.join("application.json");
+    if application.exists() {
+        let app: vendor_application::Application = read_json(&application)?;
+        require(app.schema == 1
+            && app.environment.root == m.root.join("environments").join(&app.environment.id),
+            "operator_current_vendor_binding")?;
+        paths.insert(app.environment.root.join("environment.json"));
+    }
     for artifact in [&sw.manager,&sw.supervisor,&sw.ownership,&sw.host,&sw.source_manifest] {
         paths.insert(artifact.path.clone());
     }
@@ -149,6 +159,7 @@ pub(super) struct CurrentOverviewContext {
     owners: Vec<capacity::Owner>,
     watched: BTreeMap<PathBuf,Option<FileStamp>>,
     installer_live: BTreeMap<String,bool>,
+    vendor_progress: Option<vendor_application::Operation>,
     vendor_retired: bool,
     all_vendor_retired: bool,
     cleanup_seen: Option<bool>,
@@ -191,7 +202,7 @@ impl CurrentOverviewContext {
         std::thread::scope(|scope| -> Result<()> {
             let vendor = scope.spawn(|| {
                 let at = Instant::now();
-                (vendor_retired(m), at.elapsed().as_millis())
+                ((vendor_retired(m), live_vendor_progress(m)), at.elapsed().as_millis())
             });
             let workspace = scope.spawn(|| {
                 let at = Instant::now();
@@ -220,7 +231,8 @@ impl CurrentOverviewContext {
             };
             let (installer_result, installer_ms) = installer.join()
                 .map_err(|_| "operator_installer_probe_failed")?;
-            require(self.vendor_retired == vendor_result?,
+            require(self.vendor_retired == vendor_result.0?
+                && self.vendor_progress == vendor_result.1?,
                 "operator_vendor_state_changed_refresh")?;
             if let Some(expected) = self.cleanup_seen {
                 require(cleanup_result == Some(expected),
@@ -257,13 +269,16 @@ impl CurrentOverviewContext {
                 && self.owners == capacity::owners(m)?
                 && self.snapshot.system.pending_transactions == pending_transactions(m)?,
                 "operator_state_changed_refresh")?;
-            let progress = self.live_installer_progress_paths(m);
+            let mut progress = self.live_installer_progress_paths(m);
+            if let Some(vendor) = &self.vendor_progress {
+                require_live_vendor_report(vendor)?;
+                progress.insert(app_directory(m),vendor.report.clone());
+            }
             for (path, before) in &self.watched {
                 // An active supervisor atomically replaces its progress report.
-                // Those bytes cannot authorize installation or retirement:
-                // the row offers only exact Focus/Stop, and both external
-                // rechecks require the same operation to remain live. Keep
-                // record.json and every other authority input fully watched.
+                // Those bytes cannot authorize launch or retirement: both
+                // external rechecks require the same operation to remain live.
+                // Keep stable application/job/environment/record inputs watched.
                 if progress.values().any(|report| report == path) { continue; }
                 let after = stamp(path)?;
                 let unchanged = if progress.contains_key(path) {
@@ -293,6 +308,34 @@ impl CurrentOverviewContext {
     pub(super) fn recheck(&self, m: &Manager) -> Result<()> {
         self.recheck_with(m, || self.recheck_external(m))
     }
+}
+
+fn require_live_vendor_report(operation: &vendor_application::Operation) -> Result<()> {
+    use vendor_application::OperationState;
+    let result: vendor_application::OperationResult = read_json(&operation.report)?;
+    require(result.schema == 3
+        && result.operation_id.as_deref() == Some(operation.operation_id.as_str())
+        && matches!(result.state,OperationState::Running | OperationState::Unknown)
+        && !result.cleanup_confirmed && result.owned_live.is_some_and(|count|count > 0),
+        "operator_vendor_state_changed_refresh")
+}
+fn live_vendor_progress(m: &Manager) -> Result<Option<vendor_application::Operation>> {
+    live_vendor_progress_with(m,vendor_live)
+}
+fn live_vendor_progress_with(m: &Manager, is_live: impl FnOnce() -> Result<bool>)
+    -> Result<Option<vendor_application::Operation>> {
+    let directory = app_directory(m);
+    if !directory.exists() || !is_live()? { return Ok(None); }
+    let app: vendor_application::Application = read_json(&directory.join("application.json"))?;
+    let operation: vendor_application::Operation = read_json(&directory.join("operation.json"))?;
+    require(app.schema == 1 && operation.application == app
+        && valid_hex(&operation.operation_id,32)
+        && operation.report == directory.join("operation-result.json")
+        && app.environment.root == m.root.join("environments").join(&app.environment.id)
+        && read_json::<Environment>(&app.environment.root.join("environment.json"))? == app.environment,
+        "operator_current_vendor_binding")?;
+    require_live_vendor_report(&operation)?;
+    Ok(Some(operation))
 }
 
 fn installer_liveness(operations: &[String]) -> Result<BTreeMap<String, bool>> {
@@ -530,6 +573,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     let product_at = Instant::now(); phases.push(("current_products",product_at.duration_since(authority_at).as_millis()));
     let pending = pending_transactions(m)?;
     let vendor = vendor_retired(m)?;
+    let vendor_progress = live_vendor_progress(m)?;
     let records = onboarding::history_records(m)?;
     let managed_environments: BTreeSet<_> = db.classes.values()
         .map(|entry| entry.registration.environment.id.as_str()).collect();
@@ -615,7 +659,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
             .map(|v|Value::Object(v.clone()))};
     Ok(CurrentOverviewContext {snapshot,busy,profiles,revisions,owners,watched,current_generation,
         software:sw,registry:db,preparation,bindings:managed_bindings,
-        installer_live,vendor_retired:vendor,all_vendor_retired:retired,cleanup_seen,
+        installer_live,vendor_progress,vendor_retired:vendor,all_vendor_retired:retired,cleanup_seen,
         #[cfg(feature = "pb0-c0-audit")]
         captured_at:started})
     })
@@ -713,7 +757,8 @@ mod tests {
             software,registry:m.registry().unwrap(),preparation:preparation::RecordReadback::capture(m).unwrap(),
             bindings:vec![],
             owners:capacity::owners(m).unwrap(),watched,installer_live:BTreeMap::new(),
-            vendor_retired:vendor_retired(m).unwrap(),all_vendor_retired:true,cleanup_seen:None,
+            vendor_progress:None,
+            vendor_retired:vendor_retired_with(m,||Ok(false)).unwrap(),all_vendor_retired:true,cleanup_seen:None,
             #[cfg(feature = "pb0-c0-audit")]
             captured_at:Instant::now(),
         }
@@ -981,6 +1026,80 @@ mod tests {
             fs::rename(moved.join(&name),onboarding_dir.join(&name)).unwrap();
         }
         assert!(live.recheck_with(m,||Ok(())).is_err());
+    }
+    #[test]
+    fn live_vendor_progress_preserves_exact_current_readback() {
+        let f = test_fixture::Fixture::new();
+        let m = &f.m;
+        let directory = app_directory(m);
+        private_dir(&directory).unwrap();
+        let app = vendor_application::Application {schema:1,
+            id:vendor_application::ApplicationId::ArturiaSoftwareCenter,
+            environment:f.r.environment.clone(),executable:f.r.module.clone(),helpers:vec![],
+            installer_sha256:"00".repeat(32),installer_result:f.r.host.clone(),
+            observed_installer_version:"fixture".into()};
+        let operation = "ab".repeat(16);
+        let report_path = directory.join("operation-result.json");
+        atomic_json(&directory.join("application.json"),&app).unwrap();
+        atomic_json(&directory.join("operation.json"),&json!({"application":app,
+            "report":report_path,"mode":"normal","operation_id":operation})).unwrap();
+        let mut report = json!({"schema":3,"operation_id":operation,"state":"running",
+            "launcher_exit":null,"owned_live":2,"cleanup_confirmed":false,
+            "discarded_diagnostic_bytes":0,"account_posture":"unknown"});
+        atomic_json(&report_path,&report).unwrap();
+        let sw = context_for_watched(m,BTreeMap::new()).software;
+        let mut context = context_for_watched(m,watch_paths(m,&sw,&m.registry().unwrap()).unwrap());
+        context.vendor_progress = live_vendor_progress_with(m,||Ok(true)).unwrap();
+        report["owned_live"] = 7.into();
+        report["discarded_diagnostic_bytes"] = 1024.into();
+        atomic_json(&report_path,&report).unwrap();
+        context.recheck_with(m,||Ok(())).unwrap();
+        // Progress is never retirement or permission to adopt a later launch.
+        for (field,value) in [("operation_id",json!("cd".repeat(16))),
+            ("state",json!("completed")),("cleanup_confirmed",json!(true)),
+            ("owned_live",json!(0)),("schema",json!(4)),("token",json!("private"))] {
+            let mut changed = report.clone();
+            changed[field] = value;
+            atomic_json(&report_path,&changed).unwrap();
+            assert!(context.recheck_with(m,||Ok(())).is_err(),"accepted {field}");
+        }
+        atomic_json(&report_path,&report).unwrap();
+        for path in [directory.join("operation.json"),directory.join("application.json"),
+            app.environment.root.join("environment.json")] {
+            assert!(context.watched.contains_key(&path));
+            let original = fs::read(&path).unwrap();
+            let mut changed:Value = serde_json::from_slice(&original).unwrap();
+            if path.ends_with("operation.json") {changed["operation_id"] = "cd".repeat(16).into();}
+            else if path.ends_with("application.json") {changed["executable"]["sha256"] = "cd".repeat(32).into();}
+            else {changed["revision"] = 2.into();}
+            atomic_json(&path,&changed).unwrap();
+            assert!(context.recheck_with(m,||Ok(())).is_err(),"accepted {}",path.display());
+            fs::write(&path,&original).unwrap();
+            context.watched = watch_paths(m,&sw,&m.registry().unwrap()).unwrap();
+        }
+        assert!(live_vendor_progress_with(m,||Ok(false)).unwrap().is_none());
+        assert!(context.recheck_with(m,||require(
+            live_vendor_progress_with(m,||Ok(false))? == context.vendor_progress,
+            "operator_vendor_state_changed_refresh")).is_err());
+        // A closed report retains the full byte watch, including diagnostics.
+        let mut terminal = report.clone();
+        terminal["state"] = "completed".into();
+        terminal["owned_live"] = 0.into();
+        terminal["cleanup_confirmed"] = true.into();
+        atomic_json(&report_path,&terminal).unwrap();
+        let closed = context_for_watched(m,watch_paths(m,&sw,&m.registry().unwrap()).unwrap());
+        terminal["discarded_diagnostic_bytes"] = 2048.into();
+        atomic_json(&report_path,&terminal).unwrap();
+        assert!(closed.recheck_with(m,||Ok(())).is_err());
+        atomic_json(&report_path,&report).unwrap();
+        context.watched = watch_paths(m,&sw,&m.registry().unwrap()).unwrap();
+        let moved = directory.with_extension("retained");
+        fs::rename(&directory,&moved).unwrap();
+        private_dir(&directory).unwrap();
+        for name in ["application.json","operation.json","operation-result.json"] {
+            fs::rename(moved.join(name),directory.join(name)).unwrap();
+        }
+        assert!(context.recheck_with(m,||Ok(())).is_err());
     }
     #[test]
     fn current_recheck_refuses_revision_and_publication_drift_before_ready() {

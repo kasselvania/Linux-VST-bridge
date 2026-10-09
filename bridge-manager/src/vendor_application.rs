@@ -59,6 +59,23 @@ impl LaunchMode {
     }
 }
 
+/// Bounded public window-control outcomes emitted by the companion supervisor.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WindowControlOutcome {
+    Focused,
+    CloseRequested,
+    WindowManagerRefused,
+    RefusedExactWindowUnavailable,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WindowControlResult {
+    pub request: Option<String>,
+    pub result: WindowControlOutcome,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OperationResult {
@@ -66,7 +83,9 @@ pub struct OperationResult {
     #[serde(default)]
     pub operation_id: Option<String>,
     #[serde(default)]
-    pub focus_result: Option<serde_json::Value>,
+    pub focus_result: Option<WindowControlResult>,
+    #[serde(default)]
+    pub close_result: Option<WindowControlResult>,
     pub state: OperationState,
     pub launcher_exit: Option<i32>,
     #[serde(default)]
@@ -120,6 +139,16 @@ pub struct Application {
     pub installer_sha256: String,
     pub installer_result: Artifact,
     pub observed_installer_version: String,
+}
+
+/// Exact companion launch binding, retained separately from mutable progress.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Operation {
+    pub application: Application,
+    pub report: PathBuf,
+    pub mode: LaunchMode,
+    pub operation_id: String,
 }
 impl Application {
     pub fn verify(&self, root: &Path) -> Result<()> {
@@ -257,6 +286,29 @@ mod tests {
         assert!(serde_json::from_value::<OperationResult>(value).is_err());
     }
 
+    #[test]
+    fn supervisor_window_results_are_typed_without_opening_private_fields() {
+        let base = serde_json::json!({"schema":3,"state":"completed","launcher_exit":0,
+            "owned_live":0,"cleanup_confirmed":true,"discarded_diagnostic_bytes":0,
+            "account_posture":"unknown"});
+        for schema in 1..=3 {
+            let mut old = base.clone();
+            old["schema"] = schema.into();
+            assert!(serde_json::from_value::<OperationResult>(old).unwrap().retired());
+        }
+        for outcome in ["focused","close_requested","window_manager_refused",
+            "refused_exact_window_unavailable"] {
+            let mut value = base.clone();
+            value["focus_result"] = serde_json::json!({"request":null,"result":outcome});
+            value["close_result"] = serde_json::json!({"request":"ab".repeat(16),"result":outcome});
+            assert!(serde_json::from_value::<OperationResult>(value.clone()).unwrap().retired());
+            value["close_result"]["account_email"] = "private".into();
+            assert!(serde_json::from_value::<OperationResult>(value).is_err());
+        }
+        let mut unknown = base;
+        unknown["close_result"] = serde_json::json!({"request":null,"result":"arbitrary"});
+        assert!(serde_json::from_value::<OperationResult>(unknown).is_err());
+    }
     #[test]
     fn diagnostic_modes_and_public_result_cannot_supply_or_expose_private_data() {
         for action in [

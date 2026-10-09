@@ -196,7 +196,8 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             };
             atomic_json(
                 &job,
-                &serde_json::json!({"application":app,"report":directory.join("operation-result.json"),"mode":mode,"operation_id":operation_id}),
+                &vendor_application::Operation {application:app,
+                    report:directory.join("operation-result.json"),mode,operation_id},
             )?;
             let result = Command::new("systemd-run")
                 .args([

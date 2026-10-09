@@ -191,13 +191,16 @@ fn asc_projection(m: &Manager, busy: Option<&str>) -> Result<Option<ui::VendorAp
     }))
 }
 pub(super) fn vendor_retired(m: &Manager) -> Result<bool> {
+    vendor_retired_with(m, vendor_live)
+}
+fn vendor_retired_with(m: &Manager, is_live: impl FnOnce() -> Result<bool>) -> Result<bool> {
     if !renderer_cli::all_retired(m)? || !dependency_cli::all_retired(m)? {
         return Ok(false);
     }
     if !app_directory(m).exists() {
         return Ok(true);
     }
-    if vendor_live()? {
+    if is_live()? {
         return Ok(false);
     }
     let p = app_directory(m).join("operation-result.json");
@@ -4937,6 +4940,54 @@ mod tests {
         .unwrap();
         assert_eq!((stops, restores), (1, 1));
         assert_eq!(r::result(&f.m, &owner).unwrap()["dependency"]["cause"], "not_ready");
+    }
+    #[test]
+    fn normal_vendor_close_report_retires_through_operator_control_readback() {
+        let f = test_fixture::Fixture::new();
+        private_dir(&app_directory(&f.m)).unwrap();
+        let path = app_directory(&f.m).join("operation-result.json");
+        let mut report = json!({"schema":3,"operation_id":"ab".repeat(16),
+            "state":"completed","launcher_exit":0,"owned_live":0,
+            "cleanup_confirmed":true,"error":null,"focus_result":null,"close_result":null,
+            "discarded_diagnostic_bytes":0,"retained_diagnostic_bytes":0,
+            "diagnostic_enabled":false,"windows_accessibility_disabled":true,
+            "account_posture":"unknown"});
+        atomic_json(&path, &report).unwrap();
+        assert!(vendor_retired_with(&f.m, || Ok(false)).unwrap());
+        assert!(!vendor_retired_with(&f.m, || Ok(true)).unwrap());
+        let owner = queued_test_action(&f.m, ui::Action::VendorApplicationOpen {
+            application: ASC.into(),
+        });
+        let saved = saved_test_resume(&f.m, &owner, Some("ab".repeat(16)));
+        let failed = json!({"schema":1,"operation":owner,"state":"refused",
+            "error":"unknown field close_result"});
+        let receipt = job_dir(&f.m,&owner).unwrap().join("result.json");
+        atomic_json(&receipt,&failed).unwrap();
+        let prior_receipt = fs::read(&receipt).unwrap();
+        let reservation = f.m.root.join("operator/resume.json");
+        let prior_reservation = fs::read(&reservation).unwrap();
+        report["cleanup_confirmed"] = false.into();
+        atomic_json(&path, &report).unwrap();
+        assert!(!vendor_retired_with(&f.m, || Ok(false)).unwrap());
+        assert!(resume_interrupted_with(&f.m, |_| {
+            require(vendor_retired_with(&f.m,||Ok(false))?,"operator_vendor_cleanup_unconfirmed")
+        }).is_err());
+        assert_eq!(fs::read(&reservation).unwrap(),prior_reservation);
+        report["cleanup_confirmed"] = true.into();
+        atomic_json(&path,&report).unwrap();
+        let mut restores = 0;
+        resume_interrupted_with(&f.m, |record| {
+            assert_eq!(serde_json::to_value(record).unwrap(),serde_json::to_value(&saved).unwrap());
+            require(vendor_retired_with(&f.m,||Ok(false))?,"operator_vendor_cleanup_unconfirmed")?;
+            restores += 1;
+            Ok(())
+        }).unwrap();
+        assert_eq!(restores,1);
+        assert!(!reservation.exists());
+        assert_eq!(fs::read(&receipt).unwrap(),prior_receipt);
+        report["account_email"] = "private data must be refused".into();
+        atomic_json(&path, &report).unwrap();
+        assert!(vendor_retired_with(&f.m, || Ok(false)).is_err());
     }
     #[test]
     fn stop_asc_recovers_only_the_exact_vendor_open_operation() {

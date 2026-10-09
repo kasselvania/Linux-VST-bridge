@@ -2545,6 +2545,12 @@ package restoration cannot rewind the vendor environment or admit its stale plug
 The remaining coherent-restoration qualification is tracked in
 [#242](https://github.com/kasselvania/Linux-VST-bridge/issues/242).
 
+Test30 Deck update preserves eleven classes and five explicit preferences. Analog Lab
+Intro installed and Activated through managed ASC, which retired normally. Its schema-3
+`close_result` breaks strict manager readback; live progress also triggers false freshness
+refusal. The shared contract/readback repair passes causal regressions, but discovery is
+blocked by the retained suspension's old-manager binding and unresolved package recovery handoff.
+
 The operator reported a missing exact prebuilt proxy while preparing newly
 installed Nibbi. Source `9a0766afbf71fbb336c897c98b003b9e4bdda737` confirms the
 shared refusal: `tools/mf3/native_builder.py::prebuilt` requires exactly one
