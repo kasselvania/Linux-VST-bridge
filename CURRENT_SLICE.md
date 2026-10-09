@@ -3,31 +3,30 @@
 ## Goal
 
 Use owned Efx FRAGMENTS through managed ASC on the Deck, then play/save/reopen
-it in a native Linux DAW. First check existing managed setup and licensing normally.
+it in a native Linux DAW. Activation and fresh-process recall on the existing setup are complete.
 Preserve existing licensed installations, activation state, bindings and projects.
 
 ## Completed increment
 
 Analog Lab Intro installed and Activated through managed ASC. With local Windows
 accessibility disabled, Test33 Bitwig plays MIDI/automation, saves/reopens and retires cleanly.
-Test35's ordinary Setup acquired and verified the corrected r4 runtime.
-Test36's GUI update selects the new manager, retaining Test35, twelve bindings, five preferences, two project hashes
-and all 270 original candidate/lineage hashes; histories reach 287 each. Service active, zero leases.
-MOTIONS installs in a new recommended r4 environment and passes compatibility.
-With two current frontends refreshing, Make available for testing completes both
-contended publication locks, adding the thirteenth class; prior bindings/preferences/project hashes match.
-Bitwig 6.1 opens/closes/reopens MOTIONS's full demo editor with Windows accessibility enabled;
-baseline and two enabled-MOTIONS captures contain finite notes-and-tail audio.
-Both hosts and transports retire; thirteen bindings, five preferences and both protected
-project hashes match, with the selected service active and zero leases.
+Owned FRAGMENTS activates normally through ASC and recalls its changed preset/three checked controls
+in a fresh Bitwig process on the retained Steam Proton 11 runner with Windows accessibility disabled.
+Both captures contain finite notes-and-tail audio; all four DSP hosts/transports retire cleanly.
+Thirteen bindings, five preferences, two protected projects and selected software match; service active, zero leases.
+Test35 Setup acquires corrected r4; Test36 update retains Test35 and the old bindings/preferences/projects.
+All 270 original candidate/lineage hashes survive the update; histories reach 287 each.
+With two current frontends refreshing, MOTIONS publication completes both contended locks.
+Its new r4 environment passes compatibility and Bitwig demo-editor open/close/reopen
+with Windows accessibility enabled; captures contain finite notes-and-tail audio.
+Its hosts/transports retire cleanly; the selected service remains active.
 
 ## Best explanation and next changes
 
 The first Test36 update refused LockBusy; retry after reducing obsolete frontend
 contention succeeded. The updater acquisition gap remains [#259](https://github.com/kasselvania/Linux-VST-bridge/issues/259).
-Next, check existing FRAGMENTS setup/licensing through normal ASC controls, then choose recall/runtime-transition tests.
-MOTIONS is unowned demo-only runtime/editor proof; its expected save/load restriction is not a bridge defect to fix.
-That proof is complete without purchasing or activating MOTIONS.
+Next, choose an existing licensed-environment runtime-transition test with a viable restore path.
+MOTIONS's unowned demo-only runtime/editor proof is complete; its expected save/load restriction needs no purchase or activation.
 REAPER's custom editor stays blank; the native attachment gap is [#261](https://github.com/kasselvania/Linux-VST-bridge/issues/261).
 
 ## Done and interruption rule
