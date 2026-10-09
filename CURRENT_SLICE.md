@@ -1,11 +1,10 @@
-# Next milestone: ordinary setup for an unfamiliar real plug-in
+# Next milestone: owned Efx FRAGMENTS through managed ASC
 
 ## Goal
 
-A musician installs and authorizes an unfamiliar owned Arturia plug-in through
-managed ASC on the Deck, prepares it, then plays/saves/reopens it in a native Linux DAW.
-Shared defaults, profiles and capabilities should make the first attempt work.
-Qualification records evidence; it is not per-plug-in permission or a separate build.
+Use owned Efx FRAGMENTS through managed ASC on the Deck, then play/save/reopen
+it in a native Linux DAW. First check existing managed setup and licensing normally.
+Preserve existing licensed installations, activation state, bindings and projects.
 
 ## Completed increment
 
@@ -26,8 +25,9 @@ project hashes match, with the selected service active and zero leases.
 
 The first Test36 update refused LockBusy; retry after reducing obsolete frontend
 contention succeeded. The updater acquisition gap remains [#259](https://github.com/kasselvania/Linux-VST-bridge/issues/259).
-Next, complete owned licensed state recall and runtime transition for existing licensed environments.
-The demo disables save/load and refuses preset saving on DAW close.
+Next, check existing FRAGMENTS setup/licensing through normal ASC controls, then choose recall/runtime-transition tests.
+MOTIONS is unowned demo-only runtime/editor proof; its expected save/load restriction is not a bridge defect to fix.
+That proof is complete without purchasing or activating MOTIONS.
 REAPER's custom editor stays blank; the native attachment gap is [#261](https://github.com/kasselvania/Linux-VST-bridge/issues/261).
 
 ## Done and interruption rule

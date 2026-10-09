@@ -541,8 +541,9 @@ Editor close reaches stage 217 and the full vendor UI reopens at stage 100 witho
 failure/exception on the same live host. Both host/transport retirements are confirmed;
 all thirteen bindings, five preferences, both protected project hashes and selected software
 remain exact, with service active and zero leases. The demo disables save/load and DAW close
-reports a MOTIONS preset-save refusal; licensed recall and existing-environment runtime
-transition remain pending.
+reports a MOTIONS preset-save refusal, expected for this unowned demo-only runtime/editor
+proof. Licensed recall and existing-environment runtime transition are separate next steps
+for owned Efx FRAGMENTS, beginning with normal ASC setup/licensing checks.
 On Deck REAPER 7.82, the custom editor stays blank while generic parameters work;
 no editor-open request reaches Windows. Host cleanup after DAW close is confirmed.
 The native attachment/admission gap remains [#261](https://github.com/kasselvania/Linux-VST-bridge/issues/261).
