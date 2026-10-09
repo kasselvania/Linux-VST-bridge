@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 20;
+pub const OPERATOR_SCHEMA: u32 = 21;
 /// Explicit delivery policy, independent from the remembered buffered delay.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -439,6 +439,8 @@ pub struct System {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Snapshot {
+    #[serde(default)]
+    pub managed_runtime_records: Vec<serde_json::Value>,
     pub onboarding: Vec<Onboarding>,
     #[serde(default)]
     pub installer_setups: Vec<InstallerSetup>,

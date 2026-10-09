@@ -234,7 +234,7 @@ class ProductReadRefresh(unittest.TestCase):
         self.assertEqual(self.clock.ns, 145_000_000_000)
 
     def test_fresh_read_binds_exactly_one_request_and_does_not_restart_audio(self):
-        self.detail["operator_schema"] = 20
+        self.detail["operator_schema"] = 21
         action = {"kind": "buffering_set", "class_id": self.run.target["class_id"], "added_frames": 512}
         self.detail["offers"] = [{"label": "Use 512", "action": action, "disabled_reason": None}]
         operation = "e" * 32
@@ -247,13 +247,13 @@ class ProductReadRefresh(unittest.TestCase):
                 return self.success()
             self.assertEqual(command, [self.run.c["manager"], "operator", "request"])
             request = json.loads(kwargs["input"])
-            self.assertEqual(request, {"schema": 20, "state_token": "fresh-token", "action": action})
+            self.assertEqual(request, {"schema": 21, "state_token": "fresh-token", "action": action})
             directory = self.run.root / "operator" / operation
             directory.mkdir(parents=True)
             helper.save(directory / "request.json", request)
             helper.save(directory / "result.json", {"schema": 1, "operation": operation,
                         "state": "completed", "result": {"added_bridge_frames": 512}})
-            receipt = {"schema": 20, "operation": operation, "accepted": True, "refusal": None}
+            receipt = {"schema": 21, "operation": operation, "accepted": True, "refusal": None}
             return subprocess.CompletedProcess(command, 0, stdout=json.dumps(receipt).encode(), stderr=b"")
         with patch.object(helper.subprocess, "run", side_effect=child), \
                 patch.object(helper, "Consumer") as consumer, patch.object(self.run, "event"):

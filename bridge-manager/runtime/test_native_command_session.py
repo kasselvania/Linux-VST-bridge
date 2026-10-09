@@ -102,6 +102,24 @@ class SelectionTests(unittest.TestCase):
   self.assertIsNone(s.NativeProtonSession.selected(self.spec))
   self.runner['id']='managed-ge-proton11-7-slr4-20260805-r3';self.spec['shared_runtime']=False
   self.assertIsNone(s.NativeProtonSession.selected(self.spec))
+ def test_coherent_new_revision_uses_declared_component_without_runner_id_exception(self):
+  rows=self.declare_managed();self.runner['id']='coherent-next-fixture'
+  self.assertIsNone(s.NativeProtonSession.selected(self.spec))
+  component={'schema':1,'kind':'native_proton_command_session',
+   'client_sha256':rows[0]['sha256'],'service_sha256':rows[1]['sha256']}
+  path=pathlib.Path(self.runner['proton']).parent/s.NativeProtonSession.COMPONENT
+  path.parent.mkdir(exist_ok=True);path.write_text(json.dumps(component));path.chmod(0o400)
+  self.runner['files'].append({'path':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest()})
+  original=path.read_bytes();manifest=(self.root/'runtime-tree.json').read_bytes()
+  selected=s.NativeProtonSession.selected(self.spec)
+  self.assertEqual(selected.component,component)
+  self.assertEqual(path.read_bytes(),original)
+  self.assertEqual((self.root/'runtime-tree.json').read_bytes(),manifest)
+  self.runner['id']='unfamiliar-but-same-reviewed-adapter'
+  self.assertIsNotNone(s.NativeProtonSession.selected(self.spec))
+  tool=self.root/'SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client'
+  tool.write_bytes(b'changed')
+  with self.assertRaisesRegex(RuntimeError,'changed'):s.NativeProtonSession.selected(self.spec)
  def test_ambient_component_never_selects_execution(self):
   self.declare();self.runner['files']=[];self.assertIsNone(s.NativeProtonSession.selected(self.spec))
  def test_declared_component_and_each_tool_must_match(self):
