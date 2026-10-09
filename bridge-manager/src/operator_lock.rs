@@ -14,6 +14,11 @@ pub enum LockAttempt {
     Acquired(Lock),
     Busy,
 }
+#[cfg(test)]
+thread_local! {
+    pub(crate) static BUSY_OBSERVER: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
+        const { std::cell::RefCell::new(None) };
+}
 #[derive(Debug)]
 pub struct AcquisitionFailure {
     pub facts: LockFacts,
@@ -70,6 +75,12 @@ impl Manager {
         loop {
             facts.attempts += 1;
             let attempt = self.try_lock(name.filename());
+            #[cfg(test)]
+            if matches!(&attempt, Ok(LockAttempt::Busy)) {
+                BUSY_OBSERVER.with(|observer| {
+                    if let Some(run) = observer.borrow_mut().take() { run(); }
+                });
+            }
             facts.elapsed_wait_us = start.elapsed().as_micros().min(u64::MAX as u128) as u64;
             match attempt {
                 Ok(LockAttempt::Acquired(lock)) => return Ok((lock, facts)),

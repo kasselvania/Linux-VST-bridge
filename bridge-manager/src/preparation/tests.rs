@@ -1017,6 +1017,82 @@ fn controller_order_or_names_never_authorize_pairing() {
     drop(f);
 }
 #[test]
+fn prepared_publication_waits_for_brief_contention_at_both_guards() {
+    use crate::operator_model::{LockOutcome, LockPurpose, OperatorLock};
+    let (f, c) = fixture();
+    record_candidate(&f.m, &c).unwrap();
+    let mut waits = vec![];
+    let published = enable_with_registry(&f.m, &c, false, || {
+        let held = f.m.lock("registry.lock")?;
+        // Release only after the real acquisition observes Busy. No timing or
+        // thread scheduling assumption can skip either contention window.
+        crate::operator_lock::BUSY_OBSERVER.with(|observer| {
+            *observer.borrow_mut() = Some(Box::new(move || drop(held)));
+        });
+        let (guard, facts) = f.m.lock_bounded(OperatorLock::Registry,
+            LockPurpose::OperatorValidationReadback, None,
+            std::time::Duration::from_secs(1))?;
+        waits.push(facts);
+        Ok(guard)
+    }).unwrap();
+    assert_eq!(waits.len(), 2);
+    assert!(waits.iter().all(|wait| wait.attempts > 1 && wait.outcome == LockOutcome::Acquired));
+    let revision = f.m.load_revision(&c.selection.class.id, &published).unwrap();
+    assert_eq!(fs::read_link(f.m.link(&c.selection.class.id)).unwrap(), revision.target);
+    assert_eq!(f.m.registry().unwrap().classes[&c.selection.class.id].managed_revision,
+        Some(published));
+    assert!(!f.m.publication_pending(&c.selection.class.id).unwrap());
+}
+
+#[test]
+fn prepared_publication_refuses_changed_authority_after_final_wait() {
+    use crate::operator_model::{LockPurpose, OperatorLock};
+    for change_performance in [false, true] {
+        let (f, c) = fixture();
+        record_candidate(&f.m, &c).unwrap();
+        let before = f.m.registry().unwrap();
+        let mut calls = 0;
+        let result = enable_with_registry(&f.m, &c, false, || {
+            calls += 1;
+            if calls == 2 {
+                let held = f.m.lock("registry.lock")?;
+                let reader = Manager { root: f.m.root.clone(), publications: f.m.publications.clone() };
+                let class = c.selection.class.id.clone();
+                crate::operator_lock::BUSY_OBSERVER.with(|observer| {
+                    *observer.borrow_mut() = Some(Box::new(move || {
+                        if change_performance {
+                            let mut preference = reader.performance(&class).unwrap();
+                            preference.added_frames = 256;
+                            private_dir(&reader.root.join("performance")).unwrap();
+                            atomic_json(&reader.root.join("performance").join(format!("{class}.json")),
+                                &preference).unwrap();
+                        } else {
+                            let mut db = reader.registry().unwrap();
+                            db.revision += 1;
+                            atomic_json(&reader.root.join("registry.json"), &db).unwrap();
+                        }
+                        drop(held);
+                    }));
+                });
+            }
+            Ok(f.m.lock_bounded(OperatorLock::Registry,
+                LockPurpose::OperatorValidationReadback, None,
+                std::time::Duration::from_secs(1))?.0)
+        });
+        assert_eq!(calls, 2);
+        assert_eq!(result.unwrap_err().to_string(), if change_performance {
+            "publication_performance_changed"
+        } else { "preparation_publication_state_changed" });
+        let after = f.m.registry().unwrap();
+        assert_eq!(after.classes, before.classes);
+        assert_eq!(after.revision, before.revision + u64::from(!change_performance));
+        assert!(fs::symlink_metadata(f.m.link(&c.selection.class.id)).is_err());
+        assert!(!f.m.publication_pending(&c.selection.class.id).unwrap());
+        assert_eq!(candidate_record(&f.m, &c.id().unwrap()).unwrap(), c);
+    }
+}
+
+#[test]
 fn publication_copy_releases_registry_and_rechecks_before_commit() {
     let (f, c) = fixture();
     record_candidate(&f.m, &c).unwrap();

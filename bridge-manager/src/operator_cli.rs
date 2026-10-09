@@ -2118,14 +2118,21 @@ fn execute_with_receipt_policy(
         // and inactive checks. They do not execute Windows environment work,
         // so they must not retire healthy keeper ownership as a side effect.
         drop(projection.take());
+        // Publication admits, releases registry during immutable staging, then
+        // reacquires for commit. Both waits share the supplied control-plane
+        // budget; staging and verification do not hold registry authority.
+        let mut remaining_wait = timeout;
         return preparation_cli::execute(m, a, owner, || {
-            acquire_readback(
+            let started = Instant::now();
+            let result = acquire_readback(
                 m,
                 ui::OperatorLock::Registry,
                 Some(owner),
-                timeout,
+                remaining_wait,
                 waits,
-            )
+            );
+            remaining_wait = remaining_wait.saturating_sub(started.elapsed());
+            result
         });
     }
     match a {

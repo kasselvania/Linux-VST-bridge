@@ -2771,6 +2771,11 @@ all 11 class transitions and selects Test 10's tested native/Windows binaries.
 Their actual content matches the target; plug-in modules, selected environments
 and buffering are unchanged, and the selected service is active. Installed fixed.
 
+Test36's first GUI update separately refuses `LockBusy` after five candidate/lineage
+records, preserving selected software and prior data. Retry succeeds with reduced
+obsolete frontend contention. Two raw registry sites remain plausible; exact attribution
+is a gap. This updater correctness defect is [#259](https://github.com/kasselvania/Linux-VST-bridge/issues/259), separate from [#240](https://github.com/kasselvania/Linux-VST-bridge/issues/240) latency.
+
 Test 12 (2026-10-06), the first package after Test 10 to carry a different
 Windows host, was signed, staged on the Deck through the signed package API and
 then refused by `package-update` with `catalogue_schema_or_bound` after eight
@@ -2973,10 +2978,10 @@ Windows screen-reader support is unavailable for this plug-in's Windows processe
 Reviewed r4 delivers the corrected x64 DLL with complete Wine source, recipe, tests and notices.
 Test35's ordinary Deck Setup acquired its three pinned downloads; DLL, seven component artifacts
 and declared command session verify. Existing environments retain exact older runner bindings.
-Efx MOTIONS's new environment uses recommended r4; its installer timed out
-(`installer_time_bound`) while computer use was paused. Cleanup is confirmed;
-it remains uninstalled and unpublished. Windows-default commercial editor/audio acceptance
-remains pending. [Construction](RUNTIME_UIA_GUARD.md), [acquisition](../evidence/runtime-delivery-deck.json).
+The earlier paused MOTIONS installation timed out with confirmed cleanup. A new recommended
+r4 environment now installs and passes compatibility and Test36 publication with Windows
+accessibility enabled. Editor/audio acceptance remains pending; demo save/loading is disabled.
+[Construction](RUNTIME_UIA_GUARD.md), [acquisition and publication](../evidence/runtime-delivery-deck.json).
 
 ### User posture and next gate
 
@@ -3202,6 +3207,11 @@ supplies forced lock contention. One separate normal action restores the origina
 Two precise read-only freshness retries occur; that defect remains open.
 Bounded ordinary read handling is tracked in
 [#239](https://github.com/kasselvania/Linux-VST-bridge/issues/239).
+
+Test36 repairs the same fail-fast gap in ordinary publication's admission and commit locks.
+With two current frontends refreshing, both contended locks acquire (13/34 attempts,
+121,732/334,355 µs); MOTIONS becomes the thirteenth class while all twelve prior bindings,
+five preferences and two project hashes remain unchanged. [Scoped result](../evidence/runtime-delivery-deck.json).
 
 ## FC-MGMT-008 — Loaded native engine is not bound during admission
 

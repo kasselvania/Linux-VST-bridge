@@ -521,11 +521,20 @@ compatibility bindings, five preferences, two saved projects and all 257 origina
 candidate/lineage records; each history now holds 269. Exact Test33 remains the
 predecessor, with the selected service active and zero leases. Ordinary Setup then
 acquired r4 and verified its three pinned downloads, corrected x64 UIA DLL,
-seven component artifacts and declared command-session component. These are
-update/acquisition results. Efx MOTIONS's new environment uses recommended r4,
-but its installer timed out while computer use was paused. Cleanup is confirmed;
-it remains uninstalled and unpublished. Windows-default commercial editor/audio
-acceptance remains pending. [Scoped result](../evidence/runtime-delivery-deck.json).
+seven component artifacts and declared command-session component.
+
+Test36's GUI update selects the exact new manager with exact Test35 retained,
+preserving twelve bindings, five preferences, two project hashes and all 270 original
+candidate and lineage hashes; histories reach 287 each, service active and zero leases.
+The first update refused `LockBusy` after five new records; retry succeeded after reducing
+obsolete frontend contention. That updater defect remains [#259](https://github.com/kasselvania/Linux-VST-bridge/issues/259).
+After an earlier paused installer timed out, MOTIONS installs in a new recommended r4
+environment and passes ordinary compatibility. With two current frontends refreshing,
+**Make available for testing** adds the thirteenth class with prior bindings/preferences/project hashes unchanged:
+both contended publication locks acquire in 13/34 attempts and 121,732/334,355 µs,
+within their shared existing wait budget. Windows accessibility remains enabled.
+Windows-default editor/audio acceptance is pending; the demo disables saving/loading.
+[Scoped result](../evidence/runtime-delivery-deck.json).
 
 These are exact-fixture claims, not universal vendor support. The 2026-09-23 fleet readback predates both the merged host-retention repair [#149](https://github.com/kasselvania/Linux-VST-bridge/pull/149) and Serum's installed candidate D; its older `needs_attention` and candidate-B fields are **historical**, not silently treated as current. The [candidate-D physical receipt](../evidence/serum-x11-touch-routing/candidate-d-physical.json) includes a current six-publication manager readback for this experiment, not a new six-product physical campaign.
 
