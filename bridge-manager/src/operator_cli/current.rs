@@ -674,7 +674,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
         managed_runtime_records:linux_vst_bridge::runtime_delivery::readback_records(m)?,
         onboarding,installer_setups,environment_installers,environments:vec![],vendor_applications:vec![],products,
         workspaces,active_sessions:vec![],capture:Value::Null,recent_incidents:vec![],
-        actions:vec![action("Install compatibility runtime (728 MB download)",ui::Action::RuntimeInstall {},
+        actions:vec![action(&linux_vst_bridge::runtime_delivery::installation_label(),ui::Action::RuntimeInstall {},
             runtime_reason.as_deref().or(busy)),
             action("Create sanitized support export",ui::Action::SupportExport {},None),
             action("Reconcile interrupted transaction",ui::Action::TransactionReconcile {},

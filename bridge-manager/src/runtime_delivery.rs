@@ -128,6 +128,10 @@ pub fn installation_disabled_reason(m: &Manager) -> Result<Option<String>> {
         None=>"The selected compatibility runtime is already installed".into(),
     }))
 }
+pub fn installation_label() -> String {
+    let megabytes=recommended().downloads.iter().map(|download|download.size).sum::<u64>()/1_000_000;
+    format!("Install compatibility runtime ({megabytes} MB download)")
+}
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Record { schema: u32, id: String, downloads: Vec<Download>, runner: Runner }
@@ -651,7 +655,8 @@ mod tests {
         assert!(states[0].runner.is_none());assert!(states[0].failure.is_some());
         assert_eq!(states[0].sha256,Some(digest(&path).unwrap()));
         assert_eq!(states[1].runner,Some(next.clone()));assert!(states[1].failure.is_none());
-        assert_eq!(identity_records(&m,&[old.clone(),new.clone()]).unwrap(),[next.clone()]);
+        assert_eq!(identity_records(&m,&[old.clone(),new.clone()]).unwrap().as_slice(),
+            std::slice::from_ref(&next));
         assert!(identity_record(&m,&old).is_err());
         next.verify().unwrap();
         assert_eq!(fs::read(path).unwrap(),before);

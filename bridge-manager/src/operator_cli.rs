@@ -1317,7 +1317,7 @@ fn snapshot_readonly_depth(
         capture: capture_state(m)?,
         recent_incidents: incidents,
         actions: vec![
-            action("Install compatibility runtime (728 MB download)", ui::Action::RuntimeInstall {},
+            action(&linux_vst_bridge::runtime_delivery::installation_label(), ui::Action::RuntimeInstall {},
                 runtime_reason.as_deref().or(busy)),
             action("Create sanitized support export", ui::Action::SupportExport {}, None),
             action("Disarm crash capture", ui::Action::CaptureDisarm {}, None),
