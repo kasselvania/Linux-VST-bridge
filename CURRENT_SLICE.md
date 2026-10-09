@@ -10,21 +10,20 @@ evidence; it is not per-plug-in permission, a named catalogue gate or a separate
 
 ## Completed increment
 
-Test29's frontend-open 512→1024→512 completes without mutation retry, preserving
-registry/publications/sibling preferences; a separate action restores 1024.
-The final preference-lock Busy race is repaired; read freshness remains open.
-Test28 companion recovery, sibling publication, state/automation recall and
-settings trials/restoration retain their scoped passing results.
+Test30's ordinary Deck update preserves eleven classes and five explicit preferences.
+Shared discovery repair is installed; its ordinary acceptance is pending.
+Test29's frontend-open 512→1024→512 passes after the final preference-lock repair;
+separate read freshness remains open. Test28's scoped recovery/recall/settings passes remain.
 
 ## Best explanation and next changes
 
-Current known inventory hid and refused discovery of vendor additions. The shared
-repair offers **Find installed plug-ins** for exact managed environments; the regression
-finds additions without changing sibling publications, preferences or identity.
-Ownership/inactivity checks remain. Installed Deck acceptance is pending.
-Select an owned untested candidate through normal ASC setup and authorization.
-Repair a specific missing capability through shared mechanisms or justified
-declarative profile data. Unfamiliar status does not prohibit the attempt.
+Analog Lab Intro installed and Activated through ASC; ASC retired normally.
+Its schema-3 `close_result` is missing from the manager contract, and live reports
+are mistaken for authority changes. The shared repair passes causal red→green tests.
+Discovery is blocked by a recovery handoff gap: the retained suspension binds the
+old manager, while package update changes that binding without resolving the reservation.
+Integrate existing package recovery, deliver Test31, then **Find installed plug-ins**.
+Repair missing capabilities through shared mechanisms or justified declarative profiles.
 
 ## Done and interruption rule
 
