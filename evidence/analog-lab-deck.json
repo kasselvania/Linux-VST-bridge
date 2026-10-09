@@ -1,0 +1,52 @@
+{
+  "scope": "Exact Deck fixture: vendor editor keyboard audio and nondefault parameter recall after saving and reopening in a fresh native Bitwig process.",
+  "platform": "SteamOS 3.8.16 / Bitwig 6.1 / Test32",
+  "class_id": "4172747541564953416C617650726F63",
+  "module_sha256": "702650d5436a88e9f2e6074ba88ebab5e83b76c4d24fee04ebd6dd9e5b86effc",
+  "runner_id": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+  "settings": {
+    "graphics": null,
+    "accessibility": "disabled_for_host",
+    "buffering_frames": 512,
+    "delivery_mode": "buffered",
+    "windows_screen_reader_support": false
+  },
+  "windows_default_failure": {
+    "exception": "c0000005",
+    "read_address": 0,
+    "uia_rva": "0x7988",
+    "editor_stage": 215
+  },
+  "brightness": {
+    "original": 0.2227,
+    "saved": 0.3667,
+    "fresh_process_reopened": 0.3667
+  },
+  "audio": {
+    "rate": 48000,
+    "channels": 2,
+    "format": "f32le",
+    "before_reopen": {
+      "frames": 1440000,
+      "nonzero_samples": 1492222,
+      "nonfinite_samples": 0,
+      "peak": 0.0906062200665474,
+      "rms": 0.008155040234760226,
+      "recorder_exit": 1
+    },
+    "after_reopen": {
+      "frames": 1440000,
+      "nonzero_samples": 1092894,
+      "nonfinite_samples": 0,
+      "peak": 0.11041208356618881,
+      "rms": 0.008006086095071195,
+      "recorder_exit": 1
+    },
+    "original_output_links_preserved": 2
+  },
+  "normal_host_retirements": 2,
+  "prior_registry_records_preserved": 11,
+  "raw_preferences_preserved": 5,
+  "observed_checks_recorded": 6,
+  "result_submission": "existing typed operator action; GUI footer inaccessible"
+}
