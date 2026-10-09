@@ -483,23 +483,21 @@ fn current_products(m: &Manager, db: &Registry, sw: &Software,
     Ok((products, revisions))
 }
 
-fn append_discovered(m: &Manager, sw: &Software, records: &[onboarding::Record],
+fn append_discovered(m: &Manager, sw: &Software, environments: &[Environment],
     bindings: &[linux_vst_bridge::catalogue::EnvironmentBinding], db: &Registry,
     products: &mut Vec<ui::Product>, busy: Option<&str>) -> Result<()> {
-    let mut seen = BTreeSet::new();
-    for record in records {
-        if !seen.insert(&record.environment.id) { continue; }
-        let path = m.root.join("inventory").join(format!("{}.json", record.environment.id));
+    for environment in environments {
+        let path = m.root.join("inventory").join(format!("{}.json", environment.id));
         if !path.try_exists()? { continue; }
         let scan: inventory::Scan = read_json(&path)?;
-        require(scan.schema == 1 && scan.environment.id == record.environment.id,
+        require(scan.schema == 1 && scan.environment.id == environment.id,
             "operator_inventory_environment_changed")?;
         for (index, module) in scan.modules.iter().cloned().enumerate() {
             let stale = inventory::record_stale_reason(&module, &scan.environment, &scan.host,
-                &scan.host_source_sha256, &record.environment, &sw.host, &sw.source_sha256);
+                &scan.host_source_sha256, environment, &sw.host, &sw.source_sha256);
             if module.quarantine_reason.is_some() {
                 let retry_disabled = quarantined_retry_disabled(m, bindings, db,
-                    &record.environment)?;
+                    environment)?;
                 products.push(quarantined_product(&scan,index,module,stale,busy,
                     retry_disabled)?);
                 continue;
@@ -589,7 +587,20 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     let installers = installer_import::list_identity_records(m)?;
     let record_at = Instant::now(); phases.push(("setup_records",record_at.duration_since(owner_at).as_millis()));
     let managed_bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
-    append_discovered(m, &sw, &records, &managed_bindings, &db, &mut products, None)?;
+    let inventory_environments = discovery_environments(&managed_bindings,&records)?;
+    for environment in &inventory_environments {
+        for path in [m.root.join("inventory").join(format!("{}.json",environment.id)),
+            environment.root.join("environment.json")] {
+            // Preserve any earlier observation. Capture each exact inventory
+            // before reading it; directory stamps do not detect in-place writes.
+            if let std::collections::btree_map::Entry::Vacant(entry)=watched.entry(path) {
+                let before=stamp(entry.key())?;
+                entry.insert(before);
+            }
+        }
+    }
+    require(watched.len() <= 4096,"operator_current_watch_bound")?;
+    append_discovered(m, &sw, &inventory_environments, &managed_bindings, &db, &mut products, None)?;
     let discovery_at = Instant::now(); phases.push(("inventory_discovery",discovery_at.duration_since(record_at).as_millis()));
     let mut installer_live = BTreeMap::new();
     let runners = catalogue.as_ref().map(|c| &c.environments);
@@ -676,6 +687,145 @@ fn environments_runner(catalogue: Option<&catalogue::Catalogue>, key: &str) -> O
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::operator_cli::tests::{capacity_json, overview_service_reply};
+    fn managed_discovery_fixture() -> (test_fixture::Fixture, preparation::Candidate, ui::Action) {
+        let (f, candidate, _, check) = preparation_cli::tests::guided_fixture_with_role(false);
+        assert!(onboarding::history_records(&f.m).unwrap().is_empty());
+        let mut sibling = f.r.clone();
+        sibling.metadata.class_id = "03".repeat(16);
+        sibling.metadata.name = "Registered sibling".into();
+        sibling.module.path = f.r.module.path.with_file_name("sibling.vst3");
+        fs::write(&sibling.module.path, b"retained sibling module").unwrap();
+        sibling.module.sha256 = digest(&sibling.module.path).unwrap();
+        f.m.register(sibling.clone()).unwrap();
+        let inventory = f.m.root.join("inventory").join(format!("{}.json",f.r.environment.id));
+        let mut scan: inventory::Scan = read_json(&inventory).unwrap();
+        let mut existing = scan.modules[0].clone();
+        existing.artifact = sibling.module;
+        existing.classes.retain(|class| class.category == "Audio Module Class");
+        existing.classes[0].id = sibling.metadata.class_id;
+        existing.classes[0].name = sibling.metadata.name;
+        scan.modules.push(existing);
+        atomic_json(&inventory,&scan).unwrap();
+        (f,candidate,check)
+    }
+    #[test]
+    fn managed_inventory_without_onboarding_reaches_current_product_and_preparation() {
+        let (f,candidate,check) = managed_discovery_fixture();
+        let registry = fs::read(f.m.root.join("registry.json")).unwrap();
+        let server = overview_service_reply(&f.m,capacity_json(false,0,0));
+        let overview = overview(&f.m).unwrap();
+        server.join().unwrap();
+        let selection = &candidate.selection;
+        let matching: Vec<_> = overview.current.products.iter().filter(|product|
+            product.class_id == selection.class.id && product.module_sha256 == selection.module.sha256
+                && product.environment == selection.environment.id).collect();
+        assert_eq!(matching.len(),1,"current library must include the healthy managed inventory class");
+        assert_eq!(matching[0].role,"instrument");
+        assert_eq!(matching[0].disposition,"installed_unqualified");
+        assert_eq!(overview.current.products.len(),2,
+            "registered sibling is not duplicated and metadata-only factory class is not a product");
+        let server = overview_service_reply(&f.m,capacity_json(false,0,0));
+        let detail = product_detail_readonly(&f.m,&selection.environment.id,
+            &selection.module.sha256,&selection.class.id).unwrap();
+        server.join().unwrap();
+        let primary = detail.product.compatibility.as_ref().unwrap().primary.as_ref().unwrap();
+        assert_eq!(primary.action,check);
+        assert!(primary.disabled_reason.is_none());
+        assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(),registry);
+    }
+    #[test]
+    fn managed_inventory_environment_union_requires_exact_shared_identity() {
+        let f=test_fixture::Fixture::new();
+        let environment=f.r.environment.clone();
+        let binding=catalogue::EnvironmentBinding {family:profiles::Family::ManagedInstallerV1,
+            environment:environment.clone()};
+        let record=onboarding::Record {schema:1,id:environment.id.clone(),installer:"ab".repeat(32),
+            environment:environment.clone(),created_at:1,creation_operation:"cd".repeat(16),
+            installation_operation:None,published:false,previous_attempt:None};
+        assert_eq!(discovery_environments(&[binding.clone(),binding.clone()],
+            &[record.clone(),record.clone()]).unwrap(),vec![environment]);
+        for mismatch in ["revision","root","runner"] {
+            let mut changed=record.clone();
+            match mismatch {
+                "revision"=>changed.environment.revision+=1,
+                "root"=>changed.environment.root=f.outer.join("another-space"),
+                "runner"=>changed.environment.runner.id.push_str("-changed"),
+                _=>unreachable!(),
+            }
+            assert_eq!(discovery_environments(std::slice::from_ref(&binding),&[changed])
+                .unwrap_err().to_string(),"operator_managed_environment_binding_conflict");
+        }
+    }
+    #[test]
+    fn managed_inventory_capture_refuses_changed_or_new_scan() {
+        let (f,_,_)=managed_discovery_fixture();
+        let path=f.m.root.join("inventory").join(format!("{}.json",f.r.environment.id));
+        let original=fs::read(&path).unwrap();
+        for mutation in ["in_place","replacement","removed","created"] {
+            fs::write(&path,&original).unwrap();
+            if mutation=="created" {fs::remove_file(&path).unwrap();}
+            let server=overview_service_reply(&f.m,capacity_json(false,0,0));
+            let captured=capture(&f.m).unwrap();
+            captured.recheck(&f.m).unwrap();
+            server.join().unwrap();
+            assert!(captured.watched.contains_key(&path));
+            let mut changed:inventory::Scan=serde_json::from_slice(&original).unwrap();
+            changed.completed_at+=1;
+            match mutation {
+                "in_place"=>{
+                    let parent=stamp(path.parent().unwrap()).unwrap();
+                    fs::write(&path,serde_json::to_vec(&changed).unwrap()).unwrap();
+                    assert_eq!(stamp(path.parent().unwrap()).unwrap(),parent,
+                        "directory-only watching cannot observe this change");
+                }
+                "replacement"=>atomic_json(&path,&changed).unwrap(),
+                "removed"=>fs::remove_file(&path).unwrap(),
+                "created"=>fs::write(&path,&original).unwrap(),
+                _=>unreachable!(),
+            }
+            let refusal=captured.recheck_with(&f.m,||Ok(())).unwrap_err().to_string();
+            if mutation=="in_place" {
+                assert_eq!(refusal,"operator_current_artifact_changed_refresh");
+            } else {
+                assert!(matches!(refusal.as_str(),"operator_state_changed_refresh"
+                    | "operator_current_artifact_changed_refresh"),"{mutation}: {refusal}");
+            }
+        }
+    }
+    #[test]
+    fn managed_inventory_projection_retains_stale_and_quarantine_posture() {
+        let (f,candidate,_)=managed_discovery_fixture();
+        let path=f.m.root.join("inventory").join(format!("{}.json",f.r.environment.id));
+        let original:inventory::Scan=read_json(&path).unwrap();
+        for posture in ["stale","quarantined"] {
+            let mut scan=original.clone();
+            if posture=="stale" {scan.host_source_sha256="ef".repeat(32);}
+            else {scan.modules[0].quarantine_reason=Some("inventory_factory_absent".into());}
+            atomic_json(&path,&scan).unwrap();
+            let server=overview_service_reply(&f.m,capacity_json(false,0,0));
+            let current=overview(&f.m).unwrap();
+            server.join().unwrap();
+            let product=current.current.products.iter().find(|product|
+                product.module_sha256==candidate.selection.module.sha256).unwrap();
+            assert_eq!(product.disposition,if posture=="stale" {"needs_attention"} else {"quarantined"});
+            if posture=="quarantined" {
+                assert!(product.class_id.is_empty());
+                assert!(matches!(product.actions[0].action,ui::Action::QuarantinedModuleRetry {..}));
+            } else {
+                assert_eq!(product.class_id,candidate.selection.class.id);
+                assert!(product.limitations.iter().any(|reason|reason.contains("Scanner binding changed")));
+            }
+            let server=overview_service_reply(&f.m,capacity_json(false,0,0));
+            let detail=product_detail_readonly(&f.m,&product.environment,
+                &product.module_sha256,&product.class_id).unwrap();
+            server.join().unwrap();
+            assert!(!detail.product.actions.iter().chain(detail.product.compatibility.iter()
+                .flat_map(|workflow|workflow.primary.iter().chain(workflow.alternatives.iter())))
+                .any(|offer|matches!(offer.action,ui::Action::CompatibilityCheck {..})
+                    && offer.disabled_reason.is_none()));
+        }
+    }
     #[test]
     fn status_readback_does_not_wait_for_user_action_serialization() {
         let fixture = test_fixture::Fixture::new();
@@ -732,7 +882,8 @@ mod tests {
         let bindings=managed_environment_bindings(m,None,&db).unwrap();
         assert!(bindings.is_empty());
         let mut products=vec![];
-        append_discovered(m,&sw,&[record],&bindings,&db,&mut products,None).unwrap();
+        let environments=discovery_environments(&bindings,&[record]).unwrap();
+        append_discovered(m,&sw,&environments,&bindings,&db,&mut products,None).unwrap();
         assert_eq!(products.len(),1);
         assert_eq!(products[0].actions[0].disabled_reason.as_deref(),
             Some("This environment is not currently managed"));

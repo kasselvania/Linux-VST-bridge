@@ -2558,7 +2558,11 @@ with zipfile.ZipFile(path,'w') as z:
         candidate.native.artifact.path = path;
     }
     pub(crate) fn guided_fixture() -> (test_fixture::Fixture, prep::Candidate, Software, ui::Action) {
-        let (f, mut c) = projection_fixture_with_role(true);
+        guided_fixture_with_role(true)
+    }
+    pub(crate) fn guided_fixture_with_role(effect: bool)
+        -> (test_fixture::Fixture, prep::Candidate, Software, ui::Action) {
+        let (f, mut c) = projection_fixture_with_role(effect);
         let mut sw = projection_kit(&f, &c);
         let recipe = sw.preparation_kit.as_ref().unwrap().sha256.clone();
         let basis = prep::preparation_basis(&f.m, None).unwrap();
