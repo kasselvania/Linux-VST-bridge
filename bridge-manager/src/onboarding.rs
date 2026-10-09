@@ -154,7 +154,7 @@ pub fn runners(m: &Manager) -> Result<Vec<(String, Runner)>> {
         require(catalogue::catalogue_free_registry(m, &m.registry()?)?,
             "native_catalogue_absent_run_product_setup")?;
         vec![]
-    } else { runners_from_catalogue(Some(&sw.catalogue(m)?))? };
+    } else { runners_from_catalogue_with(Some(&sw.catalogue_record(m)?), true)? };
     with_delivered_runtime(m, list)
 }
 fn runners_for_readback(m: &Manager) -> Result<Vec<(String, Runner)>> {
@@ -165,8 +165,8 @@ fn runners_for_readback(m: &Manager) -> Result<Vec<(String, Runner)>> {
         vec![]
     } else { runners_from_catalogue_with(Some(&sw.catalogue_record(m)?), false)? };
     let mut list = list;
-    if let Some(runner) = linux_vst_bridge::runtime_delivery::installed_identity_record(m)?
-        .filter(|r|r.validate_record().is_ok()) {
+    for runner in linux_vst_bridge::runtime_delivery::installed_identity_records(m)?
+        .into_iter().filter(|r|r.validate_record().is_ok()) {
         let key = runner_key(&runner)?;
         if !list.iter().any(|(id, _)| id == &key) { list.push((key, runner)); }
     }
@@ -174,24 +174,19 @@ fn runners_for_readback(m: &Manager) -> Result<Vec<(String, Runner)>> {
 }
 fn with_delivered_runtime(m: &Manager, mut list: Vec<(String, Runner)>)
     -> Result<Vec<(String, Runner)>> {
-    if let Some(runner) = linux_vst_bridge::runtime_delivery::installed(m)? {
+    for runner in linux_vst_bridge::runtime_delivery::installed_identity_records(m)? {
         let key = runner_key(&runner)?;
         if !list.iter().any(|(id, _)| id == &key) { list.push((key, runner)); }
     }
     Ok(list)
 }
-fn runners_from_catalogue(catalogue: Option<&catalogue::Catalogue>) -> Result<Vec<(String, Runner)>> {
-    runners_from_catalogue_with(catalogue, true)
-}
-fn runners_from_catalogue_with(catalogue: Option<&catalogue::Catalogue>, execution: bool)
+fn runners_from_catalogue_with(catalogue: Option<&catalogue::Catalogue>, include_unavailable: bool)
     -> Result<Vec<(String, Runner)>> {
     let mut list = vec![];
     for e in catalogue.into_iter().flat_map(|c| &c.environments) {
         let r = e.environment.runner.clone();
-        if execution { r.verify()?; } else {
-            r.validate_identity()?;
-            if r.validate_record().is_err() {continue;}
-        }
+        r.validate_identity()?;
+        if !include_unavailable && r.validate_record().is_err() {continue;}
         let id = runner_key(&r)?;
         if !list.iter().any(|(key, _)| key == &id) {
             list.push((id, r));
@@ -200,13 +195,14 @@ fn runners_from_catalogue_with(catalogue: Option<&catalogue::Catalogue>, executi
     Ok(list)
 }
 fn default_runtime(m: &Manager, installed: &[(String, Runner)]) -> Result<Option<(String, Runner)>> {
-    if let Some(selected) = installed.iter().find(|(_,r)|
-        r.id == linux_vst_bridge::runtime_delivery::ID && r.policy.is_none()) {
-        return Ok(Some(selected.clone()));
+    if let Some(state) = linux_vst_bridge::runtime_delivery::recommended_record_state(m)? {
+        let Some(runner)=state.runner else {return Ok(None)};
+        let key = runner_key(&runner)?;
+        return Ok(installed.iter().find(|(id,r)| id==&key && r==&runner).cloned());
     }
     // A retained delivered selection never silently becomes a different runtime
     // just because its files are unavailable during recovery readback.
-    if linux_vst_bridge::runtime_delivery::installed_identity_record(m)?.is_some() {
+    if !linux_vst_bridge::runtime_delivery::record_states(m)?.is_empty() {
         return Ok(None);
     }
     let sw = software_record(m)?;
@@ -274,8 +270,7 @@ pub fn prepare_creation(m: &Manager, installer: &str, runner: &str) -> Result<Pr
     if let Some(catalogue) = &sw.native_catalogue {
         files.push((catalogue.path.clone(), FileIdentity::read(&catalogue.path)?));
     }
-    if r.id == linux_vst_bridge::runtime_delivery::ID {
-        let path = linux_vst_bridge::runtime_delivery::record_path(m);
+    if let Some(path) = linux_vst_bridge::runtime_delivery::selected_record_path(m,&r)? {
         files.push((path.clone(), FileIdentity::read(&path)?));
     }
     let mut paths = vec![artifact.artifact.path.clone()];
@@ -301,6 +296,8 @@ pub fn prepare_creation(m: &Manager, installer: &str, runner: &str) -> Result<Pr
 }
 pub fn prepare_attempt(m: &Manager, previous: &str, runner: &str) -> Result<PreparedCreation> {
     let r = load(m, previous)?;
+    require(runner==runner_key(&r.environment.runner)?, "onboarding_retry_runner_changed")?;
+    linux_vst_bridge::runtime_delivery::selected_record_path(m,&r.environment.runner)?;
     let record = directory(m, previous)?.join("record.json");
     let op = r
         .installation_operation
@@ -804,7 +801,10 @@ pub(super) fn projection_current(m: &Manager, busy: Option<&str>,
                     disabled_reason: busy.map(Into::into),
                 });
             }
-            actions.extend(new_attempt_actions(&v, &r.id, &preferred,
+            let retained_runner = if r.environment.runner.validate_record().is_ok() {
+                vec![(runner_key(&r.environment.runner)?,r.environment.runner.clone())]
+            } else {vec![]};
+            actions.extend(new_attempt_actions(&v, &r.id, &retained_runner,
                 records.iter().any(|x| x.previous_attempt.as_deref() == Some(&r.id)), busy));
             let scan_path = m.root.join("inventory").join(format!("{}.json", r.id));
             let scan: Value = if scan_path.exists() {
@@ -1359,6 +1359,74 @@ mod tests {
             Some("Standard · recommended"));
     }
     #[test]
+    fn existing_retry_keeps_its_exact_runner_when_recommendation_changes_or_is_absent() {
+        let (f,installer)=fixture();
+        let created=create_exact(&f.m,&installer,f.r.environment.runner.clone(),&"ab".repeat(16),
+            &f.m.lock("registry.lock").unwrap(),None).unwrap();
+        let id=created["onboarding"].as_str().unwrap();let op="cd".repeat(16);
+        let prior=reserve(&f.m,id,&op).unwrap();
+        let report=directory(&f.m,id).unwrap().join(format!("{op}-result.json"));
+        atomic_json(&report,&json!({"schema":2,"operation":op,"state":"failed",
+            "cleanup_confirmed":true,"owned_live":0,"transaction":{"schema":1,"operation":op,
+                "outcome":"not_installed","durable_installation":"not_installed"}})).unwrap();
+        let before=fs::read(&report).unwrap();
+        let a=f.r.host.clone();
+        let sw=Software {manager:a.clone(),supervisor:a.clone(),ownership:a.clone(),host:a.clone(),
+            source_manifest:a.clone(),source_sha256:a.sha256.clone(),operator_frontend:None,
+            native_catalogue:None,preparation_kit:None,installer_launch:None};
+        let mut recommended=prior.environment.runner.clone();recommended.id="new-recommended-test".into();
+        let recommended=(runner_key(&recommended).unwrap(),recommended);
+        let retained_key=runner_key(&prior.environment.runner).unwrap();
+        let registry=f.m.registry().unwrap();let records=[prior.clone()];let installers=[installer];
+        for default_runner in [Some(&recommended),None] {
+            let rows=projection_current(&f.m,None,CurrentProjectionInputs {sw:&sw,default_runner,
+                registry:&registry,records:&records,installers:&installers}, |_|Ok(false)).unwrap();
+            let retry=rows[0].actions.iter().find(|a|matches!(a.action,ui::Action::InstallerNewAttempt {..})).unwrap();
+            assert_eq!(retry.action,ui::Action::InstallerNewAttempt {previous:id.into(),runner:retained_key.clone()});
+            let setups=setup_projection_current(&f.m,&rows,&[],&Default::default(),&records,&installers,default_runner).unwrap();
+            assert_eq!(setups[0].primary.as_ref().unwrap().action,retry.action);
+        }
+        assert!(prepare_attempt(&f.m,id,&recommended.0).err().unwrap().to_string()
+            .contains("onboarding_retry_runner_changed"));
+        assert_eq!(fs::read(report).unwrap(),before);
+        assert_eq!(history_records(&f.m).unwrap()[0].environment.runner,prior.environment.runner);
+    }
+    #[test]
+    fn selected_runner_verification_does_not_verify_unrelated_catalogue_payloads() {
+        use linux_vst_bridge::catalogue::{Catalogue,EnvironmentBinding};
+        let (f,p,_,native)=test_fixture::prepared();
+        let mut bytes=vec![0;1024];bytes[..2].copy_from_slice(b"MZ");bytes[60]=128;
+        bytes[128..132].copy_from_slice(b"PE\0\0");bytes[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        bytes[148]=2;bytes[150]=2;bytes[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+        let input=f.outer.join("selected-runner-pe");fs::write(&input,bytes).unwrap();
+        let installer=installer_import::import(&f.m,file(&input).unwrap()).unwrap();
+        let mut unavailable=f.r.environment.clone();unavailable.id="ef".repeat(16);
+        unavailable.runner.id="missing-retained-test".into();
+        unavailable.runner.proton=f.m.root.join("missing/proton");
+        unavailable.runner.entry_point=f.m.root.join("missing/_v2-entry-point");
+        unavailable.runner.files=[&unavailable.runner.proton,&unavailable.runner.entry_point]
+            .into_iter().map(|path|Artifact {path:path.clone(),sha256:"ab".repeat(32)}).collect();
+        let missing_key=runner_key(&unavailable.runner).unwrap();
+        let family=p.requirements.environment_family;
+        let path=f.m.root.join("software/catalogue.json");
+        atomic_json(&path,&Catalogue {schema:3,natives:vec![native],hosts:vec![],onboarding_runtime:None,
+            environments:vec![EnvironmentBinding {family:family.clone(),environment:unavailable},
+                EnvironmentBinding {family,environment:f.r.environment.clone()}]}).unwrap();
+        let a=f.r.host.clone();
+        let sw=Software {manager:a.clone(),supervisor:a.clone(),ownership:a.clone(),host:a.clone(),
+            source_manifest:a.clone(),source_sha256:a.sha256.clone(),operator_frontend:None,
+            native_catalogue:Some(Artifact {sha256:digest(&path).unwrap(),path}),
+            preparation_kit:None,installer_launch:None};
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
+        let key=runner_key(&f.r.environment.runner).unwrap();
+        assert!(prepare_creation(&f.m,&installer.id,&key).is_ok());
+        let error=prepare_creation(&f.m,&installer.id,&missing_key).err().unwrap().to_string();
+        assert!(!error.contains("onboarding_runner_not_installed"),"{error}");
+        fs::write(&f.r.environment.runner.proton,b"changed bytes").unwrap();
+        assert!(prepare_creation(&f.m,&installer.id,&key).err().unwrap().to_string()
+            .contains("artifact missing or changed"));
+    }
+    #[test]
     fn policy_offer_requires_adapter_record_and_execution_verifies_bytes() {
         use linux_vst_bridge::catalogue::{Catalogue, EnvironmentBinding};
         let (f,p,_,native)=test_fixture::prepared();
@@ -1728,6 +1796,7 @@ mod tests {
         )
         .unwrap();
         let snapshot = ui::Snapshot {
+            managed_runtime_records:vec![],
             schema: ui::OPERATOR_SCHEMA,
             state_token: "fixture".into(),
             system: ui::System {

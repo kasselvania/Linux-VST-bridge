@@ -36,6 +36,102 @@ pub fn downloads() -> Vec<Download> {
         },
     ]
 }
+#[derive(Clone)]
+struct Revision {
+    id: &'static str,
+    version: &'static str,
+    downloads: Vec<Download>,
+    uia_guard: bool,
+}
+fn revisions() -> Vec<Revision> {
+    vec![Revision { id:ID,
+        version:"GE-Proton11-7; SLR 4.0.20260805.254769; managed download v3",
+        downloads:downloads(),uia_guard:false }]
+}
+fn recommended() -> Revision {
+    // Recommendations apply to acquisition and new environments. Retained
+    // environment/publication runner identities never consult this selection.
+    revisions().pop().expect("declared runtime revision")
+}
+fn revision_record_path(m: &Manager, revision: &Revision) -> PathBuf {
+    m.root.join("runners").join(revision.id).join("runtime.json")
+}
+pub fn record_paths(m: &Manager) -> Vec<PathBuf> {
+    revisions().iter().map(|revision| revision_record_path(m,revision)).collect()
+}
+pub fn selected_record_path(m: &Manager, runner: &Runner) -> Result<Option<PathBuf>> {
+    let Some(revision) = revisions().into_iter().find(|revision| revision.id==runner.id)
+        else {return Ok(None)};
+    let path=revision_record_path(m,&revision);
+    let base=path.parent().ok_or("runtime_parent")?;
+    if runner.proton!=base.join(GE).join("proton")
+        || runner.entry_point!=base.join(SLR).join("_v2-entry-point") {return Ok(None)}
+    let retained=identity_record(m,&revision)?.ok_or("managed_runtime_selected_record_missing")?;
+    require(&retained==runner,"managed_runtime_selected_record_changed")?;
+    Ok(Some(path))
+}
+#[derive(Clone, Debug, Serialize)]
+pub struct RecordState {
+    pub id: String,
+    pub record_path: PathBuf,
+    pub sha256: Option<String>,
+    pub metadata: Option<serde_json::Value>,
+    pub runner: Option<Runner>,
+    pub failure: Option<String>,
+}
+fn record_state(m: &Manager, revision: &Revision) -> Result<Option<RecordState>> {
+    let path=revision_record_path(m,revision);
+    let mut state=RecordState {id:revision.id.into(),record_path:path.clone(),sha256:None,
+        metadata:None,runner:None,failure:None};
+    let metadata=match fs::symlink_metadata(&path) {
+        Ok(metadata)=>metadata,
+        Err(error) if error.kind()==std::io::ErrorKind::NotFound=>return Ok(None),
+        Err(error)=>{state.failure=Some(failure_text(&error));return Ok(Some(state))},
+    };
+    state.metadata=Some(serde_json::to_value(DigestFileIdentity::from(&metadata))?);
+    let result=(|| -> Result<Runner> {
+        let bytes=read_control_bytes(&path,8*1024*1024)?;
+        state.sha256=Some(hex(&Sha256::digest(&bytes)));
+        let record:Record=serde_json::from_slice(&bytes)?;
+        validate_identity_record(&path,revision,&record)?;
+        Ok(record.runner)
+    })();
+    match result {
+        Ok(runner)=>{
+            state.failure=runner.validate_record().err().map(|error|failure_text(&error));
+            state.runner=Some(runner);
+        }
+        Err(error)=>state.failure=Some(failure_text(&error)),
+    }
+    Ok(Some(state))
+}
+fn failure_text(error: &dyn std::fmt::Display) -> String {
+    error.to_string().chars().take(2048).collect()
+}
+pub fn record_states(m: &Manager) -> Result<Vec<RecordState>> {
+    states_for(m,&revisions())
+}
+fn states_for(m: &Manager, revisions: &[Revision]) -> Result<Vec<RecordState>> {
+    revisions.iter().filter_map(|revision|match record_state(m,revision) {
+        Ok(Some(state))=>Some(Ok(state)),Ok(None)=>None,Err(error)=>Some(Err(error)),
+    }).collect()
+}
+pub fn recommended_record_state(m: &Manager) -> Result<Option<RecordState>> {
+    record_state(m,&recommended())
+}
+pub fn readback_records(m: &Manager) -> Result<Vec<serde_json::Value>> {
+    record_states(m)?.into_iter().map(|state|serde_json::to_value(state).map_err(Into::into)).collect()
+}
+pub fn installation_disabled_reason(m: &Manager) -> Result<Option<String>> {
+    Ok(recommended_record_state(m)?.map(|state|match state.failure {
+        Some(failure)=>format!("The retained compatibility runtime is unavailable: {failure}. Restore its original files before starting new work."),
+        None=>"The selected compatibility runtime is already installed".into(),
+    }))
+}
+pub fn installation_label() -> String {
+    let megabytes=recommended().downloads.iter().map(|download|download.size).sum::<u64>()/1_000_000;
+    format!("Install compatibility runtime ({megabytes} MB download)")
+}
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Record { schema: u32, id: String, downloads: Vec<Download>, runner: Runner }
@@ -44,6 +140,86 @@ struct Record { schema: u32, id: String, downloads: Vec<Download>, runner: Runne
 struct TreeEntry {
     path: PathBuf, sha256: Option<String>, target: Option<PathBuf>,
     size: u64, mode: u32, directory: bool,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GuardFile {
+    path: PathBuf, original_sha256: String, corrected_sha256: String,
+    source: PathBuf, size: u64,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GuardArtifact { path: PathBuf, sha256: String, size: u64 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GuardArtifacts {
+    test: GuardArtifact, source: GuardArtifact, recipe: GuardArtifact,
+    patch: GuardArtifact, guard_source: GuardArtifact, notices: GuardArtifact,
+    license: GuardArtifact,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GuardManifest {
+    schema: u32, base_ge_sha256: String, files: Vec<GuardFile>, artifacts: GuardArtifacts,
+}
+fn verify_guard_artifact(root: &Path, artifact: &GuardArtifact) -> Result<()> {
+    safe_path(&artifact.path)?;
+    require(valid_hex(&artifact.sha256,64) && artifact.size>0
+        && artifact.size<=512*1024*1024,"runtime_guard_artifact_identity")?;
+    let path=root.join(&artifact.path);
+    require(file(&path)?.metadata()?.len()==artifact.size && digest(&path)?==artifact.sha256,
+        "runtime_guard_artifact_changed")
+}
+/// Compose only an unpublished revision. The component archive binds the exact
+/// upstream preimage and retains corresponding source, build recipe and notices.
+fn compose_guard(stage: &Path, revision: &Revision, rows: &mut Vec<TreeEntry>) -> Result<PathBuf> {
+    let root=stage.join("uia-guard");
+    let manifest:GuardManifest=read_json(&root.join("manifest.json"))?;
+    require(manifest.schema==1 && revision.downloads.first().is_some_and(|base|
+        base.root==GE && base.sha256==manifest.base_ge_sha256)
+        && (1..=16).contains(&manifest.files.len()),"runtime_guard_base_binding")?;
+    for artifact in [&manifest.artifacts.test,&manifest.artifacts.source,&manifest.artifacts.recipe,
+        &manifest.artifacts.patch,&manifest.artifacts.guard_source,&manifest.artifacts.notices,
+        &manifest.artifacts.license] {verify_guard_artifact(&root,artifact)?;}
+    let mut selected=BTreeSet::new();
+    // Establish every preimage before changing any staged byte.
+    for replacement in &manifest.files {
+        safe_path(&replacement.path)?;safe_path(&replacement.source)?;
+        require(replacement.path.starts_with("files") && selected.insert(replacement.path.clone())
+            && valid_hex(&replacement.original_sha256,64),"runtime_guard_replacement_identity")?;
+        let relative=Path::new(GE).join(&replacement.path);
+        let declared=rows.iter().find(|row|row.path==relative)
+            .ok_or("runtime_guard_preimage_missing")?;
+        require(!declared.directory && declared.target.is_none()
+            && declared.sha256.as_deref()==Some(replacement.original_sha256.as_str())
+            && digest(&stage.join(&relative))?==replacement.original_sha256,
+            "runtime_guard_preimage_changed")?;
+        verify_guard_artifact(&root,&GuardArtifact {path:replacement.source.clone(),
+            sha256:replacement.corrected_sha256.clone(),size:replacement.size})?;
+    }
+    for replacement in &manifest.files {
+        let relative=Path::new(GE).join(&replacement.path);
+        let path=stage.join(&relative);
+        let row=rows.iter_mut().find(|row|row.path==relative).ok_or("runtime_guard_preimage_missing")?;
+        fs::set_permissions(&path,fs::Permissions::from_mode(0o600))?;
+        fs::copy(root.join(&replacement.source),&path)?;
+        fs::set_permissions(&path,fs::Permissions::from_mode(row.mode))?;
+        File::open(&path)?.sync_all()?;
+        row.sha256=Some(digest(&path)?);row.size=file(&path)?.metadata()?.len();
+        require(row.sha256.as_deref()==Some(replacement.corrected_sha256.as_str())
+            && row.size==replacement.size,"runtime_guard_replacement_changed")?;
+    }
+    let client=stage.join(SLR).join("pressure-vessel/bin/steam-runtime-launch-client");
+    let service=stage.join(SLR).join("pressure-vessel/libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service");
+    let relative=Path::new(GE).join("native-command-session.json");
+    require(!stage.join(&relative).try_exists()?,"runtime_command_component_already_present")?;
+    atomic_json(&stage.join(&relative),&serde_json::json!({"schema":1,
+        "kind":"native_proton_command_session","client_sha256":digest(&client)?,
+        "service_sha256":digest(&service)?}))?;
+    fs::set_permissions(stage.join(&relative),fs::Permissions::from_mode(0o400))?;
+    rows.push(TreeEntry {path:relative.clone(),sha256:Some(digest(&stage.join(&relative))?),
+        target:None,size:file(&stage.join(&relative))?.metadata()?.len(),mode:0o400,directory:false});
+    Ok(relative)
 }
 /// An observation cache, never launch authority. Only a completed full byte
 /// verification writes it; readback matches every file's inode and change times.
@@ -69,19 +245,27 @@ fn cached_tree(manifest: &Artifact) -> Option<VerifiedTree> {
 /// Warm a missing observation cache before taking projection/registry locks.
 /// This changes only cached observations, never the runtime or its identity.
 pub fn prepare_readback(m: &Manager) -> Result<()> {
-    let path = record_path(m);
-    if !path.try_exists()? { return Ok(()); }
-    let record: Record = read_json(&path)?;
-    let manifest = record.runner.files.iter().find(|a|
-        a.path.file_name().is_some_and(|name| name==TREE))
-        .ok_or("managed_runtime_tree_missing")?;
-    if cached_tree(manifest).is_none() {
-        let runner = installed(m)?.ok_or("managed_runtime_install_missing")?;
-        verify_tree_mode(&runner,false)?;
+    for runner in installed_identity_records(m)? {
+        let manifest = runner.files.iter().find(|a|
+            a.path.file_name().is_some_and(|name| name==TREE))
+            .ok_or("managed_runtime_tree_missing")?;
+        if cached_tree(manifest).is_none() {
+            // An unavailable retained payload remains readable for recovery;
+            // warming observations cannot make another revision unavailable.
+            let _ = runner.verify();
+        }
     }
     Ok(())
 }
-pub fn record_path(m: &Manager) -> PathBuf { m.root.join("runners").join(ID).join("runtime.json") }
+pub fn record_path(m: &Manager) -> PathBuf { revision_record_path(m,&recommended()) }
+/// All retained managed ownership records, without admitting any payload.
+pub fn installed_identity_records(m: &Manager) -> Result<Vec<Runner>> {
+    Ok(record_states(m)?.into_iter().filter_map(|state|state.runner).collect())
+}
+#[cfg(test)]
+fn identity_records(m: &Manager, revisions: &[Revision]) -> Result<Vec<Runner>> {
+    Ok(states_for(m,revisions)?.into_iter().filter_map(|state|state.runner).collect())
+}
 pub fn installed(m: &Manager) -> Result<Option<Runner>> {
     let runner = installed_record(m)?;
     if let Some(runner) = &runner { runner.verify()?; }
@@ -96,19 +280,34 @@ pub fn installed_record(m: &Manager) -> Result<Option<Runner>> {
 /// Retained ownership identity for recovery readback. This grants no runtime
 /// admission: even entry-point metadata is checked separately before selection.
 pub fn installed_identity_record(m: &Manager) -> Result<Option<Runner>> {
-    let path = record_path(m);
+    identity_record(m,&recommended())
+}
+fn identity_record(m: &Manager, revision: &Revision) -> Result<Option<Runner>> {
+    let path = revision_record_path(m,revision);
     if !path.try_exists()? { return Ok(None); }
     let record: Record = read_json(&path)?;
+    validate_identity_record(&path,revision,&record)?;
+    Ok(Some(record.runner))
+}
+fn validate_identity_record(path: &Path, revision: &Revision, record: &Record) -> Result<()> {
     let dir = path.parent().ok_or("runtime_parent")?;
-    require(record.schema == 1 && record.id == ID && record.downloads == downloads()
-        && record.runner.id == ID
+    require(record.schema == 1 && record.id == revision.id && record.downloads == revision.downloads
+        && record.runner.id == revision.id
         && record.runner.proton == dir.join(GE).join("proton")
         && record.runner.entry_point == dir.join(SLR).join("_v2-entry-point")
         && record.runner.policy.is_none(), "managed_runtime_binding")?;
-    require(file(&path)?.metadata()?.mode() & 0o222 == 0,
+    require(record.runner.files.iter().filter(|artifact|artifact.path==dir.join(TREE)).count()==1
+        && record.runner.files.iter().all(|artifact|artifact.path.starts_with(dir)),
+        "managed_runtime_tree_binding")?;
+    if revision.uia_guard {
+        require(record.runner.files.iter().filter(|artifact|
+            artifact.path==dir.join(GE).join("native-command-session.json")).count()==1,
+            "managed_runtime_command_component_binding")?;
+    }
+    require(file(path)?.metadata()?.mode() & 0o222 == 0,
         "managed_runtime_record_writable")?;
     record.runner.validate_identity()?;
-    Ok(Some(record.runner))
+    Ok(())
 }
 /// Install and each launch admission hash every byte. Repeated checks within
 /// one admission reuse its freshly hashed, unchanged file identities. Read-only
@@ -156,7 +355,7 @@ fn verify_tree_mode(runner: &Runner, readback: bool) -> Result<()> {
             verified.files.insert(row.path,identity);
         }
     }
-    let actual = inventory(base)?;
+    let actual = tree_inventory(base)?;
     let actual: BTreeSet<_> = actual.into_iter().filter(|(p,_)|
         p != Path::new(TREE) && p != Path::new("runtime.json")).map(|(p,_)|p).collect();
     require(actual == seen, "managed_runtime_roster_changed")?;
@@ -165,7 +364,7 @@ fn verify_tree_mode(runner: &Runner, readback: bool) -> Result<()> {
     }
     Ok(())
 }
-fn inventory(base: &Path) -> Result<Vec<(PathBuf, bool)>> {
+fn tree_inventory(base: &Path) -> Result<Vec<(PathBuf, bool)>> {
     let mut todo = vec![PathBuf::new()];
     let mut rows = Vec::new();
     while let Some(dir) = todo.pop() {
@@ -294,21 +493,23 @@ pub fn install(m: &Manager) -> Result<Runner> {
         "managed_runtime_requires_x86_64_linux")?;
     let _lock = m.lock("runtime-delivery.lock")?;
     if let Some(runner) = installed(m)? { return Ok(runner); }
+    let revision = recommended();
     let base = m.root.join("runners");
     private_dir(&base)?;
-    let dest = base.join(ID);
+    let dest = base.join(revision.id);
     require(!dest.try_exists()?, "managed_runtime_incomplete_requires_attention")?;
     let stage = base.join(format!(".stage-{}", random_id()?));
     private_dir(&stage)?;
     let result = (|| -> Result<Runner> {
         let mut rows = Vec::new();
-        for (n, spec) in downloads().iter().enumerate() {
+        for (n, spec) in revision.downloads.iter().enumerate() {
             let archive = stage.join(format!("download-{n}"));
             fetch(spec, &archive)?;
             rows.extend(unpack(&archive, spec, &stage)?);
             fs::remove_file(archive)?;
         }
-        for (path,directory) in inventory(&stage)? {
+        let command_component=if revision.uia_guard {Some(compose_guard(&stage,&revision,&mut rows)?)} else {None};
+        for (path,directory) in tree_inventory(&stage)? {
             if directory { rows.push(TreeEntry {path,sha256:None,target:None,size:0,mode:0o700,directory:true}); }
         }
         atomic_json(&stage.join(TREE), &rows)?;
@@ -319,12 +520,20 @@ pub fn install(m: &Manager) -> Result<Runner> {
             "SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-wrap"] {
             files.push(Artifact {path:dest.join(relative), sha256:digest(&stage.join(relative))?});
         }
-        let runner = Runner {id:ID.into(),
-            version:"GE-Proton11-7; SLR 4.0.20260805.254769; managed download v3".into(),
+        if let Some(relative)=command_component {
+            files.push(Artifact {path:dest.join(&relative),sha256:digest(&stage.join(relative))?});
+        }
+        let runner = Runner {id:revision.id.into(),
+            version:revision.version.into(),
             proton:dest.join(GE).join("proton"), entry_point:dest.join(SLR).join("_v2-entry-point"),
             files, policy:None};
-        atomic_json(&stage.join("runtime.json"), &Record {schema:1,id:ID.into(),
-            downloads:downloads(),runner:runner.clone()})?;
+        let mut staged_runner=runner.clone();
+        staged_runner.proton=stage.join(runner.proton.strip_prefix(&dest)?);
+        staged_runner.entry_point=stage.join(runner.entry_point.strip_prefix(&dest)?);
+        for artifact in &mut staged_runner.files {artifact.path=stage.join(artifact.path.strip_prefix(&dest)?);}
+        staged_runner.verify()?;
+        atomic_json(&stage.join("runtime.json"), &Record {schema:1,id:revision.id.into(),
+            downloads:revision.downloads.clone(),runner:runner.clone()})?;
         fs::set_permissions(stage.join("runtime.json"), fs::Permissions::from_mode(0o400))?;
         fs::rename(&stage, &dest)?;
         File::open(&base)?.sync_all()?;
@@ -361,6 +570,206 @@ mod tests {
         }
     }
     impl Drop for Scratch { fn drop(&mut self) { let _=fs::remove_dir_all(&self.0); } }
+    fn retained_revision(m: &Manager, revision: &Revision) -> Runner {
+        let base = revision_record_path(m,revision).parent().unwrap().to_owned();
+        fs::DirBuilder::new().recursive(true).mode(0o700).create(&base).unwrap();
+        let mut files = Vec::new();
+        for relative in [format!("{GE}/proton"),format!("{SLR}/_v2-entry-point")] {
+            let path=base.join(relative);
+            fs::DirBuilder::new().recursive(true).mode(0o700).create(path.parent().unwrap()).unwrap();
+            fs::write(&path,revision.id).unwrap();
+            fs::set_permissions(&path,fs::Permissions::from_mode(0o500)).unwrap();
+            files.push(Artifact {sha256:digest(&path).unwrap(),path});
+        }
+        let rows=tree_inventory(&base).unwrap().into_iter().map(|(path,directory)| {
+            let absolute=base.join(&path);
+            TreeEntry {path,sha256:(!directory).then(||digest(&absolute).unwrap()),
+                target:None,size:if directory {0} else {fs::metadata(&absolute).unwrap().len()},
+                mode:if directory {0o700} else {0o500},directory}
+        }).collect::<Vec<_>>();
+        let manifest=base.join(TREE);
+        atomic_json(&manifest,&rows).unwrap();
+        fs::set_permissions(&manifest,fs::Permissions::from_mode(0o400)).unwrap();
+        files.push(Artifact {sha256:digest(&manifest).unwrap(),path:manifest});
+        let runner=Runner {id:revision.id.into(),version:revision.version.into(),
+            proton:base.join(GE).join("proton"),entry_point:base.join(SLR).join("_v2-entry-point"),
+            files,policy:None};
+        let record=revision_record_path(m,revision);
+        atomic_json(&record,&Record {schema:1,id:revision.id.into(),
+            downloads:revision.downloads.clone(),runner:runner.clone()}).unwrap();
+        fs::set_permissions(record,fs::Permissions::from_mode(0o400)).unwrap();
+        runner
+    }
+    #[test]
+    fn retained_revisions_coexist_without_substitution_when_old_payload_is_missing() {
+        let tmp=Scratch::new();
+        let m=Manager {root:tmp.0.clone(),publications:tmp.0.join("publications")};
+        let old=recommended();
+        let new=Revision {id:"managed-next-test",version:"next-test",downloads:downloads(),uia_guard:false};
+        let prior=retained_revision(&m,&old);
+        let next=retained_revision(&m,&new);
+        let previous_record=fs::read(revision_record_path(&m,&old)).unwrap();
+        assert_eq!(identity_records(&m,&[old.clone(),new.clone()]).unwrap(),[prior.clone(),next.clone()]);
+        prior.verify().unwrap();next.verify().unwrap();
+        fs::remove_file(&prior.proton).unwrap();
+        assert_eq!(identity_record(&m,&old).unwrap(),Some(prior.clone()));
+        assert!(prior.verify().is_err());
+        assert_eq!(identity_record(&m,&new).unwrap(),Some(next.clone()));
+        next.verify().unwrap();
+        assert_eq!(fs::read(revision_record_path(&m,&old)).unwrap(),previous_record);
+        assert_eq!(installed_identity_record(&m).unwrap(),Some(prior));
+        assert!(installed(&m).is_err(),"another retained revision cannot repair the selected identity");
+    }
+    #[test]
+    fn incomplete_acquisition_is_never_an_installed_revision() {
+        let tmp=Scratch::new();
+        let m=Manager {root:tmp.0.clone(),publications:tmp.0.join("publications")};
+        let old=recommended();
+        let new=Revision {id:"managed-next-test",version:"next-test",downloads:downloads(),uia_guard:false};
+        let prior=retained_revision(&m,&old);
+        let incomplete=revision_record_path(&m,&new).parent().unwrap().to_owned();
+        fs::DirBuilder::new().recursive(true).mode(0o700).create(&incomplete).unwrap();
+        fs::write(incomplete.join("download-0"),b"partial").unwrap();
+        assert!(identity_record(&m,&new).unwrap().is_none());
+        assert_eq!(identity_records(&m,&[old,new]).unwrap(),[prior]);
+        let stage=m.root.join("runners/.stage-unpublished");
+        fs::DirBuilder::new().recursive(true).mode(0o700).create(&stage).unwrap();
+        fs::write(stage.join("runtime.json"),b"partial").unwrap();
+        assert_eq!(installed_identity_records(&m).unwrap().len(),1);
+    }
+    #[test]
+    fn malformed_old_record_preserves_failure_and_does_not_hide_an_independent_revision() {
+        let tmp=Scratch::new();
+        let m=Manager {root:tmp.0.clone(),publications:tmp.0.join("publications")};
+        let old=recommended();
+        let new=Revision {id:"managed-next-test",version:"next-test",downloads:downloads(),uia_guard:false};
+        retained_revision(&m,&old);
+        let next=retained_revision(&m,&new);
+        let path=revision_record_path(&m,&old);
+        fs::set_permissions(&path,fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&path,b"invalid owned record").unwrap();
+        fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
+        let before=fs::read(&path).unwrap();
+        let states=states_for(&m,&[old.clone(),new.clone()]).unwrap();
+        assert_eq!(states[0].id,old.id);assert_eq!(states[0].record_path,path);
+        assert!(states[0].runner.is_none());assert!(states[0].failure.is_some());
+        assert_eq!(states[0].sha256,Some(digest(&path).unwrap()));
+        assert_eq!(states[1].runner,Some(next.clone()));assert!(states[1].failure.is_none());
+        assert_eq!(identity_records(&m,&[old.clone(),new.clone()]).unwrap().as_slice(),
+            std::slice::from_ref(&next));
+        assert!(identity_record(&m,&old).is_err());
+        next.verify().unwrap();
+        assert_eq!(fs::read(path).unwrap(),before);
+        assert_eq!(failure_text(&"x".repeat(8192)).len(),2048);
+    }
+    #[test]
+    fn unreadable_old_record_does_not_hide_an_independent_owned_revision() {
+        if unsafe {libc::getuid()}==0 {return;}
+        let tmp=Scratch::new();
+        let m=Manager {root:tmp.0.clone(),publications:tmp.0.join("publications")};
+        let old=recommended();
+        let new=Revision {id:"managed-next-test",version:"next-test",downloads:downloads(),uia_guard:false};
+        retained_revision(&m,&old);let next=retained_revision(&m,&new);
+        let directory=revision_record_path(&m,&old).parent().unwrap().to_owned();
+        fs::set_permissions(&directory,fs::Permissions::from_mode(0o000)).unwrap();
+        let states=states_for(&m,&[old,new]);
+        fs::set_permissions(&directory,fs::Permissions::from_mode(0o700)).unwrap();
+        let states=states.unwrap();
+        assert!(states[0].runner.is_none() && states[0].metadata.is_none() && states[0].sha256.is_none());
+        assert!(states[0].failure.is_some());assert_eq!(states[1].runner,Some(next.clone()));
+        next.verify().unwrap();
+    }
+    #[test]
+    fn managed_record_stamp_requires_exact_owned_runner_and_does_not_claim_another_root() {
+        let tmp=Scratch::new();
+        let m=Manager {root:tmp.0.clone(),publications:tmp.0.join("publications")};
+        let revision=recommended();let runner=retained_revision(&m,&revision);
+        assert_eq!(selected_record_path(&m,&runner).unwrap(),Some(record_path(&m)));
+        let mut changed=runner.clone();changed.version="different declaration".into();
+        assert!(selected_record_path(&m,&changed).unwrap_err().to_string().contains("selected_record_changed"));
+        changed=runner.clone();changed.proton=tmp.0.join("another-root/proton");
+        assert!(selected_record_path(&m,&changed).unwrap().is_none());
+        fs::remove_file(record_path(&m)).unwrap();
+        assert!(selected_record_path(&m,&runner).unwrap_err().to_string().contains("selected_record_missing"));
+    }
+    fn guard_fixture(tmp: &Scratch) -> (PathBuf,Revision,Vec<TreeEntry>) {
+        let stage=tmp.0.join("guard-stage");
+        fs::DirBuilder::new().mode(0o700).create(&stage).unwrap();
+        let (archive,mut ge)=tmp.archive(&[
+            ("GE-Proton11-7-x86_64/proton",b"proton"),
+            ("GE-Proton11-7-x86_64/files/bin/wine",b"wine"),
+            ("GE-Proton11-7-x86_64/files/lib/wine/x86_64-windows/uiautomationcore.dll",b"original DLL")]);
+        ge.root=GE.into();let mut rows=unpack(&archive,&ge,&stage).unwrap();
+        let (archive,mut slr)=tmp.archive(&[
+            ("SteamLinuxRuntime_4/_v2-entry-point",b"entry"),
+            ("SteamLinuxRuntime_4/pressure-vessel/bin/pressure-vessel-wrap",b"wrap"),
+            ("SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client",b"client"),
+            ("SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service",b"service")]);
+        slr.root=SLR.into();rows.extend(unpack(&archive,&slr,&stage).unwrap());
+        let names=[("test","uiautomationcore_test.exe"),("source","wine-source.tar.gz"),
+            ("recipe","build.py"),("patch","uia-null-provider.patch"),
+            ("guard_source","guard_provider.c"),("notices","THIRD_PARTY_NOTICES.txt"),("license","COPYING.LIB")];
+        let mut artifacts=serde_json::Map::new();
+        let mut payloads=vec![("uia-guard/uiautomationcore.dll".to_owned(),b"corrected DLL".to_vec())];
+        for (key,name) in names {
+            let data=format!("{name} fixture").into_bytes();
+            artifacts.insert(key.into(),serde_json::json!({"path":name,"sha256":hex(&Sha256::digest(&data)),"size":data.len()}));
+            payloads.push((format!("uia-guard/{name}"),data));
+        }
+        let manifest=serde_json::json!({"schema":1,"base_ge_sha256":ge.sha256,
+            "files":[{"path":"files/lib/wine/x86_64-windows/uiautomationcore.dll",
+                "original_sha256":hex(&Sha256::digest(b"original DLL")),
+                "corrected_sha256":hex(&Sha256::digest(b"corrected DLL")),
+                "source":"uiautomationcore.dll","size":b"corrected DLL".len()}],"artifacts":artifacts});
+        payloads.push(("uia-guard/manifest.json".into(),serde_json::to_vec(&manifest).unwrap()));
+        let entries=payloads.iter().map(|(name,data)|(name.as_str(),data.as_slice())).collect::<Vec<_>>();
+        let (archive,mut component)=tmp.archive(&entries);component.root="uia-guard".into();
+        rows.extend(unpack(&archive,&component,&stage).unwrap());
+        (stage,Revision {id:"managed-uia-test",version:"uia fixture",downloads:vec![ge,slr,component],uia_guard:true},rows)
+    }
+    #[test]
+    fn corrected_composition_seals_new_bytes_source_notices_and_declared_command_adapter() {
+        let tmp=Scratch::new();let (stage,revision,mut rows)=guard_fixture(&tmp);
+        let component=compose_guard(&stage,&revision,&mut rows).unwrap();
+        let relative=Path::new(GE).join("files/lib/wine/x86_64-windows/uiautomationcore.dll");
+        assert_eq!(fs::read(stage.join(&relative)).unwrap(),b"corrected DLL");
+        assert_eq!(rows.iter().find(|row|row.path==relative).unwrap().sha256,
+            Some(hex(&Sha256::digest(b"corrected DLL"))));
+        assert!(rows.iter().any(|row|row.path==Path::new("uia-guard/wine-source.tar.gz")));
+        assert!(rows.iter().any(|row|row.path==Path::new("uia-guard/THIRD_PARTY_NOTICES.txt")));
+        for (path,directory) in tree_inventory(&stage).unwrap() {
+            if directory {rows.push(TreeEntry {path,sha256:None,target:None,size:0,mode:0o700,directory:true});}
+        }
+        atomic_json(&stage.join(TREE),&rows).unwrap();
+        fs::set_permissions(stage.join(TREE),fs::Permissions::from_mode(0o400)).unwrap();
+        let runner=Runner {id:revision.id.into(),version:revision.version.into(),
+            proton:stage.join(GE).join("proton"),entry_point:stage.join(SLR).join("_v2-entry-point"),policy:None,
+            files:[PathBuf::from(TREE),Path::new(GE).join("proton"),Path::new(SLR).join("_v2-entry-point"),component.clone()]
+                .into_iter().map(|relative|Artifact {path:stage.join(&relative),sha256:digest(&stage.join(relative)).unwrap()}).collect()};
+        runner.verify().unwrap();
+        let declared:serde_json::Value=read_json(&stage.join(component)).unwrap();
+        assert_eq!(declared["kind"],"native_proton_command_session");
+        assert_eq!(declared["client_sha256"],hex(&Sha256::digest(b"client")));
+        fs::set_permissions(stage.join(&relative),fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(stage.join(&relative),b"different DLL").unwrap();
+        fs::set_permissions(stage.join(&relative),fs::Permissions::from_mode(0o500)).unwrap();
+        assert!(runner.verify().unwrap_err().to_string().contains("managed_runtime_file_changed"));
+    }
+    #[test]
+    fn wrong_preimage_or_corresponding_source_refuses_before_composition() {
+        for damage_source in [false,true] {
+            let tmp=Scratch::new();let (stage,revision,mut rows)=guard_fixture(&tmp);
+            let path=if damage_source {stage.join("uia-guard/wine-source.tar.gz")}
+                else {stage.join(GE).join("files/lib/wine/x86_64-windows/uiautomationcore.dll")};
+            fs::set_permissions(&path,fs::Permissions::from_mode(0o600)).unwrap();
+            fs::write(&path,b"changed").unwrap();
+            fs::set_permissions(&path,fs::Permissions::from_mode(0o500)).unwrap();
+            let error=compose_guard(&stage,&revision,&mut rows).unwrap_err().to_string();
+            assert!(error.contains(if damage_source {"guard_artifact_changed"} else {"guard_preimage_changed"}),"{error}");
+            assert!(!stage.join(GE).join("native-command-session.json").exists());
+            if damage_source {assert_eq!(fs::read(stage.join(GE).join("files/lib/wine/x86_64-windows/uiautomationcore.dll")).unwrap(),b"original DLL");}
+        }
+    }
     #[test]
     fn corrupt_download_and_duplicate_entries_never_install() {
         let tmp=Scratch::new();
@@ -378,7 +787,7 @@ mod tests {
         let stage=tmp.0.join("stage");fs::DirBuilder::new().mode(0o700).create(&stage).unwrap();
         let (archive,spec)=tmp.archive(&[("GE/proton",b"original")]);
         let mut rows=unpack(&archive,&spec,&stage).unwrap();
-        for (path,directory) in inventory(&stage).unwrap() {
+        for (path,directory) in tree_inventory(&stage).unwrap() {
             if directory { rows.push(TreeEntry {path,sha256:None,target:None,size:0,mode:0o700,directory:true}); }
         }
         atomic_json(&stage.join(TREE),&rows).unwrap();
@@ -455,7 +864,7 @@ mod tests {
         let mut rows=unpack(&archive,&spec,&stage).unwrap();
         assert_eq!(rows[0].mode,0o755);
         assert_eq!(payload_mode(Path::new(&format!("{PLATFORM_FILES}/lib/data")),1,0o644).unwrap(),0o644);
-        for (path,directory) in inventory(&stage).unwrap() {
+        for (path,directory) in tree_inventory(&stage).unwrap() {
             if directory { rows.push(TreeEntry {path,sha256:None,target:None,size:0,mode:0o700,directory:true}); }
         }
         atomic_json(&stage.join(TREE),&rows).unwrap();

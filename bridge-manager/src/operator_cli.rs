@@ -81,9 +81,10 @@ fn token(m: &Manager) -> Result<String> {
     token_with_registry(m, &m.registry()?)
 }
 fn token_with_registry(m: &Manager, registry: &Registry) -> Result<String> {
+    let managed_runtimes = linux_vst_bridge::runtime_delivery::readback_records(m)?;
     Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(
         &json!({"software":optional(&m.root.join("software.json"))?,"registry":registry,
-            "managed_runtime":optional(&linux_vst_bridge::runtime_delivery::record_path(m))?,
+            "managed_runtimes":managed_runtimes,
             "preparation":optional(&m.root.join("preparation/revision.json"))?,
             "workspace":optional(&m.root.join("daw-workspaces/fl-studio/workspace.json"))?,
             "terminal_summaries":capacity::terminal_summaries(m)?,
@@ -332,14 +333,20 @@ fn pulse_generation(m: &Manager) -> Result<String> {
         "daw-workspaces/fl-studio/workspace.json", "operator/latest.json",
         "installers", "onboarding", "inventory", "transactions", "performance",
         "runtime/leases", "runtime/owner.sock"];
-    let runtime_record = format!("runners/{}/runtime.json", linux_vst_bridge::runtime_delivery::ID);
-    let mut stamps = Vec::with_capacity(paths.len());
-    for relative in paths.into_iter().chain(std::iter::once(runtime_record.as_str())) {
-        match fs::symlink_metadata(m.root.join(relative)) {
+    let runtime_records=linux_vst_bridge::runtime_delivery::record_paths(m);
+    let paths = paths.into_iter().map(|relative|m.root.join(relative))
+        .chain(std::iter::once(m.root.join("runners")))
+        .chain(runtime_records.iter().cloned());
+    let mut stamps = Vec::new();
+    for path in paths {
+        let relative = path.strip_prefix(&m.root)?;
+        match fs::symlink_metadata(&path) {
             Ok(meta) => stamps.push(json!([relative,meta.dev(),meta.ino(),meta.len(),
                 meta.mtime(),meta.mtime_nsec(),meta.ctime(),meta.ctime_nsec()])),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound =>
                 stamps.push(json!([relative,"absent"])),
+            Err(e) if runtime_records.contains(&path) =>
+                stamps.push(json!([relative,"unavailable",format!("{:?}",e.kind())])),
             Err(e) => return Err(e.into()),
         }
     }
@@ -1293,7 +1300,9 @@ fn snapshot_readonly_depth(
     drop(recheck);
     let active_sessions=if deep { session_projection(cap.as_ref(),capacity::terminal_summaries(m)?) }
         else { vec![] };
+    let runtime_reason=linux_vst_bridge::runtime_delivery::installation_disabled_reason(m)?;
     Ok(ui::Snapshot {
+        managed_runtime_records:linux_vst_bridge::runtime_delivery::readback_records(m)?,
         onboarding,
         installer_setups,
         environment_installers,
@@ -1308,10 +1317,8 @@ fn snapshot_readonly_depth(
         capture: capture_state(m)?,
         recent_incidents: incidents,
         actions: vec![
-            action("Install compatibility runtime (728 MB download)", ui::Action::RuntimeInstall {},
-                if linux_vst_bridge::runtime_delivery::installed_identity_record(m)?.is_some() {
-                    Some("The selected compatibility runtime is already installed")
-                } else {busy}),
+            action(&linux_vst_bridge::runtime_delivery::installation_label(), ui::Action::RuntimeInstall {},
+                runtime_reason.as_deref().or(busy)),
             action("Create sanitized support export", ui::Action::SupportExport {}, None),
             action("Disarm crash capture", ui::Action::CaptureDisarm {}, None),
             action(
@@ -3744,6 +3751,7 @@ mod tests {
     }
     fn view(token: &str, action: ui::AvailableAction) -> ui::Snapshot {
         ui::Snapshot {
+            managed_runtime_records:vec![],
             onboarding: vec![],
             installer_setups: vec![],
             environment_installers: vec![],
@@ -4053,7 +4061,7 @@ mod tests {
         r.state_token = "previous software or registry".into();
         assert!(validate(&r, &s).is_err());
         r.state_token = "current".into();
-        for old_schema in [8, 9, 10, 11] {
+        for old_schema in [8, 9, 10, 11, 20] {
             r.schema = old_schema;
             assert_eq!(validate(&r, &s).unwrap_err().to_string(),
                 "operator_schema_mismatch_update_manager_frontend");
@@ -4082,7 +4090,7 @@ mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 20);
+        assert_eq!(ui::OPERATOR_SCHEMA, 21);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
@@ -6038,6 +6046,42 @@ mod tests {
         assert!(after.actions.iter().find(|offer|matches!(offer.action,
             ui::Action::OrdinaryRestoreRecommended { .. })).unwrap().disabled_reason.as_ref()
             .unwrap().contains("Fresh preparation"));
+    }
+    #[test]
+    fn malformed_runtime_record_is_readable_and_its_exact_bytes_bind_current_admission() {
+        use linux_vst_bridge::{preparation as prep,runtime_delivery};
+        let (f,base)=preparation_cli::tests::projection_fixture();
+        atomic_json(&f.m.root.join("software.json"),&preparation_cli::tests::projection_software(&base)).unwrap();
+        prep::record_candidate(&f.m,&base).unwrap();prep::enable(&f.m,&base,false).unwrap();
+        let path=runtime_delivery::record_path(&f.m);private_dir(path.parent().unwrap()).unwrap();
+        fs::write(&path,b"invalid runtime ownership record").unwrap();
+        fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
+        let before=fs::read(&path).unwrap();let token_before=token(&f.m).unwrap();
+        let current=current::capture(&f.m).unwrap();current.recheck(&f.m).unwrap();
+        let observed=&current.snapshot.managed_runtime_records[0];
+        assert_eq!(observed["id"],runtime_delivery::ID);
+        assert!(observed["runner"].is_null());assert!(observed["failure"].is_string());
+        assert_eq!(observed["sha256"],digest(&path).unwrap());
+        assert_eq!(fs::read(&path).unwrap(),before);
+        assert!(runtime_delivery::installed(&f.m).is_err());
+        if unsafe {libc::getuid()}!=0 {
+            let directory=path.parent().unwrap();
+            fs::set_permissions(directory,fs::Permissions::from_mode(0o000)).unwrap();
+            let unreadable=current::capture(&f.m);
+            let pulse=pulse_generation(&f.m);
+            let checked=unreadable.as_ref().is_ok_and(|context|context.recheck(&f.m).is_ok());
+            fs::set_permissions(directory,fs::Permissions::from_mode(0o700)).unwrap();
+            let unreadable=unreadable.unwrap();
+            assert!(checked);assert!(pulse.is_ok());
+            assert!(unreadable.snapshot.managed_runtime_records[0]["runner"].is_null());
+            assert!(unreadable.snapshot.managed_runtime_records[0]["failure"].is_string());
+            assert!(unreadable.recheck(&f.m).is_err(),"restoring read access changes the observed custody");
+        }
+        fs::set_permissions(&path,fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&path,b"different invalid runtime ownership record").unwrap();
+        fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
+        assert_ne!(token(&f.m).unwrap(),token_before);
+        assert!(current.recheck(&f.m).is_err());
     }
     #[test]
     fn ordinary_views_and_offer_admission_defer_payload_tree_and_kit_verification() {

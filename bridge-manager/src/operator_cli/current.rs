@@ -22,8 +22,10 @@ fn stamp(path: &Path) -> Result<Option<FileStamp>> {
 }
 fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBuf,Option<FileStamp>>> {
     let mut paths = BTreeSet::new();
+    let runtime_records: BTreeSet<_>=linux_vst_bridge::runtime_delivery::record_paths(m).into_iter().collect();
     paths.insert(m.root.join("software.json"));
-    paths.insert(linux_vst_bridge::runtime_delivery::record_path(m));
+    paths.insert(m.root.join("runners"));
+    paths.extend(runtime_records.iter().cloned());
     paths.insert(m.root.join("registry.json"));
     paths.insert(m.root.join("operator/latest.json"));
     paths.insert(m.root.join("daw-workspaces/fl-studio/workspace.json"));
@@ -143,7 +145,13 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
         }
     }
     require(paths.len() <= 4096,"operator_current_watch_bound")?;
-    paths.into_iter().map(|path| Ok((path.clone(),stamp(&path)?))).collect()
+    // Declared-runtime read failures are bound by the token's per-record
+    // failure observation. This watch cannot grant runtime admission.
+    paths.into_iter().map(|path| {
+        let observed=stamp(&path).or_else(|error|
+            if runtime_records.contains(&path) {Ok(None)} else {Err(error)})?;
+        Ok((path,observed))
+    }).collect()
 }
 
 pub(super) struct CurrentOverviewContext {
@@ -274,13 +282,15 @@ impl CurrentOverviewContext {
                 require_live_vendor_report(vendor)?;
                 progress.insert(app_directory(m),vendor.report.clone());
             }
+            let runtime_records: BTreeSet<_>=linux_vst_bridge::runtime_delivery::record_paths(m).into_iter().collect();
             for (path, before) in &self.watched {
                 // An active supervisor atomically replaces its progress report.
                 // Those bytes cannot authorize launch or retirement: both
                 // external rechecks require the same operation to remain live.
                 // Keep stable application/job/environment/record inputs watched.
                 if progress.values().any(|report| report == path) { continue; }
-                let after = stamp(path)?;
+                let after = stamp(path).or_else(|error|
+                    if runtime_records.contains(path) {Ok(None)} else {Err(error)})?;
                 let unchanged = if progress.contains_key(path) {
                     // Report replacement also changes the containing directory.
                     // Preserve its identity/type/mode, not progress-write times.
@@ -607,11 +617,14 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     let legacy_default = runners.and_then(|environments| catalogue::OnboardingRuntimePolicy::from_environments(environments).ok().flatten())
         .and_then(|policy| environments_runner(catalogue.as_ref(), &policy.default_runner_key))
         .filter(|(_,r)|r.validate_record().is_ok());
-    let delivered = linux_vst_bridge::runtime_delivery::installed_identity_record(m)?;
-    let default = if let Some(runner)=&delivered {
-        if runner.validate_record().is_ok() {Some((catalogue::runner_key(runner)?,runner.clone()))}
-        else {None}
-    } else {legacy_default};
+    let delivered = linux_vst_bridge::runtime_delivery::recommended_record_state(m)?;
+    let default = if let Some(state)=&delivered {
+        if let Some(runner)=state.runner.as_ref().filter(|_|state.failure.is_none()) {
+            Some((catalogue::runner_key(runner)?,runner.clone()))
+        } else {None}
+    } else if linux_vst_bridge::runtime_delivery::record_states(m)?.is_empty() {
+        legacy_default
+    } else {None};
     let mut onboarding = onboarding::projection_current(m, None,
         onboarding::CurrentProjectionInputs {sw:&sw,default_runner:default.as_ref(),
             registry:&db,records:&records,installers:&installers}, |operation| {
@@ -656,13 +669,13 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     #[cfg(not(feature = "pb0-c0-audit"))]
     let _ = phases;
     let system = system_from_capacity(cap.as_ref(),pending,stale_transports(cap.as_ref())?);
+    let runtime_reason=linux_vst_bridge::runtime_delivery::installation_disabled_reason(m)?;
     let snapshot = ui::Snapshot {schema:ui::OPERATOR_SCHEMA,state_token:before,system,
+        managed_runtime_records:linux_vst_bridge::runtime_delivery::readback_records(m)?,
         onboarding,installer_setups,environment_installers,environments:vec![],vendor_applications:vec![],products,
         workspaces,active_sessions:vec![],capture:Value::Null,recent_incidents:vec![],
-        actions:vec![action("Install compatibility runtime (728 MB download)",ui::Action::RuntimeInstall {},
-            if delivered.as_ref().is_some_and(|r|r.validate_record().is_err()) {
-                Some("The retained compatibility runtime is unavailable. Restore its original files before starting new work.")
-            } else if delivered.is_some() {Some("The selected compatibility runtime is already installed")} else {busy}),
+        actions:vec![action(&linux_vst_bridge::runtime_delivery::installation_label(),ui::Action::RuntimeInstall {},
+            runtime_reason.as_deref().or(busy)),
             action("Create sanitized support export",ui::Action::SupportExport {},None),
             action("Reconcile interrupted transaction",ui::Action::TransactionReconcile {},
                 inactive_reason(cap.as_ref(),retired,pending,true))],
@@ -899,6 +912,7 @@ mod tests {
             operator_frontend:None,native_catalogue:None};
         CurrentOverviewContext {
             snapshot:ui::Snapshot {schema:ui::OPERATOR_SCHEMA,state_token:token(m).unwrap(),
+                managed_runtime_records:vec![],
                 system:system_from_capacity(None,pending,0),onboarding:vec![],
                 installer_setups:vec![],environment_installers:vec![],environments:vec![],vendor_applications:vec![],
                 products:vec![],workspaces,active_sessions:vec![],capture:Value::Null,
@@ -1261,7 +1275,7 @@ mod tests {
         std::os::unix::fs::symlink("first",&publication).unwrap();
         let watched = [revision.clone(),publication.clone()].into_iter()
             .map(|path| (path.clone(),stamp(&path).unwrap())).collect();
-        let snapshot = ui::Snapshot {schema:ui::OPERATOR_SCHEMA,
+        let snapshot = ui::Snapshot {schema:ui::OPERATOR_SCHEMA,managed_runtime_records:vec![],
             state_token:token(&fixture.m).unwrap(),
             system:system_from_capacity(None,0,0),onboarding:vec![],
             installer_setups:vec![],environment_installers:vec![],environments:vec![],vendor_applications:vec![],

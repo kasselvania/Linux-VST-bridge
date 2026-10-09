@@ -293,6 +293,19 @@ mod tests {
             decode_reply(Query::Snapshot, &serde_json::to_vec(&snapshot).unwrap()),
             Ok(Reply::Snapshot(_))
         ));
+        let Reply::Snapshot(decoded)=decode_reply(Query::Snapshot,&serde_json::to_vec(&snapshot).unwrap()).unwrap()
+            else {panic!("expected snapshot")};
+        assert!(decoded.managed_runtime_records.is_empty());
+        let mut with_runtime=snapshot.clone();
+        with_runtime["managed_runtime_records"]=serde_json::json!([{
+            "id":"retained-runtime","record_path":"/managed/runners/retained/runtime.json",
+            "runner":null,"failure":"managed_runtime_binding"}]);
+        let Reply::Snapshot(decoded)=decode_reply(Query::Snapshot,&serde_json::to_vec(&with_runtime).unwrap()).unwrap()
+            else {panic!("expected snapshot")};
+        assert_eq!(decoded.managed_runtime_records[0]["failure"],"managed_runtime_binding");
+        with_runtime["schema"]=20.into();
+        assert!(decode_reply(Query::Snapshot,&serde_json::to_vec(&with_runtime).unwrap()).err().unwrap()
+            .contains("operator model 21 required"));
         for schema in [
             serde_json::json!(6),
             serde_json::json!(7),
@@ -302,6 +315,7 @@ mod tests {
             serde_json::json!(11),
             serde_json::json!(12),
             serde_json::json!(14),
+            serde_json::json!(20),
             serde_json::json!("9"),
             serde_json::Value::Null,
         ] {

@@ -1258,6 +1258,9 @@ impl Operator {
                 if let Some(primary) = &setup.primary {
                     Self::buttons(ui, std::slice::from_ref(primary),
                         (!fresh).then_some("Current manager readback unavailable"), pending, chosen);
+                } else if matches!(setup.phase,crate::model::SetupPhase::Imported) {
+                    ui.colored_label(warning_color(ui),
+                        "Install the compatibility runtime below, then continue setup. Any unavailable runtime is explained there.");
                 }
                 if !setup.discovered.is_empty() {
                     ui.small(format!("{} exact plug-in product(s) discovered", setup.discovered.len()));
@@ -1881,7 +1884,7 @@ impl Operator {
                             if let Some(reason) = reason { ui.small(reason); }
                         } else if matches!(setup.phase, crate::model::SetupPhase::Imported) {
                             ui.colored_label(warning_color(ui),
-                                "Standard compatibility runtime is unavailable. Repair or update the manager package before continuing.");
+                                "Install the compatibility runtime in Setup, then continue. Any unavailable runtime is explained there.");
                         }
                         if !setup.discovered.is_empty()
                             && ui.add_sized([240.0, 48.0], egui::Button::new("View plug-in details")).clicked() {
@@ -2013,6 +2016,7 @@ impl Operator {
                 Self::value(ui, &value);
             }
             Self::value(ui, &snapshot.capture);
+            for runtime in &snapshot.managed_runtime_records { Self::value(ui,runtime); }
         });
     }
 
@@ -4186,6 +4190,7 @@ mod tests {
     fn running_snapshot(operation: &str) -> Snapshot {
         let id = "aa".repeat(16);
         Snapshot {
+            managed_runtime_records:vec![],
             schema: crate::model::OPERATOR_SCHEMA,
             state_token: "current".into(),
             installer_setups: vec![],
