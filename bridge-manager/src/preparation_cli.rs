@@ -1472,7 +1472,7 @@ pub fn execute(
     m: &Manager,
     a: &ui::Action,
     operation: &str,
-    registry_admission: impl FnOnce() -> Result<Lock>,
+    mut registry_admission: impl FnMut() -> Result<Lock>,
 ) -> Result<Value> {
     use linux_vst_bridge::operator_lock::timing::{self, Stage};
     let sw = timing::measure(Stage::SoftwareVerification, || software(m))?;
@@ -1631,7 +1631,8 @@ pub fn execute(
         } => {
             let c = timing::measure(Stage::CandidateVerification, ||
                 prep::candidate_record(m, candidate))?;
-            let revision = prep::replace(m, &c, &publication_reference(expected_current))?;
+            let revision = prep::replace_with_registry(m, &c,
+                &publication_reference(expected_current), registry_admission)?;
             Ok(json!({"candidate":candidate,"replaced":expected_current,"publication":revision}))
         }
         ui::Action::CandidateWithdraw {
@@ -1649,7 +1650,7 @@ pub fn execute(
             let c = timing::measure(Stage::CandidateVerification, ||
                 prep::candidate_record(m, candidate))?;
             let ordinary = matches!(a, ui::Action::CandidatePublishOrdinary { .. });
-            let r = prep::enable(m, &c, ordinary)?;
+            let r = prep::enable_with_registry(m, &c, ordinary, registry_admission)?;
             Ok(
                 json!({"candidate":candidate,"publication":r,"ordinary":ordinary,"experimental":!ordinary}),
             )
@@ -1671,9 +1672,10 @@ pub fn execute(
                     return Ok(json!({"candidate":candidate,"publication":current.id,
                         "already_available":true,"publication_changed":false}));
                 }
-                ("unpublished" | "removed", None) => prep::enable(m, &c, false)?,
+                ("unpublished" | "removed", None) =>
+                    prep::enable_with_registry(m, &c, false, registry_admission)?,
                 ("another_configuration", Some(expected)) =>
-                    prep::replace(m, &c, &publication_reference(expected))?,
+                    prep::replace_with_registry(m, &c, &publication_reference(expected), registry_admission)?,
                 _ => return Err("test_publication_requires_explicit_current_configuration".into()),
             };
             Ok(json!({"candidate":candidate,"publication":revision,
@@ -1930,6 +1932,55 @@ pub(crate) mod tests {
         assert_eq!(f.m.registry().unwrap().classes[&base.selection.class.id].managed_revision, Some(baseline));
         assert_eq!(guided_result_disposition(&f.m, &next, &publication_identity(&current), &operation).unwrap(), GuidedDisposition::Restored);
         assert!(prep::observations(&f.m, &next).unwrap().iter().any(|row| row.status == prep::TestStatus::Failed));
+    }
+
+    #[test]
+    fn ordinary_test_publication_uses_bounded_registry_at_admission_and_commit() {
+        use linux_vst_bridge::operator_lock::AcquisitionFailure;
+        for fail_at in [Some(1), Some(2), None] {
+            let (f, c) = projection_fixture();
+            atomic_json(&f.m.root.join("software.json"), &projection_software(&c)).unwrap();
+            prep::record_candidate(&f.m, &c).unwrap();
+            let action = ui::Action::CompatibilityPublishTest {
+                candidate: c.id().unwrap(), expected_current: None,
+            };
+            let before = fs::read(f.m.root.join("registry.json")).unwrap();
+            let operation = random_id().unwrap();
+            let mut calls = 0;
+            let mut waits = vec![];
+            let result = execute(&f.m, &action, &operation, || {
+                calls += 1;
+                let _readback = if fail_at == Some(calls) {
+                    Some(f.m.lock("registry.lock")?)
+                } else { None };
+                let acquired = f.m.lock_bounded(ui::OperatorLock::Registry,
+                    ui::LockPurpose::OperatorValidationReadback, Some(&operation),
+                    std::time::Duration::from_millis(20));
+                match acquired {
+                    Ok((guard, facts)) => { waits.push(facts); Ok(guard) },
+                    Err(error) => {
+                        waits.push(error.downcast_ref::<AcquisitionFailure>().unwrap().facts.clone());
+                        Err(error)
+                    }
+                }
+            });
+            assert_eq!(calls, fail_at.unwrap_or(2));
+            assert_eq!(waits.len(), calls);
+            if fail_at.is_some() {
+                let error = result.unwrap_err();
+                assert_eq!(error.downcast_ref::<AcquisitionFailure>().unwrap().facts.outcome,
+                    ui::LockOutcome::Timeout);
+                assert!(waits.last().unwrap().attempts > 1);
+                assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), before);
+                assert!(fs::symlink_metadata(f.m.link(&c.selection.class.id)).is_err());
+                assert!(!f.m.publication_pending(&c.selection.class.id).unwrap());
+                assert_eq!(prep::publication_state(&f.m, &c).unwrap(), "unpublished");
+            } else {
+                assert_eq!(result.unwrap()["experimental"], true);
+                assert_eq!(prep::publication_state(&f.m, &c).unwrap(), "experimental");
+            }
+            assert_eq!(prep::candidate_record(&f.m, &c.id().unwrap()).unwrap(), c);
+        }
     }
 
     #[cfg(feature = "pb0-c0-audit")]

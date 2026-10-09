@@ -1192,6 +1192,15 @@ impl Manager {
         host:(&Artifact,&str),scope:(Option<Qualification>,bool),fail:Option<Boundary>,
         expected:Option<&RevisionRef>,
     )->Result<RevisionRef> {
+        self.publish_with_expected_registry(profile,census,registration,host,scope,fail,
+            expected,|| self.lock("registry.lock"))
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn publish_with_expected_registry(
+        &self,profile:&Profile,census:&Census,registration:Registration,
+        host:(&Artifact,&str),scope:(Option<Qualification>,bool),fail:Option<Boundary>,
+        expected:Option<&RevisionRef>,mut acquire_registry:impl FnMut()->Result<Lock>,
+    )->Result<RevisionRef> {
         require(!self.root.join("package-transition.json").try_exists()?,
             "package_transition_needs_recovery")?;
         let validation = timing::span(Stage::PublicationValidation);
@@ -1217,7 +1226,9 @@ impl Manager {
         require(performance.delivery_mode != DeliveryMode::SameCallback || managed
             && crate::preparation::build::publication_supports_audio_completion(self, profile, &registration)?,
             "publication_delivery_unsupported_by_target: Select buffered delivery before selecting this older publication.")?;
-        let mut guard = Some(timing::measure(Stage::RegistryLock, || self.lock("registry.lock"))?);
+        let admitted = timing::measure(Stage::RegistryLock, &mut acquire_registry)?;
+        admitted.require_registry(self)?;
+        let mut guard = Some(admitted);
         require(self.performance(&key)? == performance, "publication_performance_changed")?;
         self.require_inactive(if global_inactive { None } else { Some(&key) })?;
         let mut db = self.registry()?;
@@ -1365,7 +1376,9 @@ impl Manager {
             let authority = timing::span(Stage::PublicationFinalAuthority);
             census.verify_current(&self.root,installed_host,source,crate::observation::now()?)?;
             source_artifact.verify()?;
-            guard=Some(timing::measure(Stage::RegistryLock, || self.lock("registry.lock"))?);
+            let committed = timing::measure(Stage::RegistryLock, &mut acquire_registry)?;
+            committed.require_registry(self)?;
+            guard=Some(committed);
             self.require_inactive(if global_inactive { None } else { Some(&r.class_id) })?;
             require(self.performance(&r.class_id)? == r.performance, "publication_performance_changed")?;
             require(serde_json::to_vec(&self.registry()?)?==snapshot && !self.publication_pending(&r.class_id)?

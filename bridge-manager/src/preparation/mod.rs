@@ -2074,14 +2074,26 @@ pub(crate) fn permits_transition(
         && (p == &c.profile || accepted(m, &c).is_ok_and(|a| a == *p)))
 }
 pub fn enable(m: &Manager, c: &Candidate, ordinary: bool) -> Result<RevisionRef> {
-    enable_exact(m, c, ordinary, None, None)
+    enable_with_registry(m, c, ordinary, || m.lock("registry.lock"))
+}
+pub fn enable_with_registry(
+    m: &Manager, c: &Candidate, ordinary: bool,
+    acquire_registry: impl FnMut() -> Result<Lock>,
+) -> Result<RevisionRef> {
+    enable_exact(m, c, ordinary, None, None, acquire_registry)
 }
 pub fn replace(m: &Manager, c: &Candidate, expected: &RevisionRef) -> Result<RevisionRef> {
+    replace_with_registry(m, c, expected, || m.lock("registry.lock"))
+}
+pub fn replace_with_registry(
+    m: &Manager, c: &Candidate, expected: &RevisionRef,
+    acquire_registry: impl FnMut() -> Result<Lock>,
+) -> Result<RevisionRef> {
     require(
         publication_state(m, c)? == "another_configuration",
         "replacement_not_required",
     )?;
-    enable_exact(m, c, false, Some(expected), None)
+    enable_exact(m, c, false, Some(expected), None, acquire_registry)
 }
 #[doc(hidden)]
 pub fn replace_refreshed(
@@ -2094,7 +2106,7 @@ pub fn replace_refreshed(
         publication_state(m, c)? == "another_configuration",
         "replacement_not_required",
     )?;
-    enable_exact(m, c, false, Some(expected), Some(predecessor))
+    enable_exact(m, c, false, Some(expected), Some(predecessor), || m.lock("registry.lock"))
 }
 fn enable_exact(
     m: &Manager,
@@ -2102,6 +2114,7 @@ fn enable_exact(
     ordinary: bool,
     expected: Option<&RevisionRef>,
     refresh_predecessor: Option<&Revision>,
+    acquire_registry: impl FnMut() -> Result<Lock>,
 ) -> Result<RevisionRef> {
     use crate::operator_lock::timing::{self, Stage};
     require(
@@ -2145,7 +2158,7 @@ fn enable_exact(
             SelectionPurpose::Qualification
         },
     )?;
-    m.publish_with_expected(
+    m.publish_with_expected_registry(
         &p,
         &census,
         r,
@@ -2160,6 +2173,7 @@ fn enable_exact(
         ),
         None,
         expected,
+        acquire_registry,
     )
 }
 pub fn disable(m: &Manager, c: &Candidate) -> Result<()> {
