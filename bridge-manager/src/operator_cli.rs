@@ -5675,7 +5675,7 @@ pub(crate) mod tests {
             }
             let projected=onboarding::projection(&f.m,None).unwrap();
             let service=overview_service_reply(&f.m,capacity_json(false,0,0));
-            let current=current::capture(&f.m).unwrap();service.join().unwrap();current.recheck(&f.m).unwrap();
+            let current=current::capture(&f.m).unwrap();current.recheck(&f.m).unwrap();service.join().unwrap();
             let acquire=current.snapshot.actions.iter().find(|offer|matches!(offer.action,ui::Action::RuntimeInstall {})).unwrap();
             assert_eq!(acquire.disabled_reason.is_none(),!has_recommended,"{case}: {acquire:?}");
             let primary=current.snapshot.installer_setups[0].primary.as_ref();
