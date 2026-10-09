@@ -516,6 +516,17 @@ processing restart unchecked. The original project, twelve registrations and fiv
 preferences are unchanged. This is a short functional test, not audio deadline qualification.
 This repaired journey required several shared fixes; first-attempt qualification remains unmet.
 
+Test35's ordinary GUI **Update Bridge** preserves twelve class/module/environment/
+compatibility bindings, five preferences, two saved projects and all 257 original
+candidate/lineage records; each history now holds 269. Exact Test33 remains the
+predecessor, with the selected service active and zero leases. Ordinary Setup then
+acquired r4 and verified its three pinned downloads, corrected x64 UIA DLL,
+seven component artifacts and declared command-session component. These are
+update/acquisition results. Efx MOTIONS's new environment uses recommended r4,
+but its installer timed out while computer use was paused. Cleanup is confirmed;
+it remains uninstalled and unpublished. Windows-default commercial editor/audio
+acceptance remains pending. [Scoped result](../evidence/runtime-delivery-deck.json).
+
 These are exact-fixture claims, not universal vendor support. The 2026-09-23 fleet readback predates both the merged host-retention repair [#149](https://github.com/kasselvania/Linux-VST-bridge/pull/149) and Serum's installed candidate D; its older `needs_attention` and candidate-B fields are **historical**, not silently treated as current. The [candidate-D physical receipt](../evidence/serum-x11-touch-routing/candidate-d-physical.json) includes a current six-publication manager readback for this experiment, not a new six-product physical campaign.
 
 **Push 3 controller mode:** the operator reports held notes on pad release in

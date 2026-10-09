@@ -99,11 +99,12 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-STATE-003](#fc-state-003--saved-project-reopens-with-default-state) | Saved project reopens with default state | Native component state restore | causal | Processing restore correction installed in Test26 | Ubuntu 26.04.1 / REAPER 7.82 Reference instrument/effect recall | resolved for this tested case | Broader plug-in and DAW recall qualification |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
-| [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
+| [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process policy installed; coherent corrected r4 delivered | Ubuntu FRAGMENTS policy lifecycle; Deck Analog Lab policy lifecycle and r4 acquisition | review candidate; old policy disables Windows screen readers | New r4 commercial lifecycle with Windows-default accessibility |
 | [FC-UI-010](#fc-ui-010--result-form-footer-cannot-be-reached-on-deck) | Result form initially hides actions | Manager dialog / Deck viewport | initially hidden footer; scrolling reproduced | installed in Test33 | Fields scroll while actions remain visible; four fresh checks submitted normally | resolved on the tested Deck form | Preserve viewport/click regression coverage |
 | [FC-MGMT-007](#fc-mgmt-007--retained-proposal-displaces-selected-configuration) | Retained proposal displaces selected configuration | Manager guided projection and frontend action ownership | causal | installed-fixed on reference fixture | Ubuntu config7 full effect/instrument workflow and GUI restoration | reference configuration regression passed; musician workflow unqualified | Physical DAW integration and endurance |
 | [FC-MGMT-008](#fc-mgmt-008--loaded-native-engine-is-not-bound-during-admission) | Loaded native engine missing from admission | Cached DAW factory / selected execution pair | reproduced loader/cache mismatch | modern binding and legacy-publication refresh repaired; normal VM/Deck update passed; full recovery open | Source/loader and Unix-peer gate; VM SDK checkpoint; exact eight-publication Deck update | unqualified for complete recovery | Complete deferred predecessor/interruption and modern stale-caller installed restoration |
 | [FC-MGMT-009](#fc-mgmt-009--package-update-leaves-plug-ins-on-the-old-bridge) | Package update leaves plug-ins on the old bridge | Manager package/publication update | causal; zero refreshes for 11 Deck classes | Target kit comparison installed in Test 11 | All 11 Deck classes switched to the target native/Windows pair | installed regression resolved | Nibbi recorded-state DAW comparison remains separate |
+| [FC-MGMT-010](#fc-mgmt-010--retained-preparation-history-blocks-normal-update) | Retained preparation history blocks normal update | Preparation directory enumeration | causal lifetime quota | installed fixed in Test35 | Deck ordinary GUI update preserves 257 original candidates and lineage records | resolved for global history enumeration | Separate per-class history projection limit remains |
 | [FC-BOOT-001](#fc-boot-001--volatile-runtime-and-publication-restoration-after-boot) | Runtime/publication restoration after boot | Platform service adapter | causal | accepted | FRAGMENTS / Ubuntu | supported | Preserve in packaging ports |
 
 ---
@@ -2795,6 +2796,17 @@ host sources are identical at `96f518b6`; the engine is the Test 10 binary,
 whose sources are likewise unchanged.
 Last reviewed: 2026-10-06.
 
+## FC-MGMT-010 — Retained preparation history blocks normal update
+
+Test34's ordinary GUI update refused `preparation_count_bound` with 257 candidates
+and 257 lineage records: shared enumeration imposed a 256-entry lifetime ceiling.
+The fix reads complete sorted history with all per-record ownership/identity/size checks.
+A 266-record normal refresh regression passes, preserving predecessor and history bytes.
+Test35's GUI update preserves all 257 original candidate and 257 original lineage digests,
+adds twelve each and retains exact Test33, twelve bindings, five preferences and two projects.
+Service is active with zero leases. The separate per-class `operator_history_bound` of 256
+remains a source projection gap; it did not block this update. [Scoped result](../evidence/runtime-delivery-deck.json).
+
 ## FC-STATE-002 — Recorded audio exceeds the state cap and ends the host
 
 Nibbi starts at 730,156 state bytes; the operator's recording/no-recording
@@ -2957,6 +2969,14 @@ vendor-keyboard audio, save/new-process parameter recall and both normal retirem
 Test33 adds DAW MIDI and automation playback before and after saved-project reopen,
 with both hosts retiring cleanly; the explicit accessibility-off limitation remains.
 Windows screen-reader support is unavailable for this plug-in's Windows processes. [Scoped result](../evidence/analog-lab-deck.json).
+
+Reviewed r4 delivers the corrected x64 DLL with complete Wine source, recipe, tests and notices.
+Test35's ordinary Deck Setup acquired its three pinned downloads; DLL, seven component artifacts
+and declared command session verify. Existing environments retain exact older runner bindings.
+Efx MOTIONS's new environment uses recommended r4; its installer timed out
+(`installer_time_bound`) while computer use was paused. Cleanup is confirmed;
+it remains uninstalled and unpublished. Windows-default commercial editor/audio acceptance
+remains pending. [Construction](RUNTIME_UIA_GUARD.md), [acquisition](../evidence/runtime-delivery-deck.json).
 
 ### User posture and next gate
 

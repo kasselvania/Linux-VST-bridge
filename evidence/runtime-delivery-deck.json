@@ -1,0 +1,34 @@
+{
+  "scope": "Ordinary GUI software update and corrected-runtime acquisition; Steam Deck Desktop Mode, 2026-10-09.",
+  "platform": "SteamOS 3.8.16 / Test35",
+  "source_head": "d5bcf4f95e6afd1e8104726b43ae43cb10083236",
+  "software_update": {
+    "exact_predecessor": "Test33",
+    "identities_preserved": 12,
+    "preferences_preserved": 5,
+    "project_hashes_preserved": 2,
+    "candidates": {
+      "original": 257,
+      "after": 269,
+      "all_original_hashes_preserved": true
+    },
+    "lineage": {
+      "original": 257,
+      "after": 269,
+      "all_original_hashes_preserved": true
+    },
+    "selected_test35": true,
+    "service": "active",
+    "leases": 0
+  },
+  "runtime_acquisition": {
+    "runner_id": "managed-ge-proton11-7-slr4-20260805-r4",
+    "download_count": 3,
+    "runtime_record_sha256": "1ea27f76ab0a2acb47430e407c2d6e5c591b5b7f8abaffa5cef1e9af782cf3d4",
+    "dll_sha256": "9f7217f558986ae295c6abe931312e73c96d9007b4b1e93cf9dc6aaa023ff0ad",
+    "dll_bytes": 2270817,
+    "component_artifacts_verified": 7,
+    "declared_session_verified": true,
+    "installed": true
+  }
+}

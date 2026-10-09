@@ -60,9 +60,9 @@ The [isolated builder](../tools/runtime-uia-guard/build.py),
 [Wine patch](../tools/runtime-uia-guard/uia-null-provider.patch) and
 [LGPL text](../tools/runtime-uia-guard/COPYING.LIB) retain the construction basis.
 New Wine test code is LGPL-2.1-or-later. Wine code is not linked into the
-proprietary manager or native proxy. No runtime binary is committed or rehosted.
-An eventual distributed correction needs its own immutable runtime identity,
-complete corresponding source and notices, delivery and commercial retest.
+proprietary manager or native proxy. No runtime binary is committed. The exact
+correction and complete corresponding source are delivered separately from the
+signed application; full GE/SLR distributions are acquired directly upstream.
 
 On the Ubuntu fixture, the exact null-provider test crashed with the delivered
 DLL (exit 5, access violation at the same Wine RVA). A separately sealed
@@ -111,7 +111,14 @@ resolve within the pinned GE x64 builtin DLL tree.
 Delivery composes this component with unchanged pinned upstream GE/SLR only in
 new private installation staging, checks the original DLL preimage, then seals
 the whole immutable runner. The component manifest binds corresponding source
-and notices alongside the binary. Publication requires reviewed artifacts and
-a real immutable download location. No installed runner or licensed prefix is
-modified. Acquisition recommendation and fresh commercial acceptance remain
-separate work from this construction.
+and notices alongside the binary. The reviewed
+[r4 component release](https://github.com/kasselvania/Linux-VST-bridge/releases/tag/runtime-uia-r4)
+delivers [uia-guard.tar.gz](https://github.com/kasselvania/Linux-VST-bridge/releases/download/runtime-uia-r4/uia-guard.tar.gz),
+57,040,019 bytes with SHA-256
+`988fb967608a8c116022c27822647b7a7eda50a283a9e53ee2f22fe299b60f6c`.
+The corrected x64 DLL is
+`9f7217f558986ae295c6abe931312e73c96d9007b4b1e93cf9dc6aaa023ff0ad`.
+The managed r4 acquisition recommendation applies only to new environments;
+retained r3 records, explicit choices and stored retries keep their exact runner
+identity. No installed runner or licensed prefix is modified. Fresh commercial
+editor and musical acceptance with Windows-default accessibility remains pending.

@@ -97,6 +97,13 @@ class CandidateInputs(unittest.TestCase):
             self.assertEqual(len(proxies), 1)
             self.assertEqual(proxies[0]['destination'], 'usr/lib/linux-vst-bridge/proxy/ReusableEngine.so')
             self.assertEqual(pathlib.Path(proxies[0]['source']).read_bytes(), engine)
+            self.assertEqual(spec['external_runtime'], {
+                'id':'managed-ge-proton11-7-slr4-20260805-r4',
+                'manifest_sha256':sha(b'c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0\n3226d8234e7c0542ee767837832bfb1dad5e5e2dc944ec97eb221b437f6b9349\n988fb967608a8c116022c27822647b7a7eda50a283a9e53ee2f22fe299b60f6c\n'),
+            })
+            notices=(build/'inputs-0.12.0fixture/THIRD_PARTY_NOTICES.txt').read_text()
+            self.assertIn('runtime-uia-r4/uia-guard.tar.gz',notices)
+            self.assertIn('complete corresponding patched Wine source',notices)
             guide = (build / 'inputs-0.12.0fixture/START_HERE.html').read_text()
             self.assertNotIn('Supported prebuilt proxy metadata', guide)
             self.assertIn('reusable native engine', guide)

@@ -113,6 +113,16 @@ class SelectionTests(unittest.TestCase):
   original=path.read_bytes();manifest=(self.root/'runtime-tree.json').read_bytes()
   selected=s.NativeProtonSession.selected(self.spec)
   self.assertEqual(selected.component,component)
+  reg=self.spec['registration'];reg['compatibility']={'disable_windows_accessibility':False}
+  with patch.object(s.subprocess,'check_output',return_value='DISPLAY=:0\n'):
+   env=s.environment(reg)
+  self.assertNotIn('uiautomationcore',env.get('WINEDLLOVERRIDES',''))
+  selected.endpoint=self.root/'test-endpoint'
+  try:
+   with patch.object(selected,'find_keeper'),patch.object(s.subprocess,'Popen',return_value=object()) as launch:
+    selected.spawn(['entry','--verb=run','--',self.runner['proton'],'runinprefix'],env)
+   self.assertNotIn('uiautomationcore',launch.call_args.kwargs['env'].get('WINEDLLOVERRIDES',''))
+  finally:selected.close()
   self.assertEqual(path.read_bytes(),original)
   self.assertEqual((self.root/'runtime-tree.json').read_bytes(),manifest)
   self.runner['id']='unfamiliar-but-same-reviewed-adapter'

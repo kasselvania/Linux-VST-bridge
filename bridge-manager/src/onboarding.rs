@@ -200,22 +200,7 @@ fn default_runtime(m: &Manager, installed: &[(String, Runner)]) -> Result<Option
         let key = runner_key(&runner)?;
         return Ok(installed.iter().find(|(id,r)| id==&key && r==&runner).cloned());
     }
-    // A retained delivered selection never silently becomes a different runtime
-    // just because its files are unavailable during recovery readback.
-    if !linux_vst_bridge::runtime_delivery::record_states(m)?.is_empty() {
-        return Ok(None);
-    }
-    let sw = software_record(m)?;
-    let Some(_) = sw.native_catalogue else { return Ok(None) };
-    let catalogue = sw.catalogue_record(m)?;
-    Ok(default_runtime_from_catalogue(Some(&catalogue), installed))
-}
-fn default_runtime_from_catalogue(catalogue: Option<&catalogue::Catalogue>,
-    installed: &[(String, Runner)]) -> Option<(String, Runner)> {
-    let policy = catalogue?.onboarding_runtime.as_ref()?;
-    installed.iter().find(|(key, runner)| *key == policy.default_runner_key
-        && runner.id == catalogue::STANDARD_ONBOARDING_RUNNER
-        && runner.policy.is_none()).cloned()
+    Ok(None)
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct FileIdentity {
@@ -1006,7 +991,10 @@ pub(super) fn setup_projection_current(m: &Manager, rows: &[ui::Onboarding],
                 }
             }
         }
-        let (phase, status, next) = setup_posture(current, ambiguous, discovered.len());
+        let (phase, mut status, next) = setup_posture(current, ambiguous, discovered.len());
+        if !ambiguous && current.environment.is_none() && default.is_none() {
+            status="Install compatibility runtime in Setup, then continue. Any unavailable runtime is explained there.".into();
+        }
         let primary = setup_primary(&current.actions, next);
         let secondary = current.actions.iter().filter(|a| !ambiguous && primary.as_ref().is_none_or(|p| p.action != a.action))
             .filter(|a| matches!(a.action, ui::Action::InstallerStop { .. } | ui::Action::InstallerNewAttempt { .. }))
@@ -1361,7 +1349,9 @@ mod tests {
     #[test]
     fn existing_retry_keeps_its_exact_runner_when_recommendation_changes_or_is_absent() {
         let (f,installer)=fixture();
-        let created=create_exact(&f.m,&installer,f.r.environment.runner.clone(),&"ab".repeat(16),
+        let legacy=operator_cli::tests::retained_managed_runtime(&f.m,true);
+        let corrected=operator_cli::tests::retained_managed_runtime(&f.m,false);
+        let created=create_exact(&f.m,&installer,legacy,&"ab".repeat(16),
             &f.m.lock("registry.lock").unwrap(),None).unwrap();
         let id=created["onboarding"].as_str().unwrap();let op="cd".repeat(16);
         let prior=reserve(&f.m,id,&op).unwrap();
@@ -1374,8 +1364,8 @@ mod tests {
         let sw=Software {manager:a.clone(),supervisor:a.clone(),ownership:a.clone(),host:a.clone(),
             source_manifest:a.clone(),source_sha256:a.sha256.clone(),operator_frontend:None,
             native_catalogue:None,preparation_kit:None,installer_launch:None};
-        let mut recommended=prior.environment.runner.clone();recommended.id="new-recommended-test".into();
-        let recommended=(runner_key(&recommended).unwrap(),recommended);
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
+        let recommended=(runner_key(&corrected).unwrap(),corrected);
         let retained_key=runner_key(&prior.environment.runner).unwrap();
         let registry=f.m.registry().unwrap();let records=[prior.clone()];let installers=[installer];
         for default_runner in [Some(&recommended),None] {
@@ -1388,6 +1378,7 @@ mod tests {
         }
         assert!(prepare_attempt(&f.m,id,&recommended.0).err().unwrap().to_string()
             .contains("onboarding_retry_runner_changed"));
+        assert!(prepare_attempt(&f.m,id,&retained_key).is_ok());
         assert_eq!(fs::read(report).unwrap(),before);
         assert_eq!(history_records(&f.m).unwrap()[0].environment.runner,prior.environment.runner);
     }
