@@ -99,8 +99,9 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-STATE-003](#fc-state-003--saved-project-reopens-with-default-state) | Saved project reopens with default state | Native component state restore | causal | Processing restore correction installed in Test26 | Ubuntu 26.04.1 / REAPER 7.82 Reference instrument/effect recall | resolved for this tested case | Broader plug-in and DAW recall qualification |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
-| [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process policy installed; coherent corrected r4 delivered | Ubuntu FRAGMENTS policy lifecycle; Deck Analog Lab policy lifecycle and r4 acquisition | review candidate; old policy disables Windows screen readers | New r4 commercial lifecycle with Windows-default accessibility |
+| [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process policy installed; corrected r4 installed | Ubuntu FRAGMENTS/Deck Analog Lab policy lifecycle; Deck MOTIONS r4 Windows-default editor lifecycle | review candidate; old policy disables Windows screen readers | Licensed recall and existing-environment runtime transition |
 | [FC-UI-010](#fc-ui-010--result-form-footer-cannot-be-reached-on-deck) | Result form initially hides actions | Manager dialog / Deck viewport | initially hidden footer; scrolling reproduced | installed in Test33 | Fields scroll while actions remain visible; four fresh checks submitted normally | resolved on the tested Deck form | Preserve viewport/click regression coverage |
+| [FC-UI-011](#fc-ui-011--native-editor-remains-blank-in-reaper) | Native editor remains blank in REAPER | Native IPlugView/controller admission | suspected attachment gap; exact guard unproved | none | Deck REAPER 7.82 / Test36 MOTIONS | open | Establish parent/frame refusal; preserve Bitwig lifecycle |
 | [FC-MGMT-007](#fc-mgmt-007--retained-proposal-displaces-selected-configuration) | Retained proposal displaces selected configuration | Manager guided projection and frontend action ownership | causal | installed-fixed on reference fixture | Ubuntu config7 full effect/instrument workflow and GUI restoration | reference configuration regression passed; musician workflow unqualified | Physical DAW integration and endurance |
 | [FC-MGMT-008](#fc-mgmt-008--loaded-native-engine-is-not-bound-during-admission) | Loaded native engine missing from admission | Cached DAW factory / selected execution pair | reproduced loader/cache mismatch | modern binding and legacy-publication refresh repaired; normal VM/Deck update passed; full recovery open | Source/loader and Unix-peer gate; VM SDK checkpoint; exact eight-publication Deck update | unqualified for complete recovery | Complete deferred predecessor/interruption and modern stale-caller installed restoration |
 | [FC-MGMT-009](#fc-mgmt-009--package-update-leaves-plug-ins-on-the-old-bridge) | Package update leaves plug-ins on the old bridge | Manager package/publication update | causal; zero refreshes for 11 Deck classes | Target kit comparison installed in Test 11 | All 11 Deck classes switched to the target native/Windows pair | installed regression resolved | Nibbi recorded-state DAW comparison remains separate |
@@ -2980,7 +2981,12 @@ Test35's ordinary Deck Setup acquired its three pinned downloads; DLL, seven com
 and declared command session verify. Existing environments retain exact older runner bindings.
 The earlier paused MOTIONS installation timed out with confirmed cleanup. A new recommended
 r4 environment now installs and passes compatibility and Test36 publication with Windows
-accessibility enabled. Editor/audio acceptance remains pending; demo save/loading is disabled.
+accessibility enabled. Bitwig 6.1 visibly opens the full demo editor with the corrected
+DLL mapped; baseline and enabled-MOTIONS notes-and-tail captures are finite.
+Editor close reaches stage 217 and the full vendor UI reopens at stage 100 without
+failure/exception on the same live host; final host/transport retirement is confirmed.
+Demo save/load is disabled and DAW close refuses MOTIONS preset saving; licensed recall
+and existing-environment runtime transition remain pending.
 [Construction](RUNTIME_UIA_GUARD.md), [acquisition and publication](../evidence/runtime-delivery-deck.json).
 
 ### User posture and next gate
@@ -3359,3 +3365,10 @@ completes four fresh checks, then eight after actual DAW MIDI/automation and sav
 replay. Processing restart remains unchecked. Viewport/click regressions pass at
 1280×800 and 560×360. The six Test32
 checks remain historical typed results. [Scoped result](../evidence/analog-lab-deck.json).
+
+## FC-UI-011 — Native editor remains blank in REAPER
+
+Deck REAPER 7.82 / Test36 MOTIONS has blank embedded/floating editors while generic
+parameters work and no editor-open request reaches Windows. Native attachment/admission
+is suspected; the exact guard is unproved. DAW close confirms host cleanup; stage 217
+with zero opens does not establish a UIA editor lifecycle. [Issue #261](https://github.com/kasselvania/Linux-VST-bridge/issues/261).
