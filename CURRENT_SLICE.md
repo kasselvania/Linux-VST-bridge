@@ -18,11 +18,11 @@ separate read freshness remains open. Test28's scoped recovery/recall/settings p
 ## Best explanation and next changes
 
 Analog Lab Intro installed and Activated through ASC; ASC retired normally.
-Its schema-3 `close_result` is missing from the manager contract, and live reports
-are mistaken for authority changes. The shared repair passes causal red→green tests.
-Discovery is blocked by a recovery handoff gap: the retained suspension binds the
-old manager, while package update changes that binding without resolving the reservation.
-Integrate existing package recovery, deliver Test31, then **Find installed plug-ins**.
+Shared result/progress repair and explicit package recovery handoff pass causal tests.
+The existing transaction retains the original suspension/failed receipt, then settles
+recovery after coherent target selection and clean service readback; verified rollback restores
+the prior selection and service posture. Installed recovery remains pending.
+Deliver Test31 through ordinary update, confirm recovery, then **Find installed plug-ins**.
 Repair missing capabilities through shared mechanisms or justified declarative profiles.
 
 ## Done and interruption rule
@@ -33,6 +33,7 @@ or a per-plug-in permission entry. Repair a blocker of this journey in this slic
 track unrelated defects in GitHub without letting them seize the slice.
 
 Known work: [read freshness](https://github.com/kasselvania/Linux-VST-bridge/issues/239),
+[package recovery handoff](https://github.com/kasselvania/Linux-VST-bridge/issues/246),
 [installed update](https://github.com/kasselvania/Linux-VST-bridge/issues/240),
 [cold startup](https://github.com/kasselvania/Linux-VST-bridge/issues/241),
 [manager restoration](https://github.com/kasselvania/Linux-VST-bridge/issues/242), and

@@ -2550,6 +2550,11 @@ Intro installed and Activated through managed ASC, which retired normally. Its s
 `close_result` breaks strict manager readback; live progress also triggers false freshness
 refusal. The shared contract/readback repair passes causal regressions, but discovery is
 blocked by the retained suspension's old-manager binding and unresolved package recovery handoff.
+The existing package transaction now captures that terminal suspension unchanged,
+settles it only after coherent target selection and clean service readback; verified rollback
+restores the original reservation/selection/posture. Causal/crash regressions pass;
+ordinary installed recovery and discovery remain pending in
+[#246](https://github.com/kasselvania/Linux-VST-bridge/issues/246).
 
 The operator reported a missing exact prebuilt proxy while preparing newly
 installed Nibbi. Source `9a0766afbf71fbb336c897c98b003b9e4bdda737` confirms the
