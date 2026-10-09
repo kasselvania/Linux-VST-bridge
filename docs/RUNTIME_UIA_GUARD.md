@@ -50,8 +50,9 @@ a bounded installed commercial result for the exact declared policy; it does
 not correct or redistribute the faulting DLL, qualify screen-reader use, or
 establish vendor-family support, recall or dropout-free audio.
 
-A separate runtime correction checks null provider/output arguments before
-dereferencing them and returns `E_INVALIDARG`. It changes no vendor binary,
+A separate runtime correction checks the null provider before dereferencing it
+and returns `E_INVALIDARG`. Existing public null-output handling is retained.
+It changes no vendor binary,
 authorization logic, valid-provider handling or bridge exception containment.
 The source is the Wine submodule at GE-Proton11-7's exact commit
 `46b29104e3741fe23bf5e2547196a253aab88c89`; the SDK image is pinned by digest.
@@ -76,3 +77,41 @@ the initial developer build; byte reproducibility is not claimed. The rebuilt
 DLL/test were then run in another fresh reference prefix and completed with
 exit 0, with the prefix DLL matching that rebuilt artifact. Both constructions
 remain outside managed runtime selection and commercial environments.
+
+The current construction narrows the patch to the missing provider check.
+Matched original/corrected tests separately exercise `UiaDisconnectProvider(NULL)`
+and `UiaReturnRawElementProvider(..., UiaRootObjectId, NULL)`, the entry points that
+reach the faulty helper. The original DLL faults at `uiautomationcore + 0x7988`;
+the corrected fresh prefix completes all 16 checks without failures or skips.
+The original also passes the independent valid-provider and public null-output
+checks. The valid path creates a node, reads its provider Name property, releases
+the node and restores the provider reference count. Fresh-prefix DLL hashes
+match the respective original or corrected image. These are x64 API checks;
+the upstream x86 DLL is unchanged, and commercial editor acceptance is pending.
+
+The [component packager](../tools/runtime-uia-guard/package.py) verifies the exact
+GE archive and original x64 DLL, then seals the correction, matched test,
+complete patched Wine source, recipe, patch, license and notices in `uia-guard`.
+Compilation records and rechecks the consumed changed-source and recipe bytes;
+packaging refuses later source or recipe edits. Its focused tests run with
+`python3 -m unittest discover -s tools/runtime-uia-guard -p 'test_*.py'`.
+The source archive includes the actual `build.sh` and SDK pin; direct rebuilding
+requires the owned `/work` volume and `XDG_CACHE_HOME=/work/cache`, with two CPUs,
+4 GiB memory, no extra swap, 256 PIDs and `make -j2`.
+
+GE source `c191f35dcebbeccfacd3b4c6f6eea026e588c1c2` and Wine-staging
+`6cc805ea57132eeaf44764e9213823c9b8d0d300` were checked against the generated
+UIA dependency closure, including generated interfaces, UUID and CRT/import
+libraries. Intersecting shared-header/import additions are unused by this
+component; no effective UIA implementation changes are omitted. The included
+isolated compiler recipe differs from GE release flags, so this is a rebuilt
+component rather than byte-identical reproduction of that release. Its imports
+resolve within the pinned GE x64 builtin DLL tree.
+
+Delivery composes this component with unchanged pinned upstream GE/SLR only in
+new private installation staging, checks the original DLL preimage, then seals
+the whole immutable runner. The component manifest binds corresponding source
+and notices alongside the binary. Publication requires reviewed artifacts and
+a real immutable download location. No installed runner or licensed prefix is
+modified. Acquisition recommendation and fresh commercial acceptance remain
+separate work from this construction.
