@@ -1,7 +1,7 @@
 {
-  "scope": "Ordinary GUI software update and corrected-runtime acquisition; Steam Deck Desktop Mode, 2026-10-09.",
-  "platform": "SteamOS 3.8.16 / Test35",
-  "source_head": "d5bcf4f95e6afd1e8104726b43ae43cb10083236",
+  "scope": "Test35 runtime acquisition/update and Test36 ordinary GUI update/publication; Steam Deck Desktop Mode, 2026-10-09.",
+  "platform": "SteamOS 3.8.16",
+  "test35_source_head": "d5bcf4f95e6afd1e8104726b43ae43cb10083236",
   "software_update": {
     "exact_predecessor": "Test33",
     "identities_preserved": 12,
@@ -30,5 +30,32 @@
     "component_artifacts_verified": 7,
     "declared_session_verified": true,
     "installed": true
+  },
+  "test36": {
+    "source_head": "e459a9d4b4965316129a6f88474a0669dfcd651b",
+    "software_update": {
+      "exact_predecessor": "Test35",
+      "selected_manager_sha256": "fbe406c0f45cec12b7a83f05bc27693dae526decc4103b7b5b3799ad270e4949",
+      "identities_preserved": 12,
+      "preferences_preserved": 5,
+      "project_hashes_preserved": 2,
+      "candidates": { "original": 270, "after_first_refusal": 275, "after": 287, "all_original_hashes_preserved": true },
+      "lineage": { "original": 270, "after_first_refusal": 275, "after": 287, "all_original_hashes_preserved": true },
+      "first_attempt_error": "LockBusy",
+      "service": "active",
+      "leases": 0
+    },
+    "ordinary_publication": {
+      "refreshing_current_frontends": 2,
+      "classes_before": 12,
+      "classes_after": 13,
+      "prior_identities_preserved": 12,
+      "preferences_preserved": 5,
+      "project_hashes_preserved": 2,
+      "admission": { "attempts": 13, "wait_microseconds": 121732, "remaining_budget_milliseconds": 10000 },
+      "commit": { "attempts": 34, "wait_microseconds": 334355, "remaining_budget_milliseconds": 9878 },
+      "pending_transactions": 0,
+      "disable_windows_accessibility": false
+    }
   }
 }
