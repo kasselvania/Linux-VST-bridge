@@ -544,10 +544,16 @@ impl Manager {
     #[doc(hidden)]
     pub fn verify_package_publication_snapshot(&self,
         expected: &[PublicationState]) -> Result<()> {
+        let lock = self.lock("registry.lock")?;
+        self.verify_package_publication_snapshot_locked(expected, &lock)
+    }
+    #[doc(hidden)]
+    pub fn verify_package_publication_snapshot_locked(&self,
+        expected: &[PublicationState], lock: &Lock) -> Result<()> {
+        lock.require_registry(self)?;
         require(expected.len() <= 256
             && expected.windows(2).all(|pair| pair[0].class_id < pair[1].class_id),
             "package_publication_order")?;
-        let _lock = self.lock("registry.lock")?;
         let db = self.registry()?;
         let actual = db.classes.iter().map(|(key, entry)|
             self.package_publication_state(key, entry)).collect::<Result<Vec<_>>>()?;

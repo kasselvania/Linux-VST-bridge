@@ -193,7 +193,7 @@ fn asc_projection(m: &Manager, busy: Option<&str>) -> Result<Option<ui::VendorAp
 pub(super) fn vendor_retired(m: &Manager) -> Result<bool> {
     vendor_retired_with(m, vendor_live)
 }
-fn vendor_retired_with(m: &Manager, is_live: impl FnOnce() -> Result<bool>) -> Result<bool> {
+pub(super) fn vendor_retired_with(m: &Manager, is_live: impl FnOnce() -> Result<bool>) -> Result<bool> {
     if !renderer_cli::all_retired(m)? || !dependency_cli::all_retired(m)? {
         return Ok(false);
     }
@@ -2531,7 +2531,7 @@ fn execute_with_receipt_policy(
         }
     }
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ResumeRecord {
     schema: u32,
@@ -2542,7 +2542,7 @@ struct ResumeRecord {
     vendor_operation: Option<String>,
 
 }
-fn resume_lock(m: &Manager) -> Result<Lock> {
+pub(super) fn resume_lock(m: &Manager) -> Result<Lock> {
     let deadline = Instant::now() + Duration::from_secs(75);
     loop {
         match m.lock("operator-resume.lock") {
@@ -2557,6 +2557,166 @@ fn resume_lock(m: &Manager) -> Result<Lock> {
             }
         }
     }
+}
+pub(super) fn require_no_package_resume(m: &Manager) -> Result<()> {
+    require(!m.root.join("operator/resume.json").try_exists()?,
+        "package_resume_requires_coordinated_update")
+}
+
+/// Original suspension authority carried by the existing package transaction.
+/// The record bytes and failed request/result remain unchanged.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub(super) struct PackageResume {
+    record: String,
+    request: Artifact,
+    result: Artifact,
+    custody: Vec<Artifact>,
+}
+impl PackageResume {
+    fn saved(&self) -> Result<ResumeRecord> {
+        require(self.record.len() <= 4096,"package_resume_record_bound")?;
+        let saved: ResumeRecord = serde_json::from_str(&self.record)?;
+        require(saved.schema == 2 && valid_hex(&saved.owner_operation,32)
+            && valid_hex(&saved.software,64)
+            && saved.vendor_operation.as_ref().is_none_or(|id|valid_hex(id,32)),
+            "package_resume_identity")?;
+        Ok(saved)
+    }
+    pub(super) fn validate_source(&self, source: &Software) -> Result<()> {
+        require(self.saved()?.software == source.manager.sha256,"package_resume_binding")
+    }
+}
+fn resumable_action(action: &ui::Action) -> bool {
+    matches!(action,ui::Action::InstallerStart {..} | ui::Action::InstallerStartWithPolicy {..}
+        | ui::Action::InstallerScan {..} | ui::Action::EnvironmentInstallerStart {..}
+        | ui::Action::EnvironmentInstallerScan {..} | ui::Action::RendererOpen {..}
+        | ui::Action::DependencyPrepare {} | ui::Action::VendorApplicationOpen {..}
+        | ui::Action::EnvironmentRescan {..} | ui::Action::QuarantinedModuleRetry {..}
+        | ui::Action::PluginReinspect {..} | ui::Action::PluginInspect {..}
+        | ui::Action::PluginPrepare {..} | ui::Action::CandidateGraphicsAssess {..}
+        | ui::Action::CompatibilityCheck {..} | ui::Action::CompatibilityResumeCheck {..})
+}
+fn control_artifact(path: PathBuf) -> Result<Artifact> {
+    require(file(&path)?.metadata()?.len() <= 8*1024*1024,"operator_record_bound")?;
+    Ok(Artifact {sha256:digest(&path)?,path})
+}
+pub(super) fn capture_package_resume_with(m: &Manager, source: &Software,
+    mut worker_live: impl FnMut(&str)->Result<bool>) -> Result<Option<PackageResume>> {
+    let path = m.root.join("operator/resume.json");
+    if !path.try_exists()? { return Ok(None); }
+    let bytes = control_artifact(path)?.record_bytes(4096)?;
+    let record = String::from_utf8(bytes)?;
+    let saved: ResumeRecord = serde_json::from_str(&record)?;
+    let directory = job_dir(m,&saved.owner_operation)?;
+    let request = control_artifact(directory.join("request.json"))?;
+    let result = control_artifact(directory.join("result.json"))?;
+    let action = recovery_request(m,&saved)?;
+    let custody = package_resume_custody(m,&saved,&action)?;
+    let captured = PackageResume {record,request,result,custody};
+    validate_package_resume_with(m,&captured,source,false,&mut worker_live)?;
+    Ok(Some(captured))
+}
+fn package_resume_custody(m: &Manager, saved: &ResumeRecord, action: &ui::Action)
+    -> Result<Vec<Artifact>> {
+    let mut custody = Vec::new();
+    match action {
+        ui::Action::VendorApplicationOpen {application} => {
+            vendor_application::ApplicationId::parse(application)?;
+            let directory = m.root.join("vendor-applications").join(application);
+            let job: vendor_application::Operation = read_json(&directory.join("operation.json"))?;
+            let app: vendor_application::Application = read_json(&directory.join("application.json"))?;
+            require(saved.vendor_operation.as_deref() == Some(job.operation_id.as_str())
+                && job.application == app && job.report == directory.join("operation-result.json")
+                && app.environment.root == m.root.join("environments").join(&app.environment.id)
+                && read_json::<Environment>(&app.environment.root.join("environment.json"))? == app.environment,
+                "package_resume_vendor_binding")?;
+            let report: vendor_application::OperationResult = read_json(&job.report)?;
+            require(report.operation_id == saved.vendor_operation && report.retired(),
+                "package_resume_vendor_binding")?;
+            for path in [directory.join("operation.json"),directory.join("application.json"),
+                job.report,app.environment.root.join("environment.json")] {
+                custody.push(control_artifact(path)?);
+            }
+        }
+        ui::Action::RendererOpen {..} | ui::Action::DependencyPrepare {} => {
+            require(saved.vendor_operation.as_deref() == Some(saved.owner_operation.as_str()),
+                "package_resume_vendor_binding")?;
+            let dependency = matches!(action,ui::Action::DependencyPrepare {});
+            let directory = if dependency {dependency_session::directory(m)}
+                else {renderer_cli::directory(m)};
+            let current = directory.join("current.json");
+            require(optional(&current)?["operation"] == saved.owner_operation,
+                "package_resume_vendor_binding")?;
+            custody.push(control_artifact(current)?);
+            let result = if dependency {dependency_session::result(m,&saved.owner_operation)?}
+                else {renderer_session::result(m,&saved.owner_operation)?};
+            require(if dependency {dependency_session::terminal(&result,&saved.owner_operation)}
+                else {renderer_session::terminal(&result,&saved.owner_operation)},
+                "package_resume_vendor_binding")?;
+            let operation = directory.join("operations").join(&saved.owner_operation);
+            for name in ["spec.json","result.json","recovery-result.json"] {
+                let path = operation.join(name);
+                if path.try_exists()? {custody.push(control_artifact(path)?);}
+            }
+        }
+        _ => require(saved.vendor_operation.is_none(),"package_resume_vendor_binding")?,
+    }
+    Ok(custody)
+}
+pub(super) fn validate_package_resume_with(m: &Manager, captured: &PackageResume,
+    source: &Software, allow_consumed: bool,
+    mut worker_live: impl FnMut(&str)->Result<bool>) -> Result<()> {
+    let saved = captured.saved()?;
+    let directory = job_dir(m,&saved.owner_operation)?;
+    require(saved.software == source.manager.sha256
+        && captured.request.path == directory.join("request.json")
+        && captured.result.path == directory.join("result.json")
+        && captured.custody.len() <= 4,"package_resume_binding")?;
+    let request: ui::Request = serde_json::from_slice(&captured.request.record_bytes(8*1024*1024)?)?;
+    let result: Value = serde_json::from_slice(&captured.result.record_bytes(8*1024*1024)?)?;
+    require(matches!(request.schema,5..=ui::OPERATOR_SCHEMA)
+        && resumable_action(&request.action)
+        && result["schema"] == 1 && result["operation"] == saved.owner_operation
+        && matches!(result["state"].as_str(),Some("completed" | "refused"))
+        && !worker_live(&saved.owner_operation)?,"package_resume_owner_not_terminal")?;
+    require(package_resume_custody(m,&saved,&request.action)? == captured.custody,
+        "package_resume_custody_changed")?;
+    for artifact in &captured.custody {artifact.record_bytes(8*1024*1024)?;}
+    let path = m.root.join("operator/resume.json");
+    if path.try_exists()? {
+        require(control_artifact(path)?.record_bytes(4096)? == captured.record.as_bytes(),
+            "package_resume_reservation_changed")
+    } else {require(allow_consumed,"package_resume_reservation_missing")}
+}
+pub(super) fn consume_package_resume(m: &Manager, captured: &PackageResume) -> Result<()> {
+    let path = m.root.join("operator/resume.json");
+    if path.try_exists()? {
+        require(control_artifact(path.clone())?.record_bytes(4096)? == captured.record.as_bytes(),
+            "package_resume_reservation_changed")?;
+        fs::remove_file(path)?;
+        fs::File::open(m.root.join("operator"))?.sync_all()?;
+    }
+    Ok(())
+}
+pub(super) fn restore_package_resume(m: &Manager, captured: &PackageResume) -> Result<()> {
+    captured.saved()?;
+    let path = m.root.join("operator/resume.json");
+    if path.try_exists()? {
+        return require(control_artifact(path)?.record_bytes(4096)? == captured.record.as_bytes(),
+            "package_resume_reservation_changed");
+    }
+    let temp = path.with_extension(format!("tmp-{}",random_id()?));
+    let mut out = fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&temp)?;
+    let restored = (|| -> Result<()> {
+        out.write_all(captured.record.as_bytes())?;
+        out.sync_all()?;
+        fs::rename(&temp,&path)?;
+        fs::File::open(path.parent().ok_or("package_resume_parent")?)?.sync_all()?;
+        Ok(())
+    })();
+    if restored.is_err() {let _ = fs::remove_file(&temp);}
+    restored
 }
 fn resume_record(m: &Manager) -> Result<Option<ResumeRecord>> {
     let value = optional(&m.root.join("operator/resume.json"))?;
@@ -2794,27 +2954,8 @@ fn resume_interrupted_with(
         )?;
         return resume_locked(m, &saved.owner_operation, restore);
     }
-    require(
-        matches!(
-            recovery_request(m, &saved)?,
-            ui::Action::InstallerStart { .. }
-                | ui::Action::InstallerStartWithPolicy { .. }
-                | ui::Action::InstallerScan { .. }
-                | ui::Action::EnvironmentInstallerStart { .. }
-                | ui::Action::EnvironmentInstallerScan { .. }
-                | ui::Action::RendererOpen { .. }
-                | ui::Action::VendorApplicationOpen { .. }
-                | ui::Action::EnvironmentRescan { .. }
-                | ui::Action::QuarantinedModuleRetry { .. }
-                | ui::Action::PluginReinspect { .. }
-                | ui::Action::PluginInspect { .. }
-                | ui::Action::PluginPrepare { .. }
-                | ui::Action::CandidateGraphicsAssess { .. }
-                | ui::Action::CompatibilityCheck { .. }
-                | ui::Action::CompatibilityResumeCheck { .. }
-        ),
-        "operator_resume_action_mismatch",
-    )?;
+    require(resumable_action(&recovery_request(m,&saved)?),
+        "operator_resume_action_mismatch")?;
     let result = optional(&job_dir(m, &saved.owner_operation)?.join("result.json"))?;
     require(
         result["operation"] == saved.owner_operation
