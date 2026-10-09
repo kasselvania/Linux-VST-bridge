@@ -100,6 +100,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process accessibility policy installed; isolated DLL guard is reference-only | Official FRAGMENTS 1.0.0 trial / Ubuntu internal30 close/reopen and retirement passed | review candidate; Windows screen-reader integration unavailable | Preserve bounded policy and verify persistence/usability separately |
+| [FC-UI-010](#fc-ui-010--result-form-footer-cannot-be-reached-on-deck) | Unreachable result-form footer | Manager dialog / Deck viewport | observed | none | Test32: resize, own scrollbar and wheel did not expose submit | GUI result completion blocked; typed action records the result | Make submit reachable in the Deck viewport |
 | [FC-MGMT-007](#fc-mgmt-007--retained-proposal-displaces-selected-configuration) | Retained proposal displaces selected configuration | Manager guided projection and frontend action ownership | causal | installed-fixed on reference fixture | Ubuntu config7 full effect/instrument workflow and GUI restoration | reference configuration regression passed; musician workflow unqualified | Physical DAW integration and endurance |
 | [FC-MGMT-008](#fc-mgmt-008--loaded-native-engine-is-not-bound-during-admission) | Loaded native engine missing from admission | Cached DAW factory / selected execution pair | reproduced loader/cache mismatch | modern binding and legacy-publication refresh repaired; normal VM/Deck update passed; full recovery open | Source/loader and Unix-peer gate; VM SDK checkpoint; exact eight-publication Deck update | unqualified for complete recovery | Complete deferred predecessor/interruption and modern stale-caller installed restoration |
 | [FC-MGMT-009](#fc-mgmt-009--package-update-leaves-plug-ins-on-the-old-bridge) | Package update leaves plug-ins on the old bridge | Manager package/publication update | causal; zero refreshes for 11 Deck classes | Target kit comparison installed in Test 11 | All 11 Deck classes switched to the target native/Windows pair | installed regression resolved | Nibbi recorded-state DAW comparison remains separate |
@@ -2545,16 +2546,22 @@ package restoration cannot rewind the vendor environment or admit its stale plug
 The remaining coherent-restoration qualification is tracked in
 [#242](https://github.com/kasselvania/Linux-VST-bridge/issues/242).
 
-Test30 Deck update preserves eleven classes and five explicit preferences. Analog Lab
-Intro installed and Activated through managed ASC, which retired normally. Its schema-3
-`close_result` breaks strict manager readback; live progress also triggers false freshness
-refusal. The shared contract/readback repair passes causal regressions, but discovery is
-blocked by the retained suspension's old-manager binding and unresolved package recovery handoff.
-The existing package transaction now captures that terminal suspension unchanged,
-settles it only after coherent target selection and clean service readback; verified rollback
-restores the original reservation/selection/posture. Causal/crash regressions pass;
-ordinary installed recovery and discovery remain pending in
-[#246](https://github.com/kasselvania/Linux-VST-bridge/issues/246).
+Analog Lab Intro 5.12.6.6914 installed and Activated through managed ASC, which
+retired normally. Its schema-3 result and progress exposed shared strict-readback
+and freshness defects; the failed worker left the bridge paused with an old-manager
+suspension. Test31's ordinary update now recovers that bridge with clean service,
+preserving eleven class/module/environment/compatibility identities and five preferences.
+Existing package history captures the exact original suspension and failed request/result;
+the live reservation/journal retire without rewriting those records. Ordinary rescan
+discovers four modules including Analog Lab's healthy instrument class. Test32's ordinary
+GUI update preserves the same eleven identities, publication dispositions and five preferences
+with the exact Test31 predecessor; native/host/descriptor bindings refresh to Test32.
+Ordinary Check compatibility and Make available for testing publish Analog Lab V
+through the existing environment/runner and approved Test32 engine/host, preserving
+all eleven prior registry records and five preferences. Installed recovery and ordinary
+discovery/preparation continuation pass [#246](https://github.com/kasselvania/Linux-VST-bridge/issues/246).
+Bitwig vendor-keyboard audio and fresh-process parameter recall pass with an explicit
+local accessibility-off setting; the runtime editor-release fault is [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host). First-attempt qualification remains unmet.
 
 The operator reported a missing exact prebuilt proxy while preparing newly
 installed Nibbi. Source `9a0766afbf71fbb336c897c98b003b9e4bdda737` confirms the
@@ -2866,7 +2873,7 @@ Installed Test26 on Ubuntu 26.04.1 / REAPER 7.82 restores effect Level/Colour .7
 
 ### Shared boundary and understanding
 
-Windows host `IPlugView::removed()`; bounded. This identifies the failed SDK
+Windows host `IPlugView` removal/release; bounded. This identifies the failed SDK
 call, not whether the underlying defect belongs to the host, vendor or runner.
 
 Deck Test 8 (835d7b6f), Nibbi 0.1.4 / Bitwig 6.1 / Buffered 512 / 48 kHz: Check compatibility shows “Not assessed with these settings.” after a 30-second `assessGraphicsEditor` deadline; default graphics and the product's Wine D3D11 trial (setup 66) both show a white editor, complete opening at stage 100, then stall in `IPlugView::removed()` at stage 212 without an exception. The assessment writes its editor observations only after removal returns, so this stall also prevents the graphics requirement and independent probes from being reported. Both sessions retire; original projects are preserved, default Test 8 graphics are restored and Buffered 512 remains selected. No endurance audio capture; raw records stay outside Git.
@@ -2938,11 +2945,17 @@ confirmed host/transport cleanup, without a terminal instance fault. No patched
 DLL was adopted. These positive policy results preserve the prior failed
 default-accessibility fixtures and the exact screen-reader limitation.
 
+Deck Test32 Analog Lab V 5.12.6.6914 reproduces the null-read `c0000005` at UIA
+RVA `0x7988` during `IPlugView::release()` (stage 215), after successful frame detach
+and removal. The normal local Windows accessibility-off trial passes editor close/reopen,
+vendor-keyboard audio, save/new-process parameter recall and both normal retirements.
+Windows screen-reader support is unavailable for this plug-in's Windows processes. [Scoped result](../evidence/analog-lab-deck.json).
+
 ### User posture and next gate
 
 Review candidate with bounded installed close/reopen and retirement results.
-State/project recall, audio quality, startup responsiveness and ordinary
-installer recovery remain unqualified. Do not apply this exact Ubuntu policy
+For Ubuntu FRAGMENTS, state/project recall, audio quality, startup responsiveness and
+ordinary installer recovery remain unqualified. Do not apply this exact Ubuntu policy
 result to the separately accepted Deck fixture or another module/runtime.
 
 ### Evidence
@@ -3298,3 +3311,10 @@ The [installed process-call timing evidence](../evidence/audio-recovery/2026-10-
 The [host-to-call scheduling observation](../evidence/audio-recovery/2026-10-05-bitwig-host-call-scheduling.md) completes bounded caller-state attribution on the verified 155.747s retained prefix; the one declared180s acquisition still fails at its compressed cap. Runnable delay and sleeping time occur both inside and outside measured calls, without identifying the host wait/admission mechanism. Recorder ERR+2 and the missing end marker prohibit continuity/full-window claims; FC-AUDIO-001 remains open and no priority or engine repair follows.
 
 The installed direct mailbox v4 reference passes output/state, second setup and a pending-call peer death (3.14 ms wake, clean retirement). Pure LoFi still has ten silent 512-frame blocks and +10 graph errors over 600 seconds, despite 0.121 ms median bridge remainder and no whole call above nominal 512/48k cadence. Slowing recurring controller polling retains 12 silent 512-frame blocks/+12 active graph errors in the same 600-second capture, recorder0; that experiment is reverted. FC-AUDIO-001 remains open. The paired render-thread FTZ/DAZ comparison also fails: eight 512-frame stereo-zero spans/+8 active graph errors in600s, recorder0; Windows/vendor median/p99/max2.608/4.191/6.338ms versus2.646/4.123/6.377ms baseline. All73,793 lifetime calls export completely with result0. The lower single-run count is not an established improvement; no30min confirmation was started.
+
+## FC-UI-010 — Result-form footer cannot be reached on Deck
+
+Test32's result form keeps six truthful checks selected, but its submit footer remains
+inaccessible after resizing and scrolling inside the popup. The existing typed result
+action records them and keeps the local setting; ordinary GUI submission is still blocked.
+Repair the dialog layout so its submit control remains reachable in the Deck viewport.

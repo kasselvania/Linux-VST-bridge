@@ -482,6 +482,24 @@ proxy, bridge transport, native publication or six-instance DSP claim.
 
 ## Steam Deck / SteamOS 3.8.16, Bitwig 6.1
 
+Test31's ordinary Update Bridge recovers the paused bridge after Analog Lab Intro
+5.12.6.6914 installation/activation through managed ASC. It preserves eleven exact
+class/module/environment/compatibility identities and five preferences, retains the
+Test30 predecessor and original failed request/result, and settles the original
+suspension through existing package history. Service is ready with confirmed cleanup.
+Test32's ordinary GUI update preserves the same eleven identities, publication dispositions
+and five preferences, refreshes native/host/descriptor bindings, and retains exact Test31
+as predecessor. Ordinary Check compatibility and Make available for testing add exactly
+one Analog Lab V publication while preserving all eleven prior registry records and five
+preferences. With explicit local Windows accessibility disabled, Analog Lab V plays its
+vendor keyboard in native Bitwig and retains P1 Brightness 0.3667 after saving and
+reopening in a new DAW process. Two 30-second stereo captures contain nonzero finite
+audio; normal editor close/reopen and both host retirements pass. Windows screen-reader
+support is unavailable for this plug-in's Windows processes. Six observed checks were
+recorded through the existing typed action because the GUI result footer was inaccessible.
+[Scoped result](../evidence/analog-lab-deck.json).
+This repaired journey required several shared fixes; first-attempt qualification remains unmet.
+
 These are exact-fixture claims, not universal vendor support. The 2026-09-23 fleet readback predates both the merged host-retention repair [#149](https://github.com/kasselvania/Linux-VST-bridge/pull/149) and Serum's installed candidate D; its older `needs_attention` and candidate-B fields are **historical**, not silently treated as current. The [candidate-D physical receipt](../evidence/serum-x11-touch-routing/candidate-d-physical.json) includes a current six-publication manager readback for this experiment, not a new six-product physical campaign.
 
 **Push 3 controller mode:** the operator reports held notes on pad release in
