@@ -1,96 +1,25 @@
 //! Runtime changes are revision edges owned by the existing operator job.
 //! No prefix copy, vendor-state restoration, or alternate publication owner.
 use super::*;
-use sha2::Sha256;
 use std::os::unix::fs::MetadataExt;
 #[cfg(test)]
 thread_local! {
     static RECONCILE_WORKER_LIVE: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(tag="kind", rename_all="snake_case", deny_unknown_fields)]
-pub(super) enum Owner {
-    Class { registration: Box<Registration> },
-    Setup { record: Artifact, environment: Environment },
-    VendorApplication { record: Artifact, environment: Environment, name: String },
-}
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all="snake_case")]
-pub(super) enum State { Prepared, Committed, Executing, Scanned, Cancelled }
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct Binding {
-    pub schema: u32,
-    pub operation: String,
-    pub before: Environment,
-    pub environment: Environment,
-    pub affected: Vec<Owner>,
-    pub state: State,
-}
+pub(super) use linux_vst_bridge::environment_revision::{RuntimeOwner as Owner, RuntimeState as State,
+    RuntimeBinding as Binding};
 pub(super) fn identity(environment: &Environment) -> Result<String> {
-    Ok(hex(&Sha256::digest(serde_json::to_vec(environment)?)))
+    linux_vst_bridge::environment_revision::identity(environment)
 }
 fn path(m: &Manager, operation: &str) -> Result<PathBuf> {
-    Ok(job_dir(m,operation)?.join("runtime-transition.json"))
+    Ok(job_dir(m, operation)?.join("runtime-transition.json"))
 }
 pub(super) fn load(m: &Manager, operation: &str) -> Result<Binding> {
-    let binding: Binding = read_json(&path(m,operation)?)?;
-    let request: ui::Request = read_json(&job_dir(m,operation)?.join("request.json"))?;
-    require(binding.schema == 1 && binding.operation == operation && matches!(request.schema,22..=ui::OPERATOR_SCHEMA)
-        && binding.before.id == binding.environment.id
-        && binding.before.root == binding.environment.root
-        && binding.environment.root == m.root.join("environments").join(&binding.environment.id)
-        && valid_product_environment(&binding.environment.id)
-        && binding.before.revision.checked_add(1) == Some(binding.environment.revision)
-        && binding.before.runner != binding.environment.runner
-        && request.action == (ui::Action::EnvironmentRuntimeSelect {
-            environment: binding.before.id.clone(),
-            runner: onboarding::runner_key(&binding.environment.runner)?,
-            expected_environment: identity(&binding.before)?,
-        }), "runtime_transition_binding")?;
-    binding.before.runner.validate_identity()?;
-    binding.environment.runner.validate_identity()?;
-    require(!binding.affected.is_empty() && binding.affected.len() <= 256,
-        "runtime_transition_owners")?;
-    for owner in &binding.affected {
-        let environment = match owner {
-            Owner::Class {registration} => {
-                registration.metadata.verify()?;
-                &registration.environment
-            }
-            Owner::Setup {record,environment} => {
-                require(record.path == m.root.join("onboarding").join(&environment.id).join("record.json")
-                    && valid_hex(&record.sha256,64),"runtime_transition_setup_binding")?;
-                environment
-            }
-            Owner::VendorApplication {record,environment,..} => {
-                require(record.path.parent().and_then(Path::parent)
-                    == Some(m.root.join("vendor-applications").as_path())
-                    && record.path.file_name().is_some_and(|name|name=="application.json")
-                    && valid_hex(&record.sha256,64),"runtime_transition_vendor_binding")?;
-                environment
-            }
-        };
-        require(environment.id == binding.before.id && environment.root == binding.before.root
-            && environment.revision <= binding.before.revision,"runtime_transition_owner_binding")?;
-    }
-    Ok(binding)
+    linux_vst_bridge::environment_revision::runtime_record(m, operation)
 }
 pub(super) fn records(m: &Manager) -> Result<Vec<Binding>> {
-    let directory = m.root.join("operator");
-    if !directory.try_exists()? {return Ok(vec![]);}
-    let mut records = vec![];
-    for (count,entry) in fs::read_dir(directory)?.enumerate() {
-        require(count < 4096,"operator_runtime_history_bound")?;
-        let directory = entry?.path();
-        let Some(id) = directory.file_name().and_then(|name|name.to_str()) else {continue};
-        if valid_hex(id,32) && directory.join("runtime-transition.json").try_exists()? {
-            records.push(load(m,id)?);
-        }
-    }
-    records.sort_by_key(|record|(record.environment.id.clone(),record.environment.revision));
-    Ok(records)
+    linux_vst_bridge::environment_revision::runtime_records(m)
 }
 fn owners(m: &Manager, environment: &str) -> Result<Vec<Owner>> {
     let mut owners:Vec<_> = m.registry()?.classes.into_values()

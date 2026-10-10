@@ -548,6 +548,7 @@ fn adopt_sv1(m: &Manager, s: &Selection) -> Result<Option<Candidate>> {
         origin: Origin::RetainedSv1,
         recipe_sha256: "retained-sv1".into(),
         preparation_basis: None,
+        launch_configuration_intent: None,
         touch_carry_forward: None,
     };
     materialize_legacy(m, &candidate, &b)?;
@@ -822,6 +823,9 @@ pub fn validate_candidate_record(m: &Manager, c: &Candidate) -> Result<()> {
             "candidate_policy_requires_explicit_support")?;
     }
     configuration::verify_settings(c)?;
+    if let Some(reference) = &c.launch_configuration_intent {
+        launch_configuration_source(m, c, reference)?;
+    }
     let expected_compatibility = Compatibility {
         graphics: c.profile.capabilities.graphics,
         disable_windows_accessibility: c.profile.capabilities.accessibility == Accessibility::DisabledForVendorProcess,
@@ -992,6 +996,7 @@ fn prepared_with_advice(
         origin: Origin::ManagedPreparation,
         recipe_sha256: recipe,
         preparation_basis: None,
+        launch_configuration_intent: None,
         touch_carry_forward: None,
     })
 }
@@ -1506,6 +1511,8 @@ pub fn registry_requires_loaded_engine_refresh_record_with_registry(m: &Manager,
             return Ok(true);
         };
         let revision = m.load_revision_record(&state.class_id, reference)?;
+        if crate::environment_revision::current_environment(m, &revision.registration.environment)?
+            != revision.registration.environment { continue; }
         let Some(candidate) = records.publication_candidate_record(
             m,
             &revision.profile,
@@ -1536,6 +1543,8 @@ pub fn registry_requires_loaded_engine_refresh_with_registry(m: &Manager,
             return Ok(true);
         };
         let revision = m.load_revision(&state.class_id, reference)?;
+        if crate::environment_revision::current_environment(m, &revision.registration.environment)?
+            != revision.registration.environment { continue; }
         let modern = publication_candidate(m, &revision.profile, &revision.registration)
             .and_then(|candidate| build::supports_loaded_engine_admission(m, &candidate))
             .unwrap_or(false);
@@ -1628,6 +1637,9 @@ fn retained_revision_identity(predecessor: &Revision) -> Result<String> {
     ))
 }
 fn retained_revision_configuration(m: &Manager, candidate: &Candidate) -> Result<Option<Revision>> {
+    if let Some(reference) = &candidate.launch_configuration_intent {
+        return launch_configuration_source(m, candidate, reference).map(Some);
+    }
     let Some(basis) = candidate.preparation_basis.as_deref() else {
         return Ok(None);
     };
@@ -1688,6 +1700,61 @@ fn retained_revision_configuration(m: &Manager, candidate: &Candidate) -> Result
         "bridge_refresh_predecessor_binding",
     )?;
     Ok(Some(revision))
+}
+
+/// The retained revision owns these launch policies, not support on a different
+/// runner. Fresh preparation binds them to current content and a new inspection.
+fn launch_configuration_source(m: &Manager, candidate: &Candidate,
+    reference: &RevisionRef) -> Result<Revision> {
+    let revision = m.load_revision_record(&candidate.selection.class.id, reference)?;
+    let profiles = retained_refresh_profiles()?;
+    require(revision.qualification.is_none()
+        && revision.profile.claim == Claim::VerifiedExactFixture
+        && profiles.iter().filter(|profile| **profile == revision.profile).count() == 1
+        && revision.profile.capabilities.compatibility() == revision.registration.compatibility
+        && (revision.profile.capabilities.vendor_retirement.is_some()
+            || revision.profile.capabilities.editor_lifetime.is_some()
+            || revision.profile.capabilities.event_output.is_some())
+        && revision.registration.module == candidate.selection.module
+        && revision.registration.metadata.class_id == candidate.selection.class.id
+        && revision.registration.metadata.name == candidate.selection.class.name
+        && revision.registration.metadata.vendor == candidate.selection.class.vendor
+        && revision.registration.metadata.version == candidate.selection.class.version
+        && revision.registration.metadata.subcategories == candidate.selection.class.subcategories
+        && revision.registration.compatibility.audio_layout == candidate.inspection.audio_layout
+        && revision.profile.capabilities.vendor_retirement == candidate.profile.capabilities.vendor_retirement
+        && revision.profile.capabilities.editor_lifetime == candidate.profile.capabilities.editor_lifetime
+        && revision.profile.capabilities.event_output == candidate.profile.capabilities.event_output
+        && candidate.origin == Origin::ManagedPreparation
+        && candidate.local_settings.is_some(), "candidate_launch_configuration_intent")?;
+    crate::environment_revision::require_owned_revision(m,
+        &revision.registration.environment, &candidate.selection.environment)?;
+    Ok(revision)
+}
+
+pub fn carry_launch_configuration(m: &Manager, mut next: Candidate,
+    prior: Option<&Candidate>) -> Result<Candidate> {
+    let Some(prior) = prior else { return Ok(next) };
+    validate_candidate_record(m, prior)?;
+    let Some(source) = retained_revision_configuration(m, prior)? else { return Ok(next) };
+    if source.profile.capabilities.vendor_retirement.is_none()
+        && source.profile.capabilities.editor_lifetime.is_none()
+        && source.profile.capabilities.event_output.is_none() { return Ok(next); }
+    require(same_product(&prior.selection, &next.selection), "candidate_predecessor_selection")?;
+    let reference = RevisionRef { id: source.id.clone(), sha256: retained_revision_basis(&source)? };
+    if next.launch_configuration_intent.as_ref() == Some(&reference) {
+        launch_configuration_source(m, &next, &reference)?;
+        return Ok(next);
+    }
+    next.profile.capabilities.vendor_retirement = source.profile.capabilities.vendor_retirement.clone();
+    next.profile.capabilities.editor_lifetime = source.profile.capabilities.editor_lifetime.clone();
+    next.profile.capabilities.event_output = source.profile.capabilities.event_output.clone();
+    next.launch_configuration_intent = Some(reference);
+    next.profile.id = format!("managed.{}", key(&(&next.profile.id,
+        "retained_launch_configuration_v1", &next.launch_configuration_intent))?);
+    next.profile.validate()?;
+    launch_configuration_source(m, &next, next.launch_configuration_intent.as_ref().unwrap())?;
+    Ok(next)
 }
 fn retain_refresh_lineage(
     m: &Manager,

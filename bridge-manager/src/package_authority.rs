@@ -1209,6 +1209,11 @@ fn prepare_refresh_receipt(m: &Manager, target: &Software,
         let reference = state.entry.managed_revision.as_ref()
             .ok_or("bridge_refresh_managed_predecessor_missing")?;
         let revision = m.load_revision(&state.class_id, reference)?;
+        // A runtime change already made this publication historical. Update
+        // the manager without inventing a new-runner publication; ordinary
+        // fresh preparation owns that separate musician choice.
+        if environment_revision::current_environment(m, &revision.registration.environment)?
+            != revision.registration.environment { continue; }
         if !preparation::publication_requires_refresh(m, &revision, &runtime.kit.sha256)? {
             continue;
         }
@@ -4079,6 +4084,104 @@ print('LVO0 '+j['session']+' ready',flush=True)
         f.replace("linux-vst-bridge", b"updated manager", true);
         f.service.enable_start().unwrap();
         f
+    }
+
+    #[test]
+    fn software_update_preserves_owned_stale_publications_until_fresh_preparation() {
+        for broken_edge in [false, true] {
+            let f = refreshing_update_fixture();
+            let m = &f.base.m;
+            let original_entry = m.registry().unwrap().classes[&f.base.r.key()].clone();
+            let original_ref = original_entry.managed_revision.as_ref().unwrap();
+            let original = m.load_revision(&f.base.r.key(), original_ref).unwrap();
+            let current = preparation::publication_candidate(m, &original.profile,
+                &original.registration).unwrap();
+            let sibling_id = "03".repeat(16);
+            let mut factory:serde_json::Value = read_json(&current.selection.factory_report.path).unwrap();
+            let classes = factory["records"][1]["classes"].as_array_mut().unwrap();
+            let mut sibling = classes[0].clone();
+            sibling["raw_tuid_hex"] = serde_json::json!(sibling_id);
+            classes.push(sibling);
+            let count = classes.len();
+            factory["records"][1]["class_count"] = serde_json::json!(count);
+            let factory_path = f.base.outer.join("two-class-factory.json");
+            atomic_json(&factory_path, &factory).unwrap();
+            let factory = Artifact {sha256:digest(&factory_path).unwrap(),path:factory_path};
+            let mut scan:inventory::Scan = read_json(&m.root.join("inventory")
+                .join(format!("{}.json",current.selection.environment.id))).unwrap();
+            scan.modules[0].classes = inventory::classes(&read_json(&factory.path).unwrap()).unwrap();
+            scan.modules[0].report = factory.clone();
+            atomic_json(&m.root.join("inventory").join(format!("{}.json",scan.environment.id)),&scan).unwrap();
+            let sibling_class = scan.modules[0].classes.iter().find(|c| c.id==sibling_id).unwrap().clone();
+            let mut selection = current.selection.clone();
+            selection.class = sibling_class;
+            selection.factory_report = factory.clone();
+            let sibling_report = f.base.outer.join("sibling-inspection.json");
+            let report = fs::read_to_string(&current.inspection.report.path).unwrap()
+                .replace(&current.selection.class.id,&sibling_id);
+            fs::write(&sibling_report, report).unwrap();
+            let sibling_report = Artifact {sha256:digest(&sibling_report).unwrap(),path:sibling_report};
+            let inspection = preparation::inspect_record_with(selection.clone(),sibling_report,
+                preparation::Origin::ManagedPreparation,current.host.clone(),current.source_manifest.clone()).unwrap();
+            let operation = random_id().unwrap();
+            let sibling = preparation::build::construct_with_runtime(m,selection,inspection,
+                preparation::build::existing_runtime(m,&current.recipe_sha256).unwrap(),&operation).unwrap();
+            preparation::record_candidate(m,&sibling).unwrap();
+            preparation::enable(m,&sibling,false).unwrap();
+            preparation::build::cleanup_work(m,&operation).unwrap();
+            let stale = m.registry().unwrap().classes[&sibling_id].clone();
+            let before = current.selection.environment.clone();
+            let mut after = before.clone();after.revision+=1;
+            after.runner.id="different-fixture-runtime".into();
+            let operation = random_id().unwrap();
+            let directory=m.root.join("operator").join(&operation);private_dir(&directory).unwrap();
+            let request=directory.join("request.json");
+            atomic_json(&request,&operator_model::Request {schema:operator_model::OPERATOR_SCHEMA,
+                state_token:"fixture".into(),action:operator_model::Action::EnvironmentRuntimeSelect {
+                    environment:before.id.clone(),runner:catalogue::runner_key(&after.runner).unwrap(),
+                    expected_environment:environment_revision::identity(&before).unwrap()}}).unwrap();
+            atomic_json(&directory.join("runtime-transition.json"),&environment_revision::RuntimeBinding {
+                schema:1,operation:operation.clone(),before:before.clone(),environment:after.clone(),
+                affected:vec![environment_revision::RuntimeOwner::Class {registration:Box::new(original.registration.clone())}],
+                state:environment_revision::RuntimeState::Scanned}).unwrap();
+            atomic_json(&directory.join("result.json"), &serde_json::json!({
+                "schema":1,"operation":operation,"state":"completed","result":{}})).unwrap();
+            atomic_json(&after.root.join("environment.json"),&after).unwrap();
+            scan.environment=after.clone();
+            atomic_json(&m.root.join("inventory").join(format!("{}.json",after.id)),&scan).unwrap();
+            let mut selection=current.selection.clone();selection.environment=after.clone();
+            selection.factory_report=factory;
+            let inspection=preparation::inspect_record_with(selection.clone(),current.inspection.report.clone(),
+                preparation::Origin::ManagedPreparation,current.host.clone(),current.source_manifest.clone()).unwrap();
+            let fresh=preparation::prepared(selection,inspection,current.native.clone(),current.host.clone(),
+                current.source_manifest.clone(),current.recipe_sha256.clone()).unwrap();
+            preparation::record_candidate_with_predecessor(m,&fresh,Some(&current.id().unwrap())).unwrap();
+            preparation::replace(m,&fresh,original_ref).unwrap();
+            let selected=f.current();let registry=fs::read(m.root.join("registry.json")).unwrap();
+            if broken_edge {fs::remove_file(&request).unwrap();}
+            let result=update_from(m,&f.home,&f.inputs,f.owner,&f.service);
+            if broken_edge {
+                assert!(result.is_err(),"missing ownership was treated as harmless stale state");
+                assert!(f.current()==selected);
+                assert_eq!(fs::read(m.root.join("registry.json")).unwrap(),registry);
+            } else {
+                result.unwrap();assert!(f.current()!=selected);
+                let registry=m.registry().unwrap();
+                assert_eq!(registry.classes[&sibling_id],stale);
+                assert_eq!(registry.classes[&f.base.r.key()].registration.environment,after);
+                assert_ne!(registry.classes[&f.base.r.key()].registration.native.sha256,
+                    fresh.native.artifact.sha256);
+                assert_eq!(preparation::publication_state_record(m,&sibling).unwrap(),"environment_changed");
+                let identity = (sibling_id.clone() + &sibling.selection.module.sha256).as_bytes()
+                    .chunks(2).map(|pair|u8::from_str_radix(std::str::from_utf8(pair).unwrap(),16).unwrap())
+                    .collect::<Vec<_>>();
+                assert!(m.resolve(&identity).is_err());
+                assert!(!preparation::registry_requires_loaded_engine_refresh_record(m).unwrap());
+                assert!(!preparation::registry_requires_loaded_engine_refresh(m).unwrap());
+                assert_eq!(verify_generation(m,&f.current()).unwrap().predecessor.unwrap().manager,selected.manager);
+            }
+            assert!(!m.root.join("package-transition.json").exists());
+        }
     }
 
     #[test]

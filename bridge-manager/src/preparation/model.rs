@@ -66,6 +66,10 @@ pub struct Candidate {
     pub recipe_sha256: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preparation_basis: Option<String>,
+    /// Retained launch policy intent, independent of qualification on this
+    /// candidate's freshly inspected environment. The source is immutable.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub launch_configuration_intent: Option<crate::publication::RevisionRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub touch_carry_forward: Option<TouchCarryForward>,
 }

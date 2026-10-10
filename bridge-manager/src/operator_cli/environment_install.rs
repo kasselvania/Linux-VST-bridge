@@ -2,81 +2,19 @@
 //! The environment revision, preparation history and publication remain their existing owners.
 use super::*;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct Binding {
-    pub schema: u32,
-    pub operation: String,
-    pub installer: String,
-    pub before: Environment,
-    pub environment: Environment,
-    pub created_at: u64,
-}
-
-pub(crate) fn same_space(before: &Environment, after: &Environment) -> bool {
-    before.id == after.id && before.root == after.root
-        && before.revision <= after.revision
-}
+use linux_vst_bridge::environment_revision::InstallerBinding as Binding;
 pub(crate) fn resolves_to(m: &Manager, before: &Environment, after: &Environment) -> Result<bool> {
-    Ok(same_space(before,after) && current_environment(m,before)?==*after)
+    linux_vst_bridge::environment_revision::resolves_to(m, before, after)
 }
-
 pub(crate) fn current_environment(m: &Manager, bound: &Environment) -> Result<Environment> {
-    require(bound.root == m.root.join("environments").join(&bound.id)
-        && valid_product_environment(&bound.id), "installer_environment_identity")?;
-    let current: Environment = read_json(&bound.root.join("environment.json"))?;
-    require(same_space(bound, &current), "installer_environment_binding_changed")?;
-    if current != *bound {
-        // Every exact revision edge belongs to its retained typed operator job.
-        let history=records(m)?;
-        let runtime=environment_runtime::records(m)?;
-        let edges:Vec<_>=history.iter().map(|r|(&r.before,&r.environment))
-            .chain(runtime.iter().filter(|r|r.state != environment_runtime::State::Cancelled)
-                .map(|r|(&r.before,&r.environment))).collect();
-        let mut step=bound.clone();
-        for _ in 0..edges.len() {
-            if step == current {break;}
-            let mut successors=edges.iter().filter(|(before,_)|**before==step);
-            let next=successors.next().ok_or("installer_environment_revision_unowned")?.1;
-            require(successors.next().is_none(),"environment_revision_ownership_conflict")?;
-            step=next.clone();
-        }
-        require(step == current,"installer_environment_revision_unowned")?;
-    }
-    Ok(current)
+    linux_vst_bridge::environment_revision::current_environment(m, bound)
 }
-
 pub(super) fn load(m: &Manager, operation: &str) -> Result<Binding> {
-    let dir = job_dir(m, operation)?;
-    let r: Binding = read_json(&dir.join("installation.json"))?;
-    let request: ui::Request = read_json(&dir.join("request.json"))?;
-    require(r.schema == 1 && r.operation == operation && valid_hex(&r.installer,64)
-        && request.action == (ui::Action::EnvironmentInstallerStart {
-            environment:r.environment.id.clone(), installer:r.installer.clone() })
-        && same_space(&r.before,&r.environment)
-        && r.before.runner == r.environment.runner
-        && r.before.revision.checked_add(1) == Some(r.environment.revision)
-        && r.environment.root == m.root.join("environments").join(&r.environment.id)
-        && valid_product_environment(&r.environment.id), "installer_transaction_binding")?;
-    Ok(r)
+    linux_vst_bridge::environment_revision::installer_record(m, operation)
 }
-
 pub(super) fn records(m: &Manager) -> Result<Vec<Binding>> {
-    let root = m.root.join("operator");
-    if !root.try_exists()? { return Ok(vec![]); }
-    let mut out = vec![];
-    for (n, entry) in fs::read_dir(root)?.enumerate() {
-        require(n < 4096,"operator_installation_history_bound")?;
-        let path = entry?.path();
-        let Some(id) = path.file_name().and_then(|v|v.to_str()) else {continue};
-        if valid_hex(id,32) && path.join("installation.json").try_exists()? {
-            out.push(load(m,id)?);
-        }
-    }
-    out.sort_by_key(|r|(r.created_at,r.environment.revision));
-    Ok(out)
+    linux_vst_bridge::environment_revision::installer_records(m)
 }
-
 pub(super) fn result(m: &Manager, r: &Binding) -> Result<Value> {
     let v = optional(&job_dir(m,&r.operation)?.join("installation-result.json"))?;
     require(v["schema"] == 2 && v["operation"] == r.operation,

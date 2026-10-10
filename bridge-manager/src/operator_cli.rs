@@ -892,13 +892,7 @@ fn product_detail_readonly(m: &Manager, environment: &str, module: &str,
         vendor_applications})
 }
 fn valid_product_environment(id: &str) -> bool {
-    valid_hex(id, 32) || (id.len() == 36 && id.bytes().enumerate().all(|(index, byte)| {
-        if matches!(index, 8 | 13 | 18 | 23) {
-            byte == b'-'
-        } else {
-            byte.is_ascii_hexdigit()
-        }
-    }))
+    environment_revision::valid_environment_id(id)
 }
 fn recommended_restore_unavailable(m: &Manager, sw: &Software, registration: &Registration)
     -> Result<Option<&'static str>> {

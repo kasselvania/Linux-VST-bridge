@@ -1565,7 +1565,8 @@ pub fn execute(
                             i.source_manifest.clone(), &source_operation)?,
                     };
                     let c = prep::configuration::carry_settings(c, prior)?;
-                    Ok((prep::bind_preparation_basis(c, Some(basis))?, artifact_reused))
+                    let c = prep::bind_preparation_basis(c, Some(basis))?;
+                    Ok((prep::carry_launch_configuration(m, c, prior)?, artifact_reused))
                 }, |stage| {
                     #[cfg(test)]
                     probed_checkpoint(stage);
@@ -1612,6 +1613,7 @@ pub fn execute(
             };
             let c = prep::configuration::carry_settings(c, prior.as_ref())?;
             let c = prep::bind_preparation_basis(c, Some(basis))?;
+            let c = prep::carry_launch_configuration(m, c, prior.as_ref())?;
             let candidate_reused = prep::retained_candidates(m)?.iter().any(|old| old == &c);
             prep::verify_candidate(m, &c, &sw.host, &sw.source_sha256)?;
             let guard = m.lock("registry.lock")?;
