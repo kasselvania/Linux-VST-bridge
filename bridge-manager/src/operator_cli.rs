@@ -865,6 +865,15 @@ fn overview(m: &Manager) -> Result<ui::InteractiveOverview> {
         })
     })
 }
+fn current_overview(m: &Manager) -> Result<ui::CurrentOverview> {
+    linux_vst_bridge::with_readback_digests(|| {
+        let captured = current::capture(m)?;
+        captured.recheck(m)?;
+        Ok(ui::CurrentOverview {schema:1,operator_schema:ui::OPERATOR_SCHEMA,
+            scope:"current_only".into(),current_generation:captured.current_generation,
+            current:captured.snapshot})
+    })
+}
 fn product_detail(m: &Manager, environment: &str, module: &str,
     class: &str) -> Result<ui::CurrentProductDetail> {
     // The entire product projection is readback, including scoped environment
@@ -3418,6 +3427,9 @@ fn worker_with_capacity_observed(
 }
 pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
     match args {
+        [a] if a == "current-overview" => {
+            println!("{}",serde_json::to_string(&current_overview(m)?)?);
+        }
         [a] if a == "overview" => {
             let current = overview(m)?;
             let serialization_at = Instant::now();
@@ -4339,6 +4351,28 @@ pub(crate) mod tests {
     }
     pub(super) fn overview_service_reply(m: &Manager, value: Value) -> std::thread::JoinHandle<()> {
         overview_service_reply_with_counts(m, value, (1, 3))
+    }
+    #[test]
+    fn passive_overview_preserves_current_offers_without_a_readiness_assessment() {
+        let (f, candidate) = preparation_cli::tests::projection_fixture();
+        atomic_json(&f.m.root.join("software.json"),
+            &preparation_cli::tests::projection_software(&candidate)).unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let assessed = overview(&f.m).unwrap();
+        service.join().unwrap();
+        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        let passive = current_overview(&f.m).unwrap();
+        service.join().unwrap();
+        assert_eq!(passive.current.state_token, assessed.current.state_token);
+        assert_eq!(passive.current_generation, assessed.current_generation);
+        assert_eq!(passive.current.system, assessed.current.system);
+        assert_eq!(serde_json::to_value(&passive.current.products).unwrap(),
+            serde_json::to_value(&assessed.current.products).unwrap());
+        assert!(serde_json::to_value(&passive).unwrap().get("readiness").is_none());
+        let request = ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"expired-token".into(),
+            action:ui::Action::RuntimeInstall {}};
+        assert_eq!(validate(&request,&passive.current).unwrap_err().to_string(),
+            "operator_stale_request_refresh");
     }
     fn overview_service_reply_with_counts(m: &Manager, value: Value, expected: (usize, usize))
         -> std::thread::JoinHandle<()> {
