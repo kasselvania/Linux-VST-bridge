@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "date": "2026-10-10",
+  "claim": "Supported retained Test28 restoration after a supervised first-party shared-environment change on Ubuntu",
+  "issue": "https://github.com/kasselvania/Linux-VST-bridge/issues/242",
+  "platform": "Ubuntu 26.04.1 x86-64, existing disposable QEMU fixture",
+  "daw": "REAPER 7.82 linux-x86_64",
+  "operation": {
+    "route": "Setup's supported package-restore CLI operation",
+    "from_package": "0.12.0test29",
+    "from_source": "72f66d38611b74b5e5f0a0caccca300cf2cc5657",
+    "to_package": "0.12.0test28",
+    "to_source": "e199b886c144418497f61bfe3421452850c9228d",
+    "seconds": 9.404,
+    "exit_code": 0,
+    "exact_retained_software_selected": true,
+    "exact_predecessor_publications_selected": 8,
+    "service_after_restore": "active",
+    "pending_package_transition_after_restore": false,
+    "current_shared_environment_revisions": [3, 4],
+    "all_registration_environment_revisions_match_current": true
+  },
+  "preservation": {
+    "protected_files": 110,
+    "original_reaper_projects": 9,
+    "opaque_component_state_files": 12,
+    "class_preference_files": 6,
+    "environment_records": 7,
+    "historical_publication_revision_records": 68,
+    "first_party_modules": 8,
+    "changed_or_missing_files": 0,
+    "environment_identity_root_runner_preserved": true
+  },
+  "reaper": {
+    "original_project": "companion-post-musical.rpp",
+    "save_as": "completed",
+    "fresh_saved_project_reopen": "passed",
+    "play_observed": true,
+    "maximum_observed_play_position_seconds": 2.7020408163265155,
+    "maximum_observed_track_peak": 0.25000980496406555,
+    "changed_control_fresh_reopen": "passed",
+    "effect_level_before_change": 0.74000000953674316,
+    "effect_level_after_change_and_fresh_reopen": 0.79000002145767212,
+    "effect_colour_after_fresh_reopen": 0.6600000262260437,
+    "instrument_level_after_fresh_reopen": 0.625,
+    "instrument_colour_after_fresh_reopen": 0.33000001311302185,
+    "retained_instrument_level_automation": [
+      {"seconds": 0, "value": 0.625},
+      {"seconds": 2, "value": 0.25}
+    ]
+  },
+  "fresh_process_offline_renders": {
+    "seconds_each": 4,
+    "sample_rate": 44100,
+    "channels": 2,
+    "pcm_bits": 24,
+    "frames_each": 176400,
+    "samples_each": 352800,
+    "baseline_nonzero_samples": 352666,
+    "baseline_peak": 0.2454209327697754,
+    "baseline_rms": 0.13452979356660794,
+    "baseline_pcm_sha256": "01c82ab385b87e7efcc38639fd6889c8ac341d11ffb744d2210a6beabf66ebcd",
+    "changed_state_nonzero_samples": 352666,
+    "changed_state_peak": 0.2599184513092041,
+    "changed_state_rms": 0.14356813718209419,
+    "changed_state_pcm_sha256": "ff2a07bf75bfb1af600b72385624ce56ae16164144365ce1490013470c879551",
+    "samples_changed_by_saved_control": 352485
+  },
+  "qualification_scope": "Exact supported retained Test28 pair after the existing companion change; stale-publication, unsupported-predecessor, other interruption and physical audio cases remain unqualified"
+}
