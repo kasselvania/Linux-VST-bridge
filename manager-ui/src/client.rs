@@ -4,7 +4,7 @@ use crate::presentation::ProductKey;
 use std::{
     io::{Read, Write},
     process::{Command, Stdio},
-    sync::mpsc::Sender,
+    sync::{mpsc::Sender, OnceLock},
     time::{Duration, Instant},
 };
 pub enum Reply {
@@ -30,9 +30,56 @@ pub enum Query {
     Pulse,
     Action(Request),
 }
+// Capture this immutable frontend's content once, before its first request.
+// Selection readback then remains a small record read even when an older
+// manager is restored and cannot send the new superseded refusal itself.
+static FRONTEND_IDENTITY: OnceLock<Result<Option<linux_vst_bridge::Artifact>, String>> = OnceLock::new();
+fn frontend_identity(home: &std::path::Path, executable: &std::path::Path)
+    -> Result<Option<linux_vst_bridge::Artifact>, String> {
+    use std::os::unix::fs::PermissionsExt;
+    let root = home.join(".local/share/linux-vst-bridge/managed/software");
+    if executable.parent().is_none_or(|dir| dir.parent() != Some(root.as_path()))
+        || executable.file_name() != Some(std::ffi::OsStr::new("linux-audio-compatibility-manager")) {
+        return Ok(None);
+    }
+    let metadata = linux_vst_bridge::file(executable).and_then(|f| Ok(f.metadata()?))
+        .map_err(|_| "Frontend identity unavailable")?;
+    if executable.canonicalize().ok().as_deref() != Some(executable)
+        || metadata.permissions().mode() & 0o222 != 0 || metadata.len() > 128 * 1024 * 1024 {
+        return Err("Managed frontend identity changed".into());
+    }
+    let sha256 = linux_vst_bridge::digest(executable).map_err(|_| "Frontend identity unavailable")?;
+    Ok(Some(linux_vst_bridge::Artifact { path:executable.to_owned(), sha256 }))
+}
+fn frontend_selected(home: &std::path::Path, frontend: &linux_vst_bridge::Artifact)
+    -> Result<bool, String> {
+    use std::os::unix::fs::PermissionsExt;
+    let root = home.join(".local/share/linux-vst-bridge/managed");
+    let selected: linux_vst_bridge::catalogue::Software =
+        linux_vst_bridge::read_json(&root.join("software.json"))
+            .map_err(|_| "Selected application identity is unavailable")?;
+    let current = selected.operator_frontend.as_ref().ok_or("Selected frontend is unavailable")?;
+    current.validate_record().map_err(|_| "Selected frontend identity is invalid")?;
+    if current.path.parent() != selected.manager.path.parent()
+        || current.path.parent().and_then(|dir|dir.parent()) != Some(root.join("software").as_path())
+        || current.path.canonicalize().ok().as_ref() != Some(&current.path)
+        || std::fs::metadata(&current.path).map_err(|_| "Selected frontend is unavailable")?
+            .permissions().mode() & 0o222 != 0 {
+        return Err("Selected frontend identity is invalid".into());
+    }
+    Ok(current.sha256 == frontend.sha256)
+}
 fn call(query: Query) -> Result<Reply, String> {
     let home = std::env::var_os("HOME").ok_or("Home directory unavailable")?;
-    let executable = std::path::PathBuf::from(home).join(".local/bin/linux-vst-bridge");
+    let home = std::path::PathBuf::from(home);
+    let identity = FRONTEND_IDENTITY.get_or_init(|| {
+        let executable = std::env::current_exe().map_err(|_| "Frontend identity unavailable")?;
+        frontend_identity(&home, &executable)
+    }).as_ref().map_err(Clone::clone)?;
+    if let Some(frontend) = identity {
+        if !frontend_selected(&home, frontend)? { return Ok(Reply::FrontendSuperseded); }
+    }
+    let executable = home.join(".local/bin/linux-vst-bridge");
     let selected = if matches!(query, Query::PickInstaller) {
         let selected = rfd::FileDialog::new()
             .set_title("Add Windows installer")
@@ -247,6 +294,50 @@ fn open_selected(path: &std::path::Path) -> Result<std::fs::File, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn frontend_content_binding_detects_restore_without_help_from_old_manager() {
+        use std::os::unix::fs::PermissionsExt;
+        let home = std::env::temp_dir().join(format!("frontend-selection-{}",
+            linux_vst_bridge::random_id().unwrap()));
+        std::fs::create_dir(&home).unwrap();
+        let home = home.canonicalize().unwrap();
+        let root = home.join(".local/share/linux-vst-bridge/managed");
+        let dir = root.join("software/current");
+        std::fs::create_dir_all(&dir).unwrap();
+        let executable = dir.join("linux-audio-compatibility-manager");
+        std::fs::write(&executable, b"current frontend content").unwrap();
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o400)).unwrap();
+        let identity = frontend_identity(&home, &executable).unwrap().unwrap();
+        let artifact = identity.clone();
+        let mut selected = linux_vst_bridge::catalogue::Software {
+            installer_launch:None, preparation_kit:None, operator_frontend:Some(artifact.clone()),
+            manager:artifact.clone(), supervisor:artifact.clone(), ownership:artifact.clone(),
+            host:artifact.clone(), source_manifest:artifact.clone(), source_sha256:artifact.sha256,
+            native_catalogue:None,
+        };
+        let selection = root.join("software.json");
+        linux_vst_bridge::atomic_json(&selection, &selected).unwrap();
+        assert!(frontend_selected(&home, &identity).unwrap());
+        let previous = root.join("software/previous/linux-audio-compatibility-manager");
+        std::fs::create_dir_all(previous.parent().unwrap()).unwrap();
+        std::fs::write(&previous, b"previous frontend content").unwrap();
+        std::fs::set_permissions(&previous, std::fs::Permissions::from_mode(0o400)).unwrap();
+        let predecessor = linux_vst_bridge::Artifact { path:previous,
+            sha256:linux_vst_bridge::digest(&root.join("software/previous/linux-audio-compatibility-manager")).unwrap() };
+        selected.operator_frontend = Some(predecessor.clone());
+        selected.manager = predecessor;
+        linux_vst_bridge::atomic_json(&selection, &selected).unwrap();
+        assert!(!frontend_selected(&home, &identity).unwrap());
+        selected.operator_frontend = Some(identity.clone());
+        selected.manager = identity.clone();
+        linux_vst_bridge::atomic_json(&selection, &selected).unwrap();
+        assert!(frontend_selected(&home, &identity).unwrap());
+        assert!(frontend_identity(&home, &home.join("unmanaged/frontend")).unwrap().is_none());
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(frontend_identity(&home, &executable).is_err());
+        std::fs::remove_dir_all(home).unwrap();
+    }
+
     #[test]
     fn current_overview_is_paired_record_readback_without_readiness() {
         let snapshot: Snapshot = serde_json::from_str(
