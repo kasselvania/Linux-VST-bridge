@@ -853,7 +853,7 @@ impl Manager {
             .create(exclusive)
             .truncate(false)
             .mode(0o600)
-            .custom_flags(libc::O_NOFOLLOW)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
             .open(self.root.join(name))?;
         require(
             f.metadata()?.uid() == unsafe { libc::getuid() } && f.metadata()?.is_file(),
@@ -1100,6 +1100,31 @@ impl Manager {
 mod tests {
     use super::*;
     use crate::test_fixture::Fixture;
+    #[test]
+    fn shared_observation_guard_refuses_fifo_without_waiting_for_a_writer() {
+        let f = Fixture::new();
+        private_dir(&f.m.root).unwrap();
+        let path = f.m.root.join("fifo-observation.lock");
+        let fifo = std::ffi::CString::new(path.as_os_str().as_encoded_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+        let (finished_tx, finished_rx) = std::sync::mpsc::channel();
+        std::thread::scope(|scope| {
+            let manager = &f.m;
+            let reader = scope.spawn(move || {
+                started_tx.send(()).unwrap();
+                finished_tx.send(manager.try_lock_shared("fifo-observation.lock").is_err()).unwrap();
+            });
+            started_rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+            let result = finished_rx.recv_timeout(std::time::Duration::from_secs(1));
+            // Release a regressed blocking open before asserting, so this test
+            // has a finite failure instead of leaving a blocked reader thread.
+            let _writer = result.is_err().then(|| OpenOptions::new().read(true).write(true)
+                .custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW).open(&path).unwrap());
+            reader.join().unwrap();
+            assert!(result.is_ok_and(|refused| refused), "malformed observation gates must refuse without waiting");
+        });
+    }
     #[test]
     fn shared_observation_guard_cannot_authorize_registry_mutation() {
         let f = Fixture::new();
