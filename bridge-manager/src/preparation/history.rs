@@ -733,6 +733,10 @@ pub fn preparation_basis(m: &Manager, predecessor: Option<&Candidate>) -> Result
         .transpose()?)
 }
 pub fn bind_preparation_basis(c: Candidate, basis: Option<String>) -> Result<Candidate> {
+    let intent = c.launch_configuration_intent.clone();
+    let vendor_retirement = c.profile.capabilities.vendor_retirement.clone();
+    let editor_lifetime = c.profile.capabilities.editor_lifetime.clone();
+    let event_output = c.profile.capabilities.event_output.clone();
     let graphics = c.profile.capabilities.graphics;
     let settings = c.local_settings.clone();
     let accessibility = c.profile.capabilities.accessibility.clone();
@@ -758,6 +762,14 @@ pub fn bind_preparation_basis(c: Candidate, basis: Option<String>) -> Result<Can
         require(valid_hex(&basis, 64), "preparation_evidence_basis")?;
         result.profile.id = format!("managed.{}", key(&(&result.profile.id, &basis))?);
         result.preparation_basis = Some(basis);
+    }
+    if intent.is_some() {
+        result.profile.capabilities.vendor_retirement = vendor_retirement;
+        result.profile.capabilities.editor_lifetime = editor_lifetime;
+        result.profile.capabilities.event_output = event_output;
+        result.profile.id = format!("managed.{}", key(&(&result.profile.id,
+            "retained_launch_configuration_v1", &intent))?);
+        result.launch_configuration_intent = intent;
     }
     Ok(result)
 }

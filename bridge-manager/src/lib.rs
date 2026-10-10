@@ -1,5 +1,6 @@
 //! Canonical, inactive-only registration and atomic publication. No SDK or DSP here.
 pub mod preparation;
+pub mod environment_revision;
 pub mod runtime_delivery;
 pub mod acceptance;
 pub mod capacity;

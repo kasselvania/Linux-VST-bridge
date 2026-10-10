@@ -653,7 +653,7 @@ impl eframe::App for Bootstrap {
                 "Repair Linux VST Bridge"
             } else { "Set up Linux VST Bridge" });
             ui.label(if self.update_available || self.legacy_update {
-                "The manager prepares compatible bridge components for your installed plug-ins, then applies the update. Your plug-ins, licenses, projects and settings are retained."
+                "The manager updates compatible bridge components, then applies the update. Your plug-ins, licenses, projects and settings are retained. Plug-ins needing a fresh compatibility check remain unchanged."
             } else if self.rollback_available {
                 "Restore the retained application and its matching plug-in bridges together. Your vendor installations, projects and settings are retained."
             } else if self.stop_offered || self.package_adopt_offered {

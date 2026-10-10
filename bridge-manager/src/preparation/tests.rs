@@ -274,7 +274,7 @@ fn retained_static_profile_without_candidate_authorizes_only_its_exact_refresh()
         let mut malformed = predecessor.clone();
         malformed.census.selected.name = "Different class".into();
         assert!(refresh_source(&f.m, &malformed).is_err());
-        let mut wrong_class = next;
+        let mut wrong_class = next.clone();
         wrong_class.selection.class.id = "03".repeat(16);
         assert_eq!(
             verify_refresh_candidate(&f.m, &wrong_class, &predecessor)
@@ -282,6 +282,116 @@ fn retained_static_profile_without_candidate_authorizes_only_its_exact_refresh()
                 .to_string(),
             "bridge_refresh_predecessor_changed"
         );
+        // The selected runner changes through its existing typed owner. The
+        // old exact revision remains historical; fresh preparation borrows only
+        // its launch policies, never its old inspection or qualification.
+        let before = next.selection.environment.clone();
+        let mut after = before.clone();
+        after.revision += 1;
+        after.runner.id = "different-fixture-runtime".into();
+        let operation = random_id().unwrap();
+        let directory = f.m.root.join("operator").join(&operation);
+        private_dir(&directory).unwrap();
+        atomic_json(&directory.join("request.json"), &crate::operator_model::Request {
+            schema:crate::operator_model::OPERATOR_SCHEMA, state_token:"fixture".into(),
+            action:crate::operator_model::Action::EnvironmentRuntimeSelect {
+                environment:before.id.clone(), runner:crate::catalogue::runner_key(&after.runner).unwrap(),
+                expected_environment:crate::environment_revision::identity(&before).unwrap(),
+            },
+        }).unwrap();
+        atomic_json(&directory.join("runtime-transition.json"),
+            &crate::environment_revision::RuntimeBinding {
+                schema:1, operation, before:before.clone(), environment:after.clone(),
+                affected:vec![crate::environment_revision::RuntimeOwner::Class {
+                    registration:Box::new(predecessor.registration.clone()) }],
+                state:crate::environment_revision::RuntimeState::Scanned,
+            }).unwrap();
+        atomic_json(&after.root.join("environment.json"), &after).unwrap();
+        assert!(verify_retained_candidate(&f.m, &next).is_err());
+        assert!(validate_candidate_record(&f.m, &next).is_ok());
+        let mut selection = next.selection.clone();
+        selection.environment = after;
+        let fresh_report = f.outer.join("fresh-runtime-inspection.json");
+        let mut bytes = fs::read(&predecessor.census.report.path).unwrap();
+        bytes.push(b'\n');
+        fs::write(&fresh_report, bytes).unwrap();
+        let fresh_report = Artifact { sha256:digest(&fresh_report).unwrap(), path:fresh_report };
+        let fresh_inspection = inspect_record_with_layout(selection.clone(), fresh_report,
+            Origin::ManagedPreparation, next.host.clone(), next.source_manifest.clone(),
+            next.inspection.audio_layout.clone()).unwrap();
+        let fresh = prepared(selection, fresh_inspection, next.native.clone(), next.host.clone(),
+            next.source_manifest.clone(), next.recipe_sha256.clone()).unwrap();
+        let fresh = bind_preparation_basis(configuration::carry_settings(fresh, Some(&next)).unwrap(),
+            Some(preparation_basis(&f.m, Some(&next)).unwrap())).unwrap();
+        let fresh = carry_launch_configuration(&f.m, fresh, Some(&next)).unwrap();
+        assert_eq!(fresh.profile.capabilities.compatibility(), predecessor.registration.compatibility);
+        assert_eq!(fresh.profile.claim, Claim::ReviewCandidate);
+        assert_eq!(fresh.launch_configuration_intent.as_ref().unwrap().id, predecessor.id);
+        assert_ne!(fresh.inspection.report, next.inspection.report);
+        validate_candidate_record(&f.m, &fresh).unwrap();
+        assert!(observations(&f.m, &fresh).unwrap().is_empty());
+        assert!(decisions(&f.m, &fresh).unwrap().is_empty());
+        let rebound = bind_preparation_basis(fresh.clone(), fresh.preparation_basis.clone()).unwrap();
+        assert_eq!(rebound, fresh);
+        let mut enabled = fresh.clone();
+        let mut settings = configuration::settings(&enabled);
+        settings.accessibility = crate::operator_model::AccessibilityChoice::WindowsDefault;
+        configuration::apply_resolved_settings(&mut enabled, settings, Accessibility::WindowsDefault).unwrap();
+        validate_candidate_record(&f.m, &enabled).unwrap();
+        assert!(!enabled.profile.capabilities.compatibility().disable_windows_accessibility);
+        assert_eq!(enabled.launch_configuration_intent, fresh.launch_configuration_intent);
+        assert_eq!(enabled.profile.capabilities.vendor_retirement, fresh.profile.capabilities.vendor_retirement);
+        let mut moved = fresh.clone();
+        moved.selection.module.path = moved.selection.module.path.with_file_name("same-content-moved.vst3");
+        moved.inspection.selection = moved.selection.clone();
+        validate_candidate_record(&f.m, &moved).unwrap();
+        assert_eq!(carry_launch_configuration(&f.m, moved.clone(), Some(&fresh)).unwrap(), moved);
+        // A matching hash and provenance file are not catalogue authority.
+        // Rebinding the reference coherently must still refuse a source whose
+        // census contradicts its qualified profile or registration.
+        let record = revision_dir.join("revision.json");
+        let provenance = predecessor.target.join("bridge-provenance.json");
+        let saved_record = fs::read(&record).unwrap();
+        let saved_provenance = fs::read(&provenance).unwrap();
+        for mismatch in 0..3 {
+            let mut changed_source = predecessor.clone();
+            match mismatch {
+                0 => changed_source.census.module.sha256 = "ee".repeat(32),
+                1 => changed_source.census.environment.environment.revision += 1,
+                _ => changed_source.census.selected.version = "different-source-version".into(),
+            }
+            atomic_json(&record, &changed_source).unwrap();
+            atomic_json(&provenance, &changed_source).unwrap();
+            let reference = RevisionRef {id:changed_source.id.clone(),
+                sha256:retained_revision_basis(&changed_source).unwrap()};
+            f.m.load_revision_record(&changed_source.class_id, &reference).unwrap();
+            assert!(launch_configuration_source(&f.m, &fresh, &reference).is_err());
+        }
+        fs::write(&record, saved_record).unwrap();
+        fs::write(&provenance, saved_provenance).unwrap();
+        validate_candidate_record(&f.m, &fresh).unwrap();
+        for mutate in 0..6 {
+            let mut changed = fresh.clone();
+            match mutate {
+                0 => changed.profile.capabilities.vendor_retirement = None,
+                1 => changed.selection.module.sha256 = "ee".repeat(32),
+                2 => changed.selection.class.id = "03".repeat(16),
+                3 => changed.launch_configuration_intent.as_mut().unwrap().sha256 = "ff".repeat(32),
+                4 => {
+                    changed.profile.capabilities.vendor_retirement = None;
+                    changed.profile.capabilities.editor_lifetime = None;
+                    changed.profile.capabilities.event_output = None;
+                }
+                _ => changed.launch_configuration_intent = None,
+            }
+            assert!(validate_candidate_record(&f.m, &changed).is_err());
+        }
+        let request = directory.join("request.json");
+        let bytes = fs::read(&request).unwrap();
+        fs::remove_file(&request).unwrap();
+        assert!(validate_candidate_record(&f.m, &fresh).is_err());
+        fs::write(&request, bytes).unwrap();
+        validate_candidate_record(&f.m, &fresh).unwrap();
     });
 }
 

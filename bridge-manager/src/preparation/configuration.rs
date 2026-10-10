@@ -183,12 +183,16 @@ pub fn carry_settings(mut next: Candidate, prior: Option<&Candidate>) -> Result<
             apply_settings(&mut next, settings.clone())?;
             next.profile.id = format!("managed.{}", key(&(&next.profile.id, settings))?);
             next.profile.validate()?;
-            return Ok(next);
-        }
-        if next.profile.capabilities.graphics != prior.profile.capabilities.graphics {
+        } else if next.profile.capabilities.graphics != prior.profile.capabilities.graphics {
             next.profile.capabilities.graphics = prior.profile.capabilities.graphics;
             next.profile.id = format!("managed.{}", key(&(&next.profile.id, next.profile.capabilities.graphics))?);
             next.profile.validate()?;
+        }
+        if prior.launch_configuration_intent.is_some() {
+            next.launch_configuration_intent = prior.launch_configuration_intent.clone();
+            next.profile.capabilities.vendor_retirement = prior.profile.capabilities.vendor_retirement.clone();
+            next.profile.capabilities.editor_lifetime = prior.profile.capabilities.editor_lifetime.clone();
+            next.profile.capabilities.event_output = prior.profile.capabilities.event_output.clone();
         }
     }
     Ok(next)
