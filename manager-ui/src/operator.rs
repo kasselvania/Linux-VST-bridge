@@ -754,6 +754,9 @@ impl Operator {
     }
     fn current_health_system(&self) -> Option<&System> {
         if !self.overview_fresh { return None; }
+        self.retained_health_system()
+    }
+    fn retained_health_system(&self) -> Option<&System> {
         let overview = self.overview.as_ref()?;
         if self.page == Page::Plugins {
             if let Some(detail) = self.product_detail.as_ref().filter(|detail|
@@ -1302,64 +1305,78 @@ impl Operator {
         ui.small("Choose an installer for manager custody. Vendor sign-in remains yours.");
         if ui.button("Technical setup history").clicked() { *page = Page::Diagnostics; }
     }
-    fn health_bar(ui: &mut egui::Ui, system: Option<&System>) {
+    fn health_bar(ui: &mut egui::Ui, system: Option<&System>, retained: Option<&System>) {
         egui::Frame::group(ui.style())
             .fill(ui.visuals().faint_bg_color)
             .show(ui, |ui| {
                 ui.set_min_width((ui.available_width() - 1.0).max(0.0));
                 ui.spacing_mut().item_spacing.y = 3.0;
-                let Some(system) = system else {
-                    ui.label(egui::RichText::new("Bridge status unavailable")
-                        .size(17.0).strong().color(warning_color(ui)));
-                    ui.small("Checking current status. Previous capacity and cleanup are unconfirmed.");
-                    return;
-                };
-                let state = presentation::health(system);
-                let color = if matches!(
-                    state,
-                    presentation::Health::Unavailable | presentation::Health::NeedsAttention
-                ) {
-                    warning_color(ui)
-                } else {
-                    ui.visuals().text_color()
-                };
-                ui.label(
-                    egui::RichText::new(state.title())
-                        .size(17.0)
-                        .strong()
-                        .color(color),
-                );
-                ui.horizontal_wrapped(|ui| {
-                    let label = |text: String| egui::RichText::new(text).size(13.0);
-                    ui.label(label(if system.capacity_available() {
-                        "Service ready".into()
-                    } else {
-                        "Service readback unavailable".into()
-                    }));
-                    if system.capacity_available() {
-                        ui.label(label(format!("DSP {} / {}", system.dsp, system.ceiling)));
-                        ui.label(label(format!("Install / scan {}", system.maintenance)));
-                        ui.label(label(format!(
-                            "Stale transports {}",
-                            system.stale_transports
-                        )));
-                    } else {
-                        ui.label(label("DSP and capacity unknown".into()));
-                        ui.label(label("Install / scan unknown".into()));
-                        ui.label(label("Stale transports unknown".into()));
-                    }
-                    ui.label(label(format!(
-                        "Pending transactions {}",
-                        system.pending_transactions
-                    )));
-                    ui.label(label(
-                        presentation::activity_certainty(system)
-                            .cleanup_label()
-                            .into(),
-                    ));
-                });
-                ui.small("State updates automatically.");
+                // Retained values size the frame only. They are never displayed as
+                // current status or used to admit an action after readback expires.
+                let mut height: f32 = 0.0;
+                for (id, sizing_system) in [("available", retained.or(system)), ("unavailable", None)] {
+                    let mut sizing = ui.new_child(egui::UiBuilder::new().id_salt(id)
+                        .max_rect(ui.available_rect_before_wrap()).sizing_pass().invisible());
+                    Self::health_content(&mut sizing, sizing_system);
+                    height = height.max(sizing.min_size().y);
+                }
+                ui.set_min_height(height);
+                Self::health_content(ui, system);
             });
+    }
+
+    fn health_content(ui: &mut egui::Ui, system: Option<&System>) {
+        let Some(system) = system else {
+            ui.label(egui::RichText::new("Bridge status unavailable")
+                .size(17.0).strong().color(warning_color(ui)));
+            ui.small("Checking current status. Previous capacity and cleanup are unconfirmed.");
+            return;
+        };
+        let state = presentation::health(system);
+        let color = if matches!(
+            state,
+            presentation::Health::Unavailable | presentation::Health::NeedsAttention
+        ) {
+            warning_color(ui)
+        } else {
+            ui.visuals().text_color()
+        };
+        ui.label(
+            egui::RichText::new(state.title())
+                .size(17.0)
+                .strong()
+                .color(color),
+        );
+        ui.horizontal_wrapped(|ui| {
+            let label = |text: String| egui::RichText::new(text).size(13.0);
+            ui.label(label(if system.capacity_available() {
+                "Service ready".into()
+            } else {
+                "Service readback unavailable".into()
+            }));
+            if system.capacity_available() {
+                ui.label(label(format!("DSP {} / {}", system.dsp, system.ceiling)));
+                ui.label(label(format!("Install / scan {}", system.maintenance)));
+                ui.label(label(format!(
+                    "Stale transports {}",
+                    system.stale_transports
+                )));
+            } else {
+                ui.label(label("DSP and capacity unknown".into()));
+                ui.label(label("Install / scan unknown".into()));
+                ui.label(label("Stale transports unknown".into()));
+            }
+            ui.label(label(format!(
+                "Pending transactions {}",
+                system.pending_transactions
+            )));
+            ui.label(label(
+                presentation::activity_certainty(system)
+                    .cleanup_label()
+                    .into(),
+            ));
+        });
+        ui.small("State updates automatically.");
     }
 
     fn request_bar(&mut self, ui: &mut egui::Ui) {
@@ -2220,7 +2237,7 @@ impl eframe::App for Operator {
                 }
             });
             if self.preview { ui.small("LOCAL DESIGN PREVIEW · synthetic records · actions do not execute"); }
-            Self::health_bar(ui, self.current_health_system());
+            Self::health_bar(ui, self.current_health_system(), self.retained_health_system());
             navigation(ui, &mut self.page);
             self.request_bar(ui);
             ui.separator();
@@ -3098,6 +3115,77 @@ mod tests {
         ctx
     }
 
+    #[test]
+    fn status_readback_changes_keep_navigation_and_action_targets_in_place() {
+        for width in [560.0, 960.0, 1280.0] {
+            for ready_on_press in [true, false] {
+                for navigation_target in [true, false] {
+                    let ctx = result_form_context();
+                    let mut state = state_fixture();
+                    state.overview = Some(overview_fixture());
+                    state.page = Page::Setup;
+                    let mut point = egui::Pos2::ZERO;
+                    let mut initial = None;
+                    let mut action_clicked = false;
+                    for frame in 0..6 {
+                        let ready = if frame < 4 { ready_on_press } else { !ready_on_press };
+                        state.overview_fresh = ready;
+                        let events = if frame == 3 || frame == 4 {
+                            vec![egui::Event::PointerMoved(point),
+                                egui::Event::PointerButton { pos: point,
+                                    button: egui::PointerButton::Primary, pressed: frame == 3,
+                                    modifiers: egui::Modifiers::NONE }]
+                        } else { vec![] };
+                        let mut output = ctx.run_ui(egui::RawInput {
+                            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO,
+                                egui::vec2(width, 800.0))), events, ..Default::default()
+                        }, |ui| {
+                            Operator::health_bar(ui, state.current_health_system(), state.retained_health_system());
+                            let bounds = navigation(ui, &mut state.page);
+                            let nav = bounds.iter().find(|(p, _, _)| *p == Page::Plugins).unwrap().2;
+                            let action = ui.add_enabled(ready,
+                                egui::Button::new("Use the selected compatibility runtime")
+                                    .min_size(egui::vec2(360.0, 44.0)));
+                            if frame >= 2 {
+                                let rects = (nav, action.rect);
+                                if let Some(initial) = initial {
+                                    assert_eq!(rects, initial,
+                                        "width={width}, ready_on_press={ready_on_press}, frame={frame}");
+                                } else { initial = Some(rects); }
+                                if frame == 2 { point = if navigation_target { nav.center() }
+                                    else { action.rect.center() }; }
+                            }
+                            action_clicked |= action.clicked();
+                        });
+                        output.textures_delta.clear();
+                    }
+                    if navigation_target {
+                        assert_eq!(state.page, Page::Plugins,
+                            "navigation lost its click at width={width}, ready_on_press={ready_on_press}");
+                    } else {
+                        assert!(!action_clicked, "a readback transition cannot authorize a click");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn expired_readback_still_refuses_runtime_action_capture() {
+        let mut state = state_fixture();
+        state.overview = Some(overview_fixture());
+        state.overview_fresh = true;
+        assert!(state.current_action_snapshot().is_some());
+        state.last_overview = Instant::now() - Duration::from_secs(61);
+        state.expire_overview();
+        state.capture_chosen_action(Action::EnvironmentRuntimeSelect {
+            environment: "exact-existing-setup".into(), runner: "selected-installed-runtime".into(),
+            expected_environment: "exact-environment-identity".into(),
+        });
+        assert!(state.queued_action.is_none());
+        assert!(state.current_action_snapshot().is_none());
+    }
+
     fn visible_form_text(shape: &egui::epaint::Shape, clip: egui::Rect,
         visible: &mut std::collections::BTreeSet<String>) {
         match shape {
@@ -3108,6 +3196,30 @@ mod tests {
                 visible_form_text(shape, clip, visible);
             },
             _ => {},
+        }
+    }
+
+    #[test]
+    fn stale_health_values_are_used_only_for_invisible_sizing() {
+        for retained in [false, true] {
+            let ctx = result_form_context();
+            let mut state = state_fixture();
+            state.overview = retained.then(overview_fixture);
+            state.overview_fresh = false;
+            let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(560.0, 360.0));
+            let mut visible = std::collections::BTreeSet::new();
+            for _ in 0..3 {
+                let mut output = ctx.run_ui(egui::RawInput { screen_rect: Some(screen), ..Default::default() }, |ui| {
+                    Operator::health_bar(ui, state.current_health_system(), state.retained_health_system());
+                });
+                for shape in &output.shapes {
+                    visible_form_text(&shape.shape, shape.clip_rect, &mut visible);
+                }
+                output.textures_delta.clear();
+            }
+            assert!(visible.contains("Bridge status unavailable"));
+            assert!(visible.contains("Checking current status. Previous capacity and cleanup are unconfirmed."));
+            assert!(!visible.iter().any(|text| text.contains("DSP") || text.contains("Service ready")));
         }
     }
 
