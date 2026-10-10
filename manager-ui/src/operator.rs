@@ -446,8 +446,7 @@ fn pulse_system_changed(pulse: &crate::model::Pulse, system: &System) -> bool {
 
 pub struct Operator {
     snapshot: Option<Snapshot>,
-    overview: Option<CurrentOverview>,
-    readiness: Option<(ReadinessAssessment, Instant, String)>,
+    overview: Option<InteractiveOverview>,
     product_detail: Option<CurrentProductDetail>,
     product_attempted: Option<ProductKey>,
     overview_fresh: bool,
@@ -487,7 +486,6 @@ impl Operator {
         Self {
             snapshot: None,
             overview: None,
-            readiness: None,
             product_detail: None,
             product_attempted: None,
             overview_fresh: false,
@@ -528,7 +526,6 @@ impl Operator {
         Self {
             snapshot: Some(snapshot),
             overview: None,
-            readiness: None,
             product_detail: None,
             product_attempted: None,
             overview_fresh: false,
@@ -571,11 +568,10 @@ impl Operator {
             // Preview the current-only product view before deep compatibility readback.
             preview.snapshot = None;
         }
-        preview.readiness = Some((readiness, Instant::now(), "preview".into()));
-        preview.overview = Some(CurrentOverview {
+        preview.overview = Some(InteractiveOverview {
             schema: 1, operator_schema: crate::model::OPERATOR_SCHEMA,
             scope: "current_only".into(), current_generation: "preview".into(),
-            current: snapshot,
+            current: snapshot, readiness,
         });
         preview.overview_fresh = true;
         preview
@@ -736,44 +732,6 @@ impl Operator {
     fn current_action_snapshot(&self) -> Option<&Snapshot> {
         self.overview.as_ref().filter(|_| self.overview_fresh).map(|o| &o.current)
     }
-    fn current_readiness(&self) -> Option<&ReadinessAssessment> {
-        let overview = self.overview.as_ref().filter(|_| self.overview_fresh)?;
-        let (assessment, received, generation) = self.readiness.as_ref()?;
-        (received.elapsed() < Duration::from_secs(60)
-            && *generation == overview.current_generation
-            && assessment.state_token == overview.current.state_token
-            && assessment.system == overview.current.system).then_some(assessment)
-    }
-    fn overview_query(&self) -> Query {
-        // Only a requested check, first readback, or an owned user workflow
-        // collects platform facts. Time expiry and passive change signals
-        // renew the current record projection without capability helpers.
-        if self.explicit_refresh_queued || self.overview.is_none()
-            || self.pending_import_route.is_some()
-            || self.feedback.as_ref().is_some_and(|feedback| feedback.release_after_snapshot) {
-            Query::Overview
-        } else { Query::CurrentOverview }
-    }
-    fn apply_current_overview(&mut self, bundle: CurrentOverview) {
-        self.readback_failures = 0;
-        self.retry_after = None;
-        if let Some(f) = &mut self.feedback { f.reconcile_snapshot(&bundle.current); }
-        self.resolve_import_route(&bundle.current);
-        if self.snapshot.as_ref().is_some_and(|old| old.state_token != bundle.current.state_token) {
-            self.snapshot = None;
-            self.details_attempted = false;
-        }
-        self.overview = Some(bundle);
-        if self.selected_product_snapshot().is_none()
-            || self.product_detail.as_ref().is_some_and(|detail|
-                self.overview.as_ref().is_some_and(|overview|
-                    detail.system != overview.current.system)) {
-            self.product_detail = None;
-            self.product_attempted = None;
-        }
-        self.overview_fresh = true;
-        self.last_overview = Instant::now();
-    }
     fn selected_product_snapshot(&self) -> Option<Snapshot> {
         // Retain the exact card during status refresh so navigation does not
         // collapse. Freshness still controls action admission separately.
@@ -866,11 +824,28 @@ impl Operator {
         self.action_inflight = false;
         match reply {
             Reply::Overview(bundle) => {
-                self.readiness = Some((bundle.readiness.clone(), Instant::now(),
-                    bundle.current_generation.clone()));
-                self.apply_current_overview((*bundle).into());
+                self.readback_failures = 0;
+                self.retry_after = None;
+                if let Some(f) = &mut self.feedback {
+                    f.reconcile_snapshot(&bundle.current);
+                }
+                self.resolve_import_route(&bundle.current);
+                if self.snapshot.as_ref().is_some_and(|old|
+                    old.state_token != bundle.current.state_token) {
+                    self.snapshot = None;
+                    self.details_attempted = false;
+                }
+                self.overview = Some(*bundle);
+                if self.selected_product_snapshot().is_none()
+                    || self.product_detail.as_ref().is_some_and(|detail|
+                        self.overview.as_ref().is_some_and(|overview|
+                            detail.system != overview.current.system)) {
+                    self.product_detail = None;
+                    self.product_attempted = None;
+                }
+                self.overview_fresh = true;
+                self.last_overview = Instant::now();
             }
-            Reply::CurrentOverview(bundle) => self.apply_current_overview(*bundle),
             Reply::Product(detail) => {
                 if self.overview.as_ref().is_some_and(|overview|
                     self.overview_fresh
@@ -1169,19 +1144,9 @@ fn show_discovered_products(setup: &InstallerSetup,
 }
 
 impl Operator {
-    fn readiness_overview(ui: &mut egui::Ui, assessment: Option<&ReadinessAssessment>,
+    fn readiness_overview(ui: &mut egui::Ui, overview: &InteractiveOverview,
         fresh: bool, pending: bool, refresh: &mut bool, chosen: &mut Option<Action>) {
-        let Some(assessment) = assessment else {
-            ui.heading("Readiness check needed");
-            ui.label(if fresh {
-                "Choose Check again to assess the current audio and desktop setup."
-            } else {
-                "Checking current status. Actions are unavailable until readback completes."
-            });
-            if ui.add_enabled(!pending, egui::Button::new("Check again")
-                .min_size(egui::vec2(150.0, 44.0))).clicked() { *refresh = true; }
-            return;
-        };
+        let assessment = &overview.readiness;
         ui.heading(match assessment.overall_status {
             ReadinessOutcome::Ready => "Ready to try",
             ReadinessOutcome::ActionRequired if assessment.products.is_empty() => "Setup incomplete",
@@ -1234,22 +1199,13 @@ impl Operator {
             ui.small("The report is stored locally. No information is uploaded.");
         });
     }
-    fn fast_home(ui: &mut egui::Ui, overview: &CurrentOverview,
-        assessment: Option<&ReadinessAssessment>, fresh: bool,
-        pending: bool, controls: (&mut Page, &mut bool, &mut Option<Action>)) {
-        let (page, refresh, chosen) = controls;
-        Self::readiness_overview(ui, assessment, fresh, pending, refresh, chosen);
+    fn fast_home(ui: &mut egui::Ui, overview: &InteractiveOverview, fresh: bool,
+        pending: bool, page: &mut Page, refresh: &mut bool, chosen: &mut Option<Action>) {
+        Self::readiness_overview(ui, overview, fresh, pending, refresh, chosen);
         ui.add_space(12.0);
         ui.heading("Your managed software");
-        for current in &overview.current.products {
+        for product in &overview.readiness.products {
             ui.group(|ui| {
-                let Some(product) = assessment.and_then(|assessment| assessment.products.iter()
-                    .find(|product| product.class_id == current.class_id
-                        && product.module_sha256 == current.module_sha256)) else {
-                    ui.strong(&current.name);
-                    ui.label("Operational status: check again");
-                    return;
-                };
                 ui.strong(&product.name);
                 ui.label(match product.status {
                     ReadinessOutcome::Ready => "Operational status: Ready to try",
@@ -1266,12 +1222,12 @@ impl Operator {
                 ui.small(&product.reason);
             });
         }
-        if overview.current.products.is_empty() { ui.label("No managed native plug-ins yet."); }
+        if overview.readiness.products.is_empty() { ui.label("No managed native plug-ins yet."); }
         ui.add_space(8.0);
         if ui.button("Open Setup").clicked() { *page = Page::Setup; }
         if ui.button("Technical details and history").clicked() { *page = Page::Diagnostics; }
     }
-    fn fast_setup(ui: &mut egui::Ui, overview: &CurrentOverview, fresh: bool,
+    fn fast_setup(ui: &mut egui::Ui, overview: &InteractiveOverview, fresh: bool,
         pending: bool, controls: (&mut bool, &mut Option<Action>, &mut bool,
             &mut Page, &mut crate::library::Library, &mut RouteFocus)) {
         let (refresh, chosen, pick, page, library, focus) = controls;
@@ -2262,7 +2218,6 @@ impl eframe::App for Operator {
         }
         self.expire_overview();
 
-        let readiness_fresh = self.current_readiness().is_some();
         let controls_pending = self.controls_pending();
         let action_controls_pending = controls_pending || (!self.preview && !self.overview_fresh);
         let mut refresh = false;
@@ -2291,9 +2246,8 @@ impl eframe::App for Operator {
                     if let Some(overview) = &self.overview {
                         match self.page {
                             Page::Home => {
-                                Self::fast_home(ui, overview, self.readiness.as_ref()
-                                    .filter(|_| readiness_fresh).map(|(assessment, _, _)| assessment), self.overview_fresh,
-                                    controls_pending, (&mut self.page, &mut refresh, &mut chosen));
+                                Self::fast_home(ui, overview, self.overview_fresh,
+                                    controls_pending, &mut self.page, &mut refresh, &mut chosen);
                                 return;
                             }
                             Page::Setup => {
@@ -2453,10 +2407,9 @@ impl eframe::App for Operator {
             && (self.explicit_refresh_queued || self.retry_after.is_none_or(|at| Instant::now() >= at)) {
             let origin = if self.explicit_refresh_queued { RequestOrigin::ExplicitRefresh }
                 else { RequestOrigin::SilentPostMutationRefresh };
-            let query = self.overview_query();
             self.explicit_refresh_queued = false;
             self.refresh_after = false;
-            self.request(query, origin, ui.ctx());
+            self.request(Query::Overview, origin, ui.ctx());
         } else if !self.pending && self.page == Page::Plugins && self.overview_fresh
             && self.selected_product_snapshot().is_none()
             && self.library.focused_product().is_some_and(|key|
@@ -3097,7 +3050,6 @@ mod tests {
         Operator {
             snapshot: None,
             overview: None,
-            readiness: None,
             product_detail: None,
             product_attempted: None,
             overview_fresh: false,
@@ -3170,7 +3122,7 @@ mod tests {
                 for navigation_target in [true, false] {
                     let ctx = result_form_context();
                     let mut state = state_fixture();
-                    state.overview = Some(overview_fixture().into());
+                    state.overview = Some(overview_fixture());
                     state.page = Page::Setup;
                     let mut point = egui::Pos2::ZERO;
                     let mut initial = None;
@@ -3221,7 +3173,7 @@ mod tests {
     #[test]
     fn expired_readback_still_refuses_runtime_action_capture() {
         let mut state = state_fixture();
-        state.overview = Some(overview_fixture().into());
+        state.overview = Some(overview_fixture());
         state.overview_fresh = true;
         assert!(state.current_action_snapshot().is_some());
         state.last_overview = Instant::now() - Duration::from_secs(61);
@@ -3232,72 +3184,6 @@ mod tests {
         });
         assert!(state.queued_action.is_none());
         assert!(state.current_action_snapshot().is_none());
-    }
-    #[test]
-    fn passive_refresh_renews_records_without_renewing_readiness() {
-        let mut state = state_fixture();
-        state.handle_reply(Reply::Overview(Box::new(overview_fixture())));
-        assert!(state.current_readiness().is_some());
-        let received = Instant::now() - Duration::from_secs(61);
-        state.readiness.as_mut().unwrap().1 = received;
-        state.last_overview = received;
-        state.expire_overview();
-        assert!(state.current_action_snapshot().is_none());
-        assert!(matches!(state.overview_query(), Query::CurrentOverview));
-        let original_facts = serde_json::to_value(&state.readiness.as_ref().unwrap().0).unwrap();
-        state.handle_reply(Reply::CurrentOverview(Box::new(overview_fixture().into())));
-        assert!(state.current_action_snapshot().is_some());
-        assert!(state.current_readiness().is_none());
-        assert_eq!(state.readiness.as_ref().unwrap().1, received);
-        assert_eq!(serde_json::to_value(&state.readiness.as_ref().unwrap().0).unwrap(), original_facts);
-        state.explicit_refresh_queued = true;
-        assert!(matches!(state.overview_query(), Query::Overview));
-        state.handle_reply(Reply::Overview(Box::new(overview_fixture())));
-        assert!(state.current_readiness().is_some());
-    }
-    #[test]
-    fn passive_changes_do_not_collect_platform_facts_but_user_workflows_do() {
-        let mut state = state_fixture();
-        assert!(matches!(state.overview_query(), Query::Overview));
-        state.handle_reply(Reply::Overview(Box::new(overview_fixture())));
-        let mut changed = pulse_fixture(false);
-        changed.current_generation = "changed".into();
-        state.handle_reply(Reply::Pulse(changed));
-        assert!(state.refresh_after && !state.overview_fresh);
-        assert!(matches!(state.overview_query(), Query::CurrentOverview));
-        let mut current: CurrentOverview = overview_fixture().into();
-        current.current.state_token = "changed-token".into();
-        state.handle_reply(Reply::CurrentOverview(Box::new(current)));
-        assert!(state.current_action_snapshot().is_some());
-        assert!(state.current_readiness().is_none());
-        state.feedback = Some(RequestFeedback::captured(Action::RuntimeInstall {}));
-        state.feedback.as_mut().unwrap().receipt(&Receipt {schema:crate::model::OPERATOR_SCHEMA,
-            accepted:true,operation:Some("owned-operation".into()),refusal:None});
-        state.feedback.as_mut().unwrap().observe(&serde_json::json!({
-            "operation":"owned-operation","state":"completed"}));
-        assert!(matches!(state.overview_query(), Query::Overview));
-        state.feedback = None;
-        state.pending_import_route = Some(("exact-installer".into(), true, "Installer".into()));
-        assert!(matches!(state.overview_query(), Query::Overview));
-    }
-    #[test]
-    fn changed_performance_generation_cannot_reuse_readiness_with_the_same_token_and_system() {
-        let mut state = state_fixture();
-        let assessed = overview_fixture();
-        state.handle_reply(Reply::Overview(Box::new(assessed.clone())));
-        assert!(state.current_readiness().is_some());
-        let received = state.readiness.as_ref().unwrap().1;
-        let mut changed: CurrentOverview = assessed.clone().into();
-        changed.current_generation = "new-performance-generation".into();
-        changed.current.products[0].details["added_frames"] = serde_json::json!(1024);
-        assert_eq!(changed.current.state_token, assessed.current.state_token);
-        assert_eq!(changed.current.system, assessed.current.system);
-        state.handle_reply(Reply::CurrentOverview(Box::new(changed)));
-        assert!(state.current_action_snapshot().is_some());
-        assert!(state.current_readiness().is_none());
-        assert_eq!(state.readiness.as_ref().unwrap().1, received);
-        assert!(matches!(state.overview_query(), Query::CurrentOverview));
-        assert_eq!(state.overview.as_ref().unwrap().current.products[0].details["added_frames"], 1024);
     }
 
     fn visible_form_text(shape: &egui::epaint::Shape, clip: egui::Rect,
@@ -3318,7 +3204,7 @@ mod tests {
         for retained in [false, true] {
             let ctx = result_form_context();
             let mut state = state_fixture();
-            state.overview = retained.then(|| overview_fixture().into());
+            state.overview = retained.then(overview_fixture);
             state.overview_fresh = false;
             let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(560.0, 360.0));
             let mut visible = std::collections::BTreeSet::new();
@@ -3485,9 +3371,6 @@ mod tests {
         for status in [ReadinessOutcome::Ready, ReadinessOutcome::Unknown] {
             let mut overview = overview_fixture();
             overview.readiness.overall_status = status;
-            overview.current.products.truncate(1);
-            overview.current.products[0].class_id = "exact-class".into();
-            overview.current.products[0].module_sha256 = "exact-module".into();
             overview.readiness.products = vec![crate::model::ReadinessProduct {
                 name:"Unfamiliar plug-in".into(),class_id:"exact-class".into(),module_sha256:"exact-module".into(),
                 profile:None,status,installation_health:InstallationHealth::Healthy,
@@ -3496,8 +3379,7 @@ mod tests {
             }];
             let ctx = egui::Context::default();
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-                Operator::fast_home(ui,&overview.clone().into(),Some(&overview.readiness),true,false,
-                    (&mut Page::Home,&mut false,&mut None));
+                Operator::fast_home(ui,&overview,true,false,&mut Page::Home,&mut false,&mut None);
             });
             let mut labels = vec![];
             for clipped in &output.shapes { texts(&clipped.shape,&mut labels); }
@@ -3522,7 +3404,7 @@ mod tests {
         let key = ProductKey::from(&product);
         state.library.focus_product(key);
         state.overview_fresh = true;
-        state.overview = Some(overview.clone().into());
+        state.overview = Some(overview.clone());
         let mut detailed = product;
         detailed.name = "Exact scoped detail".into();
         state.product_detail = Some(CurrentProductDetail {
@@ -3567,7 +3449,7 @@ mod tests {
         state.library.focus_product(ProductKey::from(&product));
         state.page = Page::Plugins;
         state.overview_fresh = true;
-        state.overview = Some(overview.clone().into());
+        state.overview = Some(overview.clone());
         let mut unavailable = overview.current.system.clone();
         unavailable.service = "capacity unavailable".into();
         state.origin = Some(RequestOrigin::ProductDetail);
@@ -3599,7 +3481,7 @@ mod tests {
         let mut pulse = pulse_fixture(true);
         pulse.service_state = "inactive".into();
         pulse.cleanup_unconfirmed = None;
-        operator.overview = Some(overview.clone().into());
+        operator.overview = Some(overview.clone());
         operator.overview_fresh = true;
         operator.origin = Some(RequestOrigin::BackgroundActivity);
         operator.handle_reply(Reply::Pulse(pulse.clone()));
@@ -3639,7 +3521,7 @@ mod tests {
     #[test]
     fn unchanged_pulse_recovers_stale_overview_without_resubmitting_action() {
         let mut operator=state_fixture();
-        operator.overview=Some(overview_fixture().into());
+        operator.overview=Some(overview_fixture());
         operator.overview_fresh=true;
         operator.origin=Some(RequestOrigin::BackgroundActivity);
         operator.handle_reply(Reply::Error("temporary pulse failure".into()));
@@ -3653,7 +3535,7 @@ mod tests {
     #[test]
     fn repeated_readback_errors_have_bounded_retry_and_no_action_authority() {
         let mut operator=state_fixture();
-        operator.overview=Some(overview_fixture().into());
+        operator.overview=Some(overview_fixture());
         operator.overview_fresh=true;
         for _ in 0..12 {
             operator.origin=Some(RequestOrigin::BackgroundActivity);
@@ -3668,7 +3550,7 @@ mod tests {
     #[test]
     fn successful_pulse_does_not_reset_failing_overview_backoff() {
         let mut operator=state_fixture();
-        operator.overview=Some(overview_fixture().into());
+        operator.overview=Some(overview_fixture());
         operator.overview_fresh=false;
         for expected in 1..=5 {
             operator.origin=Some(RequestOrigin::SilentPostMutationRefresh);
@@ -3708,7 +3590,7 @@ mod tests {
     #[test]
     fn unchanged_owners_with_new_cleanup_uncertainty_invalidate_overview() {
         let mut operator=state_fixture();
-        operator.overview=Some(overview_fixture().into());
+        operator.overview=Some(overview_fixture());
         operator.overview_fresh=true;
         let mut pulse=pulse_fixture(false);
         pulse.cleanup_unconfirmed=Some(true);
@@ -3962,7 +3844,7 @@ mod tests {
                 setup_scroll:true,..Default::default()};
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
                 ui.set_max_width(width-32.0);
-                Operator::fast_setup(ui,&overview.clone().into(),true,false,
+                Operator::fast_setup(ui,&overview,true,false,
                     (&mut false,&mut None,&mut false,&mut page,&mut library,&mut focus));
             });
             let mut text = Vec::new();
@@ -4028,7 +3910,7 @@ mod tests {
                     // Reserve the real application's header, health, navigation
                     // and request area. Recovery must fit a normal 800px screen.
                     ui.add_space(410.0);
-                    Operator::fast_setup(ui,&overview.clone().into(),fresh,false,
+                    Operator::fast_setup(ui,&overview,fresh,false,
                         (&mut false,&mut chosen,&mut false,&mut Page::Setup,
                             &mut crate::library::Library::default(),&mut focus));
                 });
@@ -4078,7 +3960,7 @@ mod tests {
                         pressed,modifiers:egui::Modifiers::NONE}]).unwrap_or_default();
                 let mut output=ctx.run_ui(egui::RawInput {events,..Default::default()},|ui| {
                     ui.set_max_width(width-32.0);ui.add_space(410.0);
-                    Operator::fast_setup(ui,&overview.clone().into(),true,false,(&mut false,&mut chosen,&mut false,
+                    Operator::fast_setup(ui,&overview,true,false,(&mut false,&mut chosen,&mut false,
                         &mut Page::Setup,&mut crate::library::Library::default(),&mut RouteFocus::default()));
                 });
                 if pressed.is_none() {
@@ -4810,7 +4692,7 @@ mod tests {
         ] {
             for accepted in [true, false] {
                 let mut o = state_fixture();
-                o.overview = Some(overview_fixture().into());
+                o.overview = Some(overview_fixture());
                 o.overview_fresh = true;
                 let recovery = Action::OrdinaryRollback { class_id: "ab".repeat(16),
                     publication: "cd".repeat(16) };
@@ -4882,7 +4764,7 @@ mod tests {
             let mut o = state_fixture();
             let overview = overview_fixture();
             let token = overview.current.state_token.clone();
-            o.overview = Some(overview.into());
+            o.overview = Some(overview);
             o.overview_fresh = true;
             o.pending = true;
             o.background_poll = true;
@@ -4906,7 +4788,7 @@ mod tests {
     #[test]
     fn form_drafts_survive_unavailable_authority_and_competing_import() {
         let mut o = state_fixture();
-        o.overview = Some(overview_fixture().into());
+        o.overview = Some(overview_fixture());
         let observation = Action::CandidateObserve { candidate: "ef".repeat(32),
             area: "editor".into(), status: "failed".into(), note: "Retained note".into() };
         let workspace = Action::WorkspaceSelectInstaller {
