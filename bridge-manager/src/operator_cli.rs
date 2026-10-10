@@ -4357,10 +4357,10 @@ pub(crate) mod tests {
         let (f, candidate) = preparation_cli::tests::projection_fixture();
         atomic_json(&f.m.root.join("software.json"),
             &preparation_cli::tests::projection_software(&candidate)).unwrap();
-        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
+        // Keep the same service socket across both readbacks: replacing it
+        // changes the generation even when the control-record token agrees.
+        let service = overview_service_reply_with_counts(&f.m, capacity_json(false,0,0), (2,6));
         let assessed = overview(&f.m).unwrap();
-        service.join().unwrap();
-        let service = overview_service_reply(&f.m, capacity_json(false,0,0));
         let passive = current_overview(&f.m).unwrap();
         service.join().unwrap();
         assert_eq!(passive.current.state_token, assessed.current.state_token);
