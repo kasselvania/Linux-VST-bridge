@@ -275,7 +275,7 @@ class LaunchTests(unittest.TestCase):
             with self.subTest(flags=flags):
                 runtime = self.runtime(dict(**flags, registration={'environment': {'root': '/private/environment'}}))
                 with patch.object(s, 'host_writer_credentials') as credentials, patch.object(s.subprocess, 'Popen') as spawn:
-                    runtime.spawn(['entry', '--verb=run', '--', '/verified/proton', 'runinprefix'], {})
+                    runtime.spawn(['entry', '--verb=run', '--', '/verified/proton', 'runinprefix'], {'HOME': '/preserved/home'})
                 credentials.assert_not_called()
                 self.assertIsNone(runtime.host_custody)
                 self.assertNotIn('--credential-stdout', spawn.call_args.args[0])

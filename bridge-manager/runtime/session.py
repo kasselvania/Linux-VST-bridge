@@ -1354,7 +1354,9 @@ class NativeProtonSession:
                 self.host_lines=HostWriterLines()
         except BaseException:
             child.close();self.close();raise
-        command=[str(self.client),'--socket='+str(self.endpoint),'--directory='+str(pathlib.Path(self.reg['environment']['root'])/'home'),
+        # environment()/managed_home() already preserve the installation's HOME.
+        # A retained environment need not have an onboarding private home.
+        command=[str(self.client),'--socket='+str(self.endpoint),'--directory='+env['HOME'],
             *['--pass-env='+key for key in self.FORWARD],'--forward-fd='+str(child.fileno()),'--',
             '/usr/bin/python3','-I','-c',NATIVE_COMMAND_CHILD,str(child.fileno()),self.nonce,*(['--credential-stdout'] if capture else []),'--',*cmd[3:]]
         try:

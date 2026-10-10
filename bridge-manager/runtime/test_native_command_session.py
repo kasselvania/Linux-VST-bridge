@@ -132,6 +132,34 @@ class SelectionTests(unittest.TestCase):
   with self.assertRaisesRegex(RuntimeError,'changed'):s.NativeProtonSession.selected(self.spec)
  def test_ambient_component_never_selects_execution(self):
   self.declare();self.runner['files']=[];self.assertIsNone(s.NativeProtonSession.selected(self.spec))
+ def test_native_launch_uses_the_preserved_or_owned_home_without_relocation(self):
+  self.declare();self.spec['registration']['compatibility']={'disable_windows_accessibility':False}
+  real_popen=s.subprocess.Popen
+  for onboarding in (False,True):
+   with self.subTest(onboarding=onboarding):
+    self.spec['onboarding_home']=onboarding
+    if onboarding:(self.envroot/'home').mkdir(mode=0o700)
+    with patch.object(s.subprocess,'check_output',return_value='DISPLAY=:0\n'):
+     env=s.environment(self.spec['registration'])
+    s.managed_home(self.spec,env)
+    expected=pathlib.Path(env['HOME'])
+    self.assertEqual(expected==self.envroot/'home',onboarding)
+    self.assertEqual((self.envroot/'home').exists(),onboarding)
+    n=s.NativeProtonSession.selected(self.spec);n.endpoint=self.root/'test-endpoint'
+    def launch_at_requested_directory(argv,**kwargs):
+     directory=next(a.removeprefix('--directory=') for a in argv if a.startswith('--directory='))
+     child=real_popen([sys.executable,'-I','-c','import os; print(os.getcwd())'],
+      cwd=directory,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+     stdout,stderr=child.communicate(timeout=3)
+     self.assertEqual(child.returncode,0,stderr)
+     self.assertEqual(pathlib.Path(stdout.strip()).resolve(),expected.resolve())
+     self.assertEqual(kwargs['env'],env)
+     return child
+    try:
+     with patch.object(n,'find_keeper'),patch.object(s.subprocess,'Popen',side_effect=launch_at_requested_directory):
+      n.spawn(['entry','--verb=run','--',self.runner['proton'],'runinprefix'],env)
+    finally:n.close()
+    self.assertEqual((self.envroot/'home').exists(),onboarding)
  def test_declared_component_and_each_tool_must_match(self):
   self.declare();self.assertIsNotNone(s.NativeProtonSession.selected(self.spec))
   (self.root/'runtime/pressure-vessel/bin/steam-runtime-launch-client').write_bytes(b'changed')
@@ -440,7 +468,7 @@ class SelectionTests(unittest.TestCase):
   self.declare();n=packaged.NativeProtonSession.selected(self.spec)
   with patch.object(n,'find_keeper'),patch.object(packaged.subprocess,'Popen') as launch:
    n.endpoint=self.root/'s'
-   n.spawn(['entry','--verb=run','--','/usr/bin/proton','runinprefix'],{})
+   n.spawn(['entry','--verb=run','--','/usr/bin/proton','runinprefix'],{'HOME':str(self.root)})
   n.close();command=launch.call_args.args[0]
   index=command.index('/usr/bin/python3')
   self.assertEqual(command[index+1:index+3],['-I','-c'])
