@@ -1,5 +1,5 @@
 //! Fixed manager entry point; no shell and no user-supplied executable/arguments.
-use crate::model::{Activity, CurrentProductDetail, InstallerImportResult, InteractiveOverview, Pulse, Receipt, Request, Snapshot};
+use crate::model::{Activity, CurrentOverview, CurrentProductDetail, InstallerImportResult, InteractiveOverview, Pulse, Receipt, Request, Snapshot};
 use crate::presentation::ProductKey;
 use std::{
     io::{Read, Write},
@@ -9,6 +9,7 @@ use std::{
 };
 pub enum Reply {
     Overview(Box<InteractiveOverview>),
+    CurrentOverview(Box<CurrentOverview>),
     Product(Box<CurrentProductDetail>),
     Snapshot(Box<Snapshot>),
     Activity(Activity),
@@ -21,6 +22,7 @@ pub enum Reply {
 pub enum Query {
     PickInstaller,
     Overview,
+    CurrentOverview,
     Product(ProductKey),
     Snapshot,
     Activity,
@@ -47,6 +49,7 @@ fn call(query: Query) -> Result<Reply, String> {
     let verb = match &query {
         Query::PickInstaller => "import-installer",
         Query::Overview => "overview",
+        Query::CurrentOverview => "current-overview",
         Query::Product(_) => "product",
         Query::Snapshot => "snapshot",
         Query::Activity => "activity",
@@ -147,6 +150,18 @@ fn decode_import(data: &[u8]) -> Result<Reply, String> {
 fn decode_reply(query: Query, data: &[u8]) -> Result<Reply, String> {
     let envelope: serde_json::Value =
         serde_json::from_slice(data).map_err(|_| "Invalid manager response")?;
+    if matches!(query, Query::CurrentOverview) {
+        if envelope["schema"] != 1 || envelope["operator_schema"] != crate::model::OPERATOR_SCHEMA {
+            return Err(format!("Update the frontend and manager together: operator model {} required",
+                crate::model::OPERATOR_SCHEMA));
+        }
+        let overview: CurrentOverview = serde_json::from_slice(data)
+            .map_err(|_| "Incompatible manager current overview; update the frontend and manager together")?;
+        if overview.scope != "current_only" || overview.current.schema != crate::model::OPERATOR_SCHEMA {
+            return Err("Inconsistent manager current overview; refresh before acting".into());
+        }
+        return Ok(Reply::CurrentOverview(Box::new(overview)));
+    }
     if matches!(query, Query::Overview) {
         if envelope["schema"] != 1 || envelope["operator_schema"] != crate::model::OPERATOR_SCHEMA {
             return Err(format!("Update the frontend and manager together: operator model {} required",
@@ -185,6 +200,7 @@ fn decode_reply(query: Query, data: &[u8]) -> Result<Reply, String> {
     match query {
         Query::PickInstaller => unreachable!(),
         Query::Overview => unreachable!(),
+        Query::CurrentOverview => unreachable!(),
         Query::Product(_) => unreachable!(),
         Query::Snapshot => {
             serde_json::from_slice::<Snapshot>(data).map(|s| Reply::Snapshot(Box::new(s)))
@@ -224,6 +240,27 @@ fn open_selected(path: &std::path::Path) -> Result<std::fs::File, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn current_overview_is_paired_record_readback_without_readiness() {
+        let snapshot: Snapshot = serde_json::from_str(
+            include_str!("../examples/library-preview.json")).unwrap();
+        let mut value = serde_json::to_value(CurrentOverview {
+            schema:1,operator_schema:crate::model::OPERATOR_SCHEMA,
+            scope:"current_only".into(),current_generation:"exact-generation".into(),
+            current:snapshot,
+        }).unwrap();
+        assert!(matches!(decode_reply(Query::CurrentOverview, &serde_json::to_vec(&value).unwrap()),
+            Ok(Reply::CurrentOverview(_))));
+        assert!(decode_reply(Query::Overview, &serde_json::to_vec(&value).unwrap()).is_err());
+        value["readiness"] = serde_json::json!({"observed_at":1});
+        assert!(decode_reply(Query::CurrentOverview, &serde_json::to_vec(&value).unwrap()).is_err());
+        value.as_object_mut().unwrap().remove("readiness");
+        value["operator_schema"] = (crate::model::OPERATOR_SCHEMA - 1).into();
+        assert!(decode_reply(Query::CurrentOverview, &serde_json::to_vec(&value).unwrap()).is_err());
+        value["operator_schema"] = crate::model::OPERATOR_SCHEMA.into();
+        value["scope"] = "history".into();
+        assert!(decode_reply(Query::CurrentOverview, &serde_json::to_vec(&value).unwrap()).is_err());
+    }
     #[test]
     fn selected_product_readback_requires_exact_paired_identity() {
         let snapshot: Snapshot = serde_json::from_str(

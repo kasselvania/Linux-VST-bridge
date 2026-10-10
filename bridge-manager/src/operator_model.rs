@@ -499,6 +499,25 @@ pub struct InteractiveOverview {
     pub current: Snapshot,
     pub readiness: ReadinessAssessment,
 }
+/// Current owned-record readback without a platform assessment. Passive UI
+/// refreshes renew action offers through this endpoint, without launching
+/// desktop/audio capability probes or renewing previous readiness facts.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CurrentOverview {
+    pub schema: u32,
+    pub operator_schema: u32,
+    pub scope: String,
+    pub current_generation: String,
+    pub current: Snapshot,
+}
+impl From<InteractiveOverview> for CurrentOverview {
+    fn from(value: InteractiveOverview) -> Self {
+        Self { schema:value.schema, operator_schema:value.operator_schema,
+            scope:value.scope, current_generation:value.current_generation,
+            current:value.current }
+    }
+}
 /// One current product with its exact manager-offered compatibility controls.
 /// Deep histories for unrelated products remain in the Diagnostics snapshot.
 #[derive(Clone, Debug, Serialize, Deserialize)]
