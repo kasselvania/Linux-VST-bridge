@@ -1102,6 +1102,7 @@ to both pre-update baseline phrases. Subsequent same-process manager-closed and
 manager-open captures each match the 762,000-frame baseline phrase exactly.
 The observed gap remains in [#90](https://github.com/kasselvania/Linux-VST-bridge/issues/90);
 neither the product-path attribution nor a Library/update cause is established.
+[Scoped Reference comparison](../evidence/reference-runtime-deck.json).
 
 Test28 Ubuntu VM settings checks retain two overruns against a 21.333 ms callback
 deadline: 70.469146 ms on the sibling during trial Apply and 25.700938 ms on the
@@ -3002,7 +3003,7 @@ Demo save/load is disabled and DAW close refuses MOTIONS preset saving, expected
 unowned demo-only proof. Owned Efx FRAGMENTS activates normally through ASC and recalls
 its changed preset and checked controls in a fresh Bitwig process on the retained Steam Proton 11
 runner with Windows accessibility disabled; both editor lifetimes and host/transport retirements pass.
-Test37 Update preserves that saved FRAGMENTS preset/control recall, full editor,
+Test37 and Test38 updates preserve that saved FRAGMENTS preset/control recall, full editor,
 finite playback and clean DSP retirement on the same retained runner, without activation actions.
 Prepare a vendor-state restore path and obtain operator approval before changing
 the licensed environment's runtime. [Scoped result](../evidence/fragments-deck.json).

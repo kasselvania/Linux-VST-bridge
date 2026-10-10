@@ -1,0 +1,237 @@
+{
+  "schema": 1,
+  "platform": "Steam Deck",
+  "daw": "Bitwig",
+  "environment": {
+    "id": "9061ebaab602510b81601abcb2c6e65d",
+    "same_root": true,
+    "from_revision": 1,
+    "from_runner": "managed-ge-proton11-7-slr4-20260805-r4",
+    "outbound_revision": 2,
+    "outbound_runner": "proton-11.0-2c-25118279-slr4-4.0.20260805.254769",
+    "disable_windows_accessibility": false
+  },
+  "classes": [
+    {
+      "class_id": "4C564242455441314546465800000001",
+      "module_sha256": "865005b65f0c33de2b732108e9153295c82db23b7c5842e392484483ed20aee6",
+      "fresh_compatibility_and_explicit_publication": true
+    },
+    {
+      "class_id": "4C56424245544131494E535400000001",
+      "module_sha256": "8fa7b83b6b6878d40a1c312d6e0f3d984a4e4dc95e9e8116e1e8f15919a69bc3",
+      "fresh_compatibility_and_explicit_publication": true
+    }
+  ],
+  "projects": {
+    "original": {
+      "bytes": 41118,
+      "sha256": "51eb14b7074748e5ddd579eccafb5c99ab868951f73d79f7a366d53e3eb43eb8"
+    },
+    "runtime_selected_save_as": {
+      "bytes": 40849,
+      "sha256": "3f7bddab6b97fdf568e5319a2e511b1f1de377f68158b9d0f5942542041b69cf"
+    },
+    "four_controls_recalled_in_both_fresh_processes": true
+  },
+  "capture_format": {
+    "frames": 1920000,
+    "sample_rate": 48000,
+    "channels": 2,
+    "seconds": 40,
+    "nonfinite_samples": 0,
+    "recorder_exit": 1,
+    "original_outputs_preserved_after": true
+  },
+  "phrase_alignment": "Only leading and trailing digital-zero frames removed; no interior trimming.",
+  "captures": [
+    {
+      "phase": "baseline",
+      "nonzero_samples": 1151938,
+      "phrase_frames": 762000,
+      "phrase_sha256": "72a50c844b0833781d685bf94e12413526e2e658ba67b9d5d205303f0175cb5b"
+    },
+    {
+      "phase": "baseline-reopen",
+      "nonzero_samples": 1151938,
+      "phrase_frames": 762000,
+      "phrase_sha256": "72a50c844b0833781d685bf94e12413526e2e658ba67b9d5d205303f0175cb5b",
+      "baseline_byte_exact": true
+    },
+    {
+      "phase": "updated-reopen",
+      "nonzero_samples": 1150914,
+      "phrase_frames": 761488,
+      "phrase_sha256": "25c923c9b8db3a058d589467a400b06432c8a08e615b27473481fe1a9f027a1d",
+      "baseline_byte_exact": false,
+      "missing_phrase_frames": 512,
+      "first_different_phrase_frame": 531967,
+      "exact_single_deletion": true
+    },
+    {
+      "phase": "updated-manager-closed",
+      "nonzero_samples": 1151938,
+      "phrase_frames": 762000,
+      "phrase_sha256": "72a50c844b0833781d685bf94e12413526e2e658ba67b9d5d205303f0175cb5b",
+      "baseline_byte_exact": true
+    },
+    {
+      "phase": "updated-manager-open",
+      "nonzero_samples": 1151938,
+      "phrase_frames": 762000,
+      "phrase_sha256": "72a50c844b0833781d685bf94e12413526e2e658ba67b9d5d205303f0175cb5b",
+      "baseline_byte_exact": true
+    },
+    {
+      "phase": "runtime-selected",
+      "nonzero_samples": 1151938,
+      "phrase_frames": 762000,
+      "phrase_sha256": "72a50c844b0833781d685bf94e12413526e2e658ba67b9d5d205303f0175cb5b",
+      "baseline_byte_exact": true
+    },
+    {
+      "phase": "runtime-selected-reopen",
+      "nonzero_samples": 1151938,
+      "phrase_frames": 762000,
+      "phrase_sha256": "72a50c844b0833781d685bf94e12413526e2e658ba67b9d5d205303f0175cb5b",
+      "baseline_byte_exact": true
+    }
+  ],
+  "outbound_retirement": {
+    "dsp_instances": 4,
+    "transport_retired": true,
+    "errors": 0,
+    "shared_keepers": 1,
+    "cleanup_confirmed": true
+  },
+  "outbound_preservation": {
+    "other_registration_identities": 13,
+    "preferences": 5,
+    "protected_project_hashes": 4,
+    "selected_software_unchanged": true,
+    "service": "active",
+    "leases_after_publication": 0
+  },
+  "audio_gap": {
+    "missing_frames": 512,
+    "sample_rate": 48000,
+    "tracking_issue": 90,
+    "product_path_attribution": "unestablished"
+  },
+  "test37_software": {
+    "version": "0.12.0test37",
+    "source_head": "0b4ac5223de108484fb12b9403d9d26416b3282d",
+    "native_engine_sha256": "37f9b6136e1f87b455ebdcfd8f908a5c98e67bd28b7d63761028d2800ea9b448",
+    "windows_host_sha256": "a1299408a1a9df870b2ff1569a8c51aba38e5ef40448984c9a96a286d00a372e"
+  },
+  "return_publication": {
+    "software": "Test38",
+    "source_head": "18e644f252170e1c0e93e5e12bbf5a6e7a783e87",
+    "native_engine_sha256": "abca969ce8b68bb7421479ce540c0e57f5f908f0346f1906d792e906c90248f8",
+    "same_environment_id_and_root": true,
+    "environment_revision": 3,
+    "runner": "managed-ge-proton11-7-slr4-20260805-r4",
+    "classes_freshly_checked_and_published": 2,
+    "other_registration_identities_preserved": 13,
+    "preferences_preserved": 5,
+    "project_hashes_preserved": 5,
+    "selected_software_unchanged": true,
+    "candidates": {
+      "before": 321,
+      "after": 323,
+      "all_prior_hashes_preserved": true
+    },
+    "lineage": {
+      "before": 321,
+      "after": 323,
+      "all_prior_hashes_preserved": true
+    },
+    "service": "active",
+    "leases": 0
+  },
+  "return_recall": {
+    "original_and_save_as_four_controls_recalled": true,
+    "captures": [
+      {
+        "phase": "runtime-returned-reopen",
+        "nonzero_samples": 1151938,
+        "phrase_frames": 762000,
+        "phrase_sha256": "72a50c844b0833781d685bf94e12413526e2e658ba67b9d5d205303f0175cb5b",
+        "baseline_byte_exact": true
+      },
+      {
+        "phase": "runtime-returned-saved-reopen",
+        "nonzero_samples": 1151938,
+        "phrase_frames": 762000,
+        "phrase_sha256": "72a50c844b0833781d685bf94e12413526e2e658ba67b9d5d205303f0175cb5b",
+        "baseline_byte_exact": true
+      }
+    ],
+    "dsp_instances": 4,
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "errors": 0,
+    "shared_keeper_cleanup_confirmed": true
+  },
+  "private_reference_file_restore": {
+    "helper_sha256": "a814329adc2249df2f474bda7b80a32482cfb273ef49f3ad5ce1f31cf8e248af",
+    "mutable_trees": 8,
+    "checkpoint_entries": 10957,
+    "checkpoint_logical_bytes": 923480563,
+    "marker_changed_then_restored": true,
+    "current_authority_hashes_preserved": 7,
+    "environment_revision_preserved": 3,
+    "preferences_preserved": 5,
+    "project_hashes_preserved": 5,
+    "selected_software_and_history_unchanged": true,
+    "service": "active",
+    "leases_before_rescan": 0,
+    "registration_identities_preserved": 15,
+    "complete_environment_record_unchanged": true,
+    "post_restore_inspections": {
+      "classes": 2,
+      "report_hashes_verified": true,
+      "cleanup_confirmed": true,
+      "transport_retired": true,
+      "publication_changed": false,
+      "revision_3_publications_retained": true,
+      "leases_after_inspections": 0
+    }
+  },
+  "post_restore_recall": {
+    "original_and_save_as_four_controls_recalled": true,
+    "captures": [
+      {
+        "phase": "runtime-restored-original-reopen",
+        "nonzero_samples": 1151938,
+        "phrase_frames": 762000,
+        "phrase_sha256": "72a50c844b0833781d685bf94e12413526e2e658ba67b9d5d205303f0175cb5b",
+        "baseline_byte_exact": true
+      },
+      {
+        "phase": "runtime-restored-saved-reopen",
+        "nonzero_samples": 1151938,
+        "phrase_frames": 762000,
+        "phrase_sha256": "72a50c844b0833781d685bf94e12413526e2e658ba67b9d5d205303f0175cb5b",
+        "baseline_byte_exact": true
+      }
+    ],
+    "dsp_instances": 4,
+    "cleanup_confirmed": true,
+    "transport_retired": true,
+    "errors": 0,
+    "distinct_keepers": 2,
+    "keeper_cleanup_confirmed": true,
+    "final_preservation": {
+      "all_registration_identities_unchanged_since_restored_inspection": 15,
+      "other_registration_identities_unchanged_across_runtime_trial": 13,
+      "preferences": 5,
+      "protected_project_hashes": 5,
+      "selected_software_unchanged": true,
+      "candidates": 323,
+      "lineage_records": 323,
+      "service": "active",
+      "leases": 0
+    }
+  }
+}

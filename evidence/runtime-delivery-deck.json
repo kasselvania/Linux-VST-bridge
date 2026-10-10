@@ -1,5 +1,5 @@
 {
-  "scope": "Test35 runtime acquisition/update; Test36 GUI update/publication and Bitwig r4 editor lifecycle/finite audio; Test37 populated GUI update; Steam Deck Desktop Mode, 2026-10-09.",
+  "scope": "Test35 runtime acquisition/update; Test36 GUI update/publication and Bitwig r4 editor lifecycle/finite audio; Test37/Test38 populated GUI updates; Steam Deck Desktop Mode, 2026-10-09.",
   "platform": "SteamOS 3.8.16",
   "test35_source_head": "d5bcf4f95e6afd1e8104726b43ae43cb10083236",
   "software_update": {
@@ -122,6 +122,39 @@
       "pending_package_transition": false,
       "fresh_selected_manager_launch": "Bridge ready",
       "automatic_gui_handoff_qualified": false
+    }
+  },
+  "test38": {
+    "source_head": "18e644f252170e1c0e93e5e12bbf5a6e7a783e87",
+    "manager_sha256": "e2f4a7f0fb10c235c3d623041395e06357039dd94824b442a8edd4ee20beafcb",
+    "software_update": {
+      "action_attempts": 1,
+      "initial_lock_busy": false,
+      "selected": "Test38",
+      "exact_predecessor": "Test37",
+      "identities_preserved": 15,
+      "preferences_preserved": 5,
+      "project_hashes_preserved": 5,
+      "candidates": {
+        "original": 306,
+        "after": 321,
+        "all_original_hashes_preserved": true
+      },
+      "lineage": {
+        "original": 306,
+        "after": 321,
+        "all_original_hashes_preserved": true
+      },
+      "service": "active",
+      "leases": 0,
+      "pending_package_transition": false,
+      "automatic_selected_gui_handoff": {
+        "bridge_ready": true,
+        "parent_exit": 0,
+        "selected_child_survived": true,
+        "owned_launcher_exit_type": "cgroup",
+        "first_ready_observation_upper_seconds": 197
+      }
     }
   }
 }

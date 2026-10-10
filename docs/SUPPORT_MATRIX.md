@@ -556,7 +556,13 @@ candidate/lineage hashes; histories reach 304 each, service active, zero leases 
 pending package transition. The updater completes in about three and a half minutes. A separate initial
 Bootstrap `LockBusy` readback clears with one **Check again** before Update
 ([#239](https://github.com/kasselvania/Linux-VST-bridge/issues/239)); Update needs no action retry.
-The selected manager launches normally; automatic GUI handoff remains unqualified.
+The selected manager launches normally; that run's automatic GUI handoff remains unqualified.
+Test38's next ordinary Update succeeds on one action without an initial readback refusal.
+It retains exact Test37, all fifteen identities, five preferences, five project hashes
+and all 306 prior candidate/lineage hashes; histories reach 321 each. The selected GUI
+automatically reaches Bridge ready with the owned cgroup launcher: the updater exits
+successfully and its selected child survives. Service is active, with zero leases and
+no pending package transition.
 [Scoped update result](../evidence/runtime-delivery-deck.json).
 
 Owned Efx FRAGMENTS activates through normal ASC controls in its retained environment
@@ -572,7 +578,28 @@ After Test37 Update, a fresh Bitwig process reopens the protected FRAGMENTS proj
 with the same preset/three controls and full editor, without activation actions or a
 demo/licence prompt. Its 1,920,000-frame stereo/48-kHz capture is finite and nonzero;
 both DSP instances and the FRAGMENTS editor retire cleanly. All four project hashes remain exact.
+Test38 repeats this fresh reopen on its updated native proxies with the same saved
+preset/controls, full editor and a finite nonzero 1,920,000-frame capture, without activation actions.
+Both DSP instances and the keeper retire cleanly; the FRAGMENTS editor closes through normal DAW quit.
+All five protected project hashes remain exact. The recorder exits 1 despite the exact frame count.
 [Scoped FRAGMENTS result](../evidence/fragments-deck.json).
+
+Disposable Deck Reference completes normal r4→Steam Proton 11→r4 selection at
+revisions 1→2→3, retaining its environment ID/root and freshly checking/publishing
+both classes. The original and normal Save As projects reopen in fresh Bitwig
+processes under both selected runners and after private filesystem restore, with all
+four controls recalled and the 762,000-frame baseline phrase byte-exact after trimming
+only outer digital zeros.
+All six runtime/restore captures contain 1,920,000 finite stereo/48-kHz frames; the twelve
+DSP instances and four distinct keepers retire cleanly. Recorders exit 1 despite the
+exact requested frame count.
+The other thirteen identities, five preferences and five project hashes remain exact.
+A private Reference-only copy restores eight mutable trees and a changed test marker
+without rewinding the current revision-3 authority. Fresh discovery and both inspections
+pass afterward, retaining the matching exact publications.
+The initial Test37 post-update capture loses 512 phrase frames; later manager-closed/open
+phrases match baseline exactly, while [#90](https://github.com/kasselvania/Linux-VST-bridge/issues/90) remains open.
+[Scoped Reference result](../evidence/reference-runtime-deck.json).
 
 These are exact-fixture claims, not universal vendor support. The 2026-09-23 fleet readback predates both the merged host-retention repair [#149](https://github.com/kasselvania/Linux-VST-bridge/pull/149) and Serum's installed candidate D; its older `needs_attention` and candidate-B fields are **historical**, not silently treated as current. The [candidate-D physical receipt](../evidence/serum-x11-touch-routing/candidate-d-physical.json) includes a current six-publication manager readback for this experiment, not a new six-product physical campaign.
 
