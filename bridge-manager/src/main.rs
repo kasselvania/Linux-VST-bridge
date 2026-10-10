@@ -2191,6 +2191,9 @@ fn main() -> Result<()> {
         return audio_scheduling::run();
     }
     let m = Manager::installed()?;
+    if matches!(args.first().map(String::as_str), Some("operator" | "import-installer")) {
+        package_authority::require_current_frontend_caller(&m)?;
+    }
     match args.first().map(String::as_str){
   Some("setup") if args.len()==2=>setup(&m,Some(Path::new(&args[1]))),
   Some("package-adopt") if args.len()==1=>package_authority::adopt(&m),

@@ -17,6 +17,7 @@ pub enum Reply {
     Receipt(Receipt),
     Imported(InstallerImportResult),
     Cancelled,
+    FrontendSuperseded,
     Error(String),
 }
 pub enum Query {
@@ -119,7 +120,13 @@ fn call(query: Query) -> Result<Reply, String> {
     let (data, overflow, read) = out.join().map_err(|_| "Manager reader failed")?;
     let (error, _, _) = err.join().map_err(|_| "Manager error reader failed")?;
     if !status.success() {
-        return Err(String::from_utf8_lossy(&error).chars().take(512).collect());
+        let error = String::from_utf8_lossy(&error);
+        let refusal = error.trim().strip_prefix("Error: ").unwrap_or(error.trim())
+            .trim_matches('"');
+        if refusal.starts_with("operator_frontend_superseded: ") {
+            return Ok(Reply::FrontendSuperseded);
+        }
+        return Err(error.chars().take(512).collect());
     }
     if overflow || !read {
         return Err("Manager response exceeded its bound".into());
