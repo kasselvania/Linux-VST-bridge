@@ -2803,6 +2803,11 @@ refreshing, preserving fifteen registration identities, five preferences, four p
 hashes and all 289 prior candidate/lineage hashes. The updater completes in about three
 and a half minutes; no latency improvement is established. [Scoped result](../evidence/runtime-delivery-deck.json).
 
+Test43's ordinary Restore previous setup refuses admission with `LockBusy` twice;
+a third attempt with a bounded flock trace completes and preserves protected data.
+That successful trace does not establish the earlier contention's cause. Recurring
+Restore admission contention remains open; the lifecycle repair does not close it.
+
 Test 12 (2026-10-06), the first package after Test 10 to carry a different
 Windows host, was signed, staged on the Deck through the signed package API and
 then refused by `package-update` with `catalogue_schema_or_bound` after eight
