@@ -99,7 +99,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-STATE-003](#fc-state-003--saved-project-reopens-with-default-state) | Saved project reopens with default state | Native component state restore | causal | Processing restore correction installed in Test26 | Ubuntu 26.04.1 / REAPER 7.82 Reference instrument/effect recall | resolved for this tested case | Broader plug-in and DAW recall qualification |
 | [FC-PLAT-002](#fc-plat-002--delivered-runtime-lifetime-lock-cannot-be-opened) | Delivered runtime permissions conflict with upstream | Runtime extraction/pressure-vessel | causal | installed | Ubuntu -r3 acquired, installed and discovered trial; native publication completed | resolved at delivered runtime use | DAW usability remains open |
 | [FC-MGMT-003](#fc-mgmt-003--whole-runtime-hashing-blocks-bounded-setup-admission) | Whole-runtime hashing blocks setup admission | Runtime integrity/status projection | causal | deployed | Ubuntu internal26 idle-service cold load/editor/audio captured; 72.440-second startup | unqualified | Shorten startup without weakening verification; inspect-to-DAW keeper transition |
-| [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process policy installed; corrected r4 installed | Ubuntu FRAGMENTS/Deck Analog Lab policy lifecycle; Deck FRAGMENTS retained-policy recall/retirement; Deck MOTIONS r4 Windows-default editor lifecycle | review candidate; old policy disables Windows screen readers | Restore preparation and approval before licensed runtime transition |
+| [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process policy installed; corrected r4 installed | Ubuntu FRAGMENTS/Deck Analog Lab policy lifecycle; Deck FRAGMENTS retained-policy recall/retirement; Deck MOTIONS r4 Windows-default editor lifecycle; Test41 owned FRAGMENTS/Analog Lab r4 default editor lifecycle | review candidate; old policy disables Windows screen readers | Broader audio/accessibility qualification and manager recovery |
 | [FC-UI-010](#fc-ui-010--result-form-footer-cannot-be-reached-on-deck) | Result form initially hides actions | Manager dialog / Deck viewport | initially hidden footer; scrolling reproduced | installed in Test33 | Fields scroll while actions remain visible; four fresh checks submitted normally | resolved on the tested Deck form | Preserve viewport/click regression coverage |
 | [FC-UI-011](#fc-ui-011--native-editor-remains-blank-in-reaper) | Native editor remains blank in REAPER | Native IPlugView/controller admission | suspected attachment gap; exact guard unproved | none | Deck REAPER 7.82 / Test36 MOTIONS | open | Establish parent/frame refusal; preserve Bitwig lifecycle |
 | [FC-MGMT-007](#fc-mgmt-007--retained-proposal-displaces-selected-configuration) | Retained proposal displaces selected configuration | Manager guided projection and frontend action ownership | causal | installed-fixed on reference fixture | Ubuntu config7 full effect/instrument workflow and GUI restoration | reference configuration regression passed; musician workflow unqualified | Physical DAW integration and endurance |
@@ -854,6 +854,11 @@ mapping. An independent census observes one matching live Windows render thread;
 normal process and transport retirement are confirmed. Unsupported kernel custody
 capabilities refuse explicitly. This does not establish cross-distro coverage or
 attribute the earlier missing audio block.
+
+Test40's first managed-runtime reopen fails before native binding because its legacy
+working directory is absent. Test41 uses the existing launch HOME and the same original
+project loads both devices. Normal kernel recovery retains the unsuccessful first session
+and original files; the later successful replay has ordinary clean retirement.
 
 ### Shared boundary
 
@@ -2988,7 +2993,7 @@ and removal. The normal local Windows accessibility-off trial passes editor clos
 vendor-keyboard audio, save/new-process parameter recall and both normal retirements.
 Test33 adds DAW MIDI and automation playback before and after saved-project reopen,
 with both hosts retiring cleanly; the explicit accessibility-off limitation remains.
-Windows screen-reader support is unavailable for this plug-in's Windows processes. [Scoped result](../evidence/analog-lab-deck.json).
+Windows screen-reader support is unavailable in that older-runner accessibility-off fixture. [Scoped result](../evidence/analog-lab-deck.json).
 
 Reviewed r4 delivers the corrected x64 DLL with complete Wine source, recipe, tests and notices.
 Test35's ordinary Deck Setup acquired its three pinned downloads; DLL, seven component artifacts
@@ -3005,8 +3010,14 @@ its changed preset and checked controls in a fresh Bitwig process on the retaine
 runner with Windows accessibility disabled; both editor lifetimes and host/transport retirements pass.
 Test37 and Test38 updates preserve that saved FRAGMENTS preset/control recall, full editor,
 finite playback and clean DSP retirement on the same retained runner, without activation actions.
-Prepare a vendor-state restore path and obtain operator approval before changing
-the licensed environment's runtime. [Scoped result](../evidence/fragments-deck.json).
+An approved private recovery copy is retained on Deck. Ordinary runtime selection now
+advances that same licensed environment to revision 2/r4; Test41 original-project recall,
+both full editors, finite playback and normal retirement pass with accessibility off.
+The separate ordinary Windows-default trial opens, closes and reopens both full editors
+on the same live hosts without the old UIA failure; both DSP retirements complete cleanly.
+A new Save As project recalls Macro 1 = 0.3002 in a fresh process under those defaults.
+Screen-reader software itself remains untested; the older failing fixtures remain recorded.
+[Scoped result](../evidence/fragments-deck.json).
 [Construction](RUNTIME_UIA_GUARD.md), [acquisition and publication](../evidence/runtime-delivery-deck.json).
 
 ### User posture and next gate
@@ -3233,6 +3244,14 @@ supplies forced lock contention. One separate normal action restores the origina
 Two precise read-only freshness retries occur; that defect remains open.
 Bounded ordinary read handling is tracked in
 [#239](https://github.com/kasselvania/Linux-VST-bridge/issues/239).
+
+Test40 keeps status height stable at the actual width; press/release regressions cover
+560/960/1280 pixels and stale-action refusal. Native Deck navigation passes both directions;
+XTest clicks and delayed readback remain intermittent, so #239 stays open.
+The updater now retains owned stale publications unchanged and visibly needing a fresh check,
+so the manager can update after a runtime change. That fresh same-content/class check carries
+only retained launch-policy intent; Pigments preserves all three policies on r4.
+Retaining predecessor software does not demonstrate older-manager restoration (#242).
 
 Test36 repairs the same fail-fast gap in ordinary publication's admission and commit locks.
 With two current frontends refreshing, both contended locks acquire (13/34 attempts,

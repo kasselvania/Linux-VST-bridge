@@ -1,5 +1,5 @@
 {
-  "scope": "Test35 runtime acquisition/update; Test36 GUI update/publication and Bitwig r4 editor lifecycle/finite audio; Test37/Test38 populated GUI updates; Steam Deck Desktop Mode, 2026-10-09.",
+  "scope": "Test35 runtime acquisition/update; Test36 GUI update/publication and Bitwig r4 editor lifecycle/finite audio; Test37/Test38/Test40/Test41 populated GUI updates and Test39 safe refusal; Steam Deck Desktop Mode, 2026-10-10.",
   "platform": "SteamOS 3.8.16",
   "test35_source_head": "d5bcf4f95e6afd1e8104726b43ae43cb10083236",
   "software_update": {
@@ -156,5 +156,79 @@
         "first_ready_observation_upper_seconds": 197
       }
     }
+  },
+  "test39": {
+    "source_head": "2c01c00e58e9187edb88f7f248eeadeeeec0e23e",
+    "software_update": {
+      "action_attempts": 1,
+      "error": "preparation_environment_changed",
+      "selected_software_unchanged": true,
+      "registration_identities_unchanged": 15,
+      "preferences_unchanged": 5,
+      "protected_project_hashes_unchanged": 5,
+      "prior_candidate_and_lineage_hashes_unchanged": 323,
+      "pending_package_transition": false,
+      "final_leases": 0
+    }
+  },
+  "test40": {
+    "source_head": "23521e06147663f3da3bc26f5e9c660654467b0b",
+    "manager_sha256": "084dbd7a4d4363931a564e929e0f0dcc5c8856ca10d05c3b813279dd7bfcb9e9",
+    "software_update": {
+      "action_attempts": 1,
+      "selected": "Test40",
+      "exact_predecessor": "Test38",
+      "registration_identity_projections_preserved": 15,
+      "current_registrations_refreshed": 14,
+      "stale_publications_preserved_exactly": 1,
+      "stale_publication_name": "Pigments",
+      "stale_publication_requires_fresh_check": true,
+      "environment_revision_preserved": 2,
+      "runner_id": "managed-ge-proton11-7-slr4-20260805-r4",
+      "preferences_preserved": 5,
+      "original_project_hashes_preserved": 5,
+      "candidates": {
+        "original": 327,
+        "after": 341,
+        "all_original_hashes_preserved": true
+      },
+      "lineage": {
+        "original": 327,
+        "after": 341,
+        "all_original_hashes_preserved": true
+      },
+      "service": "active",
+      "leases": 0,
+      "pending_package_transition": false,
+      "automatic_selected_gui_handoff_bridge_ready": true
+    },
+    "navigation": {
+      "status_transition_target_geometry_stable": true,
+      "native_mouse_opposite_direction_actions_completed": 2,
+      "synthetic_xtest_actions": {
+        "completed": 1,
+        "no_op": 1
+      },
+      "synthetic_xtest_reliability_qualified": false
+    }
+  },
+  "test41_update": {
+    "version": "0.12.0test41",
+    "normal_update_actions": 1,
+    "source_head": "3328193a61704ac19607586632cf9cb267598fea",
+    "identity_records_preserved": 15,
+    "preferences_preserved": 5,
+    "protected_projects_preserved": 5,
+    "fresh_current_preparations": 15,
+    "history_before": 343,
+    "history_after": 358,
+    "all_prior_history_hashes_preserved": true,
+    "environment_revision_preserved": 2,
+    "four_class_configurations_preserved": true,
+    "selected_artifact_hashes_verified": 6,
+    "service_active": true,
+    "final_leases": 0,
+    "pending_package_transition": false,
+    "normal_frontend_handoff": true
   }
 }
