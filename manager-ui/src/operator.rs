@@ -447,7 +447,7 @@ fn pulse_system_changed(pulse: &crate::model::Pulse, system: &System) -> bool {
 pub struct Operator {
     snapshot: Option<Snapshot>,
     overview: Option<CurrentOverview>,
-    readiness: Option<(ReadinessAssessment, Instant)>,
+    readiness: Option<(ReadinessAssessment, Instant, String)>,
     product_detail: Option<CurrentProductDetail>,
     product_attempted: Option<ProductKey>,
     overview_fresh: bool,
@@ -571,7 +571,7 @@ impl Operator {
             // Preview the current-only product view before deep compatibility readback.
             preview.snapshot = None;
         }
-        preview.readiness = Some((readiness, Instant::now()));
+        preview.readiness = Some((readiness, Instant::now(), "preview".into()));
         preview.overview = Some(CurrentOverview {
             schema: 1, operator_schema: crate::model::OPERATOR_SCHEMA,
             scope: "current_only".into(), current_generation: "preview".into(),
@@ -738,8 +738,9 @@ impl Operator {
     }
     fn current_readiness(&self) -> Option<&ReadinessAssessment> {
         let overview = self.overview.as_ref().filter(|_| self.overview_fresh)?;
-        let (assessment, received) = self.readiness.as_ref()?;
+        let (assessment, received, generation) = self.readiness.as_ref()?;
         (received.elapsed() < Duration::from_secs(60)
+            && *generation == overview.current_generation
             && assessment.state_token == overview.current.state_token
             && assessment.system == overview.current.system).then_some(assessment)
     }
@@ -865,7 +866,8 @@ impl Operator {
         self.action_inflight = false;
         match reply {
             Reply::Overview(bundle) => {
-                self.readiness = Some((bundle.readiness.clone(), Instant::now()));
+                self.readiness = Some((bundle.readiness.clone(), Instant::now(),
+                    bundle.current_generation.clone()));
                 self.apply_current_overview((*bundle).into());
             }
             Reply::CurrentOverview(bundle) => self.apply_current_overview(*bundle),
@@ -2290,7 +2292,7 @@ impl eframe::App for Operator {
                         match self.page {
                             Page::Home => {
                                 Self::fast_home(ui, overview, self.readiness.as_ref()
-                                    .filter(|_| readiness_fresh).map(|(assessment, _)| assessment), self.overview_fresh,
+                                    .filter(|_| readiness_fresh).map(|(assessment, _, _)| assessment), self.overview_fresh,
                                     controls_pending, (&mut self.page, &mut refresh, &mut chosen));
                                 return;
                             }
@@ -3277,6 +3279,25 @@ mod tests {
         state.feedback = None;
         state.pending_import_route = Some(("exact-installer".into(), true, "Installer".into()));
         assert!(matches!(state.overview_query(), Query::Overview));
+    }
+    #[test]
+    fn changed_performance_generation_cannot_reuse_readiness_with_the_same_token_and_system() {
+        let mut state = state_fixture();
+        let assessed = overview_fixture();
+        state.handle_reply(Reply::Overview(Box::new(assessed.clone())));
+        assert!(state.current_readiness().is_some());
+        let received = state.readiness.as_ref().unwrap().1;
+        let mut changed: CurrentOverview = assessed.clone().into();
+        changed.current_generation = "new-performance-generation".into();
+        changed.current.products[0].details["added_frames"] = serde_json::json!(1024);
+        assert_eq!(changed.current.state_token, assessed.current.state_token);
+        assert_eq!(changed.current.system, assessed.current.system);
+        state.handle_reply(Reply::CurrentOverview(Box::new(changed)));
+        assert!(state.current_action_snapshot().is_some());
+        assert!(state.current_readiness().is_none());
+        assert_eq!(state.readiness.as_ref().unwrap().1, received);
+        assert!(matches!(state.overview_query(), Query::CurrentOverview));
+        assert_eq!(state.overview.as_ref().unwrap().current.products[0].details["added_frames"], 1024);
     }
 
     fn visible_form_text(shape: &egui::epaint::Shape, clip: egui::Rect,
