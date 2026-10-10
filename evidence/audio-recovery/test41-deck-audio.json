@@ -132,6 +132,7 @@
     "recorder_errors": 0,
     "original_output_links_preserved": 2,
     "complete_native_lifetimes": 5,
+    "native_lifetime_totals_include_pre_and_post_capture": true,
     "native_blocks": 205247,
     "native_frames": 101614336,
     "native_declared_priming_frames": 2560,

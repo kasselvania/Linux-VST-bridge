@@ -13,8 +13,8 @@ Save As, changed-control/retained-automation recall; all 110 protected files sta
 
 ## Current result and best explanation
 
-Manager probes contributed to an audio burst; captured graph misses also
-occur before plug-in entry.
+Manager background probes are the best explanation for a contributing burst;
+captured graph misses also occur before plug-in entry.
 Test43 ordinary Update retains the old window but refuses obsolete readiness
 work and opens the selected current manager. Compatible pause/reopen passes;
 draft/accepted-operation retention has source regression coverage.
