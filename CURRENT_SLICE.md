@@ -7,7 +7,7 @@ reopen and supported reconfiguration; preserve projects and licensing custody.
 
 ## Completed musician results
 
-Test41's Arturia runtime/update/launcher repairs remain installed and accepted
+The Arturia runtime/update/launcher repairs remain installed and accepted
 for the recorded FRAGMENTS/Analog Lab editor, playback and changed-state recall.
 Supported Test29→Test28 Restore now passes on the disposable Ubuntu fixture after
 shared-environment changes: REAPER playback, Save As, changed-control and retained
@@ -15,24 +15,25 @@ automation recall. All 110 protected files stay exact.
 
 ## Current audio result and best explanation
 
-Test41/r4 Pure LoFi at 48 kHz/Buffered 512, full editor and Moonlight passes one
-600-second baseline: no later 512-frame silence spans, graph ERR+0. The changed
-private project then fails with process-call diagnostics off and on; short whole
-calls do not explain the gaps. Native-only Test Tone also fails after an audio
-session reset. A temporary RR5 device callback clears one 300-second native
-control, but Pure LoFi still loses 512 frames in 300 seconds. No dependable
-workaround is established. Best explanation: a shared host/DAW audio-graph
-scheduling disturbance; its exact owner is unproved. Nine original projects,
-fifteen registrations, five preferences and selected software remain exact.
+Scheduler capture establishes a shared graph miss before a late device callback;
+another miss occurs after an on-time wake and short plug-in call. Manager
+background readiness probes are the best explanation for a contributing burst.
+With the same older GUI paused in both arms and one current GUI active, Test41
+loses 1,024 frames/graph+3 in 380 seconds; Test42 removes passive helper fan-out
+and passes 380 seconds with no later 512-frame silence spans/graph+0. Whole calls
+remain short. This supports the bounded 48 kHz/Buffered 512, full editor/Moonlight
+condition. The initial two-GUI Test42 trial failed while an older GUI still
+performed full probes; the idle stale window has now been closed and current Home
+reopened. Nine original projects, fifteen vendor settings, five preferences and
+nine environment records remain exact. Test42 is installed; Test41 is retained.
 
 ## Next change and done
 
-Three unsuccessful toggle approaches warrant a different approach. Reuse the
-existing bounded scheduler capture to correlate an actual gap with device wake,
-DAW callback entry/return and graph timing on one clock; check capture loss.
-Repair the demonstrated owner, repeat the failing workload, then complete the
-30-minute interaction and longer endurance gates. Lower-block/SameCallback and
-integrated beta qualification remain open.
+Keep the reviewed passive-refresh correction with expiry and fresh action
+authority preserved. Resolve stale manager-window lifecycle so an update cannot
+leave an old frontend generating periodic probes. Then complete 30-minute
+interaction and longer endurance; lower-block/SameCallback and integrated beta
+qualification remain open.
 
 ## Remaining beta gates
 

@@ -50,15 +50,19 @@ against the current shared-environment revisions 3/4 in 9.404 seconds. REAPER pl
 Save As, changed-control recall after a fresh reopen and retained automation pass;
 all 110 protected files and environment identity/root/runner remain exact. This
 qualifies the supported retained predecessor; stale or unsupported predecessors
-and Deck restoration remain unqualified. [Scoped restoration result](../evidence/manager-restoration.json).
+and broader Deck restoration remain unqualified. [Scoped restoration result](../evidence/manager-restoration.json).
 
-Test41/r4 Pure LoFi on Deck at 48 kHz/Buffered 512, full editor and Moonlight passes
-one 600-second baseline with no later 512-frame silence spans, graph ERR+0 and
-whole-call maximum 3.391 ms. Dependable continuity remains unqualified: the changed
-project fails with tracing off/on; native-only audio also fails. A temporary RR5
-device callback clears one 300-second native control, but Pure LoFi still loses
-512 frames in 300 seconds (graph+1, recorder0). Normal retirement and all nine
-original project/fifteen registration/five preference protections pass.
+Test42/r4 Pure LoFi on Deck at 48 kHz/Buffered 512, full editor and Moonlight passes
+380 seconds with no later 512-frame silence spans, graph ERR+0, recorder0 and
+whole-call maximum 0.564 ms. In the matched single-current-GUI fixture, Test41
+loses 1,024 frames/graph+3; Test42's passive refresh launches no readiness helpers.
+The same older GUI was paused in both arms. The initial two-GUI Test42 trial failed
+while that older frontend still performed full probes; its idle window was then
+normally closed and current Home reopened. Normal Test42→Test41 Restore returns
+fifteen exact prior registrations/software before the matched comparison.
+All nine original projects/fifteen vendor settings/five preferences/nine
+environment records remain exact. Longer interaction/endurance and lower blocks
+remain unqualified.
 [Scoped current audio result](../evidence/audio-recovery/test41-deck-audio.json).
 
 The [paced priority comparison](../evidence/audio-recovery/2026-10-04-paced-priority-abort.md)

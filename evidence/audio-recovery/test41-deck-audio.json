@@ -1,13 +1,13 @@
 {
   "schema": 1,
   "date": "2026-10-10",
-  "scope": "One clean baseline; current dependable continuity remains unqualified",
+  "scope": "Bounded 380-second single-current-GUI Test42 playback passes; interaction/endurance/lower blocks remain unqualified",
   "platform": "Steam Deck Galileo, KDE Wayland, Bitwig 6.1 Flatpak",
-  "build": "Test41",
-  "installed_manifest_sha256": "a25de6e88de2999cc2345d2b7c5b011542b6c864da9ad3c0359302a3699d1cdf",
+  "baseline_build": "Test41",
+  "baseline_installed_manifest_sha256": "a25de6e88de2999cc2345d2b7c5b011542b6c864da9ad3c0359302a3699d1cdf",
   "plugin": "Pure LoFi 1.0.0.6121",
   "class": "417274754156495350724C4650726F63",
-  "publication": "f668dc1090e416cd5f1ec746c6c86cb0",
+  "baseline_publication": "f668dc1090e416cd5f1ec746c6c86cb0",
   "runner": "managed-ge-proton11-7-slr4-20260805-r4",
   "environment_revision": 2,
   "rate": 48000,
@@ -48,13 +48,60 @@
     "valid_running_graph_errors": [4, 5], "recorder_errors": 0
   },
   "comparison": "Only the stopped DAW device callback changed from OTHER/nice8 to RR5; process-call/AP10 diagnostics remained off. The grant retired with the owned DAW process. No dependable workaround is established.",
-  "graph_method": "Exclude initial R rows with QUANT0/RATE0; retain valid512/48000 running rows. Each graph log also encloses recorder startup/teardown.",
+  "missed_graph_boundary": {
+    "seconds": 380, "scheduler_lost_events": 0,
+    "device_runnable_wait_ns": 11988784,
+    "subsequent_call_ns": 719091,
+    "later_missed_cycle_call_ns": 53831,
+    "interpretation": "One device callback was runnable beyond the block deadline before processing; another missed graph cycle retained an on-time wake and short completed SDK call. Selected task switches do not prove complete competing CPU occupancy. PCM onset has an unclosed 106.951ms offset; no exact sample-to-cycle attribution."
+  },
+  "owned_current_gui_pause_comparison": {
+    "seconds_each": 380,
+    "paused_later_zero_spans_ge512": 0, "paused_graph_errors": [1, 1],
+    "resumed_later_zero_spans": [[16726528, 512]],
+    "resumed_graph_errors": [1, 2], "recorder_errors": 0,
+    "interpretation": "Matched observers without perf; supports GUI contribution, not isolated readiness-probe causation. A preexisting older GUI remained active in both arms."
+  },
+  "test42_initial_two_gui_fixture": {
+    "seconds": 380, "frames": 18240000, "nonfinite_samples": 0,
+    "later_zero_spans": [[1512448, 1024], [4877312, 512], [8241664, 1536], [11606016, 512]],
+    "graph_errors_in_acquisition": [3, 13], "recorder_errors": 0,
+    "whole_calls": 35641, "maximum_call_ns": 7149044,
+    "process_call_export_complete": true,
+    "interpretation": "The new GUI's passive reads launched no platform helpers; the unchanged older GUI still launched full overview probes. The candidate was insufficient in this fixture and was reverted."
+  },
+  "single_current_gui_test41_control": {
+    "seconds": 380, "frames": 18240000, "nonfinite_samples": 0,
+    "later_zero_spans": [[14341120, 1024]],
+    "graph_errors_in_acquisition": [2, 5], "recorder_errors": 0,
+    "whole_calls": 35642, "maximum_call_ns": 2183186,
+    "process_call_export_complete": true,
+    "full_overviews_in_preflight": 3, "flatpak_calls_in_preflight": 15,
+    "interpretation": "Older GUI identity-bound and paused; only one current untraced manager active during music. Same private project, settings, runtime and observers."
+  },
+  "single_current_gui_test42_candidate": {
+    "build": "Test42",
+    "seconds": 380, "frames": 18240000, "nonfinite_samples": 0,
+    "initial_zero_frames": 512, "later_zero_spans_ge512": 0,
+    "graph_errors_in_acquisition": [8, 8], "recorder_errors": 0,
+    "whole_calls": 35644, "sdk_nonzero_results": 0,
+    "median_call_ns": 39611, "p99_call_ns": 175093,
+    "maximum_call_ns": 563893, "complete_lifetime_calls": 58446,
+    "process_call_export_complete": true,
+    "full_overviews_in_preflight": 1, "passive_overviews_in_preflight": 2,
+    "flatpak_calls_in_preflight": 5, "passive_added_platform_helpers": 0,
+    "interpretation": "Same older GUI paused in both arms, same policies/affinity and observers. Initial full assessment remains; passive refresh does not repeat platform probes. Bounded playback improvement, not full endurance qualification."
+  },
+  "graph_method": "Exclude initial R rows with QUANT0/RATE0. New comparisons use timestamped PipeWire follower signal within recorder acquisition start/completion; pw-top encloses startup/teardown and is not the strict endpoint.",
   "timing_method": "Entry through body/guard cleanup; fixed observer work included, publication/epilogue excluded. Call duration is not the device deadline.",
   "custody": {
-    "original_projects_exact": 9, "registrations_exact": 15,
-    "preferences_exact": 5, "selected_software_exact": true,
+    "original_projects_exact": 9, "original_vendor_settings_exact": 15,
+    "preferences_exact": 5, "environment_records_exact": 9,
+    "test41_exact_restore_before_matched_pair": true,
+    "installed_build": "Test42", "retained_predecessor": "Test41",
     "trace_flag_restored": true, "temporary_device_thread_retired": true,
     "owned_stream_and_sunshine_stopped": true,
+    "stale_gui_resumed_then_normally_closed_current_home_reopened": true,
     "activation_prompt_or_action_observed": false
   }
 }
