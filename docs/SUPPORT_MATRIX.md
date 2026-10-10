@@ -45,8 +45,12 @@ Test27 (64.99% shorter), still roughly 25 minutes. Slow update/cold start,
 callback overruns and transient fresh-read refusals remain open; vendor-state
 rollback is not supported.
 
-Downgrading to an older manager after a shared-environment change is unqualified;
-the old publication remains stale and does not restore the vendor environment.
+On Ubuntu, normal Test29→Test28 Restore selects eight exact retained publications
+against the current shared-environment revisions 3/4 in 9.404 seconds. REAPER play,
+Save As, changed-control recall after a fresh reopen and retained automation pass;
+all 110 protected files and environment identity/root/runner remain exact. This
+qualifies the supported retained predecessor; stale or unsupported predecessors
+and Deck restoration remain unqualified. [Scoped restoration result](../evidence/manager-restoration.json).
 
 The [paced priority comparison](../evidence/audio-recovery/2026-10-04-paced-priority-abort.md)
 remains **unqualified**: its first A/B pair retains five/four inside512-frame zero
