@@ -1,40 +1,41 @@
-# Next milestone: safe maintenance of the licensed setup
+# Managed Arturia runtime trial complete
 
 ## Goal
 
-Keep owned FRAGMENTS usable; obtain approval for a private recovery copy and Arturia runtime trial.
+Keep the shared Arturia setup usable through a product-managed runtime, update,
+normal save and fresh-process reopen, preserving original projects and licensing custody.
 
 ## Completed musician results
 
-Test38 ordinary Update Bridge succeeds once and retains exact Test37.
-Fifteen identities, five preferences, five project hashes and all prior histories survive;
-selected GUI handoff reaches Bridge ready with the owned cgroup launcher.
-Test38 fresh Bitwig recalls owned FRAGMENTS without activation actions, with finite audio
-and clean retirement on its retained Steam Proton 11 / accessibility-off setup.
-MOTIONS's unowned demo-only r4 editor/runtime proof is complete.
-Disposable Reference completes r4→Steam Proton 11→r4 at revisions 1→2→3;
-original/new project state and exact baseline phrase recall pass. Licensed Arturia is unchanged.
+The private Arturia recovery copy remains on Deck; no activation prompt/action occurs.
+Ordinary runtime selection advances the same environment to revision 2/r4.
+Four refreshed publications retain their settings; Pigments retains all three launch policies.
+Test41 ordinary Update Bridge preserves fifteen identities, five preferences/projects,
+all prior histories and selected GUI handoff. Both licensed classes recall the original project.
+FRAGMENTS and Analog Lab pass full editors, finite playback and normal retirement
+with accessibility off, then with ordinary Windows accessibility defaults.
+Normal Save As creates a new project; Macro 1 changes 0.2002→0.3002 and recalls in a
+fresh Bitwig process with Analog Lab controls/automation and both full editors.
+Three 40-second recordings contain finite nonzero output; each starts thirteen whole
+silent recorder seconds before Play. The original five projects and saved new file are exact.
+Six DSP hosts and three keepers retire normally; service active, zero leases.
+Pigments/Pure LoFi r4 preparation is checked; their r4 DAW use remains untested.
 
-## Best explanation and next changes
+## Fixes shown and next changes
 
-The first Reference return action refused `runtime_transition_retirement_required`
-despite retired owners and zero leases, leaving revision 2 unchanged.
-Deterministic Linux tests reproduce reader-reader false refusal behind exclusive gates.
-Shared retirement observation repairs that source defect and is now installed in Test38.
-Test38's same action selects r4 at revision 3; fresh publication and both project replays pass.
-The earlier cause is unproved. Private Reference file restore preserves current authority;
-fresh checks retain exact publications and both projects recall. The private licensed recovery
-copy and managed-runtime trial are ready for operator approval. Runner return advances
-the revision without undoing vendor changes.
-Reference's first post-update capture retains a 512-frame discontinuity; two subsequent
-manager-closed/open phrases match baseline exactly. [Audio continuity #90](https://github.com/kasselvania/Linux-VST-bridge/issues/90) remains a beta gate.
+The first managed-runtime reopen failed before command binding: the legacy cwd was absent.
+Using the existing launch HOME repairs it without relocation; Test41 replays the same project.
+Normal kernel recovery retains the unsuccessful owner/result and confirms interruption.
+The updater can retain an owned stale publication while updating the manager; a fresh check
+carries only its retained launch-policy intent. Status controls stay fixed across refreshes.
+Native navigation works; synthetic input/readback remains intermittent.
+Next, resolve audio continuity and ordinary recovery without weakening identity or freshness.
 
-## Done and remaining gates
+## Remaining beta gates
 
-Ordinary update and fresh recall preserve the licensed setup. Reference runner return
-and restored project playback pass; FRAGMENTS recall and all normal keeper cleanup pass.
-[Latency #240](https://github.com/kasselvania/Linux-VST-bridge/issues/240) remains separate from the qualified update handoff.
-[REAPER editor attachment #261](https://github.com/kasselvania/Linux-VST-bridge/issues/261), [readback reacquisition #239](https://github.com/kasselvania/Linux-VST-bridge/issues/239),
-[startup #241](https://github.com/kasselvania/Linux-VST-bridge/issues/241), [manager/package restoration #242](https://github.com/kasselvania/Linux-VST-bridge/issues/242) and [capture offer #249](https://github.com/kasselvania/Linux-VST-bridge/issues/249) remain open.
-Tracking does not waive [beta audio/recovery](docs/AUDIO_RECOVERY_ROADMAP.md)
-or [beta delivery](docs/INTEGRATED_BETA_DELIVERY.md) requirements. Vendor-state rollback is not promised.
+[Audio continuity #90](https://github.com/kasselvania/Linux-VST-bridge/issues/90), [latency #240](https://github.com/kasselvania/Linux-VST-bridge/issues/240),
+[startup #241](https://github.com/kasselvania/Linux-VST-bridge/issues/241), [readback #239](https://github.com/kasselvania/Linux-VST-bridge/issues/239),
+[manager/package restoration #242](https://github.com/kasselvania/Linux-VST-bridge/issues/242), [capture offer #249](https://github.com/kasselvania/Linux-VST-bridge/issues/249)
+and [REAPER editor attachment #261](https://github.com/kasselvania/Linux-VST-bridge/issues/261) remain open.
+The private copy is not product recovery; actual screen-reader software is untested.
+[Beta audio/recovery](docs/AUDIO_RECOVERY_ROADMAP.md) and [delivery](docs/INTEGRATED_BETA_DELIVERY.md) requirements remain.

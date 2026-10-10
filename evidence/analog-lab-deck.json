@@ -119,5 +119,18 @@
       "editor_retirement": "closed",
       "publication_changed": false
     }
+  },
+  "test41": {
+    "scope": "Shared FRAGMENTS/Analog Lab project: managed r4 original and new Save As recall with Windows accessibility defaults.",
+    "runner_id": "managed-ge-proton11-7-slr4-20260805-r4",
+    "windows_accessibility": "windows_default",
+    "fresh_original_and_new_project_processes": 2,
+    "full_editor_lifetimes_pass": true,
+    "normal_same_host_close_reopen": true,
+    "saved_controls_and_automation_recalled": true,
+    "activation_prompts_or_actions": 0,
+    "combined_project_audio_and_preservation_evidence": "fragments-deck.json#test41_windows_accessibility_defaults",
+    "normal_dsp_host_transport_retirements": 2,
+    "final_leases": 0
   }
 }
