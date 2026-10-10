@@ -767,16 +767,17 @@ pub(super) fn audit_predecessor_from_bytes(m: &Manager, home: &Path,
         "writes": false,
     }))
 }
-fn verify_generation(m: &Manager, current: &Software) -> Result<Generation> {
-    let dir = current.manager.path.parent().ok_or("package_generation_path")?;
+fn generation_identity(m: &Manager, dir: &Path) -> Result<Generation> {
     require(dir.parent() == Some(m.root.join("software").as_path()),
         "package_generation_path")?;
     // Verification and predecessor planning are read-only. In particular an
     // absent selected generation must never be recreated as a side effect.
     existing_generation_dir(dir)?;
-    require(fs::metadata(dir.join("package-generation.json"))?.permissions().mode() & 0o222 == 0,
+    let record_path = dir.join("package-generation.json");
+    require(record_path.canonicalize()? == record_path
+        && fs::metadata(&record_path)?.permissions().mode() & 0o222 == 0,
         "package_generation_record_writable")?;
-    let record: Generation = read_json(&dir.join("package-generation.json"))?;
+    let record: Generation = read_json(&record_path)?;
     require(matches!((record.schema, record.manifest.schema), (1, 1) | (2, 2))
         && id(&record)? == dir.file_name().and_then(|n| n.to_str()).unwrap_or(""),
         "package_generation_identity")?;
@@ -785,7 +786,15 @@ fn verify_generation(m: &Manager, current: &Software) -> Result<Generation> {
         && valid_package_version(&record.manifest.version) && record.manifest.pkgrel == 1
         && record.manifest.files.len() == expected_names.len()
         && record.manifest.files.iter().zip(expected_names).all(|(entry, name)| entry.name == *name
-            && valid_hex(&entry.sha256, 64)), "package_generation_manifest")?;
+            && valid_hex(&entry.sha256, 64)
+            && entry.size <= (if *name == "preparation-kit.zip" { 256 } else { 128 })
+                * 1024 * 1024), "package_generation_manifest")?;
+    Ok(record)
+}
+
+fn verify_generation(m: &Manager, current: &Software) -> Result<Generation> {
+    let dir = current.manager.path.parent().ok_or("package_generation_path")?;
+    let record = generation_identity(m, dir)?;
     let expected = [
         (&current.manager, NAMES[0]),
         (current.operator_frontend.as_ref().ok_or("package_frontend_absent")?, NAMES[1]),
@@ -833,47 +842,7 @@ fn validate_generation_record(m: &Manager, current: &Software) -> Result<Generat
         .path
         .parent()
         .ok_or("package_generation_path")?;
-    require(
-        dir.parent() == Some(m.root.join("software").as_path()),
-        "package_generation_path",
-    )?;
-    existing_generation_dir(dir)?;
-    let record_path = dir.join("package-generation.json");
-    require(
-        record_path.canonicalize()? == record_path
-            && fs::metadata(&record_path)?.permissions().mode() & 0o222 == 0,
-        "package_generation_record_writable",
-    )?;
-    let record: Generation = read_json(&record_path)?;
-    require(
-        matches!((record.schema, record.manifest.schema), (1, 1) | (2, 2))
-            && id(&record)? == dir.file_name().and_then(|n| n.to_str()).unwrap_or(""),
-        "package_generation_identity",
-    )?;
-    let expected_names = names(record.manifest.schema)?;
-    require(
-        record.manifest.package == "linux-vst-bridge-beta"
-            && valid_package_version(&record.manifest.version)
-            && record.manifest.pkgrel == 1
-            && record.manifest.files.len() == expected_names.len()
-            && record
-                .manifest
-                .files
-                .iter()
-                .zip(expected_names)
-                .all(|(entry, name)| {
-                    entry.name == *name
-                        && valid_hex(&entry.sha256, 64)
-                        && entry.size
-                            <= (if *name == "preparation-kit.zip" {
-                                256
-                            } else {
-                                128
-                            }) * 1024
-                                * 1024
-                }),
-        "package_generation_manifest",
-    )?;
+    let record = generation_identity(m, dir)?;
     let expected = [
         (&current.manager, NAMES[0]),
         (
@@ -940,6 +909,51 @@ fn validate_generation_record(m: &Manager, current: &Software) -> Result<Generat
     }
     Ok(record)
 }
+/// Only an executable in the canonical managed frontend slot is subject to
+/// package selection. Standalone CLI callers and other clients retain their
+/// existing behavior. Use the already verified immutable generation's content
+/// identity, not a process name or a recurring binary hash/directory scan.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn require_selected_frontend(m: &Manager, executable: &Path,
+    running: &fs::Metadata) -> Result<()> {
+    let Some(dir) = executable.parent().filter(|dir|
+        dir.parent() == Some(m.root.join("software").as_path())
+        && executable.file_name() == Some(std::ffi::OsStr::new(NAMES[1]))) else {
+        return Ok(());
+    };
+    let record = generation_identity(m, dir)?;
+    let frontend = &record.manifest.files[1];
+    let held = file(executable)?;
+    let on_disk = held.metadata()?;
+    require(executable.canonicalize()? == executable
+        && on_disk.permissions().mode() & 0o222 == 0
+        && on_disk.dev() == running.dev() && on_disk.ino() == running.ino()
+        && on_disk.len() == frontend.size,
+        "package_frontend_executable_changed")?;
+    let selected = software_record(m)?;
+    let current = selected.operator_frontend.as_ref().ok_or("package_frontend_absent")?;
+    require(current.path.parent() == selected.manager.path.parent(), "package_prior_pairing")?;
+    let selected_record = generation_identity(m,
+        current.path.parent().ok_or("package_generation_path")?)?;
+    require(current.path.file_name() == Some(std::ffi::OsStr::new(NAMES[1]))
+        && current.sha256 == selected_record.manifest.files[1].sha256,
+        "package_generation_artifact_binding")?;
+    require(frontend.sha256 == current.sha256,
+        "operator_frontend_superseded: Bridge updated. This previous manager window is paused. Open the current manager to continue; unfinished inputs and accepted operations are retained")
+}
+
+pub(super) fn require_current_frontend_caller(_m: &Manager) -> Result<()> {
+    #[cfg(target_os = "linux")]
+    {
+        let process = PathBuf::from(format!("/proc/{}", unsafe { libc::getppid() }));
+        // An unreadable caller is not a managed-frontend ownership claim.
+        let Ok(executable) = fs::read_link(process.join("exe")) else { return Ok(()); };
+        let running = fs::metadata(process.join("exe"))?;
+        require_selected_frontend(_m, &executable, &running)?;
+    }
+    Ok(())
+}
+
 pub(super) fn selected_package_version(m: &Manager, current: &Software) -> Result<Option<String>> {
     Ok(selected_generation(m, current)?.map(|record| record.manifest.version))
 }
@@ -2720,6 +2734,52 @@ mod tests {
                 "keepers":1,"cleanup_unconfirmed":false,
                 "owners":[{"session":"cd".repeat(16),"class_id":"01".repeat(16),"kind":"dsp"}]}}),
         ] { assert!(stoppable_keepers(&changed).is_err()); }
+    }
+
+    #[test]
+    fn managed_frontend_requests_follow_selected_content_after_update_and_restore() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let first = f.current().operator_frontend.unwrap();
+        let first_meta = fs::metadata(&first.path).unwrap();
+        require_selected_frontend(&f.base.m, &first.path, &first_meta).unwrap();
+        // A manager-only update still uses the same frontend content.
+        f.replace(NAMES[0], b"manager-only update", true);
+        f.adopt().unwrap();
+        require_selected_frontend(&f.base.m, &first.path, &first_meta).unwrap();
+        f.replace(NAMES[1], b"updated frontend", true);
+        f.adopt().unwrap();
+        let second = f.current().operator_frontend.unwrap();
+        let second_meta = fs::metadata(&second.path).unwrap();
+        let mut work_started = false;
+        let result = require_selected_frontend(&f.base.m, &first.path, &first_meta)
+            .map(|()| { work_started = true; });
+        assert!(result.unwrap_err().to_string().starts_with("operator_frontend_superseded: "));
+        assert!(!work_started, "obsolete requests must stop before readiness or mutation");
+        require_selected_frontend(&f.base.m, &second.path, &second_meta).unwrap();
+        rollback_from(&f.base.m, &f.home, &f.service).unwrap();
+        require_selected_frontend(&f.base.m, &first.path, &first_meta).unwrap();
+        assert!(require_selected_frontend(&f.base.m, &second.path, &second_meta).is_err());
+        first.verify().unwrap();
+        second.verify().unwrap();
+    }
+
+    #[test]
+    fn frontend_binding_keeps_standalone_clients_and_refuses_changed_owned_identity() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        let frontend = f.current().operator_frontend.unwrap();
+        let running = fs::metadata(&frontend.path).unwrap();
+        for path in [f.home.join(NAMES[1]), f.base.m.root.join("software/other-client")]
+        {
+            require_selected_frontend(&f.base.m, &path, &running).unwrap();
+        }
+        let foreign = fs::metadata(f.inputs.path(NAMES[1]).unwrap()).unwrap();
+        assert!(require_selected_frontend(&f.base.m, &frontend.path, &foreign)
+            .unwrap_err().to_string().contains("package_frontend_executable_changed"));
+        let record = frontend.path.parent().unwrap().join("package-generation.json");
+        fs::set_permissions(&record, fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(require_selected_frontend(&f.base.m, &frontend.path, &running).is_err());
     }
 
     #[test]

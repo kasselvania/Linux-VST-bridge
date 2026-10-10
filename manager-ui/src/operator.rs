@@ -457,6 +457,7 @@ pub struct Operator {
     pending: bool,
     background_poll: bool,
     action_inflight: bool,
+    frontend_superseded: bool,
     origin: Option<RequestOrigin>,
     queued_import: bool,
     explicit_refresh_queued: bool,
@@ -497,6 +498,7 @@ impl Operator {
             pending: true,
             background_poll: false,
             action_inflight: false,
+            frontend_superseded: false,
             origin: Some(RequestOrigin::InitialSnapshot),
             queued_import: false,
             explicit_refresh_queued: false,
@@ -538,6 +540,7 @@ impl Operator {
             pending: false,
             background_poll: false,
             action_inflight: false,
+            frontend_superseded: false,
             origin: None,
             queued_import: false,
             explicit_refresh_queued: false,
@@ -689,6 +692,7 @@ impl Operator {
             });
     }
     fn request(&mut self, q: Query, origin: RequestOrigin, ctx: &egui::Context) {
+        if self.frontend_superseded { return; }
         self.pending = true;
         self.origin = Some(origin);
         self.background_poll = origin == RequestOrigin::BackgroundActivity;
@@ -702,7 +706,7 @@ impl Operator {
         client::send(q, self.sender.clone(), ctx.clone());
     }
     fn controls_pending(&self) -> bool {
-        self.queued_action.is_some()
+        self.frontend_superseded || self.queued_action.is_some()
             || self.queued_import
             || self.action_inflight
             || self.feedback.as_ref().is_some_and(|f| f.blocking)
@@ -812,7 +816,7 @@ impl Operator {
         Some(&overview.current.system)
     }
     fn next_action(&mut self) -> Option<Request> {
-        if self.pending {
+        if self.pending || self.frontend_superseded {
             None
         } else {
             self.queued_action.take()
@@ -865,6 +869,13 @@ impl Operator {
         self.background_poll = false;
         self.action_inflight = false;
         match reply {
+            Reply::FrontendSuperseded => {
+                // Keep drafts, queued actions and operation feedback intact.
+                // Nothing is resubmitted or cancelled during the handoff.
+                self.frontend_superseded = true;
+                self.overview_fresh = false;
+                self.readiness = None;
+            }
             Reply::Overview(bundle) => {
                 self.readiness = Some((bundle.readiness.clone(), Instant::now(),
                     bundle.current_generation.clone()));
@@ -2244,6 +2255,7 @@ impl Operator {
         });
     }
     fn repaint_delay(&self) -> Duration {
+        if self.frontend_superseded { return Duration::from_secs(60); }
         if self.prompt_pulse { return Duration::from_millis(50); }
         let interval = if self.pending && !self.background_poll {
             Duration::from_millis(500)
@@ -2281,6 +2293,13 @@ impl eframe::App for Operator {
                     ui.small("Refreshing…");
                 }
             });
+            if self.frontend_superseded {
+                ui.strong("Bridge updated — this window is paused");
+                ui.label("Unfinished inputs remain in this window. Continue in the current manager to see accepted operations and use the updated bridge.");
+                if ui.button("Open current manager").clicked() {
+                    if let Err(error) = crate::bootstrap::launch_selected() { self.message = error; }
+                }
+            }
             if self.preview { ui.small("LOCAL DESIGN PREVIEW · synthetic records · actions do not execute"); }
             Self::health_bar(ui, self.current_health_system(), self.retained_health_system());
             navigation(ui, &mut self.page);
@@ -2432,6 +2451,7 @@ impl eframe::App for Operator {
             ui.ctx().request_repaint_after(Duration::from_millis(500));
             return;
         }
+        if self.frontend_superseded { return; }
         if retry_details {
             if self.page == Page::Plugins { self.product_attempted = None; }
             else { self.details_attempted = false; }
@@ -3107,6 +3127,7 @@ mod tests {
             pending: false,
             background_poll: false,
             action_inflight: false,
+            frontend_superseded: false,
             origin: None,
             queued_import: false,
             explicit_refresh_queued: false,
@@ -3131,6 +3152,32 @@ mod tests {
             preview: false,
         }
     }
+    #[test]
+    fn superseded_frontend_pauses_without_losing_drafts_or_operation_feedback() {
+        let mut state = state_fixture();
+        state.handle_reply(Reply::Overview(Box::new(overview_fixture())));
+        let draft = Action::InstallerRename { installer:"ab".repeat(32), label:"Unfinished name".into() };
+        state.installer_rename_form = Some(draft.clone());
+        let request = Request { schema:crate::model::OPERATOR_SCHEMA,
+            state_token:"previous".into(), action:draft.clone() };
+        state.queued_action = Some(request.clone());
+        let mut feedback = RequestFeedback::captured(draft.clone());
+        feedback.operation = Some("accepted-operation".into());
+        state.feedback = Some(feedback);
+        state.pending = true;
+        state.origin = Some(RequestOrigin::BackgroundActivity);
+        state.handle_reply(Reply::FrontendSuperseded);
+        assert!(state.frontend_superseded && !state.pending && !state.overview_fresh);
+        assert!(state.readiness.is_none() && state.controls_pending());
+        assert_eq!(state.installer_rename_form.as_ref(), Some(&draft));
+        assert_eq!(state.feedback.as_ref().unwrap().operation.as_deref(), Some("accepted-operation"));
+        assert!(state.next_action().is_none());
+        assert_eq!(state.queued_action.as_ref().map(|r| &r.action), Some(&request.action));
+        state.request(Query::Overview, RequestOrigin::ExplicitRefresh, &egui::Context::default());
+        assert!(!state.pending, "paused window must not launch a readback or readiness probe");
+        assert!(!state.capture_action(request));
+    }
+
     fn overview_fixture() -> InteractiveOverview {
         let snapshot: Snapshot = serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap();
         let readiness = ReadinessAssessment {

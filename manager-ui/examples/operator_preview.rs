@@ -1,5 +1,8 @@
 //! Source-owned preview of the production manager views with synthetic records.
 //! Usage: OUTPUT.png [WIDTH] [PAGE] [busy|idle|unavailable|cleanup|shared|guided|guided_new|guided_pending|pb0_ready|pb0_action|pb0_unsupported|pb0_unknown] [light|dark]
+#[path = "../src/bootstrap.rs"]
+#[allow(dead_code)]
+mod bootstrap;
 #[path = "../src/client.rs"]
 mod client;
 #[path = "../src/library.rs"]
