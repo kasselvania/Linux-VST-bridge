@@ -113,6 +113,13 @@ fn call(query: Query) -> Result<Reply, String> {
             command.args([&key.environment, &key.module_sha256, &key.class_id]);
         }
     }
+    // A file picker can outlive a package update or restoration. No import
+    // has started yet: recheck selection after the dialog, before dispatch.
+    if matches!(query, Query::PickInstaller) {
+        if let Some(frontend) = identity {
+            if !frontend_selected(&home, frontend)? { return Ok(Reply::FrontendSuperseded); }
+        }
+    }
     let mut child = command
         .stdin(selected.map(|(file, _)| Stdio::from(file)).unwrap_or_else(Stdio::piped))
         .stdout(Stdio::piped())
@@ -327,7 +334,11 @@ mod tests {
         selected.operator_frontend = Some(predecessor.clone());
         selected.manager = predecessor;
         linux_vst_bridge::atomic_json(&selection, &selected).unwrap();
-        assert!(!frontend_selected(&home, &identity).unwrap());
+        // The initial picker request saw the current generation above. Its
+        // later dispatch must observe this restored selection instead.
+        let mut import_started = false;
+        if frontend_selected(&home, &identity).unwrap() { import_started = true; }
+        assert!(!import_started);
         selected.operator_frontend = Some(identity.clone());
         selected.manager = identity.clone();
         linux_vst_bridge::atomic_json(&selection, &selected).unwrap();
