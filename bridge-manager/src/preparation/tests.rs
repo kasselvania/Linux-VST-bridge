@@ -333,6 +333,43 @@ fn retained_static_profile_without_candidate_authorizes_only_its_exact_refresh()
         assert!(decisions(&f.m, &fresh).unwrap().is_empty());
         let rebound = bind_preparation_basis(fresh.clone(), fresh.preparation_basis.clone()).unwrap();
         assert_eq!(rebound, fresh);
+        let mut enabled = fresh.clone();
+        let mut settings = configuration::settings(&enabled);
+        settings.accessibility = crate::operator_model::AccessibilityChoice::WindowsDefault;
+        configuration::apply_resolved_settings(&mut enabled, settings, Accessibility::WindowsDefault).unwrap();
+        validate_candidate_record(&f.m, &enabled).unwrap();
+        assert!(!enabled.profile.capabilities.compatibility().disable_windows_accessibility);
+        assert_eq!(enabled.launch_configuration_intent, fresh.launch_configuration_intent);
+        assert_eq!(enabled.profile.capabilities.vendor_retirement, fresh.profile.capabilities.vendor_retirement);
+        let mut moved = fresh.clone();
+        moved.selection.module.path = moved.selection.module.path.with_file_name("same-content-moved.vst3");
+        moved.inspection.selection = moved.selection.clone();
+        validate_candidate_record(&f.m, &moved).unwrap();
+        assert_eq!(carry_launch_configuration(&f.m, moved.clone(), Some(&fresh)).unwrap(), moved);
+        // A matching hash and provenance file are not catalogue authority.
+        // Rebinding the reference coherently must still refuse a source whose
+        // census contradicts its qualified profile or registration.
+        let record = revision_dir.join("revision.json");
+        let provenance = predecessor.target.join("bridge-provenance.json");
+        let saved_record = fs::read(&record).unwrap();
+        let saved_provenance = fs::read(&provenance).unwrap();
+        for mismatch in 0..3 {
+            let mut changed_source = predecessor.clone();
+            match mismatch {
+                0 => changed_source.census.module.sha256 = "ee".repeat(32),
+                1 => changed_source.census.environment.environment.revision += 1,
+                _ => changed_source.census.selected.version = "different-source-version".into(),
+            }
+            atomic_json(&record, &changed_source).unwrap();
+            atomic_json(&provenance, &changed_source).unwrap();
+            let reference = RevisionRef {id:changed_source.id.clone(),
+                sha256:retained_revision_basis(&changed_source).unwrap()};
+            f.m.load_revision_record(&changed_source.class_id, &reference).unwrap();
+            assert!(launch_configuration_source(&f.m, &fresh, &reference).is_err());
+        }
+        fs::write(&record, saved_record).unwrap();
+        fs::write(&provenance, saved_provenance).unwrap();
+        validate_candidate_record(&f.m, &fresh).unwrap();
         for mutate in 0..6 {
             let mut changed = fresh.clone();
             match mutate {

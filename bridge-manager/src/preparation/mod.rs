@@ -823,16 +823,22 @@ pub fn validate_candidate_record(m: &Manager, c: &Candidate) -> Result<()> {
             "candidate_policy_requires_explicit_support")?;
     }
     configuration::verify_settings(c)?;
-    if let Some(reference) = &c.launch_configuration_intent {
-        launch_configuration_source(m, c, reference)?;
-    }
+    let launch_configuration = c.launch_configuration_intent.as_ref()
+        .map(|reference| launch_configuration_source(m, c, reference)).transpose()?;
     let expected_compatibility = Compatibility {
         graphics: c.profile.capabilities.graphics,
         disable_windows_accessibility: c.profile.capabilities.accessibility == Accessibility::DisabledForVendorProcess,
         audio_layout: c.inspection.audio_layout.clone(),
         ..Compatibility::default()
     };
-    let expected_compatibility = if c.profile.capabilities.compatibility()
+    let expected_compatibility = if let Some(revision) = launch_configuration {
+        Compatibility {
+            vendor_retirement: revision.registration.compatibility.vendor_retirement,
+            editor_lifetime: revision.registration.compatibility.editor_lifetime,
+            event_output: revision.registration.compatibility.event_output,
+            ..expected_compatibility
+        }
+    } else if c.profile.capabilities.compatibility()
         != expected_compatibility
     {
         retained_revision_configuration(m, c)?
@@ -1707,15 +1713,11 @@ fn retained_revision_configuration(m: &Manager, candidate: &Candidate) -> Result
 fn launch_configuration_source(m: &Manager, candidate: &Candidate,
     reference: &RevisionRef) -> Result<Revision> {
     let revision = m.load_revision_record(&candidate.selection.class.id, reference)?;
-    let profiles = retained_refresh_profiles()?;
-    require(revision.qualification.is_none()
-        && revision.profile.claim == Claim::VerifiedExactFixture
-        && profiles.iter().filter(|profile| **profile == revision.profile).count() == 1
-        && revision.profile.capabilities.compatibility() == revision.registration.compatibility
-        && (revision.profile.capabilities.vendor_retirement.is_some()
+    retained_revision_selection_record(m, &revision)?;
+    require((revision.profile.capabilities.vendor_retirement.is_some()
             || revision.profile.capabilities.editor_lifetime.is_some()
             || revision.profile.capabilities.event_output.is_some())
-        && revision.registration.module == candidate.selection.module
+        && revision.registration.module.sha256 == candidate.selection.module.sha256
         && revision.registration.metadata.class_id == candidate.selection.class.id
         && revision.registration.metadata.name == candidate.selection.class.name
         && revision.registration.metadata.vendor == candidate.selection.class.vendor
@@ -1801,7 +1803,7 @@ fn with_retained_refresh_profiles<T>(profiles: Vec<Profile>, run: impl FnOnce() 
     drop(reset);
     result
 }
-fn retained_revision_selection(m: &Manager, predecessor: &Revision) -> Result<Selection> {
+fn retained_revision_selection_record(m: &Manager, predecessor: &Revision) -> Result<Selection> {
     require(
         predecessor.qualification.is_none()
             && predecessor.profile.claim == Claim::VerifiedExactFixture,
@@ -1814,13 +1816,6 @@ fn retained_revision_selection(m: &Manager, predecessor: &Revision) -> Result<Se
     require(profiles.len() == 1, "bridge_refresh_predecessor_profile")?;
     m.verify_retained_authority(predecessor, &profiles)?;
     crate::observation::select_for(&profiles, &predecessor.census, SelectionPurpose::Activation)?;
-    predecessor.registration.verify(&m.root)?;
-    predecessor.census.verify_current(
-        &m.root,
-        &predecessor.census.host,
-        &predecessor.census.host_source_sha256,
-        predecessor.census.captured_at,
-    )?;
     let raw: Value = predecessor.census.report.read_record(8 * 1024 * 1024)?;
     let classes: Vec<_> = crate::inventory::classes(&raw)?
         .into_iter()
@@ -1840,8 +1835,6 @@ fn retained_revision_selection(m: &Manager, predecessor: &Revision) -> Result<Se
             && predecessor.census.host == predecessor.registration.host
             && predecessor.census.host_source_sha256 == predecessor.registration.host_source_sha256
             && predecessor.census.selected == predecessor.registration.metadata
-            && predecessor.census.module_stamp
-                == Some(ModuleStamp::read(&predecessor.census.module.path)?)
             && predecessor.profile.requirements.native_sha256
                 == predecessor.registration.native.sha256
             && predecessor.profile.capabilities.compatibility()
@@ -1857,6 +1850,22 @@ fn retained_revision_selection(m: &Manager, predecessor: &Revision) -> Result<Se
         scanner_source: predecessor.census.host_source_sha256.clone(),
         factory_report: predecessor.census.report.clone(),
     };
+    validate_selection_data_with_current(m, &selection, &selection.scanner,
+        &selection.scanner_source, false)?;
+    Ok(selection)
+}
+fn retained_revision_selection(m: &Manager, predecessor: &Revision) -> Result<Selection> {
+    let selection = retained_revision_selection_record(m, predecessor)?;
+    predecessor.registration.verify(&m.root)?;
+    predecessor.census.verify_current(
+        &m.root,
+        &predecessor.census.host,
+        &predecessor.census.host_source_sha256,
+        predecessor.census.captured_at,
+    )?;
+    require(predecessor.census.module_stamp
+        == Some(ModuleStamp::read(&predecessor.census.module.path)?),
+        "bridge_refresh_predecessor_changed")?;
     verify_selection_data(m, &selection, &selection.scanner, &selection.scanner_source)?;
     Ok(selection)
 }
