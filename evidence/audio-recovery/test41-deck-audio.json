@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "date": "2026-10-10",
+  "scope": "One clean baseline; current dependable continuity remains unqualified",
+  "platform": "Steam Deck Galileo, KDE Wayland, Bitwig 6.1 Flatpak",
+  "build": "Test41",
+  "installed_manifest_sha256": "a25de6e88de2999cc2345d2b7c5b011542b6c864da9ad3c0359302a3699d1cdf",
+  "plugin": "Pure LoFi 1.0.0.6121",
+  "class": "417274754156495350724C4650726F63",
+  "publication": "f668dc1090e416cd5f1ec746c6c86cb0",
+  "runner": "managed-ge-proton11-7-slr4-20260805-r4",
+  "environment_revision": 2,
+  "rate": 48000,
+  "host_maximum_frames": 512,
+  "added_bridge_frames": 512,
+  "editor": "full vendor editor, 80 percent",
+  "stream": "Moonlight 1280x800, 30fps, H.264, host audio retained",
+  "measurement": "Existing speaker monitor, float32 stereo, 200ms recorder buffer",
+  "baseline": {
+    "seconds": 600, "frames": 28800000, "nonfinite_samples": 0,
+    "initial_zero_frames": 512, "later_zero_spans_ge512": 0,
+    "valid_running_graph_errors": [9, 9], "recorder_errors": 0,
+    "whole_calls": 56267, "actual_frames_per_call": 512,
+    "sdk_nonzero_results": 0,
+    "median_call_ns": 39210, "p99_call_ns": 179932,
+    "maximum_call_ns": 3390796, "process_call_export_complete": true
+  },
+  "matched_saved_state_trace_on": {
+    "seconds": 180,
+    "later_zero_spans": [[2718720, 512], [6084608, 512]],
+    "valid_running_graph_errors": [1, 5], "recorder_errors": 0,
+    "whole_calls": 16891, "maximum_call_ns": 1369222,
+    "sdk_nonzero_results": 0, "process_call_export_complete": true
+  },
+  "native_control_after_session_reset": {
+    "seconds": 300,
+    "later_zero_spans": [[5609472, 512], [8975872, 512]],
+    "valid_running_graph_errors": [0, 3], "recorder_errors": 0
+  },
+  "native_control_device_callback_rr5": {
+    "seconds": 300, "nonfinite_samples": 0,
+    "initial_zero_frames": 512, "later_zero_spans_ge512": 0,
+    "valid_running_graph_errors": [9, 9], "recorder_errors": 0
+  },
+  "pure_lofi_device_callback_rr5": {
+    "seconds": 300, "nonfinite_samples": 0, "initial_zero_frames": 512,
+    "later_zero_spans": [[12986368, 512]],
+    "valid_running_graph_errors": [4, 5], "recorder_errors": 0
+  },
+  "comparison": "Only the stopped DAW device callback changed from OTHER/nice8 to RR5; process-call/AP10 diagnostics remained off. The grant retired with the owned DAW process. No dependable workaround is established.",
+  "graph_method": "Exclude initial R rows with QUANT0/RATE0; retain valid512/48000 running rows. Each graph log also encloses recorder startup/teardown.",
+  "timing_method": "Entry through body/guard cleanup; fixed observer work included, publication/epilogue excluded. Call duration is not the device deadline.",
+  "custody": {
+    "original_projects_exact": 9, "registrations_exact": 15,
+    "preferences_exact": 5, "selected_software_exact": true,
+    "trace_flag_restored": true, "temporary_device_thread_retired": true,
+    "owned_stream_and_sunshine_stopped": true,
+    "activation_prompt_or_action_observed": false
+  }
+}

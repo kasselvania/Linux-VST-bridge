@@ -1114,20 +1114,23 @@ deadline: 70.469146 ms on the sibling during trial Apply and 25.700938 ms on the
 target's first callback. Thirteen SDK runs / 31,200 callbacks match all 63,897,600
 samples, but these deadline misses remain open.
 
-**Resolution on the Deck fixture (2026-10-06).** The symptom is gone on the
-machine where it was seen, and the change that removed it is known: Buffered
-delivery with 512 remembered frames, the product default. Pure LoFi then plays
-for 1,800 seconds with transport and mixer use and an offline export, zero
-missing blocks, Bitwig ERR+0, and the DAW-side call is 0.038 ms median. With
-the editor open and no screen streaming, 600 seconds are also clean. The cause
-was the vendor call (3.3 ms median, 6.9 ms max) sharing Bitwig's 10.67 ms window
-on a DAW whose audio threads have no real-time policy on this Deck; through the
-identical bridge the reference plug-in never missed. Denormals, hosting mode,
-the caller grant, the Flatpak RealtimeKit permission and the bridge's own
-real-time threads were each ruled out as the cause. The two editor-open misses
-under Moonlight were the test rig's video encoding, not the product. Open items:
-the editor-open thirty-minute confirmation without streaming, same-callback
-delivery with heavy effects (unqualified), and the instrument class.
+**Historical Deck fixture (2026-10-06).** Buffered 512 passes 1,800 seconds with
+transport/mixer use and an offline export, zero missing blocks and graph ERR+0;
+the DAW-side call median is 0.038 ms. Editor-open playback without streaming passes
+600 seconds. The streamed editor condition retains two missing 512-frame blocks
+and graph+2 in 600 seconds; that result does not establish video-encoding causation.
+
+Test41's streamed/full-editor baseline is clean for 600 seconds, but the changed
+project subsequently fails with process-call tracing off and on. The traced
+180-second comparison retains two 512-frame silences and graph+4 despite a
+1.369 ms maximum whole call. Native-only audio also fails after a session reset.
+A temporary RR5 device callback clears one 300-second native control but leaves
+one 512-frame Pure LoFi silence/graph+1 in 300 seconds, recorder0. It is not a
+dependable workaround. Three unsuccessful toggle approaches warrant a different
+approach: correlate the next actual gap with device/DAW wake and callback timing
+on one clock, then repair the demonstrated owner. Thirty-minute interaction,
+lower-block/SameCallback and longer endurance remain open.
+[Current bounded result](../evidence/audio-recovery/test41-deck-audio.json).
 
 The [paced priority pair](../evidence/audio-recovery/2026-10-04-paced-priority-abort.md)
 retains five/four inside512-frame zero spans and seven/four active Bitwig ERR
@@ -2561,9 +2564,11 @@ two graphics/accessibility Try/Apply/Keep trials and reverse predecessor Restore
 pass with exact launch bindings and original state. Keep remains `partial_experimental`;
 four active-target Restore/buffering refusals preserve state. All eight class entries
 and original settings/preferences are restored. Final buffering reset needed a manual tail.
-Older-manager downgrade usability after the revision change is also unqualified;
-package restoration cannot rewind the vendor environment or admit its stale plug-ins.
-The remaining coherent-restoration qualification is tracked in
+Supported Test29→Test28 restoration after the revision change now passes on the
+disposable Ubuntu fixture, including playback, Save As and changed-state/retained
+automation recall, with all 110 protected files exact. It retains the current
+vendor environment; stale/unsupported predecessors and Deck remain unqualified.
+[Scoped restoration result](../evidence/manager-restoration.json). Broader qualification is tracked in
 [#242](https://github.com/kasselvania/Linux-VST-bridge/issues/242).
 
 Analog Lab Intro 5.12.6.6914 installed and Activated through managed ASC, which
@@ -2788,7 +2793,7 @@ and buffering are unchanged, and the selected service is active. Installed fixed
 Test36's first GUI update separately refuses `LockBusy` after five candidate/lineage
 records, preserving selected software and prior data. Retry succeeds with reduced
 obsolete frontend contention. Two raw registry sites remain plausible; exact attribution
-is a gap. This updater correctness defect is [#259](https://github.com/kasselvania/Linux-VST-bridge/issues/259), separate from [#240](https://github.com/kasselvania/Linux-VST-bridge/issues/240) latency.
+is a gap. This updater correctness defect is [#259](https://github.com/kasselvania/Linux-VST-bridge/issues/259), separate from [#240](https://github.com/kasselvania/Linux-VST-bridge/issues/240) populated-update duration.
 One bounded registry wait budget now covers the update, with separate finite recovery/startup
 allowances and authority/cleanup rechecks. Deterministic tests cover these crossings;
 Test37's first ordinary GUI Update succeeds with two healthy selected Library frontends
