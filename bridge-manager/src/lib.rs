@@ -656,11 +656,12 @@ pub struct Lock {
     file: File,
     root: PathBuf,
     name: String,
+    exclusive: bool,
 }
 impl Lock {
     pub fn require_registry(&self, m: &Manager) -> Result<()> {
         require(
-            self.root == m.root && self.name == "registry.lock",
+            self.exclusive && self.root == m.root && self.name == "registry.lock",
             "registry_guard_identity",
         )
     }
@@ -837,14 +838,22 @@ impl Manager {
         }
     }
     pub fn try_lock(&self, name: &str) -> Result<operator_lock::LockAttempt> {
+        self.try_lock_mode(name, true)
+    }
+    /// Pure observers share an existing owner gate; they cannot create one or
+    /// authorize registry mutations. Writers retain fail-fast exclusive custody.
+    pub(crate) fn try_lock_shared(&self, name: &str) -> Result<operator_lock::LockAttempt> {
+        self.try_lock_mode(name, false)
+    }
+    fn try_lock_mode(&self, name: &str, exclusive: bool) -> Result<operator_lock::LockAttempt> {
         private_dir(&self.root)?;
         let f = OpenOptions::new()
             .read(true)
-            .write(true)
-            .create(true)
+            .write(exclusive)
+            .create(exclusive)
             .truncate(false)
             .mode(0o600)
-            .custom_flags(libc::O_NOFOLLOW)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
             .open(self.root.join(name))?;
         require(
             f.metadata()?.uid() == unsafe { libc::getuid() } && f.metadata()?.is_file(),
@@ -853,7 +862,7 @@ impl Manager {
         let status = unsafe {
             libc::flock(
                 std::os::fd::AsRawFd::as_raw_fd(&f),
-                libc::LOCK_EX | libc::LOCK_NB,
+                (if exclusive { libc::LOCK_EX } else { libc::LOCK_SH }) | libc::LOCK_NB,
             )
         };
         if status != 0 {
@@ -867,6 +876,7 @@ impl Manager {
             file: f,
             root: self.root.clone(),
             name: name.into(),
+            exclusive,
         }))
     }
     pub fn registry(&self) -> Result<Registry> {
@@ -1090,6 +1100,45 @@ impl Manager {
 mod tests {
     use super::*;
     use crate::test_fixture::Fixture;
+    #[test]
+    fn shared_observation_guard_refuses_fifo_without_waiting_for_a_writer() {
+        let f = Fixture::new();
+        private_dir(&f.m.root).unwrap();
+        let path = f.m.root.join("fifo-observation.lock");
+        let fifo = std::ffi::CString::new(path.as_os_str().as_encoded_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+        let (finished_tx, finished_rx) = std::sync::mpsc::channel();
+        std::thread::scope(|scope| {
+            let manager = &f.m;
+            let reader = scope.spawn(move || {
+                started_tx.send(()).unwrap();
+                finished_tx.send(manager.try_lock_shared("fifo-observation.lock").is_err()).unwrap();
+            });
+            started_rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+            let result = finished_rx.recv_timeout(std::time::Duration::from_secs(1));
+            // Release a regressed blocking open before asserting, so this test
+            // has a finite failure instead of leaving a blocked reader thread.
+            let _writer = result.is_err().then(|| OpenOptions::new().read(true).write(true)
+                .custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW).open(&path).unwrap());
+            reader.join().unwrap();
+            assert!(result.is_ok_and(|refused| refused), "malformed observation gates must refuse without waiting");
+        });
+    }
+    #[test]
+    fn shared_observation_guard_cannot_authorize_registry_mutation() {
+        let f = Fixture::new();
+        drop(f.m.lock("registry.lock").unwrap());
+        let operator_lock::LockAttempt::Acquired(shared) = f.m.try_lock_shared("registry.lock").unwrap() else {
+            panic!("shared observation was refused")
+        };
+        assert_eq!(shared.require_registry(&f.m).unwrap_err().to_string(), "registry_guard_identity");
+        assert!(matches!(f.m.try_lock("registry.lock").unwrap(), operator_lock::LockAttempt::Busy));
+        drop(shared);
+        assert!(f.m.try_lock_shared("absent-observation.lock").is_err());
+        assert!(!f.m.root.join("absent-observation.lock").exists());
+        f.m.lock("registry.lock").unwrap().require_registry(&f.m).unwrap();
+    }
     #[test]
     fn bounded_control_record_uses_one_stable_object_for_parse_and_identity() {
         let f = Fixture::new();

@@ -222,13 +222,21 @@ pub fn retired_with(
     op: &str,
     probe: impl FnOnce() -> Result<UnitState>,
 ) -> Result<bool> {
+    let p = operation_dir(m, op)?.join("writer.lock");
+    let operator_lock::LockAttempt::Acquired(_gate) = m.try_lock_shared(
+        p.strip_prefix(&m.root)?.to_str().ok_or("renderer_gate_path")?,
+    )? else {
+        return Ok(false);
+    };
+    // Retirement is a read-only observation. Hold shared custody through the
+    // unit probe so readers coexist while every real writer remains excluded.
+    exact(m, op)?;
     if !terminal(&result(m, op)?, op) {
         return Ok(false);
     }
-    let operator_lock::LockAttempt::Acquired(_gate) = gate(m, op)? else {
-        return Ok(false);
-    };
-    Ok(probe().is_ok_and(|p| p.empty))
+    let empty = probe().is_ok_and(|p| p.empty);
+    exact(m, op)?;
+    Ok(empty && terminal(&result(m, op)?, op))
 }
 pub fn retired(m: &Manager, op: &str) -> Result<bool> {
     retired_with(m, op, || inspect(op))
@@ -348,6 +356,64 @@ mod tests {
             empty: false,
             observation: None,
         })
+    }
+    #[test]
+    fn concurrent_retirement_readers_share_custody_and_exclude_writers() {
+        let f = Fixture::new();
+        let op = "aa".repeat(16);
+        submit_with(&f.m, &spec(&f.m, &op), |_| Ok(true), live).unwrap();
+        let report = operation_dir(&f.m, &op).unwrap().join("result.json");
+        atomic_json(&report, &json!({"schema":1,"operation":op,"state":"completed",
+            "cleanup_confirmed":true,"owned_live":0})).unwrap();
+        let before = fs::read(&report).unwrap();
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        std::thread::scope(|scope| {
+            let manager = &f.m;
+            let operation = &op;
+            let first = scope.spawn(move || retired_with(manager, operation, || {
+                started_tx.send(()).unwrap();
+                release_rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+                absent()
+            }).unwrap());
+            started_rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+            let writer = gate(&f.m, &op).unwrap();
+            let second = retired_with(&f.m, &op, absent);
+            release_tx.send(()).unwrap();
+            assert!(first.join().unwrap());
+            assert!(matches!(writer, operator_lock::LockAttempt::Busy),
+                "the first observer must hold custody throughout its unit probe");
+            assert!(second.unwrap(), "a retirement reader must not reject another reader");
+        });
+        let operator_lock::LockAttempt::Acquired(writer) = gate(&f.m, &op).unwrap() else {
+            panic!("reader guard was not released")
+        };
+        assert!(!retired_with(&f.m, &op, || panic!("writer still owns admission")).unwrap());
+        assert_eq!(fs::read(&report).unwrap(), before);
+        drop(writer);
+        assert!(retired_with(&f.m, &op, absent).unwrap());
+    }
+    #[test]
+    fn retirement_observation_rechecks_current_owner_and_terminal_receipt() {
+        for change in ["current", "result", "probe"] {
+            let f = Fixture::new();
+            let op = "aa".repeat(16);
+            submit_with(&f.m, &spec(&f.m, &op), |_| Ok(true), live).unwrap();
+            let report = operation_dir(&f.m, &op).unwrap().join("result.json");
+            atomic_json(&report, &json!({"schema":1,"operation":op,"state":"completed",
+                "cleanup_confirmed":true,"owned_live":0})).unwrap();
+            let outcome = retired_with(&f.m, &op, || {
+                match change {
+                    "current" => atomic_json(&directory(&f.m).join("current.json"),
+                        &json!({"operation":"bb".repeat(16)}))?,
+                    "result" => atomic_json(&report, &json!({"schema":1,"operation":op,
+                        "state":"running","cleanup_confirmed":false,"owned_live":1}))?,
+                    _ => return Err("unit_query_unavailable".into()),
+                }
+                absent()
+            });
+            assert!(!outcome.unwrap_or(false), "changed or unavailable custody must refuse");
+        }
     }
     #[test]
     fn submission_three_states_and_delayed_result() {
