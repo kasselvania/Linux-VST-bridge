@@ -286,18 +286,33 @@ impl Library {
                                 ui.small(reason);
                             } else { emphasized_button(ui, action, pending, chosen); }
                         }
-                        if let Some(workflow) = &p.compatibility {
-                            action_buttons(ui, &workflow.alternatives,
-                                snapshot.system.inactive_reason(), pending, chosen);
-                        }
-                        let (previous, current): (Vec<_>, Vec<_>) = management.iter().cloned()
+                        let offers = management.iter().chain(p.compatibility.iter()
+                            .flat_map(|workflow|workflow.alternatives.iter()));
+                        let (previous, current): (Vec<_>, Vec<_>) = offers.cloned()
                             .partition(|offer| matches!(offer.action,
                                 Action::OrdinaryRollback { .. } | Action::OrdinaryRestoreRecommended { .. }));
+                        let (mut options, current): (Vec<_>, Vec<_>) = current.into_iter()
+                            .partition(|offer| other_setup_option(&offer.action));
+                        options.extend(settings_actions(p).into_iter().filter(|offer|
+                            other_setup_option(&offer.action)
+                                && !guided_action_shown(p,primary.as_ref(),&offer.action)));
                         action_buttons(ui, &current, snapshot.system.inactive_reason(), pending, chosen);
                         compatibility_settings(ui, p, snapshot.system.inactive_reason(), pending,
                             chosen, self.expand_details);
+                        if !options.is_empty() {
+                            egui::CollapsingHeader::new(format!("Other setup options ({})", options.len()))
+                                .id_salt("other-setup-options")
+                                .open(self.expand_details.then_some(true)).show(ui,|ui| {
+                                    ui.label("Optional checks and alternate setups. Each control shows why it may be unavailable.");
+                                    for offer in &options {
+                                        action_buttons(ui,std::slice::from_ref(offer),
+                                            snapshot.system.inactive_reason(),pending,chosen);
+                                    }
+                                });
+                        }
                         if !previous.is_empty() {
                             egui::CollapsingHeader::new(format!("Previous setups ({})", previous.len()))
+                                .id_salt("previous-setups")
                                 .open(self.expand_details.then_some(true))
                                 .show(ui, |ui| {
                                     for offer in &previous {
@@ -420,7 +435,8 @@ fn compatibility_settings(ui: &mut egui::Ui, product: &Product, busy: Option<&st
     pending: bool, chosen: &mut Option<Action>, expanded: bool) {
     let configuration = &product.details["configuration"];
     let legacy = &product.details["graphics"];
-    let actions = settings_actions(product);
+    let actions: Vec<_> = settings_actions(product).into_iter()
+        .filter(|offer|!other_setup_option(&offer.action)).collect();
     let buffering: Vec<_> = product.actions.iter().filter(|offer|
         matches!(offer.action, Action::BufferingSet { .. } | Action::DeliverySet { .. })).cloned().collect();
     if configuration.is_null() && legacy.is_null() && actions.is_empty() && buffering.is_empty() {
@@ -453,7 +469,7 @@ fn compatibility_settings(ui: &mut egui::Ui, product: &Product, busy: Option<&st
         if settings["publication"] == "another_configuration" {
             ui.strong("Prepared only. Your previous configuration is still selected.");
         }
-        ui.small("Preparing a trial retains your current selection. Use the offered trial, keep or restore controls to change it.");
+        ui.small("Trial preparation keeps your current selection. Alternate setup controls are listed under Other setup options when available.");
         action_buttons(ui, &actions, busy, pending, chosen);
         if !configuration["buffering"].is_null() || !buffering.is_empty() {
             ui.separator();
@@ -496,6 +512,13 @@ fn settings_actions(product: &Product) -> Vec<AvailableAction> {
         Action::CandidateGraphicsPrepare { .. } => !shared,
         _ => false,
     }).cloned().collect()
+}
+
+fn other_setup_option(action: &Action) -> bool {
+    matches!(action,Action::CompatibilityCheck { .. } | Action::CompatibilityPublishTest { .. }
+        |Action::PluginInspect { .. } |Action::PluginReinspect { .. } |Action::PluginPrepare { .. }
+        |Action::ExperimentalReplace { .. } |Action::ExperimentalEnable { .. }
+        |Action::CandidateSettingsPrepare { .. } |Action::CandidateGraphicsPrepare { .. })
 }
 
 fn configuration_value(value: &serde_json::Value) -> String {
@@ -939,7 +962,7 @@ mod tests {
                 "512 added bridge frames", "The DAW sets the live sample rate", "Prepared only.",
                 "Effective editor renderer: not established", "Independent runtime probes", "Probe renderer only",
                 "Direct3D 11 on this launch: Wine's built-in", "Wine's stand-in adapter name",
-                "Prepare compatibility trial", "Assessment unavailable while this class is active"] {
+                "Assessment unavailable while this class is active"] {
                 assert!(labels.iter().any(|line| line.contains(expected)),
                     "{expected} missing at {width}: {labels:?}");
             }
@@ -983,6 +1006,12 @@ mod tests {
         product.actions = vec![AvailableAction {label:"Prepare settings trial".into(),action:action.clone(),disabled_reason:None}];
         for disabled in [false, true] {
             product.actions[0].disabled_reason = disabled.then(|| "Refresh changed configuration".into());
+            let mut snapshot = snapshot();
+            snapshot.products = vec![product.clone()];
+            snapshot.system.dsp = 1;
+            snapshot.environments.clear();snapshot.vendor_applications.clear();
+            assert!(snapshot.system.inactive_reason().is_some());
+            let mut library = Library {expand_details:true,..Default::default()};
             let ctx = egui::Context::default();
             let mut point = egui::Pos2::ZERO;
             let mut chosen = None;
@@ -991,7 +1020,7 @@ mod tests {
                     egui::Event::PointerButton {pos:point,button:egui::PointerButton::Primary,
                         pressed,modifiers:egui::Modifiers::NONE}]).unwrap_or_default();
                 let mut output = ctx.run_ui(egui::RawInput {events,..Default::default()}, |ui| {
-                    compatibility_settings(ui,&product,Some("Unrelated instances active"),false,&mut chosen,true);
+                    library.show(ui,&snapshot,false,&mut chosen,|_,_|{});
                 });
                 if pressed.is_none() {
                     point = output.shapes.iter().find_map(|shape|trial_position(&shape.shape)).unwrap();
@@ -1085,7 +1114,7 @@ mod tests {
     }
 
     #[test]
-    fn existing_guided_product_exposes_updates_and_previous_setups_without_expert_panel() {
+    fn existing_guided_product_keeps_updates_and_previous_setups_discoverable() {
         fn texts(shape:&egui::epaint::Shape,out:&mut Vec<String>) {
             match shape {
                 egui::epaint::Shape::Text(text)=>out.push(text.galley.text().into()),
@@ -1113,20 +1142,22 @@ mod tests {
                 action:Action::OrdinaryRollback{class_id:p.class_id.clone(),publication:"dd".repeat(16)},
                 disabled_reason:None},
         ];
-        for width in [960.0,560.0] {
-            let ctx=egui::Context::default();let mut library=Library::default();let mut chosen=None;
+        for (width,expanded) in [(960.0,false),(560.0,false),(960.0,true),(560.0,true)] {
+            let ctx=egui::Context::default();let mut library=Library {expand_details:expanded,..Default::default()};let mut chosen=None;
             let mut output=ctx.run_ui(egui::RawInput::default(),|ui| {
                 ui.set_max_width(width-32.0);
                 library.show(ui,&snapshot,false,&mut chosen,|_,_|{});
             });
             let mut labels=vec![];for clipped in &output.shapes {texts(&clipped.shape,&mut labels);}
             output.textures_delta.clear();
-            for expected in ["Check compatibility again","Prepare a test bridge update",
-                "Previous setups (1)","Installed module changed; rescan first"] {
+            for expected in ["Other setup options (2)","Previous setups (1)"] {
                 assert!(labels.iter().any(|s|s.contains(expected)),"{expected} absent at {width}");
             }
-            assert!(!labels.iter().any(|s|s=="Roll back to revision 6"));
-            assert!(!library.expand_details);assert!(chosen.is_none());
+            for expected in ["Check compatibility again","Prepare a test bridge update",
+                "Installed module changed; rescan first","Roll back to revision 6"] {
+                assert_eq!(labels.iter().any(|s|s==expected),expanded,"{expected} at {width}");
+            }
+            assert_eq!(library.expand_details,expanded);assert!(chosen.is_none());
         }
     }
 
@@ -1183,11 +1214,14 @@ mod tests {
             let mut labels = vec![];
             for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
             output.textures_delta.clear();
-            for offer in [&keep,&restore,&ready,&stale] {
+            for offer in [&keep,&restore] {
                 assert_eq!(labels.iter().filter(|label| **label == offer.label).count(), 1,
                     "{} must render once at {width}, expanded={expanded}", offer.label);
             }
-            assert!(labels.iter().any(|label| Some(label) == stale.disabled_reason.as_ref()));
+            for offer in [&ready,&stale] {
+                assert_eq!(labels.iter().filter(|label|**label==offer.label).count(),usize::from(expanded));
+            }
+            assert_eq!(labels.iter().any(|label|Some(label)==stale.disabled_reason.as_ref()),expanded);
             assert_eq!(labels.iter().filter(|label| **label == expert.label).count(), usize::from(expanded),
                 "expert section must actually be open only when requested");
             assert_eq!(library.expand_details, expanded);
@@ -1241,6 +1275,71 @@ mod tests {
             }
             assert_eq!(chosen,(!pending).then_some(expected));
         }
+    }
+    #[test]
+    fn many_alternate_setups_keep_primary_recovery_and_vendor_controls_visible() {
+        fn centers(shape:&egui::epaint::Shape,out:&mut Vec<(String,egui::Pos2)>) {
+            match shape {
+                egui::epaint::Shape::Text(text)=>out.push((text.galley.text().into(),text.pos+text.galley.size()*0.5)),
+                egui::epaint::Shape::Vec(items)=>for item in items {centers(item,out);},
+                _=>{},
+            }
+        }
+        for primary_is_option in [false,true] {for pending in [false,true] {
+            let mut snapshot=snapshot();snapshot.products.truncate(1);
+            snapshot.environments.clear();snapshot.vendor_applications.clear();
+            let product=&mut snapshot.products[0];
+            let publication=crate::model::PublicationIdentity {id:"current-publication".into(),sha256:"current-digest".into()};
+            let primary=if primary_is_option {Action::CompatibilityCheck {selection:"current-selection".into(),
+                audio_layout:None,recipe:"current-recipe".into(),predecessor:None}}
+                else {Action::CompatibilityResult {candidate:"current-candidate".into(),expected_current:publication.clone(),
+                    result:crate::model::TestResultKind::Worked,passed:vec![],failed_area:None,note:String::new()}};
+            product.compatibility=Some(CompatibilityWorkflow {phase:CompatibilityPhase::AvailableForTest,
+                summary:"The selected setup is available.".into(),established:vec![],remaining:vec![],
+                current_inspection:None,current_candidate:None,
+                primary:Some(AvailableAction {label:"Current next step".into(),action:primary,disabled_reason:None}),alternatives:vec![]});
+            product.details=serde_json::json!({"configuration":{"buffering":{"added_frames":512}}});
+            product.actions=vec![AvailableAction {label:"Check compatibility".into(),action:Action::PluginReinspect {
+                selection:"current-selection".into(),audio_layout:None},disabled_reason:None},
+                AvailableAction {label:"Open vendor application".into(),action:Action::VendorApplicationOpen {
+                    application:"exact-vendor-application".into()},disabled_reason:None},
+                AvailableAction {label:"Return to previous working setup".into(),action:Action::ExperimentalDisable {
+                    candidate:"current-candidate".into()},disabled_reason:None}];
+            for index in 0..22 {product.actions.push(AvailableAction {label:format!("Apply alternate setup {index}"),
+                action:Action::ExperimentalReplace {candidate:format!("exact-candidate-{index}"),expected_current:publication.clone()},
+                disabled_reason:(index==0).then(||"This previous build does not match the current application".into())});}
+            for index in 0..3 {product.actions.push(AvailableAction {label:format!("Prepare profile trial {index}"),
+                action:Action::CandidateSettingsPrepare {candidate:format!("profile-candidate-{index}"),
+                    settings:crate::model::LocalSettings::default(),expected_current:Some(publication.clone())},disabled_reason:None});}
+            for index in 0..15 {product.actions.push(AvailableAction {label:format!("Restore setup {index}"),
+                action:Action::OrdinaryRollback {class_id:product.class_id.clone(),publication:format!("previous-publication-{index}")},disabled_reason:None});}
+            let expected=product.actions[4].action.clone();
+            let mut library=Library::default();library.focus_product(crate::presentation::ProductKey::from(&*product));
+            let ctx=egui::Context::default();presentation::configure_style(&ctx);
+            ctx.global_style_mut(|style|style.animation_time=0.0);
+            let mut chosen=None;let mut point=egui::Pos2::ZERO;
+            for frame in 0..9 {
+                let events=if matches!(frame,3|4|7|8) {vec![egui::Event::PointerMoved(point),egui::Event::PointerButton {
+                    pos:point,button:egui::PointerButton::Primary,pressed:matches!(frame,3|7),modifiers:egui::Modifiers::NONE}]} else {vec![]};
+                let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,egui::vec2(560.0,2400.0))),..Default::default()},|ui|library.show(ui,&snapshot,pending,&mut chosen,|_,_|{}));
+                let mut text=vec![];for shape in &output.shapes {centers(&shape.shape,&mut text);}
+                if frame==2 {
+                    for label in ["Current next step","Open vendor application","Return to previous working setup","Previous setups (15)"] {
+                        assert!(text.iter().any(|(shown,_)|shown==label),"{label} disappeared");
+                    }
+                    assert!(!text.iter().any(|(label,_)|label.starts_with("Apply alternate setup")||label.starts_with("Prepare profile trial")||label.starts_with("Restore setup")));
+                    point=text.iter().find(|(label,_)|label=="Other setup options (26)").unwrap().1;
+                }
+                if frame==6 {
+                    let refusal=text.iter().find(|(label,_)|label=="This previous build does not match the current application").unwrap().1;
+                    point=text.iter().find(|(label,_)|label=="Apply alternate setup 1").unwrap().1;
+                    assert!(refusal.y<point.y,"The refusal belongs beside its own offer");
+                }
+                output.textures_delta.clear();
+            }
+            assert_eq!(chosen,(!pending).then_some(expected));
+        }}
     }
     #[test]
     fn search_combines_terms_and_filters_without_losing_unknown_states() {

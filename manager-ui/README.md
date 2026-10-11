@@ -2,7 +2,7 @@
 
 The Rust/egui frontend shows the paired manager's current plug-ins, setup jobs and offered actions through versioned readback. Home separates bridge-service health from plug-in availability, keeps **Add a plug-in** at the top, and shows the next useful installation, preparation or recovery step. Each plug-in opens its exact setup and settings. A missing computer observation does not erase a recorded DAW publication, and an available publication does not claim tested sound or project recall.
 
-Setup starts with **Choose Windows installer**. Selecting a file adds a managed copy; starting installation is a separate action. Vendor installation and sign-in happen in the vendor's own window. Discovery links to the exact found classes on Plug-ins, where the user checks/prepares them and makes them available to the DAW. Plug-ins has search and vendor grouping; opening one removes list-only filters and keeps the current primary action, updates, restore controls and settings visible. Available plug-ins appear as native VST3s; a native Linux DAW may need its own VST3 rescan. Project save and reopening belong to the DAW.
+Setup starts with **Choose Windows installer**. Selecting a file adds a managed copy; starting installation is a separate action. Vendor installation and sign-in happen in the vendor's own window. Discovery links to the exact found classes on Plug-ins, where the user checks/prepares them and makes them available to the DAW. Plug-ins has search and vendor grouping; opening one removes list-only filters and keeps the current primary action, recovery and vendor controls visible. Alternative candidate/profile choices appear under **Other setup options**, and exact retained restore offers appear under **Previous setups**; both preserve offered refusals. Available plug-ins appear as native VST3s; a native Linux DAW may need its own VST3 rescan. Project save and reopening belong to the DAW.
 
 Activity shows current and recent sessions and sanitized incidents. Workspaces shows a canonical managed Windows DAW workspace when one exists. Diagnostics retains system, capture and history detail. Shared-setup controls state affected plug-ins and vendor-state consequences beside the action. Compatibility controls appear only when the manager supplies their current offers.
 
@@ -22,7 +22,7 @@ cargo run --manifest-path manager-ui/Cargo.toml --locked --example operator_prev
 cargo run --manifest-path manager-ui/Cargo.toml --locked --example bootstrap_preview -- /tmp/first-run.png 560 first
 ```
 
-The operator preview exercises the shipped current-overview Home/Setup views and exact product-detail path with clearly marked synthetic records. It never contacts the manager or executes an operation. Arguments are `OUTPUT.png [WIDTH] [PAGE] [STATE] [light|dark] [HEIGHT]`; the default size is 960 by 720. Pages are `home`, `plugins`, `workspaces`, `activity`, `setup` and `diagnostics`. Useful states are:
+The operator preview exercises the shipped current-overview Home/Setup views and exact product-detail path with clearly marked sample records. It never contacts the manager or executes an operation. Arguments are `OUTPUT.png [WIDTH] [PAGE] [STATE] [light|dark] [HEIGHT] [SNAPSHOT.json] [OPEN_LABEL]`; the default size is 960 by 720. The optional final label clicks a rendered disclosure before capture, for example `Other setup options`. Pages are `home`, `plugins`, `workspaces`, `activity`, `setup` and `diagnostics`. Useful states are:
 
 - `first_use`: empty product and runtime-acquisition offer.
 - `populated` or `available`: mixed current products or all available products.
@@ -33,6 +33,7 @@ The operator preview exercises the shipped current-overview Home/Setup views and
 - `retained_installation`: available plug-ins alongside a retained installation record needing refresh, without a current offered continuation.
 - `plugin_history` or `plugin_history_open`: focused current setup with twelve retained restore choices, collapsed or expanded.
 - `pb0_unsupported`: specific required architecture failure without an offered action.
+- `recorded_current` or `recorded_expanded`: load an explicitly supplied, allow-listed snapshot to reproduce current Home/Setup or exact plug-in detail, with disclosures collapsed or expanded. Keep captured snapshots outside Git and exclude account, license, proprietary content and session data.
 
 Historical busy/guided states remain available. The first-run `bootstrap_preview` accepts `OUTPUT.png [WIDTH] [first|legacy|stop|activate|attention]` and never invokes package commands. Screenshot files belong outside Git. The older isolated `library_preview` is useful for library-only checks; it does not replace current application renders.
 

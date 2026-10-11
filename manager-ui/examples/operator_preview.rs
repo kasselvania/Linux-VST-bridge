@@ -1,5 +1,5 @@
 //! Source-owned preview of the production manager views with synthetic records.
-//! Usage: OUTPUT.png [WIDTH] [PAGE] [STATE] [light|dark] [HEIGHT]
+//! Usage: OUTPUT.png [WIDTH] [PAGE] [STATE] [light|dark] [HEIGHT] [SNAPSHOT.json] [OPEN_LABEL]
 //! States: populated, available, first_use, setup_many, install_running, pending,
 //! recoverable, plugin_ready, plugin_action, plugin_details; historical states also work.
 #[path = "../src/bootstrap.rs"]
@@ -24,9 +24,21 @@ struct Preview {
     operator: operator::Operator,
     output: std::path::PathBuf,
     frame: usize,
+    open_label: Option<String>,
+    click_at: Option<egui::Pos2>,
 }
 
 impl eframe::App for Preview {
+    fn raw_input_hook(&mut self, _ctx: &egui::Context, input: &mut egui::RawInput) {
+        if matches!(self.frame, 3 | 4) {
+            if let Some(pos) = self.click_at {
+                input.events.extend([egui::Event::PointerMoved(pos),egui::Event::PointerButton {
+                    pos, button:egui::PointerButton::Primary, pressed:self.frame==3,
+                    modifiers:egui::Modifiers::NONE}]);
+            }
+        }
+    }
+
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let screenshot = ui.ctx().input(|input| {
             input.events.iter().find_map(|event| {
@@ -50,8 +62,23 @@ impl eframe::App for Preview {
             ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
         }
         self.operator.ui(ui, frame);
+        if self.frame == 2 {
+            if let Some(label) = &self.open_label {
+                fn center(shape:&egui::epaint::Shape,label:&str)->Option<egui::Pos2> {
+                    match shape {
+                        egui::epaint::Shape::Text(text) if text.galley.text().starts_with(label) =>
+                            Some(text.pos+text.galley.size()*0.5),
+                        egui::epaint::Shape::Vec(items)=>items.iter().find_map(|shape|center(shape,label)),
+                        _=>None,
+                    }
+                }
+                self.click_at=ui.ctx().graphics(|graphics|graphics.get(ui.layer_id())
+                    .and_then(|list|list.all_entries().find_map(|entry|center(&entry.shape,label))));
+                assert!(self.click_at.is_some(),"Preview disclosure label was not rendered: {label}");
+            }
+        }
         self.frame += 1;
-        if self.frame == 3 {
+        if self.frame == if self.open_label.is_some() { 8 } else { 3 } {
             ui.ctx()
                 .send_viewport_cmd(egui::ViewportCommand::Screenshot(Default::default()));
         }
@@ -277,6 +304,7 @@ fn main() -> eframe::Result {
             other_build.environment = "fixture-arturia-other".into();
             snapshot.products.push(other_build);
         }
+        "recorded_current" | "recorded_expanded" => {},
         other => panic!("unknown state: {other}"),
     }
     if state == "first_use" {
@@ -386,6 +414,12 @@ fn main() -> eframe::Result {
                 "qualification":"Recorded tests remain unchanged","buffering":{"added_frames":512}});
         }
     }
+    if let Some(path) = args.get(6) {
+        assert!(matches!(state,"recorded_current" | "recorded_expanded"),
+            "External snapshots require a recorded preview state");
+        snapshot = serde_json::from_slice(&std::fs::read(path).expect("read allowlisted preview snapshot"))
+            .expect("decode recorded preview snapshot");
+    }
     let theme = match args.get(4).map(String::as_str).unwrap_or("light") {
         "light" => egui::Theme::Light,
         "dark" => egui::Theme::Dark,
@@ -452,6 +486,7 @@ fn main() -> eframe::Result {
             .with_active(false),
         ..Default::default()
     };
+    let open_label = args.get(7).cloned();
     eframe::run_native(
         "Manager preview",
         options,
@@ -461,9 +496,11 @@ fn main() -> eframe::Result {
             Ok(Box::new(Preview {
                 operator: operator::Operator::preview_current(snapshot, readiness, page,
                     page == operator::Page::Plugins && state != "current_loading",
-                    state == "pending", matches!(state,"plugin_details" | "plugin_history_open"), state == "stale"),
+                    state == "pending", matches!(state,"plugin_details" | "plugin_history_open" | "recorded_expanded"), state == "stale"),
                 output,
                 frame: 0,
+                open_label,
+                click_at: None,
             }))
         }),
     )
