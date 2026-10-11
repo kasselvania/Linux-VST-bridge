@@ -310,7 +310,17 @@ struct SessionSpec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     graphical_session: Option<transport_storage::GraphicalSession>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    native_execution: Option<NativeExecution>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     keeper_startup_seconds: Option<u64>,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NativeExecution { engine: [u8; 32], descriptor: [u8; 32] }
+impl NativeExecution {
+    fn identity(&self) -> ap1_native_client::admission::ExecutionIdentity {
+        ap1_native_client::admission::ExecutionIdentity {engine:self.engine,descriptor:self.descriptor}
+    }
 }
 // Unexposed admission owns only a reservation. Once the native binding is
 // exposed, only positive supervisor retirement can release that ownership.
@@ -862,6 +872,7 @@ fn spec_with_package_refresh(
         runner_key: Some(runner_key),
         transport: None,
         graphical_session: None,
+        native_execution: None,
         keeper_startup_seconds: keeper.then_some(KEEPER_OWNER_STARTUP_SECONDS),
     };
     let path = directory.join("owner.json");
@@ -1840,6 +1851,8 @@ fn serve(m: Manager) -> Result<()> {
                     job.transport = Some(storage.identity.clone());
                     job.shared_runtime = true;
                     job.graphical_session=Some(graphical_session.clone());
+                    let caller = loaded.as_ref().ok_or("loaded_execution_binding_absent")?;
+                    job.native_execution=Some(NativeExecution{engine:caller.engine,descriptor:caller.descriptor});
                     job.crash_capture = crash_capture::claim(&m,&full_registration,&job.session)
                         .unwrap_or_else(|e| { eprintln!("CA1 capture unavailable: {e}"); None });
                     atomic_json(&path, &job)?;

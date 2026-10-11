@@ -119,21 +119,6 @@ fn start(proc: &Path, id: i32) -> Result<u64> {
     Ok(text.rsplit_once(')').ok_or("scheduling_stat")?.1.split_whitespace()
         .nth(19).ok_or("scheduling_stat")?.parse()?)
 }
-fn map_inodes(bytes: &[u8], inode: u64, device: u64) -> Result<bool> {
-    // /proc maps gives the backing inode and device even across a mount alias.
-    // A name, Windows PID or path string alone never selects a process.
-    for line in std::str::from_utf8(bytes)?.lines() {
-        let fields: Vec<_> = line.split_whitespace().take(5).collect();
-        require(fields.len() == 5, "scheduling_maps_format")?;
-        let (major, minor) = fields[3].split_once(':').ok_or("scheduling_maps_device")?;
-        if fields[4].parse::<u64>()? == inode
-            && u64::from_str_radix(major, 16)? == u64::from(libc::major(device))
-            && u64::from_str_radix(minor, 16)? == u64::from(libc::minor(device)) {
-            return Ok(true);
-        }
-    }
-    Ok(false)
-}
 fn select(request: &Request, proc_root: &Path, uid: u32) -> Result<Target> {
     require(request.schema == (if request.native_peer.is_some() { 2 } else { 1 })
         && request.session.len() == 32
@@ -144,6 +129,7 @@ fn select(request: &Request, proc_root: &Path, uid: u32) -> Result<Target> {
     let status = status_file.metadata()?;
     require(status.is_file() && status.uid() == uid && status.mode() & 0o077 == 0
         && status.len() == 1024, "scheduling_status_custody")?;
+    let status_mapping = linux_vst_bridge::mapped_file::identity(&status_file)?;
     // Only the immutable header is read here; concurrently published counters
     // require atomic loads and are not part of target selection.
     let mut header = [0u8;32]; status_file.read_exact(&mut header)?;
@@ -175,7 +161,7 @@ fn select(request: &Request, proc_root: &Path, uid: u32) -> Result<Target> {
         let process = proc_root.join(pid.to_string());
         require(process.metadata()?.uid() == uid && start(&process, pid)? == process_start
             && namespace_id(&process)? == namespace_pid, "scheduling_native_peer_changed")?;
-        require(map_inodes(&bounded(&process.join("maps"), 2 * 1024 * 1024)?, status.ino(), status.dev())?,
+        require(linux_vst_bridge::mapped_file::present(&bounded(&process.join("maps"), 2 * 1024 * 1024)?, status_mapping, false)?,
             "scheduling_native_session_mapping")?;
         let mut found = None;
         for (count, entry) in fs::read_dir(process.join("task"))?.enumerate() {
@@ -210,8 +196,8 @@ fn select(request: &Request, proc_root: &Path, uid: u32) -> Result<Target> {
                 require(task.metadata()?.uid() == uid, "scheduling_thread_owner")?;
                 threads.push(Target { pid, process_start, tid, thread_start: start(&task.path(), tid)? });
             }
-            if !threads.is_empty() && map_inodes(&bounded(&process.join("maps"), 2 * 1024 * 1024)?,
-                status.ino(), status.dev())? { targets.extend(threads); }
+            if !threads.is_empty() && linux_vst_bridge::mapped_file::present(&bounded(&process.join("maps"), 2 * 1024 * 1024)?,
+                status_mapping, false)? { targets.extend(threads); }
             require(start(&process, pid)? == process_start, "scheduling_owner_changed")
         })();
         // An exited sibling is normal. Other malformed/denied observations

@@ -19,8 +19,9 @@ struct PanelOwner {
 // Qualification candidate: an unmapped, noninteractive X11 lifecycle delegate.
 // The host retains its parent and IPlugView. WM_DELETE_WINDOW requests normal
 // host retirement; this code never destroys the host-owned parent. Only a
-// supplied parent advertising that protocol is admitted by this bounded
-// detached-shell adapter. Bitwig requires a valid-size child at attachment;
+// supplied parent advertising that protocol may be hidden/retired. Embedded
+// host containers stay under host ownership and are never hidden or closed.
+// Bitwig requires a valid-size child at attachment;
 // the delegate never maps the child or selects input, background or controls.
 // Actual Bitwig acceptance is required separately.
 enum class ShellOperation { SendClose, Unmap, Flush };
@@ -47,6 +48,7 @@ class VendorPanel final : public Steinberg::CPluginView {
   ShellResult flush_result_ = ShellResult::Accepted;
   bool opened_ = false, close_requested_ = false, removing_ = false, failed_ = false;
   bool needs_unmap_ = false, parent_gone_ = false, connection_lost_ = false;
+  bool closeable_ = false;
   unsigned close_attempts_ = 0, unmap_attempts_ = 0, close_wait_ = 0;
   ShellResult before(ShellOperation op) {
     if (xcb_connection_has_error(connection_)) return ShellResult::ConnectionLost;
@@ -100,6 +102,7 @@ class VendorPanel final : public Steinberg::CPluginView {
     return {time, active};
   }
   void closeHost() {
+    if (!closeable_) { close_requested_ = true; return; }
     if (!parent_ || parent_gone_ || close_requested_ || close_attempts_ >= 3 ||
         connection_lost_ || close_result_ == ShellResult::Rejected) return;
     ++close_attempts_;
@@ -173,15 +176,15 @@ public:
     xcb_generic_error_t *error = nullptr;
     auto *protocols = xcb_get_property_reply(connection_,
         xcb_get_property(connection_, false, parent_, protocols_, XCB_ATOM_ATOM, 0, 16), &error);
-    bool accepted = false;
+    closeable_ = false;
     if (!error && protocols && protocols->type == XCB_ATOM_ATOM && protocols->format == 32 &&
         protocols->value_len <= 16 && !protocols->bytes_after) {
       auto *values = static_cast<xcb_atom_t *>(xcb_get_property_value(protocols));
-      for (uint32_t i = 0; i < protocols->value_len; ++i) accepted |= values[i] == delete_;
+      for (uint32_t i = 0; i < protocols->value_len; ++i) closeable_ |= values[i] == delete_;
     }
     std::free(protocols); std::free(error);
     const uint32_t mask = XCB_EVENT_MASK_STRUCTURE_NOTIFY;
-    if (!accepted || !checked(xcb_change_window_attributes_checked(connection_, parent_,
+    if (!checked(xcb_change_window_attributes_checked(connection_, parent_,
                   XCB_CW_EVENT_MASK, &mask)) ) {
       removed(); return kResultFalse;
     }
@@ -225,6 +228,7 @@ public:
     }
     if (connection_) { xcb_disconnect(connection_); connection_ = nullptr; }
     parent_ = 0;
+    closeable_ = false;
     loop_ = nullptr;
     systemWindow = nullptr;
     plugFrame = nullptr;
@@ -239,7 +243,7 @@ public:
       auto *event = xcb_poll_for_event(connection_);
       if (!event) break;
       const auto type = event->response_type & 127;
-      if (type == XCB_MAP_NOTIFY && reinterpret_cast<xcb_map_notify_event_t *>(event)->window == parent_)
+      if (closeable_ && type == XCB_MAP_NOTIFY && reinterpret_cast<xcb_map_notify_event_t *>(event)->window == parent_)
         needs_unmap_ = true;
       if (type == XCB_DESTROY_NOTIFY && reinterpret_cast<xcb_destroy_notify_event_t *>(event)->window == parent_)
         failure(ShellResult::ParentGone);
@@ -261,7 +265,7 @@ public:
     if (failed_ || state == ClosedByVendor || state == OpenRefused || state == EditorFailed) closeHost();
     // XCB cannot acknowledge host action. One accepted request is never
     // repeated; an unretired shell after 100 UI ticks is a truthful refusal.
-    if (close_requested_ && close_wait_ < 100 && ++close_wait_ == 100) failure(ShellResult::Rejected);
+    if (closeable_ && close_requested_ && close_wait_ < 100 && ++close_wait_ == 100) failure(ShellResult::Rejected);
     if (!connection_lost_ && flush() != ShellResult::Accepted) failure(flush_result_);
   }
 };

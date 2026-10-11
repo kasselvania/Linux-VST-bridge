@@ -5,6 +5,7 @@ pub mod runtime_delivery;
 pub mod acceptance;
 pub mod capacity;
 pub mod transport_storage;
+pub mod mapped_file;
 pub mod catalogue;
 pub mod crash_capture;
 #[cfg(test)]

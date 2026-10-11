@@ -174,13 +174,35 @@ int main() {
     check(frame.closes==priorCloses+1 && frame.timers.empty() && frame.references==1,
           "repeated removals balance exact close, timers and host references");
   }
-  const auto refusedParent=XCreateSimpleWindow(display,DefaultRootWindow(display),0,0,1,1,0,0,0);
+  const auto embeddedParent=XCreateSimpleWindow(display,parent,0,0,64,64,0,0,0);
+  XSync(display,False); // Publish the host-owned XID before another connection uses it.
   controller=new Vst::EditController;panel=new AP11::VendorPanel(controller,frame,24);controller->release();
   const auto priorOpens=frame.opens;
   panel->setFrame(&frame);
-  check(panel->attached(reinterpret_cast<void*>(refusedParent),kPlatformTypeX11EmbedWindowID)!=kResultOk &&
-        frame.opens==priorOpens && frame.timers.empty(),"host without close protocol refused before opening");
-  panel->release();XDestroyWindow(display,refusedParent);
+  const auto priorFailures=frame.failures;
+  frame.lifecycle=AP11::Opening;
+  check(panel->attached(reinterpret_cast<void*>(embeddedParent),kPlatformTypeX11EmbedWindowID)==kResultOk &&
+        frame.opens==priorOpens+1 && frame.timers.size()==1,"embedded host container opens detached editor");
+  XMapWindow(display,parent);XMapWindow(display,embeddedParent);XSync(display,False);frame.drain();
+  check(XGetWindowAttributes(display,embeddedParent,&attributes) && attributes.map_state==IsViewable &&
+        XGetWindowAttributes(display,parent,&attributes) && attributes.map_state==IsViewable,
+        "embedded attachment never unmaps supplied container or ancestor");
+  frame.lifecycle=AP11::ClosedByVendor;
+  for(unsigned i=0;i<6;++i)frame.drain();
+  check(frame.failures==priorFailures && panel->onFocus(true)==kResultOk && frame.opens==priorOpens+1,
+        "closed detached editor stays closed without a host shell retirement timeout");
+  while(XPending(display)){XEvent event{};XNextEvent(display,&event);
+    check(event.type!=ClientMessage,"embedded close sends no host or ancestor close message");}
+  check(panel->removed()==kResultOk && frame.timers.empty() && frame.references==1,
+        "embedded removal retires exact editor and timer");
+  panel->release();XDestroyWindow(display,embeddedParent);XUnmapWindow(display,parent);XSync(display,False);
+  const auto absentParent=XCreateSimpleWindow(display,DefaultRootWindow(display),0,0,64,64,0,0,0);
+  XDestroyWindow(display,absentParent);XSync(display,False);
+  controller=new Vst::EditController;panel=new AP11::VendorPanel(controller,frame,24);controller->release();
+  panel->setFrame(&frame);
+  check(panel->attached(reinterpret_cast<void*>(absentParent),kPlatformTypeX11EmbedWindowID)!=kResultOk &&
+        frame.opens==priorOpens+1 && frame.timers.empty(),"missing parent still refuses before opening");
+  panel->release();
   frame.acceptOpen=false;controller=new Vst::EditController;
   panel=new AP11::VendorPanel(controller,frame,25);controller->release();panel->setFrame(&frame);
   check(panel->attached(reinterpret_cast<void*>(parent),kPlatformTypeX11EmbedWindowID)!=kResultOk &&

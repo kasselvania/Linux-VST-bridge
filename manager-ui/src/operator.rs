@@ -1519,7 +1519,7 @@ impl Operator {
         library: &mut crate::library::Library,
     ) {
         ui.heading("Published plug-ins");
-        ui.small("Manager publication is current. Bitwig may still need its own browser rescan.");
+        ui.small("Manager publication is current. Your DAW may still need a plug-in rescan.");
         let mut count = 0;
         for product in snapshot
             .products

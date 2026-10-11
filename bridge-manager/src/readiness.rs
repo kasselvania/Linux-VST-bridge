@@ -341,20 +341,10 @@ fn consuming_metadata(_process_root: &Path, _relative: &Path) -> std::io::Result
 }
 
 fn mapped_artifact(process: &Path, artifact: &Path) -> Option<bool> {
-    use std::os::unix::fs::MetadataExt;
-    let meta = fs::metadata(artifact).ok()?;
+    let file = linux_vst_bridge::file(artifact).ok()?;
+    let identity = mapped_file::identity(&file).ok()?;
     let maps = bounded_file(&process.join("maps"), 2 * 1024 * 1024)?;
-    for line in maps.lines() {
-        let fields: Vec<_> = line.split_whitespace().take(5).collect();
-        if fields.len() != 5 { return None; }
-        let (major, minor) = fields[3].split_once(':')?;
-        if fields[4].parse::<u64>().ok()? == meta.ino()
-            && u64::from_str_radix(major,16).ok()? == libc::major(meta.dev() as libc::dev_t) as u64
-            && u64::from_str_radix(minor,16).ok()? == libc::minor(meta.dev() as libc::dev_t) as u64 {
-            return Some(true);
-        }
-    }
-    Some(false)
+    mapped_file::present(maps.as_bytes(), identity, true).ok()
 }
 
 /// An existing authenticated admission supplies the peer; no executable name,
@@ -447,6 +437,8 @@ fn collect_consumers_from(m: &Manager, pipewire: &Probe<bool>, jack: &Probe<bool
             .ok_or("readiness_consumer_registration_absent")?.registration;
         let bound: HostBinding = serde_json::from_value(retained["registration"].clone())?;
         require(bound == registration.clone().into(), "readiness_consumer_registration_changed")?;
+        let loaded: NativeExecution = serde_json::from_value(retained["native_execution"].clone())?;
+        registration.verify_loaded_execution(&loaded.identity())?;
         let graphical = serde_json::from_value(retained["graphical_session"].clone())?;
         result.push(observed_consumer(m, registration, &graphical, proc_root,
             transport_root, pipewire, jack)?);
@@ -1773,8 +1765,16 @@ mod tests {
     #[cfg(target_os = "linux")]
     fn consumer_fixture() -> (crate::test_fixture::Fixture, PathBuf, PathBuf, String) {
         use std::os::unix::{fs::{symlink, MetadataExt}, net::UnixListener};
-        let f = crate::test_fixture::Fixture::new();
+        let mut f = crate::test_fixture::Fixture::new();
         let sid = "42".repeat(16);
+        let descriptor = f.outer.join("plugin-descriptor.json");
+        fs::write(&descriptor,b"retained descriptor").unwrap();
+        f.r.descriptor=Some(Artifact{sha256:digest(&descriptor).unwrap(),path:descriptor});
+        let parse = |text: &str| -> [u8;32] {
+            text.as_bytes().chunks(2).map(|pair|u8::from_str_radix(std::str::from_utf8(pair).unwrap(),16).unwrap())
+                .collect::<Vec<_>>().try_into().unwrap()
+        };
+        let loaded = NativeExecution{engine:parse(&f.r.native.sha256),descriptor:parse(&f.r.descriptor.as_ref().unwrap().sha256)};
         let proc_root = f.outer.join("proc");
         let transport = f.outer.join("transport");
         let process = proc_root.join("41");
@@ -1806,7 +1806,8 @@ mod tests {
         let owner = owner_dir.join("owner.json");
         atomic_json(&owner, &json!({"session":sid,"report":report,"lease":lease,
             "registration":HostBinding::from(f.r.clone()),"keeper":false,"inspect":false,
-            "graphical_session":{"schema":1,"peer_pid":41,"peer_start_ticks":900,"display":":99"}})).unwrap();
+            "graphical_session":{"schema":1,"peer_pid":41,"peer_start_ticks":900,"display":":99"},
+            "native_execution":loaded})).unwrap();
         f.m.retain_lease_owner(&owner).unwrap();
         atomic_json(&f.m.root.join("runtime/lease-generations").join(format!("{sid}.json")),
             &json!({"schema":1,"session":sid,"report":report,"kernel_boot":"11111111-1111-4111-8111-111111111111","basis":"before_launch"})).unwrap();
@@ -1827,6 +1828,13 @@ mod tests {
         assert_eq!(hosts[0].publication, Probe::Observed(true));
         assert_eq!(hosts[0].ipc, Probe::Observed(true));
         assert_eq!(hosts[0].jack, Probe::Observed(true));
+        let registry_path=f.m.root.join("registry.json");
+        let mut registry:Registry=read_json(&registry_path).unwrap();
+        registry.classes.get_mut(&f.r.key()).unwrap().registration.native.sha256="ff".repeat(32);
+        atomic_json(&registry_path,&registry).unwrap();
+        assert!(collect().unwrap_err().to_string().contains("loaded_execution_binding_differs"));
+        registry.classes.get_mut(&f.r.key()).unwrap().registration=f.r.clone();
+        atomic_json(&registry_path,&registry).unwrap();
         let stat_path = proc_root.join("41/stat");
         let original = fs::read_to_string(&stat_path).unwrap();
         fs::write(&stat_path, original.replace("900", "901")).unwrap();

@@ -269,7 +269,7 @@ impl Library {
             products.len(),
             snapshot.products.len()
         ));
-        ui.small("Published plug-ins are registered for Bitwig. Rescan in Bitwig if a plug-in is missing from its browser.");
+        ui.small("Published plug-ins are registered as native VST3s. Rescan plug-ins in your DAW if one is missing from its browser.");
         if products.is_empty() {
             ui.add_space(16.0);
             ui.strong(if snapshot.products.is_empty() {

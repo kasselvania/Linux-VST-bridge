@@ -957,7 +957,7 @@ fn publication_action(
         ),
         "needs_attention" => return None,
         "unpublished" | "removed" => (
-            "Enable experimental use in Bitwig".into(),
+            "Enable experimental use in your DAW".into(),
             ui::Action::ExperimentalEnable {
                 candidate: id.into(),
             },
