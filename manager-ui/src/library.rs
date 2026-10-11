@@ -290,9 +290,22 @@ impl Library {
                             action_buttons(ui, &workflow.alternatives,
                                 snapshot.system.inactive_reason(), pending, chosen);
                         }
-                        action_buttons(ui, &management, snapshot.system.inactive_reason(), pending, chosen);
+                        let (previous, current): (Vec<_>, Vec<_>) = management.iter().cloned()
+                            .partition(|offer| matches!(offer.action,
+                                Action::OrdinaryRollback { .. } | Action::OrdinaryRestoreRecommended { .. }));
+                        action_buttons(ui, &current, snapshot.system.inactive_reason(), pending, chosen);
                         compatibility_settings(ui, p, snapshot.system.inactive_reason(), pending,
                             chosen, self.expand_details);
+                        if !previous.is_empty() {
+                            egui::CollapsingHeader::new(format!("Previous setups ({})", previous.len()))
+                                .open(self.expand_details.then_some(true))
+                                .show(ui, |ui| {
+                                    for offer in &previous {
+                                        action_buttons(ui, std::slice::from_ref(offer),
+                                            snapshot.system.inactive_reason(), pending, chosen);
+                                    }
+                                });
+                        }
                         if let Some(target) = snapshot.environment_installers.iter()
                             .find(|target|target.environment == p.environment) {
                             egui::CollapsingHeader::new("Manage shared setup")
@@ -1072,7 +1085,7 @@ mod tests {
     }
 
     #[test]
-    fn existing_guided_product_exposes_update_and_rollback_without_expert_panel() {
+    fn existing_guided_product_exposes_updates_and_previous_setups_without_expert_panel() {
         fn texts(shape:&egui::epaint::Shape,out:&mut Vec<String>) {
             match shape {
                 egui::epaint::Shape::Text(text)=>out.push(text.galley.text().into()),
@@ -1109,9 +1122,10 @@ mod tests {
             let mut labels=vec![];for clipped in &output.shapes {texts(&clipped.shape,&mut labels);}
             output.textures_delta.clear();
             for expected in ["Check compatibility again","Prepare a test bridge update",
-                "Roll back to revision 6","Installed module changed; rescan first"] {
+                "Previous setups (1)","Installed module changed; rescan first"] {
                 assert!(labels.iter().any(|s|s.contains(expected)),"{expected} absent at {width}");
             }
+            assert!(!labels.iter().any(|s|s=="Roll back to revision 6"));
             assert!(!library.expand_details);assert!(chosen.is_none());
         }
     }
@@ -1178,6 +1192,54 @@ mod tests {
                 "expert section must actually be open only when requested");
             assert_eq!(library.expand_details, expanded);
             assert!(chosen.is_none());
+        }
+    }
+    #[test]
+    fn previous_setups_expand_to_exact_restore_controls_and_preserve_pending_refusal() {
+        fn centers(shape:&egui::epaint::Shape,out:&mut Vec<(String,egui::Pos2)>) {
+            match shape {
+                egui::epaint::Shape::Text(text)=>out.push((text.galley.text().into(),text.pos+text.galley.size()*0.5)),
+                egui::epaint::Shape::Vec(items)=>for item in items {centers(item,out);},
+                _=>{},
+            }
+        }
+        for pending in [false,true] {
+            let mut snapshot=snapshot();snapshot.products.truncate(1);
+            snapshot.environments.clear();snapshot.vendor_applications.clear();
+            let product=&mut snapshot.products[0];product.disposition="ready".into();
+            product.compatibility=None;
+            product.actions=vec![AvailableAction {label:"Check current setup".into(),
+                action:Action::PluginReinspect {selection:"current-selection".into(),audio_layout:None},disabled_reason:None}];
+            for index in 0..12 {
+                product.actions.push(AvailableAction {label:format!("Restore previous setup {index}"),
+                    action:Action::OrdinaryRollback {class_id:product.class_id.clone(),publication:format!("exact-publication-{index}")},
+                    disabled_reason:(index==0).then(||"Previous files are unavailable".into())});
+            }
+            let expected=product.actions[2].action.clone();
+            let ctx=egui::Context::default();presentation::configure_style(&ctx);
+            ctx.global_style_mut(|style|style.animation_time=0.0);
+            let mut library=Library::default();let mut chosen=None;let mut point=egui::Pos2::ZERO;
+            for frame in 0..9 {
+                let click=matches!(frame,3|4|7|8);
+                let events=if click {vec![egui::Event::PointerMoved(point),egui::Event::PointerButton {
+                    pos:point,button:egui::PointerButton::Primary,pressed:matches!(frame,3|7),modifiers:egui::Modifiers::NONE}]} else {vec![]};
+                let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,egui::vec2(560.0,2000.0))),..Default::default()},|ui| {
+                    library.show(ui,&snapshot,pending,&mut chosen,|_,_|{});
+                });
+                let mut text=vec![];for shape in &output.shapes {centers(&shape.shape,&mut text);}
+                if frame==2 {
+                    assert!(!text.iter().any(|(label,_)|label.starts_with("Restore previous setup")));
+                    point=text.iter().find(|(label,_)|label=="Previous setups (12)").unwrap().1;
+                    assert!(text.iter().find(|(label,_)|label=="Check current setup").unwrap().1.y<700.0);
+                }
+                if frame==6 {
+                    assert!(text.iter().any(|(label,_)|label=="Previous files are unavailable"));
+                    point=text.iter().find(|(label,_)|label=="Restore previous setup 1").unwrap().1;
+                }
+                output.textures_delta.clear();
+            }
+            assert_eq!(chosen,(!pending).then_some(expected));
         }
     }
     #[test]
