@@ -1,0 +1,216 @@
+{
+  "schema": 1,
+  "platform": "CachyOS x86_64 disposable Btrfs VM",
+  "daw": "Native REAPER 7.82 evaluation",
+  "desktop": "KDE Plasma 6.7.5 / Wayland + Xwayland",
+  "vm": {
+    "vcpus": 2,
+    "memory_gib": 3,
+    "audio_backend": "PulseAudio",
+    "sample_rate": 44100,
+    "audio_block_frames": 512,
+    "scope": "Installed workflow and nonzero processing; no physical latency, GPU or deadline qualification"
+  },
+  "package": {
+    "build": 49,
+    "source_head": "6319313c19fa8962a805b2d5187e27aeb764f526",
+    "source_tree": "7176d86afbac6b7930151f4837452efbb44f5107",
+    "installer_sha256": "f7fc7d29fc303e0ba2285574dbf71530211567135f4617fc227e83ffce7a314c",
+    "engine_sha256": "61be78f29760d13abbdde238a930e82ca8de5f5b431f13d751d313e9594f5885",
+    "windows_host_sha256": "86f7a01f777f7d648c2de095dc25ce588a7f044ee5e740bfebccaf482638172a",
+    "python_minor": "3.14",
+    "glibc_maximum_required": "2.39",
+    "signature_class": "internal_test"
+  },
+  "installed_test48": {
+    "engine_sha256": "60a956cf59fb4148ded0cc6c9b7a0f085af0e9a5bbff1c1b4142029ed87ff47c",
+    "normal_install_discover_check_prepare": [
+      "First-party Reference instrument/effect",
+      "TyrellN6 free beta",
+      "Diva commercial demo",
+      "First-party same-setup companion instrument/effect"
+    ],
+    "shared_engine_classes": 6,
+    "customer_compiler_used": false,
+    "fresh_state_recall": {
+      "tyrell": {
+        "output": 0.37000000476837,
+        "automation_points": 4,
+        "midi_notes": 16,
+        "editor_open_stage": 100
+      },
+      "diva_demo": {
+        "output": 0.4199999869,
+        "automation_points": 4,
+        "midi_notes": 8,
+        "editor_open_stage": 100
+      },
+      "reference_and_companion": {
+        "instrument_level": 0.625,
+        "instrument_colour": 0.3300000131,
+        "effect_level": 0.7400000095,
+        "effect_colour": 0.6600000262,
+        "automation_points_per_level_lane": 4,
+        "instrument_midi_notes": 16,
+        "editor": "Generic REAPER controls; these fixtures provide no custom view"
+      }
+    },
+    "captured_stereo_s16le": [
+      {
+        "case": "Tyrell",
+        "frames": 491520,
+        "peak": 0.27755737,
+        "rms": 0.0657253,
+        "nonzero_channel_samples": 662338
+      },
+      {
+        "case": "Reference instrument",
+        "frames": 491520,
+        "peak": 0.03717041,
+        "rms": 0.0133209,
+        "nonzero_channel_samples": 494046
+      },
+      {
+        "case": "Reference effect",
+        "frames": 491520,
+        "peak": 0.11361694,
+        "rms": 0.04765918,
+        "nonzero_channel_samples": 705440
+      },
+      {
+        "case": "Diva demo",
+        "frames": 491520,
+        "peak": 0.49191284,
+        "rms": 0.08604609,
+        "nonzero_channel_samples": 837804
+      },
+      {
+        "case": "Companion-dependent instrument",
+        "frames": 393216,
+        "peak": 0.03717041,
+        "rms": 0.014050267,
+        "nonzero_channel_samples": 445316
+      },
+      {
+        "case": "Companion-dependent effect",
+        "frames": 409600,
+        "peak": 0.11364746,
+        "rms": 0.05191437745,
+        "nonzero_channel_samples": 704484
+      }
+    ],
+    "normal_daw_close_confirmed_windows_and_transport_retirement": true,
+    "buffering_next_activation_round_trip": [
+      512,
+      1024,
+      512
+    ]
+  },
+  "test49_update_restore": {
+    "normal_gui_update": true,
+    "updated_btrfs_publications": 6,
+    "fresh_tyrell_recall": {
+      "output": 0.37000000476837,
+      "automation_points": 4,
+      "midi_notes": 16,
+      "editor_open_stage": 100
+    },
+    "captured_stereo_s16le": {
+      "frames": 409600,
+      "peak": 0.2738037109375,
+      "rms": 0.0717313022037492,
+      "nonzero_channel_samples": 652792
+    },
+    "normal_daw_exit_confirmed_windows_and_transport_retirement": true,
+    "normal_gui_restore_to_working_test48": true,
+    "restored_matching_engine_classes": 6,
+    "fresh_restored_tyrell_recall_and_editor": true,
+    "restored_daw_exit_confirmed_windows_and_transport_retirement": true,
+    "protected_files": 19,
+    "protected_file_changes": 0,
+    "protected_scope": "Five original projects, source audio, six installed Windows modules, five environment records, one performance preference and the required companion DLL",
+    "normal_return_update_to_test49": true,
+    "returned_matching_engine_classes": 6
+  },
+  "remaining_limits": [
+    "Custom-editor mouse interaction unverified: fixture pointer routes failed",
+    "Diva retains vendor demo crackles; no activation attempted",
+    "Tester CPU/GPU/audio interface and REAPER version unknown",
+    "Cold runtime verification and multi-plug-in update slow on HDD fixture; transient readback failures retained",
+    "Vendor-installer changes are not reverted by application Restore"
+  ],
+  "test49_reboot": {
+    "normal_shutdown_and_reboot": true,
+    "failed_temporary_usb_input_change_reverted": true,
+    "fresh_tyrell_recall": {
+      "output": 0.37000000476837,
+      "automation_points": 4,
+      "midi_notes": 16,
+      "editor_open_stage": 100
+    },
+    "captured_stereo_s16le": {
+      "frames": 442368,
+      "peak": 0.29302978515625,
+      "rms": 0.06912763011903457,
+      "nonzero_channel_samples": 661714
+    },
+    "automation_movement_during_playback_observed": true,
+    "normal_daw_exit_confirmed_windows_and_transport_retirement": true,
+    "protected_file_changes": 0
+  },
+  "first_use_fixture": {
+    "base": "New disposable child of retained access-ready internal6 overlay",
+    "empty_historical_product_retained_privately": true,
+    "prior_registry_present": false,
+    "prior_environment_records": 0,
+    "initial_current_managed_software_present": false,
+    "initial_current_registry_present": false,
+    "initial_staged_package_present": false,
+    "account_or_password_changes": false,
+    "os_package_changes": false,
+    "temporary_observation_setup": "Existing sshd started; runtime-only Docker-host SSH rule removed before normal shutdown; no persistent OS changes",
+    "native_installer_signature_dependency_abi_stage": true,
+    "normal_set_up_application_and_start_bridge_service": true,
+    "official_reaper_evaluation_archive_sha256": "a4aa961534f22ae5ae910e4ec0c200dcb4476c9f7556806fe09a9743cd582563",
+    "practice_installer_sha256": "57ae8ad92978e67fc502e841c2bef6d7a136b27d88568e7b3f0d7aebbbfb8d0f",
+    "practice_installer_bytes": 809984,
+    "legacy_completion_hook_used": false,
+    "native_file_picker_import": "Confirmed same-content deduplication using reference.exe alias after VNC typed underscores as hyphens; original named installer imported through public intake",
+    "normal_upstream_runtime_acquisition_completed": true,
+    "runtime_key": "7cf254adecabe54fb50ee142694d6ead5b399eb661e96489378dde4708730903",
+    "initial_instrument_enable_refusal": "artifact_changed_during_verification while effect compatibility check overlapped",
+    "instrument_enable_retry_after_effect_check_completed": true,
+    "initial_reaper_scan_before_effect_enable_finished": "DAW script refused missing effect class; normal close confirmed retirement; fresh restart after both publications retained the failed run",
+    "shared_engine_classes": 2,
+    "both_selected_engine_hashes_match_test49": true,
+    "fresh_state_recall": {
+      "instrument_level": 0.625,
+      "instrument_colour": 0.33000001311302,
+      "effect_level": 0.74000000953674,
+      "effect_colour": 0.66000002622604,
+      "automation_points_per_level_lane": 4,
+      "instrument_midi_notes": 16
+    },
+    "captured_stereo_s16le": [
+      {
+        "case": "Reference instrument",
+        "frames": 442368,
+        "peak": 0.03717041015625,
+        "rms": 0.014041472982379122,
+        "nonzero_channel_samples": 494102
+      },
+      {
+        "case": "Reference effect",
+        "frames": 442368,
+        "peak": 0.16998291015625,
+        "rms": 0.08188583222469457,
+        "nonzero_channel_samples": 705586
+      }
+    ],
+    "automation_movement_during_both_playbacks_observed": true,
+    "initial_and_fresh_daw_close_confirmed_both_windows_and_transport_retirement": true,
+    "library_shows_both_published_classes": true,
+    "final_bridge_ready": true,
+    "normal_shutdown_confirmed": true
+  }
+}
