@@ -24,16 +24,16 @@ At 48 kHz/Buffered 512 with the full 80% editor, Moonlight and both manager wind
 declared transport pauses, no unexplained 512-frame silence spans/graph+0/recorder0.
 Five native lifetimes retire cleanly; editor cycles/resize, two inactive 512↔256
 cycles and fresh Macro3=.4242 recall pass. The flat Macro2=.2538 lane is retained.
+The same frozen build then passes two hours: 345.6M finite frames, only the initial
+512-frame recorder priming, graph+0/recorder0 and clean full-lifetime retirement.
 Nine original projects/fifteen vendor settings/five preferences/nine environment
-records remain exact. Test43 is installed; Test42 is retained.
+records remain exact. Test43 is installed; Test42 is retained; current Home is usable.
 
 ## Next change and done
 
-The same frozen Test43 two-hour diagnostics-OFF playback is running. Finish full
-PCM/profile/lifetime checks, restore the temporary trace option and normally retire
-owned test processes. Two Restore admission LockBusy refusals remain open.
-Meaningful edited automation, lower-block/SameCallback and integrated beta
-qualification remain open.
+Temporary trace/DAW Auto settings are restored; owned audio/streaming work is retired.
+Meaningful edited automation, lower-block/SameCallback and integrated beta remain
+open. Two Restore admission LockBusy refusals remain open.
 
 ## Remaining beta gates
 

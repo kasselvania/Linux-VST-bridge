@@ -1127,11 +1127,12 @@ competing CPU work. The initial Test42 passive-probe correction failed in the
 preserved two-GUI fixture: the older frontend still launched full readiness probes.
 The corrected single-current-GUI comparison pauses that same older GUI in both
 arms: Test41 loses 1,024 frames/graph+3 in 380 seconds; Test42 has no later
-512-frame silence spans/graph+0, recorder0. Keep the bounded passive-refresh fix;
-automatic retirement/replacement of stale manager windows remains open. The idle
-old Home window was normally closed and the installed current Home reopened.
-Thirty-minute interaction, lower-block/SameCallback and longer endurance remain
-open; temporary scheduling changes established no dependable general workaround.
+512-frame silence spans/graph+0, recorder0. Keep the bounded passive-refresh fix.
+Test43 ordinary Update now quiesces obsolete manager work with the old window
+still running and opens usable current Home. Its diagnostics-OFF 48-kHz/Buffered
+512 interaction and same-build two-hour playback pass their scoped output and
+retirement checks. Meaningful edited automation and lower-block/SameCallback use
+remain open; temporary scheduling changes established no dependable general workaround.
 [Current bounded result](../evidence/audio-recovery/test41-deck-audio.json).
 
 The [paced priority pair](../evidence/audio-recovery/2026-10-04-paced-priority-abort.md)
