@@ -1241,6 +1241,38 @@ fn retained_setup_records_need_refresh(setup: &InstallerSetup, snapshot: &Snapsh
                     None | Some("installed")))
 }
 
+fn setup_display_name(setup: &InstallerSetup, snapshot: &Snapshot) -> String {
+    if setup.label_source != "generated" { return setup.name.clone(); }
+    let mut names = Vec::new();
+    for discovered in &setup.discovered {
+        if snapshot.products.iter().any(|product|
+            product.environment == discovered.environment
+                && product.module_sha256 == discovered.module_sha256
+                && product.class_id == discovered.class_id)
+            && !names.contains(&discovered.name) {
+            names.push(discovered.name.clone());
+        }
+    }
+    match names.as_slice() {
+        [] => setup.name.clone(),
+        [name] => name.clone(),
+        [first, rest @ ..] => format!("{first} and {} other plug-ins",rest.len()),
+    }
+}
+
+fn partial_installation_needs_review(setup: &InstallerSetup, snapshot: &Snapshot) -> bool {
+    setup.phase == SetupPhase::SetupNeedsAttention
+        && snapshot.onboarding.iter().any(|attempt|
+            attempt.installer == setup.installer && attempt.environment == setup.environment
+                && attempt.state == "needs_attention" && attempt.failure.is_none()
+                && attempt.details["installation"]["state"] == "completed"
+                && attempt.details["installation"]["cleanup_confirmed"] == true
+                && attempt.details["installation"]["owned_live"] == 0
+                && attempt.details["installation"]["error"].is_null()
+                && attempt.details["installation"]["failure"].is_null()
+                && attempt.details["installation"]["transaction"]["outcome"] == "partial_installation")
+}
+
 impl Operator {
     fn readiness_details(ui: &mut egui::Ui, assessment: Option<&ReadinessAssessment>,
         fresh: bool, pending: bool, refresh: &mut bool, chosen: &mut Option<Action>) {
@@ -1315,13 +1347,21 @@ impl Operator {
                 Self::buttons(ui,&recoveries,overview.current.system.inactive_reason(),pending,chosen);
                 if ui.button("Review recovery details").clicked() {*page = Page::Diagnostics;}
             } else if let Some(setup) = unfinished {
-                ui.strong(format!("Next: continue {}", setup.name));
-                ui.label(&setup.status);
+                let partial = partial_installation_needs_review(setup, &overview.current);
+                let name = setup_display_name(setup, &overview.current);
+                ui.strong(if partial {format!("Next: review the installation for {name}")}
+                    else {format!("Next: continue {name}")});
+                if partial {
+                    ui.label("A complete installation was not confirmed. Review this setup before making installation changes. Plug-ins already available in your DAW remain available.");
+                } else {ui.label(&setup.status);}
                 if let Some(action) = &setup.primary {
                     crate::library::primary_action(ui, action,
                         overview.current.system.inactive_reason(), pending || !fresh, chosen);
                 }
-                if ui.button("Open this setup").clicked() {
+                let review = if partial && setup.primary.is_none() {
+                    ui.add(presentation::primary_button("Review this installation",ui)).clicked()
+                } else {ui.button("Open this setup").clicked()};
+                if review {
                     navigate(&Destination::Attempt(AttemptKey {installer:setup.installer.clone(),
                         environment:setup.environment.clone()}), page, library, focus);
                 }
@@ -1459,12 +1499,16 @@ impl Operator {
             ui.push_id(&setup.installer, |ui| {
                 egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
                     ui.set_min_width((ui.available_width() - 1.0).max(0.0));
-                    ui.label(egui::RichText::new(&setup.name).size(18.0).strong());
+                    ui.label(egui::RichText::new(setup_display_name(setup,&overview.current)).size(18.0).strong());
                     let retained_refresh = retained_setup_records_need_refresh(setup, &overview.current);
+                    let partial = partial_installation_needs_review(setup,&overview.current);
                     ui.strong(if retained_refresh {"Installation records need attention"}
+                        else if partial {"Review earlier installation"}
                         else {setup_phase_label(&setup.phase)});
                     if retained_refresh {
                         ui.label("Installation records need refreshing before making setup changes.");
+                    } else if partial {
+                        ui.label("A complete installation was not confirmed. Review the installation result before making setup changes. Plug-ins already available in your DAW remain available.");
                     } else if setup.phase == SetupPhase::DiscoveryComplete {
                         ui.label(format!("{} plug-ins found. Open them to see availability and finish setup.",setup.discovered.len()));
                     } else if setup.phase == SetupPhase::Imported && setup.primary.is_none()
@@ -1483,6 +1527,8 @@ impl Operator {
                     Self::buttons(ui, &setup.secondary,
                         overview.current.system.inactive_reason(), pending, chosen);
                     egui::CollapsingHeader::new("Setup details and options").show(ui, |ui| {
+                        ui.small(format!("Recorded installer label: {}",setup.name));
+                        if let Some(environment) = &setup.environment {ui.small(format!("Setup environment: {environment}"));}
                         ui.label(&setup.status);
                         if let Some(compatibility) = &setup.compatibility { ui.small(compatibility); }
                         for attempt in overview.current.onboarding.iter().filter(|attempt|
@@ -2028,7 +2074,7 @@ impl eframe::App for Operator {
                     if let Err(error) = crate::bootstrap::launch_selected() { self.message = error; }
                 }
             }
-            if self.preview { ui.small("LOCAL DESIGN PREVIEW · synthetic records · actions do not execute"); }
+            if self.preview { ui.small("LOCAL DESIGN PREVIEW · sample records · actions do not execute"); }
             Self::health_bar(ui, self.current_health_system(), self.retained_health_system());
             navigation(ui, &mut self.page);
             self.request_bar(ui);
@@ -3354,7 +3400,7 @@ mod tests {
             product.disposition = "ready".into();
             let installer = "retained-installer".to_string();
             let setup = InstallerSetup {installer:installer.clone(),name:"Retained installer".into(),
-                label_source:"generated".into(),byte_size:1024,format:"pe_executable".into(),imported_at:1,
+                label_source:"operator_named".into(),byte_size:1024,format:"pe_executable".into(),imported_at:1,
                 phase:SetupPhase::SetupNeedsAttention,status:"Review retained installation records.".into(),
                 environment:Some(product.environment.clone()),compatibility:None,
                 discovered:vec![DiscoveredProduct {environment:product.environment.clone(),
@@ -3390,6 +3436,67 @@ mod tests {
             if failed {assert_eq!(focus.setup_installer.as_deref(),Some("retained-installer"));}
             else {assert_eq!(library.focused_product(),Some(&ProductKey::from(&overview.current.products[0])));}
         }
+    }
+    #[test]
+    fn mixed_retained_installations_review_the_exact_partial_setup() {
+        let mut overview:CurrentOverview=overview_fixture().into();
+        let base=overview.current.products[0].clone();
+        overview.current.products.clear();overview.current.installer_setups.clear();overview.current.onboarding.clear();
+        // The retained Deck shape: six maintenance records and two partial outcomes.
+        for (index,(count,outcome)) in [(2,None),(1,Some("partial_installation")),(1,Some("installed")),
+            (9,Some("installed")),(1,Some("partial_installation")),(2,Some("installed")),
+            (1,Some("installed")),(2,Some("installed"))].into_iter().enumerate() {
+            let installer=format!("installer-{index}");let environment=format!("environment-{index}");
+            let mut discovered=vec![];
+            for class in 0..count {
+                let mut product=base.clone();product.environment=environment.clone();
+                product.module_sha256=format!("module-{index}-{class}");product.class_id=format!("class-{index}-{class}");
+                product.name=format!("Plug-in {index}.{class}");product.disposition="ready".into();product.compatibility=None;
+                discovered.push(DiscoveredProduct {environment:environment.clone(),module_sha256:product.module_sha256.clone(),
+                    class_id:product.class_id.clone(),name:product.name.clone()});
+                overview.current.products.push(product);
+            }
+            let name=format!("Unknown Windows installer · ID {index}");
+            let status="Installation retained; use the exact managed-environment refresh below before preparing or replacing a publication";
+            overview.current.installer_setups.push(InstallerSetup {installer:installer.clone(),name:name.clone(),
+                label_source:"generated".into(),byte_size:1024,format:"pe_executable".into(),imported_at:index as u64,
+                phase:SetupPhase::SetupNeedsAttention,status:status.into(),environment:Some(environment.clone()),
+                compatibility:None,discovered,primary:None,secondary:vec![],
+                rename:AvailableAction {label:"Rename".into(),action:Action::InstallerRename {installer:installer.clone(),label:String::new()},disabled_reason:None},history:vec![]});
+            overview.current.onboarding.push(crate::model::Onboarding {installer,name,byte_size:1024,format:"pe_executable".into(),
+                environment:Some(environment),state:"needs_attention".into(),failure:None,required_human_action:status.into(),actions:vec![],
+                details:serde_json::json!({"managed_product":true,"scan":{},"installation":{"state":"completed",
+                    "cleanup_confirmed":true,"owned_live":0,"error":null,"failure":null,
+                    "transaction":{"outcome":outcome,"durable_installation":outcome,"installation_completeness":"unproved",
+                        "safe_next_action":"review_retained_outcome_before_retry","outer_launcher_exit":0,"first_failure":null}}})});
+        }
+        for (index,setup) in overview.current.installer_setups.iter().enumerate() {
+            assert_eq!(retained_setup_records_need_refresh(setup,&overview.current),!matches!(index,1|4));
+        }
+        let intended=&overview.current.installer_setups[1];
+        let mut unmatched=intended.clone();unmatched.discovered[0].module_sha256="different-module".into();
+        assert_eq!(setup_display_name(&unmatched,&overview.current),unmatched.name);
+        let ctx=result_form_context();presentation::configure_style(&ctx);
+        let mut page=Page::Home;let mut library=crate::library::Library::default();let mut focus=RouteFocus::default();
+        let mut point=egui::Pos2::ZERO;
+        for frame in 0..5 {
+            let events=if frame>=3 {vec![egui::Event::PointerMoved(point),egui::Event::PointerButton {
+                pos:point,button:egui::PointerButton::Primary,pressed:frame==3,modifiers:egui::Modifiers::NONE}]} else {vec![]};
+            let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,egui::vec2(560.0,1200.0))),..Default::default()},|ui| {
+                Operator::fast_home(ui,&overview,None,true,false,
+                    (&mut page,&mut library,&mut focus,&mut false,&mut None));
+            });
+            if frame==2 {
+                let mut text=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut text);}
+                assert!(text.iter().any(|(label,_)|label=="Next: review the installation for Plug-in 1.0"));
+                point=text.iter().find(|(label,_)|label=="Review this installation").unwrap().1;
+                assert!(!text.iter().any(|(label,_)|label=="Next: open your DAW"));
+            }
+            output.textures_delta.clear();
+        }
+        assert_eq!(page,Page::Setup);
+        assert_eq!(focus.setup,Some(AttemptKey {installer:intended.installer.clone(),environment:intended.environment.clone()}));
     }
     #[test]
     fn live_installer_beats_an_older_import_and_keeps_pending_controls_closed() {
