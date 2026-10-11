@@ -1523,6 +1523,9 @@ factory metadata. Admission LVB5 carries this cached pair alongside logical clas
 and vendor-module identity; the manager compares the selected registration and the
 peer's executable mapping before starting resources and again before admission.
 Retain one peer process generation across these checks and graphical-context capture.
+Factory provenance uses the loader's retained opened-file identity; peer mapping
+presence does not supply the cached digests. Derive kernel mapping coordinates
+from a pinned file mapping where stat's device differs from the mapping device.
 Recovery uses the original caller binding, never a fresh hash of whichever path is
 currently selected. This is a non-realtime factory/admission contract and does not
 change Windows IPC15, the sample transport, class identity or saved-state format.

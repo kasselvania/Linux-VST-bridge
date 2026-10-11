@@ -441,19 +441,8 @@ pub fn peer_process(peer: &std::os::unix::net::UnixStream) -> Result<PeerProcess
     Ok(process)
 }
 #[cfg(any(target_os = "linux", test))]
-fn maps_artifact(bytes: &[u8], metadata: &fs::Metadata) -> Result<bool> {
-    for line in std::str::from_utf8(bytes)?.lines() {
-        let fields: Vec<_> = line.split_whitespace().take(5).collect();
-        require(fields.len() == 5, "native_caller_maps_format")?;
-        let (major, minor) = fields[3].split_once(':').ok_or("native_caller_maps_device")?;
-        if fields[1].starts_with("r-x")
-            && fields[4].parse::<u64>()? == metadata.ino()
-            && u64::from_str_radix(major, 16)? == libc::major(metadata.dev() as libc::dev_t) as u64
-            && u64::from_str_radix(minor, 16)? == libc::minor(metadata.dev() as libc::dev_t) as u64 {
-            return Ok(true);
-        }
-    }
-    Ok(false)
+fn maps_artifact(bytes: &[u8], identity: crate::mapped_file::Identity) -> Result<bool> {
+    crate::mapped_file::present(bytes, identity, true)
 }
 #[cfg(target_os = "linux")]
 pub fn peer_maps_artifact(
@@ -468,11 +457,12 @@ pub fn peer_maps_artifact(
         metadata.is_file() && metadata.uid() == process.uid,
         "native_caller_artifact_owner",
     )?;
+    let identity = crate::mapped_file::identity(&file)?;
     let mut bytes = Vec::new();
     fs::File::open(format!("/proc/{}/maps", process.pid))?.take(2 * 1024 * 1024 + 1)
         .read_to_end(&mut bytes)?;
     require(bytes.len() <= 2 * 1024 * 1024, "native_caller_maps_extent")?;
-    require(maps_artifact(&bytes, &metadata)?, "native_caller_image_not_mapped")?;
+    require(maps_artifact(&bytes, identity)?, "native_caller_image_not_mapped")?;
     process.verify(peer)
 }
 #[cfg(not(target_os = "linux"))]
@@ -670,16 +660,17 @@ mod tests {
         let path = std::env::temp_dir().join(format!("mapped-native-{}", random_id().unwrap()));
         fs::write(&path, b"native image").unwrap();
         let metadata = fs::metadata(&path).unwrap();
+        let identity = crate::mapped_file::Identity {device:metadata.dev(),inode:metadata.ino()};
         let matching = format!("1000-2000 r-xp 0 {:x}:{:x} {} /different/mount/name\n",
             libc::major(metadata.dev() as libc::dev_t), libc::minor(metadata.dev() as libc::dev_t), metadata.ino());
-        assert!(maps_artifact(matching.as_bytes(), &metadata).unwrap());
+        assert!(maps_artifact(matching.as_bytes(), identity).unwrap());
         let readonly = matching.replacen("r-xp", "r--p", 1);
-        assert!(!maps_artifact(readonly.as_bytes(), &metadata).unwrap());
+        assert!(!maps_artifact(readonly.as_bytes(), identity).unwrap());
         let wrong = format!("1000-2000 r-xp 0 {:x}:{:x} {} {}\n",
             libc::major(metadata.dev() as libc::dev_t), libc::minor(metadata.dev() as libc::dev_t),
             metadata.ino()+1, path.display());
-        assert!(!maps_artifact(wrong.as_bytes(), &metadata).unwrap());
-        assert!(maps_artifact(b"malformed\n", &metadata).is_err());
+        assert!(!maps_artifact(wrong.as_bytes(), identity).unwrap());
+        assert!(maps_artifact(b"malformed\n", identity).is_err());
         fs::remove_file(path).unwrap();
     }
     #[cfg(target_os = "linux")]

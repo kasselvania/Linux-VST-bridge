@@ -8,13 +8,14 @@ engine. Windows DAWs and ARM/Xfer demo work follow this beta.
 
 ## Best explanation and next changes
 
-The recovered disposable CachyOS system runs the old internal49 generation.
-The delivery mechanisms already transfer; current manager, host and engine
-must be packaged with CachyOS's Python 3.14 supervisor ABI and checked native
-dependencies. Its app-owned runtime acquisition already passed.
+Test46 installed through ordinary Update Bridge with CachyOS's Python 3.14
+supervisor ABI. App-owned runtime acquisition, vendor installation, unfamiliar
+class discovery and generic preparation completed. Btrfs's maps/stat device
+difference refused the native factory; REAPER's embedded editor container was
+wrongly required to advertise a top-level window-close protocol.
 
-Build and install Test46 through the signed user-space installer. Use the
-existing disposable child and preserve its parent and old installation.
+Install Test47 with loader-bound factory identity, consistent kernel mapping
+coordinates and embedded-container editor support. Preserve fixture parents.
 Exercise REAPER discovery, editors, audio/MIDI, parameters, automation and
 meaningful save/fresh reopen at the 512-frame baseline. Investigate the known
 REAPER editor-request defect if it reproduces, and fix the general boundary.
