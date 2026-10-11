@@ -3436,3 +3436,10 @@ Deck REAPER 7.82 / Test36 MOTIONS has blank embedded/floating editors while gene
 parameters work and no editor-open request reaches Windows. Native attachment/admission
 is suspected; the exact guard is unproved. DAW close confirms host cleanup; stage 217
 with zero opens does not establish a UIA editor lifecycle. [Issue #261](https://github.com/kasselvania/Linux-VST-bridge/issues/261).
+
+On CachyOS / native REAPER 7.82, the Tyrell case additionally exposed Btrfs
+stat-versus-maps identity refusal, a valid embedded parent without WM_DELETE,
+and the Windows view declining optional content scaling. General binding and
+view-lifecycle corrections make Test48/49 open at stage 100; normal close and
+fresh reopen pass. The original Deck MOTIONS case has not been retested. Mouse
+interaction is still unverified on this VM. [Scoped CachyOS result](../evidence/cachyos-reaper.json).

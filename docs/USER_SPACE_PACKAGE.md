@@ -6,6 +6,27 @@ then uses the existing explicit Stop, Select version, Start and Restore previous
 version controls. Staging a package does not select it or stop the working bridge.
 Software rollback does not restore customer projects or vendor state.
 
+## CachyOS tester handoff
+
+Test49 is a signed `internal_test` build of the current shared product for
+x86-64 CachyOS / Python 3.14 and native REAPER. The installer checks its declared
+native dependencies and supervisor ABI before staging. The handoff contains the
+installer, its exact first-party Reference practice installer, checksums,
+`START_HERE.md` and readable copies of the included notices. It contains no vendor
+plug-ins, activation data or runtime payload; runtime acquisition stays upstream.
+
+New users stage the application, open Setup, set up the application and start the
+bridge. Setup then acquires the compatibility runtime, imports a lawful Windows
+installer, discovers its classes and offers Check compatibility / Enable
+experimental use in the DAW. Finish each operation before preparing the next
+class, and open or rescan REAPER after publication. Start at 512 frames; use generic
+REAPER controls for the practice pair, which has no custom view.
+
+Installed Btrfs workflow, changed-state/automation/MIDI fresh reopen, matching
+Update/Restore and reboot results are in the [support matrix](SUPPORT_MATRIX.md).
+Custom-editor mouse interaction and the tester's physical audio/GPU behavior
+remain unverified; the VM's failed pointer attempts do not qualify those paths.
+
 ## Package authority
 
 The builder compiles a separately selected Ed25519 public key and key class into
