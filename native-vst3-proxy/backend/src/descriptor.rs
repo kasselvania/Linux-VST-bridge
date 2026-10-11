@@ -108,6 +108,55 @@ fn loaded_mapping(address: usize) -> Result<(u64, u64), ()> {
     if bytes.len() > 8 * 1024 * 1024 { return Err(()); }
     mapping_identity(&bytes, address)
 }
+#[cfg(target_env = "gnu")]
+struct LoadedImage(*mut c_void);
+#[cfg(target_env = "gnu")]
+impl Drop for LoadedImage {
+    fn drop(&mut self) { unsafe { libc::dlclose(self.0); } }
+}
+/// The loader remembers the device/inode of the file it actually opened. Maps
+/// uses the filesystem's device, which differs from stat on Btrfs subvolumes.
+/// A fresh spelling is essential: glibc also caches successful lookup names,
+/// and a reused plain /proc/self/fd/N can resolve to a previously loaded image.
+#[cfg(target_env = "gnu")]
+fn pinned_loaded_image(file: &File, address: usize) -> Result<LoadedImage, ()> {
+    loaded_mapping(address)?; // The anchor must belong to executable file pages.
+    let mut info: libc::Dl_info = unsafe { std::mem::zeroed() };
+    let mut anchor = std::ptr::null_mut();
+    const RTLD_DL_LINKMAP: i32 = 2;
+    if unsafe { libc::dladdr1(address as *const c_void, &mut info, &mut anchor,
+                              RTLD_DL_LINKMAP) } == 0 || anchor.is_null() {
+        return Err(());
+    }
+    let mut nonce = [0_u8; 32];
+    if unsafe { libc::getrandom(nonce.as_mut_ptr().cast(), nonce.len(), libc::GRND_NONBLOCK) }
+        != nonce.len() as libc::ssize_t {
+        return Err(());
+    }
+    let mut alias = String::from("/proc/self/fd");
+    for byte in nonce {
+        for bit in (0..8).rev() {
+            alias.push_str(if byte & (1 << bit) == 0 { "/." } else { "//." });
+        }
+    }
+    alias.push_str(&format!("/{}", file.as_raw_fd()));
+    let alias = std::ffi::CString::new(alias).map_err(|_| ())?;
+    let handle = unsafe { libc::dlopen(alias.as_ptr(),
+        libc::RTLD_NOLOAD | libc::RTLD_LAZY | libc::RTLD_LOCAL) };
+    if handle.is_null() { return Err(()); }
+    let image = LoadedImage(handle);
+    let mut found: *mut c_void = std::ptr::null_mut();
+    if unsafe { libc::dlinfo(handle, libc::RTLD_DI_LINKMAP, (&mut found as *mut *mut c_void).cast()) }
+        != 0 || found != anchor {
+        return Err(());
+    }
+    Ok(image)
+}
+#[cfg(not(target_env = "gnu"))]
+fn pinned_loaded_image(_file: &File, _address: usize) -> Result<(), ()> {
+    // No equivalent loader identity has been qualified for another libc.
+    Err(())
+}
 fn hash(mut file: &File, maximum: usize) -> Result<[u8; 32], ()> {
     if file.metadata().map_err(|_| ())?.len() > maximum as u64 { return Err(()); }
     let mut hash = Sha256::new();
@@ -132,8 +181,7 @@ fn load(path: &Path, image_address: usize) -> Result<(Owned, View), ()> {
         .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
         .open(parent).map_err(|_| ())?;
     let engine = open_at(&directory, name)?;
-    let engine_meta = engine.metadata().map_err(|_| ())?;
-    if loaded_mapping(image_address)? != (engine_meta.dev(), engine_meta.ino()) { return Err(()); }
+    let _loaded_image = pinned_loaded_image(&engine, image_address)?;
     let mut descriptor_file = open_at(&directory, std::ffi::OsStr::new(FILE_NAME))?;
     let mut bytes = Vec::new();
     descriptor_file.by_ref().take((LIMIT + 1) as u64)
@@ -241,5 +289,56 @@ mod tests {
         assert_eq!(mapping_identity(maps, 0x1800).unwrap(), (libc::makedev(8, 2) as u64, 42));
         assert!(mapping_identity(maps, 0x2800).is_err());
         assert!(mapping_identity(b"malformed\n", 0x1800).is_err());
+    }
+    #[cfg(target_env = "gnu")]
+    #[test]
+    fn loader_binding_rejects_replacement_even_after_a_cached_fd_alias() {
+        use std::{ffi::CString, fs, process::Command};
+        let mut nonce = [0_u8; 16];
+        assert_eq!(unsafe { libc::getrandom(nonce.as_mut_ptr().cast(), nonce.len(), 0) }, 16);
+        let directory = std::env::temp_dir().join(format!("lvb-loader-{}-{}",
+            std::process::id(), nonce.iter().map(|b| format!("{b:02x}")).collect::<String>()));
+        fs::create_dir(&directory).unwrap();
+        struct Remove(std::path::PathBuf);
+        impl Drop for Remove { fn drop(&mut self) { fs::remove_dir_all(&self.0).unwrap(); } }
+        let _remove = Remove(directory.clone());
+        let source = directory.join("image.c");
+        let path = directory.join("image.so");
+        fs::write(&source, "int lvb_loader_anchor(void) { return 7; }\n").unwrap();
+        assert!(Command::new("cc").args(["-shared", "-fPIC", "-o"])
+            .arg(&path).arg(&source).status().unwrap().success());
+        let name = CString::new(path.as_os_str().as_bytes()).unwrap();
+        let handle = unsafe { libc::dlopen(name.as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL) };
+        assert!(!handle.is_null());
+        let _handle = LoadedImage(handle);
+        let symbol = CString::new("lvb_loader_anchor").unwrap();
+        let anchor = unsafe { libc::dlsym(handle, symbol.as_ptr()) } as usize;
+        assert_ne!(anchor, 0);
+        let original = File::open(&path).unwrap();
+        assert!(pinned_loaded_image(&original, anchor).is_ok());
+        // Seed glibc's raw-name cache while this FD still refers to the image.
+        let alias = CString::new(format!("/proc/self/fd/{}", original.as_raw_fd())).unwrap();
+        let cached = unsafe { libc::dlopen(alias.as_ptr(), libc::RTLD_NOLOAD | libc::RTLD_LAZY) };
+        assert_eq!(cached, handle);
+        unsafe { libc::dlclose(cached); }
+        let retained = directory.join("retained.so");
+        fs::rename(&path, &retained).unwrap();
+        fs::copy(&retained, &path).unwrap();
+        let replacement = File::open(&path).unwrap();
+        assert!(pinned_loaded_image(&original, anchor).is_ok());
+        assert!(pinned_loaded_image(&replacement, anchor).is_err());
+        // Replace only our owned FD, without racing another test's allocation.
+        assert_eq!(unsafe { libc::dup2(replacement.as_raw_fd(), original.as_raw_fd()) }, original.as_raw_fd());
+        let false_match = unsafe { libc::dlopen(alias.as_ptr(), libc::RTLD_NOLOAD | libc::RTLD_LAZY) };
+        assert_eq!(false_match, handle, "plain reused FD names falsely match cached images");
+        unsafe { libc::dlclose(false_match); }
+        assert!(pinned_loaded_image(&original, anchor).is_err());
+        let old = File::open(&retained).unwrap();
+        assert!(pinned_loaded_image(&old, anchor).is_ok());
+        let anonymous = unsafe { libc::mmap(std::ptr::null_mut(), 4096,
+            libc::PROT_READ | libc::PROT_EXEC, libc::MAP_PRIVATE | libc::MAP_ANONYMOUS, -1, 0) };
+        assert_ne!(anonymous, libc::MAP_FAILED);
+        assert!(pinned_loaded_image(&old, anonymous as usize).is_err());
+        unsafe { libc::munmap(anonymous, 4096); }
     }
 }
