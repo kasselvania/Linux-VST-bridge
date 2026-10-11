@@ -1131,8 +1131,11 @@ arms: Test41 loses 1,024 frames/graph+3 in 380 seconds; Test42 has no later
 Test43 ordinary Update now quiesces obsolete manager work with the old window
 still running and opens usable current Home. Its diagnostics-OFF 48-kHz/Buffered
 512 interaction and same-build two-hour playback pass their scoped output and
-retirement checks. Meaningful edited automation and lower-block/SameCallback use
-remain open; temporary scheduling changes established no dependable general workaround.
+retirement checks. Test45 now saves and freshly recalls an edited Macro2 step curve,
+with playing DAW low/high/low values and matching paused vendor readbacks. Its
+60-second finite/nonzero smoke recording retains thirteen later silence spans;
+continuity and lower-block/SameCallback use remain open. Temporary scheduling
+changes established no dependable general workaround.
 [Current bounded result](../evidence/audio-recovery/test41-deck-audio.json).
 
 The [paced priority pair](../evidence/audio-recovery/2026-10-04-paced-priority-abort.md)
