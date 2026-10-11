@@ -2248,6 +2248,11 @@ were removed. In the same 2-vCPU/3-GiB Ubuntu HDD VM, the Test28 update took
 publications. The roughly 25-minute update and slow cold start remain open
 performance defects.
 
+Test50's normal update completed on Deck within 4m51s and on the cold CachyOS
+HDD fixture in about 20–23 minutes. The updater clearly says preparation is
+running and can survive window closure, but supplies no stage or percentage;
+this remains an update-progress usability limitation under #240.
+
 Tracking: [installed update #240](https://github.com/kasselvania/Linux-VST-bridge/issues/240)
 and [cold startup #241](https://github.com/kasselvania/Linux-VST-bridge/issues/241).
 

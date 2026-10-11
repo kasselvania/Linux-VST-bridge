@@ -22,18 +22,19 @@ Disposable fixtures are stopped and parent fixtures remain retained.
 
 ## Explanation and changes
 
-The manager works, but Home mixes service health with plug-in readiness and
-buries useful actions beneath prior installs. Lead with the current task; keep
-Add a plug-in reachable, show honest availability and specific problems, retain
-exact offered actions, shared-setup consequences, pending/stale controls and
-expandable technical detail. Desktop and Deck-width production previews guide
-review; installed captures follow approval. No new audio/endurance gate applies.
+Test50 is installed and active on Deck and CachyOS; protected projects and vendor
+records remain exact. Deck navigation passes. Actual history exposed a dormant
+installer recommendation and too many visible restore choices. Keep maintenance
+records in Setup and previous setups collapsed; preserve failures, cleanup and
+all exact actions/refusals. Review targeted production previews, then deliver the
+corrected signed build through normal Update. No new audio/endurance gate applies.
 
 ## Done for this pass
 
 Reviewed usable UI builds installed on authorized fixtures, committed/pushed
-and merged with green checks, plus updated CachyOS tester handoff. Retain prior
-builds, projects, vendor state and package protections. The tester's own REAPER/
+and merged with green checks, plus updated CachyOS tester handoff. Windows DAWs
+and ARM/Xfer remain after beta. Retain prior builds, projects, vendor state and
+package protections. The tester's own REAPER/
 hardware use remains next; CPU/GPU/interface are unknown and custom-editor mouse
 interaction remains unverified after failed VM pointer routes. Cold HDD update
 and transient readback limits remain specific. Deck Test43 playback and Test45

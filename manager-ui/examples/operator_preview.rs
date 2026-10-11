@@ -257,7 +257,8 @@ fn main() -> eframe::Result {
         "idle" | "guided" | "guided_new" | "guided_pending"
         | "pb0_ready" | "pb0_action" | "pb0_unsupported" | "pb0_unknown"
         | "populated" | "available" | "first_use" | "setup_many" | "install_running"
-        | "pending" | "recoverable" | "plugin_ready" | "plugin_action" | "plugin_details" | "current_loading" | "stale" => {
+        | "pending" | "recoverable" | "plugin_ready" | "plugin_action" | "plugin_details"
+        | "retained_installation" | "plugin_history" | "plugin_history_open" | "current_loading" | "stale" => {
             snapshot.system.dsp = 0;
             snapshot.active_sessions.retain(|row| row["recent"] == true);
             snapshot.operation = None;
@@ -293,6 +294,27 @@ fn main() -> eframe::Result {
             product.disposition = "ready".into();
             product.details = serde_json::json!({});
         }
+    }
+    if state == "retained_installation" {
+        snapshot.products.truncate(1);
+        let product=&mut snapshot.products[0];product.disposition="ready".into();
+        let installer="af".repeat(32);
+        snapshot.installer_setups=vec![model::InstallerSetup {
+            installer:installer.clone(),name:"Unknown Windows installer · ID afafafaf…afaf".into(),
+            label_source:"generated".into(),byte_size:1_000_000,format:"pe_executable".into(),imported_at:1,
+            phase:model::SetupPhase::SetupNeedsAttention,
+            status:"Installation retained; use the exact managed-environment refresh before preparing or replacing a publication".into(),
+            environment:Some(product.environment.clone()),compatibility:None,
+            discovered:vec![model::DiscoveredProduct {environment:product.environment.clone(),
+                module_sha256:product.module_sha256.clone(),class_id:product.class_id.clone(),name:product.name.clone()}],
+            primary:None,secondary:vec![],rename:model::AvailableAction {label:"Rename".into(),
+                action:model::Action::InstallerRename {installer:installer.clone(),label:String::new()},disabled_reason:None},history:vec![],
+        }];
+        snapshot.onboarding=vec![model::Onboarding {failure:None,installer,name:"Retained installation".into(),
+            byte_size:1_000_000,format:"pe_executable".into(),environment:Some(product.environment.clone()),
+            state:"needs_attention".into(),required_human_action:snapshot.installer_setups[0].status.clone(),actions:vec![],
+            details:serde_json::json!({"managed_product":true,"scan":{},"installation":{
+                "state":"completed","cleanup_confirmed":true,"owned_live":0}})}];
     }
     if matches!(state,"setup_many" | "install_running" | "recoverable") {
         for index in 1..=5 {
@@ -336,7 +358,7 @@ fn main() -> eframe::Result {
             snapshot.system.maintenance=usize::from(running);
         }
     }
-    if matches!(state,"plugin_ready" | "plugin_action" | "plugin_details") {
+    if matches!(state,"plugin_ready" | "plugin_action" | "plugin_details" | "plugin_history" | "plugin_history_open") {
         let product=&mut snapshot.products[0];
         product.compatibility=Some(model::CompatibilityWorkflow {
             phase:if state == "plugin_action" {model::CompatibilityPhase::ReadyForTest}
@@ -350,6 +372,19 @@ fn main() -> eframe::Result {
             alternatives:vec![],
         });
         product.details=serde_json::json!({"verification_scope":"control_records","publication_selected":state != "plugin_action"});
+        if matches!(state,"plugin_history" | "plugin_history_open") {
+            product.disposition="ready".into();
+            product.actions=vec![model::AvailableAction {label:"Check current setup".into(),
+                action:model::Action::PluginReinspect {selection:"aa".repeat(32),audio_layout:None},disabled_reason:None}];
+            product.compatibility.as_mut().unwrap().primary=Some(product.actions[0].clone());
+            for index in 0..12 {
+                product.actions.push(model::AvailableAction {label:format!("Restore previous setup {index} · 512-frame bridge buffering"),
+                    action:model::Action::OrdinaryRollback {class_id:product.class_id.clone(),publication:format!("{index:032x}")},
+                    disabled_reason:(index==0).then(||"Previous files are unavailable".into())});
+            }
+            product.details["configuration"]=serde_json::json!({"choices":[],"launch":{"runtime":"managed runtime", "environment":"exact installed setup"},
+                "qualification":"Recorded tests remain unchanged","buffering":{"added_frames":512}});
+        }
     }
     let theme = match args.get(4).map(String::as_str).unwrap_or("light") {
         "light" => egui::Theme::Light,
@@ -426,7 +461,7 @@ fn main() -> eframe::Result {
             Ok(Box::new(Preview {
                 operator: operator::Operator::preview_current(snapshot, readiness, page,
                     page == operator::Page::Plugins && state != "current_loading",
-                    state == "pending", state == "plugin_details", state == "stale"),
+                    state == "pending", matches!(state,"plugin_details" | "plugin_history_open"), state == "stale"),
                 output,
                 frame: 0,
             }))
