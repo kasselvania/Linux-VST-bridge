@@ -1577,6 +1577,7 @@ fn recover_coordinated_error(m: &Manager, home: &Path,
     }
 }
 
+#[cfg(test)]
 fn run_coordinated(m: &Manager, home: &Path, service: &impl ServiceControl,
     transition: CoordinatedTransition, restart_prior: bool) -> Result<()> {
     run_coordinated_with_registry(m, home, service, transition, restart_prior,
@@ -1635,11 +1636,6 @@ fn restart_prior_after_error<T>(m: &Manager, home: &Path,
     }
 }
 
-fn stop_for_coordinated(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
-    service: &impl ServiceControl, prior: &Software) -> Result<bool> {
-    stop_for_coordinated_with_registry(m, home, inputs, owner, service, prior,
-        &mut || m.lock("registry.lock"))
-}
 fn stop_for_coordinated_with_registry(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl, prior: &Software,
     acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<bool> {
@@ -1791,18 +1787,26 @@ fn update_from_with_registry(m: &Manager, home: &Path, inputs: &Inputs, owner: u
 
 fn restore_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl) -> Result<()> {
+    restore_from_with_registry(m, home, inputs, owner, service,
+        bounded_registry(m), bounded_registry(m))
+}
+fn restore_from_with_registry(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
+    service: &impl ServiceControl,
+    mut acquire_registry: impl FnMut() -> Result<Lock>,
+    mut acquire_recovery_registry: impl FnMut() -> Result<Lock>) -> Result<()> {
     let _package = m.lock("package.lock")?;
     let _setup = m.lock("setup.lock")?;
     let _resume = operator_cli::resume_lock(m)?;
     operator_cli::require_no_package_resume(m)?;
     let current = old_software(m)?.ok_or("package_not_installed")?;
-    let restart_prior = stop_for_coordinated(m, home, inputs, owner, service, &current)?;
+    let restart_prior = stop_for_coordinated_with_registry(m, home, inputs, owner, service,
+        &current, &mut acquire_registry)?;
     let prepared = (|| -> Result<CoordinatedTransition> {
         require_service_stopped(service)?;
         require(!m.root.join("package-transition.json").try_exists()?,
             "package_transition_needs_recovery")?;
         preflight(m,service)?;
-        let snapshot = m.package_publication_snapshot()?;
+        let snapshot = m.package_publication_snapshot_locked(&acquire_registry()?)?;
         let matching = matching_refresh_receipts(m, &current, &snapshot)?;
         require(matching.len() <= 1, "package_restore_receipt_ambiguous")?;
         let mut receipt = if let Some(receipt) = matching.into_iter().next() {
@@ -1834,7 +1838,8 @@ fn restore_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
                 original, restart_prior);
         }
     };
-    run_coordinated(m, home, service, transition, restart_prior)
+    run_coordinated_with_registry(m, home, service, transition, restart_prior,
+        &mut acquire_registry, &mut acquire_recovery_registry)
 }
 
 fn recover_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Result<bool> {
@@ -4241,6 +4246,147 @@ print('LVO0 '+j['session']+' ready',flush=True)
                 assert_eq!(verify_generation(m,&f.current()).unwrap().predecessor.unwrap().manager,selected.manager);
             }
             assert!(!m.root.join("package-transition.json").exists());
+        }
+    }
+
+    #[test]
+    fn restorer_waits_for_a_brief_registry_readback_without_changing_custody() {
+        let f = refreshing_update_fixture();
+        let predecessor = f.current();
+        let publications = f.base.m.package_publication_snapshot().unwrap();
+        let preferences = f.base.m.performance(&f.base.r.key()).unwrap();
+        let project = f.base.outer.join("saved-project");
+        fs::write(&project, b"saved musician project").unwrap();
+        update_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service).unwrap();
+        let held = f.base.m.lock("registry.lock").unwrap();
+        let result = std::thread::scope(|scope| {
+            scope.spawn(move || {
+                std::thread::sleep(Duration::from_millis(80));
+                drop(held);
+            });
+            restore_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service)
+        });
+        result.unwrap();
+        assert!(f.current() == predecessor);
+        assert_eq!(f.base.m.package_publication_snapshot().unwrap(), publications);
+        assert_eq!(f.base.m.performance(&f.base.r.key()).unwrap(), preferences);
+        assert_eq!(fs::read(project).unwrap(), b"saved musician project");
+        assert_eq!(f.service.show().unwrap().active, "active");
+        assert!(!f.base.m.root.join("package-transition.json").exists());
+    }
+
+    #[test]
+    fn restorer_bounds_contention_and_recovers_a_partially_restored_publication() {
+        use operator_model::LockOutcome;
+        // Refuse before stopping, refuse after a publication has changed, or finish.
+        for fail_phase in [Some(false), Some(true), None] {
+            let f = refreshing_update_fixture();
+            let predecessor = f.current();
+            let original_publications = f.base.m.package_publication_snapshot().unwrap();
+            update_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service).unwrap();
+            let before = f.current();
+            let publications = f.base.m.package_publication_snapshot().unwrap();
+            let registry = fs::read(f.base.m.root.join("registry.json")).unwrap();
+            let preferences = f.base.m.performance(&f.base.r.key()).unwrap();
+            let project = f.base.outer.join("saved-project");
+            fs::write(&project, b"saved musician project").unwrap();
+            let stops = f.service.stops.get();
+            let mut calls = 0;
+            let mut recovery_calls = 0;
+            let mut failed = false;
+            let mut forward = registry_wait_budget(&f.base.m, Duration::from_millis(20));
+            let mut recovery = registry_wait_budget(&f.base.m, Duration::from_millis(20));
+            let result = restore_from_with_registry(&f.base.m, &f.home, &f.inputs, f.owner,
+                &f.service, || {
+                    calls += 1;
+                    let held = f.base.m.lock("registry.lock")?;
+                    assert!(matches!(f.base.m.try_lock("registry.lock")?, operator_lock::LockAttempt::Busy));
+                    let changed = f.base.m.root.join("package-transition.json").exists()
+                        && fs::read(f.base.m.root.join("registry.json"))? != registry;
+                    let refuse = !failed && match fail_phase {
+                        Some(false) => calls == 1,
+                        Some(true) => changed,
+                        None => false,
+                    };
+                    let held = if refuse { failed = true; Some(held) }
+                        else { drop(held); None };
+                    let result = forward();
+                    drop(held);
+                    result
+                }, || {
+                    recovery_calls += 1;
+                    let held = f.base.m.lock("registry.lock")?;
+                    assert!(matches!(f.base.m.try_lock("registry.lock")?, operator_lock::LockAttempt::Busy));
+                    drop(held);
+                    recovery()
+                });
+            if fail_phase.is_some() {
+                assert!(failed);
+                let error = result.unwrap_err();
+                let facts = &error.downcast_ref::<operator_lock::AcquisitionFailure>().unwrap().facts;
+                assert!(facts.attempts > 1 && facts.outcome == LockOutcome::Timeout);
+                assert!(f.current() == before);
+                assert_eq!(f.base.m.package_publication_snapshot().unwrap(), publications);
+                if fail_phase == Some(false) {
+                    assert_eq!(f.service.stops.get(), stops);
+                    assert_eq!(recovery_calls, 0);
+                } else {
+                    assert!(recovery_calls > 0, "partial Restore did not use its recovery allowance");
+                }
+            } else {
+                result.unwrap();
+                assert!(f.current() == predecessor);
+                assert_eq!(f.base.m.package_publication_snapshot().unwrap(), original_publications);
+                assert_eq!(recovery_calls, 0);
+            }
+            assert_eq!(f.base.m.performance(&f.base.r.key()).unwrap(), preferences);
+            assert_eq!(fs::read(project).unwrap(), b"saved musician project");
+            assert_eq!(f.service.show().unwrap().active, "active");
+            assert!(!f.base.m.root.join("package-transition.json").exists());
+            assert_eq!(operator_cli::pending_transactions(&f.base.m).unwrap(), 0);
+        }
+    }
+
+    #[test]
+    fn restorer_wait_rechecks_service_identity_and_restore_snapshot() {
+        for change_at in [7, 11] {
+            let f = refreshing_update_fixture();
+            update_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service).unwrap();
+            let before = f.current();
+            let stops = f.service.stops.get();
+            let mut calls = 0;
+            let result = restore_from_with_registry(&f.base.m, &f.home, &f.inputs, f.owner,
+                &f.service, || {
+                    calls += 1;
+                    let held = f.base.m.lock("registry.lock")?;
+                    if calls == 7 && change_at == 7 {
+                        f.service.loaded.borrow_mut().exec = "foreign service".into();
+                    }
+                    drop(held);
+                    if calls == 11 && change_at == 11 {
+                        f.base.m.select_delay(&f.base.r.key(), 1024)?;
+                    }
+                    bounded_registry(&f.base.m)()
+                }, bounded_registry(&f.base.m));
+            let error = result.unwrap_err().to_string();
+            assert_eq!(calls, change_at);
+            assert!(error.contains(if change_at == 7 { "package_active_service_identity_changed" }
+                else { "package_restore_receipt_unavailable" }), "{error}");
+            assert!(f.current() == before);
+            assert!(!f.base.m.root.join("package-transition.json").exists());
+            if change_at == 7 { assert_eq!(f.service.stops.get(), stops); }
+            else { assert_eq!(f.base.m.performance(&f.base.r.key()).unwrap().added_frames, 1024); }
+        }
+        for name in ["package.lock", "setup.lock"] {
+            let f = Fixture::new();
+            f.adopt().unwrap();
+            let before = f.current();
+            let _held = f.base.m.lock(name).unwrap();
+            let error = restore_from_with_registry(&f.base.m, &f.home, &f.inputs, f.owner,
+                &f.service, || panic!("a concurrent mutation cannot wait on registry"),
+                || panic!("a concurrent mutation cannot enter recovery")).unwrap_err();
+            assert!(error.downcast_ref::<operator_lock::LockBusy>().is_some());
+            assert!(f.current() == before);
         }
     }
 
