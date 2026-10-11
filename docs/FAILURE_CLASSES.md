@@ -2804,10 +2804,19 @@ refreshing, preserving fifteen registration identities, five preferences, four p
 hashes and all 289 prior candidate/lineage hashes. The updater completes in about three
 and a half minutes; no latency improvement is established. [Scoped result](../evidence/runtime-delivery-deck.json).
 
-Test43's ordinary Restore previous setup refuses admission with `LockBusy` twice;
-a third attempt with a bounded flock trace completes and preserves protected data.
-That successful trace does not establish the earlier contention's cause. Recurring
-Restore admission contention remains open; the lifecycle repair does not close it.
+Test43's ordinary Restore refuses `LockBusy` twice before a third success; those
+earlier owners were not captured. A live service subsequently releases the registry
+normally, and an owned 1.5s hold reproduces the refusal before selection changes.
+Restore now shares Update's cumulative 10s registry allowance, with separate finite
+recovery; initial package readback uses a cumulative 2s allowance. Test45 tolerates
+matched brief holds and restores exact Test43 software and fifteen native bindings.
+Package/setup exclusion and fresh authority checks remain; this fixes the reproduced
+transient-contention paths without attributing the two historical failures exactly.
+
+The first Test45 Update under a descendant-following tracer hits a Windows
+`load_library` inspection deadline and preserves Test43. The same package without
+that observer passes all fifteen inspections, including the exact timed-out module,
+and opens the new Home. Observer overhead is the best explanation, about 95%.
 
 Test 12 (2026-10-06), the first package after Test 10 to carry a different
 Windows host, was signed, staged on the Deck through the signed package API and
