@@ -175,6 +175,7 @@ int main() {
           "repeated removals balance exact close, timers and host references");
   }
   const auto embeddedParent=XCreateSimpleWindow(display,parent,0,0,64,64,0,0,0);
+  XSync(display,False); // Publish the host-owned XID before another connection uses it.
   controller=new Vst::EditController;panel=new AP11::VendorPanel(controller,frame,24);controller->release();
   const auto priorOpens=frame.opens;
   panel->setFrame(&frame);
