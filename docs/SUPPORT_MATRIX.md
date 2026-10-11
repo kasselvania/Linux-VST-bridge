@@ -83,8 +83,7 @@ The same frozen build then passes two hours of diagnostics-OFF playback at
 The complete native lifetime is clean; the same native/Windows instances retire
 normally. All protected groups and the restored trace option stay exact; DAW Auto
 512 is restored, owned streaming stops and one selected current Home remains usable.
-Meaningful edited automation and lower-block/SameCallback musical use remain
-unqualified.
+Lower-block/SameCallback musical use remains unqualified.
 [Scoped result](../evidence/audio-recovery/test41-deck-audio.json).
 
 Test45 on Deck tolerates matched 1.5-second registry holds during initial package
@@ -96,6 +95,16 @@ All nine original projects, fifteen protected vendor registrations, five prefere
 nine environment records and the trace option remain exact; owned operations retire
 and six idle test windows close normally, leaving one current manager.
 [Scoped manager result](../evidence/audio-recovery/test41-deck-audio.json).
+
+Test45 on Deck/48-kHz/Buffered512 saves a newly edited Macro2 step curve in a
+private Bitwig project and recalls it after complete DAW/native/Windows retirement.
+Playing DAW values pass .1281→.8471→.1281; paused vendor Timbre readbacks confirm
+.128→.847→.128. A diagnostics-OFF, editor-closed 60-second first-pass recording
+contains 2.88M finite frames, nonzero output, graph ERR+0 and recorder0. Its thirteen
+later silence spans leave continuity unqualified. The complete native lifetime
+retires cleanly; all protected groups, software and restored trace stay exact,
+input finishes neutral and one current Home remains usable.
+[Scoped automation result](../evidence/audio-recovery/test41-deck-audio.json).
 
 The [paced priority comparison](../evidence/audio-recovery/2026-10-04-paced-priority-abort.md)
 remains **unqualified**: its first A/B pair retains five/four inside512-frame zero

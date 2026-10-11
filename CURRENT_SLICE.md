@@ -1,42 +1,41 @@
-# Ordinary Restore through brief registry contention
+# Edited automation survives fresh reopen
 
 ## Goal
 
-Make initial package readback and ordinary Restore tolerate brief registry
-readback contention while preserving mutation exclusion and exact ownership.
+Save a newly edited, nonflat automation curve in a private project, fully quit
+the DAW and hosts, then show the recalled curve driving the actual plug-in.
 
-## Completed musician results
+## Completed musician result
 
-Test45 readback and Restore45→43 pass matched 1.5s registry holds; Test44
-readback and Test43 Restore refuse the same hold. Ordinary Update43→45 and
-return Update45 open current Home; Restore returns exact prior software and
-fifteen native bindings. Nine projects, fifteen vendor registrations, five
-preferences, nine environment records and the original trace stay exact.
+Test45 on Deck/48-kHz/Buffered512 recalls new Macro2 hold points at beats 2/3/4:
+.1281/.8471/.1281. Fresh-process playback drives those DAW values; pausing at
+meaningful points gives vendor Timbre readbacks .128/.847/.128. The saved project
+stays exact through retirement and reopening. Vendor observations are paused.
+
+The diagnostics-OFF, editor-closed 60-second first-pass recording contains 2.88M
+finite frames and nonzero output; graph ERR stays 2→2, recorder0. Thirteen later
+silence spans leave continuity unqualified. The complete native lifetime retires
+cleanly with zero callback rejections/underruns. Originals, vendor registrations,
+preferences, environment records, software and restored trace remain exact.
+All owned DAW/host/recorder/profiler processes retire; one current Home remains.
+
+## Best explanation for the invalid early attempts
+
+Stale native XWayland Control state caused incorrect input, about 95%: keyboard9
+retained modifier4 while XTEST5 and physical Control keys were released. Native
+Ctrl-only resets cleared the tested views; neutral checks and paired native input
+made the functional check work. Final keyboard3/5/9 state is zero with no temporary
+devices. Sunshine and Moonlight were inactive; the earlier state origin is unassigned.
+
+## Retained results and remaining gates
 
 Test43's diagnostics-OFF 30-minute interaction (580.350s pauses) and two-hour
-Deck/48-kHz/Buffered512 playback pass, with fresh Macro3=.4242 recall and retained
-flat Macro2=.2538 automation. Audio qualification stays scoped to Test43.
-Ubuntu Test29→Test28 Restore preserves changed state and 110 protected files.
-
-## Best explanation and repair
-
-Brief registry contention best explains the old intermittent refusal, about 90%:
-a live service releases its guard normally and an owned hold reproduces Restore's
-refusal before selection changes. Earlier failure owners were not captured.
-Restore shares Update's cumulative 10s registry allowance and separate finite
-recovery; package readback shares 2s across guards. Package/setup exclusion,
-fresh identities and custody checks remain. The UI retains its 10s status
-observation; full CLI work has separate bounds.
-
-The first descendant-traced Update hits a Windows load_library deadline; without
-that observer, Test45 passes all fifteen modules. Observer overhead is most likely, 95%.
-
-Both source fixes are reviewed, green and landed. Installed comparisons and normal
-owned-window cleanup complete; one current Home remains with the service active.
-
-## Remaining beta gates
+Deck/48-kHz/Buffered512 playback remain scoped to that build and fixture.
+Test45's brief registry-contention readback/Restore and ordinary Update pass;
+historical refusal owners were not captured. Ubuntu Test29→28 Restore also passes.
 
 [Audio #90](https://github.com/kasselvania/Linux-VST-bridge/issues/90), [update #240](https://github.com/kasselvania/Linux-VST-bridge/issues/240), [startup #241](https://github.com/kasselvania/Linux-VST-bridge/issues/241), [readback #239](https://github.com/kasselvania/Linux-VST-bridge/issues/239),
 [restoration #242](https://github.com/kasselvania/Linux-VST-bridge/issues/242), [capture #249](https://github.com/kasselvania/Linux-VST-bridge/issues/249) and [REAPER editor #261](https://github.com/kasselvania/Linux-VST-bridge/issues/261) remain open.
-Edited automation, lower-block/SameCallback and integrated beta remain open;
-[audio/recovery](docs/AUDIO_RECOVERY_ROADMAP.md) and [delivery](docs/INTEGRATED_BETA_DELIVERY.md) requirements govern them.
+Lower-block/SameCallback musical use and the integrated beta remain open;
+[audio/recovery](docs/AUDIO_RECOVERY_ROADMAP.md) and [delivery](docs/INTEGRATED_BETA_DELIVERY.md)
+requirements govern them.
