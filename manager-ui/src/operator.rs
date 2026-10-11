@@ -388,9 +388,7 @@ impl RequestFeedback {
             self.refreshed();
         }
     }
-    fn for_installer(&self, id: &str) -> bool {
-        matches!(&self.action,Action::InstallerEnvironmentCreate{installer,..} if installer==id)
-    }
+
 }
 #[derive(Default)]
 struct RouteFocus {
@@ -569,18 +567,40 @@ impl Operator {
     #[allow(dead_code)]
     pub fn preview_readiness(snapshot: Snapshot, readiness: ReadinessAssessment,
         page: Page) -> Self {
+        Self::preview_current(snapshot, Some(readiness), page, false, false, false, false)
+    }
+    /// Exercise the shipped current-overview and exact product-detail paths.
+    /// These are synthetic records; no request is sent to a live manager.
+    pub fn preview_current(snapshot: Snapshot, readiness: Option<ReadinessAssessment>,
+        page: Page, product_controls: bool, pending: bool, expand_details: bool, stale: bool) -> Self {
         let mut preview = Self::preview(snapshot.clone(), page);
-        if page == Page::Plugins {
-            // Preview the current-only product view before deep compatibility readback.
-            preview.snapshot = None;
-        }
-        preview.readiness = Some((readiness, Instant::now(), "preview".into()));
+        preview.readiness = readiness.map(|readiness|(readiness, Instant::now(), "preview".into()));
         preview.overview = Some(CurrentOverview {
             schema: 1, operator_schema: crate::model::OPERATOR_SCHEMA,
             scope: "current_only".into(), current_generation: "preview".into(),
-            current: snapshot,
+            current: snapshot.clone(),
         });
-        preview.overview_fresh = true;
+        preview.overview_fresh = !stale;
+        preview.library.expand_details = expand_details;
+        if product_controls {
+            if let Some(product) = snapshot.products.first() {
+                preview.library.focus_product(ProductKey::from(product));
+                preview.product_detail = Some(CurrentProductDetail {
+                    schema:1,operator_schema:crate::model::OPERATOR_SCHEMA,
+                    state_token:snapshot.state_token.clone(),current_generation:"preview".into(),
+                    system:snapshot.system.clone(),product:product.clone(),
+                    environments:snapshot.environments.clone(),
+                    vendor_applications:snapshot.vendor_applications.clone(),
+                });
+            }
+        }
+        if pending {
+            preview.pending = true;
+            preview.origin = Some(RequestOrigin::UserAction);
+            let mut feedback = RequestFeedback::captured(Action::RuntimeInstall {});
+            feedback.transition("running");
+            preview.feedback = Some(feedback);
+        }
         preview
     }
     fn preparation_details(ui: &mut egui::Ui, v: &serde_json::Value) {
@@ -854,7 +874,7 @@ impl Operator {
             }
             _ => {
                 self.pending_import_route = Some((installer, newly_imported, label));
-                self.message = "The installer is in manager custody, but its exact setup or workspace is unavailable in this readback. Check again before continuing.".into();
+                self.message = "The installer was added, but its setup could not be loaded. Refresh before continuing.".into();
             }
         }
     }
@@ -999,7 +1019,7 @@ impl Operator {
                 self.pending_import_route = Some((imported.installer_sha256,
                     imported.newly_imported, imported.display_label.clone()));
                 self.feedback = None;
-                self.message = format!("{} is in manager custody. Locating its exact setup or workspace…",
+                self.message = format!("{} was added. Opening its setup…",
                     imported.display_label);
                 self.refresh_after = true;
             }
@@ -1179,118 +1199,210 @@ fn show_discovered_products(setup: &InstallerSetup,
     *page = Page::Plugins;
 }
 
+fn setup_phase_label(phase: &SetupPhase) -> &'static str {
+    match phase {
+        SetupPhase::Imported => "Ready to set up",
+        SetupPhase::EnvironmentReady => "Ready to install",
+        SetupPhase::InstallerRunning => "Vendor installer is open",
+        SetupPhase::SetupNeedsAttention => "Installation needs your attention",
+        SetupPhase::InstallerRetired | SetupPhase::ScanReady => "Ready to find installed plug-ins",
+        SetupPhase::DiscoveryComplete => "Plug-ins found",
+        SetupPhase::CleanupUnconfirmed => "Could not confirm the installer closed",
+    }
+}
+
+fn setup_priority(phase: &SetupPhase) -> u8 {
+    match phase {
+        SetupPhase::InstallerRunning => 0,
+        SetupPhase::CleanupUnconfirmed => 1,
+        SetupPhase::SetupNeedsAttention => 2,
+        SetupPhase::EnvironmentReady => 3,
+        SetupPhase::InstallerRetired | SetupPhase::ScanReady => 4,
+        SetupPhase::Imported => 5,
+        SetupPhase::DiscoveryComplete => 6,
+    }
+}
+
 impl Operator {
-    fn readiness_overview(ui: &mut egui::Ui, assessment: Option<&ReadinessAssessment>,
+    fn readiness_details(ui: &mut egui::Ui, assessment: Option<&ReadinessAssessment>,
         fresh: bool, pending: bool, refresh: &mut bool, chosen: &mut Option<Action>) {
-        let Some(assessment) = assessment else {
-            ui.heading("Readiness check needed");
-            ui.label(if fresh {
-                "Choose Check again to assess the current audio and desktop setup."
+        egui::CollapsingHeader::new("Computer setup and support").show(ui, |ui| {
+            ui.label(if !fresh {
+                "Refreshing current status. Actions will return when it finishes."
+            } else if assessment.is_none() {
+                "Computer setup has not been checked in this window. This does not change which plug-ins are available in your DAW."
             } else {
-                "Checking current status. Actions are unavailable until readback completes."
+                "This check describes the current computer setup. It does not test a plug-in's sound or saved-project recall."
             });
-            if ui.add_enabled(!pending, egui::Button::new("Check again")
-                .min_size(egui::vec2(150.0, 44.0))).clicked() { *refresh = true; }
-            return;
-        };
-        ui.heading(match assessment.overall_status {
-            ReadinessOutcome::Ready => "Ready to try",
-            ReadinessOutcome::ActionRequired if assessment.products.is_empty() => "Setup incomplete",
-            ReadinessOutcome::ActionRequired => "Action required",
-            ReadinessOutcome::Unsupported => "Required capability unavailable",
-            ReadinessOutcome::Unknown => "Operational facts incomplete",
-        });
-        if !fresh {
-            ui.colored_label(warning_color(ui), "Checking current status. Actions are unavailable until readback completes.");
-            return;
-        }
-        if let Some(blocker) = assessment.blockers.first() {
-            ui.label(&blocker.explanation);
-        } else {
-            ui.label(match assessment.overall_status {
-                ReadinessOutcome::Ready => "No current operational blocker is recorded for the selected configuration.",
-                ReadinessOutcome::Unknown => "Current operational facts are incomplete. Check again to refresh them.",
-                ReadinessOutcome::Unsupported => "A required capability is unavailable for this configuration.",
-                ReadinessOutcome::ActionRequired => "Setup needs attention before continuing.",
-            });
-        }
-        let ready = assessment.products.iter().filter(|row| row.status == ReadinessOutcome::Ready).count();
-        ui.small(format!("{} of {} managed plug-ins operationally ready to try",
-            ready, assessment.products.len()));
-        if let Some(step) = assessment.ordered_steps.first() {
-            ui.strong(&step.title);
-            ui.label(&step.detail);
-            if let Some(action) = &step.action {
-                let enabled = !pending && action.disabled_reason.is_none();
-                if ui.add_enabled(enabled, egui::Button::new(&action.label)
-                    .min_size(egui::vec2(220.0, 44.0))).clicked() {
-                    *chosen = Some(action.action.clone());
+            if ui.add_enabled(!pending, egui::Button::new("Check computer setup")
+                .min_size(egui::vec2(180.0, 44.0))).clicked() { *refresh = true; }
+            if let Some(assessment) = assessment {
+                for blocker in &assessment.blockers {
+                    ui.colored_label(warning_color(ui), &blocker.explanation);
                 }
-                if let Some(reason) = &action.disabled_reason { ui.small(reason); }
+                Self::buttons(ui, std::slice::from_ref(&assessment.support_export_action),
+                    None, pending || !fresh, chosen);
+                ui.small("The support report stays on this computer. Nothing is uploaded.");
+                egui::CollapsingHeader::new("Technical observations").show(ui, |ui| {
+                    for facts in [&assessment.platform, &assessment.daw, &assessment.audio,
+                        &assessment.graphics, &assessment.runtime] {
+                        for fact in facts {
+                            ui.small(format!("{}: {} · {} · {:?}", fact.name,
+                                fact.value.as_deref().unwrap_or("unknown"), fact.source,
+                                fact.certainty));
+                        }
+                    }
+                });
             }
-        }
-        if ui.add_enabled(!pending, egui::Button::new("Check again")
-            .min_size(egui::vec2(150.0, 44.0))).clicked() { *refresh = true; }
-        egui::CollapsingHeader::new("Details and support").show(ui, |ui| {
-            for facts in [&assessment.platform, &assessment.daw, &assessment.audio,
-                &assessment.graphics, &assessment.runtime] {
-                for fact in facts {
-                    ui.small(format!("{}: {} · {} · {:?}", fact.name,
-                        fact.value.as_deref().unwrap_or("unknown"), fact.source,
-                        fact.certainty));
-                }
-            }
-            Self::buttons(ui, std::slice::from_ref(&assessment.support_export_action),
-                None, pending, chosen);
-            ui.small("The report is stored locally. No information is uploaded.");
         });
     }
     fn fast_home(ui: &mut egui::Ui, overview: &CurrentOverview,
         assessment: Option<&ReadinessAssessment>, fresh: bool,
-        pending: bool, controls: (&mut Page, &mut bool, &mut Option<Action>)) {
-        let (page, refresh, chosen) = controls;
-        Self::readiness_overview(ui, assessment, fresh, pending, refresh, chosen);
-        ui.add_space(12.0);
-        ui.heading("Your managed software");
+        pending: bool, controls: (&mut Page, &mut crate::library::Library, &mut RouteFocus,
+            &mut bool, &mut Option<Action>)) {
+        let (page, library, focus, refresh, chosen) = controls;
+        ui.horizontal_wrapped(|ui| {
+            ui.heading("Your plug-ins");
+            if ui.add(egui::Button::new("Add a plug-in")
+                .min_size(egui::vec2(150.0, 44.0))).clicked() { *page = Page::Setup; }
+        });
+        if !fresh {
+            ui.colored_label(warning_color(ui),
+                "Refreshing current status. These are the last listed plug-ins; actions wait for the refresh.");
+        }
+        let unfinished = overview.current.installer_setups.iter().filter(|setup|
+            setup.phase != SetupPhase::DiscoveryComplete).min_by_key(|setup| setup_priority(&setup.phase));
+        let needs_setup = overview.current.products.iter().find(|product|
+            crate::library::status(product).1 != "published");
+        egui::Frame::group(ui.style()).fill(ui.visuals().faint_bg_color)
+            .inner_margin(16.0).show(ui, |ui| {
+            ui.set_min_width((ui.available_width() - 1.0).max(0.0));
+            if !fresh {
+                ui.strong("Refreshing plug-in status");
+                ui.label("Wait for the current status before starting or changing a plug-in. You can still browse the listed software.");
+            } else if !overview.current.system.capacity_available()
+                || overview.current.system.cleanup_unconfirmed
+                || overview.current.system.stale_transports > 0
+                || overview.current.system.pending_transactions > 0 {
+                ui.strong("Next: resolve the bridge service problem");
+                ui.label(if !overview.current.system.capacity_available() {
+                    "The bridge service could not report its current status."
+                } else if overview.current.system.pending_transactions > 0 {
+                    "A previous setup change has not finished."
+                } else {"Could not confirm that an earlier plug-in or installer closed."});
+                let recoveries: Vec<_> = overview.current.actions.iter().filter(|offer|
+                    matches!(offer.action,Action::TransactionReconcile {})).cloned().collect();
+                Self::buttons(ui,&recoveries,overview.current.system.inactive_reason(),pending,chosen);
+                if ui.button("Review recovery details").clicked() {*page = Page::Diagnostics;}
+            } else if let Some(setup) = unfinished {
+                ui.strong(format!("Next: continue {}", setup.name));
+                ui.label(&setup.status);
+                if let Some(action) = &setup.primary {
+                    crate::library::primary_action(ui, action,
+                        overview.current.system.inactive_reason(), pending || !fresh, chosen);
+                }
+                if ui.button("Open this setup").clicked() {
+                    navigate(&Destination::Attempt(AttemptKey {installer:setup.installer.clone(),
+                        environment:setup.environment.clone()}), page, library, focus);
+                }
+            } else if let Some(assessment) = assessment.filter(|assessment|
+                assessment.overall_status != ReadinessOutcome::Ready
+                    && (!assessment.ordered_steps.is_empty() || !assessment.blockers.is_empty())) {
+                if let Some(step) = assessment.ordered_steps.first() {
+                    ui.strong(format!("Next: {}", step.title));
+                    ui.label(&step.detail);
+                    if let Some(action) = &step.action {
+                        crate::library::primary_action(ui, action,
+                            overview.current.system.inactive_reason(), pending, chosen);
+                    }
+                } else {
+                    ui.strong(match assessment.overall_status {
+                        ReadinessOutcome::Unsupported => "A required computer capability is unavailable",
+                        ReadinessOutcome::Unknown => "A required setup check is incomplete",
+                        _ => "Computer setup needs attention",
+                    });
+                }
+                if let Some(blocker) = assessment.blockers.first() {
+                    ui.colored_label(warning_color(ui), &blocker.explanation);
+                }
+                if ui.button("Review setup details").clicked() {*page = Page::Diagnostics;}
+            } else if let Some(product) = needs_setup {
+                ui.strong(format!("Next: set up {} for your DAW", product.name));
+                ui.label(crate::library::status(product).0);
+                if ui.add(presentation::primary_button("Continue plug-in setup", ui)).clicked() {
+                    library.focus_product(ProductKey::from(product));
+                    *page = Page::Plugins;
+                }
+            } else if overview.current.products.is_empty() {
+                ui.strong("Start with a Windows plug-in");
+                ui.label("Choose the Windows installer you downloaded from the vendor. Complete installation and any vendor sign-in in Setup, then make the plug-in available in your DAW.");
+                if ui.add(presentation::primary_button("Add your first plug-in", ui)).clicked() {
+                    *page = Page::Setup;
+                }
+            } else {
+                ui.strong("Next: open your DAW");
+                ui.label("Your available plug-ins appear as native VST3s. Rescan VST3 plug-ins in your DAW if one is missing, then add it to a track.");
+                ui.small("Save and reopen a test project to check that your sound returns as expected.");
+            }
+        });
+        if !overview.current.products.is_empty() {
+            ui.add_space(8.0);
+            ui.small(format!("{} managed plug-ins · open one to manage its setup, updates and settings",
+                overview.current.products.len()));
+        }
         for current in &overview.current.products {
-            ui.group(|ui| {
-                let Some(product) = assessment.and_then(|assessment| assessment.products.iter()
-                    .find(|product| product.class_id == current.class_id
-                        && product.module_sha256 == current.module_sha256)) else {
-                    ui.strong(&current.name);
-                    ui.label("Operational status: check again");
-                    return;
-                };
-                ui.strong(&product.name);
-                ui.label(match product.status {
-                    ReadinessOutcome::Ready => "Operational status: Ready to try",
-                    ReadinessOutcome::ActionRequired => "Operational status: Action required",
-                    ReadinessOutcome::Unsupported => "Operational status: Required capability unavailable",
-                    ReadinessOutcome::Unknown => "Operational status: Facts incomplete",
+            ui.push_id((&current.environment, &current.class_id, &current.module_sha256), |ui| {
+                egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
+                    ui.set_min_width((ui.available_width() - 1.0).max(0.0));
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(egui::RichText::new(&current.name).size(18.0).strong());
+                        if ui.add(egui::Button::new("Manage plug-in")
+                            .min_size(egui::vec2(145.0, 44.0))).clicked() {
+                            library.focus_product(ProductKey::from(current));
+                            *page = Page::Plugins;
+                        }
+                    });
+                    if fresh { ui.label(crate::library::status(current).0); }
+                    if let Some(product) = assessment.and_then(|assessment| assessment.products.iter()
+                        .find(|product| product.class_id == current.class_id
+                            && product.module_sha256 == current.module_sha256)) {
+                        if product.status == ReadinessOutcome::Unknown {
+                            ui.small("Setup check incomplete. Open this plug-in to review its current controls.");
+                        } else if product.status != ReadinessOutcome::Ready {
+                            ui.colored_label(warning_color(ui), &product.reason);
+                        }
+                        egui::CollapsingHeader::new("Setup check details").show(ui, |ui| {
+                            ui.label(installation_label(product));
+                            ui.label(match product.support_qualification {
+                                SupportQualification::Verified => "Support qualification: exact profile verified",
+                                SupportQualification::Unsupported => "Support qualification: exact profile withdrawn",
+                                SupportQualification::NotYetQualified => "Support qualification: not yet qualified",
+                            });
+                            ui.label(&product.reason);
+                        });
+                    }
                 });
-                ui.label(installation_label(product));
-                ui.label(match product.support_qualification {
-                    SupportQualification::Verified => "Support qualification: exact profile verified",
-                    SupportQualification::Unsupported => "Support qualification: exact profile withdrawn",
-                    SupportQualification::NotYetQualified => "Support qualification: not yet qualified",
-                });
-                ui.small(&product.reason);
             });
         }
-        if overview.current.products.is_empty() { ui.label("No managed native plug-ins yet."); }
         ui.add_space(8.0);
-        if ui.button("Open Setup").clicked() { *page = Page::Setup; }
-        if ui.button("Technical details and history").clicked() { *page = Page::Diagnostics; }
+        Self::readiness_details(ui, assessment, fresh, pending, refresh, chosen);
     }
     fn fast_setup(ui: &mut egui::Ui, overview: &CurrentOverview, fresh: bool,
         pending: bool, controls: (&mut bool, &mut Option<Action>, &mut bool,
             &mut Page, &mut crate::library::Library, &mut RouteFocus)) {
         let (refresh, chosen, pick, page, library, focus) = controls;
-        // Fresh exact-operation offers can control a running installer when
-        // DSP capacity is unavailable. An expired projection grants no action.
+        // Exact-operation offers still control a running installer without DSP capacity.
         let pending = pending || !fresh;
-        let _ = refresh; // Home owns the full readiness assessment.
+        let _ = refresh;
         ui.heading("Setup");
+        ui.horizontal_wrapped(|ui| {
+            if ui.add_enabled(!pending, presentation::primary_button("Choose Windows installer", ui)).clicked() { *pick = true; }
+            ui.label("Add a plug-in");
+        });
+        ui.small("Install · Authorize with the vendor · Find plug-ins · Use in your DAW");
+        if !fresh {
+            ui.colored_label(warning_color(ui), "Refreshing current setup. Actions wait for the refresh.");
+        }
         existing_setup_installer(ui,&overview.current,pending,chosen);
         if focus.setup_installer.is_some() {
             ui.horizontal_wrapped(|ui| {
@@ -1302,136 +1414,113 @@ impl Operator {
                 }
             });
         }
+        let runtime_actions: Vec<_> = overview.current.actions.iter()
+            .filter(|offer| matches!(offer.action, Action::RuntimeInstall {}))
+            .cloned().collect();
+        if !runtime_actions.is_empty() {
+            egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
+                ui.set_min_width((ui.available_width() - 1.0).max(0.0));
+                ui.strong("Compatibility runtime");
+                ui.label("The bridge downloads and manages the runtime needed by Windows plug-ins.");
+                Self::buttons(ui, &runtime_actions,
+                    overview.current.system.inactive_reason(), pending, chosen);
+            });
+        }
         let mut shown = 0;
-        for setup in overview.current.installer_setups.iter().filter(|setup|
-            focus.setup_installer.as_ref().is_none_or(|id| id == &setup.installer)) {
+        let mut setups: Vec<_> = overview.current.installer_setups.iter().filter(|setup|
+            focus.setup_installer.as_ref().is_none_or(|id| id == &setup.installer)).collect();
+        setups.sort_by_key(|setup| setup_priority(&setup.phase));
+        for setup in setups {
             shown += 1;
             if focus.setup_scroll && focus.setup_installer.as_ref() == Some(&setup.installer) {
                 ui.scroll_to_cursor(Some(egui::Align::Center));
                 focus.setup_scroll = false;
             }
             ui.push_id(&setup.installer, |ui| {
-            ui.group(|ui| {
-                ui.strong(&setup.name);
-                ui.label(&setup.status);
-                if let Some(compatibility) = &setup.compatibility { ui.small(compatibility); }
-                if let Some(primary) = &setup.primary {
-                    Self::buttons(ui, std::slice::from_ref(primary),
-                        (!fresh).then_some("Current manager readback unavailable"), pending, chosen);
-                } else if matches!(setup.phase,crate::model::SetupPhase::Imported) {
-                    ui.colored_label(warning_color(ui),
-                        "Install the compatibility runtime below, then continue setup. Any unavailable runtime is explained there.");
-                }
-                if !setup.discovered.is_empty() {
-                    ui.small(format!("{} exact plug-in product(s) discovered", setup.discovered.len()));
-                    if ui.add_enabled(fresh, egui::Button::new("View discovered plug-ins")
-                        .min_size(egui::vec2(240.0, 44.0))).clicked() {
+                egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
+                    ui.set_min_width((ui.available_width() - 1.0).max(0.0));
+                    ui.label(egui::RichText::new(&setup.name).size(18.0).strong());
+                    ui.strong(setup_phase_label(&setup.phase));
+                    if setup.phase == SetupPhase::DiscoveryComplete {
+                        ui.label(format!("{} plug-ins found. Open them to see availability and finish setup.",setup.discovered.len()));
+                    } else if setup.phase == SetupPhase::Imported && setup.primary.is_none()
+                        && runtime_actions.is_empty() {
+                        ui.colored_label(warning_color(ui), &setup.status);
+                    } else { ui.label(&setup.status); }
+                    if let Some(primary) = &setup.primary {
+                        crate::library::primary_action(ui, primary,
+                            overview.current.system.inactive_reason(), pending, chosen);
+                    }
+                    if !setup.discovered.is_empty()
+                        && ui.add_enabled(fresh, egui::Button::new("View discovered plug-ins")
+                            .min_size(egui::vec2(240.0, 44.0))).clicked() {
                         show_discovered_products(setup, library, page);
                     }
-                }
-                Self::buttons(ui, &setup.secondary,
-                    (!fresh).then_some("Current manager readback unavailable"), pending, chosen);
-                Self::buttons(ui, std::slice::from_ref(&setup.rename),
-                    (!fresh).then_some("Current manager readback unavailable"), pending, chosen);
-            });
+                    Self::buttons(ui, &setup.secondary,
+                        overview.current.system.inactive_reason(), pending, chosen);
+                    egui::CollapsingHeader::new("Setup details and options").show(ui, |ui| {
+                        ui.label(&setup.status);
+                        if let Some(compatibility) = &setup.compatibility { ui.small(compatibility); }
+                        for attempt in overview.current.onboarding.iter().filter(|attempt|
+                            attempt.installer == setup.installer
+                                && attempt.environment == setup.environment) {
+                            for line in installer_lines(&attempt.details) { ui.label(line); }
+                            for line in installer_policy_lines(&attempt.details) { ui.small(line); }
+                            if let Some(failure) = &attempt.failure {
+                                for line in failure_lines(failure) { ui.label(line); }
+                            }
+                        }
+                        Self::buttons(ui, std::slice::from_ref(&setup.rename),
+                            overview.current.system.inactive_reason(), pending, chosen);
+                        ui.small(format!("Installer SHA-256: {}",setup.installer));
+                    });
+                });
             });
         }
         if overview.current.installer_setups.is_empty() {
-            ui.label("No native plug-in setup is in progress.");
+            ui.add_space(8.0);
+            ui.label("Choose the installer you downloaded from your plug-in vendor. Selecting it adds a managed copy; the installer runs only when you choose to start it.");
+            ui.label("Complete installation and any sign-in in the vendor's own window. Then find the installed plug-ins and continue from the Plug-ins page.");
         } else if shown == 0 {
             ui.colored_label(warning_color(ui),
-                "The selected installer is unavailable in this readback. Check again or show all setup.");
+                "The selected installer is unavailable in this readback. Refresh or show all setup.");
         }
-        ui.separator();
-        ui.strong("Add a plug-in");
-        let runtime_actions: Vec<_> = overview.current.actions.iter()
-            .filter(|offer| matches!(offer.action, Action::RuntimeInstall {}))
-            .cloned().collect();
-        if !runtime_actions.is_empty() {
-            egui::CollapsingHeader::new("Compatibility runtime")
-                .default_open(overview.current.installer_setups.is_empty()).show(ui, |ui| {
-                Self::buttons(ui, &runtime_actions,
-                    (!fresh).then_some("Current manager readback unavailable"), pending, chosen);
-                ui.small("The manager downloads its verified compatibility runtime. Steam and development tools are not required.");
-            });
-        }
-        if ui.add_enabled(fresh && !pending, egui::Button::new("Choose Windows installer")
-            .min_size(egui::vec2(240.0, 44.0))).clicked() { *pick = true; }
-        ui.small("Choose an installer for manager custody. Vendor sign-in remains yours.");
+        ui.small("Vendor accounts and authorization stay with you and the vendor.");
         if ui.button("Technical setup history").clicked() { *page = Page::Diagnostics; }
     }
-    fn health_bar(ui: &mut egui::Ui, system: Option<&System>, retained: Option<&System>) {
-        egui::Frame::group(ui.style())
-            .fill(ui.visuals().faint_bg_color)
-            .show(ui, |ui| {
-                ui.set_min_width((ui.available_width() - 1.0).max(0.0));
-                ui.spacing_mut().item_spacing.y = 3.0;
-                // Retained values size the frame only. They are never displayed as
-                // current status or used to admit an action after readback expires.
-                let mut height: f32 = 0.0;
-                for (id, sizing_system) in [("available", retained.or(system)), ("unavailable", None)] {
-                    let mut sizing = ui.new_child(egui::UiBuilder::new().id_salt(id)
-                        .max_rect(ui.available_rect_before_wrap()).sizing_pass().invisible());
-                    Self::health_content(&mut sizing, sizing_system);
-                    height = height.max(sizing.min_size().y);
-                }
-                ui.set_min_height(height);
-                Self::health_content(ui, system);
+    fn health_bar(ui: &mut egui::Ui, system: Option<&System>, _retained: Option<&System>) {
+        egui::Frame::group(ui.style()).fill(ui.visuals().faint_bg_color)
+            .inner_margin(10.0).show(ui, |ui| {
+            ui.set_min_width((ui.available_width() - 1.0).max(0.0));
+            let details_id = ui.make_persistent_id("service_details_open");
+            let mut expanded = ui.data_mut(|data|data.get_temp::<bool>(details_id)).unwrap_or(false);
+            ui.horizontal_wrapped(|ui| {
+                // The same row shape is retained through readback transitions.
+                let title = system.map(presentation::health)
+                    .unwrap_or(presentation::Health::Unavailable).title();
+                let warning = system.is_none_or(|system|matches!(presentation::health(system),
+                    presentation::Health::Unavailable | presentation::Health::NeedsAttention));
+                let text = egui::RichText::new(title).size(16.0).strong();
+                ui.label(if warning {text.color(warning_color(ui))} else {text});
+                if ui.add(egui::Button::new(if expanded {"Hide service details"} else {"Service details"})
+                    .min_size(egui::vec2(155.0, 32.0))).clicked() {expanded = !expanded;}
             });
-    }
-
-    fn health_content(ui: &mut egui::Ui, system: Option<&System>) {
-        let Some(system) = system else {
-            ui.label(egui::RichText::new("Bridge status unavailable")
-                .size(17.0).strong().color(warning_color(ui)));
-            ui.small("Checking current status. Previous capacity and cleanup are unconfirmed.");
-            return;
-        };
-        let state = presentation::health(system);
-        let color = if matches!(
-            state,
-            presentation::Health::Unavailable | presentation::Health::NeedsAttention
-        ) {
-            warning_color(ui)
-        } else {
-            ui.visuals().text_color()
-        };
-        ui.label(
-            egui::RichText::new(state.title())
-                .size(17.0)
-                .strong()
-                .color(color),
-        );
-        ui.horizontal_wrapped(|ui| {
-            let label = |text: String| egui::RichText::new(text).size(13.0);
-            ui.label(label(if system.capacity_available() {
-                "Service ready".into()
-            } else {
-                "Service readback unavailable".into()
-            }));
-            if system.capacity_available() {
-                ui.label(label(format!("DSP {} / {}", system.dsp, system.ceiling)));
-                ui.label(label(format!("Install / scan {}", system.maintenance)));
-                ui.label(label(format!(
-                    "Stale transports {}",
-                    system.stale_transports
-                )));
-            } else {
-                ui.label(label("DSP and capacity unknown".into()));
-                ui.label(label("Install / scan unknown".into()));
-                ui.label(label("Stale transports unknown".into()));
+            ui.data_mut(|data|data.insert_temp(details_id,expanded));
+            if expanded {
+                if let Some(system) = system {
+                    ui.horizontal_wrapped(|ui| {
+                        if system.capacity_available() {
+                            ui.small(format!("DSP {} / {}",system.dsp,system.ceiling));
+                            ui.small(format!("Install / scan {}",system.maintenance));
+                            ui.small(format!("Stale transports {}",system.stale_transports));
+                        } else { ui.small("DSP and capacity unknown"); }
+                        ui.small(format!("Pending transactions {}",system.pending_transactions));
+                        ui.small(presentation::activity_certainty(system).cleanup_label());
+                    });
+                } else {ui.small("Current service capacity and cleanup are unknown.");}
+                ui.small("Service status updates automatically. Plug-in availability is shown separately.");
             }
-            ui.label(label(format!(
-                "Pending transactions {}",
-                system.pending_transactions
-            )));
-            ui.label(label(
-                presentation::activity_certainty(system)
-                    .cleanup_label()
-                    .into(),
-            ));
         });
-        ui.small("State updates automatically.");
     }
 
     fn request_bar(&mut self, ui: &mut egui::Ui) {
@@ -1450,18 +1539,23 @@ impl Operator {
                 ui.label(
                     self.feedback
                         .as_ref()
-                        .map_or(if foreground_pending && self.message.is_empty() { "Working…" } else { self.message.as_str() }, |feedback| feedback.text.as_str()),
+                        .map_or(if foreground_pending && self.message.is_empty() { "Working…" } else { self.message.as_str() }, |feedback| {
+                            if feedback.text == "Click received. Waiting for the current readback; no operation submitted yet." {
+                                "Checking current status before starting your request…"
+                            } else {feedback.text.as_str()}
+                        }),
                 );
             });
             if let Some(feedback) = &self.feedback {
                 egui::CollapsingHeader::new("Request details").show(ui, |ui| {
+                    ui.label(&feedback.text);
                     ui.label(
                         feedback
                             .operation
                             .as_deref()
                             .unwrap_or("Operation identity not yet confirmed"),
                     );
-                    ui.label(feedback.transitions.join(" → "));
+                    ui.label(feedback.transitions.join(" / "));
                 });
             }
             if !self.feedback.as_ref().is_some_and(|f| f.blocking)
@@ -1512,217 +1606,6 @@ impl Operator {
         }
     }
 
-    fn home_products(
-        ui: &mut egui::Ui,
-        snapshot: &Snapshot,
-        page: &mut Page,
-        library: &mut crate::library::Library,
-    ) {
-        ui.heading("Published plug-ins");
-        ui.small("Manager publication is current. Your DAW may still need a plug-in rescan.");
-        let mut count = 0;
-        for product in snapshot
-            .products
-            .iter()
-            .filter(|product| matches!(product.disposition.as_str(), "ready" | "experimental"))
-            .take(6)
-        {
-            count += 1;
-            let activity = presentation::product_activity(snapshot, product);
-            let label = format!(
-                "{}  ·  {}  ·  {}",
-                product.name,
-                crate::library::status(product).0,
-                activity.home_label()
-            );
-            if ui
-                .add_sized([ui.available_width(), 46.0], egui::Button::new(label))
-                .clicked()
-            {
-                library.focus_product(ProductKey::from(product));
-                *page = Page::Plugins;
-            }
-        }
-        if count == 0 {
-            ui.label("No plug-ins are currently published by the manager.");
-        }
-        if ui
-            .add_sized([180.0, 44.0], egui::Button::new("Browse all plug-ins"))
-            .clicked()
-        {
-            *page = Page::Plugins;
-        }
-    }
-
-    fn home_live(ui: &mut egui::Ui, snapshot: &Snapshot, page: &mut Page) {
-        ui.heading("Running now");
-        match presentation::activity_certainty(&snapshot.system) {
-            presentation::ActivityCertainty::Unavailable => {
-                ui.label("Live session status cannot be confirmed.");
-            }
-            presentation::ActivityCertainty::CleanupUncertain => {
-                ui.colored_label(
-                    warning_color(ui),
-                    "Cleanup is unconfirmed. Retained owners are not proof of live audio.",
-                );
-            }
-            presentation::ActivityCertainty::Confirmed => {
-                let running: Vec<_> = snapshot
-                    .active_sessions
-                    .iter()
-                    .filter(|row| row["recent"] != true && row["state"] == "active")
-                    .collect();
-                if running.is_empty() {
-                    ui.label("No bridge sessions are running.");
-                } else {
-                    for row in running.iter().take(3) {
-                        let class_id = row["class_id"].as_str().unwrap_or("");
-                        ui.label(presentation::session_display_name(snapshot, class_id));
-                    }
-                    if running.len() > 3 {
-                        ui.small(format!("And {} more", running.len() - 3));
-                    }
-                }
-            }
-        }
-        if ui
-            .add_sized([180.0, 44.0], egui::Button::new("Open Activity"))
-            .clicked()
-        {
-            *page = Page::Activity;
-        }
-    }
-
-    fn home_operation(ui: &mut egui::Ui, snapshot: &Snapshot, page: &mut Page) {
-        ui.heading("Setup and operations");
-        let active_state = snapshot
-            .operation
-            .as_ref()
-            .and_then(|operation| operation["state"].as_str())
-            .filter(|state| {
-                matches!(
-                    *state,
-                    "queued"
-                        | "waiting"
-                        | "validating"
-                        | "running"
-                        | "vendor_running"
-                        | "submission_uncertain"
-                )
-            });
-        let active_attempt = snapshot.onboarding.iter().find(|attempt| {
-            matches!(
-                attempt.state.as_str(),
-                "queued"
-                    | "waiting"
-                    | "running"
-                    | "vendor_running"
-                    | "submission_uncertain"
-                    | "cleanup_unconfirmed"
-            )
-        });
-        if let Some(state) = active_state {
-            ui.label(format!("Manager operation: {}", state.replace('_', " ")));
-        }
-        if let Some(attempt) = active_attempt {
-            ui.label(format!(
-                "{}: {}",
-                attempt.name,
-                attempt.state.replace('_', " ")
-            ));
-        }
-        if snapshot.system.maintenance > 0 {
-            ui.label(format!(
-                "{} installation or scan owner(s) active",
-                snapshot.system.maintenance
-            ));
-        }
-        if active_state.is_none() && active_attempt.is_none() && snapshot.system.maintenance == 0 {
-            ui.label("No installation or manager operation is in progress.");
-        }
-        let awaiting = snapshot
-            .onboarding
-            .iter()
-            .filter(|attempt| matches!(attempt.state.as_str(), "imported" | "environment_ready"))
-            .count();
-        if awaiting > 0 {
-            ui.small(format!(
-                "{awaiting} installer(s) ready for your next setup step"
-            ));
-        }
-        if ui
-            .add_sized([180.0, 44.0], egui::Button::new("Open Setup"))
-            .clicked()
-        {
-            *page = Page::Setup;
-        }
-    }
-
-    fn home(
-        ui: &mut egui::Ui,
-        snapshot: &Snapshot,
-        page: &mut Page,
-        library: &mut crate::library::Library,
-        focus: &mut RouteFocus,
-    ) {
-        ui.heading("Home");
-        ui.small("Your bridge at a glance. Closing this manager does not stop audio or vendor applications.");
-        if ui.available_width() >= 760.0 {
-            ui.columns(2, |columns| {
-                Self::home_products(&mut columns[0], snapshot, page, library);
-                columns[1].heading("Needs attention");
-                Self::attention_list(&mut columns[1], snapshot, 3, page, library, focus);
-            });
-            ui.add_space(12.0);
-            ui.columns(2, |columns| {
-                Self::home_live(&mut columns[0], snapshot, page);
-                Self::home_operation(&mut columns[1], snapshot, page);
-            });
-        } else {
-            let published = snapshot
-                .products
-                .iter()
-                .filter(|product| matches!(product.disposition.as_str(), "ready" | "experimental"))
-                .count();
-            let items = presentation::attentions(snapshot);
-            let attention = items.len();
-            ui.small(format!(
-                "{published} published plug-in(s) · {attention} item(s) need attention"
-            ));
-            if let Some(first) = items.first() {
-                ui.horizontal_wrapped(|ui| {
-                    ui.strong(format!("Needs attention: {}", first.title));
-                    if ui
-                        .add_sized([124.0, 44.0], egui::Button::new("Review item"))
-                        .clicked()
-                    {
-                        navigate(&first.destination, page, library, focus);
-                    }
-                });
-            }
-            ui.separator();
-            Self::home_products(ui, snapshot, page, library);
-            if attention > 1 {
-                ui.separator();
-                if ui
-                    .add_sized(
-                        [220.0, 44.0],
-                        egui::Button::new(format!("See all {attention} attention items")),
-                    )
-                    .clicked()
-                {
-                    *page = Page::Activity;
-                }
-            }
-            ui.separator();
-            Self::home_live(ui, snapshot, page);
-            ui.separator();
-            Self::home_operation(ui, snapshot, page);
-        }
-    }
-}
-
-impl Operator {
     fn session_row(
         ui: &mut egui::Ui,
         snapshot: &Snapshot,
@@ -1865,204 +1748,6 @@ impl Operator {
         }
     }
 
-    fn setup(
-        ui: &mut egui::Ui,
-        snapshot: &Snapshot,
-        pending: bool,
-        feedback: Option<&RequestFeedback>,
-        navigation: (&mut Page, &mut crate::library::Library, &mut RouteFocus),
-        chosen: &mut Option<Action>,
-        pick: &mut bool,
-    ) {
-        let (page, library, focus) = navigation;
-        let busy = snapshot.system.inactive_reason();
-        ui.heading("Setup");
-        existing_setup_installer(ui,snapshot,pending,chosen);
-        ui.small("Installers, vendor applications, environments and exact recovery controls.");
-        for offer in &snapshot.actions {
-            if matches!(offer.action, Action::TransactionReconcile {})
-                && snapshot.system.pending_transactions > 0
-            {
-                Self::buttons(ui, std::slice::from_ref(offer), busy, pending, chosen);
-            }
-        }
-        ui.group(|ui| {
-            ui.set_min_width((ui.available_width() - 1.0).max(0.0));
-            ui.strong("Add a plug-in");
-            if ui.add_enabled(!pending, egui::Button::new("Choose Windows installer")
-                .min_size(egui::vec2(240.0, 48.0))).clicked() { *pick = true; }
-            ui.small("Selecting a file copies it into manager custody. It does not run the installer.");
-        });
-        if focus.setup_installer.is_some() {
-            ui.strong("Showing the selected installer");
-            if ui.add_sized([180.0, 44.0], egui::Button::new("Show all setup"))
-                .clicked() { focus.setup_installer = None; focus.setup = None; }
-        }
-        let sections = [
-            ("Ready to set up", 0),
-            ("Ready to install", 1),
-            ("In progress / Needs attention", 2),
-            ("Installed plug-ins / Ready to continue", 3),
-        ];
-        for (heading, section) in sections {
-            let items: Vec<_> = snapshot.installer_setups.iter().filter(|setup| {
-                focus.setup_installer.as_ref().is_none_or(|id| id == &setup.installer)
-                    && matches!((section, &setup.phase),
-                        (0, crate::model::SetupPhase::Imported)
-                        | (1, crate::model::SetupPhase::EnvironmentReady)
-                        | (2, crate::model::SetupPhase::InstallerRunning
-                            | crate::model::SetupPhase::SetupNeedsAttention
-                            | crate::model::SetupPhase::CleanupUnconfirmed)
-                        | (3, crate::model::SetupPhase::InstallerRetired
-                            | crate::model::SetupPhase::ScanReady
-                            | crate::model::SetupPhase::DiscoveryComplete))
-            }).collect();
-            if items.is_empty() { continue; }
-            ui.add_space(12.0);
-            ui.heading(heading);
-            for setup in items {
-                ui.push_id(&setup.installer, |ui| {
-                    if focus.setup_scroll && focus.setup_installer.as_ref() == Some(&setup.installer) {
-                        ui.scroll_to_cursor(Some(egui::Align::Center));
-                        focus.setup_scroll = false;
-                    }
-                    egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
-                        ui.set_min_width((ui.available_width() - 1.0).max(0.0));
-                        ui.label(egui::RichText::new(&setup.name).size(19.0).strong());
-                        let phase = match setup.phase {
-                            crate::model::SetupPhase::Imported => "Imported",
-                            crate::model::SetupPhase::EnvironmentReady => "Ready to install",
-                            crate::model::SetupPhase::InstallerRunning => "Installer open",
-                            crate::model::SetupPhase::SetupNeedsAttention => "Setup needs attention",
-                            crate::model::SetupPhase::InstallerRetired => "Installer closed",
-                            crate::model::SetupPhase::ScanReady => "Ready to find plug-ins",
-                            crate::model::SetupPhase::DiscoveryComplete => "Plug-ins found",
-                            crate::model::SetupPhase::CleanupUnconfirmed => "Cleanup unresolved",
-                        };
-                        ui.strong(phase);
-                        ui.label(&setup.status);
-                        if let Some(target) = focus.setup.as_ref().filter(|key| key.installer == setup.installer) {
-                            ui.small(format!("Attention is linked to setup attempt {}",
-                                target.environment.as_deref().unwrap_or("before environment creation")));
-                        }
-                        if let Some(compatibility) = &setup.compatibility {
-                            ui.small(compatibility);
-                        }
-                        if let Some(offer) = &setup.primary {
-                            let reason = offer.disabled_reason.as_deref()
-                                .or(offer.action.requires_global_inactive().then_some(busy).flatten());
-                            let response = ui.add_enabled(!pending && reason.is_none(),
-                                egui::Button::new(egui::RichText::new(&offer.label).strong())
-                                    .min_size(egui::vec2(240.0, 48.0)));
-                            if response.clicked() { *chosen = Some(offer.action.clone()); }
-                            if let Some(reason) = reason { ui.small(reason); }
-                        } else if matches!(setup.phase, crate::model::SetupPhase::Imported) {
-                            ui.colored_label(warning_color(ui),
-                                "Install the compatibility runtime in Setup, then continue. Any unavailable runtime is explained there.");
-                        }
-                        if !setup.discovered.is_empty()
-                            && ui.add_sized([240.0, 48.0], egui::Button::new("View plug-in details")).clicked() {
-                            show_discovered_products(setup, library, page);
-                        }
-                        Self::buttons(ui, &setup.secondary, None, pending, chosen);
-                        if ui.add_enabled(!pending, egui::Button::new("Rename")
-                            .min_size(egui::vec2(120.0, 44.0))).clicked() {
-                            *chosen = Some(Action::InstallerRename {
-                                installer: setup.installer.clone(), label: setup.name.clone() });
-                        }
-                        if let Some(feedback) = feedback.filter(|f| f.for_installer(&setup.installer)) {
-                            ui.small(&feedback.text);
-                        }
-                        egui::CollapsingHeader::new("Technical details and setup history")
-                            .default_open(focus.setup.as_ref().is_some_and(|key| key.installer == setup.installer))
-                            .show(ui, |ui| {
-                                ui.small(format!("Installer SHA-256: {}", setup.installer));
-                                ui.small(format!("{} bytes · {} · label source {}", setup.byte_size,
-                                    setup.format, setup.label_source));
-                                ui.small(format!("Imported at: {}", setup.imported_at));
-                                if let Some(environment) = &setup.environment {
-                                    ui.small(format!("Environment: {environment}"));
-                                }
-                                for reference in &setup.history {
-                                    let Some(item) = snapshot.onboarding.iter().find(|item|
-                                        item.installer == setup.installer
-                                            && item.environment == reference.environment) else {
-                                        ui.small("A retained setup row is unavailable in this readback.");
-                                        continue;
-                                    };
-                                    ui.separator();
-                                    ui.strong(format!("{} · {}", item.environment.as_deref()
-                                        .unwrap_or("Imported artifact"), item.state.replace('_', " ")));
-                                    for line in installer_policy_lines(&item.details["installation"]) { ui.small(line); }
-                                    for line in installer_lines(&item.details["installation"]) { ui.small(line); }
-                                    if let Some(failure) = &item.failure {
-                                        for line in failure_lines(failure) { ui.small(line); }
-                                    }
-                                    Self::value(ui, &item.details);
-                                    Self::buttons(ui, &item.actions, busy, pending, chosen);
-                                }
-                            });
-                    });
-                });
-            }
-        }
-        if snapshot.installer_setups.is_empty() { ui.label("No plug-in installers added yet."); }
-        ui.add_space(10.0);
-        egui::CollapsingHeader::new("System setup and recovery").show(ui, |ui| {
-            for offer in &snapshot.actions {
-                if matches!(offer.action, Action::TransactionReconcile {})
-                    && snapshot.system.pending_transactions > 0 {
-                    Self::buttons(ui, std::slice::from_ref(offer), busy, pending, chosen);
-                }
-            }
-        });
-        ui.separator();
-        egui::CollapsingHeader::new("Vendor applications").show(ui, |ui| {
-            for app in &snapshot.vendor_applications {
-                ui.push_id(&app.id, |ui| {
-                    ui.group(|ui| {
-                        ui.strong(&app.name);
-                        ui.label(format!("{} · {}", app.version, app.state.replace('_', " ")));
-                        Self::buttons(ui, &app.actions, busy, pending, chosen);
-                        egui::CollapsingHeader::new("Technical application details").show(ui, |ui| {
-                            if app.id == "native-access" {
-                                ui.label(if app.details["dependency_prepared"] == true { "Historical dependency preparation retained; each launch still requires exact session admission and fresh readiness" } else { "Historical dependency preparation is absent; launch uses exact session admission and fresh readiness" });
-                                ui.label(if app.details["effective"].is_object() { "Renderer policy applied to the exact owned application" } else { "Renderer policy application not confirmed" });
-                                ui.label(format!("Rendering cause: {}", app.details["renderer"]["cause"].as_str().unwrap_or("unresolved")));
-                                for line in dependency_retirement_lines(&app.details["dependency_operation"]) { ui.small(line); }
-                                if app.details["dependency"].is_object() { for line in dependency_retirement_lines(&app.details) { ui.small(line); } }
-                            }
-                            Self::value(ui, &app.details);
-                        });
-                    });
-                });
-            }
-        });
-        egui::CollapsingHeader::new("Managed environments").show(ui, |ui| {
-            for environment in &snapshot.environments {
-                ui.push_id(&environment.id, |ui| {
-                    ui.group(|ui| {
-                        ui.strong(&environment.family);
-                        ui.label(format!(
-                            "Revision {} · pinned runner {}",
-                            environment.revision, environment.runner
-                        ));
-                        Self::buttons(ui, &environment.actions, busy, pending, chosen);
-                        egui::CollapsingHeader::new("Technical environment details").show(
-                            ui,
-                            |ui| {
-                                ui.small(&environment.authorization);
-                                ui.small(format!("Environment: {}", environment.id));
-                                Self::value(ui, &environment.last_scan);
-                            },
-                        );
-                    });
-                });
-            }
-        });
-        ui.small("Closing the manager does not stop an installer or vendor application. Sign-in and authorization stay in the vendor interface.");
-    }
-
     fn diagnostics(
         ui: &mut egui::Ui,
         snapshot: &Snapshot,
@@ -2085,6 +1770,25 @@ impl Operator {
                 chosen,
             );
         }
+        egui::CollapsingHeader::new("Vendor applications and managed setup details").show(ui, |ui| {
+            for app in &snapshot.vendor_applications {
+                ui.strong(&app.name);
+                Self::buttons(ui,&app.actions,snapshot.system.inactive_reason(),pending,chosen);
+                for value in [&app.details["dependency_operation"],&app.details] {
+                    if value["dependency"].is_object() {
+                        for line in dependency_retirement_lines(value) {ui.small(line);}
+                    }
+                }
+                Self::value(ui,&app.details);
+            }
+            for environment in &snapshot.environments {
+                ui.strong(&environment.family);
+                Self::buttons(ui,&environment.actions,snapshot.system.inactive_reason(),pending,chosen);
+                ui.small(format!("Environment: {} · revision {} · runner {}",
+                    environment.id,environment.revision,environment.runner));
+                Self::value(ui,&environment.last_scan);
+            }
+        });
         egui::CollapsingHeader::new("Technical system details").show(ui, |ui| {
             if let Ok(value) = serde_json::to_value(&snapshot.system) {
                 Self::value(ui, &value);
@@ -2282,7 +1986,7 @@ impl eframe::App for Operator {
         let mut chosen = None;
         let mut retry_details = false;
         let selected_product_snapshot = self.selected_product_snapshot();
-        egui::CentralPanel::default().show(ui, |ui| {
+        egui::CentralPanel::default().frame(egui::Frame::central_panel(ui.style()).inner_margin(16.0)).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.heading("Linux VST Bridge");
                 let refresh_label = if self.overview_fresh { "Refresh" } else { "Check again" };
@@ -2312,7 +2016,7 @@ impl eframe::App for Operator {
                             Page::Home => {
                                 Self::fast_home(ui, overview, self.readiness.as_ref()
                                     .filter(|_| readiness_fresh).map(|(assessment, _, _)| assessment), self.overview_fresh,
-                                    controls_pending, (&mut self.page, &mut refresh, &mut chosen));
+                                    controls_pending, (&mut self.page, &mut self.library, &mut self.focus, &mut refresh, &mut chosen));
                                 return;
                             }
                             Page::Setup => {
@@ -2356,14 +2060,12 @@ impl eframe::App for Operator {
                 };
                 let page = self.page;
                 match page {
-                    Page::Home => Self::home(ui, snapshot, &mut self.page, &mut self.library, &mut self.focus),
+                    Page::Home | Page::Setup => {ui.label("Loading current plug-ins and setup…");},
                     Page::Plugins => self.library.show(ui, snapshot,
                         action_controls_pending, &mut chosen, Self::product_details),
                     Page::Workspaces => Self::workspaces(ui, snapshot, action_controls_pending, &mut chosen, &mut pick),
                     Page::Activity => Self::activity(ui, snapshot, action_controls_pending, &mut self.page,
                         &mut self.library, &mut self.focus, &mut chosen),
-                    Page::Setup => Self::setup(ui, snapshot, action_controls_pending, self.feedback.as_ref(),
-                        (&mut self.page, &mut self.library, &mut self.focus), &mut chosen, &mut pick),
                     Page::Diagnostics => Self::diagnostics(ui, snapshot, action_controls_pending, &mut chosen),
                 }
             });
@@ -3361,7 +3063,7 @@ mod tests {
     }
 
     #[test]
-    fn stale_health_values_are_used_only_for_invisible_sizing() {
+    fn stale_health_values_do_not_appear_as_current_service_facts() {
         for retained in [false, true] {
             let ctx = result_form_context();
             let mut state = state_fixture();
@@ -3378,8 +3080,8 @@ mod tests {
                 }
                 output.textures_delta.clear();
             }
-            assert!(visible.contains("Bridge status unavailable"));
-            assert!(visible.contains("Checking current status. Previous capacity and cleanup are unconfirmed."));
+            assert!(visible.contains("Bridge service status unavailable"));
+            assert!(visible.contains("Service details"));
             assert!(!visible.iter().any(|text| text.contains("DSP") || text.contains("Service ready")));
         }
     }
@@ -3544,21 +3246,132 @@ mod tests {
             let ctx = egui::Context::default();
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
                 Operator::fast_home(ui,&overview.clone().into(),Some(&overview.readiness),true,false,
-                    (&mut Page::Home,&mut false,&mut None));
+                    (&mut Page::Home,&mut crate::library::Library::default(),&mut RouteFocus::default(),&mut false,&mut None));
             });
             let mut labels = vec![];
             for clipped in &output.shapes { texts(&clipped.shape,&mut labels); }
             output.textures_delta.clear();
-            assert!(labels.iter().any(|line| line == "Support qualification: not yet qualified"));
-            if status == ReadinessOutcome::Ready {
-                assert!(labels.iter().any(|line| line == "Ready to try"));
-                assert!(labels.iter().any(|line| line == "Operational status: Ready to try"));
-            } else {
-                assert!(labels.iter().any(|line| line == "Operational facts incomplete"));
-                assert!(!labels.iter().any(|line| line.contains("No current operational blocker")));
+            // Missing historical qualification does not erase actual DAW availability.
+            assert!(labels.iter().any(|line| line == "Available in your DAW · test setup"));
+            assert!(!labels.iter().any(|line| line.starts_with("Support qualification:")));
+            assert_eq!(labels.iter().any(|line| line.contains("Setup check incomplete")),
+                status == ReadinessOutcome::Unknown);
+            assert!(!labels.iter().any(|line| line.contains("Operational facts")));
+        }
+    }
+    fn text_centers(shape: &egui::epaint::Shape, out: &mut Vec<(String,egui::Pos2)>) {
+        match shape {
+            egui::epaint::Shape::Text(text) => out.push((text.galley.text().into(),text.pos+text.galley.size()*0.5)),
+            egui::epaint::Shape::Vec(items) => for item in items {text_centers(item,out);},
+            _ => {},
+        }
+    }
+    #[test]
+    fn home_manage_routes_same_named_class_to_the_exact_environment_even_when_stale() {
+        for (width,fresh) in [(560.0,true),(960.0,true),(560.0,false)] {
+            let mut overview:CurrentOverview=overview_fixture().into();
+            let mut first=overview.current.products[0].clone();
+            first.name="Same plug-in name".into();first.environment="first-space".into();
+            let mut second=first.clone();second.environment="second-space".into();
+            let exact=ProductKey::from(&second);
+            overview.current.products=vec![first,second];
+            let ctx=result_form_context();
+            presentation::configure_style(&ctx);
+            let mut page=Page::Home;let mut library=crate::library::Library::default();
+            let mut focus=RouteFocus::default();let mut chosen=None;let mut point=egui::Pos2::ZERO;
+            for frame in 0..5 {
+                let events=if frame>=3 {vec![egui::Event::PointerMoved(point),
+                    egui::Event::PointerButton {pos:point,button:egui::PointerButton::Primary,
+                        pressed:frame==3,modifiers:egui::Modifiers::NONE}]} else {vec![]};
+                let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,egui::vec2(width,1000.0))),..Default::default()},|ui| {
+                    Operator::fast_home(ui,&overview,None,fresh,false,
+                        (&mut page,&mut library,&mut focus,&mut false,&mut chosen));
+                });
+                if frame==2 {
+                    let mut text=vec![];
+                    for shape in &output.shapes {text_centers(&shape.shape,&mut text);}
+                    point=text.iter().filter(|(label,_)|label=="Manage plug-in").nth(1).unwrap().1;
+                }
+                output.textures_delta.clear();
             }
-            assert!(!labels.iter().any(|line| line.contains("support envelope")
-                || line == "Compatibility has not been qualified"));
+            assert_eq!(page,Page::Plugins);
+            assert_eq!(library.focused_product(),Some(&exact));
+            assert!(chosen.is_none(),"Browsing must not submit a setup mutation");
+        }
+    }
+    #[test]
+    fn home_specific_blocker_without_an_ordered_step_never_recommends_starting_the_daw() {
+        for outcome in [ReadinessOutcome::Unsupported,ReadinessOutcome::Unknown] {
+            let mut overview=overview_fixture();overview.current.products.truncate(1);
+            overview.readiness.overall_status=outcome;
+            overview.readiness.blockers=vec![ReadinessBlocker {category:"engine_architecture".into(),
+                status:outcome,explanation:"This native engine requires x86-64 Linux.".into()}];
+            let ctx=result_form_context();
+            let mut output=ctx.run_ui(egui::RawInput::default(),|ui| {
+                Operator::fast_home(ui,&overview.clone().into(),Some(&overview.readiness),true,false,
+                    (&mut Page::Home,&mut crate::library::Library::default(),&mut RouteFocus::default(),&mut false,&mut None));
+            });
+            let mut text=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut text);}
+            assert!(text.iter().any(|(label,_)|label=="This native engine requires x86-64 Linux."));
+            assert!(!text.iter().any(|(label,_)|label=="Next: open your DAW"));
+            assert!(text.iter().any(|(label,_)|label=="Review setup details"));
+            // A computer limitation does not erase the separately recorded publication.
+            assert!(text.iter().any(|(label,_)|label=="Available in your DAW · test setup"));
+            output.textures_delta.clear();
+        }
+    }
+    #[test]
+    fn live_installer_beats_an_older_import_and_keeps_pending_controls_closed() {
+        for page in [Page::Home, Page::Setup] {
+        for pending in [false,true] {
+            let mut overview:CurrentOverview=overview_fixture().into();
+            let action=Action::InstallerFocus {onboarding:"exact-space".into(),operation:"exact-operation".into()};
+            let make=|name:&str,phase,primary|InstallerSetup {
+                installer:name.into(),name:name.into(),label_source:"operator_named".into(),byte_size:1024,
+                format:"pe_executable".into(),imported_at:1,phase,status:"Continue in the vendor window.".into(),
+                environment:Some("exact-space".into()),compatibility:None,discovered:vec![],primary,
+                secondary:vec![],rename:AvailableAction {label:"Rename".into(),
+                    action:Action::InstallerRename {installer:name.into(),label:String::new()},disabled_reason:None},history:vec![],
+            };
+            overview.current.installer_setups=vec![make("Older import",SetupPhase::Imported,None),
+                make("Current installation",SetupPhase::InstallerRunning,Some(AvailableAction {
+                    label:"Show vendor installer".into(),action:action.clone(),disabled_reason:None}))];
+            let ctx=result_form_context();presentation::configure_style(&ctx);
+            let mut point=egui::Pos2::ZERO;let mut chosen=None;
+            for frame in 0..5 {
+                let events=if frame>=3 {vec![egui::Event::PointerMoved(point),
+                    egui::Event::PointerButton {pos:point,button:egui::PointerButton::Primary,
+                        pressed:frame==3,modifiers:egui::Modifiers::NONE}]} else {vec![]};
+                let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,egui::vec2(560.0,1000.0))),..Default::default()},|ui| {
+                    ui.add_space(285.0);
+                    if page == Page::Home {
+                        Operator::fast_home(ui,&overview,None,true,pending,
+                            (&mut Page::Home,&mut crate::library::Library::default(),&mut RouteFocus::default(),&mut false,&mut chosen));
+                    } else {
+                        Operator::fast_setup(ui,&overview,true,pending,
+                            (&mut false,&mut chosen,&mut false,&mut Page::Setup,
+                                &mut crate::library::Library::default(),&mut RouteFocus::default()));
+                    }
+                });
+                if frame==2 {
+                    let mut text=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut text);}
+                    if page == Page::Home {
+                        assert!(text.iter().any(|(label,_)|label=="Next: continue Current installation"));
+                        assert!(!text.iter().any(|(label,_)|label=="Next: continue Older import"));
+                    } else {
+                        let current=text.iter().find(|(label,_)|label=="Current installation").unwrap().1;
+                        let older=text.iter().find(|(label,_)|label=="Older import").unwrap().1;
+                        assert!(current.y < older.y,"The running setup must precede a dormant import");
+                    }
+                    point=text.iter().find(|(label,_)|label=="Show vendor installer").unwrap().1;
+                    assert!(point.y < 700.0,"The current action must fit the first narrow screen");
+                }
+                output.textures_delta.clear();
+            }
+            assert_eq!(chosen,(!pending).then_some(action));
+        }
         }
     }
     #[test]
@@ -3886,85 +3699,6 @@ mod tests {
         assert!(operator.pending_import_route.is_none());
     }
     #[test]
-    fn setup_identity_status_and_primary_action_render_at_both_widths() {
-        fn texts(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
-            match shape {
-                egui::epaint::Shape::Text(text) => out.push(text.galley.text().into()),
-                egui::epaint::Shape::Vec(shapes) => {
-                    for shape in shapes { texts(shape, out); }
-                }
-                _ => {}
-            }
-        }
-        let mut snapshot: Snapshot =
-            serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap();
-        let installer = "ab".repeat(32);
-        snapshot.installer_setups.push(crate::model::InstallerSetup {
-            installer: installer.clone(), name: "Lunacy Audio".into(),
-            label_source: "operator_named".into(), byte_size: 1024,
-            format: "pe_executable".into(), imported_at: 1,
-            phase: crate::model::SetupPhase::Imported,
-            status: "No native plug-in setup has started from this installer.".into(), environment: None,
-            compatibility: Some("Recommended setup: Standard".into()), discovered: vec![],
-            primary: Some(AvailableAction { label: "Continue setup".into(),
-                action: Action::InstallerEnvironmentCreate {
-                    installer: installer.clone(), runner: "exact-default-key".into() },
-                disabled_reason: None }), secondary: vec![],
-            rename: AvailableAction { label: "Rename".into(),
-                action: Action::InstallerRename { installer, label: String::new() },
-                disabled_reason: None }, history: vec![],
-        });
-        for width in [960.0, 560.0] {
-            let ctx = egui::Context::default();
-            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-                ui.set_max_width(width - 32.0);
-                Operator::setup(ui, &snapshot, false, None,
-                    (&mut Page::Setup, &mut crate::library::Library::default(),
-                        &mut RouteFocus::default()), &mut None, &mut false);
-            });
-            let mut labels = Vec::new();
-            for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
-            output.textures_delta.clear();
-            for expected in ["Add a plug-in", "Ready to set up", "Lunacy Audio",
-                "No native plug-in setup has started", "Continue setup", "Rename",
-                "Recommended setup: Standard", "Technical details and setup history"] {
-                assert!(labels.iter().any(|label| label.contains(expected)),
-                    "missing {expected} at width {width}: {labels:?}");
-            }
-        }
-        snapshot.installer_setups[0].phase = crate::model::SetupPhase::EnvironmentReady;
-        snapshot.installer_setups[0].environment = Some("cd".repeat(16));
-        snapshot.installer_setups[0].compatibility = Some("Existing managed configuration".into());
-        let ctx = egui::Context::default();
-        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-            Operator::setup(ui, &snapshot, false, None,
-                (&mut Page::Setup, &mut crate::library::Library::default(),
-                    &mut RouteFocus::default()), &mut None, &mut false);
-        });
-        let mut labels = Vec::new();
-        for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
-        output.textures_delta.clear();
-        assert!(labels.iter().any(|label| label.contains("Existing managed configuration")));
-        assert!(!labels.iter().any(|label| label.contains("Standard · recommended")));
-        snapshot.installer_setups[0].phase = crate::model::SetupPhase::SetupNeedsAttention;
-        snapshot.installer_setups[0].status = "The completed scan needs review.".into();
-        snapshot.installer_setups[0].discovered = vec![crate::model::DiscoveredProduct {
-            environment: "cd".repeat(16), module_sha256: "ef".repeat(32),
-            class_id: "ab".repeat(16), name: "Exact plug-in".into(),
-        }];
-        let ctx = egui::Context::default();
-        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-            Operator::setup(ui, &snapshot, false, None,
-                (&mut Page::Setup, &mut crate::library::Library::default(),
-                    &mut RouteFocus::default()), &mut None, &mut false);
-        });
-        let mut labels = Vec::new();
-        for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
-        output.textures_delta.clear();
-        assert!(labels.iter().any(|label| label.contains("Setup needs attention")));
-        assert!(labels.iter().any(|label| label.contains("View plug-in details")));
-    }
-    #[test]
     fn fast_setup_keeps_import_focus_and_routes_exact_discoveries() {
         fn labels(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
             match shape {
@@ -4031,7 +3765,7 @@ mod tests {
             assert!(text.iter().any(|line| line == "1 of 2 current plug-ins"));
             assert!(text.iter().any(|line| line == &exact.name));
             assert!(!text.iter().any(|line| line == "Other installed build"));
-            assert!(text.iter().any(|line| line.contains("compatibility controls")));
+            assert!(text.iter().any(|line| line.contains("setup and settings")));
         }
     }
     #[test]
@@ -4350,48 +4084,6 @@ mod tests {
         );
         assert_eq!(workspace_primary_action(&actions[..1]), Some(0));
         assert_eq!(workspace_primary_action(&[]), None);
-    }
-    #[test]
-    fn narrow_home_shows_one_attention_shortcut_and_one_all_items_route() {
-        fn texts(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
-            match shape {
-                egui::epaint::Shape::Text(text) => out.push(text.galley.text().into()),
-                egui::epaint::Shape::Vec(shapes) => {
-                    for shape in shapes {
-                        texts(shape, out);
-                    }
-                }
-                _ => {}
-            }
-        }
-        let mut snapshot: Snapshot =
-            serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap();
-        snapshot.active_sessions.push(serde_json::json!({
-            "session":"exact-session", "class_id":"fixture-kontakt", "state":"failed",
-            "recent":true, "terminal":"editor_controller_failed",
-            "cleanup_confirmed":true, "transport_retired":true
-        }));
-        assert_eq!(presentation::attentions(&snapshot).len(), 2);
-        let ctx = egui::Context::default();
-        let mut page = Page::Home;
-        let mut library = crate::library::Library::default();
-        let mut focus = RouteFocus::default();
-        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-            ui.set_max_width(528.0);
-            Operator::home(ui, &snapshot, &mut page, &mut library, &mut focus);
-        });
-        let mut labels = Vec::new();
-        for clipped in &output.shapes {
-            texts(&clipped.shape, &mut labels);
-        }
-        output.textures_delta.clear();
-        assert!(labels.iter().any(|text| text == "Review item"));
-        assert!(labels
-            .iter()
-            .any(|text| text == "See all 2 attention items"));
-        assert!(!labels
-            .iter()
-            .any(|text| text == "Review this" || text == "Open item"));
     }
     #[test]
     fn session_attention_opens_activity_at_exact_session_identity() {
@@ -5038,8 +4730,6 @@ mod tests {
         f.observe(&old);
         assert!(f.text.contains("fresh refusal"));
         assert!(!f.text.contains("old lock"));
-        assert!(f.for_installer(&"ab".repeat(32)));
-        assert!(!f.for_installer(&"ef".repeat(32)));
         f = RequestFeedback::captured(create_request().action);
         f.receipt(&Receipt {
             schema: crate::model::OPERATOR_SCHEMA,

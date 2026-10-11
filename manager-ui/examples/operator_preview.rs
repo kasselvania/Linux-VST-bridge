@@ -1,5 +1,7 @@
 //! Source-owned preview of the production manager views with synthetic records.
-//! Usage: OUTPUT.png [WIDTH] [PAGE] [busy|idle|unavailable|cleanup|shared|guided|guided_new|guided_pending|pb0_ready|pb0_action|pb0_unsupported|pb0_unknown] [light|dark]
+//! Usage: OUTPUT.png [WIDTH] [PAGE] [STATE] [light|dark] [HEIGHT]
+//! States: populated, available, first_use, setup_many, install_running, pending,
+//! recoverable, plugin_ready, plugin_action, plugin_details; historical states also work.
 #[path = "../src/bootstrap.rs"]
 #[allow(dead_code)]
 mod bootstrap;
@@ -77,6 +79,7 @@ fn main() -> eframe::Result {
         "diagnostics" => operator::Page::Diagnostics,
         other => panic!("unknown page: {other}"),
     };
+    let state = args.get(3).map(String::as_str).unwrap_or("populated");
     let mut snapshot: model::Snapshot =
         serde_json::from_str(include_str!("library-preview.json")).expect("preview fixture");
     if page == operator::Page::Plugins
@@ -252,7 +255,9 @@ fn main() -> eframe::Result {
     match args.get(3).map(String::as_str).unwrap_or("busy") {
         "busy" => {}
         "idle" | "guided" | "guided_new" | "guided_pending"
-        | "pb0_ready" | "pb0_action" | "pb0_unsupported" | "pb0_unknown" => {
+        | "pb0_ready" | "pb0_action" | "pb0_unsupported" | "pb0_unknown"
+        | "populated" | "available" | "first_use" | "setup_many" | "install_running"
+        | "pending" | "recoverable" | "plugin_ready" | "plugin_action" | "plugin_details" | "current_loading" | "stale" => {
             snapshot.system.dsp = 0;
             snapshot.active_sessions.retain(|row| row["recent"] == true);
             snapshot.operation = None;
@@ -273,6 +278,79 @@ fn main() -> eframe::Result {
         }
         other => panic!("unknown state: {other}"),
     }
+    if state == "first_use" {
+        snapshot.products.clear();
+        snapshot.environments.clear();
+        snapshot.vendor_applications.clear();
+        snapshot.installer_setups.clear();
+        snapshot.onboarding.clear();
+        snapshot.active_sessions.clear();
+        snapshot.actions = vec![model::AvailableAction {label:"Download compatibility runtime".into(),
+            action:model::Action::RuntimeInstall {},disabled_reason:None}];
+    }
+    if state == "available" {
+        for product in &mut snapshot.products {
+            product.disposition = "ready".into();
+            product.details = serde_json::json!({});
+        }
+    }
+    if matches!(state,"setup_many" | "install_running" | "recoverable") {
+        for index in 1..=5 {
+            let installer = format!("{index:064x}");
+            let product = &snapshot.products[(index - 1) % snapshot.products.len()];
+            snapshot.installer_setups.push(model::InstallerSetup {
+                installer:installer.clone(),name:format!("Example Audio installer {index}"),
+                label_source:"operator_named".into(),byte_size:50_000_000,format:"pe_executable".into(),
+                imported_at:index as u64,phase:model::SetupPhase::DiscoveryComplete,
+                status:"Installation finished and plug-ins discovered.".into(),
+                environment:Some(product.environment.clone()),compatibility:None,
+                discovered:vec![model::DiscoveredProduct {environment:product.environment.clone(),
+                    module_sha256:product.module_sha256.clone(),class_id:product.class_id.clone(),name:product.name.clone()}],
+                primary:None,secondary:vec![],rename:model::AvailableAction {label:"Rename".into(),
+                    action:model::Action::InstallerRename {installer,label:String::new()},disabled_reason:None},history:vec![],
+            });
+        }
+        if matches!(state,"install_running" | "recoverable") {
+            let installer="ac".repeat(32);let onboarding="ba".repeat(16);let operation="ca".repeat(16);
+            let running=state == "install_running";
+            let mut dormant=snapshot.installer_setups[0].clone();
+            dormant.installer="ad".repeat(32);dormant.name="Older installer added for later".into();
+            dormant.phase=model::SetupPhase::Imported;dormant.status="Ready to start setup when needed.".into();
+            dormant.discovered.clear();
+            snapshot.installer_setups.insert(0,dormant);
+            snapshot.installer_setups.insert(1,model::InstallerSetup {
+                installer:installer.clone(),name:"Example Synth".into(),label_source:"operator_named".into(),
+                byte_size:50_000_000,format:"pe_executable".into(),imported_at:6,
+                phase:if running {model::SetupPhase::InstallerRunning} else {model::SetupPhase::SetupNeedsAttention},
+                status:if running {"Complete installation and any vendor sign-in in the open installer."}
+                    else {"The installer exited with an error. Installed files may remain; find them before deciding whether to retry."}.into(),
+                environment:Some(onboarding.clone()),compatibility:None,discovered:vec![],
+                primary:Some(model::AvailableAction {label:if running {"Show vendor installer"} else {"Find installed plug-ins"}.into(),
+                    action:if running {model::Action::InstallerFocus {onboarding:onboarding.clone(),operation:operation.clone()}}
+                        else {model::Action::InstallerScan {onboarding:onboarding.clone()}},disabled_reason:None}),
+                secondary:if running {vec![model::AvailableAction {label:"Stop installer".into(),
+                    action:model::Action::InstallerStop {onboarding,operation},disabled_reason:None}]} else {vec![]},
+                rename:model::AvailableAction {label:"Rename".into(),action:model::Action::InstallerRename {installer,label:String::new()},
+                    disabled_reason:None},history:vec![],
+            });
+            snapshot.system.maintenance=usize::from(running);
+        }
+    }
+    if matches!(state,"plugin_ready" | "plugin_action" | "plugin_details") {
+        let product=&mut snapshot.products[0];
+        product.compatibility=Some(model::CompatibilityWorkflow {
+            phase:if state == "plugin_action" {model::CompatibilityPhase::ReadyForTest}
+                else {model::CompatibilityPhase::OrdinarySupported},
+            summary:if state == "plugin_action" {"Preparation complete; publication is not selected."}
+                else {"The selected native publication matches this configuration."}.into(),
+            established:vec!["Audio playback".into(),"Saved-project recall".into()],
+            remaining:vec!["Custom editor on this computer".into()],current_inspection:None,current_candidate:None,
+            primary:if state == "plugin_action" {Some(model::AvailableAction {label:"Make available for testing".into(),
+                action:model::Action::CompatibilityPublishTest {candidate:"fa".repeat(32),expected_current:None},disabled_reason:None})} else {None},
+            alternatives:vec![],
+        });
+        product.details=serde_json::json!({"verification_scope":"control_records","publication_selected":state != "plugin_action"});
+    }
     let theme = match args.get(4).map(String::as_str).unwrap_or("light") {
         "light" => egui::Theme::Light,
         "dark" => egui::Theme::Dark,
@@ -282,14 +360,14 @@ fn main() -> eframe::Result {
         Some(mode @ ("pb0_ready" | "pb0_action" | "pb0_unsupported" | "pb0_unknown")) => {
             use model::ReadinessOutcome as O;
             let (outcome, reason, step) = match mode {
-                "pb0_ready" => (O::Ready, "Exact supported configuration verified.", None),
+                "pb0_ready" => (O::Ready, "Current setup records match the selected configuration.", None),
                 "pb0_action" => (O::ActionRequired,
                     "Bitwig audio callback maximum still needs confirmation.",
                     Some("Check Bitwig audio settings")),
                 "pb0_unsupported" => (O::Unsupported,
-                    "This CPU architecture is outside the accepted x86 Linux profile.", None),
+                    "This native engine requires x86-64 Linux.", None),
                 _ => (O::Unknown,
-                    "This distribution and DAW combination has not been qualified.", None),
+                    "Current desktop display access could not be checked.", None),
             };
             let product_status = if outcome == O::Unsupported { O::Unknown } else { outcome };
             Some(model::ReadinessAssessment {
@@ -335,7 +413,7 @@ fn main() -> eframe::Result {
     };
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([width, 720.0])
+            .with_inner_size([width,args.get(5).map(|height|height.parse::<f32>().expect("HEIGHT must be a number")).unwrap_or(720.0)])
             .with_active(false),
         ..Default::default()
     };
@@ -344,16 +422,11 @@ fn main() -> eframe::Result {
         options,
         Box::new(move |cc| {
             cc.egui_ctx.set_theme(theme);
-            let mut style = (*cc.egui_ctx.global_style()).clone();
-            style.spacing.interact_size.y = 42.0;
-            style.spacing.item_spacing = egui::vec2(12.0, 12.0);
-            cc.egui_ctx.set_global_style(style);
+            presentation::configure_style(&cc.egui_ctx);
             Ok(Box::new(Preview {
-                operator: if let Some(readiness) = readiness {
-                    operator::Operator::preview_readiness(snapshot, readiness, page)
-                } else {
-                    operator::Operator::preview(snapshot, page)
-                },
+                operator: operator::Operator::preview_current(snapshot, readiness, page,
+                    page == operator::Page::Plugins && state != "current_loading",
+                    state == "pending", state == "plugin_details", state == "stale"),
                 output,
                 frame: 0,
             }))

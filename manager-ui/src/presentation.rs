@@ -1,5 +1,35 @@
 //! Read-only language and routing over the canonical operator snapshot.
 use crate::model::{Product, Snapshot, System};
+use eframe::egui;
+
+/// Shared readable, touch-sized presentation for the ordinary app and previews.
+pub fn configure_style(ctx: &egui::Context) {
+    let mut style = (*ctx.global_style()).clone();
+    style.spacing.interact_size.y = 44.0;
+    style.spacing.item_spacing = egui::vec2(10.0, 10.0);
+    for (kind, size) in [(egui::TextStyle::Heading, 23.0), (egui::TextStyle::Body, 15.0),
+        (egui::TextStyle::Button, 14.0), (egui::TextStyle::Small, 13.0)] {
+        style.text_styles.insert(kind, egui::FontId::proportional(size));
+    }
+    ctx.set_global_style(style);
+    let mut visuals = ctx.global_style().visuals.clone();
+    if visuals.dark_mode {
+        visuals.override_text_color = Some(egui::Color32::from_rgb(224, 227, 232));
+        visuals.panel_fill = egui::Color32::from_rgb(24, 27, 32);
+        visuals.faint_bg_color = egui::Color32::from_rgb(32, 37, 44);
+        visuals.widgets.noninteractive.bg_stroke.color = egui::Color32::from_rgb(71, 79, 91);
+    } else {
+        visuals.override_text_color = Some(egui::Color32::from_rgb(34, 42, 54));
+        visuals.panel_fill = egui::Color32::from_rgb(248, 250, 253);
+        visuals.faint_bg_color = egui::Color32::from_rgb(236, 241, 248);
+    }
+    ctx.set_visuals(visuals);
+}
+
+pub fn primary_button(label: impl Into<egui::WidgetText>, ui: &egui::Ui) -> egui::Button<'static> {
+    egui::Button::new(label).fill(ui.visuals().selection.bg_fill)
+        .min_size(egui::vec2(0.0, 44.0))
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProductKey {
@@ -53,11 +83,11 @@ pub enum Health {
 impl Health {
     pub fn title(self) -> &'static str {
         match self {
-            Self::Ready => "Bridge ready",
-            Self::InUse => "Bridge in use",
-            Self::Maintenance => "Setup in progress",
-            Self::NeedsAttention => "Bridge needs attention",
-            Self::Unavailable => "Bridge status unavailable",
+            Self::Ready => "Bridge service running",
+            Self::InUse => "Plug-ins running",
+            Self::Maintenance => "Installation or scan running",
+            Self::NeedsAttention => "Bridge service needs attention",
+            Self::Unavailable => "Bridge service status unavailable",
         }
     }
 }
@@ -144,18 +174,7 @@ impl ProductActivity {
         }
     }
 
-    pub fn home_label(&self) -> String {
-        match self.certainty {
-            ActivityCertainty::Confirmed if self.shared_class => {
-                "Class activity in Activity".into()
-            }
-            ActivityCertainty::Confirmed => format!("{} active", self.active),
-            ActivityCertainty::CleanupUncertain => {
-                "Cleanup unresolved · current instances not confirmed".into()
-            }
-            ActivityCertainty::Unavailable => "Current activity unavailable".into(),
-        }
-    }
+
 }
 
 pub fn product_activity(snapshot: &Snapshot, product: &Product) -> ProductActivity {
@@ -506,7 +525,6 @@ mod tests {
         let confirmed = product_activity(&snapshot, product);
         assert_eq!(confirmed.certainty, ActivityCertainty::Confirmed);
         assert_eq!(confirmed.active, 1);
-        assert_eq!(confirmed.home_label(), "1 active");
         assert_eq!(confirmed.detail_label(), "1 active instance(s)");
         assert_eq!(
             activity_certainty(&snapshot.system).cleanup_label(),
@@ -517,7 +535,6 @@ mod tests {
         let unavailable = product_activity(&snapshot, product);
         assert_eq!(unavailable.certainty, ActivityCertainty::Unavailable);
         assert_eq!(unavailable.active, 0);
-        assert_eq!(unavailable.home_label(), "Current activity unavailable");
         assert_eq!(unavailable.detail_label(), "Current activity unavailable");
         assert_eq!(
             activity_certainty(&snapshot.system).cleanup_label(),
@@ -528,10 +545,6 @@ mod tests {
         let uncertain = product_activity(&snapshot, product);
         assert_eq!(uncertain.certainty, ActivityCertainty::CleanupUncertain);
         assert_eq!(uncertain.active, 0);
-        assert_eq!(
-            uncertain.home_label(),
-            "Cleanup unresolved · current instances not confirmed"
-        );
         assert_eq!(
             uncertain.detail_label(),
             "Cleanup unresolved · current instances not confirmed"
@@ -549,10 +562,6 @@ mod tests {
         assert_eq!(
             unavailable_with_conservative_flag.certainty,
             ActivityCertainty::Unavailable
-        );
-        assert_eq!(
-            unavailable_with_conservative_flag.home_label(),
-            "Current activity unavailable"
         );
         assert!(!attentions(&snapshot)
             .iter()
@@ -577,7 +586,6 @@ mod tests {
             let activity = product_activity(&snapshot, product);
             assert!(activity.shared_class);
             assert_eq!(activity.active, 1);
-            assert_eq!(activity.home_label(), "Class activity in Activity");
             assert_eq!(
                 activity.detail_label(),
                 "1 active in this plug-in class · exact build unavailable"
