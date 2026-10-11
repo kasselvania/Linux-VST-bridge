@@ -84,8 +84,18 @@ The complete native lifetime is clean; the same native/Windows instances retire
 normally. All protected groups and the restored trace option stay exact; DAW Auto
 512 is restored, owned streaming stops and one selected current Home remains usable.
 Meaningful edited automation and lower-block/SameCallback musical use remain
-unqualified; two Restore admission LockBusy refusals remain open.
+unqualified.
 [Scoped result](../evidence/audio-recovery/test41-deck-audio.json).
+
+Test45 on Deck tolerates matched 1.5-second registry holds during initial package
+readback and ordinary Restore previous setup; Test44 readback and Test43 Restore
+refuse the same hold with `LockBusy`. Ordinary Update43→45 opens the new Home;
+Restore45→43 returns exact prior software and fifteen native bindings. Return
+Update45 opens current Home; all fifteen refreshed engine contents match the build.
+All nine original projects, fifteen protected vendor registrations, five preferences,
+nine environment records and the trace option remain exact; owned operations retire
+and six idle test windows close normally, leaving one current manager.
+[Scoped manager result](../evidence/audio-recovery/test41-deck-audio.json).
 
 The [paced priority comparison](../evidence/audio-recovery/2026-10-04-paced-priority-abort.md)
 remains **unqualified**: its first A/B pair retains five/four inside512-frame zero
