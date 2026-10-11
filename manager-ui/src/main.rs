@@ -63,10 +63,7 @@ fn main() -> eframe::Result {
         "Linux Audio Compatibility Manager",
         options,
         Box::new(|cc| {
-            let mut style = (*cc.egui_ctx.global_style()).clone();
-            style.spacing.interact_size.y = 42.0;
-            style.spacing.item_spacing = egui::vec2(12.0, 12.0);
-            cc.egui_ctx.set_global_style(style);
+            presentation::configure_style(&cc.egui_ctx);
             if fixture {
                 Ok(Box::new(DesktopFixture {
                     count: 0,

@@ -29,23 +29,23 @@ pub fn status(product: &Product) -> (&str, &str) {
             CompatibilityPhase::CheckBlocked => ("Check unavailable", "attention"),
             CompatibilityPhase::Checking => ("Checking compatibility", "unpublished"),
             CompatibilityPhase::CheckFailed => ("Check needs attention", "attention"),
-            CompatibilityPhase::ReadyForTest => ("Ready for one test", "unpublished"),
-            CompatibilityPhase::AvailableForTest => ("Available experimentally", "published"),
-            CompatibilityPhase::AwaitingRetirement => ("Problem recorded · awaiting retirement", "attention"),
+            CompatibilityPhase::ReadyForTest => ("Ready to add to your DAW", "unpublished"),
+            CompatibilityPhase::AvailableForTest => ("Available in your DAW · test setup", "published"),
+            CompatibilityPhase::AwaitingRetirement => ("Problem recorded · waiting for cleanup confirmation", "attention"),
             CompatibilityPhase::TestResultIncomplete => ("Finish test result", "attention"),
-            CompatibilityPhase::PassedExperimental => ("Passed recorded checks · experimental", "published"),
+            CompatibilityPhase::PassedExperimental => ("Available in your DAW · recorded checks passed", "published"),
             CompatibilityPhase::NeedsWork => ("Needs compatibility work", "attention"),
-            CompatibilityPhase::OrdinarySupported => ("Linux VST3 published", "published"),
-            CompatibilityPhase::PublicationNeedsAttention => ("Publication needs attention", "attention"),
-            CompatibilityPhase::HistoricalOnly => ("Historical configuration", "attention"),
+            CompatibilityPhase::OrdinarySupported => ("Available in your DAW", "published"),
+            CompatibilityPhase::PublicationNeedsAttention => ("DAW setup needs attention", "attention"),
+            CompatibilityPhase::HistoricalOnly => ("Previous setup · not currently selected", "attention"),
         };
     }
     match product.disposition.as_str() {
-        "ready" => ("Published", "published"),
-        "experimental" => ("Published · experimental", "published"),
-        "another_configuration" => ("Another configuration published", "attention"),
-        "prepared" => ("Prepared · not published", "unpublished"),
-        "installed_unqualified" => ("Installed · not published", "unpublished"),
+        "ready" => ("Available in your DAW", "published"),
+        "experimental" => ("Available in your DAW · test setup", "published"),
+        "another_configuration" => ("Another setup is available in your DAW", "attention"),
+        "prepared" => ("Prepared · not available in your DAW yet", "unpublished"),
+        "installed_unqualified" => ("Installed · finish setup for your DAW", "unpublished"),
         "quarantined" => ("Scan needs attention", "attention"),
         "needs_attention" => ("Needs attention", "attention"),
         _ => ("Status unavailable", "attention"),
@@ -136,19 +136,19 @@ impl Library {
         }
         if !fresh {
             ui.colored_label(warning_color(ui),
-                "Current product status is unavailable. Check again on Home before acting.");
+                "Current plug-in status could not be loaded. Refresh on Home before continuing.");
         } else if details_attempted {
             ui.colored_label(warning_color(ui),
-                "Compatibility controls could not be loaded. The product summary remains visible.");
+                "Plug-in controls could not be loaded. The last plug-in summary is shown below.");
             if ui.add_sized([240.0, 44.0],
-                egui::Button::new("Try loading compatibility controls again")).clicked() {
+                egui::Button::new("Load plug-in controls again")).clicked() {
                 *retry_details = true;
             }
         } else {
             ui.label(if self.focused_product().is_some() {
-                "Loading this plug-in's current compatibility controls…"
+                "Loading this plug-in's setup and settings…"
             } else {
-                "Select a plug-in to see its current compatibility controls."
+                "Open a plug-in to manage its setup, updates and settings."
             });
         }
         ui.add(egui::TextEdit::singleline(&mut self.search)
@@ -161,7 +161,7 @@ impl Library {
         ui.small(format!("{} of {} current plug-ins", products.len(), current.products.len()));
         if products.is_empty() {
             ui.label(if self.focus.is_some() {
-                "The selected plug-in is absent from the current readback. Check again before continuing."
+                "The selected plug-in is missing from the current list. Refresh before continuing."
             } else if current.products.is_empty() {
                 "No plug-ins discovered yet. Open Setup to add and scan an installer."
             } else {
@@ -176,12 +176,12 @@ impl Library {
                     ui.small(format!("{} · {} · {}", vendor(product), role(product),
                         if product.version.is_empty() { "Version unavailable" } else { &product.version }));
                     if fresh { ui.label(status(product).0); }
-                    ui.small("Manager-offered compatibility actions appear after current controls load.");
+                    ui.small("Setup actions and settings appear after the current controls load.");
                     // A Setup discovery may focus several exact classes. Each
                     // row must still let the user select one current detail.
                     if fresh && self.focused_product().is_none()
                         && ui.add_sized([240.0, 44.0],
-                            egui::Button::new("View compatibility controls")).clicked() {
+                            egui::Button::new("Manage plug-in")).clicked() {
                         selected = Some(ProductKey::from(product));
                     }
                 });
@@ -202,74 +202,44 @@ impl Library {
             ui.scroll_to_cursor(Some(egui::Align::Min));
             self.scroll_focus = false;
         }
-        ui.heading("Plug-ins");
-        if self.focus.is_some() {
+        let single_product = self.focused_product().is_some();
+        ui.horizontal_wrapped(|ui| {
+            ui.heading("Plug-ins");
+            if self.focus.is_some() && ui.add_sized([180.0, 44.0],
+                egui::Button::new("Show all plug-ins")).clicked() {self.focus = None;}
+        });
+        if !single_product {
+            ui.add(egui::TextEdit::singleline(&mut self.search)
+                .hint_text("Search name, vendor, type or version")
+                .desired_width(f32::INFINITY));
             ui.horizontal_wrapped(|ui| {
-                ui.strong(if self.focused_product().is_some() {
-                    "Showing the selected plug-in"
-                } else {
-                    "Showing the selected plug-ins"
+                egui::ComboBox::from_id_salt("library-role")
+                    .selected_text(match self.role.as_str() {
+                        "instrument" => "Instruments", "effect" => "Effects", _ => "All types",
+                    }).show_ui(ui, |ui| {
+                    for (value,label) in [("","All types"),("instrument","Instruments"),("effect","Effects")] {
+                        ui.selectable_value(&mut self.role,value.into(),label);
+                    }
                 });
-                if ui
-                    .add_sized([180.0, 42.0], egui::Button::new("Show all plug-ins"))
-                    .clicked()
-                {
-                    self.focus = None;
-                }
+                egui::ComboBox::from_id_salt("library-status")
+                    .selected_text(match self.status.as_str() {
+                        "published" => "Available in DAW", "unpublished" => "Not available yet",
+                        "attention" => "Needs attention", _ => "All statuses",
+                    }).show_ui(ui, |ui| {
+                    for (value,label) in [("","All statuses"),("published","Available in DAW"),
+                        ("unpublished","Not available yet"),("attention","Needs attention")] {
+                        ui.selectable_value(&mut self.status,value.into(),label);
+                    }
+                });
+                if (!self.search.is_empty() || !self.role.is_empty() || !self.status.is_empty())
+                    && ui.button("Clear filters").clicked() {*self = Self::default();}
             });
         }
-        ui.add_space(2.0);
-        ui.add(
-            egui::TextEdit::singleline(&mut self.search)
-                .hint_text("Search name, vendor, type or version")
-                .desired_width(f32::INFINITY),
-        );
-        ui.horizontal_wrapped(|ui| {
-            egui::ComboBox::from_id_salt("library-role")
-                .selected_text(match self.role.as_str() {
-                    "instrument" => "Instruments",
-                    "effect" => "Effects",
-                    _ => "All types",
-                })
-                .show_ui(ui, |ui| {
-                    for (value, label) in [
-                        ("", "All types"),
-                        ("instrument", "Instruments"),
-                        ("effect", "Effects"),
-                    ] {
-                        ui.selectable_value(&mut self.role, value.into(), label);
-                    }
-                });
-            egui::ComboBox::from_id_salt("library-status")
-                .selected_text(match self.status.as_str() {
-                    "published" => "Published",
-                    "unpublished" => "Not published",
-                    "attention" => "Needs attention",
-                    _ => "All statuses",
-                })
-                .show_ui(ui, |ui| {
-                    for (value, label) in [
-                        ("", "All statuses"),
-                        ("published", "Published"),
-                        ("unpublished", "Not published"),
-                        ("attention", "Needs attention"),
-                    ] {
-                        ui.selectable_value(&mut self.status, value.into(), label);
-                    }
-                });
-            if (!self.search.is_empty() || !self.role.is_empty() || !self.status.is_empty())
-                && ui.button("Clear filters").clicked()
-            {
-                *self = Self::default();
-            }
-        });
         let products = self.products(snapshot);
-        ui.small(format!(
-            "{} of {} plug-ins · grouped by vendor",
-            products.len(),
-            snapshot.products.len()
-        ));
-        ui.small("Published plug-ins are registered as native VST3s. Rescan plug-ins in your DAW if one is missing from its browser.");
+        if !single_product {
+            ui.small(format!("{} of {} plug-ins · grouped by vendor",products.len(),snapshot.products.len()));
+            ui.small("Available plug-ins appear as native VST3s. Rescan VST3 plug-ins in your DAW if one is missing.");
+        }
         if products.is_empty() {
             ui.add_space(16.0);
             ui.strong(if snapshot.products.is_empty() {
@@ -282,7 +252,7 @@ impl Library {
         let mut previous_vendor = String::new();
         for p in products {
             let group = vendor(p).to_lowercase();
-            if group != previous_vendor {
+            if !single_product && group != previous_vendor {
                 ui.add_space(12.0);
                 ui.strong(vendor(p));
                 previous_vendor = group;
@@ -340,12 +310,20 @@ impl Library {
                             }
                         ));
                         if let Some(workflow) = &p.compatibility {
-                            ui.label(&workflow.summary);
-                            for established in &workflow.established {
-                                ui.small(format!("✓ {established}"));
+                            match workflow.phase {
+                                CompatibilityPhase::AvailableForTest => {
+                                    ui.label("Try this setup in your DAW, then record the result. Areas still needing a check are listed below.");
+                                }
+                                CompatibilityPhase::ReadyForTest => {
+                                    ui.label("Preparation is complete. Make it available, then rescan VST3 plug-ins in your DAW if needed.");
+                                }
+                                CompatibilityPhase::OrdinarySupported | CompatibilityPhase::PassedExperimental => {
+                                    ui.label("Open your DAW and add this plug-in to a track. Rescan VST3 plug-ins if it is missing.");
+                                }
+                                _ => { ui.label(&workflow.summary); }
                             }
                             if !workflow.remaining.is_empty() {
-                                ui.small(format!("Still untested: {}", workflow.remaining.join(", ")));
+                                ui.small(format!("Not yet checked: {}", workflow.remaining.join(", ")));
                             }
                         }
                         let instances = presentation::product_activity(snapshot, p);
@@ -388,7 +366,7 @@ impl Library {
                         }
                         egui::CollapsingHeader::new(if p.compatibility.is_some() {
                             "Technical details and expert actions"
-                        } else { "Details and manager actions" })
+                        } else { "Technical details and advanced actions" })
                             .open(self.expand_details.then_some(true))
                             .show(ui, |ui| {
                                 let expert: Vec<_> = p
@@ -412,6 +390,10 @@ impl Library {
                                     pending,
                                     chosen,
                                 );
+                                if let Some(workflow) = &p.compatibility {
+                                    ui.label(&workflow.summary);
+                                    for established in &workflow.established { ui.small(format!("Observed: {established}")); }
+                                }
                                 details(ui, p);
                             });
                     });
@@ -694,6 +676,17 @@ fn emphasized_button(
     }
 }
 
+pub(crate) fn primary_action(ui: &mut egui::Ui, offer: &AvailableAction,
+    busy: Option<&str>, pending: bool, chosen: &mut Option<Action>) {
+    let reason = primary_refusal(offer,busy);
+    if ui.add_enabled(!pending && reason.is_none(),
+        presentation::primary_button(egui::RichText::new(&offer.label).strong(),ui)).clicked() {
+        *chosen=Some(offer.action.clone());
+    }
+    if let Some(reason)=reason {ui.small(reason);}
+    else if pending {ui.small("Waiting for the current request to finish.");}
+}
+
 fn related_actions(product: &Product, snapshot: &Snapshot) -> Vec<AvailableAction> {
     if product.environment.is_empty() {
         return vec![];
@@ -759,7 +752,7 @@ pub fn action_buttons(
             let reason = primary_refusal(a, busy);
             let response = ui.add_enabled(
                 !pending && reason.is_none(),
-                egui::Button::new(&a.label).min_size(egui::vec2(0.0, 42.0)),
+                egui::Button::new(&a.label).min_size(egui::vec2(0.0, 44.0)),
             );
             if response.clicked() {
                 *chosen = Some(a.action.clone());
@@ -812,7 +805,9 @@ pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
     } else {
         ui.strong(format!("Affected plug-ins: {}", target.affected.join(", ")));
     }
-    ui.small(format!("Compatibility space: {}",target.environment));
+    egui::CollapsingHeader::new("Setup identity").show(ui, |ui| {
+        ui.small(&target.environment);
+    });
     if let Some(runtime)=&target.runtime {
         egui::CollapsingHeader::new("Compatibility runtime").show(ui,|ui| {
             ui.label(format!("Current runtime: {} · setup revision {}",runtime.runner,runtime.revision));
@@ -859,7 +854,7 @@ pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
     egui::ComboBox::from_id_salt(("companion_choice",&target.environment))
         .selected_text(target.choices.iter().find(|offer|matches!(&offer.action,
             Action::EnvironmentInstallerStart {installer,..} if installer == &selected))
-            .map(|offer|offer.label.as_str()).unwrap_or("Choose an imported companion installer"))
+            .map(|offer|offer.label.as_str()).unwrap_or("Choose an added companion installer"))
         .show_ui(ui,|ui| {
             for offer in &target.choices {
                 if let Action::EnvironmentInstallerStart {installer,..} = &offer.action {
@@ -1071,7 +1066,7 @@ mod tests {
                 disabled_reason: Some("Cleanup unconfirmed".into()),
             }), alternatives: vec![],
         });
-        assert_eq!(status(product).0, "Problem recorded · awaiting retirement");
+        assert_eq!(status(product).0, "Problem recorded · waiting for cleanup confirmation");
         assert_eq!(primary_refusal(product.compatibility.as_ref().unwrap().primary.as_ref().unwrap(),
             Some("Cleanup unconfirmed")), Some("Cleanup unconfirmed"));
     }
@@ -1236,7 +1231,7 @@ mod tests {
         let mut labels = vec![];
         for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
         output.textures_delta.clear();
-        assert_eq!(labels.iter().filter(|line| line.as_str() == "View compatibility controls").count(), 2);
+        assert_eq!(labels.iter().filter(|line| line.as_str() == "Manage plug-in").count(), 2);
         library.focus_product(second.clone());
         assert_eq!(library.focused_product(), Some(&second));
         assert_eq!(library.products(&snapshot).len(), 1);
@@ -1250,7 +1245,7 @@ mod tests {
             assert_eq!(status(&p).1, "unpublished");
         }
         p.disposition = "experimental".into();
-        assert_eq!(status(&p).0, "Published · experimental");
+        assert_eq!(status(&p).0, "Available in your DAW · test setup");
         p.disposition = "another_configuration".into();
         assert_eq!(status(&p).1, "attention");
     }
