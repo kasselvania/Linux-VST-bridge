@@ -222,7 +222,7 @@ impl RequestFeedback {
                 Action::EnvironmentRescan { .. } =>
                     "Checking the installed products. The bridge will resume when this finishes.".into(),
                 Action::EnvironmentRuntimeSelect { .. } =>
-                    "Changing the setup's runtime and checking its installed plug-ins. Next, choose Check compatibility for each plug-in.".into(),
+                    "Changing the setup's runtime and checking its installed plug-ins. Next, choose Prepare for your DAW for each plug-in.".into(),
                 Action::CompatibilityCheck { .. } | Action::CompatibilityResumeCheck { .. } =>
                     "Checking this plug-in and preparing its matching bridge.".into(),
                 Action::PluginPrepare { .. } => "Preparing this plug-in's matching bridge.".into(),
@@ -1395,7 +1395,7 @@ impl Operator {
                 }
             } else if overview.current.products.is_empty() {
                 ui.strong("Start with a Windows plug-in");
-                ui.label("Choose the Windows installer you downloaded from the vendor. Complete installation and any vendor sign-in in Setup, then make the plug-in available in your DAW.");
+                ui.label("Choose the Windows installer from your vendor. Setup guides installation, any vendor authorization and preparation for your native Linux DAW, such as REAPER.");
                 if ui.add(presentation::primary_button("Add your first plug-in", ui)).clicked() {
                     *page = Page::Setup;
                 }
@@ -1459,7 +1459,7 @@ impl Operator {
             if ui.add_enabled(!pending, presentation::primary_button("Choose Windows installer", ui)).clicked() { *pick = true; }
             ui.label("Add a plug-in");
         });
-        ui.small("Install · Authorize with the vendor · Find plug-ins · Use in your DAW");
+        ui.small("1. Add installer   2. Install / authorize   3. Find / prepare   4. Use in your DAW");
         if !fresh {
             ui.colored_label(warning_color(ui), "Refreshing current setup. Actions wait for the refresh.");
         }
@@ -1480,10 +1480,14 @@ impl Operator {
         if !runtime_actions.is_empty() {
             egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
                 ui.set_min_width((ui.available_width() - 1.0).max(0.0));
-                ui.strong("Compatibility runtime");
-                ui.label("The bridge downloads and manages the runtime needed by Windows plug-ins.");
+                ui.strong("Windows plug-in support");
+                ui.label("This app downloads and manages the compatibility software needed to run Windows plug-ins. Each plug-in needs preparation and any authorization required by its vendor.");
                 Self::buttons(ui, &runtime_actions,
                     overview.current.system.inactive_reason(), pending, chosen);
+                egui::CollapsingHeader::new("Download details").show(ui, |ui| {
+                    ui.small("Compatibility runtime: the manager offers and downloads its pinned runner.");
+                    for offer in &runtime_actions { ui.small(&offer.label); }
+                });
             });
         }
         let mut shown = 0;
@@ -1550,7 +1554,7 @@ impl Operator {
         if overview.current.installer_setups.is_empty() {
             ui.add_space(8.0);
             ui.label("Choose the installer you downloaded from your plug-in vendor. Selecting it adds a managed copy; the installer runs only when you choose to start it.");
-            ui.label("Complete installation and any sign-in in the vendor's own window. Then find the installed plug-ins and continue from the Plug-ins page.");
+            ui.label("Install in the vendor's window and complete any authorization it requires. Find the plug-ins, then choose Prepare for your DAW and Make available in your DAW. In REAPER or another native Linux DAW, rescan VST3s if needed and add the plug-in to a track.");
         } else if shown == 0 {
             ui.colored_label(warning_color(ui),
                 "The selected installer is unavailable in this readback. Refresh or show all setup.");
@@ -2298,7 +2302,7 @@ fn show_product_form(ctx: &egui::Context, form: &mut Action,
                 .show(ui, |ui| {
                     match form {
                         Action::CompatibilityResult { result, passed, failed_area, note, .. } => {
-                            ui.label("Mark only what you actually observed. The test configuration stays experimental after a successful result.");
+                            ui.label("Mark only what you actually observed. The result records only the checks you observed with this setup; it does not establish support for every configuration.");
                             ui.horizontal_wrapped(|ui| {
                                 ui.selectable_value(result, TestResultKind::Worked, "It worked");
                                 ui.selectable_value(result, TestResultKind::Problem {
@@ -3322,7 +3326,7 @@ mod tests {
             for clipped in &output.shapes { texts(&clipped.shape,&mut labels); }
             output.textures_delta.clear();
             // Missing historical qualification does not erase actual DAW availability.
-            assert!(labels.iter().any(|line| line == "Available in your DAW · test setup"));
+            assert!(labels.iter().any(|line| line == "Available in your DAW"));
             assert!(!labels.iter().any(|line| line.starts_with("Support qualification:")));
             assert_eq!(labels.iter().any(|line| line.contains("Setup check incomplete")),
                 status == ReadinessOutcome::Unknown);
@@ -3387,7 +3391,7 @@ mod tests {
             assert!(!text.iter().any(|(label,_)|label=="Next: open your DAW"));
             assert!(text.iter().any(|(label,_)|label=="Review setup details"));
             // A computer limitation does not erase the separately recorded publication.
-            assert!(text.iter().any(|(label,_)|label=="Available in your DAW · test setup"));
+            assert!(text.iter().any(|(label,_)|label=="Available in your DAW"));
             output.textures_delta.clear();
         }
     }

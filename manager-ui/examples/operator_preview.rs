@@ -493,6 +493,8 @@ fn main() -> eframe::Result {
         Box::new(move |cc| {
             cc.egui_ctx.set_theme(theme);
             presentation::configure_style(&cc.egui_ctx);
+            // Capture the settled disclosure state, not an animation frame.
+            cc.egui_ctx.global_style_mut(|style| style.animation_time = 0.0);
             Ok(Box::new(Preview {
                 operator: operator::Operator::preview_current(snapshot, readiness, page,
                     page == operator::Page::Plugins && state != "current_loading",

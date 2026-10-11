@@ -1,7 +1,7 @@
 # Manager clarity and musician flow
 
-The manager follows add, install/authorize, prepare, play and manage. Sol and
-Astra agree on clarity and flow. Architecture 18.1–18.7 governs.
+The manager follows add, install/authorize, prepare, play and manage. This pass
+simplifies terminology and everyday controls. Architecture 18.1–18.7 governs.
 
 ## Completed beta facts
 
@@ -18,18 +18,21 @@ A separate empty-product child completes installation, Setup, runtime acquisitio
 vendor installation, discovery/check/enable, playback and meaningful save/reopen.
 Disposable fixtures are stopped and parent fixtures remain retained.
 
-## Delivered UI pass
+## Current terminology and everyday-flow pass
 
-Test52 is active on Deck; installed Home is reviewed. Exact detail was reproduced
-from captured manager data. Final live detail navigation remains unverified:
-remote clicks did not open it.
-All 43 protected files, nine projects and vendor bindings remain exact. CachyOS
-retains Test50; Test52 package, guide and practice pair are delivered.
+Use the actual Test52 Deck records from the start. Replace technical action
+labels with truthful musician-facing consequences; put everyday DAW use,
+vendor controls and Settings first. Keep optional checks, alternate choices
+and previous setups disclosed, with distinct names and exact offers/refusals.
+First use follows add installer, vendor installation/authorization, preparation
+and native Linux DAW use (REAPER example; existing Bitwig remains supported).
 
-Home gives the current next action and separates service health from availability.
-Partial installations remain honest review items with exact routes. Alternative
-choices and previous setups are collapsed; exact offers/refusals and recovery remain.
-Production renders, 119 UI tests and green CI pass. No new audio gate applies.
+The live detail-navigation gap is fixed by fresh pointer motion before clicking;
+installed Test52 opens the exact Analog Lab detail. No source navigation fix.
+Review current-record, first-use and recovery renders with Astra before freezing.
+Then ship one coherent signed Test53 update on Deck and deliver its CachyOS
+package. Preserve all 43 protected files, nine projects and vendor bindings.
+CachyOS retains Test50; no repeated fixture update or audio qualification gate.
 
 ## Next
 
