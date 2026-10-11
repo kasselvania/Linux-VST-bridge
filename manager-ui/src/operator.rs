@@ -1395,7 +1395,7 @@ impl Operator {
                 }
             } else if overview.current.products.is_empty() {
                 ui.strong("Start with a Windows plug-in");
-                ui.label("Choose the Windows installer from your vendor. Setup guides installation, vendor authorization and preparation for your native Linux DAW, such as REAPER.");
+                ui.label("Choose the Windows installer from your vendor. Setup guides installation, any vendor authorization and preparation for your native Linux DAW, such as REAPER.");
                 if ui.add(presentation::primary_button("Add your first plug-in", ui)).clicked() {
                     *page = Page::Setup;
                 }
@@ -1481,7 +1481,7 @@ impl Operator {
             egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
                 ui.set_min_width((ui.available_width() - 1.0).max(0.0));
                 ui.strong("Windows plug-in support");
-                ui.label("This app downloads and manages the compatibility software needed to run Windows plug-ins. Each plug-in still needs its own preparation and vendor authorization.");
+                ui.label("This app downloads and manages the compatibility software needed to run Windows plug-ins. Each plug-in needs preparation and any authorization required by its vendor.");
                 Self::buttons(ui, &runtime_actions,
                     overview.current.system.inactive_reason(), pending, chosen);
                 egui::CollapsingHeader::new("Download details").show(ui, |ui| {
@@ -1554,7 +1554,7 @@ impl Operator {
         if overview.current.installer_setups.is_empty() {
             ui.add_space(8.0);
             ui.label("Choose the installer you downloaded from your plug-in vendor. Selecting it adds a managed copy; the installer runs only when you choose to start it.");
-            ui.label("Install and authorize in the vendor's window. Find the plug-ins, then choose Prepare for your DAW and Make available in your DAW. In REAPER or another native Linux DAW, rescan VST3s if needed and add the plug-in to a track.");
+            ui.label("Install in the vendor's window and complete any authorization it requires. Find the plug-ins, then choose Prepare for your DAW and Make available in your DAW. In REAPER or another native Linux DAW, rescan VST3s if needed and add the plug-in to a track.");
         } else if shown == 0 {
             ui.colored_label(warning_color(ui),
                 "The selected installer is unavailable in this readback. Refresh or show all setup.");

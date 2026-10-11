@@ -80,7 +80,7 @@ pub fn action_consequence(action: &Action) -> Option<&'static str> {
             | Action::ExperimentalEnable { .. } => Some("Makes the native VST3 bridge available. Rescan VST3 plug-ins in your DAW if needed, then add it to a track."),
         Action::CompatibilityPublishTest { expected_current: Some(_), .. }
             | Action::ExperimentalReplace { .. } => Some("Changes the bridge setup selected for this plug-in. Previous setups are retained; vendor installation or authorization changes are not undone."),
-        Action::ExperimentalDisable { .. } => Some("Returns to the retained earlier setup if the manager can restore one; otherwise removes this plug-in's bridge from your DAW. Vendor installation and authorization are not undone."),
+        Action::ExperimentalDisable { .. } => Some("Restores the retained recovery setup, or removes this plug-in's bridge if no recovery setup exists. Stops if that recovery setup cannot be verified. Vendor installation and authorization are unchanged."),
         Action::CandidateWithdraw { .. } => Some("Removes this plug-in's native bridge from your DAW. Keeps its records and vendor installation; does not undo authorization or vendor changes."),
         Action::OrdinaryRollback { .. } | Action::OrdinaryRestoreRecommended { .. } => Some("Restores the retained bridge setup only. Vendor installation and authorization changes are not undone; use only a setup that still matches the installed plug-in."),
         _ => None,
