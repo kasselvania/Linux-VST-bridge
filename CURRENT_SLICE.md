@@ -8,14 +8,14 @@ engine. Windows DAWs and ARM/Xfer demo work follow this beta.
 
 ## Best explanation and next changes
 
-Test46 installed through ordinary Update Bridge with CachyOS's Python 3.14
-supervisor ABI. App-owned runtime acquisition, vendor installation, unfamiliar
-class discovery and generic preparation completed. Btrfs's maps/stat device
-difference refused the native factory; REAPER's embedded editor container was
-wrongly required to advertise a top-level window-close protocol.
+Test47's ordinary update refreshed the Btrfs publication and repaired factory
+and peer identity checks. REAPER reopened Tyrell's saved project, exposed its
+parameters and played changed parameter automation at 512 frames. Its editor
+request now reaches Windows, but optional content-scale refusal still prevents
+attachment. Runtime acquisition, installation and generic preparation passed.
 
-Install Test47 with loader-bound factory identity, consistent kernel mapping
-coordinates and embedded-container editor support. Preserve fixture parents.
+Keep a valid native-size editor when optional scaling is declined, then install
+the reviewed successor through Update Bridge. Preserve fixture parents.
 Exercise REAPER discovery, editors, audio/MIDI, parameters, automation and
 meaningful save/fresh reopen at the 512-frame baseline. Investigate the known
 REAPER editor-request defect if it reproduces, and fix the general boundary.

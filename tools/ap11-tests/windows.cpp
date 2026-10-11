@@ -39,7 +39,7 @@ struct Stats {
   bool retained_test = false, processing = false, forbid_release = false, refuse_frame = false;
   std::vector<int> retirement;
   bool refuse = false, refuse_attach = false, refuse_size = false, lost_parent = false,
-       close_during_attach = false, size_after_attach = false;
+       close_during_attach = false, size_after_attach = false, refuse_scale = false;
 };
 struct View final : CPluginView, IPlugViewContentScaleSupport {
   Stats &stats;
@@ -134,6 +134,7 @@ struct View final : CPluginView, IPlugViewContentScaleSupport {
   tresult requestSize(ViewRect &r) { return plugFrame->resizeView(this, &r); }
   tresult PLUGIN_API setContentScaleFactor(float scale) override {
     check(!plugFrame, "initial scale before frame installation");
+    if (stats.refuse_scale) return kResultFalse;
     ViewRect r{0, 0, int32(400 * scale), int32(240 * scale)};
     setRect(r);
     return plugFrame ? plugFrame->resizeView(this, &r) : kResultOk;
@@ -485,9 +486,18 @@ void lifecycle_faults() {
       ++native.native_view;
     }
     c->stats.refuse_attach=c->stats.refuse_size=false;
+    c->stats.refuse_scale=true;
+    native.command(AP11::Open);session.service(true);native.drain();
+    ViewRect native_size{};
+    check(session.is_open() && c->last_view->getSize(&native_size)==kResultOk &&
+          native_size.getWidth()==400 && native_size.getHeight()==240 &&
+          session.view().scale==1.f && session.view().opens==1,
+          "declining optional scale preserves a usable native-size editor");
+    native.close();session.service(true);native.drain();++native.native_view;
+    c->stats.refuse_scale=false;
     c->stats.size_after_attach=true;
     native.command(AP11::Open);session.service(true);native.drain();
-    check(session.is_open() && session.view().opens==1,
+    check(session.is_open() && session.view().opens==2,
           "platform size unavailable before attach remains a usable view");
     native.close();session.service(true);native.drain();++native.native_view;
     c->stats.size_after_attach=false;

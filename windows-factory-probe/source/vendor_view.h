@@ -402,20 +402,21 @@ public:
       scale_supported = bool(content);
       scale = 1.f;
       if (initial_size && content && rect.getWidth() > 0 && rect.getHeight() > 0) {
-        scale =
+        auto requested_scale =
             std::min({1.f, float(work.right - work.left - 24) / rect.getWidth(),
                       float(work.bottom - work.top - 64) / rect.getHeight()});
-        scale = std::max(.5f, scale);
+        requested_scale = std::max(.5f, requested_scale);
         stage(7);
-        if (content->setContentScaleFactor(scale) != kResultOk) {
-          error_ = AP11::Size;
-          close();
-          return false;
-        }
-        if (view_->getSize(&rect) != kResultOk) {
-          error_ = AP11::Size;
-          close();
-          return false;
+        // Content scaling is optional. A view that declines the requested
+        // factor still owns its valid native size; do not turn that capability
+        // negotiation into an editor attachment failure.
+        if (content->setContentScaleFactor(requested_scale) == kResultOk) {
+          scale = requested_scale;
+          if (view_->getSize(&rect) != kResultOk) {
+            error_ = AP11::Size;
+            close();
+            return false;
+          }
         }
       }
       // Initial scale precedes frame installation. The SDK explicitly permits
