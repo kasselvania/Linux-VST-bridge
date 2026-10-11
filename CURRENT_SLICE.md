@@ -1,41 +1,44 @@
-# Edited automation survives fresh reopen
+# CachyOS tester beta
 
 ## Goal
 
-Save a newly edited, nonflat automation curve in a private project, fully quit
-the DAW and hosts, then show the recalled curve driving the actual plug-in.
+Deliver the current managed product to a CachyOS tester using native REAPER,
+with most current SteamOS features through the same application and reusable
+engine. Windows DAWs and ARM/Xfer demo work follow this beta.
 
-## Completed musician result
+## Best explanation and next changes
 
-Test45 on Deck/48-kHz/Buffered512 recalls new Macro2 hold points at beats 2/3/4:
-.1281/.8471/.1281. Fresh-process playback drives those DAW values; pausing at
-meaningful points gives vendor Timbre readbacks .128/.847/.128. The saved project
-stays exact through retirement and reopening. Vendor observations are paused.
+The recovered disposable CachyOS system runs the old internal49 generation.
+The delivery mechanisms already transfer; current manager, host and engine
+must be packaged with CachyOS's Python 3.14 supervisor ABI and checked native
+dependencies. Its app-owned runtime acquisition already passed.
 
-The diagnostics-OFF, editor-closed 60-second first-pass recording contains 2.88M
-finite frames and nonzero output; graph ERR stays 2→2, recorder0. Thirteen later
-silence spans leave continuity unqualified. The complete native lifetime retires
-cleanly with zero callback rejections/underruns. Originals, vendor registrations,
-preferences, environment records, software and restored trace remain exact.
-All owned DAW/host/recorder/profiler processes retire; one current Home remains.
+Build and install Test46 through the signed user-space installer. Use the
+existing disposable child and preserve its parent and old installation.
+Exercise REAPER discovery, editors, audio/MIDI, parameters, automation and
+meaningful save/fresh reopen at the 512-frame baseline. Investigate the known
+REAPER editor-request defect if it reproduces, and fix the general boundary.
 
-## Best explanation for the invalid early attempts
+Use Setup to install first-party stateful instrument/effect fixtures and lawful
+available vendor demos; discover and prepare them without a catalogue entry or
+customer compiler. Exercise Library, settings/runtime configuration and normal
+Update Bridge/Restore while preserving projects and vendor state.
 
-Stale native XWayland Control state caused incorrect input, about 95%: keyboard9
-retained modifier4 while XTEST5 and physical Control keys were released. Native
-Ctrl-only resets cleared the tested views; neutral checks and paired native input
-made the functional check work. Final keyboard3/5/9 state is zero with no temporary
-devices. Sunshine and Moonlight were inactive; the earlier state origin is unassigned.
+## Done
 
-## Retained results and remaining gates
+A reviewable tester package and concise instructions let the tester install,
+acquire the runtime, install and prepare a plug-in, play it in REAPER, edit it,
+save and reopen, and update/restore through ordinary controls. Record actual
+CachyOS results and specific remaining limits in SUPPORT_MATRIX/FAILURE_CLASSES.
+CPU/GPU are still unknown; the VM establishes workflow and processing behavior.
+Do not impose new universal compatibility, lower-buffer or endurance gates.
 
-Test43's diagnostics-OFF 30-minute interaction (580.350s pauses) and two-hour
-Deck/48-kHz/Buffered512 playback remain scoped to that build and fixture.
-Test45's brief registry-contention readback/Restore and ordinary Update pass;
-historical refusal owners were not captured. Ubuntu Test29→28 Restore also passes.
+## Retained results
 
-[Audio #90](https://github.com/kasselvania/Linux-VST-bridge/issues/90), [update #240](https://github.com/kasselvania/Linux-VST-bridge/issues/240), [startup #241](https://github.com/kasselvania/Linux-VST-bridge/issues/241), [readback #239](https://github.com/kasselvania/Linux-VST-bridge/issues/239),
-[restoration #242](https://github.com/kasselvania/Linux-VST-bridge/issues/242), [capture #249](https://github.com/kasselvania/Linux-VST-bridge/issues/249) and [REAPER editor #261](https://github.com/kasselvania/Linux-VST-bridge/issues/261) remain open.
-Lower-block/SameCallback musical use and the integrated beta remain open;
-[audio/recovery](docs/AUDIO_RECOVERY_ROADMAP.md) and [delivery](docs/INTEGRATED_BETA_DELIVERY.md)
-requirements govern them.
+Deck Test43's interaction/playback passes and Test45's edited automation recall
+remain valid for their recorded fixtures. Current ordinary update/restore and
+Ubuntu restore results remain valid. This beta changes the delivery priority;
+it does not restart those completed jobs. Audio issue #90, update #240, startup
+#241, readback #239, restoration #242, capture #249 and REAPER editor #261 retain
+their specific open defects. Existing architecture sections 18.1–18.7 govern
+the shared product; the current operator instruction governs this beta scope.
