@@ -21,14 +21,16 @@ bounded wait. Best explanation for the intermittent refusal: brief readback
 contention, about 90%. A live service releases this guard normally; one owned
 1.500258s hold reproduces installed Test43's Error: LockBusy before any selection
 change. The two historical failures lack exact lock-owner attribution.
-An 80ms source regression fails before the change and passes after it.
+The Restore regression passes; Test44's initial launcher status separately
+refuses the same brief hold before offering Update. That classifier is also
+fail-fast; its fix shares a 2s registry allowance within the UI's 10s observation.
 
 ## Next change and done
 
-Restore now uses Update's shared 75s registry-wait budget and separate finite
+Restore now uses Update's shared 10s registry-wait budget and separate finite
 recovery allowance. Package/setup exclusion and fresh ownership/identity checks
 remain intact. Timeout, partial-publication recovery and changed-state regressions pass.
-Review and green CI precede landing. Build Test44, repeat the same bounded hold
+Review and green CI precede landing. Build Test45, repeat the same bounded hold
 through ordinary Restore, then Update and verify the current manager and custody.
 Done means the installed comparison works; no repeated audio endurance is needed
 for this manager-only change. Preserve the existing Test43 audio qualification.

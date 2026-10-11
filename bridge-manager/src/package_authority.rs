@@ -2123,7 +2123,10 @@ fn activation_status_from(m: &Manager, home: &Path,
 /// a damaged package generation cannot become an adoptable predecessor.
 fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl) -> Result<ActivationStatus> {
-    bootstrap_status_with_registry(m, home, inputs, owner, service, &mut || m.lock("registry.lock"))
+    // Like service readback, allow two seconds of registry waiting, cumulative
+    // across guards. The frontend retains its ten-second status observation.
+    let mut acquire_registry = registry_wait_budget(m, Duration::from_secs(2));
+    bootstrap_status_with_registry(m, home, inputs, owner, service, &mut acquire_registry)
 }
 fn bootstrap_status_with_registry(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl,
@@ -4246,6 +4249,71 @@ print('LVO0 '+j['session']+' ready',flush=True)
                 assert_eq!(verify_generation(m,&f.current()).unwrap().predecessor.unwrap().manager,selected.manager);
             }
             assert!(!m.root.join("package-transition.json").exists());
+        }
+    }
+
+    #[test]
+    fn bootstrap_status_waits_for_brief_readback_contention_without_switching_setup() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        f.service.enable_start().unwrap();
+        f.replace("linux-vst-bridge", b"updated manager", true);
+        let before = fs::read(f.base.m.root.join("software.json")).unwrap();
+        let publications = f.base.m.package_publication_snapshot().unwrap();
+        let stops = f.service.stops.get();
+        let held = f.base.m.lock("registry.lock").unwrap();
+        let result = std::thread::scope(|scope| {
+            scope.spawn(move || {
+                std::thread::sleep(Duration::from_millis(80));
+                drop(held);
+            });
+            bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service)
+        });
+        assert_eq!(result.unwrap().state, "update_active");
+        assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), before);
+        assert_eq!(f.base.m.package_publication_snapshot().unwrap(), publications);
+        assert_eq!(f.service.stops.get(), stops);
+        assert!(!f.base.m.root.join("package-transition.json").exists());
+    }
+
+    #[test]
+    fn bootstrap_status_wait_is_bounded_and_rechecks_the_selected_service() {
+        for timeout in [true, false] {
+            let f = Fixture::new();
+            f.adopt().unwrap();
+            f.service.enable_start().unwrap();
+            f.replace("linux-vst-bridge", b"updated manager", true);
+            let before = fs::read(f.base.m.root.join("software.json")).unwrap();
+            let publications = f.base.m.package_publication_snapshot().unwrap();
+            let stops = f.service.stops.get();
+            let mut waited = false;
+            let mut acquire = registry_wait_budget(&f.base.m, Duration::from_millis(20));
+            let result = bootstrap_status_with_registry(&f.base.m, &f.home, &f.inputs,
+                f.owner, &f.service, &mut || {
+                    if waited { return acquire(); }
+                    waited = true;
+                    let held = f.base.m.lock("registry.lock")?;
+                    if timeout {
+                        let result = acquire();
+                        drop(held);
+                        result
+                    } else {
+                        f.service.loaded.borrow_mut().exec = "foreign service".into();
+                        drop(held);
+                        acquire()
+                    }
+                });
+            let error = result.err().expect("changed or contended status must refuse");
+            if timeout {
+                let facts = &error.downcast_ref::<operator_lock::AcquisitionFailure>().unwrap().facts;
+                assert!(facts.attempts > 1 && facts.outcome == operator_model::LockOutcome::Timeout);
+            } else {
+                assert_eq!(error.to_string(), "package_active_service_identity_changed");
+            }
+            assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(), before);
+            assert_eq!(f.base.m.package_publication_snapshot().unwrap(), publications);
+            assert_eq!(f.service.stops.get(), stops);
+            assert!(!f.base.m.root.join("package-transition.json").exists());
         }
     }
 
