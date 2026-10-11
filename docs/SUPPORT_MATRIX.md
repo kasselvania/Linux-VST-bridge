@@ -65,6 +65,28 @@ environment records remain exact. Longer interaction/endurance and lower blocks
 remain unqualified.
 [Scoped current audio result](../evidence/audio-recovery/test41-deck-audio.json).
 
+Test43 ordinary Update leaves the old manager open, refuses its obsolete readiness
+work and opens the selected current manager. Compatible stale-window pause/reopen
+passes; no readiness-helper fan-out was observed in the 120-second older-window
+sample. Draft/accepted-operation retention has source regression coverage.
+
+The same Deck/48-kHz/Buffered512/full-editor/Moonlight fixture completes a scoped
+30-minute diagnostics-OFF interaction with 580.350 seconds of declared transport
+pauses: 86.4M finite frames, no unexplained silence spans of at least 512 frames,
+graph+0 and recorder0. All five native lifetimes retire cleanly with no callback
+rejections or underruns. Editor open/close/80→70→80 resize, two inactive 512↔256↔512
+cycles, Save and fresh Macro3=.4242 recall pass; the flat Macro2=.2538 lane is retained.
+The same frozen build then passes two hours of diagnostics-OFF playback at
+48 kHz/Buffered 512 with the full 80% editor, Moonlight and both manager windows:
+345.6M finite frames, only the initial 512-frame recorder priming, no later
+512-frame silence spans, 675,019 strict profile samples/graph+0 and recorder0.
+The complete native lifetime is clean; the same native/Windows instances retire
+normally. All protected groups and the restored trace option stay exact; DAW Auto
+512 is restored, owned streaming stops and one selected current Home remains usable.
+Meaningful edited automation and lower-block/SameCallback musical use remain
+unqualified; two Restore admission LockBusy refusals remain open.
+[Scoped result](../evidence/audio-recovery/test41-deck-audio.json).
+
 The [paced priority comparison](../evidence/audio-recovery/2026-10-04-paced-priority-abort.md)
 remains **unqualified**: its first A/B pair retains five/four inside512-frame zero
 spans and seven/four active Bitwig ERR increments. B's post-window recording loss
