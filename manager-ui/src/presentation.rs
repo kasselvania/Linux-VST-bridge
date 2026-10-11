@@ -1,5 +1,5 @@
 //! Read-only language and routing over the canonical operator snapshot.
-use crate::model::{Product, Snapshot, System};
+use crate::model::{Action, AvailableAction, Product, Snapshot, System};
 use eframe::egui;
 
 /// Shared readable, touch-sized presentation for the ordinary app and previews.
@@ -29,6 +29,102 @@ pub fn configure_style(ctx: &egui::Context) {
 pub fn primary_button(label: impl Into<egui::WidgetText>, ui: &egui::Ui) -> egui::Button<'static> {
     egui::Button::new(label).fill(ui.visuals().selection.bg_fill)
         .min_size(egui::vec2(0.0, 44.0))
+}
+
+/// Presentation only: the original offered action and refusal remain authoritative.
+pub fn action_label(offer: &AvailableAction) -> String {
+    match &offer.action {
+        Action::RuntimeInstall {} => offer.label.strip_prefix("Install compatibility runtime")
+            .map(|size| format!("Download Windows plug-in support{size}"))
+            .unwrap_or_else(|| "Download Windows plug-in support".into()),
+        Action::CompatibilityCheck { .. } => "Prepare for your DAW".into(),
+        Action::CompatibilityResumeCheck { .. } => "Continue preparing for your DAW".into(),
+        Action::PluginInspect { .. } => "Check this plug-in".into(),
+        Action::PluginReinspect { .. } => "Check this plug-in again".into(),
+        Action::PluginPrepare { .. } => "Prepare this setup".into(),
+        Action::CompatibilityPublishTest { expected_current: None, .. }
+            | Action::ExperimentalEnable { .. } => "Make available in your DAW".into(),
+        Action::CompatibilityPublishTest { expected_current: Some(_), .. }
+            | Action::ExperimentalReplace { .. } => "Use this prepared setup".into(),
+        Action::ExperimentalDisable { .. } => "Stop using this test setup".into(),
+        Action::CandidateWithdraw { .. } => "Remove from your DAW".into(),
+        Action::CompatibilityResult { .. } => "Record a test result or problem".into(),
+        Action::CompatibilityFinishResult { .. } => "Finish recording the test result".into(),
+        Action::CandidateGraphicsAssess { .. } => "Check the editor with these settings".into(),
+        Action::CandidateSettingsPrepare { settings, .. } => {
+            let graphics = if settings.graphics.is_some() { "Wine D3D11" } else { "runtime defaults" };
+            let accessibility = match settings.accessibility {
+                crate::model::AccessibilityChoice::ProfileDefault => "default accessibility",
+                crate::model::AccessibilityChoice::WindowsDefault => "Windows accessibility defaults",
+                crate::model::AccessibilityChoice::DisabledForHost => "Windows accessibility off",
+            };
+            format!("Prepare {graphics} · {accessibility}")
+        }
+        Action::CandidateGraphicsPrepare { backend, .. } => if backend.is_some() {
+            "Prepare Wine D3D11 graphics".into()
+        } else { "Prepare runtime graphics defaults".into() },
+        _ => offer.label.clone(),
+    }
+}
+
+pub fn action_consequence(action: &Action) -> Option<&'static str> {
+    match action {
+        Action::CompatibilityCheck { .. } => Some("Checks the installed plug-in and prepares a native bridge. Making it available is a separate step."),
+        Action::PluginInspect { .. } | Action::PluginReinspect { .. } => Some("Checks the installed plug-in. Does not prepare or change the setup selected for your DAW."),
+        Action::CandidateSettingsPrepare { settings, .. }
+            if settings.accessibility == crate::model::AccessibilityChoice::DisabledForHost =>
+            Some("Prepares next-launch settings with Windows accessibility off for this plug-in's Windows host. Linux/Deck input stays unchanged. Your current DAW setup stays selected until you choose the prepared one."),
+        Action::PluginPrepare { .. } | Action::CandidateSettingsPrepare { .. }
+            | Action::CandidateGraphicsPrepare { .. } => Some("Prepares another setup. Your current DAW setup stays selected until you choose to use the prepared one."),
+        Action::CompatibilityPublishTest { expected_current: None, .. }
+            | Action::ExperimentalEnable { .. } => Some("Makes the native VST3 bridge available. Rescan VST3 plug-ins in your DAW if needed, then add it to a track."),
+        Action::CompatibilityPublishTest { expected_current: Some(_), .. }
+            | Action::ExperimentalReplace { .. } => Some("Changes the bridge setup selected for this plug-in. Previous setups are retained; vendor installation or authorization changes are not undone."),
+        Action::ExperimentalDisable { .. } => Some("Returns to the retained earlier setup if the manager can restore one; otherwise removes this plug-in's bridge from your DAW. Vendor installation and authorization are not undone."),
+        Action::CandidateWithdraw { .. } => Some("Removes this plug-in's native bridge from your DAW. Keeps its records and vendor installation; does not undo authorization or vendor changes."),
+        Action::OrdinaryRollback { .. } | Action::OrdinaryRestoreRecommended { .. } => Some("Restores the retained bridge setup only. Vendor installation and authorization changes are not undone; use only a setup that still matches the installed plug-in."),
+        _ => None,
+    }
+}
+
+pub fn setup_choice_label(product: &Product, offer: &AvailableAction) -> String {
+    let candidate = match &offer.action {
+        Action::ExperimentalReplace { candidate, .. } | Action::CompatibilityPublishTest { candidate, .. }
+            | Action::ExperimentalEnable { candidate } => Some(candidate),
+        _ => None,
+    };
+    if let Some(candidate) = candidate {
+        let ordinal = product.details["preparation"]["candidates"].as_array()
+            .and_then(|rows| rows.iter().find(|row| row["id"].as_str() == Some(candidate.as_str())))
+            .and_then(|row| row["lineage"]["ordinal"].as_u64());
+        let identity = ordinal.map(|ordinal| ordinal.to_string())
+            .unwrap_or_else(|| candidate.chars().take(12).collect());
+        return format!("{} · setup {identity}", action_label(offer));
+    }
+    match &offer.action {
+        Action::OrdinaryRollback { publication, .. } => {
+            product.history.iter().position(|record| record.publication == *publication)
+                .map(|index| format!("Restore previous setup {}", index + 1))
+                .unwrap_or_else(|| format!("Restore previous setup · {}", publication.chars().take(12).collect::<String>()))
+        }
+        Action::OrdinaryRestoreRecommended { .. } => "Restore the recommended retained setup".into(),
+        _ => action_label(offer),
+    }
+}
+
+pub fn check_area_label(area: &str) -> &str {
+    match area {
+        "DawLoad" => "DAW loading",
+        "Midi" => "MIDI or note input",
+        "Audio" => "Audio or musical processing",
+        "Editor" => "Editor display and interaction",
+        "Parameters" => "Plug-in controls",
+        "Automation" => "Automation",
+        "StateRecall" => "Saving and reopening",
+        "ProcessingRestart" => "Restarting processing",
+        "Retirement" => "Closing the editor and DAW",
+        _ => area,
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

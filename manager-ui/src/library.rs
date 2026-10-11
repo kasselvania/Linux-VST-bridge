@@ -1,6 +1,6 @@
 //! Presentation over the manager snapshot. No discovery, publication or launch authority.
 use crate::model::{Action, AvailableAction, CompatibilityPhase, Product, Snapshot};
-use crate::presentation::{self, ProductKey};
+use crate::presentation::{self, ProductKey, setup_choice_label};
 use eframe::egui;
 
 #[derive(Default)]
@@ -25,15 +25,15 @@ pub fn role(product: &Product) -> &str {
 pub fn status(product: &Product) -> (&str, &str) {
     if let Some(workflow) = &product.compatibility {
         return match workflow.phase {
-            CompatibilityPhase::NotChecked => ("Compatibility not checked", "unpublished"),
+            CompatibilityPhase::NotChecked => ("Installed · needs preparation", "unpublished"),
             CompatibilityPhase::CheckBlocked => ("Check unavailable", "attention"),
             CompatibilityPhase::Checking => ("Checking compatibility", "unpublished"),
             CompatibilityPhase::CheckFailed => ("Check needs attention", "attention"),
-            CompatibilityPhase::ReadyForTest => ("Ready to add to your DAW", "unpublished"),
-            CompatibilityPhase::AvailableForTest => ("Available in your DAW · test setup", "published"),
+            CompatibilityPhase::ReadyForTest => ("Prepared · ready to make available", "unpublished"),
+            CompatibilityPhase::AvailableForTest => ("Available in your DAW", "published"),
             CompatibilityPhase::AwaitingRetirement => ("Problem recorded · waiting for cleanup confirmation", "attention"),
             CompatibilityPhase::TestResultIncomplete => ("Finish test result", "attention"),
-            CompatibilityPhase::PassedExperimental => ("Available in your DAW · recorded checks passed", "published"),
+            CompatibilityPhase::PassedExperimental => ("Available in your DAW", "published"),
             CompatibilityPhase::NeedsWork => ("Needs compatibility work", "attention"),
             CompatibilityPhase::OrdinarySupported => ("Available in your DAW", "published"),
             CompatibilityPhase::PublicationNeedsAttention => ("DAW setup needs attention", "attention"),
@@ -42,7 +42,7 @@ pub fn status(product: &Product) -> (&str, &str) {
     }
     match product.disposition.as_str() {
         "ready" => ("Available in your DAW", "published"),
-        "experimental" => ("Available in your DAW · test setup", "published"),
+        "experimental" => ("Available in your DAW", "published"),
         "another_configuration" => ("Another setup is available in your DAW", "attention"),
         "prepared" => ("Prepared · not available in your DAW yet", "unpublished"),
         "installed_unqualified" => ("Installed · finish setup for your DAW", "unpublished"),
@@ -267,6 +267,8 @@ impl Library {
                         let primary = p.compatibility.as_ref().and_then(|workflow| workflow.primary.clone())
                             .or_else(|| p.compatibility.is_none().then(||
                                 emphasized_action(p, &related, snapshot.system.inactive_reason())).flatten());
+                        let optional_result = primary.as_ref().filter(|offer| optional_test_result(p, &offer.action));
+                        let everyday_primary = primary.clone().filter(|_| optional_result.is_none());
                         let management = ordinary_actions(p, &related, primary.as_ref());
                         ui.horizontal_wrapped(|ui| {
                             ui.label(egui::RichText::new(&p.name).size(19.0).strong());
@@ -278,84 +280,17 @@ impl Library {
                             };
                             ui.label(egui::RichText::new(label).color(color));
                         });
-                        if let Some(action) = &primary {
-                            let reason = primary_refusal(action, snapshot.system.inactive_reason());
-                            if let Some(reason) = reason {
-                                ui.add_enabled(false, egui::Button::new(&action.label)
-                                    .min_size(egui::vec2(240.0, 46.0)));
-                                ui.small(reason);
-                            } else { emphasized_button(ui, action, pending, chosen); }
-                        }
-                        let offers = management.iter().chain(p.compatibility.iter()
-                            .flat_map(|workflow|workflow.alternatives.iter()));
-                        let (previous, current): (Vec<_>, Vec<_>) = offers.cloned()
-                            .partition(|offer| matches!(offer.action,
-                                Action::OrdinaryRollback { .. } | Action::OrdinaryRestoreRecommended { .. }));
-                        let (mut options, current): (Vec<_>, Vec<_>) = current.into_iter()
-                            .partition(|offer| other_setup_option(&offer.action));
-                        options.extend(settings_actions(p).into_iter().filter(|offer|
-                            other_setup_option(&offer.action)
-                                && !guided_action_shown(p,primary.as_ref(),&offer.action)));
-                        action_buttons(ui, &current, snapshot.system.inactive_reason(), pending, chosen);
-                        compatibility_settings(ui, p, snapshot.system.inactive_reason(), pending,
-                            chosen, self.expand_details);
-                        if !options.is_empty() {
-                            egui::CollapsingHeader::new(format!("Other setup options ({})", options.len()))
-                                .id_salt("other-setup-options")
-                                .open(self.expand_details.then_some(true)).show(ui,|ui| {
-                                    ui.label("Optional checks and alternate setups. Each control shows why it may be unavailable.");
-                                    for offer in &options {
-                                        action_buttons(ui,std::slice::from_ref(offer),
-                                            snapshot.system.inactive_reason(),pending,chosen);
-                                    }
-                                });
-                        }
-                        if !previous.is_empty() {
-                            egui::CollapsingHeader::new(format!("Previous setups ({})", previous.len()))
-                                .id_salt("previous-setups")
-                                .open(self.expand_details.then_some(true))
-                                .show(ui, |ui| {
-                                    for offer in &previous {
-                                        action_buttons(ui, std::slice::from_ref(offer),
-                                            snapshot.system.inactive_reason(), pending, chosen);
-                                    }
-                                });
-                        }
-                        if let Some(target) = snapshot.environment_installers.iter()
-                            .find(|target|target.environment == p.environment) {
-                            egui::CollapsingHeader::new("Manage shared setup")
-                                .default_open(target.actions.iter().any(|offer|
-                                    matches!(offer.action,Action::EnvironmentInstallerStop { .. })))
-                                .show(ui,|ui|environment_installer_controls(ui,target,pending,chosen));
-                        }
-                        ui.label(format!(
-                            "{} · {}",
-                            role(p),
-                            if p.version.trim().is_empty() {
-                                "Version unavailable"
-                            } else {
-                                &p.version
-                            }
-                        ));
-                        if let Some(workflow) = &p.compatibility {
-                            match workflow.phase {
-                                CompatibilityPhase::AvailableForTest => {
-                                    ui.label("Try this setup in your DAW, then record the result. Areas still needing a check are listed below.");
-                                }
-                                CompatibilityPhase::ReadyForTest => {
-                                    ui.label("Preparation is complete. Make it available, then rescan VST3 plug-ins in your DAW if needed.");
-                                }
-                                CompatibilityPhase::OrdinarySupported | CompatibilityPhase::PassedExperimental => {
-                                    ui.label("Open your DAW and add this plug-in to a track. Rescan VST3 plug-ins if it is missing.");
-                                }
-                                _ => { ui.label(&workflow.summary); }
-                            }
-                            if !workflow.remaining.is_empty() {
-                                ui.small(format!("Not yet checked: {}", workflow.remaining.join(", ")));
-                            }
+                        ui.small(format!("{} · {}", role(p), if p.version.trim().is_empty() {
+                            "Version unavailable" } else { &p.version }));
+                        if status(p).1 == "published" {
+                            ui.label("In your native Linux DAW, add this plug-in to a track. Rescan VST3s if it is missing.");
+                            ui.small("REAPER: track FX > VST3. Save and reopen projects in your DAW.");
+                        } else if let Some(workflow) = &p.compatibility {
+                            if workflow.phase == CompatibilityPhase::ReadyForTest {
+                                ui.label("The native bridge is prepared. Make it available below, then choose it in your DAW.");
+                            } else { ui.label(&workflow.summary); }
                         }
                         let instances = presentation::product_activity(snapshot, p);
-                        ui.small(instances.detail_label());
                         for failure in &instances.failed_live {
                             ui.colored_label(
                                 warning_color(ui),
@@ -392,11 +327,95 @@ impl Library {
                         {
                             ui.colored_label(warning_color(ui), reason);
                         }
+                        if let Some(action) = &everyday_primary {
+                            let reason = primary_refusal(action, snapshot.system.inactive_reason());
+                            if let Some(reason) = reason {
+                                ui.add_enabled(false, egui::Button::new(presentation::action_label(action))
+                                    .min_size(egui::vec2(240.0, 46.0)));
+                                ui.small(reason);
+                                if let Some(consequence) = presentation::action_consequence(&action.action) { ui.small(consequence); }
+                            } else { emphasized_button(ui, action, pending, chosen); }
+                        }
+                        let offers = management.iter().chain(p.compatibility.iter()
+                            .flat_map(|workflow|workflow.alternatives.iter()));
+                        let (previous, current): (Vec<_>, Vec<_>) = offers.cloned()
+                            .partition(|offer| matches!(offer.action,
+                                Action::OrdinaryRollback { .. } | Action::OrdinaryRestoreRecommended { .. }));
+                        let (availability, current): (Vec<_>, Vec<_>) = current.into_iter()
+                            .partition(|offer| matches!(offer.action, Action::ExperimentalDisable { .. } | Action::CandidateWithdraw { .. }));
+                        let (options, current): (Vec<_>, Vec<_>) = current.into_iter()
+                            .filter(|offer| !everyday_primary.as_ref().is_some_and(|shown| shown.action == offer.action))
+                            .partition(|offer| other_setup_option(&offer.action));
+                        action_buttons(ui, &current, snapshot.system.inactive_reason(), pending, chosen);
+                        compatibility_settings(ui, p, snapshot.system.inactive_reason(), pending,
+                            chosen, self.expand_details);
+                        if p.compatibility.is_some() || settings_actions(p).iter().any(|offer|
+                            matches!(offer.action, Action::CandidateGraphicsAssess { .. })) {
+                            egui::CollapsingHeader::new("Checks and test results")
+                                .open(self.expand_details.then_some(true)).show(ui, |ui| {
+                                    if let Some(offer) = optional_result {
+                                        action_buttons(ui, std::slice::from_ref(offer), snapshot.system.inactive_reason(), pending, chosen);
+                                    }
+                                    let editor_checks: Vec<_> = settings_actions(p).into_iter()
+                                        .filter(|offer| matches!(offer.action, Action::CandidateGraphicsAssess { .. })).collect();
+                                    action_buttons(ui, &editor_checks, snapshot.system.inactive_reason(), pending, chosen);
+                                    if let Some(workflow) = &p.compatibility {
+                                        if workflow.phase == CompatibilityPhase::AvailableForTest {
+                                            ui.label("Available in your DAW using this setup. You can record a result after trying it.");
+                                        } else { ui.label(&workflow.summary); }
+                                        for established in &workflow.established { ui.small(format!("Observed: {established}")); }
+                                        if !workflow.remaining.is_empty() {
+                                            ui.small(format!("Not yet checked: {}", workflow.remaining.iter().map(|area| presentation::check_area_label(area)).collect::<Vec<_>>().join(", ")));
+                                        }
+                                    }
+                                    ui.small("Recorded checks describe only what was observed with that setup. They do not replace your vendor's authorization or your DAW's project save and reopen.");
+                                    egui::CollapsingHeader::new("Editor check details").open(self.expand_details.then_some(true)).show(ui, |ui| {
+                                        let configuration = &p.details["configuration"];
+                                        let settings = if configuration.is_null() { &p.details["graphics"] } else { configuration };
+                                        graphics_observation(ui, "Configuration assessment", &settings["assessment"]);
+                                        ui.small("This supervised editor check does not establish uninterrupted audio, saved-project recall or a known fix.");
+                                    });
+                                });
+                        }
+                        if !availability.is_empty() {
+                            egui::CollapsingHeader::new("DAW availability")
+                                .open(self.expand_details.then_some(true)).show(ui, |ui| {
+                                    action_buttons(ui, &availability, snapshot.system.inactive_reason(), pending, chosen);
+                                });
+                        }
+                        if !options.is_empty() {
+                            egui::CollapsingHeader::new(format!("Other setup options ({})", options.len()))
+                                .id_salt("other-setup-options")
+                                .open(self.expand_details.then_some(true)).show(ui,|ui| {
+                                    ui.label("Prepare an alternative or select a retained setup. Preparing one keeps your current DAW selection.");
+                                    for offer in &options {
+                                        setup_choice(ui, p, offer, snapshot.system.inactive_reason(), pending, chosen);
+                                    }
+                                });
+                        }
+                        if !previous.is_empty() {
+                            egui::CollapsingHeader::new(format!("Previous setups ({})", previous.len()))
+                                .id_salt("previous-setups")
+                                .open(self.expand_details.then_some(true))
+                                .show(ui, |ui| {
+                                    for offer in &previous {
+                                        setup_choice(ui, p, offer, snapshot.system.inactive_reason(), pending, chosen);
+                                    }
+                                });
+                        }
+                        if let Some(target) = snapshot.environment_installers.iter()
+                            .find(|target|target.environment == p.environment) {
+                            egui::CollapsingHeader::new("Manage shared setup")
+                                .default_open(target.actions.iter().any(|offer|
+                                    matches!(offer.action,Action::EnvironmentInstallerStop { .. })))
+                                .show(ui,|ui|environment_installer_controls(ui,target,pending,chosen));
+                        }
                         egui::CollapsingHeader::new(if p.compatibility.is_some() {
                             "Technical details and expert actions"
                         } else { "Technical details and advanced actions" })
                             .open(self.expand_details.then_some(true))
                             .show(ui, |ui| {
+                                ui.small(instances.detail_label());
                                 let expert: Vec<_> = p
                                     .actions
                                     .iter()
@@ -430,38 +449,64 @@ impl Library {
     }
 }
 
+fn optional_test_result(product: &Product, action: &Action) -> bool {
+    matches!(action, Action::CompatibilityResult { .. }) && product.compatibility.as_ref()
+        .is_some_and(|workflow| matches!(workflow.phase, CompatibilityPhase::AvailableForTest
+            | CompatibilityPhase::PassedExperimental | CompatibilityPhase::OrdinarySupported))
+}
+
+fn setup_choice(ui: &mut egui::Ui, product: &Product, offer: &AvailableAction,
+    busy: Option<&str>, pending: bool, chosen: &mut Option<Action>) {
+    ui.push_id(serde_json::to_string(&offer.action).unwrap_or_default(), |ui| {
+        let label = setup_choice_label(product, offer);
+        // Context-specific labels already describe the typed action; do not map them a second time.
+        let reason = primary_refusal(offer, busy);
+        if ui.add_enabled(!pending && reason.is_none(), egui::Button::new(label)
+            .min_size(egui::vec2(0.0, 44.0))).clicked() { *chosen = Some(offer.action.clone()); }
+        for refusal in visible_refusals(std::slice::from_ref(offer), busy, pending) { ui.small(refusal); }
+        if let Action::OrdinaryRollback { publication, .. } = &offer.action {
+            if let Some(record) = product.history.iter().find(|record| record.publication == *publication) {
+                if !record.description.is_empty() { ui.small(&record.description); }
+            }
+        }
+        if let Some(consequence) = presentation::action_consequence(&offer.action) { ui.small(consequence); }
+        egui::CollapsingHeader::new("Exact setup identity").show(ui, |ui| {
+            ui.small(format!("Manager action: {}", offer.label));
+            ui.small(serde_json::to_string(&offer.action).unwrap_or_default());
+        });
+    });
+}
+
 /// Display manager-resolved facts and only its offered, typed controls.
 fn compatibility_settings(ui: &mut egui::Ui, product: &Product, busy: Option<&str>,
     pending: bool, chosen: &mut Option<Action>, expanded: bool) {
     let configuration = &product.details["configuration"];
     let legacy = &product.details["graphics"];
     let actions: Vec<_> = settings_actions(product).into_iter()
-        .filter(|offer|!other_setup_option(&offer.action)).collect();
+        .filter(|offer| !matches!(offer.action, Action::CandidateGraphicsAssess { .. })).collect();
     let buffering: Vec<_> = product.actions.iter().filter(|offer|
         matches!(offer.action, Action::BufferingSet { .. } | Action::DeliverySet { .. })).cloned().collect();
     if configuration.is_null() && legacy.is_null() && actions.is_empty() && buffering.is_empty() {
         return;
     }
-    egui::CollapsingHeader::new("Compatibility settings").open(expanded.then_some(true)).show(ui, |ui| {
+    egui::CollapsingHeader::new("Settings").open(expanded.then_some(true)).show(ui, |ui| {
         let settings = if configuration.is_null() { legacy } else { configuration };
         if !configuration.is_null() {
-            ui.strong("Requested choices");
-            configuration_choices(ui, configuration);
-            ui.strong("Prepared launch");
-            for (key, label) in [("runtime", "Selected runtime"), ("environment", "Selected environment"),
-                ("environment_revision", "Environment revision")] {
-                ui.label(format!("{label}: {}", configuration_value(&configuration["launch"][key])));
-            }
-            egui::CollapsingHeader::new("Exact launch identity").show(ui, |ui| {
+            ui.strong("Launch settings");
+            configuration_choices(ui, configuration, expanded);
+            egui::CollapsingHeader::new("Technical setup details").open(expanded.then_some(true)).show(ui, |ui| {
+                for (key, label) in [("runtime", "Selected runtime"), ("environment", "Selected environment"),
+                    ("environment_revision", "Environment revision")] {
+                    ui.small(format!("{label}: {}", configuration_value(&configuration["launch"][key])));
+                }
                 for (key, label) in [("module", "Module"), ("class_id", "Class"),
                     ("host", "Windows host"), ("native", "Native bridge")] {
                     ui.small(format!("{label}: {}", configuration_value(&configuration["launch"][key])));
                 }
                 ui.small(format!("Candidate: {}", configuration_value(&configuration["candidate"])));
                 ui.small(format!("Publication: {}", configuration_value(&configuration["publication"])));
+                ui.label(configuration["qualification"].as_str().unwrap_or("Qualification unavailable"));
             });
-            ui.strong("Qualification");
-            ui.label(configuration["qualification"].as_str().unwrap_or("Qualification unavailable"));
         } else if !legacy.is_null() {
             ui.label(legacy["requested"].as_str().unwrap_or("Requested settings unavailable"));
             ui.small(legacy["reason"].as_str().unwrap_or_default());
@@ -469,7 +514,7 @@ fn compatibility_settings(ui: &mut egui::Ui, product: &Product, busy: Option<&st
         if settings["publication"] == "another_configuration" {
             ui.strong("Prepared only. Your previous configuration is still selected.");
         }
-        ui.small("Trial preparation keeps your current selection. Alternate setup controls are listed under Other setup options when available.");
+        ui.small("Prepare changed launch settings below, then select the prepared setup under Other setup options. Your current setup stays selected until then.");
         action_buttons(ui, &actions, busy, pending, chosen);
         if !configuration["buffering"].is_null() || !buffering.is_empty() {
             ui.separator();
@@ -479,7 +524,7 @@ fn compatibility_settings(ui: &mut egui::Ui, product: &Product, busy: Option<&st
                 .or_else(||product.details["added_frames"].as_u64()) {
                 ui.label(format!("{frames} added bridge frames"));
                 if audio["delivery_mode"] == "same_callback" || product.details["delivery_mode"] == "same_callback" {
-                    ui.label("Same-callback delivery · experimental");
+                    ui.label("Same-callback delivery · test mode");
                     if let Some(remembered) = audio["remembered_frames"].as_u64().or_else(||product.details["buffered_frames"].as_u64()) {
                         ui.small(format!("Buffered delivery retains {remembered} frames for restoration."));
                     }
@@ -492,16 +537,13 @@ fn compatibility_settings(ui: &mut egui::Ui, product: &Product, busy: Option<&st
         if !settings["before"].is_null() {
             egui::CollapsingHeader::new("Before this trial").show(ui, |ui| {
                 if !configuration.is_null() {
-                    configuration_choices(ui, &settings["before"]);
+                    configuration_choices(ui, &settings["before"], expanded);
                 } else {
                     ui.label(settings["before"]["requested"].as_str().unwrap_or("Retained previous configuration"));
                 }
                 graphics_observation(ui, "Previous assessment", &settings["before"]["assessment"]);
             });
         }
-        ui.separator();
-        graphics_observation(ui, "Configuration assessment", &settings["assessment"]);
-        ui.small("Assessment opens the editor in a supervised check. Independent runtime probes do not establish the editor's actual renderer, uninterrupted audio, saved-project recall or a known fix.");
     });
 }
 
@@ -529,15 +571,17 @@ fn configuration_value(value: &serde_json::Value) -> String {
     }
 }
 
-fn configuration_choices(ui: &mut egui::Ui, configuration: &serde_json::Value) {
+fn configuration_choices(ui: &mut egui::Ui, configuration: &serde_json::Value, expanded: bool) {
     let Some(choices) = configuration["choices"].as_array().filter(|choices| !choices.is_empty()) else {
         ui.small("Requested choices unavailable.");
         return;
     };
     for choice in choices {
         ui.label(format!("{}: {}", configuration_value(&choice["name"]), configuration_value(&choice["value"])));
-        ui.small(format!("Source: {} · Scope: {}", configuration_value(&choice["source"]), configuration_value(&choice["scope"])));
-        ui.small(format!("Application: {}", configuration_value(&choice["change"])));
+        egui::CollapsingHeader::new(format!("{} setting details", configuration_value(&choice["name"]))).open(expanded.then_some(true)).show(ui, |ui| {
+            ui.small(format!("Source: {} · Scope: {}", configuration_value(&choice["source"]), configuration_value(&choice["scope"])));
+            ui.small(format!("Application: {}", configuration_value(&choice["change"])));
+        });
     }
 }
 
@@ -701,7 +745,7 @@ fn emphasized_button(
     pending: bool,
     chosen: &mut Option<Action>,
 ) {
-    let button = egui::Button::new(egui::RichText::new(&offer.label).strong())
+    let button = egui::Button::new(egui::RichText::new(presentation::action_label(offer)).strong())
         .fill(ui.visuals().selection.bg_fill)
         .min_size(egui::vec2(0.0, 46.0));
     if ui.add_enabled(!pending, button).clicked() {
@@ -710,17 +754,19 @@ fn emphasized_button(
     if pending {
         ui.small("Waiting for the current request or manager readback");
     }
+    if let Some(consequence) = presentation::action_consequence(&offer.action) { ui.small(consequence); }
 }
 
 pub(crate) fn primary_action(ui: &mut egui::Ui, offer: &AvailableAction,
     busy: Option<&str>, pending: bool, chosen: &mut Option<Action>) {
     let reason = primary_refusal(offer,busy);
     if ui.add_enabled(!pending && reason.is_none(),
-        presentation::primary_button(egui::RichText::new(&offer.label).strong(),ui)).clicked() {
+        presentation::primary_button(egui::RichText::new(presentation::action_label(offer)).strong(),ui)).clicked() {
         *chosen=Some(offer.action.clone());
     }
     if let Some(reason)=reason {ui.small(reason);}
     else if pending {ui.small("Waiting for the current request to finish.");}
+    if let Some(consequence) = presentation::action_consequence(&offer.action) { ui.small(consequence); }
 }
 
 fn related_actions(product: &Product, snapshot: &Snapshot) -> Vec<AvailableAction> {
@@ -733,20 +779,18 @@ fn related_actions(product: &Product, snapshot: &Snapshot) -> Vec<AvailableActio
         if app.details["environment"].as_str() != Some(product.environment.as_str()) {
             continue;
         }
-        actions.extend(
-            app.actions
-                .iter()
-                .filter(|a| {
-                    matches!(
-                        a.action,
-                        Action::VendorApplicationOpen { .. }
-                            | Action::VendorApplicationFocus { .. }
-                            | Action::RendererOpen { .. }
-                            | Action::RendererFocus { .. }
-                    )
-                })
-                .cloned(),
-        );
+        actions.extend(app.actions.iter().filter(|offer| matches!(offer.action,
+            Action::VendorApplicationOpen { .. } | Action::VendorApplicationFocus { .. }
+                | Action::RendererOpen { .. } | Action::RendererFocus { .. }))
+            .map(|offer| {
+                let mut named = offer.clone();
+                if !app.name.trim().is_empty() {
+                    named.label = format!("{} {}", if matches!(offer.action,
+                        Action::VendorApplicationOpen { .. } | Action::RendererOpen { .. }) {
+                        "Open" } else { "Show" }, app.name);
+                }
+                named
+            }));
     }
     for environment in &snapshot.environments {
         if environment.id == product.environment {
@@ -788,7 +832,7 @@ pub fn action_buttons(
             let reason = primary_refusal(a, busy);
             let response = ui.add_enabled(
                 !pending && reason.is_none(),
-                egui::Button::new(&a.label).min_size(egui::vec2(0.0, 44.0)),
+                egui::Button::new(presentation::action_label(a)).min_size(egui::vec2(0.0, 44.0)),
             );
             if response.clicked() {
                 *chosen = Some(a.action.clone());
@@ -802,8 +846,12 @@ pub fn action_buttons(
     });
     // Keep every refusal visible to touch users, even when global inactivity
     // also blocks a manager-disabled action.
-    for reason in visible_refusals(actions, busy, pending) {
-        ui.small(reason);
+    for reason in visible_refusals(actions, busy, pending) { ui.small(reason); }
+    let mut consequences = Vec::new();
+    for offer in actions {
+        if let Some(text) = presentation::action_consequence(&offer.action) {
+            if !consequences.contains(&text) { ui.small(text); consequences.push(text); }
+        }
     }
 }
 
@@ -951,12 +999,15 @@ mod tests {
             let ctx = egui::Context::default();
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
                 ui.set_max_width(width - 32.0);
-                compatibility_settings(ui,&product,None,false,&mut None,true);
+                let mut current = snapshot();
+                current.products = vec![product.clone()];
+                let mut library = Library { expand_details: true, ..Default::default() };
+                library.show(ui, &current, false, &mut None, |_,_|{});
             });
             let mut labels = vec![];
             for clipped in &output.shapes { texts(&clipped.shape,&mut labels); }
             output.textures_delta.clear();
-            for expected in ["Compatibility settings", "Graphics: Wine D3D11 fallback", "Accessibility: Windows default",
+            for expected in ["Settings", "Graphics: Wine D3D11 fallback", "Accessibility: Windows default",
                 "Source: Explicit local choice", "Selected runtime: selected-runtime-r7",
                 "Selected environment: existing-environment", "Environment revision: 4", "Not yet qualified",
                 "512 added bridge frames", "The DAW sets the live sample rate", "Prepared only.",
@@ -991,7 +1042,7 @@ mod tests {
     fn preparing_local_settings_remains_clickable_with_unrelated_activity() {
         fn trial_position(shape: &egui::epaint::Shape) -> Option<egui::Pos2> {
             match shape {
-                egui::epaint::Shape::Text(text) if text.galley.text() == "Prepare settings trial" =>
+                egui::epaint::Shape::Text(text) if text.galley.text() == "Prepare runtime defaults · Windows accessibility defaults" =>
                     Some(text.pos + text.galley.size() * 0.5),
                 egui::epaint::Shape::Vec(shapes) => shapes.iter().find_map(trial_position),
                 _ => None,
@@ -1067,7 +1118,7 @@ mod tests {
             let mut labels = vec![];
             for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
             output.textures_delta.clear();
-            for expected in ["Compatibility not checked", "Check compatibility",
+            for expected in ["Installed · needs preparation", "Prepare for your DAW",
                 "Close the plug-in or DAW before checking"] {
                 assert!(labels.iter().any(|line| line.contains(expected)),
                     "{expected} missing at {width}: {labels:?}");
@@ -1153,8 +1204,8 @@ mod tests {
             for expected in ["Other setup options (2)","Previous setups (1)"] {
                 assert!(labels.iter().any(|s|s.contains(expected)),"{expected} absent at {width}");
             }
-            for expected in ["Check compatibility again","Prepare a test bridge update",
-                "Installed module changed; rescan first","Roll back to revision 6"] {
+            for expected in ["Check this plug-in again","Prepare this setup",
+                "Installed module changed; rescan first","Restore previous setup · dddddddddddd"] {
                 assert_eq!(labels.iter().any(|s|s==expected),expanded,"{expected} at {width}");
             }
             assert_eq!(library.expand_details,expanded);assert!(chosen.is_none());
@@ -1215,11 +1266,11 @@ mod tests {
             for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
             output.textures_delta.clear();
             for offer in [&keep,&restore] {
-                assert_eq!(labels.iter().filter(|label| **label == offer.label).count(), 1,
-                    "{} must render once at {width}, expanded={expanded}", offer.label);
+                assert_eq!(labels.iter().filter(|label| **label == presentation::action_label(offer)).count(), usize::from(expanded),
+                    "optional controls are disclosed at {width}, expanded={expanded}");
             }
             for offer in [&ready,&stale] {
-                assert_eq!(labels.iter().filter(|label|**label==offer.label).count(),usize::from(expanded));
+                assert_eq!(labels.iter().filter(|label|**label==setup_choice_label(&snapshot.products[0],offer)).count(),usize::from(expanded));
             }
             assert_eq!(labels.iter().any(|label|Some(label)==stale.disabled_reason.as_ref()),expanded);
             assert_eq!(labels.iter().filter(|label| **label == expert.label).count(), usize::from(expanded),
@@ -1249,6 +1300,9 @@ mod tests {
                     action:Action::OrdinaryRollback {class_id:product.class_id.clone(),publication:format!("exact-publication-{index}")},
                     disabled_reason:(index==0).then(||"Previous files are unavailable".into())});
             }
+            product.history = (0..12).map(|index| crate::model::History {revision:1,claim:"test".into(),
+                publication:format!("exact-publication-{index}"),active:false,rollback_allowed:true,
+                description:format!("Version 1 · settings choice {index}"),rollback_unavailable:None}).collect();
             let expected=product.actions[2].action.clone();
             let ctx=egui::Context::default();presentation::configure_style(&ctx);
             ctx.global_style_mut(|style|style.animation_time=0.0);
@@ -1265,11 +1319,11 @@ mod tests {
                 if frame==2 {
                     assert!(!text.iter().any(|(label,_)|label.starts_with("Restore previous setup")));
                     point=text.iter().find(|(label,_)|label=="Previous setups (12)").unwrap().1;
-                    assert!(text.iter().find(|(label,_)|label=="Check current setup").unwrap().1.y<700.0);
+                    assert!(text.iter().find(|(label,_)|label=="Check this plug-in again").unwrap().1.y<700.0);
                 }
                 if frame==6 {
                     assert!(text.iter().any(|(label,_)|label=="Previous files are unavailable"));
-                    point=text.iter().find(|(label,_)|label=="Restore previous setup 1").unwrap().1;
+                    point=text.iter().find(|(label,_)|label=="Restore previous setup 2").unwrap().1;
                 }
                 output.textures_delta.clear();
             }
@@ -1294,8 +1348,9 @@ mod tests {
                 audio_layout:None,recipe:"current-recipe".into(),predecessor:None}}
                 else {Action::CompatibilityResult {candidate:"current-candidate".into(),expected_current:publication.clone(),
                     result:crate::model::TestResultKind::Worked,passed:vec![],failed_area:None,note:String::new()}};
-            product.compatibility=Some(CompatibilityWorkflow {phase:CompatibilityPhase::AvailableForTest,
-                summary:"The selected setup is available.".into(),established:vec![],remaining:vec![],
+            product.compatibility=Some(CompatibilityWorkflow {phase:if primary_is_option { CompatibilityPhase::NotChecked }
+                else { CompatibilityPhase::TestResultIncomplete },
+                summary:"The selected setup needs attention.".into(),established:vec![],remaining:vec![],
                 current_inspection:None,current_candidate:None,
                 primary:Some(AvailableAction {label:"Current next step".into(),action:primary,disabled_reason:None}),alternatives:vec![]});
             product.details=serde_json::json!({"configuration":{"buffering":{"added_frames":512}}});
@@ -1313,6 +1368,8 @@ mod tests {
                     settings:crate::model::LocalSettings::default(),expected_current:Some(publication.clone())},disabled_reason:None});}
             for index in 0..15 {product.actions.push(AvailableAction {label:format!("Restore setup {index}"),
                 action:Action::OrdinaryRollback {class_id:product.class_id.clone(),publication:format!("previous-publication-{index}")},disabled_reason:None});}
+            product.details["preparation"] = serde_json::json!({"candidates":(0..22).map(|index|
+                serde_json::json!({"id":format!("exact-candidate-{index}"),"lineage":{"ordinal":index+1}})).collect::<Vec<_>>()});
             let expected=product.actions[4].action.clone();
             let mut library=Library::default();library.focus_product(crate::presentation::ProductKey::from(&*product));
             let ctx=egui::Context::default();presentation::configure_style(&ctx);
@@ -1325,15 +1382,16 @@ mod tests {
                     egui::Pos2::ZERO,egui::vec2(560.0,2400.0))),..Default::default()},|ui|library.show(ui,&snapshot,pending,&mut chosen,|_,_|{}));
                 let mut text=vec![];for shape in &output.shapes {centers(&shape.shape,&mut text);}
                 if frame==2 {
-                    for label in ["Current next step","Open vendor application","Return to previous working setup","Previous setups (15)"] {
+                    for label in [if primary_is_option { "Prepare for your DAW" } else { "Record a test result or problem" },
+                        "Open vendor application","DAW availability","Previous setups (15)"] {
                         assert!(text.iter().any(|(shown,_)|shown==label),"{label} disappeared");
                     }
                     assert!(!text.iter().any(|(label,_)|label.starts_with("Apply alternate setup")||label.starts_with("Prepare profile trial")||label.starts_with("Restore setup")));
-                    point=text.iter().find(|(label,_)|label=="Other setup options (26)").unwrap().1;
+                    point=text.iter().find(|(label,_)|label=="Other setup options (23)").unwrap().1;
                 }
                 if frame==6 {
                     let refusal=text.iter().find(|(label,_)|label=="This previous build does not match the current application").unwrap().1;
-                    point=text.iter().find(|(label,_)|label=="Apply alternate setup 1").unwrap().1;
+                    point=text.iter().find(|(label,_)|label=="Use this prepared setup · setup 2").unwrap().1;
                     assert!(refusal.y<point.y,"The refusal belongs beside its own offer");
                 }
                 output.textures_delta.clear();
@@ -1399,6 +1457,78 @@ mod tests {
     }
 
     #[test]
+    fn available_result_is_optional_but_exact_report_remains_openable_with_activity() {
+        fn centers(shape: &egui::epaint::Shape, out: &mut Vec<(String, egui::Pos2)>) {
+            match shape {
+                egui::epaint::Shape::Text(text) => out.push((text.galley.text().into(), text.pos + text.galley.size() * 0.5)),
+                egui::epaint::Shape::Vec(items) => for item in items { centers(item, out); },
+                _ => {},
+            }
+        }
+        for pending in [false, true] {
+            let mut snapshot = snapshot();
+            snapshot.products.truncate(1);
+            snapshot.environments.clear(); snapshot.vendor_applications.clear();
+            snapshot.system.dsp = 1;
+            let product = &mut snapshot.products[0];
+            let report = Action::CompatibilityResult { candidate: "exact-selected-setup".into(),
+                expected_current: crate::model::PublicationIdentity { id: "exact-selection".into(), sha256: "exact-digest".into() },
+                result: crate::model::TestResultKind::Worked, passed: vec![], failed_area: None, note: String::new() };
+            product.actions.clear(); product.details = serde_json::json!({});
+            product.compatibility = Some(CompatibilityWorkflow { phase: CompatibilityPhase::AvailableForTest,
+                summary: "Selected setup; audio check retained".into(), established: vec!["Audio passed".into()],
+                remaining: vec!["Saved-project recall".into()], current_inspection: None, current_candidate: None,
+                primary: Some(AvailableAction { label: "Old primary label".into(), action: report.clone(),
+                    disabled_reason: Some("Successful result needs clean retirement".into()) }), alternatives: vec![] });
+            let mut library = Library::default(); library.focus_product(ProductKey::from(&*product));
+            let ctx = egui::Context::default(); presentation::configure_style(&ctx);
+            ctx.global_style_mut(|style| style.animation_time = 0.0);
+            let mut chosen = None; let mut point = egui::Pos2::ZERO;
+            for frame in 0..9 {
+                let events = if matches!(frame, 3|4|7|8) { vec![egui::Event::PointerMoved(point),
+                    egui::Event::PointerButton { pos:point, button:egui::PointerButton::Primary,
+                        pressed:matches!(frame,3|7), modifiers:egui::Modifiers::NONE }] } else { vec![] };
+                let mut output = ctx.run_ui(egui::RawInput { events, screen_rect:Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO, egui::vec2(560.0, 1200.0))), ..Default::default() },
+                    |ui| library.show(ui, &snapshot, pending, &mut chosen, |_,_|{}));
+                let mut text = vec![]; for shape in &output.shapes { centers(&shape.shape, &mut text); }
+                output.textures_delta.clear();
+                if frame == 2 {
+                    assert!(!text.iter().any(|(label,_)| label == "Record a test result or problem" || label == "Observed: Audio passed"));
+                    assert!(text.iter().any(|(label,_)| label.starts_with("In your native Linux DAW")));
+                    point = text.iter().find(|(label,_)| label == "Checks and test results").unwrap().1;
+                }
+                if frame == 6 {
+                    assert!(text.iter().any(|(label,_)| label == "Observed: Audio passed"));
+                    assert!(text.iter().any(|(label,_)| label == "Not yet checked: Saved-project recall"));
+                    point = text.iter().find(|(label,_)| label == "Record a test result or problem").unwrap().1;
+                }
+            }
+            assert_eq!(chosen, (!pending).then_some(report));
+        }
+    }
+
+    #[test]
+    fn repeated_history_revisions_and_alternate_setups_have_distinct_display_choices() {
+        let mut product = snapshot().products.remove(0);
+        product.history = (0..16).map(|index| crate::model::History { revision:1, claim:"retained".into(),
+            publication:format!("exact-publication-{index}"), active:false, rollback_allowed:false,
+            description:"Version 1 · default graphics".into(), rollback_unavailable:Some("Installed files changed".into()) }).collect();
+        product.details = serde_json::json!({"preparation":{"candidates":(0..23).map(|index|
+            serde_json::json!({"id":format!("exact-candidate-{index}"),"lineage":{"ordinal":243+index}})).collect::<Vec<_>>()}});
+        let labels: Vec<_> = product.history.iter().map(|record| setup_choice_label(&product, &AvailableAction {
+            label:"Original exact restore label".into(), action:Action::OrdinaryRollback {class_id:product.class_id.clone(),
+                publication:record.publication.clone()}, disabled_reason:record.rollback_unavailable.clone() })).collect();
+        assert_eq!(labels.iter().collect::<std::collections::HashSet<_>>().len(), 16);
+        let labels: Vec<_> = (0..23).map(|index| setup_choice_label(&product, &AvailableAction {
+            label:"Original exact prepared label".into(), action:Action::ExperimentalReplace {candidate:format!("exact-candidate-{index}"),
+                expected_current:crate::model::PublicationIdentity {id:"current".into(),sha256:"current-digest".into()}},
+            disabled_reason:Some("Installed files changed".into()) })).collect();
+        assert_eq!(labels.iter().collect::<std::collections::HashSet<_>>().len(), 23);
+        assert!(!labels.iter().any(|label|label.contains("revision")));
+    }
+
+    #[test]
     fn installation_and_preparation_do_not_imply_publication() {
         let mut p = snapshot().products.remove(0);
         for state in ["prepared", "installed_unqualified"] {
@@ -1406,7 +1536,7 @@ mod tests {
             assert_eq!(status(&p).1, "unpublished");
         }
         p.disposition = "experimental".into();
-        assert_eq!(status(&p).0, "Available in your DAW · test setup");
+        assert_eq!(status(&p).0, "Available in your DAW");
         p.disposition = "another_configuration".into();
         assert_eq!(status(&p).1, "attention");
     }
