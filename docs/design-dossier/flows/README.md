@@ -25,7 +25,8 @@ conflation of experimental publication, testing, installer history and availabil
 The user's Bitwig play/save/reopen report remains attributed. Missing history alone
 is not the explicit partial-installation condition behind the special old warning;
 the exact installed cause remains unverified. The [responsibility table and sequence](../01-product-and-user-experience.md#responsibilities-and-normal-sequence)
-now separate the work and its observable results. Manager implementation stays paused.
+now separate the work and its observable results. The operator authorized the first
+automatic-installation behavior; later increments retain their agreed scope.
 The broader flows and five selected policies still apply, including update recovery.
 All activity is in-memory simulation. **Save offline copy** downloads the complete
 prototype with the chosen starting journey; reload starts that fixture over. The

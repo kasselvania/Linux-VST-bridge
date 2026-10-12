@@ -127,6 +127,7 @@ struct RequestFeedback {
     blocking: bool,
     release_after_snapshot: bool,
     acknowledgment_uncertain: bool,
+    journey: Option<InstallationJourney>,
     transitions: Vec<String>,
 }
 impl RequestFeedback {
@@ -140,6 +141,7 @@ impl RequestFeedback {
             blocking: true,
             release_after_snapshot: false,
             acknowledgment_uncertain: false,
+            journey: None,
             transitions: vec!["captured".into()],
         }
     }
@@ -173,6 +175,9 @@ impl RequestFeedback {
         {
             return;
         }
+        if let Ok(journey) = serde_json::from_value::<InstallationJourney>(op["journey"].clone()) {
+            self.journey = Some(journey);
+        }
         if let Some(
             state @ ("refused"
             | "completed"
@@ -198,7 +203,10 @@ impl RequestFeedback {
             Some("completed") => {
                 self.terminal = true;
                 self.release_after_snapshot = true;
-                "This operation completed. Refreshing its result…".into()
+                if self.journey.as_ref().is_some_and(|journey|
+                    journey.phase == InstallationPhase::NeedsAttention) {
+                    "Installation or DAW connection needs attention. Refreshing its results…".into()
+                } else { "This operation completed. Refreshing its result…".into() }
             }
             Some("waiting" | "validating") => {
                 "This operation is validating manager state. Do not click again.".into()
@@ -217,6 +225,9 @@ impl RequestFeedback {
             }
             Some("queued") => "This operation is queued. Do not click again.".into(),
             Some("running") => match &self.action {
+                Action::SoftwareInstall { .. } | Action::SoftwareInstallResume { .. } =>
+                    self.journey.as_ref().map(|journey| journey_phase_label(journey.phase))
+                        .unwrap_or("Installing and connecting your plug-ins").into(),
                 Action::RuntimeInstall {} =>
                     "Downloading and preparing the compatibility runtime. This may take several minutes.".into(),
                 Action::EnvironmentRescan { .. } =>
@@ -241,6 +252,8 @@ impl RequestFeedback {
             self.release_after_snapshot = false;
             if self.text == "This operation completed. Refreshing its result…" {
                 self.text = "This operation completed. Its current result is shown below.".into();
+            } else if self.text == "Installation or DAW connection needs attention. Refreshing its results…" {
+                self.text = "Installation or DAW connection needs attention. Its results and continuation are shown below.".into();
             } else if self.text == "Vendor operation is running. Refreshing its controls…" {
                 self.text = "The operation is supervised and running. Use its exact Focus or Stop control below.".into();
             }
@@ -474,6 +487,8 @@ pub struct Operator {
     product_form: Option<Action>,
     workspace_select_form: Option<Action>,
     installer_rename_form: Option<Action>,
+    software_install_form: Option<Action>,
+    software_install_daw: Option<DawChoice>,
     pending_import_route: Option<(String, bool, String)>,
     page: Page,
     focus: RouteFocus,
@@ -515,6 +530,8 @@ impl Operator {
             product_form: None,
             workspace_select_form: None,
             installer_rename_form: None,
+            software_install_form: None,
+            software_install_daw: None,
             pending_import_route: None,
             page: Page::Home,
             focus: RouteFocus::default(),
@@ -557,6 +574,8 @@ impl Operator {
             product_form: None,
             workspace_select_form: None,
             installer_rename_form: None,
+            software_install_form: None,
+            software_install_daw: None,
             pending_import_route: None,
             page,
             focus: RouteFocus::default(),
@@ -738,7 +757,7 @@ impl Operator {
             return false;
         }
         for form in [&mut self.product_form, &mut self.workspace_select_form,
-            &mut self.installer_rename_form] {
+            &mut self.installer_rename_form, &mut self.software_install_form] {
             if form.as_ref() == Some(&request.action) {
                 *form = None;
             }
@@ -779,6 +798,13 @@ impl Operator {
         } else { Query::CurrentOverview }
     }
     fn apply_current_overview(&mut self, bundle: CurrentOverview) {
+        if self.software_install_daw.is_none() {
+            let mut choices = bundle.current.installer_setups.iter()
+                .filter_map(|setup| setup.journey.as_ref().map(|journey| journey.daw));
+            if let Some(first) = choices.next() {
+                if choices.all(|choice| choice == first) { self.software_install_daw = Some(first); }
+            }
+        }
         self.readback_failures = 0;
         self.retry_after = None;
         if let Some(f) = &mut self.feedback { f.reconcile_snapshot(&bundle.current); }
@@ -1223,8 +1249,68 @@ fn setup_priority(phase: &SetupPhase) -> u8 {
     }
 }
 
+fn journey_phase_label(phase: InstallationPhase) -> &'static str {
+    match phase {
+        InstallationPhase::PreparingEnvironment => "Getting ready to install",
+        InstallationPhase::VendorRunning => "Complete the vendor's requests",
+        InstallationPhase::Discovering => "Finding installed plug-ins",
+        InstallationPhase::PreparingPlugins => "Connecting plug-ins to your DAW",
+        InstallationPhase::Available => "DAW connection complete",
+        InstallationPhase::NeedsAttention => "Installation or DAW connection needs attention",
+    }
+}
+
+fn setup_attention_priority(setup: &InstallerSetup) -> u8 {
+    setup.journey.as_ref().map(|journey| match journey.phase {
+        InstallationPhase::VendorRunning => 0,
+        InstallationPhase::NeedsAttention => 2,
+        InstallationPhase::PreparingEnvironment | InstallationPhase::Discovering
+            | InstallationPhase::PreparingPlugins => 3,
+        InstallationPhase::Available => 6,
+    }).unwrap_or_else(|| setup_priority(&setup.phase))
+}
+
+fn journey_results(ui: &mut egui::Ui, journey: &InstallationJourney) {
+    ui.small(format!("Your DAW: {}", presentation::daw_name(journey.daw)));
+    if let Some(failure) = &journey.failure {
+        ui.colored_label(warning_color(ui), installation_failure_text(failure));
+    }
+    for plugin in &journey.plugins {
+        ui.horizontal_wrapped(|ui| {
+            ui.strong(&plugin.name);
+            ui.label(match plugin.stage {
+                InstallationPluginStage::Pending => "Waiting to connect",
+                InstallationPluginStage::Inspecting => "Checking plug-in interfaces",
+                InstallationPluginStage::Preparing => "Preparing the native connection",
+                InstallationPluginStage::Publishing => "Making the connection available",
+                InstallationPluginStage::Available => "Available in your DAW",
+                InstallationPluginStage::NeedsAttention => "Connection needs attention",
+                InstallationPluginStage::ReplacementRequired => "A different setup is already available",
+            });
+        });
+        if let Some(failure) = &plugin.failure {
+            ui.colored_label(warning_color(ui), installation_failure_text(failure));
+        }
+        if plugin.stage == InstallationPluginStage::ReplacementRequired {
+            ui.small("Open this plug-in to review changing its existing DAW setup.");
+        }
+    }
+}
+
+fn installation_failure_text(failure: &InstallationFailure) -> String {
+    let phase = match failure.stage {
+        InstallationFailureStage::EnvironmentPreparation => "Installation setup",
+        InstallationFailureStage::VendorInstallation => "Vendor installation",
+        InstallationFailureStage::Discovery => "Plug-in discovery",
+        InstallationFailureStage::Inspection => "Plug-in inspection",
+        InstallationFailureStage::Preparation => "Native connection preparation",
+        InstallationFailureStage::Publication => "DAW connection",
+    };
+    format!("{phase}: {}", failure.reason)
+}
+
 fn retained_setup_records_need_refresh(setup: &InstallerSetup, snapshot: &Snapshot) -> bool {
-    setup.phase == SetupPhase::SetupNeedsAttention
+    setup.journey.is_none() && setup.phase == SetupPhase::SetupNeedsAttention
         && setup.primary.is_none() && setup.secondary.is_empty()
         && setup.environment.is_some() && !setup.discovered.is_empty()
         && snapshot.onboarding.iter().any(|attempt|
@@ -1321,11 +1407,14 @@ impl Operator {
                 "Refreshing current status. These are the last listed plug-ins; actions wait for the refresh.");
         }
         let unfinished = overview.current.installer_setups.iter().filter(|setup|
-            setup.phase != SetupPhase::DiscoveryComplete
+            setup.journey.as_ref().map(|journey| journey.phase != InstallationPhase::Available)
+                .unwrap_or(setup.phase != SetupPhase::DiscoveryComplete)
                 && !retained_setup_records_need_refresh(setup, &overview.current))
-            .min_by_key(|setup| setup_priority(&setup.phase));
+            .min_by_key(|setup| setup_attention_priority(setup));
         let needs_setup = overview.current.products.iter().find(|product|
             crate::library::status(product).1 != "published");
+        let recovery = overview.current.products.iter().find(|product|
+            crate::library::recovery_pending(product));
         egui::Frame::group(ui.style()).fill(ui.visuals().faint_bg_color)
             .inner_margin(16.0).show(ui, |ui| {
             ui.set_min_width((ui.available_width() - 1.0).max(0.0));
@@ -1349,11 +1438,14 @@ impl Operator {
             } else if let Some(setup) = unfinished {
                 let partial = partial_installation_needs_review(setup, &overview.current);
                 let name = setup_display_name(setup, &overview.current);
-                ui.strong(if partial {format!("Next: review the installation for {name}")}
+                ui.strong(if let Some(journey) = &setup.journey {
+                    format!("{name} · {}", journey_phase_label(journey.phase))
+                } else if partial {format!("Next: review the installation for {name}")}
                     else {format!("Next: continue {name}")});
                 if partial {
                     ui.label("A complete installation was not confirmed. Review this setup before making installation changes. Plug-ins already available in your DAW remain available.");
                 } else {ui.label(&setup.status);}
+                if let Some(journey) = &setup.journey { journey_results(ui, journey); }
                 if let Some(action) = &setup.primary {
                     crate::library::primary_action(ui, action,
                         overview.current.system.inactive_reason(), pending || !fresh, chosen);
@@ -1364,6 +1456,13 @@ impl Operator {
                 if review {
                     navigate(&Destination::Attempt(AttemptKey {installer:setup.installer.clone(),
                         environment:setup.environment.clone()}), page, library, focus);
+                }
+            } else if let Some(product) = recovery {
+                ui.strong(format!("Next: recover {}",product.name));
+                if let Some(workflow) = &product.compatibility { ui.label(&workflow.summary); }
+                if ui.add(presentation::primary_button("Open plug-in recovery",ui)).clicked() {
+                    library.focus_product(ProductKey::from(product));
+                    *page=Page::Plugins;
                 }
             } else if let Some(assessment) = assessment.filter(|assessment|
                 assessment.overall_status != ReadinessOutcome::Ready
@@ -1395,14 +1494,13 @@ impl Operator {
                 }
             } else if overview.current.products.is_empty() {
                 ui.strong("Start with a Windows plug-in");
-                ui.label("Choose the Windows installer from your vendor. Setup guides installation, any vendor authorization and preparation for your native Linux DAW, such as REAPER.");
+                ui.label("Choose your vendor's Windows installer and the Linux DAW you use. Complete the vendor's requests when they appear; the manager connects the installed plug-ins to your DAW.");
                 if ui.add(presentation::primary_button("Add your first plug-in", ui)).clicked() {
                     *page = Page::Setup;
                 }
             } else {
                 ui.strong("Next: open your DAW");
                 ui.label("Your available plug-ins appear as native VST3s. Rescan VST3 plug-ins in your DAW if one is missing, then add it to a track.");
-                ui.small("Save and reopen a test project to check that your sound returns as expected.");
             }
         });
         if !overview.current.products.is_empty() {
@@ -1426,9 +1524,7 @@ impl Operator {
                     if let Some(product) = assessment.and_then(|assessment| assessment.products.iter()
                         .find(|product| product.class_id == current.class_id
                             && product.module_sha256 == current.module_sha256)) {
-                        if product.status == ReadinessOutcome::Unknown {
-                            ui.small("Setup check incomplete. Open this plug-in to review its current controls.");
-                        } else if product.status != ReadinessOutcome::Ready {
+                        if product.installation_health == InstallationHealth::ActionRequired {
                             ui.colored_label(warning_color(ui), &product.reason);
                         }
                         egui::CollapsingHeader::new("Setup check details").show(ui, |ui| {
@@ -1449,8 +1545,8 @@ impl Operator {
     }
     fn fast_setup(ui: &mut egui::Ui, overview: &CurrentOverview, fresh: bool,
         pending: bool, controls: (&mut bool, &mut Option<Action>, &mut bool,
-            &mut Page, &mut crate::library::Library, &mut RouteFocus)) {
-        let (refresh, chosen, pick, page, library, focus) = controls;
+            &mut Page, &mut crate::library::Library, &mut RouteFocus, &mut Option<DawChoice>)) {
+        let (refresh, chosen, pick, page, library, focus, daw) = controls;
         // Exact-operation offers still control a running installer without DSP capacity.
         let pending = pending || !fresh;
         let _ = refresh;
@@ -1458,8 +1554,9 @@ impl Operator {
         ui.horizontal_wrapped(|ui| {
             if ui.add_enabled(!pending, presentation::primary_button("Choose Windows installer", ui)).clicked() { *pick = true; }
             ui.label("Add a plug-in");
+            ui.add_enabled_ui(!pending, |ui| daw_choice_control(ui, daw));
         });
-        ui.small("1. Add installer   2. Install / authorize   3. Find / prepare   4. Use in your DAW");
+        ui.small("Choose software and your DAW · Complete vendor requests · Make music");
         if !fresh {
             ui.colored_label(warning_color(ui), "Refreshing current setup. Actions wait for the refresh.");
         }
@@ -1481,7 +1578,7 @@ impl Operator {
             egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
                 ui.set_min_width((ui.available_width() - 1.0).max(0.0));
                 ui.strong("Windows plug-in support");
-                ui.label("This app downloads and manages the compatibility software needed to run Windows plug-ins. Each plug-in needs preparation and any authorization required by its vendor.");
+                ui.label("The manager downloads and manages the software needed to connect Windows plug-ins to your Linux DAW.");
                 Self::buttons(ui, &runtime_actions,
                     overview.current.system.inactive_reason(), pending, chosen);
                 egui::CollapsingHeader::new("Download details").show(ui, |ui| {
@@ -1493,7 +1590,7 @@ impl Operator {
         let mut shown = 0;
         let mut setups: Vec<_> = overview.current.installer_setups.iter().filter(|setup|
             focus.setup_installer.as_ref().is_none_or(|id| id == &setup.installer)).collect();
-        setups.sort_by_key(|setup| setup_priority(&setup.phase));
+        setups.sort_by_key(|setup| setup_attention_priority(setup));
         for setup in setups {
             shown += 1;
             if focus.setup_scroll && focus.setup_installer.as_ref() == Some(&setup.installer) {
@@ -1506,15 +1603,19 @@ impl Operator {
                     ui.label(egui::RichText::new(setup_display_name(setup,&overview.current)).size(18.0).strong());
                     let retained_refresh = retained_setup_records_need_refresh(setup, &overview.current);
                     let partial = partial_installation_needs_review(setup,&overview.current);
-                    ui.strong(if retained_refresh {"Installation records need attention"}
+                    ui.strong(if let Some(journey) = &setup.journey { journey_phase_label(journey.phase) }
+                        else if retained_refresh {"Installation records need attention"}
                         else if partial {"Review earlier installation"}
                         else {setup_phase_label(&setup.phase)});
-                    if retained_refresh {
+                    if let Some(journey) = &setup.journey {
+                        ui.label(&setup.status);
+                        journey_results(ui, journey);
+                    } else if retained_refresh {
                         ui.label("Installation records need refreshing before making setup changes.");
                     } else if partial {
                         ui.label("A complete installation was not confirmed. Review the installation result before making setup changes. Plug-ins already available in your DAW remain available.");
                     } else if setup.phase == SetupPhase::DiscoveryComplete {
-                        ui.label(format!("{} plug-ins found. Open them to see availability and finish setup.",setup.discovered.len()));
+                        ui.label(format!("{} plug-ins found. Open them to see their current DAW connection.",setup.discovered.len()));
                     } else if setup.phase == SetupPhase::Imported && setup.primary.is_none()
                         && runtime_actions.is_empty() {
                         ui.colored_label(warning_color(ui), &setup.status);
@@ -1554,7 +1655,7 @@ impl Operator {
         if overview.current.installer_setups.is_empty() {
             ui.add_space(8.0);
             ui.label("Choose the installer you downloaded from your plug-in vendor. Selecting it adds a managed copy; the installer runs only when you choose to start it.");
-            ui.label("Install in the vendor's window and complete any authorization it requires. Find the plug-ins, then choose Prepare for your DAW and Make available in your DAW. In REAPER or another native Linux DAW, rescan VST3s if needed and add the plug-in to a track.");
+            ui.label("Choose your DAW when starting installation. Complete any requests in the vendor's window. After installation finishes, the manager finds and connects the installed plug-ins automatically.");
         } else if shown == 0 {
             ui.colored_label(warning_color(ui),
                 "The selected installer is unavailable in this readback. Refresh or show all setup.");
@@ -1621,6 +1722,22 @@ impl Operator {
                 );
             });
             if let Some(feedback) = &self.feedback {
+                if let Some(journey) = &feedback.journey {
+                    let available = journey.plugins.iter().filter(|plugin|
+                        plugin.stage == InstallationPluginStage::Available).count();
+                    let attention = journey.plugins.iter().filter(|plugin| matches!(plugin.stage,
+                        InstallationPluginStage::NeedsAttention | InstallationPluginStage::ReplacementRequired)).count();
+                    if !journey.plugins.is_empty() {
+                        ui.small(format!("{available} plug-ins connected · {attention} need attention"));
+                    }
+                    if let Some(failure) = &journey.failure {
+                        ui.colored_label(warning_color(ui), installation_failure_text(failure));
+                    }
+                    egui::CollapsingHeader::new("Installation progress").show(ui, |ui| {
+                        ui.strong(journey_phase_label(journey.phase));
+                        journey_results(ui, journey);
+                    });
+                }
                 egui::CollapsingHeader::new("Request details").show(ui, |ui| {
                     ui.label(&feedback.text);
                     ui.label(
@@ -2096,7 +2213,8 @@ impl eframe::App for Operator {
                             Page::Setup => {
                                 Self::fast_setup(ui, overview, self.overview_fresh,
                                     controls_pending, (&mut refresh, &mut chosen, &mut pick,
-                                        &mut self.page, &mut self.library, &mut self.focus));
+                                        &mut self.page, &mut self.library, &mut self.focus,
+                                        &mut self.software_install_daw));
                                 return;
                             }
                             Page::Plugins => {
@@ -2145,7 +2263,13 @@ impl eframe::App for Operator {
             });
         });
         if let Some(a) = chosen.take() {
-            if matches!(
+            if let Action::SoftwareInstall { installer, .. } = a {
+                if let Some(daw) = self.software_install_daw {
+                    chosen = Some(Action::SoftwareInstall { installer, daw });
+                } else {
+                    self.software_install_form = Some(Action::SoftwareInstall { installer, daw:DawChoice::Other });
+                }
+            } else if matches!(
                 a,
                 Action::CandidateObserve { .. } | Action::CandidateReview { .. }
                     | Action::CompatibilityResult { .. }
@@ -2161,6 +2285,20 @@ impl eframe::App for Operator {
                 self.installer_rename_form = Some(a);
             } else {
                 chosen = Some(a);
+            }
+        }
+        if let Some(Action::SoftwareInstall { installer, .. }) = &self.software_install_form {
+            let offered = software_install_offer(self.current_action_snapshot(), installer);
+            if let Some((submit, cancel)) = show_software_install_form(ui.ctx(),
+                &mut self.software_install_daw, &offered, action_controls_pending) {
+                if submit.clicked() {
+                    if let Some(daw) = self.software_install_daw {
+                        chosen = Some(Action::SoftwareInstall { installer: installer.clone(), daw });
+                        self.software_install_form = None;
+                    }
+                } else if cancel.clicked() {
+                    self.software_install_form = None;
+                }
             }
         }
         if let Some(form) = self.workspace_select_form.as_mut() {
@@ -2275,6 +2413,58 @@ impl eframe::App for Operator {
         ui.ctx().request_repaint_after(self.repaint_delay());
     }
 }
+fn software_install_offer(snapshot: Option<&Snapshot>, installer: &str)
+    -> Result<Option<String>, &'static str> {
+    let snapshot = snapshot.ok_or("Current manager status is unavailable. Refresh before installing.")?;
+    snapshot.installer_setups.iter().flat_map(|setup|
+        setup.primary.iter().chain(setup.secondary.iter()))
+        .find(|offer| matches!(&offer.action, Action::SoftwareInstall { installer: offered, .. }
+            if offered == installer))
+        .map(|offer| offer.disabled_reason.clone().or_else(||
+            offer.action.requires_global_inactive().then(||snapshot.system.inactive_reason())
+                .flatten().map(str::to_owned)))
+        .ok_or("This installation offer changed. Refresh Setup before continuing.")
+}
+
+fn daw_choice_control(ui: &mut egui::Ui, daw: &mut Option<DawChoice>) {
+    egui::ComboBox::from_id_salt("software-install-daw")
+        .selected_text(daw.map(presentation::daw_name).unwrap_or("Choose your DAW"))
+        .show_ui(ui, |ui| {
+            for choice in [DawChoice::Bitwig, DawChoice::Reaper, DawChoice::Other] {
+                ui.selectable_value(daw, Some(choice), presentation::daw_name(choice));
+            }
+        });
+}
+
+fn show_software_install_form(ctx: &egui::Context, daw: &mut Option<DawChoice>,
+    offer: &Result<Option<String>, &'static str>, pending: bool)
+    -> Option<(egui::Response, egui::Response)> {
+    egui::Window::new("Install and connect")
+        .collapsible(false)
+        .max_width((ctx.content_rect().width() - 40.0).clamp(300.0, 460.0))
+        .max_height((ctx.content_rect().height() - 40.0).max(200.0))
+        .show(ctx, |ui| {
+            let refusal = match offer { Ok(reason) => reason.as_deref(), Err(reason) => Some(*reason) };
+            let footer_height = 2.0 * (44.0 + ui.spacing().item_spacing.y)
+                + refusal.map(|reason| ui.painter().layout(reason.to_owned(),
+                    egui::TextStyle::Small.resolve(ui.style()), ui.visuals().text_color(),
+                    ui.available_width()).size().y + ui.spacing().item_spacing.y).unwrap_or(0.0);
+            egui::ScrollArea::vertical().id_salt("software-install-fields")
+                .max_height((ui.available_height() - footer_height).max(0.0))
+                .min_scrolled_height(0.0).auto_shrink([false, true]).show(ui, |ui| {
+                    ui.label("Which Linux DAW do you use?");
+                    daw_choice_control(ui, daw);
+                    ui.label("Complete requests in the vendor's window. The manager then finds and connects all newly installed VST3 plug-ins automatically.");
+                    ui.small("Native VST3 plug-ins may also appear in other compatible Linux DAWs.");
+                });
+            let submit = ui.add_enabled(!pending && daw.is_some() && refusal.is_none(),
+                presentation::primary_button("Start installation", ui));
+            if let Some(reason) = refusal { ui.small(reason); }
+            let cancel = ui.add(egui::Button::new("Cancel").min_size(egui::vec2(100.0, 44.0)));
+            (submit, cancel)
+        }).and_then(|window| window.inner)
+}
+
 fn show_product_form(ctx: &egui::Context, form: &mut Action,
     result_offer: Option<&Result<Option<String>, &'static str>>,
     action_controls_pending: bool) -> Option<(egui::Response, egui::Response)> {
@@ -2632,6 +2822,225 @@ fn refresh_for_workspace_product(snapshot: &Snapshot, install_finish_ready: bool
 }
 #[cfg(test)]
 mod tests {
+    fn automatic_setup(journey: InstallationJourney, action: Option<Action>) -> InstallerSetup {
+        InstallerSetup {
+            installer:"ab".repeat(32), name:"Chosen software".into(), label_source:"operator_named".into(),
+            byte_size:1024, format:"pe_executable".into(), imported_at:1,
+            phase:SetupPhase::DiscoveryComplete, journey:Some(journey),
+            status:"Installation results are retained in the same setup.".into(),
+            environment:Some("exact-environment".into()), compatibility:None, discovered:vec![],
+            primary:action.map(|action|AvailableAction {label:"Continue".into(),action,disabled_reason:None}),
+            secondary:vec![],rename:AvailableAction {label:"Rename".into(),
+                action:Action::InstallerRename {installer:"ab".repeat(32),label:String::new()},disabled_reason:None},
+            history:vec![],
+        }
+    }
+
+    fn automatic_journey(phase: InstallationPhase) -> InstallationJourney {
+        InstallationJourney {
+            daw:DawChoice::Bitwig, phase, failure:None,
+            plugins:vec![InstallationPlugin {selection:"instrument-selection".into(),
+                class_id:"instrument-class".into(),name:"Installed instrument".into(),
+                stage:InstallationPluginStage::Available,failure:None},
+                InstallationPlugin {selection:"effect-selection".into(),class_id:"effect-class".into(),
+                    name:"Installed effect".into(),stage:InstallationPluginStage::NeedsAttention,
+                    failure:Some(InstallationFailure {stage:InstallationFailureStage::Inspection,
+                        reason:"The plug-in did not load during inspection.".into(),
+                        code:"fixture_load_failed".into(),retryable:true})}],
+        }
+    }
+
+    #[test]
+    fn automatic_journey_keeps_successful_siblings_and_exact_failed_phase_continuation() {
+        for (width,pending) in [(560.0,false),(960.0,false),(560.0,true)] {
+            let mut overview:CurrentOverview = overview_fixture().into();
+            overview.current.products.clear();
+            let resume = Action::SoftwareInstallResume {onboarding:"exact-environment".into()};
+            overview.current.installer_setups = vec![automatic_setup(
+                automatic_journey(InstallationPhase::NeedsAttention),Some(resume.clone()))];
+            let ctx = result_form_context();
+            let mut chosen = None;
+            let mut point = egui::Pos2::ZERO;
+            for frame in 0..5 {
+                let events = if frame >= 3 {vec![egui::Event::PointerMoved(point),
+                    egui::Event::PointerButton {pos:point,button:egui::PointerButton::Primary,
+                        pressed:frame == 3,modifiers:egui::Modifiers::NONE}]} else {vec![]};
+                let mut output = ctx.run_ui(egui::RawInput {events,screen_rect:Some(
+                    egui::Rect::from_min_size(egui::Pos2::ZERO,egui::vec2(width,1000.0))),
+                    ..Default::default()},|ui| {
+                    Operator::fast_home(ui,&overview,None,true,pending,
+                        (&mut Page::Home,&mut crate::library::Library::default(),
+                            &mut RouteFocus::default(),&mut false,&mut chosen));
+                });
+                if frame == 2 {
+                    let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+                    assert!(labels.iter().any(|(label,_)|label=="Installed instrument"));
+                    assert!(labels.iter().any(|(label,_)|label=="Available in your DAW"));
+                    assert!(labels.iter().any(|(label,_)|label=="Installed effect"));
+                    assert!(labels.iter().any(|(label,_)|label==
+                        "Plug-in inspection: The plug-in did not load during inspection."));
+                    assert!(!labels.iter().any(|(label,_)|label.contains("activation failed")
+                        || label=="Prepare for your DAW" || label=="Make available in your DAW"));
+                    point=labels.iter().find(|(label,_)|label=="Continue installation and DAW connection").unwrap().1;
+                }
+                output.textures_delta.clear();
+            }
+            assert_eq!(chosen,(!pending).then_some(resume));
+        }
+    }
+
+    #[test]
+    fn installation_form_requires_an_explicit_daw_and_preserves_authoritative_refusals() {
+        for size in [egui::vec2(560.0,360.0),egui::vec2(960.0,720.0)] {
+            for (daw,offer,pending,enabled) in [(None,Ok(None),false,false),
+                (Some(DawChoice::Other),Ok(None),false,true),
+                (Some(DawChoice::Reaper),Ok(None),true,false),
+                (Some(DawChoice::Bitwig),Ok(Some("This shared setup is in use.".into())),false,false),
+                (Some(DawChoice::Bitwig),Err("Current manager status is unavailable."),false,false)] {
+                let ctx=result_form_context();
+                let mut choice=daw;
+                for frame in 0..4 {
+                    let mut output=ctx.run_ui(egui::RawInput {screen_rect:Some(
+                        egui::Rect::from_min_size(egui::Pos2::ZERO,size)),..Default::default()},|_ui| {
+                        let (submit,cancel)=show_software_install_form(&ctx,&mut choice,&offer,pending).unwrap();
+                        if frame == 3 {
+                            assert_eq!(submit.enabled(),enabled);
+                            assert!(cancel.enabled());
+                            assert!(ctx.content_rect().contains_rect(submit.rect));
+                            assert!(ctx.content_rect().contains_rect(cancel.rect));
+                        }
+                    });
+                    output.textures_delta.clear();
+                }
+                assert_eq!(choice,daw);
+            }
+        }
+    }
+
+    #[test]
+    fn automatic_progress_uses_only_the_exact_operation_checkpoint() {
+        let mut feedback=RequestFeedback::captured(Action::SoftwareInstall {
+            installer:"ab".repeat(32),daw:DawChoice::Bitwig});
+        feedback.operation=Some("exact-operation".into());
+        let mut observation=serde_json::json!({"operation":"unrelated-operation","state":"running",
+            "journey":automatic_journey(InstallationPhase::Discovering)});
+        feedback.observe(&observation);
+        assert!(feedback.journey.is_none());
+        observation["operation"]="exact-operation".into();
+        feedback.observe(&observation);
+        assert_eq!(feedback.text,"Finding installed plug-ins");
+        assert_eq!(feedback.journey.as_ref().unwrap().phase,InstallationPhase::Discovering);
+        observation["journey"]=serde_json::to_value(automatic_journey(InstallationPhase::PreparingPlugins)).unwrap();
+        feedback.observe(&observation);
+        assert_eq!(feedback.text,"Connecting plug-ins to your DAW");
+        assert!(!feedback.terminal);
+        observation["state"]="completed".into();
+        observation["journey"]=serde_json::to_value(automatic_journey(InstallationPhase::NeedsAttention)).unwrap();
+        feedback.observe(&observation);
+        feedback.refreshed();
+        assert!(feedback.terminal);
+        assert_eq!(feedback.text,
+            "Installation or DAW connection needs attention. Its results and continuation are shown below.");
+    }
+
+    #[test]
+    fn available_plugin_guidance_follows_its_exact_chosen_daw() {
+        for daw in [DawChoice::Bitwig,DawChoice::Reaper,DawChoice::Other] {
+            let mut snapshot=overview_fixture().current;
+            snapshot.products.truncate(1);
+            snapshot.environments.clear();snapshot.vendor_applications.clear();
+            let product=&mut snapshot.products[0];
+            product.availability=Some(NativeAvailability {available:true,reason:None});
+            product.compatibility=None;product.actions.clear();
+            let exact=ProductKey::from(&*product);
+            let found=DiscoveredProduct {environment:product.environment.clone(),
+                module_sha256:product.module_sha256.clone(),class_id:product.class_id.clone(),name:product.name.clone()};
+            let mut journey=automatic_journey(InstallationPhase::Available);journey.daw=daw;
+            let mut setup=automatic_setup(journey,None);setup.discovered=vec![found.clone()];
+            let mut unrelated=setup.clone();unrelated.installer="unrelated-installer".into();
+            unrelated.discovered[0].environment="different-environment".into();
+            unrelated.journey.as_mut().unwrap().daw=DawChoice::Reaper;
+            snapshot.installer_setups=vec![setup,unrelated];
+            let ctx=result_form_context();
+            let mut library=crate::library::Library::default();library.focus_product(exact);
+            let mut output=ctx.run_ui(egui::RawInput::default(),|ui|
+                library.show(ui,&snapshot,false,&mut None,|_,_|{}));
+            let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+            assert!(labels.iter().any(|(label,_)|label==presentation::daw_guidance(Some(daw))));
+            if daw!=DawChoice::Reaper {
+                assert!(!labels.iter().any(|(label,_)|label.starts_with("In REAPER") || label.starts_with("REAPER:")));
+            }
+            assert!(!labels.iter().any(|(label,_)|label=="Not yet tested by us"),
+                "Absent release qualification is not evidence that the plug-in is untested");
+            output.textures_delta.clear();
+        }
+    }
+
+    #[test]
+    fn unambiguous_explicit_daw_choice_is_remembered_for_the_next_installation() {
+        let mut operator=state_fixture();
+        let mut overview:CurrentOverview=overview_fixture().into();
+        overview.current.installer_setups=vec![automatic_setup(
+            automatic_journey(InstallationPhase::Available),None)];
+        operator.apply_current_overview(overview.clone());
+        assert_eq!(operator.software_install_daw,Some(DawChoice::Bitwig));
+        operator.software_install_daw=Some(DawChoice::Other);
+        operator.apply_current_overview(overview);
+        assert_eq!(operator.software_install_daw,Some(DawChoice::Other));
+    }
+
+    #[test]
+    fn install_form_revalidates_the_exact_software_offer() {
+        let mut snapshot=overview_fixture().current;
+        let installer="ab".repeat(32);
+        snapshot.installer_setups=vec![automatic_setup(automatic_journey(InstallationPhase::Available),
+            Some(Action::SoftwareInstall {installer:installer.clone(),daw:DawChoice::Other}))];
+        assert_eq!(software_install_offer(Some(&snapshot),&installer),Ok(None));
+        snapshot.installer_setups[0].primary.as_mut().unwrap().disabled_reason=
+            Some("The shared installation is still running.".into());
+        assert_eq!(software_install_offer(Some(&snapshot),&installer),
+            Ok(Some("The shared installation is still running.".into())));
+        assert!(software_install_offer(Some(&snapshot),"different-installer").is_err());
+        assert!(software_install_offer(None,&installer).is_err());
+    }
+
+    #[test]
+    fn home_prioritizes_reported_problem_recovery_without_erasing_current_availability() {
+        let mut overview:CurrentOverview=overview_fixture().into();
+        overview.current.products.truncate(1);
+        let product=&mut overview.current.products[0];
+        product.availability=Some(NativeAvailability {available:true,reason:None});
+        product.compatibility=Some(CompatibilityWorkflow {phase:CompatibilityPhase::AwaitingRetirement,
+            summary:"The failed setup is still selected. Close the plug-in, then finish recovery.".into(),
+            established:vec![],remaining:vec![],current_inspection:None,current_candidate:None,
+            primary:Some(AvailableAction {label:"Finish test result".into(),
+                action:Action::CompatibilityFinishResult {operation:"exact-recovery".into()},
+                disabled_reason:Some("Close this plug-in first.".into())}),alternatives:vec![]});
+        let exact=ProductKey::from(&*product);
+        let ctx=result_form_context();
+        let mut library=crate::library::Library::default();
+        let mut page=Page::Home;
+        let mut point=egui::Pos2::ZERO;
+        for frame in 0..5 {
+            let events=if frame>=3 {vec![egui::Event::PointerMoved(point),
+                egui::Event::PointerButton {pos:point,button:egui::PointerButton::Primary,
+                    pressed:frame==3,modifiers:egui::Modifiers::NONE}]} else {vec![]};
+            let mut output=ctx.run_ui(egui::RawInput {events,..Default::default()},|ui|
+                Operator::fast_home(ui,&overview,None,true,false,
+                    (&mut page,&mut library,&mut RouteFocus::default(),&mut false,&mut None)));
+            if frame==2 {
+                let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+                assert!(labels.iter().any(|(label,_)|label=="Available in your DAW"));
+                assert!(labels.iter().any(|(label,_)|label.starts_with("Next: recover")));
+                assert!(!labels.iter().any(|(label,_)|label=="Next: open your DAW"));
+                point=labels.iter().find(|(label,_)|label=="Open plug-in recovery").unwrap().1;
+            }
+            output.textures_delta.clear();
+        }
+        assert_eq!(page,Page::Plugins);
+        assert_eq!(library.focused_product(),Some(&exact));
+    }
+
     #[test]
     fn ordinary_configuration_label_preserves_deferred_execution_verification() {
         let mut product = crate::model::ReadinessProduct {
@@ -2922,6 +3331,8 @@ mod tests {
             product_form: None,
             workspace_select_form: None,
             installer_rename_form: None,
+            software_install_form: None,
+            software_install_daw: None,
             pending_import_route: None,
             page: Page::Home,
             focus: RouteFocus::default(),
@@ -3328,8 +3739,8 @@ mod tests {
             // Missing historical qualification does not erase actual DAW availability.
             assert!(labels.iter().any(|line| line == "Available in your DAW"));
             assert!(!labels.iter().any(|line| line.starts_with("Support qualification:")));
-            assert_eq!(labels.iter().any(|line| line.contains("Setup check incomplete")),
-                status == ReadinessOutcome::Unknown);
+            assert!(!labels.iter().any(|line| line.contains("Setup check incomplete")));
+            assert!(labels.iter().any(|line| line == "Next: open your DAW"));
             assert!(!labels.iter().any(|line| line.contains("Operational facts")));
         }
     }
@@ -3411,7 +3822,7 @@ mod tests {
                     module_sha256:product.module_sha256.clone(),class_id:product.class_id.clone(),name:product.name.clone()}],
                 primary:None,secondary:vec![],rename:AvailableAction {label:"Rename".into(),
                     action:Action::InstallerRename {installer:installer.clone(),label:String::new()},disabled_reason:None},
-                history:vec![]};
+                journey:None,history:vec![]};
             overview.current.onboarding=vec![crate::model::Onboarding {failure:None,installer,
                 name:setup.name.clone(),byte_size:1024,format:setup.format.clone(),environment:setup.environment.clone(),
                 state:"needs_attention".into(),required_human_action:setup.status.clone(),actions:vec![],
@@ -3466,7 +3877,7 @@ mod tests {
                 label_source:"generated".into(),byte_size:1024,format:"pe_executable".into(),imported_at:index as u64,
                 phase:SetupPhase::SetupNeedsAttention,status:status.into(),environment:Some(environment.clone()),
                 compatibility:None,discovered,primary:None,secondary:vec![],
-                rename:AvailableAction {label:"Rename".into(),action:Action::InstallerRename {installer:installer.clone(),label:String::new()},disabled_reason:None},history:vec![]});
+                rename:AvailableAction {label:"Rename".into(),action:Action::InstallerRename {installer:installer.clone(),label:String::new()},disabled_reason:None},journey:None,history:vec![]});
             overview.current.onboarding.push(crate::model::Onboarding {installer,name,byte_size:1024,format:"pe_executable".into(),
                 environment:Some(environment),state:"needs_attention".into(),failure:None,required_human_action:status.into(),actions:vec![],
                 details:serde_json::json!({"managed_product":true,"scan":{},"installation":{"state":"completed",
@@ -3513,7 +3924,7 @@ mod tests {
                 format:"pe_executable".into(),imported_at:1,phase,status:"Continue in the vendor window.".into(),
                 environment:Some("exact-space".into()),compatibility:None,discovered:vec![],primary,
                 secondary:vec![],rename:AvailableAction {label:"Rename".into(),
-                    action:Action::InstallerRename {installer:name.into(),label:String::new()},disabled_reason:None},history:vec![],
+                    action:Action::InstallerRename {installer:name.into(),label:String::new()},disabled_reason:None},journey:None,history:vec![],
             };
             overview.current.installer_setups=vec![make("Older import",SetupPhase::Imported,None),
                 make("Current installation",SetupPhase::InstallerRunning,Some(AvailableAction {
@@ -3533,7 +3944,7 @@ mod tests {
                     } else {
                         Operator::fast_setup(ui,&overview,true,pending,
                             (&mut false,&mut chosen,&mut false,&mut Page::Setup,
-                                &mut crate::library::Library::default(),&mut RouteFocus::default()));
+                                &mut crate::library::Library::default(),&mut RouteFocus::default(),&mut None));
                     }
                 });
                 if frame==2 {
@@ -3822,7 +4233,7 @@ mod tests {
             primary: None, secondary: vec![],
             rename: AvailableAction { label: "Rename".into(),
                 action: Action::InstallerRename { installer: sha.clone(), label: String::new() },
-                disabled_reason: None }, history: vec![],
+                disabled_reason: None }, journey:None,history: vec![],
         });
         let reply = crate::model::InstallerImportResult { schema: 2,
             installer_sha256: sha.clone(), byte_size: 1024, format: "pe_executable".into(),
@@ -3910,7 +4321,7 @@ mod tests {
             primary:None,secondary:vec![],
             rename:AvailableAction {label:"Rename".into(),
                 action:Action::InstallerRename {installer:"ab".repeat(32),label:String::new()},
-                disabled_reason:None},history:vec![],
+                disabled_reason:None},journey:None,history:vec![],
         };
         let mut unrelated = setup.clone();
         unrelated.installer = "cd".repeat(32);
@@ -3925,7 +4336,7 @@ mod tests {
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
                 ui.set_max_width(width-32.0);
                 Operator::fast_setup(ui,&overview.clone().into(),true,false,
-                    (&mut false,&mut None,&mut false,&mut page,&mut library,&mut focus));
+                    (&mut false,&mut None,&mut false,&mut page,&mut library,&mut focus,&mut None));
             });
             let mut text = Vec::new();
             for clipped in &output.shapes { labels(&clipped.shape,&mut text); }
@@ -3974,7 +4385,7 @@ mod tests {
                 primary:Some(AvailableAction {label:"Focus installer".into(),
                     action:Action::InstallerFocus {onboarding:"aa".repeat(16),operation:"11".into()},disabled_reason:None}),
                 secondary:vec![target.clone()],rename:AvailableAction {label:"Rename".into(),
-                    action:Action::InstallerRename {installer:"bb".repeat(32),label:String::new()},disabled_reason:None},history:vec![],
+                    action:Action::InstallerRename {installer:"bb".repeat(32),label:String::new()},disabled_reason:None},journey:None,history:vec![],
             };
             overview.current.installer_setups = vec![setup.clone()];
             let ctx = egui::Context::default();
@@ -3992,7 +4403,7 @@ mod tests {
                     ui.add_space(410.0);
                     Operator::fast_setup(ui,&overview.clone().into(),fresh,false,
                         (&mut false,&mut chosen,&mut false,&mut Page::Setup,
-                            &mut crate::library::Library::default(),&mut focus));
+                            &mut crate::library::Library::default(),&mut focus,&mut None));
                 });
                 if pressed.is_none() {
                     point = output.shapes.iter().find_map(|shape|stop_position(&shape.shape)).unwrap();
@@ -4041,7 +4452,7 @@ mod tests {
                 let mut output=ctx.run_ui(egui::RawInput {events,..Default::default()},|ui| {
                     ui.set_max_width(width-32.0);ui.add_space(410.0);
                     Operator::fast_setup(ui,&overview.clone().into(),true,false,(&mut false,&mut chosen,&mut false,
-                        &mut Page::Setup,&mut crate::library::Library::default(),&mut RouteFocus::default()));
+                        &mut Page::Setup,&mut crate::library::Library::default(),&mut RouteFocus::default(),&mut None));
                 });
                 if pressed.is_none() {
                     position=output.shapes.iter().rev().find_map(|shape|text_position(&shape.shape,label)).unwrap();
@@ -5089,7 +5500,7 @@ mod tests {
         });
         let mut s = running_snapshot(&"22".repeat(16));
         s.operation = Some(serde_json::json!({"operation":"22".repeat(16),"state":"completed"}));
-        s.products.push(Product{class_id:"aa".repeat(16),name:"Generated instrument".into(),vendor:"Fixture".into(),role:"instrument".into(),version:"1".into(),disposition:"prepared".into(),active_revision:None,recommended_revision:None,environment:"ef".repeat(16),runner:"pinned".into(),module_sha256:"ff".repeat(32),limitations:vec![],history:vec![],actions:vec![],compatibility:None,details:serde_json::json!({"preparation":{"operation":{"operation":"11".repeat(16),"state":"completed"}}})});
+        s.products.push(Product{class_id:"aa".repeat(16),name:"Generated instrument".into(),vendor:"Fixture".into(),role:"instrument".into(),version:"1".into(),disposition:"prepared".into(),active_revision:None,recommended_revision:None,environment:"ef".repeat(16),runner:"pinned".into(),module_sha256:"ff".repeat(32),limitations:vec![],history:vec![],actions:vec![],availability:None,compatibility:None,details:serde_json::json!({"preparation":{"operation":{"operation":"11".repeat(16),"state":"completed"}}})});
         f.reconcile_snapshot(&s);
         assert!(f.terminal);
         assert!(!f.blocking);

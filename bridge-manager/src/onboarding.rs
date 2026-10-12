@@ -15,6 +15,8 @@ pub struct Record {
     pub installation_operation: Option<String>,
     pub published: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub automatic: Option<operator_cli::automatic_install::Intent>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_attempt: Option<String>,
 }
 pub fn directory(m: &Manager, id: &str) -> Result<PathBuf> {
@@ -192,7 +194,7 @@ pub(crate) fn runners_from_catalogue_with(catalogue: Option<&catalogue::Catalogu
     }
     Ok(list)
 }
-fn default_runtime(m: &Manager, installed: &[(String, Runner)]) -> Result<Option<(String, Runner)>> {
+pub(super) fn default_runtime(m: &Manager, installed: &[(String, Runner)]) -> Result<Option<(String, Runner)>> {
     if let Some(state) = linux_vst_bridge::runtime_delivery::recommended_record_state(m)? {
         let Some(runner)=state.runner else {return Ok(None)};
         let key = runner_key(&runner)?;
@@ -400,6 +402,7 @@ fn create_exact(
         creation_operation: owner.into(),
         installation_operation: None,
         published: false,
+        automatic: None,
         previous_attempt,
     };
     let dir = directory(m, &id)?;
@@ -1009,7 +1012,7 @@ pub(super) fn setup_projection_current(m: &Manager, rows: &[ui::Onboarding],
             selected.map(|record| &record.environment.runner), default, ambiguous);
         setups.push(ui::InstallerSetup { installer: installer.id.clone(), name: presentation.display_label,
             label_source: presentation.label_source, byte_size: installer.byte_size, format: installer.format.clone(),
-            imported_at: installer.created_at, phase, status,
+            imported_at: installer.created_at, phase, journey: None, status,
             environment: if ambiguous { None } else { current.environment.clone() },
             compatibility,
             discovered: if ambiguous { Vec::new() } else { discovered }, primary, secondary,

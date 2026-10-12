@@ -163,6 +163,7 @@ fn main() -> eframe::Result {
         bismuth.name = "BEAM Bismuth".into();
         bismuth.class_id = "02".repeat(16);
         bismuth.disposition = "installed_unqualified".into();
+        bismuth.availability = Some(model::NativeAvailability {available:false,reason:None});
         bismuth.compatibility = Some(model::CompatibilityWorkflow {
             phase: model::CompatibilityPhase::NotChecked,
             summary: "Installed · compatibility not checked".into(),
@@ -190,6 +191,7 @@ fn main() -> eframe::Result {
         beam.class_id = "01".repeat(16);
         beam.module_sha256 = "ef".repeat(32);
         beam.disposition = "installed_unqualified".into();
+        beam.availability = Some(model::NativeAvailability {available:false,reason:None});
         beam.actions.clear();
         let mut sibling = beam.clone();
         sibling.name = "BEAM Bismuth".into();
@@ -210,7 +212,7 @@ fn main() -> eframe::Result {
             rename: model::AvailableAction { label: "Rename".into(),
                 action: model::Action::InstallerRename { installer: installer.clone(), label: String::new() },
                 disabled_reason: None },
-            history: vec![model::SetupHistoryRef { environment: Some(environment.clone()),
+            journey:None,history: vec![model::SetupHistoryRef { environment: Some(environment.clone()),
                 state: "installed_unqualified".into() }],
         });
         snapshot.onboarding.push(model::Onboarding { failure: None, installer,
@@ -320,6 +322,7 @@ fn main() -> eframe::Result {
     if state == "available" {
         for product in &mut snapshot.products {
             product.disposition = "ready".into();
+            product.availability = Some(model::NativeAvailability {available:true,reason:None});
             product.details = serde_json::json!({});
         }
     }
@@ -336,7 +339,7 @@ fn main() -> eframe::Result {
             discovered:vec![model::DiscoveredProduct {environment:product.environment.clone(),
                 module_sha256:product.module_sha256.clone(),class_id:product.class_id.clone(),name:product.name.clone()}],
             primary:None,secondary:vec![],rename:model::AvailableAction {label:"Rename".into(),
-                action:model::Action::InstallerRename {installer:installer.clone(),label:String::new()},disabled_reason:None},history:vec![],
+                action:model::Action::InstallerRename {installer:installer.clone(),label:String::new()},disabled_reason:None},journey:None,history:vec![],
         }];
         snapshot.onboarding=vec![model::Onboarding {failure:None,installer,name:"Retained installation".into(),
             byte_size:1_000_000,format:"pe_executable".into(),environment:Some(product.environment.clone()),
@@ -357,7 +360,7 @@ fn main() -> eframe::Result {
                 discovered:vec![model::DiscoveredProduct {environment:product.environment.clone(),
                     module_sha256:product.module_sha256.clone(),class_id:product.class_id.clone(),name:product.name.clone()}],
                 primary:None,secondary:vec![],rename:model::AvailableAction {label:"Rename".into(),
-                    action:model::Action::InstallerRename {installer,label:String::new()},disabled_reason:None},history:vec![],
+                    action:model::Action::InstallerRename {installer,label:String::new()},disabled_reason:None},journey:None,history:vec![],
             });
         }
         if matches!(state,"install_running" | "recoverable") {
@@ -381,13 +384,14 @@ fn main() -> eframe::Result {
                 secondary:if running {vec![model::AvailableAction {label:"Stop installer".into(),
                     action:model::Action::InstallerStop {onboarding,operation},disabled_reason:None}]} else {vec![]},
                 rename:model::AvailableAction {label:"Rename".into(),action:model::Action::InstallerRename {installer,label:String::new()},
-                    disabled_reason:None},history:vec![],
+                    disabled_reason:None},journey:None,history:vec![],
             });
             snapshot.system.maintenance=usize::from(running);
         }
     }
     if matches!(state,"plugin_ready" | "plugin_action" | "plugin_details" | "plugin_history" | "plugin_history_open") {
         let product=&mut snapshot.products[0];
+        product.availability = Some(model::NativeAvailability {available:state != "plugin_action",reason:None});
         product.compatibility=Some(model::CompatibilityWorkflow {
             phase:if state == "plugin_action" {model::CompatibilityPhase::ReadyForTest}
                 else {model::CompatibilityPhase::OrdinarySupported},

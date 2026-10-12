@@ -470,7 +470,8 @@ fn current_products(m: &Manager, db: &Registry, sw: &Software,
             recommended_revision:recommended.map(|p| p.revision),
             environment:r.environment.id.clone(), runner:r.environment.runner.id.clone(),
             module_sha256:r.module.sha256.clone(), limitations, history:vec![], actions:vec![],
-            compatibility:None,
+            compatibility:None,availability:Some(ui::NativeAvailability {available:current_valid,
+                reason:if current_valid {None} else {Some("The native DAW connection needs attention.".into())}}),
             details:json!({"profile":profile.map(|p|json!({"id":p.id,"revision":p.revision,"claim":p.claim})),
                 "environment_revision":r.environment.revision,
                 "verification_scope":"control_records",
@@ -531,7 +532,7 @@ fn append_discovered(m: &Manager, sw: &Software, environments: &[Environment],
                     active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),
                     runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256.clone(),
                     limitations:vec![stale.unwrap_or("Installed but not published").into()],
-                    history:vec![],actions:vec![],compatibility:None,
+                    history:vec![],actions:vec![],compatibility:None,availability:None,
                     details:json!({"scan":scan.id,"current":stale.is_none(),"observed_at":scan.completed_at}) });
             }
         }
@@ -660,8 +661,17 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     let (workspaces, workspace_installers) = workspace_task.join()
         .map_err(|_| "operator_workspace_probe_failed")??;
     onboarding.retain(|row| !workspace_installers.contains(&row.installer));
-    let installer_setups = onboarding::setup_projection_current(m, &onboarding, &products,
+    preparation_cli::project_required_recovery(m,&mut products,&preparation,&|class|
+        class_inactive_reason(&system_from_capacity(cap.as_ref(),pending,0),&owners,retired,class))?;
+    let mut installer_setups = onboarding::setup_projection_current(m, &onboarding, &products,
         &workspace_installers, &records, &installers, default.as_ref())?;
+    automatic_install::project_from(m, &mut installer_setups, busy, &records)?;
+    for product in &mut products {
+        if product.availability.is_none() {
+            product.availability=Some(ui::NativeAvailability {available:false,
+                reason:Some("This installed plug-in has no current native DAW connection.".into())});
+        }
+    }
     let environment_installers = environment_install::projection(m,&products,busy,|operation| {
         let live = installer_is_live(operation)?;
         installer_live.insert(operation.to_owned(),live);Ok(live)
@@ -750,7 +760,7 @@ mod tests {
             environment:environment.clone()};
         let record=onboarding::Record {schema:1,id:environment.id.clone(),installer:"ab".repeat(32),
             environment:environment.clone(),created_at:1,creation_operation:"cd".repeat(16),
-            installation_operation:None,published:false,previous_attempt:None};
+            installation_operation:None,published:false,automatic:None,previous_attempt:None};
         assert_eq!(discovery_environments(&[binding.clone(),binding.clone()],
             &[record.clone(),record.clone()]).unwrap(),vec![environment]);
         for mismatch in ["revision","root","runner"] {
@@ -885,7 +895,7 @@ mod tests {
         let record=onboarding::Record {schema:1,id:env.id.clone(),
             installer:"bb".repeat(16),environment:env,created_at:1,
             creation_operation:"cc".repeat(16),installation_operation:None,
-            published:false,previous_attempt:None};
+            published:false,automatic:None,previous_attempt:None};
         let db=m.registry().unwrap();
         let bindings=managed_environment_bindings(m,None,&db).unwrap();
         assert!(bindings.is_empty());
@@ -1105,7 +1115,7 @@ mod tests {
         let onboarding_record=onboarding_dir.join("record.json");
         atomic_json(&onboarding_record,&onboarding::Record {schema:1,id:environment_id.clone(),
             installer:installer_id,environment,created_at:1,creation_operation:"34".repeat(16),
-            installation_operation:Some(operation.clone()),published:false,previous_attempt:None}).unwrap();
+            installation_operation:Some(operation.clone()),published:false,automatic:None,previous_attempt:None}).unwrap();
         let result=onboarding_dir.join(format!("{operation}-result.json"));
         fs::write(&result,b"old result").unwrap();
         let inventory=m.root.join("inventory").join(format!("{environment_id}.json"));

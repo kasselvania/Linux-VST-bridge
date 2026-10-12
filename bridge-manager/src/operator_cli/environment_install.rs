@@ -321,7 +321,7 @@ mod tests {
         private_dir(&dir).unwrap();
         atomic_json(&dir.join("record.json"),&onboarding::Record {schema:1,id:env.id.clone(),
             installer:installer.id.clone(),environment:env.clone(),created_at:1,creation_operation:"12".repeat(16),
-            installation_operation:Some(initial.clone()),published:false,previous_attempt:None}).unwrap();
+            installation_operation:Some(initial.clone()),published:false,automatic:None,previous_attempt:None}).unwrap();
         atomic_json(&dir.join(format!("{initial}-result.json")),&json!({"schema":2,
             "operation":initial,"state":"completed","cleanup_confirmed":true,"owned_live":0})).unwrap();
         let retained=fs::read(dir.join("record.json")).unwrap();

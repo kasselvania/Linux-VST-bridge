@@ -1,40 +1,40 @@
-# Responsibilities and sequence before manager implementation
+# Automatic first installation into the chosen DAW
 
 ## Goal
 
-Separate vendor work, native DAW availability, ongoing music and compatibility
-knowledge, then agree complete implementation behaviors. Production stays paused.
+Automatically connect chosen software to its native DAW path after vendor
+mutations end safely. This first production behavior is authorized.
 
 ## Best explanation
 
-The user accepted first installation with suggested storage and returning ASC.
-The original Kontakt concern conflated experimental publication, testing guidance,
-installer history and availability. The third mock assumes Ready and is insufficient
-to explain that chain. Bitwig play/save/reopen remains the user's report.
-Current source needs an explicit partial-installation result for the special old
-warning; missing history alone is not that cause. The installed cause is unverified.
+Installation, discovery, preparation and initial publication already have owners,
+but ordinary use leaves the musician to advance separate operations. Compatibility
+evidence also obscures native availability. Unknown licence state is not failure;
+actual vendor requests and specific load failures need different continuations.
 
-## Current design work
+## Current work
 
-The [model](docs/design-dossier/01-product-and-user-experience.md#responsibilities-and-normal-sequence)
-sets owners, prerequisites, observable finish and necessary user action.
-[Install and working-use diagrams](docs/design-dossier/flows/README.md) show automatic
-native connection after safe vendor mutations, with optional evidence kept separate.
-Unknown licence state is not incomplete; actual vendor requests resume the same
-step in the same environment. Generic load failure is not guessed as licensing.
-The [prototype](docs/design-dossier/prototype/index.html) is unchanged; its first two
-interactions remain accepted. Five selected policies and beta standards remain.
+Sol backend/UI implementation carries one initial intent through existing exact
+operations; Astra reviews the combined behavior. All newly installed instruments
+and effects from chosen software become available automatically, as selected by
+the operator. Scope is the installation's new identities, not prior inventory.
+Retain the environment, installer outcome, class choices and per-plug-in results.
+Passive status reads stay read-only. Retry resumes actual unfinished work, with
+no duplicate publication or implicit replacement of a working setup.
+The agreed [model](docs/design-dossier/01-product-and-user-experience.md), policies
+and first two accepted prototype interactions remain binding.
 
 ## What done looks like
 
-A reviewed responsibility table and runtime sequence guide the proposed engineering
-order: complete first install into the chosen DAW; interruptions/returning installs;
-then lifecycle changes/recovery. Each includes relevant physical play/save/reopen
-verification. No label-only fix, mandatory report or fabricated qualification.
-REAPER, storage, updates and recovery remain in scope; production stays paused.
+A real automatic chain reaches current native publication for the chosen DAW;
+failed discovery/preparation/publication has a matching retry or help, while
+successful siblings remain available. Optional reports and untested status are
+separate. This increment covers direct installers with confirmed safe retirement;
+generic transfer to persistent vendor-service owners remains a capability gap.
+Backend/UI tests and review accompany physical installation/authorization, play
+and save/reopen checks; the increment does not claim ASC/NI handoff completion.
+Returning/shared changes and broader lifecycle/recovery follow as agreed.
 
 ## Preserved delivery state
-
-Test53 delivery and earlier physical results remain in SUPPORT_MATRIX.md and
-historical delivery records. Open audio, startup, update, recovery and editor
-failures remain in FAILURE_CLASSES.md. Preserve those campaigns and licensed state.
+Test53 and prior physical results remain in SUPPORT_MATRIX.md; preserve open
+FAILURE_CLASSES.md defects, user projects, vendor software and licensed state.

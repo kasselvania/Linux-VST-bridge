@@ -5,6 +5,7 @@ use linux_vst_bridge::operator_lock::timing::{self, Stage};
 use linux_vst_bridge::renderer_application as renderer;
 use serde_json::{json, Value};
 mod current;
+pub(super) mod automatic_install;
 pub(super) mod environment_install;
 mod environment_runtime;
 const ASC: &str = "arturia-software-center";
@@ -155,7 +156,7 @@ fn quarantined_product(scan: &inventory::Scan, module_index: usize,
         disposition:if stale.is_some(){"needs_attention"}else{"quarantined"}.into(),
         active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),
         runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256,
-        limitations,history:vec![],actions,compatibility:None,
+        limitations,history:vec![],actions,compatibility:None,availability:None,
         details:json!({"scan":scan.id,"scanner_host_sha256":scan.host.sha256,
             "scanner_source_sha256":scan.host_source_sha256,"current":stale.is_none(),
             "inspection_error":inspection_error,"quarantine_reason":reason,
@@ -1203,7 +1204,7 @@ fn snapshot_readonly_depth(
                 None
             },
         ));
-        products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid && p.publication == Publication::Published {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,compatibility:None,details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"environment_valid":p.environment_valid,"environment_revision":p.environment_revision,"runner_valid":p.runner_valid,"runner_policy":entry.registration.environment.runner.policy,"requested_graphics":linux_vst_bridge::graphics::requested_backend(entry.registration.environment.runner.policy.as_ref()),"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"publication_valid":p.publication_valid,"publication_selected":p.publication == Publication::Published,"host_sha256":entry.registration.host.sha256,"host_source_sha256":entry.registration.host_source_sha256,"native_sha256":entry.registration.native.sha256,"qualification":p.qualification,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
+        products.push(ui::Product {class_id:p.class_id.clone(),name:p.name.clone(),vendor:entry.registration.metadata.vendor.clone(),role:serde_json::to_value(&p.role)?.as_str().unwrap_or("unknown").into(),version:p.build.clone(),disposition:if p.refusal.is_none() && p.publication_valid && p.publication == Publication::Published {"ready"} else {"needs_attention"}.into(),active_revision,recommended_revision:recommended.map(|p|p.revision),environment:p.environment.clone(),runner:p.runner.clone(),module_sha256:p.module_sha256.clone(),limitations:serde_json::to_value(&p.limitations)?.as_array().map(|a|a.iter().filter_map(|v|v.as_str().map(Into::into)).collect()).unwrap_or_default(),history:hist,actions,compatibility:None,availability:Some(ui::NativeAvailability {available:p.refusal.is_none() && p.publication_valid && p.publication == Publication::Published, reason:if p.refusal.is_none() && p.publication_valid && p.publication == Publication::Published {None} else {Some("The native DAW connection needs attention.".into())}}),details:json!({"external_ids":p.external_ids,"profile":p.profile,"publication":p.active_revision,"module_valid":p.module_valid,"environment_valid":p.environment_valid,"environment_revision":p.environment_revision,"runner_valid":p.runner_valid,"runner_policy":entry.registration.environment.runner.policy,"requested_graphics":linux_vst_bridge::graphics::requested_backend(entry.registration.environment.runner.policy.as_ref()),"native_valid":p.native_artifact_valid,"host_valid":p.installed_host_valid,"publication_valid":p.publication_valid,"publication_selected":p.publication == Publication::Published,"host_sha256":entry.registration.host.sha256,"host_source_sha256":entry.registration.host_source_sha256,"native_sha256":entry.registration.native.sha256,"qualification":p.qualification,"capabilities":p.capabilities,"compatibility":p.compatibility,"recommended_frames":p.recommended_frames,"performance":p.performance,"refusal":p.refusal})});
     }
     let catalogue = operator_catalogue_readback(m, &sw, &db)?;
     let managed_bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
@@ -1250,13 +1251,19 @@ fn snapshot_readonly_depth(
                     {
                         continue;
                     }
-                    products.push(ui::Product {class_id:class.id,name:class.name,vendor:class.vendor,role:class.role,version:class.version,disposition:if current {"installed_unqualified"} else {"needs_attention"}.into(),active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256.clone(),limitations:vec![stale.unwrap_or("Installed — not yet supported; not published").into()],history:vec![],actions:vec![],compatibility:None,details:json!({"scan":scan.id,"observed_at":scan.completed_at,"scanner_host_sha256":scan.host.sha256,"scanner_source_sha256":scan.host_source_sha256,"current":current,"inspection_error":module.inspection_error,"inspection_hint":inspection_hint,"activation_permitted":false})});
+                    products.push(ui::Product {class_id:class.id,name:class.name,vendor:class.vendor,role:class.role,version:class.version,disposition:if current {"installed_unqualified"} else {"needs_attention"}.into(),active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256.clone(),limitations:vec![stale.unwrap_or("Installed — not yet supported; not published").into()],history:vec![],actions:vec![],compatibility:None,availability:None,details:json!({"scan":scan.id,"observed_at":scan.completed_at,"scanner_host_sha256":scan.host.sha256,"scanner_source_sha256":scan.host_source_sha256,"current":current,"inspection_error":module.inspection_error,"inspection_hint":inspection_hint,"activation_permitted":false})});
                 }
             }
         }
     }
     if deep {
         preparation_cli::project_scoped(m, &sw, &mut products, busy, id, &class_scope)?;
+    }
+    for product in &mut products {
+        if product.availability.is_none() {
+            product.availability=Some(ui::NativeAvailability {available:false,
+                reason:Some("This installed plug-in has no current native DAW connection.".into())});
+        }
     }
     let mut vendor_applications = asc_projection(m, busy)?.into_iter().collect::<Vec<_>>();
     if deep {
@@ -1302,7 +1309,8 @@ fn snapshot_readonly_depth(
     if let Some(receipt) = &live.operation {
         project_onboarding_failure(m, receipt, &mut onboarding)?;
     }
-    let installer_setups = onboarding::setup_projection(m, &onboarding, &products, &workspace_installers)?;
+    let mut installer_setups = onboarding::setup_projection(m, &onboarding, &products, &workspace_installers)?;
+    automatic_install::project(m, &mut installer_setups, busy)?;
     let environment_installers = environment_install::projection(m,&products,busy,onboarding::live)?;
     let recheck = acquire_readback(m, ui::OperatorLock::Registry, id, timeout, waits)?;
     let after = token(m)?;
@@ -1388,6 +1396,7 @@ pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
         .actions
         .iter()
         .chain(snapshot.installer_setups.iter().map(|s| &s.rename))
+        .chain(snapshot.installer_setups.iter().flat_map(|s| s.primary.iter().chain(s.secondary.iter())))
         .chain(snapshot.environment_installers.iter().flat_map(|s|s.choices.iter().chain(s.actions.iter())))
         .chain(snapshot.environment_installers.iter().flat_map(|s|s.runtime.iter().flat_map(|r|&r.choices)))
         .chain(snapshot.onboarding.iter().flat_map(|p| p.actions.iter()))
@@ -1529,6 +1538,8 @@ fn scoped_product_action(action: &ui::Action) -> bool {
 fn current_offer_action(action: &ui::Action) -> bool {
     matches!(action, ui::Action::RuntimeInstall {} | ui::Action::SupportExport {}
         | ui::Action::TransactionReconcile {}
+        | ui::Action::SoftwareInstall { .. }
+        | ui::Action::SoftwareInstallResume { .. }
         | ui::Action::InstallerEnvironmentCreate { .. }
         | ui::Action::InstallerRename { .. }
         | ui::Action::InstallerNewAttempt { .. }
@@ -1654,6 +1665,13 @@ fn write_operation(m: &Manager, id: &str, value: &Value, make_latest: bool) -> R
     if value.get("lock_waits").is_none() && prior.get("lock_waits").is_some() {
         value["lock_waits"] = prior["lock_waits"].clone();
     }
+    // Child owner progress must keep the same initial DAW intent visible.
+    for field in ["journey", "onboarding"] {
+        if value.get(field).is_none() && prior.get(field).is_some() {value[field]=prior[field].clone();}
+    }
+    if value["state"]=="vendor_running" && value["journey"].is_object() {
+        value["journey"]["phase"]=json!("vendor_running");
+    }
     atomic_json(&dir.join("result.json"), &value)?;
     let latest = m.root.join("operator/latest.json");
     if make_latest || optional(&latest)?["operation"] == id {
@@ -1724,6 +1742,7 @@ fn native_access_session_summary(result:&Value,recovery:&Value)->Result<Value> {
 fn finish_operation(m: &Manager, id: &str) -> Result<()> {
     let installer_cleanup: Result<()> = (|| {
         let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
+        automatic_install::finish(m, id, &request.action)?;
         if let ui::Action::InstallerStart {
             onboarding: ref key,
         }
@@ -2048,6 +2067,21 @@ fn execute_with_receipt_policy(
     timeout: Duration,
     waits: &mut Vec<ui::LockFacts>,
 ) -> Result<Value> {
+    execute_with_receipt_policy_progress(m,a,operation,capacity_read,timeout,waits,&mut |_|{})
+}
+fn execute_with_receipt_policy_progress(
+    m: &Manager,
+    a: &ui::Action,
+    operation: Option<&str>,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+    timeout: Duration,
+    waits: &mut Vec<ui::LockFacts>,
+    progress: &mut dyn FnMut(&str),
+) -> Result<Value> {
+    if matches!(a, ui::Action::SoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. }) {
+        return automatic_install::execute(m, a, operation.ok_or("operator_operation_identity")?,
+            capacity_read, timeout, waits);
+    }
     let mut projection = Some(acquire_readback(
         m,
         ui::OperatorLock::Canonical,
@@ -2115,7 +2149,7 @@ fn execute_with_receipt_policy(
             let _environment = m.lock("operator-environment.lock")?;
             suspend(m, owner, None, timeout, waits)?;
             drop(projection.take());
-            let result = preparation_cli::execute(m, a, owner, || {
+            let result = preparation_cli::execute_with_progress(m, a, owner, || {
                 acquire_readback(
                     m,
                     ui::OperatorLock::Registry,
@@ -2123,7 +2157,7 @@ fn execute_with_receipt_policy(
                     timeout,
                     waits,
                 )
-            });
+            }, progress);
             let cleanup = resume_owned(m, owner);
             let value = result?;
             if let Err(error) = cleanup {
@@ -2155,6 +2189,7 @@ fn execute_with_receipt_policy(
         });
     }
     match a {
+        ui::Action::SoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. } => unreachable!(),
         ui::Action::RuntimeInstall {} => {
             drop(projection.take());
             let runner = linux_vst_bridge::runtime_delivery::install(m)?;
@@ -3789,7 +3824,7 @@ pub(crate) mod tests {
         atomic_json(&directory.join("record.json"),&onboarding::Record {schema:1,
             id:environment.id.clone(),installer:installer.id,environment:environment.clone(),
             created_at:1,creation_operation:"cd".repeat(16),
-            installation_operation:None,published:false,previous_attempt:None}).unwrap();
+            installation_operation:None,published:false,automatic:None,previous_attempt:None}).unwrap();
         let module_path=environment.root.join(f.r.module.path
             .strip_prefix(&f.r.environment.root).unwrap());
         private_dir(module_path.parent().unwrap()).unwrap();
@@ -5913,7 +5948,7 @@ pub(crate) mod tests {
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         let onboarding = onboarding::Record {schema:1,id:candidate.selection.environment.id.clone(),
             installer:"ba".repeat(32),environment:candidate.selection.environment.clone(),created_at:1,
-            creation_operation:"ab".repeat(16),installation_operation:Some("cd".repeat(16)),published:false,previous_attempt:None};
+            creation_operation:"ab".repeat(16),installation_operation:Some("cd".repeat(16)),published:false,automatic:None,previous_attempt:None};
         let onboarding_path = f.m.root.join("onboarding").join(&onboarding.id).join("record.json");
         private_dir(onboarding_path.parent().unwrap()).unwrap();
         atomic_json(&onboarding_path, &onboarding).unwrap();
@@ -6554,7 +6589,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
             id:selection.environment.id.clone(),installer:installer.id,
             environment:selection.environment.clone(),created_at:1,
             creation_operation:"cd".repeat(16),installation_operation:None,
-            published:false,previous_attempt:None}).unwrap();
+            published:false,automatic:None,previous_attempt:None}).unwrap();
         let service = overview_service_reply(&fixture.m, capacity_json(false,0,0));
         let detail = product_detail(&fixture.m, &selection.environment.id,
             &selection.module.sha256, &selection.class.id).unwrap();
@@ -6747,7 +6782,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
             disposition: "installed_unqualified".into(), active_revision: None, recommended_revision: None,
             environment: environment.clone(), runner: f.r.environment.runner.id.clone(),
             module_sha256: f.r.module.sha256.clone(), limitations: vec![], history: vec![],
-            actions: vec![], compatibility: None, details: Value::Null };
+            actions: vec![], compatibility: None, availability: None, details: Value::Null };
         let found = project(&rows, std::slice::from_ref(&product));
         assert_eq!(found.phase, ui::SetupPhase::DiscoveryComplete);
         assert_eq!(found.discovered.len(), 1);

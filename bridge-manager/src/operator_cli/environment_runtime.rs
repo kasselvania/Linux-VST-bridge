@@ -476,7 +476,7 @@ mod tests {
         private_dir(&directory).unwrap();let record=directory.join("record.json");
         atomic_json(&record,&onboarding::Record {schema:1,id:environment.id.clone(),installer:installer.id,
             environment:environment.clone(),created_at:1,creation_operation:random_id().unwrap(),
-            installation_operation:Some(initial.clone()),published:false,previous_attempt:None}).unwrap();
+            installation_operation:Some(initial.clone()),published:false,automatic:None,previous_attempt:None}).unwrap();
         atomic_json(&directory.join(format!("{initial}-result.json")),&json!({"schema":2,"operation":initial,
             "state":"completed","cleanup_confirmed":true,"owned_live":0})).unwrap();
         let historical=fs::read(&record).unwrap();let next=change(&f.m,&environment,&runner);

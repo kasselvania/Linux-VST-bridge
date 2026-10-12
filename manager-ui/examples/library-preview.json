@@ -1,5 +1,5 @@
 {
-  "schema": 22,
+  "schema": 23,
   "state_token": "synthetic-preview-only",
   "system": {
     "service": "active",
@@ -20,6 +20,7 @@
       "role": "instrument",
       "version": "8.13.1",
       "disposition": "experimental",
+      "availability": {"available": true, "reason": null},
       "active_revision": null,
       "recommended_revision": null,
       "environment": "fixture-ni",
@@ -37,6 +38,7 @@
       "role": "effect",
       "version": "1.0 (example)",
       "disposition": "ready",
+      "availability": {"available": true, "reason": null},
       "active_revision": null,
       "recommended_revision": null,
       "environment": "fixture-arturia",
@@ -63,6 +65,7 @@
       "role": "effect",
       "version": "2 (example)",
       "disposition": "needs_attention",
+      "availability": {"available": false, "reason": null},
       "active_revision": null,
       "recommended_revision": null,
       "environment": "fixture-xfer",
