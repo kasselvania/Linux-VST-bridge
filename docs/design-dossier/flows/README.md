@@ -6,12 +6,14 @@ The [full product model](../01-product-and-user-experience.md) contains the task
 inventory and detailed boundaries. These are design flows, not installed claims.
 
 The [replacement clickable prototype](../prototype/index.html) follows one musician
-adding eFX FRAGMENTS to Bitwig on Deck through Arturia Software Center. The operator
+adding eFX FRAGMENTS to Bitwig through Arturia Software Center. The operator
 rejected the earlier layout comparison because specification terms became confusing
 actions with no concrete user reason. The new question is whether each step and
 button makes sense without narration. It includes downloaded-installer choice,
-storage, a separate vendor-window stand-in, automatic readiness and one unfinished
-download/resume. The user's walkthrough verdict is pending; manager work stays paused.
+suggested storage with an optional drive change, a separate vendor-window stand-in,
+automatic readiness and one unfinished download/resume. The user liked the journey
+and requested device-neutral storage; broader design approval is pending and manager
+work stays paused.
 The broader flows and five selected policies still apply, including update recovery.
 All activity is in-memory simulation. **Save offline copy** downloads the complete
 prototype; reload starts over. The optional server command below serves it at

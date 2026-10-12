@@ -11,26 +11,26 @@
 </head>
 <body>
 <section class="demo" aria-label="Demo controls outside the product">
-<div class="top"><div><h2>Design prototype · one installation journey</h2><p>You own eFX FRAGMENTS and want it in Bitwig on your Deck. Deck storage is nearly full; an inserted microSD has space.</p></div><div class="actions"><button id="reset">Start over</button><button id="save">Save offline copy</button></div></div>
+<div class="top"><div><h2>Design prototype · one installation journey</h2><p>You own eFX FRAGMENTS and want it in Bitwig on this computer.</p></div><div class="actions"><button id="reset">Start over</button><button id="save">Save offline copy</button></div></div>
 <p class="muted">Nothing is installed here. The file picker and vendor window below are stand-ins; no credentials are entered.</p>
 <div class="actions" id="events" aria-label="Demo events"></div>
 </section>
 <main class="app" aria-label="Proposed product interface">
-<header><span class="brand">Linux Plugin Bridge</span><span class="muted">Bitwig · This Deck</span></header>
+<header><span class="brand">Linux Plugin Bridge</span><span class="muted">Bitwig · This computer</span></header>
 <section class="workspace" id="screen" aria-live="polite"></section>
 </main>
-<section id="external" class="stand-in" aria-label="Demo file picker or vendor window" tabindex="-1" hidden></section>
+<section id="external" class="stand-in" aria-label="Demo drive picker, file picker or vendor window" tabindex="-1" hidden></section>
 <script>
 const cleanHtml='<!doctype html>\n'+document.documentElement.outerHTML;
 const PRODUCT='eFX FRAGMENTS';
 let state,completionTimer;
 const button=(text,action,primary=false,disabled=false)=>`<button data-action="${action}" ${primary?'class="primary"':''} ${disabled?'disabled':''}>${text}</button>`;
 const actions=(...items)=>`<div class="actions">${items.join('')}</div>`;
-function reset(){clearTimeout(completionTimer);state={screen:'collection',installer:false,location:'microSD card',picker:false,vendorWindow:false,phase:'none',ready:false,notice:''};render()}
+function reset(){clearTimeout(completionTimer);state={screen:'collection',installer:false,location:'This computer',picker:false,locationPicker:false,vendorWindow:false,phase:'none',ready:false,notice:''};render()}
 function render(){
  const s=state;let content='',external='';
  if(s.screen==='collection')content=`<h1>Your plug-ins</h1>${s.ready?`<div class="plugin"><h2>${PRODUCT}</h2><p class="muted">Arturia · Audio effect</p><span class="ready">Ready for Bitwig</span>${actions(button('How to find it in Bitwig','instructions',true))}</div>`:`<div class="empty"><h2>No plug-ins added yet</h2><p>Add an installer you downloaded from its vendor.</p>${actions(button('Add a plug-in','add',true))}</div>`}`;
- if(s.screen==='add')content=`<h1>Add a plug-in</h1><label>Installer</label><div class="installer"><span>${s.installer?'Arturia Software Center installer · Downloads':'Choose the installer you downloaded'}</span>${button(s.installer?'Choose another installer':'Choose installer','chooseFile')}</div><label for="location">Install on</label><select id="location"><option ${s.location==='Deck storage'?'selected':''}>Deck storage</option><option ${s.location==='microSD card'?'selected':''}>microSD card</option></select><p class="muted">Deck storage is nearly full. The microSD card has space.</p>${actions(button('Start installation','start',true,!s.installer),button('Back to your plug-ins','collection'))}`;
+ if(s.screen==='add')content=`<h1>Add a plug-in</h1><label>Installer</label><div class="installer"><span>${s.installer?'Arturia Software Center installer · Downloads':'Choose the installer you downloaded'}</span>${button(s.installer?'Choose another installer':'Choose installer','chooseFile')}</div><label>Install location</label><div class="installer"><span>${s.location}${s.location==='This computer'?'<br><small class="muted">Suggested location</small>':''}</span>${button('Change…','chooseLocation')}</div>${actions(button('Start installation','start',true,!s.installer),button('Back to your plug-ins','collection'))}`;
  if(s.screen==='vendor'){
   if(s.phase==='setup')content=`<h1>Set up Arturia Software Center</h1><p>Follow Arturia’s installer instructions. Then choose the plug-in you want in Software Center.</p>${actions(button('Show Arturia installer','showVendor',true))}`;
   if(s.phase==='choose')content=`<h1>Choose your plug-in in Arturia Software Center</h1><p>Sign in if needed, choose the product you own and install it. Complete any licence step Arturia asks for.</p>${actions(button('Show Arturia Software Center','showVendor',true))}`;
@@ -41,7 +41,8 @@ function render(){
  }
  if(s.screen==='instructions')content=`<h1>Find ${PRODUCT} in Bitwig</h1><ol><li>In Bitwig’s Device Panel, click <strong>+</strong> to open the browser.</li><li>Choose <strong>Audio FX</strong> and search for <strong>${PRODUCT}</strong>.</li><li>Add it to an audio track, or after an instrument, and play the track to hear the effect.</li></ol><p>You can close Linux Plugin Bridge while making music.</p><p class="muted"><a href="https://www.bitwig.com/userguide/latest/browsers/" target="_blank" rel="noopener">Bitwig’s browser guide</a></p>${actions(button('Back to your plug-ins','collection'))}`;
  document.getElementById('screen').innerHTML=content;
- if(s.picker)external=`<div class="eyebrow">Demo · file picker stand-in</div><h2>Downloads</h2><p>Arturia Software Center installer</p>${actions(button('Use this installer','fileSelected',true))}`;
+ if(s.locationPicker)external=`<div class="eyebrow">Demo · drive picker stand-in</div><h2>Choose a drive</h2><p>This computer · suggested location</p>${actions(button('Use this computer','localLocation'),button('Use Music SSD','musicLocation'))}`;
+ else if(s.picker)external=`<div class="eyebrow">Demo · file picker stand-in</div><h2>Downloads</h2><p>Arturia Software Center installer</p>${actions(button('Use this installer','fileSelected',true))}`;
  else if(s.vendorWindow){
   external='<div class="eyebrow">Demo · vendor window stand-in</div><p class="muted">This represents Arturia’s window, not its actual interface. No sign-in or licence information is entered here.</p>';
   if(s.phase==='setup')external+=`<h2>Arturia Software Center setup</h2><p>Arturia owns the installer choices and terms. This demo continues to Software Center.</p>${actions(button('Continue setup','setupFinished',true))}`;
@@ -56,9 +57,11 @@ function render(){
 }
 function act(action){
  if(action==='add'){state.screen='add'}
- else if(action==='chooseFile')state.picker=true;
+ else if(action==='chooseFile'){state.picker=true;state.locationPicker=false}
+ else if(action==='chooseLocation'){state.locationPicker=true;state.picker=false}
+ else if(action==='localLocation'||action==='musicLocation'){state.location=action==='musicLocation'?'Music SSD':'This computer';state.locationPicker=false}
  else if(action==='fileSelected'){state.installer=true;state.picker=false}
- else if(action==='start'){if(!state.installer)return;state.location=document.getElementById('location').value;state.screen='vendor';state.phase='setup';state.vendorWindow=true}
+ else if(action==='start'){if(!state.installer)return;state.picker=false;state.locationPicker=false;state.screen='vendor';state.phase='setup';state.vendorWindow=true}
  else if(action==='showVendor')state.vendorWindow=true;
  else if(action==='setupFinished')state.phase='choose';
  else if(action==='installFragments')state.phase='downloading';
@@ -67,12 +70,11 @@ function act(action){
  else if(action==='resumeDownload')state.phase='downloading';
  else if(action==='vendorFinished'){state.phase='adding';state.vendorWindow=false;render();completionTimer=setTimeout(()=>{state.ready=true;state.screen='collection';state.phase='finished';render()},900);return}
  else if(action==='instructions')state.screen='instructions';
- else if(action==='collection'){state.screen='collection';state.picker=false}
+ else if(action==='collection'){state.screen='collection';state.picker=false;state.locationPicker=false}
  render();
- if(['chooseFile','start','showVendor','setupFinished'].includes(action)&&!document.getElementById('external').hidden){const target=document.getElementById('external');target.focus({preventScroll:true});target.scrollIntoView({block:'center',behavior:'instant'})}
+ if(['chooseFile','chooseLocation','start','showVendor','setupFinished'].includes(action)&&!document.getElementById('external').hidden){const target=document.getElementById('external');target.focus({preventScroll:true});target.scrollIntoView({block:'center',behavior:'instant'})}
 }
 for(const id of ['screen','external','events'])document.getElementById(id).addEventListener('click',event=>{const b=event.target.closest('[data-action]');if(b&&!b.disabled)act(b.dataset.action)});
- document.getElementById('screen').addEventListener('change',event=>{if(event.target.id==='location')state.location=event.target.value});
  document.getElementById('reset').addEventListener('click',reset);
  document.getElementById('save').addEventListener('click',()=>{const url=URL.createObjectURL(new Blob([cleanHtml],{type:'text/html;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download='fragments-bitwig-installation-prototype.html';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000)});
  reset();
