@@ -212,5 +212,145 @@
     "library_shows_both_published_classes": true,
     "final_bridge_ready": true,
     "normal_shutdown_confirmed": true
+  },
+  "automatic_first_install": {
+    "scope": "First-party direct-installer workflow in the disposable CachyOS VM / native REAPER; persistent vendor-application/service handoff remains open",
+    "test55": {
+      "source_head": "6bb99fd494cb92649593957b51597f4072eed730",
+      "source_tree": "cfca13657eba16a67128c953ea12a18a43f7f0f8",
+      "signed_installer_sha256": "466184ae83eb20e68a082f3c870257591600487e28de10fbb108192601c40605",
+      "initial_runtime_count": 0,
+      "initial_plugin_count": 0,
+      "normal_application_install": true,
+      "public_install_and_connect_requests": 1,
+      "selected_daw": "REAPER",
+      "owned_runtime_acquired_automatically": true,
+      "start_to_vendor_window_seconds_approx": 867,
+      "genuine_vendor_confirmations": true,
+      "automatic_new_publications": 2,
+      "required_user_reports_or_publication_actions": 0,
+      "final_journey": "available",
+      "final_plugin_stages": ["available", "available"],
+      "final_journey_failure": null,
+      "post_install_service": "active",
+      "post_install_pending_transactions": 0,
+      "post_install_cleanup_unconfirmed": false,
+      "planned_service_pause_initially_displayed_as_problem": true,
+      "reference_environment": "12b735bc692bcef3390487978f9cce56",
+      "reference_classes": [
+        {
+          "role": "instrument",
+          "class_id": "4C56424245544131494E535400000001",
+          "module_sha256": "8fa7b83b6b6878d40a1c312d6e0f3d984a4e4dc95e9e8116e1e8f15919a69bc3",
+          "active_revision": 1
+        },
+        {
+          "role": "effect",
+          "class_id": "4C564242455441314546465800000001",
+          "module_sha256": "865005b65f0c33de2b732108e9153295c82db23b7c5842e392484483ed20aee6",
+          "active_revision": 1
+        }
+      ],
+      "fresh_state_recall": {
+        "instrument_level": 0.625,
+        "instrument_colour": 0.33000001311302,
+        "effect_level": 0.74000000953674,
+        "effect_colour": 0.66000002622604,
+        "automation_points_per_level_lane": 4,
+        "instrument_midi_notes": 16,
+        "automation_movement_during_both_playbacks_observed": true
+      },
+      "fresh_reopen_captured_stereo_s16le": [
+        {
+          "case": "Reference instrument",
+          "frames": 524288,
+          "nonzero_channel_samples": 490696,
+          "peak": 0.03717041015625,
+          "rms": 0.0128482468551
+        },
+        {
+          "case": "Reference effect",
+          "frames": 491520,
+          "nonzero_channel_samples": 691030,
+          "peak": 0.3662109375,
+          "rms": 0.1462283716120
+        }
+      ],
+      "saved_project_sha256": "b30074276db7811dca0acf87dc33f60c19b5450eb27345804a08729ec7b0a41b",
+      "source_audio_sha256": "5a2188df3d8c466bf0d926f875e285f9cb971b223f6409fb9d93ff03cacceb50",
+      "saved_project_unchanged_after_fresh_reopen": true,
+      "normal_fresh_daw_exit_and_empty_active_sessions": true
+    },
+    "test56": {
+      "source_head": "24f73584bff97e4d56cc3cb696fd5ab28b6e4210",
+      "source_tree": "123a24ed58a6dbab3cce1fc2e0c30c96c1c30d8b",
+      "signed_installer_sha256": "5dd7a426917700542498c87a20bfd32ef09cc9347d03b6cee608de10e05f6443",
+      "signed_installer_bytes": 58296335,
+      "normal_application_update": true,
+      "authorized_reference_provenance_metadata_refreshes": 2,
+      "reference_native_and_descriptor_changes_during_update": 0,
+      "reference_project_input_installer_environment_module_class_revision_changes_during_update": 0,
+      "public_warm_install_and_connect_requests": 1,
+      "selected_daw": "REAPER",
+      "genuine_vendor_confirmations": true,
+      "automatic_new_publications": 2,
+      "completion_environment": "64bc62bea0cd241f7e0d521eeaffc5dc",
+      "completion_classes": [
+        {
+          "role": "instrument",
+          "class_id": "4C564242434D5031494E535400000001",
+          "module_sha256": "dd5b062168bee829e61959c27037cb3ae339b29dbc19274ab79045bcf356dda5"
+        },
+        {
+          "role": "effect",
+          "class_id": "4C564242434D50314546465800000001",
+          "module_sha256": "54721e5973b73960a7317c3ce26287bc39642a5a19c0f9587def8962ccf980a1"
+        }
+      ],
+      "observed_owned_vendor_and_inspection_pause_progress": true,
+      "published_reference_siblings_remained_available_during_installation": true,
+      "reference_post_update_file_and_identity_changes_during_completion": 0,
+      "final_journey": "available",
+      "final_plugin_stages": ["available", "available"],
+      "final_journey_failure": null,
+      "post_install_current_available_classes": 4,
+      "post_install_managed_environments": 2,
+      "post_install_service": "active",
+      "post_install_pending_transactions": 0,
+      "post_install_cleanup_unconfirmed": false,
+      "post_install_stale_transports": 0,
+      "post_install_dsp": 0,
+      "post_install_keepers": 0,
+      "home_refreshed_automatically_without_check_again": true,
+      "reference_fresh_state_recall_matches_test55": true,
+      "reference_automation_movement_during_both_playbacks_observed": true,
+      "reference_fresh_startup_binding_and_display_ok": true,
+      "reference_captured_stereo_s16le": [
+        {
+          "case": "Reference instrument",
+          "frames": 507904,
+          "nonzero_channel_samples": 484452,
+          "peak": 0.03717041015625,
+          "rms": 0.01296129380756234
+        },
+        {
+          "case": "Reference effect",
+          "frames": 491520,
+          "nonzero_channel_samples": 698756,
+          "peak": 0.366180419921875,
+          "rms": 0.1470566713588386
+        }
+      ],
+      "reference_post_update_protected_file_changes_through_final_playback": 0,
+      "normal_final_daw_exit_and_empty_active_sessions": true,
+      "final_close_service": "active",
+      "final_close_dsp": 0,
+      "final_close_keepers": 0,
+      "final_close_maintenance": 0,
+      "final_close_pending_transactions": 0,
+      "final_close_stale_transports": 0,
+      "final_close_cleanup_unconfirmed": false,
+      "final_close_current_available_classes": 4
+    }
   }
 }

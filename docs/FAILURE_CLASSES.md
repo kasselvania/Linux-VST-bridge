@@ -846,6 +846,14 @@ created nothing, and for the service to allow a later retry.
 
 ## FC-LIFE-002 — Failed launch cleanup and truthful recovery state
 
+Test56's direct automatic installation identifies the exact live vendor/inspection
+owner's bridge pause and returns to normal service with two new classes available;
+the earlier Test55 service-repair message during a valid pause is corrected.
+Automatic vendor-application continuation still lacks a safe transfer to required
+persistent service owners. ASC/NI handoff remains open; retain the same environment
+and required services rather than equating window closure with safe completion.
+[Scoped installed result](../evidence/cachyos-reaper.json).
+
 The 2026-10-03 [foundation comparison](../evidence/preparation/2026-10-03-foundation-installed.json)
 closes a related final-host custody gap on the declared Ubuntu/pinned-runtime
 fixture. The existing launch channel now supplies kernel-authenticated writer

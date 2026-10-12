@@ -1,40 +1,40 @@
-# Automatic first installation into the chosen DAW
+# Automatic first installation: installed direct-installer result
 
 ## Goal
 
-Automatically connect chosen software to its native DAW path after vendor
-mutations end safely. This first production behavior is authorized.
+Carry one selected-software intent through vendor work and automatic discovery,
+inspection, preparation and native DAW publication of every newly installed class.
 
-## Best explanation
+## Verified result
 
-Installation, discovery, preparation and initial publication already have owners,
-but ordinary use leaves the musician to advance separate operations. Compatibility
-evidence also obscures native availability. Unknown licence state is not failure;
-actual vendor requests and specific load failures need different continuations.
+Test55 starts with no runtime or plug-ins on the disposable CachyOS/REAPER fixture.
+One Install and connect request acquires the owned runtime and installs both
+Reference roles; both become available without a report or publication chore.
+Cold runtime/setup takes about 14m27s to reach the vendor window. Both roles play,
+and a fresh REAPER reopen retains changed controls, automation and MIDI.
+Test56's normal application update preserves Reference content, identities and
+project; only two provenance records refresh. A warm Completion install adds two
+new classes automatically, leaving all post-update Reference records unchanged.
+Owned vendor/inspection pauses show progress; Home refreshes to four available
+plug-ins without Check again. Current service is active with no pending cleanup.
+Fresh Reference reopen under Test56 retains the same state, automation and MIDI;
+both original roles produce nonzero captured audio.
+Installed numbers remain in [the existing record](evidence/cachyos-reaper.json).
 
-## Current work
+## Next gap
 
-Sol backend/UI implementation carries one initial intent through existing exact
-operations; Astra reviews the combined behavior. All newly installed instruments
-and effects from chosen software become available automatically, as selected by
-the operator. Scope is the installation's new identities, not prior inventory.
-Retain the environment, installer outcome, class choices and per-plug-in results.
-Passive status reads stay read-only. Retry resumes actual unfinished work, with
-no duplicate publication or implicit replacement of a working setup.
-The agreed [model](docs/design-dossier/01-product-and-user-experience.md), policies
-and first two accepted prototype interactions remain binding.
+Automatic continuation inside existing vendor applications needs a safe handoff
+from completed mutations to required persistent services in the same environment.
+The generic installer owner still waits for its whole cohort to retire. ASC/NI
+handoff remains open; closing a window does not establish completion or authorize
+stopping required services. Retain working siblings and real interruption/retry.
 
-## What done looks like
+## Boundaries
 
-A real automatic chain reaches current native publication for the chosen DAW;
-failed discovery/preparation/publication has a matching retry or help, while
-successful siblings remain available. Optional reports and untested status are
-separate. This increment covers direct installers with confirmed safe retirement;
-generic transfer to persistent vendor-service owners remains a capability gap.
-Backend/UI tests and review accompany physical installation/authorization, play
-and save/reopen checks; the increment does not claim ASC/NI handoff completion.
-Returning/shared changes and broader lifecycle/recovery follow as agreed.
-
-## Preserved delivery state
-Test53 and prior physical results remain in SUPPORT_MATRIX.md; preserve open
-FAILURE_CLASSES.md defects, user projects, vendor software and licensed state.
+Native availability, vendor authorization and optional compatibility evidence
+remain separate. Unknown licence state is not failure. Passive reads do no work;
+new installation intent never silently replaces a working publication.
+The agreed [model](docs/design-dossier/01-product-and-user-experience.md) and five
+selected policies remain binding. Broader storage, returning/shared changes,
+update/recovery and beta musical-use requirements retain their existing scope.
+Preserve prior support results, open defects, projects and licensed state.
