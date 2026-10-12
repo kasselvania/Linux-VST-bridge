@@ -229,14 +229,37 @@ flowchart LR
     class Fault choice
 ```
 
-## Open the interactive viewer locally
+## Open the standalone viewer
 
-From the repository root, run:
+Open [index.html](index.html) directly in a browser, including from the file
+browser. It embeds all seven SVG diagrams and their Mermaid text. Viewing and
+switching flows need no server, renderer download or internet connection.
+**Save offline copy** downloads one HTML file with the current flow and viewing
+preferences. **Editable Mermaid source** downloads the selected flow's `.mmd`
+text from the embedded copy.
+
+An optional local HTTP address is also available. From the repository root, run:
 
 ```sh
 python3 -m http.server 8769 --bind 127.0.0.1 --directory docs/design-dossier
 ```
 
-Then open <http://127.0.0.1:8769/flows/>. The viewer loads a pinned Mermaid
-renderer from a CDN. The Markdown and Mermaid sources remain usable independently.
-When editing a Mermaid source, keep its matching block in this walkthrough aligned.
+Then open <http://127.0.0.1:8769/flows/>. Save an offline copy before closing the
+server if you want to keep using the downloaded file later.
+
+## Regenerate after editing a diagram
+
+The `.mmd` files are the source of truth. Keep their matching Mermaid blocks in
+this walkthrough aligned when editing them, then run:
+
+```sh
+python3 docs/design-dossier/flows/regenerate.py
+```
+
+Open the temporary localhost URL printed by the command in a browser. This
+renders all seven sources with Mermaid **11.12.0** and the viewer's existing theme,
+then replaces only the embedded source/SVG block in `index.html`. The command
+stops its temporary server when done. Regeneration needs an internet connection
+for the pinned renderer; the resulting viewer does not. Python and a browser are
+enough, with no installed Node packages or permanent service. A failed render
+leaves the existing viewer intact; Ctrl-C cancels the temporary server.
