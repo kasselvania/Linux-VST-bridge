@@ -4197,7 +4197,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 22);
+        assert_eq!(ui::OPERATOR_SCHEMA, 23);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
@@ -5769,7 +5769,7 @@ pub(crate) mod tests {
             ui::Action::InstallerEnvironmentCreate {runner,..} if *runner==onboarding::runner_key(&delivered).unwrap()));
     }
     #[test]
-    fn ordinary_new_setup_requires_recommended_revision_and_keeps_acquisition_reachable() {
+    fn ordinary_install_keeps_runtime_acquisition_automatic_and_exact_setup_available() {
         use linux_vst_bridge::runtime_delivery;
         for case in ["empty","catalogue_only","r3_only","malformed_r3","partial_r4",
             "r4_present","malformed_r3_with_r4","missing_r3_with_r4"] {
@@ -5807,12 +5807,14 @@ pub(crate) mod tests {
             let current=current::capture(&f.m).unwrap();current.recheck(&f.m).unwrap();service.join().unwrap();
             let acquire=current.snapshot.actions.iter().find(|offer|matches!(offer.action,ui::Action::RuntimeInstall {})).unwrap();
             assert_eq!(acquire.disabled_reason.is_none(),!has_recommended,"{case}: {acquire:?}");
-            let primary=current.snapshot.installer_setups[0].primary.as_ref();
-            assert_eq!(primary.is_some(),has_recommended,"{case}");
+            let setup=&current.snapshot.installer_setups[0];
+            let primary=setup.primary.as_ref().unwrap();
+            assert!(matches!(&primary.action,ui::Action::SoftwareInstall {installer,..}
+                if installer==&setup.installer),"{case}: {primary:?}");
+            assert!(primary.disabled_reason.is_none(),"{case}: {primary:?}");
             if has_recommended {
                 let selected=runtime_delivery::installed(&f.m).unwrap().unwrap();
                 let key=onboarding::runner_key(&selected).unwrap();
-                assert!(matches!(&primary.unwrap().action,ui::Action::InstallerEnvironmentCreate {runner,..} if runner==&key),"{case}");
                 assert!(projected[0].actions.iter().any(|offer|matches!(&offer.action,
                     ui::Action::InstallerEnvironmentCreate {runner,..} if runner==&key)),"{case}");
                 if case.starts_with("malformed") {
@@ -5822,7 +5824,6 @@ pub(crate) mod tests {
                 }
             } else {
                 assert!(projected[0].actions.is_empty(),"{case}");
-                assert!(current.snapshot.installer_setups[0].status.contains("Install compatibility runtime"),"{case}");
             }
             if let Some((path,bytes))=retained {assert_eq!(fs::read(path).unwrap(),bytes,"{case}");}
             assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(),registry,"{case}");
@@ -6539,7 +6540,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         let current = overview(&fixture.m).unwrap();
         service.join().unwrap();
         let offer = current.current.installer_setups[0].primary.as_ref().unwrap();
-        assert!(matches!(offer.action,ui::Action::InstallerEnvironmentCreate {..}));
+        assert!(matches!(offer.action,ui::Action::SoftwareInstall {..}));
         assert!(offer.disabled_reason.is_none());
         let request = ui::Request {schema:ui::OPERATOR_SCHEMA,
             state_token:current.current.state_token,action:offer.action.clone()};
