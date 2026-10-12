@@ -1,0 +1,28 @@
+flowchart TD
+    Choose["User chooses software, lawful source and DAW<br/>Accepts suggested storage or changes it"] --> Context["Product prepares or reuses the environment<br/>Keeps its identity, runtime and supported services"]
+    Context --> Shared{"Could vendor changes conflict with<br/>plug-in instances already in use?"}
+    Shared -->|Yes| Pause["Name the plug-ins that must stop<br/>Close their instances or defer installation"]
+    Shared -->|No| Vendor["Vendor installs the chosen software<br/>User answers its actual choices and requests"]
+    Pause -->|Instances closed| Vendor
+    Pause -->|Defer| Later["Keep the current working setup<br/>Return later"]
+    Vendor --> Handoff{"Have installation mutations<br/>ended safely?"}
+    Handoff -->|No or interrupted| Recover["Explain the unfinished step<br/>Resume, finish or safely stop that work"]
+    Recover --> Handoff
+    Recover -->|No supported continuation| Help["Preserve partial work and useful results<br/>Explain the limitation and offer help or exit"]
+    Handoff -->|Yes| Discover["Automatically discover selected classes<br/>Inspect basic interfaces and dependencies"]
+    Discover -->|Inspection succeeds| Prepare["Automatically prepare the native DAW connection<br/>Exact plug-in, environment and supported access"]
+    Discover -->|Inspection fails| Problem["Name the failed capability or step<br/>Do not guess that a load error is licensing<br/>Offer the matching retry, vendor route or help"]
+    Prepare -->|Preparation succeeds| Publish["Publish the native connection<br/>Through supported access for the chosen DAW"]
+    Prepare -->|Preparation fails| Problem
+    Publish --> Result{"Did publication succeed?"}
+    Result -->|Yes| Available["Show availability for the chosen DAW<br/>No extra approval or unknown-licence gate"]
+    Result -->|Publication fails| Problem
+    Available --> Music["User finds it in their own DAW and makes music<br/>Indexing, audio and recall are separate results"]
+    Vendor -.-> Auth["If a real vendor request appears at any step:<br/>use its supported route, then resume the same step<br/>in the same environment; keep needed services alive"]
+    Discover -.-> Auth
+    Music -.-> Auth
+    Available -.-> Evidence["Optional compatibility detail or report<br/>Not yet tested by us does not block music"]
+    classDef outcome fill:#d9f2e5,stroke:#26734d,color:#153b29
+    classDef choice fill:#fff2cc,stroke:#ad7900,color:#4b3900
+    class Available,Music,Later outcome
+    class Shared,Handoff,Result choice

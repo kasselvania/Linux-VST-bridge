@@ -1,0 +1,14 @@
+flowchart TD
+    Arrive["Open the manager"] --> Collection["See your collection<br/>and any current work"]
+    Collection --> Intent{"What do you want to do?"}
+    Intent -->|Make music| Music["Continue in your DAW<br/>The manager can be closed"]
+    Intent -->|Add a plug-in| Add["Choose an installer<br/>or vendor application"]
+    Intent -->|Manage something| Manage["Choose the affected plug-in<br/>or current task"]
+    Manage --> Action["Update, adjust, fix,<br/>move or remove"]
+    Add --> Result["See the result<br/>and any useful next action"]
+    Action --> Result
+    Result --> Collection
+    classDef outcome fill:#d9f2e5,stroke:#26734d,color:#153b29
+    classDef choice fill:#fff2cc,stroke:#ad7900,color:#4b3900
+    class Music,Result outcome
+    class Intent choice

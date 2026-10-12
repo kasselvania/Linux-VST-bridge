@@ -1,0 +1,17 @@
+flowchart TD
+    Intent["User wants storage help or removal"] --> Kind{"What is the goal?"}
+    Kind -->|Reconnect the same unchanged drive| Reconnect["Reconnect the existing drive<br/>No file movement or mapping change"]
+    Kind -->|Relocate or remap content, move files or free space| Inspect["Show owned files, sizes and shared dependencies<br/>Separate caches, installations and user content"]
+    Kind -->|Remove a plug-in or manager| Remove["Separate DAW visibility, uninstall and deactivation<br/>Explain effects on projects and sibling products"]
+    Inspect --> Capable{"Is this a supported operation<br/>on files the product may manage?"}
+    Remove --> Capable
+    Capable -->|No| Limit["Explain the exact limit<br/>Preserve uncertain files and existing use"]
+    Capable -->|Yes| Choose["User chooses the exact operation<br/>and sees anything that will be lost"]
+    Choose --> Execute["Run the scoped operation<br/>Do not write through an absent mount"]
+    Execute --> Verify["Verify the actual result and remaining access<br/>Retain recoverable data until safe cleanup"]
+    Reconnect --> Verify
+    Verify --> Done["Show what moved, remains or was removed<br/>Explain any remaining project action"]
+    classDef outcome fill:#d9f2e5,stroke:#26734d,color:#153b29
+    classDef choice fill:#fff2cc,stroke:#ad7900,color:#4b3900
+    class Done,Limit outcome
+    class Kind,Capable choice

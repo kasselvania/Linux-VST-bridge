@@ -19,6 +19,8 @@ Bitwig on Linux
 Use these documents instead of reconstructing status from chronological campaign files:
 
 - **Active branch work:** [CURRENT_SLICE.md](CURRENT_SLICE.md)
+- **Product lifecycle and interaction design draft:** [Product model](docs/design-dossier/01-product-and-user-experience.md)
+- **Visual product walkthrough:** [Flowcharts and agreed choices](docs/design-dossier/flows/README.md)
 - **Parallel work and integration:** [docs/WORKSTREAMS.md](docs/WORKSTREAMS.md)
 - **Supported products and platforms:** [docs/SUPPORT_MATRIX.md](docs/SUPPORT_MATRIX.md)
 - **Shared failures, accepted fixes, and remaining gaps:** [docs/FAILURE_CLASSES.md](docs/FAILURE_CLASSES.md)

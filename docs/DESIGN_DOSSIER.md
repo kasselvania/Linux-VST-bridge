@@ -3,6 +3,18 @@
 **Document identity:** `linux-audio-compatibility-bridge.soft-design-dossier.v1`  
 **Purpose:** Product direction and current capability boundaries, not a release promise or ceremonial checklist.
 
+## Product model review
+
+The operator paused manager implementation on 11 October 2026 to establish the
+whole product lifecycle before further interface work. The [product model
+draft](design-dossier/01-product-and-user-experience.md) now contains the task
+inventory, user variations, responsibility boundaries, proposed flows and open
+product decisions. It replaces the earlier interaction-design seed in that file;
+its [visual walkthrough](design-dossier/flows/README.md) maps the main paths.
+Implementation remains paused. Explicit operator selections in the model are
+carried into the architecture or beta contract where applicable. The technical
+milestones and campaign selections below retain their historical scope.
+
 ## Windows DAW architecture extension — 2026-09-24
 
 The native-Linux bridge remains the first release-driving product. The same canonical management platform now has a selected parallel Windows-DAW lane, beginning with [WD0 — FL Studio](WD0.md). In that lane the Windows DAW loads Windows plug-ins directly in its own coherent managed workspace; the Linux native proxy and bridge audio transport are not inserted between them.
@@ -19,7 +31,7 @@ Instruments and effects are equal product requirements. SDK factory/class metada
 
 The bridge is independent: yabridge is prior art, not the implementation. Suitable maintained Wine/Proton work may be reused beneath the project-owned proxy, Windows host, transport, state and management.
 
-The original [product](design-dossier/01-product-and-user-experience.md), [identity/presets](design-dossier/02-identity-presets-and-visual-system.md), [activation/runtime/recovery](design-dossier/03-activation-flatpak-runtime-and-recovery.md), [fixtures/pre-mortem](design-dossier/04-fixtures-proof-sequence-and-next-decision.md) and [architecture](ARCHITECTURE.md) retain the design reasoning. [AGENTS.md](../AGENTS.md) and [CURRENT_SLICE.md](../CURRENT_SLICE.md) govern active outcome-led work.
+The [product model draft](design-dossier/01-product-and-user-experience.md) is the current interaction-design proposal. The original [identity/presets](design-dossier/02-identity-presets-and-visual-system.md), [activation/runtime/recovery](design-dossier/03-activation-flatpak-runtime-and-recovery.md), [fixtures/pre-mortem](design-dossier/04-fixtures-proof-sequence-and-next-decision.md) and [architecture](ARCHITECTURE.md) retain the design reasoning. [AGENTS.md](../AGENTS.md) and [CURRENT_SLICE.md](../CURRENT_SLICE.md) govern active outcome-led work.
 
 ## Accepted development baseline
 

@@ -1,0 +1,99 @@
+<!doctype html>
+<!-- Disposable design prototype: can a musician follow one FRAGMENTS installation
+     without explanation? All vendor events are mock; no real installation occurs. -->
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Linux Plugin Bridge — design prototype</title>
+<style>
+:root{font:16px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#22364b;background:#edf1f5}*{box-sizing:border-box}body{margin:0;padding:18px 24px 32px}h1,h2,h3,p{margin:0 0 12px}h1{font-size:27px;line-height:1.25}h2{font-size:22px;line-height:1.3}h3{font-size:17px}p{max-width:680px}button,input,select{font:inherit;color:inherit}button{min-height:44px;border:1px solid #bcc8d5;border-radius:7px;background:#fff;padding:8px 14px;cursor:pointer}button:hover{background:#edf3fa}button.primary{background:#284f75;border-color:#284f75;color:white}button.primary:hover{background:#1f4265}button:disabled{cursor:default;opacity:.45}button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #de9c2e;outline-offset:3px}select{padding:9px 12px;border:1px solid #bbc8d4;border-radius:6px;background:white;min-height:44px;max-width:100%}label{display:block;font-weight:650;margin:18px 0 7px}.muted{font-size:14px;color:#61738a}.eyebrow{font-size:12px;text-transform:uppercase;font-weight:750;letter-spacing:.07em;color:#62758b}.actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:18px}.demo,.app,.stand-in{max-width:1050px;margin:0 auto 18px}.demo{padding:14px 18px;background:#e0e8f3;border:2px dashed #7990aa;border-radius:10px}.demo .top{display:flex;align-items:center;justify-content:space-between;gap:16px}.demo h2{font-size:17px;margin-bottom:3px}.demo p{font-size:14px;margin:0}.demo button{min-height:36px;padding:5px 11px}.demo .actions{margin-top:10px}.app{background:white;border:1px solid #ccd7e2;border-radius:13px;overflow:hidden}.app header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid #dfe6ed}.brand{font-size:18px;font-weight:750}.workspace{padding:27px 30px;min-height:265px}.empty{padding:16px 0}.installer{padding:10px 12px;background:#f4f7fb;border:1px solid #dae2ea;border-radius:7px;display:flex;justify-content:space-between;align-items:center;gap:14px;max-width:640px}.vendor-app{margin-top:24px;padding-top:18px;border-top:1px solid #dfe6ed}.plugin{padding:19px;border:1px solid #d8e2eb;border-radius:9px;background:#f8fafc;max-width:720px}.plugin h2{margin-bottom:4px}.ready{display:inline-block;background:#deeee3;color:#24573b;border-radius:20px;padding:4px 11px;font-size:13px;font-weight:650;margin:8px 0 4px}.progress{padding:18px 0}.stand-in{padding:18px 24px;background:#faf3e8;border:2px dashed #b18d55;border-radius:10px}.stand-in h2{margin-top:8px}.stand-in .muted{color:#796642}.stand-in p{margin-bottom:8px}details{margin:20px 0 8px}summary{cursor:pointer;font-weight:600}ol{padding-left:22px}li{margin:10px 0}.selected-location{font-size:14px;margin-top:15px;color:#61738a}#notice{margin:12px 0;color:#496c51;font-size:14px}@media(max-width:750px){body{padding:12px}.workspace{padding:21px}.demo .top,.installer{align-items:flex-start;flex-wrap:wrap}.app header{padding:14px 20px}.demo .top .actions{margin-top:0}}
+</style>
+</head>
+<body>
+<section class="demo" aria-label="Demo controls outside the product">
+<div class="top"><div><h2>Design prototype · plug-in journeys</h2><p id="story">You own eFX FRAGMENTS and want it in Bitwig on this computer.</p></div><div class="actions"><button id="reset">Start over</button><button id="save">Save offline copy</button></div></div>
+<p class="muted">Nothing is installed here. The file picker and vendor window below are stand-ins; no credentials are entered.</p>
+<div class="actions"><label for="journey" style="margin:0">Starting situation</label><select id="journey"><option value="first">First plug-in</option><option value="returning">Add another Arturia plug-in</option><option value="kontakt">Kontakt already works</option></select></div>
+<div class="actions" id="events" aria-label="Demo events"></div>
+</section>
+<main class="app" aria-label="Proposed product interface">
+<header><span class="brand">Linux Plugin Bridge</span><span class="muted">Bitwig · This computer</span></header>
+<section class="workspace" id="screen" aria-live="polite"></section>
+</main>
+<section id="external" class="stand-in" aria-label="Demo drive picker, file picker or vendor window" tabindex="-1" hidden></section>
+<script>
+const cleanHtml='<!doctype html>\n'+document.documentElement.outerHTML;
+const PRODUCT='eFX FRAGMENTS',INSTRUMENT='Analog Lab V',KONTAKT='Kontakt 8';
+const isInstrument=name=>name===INSTRUMENT||name===KONTAKT;
+const vendorFor=name=>name===KONTAKT?'Native Instruments':'Arturia';
+let state,completionTimer;
+const button=(text,action,primary=false,disabled=false)=>`<button data-action="${action}" ${primary?'class="primary"':''} ${disabled?'disabled':''}>${text}</button>`;
+const actions=(...items)=>`<div class="actions">${items.join('')}</div>`;
+const installed=name=>state.plugins.includes(name);
+function reset(journey=state?.journey||'first'){clearTimeout(completionTimer);journey=['first','returning','kontakt'].includes(journey)?journey:'first';state={journey,screen:'collection',installer:false,location:journey==='returning'?'Music SSD':'This computer',picker:false,locationPicker:false,vendorWindow:false,phase:'none',ready:journey!=='first',ascInstalled:journey==='returning',plugins:journey==='kontakt'?[KONTAKT]:journey==='returning'?[PRODUCT]:[],projectHasFragments:journey==='returning',playback:false,openingExisting:false,installing:null,instructionsFor:journey==='kontakt'?KONTAKT:PRODUCT,libraryConnected:true,kontaktFacts:journey==='kontakt'?{currentManagedRouteValid:true,oldInstallerOutcome:null,useReport:'You reported playing Kontakt 8 and saving and reopening a Bitwig project.',libraryDrive:'Music SSD'}:null};try{const url=new URL(location.href);url.searchParams.set('journey',journey);history.replaceState({},'',url)}catch{}render()}
+function render(){
+ const s=state,product=s.installing||PRODUCT;let content='',external='';
+ document.getElementById('journey').value=s.journey;
+ document.getElementById('story').textContent=s.journey==='kontakt'?'Kontakt 8 is already installed. You reported playing it and saving and reopening a Bitwig project. The manager does not have the old installer result.':s.journey==='first'?'You own eFX FRAGMENTS and want it in Bitwig on this computer.':'eFX FRAGMENTS already works in Bitwig through the installed Arturia Software Center on Music SSD. You own Analog Lab V and want to add it. The FRAGMENTS project is open; playback is stopped.';
+ if(s.screen==='collection')content=`<h1>Your plug-ins</h1>${s.plugins.length?s.plugins.map(name=>`<div class="plugin" data-plugin="${name}" style="margin-bottom:12px"><h2>${name}</h2><p class="muted">${vendorFor(name)} · ${isInstrument(name)?'Instrument':'Audio effect'}</p>${name===KONTAKT&&!s.libraryConnected?'<h3>Music SSD is disconnected</h3><p>Kontakt can’t load sounds from that drive. Reconnect Music SSD.</p>':'<span class="ready">Ready for Bitwig</span>'}${name===KONTAKT&&s.libraryConnected?'<p>You can close Linux Plugin Bridge and continue your project in Bitwig.</p>':''}${actions(button('How to find it in Bitwig',`instructions:${name}`,name!==KONTAKT))}</div>`).join(''):`<div class="empty"><h2>No plug-ins added yet</h2><p>Add an installer you downloaded from its vendor.</p>${actions(button('Add a plug-in','add',true))}</div>`}${s.ascInstalled?`<section class="vendor-app"><h2>Add more plug-ins</h2><h3>Arturia Software Center</h3><p class="muted">Installed · ${s.location}</p>${actions(button('Open Arturia Software Center','reviewAsc'))}</section>`:''}`;
+ if(s.screen==='add')content=`<h1>Add a plug-in</h1><label>Installer</label><div class="installer"><span>${s.installer?'Arturia Software Center installer · Downloads':'Choose the installer you downloaded'}</span>${button(s.installer?'Choose another installer':'Choose installer','chooseFile')}</div><label>Install location</label><div class="installer"><span>${s.location}${s.location==='This computer'?'<br><small class="muted">Suggested location</small>':''}</span>${button('Change…','chooseLocation')}</div>${actions(button('Start installation','start',true,!s.installer),button('Back to your plug-ins','collection'))}`;
+ if(s.screen==='review')content=`<h1>Before installing another Arturia plug-in</h1><p>You won’t be able to use <strong>${s.plugins.join(' and ')}</strong> while Arturia installs software.</p><p>${s.projectHasFragments?'eFX FRAGMENTS is in an open Bitwig project. Close that project before installing another Arturia plug-in.':'You can now open Arturia Software Center.'}</p>${actions(button('Open Arturia Software Center','openAsc',true,s.projectHasFragments),button('Not now','collection'))}`;
+ if(s.screen==='vendor'){
+  if(s.phase==='setup')content=`<h1>Set up Arturia Software Center</h1><p>Follow Arturia’s installer instructions. Then choose the plug-in you want in Software Center.</p>${actions(button('Show Arturia installer','showVendor',true))}`;
+  if(s.phase==='choose')content=`<h1>${installed(INSTRUMENT)?'Arturia Software Center':'Choose your plug-in in Arturia Software Center'}</h1><p>${installed(INSTRUMENT)?'Your Arturia plug-ins are installed.':'Sign in if needed, choose the product you own and install it. Complete any licence step Arturia asks for.'}</p>${actions(button('Show Arturia Software Center','showVendor',true),s.openingExisting?button('Back to your plug-ins','backFromVendor'):'')}`;
+  if(s.phase==='downloading')content=`<h1>Arturia is installing ${product}</h1><p>Wait for the installation to finish in Software Center.</p>${actions(button('Show Arturia Software Center','showVendor'))}`;
+  if(s.phase==='paused')content=`<h1>${product} hasn’t finished downloading</h1><p>Resume the download in Arturia Software Center.</p>${actions(button('Open Arturia Software Center to resume','showVendor',true))}`;
+  if(s.phase==='adding')content=`<h1>Adding ${product} to Bitwig…</h1><p class="progress">The installation finished. Your plug-in will appear here when it is ready.</p>`;
+  if(s.phase!=='adding')content+=`<p class="selected-location">Install location: ${s.location}</p>`;
+ }
+ if(s.screen==='instructions'){const name=s.instructionsFor;content=`<h1>Find ${name} in Bitwig</h1><ol><li>In Bitwig’s Device Panel, click <strong>+</strong> to open the browser.</li><li>Choose <strong>${isInstrument(name)?'Instruments':'Audio FX'}</strong> and search for <strong>${name}</strong>.</li><li>${isInstrument(name)?'Add it to an instrument track and play or send MIDI to the track.':'Add it to an audio track, or after an instrument, and play the track to hear the effect.'}</li></ol><p>You can close Linux Plugin Bridge while making music.</p><p class="muted"><a href="https://www.bitwig.com/userguide/latest/browsers/" target="_blank" rel="noopener">Bitwig’s browser guide</a></p>${actions(button('Back to your plug-ins','collection'))}`}
+ document.getElementById('screen').innerHTML=content;
+ if(s.locationPicker)external=`<div class="eyebrow">Demo · drive picker stand-in</div><h2>Choose a drive</h2><p>This computer · suggested location</p>${actions(button('Use this computer','localLocation'),button('Use Music SSD','musicLocation'))}`;
+ else if(s.picker)external=`<div class="eyebrow">Demo · file picker stand-in</div><h2>Downloads</h2><p>Arturia Software Center installer</p>${actions(button('Use this installer','fileSelected',true))}`;
+ else if(s.vendorWindow){
+  external='<div class="eyebrow">Demo · vendor window stand-in</div><p class="muted">This represents Arturia’s window, not its actual interface. No sign-in or licence information is entered here.</p>';
+  if(s.phase==='setup')external+=`<h2>Arturia Software Center setup</h2><p>Arturia owns the installer choices and terms. This demo continues to Software Center.</p>${actions(button('Continue setup','setupFinished',true))}`;
+  if(s.phase==='choose')external+=`<h2>Arturia Software Center</h2>${s.openingExisting?'<p class="muted">This is the existing installed Software Center.</p>':''}<p>For this journey, choose the product you own:</p>${installed(PRODUCT)?`<p>${PRODUCT} · Installed</p>`:actions(button('Install eFX FRAGMENTS','installFragments',true))}${installed(PRODUCT)?installed(INSTRUMENT)?`<p>${INSTRUMENT} · Installed</p><p class="muted">Both products in this demo are already installed.</p>`:actions(button('Install Analog Lab V','installAnalog',true)):''}`;
+  if(s.phase==='downloading')external+=`<h2>Downloading ${product}</h2><p class="muted">Use the demo event controls above to pause or finish the vendor installation.</p>`;
+  if(s.phase==='paused')external+=`<h2>Download paused</h2>${actions(button('Resume download','resumeDownload',true))}`;
+ }
+ const vendor=document.getElementById('external');vendor.hidden=!external;vendor.innerHTML=external;
+ let events='';if(s.journey==='kontakt')events+=button(s.libraryConnected?'Disconnect Music SSD':'Reconnect the same Music SSD',s.libraryConnected?'libraryDisconnected':'libraryReconnected');
+ if(s.screen==='review'&&s.projectHasFragments)events+=button('Close the FRAGMENTS project in Bitwig','projectClosed');
+ if(s.vendorWindow)events+=button('Close vendor window','closeVendor');
+ if(s.phase==='downloading')events+=button('Pause vendor download','pauseDownload')+button('Finish vendor installation','vendorFinished');
+ document.getElementById('events').innerHTML=events?'<span class="muted">Demo events · outside the product</span>'+events:'';
+}
+function act(action){
+ if(action==='add'){state.screen='add'}
+ else if(action==='chooseFile'){state.picker=true;state.locationPicker=false}
+ else if(action==='chooseLocation'){state.locationPicker=true;state.picker=false}
+ else if(action==='localLocation'||action==='musicLocation'){state.location=action==='musicLocation'?'Music SSD':'This computer';state.locationPicker=false}
+ else if(action==='fileSelected'){state.installer=true;state.picker=false}
+ else if(action==='start'){if(!state.installer)return;state.picker=false;state.locationPicker=false;state.screen='vendor';state.phase='setup';state.vendorWindow=true}
+ else if(action==='reviewAsc'){state.screen='review';state.phase='review';state.vendorWindow=false}
+ else if(action==='openAsc'){if(state.projectHasFragments)return;state.screen='vendor';state.phase='choose';state.vendorWindow=true;state.openingExisting=true;state.installing=null}
+ else if(action==='projectClosed')state.projectHasFragments=false;
+ else if(action==='libraryDisconnected'){state.libraryConnected=false;state.screen='collection'}
+ else if(action==='libraryReconnected'){state.libraryConnected=true;state.screen='collection'}
+ else if(action==='showVendor')state.vendorWindow=true;
+ else if(action==='setupFinished'){state.phase='choose';state.ascInstalled=true}
+ else if(action==='installFragments'||action==='installAnalog'){const name=action==='installAnalog'?INSTRUMENT:PRODUCT;if(installed(name))return;state.installing=name;state.phase='downloading'}
+ else if(action==='closeVendor')state.vendorWindow=false;
+ else if(action==='pauseDownload'){state.phase='paused';state.vendorWindow=false}
+ else if(action==='resumeDownload')state.phase='downloading';
+ else if(action==='vendorFinished'){const name=state.installing;state.phase='adding';state.vendorWindow=false;render();completionTimer=setTimeout(()=>{if(!installed(name))state.plugins.push(name);state.ready=true;state.screen='collection';state.phase='finished';render()},900);return}
+ else if(action.startsWith('instructions:')){state.instructionsFor=action.slice(13);state.screen='instructions'}
+ else if(action==='backFromVendor'){if(state.phase!=='choose')return;state.vendorWindow=false;state.screen='collection';state.phase='finished'}
+ else if(action==='collection'){state.screen='collection';state.picker=false;state.locationPicker=false}
+ render();
+ if(['chooseFile','chooseLocation','start','openAsc','showVendor','setupFinished'].includes(action)&&!document.getElementById('external').hidden){const target=document.getElementById('external');target.focus({preventScroll:true});target.scrollIntoView({block:'center',behavior:'instant'})}
+}
+for(const id of ['screen','external','events'])document.getElementById(id).addEventListener('click',event=>{const b=event.target.closest('[data-action]');if(b&&!b.disabled)act(b.dataset.action)});
+ document.getElementById('reset').addEventListener('click',()=>reset());
+ document.getElementById('journey').addEventListener('change',event=>reset(event.target.value));
+ document.getElementById('save').addEventListener('click',()=>{const copy=new DOMParser().parseFromString(cleanHtml,'text/html');copy.documentElement.dataset.initialJourney=state.journey;const url=URL.createObjectURL(new Blob(['<!doctype html>\n'+copy.documentElement.outerHTML],{type:'text/html;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download='fragments-bitwig-installation-prototype.html';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000)});
+ reset(new URL(location.href).searchParams.get('journey')||document.documentElement.dataset.initialJourney||'first');
+</script>
+</body>
+</html>
