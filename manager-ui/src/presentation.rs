@@ -1,5 +1,6 @@
 //! Read-only language and routing over the canonical operator snapshot.
-use crate::model::{Action, AvailableAction, DawChoice, Product, Snapshot, System};
+use crate::model::{Action, AvailableAction, CompatibilityPhase, DawChoice, InstallationJourney,
+    InstallationPhase, InstallationPluginStage, Product, Snapshot, System};
 use eframe::egui;
 
 /// Shared readable, touch-sized presentation for the ordinary app and previews.
@@ -231,6 +232,55 @@ pub fn health(system: &System) -> Health {
         Health::InUse
     } else {
         Health::Ready
+    }
+}
+
+pub fn owned_service_pause(operation: Option<&serde_json::Value>) -> bool {
+    let Some(operation) = operation else { return false; };
+    let pause = &operation["owned_service_pause"];
+    pause["schema"] == 1
+        && pause["automatic_operation"] == operation["operation"]
+        && operation["operation"].as_str().is_some_and(|id| !id.is_empty())
+        && pause["owner_operation"].as_str().is_some_and(|id| !id.is_empty())
+        && matches!(operation["state"].as_str(), Some("waiting" | "running" | "vendor_running"))
+        && matches!(operation["journey"]["phase"].as_str(), Some("preparing_environment"
+            | "vendor_running" | "discovering" | "preparing_plugins"))
+        && operation["journey"]["failure"].is_null()
+}
+
+pub fn installation_progress(snapshot: &Snapshot, product: &Product) -> Option<&'static str> {
+    if product.availability.as_ref().is_some_and(|availability| availability.available)
+        || !matches!(product.disposition.as_str(), "installed_unqualified" | "prepared")
+        || product.disposition == "quarantined" || product.details["current"] == false
+        || !product.details["refusal"].is_null()
+        || product.compatibility.as_ref().is_some_and(|workflow|
+            workflow.phase == CompatibilityPhase::AwaitingRetirement) {
+        return None;
+    }
+    let operation = snapshot.operation.as_ref()?;
+    if !matches!(operation["state"].as_str(), Some("waiting" | "running")) { return None; }
+    let journey: InstallationJourney = serde_json::from_value(operation["journey"].clone()).ok()?;
+    if journey.phase != InstallationPhase::PreparingPlugins || journey.failure.is_some() { return None; }
+    let environment = operation["onboarding"].as_str()?;
+    let mut setups = snapshot.installer_setups.iter().filter(|setup|
+        setup.environment.as_deref() == Some(environment) && setup.journey.is_some());
+    let setup = setups.next()?;
+    if setups.next().is_some() { return None; }
+    let mut discovered = setup.discovered.iter().filter(|found| found.class_id == product.class_id);
+    let found = discovered.next()?;
+    if discovered.next().is_some() || found.environment != product.environment
+        || found.environment != environment || found.module_sha256 != product.module_sha256 {
+        return None;
+    }
+    let mut plugins = journey.plugins.iter().filter(|plugin| plugin.class_id == product.class_id);
+    let plugin = plugins.next()?;
+    if plugins.next().is_some() || plugin.failure.is_some() { return None; }
+    match plugin.stage {
+        InstallationPluginStage::Pending => Some("Waiting to connect to your DAW"),
+        InstallationPluginStage::Inspecting => Some("Checking this plug-in"),
+        InstallationPluginStage::Preparing => Some("Preparing its DAW connection"),
+        InstallationPluginStage::Publishing => Some("Connecting to your DAW"),
+        _ => None,
     }
 }
 

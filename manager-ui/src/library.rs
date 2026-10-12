@@ -167,7 +167,8 @@ impl Library {
                     ui.label(egui::RichText::new(&product.name).size(19.0).strong());
                     ui.small(format!("{} · {} · {}", vendor(product), role(product),
                         if product.version.is_empty() { "Version unavailable" } else { &product.version }));
-                    if fresh { ui.label(status(product).0); }
+                    if fresh { ui.label(presentation::installation_progress(current, product)
+                        .unwrap_or_else(|| status(product).0)); }
                     ui.small("Setup actions and settings appear after the current controls load.");
                     // A Setup discovery may focus several exact classes. Each
                     // row must still let the user select one current detail.
@@ -256,6 +257,7 @@ impl Library {
                     .show(ui, |ui| {
                         ui.set_min_width((ui.available_width() - 1.0).max(0.0));
                         let related = related_actions(p, snapshot);
+                        let progress = presentation::installation_progress(snapshot, p);
                         let primary = p.compatibility.as_ref().and_then(|workflow| workflow.primary.clone())
                             .or_else(|| p.compatibility.is_none().then(||
                                 emphasized_action(p, &related, snapshot.system.inactive_reason())).flatten())
@@ -267,13 +269,13 @@ impl Library {
                             });
                         let optional_result = primary.as_ref().filter(|offer| optional_test_result(p, &offer.action));
                         let optional_preparation = primary.as_ref().filter(|offer|
-                            status(p).1 == "published" && other_setup_option(&offer.action));
+                            (status(p).1 == "published" || progress.is_some()) && other_setup_option(&offer.action));
                         let everyday_primary = primary.clone().filter(|_| optional_result.is_none()
                             && optional_preparation.is_none());
                         let management = ordinary_actions(p, &related, primary.as_ref());
                         ui.horizontal_wrapped(|ui| {
                             ui.label(egui::RichText::new(&p.name).size(19.0).strong());
-                            let (label, category) = status(p);
+                            let (label, category) = progress.map(|label| (label, "installing")).unwrap_or_else(|| status(p));
                             let color = if category == "attention" {
                                 warning_color(ui)
                             } else {
@@ -293,7 +295,7 @@ impl Library {
                                 workflow.phase == CompatibilityPhase::NeedsWork) {
                                 ui.colored_label(warning_color(ui), &workflow.summary);
                             }
-                        } else if let Some(workflow) = &p.compatibility {
+                        } else if let Some(workflow) = p.compatibility.as_ref().filter(|_| progress.is_none()) {
                             if workflow.phase == CompatibilityPhase::ReadyForTest {
                                 ui.label("The native bridge is prepared. Make it available below, then choose it in your DAW.");
                             } else { ui.label(&workflow.summary); }
@@ -331,7 +333,7 @@ impl Library {
                             });
                         }
                         if let Some(reason) =
-                            presentation::product_issue(p).filter(|_| status(p).1 == "attention")
+                            presentation::product_issue(p).filter(|_| progress.is_none() && status(p).1 == "attention")
                         {
                             ui.colored_label(warning_color(ui), reason);
                         }

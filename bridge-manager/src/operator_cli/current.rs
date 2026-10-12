@@ -28,6 +28,7 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
     paths.extend(runtime_records.iter().cloned());
     paths.insert(m.root.join("registry.json"));
     paths.insert(m.root.join("operator/latest.json"));
+    paths.insert(m.root.join("operator/resume.json"));
     paths.insert(m.root.join("daw-workspaces/fl-studio/workspace.json"));
     let vendor = app_directory(m);
     for path in [&vendor,&vendor.join("application.json"),&vendor.join("operation.json"),
@@ -692,8 +693,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
             action("Create sanitized support export",ui::Action::SupportExport {},None),
             action("Reconcile interrupted transaction",ui::Action::TransactionReconcile {},
                 inactive_reason(cap.as_ref(),retired,pending,true))],
-        operation:optional(&m.root.join("operator/latest.json"))?.as_object()
-            .map(|v|Value::Object(v.clone()))};
+        operation:automatic_install::current_operation(m)?};
     Ok(CurrentOverviewContext {snapshot,busy,profiles,revisions,owners,watched,current_generation,
         software:sw,registry:db,preparation,bindings:managed_bindings,
         installer_live,vendor_progress,vendor_retired:vendor,all_vendor_retired:retired,cleanup_seen,

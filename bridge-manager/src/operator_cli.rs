@@ -285,8 +285,7 @@ fn activity_with_capacity(m: &Manager, cap: Option<&CapacityReadback>) -> Result
         schema: ui::OPERATOR_SCHEMA,
         system: system_from_capacity(cap, pending, stale),
         capture: capture_state(m)?,
-        operation: optional(&m.root.join("operator/latest.json"))?
-            .as_object().map(|v| Value::Object(v.clone())),
+        operation: automatic_install::current_operation(m)?,
         workspace_product_install_ready: daw_workspace::serum2_install_finish_ready(m)?,
     })
 }
@@ -334,7 +333,7 @@ fn activity(m: &Manager) -> Result<ui::Activity> {
 fn pulse_generation(m: &Manager) -> Result<String> {
     use std::os::unix::fs::MetadataExt;
     let paths = ["software.json", "registry.json", "preparation/revision.json",
-        "daw-workspaces/fl-studio/workspace.json", "operator/latest.json",
+        "daw-workspaces/fl-studio/workspace.json", "operator/latest.json", "operator/resume.json",
         "installers", "onboarding", "inventory", "transactions", "performance",
         "runtime/leases", "runtime/owner.sock"];
     let runtime_records=linux_vst_bridge::runtime_delivery::record_paths(m);
@@ -389,8 +388,7 @@ fn pulse(m: &Manager) -> Result<ui::Pulse> {
         Duration::from_millis(200), &mut vec![])
         .and_then(|_guard| capacity::owners(m)).ok();
     let pending = pending_transactions(m)?;
-    let operation = optional(&m.root.join("operator/latest.json"))?
-        .as_object().map(|v|Value::Object(v.clone()));
+    let operation = automatic_install::current_operation(m)?;
     let operation_live = operation.as_ref().and_then(|v|v["state"].as_str())
         .is_some_and(operation_state_live);
     Ok(ui::Pulse {schema:ui::OPERATOR_SCHEMA,
@@ -1348,9 +1346,7 @@ fn snapshot_readonly_depth(
                 inactive_reason(cap.as_ref(),retired,pending,true),
             ),
         ],
-        operation: optional(&m.root.join("operator/latest.json"))?
-            .as_object()
-            .map(|v| Value::Object(v.clone())),
+        operation: live.operation,
     })
 }
 fn project_onboarding_failure(

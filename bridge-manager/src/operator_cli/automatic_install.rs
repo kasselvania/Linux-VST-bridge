@@ -40,6 +40,105 @@ fn stable_identity(selection: &prep::Selection) -> String {
     format!("{}:{}", selection.module.sha256, selection.class.id)
 }
 
+pub(super) fn current_operation(m: &Manager) -> Result<Option<Value>> {
+    let receipt = optional(&m.root.join("operator/latest.json"))?;
+    let Some(mut receipt) = receipt.as_object().cloned().map(Value::Object) else {
+        return Ok(None);
+    };
+    receipt
+        .as_object_mut()
+        .unwrap()
+        .remove("owned_service_pause");
+    if let Some(pause) = owned_service_pause_with(m, &receipt, |operation| {
+        Ok(
+            readiness::bounded_user_unit_state(&format!("linux-vst-bridge-operator-{operation}"))
+                .is_ok_and(|state| state == "active"),
+        )
+    })? {
+        receipt["owned_service_pause"] = pause;
+    }
+    Ok(Some(receipt))
+}
+
+fn owned_service_pause_with(
+    m: &Manager,
+    receipt: &Value,
+    is_live: impl FnOnce(&str) -> Result<bool>,
+) -> Result<Option<Value>> {
+    let Some(operation) = receipt["operation"].as_str().filter(|id| valid_hex(id, 32)) else {
+        return Ok(None);
+    };
+    if !matches!(
+        receipt["state"].as_str(),
+        Some("waiting" | "running" | "vendor_running")
+    ) {
+        return Ok(None);
+    }
+    let Ok(journey) = serde_json::from_value::<ui::InstallationJourney>(receipt["journey"].clone())
+    else {
+        return Ok(None);
+    };
+    if matches!(
+        journey.phase,
+        ui::InstallationPhase::Available | ui::InstallationPhase::NeedsAttention
+    ) {
+        return Ok(None);
+    }
+    let Some(saved) = resume_record(m)? else {
+        return Ok(None);
+    };
+    if saved.schema != 2 || !saved.resume || saved.software != software_record(m)?.manager.sha256 {
+        return Ok(None);
+    }
+    let request: ui::Request = read_json(&job_dir(m, operation)?.join("request.json"))?;
+    if request.schema != ui::OPERATOR_SCHEMA {
+        return Ok(None);
+    }
+    let bound = match &request.action {
+        ui::Action::SoftwareInstall { daw, .. } if saved.owner_operation == operation => {
+            *daw == journey.daw
+        }
+        ui::Action::SoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. } => {
+            onboarding::history_records(m)?.iter().any(|record| {
+                let Some(intent) = &record.automatic else {
+                    return false;
+                };
+                let same_request = match &request.action {
+                    ui::Action::SoftwareInstall { installer, daw } => {
+                        *installer == record.installer && *daw == intent.journey.daw
+                    }
+                    ui::Action::SoftwareInstallResume { onboarding } => *onboarding == record.id,
+                    _ => false,
+                };
+                same_request
+                    && intent.active_operation == operation
+                    && intent.journey.daw == journey.daw
+                    && intent.journey.phase == journey.phase
+                    && (saved.owner_operation == operation
+                        || intent.work.iter().any(|work| {
+                            work.active_operation.as_ref() == Some(&saved.owner_operation)
+                        }))
+            })
+        }
+        _ => false,
+    };
+    if !bound || !is_live(operation)? {
+        return Ok(None);
+    }
+    if saved.owner_operation != operation {
+        let child = optional(&job_dir(m, &saved.owner_operation)?.join("result.json"))?;
+        if matches!(child["state"].as_str(), Some("completed" | "refused")) {
+            return Ok(None);
+        }
+    }
+    // Display-only explanation of an existing live owner's suspension. Capacity
+    // and cleanup remain unknown until the existing restore owner verifies them.
+    Ok(Some(
+        json!({"schema":1,"owner_operation":saved.owner_operation,
+        "automatic_operation":operation}),
+    ))
+}
+
 fn failure(stage: ui::InstallationFailureStage, reason: impl ToString) -> ui::InstallationFailure {
     ui::InstallationFailure {
         stage,
@@ -1071,6 +1170,144 @@ mod tests {
             }
             _ => preparation_cli::execute(m, action, operation, || m.lock("registry.lock")),
         }
+    }
+    #[test]
+    fn owned_service_pause_requires_exact_live_owner_and_preserves_real_failures() {
+        let (f, candidate, record, mut intent) = setup();
+        let operation = intent.owner.clone();
+        let request = ui::Request {
+            schema: ui::OPERATOR_SCHEMA,
+            state_token: token(&f.m).unwrap(),
+            action: ui::Action::SoftwareInstall {
+                installer: record.installer.clone(),
+                daw: intent.journey.daw,
+            },
+        };
+        atomic_json(
+            &job_dir(&f.m, &operation).unwrap().join("request.json"),
+            &request,
+        )
+        .unwrap();
+        save(&f.m, &record, &intent, &operation).unwrap();
+        let receipt = worker_receipt(&f.m, &operation);
+        let mut saved = ResumeRecord {
+            schema: 2,
+            owner_operation: operation.clone(),
+            resume: true,
+            software: software_record(&f.m).unwrap().manager.sha256,
+            vendor_operation: None,
+        };
+        atomic_json(&f.m.root.join("operator/resume.json"), &saved).unwrap();
+        let before = test_fixture::snapshot(&f.m.root);
+        let pause = owned_service_pause_with(&f.m, &receipt, |id| {
+            assert_eq!(id, operation);
+            Ok(true)
+        })
+        .unwrap()
+        .unwrap();
+        assert_eq!(pause["automatic_operation"], operation);
+        assert_eq!(pause["owner_operation"], operation);
+        assert_eq!(
+            test_fixture::snapshot(&f.m.root),
+            before,
+            "Readback must not resume or write"
+        );
+        assert!(
+            !system_from_capacity(None, 0, 0).capacity_available(),
+            "A planned pause does not grant capacity"
+        );
+        assert!(
+            owned_service_pause_with(&f.m, &receipt, |_| Ok(false))
+                .unwrap()
+                .is_none(),
+            "Orphaned owner needs recovery"
+        );
+        for state in ["refused", "completed"] {
+            let mut terminal = receipt.clone();
+            terminal["state"] = json!(state);
+            assert!(owned_service_pause_with(&f.m, &terminal, |_| Ok(true))
+                .unwrap()
+                .is_none());
+        }
+        let mut failed = receipt.clone();
+        failed["journey"]["phase"] = json!("needs_attention");
+        assert!(owned_service_pause_with(&f.m, &failed, |_| Ok(true))
+            .unwrap()
+            .is_none());
+        let matching_software = saved.software.clone();
+        saved.software = "cd".repeat(32);
+        atomic_json(&f.m.root.join("operator/resume.json"), &saved).unwrap();
+        assert!(owned_service_pause_with(&f.m, &receipt, |_| Ok(true))
+            .unwrap()
+            .is_none());
+        saved.software = matching_software;
+        saved.resume = false;
+        atomic_json(&f.m.root.join("operator/resume.json"), &saved).unwrap();
+        assert!(
+            owned_service_pause_with(&f.m, &receipt, |_| Ok(true))
+                .unwrap()
+                .is_none(),
+            "An already stopped service is not our pause"
+        );
+        saved.resume = true;
+        saved.owner_operation = random_id().unwrap();
+        atomic_json(&f.m.root.join("operator/resume.json"), &saved).unwrap();
+        assert!(
+            owned_service_pause_with(&f.m, &receipt, |_| Ok(true))
+                .unwrap()
+                .is_none(),
+            "Another owner must remain visible as a problem"
+        );
+
+        let child = random_id().unwrap();
+        private_dir(&job_dir(&f.m, &child).unwrap()).unwrap();
+        intent.work.push(ClassWork {
+            selection: candidate.selection.id().unwrap(),
+            result_index: 0,
+            check: Some(child.clone()),
+            candidate: None,
+            active_operation: Some(child.clone()),
+        });
+        save(&f.m, &record, &intent, &operation).unwrap();
+        saved.owner_operation = child.clone();
+        atomic_json(&f.m.root.join("operator/resume.json"), &saved).unwrap();
+        let pause = owned_service_pause_with(&f.m, &receipt, |_| Ok(true))
+            .unwrap()
+            .unwrap();
+        assert_eq!(pause["owner_operation"], child);
+        assert_eq!(pause["automatic_operation"], operation);
+        let mut resume_request = request;
+        resume_request.action = ui::Action::SoftwareInstallResume {
+            onboarding: record.id.clone(),
+        };
+        atomic_json(
+            &job_dir(&f.m, &operation).unwrap().join("request.json"),
+            &resume_request,
+        )
+        .unwrap();
+        assert!(owned_service_pause_with(&f.m, &receipt, |_| Ok(true))
+            .unwrap()
+            .is_some());
+        for state in ["refused", "completed"] {
+            atomic_json(
+                &job_dir(&f.m, &child).unwrap().join("result.json"),
+                &json!({"schema":1,"operation":child,"state":state}),
+            )
+            .unwrap();
+            assert!(
+                owned_service_pause_with(&f.m, &receipt, |_| Ok(true))
+                    .unwrap()
+                    .is_none(),
+                "A terminal child's retained suspension needs real recovery"
+            );
+        }
+        fs::remove_file(f.m.root.join("operator/resume.json")).unwrap();
+        assert!(
+            owned_service_pause_with(&f.m, &receipt, |_| Ok(true))
+                .unwrap()
+                .is_none(),
+            "Restoration clears the display fact"
+        );
     }
     #[test]
     fn cold_install_progress_precedes_runtime_work_and_failure_keeps_exact_retry() {

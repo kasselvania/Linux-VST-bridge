@@ -479,6 +479,8 @@ pub struct Operator {
     operation_live: bool,
     prompt_pulse: bool,
     last_pulse: Option<crate::model::Pulse>,
+    // An unavailable readback cannot clear a positively observed cleanup fault.
+    cleanup_failure_observed: bool,
     readback_failures: u32,
     retry_after: Option<Instant>,
     message: String,
@@ -522,6 +524,7 @@ impl Operator {
             operation_live: false,
             prompt_pulse: false,
             last_pulse: None,
+            cleanup_failure_observed: false,
             readback_failures: 0,
             retry_after: None,
             message: String::new(),
@@ -566,6 +569,7 @@ impl Operator {
             operation_live: false,
             prompt_pulse: false,
             last_pulse: None,
+            cleanup_failure_observed: false,
             readback_failures: 0,
             retry_after: None,
             message: String::new(),
@@ -797,7 +801,11 @@ impl Operator {
             Query::Overview
         } else { Query::CurrentOverview }
     }
-    fn apply_current_overview(&mut self, bundle: CurrentOverview) {
+    fn apply_current_overview(&mut self, mut bundle: CurrentOverview) {
+        if bundle.current.system.capacity_available() {
+            self.cleanup_failure_observed = bundle.current.system.cleanup_unconfirmed;
+        }
+        veto_owned_pause(&mut bundle.current.operation, self.cleanup_failure_observed);
         if self.software_install_daw.is_none() {
             let mut choices = bundle.current.installer_setups.iter()
                 .filter_map(|setup| setup.journey.as_ref().map(|journey| journey.daw));
@@ -847,6 +855,19 @@ impl Operator {
     fn current_health_system(&self) -> Option<&System> {
         if !self.overview_fresh { return None; }
         self.retained_health_system()
+    }
+    fn current_owned_pause(&self) -> bool {
+        if self.cleanup_failure_observed { return false; }
+        let operation = if let Some(pulse) = self.last_pulse.as_ref()
+            .filter(|_| self.last_poll.elapsed() < Duration::from_secs(15)) {
+            if pulse.pending_transactions > 0 || pulse.cleanup_unconfirmed == Some(true) {
+                return false;
+            }
+            pulse.operation.as_ref()
+        } else if self.overview_fresh {
+            self.overview.as_ref().and_then(|overview| overview.current.operation.as_ref())
+        } else { None };
+        presentation::owned_service_pause(operation)
     }
     fn retained_health_system(&self) -> Option<&System> {
         let overview = self.overview.as_ref()?;
@@ -944,7 +965,9 @@ impl Operator {
                     self.refresh_after = true;
                 }
             }
-            Reply::Snapshot(s) => {
+            Reply::Snapshot(mut s) => {
+                if s.system.capacity_available() {self.cleanup_failure_observed = s.system.cleanup_unconfirmed;}
+                veto_owned_pause(&mut s.operation, self.cleanup_failure_observed);
                 if s.schema != crate::model::OPERATOR_SCHEMA {
                     self.message = format!("Update the frontend and manager together: operator model {} required",
                         crate::model::OPERATOR_SCHEMA);
@@ -981,7 +1004,9 @@ impl Operator {
                 // The lightweight receipt poll selects the completed readback.
                 self.refresh_after = !r.accepted;
             }
-            Reply::Activity(a) => {
+            Reply::Activity(mut a) => {
+                if a.system.capacity_available() {self.cleanup_failure_observed = a.system.cleanup_unconfirmed;}
+                veto_owned_pause(&mut a.operation, self.cleanup_failure_observed);
                 if let Some(op) = &a.operation {
                     if let Some(f) = &mut self.feedback {
                         f.observe(op);
@@ -1012,7 +1037,9 @@ impl Operator {
                     overview.current.operation = a.operation;
                 }
             }
-            Reply::Pulse(p) => {
+            Reply::Pulse(mut p) => {
+                if let Some(failed) = p.cleanup_unconfirmed {self.cleanup_failure_observed = failed;}
+                veto_owned_pause(&mut p.operation, self.cleanup_failure_observed);
                 self.prompt_pulse = false;
                 self.operation_live = p.operation_live;
                 if let Some(op) = &p.operation {
@@ -1260,6 +1287,14 @@ fn journey_phase_label(phase: InstallationPhase) -> &'static str {
     }
 }
 
+fn veto_owned_pause(operation: &mut Option<serde_json::Value>, cleanup_failed: bool) {
+    if cleanup_failed {
+        if let Some(operation) = operation.as_mut().and_then(serde_json::Value::as_object_mut) {
+            operation.remove("owned_service_pause");
+        }
+    }
+}
+
 fn setup_attention_priority(setup: &InstallerSetup) -> u8 {
     setup.journey.as_ref().map(|journey| match journey.phase {
         InstallationPhase::VendorRunning => 0,
@@ -1415,16 +1450,20 @@ impl Operator {
             crate::library::status(product).1 != "published");
         let recovery = overview.current.products.iter().find(|product|
             crate::library::recovery_pending(product));
+        let owned_pause = presentation::owned_service_pause(overview.current.operation.as_ref())
+            && overview.current.system.pending_transactions == 0
+            && overview.current.system.stale_transports == 0
+            && (!overview.current.system.capacity_available() || !overview.current.system.cleanup_unconfirmed);
         egui::Frame::group(ui.style()).fill(ui.visuals().faint_bg_color)
             .inner_margin(16.0).show(ui, |ui| {
             ui.set_min_width((ui.available_width() - 1.0).max(0.0));
             if !fresh {
                 ui.strong("Refreshing plug-in status");
                 ui.label("Wait for the current status before starting or changing a plug-in. You can still browse the listed software.");
-            } else if !overview.current.system.capacity_available()
+            } else if (!overview.current.system.capacity_available()
                 || overview.current.system.cleanup_unconfirmed
                 || overview.current.system.stale_transports > 0
-                || overview.current.system.pending_transactions > 0 {
+                || overview.current.system.pending_transactions > 0) && !owned_pause {
                 ui.strong("Next: resolve the bridge service problem");
                 ui.label(if !overview.current.system.capacity_available() {
                     "The bridge service could not report its current status."
@@ -1520,11 +1559,12 @@ impl Operator {
                             *page = Page::Plugins;
                         }
                     });
-                    if fresh { ui.label(crate::library::status(current).0); }
+                    let progress = presentation::installation_progress(&overview.current, current);
+                    if fresh { ui.label(progress.unwrap_or_else(|| crate::library::status(current).0)); }
                     if let Some(product) = assessment.and_then(|assessment| assessment.products.iter()
                         .find(|product| product.class_id == current.class_id
                             && product.module_sha256 == current.module_sha256)) {
-                        if product.installation_health == InstallationHealth::ActionRequired {
+                        if progress.is_none() && product.installation_health == InstallationHealth::ActionRequired {
                             ui.colored_label(warning_color(ui), &product.reason);
                         }
                         egui::CollapsingHeader::new("Setup check details").show(ui, |ui| {
@@ -1663,7 +1703,7 @@ impl Operator {
         ui.small("Vendor accounts and authorization stay with you and the vendor.");
         if ui.button("Technical setup history").clicked() { *page = Page::Diagnostics; }
     }
-    fn health_bar(ui: &mut egui::Ui, system: Option<&System>, _retained: Option<&System>) {
+    fn health_bar(ui: &mut egui::Ui, system: Option<&System>, owned_pause: bool) {
         egui::Frame::group(ui.style()).fill(ui.visuals().faint_bg_color)
             .inner_margin(10.0).show(ui, |ui| {
             ui.set_min_width((ui.available_width() - 1.0).max(0.0));
@@ -1671,9 +1711,13 @@ impl Operator {
             let mut expanded = ui.data_mut(|data|data.get_temp::<bool>(details_id)).unwrap_or(false);
             ui.horizontal_wrapped(|ui| {
                 // The same row shape is retained through readback transitions.
-                let title = system.map(presentation::health)
-                    .unwrap_or(presentation::Health::Unavailable).title();
-                let warning = system.is_none_or(|system|matches!(presentation::health(system),
+                let paused = owned_pause && system.is_none_or(|system|
+                    system.pending_transactions == 0 && system.stale_transports == 0
+                        && (!system.capacity_available() || !system.cleanup_unconfirmed));
+                let title = if paused {"Bridge temporarily paused for installation"} else {
+                    system.map(presentation::health).unwrap_or(presentation::Health::Unavailable).title()
+                };
+                let warning = !paused && system.is_none_or(|system|matches!(presentation::health(system),
                     presentation::Health::Unavailable | presentation::Health::NeedsAttention));
                 let text = egui::RichText::new(title).size(16.0).strong();
                 ui.label(if warning {text.color(warning_color(ui))} else {text});
@@ -2196,7 +2240,7 @@ impl eframe::App for Operator {
                 }
             }
             if self.preview { ui.small("LOCAL DESIGN PREVIEW · sample records · actions do not execute"); }
-            Self::health_bar(ui, self.current_health_system(), self.retained_health_system());
+            Self::health_bar(ui, self.current_health_system(), self.current_owned_pause());
             navigation(ui, &mut self.page);
             self.request_bar(ui);
             ui.separator();
@@ -2938,6 +2982,144 @@ mod tests {
     }
 
     #[test]
+    fn owned_installation_pause_does_not_turn_normal_progress_into_service_repair() {
+        for case in ["owned", "missing", "other", "refused", "failed", "pending", "stale"] {
+            let mut overview:CurrentOverview = overview_fixture().into();
+            overview.current.products.clear();
+            overview.current.system.service = "capacity unavailable".into();
+            overview.current.system.cleanup_unconfirmed = true;
+            overview.current.system.pending_transactions = usize::from(case == "pending");
+            overview.current.system.stale_transports = usize::from(case == "stale");
+            let mut journey = automatic_journey(InstallationPhase::PreparingPlugins);
+            journey.plugins.clear();
+            if case == "failed" {journey.phase = InstallationPhase::NeedsAttention;}
+            overview.current.installer_setups = vec![automatic_setup(journey.clone(), None)];
+            let mut operation = serde_json::json!({"operation":"active-installation",
+                "state":if case == "refused" {"refused"} else {"running"},
+                "journey":journey,"owned_service_pause":{"schema":1,"owner_operation":"exact-child",
+                    "automatic_operation":if case == "other" {"another-installation"} else {"active-installation"}}});
+            if case == "missing" {operation.as_object_mut().unwrap().remove("owned_service_pause");}
+            overview.current.operation = Some(operation);
+            overview.current.actions = vec![AvailableAction {label:"Reconcile interrupted transaction".into(),
+                action:Action::TransactionReconcile {},disabled_reason:Some("Service capacity unavailable".into())}];
+            let ctx = result_form_context();
+            let mut chosen = None;
+            let mut output = ctx.run_ui(egui::RawInput {screen_rect:Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,egui::vec2(960.0,900.0))),..Default::default()}, |ui| {
+                Operator::health_bar(ui,Some(&overview.current.system),
+                    presentation::owned_service_pause(overview.current.operation.as_ref()));
+                Operator::fast_home(ui,&overview,None,true,false,
+                    (&mut Page::Home,&mut crate::library::Library::default(),
+                        &mut RouteFocus::default(),&mut false,&mut chosen));
+            });
+            let mut labels = vec![];
+            for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+            output.textures_delta.clear();
+            let paused = case == "owned";
+            assert_eq!(labels.iter().any(|(label,_)|label == "Bridge temporarily paused for installation"),paused,"{case}");
+            assert_eq!(labels.iter().any(|(label,_)|label == "Next: resolve the bridge service problem"),!paused,"{case}");
+            assert_eq!(labels.iter().any(|(label,_)|label == "Reconcile interrupted transaction"),!paused,"{case}");
+            if paused {assert!(labels.iter().any(|(label,_)|label.contains("Connecting plug-ins to your DAW")));}
+            assert!(!overview.current.system.capacity_available());
+            assert!(chosen.is_none());
+        }
+    }
+
+    #[test]
+    fn observed_cleanup_failure_vetoes_owned_pause_on_home_after_pulse_and_refresh() {
+        let mut overview:CurrentOverview = overview_fixture().into();
+        overview.current.products.clear();
+        overview.current.system.service = "capacity unavailable".into();
+        overview.current.system.cleanup_unconfirmed = true;
+        let mut journey = automatic_journey(InstallationPhase::PreparingPlugins);journey.plugins.clear();
+        overview.current.installer_setups = vec![automatic_setup(journey.clone(),None)];
+        overview.current.operation = Some(serde_json::json!({"operation":"current-op","state":"running",
+            "journey":journey,"owned_service_pause":{"schema":1,"owner_operation":"child-op",
+                "automatic_operation":"current-op"}}));
+        let mut state = state_fixture();state.apply_current_overview(overview.clone());
+        let mut pulse = pulse_fixture(true);pulse.service_state = "inactive".into();
+        pulse.operation = overview.current.operation.clone();pulse.cleanup_unconfirmed = Some(true);
+        state.handle_reply(Reply::Pulse(pulse));
+        assert!(!state.current_owned_pause());
+        let mut unavailable = pulse_fixture(true);unavailable.operation = overview.current.operation.clone();
+        unavailable.cleanup_unconfirmed = None;
+        state.handle_reply(Reply::Pulse(unavailable));
+        assert!(!state.current_owned_pause(), "An unavailable observation must not erase a known cleanup failure");
+        for refresh in [false,true] {
+            if refresh {state.apply_current_overview(overview.clone());}
+            let current = state.overview.as_ref().unwrap();
+            assert!(!presentation::owned_service_pause(current.current.operation.as_ref()));
+            let ctx = result_form_context();let mut chosen = None;
+            let mut output = ctx.run_ui(egui::RawInput {screen_rect:Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,egui::vec2(960.0,720.0))),..Default::default()}, |ui| {
+                Operator::fast_home(ui,current,None,true,false,(&mut Page::Home,
+                    &mut crate::library::Library::default(),&mut RouteFocus::default(),&mut false,&mut chosen));
+            });
+            let mut labels = vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+            output.textures_delta.clear();
+            assert!(labels.iter().any(|(label,_)|label == "Next: resolve the bridge service problem"));
+            assert!(chosen.is_none());
+        }
+        let mut recovered = pulse_fixture(true);recovered.operation = overview.current.operation.clone();
+        recovered.cleanup_unconfirmed = Some(false);
+        state.handle_reply(Reply::Pulse(recovered));state.apply_current_overview(overview);
+        assert!(state.current_owned_pause(), "A fresh recovery observation permits normal owned progress again");
+    }
+
+    #[test]
+    fn installation_rows_use_exact_progress_and_keep_available_or_failed_siblings_truthful() {
+        let mut overview:CurrentOverview = overview_fixture().into();
+        overview.current.products.truncate(1);
+        let first = &mut overview.current.products[0];
+        first.disposition = "installed_unqualified".into();
+        first.availability = Some(NativeAvailability {available:false,reason:Some("No native connection yet".into())});
+        first.details = serde_json::json!({});first.compatibility = None;first.actions.clear();
+        let mut sibling = first.clone();
+        sibling.class_id = "different-class".into();sibling.name = "Already available sibling".into();
+        sibling.disposition = "ready".into();
+        sibling.availability = Some(NativeAvailability {available:true,reason:None});
+        let environment = first.environment.clone();
+        let mut journey = automatic_journey(InstallationPhase::PreparingPlugins);
+        journey.plugins = vec![InstallationPlugin {selection:"exact-selection".into(),class_id:first.class_id.clone(),
+            name:first.name.clone(),stage:InstallationPluginStage::Inspecting,failure:None}];
+        overview.current.operation = Some(serde_json::json!({"operation":"exact-operation","state":"running",
+            "onboarding":environment,"journey":journey}));
+        let mut setup = automatic_setup(journey,None);setup.environment = Some(environment);
+        setup.discovered = vec![DiscoveredProduct {environment:first.environment.clone(),
+            module_sha256:first.module_sha256.clone(),class_id:first.class_id.clone(),name:first.name.clone()}];
+        overview.current.installer_setups = vec![setup];overview.current.products.push(sibling);
+        let first = &overview.current.products[0];
+        assert_eq!(presentation::installation_progress(&overview.current,first),Some("Checking this plug-in"));
+        assert!(presentation::installation_progress(&overview.current,&overview.current.products[1]).is_none());
+        let mut another = first.clone();another.module_sha256 = "different-module".into();
+        assert!(presentation::installation_progress(&overview.current,&another).is_none());
+        another = first.clone();another.disposition = "needs_attention".into();
+        assert!(presentation::installation_progress(&overview.current,&another).is_none());
+        let mut ambiguous = overview.current.clone();
+        let mut duplicate = ambiguous.installer_setups[0].discovered[0].clone();duplicate.module_sha256 = "other-module".into();
+        ambiguous.installer_setups[0].discovered.push(duplicate);
+        assert!(presentation::installation_progress(&ambiguous,first).is_none());
+        let mut failed = overview.current.clone();
+        failed.operation.as_mut().unwrap()["journey"]["plugins"][0]["stage"] = serde_json::json!("needs_attention");
+        assert!(presentation::installation_progress(&failed,first).is_none());
+        for home in [true,false] {
+            let ctx = result_form_context();let mut chosen = None;
+            let mut output = ctx.run_ui(egui::RawInput {screen_rect:Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,egui::vec2(960.0,1000.0))),..Default::default()}, |ui| {
+                if home {Operator::fast_home(ui,&overview,None,true,true,
+                    (&mut Page::Home,&mut crate::library::Library::default(),&mut RouteFocus::default(),&mut false,&mut chosen));}
+                else {crate::library::Library::default().show(ui,&overview.current,true,&mut chosen,|_,_|{});}
+            });
+            let mut labels = vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+            output.textures_delta.clear();
+            assert!(labels.iter().any(|(label,_)|label == "Checking this plug-in"));
+            assert!(labels.iter().any(|(label,_)|label == "Available in your DAW"));
+            assert!(!labels.iter().any(|(label,_)|label == "DAW connection needs attention"));
+            assert!(chosen.is_none());
+        }
+    }
+
+    #[test]
     fn installation_form_requires_an_explicit_daw_and_preserves_authoritative_refusals() {
         for size in [egui::vec2(560.0,360.0),egui::vec2(960.0,720.0)] {
             for (daw,offer,pending,enabled) in [(None,Ok(None),false,false),
@@ -3371,6 +3553,7 @@ mod tests {
             operation_live: false,
             prompt_pulse: false,
             last_pulse: None,
+            cleanup_failure_observed: false,
             readback_failures: 0,
             retry_after: None,
             message: String::new(),
@@ -3470,7 +3653,7 @@ mod tests {
                             screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO,
                                 egui::vec2(width, 800.0))), events, ..Default::default()
                         }, |ui| {
-                            Operator::health_bar(ui, state.current_health_system(), state.retained_health_system());
+                            Operator::health_bar(ui, state.current_health_system(), state.current_owned_pause());
                             let bounds = navigation(ui, &mut state.page);
                             let nav = bounds.iter().find(|(p, _, _)| *p == Page::Plugins).unwrap().2;
                             let action = ui.add_enabled(ready,
@@ -3606,7 +3789,7 @@ mod tests {
             let mut visible = std::collections::BTreeSet::new();
             for _ in 0..3 {
                 let mut output = ctx.run_ui(egui::RawInput { screen_rect: Some(screen), ..Default::default() }, |ui| {
-                    Operator::health_bar(ui, state.current_health_system(), state.retained_health_system());
+                    Operator::health_bar(ui, state.current_health_system(), state.current_owned_pause());
                 });
                 for shape in &output.shapes {
                     visible_form_text(&shape.shape, shape.clip_rect, &mut visible);
