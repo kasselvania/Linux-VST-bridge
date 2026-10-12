@@ -18,13 +18,14 @@ Lab V through the already installed ASC. It retains the installation and locatio
 names FRAGMENTS before shared installation work, and offers postponement while its
 Bitwig project is open. The project-close event is outside the product; stopping
 playback is not enough. Completed first installation naturally reaches the same
-ASC entry. The user also accepted this returning interaction. The next
-[working Kontakt situation](../prototype/index.html?journey=kontakt) shows Kontakt
-8 ready for Bitwig despite missing old installer history. Reported play/recall
-stays attributed, finding help is optional, and a disconnected Music SSD only
-blocks loading sounds from that drive. Same-drive reconnection clears that issue
-without reinstalling or filling old history. This walkthrough verdict is pending;
-manager work stays paused.
+ASC entry. The user also accepted this returning interaction. The
+[working Kontakt mock](../prototype/index.html?journey=kontakt) is illustrative but
+insufficient: it assumes a valid connection rather than explaining the original
+conflation of experimental publication, testing, installer history and availability.
+The user's Bitwig play/save/reopen report remains attributed. Missing history alone
+is not the explicit partial-installation condition behind the special old warning;
+the exact installed cause remains unverified. The [responsibility table and sequence](../01-product-and-user-experience.md#responsibilities-and-normal-sequence)
+now separate the work and its observable results. Manager implementation stays paused.
 The broader flows and five selected policies still apply, including update recovery.
 All activity is in-memory simulation. **Save offline copy** downloads the complete
 prototype with the chosen starting journey; reload starts that fixture over. The
@@ -65,7 +66,7 @@ the person takes.
 | --- | --- | --- | --- |
 | A new REAPER user wants a plug-in | Install the manager, choose the installer or vendor application, make needed drive/DAW choices, and complete vendor steps | Acquire its runtime, supervise installation, discover and prepare the selected plug-ins, and make them available; explain a real failure if one occurs | The user can find the plug-in in REAPER and make music. Rescan guidance appears only when needed. No separate prepare/publish lesson or completion checkbox. |
 | An ASC user wants another Arturia product | Open the existing managed ASC context, choose the additional product and complete vendor choices | Show affected plug-ins before maintenance; preserve the existing identity; finish the safe handoff from vendor maintenance; automatically prepare the selected new products | The new product is available and existing products have a clear result. If affected plug-ins are in use, the user can defer maintenance and keep making music. |
-| Kontakt already works and recalls in Bitwig | Return to the manager, inspect Kontakt if wanted, then continue in Bitwig | For this scenario, the current route is valid and only an old installer result is missing. Show current availability and the attributed use report; retain history without turning it into unrelated setup work | Nothing needs confirming to continue use. If the user later requests a change that needs missing history, explain that particular limitation and a valid recovery path. |
+| Kontakt already plays and recalls in Bitwig, as reported by the user | Continue in Bitwig; inspect optional information or request a concrete change only when wanted | Establish current availability independently of installer history and compatibility evidence; retain the attributed experience and unknown history | A valid native connection has no completion chore or mandatory test in another DAW. Actual use failures and a requested change receive their own concrete actions. |
 
 The next design exercise is to walk these situations through proposed navigation
 and actions. A flow is successful when the person can explain their situation,
@@ -96,27 +97,41 @@ flowchart TD
 
 ## Add a plug-in
 
-The user handles vendor choices. The product supplies compatibility work and automatically makes selected plug-ins available after vendor steps and required checks. A closed vendor window alone is not proof that maintenance has safely ended.
+The user handles vendor choices; the product automatically discovers, inspects and
+connects selected plug-ins to the chosen DAW. Installation mutations must end safely;
+a closed window is insufficient and needed licensing services may remain alive.
+Dashed boxes describe cross-cutting handoffs and optional evidence, not extra gates.
+Authorization may occur before, during, at first use or later; an actual request
+returns to the same step and environment. Unknown licence state is not failure.
+Publication does not prove DAW indexing, audio correctness or recall.
 
 [Editable Mermaid source](install.mmd)
 
 ```mermaid
 flowchart TD
-    Choose["User chooses software to add<br/>Installer or managed vendor application"] --> Context["Product reuses or prepares the right environment<br/>Obtains its own runtime and checks storage"]
-    Context --> Shared{"Could maintenance affect<br/>plug-ins already in use?"}
-    Shared -->|Yes| Pause["Show affected plug-ins<br/>User stops their use or defers this task"]
-    Shared -->|No| Vendor["User completes vendor installation<br/>and authorization when required"]
-    Pause -->|User continues after use stops| Vendor
+    Choose["User chooses software, lawful source and DAW<br/>Accepts suggested storage or changes it"] --> Context["Product prepares or reuses the environment<br/>Keeps its identity, runtime and supported services"]
+    Context --> Shared{"Could vendor changes conflict with<br/>plug-in instances already in use?"}
+    Shared -->|Yes| Pause["Name the plug-ins that must stop<br/>Close their instances or defer installation"]
+    Shared -->|No| Vendor["Vendor installs the chosen software<br/>User answers its actual choices and requests"]
+    Pause -->|Instances closed| Vendor
     Pause -->|Defer| Later["Keep the current working setup<br/>Return later"]
-    Vendor --> Handoff{"Has vendor installation<br/>finished safely?"}
+    Vendor --> Handoff{"Have installation mutations<br/>ended safely?"}
     Handoff -->|No or interrupted| Recover["Explain the unfinished step<br/>Resume, finish or safely stop that work"]
     Recover --> Handoff
     Recover -->|No supported continuation| Help["Preserve partial work and useful results<br/>Explain the limitation and offer help or exit"]
-    Handoff -->|Yes| Automatic["Product discovers selected plug-ins<br/>Checks capabilities and prepares them automatically"]
-    Automatic --> Result{"Can this selected plug-in<br/>be made available?"}
-    Result -->|Yes| Available["Product makes it available to the DAW<br/>No extra publication approval"]
-    Result -->|Specific gap| Problem["Name the missing capability or failed step<br/>Offer a relevant retry or help"]
-    Available --> Music["User finds it in their own DAW<br/>Rescans only if needed, then makes music"]
+    Handoff -->|Yes| Discover["Automatically discover selected classes<br/>Inspect basic interfaces and dependencies"]
+    Discover -->|Inspection succeeds| Prepare["Automatically prepare the native DAW connection<br/>Exact plug-in, environment and supported access"]
+    Discover -->|Inspection fails| Problem["Name the failed capability or step<br/>Do not guess that a load error is licensing<br/>Offer the matching retry, vendor route or help"]
+    Prepare -->|Preparation succeeds| Publish["Publish the native connection<br/>Through supported access for the chosen DAW"]
+    Prepare -->|Preparation fails| Problem
+    Publish --> Result{"Did publication succeed?"}
+    Result -->|Yes| Available["Show availability for the chosen DAW<br/>No extra approval or unknown-licence gate"]
+    Result -->|Publication fails| Problem
+    Available --> Music["User finds it in their own DAW and makes music<br/>Indexing, audio and recall are separate results"]
+    Vendor -.-> Auth["If a real vendor request appears at any step:<br/>use its supported route, then resume the same step<br/>in the same environment; keep needed services alive"]
+    Discover -.-> Auth
+    Music -.-> Auth
+    Available -.-> Evidence["Optional compatibility detail or report<br/>Not yet tested by us does not block music"]
     classDef outcome fill:#d9f2e5,stroke:#26734d,color:#153b29
     classDef choice fill:#fff2cc,stroke:#ad7900,color:#4b3900
     class Available,Music,Later outcome
@@ -125,23 +140,31 @@ flowchart TD
 
 ## Kontakt already works
 
-Current availability, the user’s Bitwig experience and the authority needed for a future update are different facts. Missing old installer history creates a task only when it has a concrete consequence; a user report cannot manufacture missing current authority.
+Current availability, the user's Bitwig experience, compatibility evidence and
+history are different facts. “Not yet tested by us” can be a quiet optional detail;
+it does not require a REAPER test or success report. Missing history matters only
+when a requested operation needs it; a report cannot manufacture current authority.
+An actual DAW failure does not erase the installation and needs its specific fix.
+The diagram specifies desired behavior, not the exact installed manager's cause.
 
 [Editable Mermaid source](working.mmd)
 
 ```mermaid
 flowchart TD
-    Return["Return to Kontakt after using it in Bitwig"] --> Read["Product reads current facts<br/>Keeps your successful-use report distinct"]
-    Read --> Route{"Can the product safely make this<br/>installed plug-in available now?"}
-    Route -->|Yes| Available["Show available for DAW use<br/>Keep your Bitwig experience visible"]
+    Return["Return to Kontakt after reported Bitwig use"] --> Read["Read current native connection and availability facts<br/>Keep your reported play and recall attributed"]
+    Read --> Route{"Is the product-owned connection<br/>valid for Bitwig now?"}
+    Route -->|Yes| Available["Show availability for Bitwig<br/>No installer-history or testing completion task"]
     Available --> Choice{"What do you want next?"}
-    Choice -->|Keep making music| Music["Continue in Bitwig<br/>No installation completion ceremony"]
-    Choice -->|Update or change something| Check["Check what that particular change requires"]
-    Check --> Gap{"Is information needed for<br/>this particular change missing?"}
-    Gap -->|No| Change["Explain consequences<br/>Continue through the change flow"]
-    Gap -->|Yes| Explain["Explain why this change cannot run yet<br/>Keep current use available when it remains valid"]
-    Route -->|No or unknown| Specific["Explain the actual current problem<br/>Your earlier success is still recorded"]
-    Specific --> Recovery["Offer the relevant fix or help<br/>Preserve existing files and state"]
+    Choice -->|Keep making music| Music["Continue in your existing Bitwig session<br/>The manager can be closed"]
+    Available -.-> Evidence["Quiet optional compatibility information<br/>Not yet tested by us is separate from availability<br/>A report is optional, not formal support"]
+    Choice -->|User requests a change| Check["Check only what that particular change requires"]
+    Check --> Gap{"Is information or authority needed<br/>for this change missing?"}
+    Gap -->|No| Change["Explain consequences before mutation<br/>Preserve identity and review shared changes"]
+    Gap -->|Yes| Explain["Explain this change's concrete limitation<br/>Keep current use when its connection remains valid"]
+    Route -->|Specific invalid or unverified connection| Specific["Name the current access or capability problem<br/>Installed files and earlier experience are retained"]
+    Music -->|An actual DAW problem occurs| Specific
+    Specific --> Recovery["Offer help for the actual failed step<br/>Indexing, load, sounds, editor, audio or recall"]
+    Recovery -.-> Auth["Only an actual vendor request uses its supported authorization route<br/>Then resume the same step in the same environment<br/>Unknown licence or a generic load error is not that request"]
     classDef outcome fill:#d9f2e5,stroke:#26734d,color:#153b29
     classDef choice fill:#fff2cc,stroke:#ad7900,color:#4b3900
     class Music,Available outcome

@@ -1,15 +1,18 @@
 flowchart TD
-    Return["Return to Kontakt after using it in Bitwig"] --> Read["Product reads current facts<br/>Keeps your successful-use report distinct"]
-    Read --> Route{"Can the product safely make this<br/>installed plug-in available now?"}
-    Route -->|Yes| Available["Show available for DAW use<br/>Keep your Bitwig experience visible"]
+    Return["Return to Kontakt after reported Bitwig use"] --> Read["Read current native connection and availability facts<br/>Keep your reported play and recall attributed"]
+    Read --> Route{"Is the product-owned connection<br/>valid for Bitwig now?"}
+    Route -->|Yes| Available["Show availability for Bitwig<br/>No installer-history or testing completion task"]
     Available --> Choice{"What do you want next?"}
-    Choice -->|Keep making music| Music["Continue in Bitwig<br/>No installation completion ceremony"]
-    Choice -->|Update or change something| Check["Check what that particular change requires"]
-    Check --> Gap{"Is information needed for<br/>this particular change missing?"}
-    Gap -->|No| Change["Explain consequences<br/>Continue through the change flow"]
-    Gap -->|Yes| Explain["Explain why this change cannot run yet<br/>Keep current use available when it remains valid"]
-    Route -->|No or unknown| Specific["Explain the actual current problem<br/>Your earlier success is still recorded"]
-    Specific --> Recovery["Offer the relevant fix or help<br/>Preserve existing files and state"]
+    Choice -->|Keep making music| Music["Continue in your existing Bitwig session<br/>The manager can be closed"]
+    Available -.-> Evidence["Quiet optional compatibility information<br/>Not yet tested by us is separate from availability<br/>A report is optional, not formal support"]
+    Choice -->|User requests a change| Check["Check only what that particular change requires"]
+    Check --> Gap{"Is information or authority needed<br/>for this change missing?"}
+    Gap -->|No| Change["Explain consequences before mutation<br/>Preserve identity and review shared changes"]
+    Gap -->|Yes| Explain["Explain this change's concrete limitation<br/>Keep current use when its connection remains valid"]
+    Route -->|Specific invalid or unverified connection| Specific["Name the current access or capability problem<br/>Installed files and earlier experience are retained"]
+    Music -->|An actual DAW problem occurs| Specific
+    Specific --> Recovery["Offer help for the actual failed step<br/>Indexing, load, sounds, editor, audio or recall"]
+    Recovery -.-> Auth["Only an actual vendor request uses its supported authorization route<br/>Then resume the same step in the same environment<br/>Unknown licence or a generic load error is not that request"]
     classDef outcome fill:#d9f2e5,stroke:#26734d,color:#153b29
     classDef choice fill:#fff2cc,stroke:#ad7900,color:#4b3900
     class Music,Available outcome

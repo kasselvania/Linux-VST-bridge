@@ -34,6 +34,7 @@ Read the model by subject:
 - [Task inventory](#task-inventory)
 - [What is common and what varies](#what-is-common-and-what-varies)
 - [Control, observation and authority](#control-observation-and-authority)
+- [Responsibilities and normal sequence](#responsibilities-and-normal-sequence)
 - [Facts and user-visible status](#facts-and-user-visible-status)
 - [Flow structure](#flow-structure)
 - [Operating the product over its lifetime](#operating-the-product-over-its-lifetime)
@@ -214,6 +215,53 @@ A missing integration is a capability gap, not a permanent law of nature. Vendor
 licensing authority is a permanent external boundary. User consent does not make
 an unimplemented recovery operation possible. Product responsibility includes a
 clear handoff and useful return path even when the action belongs elsewhere.
+
+## Responsibilities and normal sequence
+
+These are responsibilities within one journey, not six screens or new status
+categories. Vendor entitlement remains the vendor's decision; the product owns
+its supported integration, stable environment and route back to the user's task.
+
+| Work | Owner and prerequisites | Observable finish | When the user acts |
+| --- | --- | --- | --- |
+| Vendor installation | Vendor changes software inside the product's retained environment. A chosen lawful source, storage and safe access to shared software are required. | The installation's mutations have ended safely; discovered results are retained. An installer exit alone does not establish authorization or DAW availability. | Choose vendor products, accept terms or answer actual installer questions. |
+| Vendor services and authorization handoff | Product runs supported helpers in the same environment; vendor controls entitlement. Preserve environment identity and services needed for music. | A required helper is running, or a specific failure/prompt is identified. A vendor-reported authorization result establishes only that result. Unknown account state is not failure. | Complete a real vendor login or authorization request when one appears; then resume the interrupted step. |
+| Installed plug-in discovery | Product inspects selected installed modules/classes after conflicting vendor mutations end. | Exact classes and basic interfaces/dependencies are found, or a specific inspection failure is recorded. This does not prove musical correctness or licensing. | Resolve a concrete missing capability or an actual vendor prompt; no routine completion confirmation. |
+| Native DAW connection | Product prepares the native proxy and its exact module/class/environment connection, then publishes through supported access for the chosen DAW. | The product-owned connection and publication are valid. This does not establish DAW indexing, audible correctness or project recall. | Choose the DAW when ambiguous or resolve a specific access problem. Ordinary preparation is automatic. |
+| Ongoing music runtime | DAW loads the native proxy; a supervised Windows host loads the Windows plug-in under the pinned runner. Required vendor services remain available. | Actual load, processing, editor and state results are observed to their supported depth. The manager window is not an audio dependency. | Make music; answer first-use or later vendor requests through a supported route. Actual DAW failures receive concrete help without declaring the software uninstalled. |
+| Compatibility evidence and optional reports | Maintainer qualifies declared combinations; users may report their own experience. Evidence has an exact context and source. | Scoped observations/reports are recorded; formal support requires the unchanged qualification standard. | None for ordinary completion. Help/testing reports are optional and do not by themselves establish formal support. |
+
+The normal runtime sequence is:
+
+1. Choose software, a lawful source and the intended DAW; accept a suggested
+   installation location or change it when needed.
+2. Prepare or reuse the managed environment, runtime and supported vendor
+   dependencies. Reuse its identity and location for a returning vendor install.
+3. Run vendor work. The user makes the vendor's meaningful choices and completes
+   login or authorization only when requested.
+4. Establish the safe end of installation mutations before conflicting work.
+   Closing a window is insufficient; legitimate licensing services may stay alive.
+5. Automatically discover and inspect selected classes, prepare their native
+   connection and publish it for the chosen DAW. A specific failure receives a
+   specific continuation; successful siblings remain visible.
+6. Show availability to that DAW. The user finds the plug-in there and makes
+   music; indexing, audio correctness and save/reopen are separate use results.
+
+Authorization can occur before installation, during it, at first use or later.
+An actual request needs an accessible vendor route and a return to the **same
+interrupted step in the same environment**, without a new activation identity.
+Unknown licence state alone does not block an otherwise valid DAW connection.
+A generic load error must remain a load error unless evidence identifies a
+licensing problem. Universal prompt detection and vendor-window integration are
+not claimed as implemented. If a required interaction cannot be completed, name
+that integration gap; its absence is not a catalogue admission gate.
+
+Availability and compatibility evidence answer different questions. A quiet
+“Not yet tested by us” detail can coexist with availability; specific known
+limitations remain visible. Neither that detail nor a missing old installer result
+creates a mandatory test, report or installation-completion task. Present use and
+requested replacement/shared mutation also remain separate: a change must retain
+its own consequence review and current ownership checks.
 
 ## Facts and user-visible status
 
@@ -577,12 +625,17 @@ interaction with a suggested location and optional drive change. The next
 the existing ASC, preserving its installation and location. It names FRAGMENTS
 before shared installation work and allows postponement while its Bitwig project
 is open; stopped playback does not remove the plug-in instance. The returning
-interaction was also accepted by the user. The next
-[working Kontakt situation](prototype/index.html?journey=kontakt) keeps independently
-valid availability separate from missing historical installer evidence. Play and
-recall remain the user's attributed report; ordinary use has no completion chore.
-One disconnected library drive requires only reconnection of that same drive,
-not reinstalling Kontakt or inventing history. Its walkthrough verdict is pending.
+interaction was also accepted by the user. The
+[working Kontakt mock](prototype/index.html?journey=kontakt) is illustrative and
+insufficient for the original concern: it assumes a valid connection rather than
+explaining how installation history, experimental publication, testing guidance
+and DAW availability were conflated. The user reported playing and saving/reopening
+in Bitwig; that experience must not become an invented automatic qualification.
+Current source requires an explicit partial-installation result for the special
+“complete installation not confirmed” warning; missing history alone is not that
+condition. The exact cause in the installed build has not been established.
+The next design question is the responsibility and sequence above, not another
+mock recovery exercise or a mandatory REAPER test for a Bitwig user.
 The two accepted interactions do not approve the whole product or remove the
 remaining REAPER, storage and recovery needs.
 
@@ -660,15 +713,32 @@ when the person cannot locate the task or the product lacks a truthful outcome.
 
 ## From agreed model to implementation
 
-The five policy choices above are settled. The next design pass walks concrete
-scenarios against the diagrams and this model. Then derive information architecture and a disposable interaction
-prototype, including failures and return visits. Test comprehension with the
-operator's Bitwig case and a REAPER user before assigning an implementation slice.
+The five policy choices above remain settled; production implementation remains
+paused. The runtime sequence above describes what happens during use. The
+**proposed engineering order** instead delivers complete vertical behaviors:
 
-After the flows hold together, compare existing behavior against them: retain a
-mechanism that serves the flow, replace a conflicting one, or identify a missing
-capability. Do not preserve screens merely because they exist. Sol implementation
-and Astra review resume against agreed outcomes and necessary architecture changes.
+1. **Chosen software to availability in the chosen DAW.** Deliver automatic
+   discovery, basic inspection, preparation and native publication with coherent
+   installation, availability and compatibility facts in the same behavior.
+   Include first-use vendor authorization handoff and the distinction between an
+   actual vendor prompt and a basic/load failure. This is not a label-only slice.
+2. **Interruption and returning vendor installs.** Extend that behavior through
+   unfinished vendor work, restart/resume and adding another product through the
+   retained vendor environment. Preserve identity, location and existing working
+   plug-ins; defer shared mutations while their instances are in use.
+3. **Lifecycle changes and recovery.** Extend through updates, changed settings,
+   same-machine storage/reconnect/supported moves, removal and supported restore,
+   retaining projects and the exact predecessor where restoration is supported.
+
+Verify actual installation/authorization, play and save/reopen alongside each
+behavior in the relevant DAW; add restart, reboot, update and rollback verification
+where that behavior requires them. Bitwig, REAPER and the wider storage/recovery
+needs remain in scope. The beta's physical-use standard is unchanged.
+
+For each behavior, retain mechanisms that serve the agreed flow and replace
+conflicting structure or name missing capabilities. Sol implementation and Astra
+review resume only against an authorized implementation slice; accepted mock
+interactions alone do not resume production work.
 
 Design completion means the task inventory, variations, ownership, completion
 conditions and recovery paths are coherent and the selected scope is
