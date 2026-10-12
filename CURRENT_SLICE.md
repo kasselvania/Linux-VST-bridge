@@ -1,44 +1,40 @@
-# Manager clarity and musician flow
+# Product model before manager implementation
 
-Add, install/authorize, prepare, play and manage; architecture 18.1–18.7 governs.
+## Goal
 
-## Completed beta facts
+Establish tasks, user variations, responsibility, completion and recovery before
+more manager implementation. The operator's 11 October instruction supersedes the
+previous polish/tester next steps. Implementation stays paused; installed products remain available.
 
-Reviewed signed CachyOS Test49 delivers general loaded-file/peer binding and
-embedded-editor retirement. Tyrell/Diva editors open in native REAPER; MIDI,
-changed controls, state and automation recall in fresh processes at 512 frames.
-Same-setup companion installation/discovery and both dependent classes work
-through the shared engine without a catalogue entry or customer compiler.
+## Best explanation
 
-Ordinary Update refreshes six Btrfs publications; Restore returns the matching
-Test48 application/bridges. Return Update and reboot retain changed Tyrell
-state, editor and playback. Nineteen protected files remain byte-exact.
-A separate empty-product child completes installation, Setup, runtime acquisition,
-vendor installation, discovery/check/enable, playback and meaningful save/reopen.
-Disposable fixtures are stopped and parent fixtures remain retained.
+The manager exposes internal operations without a coherent user task model.
+The operator reports Kontakt working and recalling in Bitwig while Home asks
+for installation review. Installer history, DAW availability, successful use and
+maintenance authority need separate meanings. Relabeling controls cannot settle
+those meanings or the full workflow. This is a product-design failure.
 
-## Delivered manager clarity and flow
+## Current design work
 
-Test53 leads with DAW use and Settings, plain action labels and exact consequences.
-Checks, alternate choices and previous setups stay disclosed, with distinct names
-and every exact offer/refusal retained. First use follows add, install/authorize,
-prepare and native Linux DAW use (REAPER example; Bitwig remains supported).
-Astra/Sol approved actual-record, first-use and recovery renders; 121 frontend
-tests, strict Clippy and required CI passed.
+The [product model draft](docs/design-dossier/01-product-and-user-experience.md)
+replaces the earlier interaction seed in its existing dossier location. Review
+its inventory, shared and variable paths, control/observation boundaries,
+product operations, interrupted flows and scenario coverage. Resolve the listed
+scope and automation decisions before dependent design or implementation.
+Then derive navigation and a disposable prototype and test comprehension with
+the operator's Bitwig case and a REAPER user. Sol implements agreed slices;
+Astra reviews. Existing screens and code have no presumptive authority.
 
-Deck selected Test53 through normal signed Update, observed complete within six
-minutes. Installed Home opens exact Analog Lab detail and Settings; back,
-Add/Setup, native Wayland chooser cancellation and service Refresh work.
-Fresh pointer motion resolves the remote detail-input gap; the XWayland-only
-helper missed the native chooser. All 43 protected files, nine projects and vendor
-bindings remain exact. Screens stay outside Git in Tester/Manager UI.
-CachyOS Test53 package/guide are delivered; the fixture remains Test50. Priors retained.
+## What done looks like
 
-## Next
+An agreed model explains what each person needs to do, what the product handles,
+what belongs to vendors/DAWs, when a task is finished and how interruption recovers.
+Design approval is separate from fixing the installed manager or qualifying beta.
+Existing beta scope and acceptance remain unchanged.
 
-Windows DAWs and ARM/Xfer remain after beta. Preserve projects/vendor/package state.
-Tester REAPER/hardware use is next; CPU/GPU/interface are unknown. Custom-editor
-mouse interaction remains unverified after failed VM pointer routes. Cold HDD
-updates and transient readback limits remain. Deck Test43 audio/Test45 recall stand;
-audio #90, update #240, startup #241, readback #239, restore #242, capture #249
-and original Deck REAPER editor #261 keep their open defects.
+## Preserved delivery state
+
+Test53 delivery and earlier physical results remain in SUPPORT_MATRIX.md and
+historical delivery records. Open audio, startup, update, recovery and editor
+failures remain in FAILURE_CLASSES.md. Do not restart those campaigns from this
+slice or alter user projects, vendor installations or activation state for design.
