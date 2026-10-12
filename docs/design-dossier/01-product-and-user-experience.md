@@ -11,8 +11,10 @@ The operator has paused manager implementation to establish this model. This
 replaces the earlier interaction-design seed in this file. Existing screens,
 labels and implementation do not determine the proposed flows. The draft does
 not approve new scope, change beta acceptance, or claim these behaviors exist.
-Established constraints below remain binding; proposed behavior and the decisions
-at the end require resolution before dependent implementation.
+Established constraints and explicitly selected behavior below remain binding;
+the remaining proposed behavior and decisions require resolution before dependent
+implementation. The operator selected automatic first-install availability during
+this review; the rest of the model remains a draft.
 
 Read the model by subject:
 
@@ -25,7 +27,7 @@ Read the model by subject:
 - [Flow structure](#flow-structure)
 - [Operating the product over its lifetime](#operating-the-product-over-its-lifetime)
 - [Interaction requirements](#interaction-requirements-derived-from-the-model)
-- [Decisions for the operator](#decisions-that-remain-with-the-operator)
+- [Selected and unresolved product decisions](#product-decisions)
 - [Scenarios for testing the model](#scenarios-for-testing-the-model)
 - [From agreed model to implementation](#from-agreed-model-to-implementation)
 
@@ -240,9 +242,13 @@ Proposed presentation rules:
 
 ## Flow structure
 
-These are proposed product flows. They specify behavior without choosing screens,
-navigation or a frontend toolkit. First-install automation is subject to the
-explicit decision below; existing execution safeguards remain intact.
+These flows specify behavior without choosing screens, navigation or a frontend
+toolkit. The operator selected automatic first-install availability: choosing a
+plug-in authorizes discovery, preparation and making it available after vendor
+steps finish. There is no additional final approval for those selected plug-ins.
+Meaningful unresolved choices or specific failures still require attention;
+replacement of an existing working setup has its own consequence review. The
+remaining flow details are proposed; existing execution safeguards remain intact.
 
 Shared-environment maintenance and music use need an explicit handoff. Observation
 of changed files does not authorize concurrent scanning, preparation or playback.
@@ -304,8 +310,8 @@ or removal as applicable. Cancelling a download does not remove existing product
 **Sequence:** Identify relevant capabilities and intended scope; present storage
 and any consequential choices; create/reuse the appropriate managed environment;
 run the vendor window; handle authorization if needed; discover actual installed
-classes; assess and prepare selected supported classes; make them available under
-the selected automation policy; hand off to the user's DAW.
+classes; assess and prepare selected supported classes; make them available
+automatically when required checks pass; hand off to the user's DAW.
 
 **Completion:** Product-owned access is established, the installed classes are
 identifiable, and the user knows where to find them. Successful musical use and
@@ -572,15 +578,15 @@ is chosen:
 - Troubleshooting stays attached to the user's original task. Technical details
   explain a problem when useful; they do not become the primary collection model.
 
-## Decisions that remain with the operator
+## Product decisions
 
 The approved request is to establish this model before implementation. The
-following recommendations make the unresolved choices concrete; they do not
-silently settle terminology, scope or authority.
+operator selected the first-install behavior below. The remaining recommendations
+make unresolved choices concrete; they do not settle scope or authority.
 
 | Decision | Recommendation and alternative | Consequence |
 | --- | --- | --- |
-| First-install automation | Recommend one initial intent to install and make chosen plug-ins available; automate discovery and safe preparation, asking only for meaningful choices or external actions. Alternative: a separate final review before first publication. | Architecture 18 currently describes explicit preparation/publication steps. Combining the interaction requires an agreed authority model and an architecture amendment before code. Replacing a working configuration still requires its own consequence review. |
+| First-install automation — selected by the operator | Choosing a plug-in authorizes automatic discovery, preparation and DAW availability once vendor steps finish. No separate final publication approval is required for the selected plug-ins. | Architecture 18.6 now distinguishes this initial user intent from the explicit internal operations and checks it authorizes. Replacing an existing working setup retains a separate consequence review. |
 | External installations | Recommend first establishing reliable coexistence and an explanation of supported vendor reinstall paths; assess adoption separately. Alternative: make adoption a required beta journey. | The old design seed listed module import without a complete ownership/licensing flow. Beta inclusion or exclusion must be decided explicitly; no existing installation is taken over now. |
 | Storage and portability scope | Recommend specifying supported content/product relocation and its limits, then deciding whether full backup and cross-machine transfer are beta obligations. | A clean relocation and a licensed machine migration are different capabilities. No blanket snapshot or activation-portability promise is made. Existing preservation requirements remain. |
 | Recording successful use | Recommend optional, clearly attributed user feedback plus available automatic observations. Alternative: provide guidance without storing user confirmation. | Neither creates a compulsory completion checklist or lets a user report authorize unsafe operations. Formal support qualification remains separate. |

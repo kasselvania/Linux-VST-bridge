@@ -19,8 +19,8 @@ those meanings or the full workflow. This is a product-design failure.
 The [product model draft](docs/design-dossier/01-product-and-user-experience.md)
 replaces the earlier interaction seed in its existing dossier location. Review
 its inventory, shared and variable paths, control/observation boundaries,
-product operations, interrupted flows and scenario coverage. Resolve the listed
-scope and automation decisions before dependent design or implementation.
+interrupted flows and scenario coverage. Automatic first-install availability is
+selected; resolve remaining scope choices before dependent design or implementation.
 Then derive navigation and a disposable prototype and test comprehension with
 the operator's Bitwig case and a REAPER user. Sol implements agreed slices;
 Astra reviews. Existing screens and code have no presumptive authority.
