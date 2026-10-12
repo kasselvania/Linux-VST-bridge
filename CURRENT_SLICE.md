@@ -1,36 +1,36 @@
-# Product model before manager implementation
+# Interaction prototype before manager implementation
 
 ## Goal
 
-Establish tasks, user variations, responsibility, completion and recovery before
-more manager implementation. The operator's 11 October instruction supersedes the
-previous polish/tester next steps. Implementation stays paused; installed products remain available.
+Compare three arrangements of the agreed model: collection first, next action
+first and a goal workspace. Which makes what I have, my next action and returning
+to music obvious? Production manager implementation stays paused.
 
 ## Best explanation
 
-The manager exposes internal operations without a coherent user task model.
-The operator reports Kontakt working and recalling in Bitwig while Home asks
-for installation review. Installer history, DAW availability, successful use and
-maintenance authority need separate meanings. Relabeling controls cannot settle
-those meanings or the full workflow. This is a product-design failure.
+The agreed model separates current access, observed use, optional reports and
+maintenance history. Navigation and interaction hierarchy are still unproven;
+the existing manager UI has no design authority. Test concrete choices before
+implementing another manager shape.
 
 ## Current design work
 
-The [product model draft](docs/design-dossier/01-product-and-user-experience.md)
-replaces the earlier interaction seed in its existing dossier location. Review
-its inventory, shared and variable paths, control/observation boundaries,
-interrupted flows and the [visual walkthrough](docs/design-dossier/flows/README.md).
-All five policy choices are selected; walk the diagrams and derive the interaction design.
-Then derive navigation and a disposable prototype and test comprehension with
-the operator's Bitwig case and a REAPER user. Sol implements agreed slices;
-Astra reviews. Existing screens and code have no presumptive authority.
+The [standalone prototype](docs/design-dossier/prototype/index.html?variant=A&scenario=kontakt)
+uses `?variant=A/B/C` and `?scenario=reaper/asc/kontakt`. It simulates first REAPER
+installation, another selected Arturia product through existing ASC, and Kontakt
+already available in Bitwig despite missing historical installer evidence.
+Separate controls cover interrupted vendor work, drive reconnection and restoration
+after a product update fails in actual use. No real operations or persistence.
+Sol implements; Astra reviews. The operator's usability verdict is pending.
+The [model](docs/design-dossier/01-product-and-user-experience.md), five selected
+policies and [diagrams](docs/design-dossier/flows/README.md) remain binding.
 
 ## What done looks like
 
-An agreed model explains what each person needs to do, what the product handles,
-what belongs to vendors/DAWs, when a task is finished and how interruption recovers.
-Design approval is separate from fixing the installed manager or qualifying beta.
-Selected scope is recorded in the beta contract; its other acceptance requirements remain.
+The operator can identify the current situation, next meaningful action and return
+to music without narration, then choose or combine structures. Record that answer
+before rewriting the manager; absorb the decision and remove the losing prototype.
+Prototype comprehension is separate from installed behavior and beta acceptance.
 
 ## Preserved delivery state
 
