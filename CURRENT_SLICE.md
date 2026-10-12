@@ -2,35 +2,35 @@
 
 ## Goal
 
-Compare three arrangements of the agreed model: collection first, next action
-first and a goal workspace. Which makes what I have, my next action and returning
-to music obvious? Production manager implementation stays paused.
+Walk one complete installation: the musician owns eFX FRAGMENTS and wants it
+in Bitwig on Deck through a fresh managed Arturia Software Center installation.
+Can each next action be understood without narration? Manager work stays paused.
 
 ## Best explanation
 
-The agreed model separates current access, observed use, optional reports and
-maintenance history. Navigation and interaction hierarchy are still unproven;
-the existing manager UI has no design authority. Test concrete choices before
-implementing another manager shape.
+The operator rejected the earlier three-layout prototype: specification language
+became confusing buttons, including a maintenance task with no concrete reason.
+Passing state checks did not establish comprehension. Start again with ordinary
+objects and actions in one believable journey; existing UI has no authority.
 
 ## Current design work
 
-The [standalone prototype](docs/design-dossier/prototype/index.html?variant=A&scenario=kontakt)
-uses `?variant=A/B/C` and `?scenario=reaper/asc/kontakt`. It simulates first REAPER
-installation, another selected Arturia product through existing ASC, and Kontakt
-already available in Bitwig despite missing historical installer evidence.
-Separate controls cover interrupted vendor work, drive reconnection and restoration
-after a product update fails in actual use. No real operations or persistence.
-Sol implements; Astra reviews. The operator's usability verdict is pending.
+The [replacement prototype](docs/design-dossier/prototype/index.html) starts with
+the collection, chooses the downloaded ASC installer and storage, hands setup and
+FRAGMENTS selection to a vendor-window stand-in, then automatically prepares it
+for Bitwig. One unfinished download has a vendor resume route. The final action
+shows concrete Bitwig instructions. Layout comparison and abstract changes are gone.
+All activity is simulated, offline-capable and temporary; no real installations.
+Sol implements; Astra reviews copy and actions. The user's walkthrough is pending.
 The [model](docs/design-dossier/01-product-and-user-experience.md), five selected
 policies and [diagrams](docs/design-dossier/flows/README.md) remain binding.
 
 ## What done looks like
 
-The operator can identify the current situation, next meaningful action and return
-to music without narration, then choose or combine structures. Record that answer
-before rewriting the manager; absorb the decision and remove the losing prototype.
-Prototype comprehension is separate from installed behavior and beta acceptance.
+The operator can explain what each screen is for, what a button changes and why
+it appears now, through installation and the download interruption. Record the
+user's verdict before manager implementation. Passing mocks is not that verdict.
+The broader update/recovery scope and installed acceptance requirements remain.
 
 ## Preserved delivery state
 

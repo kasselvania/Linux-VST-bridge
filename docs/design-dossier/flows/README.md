@@ -5,18 +5,17 @@ The [interactive viewer](index.html) provides readable-size and fit controls.
 The [full product model](../01-product-and-user-experience.md) contains the task
 inventory and detailed boundaries. These are design flows, not installed claims.
 
-The next design step is a [throwaway clickable prototype](../prototype/index.html?variant=A&scenario=kontakt).
-It compares collection first (`A`), next action first (`B`) and a goal workspace
-(`C`) against the same simulated situations. Its question is: which arrangement
-makes what I have, my next action and returning to music obvious? The operator's
-usability verdict is pending; the existing manager implementation stays paused.
-The floating arrows change `?variant=A/B/C`; `?scenario=reaper/asc/kontakt` selects
-the starting situation. Inputs keep arrow-key editing and choices survive layout
-switches. Separate prototype controls simulate vendor completion/cancellation,
-affected use stopping, a missing drive and failure during actual use after update.
-All operations are in-memory simulations; reload resets the selected situation.
-Use **Save offline prototype** for a standalone copy. The same optional server
-command below serves it at `/prototype/`; direct file viewing needs no server.
+The [replacement clickable prototype](../prototype/index.html) follows one musician
+adding eFX FRAGMENTS to Bitwig on Deck through Arturia Software Center. The operator
+rejected the earlier layout comparison because specification terms became confusing
+actions with no concrete user reason. The new question is whether each step and
+button makes sense without narration. It includes downloaded-installer choice,
+storage, a separate vendor-window stand-in, automatic readiness and one unfinished
+download/resume. The user's walkthrough verdict is pending; manager work stays paused.
+The broader flows and five selected policies still apply, including update recovery.
+All activity is in-memory simulation. **Save offline copy** downloads the complete
+prototype; reload starts over. The optional server command below serves it at
+`/prototype/`; direct file viewing needs no server.
 
 ## The five agreed choices
 

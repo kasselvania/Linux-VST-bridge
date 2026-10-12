@@ -566,6 +566,14 @@ answer for every surviving plug-in, environment and project dependency.
 
 ## Interaction requirements derived from the model
 
+The operator rejected the first layout-comparison prototype: its specification
+terms and invented maintenance task did not explain a musician's next action.
+State consistency alone was insufficient. The replacement [installation prototype](prototype/index.html)
+walks eFX FRAGMENTS through Arturia Software Center into Bitwig on Deck. Every
+sentence and button must identify the person's purpose, the actual object or
+action, and why it matters now. The user's comprehension verdict remains pending;
+this narrow rehearsal does not remove the broader maintenance and recovery scope.
+
 Navigation is still undecided. These requirements constrain whatever interface
 is chosen:
 
