@@ -18,11 +18,17 @@ Lab V through the already installed ASC. It retains the installation and locatio
 names FRAGMENTS before shared installation work, and offers postponement while its
 Bitwig project is open. The project-close event is outside the product; stopping
 playback is not enough. Completed first installation naturally reaches the same
-ASC entry. The returning walkthrough verdict is pending; manager work stays paused.
+ASC entry. The user also accepted this returning interaction. The next
+[working Kontakt situation](../prototype/index.html?journey=kontakt) shows Kontakt
+8 ready for Bitwig despite missing old installer history. Reported play/recall
+stays attributed, finding help is optional, and a disconnected Music SSD only
+blocks loading sounds from that drive. Same-drive reconnection clears that issue
+without reinstalling or filling old history. This walkthrough verdict is pending;
+manager work stays paused.
 The broader flows and five selected policies still apply, including update recovery.
 All activity is in-memory simulation. **Save offline copy** downloads the complete
 prototype with the chosen starting journey; reload starts that fixture over. The
-outside-product selector and `?journey=first/returning` choose the starting situation.
+outside-product selector and `?journey=first/returning/kontakt` choose the starting situation.
 The optional server command below serves it at
 `/prototype/`; direct file viewing needs no server.
 

@@ -2,35 +2,35 @@
 
 ## Goal
 
-Add Analog Lab V through the already installed Arturia Software Center while
-eFX FRAGMENTS works in Bitwig. Can the shared-use decision be understood without
-repeating setup? Production manager implementation stays paused.
+Return to Kontakt 8 after reported play/save/reopen in Bitwig, without an
+installation-completion task for missing old history. Does the calm collection
+and one missing-library-drive message make sense? Production work stays paused.
 
 ## Best explanation
 
-The user explicitly accepted the first-install interaction, including suggested
-device-neutral storage. Keep that baseline. Returning to a vendor application
-must reuse the existing installation and location, explain the named plug-ins
-temporarily unavailable, and distinguish an open project from stopped playback.
+The user accepted both first installation with suggested storage and returning
+ASC installation with its shared-use decision. Preserve those flows. The original
+Kontakt complaint concerns missing installer history despite independently valid
+present use; successful play/recall remains attributed to the user's report.
 
 ## Current design work
 
-The [prototype](docs/design-dossier/prototype/index.html?journey=returning) has first
-and returning starting situations. First completion naturally exposes installed
-ASC. Returning use can postpone, or close the FRAGMENTS project before opening it.
-Analog Lab selection remains in the vendor stand-in; safe completion automatically
-shows each plug-in's result. Existing download pause/resume and storage are retained.
+The [prototype](docs/design-dossier/prototype/index.html?journey=kontakt) has first,
+returning ASC and working Kontakt starts. Kontakt shows Native Instruments and
+instrument availability, with optional finding instructions and no history chore.
+An outside demo disconnects Music SSD; only sounds from that drive need reconnecting.
+The same-drive return clears the issue while installation and old history remain.
 All activity is simulated and offline-capable. Sol implements; Astra reviews.
-The first interaction is accepted; the returning walkthrough verdict is pending.
+The first two interactions are accepted; the Kontakt walkthrough is pending.
 The [model](docs/design-dossier/01-product-and-user-experience.md), five selected
 policies and [diagrams](docs/design-dossier/flows/README.md) remain binding.
 
 ## What done looks like
 
-The operator can find the installed ASC, understand why FRAGMENTS must close,
-postpone without losing use, and add Analog Lab without choosing source/storage
-again. Broader design/beta approval remains separate; REAPER, working Kontakt,
-storage and update/recovery needs remain. Production implementation stays paused.
+The operator can return to music without an installation review, recognize the
+specific missing-drive issue, and reconnect without reinstalling Kontakt or
+inventing history. Broader design/beta approval remains separate; REAPER, storage
+and update/recovery needs remain. Production implementation stays paused.
 
 ## Preserved delivery state
 

@@ -577,8 +577,14 @@ interaction with a suggested location and optional drive change. The next
 the existing ASC, preserving its installation and location. It names FRAGMENTS
 before shared installation work and allows postponement while its Bitwig project
 is open; stopped playback does not remove the plug-in instance. The returning
-walkthrough verdict remains pending. This acceptance does not approve the whole
-product or remove the remaining REAPER, Kontakt, storage and recovery needs.
+interaction was also accepted by the user. The next
+[working Kontakt situation](prototype/index.html?journey=kontakt) keeps independently
+valid availability separate from missing historical installer evidence. Play and
+recall remain the user's attributed report; ordinary use has no completion chore.
+One disconnected library drive requires only reconnection of that same drive,
+not reinstalling Kontakt or inventing history. Its walkthrough verdict is pending.
+The two accepted interactions do not approve the whole product or remove the
+remaining REAPER, storage and recovery needs.
 
 Navigation is still undecided. These requirements constrain whatever interface
 is chosen:
