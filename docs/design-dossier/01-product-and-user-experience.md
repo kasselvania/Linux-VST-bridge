@@ -571,10 +571,14 @@ terms and invented maintenance task did not explain a musician's next action.
 State consistency alone was insufficient. The replacement [installation prototype](prototype/index.html)
 walks eFX FRAGMENTS through Arturia Software Center into Bitwig. Every
 sentence and button must identify the person's purpose, the actual object or
-action, and why it matters now. The user liked the journey and asked for a suggested
-install location with an optional drive change rather than a Deck-specific choice.
-Broader design approval remains pending; this narrow rehearsal does not remove
-the broader maintenance and recovery scope.
+action, and why it matters now. The user explicitly accepted the first-install
+interaction with a suggested location and optional drive change. The next
+[returning journey](prototype/index.html?journey=returning) adds Analog Lab V through
+the existing ASC, preserving its installation and location. It names FRAGMENTS
+before shared installation work and allows postponement while its Bitwig project
+is open; stopped playback does not remove the plug-in instance. The returning
+walkthrough verdict remains pending. This acceptance does not approve the whole
+product or remove the remaining REAPER, Kontakt, storage and recovery needs.
 
 Navigation is still undecided. These requirements constrain whatever interface
 is chosen:

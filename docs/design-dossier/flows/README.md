@@ -11,12 +11,19 @@ rejected the earlier layout comparison because specification terms became confus
 actions with no concrete user reason. The new question is whether each step and
 button makes sense without narration. It includes downloaded-installer choice,
 suggested storage with an optional drive change, a separate vendor-window stand-in,
-automatic readiness and one unfinished download/resume. The user liked the journey
-and requested device-neutral storage; broader design approval is pending and manager
-work stays paused.
+automatic readiness and one unfinished download/resume. The user accepted this
+first-install interaction, including the suggested device-neutral storage.
+The next [returning journey](../prototype/index.html?journey=returning) adds Analog
+Lab V through the already installed ASC. It retains the installation and location,
+names FRAGMENTS before shared installation work, and offers postponement while its
+Bitwig project is open. The project-close event is outside the product; stopping
+playback is not enough. Completed first installation naturally reaches the same
+ASC entry. The returning walkthrough verdict is pending; manager work stays paused.
 The broader flows and five selected policies still apply, including update recovery.
 All activity is in-memory simulation. **Save offline copy** downloads the complete
-prototype; reload starts over. The optional server command below serves it at
+prototype with the chosen starting journey; reload starts that fixture over. The
+outside-product selector and `?journey=first/returning` choose the starting situation.
+The optional server command below serves it at
 `/prototype/`; direct file viewing needs no server.
 
 ## The five agreed choices

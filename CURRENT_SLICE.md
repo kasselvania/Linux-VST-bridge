@@ -2,35 +2,35 @@
 
 ## Goal
 
-Walk one complete installation: the musician owns eFX FRAGMENTS and wants it
-in Bitwig through a fresh managed Arturia Software Center installation.
-Can each next action be understood without narration? Manager work stays paused.
+Add Analog Lab V through the already installed Arturia Software Center while
+eFX FRAGMENTS works in Bitwig. Can the shared-use decision be understood without
+repeating setup? Production manager implementation stays paused.
 
 ## Best explanation
 
-The operator rejected the earlier three-layout prototype: specification language
-became confusing buttons, including a maintenance task with no concrete reason.
-Passing state checks did not establish comprehension. Start again with ordinary
-objects and actions in one believable journey; existing UI has no authority.
+The user explicitly accepted the first-install interaction, including suggested
+device-neutral storage. Keep that baseline. Returning to a vendor application
+must reuse the existing installation and location, explain the named plug-ins
+temporarily unavailable, and distinguish an open project from stopped playback.
 
 ## Current design work
 
-The [replacement prototype](docs/design-dossier/prototype/index.html) starts with
-the collection, chooses the ASC installer and can change suggested storage, hands
-setup and FRAGMENTS selection to a vendor-window stand-in, then prepares it
-for Bitwig. One unfinished download has a vendor resume route. The final action
-shows concrete Bitwig instructions. Layout comparison and abstract changes are gone.
-All activity is simulated, offline-capable and temporary; no real installations.
-The user liked this journey and requested device-neutral storage. Sol/Astra continue.
+The [prototype](docs/design-dossier/prototype/index.html?journey=returning) has first
+and returning starting situations. First completion naturally exposes installed
+ASC. Returning use can postpone, or close the FRAGMENTS project before opening it.
+Analog Lab selection remains in the vendor stand-in; safe completion automatically
+shows each plug-in's result. Existing download pause/resume and storage are retained.
+All activity is simulated and offline-capable. Sol implements; Astra reviews.
+The first interaction is accepted; the returning walkthrough verdict is pending.
 The [model](docs/design-dossier/01-product-and-user-experience.md), five selected
 policies and [diagrams](docs/design-dossier/flows/README.md) remain binding.
 
 ## What done looks like
 
-The operator can explain what each screen is for, what a button changes and why
-it appears now, through installation and the download interruption. Record the
-broader design verdict before manager implementation; initial feedback is positive.
-The broader update/recovery scope and installed acceptance requirements remain.
+The operator can find the installed ASC, understand why FRAGMENTS must close,
+postpone without losing use, and add Analog Lab without choosing source/storage
+again. Broader design/beta approval remains separate; REAPER, working Kontakt,
+storage and update/recovery needs remain. Production implementation stays paused.
 
 ## Preserved delivery state
 
