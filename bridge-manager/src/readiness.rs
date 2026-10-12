@@ -790,6 +790,8 @@ fn resolve_with(
     }
     // These are prerequisites of the implemented Windows-host route, not a
     // machine/product support list. A live DAW format is negotiated at launch.
+    let publication_selected = snapshot.products.iter()
+        .any(|product| product.details["publication_selected"] == true);
     let audio = either(&p.pipewire_socket, &p.jack_available);
     let display = p.display.as_ref().map(|_| Probe::Observed(true)).unwrap_or(Probe::Unavailable);
     for (category, probe, explanation) in [
@@ -798,6 +800,12 @@ fn resolve_with(
         ("audio_ipc", &audio, "At least one observed PipeWire or JACK audio route is required."),
         ("graphics", &display, "X11/XWayland is required by the selected Windows host launch route."),
     ] {
+        // The publication owner creates this directory on first publication.
+        // Its absence is a repair only when an existing publication is selected.
+        // Malformed or unreadable locations remain concrete capability failures.
+        if category == "publication_path" && probe.is_absent() && !publication_selected {
+            continue;
+        }
         if !available(probe) {
             blockers.push(issue(category, if absent(probe) { O::ActionRequired } else { O::Unknown }, explanation));
             steps.push(step("Review required capability", explanation, None));
@@ -1666,6 +1674,37 @@ mod tests {
                 .as_deref(),
             Some("48000")
         );
+    }
+    #[test]
+    fn publication_directory_absence_only_needs_repair_for_selected_publications() {
+        let (selected, mut platform) = fixture();
+        let mut empty = selected.clone();
+        empty.products.clear();
+        platform.publication_directory = Probe::Absent;
+
+        let initial = result(&empty, &platform);
+        assert_eq!(initial.overall_status, ui::ReadinessOutcome::ActionRequired);
+        assert!(initial.blockers.iter().all(|blocker| blocker.category == "product"));
+        assert_eq!(initial.ordered_steps.len(), 1);
+        assert_eq!(initial.ordered_steps[0].title, "Add a plug-in");
+
+        let missing = result(&selected, &platform);
+        assert_eq!(missing.overall_status, ui::ReadinessOutcome::ActionRequired);
+        assert!(missing.blockers.iter().any(|blocker|
+            blocker.category == "publication_path"
+                && blocker.status == ui::ReadinessOutcome::ActionRequired));
+        assert_eq!(missing.ordered_steps[0].title, "Review required capability");
+
+        for probe in [Probe::Malformed, Probe::Unavailable] {
+            platform.publication_directory = probe;
+            for snapshot in [&empty, &selected] {
+                let refused = result(snapshot, &platform);
+                assert_eq!(refused.overall_status, ui::ReadinessOutcome::Unknown);
+                assert!(refused.blockers.iter().any(|blocker|
+                    blocker.category == "publication_path"
+                        && blocker.status == ui::ReadinessOutcome::Unknown));
+            }
+        }
     }
     #[test]
     fn platform_daw_audio_and_graphics_refuse_false_ready() {

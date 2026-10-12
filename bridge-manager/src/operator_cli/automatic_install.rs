@@ -126,6 +126,59 @@ pub(super) fn execute(
     };
     require(valid_hex(&installer, 64), "installer_identity")?;
     let _intent_owner = m.lock(&format!("automatic-install-{installer}.lock"))?;
+    if let ui::Action::SoftwareInstall { daw, .. } = action {
+        write_operation(
+            m,
+            operation,
+            &json!({"schema":2,"operation":operation,
+            "state":"running","journey":ui::InstallationJourney {
+                daw:*daw,phase:ui::InstallationPhase::PreparingEnvironment,
+                plugins:vec![],failure:None,
+            }}),
+            false,
+        )?;
+    }
+    let result = execute_owned(m, action, operation, capacity_read, timeout, waits);
+    if let Err(error) = &result {
+        fail_early_preparation(m, operation, error)?;
+    }
+    result
+}
+
+fn fail_early_preparation(m: &Manager, operation: &str, error: impl ToString) -> Result<()> {
+    let receipt = optional(&job_dir(m, operation)?.join("result.json"))?;
+    if receipt.get("onboarding").is_none() {
+        if let Ok(mut journey) =
+            serde_json::from_value::<ui::InstallationJourney>(receipt["journey"].clone())
+        {
+            if journey.phase != ui::InstallationPhase::PreparingEnvironment {
+                return Ok(());
+            }
+            journey.phase = ui::InstallationPhase::NeedsAttention;
+            journey.failure = Some(failure(
+                ui::InstallationFailureStage::EnvironmentPreparation,
+                error,
+            ));
+            write_operation(
+                m,
+                operation,
+                &json!({"schema":2,"operation":operation,
+                "state":"running","journey":journey}),
+                false,
+            )?;
+        }
+    }
+    Ok(())
+}
+
+fn execute_owned(
+    m: &Manager,
+    action: &ui::Action,
+    operation: &str,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+    timeout: Duration,
+    waits: &mut Vec<ui::LockFacts>,
+) -> Result<Value> {
     let (record, mut intent) = match action {
         ui::Action::SoftwareInstall { installer, daw } => {
             let history = onboarding::history_records(m)?;
@@ -781,6 +834,33 @@ pub(super) fn project_from(
     busy: Option<&str>,
     records: &[onboarding::Record],
 ) -> Result<()> {
+    let receipt = optional(&m.root.join("operator/latest.json"))?;
+    let early =
+        if let Some(operation) = receipt["operation"].as_str().filter(|id| valid_hex(id, 32)) {
+            let request = serde_json::from_value::<ui::Request>(optional(
+                &job_dir(m, operation)?.join("request.json"),
+            )?)
+            .ok()
+            .filter(|request| request.schema == ui::OPERATOR_SCHEMA);
+            let journey =
+                serde_json::from_value::<ui::InstallationJourney>(receipt["journey"].clone()).ok();
+            request.zip(journey).filter(|(request, journey)| {
+                matches!(&request.action,
+            ui::Action::SoftwareInstall { daw, .. } if daw == &journey.daw)
+                    && receipt.get("onboarding").is_none()
+                    && matches!(
+                        journey.phase,
+                        ui::InstallationPhase::PreparingEnvironment
+                            | ui::InstallationPhase::NeedsAttention
+                    )
+                    && matches!(
+                        receipt["state"].as_str(),
+                        Some("queued" | "waiting" | "running" | "refused")
+                    )
+            })
+        } else {
+            None
+        };
     for setup in setups {
         let record = setup
             .environment
@@ -846,6 +926,25 @@ pub(super) fn project_from(
                 ));
             }
         } else if record.is_none_or(|r| r.installation_operation.is_none()) {
+            if let Some((request, journey)) = early.as_ref().filter(|(request, _)| {
+                matches!(&request.action,
+                ui::Action::SoftwareInstall {installer,..} if installer == &setup.installer)
+            }) {
+                setup.journey = Some(journey.clone());
+                setup.status = if journey.phase == ui::InstallationPhase::NeedsAttention {
+                    "The installation could not be prepared. Retry the same installation."
+                } else {
+                    "Getting ready to install."
+                }
+                .into();
+                setup.secondary.clear();
+                setup.primary = if receipt["state"] == "refused" {
+                    Some(action("Retry installation", request.action.clone(), busy))
+                } else {
+                    None
+                };
+                continue;
+            }
             setup.primary = Some(action(
                 "Install and connect",
                 ui::Action::SoftwareInstall {
@@ -866,6 +965,11 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
     ) {
         return Ok(());
     }
+    fail_early_preparation(
+        m,
+        operation,
+        "Automatic installation preparation was interrupted.",
+    )?;
     for record in onboarding::history_records(m)? {
         let Some(intent) = &record.automatic else {
             continue;
@@ -908,6 +1012,9 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn worker_receipt(m: &Manager, operation: &str) -> Value {
+        optional(&job_dir(m, operation).unwrap().join("result.json")).unwrap()
+    }
     fn setup() -> (
         test_fixture::Fixture,
         prep::Candidate,
@@ -964,6 +1071,112 @@ mod tests {
             }
             _ => preparation_cli::execute(m, action, operation, || m.lock("registry.lock")),
         }
+    }
+    #[test]
+    fn cold_install_progress_precedes_runtime_work_and_failure_keeps_exact_retry() {
+        let (f, _c, record, _) = setup();
+        fs::remove_dir_all(onboarding::directory(&f.m, &record.id).unwrap()).unwrap();
+        let request = ui::Request {
+            schema: ui::OPERATOR_SCHEMA,
+            state_token: token(&f.m).unwrap(),
+            action: ui::Action::SoftwareInstall {
+                installer: record.installer.clone(),
+                daw: ui::DawChoice::Reaper,
+            },
+        };
+        let operation = begin_request(&f.m, &request).unwrap();
+        let card = ui::InstallerSetup {
+            installer: record.installer.clone(),
+            name: "Chosen software".into(),
+            label_source: "user".into(),
+            byte_size: 1,
+            format: "exe".into(),
+            imported_at: 1,
+            phase: ui::SetupPhase::Imported,
+            journey: None,
+            status: "Install compatibility runtime in Setup, then continue.".into(),
+            environment: None,
+            compatibility: None,
+            discovered: vec![],
+            primary: None,
+            secondary: vec![],
+            rename: action(
+                "Rename",
+                ui::Action::InstallerRename {
+                    installer: record.installer.clone(),
+                    label: String::new(),
+                },
+                None,
+            ),
+            history: vec![],
+        };
+        let observed = std::cell::Cell::new(false);
+        let capacity = || {
+            let receipt = worker_receipt(&f.m, &operation);
+            assert_eq!(receipt["journey"]["phase"], "preparing_environment");
+            assert_eq!(receipt["journey"]["daw"], "reaper");
+            assert!(receipt.get("onboarding").is_none());
+            let mut projected = card.clone();
+            project_from(&f.m, std::slice::from_mut(&mut projected), None, &[]).unwrap();
+            assert_eq!(
+                projected.journey.unwrap().phase,
+                ui::InstallationPhase::PreparingEnvironment
+            );
+            assert_eq!(projected.status, "Getting ready to install.");
+            assert!(
+                projected.primary.is_none(),
+                "No duplicate install while acquiring runtime"
+            );
+            observed.set(true);
+            None
+        };
+        let error = execute(
+            &f.m,
+            &request.action,
+            &operation,
+            &capacity,
+            Duration::from_millis(20),
+            &mut vec![],
+        )
+        .unwrap_err();
+        assert!(
+            observed.get(),
+            "The actual runtime owner must reach its capacity check"
+        );
+        let failed = worker_receipt(&f.m, &operation);
+        assert_eq!(failed["journey"]["phase"], "needs_attention");
+        assert_eq!(
+            failed["journey"]["failure"]["stage"],
+            "environment_preparation"
+        );
+        assert_eq!(failed["journey"]["failure"]["code"], error.to_string());
+        finish(&f.m, &operation, &request.action).unwrap();
+        refuse_unfinished(&f.m, &operation, "worker finished").unwrap();
+        let mut projected = card.clone();
+        project_from(&f.m, std::slice::from_mut(&mut projected), None, &[]).unwrap();
+        let retry = projected.primary.unwrap();
+        assert_eq!(retry.action, request.action);
+        assert!(
+            retry.disabled_reason.is_none(),
+            "Retired worker must not stay busy"
+        );
+        assert_eq!(
+            worker_receipt(&f.m, &operation)["journey"]["failure"],
+            failed["journey"]["failure"]
+        );
+        assert!(onboarding::history_records(&f.m).unwrap().is_empty());
+
+        let mut other = card;
+        other.installer = "cd".repeat(32);
+        project_from(&f.m, std::slice::from_mut(&mut other), None, &[]).unwrap();
+        assert!(
+            other.journey.is_none(),
+            "Progress belongs only to the requested installer"
+        );
+        assert!(
+            matches!(other.primary.unwrap().action, ui::Action::SoftwareInstall { installer, .. }
+            if installer == other.installer)
+        );
     }
     #[test]
     fn automatic_chain_publishes_actual_native_connection_without_report_or_licence_gate() {

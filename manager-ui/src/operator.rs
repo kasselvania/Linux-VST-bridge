@@ -2890,6 +2890,54 @@ mod tests {
     }
 
     #[test]
+    fn automatic_pre_environment_progress_is_visible_on_home_and_setup_without_duplicate_start() {
+        let mut overview: CurrentOverview = overview_fixture().into();
+        overview.current.products.clear();
+        overview.current.environments.clear();
+        overview.current.onboarding.clear();
+        let mut journey = automatic_journey(InstallationPhase::PreparingEnvironment);
+        journey.daw = DawChoice::Reaper;
+        journey.plugins.clear();
+        let mut setup = automatic_setup(journey.clone(), None);
+        setup.phase = SetupPhase::Imported;
+        setup.environment = None;
+        setup.status = "Getting ready to install.".into();
+        overview.current.operation = Some(serde_json::json!({
+            "operation":"exact-automatic-install", "state":"running", "journey":journey,
+            "action":{"kind":"software_install", "installer":setup.installer,"daw":"reaper"}
+        }));
+        overview.current.installer_setups = vec![setup];
+        for page in [Page::Home, Page::Setup] {
+            let ctx = result_form_context();
+            let mut current_page = page;
+            let mut chosen = None;
+            let mut output = ctx.run_ui(egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO,
+                    egui::vec2(960.0, 720.0))), ..Default::default()
+            }, |ui| {
+                if page == Page::Home {
+                    Operator::fast_home(ui, &overview, None, true, false,
+                        (&mut current_page, &mut crate::library::Library::default(),
+                            &mut RouteFocus::default(), &mut false, &mut chosen));
+                } else {
+                    Operator::fast_setup(ui, &overview, true, false,
+                        (&mut false, &mut chosen, &mut false, &mut current_page,
+                            &mut crate::library::Library::default(), &mut RouteFocus::default(),
+                            &mut Some(DawChoice::Reaper)));
+                }
+            });
+            let mut labels = vec![];
+            for shape in &output.shapes { text_centers(&shape.shape, &mut labels); }
+            output.textures_delta.clear();
+            assert!(labels.iter().any(|(label, _)| label.contains("Getting ready to install")));
+            assert!(labels.iter().any(|(label, _)| label == "Your DAW: REAPER"));
+            assert!(!labels.iter().any(|(label, _)| label.contains("Install compatibility runtime in Setup")
+                || label == "Install and connect to your DAW" || label == "Continue installation and DAW connection"));
+            assert!(chosen.is_none());
+        }
+    }
+
+    #[test]
     fn installation_form_requires_an_explicit_daw_and_preserves_authoritative_refusals() {
         for size in [egui::vec2(560.0,360.0),egui::vec2(960.0,720.0)] {
             for (daw,offer,pending,enabled) in [(None,Ok(None),false,false),
