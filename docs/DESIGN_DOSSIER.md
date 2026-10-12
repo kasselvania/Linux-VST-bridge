@@ -10,7 +10,9 @@ whole product lifecycle before further interface work. The [product model
 draft](design-dossier/01-product-and-user-experience.md) now contains the task
 inventory, user variations, responsibility boundaries, proposed flows and open
 product decisions. It replaces the earlier interaction-design seed in that file;
-it does not approve implementation or change the beta contract. The technical
+its [visual walkthrough](design-dossier/flows/README.md) maps the main paths.
+Implementation remains paused. Explicit operator selections in the model are
+carried into the architecture or beta contract where applicable. The technical
 milestones and campaign selections below retain their historical scope.
 
 ## Windows DAW architecture extension — 2026-09-24

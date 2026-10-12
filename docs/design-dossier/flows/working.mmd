@@ -1,0 +1,16 @@
+flowchart TD
+    Return["Return to Kontakt after using it in Bitwig"] --> Read["Product reads current facts<br/>Keeps your successful-use report distinct"]
+    Read --> Route{"Can the product safely make this<br/>installed plug-in available now?"}
+    Route -->|Yes| Available["Show available for DAW use<br/>Keep your Bitwig experience visible"]
+    Available --> Choice{"What do you want next?"}
+    Choice -->|Keep making music| Music["Continue in Bitwig<br/>No installation completion ceremony"]
+    Choice -->|Update or change something| Check["Check what that particular change requires"]
+    Check --> Gap{"Is information needed for<br/>this particular change missing?"}
+    Gap -->|No| Change["Explain consequences<br/>Continue through the change flow"]
+    Gap -->|Yes| Explain["Explain why this change cannot run yet<br/>Keep current use available when it remains valid"]
+    Route -->|No or unknown| Specific["Explain the actual current problem<br/>Your earlier success is still recorded"]
+    Specific --> Recovery["Offer the relevant fix or help<br/>Preserve existing files and state"]
+    classDef outcome fill:#d9f2e5,stroke:#26734d,color:#153b29
+    classDef choice fill:#fff2cc,stroke:#ad7900,color:#4b3900
+    class Music,Available outcome
+    class Route,Choice,Gap choice

@@ -30,6 +30,30 @@ recorded.
 
 ## Implementation scope
 
+The operator selected managed installations for the first beta on 2026-10-11.
+This includes new and existing installations owned by this product. External
+Wine/yabridge installations retain their current owner; migration or adoption of
+those environments is later work. Unfamiliar plug-ins remain attemptable through
+the managed installation path. This does not remove the advanced runtime-import
+or dependency operations specified below, or any existing project-preservation
+and update/recovery requirement.
+
+The operator also selected same-machine storage first: choosing installation and
+content drives beforehand, reconnecting missing libraries, and supported moves on
+the same machine. Full collection backup and transfer to another computer are
+later work. Supported moves must retain exact identity, licensed state and project
+references, with actual destination/mount checks and vendor relocation constraints.
+The declared move/reconnect path must be exercised with retained-project recall;
+this is not a promise that every vendor environment can be moved or cloned.
+Recovery from product updates remains required.
+
+The operator selected optional user reports during help/testing. Ordinary status
+uses observed facts and does not require a manual installation-completion step.
+Beta support uses each tester's existing private contact with the maintainer;
+diagnostic export and sharing remain deliberate user actions. An in-app support
+submission service is not required. These choices do not replace release
+qualification or authorize operations from a user report alone.
+
 Manager ownership/readback, frontend Setup/Library/recovery/navigation,
 non-real-time admission and keeper preparation, host/proxy lifecycle and state,
 phase-attributed audio observations, package generation/adoption/rollback,

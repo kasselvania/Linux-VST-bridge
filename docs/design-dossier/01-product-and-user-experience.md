@@ -9,12 +9,23 @@ collection, including work performed in vendor applications and DAWs.
 
 The operator has paused manager implementation to establish this model. This
 replaces the earlier interaction-design seed in this file. Existing screens,
-labels and implementation do not determine the proposed flows. The draft does
-not approve new scope, change beta acceptance, or claim these behaviors exist.
+labels and implementation do not determine the proposed flows. Operator-selected
+scope is recorded in the beta contract; proposed flow details are not approved
+implementation or a claim that these behaviors exist.
 Established constraints and explicitly selected behavior below remain binding;
 the remaining proposed behavior and decisions require resolution before dependent
-implementation. The operator selected automatic first-install availability during
-this review; the rest of the model remains a draft.
+implementation. The operator selected automatic first-install availability and
+managed installations for beta, same-machine storage first, optional feedback in
+help/testing, and direct private beta support with deliberate diagnostic export.
+External migration, full collection backup and transfer to another computer are
+later work. These policy choices are settled; the detailed flows and interface
+still need walkthrough and usability validation.
+
+Start with the [visual walkthrough](flows/README.md) or its
+[interactive diagram viewer](flows/index.html). The first three diagrams show an
+ordinary visit, adding a plug-in, and returning to Kontakt that already works.
+Each has an editable Mermaid source. The remaining diagrams cover changes,
+recovery, storage/removal and the product team's release/support lifecycle.
 
 Read the model by subject:
 
@@ -27,7 +38,7 @@ Read the model by subject:
 - [Flow structure](#flow-structure)
 - [Operating the product over its lifetime](#operating-the-product-over-its-lifetime)
 - [Interaction requirements](#interaction-requirements-derived-from-the-model)
-- [Selected and unresolved product decisions](#product-decisions)
+- [Selected product decisions](#product-decisions)
 - [Scenarios for testing the model](#scenarios-for-testing-the-model)
 - [From agreed model to implementation](#from-agreed-model-to-implementation)
 
@@ -41,8 +52,10 @@ manager resumes from the current situation, including already working plug-ins.
 The current product lane is Windows VST3 plug-ins used through native Linux
 DAWs. Instruments and effects are equal requirements. The previously selected
 [Windows DAW lane](../WINDOWS_DAW_WORKSPACES.md) and ARM work remain later work;
-this draft does not cancel them. Other formats, migration from other bridges,
-cloud services, product accounts and billing need explicit scope decisions.
+this draft does not cancel them. The beta handles installations managed by this
+product and coexists with external Wine/yabridge setups; migration from those
+setups is later work. Other formats, cloud services, product accounts and billing
+need explicit scope decisions.
 There is no new requirement for our own account or subscription in this design.
 
 The [working rules](../../AGENTS.md), [architecture](../ARCHITECTURE.md), and
@@ -117,7 +130,7 @@ identified in the decision section rather than silently removed.
 | Add through a standalone installer | Conditional acquisition path | User selects a lawful installer; product supervises it and reconciles actual results. |
 | Add through a vendor application | Conditional acquisition path | Product opens the correct managed application; user selects products there; product recognizes resulting installations. |
 | Add another product through an existing vendor application | Conditional returning user | Product reuses the correct environment and explains effects on existing siblings; no unnecessary new identity or login is created. |
-| Encounter software installed outside this product | Conditional existing collection | Product identifies the boundary without taking ownership. Adoption, copying and coexistence need the migration decision below. |
+| Encounter software installed outside this product | Conditional existing collection | Product identifies the boundary without taking ownership. Beta preserves its current owner; adoption and migration are deferred. |
 | Choose editions, components or formats | Conditional vendor choice | User selects meaningful options; product explains which installed formats can be used and retains unsupported findings as such. |
 | Sign in, accept terms or authorize | Conditional vendor requirement | User completes the vendor flow; product presents/focuses it and handles lawful return. Only an authoritative result supports an authorization claim. |
 | Handle trials, subscriptions and activation limits | Conditional vendor restriction | Product explains the observed restriction and offers the vendor route. A save-disabled demo cannot qualify state recall. |
@@ -155,7 +168,7 @@ identified in the decision section rather than silently removed.
 | Resolve editor, audio, launch or content failure | Conditional observed problem | Product identifies the affected capability and offers a relevant next action; successful unrelated work remains available. |
 | Change DAWs, OS setup or hardware | Conditional environment change | Product refreshes capabilities and DAW access without silently recreating licensed identity. |
 | Move product files or content to another drive | Conditional storage change | Product checks ownership, space, mount/access and vendor relocation constraints; movement must preserve references or explicitly explain the supported recovery. |
-| Back up, restore or move to another machine | Conditional user need | Product explains what is recoverable and which vendor steps may recur; it never assumes activation is portable. Exact support scope remains a decision. |
+| Back up, restore or move to another machine | Conditional user need | Product explains what is recoverable and which vendor steps may recur; it never assumes activation is portable. Beta covers supported same-machine storage; full collection backup and transfer to another computer are later work. |
 | Stop offering a plug-in to DAWs | Optional collection change | Product explains the visibility scope and project consequences; this is distinct from uninstalling vendor software. |
 | Uninstall one vendor product | Optional removal | User sees affected siblings, projects whose use is known, content ownership and vendor deactivation options before the vendor operation. |
 | Remove the manager or reclaim storage | Optional exit/cleanup | Product explains effects on bridged projects and separates caches, retained software, user data and licensed installations; uncertain ownership is preserved. |
@@ -262,28 +275,24 @@ Concurrent vendor mutation and sibling DSP are not a proposed new capability.
 
 ~~~mermaid
 flowchart TD
-    Intent[User arrives with a goal] --> Entry{Current situation}
-    Entry -->|New product installation| Product[Install manager and acquire prerequisites]
-    Entry -->|Add software| Add[Select installer or existing vendor application]
-    Entry -->|Working collection| Use[Use in the DAW]
-    Entry -->|Problem or interrupted work| Recover[Explain and recover the affected operation]
-    Entry -->|Change or remove| Change[Show scope and consequences]
-    Product --> Add
-    Add --> Vendor[Vendor install and authorization when required]
-    Vendor --> Reconcile[Discover and assess actual results]
-    Reconcile -->|Required capabilities available| Available[Make selected plug-ins available]
-    Reconcile -->|Specific gap| Recover
-    Available --> Use
-    Use -->|Return for maintenance| Change
-    Change -->|Supported operation chosen| Reconcile
-    Change -->|Removal chosen| Remove[Scoped removal and remaining-use explanation]
-    Recover -->|Working route retained| Use
-    Recover -->|Retry appropriate| Reconcile
-    Recover -->|Vendor action required| Vendor
-    Recover -->|No supported remedy| Support[Explain limitation and offer help or exit]
+    Arrive["Open the manager"] --> Collection["See your collection<br/>and any current work"]
+    Collection --> Intent{"What do you want to do?"}
+    Intent -->|Make music| Music["Continue in your DAW<br/>The manager can be closed"]
+    Intent -->|Add a plug-in| Add["Choose an installer<br/>or vendor application"]
+    Intent -->|Manage something| Manage["Choose the affected plug-in<br/>or current task"]
+    Manage --> Action["Update, adjust, fix,<br/>move or remove"]
+    Add --> Result["See the result<br/>and any useful next action"]
+    Action --> Result
+    Result --> Collection
+    classDef outcome fill:#d9f2e5,stroke:#26734d,color:#153b29
+    classDef choice fill:#fff2cc,stroke:#ad7900,color:#4b3900
+    class Music,Result outcome
+    class Intent choice
 ~~~
 
-This is a map of destinations, not a mandatory linear wizard. Cancellation is
+These boxes describe work, not a list of screens. Diamonds include automatic
+product decisions and do not imply user prompts. This is a map of destinations,
+not a mandatory linear wizard. Cancellation is
 available wherever the underlying operation permits it. After any restart, the
 entry point is derived from actual current work and ownership.
 
@@ -472,9 +481,9 @@ relevant existing project recalls, or the product explains which relocation or
 migration step is not supported. Capacity recovery reports the space actually freed.
 
 **Interruption or failure:** No writes fall through an absent mount to another
-drive. Do not remove an uncertain source or overwrite a destination. Backup and
-cross-machine migration scope is unresolved below; this flow does not promise
-portable activations, whole-prefix cloning or arbitrary project rewriting.
+drive. Do not remove an uncertain source or overwrite a destination. Full collection backup and
+transfer to another computer are deferred; this flow does not promise portable
+activations, whole-prefix cloning or arbitrary project rewriting.
 
 ### Change DAWs or encounter an external collection
 
@@ -492,8 +501,8 @@ supported adoption operation is selected.
 
 **Interruption or failure:** Missing permissions and unsupported adoption are
 concrete capability gaps. Do not rebuild an external prefix, seize another
-bridge's publications or silently repoint existing projects. The adoption policy
-must be resolved before implementing that branch.
+bridge's publications or silently repoint existing projects. For beta, explain that migration is deferred and offer the ordinary managed
+installation path when the user wants a separate lawful installation.
 
 ### Remove software or leave the product
 
@@ -525,7 +534,9 @@ a specific explanation or operation; user returns to the original task.
 
 **Completion:** Resolution is checked against that task, or the limitation and
 available alternatives are clear. Closing a support ticket is not a repaired
-plug-in. Contact channel and response expectations remain an operator decision.
+plug-in. Beta uses the tester’s existing private contact with the maintainer. The invitation
+provides that route; no response-time guarantee or in-app submission service is
+assumed. Diagnostic sharing is a deliberate user action.
 
 **Interruption or failure:** No automatic upload of project audio, credentials,
 licences, proprietary binaries or whole environments. Offline export remains
@@ -580,17 +591,17 @@ is chosen:
 
 ## Product decisions
 
-The approved request is to establish this model before implementation. The
-operator selected the first-install behavior below. The remaining recommendations
-make unresolved choices concrete; they do not settle scope or authority.
+The operator selected all five choices below during the model review. They define
+the direction for the next flow walkthrough and interface design; they do not
+claim installed behavior or resume implementation by themselves.
 
-| Decision | Recommendation and alternative | Consequence |
+| Selected decision | Behavior | Consequence |
 | --- | --- | --- |
 | First-install automation — selected by the operator | Choosing a plug-in authorizes automatic discovery, preparation and DAW availability once vendor steps finish. No separate final publication approval is required for the selected plug-ins. | Architecture 18.6 now distinguishes this initial user intent from the explicit internal operations and checks it authorizes. Replacing an existing working setup retains a separate consequence review. |
-| External installations | Recommend first establishing reliable coexistence and an explanation of supported vendor reinstall paths; assess adoption separately. Alternative: make adoption a required beta journey. | The old design seed listed module import without a complete ownership/licensing flow. Beta inclusion or exclusion must be decided explicitly; no existing installation is taken over now. |
-| Storage and portability scope | Recommend specifying supported content/product relocation and its limits, then deciding whether full backup and cross-machine transfer are beta obligations. | A clean relocation and a licensed machine migration are different capabilities. No blanket snapshot or activation-portability promise is made. Existing preservation requirements remain. |
-| Recording successful use | Recommend optional, clearly attributed user feedback plus available automatic observations. Alternative: provide guidance without storing user confirmation. | Neither creates a compulsory completion checklist or lets a user report authorize unsafe operations. Formal support qualification remains separate. |
-| Support and release operations | Recommend using the existing release/support infrastructure with a stated contact route and response expectations; add account services only for a demonstrated need. | The operator must choose the actual support channel, diagnostic retention and release-notification policy before those are promised to testers. |
+| External installations — selected by the operator | Beta manages installations made through this product and coexists with external Wine/yabridge setups under their current owner. Migration is later work. | Existing managed installations remain in scope. The beta does not take over external environments or redirect their projects. Unfamiliar plug-ins can still be installed and attempted through the ordinary managed path. |
+| Storage and portability — selected by the operator | Beta includes drive selection before installation, missing-library reconnection and supported moves on the same machine. Full collection backup and transfer to another computer come later. | Every move still needs ownership, destination, vendor compatibility and preservation checks. Recovery from product updates remains required. No portable-activation or whole-environment snapshot promise is made. |
+| Recording successful use — selected by the operator | Users may optionally report success or failure during help or testing. Ordinary status uses observed facts and has no required “mark installed” step. | Reports retain their source and relevant configuration. They do not authorize unsafe operations, invent installer completion, or become formal support qualification. |
+| Beta support — selected by the operator | Testers use their existing private contact with the maintainer. Diagnostics are exported locally and shared only when the user chooses. An in-app submission service is not a beta requirement. | No product account or automatic diagnostic upload is introduced. The tester receives the private contact route with their invitation; the export explains its contents and location. Any handling/retention expectations for a privately shared copy must be stated when requesting it. |
 
 DAW selection and per-DAW visibility also need a capability check during design:
 selection can personalize guidance even when several DAWs share one publication
@@ -629,8 +640,8 @@ when the person cannot locate the task or the product lacks a truthful outcome.
 
 ## From agreed model to implementation
 
-The next design pass resolves the decisions above and walks the scenarios against
-this model. Then derive information architecture and a disposable interaction
+The five policy choices above are settled. The next design pass walks concrete
+scenarios against the diagrams and this model. Then derive information architecture and a disposable interaction
 prototype, including failures and return visits. Test comprehension with the
 operator's Bitwig case and a REAPER user before assigning an implementation slice.
 
@@ -640,8 +651,8 @@ capability. Do not preserve screens merely because they exist. Sol implementatio
 and Astra review resume against agreed outcomes and necessary architecture changes.
 
 Design completion means the task inventory, variations, ownership, completion
-conditions and recovery paths are coherent and consequential scope choices are
-resolved. It does not mean the manager defect is fixed or beta readiness changed.
+conditions and recovery paths are coherent and the selected scope is
+consistently reflected in those flows. It does not mean the manager defect is fixed or beta readiness changed.
 Working software and ordinary installed use remain the delivery standard.
 
 ## Basis

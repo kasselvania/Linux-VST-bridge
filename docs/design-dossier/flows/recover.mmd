@@ -1,0 +1,19 @@
+flowchart TD
+    Trouble["An operation fails or the user returns after interruption"] --> Explain["Show the original task, what finished<br/>and the specific remaining problem"]
+    Explain --> Scope["Separate the affected capability<br/>from independently valid work"]
+    Scope --> Next{"What can actually resolve it?"}
+    Next -->|Product can retry or resume| Retry["Run the relevant retry or resume<br/>Check that this operation can run safely"]
+    Next -->|Vendor action needed| Vendor["Open the correct vendor window<br/>Return to this task afterward"]
+    Next -->|DAW action needed| DAW["Give instructions for the user's DAW<br/>Example: rescan when the plug-in is missing"]
+    Next -->|Valid predecessor exists| Restore["Explain what can be restored<br/>User chooses the scoped restoration"]
+    Next -->|No supported remedy| Support["Explain the limitation<br/>Offer deliberate support sharing or exit"]
+    Retry --> Result{"Original task can continue?"}
+    Vendor --> Result
+    DAW --> Result
+    Restore --> Result
+    Result -->|Yes| Continue["Return to the original task<br/>No restart of unrelated setup"]
+    Result -->|No| Support
+    classDef outcome fill:#d9f2e5,stroke:#26734d,color:#153b29
+    classDef choice fill:#fff2cc,stroke:#ad7900,color:#4b3900
+    class Continue outcome
+    class Next,Result choice

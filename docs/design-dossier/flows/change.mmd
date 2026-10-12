@@ -1,0 +1,21 @@
+flowchart TD
+    Request["User asks to update software or try settings"] --> Scope["Product identifies the component and affected plug-ins<br/>Shows the change and actual restore limits"]
+    Scope --> Consent{"User wants to proceed?"}
+    Consent -->|No| Keep["Keep the selected working setup"]
+    Consent -->|Yes| Active{"Must affected plug-in use stop?"}
+    Active -->|Yes| Wait["Name the affected use<br/>Wait for it to stop or let the user defer"]
+    Wait -->|Defer| Keep
+    Wait -->|Use stopped| Apply["Perform the chosen product or vendor operation"]
+    Active -->|No| Apply
+    Apply --> Check["Recheck changed facts<br/>Prepare the agreed configuration"]
+    Check --> Result{"Required checks pass?"}
+    Result -->|Yes| Available["Show the selected configuration and result<br/>User tries it in the DAW"]
+    Available -->|Continue using it or keep the settings trial| Music["Continue making music<br/>No mandatory completion checkbox"]
+    Available -->|Problem in actual use or user chooses Restore| Restore
+    Result -->|No or interrupted| Restore{"Can the previous configuration<br/>actually be restored?"}
+    Restore -->|Yes| Return["Offer the available restoration<br/>Check it before returning to use"]
+    Restore -->|No| Problem["Explain the specific failure and next remedy<br/>Do not promise a vendor or licence rollback"]
+    classDef outcome fill:#d9f2e5,stroke:#26734d,color:#153b29
+    classDef choice fill:#fff2cc,stroke:#ad7900,color:#4b3900
+    class Keep,Available,Music outcome
+    class Consent,Active,Result,Restore choice

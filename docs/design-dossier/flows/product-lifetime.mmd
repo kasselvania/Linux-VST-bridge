@@ -1,0 +1,15 @@
+flowchart LR
+    Define["Team defines scope<br/>and truthful compatibility claims"] --> Qualify["Test whole install, use,<br/>recall, update and recovery flows"]
+    Qualify --> Release["Deliver a coherent release<br/>with clear requirements and limitations"]
+    Release --> Use["Users install and make music<br/>Receive help when needed"]
+    Use --> Learn["Learn from deliberate reports<br/>Improve general mechanisms"]
+    Learn --> Qualify
+    Use --> Fault{"Bad release discovered?"}
+    Fault -->|Yes| Stop["Stop recommending it<br/>Explain affected versions and remedy"]
+    Stop --> Remedy["Deliver repair or a valid predecessor<br/>Preserve projects and licensed state"]
+    Remedy --> Use
+    Fault -->|No| Maintain["Maintain releases and support<br/>Communicate changes before retirement"]
+    classDef outcome fill:#d9f2e5,stroke:#26734d,color:#153b29
+    classDef choice fill:#fff2cc,stroke:#ad7900,color:#4b3900
+    class Use outcome
+    class Fault choice

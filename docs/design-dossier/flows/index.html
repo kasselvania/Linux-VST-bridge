@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Linux Plugin Bridge — product flow review</title>
+<style>
+:root{color-scheme:light;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#203047;background:#f4f6f9;line-height:1.55}
+*{box-sizing:border-box}body{margin:0}header,main,footer{max-width:1320px;margin:auto;padding:24px 32px}header{padding-bottom:12px}h1{font-size:clamp(1.6rem,3vw,2.3rem);line-height:1.2;margin:8px 0 12px}h2{font-size:1.45rem;margin:0 0 10px}p{max-width:900px;margin:8px 0 16px}.eyebrow{font-size:.8rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#55677f}.agreed{border-left:4px solid #277650;padding:10px 16px;background:#e7f4eb;border-radius:0 6px 6px 0}.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:22px}nav{display:flex;flex-direction:column;gap:7px;align-self:start;position:sticky;top:16px}button{font:inherit;color:inherit;cursor:pointer}nav button{text-align:left;border:1px solid #d1d9e3;background:#fff;border-radius:8px;padding:11px 14px;line-height:1.3}nav button[aria-pressed=true]{background:#203c64;color:white;border-color:#203c64}button:focus-visible,a:focus-visible{outline:3px solid #eea62d;outline-offset:3px}article{background:white;border:1px solid #dce2eb;border-radius:12px;padding:24px;min-width:0}.caption{color:#53647b}.diagram{overflow:auto;min-height:180px;margin:16px 0;padding:12px;border:1px solid #e4e8ed;border-radius:8px;background:#fff}.diagram svg{display:block;min-width:540px;width:100%;height:auto;max-height:none}.source{font-size:.9rem}a{color:#1c538f}details{margin:14px 0}summary{cursor:pointer;font-weight:600}pre{overflow:auto;background:#f5f7fa;padding:16px;font-size:.8rem}.next{padding-top:15px;border-top:1px solid #e0e5ec}#status{font-size:.9rem;color:#586678}footer{font-size:.85rem;color:#59677b}.decision{background:#fff9e9;padding:15px 18px;border:1px solid #ebd292;border-radius:8px;margin-top:16px}#questions li{margin-bottom:9px}#questions{padding-left:22px}.view-tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.view-tools button{background:white;border:1px solid #cbd4df;border-radius:5px;padding:4px 9px}.wide .layout{grid-template-columns:1fr}.wide nav{position:static;flex-direction:row;flex-wrap:wrap}.wide nav button{flex:1;min-width:140px}@media(max-width:800px){header,main,footer{padding:18px}.layout{grid-template-columns:1fr}nav{position:static;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}article{padding:16px}.diagram{padding:2px}.diagram svg{min-width:480px}}
+</style>
+</head>
+<body>
+<header>
+<div class="eyebrow">Design review · proposed flows, not an installed-product demonstration</div>
+<h1>How the product should work</h1>
+<p>Start with the ordinary visit, then follow adding a plug-in and returning to one that already works. The later diagrams cover changes, problems, storage and our responsibility for delivering the product.</p>
+<p class="agreed"><strong>First-install behavior is agreed:</strong> chosen plug-ins become available automatically after vendor steps and required checks. The five agreed policies are listed below each diagram.</p>
+</header>
+<main class="layout">
+<nav aria-label="Product flows" id="nav"></nav>
+<article aria-labelledby="title">
+<div class="eyebrow" id="position"></div>
+<h2 id="title"></h2>
+<p id="intro"></p>
+<div class="view-tools"><button id="wide" type="button">Use full width</button><button id="size" type="button">Fit diagram</button><a id="source" class="source" href="#">Editable Mermaid source</a></div>
+<p id="status" role="status" aria-live="polite">Loading diagram…</p>
+<div id="diagram" class="diagram" aria-label="Flowchart"></div>
+<p id="caption" class="caption"></p>
+<details><summary>Read the Mermaid text</summary><pre id="raw"></pre></details>
+<div class="next"><strong>What this flow needs to establish</strong><p id="test"></p></div>
+<div class="decision"><strong>The five agreed choices</strong><ol id="questions">
+<li><strong>First installation:</strong> automatic availability for chosen plug-ins after vendor steps and checks. Changing a working setup gets its own consequence review.</li>
+<li><strong>Existing collections:</strong> managed installations for beta, with safe coexistence. Migration from external Wine/yabridge setups comes later.</li>
+<li><strong>Storage:</strong> drive choice, library reconnection and supported same-machine moves in beta. Full collection backup and computer transfer come later; update recovery remains required.</li>
+<li><strong>Completion:</strong> observed facts drive normal status. Feedback is optional in help/testing; no “mark installed” chore.</li>
+<li><strong>Support:</strong> direct private contact with the maintainer and deliberate diagnostic export/sharing. No in-app support submission requirement.</li>
+</ol><p>These policy choices are selected. The flow details still need walkthrough and usability validation. Boxes describe work, not screens; diamonds include automatic product decisions, not just user prompts.</p></div>
+</article>
+</main>
+<footer>Read the <a href="../01-product-and-user-experience.md">full task inventory and product model</a>. Green marks an outcome; yellow marks a decision or condition. Every distinction is also expressed in text. This viewer loads Mermaid from a pinned CDN; the .mmd sources remain editable without it.</footer>
+<script type="module">
+const flows=[
+{id:'start',title:'1. An ordinary visit',intro:'The manager starts from what you have and what you want to do. A returning musician should be able to leave it closed and make music.',caption:'This is a proposed map of user intentions. It does not choose the final screen layout or require these to become separate pages.',test:'Can you find the action that serves your goal, and can a working user immediately return to the DAW?'},
+{id:'install',title:'2. Add a plug-in',intro:'The user chooses software and handles vendor choices. The product supplies compatibility setup and makes the selected plug-ins available automatically once the required steps and checks finish.',caption:'A missing catalogue entry is not a refusal. Specific missing capabilities are. Authorization may happen here or on first use. Each selected plug-in receives its own result; unselected siblings are not automatically added.',test:'Does this leave only real vendor choices, shared-use interruptions and actual failures for the person to handle?'},
+{id:'working',title:'3. Kontakt already works',intro:'You used Kontakt in Bitwig and saved and reopened a project. Returning to the manager should not create an installation-completion task solely because old installer history is incomplete.',caption:'Your report is retained as your experience. It cannot manufacture missing ownership or turn an invalid current route into an authorized one. Present use and the authority needed for a later update stay separate.',test:'Can you understand current availability, keep making music and encounter a maintenance limitation only when it has a concrete consequence?'},
+{id:'change',title:'4. Update or change settings',intro:'Changes start with their purpose and affected products. The user chooses with a truthful account of what can be preserved or restored.',caption:'Product software restoration is not a vendor downgrade or licence rollback. Restoration stays reachable if actual DAW use fails after preparation passed. A settings trial offers Keep or Restore; ordinary use has no completion checkbox.',test:'Before committing, can you tell what changes, what must stop and what your actual recovery option is?'},
+{id:'recover',title:'5. Recover a problem',intro:'Recovery keeps the original task in view. The manager identifies the affected capability and presents a useful action instead of restarting all of setup.',caption:'Independently valid work can remain available. Unknown ownership is preserved, not erased to make recovery look successful. User reports do not substitute for required current checks.',test:'Does the next step address the failure you actually encountered, and do you know where it will return you?'},
+{id:'storage',title:'6. Move, reconnect or remove',intro:'A missing drive, a space problem and uninstalling a product need different actions. Start by identifying ownership and consequences.',caption:'Reconnecting an unchanged drive is separate from moving or remapping content, which always follows the mutation checks. This chart defines how supported operations should behave. Same-machine storage is selected for beta; full collection backup and transfer to another computer are deferred. Every supported move still has to be implemented and verified.',test:'Can you distinguish what stays, what moves or disappears, and which projects or other plug-ins may be affected?'},
+{id:'product-lifetime',title:'7. Deliver and support the product',intro:'Our responsibilities continue after installation: truthful releases, useful support, regression recovery and an understandable end-of-support policy.',caption:'This is the product team’s flow. It must not become extra administrative work for the musician.',test:'Does every promise made to a user have a corresponding release, support or recovery operation behind it?'}
+];
+const nav=document.getElementById('nav');
+for(const flow of flows){const b=document.createElement('button');b.type='button';b.textContent=flow.title;b.dataset.id=flow.id;b.addEventListener('click',()=>{location.hash=flow.id});nav.appendChild(b)}
+let generation=0;
+let mermaid;
+let fit=false;
+function sizeDiagram(){const svg=document.querySelector('#diagram svg');if(!svg)return;svg.style.maxWidth='none';svg.style.minWidth='0';svg.style.width=fit?'100%':`${svg.viewBox.baseVal.width}px`;document.getElementById('size').textContent=fit?'Readable size':'Fit diagram';}
+try{({default:mermaid}=await import('https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.esm.min.mjs'));mermaid.initialize({startOnLoad:false,securityLevel:'strict',theme:'base',themeVariables:{fontFamily:'system-ui, sans-serif',fontSize:'17px',primaryColor:'#eaf0f8',primaryTextColor:'#203047',primaryBorderColor:'#54739b',lineColor:'#687b93',edgeLabelBackground:'#ffffff'},flowchart:{useMaxWidth:true,htmlLabels:true,curve:'linear',nodeSpacing:28,rankSpacing:42}})}catch(e){document.getElementById('status').textContent='Diagram renderer unavailable. The readable Mermaid source is still below.'}
+async function show(){
+const id=location.hash.slice(1);const item=flows.find(x=>x.id===id)||flows[0];const n=++generation;
+for(const b of nav.children)b.setAttribute('aria-pressed',String(b.dataset.id===item.id));
+document.getElementById('position').textContent=`Flow ${flows.indexOf(item)+1} of ${flows.length}`;
+for(const key of ['title','intro','caption','test'])document.getElementById(key).textContent=item[key];
+document.getElementById('source').href=`${item.id}.mmd`;
+document.getElementById('status').textContent='Loading diagram…';document.getElementById('diagram').replaceChildren();
+try{const response=await fetch(`${item.id}.mmd`);if(!response.ok)throw new Error('Source could not load');const source=await response.text();if(n!==generation)return;document.getElementById('raw').textContent=source;
+if(!mermaid){document.getElementById('status').textContent='Renderer unavailable; expand the Mermaid text below.';return}
+const {svg}=await mermaid.render(`flow-${n}`,source);if(n!==generation)return;document.getElementById('diagram').innerHTML=svg;sizeDiagram();document.getElementById('status').textContent='Diagram loaded';document.title=`${item.title} — Product flow review`;
+}catch(e){if(n===generation)document.getElementById('status').textContent=`Could not render this diagram: ${e.message}. Use the Mermaid source link.`}}
+window.addEventListener('hashchange',show);document.getElementById('size').addEventListener('click',()=>{fit=!fit;sizeDiagram()});document.getElementById('wide').addEventListener('click',()=>{document.body.classList.toggle('wide');document.getElementById('wide').textContent=document.body.classList.contains('wide')?'Show side navigation':'Use full width'});await show();
+</script>
+</body>
+</html>
