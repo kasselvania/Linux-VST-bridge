@@ -106,7 +106,10 @@ class CandidateInputs(unittest.TestCase):
             self.assertIn('complete corresponding patched Wine source',notices)
             guide = (build / 'inputs-0.12.0fixture/START_HERE.html').read_text()
             self.assertNotIn('Supported prebuilt proxy metadata', guide)
-            self.assertIn('reusable native engine', guide)
+            self.assertIn('Install and connect to your DAW', guide)
+            self.assertIn('all newly installed VST3 plug-ins', guide)
+            self.assertIn('Optional experience reports and checks', guide)
+            self.assertIn('inside a vendor application is still a missing integration', guide)
             self.assertEqual(git('status', '--porcelain'), '')
 
 

@@ -25,6 +25,32 @@ pub(super) fn project_for_operation(
     project_with_excluded_operation(m, sw, products, busy, Some(operation), None)
 }
 
+/// Current Home needs only an unfinished recovery of the exact failed
+/// publication. Optional evidence and historical setup checks stay in details.
+pub(super) fn project_required_recovery(m:&Manager,products:&mut [ui::Product],
+    records:&prep::RecordReadback,scope:&dyn Fn(&str)->Option<&'static str>)->Result<()> {
+    for pending in prep::pending_problem_results(m)? {
+        let action:ui::Action=serde_json::from_value(pending["action"].clone())?;
+        let ui::Action::CompatibilityResult {candidate,expected_current,result:ui::TestResultKind::Problem {..},..}=action
+            else {continue;};
+        let Some(candidate)=records.candidates.iter().find(|c|c.id().is_ok_and(|id|id==candidate)) else {continue;};
+        if exact_test_publication_record(m,candidate,&expected_current).is_err() {continue;}
+        let Some(product)=products.iter_mut().find(|p|p.class_id==candidate.selection.class.id
+            && p.module_sha256==candidate.selection.module.sha256
+            && p.environment==candidate.selection.environment.id) else {continue;};
+        let operation=pending["operation"].as_str().ok_or("guided_result_operation")?;
+        product.compatibility=Some(ui::CompatibilityWorkflow {
+            phase:ui::CompatibilityPhase::AwaitingRetirement,
+            summary:"A reported problem still uses the current setup. Close this plug-in in your DAW, then finish recovery.".into(),
+            established:vec![],remaining:vec![],current_inspection:None,current_candidate:Some(candidate.id()?),
+            primary:Some(ui::AvailableAction {label:"Finish recovery".into(),
+                action:ui::Action::CompatibilityFinishResult {operation:operation.into()},
+                disabled_reason:scope(&product.class_id).map(str::to_owned)}),alternatives:vec![],
+        });
+    }
+    Ok(())
+}
+
 type ClassInactivity<'a> = dyn Fn(&str) -> Option<&'static str> + 'a;
 
 #[derive(Clone, Copy)]
@@ -1054,6 +1080,8 @@ fn action_selection_with(m: &Manager, sw: &Software, action: &ui::Action,
 }
 pub fn offered(actual: &ui::Action, offer: &ui::Action) -> bool {
     match (actual, offer) {
+        (ui::Action::SoftwareInstall { installer, .. },
+            ui::Action::SoftwareInstall { installer: offered, .. }) => installer == offered,
         (
             ui::Action::CompatibilityResult {
                 candidate, expected_current, result, passed, failed_area, note,
@@ -1256,6 +1284,23 @@ thread_local! {
     static GUIDED_CHECK_PROBE: std::cell::RefCell<Option<GuidedCheckProbe>> = const {
         std::cell::RefCell::new(None)
     };
+}
+#[cfg(test)]
+pub(crate) fn with_automatic_fixture<T>(candidate:&prep::Candidate, run:impl FnOnce()->T)->T {
+    with_automatic_fixture_interrupt(candidate,None,run)
+}
+#[cfg(test)]
+pub(crate) fn with_automatic_fixture_interrupt<T>(candidate:&prep::Candidate,
+    interrupt:Option<&'static str>,run:impl FnOnce()->T)->T {
+    struct Clear;
+    impl Drop for Clear {fn drop(&mut self) {GUIDED_CHECK_PROBE.with(|slot|*slot.borrow_mut()=None);}}
+    GUIDED_CHECK_PROBE.with(|slot|*slot.borrow_mut()=Some(GuidedCheckProbe {
+        inspection:candidate.inspection.clone(),candidate:candidate.clone(),
+        source_native:candidate.native.artifact.path.clone(),interrupt_after:interrupt,
+        inspections:Default::default(),builds:Default::default(),
+    }));
+    let _clear=Clear;
+    run()
 }
 #[cfg(test)]
 fn probed_inspection() -> Option<prep::Inspection> {
@@ -1472,7 +1517,16 @@ pub fn execute(
     m: &Manager,
     a: &ui::Action,
     operation: &str,
+    registry_admission: impl FnMut() -> Result<Lock>,
+) -> Result<Value> {
+    execute_with_progress(m,a,operation,registry_admission,&mut |_|{})
+}
+pub(super) fn execute_with_progress(
+    m: &Manager,
+    a: &ui::Action,
+    operation: &str,
     mut registry_admission: impl FnMut() -> Result<Lock>,
+    progress: &mut dyn FnMut(&str),
 ) -> Result<Value> {
     use linux_vst_bridge::operator_lock::timing::{self, Stage};
     let sw = timing::measure(Stage::SoftwareVerification, || software(m))?;
@@ -1568,6 +1622,7 @@ pub fn execute(
                     let c = prep::bind_preparation_basis(c, Some(basis))?;
                     Ok((prep::carry_launch_configuration(m, c, prior)?, artifact_reused))
                 }, |stage| {
+                    progress(stage);
                     #[cfg(test)]
                     probed_checkpoint(stage);
                     #[cfg(not(test))]
@@ -2516,6 +2571,7 @@ pub(crate) mod tests {
                 creation_operation: "cd".repeat(16),
                 installation_operation: None,
                 published: false,
+                automatic: None,
                 previous_attempt: None,
             },
         )
@@ -2633,7 +2689,7 @@ with zipfile.ZipFile(path,'w') as z:
             limitations: vec![],
             history: vec![],
             actions: vec![],
-            compatibility: None,
+            compatibility: None, availability: None,
             details: json!({}),
         }
     }

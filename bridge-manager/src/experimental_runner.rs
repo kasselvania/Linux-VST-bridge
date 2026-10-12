@@ -1416,6 +1416,7 @@ mod tests {
             creation_operation: "bb".repeat(16),
             installation_operation: None,
             published: false,
+                automatic: None,
             previous_attempt: None,
         };
         let onboarding_dir = fixture.m.root.join("onboarding").join(&environment);

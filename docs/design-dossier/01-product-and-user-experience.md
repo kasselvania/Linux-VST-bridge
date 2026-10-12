@@ -7,8 +7,9 @@ DAWs, use them in music, and maintain them without administering compatibility
 infrastructure. Its design must cover the lifetime of the product and the user's
 collection, including work performed in vendor applications and DAWs.
 
-The operator has paused manager implementation to establish this model. This
-replaces the earlier interaction-design seed in this file. Existing screens,
+The operator paused manager implementation to establish this model, then agreed
+the responsibility/sequence model and authorized the first automatic-installation
+behavior. This replaces the earlier interaction-design seed in this file. Existing screens,
 labels and implementation do not determine the proposed flows. Operator-selected
 scope is recorded in the beta contract; proposed flow details are not approved
 implementation or a claim that these behaviors exist.
@@ -670,7 +671,7 @@ claim installed behavior or resume implementation by themselves.
 
 | Selected decision | Behavior | Consequence |
 | --- | --- | --- |
-| First-install automation — selected by the operator | Choosing a plug-in authorizes automatic discovery, preparation and DAW availability once vendor steps finish. No separate final publication approval is required for the selected plug-ins. | Architecture 18.6 now distinguishes this initial user intent from the explicit internal operations and checks it authorizes. Replacing an existing working setup retains a separate consequence review. |
+| First-install automation — selected by the operator | Choosing software authorizes automatic discovery, preparation and DAW availability for its newly installed instruments and effects once vendor steps finish. No separate final publication approval is required for the selected plug-ins. | Architecture 18.6 now distinguishes this initial user intent from the explicit internal operations and checks it authorizes. Replacing an existing working setup retains a separate consequence review. |
 | External installations — selected by the operator | Beta manages installations made through this product and coexists with external Wine/yabridge setups under their current owner. Migration is later work. | Existing managed installations remain in scope. The beta does not take over external environments or redirect their projects. Unfamiliar plug-ins can still be installed and attempted through the ordinary managed path. |
 | Storage and portability — selected by the operator | Beta includes drive selection before installation, missing-library reconnection and supported moves on the same machine. Full collection backup and transfer to another computer come later. | Every move still needs ownership, destination, vendor compatibility and preservation checks. Recovery from product updates remains required. No portable-activation or whole-environment snapshot promise is made. |
 | Recording successful use — selected by the operator | Users may optionally report success or failure during help or testing. Ordinary status uses observed facts and has no required “mark installed” step. | Reports retain their source and relevant configuration. They do not authorize unsafe operations, invent installer completion, or become formal support qualification. |
@@ -713,8 +714,8 @@ when the person cannot locate the task or the product lacks a truthful outcome.
 
 ## From agreed model to implementation
 
-The five policy choices above remain settled; production implementation remains
-paused. The runtime sequence above describes what happens during use. The
+The five policy choices above remain settled. The operator authorized the first
+vertical implementation behavior below; later increments retain their own scope. The runtime sequence above describes what happens during use. The
 **proposed engineering order** instead delivers complete vertical behaviors:
 
 1. **Chosen software to availability in the chosen DAW.** Deliver automatic
@@ -737,8 +738,8 @@ needs remain in scope. The beta's physical-use standard is unchanged.
 
 For each behavior, retain mechanisms that serve the agreed flow and replace
 conflicting structure or name missing capabilities. Sol implementation and Astra
-review resume only against an authorized implementation slice; accepted mock
-interactions alone do not resume production work.
+review proceed against the authorized first behavior; accepted mock interactions
+alone do not approve later increments.
 
 Design completion means the task inventory, variations, ownership, completion
 conditions and recovery paths are coherent and the selected scope is

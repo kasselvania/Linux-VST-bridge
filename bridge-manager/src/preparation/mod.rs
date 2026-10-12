@@ -102,6 +102,20 @@ pub fn complete_guided_result(m: &Manager, operation: &str) -> Result<()> {
         &serde_json::json!({"schema":1,"operation":operation,"action":action}))?;
     changed(m)
 }
+/// Small read-only census of unresolved user problem reports. No inspection,
+/// compatibility history reconstruction or runtime work is performed.
+pub fn pending_problem_results(m:&Manager)->Result<Vec<Value>> {
+    let mut pending=Vec::new();
+    for path in list(&root(m).join("guided-results"))? {
+        let operation=path.file_name().and_then(|v|v.to_str()).ok_or("guided_result_path")?;
+        if path.join("completed.json").exists() {continue;}
+        let action=guided_result_intent(m,operation)?;
+        if action["kind"]=="compatibility_result" && action["result"]["kind"]=="problem" {
+            pending.push(serde_json::json!({"operation":operation,"action":action}));
+        }
+    }
+    Ok(pending)
+}
 pub fn guided_results(m: &Manager, candidate: &str) -> Result<Vec<Value>> {
     require(valid_hex(candidate, 64), "guided_result_candidate")?;
     let mut result = vec![];

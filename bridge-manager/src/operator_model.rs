@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 22;
+pub const OPERATOR_SCHEMA: u32 = 23;
 /// Explicit delivery policy, independent from the remembered buffered delay.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -175,6 +175,12 @@ pub enum Action {
     CandidatePublishOrdinary {
         candidate: String,
     },
+    /// User intent for an initial installation and automatic native DAW connection.
+    /// DAW choice personalizes guidance; it does not claim DAW indexing.
+    SoftwareInstall { installer: String, daw: DawChoice },
+    /// Resume the retained installation's unfinished automatic work, without
+    /// rerunning its installer or replacing a working publication.
+    SoftwareInstallResume { onboarding: String },
     InstallerEnvironmentCreate {
         installer: String,
         runner: String,
@@ -321,6 +327,8 @@ pub struct Product {
     pub actions: Vec<AvailableAction>,
     #[serde(default)]
     pub compatibility: Option<CompatibilityWorkflow>,
+    #[serde(default)]
+    pub availability: Option<NativeAvailability>,
     pub details: serde_json::Value,
 }
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -653,6 +661,69 @@ pub struct DiscoveredProduct {
     pub class_id: String,
     pub name: String,
 }
+/// Intended host for instructions. Current publication uses the shared native
+/// Linux VST3 location; availability never asserts that this host indexed it.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum DawChoice { Bitwig, Reaper, Other }
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct NativeAvailability {
+    pub available: bool,
+    pub reason: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum InstallationPhase {
+    PreparingEnvironment, VendorRunning, Discovering, PreparingPlugins,
+    Available, NeedsAttention,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum InstallationPluginStage {
+    Pending, Inspecting, Preparing, Publishing, Available, NeedsAttention,
+    ReplacementRequired,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum InstallationFailureStage {
+    EnvironmentPreparation, VendorInstallation, Discovery, Inspection,
+    Preparation, Publication,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InstallationFailure {
+    pub stage: InstallationFailureStage,
+    pub reason: String,
+    #[serde(default)]
+    pub code: String,
+    pub retryable: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InstallationPlugin {
+    pub selection: String,
+    pub class_id: String,
+    pub name: String,
+    pub stage: InstallationPluginStage,
+    pub failure: Option<InstallationFailure>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InstallationJourney {
+    pub daw: DawChoice,
+    pub phase: InstallationPhase,
+    pub plugins: Vec<InstallationPlugin>,
+    pub failure: Option<InstallationFailure>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InstallerSetup {
@@ -663,6 +734,8 @@ pub struct InstallerSetup {
     pub format: String,
     pub imported_at: u64,
     pub phase: SetupPhase,
+    #[serde(default)]
+    pub journey: Option<InstallationJourney>,
     pub status: String,
     pub environment: Option<String>,
     pub compatibility: Option<String>,
@@ -730,7 +803,9 @@ impl Action {
     pub fn requires_inactive(&self) -> bool {
         matches!(
             self,
-            Self::RuntimeInstall {}
+            Self::SoftwareInstall { .. }
+                | Self::SoftwareInstallResume { .. }
+                | Self::RuntimeInstall {}
                 | Self::CandidateHistoryComplete { .. }
                 | Self::CandidateGraphicsAssess { .. }
                 | Self::CandidateGraphicsPrepare { .. }

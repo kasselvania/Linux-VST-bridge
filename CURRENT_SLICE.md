@@ -1,40 +1,40 @@
-# Responsibilities and sequence before manager implementation
+# Automatic first installation: installed direct-installer result
 
 ## Goal
 
-Separate vendor work, native DAW availability, ongoing music and compatibility
-knowledge, then agree complete implementation behaviors. Production stays paused.
+Carry one selected-software intent through vendor work and automatic discovery,
+inspection, preparation and native DAW publication of every newly installed class.
 
-## Best explanation
+## Verified result
 
-The user accepted first installation with suggested storage and returning ASC.
-The original Kontakt concern conflated experimental publication, testing guidance,
-installer history and availability. The third mock assumes Ready and is insufficient
-to explain that chain. Bitwig play/save/reopen remains the user's report.
-Current source needs an explicit partial-installation result for the special old
-warning; missing history alone is not that cause. The installed cause is unverified.
+Test55 starts with no runtime or plug-ins on the disposable CachyOS/REAPER fixture.
+One Install and connect request acquires the owned runtime and installs both
+Reference roles; both become available without a report or publication chore.
+Cold runtime/setup takes about 14m27s to reach the vendor window. Both roles play,
+and a fresh REAPER reopen retains changed controls, automation and MIDI.
+Test56's normal application update preserves Reference content, identities and
+project; only two provenance records refresh. A warm Completion install adds two
+new classes automatically, leaving all post-update Reference records unchanged.
+Owned vendor/inspection pauses show progress; Home refreshes to four available
+plug-ins without Check again. Current service is active with no pending cleanup.
+Fresh Reference reopen under Test56 retains the same state, automation and MIDI;
+both original roles produce nonzero captured audio.
+Installed numbers remain in [the existing record](evidence/cachyos-reaper.json).
 
-## Current design work
+## Next gap
 
-The [model](docs/design-dossier/01-product-and-user-experience.md#responsibilities-and-normal-sequence)
-sets owners, prerequisites, observable finish and necessary user action.
-[Install and working-use diagrams](docs/design-dossier/flows/README.md) show automatic
-native connection after safe vendor mutations, with optional evidence kept separate.
-Unknown licence state is not incomplete; actual vendor requests resume the same
-step in the same environment. Generic load failure is not guessed as licensing.
-The [prototype](docs/design-dossier/prototype/index.html) is unchanged; its first two
-interactions remain accepted. Five selected policies and beta standards remain.
+Automatic continuation inside existing vendor applications needs a safe handoff
+from completed mutations to required persistent services in the same environment.
+The generic installer owner still waits for its whole cohort to retire. ASC/NI
+handoff remains open; closing a window does not establish completion or authorize
+stopping required services. Retain working siblings and real interruption/retry.
 
-## What done looks like
+## Boundaries
 
-A reviewed responsibility table and runtime sequence guide the proposed engineering
-order: complete first install into the chosen DAW; interruptions/returning installs;
-then lifecycle changes/recovery. Each includes relevant physical play/save/reopen
-verification. No label-only fix, mandatory report or fabricated qualification.
-REAPER, storage, updates and recovery remain in scope; production stays paused.
-
-## Preserved delivery state
-
-Test53 delivery and earlier physical results remain in SUPPORT_MATRIX.md and
-historical delivery records. Open audio, startup, update, recovery and editor
-failures remain in FAILURE_CLASSES.md. Preserve those campaigns and licensed state.
+Native availability, vendor authorization and optional compatibility evidence
+remain separate. Unknown licence state is not failure. Passive reads do no work;
+new installation intent never silently replaces a working publication.
+The agreed [model](docs/design-dossier/01-product-and-user-experience.md) and five
+selected policies remain binding. Broader storage, returning/shared changes,
+update/recovery and beta musical-use requirements retain their existing scope.
+Preserve prior support results, open defects, projects and licensed state.

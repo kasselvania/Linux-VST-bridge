@@ -11,6 +11,18 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Test55's clean CachyOS/native REAPER first-party installation uses one ordinary
+Install and connect request: owned runtime acquisition, vendor installation and
+automatic discovery/preparation/publication produce two Reference classes.
+Both roles play and retain changed controls, automation and MIDI after a fresh
+reopen. Test56's normal application update preserves those identities and project,
+refreshing only two provenance records. Its warm Completion install adds two
+classes automatically and preserves the post-update Reference baseline; actual
+Home shows four available plug-ins with normal owned-pause progress and no manual
+refresh. Fresh Reference reopen/play under Test56 retains the same controls,
+automation and MIDI. Persistent vendor-application/service handoff remains open.
+[Scoped automatic installation result](../evidence/cachyos-reaper.json).
+
 Installed workflow checks also pass on the disposable x86-64 CachyOS Btrfs VM /
 native REAPER 7.82 at 44.1 kHz / 512 frames. Ordinary runtime/vendor/companion
 installation, discovery and shared-engine preparation produce six classes;

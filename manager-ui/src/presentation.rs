@@ -1,5 +1,6 @@
 //! Read-only language and routing over the canonical operator snapshot.
-use crate::model::{Action, AvailableAction, Product, Snapshot, System};
+use crate::model::{Action, AvailableAction, CompatibilityPhase, DawChoice, InstallationJourney,
+    InstallationPhase, InstallationPluginStage, Product, Snapshot, System};
 use eframe::egui;
 
 /// Shared readable, touch-sized presentation for the ordinary app and previews.
@@ -31,9 +32,38 @@ pub fn primary_button(label: impl Into<egui::WidgetText>, ui: &egui::Ui) -> egui
         .min_size(egui::vec2(0.0, 44.0))
 }
 
+pub fn daw_name(daw: DawChoice) -> &'static str {
+    match daw {
+        DawChoice::Bitwig => "Bitwig",
+        DawChoice::Reaper => "REAPER",
+        DawChoice::Other => "Another Linux VST3 DAW",
+    }
+}
+
+pub fn daw_guidance(daw: Option<DawChoice>) -> &'static str {
+    match daw {
+        Some(DawChoice::Bitwig) => "In Bitwig, add this plug-in from the browser to a track. Rescan VST3s if it is missing.",
+        Some(DawChoice::Reaper) => "In REAPER, add this plug-in to a track's FX. Rescan VST3s if it is missing.",
+        _ => "In your native Linux DAW, add this plug-in to a track. Rescan VST3s if it is missing.",
+    }
+}
+
+/// Guidance follows an explicitly chosen journey for this exact installed class.
+/// Several DAWs can share the same native VST3 publication.
+pub fn product_daw(snapshot: &Snapshot, product: &Product) -> Option<DawChoice> {
+    let mut choices = snapshot.installer_setups.iter().filter(|setup|
+        setup.discovered.iter().any(|found| found.environment == product.environment
+            && found.module_sha256 == product.module_sha256 && found.class_id == product.class_id))
+        .filter_map(|setup| setup.journey.as_ref().map(|journey| journey.daw));
+    let first = choices.next()?;
+    choices.all(|choice| choice == first).then_some(first)
+}
+
 /// Presentation only: the original offered action and refusal remain authoritative.
 pub fn action_label(offer: &AvailableAction) -> String {
     match &offer.action {
+        Action::SoftwareInstall { .. } => "Install and connect to your DAW".into(),
+        Action::SoftwareInstallResume { .. } => "Continue installation and DAW connection".into(),
         Action::RuntimeInstall {} => offer.label.strip_prefix("Install compatibility runtime")
             .map(|size| format!("Download Windows plug-in support{size}"))
             .unwrap_or_else(|| "Download Windows plug-in support".into()),
@@ -49,7 +79,7 @@ pub fn action_label(offer: &AvailableAction) -> String {
         Action::ExperimentalDisable { .. } => "Stop using this test setup".into(),
         Action::CandidateWithdraw { .. } => "Remove from your DAW".into(),
         Action::CompatibilityResult { .. } => "Record a test result or problem".into(),
-        Action::CompatibilityFinishResult { .. } => "Finish recording the test result".into(),
+        Action::CompatibilityFinishResult { .. } => offer.label.clone(),
         Action::CandidateGraphicsAssess { .. } => "Check the editor with these settings".into(),
         Action::CandidateSettingsPrepare { settings, .. } => {
             let graphics = if settings.graphics.is_some() { "Wine D3D11" } else { "runtime defaults" };
@@ -205,6 +235,55 @@ pub fn health(system: &System) -> Health {
     }
 }
 
+pub fn owned_service_pause(operation: Option<&serde_json::Value>) -> bool {
+    let Some(operation) = operation else { return false; };
+    let pause = &operation["owned_service_pause"];
+    pause["schema"] == 1
+        && pause["automatic_operation"] == operation["operation"]
+        && operation["operation"].as_str().is_some_and(|id| !id.is_empty())
+        && pause["owner_operation"].as_str().is_some_and(|id| !id.is_empty())
+        && matches!(operation["state"].as_str(), Some("waiting" | "running" | "vendor_running"))
+        && matches!(operation["journey"]["phase"].as_str(), Some("preparing_environment"
+            | "vendor_running" | "discovering" | "preparing_plugins"))
+        && operation["journey"]["failure"].is_null()
+}
+
+pub fn installation_progress(snapshot: &Snapshot, product: &Product) -> Option<&'static str> {
+    if product.availability.as_ref().is_some_and(|availability| availability.available)
+        || !matches!(product.disposition.as_str(), "installed_unqualified" | "prepared")
+        || product.disposition == "quarantined" || product.details["current"] == false
+        || !product.details["refusal"].is_null()
+        || product.compatibility.as_ref().is_some_and(|workflow|
+            workflow.phase == CompatibilityPhase::AwaitingRetirement) {
+        return None;
+    }
+    let operation = snapshot.operation.as_ref()?;
+    if !matches!(operation["state"].as_str(), Some("waiting" | "running")) { return None; }
+    let journey: InstallationJourney = serde_json::from_value(operation["journey"].clone()).ok()?;
+    if journey.phase != InstallationPhase::PreparingPlugins || journey.failure.is_some() { return None; }
+    let environment = operation["onboarding"].as_str()?;
+    let mut setups = snapshot.installer_setups.iter().filter(|setup|
+        setup.environment.as_deref() == Some(environment) && setup.journey.is_some());
+    let setup = setups.next()?;
+    if setups.next().is_some() { return None; }
+    let mut discovered = setup.discovered.iter().filter(|found| found.class_id == product.class_id);
+    let found = discovered.next()?;
+    if discovered.next().is_some() || found.environment != product.environment
+        || found.environment != environment || found.module_sha256 != product.module_sha256 {
+        return None;
+    }
+    let mut plugins = journey.plugins.iter().filter(|plugin| plugin.class_id == product.class_id);
+    let plugin = plugins.next()?;
+    if plugins.next().is_some() || plugin.failure.is_some() { return None; }
+    match plugin.stage {
+        InstallationPluginStage::Pending => Some("Waiting to connect to your DAW"),
+        InstallationPluginStage::Inspecting => Some("Checking this plug-in"),
+        InstallationPluginStage::Preparing => Some("Preparing its DAW connection"),
+        InstallationPluginStage::Publishing => Some("Connecting to your DAW"),
+        _ => None,
+    }
+}
+
 pub fn terminal_text(terminal: &str) -> &'static str {
     match terminal {
         "editor_controller_failed" => "Editor or controller failed",
@@ -310,6 +389,11 @@ pub fn product_activity(snapshot: &Snapshot, product: &Product) -> ProductActivi
 }
 
 pub fn product_issue(product: &Product) -> Option<String> {
+    if let Some(reason) = product.availability.as_ref()
+        .filter(|availability| !availability.available)
+        .and_then(|availability| availability.reason.as_ref()) {
+        return Some(reason.clone());
+    }
     if let Some(workflow) = &product.compatibility {
         if matches!(product.disposition.as_str(), "needs_attention" | "another_configuration") {
             return Some(workflow.summary.clone());
