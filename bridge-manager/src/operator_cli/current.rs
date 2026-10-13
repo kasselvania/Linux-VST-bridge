@@ -29,6 +29,7 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
     paths.insert(m.root.join("registry.json"));
     paths.insert(m.root.join("operator/latest.json"));
     paths.insert(m.root.join("operator/resume.json"));
+    paths.extend(renderer_continuation::watch_paths(m)?);
     for refresh in environment_refresh::records(m)? {
         let directory=job_dir(m,&refresh.intent.owner)?;
         paths.insert(directory.join("refresh.json"));
@@ -735,9 +736,12 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
         let live = installer_is_live(operation)?;
         installer_live.insert(operation.to_owned(),live);Ok(live)
     })?;
-    let vendor_applications = vendor_projections(m,busy)?;
+    let mut vendor_applications = vendor_projections(m,busy)?;
     let environments=environment_projection_from(m,&sw,&managed_bindings,&db,busy)?;
     environment_refresh::project(m,&mut installer_setups,&environments,&products,busy)?;
+    if let Some(app)=renderer_projection(m,busy,vendor.then_some(true),Some(&mut installer_setups))? {
+        vendor_applications.push(app);
+    }
     let workspace_at = Instant::now(); phases.push(("workspace_and_cards",workspace_at.duration_since(joined_at).as_millis()));
     #[cfg(feature = "pb0-c0-audit")]
     eprintln!("PB0_PHASE {}", serde_json::to_string(&phases)?);

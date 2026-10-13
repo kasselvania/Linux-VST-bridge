@@ -155,6 +155,10 @@ pub struct RendererBinding {
 pub fn renderer_record(m:&Manager,operation:&str)->Result<RendererBinding> {
     let directory=operator_dir(m,operation)?;
     let r:RendererBinding=read_json(&directory.join("renderer-maintenance.json"))?;
+    validate_renderer_binding(m,operation,&r)?;Ok(r)
+}
+pub fn validate_renderer_binding(m:&Manager,operation:&str,r:&RendererBinding)->Result<()> {
+    let directory=operator_dir(m,operation)?;
     let request:operator_model::Request=read_json(&directory.join("request.json"))?;
     let operator_model::Action::RendererSoftwareInstall {application,policy,..}=request.action else {
         return Err("renderer_environment_request_binding".into());
@@ -195,7 +199,7 @@ pub fn renderer_record(m:&Manager,operation:&str)->Result<RendererBinding> {
         require(result["recovery"]["prior_result_sha256"]==digest(&operation_dir.join("result.json"))?,
             "renderer_environment_recovery_binding")?;
     }
-    Ok(r)
+    Ok(())
 }
 pub fn renderer_records(m:&Manager)->Result<Vec<RendererBinding>> {
     let root=m.root.join("operator");if !root.exists(){return Ok(vec![])}

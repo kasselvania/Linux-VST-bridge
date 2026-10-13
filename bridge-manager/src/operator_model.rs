@@ -238,6 +238,8 @@ pub enum Action {
     },
     /// Find and connect missing classes without changing working publications.
     EnvironmentRefresh { environment: String, daw: DawChoice },
+    /// Resume connection in the exact accepted refresh or completed renderer job.
+    /// This never launches or reopens an application.
     EnvironmentRefreshResume { operation: String },
     QuarantinedModuleRetry {
         environment: String,

@@ -2151,10 +2151,28 @@ fn finish_inspection_with_registry(m: &Manager, job: &SessionSpec, status: ExitS
     }
     require(status.success(), "inspection cleanup failed")?;
     let result: serde_json::Value = read_json(&job.report)?;
-    require(
-        result["error"].is_null(),
-        "inspection failed; see retained result",
-    )
+    if !result["error"].is_null() {
+        return Err(inspection_failure_context(m,job,&result)?.into());
+    }
+    Ok(())
+}
+fn inspection_failure_context(m:&Manager,job:&SessionSpec,result:&serde_json::Value)->Result<String> {
+    let registry=m.registry()?;
+    let name=registry.classes.get(&job.registration.metadata.class_id)
+        .filter(|entry|entry.registration.environment==job.registration.environment
+            && entry.registration.module==job.registration.module)
+        .map(|entry|entry.registration.metadata.name.as_str())
+        .filter(|name|!name.is_empty() && name.len()<=256 && !name.chars().any(char::is_control))
+        .unwrap_or("the selected plug-in");
+    let phase=result["records"].as_array().and_then(|records|records.last())
+        .and_then(|record|if record["state"]=="ap8_call" {record["operation"].as_str()}else{None});
+    let phase=match phase {
+        Some("inspectEditorInterface")=>"editor inspection",
+        Some("getComponentState"|"setComponentState"|"getControllerState"|"setControllerState")=>"plug-in state inspection",
+        Some(_)=>"a plug-in inspection call",
+        None=>"plug-in inspection",
+    };
+    Ok(format!("inspection failed for {name} during {phase}. Retry this operation; the failed check is retained."))
 }
 fn install(m: &Manager, id: &str, path: &Path, sha: &str) -> Result<()> {
     let e = environment_record(m, id)?;
@@ -3161,6 +3179,20 @@ mod tests {
         assert!(job.report.with_extension("ownership.json").exists());
         assert!(capacity::owners(&f.m).unwrap().is_empty());
         assert_eq!(fs::read(marker).unwrap(), b"untouched");
+    }
+    #[test]
+    fn inspection_failure_identifies_exact_registered_plugin_and_editor_phase() {
+        let f=test_fixture::Fixture::new();
+        f.m.register(f.r.clone()).unwrap();
+        let (mut job,_)=spec(&f.m,f.r.clone().into(),true,false,false).unwrap();
+        let result=serde_json::json!({"error":"Windows host exited without successful close",
+            "records":[{"state":"ap8_call","operation":"inspectEditorInterface"}]});
+        let context=inspection_failure_context(&f.m,&job,&result).unwrap();
+        assert!(context.contains(&f.r.metadata.name));assert!(context.contains("editor inspection"));
+        assert!(context.contains("Retry this operation"));assert!(!context.contains("current setup"));
+        job.registration.module.sha256="ff".repeat(32);
+        let foreign=inspection_failure_context(&f.m,&job,&result).unwrap();
+        assert!(foreign.contains("the selected plug-in"));
     }
     #[test]
     fn successful_inspection_exit_cannot_release_an_unconfirmed_reservation() {

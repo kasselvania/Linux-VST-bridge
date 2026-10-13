@@ -1082,6 +1082,7 @@ fn action_selection_with(m: &Manager, sw: &Software, action: &ui::Action,
 }
 pub fn offered(actual: &ui::Action, offer: &ui::Action) -> bool {
     match (actual, offer) {
+        (ui::Action::RendererSoftwareInstall {application,policy,..},ui::Action::RendererSoftwareInstall {application:offered,policy:offered_policy,..})=>application==offered && policy==offered_policy,
         (ui::Action::EnvironmentRefresh {environment,..},ui::Action::EnvironmentRefresh {environment:offered,..})=>environment==offered,
         (ui::Action::VendorSoftwareInstall {application,..}, ui::Action::VendorSoftwareInstall {application:offered,..}) => application==offered,
         (ui::Action::SoftwareInstall { installer, .. },

@@ -809,7 +809,7 @@ pub(super) fn projection_current(m: &Manager, busy: Option<&str>,
                     && inventory_refresh_record_required(m, &r.environment, &sw.host, &sw.source_sha256)?
                 {
                     state = "needs_attention".into();
-                    human = "Installation retained; use the exact managed-environment refresh below before preparing or replacing a publication";
+                    human = "Installation history is retained. Current plug-in connections are shown in Setup";
                 } else {
                     human = "Installation retained; manage the exact discovered products below. Initial installation is closed";
                 }

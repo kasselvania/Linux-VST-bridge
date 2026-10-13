@@ -58,6 +58,7 @@ type ExecuteStage<'a> = dyn FnMut(&ui::Action, &str, &mut dyn FnMut(&str)) -> Re
 trait InstallationTarget {
     fn environment(&self) -> &Environment;
     fn installation(&self) -> Option<&onboarding::Record>;
+    fn renderer(&self) -> bool {false}
     fn id(&self) -> &str { &self.environment().id }
 }
 impl InstallationTarget for onboarding::Record {
@@ -67,6 +68,16 @@ impl InstallationTarget for onboarding::Record {
 impl InstallationTarget for Environment {
     fn environment(&self) -> &Environment { self }
     fn installation(&self) -> Option<&onboarding::Record> { None }
+}
+
+struct RendererTarget(Environment);
+impl InstallationTarget for RendererTarget {
+    fn environment(&self) -> &Environment {&self.0}
+    fn installation(&self) -> Option<&onboarding::Record> {None}
+    fn renderer(&self) -> bool {true}
+}
+fn refresh_target(record:&dyn InstallationTarget,intent:&Intent)->bool {
+    intent.vendor.is_none() && record.installation().is_none() && !record.renderer()
 }
 
 fn checkpoint(m: &Manager, owner: &str) -> Result<PathBuf> {
@@ -272,6 +283,12 @@ pub(super) fn current_operation(m: &Manager) -> Result<Option<Value>> {
             }
         }
     }
+    if let Some(owner)=receipt["renderer_owner"].as_str() {
+        let retained=renderer_continuation::load(m,owner)?;
+        if receipt["operation"].as_str()==Some(retained.intent.active_operation.as_str()) {
+            receipt["journey"]=serde_json::to_value(renderer_continuation::current_journey(m,&retained)?)?;
+        }
+    }
     if let Some(pause) = owned_service_pause_with(m, &receipt, |operation| {
         Ok(
             readiness::bounded_user_unit_state(&format!("linux-vst-bridge-operator-{operation}"))
@@ -352,11 +369,22 @@ fn owned_service_pause_with(
                 ui::Action::EnvironmentRefreshResume {operation}=>operation.as_str(),
                 _=>unreachable!(),
             };
-            let intent=environment_refresh::load(m,owner)?.intent;
+            let renderer_owner=renderer_continuation::owns(m,owner)?;
+            let intent=if renderer_owner {renderer_continuation::load(m,owner)?.intent}
+                else {environment_refresh::load(m,owner)?.intent};
             intent.active_operation==operation && intent.journey.daw==journey.daw
                 && intent.journey.phase==journey.phase
-                && (saved.owner_operation==operation || intent.work.iter().any(|work|
+                && (saved.owner_operation==operation && (!renderer_owner || renderer_continuation::scan_custody(m,&saved).is_ok())
+                    || intent.work.iter().any(|work|
                     work.active_operation.as_deref()==Some(saved.owner_operation.as_str())))
+        }
+        ui::Action::RendererSoftwareInstall {daw,..}=> {
+            let intent=renderer_continuation::load(m,operation)?.intent;
+            intent.active_operation==operation && intent.journey.daw==*daw && journey.daw==*daw
+                && intent.journey.phase==journey.phase
+                && (saved.owner_operation==operation && (saved.vendor_operation.as_deref()==Some(operation)
+                        || saved.vendor_operation.is_none() && renderer_continuation::scan_custody(m,&saved).is_ok())
+                    || intent.work.iter().any(|work|work.active_operation.as_deref()==Some(saved.owner_operation.as_str())))
         }
         ui::Action::SoftwareInstall { .. }
         | ui::Action::SoftwareInstallResume { .. } => {
@@ -441,7 +469,8 @@ pub(super) fn failure(stage: ui::InstallationFailureStage, reason: impl ToString
     }
 }
 fn save(m: &Manager, record: &dyn InstallationTarget, intent: &Intent, operation: &str) -> Result<()> {
-    if intent.vendor.is_none() && record.installation().is_none() {
+    if record.renderer() {return renderer_continuation::save(m,record.environment(),intent,operation);}
+    if refresh_target(record,intent) {
         return environment_refresh::save(m,record.environment(),intent,operation);
     }
     if let Some(vendor) = &intent.vendor {
@@ -1023,6 +1052,17 @@ pub(super) fn continue_refresh_fixture(m:&Manager,environment:&Environment,inten
     operation:&str,run:&mut ExecuteStage<'_>)->Result<Value> {
     continue_with(m,environment,intent,operation,run)
 }
+pub(super) fn continue_renderer(m:&Manager,environment:&Environment,intent:&mut Intent,
+    operation:&str,capacity:&dyn Fn()->Option<CapacityReadback>,timeout:Duration,
+    waits:&mut Vec<ui::LockFacts>)->Result<Value> {
+    continue_installed(m,&RendererTarget(environment.clone()),intent,operation,capacity,timeout,waits)
+}
+#[cfg(test)]
+pub(super) fn continue_renderer_fixture(m:&Manager,environment:&Environment,intent:&mut Intent,
+    operation:&str,run:&mut ExecuteStage<'_>)->Result<Value> {
+    continue_with(m,&RendererTarget(environment.clone()),intent,operation,run)
+}
+
 pub(super) fn cleanup_connections(m:&Manager,intent:&Intent)->Result<()> {
     for work in &intent.work {
         if let Some(check)=&work.check {
@@ -1050,6 +1090,8 @@ fn continue_with(
         result.verify()?;
         require_vendor_success(m, vendor)?;
         Some(json!({"state":"completed","cleanup_confirmed":true,"owned_live":0}))
+    } else if record.renderer() {
+        Some(renderer_continuation::completed_receipt(m,intent,record.environment())?)
     } else if let Some(record)=record.installation() {
         Some(onboarding::result(m,record)?)
     } else {
@@ -1106,11 +1148,11 @@ fn continue_with(
 }
 fn finish_connections(m:&Manager,record:&dyn InstallationTarget,intent:&mut Intent,operation:&str,
     run:&mut ExecuteStage<'_>,installation:&Value)->Result<Value> {
-    if intent.vendor.is_none() && record.installation().is_none() {
+    if refresh_target(record,intent) {
         environment_refresh::require_preserved_baseline(m,intent)?;
     }
     if intent.journey.plugins.is_empty() {
-        require(intent.vendor.is_some(), "no_supported_instruments_or_effects_discovered")?;
+        require(intent.vendor.is_some() || record.renderer(), "no_supported_instruments_or_effects_discovered")?;
         // A completed app session is not a DAW connection. Retain its result and
         // keep the real app next step actionable, without an empty Available claim.
         intent.journey.phase=ui::InstallationPhase::NeedsAttention;
@@ -1153,7 +1195,7 @@ fn finish_connections(m:&Manager,record:&dyn InstallationTarget,intent:&mut Inte
             save(m, record, intent, operation)?;
         }
     }
-    if intent.vendor.is_none() && record.installation().is_none() {
+    if refresh_target(record,intent) {
         environment_refresh::require_preserved_baseline(m,intent)?;
     }
     let complete = intent
@@ -1197,7 +1239,7 @@ fn collect_new_results(
     for selection in selected {
         let id = selection.id()?;
         let predecessor=intent.predecessors.iter().find(|p|p.class_id==selection.class.id);
-        if intent.vendor.is_none() && record.installation().is_none()
+        if refresh_target(record,intent)
             && intent.prior_selections.contains(&stable_identity(&selection)) {
             environment_refresh::require_preserved(m,intent,&selection)?;
             if !intent.journey.plugins.iter().any(|p|p.selection==id) {
@@ -1605,9 +1647,11 @@ pub(super) fn project_revalidation(m: &Manager, products: &mut [ui::Product],
         return Ok(());
     }
     let application = receipt["application"].as_str();
-    let owned = application.map(|app|vendor_intent(m, app)).transpose()?.flatten();
+    let owned = if let Some(owner)=receipt["renderer_owner"].as_str() {
+        Some(renderer_continuation::load(m,owner)?.intent)
+    } else {application.map(|app|vendor_intent(m, app)).transpose()?.flatten()};
     let Some(intent) = owned.as_ref().into_iter().chain(records.iter().filter_map(|r|r.automatic.as_ref()))
-        .find(|i|i.active_operation == operation && i.vendor.is_some()
+        .find(|i|i.active_operation == operation && (i.vendor.is_some() || receipt["renderer_owner"]==i.owner)
             && i.journey.phase == ui::InstallationPhase::PreparingPlugins) else {return Ok(())};
     for work in &intent.work {
         let Some(predecessor) = &work.predecessor else {continue};
@@ -1796,6 +1840,10 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
 }
 
 pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Result<()> {
+    if matches!(action,ui::Action::RendererSoftwareInstall {..})
+        || matches!(action,ui::Action::EnvironmentRefreshResume {operation} if renderer_continuation::owns(m,operation)?) {
+        return renderer_continuation::finish(m,operation,action);
+    }
     if matches!(action,ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentRefreshResume {..}) {
         return environment_refresh::finish(m,operation,action);
     }

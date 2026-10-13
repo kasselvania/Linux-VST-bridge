@@ -170,8 +170,10 @@ impl RequestFeedback {
     }
     fn observe(&mut self, op: &serde_json::Value) {
         if self.operation.is_some() && self.operation.as_deref() == op["operation"].as_str()
-            && matches!(self.action,Action::SoftwareInstall { .. } | Action::VendorSoftwareInstall { .. }
-                | Action::SoftwareInstallResume { .. }) {
+            && (matches!(self.action,Action::SoftwareInstall { .. } | Action::VendorSoftwareInstall { .. }
+                | Action::SoftwareInstallResume { .. } | Action::RendererSoftwareInstall { .. })
+                || matches!(&self.action,Action::EnvironmentRefreshResume {operation}
+                    if op["renderer_owner"].as_str()==Some(operation.as_str()))) {
             if let Ok(journey)=serde_json::from_value::<InstallationJourney>(op["journey"].clone()) {
                 if journey.phase == InstallationPhase::AwaitingApplication && journey.failure.is_none() {
                     self.journey=Some(journey);self.transition("awaiting_application");
@@ -238,7 +240,7 @@ impl RequestFeedback {
             Some("queued") => "This operation is queued. Do not click again.".into(),
             Some("running") => match &self.action {
                 Action::SoftwareInstall { .. } | Action::VendorSoftwareInstall { .. }
-                    | Action::SoftwareInstallResume { .. } | Action::EnvironmentRefresh { .. }
+                    | Action::SoftwareInstallResume { .. } | Action::RendererSoftwareInstall {..} | Action::EnvironmentRefresh { .. }
                     | Action::EnvironmentRefreshResume { .. } =>
                     self.journey.as_ref().map(journey_phase_label)
                         .unwrap_or("Installing and connecting your plug-ins").into(),
@@ -296,10 +298,8 @@ impl RequestFeedback {
             }
         }
         let mut renderer_recovery = false;
-        if let Action::RendererOpen {
-            application,
-            policy,
-        } = self.action.clone()
+        if let Action::RendererOpen {application,policy}
+            | Action::RendererSoftwareInstall {application,policy,..}=self.action.clone()
         {
             for app in &s.vendor_applications {
                 if app.details["application_identity"].as_str() == Some(application.as_str()) {
@@ -318,9 +318,15 @@ impl RequestFeedback {
                         }
                     }
                     if let Some(op) = app.details.get("manager_operation") {
-                        renderer_recovery = self.operation.is_some()
-                            && op["operation"].as_str() == self.operation.as_deref();
-                        self.observe(op);
+                        // RendererOpen ends with its session; automatic installation
+                        // continues into discovery/connection under the operator owner.
+                        // A retired renderer child cannot complete that larger job.
+                        if matches!(self.action,Action::RendererOpen { .. })
+                            || matches!(op["state"].as_str(),Some("vendor_running"|"submission_uncertain")) {
+                            renderer_recovery = self.operation.is_some()
+                                && op["operation"].as_str() == self.operation.as_deref();
+                            self.observe(op);
+                        }
                     }
                 }
             }
@@ -2640,6 +2646,8 @@ fn installation_with_daw(action: &Action, daw: DawChoice) -> Option<Action> {
             Some(Action::VendorSoftwareInstall { application: application.clone(), daw }),
         Action::EnvironmentRefresh {environment,..}=>
             Some(Action::EnvironmentRefresh {environment:environment.clone(),daw}),
+        Action::RendererSoftwareInstall {application,policy,..}=>
+            Some(Action::RendererSoftwareInstall {application:application.clone(),policy:*policy,daw}),
         _ => None,
     }
 }
@@ -2647,6 +2655,14 @@ fn installation_with_daw(action: &Action, daw: DawChoice) -> Option<Action> {
 fn installation_form_offer(snapshot: Option<&Snapshot>, action: &Action)
     -> Result<Option<String>, &'static str> {
     match action {
+        Action::RendererSoftwareInstall {application,policy,..}=> {
+            let snapshot=snapshot.ok_or("Current manager status is unavailable. Refresh before continuing.")?;
+            snapshot.vendor_applications.iter().flat_map(|app|&app.actions).find(|offer|
+                matches!(&offer.action,Action::RendererSoftwareInstall {application:offered,policy:offered_policy,..}
+                    if offered==application && offered_policy==policy))
+                .map(|offer|offer.disabled_reason.clone().or_else(||snapshot.system.inactive_reason().map(str::to_owned)))
+                .ok_or("This app's offered rendering choice changed. Refresh Setup before continuing.")
+        },
         Action::EnvironmentRefresh {environment,..}=> {
             let snapshot=snapshot.ok_or("Current manager status is unavailable. Refresh before continuing.")?;
             snapshot.installer_setups.iter().flat_map(|setup|setup.primary.iter().chain(setup.secondary.iter()))
@@ -3474,6 +3490,23 @@ mod tests {
         assert!(installation_form_offer(None,&action).is_err());
     }
 
+    #[test]
+    fn renderer_installation_daw_draft_preserves_exact_application_and_rendering_policy() {
+        let mut overview:CurrentOverview=overview_fixture().into();
+        let application="ac".repeat(32);
+        let offered=Action::RendererSoftwareInstall {application:application.clone(),
+            policy:RendererPolicy::SoftwareRendering,daw:DawChoice::Other};
+        overview.current.vendor_applications=vec![VendorApplication {id:"renderer".into(),name:"Installed app".into(),
+            version:"1".into(),state:"closed".into(),details:serde_json::Value::Null,actions:vec![AvailableAction {
+                label:"Open".into(),action:offered.clone(),disabled_reason:None}]}];
+        let selected=installation_with_daw(&offered,DawChoice::Bitwig).unwrap();
+        assert_eq!(selected,Action::RendererSoftwareInstall {application:application.clone(),
+            policy:RendererPolicy::SoftwareRendering,daw:DawChoice::Bitwig});
+        assert_eq!(installation_form_offer(Some(&overview.current),&selected),Ok(None));
+        let foreign_policy=Action::RendererSoftwareInstall {application,
+            policy:RendererPolicy::Inherited,daw:DawChoice::Bitwig};
+        assert!(installation_form_offer(Some(&overview.current),&foreign_policy).is_err());
+    }
     #[test]
     fn returning_vendor_session_with_no_new_plugins_shows_completion_without_installation_failure() {
         let mut overview:CurrentOverview=overview_fixture().into();
@@ -6380,6 +6413,65 @@ mod tests {
         });
         other.reconcile_snapshot(&s);
         assert!(other.operation.is_none());
+    }
+
+    #[test]
+    fn renderer_retirement_does_not_complete_automatic_scan_or_hide_connection_failure() {
+        let application="ab".repeat(32);let owner="cd".repeat(16);
+        let mut feedback=RequestFeedback::captured(Action::RendererSoftwareInstall {
+            application:application.clone(),policy:RendererPolicy::SoftwareRendering,daw:DawChoice::Bitwig});
+        feedback.receipt(&Receipt {schema:crate::model::OPERATOR_SCHEMA,accepted:true,
+            operation:Some(owner.clone()),refusal:None});
+        let mut snapshot=running_snapshot(&owner);
+        snapshot.vendor_applications.push(VendorApplication {id:"native-access".into(),name:"Installed app".into(),
+            version:"1".into(),state:"retired".into(),actions:vec![],details:serde_json::json!({
+                "application_identity":application,"operation":owner,"requested":"software_rendering",
+                "manager_operation":{"operation":owner,"state":"completed"}})});
+        let mut journey=automatic_journey(InstallationPhase::Discovering);journey.plugins.clear();
+        snapshot.operation=Some(serde_json::json!({"operation":owner,"state":"running","journey":journey}));
+        feedback.reconcile_snapshot(&snapshot);
+        assert!(!feedback.terminal);assert_eq!(feedback.journey.as_ref().unwrap().phase,InstallationPhase::Discovering);
+        assert_eq!(feedback.text,"Finding installed plug-ins");
+        snapshot.operation=Some(serde_json::json!({"operation":owner,"state":"completed",
+            "journey":automatic_journey(InstallationPhase::NeedsAttention)}));
+        feedback.reconcile_snapshot(&snapshot);
+        assert!(feedback.terminal);assert!(!feedback.blocking);
+        assert!(feedback.text.contains("DAW connection needs attention"));
+        assert_eq!(feedback.journey.as_ref().unwrap().plugins[1].failure.as_ref().unwrap().code,"fixture_load_failed");
+        // A refused shared stage must also remain visible after child retirement.
+        let mut refused=RequestFeedback::captured(feedback.action.clone());
+        refused.receipt(&Receipt {schema:crate::model::OPERATOR_SCHEMA,accepted:true,
+            operation:Some(owner.clone()),refusal:None});
+        snapshot.operation=Some(serde_json::json!({"operation":owner,"state":"refused","reason":"discovery_failed"}));
+        refused.reconcile_snapshot(&snapshot);assert!(refused.terminal);assert!(refused.text.contains("discovery_failed"));
+    }
+    #[test]
+    fn empty_renderer_visit_and_connection_resume_keep_the_exact_app_handoff() {
+        let original="cd".repeat(16);let resume="ef".repeat(16);
+        for (action,owner) in [(Action::RendererSoftwareInstall {application:"ab".repeat(32),
+                policy:RendererPolicy::SoftwareRendering,daw:DawChoice::Bitwig},original.clone()),
+            (Action::EnvironmentRefreshResume {operation:original.clone()},resume)] {
+            let mut feedback=RequestFeedback::captured(action);
+            feedback.receipt(&Receipt {schema:crate::model::OPERATOR_SCHEMA,accepted:true,
+                operation:Some(owner.clone()),refusal:None});
+            feedback.observe(&serde_json::json!({"operation":owner,"state":"completed"}));
+            let mut snapshot=running_snapshot(&owner);
+            snapshot.operation=Some(serde_json::json!({"operation":owner,"state":"completed","renderer_owner":original,
+                "journey":InstallationJourney {daw:DawChoice::Bitwig,phase:InstallationPhase::AwaitingApplication,
+                    plugins:vec![],failure:None}}));
+            let mut unrelated=feedback.clone();unrelated.operation=Some("12".repeat(16));
+            unrelated.reconcile_snapshot(&snapshot);assert!(unrelated.journey.is_none());
+            let mut foreign=feedback.clone();snapshot.operation.as_mut().unwrap()["renderer_owner"]=serde_json::json!("34".repeat(16));
+            foreign.reconcile_snapshot(&snapshot);
+            if matches!(feedback.action,Action::EnvironmentRefreshResume {..}) {assert!(foreign.journey.is_none());}
+            snapshot.operation.as_mut().unwrap()["renderer_owner"]=serde_json::json!(original);
+            feedback.reconcile_snapshot(&snapshot);
+            assert!(feedback.terminal);assert!(!feedback.blocking);
+            assert_eq!(feedback.journey.as_ref().unwrap().phase,InstallationPhase::AwaitingApplication);
+            assert!(feedback.journey.as_ref().unwrap().plugins.is_empty());
+            assert_eq!(feedback.text,"The app is installed. Open it below to install your instruments and effects.");
+            assert!(!feedback.text.contains("DAW connection complete"));
+        }
     }
 
     #[test]

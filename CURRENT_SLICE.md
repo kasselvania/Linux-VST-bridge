@@ -20,21 +20,24 @@ all 23 original preferences are restored exactly.
 Test61 is installed normally with the paired manager and bridge active.
 Home settles Kontakt's history-only reminder using current exact availability.
 Apps are grouped by owned setup; opening a setup scopes its actual management view.
-Fresh explicit app selection on a clean CachyOS installation remains in progress.
+Fresh ordinary app selection on clean CachyOS installs and automatically connects
+the hub's two classes in REAPER; a repeat visit also completes normally.
+Test62 displays the original partial installer receipt without reviving Kontakt's
+history-only reminder. Test63 Find and connect adds Serum FX in Bitwig while
+preserving the working instrument publication and performance exactly.
 
 ## Best explanation and next changes
 
-- Managed setup refresh was omitted from ordinary Setup and only rescanned;
-  Serum's working instrument is available, but its discovered effect has no
-  publication. Reuse exact environment admission and automatically connect the
-  missing class while preserving the working instrument.
-- Native Access's renderer owner retires/restores correctly but has no shared
-  discovery/connection adapter. Keep its real application, dependency and job owner.
-- First qualify a reader for truthful new jobs/revision edges, then enable writers;
-  keep historical receipts intact and unsupported actions refused.
-- Display the retained installer receipt from its actual nested record.
+- Native Access's renderer owner retires/restores correctly but lacks shared
+  discovery/connection. The adapter keeps its real application, dependency,
+  accepted job and prelaunch baseline; resumes never reopen the app.
+- Reader-first Test62 is installed and reads the real Test63 refresh job unchanged.
+  Keep all original receipts and unsupported actions refused.
+- Finish installed Native Access open/normal close through automatic availability,
+  and fresh app-handoff notification proof. Serum FX DAW playback/recall is running.
+- A Kontakt allocator crash interrupted one update; exact-input inspection and
+  normal retry passed. The intermittent editor inspection failure remains open.
 
-Done: actual ordinary refresh connects Serum FX; Native Access open/normal close
-continues automatically; fresh app choice/install/repeat works in ordinary UI.
-Saved projects, licensed state, preferences and history survive each update.
-Runtime verification/update latency remains open; it is a separate repair.
+Done: ordinary setup/app visits automatically connect missing classes and settle
+current tasks; playback/save/reopen passes with original licensed state, projects,
+preferences and history intact. Runtime verification/update latency remains open.
