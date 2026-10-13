@@ -58,22 +58,18 @@ fn target_with_application(m: &Manager, environment: &str,
         }
         return Ok(current);
     }
-    if let Some(current)=verified(m,environment)? {
-        require(current.id == environment && current_environment(m,&current)? == current,
-            "installer_environment_binding_changed")?;
-        for entry in db.classes.values().filter(|e|e.registration.environment.id == environment) {
+    let mut owners = db.classes.values().filter(|e|e.registration.environment.id == environment);
+    if let Some(first)=owners.next() {
+        let current=current_environment(m,&first.registration.environment)?;
+        for entry in owners {
             require(resolves_to(m,&entry.registration.environment,&current)?,
                 "installer_environment_binding_changed")?;
         }
         return Ok(current);
     }
-    let mut owners = db.classes.values().filter(|e|e.registration.environment.id == environment);
-    let first = owners.next().ok_or("installer_existing_setup_required")?;
-    let current = current_environment(m,&first.registration.environment)?;
-    for entry in owners {
-        require(resolves_to(m,&entry.registration.environment,&current)?,
-            "installer_environment_binding_changed")?;
-    }
+    let current=verified(m,environment)?.ok_or("installer_existing_setup_required")?;
+    require(current.id == environment && current_environment(m,&current)? == current,
+        "installer_environment_binding_changed")?;
     Ok(current)
 }
 
@@ -285,6 +281,15 @@ mod tests {
         let mut foreign=environment.clone();foreign.id=random_id().unwrap();
         assert_eq!(target_with_application(&f.m,&environment.id,|_,_|Ok(Some(foreign)))
             .unwrap_err().to_string(),"installer_environment_binding_changed");
+    }
+    #[test]
+    fn valid_registry_owner_does_not_acquire_an_unrelated_app_verification_requirement() {
+        let f=test_fixture::Fixture::new();let environment=f.r.environment.clone();
+        assert_eq!(target_with_application(&f.m,&environment.id,|_,_|Err("application_content_changed".into()))
+            .unwrap_err().to_string(),"application_content_changed");
+        f.m.register(f.r.clone()).unwrap();
+        assert_eq!(target_with_application(&f.m,&environment.id,|_,_|panic!("Registry custody already owns this target"))
+            .unwrap(),environment);
     }
     fn fixture() -> (test_fixture::Fixture,installer_import::Installer) {
         let (f,_,_,_) = test_fixture::prepared();

@@ -377,7 +377,7 @@ pub(super) fn live_vendor_progress_with(m: &Manager, is_live: impl FnOnce() -> R
     -> Result<Option<vendor_application::Operation>> {
     live_vendor_progress_selected(m, ASC, is_live)
 }
-fn live_vendor_progress_selected(
+pub(super) fn live_vendor_progress_selected(
     m: &Manager,
     selector: &str,
     is_live: impl FnOnce() -> Result<bool>,
@@ -747,11 +747,15 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
-    use crate::operator_cli::tests::{capacity_json, overview_service_reply};
+    use crate::operator_cli::tests::{capacity_json, overview_service_reply, overview_service_reply_with_counts};
     fn selected_vendor_fixture() -> (test_fixture::Fixture, vendor_application::Application) {
         let (f, _) = preparation_cli::tests::projection_fixture();
+        let app=selected_vendor_application(&f);
+        (f,app)
+    }
+    pub(crate) fn selected_vendor_application(f: &test_fixture::Fixture) -> vendor_application::Application {
         let environment = f.r.environment.clone();
         let executable = environment.root.join("compatdata/pfx/drive_c/Hub.exe");
         fs::write(&executable, b"MZ owned source hub").unwrap();
@@ -790,7 +794,7 @@ mod tests {
         let directory = vendor_cli::directory(&f.m,&app.selector().unwrap()).unwrap();
         private_dir(&directory).unwrap();
         atomic_json(&directory.join("application.json"),&app).unwrap();
-        (f,app)
+        app
     }
     #[test]
     fn registered_vendor_application_reaches_fast_setup_and_normal_action_authority() {
@@ -829,11 +833,15 @@ mod tests {
             server.join().unwrap();
             assert!(watched.iter().zip(&before).all(|(path,bytes)|fs::read(path).unwrap()==*bytes),
                 "Current cards and action admission must not launch or alter installation records");
-            for changed in [ui::Request {state_token:"stale".into(),..request.clone()},
+            for (index,changed) in [ui::Request {state_token:"stale".into(),..request.clone()},
                 ui::Request {action:ui::Action::VendorSoftwareInstall {
-                    application:"de".repeat(32),daw:ui::DawChoice::Bitwig},..request.clone()}] {
-                let server = overview_service_reply(&f.m,capacity_json(false,0,0));
-                assert!(validate_current_request(&f.m,&changed).is_err());
+                    application:"de".repeat(32),daw:ui::DawChoice::Bitwig},..request.clone()}].into_iter().enumerate() {
+                // An unknown exact app now refuses before external final rechecks.
+                let counts=if index == 1 {(1,1)} else {(1,3)};
+                let server = overview_service_reply_with_counts(&f.m,capacity_json(false,0,0),counts);
+                let refusal=validate_current_request(&f.m,&changed).unwrap_err().to_string();
+                assert_eq!(refusal,if index == 1 {"vendor_application_choice_unavailable"}
+                    else {"operator_stale_request_refresh"});
                 server.join().unwrap();
             }
             fs::write(&app.executable.path,b"changed source hub").unwrap();

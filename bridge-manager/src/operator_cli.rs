@@ -4305,7 +4305,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 24);
+        assert_eq!(ui::OPERATOR_SCHEMA, 25);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
@@ -4517,7 +4517,7 @@ pub(crate) mod tests {
         assert_eq!(validate(&request,&passive.current).unwrap_err().to_string(),
             "operator_stale_request_refresh");
     }
-    fn overview_service_reply_with_counts(m: &Manager, value: Value, expected: (usize, usize))
+    pub(super) fn overview_service_reply_with_counts(m: &Manager, value: Value, expected: (usize, usize))
         -> std::thread::JoinHandle<()> {
         private_dir(&m.root.join("runtime")).unwrap();
         let socket=m.root.join("runtime/owner.sock");
