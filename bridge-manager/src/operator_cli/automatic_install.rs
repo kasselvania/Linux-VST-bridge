@@ -567,7 +567,7 @@ fn execute_owned(
 }
 
 pub(super) fn restartable_vendor(m:&Manager,intent:&Intent)->Result<bool> {
-    restartable_vendor_with(m,intent,|app|vendor_cli::live(app))
+    restartable_vendor_with(m,intent,vendor_cli::live)
 }
 fn restartable_vendor_with(m:&Manager,intent:&Intent,live:impl FnOnce(&str)->Result<bool>)->Result<bool> {
     let Some(vendor)=&intent.vendor else{return Ok(false)};
