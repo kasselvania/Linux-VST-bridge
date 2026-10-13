@@ -482,6 +482,8 @@ pub struct Operator {
     product_detail: Option<CurrentProductDetail>,
     product_attempted: Option<ProductKey>,
     overview_fresh: bool,
+    // Age expiry keeps the last observed display; a failed or changed readback does not.
+    overview_renewing: bool,
     details_attempted: bool,
     sender: mpsc::Sender<Reply>,
     receiver: mpsc::Receiver<Reply>,
@@ -527,6 +529,7 @@ impl Operator {
             product_detail: None,
             product_attempted: None,
             overview_fresh: false,
+            overview_renewing: false,
             details_attempted: false,
             sender,
             receiver,
@@ -572,6 +575,7 @@ impl Operator {
             product_detail: None,
             product_attempted: None,
             overview_fresh: false,
+            overview_renewing: false,
             details_attempted: false,
             sender,
             receiver,
@@ -850,6 +854,7 @@ impl Operator {
             self.product_attempted = None;
         }
         self.overview_fresh = true;
+        self.overview_renewing = false;
         self.last_overview = Instant::now();
     }
     fn selected_product_snapshot(&self) -> Option<Snapshot> {
@@ -873,7 +878,7 @@ impl Operator {
         Some(current)
     }
     fn current_health_system(&self) -> Option<&System> {
-        if !self.overview_fresh { return None; }
+        if !self.overview_fresh && !self.overview_renewing { return None; }
         self.retained_health_system()
     }
     fn current_owned_pause(&self) -> bool {
@@ -884,7 +889,7 @@ impl Operator {
                 return false;
             }
             pulse.operation.as_ref()
-        } else if self.overview_fresh {
+        } else if self.overview_fresh || self.overview_renewing {
             self.overview.as_ref().and_then(|overview| overview.current.operation.as_ref())
         } else { None };
         presentation::owned_service_pause(operation)
@@ -961,6 +966,7 @@ impl Operator {
                 // Nothing is resubmitted or cancelled during the handoff.
                 self.frontend_superseded = true;
                 self.overview_fresh = false;
+                self.overview_renewing = false;
                 self.readiness = None;
             }
             Reply::Overview(bundle) => {
@@ -982,6 +988,7 @@ impl Operator {
                     self.product_detail = None;
                     self.product_attempted = None;
                     self.overview_fresh = false;
+                    self.overview_renewing = false;
                     self.refresh_after = true;
                 }
             }
@@ -999,6 +1006,7 @@ impl Operator {
                     if self.overview.as_ref().is_some_and(|old|
                         old.current.state_token != s.state_token) {
                         self.overview_fresh = false;
+                        self.overview_renewing = false;
                         self.refresh_after = true;
                     }
                     self.snapshot = Some(*s);
@@ -1050,6 +1058,7 @@ impl Operator {
                     if overview.current.system != a.system
                         || refresh_for_receipt(&overview.current.operation, &a.operation) {
                         self.overview_fresh = false;
+                        self.overview_renewing = false;
                         self.refresh_after = true;
                     }
                     overview.current.system = a.system;
@@ -1072,6 +1081,7 @@ impl Operator {
                         || changed.unwrap_or_else(|| pulse_system_changed(&p, &overview.current.system))
                         || refresh_for_receipt(&overview.current.operation, &p.operation) {
                         self.overview_fresh = false;
+                        self.overview_renewing = false;
                         self.refresh_after = true;
                     }
                     overview.current.operation = p.operation.clone();
@@ -1134,6 +1144,7 @@ impl Operator {
                     overview.current.system.service = "capacity unavailable".into();
                 }
                 self.overview_fresh = false;
+                self.overview_renewing = false;
             }
         }
     }
@@ -1235,7 +1246,7 @@ fn navigate(
 
 
 fn existing_setup_installer(ui: &mut egui::Ui, snapshot: &Snapshot,
-    pending: bool, chosen: &mut Option<Action>) {
+    fresh: bool, pending: bool, chosen: &mut Option<Action>) {
     if snapshot.environment_installers.is_empty() {return;}
     ui.separator();
     ui.strong("Manage an existing setup");
@@ -1251,13 +1262,15 @@ fn existing_setup_installer(ui: &mut egui::Ui, snapshot: &Snapshot,
         });
     ui.data_mut(|data|data.insert_temp(key,selected.clone()));
     if let Some(target) = snapshot.environment_installers.iter().find(|target|target.environment == selected) {
-        ui.push_id(&target.environment,|ui|crate::library::environment_installer_controls(ui,target,pending,chosen));
+        ui.push_id(&target.environment,|ui|ui.add_enabled_ui(fresh, |ui|
+            crate::library::environment_installer_controls(ui,target,pending,chosen)));
     }
     // An exact running owner's Stop remains visible even if no setup is selected.
     for target in snapshot.environment_installers.iter().filter(|target|target.environment != selected) {
         if target.actions.iter().any(|a|matches!(a.action,Action::EnvironmentInstallerStop { .. })) {
             ui.strong(&target.name);
-            crate::library::action_buttons(ui,&target.actions,None,pending,chosen);
+            ui.add_enabled_ui(fresh, |ui|
+                crate::library::action_buttons(ui,&target.actions,None,pending,chosen));
         }
     }
 }
@@ -1685,19 +1698,20 @@ impl Operator {
             &mut Page, &mut crate::library::Library, &mut RouteFocus, &mut Option<DawChoice>)) {
         let (refresh, chosen, pick, page, library, focus, daw) = controls;
         // Exact-operation offers still control a running installer without DSP capacity.
-        let pending = pending || !fresh;
+        // Disable stale actions without adding waiting rows to the retained layout.
+        // The DAW and program choices are local drafts, not manager requests.
         let _ = refresh;
         ui.heading("Setup");
         ui.horizontal_wrapped(|ui| {
-            if ui.add_enabled(!pending, presentation::primary_button("Choose Windows installer", ui)).clicked() { *pick = true; }
+            if ui.add_enabled(fresh && !pending, presentation::primary_button("Choose Windows installer", ui)).clicked() { *pick = true; }
             ui.label("Add a plug-in");
-            ui.add_enabled_ui(!pending, |ui| daw_choice_control(ui, daw));
+            daw_choice_control(ui, daw);
         });
-        ui.small("Choose software and your DAW · Complete vendor requests · Make music");
-        if !fresh {
-            ui.colored_label(warning_color(ui), "Refreshing current setup. Actions wait for the refresh.");
-        }
-        existing_setup_installer(ui,&overview.current,pending,chosen);
+        ui.label(egui::RichText::new(if fresh {
+            "Choose software and your DAW · Complete vendor requests · Make music"
+        } else { "Refreshing setup · actions wait for current status" }).small()
+            .color(if fresh { ui.visuals().weak_text_color() } else { warning_color(ui) }));
+        existing_setup_installer(ui,&overview.current,fresh,pending,chosen);
         if focus.setup_installer.is_some() {
             ui.horizontal_wrapped(|ui| {
                 ui.strong("Showing the selected installer");
@@ -1716,8 +1730,8 @@ impl Operator {
                 ui.set_min_width((ui.available_width() - 1.0).max(0.0));
                 ui.strong("Windows plug-in support");
                 ui.label("The manager downloads and manages the software needed to connect Windows plug-ins to your Linux DAW.");
-                Self::buttons(ui, &runtime_actions,
-                    overview.current.system.inactive_reason(), pending, chosen);
+                ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &runtime_actions,
+                    overview.current.system.inactive_reason(), pending, chosen));
                 egui::CollapsingHeader::new("Download details").show(ui, |ui| {
                     ui.small("Compatibility runtime: the manager offers and downloads its pinned runner.");
                     for offer in &runtime_actions { ui.small(&offer.label); }
@@ -1763,8 +1777,8 @@ impl Operator {
                     } else { ui.label(&setup.status); }
                     if let Some(primary) = setup.primary.as_ref().filter(|offer|
                         !setup_offer_uses_program_choice(&overview.current,setup,offer)) {
-                        crate::library::primary_action(ui, primary,
-                            overview.current.system.inactive_reason(), pending, chosen);
+                        ui.add_enabled_ui(fresh, |ui| crate::library::primary_action(ui, primary,
+                            overview.current.system.inactive_reason(), pending, chosen));
                     }
                     if !setup.discovered.is_empty()
                         && ui.add_enabled(fresh, egui::Button::new("View discovered plug-ins")
@@ -1773,8 +1787,8 @@ impl Operator {
                     }
                     let secondary: Vec<_> = setup.secondary.iter().filter(|offer|
                         !setup_offer_uses_program_choice(&overview.current,setup,offer)).cloned().collect();
-                    Self::buttons(ui, &secondary,
-                        overview.current.system.inactive_reason(), pending, chosen);
+                    ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &secondary,
+                        overview.current.system.inactive_reason(), pending, chosen));
                     egui::CollapsingHeader::new("Setup details and options").show(ui, |ui| {
                         ui.small(format!("Recorded installer label: {}",setup.name));
                         if let Some(environment) = &setup.environment {ui.small(format!("Setup environment: {environment}"));}
@@ -1789,8 +1803,8 @@ impl Operator {
                                 for line in failure_lines(failure) { ui.label(line); }
                             }
                         }
-                        Self::buttons(ui, std::slice::from_ref(&setup.rename),
-                            overview.current.system.inactive_reason(), pending, chosen);
+                        ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, std::slice::from_ref(&setup.rename),
+                            overview.current.system.inactive_reason(), pending, chosen));
                         ui.small(format!("Installer SHA-256: {}",setup.installer));
                     });
                 });
@@ -1830,8 +1844,8 @@ impl Operator {
                                 Action::VendorApplicationStop { .. } => app.state != "closed",
                                 _ => true,
                             }).cloned().collect();
-                            Self::buttons(ui, &actions,
-                                overview.current.system.inactive_reason(), pending, chosen);
+                            ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &actions,
+                                overview.current.system.inactive_reason(), pending, chosen));
                         });
                     }
                     let choices: Vec<_> = group.applications.iter()
@@ -1841,15 +1855,13 @@ impl Operator {
                         ui.label("Select the installed program you want to use in this setup.");
                         let id = ui.make_persistent_id("installed-program-choice");
                         let mut selected = ui.data_mut(|data|data.get_temp::<String>(id));
-                        if selected.as_ref().is_some_and(|id|!choices.iter().any(|app|&app.id == id)) { selected = None; }
-                        ui.add_enabled_ui(!pending, |ui| {
-                            egui::ComboBox::from_id_salt("installed-program")
-                                .selected_text(selected.as_ref().and_then(|id|choices.iter().find(|app|&app.id == id))
-                                    .map_or("Choose installed program",|app|app.name.as_str()))
-                                .show_ui(ui, |ui|for app in &choices {
-                                    ui.selectable_value(&mut selected,Some(app.id.clone()),&app.name);
-                                });
-                        });
+                        if fresh && selected.as_ref().is_some_and(|id|!choices.iter().any(|app|&app.id == id)) { selected = None; }
+                        egui::ComboBox::from_id_salt("installed-program")
+                            .selected_text(selected.as_ref().and_then(|id|choices.iter().find(|app|&app.id == id))
+                                .map_or("Choose installed program",|app|app.name.as_str()))
+                            .show_ui(ui, |ui|for app in &choices {
+                                ui.selectable_value(&mut selected,Some(app.id.clone()),&app.name);
+                            });
                         let app = selected.as_ref().and_then(|id|choices.iter().find(|app|&app.id == id));
                         if let Some(app) = app {
                             if let Some(offer) = app.actions.iter().find(|offer|
@@ -1857,8 +1869,8 @@ impl Operator {
                                 if let Some(consequence) = presentation::vendor_install_consequence(&overview.current,&offer.action) {
                                     ui.label(consequence);
                                 }
-                                crate::library::primary_action(ui,offer,
-                                    overview.current.system.inactive_reason(),pending,chosen);
+                                ui.add_enabled_ui(fresh, |ui| crate::library::primary_action(ui,offer,
+                                    overview.current.system.inactive_reason(),pending,chosen));
                             }
                         } else { ui.add_enabled(false,presentation::primary_button("Open selected app",ui)); }
                         ui.data_mut(|data|match selected {Some(value)=>{data.insert_temp(id,value);},None=>{data.remove::<String>(id);}});
@@ -1869,7 +1881,8 @@ impl Operator {
         ui.small("Vendor accounts and authorization stay with you and the vendor.");
         if ui.button("Technical setup history").clicked() { *page = Page::Diagnostics; }
     }
-    fn health_bar(ui: &mut egui::Ui, system: Option<&System>, owned_pause: bool) {
+    fn health_bar(ui: &mut egui::Ui, system: Option<&System>, owned_pause: bool,
+        renewing: bool) {
         egui::Frame::group(ui.style()).fill(ui.visuals().faint_bg_color)
             .inner_margin(10.0).show(ui, |ui| {
             ui.set_min_width((ui.available_width() - 1.0).max(0.0));
@@ -1890,6 +1903,9 @@ impl Operator {
                 if ui.add(egui::Button::new(if expanded {"Hide service details"} else {"Service details"})
                     .min_size(egui::vec2(155.0, 32.0))).clicked() {expanded = !expanded;}
             });
+            // Keep this row present so renewal cannot move navigation or an open chooser.
+            ui.small(if renewing { "Last observed status · refreshing…" }
+                else { "Service status updates automatically." });
             ui.data_mut(|data|data.insert_temp(details_id,expanded));
             if expanded {
                 if let Some(system) = system {
@@ -1903,7 +1919,7 @@ impl Operator {
                         ui.small(presentation::activity_certainty(system).cleanup_label());
                     });
                 } else {ui.small("Current service capacity and cleanup are unknown.");}
-                ui.small("Service status updates automatically. Plug-in availability is shown separately.");
+                ui.small("Plug-in availability is shown separately.");
             }
         });
     }
@@ -2334,6 +2350,7 @@ impl Operator {
     fn expire_overview(&mut self) {
         if self.overview_fresh && self.last_overview.elapsed() >= Duration::from_secs(60) {
             self.overview_fresh = false;
+            self.overview_renewing = true;
             self.refresh_after = true;
         }
     }
@@ -2406,7 +2423,8 @@ impl eframe::App for Operator {
                 }
             }
             if self.preview { ui.small("LOCAL DESIGN PREVIEW · sample records · actions do not execute"); }
-            Self::health_bar(ui, self.current_health_system(), self.current_owned_pause());
+            Self::health_bar(ui, self.current_health_system(), self.current_owned_pause(),
+                self.overview_renewing);
             navigation(ui, &mut self.page);
             self.request_bar(ui);
             ui.separator();
@@ -3223,7 +3241,7 @@ mod tests {
             let mut output = ctx.run_ui(egui::RawInput {screen_rect:Some(egui::Rect::from_min_size(
                 egui::Pos2::ZERO,egui::vec2(960.0,900.0))),..Default::default()}, |ui| {
                 Operator::health_bar(ui,Some(&overview.current.system),
-                    presentation::owned_service_pause(overview.current.operation.as_ref()));
+                    presentation::owned_service_pause(overview.current.operation.as_ref()), false);
                 Operator::fast_home(ui,&overview,None,true,false,
                     (&mut Page::Home,&mut crate::library::Library::default(),
                         &mut RouteFocus::default(),&mut false,&mut chosen));
@@ -3921,6 +3939,7 @@ mod tests {
             product_detail: None,
             product_attempted: None,
             overview_fresh: false,
+            overview_renewing: false,
             details_attempted: false,
             sender,
             receiver,
@@ -4038,7 +4057,8 @@ mod tests {
                             screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO,
                                 egui::vec2(width, 800.0))), events, ..Default::default()
                         }, |ui| {
-                            Operator::health_bar(ui, state.current_health_system(), state.current_owned_pause());
+                            Operator::health_bar(ui, state.current_health_system(), state.current_owned_pause(),
+                                state.overview_renewing);
                             let bounds = navigation(ui, &mut state.page);
                             let nav = bounds.iter().find(|(p, _, _)| *p == Page::Plugins).unwrap().2;
                             let action = ui.add_enabled(ready,
@@ -4068,6 +4088,155 @@ mod tests {
         }
     }
 
+    #[test]
+    fn daw_and_program_choices_survive_expiry_without_admitting_stale_actions() {
+        for width in [560.0, 960.0, 1280.0] {
+            let ctx = result_form_context();
+            let mut style = (*ctx.global_style()).clone();
+            style.animation_time = 0.0;
+            ctx.set_global_style(style);
+            let mut overview = overview_fixture();
+            overview.current.products.clear();
+            overview.current.installer_setups.clear();
+            overview.current.environment_installers.clear();
+            overview.current.actions.clear();
+            let app = |id: &str, name: &str, choosing: bool| VendorApplication {
+                id: id.into(), name: name.into(), version: "1.0".into(), state: "closed".into(),
+                details: serde_json::json!({"environment":"owned-setup", "choose_application":choosing}),
+                actions: vec![AvailableAction { label: format!("Open {name}"), disabled_reason: None,
+                    action: Action::VendorSoftwareInstall { application: id.into(), daw: DawChoice::Other } }],
+            };
+            overview.current.vendor_applications = vec![app("registered", "Managed app", false),
+                app("hub", "Source app (hub)", true), app("helper", "Source app (helper)", true)];
+            let mut state = state_fixture();
+            state.page = Page::Setup;
+            state.handle_reply(Reply::Overview(Box::new(overview.clone())));
+            state.software_install_daw = None;
+            let render = |state: &mut Operator, events: Vec<egui::Event>, chosen: &mut Option<Action>| {
+                let pending = state.controls_pending();
+                let mut output = ctx.run_ui(egui::RawInput {
+                    events, screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO,
+                        egui::vec2(width, 1200.0))), ..Default::default()
+                }, |ui| {
+                    Operator::health_bar(ui, state.current_health_system(), state.current_owned_pause(),
+                        state.overview_renewing);
+                    navigation(ui, &mut state.page);
+                    Operator::fast_setup(ui, state.overview.as_ref().unwrap(), state.overview_fresh,
+                        pending, (&mut false, chosen, &mut false, &mut state.page,
+                            &mut state.library, &mut state.focus, &mut state.software_install_daw));
+                });
+                let mut labels = vec![];
+                for shape in &output.shapes { text_centers(&shape.shape, &mut labels); }
+                output.textures_delta.clear();
+                labels
+            };
+            let click = |point: egui::Pos2, pressed| vec![egui::Event::PointerMoved(point),
+                egui::Event::PointerButton {pos: point, button: egui::PointerButton::Primary,
+                    pressed, modifiers: egui::Modifiers::NONE}];
+            let point = |labels: &[(String, egui::Pos2)], text: &str| {
+                labels.iter().find(|(label, _)| label == text)
+                    .unwrap_or_else(|| panic!("Missing {text} at width {width}: {labels:?}")).1
+            };
+            let expire = |state: &mut Operator| {
+                state.last_overview = Instant::now() - Duration::from_secs(61);
+                state.expire_overview();
+                state.pending = true;
+                state.origin = Some(RequestOrigin::SilentPostMutationRefresh);
+            };
+            let mut chosen = None;
+            render(&mut state, vec![], &mut chosen);
+            let labels = render(&mut state, vec![], &mut chosen);
+            let daw = point(&labels, "Choose your DAW");
+            let program = point(&labels, "Choose installed program");
+            render(&mut state, click(daw, true), &mut chosen);
+            expire(&mut state);
+            let labels = render(&mut state, click(daw, false), &mut chosen);
+            assert_eq!(point(&labels, "Choose your DAW"), daw, "DAW control moved at width {width}");
+            assert_eq!(point(&labels, "Choose installed program"), program,
+                "Program control moved at width {width}");
+            assert!(labels.iter().any(|(text, _)| text == "Last observed status · refreshing…"));
+            assert!(!labels.iter().any(|(text, _)| text == "Bridge service status unavailable"));
+            let labels = render(&mut state, vec![], &mut chosen);
+            let reaper = point(&labels, "REAPER");
+            render(&mut state, click(reaper, true), &mut chosen);
+            state.handle_reply(Reply::CurrentOverview(Box::new(overview.clone().into())));
+            render(&mut state, click(reaper, false), &mut chosen);
+            assert_eq!(state.software_install_daw, Some(DawChoice::Reaper));
+            assert!(chosen.is_none());
+
+            let labels = render(&mut state, vec![], &mut chosen);
+            let program = point(&labels, "Choose installed program");
+            render(&mut state, click(program, true), &mut chosen);
+            expire(&mut state);
+            let labels = render(&mut state, click(program, false), &mut chosen);
+            assert_eq!(point(&labels, "Choose installed program"), program);
+            let labels = render(&mut state, vec![], &mut chosen);
+            let helper = point(&labels, "Source app (helper)");
+            render(&mut state, click(helper, true), &mut chosen);
+            render(&mut state, click(helper, false), &mut chosen);
+            let labels = render(&mut state, vec![], &mut chosen);
+            let open = point(&labels, "Open Source app (helper)");
+            render(&mut state, click(open, true), &mut chosen);
+            render(&mut state, click(open, false), &mut chosen);
+            assert!(chosen.is_none(), "An expired offer must remain disabled");
+            assert!(!state.capture_chosen_action(Action::VendorSoftwareInstall {
+                application: "helper".into(), daw: DawChoice::Reaper }));
+            assert!(state.queued_action.is_none());
+
+            overview.current.state_token = "renewed-token".into();
+            state.handle_reply(Reply::CurrentOverview(Box::new(overview.into())));
+            let labels = render(&mut state, vec![], &mut chosen);
+            assert_eq!(state.software_install_daw, Some(DawChoice::Reaper));
+            assert!(!labels.iter().any(|(text, _)| text == "Choose installed program"));
+            let open = point(&labels, "Open Source app (helper)");
+            render(&mut state, click(open, true), &mut chosen);
+            render(&mut state, click(open, false), &mut chosen);
+            let action = installation_with_daw(&chosen.unwrap(), state.software_install_daw.unwrap()).unwrap();
+            assert_eq!(action, Action::VendorSoftwareInstall {
+                application: "helper".into(), daw: DawChoice::Reaper });
+            assert!(state.capture_chosen_action(action));
+            assert_eq!(state.queued_action.as_ref().unwrap().state_token, "renewed-token");
+        }
+    }
+    #[test]
+    fn passive_expiry_retains_health_but_real_changes_remove_it() {
+        for cause in ["read_failure", "generation", "cleanup", "owners", "service", "superseded"] {
+            let mut state = state_fixture();
+            let mut overview = overview_fixture();
+            overview.current.system.dsp = 0;
+            overview.current.system.keepers = 0;
+            overview.current.system.maintenance = 0;
+            overview.current.system.pending_transactions = 0;
+            overview.current.system.cleanup_unconfirmed = false;
+            state.handle_reply(Reply::Overview(Box::new(overview.clone())));
+            state.handle_reply(Reply::Pulse(pulse_fixture(false)));
+            state.last_overview = Instant::now() - Duration::from_secs(61);
+            state.expire_overview();
+            assert!(state.current_action_snapshot().is_none());
+            assert_eq!(state.current_health_system(), Some(&overview.current.system), "{cause}");
+            state.handle_reply(Reply::Pulse(pulse_fixture(false)));
+            assert_eq!(state.current_health_system(), Some(&overview.current.system));
+            assert!(state.current_action_snapshot().is_none(), "a pulse cannot renew action admission");
+
+            match cause {
+                "read_failure" => state.handle_reply(Reply::Error("Readback failed".into())),
+                "superseded" => state.handle_reply(Reply::FrontendSuperseded),
+                _ => {
+                    let mut pulse = pulse_fixture(false);
+                    match cause {
+                        "generation" => pulse.current_generation = "changed".into(),
+                        "cleanup" => pulse.cleanup_unconfirmed = Some(true),
+                        "owners" => pulse.dsp = Some(1),
+                        "service" => pulse.service_state = "inactive".into(),
+                        _ => unreachable!(),
+                    }
+                    state.handle_reply(Reply::Pulse(pulse));
+                }
+            }
+            assert!(state.current_health_system().is_none(), "{cause}");
+            assert!(state.current_action_snapshot().is_none(), "{cause}");
+        }
+    }
     #[test]
     fn expired_readback_still_refuses_runtime_action_capture() {
         let mut state = state_fixture();
@@ -4174,7 +4343,8 @@ mod tests {
             let mut visible = std::collections::BTreeSet::new();
             for _ in 0..3 {
                 let mut output = ctx.run_ui(egui::RawInput { screen_rect: Some(screen), ..Default::default() }, |ui| {
-                    Operator::health_bar(ui, state.current_health_system(), state.current_owned_pause());
+                    Operator::health_bar(ui, state.current_health_system(), state.current_owned_pause(),
+                                state.overview_renewing);
                 });
                 for shape in &output.shapes {
                     visible_form_text(&shape.shape, shape.clip_rect, &mut visible);

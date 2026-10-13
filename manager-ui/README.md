@@ -12,7 +12,7 @@ The fixed system package desktop launcher first asks the package owner for a typ
 
 The manager remains the sole authority. Buttons use only its closed offered actions, exact state token and refusal reasons. Foreground import/action feedback stays outside page scrolling until dismissed, while background readback stays quiet; uncertain acknowledgments never resubmit an operation. The manager's read-only session identity distinguishes Activity rows, while the current session record still identifies only a plug-in class, not a historical installed build. Closing the frontend does not stop audio or vendor applications.
 
-Product history, compatibility results, exact hashes, installer outcomes and technical observations remain under labeled details. Disabled reasons are printed for touch use as well as hover. Current status refresh preserves navigation and pending controls; it never assumes that an operation completed.
+Product history, compatibility results, exact hashes, installer outcomes and technical observations remain under labeled details. Disabled reasons are printed for touch use as well as hover. Passive status renewal labels the retained service state as last observed and preserves the setup layout and local DAW/application choices. Changes wait for fresh manager admission; failed or changed readback removes the retained health display.
 
 ## Local checks and previews
 
