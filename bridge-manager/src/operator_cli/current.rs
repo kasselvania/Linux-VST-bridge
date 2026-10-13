@@ -711,6 +711,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
         let live = installer_is_live(operation)?;
         installer_live.insert(operation.to_owned(),live);Ok(live)
     })?;
+    let vendor_applications = vendor_projections(m,busy)?;
     let workspace_at = Instant::now(); phases.push(("workspace_and_cards",workspace_at.duration_since(joined_at).as_millis()));
     #[cfg(feature = "pb0-c0-audit")]
     eprintln!("PB0_PHASE {}", serde_json::to_string(&phases)?);
@@ -720,7 +721,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     let runtime_reason=linux_vst_bridge::runtime_delivery::installation_disabled_reason(m)?;
     let snapshot = ui::Snapshot {schema:ui::OPERATOR_SCHEMA,state_token:before,system,
         managed_runtime_records:linux_vst_bridge::runtime_delivery::readback_records(m)?,
-        onboarding,installer_setups,environment_installers,environments:vec![],vendor_applications:vec![],products,
+        onboarding,installer_setups,environment_installers,environments:vec![],vendor_applications,products,
         workspaces,active_sessions:vec![],capture:Value::Null,recent_incidents:vec![],
         actions:vec![action(&linux_vst_bridge::runtime_delivery::installation_label(),ui::Action::RuntimeInstall {},
             runtime_reason.as_deref().or(busy)),
@@ -740,6 +741,103 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
 mod tests {
     use super::*;
     use crate::operator_cli::tests::{capacity_json, overview_service_reply};
+    fn selected_vendor_fixture() -> (test_fixture::Fixture, vendor_application::Application) {
+        let (f, _) = preparation_cli::tests::projection_fixture();
+        let environment = f.r.environment.clone();
+        let executable = environment.root.join("compatdata/pfx/drive_c/Hub.exe");
+        fs::write(&executable, b"MZ owned source hub").unwrap();
+        let installers = f.m.root.join("installers");
+        private_dir(&installers).unwrap();
+        let bytes = b"MZ owned source installer";
+        let installer = hex(&sha2::Sha256::digest(bytes));
+        let path = installers.join(format!("{installer}.exe"));
+        fs::write(&path, bytes).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        atomic_json(&installers.join(format!("{installer}.json")), &installer_import::Installer {
+            schema:1,id:installer.clone(),artifact:Artifact {path,sha256:installer.clone()},
+            byte_size:bytes.len() as u64,format:"pe_executable".into(),name_hint:"Source hub".into(),
+            source_class:"operator_selected_file".into(),import_result:"imported".into(),
+            created_at:1,vendor:None,product:None,
+        }).unwrap();
+        let operation = random_id().unwrap();
+        let directory = onboarding::directory(&f.m,&environment.id).unwrap();
+        private_dir(&directory).unwrap();
+        atomic_json(&directory.join("record.json"),&onboarding::Record {
+            schema:1,id:environment.id.clone(),installer:installer.clone(),
+            environment:environment.clone(),created_at:1,creation_operation:operation.clone(),
+            installation_operation:Some(operation.clone()),published:false,automatic:None,
+            previous_attempt:None,
+        }).unwrap();
+        let witness = directory.join(format!("{operation}-result.json"));
+        atomic_json(&witness,&json!({"schema":2,"operation":operation,"state":"completed",
+            "raw_exit":0,"cleanup_confirmed":true,"owned_live":0,"error":null})).unwrap();
+        let app = vendor_application::Application {schema:2,id:vendor_application::ApplicationId::Selected,
+            environment,executable:Artifact {sha256:digest(&executable).unwrap(),path:executable},
+            helpers:vec![],installer_sha256:installer,
+            installer_result:Artifact {sha256:digest(&witness).unwrap(),path:witness},
+            observed_installer_version:String::new(),
+        };
+        app.verify(&f.m.root).unwrap();
+        let directory = vendor_cli::directory(&f.m,&app.selector().unwrap()).unwrap();
+        private_dir(&directory).unwrap();
+        atomic_json(&directory.join("application.json"),&app).unwrap();
+        (f,app)
+    }
+    #[test]
+    fn registered_vendor_application_reaches_fast_setup_and_normal_action_authority() {
+        let (f,app) = selected_vendor_fixture();
+        let record:onboarding::Record=read_json(&app.installer_result.path
+            .parent().unwrap().join("record.json")).unwrap();
+        let units=[vendor_cli::unit(&app.selector().unwrap()).unwrap(),
+            onboarding::unit(record.installation_operation.as_deref().unwrap()).unwrap()];
+        readiness::with_unit_state_fixture(&units,"inactive",|| {
+            let watched=[f.m.root.join("registry.json"),f.m.root.join("software.json"),
+                vendor_cli::directory(&f.m,&app.selector().unwrap()).unwrap().join("application.json"),
+                app.environment.root.join("environment.json"),
+                app.installer_result.path.parent().unwrap().join("record.json"),
+                app.installer_result.path.clone(),app.executable.path.clone(),
+                f.m.root.join("installers").join(format!("{}.json",app.installer_sha256)),
+                f.m.root.join("installers").join(format!("{}.exe",app.installer_sha256))];
+            let before:Vec<_>=watched.iter().map(|path|fs::read(path).unwrap()).collect();
+            let server = overview_service_reply(&f.m,capacity_json(false,0,0));
+            let current = current_overview(&f.m).unwrap();
+            server.join().unwrap();
+            assert_eq!(current.current.vendor_applications.len(),1,
+                "Normal Setup must receive the registered application's current card");
+            let application = &current.current.vendor_applications[0];
+            assert_eq!(application.id,app.selector().unwrap());
+            assert_eq!(application.name,"Hub");
+            assert_eq!(application.state,"closed");
+            let offer = application.actions.iter().find(|offer|
+                matches!(offer.action,ui::Action::VendorSoftwareInstall {..})).unwrap();
+            assert!(offer.disabled_reason.is_none());
+            let request = ui::Request {schema:ui::OPERATOR_SCHEMA,
+                state_token:current.current.state_token.clone(),
+                action:ui::Action::VendorSoftwareInstall {application:application.id.clone(),
+                    daw:ui::DawChoice::Bitwig}};
+            let server = overview_service_reply(&f.m,capacity_json(false,0,0));
+            validate_current_request(&f.m,&request).unwrap();
+            server.join().unwrap();
+            assert!(watched.iter().zip(&before).all(|(path,bytes)|fs::read(path).unwrap()==*bytes),
+                "Current cards and action admission must not launch or alter installation records");
+            for changed in [ui::Request {state_token:"stale".into(),..request.clone()},
+                ui::Request {action:ui::Action::VendorSoftwareInstall {
+                    application:"de".repeat(32),daw:ui::DawChoice::Bitwig},..request.clone()}] {
+                let server = overview_service_reply(&f.m,capacity_json(false,0,0));
+                assert!(validate_current_request(&f.m,&changed).is_err());
+                server.join().unwrap();
+            }
+            fs::write(&app.executable.path,b"changed source hub").unwrap();
+            let server = overview_service_reply(&f.m,capacity_json(false,0,0));
+            let current = current_overview(&f.m).unwrap();
+            server.join().unwrap();
+            assert_eq!(current.current.vendor_applications[0].actions[0].disabled_reason.as_deref(),
+                Some("The selected application or installation changed"));
+            let server = overview_service_reply(&f.m,capacity_json(false,0,0));
+            assert!(validate_current_request(&f.m,&request).is_err());
+            server.join().unwrap();
+        });
+    }
     fn managed_discovery_fixture() -> (test_fixture::Fixture, preparation::Candidate, ui::Action) {
         let (f, candidate, _, check) = preparation_cli::tests::guided_fixture_with_role(false);
         assert!(onboarding::history_records(&f.m).unwrap().is_empty());
