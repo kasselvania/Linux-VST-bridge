@@ -4282,7 +4282,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 23);
+        assert_eq!(ui::OPERATOR_SCHEMA, 24);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
@@ -5393,8 +5393,16 @@ pub(crate) mod tests {
                 },
             );
             private_dir(&app_directory(&f.m)).unwrap();
+            let application=vendor_application::Application {schema:1,
+                id:vendor_application::ApplicationId::ArturiaSoftwareCenter,
+                environment:f.r.environment.clone(),executable:f.r.module.clone(),helpers:vec![],
+                installer_sha256:"00".repeat(32),installer_result:f.r.host.clone(),
+                observed_installer_version:"fixture".into()};
+            atomic_json(&app_directory(&f.m).join("application.json"),&application).unwrap();
             atomic_json(&app_directory(&f.m).join("operation.json"),
-                &json!({"operation_id":if mismatch=="wrong_launch"{"ee".repeat(16)}else{vendor.clone()}})).unwrap();
+                &vendor_application::Operation {application,report:app_directory(&f.m).join("operation-result.json"),
+                    mode:vendor_application::LaunchMode::Normal,
+                    operation_id:if mismatch=="wrong_launch"{"ee".repeat(16)}else{vendor.clone()}}).unwrap();
             atomic_json(&app_directory(&f.m).join("operation-result.json"),
                 &json!({"schema":3,"operation_id":if mismatch=="changed_vendor_result"{"ef".repeat(16)}else{vendor.clone()},
                 "state":"running","launcher_exit":null,"discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();

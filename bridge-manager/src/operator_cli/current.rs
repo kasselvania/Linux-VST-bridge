@@ -30,6 +30,18 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
     paths.insert(m.root.join("operator/latest.json"));
     paths.insert(m.root.join("operator/resume.json"));
     paths.insert(m.root.join("daw-workspaces/fl-studio/workspace.json"));
+    let vendor_root = m.root.join("vendor-applications");
+    paths.insert(vendor_root.clone());
+    if vendor_root.is_dir() {
+        for (n, entry) in fs::read_dir(&vendor_root)?.enumerate() {
+            require(n < 128, "vendor_application_count_bound")?;
+            let entry = entry?;
+            if vendor_application::ApplicationId::parse(&entry.file_name().to_string_lossy()).is_ok() {
+                paths.insert(entry.path());
+                paths.insert(entry.path().join("application.json"));
+            }
+        }
+    }
     for selector in vendor_cli::selectors(m)? {
         let vendor = vendor_cli::directory(m, &selector)?;
     for path in [&vendor,&vendor.join("application.json"),&vendor.join("operation.json"),
@@ -1157,7 +1169,7 @@ mod tests {
         db.classes.insert(registration.key(),linux_vst_bridge::Entry {
             registration,publication:Publication::Removed,managed_revision:None});
         let before=watch_paths(m,&sw,&db).unwrap();
-        let vendor=m.root.join("vendor-applications").join(ASC).join("operation-result.json");
+        let vendor=m.root.join("vendor-applications");
         let context=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
         let before_mode=stamp(&installer_path).unwrap();
         fs::set_permissions(&installer_path,fs::Permissions::from_mode(0o600)).unwrap();
@@ -1169,16 +1181,30 @@ mod tests {
             let context=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
             context.recheck(m).unwrap();
             let original=fs::read(path).ok();
-            private_dir(path.parent().unwrap()).unwrap();
-            fs::write(path,b"a changed current record").unwrap();
+            if path == &vendor {private_dir(path).unwrap();}
+            else {
+                private_dir(path.parent().unwrap()).unwrap();
+                fs::write(path,b"a changed current record").unwrap();
+            }
             assert_ne!(stamp(path).unwrap(),before[path]);
             assert!(context.recheck(m).is_err(),"accepted changed current input: {}",path.display());
             if let Some(bytes)=original {fs::write(path,bytes).unwrap();}
             else {
-                fs::remove_file(path).unwrap();
-                if path == &vendor {fs::remove_dir(path.parent().unwrap()).unwrap();}
+                if path == &vendor {fs::remove_dir(path).unwrap();}
+                else {fs::remove_file(path).unwrap();}
             }
         }
+        // Registration can finish inside an already-created selector directory.
+        // Neither a root-only watch nor only registered applications covers it.
+        let unregistered=vendor.join("ab".repeat(32));
+        private_dir(&unregistered).unwrap();
+        let context=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
+        let application=unregistered.join("application.json");
+        assert!(context.watched.contains_key(&application));
+        fs::write(&application,b"new selected application").unwrap();
+        assert!(context.recheck(m).is_err());
+        fs::remove_file(application).unwrap();
+        fs::remove_dir(unregistered).unwrap();
         // A live installer needs recovery controls while reports and private
         // diagnostics change. Its stable record and directory custody still
         // bind the exact operation; a retired report keeps the full byte watch.

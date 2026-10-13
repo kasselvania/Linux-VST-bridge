@@ -1590,7 +1590,9 @@ mod tests {
         // tests; use the common post-boundary continuation to test empty output.
         intent.vendor=original;
         let mut result_record=record.clone();result_record.environment=after;
-        finish_connections(&f.m,&result_record,&mut intent,&random_id().unwrap(),&mut |_,_,_|panic!("No classes to process"),&onboarding::result(&f.m,&record).unwrap()).unwrap();
+        let operation=random_id().unwrap();
+        private_dir(&job_dir(&f.m,&operation).unwrap()).unwrap();
+        finish_connections(&f.m,&result_record,&mut intent,&operation,&mut |_,_,_|panic!("No classes to process"),&onboarding::result(&f.m,&record).unwrap()).unwrap();
         assert_eq!(intent.journey.phase,ui::InstallationPhase::Available);
         assert!(intent.journey.plugins.is_empty());assert!(intent.journey.failure.is_none());
         assert!(f.m.registry().unwrap().classes.is_empty());
