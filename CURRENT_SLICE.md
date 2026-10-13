@@ -38,5 +38,5 @@ Reviewed source, full CI, lint and installed two-visit REAPER checks pass.
 
 Deck hub-only automatic bootstrap finds no plug-ins and blocks hub continuation;
 older ASC has no original managed installation record. New vendor continuation on
-Deck remains pending. Native Access needs its separate owner and installed proof.
+Deck remains pending. Native Access needs its continuation adapter and installed proof.
 Runtime verification latency remains open (Deck Test59 update completed by 4m39s).

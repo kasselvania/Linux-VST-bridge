@@ -300,6 +300,16 @@
       "ordinary_preference_files_restored_exact": 23,
       "keepers": 0
     },
-    "vendor_continuation": "pending on Deck: retained hub bootstrap discovery incomplete; original managed ASC installation record unavailable"
+    "vendor_continuation": "pending on Deck: retained hub bootstrap discovery incomplete; original managed ASC installation record unavailable",
+    "capture_termination": {
+      "pipewire_version": "1.6.4",
+      "requested_frames_per_capture": 960000,
+      "complete_bytes_per_capture": 7680000,
+      "stderr_bytes_per_capture": 0,
+      "helper_failure": false,
+      "reason": "Sample limit quits the recording loop without marking drained; main returns success only for drained, leaving exit 1.",
+      "upstream_source": "https://github.com/PipeWire/pipewire/blob/1.6.4/src/tools/pw-cat.c#L990-L1001",
+      "upstream_exit": "https://github.com/PipeWire/pipewire/blob/1.6.4/src/tools/pw-cat.c#L2506-L2511"
+    }
   }
 }
