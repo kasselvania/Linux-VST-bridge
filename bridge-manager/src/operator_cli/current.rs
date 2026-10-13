@@ -30,15 +30,17 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
     paths.insert(m.root.join("operator/latest.json"));
     paths.insert(m.root.join("operator/resume.json"));
     paths.insert(m.root.join("daw-workspaces/fl-studio/workspace.json"));
-    let vendor = app_directory(m);
+    for selector in vendor_cli::selectors(m)? {
+        let vendor = vendor_cli::directory(m, &selector)?;
     for path in [&vendor,&vendor.join("application.json"),&vendor.join("operation.json"),
-        &vendor.join("operation-result.json")] { paths.insert(path.clone()); }
-    let application = vendor.join("application.json");
-    if application.exists() {
-        let app: vendor_application::Application = read_json(&application)?;
-        require(app.schema == 1
-            && app.environment.root == m.root.join("environments").join(&app.environment.id),
-            "operator_current_vendor_binding")?;
+        &vendor.join("operation-result.json"),
+        ] { paths.insert(path.clone()); }
+    let app = vendor_cli::application(m, &selector)?;
+        require(
+            matches!(app.schema, 1 | 2)
+                && app.environment.root == m.root.join("environments").join(&app.environment.id),
+            "operator_current_vendor_binding",
+        )?;
         paths.insert(app.environment.root.join("environment.json"));
     }
     for artifact in [&sw.manager,&sw.supervisor,&sw.ownership,&sw.host,&sw.source_manifest] {
@@ -289,7 +291,7 @@ impl CurrentOverviewContext {
             let mut progress = self.live_installer_progress_paths(m);
             if let Some(vendor) = &self.vendor_progress {
                 require_live_vendor_report(vendor)?;
-                progress.insert(app_directory(m),vendor.report.clone());
+                progress.insert(vendor.report.parent().ok_or("operator_vendor_report_directory")?.to_owned(),vendor.report.clone());
             }
             let runtime_records: BTreeSet<_>=linux_vst_bridge::runtime_delivery::record_paths(m).into_iter().collect();
             for (path, before) in &self.watched {
@@ -339,21 +341,39 @@ fn require_live_vendor_report(operation: &vendor_application::Operation) -> Resu
         "operator_vendor_state_changed_refresh")
 }
 fn live_vendor_progress(m: &Manager) -> Result<Option<vendor_application::Operation>> {
-    live_vendor_progress_with(m,vendor_live)
+    let mut live = None;
+    for selector in vendor_cli::selectors(m)? {
+        if vendor_cli::live(&selector)? {
+            require(live.is_none(), "operator_multiple_vendor_owners")?;
+            live = live_vendor_progress_selected(m, &selector, || Ok(true))?;
+        }
+    }
+    Ok(live)
 }
-pub(super) fn live_vendor_progress_with(m: &Manager, is_live: impl FnOnce() -> Result<bool>)
+pub(super) fn live_vendor_progress_with(m: &Manager, is_live: impl FnOnce() -> Result<bool>,
+)
     -> Result<Option<vendor_application::Operation>> {
-    let directory = app_directory(m);
+    live_vendor_progress_selected(m, ASC, is_live)
+}
+fn live_vendor_progress_selected(
+    m: &Manager,
+    selector: &str,
+    is_live: impl FnOnce() -> Result<bool>,
+) -> Result<Option<vendor_application::Operation>> {
+    let directory = vendor_cli::directory(m, selector)?;
     if !directory.exists() || !is_live()? { return Ok(None); }
     let mut app: vendor_application::Application = read_json(&directory.join("application.json"))?;
     app.environment=environment_install::current_environment(m,&app.environment)?;
     let operation: vendor_application::Operation = read_json(&directory.join("operation.json"))?;
-    require(app.schema == 1 && operation.application == app
+    require(
+        matches!(app.schema, 1 | 2)
+            && operation.application == app
         && valid_hex(&operation.operation_id,32)
         && operation.report == directory.join("operation-result.json")
         && app.environment.root == m.root.join("environments").join(&app.environment.id)
         && read_json::<Environment>(&app.environment.root.join("environment.json"))? == app.environment,
-        "operator_current_vendor_binding")?;
+        "operator_current_vendor_binding",
+    )?;
     require_live_vendor_report(&operation)?;
     Ok(Some(operation))
 }
@@ -667,6 +687,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     let mut installer_setups = onboarding::setup_projection_current(m, &onboarding, &products,
         &workspace_installers, &records, &installers, default.as_ref())?;
     automatic_install::project_from(m, &mut installer_setups, busy, &records)?;
+    automatic_install::project_revalidation(m,&mut products,&records)?;
     for product in &mut products {
         if product.availability.is_none() {
             product.availability=Some(ui::NativeAvailability {available:false,

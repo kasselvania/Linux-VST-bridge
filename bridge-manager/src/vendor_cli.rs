@@ -1,4 +1,5 @@
 use super::*;
+use serde_json::json;
 use linux_vst_bridge::vendor_application::{
     self, Application, ApplicationId, LaunchMode, OperationResult,
 };
@@ -17,17 +18,193 @@ fn current_application(m: &Manager, record: &Path) -> Result<Application> {
     app.environment=operator_cli::environment_install::current_environment(m,&app.environment)?;
     Ok(app)
 }
+pub(super) fn directory(m: &Manager, application: &str) -> Result<PathBuf> {
+    ApplicationId::parse(application)?;
+    Ok(m.root.join("vendor-applications").join(application))
+}
+pub(super) fn unit(application: &str) -> Result<String> {
+    ApplicationId::parse(application)?;
+    Ok(format!("linux-vst-bridge-vendor-{application}.service"))
+}
+pub(super) fn application(m: &Manager, selector: &str) -> Result<Application> {
+    let app = current_application(m, &directory(m, selector)?.join("application.json"))?;
+    require(
+        app.selector()? == selector,
+        "vendor_application_selection_changed",
+    )?;
+    Ok(app)
+}
+pub(super) fn selectors(m: &Manager) -> Result<Vec<String>> {
+    let root = m.root.join("vendor-applications");
+    if !root.exists() {
+        return Ok(vec![]);
+    }
+    let mut selected = vec![];
+    for (n, entry) in fs::read_dir(root)?.enumerate() {
+        require(n < 128, "vendor_application_count_bound")?;
+        let entry = entry?;
+        let selector = entry.file_name().to_string_lossy().into_owned();
+        if ApplicationId::parse(&selector).is_ok() && entry.path().join("application.json").exists()
+        {
+            require(entry.file_type()?.is_dir(), "vendor_application_directory")?;
+            selected.push(selector);
+        }
+    }
+    selected.sort();
+    Ok(selected)
+}
+pub(super) fn live(selector: &str) -> Result<bool> {
+    operator_cli::vendor_state_live(&readiness::bounded_user_unit_state(&unit(selector)?)?)
+}
+pub(super) fn result(m: &Manager, selector: &str, operation: &str) -> Result<OperationResult> {
+    let directory = directory(m, selector)?;
+    let job: vendor_application::Operation = read_json(&directory.join("operation.json"))?;
+    let selected=application(m,selector)?;
+    require(environment_revision::resolves_to(m,&job.application.environment,&selected.environment)?,
+        "vendor_application_operation_environment_changed")?;
+    let mut bound=job.application.clone();bound.environment=selected.environment.clone();
+    require(
+        job.operation_id == operation
+            && bound == selected
+            && job.report == directory.join("operation-result.json"),
+        "vendor_application_operation_changed",
+    )?;
+    let result:OperationResult=if job.report.exists(){read_json(&job.report)?}else {
+        serde_json::from_value(json!({"schema":3,"operation_id":operation,"state":"cleanup_unconfirmed",
+            "launcher_exit":null,"owned_live":null,"cleanup_confirmed":false,"error":"vendor_submission_result_missing",
+            "discarded_diagnostic_bytes":0,"account_posture":"unknown"}))?
+    };
+    require(
+        result.operation_id.as_deref() == Some(operation),
+        "vendor_application_operation_changed",
+    )?;
+    Ok(result)
+}
+pub(super) fn reconcile(m:&Manager,selector:&str,operation:&str)->Result<()> {
+    reconcile_with(m,selector,operation,||renderer_session::inspect_unit(&unit(selector)?))
+}
+fn reconcile_with(m:&Manager,selector:&str,operation:&str,
+    inspect:impl FnOnce()->Result<renderer_session::UnitState>)->Result<()> {
+    let directory=directory(m,selector)?;
+    let _writer=m.lock(directory.join("writer.lock").strip_prefix(&m.root)?.to_str().ok_or("vendor_writer_gate")?)?;
+    let prior=result(m,selector,operation)?;
+    if prior.retired(){return Ok(())}
+    let probe=inspect()?;
+    require(probe.empty,"vendor_application_custody_uncertain")?;
+    let report=directory.join("operation-result.json");
+    if report.exists() {
+        let history=directory.join(format!("interrupted-{operation}-result.json"));
+        if !history.exists(){fs::copy(&report,&history)?;}
+    }
+    // Exclusive writer + exact empty kernel cohort proves process retirement,
+    // never installer success, authorization or musical functionality.
+    atomic_json(&report,&json!({"schema":3,"operation_id":operation,"state":"failed",
+        "launcher_exit":null,"owned_live":0,"cleanup_confirmed":true,
+        "error":"vendor_writer_retired_without_successful_result","discarded_diagnostic_bytes":0,
+        "account_posture":"unknown"}))?;
+    Ok(())
+}
+pub(super) fn all_retired(m: &Manager) -> Result<bool> {
+    for selector in selectors(m)? {
+        if live(&selector)? {
+            return Ok(false);
+        }
+        let directory = directory(m, &selector)?;
+        if directory.join("operation.json").exists() {
+            let job: vendor_application::Operation = read_json(&directory.join("operation.json"))?;
+            if !result(m, &selector, &job.operation_id)?.retired() {
+                return Ok(false);
+            }
+        }
+    }
+    Ok(true)
+}
+fn register(m: &Manager, args: &[String]) -> Result<()> {
+    require(
+        (3..=19).contains(&args.len()),
+        "vendor-app register ENVIRONMENT EXECUTABLE [HELPERS]",
+    )?;
+    let _guard = m.lock("registry.lock")?;
+    m.require_inactive(None)?;
+    require(
+        operator_cli::vendor_retired(m)? && onboarding::all_retired(m)?,
+        "vendor_application_operation_requires_retirement",
+    )?;
+    let record = onboarding::retained_environment_record(m, &args[1])?
+        .ok_or("vendor_application_owned_installation_required")?;
+    let env = operator_cli::environment_install::target(m, &record.id)?;
+    let operation = record
+        .installation_operation
+        .as_ref()
+        .ok_or("vendor_application_installation_missing")?;
+    let witness = onboarding::directory(m, &record.id)?.join(format!("{operation}-result.json"));
+    let mut artifacts = vec![];
+    for selected in &args[2..] {
+        let relative = Path::new(selected);
+        require(
+            !relative.is_absolute()
+                && relative
+                    .components()
+                    .all(|c| matches!(c, std::path::Component::Normal(_))),
+            "vendor_application_selection_path",
+        )?;
+        let path = env.root.join("compatdata/pfx/drive_c").join(relative);
+        artifacts.push(Artifact {
+            sha256: digest(&path)?,
+            path,
+        });
+    }
+    let app = Application {
+        schema: 2,
+        id: ApplicationId::Selected,
+        environment: env,
+        executable: artifacts.remove(0),
+        helpers: artifacts,
+        installer_sha256: record.installer,
+        installer_result: Artifact {
+            sha256: digest(&witness)?,
+            path: witness,
+        },
+        observed_installer_version: String::new(),
+    };
+    app.verify(&m.root)?;
+    let selector = app.selector()?;
+    let directory = directory(m, &selector)?;
+    private_dir(&directory)?;
+    let path = directory.join("application.json");
+    if path.exists() {
+        require(
+            current_application(m, &path)? == app,
+            "vendor_application_selection_changed",
+        )?;
+    } else {
+        atomic_json(&path, &app)?;
+    }
+    println!(
+        "{}",
+        serde_json::json!({"application":selector,"selected":app,"selection":"observed_artifacts"})
+    );
+    Ok(())
+}
 fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result<()> {
     if let Some(id) = operation {
         require(valid_hex(id, 32), "vendor_application_operation_identity")?;
     }
-    require(args.len() == 2, "vendor-app ACTION arturia-software-center")?;
+    if args.first().is_some_and(|s| s == "register") {
+        return register(m, args);
+    }
+    require(args.len() == 2, "vendor-app ACTION APPLICATION")?;
     ApplicationId::parse(&args[1])?;
-    let directory = m.root.join("vendor-applications/arturia-software-center");
+    let directory = directory(m, &args[1])?;
+    let unit = unit(&args[1])?;
     private_dir(&directory)?;
     let record = directory.join("application.json");
     match args[0].as_str() {
         "rescan" => {
+            require(
+                args[1] == "arturia-software-center",
+                "vendor_application_discovery_adapter_absent",
+            )?;
             let _guard = m.lock("registry.lock")?;
             m.require_inactive(None)?;
             let environments: std::collections::BTreeMap<_, _> = m
@@ -83,9 +260,7 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             let live = Command::new("systemctl")
                 .args([
                     "--user",
-                    "is-active",
-                    "linux-vst-bridge-vendor-arturia-software-center",
-                ])
+                    "is-active", &unit])
                 .output()?
                 .status
                 .success();
@@ -100,7 +275,13 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
         }
         "cancel" => {
             let _guard = m.lock("registry.lock")?;
-            let prior: OperationResult = read_json(&directory.join("operation-result.json"))?;
+            let job:vendor_application::Operation=read_json(&directory.join("operation.json"))?;
+            let prior=result(m,&args[1],&job.operation_id)?;
+            if !live(&args[1])? {
+                reconcile(m,&args[1],&job.operation_id)?;
+                println!("{}",serde_json::to_string(&result(m,&args[1],&job.operation_id)?)?);
+                return Ok(());
+            }
             if let Some(id) = operation {
                 let job: serde_json::Value = read_json(&directory.join("operation.json"))?;
                 require(
@@ -112,12 +293,10 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
                 let state = Command::new("systemctl")
                     .args([
                         "--user",
-                        "show",
-                        "linux-vst-bridge-vendor-arturia-software-center",
+                        "show", &unit,
                         "-p",
                         "ActiveState",
-                        "--value",
-                    ])
+                        "--value"])
                     .output()?;
                 if state.status.success()
                     && matches!(
@@ -129,14 +308,10 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
                     return Ok(());
                 }
             }
-            let app=current_application(m,&record)?;
-            app.verify(&m.root)?;
             let result = Command::new("systemctl")
                 .args([
                     "--user",
-                    "stop",
-                    "linux-vst-bridge-vendor-arturia-software-center",
-                ])
+                    "stop", &unit])
                 .status()?;
             require(
                 result.success(),
@@ -158,13 +333,22 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
         | "diagnose-runinprefix"
         | "diagnose-initialized"
         | "diagnose-accessibility" => {
+            require(operation.is_some(),"vendor_application_operator_intent_required")?;
+            let _writer=m.lock(directory.join("writer.lock").strip_prefix(&m.root)?.to_str().ok_or("vendor_writer_gate")?)?;
             let mode = LaunchMode::action(&args[0])?;
             let _guard = m.lock("registry.lock")?;
             m.require_inactive(None)?;
             let app=current_application(m,&record)?;
             app.verify(&m.root)?;
             let sw = software(m)?;
-            let unit = "linux-vst-bridge-vendor-arturia-software-center";
+            require(
+                app.selector()? == args[1],
+                "vendor_application_selection_changed",
+            )?;
+            require(
+                app.schema == 1 || mode == LaunchMode::Normal,
+                "vendor_application_diagnostic_adapter_absent",
+            )?;
             // systemd owns the launch beyond this CLI/SSH lifetime. An existing
             // unit refuses a second launch rather than duplicating the app.
             let job = directory.join("operation.json");
@@ -175,7 +359,7 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
                     "vendor_application_operation_requires_retirement",
                 )?;
                 let state = Command::new("systemctl")
-                    .args(["--user", "show", unit, "-p", "ActiveState", "--value"])
+                    .args(["--user", "show", &unit, "-p", "ActiveState", "--value"])
                     .output()?;
                 require(
                     state.status.success()
@@ -193,7 +377,7 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
                     history.join("result.json"),
                 )?;
                 let _ = Command::new("systemctl")
-                    .args(["--user", "reset-failed", unit])
+                    .args(["--user", "reset-failed", &unit])
                     .status()?;
             }
             let operation_id = match operation {
@@ -203,12 +387,15 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             atomic_json(
                 &job,
                 &vendor_application::Operation {application:app,
-                    report:directory.join("operation-result.json"),mode,operation_id},
+                    report:directory.join("operation-result.json"),mode,operation_id:operation_id.clone(),
+                },
             )?;
+            atomic_json(&directory.join("operation-result.json"),&json!({"schema":3,"operation_id":operation_id,"state":"unknown","launcher_exit":null,"owned_live":null,"cleanup_confirmed":false,"error":null,"discarded_diagnostic_bytes":0,"account_posture":"unknown"}))?;
             let result = Command::new("systemd-run")
                 .args([
                     "--user",
                     "--collect",
+                    "--slice=app.slice",
                     "--property=UMask=0077",
                     "--property=KillMode=control-group",
                     "--property=TimeoutStopSec=30",
@@ -224,5 +411,63 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             require(result.success(), "vendor_application_launch_unconfirmed")
         }
         _ => Err("vendor_application_action_unknown".into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use linux_vst_bridge::operator_model as ui;
+    fn selected() -> (test_fixture::Fixture,String,String,Application) {
+        let f=test_fixture::Fixture::new();
+        let app=Application{schema:2,id:ApplicationId::Selected,environment:f.r.environment.clone(),
+            executable:f.r.module.clone(),helpers:vec![],installer_sha256:"ab".repeat(32),
+            installer_result:f.r.host.clone(),observed_installer_version:String::new()};
+        let selector=app.selector().unwrap();let operation=random_id().unwrap();
+        let directory=directory(&f.m,&selector).unwrap();private_dir(&directory).unwrap();
+        atomic_json(&directory.join("application.json"),&app).unwrap();
+        atomic_json(&directory.join("operation.json"),&vendor_application::Operation{application:app.clone(),
+            report:directory.join("operation-result.json"),mode:LaunchMode::Normal,operation_id:operation.clone()}).unwrap();
+        (f,selector,operation,app)
+    }
+    #[test]
+    fn historic_session_result_stays_bound_after_owned_shared_revision() {
+        let (f,selector,operation,app)=selected();
+        let directory=directory(&f.m,&selector).unwrap();
+        atomic_json(&directory.join("operation-result.json"),&json!({"schema":3,"operation_id":operation,
+            "state":"completed","launcher_exit":0,"owned_live":0,"cleanup_confirmed":true,
+            "discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
+        let owner=random_id().unwrap();let job=f.m.root.join("operator").join(&owner);private_dir(&job).unwrap();
+        atomic_json(&job.join("request.json"),&ui::Request{schema:ui::OPERATOR_SCHEMA,state_token:"test".into(),
+            action:ui::Action::VendorSoftwareInstall{application:selector.clone(),daw:ui::DawChoice::Reaper}}).unwrap();
+        let mut after=app.environment.clone();after.revision+=1;
+        atomic_json(&job.join("vendor-maintenance.json"),&environment_revision::VendorBinding{schema:1,
+            operation:owner,application:selector.clone(),selected:Artifact{sha256:digest(&directory.join("application.json")).unwrap(),path:directory.join("application.json")},
+            vendor_operation:random_id().unwrap(),before:app.environment.clone(),environment:after.clone()}).unwrap();
+        atomic_json(&after.root.join("environment.json"),&after).unwrap();
+        assert!(result(&f.m,&selector,&operation).unwrap().successful());
+        assert!(result(&f.m,&selector,&random_id().unwrap()).is_err());
+        after.revision+=1;atomic_json(&after.root.join("environment.json"),&after).unwrap();
+        assert!(result(&f.m,&selector,&operation).is_err(),"Unowned revision cannot be adopted");
+    }
+    #[test]
+    fn missing_dispatch_result_remains_readable_and_requires_exact_empty_writer_recovery() {
+        let (f,selector,operation,_)=selected();let directory=directory(&f.m,&selector).unwrap();
+        let before=fs::read(directory.join("operation.json")).unwrap();
+        assert!(!result(&f.m,&selector,&operation).unwrap().retired());
+        assert!(reconcile_with(&f.m,&selector,&operation,||Ok(renderer_session::UnitState{
+            exists:true,empty:false,observation:None})).is_err());
+        assert!(!directory.join("operation-result.json").exists());
+        let gate=directory.join("writer.lock");
+        let held=f.m.lock(gate.strip_prefix(&f.m.root).unwrap().to_str().unwrap()).unwrap();
+        assert!(reconcile_with(&f.m,&selector,&operation,||panic!("Live writer must retain custody")).is_err());
+        drop(held);
+        reconcile_with(&f.m,&selector,&operation,||Ok(renderer_session::UnitState{
+            exists:false,empty:true,observation:None})).unwrap();
+        let recovered=result(&f.m,&selector,&operation).unwrap();
+        assert!(recovered.retired());assert!(!recovered.successful());
+        assert_eq!(recovered.state,vendor_application::OperationState::Failed);
+        assert_eq!(fs::read(directory.join("operation.json")).unwrap(),before);
+        assert!(reconcile_with(&f.m,&selector,&random_id().unwrap(),||panic!("Changed job is refused")).is_err());
     }
 }

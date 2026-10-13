@@ -1006,6 +1006,7 @@ pub fn is_action(a: &ui::Action) -> bool {
             | ui::Action::CandidateSettingsPrepare { .. }
             | ui::Action::PluginReinspect { .. }
             | ui::Action::CompatibilityCheck { .. }
+            | ui::Action::CompatibilityRevalidate { .. }
             | ui::Action::CompatibilityResumeCheck { .. }
             | ui::Action::CompatibilityPublishTest { .. }
             | ui::Action::CompatibilityResult { .. }
@@ -1039,7 +1040,8 @@ fn action_selection_with(m: &Manager, sw: &Software, action: &ui::Action,
         ui::Action::PluginInspect { selection, .. }
         | ui::Action::PluginPrepare { selection, .. }
         | ui::Action::PluginReinspect { selection, .. }
-        | ui::Action::CompatibilityCheck { selection, .. } =>
+        | ui::Action::CompatibilityCheck { selection, .. }
+        | ui::Action::CompatibilityRevalidate {selection,..} =>
             return select(m, selection, &sw.host, &sw.source_sha256).map(Some),
         ui::Action::CompatibilityResumeCheck { operation } => {
             let intent = prep::guided_check_stage(m, operation, "intent")?
@@ -1080,6 +1082,7 @@ fn action_selection_with(m: &Manager, sw: &Software, action: &ui::Action,
 }
 pub fn offered(actual: &ui::Action, offer: &ui::Action) -> bool {
     match (actual, offer) {
+        (ui::Action::VendorSoftwareInstall {application,..}, ui::Action::VendorSoftwareInstall {application:offered,..}) => application==offered,
         (ui::Action::SoftwareInstall { installer, .. },
             ui::Action::SoftwareInstall { installer: offered, .. }) => installer == offered,
         (
@@ -1531,6 +1534,33 @@ pub(super) fn execute_with_progress(
     use linux_vst_bridge::operator_lock::timing::{self, Stage};
     let sw = timing::measure(Stage::SoftwareVerification, || software(m))?;
     match a {
+        ui::Action::CompatibilityRevalidate { selection, expected_current } => {
+            let reference = publication_reference(expected_current);
+            let s = prep::select(m, selection, &sw.host, &sw.source_sha256)?;
+            let predecessor = m.load_revision(&s.class.id, &reference)?;
+            require(m.registry()?.classes.get(&s.class.id)
+                .and_then(|e|e.managed_revision.as_ref()) == Some(&reference),
+                "unchanged_publication_predecessor_changed")?;
+            let serialized = serde_json::to_value(a)?;
+            let retained = prep::guided_check_stage(m, operation, "candidate")?;
+            let c = if let Some(retained) = retained {
+                require(retained["action"] == serialized, "unchanged_publication_intent_changed")?;
+                prep::candidate_record(m, retained["value"]["id"].as_str()
+                    .ok_or("unchanged_publication_candidate_missing")?)?
+            } else {
+                let i = inspect(m, &s, &sw, predecessor.registration.compatibility.audio_layout.clone(),
+                    || m.lock("registry.lock"))?;
+                progress("inspection");
+                let c = prep::revalidate_candidate(m, &predecessor, s,
+                    prep::build::stage_runtime(m)?, i.report, operation)?;
+                prep::retain_guided_check_stage(m, operation, "candidate", &serialized,
+                    &json!({"id":c.id()?}))?;
+                c
+            };
+            progress("publication");
+            let revision = prep::replace_refreshed(m, &c, &predecessor, &reference)?;
+            Ok(json!({"candidate":c.id()?,"publication":revision,"revalidated":true}))
+        }
         ui::Action::CandidateHistoryComplete { candidate, expected_history } => {
             let c = prep::candidate_record(m, candidate)?;
             let guard = registry_admission()?;
@@ -1784,6 +1814,7 @@ pub fn failure(action: &ui::Action) -> Option<Value> {
             "preliminary_inspection"
         }
         ui::Action::CompatibilityCheck { .. }
+        | ui::Action::CompatibilityRevalidate {..}
         | ui::Action::CompatibilityResumeCheck { .. } => "guided_compatibility_check",
         ui::Action::CandidateGraphicsAssess { .. } => "graphics_assessment",
         ui::Action::CandidateGraphicsPrepare { .. }

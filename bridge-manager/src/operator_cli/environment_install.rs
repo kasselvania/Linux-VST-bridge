@@ -30,7 +30,7 @@ pub(crate) fn all_retired(m: &Manager) -> Result<bool> {
     Ok(true)
 }
 
-pub(super) fn target(m: &Manager, environment: &str) -> Result<Environment> {
+pub(crate) fn target(m: &Manager, environment: &str) -> Result<Environment> {
     let db = m.registry()?;
     if let Some(r) = onboarding::retained_environment_record(m,environment)? {
         require(r.installation_operation.is_some()

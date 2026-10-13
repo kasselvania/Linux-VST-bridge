@@ -1884,6 +1884,9 @@ fn retained_revision_selection(m: &Manager, predecessor: &Revision) -> Result<Se
     Ok(selection)
 }
 fn refresh_source(m: &Manager, predecessor: &Revision) -> Result<RefreshSource> {
+    refresh_source_with(m,predecessor,false)
+}
+fn refresh_source_with(m:&Manager,predecessor:&Revision,historical:bool)->Result<RefreshSource> {
     if let Some(candidate) = for_profile(m, &predecessor.profile)? {
         require(
             object(m, "lineage", &candidate.id()?)?
@@ -1892,12 +1895,13 @@ fn refresh_source(m: &Manager, predecessor: &Revision) -> Result<RefreshSource> 
             "candidate_lineage_absent",
         )?;
         history::lineage_record(m, &candidate)?;
-        let candidate = verify_publication_candidate(
-            m,
-            &predecessor.profile,
-            &predecessor.registration,
-            candidate,
-        )?;
+        let candidate=if historical {
+            let records=RecordReadback::capture(m)?;
+            let selected=records.publication_candidate_record(m,&predecessor.profile,&predecessor.registration)?
+                .ok_or("bridge_refresh_predecessor_binding")?.clone();
+            selected.host.verify()?;selected.source_manifest.verify()?;selected.native.artifact.verify()?;
+            selected
+        } else {verify_publication_candidate(m,&predecessor.profile,&predecessor.registration,candidate)?};
         let retained_configuration = retained_revision_configuration(m, &candidate)?;
         let basis = if retained_configuration.is_some() {
             candidate
@@ -1914,7 +1918,8 @@ fn refresh_source(m: &Manager, predecessor: &Revision) -> Result<RefreshSource> 
             basis,
         });
     }
-    let selection = retained_revision_selection(m, predecessor)?;
+    let selection=if historical{retained_revision_selection_record(m,predecessor)?}
+        else{retained_revision_selection(m,predecessor)?};
     Ok(RefreshSource {
         selection,
         candidate: None,
@@ -1988,15 +1993,23 @@ pub(crate) fn verify_refresh_candidate(
     candidate: &Candidate,
     predecessor: &Revision,
 ) -> Result<()> {
-    let source = refresh_source(m, predecessor)?;
-    require(
-        predecessor.class_id == candidate.selection.class.id
-            && predecessor.registration.metadata.class_id == candidate.selection.class.id
-            && predecessor.registration.environment == candidate.selection.environment
-            && predecessor.registration.module == candidate.selection.module
-            && source.selection == candidate.selection,
-        "bridge_refresh_predecessor_changed",
-    )?;
+    let source = refresh_source_with(m,predecessor,candidate.selection.environment!=predecessor.registration.environment)?;
+    if source.selection == candidate.selection {
+        require(predecessor.registration.environment == candidate.selection.environment
+            && predecessor.registration.module == candidate.selection.module,
+            "bridge_refresh_predecessor_changed")?;
+    } else {
+        verify_revalidation_selection(m, &source.selection, &candidate.selection, predecessor)?;
+        require(candidate.host == predecessor.registration.host
+            && candidate.source_manifest.sha256 == predecessor.registration.host_source_sha256
+            && candidate.native.artifact.sha256 == predecessor.registration.native.sha256
+            && candidate.profile.capabilities.compatibility() == predecessor.registration.compatibility,
+            "unchanged_publication_configuration_changed")?;
+        if let Some(prior) = &source.candidate {
+            require(candidate.recipe_sha256 == prior.recipe_sha256,
+                "unchanged_publication_engine_changed")?;
+        }
+    }
     require(
         candidate.origin == Origin::ManagedPreparation
             && candidate.inspection.origin == Origin::ManagedPreparation,
@@ -2013,6 +2026,30 @@ pub(crate) fn verify_refresh_candidate(
     }
     verify_retained_candidate(m, candidate)
 }
+fn verify_revalidation_selection(m: &Manager, prior: &Selection, current: &Selection,
+    predecessor: &Revision) -> Result<()> {
+    require(current.module == prior.module && current.class == prior.class
+        && current.environment.id == prior.environment.id
+        && current.environment.root == prior.environment.root
+        && current.environment.runner == prior.environment.runner
+        && current.environment.revision > prior.environment.revision
+        && predecessor.registration.module == current.module
+        && predecessor.class_id == current.class.id,
+        "unchanged_publication_content_or_runtime_changed")?;
+    crate::environment_revision::require_owned_revision(m, &prior.environment, &current.environment)?;
+    require(current.scanner.sha256==predecessor.registration.host.sha256
+        && current.scanner_source==predecessor.registration.host_source_sha256,"unchanged_publication_host_changed")?;
+    verify_selection(m,current,&current.scanner,&current.scanner_source)?;
+    require(m.performance(&predecessor.class_id)? == predecessor.performance,
+        "unchanged_publication_preferences_changed")
+}
+/// Renew the same logical setup using fresh checks after owned maintenance.
+pub fn revalidate_candidate(m: &Manager, predecessor: &Revision, selection: Selection,
+    runtime: build::Runtime, report: Artifact, operation: &str) -> Result<Candidate> {
+    let source=refresh_source_with(m,predecessor,true)?;
+    verify_revalidation_selection(m, &source.selection, &selection, predecessor)?;
+    refresh_candidate_selected(m, predecessor, runtime, report, operation, Some(selection))
+}
 #[doc(hidden)]
 pub fn refresh_candidate(
     m: &Manager,
@@ -2021,14 +2058,20 @@ pub fn refresh_candidate(
     report: Artifact,
     operation: &str,
 ) -> Result<Candidate> {
-    let source = refresh_source(m, predecessor)?;
+    refresh_candidate_selected(m, predecessor, runtime, report, operation, None)
+}
+fn refresh_candidate_selected(m: &Manager, predecessor: &Revision, runtime: build::Runtime,
+    report: Artifact, operation: &str, selection: Option<Selection>) -> Result<Candidate> {
+    let source=refresh_source_with(m,predecessor,selection.is_some())?;
     require(
         source.selection.environment == predecessor.registration.environment
             && source.selection.module == predecessor.registration.module,
         "bridge_refresh_predecessor_changed",
     )?;
+    let refreshed = selection.is_some();
+    let selection = selection.unwrap_or_else(|| source.selection.clone());
     let inspection = inspect_record_with_layout(
-        source.selection.clone(),
+        selection.clone(),
         report,
         Origin::ManagedPreparation,
         runtime.host.clone(),
@@ -2036,7 +2079,7 @@ pub fn refresh_candidate(
         predecessor.registration.compatibility.audio_layout.clone(),
     )?;
     let next =
-        build::construct_with_runtime(m, source.selection.clone(), inspection, runtime, operation)?;
+        build::construct_with_runtime(m, selection, inspection, runtime, operation)?;
     let next = if let Some(prior) = source.candidate.as_ref() {
         let next = bind_preparation_basis(
             configuration::carry_settings(next, Some(prior))?,
@@ -2053,6 +2096,7 @@ pub fn refresh_candidate(
             predecessor,
         )?
     };
+    let next = if refreshed { carry_retained_revision_configuration(next, predecessor)? } else { next };
     let prior_candidate = source
         .candidate
         .as_ref()

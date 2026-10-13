@@ -22,6 +22,7 @@ const ASC_FILES: [(&str, &str); 3] = [
 #[serde(rename_all = "snake_case")]
 pub enum ApplicationId {
     ArturiaSoftwareCenter,
+    Selected,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -111,6 +112,14 @@ pub enum AccountPosture {
 }
 
 impl OperationResult {
+    /// A cleanup receipt alone is not successful vendor work. Automatic
+    /// continuation uses the current exact-operation protocol and zero cohort.
+    pub fn successful(&self) -> bool {
+        self.schema == 3 && self.operation_id.as_ref().is_some_and(|id|valid_hex(id,32))
+            && self.retired() && self.owned_live == Some(0)
+            && self.state == OperationState::Completed && self.launcher_exit == Some(0)
+            && self.error.is_none()
+    }
     pub fn retired(&self) -> bool {
         matches!(self.schema, 1..=3)
             && self.cleanup_confirmed
@@ -123,8 +132,11 @@ impl OperationResult {
 }
 impl ApplicationId {
     pub fn parse(s: &str) -> Result<Self> {
-        require(s == "arturia-software-center", "vendor_application_unknown")?;
-        Ok(Self::ArturiaSoftwareCenter)
+        if s == "arturia-software-center" {
+            return Ok(Self::ArturiaSoftwareCenter);
+        }
+        require(valid_hex(s, 64), "vendor_application_unknown")?;
+        Ok(Self::Selected)
     }
 }
 
@@ -151,8 +163,121 @@ pub struct Operation {
     pub operation_id: String,
 }
 impl Application {
+    pub fn selector(&self) -> Result<String> {
+        if self.schema == 1 && self.id == ApplicationId::ArturiaSoftwareCenter {
+            return Ok("arturia-software-center".into());
+        }
+        require(self.schema == 2 && self.id == ApplicationId::Selected,
+            "vendor_application_schema",
+        )?;
+        // Runtime revision is independently checked at launch; selection keeps
+        // the installed environment and exact chosen file identities stable.
+        Ok(hex(&Sha256::digest(serde_json::to_vec(
+            &serde_json::json!({
+                "environment":self.environment.id,"executable":self.executable,
+                "helpers":self.helpers,"installer":self.installer_sha256,
+                "installation":self.installer_result
+            }),
+        )?)))
+    }
+    pub fn display_name(&self) -> String {
+        if self.id == ApplicationId::ArturiaSoftwareCenter {
+            "Arturia Software Center".into()
+        } else {
+            self.executable
+                .path
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned()
+        }
+    }
+    fn verify_selected(&self, root: &Path) -> Result<()> {
+        require(
+            self.id == ApplicationId::Selected
+                && valid_hex(&self.environment.id, 32)
+                && self.environment.root == root.join("environments").join(&self.environment.id)
+                && read_json::<Environment>(&self.environment.root.join("environment.json"))?
+                    == self.environment,
+            "vendor_application_environment",
+        )?;
+        self.environment.runner.verify()?;
+        require(
+            self.helpers.len() <= 16 && valid_hex(&self.installer_sha256, 64),
+            "vendor_application_selection_bound",
+        )?;
+        let prefix = self.environment.root.join("compatdata/pfx");
+        let mut paths = std::collections::BTreeSet::new();
+        for artifact in std::iter::once(&self.executable).chain(self.helpers.iter()) {
+            require(
+                artifact.path.starts_with(prefix.join("drive_c"))
+                    && artifact.path.canonicalize()? == artifact.path
+                    && paths.insert(&artifact.path),
+                "vendor_application_selected_artifact",
+            )?;
+            let metadata = file(&artifact.path)?.metadata()?;
+            require(
+                metadata.nlink() == 1 && metadata.len() > 0 && metadata.len() <= 512 * 1024 * 1024,
+                "vendor_application_selected_artifact_bound",
+            )?;
+            artifact.verify()?;
+        }
+        // This witness proves the selected environment's installation custody.
+        // It does not assert that the installer created the selected files.
+        let directory = root.join("onboarding").join(&self.environment.id);
+        let record: serde_json::Value = read_json(&directory.join("record.json"))?;
+        let operation = record["installation_operation"]
+            .as_str()
+            .ok_or("vendor_application_installation_missing")?;
+        require(
+            record["schema"] == 1
+                && record["id"] == self.environment.id
+                && record["environment"]["id"] == self.environment.id
+                && record["environment"]["root"] == serde_json::to_value(&self.environment.root)?
+                && record["installer"] == self.installer_sha256
+                && valid_hex(operation, 32)
+                && self.installer_result.path == directory.join(format!("{operation}-result.json")),
+            "vendor_application_installation_binding",
+        )?;
+        self.installer_result.verify()?;
+        let result: serde_json::Value = read_json(&self.installer_result.path)?;
+        require(
+            result["schema"] == 2
+                && result["operation"] == operation
+                && result["state"] == "completed"
+                && result["raw_exit"] == 0
+                && result["cleanup_confirmed"] == true
+                && result["owned_live"] == 0
+                && result["error"].is_null(),
+            "vendor_application_installation_incomplete",
+        )?;
+        let imported: serde_json::Value = read_json(
+            &root
+                .join("installers")
+                .join(format!("{}.json", self.installer_sha256)),
+        )?;
+        require(
+            imported["schema"] == 1
+                && imported["id"] == self.installer_sha256
+                && imported["artifact"]["sha256"] == self.installer_sha256,
+            "vendor_application_import_binding",
+        )?;
+        let installer: Artifact = serde_json::from_value(imported["artifact"].clone())?;
+        require(
+            installer.path.parent() == Some(root.join("installers").as_path()),
+            "vendor_application_import_binding",
+        )?;
+        installer.verify()?;
+        Ok(())
+    }
+
     pub fn verify(&self, root: &Path) -> Result<()> {
-        require(self.schema == 1, "vendor_application_schema")?;
+        if self.schema == 2 {
+            return self.verify_selected(root);
+        }
+        require(
+            self.schema == 1 && self.id == ApplicationId::ArturiaSoftwareCenter, "vendor_application_schema",
+        )?;
         require(
             self.environment.root == root.join("environments").join(&self.environment.id)
                 && read_json::<Environment>(&self.environment.root.join("environment.json"))?
@@ -251,6 +376,94 @@ pub fn discover(root: &Path, environment: Environment) -> Result<Application> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn selected_application() -> (crate::test_fixture::Fixture, Application) {
+        let f = crate::test_fixture::Fixture::new();
+        let mut environment = f.r.environment.clone();
+        environment.id = "ac".repeat(16);
+        environment.root = f.m.root.join("environments").join(&environment.id);
+        let prefix = environment.root.join("compatdata/pfx/drive_c");
+        private_dir(&prefix).unwrap();
+        atomic_json(&environment.root.join("environment.json"), &environment).unwrap();
+        let executable = prefix.join("Hub.exe");
+        fs::write(&executable, b"MZ selected first-party hub").unwrap();
+        let installer = f.m.root.join("installers");
+        private_dir(&installer).unwrap();
+        let source = installer.join("source.bin");
+        fs::write(&source, b"MZ owned installer").unwrap();
+        let installer_sha256 = digest(&source).unwrap();
+        atomic_json(&installer.join(format!("{installer_sha256}.json")),
+            &serde_json::json!({"schema":1,"id":installer_sha256,
+                "artifact":{"path":source,"sha256":installer_sha256}})).unwrap();
+        let operation = "cb".repeat(16);
+        let record = f.m.root.join("onboarding").join(&environment.id);
+        private_dir(&record).unwrap();
+        atomic_json(&record.join("record.json"), &serde_json::json!({"schema":1,
+            "id":environment.id,"environment":environment,"installer":installer_sha256,
+            "installation_operation":operation})).unwrap();
+        let witness = record.join(format!("{operation}-result.json"));
+        atomic_json(&witness, &serde_json::json!({"schema":2,"operation":operation,
+            "state":"completed","raw_exit":0,"cleanup_confirmed":true,"owned_live":0,
+            "error":null})).unwrap();
+        let app = Application { schema:2,id:ApplicationId::Selected,environment,
+            executable:Artifact {sha256:digest(&executable).unwrap(),path:executable},
+            helpers:vec![],installer_sha256,installer_result:Artifact {sha256:digest(&witness).unwrap(),path:witness},
+            observed_installer_version:String::new() };
+        (f, app)
+    }
+    #[test]
+    fn selected_application_requires_owned_operation_and_exact_observed_bytes() {
+        let (f, app) = selected_application();
+        app.verify(&f.m.root).unwrap();
+        assert!(valid_hex(&app.selector().unwrap(),64));
+        let original = app.selector().unwrap();
+        let mut revised = app.clone();
+        revised.environment.revision += 1;
+        assert_eq!(revised.selector().unwrap(), original);
+        let witness = app.installer_result.path.clone();
+        let mut result:serde_json::Value = read_json(&witness).unwrap();
+        result["operation"] = serde_json::json!("dd".repeat(16));
+        atomic_json(&witness, &result).unwrap();
+        revised = app.clone();
+        revised.installer_result.sha256 = digest(&witness).unwrap();
+        assert!(revised.verify(&f.m.root).unwrap_err().to_string().contains("installation_incomplete"));
+        fs::write(&app.executable.path, b"MZ changed hub").unwrap();
+        assert!(app.verify(&f.m.root).is_err());
+        revised.executable.sha256 = digest(&app.executable.path).unwrap();
+        assert_ne!(revised.selector().unwrap(), original);
+    }
+    #[test]
+    fn selected_application_cannot_adopt_foreign_receipt_or_executable() {
+        let (f, app) = selected_application();
+        let mut changed = app.clone();
+        changed.installer_result.path = f.outer.join("copied-result.json");
+        fs::copy(&app.installer_result.path,&changed.installer_result.path).unwrap();
+        assert!(changed.verify(&f.m.root).is_err());
+        changed = app.clone();
+        changed.executable.path = f.outer.join("outside.exe");
+        fs::copy(&app.executable.path,&changed.executable.path).unwrap();
+        assert!(changed.verify(&f.m.root).is_err());
+        changed = app.clone();
+        changed.helpers.push(app.executable.clone());
+        assert!(changed.verify(&f.m.root).is_err());
+        let mut record:serde_json::Value=read_json(&f.m.root.join("onboarding").join(&app.environment.id).join("record.json")).unwrap();
+        record["installer"] = serde_json::json!("aa".repeat(32));
+        atomic_json(&f.m.root.join("onboarding").join(&app.environment.id).join("record.json"),&record).unwrap();
+        assert!(app.verify(&f.m.root).is_err());
+    }
+    #[test]
+    fn cancelled_failed_live_and_unknown_sessions_never_authorize_automatic_continuation() {
+        let successful=serde_json::json!({"schema":3,"operation_id":"ad".repeat(16),
+            "state":"completed","launcher_exit":0,"owned_live":0,"cleanup_confirmed":true,
+            "error":null,"discarded_diagnostic_bytes":0,"account_posture":"unknown"});
+        assert!(serde_json::from_value::<OperationResult>(successful.clone()).unwrap().successful());
+        for (key,value) in [("state",serde_json::json!("cancelled")),("state",serde_json::json!("failed")),
+            ("state",serde_json::json!("unknown")),("owned_live",serde_json::json!(1)),
+            ("owned_live",serde_json::Value::Null),("cleanup_confirmed",serde_json::json!(false)),
+            ("launcher_exit",serde_json::json!(1)),("operation_id",serde_json::Value::Null)] {
+            let mut changed=successful.clone();changed[key]=value;
+            assert!(!serde_json::from_value::<OperationResult>(changed).unwrap().successful());
+        }
+    }
     #[test]
     fn application_selector_cannot_supply_executable() {
         assert_eq!(
@@ -297,7 +510,8 @@ mod tests {
             assert!(serde_json::from_value::<OperationResult>(old).unwrap().retired());
         }
         for outcome in ["focused","close_requested","window_manager_refused",
-            "refused_exact_window_unavailable"] {
+            "refused_exact_window_unavailable",
+        ] {
             let mut value = base.clone();
             value["focus_result"] = serde_json::json!({"request":null,"result":outcome});
             value["close_result"] = serde_json::json!({"request":"ab".repeat(16),"result":outcome});

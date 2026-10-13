@@ -79,6 +79,15 @@ fn immutable(p: &Path, v: &Value) -> Result<()> {
 }
 pub fn inspect(op: &str) -> Result<UnitState> {
     let name = unit(op)?;
+    inspect_unit(&name)
+}
+#[doc(hidden)]
+pub fn inspect_unit(name:&str)->Result<UnitState> {
+    let renderer=name.strip_prefix("linux-vst-bridge-renderer-").and_then(|s|s.strip_suffix(".service"))
+        .is_some_and(|id|valid_hex(id,32));
+    let vendor=name.strip_prefix("linux-vst-bridge-vendor-").and_then(|s|s.strip_suffix(".service"))
+        .is_some_and(|id|crate::vendor_application::ApplicationId::parse(id).is_ok());
+    require(renderer||vendor,"owned_unit_identity")?;
     let output = Command::new("systemctl")
         .args([
             "--user",
@@ -93,7 +102,7 @@ pub fn inspect(op: &str) -> Result<UnitState> {
         .filter_map(|s| s.split_once('='))
         .collect();
     require(
-        fields.len() == 8 && fields.get("Id") == Some(&name.as_str()),
+        fields.len() == 8 && fields.get("Id") == Some(&name),
         "renderer_unit_state_unavailable",
     )?;
     let load = *fields.get("LoadState").ok_or("renderer_unit_load")?;

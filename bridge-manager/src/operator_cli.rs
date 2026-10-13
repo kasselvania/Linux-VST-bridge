@@ -10,7 +10,6 @@ pub(super) mod environment_install;
 mod environment_runtime;
 const ASC: &str = "arturia-software-center";
 const SERVICE: &str = "linux-vst-bridge.service";
-const VENDOR: &str = "linux-vst-bridge-vendor-arturia-software-center.service";
 #[derive(Debug)]
 struct ServiceRestorationFailure {
     reason: String,
@@ -48,17 +47,14 @@ fn active(unit: &str) -> bool {
         .status()
         .is_ok_and(|s| s.success())
 }
-fn vendor_state_live(state: &str) -> Result<bool> {
+pub(super) fn vendor_state_live(state: &str) -> Result<bool> {
     match state {
         "active" | "activating" | "deactivating" | "reloading" => Ok(true),
         "inactive" | "failed" => Ok(false),
         _ => Err("operator_vendor_unit_state_unavailable".into()),
     }
 }
-fn vendor_live() -> Result<bool> {
-    vendor_state_live(&readiness::bounded_user_unit_state(VENDOR)
-        .map_err(|_| "operator_vendor_unit_state_unavailable")?)
-}
+fn vendor_live() -> Result<bool> {vendor_cli::live(ASC)}
 fn service(action: &str) -> Result<()> {
     require(
         Command::new("systemctl")
@@ -165,33 +161,91 @@ fn quarantined_product(scan: &inventory::Scan, module_index: usize,
 fn app_directory(m: &Manager) -> PathBuf {
     m.root.join("vendor-applications").join(ASC)
 }
-fn asc_projection(m: &Manager, busy: Option<&str>) -> Result<Option<ui::VendorApplication>> {
-    let app = app_directory(m).join("application.json");
-    if !app.exists() { return Ok(None); }
-    let mut a: vendor_application::Application = read_json(&app)?;
-    a.environment=environment_install::current_environment(m,&a.environment)?;
-    let live = vendor_live()?;
+fn vendor_projections(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::VendorApplication>> {
+    vendor_cli::selectors(m)?
+        .iter()
+        .map(|selector| vendor_projection(m, selector, busy))
+        .collect::<Result<Vec<_>>>()
+        .map(|rows| rows.into_iter().flatten().collect())
+}
+fn vendor_projection(
+    m: &Manager,
+    selector: &str,
+    busy: Option<&str>,
+) -> Result<Option<ui::VendorApplication>> {
+    let directory = vendor_cli::directory(m, selector)?;
+    if !directory.join("application.json").exists() {
+        return Ok(None);
+    }
+    let a = vendor_cli::application(m, selector)?;
+    let live = vendor_cli::live(selector)?;
     let valid = a.verify(&m.root).is_ok();
+    let record = onboarding::retained_environment_record(m, &a.environment.id)?;
+    let unfinished = record
+        .as_ref()
+        .and_then(|r| r.automatic.as_ref())
+        .is_some_and(|i| i.journey.phase != ui::InstallationPhase::Available);
     let reason = if !valid {
-        Some("Registered ASC executable or environment changed")
-    } else { busy };
+        Some("The selected application or installation changed")
+    } else {
+        busy
+    };
+    let add_reason = if live {
+        Some("This application is already running")
+    } else if unfinished {
+        Some("Resume the unfinished installation first")
+    } else if record.is_none() {
+        Some("The original managed installation record is unavailable")
+    } else {
+        reason
+    };
+    let name = a.display_name();
+    let job = optional(&directory.join("operation.json"))?;
+    let retired = if let Some(op) = job["operation_id"].as_str() {
+        vendor_cli::result(m, selector, op)?.retired()
+    } else {
+        true
+    };
     Ok(Some(ui::VendorApplication {
-        details: json!({"environment":a.environment.id}),
-        id: ASC.into(), name: "Arturia Software Center".into(),
+        id: selector.into(),
+        name: name.clone(),
         version: a.observed_installer_version,
-        state: if live { "running" } else if vendor_retired(m)? {
+        state: if live {
+            "running"
+        } else if retired {
             "closed"
-        } else { "cleanup_unconfirmed" }.into(),
+        } else {
+            "cleanup_unconfirmed"
+        }
+        .into(),
+        details: json!({"environment":a.environment.id,"journey":record.as_ref().and_then(|r|r.automatic.as_ref()).map(|i|&i.journey)}),
         actions: vec![
-            action("Open ASC", ui::Action::VendorApplicationOpen {
-                application: ASC.into(),
-            }, if live { Some("ASC is already running") } else { reason }),
-            action("Focus ASC", ui::Action::VendorApplicationFocus {
-                application: ASC.into(),
-            }, if live { None } else { Some("ASC is not running") }),
-            action("Stop owned ASC session", ui::Action::VendorApplicationStop {
-                application: ASC.into(),
-            }, if live { None } else { Some("ASC is not running") }),
+            action(
+                &format!("Add plug-ins through {name}"),
+                ui::Action::VendorSoftwareInstall {
+                    application: selector.into(),
+                    daw: ui::DawChoice::Other,
+                },
+                add_reason,
+            ),
+            action(
+                &format!("Show {name}"),
+                ui::Action::VendorApplicationFocus {
+                    application: selector.into(),
+                },
+                if live {
+                    None
+                } else {
+                    Some("This application is not running")
+                },
+            ),
+            action(
+                if live {"Stop this application session"}else{"Recover this application session"},
+                ui::Action::VendorApplicationStop {
+                    application: selector.into(),
+                },
+                if live || !retired {None}else{Some("This application session is already retired")},
+            ),
         ],
     }))
 }
@@ -199,7 +253,7 @@ pub(super) fn vendor_retired(m: &Manager) -> Result<bool> {
     vendor_retired_with(m, vendor_live)
 }
 pub(super) fn vendor_retired_with(m: &Manager, is_live: impl FnOnce() -> Result<bool>) -> Result<bool> {
-    if !renderer_cli::all_retired(m)? || !dependency_cli::all_retired(m)? {
+    if !renderer_cli::all_retired(m)? || !dependency_cli::all_retired(m)? || !vendor_cli::all_retired(m)? {
         return Ok(false);
     }
     if !app_directory(m).exists() {
@@ -994,16 +1048,14 @@ fn performance_actions(m: &Manager, registration: &Registration,
         class_id:registration.metadata.class_id.clone(), mode}, reason));
 }
 fn scoped_product_context_from(m: &Manager, sw: &Software, db: &Registry,
-    bindings: &[catalogue::EnvironmentBinding], environment: &str, busy: Option<&str>)
+    bindings: &[catalogue::EnvironmentBinding], environment: &str, busy: Option<&str>,
+)
     -> Result<(Vec<ui::Environment>,Vec<ui::VendorApplication>)> {
     let exact = bindings.iter().filter(|binding|
         binding.environment.id == environment).cloned().collect::<Vec<_>>();
     let environments = environment_projection_from(m, sw, &exact, db, busy)?;
-    let arturia = app_directory(m).join("application.json");
-    let mut vendor_applications = if arturia.exists()
-        && read_json::<vendor_application::Application>(&arturia)?.environment.id == environment {
-        asc_projection(m, busy)?.into_iter().collect::<Vec<_>>()
-    } else { vec![] };
+    let mut vendor_applications = vendor_projections(m, busy)?.into_iter()
+        .filter(|a| a.details["environment"] == environment).collect::<Vec<_>>();
     if environment == renderer::ENVIRONMENT {
         if let Some(mut app) = renderer_cli::project(m, busy)? {
             dependency_cli::project(m, &mut app, busy)?;
@@ -1263,7 +1315,7 @@ fn snapshot_readonly_depth(
                 reason:Some("This installed plug-in has no current native DAW connection.".into())});
         }
     }
-    let mut vendor_applications = asc_projection(m, busy)?.into_iter().collect::<Vec<_>>();
+    let mut vendor_applications = vendor_projections(m, busy)?;
     if deep {
         if let Some(mut app) = renderer_cli::project(m, busy)? {
             dependency_cli::project(m, &mut app, busy)?;
@@ -1309,6 +1361,7 @@ fn snapshot_readonly_depth(
     }
     let mut installer_setups = onboarding::setup_projection(m, &onboarding, &products, &workspace_installers)?;
     automatic_install::project(m, &mut installer_setups, busy)?;
+    automatic_install::project_revalidation(m,&mut products,&onboarding::history_records(m)?)?;
     let environment_installers = environment_install::projection(m,&products,busy,onboarding::live)?;
     let recheck = acquire_readback(m, ui::OperatorLock::Registry, id, timeout, waits)?;
     let after = token(m)?;
@@ -1498,11 +1551,11 @@ fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Resu
                 offered.environments = scoped_product_context_from(m, sw, db,
                     &captured.bindings, environment, captured.busy)?.0;
             }
-            ui::Action::VendorApplicationOpen { application }
+            ui::Action::VendorSoftwareInstall {application,..}
+            | ui::Action::VendorApplicationOpen { application }
             | ui::Action::VendorApplicationFocus { application }
-            | ui::Action::VendorApplicationStop { application } if application == ASC => {
-                offered.vendor_applications = asc_projection(m, captured.busy)?
-                    .into_iter().collect();
+            | ui::Action::VendorApplicationStop { application } => {
+                offered.vendor_applications = vendor_projection(m,application,captured.busy)?.into_iter().collect();
             }
             ui::Action::RendererOpen { .. } | ui::Action::RendererFocus { .. }
             | ui::Action::RendererStop { .. } => {
@@ -1525,6 +1578,7 @@ fn scoped_product_action(action: &ui::Action) -> bool {
         | ui::Action::CaptureArm { .. }
         | ui::Action::EnvironmentRescan { .. }
         | ui::Action::VendorApplicationOpen { .. }
+        | ui::Action::VendorSoftwareInstall { .. }
         | ui::Action::VendorApplicationFocus { .. }
         | ui::Action::VendorApplicationStop { .. }
         | ui::Action::RendererOpen { .. }
@@ -2074,7 +2128,7 @@ fn execute_with_receipt_policy_progress(
     waits: &mut Vec<ui::LockFacts>,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Value> {
-    if matches!(a, ui::Action::SoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. }) {
+    if matches!(a, ui::Action::SoftwareInstall { .. } | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. }) {
         return automatic_install::execute(m, a, operation.ok_or("operator_operation_identity")?,
             capacity_read, timeout, waits);
     }
@@ -2140,6 +2194,7 @@ fn execute_with_receipt_policy_progress(
                 | ui::Action::PluginReinspect { .. }
                 | ui::Action::PluginInspect { .. }
                 | ui::Action::CompatibilityCheck { .. }
+                | ui::Action::CompatibilityRevalidate {..}
                 | ui::Action::CompatibilityResumeCheck { .. }
         ) {
             let _environment = m.lock("operator-environment.lock")?;
@@ -2185,7 +2240,7 @@ fn execute_with_receipt_policy_progress(
         });
     }
     match a {
-        ui::Action::SoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. } => unreachable!(),
+        ui::Action::SoftwareInstall { .. } | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. } => unreachable!(),
         ui::Action::RuntimeInstall {} => {
             drop(projection.take());
             let runner = linux_vst_bridge::runtime_delivery::install(m)?;
@@ -2225,6 +2280,7 @@ fn execute_with_receipt_policy_progress(
         | ui::Action::PluginInspect { .. }
         | ui::Action::PluginPrepare { .. }
         | ui::Action::CompatibilityCheck { .. }
+                | ui::Action::CompatibilityRevalidate {..}
         | ui::Action::CompatibilityResumeCheck { .. }
         | ui::Action::CompatibilityPublishTest { .. }
         | ui::Action::CompatibilityResult { .. }
@@ -2534,31 +2590,12 @@ fn execute_with_receipt_policy_progress(
             presentation,
         } => renderer_cli::observe(m, target, *presentation),
         ui::Action::VendorApplicationOpen { application } => {
-            vendor_application::ApplicationId::parse(application)?;
-            let _environment = m.lock("operator-environment.lock")?;
-            let owner = operation.ok_or("operator_operation_identity")?;
-            let vendor_operation = random_id()?;
-            suspend(m, owner, Some(vendor_operation.clone()), timeout, waits)?;
-            let launched = vendor_cli::launch_owned(m, application, &vendor_operation);
-            if let Err(e) = launched {
-                let _ = resume_owned(m, owner);
-                return Err(e);
-            }
-            if let Some(id) = operation {
-                let receipt =
-                    json!({"schema":1,"operation":id,"state":"vendor_running","action":a});
-                write_operation(m, id, &receipt, false)?;
-            }
-            // This manager operation outlives the frontend. ASC's own existing
-            // dedicated unit remains process owner; neither UI close nor this
-            // operation creates an orphan or kills a continuing download.
+            let app=vendor_cli::application(m,application)?;
+            let record=onboarding::retained_environment_record(m,&app.environment.id)?.ok_or("vendor_application_owned_installation_required")?;
+            let daw=record.automatic.as_ref().map(|i|i.journey.daw).ok_or("vendor_application_choose_daw")?;
             drop(projection.take());
-            while vendor_live()? {
-                std::thread::sleep(Duration::from_millis(500));
-            }
-            require(vendor_retired(m)?, "operator_vendor_cleanup_unconfirmed")?;
-            resume_owned(m, owner)?;
-            Ok(json!({"vendor":"retired","service":"resumed"}))
+            automatic_install::execute(m,&ui::Action::VendorSoftwareInstall{application:application.clone(),daw},
+                operation.ok_or("operator_operation_identity")?,capacity_read,timeout,waits)
         }
         ui::Action::VendorApplicationStop { application } => {
             stop_vendor_with(
@@ -2571,19 +2608,23 @@ fn execute_with_receipt_policy_progress(
         }
         ui::Action::VendorApplicationFocus { application } => {
             vendor_application::ApplicationId::parse(application)?;
-            require(vendor_live()?, "operator_vendor_not_running")?;
-            let operation = optional(&app_directory(m).join("operation-result.json"))?;
+            require(
+                vendor_cli::live(application)?,
+                "operator_vendor_not_running",
+            )?;
+            let directory = vendor_cli::directory(m, application)?;
+            let operation = optional(&directory.join("operation-result.json"))?;
             let operation_id = operation["operation_id"]
                 .as_str()
                 .ok_or("operator_focus_owner_unsupported")?;
             let request = random_id()?;
             atomic_json(
-                &app_directory(m).join("focus.json"),
+                &directory.join("focus.json"),
                 &json!({"request":request,"operation_id":operation_id}),
             )?;
             let deadline = Instant::now() + Duration::from_secs(4);
             loop {
-                let value = optional(&app_directory(m).join("operation-result.json"))?;
+                let value = optional(&directory.join("operation-result.json"))?;
                 if value["focus_result"]["request"] == request {
                     require(
                         value["focus_result"]["result"] == "focused",
@@ -2678,12 +2719,46 @@ impl PackageResume {
         require(self.saved()?.software == source.manager.sha256,"package_resume_binding")
     }
 }
+fn open_vendor_owned(
+    m: &Manager,
+    application: &str,
+    owner: &str,
+    vendor_operation: &str,
+    timeout: Duration,
+    waits: &mut Vec<ui::LockFacts>,
+    started: impl FnOnce() -> Result<()>,
+) -> Result<Value> {
+    vendor_application::ApplicationId::parse(application)?;
+    let _environment = m.lock("operator-environment.lock")?;
+    suspend(m, owner, Some(vendor_operation.into()), timeout, waits)?;
+    if let Err(error) = vendor_cli::launch_owned(m, application, vendor_operation) {
+        let _=vendor_cli::reconcile(m,application,vendor_operation);
+        let _ = resume_owned(m, owner);
+        return Err(error);
+    }
+    write_operation(
+        m,
+        owner,
+        &json!({"schema":1,"operation":owner,"state":"vendor_running"}),
+        false,
+    )?;
+    started()?;
+    while vendor_cli::live(application)? {
+        std::thread::sleep(Duration::from_millis(500));
+    }
+    vendor_cli::reconcile(m,application,vendor_operation)?;
+    let result = vendor_cli::result(m, application, vendor_operation)?;
+    require(result.retired(), "operator_vendor_cleanup_unconfirmed")?;
+    resume_owned(m, owner)?;
+    Ok(json!({"vendor":"retired","service":"resumed","operation":vendor_operation,"result":result}))
+}
 fn resumable_action(action: &ui::Action) -> bool {
     matches!(action,ui::Action::InstallerStart {..} | ui::Action::InstallerStartWithPolicy {..}
         | ui::Action::InstallerScan {..} | ui::Action::EnvironmentInstallerStart {..}
         | ui::Action::EnvironmentInstallerScan {..} | ui::Action::RendererOpen {..}
         | ui::Action::EnvironmentRuntimeSelect {..}
         | ui::Action::DependencyPrepare {} | ui::Action::VendorApplicationOpen {..}
+        | ui::Action::VendorSoftwareInstall {..} | ui::Action::SoftwareInstallResume {..}
         | ui::Action::EnvironmentRescan {..} | ui::Action::QuarantinedModuleRetry {..}
         | ui::Action::PluginReinspect {..} | ui::Action::PluginInspect {..}
         | ui::Action::PluginPrepare {..} | ui::Action::CandidateGraphicsAssess {..}
@@ -2713,7 +2788,7 @@ fn package_resume_custody(m: &Manager, saved: &ResumeRecord, action: &ui::Action
     -> Result<Vec<Artifact>> {
     let mut custody = Vec::new();
     match action {
-        ui::Action::VendorApplicationOpen {application} => {
+        ui::Action::VendorApplicationOpen {application} | ui::Action::VendorSoftwareInstall {application,..} => {
             vendor_application::ApplicationId::parse(application)?;
             let directory = m.root.join("vendor-applications").join(application);
             let job: vendor_application::Operation = read_json(&directory.join("operation.json"))?;
@@ -2995,18 +3070,29 @@ fn stop_vendor_with(
     vendor_application::ApplicationId::parse(application)?;
     let _resume = resume_lock(m)?;
     let saved = resume_record(m)?.ok_or("operator_vendor_open_owner_absent")?;
-    require(
-        recovery_request(m, &saved)?
-            == (ui::Action::VendorApplicationOpen {
-                application: application.into(),
-            }),
-        "operator_vendor_open_owner_mismatch",
-    )?;
+    let request = recovery_request(m, &saved)?;
+    let matching = match request {
+        ui::Action::VendorApplicationOpen {
+            application: ref selected,
+        }
+        | ui::Action::VendorSoftwareInstall {
+            application: ref selected,
+            ..
+        } => selected == application,
+        ui::Action::SoftwareInstallResume { ref onboarding } => {
+            onboarding::retained_environment_record(m, onboarding)?
+                .and_then(|r| r.automatic)
+                .and_then(|i| i.vendor)
+                .is_some_and(|v| v.application == application)
+        }
+        _ => false,
+    };
+    require(matching, "operator_vendor_open_owner_mismatch")?;
     let vendor = saved
         .vendor_operation
         .as_deref()
         .ok_or("operator_vendor_open_binding_absent")?;
-    let job = optional(&app_directory(m).join("operation.json"))?;
+    let job = optional(&vendor_cli::directory(m, application)?.join("operation.json"))?;
     require(
         job["operation_id"] == vendor,
         "operator_vendor_open_binding_changed",

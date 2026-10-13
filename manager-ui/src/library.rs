@@ -338,6 +338,9 @@ impl Library {
                             ui.colored_label(warning_color(ui), reason);
                         }
                         if let Some(action) = &everyday_primary {
+                            if let Some(consequence) = presentation::vendor_install_consequence(snapshot, &action.action) {
+                                ui.label(consequence);
+                            }
                             let reason = primary_refusal(action, snapshot.system.inactive_reason());
                             if let Some(reason) = reason {
                                 ui.add_enabled(false, egui::Button::new(presentation::action_label(action))
@@ -356,6 +359,10 @@ impl Library {
                         let (options, current): (Vec<_>, Vec<_>) = current.into_iter()
                             .filter(|offer| !everyday_primary.as_ref().is_some_and(|shown| shown.action == offer.action))
                             .partition(|offer| other_setup_option(&offer.action));
+                        if let Some(consequence) = current.iter().find_map(|offer|
+                            presentation::vendor_install_consequence(snapshot, &offer.action)) {
+                            ui.label(consequence);
+                        }
                         action_buttons(ui, &current, snapshot.system.inactive_reason(), pending, chosen);
                         compatibility_settings(ui, p, snapshot.system.inactive_reason(), pending,
                             chosen, self.expand_details);
@@ -672,7 +679,7 @@ fn ordinary_actions(product:&Product, related:&[AvailableAction],
                 |Action::OrdinaryRestoreRecommended{..}|Action::ExperimentalDisable{..}
                 |Action::CandidateWithdraw{..}|Action::QuarantinedModuleRetry{..}
                 |Action::EnvironmentRescan{..}|Action::VendorApplicationFocus{..}
-                |Action::VendorApplicationOpen{..}|Action::RendererOpen{..}
+                |Action::VendorSoftwareInstall{..}|Action::VendorApplicationOpen{..}|Action::RendererOpen{..}
                 |Action::RendererFocus{..} => true,
             _ => false,
         };
@@ -705,7 +712,7 @@ fn routine_rank(action: &Action) -> Option<u8> {
         Action::OrdinaryRestoreRecommended { .. } => Some(5),
         Action::EnvironmentRescan { .. } => Some(6),
         Action::VendorApplicationFocus { .. } | Action::RendererFocus { .. } => Some(7),
-        Action::VendorApplicationOpen { .. } | Action::RendererOpen { .. } => Some(8),
+        Action::VendorSoftwareInstall { .. } | Action::VendorApplicationOpen { .. } | Action::RendererOpen { .. } => Some(8),
         _ => None,
     }
 }
@@ -730,7 +737,7 @@ fn emphasized_action(
                 let rank = if published {
                     match offer.action {
                         Action::VendorApplicationFocus { .. } | Action::RendererFocus { .. } => 5,
-                        Action::VendorApplicationOpen { .. } | Action::RendererOpen { .. } => 6,
+                        Action::VendorSoftwareInstall { .. } | Action::VendorApplicationOpen { .. } | Action::RendererOpen { .. } => 6,
                         Action::EnvironmentRescan { .. } => 8,
                         _ => rank,
                     }
@@ -794,11 +801,11 @@ fn related_actions(product: &Product, snapshot: &Snapshot) -> Vec<AvailableActio
             continue;
         }
         actions.extend(app.actions.iter().filter(|offer| matches!(offer.action,
-            Action::VendorApplicationOpen { .. } | Action::VendorApplicationFocus { .. }
+            Action::VendorSoftwareInstall { .. } | Action::VendorApplicationOpen { .. } | Action::VendorApplicationFocus { .. }
                 | Action::RendererOpen { .. } | Action::RendererFocus { .. }))
             .map(|offer| {
                 let mut named = offer.clone();
-                if !app.name.trim().is_empty() {
+                if !app.name.trim().is_empty() && !matches!(offer.action, Action::VendorSoftwareInstall {..}) {
                     named.label = format!("{} {}", if matches!(offer.action,
                         Action::VendorApplicationOpen { .. } | Action::RendererOpen { .. }) {
                         "Open" } else { "Show" }, app.name);

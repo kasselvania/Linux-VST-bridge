@@ -59,6 +59,19 @@ pub fn product_daw(snapshot: &Snapshot, product: &Product) -> Option<DawChoice> 
     choices.all(|choice| choice == first).then_some(first)
 }
 
+pub fn vendor_install_consequence(snapshot: &Snapshot, action: &Action) -> Option<String> {
+    let Action::VendorSoftwareInstall { application, .. } = action else { return None; };
+    let app = snapshot.vendor_applications.iter().find(|app| app.actions.iter().any(|offer|
+        matches!(&offer.action, Action::VendorSoftwareInstall { application: offered, .. }
+            if offered == application)))?;
+    let environment = app.details["environment"].as_str()?;
+    let affected: Vec<_> = snapshot.products.iter()
+        .filter(|product| product.environment == environment && product.details["current"] != false)
+        .map(|product| product.name.as_str()).collect();
+    (!affected.is_empty()).then(|| format!("{} will be unavailable during this work and checked again after you finish here.",
+        affected.join(", ")))
+}
+
 /// Presentation only: the original offered action and refusal remain authoritative.
 pub fn action_label(offer: &AvailableAction) -> String {
     match &offer.action {
@@ -249,15 +262,21 @@ pub fn owned_service_pause(operation: Option<&serde_json::Value>) -> bool {
 }
 
 pub fn installation_progress(snapshot: &Snapshot, product: &Product) -> Option<&'static str> {
+    let operation = snapshot.operation.as_ref()?;
+    let revalidation = &product.details["automatic_revalidation"];
+    let rechecking = revalidation["operation"] == operation["operation"]
+        && operation["operation"].as_str().is_some_and(|id| !id.is_empty())
+        && revalidation["predecessor"]["id"].as_str().is_some_and(|id| !id.is_empty())
+        && revalidation["predecessor"]["sha256"].as_str().is_some_and(|sha|
+            sha.len() == 64 && sha.bytes().all(|byte| byte.is_ascii_hexdigit()));
     if product.availability.as_ref().is_some_and(|availability| availability.available)
-        || !matches!(product.disposition.as_str(), "installed_unqualified" | "prepared")
+        || (!rechecking && (!matches!(product.disposition.as_str(), "installed_unqualified" | "prepared")
+            || !product.details["refusal"].is_null()))
         || product.disposition == "quarantined" || product.details["current"] == false
-        || !product.details["refusal"].is_null()
         || product.compatibility.as_ref().is_some_and(|workflow|
             workflow.phase == CompatibilityPhase::AwaitingRetirement) {
         return None;
     }
-    let operation = snapshot.operation.as_ref()?;
     if !matches!(operation["state"].as_str(), Some("waiting" | "running")) { return None; }
     let journey: InstallationJourney = serde_json::from_value(operation["journey"].clone()).ok()?;
     if journey.phase != InstallationPhase::PreparingPlugins || journey.failure.is_some() { return None; }

@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 23;
+pub const OPERATOR_SCHEMA: u32 = 24;
 /// Explicit delivery policy, independent from the remembered buffered delay.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -178,6 +178,10 @@ pub enum Action {
     /// User intent for an initial installation and automatic native DAW connection.
     /// DAW choice personalizes guidance; it does not claim DAW indexing.
     SoftwareInstall { installer: String, daw: DawChoice },
+    /// Install through the existing exact managed application.
+    VendorSoftwareInstall { application: String, daw: DawChoice },
+    /// Internal fresh validation of an unchanged selected setup.
+    CompatibilityRevalidate { selection: String, expected_current: PublicationIdentity },
     /// Resume the retained installation's unfinished automatic work, without
     /// rerunning its installer or replacing a working publication.
     SoftwareInstallResume { onboarding: String },
@@ -804,6 +808,7 @@ impl Action {
         matches!(
             self,
             Self::SoftwareInstall { .. }
+                | Self::VendorSoftwareInstall { .. }
                 | Self::SoftwareInstallResume { .. }
                 | Self::RuntimeInstall {}
                 | Self::CandidateHistoryComplete { .. }
@@ -814,6 +819,7 @@ impl Action {
                 | Self::RendererOpen { .. }
                 | Self::PluginReinspect { .. }
                 | Self::CompatibilityCheck { .. }
+                | Self::CompatibilityRevalidate {..}
                 | Self::CompatibilityResumeCheck { .. }
                 | Self::CompatibilityPublishTest { .. }
                 | Self::CompatibilityResult { result: TestResultKind::Worked, .. }

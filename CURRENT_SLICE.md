@@ -1,40 +1,40 @@
-# Automatic first installation: installed direct-installer result
+# Current slice — automatic continuation through an installed vendor application
 
-## Goal
+Goal: add new plug-ins through an existing managed vendor application, then
+connect newly discovered instruments/effects to the chosen DAW automatically.
+Keep the same environment, install location and vendor login/activation identity.
 
-Carry one selected-software intent through vendor work and automatic discovery,
-inspection, preparation and native DAW publication of every newly installed class.
+The preceding direct-installer slice is installed and verified in REAPER.
+ASC/Native Access retired before prior music use; no new service owner is justified.
+The missing operation is automatic continuation after a returning vendor task.
+## Implementation
 
-## Verified result
+- Extend the existing Application/Operation owner with explicit content-bound
+  application selection; keep the old exact ASC adapter separate.
+- Bind selection to an owned environment and its real imported-installation
+  witness. Selection authorizes observed executable/helper bytes, not invented
+  installer provenance or authorization.
+- Carry the new task in the existing automatic installation Intent. Retain
+  original installation history and capture the pre-task class/module baseline.
+- Wait for the exact successful vendor session and its entire owned cohort to
+  retire; window close, idle and file changes alone cannot authorize discovery.
+- Advance owned environment revision before shared mutation. Fresh-check and
+  renew identical selected siblings with retained settings/history and exact CAS.
+- Connect all newly installed classes using existing owners. Changed content,
+  runtime or settings requires separate review; stale authority is unavailable.
+- Retain concrete interruption/failure and exact retry, with no duplicate hub,
+  recreated environment, compulsory report or unknown-licence gate.
 
-Test55 starts with no runtime or plug-ins on the disposable CachyOS/REAPER fixture.
-One Install and connect request acquires the owned runtime and installs both
-Reference roles; both become available without a report or publication chore.
-Cold runtime/setup takes about 14m27s to reach the vendor window. Both roles play,
-and a fresh REAPER reopen retains changed controls, automation and MIDI.
-Test56's normal application update preserves Reference content, identities and
-project; only two provenance records refresh. A warm Completion install adds two
-new classes automatically, leaving all post-update Reference records unchanged.
-Owned vendor/inspection pauses show progress; Home refreshes to four available
-plug-ins without Check again. Current service is active with no pending cleanup.
-Fresh Reference reopen under Test56 retains the same state, automation and MIDI;
-both original roles produce nonzero captured audio.
-Installed numbers remain in [the existing record](evidence/cachyos-reaper.json).
+## Verification and done
 
-## Next gap
+Exercise exact application/operation binding, live or late descendants, failed
+and cancelled retirement, manager interruption/resume, partial sibling outcomes,
+repeat/idempotent continuation and preservation of previously working plug-ins.
+Use an honestly named first-party hub through the production owner and ordinary
+DAW use/save/fresh-reopen. Keep source/CI, publication and actual music evidence
+separate. Review and green tests precede the working increment landing.
 
-Automatic continuation inside existing vendor applications needs a safe handoff
-from completed mutations to required persistent services in the same environment.
-The generic installer owner still waits for its whole cohort to retire. ASC/NI
-handoff remains open; closing a window does not establish completion or authorize
-stopping required services. Retain working siblings and real interruption/retry.
-
-## Boundaries
-
-Native availability, vendor authorization and optional compatibility evidence
-remain separate. Unknown licence state is not failure. Passive reads do no work;
-new installation intent never silently replaces a working publication.
-The agreed [model](docs/design-dossier/01-product-and-user-experience.md) and five
-selected policies remain binding. Broader storage, returning/shared changes,
-update/recovery and beta musical-use requirements retain their existing scope.
-Preserve prior support results, open defects, projects and licensed state.
+ASC continuation is covered only by its admitted adapter and real retirement.
+Native Access uses a separate owner and remains an explicit adapter extension;
+a persistent helper that cannot safely retire remains a concrete capability gap.
+Runtime verification latency, update/recovery breadth and the beta standard remain.

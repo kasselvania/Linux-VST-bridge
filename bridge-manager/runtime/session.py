@@ -2933,12 +2933,15 @@ def vendor_diagnostic_environment(env, directory, enabled):
     return result
 
 
-def vendor_compatibility(mode):
+def vendor_compatibility(mode, app=None):
     # Exact registered ASC 2.12 operation tree: the observed UIAutomationCore
     # null-provider crash requires this local selection. Diagnostic comparison
     # modes retain default behavior; no global/prefix registry change.
     if mode not in ('normal','agent_probe','runinprefix_probe','initialized_probe','accessibility_probe'):
         raise RuntimeError('vendor launch mode')
+    if app is not None and app.get('schema') == 2:
+        if app.get('id') != 'selected' or mode != 'normal':raise RuntimeError('vendor adapter unavailable')
+        return {'disable_windows_accessibility':False}
     return {'disable_windows_accessibility':mode in ('normal','accessibility_probe')}
 
 
@@ -2948,11 +2951,13 @@ def vendor_process_metadata(scope, record, app, allow_missing=False):
     except (FileNotFoundError,ProcessLookupError):pass
     # The closed ASC owner has two named helpers. A managed DAW has no
     # predeclared helper binary; its exact cgroup and ancestry remain owned.
-    if len(app['helpers'])==2:
-        candidates=[('main',app['executable']),('agent',app['helpers'][0]),('updater',app['helpers'][1])]
-    elif len(app['helpers'])==0:
-        candidates=[('main',app['executable'])]
-    else:raise RuntimeError('application helper roster unsupported')
+    candidates=[('main',app['executable'])]
+    if app.get('schema')==2:
+        if len(app['helpers'])>16:raise RuntimeError('registered helper bound')
+        candidates.extend(('selected_helper',artifact) for artifact in app['helpers'])
+    elif app['helpers']:
+        if len(app['helpers'])!=2:raise RuntimeError('registered helper identity')
+        candidates.extend(zip(('agent','updater'),app['helpers']))
     # Arguments identify an intended launch, not the process running that PE.
     # Match mapped file identity across container path aliases; never read or
     # retain bootstrap arguments that could contain account or URL material.
@@ -4729,12 +4734,23 @@ def vendor_application(spec):
     if spec.get('kind') not in (None,'daw_workspace_application','daw_workspace_uninstall'):
         raise RuntimeError('application owner kind unsupported')
     app=spec['application'];env=app['environment'];directory=pathlib.Path(env['root'])
+    selector=None
+    if app.get('schema')==2 and not is_daw:
+        if app.get('id')!='selected':raise RuntimeError('vendor application schema')
+        binding={'environment':env['id'],'executable':app['executable'],'helpers':app['helpers'],'installer':app['installer_sha256'],'installation':app['installer_result']}
+        selector=hashlib.sha256(json.dumps(binding,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
     report=pathlib.Path(spec['report']);stop=False;child=None;scope=None;clean=False;error=None
     mode=spec.get('mode','normal');diagnostic=mode!='normal';focus_result=None;close_result=None
     if is_daw and mode!='normal':
         raise RuntimeError('managed DAW identity unsupported')
     if is_daw:
         daw_application_binding(app,is_uninstall)
+    writer=(report.parent/'writer.lock').open('a+b');fcntl.flock(writer,fcntl.LOCK_EX)
+    if report.exists():
+        previous=json.loads(report.read_text())
+        if previous.get('operation_id')==spec.get('operation_id') and previous.get('cleanup_confirmed') is True and previous.get('state') in ('completed','failed','cancelled'):
+            writer.close()
+            return 1 # A late dispatch cannot overwrite an exact reconciled terminal.
     lock=(directory/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     logs=report.parent/('private-diagnostic-'+os.urandom(16).hex());logs.mkdir(mode=0o700)
     captures={name:PrivateCapture(logs/(name+'.log')) for name in ('stdout','stderr','process')}
@@ -4766,14 +4782,14 @@ def vendor_application(spec):
                 'owned_live':live,'cleanup_confirmed':clean,'error':error,
                 'discarded_diagnostic_bytes':sum(c.discarded for c in captures.values()),
                 'retained_diagnostic_bytes':sum(c.retained for c in captures.values()),
-                'diagnostic_enabled':diagnostic,'windows_accessibility_disabled':False if is_daw else vendor_compatibility(mode)['disable_windows_accessibility'],
+                'diagnostic_enabled':diagnostic,'windows_accessibility_disabled':False if is_daw else vendor_compatibility(mode,app)['disable_windows_accessibility'],
                 'account_posture':'unknown','close_result':close_result}
     try:
         for artifact in [app['executable'],*app['helpers'],*env['runner']['files']]:verify(artifact)
-        scope=CompanionCgroup(daw_operation=spec['operation_id']) if is_daw else CompanionCgroup()
+        scope=CompanionCgroup(daw_operation=spec['operation_id']) if is_daw else CompanionCgroup(vendor_application=selector)
         if scope.members():raise RuntimeError('companion cgroup not initially empty')
         if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('companion subreaper unavailable')
-        reg={'environment':env,'compatibility':{'disable_windows_accessibility':False} if is_daw else vendor_compatibility(mode)}
+        reg={'environment':env,'compatibility':{'disable_windows_accessibility':False} if is_daw else vendor_compatibility(mode,app)}
         argv,cwd=vendor_launch(spec)
         launch_env=vendor_diagnostic_environment(environment(reg),logs,diagnostic)
         if is_daw:
@@ -4873,6 +4889,7 @@ def vendor_application(spec):
         atomic(report,result(state,0 if clean else None))
         for capture in captures.values():capture.close()
         lock.close()
+    writer.close()
     return clean and error is None
 
 if __name__=='__main__':

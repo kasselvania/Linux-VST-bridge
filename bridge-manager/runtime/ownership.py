@@ -581,7 +581,7 @@ class CompanionCgroup:
     MAX_PROCESSES = 4096
     MAX_GROUPS = 64
 
-    def __init__(self, group=None, proc_root='/proc', cgroup_root='/sys/fs/cgroup', supervisor=None, installer_operation=None, renderer_operation=None, dependency_operation=None, daw_operation=None):
+    def __init__(self, group=None, proc_root='/proc', cgroup_root='/sys/fs/cgroup', supervisor=None, installer_operation=None, renderer_operation=None, dependency_operation=None, daw_operation=None, vendor_application=None):
         self.proc_root = pathlib.Path(proc_root)
         self.cgroup_root = pathlib.Path(cgroup_root)
         self.supervisor = os.getpid() if supervisor is None else supervisor
@@ -600,6 +600,9 @@ class CompanionCgroup:
         if daw_operation is not None:
             if any(v is not None for v in (installer_operation,renderer_operation,dependency_operation)) or not isinstance(daw_operation,str) or len(daw_operation)!=32 or any(c not in '0123456789abcdef' for c in daw_operation):fail('DAW operation identity')
             suffix='/linux-vst-bridge-daw-fl-'+daw_operation+'.service'
+        if vendor_application is not None:
+            if any(v is not None for v in (installer_operation,renderer_operation,dependency_operation,daw_operation)) or not isinstance(vendor_application,str) or len(vendor_application)!=64 or any(c not in '0123456789abcdef' for c in vendor_application):fail('vendor application identity')
+            suffix='/linux-vst-bridge-vendor-'+vendor_application+'.service'
         if (not self.group or self.group != actual or '..' in self.group.split('/')
                 or not self.group.endswith(suffix)):
             fail('companion requires its exact dedicated cgroup')
