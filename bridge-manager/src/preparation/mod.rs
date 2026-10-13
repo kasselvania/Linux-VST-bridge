@@ -1988,7 +1988,7 @@ fn carry_retained_revision_configuration(
 /// the new inspection and runtime still undergo complete byte verification.
 /// Ordinary preparation continues to require a current inventory row through
 /// `verify_candidate`.
-pub(crate) fn verify_refresh_candidate(
+pub fn verify_refresh_candidate(
     m: &Manager,
     candidate: &Candidate,
     predecessor: &Revision,

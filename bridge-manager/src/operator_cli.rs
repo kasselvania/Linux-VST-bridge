@@ -1662,7 +1662,7 @@ fn validate_current_worker(m: &Manager, request: &ui::Request, id: &str,
     drop(registry);
     Ok(())
 }
-fn job_dir(m: &Manager, id: &str) -> Result<PathBuf> {
+pub(super) fn job_dir(m: &Manager, id: &str) -> Result<PathBuf> {
     require(valid_hex(id, 32), "operator_operation_identity")?;
     Ok(m.root.join("operator").join(id))
 }

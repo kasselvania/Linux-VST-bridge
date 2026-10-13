@@ -1095,11 +1095,7 @@ fn connect_class(
             expected_current:ui::PublicationIdentity{id:predecessor.id.clone(),sha256:predecessor.sha256.clone()}};
         let mut retained_candidate=None;
         if let Some(child)=intent.work[index].check.as_ref() {
-            let checkpoint=prep::guided_check_stage(m,child,"candidate")?;
-            if let Some(checkpoint)=checkpoint {
-                require(checkpoint["action"]==serde_json::to_value(&expected_action)?,"unchanged_publication_intent_changed")?;
-                let id=checkpoint["value"]["id"].as_str().ok_or("unchanged_publication_candidate_missing")?;
-                let candidate=prep::candidate_record(m,id)?;
+            if let Some(candidate)=preparation_cli::revalidation_candidate_checkpoint(m,child,&expected_action)? {
                 require(candidate.selection==selection,"unchanged_publication_candidate_changed")?;
                 if prep::selected_publication_candidate_record(m,&candidate)? {
                     intent.work[index].candidate=Some(candidate.id()?);
@@ -1119,7 +1115,7 @@ fn connect_class(
         atomic_json(&dir.join("request.json"), &ui::Request { schema: ui::OPERATOR_SCHEMA,
             state_token: token(m)?, action: action.clone() })?;
         if let Some(candidate)=retained_candidate {
-            prep::retain_guided_check_stage(m,&child,"candidate",&serde_json::to_value(&action)?,&json!({"id":candidate}))?;
+            preparation_cli::retain_revalidation_candidate_checkpoint(m,&child,&action,&candidate)?;
         }
         save(m, record, intent, operation)?;
         let mut progress_error = None;
@@ -1678,14 +1674,25 @@ mod tests {
         let mut scan:inventory::Scan=read_json(&path).unwrap();scan.environment=after.clone();scan.id=random_id().unwrap();
         atomic_json(&path,&scan).unwrap();
         let s=prep::selections(&f.m,&c.selection.scanner,&c.selection.scanner_source).unwrap().pop().unwrap();
-        let runtime=prep::build::existing_runtime(&f.m,&c.recipe_sha256).unwrap();
         let child=random_id().unwrap();
-        let refreshed=prep::revalidate_candidate(&f.m,&predecessor,s.clone(),runtime,c.inspection.report.clone(),&child).unwrap();
         let action=ui::Action::CompatibilityRevalidate{selection:s.id().unwrap(),expected_current:ui::PublicationIdentity{id:selected.id.clone(),sha256:selected.sha256.clone()}};
-        prep::retain_guided_check_stage(&f.m,&child,"candidate",&serde_json::to_value(&action).unwrap(),&json!({"id":refreshed.id().unwrap()})).unwrap();
+        let child_directory=job_dir(&f.m,&child).unwrap();
+        private_dir(&child_directory).unwrap();
+        atomic_json(&child_directory.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:"test".into(),action:action.clone()}).unwrap();
+        let mut probe=c.clone();probe.inspection.selection=s.clone();
+        let result=preparation_cli::with_automatic_fixture(&probe,||
+            preparation_cli::execute(&f.m,&action,&child,||f.m.lock("registry.lock"))).unwrap();
+        let refreshed=prep::candidate_record(&f.m,result["candidate"].as_str().unwrap()).unwrap();
+        let next:RevisionRef=serde_json::from_value(result["publication"].clone()).unwrap();
+        prep::build::cleanup_work(&f.m,&child).unwrap();
+        refreshed.native.artifact.verify().unwrap();
         assert_eq!(refreshed.profile.capabilities.compatibility(),predecessor.registration.compatibility);
         assert_eq!(refreshed.native.artifact.sha256,predecessor.registration.native.sha256);
-        let next=prep::replace_refreshed(&f.m,&refreshed,&predecessor,&selected).unwrap();
+        assert!(prep::guided_checks(&f.m,&s.id().unwrap()).is_ok(),
+            "Automatic revalidation must not poison ordinary guided history");
+        let mut products=vec![preparation_cli::tests::projection_product(&refreshed)];
+        preparation_cli::project(&f.m,&software(&f.m).unwrap(),&mut products,None).unwrap();
         assert_eq!(f.m.load_revision(&c.selection.class.id,&next).unwrap().parent,Some(selected.clone()));
         assert_eq!(f.m.load_revision(&c.selection.class.id,&selected).unwrap(),predecessor);
         assert!(prep::selected_publication_candidate_record(&f.m,&refreshed).unwrap());
@@ -1695,15 +1702,35 @@ mod tests {
         let mut replay=_intent.clone();
         replay.predecessors.push(predecessor.clone());
         replay.journey.plugins.push(ui::InstallationPlugin{selection:s.id().unwrap(),class_id:s.class.id.clone(),name:s.class.name.clone(),stage:ui::InstallationPluginStage::Publishing,failure:None});
-        replay.work.push(ClassWork{selection:s.id().unwrap(),predecessor:Some(selected.clone()),result_index:0,check:Some(child),candidate:None,active_operation:None});
+        replay.work.push(ClassWork{selection:s.id().unwrap(),predecessor:Some(selected.clone()),result_index:0,check:Some(child.clone()),candidate:None,active_operation:None});
         let current=onboarding::retained_environment_record(&f.m,&record.id).unwrap().unwrap();
         connect_class(&f.m,&current,&mut replay,0,&op,&mut |_,_,_|panic!("Already committed refresh must not run again")).unwrap();
         assert_eq!(replay.journey.plugins[0].stage,ui::InstallationPluginStage::Available);
         assert_eq!(f.m.registry().unwrap().classes[&c.selection.class.id].managed_revision,Some(next.clone()));
         // Content/class drift cannot borrow the old setup's refresh authority.
-        let mut changed=s;changed.class.name="Different class metadata".into();
+        let mut changed=s.clone();changed.class.name="Different class metadata".into();
         assert!(prep::revalidate_candidate(&f.m,&predecessor,changed,
             prep::build::existing_runtime(&f.m,&c.recipe_sha256).unwrap(),c.inspection.report.clone(),&random_id().unwrap()).is_err());
+        let mut changed_action=action.clone();
+        if let ui::Action::CompatibilityRevalidate {selection,..}=&mut changed_action {*selection="ab".repeat(32);}
+        assert_eq!(preparation_cli::revalidation_candidate_checkpoint(&f.m,&child,&changed_action).unwrap_err().to_string(),
+            "unchanged_publication_request_changed");
+        let checkpoint_path=child_directory.join("revalidation-candidate.json");
+        let original_checkpoint=fs::read(&checkpoint_path).unwrap();
+        let mut checkpoint:Value=serde_json::from_slice(&original_checkpoint).unwrap();
+        checkpoint["candidate"]=c.id().unwrap().into();
+        atomic_json(&checkpoint_path,&checkpoint).unwrap();
+        assert_eq!(preparation_cli::revalidation_candidate_checkpoint(&f.m,&child,&action).unwrap_err().to_string(),
+            "unchanged_publication_candidate_changed");
+        checkpoint=serde_json::from_slice(&original_checkpoint).unwrap();checkpoint["operation"]="cd".repeat(16).into();
+        atomic_json(&checkpoint_path,&checkpoint).unwrap();
+        assert_eq!(preparation_cli::revalidation_candidate_checkpoint(&f.m,&child,&action).unwrap_err().to_string(),
+            "unchanged_publication_intent_changed");
+        fs::write(checkpoint_path,original_checkpoint).unwrap();
+        // Corrupt generic guided history remains a real refusal, not skipped.
+        prep::retain_guided_check_stage(&f.m,&random_id().unwrap(),"candidate",
+            &serde_json::to_value(&action).unwrap(),&json!({"id":refreshed.id().unwrap()})).unwrap();
+        assert_eq!(prep::guided_checks(&f.m,&s.id().unwrap()).unwrap_err().to_string(),"guided_check_intent_missing");
 
     }
     fn worker_receipt(m: &Manager, operation: &str) -> Value {

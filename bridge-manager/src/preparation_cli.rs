@@ -1237,6 +1237,67 @@ fn check_stage(m: &Manager, operation: &str, stage: &str, action: &Value) -> Res
     Ok(record.map(|record| record["value"].clone()))
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RevalidationCandidateCheckpoint {
+    schema: u32,
+    operation: String,
+    action: ui::Action,
+    candidate: String,
+}
+fn revalidation_checkpoint_path(m: &Manager, operation: &str, action: &ui::Action) -> Result<PathBuf> {
+    require(matches!(action, ui::Action::CompatibilityRevalidate { .. }),
+        "unchanged_publication_checkpoint_action")?;
+    let directory = operator_cli::job_dir(m, operation)?;
+    let request: ui::Request = read_json(&directory.join("request.json"))?;
+    require(request.schema == ui::OPERATOR_SCHEMA && request.action == *action,
+        "unchanged_publication_request_changed")?;
+    Ok(directory.join("revalidation-candidate.json"))
+}
+fn verify_revalidation_checkpoint_candidate(m: &Manager, action: &ui::Action,
+    id: &str) -> Result<prep::Candidate> {
+    let ui::Action::CompatibilityRevalidate { selection, expected_current } = action
+        else { return Err("unchanged_publication_checkpoint_action".into()); };
+    let candidate = prep::candidate_record(m, id)?;
+    require(candidate.selection.id()? == *selection, "unchanged_publication_candidate_changed")?;
+    let predecessor = m.load_revision(&candidate.selection.class.id,
+        &publication_reference(expected_current))?;
+    prep::verify_refresh_candidate(m, &candidate, &predecessor)?;
+    Ok(candidate)
+}
+pub(super) fn revalidation_candidate_checkpoint(m: &Manager, operation: &str,
+    action: &ui::Action) -> Result<Option<prep::Candidate>> {
+    let path = revalidation_checkpoint_path(m, operation, action)?;
+    if !path.try_exists()? { return Ok(None); }
+    require(path.canonicalize()? == path && file(&path)?.metadata()?.len() <= 16384,
+        "unchanged_publication_checkpoint_bound")?;
+    let checkpoint: RevalidationCandidateCheckpoint = read_json(&path)?;
+    require(checkpoint.schema == 1 && checkpoint.operation == operation
+        && checkpoint.action == *action, "unchanged_publication_intent_changed")?;
+    Ok(Some(verify_revalidation_checkpoint_candidate(m, action, &checkpoint.candidate)?))
+}
+pub(super) fn retain_revalidation_candidate_checkpoint(m: &Manager, operation: &str,
+    action: &ui::Action, id: &str) -> Result<()> {
+    let path = revalidation_checkpoint_path(m, operation, action)?;
+    verify_revalidation_checkpoint_candidate(m, action, id)?;
+    if let Some(retained) = revalidation_candidate_checkpoint(m, operation, action)? {
+        require(retained.id()? == id, "unchanged_publication_candidate_changed")?;
+        return Ok(());
+    }
+    atomic_json(&path, &RevalidationCandidateCheckpoint { schema: 1,
+        operation: operation.into(), action: action.clone(), candidate: id.into() })
+}
+fn revalidation_inspection(m: &Manager, selection: &prep::Selection, sw: &Software,
+    audio_layout: Option<profiles::AudioLayoutPolicy>) -> Result<prep::Inspection> {
+    #[cfg(test)]
+    if let Some(inspection) = probed_inspection() {
+        require(inspection.selection == *selection, "unchanged_publication_inspection_changed")?;
+        prep::retain_inspection(m, &inspection)?;
+        return Ok(inspection);
+    }
+    inspect(m, selection, sw, audio_layout, || m.lock("registry.lock"))
+}
+
 fn retry_guided_inspection(
     m: &Manager, action: &Value, selection: &prep::Selection,
 ) -> Result<Option<prep::Inspection>> {
@@ -1541,20 +1602,16 @@ pub(super) fn execute_with_progress(
             require(m.registry()?.classes.get(&s.class.id)
                 .and_then(|e|e.managed_revision.as_ref()) == Some(&reference),
                 "unchanged_publication_predecessor_changed")?;
-            let serialized = serde_json::to_value(a)?;
-            let retained = prep::guided_check_stage(m, operation, "candidate")?;
+            let retained = revalidation_candidate_checkpoint(m, operation, a)?;
             let c = if let Some(retained) = retained {
-                require(retained["action"] == serialized, "unchanged_publication_intent_changed")?;
-                prep::candidate_record(m, retained["value"]["id"].as_str()
-                    .ok_or("unchanged_publication_candidate_missing")?)?
+                retained
             } else {
-                let i = inspect(m, &s, &sw, predecessor.registration.compatibility.audio_layout.clone(),
-                    || m.lock("registry.lock"))?;
+                let i = revalidation_inspection(m, &s, &sw,
+                    predecessor.registration.compatibility.audio_layout.clone())?;
                 progress("inspection");
                 let c = prep::revalidate_candidate(m, &predecessor, s,
                     prep::build::stage_runtime(m)?, i.report, operation)?;
-                prep::retain_guided_check_stage(m, operation, "candidate", &serialized,
-                    &json!({"id":c.id()?}))?;
+                retain_revalidation_candidate_checkpoint(m, operation, a, &c.id()?)?;
                 c
             };
             progress("publication");
@@ -2703,7 +2760,7 @@ with zipfile.ZipFile(path,'w') as z:
             native_catalogue: None,
         }
     }
-    fn projection_product(c: &prep::Candidate) -> ui::Product {
+    pub(crate) fn projection_product(c: &prep::Candidate) -> ui::Product {
         let s = &c.selection;
         ui::Product {
             class_id: s.class.id.clone(),
