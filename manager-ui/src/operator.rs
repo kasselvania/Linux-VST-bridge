@@ -1033,6 +1033,8 @@ impl Operator {
                 self.refresh_after = !r.accepted;
             }
             Reply::Activity(mut a) => {
+                retain_projected_handoff(self.overview.as_ref().and_then(|overview|
+                    overview.current.operation.as_ref()), &mut a.operation);
                 if a.system.capacity_available() {self.cleanup_failure_observed = a.system.cleanup_unconfirmed;}
                 veto_owned_pause(&mut a.operation, self.cleanup_failure_observed);
                 if let Some(op) = &a.operation {
@@ -1067,6 +1069,8 @@ impl Operator {
                 }
             }
             Reply::Pulse(mut p) => {
+                retain_projected_handoff(self.overview.as_ref().and_then(|overview|
+                    overview.current.operation.as_ref()), &mut p.operation);
                 if let Some(failed) = p.cleanup_unconfirmed {self.cleanup_failure_observed = failed;}
                 veto_owned_pause(&mut p.operation, self.cleanup_failure_observed);
                 self.prompt_pulse = false;
@@ -3072,6 +3076,27 @@ fn incident_lines(v: &serde_json::Value) -> Vec<String> {
         ),
     ]
 }
+/// A current overview has already verified this app-only handoff. Cheap polls
+/// still carry the unchanged historical empty-discovery result. Preserve that
+/// one projection while comparing every other field; polls grant no authority.
+fn retain_projected_handoff(current: Option<&serde_json::Value>, incoming: &mut Option<serde_json::Value>) {
+    let (Some(current), Some(raw)) = (current, incoming.as_ref()) else { return; };
+    let Ok(failure) = serde_json::from_value::<InstallationFailure>(raw["journey"]["failure"].clone()) else { return; };
+    if current["operation"].as_str().is_none_or(|id| id.is_empty())
+        || current["operation"] != raw["operation"]
+        || current["journey"]["phase"] != "awaiting_application"
+        || !current["journey"]["failure"].is_null()
+        || !current["journey"]["plugins"].as_array().is_some_and(Vec::is_empty)
+        || raw["journey"]["phase"] != "needs_attention"
+        || failure.stage != InstallationFailureStage::Discovery
+        || failure.code != "no_supported_instruments_or_effects_discovered"
+        || !failure.retryable { return; }
+    let mut projected = raw.clone();
+    projected["journey"]["phase"] = current["journey"]["phase"].clone();
+    projected["journey"]["failure"] = serde_json::Value::Null;
+    if projected == *current { *incoming = Some(projected); }
+}
+
 fn refresh_for_receipt(old: &Option<serde_json::Value>, new: &Option<serde_json::Value>) -> bool {
     old != new
         && new
@@ -5004,6 +5029,126 @@ mod tests {
             dsp:Some(0),keepers:Some(0),maintenance:Some(0),pending_transactions:0,
             cleanup_unconfirmed:Some(false),current_generation:"same".into(),
             operation:None,operation_live:live}
+    }
+    fn handoff_poll_fixture() -> (Operator, serde_json::Value) {
+        let mut state = state_fixture();
+        let mut overview = overview_fixture();
+        overview.current.system.dsp = 0;
+        overview.current.system.keepers = 0;
+        overview.current.system.maintenance = 0;
+        overview.current.system.pending_transactions = 0;
+        overview.current.system.cleanup_unconfirmed = false;
+        let raw = serde_json::json!({"operation":"aa".repeat(16),"state":"refused",
+            "reason":"no_supported_instruments_or_effects_discovered",
+            "journey":{"daw":"reaper","phase":"needs_attention","plugins":[],
+                "failure":{"stage":"discovery","reason":"The installed instruments or effects could not be found or read.",
+                    "code":"no_supported_instruments_or_effects_discovered",
+                    "retryable":true}}});
+        let mut projected = raw.clone();
+        projected["journey"]["phase"] = "awaiting_application".into();
+        projected["journey"]["failure"] = serde_json::Value::Null;
+        overview.current.operation = Some(projected);
+        let mut feedback = RequestFeedback::captured(Action::SoftwareInstall {
+            installer:"bb".repeat(32), daw:DawChoice::Reaper });
+        feedback.operation = Some("aa".repeat(16));
+        state.feedback = Some(feedback);
+        state.snapshot = Some(overview.current.clone());
+        state.handle_reply(Reply::Overview(Box::new(overview)));
+        (state, raw)
+    }
+    fn handoff_poll_reply(state: &Operator, raw: &serde_json::Value, activity: bool) -> Reply {
+        if activity {
+            Reply::Activity(crate::model::Activity {schema:crate::model::OPERATOR_SCHEMA,
+                system:state.overview.as_ref().unwrap().current.system.clone(),
+                capture:serde_json::Value::Null, operation:Some(raw.clone()),
+                workspace_product_install_ready:false})
+        } else {
+            let mut pulse = pulse_fixture(false);
+            pulse.operation = Some(raw.clone());
+            Reply::Pulse(pulse)
+        }
+    }
+    #[test]
+    fn unchanged_raw_polls_preserve_verified_handoff_health_and_feedback() {
+        for activity in [false, true] {
+            let (mut state, raw) = handoff_poll_fixture();
+            let original_raw = raw.clone();
+            let projected = state.overview.as_ref().unwrap().current.operation.clone();
+            for _ in 0..2 {
+                state.handle_reply(handoff_poll_reply(&state, &raw, activity));
+                assert!(state.overview_fresh && !state.refresh_after);
+                assert!(state.current_health_system().unwrap().capacity_available());
+                assert_eq!(state.overview.as_ref().unwrap().current.operation, projected);
+                assert_eq!(state.snapshot.as_ref().unwrap().operation, projected);
+                let feedback = state.feedback.as_ref().unwrap();
+                assert_eq!(feedback.journey.as_ref().unwrap().phase, InstallationPhase::AwaitingApplication);
+                assert_eq!(feedback.text, "The app is installed. Open it below to install your instruments and effects.");
+            }
+            assert_eq!(raw, original_raw, "raw history is unchanged");
+            state.last_overview = Instant::now() - Duration::from_secs(61);
+            state.expire_overview();
+            state.handle_reply(handoff_poll_reply(&state, &raw, activity));
+            assert!(state.current_health_system().unwrap().capacity_available());
+            assert!(state.current_action_snapshot().is_none(), "polls cannot renew expired action authority");
+        }
+    }
+    #[test]
+    fn meaningful_receipt_changes_still_invalidate_projected_handoff() {
+        for activity in [false, true] {
+            for cause in ["owner", "state", "code", "stage", "retryable", "daw", "plugins", "reason", "malformed_failure"] {
+                let (mut state, mut raw) = handoff_poll_fixture();
+                match cause {
+                    "owner" => raw["operation"] = "cc".repeat(16).into(),
+                    "state" => raw["state"] = "completed".into(),
+                    "code" => raw["journey"]["failure"]["code"] = "scanner_failed".into(),
+                    "stage" => raw["journey"]["failure"]["stage"] = "connection".into(),
+                    "retryable" => raw["journey"]["failure"]["retryable"] = false.into(),
+                    "daw" => raw["journey"]["daw"] = "bitwig".into(),
+                    "plugins" => raw["journey"]["plugins"] = serde_json::json!([{"class_id":"changed"}]),
+                    "reason" => raw["reason"] = "changed_failure".into(),
+                    "malformed_failure" => raw["journey"]["failure"]["unknown"] = true.into(),
+                    _ => unreachable!(),
+                }
+                state.handle_reply(handoff_poll_reply(&state, &raw, activity));
+                assert!(!state.overview_fresh && state.refresh_after, "{activity}/{cause}");
+                assert!(state.current_health_system().is_none(), "{activity}/{cause}");
+                assert_eq!(state.overview.as_ref().unwrap().current.operation.as_ref(), Some(&raw));
+            }
+        }
+        for cause in ["empty_owner", "unverified", "current_failure"] {
+            let (mut state, mut raw) = handoff_poll_fixture();
+            let current = state.overview.as_mut().unwrap().current.operation.as_mut().unwrap();
+            match cause {
+                "empty_owner" => {current["operation"]="".into(); raw["operation"]="".into();}
+                "unverified" => current["journey"]["phase"]="needs_attention".into(),
+                "current_failure" => current["journey"]["failure"]=raw["journey"]["failure"].clone(),
+                _ => unreachable!(),
+            }
+            let mut incoming=Some(raw.clone());
+            retain_projected_handoff(Some(current), &mut incoming);
+            assert_eq!(incoming, Some(raw), "{cause}");
+        }
+    }
+    #[test]
+    fn real_posture_generation_and_read_errors_invalidate_unchanged_handoff() {
+        for cause in ["generation", "cleanup", "owners", "service", "read_failure", "superseded"] {
+            let (mut state, raw) = handoff_poll_fixture();
+            state.handle_reply(handoff_poll_reply(&state, &raw, false));
+            let mut pulse=pulse_fixture(false);
+            pulse.operation=Some(raw);
+            match cause {
+                "generation" => pulse.current_generation="changed".into(),
+                "cleanup" => pulse.cleanup_unconfirmed=Some(true),
+                "owners" => pulse.dsp=Some(1),
+                "service" => pulse.service_state="inactive".into(),
+                "read_failure" => {state.handle_reply(Reply::Error("Readback timed out".into()));}
+                "superseded" => state.handle_reply(Reply::FrontendSuperseded),
+                _ => unreachable!(),
+            }
+            if !matches!(cause, "read_failure" | "superseded") {state.handle_reply(Reply::Pulse(pulse));}
+            assert!(state.current_health_system().is_none(), "{cause}");
+            assert!(state.current_action_snapshot().is_none(), "{cause}");
+        }
     }
     #[test]
     fn product_controls_and_header_use_the_same_capacity_capture() {
