@@ -1006,6 +1006,7 @@ pub fn is_action(a: &ui::Action) -> bool {
             | ui::Action::CandidateSettingsPrepare { .. }
             | ui::Action::PluginReinspect { .. }
             | ui::Action::CompatibilityCheck { .. }
+            | ui::Action::CompatibilityRevalidate { .. }
             | ui::Action::CompatibilityResumeCheck { .. }
             | ui::Action::CompatibilityPublishTest { .. }
             | ui::Action::CompatibilityResult { .. }
@@ -1039,7 +1040,8 @@ fn action_selection_with(m: &Manager, sw: &Software, action: &ui::Action,
         ui::Action::PluginInspect { selection, .. }
         | ui::Action::PluginPrepare { selection, .. }
         | ui::Action::PluginReinspect { selection, .. }
-        | ui::Action::CompatibilityCheck { selection, .. } =>
+        | ui::Action::CompatibilityCheck { selection, .. }
+        | ui::Action::CompatibilityRevalidate {selection,..} =>
             return select(m, selection, &sw.host, &sw.source_sha256).map(Some),
         ui::Action::CompatibilityResumeCheck { operation } => {
             let intent = prep::guided_check_stage(m, operation, "intent")?
@@ -1080,6 +1082,7 @@ fn action_selection_with(m: &Manager, sw: &Software, action: &ui::Action,
 }
 pub fn offered(actual: &ui::Action, offer: &ui::Action) -> bool {
     match (actual, offer) {
+        (ui::Action::VendorSoftwareInstall {application,..}, ui::Action::VendorSoftwareInstall {application:offered,..}) => application==offered,
         (ui::Action::SoftwareInstall { installer, .. },
             ui::Action::SoftwareInstall { installer: offered, .. }) => installer == offered,
         (
@@ -1232,6 +1235,67 @@ fn check_stage(m: &Manager, operation: &str, stage: &str, action: &Value) -> Res
             && record["action"] == *action, "guided_check_stage_binding")?;
     }
     Ok(record.map(|record| record["value"].clone()))
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RevalidationCandidateCheckpoint {
+    schema: u32,
+    operation: String,
+    action: ui::Action,
+    candidate: String,
+}
+fn revalidation_checkpoint_path(m: &Manager, operation: &str, action: &ui::Action) -> Result<PathBuf> {
+    require(matches!(action, ui::Action::CompatibilityRevalidate { .. }),
+        "unchanged_publication_checkpoint_action")?;
+    let directory = operator_cli::job_dir(m, operation)?;
+    let request: ui::Request = read_json(&directory.join("request.json"))?;
+    require(request.schema == ui::OPERATOR_SCHEMA && request.action == *action,
+        "unchanged_publication_request_changed")?;
+    Ok(directory.join("revalidation-candidate.json"))
+}
+fn verify_revalidation_checkpoint_candidate(m: &Manager, action: &ui::Action,
+    id: &str) -> Result<prep::Candidate> {
+    let ui::Action::CompatibilityRevalidate { selection, expected_current } = action
+        else { return Err("unchanged_publication_checkpoint_action".into()); };
+    let candidate = prep::candidate_record(m, id)?;
+    require(candidate.selection.id()? == *selection, "unchanged_publication_candidate_changed")?;
+    let predecessor = m.load_revision(&candidate.selection.class.id,
+        &publication_reference(expected_current))?;
+    prep::verify_refresh_candidate(m, &candidate, &predecessor)?;
+    Ok(candidate)
+}
+pub(super) fn revalidation_candidate_checkpoint(m: &Manager, operation: &str,
+    action: &ui::Action) -> Result<Option<prep::Candidate>> {
+    let path = revalidation_checkpoint_path(m, operation, action)?;
+    if !path.try_exists()? { return Ok(None); }
+    require(path.canonicalize()? == path && file(&path)?.metadata()?.len() <= 16384,
+        "unchanged_publication_checkpoint_bound")?;
+    let checkpoint: RevalidationCandidateCheckpoint = read_json(&path)?;
+    require(checkpoint.schema == 1 && checkpoint.operation == operation
+        && checkpoint.action == *action, "unchanged_publication_intent_changed")?;
+    Ok(Some(verify_revalidation_checkpoint_candidate(m, action, &checkpoint.candidate)?))
+}
+pub(super) fn retain_revalidation_candidate_checkpoint(m: &Manager, operation: &str,
+    action: &ui::Action, id: &str) -> Result<()> {
+    let path = revalidation_checkpoint_path(m, operation, action)?;
+    verify_revalidation_checkpoint_candidate(m, action, id)?;
+    if let Some(retained) = revalidation_candidate_checkpoint(m, operation, action)? {
+        require(retained.id()? == id, "unchanged_publication_candidate_changed")?;
+        return Ok(());
+    }
+    atomic_json(&path, &RevalidationCandidateCheckpoint { schema: 1,
+        operation: operation.into(), action: action.clone(), candidate: id.into() })
+}
+fn revalidation_inspection(m: &Manager, selection: &prep::Selection, sw: &Software,
+    audio_layout: Option<profiles::AudioLayoutPolicy>) -> Result<prep::Inspection> {
+    #[cfg(test)]
+    if let Some(inspection) = probed_inspection() {
+        require(inspection.selection == *selection, "unchanged_publication_inspection_changed")?;
+        prep::retain_inspection(m, &inspection)?;
+        return Ok(inspection);
+    }
+    inspect(m, selection, sw, audio_layout, || m.lock("registry.lock"))
 }
 
 fn retry_guided_inspection(
@@ -1531,6 +1595,29 @@ pub(super) fn execute_with_progress(
     use linux_vst_bridge::operator_lock::timing::{self, Stage};
     let sw = timing::measure(Stage::SoftwareVerification, || software(m))?;
     match a {
+        ui::Action::CompatibilityRevalidate { selection, expected_current } => {
+            let reference = publication_reference(expected_current);
+            let s = prep::select(m, selection, &sw.host, &sw.source_sha256)?;
+            let predecessor = m.load_revision(&s.class.id, &reference)?;
+            require(m.registry()?.classes.get(&s.class.id)
+                .and_then(|e|e.managed_revision.as_ref()) == Some(&reference),
+                "unchanged_publication_predecessor_changed")?;
+            let retained = revalidation_candidate_checkpoint(m, operation, a)?;
+            let c = if let Some(retained) = retained {
+                retained
+            } else {
+                let i = revalidation_inspection(m, &s, &sw,
+                    predecessor.registration.compatibility.audio_layout.clone())?;
+                progress("inspection");
+                let c = prep::revalidate_candidate(m, &predecessor, s,
+                    prep::build::stage_runtime(m)?, i.report, operation)?;
+                retain_revalidation_candidate_checkpoint(m, operation, a, &c.id()?)?;
+                c
+            };
+            progress("publication");
+            let revision = prep::replace_refreshed(m, &c, &predecessor, &reference)?;
+            Ok(json!({"candidate":c.id()?,"publication":revision,"revalidated":true}))
+        }
         ui::Action::CandidateHistoryComplete { candidate, expected_history } => {
             let c = prep::candidate_record(m, candidate)?;
             let guard = registry_admission()?;
@@ -1784,6 +1871,7 @@ pub fn failure(action: &ui::Action) -> Option<Value> {
             "preliminary_inspection"
         }
         ui::Action::CompatibilityCheck { .. }
+        | ui::Action::CompatibilityRevalidate {..}
         | ui::Action::CompatibilityResumeCheck { .. } => "guided_compatibility_check",
         ui::Action::CandidateGraphicsAssess { .. } => "graphics_assessment",
         ui::Action::CandidateGraphicsPrepare { .. }
@@ -2672,7 +2760,7 @@ with zipfile.ZipFile(path,'w') as z:
             native_catalogue: None,
         }
     }
-    fn projection_product(c: &prep::Candidate) -> ui::Product {
+    pub(crate) fn projection_product(c: &prep::Candidate) -> ui::Product {
         let s = &c.selection;
         ui::Product {
             class_id: s.class.id.clone(),

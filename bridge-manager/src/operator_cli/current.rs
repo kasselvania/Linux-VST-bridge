@@ -30,15 +30,29 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
     paths.insert(m.root.join("operator/latest.json"));
     paths.insert(m.root.join("operator/resume.json"));
     paths.insert(m.root.join("daw-workspaces/fl-studio/workspace.json"));
-    let vendor = app_directory(m);
+    let vendor_root = m.root.join("vendor-applications");
+    paths.insert(vendor_root.clone());
+    if vendor_root.is_dir() {
+        for (n, entry) in fs::read_dir(&vendor_root)?.enumerate() {
+            require(n < 128, "vendor_application_count_bound")?;
+            let entry = entry?;
+            if vendor_application::ApplicationId::parse(&entry.file_name().to_string_lossy()).is_ok() {
+                paths.insert(entry.path());
+                paths.insert(entry.path().join("application.json"));
+            }
+        }
+    }
+    for selector in vendor_cli::selectors(m)? {
+        let vendor = vendor_cli::directory(m, &selector)?;
     for path in [&vendor,&vendor.join("application.json"),&vendor.join("operation.json"),
-        &vendor.join("operation-result.json")] { paths.insert(path.clone()); }
-    let application = vendor.join("application.json");
-    if application.exists() {
-        let app: vendor_application::Application = read_json(&application)?;
-        require(app.schema == 1
-            && app.environment.root == m.root.join("environments").join(&app.environment.id),
-            "operator_current_vendor_binding")?;
+        &vendor.join("operation-result.json"),
+        ] { paths.insert(path.clone()); }
+    let app = vendor_cli::application(m, &selector)?;
+        require(
+            matches!(app.schema, 1 | 2)
+                && app.environment.root == m.root.join("environments").join(&app.environment.id),
+            "operator_current_vendor_binding",
+        )?;
         paths.insert(app.environment.root.join("environment.json"));
     }
     for artifact in [&sw.manager,&sw.supervisor,&sw.ownership,&sw.host,&sw.source_manifest] {
@@ -289,7 +303,7 @@ impl CurrentOverviewContext {
             let mut progress = self.live_installer_progress_paths(m);
             if let Some(vendor) = &self.vendor_progress {
                 require_live_vendor_report(vendor)?;
-                progress.insert(app_directory(m),vendor.report.clone());
+                progress.insert(vendor.report.parent().ok_or("operator_vendor_report_directory")?.to_owned(),vendor.report.clone());
             }
             let runtime_records: BTreeSet<_>=linux_vst_bridge::runtime_delivery::record_paths(m).into_iter().collect();
             for (path, before) in &self.watched {
@@ -339,21 +353,40 @@ fn require_live_vendor_report(operation: &vendor_application::Operation) -> Resu
         "operator_vendor_state_changed_refresh")
 }
 fn live_vendor_progress(m: &Manager) -> Result<Option<vendor_application::Operation>> {
-    live_vendor_progress_with(m,vendor_live)
+    let mut live = None;
+    for selector in vendor_cli::selectors(m)? {
+        if vendor_cli::live(&selector)? {
+            require(live.is_none(), "operator_multiple_vendor_owners")?;
+            live = live_vendor_progress_selected(m, &selector, || Ok(true))?;
+        }
+    }
+    Ok(live)
 }
-pub(super) fn live_vendor_progress_with(m: &Manager, is_live: impl FnOnce() -> Result<bool>)
+#[cfg(test)]
+pub(super) fn live_vendor_progress_with(m: &Manager, is_live: impl FnOnce() -> Result<bool>,
+)
     -> Result<Option<vendor_application::Operation>> {
-    let directory = app_directory(m);
+    live_vendor_progress_selected(m, ASC, is_live)
+}
+fn live_vendor_progress_selected(
+    m: &Manager,
+    selector: &str,
+    is_live: impl FnOnce() -> Result<bool>,
+) -> Result<Option<vendor_application::Operation>> {
+    let directory = vendor_cli::directory(m, selector)?;
     if !directory.exists() || !is_live()? { return Ok(None); }
     let mut app: vendor_application::Application = read_json(&directory.join("application.json"))?;
     app.environment=environment_install::current_environment(m,&app.environment)?;
     let operation: vendor_application::Operation = read_json(&directory.join("operation.json"))?;
-    require(app.schema == 1 && operation.application == app
+    require(
+        matches!(app.schema, 1 | 2)
+            && operation.application == app
         && valid_hex(&operation.operation_id,32)
         && operation.report == directory.join("operation-result.json")
         && app.environment.root == m.root.join("environments").join(&app.environment.id)
         && read_json::<Environment>(&app.environment.root.join("environment.json"))? == app.environment,
-        "operator_current_vendor_binding")?;
+        "operator_current_vendor_binding",
+    )?;
     require_live_vendor_report(&operation)?;
     Ok(Some(operation))
 }
@@ -667,6 +700,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     let mut installer_setups = onboarding::setup_projection_current(m, &onboarding, &products,
         &workspace_installers, &records, &installers, default.as_ref())?;
     automatic_install::project_from(m, &mut installer_setups, busy, &records)?;
+    automatic_install::project_revalidation(m,&mut products,&records)?;
     for product in &mut products {
         if product.availability.is_none() {
             product.availability=Some(ui::NativeAvailability {available:false,
@@ -1135,7 +1169,7 @@ mod tests {
         db.classes.insert(registration.key(),linux_vst_bridge::Entry {
             registration,publication:Publication::Removed,managed_revision:None});
         let before=watch_paths(m,&sw,&db).unwrap();
-        let vendor=m.root.join("vendor-applications").join(ASC).join("operation-result.json");
+        let vendor=m.root.join("vendor-applications");
         let context=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
         let before_mode=stamp(&installer_path).unwrap();
         fs::set_permissions(&installer_path,fs::Permissions::from_mode(0o600)).unwrap();
@@ -1147,16 +1181,30 @@ mod tests {
             let context=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
             context.recheck(m).unwrap();
             let original=fs::read(path).ok();
-            private_dir(path.parent().unwrap()).unwrap();
-            fs::write(path,b"a changed current record").unwrap();
+            if path == &vendor {private_dir(path).unwrap();}
+            else {
+                private_dir(path.parent().unwrap()).unwrap();
+                fs::write(path,b"a changed current record").unwrap();
+            }
             assert_ne!(stamp(path).unwrap(),before[path]);
             assert!(context.recheck(m).is_err(),"accepted changed current input: {}",path.display());
             if let Some(bytes)=original {fs::write(path,bytes).unwrap();}
             else {
-                fs::remove_file(path).unwrap();
-                if path == &vendor {fs::remove_dir(path.parent().unwrap()).unwrap();}
+                if path == &vendor {fs::remove_dir(path).unwrap();}
+                else {fs::remove_file(path).unwrap();}
             }
         }
+        // Registration can finish inside an already-created selector directory.
+        // Neither a root-only watch nor only registered applications covers it.
+        let unregistered=vendor.join("ab".repeat(32));
+        private_dir(&unregistered).unwrap();
+        let context=context_for_watched(m,watch_paths(m,&sw,&db).unwrap());
+        let application=unregistered.join("application.json");
+        assert!(context.watched.contains_key(&application));
+        fs::write(&application,b"new selected application").unwrap();
+        assert!(context.recheck(m).is_err());
+        fs::remove_file(application).unwrap();
+        fs::remove_dir(unregistered).unwrap();
         // A live installer needs recovery controls while reports and private
         // diagnostics change. Its stable record and directory custody still
         // bind the exact operation; a retired report keeps the full byte watch.

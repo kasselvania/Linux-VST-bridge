@@ -2346,8 +2346,9 @@ fn reusable_engine_actual_preparation_retains_and_publishes_descriptor() {
         .unwrap_err().to_string(), "bridge_refresh_predecessor_changed");
     changed_predecessor = replacement.clone();
     changed_predecessor.selection.environment.revision += 1;
+    // A fabricated revision has no owned maintenance edge to authorize refresh.
     assert_eq!(verify_refresh_candidate(&f.m, &changed_predecessor, &installed)
-        .unwrap_err().to_string(), "bridge_refresh_predecessor_changed");
+        .unwrap_err().to_string(), "installer_environment_revision_unowned");
     let mut changed_origin = replacement.clone();
     changed_origin.origin = Origin::RetainedSv1;
     assert_eq!(verify_refresh_candidate(&f.m, &changed_origin, &installed)
