@@ -92,7 +92,7 @@ pub fn inspect_unit(name:&str)->Result<UnitState> {
         .args([
             "--user",
             "show",
-            &name,
+            name,
             "--property=Id,LoadState,ActiveState,SubState,Result,ControlGroup,MainPID,ControlPID",
         ])
         .output()?;
