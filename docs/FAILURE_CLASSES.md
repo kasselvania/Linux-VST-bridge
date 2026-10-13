@@ -849,9 +849,14 @@ created nothing, and for the service to allow a later retry.
 Test56's direct automatic installation identifies the exact live vendor/inspection
 owner's bridge pause and returns to normal service with two new classes available;
 the earlier Test55 service-repair message during a valid pause is corrected.
-Automatic vendor-application continuation still lacks a safe transfer to required
-persistent service owners. ASC/NI handoff remains open; retain the same environment
-and required services rather than equating window closure with safe completion.
+Test57 exposed a post-repeat snapshot failure (`guided_check_intent_missing`):
+revalidation wrote an id-only checkpoint into guided-check history. The checkpoint
+now belongs to its exact operator child. Test58 verifies both real vendor visits,
+full helper retirement, unchanged-sibling renewal, normal status and fresh musical
+recall with the protected content/preferences/history retained. Native Access's
+separate continuation owner remains open; no new music-time service requirement
+was established. Runtime verification latency also remains open: Test58's normal
+update completed within 623–755 seconds.
 [Scoped installed result](../evidence/cachyos-reaper.json).
 
 The 2026-10-03 [foundation comparison](../evidence/preparation/2026-10-03-foundation-installed.json)

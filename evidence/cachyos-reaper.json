@@ -214,7 +214,7 @@
     "normal_shutdown_confirmed": true
   },
   "automatic_first_install": {
-    "scope": "First-party direct-installer workflow in the disposable CachyOS VM / native REAPER; persistent vendor-application/service handoff remains open",
+    "scope": "First-party direct-installer workflow in the disposable CachyOS VM / native REAPER; vendor-application continuation is recorded separately below",
     "test55": {
       "source_head": "6bb99fd494cb92649593957b51597f4072eed730",
       "source_tree": "cfca13657eba16a67128c953ea12a18a43f7f0f8",
@@ -351,6 +351,144 @@
       "final_close_stale_transports": 0,
       "final_close_cleanup_unconfirmed": false,
       "final_close_current_available_classes": 4
+    }
+  },
+  "vendor_application_continuation": {
+    "scope": "First-party managed hub in the disposable CachyOS VM / native REAPER; Native Access uses a separate continuation owner",
+    "test57": {
+      "build": 57,
+      "source_head": "1022bd025220e664b3ebf95efde223e3074e9ec2",
+      "source_tree": "1c3966fa65538fbec62301cfc9a2a69318393a7e",
+      "normal_application_update": true,
+      "first_vendor_session": {
+        "waited_for_remaining_owned_helper": true,
+        "automatic_new_publications": 2,
+        "current_available_classes": 6,
+        "unrelated_post_update_protected_files": 15,
+        "protected_file_changes": 0,
+        "actual_audio_automation_save_and_fresh_recall": true
+      },
+      "second_vendor_session": {
+        "actual_retained_installers_rerun": true,
+        "environment_revision": 3,
+        "scan_added": 0,
+        "scan_changed": 0,
+        "scan_removed": 0,
+        "scan_unchanged": 2,
+        "automatic_selected_sibling_revalidations": 2,
+        "duplicate_classes": 0,
+        "journey_failure": null,
+        "public_snapshot_error": "guided_check_intent_missing",
+        "final_preservation_and_fresh_recall": "not_run_after_snapshot_failure",
+        "direct_preservation_checked": true,
+        "unrelated_protected_file_changes": 0,
+        "target_protected_files": 15,
+        "target_unchanged_files": 13,
+        "target_authority_metadata_refreshes": 2
+      }
+    },
+    "test58": {
+      "build": 58,
+      "source_head": "5b2989fc96aa3f8098ef7f1acac5ec1c806eb5cf",
+      "source_tree": "944e9de6522e015920c4da1c6201b8abfbe72338",
+      "signed_installer_sha256": "1d030044ec8efd52f334cd4595ae5d1d3cfa0492b65b9aed943e1576dd4caa8b",
+      "normal_application_update": true,
+      "update_completion_seconds_lower_bound": 623,
+      "update_completion_seconds_upper_bound": 755,
+      "last_observed_update_rchar_gb_approx": 57.94,
+      "last_observed_update_read_bytes_gb_approx": 23.63,
+      "environment": "5f2f2c5ffb7ac8df6595ccfc84322400",
+      "application": "29373abd8f72b48c23c16187f07e87e1ea241dc754b0f2ce5de69e910b0d54c0",
+      "first_vendor_session": {
+        "actual_retained_installers_run": true,
+        "automatic_new_publications": 2,
+        "current_available_classes": 6,
+        "public_snapshot_error": null,
+        "unrelated_post_update_protected_files": 15,
+        "protected_file_changes": 0,
+        "operation": "377e4a42384d00d55167be05528c782f",
+        "environment_revision_before": 1,
+        "environment_revision_after": 2,
+        "full_owned_helper_retirement": true
+      },
+      "second_vendor_session": {
+        "operation": "f2a113382bebd27b32a38f6ac7d66af5",
+        "actual_retained_installers_rerun": true,
+        "full_owned_helper_retirement": true,
+        "environment_revision_before": 2,
+        "environment_revision_after": 3,
+        "old_authority_unavailable_during_revision_change": true,
+        "scan_added": 0,
+        "scan_changed": 0,
+        "scan_removed": 0,
+        "scan_unchanged": 2,
+        "new_plugin_classes": 0,
+        "automatic_selected_sibling_revalidations": 2,
+        "exact_predecessor_cas_and_immutable_history_retained": true,
+        "module_dsp_native_descriptor_runner_host_settings_preferences_unchanged": true,
+        "unrelated_protected_files": 15,
+        "unrelated_protected_file_changes": 0,
+        "target_protected_files": 15,
+        "target_unchanged_files": 13,
+        "target_authority_metadata_refreshes": 2,
+        "public_snapshot_and_overview_ok": true,
+        "actual_manager_view_ok": true,
+        "current_available_classes": 6,
+        "journey_failure": null
+      },
+      "authorized_update_provenance_refreshes": 4,
+      "update_protected_files": 15,
+      "update_unchanged_content_files": 11,
+      "bootstrap_installer_exit": 0,
+      "bootstrap_owned_live": 0,
+      "bootstrap_cleanup_confirmed": true,
+      "fresh_music": {
+        "sample_rate": 44100,
+        "audio_block_frames": 512,
+        "audio_backend": "PulseAudio",
+        "instrument_level": 0.625,
+        "instrument_colour": 0.33000001311302,
+        "effect_level": 0.74000000953674,
+        "effect_colour": 0.66000002622604,
+        "instrument_midi_notes": 16,
+        "automation_points_per_track": 4,
+        "live_level_automation_observed": true,
+        "startup_admission_error": false,
+        "captured_stereo_s16le": [
+          {
+            "case": "Hub instrument",
+            "frames": 308700,
+            "nonzero_channel_samples": 432354,
+            "peak": 0.03717041015625,
+            "rms": 0.015670138687997055
+          },
+          {
+            "case": "Hub effect",
+            "frames": 308700,
+            "nonzero_channel_samples": 617400,
+            "peak": 0.339813232421875,
+            "rms": 0.1704243932896414
+          }
+        ],
+        "full_capture_frames": 786432,
+        "full_capture_nonzero_channel_samples": 1199696,
+        "saved_project_bytes": 7639,
+        "saved_project_sha256": "d109011f3fcebfbb6a45f503531a74624b274cc1dbede3b1db2a9a58d396a458",
+        "saved_project_unchanged_after_fresh_reopen": true,
+        "source_audio_sha256": "5a2188df3d8c466bf0d926f875e285f9cb971b223f6409fb9d93ff03cacceb50"
+      },
+      "normal_close": {
+        "live_reaper_processes": 0,
+        "active_sessions": 0,
+        "dsp": 0,
+        "maintenance": 0,
+        "pending_transactions": 0,
+        "stale_transports": 0,
+        "cleanup_unconfirmed": false,
+        "service": "active",
+        "current_available_classes": 6,
+        "idle_runtime_keepers": 1
+      }
     }
   }
 }

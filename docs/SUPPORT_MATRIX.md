@@ -11,6 +11,18 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Test58's corrected first-party vendor-application continuation passes in the
+disposable CachyOS VM / native REAPER 7.82 at 44.1 kHz / 512 frames. Its first
+visit waits for full helper retirement and adds two classes automatically.
+A second real reinstall in the same environment freshly revalidates both unchanged
+siblings with retained history and preferences; normal status shows six available
+classes. All 15 unrelated protected
+files stay exact; only two target authority metadata files renew. Both roles play
+nonzero audio with automation and recall controls, MIDI and envelopes after a fresh
+reopen, retaining the exact saved project. Native Access's separate owner and
+runtime verification latency remain open.
+[Scoped vendor-application result](../evidence/cachyos-reaper.json).
+
 Test55's clean CachyOS/native REAPER first-party installation uses one ordinary
 Install and connect request: owned runtime acquisition, vendor installation and
 automatic discovery/preparation/publication produce two Reference classes.
@@ -20,7 +32,7 @@ refreshing only two provenance records. Its warm Completion install adds two
 classes automatically and preserves the post-update Reference baseline; actual
 Home shows four available plug-ins with normal owned-pause progress and no manual
 refresh. Fresh Reference reopen/play under Test56 retains the same controls,
-automation and MIDI. Persistent vendor-application/service handoff remains open.
+automation and MIDI.
 [Scoped automatic installation result](../evidence/cachyos-reaper.json).
 
 Installed workflow checks also pass on the disposable x86-64 CachyOS Btrfs VM /

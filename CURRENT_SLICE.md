@@ -1,40 +1,40 @@
 # Current slice — automatic continuation through an installed vendor application
 
-Goal: add new plug-ins through an existing managed vendor application, then
-connect newly discovered instruments/effects to the chosen DAW automatically.
-Keep the same environment, install location and vendor login/activation identity.
+Goal: add plug-ins through an existing managed vendor application, then connect
+new instruments/effects to the chosen DAW without extra preparation/report chores.
 
-The preceding direct-installer slice is installed and verified in REAPER.
-ASC/Native Access retired before prior music use; no new service owner is justified.
-The missing operation is automatic continuation after a returning vendor task.
-## Implementation
+## Result
 
-- Extend the existing Application/Operation owner with explicit content-bound
-  application selection; keep the old exact ASC adapter separate.
-- Bind selection to an owned environment and its real imported-installation
-  witness. Selection authorizes observed executable/helper bytes, not invented
-  installer provenance or authorization.
-- Carry the new task in the existing automatic installation Intent. Retain
-  original installation history and capture the pre-task class/module baseline.
-- Wait for the exact successful vendor session and its entire owned cohort to
-  retire; window close, idle and file changes alone cannot authorize discovery.
-- Advance owned environment revision before shared mutation. Fresh-check and
-  renew identical selected siblings with retained settings/history and exact CAS.
-- Connect all newly installed classes using existing owners. Changed content,
-  runtime or settings requires separate review; stale authority is unavailable.
-- Retain concrete interruption/failure and exact retry, with no duplicate hub,
-  recreated environment, compulsory report or unknown-licence gate.
+Test58 on CachyOS VM/native REAPER passes two genuine visits to the first-party hub.
+The first waits for its remaining helper and automatically connects two new
+classes; all four earlier classes and their 15 protected files stay unchanged.
+The second reruns both retained installers in the same environment, advances to
+revision 3 and freshly revalidates two unchanged selected siblings without
+additional classes. Only their two authority metadata files renew; module/DSP,
+native/descriptor bytes, runner/host, settings/preferences and history survive.
+Fresh REAPER reopen restores controls, 16 MIDI notes and four automation points
+per track; both roles play nonzero audio with live automation at 44100/512.
+The saved project stays exact; normal close leaves no live sessions or cleanup debt.
 
-## Verification and done
+Revalidation checkpoints belong to their exact operator child; guided history
+stays strict. Snapshot, cleanup, mismatch and interrupted retry are verified.
 
-Exercise exact application/operation binding, live or late descendants, failed
-and cancelled retirement, manager interruption/resume, partial sibling outcomes,
-repeat/idempotent continuation and preservation of previously working plug-ins.
-Use an honestly named first-party hub through the production owner and ordinary
-DAW use/save/fresh-reopen. Keep source/CI, publication and actual music evidence
-separate. Review and green tests precede the working increment landing.
+## Mechanism
 
-ASC continuation is covered only by its admitted adapter and real retirement.
-Native Access uses a separate owner and remains an explicit adapter extension;
-a persistent helper that cannot safely retire remains a concrete capability gap.
-Runtime verification latency, update/recovery breadth and the beta standard remain.
+- Reuse Application/Operation and a real owned imported-installation witness.
+- Preserve the same environment/location and original installation history.
+- Exact successful completion plus full cohort retirement permits discovery;
+  window closure, idle and files alone do not establish completion.
+- Owned revision advance precedes shared mutation. Fresh checks and exact CAS
+  renew unchanged selected siblings, preserving their chosen configuration.
+- Changed content/runtime/settings requires separate review; specific failure
+  stays actionable. Unknown licensing and optional reports do not gate availability.
+
+Reviewed source, full functional CI, all-target lint and installed checks pass.
+This installed result covers the first-party hub's two-visit REAPER workflow.
+
+## Next gap
+
+Native Access's separate continuation owner needs its own adapter and installed
+proof. Broader vendor/update/recovery coverage and beta requirements remain;
+runtime verification latency stays open (Test58 update completed in 623–755 seconds).
