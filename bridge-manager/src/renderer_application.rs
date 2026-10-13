@@ -73,27 +73,38 @@ impl Application {
     }
     pub fn identity(&self) -> Result<String> {Ok(hex(&Sha256::digest(serde_json::to_vec(&serde_json::to_value(self)?)?)))}
     pub fn executable(&self) -> Result<&Image> {self.files.get("Native Access.exe").ok_or_else(||"renderer_executable_missing".into())}
-    pub fn verify(&self, root: &Path) -> Result<()> {
+    /// Historical identity readback. Current bytes and process/runner health are
+    /// separate launch checks and cannot invalidate a retained revision edge.
+    pub fn validate_record(&self, root: &Path) -> Result<()> {
         let observation=observed()?;
         require(self.schema==1 && self.id==ID && self.environment.id==ENVIRONMENT
-            && self.environment.root==root.join("environments").join(ENVIRONMENT)
-            && read_json::<Environment>(&self.environment.root.join("environment.json"))?==self.environment,
+            && self.environment.root==root.join("environments").join(ENVIRONMENT),
             "renderer_application_environment")?;
-        require(self.observation_sha256==hex(&Sha256::digest(OBSERVATION)) && self.source_seal_sha256==SEAL,"renderer_observation_identity")?;
+        require(self.observation_sha256==hex(&Sha256::digest(OBSERVATION))
+            && self.source_seal_sha256==SEAL,"renderer_observation_identity")?;
         let expected=observation["identity"]["files"].as_object().ok_or("renderer_identity_evidence")?;
         require(self.files.len()==expected.len(),"renderer_resource_set")?;
         let directory=self.executable()?.artifact.path.parent().ok_or("renderer_directory")?;
-        require(directory.starts_with(self.environment.root.join("compatdata/pfx/drive_c")),"renderer_directory")?;
-        require(roots(&self.environment.root.join("compatdata/pfx/drive_c"))? == vec![directory.to_owned()], "renderer_application_ambiguous_or_missing")?;
+        require(directory.starts_with(self.environment.root.join("compatdata/pfx/drive_c"))
+            && directory.components().all(|part|!matches!(part,
+                std::path::Component::ParentDir | std::path::Component::CurDir)),"renderer_directory")?;
         let mut total=0;
         for (name,witness) in expected {
             let image=self.files.get(name).ok_or("renderer_resource_missing")?;
             require(image.artifact.path==directory.join(name) && witness["sha256"]==image.artifact.sha256
                 && witness["size"]==image.size,"renderer_resource_identity")?;
-            total+=image.size;require(total<=512*1024*1024,"renderer_hash_budget")?;verify_image(image)?;
+            total+=image.size;require(total<=512*1024*1024,"renderer_hash_budget")?;
         }
         require(self.installation.path==root.join("onboarding").join(ENVIRONMENT).join(format!("{INSTALLATION}-result.json"))
-            && observation["input"]["result_sha256"]==self.installation.sha256,"renderer_installation_identity")?;
+            && observation["input"]["result_sha256"]==self.installation.sha256,"renderer_installation_identity")
+    }
+    pub fn verify(&self, root: &Path) -> Result<()> {
+        self.validate_record(root)?;
+        require(read_json::<Environment>(&self.environment.root.join("environment.json"))?==self.environment,
+            "renderer_application_environment")?;
+        let directory=self.executable()?.artifact.path.parent().ok_or("renderer_directory")?;
+        require(roots(&self.environment.root.join("compatdata/pfx/drive_c"))? == vec![directory.to_owned()], "renderer_application_ambiguous_or_missing")?;
+        for image in self.files.values() {verify_image(image)?;}
         self.installation.verify()?;self.environment.runner.verify()
     }
 }

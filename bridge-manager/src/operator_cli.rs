@@ -89,6 +89,7 @@ fn token_with_registry(m: &Manager, registry: &Registry) -> Result<String> {
             "installer_presentations":installer_import::presentation_token(m)?,
             "environment_installations":environment_install::records(m)?,
             "environment_runtime_transitions":environment_runtime::records(m)?,
+            "renderer_transitions":environment_revision::renderer_records(m)?,
             "onboarding_history":onboarding::history_records(m)?,
             "vendor_checkpoints":automatic_install::vendor_checkpoint_authority(m)?}),
     )?)))
@@ -1438,7 +1439,13 @@ fn project_onboarding_failure(
     let id = receipt["operation"]
         .as_str()
         .ok_or("operator_failure_identity")?;
-    let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
+    // This projection concerns only initial environment admission failures.
+    // Preserve unrelated future jobs as raw history without asking the old
+    // closed action decoder to understand or execute them.
+    let raw: Value = read_json(&job_dir(m, id)?.join("request.json"))?;
+    if !matches!(raw["action"]["kind"].as_str(),
+        Some("installer_environment_create" | "installer_new_attempt")) {return Ok(());}
+    let request: ui::Request = serde_json::from_value(raw)?;
     let failure: Option<ui::OperationFailure> = if receipt["failure"].is_null() {
         None
     } else {
@@ -1785,25 +1792,7 @@ fn native_access_session_summary(result:&Value,recovery:&Value)->Result<Value> {
     let dependency=&result["dependency"];
     let disposition=dependency["dependency_cleanup_disposition"].as_str()
         .ok_or("renderer_dependency_cleanup_disposition")?;
-    let cleanup_confirmed=match disposition {
-        "graceful_service_retirement"=>dependency["service_retirement_confirmed"]==true
-            && dependency["process_cleanup_confirmed"]==true
-            && dependency["forced_cleanup_used"]==false,
-        "exact_owned_session_cleanup"=>dependency["service_retirement_confirmed"]==false
-            && dependency["process_cleanup_confirmed"]==true
-            && dependency["forced_cleanup_used"]==true
-            && dependency["service_stop_request_count"].as_u64().is_some_and(|v|v<=1)
-            && dependency["stop_observation"]["classification"]!="NAD2_STOP_OBSERVATION_UNAVAILABLE"
-            && dependency["post_cleanup"]["cgroup_empty"]==true
-            && dependency["post_cleanup"]["exact_daemon_generation_absent"]==true
-            && dependency["post_cleanup"]["listener_mask"]==0
-            && dependency["post_cleanup"]["candidate_count"]==0
-            && dependency["post_cleanup"]["candidate_observation_unavailable"]==0
-            && dependency["post_cleanup"]["application_image_unchanged"]==true
-            && dependency["post_cleanup"]["daemon_image_unchanged"]==true,
-        "cleanup_unconfirmed"=>false,
-        _=>return Err("renderer_dependency_cleanup_disposition".into()),
-    };
+    let cleanup_confirmed=linux_vst_bridge::native_access_dependency::session_cleanup_confirmed(result)?;
     require(state=="failed" || cleanup_confirmed,"renderer_session_cleanup_unconfirmed")?;
     require(recovery["bridge"]=="active" && recovery["keepers"]==2
         && recovery["dsp_leases"]==0 && recovery["maintenance_leases"]==0
@@ -2265,6 +2254,8 @@ fn execute_with_receipt_policy_progress(
         });
     }
     match a {
+        ui::Action::EnvironmentRefresh { .. } | ui::Action::EnvironmentRefreshResume { .. }
+        | ui::Action::RendererSoftwareInstall { .. } => Err("automatic_continuation_writer_unavailable".into()),
         ui::Action::SoftwareInstall { .. } | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. } => unreachable!(),
         ui::Action::RuntimeInstall {} => {
             drop(projection.take());
@@ -4304,8 +4295,27 @@ pub(crate) mod tests {
         assert!(validate(&r, &busy).is_err());
     }
     #[test]
+    fn unrelated_future_refused_job_preserves_onboarding_readback_and_cannot_dispatch() {
+        let f = test_fixture::Fixture::new();
+        let operation = "ab".repeat(16);
+        let directory=job_dir(&f.m,&operation).unwrap();private_dir(&directory).unwrap();
+        let request=json!({"schema":ui::OPERATOR_SCHEMA+1,"state_token":"future",
+            "action":{"kind":"future_owned_continuation","operation":"cd".repeat(16)}});
+        atomic_json(&directory.join("request.json"),&request).unwrap();
+        let before=fs::read(directory.join("request.json")).unwrap();
+        project_onboarding_failure(&f.m,&json!({"state":"refused","operation":operation}),&mut []).unwrap();
+        assert_eq!(fs::read(directory.join("request.json")).unwrap(),before);
+        assert!(serde_json::from_value::<ui::Request>(request).is_err());
+        for action in [ui::Action::EnvironmentRefresh {environment:"ab".repeat(16),daw:ui::DawChoice::Bitwig},
+            ui::Action::EnvironmentRefreshResume {operation:"cd".repeat(16)}] {
+            let request=ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"current".into(),action};
+            assert_eq!(validate(&request,&view("current",super::action("Support export",ui::Action::SupportExport {},None)))
+                .unwrap_err().to_string(),"operator_action_not_available");
+        }
+    }
+    #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 25);
+        assert_eq!(ui::OPERATOR_SCHEMA, 26);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();

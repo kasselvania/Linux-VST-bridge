@@ -1,43 +1,40 @@
-# Current slice — automatic continuation through an installed vendor application
+# Current slice — complete managed application and setup continuation
 
-Goal: add plug-ins through an existing managed vendor application, then connect
-new instruments/effects to the chosen DAW without extra preparation/report chores.
+Goal: install/authorize in the owned app, automatically connect instruments and
+effects, play, save and reopen through ordinary product controls.
 
-## Result
+## Accepted behavior
 
-Test58 on CachyOS VM/native REAPER passes two genuine visits to the first-party hub.
-The first waits for full helper retirement and adds two classes. The second
-reinstalls in the same environment and freshly revalidates both unchanged siblings.
-Four earlier classes and 15 protected files stay exact; only two target authority
-metadata files renew, retaining settings, preferences and history.
-Fresh REAPER reopen restores controls, 16 MIDI notes and four automation points
-per track; both roles play nonzero audio with live automation at 44100/512.
-The saved project stays exact; normal close leaves no live sessions or cleanup debt.
+Test60 recovers the actual blocked Deck hub bootstrap through ordinary Open.
+The first visit installs two classes, waits after the hub closes for its helper,
+then automatically connects both to Bitwig. A repeat visit freshly checks both.
+The original older ASC also opens normally and automatically rechecks its four
+classes using genuine retained history; a newer onboarding receipt is unnecessary.
+All six original application/installation records remain exact.
 
-Revalidation checkpoints belong to their exact child; guided history stays strict.
+A separate new Bitwig project uses the hub's instrument/effect and eight notes.
+Fresh reopen recalls levels 0.435/0.490 and the exact saved project. Both finite
+20-second stereo captures contain nonzero audio. Normal close retires owned work;
+all 23 original preferences are restored exactly.
 
-Test59 is installed on Deck and restores normal Setup vendor cards. Fifteen
-published classes, 181 original projects and 441 protected files survive the update.
-A separate Reference project saves a changed control, recalls it in fresh Bitwig
-and plays finite nonzero stereo audio; ordinary preferences are restored.
+Test61 is installed normally with the paired manager and bridge active.
+Home settles Kontakt's history-only reminder using current exact availability.
+Apps are grouped by owned setup; opening a setup scopes its actual management view.
+Fresh explicit app selection on a clean CachyOS installation remains in progress.
 
-## Mechanism
+## Best explanation and next changes
 
-- Reuse Application/Operation and a real owned imported-installation witness,
-  preserving the environment/location and original installation history.
-- Exact successful completion plus full cohort retirement permits discovery;
-  window closure, idle and files alone do not establish completion.
-- Owned revision advance precedes shared mutation. Fresh checks and exact CAS
-  renew unchanged selected siblings, preserving their chosen configuration.
-- Changed content/runtime/settings requires separate review; specific failure
-  stays actionable. Unknown licensing and optional reports do not gate availability.
+- Managed setup refresh was omitted from ordinary Setup and only rescanned;
+  Serum's working instrument is available, but its discovered effect has no
+  publication. Reuse exact environment admission and automatically connect the
+  missing class while preserving the working instrument.
+- Native Access's renderer owner retires/restores correctly but has no shared
+  discovery/connection adapter. Keep its real application, dependency and job owner.
+- First qualify a reader for truthful new jobs/revision edges, then enable writers;
+  keep historical receipts intact and unsupported actions refused.
+- Display the retained installer receipt from its actual nested record.
 
-Reviewed source, full CI, lint and installed two-visit REAPER checks pass.
-
-## Next gap
-
-Deck hub-only automatic bootstrap finds no plug-ins and blocks hub continuation;
-older ASC has genuine older installation history, but continuation incorrectly
-requires a newer onboarding receipt. New vendor continuation on
-Deck remains pending. Native Access needs its continuation adapter and installed proof.
-Runtime verification latency remains open (Deck Test59 update completed by 4m39s).
+Done: actual ordinary refresh connects Serum FX; Native Access open/normal close
+continues automatically; fresh app choice/install/repeat works in ordinary UI.
+Saved projects, licensed state, preferences and history survive each update.
+Runtime verification/update latency remains open; it is a separate repair.

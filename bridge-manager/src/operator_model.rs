@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 25;
+pub const OPERATOR_SCHEMA: u32 = 26;
 /// Explicit delivery policy, independent from the remembered buffered delay.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -98,6 +98,8 @@ pub enum Action {
         application: String,
         policy: RendererPolicy,
     },
+    /// An exact renderer session followed by automatic DAW connection.
+    RendererSoftwareInstall { application: String, policy: RendererPolicy, daw: DawChoice },
     RendererFocus {
         operation: String,
     },
@@ -234,6 +236,9 @@ pub enum Action {
     EnvironmentRescan {
         environment: String,
     },
+    /// Find and connect missing classes without changing working publications.
+    EnvironmentRefresh { environment: String, daw: DawChoice },
+    EnvironmentRefreshResume { operation: String },
     QuarantinedModuleRetry {
         environment: String,
         scan: String,
@@ -818,6 +823,7 @@ impl Action {
                 | Self::DependencyPrepare {}
                 | Self::RendererDiscover {}
                 | Self::RendererOpen { .. }
+                | Self::RendererSoftwareInstall { .. }
                 | Self::PluginReinspect { .. }
                 | Self::CompatibilityCheck { .. }
                 | Self::CompatibilityRevalidate {..}
@@ -842,6 +848,8 @@ impl Action {
                 | Self::EnvironmentRuntimeSelect { .. }
                 | Self::VendorApplicationOpen { .. }
                 | Self::EnvironmentRescan { .. }
+                | Self::EnvironmentRefresh { .. }
+                | Self::EnvironmentRefreshResume { .. }
                 | Self::QuarantinedModuleRetry { .. }
                 | Self::OrdinaryRollback { .. }
                 | Self::OrdinaryRestoreRecommended { .. }

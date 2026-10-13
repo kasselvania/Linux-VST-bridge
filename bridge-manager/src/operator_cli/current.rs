@@ -29,6 +29,14 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
     paths.insert(m.root.join("registry.json"));
     paths.insert(m.root.join("operator/latest.json"));
     paths.insert(m.root.join("operator/resume.json"));
+    for binding in environment_revision::renderer_records(m)? {
+        let directory=job_dir(m,&binding.operation)?;
+        paths.insert(directory.join("renderer-maintenance.json"));
+        paths.insert(directory.join("request.json"));
+        paths.insert(binding.selected.path);
+        paths.insert(binding.spec.path);
+        paths.insert(binding.result.path);
+    }
     paths.insert(m.root.join("daw-workspaces/fl-studio/workspace.json"));
     let vendor_root = m.root.join("vendor-applications");
     paths.insert(vendor_root.clone());

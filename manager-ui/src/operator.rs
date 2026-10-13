@@ -1764,8 +1764,8 @@ impl Operator {
                         for attempt in overview.current.onboarding.iter().filter(|attempt|
                             attempt.installer == setup.installer
                                 && attempt.environment == setup.environment) {
-                            for line in installer_lines(&attempt.details) { ui.label(line); }
-                            for line in installer_policy_lines(&attempt.details) { ui.small(line); }
+                            for line in installer_lines(&attempt.details["installation"]) { ui.label(line); }
+                            for line in installer_policy_lines(&attempt.details["installation"]) { ui.small(line); }
                             if let Some(failure) = &attempt.failure {
                                 for line in failure_lines(failure) { ui.label(line); }
                             }
@@ -4482,6 +4482,60 @@ mod tests {
         }
     }
 
+    #[test]
+    fn setup_details_show_retained_partial_receipt_while_current_plugin_is_available() {
+        let mut overview:CurrentOverview=overview_fixture().into();
+        overview.current.vendor_applications.clear();
+        let product=&mut overview.current.products[0];
+        product.availability=Some(NativeAvailability {available:true,reason:None});
+        overview.current.installer_setups=vec![InstallerSetup {installer:"retained-installer".into(),
+            name:"Earlier setup".into(),label_source:"operator_named".into(),byte_size:1024,
+            format:"pe_executable".into(),imported_at:1,phase:SetupPhase::DiscoveryComplete,
+            journey:None,status:"Current plug-in available".into(),environment:Some(product.environment.clone()),
+            compatibility:None,discovered:vec![],primary:None,secondary:vec![],history:vec![],
+            rename:AvailableAction {label:"Rename".into(),action:Action::InstallerRename {
+                installer:"retained-installer".into(),label:String::new()},disabled_reason:None}}];
+        let setup=&overview.current.installer_setups[0];
+        let installer=setup.installer.clone();let environment=setup.environment.clone();
+        overview.current.onboarding=vec![crate::model::Onboarding {failure:None,installer:String::new(),
+            name:"Earlier setup".into(),byte_size:1024,format:"pe_executable".into(),environment:None,
+            state:"completed".into(),required_human_action:String::new(),details:serde_json::Value::Null,actions:vec![]}];
+        let attempt=&mut overview.current.onboarding[0];
+        attempt.installer=installer;attempt.environment=environment;
+        attempt.details=serde_json::json!({"installation":{"operation":"retained-operation",
+            "state":"completed","transaction":{"schema":1,"operation":"retained-operation",
+                "outcome":"partial_installation","durable_installation":"partial_installation",
+                "installation_completeness":"unproved"},
+            "installer_capability":{"requested":{"powershell":"inherited"},
+                "effective":{"effective":{"windows_scripting":{"powershell":"inherited"}}}}}});
+        let original=attempt.details.clone();
+        let ctx=result_form_context();
+        let mut style=(*ctx.global_style()).clone();style.animation_time=0.0;ctx.set_global_style(style);
+        let mut chosen=None;
+        let render=|events:Vec<egui::Event>,chosen:&mut Option<Action>| {
+            let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,egui::vec2(1000.0,1600.0))),..Default::default()},|ui| {
+                Operator::fast_setup(ui,&overview,true,false,(&mut false,chosen,&mut false,&mut Page::Setup,
+                    &mut crate::library::Library::default(),&mut RouteFocus::default(),&mut Some(DawChoice::Bitwig)));
+            });
+            let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+            output.textures_delta.clear();labels
+        };
+        render(vec![],&mut chosen);
+        let labels=render(vec![],&mut chosen);
+        let point=labels.iter().find(|(label,_)|label=="Setup details and options").unwrap().1;
+        for pressed in [true,false] {
+            render(vec![egui::Event::PointerMoved(point),egui::Event::PointerButton {pos:point,
+                button:egui::PointerButton::Primary,pressed,modifiers:egui::Modifiers::NONE}],&mut chosen);
+        }
+        let labels=render(vec![],&mut chosen);
+        let text=labels.iter().map(|(label,_)|label.as_str()).collect::<Vec<_>>().join(" ");
+        assert!(text.contains("Installation changes observed; completion not verified"),"{text}");
+        assert!(text.contains("Requested: inherited scripting behavior."),"{text}");
+        assert!(text.contains("Applied at target launch: inherited scripting behavior."),"{text}");
+        assert_eq!(overview.current.onboarding[0].details,original);
+        assert!(chosen.is_none());
+    }
     #[test]
     fn installed_program_choices_and_registered_apps_keep_their_owned_setup_context() {
         let mut overview:CurrentOverview=overview_fixture().into();
