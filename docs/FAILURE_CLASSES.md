@@ -846,6 +846,12 @@ created nothing, and for the service to allow a later retry.
 
 ## FC-LIFE-002 — Failed launch cleanup and truthful recovery state
 
+Test59 fixes omitted vendor-application cards in normal Deck Setup. Two retained
+continuation gaps remain: the hub-only bootstrap's automatic discovery finds no
+plug-ins and requires resuming that unfinished installation before opening the hub;
+the older ASC installation has no original managed installation record, so its
+continuation action stays disabled. Neither path is qualified on Deck.
+
 Test56's direct automatic installation identifies the exact live vendor/inspection
 owner's bridge pause and returns to normal service with two new classes available;
 the earlier Test55 service-repair message during a valid pause is corrected.
