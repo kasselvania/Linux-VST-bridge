@@ -74,8 +74,10 @@ changes, with no missing files. Class changes stay within revision identities an
 native/host/descriptor paths. Service is active and clean idle. Home settles
 automatically and retains the 1.0.1 setup's REAPER continuation without Check again.
 A later read-only Setup visit displays unavailable status despite a healthy
-backend; that UI readback limitation remains open. The Test65 chooser stays
-unopened, so the actual Test63 chooser result remains its separate qualification.
+backend: whole-JSON comparison mistakes raw/projected job-state differences for
+progress, clearing status and replacing the handoff. The UI fix awaits installed
+verification. The Test65 chooser stays unopened; the actual Test63 chooser result
+remains its separate qualification.
 Runtime verification/update latency remains open.
 [Scoped vendor-application result](../evidence/cachyos-reaper.json).
 

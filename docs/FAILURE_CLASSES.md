@@ -894,9 +894,15 @@ and chooser, where the check stops before app registration or duplicate classes.
 Test65's ordinary Cachy update retains all six classes, its saved REAPER project
 and setup/app/environment history; only registry renewal changes among 88 protected
 files. Home settles automatically. A later read-only Setup visit displays
-unavailable status despite a healthy backend; this readback limitation remains
-open, and no new Test65 chooser interaction is qualified. Runtime verification/
-update latency also remains open: Test65 takes about six minutes on Deck and
+unavailable status despite a healthy backend. The overview projects the same
+completed app-only job as `AwaitingApplication` with no failure; its immutable raw
+pulse remains `NeedsAttention` with its retained no-supported-plug-in failure.
+Whole-JSON comparison treats
+this projection difference as terminal progress, clearing status and replacing
+the handoff. Pulse/overview/snapshot reads succeed in 14 ms/7.34 s/15.09 s; no
+45-second timeout was observed. The fix awaits installed verification, and no new
+Test65 chooser interaction is qualified. Runtime verification/update latency also
+remains open: Test65 takes about six minutes on Deck and
 nineteen on Cachy; Test58's normal update completed within 623–755 seconds.
 [Scoped installed result](../evidence/cachyos-reaper.json).
 

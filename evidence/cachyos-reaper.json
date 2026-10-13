@@ -549,6 +549,17 @@
       "later_read_only_setup_navigation": {
         "ui_status_unavailable": true,
         "backend_healthy": true,
+        "raw_pulse_state": "NeedsAttention",
+        "raw_pulse_failure_retained": true,
+        "projected_overview_state": "AwaitingApplication",
+        "projected_overview_failure": null,
+        "same_completed_job": true,
+        "whole_json_comparison_mistakes_projection_for_progress": true,
+        "pulse_milliseconds": 14,
+        "overview_seconds": 7.34,
+        "snapshot_seconds": 15.09,
+        "read_exit": 0,
+        "timeout_45_seconds_observed": false,
         "readback_defect_open": true
       },
       "new_chooser_interaction_tested": false
