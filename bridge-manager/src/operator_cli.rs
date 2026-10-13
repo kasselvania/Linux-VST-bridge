@@ -9,6 +9,7 @@ pub(super) mod automatic_install;
 pub(super) mod environment_install;
 mod environment_runtime;
 mod environment_refresh;
+mod renderer_continuation;
 const ASC: &str = "arturia-software-center";
 const SERVICE: &str = "linux-vst-bridge.service";
 #[derive(Debug)]
@@ -92,6 +93,7 @@ fn token_with_registry(m: &Manager, registry: &Registry) -> Result<String> {
             "environment_runtime_transitions":environment_runtime::records(m)?,
             "renderer_transitions":environment_revision::renderer_records(m)?,
             "refresh_checkpoints":environment_refresh::authority(m)?,
+            "renderer_checkpoints":renderer_continuation::authority(m)?,
             "onboarding_history":onboarding::history_records(m)?,
             "vendor_checkpoints":automatic_install::vendor_checkpoint_authority(m)?}),
     )?)))
@@ -1075,6 +1077,12 @@ fn performance_actions(m: &Manager, registration: &Registration,
     actions.push(action(label, ui::Action::DeliverySet {
         class_id:registration.metadata.class_id.clone(), mode}, reason));
 }
+fn renderer_projection(m:&Manager,busy:Option<&str>,retired:Option<bool>,
+    setups:Option<&mut [ui::InstallerSetup]>)->Result<Option<ui::VendorApplication>> {
+    let Some(mut app)=renderer_cli::project_with_retired(m,busy,retired)? else {return Ok(None)};
+    renderer_continuation::project(m,&mut app,setups,busy)?;
+    dependency_cli::project(m,&mut app,busy)?;Ok(Some(app))
+}
 fn scoped_product_context_from(m: &Manager, sw: &Software, db: &Registry,
     bindings: &[catalogue::EnvironmentBinding], environment: &str, busy: Option<&str>,
 )
@@ -1085,8 +1093,7 @@ fn scoped_product_context_from(m: &Manager, sw: &Software, db: &Registry,
     let mut vendor_applications = vendor_projections(m, busy)?.into_iter()
         .filter(|a| a.details["environment"] == environment).collect::<Vec<_>>();
     if environment == renderer::ENVIRONMENT {
-        if let Some(mut app) = renderer_cli::project(m, busy)? {
-            dependency_cli::project(m, &mut app, busy)?;
+        if let Some(app) = renderer_projection(m,busy,None,None)? {
             vendor_applications.push(app);
         }
     }
@@ -1345,8 +1352,7 @@ fn snapshot_readonly_depth(
     }
     let mut vendor_applications = vendor_projections(m, busy)?;
     if deep {
-        if let Some(mut app) = renderer_cli::project(m, busy)? {
-            dependency_cli::project(m, &mut app, busy)?;
+        if let Some(app) = renderer_projection(m,busy,None,None)? {
             vendor_applications.push(app);
         }
     }
@@ -1391,6 +1397,9 @@ fn snapshot_readonly_depth(
     let records=onboarding::history_records(m)?;
     automatic_install::project_from(m, &mut installer_setups, busy,&records)?;
     environment_refresh::project(m,&mut installer_setups,&environments,&products,busy)?;
+    if let Some(app)=vendor_applications.iter_mut().find(|app|app.id==renderer::ID) {
+        renderer_continuation::project(m,app,Some(&mut installer_setups),busy)?;
+    }
     automatic_install::project_revalidation(m,&mut products,&records)?;
     let environment_installers = environment_install::projection(m,&products,busy,onboarding::live)?;
     let recheck = acquire_readback(m, ui::OperatorLock::Registry, id, timeout, waits)?;
@@ -1594,7 +1603,7 @@ fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Resu
             | ui::Action::VendorApplicationStop { application } => {
                 offered.vendor_applications = vendor_projection(m,application,captured.busy)?.into_iter().collect();
             }
-            ui::Action::RendererOpen { .. } | ui::Action::RendererFocus { .. }
+            ui::Action::RendererOpen { .. } | ui::Action::RendererSoftwareInstall {..} | ui::Action::RendererFocus { .. }
             | ui::Action::RendererStop { .. } => {
                 offered.vendor_applications = scoped_product_context_from(m, sw, db,
                     &captured.bindings, renderer::ENVIRONMENT, captured.busy)?.1;
@@ -1619,6 +1628,7 @@ fn scoped_product_action(action: &ui::Action) -> bool {
         | ui::Action::VendorApplicationFocus { .. }
         | ui::Action::VendorApplicationStop { .. }
         | ui::Action::RendererOpen { .. }
+        | ui::Action::RendererSoftwareInstall {..}
         | ui::Action::RendererFocus { .. }
         | ui::Action::RendererStop { .. })
 }
@@ -1755,7 +1765,7 @@ fn write_operation(m: &Manager, id: &str, value: &Value, make_latest: bool) -> R
         value["lock_waits"] = prior["lock_waits"].clone();
     }
     // Child owner progress must keep the same initial DAW intent visible.
-    for field in ["journey", "onboarding", "environment", "application"] {
+    for field in ["journey", "onboarding", "environment", "application", "renderer_owner"] {
         if value.get(field).is_none() && prior.get(field).is_some() {value[field]=prior[field].clone();}
     }
     if value["state"]=="vendor_running" && value["journey"].is_object() {
@@ -2149,6 +2159,11 @@ fn execute_with_receipt_policy_progress(
     waits: &mut Vec<ui::LockFacts>,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Value> {
+    if matches!(a,ui::Action::RendererSoftwareInstall {..})
+        || matches!(a,ui::Action::EnvironmentRefreshResume {operation} if renderer_continuation::owns(m,operation)?) {
+        return renderer_continuation::execute(m,a,operation.ok_or("operator_operation_identity")?,
+            capacity_read,timeout,waits);
+    }
     if matches!(a,ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentRefreshResume {..}) {
         return environment_refresh::execute(m,a,operation.ok_or("operator_operation_identity")?,
             capacity_read,timeout,waits);
@@ -2266,7 +2281,7 @@ fn execute_with_receipt_policy_progress(
     }
     match a {
         ui::Action::EnvironmentRefresh { .. } | ui::Action::EnvironmentRefreshResume { .. } => unreachable!(),
-        ui::Action::RendererSoftwareInstall { .. } => Err("automatic_continuation_writer_unavailable".into()),
+        ui::Action::RendererSoftwareInstall { .. } => unreachable!(),
         ui::Action::SoftwareInstall { .. } | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. } => unreachable!(),
         ui::Action::RuntimeInstall {} => {
             drop(projection.take());
@@ -2783,7 +2798,7 @@ fn open_vendor_owned(
 fn resumable_action(action: &ui::Action) -> bool {
     matches!(action,ui::Action::InstallerStart {..} | ui::Action::InstallerStartWithPolicy {..}
         | ui::Action::InstallerScan {..} | ui::Action::EnvironmentInstallerStart {..}
-        | ui::Action::EnvironmentInstallerScan {..} | ui::Action::RendererOpen {..}
+        | ui::Action::EnvironmentInstallerScan {..} | ui::Action::RendererOpen {..} | ui::Action::RendererSoftwareInstall {..}
         | ui::Action::EnvironmentRuntimeSelect {..}
         | ui::Action::DependencyPrepare {} | ui::Action::VendorApplicationOpen {..}
         | ui::Action::VendorSoftwareInstall {..} | ui::Action::SoftwareInstallResume {..}
@@ -2815,7 +2830,19 @@ pub(super) fn capture_package_resume_with(m: &Manager, source: &Software,
 }
 fn package_resume_custody(m: &Manager, saved: &ResumeRecord, action: &ui::Action)
     -> Result<Vec<Artifact>> {
+    package_resume_custody_with_renderer_probe(m,saved,action,renderer_session::inspect)
+}
+fn package_resume_custody_with_renderer_probe(m:&Manager,saved:&ResumeRecord,action:&ui::Action,
+    probe:impl Fn(&str)->Result<renderer_session::UnitState>)->Result<Vec<Artifact>> {
     let mut custody = Vec::new();
+    if matches!(action,ui::Action::RendererSoftwareInstall {..}) && saved.vendor_operation.is_some() {
+        if let Some(custody)=renderer_continuation::never_submitted_custody_with(m,saved,
+            ||probe(&saved.owner_operation))? {return Ok(custody);}
+    }
+    if saved.vendor_operation.is_none() && (matches!(action,ui::Action::RendererSoftwareInstall {..})
+        || matches!(action,ui::Action::EnvironmentRefreshResume {operation} if renderer_continuation::owns(m,operation)?)) {
+        return renderer_continuation::scan_custody(m,saved);
+    }
     match action {
         ui::Action::VendorApplicationOpen {application} | ui::Action::VendorSoftwareInstall {application,..} => {
             vendor_application::ApplicationId::parse(application)?;
@@ -2836,7 +2863,7 @@ fn package_resume_custody(m: &Manager, saved: &ResumeRecord, action: &ui::Action
                 custody.push(control_artifact(path)?);
             }
         }
-        ui::Action::RendererOpen {..} | ui::Action::DependencyPrepare {} => {
+        ui::Action::RendererOpen {..} | ui::Action::RendererSoftwareInstall {..} | ui::Action::DependencyPrepare {} => {
             require(saved.vendor_operation.as_deref() == Some(saved.owner_operation.as_str()),
                 "package_resume_vendor_binding")?;
             let dependency = matches!(action,ui::Action::DependencyPrepare {});
@@ -3075,12 +3102,10 @@ fn stop_renderer_with(
         saved.owner_operation == target && saved.vendor_operation.as_deref() == Some(target),
         "renderer_resume_owner_mismatch",
     )?;
-    let ui::Action::RendererOpen {
-        application,
-        policy,
-    } = recovery_request(m, &saved)?
-    else {
-        return Err("renderer_resume_action_mismatch".into());
+    let (application,policy)=match recovery_request(m,&saved)? {
+        ui::Action::RendererOpen {application,policy}
+        | ui::Action::RendererSoftwareInstall {application,policy,..}=>(application,policy),
+        _=>return Err("renderer_resume_action_mismatch".into()),
     };
     require(
         renderer_cli::current(m)?
@@ -3138,6 +3163,10 @@ fn resume_interrupted_with(
     m: &Manager,
     restore: impl FnOnce(&ResumeRecord) -> Result<()>,
 ) -> Result<()> {
+    resume_interrupted_with_renderer_probe(m,restore,renderer_session::inspect)
+}
+fn resume_interrupted_with_renderer_probe(m:&Manager,restore:impl FnOnce(&ResumeRecord)->Result<()>,
+    probe:impl Fn(&str)->Result<renderer_session::UnitState>)->Result<()> {
     // Only explicit reconciliation can recover a completed prior owner. It
     // cannot steal an active Open/Rescan or adopt an ownerless legacy record.
     let _resume = resume_lock(m)?;
@@ -3162,12 +3191,17 @@ fn resume_interrupted_with(
     }
     if matches!(
         recovery_request(m, &saved)?,
-        ui::Action::RendererOpen { .. }
-    ) {
+        ui::Action::RendererOpen { .. } | ui::Action::RendererSoftwareInstall {..}
+    ) && saved.vendor_operation.is_some() {
         require(
             saved.vendor_operation.as_deref() == Some(saved.owner_operation.as_str()),
             "renderer_resume_owner_mismatch",
         )?;
+        if matches!(recovery_request(m,&saved)?,ui::Action::RendererSoftwareInstall {..})
+            && renderer_continuation::never_submitted_custody_with(m,&saved,
+                ||probe(&saved.owner_operation))?.is_some() {
+            return resume_locked(m,&saved.owner_operation,restore);
+        }
         renderer_cli::reconcile(m, &saved.owner_operation)?;
         require(
             renderer_session::retired(m, &saved.owner_operation)?,
@@ -3175,8 +3209,12 @@ fn resume_interrupted_with(
         )?;
         return resume_locked(m, &saved.owner_operation, restore);
     }
-    require(resumable_action(&recovery_request(m,&saved)?),
-        "operator_resume_action_mismatch")?;
+    let action=recovery_request(m,&saved)?;
+    if matches!(action,ui::Action::RendererSoftwareInstall {..})
+        || matches!(&action,ui::Action::EnvironmentRefreshResume {operation} if renderer_continuation::owns(m,operation)?) {
+        renderer_continuation::scan_custody(m,&saved)?;
+    }
+    require(resumable_action(&action),"operator_resume_action_mismatch")?;
     let result = optional(&job_dir(m, &saved.owner_operation)?.join("result.json"))?;
     require(
         result["operation"] == saved.owner_operation

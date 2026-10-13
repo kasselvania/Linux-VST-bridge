@@ -852,8 +852,15 @@ retirement; a repeat visit revalidates both. Original ASC opens and reconnects i
 four classes from genuine older history, without a newer onboarding receipt.
 All six original authority records stay exact; the new instrument/effect play and
 recall in fresh Bitwig. Test61 settles Kontakt's history-only Home reminder.
-Serum FX still needs ordinary automatic managed-setup recovery; Native Access
-still needs its renderer continuation adapter and installed proof.
+Test63 ordinary Find and connect adds Serum FX automatically in Bitwig,
+while the instrument publication and performance remain exact. Native Access
+still needs installed proof of its renderer continuation adapter.
+
+The first Test63 Deck update failed during Kontakt editor-interface inspection
+with allocator corruption (`malloc(): unaligned tcache chunk detected`). The
+working Test62 setup stayed active with all 17 classes available. One exact-input
+inspection and one ordinary update retry passed; the intermittent crash remains
+open. Source now identifies the affected plug-in and check phase in inspection errors.
 
 Test56's direct automatic installation identifies the exact live vendor/inspection
 owner's bridge pause and returns to normal service with two new classes available;

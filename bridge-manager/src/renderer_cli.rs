@@ -78,7 +78,7 @@ pub(super) fn observe(m: &Manager, op: &str, presentation: renderer::Presentatio
     require(!p.exists(),"renderer_presentation_already_recorded")?;
     let v=json!({"schema":1,"operation":op,"application":current(m)?["application"],"presentation":presentation,"origin":"human_operator"});atomic_json(&p,&v)?;Ok(v)
 }
-pub(super) fn project(m: &Manager, busy: Option<&str>) -> Result<Option<ui::VendorApplication>> {
+pub(super) fn project_with_retired(m:&Manager,busy:Option<&str>,known_retired:Option<bool>)->Result<Option<ui::VendorApplication>> {
     let p=directory(m).join("application.json");let env=m.root.join("environments").join(renderer::ENVIRONMENT);
     if !p.exists() && !env.exists(){return Ok(None);}
     let mut actions=vec![];let mut details=json!({"cause":"unresolved","historical_process_generation":"unavailable"});
@@ -87,7 +87,7 @@ pub(super) fn project(m: &Manager, busy: Option<&str>) -> Result<Option<ui::Vend
     if !p.exists(){actions.push(action("Verify installed Native Access",ui::Action::RendererDiscover{},busy));}
     else {
         let app=current_application(m)?;let id=app.identity()?;let c=current(m)?;
-        let op=c["operation"].as_str();let retired=all_retired(m)?;
+        let op=c["operation"].as_str();let retired=match known_retired {Some(retired)=>retired,None=>all_retired(m)?};
         state=if retired{"closed"}else{"supervised / cleanup pending"}.into();
         // Do not hash the 215 MiB application on every UI poll. Launch revalidates
         // all bytes; projection exposes only the retained exact registration.
@@ -97,7 +97,7 @@ pub(super) fn project(m: &Manager, busy: Option<&str>) -> Result<Option<ui::Vend
         if let Some(op)=op {
             details=result(m,op)?;if details.is_null(){details=json!({"application_identity":id,"operation":op,"requested":c["policy"],"effective":null});}
             details["manager_operation"]=json!({"operation":op,"state":if retired{"completed"}else if details["state"].is_null(){"submission_uncertain"}else{"vendor_running"}});
-            let running=live(op)?;
+            let running=!retired && live(op)?;
             actions.push(action("Focus Native Access",ui::Action::RendererFocus{operation:op.into()},if running{None}else{Some("No live owned application")}));
             actions.push(action("Stop / reconcile owned Native Access",ui::Action::RendererStop{operation:op.into()},if retired{Some("This exact application operation is retired")}else{None}));
             let observation=operation_dir(m,op)?.join("presentation.json");

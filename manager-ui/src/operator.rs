@@ -238,7 +238,7 @@ impl RequestFeedback {
             Some("queued") => "This operation is queued. Do not click again.".into(),
             Some("running") => match &self.action {
                 Action::SoftwareInstall { .. } | Action::VendorSoftwareInstall { .. }
-                    | Action::SoftwareInstallResume { .. } | Action::EnvironmentRefresh { .. }
+                    | Action::SoftwareInstallResume { .. } | Action::RendererSoftwareInstall {..} | Action::EnvironmentRefresh { .. }
                     | Action::EnvironmentRefreshResume { .. } =>
                     self.journey.as_ref().map(journey_phase_label)
                         .unwrap_or("Installing and connecting your plug-ins").into(),
@@ -296,10 +296,8 @@ impl RequestFeedback {
             }
         }
         let mut renderer_recovery = false;
-        if let Action::RendererOpen {
-            application,
-            policy,
-        } = self.action.clone()
+        if let Action::RendererOpen {application,policy}
+            | Action::RendererSoftwareInstall {application,policy,..}=self.action.clone()
         {
             for app in &s.vendor_applications {
                 if app.details["application_identity"].as_str() == Some(application.as_str()) {
@@ -2640,6 +2638,8 @@ fn installation_with_daw(action: &Action, daw: DawChoice) -> Option<Action> {
             Some(Action::VendorSoftwareInstall { application: application.clone(), daw }),
         Action::EnvironmentRefresh {environment,..}=>
             Some(Action::EnvironmentRefresh {environment:environment.clone(),daw}),
+        Action::RendererSoftwareInstall {application,policy,..}=>
+            Some(Action::RendererSoftwareInstall {application:application.clone(),policy:*policy,daw}),
         _ => None,
     }
 }
@@ -2647,6 +2647,14 @@ fn installation_with_daw(action: &Action, daw: DawChoice) -> Option<Action> {
 fn installation_form_offer(snapshot: Option<&Snapshot>, action: &Action)
     -> Result<Option<String>, &'static str> {
     match action {
+        Action::RendererSoftwareInstall {application,policy,..}=> {
+            let snapshot=snapshot.ok_or("Current manager status is unavailable. Refresh before continuing.")?;
+            snapshot.vendor_applications.iter().flat_map(|app|&app.actions).find(|offer|
+                matches!(&offer.action,Action::RendererSoftwareInstall {application:offered,policy:offered_policy,..}
+                    if offered==application && offered_policy==policy))
+                .map(|offer|offer.disabled_reason.clone().or_else(||snapshot.system.inactive_reason().map(str::to_owned)))
+                .ok_or("This app's offered rendering choice changed. Refresh Setup before continuing.")
+        },
         Action::EnvironmentRefresh {environment,..}=> {
             let snapshot=snapshot.ok_or("Current manager status is unavailable. Refresh before continuing.")?;
             snapshot.installer_setups.iter().flat_map(|setup|setup.primary.iter().chain(setup.secondary.iter()))
@@ -3474,6 +3482,23 @@ mod tests {
         assert!(installation_form_offer(None,&action).is_err());
     }
 
+    #[test]
+    fn renderer_installation_daw_draft_preserves_exact_application_and_rendering_policy() {
+        let mut overview:CurrentOverview=overview_fixture().into();
+        let application="ac".repeat(32);
+        let offered=Action::RendererSoftwareInstall {application:application.clone(),
+            policy:RendererPolicy::SoftwareRendering,daw:DawChoice::Other};
+        overview.current.vendor_applications=vec![VendorApplication {id:"renderer".into(),name:"Installed app".into(),
+            version:"1".into(),state:"closed".into(),details:serde_json::Value::Null,actions:vec![AvailableAction {
+                label:"Open".into(),action:offered.clone(),disabled_reason:None}]}];
+        let selected=installation_with_daw(&offered,DawChoice::Bitwig).unwrap();
+        assert_eq!(selected,Action::RendererSoftwareInstall {application:application.clone(),
+            policy:RendererPolicy::SoftwareRendering,daw:DawChoice::Bitwig});
+        assert_eq!(installation_form_offer(Some(&overview.current),&selected),Ok(None));
+        let foreign_policy=Action::RendererSoftwareInstall {application,
+            policy:RendererPolicy::Inherited,daw:DawChoice::Bitwig};
+        assert!(installation_form_offer(Some(&overview.current),&foreign_policy).is_err());
+    }
     #[test]
     fn returning_vendor_session_with_no_new_plugins_shows_completion_without_installation_failure() {
         let mut overview:CurrentOverview=overview_fixture().into();
