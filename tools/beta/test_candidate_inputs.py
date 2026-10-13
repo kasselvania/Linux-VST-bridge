@@ -109,7 +109,12 @@ class CandidateInputs(unittest.TestCase):
             self.assertIn('Install and connect to your DAW', guide)
             self.assertIn('all newly installed VST3 plug-ins', guide)
             self.assertIn('Optional experience reports and checks', guide)
-            self.assertIn('inside a vendor application is still a missing integration', guide)
+            self.assertIn('When Setup offers Add plug-ins through a vendor application', guide)
+            self.assertIn('close the application normally', guide)
+            self.assertIn('waits for its remaining helpers to finish', guide)
+            self.assertIn('Unchanged plug-ins in the same installation are checked again', guide)
+            self.assertIn('Native Access uses its separate supported route; automatic continuation from it is not included', guide)
+            self.assertNotIn('inside a vendor application is still a missing integration', guide)
             self.assertEqual(git('status', '--porcelain'), '')
 
 
