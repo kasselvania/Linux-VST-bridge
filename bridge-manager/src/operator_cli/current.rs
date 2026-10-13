@@ -350,6 +350,7 @@ fn live_vendor_progress(m: &Manager) -> Result<Option<vendor_application::Operat
     }
     Ok(live)
 }
+#[cfg(test)]
 pub(super) fn live_vendor_progress_with(m: &Manager, is_live: impl FnOnce() -> Result<bool>,
 )
     -> Result<Option<vendor_application::Operation>> {
