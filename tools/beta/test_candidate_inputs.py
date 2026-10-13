@@ -113,7 +113,8 @@ class CandidateInputs(unittest.TestCase):
             self.assertIn('close the application normally', guide)
             self.assertIn('waits for its remaining helpers to finish', guide)
             self.assertIn('Unchanged plug-ins in the same installation are checked again', guide)
-            self.assertIn('Native Access uses its separate supported route; automatic continuation from it is not included', guide)
+            self.assertIn('then automatically finds and connects new plug-ins', guide)
+            self.assertNotIn('automatic continuation from it is not included', guide)
             self.assertNotIn('inside a vendor application is still a missing integration', guide)
             self.assertEqual(git('status', '--porcelain'), '')
 

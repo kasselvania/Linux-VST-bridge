@@ -324,7 +324,7 @@ pub fn session_admission(
 ) -> Result<Value> {
     application.verify(&m.root)?;
     installer(application)?;
-    require(read_json::<Value>(&m.root.join("software.json"))?==serde_json::to_value(software)?,
+    require(crate::preparation::build::launch_software(m)?==*software,
         "dependency_session_current_software")?;
     let directory=m.root.join("vendor-applications/native-access-dependency");
     let qualified:Value=serde_json::from_slice(RECOVERY)?;

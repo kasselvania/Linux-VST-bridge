@@ -28,13 +28,13 @@ preserving the working instrument publication and performance exactly.
 
 ## Best explanation and next changes
 
-- Native Access's renderer owner retires/restores correctly but lacks shared
-  discovery/connection. The adapter keeps its real application, dependency,
-  accepted job and prelaunch baseline; resumes never reopen the app.
+- Native Access continuation is deployed, but its first real visit refused before
+  launch: the signed package lacks the required launch component. Deliver it in
+  the signed kit and resolve the exact execution set before service suspension.
 - Reader-first Test62 is installed and reads the real Test63 refresh job unchanged.
   Keep all original receipts and unsupported actions refused.
-- Finish installed Native Access open/normal close through automatic availability,
-  and fresh app-handoff notification proof. Serum FX DAW playback/recall is running.
+- Finish installed Native Access open/normal close through automatic availability.
+  Serum FX playback/save/fresh reopen and fresh Cachy app-handoff notification pass.
 - A Kontakt allocator crash interrupted one update; exact-input inspection and
   normal retry passed. The intermittent editor inspection failure remains open.
 

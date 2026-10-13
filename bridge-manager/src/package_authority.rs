@@ -2,6 +2,7 @@
 //! Package-manager ownership authenticates /usr inputs; the release signature
 //! is checked by the package/release tooling before these files are installed.
 use super::*;
+use linux_vst_bridge::publication::{Revision, RevisionRef};
 use std::os::fd::AsRawFd;
 use std::os::unix::fs::MetadataExt;
 
@@ -237,6 +238,10 @@ fn retain_refresh_receipt(m: &Manager, receipt: &RefreshReceipt) -> Result<()> {
 
 fn matching_refresh_receipts(m: &Manager, selected: &Software,
     publications: &[publication::PublicationState]) -> Result<Vec<RefreshReceipt>> {
+    Ok(refresh_receipts(m,selected)?.into_iter()
+        .filter(|receipt|receipt.after_publications==publications).collect())
+}
+fn refresh_receipts(m:&Manager,selected:&Software)->Result<Vec<RefreshReceipt>> {
     let directory = receipt_directory(m, selected)?;
     let mut matching = Vec::new();
     if directory.try_exists()? {
@@ -260,13 +265,45 @@ fn matching_refresh_receipts(m: &Manager, selected: &Software,
                 "package_refresh_receipt_identity")?;
             let receipt: RefreshReceipt = read_json(&entry.path())?;
             validate_receipt(&receipt)?;
-            if receipt.successor == *selected
-                && receipt.after_publications == publications {
-                matching.push(receipt);
-            }
+            if receipt.successor == *selected {matching.push(receipt);}
         }
     }
     Ok(matching)
+}
+
+/// Only a real package transition can renew an unfinished job's predecessor.
+/// Discovery/module baselines stay with that job; arbitrary replacements refuse.
+pub(super) fn renewed_predecessor(m:&Manager,prior:&Revision)->Result<Revision> {
+    let db=m.registry()?;let entry=db.classes.get(&prior.class_id).ok_or("package_renewal_class_missing")?;
+    let wanted=entry.managed_revision.as_ref().ok_or("package_renewal_publication_missing")?;
+    let prior_path=m.root.join("publications").join(&prior.class_id).join("revisions").join(&prior.id).join("revision.json");
+    let original=RevisionRef {id:prior.id.clone(),sha256:digest(&prior_path)?};
+    require(m.load_revision(&prior.class_id,&original)?==*prior,"package_renewal_predecessor_changed")?;
+    let mut cursor=wanted.clone();let mut selected=software(m)?;
+    for depth in 0..32 {
+        if cursor==original {break;}
+        let edges=refresh_receipts(m,&selected)?.into_iter().flat_map(|receipt|receipt.transitions)
+            .filter(|edge|edge.after.class_id==prior.class_id
+                && edge.after.entry.managed_revision.as_ref()==Some(&cursor)).collect::<Vec<_>>();
+        require(edges.len()<=1,"package_renewal_ownership_conflict")?;
+        if let Some(edge)=edges.first() {
+            require(edge.before.class_id==prior.class_id && edge.before.performance==edge.after.performance,
+                "package_renewal_settings_changed")?;
+            cursor=edge.before.entry.managed_revision.clone().ok_or("package_renewal_predecessor_missing")?;
+        }
+        if cursor==original {break;}
+        selected=verify_generation(m,&selected)?.predecessor.ok_or("package_renewal_authority_missing")?;
+        require(depth<31,"package_renewal_history_bound")?;
+    }
+    require(cursor==original,"package_renewal_authority_missing")?;
+    let current=m.load_revision(&prior.class_id,wanted)?;
+    require(current.registration.module==prior.registration.module
+        && current.registration.metadata==prior.registration.metadata
+        && current.registration.environment==prior.registration.environment
+        && current.registration.compatibility==prior.registration.compatibility
+        && current.performance==prior.performance && current.external_ids==prior.external_ids
+        && current.qualification==prior.qualification,"package_renewal_content_or_settings_changed")?;
+    Ok(current)
 }
 
 fn package_source(path: &Path, owner: u32, max: u64, capture: bool) -> Result<(String, u64, Vec<u8>)> {
@@ -4102,6 +4139,34 @@ mod tests {
         f.base.m.restore_package_publication(&transition).unwrap();
         assert_eq!(f.base.m.package_publication_snapshot().unwrap(), vec![before.clone()]);
         (f, transition)
+    }
+
+    #[test]
+    fn genuine_package_renewal_resolves_a_retained_predecessor_without_adopting_replacement() {
+        let (f,publication)=real_publication_transition();
+        let before=publication.before.entry.managed_revision.as_ref().unwrap();
+        let prior=f.base.m.load_revision(&publication.before.class_id,before).unwrap();
+        let checkpoint=f.base.m.root.join("retained-prelaunch-baseline.json");
+        atomic_json(&checkpoint,&serde_json::json!({"prior_modules":[prior.registration.module.sha256],
+            "prior_selections":[format!("{}:{}",prior.registration.module.sha256,prior.class_id)],"predecessors":[prior]})).unwrap();
+        let baseline=fs::read(&checkpoint).unwrap();
+        let (first,next,_,setup)=staged_transition(&f);
+        let receipt=RefreshReceipt {schema:1,predecessor:first.clone(),successor:next.clone(),
+            before_publications:vec![publication.before.clone()],after_publications:vec![publication.after.clone()],
+            transitions:vec![publication.clone()],resume_history:None};
+        let update=CoordinatedTransition {schema:2,id:random_id().unwrap(),kind:TransitionKind::Update,
+            recovery_before:first,setup,receipt,resume_handoff:None};
+        run_coordinated(&f.base.m,&f.home,&f.service,update,false).unwrap();
+        let renewed=renewed_predecessor(&f.base.m,&prior).unwrap();
+        assert_eq!(renewed.id,publication.after.entry.managed_revision.as_ref().unwrap().id);
+        assert_eq!(renewed.registration.module,prior.registration.module);
+        assert_eq!(fs::read(&checkpoint).unwrap(),baseline);
+        // A later arbitrary publication is not a package renewal of this baseline.
+        let mut profile=renewed.profile.clone();profile.revision+=1;
+        f.base.m.managed_publish(&profile,&renewed.census,renewed.registration.clone(),
+            &renewed.census.host,&renewed.census.host_source_sha256,None).unwrap();
+        assert!(renewed_predecessor(&f.base.m,&prior).is_err());
+        assert_eq!(fs::read(&checkpoint).unwrap(),baseline);
     }
 
     fn refreshing_update_fixture() -> Fixture {

@@ -15,6 +15,22 @@ import assemble
 import verify_package
 
 
+def launch_provenance(binary):
+    text = b"Retained runtime copyright and license text\n"
+    notices = b"Retained build notices\n\n=== notices/compiler-LICENSE.txt ===\n" + text + b"\n"
+    origin = dict(schema=1, component="installer_launch", artifact_sha256=assemble.sha(binary),
+                  sources={name: assemble.sha((name + "\n").encode()) for name in assemble.LAUNCH_SOURCES},
+                  build=dict(target="x86_64-windows-gnu", compiler="zig c++", compiler_version="0.14.1",
+                             compiler_sha256="ab" * 32, flags=list(assemble.LAUNCH_FLAGS),
+                             invocation_sha256="cd" * 32,
+                             producer={"source": assemble.LAUNCH_PRODUCER,
+                                       "sha256": assemble.sha(b"retained producer recipe")},
+                             link_inputs=[{"file": "launch.obj", "sha256": "ef" * 32}],
+                             notices=[{"file": "compiler-LICENSE.txt", "sha256": assemble.sha(text)}],
+                             notices_sha256=assemble.sha(notices)))
+    return origin, notices
+
+
 def staged_python_minor(staged):
     with tarfile.open(staged / "payload.tar") as archive:
         headers = {name: archive.extractfile(name).read(16)
@@ -206,6 +222,67 @@ class PackageAssembly(unittest.TestCase):
             assemble.verify_kit(archive_bytes(index, {"unowned": b"unexpected"}),
                                 self.spec["source_head"], assemble.sha(files["runtime/host.exe"]),
                                 assemble.sha(files["runtime/host-source-manifest.json"]))
+        launch=b"MZsource-owned launch fixture"
+        origin, notices=launch_provenance(launch)
+        component={"runtime/installer-launch.exe":launch,
+            "runtime/installer-launch-source.json":json.dumps(origin).encode(),
+            "licenses/installer-launch.txt":notices}
+        assemble.verify_kit(archive_bytes(index,component),self.spec["source_head"],
+            assemble.sha(files["runtime/host.exe"]),assemble.sha(files["runtime/host-source-manifest.json"]))
+        with self.assertRaisesRegex(ValueError,"launch component roster"):
+            assemble.verify_kit(archive_bytes(index,{"runtime/installer-launch.exe":launch}),self.spec["source_head"],
+                assemble.sha(files["runtime/host.exe"]),assemble.sha(files["runtime/host-source-manifest.json"]))
+        bad={**component,"runtime/installer-launch-source.json":json.dumps({**origin,"artifact_sha256":"00"*32}).encode()}
+        with self.assertRaisesRegex(ValueError,"launch component provenance"):
+            assemble.verify_kit(archive_bytes(index,bad),self.spec["source_head"],
+                assemble.sha(files["runtime/host.exe"]),assemble.sha(files["runtime/host-source-manifest.json"]))
+        for name in assemble.LAUNCH_SOURCES:
+            missing=copy.deepcopy(origin);missing["sources"].pop(name)
+            bad={**component,"runtime/installer-launch-source.json":json.dumps(missing).encode()}
+            with self.subTest(missing=name), self.assertRaisesRegex(ValueError,"launch component provenance"):
+                assemble.verify_kit(archive_bytes(index,bad),self.spec["source_head"],
+                    assemble.sha(files["runtime/host.exe"]),assemble.sha(files["runtime/host-source-manifest.json"]))
+        for change in ({"flags":[*assemble.LAUNCH_FLAGS,"-DNAD1_GENERATED_SERVICE"]},
+                       {"compiler_path":"/private/compiler"}, {"target":"another-target"}):
+            changed=copy.deepcopy(origin);changed["build"].update(change)
+            bad={**component,"runtime/installer-launch-source.json":json.dumps(changed).encode()}
+            with self.subTest(change=change), self.assertRaisesRegex(ValueError,"launch component provenance"):
+                assemble.verify_kit(archive_bytes(index,bad),self.spec["source_head"],
+                    assemble.sha(files["runtime/host.exe"]),assemble.sha(files["runtime/host-source-manifest.json"]))
+        changed=copy.deepcopy(origin)
+        changed["build"]["notices"][0]["sha256"]="00"*32
+        for bad in ({**component,"licenses/installer-launch.txt":notices+b"changed"},
+                    {**component,"runtime/installer-launch-source.json":json.dumps(changed).encode()}):
+            with self.assertRaisesRegex(ValueError,"launch component notices"):
+                assemble.verify_kit(archive_bytes(index,bad),self.spec["source_head"],
+                    assemble.sha(files["runtime/host.exe"]),assemble.sha(files["runtime/host-source-manifest.json"]))
+        raw=copy.deepcopy(origin)
+        build=raw["build"];build.pop("flags");build.pop("invocation_sha256");build.pop("notices_sha256")
+        build.update(arguments=["c++",*assemble.LAUNCH_FLAGS[:7],"/private/source/launch.cpp",
+                                *assemble.LAUNCH_FLAGS[7:],"-o","/private/build/installer-launch.exe"],
+                     compiler_path="/private/compiler/zig",generated_service_define=False,
+                     combined_notices={"file":"Installer-Launch-Notices.txt","sha256":assemble.sha(notices)})
+        build["link_inputs"]=[{"path":"/private/cache/launch.obj","sha256":"ef"*32}]
+        build["notices"]=[{"file":"notices/compiler-LICENSE.txt","source":"/private/compiler/LICENSE",
+                           "sha256":origin["build"]["notices"][0]["sha256"]}]
+        raw_component={**component,"runtime/installer-launch-source.json":json.dumps(raw).encode()}
+        projected=assemble.public_launch_kit(archive_bytes(index,raw_component))
+        assemble.verify_kit(projected,self.spec["source_head"],assemble.sha(files["runtime/host.exe"]),
+                            assemble.sha(files["runtime/host-source-manifest.json"]))
+        with zipfile.ZipFile(io.BytesIO(projected)) as archive:
+            public=json.loads(archive.read("runtime/installer-launch-source.json"))
+            self.assertNotIn(b"/private",archive.read("runtime/installer-launch-source.json"))
+            self.assertEqual(public["sources"],origin["sources"])
+            self.assertEqual(public["build"]["invocation_sha256"],assemble.sha(assemble.canonical(build["arguments"])))
+            for name in files:
+                self.assertEqual(archive.read(name),files[name])
+            self.assertEqual(archive.read("runtime/installer-launch.exe"),launch)
+            self.assertEqual(archive.read("licenses/installer-launch.txt"),notices)
+        self.assertEqual(assemble.public_launch_kit(projected),projected)
+        build["arguments"].insert(8,"-DNAD1_GENERATED_SERVICE")
+        with self.assertRaisesRegex(ValueError,"launch component production recipe"):
+            assemble.public_launch_kit(archive_bytes(index,{**component,
+                "runtime/installer-launch-source.json":json.dumps(raw).encode()}))
         helpers={"runtime/lvb-direct-wait.dll":b"MZ Wine builtin DLL fixture",
                  "runtime/x86_64-windows/lvb-direct-wait.dll":b"MZ Wine builtin DLL fixture",
                  "runtime/x86_64-unix/lvb-direct-wait.so":b"\x7fELFowned helper"}
@@ -349,6 +426,47 @@ class PackageAssembly(unittest.TestCase):
         (source / "native-vst3-proxy/source/processor.cpp").write_bytes(b"local drift")
         with self.assertRaisesRegex(ValueError, "source head/tree differs"):
             assemble.verify_kit_source(data.getvalue(), source, head, tree)
+
+    def test_launch_source_binding_checks_every_header_and_the_producer(self):
+        source=self.root/"launch-source"
+        contents={name:(name+"\n").encode() for name in assemble.LAUNCH_SOURCES}
+        contents.update({assemble.LAUNCH_PRODUCER:b"retained producer recipe",
+                         "tools/mf3/native_builder.py":b"owned builder",
+                         "tools/ap8_descriptor.py":b"owned generator"})
+        for name,data in contents.items():
+            path=source/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+        subprocess.run(["git","init","-q",str(source)],check=True)
+        subprocess.run(["git","-C",str(source),"add","."],check=True)
+        subprocess.run(["git","-C",str(source),"-c","user.name=Fixture",
+                        "-c","user.email=fixture@example.invalid","commit","-qm","launch source"],check=True)
+        head=subprocess.check_output(["git","-C",str(source),"rev-parse","HEAD"],text=True).strip()
+        tree=subprocess.check_output(["git","-C",str(source),"rev-parse","HEAD^{tree}"],text=True).strip()
+        launch=b"MZsource-owned launch fixture"
+        origin,notices=launch_provenance(launch)
+        def kit(selected):
+            files={"prebuilt/index.json":json.dumps({"native_sources":{}}).encode(),
+                   "tools/mf3/native_builder.py":contents["tools/mf3/native_builder.py"],
+                   "tools/ap8_descriptor.py":contents["tools/ap8_descriptor.py"],
+                   "runtime/installer-launch.exe":launch,
+                   "runtime/installer-launch-source.json":json.dumps(selected).encode(),
+                   "licenses/installer-launch.txt":notices}
+            recipe={"schema":4,"source_commit":head,"files":{name:assemble.sha(value) for name,value in files.items()}}
+            data=io.BytesIO()
+            with zipfile.ZipFile(data,"w") as archive:
+                for name,value in files.items():archive.writestr(name,value)
+                archive.writestr("recipe.json",json.dumps(recipe))
+            return data.getvalue()
+        assemble.verify_kit_source(kit(origin),source,head,tree)
+        for name in assemble.LAUNCH_SOURCES:
+            changed=copy.deepcopy(origin);changed["sources"][name]="00"*32
+            with self.subTest(changed=name), self.assertRaisesRegex(ValueError,"launch component source differs"):
+                assemble.verify_kit_source(kit(changed),source,head,tree)
+            changed=copy.deepcopy(origin);changed["sources"].pop(name)
+            with self.subTest(missing=name), self.assertRaisesRegex(ValueError,"launch component provenance"):
+                assemble.verify_kit_source(kit(changed),source,head,tree)
+        changed=copy.deepcopy(origin);changed["build"]["producer"]["sha256"]="00"*32
+        with self.assertRaisesRegex(ValueError,"launch component source differs"):
+            assemble.verify_kit_source(kit(changed),source,head,tree)
 
     def test_release_backend_rebuild_rejects_stale_static_archive(self):
         if shutil.which("rustup") is None:

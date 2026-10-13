@@ -114,6 +114,13 @@ KIT_SOURCE_ARGS = ("CMakeLists.txt", "cmake/HP0Vst3SdkLock.cmake",
                    "tools/ap8_descriptor.py")
 KIT_GENERATED = {"libap2_backend.a", "runtime/host.exe",
                  "runtime/host-source-manifest.json"}
+LAUNCH_SOURCES = {"tools/is2/launch.cpp", "tools/is2/nad1_service.h",
+                  "tools/is2/nad1_stop.h", "tools/is2/native_access_callback.h"}
+LAUNCH_PRODUCER = "tools/naui2/package.py"
+LAUNCH_FLAGS = ("-target", "x86_64-windows-gnu", "-std=c++20", "-O2", "-municode",
+                "-DUNICODE", "-D_UNICODE", "-lbcrypt", "-ladvapi32")
+LAUNCH_MEMBERS = {"runtime/installer-launch.exe", "runtime/installer-launch-source.json",
+                  "licenses/installer-launch.txt"}
 
 
 def parse_operator_schema(source):
@@ -135,6 +142,137 @@ def canonical(value):
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
+
+
+def _launch_digests(rows):
+    if not isinstance(rows, list) or not 1 <= len(rows) <= 128:
+        raise ValueError("prebuilt launch component provenance")
+    result = {}
+    for row in rows:
+        if (not isinstance(row, dict) or set(row) != {"file", "sha256"}
+                or not isinstance(row["file"], str)
+                or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+_-]{0,127}", row["file"]) is None
+                or not isinstance(row["sha256"], str)
+                or re.fullmatch(r"[a-f0-9]{64}", row["sha256"]) is None
+                or row["file"] in result):
+            raise ValueError("prebuilt launch component provenance")
+        result[row["file"]] = row["sha256"]
+    return result
+
+
+def _launch_notice_digests(notices):
+    # The retained build combines exact installed texts under these public labels.
+    parts = re.split(rb"\n=== notices/([A-Za-z0-9][A-Za-z0-9.+_-]{0,127}) ===\n", notices)
+    if len(parts) < 3 or len(parts) % 2 != 1:
+        raise ValueError("prebuilt launch component notices")
+    rows = []
+    for name, text in zip(parts[1::2], parts[2::2]):
+        if not text.endswith(b"\n"):
+            raise ValueError("prebuilt launch component notices")
+        rows.append({"file": name.decode("ascii"), "sha256": sha(text[:-1])})
+    return _launch_digests(rows)
+
+
+def verify_launch_source(origin, binary, notices):
+    """Validate the public, path-free projection of the retained build facts."""
+    try:
+        build = origin["build"]
+        if (set(origin) != {"schema", "component", "artifact_sha256", "sources", "build"}
+                or type(origin["schema"]) is not int or origin["schema"] != 1
+                or origin["component"] != "installer_launch" or not binary.startswith(b"MZ")
+                or origin["artifact_sha256"] != sha(binary)
+                or set(origin["sources"]) != LAUNCH_SOURCES
+                or any(not isinstance(value, str) or re.fullmatch(r"[a-f0-9]{64}", value) is None
+                       for value in origin["sources"].values())
+                or set(build) != {"target", "compiler", "compiler_version", "compiler_sha256",
+                                  "flags", "invocation_sha256", "producer", "link_inputs",
+                                  "notices", "notices_sha256"}
+                or build["target"] != "x86_64-windows-gnu" or build["compiler"] != "zig c++"
+                or not isinstance(build["compiler_version"], str)
+                or re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9._-]+)?",
+                                build["compiler_version"]) is None
+                or build["flags"] != list(LAUNCH_FLAGS)
+                or set(build["producer"]) != {"source", "sha256"}
+                or build["producer"]["source"] != LAUNCH_PRODUCER
+                or any(not isinstance(value, str) or re.fullmatch(r"[a-f0-9]{64}", value) is None
+                       for value in (build["compiler_sha256"], build["invocation_sha256"],
+                                     build["producer"]["sha256"], build["notices_sha256"]))):
+            raise ValueError("prebuilt launch component provenance")
+        _launch_digests(build["link_inputs"])
+        if (build["notices_sha256"] != sha(notices)
+                or _launch_digests(build["notices"]) != _launch_notice_digests(notices)):
+            raise ValueError("prebuilt launch component notices")
+    except (KeyError, TypeError, AttributeError) as error:
+        raise ValueError("prebuilt launch component provenance") from error
+
+
+def public_launch_source(origin, binary, notices):
+    """Project genuine build records; keep compiler/cache paths in the raw record."""
+    try:
+        build = origin["build"]
+        if "arguments" not in build:
+            verify_launch_source(origin, binary, notices)
+            return origin
+        args = build["arguments"]
+        if (not isinstance(args, list) or len(args) != 13
+                or args[:8] != ["c++", *LAUNCH_FLAGS[:7]]
+                or args[9:12] != [*LAUNCH_FLAGS[7:], "-o"]
+                or PurePosixPath(args[8]).name != "launch.cpp"
+                or PurePosixPath(args[12]).name != "installer-launch.exe"
+                or build["generated_service_define"] is not False
+                or build["combined_notices"]["sha256"] != sha(notices)):
+            raise ValueError("prebuilt launch component production recipe")
+        public = {key: origin[key] for key in ("schema", "component", "artifact_sha256", "sources")}
+        public["build"] = {key: build[key] for key in
+                           ("target", "compiler", "compiler_version", "compiler_sha256")}
+        public["build"].update({
+            "flags": list(LAUNCH_FLAGS), "invocation_sha256": sha(canonical(args)),
+            "producer": {key: build["producer"][key] for key in ("source", "sha256")},
+            "link_inputs": [{"file": PurePosixPath(row["path"]).name, "sha256": row["sha256"]}
+                            for row in build["link_inputs"]],
+            "notices": [{"file": PurePosixPath(row["file"]).name, "sha256": row["sha256"]}
+                        for row in build["notices"]],
+            "notices_sha256": build["combined_notices"]["sha256"],
+        })
+        verify_launch_source(public, binary, notices)
+        return public
+    except (KeyError, TypeError, AttributeError) as error:
+        raise ValueError("prebuilt launch component provenance") from error
+
+
+def public_launch_kit(data):
+    """Preserve kit bytes except its public launch record and that record's digest."""
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        names = archive.namelist()
+        if not LAUNCH_MEMBERS.intersection(names):
+            return data
+        if not LAUNCH_MEMBERS <= set(names) or len(names) != len(set(names)):
+            raise ValueError("prebuilt launch component roster")
+        entries = archive.infolist()
+        if (len(data) > 256 * 1024 * 1024 or len(entries) > 256
+                or any(entry.file_size > 128 * 1024 * 1024 for entry in entries)
+                or sum(entry.file_size for entry in entries) > 256 * 1024 * 1024):
+            raise ValueError("prebuilt kit extent")
+        origin_name = "runtime/installer-launch-source.json"
+        if archive.getinfo(origin_name).file_size > 65536:
+            raise ValueError("prebuilt launch component provenance extent")
+        raw = archive.read(origin_name)
+        recipe = json.loads(archive.read("recipe.json"))
+        if recipe["files"].get(origin_name) != sha(raw):
+            raise ValueError("prebuilt launch component provenance digest")
+        origin = public_launch_source(json.loads(raw), archive.read("runtime/installer-launch.exe"),
+                                      archive.read("licenses/installer-launch.txt"))
+        if "arguments" not in json.loads(raw)["build"]:
+            return data
+        projected = canonical(origin)
+        recipe["files"][origin_name] = sha(projected)
+        output = io.BytesIO()
+        with zipfile.ZipFile(output, "w") as target:
+            for entry in archive.infolist():
+                content = (projected if entry.filename == origin_name else canonical(recipe)
+                           if entry.filename == "recipe.json" else archive.read(entry.filename))
+                target.writestr(entry, content)
+        return output.getvalue()
 
 
 def path_ok(name):
@@ -319,6 +457,12 @@ def verify_prebuilt_kit(data, source_head, host_sha256, source_sha256):
             if recipe.get("schema") != 4 or present != helpers:
                 raise ValueError("prebuilt direct helper roster")
             fixed.update(helpers)
+        launch=LAUNCH_MEMBERS
+        launch_present=launch & set(names)
+        if launch_present:
+            if recipe.get("schema")!=4 or launch_present!=launch:
+                raise ValueError("prebuilt launch component roster")
+            fixed.update(launch)
         total=0
         for entry in entries:
             name=entry.filename
@@ -355,6 +499,12 @@ def verify_prebuilt_kit(data, source_head, host_sha256, source_sha256):
                 or shim!=archive.read("runtime/x86_64-windows/lvb-direct-wait.dll")
                 or not archive.read("runtime/x86_64-unix/lvb-direct-wait.so").startswith(b"\x7fELF")):
                 raise ValueError("prebuilt direct helper binding")
+        if launch_present:
+            if archive.getinfo("runtime/installer-launch-source.json").file_size > 65536:
+                raise ValueError("prebuilt launch component provenance extent")
+            binary=archive.read("runtime/installer-launch.exe")
+            origin=json.loads(archive.read("runtime/installer-launch-source.json"))
+            verify_launch_source(origin, binary, archive.read("licenses/installer-launch.txt"))
         index=json.loads(archive.read("prebuilt/index.json"))
         if recipe["schema"] == 4:
             if (set(index) !=
@@ -416,6 +566,21 @@ def verify_kit_source(data, source_root, source_head, source_tree):
             for name in ("tools/mf3/native_builder.py","tools/ap8_descriptor.py"):
                 if archive.read(name)!=(source_root/name).read_bytes():
                     raise ValueError("prebuilt preparation source differs")
+            if "runtime/installer-launch-source.json" in archive.namelist():
+                origin=json.loads(archive.read("runtime/installer-launch-source.json"))
+                verify_launch_source(origin, archive.read("runtime/installer-launch.exe"),
+                                     archive.read("licenses/installer-launch.txt"))
+                inputs = {**origin["sources"], LAUNCH_PRODUCER: origin["build"]["producer"]["sha256"]}
+                for name,expected in inputs.items():
+                    relative=PurePosixPath(name)
+                    path=source_root/name
+                    if (relative.is_absolute() or str(relative)!=name or ".." in relative.parts
+                        or not re.fullmatch("[a-f0-9]{64}",expected)
+                        or name not in git("ls-files","-z","--",name).decode().split("\0")
+                        or path.is_symlink() or not path.is_file()
+                        or sha(path.read_bytes())!=expected
+                        or sha(git("show",source_head+":"+name))!=expected):
+                        raise ValueError("prebuilt launch component source differs")
             return
         if set(recipe["files"]) != names | KIT_GENERATED:
             raise ValueError("preparation kit source roster differs")
