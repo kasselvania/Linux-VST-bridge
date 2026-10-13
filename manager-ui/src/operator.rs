@@ -1403,6 +1403,75 @@ fn partial_installation_needs_review(setup: &InstallerSetup, snapshot: &Snapshot
                 && attempt.details["installation"]["transaction"]["outcome"] == "partial_installation")
 }
 
+fn setup_history_settled_by_current_products(setup: &InstallerSetup, snapshot: &Snapshot) -> bool {
+    setup.journey.is_none() && setup.phase == SetupPhase::SetupNeedsAttention
+        && setup.primary.is_none() && setup.secondary.is_empty()
+        && setup.environment.is_some() && !setup.discovered.is_empty()
+        && (retained_setup_records_need_refresh(setup, snapshot)
+            || partial_installation_needs_review(setup, snapshot))
+        && !snapshot.onboarding.iter().any(|attempt|
+            attempt.installer == setup.installer && attempt.environment == setup.environment
+                && (attempt.failure.is_some() || !attempt.actions.is_empty()
+                    || !attempt.details["installation"]["error"].is_null()
+                    || !attempt.details["installation"]["failure"].is_null()
+                    || !attempt.details["installation"]["transaction"]["first_failure"].is_null()))
+        && setup.discovered.iter().all(|discovered|
+            setup.environment.as_deref() == Some(discovered.environment.as_str())
+                && snapshot.products.iter().any(|product|
+                    product.environment == discovered.environment
+                        && product.module_sha256 == discovered.module_sha256
+                        && product.class_id == discovered.class_id
+                        && product.availability.as_ref().is_some_and(|availability| availability.available)))
+}
+
+struct ApplicationGroup<'a> {
+    environment: &'a str,
+    setup: Option<&'a InstallerSetup>,
+    applications: Vec<&'a VendorApplication>,
+}
+
+fn application_groups<'a>(snapshot: &'a Snapshot, focus: &RouteFocus) -> Vec<ApplicationGroup<'a>> {
+    let mut groups: Vec<ApplicationGroup<'a>> = Vec::new();
+    for app in &snapshot.vendor_applications {
+        let Some(environment) = app.details["environment"].as_str() else { continue; };
+        let setup = snapshot.installer_setups.iter().find(|setup|
+            setup.environment.as_deref() == Some(environment));
+        if focus.setup.as_ref().and_then(|key| key.environment.as_deref())
+            .is_some_and(|selected| selected != environment)
+            || focus.setup_installer.as_ref().is_some_and(|installer|
+                setup.is_none_or(|setup| &setup.installer != installer)) { continue; }
+        if let Some(group) = groups.iter_mut().find(|group| group.environment == environment) {
+            group.applications.push(app);
+        } else {
+            groups.push(ApplicationGroup {environment, setup, applications: vec![app]});
+        }
+    }
+    groups
+}
+
+fn application_group_names(snapshot: &Snapshot, environment: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    for product in &snapshot.products {
+        if product.environment == environment && !names.contains(&product.name) {
+            names.push(product.name.clone());
+        }
+    }
+    names
+}
+
+fn setup_offer_uses_program_choice(snapshot: &Snapshot, setup: &InstallerSetup,
+    offer: &AvailableAction) -> bool {
+    let application = match &offer.action {
+        Action::VendorSoftwareInstall {application, ..}
+            | Action::VendorApplicationFocus {application}
+            | Action::VendorApplicationStop {application} => application,
+        _ => return false,
+    };
+    snapshot.vendor_applications.iter().any(|app| &app.id == application
+        && app.details["choose_application"] == true
+        && app.details["environment"].as_str() == setup.environment.as_deref())
+}
+
 impl Operator {
     fn readiness_details(ui: &mut egui::Ui, assessment: Option<&ReadinessAssessment>,
         fresh: bool, pending: bool, refresh: &mut bool, chosen: &mut Option<Action>) {
@@ -1453,7 +1522,7 @@ impl Operator {
         let unfinished = overview.current.installer_setups.iter().filter(|setup|
             setup.journey.as_ref().map(|journey| journey.phase != InstallationPhase::Available)
                 .unwrap_or(setup.phase != SetupPhase::DiscoveryComplete)
-                && !retained_setup_records_need_refresh(setup, &overview.current))
+                && !setup_history_settled_by_current_products(setup, &overview.current))
             .min_by_key(|setup| setup_attention_priority(setup));
         let needs_setup = overview.current.products.iter().find(|product|
             crate::library::status(product).1 != "published");
@@ -1652,13 +1721,17 @@ impl Operator {
                     ui.label(egui::RichText::new(setup_display_name(setup,&overview.current)).size(18.0).strong());
                     let retained_refresh = retained_setup_records_need_refresh(setup, &overview.current);
                     let partial = partial_installation_needs_review(setup,&overview.current);
+                    let settled = setup_history_settled_by_current_products(setup, &overview.current);
                     ui.strong(if let Some(journey) = &setup.journey { journey_phase_label(journey) }
+                        else if settled {"Plug-ins available in your DAW"}
                         else if retained_refresh {"Installation records need attention"}
                         else if partial {"Review earlier installation"}
                         else {setup_phase_label(&setup.phase)});
                     if let Some(journey) = &setup.journey {
                         ui.label(&setup.status);
                         journey_results(ui, journey);
+                    } else if settled {
+                        ui.label(format!("{} plug-ins available in your DAW.",setup.discovered.len()));
                     } else if retained_refresh {
                         ui.label("Installation records need refreshing before making setup changes.");
                     } else if partial {
@@ -1669,7 +1742,8 @@ impl Operator {
                         && runtime_actions.is_empty() {
                         ui.colored_label(warning_color(ui), &setup.status);
                     } else { ui.label(&setup.status); }
-                    if let Some(primary) = &setup.primary {
+                    if let Some(primary) = setup.primary.as_ref().filter(|offer|
+                        !setup_offer_uses_program_choice(&overview.current,setup,offer)) {
                         crate::library::primary_action(ui, primary,
                             overview.current.system.inactive_reason(), pending, chosen);
                     }
@@ -1678,7 +1752,9 @@ impl Operator {
                             .min_size(egui::vec2(240.0, 44.0))).clicked() {
                         show_discovered_products(setup, library, page);
                     }
-                    Self::buttons(ui, &setup.secondary,
+                    let secondary: Vec<_> = setup.secondary.iter().filter(|offer|
+                        !setup_offer_uses_program_choice(&overview.current,setup,offer)).cloned().collect();
+                    Self::buttons(ui, &secondary,
                         overview.current.system.inactive_reason(), pending, chosen);
                     egui::CollapsingHeader::new("Setup details and options").show(ui, |ui| {
                         ui.small(format!("Recorded installer label: {}",setup.name));
@@ -1709,27 +1785,65 @@ impl Operator {
             ui.colored_label(warning_color(ui),
                 "The selected installer is unavailable in this readback. Refresh or show all setup.");
         }
-        if overview.current.vendor_applications.iter().any(|app|app.details["choose_application"] == true) {
-            ui.heading("Choose the app to open");
-        }
-        for app in &overview.current.vendor_applications {
-            ui.push_id(("vendor-install", &app.id), |ui| {
+        for group in application_groups(&overview.current, focus) {
+            ui.push_id(("application-setup", group.environment), |ui| {
                 egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
                     ui.set_min_width((ui.available_width() - 1.0).max(0.0));
-                    ui.label(egui::RichText::new(&app.name).size(18.0).strong());
-                    if let Ok(journey) = serde_json::from_value::<InstallationJourney>(
-                        app.details["journey"].clone()) {
-                        ui.strong(journey_phase_label(&journey));
-                        journey_results(ui, &journey);
-                    } else {
-                        ui.label("Open this vendor application to install or manage its plug-ins.");
+                    let names = application_group_names(&overview.current, group.environment);
+                    let setup_name = group.setup.map(|setup|setup_display_name(setup,&overview.current))
+                        .unwrap_or_else(|| names.first().cloned().unwrap_or_else(||group.applications[0].name.clone()));
+                    ui.label(egui::RichText::new(format!("Apps for {setup_name}")).size(18.0).strong());
+                    if !names.is_empty() { ui.label(format!("Plug-ins in this setup: {}",names.join(", "))); }
+                    for app in group.applications.iter().filter(|app| app.details["choose_application"] != true) {
+                        ui.push_id(&app.id, |ui| {
+                            ui.strong(&app.name);
+                            if let Ok(journey) = serde_json::from_value::<InstallationJourney>(
+                                app.details["journey"].clone()) {
+                                ui.strong(journey_phase_label(&journey));
+                                journey_results(ui, &journey);
+                            } else { ui.label("Open this app to install or manage its plug-ins."); }
+                            if let Some(consequence) = app.actions.iter().find_map(|offer|
+                                presentation::vendor_install_consequence(&overview.current, &offer.action)) {
+                                ui.label(consequence);
+                            }
+                            let actions: Vec<_> = app.actions.iter().filter(|offer|match offer.action {
+                                Action::VendorApplicationFocus { .. } => app.state == "running",
+                                Action::VendorApplicationStop { .. } => app.state != "closed",
+                                _ => true,
+                            }).cloned().collect();
+                            Self::buttons(ui, &actions,
+                                overview.current.system.inactive_reason(), pending, chosen);
+                        });
                     }
-                    if let Some(consequence) = app.actions.iter().find_map(|offer|
-                        presentation::vendor_install_consequence(&overview.current, &offer.action)) {
-                        ui.label(consequence);
+                    let choices: Vec<_> = group.applications.iter()
+                        .filter(|app|app.details["choose_application"] == true).collect();
+                    if !choices.is_empty() {
+                        ui.strong("Choose the app to open");
+                        ui.label("Select the installed program you want to use in this setup.");
+                        let id = ui.make_persistent_id("installed-program-choice");
+                        let mut selected = ui.data_mut(|data|data.get_temp::<String>(id));
+                        if selected.as_ref().is_some_and(|id|!choices.iter().any(|app|&app.id == id)) { selected = None; }
+                        ui.add_enabled_ui(!pending, |ui| {
+                            egui::ComboBox::from_id_salt("installed-program")
+                                .selected_text(selected.as_ref().and_then(|id|choices.iter().find(|app|&app.id == id))
+                                    .map_or("Choose installed program",|app|app.name.as_str()))
+                                .show_ui(ui, |ui|for app in &choices {
+                                    ui.selectable_value(&mut selected,Some(app.id.clone()),&app.name);
+                                });
+                        });
+                        let app = selected.as_ref().and_then(|id|choices.iter().find(|app|&app.id == id));
+                        if let Some(app) = app {
+                            if let Some(offer) = app.actions.iter().find(|offer|
+                                matches!(offer.action,Action::VendorSoftwareInstall { .. })) {
+                                if let Some(consequence) = presentation::vendor_install_consequence(&overview.current,&offer.action) {
+                                    ui.label(consequence);
+                                }
+                                crate::library::primary_action(ui,offer,
+                                    overview.current.system.inactive_reason(),pending,chosen);
+                            }
+                        } else { ui.add_enabled(false,presentation::primary_button("Open selected app",ui)); }
+                        ui.data_mut(|data|match selected {Some(value)=>{data.insert_temp(id,value);},None=>{data.remove::<String>(id);}});
                     }
-                    Self::buttons(ui, &app.actions,
-                        overview.current.system.inactive_reason(), pending, chosen);
                 });
             });
         }
@@ -4298,7 +4412,159 @@ mod tests {
         }
     }
     #[test]
-    fn mixed_retained_installations_review_the_exact_partial_setup() {
+    fn current_available_products_settle_history_without_rewriting_it() {
+        let mut overview: CurrentOverview = overview_fixture().into();
+        overview.current.products.truncate(1);
+        let product = &mut overview.current.products[0];
+        product.disposition = "ready".into();
+        product.compatibility = None;
+        product.availability = Some(NativeAvailability {available:true,reason:None});
+        let environment = product.environment.clone();
+        let discovered = DiscoveredProduct {environment:environment.clone(),
+            module_sha256:product.module_sha256.clone(),class_id:product.class_id.clone(),name:product.name.clone()};
+        let installer = "retained-partial-installer".to_owned();
+        overview.current.installer_setups = vec![InstallerSetup {installer:installer.clone(),name:"Earlier setup".into(),
+            label_source:"operator_named".into(),byte_size:1024,format:"pe_executable".into(),imported_at:1,
+            phase:SetupPhase::SetupNeedsAttention,status:"Earlier installation completeness was unproved.".into(),
+            environment:Some(environment.clone()),compatibility:None,discovered:vec![discovered],primary:None,secondary:vec![],
+            rename:AvailableAction {label:"Rename".into(),action:Action::InstallerRename {installer:installer.clone(),label:String::new()},disabled_reason:None},
+            journey:None,history:vec![]}];
+        overview.current.onboarding = vec![crate::model::Onboarding {installer,name:"Earlier setup".into(),byte_size:1024,
+            format:"pe_executable".into(),environment:Some(environment),state:"needs_attention".into(),failure:None,
+            required_human_action:"Review retained history before installation changes".into(),actions:vec![],
+            details:serde_json::json!({"installation":{"state":"completed","cleanup_confirmed":true,"owned_live":0,
+                "error":null,"failure":null,"transaction":{"outcome":"partial_installation",
+                    "installation_completeness":"unproved","first_failure":null}}})}];
+        let retained = serde_json::to_value(&overview.current.onboarding).unwrap();
+        assert!(setup_history_settled_by_current_products(&overview.current.installer_setups[0],&overview.current));
+        for outcome in ["partial_installation","installed"] {
+            for available in [true,false] {
+                let mut readback=overview.clone();
+                readback.current.onboarding[0].details["managed_product"]=serde_json::json!(true);
+                readback.current.onboarding[0].details["scan"]=serde_json::json!({});
+                readback.current.onboarding[0].details["installation"]["transaction"]["outcome"]=serde_json::json!(outcome);
+                readback.current.products[0].availability.as_mut().unwrap().available=available;
+                let ctx = result_form_context();
+                let mut output = ctx.run_ui(egui::RawInput::default(),|ui| {
+                    Operator::fast_home(ui,&readback,None,true,false,(&mut Page::Home,
+                        &mut crate::library::Library::default(),&mut RouteFocus::default(),&mut false,&mut None));
+                });
+                let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+                assert_eq!(labels.iter().any(|(label,_)|label.contains("Earlier setup")
+                    && label.starts_with("Next:")),!available,"{outcome}, available={available}");
+                output.textures_delta.clear();
+            }
+        }
+        assert_eq!(serde_json::to_value(&overview.current.onboarding).unwrap(),retained);
+        for case in 0..12 {
+            let mut changed=overview.clone();
+            match case {
+                0=>changed.current.installer_setups[0].environment=Some("different-environment".into()),
+                1=>changed.current.products[0].module_sha256="changed-module".into(),
+                2=>changed.current.products[0].environment="different-environment".into(),
+                3=>changed.current.products.clear(),
+                4=>changed.current.products[0].availability=Some(NativeAvailability {available:false,reason:Some("Current connection failed".into())}),
+                5=>changed.current.products[0].availability=None,
+                6=>{let environment=changed.current.installer_setups[0].environment.clone().unwrap();
+                    changed.current.installer_setups[0].discovered.push(DiscoveredProduct {environment,
+                        module_sha256:"missing-module".into(),class_id:"missing-sibling".into(),name:"Missing sibling".into()});},
+                7|8=>changed.current.installer_setups[0].journey=Some(InstallationJourney {daw:DawChoice::Bitwig,
+                    phase:if case==7 {InstallationPhase::VendorRunning}else{InstallationPhase::NeedsAttention},plugins:vec![],
+                    failure:if case==7 {None}else{Some(InstallationFailure {stage:InstallationFailureStage::Inspection,
+                        reason:"Current inspection failed".into(),code:"inspection_failed".into(),retryable:true})}}),
+                9=>changed.current.installer_setups[0].primary=Some(AvailableAction {label:"Resume".into(),
+                    action:Action::SoftwareInstallResume {onboarding:"exact-owner".into()},disabled_reason:None}),
+                10=>changed.current.onboarding[0].actions.push(AvailableAction {label:"Repair".into(),
+                    action:Action::SoftwareInstallResume {onboarding:"exact-owner".into()},disabled_reason:None}),
+                _=>changed.current.onboarding[0].details["installation"]["transaction"]["first_failure"]=serde_json::json!("retained failure"),
+            }
+            assert!(!setup_history_settled_by_current_products(&changed.current.installer_setups[0],&changed.current),"case {case}");
+        }
+    }
+
+    #[test]
+    fn installed_program_choices_and_registered_apps_keep_their_owned_setup_context() {
+        let mut overview:CurrentOverview=overview_fixture().into();
+        overview.current.installer_setups.clear();
+        overview.current.products.truncate(1);
+        overview.current.products[0].environment="older-owned-environment".into();
+        overview.current.products[0].name="Older instrument".into();
+        let mut second=overview.current.products[0].clone();second.environment="newer-owned-environment".into();
+        second.name="Newer effect".into();second.class_id="other-class".into();overview.current.products.push(second);
+        let row=|id:&str,environment:&str,name:&str,choosing:bool|VendorApplication {id:id.into(),name:name.into(),
+            version:"1.0".into(),state:"closed".into(),details:serde_json::json!({"environment":environment,"choose_application":choosing}),
+            actions:vec![AvailableAction {label:format!("Open {name}"),disabled_reason:None,
+                action:Action::VendorSoftwareInstall {application:id.into(),daw:DawChoice::Other}}]};
+        overview.current.vendor_applications=vec![row("older-app","older-owned-environment","Same app",false),
+            row("newer-app","newer-owned-environment","Same app",false),
+            row("hub-choice","fresh-owned-environment","Source hub (hub)",true),
+            row("helper-choice","fresh-owned-environment","Source hub (helper)",true)];
+        let groups=application_groups(&overview.current,&RouteFocus::default());
+        assert_eq!(groups.len(),3);assert_eq!(groups[2].applications.len(),2);
+        let focus=RouteFocus {setup:Some(AttemptKey {installer:"exact-import".into(),environment:Some("older-owned-environment".into())}),..Default::default()};
+        let focused=application_groups(&overview.current,&focus);assert_eq!(focused.len(),1);
+        assert_eq!(focused[0].applications[0].id,"older-app");
+        let ctx=result_form_context();let mut chosen=None;
+        let mut output=ctx.run_ui(egui::RawInput {screen_rect:Some(egui::Rect::from_min_size(
+            egui::Pos2::ZERO,egui::vec2(1000.0,1400.0))),..Default::default()},|ui| {
+            Operator::fast_setup(ui,&overview,true,false,(&mut false,&mut chosen,&mut false,&mut Page::Setup,
+                &mut crate::library::Library::default(),&mut RouteFocus::default(),&mut Some(DawChoice::Bitwig)));
+        });
+        let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+        assert!(labels.iter().any(|(label,_)|label=="Plug-ins in this setup: Older instrument"));
+        assert!(labels.iter().any(|(label,_)|label=="Plug-ins in this setup: Newer effect"));
+        assert_eq!(labels.iter().filter(|(label,_)|label=="Choose installed program").count(),1);
+        assert!(labels.iter().any(|(label,_)|label=="Open selected app"));
+        assert!(!labels.iter().any(|(label,_)|label=="Open Source hub (helper)" || label=="Open Source hub (hub)"));
+        assert!(!labels.iter().any(|(label,_)|label.contains("owned-environment")));
+        assert!(chosen.is_none());output.textures_delta.clear();
+    }
+
+    #[test]
+    fn explicit_program_selection_opens_only_that_program_in_its_own_setup() {
+        let mut overview:CurrentOverview=overview_fixture().into();
+        overview.current.installer_setups.clear();overview.current.products.clear();
+        let row=|id:&str,environment:&str,name:&str|VendorApplication {id:id.into(),name:name.into(),
+            version:"1.0".into(),state:"closed".into(),details:serde_json::json!({"environment":environment,"choose_application":true}),
+            actions:vec![AvailableAction {label:format!("Open {name}"),disabled_reason:None,
+                action:Action::VendorSoftwareInstall {application:id.into(),daw:DawChoice::Other}}]};
+        overview.current.vendor_applications=vec![row("left-hub","left-setup","Source app (hub)"),
+            row("left-helper","left-setup","Source app (helper)"),row("right-hub","right-setup","Source app (hub)"),
+            row("right-helper","right-setup","Source app (helper)")];
+        let ctx=result_form_context();let mut chosen=None;
+        let render=|overview:&CurrentOverview,events:Vec<egui::Event>,chosen:&mut Option<Action>| {
+            let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,egui::vec2(1000.0,1000.0))),..Default::default()},|ui| {
+                Operator::fast_setup(ui,overview,true,false,(&mut false,chosen,&mut false,&mut Page::Setup,
+                    &mut crate::library::Library::default(),&mut RouteFocus::default(),&mut Some(DawChoice::Bitwig)));
+            });
+            let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+            output.textures_delta.clear();labels
+        };
+        let click=|point:egui::Pos2,pressed|vec![egui::Event::PointerMoved(point),egui::Event::PointerButton {
+            pos:point,button:egui::PointerButton::Primary,pressed,modifiers:egui::Modifiers::NONE}];
+        render(&overview,vec![],&mut chosen);
+        let labels=render(&overview,vec![],&mut chosen);
+        let combo=labels.iter().find(|(label,_)|label=="Choose installed program").unwrap().1;
+        render(&overview,click(combo,true),&mut chosen);render(&overview,click(combo,false),&mut chosen);
+        let labels=render(&overview,vec![],&mut chosen);
+        let helper=labels.iter().find(|(label,_)|label=="Source app (helper)").unwrap().1;
+        render(&overview,click(helper,true),&mut chosen);render(&overview,click(helper,false),&mut chosen);
+        let labels=render(&overview,vec![],&mut chosen);
+        assert_eq!(labels.iter().filter(|(label,_)|label=="Choose installed program").count(),1);
+        let open=labels.iter().find(|(label,_)|label=="Open Source app (helper)").unwrap().1;
+        assert!(chosen.is_none());
+        render(&overview,click(open,true),&mut chosen);render(&overview,click(open,false),&mut chosen);
+        assert_eq!(chosen,Some(Action::VendorSoftwareInstall {application:"left-helper".into(),daw:DawChoice::Other}));
+        chosen=None;
+        overview.current.vendor_applications.retain(|app|app.id!="left-helper");
+        let labels=render(&overview,vec![],&mut chosen);
+        assert_eq!(labels.iter().filter(|(label,_)|label=="Choose installed program").count(),2);
+        assert!(!labels.iter().any(|(label,_)|label=="Open Source app (helper)"));assert!(chosen.is_none());
+    }
+
+    #[test]
+    fn mixed_retained_installations_review_the_partial_setup_without_current_availability() {
         let mut overview:CurrentOverview=overview_fixture().into();
         let base=overview.current.products[0].clone();
         overview.current.products.clear();overview.current.installer_setups.clear();overview.current.onboarding.clear();
@@ -4312,6 +4578,8 @@ mod tests {
                 let mut product=base.clone();product.environment=environment.clone();
                 product.module_sha256=format!("module-{index}-{class}");product.class_id=format!("class-{index}-{class}");
                 product.name=format!("Plug-in {index}.{class}");product.disposition="ready".into();product.compatibility=None;
+                product.availability=Some(NativeAvailability {available:!matches!(index,1|4),
+                    reason:matches!(index,1|4).then(||"Current connection not confirmed".into())});
                 discovered.push(DiscoveredProduct {environment:environment.clone(),module_sha256:product.module_sha256.clone(),
                     class_id:product.class_id.clone(),name:product.name.clone()});
                 overview.current.products.push(product);
