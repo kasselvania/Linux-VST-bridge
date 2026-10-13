@@ -130,8 +130,10 @@ class PreparationSchema(unittest.TestCase):
    env={'id':e['environment'],'root':str(root),'revision':1,'runner':{'files':[]}}
    app={'schema':1,'id':'native-access','environment':env,'files':{n:{'artifact':{'path':str(appdir/n),'sha256':v['sha256']},'size':v['size']} for n,v in e['files'].items()},'installation':{'path':str(managed/'onboarding'/e['environment']/(e['installation_operation']+'-result.json')),'sha256':e['result_sha256']},'observation_sha256':e['observation_sha256'],'source_seal_sha256':e['source_seal_sha256']}
    identity=hashlib.sha256(json.dumps(app,sort_keys=True,separators=(',',':')).encode()).hexdigest()
-   spec={'schema':2,'kind':'native_access_dependency','operation':'a'*32,'application':app,'application_identity':identity,'renderer_policy':'software_rendering','software':{},'software_sha256':'b'*64,'installer_launch':None,'report':str(d/'result.json'),'dependency_mode':'prepare'}
-   records={str(root/'environment.json'):env,str(managed/'software.json'):{},str(d/'spec.json'):spec,str(d.parents[1]/'current.json'):{'operation':'a'*32,'application':identity,'policy':'software_rendering'}}
+   adapter=managed/'software/installer-launch.exe';adapter.parent.mkdir(parents=True);adapter.write_bytes(b'MZfirst-party schema fixture');adapter.chmod(0o400)
+   software={'installer_launch':{'path':str(adapter),'sha256':hashlib.sha256(adapter.read_bytes()).hexdigest()}}
+   spec={'schema':2,'kind':'native_access_dependency','operation':'a'*32,'application':app,'application_identity':identity,'renderer_policy':'software_rendering','software':software,'software_sha256':'b'*64,'installer_launch':software['installer_launch'],'report':str(d/'result.json'),'dependency_mode':'prepare'}
+   records={str(root/'environment.json'):env,str(managed/'software.json'):software,str(d/'spec.json'):spec,str(d.parents[1]/'current.json'):{'operation':'a'*32,'application':identity,'policy':'software_rendering'}}
    class ReachedSharedVerifier(Exception):pass
    def verify(normalized):
     self.assertEqual(normalized['schema'],1);self.assertEqual(normalized['kind'],'renderer_application');self.assertNotIn('dependency_mode',normalized)

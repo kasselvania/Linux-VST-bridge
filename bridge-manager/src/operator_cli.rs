@@ -2528,6 +2528,7 @@ fn execute_with_receipt_policy_progress(
         ui::Action::DependencyPrepare {} => {
             let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
+            linux_vst_bridge::preparation::build::launch_software(m)?;
             suspend(m, owner, Some(owner.into()), timeout, waits)?;
             let submission = match dependency_cli::launch(m, owner) {
                 Ok(s) => s,
@@ -2580,6 +2581,7 @@ fn execute_with_receipt_policy_progress(
         } => {
             let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
+            linux_vst_bridge::preparation::build::launch_software(m)?;
             suspend(m, owner, Some(owner.into()), timeout, waits)?;
             let submission = match renderer_cli::launch(m, application, *policy, owner) {
                 Ok(state) => state,

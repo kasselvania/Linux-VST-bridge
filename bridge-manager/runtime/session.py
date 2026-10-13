@@ -3243,6 +3243,36 @@ def renderer_unique(pairs):
         result[key]=value
     return result
 
+def renderer_launch_software(managed):
+    """Independently derive the exact selected kit's launch execution set."""
+    selected=renderer_read(managed/'software.json')
+    if selected.get('installer_launch') is not None:
+        verify(selected['installer_launch']);return selected
+    import zipfile
+    kit=selected.get('preparation_kit')
+    if not kit or not re.fullmatch('[0-9a-f]{64}',kit.get('sha256','')):raise ValueError('renderer_launch_component_missing')
+    path=pathlib.Path(kit['path']);md=path.lstat()
+    if path.resolve()!=path or not path.is_relative_to(managed/'software') or not stat.S_ISREG(md.st_mode) or md.st_mode&0o222 or md.st_size>256*1024*1024:raise ValueError('renderer_launch_kit_authority')
+    verify(kit)
+    with zipfile.ZipFile(path) as z:
+        if z.getinfo('recipe.json').file_size>65536:raise ValueError('renderer_launch_recipe_extent')
+        recipe=json.loads(z.read('recipe.json'),object_pairs_hook=renderer_unique)
+        names=['runtime/installer-launch.exe','runtime/installer-launch-source.json']
+        if recipe.get('schema')!=4 or not all(n in recipe['files'] for n in names):raise ValueError('renderer_launch_component_missing')
+        for name in names:
+            if z.getinfo(name).file_size>64*1024*1024:raise ValueError('renderer_launch_component_extent')
+            if hashlib.sha256(z.read(name)).hexdigest()!=recipe['files'][name]:raise ValueError('renderer_launch_member_changed')
+        hashes={name:recipe['files'][name] for name in names}
+    for name,sha in hashes.items():
+        if not re.fullmatch('[0-9a-f]{64}',sha):raise ValueError('renderer_launch_component_identity')
+        staged=managed/'software/preparation-kits'/kit['sha256']/pathlib.PurePosixPath(name).name;md=staged.lstat()
+        if staged.resolve()!=staged or not stat.S_ISREG(md.st_mode) or md.st_mode&0o222:raise ValueError('renderer_launch_component_authority')
+        verify({'path':str(staged),'sha256':sha})
+    sha=hashes[names[0]]
+    adapter=managed/'software/preparation-kits'/kit['sha256']/'installer-launch.exe'
+    selected['installer_launch']={'path':str(adapter),'sha256':sha};verify(selected['installer_launch'])
+    return selected
+
 def renderer_validate(spec, *, dependency=False):
     # Installed entry: no caller-selected home, environment, manifest or fixture.
     fields={'schema','kind','application','application_identity','operation','renderer_policy','report','software','software_sha256','installer_launch'}
@@ -3270,7 +3300,7 @@ def renderer_validate(spec, *, dependency=False):
         if files[name]!={'artifact':{'path':str(application/name),'sha256':witness['sha256']},'size':witness['size']}:raise ValueError('renderer_production_resource')
     installation=managed/'onboarding'/expected['environment']/(expected['installation_operation']+'-result.json')
     if app.get('installation')!={'path':str(installation),'sha256':expected['result_sha256']}:raise ValueError('renderer_production_installation')
-    if spec.get('software')!=renderer_read(managed/'software.json'):raise ValueError('renderer_current_software')
+    if spec.get('software')!=renderer_launch_software(managed):raise ValueError('renderer_current_software')
     # Persisted request and reservation must name this exact application and operation.
     if renderer_read(directory/'spec.json')!=spec:raise ValueError('renderer_persisted_spec')
     if renderer_read(managed/'vendor-applications'/namespace/'current.json')!={'operation':op,'application':spec['application_identity'],'policy':spec['renderer_policy']}:raise ValueError('renderer_reservation')

@@ -14,7 +14,7 @@ pub(super) fn all_retired(m: &Manager) -> Result<bool> {
 pub(super) fn launch(m: &Manager, op: &str) -> Result<life::Submission> {
     let application=renderer_cli::current_application(m)?;
     application.verify(&m.root)?;
-    let software = software(m)?;
+    let software = linux_vst_bridge::preparation::build::launch_software(m)?;
     let directory = life::operation_dir(m, op)?;
     let spec = dep::bind(&application, &software, op, &directory.join("result.json"))?;
     let _guard = m.lock("registry.lock")?;
@@ -51,11 +51,11 @@ pub(super) fn launch(m: &Manager, op: &str) -> Result<life::Submission> {
 }
 pub(super) fn retain(m: &Manager, op: &str) -> Result<()> {
     let application=renderer_cli::current_application(m)?;
-    dep::retain_prepared(m, &application, &software(m)?, op)
+    dep::retain_prepared(m, &application, &linux_vst_bridge::preparation::build::launch_software(m)?, op)
 }
 pub(super) fn prepared(m: &Manager) -> Result<Value> {
     let app=renderer_cli::current_application(m)?;
-    dep::prepared(m, &app, &software(m)?)
+    dep::prepared(m, &app, &linux_vst_bridge::preparation::build::launch_software_record(m)?)
 }
 pub(super) fn project(
     m: &Manager,

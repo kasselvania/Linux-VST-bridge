@@ -243,7 +243,7 @@ fn begin(m:&Manager,application:&str,policy:renderer::RendererPolicy,daw:ui::Daw
     let app=renderer_cli::current_application(m)?;
     require(app.identity()?==application,"renderer_application_selection_changed")?;app.verify(&m.root)?;
     require(renderer_cli::all_retired(m)?,"renderer_previous_cleanup_unconfirmed")?;
-    let sw=software(m)?;
+    let sw=prep::build::launch_software(m)?;
     let selected=control_artifact(renderer_session::directory(m).join("application.json"))?;
     let prior=latest(m)?;
     let mut intent=Intent {owner:owner.into(),active_operation:owner.into(),vendor:None,
@@ -259,7 +259,9 @@ fn begin(m:&Manager,application:&str,policy:renderer::RendererPolicy,daw:ui::Daw
             may_reuse_baseline(m,&prior,&app.environment,||renderer_session::retired(m,&prior.intent.owner))?;
             capture_baseline=false;
             intent.prior_selections=prior.intent.prior_selections.clone();
-            intent.prior_modules=prior.intent.prior_modules.clone();intent.predecessors=prior.intent.predecessors.clone();
+            intent.prior_modules=prior.intent.prior_modules.clone();
+            intent.predecessors=prior.intent.predecessors.iter()
+                .map(|predecessor|package_authority::renewed_predecessor(m,predecessor)).collect::<Result<Vec<_>>>()?;
         }
         intent.previous=Some(retain_previous(m,&prior)?);
     }

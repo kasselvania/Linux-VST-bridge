@@ -36,6 +36,114 @@ pub fn recipe_for_software(m: &Manager, software: &crate::catalogue::Software) -
     kit.verify()?;
     Ok(kit)
 }
+/// Resolve this selected generation's complete launch execution set. The signed
+/// kit owns optional launch bytes; legacy Runtime and selected Software stay intact.
+pub fn launch_software(m:&Manager)->Result<crate::catalogue::Software> {
+    let mut selected:crate::catalogue::Software=read_json(&m.root.join("software.json"))?;
+    selected.validate_record()?;
+    for artifact in [&selected.manager,&selected.supervisor,&selected.ownership,
+        &selected.host,&selected.source_manifest] {artifact.verify()?;}
+    if let Some(adapter)=&selected.installer_launch {adapter.verify()?;return Ok(selected);}
+    let kit=recipe_for_software(m,&selected)?;
+    let script=r#"import sys,json,zipfile,re
+with zipfile.ZipFile(sys.argv[1]) as z:
+ assert z.getinfo('recipe.json').file_size<=65536
+ r=json.loads(z.read('recipe.json'));assert r['schema']==4
+ name='runtime/installer-launch.exe'
+ value=r['files'].get(name)
+ if value is not None:
+  value={n:r['files']['runtime/'+n] for n in ['installer-launch.exe','installer-launch-source.json']}
+  assert all(re.fullmatch('[a-f0-9]{64}',v) for v in value.values())
+ print(json.dumps(value))
+"#;
+    let mut child=Command::new("python3").args(["-I","-c",script])
+        .arg(&kit.path).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn()?;
+    let deadline=Instant::now()+Duration::from_secs(3);
+    let status=loop {
+        if let Some(status)=child.try_wait()? {break status;}
+        if Instant::now()>=deadline {child.kill()?;child.wait()?;return Err("launch_component_read_deadline".into());}
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    let mut bytes=vec![];child.stdout.take().ok_or("launch_component_output")?.take(513).read_to_end(&mut bytes)?;
+    require(status.success() && bytes.len()<=512,"launch_component_recipe_invalid")?;
+    let hashes:Option<std::collections::BTreeMap<String,String>>=serde_json::from_slice(&bytes)?;
+    let hashes=hashes.ok_or("The managed application launch component is missing. Install the complete bridge update.")?;
+    let runtime=stage_runtime_for_software(m,&selected)?;
+    stage_launch_files(m,&kit,&hashes)?;
+    let adapter=Artifact {path:runtime.host.path.with_file_name("installer-launch.exe"),sha256:hashes["installer-launch.exe"].clone()};
+    require(adapter.path.canonicalize()?==adapter.path
+        && file(&adapter.path)?.metadata()?.mode()&0o222==0,"launch_component_not_immutable")?;
+    adapter.verify()?;selected.installer_launch=Some(adapter);Ok(selected)
+}
+
+// Old readers can stage this same kit without knowing its optional launch
+// members. Complete only those missing files under the existing kit owner;
+// never rewrite runtime.json or replace a changed retained image.
+fn stage_launch_files(m:&Manager,kit:&Artifact,hashes:&std::collections::BTreeMap<String,String>)->Result<()> {
+    let _lock=m.lock("preparation-kit.lock")?;
+    let dir=runtime_dir(m,&kit.sha256)?;
+    require(dir.canonicalize()?==dir,"launch_component_directory_alias")?;
+    let mut missing=vec![];
+    for (name,sha) in hashes {
+        require(matches!(name.as_str(),"installer-launch.exe"|"installer-launch-source.json")
+            && valid_hex(sha,64),"launch_component_recipe_invalid")?;
+        let path=dir.join(name);
+        if path.try_exists()? {
+            require(path.canonicalize()?==path && file(&path)?.metadata()?.mode()&0o222==0,
+                "launch_component_not_immutable")?;
+            Artifact{path,sha256:sha.clone()}.verify()?;
+        } else {missing.push(name.clone());}
+    }
+    if missing.is_empty(){return Ok(());}
+    let stage=dir.with_file_name(format!(".launch-{}",random_id()?));private_dir(&stage)?;
+    let script=r#"import sys,json,zipfile,pathlib,hashlib
+kit,out,names=sys.argv[1:];out=pathlib.Path(out)
+with zipfile.ZipFile(kit) as z:
+ assert z.getinfo('recipe.json').file_size<=65536
+ r=json.loads(z.read('recipe.json'));assert r['schema']==4
+ for name in json.loads(names):
+  key='runtime/'+name;i=z.getinfo(key);assert not i.is_dir() and i.file_size<=64*1024*1024
+  b=z.read(i);assert hashlib.sha256(b).hexdigest()==r['files'][key]
+  (out/name).write_bytes(b)
+"#;
+    let result=(||->Result<()> {
+        let mut child=Command::new("python3").args(["-I","-c",script]).arg(&kit.path).arg(&stage)
+            .arg(serde_json::to_string(&missing)?).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn()?;
+        let deadline=Instant::now()+Duration::from_secs(30);
+        let status=loop {
+            if let Some(status)=child.try_wait()?{break status;}
+            if Instant::now()>=deadline{child.kill()?;child.wait()?;return Err("launch_component_unpack_deadline".into());}
+            std::thread::sleep(Duration::from_millis(20));
+        };
+        require(status.success(),"launch_component_package_incomplete")?;kit.verify()?;
+        for name in &missing {
+            let path=stage.join(name);Artifact{path:path.clone(),sha256:hashes[name].clone()}.verify()?;
+            fs::set_permissions(&path,fs::Permissions::from_mode(0o400))?;file(&path)?.sync_all()?;
+            crate::publication::rename_link(&path,&dir.join(name),false)?;
+        }
+        File::open(&dir)?.sync_all()?;Ok(())
+    })();
+    fs::remove_dir_all(&stage)?;result
+}
+
+/// Historical preparation readback only. Mutation independently verifies the
+/// signed kit and every launch byte through launch_software.
+pub fn launch_software_record(m:&Manager)->Result<crate::catalogue::Software> {
+    let mut selected:crate::catalogue::Software=read_json(&m.root.join("software.json"))?;
+    selected.validate_record()?;
+    if selected.installer_launch.is_some(){return Ok(selected);}
+    let kit=selected.preparation_kit.as_ref().ok_or("launch_component_record_missing")?;
+    let dir=runtime_dir(m,&kit.sha256)?;
+    let path=dir.join("installer-launch-source.json");
+    require(path.canonicalize()?==path && file(&path)?.metadata()?.mode()&0o222==0,"launch_component_record_authority")?;
+    let source:Value=bounded(&path)?;
+    require(source["schema"]==1 && source["component"]=="installer_launch","launch_component_record_identity")?;
+    let sha=source["artifact_sha256"].as_str().filter(|s|valid_hex(s,64)).ok_or("launch_component_record_identity")?;
+    let adapter=Artifact{path:dir.join("installer-launch.exe"),sha256:sha.into()};adapter.validate_record()?;
+    require(adapter.path.canonicalize()?==adapter.path && file(&adapter.path)?.metadata()?.mode()&0o222==0,
+        "launch_component_record_authority")?;
+    selected.installer_launch=Some(adapter);Ok(selected)
+}
 /// A verified kit must bind this exact native binary as well as module/class.
 /// An older proxy cannot acquire a larger envelope from a newer manager alone.
 pub fn maximum_bridge_frames(m: &Manager, r: &Registration) -> Result<Option<u32>> {
@@ -480,6 +588,10 @@ with zipfile.ZipFile(kit) as z:
  present=[('runtime/'+n) in recipe['files'] for n in helpers]
  assert not any(present) or all(present)
  if all(present):names += [('runtime/'+n,n) for n in helpers]
+ launch=['installer-launch.exe','installer-launch-source.json']
+ present=[('runtime/'+n) in recipe['files'] for n in launch]
+ assert not any(present) or all(present)
+ if all(present):names += [('runtime/'+n,n) for n in launch]
  for key,name in names:
   i=z.getinfo(key);assert not i.is_dir() and i.file_size<=64*1024*1024
   b=z.read(i);assert hashlib.sha256(b).hexdigest()==recipe['files'][key]
@@ -532,6 +644,9 @@ with zipfile.ZipFile(kit) as z:
         ["lvb-direct-wait.dll","x86_64-windows/lvb-direct-wait.dll","x86_64-unix/lvb-direct-wait.so","direct-audio-helper.json"]
             .into_iter().map(artifact).collect::<Result<Vec<_>>>()?
     } else {vec![]};
+    if stage.join("installer-launch.exe").exists() {
+        artifact("installer-launch.exe")?;artifact("installer-launch-source.json")?;
+    }
     let r = Runtime {
         direct_audio_helpers,
         kit,
@@ -673,4 +788,60 @@ pub fn reusable(
     }
     require(found.len() <= 1, "preparation_outputs_ambiguous")?;
     Ok(found.pop())
+}
+
+#[cfg(test)] mod launch_component_tests {
+    use super::*;
+    #[test]
+    fn selected_kit_component_is_exact_and_old_runtime_shape_stays_readable() {
+        let (f,_)=crate::test_fixture::prepared_candidate(&"13".repeat(16));
+        let selected=crate::catalogue::Software {manager:f.r.host.clone(),supervisor:f.r.host.clone(),
+            ownership:f.r.host.clone(),host:f.r.host.clone(),source_manifest:Artifact {
+                path:f.r.host.path.with_file_name("host-source-manifest.json"),sha256:f.r.host_source_sha256.clone()},
+            source_sha256:f.r.host_source_sha256.clone(),installer_launch:None,preparation_kit:None,
+            operator_frontend:None,native_catalogue:None};
+        let kit=f.m.root.join("software/launch-kit.zip");
+        crate::test_fixture::reusable_kit(&kit,&selected.host,&selected.source_manifest,"test engine");
+        let mut original=selected.clone();original.preparation_kit=Some(Artifact {path:kit.clone(),sha256:digest(&kit).unwrap()});
+        atomic_json(&f.m.root.join("software.json"),&original).unwrap();
+        assert!(launch_software_record(&f.m).is_err());
+        assert!(!f.m.root.join("software/preparation-kits").join(&original.preparation_kit.as_ref().unwrap().sha256).exists());
+        assert!(launch_software(&f.m).err().unwrap().to_string().contains("launch component is missing"));
+        let script=r#"import zipfile,json,hashlib,sys
+p=sys.argv[1]
+with zipfile.ZipFile(p) as z:values={n:z.read(n) for n in z.namelist()}
+r=json.loads(values['recipe.json']);values['runtime/installer-launch.exe']=b'MZfirst-party launch component'
+values['runtime/installer-launch-source.json']=json.dumps({'schema':1,'component':'installer_launch','artifact_sha256':hashlib.sha256(values['runtime/installer-launch.exe']).hexdigest()}).encode()
+for n in ['runtime/installer-launch.exe','runtime/installer-launch-source.json']:r['files'][n]=hashlib.sha256(values[n]).hexdigest()
+values['recipe.json']=json.dumps(r).encode()
+with zipfile.ZipFile(p,'w') as z:
+ for n,b in values.items():z.writestr(n,b)
+"#;
+        fs::set_permissions(&kit,fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(Command::new("python3").args(["-I","-c",script]).arg(&kit).status().unwrap().success());
+        original.preparation_kit.as_mut().unwrap().sha256=digest(&kit).unwrap();
+        fs::set_permissions(&kit,fs::Permissions::from_mode(0o400)).unwrap();
+        atomic_json(&f.m.root.join("software.json"),&original).unwrap();let selected_bytes=fs::read(f.m.root.join("software.json")).unwrap();
+        let effective=launch_software(&f.m).unwrap();let adapter=effective.installer_launch.clone().unwrap();adapter.verify().unwrap();
+        assert!(launch_software_record(&f.m).unwrap()==effective);
+        assert_eq!(file(&adapter.path).unwrap().metadata().unwrap().mode()&0o222,0);
+        assert_eq!(fs::read(f.m.root.join("software.json")).unwrap(),selected_bytes);
+        let runtime=existing_runtime(&f.m,&original.preparation_kit.as_ref().unwrap().sha256).unwrap();
+        let raw:Value=read_json(&runtime.host.path.with_file_name("runtime.json")).unwrap();
+        assert!(raw.get("installer_launch").is_none());
+        let runtime_path=runtime.host.path.with_file_name("runtime.json");let runtime_bytes=fs::read(&runtime_path).unwrap();
+        // A prior reader's cache has the same exact owned runtime.json, but
+        // does not know these optional members. Readback must not install them.
+        fs::remove_file(&adapter.path).unwrap();
+        fs::remove_file(adapter.path.with_file_name("installer-launch-source.json")).unwrap();
+        assert!(launch_software_record(&f.m).is_err());assert!(!adapter.path.exists());
+        assert_eq!(fs::read(&runtime_path).unwrap(),runtime_bytes);
+        assert!(launch_software(&f.m).unwrap()==effective);
+        assert!(launch_software_record(&f.m).unwrap()==effective);
+        assert_eq!(fs::read(&runtime_path).unwrap(),runtime_bytes);
+        assert_eq!(fs::read(f.m.root.join("software.json")).unwrap(),selected_bytes);
+        fs::set_permissions(&adapter.path,fs::Permissions::from_mode(0o600)).unwrap();fs::write(&adapter.path,b"changed").unwrap();
+        fs::set_permissions(&adapter.path,fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(launch_software(&f.m).is_err());
+    }
 }

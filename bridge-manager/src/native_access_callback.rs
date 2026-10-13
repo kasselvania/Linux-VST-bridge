@@ -70,7 +70,7 @@ pub fn deliver(m: &Manager, url: &str) -> Result<()> {
     require(valid_hex(op, 32), "native_access_callback_operation")?;
     let d = renderer_session::operation_dir(m, op)?;
     let spec: serde_json::Value = read_json(&d.join("spec.json"))?;
-    let sw: catalogue::Software = read_json(&m.root.join("software.json"))?;
+    let sw = crate::preparation::build::launch_software(m)?;
     sw.manager.verify()?;
     sw.supervisor.verify()?;
     sw.ownership.verify()?;
