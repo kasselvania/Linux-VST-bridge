@@ -846,11 +846,14 @@ created nothing, and for the service to allow a later retry.
 
 ## FC-LIFE-002 — Failed launch cleanup and truthful recovery state
 
-Test59 fixes omitted vendor-application cards in normal Deck Setup. Two retained
-continuation gaps remain: the hub-only bootstrap's automatic discovery finds no
-plug-ins and requires resuming that unfinished installation before opening the hub;
-the older ASC installation has no original managed installation record, so its
-continuation action stays disabled. Neither path is qualified on Deck.
+Test60 fixes both retained Deck continuation gaps: the actual app-only bootstrap
+opens its hub and automatically connects two installed classes after full helper
+retirement; a repeat visit revalidates both. Original ASC opens and reconnects its
+four classes from genuine older history, without a newer onboarding receipt.
+All six original authority records stay exact; the new instrument/effect play and
+recall in fresh Bitwig. Test61 settles Kontakt's history-only Home reminder.
+Serum FX still needs ordinary automatic managed-setup recovery; Native Access
+still needs its renderer continuation adapter and installed proof.
 
 Test56's direct automatic installation identifies the exact live vendor/inspection
 owner's bridge pause and returns to normal service with two new classes available;
@@ -860,7 +863,7 @@ revalidation wrote an id-only checkpoint into guided-check history. The checkpoi
 now belongs to its exact operator child. Test58 verifies both real vendor visits,
 full helper retirement, unchanged-sibling renewal, normal status and fresh musical
 recall with the protected content/preferences/history retained. Native Access's
-separate continuation owner remains open; no new music-time service requirement
+existing renderer owner still needs its continuation adapter; no new music-time service requirement
 was established. Runtime verification latency also remains open: Test58's normal
 update completed within 623–755 seconds.
 [Scoped installed result](../evidence/cachyos-reaper.json).

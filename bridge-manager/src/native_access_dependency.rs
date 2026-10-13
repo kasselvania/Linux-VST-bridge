@@ -1,6 +1,34 @@
 //! One exact Native Access dependency; no caller-selectable service or executable.
 use crate::{catalogue::Software, renderer_application as app, *};
 use serde_json::{json, Value};
+
+/// Immutable session cleanup facts, shared by current readback and revision history.
+/// This grants no launch or current process authority.
+pub fn session_cleanup_confirmed(result: &Value) -> Result<bool> {
+    let dependency=&result["dependency"];
+    let disposition=dependency["dependency_cleanup_disposition"].as_str()
+        .ok_or("renderer_dependency_cleanup_disposition")?;
+    let cleanup_confirmed=match disposition {
+        "graceful_service_retirement"=>dependency["service_retirement_confirmed"]==true
+            && dependency["process_cleanup_confirmed"]==true
+            && dependency["forced_cleanup_used"]==false,
+        "exact_owned_session_cleanup"=>dependency["service_retirement_confirmed"]==false
+            && dependency["process_cleanup_confirmed"]==true
+            && dependency["forced_cleanup_used"]==true
+            && dependency["service_stop_request_count"].as_u64().is_some_and(|v|v<=1)
+            && dependency["stop_observation"]["classification"]!="NAD2_STOP_OBSERVATION_UNAVAILABLE"
+            && dependency["post_cleanup"]["cgroup_empty"]==true
+            && dependency["post_cleanup"]["exact_daemon_generation_absent"]==true
+            && dependency["post_cleanup"]["listener_mask"]==0
+            && dependency["post_cleanup"]["candidate_count"]==0
+            && dependency["post_cleanup"]["candidate_observation_unavailable"]==0
+            && dependency["post_cleanup"]["application_image_unchanged"]==true
+            && dependency["post_cleanup"]["daemon_image_unchanged"]==true,
+        "cleanup_unconfirmed"=>false,
+        _=>return Err("renderer_dependency_cleanup_disposition".into()),
+    };
+    Ok(cleanup_confirmed)
+}
 pub const INSTALLER: &str="Program Files/Native Instruments/Native Access/resources/daemon/win/NTKDaemon 1.32.0 Setup PC.exe";
 pub const INSTALLER_SHA: &str = "5f2199f4e1409d6eea5edaea9c4a8af31e8ee8ac3790851aa44d33e87a46b218";
 pub const DAEMON: &str = "Program Files/Common Files/Native Instruments/NTK/NTKDaemon.exe";

@@ -11,13 +11,18 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
-Test59 is installed on the physical SteamOS 3.8.16 Deck through ordinary Update
-Bridge. Setup now shows the retained vendor applications. All 15 published classes,
-181 original Bitwig projects and 441 protected files survive; only registry adoption
-metadata changes. A separate first-party Reference project saves a changed control,
-restores it in a fresh Bitwig 6.1 process and produces finite nonzero stereo audio
-before and after reopening. Ordinary preferences are restored exactly.
+Test60/61 are installed on SteamOS 3.8.16 Deck through ordinary Update Bridge.
+The actual retained app-only hub bootstrap now opens normally, installs two
+classes and connects them automatically after full helper retirement; its repeat
+visit revalidates both. Genuine older ASC continuation rechecks four existing
+classes while all six original authority records stay exact. A separate new
+Bitwig 6.1 project uses the hub instrument/effect, recalls eight notes and controls
+in a fresh process, and produces finite nonzero stereo audio before/after reopen.
+All 23 original preferences are restored exactly. Test61 settles Kontakt's stale
+Home reminder and groups application choices by their owned setup.
 [Scoped Deck result](../evidence/reference-runtime-deck.json).
+Fresh clean app selection, automatic Serum FX recovery and Native Access's
+renderer continuation are still pending; runtime verification latency remains open.
 
 Test58's corrected first-party vendor-application continuation passes in the
 disposable CachyOS VM / native REAPER 7.82 at 44.1 kHz / 512 frames. Its first
@@ -27,7 +32,7 @@ siblings with retained history and preferences; normal status shows six availabl
 classes. All 15 unrelated protected
 files stay exact; only two target authority metadata files renew. Both roles play
 nonzero audio with automation and recall controls, MIDI and envelopes after a fresh
-reopen, retaining the exact saved project. Native Access's separate owner and
+reopen, retaining the exact saved project. Native Access's continuation adapter and
 runtime verification latency remain open.
 [Scoped vendor-application result](../evidence/cachyos-reaper.json).
 
