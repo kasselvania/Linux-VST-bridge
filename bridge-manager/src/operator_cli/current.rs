@@ -133,6 +133,7 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
                 "operator_current_onboarding_binding")?;
             if let Some(op) = record.installation_operation {
                 paths.insert(dir.join(format!("{op}-result.json")));
+                paths.insert(dir.join(format!("{op}-transaction-private.json")));
             }
             paths.insert(m.root.join("inventory").join(format!("{}.json",record.environment.id)));
         }
@@ -140,6 +141,14 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
     let inventory = m.root.join("inventory");
     paths.insert(inventory);
     paths.insert(m.root.join("operator"));
+    for binding in automatic_install::current_vendor_bindings(m)? {
+        let dir=job_dir(m,&binding.operation)?;
+        paths.insert(dir.clone());
+        paths.insert(dir.join("automatic.json"));
+        paths.insert(dir.join("vendor-maintenance.json"));
+        paths.insert(binding.environment.root.join("environment.json"));
+        paths.insert(m.root.join("inventory").join(format!("{}.json",binding.environment.id)));
+    }
     for installation in environment_install::records(m)? {
         let dir = job_dir(m,&installation.operation)?;
         paths.insert(dir.clone());
@@ -368,7 +377,7 @@ pub(super) fn live_vendor_progress_with(m: &Manager, is_live: impl FnOnce() -> R
     -> Result<Option<vendor_application::Operation>> {
     live_vendor_progress_selected(m, ASC, is_live)
 }
-fn live_vendor_progress_selected(
+pub(super) fn live_vendor_progress_selected(
     m: &Manager,
     selector: &str,
     is_live: impl FnOnce() -> Result<bool>,
@@ -738,11 +747,15 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
-    use crate::operator_cli::tests::{capacity_json, overview_service_reply};
+    use crate::operator_cli::tests::{capacity_json, overview_service_reply, overview_service_reply_with_counts};
     fn selected_vendor_fixture() -> (test_fixture::Fixture, vendor_application::Application) {
         let (f, _) = preparation_cli::tests::projection_fixture();
+        let app=selected_vendor_application(&f);
+        (f,app)
+    }
+    pub(crate) fn selected_vendor_application(f: &test_fixture::Fixture) -> vendor_application::Application {
         let environment = f.r.environment.clone();
         let executable = environment.root.join("compatdata/pfx/drive_c/Hub.exe");
         fs::write(&executable, b"MZ owned source hub").unwrap();
@@ -781,7 +794,7 @@ mod tests {
         let directory = vendor_cli::directory(&f.m,&app.selector().unwrap()).unwrap();
         private_dir(&directory).unwrap();
         atomic_json(&directory.join("application.json"),&app).unwrap();
-        (f,app)
+        app
     }
     #[test]
     fn registered_vendor_application_reaches_fast_setup_and_normal_action_authority() {
@@ -820,11 +833,15 @@ mod tests {
             server.join().unwrap();
             assert!(watched.iter().zip(&before).all(|(path,bytes)|fs::read(path).unwrap()==*bytes),
                 "Current cards and action admission must not launch or alter installation records");
-            for changed in [ui::Request {state_token:"stale".into(),..request.clone()},
+            for (index,changed) in [ui::Request {state_token:"stale".into(),..request.clone()},
                 ui::Request {action:ui::Action::VendorSoftwareInstall {
-                    application:"de".repeat(32),daw:ui::DawChoice::Bitwig},..request.clone()}] {
-                let server = overview_service_reply(&f.m,capacity_json(false,0,0));
-                assert!(validate_current_request(&f.m,&changed).is_err());
+                    application:"de".repeat(32),daw:ui::DawChoice::Bitwig},..request.clone()}].into_iter().enumerate() {
+                // An unknown exact app now refuses before external final rechecks.
+                let counts=if index == 1 {(1,1)} else {(1,3)};
+                let server = overview_service_reply_with_counts(&f.m,capacity_json(false,0,0),counts);
+                let refusal=validate_current_request(&f.m,&changed).unwrap_err().to_string();
+                assert_eq!(refusal,if index == 1 {"vendor_application_choice_unavailable"}
+                    else {"operator_stale_request_refresh"});
                 server.join().unwrap();
             }
             fs::write(&app.executable.path,b"changed source hub").unwrap();
@@ -836,6 +853,41 @@ mod tests {
             let server = overview_service_reply(&f.m,capacity_json(false,0,0));
             assert!(validate_current_request(&f.m,&request).is_err());
             server.join().unwrap();
+        });
+    }
+    #[test]
+    fn vendor_checkpoint_change_invalidates_captured_watch_and_action_token() {
+        let (f,app)=selected_vendor_fixture();let selector=app.selector().unwrap();
+        let owner=random_id().unwrap();let dir=job_dir(&f.m,&owner).unwrap();private_dir(&dir).unwrap();
+        let selected=control_artifact(vendor_cli::directory(&f.m,&selector).unwrap().join("application.json")).unwrap();
+        let vendor_operation=random_id().unwrap();
+        atomic_json(&dir.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"test".into(),
+            action:ui::Action::VendorSoftwareInstall {application:selector.clone(),daw:ui::DawChoice::Bitwig}}).unwrap();
+        let mut after=app.environment.clone();after.revision+=1;
+        atomic_json(&dir.join("vendor-maintenance.json"),&environment_revision::VendorBinding {
+            schema:1,operation:owner.clone(),application:selector.clone(),selected:selected.clone(),
+            vendor_operation:vendor_operation.clone(),before:app.environment.clone(),environment:after.clone()}).unwrap();
+        atomic_json(&after.root.join("environment.json"),&after).unwrap();
+        let mut intent=automatic_install::Intent {owner:owner.clone(),active_operation:owner,
+            vendor:Some(automatic_install::VendorWork {application:selector.clone(),selected,operation:vendor_operation,result:None}),
+            journey:ui::InstallationJourney {daw:ui::DawChoice::Bitwig,phase:ui::InstallationPhase::NeedsAttention,
+                plugins:vec![],failure:Some(ui::InstallationFailure {stage:ui::InstallationFailureStage::Preparation,
+                    code:"interrupted".into(),reason:"Interrupted connection".into(),retryable:true})},
+            scan:None,prior_selections:vec![],prior_modules:vec![],failed_modules:vec![],work:vec![],predecessors:vec![],previous:None};
+        let checkpoint=dir.join("automatic.json");atomic_json(&checkpoint,&intent).unwrap();
+        readiness::with_unit_state_fixture(&[vendor_cli::unit(&selector).unwrap()],"inactive",|| {
+        let before=token(&f.m).unwrap();let sw=software_record(&f.m).unwrap();
+        let watched=watch_paths(&f.m,&sw,&f.m.registry().unwrap()).unwrap();
+        assert!(watched.contains_key(&checkpoint));
+        let context=context_for_watched(&f.m,watched);
+        let request=ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:before.clone(),
+            action:ui::Action::VendorSoftwareInstall {application:selector,daw:ui::DawChoice::Bitwig}};
+        intent.scan=Some(random_id().unwrap());intent.prior_modules.push("de".repeat(32));
+        atomic_json(&checkpoint,&intent).unwrap();
+        assert_ne!(token(&f.m).unwrap(),before);
+        assert_eq!(context.recheck_with(&f.m,||Ok(())).unwrap_err().to_string(),"operator_state_changed_refresh");
+        let mut offered=context.snapshot.clone();offered.state_token=token(&f.m).unwrap();
+        assert_eq!(validate(&request,&offered).unwrap_err().to_string(),"operator_stale_request_refresh");
         });
     }
     fn managed_discovery_fixture() -> (test_fixture::Fixture, preparation::Candidate, ui::Action) {

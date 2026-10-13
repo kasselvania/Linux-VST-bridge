@@ -89,7 +89,8 @@ fn token_with_registry(m: &Manager, registry: &Registry) -> Result<String> {
             "installer_presentations":installer_import::presentation_token(m)?,
             "environment_installations":environment_install::records(m)?,
             "environment_runtime_transitions":environment_runtime::records(m)?,
-            "onboarding_history":onboarding::history_records(m)?}),
+            "onboarding_history":onboarding::history_records(m)?,
+            "vendor_checkpoints":automatic_install::vendor_checkpoint_authority(m)?}),
     )?)))
 }
 fn action(label: &str, action: ui::Action, reason: Option<&str>) -> ui::AvailableAction {
@@ -162,11 +163,24 @@ fn app_directory(m: &Manager) -> PathBuf {
     m.root.join("vendor-applications").join(ASC)
 }
 fn vendor_projections(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::VendorApplication>> {
-    vendor_cli::selectors(m)?
+    let selected = vendor_cli::selectors(m)?;
+    let mut rows = selected
         .iter()
         .map(|selector| vendor_projection(m, selector, busy))
         .collect::<Result<Vec<_>>>()
-        .map(|rows| rows.into_iter().flatten().collect())
+        .map(|rows| rows.into_iter().flatten().collect::<Vec<_>>())?;
+    for record in onboarding::history_records(m)? {
+        if selected.iter().any(|selector| vendor_cli::application(m, selector).is_ok_and(|app|
+            app.environment.id == record.id && app.installer_sha256 == record.installer)) { continue; }
+        // Observation failures belong to this setup's recovery projection;
+        // unrelated registered applications retain their own valid authority.
+        let Ok(choices) = vendor_cli::selection::choices(m, &record) else { continue; };
+        for choice in choices {
+            let selector = choice.application.selector()?;
+            if let Some(row) = vendor_projection(m, &selector, busy)? { rows.push(row); }
+        }
+    }
+    Ok(rows)
 }
 fn vendor_projection(
     m: &Manager,
@@ -174,35 +188,40 @@ fn vendor_projection(
     busy: Option<&str>,
 ) -> Result<Option<ui::VendorApplication>> {
     let directory = vendor_cli::directory(m, selector)?;
-    if !directory.join("application.json").exists() {
-        return Ok(None);
-    }
+    let choosing = !directory.join("application.json").exists();
     let a = vendor_cli::application(m, selector)?;
     let live = vendor_cli::live(selector)?;
     let valid = a.verify(&m.root).is_ok();
     let record = onboarding::retained_environment_record(m, &a.environment.id)?;
-    let restartable=record.as_ref().and_then(|r|r.automatic.as_ref())
+    let continuation = automatic_install::vendor_intent(m, selector)?;
+    let current_intent = continuation.as_ref().or_else(|| record.as_ref().and_then(|r| r.automatic.as_ref()));
+    let restartable=current_intent
         .filter(|i|i.vendor.as_ref().is_some_and(|v|v.application==selector))
         .map(|i|automatic_install::restartable_vendor(m,i)).transpose()?.unwrap_or(false);
-    let unfinished = record
-        .as_ref()
-        .and_then(|r| r.automatic.as_ref())
-        .is_some_and(|i| i.journey.phase != ui::InstallationPhase::Available);
+    let handoff = current_intent.map(|i|automatic_install::empty_vendor_handoff(m,i)).transpose()?.unwrap_or(false)
+        || record.as_ref().zip(current_intent).is_some_and(|(r, i)|
+        automatic_install::empty_bootstrap_handoff(m, r, i, selector).unwrap_or(false));
+    let unfinished = current_intent.is_some_and(|i| i.journey.phase != ui::InstallationPhase::Available);
+    let observed = if choosing { vendor_cli::selection::observed(m, selector)? } else { None };
     let reason = if !valid {
         Some("The selected application or installation changed")
+    } else if let Some(reason) = observed.as_ref().and_then(|c|c.missing_capability.as_deref()) {
+        Some(reason)
     } else {
         busy
     };
     let add_reason = if live {
         Some("This application is already running")
-    } else if unfinished && !restartable {
+    } else if unfinished && !restartable && !handoff && current_intent.is_none_or(|i|i.vendor.is_none()) {
         Some("Resume the unfinished installation first")
-    } else if record.is_none() {
-        Some("The original managed installation record is unavailable")
+    } else if current_intent.is_some_and(|i| i.journey.failure.as_ref().is_some_and(|f|!f.retryable)) && !restartable {
+        Some("Review the unfinished application task first")
     } else {
         reason
     };
-    let name = a.display_name();
+    let name = observed.as_ref().map(|c|if choosing && !a.helpers.is_empty() {
+        format!("{} ({})", c.name, c.image_name)
+    } else { c.name.clone() }).unwrap_or_else(||a.display_name());
     let job = optional(&directory.join("operation.json"))?;
     let retired = if let Some(op) = job["operation_id"].as_str() {
         vendor_cli::result(m, selector, op)?.retired()
@@ -221,10 +240,13 @@ fn vendor_projection(
             "cleanup_unconfirmed"
         }
         .into(),
-        details: json!({"environment":a.environment.id,"journey":record.as_ref().and_then(|r|r.automatic.as_ref()).map(|i|&i.journey)}),
+        details: json!({"environment":a.environment.id,"journey":if handoff {None}else{current_intent.map(|i|&i.journey)},"choose_application":choosing}),
         actions: vec![
             action(
-                &if restartable {format!("Try installation again through {name}")}else{format!("Add plug-ins through {name}")},
+                &if restartable {format!("Try installation again through {name}")}
+                    else if choosing || handoff {format!("Open {name}")}
+                    else if unfinished {format!("Continue in {name}")}
+                    else {format!("Add plug-ins through {name}")},
                 ui::Action::VendorSoftwareInstall {
                     application: selector.into(),
                     daw: ui::DawChoice::Other,
@@ -1719,7 +1741,7 @@ fn write_operation(m: &Manager, id: &str, value: &Value, make_latest: bool) -> R
         value["lock_waits"] = prior["lock_waits"].clone();
     }
     // Child owner progress must keep the same initial DAW intent visible.
-    for field in ["journey", "onboarding"] {
+    for field in ["journey", "onboarding", "environment", "application"] {
         if value.get(field).is_none() && prior.get(field).is_some() {value[field]=prior[field].clone();}
     }
     if value["state"]=="vendor_running" && value["journey"].is_object() {
@@ -2594,8 +2616,9 @@ fn execute_with_receipt_policy_progress(
         } => renderer_cli::observe(m, target, *presentation),
         ui::Action::VendorApplicationOpen { application } => {
             let app=vendor_cli::application(m,application)?;
-            let record=onboarding::retained_environment_record(m,&app.environment.id)?.ok_or("vendor_application_owned_installation_required")?;
-            let daw=record.automatic.as_ref().map(|i|i.journey.daw).ok_or("vendor_application_choose_daw")?;
+            let record=onboarding::retained_environment_record(m,&app.environment.id)?;
+            let daw=automatic_install::vendor_intent(m,application)?.map(|i|i.journey.daw)
+                .or_else(||record.and_then(|r|r.automatic).map(|i|i.journey.daw)).unwrap_or(ui::DawChoice::Other);
             drop(projection.take());
             automatic_install::execute(m,&ui::Action::VendorSoftwareInstall{application:application.clone(),daw},
                 operation.ok_or("operator_operation_identity")?,capacity_read,timeout,waits)
@@ -4282,7 +4305,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 24);
+        assert_eq!(ui::OPERATOR_SCHEMA, 25);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
@@ -4494,7 +4517,7 @@ pub(crate) mod tests {
         assert_eq!(validate(&request,&passive.current).unwrap_err().to_string(),
             "operator_stale_request_refresh");
     }
-    fn overview_service_reply_with_counts(m: &Manager, value: Value, expected: (usize, usize))
+    pub(super) fn overview_service_reply_with_counts(m: &Manager, value: Value, expected: (usize, usize))
         -> std::thread::JoinHandle<()> {
         private_dir(&m.root.join("runtime")).unwrap();
         let socket=m.root.join("runtime/owner.sock");

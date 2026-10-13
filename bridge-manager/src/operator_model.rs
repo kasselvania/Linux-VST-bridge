@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 24;
+pub const OPERATOR_SCHEMA: u32 = 25;
 /// Explicit delivery policy, independent from the remembered buffered delay.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -682,7 +682,8 @@ pub struct NativeAvailability {
 #[serde(rename_all = "snake_case")]
 pub enum InstallationPhase {
     PreparingEnvironment, VendorRunning, Discovering, PreparingPlugins,
-    Available, NeedsAttention,
+    /// Current readback handoff only; original installer history stays unchanged.
+    AwaitingApplication, Available, NeedsAttention,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]

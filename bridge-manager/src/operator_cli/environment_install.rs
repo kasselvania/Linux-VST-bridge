@@ -31,6 +31,21 @@ pub(crate) fn all_retired(m: &Manager) -> Result<bool> {
 }
 
 pub(crate) fn target(m: &Manager, environment: &str) -> Result<Environment> {
+    target_with_application(m,environment,registered_application_target)
+}
+fn registered_application_target(m: &Manager, environment: &str) -> Result<Option<Environment>> {
+    for selector in vendor_cli::selectors(m)? {
+        let original:vendor_application::Application=read_json(
+            &vendor_cli::directory(m,&selector)?.join("application.json"))?;
+        if original.environment.id != environment {continue;}
+        let app=vendor_cli::application(m,&selector)?;
+        app.verify(&m.root)?;
+        return Ok(Some(app.environment));
+    }
+    Ok(None)
+}
+fn target_with_application(m: &Manager, environment: &str,
+    verified:impl FnOnce(&Manager,&str)->Result<Option<Environment>>) -> Result<Environment> {
     let db = m.registry()?;
     if let Some(r) = onboarding::retained_environment_record(m,environment)? {
         require(r.installation_operation.is_some()
@@ -44,12 +59,17 @@ pub(crate) fn target(m: &Manager, environment: &str) -> Result<Environment> {
         return Ok(current);
     }
     let mut owners = db.classes.values().filter(|e|e.registration.environment.id == environment);
-    let first = owners.next().ok_or("installer_existing_setup_required")?;
-    let current = current_environment(m,&first.registration.environment)?;
-    for entry in owners {
-        require(resolves_to(m,&entry.registration.environment,&current)?,
-            "installer_environment_binding_changed")?;
+    if let Some(first)=owners.next() {
+        let current=current_environment(m,&first.registration.environment)?;
+        for entry in owners {
+            require(resolves_to(m,&entry.registration.environment,&current)?,
+                "installer_environment_binding_changed")?;
+        }
+        return Ok(current);
     }
+    let current=verified(m,environment)?.ok_or("installer_existing_setup_required")?;
+    require(current.id == environment && current_environment(m,&current)? == current,
+        "installer_environment_binding_changed")?;
     Ok(current)
 }
 
@@ -247,6 +267,30 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn verified_application_owns_a_target_without_onboarding_or_published_classes() {
+        let f=test_fixture::Fixture::new();
+        assert!(f.m.registry().unwrap().classes.is_empty());
+        assert!(onboarding::history_records(&f.m).unwrap().is_empty());
+        let environment=f.r.environment.clone();
+        assert_eq!(target_with_application(&f.m,&environment.id,|_,_|Ok(Some(environment.clone()))).unwrap(),environment);
+        assert_eq!(target_with_application(&f.m,&environment.id,|_,_|Err("application_content_changed".into()))
+            .unwrap_err().to_string(),"application_content_changed");
+        assert_eq!(target_with_application(&f.m,&environment.id,|_,_|Ok(None))
+            .unwrap_err().to_string(),"installer_existing_setup_required");
+        let mut foreign=environment.clone();foreign.id=random_id().unwrap();
+        assert_eq!(target_with_application(&f.m,&environment.id,|_,_|Ok(Some(foreign)))
+            .unwrap_err().to_string(),"installer_environment_binding_changed");
+    }
+    #[test]
+    fn valid_registry_owner_does_not_acquire_an_unrelated_app_verification_requirement() {
+        let f=test_fixture::Fixture::new();let environment=f.r.environment.clone();
+        assert_eq!(target_with_application(&f.m,&environment.id,|_,_|Err("application_content_changed".into()))
+            .unwrap_err().to_string(),"application_content_changed");
+        f.m.register(f.r.clone()).unwrap();
+        assert_eq!(target_with_application(&f.m,&environment.id,|_,_|panic!("Registry custody already owns this target"))
+            .unwrap(),environment);
+    }
     fn fixture() -> (test_fixture::Fixture,installer_import::Installer) {
         let (f,_,_,_) = test_fixture::prepared();
         let mut bytes=vec![0;1024];

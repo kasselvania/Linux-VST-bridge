@@ -1286,6 +1286,7 @@ fn journey_phase_label(journey: &InstallationJourney) -> &'static str {
         InstallationPhase::VendorRunning => "Complete the vendor's requests",
         InstallationPhase::Discovering => "Finding installed plug-ins",
         InstallationPhase::PreparingPlugins => "Connecting plug-ins to your DAW",
+        InstallationPhase::AwaitingApplication => "Continue in the installed app",
         InstallationPhase::Available => "DAW connection complete",
         InstallationPhase::NeedsAttention => "Installation or DAW connection needs attention",
     }
@@ -1303,6 +1304,7 @@ fn setup_attention_priority(setup: &InstallerSetup) -> u8 {
     setup.journey.as_ref().map(|journey| match journey.phase {
         InstallationPhase::VendorRunning => 0,
         InstallationPhase::NeedsAttention => 2,
+        InstallationPhase::AwaitingApplication => 2,
         InstallationPhase::PreparingEnvironment | InstallationPhase::Discovering
             | InstallationPhase::PreparingPlugins => 3,
         InstallationPhase::Available => 6,
@@ -1706,6 +1708,9 @@ impl Operator {
         } else if shown == 0 {
             ui.colored_label(warning_color(ui),
                 "The selected installer is unavailable in this readback. Refresh or show all setup.");
+        }
+        if overview.current.vendor_applications.iter().any(|app|app.details["choose_application"] == true) {
+            ui.heading("Choose the app to open");
         }
         for app in &overview.current.vendor_applications {
             ui.push_id(("vendor-install", &app.id), |ui| {

@@ -1,4 +1,5 @@
 use super::*;
+pub(super) mod selection;
 use serde_json::json;
 use linux_vst_bridge::vendor_application::{
     self, Application, ApplicationId, LaunchMode, OperationResult,
@@ -27,7 +28,10 @@ pub(super) fn unit(application: &str) -> Result<String> {
     Ok(format!("linux-vst-bridge-vendor-{application}.service"))
 }
 pub(super) fn application(m: &Manager, selector: &str) -> Result<Application> {
-    let app = current_application(m, &directory(m, selector)?.join("application.json"))?;
+    let path = directory(m, selector)?.join("application.json");
+    let app = if path.exists() { current_application(m, &path)? } else {
+        selection::observed(m, selector)?.ok_or("vendor_application_choice_unavailable")?.application
+    };
     require(
         app.selector()? == selector,
         "vendor_application_selection_changed",
@@ -167,6 +171,10 @@ fn register(m: &Manager, args: &[String]) -> Result<()> {
         },
         observed_installer_version: String::new(),
     };
+    register_application(m, &app, &_guard)
+}
+fn register_application(m: &Manager, app: &Application, guard: &Lock) -> Result<()> {
+    guard.require_registry(m)?;
     app.verify(&m.root)?;
     let selector = app.selector()?;
     let directory = directory(m, &selector)?;
@@ -174,11 +182,11 @@ fn register(m: &Manager, args: &[String]) -> Result<()> {
     let path = directory.join("application.json");
     if path.exists() {
         require(
-            current_application(m, &path)? == app,
+            current_application(m, &path)? == *app,
             "vendor_application_selection_changed",
         )?;
     } else {
-        atomic_json(&path, &app)?;
+        atomic_json(&path, app)?;
     }
     println!(
         "{}",

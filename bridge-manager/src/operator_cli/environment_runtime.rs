@@ -534,12 +534,10 @@ mod tests {
     #[test]
     fn live_vendor_progress_uses_resolved_runtime_without_rewriting_history() {
         let (f,_,_,runner)=fixture();let before=f.r.environment.clone();
-        let directory=app_directory(&f.m);private_dir(&directory).unwrap();
-        let historical=vendor_application::Application {schema:1,
-            id:vendor_application::ApplicationId::ArturiaSoftwareCenter,environment:before.clone(),
-            executable:f.r.module.clone(),helpers:vec![],installer_sha256:"00".repeat(32),
-            installer_result:f.r.host.clone(),observed_installer_version:"fixture".into()};
-        let record=directory.join("application.json");atomic_json(&record,&historical).unwrap();
+        let historical=current::tests::selected_vendor_application(&f);
+        historical.verify(&f.m.root).unwrap();
+        let directory=vendor_cli::directory(&f.m,&historical.selector().unwrap()).unwrap();
+        let record=directory.join("application.json");
         let bytes=fs::read(&record).unwrap();let next=change(&f.m,&before,&runner);
         let mut resolved=historical.clone();resolved.environment=next.environment;
         let operation=random_id().unwrap();let report=directory.join("operation-result.json");
@@ -549,13 +547,13 @@ mod tests {
         atomic_json(&report,&json!({"schema":3,"operation_id":operation,"state":"running",
             "launcher_exit":null,"owned_live":2,"cleanup_confirmed":false,
             "discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
-        let progress=current::live_vendor_progress_with(&f.m,||Ok(true)).unwrap().unwrap();
+        let progress=current::live_vendor_progress_selected(&f.m,&historical.selector().unwrap(),||Ok(true)).unwrap().unwrap();
         assert_eq!(progress.application,resolved);assert_eq!(progress.operation_id,operation);
         assert_eq!(fs::read(record).unwrap(),bytes);
         atomic_json(&directory.join("operation.json"),&vendor_application::Operation {
-            application:historical,report,mode:vendor_application::LaunchMode::Normal,
+            application:historical.clone(),report,mode:vendor_application::LaunchMode::Normal,
             operation_id:operation}).unwrap();
-        assert!(current::live_vendor_progress_with(&f.m,||Ok(true)).is_err());
+        assert!(current::live_vendor_progress_selected(&f.m,&historical.selector().unwrap(),||Ok(true)).is_err());
     }
     #[test]
     fn terminal_precommit_reservation_cannot_be_bypassed_after_contended_finish() {
