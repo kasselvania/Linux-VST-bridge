@@ -1334,17 +1334,16 @@ available. Never promise to restore a vendor build that is no longer present.
 #### Normal use and advanced controls
 
 The operator selected automatic first-install availability on 2026-10-11.
-Choosing a plug-in authorizes discovery, preparation and native DAW publication
-after the required vendor steps finish, without a separate final publication
-approval for that selected plug-in. These remain explicit, owner-scoped internal
+Choosing installation authorizes discovery, preparation and native DAW publication
+for all newly installed instruments and effects after the required vendor steps
+finish, without a separate final publication approval. These remain explicit, owner-scoped internal
 operations with current identity, capability, ownership and exclusion checks;
 initial user intent does not bypass admission or supply missing authority.
 Meaningful unresolved choices and specific failures still require attention.
-Unselected sibling plug-ins are not implicitly selected by the same installer.
+Newly installed sibling plug-ins follow the same automatic connection intent.
 Replacing an existing working setup retains its own consequence review; shared
 vendor mutations retain their affected-product review and retirement requirements.
-This interaction decision does not select a new concurrent-maintenance capability
-or resume manager implementation while the wider product model is under review.
+This interaction decision does not select a new concurrent-maintenance capability.
 
 Normal use is install, assess, try and use. The manager offers a plausible initial
 setup and explains a failed stage. Missing historical qualification is visible

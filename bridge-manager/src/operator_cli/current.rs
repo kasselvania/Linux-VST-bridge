@@ -133,6 +133,7 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
                 "operator_current_onboarding_binding")?;
             if let Some(op) = record.installation_operation {
                 paths.insert(dir.join(format!("{op}-result.json")));
+                paths.insert(dir.join(format!("{op}-transaction-private.json")));
             }
             paths.insert(m.root.join("inventory").join(format!("{}.json",record.environment.id)));
         }
@@ -140,6 +141,14 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
     let inventory = m.root.join("inventory");
     paths.insert(inventory);
     paths.insert(m.root.join("operator"));
+    for binding in automatic_install::current_vendor_bindings(m)? {
+        let dir=job_dir(m,&binding.operation)?;
+        paths.insert(dir.clone());
+        paths.insert(dir.join("automatic.json"));
+        paths.insert(dir.join("vendor-maintenance.json"));
+        paths.insert(binding.environment.root.join("environment.json"));
+        paths.insert(m.root.join("inventory").join(format!("{}.json",binding.environment.id)));
+    }
     for installation in environment_install::records(m)? {
         let dir = job_dir(m,&installation.operation)?;
         paths.insert(dir.clone());
@@ -836,6 +845,41 @@ mod tests {
             let server = overview_service_reply(&f.m,capacity_json(false,0,0));
             assert!(validate_current_request(&f.m,&request).is_err());
             server.join().unwrap();
+        });
+    }
+    #[test]
+    fn vendor_checkpoint_change_invalidates_captured_watch_and_action_token() {
+        let (f,app)=selected_vendor_fixture();let selector=app.selector().unwrap();
+        let owner=random_id().unwrap();let dir=job_dir(&f.m,&owner).unwrap();private_dir(&dir).unwrap();
+        let selected=control_artifact(vendor_cli::directory(&f.m,&selector).unwrap().join("application.json")).unwrap();
+        let vendor_operation=random_id().unwrap();
+        atomic_json(&dir.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"test".into(),
+            action:ui::Action::VendorSoftwareInstall {application:selector.clone(),daw:ui::DawChoice::Bitwig}}).unwrap();
+        let mut after=app.environment.clone();after.revision+=1;
+        atomic_json(&dir.join("vendor-maintenance.json"),&environment_revision::VendorBinding {
+            schema:1,operation:owner.clone(),application:selector.clone(),selected:selected.clone(),
+            vendor_operation:vendor_operation.clone(),before:app.environment.clone(),environment:after.clone()}).unwrap();
+        atomic_json(&after.root.join("environment.json"),&after).unwrap();
+        let mut intent=automatic_install::Intent {owner:owner.clone(),active_operation:owner,
+            vendor:Some(automatic_install::VendorWork {application:selector.clone(),selected,operation:vendor_operation,result:None}),
+            journey:ui::InstallationJourney {daw:ui::DawChoice::Bitwig,phase:ui::InstallationPhase::NeedsAttention,
+                plugins:vec![],failure:Some(ui::InstallationFailure {stage:ui::InstallationFailureStage::Preparation,
+                    code:"interrupted".into(),reason:"Interrupted connection".into(),retryable:true})},
+            scan:None,prior_selections:vec![],prior_modules:vec![],failed_modules:vec![],work:vec![],predecessors:vec![],previous:None};
+        let checkpoint=dir.join("automatic.json");atomic_json(&checkpoint,&intent).unwrap();
+        readiness::with_unit_state_fixture(&[vendor_cli::unit(&selector).unwrap()],"inactive",|| {
+        let before=token(&f.m).unwrap();let sw=software_record(&f.m).unwrap();
+        let watched=watch_paths(&f.m,&sw,&f.m.registry().unwrap()).unwrap();
+        assert!(watched.contains_key(&checkpoint));
+        let context=context_for_watched(&f.m,watched);
+        let request=ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:before.clone(),
+            action:ui::Action::VendorSoftwareInstall {application:selector,daw:ui::DawChoice::Bitwig}};
+        intent.scan=Some(random_id().unwrap());intent.prior_modules.push("de".repeat(32));
+        atomic_json(&checkpoint,&intent).unwrap();
+        assert_ne!(token(&f.m).unwrap(),before);
+        assert_eq!(context.recheck_with(&f.m,||Ok(())).unwrap_err().to_string(),"operator_state_changed_refresh");
+        let mut offered=context.snapshot.clone();offered.state_token=token(&f.m).unwrap();
+        assert_eq!(validate(&request,&offered).unwrap_err().to_string(),"operator_stale_request_refresh");
         });
     }
     fn managed_discovery_fixture() -> (test_fixture::Fixture, preparation::Candidate, ui::Action) {
