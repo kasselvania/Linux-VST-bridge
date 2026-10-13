@@ -11,6 +11,14 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Test59 is installed on the physical SteamOS 3.8.16 Deck through ordinary Update
+Bridge. Setup now shows the retained vendor applications. All 15 published classes,
+181 original Bitwig projects and 441 protected files survive; only registry adoption
+metadata changes. A separate first-party Reference project saves a changed control,
+restores it in a fresh Bitwig 6.1 process and produces finite nonzero stereo audio
+before and after reopening. Ordinary preferences are restored exactly.
+[Scoped Deck result](../evidence/reference-runtime-deck.json).
+
 Test58's corrected first-party vendor-application continuation passes in the
 disposable CachyOS VM / native REAPER 7.82 at 44.1 kHz / 512 frames. Its first
 visit waits for full helper retirement and adds two classes automatically.
