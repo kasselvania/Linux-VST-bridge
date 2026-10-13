@@ -181,6 +181,9 @@ fn vendor_projection(
     let live = vendor_cli::live(selector)?;
     let valid = a.verify(&m.root).is_ok();
     let record = onboarding::retained_environment_record(m, &a.environment.id)?;
+    let restartable=record.as_ref().and_then(|r|r.automatic.as_ref())
+        .filter(|i|i.vendor.as_ref().is_some_and(|v|v.application==selector))
+        .map(|i|automatic_install::restartable_vendor(m,i)).transpose()?.unwrap_or(false);
     let unfinished = record
         .as_ref()
         .and_then(|r| r.automatic.as_ref())
@@ -192,7 +195,7 @@ fn vendor_projection(
     };
     let add_reason = if live {
         Some("This application is already running")
-    } else if unfinished {
+    } else if unfinished && !restartable {
         Some("Resume the unfinished installation first")
     } else if record.is_none() {
         Some("The original managed installation record is unavailable")
@@ -221,7 +224,7 @@ fn vendor_projection(
         details: json!({"environment":a.environment.id,"journey":record.as_ref().and_then(|r|r.automatic.as_ref()).map(|i|&i.journey)}),
         actions: vec![
             action(
-                &format!("Add plug-ins through {name}"),
+                &if restartable {format!("Try installation again through {name}")}else{format!("Add plug-ins through {name}")},
                 ui::Action::VendorSoftwareInstall {
                     application: selector.into(),
                     daw: ui::DawChoice::Other,

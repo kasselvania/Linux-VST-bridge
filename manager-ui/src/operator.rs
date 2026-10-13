@@ -227,7 +227,7 @@ impl RequestFeedback {
             Some("running") => match &self.action {
                 Action::SoftwareInstall { .. } | Action::VendorSoftwareInstall { .. }
                     | Action::SoftwareInstallResume { .. } =>
-                    self.journey.as_ref().map(|journey| journey_phase_label(journey.phase))
+                    self.journey.as_ref().map(journey_phase_label)
                         .unwrap_or("Installing and connecting your plug-ins").into(),
                 Action::RuntimeInstall {} =>
                     "Downloading and preparing the compatibility runtime. This may take several minutes.".into(),
@@ -1277,8 +1277,11 @@ fn setup_priority(phase: &SetupPhase) -> u8 {
     }
 }
 
-fn journey_phase_label(phase: InstallationPhase) -> &'static str {
-    match phase {
+fn journey_phase_label(journey: &InstallationJourney) -> &'static str {
+    if journey.phase == InstallationPhase::Available && journey.plugins.is_empty() {
+        return "Application session complete";
+    }
+    match journey.phase {
         InstallationPhase::PreparingEnvironment => "Getting ready to install",
         InstallationPhase::VendorRunning => "Complete the vendor's requests",
         InstallationPhase::Discovering => "Finding installed plug-ins",
@@ -1308,6 +1311,9 @@ fn setup_attention_priority(setup: &InstallerSetup) -> u8 {
 
 fn journey_results(ui: &mut egui::Ui, journey: &InstallationJourney) {
     ui.small(format!("Your DAW: {}", presentation::daw_name(journey.daw)));
+    if journey.phase == InstallationPhase::Available && journey.plugins.is_empty() {
+        ui.label("No plug-ins were added during this visit.");
+    }
     if let Some(failure) = &journey.failure {
         ui.colored_label(warning_color(ui), installation_failure_text(failure));
     }
@@ -1479,7 +1485,7 @@ impl Operator {
                 let partial = partial_installation_needs_review(setup, &overview.current);
                 let name = setup_display_name(setup, &overview.current);
                 ui.strong(if let Some(journey) = &setup.journey {
-                    format!("{name} · {}", journey_phase_label(journey.phase))
+                    format!("{name} · {}", journey_phase_label(journey))
                 } else if partial {format!("Next: review the installation for {name}")}
                     else {format!("Next: continue {name}")});
                 if partial {
@@ -1644,7 +1650,7 @@ impl Operator {
                     ui.label(egui::RichText::new(setup_display_name(setup,&overview.current)).size(18.0).strong());
                     let retained_refresh = retained_setup_records_need_refresh(setup, &overview.current);
                     let partial = partial_installation_needs_review(setup,&overview.current);
-                    ui.strong(if let Some(journey) = &setup.journey { journey_phase_label(journey.phase) }
+                    ui.strong(if let Some(journey) = &setup.journey { journey_phase_label(journey) }
                         else if retained_refresh {"Installation records need attention"}
                         else if partial {"Review earlier installation"}
                         else {setup_phase_label(&setup.phase)});
@@ -1708,7 +1714,7 @@ impl Operator {
                     ui.label(egui::RichText::new(&app.name).size(18.0).strong());
                     if let Ok(journey) = serde_json::from_value::<InstallationJourney>(
                         app.details["journey"].clone()) {
-                        ui.strong(journey_phase_label(journey.phase));
+                        ui.strong(journey_phase_label(&journey));
                         journey_results(ui, &journey);
                     } else {
                         ui.label("Open this vendor application to install or manage its plug-ins.");
@@ -1800,7 +1806,7 @@ impl Operator {
                         ui.colored_label(warning_color(ui), installation_failure_text(failure));
                     }
                     egui::CollapsingHeader::new("Installation progress").show(ui, |ui| {
-                        ui.strong(journey_phase_label(journey.phase));
+                        ui.strong(journey_phase_label(journey));
                         journey_results(ui, journey);
                     });
                 }
@@ -3330,7 +3336,7 @@ mod tests {
         let mut overview:CurrentOverview=overview_fixture().into();
         let mut journey=automatic_journey(InstallationPhase::Available);journey.plugins.clear();
         overview.current.installer_setups=vec![automatic_setup(journey.clone(),None)];
-        overview.current.installer_setups[0].status="No new plug-ins found. Existing DAW connections are up to date.".into();
+        overview.current.installer_setups[0].status="Application session finished. No plug-ins were added.".into();
         overview.current.vendor_applications=vec![VendorApplication {id:"same-hub".into(),
             name:"Existing vendor hub".into(),version:"1.0.0".into(),state:"registered".into(),
             actions:vec![],details:serde_json::json!({"journey":journey})}];
@@ -3345,10 +3351,44 @@ mod tests {
         });
         let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
         output.textures_delta.clear();
-        assert!(labels.iter().any(|(label,_)|label=="DAW connection complete"));
-        assert!(labels.iter().any(|(label,_)|label=="No new plug-ins found. Existing DAW connections are up to date."));
+        assert!(labels.iter().any(|(label,_)|label=="Application session complete"));
+        assert!(labels.iter().any(|(label,_)|label=="Application session finished. No plug-ins were added."));
+        assert!(labels.iter().any(|(label,_)|label=="No plug-ins were added during this visit."));
+        assert!(!labels.iter().any(|(label,_)|label=="DAW connection complete"));
         assert!(labels.iter().any(|(label,_)|label=="Your DAW: Bitwig"));
         assert!(!labels.iter().any(|(label,_)|label.contains("needs attention") || label.contains("Report")));
+        assert!(chosen.is_none());
+    }
+
+    #[test]
+    fn retired_vendor_failure_keeps_its_result_visible_and_offers_a_new_visit() {
+        let mut overview: CurrentOverview = overview_fixture().into();
+        overview.current.installer_setups.clear();
+        let mut journey = automatic_journey(InstallationPhase::NeedsAttention);
+        journey.plugins.clear();
+        journey.failure = Some(InstallationFailure {stage:InstallationFailureStage::VendorInstallation,
+            reason:"The vendor application did not finish successfully.".into(),
+            code:"vendor_cancelled".into(),retryable:false});
+        let action = Action::VendorSoftwareInstall {application:"same-retired-hub".into(),daw:DawChoice::Other};
+        overview.current.vendor_applications = vec![VendorApplication {id:"same-retired-hub".into(),
+            name:"Existing vendor hub".into(),version:"1.0.0".into(),state:"registered".into(),
+            actions:vec![AvailableAction {label:"Try installation again through Existing vendor hub".into(),
+                action:action.clone(),disabled_reason:None}],details:serde_json::json!({
+                    "environment":overview.current.products[0].environment,"journey":journey})}];
+        let ctx=result_form_context();let mut chosen=None;
+        let mut output=ctx.run_ui(egui::RawInput::default(),|ui| {
+            Operator::fast_setup(ui,&overview,true,false,(&mut false,&mut chosen,&mut false,
+                &mut Page::Setup,&mut crate::library::Library::default(),&mut RouteFocus::default(),
+                &mut Some(DawChoice::Bitwig)));
+        });
+        let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+        output.textures_delta.clear();
+        assert!(labels.iter().any(|(label,_)|label=="Installation or DAW connection needs attention"));
+        assert!(labels.iter().any(|(label,_)|label=="Vendor installation: The vendor application did not finish successfully."));
+        assert!(labels.iter().any(|(label,_)|label=="Try installation again through Existing vendor hub"));
+        assert!(!labels.iter().any(|(label,_)|label.contains("Continue installation") || label=="DAW connection complete"));
+        let selected=installation_with_daw(&action,DawChoice::Bitwig).unwrap();
+        assert_eq!(installation_form_offer(Some(&overview.current),&selected),Ok(None));
         assert!(chosen.is_none());
     }
 

@@ -1994,7 +1994,8 @@ pub(crate) fn verify_refresh_candidate(
     predecessor: &Revision,
 ) -> Result<()> {
     let source = refresh_source_with(m,predecessor,candidate.selection.environment!=predecessor.registration.environment)?;
-    if source.selection == candidate.selection {
+    if source.selection.environment == candidate.selection.environment {
+        require(source.selection==candidate.selection,"bridge_refresh_predecessor_changed")?;
         require(predecessor.registration.environment == candidate.selection.environment
             && predecessor.registration.module == candidate.selection.module,
             "bridge_refresh_predecessor_changed")?;
