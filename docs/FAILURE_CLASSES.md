@@ -853,8 +853,24 @@ four classes from genuine older history, without a newer onboarding receipt.
 All six original authority records stay exact; the new instrument/effect play and
 recall in fresh Bitwig. Test61 settles Kontakt's history-only Home reminder.
 Test63 ordinary Find and connect adds Serum FX automatically in Bitwig,
-while the instrument publication and performance remain exact. Native Access
-still needs installed proof of its renderer continuation adapter.
+while the instrument publication and performance remain exact. Its separate
+eight-note project recalls PingPong delay and both source levels in a fresh
+process; both 20-second captures are finite/nonzero. All 23 original preferences,
+the saved project and original Test60 project stay exact. Retained Test62 readback
+reads the new job successfully with 18 classes available and five files unchanged.
+Test64 passive renewal preserves the last-observed health display and app/DAW choices.
+
+Test64 Native Access refused with `renderer_adapter_missing` before launch.
+Automatic restoration returned all 18 classes with no live owners; 31 original
+records and the failed job remain intact. The reviewed Test65 delivery includes
+the signed adapter, resolves launch inputs before suspension, checks immutable
+cache bytes and retries real package renewal. Its installed Native Access visit
+opens with software rendering and closes normally; the same job automatically
+returns Kontakt to Available in Bitwig. Full retirement, 18 Available and all
+31 original plus three failed-visit records are verified, with original publication,
+content, settings, qualification and performance-record absence retained. The
+retained Test62 reader also reads the completed new job without changing eight files.
+[Scoped Native Access result](../evidence/reference-runtime-deck.json).
 
 The first Test63 Deck update failed during Kontakt editor-interface inspection
 with allocator corruption (`malloc(): unaligned tcache chunk detected`). The
@@ -869,10 +885,19 @@ Test57 exposed a post-repeat snapshot failure (`guided_check_intent_missing`):
 revalidation wrote an id-only checkpoint into guided-check history. The checkpoint
 now belongs to its exact operator child. Test58 verifies both real vendor visits,
 full helper retirement, unchanged-sibling renewal, normal status and fresh musical
-recall with the protected content/preferences/history retained. Native Access's
-existing renderer owner still needs its continuation adapter; no new music-time service requirement
-was established. Runtime verification latency also remains open: Test58's normal
-update completed within 623–755 seconds.
+recall with the protected content/preferences/history retained. Fresh CachyOS
+Test61 ordinary bootstrap, explicit app choice and hub/helper retirement connect
+two classes; a normal No repeat freshly checks both and retires every owner.
+Retained Test61 readback reads the new Test63 owner without changing four files.
+The new Test63 1.0.1 app-only bootstrap reaches the correct installed-app message
+and chooser, where the check stops before app registration or duplicate classes.
+Test65's ordinary Cachy update retains all six classes, its saved REAPER project
+and setup/app/environment history; only registry renewal changes among 88 protected
+files. Home settles automatically. A later read-only Setup visit displays
+unavailable status despite a healthy backend; this readback limitation remains
+open, and no new Test65 chooser interaction is qualified. Runtime verification/
+update latency also remains open: Test65 takes about six minutes on Deck and
+nineteen on Cachy; Test58's normal update completed within 623–755 seconds.
 [Scoped installed result](../evidence/cachyos-reaper.json).
 
 The 2026-10-03 [foundation comparison](../evidence/preparation/2026-10-03-foundation-installed.json)

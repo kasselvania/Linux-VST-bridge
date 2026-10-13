@@ -21,8 +21,34 @@ in a fresh process, and produces finite nonzero stereo audio before/after reopen
 All 23 original preferences are restored exactly. Test61 settles Kontakt's stale
 Home reminder and groups application choices by their owned setup.
 [Scoped Deck result](../evidence/reference-runtime-deck.json).
-Fresh clean app selection, automatic Serum FX recovery and Native Access's
-renderer continuation are still pending; runtime verification latency remains open.
+Deck Test63's ordinary Find and connect adds Serum FX and leaves 18 classes
+available; the working instrument publication and performance remain byte exact.
+A separate Bitwig 6.1 project saves eight notes and source levels 0.435/0.490 through
+Serum FX PingPong delay (quarter-note left/right, Mix 30, Feedback 40). A fresh
+process recalls the source and effect settings and exact saved project. Both
+20-second, 48 kHz stereo captures have 960,000 frames, nonzero audio and no
+nonfinite samples. All 23 original preferences and the original Test60 project
+stay exact. The retained Test62 reader reads the new job with five protected files
+unchanged. Test64's passive renewal preserves health display and choice controls.
+[Scoped continuation result](../evidence/reference-runtime-deck.json).
+
+Test64 Native Access refused before launch because its package lacked the launch
+adapter, then automatically recovered all 18 classes with no live owners. All
+31 original records and the failed job remain retained. Test65's ordinary Deck
+update takes about six minutes. Native Access opens with software rendering and
+closes normally; the same job automatically returns Kontakt to Available in
+Bitwig, one connected and zero needing attention. Home clears the old warning.
+The visit uses no account, vendor-update or licensing actions. All 18 classes and
+326 projects survive; 3,690 of 3,692 protected files remain exact, with only the
+authorized registry/environment-revision records changing and no files missing.
+Original publication bytes/content/settings/qualification/external IDs and
+performance-record absence remain exact, alongside all 31 original Native Access
+records and three failed Test64 records. The ten pinned application images and
+actual NTKDaemon remain exact. Retained Test62 readback completes in 5.11 seconds
+with the same completed job, 18 Available, clean idle and eight files unchanged.
+[Scoped Native Access result](../evidence/reference-runtime-deck.json).
+Kontakt's intermittent editor-interface allocator crash and runtime verification/
+update latency remain open.
 
 Test58's corrected first-party vendor-application continuation passes in the
 disposable CachyOS VM / native REAPER 7.82 at 44.1 kHz / 512 frames. Its first
@@ -32,8 +58,25 @@ siblings with retained history and preferences; normal status shows six availabl
 classes. All 15 unrelated protected
 files stay exact; only two target authority metadata files renew. Both roles play
 nonzero audio with automation and recall controls, MIDI and envelopes after a fresh
-reopen, retaining the exact saved project. Native Access's continuation adapter and
-runtime verification latency remain open.
+reopen, retaining the exact saved project.
+
+Fresh Test61 ordinary bootstrap and
+explicit selection from four installed apps also pass: the hub and its helper
+retire, two new classes connect and six are available. A normal repeat choosing
+No freshly checks both classes and leaves no live owners. The retained Test61
+reader reads the new Test63 owner successfully with four protected files unchanged.
+Test63's genuinely new 1.0.1 app-only bootstrap displays the correct installed-app
+message and chooser; the check stops there before app registration or duplicate
+publication. Test65's ordinary update takes about nineteen minutes and retains all
+six published classes, the saved REAPER project and setup/operator/app/environment
+history. Of 88 protected files, 87 remain exact; only authorized registry renewal
+changes, with no missing files. Class changes stay within revision identities and
+native/host/descriptor paths. Service is active and clean idle. Home settles
+automatically and retains the 1.0.1 setup's REAPER continuation without Check again.
+A later read-only Setup visit displays unavailable status despite a healthy
+backend; that UI readback limitation remains open. The Test65 chooser stays
+unopened, so the actual Test63 chooser result remains its separate qualification.
+Runtime verification/update latency remains open.
 [Scoped vendor-application result](../evidence/cachyos-reaper.json).
 
 Test55's clean CachyOS/native REAPER first-party installation uses one ordinary

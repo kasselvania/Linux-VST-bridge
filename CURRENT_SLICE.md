@@ -1,43 +1,41 @@
-# Current slice — complete managed application and setup continuation
+# Current slice — installed continuation accepted; readback and latency remain
 
-Goal: install/authorize in the owned app, automatically connect instruments and
-effects, play, save and reopen through ordinary product controls.
+Goal: ordinary installer/application visits connect plug-ins and preserve music,
+licensed state, preferences and history through normal updates.
 
 ## Accepted behavior
 
-Test60 recovers the actual blocked Deck hub bootstrap through ordinary Open.
-The first visit installs two classes, waits after the hub closes for its helper,
-then automatically connects both to Bitwig. A repeat visit freshly checks both.
-The original older ASC also opens normally and automatically rechecks its four
-classes using genuine retained history; a newer onboarding receipt is unnecessary.
-All six original application/installation records remain exact.
+Deck Test60 recovers the retained hub and older ASC visits with exact history.
+Fresh Cachy Test61 bootstrap/app choice and helper retirement connect two classes;
+six are available. A normal No repeat checks both. Its retained reader reads the
+new Test63 owner without changing four files. The new 1.0.1 bootstrap reaches the
+correct app-only chooser; that Test63 check stops before opening an app.
 
-A separate new Bitwig project uses the hub's instrument/effect and eight notes.
-Fresh reopen recalls levels 0.435/0.490 and the exact saved project. Both finite
-20-second stereo captures contain nonzero audio. Normal close retires owned work;
-all 23 original preferences are restored exactly.
+Deck Test63 Find and connect adds Serum FX while preserving the instrument's
+publication/performance. Eight notes, source levels and PingPong delay settings
+recall in fresh Bitwig. Both 20-second captures are finite/nonzero; saved projects
+and all 23 original preferences stay exact. Test64 passive renewal keeps the Deck
+health display and choice controls stable.
 
-Test61 is installed normally with the paired manager and bridge active.
-Home settles Kontakt's history-only reminder using current exact availability.
-Apps are grouped by owned setup; opening a setup scopes its actual management view.
-Fresh ordinary app selection on clean CachyOS installs and automatically connects
-the hub's two classes in REAPER; a repeat visit also completes normally.
-Test62 displays the original partial installer receipt without reviving Kontakt's
-history-only reminder. Test63 Find and connect adds Serum FX in Bitwig while
-preserving the working instrument publication and performance exactly.
+Test65's ordinary Deck update and Native Access software-rendering open/normal
+close complete: the same job returns Kontakt to Available in Bitwig, one connected
+and zero needing attention. Home clears the old warning. All 18 classes, 326
+projects, original publication content/settings and 31 original plus three failed
+visit records survive; the ten pinned app images and actual NTKDaemon stay exact.
+The retained Test62 reader reads this job with eight files unchanged and clean idle.
 
-## Best explanation and next changes
+Cachy Test65 ordinary update returns six Available classes and preserves the saved
+REAPER project, setup/app/environment history and 87 of 88 protected files; only
+registry renewal changes. Home settles automatically with the retained REAPER
+handoff. A later read-only Setup visit shows unavailable status despite a healthy
+backend; fresh Test65 chooser interaction remains outside this accepted check.
 
-- Native Access continuation is deployed, but its first real visit refused before
-  launch: the signed package lacks the required launch component. Deliver it in
-  the signed kit and resolve the exact execution set before service suspension.
-- Reader-first Test62 is installed and reads the real Test63 refresh job unchanged.
-  Keep all original receipts and unsupported actions refused.
-- Finish installed Native Access open/normal close through automatic availability.
-  Serum FX playback/save/fresh reopen and fresh Cachy app-handoff notification pass.
-- A Kontakt allocator crash interrupted one update; exact-input inspection and
-  normal retry passed. The intermittent editor inspection failure remains open.
+## Open defects and next changes
 
-Done: ordinary setup/app visits automatically connect missing classes and settle
-current tasks; playback/save/reopen passes with original licensed state, projects,
-preferences and history intact. Runtime verification/update latency remains open.
+- Kontakt's intermittent editor-interface allocator crash remains open; a normal
+  successful inspection/update retry does not establish a crash fix.
+- Verification/update latency remains open: about six minutes on Deck and nineteen
+  on Cachy. Classify the later Cachy Setup readback failure with the bounded log check.
+
+Done for this slice: the recorded ordinary continuation/update workflows complete
+with protected state intact. Continue with the remaining inspection/readback defects.

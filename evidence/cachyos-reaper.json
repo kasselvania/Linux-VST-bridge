@@ -489,6 +489,69 @@
         "current_available_classes": 6,
         "idle_runtime_keepers": 1
       }
+    },
+    "test61": {
+      "scope": "Ordinary bootstrap, explicit app choice, helper retirement and automatic connections",
+      "bootstrap_and_first_visit": {
+        "ordinary_bootstrap": true,
+        "explicit_installed_app_choices": 4,
+        "full_owned_helper_retirement": true,
+        "automatic_new_connections": 2,
+        "current_available_classes": 6
+      },
+      "repeat_visit": {
+        "ordinary_hub_choice": "No",
+        "classes_freshly_checked": 2,
+        "current_available_classes": 6,
+        "owners": {
+          "dsp": 0,
+          "keepers": 0,
+          "maintenance": 0
+        }
+      }
+    },
+    "test63": {
+      "fresh_app_only_bootstrap": {
+        "version": "1.0.1",
+        "sha256": "2ff211a9f55876f9c65380931dc115be85d033f63df03fa05a700fb1783bb563",
+        "correct_installed_app_message": true,
+        "chooser_reached": true,
+        "stopped_before_managed_app_registration": true,
+        "new_plugin_classes": 0
+      },
+      "retained_test61_readback": {
+        "operator_schema": 25,
+        "reader_exit": 0,
+        "current_available_classes": 6,
+        "protected_files_unchanged": 4
+      }
+    },
+    "test65": {
+      "ordinary_update_minutes_approx": 19,
+      "protected_files": 88,
+      "files_byte_exact": 87,
+      "authorized_registry_renewal_changes": 1,
+      "missing_files": 0,
+      "original_published_classes_available": 6,
+      "saved_reaper_projects_byte_exact": 1,
+      "setup_operator_app_environment_history_unchanged": true,
+      "class_changes_only_revision_identity_and_native_host_descriptor_paths": true,
+      "service": "active",
+      "live_owners": 0,
+      "cleanup_unconfirmed": false,
+      "earlier_home_auto_refresh": {
+        "settled_without_check_again": true,
+        "bridge_running": true,
+        "current_available_classes": 6,
+        "retained_setup_version": "1.0.1",
+        "reaper_continuation_retained": true
+      },
+      "later_read_only_setup_navigation": {
+        "ui_status_unavailable": true,
+        "backend_healthy": true,
+        "readback_defect_open": true
+      },
+      "new_chooser_interaction_tested": false
     }
   }
 }
