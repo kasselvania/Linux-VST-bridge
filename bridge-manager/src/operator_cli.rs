@@ -8,6 +8,7 @@ mod current;
 pub(super) mod automatic_install;
 pub(super) mod environment_install;
 mod environment_runtime;
+mod environment_refresh;
 const ASC: &str = "arturia-software-center";
 const SERVICE: &str = "linux-vst-bridge.service";
 #[derive(Debug)]
@@ -90,6 +91,7 @@ fn token_with_registry(m: &Manager, registry: &Registry) -> Result<String> {
             "environment_installations":environment_install::records(m)?,
             "environment_runtime_transitions":environment_runtime::records(m)?,
             "renderer_transitions":environment_revision::renderer_records(m)?,
+            "refresh_checkpoints":environment_refresh::authority(m)?,
             "onboarding_history":onboarding::history_records(m)?,
             "vendor_checkpoints":automatic_install::vendor_checkpoint_authority(m)?}),
     )?)))
@@ -1386,8 +1388,10 @@ fn snapshot_readonly_depth(
         project_onboarding_failure(m, receipt, &mut onboarding)?;
     }
     let mut installer_setups = onboarding::setup_projection(m, &onboarding, &products, &workspace_installers)?;
-    automatic_install::project(m, &mut installer_setups, busy)?;
-    automatic_install::project_revalidation(m,&mut products,&onboarding::history_records(m)?)?;
+    let records=onboarding::history_records(m)?;
+    automatic_install::project_from(m, &mut installer_setups, busy,&records)?;
+    environment_refresh::project(m,&mut installer_setups,&environments,&products,busy)?;
+    automatic_install::project_revalidation(m,&mut products,&records)?;
     let environment_installers = environment_install::projection(m,&products,busy,onboarding::live)?;
     let recheck = acquire_readback(m, ui::OperatorLock::Registry, id, timeout, waits)?;
     let after = token(m)?;
@@ -1399,6 +1403,7 @@ fn snapshot_readonly_depth(
     let active_sessions=if deep { session_projection(cap.as_ref(),capacity::terminal_summaries(m)?) }
         else { vec![] };
     let runtime_reason=linux_vst_bridge::runtime_delivery::installation_disabled_reason(m)?;
+    let operation=automatic_install::project_current_operation(live.operation,&installer_setups,&records)?;
     Ok(ui::Snapshot {
         managed_runtime_records:linux_vst_bridge::runtime_delivery::readback_records(m)?,
         onboarding,
@@ -1425,7 +1430,7 @@ fn snapshot_readonly_depth(
                 inactive_reason(cap.as_ref(),retired,pending,true),
             ),
         ],
-        operation: live.operation,
+        operation,
     })
 }
 fn project_onboarding_failure(
@@ -1622,6 +1627,8 @@ fn current_offer_action(action: &ui::Action) -> bool {
         | ui::Action::TransactionReconcile {}
         | ui::Action::SoftwareInstall { .. }
         | ui::Action::SoftwareInstallResume { .. }
+        | ui::Action::EnvironmentRefresh { .. }
+        | ui::Action::EnvironmentRefreshResume { .. }
         | ui::Action::InstallerEnvironmentCreate { .. }
         | ui::Action::InstallerRename { .. }
         | ui::Action::InstallerNewAttempt { .. }
@@ -2142,6 +2149,10 @@ fn execute_with_receipt_policy_progress(
     waits: &mut Vec<ui::LockFacts>,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Value> {
+    if matches!(a,ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentRefreshResume {..}) {
+        return environment_refresh::execute(m,a,operation.ok_or("operator_operation_identity")?,
+            capacity_read,timeout,waits);
+    }
     if matches!(a, ui::Action::SoftwareInstall { .. } | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. }) {
         return automatic_install::execute(m, a, operation.ok_or("operator_operation_identity")?,
             capacity_read, timeout, waits);
@@ -2254,8 +2265,8 @@ fn execute_with_receipt_policy_progress(
         });
     }
     match a {
-        ui::Action::EnvironmentRefresh { .. } | ui::Action::EnvironmentRefreshResume { .. }
-        | ui::Action::RendererSoftwareInstall { .. } => Err("automatic_continuation_writer_unavailable".into()),
+        ui::Action::EnvironmentRefresh { .. } | ui::Action::EnvironmentRefreshResume { .. } => unreachable!(),
+        ui::Action::RendererSoftwareInstall { .. } => Err("automatic_continuation_writer_unavailable".into()),
         ui::Action::SoftwareInstall { .. } | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. } => unreachable!(),
         ui::Action::RuntimeInstall {} => {
             drop(projection.take());
@@ -2776,6 +2787,7 @@ fn resumable_action(action: &ui::Action) -> bool {
         | ui::Action::EnvironmentRuntimeSelect {..}
         | ui::Action::DependencyPrepare {} | ui::Action::VendorApplicationOpen {..}
         | ui::Action::VendorSoftwareInstall {..} | ui::Action::SoftwareInstallResume {..}
+        | ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentRefreshResume {..}
         | ui::Action::EnvironmentRescan {..} | ui::Action::QuarantinedModuleRetry {..}
         | ui::Action::PluginReinspect {..} | ui::Action::PluginInspect {..}
         | ui::Action::PluginPrepare {..} | ui::Action::CandidateGraphicsAssess {..}

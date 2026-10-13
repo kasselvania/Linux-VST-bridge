@@ -169,6 +169,18 @@ impl RequestFeedback {
         };
     }
     fn observe(&mut self, op: &serde_json::Value) {
+        if self.operation.is_some() && self.operation.as_deref() == op["operation"].as_str()
+            && matches!(self.action,Action::SoftwareInstall { .. } | Action::VendorSoftwareInstall { .. }
+                | Action::SoftwareInstallResume { .. }) {
+            if let Ok(journey)=serde_json::from_value::<InstallationJourney>(op["journey"].clone()) {
+                if journey.phase == InstallationPhase::AwaitingApplication && journey.failure.is_none() {
+                    self.journey=Some(journey);self.transition("awaiting_application");
+                    self.terminal=true;self.blocking=false;self.release_after_snapshot=false;
+                    self.text="The app is installed. Open it below to install your instruments and effects.".into();
+                    return;
+                }
+            }
+        }
         if self.terminal
             || self.operation.as_deref() != op["operation"].as_str()
             || self.operation.is_none()
@@ -226,7 +238,8 @@ impl RequestFeedback {
             Some("queued") => "This operation is queued. Do not click again.".into(),
             Some("running") => match &self.action {
                 Action::SoftwareInstall { .. } | Action::VendorSoftwareInstall { .. }
-                    | Action::SoftwareInstallResume { .. } =>
+                    | Action::SoftwareInstallResume { .. } | Action::EnvironmentRefresh { .. }
+                    | Action::EnvironmentRefreshResume { .. } =>
                     self.journey.as_ref().map(journey_phase_label)
                         .unwrap_or("Installing and connecting your plug-ins").into(),
                 Action::RuntimeInstall {} =>
@@ -2482,7 +2495,8 @@ impl eframe::App for Operator {
         if let Some(form) = &self.software_install_form {
             let offered = installation_form_offer(self.current_action_snapshot(), form);
             if let Some((submit, cancel)) = show_software_install_form(ui.ctx(),
-                &mut self.software_install_daw, &offered, action_controls_pending) {
+                &mut self.software_install_daw, &offered, action_controls_pending,
+                matches!(form,Action::EnvironmentRefresh {..})) {
                 if submit.clicked() {
                     if let Some(daw) = self.software_install_daw {
                         chosen = installation_with_daw(form, daw);
@@ -2624,6 +2638,8 @@ fn installation_with_daw(action: &Action, daw: DawChoice) -> Option<Action> {
             Some(Action::SoftwareInstall { installer: installer.clone(), daw }),
         Action::VendorSoftwareInstall { application, .. } =>
             Some(Action::VendorSoftwareInstall { application: application.clone(), daw }),
+        Action::EnvironmentRefresh {environment,..}=>
+            Some(Action::EnvironmentRefresh {environment:environment.clone(),daw}),
         _ => None,
     }
 }
@@ -2631,6 +2647,13 @@ fn installation_with_daw(action: &Action, daw: DawChoice) -> Option<Action> {
 fn installation_form_offer(snapshot: Option<&Snapshot>, action: &Action)
     -> Result<Option<String>, &'static str> {
     match action {
+        Action::EnvironmentRefresh {environment,..}=> {
+            let snapshot=snapshot.ok_or("Current manager status is unavailable. Refresh before continuing.")?;
+            snapshot.installer_setups.iter().flat_map(|setup|setup.primary.iter().chain(setup.secondary.iter()))
+                .find(|offer|matches!(&offer.action,Action::EnvironmentRefresh {environment:offered,..} if offered==environment))
+                .map(|offer|offer.disabled_reason.clone().or_else(||snapshot.system.inactive_reason().map(str::to_owned)))
+                .ok_or("This setup refresh offer changed. Refresh Setup before continuing.")
+        },
         Action::SoftwareInstall { installer, .. } => software_install_offer(snapshot, installer),
         Action::VendorSoftwareInstall { application, .. } => {
             let snapshot = snapshot.ok_or("Current manager status is unavailable. Refresh before installing.")?;
@@ -2657,9 +2680,9 @@ fn daw_choice_control(ui: &mut egui::Ui, daw: &mut Option<DawChoice>) {
 }
 
 fn show_software_install_form(ctx: &egui::Context, daw: &mut Option<DawChoice>,
-    offer: &Result<Option<String>, &'static str>, pending: bool)
+    offer: &Result<Option<String>, &'static str>, pending: bool, refresh: bool)
     -> Option<(egui::Response, egui::Response)> {
-    egui::Window::new("Install and connect")
+    egui::Window::new(if refresh {"Find and connect"} else {"Install and connect"})
         .collapsible(false)
         .max_width((ctx.content_rect().width() - 40.0).clamp(300.0, 460.0))
         .max_height((ctx.content_rect().height() - 40.0).max(200.0))
@@ -2674,11 +2697,12 @@ fn show_software_install_form(ctx: &egui::Context, daw: &mut Option<DawChoice>,
                 .min_scrolled_height(0.0).auto_shrink([false, true]).show(ui, |ui| {
                     ui.label("Which Linux DAW do you use?");
                     daw_choice_control(ui, daw);
-                    ui.label("Complete requests in the vendor's window. The manager then finds and connects all newly installed VST3 plug-ins automatically.");
+                    ui.label(if refresh {"The manager finds installed instruments and effects and connects missing plug-ins automatically. Your working plug-ins keep their current setup."}
+                        else {"Complete requests in the vendor's window. The manager then finds and connects all newly installed VST3 plug-ins automatically."});
                     ui.small("Native VST3 plug-ins may also appear in other compatible Linux DAWs.");
                 });
             let submit = ui.add_enabled(!pending && daw.is_some() && refusal.is_none(),
-                presentation::primary_button("Start installation", ui));
+                presentation::primary_button(if refresh {"Find and connect"} else {"Start installation"}, ui));
             if let Some(reason) = refusal { ui.small(reason); }
             let cancel = ui.add(egui::Button::new("Cancel").min_size(egui::vec2(100.0, 44.0)));
             (submit, cancel)
@@ -3308,7 +3332,7 @@ mod tests {
                 for frame in 0..4 {
                     let mut output=ctx.run_ui(egui::RawInput {screen_rect:Some(
                         egui::Rect::from_min_size(egui::Pos2::ZERO,size)),..Default::default()},|_ui| {
-                        let (submit,cancel)=show_software_install_form(&ctx,&mut choice,&offer,pending).unwrap();
+                        let (submit,cancel)=show_software_install_form(&ctx,&mut choice,&offer,pending,false).unwrap();
                         if frame == 3 {
                             assert_eq!(submit.enabled(),enabled);
                             assert!(cancel.enabled());
@@ -6251,6 +6275,36 @@ mod tests {
             assert!(!refresh_for_receipt(&value, &value));
         }
     }
+    #[test]
+    fn app_only_handoff_replaces_the_current_refusal_copy_for_its_exact_owner() {
+        let owner="11".repeat(16);
+        let action=Action::SoftwareInstall {installer:"aa".repeat(32),daw:DawChoice::Other};
+        let mut feedback=RequestFeedback::captured(action);
+        feedback.receipt(&Receipt {schema:crate::model::OPERATOR_SCHEMA,accepted:true,
+            operation:Some(owner.clone()),refusal:None});
+        feedback.observe(&serde_json::json!({"operation":owner,"state":"refused",
+            "reason":"no_supported_instruments_or_effects_discovered"}));
+        assert!(feedback.terminal);assert!(feedback.text.contains("refused"));
+        let mut snapshot=running_snapshot(&owner);
+        let handoff=InstallationJourney {daw:DawChoice::Other,phase:InstallationPhase::AwaitingApplication,
+            plugins:vec![],failure:None};
+        snapshot.operation=Some(serde_json::json!({"operation":owner,"state":"refused",
+            "reason":"no_supported_instruments_or_effects_discovered","journey":handoff}));
+        let mut unrelated=feedback.clone();unrelated.operation=Some("22".repeat(16));
+        unrelated.reconcile_snapshot(&snapshot);assert!(unrelated.text.contains("refused"));
+        feedback.reconcile_snapshot(&snapshot);
+        assert_eq!(feedback.text,"The app is installed. Open it below to install your instruments and effects.");
+        assert!(feedback.terminal);assert!(!feedback.blocking);
+        assert_eq!(feedback.journey.as_ref().unwrap().phase,InstallationPhase::AwaitingApplication);
+        assert_eq!(snapshot.operation.as_ref().unwrap()["reason"],"no_supported_instruments_or_effects_discovered");
+        let mut genuine_failure=RequestFeedback::captured(Action::SoftwareInstall {
+            installer:"aa".repeat(32),daw:DawChoice::Other});
+        genuine_failure.receipt(&Receipt {schema:crate::model::OPERATOR_SCHEMA,accepted:true,
+            operation:Some(owner),refusal:None});
+        snapshot.operation.as_mut().unwrap().as_object_mut().unwrap().remove("journey");
+        genuine_failure.reconcile_snapshot(&snapshot);assert!(genuine_failure.text.contains("refused"));
+    }
+
     #[test]
     fn matching_product_receipt_survives_a_newer_unrelated_latest_operation() {
         let mut f = RequestFeedback::captured(Action::PluginPrepare {

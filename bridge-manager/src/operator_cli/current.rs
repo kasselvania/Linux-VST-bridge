@@ -29,6 +29,13 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
     paths.insert(m.root.join("registry.json"));
     paths.insert(m.root.join("operator/latest.json"));
     paths.insert(m.root.join("operator/resume.json"));
+    for refresh in environment_refresh::records(m)? {
+        let directory=job_dir(m,&refresh.intent.owner)?;
+        paths.insert(directory.join("refresh.json"));
+        paths.insert(directory.join("request.json"));
+        paths.insert(refresh.environment.root.join("environment.json"));
+        paths.insert(m.root.join("inventory").join(format!("{}.json",refresh.environment.id)));
+    }
     for binding in environment_revision::renderer_records(m)? {
         let directory=job_dir(m,&binding.operation)?;
         paths.insert(directory.join("renderer-maintenance.json"));
@@ -729,6 +736,8 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
         installer_live.insert(operation.to_owned(),live);Ok(live)
     })?;
     let vendor_applications = vendor_projections(m,busy)?;
+    let environments=environment_projection_from(m,&sw,&managed_bindings,&db,busy)?;
+    environment_refresh::project(m,&mut installer_setups,&environments,&products,busy)?;
     let workspace_at = Instant::now(); phases.push(("workspace_and_cards",workspace_at.duration_since(joined_at).as_millis()));
     #[cfg(feature = "pb0-c0-audit")]
     eprintln!("PB0_PHASE {}", serde_json::to_string(&phases)?);
@@ -736,16 +745,18 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     let _ = phases;
     let system = system_from_capacity(cap.as_ref(),pending,stale_transports(cap.as_ref())?);
     let runtime_reason=linux_vst_bridge::runtime_delivery::installation_disabled_reason(m)?;
+    let operation=automatic_install::project_current_operation(automatic_install::current_operation(m)?,
+        &installer_setups,&records)?;
     let snapshot = ui::Snapshot {schema:ui::OPERATOR_SCHEMA,state_token:before,system,
         managed_runtime_records:linux_vst_bridge::runtime_delivery::readback_records(m)?,
-        onboarding,installer_setups,environment_installers,environments:vec![],vendor_applications,products,
+        onboarding,installer_setups,environment_installers,environments,vendor_applications,products,
         workspaces,active_sessions:vec![],capture:Value::Null,recent_incidents:vec![],
         actions:vec![action(&linux_vst_bridge::runtime_delivery::installation_label(),ui::Action::RuntimeInstall {},
             runtime_reason.as_deref().or(busy)),
             action("Create sanitized support export",ui::Action::SupportExport {},None),
             action("Reconcile interrupted transaction",ui::Action::TransactionReconcile {},
                 inactive_reason(cap.as_ref(),retired,pending,true))],
-        operation:automatic_install::current_operation(m)?};
+        operation};
     Ok(CurrentOverviewContext {snapshot,busy,profiles,revisions,owners,watched,current_generation,
         software:sw,registry:db,preparation,bindings:managed_bindings,
         installer_live,vendor_progress,vendor_retired:vendor,all_vendor_retired:retired,cleanup_seen,
