@@ -1,4 +1,4 @@
-# Current slice — installed continuation accepted; readback and latency remain
+# Current slice — installed continuation and status reconciliation accepted
 
 Goal: ordinary installer/app visits connect plug-ins and preserve music and state.
 
@@ -14,27 +14,27 @@ and performance. Eight notes, source levels and PingPong delay recall in fresh
 Bitwig; both 20-second captures are finite/nonzero. Saved projects and 23 original
 preferences stay exact. Test64 passive renewal keeps Deck health/choices stable.
 
-Test65's Deck update and Native Access software-rendering open/normal close return
-Kontakt Available in Bitwig through the same job, one connected and zero needing
-attention. Home clears the old warning. All 18 classes, 326 projects, original
-publication/settings and 31 original plus three failed visit records survive.
-Ten pinned app images and actual NTKDaemon stay exact. Retained Test62 reads this
-job with eight files unchanged and clean idle.
+Test65 Native Access opens/closes normally and returns Kontakt Available in Bitwig,
+one connected, zero attention; Home clears the warning. All 18 classes/326 projects
+remain protected; retained Test62 reads the same job with eight files unchanged.
 
-Cachy Test65 retains six Available classes, its REAPER project and setup/app/history.
-87 of 88 protected files stay exact; only registry renewal changes. Home settles
-with retained REAPER handoff. A later Setup visit loses healthy status; Test65
-chooser interaction remains outside this accepted check.
+Deck Test66's normal update retains 18 Available and clean idle. Of 5,352 protected
+files, 5,351 stay exact; only registry renewal changes. All 326 projects and 34
+Native Access records stay exact. Seven Home captures retain running status across
+renewal; a truthful last-observed refresh settles by the next sample.
+
+Cachy Test66 fixes receipt reconciliation: six Available, clean idle and 87 of 88
+protected files exact, with only registry renewal. The saved REAPER project and
+setup/app/history stay exact. Home keeps health and handoff through age renewal;
+its temporary refreshing task is truthful. Normal Open this setup reaches the
+1.0.1 chooser; eight frames over about 40 seconds retain health, REAPER handoff and
+correct controls, with no app selected. The raw receipt remains unchanged.
 
 ## Open defects and next changes
 
 - Kontakt's intermittent editor-interface allocator crash remains open; successful
   inspection/update retry does not establish a crash fix.
-- Cachy Setup compares whole raw/projected job JSON, mistaking NeedsAttention versus
-  AwaitingApplication projection for progress. It clears healthy status and replaces
-  the handoff. Correct the comparison, then verify installed behavior.
-- Verification/update latency remains open: about six minutes on Deck and nineteen
-  on Cachy. The measured status paths complete successfully without a 45-second timeout.
+- Verification/update latency remains open: about six minutes on Deck and 21–22
+  on Cachy. Improve verification/update waiting while preserving retained state.
 
-Done for this slice: recorded ordinary continuation/update workflows preserve state;
-continue with the remaining inspection/readback defects.
+Done for this slice: installed continuation/status workflows preserve protected state.

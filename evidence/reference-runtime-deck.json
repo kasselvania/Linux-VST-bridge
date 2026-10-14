@@ -503,5 +503,30 @@
       "live_owners": 0,
       "cleanup_unconfirmed": false
     }
+  },
+  "test66_deck_update": {
+    "ordinary_update_minutes_approx": 6,
+    "selected_live_frontend_and_paired_manager_exact": true,
+    "current_available_classes": 18,
+    "service": "active",
+    "live_owners": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false,
+    "protected_files": 5352,
+    "files_byte_exact": 5351,
+    "authorized_registry_renewal_changes": 1,
+    "projects_byte_exact": 326,
+    "original_and_failed_test64_native_access_files_byte_exact": 34,
+    "home_renewal": {
+      "captures": 7,
+      "span_seconds_approx": 36,
+      "bridge_running_retained": true,
+      "truthful_last_observed_refresh_sample": 2,
+      "refresh_settled_by_sample": 3,
+      "false_unavailable_observed": false,
+      "old_native_access_task_revived": false,
+      "existing_unrelated_task_retained": true
+    }
   }
 }

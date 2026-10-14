@@ -563,6 +563,49 @@
         "readback_defect_open": true
       },
       "new_chooser_interaction_tested": false
+    },
+    "test66": {
+      "ordinary_update_minutes_approx_range": [
+        21,
+        22
+      ],
+      "selected_live_pid": 52277,
+      "approved_frontend_paired_manager_supervisor_ownership_exact": true,
+      "supervisor_python_minor": "3.14",
+      "protected_files": 88,
+      "files_byte_exact": 87,
+      "authorized_registry_renewal_changes": 1,
+      "missing_files": 0,
+      "exact_classes_available": 6,
+      "saved_reaper_projects_byte_exact": 1,
+      "setup_app_history_unchanged": true,
+      "service": "active",
+      "live_owners": 0,
+      "cleanup_unconfirmed": false,
+      "receipt_reconciliation": {
+        "original_immutable_raw_job_retained": true,
+        "raw_pulse_state": "NeedsAttention",
+        "valid_current_projection_state": "AwaitingApplication",
+        "current_projection_daw": "REAPER",
+        "current_projection_classes": 0,
+        "specific_status_handoff_defect_resolved": true
+      },
+      "home_age_renewal": {
+        "samples": 8,
+        "healthy_bridge_and_correct_handoff_retained": true,
+        "temporary_refreshing_task_placeholder_observed": true
+      },
+      "normal_open_this_setup_chooser": {
+        "setup_version": "1.0.1",
+        "frames": 8,
+        "span_seconds_approx": 40,
+        "running_health_and_reaper_handoff_retained": true,
+        "choose_installed_program_enabled": true,
+        "app_selected": false,
+        "open_enabled": false,
+        "raw_pulse_false_unavailable_observed": false,
+        "chooser_lost": false
+      }
     }
   }
 }

@@ -871,6 +871,10 @@ returns Kontakt to Available in Bitwig. Full retirement, 18 Available and all
 content, settings, qualification and performance-record absence retained. The
 retained Test62 reader also reads the completed new job without changing eight files.
 [Scoped Native Access result](../evidence/reference-runtime-deck.json).
+Deck Test66 retains 18 Available, clean idle, all 326 projects and 34 Native Access
+records; only registry renewal changes among 5,352 protected files. Seven Home
+captures preserve running status through renewal and settle a truthful refresh
+without restoring the old Native Access task.
 
 The first Test63 Deck update failed during Kontakt editor-interface inspection
 with allocator corruption (`malloc(): unaligned tcache chunk detected`). The
@@ -893,17 +897,24 @@ The new Test63 1.0.1 app-only bootstrap reaches the correct installed-app messag
 and chooser, where the check stops before app registration or duplicate classes.
 Test65's ordinary Cachy update retains all six classes, its saved REAPER project
 and setup/app/environment history; only registry renewal changes among 88 protected
-files. Home settles automatically. A later read-only Setup visit displays
+files. Home settles automatically. A later Test65 read-only Setup visit displayed
 unavailable status despite a healthy backend. The overview projects the same
 completed app-only job as `AwaitingApplication` with no failure; its immutable raw
-pulse remains `NeedsAttention` with its retained no-supported-plug-in failure.
-Whole-JSON comparison treats
-this projection difference as terminal progress, clearing status and replacing
-the handoff. Pulse/overview/snapshot reads succeed in 14 ms/7.34 s/15.09 s; no
-45-second timeout was observed. The fix awaits installed verification, and no new
-Test65 chooser interaction is qualified. Runtime verification/update latency also
-remains open: Test65 takes about six minutes on Deck and
-nineteen on Cachy; Test58's normal update completed within 623–755 seconds.
+pulse remains `NeedsAttention` with its retained failure reporting no supported plug-ins.
+Whole-JSON comparison mistook this projection difference for terminal progress,
+clearing status and replacing the handoff. Pulse/overview/snapshot reads succeeded
+in 14 ms/7.34 s/15.09 s; no 45-second timeout was observed. Canonical reconciliation
+fixes this specific defect in installed Test66: eight Home samples retain health
+and handoff through age renewal, and normal Open this setup reaches the 1.0.1
+chooser. Eight frames over about 40 seconds retain healthy status, REAPER handoff
+and correct selection/Open controls without changing the immutable receipt.
+The temporary Refreshing plug-in status task during renewal is expected.
+All six classes, the saved project and history stay exact; only registry renewal
+changes among 88 protected files. Prior Test65 preservation and Test58 musical
+recall remain separate checks. Runtime verification/update latency remains open:
+Test66 takes about
+six minutes on Deck and 21–22 on Cachy; Test65 took nineteen minutes on Cachy and
+Test58 completed within 623–755 seconds.
 [Scoped installed result](../evidence/cachyos-reaper.json).
 
 The 2026-10-03 [foundation comparison](../evidence/preparation/2026-10-03-foundation-installed.json)

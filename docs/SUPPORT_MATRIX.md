@@ -47,6 +47,12 @@ records and three failed Test64 records. The ten pinned application images and
 actual NTKDaemon remain exact. Retained Test62 readback completes in 5.11 seconds
 with the same completed job, 18 Available, clean idle and eight files unchanged.
 [Scoped Native Access result](../evidence/reference-runtime-deck.json).
+Deck Test66's ordinary update takes about six minutes, retaining 18 Available and
+clean idle. Of 5,352 protected files, 5,351 stay exact; only registry renewal changes.
+All 326 projects and 34 Native Access records stay exact. Seven Home captures over
+about 36 seconds retain running status through renewal; a truthful last-observed
+refresh settles by the next sample, without reviving the Native Access task.
+[Scoped renewal result](../evidence/reference-runtime-deck.json).
 Kontakt's intermittent editor-interface allocator crash and runtime verification/
 update latency remain open.
 
@@ -73,12 +79,20 @@ history. Of 88 protected files, 87 remain exact; only authorized registry renewa
 changes, with no missing files. Class changes stay within revision identities and
 native/host/descriptor paths. Service is active and clean idle. Home settles
 automatically and retains the 1.0.1 setup's REAPER continuation without Check again.
-A later read-only Setup visit displays unavailable status despite a healthy
-backend: whole-JSON comparison mistakes raw/projected job-state differences for
-progress, clearing status and replacing the handoff. The UI fix awaits installed
-verification. The Test65 chooser stays unopened; the actual Test63 chooser result
-remains its separate qualification.
-Runtime verification/update latency remains open.
+A later Test65 read-only Setup visit displayed unavailable status despite a healthy
+backend: whole-JSON comparison mistook raw/projected job-state differences for
+progress, clearing status and replacing the handoff. Test66's ordinary update
+corrects this reconciliation and takes about 21–22 minutes. All six exact classes
+remain Available with active service, no live owners and confirmed cleanup; 87 of
+88 protected files stay exact, with only registry renewal and none missing. The
+saved REAPER project and all setup/app/history stay exact. Eight Home samples keep
+healthy status and the correct handoff; age renewal briefly shows a truthful
+Refreshing plug-in status task. Normal Open this setup reaches the fresh 1.0.1
+chooser. Eight frames over about 40 seconds retain running health, REAPER handoff
+and enabled Choose installed program; no app is selected and Open remains disabled.
+The original immutable raw receipt is retained without false unavailable status
+or chooser loss. Earlier Test63 chooser and Test65 preservation remain separate
+checks. Runtime verification/update latency remains open.
 [Scoped vendor-application result](../evidence/cachyos-reaper.json).
 
 Test55's clean CachyOS/native REAPER first-party installation uses one ordinary
