@@ -920,7 +920,7 @@ impl Operator {
         }
         let request = self.queued_action.take()?;
         let current = self.current_action_snapshot();
-        if self.queued_offer_enabled(&request) {
+        if current.is_some_and(|snapshot| snapshot.state_token == request.state_token) {
             return Some(request);
         }
         // A readback cannot upgrade a click into a different action, target or
@@ -939,24 +939,6 @@ impl Operator {
         }
         self.refresh_after |= !changed;
         None
-    }
-    fn queued_offer_enabled(&self, request: &Request) -> bool {
-        let Some(current) = self.current_action_snapshot()
-            .filter(|snapshot| snapshot.state_token == request.state_token) else {return false};
-        // Scoped details can intentionally carry controls omitted from the fast
-        // overview. They remain usable only with the exact current bindings.
-        let selected = self.selected_product_snapshot()
-            .filter(|snapshot| snapshot.system == current.system);
-        let details = self.snapshot.as_ref().filter(|snapshot|
-            snapshot.state_token == current.state_token && snapshot.system == current.system);
-        let offer = [Some(current), selected.as_ref(), details].into_iter().flatten()
-            .flat_map(Snapshot::available_actions)
-            .find(|offer|request.action.same_offer_identity(&offer.action));
-        let Some(offer) = offer else {return false};
-        let reporting_problem = matches!(request.action, Action::CompatibilityResult {
-            result:TestResultKind::Problem {..}, ..});
-        (offer.disabled_reason.is_none() || reporting_problem)
-            && (!request.action.requires_global_inactive() || current.system.inactive_reason().is_none())
     }
     fn buttons(
         ui: &mut egui::Ui,
@@ -4429,82 +4411,42 @@ mod tests {
         assert!(state.next_action().is_none(),"recovery must not replay a refused click");
     }
     #[test]
-    fn queued_click_rechecks_the_exact_offer_after_same_token_overview_reply() {
-        for change in ["unchanged","service","cleanup","disabled","removed","target"] {
+    fn same_token_offer_changes_preserve_intent_and_display_manager_refusal() {
+        for change in ["service","cleanup","disabled","removed","target"] {
             let mut state = state_fixture();
             let action = Action::EnvironmentRefresh {environment:"exact-owned-environment".into(),daw:DawChoice::Bitwig};
             let mut overview = overview_fixture();
-            offer_action(&mut overview.current,&action);
-            let token = overview.current.state_token.clone();
+            overview.current.actions.push(AvailableAction {label:"Find and connect".into(),
+                action:action.clone(),disabled_reason:None});
             state.handle_reply(Reply::Overview(Box::new(overview.clone())));
+            state.snapshot = Some(overview.current.clone());
             state.pending = true;
             state.origin = Some(RequestOrigin::SilentPostMutationRefresh);
             assert!(state.capture_chosen_action(action.clone()));
+            let original = state.queued_action.as_ref().unwrap().clone();
             match change {
                 "service" => overview.current.system.service = "capacity unavailable".into(),
                 "cleanup" => overview.current.system.cleanup_unconfirmed = true,
                 "disabled" => overview.current.actions.last_mut().unwrap().disabled_reason = Some("Affected owner is busy".into()),
                 "removed" => {overview.current.actions.pop();},
                 "target" => overview.current.actions.last_mut().unwrap().action = Action::EnvironmentRefresh {
-                    environment:"different-environment".into(),daw:DawChoice::Bitwig},
-                _ => {},
+                    environment:"different-environment".into(),daw:DawChoice::Reaper},
+                _ => unreachable!(),
             }
-            assert_eq!(overview.current.state_token,token);
+            assert_eq!(overview.current.state_token,original.state_token);
             state.handle_reply(Reply::CurrentOverview(Box::new(overview.into())));
-            assert_eq!(state.queued_action.as_ref().unwrap().action,action);
-            assert_eq!(state.queued_action.as_ref().unwrap().state_token,token);
-            let submitted = state.next_action();
-            if change == "unchanged" {
-                let request = submitted.unwrap();
-                assert_eq!(request.action,action);
-                assert_eq!(request.state_token,token);
-            } else {
-                assert!(submitted.is_none(),"{change}");
-                let feedback = state.feedback.as_ref().unwrap();
-                assert!(feedback.terminal && !feedback.blocking && feedback.text.contains("not submitted"),"{change}");
-                assert_eq!(feedback.action,action);
-            }
-            assert!(state.next_action().is_none(),"no replay, {change}");
-        }
-    }
-    #[test]
-    fn queued_scoped_and_recovery_offers_keep_their_existing_authority() {
-        for source in ["product_detail","technical_recovery","current_recovery","unrelated_dsp"] {
-            let mut state = state_fixture();
-            let overview = overview_fixture();
-            let action = if matches!(source,"technical_recovery" | "current_recovery") {
-                Action::InstallerStop {onboarding:"exact-environment".into(),operation:"exact-live-operation".into()}
-            } else {Action::OrdinaryRollback {class_id:overview.current.products[0].class_id.clone(),publication:"cd".repeat(16)}};
-            state.handle_reply(Reply::Overview(Box::new(overview.clone())));
-            if source == "product_detail" {
-                let mut product = overview.current.products[0].clone();
-                product.actions = vec![AvailableAction {label:"Restore previous setup".into(),action:action.clone(),disabled_reason:None}];
-                state.library.focus_product(ProductKey::from(&product));
-                state.product_detail = Some(CurrentProductDetail {schema:1,operator_schema:crate::model::OPERATOR_SCHEMA,
-                    state_token:overview.current.state_token.clone(),current_generation:overview.current_generation.clone(),
-                    product,system:overview.current.system.clone(),environments:vec![],vendor_applications:vec![]});
-            } else if source == "technical_recovery" {
-                let mut details = overview.current.clone();
-                offer_action(&mut details,&action);
-                state.snapshot = Some(details);
-            } else {offer_action(&mut state.overview.as_mut().unwrap().current,&action);}
+            assert_eq!(state.next_action(),Some(original),"never retarget the captured request, {change}");
+            assert!(state.next_action().is_none(),"a submitted request is never replayed");
             state.pending = true;
-            state.origin = Some(RequestOrigin::SilentPostMutationRefresh);
-            assert!(state.capture_chosen_action(action.clone()));
-            let token = state.queued_action.as_ref().unwrap().state_token.clone();
-            let mut current = overview;
-            if source == "unrelated_dsp" {
-                current.current.system.dsp = 1;
-                offer_action(&mut current.current,&action);
-            } else if source == "current_recovery" {
-                current.current.system.service = "capacity unavailable".into();
-                offer_action(&mut current.current,&action);
-            }
-            state.handle_reply(Reply::CurrentOverview(Box::new(current.into())));
-            let request = state.next_action().unwrap_or_else(||panic!("{source}"));
-            assert_eq!(request.action,action);
-            assert_eq!(request.state_token,token);
-            assert!(state.next_action().is_none());
+            state.origin = Some(RequestOrigin::UserAction);
+            state.handle_reply(Reply::Receipt(Receipt {schema:crate::model::OPERATOR_SCHEMA,
+                accepted:false,operation:Some("exact-refused-request".into()),
+                refusal:Some("The current setup offer is unavailable; refresh before trying again.".into())}));
+            let feedback = state.feedback.as_ref().unwrap();
+            assert_eq!(feedback.action,action);
+            assert!(feedback.text.contains("current setup offer is unavailable"));
+            assert!(!feedback.text.contains("not submitted"),"this request reached manager admission");
+            assert!(state.next_action().is_none(),"a refused request is never replayed");
         }
     }
     #[test]
@@ -6212,10 +6154,6 @@ mod tests {
             },
         }
     }
-    fn offer_action(snapshot: &mut Snapshot, action: &Action) {
-        snapshot.actions.push(AvailableAction {label:"Exact offered action".into(),
-            action:action.clone(),disabled_reason:None});
-    }
     fn running_snapshot(operation: &str) -> Snapshot {
         let id = "aa".repeat(16);
         Snapshot {
@@ -6583,7 +6521,6 @@ mod tests {
         let mut o = state_fixture();
         let mut overview = overview_fixture();
         overview.current.state_token = create_request().state_token;
-        offer_action(&mut overview.current,&create_request().action);
         o.handle_reply(Reply::Overview(Box::new(overview)));
         o.pending = true;
         o.background_poll = true;
@@ -6615,7 +6552,6 @@ mod tests {
                 o.overview_fresh = true;
                 let recovery = Action::OrdinaryRollback { class_id: "ab".repeat(16),
                     publication: "cd".repeat(16) };
-                offer_action(&mut o.overview.as_mut().unwrap().current,&recovery);
                 o.product_form = Some(draft.clone());
                 assert!(o.capture_chosen_action(recovery.clone()));
                 let request = o.next_action().unwrap();
@@ -6659,7 +6595,6 @@ mod tests {
                 current.current.state_token = "after-recovery".into();
                 current.readiness.state_token = current.current.state_token.clone();
                 current.current.operation = Some(terminal);
-                offer_action(&mut current.current,&draft);
                 o.origin = Some(RequestOrigin::SilentPostMutationRefresh);
                 o.handle_reply(Reply::Overview(Box::new(current)));
                 let feedback = o.feedback.as_ref().unwrap();
@@ -6692,7 +6627,6 @@ mod tests {
             o.origin = Some(RequestOrigin::BackgroundActivity);
             let recovery = Action::OrdinaryRollback { class_id: "ab".repeat(16),
                 publication: "cd".repeat(16) };
-            offer_action(&mut o.overview.as_mut().unwrap().current,&recovery);
             assert!(o.capture_chosen_action(recovery.clone()));
             assert!(!o.capture_chosen_action(Action::BufferingSet {
                 class_id: "ab".repeat(16), added_frames: 512 }));
@@ -6726,7 +6660,6 @@ mod tests {
             installer: "ab".repeat(32), release: "Exact release".into() };
         let rename = Action::InstallerRename { installer: "cd".repeat(32),
             label: "Retained display name".into() };
-        offer_action(&mut o.overview.as_mut().unwrap().current,&workspace);
         o.product_form = Some(observation.clone());
         o.workspace_select_form = Some(workspace.clone());
         o.installer_rename_form = Some(rename.clone());
@@ -6782,7 +6715,6 @@ mod tests {
         let request = Request { schema: crate::model::OPERATOR_SCHEMA, state_token: "current".into(), action };
         let mut overview = overview_fixture();
         overview.current.state_token = request.state_token.clone();
-        offer_action(&mut overview.current,&request.action);
         o.handle_reply(Reply::Overview(Box::new(overview)));
         o.pending = true;
         o.background_poll = true;

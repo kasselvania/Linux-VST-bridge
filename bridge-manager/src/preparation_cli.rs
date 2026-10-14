@@ -1081,10 +1081,22 @@ fn action_selection_with(m: &Manager, sw: &Software, action: &ui::Action,
     Ok(Some(c.selection))
 }
 pub fn offered(actual: &ui::Action, offer: &ui::Action) -> bool {
-    if !actual.same_offer_identity(offer) { return false; }
-    match actual {
-        ui::Action::CompatibilityResult {result,passed,failed_area,note,..} => {
-            passed.len() <= prep::AREAS.len()
+    match (actual, offer) {
+        (ui::Action::RendererSoftwareInstall {application,policy,..},ui::Action::RendererSoftwareInstall {application:offered,policy:offered_policy,..})=>application==offered && policy==offered_policy,
+        (ui::Action::EnvironmentRefresh {environment,..},ui::Action::EnvironmentRefresh {environment:offered,..})=>environment==offered,
+        (ui::Action::VendorSoftwareInstall {application,..}, ui::Action::VendorSoftwareInstall {application:offered,..}) => application==offered,
+        (ui::Action::SoftwareInstall { installer, .. },
+            ui::Action::SoftwareInstall { installer: offered, .. }) => installer == offered,
+        (
+            ui::Action::CompatibilityResult {
+                candidate, expected_current, result, passed, failed_area, note,
+            },
+            ui::Action::CompatibilityResult {
+                candidate: offered_candidate, expected_current: offered_current, ..
+            },
+        ) => {
+            candidate == offered_candidate && expected_current == offered_current
+                && passed.len() <= prep::AREAS.len()
                 && passed.iter().collect::<std::collections::BTreeSet<_>>().len() == passed.len()
                 && match result {
                     ui::TestResultKind::Worked => !passed.is_empty() && failed_area.is_none()
@@ -1094,13 +1106,46 @@ pub fn offered(actual: &ui::Action, offer: &ui::Action) -> bool {
                         && failed_area.is_none_or(|area| problem_area(*category).is_none_or(|known| known == area)),
                 }
         }
-        ui::Action::InstallerRename {label,..} => crate::installer_import::valid_label(label),
-        ui::Action::WorkspaceSelectInstaller {release,..}
-        | ui::Action::WorkspaceSelectProductInstaller {release,..} => daw_workspace::release_syntax(release),
-        ui::Action::CandidateObserve {area,status,note,..} =>
-            parse::<prep::Area>(area).is_ok() && parse::<prep::TestStatus>(status).is_ok() && text(note),
-        ui::Action::CandidateReview {rationale,..} => text(rationale),
-        _ => true,
+        (
+            ui::Action::InstallerRename { installer, label },
+            ui::Action::InstallerRename { installer: offered, .. },
+        ) => installer == offered && crate::installer_import::valid_label(label),
+        (
+            ui::Action::WorkspaceSelectInstaller { installer, release },
+            ui::Action::WorkspaceSelectInstaller { installer: offered, .. },
+        ) => installer == offered && daw_workspace::release_syntax(release),
+        (
+            ui::Action::WorkspaceSelectProductInstaller { product, installer, release },
+            ui::Action::WorkspaceSelectProductInstaller { product: offered_product, installer: offered_installer, .. },
+        ) => product == offered_product && installer == offered_installer
+            && daw_workspace::release_syntax(release),
+        (
+            ui::Action::CandidateObserve {
+                candidate,
+                area,
+                status,
+                note,
+            },
+            ui::Action::CandidateObserve { candidate: c, .. },
+        ) => {
+            candidate == c
+                && parse::<prep::Area>(area).is_ok()
+                && parse::<prep::TestStatus>(status).is_ok()
+                && text(note)
+        }
+        (
+            ui::Action::CandidateReview {
+                candidate,
+                accept,
+                rationale,
+            },
+            ui::Action::CandidateReview {
+                candidate: c,
+                accept: a,
+                ..
+            },
+        ) => candidate == c && accept == a && text(rationale),
+        _ => actual == offer,
     }
 }
 fn parse<T: serde::de::DeserializeOwned>(s: &str) -> Result<T> {
