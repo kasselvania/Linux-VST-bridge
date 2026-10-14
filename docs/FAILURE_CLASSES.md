@@ -3579,3 +3579,9 @@ policy, while the native descriptor kept zero, refusing load with
 same policy before generating the descriptor and binds artifact reuse to it.
 Pigments loads, plays, reopens its editor and recalls changed state after a fresh
 DAW launch; the existing long-playback and touch gaps remain separate.
+
+## Beta reports under investigation
+
+- [#329](https://github.com/kasselvania/Linux-VST-bridge/issues/329): Recovery after choosing an updater instead of the full installer was unclear; the complete tester journey has not been reproduced.
+- [#330](https://github.com/kasselvania/Linux-VST-bridge/issues/330): Serum 2 editor transparency was reported and remains unreproduced.
+- [#331](https://github.com/kasselvania/Linux-VST-bridge/issues/331): The tester noticed the detached editor during an initial tryout; automation workflow impact needs our own testing.
