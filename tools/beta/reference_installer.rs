@@ -4,15 +4,16 @@
 use std::{ffi::c_void, path::Path, ptr};
 const INSTRUMENT: &[u8] = include_bytes!(env!("LVB_BETA_INSTRUMENT"));
 const EFFECT: &[u8] = include_bytes!(env!("LVB_BETA_EFFECT"));
-#[cfg(all(beta_completion, any(beta_hold, beta_partial_hold)))]
-compile_error!("Completion instrumentation uses the ordinary installer only");
-const FAMILY: &str = if cfg!(beta_completion) { "completion" } else { "reference" };
-const TITLE: &str = if cfg!(beta_completion) { "LVB Completion Plug-ins 1.0.0" } else { "LVB Reference Plug-ins 1.0.0" };
-const DISPLAY_NAME: &str = if cfg!(beta_completion) { "LVB Completion Plug-ins" } else { "LVB Reference Plug-ins" };
-const REGISTRATION: &str = if cfg!(beta_completion) { "LVBCompletionPlugins" } else { "LVBReferencePlugins" };
-const INSTRUMENT_NAME: &str = if cfg!(beta_completion) { "LVBCompletionInstrument.vst3" } else { "LVBReferenceInstrument.vst3" };
-const EFFECT_NAME: &str = if cfg!(beta_completion) { "LVBCompletionEffect.vst3" } else { "LVBReferenceEffect.vst3" };
-const MARKER: &str = if cfg!(beta_completion) { "LVB_COMPLETION_INSTALLER_V1" } else { "LVB_REFERENCE_INSTALLER_V1" };
+#[cfg(any(all(beta_completion, beta_editor),
+    all(any(beta_completion, beta_editor), any(beta_hold, beta_partial_hold))))]
+compile_error!("Each additional instrumentation family uses its own ordinary installer");
+const FAMILY: &str = if cfg!(beta_editor) { "editor" } else if cfg!(beta_completion) { "completion" } else { "reference" };
+const TITLE: &str = if cfg!(beta_editor) { "LVB Editor Plug-ins 1.0.0" } else if cfg!(beta_completion) { "LVB Completion Plug-ins 1.0.0" } else { "LVB Reference Plug-ins 1.0.0" };
+const DISPLAY_NAME: &str = if cfg!(beta_editor) { "LVB Editor Plug-ins" } else if cfg!(beta_completion) { "LVB Completion Plug-ins" } else { "LVB Reference Plug-ins" };
+const REGISTRATION: &str = if cfg!(beta_editor) { "LVBEditorPlugins" } else if cfg!(beta_completion) { "LVBCompletionPlugins" } else { "LVBReferencePlugins" };
+const INSTRUMENT_NAME: &str = if cfg!(beta_editor) { "LVBEditorInstrument.vst3" } else if cfg!(beta_completion) { "LVBCompletionInstrument.vst3" } else { "LVBReferenceInstrument.vst3" };
+const EFFECT_NAME: &str = if cfg!(beta_editor) { "LVBEditorEffect.vst3" } else if cfg!(beta_completion) { "LVBCompletionEffect.vst3" } else { "LVBReferenceEffect.vst3" };
+const MARKER: &str = if cfg!(beta_editor) { "LVB_EDITOR_INSTALLER_V1" } else if cfg!(beta_completion) { "LVB_COMPLETION_INSTALLER_V1" } else { "LVB_REFERENCE_INSTALLER_V1" };
 #[link(name = "user32")]
 unsafe extern "system" {
     fn MessageBoxW(window: *mut c_void, text: *const u16, title: *const u16, flags: u32) -> i32;
@@ -94,16 +95,18 @@ fn self_test() {
     assert!(INSTRUMENT.len() > 4096 && EFFECT.len() > 4096);
     let directory = std::env::temp_dir().join(format!("lvb-{FAMILY}-installer-self-test-{}", std::process::id()));
     std::fs::create_dir(&directory).expect("self-test requires a fresh owned directory");
-    let other_names = if cfg!(beta_completion) { ["LVBReferenceInstrument.vst3", "LVBReferenceEffect.vst3"] }
-        else { ["LVBCompletionInstrument.vst3", "LVBCompletionEffect.vst3"] };
-    for name in other_names { std::fs::write(directory.join(name), b"other fixture family").unwrap(); }
+    let other_names: Vec<_> = ["LVBReferenceInstrument.vst3", "LVBReferenceEffect.vst3",
+        "LVBCompletionInstrument.vst3", "LVBCompletionEffect.vst3",
+        "LVBEditorInstrument.vst3", "LVBEditorEffect.vst3"].into_iter()
+        .filter(|name| *name != INSTRUMENT_NAME && *name != EFFECT_NAME).collect();
+    for name in &other_names { std::fs::write(directory.join(name), b"other fixture family").unwrap(); }
     // Use the actual file-installation implementation without registry/UI or
-    // touching a product environment. Both families must remain independent.
+    // touching a product environment. All families must remain independent.
     install_modules(&directory, false).unwrap();
     install_modules(&directory, false).unwrap();
     assert_eq!(std::fs::read(directory.join(INSTRUMENT_NAME)).unwrap(), INSTRUMENT);
     assert_eq!(std::fs::read(directory.join(EFFECT_NAME)).unwrap(), EFFECT);
-    for name in other_names { assert_eq!(std::fs::read(directory.join(name)).unwrap(), b"other fixture family"); }
+    for name in &other_names { assert_eq!(std::fs::read(directory.join(name)).unwrap(), b"other fixture family"); }
     std::fs::write(directory.join(INSTRUMENT_NAME), b"different installed build").unwrap();
     assert!(install_modules(&directory, false).is_err());
     assert_eq!(std::fs::read(directory.join(INSTRUMENT_NAME)).unwrap(), b"different installed build");
