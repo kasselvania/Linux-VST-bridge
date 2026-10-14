@@ -1297,6 +1297,14 @@ fn existing_setup_installer(ui: &mut egui::Ui, snapshot: &Snapshot,
     if let Some(target) = snapshot.environment_installers.iter().find(|target|target.environment == selected) {
         ui.push_id(&target.environment,|ui|ui.add_enabled_ui(fresh, |ui|
             crate::library::environment_installer_controls(ui,target,pending,chosen)));
+        for app in snapshot.vendor_applications.iter().filter(|app|
+            app.details["user_selected"] == true && app.details["environment"] == target.environment) {
+            ui.strong(&app.name);
+            ui.label(&app.version);
+            if let Some(path) = app.details["executable"]["path"].as_str() {ui.small(path);}
+            ui.add_enabled_ui(fresh,|ui|
+                crate::library::action_buttons(ui,&app.actions,snapshot.system.inactive_reason(),pending,chosen));
+        }
     }
     // An exact running owner's Stop remains visible even if no setup is selected.
     for target in snapshot.environment_installers.iter().filter(|target|target.environment != selected) {

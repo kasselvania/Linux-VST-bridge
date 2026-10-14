@@ -88,7 +88,7 @@ class DawWorkspaceRuntime(unittest.TestCase):
                         "report": str(root / "result.json"), "operation_id": op,
                         "mode": "normal"}))
                 constructor.assert_called_once_with(daw_operation=op)
-                close.assert_called_once_with(scope, app, close=True)
+                close.assert_called_once_with(scope, app, close=True, selected_image=None)
                 report = json.loads((root / "result.json").read_text())
                 self.assertEqual(report["close_result"], {"request": request, "result": "close_requested"})
                 self.assertEqual(report["state"], "completed")

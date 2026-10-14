@@ -3,6 +3,104 @@
 use super::*;
 use serde_json::Value;
 
+/// Observe one explicitly chosen Windows executable; names and installer history
+/// do not confer permission. Keep its adjacent resources in their original place.
+pub(crate) fn program_artifact(path: &Path) -> Result<Artifact> {
+    use std::io::{Read, Seek, SeekFrom};
+    let path = path.canonicalize()?;
+    require(path.to_str().is_some_and(|p|p.len()<=4096
+        && !p.chars().any(char::is_control) && !p.contains('"')),
+        "The selected program needs a Windows-compatible path")?;
+    let mut source = file(&path)?;
+    let metadata = source.metadata()?;
+    require(metadata.len() >= 64 && metadata.len() <= 256 * 1024 * 1024,
+        "Choose a Windows executable smaller than 256 MiB")?;
+    let mut header = [0_u8;64]; source.read_exact(&mut header)?;
+    require(&header[..2] == b"MZ", "This file is not a Windows executable")?;
+    let offset = u32::from_le_bytes(header[60..64].try_into()?) as u64;
+    require(offset.checked_add(24).is_some_and(|end|end <= metadata.len()),
+        "The Windows executable has an invalid PE header")?;
+    source.seek(SeekFrom::Start(offset))?;
+    let mut pe = [0_u8;24]; source.read_exact(&mut pe)?;
+    let machine = u16::from_le_bytes(pe[4..6].try_into()?);
+    let flags = u16::from_le_bytes(pe[22..24].try_into()?);
+    require(&pe[..4] == b"PE\0\0" && flags & 2 != 0 && flags & 0x2000 == 0,
+        "Choose a Windows program, rather than a DLL")?;
+    require(matches!(machine,0x14c | 0x8664),
+        "The selected runtime needs a Windows x86 or x64 executable")?;
+    Ok(Artifact {sha256:digest(&path)?,path})
+}
+
+pub(crate) fn choose_program(m: &Manager, environment: &str, expected_environment: &str,
+    executable: &Artifact, previous: Option<&str>) -> Result<Application> {
+    choose_program_with(m,environment,expected_environment,executable,previous,
+        ||Ok(operator_cli::vendor_retired(m)? && onboarding::all_retired(m)?))
+}
+fn choose_program_with(m: &Manager, environment: &str, expected_environment: &str,
+    executable: &Artifact, previous: Option<&str>, retired: impl FnOnce()->Result<bool>) -> Result<Application> {
+    let guard = m.lock("registry.lock")?;
+    m.require_inactive(None)?;
+    require(retired()?,
+        "Close the running program before changing this selection")?;
+    let environment = operator_cli::environment_install::target(m,environment)?;
+    require(operator_cli::environment_runtime::identity(&environment)? == expected_environment,
+        "The setup changed; choose the program again")?;
+    let selected = program_artifact(&executable.path)?;
+    require(selected == *executable, "The program changed again; review its current version")?;
+    let current = superseded(m)?;
+    let previous = if previous.is_none() {
+        let mut existing = selectors(m)?.into_iter().filter(|s|!current.contains(s))
+            .map(|s|application(m,&s).map(|a|(s,a))).collect::<Result<Vec<_>>>()?
+            .into_iter().filter(|(_,app)|app.user_selection.is_some()
+                && app.environment.id == environment.id && app.executable.path == selected.path);
+        let retained = existing.next();
+        require(existing.next().is_none(), "program_selection_conflict")?;
+        if let Some((_,app)) = retained.as_ref() {
+            if app.executable == selected {return Ok(app.clone());}
+        }
+        retained.map(|(s,_)|s)
+    } else { previous.map(str::to_owned) };
+    let selection = if let Some(previous) = previous.as_deref() {
+        let old = application(m,previous)?;
+        require(old.user_selection.is_some() && old.environment == environment
+            && old.executable.path == selected.path && old.executable.sha256 != selected.sha256,
+            "program_adoption_binding")?;
+        require(!current.contains(previous), "This program selection has already changed")?;
+        let mut options = old.user_selection.ok_or("program_selection_missing")?;
+        options.previous = Some(previous.into()); options
+    } else {
+        vendor_application::ProgramSelection {working_directory:selected.path.parent()
+            .ok_or("program_working_directory")?.into(),arguments:vec![],previous:None}
+    };
+    let app = Application {schema:3,id:ApplicationId::Selected,environment,
+        executable:selected,helpers:vec![],installer_sha256:None,installer_result:None,
+        observed_installer_version:String::new(),user_selection:Some(selection)};
+    register_application(m,&app,&guard)?;
+    Ok(app)
+}
+
+pub(crate) fn authority(m: &Manager) -> Result<Vec<Value>> {
+    selectors(m)?.into_iter().filter_map(|selector| match application(m,&selector) {
+        Ok(app) if app.user_selection.is_some() => Some(Ok(json!({"application":app,
+            "file":observation::ModuleStamp::read(&app.executable.path).ok()}))),
+        Ok(_) => None, Err(error) => Some(Err(error)),
+    }).collect()
+}
+
+pub(crate) fn superseded(m: &Manager) -> Result<std::collections::BTreeSet<String>> {
+    let mut previous = std::collections::BTreeSet::new();
+    for selector in selectors(m)? {
+        let app = application(m,&selector)?;
+        if let Some(parent) = app.user_selection.and_then(|s|s.previous) {
+            let old = application(m,&parent)?;
+            require(old.user_selection.is_some() && old.environment.id == app.environment.id
+                && old.executable.path == app.executable.path, "program_adoption_history")?;
+            previous.insert(parent);
+        }
+    }
+    Ok(previous)
+}
+
 pub(crate) struct Choice {
     pub application: Application,
     pub name: String,
@@ -103,10 +201,11 @@ pub(crate) fn choices(m: &Manager, record: &onboarding::Record) -> Result<Vec<Ch
                 application:Application { schema:2, id:ApplicationId::Selected,
                     environment:record.environment.clone(), executable:selected.clone(),
                     helpers:artifacts.iter().filter(|(a, _)|a != selected).map(|(a, _)|a.clone()).collect(),
-                    installer_sha256:record.installer.clone(),
-                    installer_result:Artifact { path:directory.join(format!("{operation}-result.json")),
-                        sha256:digest(&directory.join(format!("{operation}-result.json")))? },
-                    observed_installer_version:observed["DisplayVersion"].as_str().unwrap_or("").into() } });
+                    installer_sha256:Some(record.installer.clone()),
+                    installer_result:Some(Artifact { path:directory.join(format!("{operation}-result.json")),
+                        sha256:digest(&directory.join(format!("{operation}-result.json")))? }),
+                    observed_installer_version:observed["DisplayVersion"].as_str().unwrap_or("").into(),
+                    user_selection:None } });
         }
     }
     Ok(out)
@@ -262,5 +361,60 @@ pub(crate) mod tests {
         failed["owned_live"] = json!(1);
         atomic_json(&result, &failed).unwrap();
         assert!(choices(&f.m, &record).unwrap().is_empty());
+    }
+
+    #[test]
+    fn portable_selection_and_explicit_adoption_preserve_setup_and_exact_history() {
+        let (f, record, _) = installed_app();
+        f.m.register(f.r.clone()).unwrap();
+        fs::remove_dir_all(onboarding::directory(&f.m,&record.id).unwrap()).unwrap();
+        fs::remove_dir_all(f.m.root.join("installers")).unwrap();
+        let folder = f.outer.join("Portable program");private_dir(&folder).unwrap();
+        let path = folder.join("Any name.exe");
+        fs::copy(record.environment.root.join("compatdata/pfx/drive_c/Program Files/Vendor/Main.exe"),&path).unwrap();
+        fs::write(folder.join("resource.txt"),b"retained adjacent resource").unwrap();
+        let selected = program_artifact(&path).unwrap();
+        let identity = operator_cli::environment_runtime::identity(&record.environment).unwrap();
+        let protected = test_fixture::snapshot(&f.m.root);
+        let first = choose_program_with(&f.m,&record.id,&identity,&selected,None,||Ok(true)).unwrap();
+        let old_selector = first.selector().unwrap();
+        assert!(first.installer_result.is_none() && first.installer_sha256.is_none());
+        assert_eq!(first.environment,record.environment);
+        assert_eq!(first.user_selection.as_ref().unwrap().working_directory,folder);
+        first.verify(&f.m.root).unwrap();
+        let old_record = fs::read(directory(&f.m,&old_selector).unwrap().join("application.json")).unwrap();
+        let mut changed = fs::read(&path).unwrap();changed[1023]=9;fs::write(&path,&changed).unwrap();
+        assert!(first.verify(&f.m.root).is_err());
+        let second_bytes = program_artifact(&path).unwrap();
+        changed[1023]=10;fs::write(&path,&changed).unwrap();
+        assert!(choose_program_with(&f.m,&record.id,&identity,&second_bytes,Some(&old_selector),||Ok(true)).is_err(),
+            "The displayed replacement cannot authorize a later third build");
+        fs::write(&path,{let mut b=changed.clone();b[1023]=9;b}).unwrap();
+        assert!(choose_program_with(&f.m,&record.id,&identity,&second_bytes,Some(&old_selector),||Ok(false)).is_err());
+        let second = choose_program_with(&f.m,&record.id,&identity,&second_bytes,Some(&old_selector),||Ok(true)).unwrap();
+        let successor = second.selector().unwrap();assert_ne!(successor,old_selector);
+        assert_eq!(superseded(&f.m).unwrap(),std::collections::BTreeSet::from([old_selector.clone()]));
+        let reopened = application(&f.m,&successor).unwrap();reopened.verify(&f.m.root).unwrap();
+        assert_eq!(reopened,second,"A fresh manager read remembers the adopted exact bytes");
+        assert_eq!(fs::read(directory(&f.m,&old_selector).unwrap().join("application.json")).unwrap(),old_record);
+        assert_eq!(application(&f.m,&old_selector).unwrap(),first);
+        assert!(first.verify(&f.m.root).is_err(),"History cannot claim vanished older bytes remain runnable");
+        for (path, bytes) in protected {
+            assert_eq!(test_fixture::snapshot(&f.m.root).get(&path),Some(&bytes),"{path:?}");
+        }
+        assert_eq!(fs::read(folder.join("resource.txt")).unwrap(),b"retained adjacent resource");
+    }
+
+    #[test]
+    fn chooser_refuses_stale_setup_or_selected_bytes_without_a_new_record() {
+        let (f, record, _) = installed_app();
+        drop(f.m.lock("registry.lock").unwrap());
+        let image = program_artifact(&record.environment.root.join("compatdata/pfx/drive_c/Program Files/Vendor/Main.exe")).unwrap();
+        let before = test_fixture::snapshot(&f.m.root);
+        assert!(choose_program_with(&f.m,&record.id,&"00".repeat(32),&image,None,||Ok(true)).is_err());
+        let mut changed = image;changed.sha256="ab".repeat(32);
+        let identity = operator_cli::environment_runtime::identity(&record.environment).unwrap();
+        assert!(choose_program_with(&f.m,&record.id,&identity,&changed,None,||Ok(true)).is_err());
+        assert_eq!(test_fixture::snapshot(&f.m.root),before);
     }
 }

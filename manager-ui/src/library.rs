@@ -901,6 +901,11 @@ fn visible_refusals(actions: &[AvailableAction], busy: Option<&str>, pending: bo
 
 pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
     target: &crate::model::EnvironmentInstaller, pending: bool, chosen: &mut Option<Action>) {
+    ui.strong("Programs");
+    ui.small("Choose a Windows program to remember and open in this setup. Its files and resources stay in place.");
+    let programs:Vec<_>=target.actions.iter().filter(|offer|matches!(offer.action,
+        Action::ProgramChoose {..})).cloned().collect();
+    action_buttons(ui,&programs,None,pending,chosen);
     let controls:Vec<_>=target.actions.iter().filter(|offer|matches!(offer.action,
         Action::EnvironmentInstallerFocus { .. } | Action::EnvironmentInstallerStop { .. })).cloned().collect();
     crate::library::action_buttons(ui,&controls,None,pending,chosen);
@@ -952,7 +957,8 @@ pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
         });
     }
     let continuation:Vec<_>=target.actions.iter().filter(|offer|!matches!(offer.action,
-        Action::EnvironmentInstallerFocus { .. } | Action::EnvironmentInstallerStop { .. })).cloned().collect();
+        Action::EnvironmentInstallerFocus { .. } | Action::EnvironmentInstallerStop { .. }
+        | Action::ProgramChoose {..})).cloned().collect();
     crate::library::action_buttons(ui,&continuation,None,pending,chosen);
     let key = egui::Id::new(("companion_installer",&target.environment));
     let mut selected = ui.data_mut(|data|data.get_temp::<String>(key)).unwrap_or_default();

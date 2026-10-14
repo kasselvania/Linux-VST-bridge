@@ -197,6 +197,7 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
     }
     let mut out = vec![];
     for (id,env) in targets {
+        let env = current_environment(m,&env)?;
         let affected:Vec<_> = products.iter().filter(|p|p.environment == id)
             .map(|p|p.name.clone()).collect();
         let name = if affected.is_empty() {format!("{} · existing setup {}",setup_names.get(&id)
@@ -257,6 +258,9 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
             if !runtime.affected.contains(name) {runtime.affected.push(name.clone());}
         }
         let runtime=Some(runtime);
+        actions.push(action("Choose program",ui::Action::ProgramChoose {
+            environment:id.clone(),expected_environment:environment_runtime::identity(&env)?,
+            executable:ui::ProgramExecutable {path:PathBuf::new(),sha256:String::new()}},reason.as_deref()));
         out.push(ui::EnvironmentInstaller {environment:id,name,affected,runtime,
             consequence:"This installer can change every plug-in in this compatibility space, vendor applications, authorization and shared dependencies. Stopping ends owned processes; it cannot undo vendor changes. Existing plug-ins need a fresh scan and preparation before use. The environment identity is preserved; vendor state is not copied or rolled back.".into(),
             choices,operation:last.map(|r|r.operation.clone()),installer:last.map(|r|r.installer.clone()),result,actions});

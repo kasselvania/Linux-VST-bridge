@@ -199,8 +199,8 @@ fn bootstrap_handoff_application(m: &Manager, record: &onboarding::Record,
     if installation["state"] != "completed" || installation["raw_exit"] != 0
         || !onboarding::retired(&installation) { return Ok(None); }
     let app = vendor_cli::application(m, application)?;
-    if app.environment != record.environment || app.installer_sha256 != record.installer
-        || app.installer_result.path != onboarding::directory(m, &record.id)?.join(format!("{}-result.json",
+    if app.environment != record.environment || app.installer_sha256.as_deref() != Some(record.installer.as_str())
+        || app.installer_result.as_ref().unwrap().path != onboarding::directory(m, &record.id)?.join(format!("{}-result.json",
             record.installation_operation.as_deref().ok_or("vendor_application_installation_missing")?)) { return Ok(None); }
     Ok(Some(app))
 }
@@ -544,7 +544,7 @@ pub(super) fn execute(
     let installer = match action {
         ui::Action::SoftwareInstall { installer, .. } => installer.clone(),
         ui::Action::VendorSoftwareInstall { application, .. } => {
-            vendor_cli::application(m, application)?.installer_sha256
+            vendor_cli::application(m, application)?.installer_sha256.ok_or("This program has no installer provenance")?
         }
         ui::Action::SoftwareInstallResume { onboarding } => {
             onboarding::retained_environment_record(m, onboarding)?
@@ -1924,7 +1924,7 @@ mod tests {
             let directory=vendor_cli::directory(&f.m,&vendor.application).unwrap();
             let app=vendor_cli::application(&f.m,&vendor.application).unwrap();
             atomic_json(&directory.join("operation.json"),&vendor_application::Operation{
-                application:app,report:directory.join("operation-result.json"),mode:vendor_application::LaunchMode::Normal,operation_id:vendor.operation.clone()}).unwrap();
+                application:app,report:directory.join("operation-result.json"),mode:vendor_application::LaunchMode::Normal,operation_id:vendor.operation.clone(),launcher:None}).unwrap();
             atomic_json(&directory.join("operation-result.json"),&json!({"schema":3,"operation_id":vendor.operation,
                 "state":state,"launcher_exit":1,"owned_live":0,"cleanup_confirmed":true,
                 "error":"stopped vendor task","discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
@@ -1962,7 +1962,7 @@ mod tests {
         let vendor=intent.vendor.as_ref().unwrap().clone();
         atomic_json(&directory.join("operation.json"),&vendor_application::Operation {
             application:vendor_cli::application(&f.m,&selector).unwrap(),report:directory.join("operation-result.json"),
-            mode:vendor_application::LaunchMode::Normal,operation_id:vendor.operation.clone() }).unwrap();
+            mode:vendor_application::LaunchMode::Normal,operation_id:vendor.operation.clone(),launcher:None}).unwrap();
         atomic_json(&directory.join("operation-result.json"),&json!({"schema":3,
             "operation_id":vendor.operation,"state":"completed","launcher_exit":0,
             "owned_live":0,"cleanup_confirmed":true,"discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
@@ -1988,7 +1988,7 @@ mod tests {
     fn vendor_edge(f:&test_fixture::Fixture,c:&prep::Candidate,record:&onboarding::Record,intent:&mut Intent)->Environment {
         let app=vendor_application::Application{schema:2,id:vendor_application::ApplicationId::Selected,
             environment:record.environment.clone(),executable:c.selection.module.clone(),helpers:vec![],
-            installer_sha256:record.installer.clone(),installer_result:c.inspection.report.clone(),observed_installer_version:String::new()};
+            installer_sha256:Some(record.installer.clone()),installer_result:Some(c.inspection.report.clone()),observed_installer_version:String::new(),user_selection:None};
         let selector=app.selector().unwrap();let directory=vendor_cli::directory(&f.m,&selector).unwrap();private_dir(&directory).unwrap();
         atomic_json(&directory.join("application.json"),&app).unwrap();
         let selected=control_artifact(directory.join("application.json")).unwrap();
@@ -2200,7 +2200,7 @@ mod tests {
         let mut after=before.clone();after.revision+=1;
         let app=vendor_application::Application {schema:2,id:vendor_application::ApplicationId::Selected,
             environment:before.clone(),executable:c.selection.module.clone(),helpers:vec![],
-            installer_sha256:record.installer.clone(),installer_result:c.inspection.report.clone(),observed_installer_version:String::new()};
+            installer_sha256:Some(record.installer.clone()),installer_result:Some(c.inspection.report.clone()),observed_installer_version:String::new(),user_selection:None};
         let application=app.selector().unwrap();
         let directory=vendor_cli::directory(&f.m,&application).unwrap();private_dir(&directory).unwrap();
         atomic_json(&directory.join("application.json"),&app).unwrap();

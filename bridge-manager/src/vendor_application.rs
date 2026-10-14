@@ -148,9 +148,23 @@ pub struct Application {
     pub environment: Environment,
     pub executable: Artifact,
     pub helpers: Vec<Artifact>,
-    pub installer_sha256: String,
-    pub installer_result: Artifact,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub installer_sha256: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub installer_result: Option<Artifact>,
+    #[serde(default)]
     pub observed_installer_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_selection: Option<ProgramSelection>,
+}
+
+/// User intent, independent of any installer observation. Files stay in place.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ProgramSelection {
+    pub working_directory: PathBuf,
+    pub arguments: Vec<String>,
+    pub previous: Option<String>,
 }
 
 /// Exact companion launch binding, retained separately from mutable progress.
@@ -161,11 +175,20 @@ pub struct Operation {
     pub report: PathBuf,
     pub mode: LaunchMode,
     pub operation_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub launcher: Option<Artifact>,
 }
 impl Application {
     pub fn selector(&self) -> Result<String> {
         if self.schema == 1 && self.id == ApplicationId::ArturiaSoftwareCenter {
             return Ok("arturia-software-center".into());
+        }
+        if self.schema == 3 && self.id == ApplicationId::Selected {
+            let selection = self.user_selection.as_ref().ok_or("program_selection_missing")?;
+            return Ok(hex(&Sha256::digest(serde_json::to_vec(&serde_json::json!({
+                "environment":self.environment.id,"executable":self.executable,
+                "user_selection":selection
+            }))?)));
         }
         require(self.schema == 2 && self.id == ApplicationId::Selected,
             "vendor_application_schema",
@@ -193,6 +216,8 @@ impl Application {
         }
     }
     fn validate_selected_record(&self, root: &Path) -> Result<Artifact> {
+        let installer_sha256 = self.installer_sha256.as_ref().ok_or("vendor_application_installation_missing")?;
+        let installer_result = self.installer_result.as_ref().ok_or("vendor_application_installation_missing")?;
         require(
             self.id == ApplicationId::Selected
                 && valid_hex(&self.environment.id, 32)
@@ -203,7 +228,7 @@ impl Application {
         )?;
         self.environment.runner.validate_record()?;
         require(
-            self.helpers.len() <= 16 && valid_hex(&self.installer_sha256, 64),
+            self.helpers.len() <= 16 && valid_hex(installer_sha256, 64) && self.user_selection.is_none(),
             "vendor_application_selection_bound",
         )?;
         let prefix = self.environment.root.join("compatdata/pfx");
@@ -234,12 +259,12 @@ impl Application {
                 && record["id"] == self.environment.id
                 && record["environment"]["id"] == self.environment.id
                 && record["environment"]["root"] == serde_json::to_value(&self.environment.root)?
-                && record["installer"] == self.installer_sha256
+                && record["installer"] == *installer_sha256
                 && valid_hex(operation, 32)
-                && self.installer_result.path == directory.join(format!("{operation}-result.json")),
+                && installer_result.path == directory.join(format!("{operation}-result.json")),
             "vendor_application_installation_binding",
         )?;
-        let result: serde_json::Value = self.installer_result.read_record(8 * 1024 * 1024)?;
+        let result: serde_json::Value = installer_result.read_record(8 * 1024 * 1024)?;
         require(
             result["schema"] == 2
                 && result["operation"] == operation
@@ -253,12 +278,12 @@ impl Application {
         let imported: serde_json::Value = read_json(
             &root
                 .join("installers")
-                .join(format!("{}.json", self.installer_sha256)),
+                .join(format!("{installer_sha256}.json")),
         )?;
         require(
             imported["schema"] == 1
-                && imported["id"] == self.installer_sha256
-                && imported["artifact"]["sha256"] == self.installer_sha256,
+                && imported["id"] == *installer_sha256
+                && imported["artifact"]["sha256"] == *installer_sha256,
             "vendor_application_import_binding",
         )?;
         let installer: Artifact = serde_json::from_value(imported["artifact"].clone())?;
@@ -273,6 +298,28 @@ impl Application {
     /// Current record/binding observation for read-only cards and choices.
     /// Executable payloads and the runtime tree are verified by execution owners.
     pub fn validate_record(&self, root: &Path) -> Result<()> {
+        if self.schema == 3 {
+            let selection = self.user_selection.as_ref().ok_or("program_selection_missing")?;
+            require(self.id == ApplicationId::Selected && self.helpers.is_empty()
+                && self.installer_sha256.is_none() && self.installer_result.is_none()
+                && self.observed_installer_version.is_empty()
+                && valid_hex(&self.environment.id,32)
+                && self.environment.root == root.join("environments").join(&self.environment.id)
+                && read_json::<Environment>(&self.environment.root.join("environment.json"))? == self.environment,
+                "program_selection_environment")?;
+            self.environment.runner.validate_record()?;
+            require(self.executable.path.is_absolute()
+                && self.executable.path.canonicalize()? == self.executable.path,
+                "program_selection_path")?;
+            self.executable.validate_record()?;
+            require(selection.working_directory.is_absolute()
+                && selection.working_directory.canonicalize()? == selection.working_directory
+                && selection.working_directory.is_dir()
+                && selection.arguments.is_empty()
+                && selection.previous.as_ref().is_none_or(|p|valid_hex(p,64)),
+                "program_selection_options")?;
+            return Ok(());
+        }
         if self.schema == 2 {
             return self.validate_selected_record(root).map(|_| ());
         }
@@ -287,9 +334,9 @@ impl Application {
         )?;
         self.environment.runner.validate_record()?;
         require(
-            self.installer_sha256 == ASC_INSTALLER
+            self.installer_sha256.as_deref() == Some(ASC_INSTALLER)
                 && self.observed_installer_version == "2.12.0"
-                && self.helpers.len() == 2,
+                && self.helpers.len() == 2 && self.user_selection.is_none(),
             "vendor_application_release",
         )?;
         let directory = self
@@ -308,12 +355,13 @@ impl Application {
             )?;
             artifact.validate_record()?;
         }
+        let installer_result = self.installer_result.as_ref().ok_or("vendor_application_installation_missing")?;
         require(
-            self.installer_result.path.parent()
+            installer_result.path.parent()
                 == Some(self.environment.root.join("installations").as_path()),
             "vendor_application_installation_receipt",
         )?;
-        let result: serde_json::Value = self.installer_result.read_record(8 * 1024 * 1024)?;
+        let result: serde_json::Value = installer_result.read_record(8 * 1024 * 1024)?;
         require(
             result["installer"]["sha256"] == ASC_INSTALLER
                 && result["raw_exit"] == 0
@@ -382,9 +430,10 @@ pub fn discover(root: &Path, environment: Environment) -> Result<Application> {
         environment,
         executable: artifacts[0].clone(),
         helpers: artifacts[1..].to_vec(),
-        installer_sha256: ASC_INSTALLER.into(),
-        installer_result: reports.remove(0),
+        installer_sha256: Some(ASC_INSTALLER.into()),
+        installer_result: Some(reports.remove(0)),
         observed_installer_version: "2.12.0".into(),
+        user_selection: None,
     };
     app.verify(root)?;
     Ok(app)
@@ -393,6 +442,22 @@ pub fn discover(root: &Path, environment: Environment) -> Result<Application> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn legacy_application_records_round_trip_without_new_fields_or_identity_changes() {
+        let (_f, app) = selected_application();
+        let original = serde_json::to_value(&app).unwrap();
+        assert!(original.get("user_selection").is_none());
+        assert!(original["installer_sha256"].is_string());
+        assert!(original["installer_result"].is_object());
+        let reopened:Application = serde_json::from_value(original.clone()).unwrap();
+        assert_eq!(reopened.selector().unwrap(),app.selector().unwrap());
+        assert_eq!(serde_json::to_value(&reopened).unwrap(),original);
+        let mut legacy = app;legacy.schema=1;legacy.id=ApplicationId::ArturiaSoftwareCenter;
+        let original = serde_json::to_value(&legacy).unwrap();
+        let reopened:Application = serde_json::from_value(original.clone()).unwrap();
+        assert_eq!(reopened.selector().unwrap(),"arturia-software-center");
+        assert_eq!(serde_json::to_value(reopened).unwrap(),original);
+    }
     fn selected_application() -> (crate::test_fixture::Fixture, Application) {
         let f = crate::test_fixture::Fixture::new();
         let mut environment = f.r.environment.clone();
@@ -423,8 +488,8 @@ mod tests {
             "error":null})).unwrap();
         let app = Application { schema:2,id:ApplicationId::Selected,environment,
             executable:Artifact {sha256:digest(&executable).unwrap(),path:executable},
-            helpers:vec![],installer_sha256,installer_result:Artifact {sha256:digest(&witness).unwrap(),path:witness},
-            observed_installer_version:String::new() };
+            helpers:vec![],installer_sha256:Some(installer_sha256),installer_result:Some(Artifact {sha256:digest(&witness).unwrap(),path:witness}),
+            observed_installer_version:String::new(),user_selection:None };
         (f, app)
     }
     #[test]
@@ -448,15 +513,15 @@ mod tests {
     #[test]
     fn record_observation_rechecks_environment_and_receipt_identity() {
         let (f, app) = selected_application();
-        let witness = fs::read(&app.installer_result.path).unwrap();
-        let mut result:serde_json::Value = read_json(&app.installer_result.path).unwrap();
+        let witness = fs::read(&app.installer_result.as_ref().unwrap().path).unwrap();
+        let mut result:serde_json::Value = read_json(&app.installer_result.as_ref().unwrap().path).unwrap();
         result["operation"] = serde_json::json!("dd".repeat(16));
-        atomic_json(&app.installer_result.path, &result).unwrap();
+        atomic_json(&app.installer_result.as_ref().unwrap().path, &result).unwrap();
         assert!(app.validate_record(&f.m.root).is_err(), "Changed receipt bytes must match their digest");
         let mut changed = app.clone();
-        changed.installer_result.sha256 = digest(&app.installer_result.path).unwrap();
+        changed.installer_result.as_mut().unwrap().sha256 = digest(&app.installer_result.as_ref().unwrap().path).unwrap();
         assert!(changed.validate_record(&f.m.root).is_err(), "A foreign receipt operation cannot replace the owned witness");
-        fs::write(&app.installer_result.path, witness).unwrap();
+        fs::write(&app.installer_result.as_ref().unwrap().path, witness).unwrap();
         let mut environment = app.environment.clone();
         environment.revision += 1;
         atomic_json(&environment.root.join("environment.json"), &environment).unwrap();
@@ -472,12 +537,12 @@ mod tests {
         let mut revised = app.clone();
         revised.environment.revision += 1;
         assert_eq!(revised.selector().unwrap(), original);
-        let witness = app.installer_result.path.clone();
+        let witness = app.installer_result.as_ref().unwrap().path.clone();
         let mut result:serde_json::Value = read_json(&witness).unwrap();
         result["operation"] = serde_json::json!("dd".repeat(16));
         atomic_json(&witness, &result).unwrap();
         revised = app.clone();
-        revised.installer_result.sha256 = digest(&witness).unwrap();
+        revised.installer_result.as_mut().unwrap().sha256 = digest(&witness).unwrap();
         assert!(revised.verify(&f.m.root).unwrap_err().to_string().contains("installation_incomplete"));
         fs::write(&app.executable.path, b"MZ changed hub").unwrap();
         assert!(app.verify(&f.m.root).is_err());
@@ -488,8 +553,8 @@ mod tests {
     fn selected_application_cannot_adopt_foreign_receipt_or_executable() {
         let (f, app) = selected_application();
         let mut changed = app.clone();
-        changed.installer_result.path = f.outer.join("copied-result.json");
-        fs::copy(&app.installer_result.path,&changed.installer_result.path).unwrap();
+        changed.installer_result.as_mut().unwrap().path = f.outer.join("copied-result.json");
+        fs::copy(&app.installer_result.as_ref().unwrap().path,&changed.installer_result.as_mut().unwrap().path).unwrap();
         assert!(changed.validate_record(&f.m.root).is_err());
         assert!(changed.verify(&f.m.root).is_err());
         changed = app.clone();

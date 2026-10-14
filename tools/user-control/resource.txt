@@ -1,0 +1,2 @@
+This text comes from resource.txt beside the portable executable.
+The program and this resource remain together when choosing or updating it.
