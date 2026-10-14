@@ -28,6 +28,7 @@ static_assert(offsetof(ap11_gui_message_t, activation) == 560);
 static_assert(offsetof(ap11_gui_message_t, native_view) == 592);
 static_assert(offsetof(ap11_gui_message_t, lifecycle) == 600);
 namespace AP11 {
+inline constexpr uint32_t GuiProtocolVersion = 6;
 inline bool valid(const ap11_gui_message_t &m) {
   return m.abi_version == 5 && m.extent == sizeof(m) && !m.reserved && m.presentation <= 1 && !(m.presentation_flags & ~1u);
 }

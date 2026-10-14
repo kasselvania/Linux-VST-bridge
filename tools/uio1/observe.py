@@ -17,8 +17,10 @@ NAMES=['commit','qpc','action','hwnd','focus','active','capture','message','sour
 class Mapping:
     def __init__(self,path,size):
         self.fd=os.open(path,os.O_RDWR|os.O_NOFOLLOW);s=os.fstat(self.fd)
-        if not stat.S_ISREG(s.st_mode) or s.st_uid!=os.getuid() or s.st_size!=size or s.st_mode&0o077:
+        allowed=size if isinstance(size,tuple) else (size,)
+        if not stat.S_ISREG(s.st_mode) or s.st_uid!=os.getuid() or s.st_size not in allowed or s.st_mode&0o077:
             os.close(self.fd);raise RuntimeError('private status ownership/layout')
+        size=s.st_size
         self.map=mmap.mmap(self.fd,size);self.view=(C.c_ubyte*size).from_buffer(self.map)
         self.atomic=C.CDLL(ctypes.util.find_library('atomic'))
         self.load=getattr(self.atomic,'__atomic_load_8');self.load.argtypes=[C.c_void_p,C.c_int];self.load.restype=C.c_uint64
@@ -61,8 +63,15 @@ class Observer(Mapping):
 
 class GuiWitness(Mapping):
     def __init__(self,path,session):
-        super().__init__(path,320+2*512*608)
-        if self.map[:4]!=b'LVBU' or struct.unpack_from('<I',self.map,4)[0]!=5 or self.map[16:32]!=bytes.fromhex(session):raise RuntimeError('GUI session binding')
+        layouts={5:(320+2*512*608,608,4),6:(320+2*512*624,624,5)}
+        super().__init__(path,tuple(row[0] for row in layouts.values()))
+        version,extent,message=struct.unpack_from('<III',self.map,4)
+        row=layouts.get(version)
+        if (self.map[:4]!=b'LVBU' or row is None or row[:2]!=(extent,message)
+                or len(self.map)!=extent or self.map[16:32]!=bytes.fromhex(session)
+                or struct.unpack_from('<I',self.map,32)[0]!=512):
+            self.close();raise RuntimeError('GUI session binding')
+        self.message=message;self.abi=row[2]
         self.cursors=[self.read(64),self.read(80)];self.dropped=[0,0]
     def take(self):
         rows=[]
@@ -70,14 +79,14 @@ class GuiWitness(Mapping):
             before=self.read(at);start=max(self.cursors[lane],before-512)
             self.dropped[lane]+=start-self.cursors[lane]
             for i in range(start,before):
-                offset=320+(lane*512+i%512)*608
+                offset=320+(lane*512+i%512)*self.message
                 # Copy scalar allowlist only: never parameter titles/units.
                 a=bytes(self.map[offset:offset+48]);b=bytes(self.map[offset+560:offset+608])
                 # A producer may recycle an old slot. Retain only if it was not
                 # lapped during this read; this observer is not a queue consumer.
                 if self.read(at)>=i+512:self.dropped[lane]+=1;continue
                 version,size,kind,parameter,revision,value,flags,steps,count,result=struct.unpack('<4IQd2i2I',a)
-                if version!=4 or size!=608:continue
+                if version!=self.abi or size!=self.message:continue
                 if kind not in (1,2,3,5,101,102,103,105,106,108):continue
                 activation,user_time,requestor,target,epoch,focus,focus_flags,native,lifecycle,reserved=struct.unpack('<Q6IQ2I',b)
                 if reserved:continue

@@ -43,7 +43,7 @@ public:
       view_ = static_cast<uint8_t *>(
           MapViewOfFile(mapping_, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, bytes));
       require(view_ != nullptr, "GUI view");
-      require(!std::memcmp(view_, "LVBU", 4) && ap1::get(view_ + 4, 4) == 6 &&
+      require(!std::memcmp(view_, "LVBU", 4) && ap1::get(view_ + 4, 4) == AP11::GuiProtocolVersion &&
                   ap1::get(view_ + 8, 4) == bytes &&
                   ap1::get(view_ + 12, 4) == sizeof(ap11_gui_message_t) &&
                   ap1::get(view_ + 32, 4) == capacity &&

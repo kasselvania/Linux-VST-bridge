@@ -8,6 +8,7 @@
 #include "public.sdk/source/vst/vstaudioeffect.h"
 #include "public.sdk/source/vst/vsteditcontroller.h"
 #include "mapped_processing.h"
+#include "../../native-vst3-proxy/include/ap11_gui.h"
 #include "linux_vst_bridge/wf0_probe/events.h"
 #include <atomic>
 #include <chrono>
@@ -78,12 +79,15 @@ void run(uint16_t minor){
  const auto layout=minor==15?block_layout:legacy_layout;
  auto dir=std::filesystem::temp_directory_path()/("ap13-state-"+std::to_string(GetCurrentProcessId())+"-"+std::to_string(minor));std::filesystem::create_directory(dir);
  {
-  View audio(dir/L"ap1.audio",layout.bytes),mailbox(dir/L"ap10.delivery",33024),gui(dir/L"ap11.ui",320+2*512*608);
+  // This test supplies the current UI peer for the compiled host, independently
+  // of the retained audio minor being exercised. Old UI rejection stays AP11's test.
+  constexpr auto gui_bytes = 320 + 2 * 512 * sizeof(ap11_gui_message_t);
+  View audio(dir/L"ap1.audio",layout.bytes),mailbox(dir/L"ap10.delivery",33024),gui(dir/L"ap11.ui",gui_bytes);
   std::array<uint8_t,16> id{};id[0]=13;
   for(auto [at,v]:{std::pair{0,0x4d315041u},{4,layout.version},{8,layout.capacity},{12,layout.channels},{16,layout.bytes},{20,layout.input},{24,layout.output},{28,layout.stride}})put(audio.p+at,v,4);
   for(auto [base,channels]:{std::pair{layout.input,2u},{layout.output,layout.channels}})for(uint32_t ch=0;ch<channels;++ch){put(audio.p+base+ch*layout.stride,guard,4);put(audio.p+base+(ch+1)*layout.stride-4,guard,4);}
   std::memcpy(mailbox.p,"LVBM",4);put(mailbox.p+4,3,4);put(mailbox.p+8,33024,4);std::memcpy(mailbox.p+16,id.data(),16);
-  std::memcpy(gui.p,"LVBU",4);put(gui.p+4,5,4);put(gui.p+8,320+2*512*608,4);put(gui.p+12,608,4);put(gui.p+32,512,4);put(gui.p+96,1,8);std::memcpy(gui.p+16,id.data(),16);
+  std::memcpy(gui.p,"LVBU",4);put(gui.p+4,AP11::GuiProtocolVersion,4);put(gui.p+8,gui_bytes,4);put(gui.p+12,sizeof(ap11_gui_message_t),4);put(gui.p+32,512,4);put(gui.p+96,1,8);std::memcpy(gui.p+16,id.data(),16);
   SOCKET listener=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);sockaddr_in address{};address.sin_family=AF_INET;address.sin_addr.s_addr=htonl(INADDR_LOOPBACK);
   check(bind(listener,reinterpret_cast<sockaddr*>(&address),sizeof(address))==0&&listen(listener,1)==0,"fixture listener");int len=sizeof(address);check(getsockname(listener,reinterpret_cast<sockaddr*>(&address),&len)==0,"fixture port");
   {View config(dir/L"ap1.control",minor==15?60:52);put(config.p,ntohs(address.sin_port),2);std::memcpy(config.p+4,id.data(),16);if(minor==15){put(config.p+2,1,2);put(config.p+52,15,2);put(config.p+56,60,4);}}
