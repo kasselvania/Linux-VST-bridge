@@ -226,6 +226,7 @@ pub enum Action {
     },
     /// Runs an imported companion/dependency installer in an existing setup.
     EnvironmentInstallerStart { environment: String, installer: String },
+    EnvironmentInstallerStartWithPolicy { environment: String, installer: String, powershell: Powershell },
     EnvironmentInstallerFocus { operation: String },
     EnvironmentInstallerStop { operation: String },
     EnvironmentInstallerScan { environment: String },
@@ -822,6 +823,15 @@ impl System {
     }
 }
 impl Action {
+    /// Both choices use the same installer transaction and retained origin.
+    pub fn environment_installer_start(&self) -> Option<(&str, &str, Option<Powershell>)> {
+        match self {
+            Self::EnvironmentInstallerStart { environment, installer } => Some((environment, installer, None)),
+            Self::EnvironmentInstallerStartWithPolicy { environment, installer, powershell } =>
+                Some((environment, installer, Some(*powershell))),
+            _ => None,
+        }
+    }
     /// Whether the operation needs any affected DSP owners to be inactive.
     pub fn requires_inactive(&self) -> bool {
         matches!(
@@ -857,6 +867,7 @@ impl Action {
                 | Self::InstallerStartWithPolicy { .. }
                 | Self::InstallerScan { .. }
                 | Self::EnvironmentInstallerStart { .. }
+                | Self::EnvironmentInstallerStartWithPolicy { .. }
                 | Self::EnvironmentInstallerScan { .. }
                 | Self::EnvironmentRuntimeSelect { .. }
                 | Self::VendorApplicationOpen { .. }

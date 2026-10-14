@@ -84,8 +84,8 @@ pub fn installer_record(m: &Manager, operation: &str) -> Result<InstallerBinding
     let r: InstallerBinding = read_json(&dir.join("installation.json"))?;
     let request: operator_model::Request = read_json(&dir.join("request.json"))?;
     require(r.schema == 1 && r.operation == operation && valid_hex(&r.installer,64)
-        && request.action == (operator_model::Action::EnvironmentInstallerStart {
-            environment:r.environment.id.clone(), installer:r.installer.clone() })
+        && request.action.environment_installer_start().is_some_and(|(environment, installer, _)|
+            environment == r.environment.id && installer == r.installer)
         && same_space(&r.before,&r.environment)
         && r.before.runner == r.environment.runner
         && r.before.revision.checked_add(1) == Some(r.environment.revision)

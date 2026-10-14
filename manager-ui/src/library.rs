@@ -958,10 +958,12 @@ pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
     }
     let continuation:Vec<_>=target.actions.iter().filter(|offer|!matches!(offer.action,
         Action::EnvironmentInstallerFocus { .. } | Action::EnvironmentInstallerStop { .. }
+        | Action::EnvironmentInstallerStartWithPolicy { .. }
         | Action::ProgramChoose {..})).cloned().collect();
     crate::library::action_buttons(ui,&continuation,None,pending,chosen);
     let key = egui::Id::new(("companion_installer",&target.environment));
-    let mut selected = ui.data_mut(|data|data.get_temp::<String>(key)).unwrap_or_default();
+    let mut selected = ui.data_mut(|data|data.get_temp::<String>(key))
+        .unwrap_or_else(|| target.installer.clone().unwrap_or_default());
     egui::ComboBox::from_id_salt(("companion_choice",&target.environment))
         .selected_text(target.choices.iter().find(|offer|matches!(&offer.action,
             Action::EnvironmentInstallerStart {installer,..} if installer == &selected))
@@ -977,6 +979,13 @@ pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
     if let Some(offer) = target.choices.iter().find(|offer|matches!(&offer.action,
         Action::EnvironmentInstallerStart {installer,..} if installer == &selected)) {
         crate::library::action_buttons(ui,std::slice::from_ref(offer),None,pending,chosen);
+        let advanced:Vec<_>=target.actions.iter().filter(|offer|matches!(&offer.action,
+            Action::EnvironmentInstallerStartWithPolicy {installer,..} if installer == &selected)).cloned().collect();
+        if !advanced.is_empty() {
+            egui::CollapsingHeader::new("Advanced installer options").show(ui,|ui| {
+                crate::library::action_buttons(ui,&advanced,None,pending,chosen);
+            });
+        }
     }
     if target.choices.is_empty() {ui.small("Choose a Windows installer to add a local installer first.");}
 }

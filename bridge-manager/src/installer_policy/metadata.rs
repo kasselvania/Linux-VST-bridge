@@ -45,7 +45,9 @@ fn text(bytes: &[u8], at: &mut usize, end: usize) -> Result<String> {
     require(!value.chars().any(char::is_control), "installer_metadata_text_control")?;
     Ok(value)
 }
-fn blocks(bytes: &[u8], start: usize, end: usize, depth: usize, count: &mut usize,
+#[derive(Clone, Copy)]
+enum Parent { Resource, VersionInfo, StringFileInfo, StringTable, VarFileInfo }
+fn blocks(bytes: &[u8], start: usize, end: usize, parent: Parent, depth: usize, count: &mut usize,
     strings: &mut BTreeMap<String, String>) -> Result<()> {
     require(depth <= 4 && end <= bytes.len(), "installer_metadata_version_depth")?;
     let mut at = start;
@@ -61,18 +63,47 @@ fn blocks(bytes: &[u8], start: usize, end: usize, depth: usize, count: &mut usiz
         require(length >= 6 && block_end <= end && kind <= 1, "installer_metadata_version_block")?;
         let mut value_at = at + 6;
         let key = text(bytes, &mut value_at, block_end)?;
-        if depth == 0 { require(key == "VS_VERSION_INFO" && kind == 0, "installer_metadata_version_root")?; }
+        let child_parent = match parent {
+            Parent::Resource => {
+                require(key == "VS_VERSION_INFO" && kind == 0, "installer_metadata_version_root")?;
+                Parent::VersionInfo
+            }
+            Parent::VersionInfo => {
+                require(kind == 1 && value_length == 0, "installer_metadata_version_container")?;
+                match key.as_str() {
+                    "StringFileInfo" => Parent::StringFileInfo,
+                    "VarFileInfo" => Parent::VarFileInfo,
+                    _ => return Err("installer_metadata_version_container".into()),
+                }
+            }
+            Parent::StringFileInfo => {
+                require(key.len() == 8 && key.bytes().all(|byte| byte.is_ascii_hexdigit())
+                    && kind == 1 && value_length == 0, "installer_metadata_language_codepage_table")?;
+                Parent::StringTable
+            }
+            Parent::StringTable => {
+                require(kind == 1 && value_length > 0, "installer_metadata_version_string")?;
+                Parent::StringTable
+            }
+            Parent::VarFileInfo => {
+                require(key == "Translation" && kind == 0 && value_length.is_multiple_of(4), "installer_metadata_translation")?;
+                Parent::VarFileInfo
+            }
+        };
         value_at = align(value_at);
         let value_end = value_at.checked_add(value_length * if kind == 1 {2} else {1})
             .ok_or("installer_metadata_range")?;
         require(value_end <= block_end, "installer_metadata_version_value")?;
         if matches!(key.as_str(), "CompanyName" | "ProductName" | "ProductVersion" | "FileVersion") {
-            require(depth == 3 && kind == 1 && value_length > 0, "installer_metadata_version_string")?;
+            require(matches!(parent, Parent::StringTable), "installer_metadata_version_string")?;
             let value = text(bytes, &mut value_at, value_end)?;
             require(value_at == value_end && strings.insert(key, value).is_none(), "installer_metadata_duplicate_string")?;
         }
         let child = align(value_end);
-        if child < block_end { blocks(bytes, child, block_end, depth + 1, count, strings)?; }
+        if child < block_end {
+            require(!matches!(parent, Parent::StringTable | Parent::VarFileInfo), "installer_metadata_version_leaf")?;
+            blocks(bytes, child, block_end, child_parent, depth + 1, count, strings)?;
+        }
         at = align(block_end);
     }
     Ok(())
@@ -136,7 +167,7 @@ pub(super) fn inspect(source: &mut (impl Read + Seek)) -> Result<Metadata> {
             require((6..=65_536).contains(&size), "installer_metadata_version_bound")?;
             let bytes = read(source, mapped(rva, size)?, size, length)?;
             let mut strings = BTreeMap::new();
-            blocks(&bytes, 0, bytes.len(), 0, &mut 0, &mut strings)?;
+            blocks(&bytes, 0, bytes.len(), Parent::Resource, 0, &mut 0, &mut strings)?;
             require(strings.len() == 4 && found.as_ref().is_none_or(|previous| previous == &strings), "installer_metadata_version_ambiguous")?;
             found = Some(strings);
         }
@@ -179,6 +210,17 @@ mod tests {
         let mut strings = BTreeMap::new();
         strings.insert("FileVersion".into(), "different".into());
         let bytes = fixture(None);
-        assert!(blocks(&bytes[600..], 0, u16at(&bytes, 600).unwrap() as usize, 0, &mut 0, &mut strings).is_err());
+        assert!(blocks(&bytes[600..], 0, u16at(&bytes, 600).unwrap() as usize, Parent::Resource, 0, &mut 0, &mut strings).is_err());
+    }
+    #[test]
+    fn matching_strings_require_their_version_resource_parents() {
+        for (from, to) in [("StringFileInfo", "XtringFileInfo"), ("040904b0", "notlang!")] {
+            let mut bytes = fixture(None);
+            let from: Vec<_> = from.encode_utf16().flat_map(u16::to_le_bytes).collect();
+            let to: Vec<_> = to.encode_utf16().flat_map(u16::to_le_bytes).collect();
+            let at = bytes.windows(from.len()).position(|value| value == from).unwrap();
+            bytes[at..at + to.len()].copy_from_slice(&to);
+            assert!(inspect(&mut Cursor::new(bytes)).is_err());
+        }
     }
 }

@@ -113,6 +113,15 @@ mod tests {
         for mode in ["required_interpreter","powershell.exe=","unavailable",""] {
             assert!(serde_json::from_value::<Powershell>(json!(mode)).is_err());
         }
+        let old = json!({"kind":"environment_installer_start","environment":"ab".repeat(16),"installer":"cd".repeat(32)});
+        let parsed: crate::operator_model::Action = serde_json::from_value(old.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&parsed).unwrap(),old);
+        assert_eq!(parsed.environment_installer_start().unwrap().2,None);
+        let explicit = json!({"kind":"environment_installer_start_with_policy","environment":"ab".repeat(16),
+            "installer":"cd".repeat(32),"powershell":"inherited"});
+        let parsed: crate::operator_model::Action = serde_json::from_value(explicit).unwrap();
+        assert!(parsed.requires_inactive());
+        assert_eq!(parsed.environment_installer_start().unwrap().2,Some(Powershell::Inherited));
     }
 
     fn fixture() -> (crate::test_fixture::Fixture, Software, Value) {
@@ -181,6 +190,18 @@ mod tests {
             assert_eq!(ordinary, before);
         }
         let artifact: Artifact = serde_json::from_value(spec["installer"].clone()).unwrap();
+        for (from,to) in [("StringFileInfo","XtringFileInfo"),("040904b0","notlang!")] {
+            let mut bytes = metadata::fixture(None);
+            let from:Vec<_> = from.encode_utf16().flat_map(u16::to_le_bytes).collect();
+            let to:Vec<_> = to.encode_utf16().flat_map(u16::to_le_bytes).collect();
+            let at = bytes.windows(from.len()).position(|value|value == from).unwrap();
+            bytes[at..at+to.len()].copy_from_slice(&to);
+            fs::write(&artifact.path,bytes).unwrap();
+            let mut malformed = spec.clone(); malformed["installer"]["sha256"] = json!(digest(&artifact.path).unwrap());
+            let before = malformed.clone();
+            bind_for_launch_with(&mut malformed,&software,None,|_|panic!("malformed resource must decline advice")).unwrap();
+            assert_eq!(malformed,before);
+        }
         fs::write(&artifact.path, b"unclassified executable metadata").unwrap();
         let mut unclassified = spec.clone();
         bind_for_launch_with(&mut unclassified, &software, None, |_| panic!("no installer class")).unwrap();

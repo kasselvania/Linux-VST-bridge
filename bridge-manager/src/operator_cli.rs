@@ -1724,6 +1724,7 @@ fn current_offer_action(action: &ui::Action) -> bool {
         | ui::Action::InstallerStop { .. }
         | ui::Action::InstallerScan { .. }
         | ui::Action::EnvironmentInstallerStart { .. }
+        | ui::Action::EnvironmentInstallerStartWithPolicy { .. }
         | ui::Action::EnvironmentInstallerFocus { .. }
         | ui::Action::EnvironmentInstallerStop { .. }
         | ui::Action::EnvironmentInstallerScan { .. }
@@ -1917,7 +1918,7 @@ fn finish_operation(m: &Manager, id: &str) -> Result<()> {
                 onboarding::mark_dead(m, &r)?;
             }
         }
-        if matches!(request.action,ui::Action::EnvironmentInstallerStart { .. }) {
+        if request.action.environment_installer_start().is_some() {
             environment_install::finish(m,id)?;
         }
         if matches!(request.action,ui::Action::EnvironmentRuntimeSelect { .. }) {
@@ -2486,12 +2487,15 @@ fn execute_with_receipt_policy_progress(
             cleanup?;
             Ok(value)
         }
-        ui::Action::EnvironmentInstallerStart {environment,installer} => {
+        ui::Action::EnvironmentInstallerStart {environment,installer}
+        | ui::Action::EnvironmentInstallerStartWithPolicy {environment,installer,..} => {
             let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
             suspend(m,owner,None,timeout,waits)?;
             let r = environment_install::reserve(m,environment,installer,owner)?;
-            let launched = environment_install::launch(m,&r);
+            let policy = a.environment_installer_start().ok_or("installer_action_identity")?.2;
+            let launched = if policy.is_some() { environment_install::launch_with_policy(m,&r,policy) }
+                else { environment_install::launch(m,&r) };
             drop(projection.take());
             if launched.is_ok() {
                 write_operation(m,owner,&json!({"schema":2,"operation":owner,
@@ -2920,6 +2924,7 @@ fn open_vendor_owned(
 fn resumable_action(action: &ui::Action) -> bool {
     matches!(action,ui::Action::InstallerStart {..} | ui::Action::InstallerStartWithPolicy {..}
         | ui::Action::InstallerScan {..} | ui::Action::EnvironmentInstallerStart {..}
+        | ui::Action::EnvironmentInstallerStartWithPolicy {..}
         | ui::Action::EnvironmentInstallerScan {..} | ui::Action::RendererOpen {..} | ui::Action::RendererSoftwareInstall {..}
         | ui::Action::EnvironmentRuntimeSelect {..}
         | ui::Action::DependencyPrepare {} | ui::Action::VendorApplicationOpen {..}

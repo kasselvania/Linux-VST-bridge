@@ -789,12 +789,17 @@ pub(super) fn projection_current(m: &Manager, busy: Option<&str>,
                 });
             }
             if r.installation_operation.is_none() && linux_vst_bridge::installer_policy::eligible_adapter_record(&installer.format, sw).is_ok() {
+                for (label, powershell) in [
+                    ("Run installer with normal PowerShell behavior", linux_vst_bridge::installer_policy::Powershell::Inherited),
+                    ("Run installer with PowerShell intentionally unavailable", linux_vst_bridge::installer_policy::Powershell::IntentionallyUnavailable),
+                ] {
                 actions.push(ui::AvailableAction {
-                    label: "Run installer with PowerShell intentionally unavailable".into(),
+                    label: label.into(),
                     action: ui::Action::InstallerStartWithPolicy { onboarding: r.id.clone(),
-                        powershell: linux_vst_bridge::installer_policy::Powershell::IntentionallyUnavailable },
+                        powershell },
                     disabled_reason: busy.map(Into::into),
                 });
+                }
             }
             let retained_runner = if r.environment.runner.validate_record().is_ok() {
                 vec![(runner_key(&r.environment.runner)?,r.environment.runner.clone())]
@@ -1329,7 +1334,7 @@ pub(crate) mod tests {
         (f, i)
     }
     mod policy_fixture { include!("../tests/fixtures/nsis_installer.rs"); }
-    pub(crate) fn close_policy_fixture() -> (test_fixture::Fixture, Record) {
+    pub(crate) fn close_policy_unstarted_fixture() -> (test_fixture::Fixture, Record) {
         let f = test_fixture::Fixture::new();
         let path = f.outer.join("chosen-program.exe");
         fs::write(&path, policy_fixture::fixture(None)).unwrap();
@@ -1343,8 +1348,31 @@ pub(crate) mod tests {
         let runner = operator_cli::tests::retained_managed_runtime(&f.m, false);
         let created = create_exact(&f.m, &installer, runner, &"ab".repeat(16),
             &f.m.lock("registry.lock").unwrap(), None).unwrap();
-        let r = reserve(&f.m, created["onboarding"].as_str().unwrap(), &"cd".repeat(16)).unwrap();
+        let r = load(&f.m, created["onboarding"].as_str().unwrap()).unwrap();
         (f, r)
+    }
+    pub(crate) fn close_policy_fixture() -> (test_fixture::Fixture, Record) {
+        let (f,r) = close_policy_unstarted_fixture();
+        let r = reserve(&f.m, &r.id, &"cd".repeat(16)).unwrap();
+        (f,r)
+    }
+    #[test]
+    fn explicit_default_initial_policy_is_offered_admitted_and_bound() {
+        use linux_vst_bridge::installer_policy::Powershell;
+        let (f,initial) = close_policy_unstarted_fixture();
+        let snapshot = operator_cli::snapshot_idle_test(&f.m).unwrap();
+        let action = operator_cli::available(&snapshot).into_iter().find(|offer|
+            matches!(offer.action, ui::Action::InstallerStartWithPolicy { powershell: Powershell::Inherited, .. }))
+            .unwrap().action.clone();
+        let operation = operator_cli::test_submit_offered(&f.m,&action).unwrap();
+        let request: ui::Request = read_json(&operator_cli::job_dir(&f.m,&operation).unwrap().join("request.json")).unwrap();
+        assert_eq!(request.action, action);
+        let ui::Action::InstallerStartWithPolicy { powershell, .. } = request.action else { panic!("exact admitted policy action"); };
+        let r = reserve(&f.m,&initial.id,&operation).unwrap();
+        let spec = launch_input(&f.m,&r,Some(powershell)).unwrap();
+        assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"], "inherited");
+        assert_eq!(spec["installer_capability"]["operation"], operation);
+        assert_eq!(spec["installer_capability"]["environment"], serde_json::to_value(&r.environment).unwrap());
     }
     #[test]
     fn ordinary_initial_installer_launch_selects_advice_without_changing_setup_or_labels() {
@@ -1483,17 +1511,17 @@ pub(crate) mod tests {
         let count=|| projection(&f.m,None).unwrap().iter().flat_map(|r| &r.actions)
             .filter(|a| matches!(a.action,ui::Action::InstallerStartWithPolicy{..})).count();
         atomic_json(&f.m.root.join("software.json"),&sw).unwrap();assert_eq!(count(),0);
-        sw.installer_launch=Some(a.clone());atomic_json(&f.m.root.join("software.json"),&sw).unwrap();assert_eq!(count(),1);
+        sw.installer_launch=Some(a.clone());atomic_json(&f.m.root.join("software.json"),&sw).unwrap();assert_eq!(count(),2);
         let p=f.outer.join("compound");let mut b=vec![0;1024];
         b[..8].copy_from_slice(&[0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1]);
         b[26]=3;b[28]=0xfe;b[29]=0xff;b[30]=9;b[32]=6;fs::write(&p,b).unwrap();
         let msi=installer_import::import(&f.m,file(&p).unwrap()).unwrap();
         create_exact(&f.m,&msi,f.r.environment.runner.clone(),&"cd".repeat(16),&f.m.lock("registry.lock").unwrap(),None).unwrap();
-        assert_eq!(count(),1); // PE only, despite a second eligible ordinary install.
+        assert_eq!(count(),2); // PE only, despite a second eligible ordinary install.
         assert!(projection(&f.m,None).unwrap().iter().filter(|r| r.installer==msi.id)
             .flat_map(|r| &r.actions).all(|a| !matches!(a.action,ui::Action::InstallerStartWithPolicy{..})));
         sw.installer_launch.as_mut().unwrap().sha256="00".repeat(32);
-        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();assert_eq!(count(),1);
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();assert_eq!(count(),2);
         let record = load(&f.m, created["onboarding"].as_str().unwrap()).unwrap();
         let mut spec = json!({"schema":2,"operation":"ef".repeat(16),
             "format":i.format,"installer":i.artifact,"environment":record.environment,
