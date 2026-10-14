@@ -63,9 +63,10 @@ struct Target {
     operation: String,
     unit: String,
     selector: Option<String>,
+    binding: String,
 }
 
-fn assisted_target(m: &Manager, directory: &Path) -> Result<Option<Target>> {
+fn assisted_target(m: &Manager, directory: &Path, verify_content: bool) -> Result<Option<Target>> {
     let result_path = directory.join("managed-session.json");
     if !result_path.exists() { return Ok(None); }
     let result: serde_json::Value = read_json(&result_path)?;
@@ -88,7 +89,7 @@ fn assisted_target(m: &Manager, directory: &Path) -> Result<Option<Target>> {
         "native_access_callback_environment")?;
     selected.environment = read_json(&app.environment.root.join("environment.json"))?;
     require(selected == *app, "native_access_callback_selection_changed")?;
-    app.verify(&m.root)?;
+    if verify_content {app.verify(&m.root)?;}
     let profile = vendor_profile::native_access()?;
     let capabilities = &managed.capabilities;
     require(capabilities.schema == 1 && capabilities.profile == profile
@@ -97,23 +98,27 @@ fn assisted_target(m: &Manager, directory: &Path) -> Result<Option<Target>> {
     // Callback transport does not admit a service or install anything. The daemon
     // may have been installed by this owned operation after its initial binding.
     // Application resources and its bundled installer must still be exact.
-    capabilities.verify_callback_inputs(app, &m.root)?;
+    if verify_content {capabilities.verify_callback_inputs(app, &m.root)?;}
     let software = crate::preparation::build::launch_software_record(m)?;
     require(managed.software == software && job.launcher == software.installer_launch,
         "native_access_callback_software_changed")?;
     for artifact in [&software.manager, &software.supervisor, &software.ownership,
-        software.installer_launch.as_ref().ok_or("native_access_callback_adapter")?] { artifact.verify()?; }
+        software.installer_launch.as_ref().ok_or("native_access_callback_adapter")?] { if verify_content {artifact.verify()?;} }
     require(result["operation"] == job.operation_id
         && result["application_identity"] == selector
         && result["effective"]["operation"] == job.operation_id
         && result["renderer"]["launch_binding"]["status"] == "bound"
         && result["dependency"]["ready_tested"] == true,
         "native_access_callback_not_live")?;
+    let binding=hex(&Sha256::digest(serde_json::to_vec(&job)?));
     Ok(Some(Target { operation: job.operation_id, unit: format!("linux-vst-bridge-vendor-{selector}.service"),
-        selector: Some(selector) }))
+        selector: Some(selector),binding }))
 }
 
 fn target(m: &Manager) -> Result<Target> {
+    current_target(m,true)
+}
+fn current_target(m: &Manager, verify_content: bool) -> Result<Target> {
     let root = m.root.join("vendor-applications");
     let mut targets = vec![];
     if root.exists() {
@@ -121,16 +126,16 @@ fn target(m: &Manager) -> Result<Target> {
             require(index < 128, "native_access_callback_application_bound")?;
             let entry = entry?;
             if entry.file_type()?.is_dir() && entry.file_name().to_str().is_some_and(|s| valid_hex(s, 64)) {
-                if let Some(found) = assisted_target(m, &entry.path())? { targets.push(found); }
+                if let Some(found) = assisted_target(m, &entry.path(),verify_content)? { targets.push(found); }
             }
         }
     }
-    if let Some(legacy) = legacy_target(m)? { targets.push(legacy); }
+    if let Some(legacy) = legacy_target(m,verify_content)? { targets.push(legacy); }
     require(targets.len() == 1, "native_access_callback_no_unique_live_operation")?;
     Ok(targets.remove(0))
 }
 
-fn legacy_target(m: &Manager) -> Result<Option<Target>> {
+fn legacy_target(m: &Manager, verify_content: bool) -> Result<Option<Target>> {
     let c = renderer_session::current(m)?;
     let Some(op) = c["operation"].as_str() else { return Ok(None); };
     require(valid_hex(op, 32), "native_access_callback_operation")?;
@@ -140,16 +145,17 @@ fn legacy_target(m: &Manager) -> Result<Option<Target>> {
     let spec: serde_json::Value = read_json(&d.join("spec.json"))?;
     let sw = crate::preparation::build::launch_software_record(m)?;
     for artifact in [&sw.manager, &sw.supervisor, &sw.ownership,
-        sw.installer_launch.as_ref().ok_or("native_access_callback_adapter")?] { artifact.verify()?; }
+        sw.installer_launch.as_ref().ok_or("native_access_callback_adapter")?] {if verify_content {artifact.verify()?;} }
     require(spec["software"] == serde_json::to_value(&sw)? && spec["operation"] == op
         && spec["kind"] == "renderer_application" && spec["application_identity"] == c["application"],
         "native_access_callback_generation")?;
     let app: renderer_application::Application = serde_json::from_value(spec["application"].clone())?;
-    app.verify(&m.root)?;
+    if verify_content {app.verify(&m.root)?;}
     require(app.identity()? == c["application"], "native_access_callback_application")?;
     require(result["effective"]["operation"] == op && result["renderer"]["launch_binding"]["status"] == "bound",
         "native_access_callback_not_live")?;
-    Ok(Some(Target { operation: op.into(), unit: renderer_session::unit(op)?, selector: None }))
+    Ok(Some(Target { operation: op.into(), unit: renderer_session::unit(op)?, selector: None,
+        binding:hex(&Sha256::digest(serde_json::to_vec(&spec)?)) }))
 }
 #[cfg(target_os = "linux")]
 pub fn deliver(m: &Manager, url: &str) -> Result<()> {
@@ -191,7 +197,9 @@ pub fn deliver(m: &Manager, url: &str) -> Result<()> {
             .any(|l| l.starts_with("0::") && l.ends_with(&suffix)),
         "native_access_callback_owner",
     )?;
-    require(target(m)? == selected, "native_access_callback_operation_changed")?;
+    // Bulk file/runtime verification happened before connect. The receiver's
+    // five-second idle window only contains bounded exact-record/owner checks.
+    require(current_target(m,false)? == selected, "native_access_callback_operation_changed")?;
     exchange(&mut peer, op, url.as_bytes())
 }
 #[cfg(not(target_os = "linux"))]
@@ -243,6 +251,11 @@ mod tests {
         let (f, app) = vendor_application::tests::selected_application();
         let (directory, job) = managed_application(&f, app.clone(), "First application");
         let expected = target(&f.m).unwrap();
+        assert_eq!(current_target(&f.m,false).unwrap(),expected);
+        let mut changed=job.clone();changed.capability_notice=Some("changed launch binding".into());
+        atomic_json(&directory.join("operation.json"),&changed).unwrap();
+        assert_ne!(current_target(&f.m,false).unwrap(),expected);
+        atomic_json(&directory.join("operation.json"),&job).unwrap();
         assert_eq!(expected.operation, job.operation_id);
         assert_eq!(expected.unit, format!("linux-vst-bridge-vendor-{}.service", job.application.selector().unwrap()));
         assert!(!renderer_session::directory(&f.m).exists());

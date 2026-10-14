@@ -165,6 +165,19 @@ class ManagedVendorTests(unittest.TestCase):
                 self.assertEqual(calls.count('stop'), 1)
                 self.assertEqual(owner.service_stop_request_count, 1)
                 self.assertFalse((self.managed / 'vendor-applications/native-access-dependency').exists())
+                owner.bound_daemon.check()
+                self.assertEqual(owner.bound_daemon.sha, hashlib.sha256(daemon.read_bytes()).hexdigest())
+                self.assertTrue(owner.close_runtime())
+
+    def test_bound_daemon_replacement_refuses_before_service_start(self):
+        operation=self.operation('a',existing_daemon=True)
+        owner=self.owner(operation);daemon=owner.drive/owner.daemon_relative
+        data=bytearray(daemon.read_bytes());data[-1]^=1;daemon.write_bytes(data)
+        try:
+            with patch.object(s,'Nad1Runtime',side_effect=AssertionError('changed daemon reached service runtime')):
+                with self.assertRaisesRegex(ValueError,'renderer_image_replaced'):
+                    owner.command('start')
+        finally:owner.close_runtime()
 
     def test_managed_service_request_passes_exact_observed_bundled_path_and_profile_facts(self):
         operation = self.operation('a')
@@ -263,6 +276,7 @@ class ManagedVendorTests(unittest.TestCase):
         (root / 'compatdata/pfx/system.reg').touch()
         resource = pathlib.Path(operation['managed']['capabilities']['resources']['resources/app.asar']['artifact']['path'])
         class Dependency:
+            bound_daemon=None
             runtime = type('Runtime', (), {'argv': lambda *_: ['never-launch'], 'drain': lambda *_: None})()
             anchor = None
             retirement_error = None
@@ -290,6 +304,29 @@ class ManagedVendorTests(unittest.TestCase):
         finally:
             for sig, old in zip((signal.SIGTERM, signal.SIGINT), prior): signal.signal(sig, old)
             s.ctypes.CDLL(None).prctl(36, 0, 0, 0, 0)
+
+    @unittest.skipUnless(sys.platform=='linux','Linux operation owner')
+    def test_definite_runtime_pre_service_failure_retires_without_unknown_custody_claim(self):
+        from test_installer import Scope
+        for unresolved in (False,True):
+            operation=self.operation('b' if unresolved else 'a')
+            root=pathlib.Path(operation['application']['environment']['root'])
+            (root/'compatdata/pfx/system.reg').touch()
+            prior=[signal.getsignal(sig) for sig in (signal.SIGTERM,signal.SIGINT)]
+            scan={'candidates':[],'private':[],'unavailable':int(unresolved)}
+            try:
+                with patch.object(s,'CompanionCgroup',return_value=Scope()),patch.object(ownership,'census',return_value=scan), \
+                     patch.object(s,'environment',return_value=dict(os.environ)), \
+                     patch.object(s.subprocess,'Popen',side_effect=AssertionError('failed runtime reached launch')) as launch:
+                    self.assertFalse(s.vendor_application(operation));launch.assert_not_called()
+                value=json.loads(pathlib.Path(operation['report']).read_text())
+                self.assertEqual(value['cleanup_confirmed'],not unresolved)
+                self.assertEqual(value['dependency']['dependency_cleanup_disposition'],
+                    'cleanup_unconfirmed' if unresolved else 'not_started')
+                self.assertFalse(value['dependency']['service_actions_started'])
+            finally:
+                for sig,old in zip((signal.SIGTERM,signal.SIGINT),prior):signal.signal(sig,old)
+                s.ctypes.CDLL(None).prctl(36,0,0,0,0)
 
     def test_changed_origin_resources_or_definition_refuse_before_launch(self):
         operation = self.operation('a')

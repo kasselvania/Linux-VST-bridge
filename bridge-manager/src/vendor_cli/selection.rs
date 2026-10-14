@@ -367,16 +367,18 @@ pub(crate) mod tests {
 
     #[test]
     fn assisted_app_structure_refusal_preserves_generic_choice_and_exact_identity() {
-        for failure in ["missing", "ambiguous", "symlink", "architecture"] {
+        for failure in ["missing", "ambiguous", "symlink", "architecture", "missing_and_symlink", "missing_and_ambiguous"] {
             let (f, app, directory) = structured_application(2);
             match failure {
                 "missing" => fs::remove_file(directory.join("resources/app.asar")).unwrap(),
-                "ambiguous" => {
+                "ambiguous" | "missing_and_ambiguous" => {
+                    if failure=="missing_and_ambiguous" {fs::remove_file(directory.join("chrome_100_percent.pak")).unwrap();}
                     let bundled = directory.join("resources/daemon/win");
                     fs::copy(bundled.join("NTKDaemon 2.0 Setup PC.exe"),
                         bundled.join("NTKDaemon 3.0 Setup PC.exe")).unwrap();
                 },
-                "symlink" => {
+                "symlink" | "missing_and_symlink" => {
+                    if failure=="missing_and_symlink" {fs::remove_file(directory.join("chrome_100_percent.pak")).unwrap();}
                     let path = directory.join("resources/app.asar");
                     fs::remove_file(&path).unwrap();
                     std::os::unix::fs::symlink(directory.join("resources.pak"), path).unwrap();
@@ -390,7 +392,7 @@ pub(crate) mod tests {
                 _ => unreachable!(),
             }
             let inspected = linux_vst_bridge::vendor_profile::inspect(&app, &f.m.root);
-            if matches!(failure,"ambiguous"|"symlink") {
+            if matches!(failure,"ambiguous"|"symlink"|"missing_and_symlink"|"missing_and_ambiguous") {
                 assert!(inspected.is_err(), "{failure}");
             } else {
                 let inspected=inspected.unwrap();

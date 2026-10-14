@@ -134,6 +134,43 @@ fn executable(path: &Path, architecture: Option<&str>) -> Result<()> {
         "vendor_profile_processor_capability_missing")
 }
 
+fn check_structure(directory: &Path, drive: &Path, profile: &Profile) -> Result<()> {
+    let bundled=directory.join(relative(&profile.dependency.installer_directory)?);
+    let mut paths:Vec<_>=profile.resources.iter().map(|name|directory.join(name)).collect();
+    paths.extend([bundled.clone(),drive.join(relative(&profile.dependency.daemon)?)]);
+    // Missing capabilities must not conceal a later alias or ambiguous input.
+    // This bounded pass inspects structure only; content is hashed at admission.
+    for path in paths {
+        let mut current=drive.to_path_buf();
+        for component in path.strip_prefix(drive)?.components() {
+            current.push(component);
+            match fs::symlink_metadata(&current) {
+                Ok(metadata)=>integrity(!metadata.file_type().is_symlink()
+                    && current.canonicalize()? == current
+                    && (!metadata.is_file() || metadata.nlink()==1),"vendor_profile_resource_alias")?,
+                Err(error) if error.kind()==std::io::ErrorKind::NotFound=>break,
+                Err(error)=>return Err(error.into()),
+            }
+        }
+    }
+    if bundled.is_dir() {
+        let mut candidates=0;
+        for (index,entry) in fs::read_dir(&bundled)?.enumerate() {
+            integrity(index<64,"vendor_profile_dependency_candidate_bound")?;
+            let entry=entry?;let name=entry.file_name();
+            if name.to_str().is_some_and(|name|name.starts_with(&profile.dependency.installer_prefix)
+                && name.ends_with(&profile.dependency.installer_suffix)) {
+                candidates+=1;
+                integrity(candidates<=1,"vendor_profile_bundled_dependency_ambiguous")?;
+                let metadata=fs::symlink_metadata(entry.path())?;
+                integrity(metadata.is_file() && metadata.nlink()==1 && entry.path().canonicalize()?==entry.path(),
+                    "vendor_profile_resource_alias")?;
+            }
+        }
+    }
+    Ok(())
+}
+
 fn observe_structure(app: &Application, profile: &Profile) -> Result<Capabilities> {
     require(app.schema == 2 && app.user_selection.is_none(),
         "vendor_profile_observed_installation_required")?;
@@ -141,6 +178,7 @@ fn observe_structure(app: &Application, profile: &Profile) -> Result<Capabilitie
     let drive = app.environment.root.join("compatdata/pfx/drive_c");
     require(directory.starts_with(&drive) && directory.canonicalize()? == directory,
         "vendor_profile_application_directory")?;
+    check_structure(directory,&drive,profile)?;
     executable(&app.executable.path, Some(&profile.architecture))?;
     let main = image(&app.executable.path)?;
     integrity(main.artifact == app.executable, "vendor_profile_application_changed")?;

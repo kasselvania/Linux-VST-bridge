@@ -227,6 +227,26 @@ fn recheck_bound_assistance(m: &Manager, directory: &Path, app: &Application) ->
     }
     Ok(())
 }
+fn submit_with(report: &Path, operation: &str, managed: bool,
+    spawn: impl FnOnce()->std::io::Result<std::process::Child>) -> Result<()> {
+    let mut child=match spawn() {
+        Ok(child)=>child,
+        Err(_)=> {
+            // Spawn failure proves this submission command never executed.
+            // A started command's failed/unknown acknowledgment proves no such
+            // thing and retains uncertain custody instead.
+            let mut value:serde_json::Value=read_json(report)?;
+            require(value["operation_id"]==operation,"vendor_application_operation_changed")?;
+            value["error"]="The app could not be started. Try again; if it still fails, send Setup details.".into();
+            value["error_code"]="vendor_application_not_submitted".into();
+            if managed {value["dependency"]=json!({"dependency_cleanup_disposition":"not_started",
+                "service_actions_started":false,"process_cleanup_confirmed":false});}
+            atomic_json(report,&value)?;
+            return Err("The app could not be started. Try again; if it still fails, send Setup details.".into());
+        }
+    };
+    require(child.wait()?.success(),"vendor_application_launch_unconfirmed")
+}
 fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result<()> {
     if let Some(id) = operation {
         require(valid_hex(id, 32), "vendor_application_operation_identity")?;
@@ -445,8 +465,8 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
                     managed,capability_notice:inspected.missing_capability},
             )?;
             atomic_json(&directory.join("operation-result.json"),&json!({"schema":3,"operation_id":operation_id,"state":"unknown","launcher_exit":null,"owned_live":null,"cleanup_confirmed":false,"error":null,"discarded_diagnostic_bytes":0,"account_posture":"unknown"}))?;
-            let result = Command::new("systemd-run")
-                .args([
+            let mut command=Command::new("systemd-run");
+            command.args([
                     "--user",
                     "--collect",
                     "--slice=app.slice",
@@ -460,9 +480,8 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
                 .arg("/usr/bin/python3")
                 .arg(&sw.supervisor.path)
                 .arg("--vendor-application")
-                .arg(&job)
-                .status()?;
-            require(result.success(), "vendor_application_launch_unconfirmed")
+                .arg(&job);
+            submit_with(&directory.join("operation-result.json"),&operation_id,supervised_service,||command.spawn())
         }
         _ => Err("vendor_application_action_unknown".into()),
     }
@@ -509,6 +528,20 @@ mod tests {
         assert!(reconcile_with(&f.m,&selector,&job.operation_id,||Ok(renderer_session::UnitState{
             exists:true,empty:true,observation:None})).is_err());
         assert_eq!(before,fs::read(&job.report).unwrap());
+    }
+    #[test]
+    fn definite_submission_failure_can_recover_without_claiming_service_retirement() {
+        let (f,job)=assisted();let selector=job.application.selector().unwrap();
+        atomic_json(&job.report,&json!({"schema":3,"operation_id":job.operation_id,"state":"unknown",
+            "launcher_exit":null,"owned_live":null,"cleanup_confirmed":false,"error":null,
+            "discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
+        assert!(submit_with(&job.report,&job.operation_id,true,||Err(std::io::ErrorKind::NotFound.into())).is_err());
+        assert!(!result(&f.m,&selector,&job.operation_id).unwrap().retired());
+        reconcile_with(&f.m,&selector,&job.operation_id,||Ok(renderer_session::UnitState{
+            exists:false,empty:true,observation:None})).unwrap();
+        let recovered=result(&f.m,&selector,&job.operation_id).unwrap();
+        assert!(recovered.retired());
+        assert_eq!(recovered.dependency.unwrap()["service_actions_started"],false);
     }
     fn selected() -> (test_fixture::Fixture,String,String,Application) {
         let f=test_fixture::Fixture::new();

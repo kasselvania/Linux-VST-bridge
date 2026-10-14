@@ -3605,8 +3605,13 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
             admitted=managed_contract['dependency']['daemon']
             if admitted is not None:
                 import ownership
-                admitted=ownership.image_identity(pathlib.Path(admitted['artifact']['path']))
+                expected=admitted
+                admitted=ownership.image_identity(pathlib.Path(expected['artifact']['path']))
+                if admitted['sha256']!=expected['artifact']['sha256'] or admitted['size']!=expected['size']:
+                    raise ValueError('dependency_generation_changed')
+                dependency_owner.bound_daemon.check()
             dependency_owner.ensure(admitted is None,admitted)
+            if dependency_owner.bound_daemon is not None:resources.append(dependency_owner.bound_daemon)
             for resource in resources:resource.check()
         elif dependency is not None:
             dependency_owner=Nad1Owner(spec,ledger,scope,lambda:stop,fixture=dependency_fixture,session_authority=dependency)
@@ -4134,6 +4139,7 @@ class Nad1Runtime:
         self.capture=PrivateCapture(self.owner.directory/(self.owner.op+'-runtime.private.log'),1024*1024,256)
         self.child=subprocess.Popen(self._root_argv(self.request),cwd=self.owner.root/'home',env=self._root_environment(env),stdin=subprocess.DEVNULL,
                                     stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+        self.owner.service_actions_started=True
         self.owner.ledger.launcher(self.child,'dependency_runtime')
         for name,pipe in [('stdout',self.child.stdout),('stderr',self.child.stderr)]:
             os.set_blocking(pipe.fileno(),False);self.sel.register(pipe,selectors.EVENT_READ,name)
@@ -4261,6 +4267,9 @@ class Nad1Owner:
         self.runtime_close_errors=[];self.service_generation=None;self.stop_observation=None
         self.process_cleanup_confirmed=False;self.forced_cleanup_used=False;self.retirement_error=None
         self.dependency_cleanup_disposition='cleanup_unconfirmed';self.post_cleanup=None
+        self.service_actions_started=False;self.custody_observed_empty=False;self.bound_daemon=None
+        if contract is not None and contract['dependency']['daemon'] is not None:
+            self.bound_daemon=RendererImage(contract['dependency']['daemon'])
     def value(self):
         return {'schema':1,'ready_tested':self.ready,'daemon':self.daemon,'recovery':self.recovery,
                 'session_origin':({'kind':self.session_authority['origin']['kind'],'validated':True} if self.session_authority else None),
@@ -4269,6 +4278,7 @@ class Nad1Owner:
                 'service_stop_requested':self.service_stop_requested,'service_stop_request_count':self.service_stop_request_count,
                 'service_retirement_confirmed':self.service_retirement_confirmed,
                 'process_cleanup_confirmed':self.process_cleanup_confirmed,'forced_cleanup_used':self.forced_cleanup_used,
+                'service_actions_started':self.service_actions_started,
                 'dependency_cleanup_disposition':self.dependency_cleanup_disposition,'post_cleanup':self.post_cleanup,
                 'retirement_error':self.retirement_error,'service_possibility':self.service_possibility,
                 'runtime_close_errors':self.runtime_close_errors,'stop_observation':self.stop_observation,
@@ -4361,6 +4371,7 @@ class Nad1Owner:
         raise ValueError('dependency_service_state_unavailable')
     def command(self,action):
         if action not in ('query','install','start','stop'):raise ValueError('dependency_action')
+        if self.bound_daemon is not None:self.bound_daemon.check()
         index=len(self.stages);request=self.directory/f'{self.op}-dependency-{index}.private'
         fields=['NAD1_SERVICE_V1',self.op,self.token,action,self.installer_sha]
         if action=='stop':fields=['NAD1_STOP_REQUEST_V2',self.op,self.token,action,self.installer_sha,*map(str,self.service_generation or (0,0))]
@@ -4383,6 +4394,7 @@ class Nad1Owner:
         install=Nad1InstallObservation(self,stage) if action=='install' else None;child=None
         try:
             child=subprocess.Popen(argv,cwd=self.root/'home',env=launch_env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+            self.service_actions_started=True
             self.ledger.launcher(child,'dependency_'+action);stage['launch']='owned'
             for name,pipe in [('stdout',child.stdout),('stderr',child.stderr)]:os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,name)
             deadline=time.monotonic()+(20 if self.retiring else 200 if action=='install' else 40)
@@ -4473,6 +4485,7 @@ class Nad1Owner:
         # it or an exact previous preparation receipt supplies its digest.
         if actual is not None and admitted is None:raise ValueError('dependency_existing_unadmitted_generation')
         scan=ownership.census(self.root/'compatdata/pfx',admitted)
+        self.custody_observed_empty=not scan['candidates'] and not scan['unavailable']
         installer_atomic(self.directory/f'{self.op}-dependency-before.private.json',scan)
         if scan['candidates'] or scan['unavailable']:self.service_possibility='may_exist'
         if scan['unavailable']:raise ValueError('dependency_identity_unresolved')
@@ -4498,6 +4511,8 @@ class Nad1Owner:
             self.command('install')
             actual=ownership.image_identity(path)
             self.daemon=actual
+            if self.managed_contract is not None:
+                self.bound_daemon=RendererImage({'artifact':{'path':str(path),'sha256':actual['sha256']},'size':actual['size']})
             if self.production and self.managed_contract is None:nad1_retain_artifact(self.spec,actual)
             service=self.command('query')
             if service['registration']!='exact':raise ValueError('dependency_install_registration_missing')
@@ -4550,6 +4565,7 @@ class Nad1Owner:
             try:
                 self.runtime.close();self.runtime_close_errors=list(self.runtime.close_errors)
             except Exception as exc:self.runtime_close_errors=['runtime_close_'+type(exc).__name__]
+        if self.bound_daemon is not None:self.bound_daemon.close()
         if self.runtime_close_errors:
             self.retirement_error=self.retirement_error or 'dependency_runtime_close_failed'
             return False
@@ -4557,6 +4573,8 @@ class Nad1Owner:
 
     def verify_session_cleanup(self,application_image,graceful,*,proc=pathlib.Path('/proc')):
         import ownership
+        if self.managed_contract is not None and not self.ready and not self.service_actions_started and self.custody_observed_empty and self.process_cleanup_confirmed:
+            self.dependency_cleanup_disposition='not_started';return True
         if not self.ready or not self.process_cleanup_confirmed:raise ValueError('dependency_session_cleanup_prerequisite')
         observation=self.stop_observation
         if not graceful:
@@ -4593,6 +4611,8 @@ class Nad1Owner:
         """
         if self.retirement_attempted:return self.service_retirement_confirmed
         self.retirement_attempted=True;self.retiring=True
+        if self.managed_contract is not None and not self.ready and not self.service_actions_started and self.custody_observed_empty:
+            self.service_stop_request_count=0;self.service_stop_requested=False;return True
         if self.service_possibility=='proved_absent':
             self.service_stop_request_count=0;self.service_stop_requested=False
             self.service_retirement_confirmed=True;return True
