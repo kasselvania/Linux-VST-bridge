@@ -4,7 +4,7 @@ use crate::presentation::ProductKey;
 use std::{
     io::{Read, Write},
     process::{Command, Stdio},
-    sync::{mpsc::Sender, OnceLock},
+    sync::{mpsc::Sender, Arc, OnceLock},
     time::{Duration, Instant},
 };
 pub enum Reply {
@@ -272,11 +272,24 @@ fn decode_reply(query: Query, data: &[u8]) -> Result<Reply, String> {
     }
     .map_err(|_| "Incompatible manager response; update the frontend and manager together".into())
 }
-pub fn send(query: Query, sender: Sender<Reply>, ctx: eframe::egui::Context) {
+pub type WindowWake = Arc<dyn Fn() + Send + Sync>;
+
+fn deliver(reply: Reply, sender: &Sender<Reply>, ctx: &eframe::egui::Context,
+    window_wake: Option<&WindowWake>) {
+    if sender.send(reply).is_ok() {
+        ctx.request_repaint();
+        // A completed request must wake the actual native window as well as
+        // egui's pass-based repaint queue. Input must not be needed to consume
+        // a reply that is already waiting in the channel.
+        if let Some(wake) = window_wake { wake(); }
+    }
+}
+
+pub fn send(query: Query, sender: Sender<Reply>, ctx: eframe::egui::Context,
+    window_wake: Option<WindowWake>) {
     std::thread::spawn(move || {
         let result = call(query).unwrap_or_else(Reply::Error);
-        let _ = sender.send(result);
-        ctx.request_repaint();
+        deliver(result, &sender, &ctx, window_wake.as_ref());
     });
 }
 
@@ -301,6 +314,42 @@ fn open_selected(path: &std::path::Path) -> Result<std::fs::File, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn completion_wakes_window_when_egui_repaint_is_already_queued() {
+        use std::sync::{atomic::{AtomicUsize, Ordering}, mpsc, Mutex};
+        let ctx = eframe::egui::Context::default();
+        let repaint_count = Arc::new(AtomicUsize::new(0));
+        let observed = repaint_count.clone();
+        ctx.set_request_repaint_callback(move |_| { observed.fetch_add(1, Ordering::SeqCst); });
+        ctx.request_repaint();
+        let already_queued = repaint_count.load(Ordering::SeqCst);
+        let (sender, receiver) = mpsc::channel();
+        let receiver = Mutex::new(receiver);
+        let wakes = Arc::new(AtomicUsize::new(0));
+        let observed = wakes.clone();
+        let wake: WindowWake = Arc::new(move || {
+            // The native wake must see the completed result already queued.
+            assert!(matches!(receiver.lock().unwrap().try_recv(), Ok(Reply::Cancelled)));
+            observed.fetch_add(1, Ordering::SeqCst);
+        });
+        deliver(Reply::Cancelled, &sender, &ctx, Some(&wake));
+        assert_eq!(repaint_count.load(Ordering::SeqCst), already_queued);
+        assert_eq!(wakes.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn completed_request_does_not_wake_a_closed_client() {
+        use std::sync::{atomic::{AtomicUsize, Ordering}, mpsc};
+        let ctx = eframe::egui::Context::default();
+        let (sender, receiver) = mpsc::channel();
+        drop(receiver);
+        let wakes = Arc::new(AtomicUsize::new(0));
+        let observed = wakes.clone();
+        let wake: WindowWake = Arc::new(move || { observed.fetch_add(1, Ordering::SeqCst); });
+        deliver(Reply::Cancelled, &sender, &ctx, Some(&wake));
+        assert_eq!(wakes.load(Ordering::SeqCst), 0);
+    }
     #[test]
     fn frontend_content_binding_detects_restore_without_help_from_old_manager() {
         use std::os::unix::fs::PermissionsExt;

@@ -72,7 +72,13 @@ fn main() -> eframe::Result {
             } else if let Some(bootstrap) = bootstrap {
                 Ok(Box::new(bootstrap))
             } else {
-                Ok(Box::new(operator::Operator::new(&cc.egui_ctx)))
+                let window_wake = cc.winit_window().map(|window| {
+                    let window = std::sync::Arc::downgrade(window);
+                    std::sync::Arc::new(move || {
+                        if let Some(window) = window.upgrade() { window.request_redraw(); }
+                    }) as client::WindowWake
+                });
+                Ok(Box::new(operator::Operator::new(&cc.egui_ctx, window_wake)))
             }
         }),
     )

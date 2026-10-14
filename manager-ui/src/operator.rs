@@ -487,6 +487,7 @@ pub struct Operator {
     details_attempted: bool,
     sender: mpsc::Sender<Reply>,
     receiver: mpsc::Receiver<Reply>,
+    window_wake: Option<client::WindowWake>,
     pending: bool,
     background_poll: bool,
     action_inflight: bool,
@@ -519,9 +520,9 @@ pub struct Operator {
     preview: bool,
 }
 impl Operator {
-    pub fn new(ctx: &egui::Context) -> Self {
+    pub fn new(ctx: &egui::Context, window_wake: Option<client::WindowWake>) -> Self {
         let (sender, receiver) = mpsc::channel();
-        client::send(Query::Overview, sender.clone(), ctx.clone());
+        client::send(Query::Overview, sender.clone(), ctx.clone(), window_wake.clone());
         Self {
             snapshot: None,
             overview: None,
@@ -533,6 +534,7 @@ impl Operator {
             details_attempted: false,
             sender,
             receiver,
+            window_wake,
             pending: true,
             background_poll: false,
             action_inflight: false,
@@ -579,6 +581,7 @@ impl Operator {
             details_attempted: false,
             sender,
             receiver,
+            window_wake: None,
             pending: false,
             background_poll: false,
             action_inflight: false,
@@ -770,7 +773,7 @@ impl Operator {
             }
         }
         self.last_poll = Instant::now();
-        client::send(q, self.sender.clone(), ctx.clone());
+        client::send(q, self.sender.clone(), ctx.clone(), self.window_wake.clone());
     }
     fn controls_pending(&self) -> bool {
         self.frontend_superseded || self.queued_action.is_some()
@@ -4004,6 +4007,7 @@ mod tests {
             details_attempted: false,
             sender,
             receiver,
+            window_wake: None,
             pending: false,
             background_poll: false,
             action_inflight: false,
