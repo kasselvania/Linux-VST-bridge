@@ -4191,7 +4191,7 @@ mod tests {
             preparation::Origin::ManagedPreparation,runtime.host.clone(),runtime.source_manifest.clone()).unwrap();
         let operation = random_id().unwrap();
         let retained = preparation::build::construct_with_runtime(&f.base.m, candidate.selection,
-            inspection, runtime, &operation).unwrap();
+            inspection, runtime, &operation, None).unwrap();
         preparation::retain_inspection(&f.base.m, &retained.inspection).unwrap();
         preparation::record_candidate(&f.base.m, &retained).unwrap();
         preparation::build::cleanup_work(&f.base.m, &operation).unwrap();
@@ -4258,7 +4258,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
                 preparation::Origin::ManagedPreparation,current.host.clone(),current.source_manifest.clone()).unwrap();
             let operation = random_id().unwrap();
             let sibling = preparation::build::construct_with_runtime(m,selection,inspection,
-                preparation::build::existing_runtime(m,&current.recipe_sha256).unwrap(),&operation).unwrap();
+                preparation::build::existing_runtime(m,&current.recipe_sha256).unwrap(),&operation, None).unwrap();
             preparation::record_candidate(m,&sibling).unwrap();
             preparation::enable(m,&sibling,false).unwrap();
             preparation::build::cleanup_work(m,&operation).unwrap();

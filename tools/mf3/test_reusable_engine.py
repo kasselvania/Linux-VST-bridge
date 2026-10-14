@@ -45,6 +45,42 @@ def prepare(root, archive, cid, module, effect=False, value=0.25, loader=False):
     return build(request,runtime_descriptor)
 
 class ReusableEngine(unittest.TestCase):
+    def test_retained_zero_output_policy_reaches_the_kit_owned_descriptor(self):
+        for policy, expected in [(None, 0), ('reported_zero_event_channels_unspecified', 16)]:
+            with self.subTest(policy=policy), tempfile.TemporaryDirectory() as d:
+                root=pathlib.Path(d);archive=kit(root);cid=uuid.uuid4().hex.upper()
+                rows=records(cid)
+                for direction in (0,1):
+                    rows.insert(direction+1,dict(state='ap8_bus',media=1,direction=direction,
+                        index=0,channels=0,type=0,flags=1,arrangement=0,name='Events'))
+                inspection=root/'inspection.json';inspection.write_text(json.dumps({'records':rows}))
+                request=dict(directory=str(root/'prepared'),kit=str(archive),kit_sha256=sha(archive.read_bytes()),
+                    inspection=str(inspection),class_id=cid,module_sha256='ab'*32,event_output=policy)
+                result=subprocess.run([sys.executable,'-I',str(pathlib.Path(__file__).with_name('kit_entry.py'))],
+                    input=json.dumps(request),text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+                    env={**os.environ,'PATH':'/no-compiler-or-sdk'},check=True,timeout=10)
+                self.assertEqual(json.loads(result.stdout)['delivery'],'reusable_engine')
+                descriptor=json.loads((root/'prepared/plugin-descriptor.json').read_bytes())
+                self.assertEqual([b['channels'] for b in descriptor['buses']], [2,0,expected])
+                self.assertEqual([r['channels'] for r in rows if r['state']=='ap8_bus'], [2,0,0])
+                self.assertEqual(json.loads(inspection.read_text())['records'],rows)
+
+    def test_retained_output_policy_refuses_an_incompatible_actual_bus(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d);archive=kit(root);cid=uuid.uuid4().hex.upper()
+            rows=records(cid)
+            rows.insert(1,dict(state='ap8_bus',media=1,direction=1,index=0,channels=7,
+                type=0,flags=1,arrangement=0,name='Events'))
+            inspection=root/'inspection.json';inspection.write_text(json.dumps({'records':rows}))
+            request=dict(directory=str(root/'prepared'),kit=str(archive),kit_sha256=sha(archive.read_bytes()),
+                inspection=str(inspection),class_id=cid,module_sha256='ab'*32,
+                event_output='reported_zero_event_channels_unspecified')
+            result=subprocess.run([sys.executable,'-I',str(pathlib.Path(__file__).with_name('kit_entry.py'))],
+                input=json.dumps(request),text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=10)
+            self.assertNotEqual(result.returncode,0)
+            self.assertEqual(json.loads(result.stdout)['error'],'event output policy metadata mismatch')
+            self.assertFalse((root/'prepared/native.so').exists())
+
     def test_manager_loader_uses_kit_owned_generators_without_build_tools(self):
         with tempfile.TemporaryDirectory() as d:
             root=pathlib.Path(d);archive=kit(root)
