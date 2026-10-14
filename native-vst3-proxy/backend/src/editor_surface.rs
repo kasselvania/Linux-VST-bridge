@@ -319,6 +319,7 @@ pub mod x11 {
             Err(Error::X11(code))
         }
         pub fn geometry(&self, window: u32) -> Result<Geometry, Error> {
+            self.owner()?;
             let reply = self.reply(unsafe { xcb_get_geometry(self.pointer, window) })?;
             let result = unsafe { reply.cast::<Geometry>().read() };
             unsafe {
@@ -327,6 +328,7 @@ pub mod x11 {
             Ok(result)
         }
         pub fn parent(&self, window: u32) -> Result<u32, Error> {
+            self.owner()?;
             let reply = self.reply(unsafe { xcb_query_tree(self.pointer, window) })?;
             let parent = unsafe { (*reply.cast::<Tree>()).parent };
             unsafe {
@@ -369,18 +371,22 @@ pub mod x11 {
             Ok(window)
         }
         pub fn map(&self, window: u32) -> Result<(), Error> {
+            self.owner()?;
             self.checked(unsafe { xcb_map_window_checked(self.pointer, window) })
         }
         pub fn size(&self, window: u32, width: u16, height: u16) -> Result<(), Error> {
+            self.owner()?;
             let values = [u32::from(width), u32::from(height)];
             self.checked(unsafe {
                 xcb_configure_window_checked(self.pointer, window, 12, values.as_ptr())
             })
         }
         pub fn focus(&self, window: u32) -> Result<(), Error> {
+            self.owner()?;
             self.checked(unsafe { xcb_set_input_focus_checked(self.pointer, 2, window, 0) })
         }
         pub fn focused_window(&self) -> Result<u32, Error> {
+            self.owner()?;
             let reply = self.reply(unsafe { xcb_get_input_focus(self.pointer) })?;
             let window = unsafe { reply.cast::<u8>().add(8).cast::<u32>().read_unaligned() };
             unsafe {
@@ -389,9 +395,11 @@ pub mod x11 {
             Ok(window)
         }
         pub fn destroy(&self, window: u32) -> Result<(), Error> {
+            self.owner()?;
             self.checked(unsafe { xcb_destroy_window_checked(self.pointer, window) })
         }
         pub fn button_input(&self, window: u32) -> Result<(), Error> {
+            self.owner()?;
             let mask = 1u32 << 2;
             self.checked(unsafe {
                 xcb_change_window_attributes_checked(self.pointer, window, 2048, &mask)
