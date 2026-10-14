@@ -1,40 +1,38 @@
-# Current slice — installed continuation and status reconciliation accepted
+# Current slice — five bounded pre-beta fixes
 
-Goal: ordinary installer/app visits connect plug-ins and preserve music and state.
+Goal: truthful completion, usable passive monitoring, reliable inspection and
+faster connection/update work, preserving the accepted managed flow.
 
-## Accepted behavior
+Baseline: Test66 is accepted on Deck and CachyOS. App/bootstrap continuation,
+Native Access and missing-sibling connection work; protected projects/history,
+saved-state recall and status/handoff polling pass. Detailed accepted facts remain
+in SUPPORT_MATRIX and the existing Deck/Cachy evidence.
 
-Deck Test60 recovers retained hub/ASC visits with exact history. Fresh Cachy Test61
-bootstrap/app choice and helper retirement connect two classes, with six Available;
-a normal No repeat checks both. Retained Test61 reads the Test63 owner with four
-files unchanged. The new 1.0.1 app-only chooser passes before opening an app.
+Deck hold: the user is actively using it and has not handed it back. No Deck
+access, scans, service calls, input, installs or experiments until explicit release.
+The owned Cachy VM remains off; restart only for useful installed acceptance.
 
-Deck Test63 Find and connect adds Serum FX while preserving instrument publication
-and performance. Eight notes, source levels and PingPong delay recall in fresh
-Bitwig; both 20-second captures are finite/nonzero. Saved projects and 23 original
-preferences stay exact. Test64 passive renewal keeps Deck health/choices stable.
+1. Completion state (current): Home's permanent “Next: open your DAW” fallback
+   mistakes a completed connection for an unfinished task. Show observed native
+   availability and the exactly bound DAW when known; keep usage help optional.
+   Preserve real unfinished, unavailable and empty states. No usage confirmation,
+   activation claim or audio-success claim follows from publication alone.
+2. Passive refresh: retain coherent last-observed task content and unrelated
+   browsing/choices. Validate actual mutations against unchanged targets and
+   consequences; do not remove freshness/ownership checks.
+3. Idle monitoring: measure the owned/source-harness path, remove demonstrated
+   unnecessary reconstruction and retain external-change/service-failure detection.
+   No arbitrary longer timer or broad watcher/cache framework.
+4. Reliability: recover the Kontakt editor-interface allocator failure and exact
+   successful comparison; run the smallest causal A/B only after Deck release.
+   No retry wrapper or suppressed required check substitutes for a crash fix.
+5. Connection/update cost: measure phase costs and remove proven repeated work
+   without weakening checks or preservation. Keep the user's untouched Lunacy
+   connection baseline distinct from package-update and VM timings.
 
-Test65 Native Access opens/closes normally and returns Kontakt Available in Bitwig,
-one connected, zero attention; Home clears the warning. All 18 classes/326 projects
-remain protected; retained Test62 reads the same job with eight files unchanged.
+Land one reviewed, green increment at a time; start the next slice only after
+coordination. Source/UI acceptance and installed Deck acceptance stay distinct.
 
-Deck Test66's normal update retains 18 Available and clean idle. Of 5,352 protected
-files, 5,351 stay exact; only registry renewal changes. All 326 projects and 34
-Native Access records stay exact. Seven Home captures retain running status across
-renewal; a truthful last-observed refresh settles by the next sample.
-
-Cachy Test66 fixes receipt reconciliation: six Available, clean idle and 87 of 88
-protected files exact, with only registry renewal. The saved REAPER project and
-setup/app/history stay exact. Home keeps health and handoff through age renewal;
-its temporary refreshing task is truthful. Normal Open this setup reaches the
-1.0.1 chooser; eight frames over about 40 seconds retain health, REAPER handoff and
-correct controls, with no app selected. The raw receipt remains unchanged.
-
-## Open defects and next changes
-
-- Kontakt's intermittent editor-interface allocator crash remains open; successful
-  inspection/update retry does not establish a crash fix.
-- Verification/update latency remains open: about six minutes on Deck and 21–22
-  on Cachy. Improve verification/update waiting while preserving retained state.
-
-Done for this slice: installed continuation/status workflows preserve protected state.
+Done: completed setup has no permanent next-task reminder; refresh remains usable,
+idle overhead is measured/reduced, the crash is causally fixed and slow work is
+improved with original licensed state, projects, settings and history intact.
