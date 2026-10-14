@@ -1809,7 +1809,7 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
             {
                 setup.primary = Some(action(
                     if record.installation_operation.is_none() {
-                        "Retry installation"
+                        "Retry"
                     } else {
                         "Retry unfinished connection"
                     },
@@ -1833,7 +1833,7 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
                 .into();
                 setup.secondary.clear();
                 setup.primary = if receipt["state"] == "refused" {
-                    Some(action("Retry installation", request.action.clone(), busy))
+                    Some(action("Retry", request.action.clone(), busy))
                 } else {
                     None
                 };

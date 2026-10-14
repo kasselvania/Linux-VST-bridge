@@ -48,8 +48,8 @@ fn target_with_application(m: &Manager, environment: &str,
     verified:impl FnOnce(&Manager,&str)->Result<Option<Environment>>) -> Result<Environment> {
     let db = m.registry()?;
     if let Some(r) = onboarding::retained_environment_record(m,environment)? {
-        require(r.installation_operation.is_some()
-            && onboarding::retired(&onboarding::result(m,&r)?),
+        require(r.installation_operation.is_none()
+            || onboarding::retired(&onboarding::result(m,&r)?),
             "installer_initial_retirement_required")?;
         let current=current_environment(m,&r.environment)?;
         for entry in db.classes.values().filter(|e|e.registration.environment.id == environment) {
@@ -75,14 +75,22 @@ fn target_with_application(m: &Manager, environment: &str,
 
 pub(super) fn reserve(m: &Manager, environment: &str, installer: &str,
     operation: &str) -> Result<Binding> {
-    reserve_with(m,environment,installer,operation,||vendor_retired(m))
+    reserve_with(m,environment,installer,operation,||vendor_retired(m),onboarding::live)
 }
 fn reserve_with(m: &Manager, environment: &str, installer: &str,
-    operation: &str, vendor_retirement: impl FnOnce()->Result<bool>) -> Result<Binding> {
+    operation: &str, vendor_retirement: impl FnOnce()->Result<bool>,
+    mut is_live: impl FnMut(&str)->Result<bool>) -> Result<Binding> {
     let _ownership = m.lock("onboarding.lock")?;
     let _registry = m.lock("registry.lock")?;
     m.require_inactive(None)?;
     require(onboarding::all_retired(m)? && vendor_retirement()?, "operator_installer_active")?;
+    // A final receipt may precede the supervisor unit's exit. Both its owned
+    // resources and its exact process owner must retire before another launch.
+    for owner in onboarding::history_records(m)?.into_iter()
+        .filter_map(|r|r.installation_operation)
+        .chain(records(m)?.into_iter().map(|r|r.operation)) {
+        require(!is_live(&owner)?, "operator_installer_active")?;
+    }
     environment_runtime::require_settled(m,environment)?;
     let before = target(m,environment)?;
     before.runner.verify()?;
@@ -183,8 +191,9 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
     let mut targets = std::collections::BTreeMap::new();
     let mut setup_names=std::collections::BTreeMap::new();
     for r in onboarding::history_records(m)? {
-        if r.installation_operation.is_some()
-            && onboarding::retired(&onboarding::result(m,&r)?) {
+        if r.installation_operation.is_none()
+            || (onboarding::retired(&onboarding::result(m,&r)?)
+                && !is_live(r.installation_operation.as_ref().unwrap())?) {
             if let Some(installer)=installers.iter().find(|i|i.id==r.installer) {
                 setup_names.insert(r.environment.id.clone(),installer_import::presentation(m,installer)?.display_label);
             }
@@ -206,8 +215,10 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
         // Recovery follows unresolved custody, never wall-clock ordering.
         let mut unresolved=history.iter().filter(|r|r.environment.id == id)
             .filter_map(|r|match result(m,r) {
-                Ok(value) if !onboarding::retired(&value)=>Some(Ok(r)),
-                Ok(_)=>None,Err(error)=>Some(Err(error)),
+                Ok(value)=>match is_live(&r.operation) {
+                    Ok(live) if live || !onboarding::retired(&value)=>Some(Ok(r)),
+                    Ok(_)=>None,Err(error)=>Some(Err(error)),
+                },Err(error)=>Some(Err(error)),
             });
         let active=unresolved.next().transpose()?;
         require(unresolved.next().is_none(),"installer_environment_ownership_conflict")?;
@@ -223,7 +234,7 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
             Some("Finish the interrupted runtime change before running another installer in this setup.".into())
         } else {new_work_reason.map(str::to_owned)};
         if let Some(r) = last {
-            if !onboarding::retired(&result) {
+            if active.is_some() {
                 reason = Some("Finish or stop this installer; its cleanup must be confirmed".into());
                 if is_live(&r.operation)? {
                     actions.push(action("Focus installer",ui::Action::EnvironmentInstallerFocus {
@@ -232,9 +243,9 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
                         operation:r.operation.clone()},None));
                 }
             }
-            if onboarding::retired(&result) && result["state"] != "completed" {
+            if active.is_none() && onboarding::retired(&result) && result["state"] != "completed" {
                 let unavailable=installer_import::load_record(m,&r.installer).err();
-                actions.push(action("Retry this installer in the same setup",ui::Action::EnvironmentInstallerStart {
+                actions.push(action("Retry",ui::Action::EnvironmentInstallerStart {
                     environment:id.clone(),installer:r.installer.clone()},reason.as_deref().or(unavailable.as_ref()
                     .map(|_|"Imported installer file is unavailable. Import the original file again."))));
             }
@@ -323,6 +334,117 @@ mod tests {
             &json!({"schema":2,"operation":r.operation,"state":state,
                 "cleanup_confirmed":true,"owned_live":0})).unwrap();
     }
+    fn wrong_installer_setup(f: &test_fixture::Fixture, installer: &installer_import::Installer,
+        state: Option<&str>) -> onboarding::Record {
+        let mut environment = f.r.environment.clone();
+        environment.id = "cd".repeat(16);
+        environment.root = f.m.root.join("environments").join(&environment.id);
+        private_dir(&environment.root).unwrap();
+        atomic_json(&environment.root.join("environment.json"), &environment).unwrap();
+        let record = onboarding::Record {schema:1,id:environment.id.clone(),environment,
+            installer:installer.id.clone(),created_at:1,creation_operation:"12".repeat(16),
+            installation_operation:state.map(|_|"ab".repeat(16)),published:false,
+            automatic:None,previous_attempt:None};
+        let dir = onboarding::directory(&f.m,&record.id).unwrap();
+        private_dir(&dir).unwrap();
+        atomic_json(&dir.join("record.json"),&record).unwrap();
+        if let Some(state) = state {
+            let op = record.installation_operation.as_ref().unwrap();
+            atomic_json(&dir.join(format!("{op}-result.json")),&json!({"schema":2,
+                "operation":op,"state":state,"cleanup_confirmed":true,"owned_live":0})).unwrap();
+        }
+        record
+    }
+    fn different_installer(f: &test_fixture::Fixture, installer: &installer_import::Installer)
+        -> installer_import::Installer {
+        let mut bytes = fs::read(&installer.artifact.path).unwrap();
+        bytes[900] = 42;
+        // Deliberately the same basename: only content distinguishes this file.
+        let path = f.outer.join("other").join("companion.exe");
+        private_dir(path.parent().unwrap()).unwrap();
+        fs::write(&path,bytes).unwrap();
+        installer_import::import(&f.m,file(&path).unwrap()).unwrap()
+    }
+    #[test]
+    fn wrong_installer_replacement_preserves_setup_before_launch_after_cancel_and_empty_discovery() {
+        for state in [None,Some("cancelled"),Some("completed")] {
+            let (f,wrong) = fixture();
+            let initial = wrong_installer_setup(&f,&wrong,state);
+            let right = different_installer(&f,&wrong);
+            assert_ne!(right.id,wrong.id);
+            let dir = onboarding::directory(&f.m,&initial.id).unwrap();
+            let history = fs::read(dir.join("record.json")).unwrap();
+            let vendor_state = initial.environment.root.join("fixture-state");
+            fs::write(&vendor_state,b"first-party retained state").unwrap();
+            let unrelated = fs::read(f.r.environment.root.join("environment.json")).unwrap();
+            let registry = fs::read(f.m.root.join("registry.json")).unwrap();
+            if state == Some("completed") {
+                let scan = inventory::Scan {schema:1,id:random_id().unwrap(),
+                    environment:initial.environment.clone(),host:f.r.host.clone(),
+                    host_source_sha256:f.r.host_source_sha256.clone(),completed_at:1,
+                    modules:vec![],changes:Default::default()};
+                atomic_json(&f.m.root.join("inventory").join(format!("{}.json",initial.id)),&scan).unwrap();
+            }
+            let rows = projection(&f.m,&[],None,|_|Ok(false)).unwrap();
+            let target = rows.iter().find(|r|r.environment == initial.id).unwrap();
+            let choice = target.choices.iter().find(|a|matches!(&a.action,
+                ui::Action::EnvironmentInstallerStart {environment,installer}
+                    if environment == &initial.id && installer == &right.id)).unwrap();
+            assert!(choice.disabled_reason.is_none());
+            let op = job(&f.m,&initial.id,&right.id);
+            let r = reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),|_|Ok(false)).unwrap();
+            assert_eq!(r.installer,right.id);
+            assert_eq!(r.before,initial.environment);
+            assert_eq!(r.environment.id,initial.id);
+            assert_eq!(r.environment.root,initial.environment.root);
+            assert_eq!(r.environment.runner,initial.environment.runner);
+            assert_eq!(r.environment.revision,initial.environment.revision+1);
+            assert_eq!(fs::read(dir.join("record.json")).unwrap(),history);
+            assert_eq!(fs::read(vendor_state).unwrap(),b"first-party retained state");
+            assert_eq!(fs::read(f.r.environment.root.join("environment.json")).unwrap(),unrelated);
+            assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(),registry);
+        }
+    }
+    #[test]
+    fn wrong_installer_replacement_requires_receipt_and_process_retirement() {
+        let (f,wrong) = fixture();
+        let initial = wrong_installer_setup(&f,&wrong,Some("cancelled"));
+        let right = different_installer(&f,&wrong);
+        let op = job(&f.m,&initial.id,&right.id);
+        drop(f.m.lock("onboarding.lock").unwrap());
+        let before = test_fixture::snapshot(&f.m.root);
+        let owner = initial.installation_operation.as_ref().unwrap();
+        assert_eq!(reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),
+            |id|Ok(id == owner)).unwrap_err().to_string(),"operator_installer_active");
+        assert_eq!(test_fixture::snapshot(&f.m.root),before);
+        let receipt = onboarding::directory(&f.m,&initial.id).unwrap().join(format!("{owner}-result.json"));
+        let mut unresolved: Value = read_json(&receipt).unwrap();
+        unresolved["cleanup_confirmed"] = false.into();
+        unresolved["owned_live"] = Value::Null;
+        atomic_json(&receipt,&unresolved).unwrap();
+        assert!(projection(&f.m,&[],None,|_|Ok(false)).unwrap().iter()
+            .all(|target| target.environment != initial.id));
+        assert_eq!(reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),|_|Ok(false))
+            .unwrap_err().to_string(),"operator_installer_active");
+        // A stopped replacement with a live owner is also excluded; Retry must
+        // keep that replacement's bytes after its owner actually retires.
+        unresolved["cleanup_confirmed"] = true.into();unresolved["owned_live"] = 0.into();
+        atomic_json(&receipt,&unresolved).unwrap();
+        let r = reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),|_|Ok(false)).unwrap();
+        complete(&f.m,&r,"cancelled");
+        let second = job(&f.m,&initial.id,&wrong.id);
+        let rows = projection(&f.m,&[],None,|id|Ok(id == op)).unwrap();
+        let target = rows.iter().find(|t|t.environment == initial.id).unwrap();
+        assert!(target.choices.iter().all(|a|a.disabled_reason.is_some()));
+        assert!(target.actions.iter().any(|a|matches!(a.action,ui::Action::EnvironmentInstallerStop {..})));
+        assert_eq!(reserve_with(&f.m,&initial.id,&wrong.id,&second,||Ok(true),|id|Ok(id == op))
+            .unwrap_err().to_string(),"operator_installer_active");
+        let rows = projection(&f.m,&[],None,|_|Ok(false)).unwrap();
+        let retry = rows.iter().find(|t|t.environment == initial.id).unwrap().actions.iter()
+            .find(|a|a.label == "Retry").unwrap();
+        assert_eq!(retry.action,ui::Action::EnvironmentInstallerStart {
+            environment:initial.id,installer:right.id});
+    }
     #[test]
     fn registered_companion_preserves_identity_and_invalidates_all_siblings() {
         let (f,installer)=fixture();let env=&f.r.environment;
@@ -330,7 +452,7 @@ mod tests {
         sibling.metadata.name="Sibling".into();f.m.register(sibling.clone()).unwrap();
         let original=fs::read(f.m.root.join("registry.json")).unwrap();
         let op=job(&f.m,&env.id,&installer.id);
-        let r=reserve_with(&f.m,&env.id,&installer.id,&op,||Ok(true)).unwrap();
+        let r=reserve_with(&f.m,&env.id,&installer.id,&op,||Ok(true),|_|Ok(false)).unwrap();
         assert_eq!(r.environment.id,env.id);assert_eq!(r.environment.root,env.root);
         assert_eq!(r.environment.runner,env.runner);assert_eq!(r.environment.revision,2);
         assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(),original);
@@ -348,10 +470,10 @@ mod tests {
             &f.m.registry().unwrap(),Some("installer active")).unwrap();
         assert_eq!(rows[0].revision,2);
         let second=job(&f.m,&env.id,&installer.id);
-        assert!(reserve_with(&f.m,&env.id,&installer.id,&second,||Ok(true)).is_err());
+        assert!(reserve_with(&f.m,&env.id,&installer.id,&second,||Ok(true),|_|Ok(false)).is_err());
         complete(&f.m,&r,"cancelled");
         assert!(onboarding::all_retired(&f.m).unwrap());
-        let next=reserve_with(&f.m,&env.id,&installer.id,&second,||Ok(true)).unwrap();
+        let next=reserve_with(&f.m,&env.id,&installer.id,&second,||Ok(true),|_|Ok(false)).unwrap();
         assert_eq!(next.environment.revision,3);
         assert_eq!(result(&f.m,&r).unwrap()["state"],"cancelled");
         let mut earlier=r.clone();earlier.created_at=u64::MAX;
@@ -374,7 +496,7 @@ mod tests {
             "operation":initial,"state":"completed","cleanup_confirmed":true,"owned_live":0})).unwrap();
         let retained=fs::read(dir.join("record.json")).unwrap();
         let op=job(&f.m,&env.id,&installer.id);
-        let r=reserve_with(&f.m,&env.id,&installer.id,&op,||Ok(true)).unwrap();
+        let r=reserve_with(&f.m,&env.id,&installer.id,&op,||Ok(true),|_|Ok(false)).unwrap();
         assert_eq!(onboarding::load(&f.m,&env.id).unwrap().environment,r.environment);
         assert_eq!(fs::read(dir.join("record.json")).unwrap(),retained);
         // Crash before launch is recoverable without inventing vendor success.
@@ -389,7 +511,7 @@ mod tests {
     #[test]
     fn exact_control_survives_missing_inputs_and_malformed_binding_refuses() {
         let (f,installer)=fixture();let op=job(&f.m,&f.r.environment.id,&installer.id);
-        let r=reserve_with(&f.m,&f.r.environment.id,&installer.id,&op,||Ok(true)).unwrap();
+        let r=reserve_with(&f.m,&f.r.environment.id,&installer.id,&op,||Ok(true),|_|Ok(false)).unwrap();
         fs::remove_file(&installer.artifact.path).unwrap();
         fs::remove_file(&r.environment.runner.proton).unwrap();
         assert!(control(&f.m,&op).is_ok());assert!(launch(&f.m,&r).is_err());
@@ -410,7 +532,7 @@ mod tests {
         let source=f.outer.join("companion.exe");fs::write(&source,bytes).unwrap();
         let installer=installer_import::import(&f.m,file(&source).unwrap()).unwrap();
         let op=job(&f.m,&base.selection.environment.id,&installer.id);
-        let r=reserve_with(&f.m,&base.selection.environment.id,&installer.id,&op,||Ok(true)).unwrap();
+        let r=reserve_with(&f.m,&base.selection.environment.id,&installer.id,&op,||Ok(true),|_|Ok(false)).unwrap();
         let runtime_path=f.m.root.join("runners").join(runtime_delivery::ID).join("runtime.json");
         let runtime_dir=runtime_path.parent().unwrap();
         let artifact=|relative:&str| {
@@ -444,7 +566,7 @@ mod tests {
     #[test]
     fn unfinished_supervisor_retains_cleanup_gap_and_global_exclusion() {
         let (f,installer)=fixture();let op=job(&f.m,&f.r.environment.id,&installer.id);
-        let r=reserve_with(&f.m,&f.r.environment.id,&installer.id,&op,||Ok(true)).unwrap();
+        let r=reserve_with(&f.m,&f.r.environment.id,&installer.id,&op,||Ok(true),|_|Ok(false)).unwrap();
         atomic_json(&job_dir(&f.m,&op).unwrap().join("installer-spec.json"),&json!({"operation":op})).unwrap();
         finish_with(&f.m,&op,|_|Ok(false)).unwrap();
         assert_eq!(result(&f.m,&r).unwrap()["state"],"cleanup_unconfirmed");

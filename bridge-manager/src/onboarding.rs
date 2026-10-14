@@ -930,7 +930,7 @@ fn setup_primary(actions: &[ui::AvailableAction], next: SetupNext) -> Option<ui:
     }).cloned().map(|mut offer| {
         match offer.action {
             ui::Action::InstallerScan { .. } => offer.label = "Find installed plug-ins".into(),
-            ui::Action::InstallerNewAttempt { .. } => offer.label = "Retry installation".into(),
+            ui::Action::InstallerNewAttempt { .. } => offer.label = "Retry".into(),
             _ => {},
         }
         offer
@@ -1001,7 +1001,7 @@ pub(super) fn setup_projection_current(m: &Manager, rows: &[ui::Onboarding],
             .filter(|a| matches!(a.action, ui::Action::InstallerStop { .. } | ui::Action::InstallerNewAttempt { .. }))
             .cloned().map(|mut offer| {
                 if matches!(offer.action, ui::Action::InstallerNewAttempt { .. }) {
-                    offer.label = "Retry installation".into();
+                    offer.label = "Retry".into();
                 }
                 offer
             }).collect();
@@ -1133,7 +1133,7 @@ mod tests {
             let primary = setup_primary(&row.actions, choice).unwrap();
             assert_eq!(primary.action, if choice == SetupNext::Scan { scan.action.clone() } else { retry.action.clone() });
             if choice == SetupNext::Scan { assert_eq!(primary.label, "Find installed plug-ins"); }
-            else { assert_eq!(primary.label, "Retry installation"); }
+            else { assert_eq!(primary.label, "Retry"); }
             row.actions.clear();
             assert!(setup_primary(&row.actions, choice).is_none(), "no invented {state} action");
         }
@@ -1569,7 +1569,7 @@ mod tests {
                 .collect();
             assert_eq!(retries.len(), usize::from(allowed), "Setup retry: {durable}/{outcome}");
             if allowed {
-                assert_eq!(retries[0].label, "Retry installation");
+                assert_eq!(retries[0].label, "Retry");
                 assert_eq!(retries[0].action, offered[0].action);
             }
             let prepared = PreparedCreation { installer:i.clone(), runner,

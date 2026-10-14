@@ -3582,7 +3582,7 @@ DAW launch; the existing long-playback and touch gaps remain separate.
 
 ## Beta reports under investigation
 
-- [#329](https://github.com/kasselvania/Linux-VST-bridge/issues/329): Recovery after choosing an updater instead of the full installer was unclear; the complete tester journey has not been reproduced.
+- [#329](https://github.com/kasselvania/Linux-VST-bridge/issues/329): Setup now offers Choose another installer before launch and after confirmed retirement, retaining the intended environment; Retry keeps the same file. First-party UI continuation tests pass; Linux backend tests and installed acceptance remain pending.
 - [#330](https://github.com/kasselvania/Linux-VST-bridge/issues/330): Serum 2 editor transparency was reported and remains unreproduced.
 - [#331](https://github.com/kasselvania/Linux-VST-bridge/issues/331): The tester noticed the detached editor during an initial tryout; automation workflow impact needs our own testing.
 
