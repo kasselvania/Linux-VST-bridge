@@ -39,9 +39,10 @@ struct Host final : HostApplication, IComponentHandler {
 };
 int main() {
     Host host;
+    auto* application = static_cast<IHostApplication*>(&host);
     ReferenceProcessor processor;
     ReferenceController controller;
-    need(processor.initialize(&host) == kResultOk && controller.initialize(&host) == kResultOk,
+    need(processor.initialize(application) == kResultOk && controller.initialize(application) == kResultOk,
         "initialize real producer and controller");
     need(controller.setComponentHandler(&host) == kResultOk, "actual SDK handler");
     auto* view = controller.createView(ViewType::kEditor);
@@ -98,7 +99,7 @@ int main() {
         && saved.bytes == controllerSaved.bytes, "matching opaque processor/controller state");
     ReferenceProcessor reopened;
     saved.position = 0;
-    need(reopened.initialize(&host) == kResultOk && reopened.setState(&saved) == kResultOk,
+    need(reopened.initialize(application) == kResultOk && reopened.setState(&saved) == kResultOk,
         "fresh processor restores actual opaque state");
     LVBState::Stream recalled;
     need(reopened.getState(&recalled) == kResultOk && recalled.bytes == controllerSaved.bytes,
