@@ -380,6 +380,14 @@ pub mod x11 {
         pub fn focus(&self, window: u32) -> Result<(), Error> {
             self.checked(unsafe { xcb_set_input_focus_checked(self.pointer, 2, window, 0) })
         }
+        pub fn focused_window(&self) -> Result<u32, Error> {
+            let reply = self.reply(unsafe { xcb_get_input_focus(self.pointer) })?;
+            let window = unsafe { reply.cast::<u8>().add(8).cast::<u32>().read_unaligned() };
+            unsafe {
+                free(reply);
+            }
+            Ok(window)
+        }
         pub fn destroy(&self, window: u32) -> Result<(), Error> {
             self.checked(unsafe { xcb_destroy_window_checked(self.pointer, window) })
         }

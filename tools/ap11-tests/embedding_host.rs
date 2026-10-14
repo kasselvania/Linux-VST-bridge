@@ -239,6 +239,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!((size.width, size.height), (512, 280));
         assert_eq!(surface.parent(ready.window).unwrap(), surface.window);
         surface.focus().unwrap();
+        assert_eq!(connection.focused_window().unwrap(), ready.window);
         editor.send(FOCUS, 0, 0)?;
         assert_eq!(editor.read(FOCUS_RESULT)?.result, 0);
         assert_eq!(surface.parent(ready.window).unwrap(), surface.window);
