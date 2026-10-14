@@ -30,6 +30,7 @@ struct Frame final : IPlugFrame, Linux::IRunLoop, AP11::PanelOwner {
   ap11_gui_message_t presentation{};
   unsigned frameResizes = 0, embeddedFocus = 0, fallbacks = 0;
   bool acceptOpen = true;
+  unsigned refuseClose = 0, acceptedCloses = 0;
   unsigned refuseUnregister = 0, refuseRegister = 0, failures = 0, unregisterCalls = 0;
   tresult PLUGIN_API queryInterface(const TUID id, void **out) override {
     if (!out)
@@ -85,7 +86,7 @@ struct Frame final : IPlugFrame, Linux::IRunLoop, AP11::PanelOwner {
     lastActivation = context;
     return acceptOpen;
   }
-  bool panelClose(uint64_t token) override { check(token == lastToken, "exact native view close"); ++closes; return true; }
+  bool panelClose(uint64_t token) override { check(token == lastToken, "exact native view close"); ++closes; if(refuseClose){--refuseClose;return false;} ++acceptedCloses;return true; }
   void panelFailure(uint64_t token, uint32_t) override { check(token==lastToken,"failure owns exact native view"); ++failures; lifecycle=AP11::EditorFailed; }
   uint32_t panelState(uint64_t token) const override { return token == lastToken ? lifecycle : AP11::Absent; }
   bool panelSupportsEmbedding() const override { return embedding; }
@@ -177,6 +178,8 @@ int main() {
         "failed unregister keeps exact live registration and refuses removal completion");
   check(panel->removed() == kResultOk && panel->removed() == kResultOk && frame.timers.empty() &&
         frame.closes == 1, "native removal closes exact view once and cancels timer");
+  check(panel->onFocus(true)==kResultOk && panel->onFocus(false)==kResultOk && frame.closes==1,
+        "focus after removal performs no platform work or new editor request");
   check(XGetWindowAttributes(display, parent, &attributes), "host parent survives delegate retirement");
   check(XQueryTree(display,parent,&root,&actualParent,&children,&count) && count == 0,
         "private connection retirement destroys only its owned attachment child");
@@ -354,6 +357,32 @@ int main() {
     m.native_view=51;m.view_epoch=2;m.activation=2;m.focus_result=AP11::FocusPending;embedded.drain();
     check(view->getSize(&rect)==kResultOk&&rect.getWidth()==600&&embedded.embeddedFocus==2,"reopen uses fresh native owner and vendor epoch");
     check(view->removed()==kResultOk,"reopen normal close");view->release();
+    for (const bool vendor_refusal : {false,true}) {
+      const auto token=vendor_refusal?53u:52u;
+      c=new Vst::EditController;view=new AP11::VendorPanel(c,embedded,token);c->release();view->setFrame(&embedded);
+      check(view->onFocus(true)==kResultOk,"new embedded view ignores pre-attach focus");
+      check(view->attached(reinterpret_cast<void*>(embedded.content),kPlatformTypeX11EmbedWindowID)==kResultOk,"embedded refusal fixture attached");
+      m.native_view=token;m.view_epoch=token-49;m.activation=token;m.focus_result=AP11::FocusPending;m.presentation=AP11::EmbeddedX11;
+      embedded.drain();
+      const auto accepted=embedded.acceptedCloses;
+      embedded.refuseUnregister=100;embedded.refuseClose=vendor_refusal?100:0;
+      check(view->removed()!=kResultOk,"vendor or timer refusal remains a refused lifecycle operation");
+      check(view->onFocus(true)==kResultOk,"focus during retirement never reads detached XCB state");
+      children=nullptr;check(XQueryTree(display,foreign,&r,&p,&children,&n) && p==DefaultRootWindow(display),
+          "foreign editor is restored before vendor/timer refusal returns");if(children)XFree(children);
+      if(vendor_refusal)check(embedded.acceptedCloses==accepted && embedded.fallbacks,
+          "refused vendor retirement requests decorated fallback without claiming stopped");
+      view->release();
+      // Destroy only this now-empty host container while unregister still
+      // refuses. The restored foreign editor must survive the parent teardown.
+      XDestroyWindow(display,embedded.content);XSync(display,False);
+      check(XGetWindowAttributes(display,foreign,&a)&&a.map_state==IsViewable,
+          "foreign editor survives native parent destruction after repeated unregister refusal");
+      embedded.refuseUnregister=embedded.refuseClose=0;embedded.drain();
+      check(embedded.timers.empty() && embedded.references==1,"inert refused timer registration retires without a dangling view");
+      embedded.content=XCreateSimpleWindow(display,host,0,32,64,64,0,0,0x303030);
+      XMapWindow(display,embedded.content);XSync(display,False);
+    }
     XDestroyWindow(display,foreign);XDestroyWindow(display,host);XSync(display,False);
   }
   XCloseDisplay(display);

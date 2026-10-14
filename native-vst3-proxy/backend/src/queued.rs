@@ -3966,7 +3966,7 @@ mod tests {
         });
         for ticket in 1..=2 {
             if ticket == 2 { assert_eq!(gui.fail(7), 7); }
-            let mut item = Item::control(AUDIO, 1); item.n = 64;
+            let mut item = Item::control(AUDIO, 1); item.n = 64; item.gain = f64::NAN;
             item.data[0][..64].fill(0.25); item.data[1][..64].fill(-0.5);
             let end = Instant::now() + Duration::from_secs(2);
             item.completion = Some(crate::performance::CompletionPolicy {

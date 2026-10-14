@@ -585,9 +585,17 @@ void lifecycle_faults() {
     check(access.x11_window() || (access.presentation()==AP11::Detached &&
           (GetWindowLongPtrW(embeddedWindow,GWL_STYLE)&WS_CAPTION)),
           "missing Wine XID capability restores decorated detached presentation");
-    check(access.present(AP11::Detached) && access.window()==embeddedWindow && access.opens==embeddedEpoch &&
+    const auto style = GetWindowLongPtrW(embeddedWindow,GWL_STYLE);
+    SetWindowLongPtrW(embeddedWindow,GWL_STYLE,style|WS_CLIPCHILDREN);
+    check(access.present(AP11::EmbeddedX11) && IsWindowVisible(embeddedWindow),
+          "live wrapper enters embedded presentation without losing visibility");
+    const auto keysBeforeFallback=c->stats.keys;
+    check(access.present(AP11::Detached) && IsWindowVisible(embeddedWindow) &&
+          (GetWindowLongPtrW(embeddedWindow,GWL_STYLE)&WS_CLIPCHILDREN) && access.window()==embeddedWindow && access.opens==embeddedEpoch &&
           access.presentation()==AP11::Detached && (GetWindowLongPtrW(embeddedWindow,GWL_STYLE)&WS_CAPTION),
-          "fallback decorates exact HWND without recreating vendor view or epoch");
+          "fallback preserves shown HWND, clipping, vendor view and epoch while adding decorations");
+    SendMessageW(embeddedWindow,WM_CHAR,L'a',0);
+    check(c->stats.keys==keysBeforeFallback+1,"live detached fallback still delivers window input to the vendor view");
     ViewRect constraint{0,0,900,700};check(access.host_size(constraint,false) &&
           constraint.getWidth()==400 && constraint.getHeight()==240,"fixed vendor constraints remain native-sized");
     ViewRect invalidSize{0,0,900,700};check(!access.host_size(invalidSize,true),"fixed vendor refuses host resize");

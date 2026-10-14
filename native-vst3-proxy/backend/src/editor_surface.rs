@@ -579,7 +579,7 @@ pub mod x11 {
 /// The ABI uses thread-local opaque IDs, so a foreign thread never dereferences
 /// an editor or touches XCB. Audio has no reference to this registry or its locks.
 #[cfg(target_os = "linux")]
-mod abi {
+pub mod abi {
     use super::*;
     use std::{
         cell::RefCell,
@@ -711,9 +711,6 @@ mod abi {
         .unwrap_or(8)
     }
 }
-
-#[cfg(target_os = "linux")]
-pub use abi::*;
 
 #[cfg(test)]
 mod tests {

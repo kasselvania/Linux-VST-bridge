@@ -286,7 +286,13 @@ public:
     Steinberg::ViewRect size{};
     if (!client_size(size)) return false;
     SetLastError(0);
-    if (!SetWindowLongPtrW(window_, GWL_STYLE, presentation_style(mode)) && GetLastError()) return false;
+    // Change only our presentation bits. Visibility, enablement and clipping
+    // still belong to the live window; replacing the whole style hides it.
+    constexpr DWORD bits = WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX |
+      WS_THICKFRAME | WS_MAXIMIZEBOX;
+    const auto current_style = DWORD(GetWindowLongPtrW(window_, GWL_STYLE));
+    const auto next_style = (current_style & ~bits) | presentation_style(mode);
+    if (!SetWindowLongPtrW(window_, GWL_STYLE, next_style) && GetLastError()) return false;
     if (!SetWindowPos(window_, nullptr, 0, 0, 0, 0,
           SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED)) return false;
     presentation_ = mode;

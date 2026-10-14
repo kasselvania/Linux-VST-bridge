@@ -76,6 +76,10 @@ jobs:
           tools/test_ap2_execution.py
           tools/test_ap3_contract.py
           tools/test_ap3_execution.py
+      - name: Install native UI link dependency
+        run: |
+          sudo apt-get update -o Dir::Etc::sourcelist=sources.list.d/ubuntu.sources -o Dir::Etc::sourceparts=- -o APT::Get::List-Cleanup=0
+          sudo apt-get install -y libxcb1-dev
       - name: Check native codec and ownership
         run: |
           python3 tools/test_ap10_input_silence.py

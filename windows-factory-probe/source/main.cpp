@@ -1,3 +1,4 @@
+#include "../../native-vst3-proxy/include/ap11_gui.h"
 #ifdef WF0_LOADER_ADAPTER_TEST
 
 #include "component_instance_session.h"

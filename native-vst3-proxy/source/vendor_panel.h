@@ -195,6 +195,7 @@ public:
   }
   ~VendorPanel() override {
     removed();
+    detachSurface(); // native presentation retirement never depends on vendor/timer acceptance
     if (timer_) { timer_->detach(); timer_->release(); timer_ = nullptr; }
     if (connection_) xcb_disconnect(connection_);
   }
@@ -292,15 +293,24 @@ public:
   }
   Steinberg::tresult PLUGIN_API onFocus(Steinberg::TBool focused) override {
     if (thread_ != std::this_thread::get_id()) return Steinberg::kResultFalse;
+    if (!focused || !opened_ || !connection_ || removing_ || close_requested_ || failed_ ||
+        owner_.panelState(token_) >= ClosedByVendor) return Steinberg::kResultOk;
     auto context = activation(); context.presentation = presentation_;
-    if (focused && opened_ && !close_requested_ && !owner_.panelOpen(token_, context)) return Steinberg::kResultFalse;
+    if (!owner_.panelOpen(token_, context)) return Steinberg::kResultFalse;
     return Steinberg::kResultOk;
   }
   Steinberg::tresult PLUGIN_API removed() override {
     if (thread_ != std::this_thread::get_id()) return Steinberg::kResultFalse;
     removing_ = true;
+    const bool was_embedded = surface_ != 0;
+    detachSurface(); // restore before a host may destroy its parent, even on refusal
     if (opened_) {
-      if (!owner_.panelClose(token_)) return Steinberg::kResultFalse;
+      if (!owner_.panelClose(token_)) {
+        // The Windows view has not positively retired. Request its usable
+        // detached presentation independently; keep vendor ownership pending.
+        if (was_embedded) owner_.panelPresent(token_, Detached);
+        return Steinberg::kResultFalse;
+      }
       opened_ = false;
     }
     if (timer_) {

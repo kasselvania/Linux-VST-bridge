@@ -514,8 +514,12 @@ public:
         if (m.kind == AP11::Present) {
           // Native has retired/restored its exact borrowed X11 surface first.
           // This operation keeps the current SDK view/HWND and epoch alive.
+          const auto previous_mode = view_.presentation();
           if (!view_.present(m.presentation)) {
             lifecycle_ = AP11::EditorFailed; channel_.fail(AP11::Attach);
+          } else if (view_.presentation() != previous_mode) {
+            focus_pending_ = false; focus_result_ = AP11::FocusPending;
+            lifecycle_ = AP11::AwaitingFocus;
           }
           status();
         } else {

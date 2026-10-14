@@ -324,7 +324,8 @@ public:
     if (command(m) != Steinberg::kResultOk) { status_ = "Editor open request not accepted"; return false; }
     status_ = "Opening vendor editor...";
     editor_.opened(m);
-    activation_.begin(m);
+    if (m.presentation == AP11::Detached) activation_.begin(m);
+    else activation_.cancel();
     // Opening/focusing a view is not a parameter invalidation. An unsolicited
     // Refresh causes a host restart notification and, in Bitwig, a full state
     // capture on the serialized audio transport. Real vendor restart callbacks
@@ -520,12 +521,16 @@ private:
       return componentHandler2
                  ? componentHandler2->requestOpenEditor(ViewType::kEditor)
                  : kNotImplemented;
-    case AP11::EditorStatus:
+    case AP11::EditorStatus: {
+      const auto previous_mode = editor_.presentationMode();
       if (!editor_.status(m))
         return kResultOk;
       if (!m.count) { activation_.cancel(); finishGestures(); }
-      if (m.count && m.presentation == AP11::Detached && m.focus_result == AP11::FocusPending)
+      if (m.presentation == AP11::EmbeddedX11) activation_.cancel();
+      else if (m.count && m.focus_result == AP11::FocusPending) {
+        if (previous_mode != AP11::Detached) activation_.begin(m);
         activation_.target(m);
+      }
       if (m.result) {
         switch (m.result) {
         case AP11::NoView:
@@ -554,6 +559,7 @@ private:
       else
         status_ = "Vendor editor open; requesting focus...";
       return kResultOk;
+    }
     case AP11::SizeResult:
       if (size_waiting_ && m.id == size_waiting_ && m.native_view == editor_.owner()) size_reply_ = m;
       return kResultOk;

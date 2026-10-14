@@ -18,6 +18,7 @@ public:
     return advance(allocated_);
   }
   uint64_t owner() const { return current_.native_view; }
+  uint32_t presentationMode() const { return current_.presentation; }
   bool presentation(uint64_t owner, ap11_gui_message_t &out) const {
     if (!owner || owner != current_.native_view || !current_.view_epoch ||
         !current_.count || current_.lifecycle >= AP11::ClosedByVendor) return false;

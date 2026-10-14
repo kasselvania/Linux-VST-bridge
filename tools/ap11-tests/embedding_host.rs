@@ -292,7 +292,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut first = 0;
     unsafe {
         assert_eq!(
-            editor_surface::lvb_editor_surface_create(1, area, owner + 1, 64, 64, &mut first),
+            editor_surface::abi::lvb_editor_surface_create(1, area, owner + 1, 64, 64, &mut first),
             0
         );
     }
@@ -302,7 +302,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut second = 0;
         unsafe {
             assert_eq!(
-                editor_surface::lvb_editor_surface_create(1, area, owner + 2, 64, 64, &mut second),
+                editor_surface::abi::lvb_editor_surface_create(
+                    1,
+                    area,
+                    owner + 2,
+                    64,
+                    64,
+                    &mut second
+                ),
                 0
             );
         }
@@ -314,17 +321,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ..PresentationV1::new(owner + 2, 1, WINDOW_READY)
         };
         unsafe {
-            assert_eq!(editor_surface::lvb_editor_surface_bind(second, &record), 0);
+            assert_eq!(
+                editor_surface::abi::lvb_editor_surface_bind(second, &record),
+                0
+            );
         }
-        assert_eq!(editor_surface::lvb_editor_surface_focus(first), 3);
-        assert_eq!(editor_surface::lvb_editor_surface_release(first), 3);
-        assert_eq!(editor_surface::lvb_editor_surface_focus(second), 0);
-        assert_eq!(editor_surface::lvb_editor_surface_release(second), 0);
+        assert_eq!(editor_surface::abi::lvb_editor_surface_focus(first), 3);
+        assert_eq!(editor_surface::abi::lvb_editor_surface_release(first), 3);
+        assert_eq!(editor_surface::abi::lvb_editor_surface_focus(second), 0);
+        assert_eq!(editor_surface::abi::lvb_editor_surface_release(second), 0);
         local.destroy(editor).unwrap();
     })
     .join()
     .unwrap();
-    assert_eq!(editor_surface::lvb_editor_surface_release(first), 0);
+    assert_eq!(editor_surface::abi::lvb_editor_surface_release(first), 0);
     let mut detached = Editor::launch(&args[1], &args[2], &prefix, owner, 1, DETACHED)?;
     assert_eq!(surface.bind(detached.identity), Err(Error::Identity));
     assert_eq!(
