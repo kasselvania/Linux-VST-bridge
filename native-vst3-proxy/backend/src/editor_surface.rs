@@ -1,6 +1,6 @@
 //! UI-thread X11 presentation. The DAW owns its parent; Wine owns its editor.
 //! This module owns only its connection and the child it creates. It is not
-//! called by production editor code until the Wine fixture qualifies it.
+//! called only by the native editor UI owner; never by audio delivery.
 use std::mem::size_of;
 
 pub const PRESENTATION_VERSION: u32 = 1;
@@ -573,6 +573,142 @@ pub mod x11 {
         pub fn geometry(&self, window: u32) -> Result<Geometry, Error> {
             self.connection.geometry(window)
         }
+    }
+}
+
+/// The ABI uses thread-local opaque IDs, so a foreign thread never dereferences
+/// an editor or touches XCB. Audio has no reference to this registry or its locks.
+#[cfg(target_os = "linux")]
+pub mod abi {
+    use super::*;
+    use std::{
+        cell::RefCell,
+        collections::BTreeMap,
+        panic::{catch_unwind, AssertUnwindSafe},
+        sync::atomic::{AtomicU64, Ordering},
+    };
+    thread_local! {
+        static SURFACES: RefCell<BTreeMap<u64, x11::Surface>> = const { RefCell::new(BTreeMap::new()) };
+    }
+    static NEXT: AtomicU64 = AtomicU64::new(1);
+    fn result(value: Result<(), Error>) -> u32 {
+        match value {
+            Ok(()) => 0,
+            Err(Error::Identity) => 1,
+            Err(Error::Busy) => 2,
+            Err(Error::WrongThread) => 3,
+            Err(Error::Connection) => 4,
+            Err(Error::Timeout) => 5,
+            Err(Error::X11(_)) => 6,
+        }
+    }
+    fn call(handle: u64, f: impl FnOnce(&mut x11::Surface) -> Result<(), Error>) -> u32 {
+        catch_unwind(AssertUnwindSafe(|| {
+            SURFACES.with(|all| {
+                let Ok(mut all) = all.try_borrow_mut() else {
+                    return 2;
+                };
+                match all.get_mut(&handle) {
+                    Some(surface) => result(f(surface)),
+                    None => 3,
+                }
+            })
+        }))
+        .unwrap_or(8)
+    }
+    #[no_mangle]
+    pub unsafe extern "C" fn lvb_editor_surface_create(
+        abi: u32,
+        parent: u32,
+        owner: u64,
+        width: u32,
+        height: u32,
+        out: *mut u64,
+    ) -> u32 {
+        if out.is_null() {
+            return 1;
+        }
+        out.write(0);
+        if abi != 1
+            || parent == 0
+            || owner == 0
+            || !(1..=8192).contains(&width)
+            || !(1..=8192).contains(&height)
+        {
+            return 1;
+        }
+        catch_unwind(AssertUnwindSafe(|| {
+            let handle = match NEXT.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |next| {
+                next.checked_add(1)
+            }) {
+                Ok(handle) => handle,
+                Err(_) => return 1,
+            };
+            let surface = match x11::Surface::create(parent, owner, width as u16, height as u16) {
+                Ok(surface) => surface,
+                Err(error) => return result(Err(error)),
+            };
+            SURFACES.with(|all| all.borrow_mut().insert(handle, surface));
+            out.write(handle);
+            0
+        }))
+        .unwrap_or(8)
+    }
+    unsafe fn record(pointer: *const PresentationV1) -> Result<PresentationV1, Error> {
+        if pointer.is_null()
+            || pointer.cast::<u32>().read_unaligned() != PRESENTATION_VERSION
+            || pointer.cast::<u32>().add(1).read_unaligned() as usize != size_of::<PresentationV1>()
+        {
+            return Err(Error::Identity);
+        }
+        let message = pointer.read_unaligned();
+        if !message.valid() {
+            return Err(Error::Identity);
+        }
+        Ok(message)
+    }
+    #[no_mangle]
+    pub unsafe extern "C" fn lvb_editor_surface_bind(
+        handle: u64,
+        pointer: *const PresentationV1,
+    ) -> u32 {
+        let message = match record(pointer) {
+            Ok(message) => message,
+            Err(error) => return result(Err(error)),
+        };
+        call(handle, |surface| surface.bind(message))
+    }
+    #[no_mangle]
+    pub unsafe extern "C" fn lvb_editor_surface_resize(
+        handle: u64,
+        pointer: *const PresentationV1,
+    ) -> u32 {
+        let message = match record(pointer) {
+            Ok(message) => message,
+            Err(error) => return result(Err(error)),
+        };
+        call(handle, |surface| surface.resize(message))
+    }
+    #[no_mangle]
+    pub extern "C" fn lvb_editor_surface_focus(handle: u64) -> u32 {
+        call(handle, |surface| surface.focus())
+    }
+    #[no_mangle]
+    pub extern "C" fn lvb_editor_surface_release(handle: u64) -> u32 {
+        catch_unwind(AssertUnwindSafe(|| {
+            SURFACES.with(|all| {
+                let Ok(mut all) = all.try_borrow_mut() else {
+                    return 2;
+                };
+                let Some(mut surface) = all.remove(&handle) else {
+                    return 3;
+                };
+                // Retire before platform work. A failed detach still drops only our
+                // connection and invokes its SaveSet; no old handle can be reused.
+                result(surface.close())
+            })
+        }))
+        .unwrap_or(8)
     }
 }
 

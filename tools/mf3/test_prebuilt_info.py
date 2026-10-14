@@ -53,6 +53,31 @@ class PrebuiltCapabilities(unittest.TestCase):
                 self.assertIsNone(capability({**request, 'native_sha256':'ef'*32},
                     'loaded_engine_admission_contract'))
 
+    def test_retained_installed_pair_is_not_mixed_with_new_package(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            def package(name, native, host):
+                index = dict(schema=3, engine='prebuilt/engine.so', engine_sha256=native,
+                    descriptor_schema=1, maximum_bridge_frames=1024,
+                    loaded_engine_admission_contract=1, audio_completion_contract=1, native_sources={})
+                data = json.dumps(index).encode()
+                recipe = dict(schema=4, files={'prebuilt/index.json':hashlib.sha256(data).hexdigest(),
+                    'prebuilt/engine.so':native,'runtime/host.exe':host})
+                path = root/name
+                with zipfile.ZipFile(path, 'w') as archive:
+                    archive.writestr('recipe.json', json.dumps(recipe))
+                    archive.writestr('prebuilt/index.json', data)
+                return dict(kit=str(path), native_sha256=native, host_sha256=host)
+            old = package('retained.zip', 'ab'*32, 'cd'*32)
+            new = package('new.zip', 'ef'*32, '12'*32)
+            retained = (root/'retained.zip').read_bytes()
+            self.assertEqual(capability(old, 'audio_completion_contract'), 1)
+            self.assertIsNone(capability({**old, 'kit':new['kit']}, 'audio_completion_contract'))
+            self.assertIsNone(capability({**new, 'host_sha256':old['host_sha256']}, 'audio_completion_contract'))
+            self.assertEqual(capability(new, 'audio_completion_contract'), 1)
+            self.assertEqual(capability(old, 'audio_completion_contract'), 1)
+            self.assertEqual((root/'retained.zip').read_bytes(), retained)
+
     def test_unknown_capability_and_changed_index_refuse(self):
         for options in (dict(maximum=2048), dict(corrupt=True)):
             with tempfile.TemporaryDirectory() as directory:

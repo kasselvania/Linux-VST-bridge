@@ -11,6 +11,73 @@ from xrecord import pointer_packet
 from observe import Observer,CAPACITY,SIZE,HEADER,RECORD
 
 class Tests(unittest.TestCase):
+    def test_gui_witness_retained_and_current_strides_are_exact_and_read_only(self):
+        from observe import GuiWitness
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        import ctypes
+        # These immutable single-thread records test mapping/schema/stride.
+        # The shim avoids requiring Linux libatomic on the macOS test runner;
+        # concurrent publication remains covered by the production Linux tests.
+        load=lambda address,order:ctypes.c_uint64.from_address(address).value
+        store=lambda address,value,order:setattr(ctypes.c_uint64.from_address(address),'value',value)
+        library=SimpleNamespace(**{'__atomic_load_8':load,'__atomic_store_8':store})
+        for protocol,message,abi in [(5,608,4),(6,624,5)]:
+            with self.subTest(protocol=protocol),tempfile.TemporaryDirectory() as directory:
+                data=bytearray(320+2*512*message);sid='ab'*16
+                data[:36]=b'LVBU'+struct.pack('<III',protocol,len(data),message)+bytes.fromhex(sid)+struct.pack('<I',512)
+                for lane in range(2):
+                    for index in range(2):
+                        at=320+(lane*512+index)*message
+                        struct.pack_into('<4IQd2i2I',data,at,abi,message,101+index,40+10*lane+index,8+index,.25,0,0,1,0)
+                        data[at+48:at+69]=b'PRIVATE_TITLE_PAYLOAD'
+                        struct.pack_into('<Q6IQ2I',data,at+560,19,0,0,123,7,2,0,99,2,0)
+                path=pathlib.Path(directory)/'ap11.ui';path.write_bytes(data);path.chmod(0o600)
+                with patch('observe.ctypes.util.find_library',return_value='fixture-atomic'),patch('observe.C.CDLL',return_value=library):
+                    witness=GuiWitness(path,sid)
+                    try:
+                        struct.pack_into('<Q',witness.map,64,2);struct.pack_into('<Q',witness.map,80,2)
+                        before=bytes(witness.map);rows=witness.take()
+                        self.assertEqual([(r['lane'],r['queue_sequence'],r['parameter']) for r in rows],[(0,0,40),(0,1,41),(1,0,50),(1,1,51)])
+                        self.assertTrue(all(r['native_view']==99 and r['editor_epoch']==7 and r['target']==123 for r in rows))
+                        self.assertNotIn('PRIVATE_TITLE',json.dumps(rows))
+                        self.assertEqual(bytes(witness.map),before)
+                        self.assertEqual(witness.take(),[])
+                        # A wrong ABI in an otherwise current slot is ignored.
+                        valid=bytes(witness.map[320:320+message])
+                        witness.map[320+2*message:320+3*message]=valid
+                        struct.pack_into('<I',witness.map,320+2*message,abi+1)
+                        struct.pack_into('<Q',witness.map,64,3)
+                        self.assertEqual(witness.take(),[])
+                        witness.map[320+3*message:320+4*message]=valid
+                        struct.pack_into('<I',witness.map,324+3*message,message+16)
+                        struct.pack_into('<Q',witness.map,64,4)
+                        self.assertEqual(witness.take(),[])
+                    finally:witness.close()
+
+    def test_gui_witness_rejects_unknown_mixed_and_malformed_layouts(self):
+        from observe import GuiWitness
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        import ctypes
+        load=lambda address,order:ctypes.c_uint64.from_address(address).value
+        store=lambda address,value,order:setattr(ctypes.c_uint64.from_address(address),'value',value)
+        library=SimpleNamespace(**{'__atomic_load_8':load,'__atomic_store_8':store})
+        cases=[(7,624,624,None),(6,608,608,None),(5,624,624,None),
+               (6,624,608,None),(6,624,624,'extent'),(6,624,624,'session'),
+               (6,624,624,'capacity'),(6,624,624,'magic'),(6,600,600,None)]
+        for protocol,physical,message,corrupt in cases:
+            with self.subTest(case=(protocol,physical,message,corrupt)),tempfile.TemporaryDirectory() as directory:
+                data=bytearray(320+2*512*physical);sid='ab'*16
+                data[:36]=b'LVBU'+struct.pack('<III',protocol,len(data),message)+bytes.fromhex(sid)+struct.pack('<I',512)
+                if corrupt=='extent':struct.pack_into('<I',data,8,len(data)-16)
+                if corrupt=='session':data[16]=0
+                if corrupt=='capacity':struct.pack_into('<I',data,32,513)
+                if corrupt=='magic':data[:4]=b'BADD'
+                path=pathlib.Path(directory)/'ap11.ui';path.write_bytes(data);path.chmod(0o600)
+                with patch('observe.ctypes.util.find_library',return_value='fixture-atomic'),patch('observe.C.CDLL',return_value=library):
+                    with self.assertRaisesRegex(RuntimeError,'layout|binding'):GuiWitness(path,sid)
+
     def test_action_command_and_frame_metadata_have_separate_namespaces(self):
         from capture import Capture
         import tempfile,json,zlib

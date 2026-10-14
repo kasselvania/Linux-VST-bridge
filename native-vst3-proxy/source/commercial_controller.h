@@ -17,6 +17,7 @@
 #include <array>
 #include <atomic>
 #include <cmath>
+#include <chrono>
 #include <thread>
 namespace AP8 {
 class Controller final : public Steinberg::Vst::EditController,
@@ -323,7 +324,8 @@ public:
     if (command(m) != Steinberg::kResultOk) { status_ = "Editor open request not accepted"; return false; }
     status_ = "Opening vendor editor...";
     editor_.opened(m);
-    activation_.begin(m);
+    if (m.presentation == AP11::Detached) activation_.begin(m);
+    else activation_.cancel();
     // Opening/focusing a view is not a parameter invalidation. An unsolicited
     // Refresh causes a host restart notification and, in Bitwig, a full state
     // capture on the serialized audio transport. Real vendor restart callbacks
@@ -351,6 +353,45 @@ public:
       fail(code, false);
       panelClose(view);
     }
+  }
+  bool panelSupportsEmbedding() const override { return true; }
+  bool panelPresentation(uint64_t view, ap11_gui_message_t &out) const override {
+    return onOwner() && editor_.presentation(view, out);
+  }
+  bool panelPresent(uint64_t view, uint32_t mode) override {
+    ap11_gui_message_t m{};
+    if (!onOwner() || mode > AP11::EmbeddedX11 || !editor_.presentation(view, m)) return false;
+    m.kind = AP11::Present; m.presentation = mode;
+    return command(m) == Steinberg::kResultOk;
+  }
+  bool panelFocus(uint64_t view, bool accepted) override {
+    ap11_gui_message_t m{};
+    if (!onOwner() || !editor_.presentation(view, m) || m.focus_result != AP11::FocusPending) return false;
+    m.kind = AP11::Focus;
+    m.focus_result = accepted ? AP11::FocusConfirmed : AP11::FocusDenied;
+    return command(m) == Steinberg::kResultOk;
+  }
+  bool panelSize(uint64_t view, Steinberg::ViewRect &size, bool apply) override {
+    ap11_gui_message_t m{};
+    if (!onOwner() || size_waiting_ || size_serial_ == UINT32_MAX ||
+        !editor_.presentation(view, m) || size.getWidth() < 1 || size.getHeight() < 1 ||
+        size.getWidth() > 8192 || size.getHeight() > 8192) return false;
+    m.kind = apply ? AP11::Resize : AP11::CheckSize;
+    m.id = ++size_serial_; m.width = uint32_t(size.getWidth()); m.height = uint32_t(size.getHeight());
+    size_reply_ = {}; size_waiting_ = m.id;
+    const bool queued = command(m) == Steinberg::kResultOk;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(250);
+    while (queued && !size_reply_.id && std::chrono::steady_clock::now() < deadline) {
+      request("AP11.poll");
+      if (!size_reply_.id) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    size_waiting_ = 0;
+    if (size_reply_.id != m.id || size_reply_.result || size_reply_.native_view != view ||
+        size_reply_.view_epoch != m.view_epoch || size_reply_.activation != m.activation ||
+        size_reply_.target_x11 != m.target_x11 || !size_reply_.width || !size_reply_.height ||
+        size_reply_.width > 8192 || size_reply_.height > 8192) return false;
+    size = {0, 0, int32_t(size_reply_.width), int32_t(size_reply_.height)};
+    return true;
   }
   uint64_t allocateEditorView() { return onOwner() ? editor_.allocate() : 0; }
   uint32_t panelState(uint64_t view) const override { return editor_.state(view); }
@@ -436,7 +477,7 @@ private:
     if (!AP11::valid(m)) return Steinberg::kResultFalse;
     using namespace Steinberg;
     using namespace Steinberg::Vst;
-    if (m.kind != AP11::EditorStatus && !editor_.accepts_callback(m)) return kResultOk;
+    if (m.kind != AP11::EditorStatus && m.kind != AP11::SizeResult && !editor_.accepts_callback(m)) return kResultOk;
     auto *p = state(m.id);
     switch (m.kind) {
     case AP11::Begin:
@@ -480,12 +521,16 @@ private:
       return componentHandler2
                  ? componentHandler2->requestOpenEditor(ViewType::kEditor)
                  : kNotImplemented;
-    case AP11::EditorStatus:
+    case AP11::EditorStatus: {
+      const auto previous_mode = editor_.presentationMode();
       if (!editor_.status(m))
         return kResultOk;
       if (!m.count) { activation_.cancel(); finishGestures(); }
-      if (m.count && m.focus_result == AP11::FocusPending)
+      if (m.presentation == AP11::EmbeddedX11) activation_.cancel();
+      else if (m.count && m.focus_result == AP11::FocusPending) {
+        if (previous_mode != AP11::Detached) activation_.begin(m);
         activation_.target(m);
+      }
       if (m.result) {
         switch (m.result) {
         case AP11::NoView:
@@ -513,6 +558,10 @@ private:
         status_ = "Editor open; focus request cancelled";
       else
         status_ = "Vendor editor open; requesting focus...";
+      return kResultOk;
+    }
+    case AP11::SizeResult:
+      if (size_waiting_ && m.id == size_waiting_ && m.native_view == editor_.owner()) size_reply_ = m;
       return kResultOk;
     case AP11::RefreshBegin:
       if (refreshing_ || m.count != states_.size() || !m.revision ||
@@ -640,7 +689,8 @@ private:
     m->getAttributes()->setBinary("command", &event, sizeof(event));
     auto r = sendMessage(m);
     m->release();
-    if (r != Steinberg::kResultOk && event.kind != AP11::Open && event.kind != AP11::Close)
+    if (r != Steinberg::kResultOk && event.kind != AP11::Open && event.kind != AP11::Close && event.kind != AP11::Present &&
+        event.kind != AP11::Resize && event.kind != AP11::CheckSize)
       fail(AP11::Host);
     return r;
   }
@@ -694,6 +744,8 @@ private:
   std::thread::id owner_;
   bool connected_ = false, ticking_ = false, group_ = false,
        forwarding_ = false, refreshing_ = false;
+  uint32_t size_serial_ = 0, size_waiting_ = 0;
+  ap11_gui_message_t size_reply_{};
   uint32_t failure_ = 0, forward_id_ = 0;
   double forward_value_ = 0;
   uint64_t generation_ = 0, refresh_revision_ = 0;

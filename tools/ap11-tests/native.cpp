@@ -678,10 +678,40 @@ void completion_contract_regression() {
   check(controller->terminate()==kResultOk&&processor.terminate()==kResultOk,"completion retirement");controller->release();
   fixture_delay=UINT32_MAX;fixture_vendor=fixture_tail=notice_flags=0;
 }
+void presentation_focus_regression() {
+  events.clear();commands.clear();gui_fault=0;terminal_record={};refused_sends=0;
+  Host host;AP2::Processor processor;auto* c=new AP8::Controller;
+  host.processor=&processor;host.controller=c;
+  auto* context=static_cast<IHostApplication*>(&host);
+  check(processor.initialize(context)==kResultOk&&c->initialize(context)==kResultOk,"presentation focus initialize");
+  check(c->setComponentHandler(static_cast<IComponentHandler*>(&host))==kResultOk,"presentation focus handler");
+  processor.connect(c);c->connect(&processor);commands.clear();
+  const auto token=c->allocateEditorView();
+  check(c->panelOpen(token,{0,0,AP11::EmbeddedX11}),"embedded opening accepted");
+  auto status=commands.back();status.kind=AP11::EditorStatus;status.count=1;status.view_epoch=1;
+  status.target_x11=321;status.width=400;status.height=240;status.lifecycle=AP11::AwaitingFocus;status.focus_result=AP11::FocusPending;
+  events.push_back(status);host.tick();const auto before=commands.size();
+  std::this_thread::sleep_for(std::chrono::milliseconds(2100));host.tick();
+  check(commands.size()==before&&!gui_fault,"embedded editor never invents a detached focus timeout");
+  status.presentation=AP11::Detached;events.push_back(status);host.tick();
+  check(commands.size()==before+1&&commands.back().kind==AP11::Focus&&
+        commands.back().focus_result==AP11::FocusUnsupported&&commands.back().view_epoch==1&&
+        commands.back().activation==status.activation&&commands.back().target_x11==status.target_x11,
+        "actual fallback mode activates the exact detached target and reports missing context honestly");
+  check(c->panelOpen(token,{0,0,AP11::Detached}),"detached activation can await the actual mode");
+  status=commands.back();status.kind=AP11::EditorStatus;status.count=1;status.view_epoch=1;status.target_x11=321;
+  status.presentation=AP11::EmbeddedX11;status.lifecycle=AP11::AwaitingFocus;status.focus_result=AP11::FocusPending;
+  events.push_back(status);host.tick();const auto resumed=commands.size();
+  std::this_thread::sleep_for(std::chrono::milliseconds(2100));host.tick();
+  check(commands.size()==resumed&&!gui_fault,"actual embedded mode cancels a previously pending detached activation");
+  check(c->panelClose(token),"presentation focus close");c->disconnect(&processor);processor.disconnect(c);
+  check(c->terminate()==kResultOk&&processor.terminate()==kResultOk,"presentation focus normal retirement");c->release();
+}
 int main(int argc,char** argv) {
   if(argc>1){
     if(!std::strcmp(argv[1],"--state-migration")){historical_controller_regression();processing_state_restore_regression();failed_restore_retirement_regression();}
     else if(!std::strcmp(argv[1],"--curve-refusal"))curve_refusal_regression();
+    else if(!std::strcmp(argv[1],"--presentation-focus"))presentation_focus_regression();
     else if(!std::strcmp(argv[1],"--completion-contract"))completion_contract_regression();
     else contained_host_survival_regression();
     return 0;

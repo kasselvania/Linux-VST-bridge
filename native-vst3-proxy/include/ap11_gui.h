@@ -1,11 +1,11 @@
 #pragma once
 #include <cstdint>
 #include <cstddef>
-// UI ABI 4 / independent shared-memory protocol 5. No host/SDK pointer crosses.
+// UI ABI 5 / independent shared-memory protocol 6. No host/SDK pointer crosses.
 // Calls are native owner/UI-thread only, except the private atomic revision
 // assigned by the Rust audio admission path. No GUI queue is used by audio.
 struct ap11_gui_message_t {
-  uint32_t abi_version = 4, extent = 608;
+  uint32_t abi_version = 5, extent = 624;
   uint32_t kind = 0, id = 0;
   uint64_t revision = 0;
   double value = 0;
@@ -13,21 +13,24 @@ struct ap11_gui_message_t {
   uint32_t count = 0, result = 0;
   char16_t title[128]{}, units[128]{};
   // Open/EditorStatus activation context. X11 IDs are explicitly NOT HWNDs
-  // and are never used as plug-in parents. Bound to this UI session/generation.
+  // and are never cast to Win32 plug-in parents. Bound to this UI session/generation.
   uint64_t activation = 0;
   uint32_t user_time = 0, requestor_x11 = 0, target_x11 = 0, view_epoch = 0;
   uint32_t focus_result = 0, focus_flags = 0;
   uint64_t native_view = 0;
   uint32_t lifecycle = 0, reserved = 0;
+  // Actual presentation and client dimensions of the exact current editor.
+  uint32_t presentation = 0, width = 0, height = 0, presentation_flags = 0;
 };
-static_assert(sizeof(ap11_gui_message_t) == 608);
+static_assert(sizeof(ap11_gui_message_t) == 624);
 static_assert(offsetof(ap11_gui_message_t, extent) == 4);
 static_assert(offsetof(ap11_gui_message_t, activation) == 560);
 static_assert(offsetof(ap11_gui_message_t, native_view) == 592);
 static_assert(offsetof(ap11_gui_message_t, lifecycle) == 600);
 namespace AP11 {
+inline constexpr uint32_t GuiProtocolVersion = 6;
 inline bool valid(const ap11_gui_message_t &m) {
-  return m.abi_version == 4 && m.extent == sizeof(m) && !m.reserved;
+  return m.abi_version == 5 && m.extent == sizeof(m) && !m.reserved && m.presentation <= 1 && !(m.presentation_flags & ~1u);
 }
 enum Lifecycle : uint32_t {
   Absent, Opening, Opened, AwaitingFocus, Focused, FocusRefused, Closing,
@@ -39,6 +42,9 @@ enum Kind : uint32_t {
   Set = 3,
   Refresh = 4,
   Focus = 5,
+  Present = 6,
+  Resize = 7,
+  CheckSize = 8,
   Begin = 101,
   Value = 102,
   End = 103,
@@ -50,7 +56,8 @@ enum Kind : uint32_t {
   RefreshBegin = 109,
   Parameter = 110, // result: 0=available, 1=unavailable (canonical value bits zero)
   RefreshEnd = 111,
-  Restart = 112
+  Restart = 112,
+  SizeResult = 113
 };
 // Only these events can carry an editor-origin token. Refresh streams and
 // host/controller invalidations remain instance scoped; no state bytes change.
@@ -58,6 +65,8 @@ inline bool editorCallback(uint32_t kind) {
   return kind == Begin || kind == Value || kind == End || kind == Dirty ||
     kind == GroupBegin || kind == GroupEnd || kind == RequestOpen;
 }
+enum Presentation : uint32_t { Detached = 0, EmbeddedX11 = 1 };
+enum PresentationFlags : uint32_t { CanResize = 1 };
 enum FocusResult : uint32_t {
   FocusNotRequested = 0,
   FocusPending = 1,
@@ -68,6 +77,7 @@ enum FocusResult : uint32_t {
 };
 struct ActivationContext {
   uint32_t user_time = 0, requestor_x11 = 0;
+  uint32_t presentation = Detached;
 };
 enum Error : uint32_t {
   NoError = 0,

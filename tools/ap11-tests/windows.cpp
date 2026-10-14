@@ -212,7 +212,7 @@ struct Mapping {
     check(data, "native mapping");
     std::memset(data, 0, bytes);
     std::memcpy(data, "LVBU", 4);
-    put(4, 5, 4);
+    put(4, 6, 4);
     put(8, bytes, 4);
     put(12, sizeof(ap11_gui_message_t), 4);
     std::copy(id.begin(), id.end(), data + 16);
@@ -580,6 +580,26 @@ void lifecycle_faults() {
     SendMessageW(access.window(),WM_CLOSE,0,0);
     check(access.close_requested() && access.is_open(),"standalone user close remains deferred");
     check(access.close() && !access.is_open(),"standalone positive close receipt");
+    check(access.open(*c,AP11::EmbeddedX11),"generic embedded mode opens current vendor view");
+    const auto embeddedWindow=access.window();const auto embeddedEpoch=access.opens;
+    check(access.x11_window() || (access.presentation()==AP11::Detached &&
+          (GetWindowLongPtrW(embeddedWindow,GWL_STYLE)&WS_CAPTION)),
+          "missing Wine XID capability restores decorated detached presentation");
+    const auto style = GetWindowLongPtrW(embeddedWindow,GWL_STYLE);
+    SetWindowLongPtrW(embeddedWindow,GWL_STYLE,style|WS_CLIPCHILDREN);
+    check(access.present(AP11::EmbeddedX11) && IsWindowVisible(embeddedWindow),
+          "live wrapper enters embedded presentation without losing visibility");
+    const auto keysBeforeFallback=c->stats.keys;
+    check(access.present(AP11::Detached) && IsWindowVisible(embeddedWindow) &&
+          (GetWindowLongPtrW(embeddedWindow,GWL_STYLE)&WS_CLIPCHILDREN) && access.window()==embeddedWindow && access.opens==embeddedEpoch &&
+          access.presentation()==AP11::Detached && (GetWindowLongPtrW(embeddedWindow,GWL_STYLE)&WS_CAPTION),
+          "fallback preserves shown HWND, clipping, vendor view and epoch while adding decorations");
+    SendMessageW(embeddedWindow,WM_CHAR,L'a',0);
+    check(c->stats.keys==keysBeforeFallback+1,"live detached fallback still delivers window input to the vendor view");
+    ViewRect constraint{0,0,900,700};check(access.host_size(constraint,false) &&
+          constraint.getWidth()==400 && constraint.getHeight()==240,"fixed vendor constraints remain native-sized");
+    ViewRect invalidSize{0,0,900,700};check(!access.host_size(invalidSize,true),"fixed vendor refuses host resize");
+    check(access.close(),"embedded fallback normal close");
     const auto count=c->stats.created;access.opens=UINT32_MAX;
     check(!access.open(*c) && access.error()==AP11::GenerationExhausted &&
           c->stats.created==count,"vendor epoch exhaustion refuses before SDK creation");
@@ -587,10 +607,10 @@ void lifecycle_faults() {
   check(c->stats.created==c->stats.destroyed && c->stats.attached==c->stats.removed,
         "all successful and refused views return SDK ownership to baseline");
   c->terminate();c->release();
-  Mapping invalid;invalid.put(4,3,4);
+  Mapping invalid;invalid.put(4,5,4);
   bool refused=false;
   try {GuiChannel bad(invalid.dir.wstring(),invalid.id);} catch(...) {refused=true;}
-  check(refused,"old mapped UI protocol refused before consuming payloads");
+  check(refused,"retained detached protocol5 cannot be silently paired with new protocol6 host");
 }
 } // namespace
 int main(int argc,char** argv) {

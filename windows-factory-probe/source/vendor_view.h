@@ -263,6 +263,59 @@ public:
         GetPropW(window_, L"__wine_x11_whole_window"));
     return xid <= UINT32_MAX ? uint32_t(xid) : 0;
   }
+  uint32_t presentation_ = AP11::Detached;
+  bool resizable_ = false;
+  DWORD presentation_style(uint32_t mode) const {
+    return mode == AP11::EmbeddedX11 ? WS_POPUP :
+      WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX |
+        (resizable_ ? (WS_THICKFRAME | WS_MAXIMIZEBOX) : 0);
+  }
+  uint32_t presentation() const { return presentation_; }
+  bool can_resize() const { return resizable_; }
+  bool client_size(Steinberg::ViewRect &size) const {
+    RECT client{};
+    if (!window_ || !GetClientRect(window_, &client) || client.right < 1 ||
+        client.bottom < 1 || client.right > 8192 || client.bottom > 8192) return false;
+    size = {0, 0, client.right, client.bottom};
+    return true;
+  }
+  bool present(uint32_t mode) {
+    if (owner_ != std::this_thread::get_id() || mode > AP11::EmbeddedX11 ||
+        !window_ || closing_) return false;
+    if (presentation_ == mode) return true;
+    Steinberg::ViewRect size{};
+    if (!client_size(size)) return false;
+    SetLastError(0);
+    // Change only our presentation bits. Visibility, enablement and clipping
+    // still belong to the live window; replacing the whole style hides it.
+    constexpr DWORD bits = WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX |
+      WS_THICKFRAME | WS_MAXIMIZEBOX;
+    const auto current_style = DWORD(GetWindowLongPtrW(window_, GWL_STYLE));
+    const auto next_style = (current_style & ~bits) | presentation_style(mode);
+    if (!SetWindowLongPtrW(window_, GWL_STYLE, next_style) && GetLastError()) return false;
+    if (!SetWindowPos(window_, nullptr, 0, 0, 0, 0,
+          SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED)) return false;
+    presentation_ = mode;
+    return resize(size);
+  }
+  bool host_size(Steinberg::ViewRect &size, bool apply) {
+    if (owner_ != std::this_thread::get_id() || !view_ || !attached_ || !window_ ||
+        closing_ || resizing_ >= 8) return false;
+    Steinberg::ViewRect current{};
+    if (!client_size(current)) return false;
+    if (!resizable_) { const bool unchanged = same(size, current); size = current; return !apply || unchanged; }
+    const auto requested = size;
+    if (view_->checkSizeConstraint(&size) != Steinberg::kResultOk || size.getWidth() < 1 ||
+        size.getHeight() < 1 || size.getWidth() > 8192 || size.getHeight() > 8192) return false;
+    if (!apply) return true;
+    if (!same(requested, size)) return false;
+    ++resizing_;
+    const bool resized = resize(size);
+    const auto result = resized && !same(current, size) ? view_->onSize(&size) :
+      resized ? Steinberg::kResultOk : Steinberg::kResultFalse;
+    --resizing_;
+    return result == Steinberg::kResultOk;
+  }
   bool scale_supported = false;
   float scale = 1.f;
   ~VendorView() {
@@ -322,14 +375,16 @@ public:
     stage(218); // logical close; all SDK/platform ownership is retained
     return true;
   }
-  bool open(Steinberg::Vst::IEditController &controller) {
+  bool open(Steinberg::Vst::IEditController &controller, uint32_t mode = AP11::Detached) {
     using namespace Steinberg;
     if (owner_ != std::this_thread::get_id()) {
       error_ = AP11::WrongThread;
       return false;
     }
+    if (mode > AP11::EmbeddedX11) { error_ = AP11::Platform; return false; }
     if (window_ || view_) {
       if (window_ && view_ && attached_ && !closing_ && !window_lost() && error_ != AP11::Removal) {
+        if (!present(mode)) { error_ = AP11::Attach; return false; }
         if (hidden_) {
           if (opens == UINT32_MAX) { error_ = AP11::GenerationExhausted; return false; }
           ShowWindow(window_, SW_SHOWNOACTIVATE);
@@ -378,9 +433,9 @@ public:
         return false;
       }
       stage(3);
-      bool resizable = view_->canResize() == kResultTrue;
-      DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX |
-                    (resizable ? (WS_THICKFRAME | WS_MAXIMIZEBOX) : 0);
+      resizable_ = view_->canResize() == kResultTrue;
+      presentation_ = mode;
+      DWORD style = presentation_style(mode);
       stage(4);
       window_ = CreateWindowExW(0, wc.lpszClassName, L"Vendor editor", style,
                                 CW_USEDEFAULT, CW_USEDEFAULT, 640, 480, nullptr,
@@ -452,6 +507,10 @@ public:
       stage(11);
       // Mapping an editor does not establish foreground or keyboard ownership.
       // The native click is activated by the desktop WM after target handoff.
+      // Missing X11 capability is a detached fallback, never a borderless orphan.
+      if (presentation_ == AP11::EmbeddedX11 && !x11_window() && !present(AP11::Detached)) {
+        error_ = AP11::Attach; close(); return false;
+      }
       ShowWindow(window_, SW_SHOWNOACTIVATE);
       stage(100);
       ++opens;

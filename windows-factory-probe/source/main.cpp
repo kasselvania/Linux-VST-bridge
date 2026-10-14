@@ -1,3 +1,4 @@
+#include "../../native-vst3-proxy/include/ap11_gui.h"
 #ifdef WF0_LOADER_ADAPTER_TEST
 
 #include "component_instance_session.h"
@@ -98,7 +99,7 @@ void verify_pi_architecture(const std::wstring& directory) {
     SYSTEM_INFO system{};
     GetSystemInfo(&system);
     PiArchitecture local{{'L','V','B','R','P','I','0','\0'}, 1, sizeof(PiArchitecture),
-                         0x04030201, 64, 32, 96, 608, 1, 1, system.dwPageSize,
+                         0x04030201, 64, 32, 96, sizeof(ap11_gui_message_t), 1, 1, system.dwPageSize,
                          0, 0, 0x715f58adee37950cULL};
     const bool valid_page = native.page_size >= 4096 && native.page_size <= 65536 &&
         (native.page_size & (native.page_size - 1)) == 0;

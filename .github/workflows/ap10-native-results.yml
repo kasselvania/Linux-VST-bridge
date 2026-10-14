@@ -47,13 +47,19 @@ jobs:
           cargo test --manifest-path plugin-descriptor/Cargo.toml --locked
           cargo test --manifest-path native-audio-client/Cargo.toml --locked admission
           cargo test --manifest-path native-vst3-proxy/backend/Cargo.toml --locked
+          python3 -m unittest discover -s bridge-manager/runtime -p test_session.py -k gui_diagnostic -v
       - name: Build Rust backend
         run: RUSTFLAGS="-C relocation-model=pic" cargo build --manifest-path native-vst3-proxy/backend/Cargo.toml --release --locked
+      - name: Install pinned fixture compiler
+        run: rustup toolchain install 1.95.0 --profile minimal
       - name: Compile owned X11 embedding fixture and test presentation identity
         run: |
-          rustc --edition=2021 -D warnings --test native-vst3-proxy/backend/src/editor_surface.rs -o "${{ runner.temp }}/surface-unit-tests"
+          # PKG1 kit construction/release pins Rust 1.95.0. These strict fixture
+          # builds use that exact compiler; AP10 Cargo steps retain their own selection.
+          rustup run 1.95.0 rustc --version
+          rustup run 1.95.0 rustc --edition=2021 -D warnings --test native-vst3-proxy/backend/src/editor_surface.rs -o "${{ runner.temp }}/surface-unit-tests"
           "${{ runner.temp }}/surface-unit-tests"
-          rustc --edition=2021 -D warnings tools/ap11-tests/embedding_host.rs -o "${{ runner.temp }}/embedding-host"
+          rustup run 1.95.0 rustc --edition=2021 -D warnings tools/ap11-tests/embedding_host.rs -o "${{ runner.temp }}/embedding-host"
       - name: Build production native processor and SDK regressions
         run: |
           cmake -S . -B "${{ runner.temp }}/ap10-build" -G Ninja \
@@ -80,6 +86,8 @@ jobs:
           cp windows-fixtures/beta/stateful.cpp "${{ runner.temp }}/lifecycle-tools/completion-fixture-source.cpp"
           cp native-vst3-proxy/tests/local_wake_audit.cpp native-vst3-proxy/include/ap23_backend.h native-vst3-proxy/backend/src/completion_wait.rs native-vst3-proxy/source/processor.h "${{ runner.temp }}/lifecycle-tools/"
           cp tools/ap11-tests/native.cpp "${{ runner.temp }}/lifecycle-tools/ap23-sdk-contract-source.cpp"
+          cp "${{ runner.temp }}/ap10-build/native-vst3-proxy/ap11-panel-tests" "${{ runner.temp }}/lifecycle-tools/"
+          cp "${{ runner.temp }}/embedding-host" "${{ runner.temp }}/lifecycle-tools/"
           git rev-parse HEAD > "${{ runner.temp }}/lifecycle-tools/SOURCE_HEAD"
           cd "${{ runner.temp }}/lifecycle-tools"
           sha256sum lifecycle-host completion-host completion-host-instrument-tests completion-host-effect-tests libap3-callback-audit.so lifecycle_host.cpp completion_host.cpp completion_host_tests.cpp sdk_buffers.h completion-fixture-source.cpp local_wake_audit.cpp ap23_backend.h completion_wait.rs processor.h ap23-sdk-contract-source.cpp SOURCE_HEAD > SHA256SUMS

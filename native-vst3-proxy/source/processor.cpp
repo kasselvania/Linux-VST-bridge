@@ -577,7 +577,7 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
       // Lifecycle acceptance is the actual bounded mailbox result. A later
       // notification allocation/refusal cannot turn an accepted Open/Close
       // into an ambiguous send failure and cause duplicate ownership.
-      if(command.kind==AP11::Open || command.kind==AP11::Close || command.kind==AP11::Focus)
+      if(command.kind==AP11::Open || command.kind==AP11::Close || command.kind==AP11::Focus || command.kind==AP11::Present || command.kind==AP11::Resize || command.kind==AP11::CheckSize)
         return command.result==0?kResultOk:kResultFalse;
       if(!getPeer())return command.result==0?kResultOk:kResultFalse;
       auto*m=allocateMessage();if(!m)return kResultFalse;m->setMessageID("AP11.result");m->getAttributes()->setInt("generation",generation);m->getAttributes()->setBinary("command",&command,sizeof(command));auto r=sendMessage(m);m->release();return r;
