@@ -528,5 +528,105 @@
       "old_native_access_task_revived": false,
       "existing_unrelated_task_retained": true
     }
+  },
+  "test68_deck_update": {
+    "source_head": "561b51e4db4dc9af93f68bac75aab031c34f9205",
+    "installer_sha256": "c354e8f8ab45070816f169a6d16ff9e088c8881ebf0863a07c561e0dd63d2ea2",
+    "frontend_sha256": "8eed253b4d914543f819f9704a40ac26edcc7b4aa802b17086fc27e9be2142dd",
+    "ordinary_update_minutes_approx": 7,
+    "selected_live_frontend_and_paired_manager_exact": true,
+    "current_available_classes": 25,
+    "service": "active",
+    "live_owners": 0,
+    "pending_transactions": 0,
+    "cleanup_unconfirmed": false,
+    "protected_files": 5403,
+    "files_byte_exact": 5402,
+    "authorized_registry_renewal_changes": 1,
+    "missing_original_files": 0,
+    "omitted_predecessor_paths_individually_rehashed": 51,
+    "projects_byte_exact": 326,
+    "user_application_history_retained": true,
+    "home_completion": {
+      "factual_availability": true,
+      "optional_usage_help": true,
+      "permanent_next_open_daw_task": false
+    },
+    "home_renewal": {
+      "passive_captures": 3,
+      "capture_span_seconds": 150.518701138,
+      "frontend_owned_overview_completions": 2,
+      "frontend_owned_pulse_completions": 10,
+      "later_captures_fresh_after_each_overview": true,
+      "window_input_during_interval": false
+    },
+    "installer_open_setup": {
+      "same_artifact_and_environment": true,
+      "only_launch_change": "transient ExitType=cgroup",
+      "setup_child_survived_installer_close": true,
+      "later_capture_seconds_approx": 13,
+      "update_or_recovery_actions_pressed": false,
+      "owned_setup_window_retired_after_comparison": true
+    },
+    "retained_bitwig_reopen": {
+      "fresh_process": true,
+      "saved_project_sha256": "6c2a0e07ec8e745672ddb5fbb03d9a766161068f3e0eb191068d2ea19c4094b6",
+      "source_levels": [
+        0.435,
+        0.49
+      ],
+      "serum_fx_device_loaded": true,
+      "capture_seconds": 20,
+      "rate": 48000,
+      "channels": 2,
+      "frames": 960000,
+      "nonzero_samples": 1729024,
+      "nonfinite_samples": 0,
+      "nonzero_one_second_windows": 20,
+      "original_output_links_preserved": true,
+      "audio_sha256": "772d354ec93554a716152c86b157f084f806f4f1b0b370ca01ce042060000c03",
+      "recorder_exit": 1,
+      "recorder_stderr_bytes": 0,
+      "original_preferences_byte_exact": 23,
+      "original_saved_project_byte_exact": true,
+      "normal_gui_quit_verified": false,
+      "owned_cleanup": "graceful SIGTERM after helper destroyed window; app/engine/pluginhost retired",
+      "renewed_numeric_effect_editor_recall_verified": false
+    },
+    "kontakt_inspection_comparison": {
+      "accessibility_disabled": [
+        false,
+        true,
+        false
+      ],
+      "wall_seconds": [
+        28.69436377,
+        27.388139511,
+        27.688840438
+      ],
+      "all_inspection_complete": true,
+      "all_cleanup_confirmed": true,
+      "same_module_host_environment": true,
+      "outcome": "non-reproduction; crash remains open; no workaround or policy change"
+    }
+  },
+  "test67_deck_update": {
+    "current_available_classes": 25,
+    "protected_files": 5403,
+    "files_byte_exact": 5402,
+    "authorized_registry_renewal_changes": 1,
+    "projects_byte_exact": 326,
+    "user_application_history_retained": true,
+    "overview_wall_seconds_before": 7.230150654,
+    "overview_wall_seconds_after": [
+      3.82272197,
+      3.572414333,
+      3.522879734
+    ],
+    "overview_cli_cpu_seconds_after": [
+      2.456737,
+      2.224455,
+      2.240518
+    ]
   }
 }

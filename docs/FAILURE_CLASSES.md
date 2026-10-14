@@ -876,11 +876,28 @@ records; only registry renewal changes among 5,352 protected files. Seven Home
 captures preserve running status through renewal and settle a truthful refresh
 without restoring the old Native Access task.
 
+Test67 Deck Home later reproduces a completion wake failure: a completed readback
+can leave “refreshing” visible until input. Test68 queues the reply before waking
+the native window. Its selected frontend completes two real background overviews
+and ten pulses, with fresh Home captures across 150 seconds without input.
+All 25 classes, 326 projects and application history survive; only registry renewal
+changes among 5,403 protected files. The earlier installer handoff failure came
+from the test launcher's child lifetime: changing only its transient unit to
+ExitType=cgroup lets normal Open Setup survive installer exit.
+The retained Bitwig project freshly recalls its source levels and produces finite
+nonzero audio for 20 seconds, preserving all 23 preferences and the exact project.
+Normal GUI quit and renewed numeric effect-editor recall remain unverified.
+
 The first Test63 Deck update failed during Kontakt editor-interface inspection
 with allocator corruption (`malloc(): unaligned tcache chunk detected`). The
 working Test62 setup stayed active with all 17 classes available. One exact-input
 inspection and one ordinary update retry passed; the intermittent crash remains
 open. Source now identifies the affected plug-in and check phase in inspection errors.
+Test68's unpublished accessibility-policy false/true/false comparison passes in
+28.69/27.39/27.69 seconds with the same module/host/environment and confirmed cleanup.
+This is non-reproduction. No native fault PID/stack is retained; a bounded debugger
+trial fails at Wine bootstrap before scanner events, without the allocator message.
+The crash remains open; no accessibility workaround or retry policy is added.
 
 Test56's direct automatic installation identifies the exact live vendor/inspection
 owner's bridge pause and returns to normal service with two new classes available;
@@ -926,7 +943,8 @@ by source tests because the bounded remote input attempt failed before input.
 The retained project loads on its original audio route; renewed playback/numeric
 recall remain unverified. All sixteen original preferences are restored exactly.
 The 1,178–1,254-second update is a VM baseline, not a connection/update speed fix.
-The intermittent Kontakt inspection crash and Deck installed checks await handoff.
+The intermittent Kontakt inspection crash remains open; the Deck installed
+completion and passive Home renewal checks are recorded above.
 
 The 2026-10-03 [foundation comparison](../evidence/preparation/2026-10-03-foundation-installed.json)
 closes a related final-host custody gap on the declared Ubuntu/pinned-runtime
