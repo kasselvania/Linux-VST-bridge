@@ -40,6 +40,18 @@ target_link_options(lvb-direct-wait PRIVATE /Brepro /INCREMENTAL:NO)
 set_target_properties(lvb-direct-wait PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
 add_dependencies(wf0-factory-probe lvb-direct-wait)
 
+# Original first-party X11/Wine presentation feasibility fixture. It neither
+# loads a vendor module nor changes a production editor/protocol/default.
+add_executable(lvb-embedding-window ../tools/ap11-tests/embedding_window.cpp)
+target_include_directories(lvb-embedding-window PRIVATE ../native-vst3-proxy/include)
+target_compile_features(lvb-embedding-window PRIVATE cxx_std_20)
+target_compile_definitions(lvb-embedding-window PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(lvb-embedding-window PRIVATE /W4 /WX /permissive- /EHsc /Brepro)
+target_link_options(lvb-embedding-window PRIVATE /Brepro /INCREMENTAL:NO)
+target_link_libraries(lvb-embedding-window PRIVATE user32 gdi32)
+set_target_properties(lvb-embedding-window PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
 add_executable(wf0-loader-adapter-tests
     source/main.cpp
     source/component_instance_session.cpp
