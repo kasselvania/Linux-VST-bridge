@@ -965,7 +965,7 @@ pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
     egui::ComboBox::from_id_salt(("companion_choice",&target.environment))
         .selected_text(target.choices.iter().find(|offer|matches!(&offer.action,
             Action::EnvironmentInstallerStart {installer,..} if installer == &selected))
-            .map(|offer|offer.label.as_str()).unwrap_or("Choose an added companion installer"))
+            .map(|offer|offer.label.as_str()).unwrap_or("Choose an added Windows installer"))
         .show_ui(ui,|ui| {
             for offer in &target.choices {
                 if let Action::EnvironmentInstallerStart {installer,..} = &offer.action {
@@ -978,7 +978,7 @@ pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
         Action::EnvironmentInstallerStart {installer,..} if installer == &selected)) {
         crate::library::action_buttons(ui,std::slice::from_ref(offer),None,pending,chosen);
     }
-    if target.choices.is_empty() {ui.small("Choose a Windows installer to import a local companion or dependency first.");}
+    if target.choices.is_empty() {ui.small("Choose a Windows installer to add a local installer first.");}
 }
 
 #[cfg(test)]

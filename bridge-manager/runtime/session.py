@@ -2770,6 +2770,8 @@ def managed_install(spec, *, source_owned_is3=None):
         if scope.members():raise RuntimeError('installer cgroup initially occupied')
         ledger=InstallerLedger(scope,transaction.persist);transaction.ledger=ledger
         if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('installer subreaper unavailable')
+        if spec.get('preserve_existing_prefix') is True and not (root/'compatdata/pfx/system.reg').is_file():
+            raise ValueError('installation_folder_missing')
         runner=env['runner'];base=[runner['entry_point'],'--verb=run','--',runner['proton']]
         argv=base+['runinprefix']
         if spec['format']=='pe_executable':
@@ -2802,6 +2804,8 @@ def managed_install(spec, *, source_owned_is3=None):
             return process
         # This public verb calls init_session(True), including setup_prefix, but
         # never Session.run/steam.exe. runinprefix alone skips setup_prefix.
+        if spec.get('preserve_existing_prefix') is True and not (root/'compatdata/pfx/system.reg').is_file():
+            raise ValueError('installation_folder_missing')
         child=launch(base+['getcompatpath','/'],'prefix_initialization')
         bootstrap_deadline=time.monotonic()+120
         while child.returncode is None and not stop:
@@ -2856,8 +2860,9 @@ def managed_install(spec, *, source_owned_is3=None):
             drain(.05)
     except Exception as exc:
         if not stop:
-            error='installer_owner_'+type(exc).__name__
-            if startup.target is None:startup.problem('supervisor_startup_error')
+            missing=isinstance(exc,ValueError) and str(exc)=='installation_folder_missing'
+            error="The installation folder for this software can't be found. Reconnect its drive or restore the folder, then try again." if missing else 'installer_owner_'+type(exc).__name__
+            if startup.target is None:startup.problem('installation_folder_missing' if missing else 'supervisor_startup_error')
             else:startup.stage('supervision_error_observed',code=error)
     finally:
         if scope is not None and not clean:
@@ -4873,6 +4878,43 @@ def daw_application_binding(app,is_uninstall):
 
 MANAGED_NATIVE_ACCESS_PROFILE_SHA256='dba4302039d2d0d780c8e31d373dd17a56384c5b60469bfa0adc7178a10fb186'
 
+def selected_installer_origin(managed, app):
+    """Recheck an observed app's actual installer receipt in its owned setup.
+
+    Rust admits the complete typed revision chain before unit submission. This
+    boundary rechecks the receipt and its original owner, never fabricating an
+    onboarding receipt for a later same-setup installation.
+    """
+    env=app['environment'];receipt=app['installer_result'];sha=app['installer_sha256']
+    if not isinstance(sha,str) or not re.fullmatch('[0-9a-f]{64}',sha):raise ValueError('managed_application_import_binding')
+    original=managed/'onboarding'/env['id'];path=pathlib.Path(receipt['path'])
+    if path.parent==original:
+        record=renderer_read(original/'record.json');op=record.get('installation_operation')
+        if (record.get('schema')!=1 or record.get('id')!=env['id'] or record.get('environment',{}).get('id')!=env['id']
+            or record['environment']['root']!=env['root'] or record.get('installer')!=sha
+            or not isinstance(op,str) or not re.fullmatch('[0-9a-f]{32}',op)
+            or path!=original/(op+'-result.json')):raise ValueError('managed_application_installation_binding')
+    else:
+        op=path.parent.name
+        if not re.fullmatch('[0-9a-f]{32}',op) or path!=managed/'operator'/op/'installation-result.json':raise ValueError('managed_application_installation_binding')
+        binding=renderer_read(path.parent/'installation.json');request=renderer_read(path.parent/'request.json')
+        before=binding.get('before',{});after=binding.get('environment',{})
+        if (binding.get('schema')!=1 or binding.get('operation')!=op or binding.get('installer')!=sha
+            or type(request.get('schema')) is not int or not 5<=request['schema']<=27
+            or request.get('action')!={'kind':'environment_installer_start','environment':env['id'],'installer':sha}
+            or before.get('id')!=env['id'] or after.get('id')!=env['id'] or before.get('root')!=env['root'] or after.get('root')!=env['root']
+            or type(before.get('revision')) is not int or type(after.get('revision')) is not int
+            or after['revision']!=before['revision']+1 or after['revision']>env['revision']
+            or before.get('runner')!=after.get('runner')):raise ValueError('managed_application_installation_binding')
+    verify(receipt);installed=renderer_read(path)
+    if (installed.get('schema')!=2 or installed.get('operation')!=op or installed.get('state')!='completed'
+        or installed.get('raw_exit')!=0 or installed.get('cleanup_confirmed') is not True or installed.get('owned_live')!=0
+        or installed.get('error') is not None):raise ValueError('managed_application_installation_incomplete')
+    imported=renderer_read(managed/'installers'/(sha+'.json'))
+    if imported.get('id')!=sha or imported['artifact']['sha256']!=sha or pathlib.Path(imported['artifact']['path']).parent!=managed/'installers':raise ValueError('managed_application_import_binding')
+    verify(imported['artifact'])
+    return op
+
 def managed_vendor_inputs(operation):
     """Validate an ordinary owned application and its observed compatibility data.
 
@@ -4897,19 +4939,7 @@ def managed_vendor_inputs(operation):
     if selected['environment']['id']!=env['id'] or selected['environment']['root']!=str(root):raise ValueError('managed_application_selection_changed')
     selected['environment']=env
     if selected!=app:raise ValueError('managed_application_selection_changed')
-    record=renderer_read(managed/'onboarding'/env['id']/'record.json')
-    installer_op=record.get('installation_operation')
-    if (record.get('schema')!=1 or record.get('id')!=env['id'] or record.get('environment',{}).get('id')!=env['id']
-        or record['environment']['root']!=str(root) or record.get('installer')!=app['installer_sha256']
-        or not isinstance(installer_op,str) or not re.fullmatch('[0-9a-f]{32}',installer_op)
-        or app['installer_result']['path']!=str(managed/'onboarding'/env['id']/(installer_op+'-result.json'))):raise ValueError('managed_application_installation_binding')
-    verify(app['installer_result']);installed=renderer_read(app['installer_result']['path'])
-    if (installed.get('schema')!=2 or installed.get('operation')!=installer_op or installed.get('state')!='completed'
-        or installed.get('raw_exit')!=0 or installed.get('cleanup_confirmed') is not True or installed.get('owned_live')!=0
-        or installed.get('error') is not None):raise ValueError('managed_application_installation_incomplete')
-    imported=renderer_read(managed/'installers'/(app['installer_sha256']+'.json'))
-    if imported.get('id')!=app['installer_sha256'] or imported['artifact']['sha256']!=app['installer_sha256'] or pathlib.Path(imported['artifact']['path']).parent!=managed/'installers':raise ValueError('managed_application_import_binding')
-    verify(imported['artifact'])
+    selected_installer_origin(managed,app)
     launch=operation.get('managed')
     if not isinstance(launch,dict) or set(launch)!={'capabilities','software'}:raise ValueError('managed_application_capability_binding')
     capability=launch['capabilities'];profile=capability['profile']
@@ -5094,6 +5124,8 @@ def vendor_application(spec):
                 'diagnostic_enabled':diagnostic,'windows_accessibility_disabled':False if is_daw else vendor_compatibility(mode,app)['disable_windows_accessibility'],
                 'account_posture':'unknown','close_result':close_result}
     try:
+        if app.get('schema')==2 and not is_daw:
+            selected_installer_origin(pathlib.Path.home()/'.local/share/linux-vst-bridge/managed',app)
         if app.get('schema')==3:
             selected_image=RendererImage({'artifact':app['executable'],'size':pathlib.Path(app['executable']['path']).stat().st_size})
             selected=renderer_launch_software(directory.parent.parent)

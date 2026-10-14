@@ -203,7 +203,8 @@ fn vendor_projection(
     let valid = a.validate_record(&m.root).is_ok();
     let record = onboarding::retained_environment_record(m, &a.environment.id)?;
     let continuation = automatic_install::vendor_intent(m, selector)?;
-    let current_intent = continuation.as_ref().or_else(|| record.as_ref().and_then(|r| r.automatic.as_ref()));
+    let installation_intent=record.as_ref().map(|record|automatic_install::record_intent(m,record)).transpose()?.flatten();
+    let current_intent = continuation.as_ref().or(installation_intent.as_ref());
     let restartable=current_intent
         .filter(|i|i.vendor.as_ref().is_some_and(|v|v.application==selector))
         .map(|i|automatic_install::restartable_vendor(m,i)).transpose()?.unwrap_or(false);
@@ -716,11 +717,14 @@ fn managed_environment_bindings(
     registry: &Registry,
 ) -> Result<Vec<linux_vst_bridge::catalogue::EnvironmentBinding>> {
     let mut bindings = catalogue.map_or_else(Vec::new, |c| c.environments.clone());
+    let replacements:std::collections::BTreeSet<_>=environment_install::records(m)?.into_iter()
+        .map(|record|record.environment.id).collect();
     for retained in onboarding::history_records(m)? {
         if !registry
             .classes
             .values()
             .any(|entry| entry.registration.environment.id == retained.environment.id)
+            && !replacements.contains(&retained.environment.id)
         {
             continue;
         }
@@ -757,6 +761,7 @@ fn managed_environment_bindings(
     for binding in &mut bindings {
         // Catalogue runner templates are not installed environment ownership.
         if registry.classes.values().any(|entry|entry.registration.environment.id == binding.environment.id)
+            || replacements.contains(&binding.environment.id)
             || linux_vst_bridge::frg1::adopted_environment_record(m)?.as_ref()
                 .is_some_and(|adopted|adopted.environment.id == binding.environment.id) {
             binding.environment=environment_install::current_environment(m,&binding.environment)?;
@@ -797,7 +802,11 @@ fn managed_rescan_binding_with(m: &Manager, bindings: &[catalogue::EnvironmentBi
         .values()
         .filter(|entry| entry.registration.environment.id == environment)
         .collect();
-    if owners.is_empty() {
+    // Installer ownership does not change when its first plug-in is published.
+    // Projection observes custody; only execution requires proven retirement.
+    let replacement=environment_install::latest(m,environment)?;
+    let original=onboarding::retained_environment_record(m,environment)?;
+    if owners.is_empty() && replacement.is_none() {
         let adopted = if execution { linux_vst_bridge::frg1::adopted_environment(m)? }
             else { linux_vst_bridge::frg1::adopted_environment_record(m)? };
         if let Some(binding)=adopted {
@@ -808,21 +817,43 @@ fn managed_rescan_binding_with(m: &Manager, bindings: &[catalogue::EnvironmentBi
         }
         return Ok(None);
     }
-    let env = environment_install::current_environment(m,bound)?;
+    let env=environment_install::current_environment(m,bound)?;
     for entry in &owners {
         require(environment_install::resolves_to(m,&entry.registration.environment,&env)?,
             "operator_managed_environment_mismatch")?;
     }
-    let retained = onboarding::retained_environment_record(m, environment)?;
-    if let Some(retained) = retained {
+    if let Some(replacement)=replacement {
+        require(environment_install::resolves_to(m,&replacement.environment,&env)?,
+            "operator_managed_environment_mismatch")?;
+        if execution {
+            if let Some(original)=&original {
+                require(original.installation_operation.is_none()
+                    || onboarding::retired(&onboarding::result(m,original)?),
+                    "installer_initial_retirement_required")?;
+            }
+            require(onboarding::retired(&environment_install::result(m,&replacement)?),
+                "installer_retirement_required")?;
+            for operation in original.as_ref().and_then(|record|record.installation_operation.as_ref())
+                .into_iter().chain(std::iter::once(&replacement.operation)) {
+                require(!onboarding::live(operation)?,"operator_installer_active")?;
+            }
+            env.runner.verify()?;
+        }
+        return Ok(Some(env));
+    }
+    if let Some(retained) = original {
         require(
             retained.environment == env,
             "operator_onboarding_environment_mismatch",
         )?;
-        require(
-            onboarding::retired(&onboarding::result(m, &retained)?),
-            "installer_retirement_required",
-        )?;
+        if execution {
+            require(retained.installation_operation.is_none()
+                || onboarding::retired(&onboarding::result(m,&retained)?),
+                "installer_retirement_required")?;
+            if let Some(operation)=retained.installation_operation {
+                require(!onboarding::live(&operation)?,"operator_installer_active")?;
+            }
+        }
     }
     if execution {env.runner.verify()?;}
     Ok(Some(env))
@@ -1453,7 +1484,7 @@ fn snapshot_readonly_depth(
     let active_sessions=if deep { session_projection(cap.as_ref(),capacity::terminal_summaries(m)?) }
         else { vec![] };
     let runtime_reason=linux_vst_bridge::runtime_delivery::installation_disabled_reason(m)?;
-    let operation=automatic_install::project_current_operation(live.operation,&installer_setups,&records)?;
+    let operation=automatic_install::project_current_operation(m,live.operation,&installer_setups,&records)?;
     Ok(ui::Snapshot {
         managed_runtime_records:linux_vst_bridge::runtime_delivery::readback_records(m)?,
         onboarding,
@@ -2467,11 +2498,34 @@ fn execute_with_receipt_policy_progress(
                     "state":"vendor_running","action":a}),false)?;
                 while onboarding::live(owner)? {std::thread::sleep(Duration::from_millis(500));}
             }
+            if let Err(error)=launched {
+                // A refusal before spec/unit submission can be retired by the
+                // existing owner. Unknown submission still remains uncertain,
+                // but must not hide the useful reason that stopped this launch.
+                let retirement=environment_install::finish(m,owner)
+                    .and_then(|_|environment_install::result(m,&r));
+                if retirement.as_ref().is_ok_and(onboarding::retired) {
+                    if resume_owned(m,owner).is_err() {
+                        return Err(format!("{error} The bridge could not restart. Send Setup details before retrying.").into());
+                    }
+                    return Err(error);
+                }
+                return Err(format!("{error} Closing this attempt is still unconfirmed. Send Setup details before retrying.").into());
+            }
             let value = environment_install::result(m,&r)?;
             require(onboarding::retired(&value),"installer_cleanup_unconfirmed")?;
+            if r.automatic_request.is_some() && value["state"]=="completed" && value["raw_exit"]==0 {
+                // Retain continuation before bridge restoration or overview can
+                // fail. A later finish can reconstruct this same owned record.
+                environment_refresh::initialize_replacement(m,owner)?;
+            }
             resume_owned(m,owner)?;
-            launched?;
-            Ok(value)
+            drop(_environment);
+            if r.automatic_request.is_some() && value["state"]=="completed" && value["raw_exit"]==0 {
+                // The same accepted replacement owns a fresh normal connection
+                // checkpoint. Its executor discovers once; no old scan is reused.
+                environment_refresh::execute(m,a,owner,capacity_read,timeout,waits)
+            } else {Ok(value)}
         }
         ui::Action::EnvironmentInstallerFocus {operation} => environment_install::focus(m,operation),
         ui::Action::EnvironmentInstallerStop {operation} => {
@@ -2687,8 +2741,9 @@ fn execute_with_receipt_policy_progress(
                 return open_vendor_owned(m,application,owner,owner,timeout,waits,||Ok(()));
             }
             let record=onboarding::retained_environment_record(m,&app.environment.id)?;
+            let current=record.as_ref().map(|record|automatic_install::record_intent(m,record)).transpose()?.flatten();
             let daw=automatic_install::vendor_intent(m,application)?.map(|i|i.journey.daw)
-                .or_else(||record.and_then(|r|r.automatic).map(|i|i.journey.daw)).unwrap_or(ui::DawChoice::Other);
+                .or_else(||current.map(|i|i.journey.daw)).unwrap_or(ui::DawChoice::Other);
             drop(projection.take());
             automatic_install::execute(m,&ui::Action::VendorSoftwareInstall{application:application.clone(),daw},
                 operation.ok_or("operator_operation_identity")?,capacity_read,timeout,waits)
@@ -3202,7 +3257,7 @@ fn stop_vendor_with(
         } => selected == application,
         ui::Action::SoftwareInstallResume { ref onboarding } => {
             onboarding::retained_environment_record(m, onboarding)?
-                .and_then(|r| r.automatic)
+                .map(|record|automatic_install::record_intent(m,&record)).transpose()?.flatten()
                 .and_then(|i| i.vendor)
                 .is_some_and(|v| v.application == application)
         }

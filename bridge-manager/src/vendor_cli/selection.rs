@@ -121,11 +121,19 @@ fn relative_image(value: &str) -> Result<PathBuf> {
 }
 
 pub(crate) fn choices(m: &Manager, record: &onboarding::Record) -> Result<Vec<Choice>> {
-    let Some(operation) = &record.installation_operation else { return Ok(vec![]) };
-    let result = onboarding::result(m, record)?;
+    let (operation,installer,receipt,result)=if let Some(replacement)=operator_cli::environment_install::latest(m,&record.id)? {
+        let receipt=Artifact {path:operator_cli::job_dir(m,&replacement.operation)?.join("installation-result.json"),
+            sha256:digest(&operator_cli::job_dir(m,&replacement.operation)?.join("installation-result.json"))?};
+        let result=operator_cli::environment_install::result(m,&replacement)?;
+        (replacement.operation,replacement.installer,receipt,result)
+    } else {
+        let Some(operation)=&record.installation_operation else {return Ok(vec![])};
+        let path=onboarding::directory(m,&record.id)?.join(format!("{operation}-result.json"));
+        (operation.clone(),record.installer.clone(),Artifact {sha256:digest(&path)?,path},onboarding::result(m,record)?)
+    };
     if result["state"] != "completed" || result["raw_exit"] != 0
         || !onboarding::retired(&result) { return Ok(vec![]); }
-    let directory = onboarding::directory(m, &record.id)?;
+    let directory = receipt.path.parent().ok_or("vendor_application_installation_binding")?;
     let path = directory.join(format!("{operation}-transaction-private.json"));
     if !path.exists() { return Ok(vec![]); }
     require(file(&path)?.metadata()?.len() <= 16 * 1024 * 1024,
@@ -201,9 +209,7 @@ pub(crate) fn choices(m: &Manager, record: &onboarding::Record) -> Result<Vec<Ch
                 application:Application { schema:2, id:ApplicationId::Selected,
                     environment:record.environment.clone(), executable:selected.clone(),
                     helpers:artifacts.iter().filter(|(a, _)|a != selected).map(|(a, _)|a.clone()).collect(),
-                    installer_sha256:Some(record.installer.clone()),
-                    installer_result:Some(Artifact { path:directory.join(format!("{operation}-result.json")),
-                        sha256:digest(&directory.join(format!("{operation}-result.json")))? }),
+                    installer_sha256:Some(installer.clone()),installer_result:Some(receipt.clone()),
                     observed_installer_version:observed["DisplayVersion"].as_str().unwrap_or("").into(),
                     user_selection:None } });
         }

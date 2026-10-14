@@ -542,6 +542,8 @@ pub fn live(op: &str) -> Result<bool> {
 pub fn reserve(m: &Manager, id: &str, op: &str) -> Result<Record> {
     let _lock = m.lock("onboarding.lock")?;
     let mut r = load(m, id)?;
+    require(operator_cli::environment_install::latest(m,id)?.is_none(),
+        "Another installer was chosen for this setup. Continue from its current Setup card.")?;
     require(
         r.installation_operation.is_none(),
         "installer_initial_transaction_already_used",
@@ -557,6 +559,8 @@ pub fn reserve(m: &Manager, id: &str, op: &str) -> Result<Record> {
     Ok(r)
 }
 pub fn launch(m: &Manager, r: &Record, policy: Option<linux_vst_bridge::installer_policy::Powershell>) -> Result<()> {
+    require(operator_cli::environment_install::latest(m,&r.id)?.is_none(),
+        "Another installer was chosen for this setup. Continue from its current Setup card.")?;
     let op = r
         .installation_operation
         .as_deref()
@@ -930,7 +934,7 @@ fn setup_primary(actions: &[ui::AvailableAction], next: SetupNext) -> Option<ui:
     }).cloned().map(|mut offer| {
         match offer.action {
             ui::Action::InstallerScan { .. } => offer.label = "Find installed plug-ins".into(),
-            ui::Action::InstallerNewAttempt { .. } => offer.label = "Retry installation".into(),
+            ui::Action::InstallerNewAttempt { .. } => offer.label = "Retry".into(),
             _ => {},
         }
         offer
@@ -1001,7 +1005,7 @@ pub(super) fn setup_projection_current(m: &Manager, rows: &[ui::Onboarding],
             .filter(|a| matches!(a.action, ui::Action::InstallerStop { .. } | ui::Action::InstallerNewAttempt { .. }))
             .cloned().map(|mut offer| {
                 if matches!(offer.action, ui::Action::InstallerNewAttempt { .. }) {
-                    offer.label = "Retry installation".into();
+                    offer.label = "Retry".into();
                 }
                 offer
             }).collect();
@@ -1133,7 +1137,7 @@ mod tests {
             let primary = setup_primary(&row.actions, choice).unwrap();
             assert_eq!(primary.action, if choice == SetupNext::Scan { scan.action.clone() } else { retry.action.clone() });
             if choice == SetupNext::Scan { assert_eq!(primary.label, "Find installed plug-ins"); }
-            else { assert_eq!(primary.label, "Retry installation"); }
+            else { assert_eq!(primary.label, "Retry"); }
             row.actions.clear();
             assert!(setup_primary(&row.actions, choice).is_none(), "no invented {state} action");
         }
@@ -1569,7 +1573,7 @@ mod tests {
                 .collect();
             assert_eq!(retries.len(), usize::from(allowed), "Setup retry: {durable}/{outcome}");
             if allowed {
-                assert_eq!(retries[0].label, "Retry installation");
+                assert_eq!(retries[0].label, "Retry");
                 assert_eq!(retries[0].action, offered[0].action);
             }
             let prepared = PreparedCreation { installer:i.clone(), runner,

@@ -4896,7 +4896,11 @@ print('LVO0 '+j['session']+' ready',flush=True)
         }));
         let transition = CoordinatedTransition {schema:2,id:random_id().unwrap(),
             kind:TransitionKind::Update,recovery_before:first,setup,receipt,resume_handoff:None};
-        assert!(run_coordinated(&f.base.m,&f.home,&f.service,transition,false).is_err());
+        // This synthetic retired operation has no real user systemd service.
+        // Model its exact unit, rather than depending on the test host's bus.
+        assert!(readiness::with_unit_state_fixture(
+            &["linux-vst-bridge-vendor-arturia-software-center.service".into()],"inactive",
+            ||run_coordinated(&f.base.m,&f.home,&f.service,transition,false)).is_err());
         assert!(f.current() == next);
         assert_eq!(f.service.stops.get(),0);
         assert_eq!(read_json::<serde_json::Value>(&reservation).unwrap()["owner_operation"],"ef".repeat(16));

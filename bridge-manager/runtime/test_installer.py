@@ -24,6 +24,25 @@ class Scope:
             except ProcessLookupError:pass
 
 class InstallerTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform.startswith('linux'),'Linux supervisor subreaper')
+    def test_preserved_missing_prefix_refuses_initialization_and_retires_empty_owner(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);(root/'operation.lock').touch();artifact=root/'installer';artifact.write_bytes(b'fixture')
+            spec={'schema':2,'operation':'ab'*16,'environment':{'root':str(root),'runner':{'entry_point':'fixed','proton':'fixed','files':[]}},
+                'installer':{'path':str(artifact),'sha256':session.hashlib.sha256(b'fixture').hexdigest()},
+                'format':'pe_executable','report':str(root/'result.json'),'preserve_existing_prefix':True}
+            old=[signal.getsignal(s) for s in (signal.SIGTERM,signal.SIGINT)]
+            try:
+                with patch.object(session,'CompanionCgroup',return_value=Scope()),patch.object(session.subprocess,'Popen') as launch:
+                    self.assertFalse(session.install(spec));launch.assert_not_called()
+                value=json.loads((root/'result.json').read_text())
+                self.assertEqual(value['state'],'failed');self.assertTrue(value['cleanup_confirmed'])
+                self.assertEqual(value['startup']['first_problem']['code'],'installation_folder_missing')
+                self.assertIn('Reconnect its drive or restore the folder',value['error'])
+                self.assertFalse((root/'compatdata/pfx').exists())
+            finally:
+                for sig,handler in zip((signal.SIGTERM,signal.SIGINT),old):signal.signal(sig,handler)
+                session.ctypes.CDLL(None).prctl(36,0,0,0,0)
     def test_launcher_exit_between_poll_and_reap_preserves_nonzero_status(self):
         class Child:
             pid=42
@@ -45,11 +64,13 @@ class InstallerTests(unittest.TestCase):
     def test_actual_installer_loop_waits_for_descendants_and_separates_failure(self):
         for code in [0,23]:
             with self.subTest(code=code),tempfile.TemporaryDirectory() as tmp:
-                root=pathlib.Path(tmp);(root/'operation.lock').touch();(root/'home').mkdir();(root/'compatdata/pfx').mkdir(parents=True);(root/'compatdata/pfx/system.reg').touch();artifact=root/'installer';artifact.write_bytes(b'fixture')
+                root=pathlib.Path(tmp);(root/'operation.lock').touch();(root/'home').mkdir();artifact=root/'installer';artifact.write_bytes(b'fixture')
                 a={'path':str(artifact),'sha256':session.hashlib.sha256(b'fixture').hexdigest()}
                 spec={'schema':2,'operation':'ab'*16,'environment':{'root':str(root),'runner':{'entry_point':'fixed-runner','proton':'fixed-proton','files':[]}},'installer':a,'format':'pe_executable','report':str(root/'result.json')}
                 real_popen=subprocess.Popen;children=[]
                 def launch_owned(args,**kwargs):
+                    if len(children)==0:
+                        (root/'compatdata/pfx').mkdir(parents=True);(root/'compatdata/pfx/system.reg').touch()
                     program='print("prefix ready")' if len(children)==0 else f'import os,time;pid=os.fork();time.sleep(.2 if pid else .4);print("private installer payload");raise SystemExit({code} if pid else 0)'
                     child=real_popen([sys.executable,'-c',program],stdout=subprocess.PIPE,stderr=subprocess.PIPE);children.append(child);return child
                 scope=Scope();old=[signal.getsignal(s) for s in (signal.SIGTERM,signal.SIGINT)]

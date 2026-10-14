@@ -75,6 +75,8 @@ pub fn vendor_install_consequence(snapshot: &Snapshot, action: &Action) -> Optio
 /// Presentation only: the original offered action and refusal remain authoritative.
 pub fn action_label(offer: &AvailableAction) -> String {
     match &offer.action {
+        Action::SoftwareInstall { .. } | Action::SoftwareInstallResume { .. }
+            if offer.label == "Retry" => "Retry".into(),
         Action::SoftwareInstall { .. } => "Install and connect to your DAW".into(),
         Action::SoftwareInstallResume { .. } => "Continue installation and DAW connection".into(),
         Action::RuntimeInstall {} => offer.label.strip_prefix("Install compatibility runtime")

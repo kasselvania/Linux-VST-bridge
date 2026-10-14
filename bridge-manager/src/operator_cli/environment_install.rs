@@ -3,6 +3,55 @@
 use super::*;
 
 use linux_vst_bridge::environment_revision::InstallerBinding as Binding;
+const MISSING_INSTALLATION: &str = "The installation folder for this software can't be found. Reconnect its drive or restore the folder, then try again.";
+
+fn initialized_prefix(environment: &Environment) -> bool {
+    environment.root.join("compatdata/pfx").is_dir()
+        && environment.root.join("compatdata/pfx/system.reg").is_file()
+}
+fn initialized_receipt(value: &Value) -> bool {
+    value["startup"]["stages"].as_array().is_some_and(|stages| stages.iter()
+        .any(|row| row["stage"] == "prefix_initialization_exit" && row["exit"] == 0))
+}
+fn prefix_preservation_required(m: &Manager, environment: &Environment) -> Result<bool> {
+    if !environment.root.is_dir() {return Ok(true);}
+    if initialized_prefix(environment) || m.registry()?.classes.values()
+        .any(|entry| entry.registration.environment.id == environment.id) {return Ok(true);}
+    for record in onboarding::history_records(m)?.into_iter()
+        .filter(|r| r.environment.id == environment.id) {
+        if record.installation_operation.is_some() {
+            // Old MF2 producers did not record startup stages. Their absence
+            // cannot establish that a retained installation is uninitialized.
+            return Ok(true);
+        }
+    }
+    for record in records(m)?.into_iter().filter(|r| r.environment.id == environment.id) {
+        if record.preserve_existing_prefix == Some(true) || initialized_receipt(&result(m,&record)?) {
+            return Ok(true);
+        }
+    }
+    for selector in vendor_cli::selectors(m)? {
+        let app:vendor_application::Application=read_json(
+            &vendor_cli::directory(m,&selector)?.join("application.json"))?;
+        if app.environment.id == environment.id {return Ok(true);}
+    }
+    Ok(false)
+}
+fn require_preserved_prefix(m: &Manager, environment: &Environment, bound: Option<bool>) -> Result<bool> {
+    // Omitted legacy fields use retained setup facts; absence is never evidence
+    // that an installation was new. Reservation preserves a current observation
+    // through the later worker launch without reading any vendor account data.
+    let required=bound == Some(true) || prefix_preservation_required(m,environment)?;
+    require(!required || initialized_prefix(environment),MISSING_INSTALLATION)?;
+    Ok(required)
+}
+pub(crate) fn latest(m: &Manager, environment: &str) -> Result<Option<Binding>> {
+    let history=records(m)?;
+    let selected=history.into_iter().filter(|record|record.environment.id==environment)
+        .max_by_key(|record|record.environment.revision);
+    if let Some(record)=&selected {current_environment(m,&record.environment)?;}
+    Ok(selected)
+}
 pub(crate) fn resolves_to(m: &Manager, before: &Environment, after: &Environment) -> Result<bool> {
     linux_vst_bridge::environment_revision::resolves_to(m, before, after)
 }
@@ -15,7 +64,7 @@ pub(super) fn load(m: &Manager, operation: &str) -> Result<Binding> {
 pub(super) fn records(m: &Manager) -> Result<Vec<Binding>> {
     linux_vst_bridge::environment_revision::installer_records(m)
 }
-pub(super) fn result(m: &Manager, r: &Binding) -> Result<Value> {
+pub(crate) fn result(m: &Manager, r: &Binding) -> Result<Value> {
     let v = optional(&job_dir(m,&r.operation)?.join("installation-result.json"))?;
     require(v["schema"] == 2 && v["operation"] == r.operation,
         "installer_result_identity")?;
@@ -48,8 +97,8 @@ fn target_with_application(m: &Manager, environment: &str,
     verified:impl FnOnce(&Manager,&str)->Result<Option<Environment>>) -> Result<Environment> {
     let db = m.registry()?;
     if let Some(r) = onboarding::retained_environment_record(m,environment)? {
-        require(r.installation_operation.is_some()
-            && onboarding::retired(&onboarding::result(m,&r)?),
+        require(r.installation_operation.is_none()
+            || onboarding::retired(&onboarding::result(m,&r)?),
             "installer_initial_retirement_required")?;
         let current=current_environment(m,&r.environment)?;
         for entry in db.classes.values().filter(|e|e.registration.environment.id == environment) {
@@ -75,23 +124,39 @@ fn target_with_application(m: &Manager, environment: &str,
 
 pub(super) fn reserve(m: &Manager, environment: &str, installer: &str,
     operation: &str) -> Result<Binding> {
-    reserve_with(m,environment,installer,operation,||vendor_retired(m))
+    reserve_with(m,environment,installer,operation,||vendor_retired(m),onboarding::live)
 }
 fn reserve_with(m: &Manager, environment: &str, installer: &str,
-    operation: &str, vendor_retirement: impl FnOnce()->Result<bool>) -> Result<Binding> {
+    operation: &str, vendor_retirement: impl FnOnce()->Result<bool>,
+    mut is_live: impl FnMut(&str)->Result<bool>) -> Result<Binding> {
+    require(valid_product_environment(environment),"installer_environment_identity")?;
+    // A disconnected setup must retain its identity. Check this before any
+    // historical readback can replace the useful refusal with a missing-file IO
+    // error; the normal ownership owners still perform all positive admission.
+    require(m.root.join("environments").join(environment).is_dir(),MISSING_INSTALLATION)?;
     let _ownership = m.lock("onboarding.lock")?;
     let _registry = m.lock("registry.lock")?;
     m.require_inactive(None)?;
     require(onboarding::all_retired(m)? && vendor_retirement()?, "operator_installer_active")?;
+    // A final receipt may precede the supervisor unit's exit. Both its owned
+    // resources and its exact process owner must retire before another launch.
+    for owner in onboarding::history_records(m)?.into_iter()
+        .filter_map(|r|r.installation_operation)
+        .chain(records(m)?.into_iter().map(|r|r.operation)) {
+        require(!is_live(&owner)?, "operator_installer_active")?;
+    }
     environment_runtime::require_settled(m,environment)?;
     let before = target(m,environment)?;
+    let preserve_existing_prefix = require_preserved_prefix(m,&before,None)?;
+    let automatic_request = environment_refresh::capture_request(m,&before)?;
     before.runner.verify()?;
     installer_import::load(m,installer)?;
     let mut after = before.clone();
     after.revision = after.revision.checked_add(1).ok_or("environment_revision_exhausted")?;
     let r = Binding {schema:1,operation:operation.into(),installer:installer.into(),
         before,environment:after,created_at:std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?.as_micros().try_into()?};
+            .duration_since(std::time::UNIX_EPOCH)?.as_micros().try_into()?,
+        preserve_existing_prefix:Some(preserve_existing_prefix),automatic_request};
     let dir = job_dir(m,operation)?;
     require(!dir.join("installation.json").try_exists()?, "installer_transaction_already_used")?;
     atomic_json(&dir.join("installation-result.json"),
@@ -105,6 +170,7 @@ fn reserve_with(m: &Manager, environment: &str, installer: &str,
 }
 
 pub(super) fn launch(m: &Manager, r: &Binding) -> Result<()> {
+    let preserve_existing_prefix = require_preserved_prefix(m,&r.environment,r.preserve_existing_prefix)?;
     require(target(m,&r.environment.id)? == r.environment,
         "installer_environment_binding_changed")?;
     let sw = software(m)?;
@@ -114,7 +180,8 @@ pub(super) fn launch(m: &Manager, r: &Binding) -> Result<()> {
     let spec = dir.join("installer-spec.json");
     atomic_json(&spec,&json!({"schema":2,"operation":r.operation,
         "environment":r.environment,"installer":installer.artifact,"format":installer.format,
-        "installer_launch":sw.installer_launch,"report":report}))?;
+        "installer_launch":sw.installer_launch,"report":report,
+        "preserve_existing_prefix":preserve_existing_prefix}))?;
     onboarding::launch_spec(m,&r.operation,&spec,&report)
 }
 
@@ -183,8 +250,9 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
     let mut targets = std::collections::BTreeMap::new();
     let mut setup_names=std::collections::BTreeMap::new();
     for r in onboarding::history_records(m)? {
-        if r.installation_operation.is_some()
-            && onboarding::retired(&onboarding::result(m,&r)?) {
+        if r.installation_operation.is_none()
+            || (onboarding::retired(&onboarding::result(m,&r)?)
+                && !is_live(r.installation_operation.as_ref().unwrap())?) {
             if let Some(installer)=installers.iter().find(|i|i.id==r.installer) {
                 setup_names.insert(r.environment.id.clone(),installer_import::presentation(m,installer)?.display_label);
             }
@@ -206,8 +274,10 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
         // Recovery follows unresolved custody, never wall-clock ordering.
         let mut unresolved=history.iter().filter(|r|r.environment.id == id)
             .filter_map(|r|match result(m,r) {
-                Ok(value) if !onboarding::retired(&value)=>Some(Ok(r)),
-                Ok(_)=>None,Err(error)=>Some(Err(error)),
+                Ok(value)=>match is_live(&r.operation) {
+                    Ok(live) if live || !onboarding::retired(&value)=>Some(Ok(r)),
+                    Ok(_)=>None,Err(error)=>Some(Err(error)),
+                },Err(error)=>Some(Err(error)),
             });
         let active=unresolved.next().transpose()?;
         require(unresolved.next().is_none(),"installer_environment_ownership_conflict")?;
@@ -223,7 +293,7 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
             Some("Finish the interrupted runtime change before running another installer in this setup.".into())
         } else {new_work_reason.map(str::to_owned)};
         if let Some(r) = last {
-            if !onboarding::retired(&result) {
+            if active.is_some() {
                 reason = Some("Finish or stop this installer; its cleanup must be confirmed".into());
                 if is_live(&r.operation)? {
                     actions.push(action("Focus installer",ui::Action::EnvironmentInstallerFocus {
@@ -232,9 +302,9 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
                         operation:r.operation.clone()},None));
                 }
             }
-            if onboarding::retired(&result) && result["state"] != "completed" {
+            if active.is_none() && onboarding::retired(&result) && result["state"] != "completed" {
                 let unavailable=installer_import::load_record(m,&r.installer).err();
-                actions.push(action("Retry this installer in the same setup",ui::Action::EnvironmentInstallerStart {
+                actions.push(action("Retry",ui::Action::EnvironmentInstallerStart {
                     environment:id.clone(),installer:r.installer.clone()},reason.as_deref().or(unavailable.as_ref()
                     .map(|_|"Imported installer file is unavailable. Import the original file again."))));
             }
@@ -310,6 +380,7 @@ mod tests {
                 sha256:f.r.host_source_sha256.clone()},source_sha256:f.r.host_source_sha256.clone(),
             operator_frontend:None,native_catalogue:None,preparation_kit:None,installer_launch:None};
         atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
+        fs::write(f.r.environment.root.join("compatdata/pfx/system.reg"),b"first-party registry fixture").unwrap();
         (f,installer)
     }
     fn job(m:&Manager,environment:&str,installer:&str)->String {
@@ -323,6 +394,164 @@ mod tests {
             &json!({"schema":2,"operation":r.operation,"state":state,
                 "cleanup_confirmed":true,"owned_live":0})).unwrap();
     }
+    fn wrong_installer_setup(f: &test_fixture::Fixture, installer: &installer_import::Installer,
+        state: Option<&str>) -> onboarding::Record {
+        let mut environment = f.r.environment.clone();
+        environment.id = "cd".repeat(16);
+        environment.root = f.m.root.join("environments").join(&environment.id);
+        private_dir(&environment.root).unwrap();
+        atomic_json(&environment.root.join("environment.json"), &environment).unwrap();
+        if state.is_some() {
+            private_dir(&environment.root.join("compatdata/pfx")).unwrap();
+            fs::write(environment.root.join("compatdata/pfx/system.reg"),b"first-party registry fixture").unwrap();
+        }
+        let record = onboarding::Record {schema:1,id:environment.id.clone(),environment,
+            installer:installer.id.clone(),created_at:1,creation_operation:"12".repeat(16),
+            installation_operation:state.map(|_|"ab".repeat(16)),published:false,
+            automatic:None,previous_attempt:None};
+        let dir = onboarding::directory(&f.m,&record.id).unwrap();
+        private_dir(&dir).unwrap();
+        atomic_json(&dir.join("record.json"),&record).unwrap();
+        if let Some(state) = state {
+            let op = record.installation_operation.as_ref().unwrap();
+            atomic_json(&dir.join(format!("{op}-result.json")),&json!({"schema":2,
+                "operation":op,"state":state,"cleanup_confirmed":true,"owned_live":0,
+                "startup":{"stages":[{"stage":"prefix_initialization_exit","exit":0}]}})).unwrap();
+        }
+        record
+    }
+    fn different_installer(f: &test_fixture::Fixture, installer: &installer_import::Installer)
+        -> installer_import::Installer {
+        let mut bytes = fs::read(&installer.artifact.path).unwrap();
+        bytes[900] = 42;
+        // Deliberately the same basename: only content distinguishes this file.
+        let path = f.outer.join("other").join("companion.exe");
+        private_dir(path.parent().unwrap()).unwrap();
+        fs::write(&path,bytes).unwrap();
+        installer_import::import(&f.m,file(&path).unwrap()).unwrap()
+    }
+    #[test]
+    fn wrong_installer_replacement_preserves_setup_before_launch_after_cancel_and_empty_discovery() {
+        for state in [None,Some("cancelled"),Some("completed")] {
+            let (f,wrong) = fixture();
+            let initial = wrong_installer_setup(&f,&wrong,state);
+            let right = different_installer(&f,&wrong);
+            assert_ne!(right.id,wrong.id);
+            let dir = onboarding::directory(&f.m,&initial.id).unwrap();
+            let history = fs::read(dir.join("record.json")).unwrap();
+            let vendor_state = initial.environment.root.join("fixture-state");
+            fs::write(&vendor_state,b"first-party retained state").unwrap();
+            let unrelated = fs::read(f.r.environment.root.join("environment.json")).unwrap();
+            let registry = fs::read(f.m.root.join("registry.json")).unwrap();
+            if state == Some("completed") {
+                private_dir(&f.m.root.join("inventory")).unwrap();
+                let scan = inventory::Scan {schema:1,id:random_id().unwrap(),
+                    environment:initial.environment.clone(),host:f.r.host.clone(),
+                    host_source_sha256:f.r.host_source_sha256.clone(),completed_at:1,
+                    modules:vec![],changes:Default::default()};
+                atomic_json(&f.m.root.join("inventory").join(format!("{}.json",initial.id)),&scan).unwrap();
+            }
+            let rows = projection(&f.m,&[],None,|_|Ok(false)).unwrap();
+            let target = rows.iter().find(|r|r.environment == initial.id).unwrap();
+            let choice = target.choices.iter().find(|a|matches!(&a.action,
+                ui::Action::EnvironmentInstallerStart {environment,installer}
+                    if environment == &initial.id && installer == &right.id)).unwrap();
+            assert!(choice.disabled_reason.is_none());
+            let op = job(&f.m,&initial.id,&right.id);
+            let r = reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),|_|Ok(false)).unwrap();
+            assert_eq!(r.installer,right.id);
+            assert_eq!(r.before,initial.environment);
+            assert_eq!(r.environment.id,initial.id);
+            assert_eq!(r.environment.root,initial.environment.root);
+            assert_eq!(r.environment.runner,initial.environment.runner);
+            assert_eq!(r.environment.revision,initial.environment.revision+1);
+            assert_eq!(fs::read(dir.join("record.json")).unwrap(),history);
+            assert_eq!(fs::read(vendor_state).unwrap(),b"first-party retained state");
+            assert_eq!(fs::read(f.r.environment.root.join("environment.json")).unwrap(),unrelated);
+            assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(),registry);
+        }
+    }
+    #[test]
+    fn wrong_installer_replacement_requires_receipt_and_process_retirement() {
+        let (f,wrong) = fixture();
+        let initial = wrong_installer_setup(&f,&wrong,Some("cancelled"));
+        let right = different_installer(&f,&wrong);
+        let op = job(&f.m,&initial.id,&right.id);
+        drop(f.m.lock("onboarding.lock").unwrap());
+        let before = test_fixture::snapshot(&f.m.root);
+        let owner = initial.installation_operation.as_ref().unwrap();
+        assert_eq!(reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),
+            |id|Ok(id == owner)).unwrap_err().to_string(),"operator_installer_active");
+        assert_eq!(test_fixture::snapshot(&f.m.root),before);
+        let receipt = onboarding::directory(&f.m,&initial.id).unwrap().join(format!("{owner}-result.json"));
+        let mut unresolved: Value = read_json(&receipt).unwrap();
+        unresolved["cleanup_confirmed"] = false.into();
+        unresolved["owned_live"] = Value::Null;
+        atomic_json(&receipt,&unresolved).unwrap();
+        assert!(projection(&f.m,&[],None,|_|Ok(false)).unwrap().iter()
+            .all(|target| target.environment != initial.id));
+        assert_eq!(reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),|_|Ok(false))
+            .unwrap_err().to_string(),"operator_installer_active");
+        // A stopped replacement with a live owner is also excluded; Retry must
+        // keep that replacement's bytes after its owner actually retires.
+        unresolved["cleanup_confirmed"] = true.into();unresolved["owned_live"] = 0.into();
+        atomic_json(&receipt,&unresolved).unwrap();
+        let r = reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),|_|Ok(false)).unwrap();
+        complete(&f.m,&r,"cancelled");
+        let second = job(&f.m,&initial.id,&wrong.id);
+        let rows = projection(&f.m,&[],None,|id|Ok(id == op)).unwrap();
+        let target = rows.iter().find(|t|t.environment == initial.id).unwrap();
+        assert!(target.choices.iter().all(|a|a.disabled_reason.is_some()));
+        assert!(target.actions.iter().any(|a|matches!(a.action,ui::Action::EnvironmentInstallerStop {..})));
+        assert_eq!(reserve_with(&f.m,&initial.id,&wrong.id,&second,||Ok(true),|id|Ok(id == op))
+            .unwrap_err().to_string(),"operator_installer_active");
+        let rows = projection(&f.m,&[],None,|_|Ok(false)).unwrap();
+        let retry = rows.iter().find(|t|t.environment == initial.id).unwrap().actions.iter()
+            .find(|a|a.label == "Retry").unwrap();
+        assert_eq!(retry.action,ui::Action::EnvironmentInstallerStart {
+            environment:initial.id,installer:right.id});
+    }
+    #[test]
+    fn replacement_refuses_missing_initialized_state_and_reads_legacy_binding() {
+        for missing_root in [false,true] {
+            let (f,wrong)=fixture();let initial=wrong_installer_setup(&f,&wrong,Some("cancelled"));
+            let right=different_installer(&f,&wrong);let op=job(&f.m,&initial.id,&right.id);
+            let binding=reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),|_|Ok(false)).unwrap();
+            assert_eq!(binding.preserve_existing_prefix,Some(true));
+            // Test69 records omit the new field. Existing successful prefix
+            // initialization in their retained receipt still requires preservation.
+            let mut old=serde_json::to_value(&binding).unwrap();old.as_object_mut().unwrap().remove("preserve_existing_prefix");
+            let legacy:Binding=serde_json::from_value(old).unwrap();
+            assert_eq!(legacy.preserve_existing_prefix,None);
+            let missing=if missing_root {initial.environment.root.clone()}
+                else {initial.environment.root.join("compatdata/pfx")};
+            fs::remove_dir_all(missing).unwrap();
+            for record in [&binding,&legacy] {
+                assert_eq!(launch(&f.m,record).unwrap_err().to_string(),MISSING_INSTALLATION);
+                assert!(!job_dir(&f.m,&op).unwrap().join("installer-spec.json").exists());
+            }
+        }
+        let (f,wrong)=fixture();let initial=wrong_installer_setup(&f,&wrong,Some("completed"));
+        fs::remove_dir_all(initial.environment.root.join("compatdata/pfx")).unwrap();
+        let right=different_installer(&f,&wrong);let op=job(&f.m,&initial.id,&right.id);
+        let before=fs::read(initial.environment.root.join("environment.json")).unwrap();
+        assert_eq!(reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),|_|Ok(false))
+            .unwrap_err().to_string(),MISSING_INSTALLATION);
+        assert_eq!(fs::read(initial.environment.root.join("environment.json")).unwrap(),before);
+        assert!(!job_dir(&f.m,&op).unwrap().join("installation.json").exists());
+        let (f,wrong)=fixture();let initial=wrong_installer_setup(&f,&wrong,Some("completed"));
+        fs::remove_dir_all(&initial.environment.root).unwrap();
+        let right=different_installer(&f,&wrong);let op=job(&f.m,&initial.id,&right.id);
+        let history=fs::read(onboarding::directory(&f.m,&initial.id).unwrap().join("record.json")).unwrap();
+        assert_eq!(reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),|_|Ok(false))
+            .unwrap_err().to_string(),MISSING_INSTALLATION);
+        assert!(!initial.environment.root.exists());assert!(!job_dir(&f.m,&op).unwrap().join("installation.json").exists());
+        assert_eq!(fs::read(onboarding::directory(&f.m,&initial.id).unwrap().join("record.json")).unwrap(),history);
+        let (f,wrong)=fixture();let initial=wrong_installer_setup(&f,&wrong,None);
+        let right=different_installer(&f,&wrong);let op=job(&f.m,&initial.id,&right.id);
+        let binding=reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),|_|Ok(false)).unwrap();
+        assert_eq!(binding.preserve_existing_prefix,Some(false));
+    }
     #[test]
     fn registered_companion_preserves_identity_and_invalidates_all_siblings() {
         let (f,installer)=fixture();let env=&f.r.environment;
@@ -330,7 +559,7 @@ mod tests {
         sibling.metadata.name="Sibling".into();f.m.register(sibling.clone()).unwrap();
         let original=fs::read(f.m.root.join("registry.json")).unwrap();
         let op=job(&f.m,&env.id,&installer.id);
-        let r=reserve_with(&f.m,&env.id,&installer.id,&op,||Ok(true)).unwrap();
+        let r=reserve_with(&f.m,&env.id,&installer.id,&op,||Ok(true),|_|Ok(false)).unwrap();
         assert_eq!(r.environment.id,env.id);assert_eq!(r.environment.root,env.root);
         assert_eq!(r.environment.runner,env.runner);assert_eq!(r.environment.revision,2);
         assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(),original);
@@ -348,10 +577,10 @@ mod tests {
             &f.m.registry().unwrap(),Some("installer active")).unwrap();
         assert_eq!(rows[0].revision,2);
         let second=job(&f.m,&env.id,&installer.id);
-        assert!(reserve_with(&f.m,&env.id,&installer.id,&second,||Ok(true)).is_err());
+        assert!(reserve_with(&f.m,&env.id,&installer.id,&second,||Ok(true),|_|Ok(false)).is_err());
         complete(&f.m,&r,"cancelled");
         assert!(onboarding::all_retired(&f.m).unwrap());
-        let next=reserve_with(&f.m,&env.id,&installer.id,&second,||Ok(true)).unwrap();
+        let next=reserve_with(&f.m,&env.id,&installer.id,&second,||Ok(true),|_|Ok(false)).unwrap();
         assert_eq!(next.environment.revision,3);
         assert_eq!(result(&f.m,&r).unwrap()["state"],"cancelled");
         let mut earlier=r.clone();earlier.created_at=u64::MAX;
@@ -365,6 +594,8 @@ mod tests {
         let (f,installer)=fixture();let mut env=f.r.environment.clone();
         env.id="cd".repeat(16);env.root=f.m.root.join("environments").join(&env.id);
         private_dir(&env.root).unwrap();atomic_json(&env.root.join("environment.json"),&env).unwrap();
+        private_dir(&env.root.join("compatdata/pfx")).unwrap();
+        fs::write(env.root.join("compatdata/pfx/system.reg"),b"first-party retained state").unwrap();
         let initial="ab".repeat(16);let dir=onboarding::directory(&f.m,&env.id).unwrap();
         private_dir(&dir).unwrap();
         atomic_json(&dir.join("record.json"),&onboarding::Record {schema:1,id:env.id.clone(),
@@ -374,7 +605,7 @@ mod tests {
             "operation":initial,"state":"completed","cleanup_confirmed":true,"owned_live":0})).unwrap();
         let retained=fs::read(dir.join("record.json")).unwrap();
         let op=job(&f.m,&env.id,&installer.id);
-        let r=reserve_with(&f.m,&env.id,&installer.id,&op,||Ok(true)).unwrap();
+        let r=reserve_with(&f.m,&env.id,&installer.id,&op,||Ok(true),|_|Ok(false)).unwrap();
         assert_eq!(onboarding::load(&f.m,&env.id).unwrap().environment,r.environment);
         assert_eq!(fs::read(dir.join("record.json")).unwrap(),retained);
         // Crash before launch is recoverable without inventing vendor success.
@@ -389,7 +620,7 @@ mod tests {
     #[test]
     fn exact_control_survives_missing_inputs_and_malformed_binding_refuses() {
         let (f,installer)=fixture();let op=job(&f.m,&f.r.environment.id,&installer.id);
-        let r=reserve_with(&f.m,&f.r.environment.id,&installer.id,&op,||Ok(true)).unwrap();
+        let r=reserve_with(&f.m,&f.r.environment.id,&installer.id,&op,||Ok(true),|_|Ok(false)).unwrap();
         fs::remove_file(&installer.artifact.path).unwrap();
         fs::remove_file(&r.environment.runner.proton).unwrap();
         assert!(control(&f.m,&op).is_ok());assert!(launch(&f.m,&r).is_err());
@@ -401,6 +632,7 @@ mod tests {
     fn ordinary_current_offer_keeps_stop_when_installer_runtime_and_module_disappear() {
         use linux_vst_bridge::{preparation as prep,runtime_delivery};
         let (f,base)=preparation_cli::tests::projection_fixture();
+        fs::write(base.selection.environment.root.join("compatdata/pfx/system.reg"),b"first-party retained state").unwrap();
         atomic_json(&f.m.root.join("software.json"),
             &preparation_cli::tests::projection_software(&base)).unwrap();
         prep::record_candidate(&f.m,&base).unwrap();prep::enable(&f.m,&base,false).unwrap();
@@ -410,7 +642,7 @@ mod tests {
         let source=f.outer.join("companion.exe");fs::write(&source,bytes).unwrap();
         let installer=installer_import::import(&f.m,file(&source).unwrap()).unwrap();
         let op=job(&f.m,&base.selection.environment.id,&installer.id);
-        let r=reserve_with(&f.m,&base.selection.environment.id,&installer.id,&op,||Ok(true)).unwrap();
+        let r=reserve_with(&f.m,&base.selection.environment.id,&installer.id,&op,||Ok(true),|_|Ok(false)).unwrap();
         let runtime_path=f.m.root.join("runners").join(runtime_delivery::ID).join("runtime.json");
         let runtime_dir=runtime_path.parent().unwrap();
         let artifact=|relative:&str| {
@@ -444,7 +676,7 @@ mod tests {
     #[test]
     fn unfinished_supervisor_retains_cleanup_gap_and_global_exclusion() {
         let (f,installer)=fixture();let op=job(&f.m,&f.r.environment.id,&installer.id);
-        let r=reserve_with(&f.m,&f.r.environment.id,&installer.id,&op,||Ok(true)).unwrap();
+        let r=reserve_with(&f.m,&f.r.environment.id,&installer.id,&op,||Ok(true),|_|Ok(false)).unwrap();
         atomic_json(&job_dir(&f.m,&op).unwrap().join("installer-spec.json"),&json!({"operation":op})).unwrap();
         finish_with(&f.m,&op,|_|Ok(false)).unwrap();
         assert_eq!(result(&f.m,&r).unwrap()["state"],"cleanup_unconfirmed");

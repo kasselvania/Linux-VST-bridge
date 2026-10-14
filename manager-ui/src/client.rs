@@ -100,7 +100,7 @@ fn call(mut query: Query) -> Result<Reply, String> {
     }
     let selected = if matches!(query, Query::PickInstaller) {
         let selected = rfd::FileDialog::new()
-            .set_title("Add Windows installer")
+            .set_title("Choose Windows installer")
             .add_filter("Windows installers", &["exe", "msi"])
             .pick_file();
         let Some(path) = selected else {
