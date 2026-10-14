@@ -559,6 +559,15 @@ pub fn reserve(m: &Manager, id: &str, op: &str) -> Result<Record> {
     Ok(r)
 }
 pub fn launch(m: &Manager, r: &Record, policy: Option<linux_vst_bridge::installer_policy::Powershell>) -> Result<()> {
+    let op = r.installation_operation.as_deref().ok_or("installer_operation_absent")?;
+    let dir = directory(m, &r.id)?;
+    let path = dir.join(format!("{op}-spec.json"));
+    let spec = launch_input(m, r, policy)?;
+    atomic_json(&path, &spec)?;
+    launch_spec(m, op, &path, &dir.join(format!("{op}-result.json")))
+}
+fn launch_input(m: &Manager, r: &Record,
+    policy: Option<linux_vst_bridge::installer_policy::Powershell>) -> Result<Value> {
     require(operator_cli::environment_install::latest(m,&r.id)?.is_none(),
         "Another installer was chosen for this setup. Continue from its current Setup card.")?;
     let op = r
@@ -568,14 +577,10 @@ pub fn launch(m: &Manager, r: &Record, policy: Option<linux_vst_bridge::installe
     let sw = software(m)?;
     let installer = installer_import::load(m, &r.installer)?;
     let dir = directory(m, &r.id)?;
-    let path = dir.join(format!("{op}-spec.json"));
     let mut spec = json!({"schema":2,"operation":op,"environment":r.environment,"installer":installer.artifact,
         "format":installer.format,"installer_launch":sw.installer_launch,"report":dir.join(format!("{op}-result.json"))});
-    if let Some(policy) = policy {
-        linux_vst_bridge::installer_policy::bind(&mut spec, &sw, policy)?;
-    }
-    atomic_json(&path, &spec)?;
-    launch_spec(m, op, &path, &dir.join(format!("{op}-result.json")))
+    linux_vst_bridge::installer_policy::bind_for_launch(m, &mut spec, &sw, policy)?;
+    Ok(spec)
 }
 pub(super) fn launch_spec(m: &Manager, op: &str, path: &Path, report: &Path) -> Result<()> {
     let sw = software(m)?;
@@ -1101,7 +1106,7 @@ fn scan_state_with(scan: &inventory::Scan, environment: &Environment,
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     fn setup_row() -> ui::Onboarding {
         ui::Onboarding { failure: None, installer: "ab".repeat(32), name: "Installer".into(),
@@ -1322,6 +1327,42 @@ mod tests {
         fs::write(&p, b).unwrap();
         let i = installer_import::import(&f.m, file(&p).unwrap()).unwrap();
         (f, i)
+    }
+    mod policy_fixture { include!("../tests/fixtures/nsis_installer.rs"); }
+    pub(crate) fn close_policy_fixture() -> (test_fixture::Fixture, Record) {
+        let f = test_fixture::Fixture::new();
+        let path = f.outer.join("chosen-program.exe");
+        fs::write(&path, policy_fixture::fixture(None)).unwrap();
+        let installer = installer_import::import_named(&f.m, file(&path).unwrap(), "editable-name.exe").unwrap();
+        let installer = installer_import::load(&f.m, &installer.installer_sha256).unwrap();
+        let owner = f.r.host.clone();
+        let sw = Software { manager: owner.clone(), supervisor: owner.clone(), ownership: owner.clone(),
+            host: owner.clone(), source_manifest: owner.clone(), source_sha256: owner.sha256.clone(),
+            operator_frontend: None, native_catalogue: None, preparation_kit: None, installer_launch: Some(owner) };
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let runner = operator_cli::tests::retained_managed_runtime(&f.m, false);
+        let created = create_exact(&f.m, &installer, runner, &"ab".repeat(16),
+            &f.m.lock("registry.lock").unwrap(), None).unwrap();
+        let r = reserve(&f.m, created["onboarding"].as_str().unwrap(), &"cd".repeat(16)).unwrap();
+        (f, r)
+    }
+    #[test]
+    fn ordinary_initial_installer_launch_selects_advice_without_changing_setup_or_labels() {
+        use linux_vst_bridge::installer_policy::Powershell;
+        let (f, r) = close_policy_fixture();
+        let environment = fs::read(r.environment.root.join("environment.json")).unwrap();
+        let software = fs::read(f.m.root.join("software.json")).unwrap();
+        let spec = launch_input(&f.m, &r, None).unwrap();
+        assert_eq!(spec["schema"], 3);
+        assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"], "intentionally_unavailable");
+        assert_eq!(spec["installer"]["sha256"], r.installer);
+        assert_eq!(spec["installer_capability"]["environment"], serde_json::to_value(&r.environment).unwrap());
+        installer_import::rename(&f.m, &r.installer, "My chosen installer").unwrap();
+        assert_eq!(launch_input(&f.m, &r, None).unwrap(), spec);
+        let explicit = launch_input(&f.m, &r, Some(Powershell::Inherited)).unwrap();
+        assert_eq!(explicit["installer_capability"]["windows_scripting"]["powershell"], "inherited");
+        assert_eq!(fs::read(r.environment.root.join("environment.json")).unwrap(), environment);
+        assert_eq!(fs::read(f.m.root.join("software.json")).unwrap(), software);
     }
     #[test]
     fn imported_installer_uses_the_verified_delivered_default_without_catalogue() {

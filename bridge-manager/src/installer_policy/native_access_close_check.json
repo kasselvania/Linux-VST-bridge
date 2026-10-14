@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "id": "native-access-3.26.0-close-check",
+  "installer": {
+    "container": "nsis_pe32",
+    "company_name": "Native Instruments",
+    "product_name": "Native Access",
+    "product_version": "3.26.0",
+    "file_version": "3.26.0.962"
+  },
+  "managed_runtime_revision": "managed-ge-proton11-7-slr4-20260805-r4",
+  "powershell": "intentionally_unavailable",
+  "reason": "This installer falsely detects a running application and cannot pass its close check with the runtime's PowerShell implementation."
+}

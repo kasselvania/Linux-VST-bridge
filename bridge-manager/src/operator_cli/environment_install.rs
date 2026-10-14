@@ -170,6 +170,14 @@ fn reserve_with(m: &Manager, environment: &str, installer: &str,
 }
 
 pub(super) fn launch(m: &Manager, r: &Binding) -> Result<()> {
+    let dir = job_dir(m,&r.operation)?;
+    let report = dir.join("installation-result.json");
+    let spec = dir.join("installer-spec.json");
+    let input = launch_input(m,r)?;
+    atomic_json(&spec,&input)?;
+    onboarding::launch_spec(m,&r.operation,&spec,&report)
+}
+fn launch_input(m: &Manager, r: &Binding) -> Result<Value> {
     let preserve_existing_prefix = require_preserved_prefix(m,&r.environment,r.preserve_existing_prefix)?;
     require(target(m,&r.environment.id)? == r.environment,
         "installer_environment_binding_changed")?;
@@ -177,12 +185,12 @@ pub(super) fn launch(m: &Manager, r: &Binding) -> Result<()> {
     let installer = installer_import::load(m,&r.installer)?;
     let dir = job_dir(m,&r.operation)?;
     let report = dir.join("installation-result.json");
-    let spec = dir.join("installer-spec.json");
-    atomic_json(&spec,&json!({"schema":2,"operation":r.operation,
+    let mut launch_spec = json!({"schema":2,"operation":r.operation,
         "environment":r.environment,"installer":installer.artifact,"format":installer.format,
         "installer_launch":sw.installer_launch,"report":report,
-        "preserve_existing_prefix":preserve_existing_prefix}))?;
-    onboarding::launch_spec(m,&r.operation,&spec,&report)
+        "preserve_existing_prefix":preserve_existing_prefix});
+    linux_vst_bridge::installer_policy::bind_for_launch(m, &mut launch_spec, &sw, None)?;
+    Ok(launch_spec)
 }
 
 pub(super) fn control(m: &Manager, operation: &str) -> Result<Binding> {
@@ -551,6 +559,33 @@ mod tests {
         let right=different_installer(&f,&wrong);let op=job(&f.m,&initial.id,&right.id);
         let binding=reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),|_|Ok(false)).unwrap();
         assert_eq!(binding.preserve_existing_prefix,Some(false));
+    }
+    #[test]
+    fn ordinary_existing_setup_and_retry_select_same_scoped_advice() {
+        let (f, initial) = onboarding::tests::close_policy_fixture();
+        let initial_op = initial.installation_operation.as_ref().unwrap();
+        atomic_json(&onboarding::directory(&f.m, &initial.id).unwrap().join(format!("{initial_op}-result.json")),
+            &json!({"schema":2,"operation":initial_op,"state":"completed","cleanup_confirmed":true,"owned_live":0})).unwrap();
+        let history = fs::read(onboarding::directory(&f.m, &initial.id).unwrap().join("record.json")).unwrap();
+        let first = job(&f.m, &initial.id, &initial.installer);
+        let binding = reserve_with(&f.m, &initial.id, &initial.installer, &first, || Ok(true)).unwrap();
+        let input = launch_input(&f.m, &binding).unwrap();
+        assert_eq!(input["schema"], 3);
+        assert_eq!(input["installer_capability"]["windows_scripting"]["powershell"], "intentionally_unavailable");
+        assert_eq!(input["installer_capability"]["operation"], first);
+        assert_eq!(binding.environment.runner, initial.environment.runner);
+        assert_eq!(binding.environment.root, initial.environment.root);
+        complete(&f.m, &binding, "cancelled");
+        let next = job(&f.m, &initial.id, &initial.installer);
+        let retry = reserve_with(&f.m, &initial.id, &initial.installer, &next, || Ok(true)).unwrap();
+        let retry_input = launch_input(&f.m, &retry).unwrap();
+        assert_eq!(retry_input["installer_capability"]["operation"], next);
+        assert_eq!(retry_input["installer_capability"]["environment"]["revision"], retry.environment.revision);
+        assert_eq!(retry.environment.id, initial.environment.id);
+        assert_eq!(retry.environment.root, initial.environment.root);
+        assert_eq!(retry.environment.runner, initial.environment.runner);
+        assert_eq!(retry_input["installer_capability"]["windows_scripting"]["powershell"], "intentionally_unavailable");
+        assert_eq!(fs::read(onboarding::directory(&f.m, &initial.id).unwrap().join("record.json")).unwrap(), history);
     }
     #[test]
     fn registered_companion_preserves_identity_and_invalidates_all_siblings() {
