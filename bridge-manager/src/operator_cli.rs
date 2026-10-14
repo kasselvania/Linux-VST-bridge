@@ -196,7 +196,7 @@ fn vendor_projection(
     let choosing = !directory.join("application.json").exists();
     let a = vendor_cli::application(m, selector)?;
     let live = vendor_cli::live(selector)?;
-    let valid = a.verify(&m.root).is_ok();
+    let valid = a.validate_record(&m.root).is_ok();
     let record = onboarding::retained_environment_record(m, &a.environment.id)?;
     let continuation = automatic_install::vendor_intent(m, selector)?;
     let current_intent = continuation.as_ref().or_else(|| record.as_ref().and_then(|r| r.automatic.as_ref()));
@@ -205,7 +205,7 @@ fn vendor_projection(
         .map(|i|automatic_install::restartable_vendor(m,i)).transpose()?.unwrap_or(false);
     let handoff = current_intent.map(|i|automatic_install::empty_vendor_handoff(m,i)).transpose()?.unwrap_or(false)
         || record.as_ref().zip(current_intent).is_some_and(|(r, i)|
-        automatic_install::empty_bootstrap_handoff(m, r, i, selector).unwrap_or(false));
+        automatic_install::empty_bootstrap_handoff_record(m, r, i, selector).unwrap_or(false));
     let unfinished = current_intent.is_some_and(|i| i.journey.phase != ui::InstallationPhase::Available);
     let observed = if choosing { vendor_cli::selection::observed(m, selector)? } else { None };
     let reason = if !valid {
