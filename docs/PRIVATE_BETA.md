@@ -37,14 +37,46 @@ editor and saved-project recall in your DAW.
    settings return. Try a separate test project before using it for a session.
 
 If a step needs attention, read its message and use the continuation offered
-there. Use **Refresh** or **Check again** to reload the current status. Send the
-maintainer your system and DAW versions, plug-in name/version, the step that
-failed, its message and what you expected. A screenshot helps. In **Diagnostics**
-you can choose **Create sanitized support export**; review the local export
-before sharing it privately. Nothing uploads automatically. Optional experience
-reports are under the plug-in's **Help and testing** controls.
+there. Use **Refresh** or **Check again** to reload the current status.
+
+## Reporting a problem
+
+Reply through the private contact used to receive the beta. No GitHub account
+is required. Include:
+
+- What you tried, what you expected, and what happened instead.
+- Your Linux system, DAW and plug-in names and versions, if known.
+- The supplied test build number, if known, and the exact error message.
+
+Unknown versions are fine; send the report anyway. A screenshot helps. In
+**Diagnostics**, **Create sanitized support export** makes an optional local
+export. Review it before sharing it privately; nothing uploads automatically.
+Optional experience reports are under the plug-in's **Help and testing** controls.
+
+## Later updates
+
+The maintainer supplies numbered test builds with an installer matching your
+system and a short description of the changes. Close your DAW, then download
+the new `.install` file and run it as above. Choose **Install application
+files → Open Setup → Update Bridge** when offered. Setup updates from the
+supplied package; it does not check an online application update feed.
+
+If an update is interrupted, use **Recover interrupted setup** when offered.
+**Restore previous setup** is available when Setup offers it. If the expected
+control is unavailable or an error appears, send the exact message to the
+maintainer before continuing. Reopen your test project afterward and check its
+sound and settings.
 
 Vendor accounts, licenses and content remain yours. Download vendor software
 from the vendor and authorize it normally; the bridge installer includes none
 of those items. Do not send passwords, serial numbers or license files with a
 problem report. The application includes its third-party notices.
+
+## For the maintainer
+
+Track reports in GitHub with `beta-feedback`, and reply with the issue link,
+the build carrying its fix, and the verification result. Give each delivery
+one unused build number across platforms and threads; supply a short changelog
+and matching installers, and preserve the previous build. Distinguish a fix
+merged into source from a build delivered to testers and a fix verified in
+their DAW. Name the system, DAW and plug-in used for that verification.
