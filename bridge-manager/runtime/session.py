@@ -2770,6 +2770,8 @@ def managed_install(spec, *, source_owned_is3=None):
         if scope.members():raise RuntimeError('installer cgroup initially occupied')
         ledger=InstallerLedger(scope,transaction.persist);transaction.ledger=ledger
         if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('installer subreaper unavailable')
+        if spec.get('preserve_existing_prefix') is True and not (root/'compatdata/pfx/system.reg').is_file():
+            raise ValueError('installation_folder_missing')
         runner=env['runner'];base=[runner['entry_point'],'--verb=run','--',runner['proton']]
         argv=base+['runinprefix']
         if spec['format']=='pe_executable':
@@ -2802,6 +2804,8 @@ def managed_install(spec, *, source_owned_is3=None):
             return process
         # This public verb calls init_session(True), including setup_prefix, but
         # never Session.run/steam.exe. runinprefix alone skips setup_prefix.
+        if spec.get('preserve_existing_prefix') is True and not (root/'compatdata/pfx/system.reg').is_file():
+            raise ValueError('installation_folder_missing')
         child=launch(base+['getcompatpath','/'],'prefix_initialization')
         bootstrap_deadline=time.monotonic()+120
         while child.returncode is None and not stop:
@@ -2856,8 +2860,9 @@ def managed_install(spec, *, source_owned_is3=None):
             drain(.05)
     except Exception as exc:
         if not stop:
-            error='installer_owner_'+type(exc).__name__
-            if startup.target is None:startup.problem('supervisor_startup_error')
+            missing=isinstance(exc,ValueError) and str(exc)=='installation_folder_missing'
+            error="The installation folder for this software can't be found. Reconnect its drive or restore the folder, then try again." if missing else 'installer_owner_'+type(exc).__name__
+            if startup.target is None:startup.problem('installation_folder_missing' if missing else 'supervisor_startup_error')
             else:startup.stage('supervision_error_observed',code=error)
     finally:
         if scope is not None and not clean:

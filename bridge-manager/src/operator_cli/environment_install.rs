@@ -3,6 +3,43 @@
 use super::*;
 
 use linux_vst_bridge::environment_revision::InstallerBinding as Binding;
+const MISSING_INSTALLATION: &str = "The installation folder for this software can't be found. Reconnect its drive or restore the folder, then try again.";
+
+fn initialized_prefix(environment: &Environment) -> bool {
+    environment.root.join("compatdata/pfx").is_dir()
+        && environment.root.join("compatdata/pfx/system.reg").is_file()
+}
+fn initialized_receipt(value: &Value) -> bool {
+    value["startup"]["stages"].as_array().is_some_and(|stages| stages.iter()
+        .any(|row| row["stage"] == "prefix_initialization_exit" && row["exit"] == 0))
+}
+fn prefix_preservation_required(m: &Manager, environment: &Environment) -> Result<bool> {
+    if initialized_prefix(environment) || m.registry()?.classes.values()
+        .any(|entry| entry.registration.environment.id == environment.id) {return Ok(true);}
+    for record in onboarding::history_records(m)?.into_iter()
+        .filter(|r| r.environment.id == environment.id) {
+        if initialized_receipt(&onboarding::result(m,&record)?) {return Ok(true);}
+    }
+    for record in records(m)?.into_iter().filter(|r| r.environment.id == environment.id) {
+        if record.preserve_existing_prefix == Some(true) || initialized_receipt(&result(m,&record)?) {
+            return Ok(true);
+        }
+    }
+    for selector in vendor_cli::selectors(m)? {
+        let app:vendor_application::Application=read_json(
+            &vendor_cli::directory(m,&selector)?.join("application.json"))?;
+        if app.environment.id == environment.id {return Ok(true);}
+    }
+    Ok(false)
+}
+fn require_preserved_prefix(m: &Manager, environment: &Environment, bound: Option<bool>) -> Result<bool> {
+    // Omitted legacy fields use retained setup facts; absence is never evidence
+    // that an installation was new. Reservation preserves a current observation
+    // through the later worker launch without reading any vendor account data.
+    let required=bound == Some(true) || prefix_preservation_required(m,environment)?;
+    require(!required || initialized_prefix(environment),MISSING_INSTALLATION)?;
+    Ok(required)
+}
 pub(crate) fn resolves_to(m: &Manager, before: &Environment, after: &Environment) -> Result<bool> {
     linux_vst_bridge::environment_revision::resolves_to(m, before, after)
 }
@@ -93,13 +130,15 @@ fn reserve_with(m: &Manager, environment: &str, installer: &str,
     }
     environment_runtime::require_settled(m,environment)?;
     let before = target(m,environment)?;
+    let preserve_existing_prefix = require_preserved_prefix(m,&before,None)?;
     before.runner.verify()?;
     installer_import::load(m,installer)?;
     let mut after = before.clone();
     after.revision = after.revision.checked_add(1).ok_or("environment_revision_exhausted")?;
     let r = Binding {schema:1,operation:operation.into(),installer:installer.into(),
         before,environment:after,created_at:std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?.as_micros().try_into()?};
+            .duration_since(std::time::UNIX_EPOCH)?.as_micros().try_into()?,
+        preserve_existing_prefix:Some(preserve_existing_prefix)};
     let dir = job_dir(m,operation)?;
     require(!dir.join("installation.json").try_exists()?, "installer_transaction_already_used")?;
     atomic_json(&dir.join("installation-result.json"),
@@ -113,6 +152,7 @@ fn reserve_with(m: &Manager, environment: &str, installer: &str,
 }
 
 pub(super) fn launch(m: &Manager, r: &Binding) -> Result<()> {
+    let preserve_existing_prefix = require_preserved_prefix(m,&r.environment,r.preserve_existing_prefix)?;
     require(target(m,&r.environment.id)? == r.environment,
         "installer_environment_binding_changed")?;
     let sw = software(m)?;
@@ -122,7 +162,8 @@ pub(super) fn launch(m: &Manager, r: &Binding) -> Result<()> {
     let spec = dir.join("installer-spec.json");
     atomic_json(&spec,&json!({"schema":2,"operation":r.operation,
         "environment":r.environment,"installer":installer.artifact,"format":installer.format,
-        "installer_launch":sw.installer_launch,"report":report}))?;
+        "installer_launch":sw.installer_launch,"report":report,
+        "preserve_existing_prefix":preserve_existing_prefix}))?;
     onboarding::launch_spec(m,&r.operation,&spec,&report)
 }
 
@@ -321,6 +362,7 @@ mod tests {
                 sha256:f.r.host_source_sha256.clone()},source_sha256:f.r.host_source_sha256.clone(),
             operator_frontend:None,native_catalogue:None,preparation_kit:None,installer_launch:None};
         atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
+        fs::write(f.r.environment.root.join("compatdata/pfx/system.reg"),b"first-party registry fixture").unwrap();
         (f,installer)
     }
     fn job(m:&Manager,environment:&str,installer:&str)->String {
@@ -341,6 +383,10 @@ mod tests {
         environment.root = f.m.root.join("environments").join(&environment.id);
         private_dir(&environment.root).unwrap();
         atomic_json(&environment.root.join("environment.json"), &environment).unwrap();
+        if state.is_some() {
+            private_dir(&environment.root.join("compatdata/pfx")).unwrap();
+            fs::write(environment.root.join("compatdata/pfx/system.reg"),b"first-party registry fixture").unwrap();
+        }
         let record = onboarding::Record {schema:1,id:environment.id.clone(),environment,
             installer:installer.id.clone(),created_at:1,creation_operation:"12".repeat(16),
             installation_operation:state.map(|_|"ab".repeat(16)),published:false,
@@ -351,7 +397,8 @@ mod tests {
         if let Some(state) = state {
             let op = record.installation_operation.as_ref().unwrap();
             atomic_json(&dir.join(format!("{op}-result.json")),&json!({"schema":2,
-                "operation":op,"state":state,"cleanup_confirmed":true,"owned_live":0})).unwrap();
+                "operation":op,"state":state,"cleanup_confirmed":true,"owned_live":0,
+                "startup":{"stages":[{"stage":"prefix_initialization_exit","exit":0}]}})).unwrap();
         }
         record
     }
@@ -445,6 +492,38 @@ mod tests {
             .find(|a|a.label == "Retry").unwrap();
         assert_eq!(retry.action,ui::Action::EnvironmentInstallerStart {
             environment:initial.id,installer:right.id});
+    }
+    #[test]
+    fn replacement_refuses_missing_initialized_state_and_reads_legacy_binding() {
+        for missing_root in [false,true] {
+            let (f,wrong)=fixture();let initial=wrong_installer_setup(&f,&wrong,Some("cancelled"));
+            let right=different_installer(&f,&wrong);let op=job(&f.m,&initial.id,&right.id);
+            let binding=reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),|_|Ok(false)).unwrap();
+            assert_eq!(binding.preserve_existing_prefix,Some(true));
+            // Test69 records omit the new field. Existing successful prefix
+            // initialization in their retained receipt still requires preservation.
+            let mut old=serde_json::to_value(&binding).unwrap();old.as_object_mut().unwrap().remove("preserve_existing_prefix");
+            let legacy:Binding=serde_json::from_value(old).unwrap();
+            assert_eq!(legacy.preserve_existing_prefix,None);
+            fs::remove_dir_all(if missing_root {&initial.environment.root}
+                else {&initial.environment.root.join("compatdata/pfx")}).unwrap();
+            for record in [&binding,&legacy] {
+                assert_eq!(launch(&f.m,record).unwrap_err().to_string(),MISSING_INSTALLATION);
+                assert!(!job_dir(&f.m,&op).unwrap().join("installer-spec.json").exists());
+            }
+        }
+        let (f,wrong)=fixture();let initial=wrong_installer_setup(&f,&wrong,Some("completed"));
+        fs::remove_dir_all(initial.environment.root.join("compatdata/pfx")).unwrap();
+        let right=different_installer(&f,&wrong);let op=job(&f.m,&initial.id,&right.id);
+        let before=fs::read(initial.environment.root.join("environment.json")).unwrap();
+        assert_eq!(reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),|_|Ok(false))
+            .unwrap_err().to_string(),MISSING_INSTALLATION);
+        assert_eq!(fs::read(initial.environment.root.join("environment.json")).unwrap(),before);
+        assert!(!job_dir(&f.m,&op).unwrap().join("installation.json").exists());
+        let (f,wrong)=fixture();let initial=wrong_installer_setup(&f,&wrong,None);
+        let right=different_installer(&f,&wrong);let op=job(&f.m,&initial.id,&right.id);
+        let binding=reserve_with(&f.m,&initial.id,&right.id,&op,||Ok(true),|_|Ok(false)).unwrap();
+        assert_eq!(binding.preserve_existing_prefix,Some(false));
     }
     #[test]
     fn registered_companion_preserves_identity_and_invalidates_all_siblings() {

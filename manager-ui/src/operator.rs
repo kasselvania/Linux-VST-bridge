@@ -1617,6 +1617,12 @@ fn setup_offer_uses_program_choice(snapshot: &Snapshot, setup: &InstallerSetup,
         && app.details["environment"].as_str() == setup.environment.as_deref())
 }
 
+fn obsolete_initial_installer_offer(offer: &AvailableAction) -> bool {
+    matches!(offer.action, Action::SoftwareInstall {..} | Action::InstallerNewAttempt {..}
+        | Action::InstallerStart {..} | Action::InstallerStartWithPolicy {..}
+        | Action::InstallerFocus {..} | Action::InstallerStop {..} | Action::InstallerScan {..})
+}
+
 impl Operator {
     fn readiness_details(ui: &mut egui::Ui, assessment: Option<&ReadinessAssessment>,
         fresh: bool, pending: bool, refresh: &mut bool, chosen: &mut Option<Action>) {
@@ -1903,7 +1909,7 @@ impl Operator {
                         setup.environment.as_ref() == Some(&target.environment) && target.operation.is_some());
                     let reviewing_replacement = focus.replacement.as_ref().is_some_and(|d|d.original == setup.installer);
                     if let Some(primary) = setup.primary.as_ref().filter(|offer| (continuation.is_none()
-                        || matches!(offer.action,Action::VendorSoftwareInstall {..}))
+                        || !obsolete_initial_installer_offer(offer))
                         && !reviewing_replacement && !setup_offer_uses_program_choice(&overview.current,setup,offer)) {
                         ui.add_enabled_ui(fresh, |ui| crate::library::primary_action(ui, primary,
                             overview.current.system.inactive_reason(), pending, chosen));
@@ -1914,7 +1920,7 @@ impl Operator {
                         show_discovered_products(setup, library, page);
                     }
                     let secondary: Vec<_> = setup.secondary.iter().filter(|offer|
-                        continuation.is_none() && !reviewing_replacement
+                        (continuation.is_none() || !obsolete_initial_installer_offer(offer)) && !reviewing_replacement
                             && !setup_offer_uses_program_choice(&overview.current,setup,offer)).cloned().collect();
                     ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &secondary,
                         overview.current.system.inactive_reason(), pending, chosen));
@@ -2402,6 +2408,7 @@ impl Operator {
         pending: bool,
         chosen: &mut Option<Action>,
         pick: &mut bool,
+        focus: &mut RouteFocus,
     ) {
         ui.heading("Workspaces");
         ui.small("Managed DAWs have their own workspace and installation history. Native DAW plug-in publications remain in Plug-ins.");
@@ -2416,6 +2423,7 @@ impl Operator {
             )
             .clicked()
         {
+            focus.replacement = None;
             *pick = true;
         }
         ui.small("The manager copies and verifies the selected file in private installer custody. Choose its exact release under the application or product below.");
@@ -2666,7 +2674,7 @@ impl eframe::App for Operator {
                     Page::Home | Page::Setup => {ui.label("Loading current plug-ins and setup…");},
                     Page::Plugins => self.library.show(ui, snapshot,
                         action_controls_pending, &mut chosen, Self::product_details),
-                    Page::Workspaces => Self::workspaces(ui, snapshot, action_controls_pending, &mut chosen, &mut pick),
+                    Page::Workspaces => Self::workspaces(ui, snapshot, action_controls_pending, &mut chosen, &mut pick, &mut self.focus),
                     Page::Activity => Self::activity(ui, snapshot, action_controls_pending, &mut self.page,
                         &mut self.library, &mut self.focus, &mut chosen),
                     Page::Diagnostics => Self::diagnostics(ui, snapshot, action_controls_pending, &mut chosen),
@@ -5963,6 +5971,25 @@ mod tests {
         assert!(replacement_context(&overview.current,&overview.current.installer_setups[0]).is_none());
     }
     #[test]
+    fn completed_replacement_preserves_current_connection_and_recovery_offers() {
+        for action in [Action::EnvironmentRefresh {environment:"intended-environment".into(),daw:DawChoice::Bitwig},
+            Action::EnvironmentRefreshResume {operation:"connection-owner".into()},
+            Action::SoftwareInstallResume {onboarding:"intended-environment".into()}] {
+            for secondary in [false,true] {
+                let mut overview=wrong_installer_overview(Some("intended-environment"));
+                let target=&mut overview.current.environment_installers[0];
+                target.operation=Some("retired-replacement".into());
+                target.result=serde_json::json!({"state":"completed","cleanup_confirmed":true,"owned_live":0});
+                let offer=AvailableAction {label:"Connect installed plug-ins".into(),action:action.clone(),disabled_reason:None};
+                let label=presentation::action_label(&offer);
+                let setup=&mut overview.current.installer_setups[0];
+                if secondary {setup.secondary=vec![offer];} else {setup.primary=Some(offer);}
+                let mut focus=RouteFocus {setup_installer:Some(setup.installer.clone()),..Default::default()};
+                assert_eq!(wrong_installer_click(&overview,&mut focus,&label,960.0,true).1,Some(action.clone()));
+            }
+        }
+    }
+    #[test]
     fn wrong_installer_picker_owner_cannot_be_cleared_while_import_is_pending() {
         let overview = wrong_installer_overview(Some("intended-environment"));
         let original = &overview.current.installer_setups[0];
@@ -6297,7 +6324,7 @@ mod tests {
             let mut pick = false;
             let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
                 ui.set_max_width(width - 32.0);
-                Operator::workspaces(ui, &snapshot, false, &mut chosen, &mut pick);
+                Operator::workspaces(ui, &snapshot, false, &mut chosen, &mut pick, &mut RouteFocus::default());
             });
             let mut labels = Vec::new();
             for clipped in &output.shapes {
@@ -6325,6 +6352,32 @@ mod tests {
                 .any(|s| s == "Technical workspace details and history"));
             assert!(chosen.is_none());
             assert!(!pick);
+            // A selected but unsubmitted replacement must not capture an import
+            // initiated from Workspaces. Exercise the actual general picker.
+            let replacement=wrong_installer_overview(Some("intended-environment"));
+            let mut operator=state_fixture();
+            operator.focus.replacement=replacement_context(&replacement.current,&replacement.current.installer_setups[0]);
+            operator.focus.replacement.as_mut().unwrap().selected=Some("old-selected-installer".into());
+            let mut point=egui::Pos2::ZERO;
+            for pressed in [None,Some(true),Some(false)] {
+                let events=pressed.map(|pressed|vec![egui::Event::PointerMoved(point),
+                    egui::Event::PointerButton {pos:point,button:egui::PointerButton::Primary,pressed,
+                        modifiers:egui::Modifiers::NONE}]).unwrap_or_default();
+                let mut output=ctx.run_ui(egui::RawInput {events,..Default::default()},|ui| {
+                    ui.set_max_width(width-32.0);
+                    Operator::workspaces(ui,&snapshot,false,&mut None,&mut pick,&mut operator.focus);
+                });
+                if pressed.is_none() {point=output.shapes.iter().find_map(|shape|
+                    wrong_installer_text_position(&shape.shape,"Import Windows installer")).unwrap();}
+                output.textures_delta.clear();
+            }
+            assert!(pick);assert!(operator.focus.replacement.is_none());
+            operator.origin=Some(RequestOrigin::InstallerImport);
+            operator.handle_reply(Reply::Imported(InstallerImportResult {schema:2,
+                installer_sha256:"34".repeat(32),display_label:"General import".into(),byte_size:1024,
+                format:"pe_executable".into(),newly_imported:true,created_at:1}));
+            assert_eq!(operator.pending_import_route.as_ref().unwrap().0,"34".repeat(32));
+            assert!(operator.queued_action.is_none());
         }
         let workspace = &mut snapshot.workspaces[0];
         workspace.state = "ready".into();
@@ -6333,7 +6386,7 @@ mod tests {
         workspace.observed_file_version = Some("26.1.6.5639".into());
         let ctx = egui::Context::default();
         let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-            Operator::workspaces(ui, &snapshot, false, &mut None, &mut false);
+            Operator::workspaces(ui, &snapshot, false, &mut None, &mut false, &mut RouteFocus::default());
         });
         let mut labels = Vec::new();
         for clipped in &output.shapes {
