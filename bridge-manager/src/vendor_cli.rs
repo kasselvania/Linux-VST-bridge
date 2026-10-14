@@ -344,14 +344,22 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             require(operation.is_some(),"vendor_application_operator_intent_required")?;
             let _writer=m.lock(directory.join("writer.lock").strip_prefix(&m.root)?.to_str().ok_or("vendor_writer_gate")?)?;
             let mode = LaunchMode::action(&args[0])?;
-            let _guard = m.lock("registry.lock")?;
-            m.require_inactive(None)?;
             let app=current_application(m,&record)?;
             app.verify(&m.root)?;
-            let sw = software(m)?;
-            let launcher = if app.user_selection.is_some() {
-                preparation::build::launch_software(m)?.installer_launch
+            // Observe resource bytes before admission. A structural nonmatch
+            // preserves normal program launch with its specific explanation.
+            let inspected = linux_vst_bridge::vendor_profile::inspect(&app, &m.root)?;
+            let sw = if inspected.capabilities.is_some() || app.user_selection.is_some() {
+                preparation::build::launch_software(m)?
+            } else {software(m)?};
+            let managed = inspected.capabilities.map(|capabilities|
+                linux_vst_bridge::vendor_profile::ManagedLaunch::new(capabilities, sw.clone())).transpose()?;
+            let launcher = if managed.is_some() || app.user_selection.is_some() {
+                sw.installer_launch.clone()
             } else {None};
+            let _guard = m.lock("registry.lock")?;
+            m.require_inactive(None)?;
+            require(current_application(m,&record)? == app, "vendor_application_selection_changed")?;
             require(
                 app.selector()? == args[1],
                 "vendor_application_selection_changed",
@@ -395,10 +403,12 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
                 Some(id) => id.to_owned(),
                 None => random_id()?,
             };
+            let supervised_service = managed.is_some();
             atomic_json(
                 &job,
                 &vendor_application::Operation {application:app,
-                    report:directory.join("operation-result.json"),mode,operation_id:operation_id.clone(),launcher},
+                    report:directory.join("operation-result.json"),mode,operation_id:operation_id.clone(),launcher,
+                    managed,capability_notice:inspected.missing_capability},
             )?;
             atomic_json(&directory.join("operation-result.json"),&json!({"schema":3,"operation_id":operation_id,"state":"unknown","launcher_exit":null,"owned_live":null,"cleanup_confirmed":false,"error":null,"discarded_diagnostic_bytes":0,"account_posture":"unknown"}))?;
             let result = Command::new("systemd-run")
@@ -407,8 +417,8 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
                     "--collect",
                     "--slice=app.slice",
                     "--property=UMask=0077",
-                    "--property=KillMode=control-group",
-                    "--property=TimeoutStopSec=30",
+                    if supervised_service {"--property=KillMode=mixed"} else {"--property=KillMode=control-group"},
+                    if supervised_service {"--property=TimeoutStopSec=90"} else {"--property=TimeoutStopSec=30"},
                     "--property=StandardOutput=null",
                     "--property=StandardError=null",
                 ])
@@ -437,7 +447,7 @@ mod tests {
         let directory=directory(&f.m,&selector).unwrap();private_dir(&directory).unwrap();
         atomic_json(&directory.join("application.json"),&app).unwrap();
         atomic_json(&directory.join("operation.json"),&vendor_application::Operation{application:app.clone(),
-            report:directory.join("operation-result.json"),mode:LaunchMode::Normal,operation_id:operation.clone(),launcher:None}).unwrap();
+            report:directory.join("operation-result.json"),mode:LaunchMode::Normal,operation_id:operation.clone(),launcher:None, managed:None,capability_notice:None}).unwrap();
         (f,selector,operation,app)
     }
     #[test]

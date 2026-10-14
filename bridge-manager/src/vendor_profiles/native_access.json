@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "id": "native_access_desktop",
+  "executable": "Native Access.exe",
+  "architecture": "x64",
+  "resources": [
+    "chrome_100_percent.pak",
+    "chrome_200_percent.pak",
+    "icudtl.dat",
+    "libEGL.dll",
+    "libGLESv2.dll",
+    "resources.pak",
+    "resources/app.asar",
+    "snapshot_blob.bin",
+    "v8_context_snapshot.bin"
+  ],
+  "dependency": {
+    "installer_directory": "resources/daemon/win",
+    "installer_prefix": "NTKDaemon ",
+    "installer_suffix": " Setup PC.exe",
+    "service": "NTKDaemonService",
+    "daemon": "Program Files/Common Files/Native Instruments/NTK/NTKDaemon.exe",
+    "architecture": "x64",
+    "listeners": [5146, 5563]
+  },
+  "rendering": "software_rendering",
+  "browser_scheme": "native-access"
+}

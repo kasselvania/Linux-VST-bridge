@@ -103,6 +103,10 @@ pub struct OperationResult {
     #[serde(default)]
     pub windows_accessibility_disabled: bool,
     pub account_posture: AccountPosture,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dependency: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub browser_return: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -177,6 +181,10 @@ pub struct Operation {
     pub operation_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub launcher: Option<Artifact>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub managed: Option<crate::vendor_profile::ManagedLaunch>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability_notice: Option<String>,
 }
 impl Application {
     pub fn selector(&self) -> Result<String> {
@@ -440,7 +448,7 @@ pub fn discover(root: &Path, environment: Environment) -> Result<Application> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     #[test]
     fn legacy_application_records_round_trip_without_new_fields_or_identity_changes() {
@@ -458,7 +466,7 @@ mod tests {
         assert_eq!(reopened.selector().unwrap(),"arturia-software-center");
         assert_eq!(serde_json::to_value(reopened).unwrap(),original);
     }
-    fn selected_application() -> (crate::test_fixture::Fixture, Application) {
+    pub(crate) fn selected_application() -> (crate::test_fixture::Fixture, Application) {
         let f = crate::test_fixture::Fixture::new();
         let mut environment = f.r.environment.clone();
         environment.id = "ac".repeat(16);

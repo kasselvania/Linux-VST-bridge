@@ -3528,14 +3528,15 @@ def renderer_owned(spec, preparation=None, dependency=None, *, dependency_fixtur
             return False
 
 
-def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fixture=False):
+def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fixture=False, managed_contract=None):
     """Exact companion operation; no prefix initialization or installer witnesses."""
     app=spec['application'];op=spec['operation'];env=app['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
     lock=(root/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-    image=RendererImage(app['files']['Native Access.exe']);evidence=RendererEvidence(app['files']['Native Access.exe']['artifact'],root,image)
+    executable=managed_contract['profile']['executable'] if managed_contract is not None else 'Native Access.exe'
+    image=RendererImage(app['files'][executable]);evidence=RendererEvidence(app['files'][executable]['artifact'],root,image)
     scope=None;ledger=None;child=None;clean=False;stop=False;error=None;effective=None;focus=None;dependency_owner=None
     callback=None;auth_private=False;auth_discarded=0
-    callback_enabled=dependency is not None and (app['id']=='native-access' or callback_fixture)
+    callback_enabled=managed_contract['profile']['browser_scheme']=='native-access' if managed_contract is not None else dependency is not None and (app['id']=='native-access' or callback_fixture)
     if callback_enabled:
         import resource
         resource.setrlimit(resource.RLIMIT_CORE,(0,0))
@@ -3564,7 +3565,9 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
                 if auth_private:
                     auth_discarded+=len(data)
                     if callback and key.data=='stdout':callback.feed_ack(data)
-                else:captures[key.data].write(data);evidence.feed(data,key.data)
+                else:
+                    if managed_contract is None:captures[key.data].write(data)
+                    evidence.feed(data,key.data)
             else:sel.unregister(key.fileobj)
     def confirm_effective():
         nonlocal effective
@@ -3582,14 +3585,26 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
             'authentication_privacy':{'raw_capture_suspended':auth_private,'discarded_bytes':auth_discarded},
             'application_image_verification':{'bytes':image.size,'hash_passes':1,'cache':'stable_open_file'},
             'diagnostics':{k:{'retained':v.retained,'dropped':v.discarded} for k,v in captures.items()}}
+    def publish(value):
+        atomic(report,value)
+        if managed_contract is not None:
+            atomic(pathlib.Path(spec['managed_operation']['report']),managed_vendor_result(value))
     signal.signal(signal.SIGTERM,cancel);signal.signal(signal.SIGINT,cancel)
     try:
         if not (root/'compatdata/pfx/system.reg').is_file():raise ValueError('renderer_prefix_not_initialized')
-        scope=CompanionCgroup(renderer_operation=op)
+        scope=CompanionCgroup(vendor_application=managed_contract['application']) if managed_contract is not None else CompanionCgroup(renderer_operation=op)
         if scope.members():raise ValueError('renderer_cgroup_occupied')
         ledger=InstallerLedger(scope,persist)
         if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('renderer_subreaper')
-        if dependency is not None:
+        if managed_contract is not None:
+            dependency_owner=Nad1Owner(spec,ledger,scope,lambda:stop,contract=managed_contract)
+            dependency_owner.diagnostic_privacy=True
+            admitted=managed_contract['dependency']['daemon']
+            if admitted is not None:
+                import ownership
+                admitted=ownership.image_identity(pathlib.Path(admitted['artifact']['path']))
+            dependency_owner.ensure(admitted is None,admitted)
+        elif dependency is not None:
             dependency_owner=Nad1Owner(spec,ledger,scope,lambda:stop,fixture=dependency_fixture,session_authority=dependency)
             dependency_owner.ensure(False,dependency['daemon'])
         token=os.urandom(32).hex();evidence.trace.arm_root(op,token,image.size);evidence.begin();evidence.begin()
@@ -3611,6 +3626,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
             if dependency_owner and dependency_owner.runtime:dependency_owner.runtime.drain()
             if dependency_owner and dependency_owner.anchor is not None and dependency_owner.anchor.returncode is not None and child.returncode is None:raise ValueError('dependency_service_anchor_exited')
             confirm_effective()
+            if managed_contract is not None and effective is not None:privacy_cutoff()
             if callback_enabled and effective and child.returncode is None:
                 if callback is None:callback=RendererCallback(op,child,privacy_cutoff)
                 callback.tick()
@@ -3626,7 +3642,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
                 if state=='failed':error='application_outer_nonzero'
                 if effective is None:error='application_root_unconfirmed'
                 break
-            control=report.parent/(op+'-focus.json')
+            control=report.parent/('focus.json' if managed_contract is not None else op+'-focus.json')
             if control.exists():
                 req=None
                 try:
@@ -3635,10 +3651,11 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
                         if not stat.S_ISREG(md.st_mode) or md.st_uid!=os.getuid() or md.st_size>512:raise ValueError('renderer_focus_bound')
                         req=json.loads(f.read(513))
                     control.unlink()
-                    if set(req)!={'operation','request'} or req['operation']!=op or not re.fullmatch('[0-9a-f]{32}',req['request']):raise ValueError('renderer_focus_identity')
+                    operation_key='operation_id' if managed_contract is not None else 'operation'
+                    if set(req)!={operation_key,'request'} or req[operation_key]!=op or not re.fullmatch('[0-9a-f]{32}',req['request']):raise ValueError('renderer_focus_identity')
                     focus={'request':req['request'],'result':renderer_focus(scope,image)}
                 except Exception:focus={'request':req.get('request') if isinstance(req,dict) else None,'result':'refused_exact_window_unavailable'}
-            if time.monotonic()-last>.5:atomic(report,result(state,len(live)));last=time.monotonic()
+            if time.monotonic()-last>.5:publish(result(state,len(live)));last=time.monotonic()
     except Exception as exc:error=str(exc) if isinstance(exc,ValueError) else 'renderer_owner_'+type(exc).__name__
     finally:
         graceful=False
@@ -3677,7 +3694,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
         finish('renderer_image_close_failed',image.close)
         for c in captures.values():finish('renderer_capture_close_failed',c.close)
         finish('renderer_lock_close_failed',lock.close)
-        atomic(report,result(renderer_terminal_state(clean,stop,error),0 if clean else None))
+        publish(result(renderer_terminal_state(clean,stop,error),0 if clean else None))
     return clean and error is None
 
 
@@ -4157,7 +4174,7 @@ class Nad1Runtime:
 
 
 class Nad1Owner:
-    def __init__(self,spec,ledger,scope,cancelled,*,fixture=None,session_authority=None):
+    def __init__(self,spec,ledger,scope,cancelled,*,fixture=None,session_authority=None,contract=None):
         self.spec=spec;self.ledger=ledger;self.scope=scope;self.cancelled=cancelled;self.production=fixture is None
         self.root=pathlib.Path(spec['application']['environment']['root']);self.prefix=self.root/'compatdata/pfx';self.drive=self.prefix/'drive_c'
         try:prefix=self.prefix.lstat();self.prefix_identity=(prefix.st_dev,prefix.st_ino)
@@ -4168,6 +4185,15 @@ class Nad1Owner:
         self.daemon_relative=NAD1_DAEMON if fixture is None else fixture['daemon']
         self.installer_sha=NAD1_INSTALLER_SHA if fixture is None else fixture['installer_sha256']
         self.installer_size=35769456 if fixture is None else fixture['installer_size']
+        self.managed_contract=contract
+        if contract is not None:
+            if fixture is not None or session_authority is not None:raise ValueError('managed_dependency_authority_conflict')
+            observed=managed_vendor_inputs(spec['managed_operation'])
+            if observed!=contract:raise ValueError('managed_dependency_binding_changed')
+            installer=contract['dependency']['installer']
+            self.installer_relative=str(pathlib.Path(installer['artifact']['path']).relative_to(self.drive))
+            self.installer_sha=installer['artifact']['sha256'];self.installer_size=installer['size']
+            self.daemon_relative=contract['profile']['dependency']['daemon']
         self.token=os.urandom(32).hex();self.anchor=None;self.recovery=None;self.runtime=None;self.diagnostic_privacy=False
         self.session_authority=self._session_authority(session_authority,fixture)
         self.registration_reobservation={'attempted':False,'count':0,'delay_ms':0,'result':'not_applicable'}
@@ -4288,6 +4314,11 @@ class Nad1Owner:
         index=len(self.stages);request=self.directory/f'{self.op}-dependency-{index}.private'
         fields=['NAD1_SERVICE_V1',self.op,self.token,action,self.installer_sha]
         if action=='stop':fields=['NAD1_STOP_REQUEST_V2',self.op,self.token,action,self.installer_sha,*map(str,self.service_generation or (0,0))]
+        if self.managed_contract is not None:
+            fields[0]='NAD1_STOP_REQUEST_V3' if action=='stop' else 'NAD1_SERVICE_V2'
+            service=self.managed_contract['profile']['dependency']
+            fields.extend([windows(self.drive/self.installer_relative,self.prefix),service['service'],
+                windows(self.drive/self.daemon_relative,self.prefix),*map(str,service['listeners'])])
         content='\n'.join([*fields,''])
         with request.open('xb') as f:f.write(content.encode('utf-16le'));f.flush();os.fsync(f.fileno())
         env=self.spec['application']['environment'];runner=env['runner']
@@ -4404,7 +4435,7 @@ class Nad1Owner:
         self.service_possibility='proved_absent' if service['registration']=='absent' else 'exact_registered'
         self.retirement_authorized=service['registration']=='exact'
         absent=actual is None;unregistered=service['registration']=='absent';owned_start=False
-        if unregistered and not absent and self.session_authority is not None:
+        if unregistered and not absent and (self.session_authority is not None or self.managed_contract is not None):
             self.service_possibility='may_exist';self.retirement_authorized=False
             service=self._registration_reobserve();unregistered=False
             self.service_possibility='exact_registered'
@@ -4417,7 +4448,7 @@ class Nad1Owner:
             self.command('install')
             actual=ownership.image_identity(path)
             self.daemon=actual
-            if self.production:nad1_retain_artifact(self.spec,actual)
+            if self.production and self.managed_contract is None:nad1_retain_artifact(self.spec,actual)
             service=self.command('query')
             if service['registration']!='exact':raise ValueError('dependency_install_registration_missing')
             self.service_possibility='exact_registered'
@@ -4770,6 +4801,138 @@ def daw_application_binding(app,is_uninstall):
         raise RuntimeError('managed DAW launch fields changed')
 
 
+MANAGED_NATIVE_ACCESS_PROFILE_SHA256='dba4302039d2d0d780c8e31d373dd17a56384c5b60469bfa0adc7178a10fb186'
+
+def managed_vendor_inputs(operation):
+    """Validate an ordinary owned application and its observed compatibility data.
+
+    No fixture environment, historical receipt, known application build hash or
+    fallback evidence participates in this admission.
+    """
+    import ownership
+    def canonical(value):return json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()
+    managed=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed'
+    app=operation['application'];env=app['environment'];op=operation['operation_id']
+    if app.get('schema')!=2 or app.get('id')!='selected' or app.get('user_selection') is not None or operation.get('mode')!='normal':raise ValueError('managed_application_observed_installation_required')
+    if not re.fullmatch('[0-9a-f]{32}',op) or not re.fullmatch('[0-9a-f]{32}',env['id']):raise ValueError('managed_application_operation')
+    root=managed/'environments'/env['id'];drive=root/'compatdata/pfx/drive_c'
+    if env['root']!=str(root) or root.resolve()!=root or renderer_read(root/'environment.json')!=env:raise ValueError('managed_application_environment')
+    runner=env['runner'];files=runner['files']
+    if not isinstance(files,list) or not 1<=len(files)<=64 or not {runner['proton'],runner['entry_point']}<=set(a['path'] for a in files):raise ValueError('managed_application_runtime_binding')
+    for artifact in [*files,*app['helpers']]:verify(artifact)
+    binding={'environment':env['id'],'executable':app['executable'],'helpers':app['helpers'],'installer':app['installer_sha256'],'installation':app['installer_result']}
+    selector=hashlib.sha256(canonical(binding)).hexdigest();directory=managed/'vendor-applications'/selector
+    if operation['report']!=str(directory/'operation-result.json') or renderer_read(directory/'operation.json')!=operation:raise ValueError('managed_application_operation_binding')
+    selected=renderer_read(directory/'application.json')
+    if selected['environment']['id']!=env['id'] or selected['environment']['root']!=str(root):raise ValueError('managed_application_selection_changed')
+    selected['environment']=env
+    if selected!=app:raise ValueError('managed_application_selection_changed')
+    record=renderer_read(managed/'onboarding'/env['id']/'record.json')
+    installer_op=record.get('installation_operation')
+    if (record.get('schema')!=1 or record.get('id')!=env['id'] or record.get('environment',{}).get('id')!=env['id']
+        or record['environment']['root']!=str(root) or record.get('installer')!=app['installer_sha256']
+        or not isinstance(installer_op,str) or not re.fullmatch('[0-9a-f]{32}',installer_op)
+        or app['installer_result']['path']!=str(managed/'onboarding'/env['id']/(installer_op+'-result.json'))):raise ValueError('managed_application_installation_binding')
+    verify(app['installer_result']);installed=renderer_read(app['installer_result']['path'])
+    if (installed.get('schema')!=2 or installed.get('operation')!=installer_op or installed.get('state')!='completed'
+        or installed.get('raw_exit')!=0 or installed.get('cleanup_confirmed') is not True or installed.get('owned_live')!=0
+        or installed.get('error') is not None):raise ValueError('managed_application_installation_incomplete')
+    imported=renderer_read(managed/'installers'/(app['installer_sha256']+'.json'))
+    if imported.get('id')!=app['installer_sha256'] or imported['artifact']['sha256']!=app['installer_sha256'] or pathlib.Path(imported['artifact']['path']).parent!=managed/'installers':raise ValueError('managed_application_import_binding')
+    verify(imported['artifact'])
+    launch=operation.get('managed')
+    if not isinstance(launch,dict) or set(launch)!={'capabilities','software'}:raise ValueError('managed_application_capability_binding')
+    capability=launch['capabilities'];profile=capability['profile']
+    if (set(capability)!={'schema','profile','profile_sha256','application','resources','dependency'} or capability['schema']!=1
+        or capability['application']!=selector or capability['profile_sha256']!=MANAGED_NATIVE_ACCESS_PROFILE_SHA256
+        or hashlib.sha256(canonical(profile)).hexdigest()!=MANAGED_NATIVE_ACCESS_PROFILE_SHA256):raise ValueError('managed_application_profile_definition')
+    software=launch['software']
+    if software!=renderer_launch_software(managed) or operation.get('launcher')!=software.get('installer_launch'):raise ValueError('managed_application_software_changed')
+    for role in ('manager','supervisor','ownership','installer_launch'):verify(software[role])
+    for role,path in [('supervisor',__file__),('ownership',ownership.__file__)]:
+        if pathlib.Path(software[role]['path']).resolve()!=pathlib.Path(path).resolve():raise ValueError('managed_application_executing_owner')
+    executable=pathlib.Path(app['executable']['path']);application=executable.parent
+    if not application.is_relative_to(drive) or application.resolve()!=application:raise ValueError('managed_application_root')
+    resources=capability['resources']
+    if set(resources)!={profile['executable'],*profile['resources']} or resources[profile['executable']]['artifact']!=app['executable']:raise ValueError('managed_application_resource_set')
+    total=0
+    for name,image in resources.items():
+        expected_path=executable if name==profile['executable'] else application/name
+        if pathlib.Path(name).is_absolute() or '..' in pathlib.Path(name).parts or image['artifact']['path']!=str(expected_path):raise ValueError('managed_application_resource_path')
+        total+=image['size']
+        if total>512*1024*1024:raise ValueError('managed_application_resource_bound')
+        check=RendererImage(image);check.close()
+    def pe(image,machine=None):
+        checked=RendererImage(image)
+        try:
+            header=os.pread(checked.fd,64,0)
+            if len(header)!=64 or header[:2]!=b'MZ':raise ValueError('managed_application_executable')
+            offset=int.from_bytes(header[60:64],'little');raw=os.pread(checked.fd,24,offset)
+            kind=int.from_bytes(raw[4:6],'little');flags=int.from_bytes(raw[22:24],'little')
+            if offset<64 or len(raw)!=24 or raw[:4]!=b'PE\0\0' or flags&2==0 or flags&0x2000 or kind not in (0x14c,0x8664) or machine is not None and kind!=machine:raise ValueError('managed_application_executable_capability')
+        finally:checked.close()
+    pe(resources[profile['executable']],0x8664)
+    dependency=capability['dependency']
+    if set(dependency)!={'installer','daemon'}:raise ValueError('managed_application_dependency_binding')
+    bundled=application/profile['dependency']['installer_directory']
+    if bundled.resolve()!=bundled or not bundled.is_dir():raise ValueError('managed_application_bundled_dependency')
+    entries=list(bundled.iterdir())
+    if len(entries)>64:raise ValueError('managed_application_dependency_bound')
+    candidates=[p for p in entries if p.name.startswith(profile['dependency']['installer_prefix']) and p.name.endswith(profile['dependency']['installer_suffix'])]
+    if len(candidates)!=1 or dependency['installer']['artifact']['path']!=str(candidates[0]):raise ValueError('managed_application_dependency_ambiguous')
+    pe(dependency['installer'])
+    daemon=drive/profile['dependency']['daemon']
+    if dependency['daemon'] is None:
+        if daemon.exists() or daemon.is_symlink():raise ValueError('managed_application_dependency_changed')
+    else:
+        if dependency['daemon']['artifact']['path']!=str(daemon):raise ValueError('managed_application_dependency_path')
+        pe(dependency['daemon'],0x8664)
+    return capability
+
+def managed_vendor_result(value):
+    focus=value.get('focus_result')
+    if focus and focus.get('result') not in ('focused','refused_exact_window_unavailable'):focus={'request':focus.get('request'),'result':'refused_exact_window_unavailable'}
+    return {'schema':3,'operation_id':value['operation'],'state':value['state'],
+        'launcher_exit':value.get('outer_exit'),'owned_live':value.get('owned_live'),
+        'cleanup_confirmed':value.get('cleanup_confirmed',False),'error':value.get('error'),
+        'discarded_diagnostic_bytes':0,'diagnostic_enabled':False,'windows_accessibility_disabled':False,
+        'account_posture':'unknown','focus_result':focus,'dependency':value.get('dependency'),
+        'browser_return':value.get('browser_return')}
+
+def managed_vendor_application(operation):
+    app=operation['application'];op=operation['operation_id'];report=pathlib.Path(operation['report'])
+    binding={'environment':app['environment']['id'],'executable':app['executable'],'helpers':app['helpers'],'installer':app['installer_sha256'],'installation':app['installer_result']}
+    selector=hashlib.sha256(json.dumps(binding,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+    directory=pathlib.Path.home()/'.local/share/linux-vst-bridge/managed/vendor-applications'/selector
+    if not re.fullmatch('[0-9a-f]{32}',op) or report!=directory/'operation-result.json' or directory.resolve()!=directory:raise ValueError('managed_application_report_binding')
+    writer=(directory/'writer.lock').open('a+b')
+    with writer:
+        fcntl.flock(writer,fcntl.LOCK_EX)
+        if renderer_read(directory/'operation.json')!=operation:raise ValueError('managed_application_operation_binding')
+        previous=renderer_read(report)
+        if previous.get('operation_id')==op and previous.get('cleanup_confirmed') is True and previous.get('state') in ('completed','failed','cancelled'):return False
+        try:capability=managed_vendor_inputs(operation)
+        except Exception as exc:
+            # No child is launched on admission failure. Only an observed empty
+            # operation cohort can establish retirement through normal recovery.
+            error=str(exc) if isinstance(exc,ValueError) and str(exc).startswith('managed_application_') else 'managed_application_preflight_failed'
+            atomic(report,{'schema':3,'operation_id':op,'state':'cleanup_unconfirmed','launcher_exit':None,
+                'owned_live':None,'cleanup_confirmed':False,'error':error,'discarded_diagnostic_bytes':0,'account_posture':'unknown'})
+            return False
+        software=operation['managed']['software']
+        spec={'schema':1,'kind':'managed_application','operation':operation['operation_id'],
+            'application':{'id':capability['profile']['id'],'environment':app['environment'],'files':capability['resources']},
+            'application_identity':capability['application'],'renderer_policy':capability['profile']['rendering'],
+            'software':software,'software_sha256':hashlib.sha256(json.dumps(software,sort_keys=True,separators=(',',':')).encode()).hexdigest(),
+            'installer_launch':software['installer_launch'],'report':str(report.parent/'managed-session.json'),
+            'managed_operation':operation}
+        try:return renderer_run(spec,managed_contract=capability)
+        except Exception:
+            atomic(report,{'schema':3,'operation_id':op,'state':'cleanup_unconfirmed','launcher_exit':None,
+                'owned_live':None,'cleanup_confirmed':False,'error':'managed_application_owner_interrupted',
+                'discarded_diagnostic_bytes':0,'account_posture':'unknown'})
+            return False
+
 def vendor_application(spec):
     """Own every process in the dedicated unit until observed retirement.
 
@@ -4779,6 +4942,7 @@ def vendor_application(spec):
     """
     if spec.get('kind')=='native_access_dependency':return nad1_application(spec)
     if spec.get('kind')=='renderer_application':return renderer_application(spec)
+    if spec.get('managed') is not None:return managed_vendor_application(spec)
     is_uninstall=spec.get('kind')=='daw_workspace_uninstall'
     is_daw=spec.get('kind') in ('daw_workspace_application','daw_workspace_uninstall')
     if spec.get('kind') not in (None,'daw_workspace_application','daw_workspace_uninstall'):

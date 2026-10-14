@@ -232,11 +232,8 @@ fn vendor_projection(
         format!("{} ({})", c.name, c.image_name)
     } else { c.name.clone() }).unwrap_or_else(||a.display_name());
     let job = optional(&directory.join("operation.json"))?;
-    let retired = if let Some(op) = job["operation_id"].as_str() {
-        vendor_cli::result(m, selector, op)?.retired()
-    } else {
-        true
-    };
+    let report = job["operation_id"].as_str().map(|op|vendor_cli::result(m, selector, op)).transpose()?;
+    let retired = report.as_ref().is_none_or(|r|r.retired());
     Ok(Some(ui::VendorApplication {
         id: selector.into(),
         name: name.clone(),
@@ -249,7 +246,9 @@ fn vendor_projection(
             "cleanup_unconfirmed"
         }
         .into(),
-        details: json!({"environment":a.environment.id,"journey":if handoff {None}else{current_intent.map(|i|&i.journey)},"choose_application":choosing}),
+        details: json!({"environment":a.environment.id,"journey":if handoff {None}else{current_intent.map(|i|&i.journey)},"choose_application":choosing,
+            "capability_notice":job["capability_notice"],"dependency":report.as_ref().and_then(|r|r.dependency.as_ref()),
+            "browser_return":report.as_ref().and_then(|r|r.browser_return.as_ref())}),
         actions: vec![
             action(
                 &if restartable {format!("Try installation again through {name}")}
@@ -5552,7 +5551,7 @@ pub(crate) mod tests {
             atomic_json(&app_directory(&f.m).join("operation.json"),
                 &vendor_application::Operation {application,report:app_directory(&f.m).join("operation-result.json"),
                     mode:vendor_application::LaunchMode::Normal,
-                    operation_id:if mismatch=="wrong_launch"{"ee".repeat(16)}else{vendor.clone()},launcher:None}).unwrap();
+                    operation_id:if mismatch=="wrong_launch"{"ee".repeat(16)}else{vendor.clone()},launcher:None, managed:None,capability_notice:None}).unwrap();
             atomic_json(&app_directory(&f.m).join("operation-result.json"),
                 &json!({"schema":3,"operation_id":if mismatch=="changed_vendor_result"{"ef".repeat(16)}else{vendor.clone()},
                 "state":"running","launcher_exit":null,"discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();

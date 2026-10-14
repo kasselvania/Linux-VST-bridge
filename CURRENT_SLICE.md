@@ -1,32 +1,38 @@
-# Current slice — user control over programs
+# Current slice — complete Native Instruments setup
 
-Goal: choose and remember a portable Windows program in an existing native
-managed setup, then explicitly adopt changed bytes without installer registration
-or maintainer permission. Keep the setup's runtime, prefix and licensed state.
+Goal: a musician can install Native Access in a fresh managed setup, authorize
+through its browser return, install Kontakt, and connect it to a native Linux DAW.
+Keep the actual installation, runtime and licensed state bound to that setup.
 
-First slice is complete on the assigned CachyOS/native REAPER fixture with Test72.
-The source increments are independently reviewed, green and merged into main.
+Best explanation: ordinary application launch omitted the dependency and renderer
+behavior previously exercised only through a fixed Deck installation. Fresh setup
+records could not reach that helper route. This source gap is confirmed. The
+reported "Native Access cannot be closed" installer error still needs a controlled
+comparison; the historical PowerShell option progressed only to a blank app window.
 
-What works:
-1. Choose program records exact bytes and the existing working folder independently
-   of installer observations. Open keeps that path, resource folder and setup.
-2. The suspended Windows adapter verifies the child image before running it.
-   Show and normal Close target the exact supervised session's unique owned window;
-   the Btrfs stat/maps mismatch no longer blocks these controls.
-3. After A closes, same-path B cannot Open under A's identity. Use this version
-   adopts B, retains A's record and preserves environment/runtime/folder/arguments.
-   Normal manager quit/restart remembers B; B Open/resource/Show/Close pass.
-4. Fresh original REAPER recall retains both roles' controls, four automation
-   points per lane and sixteen notes. Separate solo captures contain nonzero
-   instrument/effect audio; the original project remains exact after normal Quit.
-5. Six class/module/environment bindings and delivered Test69–71 builds survive.
-   Of 2,455 protected paths, 2,452 stay exact; registry/status renew and one ordinary
-   vendor-owned DAW accounting write is retained. Final idle and shutdown are clean.
+First increment:
+1. Match compatible application structure automatically after an owned installation.
+   Bind actual resources and the bundled service installer; unknown versions remain
+   attemptable. Names locate candidates, without establishing publisher identity.
+2. Carry those observations in the existing application Operation. Use the existing
+   process owner for dependency readiness, renderer launch, browser return, focus,
+   cancellation and retirement. No historical Deck identity grants fresh authority.
+3. Keep generic launch available when assisted structure is incomplete, with the
+   specific missing capability in setup details. Refuse ambiguity and changed bytes.
+4. Preserve existing daemon content; a missing registration is reobserved once,
+   never repaired by automatically reinstalling over an existing daemon.
 
-Installed replacement was exercised after A's normal close. Running-A replacement
-controls retain separate source regression coverage. VM playback does not qualify
-physical latency or deadlines. Existing evidence: evidence/cachyos-reaper.json.
+Next changes and tests:
+- Review the portable source increment and its ordinary-operation fixtures.
+- Compare the retained installer in fresh setups under the same runtime, changing
+  only the operation-scoped PowerShell policy. Preserve all existing installations.
+- Qualify fresh Native Access, owned NTK service, browser return and Kontakt install.
+  Check the current runtime's MSI behavior rather than assuming old patches apply.
+- Verify automatic discovery/DAW connection, save/reopen and clean repeat use.
 
-Next direction work: this slice has no extra launch arguments. Wine settings,
-local runtime import and the Windows DAW workspace remain separate increments.
-Incorporate current main and coordinate shared hardware custody before continuing.
+Done means the complete ordinary musician journey works on the assigned fixture,
+with clean retirement and the same saved setup after restart. Source tests alone
+are preparation for that acceptance. The previous chosen-program control slice is
+complete; its installed coverage remains in evidence/cachyos-reaper.json.
+
+Live work owner: [#333](https://github.com/kasselvania/Linux-VST-bridge/issues/333).

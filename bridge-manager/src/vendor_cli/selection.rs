@@ -312,6 +312,91 @@ pub(crate) mod tests {
         assert_eq!(test_fixture::snapshot(&f.m.root), before);
     }
 
+    fn structured_application(seed: u8) -> (test_fixture::Fixture, Application, PathBuf) {
+        let (f, record, transaction) = installed_app();
+        let directory = record.environment.root.join("compatdata/pfx/drive_c/Program Files/Vendor");
+        let old = "Program Files/Vendor/Main.exe";
+        let new = "Program Files/Vendor/Native Access.exe";
+        fs::rename(directory.join("Main.exe"), directory.join("Native Access.exe")).unwrap();
+        let mut bytes = fs::read(directory.join("Native Access.exe")).unwrap();
+        bytes[1023] = seed;
+        fs::write(directory.join("Native Access.exe"), &bytes).unwrap();
+        let mut observation: Value = read_json(&transaction).unwrap();
+        let files = observation["after"]["files"].as_object_mut().unwrap();
+        let mut image = files.remove(old).unwrap();
+        image["sha256"] = json!(digest(&directory.join("Native Access.exe")).unwrap());
+        files.insert(new.into(), image);
+        for pointer in ["/durable_installation/application_registrations/0/images",
+            "/durable_installation/delta/files/added"] {
+            for path in observation.pointer_mut(pointer).unwrap().as_array_mut().unwrap() {
+                if *path == old { *path = json!(new); }
+            }
+        }
+        atomic_json(&transaction, &observation).unwrap();
+        let profile = linux_vst_bridge::vendor_profile::native_access().unwrap();
+        for name in &profile.resources {
+            let path = directory.join(name);
+            private_dir(path.parent().unwrap()).unwrap();
+            fs::write(path, [seed, 42, 13]).unwrap();
+        }
+        let bundled = directory.join(&profile.dependency.installer_directory);
+        private_dir(&bundled).unwrap();
+        fs::write(bundled.join(format!("NTKDaemon {seed}.0 Setup PC.exe")), &bytes).unwrap();
+        let app = choices(&f.m, &record).unwrap().into_iter().find(|choice|
+            choice.application.executable.path.ends_with("Native Access.exe")).unwrap().application;
+        (f, app, directory)
+    }
+
+    #[test]
+    fn assisted_app_capabilities_bind_actual_installations_and_unknown_version_bytes() {
+        let (first, a, _) = structured_application(1);
+        let (second, b, _) = structured_application(99);
+        assert_ne!(a.environment.id, b.environment.id);
+        assert_ne!(a.installer_result, b.installer_result);
+        let before = test_fixture::snapshot(&first.m.root);
+        let left = linux_vst_bridge::vendor_profile::inspect(&a, &first.m.root).unwrap().capabilities.unwrap();
+        let right = linux_vst_bridge::vendor_profile::inspect(&b, &second.m.root).unwrap().capabilities.unwrap();
+        assert_ne!(left.application, right.application);
+        assert_ne!(left.resources, right.resources);
+        assert_ne!(left.dependency.installer, right.dependency.installer);
+        left.verify(&a, &first.m.root).unwrap();
+        right.verify(&b, &second.m.root).unwrap();
+        assert!(left.verify(&b, &second.m.root).is_err());
+        assert_eq!(before, test_fixture::snapshot(&first.m.root));
+    }
+
+    #[test]
+    fn assisted_app_structure_refusal_preserves_generic_choice_and_exact_identity() {
+        for failure in ["missing", "ambiguous", "symlink", "architecture"] {
+            let (f, app, directory) = structured_application(2);
+            match failure {
+                "missing" => fs::remove_file(directory.join("resources/app.asar")).unwrap(),
+                "ambiguous" => {
+                    let bundled = directory.join("resources/daemon/win");
+                    fs::copy(bundled.join("NTKDaemon 2.0 Setup PC.exe"),
+                        bundled.join("NTKDaemon 3.0 Setup PC.exe")).unwrap();
+                },
+                "symlink" => {
+                    let path = directory.join("resources/app.asar");
+                    fs::remove_file(&path).unwrap();
+                    std::os::unix::fs::symlink(directory.join("resources.pak"), path).unwrap();
+                },
+                "architecture" => {
+                    let path = directory.join("resources/daemon/win/NTKDaemon 2.0 Setup PC.exe");
+                    let mut bytes = fs::read(&path).unwrap();
+                    bytes[132..134].copy_from_slice(&0xaa64_u16.to_le_bytes());
+                    fs::write(path, bytes).unwrap();
+                },
+                _ => unreachable!(),
+            }
+            let inspected = linux_vst_bridge::vendor_profile::inspect(&app, &f.m.root).unwrap();
+            assert!(inspected.capabilities.is_none(), "{failure}");
+            assert!(inspected.missing_capability.is_some(), "{failure}");
+            app.verify(&f.m.root).unwrap();
+            assert!(select(&f.m, &app.selector().unwrap()).is_ok());
+        }
+    }
+
     #[test]
     fn unsafe_registration_or_image_binding_refuses_before_registration() {
         let (f, record, path) = installed_app();

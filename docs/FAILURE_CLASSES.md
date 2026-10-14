@@ -3585,3 +3585,5 @@ DAW launch; the existing long-playback and touch gaps remain separate.
 - [#329](https://github.com/kasselvania/Linux-VST-bridge/issues/329): Recovery after choosing an updater instead of the full installer was unclear; the complete tester journey has not been reproduced.
 - [#330](https://github.com/kasselvania/Linux-VST-bridge/issues/330): Serum 2 editor transparency was reported and remains unreproduced.
 - [#331](https://github.com/kasselvania/Linux-VST-bridge/issues/331): The tester noticed the detached editor during an initial tryout; automation workflow impact needs our own testing.
+
+- [#333](https://github.com/kasselvania/Linux-VST-bridge/issues/333): Fresh Native Access setup could not reach the historical dependency/renderer route. Portable ordinary-operation integration is under source validation; the installer close-check error and fresh Native Access/Kontakt journey still require installed acceptance.
