@@ -129,6 +129,7 @@ fn main() -> Result<()> {
         runtime.host.clone(),
         runtime.source_manifest.clone(),
         &operation,
+        None,
     )?;
     prep::verify_candidate(
         &m,

@@ -1748,6 +1748,14 @@ fn launch_configuration_source(m: &Manager, candidate: &Candidate,
     Ok(revision)
 }
 
+/// Resolve retained interpretation before generating the native bus layout.
+pub fn retained_event_output(m: &Manager, prior: Option<&Candidate>) -> Result<Option<EventOutputPolicy>> {
+    let Some(prior) = prior else { return Ok(None) };
+    validate_candidate_record(m, prior)?;
+    Ok(retained_revision_configuration(m, prior)?
+        .and_then(|source| source.profile.capabilities.event_output))
+}
+
 pub fn carry_launch_configuration(m: &Manager, mut next: Candidate,
     prior: Option<&Candidate>) -> Result<Candidate> {
     let Some(prior) = prior else { return Ok(next) };
@@ -2080,7 +2088,8 @@ fn refresh_candidate_selected(m: &Manager, predecessor: &Revision, runtime: buil
         predecessor.registration.compatibility.audio_layout.clone(),
     )?;
     let next =
-        build::construct_with_runtime(m, selection, inspection, runtime, operation)?;
+        build::construct_with_runtime(m, selection, inspection, runtime, operation,
+            predecessor.registration.compatibility.event_output.clone())?;
     let next = if let Some(prior) = source.candidate.as_ref() {
         let next = bind_preparation_basis(
             configuration::carry_settings(next, Some(prior))?,

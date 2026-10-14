@@ -121,13 +121,15 @@ inline constexpr Parameter parameters[]={
 }
 '''
 
-def runtime_descriptor(records, class_id, module_sha256, engine_sha256):
+def runtime_descriptor(records, class_id, module_sha256, engine_sha256, event_output=None):
     """Prepare data for the reusable engine; preserve each installation's readback.
 
     Inspection validation is shared with retained static-descriptor tooling.
     Rust validates the bounded data again before publication and native loading.
     """
-    buses, _, vendor, params, _ = inspected_metadata(records, class_id, module_sha256)
+    profile = None if event_output is None else dict(module_sha256=module_sha256,
+        **{'class': {'class_id': class_id}}, capabilities={'event_output': event_output})
+    buses, _, vendor, params, _ = inspected_metadata(records, class_id, module_sha256, profile)
     normal = lambda v: isinstance(v, (int, float)) and math.isfinite(v) and 0 <= v <= 1
     descriptor = dict(schema=1, engine_sha256=engine_sha256,
         class_id=class_id.upper(), module_sha256=module_sha256,

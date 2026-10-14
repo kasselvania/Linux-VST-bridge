@@ -382,11 +382,12 @@ pub fn construct(
     host: Artifact,
     manifest: Artifact,
     operation: &str,
+    event_output: Option<EventOutputPolicy>,
 ) -> Result<Candidate> {
     let runtime = stage_runtime(m)?;
     require(runtime.host == host && runtime.source_manifest == manifest,
         "inspection_generation_refresh_required")?;
-    construct_with_runtime(m, s, i, runtime, operation)
+    construct_with_runtime(m, s, i, runtime, operation, event_output)
 }
 pub fn construct_with_runtime(
     m: &Manager,
@@ -394,6 +395,7 @@ pub fn construct_with_runtime(
     i: Inspection,
     runtime: Runtime,
     operation: &str,
+    event_output: Option<EventOutputPolicy>,
 ) -> Result<Candidate> {
     require(valid_hex(operation, 32), "preparation_operation")?;
     require(
@@ -413,7 +415,7 @@ pub fn construct_with_runtime(
     private_dir(&parent)?;
     let dir = parent.join(operation);
     require(!dir.exists(), "preparation_operation_already_started")?;
-    let request = serde_json::json!({"directory":dir,"kit":kit.path,"kit_sha256":kit.sha256,"inspection":i.report.path,"class_id":s.class.id,"module_sha256":s.module.sha256});
+    let request = serde_json::json!({"directory":dir,"kit":kit.path,"kit_sha256":kit.sha256,"inspection":i.report.path,"class_id":s.class.id,"module_sha256":s.module.sha256,"event_output":event_output});
     let script = include_str!("../../../tools/mf3/kit_entry.py");
     let mut child = Command::new("python3")
         .args(["-I", "-c", script])
@@ -452,6 +454,8 @@ pub fn construct_with_runtime(
         status.success(),
         reply["error"].as_str().unwrap_or("native_build_failed"),
     )?;
+    require(reply.get("event_output").unwrap_or(&Value::Null) == &serde_json::to_value(&event_output)?,
+        "native_build_event_output_policy_changed")?;
     let descriptor = if reply["delivery"] == "reusable_engine" {
         require(reply["loaded_engine_admission_contract"] == 1,
             "loaded_engine_admission_contract_missing")?;
@@ -746,7 +750,9 @@ pub fn reusable(
     s: &Selection,
     i: &Inspection,
     kit: &str,
+    event_output: Option<EventOutputPolicy>,
 ) -> Result<Option<Candidate>> {
+    let requested_policy = serde_json::to_value(event_output)?;
     let mut found = vec![];
     for c in retained_candidates(m)? {
         if c.origin != Origin::ManagedPreparation
@@ -760,6 +766,9 @@ pub fn reusable(
         }
         let path = c.native.artifact.path.with_file_name("build.json");
         let row: Value = bounded(&path)?;
+        if row.get("event_output").unwrap_or(&Value::Null) != &requested_policy {
+            continue;
+        }
         let runtime = existing_runtime(m, kit)?;
         require(
             row["builder_sha256"].as_str() == runtime.builder.as_ref().map(|a| a.sha256.as_str())
@@ -778,10 +787,9 @@ pub fn reusable(
         verify_candidate(m, &c, &s.scanner, &s.scanner_source)?;
         let technical = prepared(s.clone(), i.clone(), c.native.clone(),
             i.host.clone(), i.source_manifest.clone(), kit.into())?;
-        // Retained launch settings were verified above. They cannot select
-        // different native bytes or require a customer compilation. Reuse the
-        // exact artifact with today's freshly resolved preparation defaults;
-        // comparing those defaults to history would reinterpret frozen advice.
+        // Event interpretation is a build input, matched above. Other launch
+        // settings do not change these native bytes. Resolve today's defaults
+        // before the caller carries its exact retained configuration.
         if !found.contains(&technical) {
             found.push(technical);
         }

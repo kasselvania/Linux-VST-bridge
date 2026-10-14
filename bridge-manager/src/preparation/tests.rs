@@ -282,6 +282,43 @@ fn retained_static_profile_without_candidate_authorizes_only_its_exact_refresh()
                 .to_string(),
             "bridge_refresh_predecessor_changed"
         );
+        assert_eq!(retained_event_output(&f.m, Some(&next)).unwrap(),
+            Some(EventOutputPolicy::ReportedZeroEventChannelsUnspecified));
+        // A supported update regenerates effective discovery data using the
+        // retained policy before constructing the reusable native publication.
+        let kit_path = f.m.root.join("software/event-output-kit.zip");
+        crate::test_fixture::reusable_kit(&kit_path, &next.host,
+            &next.source_manifest, "event-output-engine-fixture");
+        let software = crate::catalogue::Software {
+            installer_launch: None,
+            preparation_kit: Some(Artifact {sha256:digest(&kit_path).unwrap(), path:kit_path}),
+            manager:next.host.clone(), operator_frontend:None,
+            supervisor:next.host.clone(), ownership:next.host.clone(), host:next.host.clone(),
+            source_manifest:next.source_manifest.clone(), source_sha256:next.source_manifest.sha256.clone(),
+            native_catalogue:None,
+        };
+        let runtime = build::stage_runtime_for_software(&f.m, &software).unwrap();
+        let mut raw: Value = read_json(&predecessor.census.report.path).unwrap();
+        raw["records"].as_array_mut().unwrap().extend([
+            json!({"state":"ap8_controller_association","combined":false,"class_id":"02".repeat(16)}),
+            json!({"state":"ap8_bus","media":0,"direction":1,"index":0,
+                "channels":2,"type":0,"flags":1,"arrangement":3,"name":"Output"}),
+            json!({"state":"ap8_bus","media":1,"direction":0,"index":0,
+                "channels":0,"type":0,"flags":1,"arrangement":0,"name":"Events in"}),
+            json!({"state":"ap8_bus","media":1,"direction":1,"index":0,
+                "channels":0,"type":0,"flags":1,"arrangement":0,"name":"Events out"}),
+        ]);
+        let report = f.outer.join("event-output-inspection.json");
+        atomic_json(&report, &raw).unwrap();
+        let report = Artifact {sha256:digest(&report).unwrap(), path:report};
+        let refreshed = refresh_candidate(&f.m, &predecessor, runtime, report,
+            &random_id().unwrap()).unwrap();
+        let descriptor: lvb_plugin_descriptor::Descriptor =
+            read_json(&refreshed.native.descriptor.as_ref().unwrap().path).unwrap();
+        assert_eq!(descriptor.buses.iter().map(|bus| bus.channels).collect::<Vec<_>>(),
+            vec![2, 0, 16]);
+        assert_eq!(refreshed.profile.capabilities.compatibility(), predecessor.registration.compatibility);
+        assert_eq!(read_json::<Value>(&refreshed.inspection.report.path).unwrap(), raw);
         // The selected runner changes through its existing typed owner. The
         // old exact revision remains historical; fresh preparation borrows only
         // its launch policies, never its old inspection or qualification.
@@ -1685,19 +1722,19 @@ fn complete_build_identity_reuses_only_the_exact_generation() {
     atomic_json(&build,&json!({"kit_sha256":kit.sha256,"builder_sha256":builder.sha256,"generator_sha256":generator.sha256,"native_sha256":c.native.artifact.sha256,"descriptor_sha256":c.native.descriptor_sha256,"source_commit":c.native.source_commit})).unwrap();
     record_candidate(&f.m, &c).unwrap();
     assert_eq!(
-        build::reusable(&f.m, &c.selection, &i, &kit.sha256).unwrap(),
+        build::reusable(&f.m, &c.selection, &i, &kit.sha256, None).unwrap(),
         Some(c.clone())
     );
     // Several settings candidates share one compiled artifact. Refresh keeps
     // the selected override without mistaking the candidates for two engines.
     let trial = configuration::prepare(&f.m, &c,
         Some(crate::operator_model::GraphicsBackend::WineD3d11), None).unwrap();
-    let reusable = build::reusable(&f.m, &c.selection, &i, &kit.sha256).unwrap().unwrap();
+    let reusable = build::reusable(&f.m, &c.selection, &i, &kit.sha256, None).unwrap().unwrap();
     let refreshed = configuration::carry_settings(reusable, Some(&trial)).unwrap();
     let refreshed = bind_preparation_basis(refreshed, Some("bc".repeat(32))).unwrap();
     record_candidate_with_predecessor(&f.m, &refreshed, Some(&trial.id().unwrap())).unwrap();
     assert_eq!(refreshed.profile.capabilities.graphics, trial.profile.capabilities.graphics);
-    assert_eq!(build::reusable(&f.m, &c.selection, &i, &kit.sha256).unwrap(), Some(c.clone()));
+    assert_eq!(build::reusable(&f.m, &c.selection, &i, &kit.sha256, None).unwrap(), Some(c.clone()));
     // A historical default recommendation does not select native code or
     // reinterpret its configuration when today's advice changes.
     let advised = prepared_with_advice(c.selection.clone(), i.clone(), c.native.clone(),
@@ -1705,20 +1742,20 @@ fn complete_build_identity_reuses_only_the_exact_generation() {
         (Accessibility::DisabledForVendorProcess,
             vec!["docs/MF3.md".into(), "evidence/default-accessibility-advice.json".into()])).unwrap();
     record_candidate(&f.m, &advised).unwrap();
-    assert_eq!(build::reusable(&f.m, &c.selection, &i, &kit.sha256).unwrap(), Some(c.clone()));
-    assert!(build::reusable(&f.m, &c.selection, &i, &"ff".repeat(32))
+    assert_eq!(build::reusable(&f.m, &c.selection, &i, &kit.sha256, None).unwrap(), Some(c.clone()));
+    assert!(build::reusable(&f.m, &c.selection, &i, &"ff".repeat(32), None)
         .unwrap()
         .is_none());
     let different = next_generation(&f.m, &c);
     assert!(
-        build::reusable(&f.m, &c.selection, &different.inspection, &kit.sha256)
+        build::reusable(&f.m, &c.selection, &different.inspection, &kit.sha256, None)
             .unwrap()
             .is_none()
     );
     let mut row: Value = read_json(&build).unwrap();
     row["generator_sha256"] = json!("00".repeat(32));
     atomic_json(&build, &row).unwrap();
-    assert!(build::reusable(&f.m, &c.selection, &i, &kit.sha256).is_err());
+    assert!(build::reusable(&f.m, &c.selection, &i, &kit.sha256, None).is_err());
 }
 
 #[test]
@@ -2103,6 +2140,49 @@ fn candidate_only_upgrade_refuses_bound_snapshot_conflict_without_rewriting_it()
 }
 
 #[test]
+fn reusable_engine_reuse_keeps_the_requested_event_output_interpretation() {
+    let (f, c) = fixture();
+    let kit_path = f.m.root.join("software/event-output-reuse-kit.zip");
+    crate::test_fixture::reusable_kit(&kit_path, &c.host, &c.source_manifest,
+        "event-output-reuse-engine-fixture");
+    let software = crate::catalogue::Software {
+        installer_launch:None,
+        preparation_kit:Some(Artifact {sha256:digest(&kit_path).unwrap(), path:kit_path}),
+        manager:c.host.clone(), operator_frontend:None, supervisor:c.host.clone(),
+        ownership:c.host.clone(), host:c.host.clone(), source_manifest:c.source_manifest.clone(),
+        source_sha256:c.source_manifest.sha256.clone(), native_catalogue:None,
+    };
+    let runtime = build::stage_runtime_for_software(&f.m, &software).unwrap();
+    let mut raw: Value = read_json(&c.inspection.report.path).unwrap();
+    raw["records"].as_array_mut().unwrap().extend([
+        json!({"state":"ap8_bus","media":0,"direction":1,"index":0,
+            "channels":2,"type":0,"flags":1,"arrangement":3,"name":"Output"}),
+        json!({"state":"ap8_bus","media":1,"direction":1,"index":0,
+            "channels":0,"type":0,"flags":1,"arrangement":0,"name":"Events out"}),
+    ]);
+    let report = f.outer.join("event-output-reuse-inspection.json");
+    atomic_json(&report, &raw).unwrap();
+    let inspection = inspect_record_with(c.selection.clone(),
+        Artifact {sha256:digest(&report).unwrap(), path:report}, Origin::ManagedPreparation,
+        runtime.host.clone(), runtime.source_manifest.clone()).unwrap();
+    let raw_candidate = build::construct_with_runtime(&f.m, c.selection.clone(), inspection.clone(),
+        runtime.clone(), &random_id().unwrap(), None).unwrap();
+    record_candidate(&f.m, &raw_candidate).unwrap();
+    let policy = Some(EventOutputPolicy::ReportedZeroEventChannelsUnspecified);
+    assert!(build::reusable(&f.m, &c.selection, &inspection, &raw_candidate.recipe_sha256,
+        policy.clone()).unwrap().is_none());
+    let effective_candidate = build::construct_with_runtime(&f.m, c.selection.clone(), inspection.clone(),
+        runtime, &random_id().unwrap(), policy.clone()).unwrap();
+    record_candidate(&f.m, &effective_candidate).unwrap();
+    assert_eq!(raw_candidate.native.artifact.sha256, effective_candidate.native.artifact.sha256);
+    assert_ne!(raw_candidate.native.descriptor_sha256, effective_candidate.native.descriptor_sha256);
+    assert_eq!(build::reusable(&f.m, &c.selection, &inspection, &raw_candidate.recipe_sha256,
+        None).unwrap().unwrap().native, raw_candidate.native);
+    assert_eq!(build::reusable(&f.m, &c.selection, &inspection, &raw_candidate.recipe_sha256,
+        policy).unwrap().unwrap().native, effective_candidate.native);
+}
+
+#[test]
 fn reusable_engine_actual_preparation_retains_and_publishes_descriptor() {
     let (f, c) = fixture();
     retain_inspection(&f.m, &c.inspection).unwrap();
@@ -2175,6 +2255,7 @@ fn reusable_engine_actual_preparation_retains_and_publishes_descriptor() {
         inspection,
         runtime,
         &operation,
+        None,
     )
     .unwrap();
     let descriptor = prepared.native.descriptor.as_ref().unwrap();

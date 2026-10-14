@@ -81,14 +81,15 @@ def reusable_engine(request, generator, archive, recipe):
         data = z.read(name)
         assert data[:4] == b'\x7fELF' and digest(data) == recipe['files'][name] == index['engine_sha256']
         records = json.loads(pathlib.Path(request['inspection']).read_text())['records']
-        descriptor = generator(records, request['class_id'], request['module_sha256'], index['engine_sha256']).encode()
+        descriptor = generator(records, request['class_id'], request['module_sha256'],
+            index['engine_sha256'], request.get('event_output')).encode()
         assert len(descriptor) <= 8*1024*1024
         (source/'plugin-descriptor.json').write_bytes(descriptor)
         (source/'native.so').write_bytes(data)
         return dict(schema=1,source_commit=recipe['source_commit'],native_sha256=index['engine_sha256'],
             descriptor_sha256=digest(descriptor),dropped_bytes=0,sdk=SDK,sdk_runtime=None,
             delivery='reusable_engine',prebuilt_index_sha256=digest(index_bytes),
-            loaded_engine_admission_contract=1)
+            loaded_engine_admission_contract=1,event_output=request.get('event_output'))
 
 def build(request, generator):
     source=pathlib.Path(request['directory'])
@@ -98,6 +99,8 @@ def build(request, generator):
     with zipfile.ZipFile(archive) as z:
         assert z.getinfo('recipe.json').file_size<=65536
         recipe=json.loads(z.read('recipe.json'))
+    if request.get('event_output') is not None and recipe['schema'] != 4:
+        raise ValueError('event_output_policy_requires_reusable_engine')
     if recipe['schema']==4:return reusable_engine(request,generator,archive,recipe)
     if recipe['schema']==3:return prebuilt(request,generator,archive,recipe)
     source.mkdir(mode=0o700)

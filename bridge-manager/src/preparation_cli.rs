@@ -1703,12 +1703,14 @@ pub(super) fn execute_with_progress(
                     #[cfg(test)]
                     if let Some(candidate) = probed_candidate() { return Ok((candidate, false)); }
                     let basis = prep::preparation_basis(m, prior)?;
-                    let reusable = prep::build::reusable(m, s, i, recipe)?;
+                    let event_output = prep::retained_event_output(m, prior)?;
+                    let reusable = prep::build::reusable(m, s, i, recipe, event_output.clone())?;
                     let artifact_reused = reusable.is_some();
                     let c = match reusable {
                         Some(c) => c,
                         None => prep::build::construct(m, s.clone(), i.clone(), i.host.clone(),
-                            i.source_manifest.clone(), &source_operation)?,
+                            i.source_manifest.clone(), &source_operation,
+                            event_output)?,
                     };
                     let c = prep::configuration::carry_settings(c, prior)?;
                     let c = prep::bind_preparation_basis(c, Some(basis))?;
@@ -1744,7 +1746,8 @@ pub(super) fn execute_with_progress(
                 )?;
             }
             let basis = prep::preparation_basis(m, prior.as_ref())?;
-            let reusable = prep::build::reusable(m, &s, &i, recipe)?;
+            let event_output = prep::retained_event_output(m, prior.as_ref())?;
+            let reusable = prep::build::reusable(m, &s, &i, recipe, event_output.clone())?;
             let artifact_reused = reusable.is_some();
             let c = if let Some(c) = reusable {
                 c
@@ -1756,6 +1759,7 @@ pub(super) fn execute_with_progress(
                     i.host.clone(),
                     i.source_manifest.clone(),
                     operation,
+                    event_output,
                 )?
             };
             let c = prep::configuration::carry_settings(c, prior.as_ref())?;
@@ -1991,7 +1995,7 @@ pub(crate) mod tests {
         let i = inspect_record_with(s.clone(), census.report, Origin::ManagedPreparation,
             runtime.host.clone(), runtime.source_manifest.clone()).unwrap();
         let c = prep::build::construct_with_runtime(&f.m, s, i, runtime,
-            &random_id().unwrap()).unwrap();
+            &random_id().unwrap(), None).unwrap();
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         (f, c)
     }
