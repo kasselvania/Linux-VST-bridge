@@ -3554,3 +3554,9 @@ and the Windows view declining optional content scaling. General binding and
 view-lifecycle corrections make Test48/49 open at stage 100; normal close and
 fresh reopen pass. The original Deck MOTIONS case has not been retested. Mouse
 interaction is still unverified on this VM. [Scoped CachyOS result](../evidence/cachyos-reaper.json).
+
+## FC-UI-012 — Running chosen-program controls do not refresh
+
+Test70 on CachyOS opens the chosen portable program and its resource, but active
+overview rejects its schema 3 binding. Show/Close remain stale. The source repair
+accepts this origin under the existing exact live checks; installed retest is due.
