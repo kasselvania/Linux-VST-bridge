@@ -2,8 +2,8 @@
 #include <cstddef>
 #include <cstdint>
 
-// First-party presentation fixture boundary. No HWND or SDK pointer crosses.
-// Production AP11 ABI/protocol and editor behavior are unchanged by this file.
+// Native surface identity boundary, also used by the first-party fixture.
+// No HWND or SDK pointer crosses; supervised editor status supplies the XID.
 namespace LVBEditorPresentation {
 enum Mode : uint32_t { Detached = 0, EmbeddedX11 = 1 };
 enum Kind : uint32_t {

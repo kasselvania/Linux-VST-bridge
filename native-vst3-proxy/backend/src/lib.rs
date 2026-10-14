@@ -13,6 +13,9 @@ mod direct_audio_session;
 mod fault_status;
 mod terminal;
 mod gui;
+#[cfg(target_os = "linux")]
+#[allow(dead_code)]
+mod editor_surface;
 mod instances;
 mod mailbox;
 mod observer;

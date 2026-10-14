@@ -1,5 +1,6 @@
 #pragma once
 #include "ap11_gui.h"
+#include "editor_surface_api.h"
 #include "ui_timer.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "public.sdk/source/common/pluginview.h"
@@ -14,9 +15,15 @@ struct PanelOwner {
   virtual bool panelClose(uint64_t) = 0;
   virtual void panelFailure(uint64_t, uint32_t) = 0;
   virtual uint32_t panelState(uint64_t) const = 0;
+  virtual bool panelSupportsEmbedding() const { return false; }
+  virtual bool panelPresentation(uint64_t, ap11_gui_message_t &) const { return false; }
+  virtual bool panelPresent(uint64_t, uint32_t) { return false; }
+  virtual bool panelFocus(uint64_t, bool) { return false; }
+  virtual bool panelSize(uint64_t, Steinberg::ViewRect &, bool) { return false; }
   virtual ~PanelOwner() = default;
 };
-// Qualification candidate: an unmapped, noninteractive X11 lifecycle delegate.
+// Embedded presentation owns a mapped Rust child. Detached fallback retains
+// the unmapped lifecycle delegate. All operations run on the captured UI owner.
 // The host retains its parent and IPlugView. WM_DELETE_WINDOW requests normal
 // host retirement; this code never destroys the host-owned parent. Only a
 // supplied parent advertising that protocol may be hidden/retired. Embedded
@@ -49,6 +56,59 @@ class VendorPanel final : public Steinberg::CPluginView {
   bool opened_ = false, close_requested_ = false, removing_ = false, failed_ = false;
   bool needs_unmap_ = false, parent_gone_ = false, connection_lost_ = false;
   bool closeable_ = false;
+  uint64_t surface_ = 0, focused_activation_ = 0;
+  LVBEditorPresentation::Record binding_{};
+  uint32_t presentation_ = Detached;
+  bool fallback_pending_ = false, resizing_frame_ = false;
+  unsigned fallback_attempts_ = 0;
+  static LVBEditorPresentation::Record presentationRecord(const ap11_gui_message_t &m, uint32_t kind) {
+    LVBEditorPresentation::Record record{};
+    record.kind = kind; record.presentation = m.presentation;
+    record.owner = m.native_view; record.epoch = m.view_epoch; record.window = m.target_x11;
+    record.width = m.width; record.height = m.height;
+    return record;
+  }
+  void detachSurface() {
+    const auto handle = surface_; surface_ = 0; binding_ = {};
+    if (handle) lvb_editor_surface_release(handle);
+  }
+  void fallback() {
+    detachSurface(); // retire before asking Wine to restore decorations
+    presentation_ = Detached; fallback_pending_ = true; fallback_attempts_ = 0;
+  }
+  void updatePresentation() {
+    if (fallback_pending_) {
+      if (owner_.panelPresent(token_, Detached)) { fallback_pending_ = false; needs_unmap_ = closeable_; }
+      else if (++fallback_attempts_ == 3) { fallback_pending_ = false; failure(ShellResult::Rejected); }
+      return;
+    }
+    ap11_gui_message_t m{};
+    if (!surface_ || !owner_.panelPresentation(token_, m)) return;
+    if (m.presentation != EmbeddedX11) { detachSurface(); presentation_ = Detached; needs_unmap_ = closeable_; return; }
+    if (!m.target_x11 || !m.width || !m.height || m.width > 8192 || m.height > 8192) { fallback(); return; }
+    auto record = presentationRecord(m, LVBEditorPresentation::WindowReady);
+    if (!binding_.window) {
+      if (lvb_editor_surface_bind(surface_, &record)) { fallback(); return; }
+      binding_ = record;
+    } else if (binding_.owner != record.owner || binding_.epoch != record.epoch || binding_.window != record.window) {
+      fallback(); return;
+    }
+    const auto current = getRect();
+    if (current.getWidth() != int32_t(m.width) || current.getHeight() != int32_t(m.height)) {
+      record.kind = LVBEditorPresentation::WindowResized;
+      if (lvb_editor_surface_resize(surface_, &record)) { fallback(); return; }
+      Steinberg::ViewRect size{0, 0, int32_t(m.width), int32_t(m.height)};
+      resizing_frame_ = true;
+      const auto result = plugFrame ? plugFrame->resizeView(this, &size) : Steinberg::kResultFalse;
+      resizing_frame_ = false;
+      if (result != Steinberg::kResultOk) { fallback(); return; }
+      setRect(size); binding_.width = m.width; binding_.height = m.height;
+    }
+    if (m.focus_result == FocusPending && m.activation != focused_activation_) {
+      const bool accepted = lvb_editor_surface_focus(surface_) == 0;
+      if (owner_.panelFocus(token_, accepted)) focused_activation_ = m.activation;
+    }
+  }
   unsigned close_attempts_ = 0, unmap_attempts_ = 0, close_wait_ = 0;
   ShellResult before(ShellOperation op) {
     if (xcb_connection_has_error(connection_)) return ShellResult::ConnectionLost;
@@ -102,6 +162,7 @@ class VendorPanel final : public Steinberg::CPluginView {
     return {time, active};
   }
   void closeHost() {
+    if (presentation_ == EmbeddedX11) return;
     if (!closeable_) { close_requested_ = true; return; }
     if (!parent_ || parent_gone_ || close_requested_ || close_attempts_ >= 3 ||
         connection_lost_ || close_result_ == ShellResult::Rejected) return;
@@ -145,12 +206,29 @@ public:
     return thread_ == std::this_thread::get_id() ? CPluginView::getSize(size) : Steinberg::kResultFalse;
   }
   Steinberg::tresult PLUGIN_API onSize(Steinberg::ViewRect *size) override {
-    return thread_ == std::this_thread::get_id() ? CPluginView::onSize(size) : Steinberg::kResultFalse;
+    if (thread_ != std::this_thread::get_id() || !size) return Steinberg::kResultFalse;
+    if (surface_) {
+      auto requested = *size;
+      if (!binding_.window) return requested.getWidth() == getRect().getWidth() &&
+        requested.getHeight() == getRect().getHeight() ? CPluginView::onSize(size) : Steinberg::kResultFalse;
+      if (!resizing_frame_ && !owner_.panelSize(token_, requested, true)) return Steinberg::kResultFalse;
+      auto record = binding_; record.kind = LVBEditorPresentation::WindowResized;
+      record.width = uint32_t(requested.getWidth()); record.height = uint32_t(requested.getHeight());
+      if (binding_.window && lvb_editor_surface_resize(surface_, &record)) { fallback(); return Steinberg::kResultFalse; }
+      *size = requested;
+    }
+    return CPluginView::onSize(size);
   }
   Steinberg::tresult PLUGIN_API checkSizeConstraint(Steinberg::ViewRect *size) override {
     if (thread_ != std::this_thread::get_id() || !size) return Steinberg::kResultFalse;
+    if (surface_) return owner_.panelSize(token_, *size, false) ? Steinberg::kResultOk : Steinberg::kResultFalse;
     *size = {0, 0, 64, 64};
     return Steinberg::kResultOk;
+  }
+  Steinberg::tresult PLUGIN_API canResize() override {
+    ap11_gui_message_t m{};
+    return thread_ == std::this_thread::get_id() && surface_ && owner_.panelPresentation(token_, m) &&
+      (m.presentation_flags & CanResize) ? Steinberg::kResultTrue : Steinberg::kResultFalse;
   }
   Steinberg::tresult PLUGIN_API isPlatformTypeSupported(Steinberg::FIDString type) override {
     return type && !std::strcmp(type, Steinberg::kPlatformTypeX11EmbedWindowID)
@@ -191,8 +269,10 @@ public:
     // Bitwig checks for a child after attached(), even for a detached editor.
     // Own this XID through this private connection: disconnect retires it only
     // after the timer is stopped. Never map it, select input, or paint it.
-    const auto child = xcb_generate_id(connection_);
-    if (!checked(xcb_create_window_checked(connection_, XCB_COPY_FROM_PARENT, child,
+    if (owner_.panelSupportsEmbedding() && !lvb_editor_surface_create(LVBEditor::SurfaceAbi,
+          parent_, token_, 64, 64, &surface_)) presentation_ = EmbeddedX11;
+    const auto child = surface_ ? 0 : xcb_generate_id(connection_);
+    if (!surface_ && !checked(xcb_create_window_checked(connection_, XCB_COPY_FROM_PARENT, child,
         parent_, 0, 0, 64, 64, 0, XCB_WINDOW_CLASS_INPUT_OUTPUT,
         XCB_COPY_FROM_PARENT, 0, nullptr))) {
       removed(); return kResultFalse;
@@ -204,15 +284,16 @@ public:
     shell_result_ = unmap_result_ = close_result_ = flush_result_ = ShellResult::Accepted;
     systemWindow = parent;
     owner_.panelLoop(loop_);
-    const auto context = activation();
+    auto context = activation();
+    context.presentation = presentation_;
     opened_ = true;
     if (!owner_.panelOpen(token_, context)) { removed(); return kResultFalse; }
     return kResultOk;
   }
   Steinberg::tresult PLUGIN_API onFocus(Steinberg::TBool focused) override {
     if (thread_ != std::this_thread::get_id()) return Steinberg::kResultFalse;
-    if (focused && opened_ && !close_requested_ && !owner_.panelOpen(token_, activation()))
-      return Steinberg::kResultFalse;
+    auto context = activation(); context.presentation = presentation_;
+    if (focused && opened_ && !close_requested_ && !owner_.panelOpen(token_, context)) return Steinberg::kResultFalse;
     return Steinberg::kResultOk;
   }
   Steinberg::tresult PLUGIN_API removed() override {
@@ -226,6 +307,7 @@ public:
       if (!timer_->stop()) return Steinberg::kResultFalse;
       timer_->release(); timer_ = nullptr;
     }
+    detachSurface();
     if (connection_) { xcb_disconnect(connection_); connection_ = nullptr; }
     parent_ = 0;
     closeable_ = false;
@@ -239,17 +321,18 @@ public:
     if (removing_) { removed(); return; }
     if (!connection_) return;
     if (xcb_connection_has_error(connection_)) failure(ShellResult::ConnectionLost);
+    if (!failed_) updatePresentation();
     for (unsigned i = 0; i < 32; ++i) {
       auto *event = xcb_poll_for_event(connection_);
       if (!event) break;
       const auto type = event->response_type & 127;
-      if (closeable_ && type == XCB_MAP_NOTIFY && reinterpret_cast<xcb_map_notify_event_t *>(event)->window == parent_)
+      if (presentation_ == Detached && closeable_ && type == XCB_MAP_NOTIFY && reinterpret_cast<xcb_map_notify_event_t *>(event)->window == parent_)
         needs_unmap_ = true;
       if (type == XCB_DESTROY_NOTIFY && reinterpret_cast<xcb_destroy_notify_event_t *>(event)->window == parent_)
         failure(ShellResult::ParentGone);
       std::free(event);
     }
-    if (needs_unmap_ && !parent_gone_ && !connection_lost_ && unmap_attempts_ < 3 &&
+    if (presentation_ == Detached && needs_unmap_ && !parent_gone_ && !connection_lost_ && unmap_attempts_ < 3 &&
         unmap_result_ != ShellResult::Rejected) {
       ++unmap_attempts_;
       auto result = before(ShellOperation::Unmap);
@@ -265,7 +348,7 @@ public:
     if (failed_ || state == ClosedByVendor || state == OpenRefused || state == EditorFailed) closeHost();
     // XCB cannot acknowledge host action. One accepted request is never
     // repeated; an unretired shell after 100 UI ticks is a truthful refusal.
-    if (closeable_ && close_requested_ && close_wait_ < 100 && ++close_wait_ == 100) failure(ShellResult::Rejected);
+    if (presentation_ == Detached && closeable_ && close_requested_ && close_wait_ < 100 && ++close_wait_ == 100) failure(ShellResult::Rejected);
     if (!connection_lost_ && flush() != ShellResult::Accepted) failure(flush_result_);
   }
 };

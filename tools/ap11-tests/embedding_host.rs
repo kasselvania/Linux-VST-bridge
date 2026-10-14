@@ -287,6 +287,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     connection.map(area).unwrap();
     let owner = 1297499478u64;
     let mut surface = Surface::create(area, owner, 640, 400).unwrap();
+    // Opaque IDs are globally unique even when another UI thread owns a
+    // valid local editor. A foreign call cannot resolve to that local surface.
+    let mut first = 0;
+    unsafe {
+        assert_eq!(
+            editor_surface::lvb_editor_surface_create(1, area, owner + 1, 64, 64, &mut first),
+            0
+        );
+    }
+    std::thread::spawn(move || {
+        let local = Connection::open().unwrap();
+        let editor = local.child(local.root, 0, 0, 64, 64, 0x101010).unwrap();
+        let mut second = 0;
+        unsafe {
+            assert_eq!(
+                editor_surface::lvb_editor_surface_create(1, area, owner + 2, 64, 64, &mut second),
+                0
+            );
+        }
+        assert_ne!(first, second);
+        let record = PresentationV1 {
+            window: editor,
+            width: 64,
+            height: 64,
+            ..PresentationV1::new(owner + 2, 1, WINDOW_READY)
+        };
+        unsafe {
+            assert_eq!(editor_surface::lvb_editor_surface_bind(second, &record), 0);
+        }
+        assert_eq!(editor_surface::lvb_editor_surface_focus(first), 3);
+        assert_eq!(editor_surface::lvb_editor_surface_release(first), 3);
+        assert_eq!(editor_surface::lvb_editor_surface_focus(second), 0);
+        assert_eq!(editor_surface::lvb_editor_surface_release(second), 0);
+        local.destroy(editor).unwrap();
+    })
+    .join()
+    .unwrap();
+    assert_eq!(editor_surface::lvb_editor_surface_release(first), 0);
     let mut detached = Editor::launch(&args[1], &args[2], &prefix, owner, 1, DETACHED)?;
     assert_eq!(surface.bind(detached.identity), Err(Error::Identity));
     assert_eq!(

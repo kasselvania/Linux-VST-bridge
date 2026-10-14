@@ -16,7 +16,7 @@ use std::{
 
 pub const CAPACITY: u64 = 512;
 const HEADER: usize = 320;
-const MESSAGE: usize = 608;
+const MESSAGE: usize = 624;
 const BYTES: usize = HEADER + 2 * CAPACITY as usize * MESSAGE;
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -43,11 +43,15 @@ pub struct Message {
     pub native_view: u64,
     pub lifecycle: u32,
     pub reserved: u32,
+    pub presentation: u32,
+    pub width: u32,
+    pub height: u32,
+    pub presentation_flags: u32,
 }
 impl Default for Message {
     fn default() -> Self {
         Self {
-            abi_version: 4,
+            abi_version: 5,
             extent: MESSAGE as u32,
             kind: 0,
             id: 0,
@@ -69,6 +73,10 @@ impl Default for Message {
             native_view: 0,
             lifecycle: 0,
             reserved: 0,
+            presentation: 0,
+            width: 0,
+            height: 0,
+            presentation_flags: 0,
         }
     }
 }
@@ -77,11 +85,15 @@ impl Message {
     // older/short extent before forming a reference to the new full structure.
     pub unsafe fn valid_prefix(message: *const Self) -> bool {
         !message.is_null()
-            && message.cast::<u32>().read_unaligned() == 4
+            && message.cast::<u32>().read_unaligned() == 5
             && message.cast::<u32>().add(1).read_unaligned() == MESSAGE as u32
     }
     fn valid(&self) -> bool {
-        self.abi_version == 4 && self.extent == MESSAGE as u32 && self.reserved == 0
+        self.abi_version == 5
+            && self.extent == MESSAGE as u32
+            && self.reserved == 0
+            && self.presentation <= 1
+            && self.presentation_flags & !1 == 0
     }
 }
 const _: () = assert!(std::mem::size_of::<Message>() == MESSAGE);
@@ -122,7 +134,7 @@ impl Gui {
             std::ptr::write_bytes(out.pointer.as_ptr(), 0, BYTES);
         }
         out.write(0, b"LVBU");
-        out.write(4, &5u32.to_le_bytes());
+        out.write(4, &6u32.to_le_bytes());
         out.write(8, &(BYTES as u32).to_le_bytes());
         out.write(12, &(MESSAGE as u32).to_le_bytes());
         out.write(16, &session);
@@ -142,6 +154,8 @@ impl Gui {
             std::ptr::copy_nonoverlapping(b.as_ptr(), self.pointer.as_ptr().add(n), b.len());
         }
     }
+    #[cfg(test)]
+    pub(crate) fn hold_ui_for_test(&self) -> std::sync::MutexGuard<'_, ()> { self.ui.lock().unwrap() }
     pub fn revision(&self) -> u64 {
         let n = self.word(96).fetch_add(1, Ordering::AcqRel);
         if n == u64::MAX {
@@ -213,9 +227,22 @@ impl Gui {
         if self.fail(0) != 0 {
             return 2;
         }
-        if !matches!(message.kind, 1 | 3 | 4 | 5)
+        if !matches!(message.kind, 1 | 3 | 4 | 5 | 6 | 7 | 8)
             || (message.kind == 3
                 && (!message.value.is_finite() || !(0.0..=1.0).contains(&message.value)))
+        {
+            return 4;
+        }
+        if matches!(message.kind, 6 | 7 | 8)
+            && (message.native_view == 0
+                || message.view_epoch == 0
+                || message.target_x11 == 0
+                || (message.kind != 6
+                    && (message.id == 0
+                        || message.width == 0
+                        || message.height == 0
+                        || message.width > 8192
+                        || message.height > 8192)))
         {
             return 4;
         }
@@ -410,7 +437,7 @@ mod tests {
         close.abi_version = 2;
         assert_eq!(gui.send(&mut close), 4);
         assert_eq!(gui.word(120).load(Ordering::Acquire), 0);
-        close.abi_version = 4;
+        close.abi_version = 5;
         assert_eq!(gui.send(&mut close), 0);
         assert_eq!(gui.word(120).load(Ordering::Acquire), 2);
         assert_eq!(gui.word(256).load(Ordering::Acquire), 7);
@@ -428,6 +455,18 @@ mod tests {
         assert_eq!(gui.word(256).load(Ordering::Acquire), 7);
         drop(gui);
         std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn old_installed_ui_cannot_be_silently_paired_with_new_native() {
+        let old_prefix = [4u32, 608];
+        assert!(!unsafe { Message::valid_prefix(old_prefix.as_ptr().cast()) });
+        let current = Message::default();
+        assert!(unsafe { Message::valid_prefix(&current) });
+        assert!(!Message {
+            abi_version: 4,
+            ..current
+        }
+        .valid());
     }
     #[test]
     fn malformed_return_layout_fails_only_gui_channel() {

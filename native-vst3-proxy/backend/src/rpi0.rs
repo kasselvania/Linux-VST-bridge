@@ -22,7 +22,7 @@ const _: () = assert!(std::mem::size_of::<Context>() == 96);
 const _: () = assert!(std::mem::align_of::<Context>() == 8);
 const _: () = assert!(std::mem::size_of::<Delivery>() == 40);
 const _: () = assert!(std::mem::align_of::<Delivery>() == 8);
-const _: () = assert!(std::mem::size_of::<Message>() == 608);
+const _: () = assert!(std::mem::size_of::<Message>() == 624);
 const _: () = assert!(std::mem::size_of::<Packet>() == 10256);
 const _: () = assert!(cfg!(target_endian = "little"));
 const _: () = assert!(cfg!(target_pointer_width = "64"));
@@ -332,7 +332,7 @@ mod tests {
         assert_eq!(std::mem::size_of::<Event>(), 32);
         assert_eq!(std::mem::size_of::<Context>(), 96);
         assert_eq!(std::mem::size_of::<Delivery>(), 40);
-        assert_eq!(std::mem::size_of::<Message>(), 608);
+        assert_eq!(std::mem::size_of::<Message>(), 624);
         assert_eq!(std::mem::size_of::<Packet>(), 10256);
         assert_eq!(std::mem::offset_of!(Message, activation), 560);
         assert_eq!(std::mem::offset_of!(Message, native_view), 592);

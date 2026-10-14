@@ -56,6 +56,7 @@ class EditorSession : public VendorEditSink {
   uint32_t lifecycle_ = AP11::Absent;
   uint64_t retired_native_view_ = 0;
   uint64_t closed_native_view_ = 0;
+  uint32_t reported_width_ = 0, reported_height_ = 0;
   bool focus_pending_ = false;
   bool desktop_confirmed_ = false;
   Parameter *parameter(uint32_t id) {
@@ -90,6 +91,13 @@ class EditorSession : public VendorEditSink {
     m.focus_flags = (uint32_t(view_.focus_window) << 1) |
                     (uint32_t(view_.focus_keyboard) << 2);
     m.focus_result = focus_result_;
+    m.presentation = view_.presentation();
+    m.presentation_flags = view_.can_resize() ? AP11::CanResize : 0;
+    Steinberg::ViewRect size{};
+    if (view_.is_open() && view_.client_size(size)) {
+      m.width = uint32_t(size.getWidth()); m.height = uint32_t(size.getHeight());
+    }
+    reported_width_ = m.width; reported_height_ = m.height;
     channel_.open_state(view_.is_open());
     channel_.send(m);
     was_open_ = view_.is_open();
@@ -473,7 +481,7 @@ public:
             editor_handler_ = next;
           } else { next->retire(); next->release(); }
         }
-        if (!handler_ready || !view_.open(controller_)) {
+        if (!handler_ready || !view_.open(controller_, m.presentation)) {
           if (!handler_ready) channel_.fail(AP11::Controller);
           lifecycle_ = !handler_ready || view_.is_open() ? AP11::EditorFailed : AP11::OpenRefused;
           focus_result_ = AP11::FocusNotRequested;
@@ -500,6 +508,25 @@ public:
         desktop_confirmed_ = m.focus_result == AP11::FocusConfirmed;
         focus_result_ = m.focus_result;
         focus_pending_ = true;
+      } else if (m.kind == AP11::Present || m.kind == AP11::Resize || m.kind == AP11::CheckSize) {
+        if (m.native_view != last_open_.native_view || m.activation != last_open_.activation ||
+            !view_.is_open() || m.view_epoch != view_.opens || m.target_x11 != view_.x11_window()) continue;
+        if (m.kind == AP11::Present) {
+          // Native has retired/restored its exact borrowed X11 surface first.
+          // This operation keeps the current SDK view/HWND and epoch alive.
+          if (!view_.present(m.presentation)) {
+            lifecycle_ = AP11::EditorFailed; channel_.fail(AP11::Attach);
+          }
+          status();
+        } else {
+          Steinberg::ViewRect size{0, 0, int32_t(m.width), int32_t(m.height)};
+          const bool valid = m.id && m.width && m.height && m.width <= 8192 && m.height <= 8192;
+          m.result = valid && view_.host_size(size, m.kind == AP11::Resize) ? 0 : AP11::Size;
+          m.kind = AP11::SizeResult;
+          m.width = uint32_t(size.getWidth()); m.height = uint32_t(size.getHeight());
+          channel_.send(m);
+          if (!m.result) status();
+        }
       } else if (m.kind == AP11::Set) {
         if (!m.revision || !host_value(m.id, m.value, m.revision)) {
           channel_.fail(AP11::Controller);
@@ -529,6 +556,10 @@ public:
       lifecycle_ = focus_result_ == AP11::FocusConfirmed ? AP11::Focused : AP11::FocusRefused;
       status();
     }
+    Steinberg::ViewRect visible_size{};
+    if (view_.is_open() && view_.client_size(visible_size) &&
+        (uint32_t(visible_size.getWidth()) != reported_width_ ||
+         uint32_t(visible_size.getHeight()) != reported_height_)) status();
     if (view_.close_requested() || (view_.window_lost() && lifecycle_ != AP11::EditorFailed) || was_open_ != view_.is_open()) {
       const auto reason = view_.window_lost() ? AP11::EditorFailed : AP11::ClosedByVendor;
       if (!close(reason))

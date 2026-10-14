@@ -3955,6 +3955,34 @@ mod tests {
         (callback,shared,channel,render,root)
     }
     #[cfg(target_os="linux")]
+    #[test]
+    fn direct_audio_finishes_during_editor_ui_operation_and_failure() {
+        let (mut callback, mut shared, channel, mut mapping, root) = direct_fixture(0, 2);
+        let gui = Arc::new(crate::gui::Gui::create(&root.join("ap11.ui"), [7; 16]).unwrap());
+        Arc::get_mut(&mut shared).unwrap().gui = Some(gui.clone());
+        let ui = gui.hold_ui_for_test();
+        let render = thread::spawn(move || for (ticket, position) in [(1, 0), (2, 64)] {
+            direct_reply(&channel, &mut mapping, (1, ticket, position, 64));
+        });
+        for ticket in 1..=2 {
+            if ticket == 2 { assert_eq!(gui.fail(7), 7); }
+            let mut item = Item::control(AUDIO, 1); item.n = 64;
+            item.data[0][..64].fill(0.25); item.data[1][..64].fill(-0.5);
+            let end = Instant::now() + Duration::from_secs(2);
+            item.completion = Some(crate::performance::CompletionPolicy {
+                allowance: Duration::from_secs(2), deadline: end, exact: true });
+            let mut out = [[0.; CAP]; 2];
+            let (result, allocations) = crate::allocation_test::measure(||
+                callback.process_outputs_until(&shared, item, &mut out, &[], 0, Some(end)));
+            assert_eq!(result, Ok(0)); assert_eq!(allocations, [0; 3]);
+            assert_eq!(&out[0][..64], &item.data[0][..64]);
+            assert_eq!(&out[1][..64], &item.data[1][..64]);
+        }
+        assert_eq!(shared.direct_completed.load(Ordering::Acquire), 2);
+        render.join().unwrap(); drop(ui); drop(callback); drop(shared); drop(gui);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[cfg(target_os="linux")]
     fn direct_reply(channel:&crate::direct_audio::Endpoint,mapping:&mut std::fs::File,
         expected:(u64,u64,u64,u32)) {
         use ap1_native_client::{Frame,get,put,INPUT,BLOCK_STRIDE,BLOCK_OUTPUT};

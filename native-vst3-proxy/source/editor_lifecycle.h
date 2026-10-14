@@ -18,6 +18,11 @@ public:
     return advance(allocated_);
   }
   uint64_t owner() const { return current_.native_view; }
+  bool presentation(uint64_t owner, ap11_gui_message_t &out) const {
+    if (!owner || owner != current_.native_view || !current_.view_epoch ||
+        !current_.count || current_.lifecycle >= AP11::ClosedByVendor) return false;
+    out = current_; return true;
+  }
   uint32_t state(uint64_t owner) const {
     if (owner && owner <= session_retired_) return AP11::EditorFailed;
     return owner && owner == current_.native_view ? current_.lifecycle : AP11::Absent;
@@ -33,6 +38,7 @@ public:
     command.native_view = owner;
     command.view_epoch = current_.view_epoch;
     command.activation = activation;
+    command.presentation = context.presentation;
     command.user_time = context.user_time;
     command.requestor_x11 = context.requestor_x11;
     command.lifecycle = current_.view_epoch ? AP11::AwaitingFocus : AP11::Opening;
