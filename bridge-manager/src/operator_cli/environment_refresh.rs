@@ -53,9 +53,14 @@ fn replacement_checkpoint(m:&Manager,operation:&str,interrupted:bool)->Result<Op
         return Ok(None);
     }
     let daw=source_daw(m,source,&current)?;
+    let db=m.registry()?;
+    let (products,_)=current::current_products(m,&db,&software_record(m)?,&profiles::installed_profiles()?)?;
+    let prior_selections=products.into_iter().filter(|product|product.environment==current.id
+        && product.availability.as_ref().is_some_and(|available|available.available))
+        .map(|product|format!("{}:{}",product.module_sha256,product.class_id)).collect();
     let mut predecessors=vec![];
     let mut preserved_performance=std::collections::BTreeMap::new();
-    for (class,entry) in &m.registry()?.classes {
+    for (class,entry) in &db.classes {
         if entry.registration.environment.id!=current.id || entry.publication!=Publication::Published {continue;}
         let reference=entry.managed_revision.as_ref().ok_or("automatic_refresh_preserved_publication_missing")?;
         let retained=m.load_revision_record(class,reference)?;
@@ -68,7 +73,7 @@ fn replacement_checkpoint(m:&Manager,operation:&str,interrupted:bool)->Result<Op
             phase:if interrupted {ui::InstallationPhase::NeedsAttention} else {ui::InstallationPhase::Discovering},
             plugins:vec![],failure:interrupted.then(||automatic_install::failure(
                 ui::InstallationFailureStage::Preparation,"automatic_refresh_interrupted"))},
-        scan:None,prior_selections:vec![],prior_modules:vec![],failed_modules:vec![],
+        scan:None,prior_selections,prior_modules:vec![],failed_modules:vec![],
         work:vec![],predecessors,previous:None};
     Ok(Some(Refresh {schema:1,request:control_artifact(job_dir(m,operation)?.join("request.json"))?,
         environment:current,intent,preserved_performance}))
@@ -222,13 +227,23 @@ pub(super) fn require_preserved_baseline(m:&Manager,intent:&Intent)->Result<()> 
     let class=&original.class_id;
     let entry=db.classes.get(class).ok_or("automatic_refresh_preserved_publication_changed")?;
     let reference=entry.managed_revision.as_ref().ok_or("automatic_refresh_preserved_publication_changed")?;
-    require(entry.publication==Publication::Published && original.id==reference.id
-        && original.registration==entry.registration
-        && m.load_revision(class,reference)?==*original
+    let unchanged=original.id==reference.id && original.registration==entry.registration
+        && m.load_revision_record(class,reference)?==*original;
+    let owned_successor=if unchanged {false} else {
+        automatic_install::owned_revalidation_successor(m,&retained.intent,original,&retained.environment)?
+            .as_ref()==Some(reference)
+    };
+    require(entry.publication==Publication::Published && (unchanged || owned_successor)
         && retained.preserved_performance.get(class)==Some(&m.performance(&original.registration.key())?),
         "automatic_refresh_preserved_publication_changed")?;
-    original.registration.module.verify()?;
-    m.verify_completed_publication(original,reference)?;
+    if unchanged {
+        m.verify_completed_publication(original,reference)?;
+        // Old revision facts remain history while vendor mutation is examined.
+        // Only an entry preserved as currently available grants unchanged use.
+        if intent.prior_selections.contains(&format!("{}:{}",original.registration.module.sha256,class)) {
+            original.registration.module.verify()?;
+        }
+    }
     }
     Ok(())
 }

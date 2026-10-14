@@ -465,7 +465,7 @@ impl RecordBindings {
     }
 }
 
-fn current_products(m: &Manager, db: &Registry, sw: &Software,
+pub(super) fn current_products(m: &Manager, db: &Registry, sw: &Software,
     profiles: &[profiles::Profile]) -> Result<(Vec<ui::Product>, CurrentRevisions)> {
     let mut cache = RecordBindings::default();
     let mut products = Vec::new();

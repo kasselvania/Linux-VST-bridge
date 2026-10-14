@@ -1693,6 +1693,35 @@ fn connect_class(
     save(m, record, intent, operation)
 }
 
+// A child may commit before the parent writes its terminal checkpoint. Only
+// that retained revalidation child can explain a changed selected publication.
+pub(super) fn owned_revalidation_successor(m:&Manager,intent:&Intent,original:&Revision,
+    environment:&Environment)->Result<Option<RevisionRef>> {
+    let mut owners=intent.work.iter().filter(|work|work.predecessor.as_ref()
+        .is_some_and(|prior|prior.id==original.id));
+    let Some(work)=owners.next() else {return Ok(None)};
+    require(owners.next().is_none(),"unchanged_publication_owner_ambiguous")?;
+    let predecessor=work.predecessor.as_ref().ok_or("unchanged_publication_predecessor_missing")?;
+    require(m.load_revision(&original.class_id,predecessor)?==*original,
+        "unchanged_publication_predecessor_changed")?;
+    let Some(child)=work.check.as_ref() else {return Ok(None)};
+    let action=ui::Action::CompatibilityRevalidate {selection:work.selection.clone(),
+        expected_current:ui::PublicationIdentity {id:predecessor.id.clone(),sha256:predecessor.sha256.clone()}};
+    let Some(candidate)=preparation_cli::revalidation_candidate_checkpoint(m,child,&action)? else {return Ok(None)};
+    require(candidate.selection.environment==*environment
+        && work.candidate.as_ref().is_none_or(|id|candidate.id().is_ok_and(|actual|actual==*id)),
+        "unchanged_publication_candidate_changed")?;
+    if !prep::selected_publication_candidate_record(m,&candidate)? {return Ok(None);}
+    let db=m.registry()?;
+    let selected=db.classes.get(&original.class_id).and_then(|entry|entry.managed_revision.as_ref())
+        .ok_or("unchanged_publication_candidate_changed")?;
+    let revision=m.load_revision(&original.class_id,selected)?;
+    require(revision.parent.as_ref()==Some(predecessor)
+        && revision.registration.compatibility==original.registration.compatibility
+        && revision.performance==original.performance,"unchanged_publication_configuration_changed")?;
+    Ok(Some(selected.clone()))
+}
+
 pub(super) fn project_revalidation(m: &Manager, products: &mut [ui::Product],
     records: &[onboarding::Record]) -> Result<()> {
     let receipt = optional(&m.root.join("operator/latest.json"))?;
@@ -2833,6 +2862,133 @@ finally:
                 .arg(serde_json::to_string(&request).unwrap()).output().unwrap();
             assert!(result.status.success(),"schema {schema}: {}",String::from_utf8_lossy(&result.stderr));
         }
+    }
+    #[test]
+    fn replacement_revalidates_unchanged_published_sibling_with_retained_state_and_configuration() {
+        replacement_published_sibling(false,false,false);
+    }
+    #[test]
+    fn replacement_resumes_exact_committed_sibling_without_another_successor() {
+        replacement_published_sibling(true,false,false);
+    }
+    #[test]
+    fn replacement_changed_published_sibling_keeps_separate_change_review() {
+        replacement_published_sibling(false,true,false);
+    }
+    #[test]
+    fn replacement_continuation_leaves_already_current_publication_untouched() {
+        replacement_published_sibling(false,false,true);
+    }
+    fn replacement_published_sibling(interrupted:bool,changed:bool,already_current:bool) {
+        let (f,c,mut original,mut intent)=setup();
+        prep::retain_inspection(&f.m,&c.inspection).unwrap();prep::record_candidate(&f.m,&c).unwrap();
+        let baseline=prep::enable(&f.m,&c,false).unwrap();
+        let predecessor=f.m.load_revision(&c.selection.class.id,&baseline).unwrap();
+        let native_path=f.m.link(&c.selection.class.id).join("Contents/x86_64-linux")
+            .join(format!("LVB_{}.so",c.selection.class.id));
+        let native=fs::read(&native_path).unwrap();
+        let state=original.environment.root.join("compatdata/pfx/drive_c/first-party-state.bin");
+        fs::write(&state,b"first-party saved instrument state").unwrap();
+        let project=f.outer.join("first-party-project.json");
+        atomic_json(&project,&json!({"class":c.selection.class.id,"native_path":native_path,"state":state})).unwrap();
+        let state_bytes=fs::read(&state).unwrap();let project_bytes=fs::read(&project).unwrap();
+        fs::write(original.environment.root.join("compatdata/pfx/system.reg"),b"retained initialized fixture").unwrap();
+        let mut pe=vec![0u8;1024];pe[..2].copy_from_slice(b"MZ");pe[60]=128;
+        pe[128..132].copy_from_slice(b"PE\0\0");pe[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        pe[148]=2;pe[150]=2;pe[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+        let input=f.outer.join("sibling-installer.exe");fs::write(&input,&pe).unwrap();
+        original.installer=installer_import::import(&f.m,file(&input).unwrap()).unwrap().id;
+        let original_owner=intent.owner.clone();let history=onboarding::directory(&f.m,&original.id).unwrap();
+        atomic_json(&history.join("record.json"),&original).unwrap();
+        atomic_json(&job_dir(&f.m,&original_owner).unwrap().join("request.json"),&ui::Request {
+            schema:ui::OPERATOR_SCHEMA,state_token:"accepted-original".into(),
+            action:ui::Action::SoftwareInstall {installer:original.installer.clone(),daw:ui::DawChoice::Reaper}}).unwrap();
+        atomic_json(&history.join(format!("{original_owner}-result.json")),&json!({"schema":2,
+            "operation":original_owner,"state":"completed","raw_exit":0,"cleanup_confirmed":true,"owned_live":0})).unwrap();
+        intent.journey.daw=ui::DawChoice::Reaper;intent.journey.phase=ui::InstallationPhase::Available;
+        save(&f.m,&original,&intent,&original_owner).unwrap();let history_bytes=fs::read(history.join("record.json")).unwrap();
+        pe[900]=53;fs::write(&input,&pe).unwrap();let selected=installer_import::import(&f.m,file(&input).unwrap()).unwrap();
+        let owner=random_id().unwrap();let directory=job_dir(&f.m,&owner).unwrap();private_dir(&directory).unwrap();
+        let action=ui::Action::EnvironmentInstallerStart {environment:original.id.clone(),installer:selected.id.clone()};
+        atomic_json(&directory.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:"accepted-replacement".into(),action:action.clone()}).unwrap();
+        let units=[onboarding::unit(&original_owner).unwrap(),onboarding::unit(&owner).unwrap()];
+        let binding=readiness::with_unit_state_fixture(&units,"inactive",||
+            environment_install::reserve(&f.m,&original.id,&selected.id,&owner)).unwrap();
+        atomic_json(&directory.join("installation-result.json"),&json!({"schema":2,"operation":owner,
+            "state":"completed","raw_exit":0,"cleanup_confirmed":true,"owned_live":0,"error":null})).unwrap();
+        let inventory=f.m.root.join("inventory").join(format!("{}.json",original.id));
+        let mut scan:inventory::Scan=read_json(&inventory).unwrap();scan.environment=binding.environment.clone();scan.id=random_id().unwrap();
+        if changed {
+            fs::write(&c.selection.module.path,b"changed first-party instrument bytes").unwrap();
+            scan.modules[0].artifact.sha256=digest(&c.selection.module.path).unwrap();
+        }
+        atomic_json(&inventory,&scan).unwrap();
+        let selection=prep::selections(&f.m,&c.selection.scanner,&c.selection.scanner_source).unwrap().pop().unwrap();
+        let mut probe=c.clone();probe.inspection.selection=selection.clone();
+        let manual=if already_current {
+            let child=random_id().unwrap();let directory=job_dir(&f.m,&child).unwrap();private_dir(&directory).unwrap();
+            let revalidate=ui::Action::CompatibilityRevalidate {selection:selection.id().unwrap(),
+                expected_current:ui::PublicationIdentity {id:baseline.id.clone(),sha256:baseline.sha256.clone()}};
+            atomic_json(&directory.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,
+                state_token:"accepted-explicit-revalidation".into(),action:revalidate.clone()}).unwrap();
+            let result=preparation_cli::with_automatic_fixture(&probe,||actual(&f.m,&revalidate,&child)).unwrap();
+            Some(serde_json::from_value::<RevisionRef>(result["publication"].clone()).unwrap())
+        } else {None};
+        let mut revalidations=0;
+        let value=readiness::with_unit_state_fixture(&units,"inactive",||
+            preparation_cli::with_automatic_fixture(&probe,||environment_refresh::execute_with(&f.m,&action,&owner,
+                &mut |environment,intent|continue_refresh_fixture(&f.m,environment,intent,&owner,&mut |stage,child,_| {
+                    if matches!(stage,ui::Action::EnvironmentRescan {..}) {return Ok(json!({"scan":scan.id}));}
+                    assert!(matches!(stage,ui::Action::CompatibilityRevalidate {..}));revalidations+=1;
+                    let result=actual(&f.m,stage,child)?;
+                    if interrupted {return Err("fixture_interrupted_after_committed_successor".into());}
+                    Ok(result)
+                })))).unwrap();
+        if changed {
+            assert_eq!(revalidations,0);assert_eq!(value["available"],false);
+            let retained=environment_refresh::load(&f.m,&owner).unwrap();
+            assert_eq!(retained.intent.journey.plugins[0].stage,ui::InstallationPluginStage::ReplacementRequired);
+            assert_eq!(f.m.registry().unwrap().classes[&c.selection.class.id].managed_revision,Some(baseline));
+        } else {
+            assert_eq!(revalidations,usize::from(!already_current));assert_eq!(value["available"],!interrupted);
+            let successor=f.m.registry().unwrap().classes[&c.selection.class.id].managed_revision.clone().unwrap();
+            let revision=f.m.load_revision(&c.selection.class.id,&successor).unwrap();
+            assert_eq!(revision.parent,Some(baseline.clone()));
+            assert_eq!(revision.registration.module,predecessor.registration.module);
+            assert_eq!(revision.registration.compatibility,predecessor.registration.compatibility);
+            assert_eq!(revision.performance,predecessor.performance);
+            if let Some(manual)=manual {
+                assert_eq!(successor,manual);
+                assert!(environment_refresh::load(&f.m,&owner).unwrap().intent.work.is_empty());
+                assert_eq!(fs::read(&state).unwrap(),state_bytes);assert_eq!(fs::read(&project).unwrap(),project_bytes);
+                assert_eq!(fs::read(history.join("record.json")).unwrap(),history_bytes);
+                assert_eq!(fs::read(&native_path).unwrap(),native);
+                return;
+            }
+            if interrupted {
+                let resume=random_id().unwrap();private_dir(&job_dir(&f.m,&resume).unwrap()).unwrap();
+                let resumed=readiness::with_unit_state_fixture(&units,"inactive",||
+                    environment_refresh::execute_with(&f.m,&ui::Action::EnvironmentRefreshResume {operation:owner.clone()},&resume,
+                        &mut |environment,intent|continue_refresh_fixture(&f.m,environment,intent,&resume,
+                            &mut |_,_,_|panic!("Committed successor must not be published again")))).unwrap();
+                assert_eq!(resumed["available"],true);
+                assert_eq!(f.m.registry().unwrap().classes[&c.selection.class.id].managed_revision,Some(successor.clone()));
+            }
+            let retained=environment_refresh::load(&f.m,&owner).unwrap();
+            let candidate=prep::candidate_record(&f.m,retained.intent.work[0].candidate.as_ref().unwrap()).unwrap();
+            // A separately selected configuration cannot borrow this child's
+            // completed publication, even with the same module and class.
+            let other=prep::configuration::prepare_settings(&f.m,&candidate,
+                &ui::LocalSettings {graphics:Some(ui::GraphicsBackend::WineD3d11),
+                    accessibility:ui::AccessibilityChoice::ProfileDefault},Some(&successor)).unwrap();
+            prep::replace(&f.m,&other,&successor).unwrap();
+            assert_eq!(environment_refresh::require_preserved_baseline(&f.m,&retained.intent)
+                .unwrap_err().to_string(),"automatic_refresh_preserved_publication_changed");
+        }
+        assert_eq!(fs::read(&state).unwrap(),state_bytes);assert_eq!(fs::read(&project).unwrap(),project_bytes);
+        assert_eq!(fs::read(history.join("record.json")).unwrap(),history_bytes);
+        assert_eq!(fs::read(&native_path).unwrap(),native);
     }
     fn replacement_launcher_continuation(interrupted:bool) {
         let (f,c,mut original,mut intent)=setup();
