@@ -95,6 +95,8 @@ pub struct OperationResult {
     pub cleanup_confirmed: bool,
     #[serde(default)]
     pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
     pub discarded_diagnostic_bytes: u64,
     #[serde(default)]
     pub retained_diagnostic_bytes: u64,
@@ -103,6 +105,10 @@ pub struct OperationResult {
     #[serde(default)]
     pub windows_accessibility_disabled: bool,
     pub account_posture: AccountPosture,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dependency: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub browser_return: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -123,12 +129,25 @@ impl OperationResult {
     pub fn retired(&self) -> bool {
         matches!(self.schema, 1..=3)
             && self.cleanup_confirmed
+            && self.dependency.as_ref().is_none_or(dependency_retired)
             && self.owned_live.unwrap_or(0) == 0
             && matches!(
                 self.state,
                 OperationState::Completed | OperationState::Cancelled | OperationState::Failed
             )
     }
+}
+pub fn dependency_retired(value: &serde_json::Value) -> bool {
+    if value["process_cleanup_confirmed"] != true { return false; }
+    if value["dependency_cleanup_disposition"] == "not_started" {
+        return value["service_actions_started"] == false;
+    }
+    matches!(value["dependency_cleanup_disposition"].as_str(),
+        Some("graceful_service_retirement" | "exact_owned_session_cleanup"))
+        && ["cgroup_empty", "exact_daemon_generation_absent", "application_image_unchanged", "daemon_image_unchanged"]
+            .iter().all(|key| value["post_cleanup"][key] == true)
+        && ["listener_mask", "candidate_count", "candidate_observation_unavailable"].iter()
+            .all(|key| value["post_cleanup"][key].as_u64() == Some(0))
 }
 impl ApplicationId {
     pub fn parse(s: &str) -> Result<Self> {
@@ -177,6 +196,10 @@ pub struct Operation {
     pub operation_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub launcher: Option<Artifact>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub managed: Option<crate::vendor_profile::ManagedLaunch>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability_notice: Option<String>,
 }
 impl Application {
     pub fn selector(&self) -> Result<String> {
@@ -440,7 +463,7 @@ pub fn discover(root: &Path, environment: Environment) -> Result<Application> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     #[test]
     fn legacy_application_records_round_trip_without_new_fields_or_identity_changes() {
@@ -458,7 +481,7 @@ mod tests {
         assert_eq!(reopened.selector().unwrap(),"arturia-software-center");
         assert_eq!(serde_json::to_value(reopened).unwrap(),original);
     }
-    fn selected_application() -> (crate::test_fixture::Fixture, Application) {
+    pub(crate) fn selected_application() -> (crate::test_fixture::Fixture, Application) {
         let f = crate::test_fixture::Fixture::new();
         let mut environment = f.r.environment.clone();
         environment.id = "ac".repeat(16);

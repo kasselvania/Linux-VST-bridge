@@ -543,7 +543,7 @@ mod tests {
         let operation=random_id().unwrap();let report=directory.join("operation-result.json");
         atomic_json(&directory.join("operation.json"),&vendor_application::Operation {
             application:resolved.clone(),report:report.clone(),mode:vendor_application::LaunchMode::Normal,
-            operation_id:operation.clone(),launcher:None}).unwrap();
+            operation_id:operation.clone(),launcher:None, managed:None,capability_notice:None}).unwrap();
         atomic_json(&report,&json!({"schema":3,"operation_id":operation,"state":"running",
             "launcher_exit":null,"owned_live":2,"cleanup_confirmed":false,
             "discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
@@ -552,7 +552,7 @@ mod tests {
         assert_eq!(fs::read(record).unwrap(),bytes);
         atomic_json(&directory.join("operation.json"),&vendor_application::Operation {
             application:historical.clone(),report,mode:vendor_application::LaunchMode::Normal,
-            operation_id:operation,launcher:None}).unwrap();
+            operation_id:operation,launcher:None, managed:None,capability_notice:None}).unwrap();
         assert!(current::live_vendor_progress_selected(&f.m,&historical.selector().unwrap(),||Ok(true)).is_err());
     }
     #[test]

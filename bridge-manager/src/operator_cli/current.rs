@@ -1463,7 +1463,7 @@ pub(super) mod tests {
         private_dir(&directory).unwrap();atomic_json(&directory.join("application.json"),&app).unwrap();
         let operation=random_id().unwrap();let report_path=directory.join("operation-result.json");
         let job=vendor_application::Operation {application:app.clone(),report:report_path.clone(),
-            mode:vendor_application::LaunchMode::Normal,operation_id:operation.clone(),launcher:Some(f.r.host.clone())};
+            mode:vendor_application::LaunchMode::Normal,operation_id:operation.clone(),launcher:Some(f.r.host.clone()), managed:None,capability_notice:None};
         atomic_json(&directory.join("operation.json"),&job).unwrap();
         let mut report=json!({"schema":3,"operation_id":operation,"state":"running",
             "launcher_exit":null,"owned_live":2,"cleanup_confirmed":false,

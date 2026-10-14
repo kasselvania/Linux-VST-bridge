@@ -1,5 +1,5 @@
-// Closed NAD1 SCM boundary; included after the existing exact-file hash owner.
-// No caller-selected service, binary location, endpoint or installer arguments.
+// Versioned SCM boundary; paths and endpoints are bound by the managed owner.
+// Legacy requests retain their original fixed contract.
 #include <winsvc.h>
 #include <iphlpapi.h>
 #include <cstddef>
@@ -15,7 +15,7 @@ static constexpr auto nad1_installer=L"C:\\Program Files\\Native Instruments\\Na
 #endif
 // IP Helper assigns endpoint ownership in the Windows PID domain. Never join
 // those PIDs to Linux IDs; the Linux census independently supplies cgroup custody.
-static DWORD nad1_endpoints(DWORD pid) {
+static DWORD nad1_endpoints(DWORD pid,DWORD first=5146,DWORD second=5563) {
     HMODULE dll=LoadLibraryExW(L"iphlpapi.dll",nullptr,LOAD_LIBRARY_SEARCH_SYSTEM32);if(!dll)return 4;
     using Query=DWORD (WINAPI*)(PVOID,PDWORD,BOOL,ULONG,TCP_TABLE_CLASS,ULONG);
     auto query=reinterpret_cast<Query>(GetProcAddress(dll,"GetExtendedTcpTable"));
@@ -25,7 +25,7 @@ static DWORD nad1_endpoints(DWORD pid) {
     if(table->dwNumEntries>32768||offsetof(MIB_TCPTABLE_OWNER_PID,table)+table->dwNumEntries*sizeof(MIB_TCPROW_OWNER_PID)>length){FreeLibrary(dll);return 4;}
     for(DWORD i=0;i<table->dwNumEntries;i++){const auto& row=table->table[i];
         DWORD port=((row.dwLocalPort&255)<<8)|((row.dwLocalPort>>8)&255);
-        if(row.dwOwningPid==pid&&row.dwState==MIB_TCP_STATE_LISTEN&&row.dwLocalAddr==0x0100007f){if(port==5146)mask|=1;if(port==5563)mask|=2;}}
+        if(row.dwOwningPid==pid&&row.dwState==MIB_TCP_STATE_LISTEN&&row.dwLocalAddr==0x0100007f){if(port==first)mask|=1;if(port==second)mask|=2;}}
     FreeLibrary(dll);return mask;
 }
 // Private, non-replacing handoff from the original retained process handle.
@@ -59,18 +59,36 @@ static int nad1_exit_read(const std::wstring& request,const std::vector<std::wst
         &&ReadFile(file,bytes.data(),static_cast<DWORD>(bytes.size()),&read,nullptr)&&read==expected.size()&&std::string(bytes.data(),read)==expected;
     CloseHandle(file);return ok?1:-1;
 }
-static int nad1_service_request(const std::vector<std::wstring>& r,const std::wstring& request_path) {
+static int nad1_service_request(const std::vector<std::wstring>& input,const std::wstring& request_path) {
+    auto r=input;
+    std::wstring installer_path=nad1_installer,service_name=nad1_service,image_path=nad1_image;
+    DWORD first_port=5146,second_port=5563;
+    const bool bound_service=r.size()==10&&r[0]==L"NAD1_SERVICE_V2";
+    const bool bound_stop=r.size()==12&&r[0]==L"NAD1_STOP_REQUEST_V3";
+    if(bound_service||bound_stop){
+        const auto base=bound_stop?7u:5u;
+        auto number=[](const std::wstring& text,unsigned long long& value){
+            if(text.empty()||text.size()>5)return false;value=0;
+            for(auto c:text){if(c<L'0'||c>L'9')return false;value=value*10+static_cast<unsigned>(c-L'0');}return true;};
+        auto local_path=[](const std::wstring& p){return p.size()>3&&p.size()<32768&&p.substr(0,3)==L"C:\\"&&p.find(L'"')==std::wstring::npos&&p.find(L"\\..\\")==std::wstring::npos;};
+        unsigned long long a=0,b=0;
+        if(!local_path(r[base])||!local_path(r[base+2])||r[base+1].empty()||r[base+1].size()>256
+            ||r[base+1].find_first_of(L"\\/\r\n")!=std::wstring::npos
+            ||!number(r[base+3],a)||!number(r[base+4],b)||!a||!b||a>65535||b>65535||a==b)return 140;
+        installer_path=r[base];service_name=r[base+1];image_path=r[base+2];first_port=static_cast<DWORD>(a);second_port=static_cast<DWORD>(b);
+        r.resize(base);r[0]=bound_stop?L"NAD1_STOP_REQUEST_V2":L"NAD1_SERVICE_V1";
+    }
     const bool stop_v2=r.size()==7&&r[0]==L"NAD1_STOP_REQUEST_V2"&&r[3]==L"stop";
     if((!stop_v2&&(r.size()!=5 || r[0]!=L"NAD1_SERVICE_V1" || r[3]==L"stop")) || !hex(r[1],32) || !hex(r[2],64)
        || (r[3]!=L"query" && r[3]!=L"start" && r[3]!=L"stop" && r[3]!=L"install") || !hex(r[4],64)) return 140;
     if(r[3]==L"install") {
-        HANDLE image=CreateFileW(nad1_installer,GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
+        HANDLE image=CreateFileW(installer_path.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
         if(image==INVALID_HANDLE_VALUE)return 141;
         std::string expected(r[4].begin(),r[4].end());bool exact=hash(image)==expected;
         if(!exact){CloseHandle(image);return 142;}
-        std::wstring command=L"\"";command+=nad1_installer;command+=L"\" /s";
+        std::wstring command=L"\"";command+=installer_path;command+=L"\" /s";
         STARTUPINFOW si{};si.cb=sizeof(si);PROCESS_INFORMATION pi{};
-        if(!CreateProcessW(nad1_installer,command.data(),nullptr,nullptr,FALSE,CREATE_SUSPENDED,nullptr,nullptr,&si,&pi)){CloseHandle(image);return 143;}
+        if(!CreateProcessW(installer_path.c_str(),command.data(),nullptr,nullptr,FALSE,CREATE_SUSPENDED,nullptr,nullptr,&si,&pi)){CloseHandle(image);return 143;}
         std::array<wchar_t,32768> path{};DWORD length=static_cast<DWORD>(path.size());
         bool bound=QueryFullProcessImageNameW(pi.hProcess,0,path.data(),&length)!=FALSE;
         HANDLE actual=bound?CreateFileW(path.data(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr):INVALID_HANDLE_VALUE;
@@ -106,13 +124,13 @@ static int nad1_service_request(const std::vector<std::wstring>& r,const std::ws
     DWORD access=SERVICE_QUERY_CONFIG|SERVICE_QUERY_STATUS;
     if(r[3]==L"start")access|=SERVICE_START;
     if(r[3]==L"stop")access|=SERVICE_STOP;
-    SC_HANDLE service=OpenServiceW(scm,nad1_service,access);
+    SC_HANDLE service=OpenServiceW(scm,service_name.c_str(),access);
     if(!service){DWORD error=GetLastError();CloseServiceHandle(scm);
         std::fprintf(stdout,"NAD1_SCM_V1 %ls %ls absent %lu 0 0 0 none 0 0 0\n",r[1].c_str(),r[2].c_str(),error);std::fflush(stdout);return error==ERROR_SERVICE_DOES_NOT_EXIST?0:146;}
     alignas(QUERY_SERVICE_CONFIGW) std::array<unsigned char,8192> buffer{};DWORD needed=0;
     bool ok=QueryServiceConfigW(service,reinterpret_cast<QUERY_SERVICE_CONFIGW*>(buffer.data()),static_cast<DWORD>(buffer.size()),&needed)!=FALSE;
     auto config=reinterpret_cast<QUERY_SERVICE_CONFIGW*>(buffer.data());
-    std::wstring expected=nad1_image,quoted=L"\""+expected+L"\"";
+    std::wstring expected=image_path,quoted=L"\""+expected+L"\"";
     ok=ok&&config->dwServiceType==SERVICE_WIN32_OWN_PROCESS&&config->lpBinaryPathName
        && (expected==config->lpBinaryPathName || quoted==config->lpBinaryPathName);
     if(!ok){CloseServiceHandle(service);CloseServiceHandle(scm);return 147;}
@@ -129,13 +147,13 @@ static int nad1_service_request(const std::vector<std::wstring>& r,const std::ws
         bool queried=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&initial),sizeof(initial),&count)!=FALSE;
         DWORD first_error=queried?0:GetLastError();
         struct AdmissionIO {
-            SC_HANDLE service;const std::wstring& path;const std::vector<std::wstring>& request;HANDLE process=nullptr;
+            SC_HANDLE service;const std::wstring& path;const std::vector<std::wstring>& request;const std::wstring& image_path;DWORD first_port,second_port;HANDLE process=nullptr;
             int exit_witness(uint32_t pid,uint64_t created){return nad1_exit_read(path,request,pid,created);}
             Nad1ProcessAdmission acquire(uint32_t pid,uint64_t prior_created){
                 process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|SYNCHRONIZE,FALSE,pid);
                 if(!process)return {false,false,0,GetLastError()};
                 std::array<wchar_t,32768> image{};DWORD length=static_cast<DWORD>(image.size());
-                bool valid=QueryFullProcessImageNameW(process,0,image.data(),&length)&&_wcsicmp(image.data(),nad1_image)==0;
+                bool valid=QueryFullProcessImageNameW(process,0,image.data(),&length)&&_wcsicmp(image.data(),image_path.c_str())==0;
                 auto created=valid?time_of(process):0;
                 valid=valid&&created&&(!prior_created||created==prior_created);
                 return {true,valid,created,valid?0u:static_cast<uint32_t>(ERROR_INVALID_DATA)};
@@ -145,8 +163,8 @@ static int nad1_service_request(const std::vector<std::wstring>& r,const std::ws
                 if(!QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&status),sizeof(status),&used))error=GetLastError();
                 return {status.dwCurrentState,status.dwCheckPoint,status.dwWaitHint,status.dwWin32ExitCode,status.dwServiceSpecificExitCode,error,status.dwControlsAccepted,status.dwServiceType};
             }
-            uint32_t endpoints(uint32_t pid){return nad1_endpoints(pid);}
-        } admission_io{service,request_path,r};
+            uint32_t endpoints(uint32_t pid){return nad1_endpoints(pid,first_port,second_port);}
+        } admission_io{service,request_path,r,image_path,first_port,second_port};
         Nad1StopStatus first{initial.dwCurrentState,initial.dwCheckPoint,initial.dwWaitHint,initial.dwWin32ExitCode,initial.dwServiceSpecificExitCode,first_error,initial.dwControlsAccepted,initial.dwServiceType};
         auto admission=nad1_admit_stop_generation(admission_io,first,initial.dwProcessId,static_cast<DWORD>(prior_pid),prior_created);
         HANDLE process=admission_io.process;DWORD pid=admission.pid;unsigned long long created=admission.created;
@@ -154,6 +172,7 @@ static int nad1_service_request(const std::vector<std::wstring>& r,const std::ws
         struct IO {
             SC_HANDLE service;HANDLE process;DWORD pid;Nad1StopStatus first;bool initial=true;
             const std::vector<std::wstring>& request;
+            DWORD first_port,second_port;
             uint64_t now(){return GetTickCount64();}
             Nad1StopStatus query(){
                 SERVICE_STATUS_PROCESS st{};DWORD count=0,error=0;
@@ -176,9 +195,9 @@ static int nad1_service_request(const std::vector<std::wstring>& r,const std::ws
                     st.dwServiceSpecificExitCode,0,st.dwControlsAccepted,st.dwServiceType}};
             }
             uint32_t wait(uint32_t& error){DWORD result=process?WaitForSingleObject(process,0):WAIT_OBJECT_0;error=result==WAIT_FAILED?GetLastError():0;return result;}
-            uint32_t endpoints(){return pid?nad1_endpoints(pid):0;}
+            uint32_t endpoints(){return pid?nad1_endpoints(pid,first_port,second_port):0;}
             void sleep(){Sleep(50);}
-        } io{service,process,pid,admission.first,true,r};
+        } io{service,process,pid,admission.first,true,r,first_port,second_port};
         auto result=nad1_observe_stop(io,valid);
         std::fprintf(stdout,"NAD1_STOP_OBSERVATION_V2 %ls %ls %u %u %u %u %u %u %u %u %u %u %u %u %llu %llu %llu %u %u %u %u %u\n",
             r[1].c_str(),r[2].c_str(),result.confirmed?1u:0u,result.before.state,result.before.error,result.last.state,result.last.error,
@@ -230,10 +249,10 @@ static int nad1_service_request(const std::vector<std::wstring>& r,const std::ws
     if(ok&&status.dwCurrentState==SERVICE_RUNNING){
         HANDLE process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|(r[3]==L"start"?SYNCHRONIZE:0),FALSE,status.dwProcessId);
         std::array<wchar_t,32768> path{};DWORD length=static_cast<DWORD>(path.size());
-        ok=process&&QueryFullProcessImageNameW(process,0,path.data(),&length)&&_wcsicmp(path.data(),nad1_image)==0;
+        ok=process&&QueryFullProcessImageNameW(process,0,path.data(),&length)&&_wcsicmp(path.data(),image_path.c_str())==0;
         if(ok){created=time_of(process);HANDLE file=CreateFileW(path.data(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
             if(file!=INVALID_HANDLE_VALUE){image_hash=hash(file);CloseHandle(file);}else ok=false;}
-        if(ok){endpoints=nad1_endpoints(status.dwProcessId);SERVICE_STATUS_PROCESS after{};DWORD count=0,exit=0;
+        if(ok){endpoints=nad1_endpoints(status.dwProcessId,first_port,second_port);SERVICE_STATUS_PROCESS after{};DWORD count=0,exit=0;
             ok=QueryServiceStatusEx(service,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&after),sizeof(after),&count)&&after.dwProcessId==status.dwProcessId&&after.dwCurrentState==SERVICE_RUNNING&&GetExitCodeProcess(process,&exit)&&exit==STILL_ACTIVE&&time_of(process)==created;}
         if(!created||image_hash.size()!=64)ok=false;
         if(ok&&r[3]==L"start")start_anchor=process;
@@ -251,7 +270,7 @@ static int nad1_service_request(const std::vector<std::wstring>& r,const std::ws
                 // Publish before releasing the original handle. A vanished PID
                 // must never be mistaken for this generation's exit observation.
                 ok=anchor&&WaitForSingleObject(anchor,12000)==WAIT_OBJECT_0&&time_of(anchor)==anchor_created
-                    &&nad1_endpoints(anchor_pid)==0&&nad1_exit_publish(request_path,r,anchor_pid,anchor_created);
+                    &&nad1_endpoints(anchor_pid,first_port,second_port)==0&&nad1_exit_publish(request_path,r,anchor_pid,anchor_created);
                 break;
             }
             if(current.dwCurrentState==SERVICE_RUNNING){

@@ -4738,7 +4738,7 @@ print('LVO0 '+j['session']+' ready',flush=True)
         atomic_json(&vendor_dir.join("application.json"),&application).unwrap();
         atomic_json(&vendor_dir.join("operation.json"),&vendor_application::Operation {
             application,report:vendor_dir.join("operation-result.json"),
-            mode:vendor_application::LaunchMode::Normal,operation_id:vendor.clone(),launcher:None}).unwrap();
+            mode:vendor_application::LaunchMode::Normal,operation_id:vendor.clone(),launcher:None, managed:None,capability_notice:None}).unwrap();
         atomic_json(&vendor_dir.join("operation-result.json"),&serde_json::json!({
             "schema":3,"operation_id":vendor,"state":"completed","launcher_exit":0,
             "owned_live":0,"cleanup_confirmed":true,"close_result":null,
