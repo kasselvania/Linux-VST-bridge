@@ -670,5 +670,95 @@
         "final_cleanup_unconfirmed": false
       }
     }
+  },
+  "test72_user_control": {
+    "build": 72,
+    "source_head": "0798ed4b9a7c5fb36d8a7144bce73993ed071546",
+    "source_tree": "ec444157a2d622b36c9aca7c9502ebeda5437b99",
+    "installer_sha256": "7a899b7e8eb9f631a16912de6f68dbdb859a7971d23439c5514e4c409ec00572",
+    "engine_sha256": "31303d54a3ebfc234c058f7b1609d5193d0501fabc50d82cd983949d5a84b53c",
+    "windows_host_sha256": "5d071ce64561085fdb135f24507e3e3e626f5a483c049e2eb08a78e89a3fd385",
+    "target": "Retained CachyOS Btrfs VM / native REAPER 7.82 / PulseAudio 44100 Hz, 512 frames; 2 vCPUs, 3072 MiB",
+    "program_selection": {
+      "origin": "User choice in an existing managed setup; no installer observation required",
+      "fixture_A_sha256": "0e04c2a59b6524f21fc905a5e336f3d7586e33ecee29dcc19250fabaddace12a",
+      "fixture_B_sha256": "a777f4f08c460b37523425507e940d569ecc84f3f568d4977171d4a68c3856e1",
+      "normal_gui_choose_A_open_resource_show_from_manager_and_close": true,
+      "replacement_after_A_normal_close": true,
+      "stale_old_open_refused": true,
+      "program_updated_disables_open_until_explicit_use_this_version": true,
+      "B_predecessor_A_record_retained": true,
+      "same_environment_runtime_working_directory_and_empty_arguments": true,
+      "normal_manager_quit_restart_remembers_B": true,
+      "normal_gui_B_open_resource_show_and_close": true,
+      "A_and_B_retirement": {
+        "state": "completed",
+        "launcher_exit": 0,
+        "owned_live": 0,
+        "cleanup_confirmed": true
+      },
+      "replacement_while_A_running_installed_test": false
+    },
+    "retained_reference_project": {
+      "fresh_readback_before_setters_or_playback": true,
+      "both_FX_enabled": true,
+      "instrument_level": 0.625,
+      "instrument_colour": 0.33000001311302185,
+      "effect_level": 0.7400000095367432,
+      "effect_colour": 0.6600000262260437,
+      "automation_points_per_level_lane": 4,
+      "instrument_midi_notes": 16,
+      "separate_solo_stereo_s16le_PulseAudio_captures": [
+        {
+          "case": "Reference instrument",
+          "frames": 442368,
+          "seconds": 10.031020408163265,
+          "peak": 0.0289306640625,
+          "rms": 0.006733728309924356,
+          "nonzero_channel_samples": 201238
+        },
+        {
+          "case": "Reference effect",
+          "frames": 442368,
+          "seconds": 10.031020408163265,
+          "peak": 0.3662109375,
+          "rms": 0.15659535646642586,
+          "nonzero_channel_samples": 705428
+        }
+      ],
+      "live_current_native_and_exact_retained_windows_module_pairs_confirmed": true,
+      "original_project_byte_exact": true,
+      "normal_reaper_quit_without_saving": true
+    },
+    "preservation": {
+      "original_protected_paths": 2455,
+      "byte_exact_paths": 2452,
+      "authorized_registry_and_operator_latest_changes": 2,
+      "normal_DAW_vendor_owned_accounting_record_updated_and_retained": 1,
+      "ordinary_preference_cache_files_restored": 3,
+      "temporary_shortcut_registration_removed_prior_absence_restored": true,
+      "original_projects_audio_content_modules_environment_records_preserved": true,
+      "published_classes": 6,
+      "class_module_environment_bindings_preserved": true,
+      "descriptor_field_changes": [
+        "engine_sha256"
+      ],
+      "windows_host_bytes_unchanged_from_Test71": true,
+      "delivered_Test69_Test70_Test71_predecessors_retained": true
+    },
+    "final_idle": {
+      "available_classes": 6,
+      "service": "active",
+      "dsp": 0,
+      "keepers": 0,
+      "maintenance": 0,
+      "pending_transactions": 0,
+      "operation_live": false,
+      "cleanup_unconfirmed": false
+    },
+    "normal_poweroff_exit": 0,
+    "QEMU_retired": true,
+    "temporary_SSH_firewall_and_sshd_state_restored": true,
+    "scope": "Installed portable-program selection/adoption and retained project recall/nonzero playback on this VM; no physical latency or deadline qualification"
   }
 }

@@ -1,38 +1,32 @@
 # Current slice — user control over programs
 
 Goal: choose and remember a portable Windows program in an existing native
-managed setup, then explicitly use changed bytes without installer registration
+managed setup, then explicitly adopt changed bytes without installer registration
 or maintainer permission. Keep the setup's runtime, prefix and licensed state.
 
-Baseline: delivered Test69 and retained SteamOS/CachyOS installations remain.
-CachyOS is the assigned installed-validation target; its saved project/history
-and six Available classes must survive. Shared hardware has one owner at a time.
+First slice is complete on the assigned CachyOS/native REAPER fixture with Test72.
+The source increments are independently reviewed, green and merged into main.
 
-First source increment is reviewed, green and merged into main. Implemented:
-1. Setup offers Choose program. A user selection records exact executable bytes
-   and its existing working folder independently of installer observations.
-2. Open uses the current setup's supervised runtime and the existing Windows
-   suspended-launch adapter. Validate the actual child image before running it;
-   keep the original executable path and neighboring resources in place.
-3. Show and normal Close target the exact owned program. Force Stop remains an
-   explicit recovery control. Replacing a path keeps the old running image's
-   Focus/Close ownership; it never labels a replacement as the old image.
-4. Program updated offers Use this version bound to the displayed new digest.
-   Refuse another replacement before adoption. Keep the old exact record and
-   operations readable; remember the successor after a manager restart.
-5. This slice launches without extra arguments. Wine settings, local runtime
-   import and the Windows DAW workspace remain later direction work.
+What works:
+1. Choose program records exact bytes and the existing working folder independently
+   of installer observations. Open keeps that path, resource folder and setup.
+2. The suspended Windows adapter verifies the child image before running it.
+   Show and normal Close target the exact supervised session's unique owned window;
+   the Btrfs stat/maps mismatch no longer blocks these controls.
+3. After A closes, same-path B cannot Open under A's identity. Use this version
+   adopts B, retains A's record and preserves environment/runtime/folder/arguments.
+   Normal manager quit/restart remembers B; B Open/resource/Show/Close pass.
+4. Fresh original REAPER recall retains both roles' controls, four automation
+   points per lane and sixteen notes. Separate solo captures contain nonzero
+   instrument/effect audio; the original project remains exact after normal Quit.
+5. Six class/module/environment bindings and delivered Test69–71 builds survive.
+   Of 2,455 protected paths, 2,452 stay exact; registry/status renew and one ordinary
+   vendor-owned DAW accounting write is retained. Final idle and shutdown are clean.
 
-Installed Test71 opens build A with its sibling resource and settles running
-controls. Show rejects Btrfs's differing stat/mapped-image device IDs. The next
-repair targets the exact session's unique owned window, including helper UI;
-image metadata remains strict. Full installed controls/adoption remain due.
+Installed replacement was exercised after A's normal close. Running-A replacement
+controls retain separate source regression coverage. VM playback does not qualify
+physical latency or deadlines. Existing evidence: evidence/cachyos-reaper.json.
 
-Corrected-build installed acceptance is still due:
-choose source-owned build A with a sibling resource, open/show/close it, replace
-only its executable with distinguishable B, adopt B, restart the manager and
-open/close B. Confirm retained plug-ins play and reopen the saved DAW state,
-with projects, content, activation and previous application history preserved.
-
-Land this one reviewed, green increment, then incorporate current main before
-continuing. Source checks do not substitute for the installed musician flow.
+Next direction work: this slice has no extra launch arguments. Wine settings,
+local runtime import and the Windows DAW workspace remain separate increments.
+Incorporate current main and coordinate shared hardware custody before continuing.
