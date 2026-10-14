@@ -13,14 +13,17 @@
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <stdexcept>
+#include <cstdio>
 using namespace Steinberg;using namespace Steinberg::Vst;
+static bool inspectionFault(const char* expected){const char* fault=std::getenv("LVB_AP8_INSPECTION_FAULT");return fault&&std::strcmp(fault,expected)==0;}
 static const FUID processorID(0x41503130,0x52455455,0x524E5354,0x45535401);
 static const FUID controllerID(0x41503130,0x52455455,0x524E5354,0x45535402);
 class ReturnProcessor final:public AudioEffect {
  double gain=.5;std::array<std::array<float,13>,2> delay{};size_t cursor=0;
 public:
  ReturnProcessor(){setControllerClass(controllerID);}
- static FUnknown* create(void*){return static_cast<IAudioProcessor*>(new ReturnProcessor);}
+ static FUnknown* create(void*){return inspectionFault("class")?nullptr:static_cast<IAudioProcessor*>(new ReturnProcessor);}
  tresult PLUGIN_API queryInterface(const TUID iid,void**object)override{
   if(object&&FUnknownPrivate::iidEqual(iid,INLINE_UID_OF(IEditController))){
    *object=nullptr;const char* mode=std::getenv("LVB_AP8_CONTROLLER_QUERY_CASE");
@@ -34,7 +37,7 @@ public:
  tresult PLUGIN_API setBusArrangements(SpeakerArrangement*in,int32 ni,SpeakerArrangement*out,int32 no)override{return ni==1&&no==1&&in&&out&&in[0]==SpeakerArr::kStereo&&out[0]==SpeakerArr::kStereo?AudioEffect::setBusArrangements(in,ni,out,no):kResultFalse;}
  tresult PLUGIN_API canProcessSampleSize(int32 n)override{return n==kSample32?kResultTrue:kResultFalse;}
  uint32 PLUGIN_API getLatencySamples()override{return 13;}
- tresult PLUGIN_API getState(IBStream*s)override{int32 n=0;return s&&s->write(&gain,8,&n)==kResultOk&&n==8?kResultOk:kResultFalse;}
+ tresult PLUGIN_API getState(IBStream*s)override{if(inspectionFault("state"))return kInternalError;int32 n=0;return s&&s->write(&gain,8,&n)==kResultOk&&n==8?kResultOk:kResultFalse;}
  tresult PLUGIN_API setState(IBStream*s)override{double v=0;int32 n=0;if(!s||s->read(&v,8,&n)!=kResultOk||n!=8||!std::isfinite(v)||v<0||v>1)return kResultFalse;gain=v;return kResultOk;}
  tresult PLUGIN_API process(ProcessData&d)override{
   int command=-1;int32 trigger=0;
@@ -71,6 +74,8 @@ public:
  static FUnknown* create(void*){return static_cast<IEditController*>(new ReturnController);}
  tresult PLUGIN_API initialize(FUnknown*h)override{auto r=EditControllerEx1::initialize(h);if(r!=kResultOk)return r;parameters.addParameter(STR16("Gain"),nullptr,0,.5,ParameterInfo::kCanAutomate,0);parameters.addParameter(STR16("Test command"),nullptr,0,0,ParameterInfo::kCanAutomate,1);return kResultOk;}
  tresult PLUGIN_API setComponentState(IBStream*s)override{double value=0;int32 n=0;if(!s||s->read(&value,8,&n)!=kResultOk||n!=8)return kResultFalse;return setParamNormalized(0,value);}
+ tresult PLUGIN_API getParameterInfo(int32 index,ParameterInfo& info)override{return inspectionFault("parameters")?kInternalError:EditControllerEx1::getParameterInfo(index,info);}
+ IPlugView* PLUGIN_API createView(FIDString name)override{if(inspectionFault("editor")){std::fputs("fixture editor failure\n",stderr);throw std::runtime_error("fixture editor failure");}return EditControllerEx1::createView(name);}
 };
 BEGIN_FACTORY_DEF("Linux VST Bridge", "https://github.com/kasselvania/Linux-VST-bridge", "")
 DEF_CLASS2(INLINE_UID_FROM_FUID(processorID),PClassInfo::kManyInstances,kVstAudioEffectClass,"AP10 Return Fixture",Vst::kDistributable,"Fx", "1.0.0",kVstVersionString,ReturnProcessor::create)

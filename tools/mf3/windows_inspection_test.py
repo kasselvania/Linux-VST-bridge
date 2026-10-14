@@ -25,7 +25,7 @@ def main():
     names=subprocess.check_output(['git','ls-files','windows-factory-probe','native-vst3-proxy/include','vst-state','windows-fixtures/ap10','tools/direct-audio-handoff','CMakeLists.txt'],cwd=root,text=True).splitlines()
     manifest=out/'host-source-manifest.json'
     manifest.write_text(json.dumps(dict(schema=1,source_commit=commit,host_sha256=sha(host),direct_wait_shim_sha256=sha(out/'lvb-direct-wait.dll'),files={n:sha(root/n) for n in names}),sort_keys=True))
-    def inspect(case,expected,present,accepted,mode='ap8-module-inspection',audio_layout=False):
+    def inspect(case,expected,present,accepted,mode='ap8-module-inspection',audio_layout=False,fault=None,failure_reason=None):
         sid=uuid.uuid4().hex;directory=pathlib.Path('C:/bridge/sessions')/sid
         directory.mkdir(parents=True);fixture=directory/'fixture.vst3';shutil.copyfile(module,fixture)
         ready=directory/(sid+'.ready');gate=directory/(sid+'.gate')
@@ -38,8 +38,10 @@ def main():
         environment=dict(os.environ)
         environment.pop('LVB_AP8_CONTROLLER_QUERY_CASE',None)
         environment.pop('LVB_AUDIO_LAYOUT_POLICY',None)
+        environment.pop('LVB_AP8_INSPECTION_FAULT',None)
         if case:environment['LVB_AP8_CONTROLLER_QUERY_CASE']=case
         if audio_layout:environment['LVB_AUDIO_LAYOUT_POLICY']='stereo_main_pair'
+        if fault:environment['LVB_AP8_INSPECTION_FAULT']=fault
         child=subprocess.Popen([str(host),*args],stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=environment)
         try:
             deadline=time.monotonic()+20
@@ -53,18 +55,24 @@ def main():
                 break
             publish_gate(gate,binding);output,error=child.communicate(timeout=30)
             assert child.returncode==(0 if accepted else 90),(case,child.returncode,error[-1024:],output[-2048:])
+            if fault=='editor':assert (b'fixture editor failure' in error)==(mode=='graphics-assessment'),error
             assert len(output)<=1048576
             records=[json.loads(line) for line in output.splitlines()]
             queries=[r for r in records if r.get('state')=='ap8_controller_query']
-            assert len(queries)==1 and queries[0]['result']==expected and queries[0]['pointer_present'] is present,queries
+            if expected is None:assert not queries,queries
+            else:assert len(queries)==1 and queries[0]['result']==expected and queries[0]['pointer_present'] is present,queries
             associations=[r for r in records if r.get('state')=='ap8_controller_association']
-            if accepted:
+            if accepted or (failure_reason is not None and expected is not None):
                 assert len(associations)==1 and associations[0]['combined'] is False,associations
                 assert associations[0]['class_id']=='4150313052455455524E535445535402',associations
             else:
                 assert not associations,associations
-                assert any(r.get('state')=='ap8_failure' and r.get('reason')=='controller query tuple' for r in records),records[-8:]
+            if not accepted:
+                reason=failure_reason or 'controller query tuple'
+                assert any(r.get('state')=='ap8_failure' and r.get('reason')==reason for r in records),records[-8:]
             assert any(r.get('state')=='ap8_inspection_closed' and r['exit_code']==(0 if accepted else 90) for r in records)
+            completed=[r for r in records if r.get('state')=='scanner_completed']
+            assert (len(completed)==1 and completed[0].get('inspection_complete') is True) if accepted else not completed
             return records
         finally:
             if child.poll() is None:child.kill();child.wait(10)
@@ -74,6 +82,20 @@ def main():
     inspect('false-null',1,False,True)
     inspect('success-null',0,False,False)
     inspect('error-nonnull',-2147024809,True,False)
+    # An optional editor that fails on creation cannot prevent required census.
+    # Explicit editor assessment still exercises the same failing view factory.
+    editor_fault=inspect(None,-2147467262,False,True,fault='editor')
+    assert any(r.get('state')=='ap12_persistence' and r.get('capture_available') is True for r in editor_fault)
+    assert any(r.get('state')=='ap8_parameter_count' and r.get('count')==2 for r in editor_fault)
+    assert not any(r.get('state')=='ap8_editor_interface' for r in editor_fault)
+    assessed=inspect(None,-2147467262,False,True,'graphics-assessment',fault='editor')
+    assert any(r.get('state')=='ap8_call' and r.get('operation')=='assessGraphicsEditor' for r in assessed)
+    assert any(r.get('state')=='graphics_assessment' and r['editor']['status']=='unavailable' for r in assessed)
+    # Required class construction, parameter metadata and unsafe state failures
+    # still refuse inspection; omitting optional GUI work weakens none of them.
+    inspect(None,None,None,False,fault='class',failure_reason='createComponent')
+    inspect(None,-2147467262,False,False,fault='parameters',failure_reason='getParameterInfo index 0')
+    inspect(None,-2147467262,False,False,fault='state',failure_reason='initial state SDK failure')
     production_stereo=inspect(None,-2147467262,False,True,audio_layout=True)
     applied=[r for r in production_stereo if r.get('state')=='ap18_audio_layout']
     assert len(applied)==1 and {k:applied[0].get(k) for k in ('policy','input_count','output_count','result','verified')}==dict(policy='stereo_main_pair',input_count=1,output_count=1,result=0,verified=True),applied
@@ -89,9 +111,9 @@ def main():
     assert len(restores)==1 and restores[0]['attempted'] is False and restores[0]['verified'] is True,restores
     assert any(r.get('state')=='scanner_completed' and r.get('inspection_complete') is True for r in stereo),stereo[-8:]
     editor=[r for r in records if r.get('state')=='ap8_editor_interface']
-    assert len(editor)==1 and editor[0]['created'] is False and editor[0]['attached'] is False
+    assert not editor
     report=dict(schema=1,gated=True,cleanup_confirmed=True,transport_retired=True,error=None,records=records,
                 provenance='source-owned Windows CI fixture; no commercial product')
     (out/'mf3-source-inspection.json').write_text(json.dumps(report,sort_keys=True))
-    print('MF3 source-owned exact controller association and query tuple policy: passed')
+    print('MF3 source-owned required census, optional editor separation and query tuple policy: passed')
 if __name__=='__main__':main()
