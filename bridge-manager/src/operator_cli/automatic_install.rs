@@ -177,19 +177,32 @@ fn retain_vendor_intent(m: &Manager, prior: &Intent) -> Result<Artifact> {
 
 pub(super) fn empty_bootstrap_handoff(m: &Manager, record: &onboarding::Record,
     intent: &Intent, application: &str) -> Result<bool> {
+    let Some(app) = bootstrap_handoff_application(m, record, intent, application)? else { return Ok(false); };
+    app.verify(&m.root)?;
+    Ok(true)
+}
+
+pub(super) fn empty_bootstrap_handoff_record(m: &Manager, record: &onboarding::Record,
+    intent: &Intent, application: &str) -> Result<bool> {
+    let Some(app) = bootstrap_handoff_application(m, record, intent, application)? else { return Ok(false); };
+    app.validate_record(&m.root)?;
+    Ok(true)
+}
+
+fn bootstrap_handoff_application(m: &Manager, record: &onboarding::Record,
+    intent: &Intent, application: &str) -> Result<Option<vendor_application::Application>> {
     if intent.vendor.is_some() || !intent.work.is_empty() || !intent.failed_modules.is_empty()
         || !intent.journey.plugins.is_empty() || intent.journey.phase != ui::InstallationPhase::NeedsAttention
         || !intent.journey.failure.as_ref().is_some_and(|f| f.stage == ui::InstallationFailureStage::Discovery
-            && f.code == "no_supported_instruments_or_effects_discovered") { return Ok(false); }
+            && f.code == "no_supported_instruments_or_effects_discovered") { return Ok(None); }
     let installation = onboarding::result(m, record)?;
     if installation["state"] != "completed" || installation["raw_exit"] != 0
-        || !onboarding::retired(&installation) { return Ok(false); }
+        || !onboarding::retired(&installation) { return Ok(None); }
     let app = vendor_cli::application(m, application)?;
     if app.environment != record.environment || app.installer_sha256 != record.installer
         || app.installer_result.path != onboarding::directory(m, &record.id)?.join(format!("{}-result.json",
-            record.installation_operation.as_deref().ok_or("vendor_application_installation_missing")?)) { return Ok(false); }
-    app.verify(&m.root)?;
-    Ok(true)
+            record.installation_operation.as_deref().ok_or("vendor_application_installation_missing")?)) { return Ok(None); }
+    Ok(Some(app))
 }
 
 fn handoff_choices(m: &Manager, record: &onboarding::Record, intent: &Intent,
@@ -200,12 +213,12 @@ fn handoff_choices(m: &Manager, record: &onboarding::Record, intent: &Intent,
             && f.code == "no_supported_instruments_or_effects_discovered") { return Ok(vec![]); }
     let mut selectors = vec![];
     for selector in vendor_cli::selectors(m)? {
-        if empty_bootstrap_handoff(m, record, intent, &selector)? { selectors.push(selector); }
+        if empty_bootstrap_handoff_record(m, record, intent, &selector)? { selectors.push(selector); }
     }
     if selectors.is_empty() {
         for choice in vendor_cli::selection::choices(m, record)? {
             let selector = choice.application.selector()?;
-            if empty_bootstrap_handoff(m, record, intent, &selector)? { selectors.push(selector); }
+            if empty_bootstrap_handoff_record(m, record, intent, &selector)? { selectors.push(selector); }
         }
     }
     selectors.into_iter().map(|selector|vendor_projection(m, &selector, busy))
@@ -2091,6 +2104,36 @@ mod tests {
             environment:Some(record.id.clone()),compatibility:None,discovered:vec![],primary:None,secondary:vec![],
             rename:action("Rename",ui::Action::InstallerRename {installer:record.installer.clone(),label:String::new()},None),history:vec![]}
     }
+    #[test]
+    fn app_only_cards_use_record_observation_and_selection_still_checks_runtime() {
+        let (f,mut record,_)=vendor_cli::selection::tests::installed_app();
+        let manifest=record.environment.runner.proton.parent().unwrap().join("runtime-tree.json");
+        fs::write(&manifest,b"not a runtime tree").unwrap();
+        record.environment.runner.files.push(Artifact {path:manifest.clone(),sha256:digest(&manifest).unwrap()});
+        atomic_json(&record.environment.root.join("environment.json"),&record.environment).unwrap();
+        let intent=initial_intent(&record);record.automatic=Some(intent.clone());
+        atomic_json(&onboarding::directory(&f.m,&record.id).unwrap().join("record.json"),&record).unwrap();
+        let choices=vendor_cli::selection::choices(&f.m,&record).unwrap();
+        let selector=choices[0].application.selector().unwrap();
+        let units=choices.iter().map(|c|vendor_cli::unit(&c.application.selector().unwrap()).unwrap()).collect::<Vec<_>>();
+        let before=test_fixture::snapshot(&f.m.root);
+        readiness::with_unit_state_fixture(&units,"inactive",|| {
+            let mut setup=installer_setup(&record);
+            project_from_with(&f.m,std::slice::from_mut(&mut setup),None,std::slice::from_ref(&record),&mut |_|Ok(false)).unwrap();
+            assert_eq!(setup.journey.unwrap().phase,ui::InstallationPhase::AwaitingApplication);
+            assert_eq!(setup.secondary.iter().filter(|a|matches!(a.action,ui::Action::VendorSoftwareInstall {..})
+                && a.disabled_reason.is_none()).count(),2);
+        });
+        assert_eq!(test_fixture::snapshot(&f.m.root),before,"Readback does not warm or rewrite runtime records");
+        assert!(empty_bootstrap_handoff(&f.m,&record,&intent,&selector).is_err());
+        assert!(vendor_cli::selection::select(&f.m,&selector).is_err());
+        assert!(!vendor_cli::directory(&f.m,&selector).unwrap().join("application.json").exists());
+        fs::remove_file(&choices[0].application.executable.path).unwrap();
+        let mut setup=installer_setup(&record);
+        project_from_with(&f.m,std::slice::from_mut(&mut setup),None,std::slice::from_ref(&record),&mut |_|Ok(false)).unwrap();
+        assert_eq!(setup.journey.unwrap().phase,ui::InstallationPhase::NeedsAttention);
+    }
+
     #[test]
     fn app_only_handoff_is_current_projection_then_settles_home_without_rewriting_history() {
         let (f,mut record,_)=vendor_cli::selection::tests::installed_app();

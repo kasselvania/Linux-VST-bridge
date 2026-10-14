@@ -192,7 +192,7 @@ impl Application {
                 .into_owned()
         }
     }
-    fn verify_selected(&self, root: &Path) -> Result<()> {
+    fn validate_selected_record(&self, root: &Path) -> Result<Artifact> {
         require(
             self.id == ApplicationId::Selected
                 && valid_hex(&self.environment.id, 32)
@@ -201,7 +201,7 @@ impl Application {
                     == self.environment,
             "vendor_application_environment",
         )?;
-        self.environment.runner.verify()?;
+        self.environment.runner.validate_record()?;
         require(
             self.helpers.len() <= 16 && valid_hex(&self.installer_sha256, 64),
             "vendor_application_selection_bound",
@@ -220,7 +220,7 @@ impl Application {
                 metadata.nlink() == 1 && metadata.len() > 0 && metadata.len() <= 512 * 1024 * 1024,
                 "vendor_application_selected_artifact_bound",
             )?;
-            artifact.verify()?;
+            artifact.validate_record()?;
         }
         // This witness proves the selected environment's installation custody.
         // It does not assert that the installer created the selected files.
@@ -239,8 +239,7 @@ impl Application {
                 && self.installer_result.path == directory.join(format!("{operation}-result.json")),
             "vendor_application_installation_binding",
         )?;
-        self.installer_result.verify()?;
-        let result: serde_json::Value = read_json(&self.installer_result.path)?;
+        let result: serde_json::Value = self.installer_result.read_record(8 * 1024 * 1024)?;
         require(
             result["schema"] == 2
                 && result["operation"] == operation
@@ -267,13 +266,15 @@ impl Application {
             installer.path.parent() == Some(root.join("installers").as_path()),
             "vendor_application_import_binding",
         )?;
-        installer.verify()?;
-        Ok(())
+        installer.validate_record()?;
+        Ok(installer)
     }
 
-    pub fn verify(&self, root: &Path) -> Result<()> {
+    /// Current record/binding observation for read-only cards and choices.
+    /// Executable payloads and the runtime tree are verified by execution owners.
+    pub fn validate_record(&self, root: &Path) -> Result<()> {
         if self.schema == 2 {
-            return self.verify_selected(root);
+            return self.validate_selected_record(root).map(|_| ());
         }
         require(
             self.schema == 1 && self.id == ApplicationId::ArturiaSoftwareCenter, "vendor_application_schema",
@@ -284,7 +285,7 @@ impl Application {
                     == self.environment,
             "vendor_application_environment",
         )?;
-        self.environment.runner.verify()?;
+        self.environment.runner.validate_record()?;
         require(
             self.installer_sha256 == ASC_INSTALLER
                 && self.observed_installer_version == "2.12.0"
@@ -305,15 +306,14 @@ impl Application {
                     && artifact.sha256 == sha,
                 "vendor_application_artifact",
             )?;
-            artifact.verify()?;
+            artifact.validate_record()?;
         }
         require(
             self.installer_result.path.parent()
                 == Some(self.environment.root.join("installations").as_path()),
             "vendor_application_installation_receipt",
         )?;
-        self.installer_result.verify()?;
-        let result: serde_json::Value = read_json(&self.installer_result.path)?;
+        let result: serde_json::Value = self.installer_result.read_record(8 * 1024 * 1024)?;
         require(
             result["installer"]["sha256"] == ASC_INSTALLER
                 && result["raw_exit"] == 0
@@ -321,6 +321,23 @@ impl Application {
                 && result["error"].is_null(),
             "vendor_application_installation_incomplete",
         )
+    }
+
+    pub fn verify(&self, root: &Path) -> Result<()> {
+        let installer = if self.schema == 2 {
+            Some(self.validate_selected_record(root)?)
+        } else {
+            self.validate_record(root)?;
+            None
+        };
+        self.environment.runner.verify()?;
+        for artifact in std::iter::once(&self.executable).chain(self.helpers.iter()) {
+            artifact.verify()?;
+        }
+        if let Some(installer) = installer {
+            installer.verify()?;
+        }
+        Ok(())
     }
 }
 
@@ -411,6 +428,42 @@ mod tests {
         (f, app)
     }
     #[test]
+    fn record_observation_keeps_payload_verification_at_execution() {
+        let (f, app) = selected_application();
+        let before = crate::test_fixture::snapshot(&f.m.root);
+        app.validate_record(&f.m.root).unwrap();
+        assert_eq!(crate::test_fixture::snapshot(&f.m.root), before);
+        let executable = fs::read(&app.executable.path).unwrap();
+        fs::write(&app.executable.path, b"MZ changed payload").unwrap();
+        app.validate_record(&f.m.root).unwrap();
+        assert!(app.verify(&f.m.root).is_err(), "Readable records cannot authorize changed app bytes");
+        fs::write(&app.executable.path, executable).unwrap();
+        fs::write(&app.environment.runner.proton, b"changed runtime payload").unwrap();
+        app.validate_record(&f.m.root).unwrap();
+        assert!(app.verify(&f.m.root).is_err(), "Execution still verifies runtime bytes");
+        fs::remove_file(&app.environment.runner.entry_point).unwrap();
+        assert!(app.validate_record(&f.m.root).is_err(), "Missing runtime bindings are visible in readback");
+    }
+
+    #[test]
+    fn record_observation_rechecks_environment_and_receipt_identity() {
+        let (f, app) = selected_application();
+        let witness = fs::read(&app.installer_result.path).unwrap();
+        let mut result:serde_json::Value = read_json(&app.installer_result.path).unwrap();
+        result["operation"] = serde_json::json!("dd".repeat(16));
+        atomic_json(&app.installer_result.path, &result).unwrap();
+        assert!(app.validate_record(&f.m.root).is_err(), "Changed receipt bytes must match their digest");
+        let mut changed = app.clone();
+        changed.installer_result.sha256 = digest(&app.installer_result.path).unwrap();
+        assert!(changed.validate_record(&f.m.root).is_err(), "A foreign receipt operation cannot replace the owned witness");
+        fs::write(&app.installer_result.path, witness).unwrap();
+        let mut environment = app.environment.clone();
+        environment.revision += 1;
+        atomic_json(&environment.root.join("environment.json"), &environment).unwrap();
+        assert!(app.validate_record(&f.m.root).is_err(), "Current environment binding is re-observed");
+    }
+
+    #[test]
     fn selected_application_requires_owned_operation_and_exact_observed_bytes() {
         let (f, app) = selected_application();
         app.verify(&f.m.root).unwrap();
@@ -437,17 +490,21 @@ mod tests {
         let mut changed = app.clone();
         changed.installer_result.path = f.outer.join("copied-result.json");
         fs::copy(&app.installer_result.path,&changed.installer_result.path).unwrap();
+        assert!(changed.validate_record(&f.m.root).is_err());
         assert!(changed.verify(&f.m.root).is_err());
         changed = app.clone();
         changed.executable.path = f.outer.join("outside.exe");
         fs::copy(&app.executable.path,&changed.executable.path).unwrap();
+        assert!(changed.validate_record(&f.m.root).is_err());
         assert!(changed.verify(&f.m.root).is_err());
         changed = app.clone();
         changed.helpers.push(app.executable.clone());
+        assert!(changed.validate_record(&f.m.root).is_err());
         assert!(changed.verify(&f.m.root).is_err());
         let mut record:serde_json::Value=read_json(&f.m.root.join("onboarding").join(&app.environment.id).join("record.json")).unwrap();
         record["installer"] = serde_json::json!("aa".repeat(32));
         atomic_json(&f.m.root.join("onboarding").join(&app.environment.id).join("record.json"),&record).unwrap();
+        assert!(app.validate_record(&f.m.root).is_err());
         assert!(app.verify(&f.m.root).is_err());
     }
     #[test]
