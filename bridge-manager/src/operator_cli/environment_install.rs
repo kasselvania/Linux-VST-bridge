@@ -379,6 +379,7 @@ mod tests {
             let unrelated = fs::read(f.r.environment.root.join("environment.json")).unwrap();
             let registry = fs::read(f.m.root.join("registry.json")).unwrap();
             if state == Some("completed") {
+                private_dir(&f.m.root.join("inventory")).unwrap();
                 let scan = inventory::Scan {schema:1,id:random_id().unwrap(),
                     environment:initial.environment.clone(),host:f.r.host.clone(),
                     host_source_sha256:f.r.host_source_sha256.clone(),completed_at:1,
