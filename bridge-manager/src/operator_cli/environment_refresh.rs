@@ -16,7 +16,11 @@ fn path(m: &Manager, operation: &str) -> Result<PathBuf> {
     Ok(job_dir(m, operation)?.join("refresh.json"))
 }
 pub(super) fn load(m: &Manager, operation: &str) -> Result<Refresh> {
-    let retained: Refresh = read_json(&path(m, operation)?)?;
+    let retained: Refresh = if path(m,operation)?.try_exists()? {
+        read_json(&path(m,operation)?)?
+    } else {
+        replacement_checkpoint(m,operation,true)?.ok_or("automatic_refresh_checkpoint_missing")?
+    };
     require(retained.request.path==job_dir(m,operation)?.join("request.json"),"automatic_refresh_request_path")?;
     let request: ui::Request = serde_json::from_slice(&retained.request.record_bytes(16384)?)?;
     let origin=match request.action {
@@ -36,6 +40,44 @@ pub(super) fn load(m: &Manager, operation: &str) -> Result<Refresh> {
         && retained.intent.vendor.is_none() && origin,
         "automatic_refresh_owner_binding")?;
     Ok(retained)
+}
+// A completed typed installer and its bound DAW input already own continuation.
+// Deriving this record is read-only; only an accepted worker/finish retains it.
+fn replacement_checkpoint(m:&Manager,operation:&str,interrupted:bool)->Result<Option<Refresh>> {
+    let binding=environment_install::load(m,operation)?;
+    let Some(source)=&binding.automatic_request else {return Ok(None)};
+    let current=environment_install::current_environment(m,&binding.environment)?;
+    if current!=binding.environment {return Ok(None);}
+    let value=environment_install::result(m,&binding)?;
+    if !onboarding::retired(&value) || value["state"]!="completed" || value["raw_exit"]!=0 {
+        return Ok(None);
+    }
+    let daw=source_daw(m,source,&current)?;
+    let mut predecessors=vec![];
+    let mut preserved_performance=std::collections::BTreeMap::new();
+    for (class,entry) in &m.registry()?.classes {
+        if entry.registration.environment.id!=current.id || entry.publication!=Publication::Published {continue;}
+        let reference=entry.managed_revision.as_ref().ok_or("automatic_refresh_preserved_publication_missing")?;
+        let retained=m.load_revision_record(class,reference)?;
+        require(retained.registration==entry.registration,"automatic_refresh_preserved_publication_changed")?;
+        predecessors.push(retained);
+        preserved_performance.insert(class.clone(),m.performance(class)?);
+    }
+    let intent=Intent {owner:operation.into(),active_operation:operation.into(),vendor:None,
+        journey:ui::InstallationJourney {daw,
+            phase:if interrupted {ui::InstallationPhase::NeedsAttention} else {ui::InstallationPhase::Discovering},
+            plugins:vec![],failure:interrupted.then(||automatic_install::failure(
+                ui::InstallationFailureStage::Preparation,"automatic_refresh_interrupted"))},
+        scan:None,prior_selections:vec![],prior_modules:vec![],failed_modules:vec![],
+        work:vec![],predecessors,previous:None};
+    Ok(Some(Refresh {schema:1,request:control_artifact(job_dir(m,operation)?.join("request.json"))?,
+        environment:current,intent,preserved_performance}))
+}
+pub(super) fn initialize_replacement(m:&Manager,operation:&str)->Result<()> {
+    if path(m,operation)?.try_exists()? {load(m,operation)?;return Ok(());}
+    let retained=replacement_checkpoint(m,operation,false)?.ok_or("replacement_installer_not_complete")?;
+    retain(m,retained.environment,retained.intent,retained.preserved_performance)?;
+    Ok(())
 }
 fn source_daw(m:&Manager,source:&Artifact,environment:&Environment)->Result<ui::DawChoice> {
     let directory=source.path.parent().ok_or("replacement_automatic_request_binding")?;
@@ -66,8 +108,13 @@ pub(super) fn current_intent(m:&Manager,environment:&Environment)->Result<Option
     // A replacement's existing revision owner selects its continuation. Earlier
     // completed refreshes remain history, rather than competing current owners.
     if let Some(binding)=environment_install::latest(m,&environment.id)? {
-        if binding.environment==*environment && path(m,&binding.operation)?.try_exists()? {
-            return Ok(Some(load(m,&binding.operation)?.intent));
+        if binding.environment==*environment {
+            if path(m,&binding.operation)?.try_exists()? {
+                return Ok(Some(load(m,&binding.operation)?.intent));
+            }
+            if let Some(retained)=replacement_checkpoint(m,&binding.operation,true)? {
+                return Ok(Some(retained.intent));
+            }
         }
     }
     Ok(None)
@@ -118,6 +165,9 @@ pub(super) fn records(m: &Manager) -> Result<Vec<Refresh>> {
                 let result=optional(&entry.path().join("result.json"))?;
                 require(!result["journey"].is_object() && !result["result"]["journey"].is_object(),
                     "automatic_refresh_checkpoint_missing")?;
+            } else if request["action"]["kind"]=="environment_installer_start"
+                && entry.path().join("installation.json").try_exists()? {
+                if let Some(retained)=replacement_checkpoint(m,&owner,true)? {records.push(retained);}
             }
         }
     }
@@ -135,7 +185,14 @@ fn unfinished_from(records:&[Refresh],environment:&Environment)->Result<Option<R
     Ok(pending.pop().cloned())
 }
 pub(super) fn authority(m: &Manager) -> Result<Vec<Artifact>> {
-    records(m)?.into_iter().map(|r|control_artifact(path(m,&r.intent.owner)?)).collect()
+    let mut artifacts=vec![];
+    for record in records(m)? {
+        let retained=path(m,&record.intent.owner)?;
+        if retained.try_exists()? {artifacts.push(control_artifact(retained)?);}
+    }
+    // Derived interrupted continuations are bound by the existing installer
+    // record/request/receipt; they are not evidence of a saved checkpoint.
+    Ok(artifacts)
 }
 pub(super) fn save(m: &Manager, environment: &Environment, intent: &Intent,
     operation: &str) -> Result<()> {
@@ -230,17 +287,14 @@ pub(super) fn execute_with(m:&Manager,action:&ui::Action,operation:&str,
     let current=managed_rescan_binding(m,catalogue.as_ref(),&db,&environment)?
         .ok_or("operator_environment_not_managed")?;
     let mut retained=match action {
-        ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentInstallerStart {..}=> {
-            let daw=match action {
-                ui::Action::EnvironmentRefresh {daw,..}=>*daw,
-                ui::Action::EnvironmentInstallerStart {..}=> {
-                    let binding=environment_install::load(m,operation)?;
-                    let value=environment_install::result(m,&binding)?;
-                    require(binding.environment==current && onboarding::retired(&value)
-                        && value["state"]=="completed" && value["raw_exit"]==0,"replacement_installer_not_complete")?;
-                    source_daw(m,binding.automatic_request.as_ref().ok_or("replacement_automatic_request_missing")?,&current)?
-                },_=>unreachable!(),
-            };
+        ui::Action::EnvironmentInstallerStart {..}=> {
+            initialize_replacement(m,operation)?;
+            let retained=load(m,operation)?;
+            require(retained.environment==current,"automatic_refresh_environment_changed")?;
+            retained
+        },
+        ui::Action::EnvironmentRefresh {daw,..}=> {
+            let daw=*daw;
             require(unfinished(m,&environment)?.is_none(),"automatic_refresh_requires_resume")?;
             let captured=current::capture(m)?;
             let ready:Vec<String>=captured.snapshot.products.iter().filter(|p|p.environment==environment
@@ -269,6 +323,9 @@ pub(super) fn execute_with(m:&Manager,action:&ui::Action,operation:&str,
         },
         _=>unreachable!(),
     };
+    if !path(m,&retained.intent.owner)?.try_exists()? {
+        retained=retain(m,retained.environment,retained.intent,retained.preserved_performance)?;
+    }
     require_preserved_baseline(m,&retained.intent)?;
     let result=continue_connection(&retained.environment,&mut retained.intent);
     if let Err(error)=&result {
@@ -287,7 +344,11 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
         ui::Action::EnvironmentRefreshResume {operation}=>operation,
         _=>return Ok(()),
     };
-    if !path(m,owner)?.exists() {return Ok(());}
+    if !path(m,owner)?.try_exists()? {
+        if !matches!(action,ui::Action::EnvironmentInstallerStart {..}) {return Ok(());}
+        let Some(retained)=replacement_checkpoint(m,owner,true)? else {return Ok(())};
+        retain(m,retained.environment,retained.intent,retained.preserved_performance)?;
+    }
     let mut retained=load(m,owner)?;
     if retained.intent.active_operation!=operation {
         return Ok(());

@@ -4900,7 +4900,7 @@ def selected_installer_origin(managed, app):
         binding=renderer_read(path.parent/'installation.json');request=renderer_read(path.parent/'request.json')
         before=binding.get('before',{});after=binding.get('environment',{})
         if (binding.get('schema')!=1 or binding.get('operation')!=op or binding.get('installer')!=sha
-            or type(request.get('schema')) is not int or not 5<=request['schema']<=26
+            or type(request.get('schema')) is not int or not 5<=request['schema']<=27
             or request.get('action')!={'kind':'environment_installer_start','environment':env['id'],'installer':sha}
             or before.get('id')!=env['id'] or after.get('id')!=env['id'] or before.get('root')!=env['root'] or after.get('root')!=env['root']
             or type(before.get('revision')) is not int or type(after.get('revision')) is not int

@@ -802,28 +802,11 @@ fn managed_rescan_binding_with(m: &Manager, bindings: &[catalogue::EnvironmentBi
         .values()
         .filter(|entry| entry.registration.environment.id == environment)
         .collect();
-    if owners.is_empty() {
-        if let Some(replacement)=environment_install::latest(m,environment)? {
-            // A full installer replacement may be the first source of plug-ins
-            // in this setup. Its existing typed owner grants discovery custody
-            // without first requiring a publication or an adoption record.
-            let original=onboarding::retained_environment_record(m,environment)?;
-            require(original.as_ref().is_none_or(|record|record.installation_operation.is_none()
-                || onboarding::result(m,record).is_ok_and(|result|onboarding::retired(&result))),
-                "installer_initial_retirement_required")?;
-            require(onboarding::retired(&environment_install::result(m,&replacement)?),
-                "installer_retirement_required")?;
-            let current=environment_install::current_environment(m,&replacement.environment)?;
-            require(environment_install::resolves_to(m,bound,&current)?,"operator_managed_environment_mismatch")?;
-            if execution {
-                for operation in original.as_ref().and_then(|record|record.installation_operation.as_ref())
-                    .into_iter().chain(std::iter::once(&replacement.operation)) {
-                    require(!onboarding::live(operation)?,"operator_installer_active")?;
-                }
-                current.runner.verify()?;
-            }
-            return Ok(Some(current));
-        }
+    // Installer ownership does not change when its first plug-in is published.
+    // Projection observes custody; only execution requires proven retirement.
+    let replacement=environment_install::latest(m,environment)?;
+    let original=onboarding::retained_environment_record(m,environment)?;
+    if owners.is_empty() && replacement.is_none() {
         let adopted = if execution { linux_vst_bridge::frg1::adopted_environment(m)? }
             else { linux_vst_bridge::frg1::adopted_environment_record(m)? };
         if let Some(binding)=adopted {
@@ -834,21 +817,43 @@ fn managed_rescan_binding_with(m: &Manager, bindings: &[catalogue::EnvironmentBi
         }
         return Ok(None);
     }
-    let env = environment_install::current_environment(m,bound)?;
+    let env=environment_install::current_environment(m,bound)?;
     for entry in &owners {
         require(environment_install::resolves_to(m,&entry.registration.environment,&env)?,
             "operator_managed_environment_mismatch")?;
     }
-    let retained = onboarding::retained_environment_record(m, environment)?;
-    if let Some(retained) = retained {
+    if let Some(replacement)=replacement {
+        require(environment_install::resolves_to(m,&replacement.environment,&env)?,
+            "operator_managed_environment_mismatch")?;
+        if execution {
+            if let Some(original)=&original {
+                require(original.installation_operation.is_none()
+                    || onboarding::retired(&onboarding::result(m,original)?),
+                    "installer_initial_retirement_required")?;
+            }
+            require(onboarding::retired(&environment_install::result(m,&replacement)?),
+                "installer_retirement_required")?;
+            for operation in original.as_ref().and_then(|record|record.installation_operation.as_ref())
+                .into_iter().chain(std::iter::once(&replacement.operation)) {
+                require(!onboarding::live(operation)?,"operator_installer_active")?;
+            }
+            env.runner.verify()?;
+        }
+        return Ok(Some(env));
+    }
+    if let Some(retained) = original {
         require(
             retained.environment == env,
             "operator_onboarding_environment_mismatch",
         )?;
-        require(
-            onboarding::retired(&onboarding::result(m, &retained)?),
-            "installer_retirement_required",
-        )?;
+        if execution {
+            require(retained.installation_operation.is_none()
+                || onboarding::retired(&onboarding::result(m,&retained)?),
+                "installer_retirement_required")?;
+            if let Some(operation)=retained.installation_operation {
+                require(!onboarding::live(&operation)?,"operator_installer_active")?;
+            }
+        }
     }
     if execution {env.runner.verify()?;}
     Ok(Some(env))
@@ -2509,6 +2514,11 @@ fn execute_with_receipt_policy_progress(
             }
             let value = environment_install::result(m,&r)?;
             require(onboarding::retired(&value),"installer_cleanup_unconfirmed")?;
+            if r.automatic_request.is_some() && value["state"]=="completed" && value["raw_exit"]==0 {
+                // Retain continuation before bridge restoration or overview can
+                // fail. A later finish can reconstruct this same owned record.
+                environment_refresh::initialize_replacement(m,owner)?;
+            }
             resume_owned(m,owner)?;
             drop(_environment);
             if r.automatic_request.is_some() && value["state"]=="completed" && value["raw_exit"]==0 {
