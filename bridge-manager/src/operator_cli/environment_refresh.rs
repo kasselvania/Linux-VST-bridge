@@ -19,12 +19,81 @@ pub(super) fn load(m: &Manager, operation: &str) -> Result<Refresh> {
     let retained: Refresh = read_json(&path(m, operation)?)?;
     require(retained.request.path==job_dir(m,operation)?.join("request.json"),"automatic_refresh_request_path")?;
     let request: ui::Request = serde_json::from_slice(&retained.request.record_bytes(16384)?)?;
+    let origin=match request.action {
+        ui::Action::EnvironmentRefresh {environment,daw}=>environment==retained.environment.id && daw==retained.intent.journey.daw,
+        ui::Action::EnvironmentInstallerStart {environment,installer}=> {
+            let binding=environment_install::load(m,operation)?;
+            let value=environment_install::result(m,&binding)?;
+            environment==retained.environment.id && installer==binding.installer
+                && binding.environment==retained.environment && onboarding::retired(&value)
+                && value["state"]=="completed" && value["raw_exit"]==0
+                && source_daw(m,binding.automatic_request.as_ref().ok_or("replacement_automatic_request_missing")?,
+                    &retained.environment)?==retained.intent.journey.daw
+        },
+        _=>false,
+    };
     require(retained.schema == 1 && retained.intent.owner == operation
-        && retained.intent.vendor.is_none()
-        && matches!(request.action, ui::Action::EnvironmentRefresh {environment, daw}
-            if environment == retained.environment.id && daw == retained.intent.journey.daw),
+        && retained.intent.vendor.is_none() && origin,
         "automatic_refresh_owner_binding")?;
     Ok(retained)
+}
+fn source_daw(m:&Manager,source:&Artifact,environment:&Environment)->Result<ui::DawChoice> {
+    let directory=source.path.parent().ok_or("replacement_automatic_request_binding")?;
+    let owner=directory.file_name().and_then(|name|name.to_str()).ok_or("replacement_automatic_request_binding")?;
+    require(valid_hex(owner,32) && source.path==job_dir(m,owner)?.join("request.json"),
+        "replacement_automatic_request_binding")?;
+    let request:ui::Request=serde_json::from_slice(&source.record_bytes(16384)?)?;
+    require(matches!(request.schema,5..=ui::OPERATOR_SCHEMA),"replacement_automatic_request_binding")?;
+    match request.action {
+        ui::Action::SoftwareInstall {installer,daw}=> {
+            let record:Value=read_json(&onboarding::directory(m,&environment.id)?.join("record.json"))?;
+            require(record["creation_operation"]==owner && record["installer"]==installer,
+                "replacement_automatic_request_binding")?;Ok(daw)
+        },
+        ui::Action::VendorSoftwareInstall {application,daw}=> {
+            let binding=environment_revision::vendor_record(m,owner)?;
+            require(binding.application==application && binding.environment.id==environment.id
+                && binding.environment.root==environment.root,"replacement_automatic_request_binding")?;Ok(daw)
+        },
+        ui::Action::EnvironmentRefresh {environment:id,daw}=> {
+            require(id==environment.id,"replacement_automatic_request_binding")?;Ok(daw)
+        },
+        _=>Err("replacement_automatic_request_binding".into()),
+    }
+}
+pub(super) fn current_intent(m:&Manager,environment:&Environment)->Result<Option<Intent>> {
+    if let Some(pending)=unfinished_from(&records(m)?,environment)? {return Ok(Some(pending.intent));}
+    // A replacement's existing revision owner selects its continuation. Earlier
+    // completed refreshes remain history, rather than competing current owners.
+    if let Some(binding)=environment_install::latest(m,&environment.id)? {
+        if binding.environment==*environment && path(m,&binding.operation)?.try_exists()? {
+            return Ok(Some(load(m,&binding.operation)?.intent));
+        }
+    }
+    Ok(None)
+}
+pub(super) fn capture_request(m:&Manager,environment:&Environment)->Result<Option<Artifact>> {
+    let source=if let Some(intent)=automatic_install::current_environment_vendor_intent(m,environment)? {
+        Some(control_artifact(job_dir(m,&intent.owner)?.join("request.json"))?)
+    } else if let Some(intent)=current_intent(m,environment)? {
+        let request=control_artifact(job_dir(m,&intent.owner)?.join("request.json"))?;
+        let action:ui::Request=serde_json::from_slice(&request.record_bytes(16384)?)?;
+        if matches!(action.action,ui::Action::EnvironmentInstallerStart {..}) {
+            environment_install::load(m,&intent.owner)?.automatic_request
+        } else {Some(request)}
+    } else {
+        onboarding::retained_environment_record(m,&environment.id)?.and_then(|record|record.automatic)
+            .map(|intent|control_artifact(job_dir(m,&intent.owner)?.join("request.json"))).transpose()?
+    };
+    if let Some(source)=&source {
+        let request:ui::Request=serde_json::from_slice(&source.record_bytes(16384)?)?;
+        // Older low-level app-open requests did not retain a DAW choice. They
+        // remain replaceable, without inventing an automatic connection intent.
+        if !matches!(request.action,ui::Action::SoftwareInstall {..}
+            | ui::Action::VendorSoftwareInstall {..} | ui::Action::EnvironmentRefresh {..}) {return Ok(None);}
+        source_daw(m,source,environment)?;
+    }
+    Ok(source)
 }
 fn retain(m:&Manager,environment:Environment,intent:Intent,
     preserved_performance:std::collections::BTreeMap<String,Performance>)->Result<Refresh> {
@@ -56,10 +125,11 @@ pub(super) fn records(m: &Manager) -> Result<Vec<Refresh>> {
     Ok(records)
 }
 fn unfinished(m: &Manager, environment: &str) -> Result<Option<Refresh>> {
-    unfinished_from(&records(m)?,environment)
+    let current=environment_install::target(m,environment)?;
+    unfinished_from(&records(m)?,&current)
 }
-fn unfinished_from(records:&[Refresh],environment:&str)->Result<Option<Refresh>> {
-    let mut pending=records.iter().filter(|r|r.environment.id==environment
+fn unfinished_from(records:&[Refresh],environment:&Environment)->Result<Option<Refresh>> {
+    let mut pending=records.iter().filter(|r|r.environment==*environment
         && r.intent.journey.phase != ui::InstallationPhase::Available).collect::<Vec<_>>();
     require(pending.len()<=1,"automatic_refresh_multiple_unfinished")?;
     Ok(pending.pop().cloned())
@@ -112,7 +182,12 @@ pub(super) fn project(m: &Manager, setups: &mut [ui::InstallerSetup],
         let Some(environment)=setup.environment.as_deref() else {continue};
         let Some(context)=environments.iter().find(|r|r.id==environment) else {continue};
         let Some(scan)=context.actions.iter().find(|a|matches!(a.action,ui::Action::EnvironmentRescan {..})) else {continue};
-        if let Some(retained)=unfinished_from(&records,environment)? {
+        let current=environment_install::target(m,environment)?;
+        if let Some(retained)=unfinished_from(&records,&current)? {
+            if setup.primary.as_ref().is_some_and(|offer|matches!(offer.action,
+                ui::Action::VendorSoftwareInstall {..} | ui::Action::VendorApplicationFocus {..} | ui::Action::VendorApplicationStop {..})) {
+                continue;
+            }
             setup.journey=Some(retained.intent.journey.clone());
             setup.primary=Some(action("Continue connecting plug-ins",
                 ui::Action::EnvironmentRefreshResume {operation:retained.intent.owner},
@@ -135,8 +210,15 @@ pub(super) fn project(m: &Manager, setups: &mut [ui::InstallerSetup],
 pub(super) fn execute(m: &Manager, action: &ui::Action, operation: &str,
     capacity: &dyn Fn()->Option<CapacityReadback>, timeout: Duration,
     waits: &mut Vec<ui::LockFacts>) -> Result<Value> {
+    execute_with(m,action,operation,&mut |environment,intent| {
+        automatic_install::continue_refresh(m,environment,intent,operation,capacity,timeout,waits)
+    })
+}
+pub(super) fn execute_with(m:&Manager,action:&ui::Action,operation:&str,
+    continue_connection:&mut dyn FnMut(&Environment,&mut Intent)->Result<Value>)->Result<Value> {
     let environment=match action {
         ui::Action::EnvironmentRefresh {environment,..}=>environment.clone(),
+        ui::Action::EnvironmentInstallerStart {environment,..}=>environment.clone(),
         ui::Action::EnvironmentRefreshResume {operation:owner}=>load(m,owner)?.environment.id,
         _=>return Err("automatic_refresh_action".into()),
     };
@@ -148,7 +230,17 @@ pub(super) fn execute(m: &Manager, action: &ui::Action, operation: &str,
     let current=managed_rescan_binding(m,catalogue.as_ref(),&db,&environment)?
         .ok_or("operator_environment_not_managed")?;
     let mut retained=match action {
-        ui::Action::EnvironmentRefresh {daw,..}=> {
+        ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentInstallerStart {..}=> {
+            let daw=match action {
+                ui::Action::EnvironmentRefresh {daw,..}=>*daw,
+                ui::Action::EnvironmentInstallerStart {..}=> {
+                    let binding=environment_install::load(m,operation)?;
+                    let value=environment_install::result(m,&binding)?;
+                    require(binding.environment==current && onboarding::retired(&value)
+                        && value["state"]=="completed" && value["raw_exit"]==0,"replacement_installer_not_complete")?;
+                    source_daw(m,binding.automatic_request.as_ref().ok_or("replacement_automatic_request_missing")?,&current)?
+                },_=>unreachable!(),
+            };
             require(unfinished(m,&environment)?.is_none(),"automatic_refresh_requires_resume")?;
             let captured=current::capture(m)?;
             let ready:Vec<String>=captured.snapshot.products.iter().filter(|p|p.environment==environment
@@ -164,7 +256,7 @@ pub(super) fn execute(m: &Manager, action: &ui::Action, operation: &str,
                 }
             }
             let intent=Intent {owner:operation.into(),active_operation:operation.into(),vendor:None,
-                journey:ui::InstallationJourney {daw:*daw,phase:ui::InstallationPhase::Discovering,
+                journey:ui::InstallationJourney {daw,phase:ui::InstallationPhase::Discovering,
                     plugins:vec![],failure:None},scan:None,prior_selections:ready,prior_modules:vec![],
                 failed_modules:vec![],work:vec![],predecessors,previous:None};
             retain(m,current.clone(),intent,preserved_performance)?
@@ -178,8 +270,7 @@ pub(super) fn execute(m: &Manager, action: &ui::Action, operation: &str,
         _=>unreachable!(),
     };
     require_preserved_baseline(m,&retained.intent)?;
-    let result=automatic_install::continue_refresh(m,&retained.environment,&mut retained.intent,
-        operation,capacity,timeout,waits);
+    let result=continue_connection(&retained.environment,&mut retained.intent);
     if let Err(error)=&result {
         retained.intent.journey.phase=ui::InstallationPhase::NeedsAttention;
         if retained.intent.journey.failure.is_none() {
@@ -192,7 +283,7 @@ pub(super) fn execute(m: &Manager, action: &ui::Action, operation: &str,
 }
 pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Result<()> {
     let owner=match action {
-        ui::Action::EnvironmentRefresh {..}=>operation,
+        ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentInstallerStart {..}=>operation,
         ui::Action::EnvironmentRefreshResume {operation}=>operation,
         _=>return Ok(()),
     };
@@ -336,6 +427,55 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
         write_operation(&f.m,&owner,&json!({"state":"running","journey":retained.intent.journey}),false).unwrap();
         fs::remove_file(path(&f.m,&owner).unwrap()).unwrap();
         assert_eq!(records(&f.m).unwrap_err().to_string(),"automatic_refresh_checkpoint_missing");
+    }
+    #[test] fn replacement_connection_rejects_changed_setup_daw_receipt_and_original_request() {
+        let (f,original,_)=fixture(true);
+        fs::write(original.environment.root.join("compatdata/pfx/system.reg"),b"retained first-party state").unwrap();
+        let mut pe=vec![0u8;1024];pe[..2].copy_from_slice(b"MZ");pe[60]=128;
+        pe[128..132].copy_from_slice(b"PE\0\0");pe[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        pe[148]=2;pe[150]=2;pe[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+        let input=f.outer.join("replacement.exe");fs::write(&input,&pe).unwrap();
+        let installer=installer_import::import(&f.m,file(&input).unwrap()).unwrap();
+        let owner=random_id().unwrap();let directory=job_dir(&f.m,&owner).unwrap();private_dir(&directory).unwrap();
+        let action=ui::Action::EnvironmentInstallerStart {environment:original.environment.id.clone(),installer:installer.id.clone()};
+        atomic_json(&directory.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:"accepted".into(),action:action.clone()}).unwrap();
+        let binding=environment_install::reserve(&f.m,&original.environment.id,&installer.id,&owner).unwrap();
+        let completed=json!({"schema":2,"operation":owner,"state":"completed","raw_exit":0,
+            "cleanup_confirmed":true,"owned_live":0,"error":null});
+        atomic_json(&directory.join("installation-result.json"),&completed).unwrap();
+        let error=readiness::with_unit_state_fixture(&[onboarding::unit(&owner).unwrap()],"inactive",||
+            execute_with(&f.m,&action,&owner,&mut |_,_|Err("fixture_stops_before_scanner".into()))).unwrap_err();
+        assert_eq!(error.to_string(),"fixture_stops_before_scanner");
+        let retained=load(&f.m,&owner).unwrap();assert_eq!(retained.intent.journey.daw,ui::DawChoice::Bitwig);
+        let mut changed=retained.clone();changed.environment.revision+=1;
+        atomic_json(&path(&f.m,&owner).unwrap(),&changed).unwrap();assert!(load(&f.m,&owner).is_err());
+        changed=retained.clone();changed.intent.journey.daw=ui::DawChoice::Reaper;
+        atomic_json(&path(&f.m,&owner).unwrap(),&changed).unwrap();assert!(load(&f.m,&owner).is_err());
+        atomic_json(&path(&f.m,&owner).unwrap(),&retained).unwrap();
+        for field in ["raw_exit","cleanup_confirmed","owned_live"] {
+            let mut changed=completed.clone();changed[field]=Value::Null;
+            atomic_json(&directory.join("installation-result.json"),&changed).unwrap();assert!(load(&f.m,&owner).is_err());
+        }
+        atomic_json(&directory.join("installation-result.json"),&completed).unwrap();
+        let source=binding.automatic_request.unwrap();let saved=fs::read(&source.path).unwrap();
+        let mut request:ui::Request=serde_json::from_slice(&saved).unwrap();
+        request.action=ui::Action::EnvironmentRefresh {environment:original.environment.id,daw:ui::DawChoice::Reaper};
+        atomic_json(&source.path,&request).unwrap();assert!(load(&f.m,&owner).is_err());
+        fs::write(&source.path,saved).unwrap();assert!(load(&f.m,&owner).is_ok());
+    }
+    #[test] fn completed_refresh_history_does_not_override_a_later_explicit_daw_choice() {
+        let (f,mut first,_)=fixture(true);first.intent.journey.phase=ui::InstallationPhase::Available;
+        save(&f.m,&first.environment,&first.intent,&first.intent.owner).unwrap();
+        let owner=random_id().unwrap();private_dir(&job_dir(&f.m,&owner).unwrap()).unwrap();
+        atomic_json(&job_dir(&f.m,&owner).unwrap().join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:"later-choice".into(),action:ui::Action::EnvironmentRefresh {
+                environment:first.environment.id.clone(),daw:ui::DawChoice::Reaper}}).unwrap();
+        let mut later=first.intent.clone();later.owner=owner.clone();later.active_operation=owner;
+        later.journey.daw=ui::DawChoice::Reaper;
+        retain(&f.m,first.environment.clone(),later,first.preserved_performance).unwrap();
+        assert!(current_intent(&f.m,&first.environment).unwrap().is_none());
+        assert_eq!(records(&f.m).unwrap().len(),2);
     }
     #[test] fn historical_partial_setup_stays_settled_but_a_missing_exact_sibling_gets_refresh() {
         let (f,retained,_)=fixture(false);

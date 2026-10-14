@@ -52,6 +52,7 @@ pub(crate) struct FailedModule {
 }
 
 type ExecuteStage<'a> = dyn FnMut(&ui::Action, &str, &mut dyn FnMut(&str)) -> Result<Value> + 'a;
+type VendorStage<'a> = dyn FnMut(&dyn InstallationTarget, &mut Intent, &mut Vec<ui::LockFacts>) -> Result<()> + 'a;
 
 /// Initial installer history is optional for a later, already owned application.
 /// The real Environment and its existing operator revision job own that work.
@@ -133,11 +134,18 @@ pub(super) fn vendor_checkpoint_authority(m: &Manager) -> Result<Vec<Value>> {
 }
 
 fn record_intent(m: &Manager, record: &onboarding::Record) -> Result<Option<Intent>> {
+    if let Some(current)=current_environment_vendor_intent(m,&record.environment)? {return Ok(Some(current));}
+    if let Some(current)=environment_refresh::current_intent(m,&record.environment)? {return Ok(Some(current));}
     let Some(original) = &record.automatic else { return Ok(None) };
     if let Some(vendor) = &original.vendor {
         if let Some(current) = vendor_intent(m, &vendor.application)? { return Ok(Some(current)); }
     }
     Ok(Some(original.clone()))
+}
+pub(super) fn current_environment_vendor_intent(m:&Manager,environment:&Environment)->Result<Option<Intent>> {
+    let mut owners=current_vendor_bindings(m)?.into_iter().filter(|binding|binding.environment==*environment);
+    let first=owners.next();require(owners.next().is_none(),"automatic_vendor_current_owner_conflict")?;
+    first.map(|binding|vendor_intent(m,&binding.application)?.ok_or_else(||"automatic_vendor_intent_missing".into())).transpose()
 }
 
 pub(super) fn empty_vendor_handoff(m: &Manager, intent: &Intent) -> Result<bool> {
@@ -196,12 +204,18 @@ fn bootstrap_handoff_application(m: &Manager, record: &onboarding::Record,
         || !intent.journey.failure.as_ref().is_some_and(|f| f.stage == ui::InstallationFailureStage::Discovery
             && f.code == "no_supported_instruments_or_effects_discovered") { return Ok(None); }
     let installation = onboarding::result(m, record)?;
+    let (installation,installer,receipt)=if let Some(replacement)=environment_install::latest(m,&record.id)? {
+        (environment_install::result(m,&replacement)?,replacement.installer,
+            job_dir(m,&replacement.operation)?.join("installation-result.json"))
+    } else {
+        (installation,record.installer.clone(),onboarding::directory(m,&record.id)?.join(format!("{}-result.json",
+            record.installation_operation.as_deref().ok_or("vendor_application_installation_missing")?)))
+    };
     if installation["state"] != "completed" || installation["raw_exit"] != 0
         || !onboarding::retired(&installation) { return Ok(None); }
     let app = vendor_cli::application(m, application)?;
-    if app.environment != record.environment || app.installer_sha256.as_deref() != Some(record.installer.as_str())
-        || app.installer_result.as_ref().unwrap().path != onboarding::directory(m, &record.id)?.join(format!("{}-result.json",
-            record.installation_operation.as_deref().ok_or("vendor_application_installation_missing")?)) { return Ok(None); }
+    if app.environment != record.environment || app.installer_sha256.as_deref() != Some(installer.as_str())
+        || app.installer_result.as_ref().unwrap().path != receipt { return Ok(None); }
     Ok(Some(app))
 }
 
@@ -266,6 +280,10 @@ fn project_handoff(m: &Manager, record: &onboarding::Record, intent: &Intent,
         let offers = choices.into_iter().flat_map(|app|app.actions)
             .filter(|offer|matches!(offer.action, ui::Action::VendorSoftwareInstall { .. }
                 | ui::Action::VendorApplicationFocus { .. } | ui::Action::VendorApplicationStop { .. }))
+            .map(|mut offer| {
+                if let ui::Action::VendorSoftwareInstall {daw,..}=&mut offer.action {*daw=journey.daw;}
+                offer
+            })
             .collect::<Vec<_>>();
         if offers.iter().filter(|offer|matches!(offer.action,ui::Action::VendorSoftwareInstall { .. })).count() == 1 {
             setup.primary = offers.iter().find(|offer|matches!(offer.action,ui::Action::VendorSoftwareInstall { .. })).cloned();
@@ -376,9 +394,10 @@ fn owned_service_pause_with(
                 && intent.vendor.as_ref().is_some_and(|vendor| saved.vendor_operation.as_deref()
                     == Some(vendor.operation.as_str())))
         }
-        ui::Action::EnvironmentRefresh { .. } | ui::Action::EnvironmentRefreshResume { .. } => {
+        ui::Action::EnvironmentRefresh { .. } | ui::Action::EnvironmentRefreshResume { .. }
+        | ui::Action::EnvironmentInstallerStart {..} => {
             let owner=match &request.action {
-                ui::Action::EnvironmentRefresh {..}=>operation,
+                ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentInstallerStart {..}=>operation,
                 ui::Action::EnvironmentRefreshResume {operation}=>operation.as_str(),
                 _=>unreachable!(),
             };
@@ -539,6 +558,13 @@ pub(super) fn execute(
     timeout: Duration,
     waits: &mut Vec<ui::LockFacts>,
 ) -> Result<Value> {
+    execute_with_vendor(m,action,operation,capacity_read,timeout,waits,&mut |record,intent,waits| {
+        run_vendor(m,record,intent,operation,timeout,waits)
+    })
+}
+fn execute_with_vendor(m:&Manager,action:&ui::Action,operation:&str,
+    capacity_read:&dyn Fn()->Option<CapacityReadback>,timeout:Duration,
+    waits:&mut Vec<ui::LockFacts>,vendor_run:&mut VendorStage<'_>)->Result<Value> {
     // One user intent has one executor across all child operations. This lock
     // never blocks readback or holds registry/canonical ownership during GUI work.
     let installer = match action {
@@ -567,7 +593,7 @@ pub(super) fn execute(
             false,
         )?;
     }
-    let result = execute_owned(m, action, operation, capacity_read, timeout, waits);
+    let result = execute_owned(m, action, operation, capacity_read, timeout, waits, vendor_run);
     if let Err(error) = &result {
         fail_early_preparation(m, operation, error)?;
     }
@@ -607,6 +633,7 @@ fn execute_owned(
     capacity_read: &dyn Fn() -> Option<CapacityReadback>,
     timeout: Duration,
     waits: &mut Vec<ui::LockFacts>,
+    vendor_run: &mut VendorStage<'_>,
 ) -> Result<Value> {
     let (record, mut intent): (Box<dyn InstallationTarget>, Intent) = match action {
         ui::Action::SoftwareInstall { installer, daw } => {
@@ -726,11 +753,11 @@ fn execute_owned(
             let restarting = prior.as_ref().map(|i| restartable_vendor(m, i))
                 .transpose()?.unwrap_or(false);
             if let Some(initial) = onboarding::retained_environment_record(m, &record.id)? {
-                require(initial.automatic.as_ref().is_none_or(|i|
+                require(record_intent(m,&initial)?.as_ref().is_none_or(|i|
                     i.vendor.is_some() || i.journey.phase == ui::InstallationPhase::Available
                     || empty_bootstrap_handoff(m, &initial, i, application).unwrap_or(false)),
                     "automatic_installation_existing_attempt_requires_resume")?;
-                require(onboarding::retired(&onboarding::result(m, &initial)?),
+                require(initial.installation_operation.is_none() || onboarding::retired(&onboarding::result(m, &initial)?),
                     "installer_retirement_required")?;
             }
             let sw = software(m)?;
@@ -795,7 +822,7 @@ fn execute_owned(
             }
             save(m, &record, &intent, operation)?;
             let record = reserve_vendor_revision(m, &record, &intent)?;
-            run_vendor(m, &record, &mut intent, operation, timeout, waits)?;
+            vendor_run(&record,&mut intent,waits)?;
             (Box::new(record), intent)
         }
         ui::Action::SoftwareInstallResume { onboarding: id } => {
@@ -803,6 +830,8 @@ fn execute_owned(
                 .ok_or("automatic_installation_record_missing")?;
             let intent = record_intent(m, &record)?
                 .ok_or("automatic_installation_intent_missing")?;
+            require(intent.vendor.is_some() || environment_install::latest(m,id)?.is_none(),
+                "Another installer was chosen for this setup. Continue from its current Setup card.")?;
             require(
                 valid_hex(&intent.owner, 32),
                 "automatic_installation_intent_binding",
@@ -811,7 +840,7 @@ fn execute_owned(
             let record: Box<dyn InstallationTarget> = if intent.vendor.is_some() {
                 Box::new(reserve_vendor_revision(m, &record, &intent)?)
             } else { Box::new(record) };
-            if intent.vendor.is_some() {run_vendor(m,record.as_ref(),&mut intent,operation,timeout,waits)?;}
+            if intent.vendor.is_some() {vendor_run(record.as_ref(),&mut intent,waits)?;}
             let record: Box<dyn InstallationTarget> = if intent.vendor.is_none() && record.installation().unwrap().installation_operation.is_none() {
                 // The prior worker died or was refused before reserving vendor
                 // work. Retry the launch in this exact retained environment.
@@ -1733,6 +1762,11 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
             .as_ref()
             .and_then(|id| records.iter().find(|r| r.id == *id));
         if let Some(record) = record.filter(|r| r.automatic.is_some()) {
+            if environment_install::latest(m,&record.id)?.is_some()
+                && environment_refresh::current_intent(m,&record.environment)?.is_none()
+                && record.automatic.as_ref().is_none_or(|intent|intent.vendor.is_none()) {
+                setup.journey=None;setup.primary=None;setup.secondary.clear();continue;
+            }
             let intent = record_intent(m,record)?.ok_or("automatic_installation_intent_missing")?;
             if project_handoff(m, record, &intent, setup, busy)? { continue; }
             let mut journey = current_journey(m,&intent)?;
@@ -1759,7 +1793,10 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
                     )];
                 }
             }
-            setup.status = if onboarding::result(m, record)?["state"] == "cancelled" {
+            let installation=if let Some(replacement)=environment_install::latest(m,&record.id)? {
+                environment_install::result(m,&replacement)?
+            } else {onboarding::result(m,record)?};
+            setup.status = if installation["state"] == "cancelled" {
                 "Installation was stopped. Its partial files and results are retained."
             } else {
                 match setup.journey.as_ref().unwrap().phase {
@@ -1803,19 +1840,23 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
                     Some("completed" | "refused")
                 )
                 && (intent.vendor.is_some()
+                    || environment_refresh::current_intent(m,&record.environment)?.is_some()
                     || record.installation_operation.is_none()
                     || (onboarding::retired(&onboarding::result(m, record)?)
                         && onboarding::result(m, record)?["state"] != "cancelled"))
             {
+                let refresh=environment_refresh::current_intent(m,&record.environment)?;
                 setup.primary = Some(action(
-                    if record.installation_operation.is_none() {
+                    if refresh.is_some() {"Continue connecting plug-ins"}
+                    else if record.installation_operation.is_none() {
                         "Retry"
                     } else {
                         "Retry unfinished connection"
                     },
-                    ui::Action::SoftwareInstallResume {
+                    if let Some(refresh)=refresh {ui::Action::EnvironmentRefreshResume {operation:refresh.owner}}
+                    else {ui::Action::SoftwareInstallResume {
                         onboarding: record.id.clone(),
-                    },
+                    }},
                     busy,
                 ));
             }
@@ -1857,7 +1898,8 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
         || matches!(action,ui::Action::EnvironmentRefreshResume {operation} if renderer_continuation::owns(m,operation)?) {
         return renderer_continuation::finish(m,operation,action);
     }
-    if matches!(action,ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentRefreshResume {..}) {
+    if matches!(action,ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentRefreshResume {..}
+        | ui::Action::EnvironmentInstallerStart {..}) {
         return environment_refresh::finish(m,operation,action);
     }
     if !matches!(
@@ -2624,6 +2666,167 @@ mod tests {
             a,
             ui::Action::CompatibilityResult { .. } | ui::Action::CandidateReview { .. }
         )));
+    }
+    #[test]
+    fn saved_wrong_installer_request_replaces_in_place_and_connects_actual_new_module_once() {
+        let (f,c,mut original,mut intent)=setup();
+        let mut pe=vec![0u8;1024];pe[..2].copy_from_slice(b"MZ");pe[60]=128;
+        pe[128..132].copy_from_slice(b"PE\0\0");pe[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        pe[148]=2;pe[150]=2;pe[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+        let input=f.outer.join("selected-installer.exe");fs::write(&input,&pe).unwrap();
+        original.installer=installer_import::import(&f.m,file(&input).unwrap()).unwrap().id;
+        let original_owner=intent.owner.clone();let original_home=onboarding::directory(&f.m,&original.id).unwrap();
+        // Start with the real saved ordinary request and a never-launched
+        // attempt. There is intentionally no original installation receipt.
+        original.installation_operation=None;
+        fs::remove_file(original_home.join(format!("{original_owner}-result.json"))).unwrap();
+        atomic_json(&original_home.join("record.json"),&original).unwrap();
+        atomic_json(&job_dir(&f.m,&original_owner).unwrap().join("request.json"),&ui::Request {
+            schema:ui::OPERATOR_SCHEMA,state_token:"accepted-first-party".into(),
+            action:ui::Action::SoftwareInstall {installer:original.installer.clone(),daw:ui::DawChoice::Reaper}}).unwrap();
+        intent.journey.daw=ui::DawChoice::Reaper;intent.journey.phase=ui::InstallationPhase::NeedsAttention;
+        intent.journey.failure=Some(failure(ui::InstallationFailureStage::EnvironmentPreparation,"fixture_before_launch"));
+        save(&f.m,&original,&intent,&original_owner).unwrap();
+        let old_history=fs::read(original_home.join("record.json")).unwrap();
+        let module_bytes=fs::read(&c.selection.module.path).unwrap();fs::remove_file(&c.selection.module.path).unwrap();
+        let inventory=f.m.root.join("inventory").join(format!("{}.json",original.id));
+        let mut scan:inventory::Scan=read_json(&inventory).unwrap();scan.modules.clear();atomic_json(&inventory,&scan).unwrap();
+        pe[900]=77;fs::write(&input,&pe).unwrap();let selected=installer_import::import(&f.m,file(&input).unwrap()).unwrap();
+        let owner=random_id().unwrap();private_dir(&job_dir(&f.m,&owner).unwrap()).unwrap();
+        let action=ui::Action::EnvironmentInstallerStart {environment:original.id.clone(),installer:selected.id.clone()};
+        atomic_json(&job_dir(&f.m,&owner).unwrap().join("request.json"),&ui::Request {
+            schema:ui::OPERATOR_SCHEMA,state_token:"accepted-replacement".into(),action:action.clone()}).unwrap();
+        let binding=environment_install::reserve(&f.m,&original.id,&selected.id,&owner).unwrap();
+        assert_eq!(binding.environment.root,original.environment.root);
+        assert_eq!(binding.environment.runner,original.environment.runner);
+        assert_eq!(binding.environment.revision,original.environment.revision+1);
+        assert!(binding.automatic_request.is_some());
+        assert_eq!(fs::read(original_home.join("record.json")).unwrap(),old_history);
+        assert!(onboarding::reserve(&f.m,&original.id,&random_id().unwrap()).unwrap_err().to_string().contains("Another installer was chosen"));
+        let stale=random_id().unwrap();private_dir(&job_dir(&f.m,&stale).unwrap()).unwrap();
+        assert!(execute(&f.m,&ui::Action::SoftwareInstallResume {onboarding:original.id.clone()},&stale,
+            &||None,Duration::ZERO,&mut vec![]).unwrap_err().to_string().contains("Another installer was chosen"));
+        assert!(!original_home.join(format!("{original_owner}-spec.json")).exists());
+        // Only the OS installer boundary is substituted: its typed receipt
+        // records clean completion, and newly installed physical module bytes
+        // enter the ordinary scanner/preparation/publication executor below.
+        fs::write(&c.selection.module.path,module_bytes).unwrap();
+        atomic_json(&job_dir(&f.m,&owner).unwrap().join("installation-result.json"),&json!({
+            "schema":2,"operation":owner,"state":"completed","raw_exit":0,"cleanup_confirmed":true,"owned_live":0,"error":null})).unwrap();
+        let mut selection=c.selection.clone();selection.environment=binding.environment.clone();
+        let inspection=prep::inspect_record_with_layout(selection.clone(),c.inspection.report.clone(),
+            prep::Origin::ManagedPreparation,c.host.clone(),c.source_manifest.clone(),c.inspection.audio_layout.clone()).unwrap();
+        scan.id=random_id().unwrap();scan.environment=binding.environment.clone();
+        scan.modules.push(inventory::Module {artifact:selection.module.clone(),classes:vec![selection.class.clone()],
+            report:selection.factory_report.clone(),inspection_error:None,quarantine_reason:None});
+        atomic_json(&inventory,&scan).unwrap();
+        let fresh=prep::prepared(selection,inspection,c.native.clone(),c.host.clone(),c.source_manifest.clone(),c.recipe_sha256.clone()).unwrap();
+        let fresh=prep::bind_preparation_basis(fresh,Some(prep::preparation_basis(&f.m,None).unwrap())).unwrap();
+        let mut calls=vec![];
+        let value=readiness::with_unit_state_fixture(&[onboarding::unit(&owner).unwrap()],"inactive",||
+            preparation_cli::with_automatic_fixture(&fresh,||environment_refresh::execute_with(&f.m,&action,&owner,
+            &mut |environment,intent|continue_refresh_fixture(&f.m,environment,intent,&owner,&mut |stage,child,_| {
+                calls.push(stage.clone());match stage {
+                    ui::Action::EnvironmentRescan {environment:id}=> {assert_eq!(id,&original.id);Ok(json!({"scan":scan.id}))},
+                    _=>actual(&f.m,stage,child),
+                }
+            })))).unwrap();
+        assert_eq!(value["available"],true);assert_eq!(value["journey"]["daw"],"reaper");
+        assert!(matches!(calls.as_slice(),[ui::Action::EnvironmentRescan {..},
+            ui::Action::CompatibilityCheck {..},ui::Action::CompatibilityPublishTest {..}]));
+        let current=onboarding::retained_environment_record(&f.m,&original.id).unwrap().unwrap();
+        let connection=record_intent(&f.m,&current).unwrap().unwrap();assert_eq!(connection.owner,owner);
+        assert_eq!(connection.journey.phase,ui::InstallationPhase::Available);
+        let candidate=prep::candidate_record(&f.m,connection.work[0].candidate.as_ref().unwrap()).unwrap();
+        assert!(prep::selected_publication_candidate_record(&f.m,&candidate).unwrap());
+        assert_eq!(candidate.selection.environment,binding.environment);
+        assert_eq!(fs::read(original_home.join("record.json")).unwrap(),old_history);
+        let mut card=installer_setup(&current);
+        project_from_with(&f.m,std::slice::from_mut(&mut card),None,&[current],&mut |_|Ok(false)).unwrap();
+        assert_eq!(card.journey.unwrap().phase,ui::InstallationPhase::Available);
+        assert!(card.primary.is_none());
+    }
+    #[test]
+    fn replacement_that_installs_new_vendor_launcher_offers_its_actual_continuation() {
+        let (f,c,mut original,mut intent)=setup();
+        let mut pe=vec![0u8;1024];pe[..2].copy_from_slice(b"MZ");pe[60]=128;
+        pe[128..132].copy_from_slice(b"PE\0\0");pe[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        pe[148]=2;pe[150]=2;pe[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+        let input=f.outer.join("wrong.exe");fs::write(&input,&pe).unwrap();
+        original.installer=installer_import::import(&f.m,file(&input).unwrap()).unwrap().id;
+        let old_owner=intent.owner.clone();let history=onboarding::directory(&f.m,&original.id).unwrap();
+        atomic_json(&history.join("record.json"),&original).unwrap();
+        fs::write(original.environment.root.join("compatdata/pfx/system.reg"),b"retained first-party state").unwrap();
+        atomic_json(&history.join(format!("{old_owner}-result.json")),&json!({"schema":2,"operation":old_owner,
+            "state":"cancelled","raw_exit":2,"cleanup_confirmed":true,"owned_live":0})).unwrap();
+        atomic_json(&job_dir(&f.m,&old_owner).unwrap().join("request.json"),&ui::Request {
+            schema:ui::OPERATOR_SCHEMA,state_token:"accepted-original".into(),
+            action:ui::Action::SoftwareInstall {installer:original.installer.clone(),daw:ui::DawChoice::Reaper}}).unwrap();
+        intent.journey.daw=ui::DawChoice::Reaper;intent.journey.phase=ui::InstallationPhase::NeedsAttention;
+        intent.journey.failure=Some(failure(ui::InstallationFailureStage::VendorInstallation,"installation_cancelled"));
+        save(&f.m,&original,&intent,&old_owner).unwrap();let original_bytes=fs::read(history.join("record.json")).unwrap();
+        pe[900]=89;fs::write(&input,&pe).unwrap();let selected=installer_import::import(&f.m,file(&input).unwrap()).unwrap();
+        let owner=random_id().unwrap();let directory=job_dir(&f.m,&owner).unwrap();private_dir(&directory).unwrap();
+        let action=ui::Action::EnvironmentInstallerStart {environment:original.id.clone(),installer:selected.id.clone()};
+        atomic_json(&directory.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:"accepted-replacement".into(),action:action.clone()}).unwrap();
+        let binding=readiness::with_unit_state_fixture(&[onboarding::unit(&old_owner).unwrap()],"inactive",||
+            environment_install::reserve(&f.m,&original.id,&selected.id,&owner)).unwrap();
+        let app_path=binding.environment.root.join("compatdata/pfx/drive_c/Program Files/New Hub/Main.exe");
+        private_dir(app_path.parent().unwrap()).unwrap();fs::write(&app_path,&pe).unwrap();
+        atomic_json(&directory.join("installation-result.json"),&json!({"schema":2,"operation":owner,
+            "state":"completed","raw_exit":0,"cleanup_confirmed":true,"owned_live":0,"error":null})).unwrap();
+        let relative="Program Files/New Hub/Main.exe";let registration="cd".repeat(32);
+        atomic_json(&directory.join(format!("{owner}-transaction-private.json")),&json!({"schema":1,"operation":owner,
+            "after":{"files":{relative:{"format":"pe_executable","sha256":digest(&app_path).unwrap(),
+                "pe":{"machine":0x8664,"characteristics":0x22}}},
+                "uninstall":{registration.clone():{"DisplayName":"New Hub","DisplayVersion":"unknown-version",
+                    "InstallLocation":"C:\\Program Files\\New Hub"}}},
+            "durable_installation":{"application_registrations":[{"registration":registration,"images":[relative]}],
+                "delta":{"files":{"added":[relative],"changed":[]},"uninstall":{"added":[registration],"changed":[]}},"incomplete":[]}})).unwrap();
+        fs::remove_file(&c.selection.module.path).unwrap();let inventory=f.m.root.join("inventory").join(format!("{}.json",original.id));
+        let mut scan:inventory::Scan=read_json(&inventory).unwrap();scan.environment=binding.environment.clone();
+        scan.id=random_id().unwrap();scan.modules.clear();atomic_json(&inventory,&scan).unwrap();
+        let current=onboarding::retained_environment_record(&f.m,&original.id).unwrap().unwrap();
+        let choices=vendor_cli::selection::choices(&f.m,&current).unwrap();assert_eq!(choices.len(),1);
+        let app=&choices[0].application;assert_eq!(app.installer_sha256.as_ref(),Some(&selected.id));
+        assert_eq!(app.installer_result.as_ref().unwrap().path,directory.join("installation-result.json"));
+        app.verify(&f.m.root).unwrap();let selector=app.selector().unwrap();
+        let units=[onboarding::unit(&old_owner).unwrap(),onboarding::unit(&owner).unwrap(),vendor_cli::unit(&selector).unwrap()];
+        let mut scans=0;
+        let error=readiness::with_unit_state_fixture(&units,"inactive",||environment_refresh::execute_with(&f.m,&action,&owner,
+            &mut |environment,intent|continue_refresh_fixture(&f.m,environment,intent,&owner,&mut |stage,_,_| {
+                assert!(matches!(stage,ui::Action::EnvironmentRescan {..}));scans+=1;Ok(json!({"scan":scan.id}))
+            }))).unwrap_err().to_string();
+        assert_eq!(error,"no_supported_instruments_or_effects_discovered");assert_eq!(scans,1);
+        let connection=record_intent(&f.m,&current).unwrap().unwrap();assert_eq!(connection.owner,owner);
+        assert!(empty_bootstrap_handoff(&f.m,&current,&connection,&selector).unwrap());
+        let mut card=installer_setup(&current);
+        readiness::with_unit_state_fixture(&[vendor_cli::unit(&selector).unwrap()],"inactive",||
+            project_from_with(&f.m,std::slice::from_mut(&mut card),None,&[current],&mut |_|Ok(false))).unwrap();
+        assert_eq!(card.journey.unwrap().phase,ui::InstallationPhase::AwaitingApplication);
+        assert!(card.primary.iter().chain(&card.secondary).any(|offer|offer.disabled_reason.is_none()
+            && offer.action==(ui::Action::VendorSoftwareInstall {application:selector.clone(),daw:ui::DawChoice::Reaper})));
+        assert_eq!(fs::read(history.join("record.json")).unwrap(),original_bytes);
+        assert!(f.m.registry().unwrap().classes.is_empty());
+        // Follow the actual offered app intent through normal admission and its
+        // typed revision owner, substituting only the vendor process boundary.
+        let app_owner=random_id().unwrap();private_dir(&job_dir(&f.m,&app_owner).unwrap()).unwrap();
+        let visit=ui::Action::VendorSoftwareInstall {application:selector.clone(),daw:ui::DawChoice::Reaper};
+        atomic_json(&job_dir(&f.m,&app_owner).unwrap().join("request.json"),&ui::Request {
+            schema:ui::OPERATOR_SCHEMA,state_token:"accepted-app-visit".into(),action:visit.clone()}).unwrap();
+        let error=readiness::with_unit_state_fixture(&units,"inactive",||
+            execute_with_vendor(&f.m,&visit,&app_owner,&||None,Duration::ZERO,&mut vec![],&mut |environment,intent,_| {
+                assert_eq!(environment.environment().id,binding.environment.id);
+                assert_eq!(intent.vendor.as_ref().unwrap().application,selector);
+                Err("fixture_stops_at_vendor_process_boundary".into())
+            })).unwrap_err().to_string();
+        assert_eq!(error,"fixture_stops_at_vendor_process_boundary");
+        let visit_binding=environment_revision::vendor_record(&f.m,&app_owner).unwrap();
+        assert_eq!(visit_binding.application,selector);assert_eq!(visit_binding.before,binding.environment);
+        let latest=onboarding::retained_environment_record(&f.m,&original.id).unwrap().unwrap();
+        assert_eq!(record_intent(&f.m,&latest).unwrap().unwrap().owner,app_owner);
+        assert_eq!(fs::read(history.join("record.json")).unwrap(),original_bytes);
     }
     #[test]
     fn repeated_continuation_never_reinspects_or_republishes_completed_classes() {

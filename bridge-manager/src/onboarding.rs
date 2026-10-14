@@ -542,6 +542,8 @@ pub fn live(op: &str) -> Result<bool> {
 pub fn reserve(m: &Manager, id: &str, op: &str) -> Result<Record> {
     let _lock = m.lock("onboarding.lock")?;
     let mut r = load(m, id)?;
+    require(operator_cli::environment_install::latest(m,id)?.is_none(),
+        "Another installer was chosen for this setup. Continue from its current Setup card.")?;
     require(
         r.installation_operation.is_none(),
         "installer_initial_transaction_already_used",
@@ -557,6 +559,8 @@ pub fn reserve(m: &Manager, id: &str, op: &str) -> Result<Record> {
     Ok(r)
 }
 pub fn launch(m: &Manager, r: &Record, policy: Option<linux_vst_bridge::installer_policy::Powershell>) -> Result<()> {
+    require(operator_cli::environment_install::latest(m,&r.id)?.is_none(),
+        "Another installer was chosen for this setup. Continue from its current Setup card.")?;
     let op = r
         .installation_operation
         .as_deref()

@@ -716,11 +716,14 @@ fn managed_environment_bindings(
     registry: &Registry,
 ) -> Result<Vec<linux_vst_bridge::catalogue::EnvironmentBinding>> {
     let mut bindings = catalogue.map_or_else(Vec::new, |c| c.environments.clone());
+    let replacements:std::collections::BTreeSet<_>=environment_install::records(m)?.into_iter()
+        .map(|record|record.environment.id).collect();
     for retained in onboarding::history_records(m)? {
         if !registry
             .classes
             .values()
             .any(|entry| entry.registration.environment.id == retained.environment.id)
+            && !replacements.contains(&retained.environment.id)
         {
             continue;
         }
@@ -757,6 +760,7 @@ fn managed_environment_bindings(
     for binding in &mut bindings {
         // Catalogue runner templates are not installed environment ownership.
         if registry.classes.values().any(|entry|entry.registration.environment.id == binding.environment.id)
+            || replacements.contains(&binding.environment.id)
             || linux_vst_bridge::frg1::adopted_environment_record(m)?.as_ref()
                 .is_some_and(|adopted|adopted.environment.id == binding.environment.id) {
             binding.environment=environment_install::current_environment(m,&binding.environment)?;
@@ -798,6 +802,27 @@ fn managed_rescan_binding_with(m: &Manager, bindings: &[catalogue::EnvironmentBi
         .filter(|entry| entry.registration.environment.id == environment)
         .collect();
     if owners.is_empty() {
+        if let Some(replacement)=environment_install::latest(m,environment)? {
+            // A full installer replacement may be the first source of plug-ins
+            // in this setup. Its existing typed owner grants discovery custody
+            // without first requiring a publication or an adoption record.
+            let original=onboarding::retained_environment_record(m,environment)?;
+            require(original.as_ref().is_none_or(|record|record.installation_operation.is_none()
+                || onboarding::result(m,record).is_ok_and(|result|onboarding::retired(&result))),
+                "installer_initial_retirement_required")?;
+            require(onboarding::retired(&environment_install::result(m,&replacement)?),
+                "installer_retirement_required")?;
+            let current=environment_install::current_environment(m,&replacement.environment)?;
+            require(environment_install::resolves_to(m,bound,&current)?,"operator_managed_environment_mismatch")?;
+            if execution {
+                for operation in original.as_ref().and_then(|record|record.installation_operation.as_ref())
+                    .into_iter().chain(std::iter::once(&replacement.operation)) {
+                    require(!onboarding::live(operation)?,"operator_installer_active")?;
+                }
+                current.runner.verify()?;
+            }
+            return Ok(Some(current));
+        }
         let adopted = if execution { linux_vst_bridge::frg1::adopted_environment(m)? }
             else { linux_vst_bridge::frg1::adopted_environment_record(m)? };
         if let Some(binding)=adopted {
@@ -2467,11 +2492,29 @@ fn execute_with_receipt_policy_progress(
                     "state":"vendor_running","action":a}),false)?;
                 while onboarding::live(owner)? {std::thread::sleep(Duration::from_millis(500));}
             }
+            if let Err(error)=launched {
+                // A refusal before spec/unit submission can be retired by the
+                // existing owner. Unknown submission still remains uncertain,
+                // but must not hide the useful reason that stopped this launch.
+                let retirement=environment_install::finish(m,owner)
+                    .and_then(|_|environment_install::result(m,&r));
+                if retirement.as_ref().is_ok_and(onboarding::retired) {
+                    if resume_owned(m,owner).is_err() {
+                        return Err(format!("{error} The bridge could not restart. Send Setup details before retrying.").into());
+                    }
+                    return Err(error);
+                }
+                return Err(format!("{error} Closing this attempt is still unconfirmed. Send Setup details before retrying.").into());
+            }
             let value = environment_install::result(m,&r)?;
             require(onboarding::retired(&value),"installer_cleanup_unconfirmed")?;
             resume_owned(m,owner)?;
-            launched?;
-            Ok(value)
+            drop(_environment);
+            if r.automatic_request.is_some() && value["state"]=="completed" && value["raw_exit"]==0 {
+                // The same accepted replacement owns a fresh normal connection
+                // checkpoint. Its executor discovers once; no old scan is reused.
+                environment_refresh::execute(m,a,owner,capacity_read,timeout,waits)
+            } else {Ok(value)}
         }
         ui::Action::EnvironmentInstallerFocus {operation} => environment_install::focus(m,operation),
         ui::Action::EnvironmentInstallerStop {operation} => {

@@ -272,21 +272,7 @@ impl Application {
         }
         // This witness proves the selected environment's installation custody.
         // It does not assert that the installer created the selected files.
-        let directory = root.join("onboarding").join(&self.environment.id);
-        let record: serde_json::Value = read_json(&directory.join("record.json"))?;
-        let operation = record["installation_operation"]
-            .as_str()
-            .ok_or("vendor_application_installation_missing")?;
-        require(
-            record["schema"] == 1
-                && record["id"] == self.environment.id
-                && record["environment"]["id"] == self.environment.id
-                && record["environment"]["root"] == serde_json::to_value(&self.environment.root)?
-                && record["installer"] == *installer_sha256
-                && valid_hex(operation, 32)
-                && installer_result.path == directory.join(format!("{operation}-result.json")),
-            "vendor_application_installation_binding",
-        )?;
+        let operation = installer_origin_operation(root,&self.environment,installer_sha256,installer_result)?;
         let result: serde_json::Value = installer_result.read_record(8 * 1024 * 1024)?;
         require(
             result["schema"] == 2
@@ -410,6 +396,34 @@ impl Application {
         }
         Ok(())
     }
+}
+
+/// Resolve installer custody through its original owner. Both paths bind the
+/// supplied content receipt; neither asserts who published or created an app.
+pub fn installer_origin_operation(root: &Path, environment: &Environment,
+    installer: &str, receipt: &Artifact) -> Result<String> {
+    let original=root.join("onboarding").join(&environment.id);
+    if receipt.path.parent()==Some(original.as_path()) {
+        let record:serde_json::Value=read_json(&original.join("record.json"))?;
+        let operation=record["installation_operation"].as_str().ok_or("vendor_application_installation_missing")?;
+        require(record["schema"]==1 && record["id"]==environment.id
+            && record["environment"]["id"]==environment.id
+            && record["environment"]["root"]==serde_json::to_value(&environment.root)?
+            && record["installer"]==installer && valid_hex(operation,32)
+            && receipt.path==original.join(format!("{operation}-result.json")),
+            "vendor_application_installation_binding")?;
+        return Ok(operation.into());
+    }
+    let directory=receipt.path.parent().ok_or("vendor_application_installation_binding")?;
+    let operation=directory.file_name().and_then(|name|name.to_str()).ok_or("vendor_application_installation_binding")?;
+    require(valid_hex(operation,32) && directory==root.join("operator").join(operation)
+        && receipt.path==directory.join("installation-result.json"),"vendor_application_installation_binding")?;
+    // These read-only revision helpers use managed custody, not publications.
+    let manager=Manager {root:root.into(),publications:root.join("publications")};
+    let binding=crate::environment_revision::installer_record(&manager,operation)?;
+    require(binding.installer==installer,"vendor_application_installation_binding")?;
+    crate::environment_revision::require_owned_revision(&manager,&binding.environment,environment)?;
+    Ok(operation.into())
 }
 
 pub fn discover(root: &Path, environment: Environment) -> Result<Application> {

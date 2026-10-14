@@ -97,6 +97,55 @@ class ManagedVendorTests(unittest.TestCase):
     def persist(self, op):
         self.write(pathlib.Path(op['report']).parent / 'operation.json', op)
 
+    def replacement_operation(self, seed):
+        operation=self.operation(seed);app=operation['application'];before=copy.deepcopy(app['environment'])
+        after=copy.deepcopy(before);after['revision']+=1;app['environment']=after
+        self.write(pathlib.Path(after['root'])/'environment.json',after)
+        installer=self.managed/'installers'/(seed+'-replacement.exe')
+        installer.write_bytes(pathlib.Path(app['executable']['path']).read_bytes()+b'new installer bytes')
+        sha=self.artifact(installer)['sha256'];app['installer_sha256']=sha
+        self.write(self.managed/'installers'/(sha+'.json'),{'schema':1,'id':sha,'artifact':self.artifact(installer)})
+        owner=('c' if seed=='a' else 'd')*32;directory=self.managed/'operator'/owner
+        self.write(directory/'request.json',{'schema':26,'state_token':'accepted',
+            'action':{'kind':'environment_installer_start','environment':after['id'],'installer':sha}})
+        self.write(directory/'installation.json',{'schema':1,'operation':owner,'installer':sha,
+            'before':before,'environment':after,'created_at':1})
+        receipt=directory/'installation-result.json'
+        self.write(receipt,{'schema':2,'operation':owner,'state':'completed','raw_exit':0,
+            'cleanup_confirmed':True,'owned_live':0,'error':None})
+        app['installer_result']=self.artifact(receipt)
+        binding={'environment':after['id'],'executable':app['executable'],'helpers':app['helpers'],
+            'installer':sha,'installation':app['installer_result']}
+        selector=hashlib.sha256(canonical(binding)).hexdigest();operation['managed']['capabilities']['application']=selector
+        selected=self.managed/'vendor-applications'/selector
+        self.write(selected/'application.json',app);operation['report']=str(selected/'operation-result.json')
+        self.persist(operation);self.write(pathlib.Path(operation['report']),{'schema':3,'state':'unknown'})
+        return operation,directory
+
+    def test_actual_dispatch_accepts_new_launcher_from_typed_replacement_receipt(self):
+        for seed in ('a','b'):
+            operation,directory=self.replacement_operation(seed)
+            original=self.managed/'onboarding'/operation['application']['environment']['id']/'record.json'
+            history=original.read_bytes()
+            self.assertEqual(s.selected_installer_origin(self.managed,operation['application']),directory.name)
+            with patch.object(s,'renderer_run',return_value=True) as run:
+                self.assertTrue(s.vendor_application(operation))
+            self.assertEqual(run.call_args.kwargs['managed_contract'],operation['managed']['capabilities'])
+            self.assertEqual(original.read_bytes(),history)
+
+    def test_replacement_receipt_cannot_borrow_other_setup_installer_or_completion(self):
+        operation,directory=self.replacement_operation('a');binding=json.loads((directory/'installation.json').read_bytes())
+        for field,value in (('installer','0'*64),('operation','b'*32),('environment',dict(binding['environment'],id='b'*32))):
+            changed=dict(binding);changed[field]=value;self.write(directory/'installation.json',changed)
+            with self.assertRaisesRegex(ValueError,'installation_binding'):
+                s.managed_vendor_inputs(operation)
+        self.write(directory/'installation.json',binding)
+        result=directory/'installation-result.json';completed=json.loads(result.read_bytes())
+        for changed in (dict(completed,raw_exit=1),dict(completed,cleanup_confirmed=False),dict(completed,owned_live=None)):
+            self.write(result,changed);operation['application']['installer_result']=self.artifact(result)
+            with self.assertRaisesRegex(ValueError,'installation_incomplete'):
+                s.selected_installer_origin(self.managed,operation['application'])
+
     def test_actual_operation_dispatch_uses_each_fresh_environment_and_version(self):
         for seed in ('a', 'b'):
             with self.subTest(seed=seed):

@@ -28,6 +28,8 @@ pub struct InstallerBinding {
     pub created_at: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preserve_existing_prefix: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub automatic_request: Option<Artifact>,
 }
 
 pub fn same_space(before: &Environment, after: &Environment) -> bool {
