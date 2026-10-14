@@ -917,6 +917,17 @@ six minutes on Deck and 21–22 on Cachy; Test65 took nineteen minutes on Cachy 
 Test58 completed within 623–755 seconds.
 [Scoped installed result](../evidence/cachyos-reaper.json).
 
+Test67 removes display-time deep runtime verification while preserving full execution
+checks. Selected CachyOS overview CPU falls from 6.058 seconds to 0.265–0.312 seconds;
+all six classes and retained project/history survive the normal update, with only
+registry renewal among 88 protected files. Visible 1.0.1 task/status samples remain
+coherent across 170 seconds and two age renewals; chooser drafting remains covered
+by source tests because the bounded remote input attempt failed before input.
+The retained project loads on its original audio route; renewed playback/numeric
+recall remain unverified. All sixteen original preferences are restored exactly.
+The 1,178–1,254-second update is a VM baseline, not a connection/update speed fix.
+The intermittent Kontakt inspection crash and Deck installed checks await handoff.
+
 The 2026-10-03 [foundation comparison](../evidence/preparation/2026-10-03-foundation-installed.json)
 closes a related final-host custody gap on the declared Ubuntu/pinned-runtime
 fixture. The existing launch channel now supplies kernel-authenticated writer

@@ -606,6 +606,69 @@
         "raw_pulse_false_unavailable_observed": false,
         "chooser_lost": false
       }
+    },
+    "test67": {
+      "build": 67,
+      "source_head": "20e870b31c3cd963bd785bc708d6935ea34fa020",
+      "source_tree": "76a79daa906dad959d309736a01d42dc74c7b07f",
+      "ordinary_update_seconds_observation_bounds": [
+        1177.8,
+        1253.959
+      ],
+      "protected_files": 88,
+      "files_byte_exact": 87,
+      "authorized_registry_renewal_changes": 1,
+      "missing_files": 0,
+      "exact_classes_available": 6,
+      "saved_reaper_projects_byte_exact": 1,
+      "setup_app_history_unchanged": true,
+      "class_changes_only_revision_identity_and_native_host_descriptor_paths": true,
+      "service": "active",
+      "cleanup_unconfirmed": false,
+      "selected_production_overview": {
+        "before_samples": 1,
+        "before_wall_seconds": 7.784917568,
+        "before_cli_cpu_seconds": 6.05758,
+        "after_wall_seconds": [
+          0.499066511,
+          0.424875463,
+          0.425105909
+        ],
+        "after_cli_cpu_seconds": [
+          0.312,
+          0.264571,
+          0.269463
+        ],
+        "all_six_products_available": true,
+        "readbacks_preserve_protected_files": true
+      },
+      "visible_task_status_renewal": {
+        "samples": 3,
+        "span_seconds": 170.1,
+        "minimum_sixty_second_intervals": 2,
+        "exact_1_0_1_task_reaper_context_setup_route_running_status_retained": true,
+        "app_opened_or_registered": false,
+        "chooser_drafting_installed_proof": false,
+        "chooser_limit": "bounded operator observer failed before input; source coverage retained"
+      },
+      "retained_reference_project_use": {
+        "initial_default_configuration_error": "JACK: error creating client",
+        "original_configuration": "PulseAudio 44100 Hz / 512 frames",
+        "exact_original_project_load": true,
+        "renewed_playback_verified": false,
+        "numeric_control_recall_verified": false,
+        "limit": "scoped input route failed before Play; no new audio/output qualification",
+        "saved_project_byte_exact": true,
+        "original_preferences_byte_exact": 16,
+        "changed_preferences_restored": 6,
+        "normal_reaper_close": true,
+        "protected_post_update_files_byte_exact_after_use": 88,
+        "final_available_classes": 6,
+        "final_dsp": 0,
+        "final_maintenance": 0,
+        "final_pending_transactions": 0,
+        "final_cleanup_unconfirmed": false
+      }
     }
   }
 }
