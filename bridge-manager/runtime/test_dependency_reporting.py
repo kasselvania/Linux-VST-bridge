@@ -96,7 +96,7 @@ class ReportingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'extent'):
             self.observer.feed(b'x'*65537)
 
-    def command_fixture(self, status, linger, clock=None, stderr_frames=False, emit_result=True, runner_status=None):
+    def command_fixture(self, status, linger, clock=None, stderr_frames=False, emit_result=True, runner_status=None, launch_delay=0):
         env = {'root': str(self.root), 'runner': {'entry_point': '/unused', 'proton': '/unused'}}
         (self.root/'home').mkdir()
         spec = {'operation': self.owner.op, 'report': str(self.root/'result.json'),
@@ -123,6 +123,7 @@ class ReportingTests(unittest.TestCase):
         real_popen = subprocess.Popen
         children = []
         def launch(*args, **kwargs):
+            time.sleep(launch_delay)
             child = real_popen([sys.executable, '-c', source], **kwargs)
             children.append(child)
             return child
@@ -133,7 +134,7 @@ class ReportingTests(unittest.TestCase):
         self.addCleanup(cleanup)
         with patch.object(s, 'environment', return_value={}), patch.object(s.subprocess, 'Popen', side_effect=launch):
             if clock:
-                with patch.object(s.time, 'monotonic', side_effect=clock):
+                with patch.object(s.time, 'monotonic', side_effect=lambda: clock(owner)):
                     try: owner.command('install')
                     except ValueError as e: return owner, children[0], str(e)
             else:
@@ -156,11 +157,13 @@ class ReportingTests(unittest.TestCase):
         self.assertEqual(owner.stages[0]['installer_result']['installer_exit'], 100)
 
     def test_zero_child_with_live_runner_reports_runner_timeout_separately(self):
-        real_clock = time.monotonic
-        start = real_clock()
-        def clock():
-            return start + (201 if real_clock()-start > .3 else real_clock()-start)
-        owner, child, error = self.command_fixture(0, True, clock)
+        def clock(owner):
+            # Bootstrap delay cannot consume the fake command deadline before
+            # it exists. Advance only after the exact child's zero is observed;
+            # the independently owned runner is deliberately still alive.
+            observed = owner.stages and owner.stages[0].get('installer_result', {}).get('installer_exit') == 0
+            return 201 if observed else 0
+        owner, child, error = self.command_fixture(0, True, clock, launch_delay=.4)
         self.assertIsNone(child.poll())
         self.assertEqual(error, 'dependency_runner_retirement_timeout')
         self.assertEqual(owner.stages[0]['installer_result']['installer_exit'], 0)
