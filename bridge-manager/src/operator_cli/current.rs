@@ -750,7 +750,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     let _ = phases;
     let system = system_from_capacity(cap.as_ref(),pending,stale_transports(cap.as_ref())?);
     let runtime_reason=linux_vst_bridge::runtime_delivery::installation_disabled_reason(m)?;
-    let operation=automatic_install::project_current_operation(automatic_install::current_operation(m)?,
+    let operation=automatic_install::project_current_operation(m,automatic_install::current_operation(m)?,
         &installer_setups,&records)?;
     let snapshot = ui::Snapshot {schema:ui::OPERATOR_SCHEMA,state_token:before,system,
         managed_runtime_records:linux_vst_bridge::runtime_delivery::readback_records(m)?,

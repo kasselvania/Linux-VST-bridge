@@ -133,7 +133,7 @@ pub(super) fn vendor_checkpoint_authority(m: &Manager) -> Result<Vec<Value>> {
     }).collect()
 }
 
-fn record_intent(m: &Manager, record: &onboarding::Record) -> Result<Option<Intent>> {
+pub(super) fn record_intent(m: &Manager, record: &onboarding::Record) -> Result<Option<Intent>> {
     if let Some(current)=current_environment_vendor_intent(m,&record.environment)? {return Ok(Some(current));}
     if let Some(current)=environment_refresh::current_intent(m,&record.environment)? {return Ok(Some(current));}
     let Some(original) = &record.automatic else { return Ok(None) };
@@ -333,11 +333,11 @@ pub(super) fn current_operation(m: &Manager) -> Result<Option<Value>> {
 
 // The immutable installer outcome remains in history. The current notification
 // follows the same positively verified app handoff as its exact Setup owner.
-pub(super) fn project_current_operation(mut receipt: Option<Value>,
+pub(super) fn project_current_operation(m:&Manager,mut receipt: Option<Value>,
     setups: &[ui::InstallerSetup], records: &[onboarding::Record]) -> Result<Option<Value>> {
     let Some(current) = receipt.as_mut() else { return Ok(None); };
     for record in records {
-        let Some(intent) = record.automatic.as_ref().filter(|i|i.vendor.is_none()) else { continue; };
+        let Some(intent) = record_intent(m,record)?.filter(|i|i.vendor.is_none()) else { continue; };
         if current["operation"].as_str() != Some(intent.active_operation.as_str()) { continue; }
         if let Some(journey) = setups.iter().find(|setup|setup.installer == record.installer
             && setup.environment.as_deref() == Some(record.id.as_str()))
@@ -1692,7 +1692,8 @@ pub(super) fn project_revalidation(m: &Manager, products: &mut [ui::Product],
     let owned = if let Some(owner)=receipt["renderer_owner"].as_str() {
         Some(renderer_continuation::load(m,owner)?.intent)
     } else {application.map(|app|vendor_intent(m, app)).transpose()?.flatten()};
-    let Some(intent) = owned.as_ref().into_iter().chain(records.iter().filter_map(|r|r.automatic.as_ref()))
+    let current=records.iter().map(|record|record_intent(m,record)).collect::<Result<Vec<_>>>()?;
+    let Some(intent) = owned.as_ref().into_iter().chain(current.iter().filter_map(|intent|intent.as_ref()))
         .find(|i|i.active_operation == operation && (i.vendor.is_some() || receipt["renderer_owner"]==i.owner)
             && i.journey.phase == ui::InstallationPhase::PreparingPlugins) else {return Ok(())};
     for work in &intent.work {
@@ -1761,13 +1762,13 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
             .environment
             .as_ref()
             .and_then(|id| records.iter().find(|r| r.id == *id));
-        if let Some(record) = record.filter(|r| r.automatic.is_some()) {
+        let current=record.map(|record|record_intent(m,record)).transpose()?.flatten();
+        if let Some((record,intent)) = record.zip(current) {
             if environment_install::latest(m,&record.id)?.is_some()
                 && environment_refresh::current_intent(m,&record.environment)?.is_none()
-                && record.automatic.as_ref().is_none_or(|intent|intent.vendor.is_none()) {
+                && intent.vendor.is_none() {
                 setup.journey=None;setup.primary=None;setup.secondary.clear();continue;
             }
-            let intent = record_intent(m,record)?.ok_or("automatic_installation_intent_missing")?;
             if project_handoff(m, record, &intent, setup, busy)? { continue; }
             let mut journey = current_journey(m,&intent)?;
             let receipt = optional(&job_dir(m, &intent.active_operation)?.join("result.json"))?;
@@ -2193,14 +2194,14 @@ mod tests {
             assert!(setup.primary.is_none());
             let raw=json!({"operation":record.automatic.as_ref().unwrap().active_operation,
                 "state":"refused","reason":"no_supported_instruments_or_effects_discovered"});
-            let projected=project_current_operation(Some(raw.clone()),std::slice::from_ref(&setup),
+            let projected=project_current_operation(&f.m,Some(raw.clone()),std::slice::from_ref(&setup),
                 std::slice::from_ref(&record)).unwrap().unwrap();
             assert_eq!(projected["journey"]["phase"],"awaiting_application");
             assert_eq!(projected["state"],raw["state"]);assert_eq!(projected["reason"],raw["reason"]);
             let mut foreign=setup.clone();foreign.environment=Some("ff".repeat(16));
-            assert_eq!(project_current_operation(Some(raw.clone()),&[foreign],std::slice::from_ref(&record)).unwrap(),Some(raw.clone()));
+            assert_eq!(project_current_operation(&f.m,Some(raw.clone()),&[foreign],std::slice::from_ref(&record)).unwrap(),Some(raw.clone()));
             let mut wrong=raw.clone();wrong["operation"]=json!("ab".repeat(16));
-            assert_eq!(project_current_operation(Some(wrong.clone()),std::slice::from_ref(&setup),
+            assert_eq!(project_current_operation(&f.m,Some(wrong.clone()),std::slice::from_ref(&setup),
                 std::slice::from_ref(&record)).unwrap(),Some(wrong));
             let (selector,mut continuation)=owned_app_visit(&f,&record);
             continuation.journey.phase=ui::InstallationPhase::Available;

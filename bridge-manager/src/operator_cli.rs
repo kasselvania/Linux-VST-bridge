@@ -203,7 +203,8 @@ fn vendor_projection(
     let valid = a.validate_record(&m.root).is_ok();
     let record = onboarding::retained_environment_record(m, &a.environment.id)?;
     let continuation = automatic_install::vendor_intent(m, selector)?;
-    let current_intent = continuation.as_ref().or_else(|| record.as_ref().and_then(|r| r.automatic.as_ref()));
+    let installation_intent=record.as_ref().map(|record|automatic_install::record_intent(m,record)).transpose()?.flatten();
+    let current_intent = continuation.as_ref().or(installation_intent.as_ref());
     let restartable=current_intent
         .filter(|i|i.vendor.as_ref().is_some_and(|v|v.application==selector))
         .map(|i|automatic_install::restartable_vendor(m,i)).transpose()?.unwrap_or(false);
@@ -1478,7 +1479,7 @@ fn snapshot_readonly_depth(
     let active_sessions=if deep { session_projection(cap.as_ref(),capacity::terminal_summaries(m)?) }
         else { vec![] };
     let runtime_reason=linux_vst_bridge::runtime_delivery::installation_disabled_reason(m)?;
-    let operation=automatic_install::project_current_operation(live.operation,&installer_setups,&records)?;
+    let operation=automatic_install::project_current_operation(m,live.operation,&installer_setups,&records)?;
     Ok(ui::Snapshot {
         managed_runtime_records:linux_vst_bridge::runtime_delivery::readback_records(m)?,
         onboarding,
@@ -2730,8 +2731,9 @@ fn execute_with_receipt_policy_progress(
                 return open_vendor_owned(m,application,owner,owner,timeout,waits,||Ok(()));
             }
             let record=onboarding::retained_environment_record(m,&app.environment.id)?;
+            let current=record.as_ref().map(|record|automatic_install::record_intent(m,record)).transpose()?.flatten();
             let daw=automatic_install::vendor_intent(m,application)?.map(|i|i.journey.daw)
-                .or_else(||record.and_then(|r|r.automatic).map(|i|i.journey.daw)).unwrap_or(ui::DawChoice::Other);
+                .or_else(||current.map(|i|i.journey.daw)).unwrap_or(ui::DawChoice::Other);
             drop(projection.take());
             automatic_install::execute(m,&ui::Action::VendorSoftwareInstall{application:application.clone(),daw},
                 operation.ok_or("operator_operation_identity")?,capacity_read,timeout,waits)
@@ -3245,7 +3247,7 @@ fn stop_vendor_with(
         } => selected == application,
         ui::Action::SoftwareInstallResume { ref onboarding } => {
             onboarding::retained_environment_record(m, onboarding)?
-                .and_then(|r| r.automatic)
+                .map(|record|automatic_install::record_intent(m,&record)).transpose()?.flatten()
                 .and_then(|i| i.vendor)
                 .is_some_and(|v| v.application == application)
         }
