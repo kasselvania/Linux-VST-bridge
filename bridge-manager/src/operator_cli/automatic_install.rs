@@ -154,7 +154,7 @@ fn initial_installer_policy(m:&Manager,record:&onboarding::Record,intent:&Intent
     let choice=request.action.software_install();
     if intent.installer_policy.is_some() || choice.is_some_and(|(_,_,policy)|policy.is_some()) {
         require(matches!(request.schema,5..=ui::OPERATOR_SCHEMA)
-            && intent.owner==record.creation_operation && intent.vendor.is_none()
+            && intent.vendor.is_none()
             && choice.is_some_and(|(installer,daw,policy)|installer==record.installer
                 && daw==intent.journey.daw && policy==intent.installer_policy),"automatic_installer_policy_owner")?;
     }
@@ -2629,6 +2629,61 @@ mod tests {
             assert_eq!(spec["installer_capability"]["operation"],operation);
             assert_eq!(spec["installer_capability"]["environment"],serde_json::to_value(&record.environment).unwrap());
             if policy.is_none() {assert!(serde_json::to_value(&intent).unwrap().get("installer_policy").is_none());}
+        }
+    }
+    #[test]
+    fn explicit_policy_retry_after_creation_before_intent_save_keeps_creation_history() {
+        for powershell in [ui::Powershell::Inherited,ui::Powershell::IntentionallyUnavailable] {
+            let (f,installer,runner)=onboarding::tests::close_policy_imported_fixture();
+            let action=ui::Action::SoftwareInstallWithPolicy {installer:installer.id.clone(),daw:ui::DawChoice::Reaper,powershell};
+            let creator=test_submit_offered(&f.m,&action).unwrap();
+            let original=fs::read(job_dir(&f.m,&creator).unwrap().join("request.json")).unwrap();
+            let prepared=onboarding::prepare_creation(&f.m,&installer.id,&onboarding::runner_key(&runner).unwrap()).unwrap();
+            let created=onboarding::create_prepared(&f.m,prepared,&creator,&f.m.lock("registry.lock").unwrap()).unwrap();
+            let record=onboarding::load(&f.m,created["onboarding"].as_str().unwrap()).unwrap();
+            assert!(record.automatic.is_none());assert!(record.installation_operation.is_none());
+            let journey=ui::InstallationJourney {daw:ui::DawChoice::Reaper,phase:ui::InstallationPhase::NeedsAttention,
+                plugins:vec![],failure:Some(failure(ui::InstallationFailureStage::EnvironmentPreparation,"fixture_interrupted_after_creation"))};
+            write_operation(&f.m,&creator,&json!({"schema":2,"operation":creator,"state":"refused","journey":journey}),false).unwrap();
+            let snapshot=snapshot_idle_test(&f.m).unwrap();
+            let retry=available(&snapshot).into_iter().find(|offer|offer.label=="Retry" && offer.action==action).unwrap().action.clone();
+            let operation=test_submit_offered(&f.m,&retry).unwrap();assert_ne!(operation,creator);
+            let error=readiness::with_unit_state_fixture(&[onboarding::unit(&operation).unwrap()],"inactive",||
+                onboarding::with_installer_unit_refusal(||execute(&f.m,&retry,&operation,
+                    &idle_capacity_test,Duration::from_secs(1),&mut vec![]))).unwrap_err();
+            assert!(error.to_string().contains("fixture_installer_unit_refusal"),"{error}");
+            let current=onboarding::retained_environment_record(&f.m,&record.id).unwrap().unwrap();
+            assert_eq!(current.creation_operation,creator);assert_eq!(current.environment,record.environment);
+            assert_eq!(current.automatic.as_ref().unwrap().owner,operation);
+            assert_eq!(record_intent(&f.m,&current).unwrap().unwrap().installer_policy,Some(powershell));
+            assert_eq!(fs::read(job_dir(&f.m,&creator).unwrap().join("request.json")).unwrap(),original);
+            assert_eq!(onboarding::history_records(&f.m).unwrap().len(),1);
+            let spec:Value=read_json(&onboarding::directory(&f.m,&record.id).unwrap().join(format!("{operation}-spec.json"))).unwrap();
+            assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],serde_json::to_value(powershell).unwrap());
+            assert_eq!(spec["installer_capability"]["operation"],operation);
+        }
+    }
+    #[test]
+    fn explicit_policy_install_in_manually_created_unstarted_setup_owns_its_request() {
+        for powershell in [ui::Powershell::Inherited,ui::Powershell::IntentionallyUnavailable] {
+            let (f,record)=onboarding::tests::close_policy_unstarted_fixture();
+            let history=fs::read(onboarding::directory(&f.m,&record.id).unwrap().join("record.json")).unwrap();
+            let action=ui::Action::SoftwareInstallWithPolicy {installer:record.installer.clone(),daw:ui::DawChoice::Reaper,powershell};
+            let operation=test_submit_offered(&f.m,&action).unwrap();assert_ne!(operation,record.creation_operation);
+            let error=readiness::with_unit_state_fixture(&[onboarding::unit(&operation).unwrap()],"inactive",||
+                onboarding::with_installer_unit_refusal(||execute(&f.m,&action,&operation,
+                    &idle_capacity_test,Duration::from_secs(1),&mut vec![]))).unwrap_err();
+            assert!(error.to_string().contains("fixture_installer_unit_refusal"),"{error}");
+            let current=onboarding::retained_environment_record(&f.m,&record.id).unwrap().unwrap();
+            assert_eq!(current.creation_operation,record.creation_operation);assert_eq!(current.environment,record.environment);
+            assert_eq!(current.automatic.as_ref().unwrap().owner,operation);
+            assert_eq!(record_intent(&f.m,&current).unwrap().unwrap().installer_policy,Some(powershell));
+            let old:Value=serde_json::from_slice(&history).unwrap();let mut observed=serde_json::to_value(&current).unwrap();
+            observed.as_object_mut().unwrap().remove("automatic");
+            observed["installation_operation"]=old["installation_operation"].clone();
+            assert_eq!(observed,old,"Only current install ownership is added to the existing creation record");
+            let spec:Value=read_json(&onboarding::directory(&f.m,&record.id).unwrap().join(format!("{operation}-spec.json"))).unwrap();
+            assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],serde_json::to_value(powershell).unwrap());
         }
     }
     #[test]
