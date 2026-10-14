@@ -405,7 +405,7 @@ pub(super) fn live_vendor_progress_selected(
     app.environment=environment_install::current_environment(m,&app.environment)?;
     let operation: vendor_application::Operation = read_json(&directory.join("operation.json"))?;
     require(
-        matches!(app.schema, 1 | 2)
+        matches!(app.schema, 1..=3)
             && operation.application == app
         && valid_hex(&operation.operation_id,32)
         && operation.report == directory.join("operation-result.json")
@@ -1442,6 +1442,65 @@ pub(super) mod tests {
             fs::rename(moved.join(&name),onboarding_dir.join(&name)).unwrap();
         }
         assert!(live.recheck_with(m,||Ok(())).is_err());
+    }
+    #[test]
+    fn user_selected_running_program_has_current_show_and_close_controls() {
+        let (f, legacy) = selected_vendor_fixture();
+        fs::remove_dir_all(vendor_cli::directory(&f.m,&legacy.selector().unwrap()).unwrap()).unwrap();
+        let folder=f.outer.join("Portable program");private_dir(&folder).unwrap();
+        let path=folder.join("Program.exe");
+        let mut bytes=vec![0_u8;256];bytes[..2].copy_from_slice(b"MZ");bytes[60]=128;
+        bytes[128..132].copy_from_slice(b"PE\0\0");
+        bytes[132..134].copy_from_slice(&0x8664_u16.to_le_bytes());bytes[150]=2;
+        fs::write(&path,bytes).unwrap();
+        let app=vendor_application::Application {schema:3,id:vendor_application::ApplicationId::Selected,
+            environment:legacy.environment,executable:vendor_cli::selection::program_artifact(&path).unwrap(),
+            helpers:vec![],installer_sha256:None,installer_result:None,observed_installer_version:String::new(),
+            user_selection:Some(vendor_application::ProgramSelection {working_directory:folder,
+                arguments:vec![],previous:None})};
+        app.verify(&f.m.root).unwrap();
+        let selector=app.selector().unwrap();let directory=vendor_cli::directory(&f.m,&selector).unwrap();
+        private_dir(&directory).unwrap();atomic_json(&directory.join("application.json"),&app).unwrap();
+        let operation=random_id().unwrap();let report_path=directory.join("operation-result.json");
+        let job=vendor_application::Operation {application:app.clone(),report:report_path.clone(),
+            mode:vendor_application::LaunchMode::Normal,operation_id:operation.clone(),launcher:Some(f.r.host.clone())};
+        atomic_json(&directory.join("operation.json"),&job).unwrap();
+        let mut report=json!({"schema":3,"operation_id":operation,"state":"running",
+            "launcher_exit":null,"owned_live":2,"cleanup_confirmed":false,
+            "discarded_diagnostic_bytes":0,"account_posture":"unknown"});
+        atomic_json(&report_path,&report).unwrap();
+        let record=onboarding::retained_environment_record(&f.m,&app.environment.id).unwrap().unwrap();
+        let installer_unit=onboarding::unit(record.installation_operation.as_deref().unwrap()).unwrap();
+        readiness::with_unit_state_fixture(&[installer_unit],"inactive",||
+            readiness::with_unit_state_fixture(&[vendor_cli::unit(&selector).unwrap()],"active",|| {
+                // A vendor session suspends the bridge service. Current program
+                // controls must remain readable without an available DSP service.
+                let current=current_overview(&f.m).unwrap();
+                assert!(!current.current.system.capacity_available());
+                let row=current.current.vendor_applications.iter().find(|row|row.id==selector).unwrap();
+                assert_eq!(row.state,"running");assert_eq!(row.details["user_selected"],true);
+                for action in [ui::Action::VendorApplicationFocus {application:selector.clone()},
+                    ui::Action::VendorApplicationClose {application:selector.clone()}] {
+                    let offer=row.actions.iter().find(|offer|offer.action==action).unwrap();
+                    assert!(offer.disabled_reason.is_none());
+                    validate_current_request(&f.m,&ui::Request {schema:ui::OPERATOR_SCHEMA,
+                        state_token:current.current.state_token.clone(),action}).unwrap();
+                }
+                let captured=capture(&f.m).unwrap();
+                report["owned_live"]=7.into();atomic_json(&report_path,&report).unwrap();
+                captured.recheck(&f.m).unwrap();
+                // Accepting this origin does not relax exact operation identity.
+                let mut changed=job.clone();changed.operation_id=random_id().unwrap();
+                atomic_json(&directory.join("operation.json"),&changed).unwrap();
+                assert!(captured.recheck(&f.m).is_err());
+                atomic_json(&directory.join("operation.json"),&job).unwrap();
+                let mut unknown=app.clone();unknown.schema=4;
+                atomic_json(&directory.join("application.json"),&unknown).unwrap();
+                let mut unknown_job=job.clone();unknown_job.application=unknown;
+                atomic_json(&directory.join("operation.json"),&unknown_job).unwrap();
+                assert_eq!(live_vendor_progress_selected(&f.m,&selector,||Ok(true)).unwrap_err().to_string(),
+                    "operator_current_vendor_binding");
+            }));
     }
     #[test]
     fn live_vendor_progress_preserves_exact_current_readback() {

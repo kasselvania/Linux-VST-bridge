@@ -8,7 +8,7 @@ Baseline: delivered Test69 and retained SteamOS/CachyOS installations remain.
 CachyOS is the assigned installed-validation target; its saved project/history
 and six Available classes must survive. Shared hardware has one owner at a time.
 
-Implemented source:
+First source increment is reviewed, green and merged into main. Implemented:
 1. Setup offers Choose program. A user selection records exact executable bytes
    and its existing working folder independently of installer observations.
 2. Open uses the current setup's supervised runtime and the existing Windows
@@ -23,7 +23,12 @@ Implemented source:
 5. This slice launches without extra arguments. Wine settings, local runtime
    import and the Windows DAW workspace remain later direction work.
 
-Validation: source checks are in progress. Installed acceptance is still due:
+Installed Test70 opens chosen build A and reads its sibling resource. Its active
+readback still rejects application schema 3, leaving Show/Close controls stale.
+The repair extends the existing exact live binding to this user-selected origin;
+its regression checks current controls with the bridge service suspended.
+
+Corrected-build installed acceptance is still due:
 choose source-owned build A with a sibling resource, open/show/close it, replace
 only its executable with distinguishable B, adopt B, restart the manager and
 open/close B. Confirm retained plug-ins play and reopen the saved DAW state,

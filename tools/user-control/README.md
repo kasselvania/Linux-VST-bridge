@@ -18,8 +18,14 @@ cp tools/user-control/resource.txt "$fixture_build/a/resource.txt"
 cp tools/user-control/resource.txt "$fixture_build/b/resource.txt"
 ```
 
-An existing Zig installation can replace `x86_64-w64-mingw32-gcc` with
-`zig cc -target x86_64-windows-gnu` in those commands. Outputs belong outside Git;
+With an existing Zig installation, use the same input and output paths with:
+
+```sh
+zig cc -target x86_64-windows-gnu -std=c11 -Wall -Wextra -Werror -Wno-unused-command-line-argument -municode -Wl,--subsystem,windows -DFIXTURE_BUILD=1 tools/user-control/portable_fixture.c -o "$fixture_build/a/portable-fixture.exe" -luser32
+zig cc -target x86_64-windows-gnu -std=c11 -Wall -Wextra -Werror -Wno-unused-command-line-argument -municode -Wl,--subsystem,windows -DFIXTURE_BUILD=2 tools/user-control/portable_fixture.c -o "$fixture_build/b/portable-fixture.exe" -luser32
+```
+
+Outputs belong outside Git;
 on the homelab, use a folder under `/mnt/Storage2/LinuxPluginBridge` instead of
 the `/tmp` example after confirming the mount is present.
 
