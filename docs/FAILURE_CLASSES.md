@@ -3569,3 +3569,13 @@ supervised session's unique owned window while retaining strict image metadata.
 Closed for this fixture: Test72 A/B Show from the manager and normal Close pass;
 replacement follows A's clean close and adoption survives manager restart.
 [Installed result](../evidence/cachyos-reaper.json).
+
+## FC-MIDI-003 — Native descriptor omits the retained event-channel policy
+
+Verified fixed on Deck / Bitwig by [the exact Test72 artifact](../evidence/pigments-deck-test72.json).
+The Windows host interpreted raw zero MIDI channels as 16 under the retained
+policy, while the native descriptor kept zero, refusing load with
+`native/Windows SDK buses differ` before processing. Preparation now applies the
+same policy before generating the descriptor and binds artifact reuse to it.
+Pigments loads, plays, reopens its editor and recalls changed state after a fresh
+DAW launch; the existing long-playback and touch gaps remain separate.
