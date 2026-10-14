@@ -212,13 +212,6 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             step("assessGraphicsEditor");
             assess_graphics_editor(*controller,events);
             ok(kResultOk,"assessGraphicsEditor");
-        } else if(!external && access_directory.empty()){
-            // Preliminary interface observation only: never attach or pump a vendor editor.
-            step("inspectEditorInterface");
-            IPlugView* view=controller->createView(ViewType::kEditor);
-            tresult platform=kNoInterface;
-            if(view){platform=view->isPlatformTypeSupported(kPlatformTypeHWND);view->release();}
-            events.lifecycle("ap8_editor_interface",",\"created\":"+std::string(view?"true":"false")+",\"hwnd_result\":"+std::to_string(platform)+",\"attached\":false");
         }
         if(!access_directory.empty()){
             // Explicit unpublished access session: no DAW/DSP impersonation.

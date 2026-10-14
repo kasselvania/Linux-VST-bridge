@@ -23,10 +23,11 @@ Available classes and its saved project/history; its shut-down VM stays retained
    Normal GUI quit and renewed numeric effect recall remain unverified.
 4. Reliability: exact historical Kontakt failure/pass share module, host and
    policy; both have the same memory-lock warning. Best explanation is a native
-   editor/accessibility lifetime race (~60%). Accessibility false/true/false all
-   pass: non-reproduction, no fix. A debugger trial failed at Wine bootstrap,
-   before scanning. Correct its one attach target to the mapped 64-bit host;
-   another helper failure requires source/lifetime review, not a tooling project.
+   editor/accessibility lifetime race (~60%). Accessibility A/B/A and the mapped
+   host debugger trial do not reproduce it. Ordinary inspection unnecessarily
+   creates an editor for optional display facts; an editor fault can abort update.
+   Remove that GUI creation, retain explicit assessment, prove the fixture boundary
+   and qualify installed delivery. Keep the native allocator cause open.
 5. Cost: Deck’s 25-class overview median is 3.572 s wall / 2.241 s CLI CPU,
    versus one 7.230 s before read. Normal updates take about seven minutes.
    The capped VM’s twenty minutes alone is not a blocker. Preserve the user’s

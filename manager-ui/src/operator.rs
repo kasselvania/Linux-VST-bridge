@@ -694,7 +694,7 @@ impl Operator {
                         f["parameter_count"], f["cleanup_confirmed"]
                     ));
                     if f["editor_interface"].is_null() {
-                        ui.label("Editor interface: not retained by the original inspector");
+                        ui.label("Editor interface: no assessment recorded");
                     } else {
                         ui.label(format!(
                             "Editor created: {} · HWND interface result: {} · Not attached",
