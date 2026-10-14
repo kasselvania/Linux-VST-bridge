@@ -897,7 +897,13 @@ Test68's unpublished accessibility-policy false/true/false comparison passes in
 28.69/27.39/27.69 seconds with the same module/host/environment and confirmed cleanup.
 This is non-reproduction. No native fault PID/stack is retained; a bounded debugger
 trial fails at Wine bootstrap before scanner events, without the allocator message.
-The crash remains open; no accessibility workaround or retry policy is added.
+A corrected mapped 64-bit host debugger trial passes without an allocator abort.
+Test69 repairs the separate workflow defect: optional editor construction can no
+longer abort ordinary installation/update. All 25 actual update inspections
+complete without an editor call; required Kontakt parameter/state checks pass.
+The saved projects/history stay exact and fresh Bitwig playback uses the new host.
+The native allocator origin remains open; explicit editor assessment stays separate.
+No accessibility workaround or retry policy is added.
 
 Test56's direct automatic installation identifies the exact live vendor/inspection
 owner's bridge pause and returns to normal service with two new classes available;

@@ -4,8 +4,8 @@ Goal: truthful completion, usable passive monitoring and reliable inspection,
 preserving the accepted managed flow. Improve speed where actual use identifies
 unnecessary work or unreasonable behavior.
 
-Baseline: Test68 is installed on the released Deck with the same 25 Available
-classes, 326 unchanged projects and only registry renewal among 5,403 protected
+Baseline: Test69 is installed on the released Deck with the same 25 Available
+classes, 326 unchanged projects and only registry renewal among 5,413 protected
 files. The user’s Lunacy additions and history remain. CachyOS retains six
 Available classes and its saved project/history; its shut-down VM stays retained.
 
@@ -17,17 +17,16 @@ Available classes and its saved project/history; its shut-down VM stays retained
    seconds without input. The matching read-only frontend retains a REAPER draft
    through renewal; selected Setup shows Bitwig. Installed REAPER choice editing
    remains unverified. Never retarget or replay an action.
-3. Ordinary use: the retained Bitwig project freshly loads its two source levels
-   and Serum FX, and plays finite nonzero stereo audio for 20 seconds. All 23
-   original preferences and the saved project are exact after owned cleanup.
-   Normal GUI quit and renewed numeric effect recall remain unverified.
-4. Reliability: exact historical Kontakt failure/pass share module, host and
-   policy; both have the same memory-lock warning. Best explanation is a native
-   editor/accessibility lifetime race (~60%). Accessibility A/B/A and the mapped
-   host debugger trial do not reproduce it. Ordinary inspection unnecessarily
-   creates an editor for optional display facts; an editor fault can abort update.
-   Remove that GUI creation, retain explicit assessment, prove the fixture boundary
-   and qualify installed delivery. Keep the native allocator cause open.
+3. Ordinary use: Test69 freshly loads the retained Bitwig project’s source levels
+   and Serum FX, and plays finite nonzero stereo audio for 20 seconds through
+   the new host. Normal Quit/No retires the owned session; all 23 preferences
+   and the saved project stay exact. Numeric effect recall remains unverified.
+4. Reliability: ordinary inspection created an editor for optional display facts,
+   so an editor fault could abort installation/update. Test69 removes that work;
+   explicit graphics assessment keeps its separate outcome. All 25 actual update
+   inspections complete without editor calls; Kontakt retains 4,145 parameters
+   and successful state capture. Historical allocator corruption remains open:
+   accessibility A/B/A and the mapped-host debugger trial do not reproduce it.
 5. Cost: Deck’s 25-class overview median is 3.572 s wall / 2.241 s CLI CPU,
    versus one 7.230 s before read. Normal updates take about seven minutes.
    The capped VM’s twenty minutes alone is not a blocker. Preserve the user’s
@@ -37,5 +36,6 @@ Land one reviewed, green increment at a time; distinguish installed acceptance
 from source checks. Correct test launch lifetime instead of patching the product.
 
 Done: completed setup has no permanent reminder; ordinary refresh and choices
-remain usable, the crash is causally fixed, and identified unnecessary work is
-removed with original projects, settings and history intact.
+remain usable, ordinary installation/update does not depend on optional editor
+construction, and original projects, settings and history remain intact. Keep
+the historical native allocator cause separate from this workflow repair.

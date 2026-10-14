@@ -629,5 +629,57 @@
       2.224455,
       2.240518
     ]
+  },
+  "test69_deck_update": {
+    "source_head": "d0cfc3bc57c8369130b3e4a6792eedcaefdd5cd6",
+    "installer_sha256": "4a53a9924490dab03f91606b557222a75cef4425b47dd71567de75c87cf02e73",
+    "host_sha256": "5d071ce64561085fdb135f24507e3e3e626f5a483c049e2eb08a78e89a3fd385",
+    "current_available_classes": 25,
+    "live_owners_after_retirement": 0,
+    "pending_transactions": 0,
+    "cleanup_unconfirmed": false,
+    "protected_files": 5413,
+    "files_byte_exact": 5412,
+    "authorized_registry_renewal_changes": 1,
+    "missing_original_files": 0,
+    "omitted_predecessor_paths_individually_rehashed": 51,
+    "projects_byte_exact": 326,
+    "user_application_history_retained": true,
+    "ordinary_update_inspections_complete": 25,
+    "ordinary_editor_probe_calls": 0,
+    "ordinary_editor_facts": 0,
+    "kontakt_parameter_count": 4145,
+    "kontakt_state_capture_available": true,
+    "previous_kontakt_editor_probe_calls": 1,
+    "explicit_editor_assessment_separate": true,
+    "native_allocator_cause_resolved": false,
+    "retained_bitwig_reopen": {
+      "fresh_process": true,
+      "saved_project_sha256": "6c2a0e07ec8e745672ddb5fbb03d9a766161068f3e0eb191068d2ea19c4094b6",
+      "source_levels": [
+        0.435,
+        0.49
+      ],
+      "serum_fx_device_loaded": true,
+      "live_owned_host_bindings": 5,
+      "dsp_owners": 3,
+      "all_live_host_content_exact_selected": true,
+      "capture_seconds": 20.0,
+      "rate": 48000,
+      "channels": 2,
+      "frames": 960000,
+      "nonzero_samples": 1729024,
+      "nonfinite_samples": 0,
+      "nonzero_one_second_windows": 20,
+      "original_output_links_preserved": true,
+      "audio_sha256": "3a2dbe569dbb18e5a8deba5f98c956c2f5947053d0e0d7fbc9c68207d3600c11",
+      "recorder_exit": 1,
+      "recorder_stderr_bytes": 0,
+      "normal_gui_quit_verified": true,
+      "owned_unsaved_edits_saved": false,
+      "original_preferences_byte_exact": 23,
+      "original_saved_project_byte_exact": true,
+      "renewed_numeric_effect_editor_recall_verified": false
+    }
   }
 }

@@ -65,8 +65,16 @@ seconds of finite nonzero stereo audio; all 23 original preferences and the proj
 remain exact. The recorder exits 1 with empty stderr after all requested frames.
 Normal GUI quit and renewed numeric effect-editor recall remain unverified.
 [Scoped installed result](../evidence/reference-runtime-deck.json).
-Kontakt's intermittent editor-interface allocator crash remains open. Its exact
-accessibility-policy A/B/A all pass, so no workaround or reliability fix is kept.
+Test69 removes optional editor construction from ordinary installation/update.
+All 25 actual update inspections complete with no editor calls or facts; Kontakt
+retains 4,145 parameters and successful state capture. Only registry renewal
+changes among 5,413 protected files; all 326 projects and application history stay
+exact. Fresh retained Bitwig playback uses the new host for 20 seconds of finite
+nonzero stereo audio, then normal Quit/No retires the session; all 23 original
+preferences and the saved project remain exact. Recorder exit 1 remains unexplained.
+Explicit graphics assessment retains its separate result. Kontakt's historical
+allocator origin remains open; accessibility A/B/A and a mapped-host debugger
+trial do not reproduce it. [Scoped update boundary](../evidence/reference-runtime-deck.json).
 
 Test58's corrected first-party vendor-application continuation passes in the
 disposable CachyOS VM / native REAPER 7.82 at 44.1 kHz / 512 frames. Its first
