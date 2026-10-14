@@ -467,8 +467,13 @@ fn final_publication_expiry_or_cancel_releases_the_owned_extra_slot() {
         let samples = [[0.; CAP]; 2];
         assert!(pool.publish_available(&samples, 64).is_none(), "worker owns the sole extra slot");
         let shared = fixture.shared.clone();
+        let waits = shared.phase_waits.load(Ordering::Acquire);
         let release = thread::spawn(move || {
-            if cancel { shared.cancel(); }
+            if cancel {
+                // Enter N0's wait before cancellation lets the worker publish a fault.
+                await_predicate(|| shared.phase_waits.load(Ordering::Acquire) > waits);
+                shared.cancel();
+            }
             else {
                 thread::sleep(Duration::from_millis(1010));
                 shared.final_publication_hold_ticket.store(0, Ordering::Release);
