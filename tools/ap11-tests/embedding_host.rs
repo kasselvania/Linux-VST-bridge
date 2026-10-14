@@ -9,11 +9,12 @@ use std::{
     io::{self, Read, Write},
     mem::size_of,
     os::fd::AsRawFd,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
     time::{Duration, Instant},
 };
 const IO_BOUND: Duration = Duration::from_secs(20);
+const FIRST_PREFIX_BOUND: Duration = Duration::from_secs(90);
 #[repr(C)]
 struct PollFd {
     fd: i32,
@@ -28,6 +29,18 @@ extern "C" {
     fn XOpenDisplay(name: *const u8) -> *mut c_void;
     fn XFlush(display: *mut c_void) -> i32;
     fn XCloseDisplay(display: *mut c_void) -> i32;
+    fn XGetImage(
+        display: *mut c_void,
+        window: u64,
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
+        planes: u64,
+        format: i32,
+    ) -> *mut c_void;
+    fn XGetPixel(image: *mut c_void, x: i32, y: i32) -> u64;
+    fn XDestroyImage(image: *mut c_void) -> i32;
 }
 #[link(name = "Xtst")]
 extern "C" {
@@ -45,6 +58,56 @@ fn click(x: i32, y: i32) {
         XCloseDisplay(display);
     }
 }
+fn trace_pointer(connection: &Connection, label: &str) {
+    let mut parent = connection.root;
+    let mut path = Vec::new();
+    for _ in 0..8 {
+        let child = connection.pointer_child(parent).unwrap();
+        if child == 0 {
+            break;
+        }
+        path.push(child);
+        parent = child;
+    }
+    eprintln!("{label} X11 pointer path: {path:?}");
+}
+// Raw captures stay in the new private case directory, never in Git. This
+// diagnostic is for the explicitly owned 24-bit Xvfb fixture, not product UI.
+fn snapshot(connection: &Connection, path: &Path) -> io::Result<Vec<u8>> {
+    let size = connection.geometry(connection.root).unwrap();
+    assert!(size.width <= 2048 && size.height <= 2048);
+    let mut pixels = Vec::with_capacity(usize::from(size.width) * usize::from(size.height) * 3);
+    unsafe {
+        let display = XOpenDisplay(std::ptr::null());
+        assert!(!display.is_null());
+        let image = XGetImage(
+            display,
+            u64::from(connection.root),
+            0,
+            0,
+            u32::from(size.width),
+            u32::from(size.height),
+            u64::MAX,
+            2,
+        );
+        assert!(!image.is_null());
+        for y in 0..i32::from(size.height) {
+            for x in 0..i32::from(size.width) {
+                let pixel = XGetPixel(image, x, y);
+                pixels.extend([(pixel >> 16) as u8, (pixel >> 8) as u8, pixel as u8]);
+            }
+        }
+        XDestroyImage(image);
+        XCloseDisplay(display);
+    }
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)?;
+    write!(file, "P6\n{} {}\n255\n", size.width, size.height)?;
+    file.write_all(&pixels)?;
+    Ok(pixels)
+}
 struct Editor {
     child: Child,
     input: Option<ChildStdin>,
@@ -60,6 +123,11 @@ impl Editor {
         epoch: u32,
         mode: u32,
     ) -> io::Result<Self> {
+        let startup_bound = if prefix.exists() {
+            IO_BOUND
+        } else {
+            FIRST_PREFIX_BOUND
+        };
         let mut child = Command::new(wine)
             .args([
                 fixture,
@@ -81,13 +149,20 @@ impl Editor {
             output,
             identity: PresentationV1::new(owner, epoch, WINDOW_READY),
         };
-        let ready = editor.read(WINDOW_READY)?;
+        let ready = editor.read_with_bound(WINDOW_READY, startup_bound)?;
         assert!(ready.valid_size() && ready.window != 0 && ready.presentation == mode);
         editor.identity = ready;
+        eprintln!(
+            "first-party editor Ready: epoch={epoch}, mode={mode}, xid={}",
+            ready.window
+        );
         Ok(editor)
     }
     fn read(&mut self, kind: u32) -> io::Result<PresentationV1> {
-        let deadline = Instant::now() + IO_BOUND;
+        self.read_with_bound(kind, IO_BOUND)
+    }
+    fn read_with_bound(&mut self, kind: u32, bound: Duration) -> io::Result<PresentationV1> {
+        let deadline = Instant::now() + bound;
         let mut bytes = [0u8; size_of::<PresentationV1>()];
         let mut offset = 0;
         while offset < bytes.len() {
@@ -95,7 +170,10 @@ impl Editor {
             if remaining.is_zero() {
                 return Err(io::Error::new(
                     io::ErrorKind::TimedOut,
-                    "first-party editor record deadline",
+                    format!(
+                        "first-party editor record {kind} deadline, epoch={}, bound={bound:?}",
+                        self.identity.epoch
+                    ),
                 ));
             }
             let mut fd = PollFd {
@@ -217,6 +295,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     click(45, 32);
     assert!(connection.button_received(chrome).unwrap());
+    click(180, 140);
+    trace_pointer(&connection, "detached");
+    assert_eq!(detached.read(INPUT_OBSERVED)?.result, 1);
+    eprintln!("detached Win32 pointer observed");
     detached.close()?;
 
     let mut stale = None;
@@ -231,6 +313,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         assert!(connection.button_received(chrome).unwrap());
         // Real X11 pointer events must arrive at the Wine/Win32 editor.
         click(180, 140);
+        trace_pointer(&connection, "embedded");
         assert_eq!(editor.read(INPUT_OBSERVED)?.result, 1);
         editor.send(RESIZE, 512, 280)?;
         let resized = editor.read(WINDOW_RESIZED)?;
@@ -243,8 +326,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         editor.send(FOCUS, 0, 0)?;
         assert_eq!(editor.read(FOCUS_RESULT)?.result, 0);
         assert_eq!(surface.parent(ready.window).unwrap(), surface.window);
+        let before = snapshot(&connection, &root.join(format!("popup-before-{epoch}.ppm")))?;
         editor.send(POPUP, 0, 0)?;
         assert_eq!(editor.read(POPUP_VISIBLE)?.result, 1);
+        let during = snapshot(
+            &connection,
+            &root.join(format!("popup-visible-{epoch}.ppm")),
+        )?;
+        assert_ne!(before, during, "popup must change visible root pixels");
         editor.send(CANCEL_POPUP, 0, 0)?;
         editor.read(POPUP_RESULT)?;
         assert_eq!(surface.parent(ready.window).unwrap(), surface.window);

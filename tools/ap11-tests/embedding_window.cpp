@@ -74,7 +74,7 @@ LRESULT CALLBACK procedure(HWND hwnd, UINT message, WPARAM w, LPARAM l) {
         if (menu) DestroyMenu(menu); PostQuitMessage(6); return 0;
       }
       POINT point{24, 24}; ClientToScreen(hwnd, &point);
-      const auto selected = TrackPopupMenuEx(menu, TPM_RETURNCMD | TPM_NONOTIFY,
+      const auto selected = TrackPopupMenuEx(menu, TPM_RETURNCMD,
                                             point.x, point.y, hwnd, nullptr);
       DestroyMenu(menu); write(PopupResult, uint32_t(selected)); return 0;
     }

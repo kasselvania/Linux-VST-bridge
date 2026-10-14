@@ -166,6 +166,7 @@ pub mod x11 {
         fn xcb_get_input_focus(connection: *mut c_void) -> Cookie;
         fn xcb_get_geometry(connection: *mut c_void, window: u32) -> Cookie;
         fn xcb_query_tree(connection: *mut c_void, window: u32) -> Cookie;
+        fn xcb_query_pointer(connection: *mut c_void, window: u32) -> Cookie;
         fn xcb_create_window_checked(
             connection: *mut c_void,
             depth: u8,
@@ -335,6 +336,15 @@ pub mod x11 {
                 free(reply);
             }
             Ok(parent)
+        }
+        pub fn pointer_child(&self, window: u32) -> Result<u32, Error> {
+            self.owner()?;
+            let reply = self.reply(unsafe { xcb_query_pointer(self.pointer, window) })?;
+            let child = unsafe { reply.cast::<u8>().add(12).cast::<u32>().read_unaligned() };
+            unsafe {
+                free(reply);
+            }
+            Ok(child)
         }
         pub fn child(
             &self,
