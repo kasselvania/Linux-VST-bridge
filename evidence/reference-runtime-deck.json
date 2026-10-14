@@ -608,7 +608,8 @@
       "all_cleanup_confirmed": true,
       "same_module_host_environment": true,
       "outcome": "non-reproduction; crash remains open; no workaround or policy change"
-    }
+    },
+    "installed_reaper_choice_edit_verified": false
   },
   "test67_deck_update": {
     "current_available_classes": 25,

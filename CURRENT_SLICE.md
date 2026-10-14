@@ -15,7 +15,8 @@ Available classes and its saved project/history; its shut-down VM stays retained
    input. Test68 queues the reply before a direct native-window wake. Two actual
    overview completions and ten pulses join to fresh Home captures across 150
    seconds without input. The matching read-only frontend retains a REAPER draft
-   through renewal; selected Setup shows Bitwig. Never retarget or replay an action.
+   through renewal; selected Setup shows Bitwig. Installed REAPER choice editing
+   remains unverified. Never retarget or replay an action.
 3. Ordinary use: the retained Bitwig project freshly loads its two source levels
    and Serum FX, and plays finite nonzero stereo audio for 20 seconds. All 23
    original preferences and the saved project are exact after owned cleanup.
