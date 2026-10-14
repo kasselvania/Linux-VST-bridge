@@ -172,7 +172,7 @@ impl Library {
                     ui.small("Setup actions and settings appear after the current controls load.");
                     // A Setup discovery may focus several exact classes. Each
                     // row must still let the user select one current detail.
-                    if fresh && self.focused_product().is_none()
+                    if self.focused_product().is_none()
                         && ui.add_sized([240.0, 44.0],
                             egui::Button::new("Manage plug-in")).clicked() {
                         selected = Some(ProductKey::from(product));
@@ -1513,20 +1513,23 @@ mod tests {
         let snapshot = snapshot();
         let first = ProductKey::from(&snapshot.products[0]);
         let second = ProductKey::from(&snapshot.products[1]);
-        let mut library = Library::default();
-        library.focus_products(vec![first.clone(), second.clone()]);
-        assert!(library.focused_product().is_none());
-        let ctx = egui::Context::default();
-        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-            library.show_current(ui, &snapshot, true, false, &mut false);
-        });
-        let mut labels = vec![];
-        for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
-        output.textures_delta.clear();
-        assert_eq!(labels.iter().filter(|line| line.as_str() == "Manage plug-in").count(), 2);
-        library.focus_product(second.clone());
-        assert_eq!(library.focused_product(), Some(&second));
-        assert_eq!(library.products(&snapshot).len(), 1);
+        for fresh in [true, false] {
+            let mut library = Library::default();
+            library.focus_products(vec![first.clone(), second.clone()]);
+            assert!(library.focused_product().is_none());
+            let ctx = egui::Context::default();
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                library.show_current(ui, &snapshot, fresh, false, &mut false);
+            });
+            let mut labels = vec![];
+            for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
+            output.textures_delta.clear();
+            assert_eq!(labels.iter().filter(|line| line.as_str() == "Manage plug-in").count(), 2,
+                "read-only detail navigation remains available, fresh={fresh}");
+            library.focus_product(second.clone());
+            assert_eq!(library.focused_product(), Some(&second));
+            assert_eq!(library.products(&snapshot).len(), 1);
+        }
     }
 
     #[test]

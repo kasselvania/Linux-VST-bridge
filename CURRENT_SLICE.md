@@ -12,14 +12,16 @@ Deck hold: the user is actively using it and has not handed it back. No Deck
 access, scans, service calls, input, installs or experiments until explicit release.
 The owned Cachy VM remains off; restart only for useful installed acceptance.
 
-1. Completion state (current): Home's permanent “Next: open your DAW” fallback
-   mistakes a completed connection for an unfinished task. Show observed native
+1. Completion state (source landed; installed acceptance awaits handoff): Home's
+   permanent “Next: open your DAW” fallback is removed. Show observed native
    availability and the exactly bound DAW when known; keep usage help optional.
    Preserve real unfinished, unavailable and empty states. No usage confirmation,
    activation claim or audio-success claim follows from publication alone.
-2. Passive refresh: retain coherent last-observed task content and unrelated
-   browsing/choices. Validate actual mutations against unchanged targets and
-   consequences; do not remove freshness/ownership checks.
+2. Passive refresh (current): retain last-observed tasks and browsing/choices.
+   Capture the original clicked action/token through renewal; changed or missing
+   tokens stop it locally. Same-token requests retain manager admission/refusal;
+   never retarget or replay. Backend admission rechecks
+   the exact intent, targets, consequences and owners.
 3. Idle monitoring: measure the owned/source-harness path, remove demonstrated
    unnecessary reconstruction and retain external-change/service-failure detection.
    No arbitrary longer timer or broad watcher/cache framework.

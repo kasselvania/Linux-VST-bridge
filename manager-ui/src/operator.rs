@@ -777,8 +777,7 @@ impl Operator {
             || self.queued_import
             || self.action_inflight
             || self.feedback.as_ref().is_some_and(|f| f.blocking)
-            || (self.pending && !self.background_poll
-                && self.origin != Some(RequestOrigin::SilentPostMutationRefresh))
+            || (self.pending && self.origin.is_some_and(RequestOrigin::foreground))
     }
     fn capture_action(&mut self, request: Request) -> bool {
         if self.controls_pending() {
@@ -805,13 +804,21 @@ impl Operator {
         })
     }
     fn current_action_snapshot(&self) -> Option<&Snapshot> {
-        self.overview.as_ref().filter(|_| self.overview_fresh).map(|o| &o.current)
+        // Age alone cannot change the displayed target or consequences. Capture
+        // its original token; current backend admission remains authoritative.
+        self.overview.as_ref().filter(|_| self.overview_fresh || self.overview_renewing)
+            .map(|o| &o.current)
     }
     fn current_readiness(&self) -> Option<&ReadinessAssessment> {
-        let overview = self.overview.as_ref().filter(|_| self.overview_fresh)?;
-        let (assessment, received, generation) = self.readiness.as_ref()?;
-        (received.elapsed() < Duration::from_secs(60)
-            && *generation == overview.current_generation
+        if !self.overview_fresh || self.readiness.as_ref()?.1.elapsed() >= Duration::from_secs(60) {
+            return None;
+        }
+        self.last_readiness()
+    }
+    fn last_readiness(&self) -> Option<&ReadinessAssessment> {
+        let overview = self.overview.as_ref()?;
+        let (assessment, _, generation) = self.readiness.as_ref()?;
+        (*generation == overview.current_generation
             && assessment.state_token == overview.current.state_token
             && assessment.system == overview.current.system).then_some(assessment)
     }
@@ -909,10 +916,29 @@ impl Operator {
     }
     fn next_action(&mut self) -> Option<Request> {
         if self.pending || self.frontend_superseded {
-            None
-        } else {
-            self.queued_action.take()
+            return None;
         }
+        let request = self.queued_action.take()?;
+        let current = self.current_action_snapshot();
+        if current.is_some_and(|snapshot| snapshot.state_token == request.state_token) {
+            return Some(request);
+        }
+        // A readback cannot upgrade a click into a different action, target or
+        // consequence. Nothing was dispatched, so refuse locally without replay.
+        let changed = current.is_some();
+        if let Some(feedback) = &mut self.feedback {
+            feedback.transition("not_submitted");
+            feedback.terminal = true;
+            feedback.blocking = false;
+            feedback.release_after_snapshot = false;
+            feedback.text = if changed {
+                "The setup changed during status refresh. Review its current actions and try again; this request was not submitted."
+            } else {
+                "Current status is unavailable. Refresh and try again; this request was not submitted."
+            }.into();
+        }
+        self.refresh_after |= !changed;
+        None
     }
     fn buttons(
         ui: &mut egui::Ui,
@@ -1553,7 +1579,7 @@ impl Operator {
         });
         if !fresh {
             ui.colored_label(warning_color(ui),
-                "Refreshing current status. These are the last listed plug-ins; actions wait for the refresh.");
+                "Current status is unavailable. These are the last listed plug-ins; setup actions wait for current readback.");
         }
         let unfinished = overview.current.installer_setups.iter().filter(|setup|
             setup.journey.as_ref().map(|journey| journey.phase != InstallationPhase::Available)
@@ -1571,10 +1597,7 @@ impl Operator {
         egui::Frame::group(ui.style()).fill(ui.visuals().faint_bg_color)
             .inner_margin(16.0).show(ui, |ui| {
             ui.set_min_width((ui.available_width() - 1.0).max(0.0));
-            if !fresh {
-                ui.strong("Refreshing plug-in status");
-                ui.label("Wait for the current status before starting or changing a plug-in. You can still browse the listed software.");
-            } else if (!overview.current.system.capacity_available()
+            if (!overview.current.system.capacity_available()
                 || overview.current.system.cleanup_unconfirmed
                 || overview.current.system.stale_transports > 0
                 || overview.current.system.pending_transactions > 0) && !owned_pause {
@@ -1586,7 +1609,7 @@ impl Operator {
                 } else {"Could not confirm that an earlier plug-in or installer closed."});
                 let recoveries: Vec<_> = overview.current.actions.iter().filter(|offer|
                     matches!(offer.action,Action::TransactionReconcile {})).cloned().collect();
-                Self::buttons(ui,&recoveries,overview.current.system.inactive_reason(),pending,chosen);
+                Self::buttons(ui,&recoveries,overview.current.system.inactive_reason(),pending || !fresh,chosen);
                 if ui.button("Review recovery details").clicked() {*page = Page::Diagnostics;}
             } else if let Some(setup) = unfinished {
                 let partial = partial_installation_needs_review(setup, &overview.current);
@@ -1620,12 +1643,13 @@ impl Operator {
             } else if let Some(assessment) = assessment.filter(|assessment|
                 assessment.overall_status != ReadinessOutcome::Ready
                     && (!assessment.ordered_steps.is_empty() || !assessment.blockers.is_empty())) {
+                ui.small("Computer setup recommendations reflect the last explicit setup check.");
                 if let Some(step) = assessment.ordered_steps.first() {
                     ui.strong(format!("Next: {}", step.title));
                     ui.label(&step.detail);
                     if let Some(action) = &step.action {
                         crate::library::primary_action(ui, action,
-                            overview.current.system.inactive_reason(), pending, chosen);
+                            overview.current.system.inactive_reason(), pending || !fresh, chosen);
                     }
                 } else {
                     ui.strong(match assessment.overall_status {
@@ -2410,9 +2434,10 @@ impl eframe::App for Operator {
         }
         self.expire_overview();
 
-        let readiness_fresh = self.current_readiness().is_some();
+        let readiness_visible = self.current_readiness().or_else(|| self.last_readiness()).is_some();
         let controls_pending = self.controls_pending();
-        let action_controls_pending = controls_pending || (!self.preview && !self.overview_fresh);
+        let actions_current = self.current_action_snapshot().is_some();
+        let action_controls_pending = controls_pending || (!self.preview && !actions_current);
         let mut refresh = false;
         let mut pick = false;
         let mut chosen = None;
@@ -2448,12 +2473,12 @@ impl eframe::App for Operator {
                         match self.page {
                             Page::Home => {
                                 Self::fast_home(ui, overview, self.readiness.as_ref()
-                                    .filter(|_| readiness_fresh).map(|(assessment, _, _)| assessment), self.overview_fresh,
+                                    .filter(|_| readiness_visible).map(|(assessment, _, _)| assessment), actions_current,
                                     controls_pending, (&mut self.page, &mut self.library, &mut self.focus, &mut refresh, &mut chosen));
                                 return;
                             }
                             Page::Setup => {
-                                Self::fast_setup(ui, overview, self.overview_fresh,
+                                Self::fast_setup(ui, overview, actions_current,
                                     controls_pending, (&mut refresh, &mut chosen, &mut pick,
                                         &mut self.page, &mut self.library, &mut self.focus,
                                         &mut self.software_install_daw));
@@ -2463,7 +2488,8 @@ impl eframe::App for Operator {
                                 if let Some(selected) = &selected_product_snapshot {
                                     if !self.overview_fresh {
                                         ui.colored_label(warning_color(ui),
-                                            "Refreshing current status. Actions remain unavailable until readback completes.");
+                                            if self.overview_renewing {"Last observed plug-in status · refreshing…"}
+                                            else {"Current status is unavailable. Setup actions wait for current readback."});
                                     }
                                     self.library.show(ui, selected, action_controls_pending,
                                         &mut chosen, Self::product_details);
@@ -2471,7 +2497,7 @@ impl eframe::App for Operator {
                                     let attempted = self.library.focused_product().is_some_and(|key|
                                         self.product_attempted.as_ref() == Some(key));
                                     self.library.show_current(ui, &overview.current,
-                                        self.overview_fresh, attempted && !self.pending,
+                                        actions_current, attempted && !self.pending,
                                         &mut retry_details);
                                 }
                                 return;
@@ -2591,7 +2617,7 @@ impl eframe::App for Operator {
         }
         let result_offer = self.product_form.as_ref().and_then(|form| {
             let Action::CompatibilityResult { candidate, expected_current, .. } = form else { return None };
-            let snapshot = if self.overview_fresh {
+            let snapshot = if self.current_action_snapshot().is_some() {
                 selected_product_snapshot.as_ref().or_else(|| self.current_action_snapshot())
             } else if self.preview { self.snapshot.as_ref() } else { None };
             Some(compatibility_result_offer(snapshot, candidate, expected_current))
@@ -4124,7 +4150,7 @@ mod tests {
     }
 
     #[test]
-    fn daw_and_program_choices_survive_expiry_without_admitting_stale_actions() {
+    fn daw_and_program_choices_survive_renewal_without_retargeting_a_click() {
         for width in [560.0, 960.0, 1280.0] {
             let ctx = result_form_context();
             let mut style = (*ctx.global_style()).clone();
@@ -4149,6 +4175,7 @@ mod tests {
             state.software_install_daw = None;
             let render = |state: &mut Operator, events: Vec<egui::Event>, chosen: &mut Option<Action>| {
                 let pending = state.controls_pending();
+                let actions_current = state.current_action_snapshot().is_some();
                 let mut output = ctx.run_ui(egui::RawInput {
                     events, screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO,
                         egui::vec2(width, 1200.0))), ..Default::default()
@@ -4156,7 +4183,7 @@ mod tests {
                     Operator::health_bar(ui, state.current_health_system(), state.current_owned_pause(),
                         state.overview_renewing);
                     navigation(ui, &mut state.page);
-                    Operator::fast_setup(ui, state.overview.as_ref().unwrap(), state.overview_fresh,
+                    Operator::fast_setup(ui, state.overview.as_ref().unwrap(), actions_current,
                         pending, (&mut false, chosen, &mut false, &mut state.page,
                             &mut state.library, &mut state.focus, &mut state.software_install_daw));
                 });
@@ -4213,13 +4240,21 @@ mod tests {
             let open = point(&labels, "Open Source app (helper)");
             render(&mut state, click(open, true), &mut chosen);
             render(&mut state, click(open, false), &mut chosen);
-            assert!(chosen.is_none(), "An expired offer must remain disabled");
-            assert!(!state.capture_chosen_action(Action::VendorSoftwareInstall {
-                application: "helper".into(), daw: DawChoice::Reaper }));
-            assert!(state.queued_action.is_none());
+            let action = installation_with_daw(&chosen.take().unwrap(), state.software_install_daw.unwrap()).unwrap();
+            assert_eq!(action, Action::VendorSoftwareInstall {
+                application: "helper".into(), daw: DawChoice::Reaper });
+            assert!(state.capture_chosen_action(action.clone()));
+            let original = state.queued_action.as_ref().unwrap().clone();
+            assert_eq!(original.state_token, overview.current.state_token);
+            assert!(state.next_action().is_none(), "wait for the pending read, without losing the click");
 
             overview.current.state_token = "renewed-token".into();
             state.handle_reply(Reply::CurrentOverview(Box::new(overview.into())));
+            assert_eq!(state.queued_action.as_ref().unwrap().state_token, original.state_token);
+            assert_eq!(state.queued_action.as_ref().unwrap().action, action);
+            assert!(state.next_action().is_none(), "changed authority must not upgrade the captured token");
+            assert!(state.feedback.as_ref().unwrap().text.contains("request was not submitted"));
+            assert!(!state.controls_pending());
             let labels = render(&mut state, vec![], &mut chosen);
             assert_eq!(state.software_install_daw, Some(DawChoice::Reaper));
             assert!(!labels.iter().any(|(text, _)| text == "Choose installed program"));
@@ -4247,11 +4282,12 @@ mod tests {
             state.handle_reply(Reply::Pulse(pulse_fixture(false)));
             state.last_overview = Instant::now() - Duration::from_secs(61);
             state.expire_overview();
-            assert!(state.current_action_snapshot().is_none());
+            assert_eq!(state.current_action_snapshot().unwrap().state_token, overview.current.state_token);
             assert_eq!(state.current_health_system(), Some(&overview.current.system), "{cause}");
             state.handle_reply(Reply::Pulse(pulse_fixture(false)));
             assert_eq!(state.current_health_system(), Some(&overview.current.system));
-            assert!(state.current_action_snapshot().is_none(), "a pulse cannot renew action admission");
+            assert!(!state.overview_fresh, "a pulse cannot renew the overview");
+            assert_eq!(state.current_action_snapshot().unwrap().state_token, overview.current.state_token);
 
             match cause {
                 "read_failure" => state.handle_reply(Reply::Error("Readback failed".into())),
@@ -4273,19 +4309,173 @@ mod tests {
         }
     }
     #[test]
-    fn expired_readback_still_refuses_runtime_action_capture() {
+    fn passive_renewal_keeps_the_home_task_and_readonly_navigation() {
+        for width in [560.0, 960.0] {
+            let ctx = result_form_context();
+            let mut state = state_fixture();
+            let mut overview = overview_fixture();
+            overview.current.system.dsp = 0;
+            overview.current.system.keepers = 0;
+            overview.current.system.cleanup_unconfirmed = false;
+            overview.current.installer_setups = vec![InstallerSetup {
+                installer:"retained-installer".into(), name:"Unfinished setup".into(),
+                label_source:"operator_named".into(), byte_size:1024, format:"pe_executable".into(), imported_at:1,
+                phase:SetupPhase::DiscoveryComplete, status:"Connect the missing effect.".into(),
+                environment:Some("owned-environment".into()), compatibility:None, discovered:vec![],
+                primary:Some(AvailableAction {label:"Find and connect installed plug-ins".into(), disabled_reason:None,
+                    action:Action::EnvironmentRefresh {environment:"owned-environment".into(), daw:DawChoice::Bitwig}}),
+                secondary:vec![], rename:AvailableAction {label:"Rename".into(), disabled_reason:None,
+                    action:Action::InstallerRename {installer:"retained-installer".into(), label:String::new()}},
+                journey:Some(InstallationJourney {daw:DawChoice::Bitwig, phase:InstallationPhase::NeedsAttention,
+                    plugins:vec![], failure:None}), history:vec![],
+            }];
+            state.handle_reply(Reply::Overview(Box::new(overview)));
+            let mut target = egui::Pos2::ZERO;
+            let mut before = None;
+            let mut chosen = None;
+            for frame in 0..5 {
+                if frame == 3 {
+                    state.last_overview = Instant::now() - Duration::from_secs(61);
+                    state.expire_overview();
+                    state.pending = true;
+                    state.origin = Some(RequestOrigin::SilentPostMutationRefresh);
+                }
+                let current = state.current_action_snapshot().is_some();
+                let pending = state.controls_pending();
+                let events = if frame >= 3 {vec![egui::Event::PointerMoved(target),
+                    egui::Event::PointerButton {pos:target, button:egui::PointerButton::Primary,
+                        pressed:frame == 3, modifiers:egui::Modifiers::NONE}]} else {vec![]};
+                let mut output = ctx.run_ui(egui::RawInput {events,
+                    screen_rect:Some(egui::Rect::from_min_size(egui::Pos2::ZERO,egui::vec2(width,1200.0))),
+                    ..Default::default()}, |ui| {
+                    Operator::health_bar(ui,state.current_health_system(),state.current_owned_pause(),state.overview_renewing);
+                    Operator::fast_home(ui,state.overview.as_ref().unwrap(),None,current,pending,
+                        (&mut state.page,&mut state.library,&mut state.focus,&mut false,&mut chosen));
+                });
+                let mut labels = vec![];
+                for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+                let positions = |labels:&[(String,egui::Pos2)]| labels.iter()
+                    .filter(|(label,_)| label.starts_with("Unfinished setup ·")
+                        || label == "Find and connect installed plug-ins" || label == "Open this setup")
+                    .cloned().collect::<Vec<_>>();
+                if frame == 2 {
+                    target = labels.iter().find(|(label,_)|label == "Open this setup").unwrap().1;
+                    before = Some(positions(&labels));
+                }
+                if frame >= 3 {
+                    assert_eq!(positions(&labels),*before.as_ref().unwrap(),"task/control reflow at width {width}");
+                    assert!(labels.iter().any(|(label,_)|label == "Last observed status · refreshing…"));
+                    assert!(!labels.iter().any(|(label,_)|label == "Refreshing plug-in status"
+                        || label == "Bridge service status unavailable"));
+                }
+                output.textures_delta.clear();
+            }
+            assert_eq!(state.page,Page::Setup);
+            assert_eq!(state.focus.setup_installer.as_deref(),Some("retained-installer"));
+            assert!(chosen.is_none() && state.queued_action.is_none(),"browsing must not submit a mutation");
+        }
+    }
+    #[test]
+    fn readonly_queries_leave_choices_usable_but_mutation_owners_stay_busy() {
+        for origin in [RequestOrigin::ProductDetail,RequestOrigin::DetailSnapshot,
+            RequestOrigin::ExplicitRefresh,RequestOrigin::SilentPostMutationRefresh,RequestOrigin::BackgroundActivity] {
+            let mut state = state_fixture();
+            state.handle_reply(Reply::Overview(Box::new(overview_fixture())));
+            state.pending = true;
+            state.origin = Some(origin);
+            assert!(!state.controls_pending(),"{origin:?}");
+            assert!(state.capture_chosen_action(Action::EnvironmentRescan {environment:"exact-owned-environment".into()}));
+            assert!(state.controls_pending() && state.next_action().is_none());
+        }
+        for origin in [RequestOrigin::UserAction,RequestOrigin::InstallerImport] {
+            let mut state = state_fixture();
+            state.handle_reply(Reply::Overview(Box::new(overview_fixture())));
+            state.pending = true;
+            state.origin = Some(origin);
+            assert!(state.controls_pending());
+            assert!(!state.capture_chosen_action(Action::RuntimeInstall {}));
+        }
+    }
+    #[test]
+    fn genuine_read_failure_refuses_a_queued_click_without_replay() {
+        let mut state = state_fixture();
+        state.handle_reply(Reply::Overview(Box::new(overview_fixture())));
+        state.pending = true;
+        state.origin = Some(RequestOrigin::SilentPostMutationRefresh);
+        assert!(state.capture_chosen_action(Action::EnvironmentRescan {environment:"exact-owned-environment".into()}));
+        state.handle_reply(Reply::Error("Current readback failed".into()));
+        assert!(state.next_action().is_none());
+        assert!(state.queued_action.is_none() && state.current_health_system().is_none());
+        assert!(state.feedback.as_ref().unwrap().text.contains("Current status is unavailable"));
+        state.handle_reply(Reply::CurrentOverview(Box::new(overview_fixture().into())));
+        assert!(state.next_action().is_none(),"recovery must not replay a refused click");
+    }
+    #[test]
+    fn same_token_offer_changes_preserve_intent_and_display_manager_refusal() {
+        for change in ["service","cleanup","disabled","removed","target"] {
+            let mut state = state_fixture();
+            let action = Action::EnvironmentRefresh {environment:"exact-owned-environment".into(),daw:DawChoice::Bitwig};
+            let mut overview = overview_fixture();
+            overview.current.actions.push(AvailableAction {label:"Find and connect".into(),
+                action:action.clone(),disabled_reason:None});
+            state.handle_reply(Reply::Overview(Box::new(overview.clone())));
+            state.snapshot = Some(overview.current.clone());
+            state.pending = true;
+            state.origin = Some(RequestOrigin::SilentPostMutationRefresh);
+            assert!(state.capture_chosen_action(action.clone()));
+            let original = state.queued_action.as_ref().unwrap().clone();
+            match change {
+                "service" => overview.current.system.service = "capacity unavailable".into(),
+                "cleanup" => overview.current.system.cleanup_unconfirmed = true,
+                "disabled" => overview.current.actions.last_mut().unwrap().disabled_reason = Some("Affected owner is busy".into()),
+                "removed" => {overview.current.actions.pop();},
+                "target" => overview.current.actions.last_mut().unwrap().action = Action::EnvironmentRefresh {
+                    environment:"different-environment".into(),daw:DawChoice::Reaper},
+                _ => unreachable!(),
+            }
+            assert_eq!(overview.current.state_token,original.state_token);
+            state.handle_reply(Reply::CurrentOverview(Box::new(overview.into())));
+            assert_eq!(state.next_action(),Some(original),"never retarget the captured request, {change}");
+            assert!(state.next_action().is_none(),"a submitted request is never replayed");
+            state.pending = true;
+            state.origin = Some(RequestOrigin::UserAction);
+            state.handle_reply(Reply::Receipt(Receipt {schema:crate::model::OPERATOR_SCHEMA,
+                accepted:false,operation:Some("exact-refused-request".into()),
+                refusal:Some("The current setup offer is unavailable; refresh before trying again.".into())}));
+            let feedback = state.feedback.as_ref().unwrap();
+            assert_eq!(feedback.action,action);
+            assert!(feedback.text.contains("current setup offer is unavailable"));
+            assert!(!feedback.text.contains("not submitted"),"this request reached manager admission");
+            assert!(state.next_action().is_none(),"a refused request is never replayed");
+        }
+    }
+    #[test]
+    fn age_renewal_captures_the_original_runtime_intent_without_upgrading_it() {
         let mut state = state_fixture();
         state.overview = Some(overview_fixture().into());
         state.overview_fresh = true;
         assert!(state.current_action_snapshot().is_some());
         state.last_overview = Instant::now() - Duration::from_secs(61);
         state.expire_overview();
-        state.capture_chosen_action(Action::EnvironmentRuntimeSelect {
+        let token = state.current_action_snapshot().unwrap().state_token.clone();
+        state.pending = true;
+        state.origin = Some(RequestOrigin::SilentPostMutationRefresh);
+        let action = Action::EnvironmentRuntimeSelect {
             environment: "exact-existing-setup".into(), runner: "selected-installed-runtime".into(),
             expected_environment: "exact-environment-identity".into(),
-        });
+        };
+        assert!(state.capture_chosen_action(action.clone()));
+        assert_eq!(state.queued_action.as_ref().unwrap().state_token, token);
+        assert!(state.next_action().is_none());
+        let mut changed = overview_fixture();
+        changed.current.state_token = "different-environment-or-consequences".into();
+        state.handle_reply(Reply::CurrentOverview(Box::new(changed.into())));
+        assert!(state.next_action().is_none());
         assert!(state.queued_action.is_none());
-        assert!(state.current_action_snapshot().is_none());
+        let feedback = state.feedback.as_ref().unwrap();
+        assert_eq!(feedback.action, action);
+        assert!(feedback.terminal && !feedback.blocking && feedback.text.contains("setup changed"));
+        assert!(state.next_action().is_none(), "never automatically replay the click");
     }
     #[test]
     fn passive_refresh_renews_records_without_renewing_readiness() {
@@ -4296,12 +4486,15 @@ mod tests {
         state.readiness.as_mut().unwrap().1 = received;
         state.last_overview = received;
         state.expire_overview();
-        assert!(state.current_action_snapshot().is_none());
+        assert_eq!(state.current_action_snapshot().unwrap().state_token,
+            state.overview.as_ref().unwrap().current.state_token);
+        assert!(state.last_readiness().is_some(), "retain the matching last observed recommendations");
         assert!(matches!(state.overview_query(), Query::CurrentOverview));
         let original_facts = serde_json::to_value(&state.readiness.as_ref().unwrap().0).unwrap();
         state.handle_reply(Reply::CurrentOverview(Box::new(overview_fixture().into())));
         assert!(state.current_action_snapshot().is_some());
         assert!(state.current_readiness().is_none());
+        assert!(state.last_readiness().is_some(), "a passive read must not erase an unfinished setup recommendation");
         assert_eq!(state.readiness.as_ref().unwrap().1, received);
         assert_eq!(serde_json::to_value(&state.readiness.as_ref().unwrap().0).unwrap(), original_facts);
         state.explicit_refresh_queued = true;
@@ -4324,6 +4517,7 @@ mod tests {
         state.handle_reply(Reply::CurrentOverview(Box::new(current)));
         assert!(state.current_action_snapshot().is_some());
         assert!(state.current_readiness().is_none());
+        assert!(state.last_readiness().is_none(), "changed bindings cannot reuse old recommendations");
         state.feedback = Some(RequestFeedback::captured(Action::RuntimeInstall {}));
         state.feedback.as_mut().unwrap().receipt(&Receipt {schema:crate::model::OPERATOR_SCHEMA,
             accepted:true,operation:Some("owned-operation".into()),refusal:None});
@@ -4349,6 +4543,7 @@ mod tests {
         state.handle_reply(Reply::CurrentOverview(Box::new(changed)));
         assert!(state.current_action_snapshot().is_some());
         assert!(state.current_readiness().is_none());
+        assert!(state.last_readiness().is_none());
         assert_eq!(state.readiness.as_ref().unwrap().1, received);
         assert!(matches!(state.overview_query(), Query::CurrentOverview));
         assert_eq!(state.overview.as_ref().unwrap().current.products[0].details["added_frames"], 1024);
@@ -5157,7 +5352,9 @@ mod tests {
             state.expire_overview();
             state.handle_reply(handoff_poll_reply(&state, &raw, activity));
             assert!(state.current_health_system().unwrap().capacity_available());
-            assert!(state.current_action_snapshot().is_none(), "polls cannot renew expired action authority");
+            assert!(!state.overview_fresh, "polls cannot renew the overview");
+            assert_eq!(state.current_action_snapshot().unwrap().state_token,
+                state.overview.as_ref().unwrap().current.state_token);
         }
     }
     #[test]
@@ -6322,6 +6519,9 @@ mod tests {
     #[test]
     fn background_poll_click_is_captured_then_submitted_once() {
         let mut o = state_fixture();
+        let mut overview = overview_fixture();
+        overview.current.state_token = create_request().state_token;
+        o.handle_reply(Reply::Overview(Box::new(overview)));
         o.pending = true;
         o.background_poll = true;
         assert!(!o.controls_pending());
@@ -6434,10 +6634,19 @@ mod tests {
             let mut pulse = pulse_fixture(false);
             if changed { pulse.cleanup_unconfirmed = Some(true); }
             o.handle_reply(Reply::Pulse(pulse));
-            let request = o.next_action().unwrap();
-            assert_eq!(request.schema, crate::model::OPERATOR_SCHEMA);
-            assert_eq!(request.state_token, token, "never relabel a captured request");
-            assert_eq!(request.action, recovery);
+            assert_eq!(o.queued_action.as_ref().unwrap().state_token, token);
+            if changed {
+                assert!(o.next_action().is_none());
+                let feedback = o.feedback.as_ref().unwrap();
+                assert_eq!(feedback.action, recovery);
+                assert!(feedback.terminal && !feedback.blocking);
+                assert!(feedback.text.contains("Current status is unavailable"));
+            } else {
+                let request = o.next_action().unwrap();
+                assert_eq!(request.schema, crate::model::OPERATOR_SCHEMA);
+                assert_eq!(request.state_token, token, "never relabel a captured request");
+                assert_eq!(request.action, recovery);
+            }
             assert!(o.next_action().is_none());
         }
     }
@@ -6504,6 +6713,9 @@ mod tests {
             recipe: "cd".repeat(32), predecessor: None,
         };
         let request = Request { schema: crate::model::OPERATOR_SCHEMA, state_token: "current".into(), action };
+        let mut overview = overview_fixture();
+        overview.current.state_token = request.state_token.clone();
+        o.handle_reply(Reply::Overview(Box::new(overview)));
         o.pending = true;
         o.background_poll = true;
         o.capture_action(request.clone());
