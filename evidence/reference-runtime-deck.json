@@ -374,8 +374,159 @@
       "kontakt_history_only_reminder_settled": true,
       "remaining_serum_fx_unavailable_not_hidden": true
     },
-    "fresh_app_selection": "pending clean CachyOS ordinary chooser acceptance",
-    "native_access_continuation": "pending renderer adapter and installed proof",
-    "serum_fx_automatic_recovery": "pending"
+    "fresh_app_selection": "CachyOS Test61 chooser and ordinary app continuation accepted separately",
+    "native_access_continuation": "Test65 installed Native Access open and normal close automatically return Kontakt Available in Bitwig",
+    "serum_fx_automatic_recovery": "Deck Test63 ordinary Find and connect accepted"
+  },
+  "test63_serum_fx_continuation": {
+    "ordinary_find_and_connect_new_classes": 1,
+    "current_available_classes": 18,
+    "working_instrument_publication_byte_exact": true,
+    "working_instrument_performance_byte_exact": true,
+    "project": {
+      "bytes": 46077,
+      "sha256": "6c2a0e07ec8e745672ddb5fbb03d9a766161068f3e0eb191068d2ea19c4094b6",
+      "notes": 8,
+      "phrase_bars": [
+        1,
+        3
+      ],
+      "tempo_bpm": 120,
+      "source_levels_saved_and_recalled": [
+        0.435,
+        0.49
+      ],
+      "serum_fx_delay": {
+        "mode": "PingPong",
+        "left_quarter_note": true,
+        "right_quarter_note": true,
+        "mix_percent": 30,
+        "feedback_percent": 40
+      },
+      "fresh_process_recall": true,
+      "saved_project_byte_exact": true
+    },
+    "captures": [
+      {
+        "phase": "before-reopen",
+        "seconds": 20,
+        "frames": 960000,
+        "sample_rate": 48000,
+        "channels": 2,
+        "bytes": 7680000,
+        "nonzero_samples": 1729024,
+        "nonfinite_samples": 0
+      },
+      {
+        "phase": "after-reopen",
+        "seconds": 20,
+        "frames": 960000,
+        "sample_rate": 48000,
+        "channels": 2,
+        "bytes": 7680000,
+        "nonzero_samples": 1730560,
+        "nonfinite_samples": 0
+      }
+    ],
+    "original_preference_files_restored_exact": 23,
+    "original_test60_project_byte_exact": true,
+    "retained_test62_readback": {
+      "operator_schema": 26,
+      "reader_exit": 0,
+      "current_available_classes": 18,
+      "protected_files_unchanged": 5
+    }
+  },
+  "test64": {
+    "passive_status_renewal": {
+      "last_observed_health_retained": true,
+      "daw_and_app_choices_stable": true
+    },
+    "native_access_prelaunch_refusal": {
+      "failure": "renderer_adapter_missing",
+      "before_renderer_launch": true,
+      "automatically_restored_available_classes": 18,
+      "original_records_retained": 31,
+      "failed_job_retained": true,
+      "owners_after_recovery": {
+        "dsp": 0,
+        "keepers": 0,
+        "maintenance": 0
+      }
+    }
+  },
+  "test65": {
+    "ordinary_update_minutes_approx": 6,
+    "native_access_visit": {
+      "software_rendering_open_and_normal_close": true,
+      "same_job_completed": true,
+      "available_in": "Bitwig",
+      "connected": 1,
+      "needing_attention": 0,
+      "home_old_warning_cleared": true,
+      "from_environment_revision": 2,
+      "to_environment_revision": 3,
+      "full_owned_retirement": true,
+      "software_and_runtime_bytes_unchanged_across_visit": true,
+      "owners_after_visit": {
+        "dsp": 0,
+        "keepers": 0,
+        "maintenance": 0,
+        "pending_transactions": 0,
+        "stale_transports": 0
+      },
+      "cleanup_unconfirmed": false
+    },
+    "preservation": {
+      "protected_files": 3692,
+      "files_byte_exact": 3690,
+      "authorized_registry_and_environment_revision_record_changes": 2,
+      "missing_files": 0,
+      "projects": 326,
+      "current_available_classes": 18,
+      "original_native_access_records_byte_exact": 31,
+      "failed_test64_records_byte_exact": 3,
+      "pinned_native_access_images_byte_exact": 10,
+      "actual_ntkdaemon_byte_exact": true,
+      "old_publication_bytes_content_settings_qualification_external_ids_preserved": true,
+      "performance_record_absence_preserved": true
+    },
+    "retained_test62_readback": {
+      "operator_schema": 26,
+      "reader_exit": 0,
+      "elapsed_seconds": 5.11,
+      "same_job_completed": true,
+      "kontakt_available_in": "Bitwig",
+      "current_available_classes": 18,
+      "protected_files_unchanged": 8,
+      "service": "active",
+      "live_owners": 0,
+      "cleanup_unconfirmed": false
+    }
+  },
+  "test66_deck_update": {
+    "ordinary_update_minutes_approx": 6,
+    "selected_live_frontend_and_paired_manager_exact": true,
+    "current_available_classes": 18,
+    "service": "active",
+    "live_owners": 0,
+    "pending_transactions": 0,
+    "stale_transports": 0,
+    "cleanup_unconfirmed": false,
+    "protected_files": 5352,
+    "files_byte_exact": 5351,
+    "authorized_registry_renewal_changes": 1,
+    "projects_byte_exact": 326,
+    "original_and_failed_test64_native_access_files_byte_exact": 34,
+    "home_renewal": {
+      "captures": 7,
+      "span_seconds_approx": 36,
+      "bridge_running_retained": true,
+      "truthful_last_observed_refresh_sample": 2,
+      "refresh_settled_by_sample": 3,
+      "false_unavailable_observed": false,
+      "old_native_access_task_revived": false,
+      "existing_unrelated_task_retained": true
+    }
   }
 }

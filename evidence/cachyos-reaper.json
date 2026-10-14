@@ -489,6 +489,123 @@
         "current_available_classes": 6,
         "idle_runtime_keepers": 1
       }
+    },
+    "test61": {
+      "scope": "Ordinary bootstrap, explicit app choice, helper retirement and automatic connections",
+      "bootstrap_and_first_visit": {
+        "ordinary_bootstrap": true,
+        "explicit_installed_app_choices": 4,
+        "full_owned_helper_retirement": true,
+        "automatic_new_connections": 2,
+        "current_available_classes": 6
+      },
+      "repeat_visit": {
+        "ordinary_hub_choice": "No",
+        "classes_freshly_checked": 2,
+        "current_available_classes": 6,
+        "owners": {
+          "dsp": 0,
+          "keepers": 0,
+          "maintenance": 0
+        }
+      }
+    },
+    "test63": {
+      "fresh_app_only_bootstrap": {
+        "version": "1.0.1",
+        "sha256": "2ff211a9f55876f9c65380931dc115be85d033f63df03fa05a700fb1783bb563",
+        "correct_installed_app_message": true,
+        "chooser_reached": true,
+        "stopped_before_managed_app_registration": true,
+        "new_plugin_classes": 0
+      },
+      "retained_test61_readback": {
+        "operator_schema": 25,
+        "reader_exit": 0,
+        "current_available_classes": 6,
+        "protected_files_unchanged": 4
+      }
+    },
+    "test65": {
+      "ordinary_update_minutes_approx": 19,
+      "protected_files": 88,
+      "files_byte_exact": 87,
+      "authorized_registry_renewal_changes": 1,
+      "missing_files": 0,
+      "original_published_classes_available": 6,
+      "saved_reaper_projects_byte_exact": 1,
+      "setup_operator_app_environment_history_unchanged": true,
+      "class_changes_only_revision_identity_and_native_host_descriptor_paths": true,
+      "service": "active",
+      "live_owners": 0,
+      "cleanup_unconfirmed": false,
+      "earlier_home_auto_refresh": {
+        "settled_without_check_again": true,
+        "bridge_running": true,
+        "current_available_classes": 6,
+        "retained_setup_version": "1.0.1",
+        "reaper_continuation_retained": true
+      },
+      "later_read_only_setup_navigation": {
+        "ui_status_unavailable": true,
+        "backend_healthy": true,
+        "raw_pulse_state": "NeedsAttention",
+        "raw_pulse_failure_retained": true,
+        "projected_overview_state": "AwaitingApplication",
+        "projected_overview_failure": null,
+        "same_completed_job": true,
+        "whole_json_comparison_mistakes_projection_for_progress": true,
+        "pulse_milliseconds": 14,
+        "overview_seconds": 7.34,
+        "snapshot_seconds": 15.09,
+        "read_exit": 0,
+        "timeout_45_seconds_observed": false,
+        "readback_defect_open": true
+      },
+      "new_chooser_interaction_tested": false
+    },
+    "test66": {
+      "ordinary_update_minutes_approx_range": [
+        21,
+        22
+      ],
+      "selected_live_pid": 52277,
+      "approved_frontend_paired_manager_supervisor_ownership_exact": true,
+      "supervisor_python_minor": "3.14",
+      "protected_files": 88,
+      "files_byte_exact": 87,
+      "authorized_registry_renewal_changes": 1,
+      "missing_files": 0,
+      "exact_classes_available": 6,
+      "saved_reaper_projects_byte_exact": 1,
+      "setup_app_history_unchanged": true,
+      "service": "active",
+      "live_owners": 0,
+      "cleanup_unconfirmed": false,
+      "receipt_reconciliation": {
+        "original_immutable_raw_job_retained": true,
+        "raw_pulse_state": "NeedsAttention",
+        "valid_current_projection_state": "AwaitingApplication",
+        "current_projection_daw": "REAPER",
+        "current_projection_classes": 0,
+        "specific_status_handoff_defect_resolved": true
+      },
+      "home_age_renewal": {
+        "samples": 8,
+        "healthy_bridge_and_correct_handoff_retained": true,
+        "temporary_refreshing_task_placeholder_observed": true
+      },
+      "normal_open_this_setup_chooser": {
+        "setup_version": "1.0.1",
+        "frames": 8,
+        "span_seconds_approx": 40,
+        "running_health_and_reaper_handoff_retained": true,
+        "choose_installed_program_enabled": true,
+        "app_selected": false,
+        "open_enabled": false,
+        "raw_pulse_false_unavailable_observed": false,
+        "chooser_lost": false
+      }
     }
   }
 }
