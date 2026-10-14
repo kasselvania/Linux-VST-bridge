@@ -118,11 +118,9 @@ def unfamiliar_installer(source, generation, version):
             raise ValueError('Exact unfamiliar installer source seam changed')
         source = replace_once(source, anchors[0], f'const {name}: &str = "{value}";')
     source = replace_once(source, '("DisplayVersion", "1.0.0")', f'("DisplayVersion", "{version}")')
-    # The unfamiliar installer must preserve both pre-existing fixture families.
-    anchor = '''    let other_names = if cfg!(beta_completion) { ["LVBReferenceInstrument.vst3", "LVBReferenceEffect.vst3"] }
-        else { ["LVBCompletionInstrument.vst3", "LVBCompletionEffect.vst3"] };'''
-    return replace_once(source, anchor, '''    let other_names = ["LVBReferenceInstrument.vst3", "LVBReferenceEffect.vst3",
-        "LVBCompletionInstrument.vst3", "LVBCompletionEffect.vst3"];''')
+    # The shared self-test now protects every different fixture family using
+    # its declared module names, including this generated unfamiliar identity.
+    return source
 
 
 def build_companion(output, generation):
@@ -182,8 +180,8 @@ def main():
     generation = args.evolve_generation or uuid.uuid4().hex[:8].upper()
     if not re.fullmatch('[0-9A-F]{8}',generation):
         raise ValueError('Exact first-party generation required')
-    if generation == '45544131':
-        raise ValueError('Generated identity collides with the original fixture')
+    if generation in ('45544131', '434D5031', '45444931'):
+        raise ValueError('Generated identity collides with an existing fixture family')
     original = (ROOT / 'windows-fixtures/beta/stateful.cpp').read_text()
     if original.count('0x45544131') != 2 or original.count('"1.0.0"') != 2:
         raise ValueError('Reference fixture identity/version seam changed')
@@ -292,7 +290,8 @@ def main():
             subprocess.run(['rustc', str(installer_source),
                 '--edition=2024', '-D', 'warnings', '-C', 'opt-level=2',
                 '-C', 'target-feature=+crt-static', '--check-cfg', 'cfg(beta_hold)',
-                '--check-cfg', 'cfg(beta_partial_hold)', '--check-cfg', 'cfg(beta_completion)', '-o', str(installer)],
+                '--check-cfg', 'cfg(beta_partial_hold)', '--check-cfg', 'cfg(beta_completion)',
+                '--check-cfg', 'cfg(beta_editor)', '-o', str(installer)],
                 env=env, check=True, timeout=120)
             subprocess.run([str(installer), '--self-test'], check=True, timeout=30)
             row['installer'] = dict(file=version + '/' + installer.name, sha256=sha(installer),

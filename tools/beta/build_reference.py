@@ -3,7 +3,7 @@
 import argparse, hashlib, json, os, pathlib, shutil, subprocess, time, uuid
 parser = argparse.ArgumentParser()
 parser.add_argument('--windows-artifacts', type=pathlib.Path, required=True)
-parser.add_argument('--fixture-family', choices=('reference', 'completion'), default='reference')
+parser.add_argument('--fixture-family', choices=('reference', 'completion', 'editor'), default='reference')
 args = parser.parse_args()
 directory = args.windows_artifacts.resolve(strict=True)
 source = pathlib.Path(__file__).with_name('reference_installer.rs')
@@ -11,7 +11,7 @@ family = args.fixture_family
 env = dict(os.environ, LVB_BETA_INSTRUMENT=str(directory/f'lvb-{family}-instrument.vst3'),
            LVB_BETA_EFFECT=str(directory/f'lvb-{family}-effect.vst3'))
 rows = []
-installers = [('LVB_Completion_Plugins_1_0_0.exe', 'beta_completion')] if family == 'completion' else [
+installers = [(f'LVB_{family.title()}_Plugins_1_0_0.exe', f'beta_{family}')] if family != 'reference' else [
                            ('LVB_Reference_Plugins_1_0_0.exe', None),
                             ('LVB_Reference_Recovery_1_0_0.exe', 'beta_hold'),
                             ('LVB_Reference_Partial_1_0_0.exe', 'beta_partial_hold')]
@@ -20,6 +20,7 @@ for name, configuration in installers:
                '-C', 'opt-level=2', '-C', 'target-feature=+crt-static',
                '--check-cfg', 'cfg(beta_hold)', '--check-cfg', 'cfg(beta_partial_hold)',
                '--check-cfg', 'cfg(beta_completion)',
+               '--check-cfg', 'cfg(beta_editor)',
                '-o', str(directory/name)]
     if configuration: command += ['--cfg', configuration]
     subprocess.run(command, env=env, check=True)

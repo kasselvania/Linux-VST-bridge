@@ -14,6 +14,9 @@
 #ifndef LVB_BETA_COMPLETION
 #define LVB_BETA_COMPLETION 0
 #endif
+#ifndef LVB_BETA_EDITOR
+#define LVB_BETA_EDITOR 0
+#endif
 #if LVB_BETA_COMPLETION
 #include <chrono>
 #include <thread>
@@ -32,9 +35,9 @@ using namespace Steinberg::Vst;
 #endif
 static constexpr bool evolved = LVB_BETA_STATE_VERSION == 2;
 static constexpr int fixtureAudioOutputCount = LVB_BETA_COMPLETION ? 2 : 1;
-static const FUID processorID(0x4C564242, LVB_BETA_COMPLETION ? 0x434D5031 : 0x45544131,
+static const FUID processorID(0x4C564242, LVB_BETA_EDITOR ? 0x45444931 : LVB_BETA_COMPLETION ? 0x434D5031 : 0x45544131,
     LVB_BETA_INSTRUMENT ? 0x494E5354 : 0x45464658, 0x00000001);
-static const FUID controllerID(0x4C564242, LVB_BETA_COMPLETION ? 0x434D5031 : 0x45544131,
+static const FUID controllerID(0x4C564242, LVB_BETA_EDITOR ? 0x45444931 : LVB_BETA_COMPLETION ? 0x434D5031 : 0x45544131,
     LVB_BETA_INSTRUMENT ? 0x494E5354 : 0x45464658, 0x00000002);
 static constexpr double tau = 6.2831853071795864769;
 struct Settings { double gain = .25, colour = .5, trim = .25; };
@@ -290,6 +293,9 @@ public:
 class ReferenceController final : public EditControllerEx1 {
 public:
     static FUnknown* create(void*) { return static_cast<IEditController*>(new ReferenceController); }
+#if LVB_BETA_EDITOR
+    IPlugView* PLUGIN_API createView(FIDString name) override;
+#endif
     tresult PLUGIN_API initialize(FUnknown* host) override {
         auto result = EditControllerEx1::initialize(host);
         if (result != kResultOk) return result;
@@ -324,11 +330,15 @@ public:
         return setComponentState(stream);
     }
 };
+#if LVB_BETA_EDITOR
+#include "editor.h"
+#endif
 BEGIN_FACTORY_DEF("Linux VST Bridge", "https://github.com/kasselvania/Linux-VST-bridge", "")
 DEF_CLASS2(INLINE_UID_FROM_FUID(processorID), PClassInfo::kManyInstances, kVstAudioEffectClass,
-    LVB_BETA_COMPLETION ? (LVB_BETA_INSTRUMENT ? "LVB Completion Instrument" : "LVB Completion Effect")
+    LVB_BETA_EDITOR ? (LVB_BETA_INSTRUMENT ? "LVB Editor Instrument" : "LVB Editor Effect")
+    : LVB_BETA_COMPLETION ? (LVB_BETA_INSTRUMENT ? "LVB Completion Instrument" : "LVB Completion Effect")
                         : (LVB_BETA_INSTRUMENT ? "LVB Reference Instrument" : "LVB Reference Effect"), Vst::kDistributable,
     LVB_BETA_INSTRUMENT ? "Instrument|Synth" : "Fx", "1.0.0", kVstVersionString, ReferenceProcessor::create)
 DEF_CLASS2(INLINE_UID_FROM_FUID(controllerID), PClassInfo::kManyInstances, kVstComponentControllerClass,
-    LVB_BETA_COMPLETION ? "LVB Completion Controller" : "LVB Reference Controller", 0, "", "1.0.0", kVstVersionString, ReferenceController::create)
+    LVB_BETA_EDITOR ? "LVB Editor Controller" : LVB_BETA_COMPLETION ? "LVB Completion Controller" : "LVB Reference Controller", 0, "", "1.0.0", kVstVersionString, ReferenceController::create)
 END_FACTORY
