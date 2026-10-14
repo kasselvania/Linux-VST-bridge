@@ -65,11 +65,12 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
         ] { paths.insert(path.clone()); }
     let app = vendor_cli::application(m, &selector)?;
         require(
-            matches!(app.schema, 1 | 2)
+            matches!(app.schema, 1..=3)
                 && app.environment.root == m.root.join("environments").join(&app.environment.id),
             "operator_current_vendor_binding",
         )?;
         paths.insert(app.environment.root.join("environment.json"));
+        if app.user_selection.is_some() { paths.insert(app.executable.path); }
     }
     for artifact in [&sw.manager,&sw.supervisor,&sw.ownership,&sw.host,&sw.source_manifest] {
         paths.insert(artifact.path.clone());
@@ -809,9 +810,9 @@ pub(super) mod tests {
             "raw_exit":0,"cleanup_confirmed":true,"owned_live":0,"error":null})).unwrap();
         let app = vendor_application::Application {schema:2,id:vendor_application::ApplicationId::Selected,
             environment,executable:Artifact {sha256:digest(&executable).unwrap(),path:executable},
-            helpers:vec![],installer_sha256:installer,
-            installer_result:Artifact {sha256:digest(&witness).unwrap(),path:witness},
-            observed_installer_version:String::new(),
+            helpers:vec![],installer_sha256:Some(installer),
+            installer_result:Some(Artifact {sha256:digest(&witness).unwrap(),path:witness}),
+            observed_installer_version:String::new(),user_selection:None,
         };
         app.verify(&f.m.root).unwrap();
         let directory = vendor_cli::directory(&f.m,&app.selector().unwrap()).unwrap();
@@ -822,7 +823,7 @@ pub(super) mod tests {
     #[test]
     fn registered_vendor_application_reaches_fast_setup_and_normal_action_authority() {
         let (f,app) = selected_vendor_fixture();
-        let record:onboarding::Record=read_json(&app.installer_result.path
+        let record:onboarding::Record=read_json(&app.installer_result.as_ref().unwrap().path
             .parent().unwrap().join("record.json")).unwrap();
         let units=[vendor_cli::unit(&app.selector().unwrap()).unwrap(),
             onboarding::unit(record.installation_operation.as_deref().unwrap()).unwrap()];
@@ -830,10 +831,10 @@ pub(super) mod tests {
             let watched=[f.m.root.join("registry.json"),f.m.root.join("software.json"),
                 vendor_cli::directory(&f.m,&app.selector().unwrap()).unwrap().join("application.json"),
                 app.environment.root.join("environment.json"),
-                app.installer_result.path.parent().unwrap().join("record.json"),
-                app.installer_result.path.clone(),app.executable.path.clone(),
-                f.m.root.join("installers").join(format!("{}.json",app.installer_sha256)),
-                f.m.root.join("installers").join(format!("{}.exe",app.installer_sha256))];
+                app.installer_result.as_ref().unwrap().path.parent().unwrap().join("record.json"),
+                app.installer_result.as_ref().unwrap().path.clone(),app.executable.path.clone(),
+                f.m.root.join("installers").join(format!("{}.json",app.installer_sha256.as_ref().unwrap())),
+                f.m.root.join("installers").join(format!("{}.exe",app.installer_sha256.as_ref().unwrap()))];
             let before:Vec<_>=watched.iter().map(|path|fs::read(path).unwrap()).collect();
             let server = overview_service_reply(&f.m,capacity_json(false,0,0));
             let current = current_overview(&f.m).unwrap();
@@ -887,9 +888,9 @@ pub(super) mod tests {
             assert!(!job.join("vendor-maintenance.json").exists());
             assert!(!job.join("automatic.json").exists());
             fs::write(&app.executable.path,&before[6]).unwrap();
-            let mut receipt:Value=read_json(&app.installer_result.path).unwrap();
+            let mut receipt:Value=read_json(&app.installer_result.as_ref().unwrap().path).unwrap();
             receipt["raw_exit"]=json!(1);
-            atomic_json(&app.installer_result.path,&receipt).unwrap();
+            atomic_json(&app.installer_result.as_ref().unwrap().path,&receipt).unwrap();
             let server = overview_service_reply(&f.m,capacity_json(false,0,0));
             let current = current_overview(&f.m).unwrap();
             server.join().unwrap();
@@ -1451,8 +1452,8 @@ pub(super) mod tests {
         let app = vendor_application::Application {schema:1,
             id:vendor_application::ApplicationId::ArturiaSoftwareCenter,
             environment:f.r.environment.clone(),executable:f.r.module.clone(),helpers:vec![],
-            installer_sha256:"00".repeat(32),installer_result:f.r.host.clone(),
-            observed_installer_version:"fixture".into()};
+            installer_sha256:Some("00".repeat(32)),installer_result:Some(f.r.host.clone()),
+            observed_installer_version:"fixture".into(),user_selection:None};
         let operation = "ab".repeat(16);
         let report_path = directory.join("operation-result.json");
         atomic_json(&directory.join("application.json"),&app).unwrap();

@@ -92,7 +92,10 @@ int wmain(int argc,wchar_t** argv){
     std::array<wchar_t,32768> actual{};DWORD length=static_cast<DWORD>(actual.size());
     ok=QueryFullProcessImageNameW(pi.hProcess,0,actual.data(),&length)!=FALSE;
     HANDLE opened=ok?CreateFileW(actual.data(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr):INVALID_HANDLE_VALUE;
-    ok=opened!=INVALID_HANDLE_VALUE&&same_file(image,opened);if(opened!=INVALID_HANDLE_VALUE)CloseHandle(opened);
+    // Linux tools can replace a path without obeying Wine sharing. Confirm both
+    // the suspended child's image identity and its bytes before any user code runs.
+    ok=opened!=INVALID_HANDLE_VALUE&&same_file(image,opened)&&hash(opened)==expected;
+    if(opened!=INVALID_HANDLE_VALUE)CloseHandle(opened);
     auto created=time_of(pi.hProcess);auto own_created=time_of(GetCurrentProcess());
     if(!ok||!created||!own_created){TerminateProcess(pi.hProcess,128);WaitForSingleObject(pi.hProcess,5000);CloseHandle(pi.hThread);CloseHandle(pi.hProcess);CloseHandle(image);return 128;}
     // Same inherited stderr pipe as Wine's process trace. This complete bounded

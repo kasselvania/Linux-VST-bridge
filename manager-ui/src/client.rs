@@ -1,4 +1,4 @@
-//! Fixed manager entry point; no shell and no user-supplied executable/arguments.
+//! Fixed manager entry point; explicit program choices use structured requests.
 use crate::model::{Activity, CurrentOverview, CurrentProductDetail, InstallerImportResult, InteractiveOverview, Pulse, Receipt, Request, Snapshot};
 use crate::presentation::ProductKey;
 use std::{
@@ -69,7 +69,7 @@ fn frontend_selected(home: &std::path::Path, frontend: &linux_vst_bridge::Artifa
     }
     Ok(current.sha256 == frontend.sha256)
 }
-fn call(query: Query) -> Result<Reply, String> {
+fn call(mut query: Query) -> Result<Reply, String> {
     let home = std::env::var_os("HOME").ok_or("Home directory unavailable")?;
     let home = std::path::PathBuf::from(home);
     let identity = FRONTEND_IDENTITY.get_or_init(|| {
@@ -80,6 +80,24 @@ fn call(query: Query) -> Result<Reply, String> {
         if !frontend_selected(&home, frontend)? { return Ok(Reply::FrontendSuperseded); }
     }
     let executable = home.join(".local/bin/linux-vst-bridge");
+    if let Query::Action(request) = &mut query {
+        if let crate::model::Action::ProgramChoose {executable:program,..} = &mut request.action {
+            if program.path.as_os_str().is_empty() {
+                let Some(path) = rfd::FileDialog::new().set_title("Choose Windows program")
+                    .add_filter("Windows programs", &["exe"]).pick_file() else {return Ok(Reply::Cancelled)};
+                let path = path.canonicalize().map_err(|_|"Selected program is unavailable")?;
+                let source = open_selected(&path)?;
+                if source.metadata().map_err(|_|"Selected program is unavailable")?.len() > 256 * 1024 * 1024 {
+                    return Err("Choose a Windows program smaller than 256 MiB".into());
+                }
+                *program = linux_vst_bridge::Artifact {sha256:linux_vst_bridge::digest(&path)
+                    .map_err(|_|"Selected program could not be read")?,path};
+                if let Some(frontend) = identity {
+                    if !frontend_selected(&home, frontend)? { return Ok(Reply::FrontendSuperseded); }
+                }
+            }
+        }
+    }
     let selected = if matches!(query, Query::PickInstaller) {
         let selected = rfd::FileDialog::new()
             .set_title("Add Windows installer")

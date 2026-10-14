@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 
 
 def sha(path):
@@ -64,6 +65,30 @@ def main(directory):
         lookalike.write_bytes(source.read_bytes() + b'UNRELATED')
         result, frames = run(adapter, lookalike, root, sha(source))
         assert result.returncode == 126 and not frames
+        # The outer Proton/Python launcher can start well before Wine opens the
+        # chosen PE. Replacing A with B in that gap must refuse before B runs.
+        target.write_bytes(source.read_bytes() + b'BUILD-A')
+        contract.unlink(missing_ok=True)
+        operation, token = os.urandom(16).hex(), os.urandom(32).hex()
+        request = root / 'delayed.private'
+        request.write_bytes(('\n'.join(('NAUI2_LAUNCH_V1', operation, token, '2', sha(target),
+                              str(target.stat().st_size), str(target), 'inherited', ''))).encode('utf-16le'))
+        ready, release = root / 'outer-started', root / 'open-image'
+        wrapper = "import pathlib,subprocess,sys,time;ready,release=map(pathlib.Path,sys.argv[1:3]);ready.touch();\nwhile not release.exists(): time.sleep(.01)\nsys.exit(subprocess.call(sys.argv[3:]))"
+        outer = subprocess.Popen([sys.executable, '-c', wrapper, str(ready), str(release), str(adapter), str(request)],
+                                 cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            deadline = time.monotonic() + 5
+            while not ready.exists():
+                assert time.monotonic() < deadline, 'delayed launcher did not start'
+                time.sleep(.01)
+            replacement = root / 'replacement.exe'; replacement.write_bytes(source.read_bytes() + b'BUILD-B')
+            replacement.replace(target); release.touch()
+            out, err = outer.communicate(timeout=30)
+            assert outer.returncode == 126 and b'IS2_ROOT_V1' not in err, (outer.returncode, out, err)
+            assert not contract.exists(), 'Unadopted replacement executed user code'
+        finally:
+            if outer.poll() is None: outer.kill(); outer.wait(timeout=5)
         request = root / 'truncated.private'
         request.write_bytes(b'I\x00S\x002\x00')
         refused = subprocess.run([str(adapter), str(request)], capture_output=True, timeout=10)

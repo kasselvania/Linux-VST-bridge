@@ -164,12 +164,12 @@ fn register(m: &Manager, args: &[String]) -> Result<()> {
         environment: env,
         executable: artifacts.remove(0),
         helpers: artifacts,
-        installer_sha256: record.installer,
-        installer_result: Artifact {
+        installer_sha256:Some(record.installer),
+        installer_result: Some(Artifact {
             sha256: digest(&witness)?,
             path: witness,
-        },
-        observed_installer_version: String::new(),
+        }),
+        observed_installer_version: String::new(),user_selection:None,
     };
     register_application(m, &app, &_guard)
 }
@@ -349,6 +349,9 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             let app=current_application(m,&record)?;
             app.verify(&m.root)?;
             let sw = software(m)?;
+            let launcher = if app.user_selection.is_some() {
+                preparation::build::launch_software(m)?.installer_launch
+            } else {None};
             require(
                 app.selector()? == args[1],
                 "vendor_application_selection_changed",
@@ -395,8 +398,7 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             atomic_json(
                 &job,
                 &vendor_application::Operation {application:app,
-                    report:directory.join("operation-result.json"),mode,operation_id:operation_id.clone(),
-                },
+                    report:directory.join("operation-result.json"),mode,operation_id:operation_id.clone(),launcher},
             )?;
             atomic_json(&directory.join("operation-result.json"),&json!({"schema":3,"operation_id":operation_id,"state":"unknown","launcher_exit":null,"owned_live":null,"cleanup_confirmed":false,"error":null,"discarded_diagnostic_bytes":0,"account_posture":"unknown"}))?;
             let result = Command::new("systemd-run")
@@ -429,13 +431,13 @@ mod tests {
     fn selected() -> (test_fixture::Fixture,String,String,Application) {
         let f=test_fixture::Fixture::new();
         let app=Application{schema:2,id:ApplicationId::Selected,environment:f.r.environment.clone(),
-            executable:f.r.module.clone(),helpers:vec![],installer_sha256:"ab".repeat(32),
-            installer_result:f.r.host.clone(),observed_installer_version:String::new()};
+            executable:f.r.module.clone(),helpers:vec![],installer_sha256:Some("ab".repeat(32)),
+            installer_result:Some(f.r.host.clone()),observed_installer_version:String::new(),user_selection:None};
         let selector=app.selector().unwrap();let operation=random_id().unwrap();
         let directory=directory(&f.m,&selector).unwrap();private_dir(&directory).unwrap();
         atomic_json(&directory.join("application.json"),&app).unwrap();
         atomic_json(&directory.join("operation.json"),&vendor_application::Operation{application:app.clone(),
-            report:directory.join("operation-result.json"),mode:LaunchMode::Normal,operation_id:operation.clone()}).unwrap();
+            report:directory.join("operation-result.json"),mode:LaunchMode::Normal,operation_id:operation.clone(),launcher:None}).unwrap();
         (f,selector,operation,app)
     }
     #[test]

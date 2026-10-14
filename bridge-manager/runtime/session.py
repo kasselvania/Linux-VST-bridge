@@ -2910,7 +2910,7 @@ class PrivateCapture:
     def close(self):os.close(self.fd)
 
 
-def vendor_launch(spec):
+def vendor_launch(spec,request_path=None):
     app=spec['application'];env=app['environment'];directory=pathlib.Path(env['root']);runner=env['runner']
     mode=spec.get('mode','normal')
     if mode not in ('normal','agent_probe','runinprefix_probe','initialized_probe','accessibility_probe'):raise RuntimeError('vendor launch mode')
@@ -2918,6 +2918,15 @@ def vendor_launch(spec):
     executable=pathlib.Path(artifact['path'])
     verb='run' if mode=='initialized_probe' else 'runinprefix'
     argv=[runner['entry_point'],'--verb=run','--',runner['proton'],verb,windows(executable,directory/'compatdata/pfx')]
+    if app.get('schema')==3:
+        if mode!='normal':raise RuntimeError('selected program launch mode')
+        selection=app['user_selection'];arguments=selection['arguments']
+        if arguments!=[]:raise RuntimeError('selected program arguments are not implemented')
+        cwd=pathlib.Path(selection['working_directory'])
+        if not cwd.is_absolute() or cwd.resolve()!=cwd or not cwd.is_dir():raise RuntimeError('selected program working directory')
+        if request_path is None:raise RuntimeError('selected program exact launch request missing')
+        argv=[runner['entry_point'],'--verb=run','--',runner['proton'],'runinprefix',spec['launcher']['path'],windows(request_path,directory/'compatdata/pfx')]
+        return argv,cwd
     return argv,executable.parent
 
 
@@ -2939,20 +2948,20 @@ def vendor_compatibility(mode, app=None):
     # modes retain default behavior; no global/prefix registry change.
     if mode not in ('normal','agent_probe','runinprefix_probe','initialized_probe','accessibility_probe'):
         raise RuntimeError('vendor launch mode')
-    if app is not None and app.get('schema') == 2:
+    if app is not None and app.get('schema') in (2,3):
         if app.get('id') != 'selected' or mode != 'normal':raise RuntimeError('vendor adapter unavailable')
         return {'disable_windows_accessibility':False}
     return {'disable_windows_accessibility':mode in ('normal','accessibility_probe')}
 
 
-def vendor_process_metadata(scope, record, app, allow_missing=False):
+def vendor_process_metadata(scope, record, app, allow_missing=False, selected_image=None):
     root=scope.proc_root/str(record['pid']);roles=[];exe=None
     try:exe=os.readlink(root/'exe')
     except (FileNotFoundError,ProcessLookupError):pass
     # The closed ASC owner has two named helpers. A managed DAW has no
     # predeclared helper binary; its exact cgroup and ancestry remain owned.
     candidates=[('main',app['executable'])]
-    if app.get('schema')==2:
+    if app.get('schema') in (2,3):
         if len(app['helpers'])>16:raise RuntimeError('registered helper bound')
         candidates.extend(('selected_helper',artifact) for artifact in app['helpers'])
     elif app['helpers']:
@@ -2973,12 +2982,19 @@ def vendor_process_metadata(scope, record, app, allow_missing=False):
             except ValueError:pass
     for role,artifact in candidates:
         path=artifact['path']
-        try:m=pathlib.Path(path).stat()
-        except FileNotFoundError:
-            if allow_missing:continue # An owned vendor uninstaller may remove itself.
-            raise
+        if selected_image is not None and artifact==app['executable']:
+            # The owned process may still map the old file after atomic external
+            # replacement. Its retained opened-file identity keeps Focus/Close
+            # attached to that running version, never to the replacement path.
+            m=os.fstat(selected_image.fd)
+            if RendererImage.identity(m)[:4]!=selected_image.stamp[:4]:continue
+        else:
+            try:m=pathlib.Path(path).stat()
+            except FileNotFoundError:
+                if allow_missing:continue # An owned vendor uninstaller may remove itself.
+                raise
         image_mapped=(os.major(m.st_dev),os.minor(m.st_dev),m.st_ino) in mapped
-        if exe==path or image_mapped:
+        if image_mapped or (selected_image is None and exe==path):
             roles.append({'role':role,'path':path,'sha256':artifact['sha256']})
     if not roles:
         for artifact in app['environment']['runner']['files']:
@@ -2989,7 +3005,7 @@ def vendor_process_metadata(scope, record, app, allow_missing=False):
             {'pid':parent['pid'],'start_ticks':parent['start_ticks']} if parent else None}
 
 
-def vendor_focus(scope,app,installer=False,close=False):
+def vendor_focus(scope,app,installer=False,close=False,selected_image=None):
     """Application-origin EWMH focus request, bound to current owned main image.
 
     No title matching, arbitrary PID, forced input focus or synthetic user input.
@@ -2999,7 +3015,7 @@ def vendor_focus(scope,app,installer=False,close=False):
     for record in scope.members():
         if installer:
             candidates.append(record);continue
-        metadata=vendor_process_metadata(scope,record,app)
+        metadata=vendor_process_metadata(scope,record,app,selected_image=selected_image)
         if any(v['path']==app['executable']['path'] and v['sha256']==app['executable']['sha256'] for v in metadata['registered_images']):
             candidates.append(record)
     if not candidates or (not installer and len(candidates)!=1):raise RuntimeError('focus main identity ambiguous')
@@ -4765,11 +4781,11 @@ def vendor_application(spec):
         raise RuntimeError('application owner kind unsupported')
     app=spec['application'];env=app['environment'];directory=pathlib.Path(env['root'])
     selector=None
-    if app.get('schema')==2 and not is_daw:
+    if app.get('schema') in (2,3) and not is_daw:
         if app.get('id')!='selected':raise RuntimeError('vendor application schema')
-        binding={'environment':env['id'],'executable':app['executable'],'helpers':app['helpers'],'installer':app['installer_sha256'],'installation':app['installer_result']}
+        binding={'environment':env['id'],'executable':app['executable'],'user_selection':app['user_selection']} if app['schema']==3 else {'environment':env['id'],'executable':app['executable'],'helpers':app['helpers'],'installer':app['installer_sha256'],'installation':app['installer_result']}
         selector=hashlib.sha256(json.dumps(binding,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
-    report=pathlib.Path(spec['report']);stop=False;child=None;scope=None;clean=False;error=None
+    report=pathlib.Path(spec['report']);stop=False;child=None;scope=None;clean=False;error=None;selected_image=None;launch_request=None
     mode=spec.get('mode','normal');diagnostic=mode!='normal';focus_result=None;close_result=None
     if is_daw and mode!='normal':
         raise RuntimeError('managed DAW identity unsupported')
@@ -4815,18 +4831,29 @@ def vendor_application(spec):
                 'diagnostic_enabled':diagnostic,'windows_accessibility_disabled':False if is_daw else vendor_compatibility(mode,app)['disable_windows_accessibility'],
                 'account_posture':'unknown','close_result':close_result}
     try:
+        if app.get('schema')==3:
+            selected_image=RendererImage({'artifact':app['executable'],'size':pathlib.Path(app['executable']['path']).stat().st_size})
+            selected=renderer_launch_software(directory.parent.parent)
+            if not spec.get('launcher') or selected['installer_launch']!=spec['launcher']:raise ValueError('selected program launch component changed')
+            verify(spec['launcher'])
+            token=os.urandom(32).hex();launch_request=report.parent/('program-launch-'+spec['operation_id']+'.private')
+            content='\n'.join(['NAUI2_LAUNCH_V1',spec['operation_id'],token,'2',selected_image.sha,str(selected_image.size),windows(selected_image.path,directory/'compatdata/pfx'),'inherited',''])
+            with os.fdopen(os.open(launch_request,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600),'wb') as request:
+                request.write(content.encode('utf-16le'));request.flush();os.fsync(request.fileno())
         for artifact in [app['executable'],*app['helpers'],*env['runner']['files']]:verify(artifact)
         scope=CompanionCgroup(daw_operation=spec['operation_id']) if is_daw else CompanionCgroup(vendor_application=selector)
         if scope.members():raise RuntimeError('companion cgroup not initially empty')
         if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('companion subreaper unavailable')
         reg={'environment':env,'compatibility':{'disable_windows_accessibility':False} if is_daw else vendor_compatibility(mode,app)}
-        argv,cwd=vendor_launch(spec)
+        argv,cwd=vendor_launch(spec,launch_request) if launch_request is not None else vendor_launch(spec)
         launch_env=vendor_diagnostic_environment(environment(reg),logs,diagnostic)
         if is_daw:
             home=directory/'home';private_directory(home);launch_env['HOME']=str(home)
             launch_env['XDG_CONFIG_HOME']=app['preferences']
+        if selected_image is not None:selected_image.check()
         child=subprocess.Popen(argv,cwd=cwd,env=launch_env,
                 stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+        if selected_image is not None:selected_image.check()
         event('launcher_started',pid=child.pid,mode=mode,cgroup=scope.group)
         for name,pipe in [('stdout',child.stdout),('stderr',child.stderr)]:
             os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,name)
@@ -4840,7 +4867,7 @@ def vendor_application(spec):
                     observed[key]={'first_observed':now,'last_observed':now,'metadata':None}
                 item=observed[key];item['last_observed']=now
                 if item['metadata'] is None or now-item.get('metadata_time',0)>=1_000_000_000:
-                    metadata=vendor_process_metadata(scope,record,app,allow_missing=is_uninstall);after=scope.identity(record['pid'])
+                    metadata=vendor_process_metadata(scope,record,app,allow_missing=is_uninstall,selected_image=selected_image);after=scope.identity(record['pid'])
                     if after is None or after['start_ticks']!=record['start_ticks']:continue
                     item['metadata_time']=now
                     if metadata!=item['metadata']:
@@ -4869,10 +4896,10 @@ def vendor_application(spec):
                     request_id=request['request']
                     if request.get('operation_id')!=spec.get('operation_id') or not request.get('operation_id'):
                         raise RuntimeError('focus operation mismatch')
-                    focus_result={'request':request['request'],'result':vendor_focus(scope,app)}
+                    focus_result={'request':request['request'],'result':vendor_focus(scope,app,selected_image=selected_image)}
                 except Exception:
                     focus_result={'request':request_id,'result':'refused_exact_window_unavailable'}
-            if is_daw:
+            if is_daw or app.get('schema')==3:
                 close_path=report.parent/'close.json'
                 if close_path.exists():
                     request_id=None
@@ -4888,7 +4915,7 @@ def vendor_application(spec):
                         request_id=request['request']
                         if request['operation_id']!=spec.get('operation_id'):
                             raise RuntimeError('close operation changed')
-                        close_result={'request':request_id,'result':vendor_focus(scope,app,close=True)}
+                        close_result={'request':request_id,'result':vendor_focus(scope,app,close=True,selected_image=selected_image)}
                     except Exception:
                         close_result={'request':request_id,'result':'refused_exact_window_unavailable'}
             state=vendor_operation_state(child.returncode,len(live))
@@ -4919,6 +4946,10 @@ def vendor_application(spec):
         atomic(report,result(state,0 if clean else None))
         for capture in captures.values():capture.close()
         lock.close()
+        if selected_image is not None:selected_image.close()
+        if launch_request is not None:
+            try:launch_request.unlink()
+            except FileNotFoundError:pass
     writer.close()
     return clean and error is None
 

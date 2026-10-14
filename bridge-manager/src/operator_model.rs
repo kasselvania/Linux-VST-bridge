@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 26;
+pub const OPERATOR_SCHEMA: u32 = 27;
 /// Explicit delivery policy, independent from the remembered buffered delay.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -224,12 +224,16 @@ pub enum Action {
     EnvironmentInstallerScan { environment: String },
     /// Advance an existing space to an exact installed runner, then rescan.
     EnvironmentRuntimeSelect { environment: String, runner: String, expected_environment: String },
+    /// The chooser supplies exact bytes for an existing setup. No installer required.
+    ProgramChoose { environment: String, expected_environment: String, executable: crate::Artifact },
+    ProgramAdopt { application: String, expected_environment: String, executable: crate::Artifact },
     VendorApplicationOpen {
         application: String,
     },
     VendorApplicationFocus {
         application: String,
     },
+    VendorApplicationClose { application: String },
     VendorApplicationStop {
         application: String,
     },
@@ -849,6 +853,7 @@ impl Action {
                 | Self::EnvironmentInstallerScan { .. }
                 | Self::EnvironmentRuntimeSelect { .. }
                 | Self::VendorApplicationOpen { .. }
+                | Self::ProgramChoose { .. } | Self::ProgramAdopt { .. }
                 | Self::EnvironmentRescan { .. }
                 | Self::EnvironmentRefresh { .. }
                 | Self::EnvironmentRefreshResume { .. }

@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 mod current;
 pub(super) mod automatic_install;
 pub(super) mod environment_install;
-mod environment_runtime;
+pub(super) mod environment_runtime;
 mod environment_refresh;
 mod renderer_continuation;
 const ASC: &str = "arturia-software-center";
@@ -95,7 +95,8 @@ fn token_with_registry(m: &Manager, registry: &Registry) -> Result<String> {
             "refresh_checkpoints":environment_refresh::authority(m)?,
             "renderer_checkpoints":renderer_continuation::authority(m)?,
             "onboarding_history":onboarding::history_records(m)?,
-            "vendor_checkpoints":automatic_install::vendor_checkpoint_authority(m)?}),
+            "vendor_checkpoints":automatic_install::vendor_checkpoint_authority(m)?,
+            "user_programs":vendor_cli::selection::authority(m)?}),
     )?)))
 }
 fn action(label: &str, action: ui::Action, reason: Option<&str>) -> ui::AvailableAction {
@@ -169,14 +170,16 @@ fn app_directory(m: &Manager) -> PathBuf {
 }
 fn vendor_projections(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::VendorApplication>> {
     let selected = vendor_cli::selectors(m)?;
+    let superseded = vendor_cli::selection::superseded(m)?;
     let mut rows = selected
         .iter()
+        .filter(|selector| !superseded.contains(*selector))
         .map(|selector| vendor_projection(m, selector, busy))
         .collect::<Result<Vec<_>>>()
         .map(|rows| rows.into_iter().flatten().collect::<Vec<_>>())?;
     for record in onboarding::history_records(m)? {
         if selected.iter().any(|selector| vendor_cli::application(m, selector).is_ok_and(|app|
-            app.environment.id == record.id && app.installer_sha256 == record.installer)) { continue; }
+            app.environment.id == record.id && app.installer_sha256.as_deref() == Some(record.installer.as_str()))) { continue; }
         // Observation failures belong to this setup's recovery projection;
         // unrelated registered applications retain their own valid authority.
         let Ok(choices) = vendor_cli::selection::choices(m, &record) else { continue; };
@@ -196,6 +199,7 @@ fn vendor_projection(
     let choosing = !directory.join("application.json").exists();
     let a = vendor_cli::application(m, selector)?;
     let live = vendor_cli::live(selector)?;
+    if a.user_selection.is_some() { return program_projection(m,selector,a,live,busy).map(Some); }
     let valid = a.validate_record(&m.root).is_ok();
     let record = onboarding::retained_environment_record(m, &a.environment.id)?;
     let continuation = automatic_install::vendor_intent(m, selector)?;
@@ -278,6 +282,43 @@ fn vendor_projection(
             ),
         ],
     }))
+}
+fn program_projection(m: &Manager, selector: &str, app: vendor_application::Application,
+    live: bool, busy: Option<&str>) -> Result<ui::VendorApplication> {
+    let directory = vendor_cli::directory(m,selector)?;
+    let job = optional(&directory.join("operation.json"))?;
+    let retired = job["operation_id"].as_str().map(|op|vendor_cli::result(m,selector,op)
+        .map(|r|r.retired())).transpose()?.unwrap_or(true);
+    let observed = vendor_cli::selection::program_artifact(&app.executable.path);
+    let changed = observed.as_ref().is_ok_and(|a|a != &app.executable);
+    let valid = app.validate_record(&m.root).is_ok();
+    let open_reason = if changed {Some("Program updated; choose Use this version before opening it")}
+        else if observed.is_err() || !valid {Some("The selected program is unavailable; choose another")}
+        else if live {Some("This program is already running")} else {busy};
+    let mut actions = vec![
+        action("Open program",ui::Action::VendorApplicationOpen {application:selector.into()},open_reason),
+        action("Show program",ui::Action::VendorApplicationFocus {application:selector.into()},
+            if live {None}else{Some("This program is not running")}),
+        action("Close program",ui::Action::VendorApplicationClose {application:selector.into()},
+            if live {None}else{Some("This program is not running")}),
+        action(if live {"Force stop program"}else{"Recover program session"},
+            ui::Action::VendorApplicationStop {application:selector.into()},
+            if live || !retired {None}else{Some("This program is already closed")}),
+        action("Choose another program",ui::Action::ProgramChoose {
+            environment:app.environment.id.clone(),expected_environment:environment_runtime::identity(&app.environment)?,
+            executable:Artifact {path:PathBuf::new(),sha256:String::new()}},busy),
+    ];
+    if changed {
+        actions.push(action("Use this version",ui::Action::ProgramAdopt {
+            application:selector.into(),expected_environment:environment_runtime::identity(&app.environment)?,
+            executable:observed?},if live || !retired {Some("Close this program before using the changed version")}else{busy}));
+    }
+    Ok(ui::VendorApplication {id:selector.into(),name:app.display_name(),
+        version:if changed {"Program updated"}else{"Selected by you"}.into(),
+        state:if live {"running"}else if !retired {"cleanup_unconfirmed"}else if changed {"program_updated"}else{"closed"}.into(),
+        details:json!({"environment":app.environment.id,"user_selected":true,
+            "executable":app.executable,"working_directory":app.user_selection.as_ref().map(|s|&s.working_directory),
+            "program_updated":changed}),actions})
 }
 pub(super) fn vendor_retired(m: &Manager) -> Result<bool> {
     vendor_retired_with(m, vendor_live)
@@ -1600,6 +1641,8 @@ fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Resu
             ui::Action::VendorSoftwareInstall {application,..}
             | ui::Action::VendorApplicationOpen { application }
             | ui::Action::VendorApplicationFocus { application }
+            | ui::Action::VendorApplicationClose { application }
+            | ui::Action::ProgramAdopt { application, .. }
             | ui::Action::VendorApplicationStop { application } => {
                 offered.vendor_applications = vendor_projection(m,application,captured.busy)?.into_iter().collect();
             }
@@ -1626,6 +1669,8 @@ fn scoped_product_action(action: &ui::Action) -> bool {
         | ui::Action::VendorApplicationOpen { .. }
         | ui::Action::VendorSoftwareInstall { .. }
         | ui::Action::VendorApplicationFocus { .. }
+        | ui::Action::VendorApplicationClose { .. }
+        | ui::Action::ProgramAdopt { .. }
         | ui::Action::VendorApplicationStop { .. }
         | ui::Action::RendererOpen { .. }
         | ui::Action::RendererSoftwareInstall {..}
@@ -1652,6 +1697,7 @@ fn current_offer_action(action: &ui::Action) -> bool {
         | ui::Action::EnvironmentInstallerStop { .. }
         | ui::Action::EnvironmentInstallerScan { .. }
         | ui::Action::EnvironmentRuntimeSelect { .. }
+        | ui::Action::ProgramChoose { .. }
         | ui::Action::QuarantinedModuleRetry { .. })
 }
 fn installer_control(action: &ui::Action) -> Option<(&str, &str)> {
@@ -2635,6 +2681,11 @@ fn execute_with_receipt_policy_progress(
         } => renderer_cli::observe(m, target, *presentation),
         ui::Action::VendorApplicationOpen { application } => {
             let app=vendor_cli::application(m,application)?;
+            if app.user_selection.is_some() {
+                drop(projection.take());
+                let owner = operation.ok_or("operator_operation_identity")?;
+                return open_vendor_owned(m,application,owner,owner,timeout,waits,||Ok(()));
+            }
             let record=onboarding::retained_environment_record(m,&app.environment.id)?;
             let daw=automatic_install::vendor_intent(m,application)?.map(|i|i.journey.daw)
                 .or_else(||record.and_then(|r|r.automatic).map(|i|i.journey.daw)).unwrap_or(ui::DawChoice::Other);
@@ -2651,7 +2702,17 @@ fn execute_with_receipt_policy_progress(
             )?;
             Ok(json!({"vendor":"stopped"}))
         }
-        ui::Action::VendorApplicationFocus { application } => {
+        ui::Action::ProgramChoose {environment,expected_environment,executable} => {
+            let app = vendor_cli::selection::choose_program(m,environment,expected_environment,executable,None)?;
+            Ok(json!({"program":app.selector()?,"selected":true}))
+        }
+        ui::Action::ProgramAdopt {application,expected_environment,executable} => {
+            let old = vendor_cli::application(m,application)?;
+            let app = vendor_cli::selection::choose_program(m,&old.environment.id,expected_environment,executable,Some(application))?;
+            Ok(json!({"program":app.selector()?,"adopted":true}))
+        }
+        ui::Action::VendorApplicationFocus { application }
+        | ui::Action::VendorApplicationClose { application } => {
             vendor_application::ApplicationId::parse(application)?;
             require(
                 vendor_cli::live(application)?,
@@ -2663,19 +2724,21 @@ fn execute_with_receipt_policy_progress(
                 .as_str()
                 .ok_or("operator_focus_owner_unsupported")?;
             let request = random_id()?;
+            let close = matches!(a,ui::Action::VendorApplicationClose {..});
+            let field = if close {"close_result"}else{"focus_result"};
             atomic_json(
-                &directory.join("focus.json"),
+                &directory.join(if close {"close.json"}else{"focus.json"}),
                 &json!({"request":request,"operation_id":operation_id}),
             )?;
             let deadline = Instant::now() + Duration::from_secs(4);
             loop {
                 let value = optional(&directory.join("operation-result.json"))?;
-                if value["focus_result"]["request"] == request {
+                if value[field]["request"] == request {
                     require(
-                        value["focus_result"]["result"] == "focused",
+                        value[field]["result"] == if close {"close_requested"}else{"focused"},
                         "operator_focus_refused",
                     )?;
-                    return Ok(value["focus_result"].clone());
+                    return Ok(value[field].clone());
                 }
                 require(
                     Instant::now() < deadline,
@@ -4367,7 +4430,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 26);
+        assert_eq!(ui::OPERATOR_SCHEMA, 27);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
@@ -5481,13 +5544,13 @@ pub(crate) mod tests {
             let application=vendor_application::Application {schema:1,
                 id:vendor_application::ApplicationId::ArturiaSoftwareCenter,
                 environment:f.r.environment.clone(),executable:f.r.module.clone(),helpers:vec![],
-                installer_sha256:"00".repeat(32),installer_result:f.r.host.clone(),
-                observed_installer_version:"fixture".into()};
+                installer_sha256:Some("00".repeat(32)),installer_result:Some(f.r.host.clone()),
+                observed_installer_version:"fixture".into(),user_selection:None};
             atomic_json(&app_directory(&f.m).join("application.json"),&application).unwrap();
             atomic_json(&app_directory(&f.m).join("operation.json"),
                 &vendor_application::Operation {application,report:app_directory(&f.m).join("operation-result.json"),
                     mode:vendor_application::LaunchMode::Normal,
-                    operation_id:if mismatch=="wrong_launch"{"ee".repeat(16)}else{vendor.clone()}}).unwrap();
+                    operation_id:if mismatch=="wrong_launch"{"ee".repeat(16)}else{vendor.clone()},launcher:None}).unwrap();
             atomic_json(&app_directory(&f.m).join("operation-result.json"),
                 &json!({"schema":3,"operation_id":if mismatch=="changed_vendor_result"{"ef".repeat(16)}else{vendor.clone()},
                 "state":"running","launcher_exit":null,"discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();

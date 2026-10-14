@@ -4731,14 +4731,14 @@ print('LVO0 '+j['session']+' ready',flush=True)
         let application = vendor_application::Application {schema:1,
             id:vendor_application::ApplicationId::ArturiaSoftwareCenter,
             environment:f.base.r.environment.clone(),executable:f.base.r.module.clone(),
-            helpers:vec![],installer_sha256:"00".repeat(32),installer_result:f.base.r.host.clone(),
-            observed_installer_version:"fixture".into()};
+            helpers:vec![],installer_sha256:Some("00".repeat(32)),installer_result:Some(f.base.r.host.clone()),
+            observed_installer_version:"fixture".into(),user_selection:None};
         let vendor_dir = f.base.m.root.join("vendor-applications/arturia-software-center");
         private_dir(&vendor_dir).unwrap();
         atomic_json(&vendor_dir.join("application.json"),&application).unwrap();
         atomic_json(&vendor_dir.join("operation.json"),&vendor_application::Operation {
             application,report:vendor_dir.join("operation-result.json"),
-            mode:vendor_application::LaunchMode::Normal,operation_id:vendor.clone()}).unwrap();
+            mode:vendor_application::LaunchMode::Normal,operation_id:vendor.clone(),launcher:None}).unwrap();
         atomic_json(&vendor_dir.join("operation-result.json"),&serde_json::json!({
             "schema":3,"operation_id":vendor,"state":"completed","launcher_exit":0,
             "owned_live":0,"cleanup_confirmed":true,"close_result":null,
