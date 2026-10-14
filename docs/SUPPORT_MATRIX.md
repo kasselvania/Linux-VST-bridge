@@ -95,6 +95,18 @@ or chooser loss. Earlier Test63 chooser and Test65 preservation remain separate
 checks. Runtime verification/update latency remains open.
 [Scoped vendor-application result](../evidence/cachyos-reaper.json).
 
+Test67's ordinary CachyOS update retains the same six Available classes, saved
+REAPER project and history; only registry renewal changes among 88 protected files.
+Selected production overview reads take 0.425–0.499 seconds and 0.265–0.312 seconds
+of CLI CPU, versus 7.785 seconds and 6.058 seconds before the update. Three compositor
+samples across 170 seconds retain the genuine unfinished 1.0.1 task, REAPER context,
+selected Setup route and running status through two ordinary age renewals.
+The retained project loads using its original PulseAudio configuration; renewed
+playback and chooser drafting remain unverified because of the test input route.
+The update completes between 1,178 and 1,254 seconds on this capped six-class VM;
+connection/update latency and the Kontakt allocator crash remain open. Deck delivery
+awaits the user's handoff. [Scoped installed result](../evidence/cachyos-reaper.json).
+
 Test55's clean CachyOS/native REAPER first-party installation uses one ordinary
 Install and connect request: owned runtime acquisition, vendor installation and
 automatic discovery/preparation/publication produce two Reference classes.
