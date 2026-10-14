@@ -1652,8 +1652,18 @@ impl Operator {
                     *page = Page::Setup;
                 }
             } else {
-                ui.strong("Next: open your DAW");
-                ui.label("Your available plug-ins appear as native VST3s. Rescan VST3 plug-ins in your DAW if one is missing, then add it to a track.");
+                let mut daws = overview.current.products.iter()
+                    .map(|product| presentation::product_daw(&overview.current, product));
+                let daw = daws.next().flatten()
+                    .filter(|first| daws.all(|other| other == Some(*first)));
+                ui.strong(match daw {
+                    Some(daw @ (DawChoice::Bitwig | DawChoice::Reaper)) =>
+                        format!("Plug-ins available in {}", presentation::daw_name(daw)),
+                    _ => "Plug-ins available in your DAW".into(),
+                });
+                egui::CollapsingHeader::new("Using your plug-ins").show(ui, |ui| {
+                    ui.label("Available plug-ins appear as native VST3s. Add them to a track in your DAW; if one is missing, rescan VST3 plug-ins.");
+                });
             }
         });
         if !overview.current.products.is_empty() {
@@ -3690,7 +3700,7 @@ mod tests {
                 let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
                 assert!(labels.iter().any(|(label,_)|label=="Available in your DAW"));
                 assert!(labels.iter().any(|(label,_)|label.starts_with("Next: recover")));
-                assert!(!labels.iter().any(|(label,_)|label=="Next: open your DAW"));
+                assert!(!labels.iter().any(|(label,_)|label.starts_with("Plug-ins available in ")));
                 point=labels.iter().find(|(label,_)|label=="Open plug-in recovery").unwrap().1;
             }
             output.textures_delta.clear();
@@ -4551,8 +4561,66 @@ mod tests {
             assert!(labels.iter().any(|line| line == "Available in your DAW"));
             assert!(!labels.iter().any(|line| line.starts_with("Support qualification:")));
             assert!(!labels.iter().any(|line| line.contains("Setup check incomplete")));
-            assert!(labels.iter().any(|line| line == "Next: open your DAW"));
+            assert!(labels.iter().any(|line| line == "Plug-ins available in your DAW"));
+            assert!(labels.iter().any(|line| line == "Using your plug-ins"));
+            assert!(!labels.iter().any(|line| line.starts_with("Next:") || line.contains("add it to a track")));
             assert!(!labels.iter().any(|line| line.contains("Operational facts")));
+        }
+    }
+    #[test]
+    fn completed_home_states_availability_and_keeps_usage_help_optional() {
+        for (choices, expected) in [
+            ([Some(DawChoice::Bitwig),Some(DawChoice::Bitwig)], "Plug-ins available in Bitwig"),
+            ([Some(DawChoice::Reaper),Some(DawChoice::Reaper)], "Plug-ins available in REAPER"),
+            ([Some(DawChoice::Other),Some(DawChoice::Other)], "Plug-ins available in your DAW"),
+            ([None,None], "Plug-ins available in your DAW"),
+            ([Some(DawChoice::Bitwig),Some(DawChoice::Reaper)], "Plug-ins available in your DAW"),
+            ([Some(DawChoice::Bitwig),None], "Plug-ins available in your DAW"),
+        ] {
+            let mut overview:CurrentOverview=overview_fixture().into();
+            overview.current.products.truncate(2);
+            overview.current.installer_setups.clear();
+            for (product, choice) in overview.current.products.iter_mut().zip(choices) {
+                product.availability=Some(NativeAvailability {available:true,reason:None});
+                product.compatibility=None;
+                if let Some(daw)=choice {
+                    let mut setup=automatic_setup(InstallationJourney {daw,
+                        phase:InstallationPhase::Available,failure:None,
+                        plugins:vec![InstallationPlugin {selection:"connected-selection".into(),
+                            class_id:product.class_id.clone(),name:product.name.clone(),
+                            stage:InstallationPluginStage::Available,failure:None}]},None);
+                    setup.environment=Some(product.environment.clone());
+                    setup.discovered=vec![DiscoveredProduct {environment:product.environment.clone(),
+                        module_sha256:product.module_sha256.clone(),class_id:product.class_id.clone(),
+                        name:product.name.clone()}];
+                    overview.current.installer_setups.push(setup);
+                }
+            }
+            let ctx=result_form_context();
+            let mut chosen=None;let mut point=egui::Pos2::ZERO;
+            for frame in 0..8 {
+                let events=if matches!(frame,3|4) {vec![egui::Event::PointerMoved(point),
+                    egui::Event::PointerButton {pos:point,button:egui::PointerButton::Primary,
+                        pressed:frame==3,modifiers:egui::Modifiers::NONE}]} else {vec![]};
+                let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(
+                    egui::Rect::from_min_size(egui::Pos2::ZERO,egui::vec2(560.0,1000.0))),
+                    ..Default::default()},|ui| {
+                    Operator::fast_home(ui,&overview,None,true,false,
+                        (&mut Page::Home,&mut crate::library::Library::default(),
+                            &mut RouteFocus::default(),&mut false,&mut chosen));
+                });
+                let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+                assert!(labels.iter().any(|(label,_)|label==expected));
+                assert!(!labels.iter().any(|(label,_)|label.starts_with("Next:")
+                    || label.contains("activation works") || label.contains("audio works")));
+                if frame==2 {
+                    assert!(!labels.iter().any(|(label,_)|label.starts_with("Available plug-ins appear")));
+                    point=labels.iter().find(|(label,_)|label=="Using your plug-ins").unwrap().1;
+                }
+                if frame==7 {assert!(labels.iter().any(|(label,_)|label.starts_with("Available plug-ins appear")));}
+                output.textures_delta.clear();
+            }
+            assert!(chosen.is_none(), "Reading usage help must not submit a mutation or success report");
         }
     }
     fn text_centers(shape: &egui::epaint::Shape, out: &mut Vec<(String,egui::Pos2)>) {
@@ -4610,7 +4678,7 @@ mod tests {
             });
             let mut text=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut text);}
             assert!(text.iter().any(|(label,_)|label=="This native engine requires x86-64 Linux."));
-            assert!(!text.iter().any(|(label,_)|label=="Next: open your DAW"));
+            assert!(!text.iter().any(|(label,_)|label.starts_with("Plug-ins available in ")));
             assert!(text.iter().any(|(label,_)|label=="Review setup details"));
             // A computer limitation does not erase the separately recorded publication.
             assert!(text.iter().any(|(label,_)|label=="Available in your DAW"));
@@ -4925,7 +4993,7 @@ mod tests {
                 let mut text=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut text);}
                 assert!(text.iter().any(|(label,_)|label=="Next: review the installation for Plug-in 1.0"));
                 point=text.iter().find(|(label,_)|label=="Review this installation").unwrap().1;
-                assert!(!text.iter().any(|(label,_)|label=="Next: open your DAW"));
+                assert!(!text.iter().any(|(label,_)|label.starts_with("Plug-ins available in ")));
             }
             output.textures_delta.clear();
         }
