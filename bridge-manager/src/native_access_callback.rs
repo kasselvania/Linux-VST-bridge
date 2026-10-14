@@ -80,6 +80,9 @@ fn assisted_target(m: &Manager, directory: &Path) -> Result<Option<Target>> {
         && job.report == directory.join("operation-result.json")
         && job.mode == vendor_application::LaunchMode::Normal,
         "native_access_callback_operation_binding")?;
+    let current: vendor_application::OperationResult = read_json(&job.report)?;
+    require(current.operation_id.as_deref()==Some(job.operation_id.as_str()), "native_access_callback_result_changed")?;
+    if current.retired() && current.dependency.as_ref().is_some_and(vendor_application::dependency_retired) { return Ok(None); }
     let mut selected: vendor_application::Application = read_json(&directory.join("application.json"))?;
     require(selected.environment.id == app.environment.id && selected.environment.root == app.environment.root,
         "native_access_callback_environment")?;
@@ -227,6 +230,8 @@ mod tests {
             operation_id: random_id().unwrap(), report: directory.join("operation-result.json"), launcher: software.installer_launch.clone(),
             managed: Some(vendor_profile::ManagedLaunch::new(capability, software).unwrap()), capability_notice: None };
         atomic_json(&directory.join("operation.json"), &job).unwrap();
+        atomic_json(&job.report,&serde_json::json!({"schema":3,"operation_id":job.operation_id,"state":"running",
+            "launcher_exit":null,"owned_live":1,"cleanup_confirmed":false,"error":null,"discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
         atomic_json(&directory.join("managed-session.json"), &serde_json::json!({"schema":1,"state":"running",
             "operation":job.operation_id,"application_identity":job.application.selector().unwrap(),
             "effective":{"operation":job.operation_id},"renderer":{"launch_binding":{"status":"bound"}},"dependency":{"ready_tested":true}})).unwrap();
@@ -254,6 +259,13 @@ mod tests {
         result["state"] = "running".into(); atomic_json(&directory.join("managed-session.json"), &result).unwrap();
         managed_application(&f, app, "Second application");
         assert!(target(&f.m).unwrap_err().to_string().contains("no_unique_live_operation"));
+        // Generic recovery is authoritative even when the old renderer detail
+        // was left marked running by its crashed writer.
+        atomic_json(&job.report,&serde_json::json!({"schema":3,"operation_id":job.operation_id,"state":"failed",
+            "launcher_exit":null,"owned_live":0,"cleanup_confirmed":true,"error":"interrupted",
+            "discarded_diagnostic_bytes":0,"account_posture":"unknown",
+            "dependency":{"process_cleanup_confirmed":true,"dependency_cleanup_disposition":"not_started","service_actions_started":false}})).unwrap();
+        assert_ne!(target(&f.m).unwrap().operation,job.operation_id);
     }
     #[test]
     fn opaque_uri_has_closed_extent_and_no_argument_injection() {

@@ -1,4 +1,4 @@
-import copy, hashlib, json, os, pathlib, sys, tempfile, unittest
+import copy, hashlib, json, os, pathlib, signal, sys, tempfile, unittest
 from unittest.mock import patch
 import session as s
 import ownership
@@ -205,6 +205,91 @@ class ManagedVendorTests(unittest.TestCase):
                 self.assertEqual(daemon.read_bytes(), original)
                 self.assertEqual(calls, [] if foreign else ['query', 'query'])
                 self.assertEqual(owner.service_stop_request_count, 0)
+
+    def test_ordinary_operation_resolves_fresh_runtime_tools_from_its_verified_tree(self):
+        operation = self.operation('a')
+        base = self.managed / 'runners/new-runtime'
+        paths = [base / name for name in ['runner/proton', 'runner/files/bin/wine', 'slr/_v2-entry-point',
+            'slr/pressure-vessel/bin/steam-runtime-launch-client', 'slr/pressure-vessel/bin/steam-runtime-launcher-interface-0']]
+        for index, path in enumerate(paths):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(('first-party-runtime-' + str(index)).encode())
+            path.chmod(0o700)
+        rows = []
+        for path in base.rglob('*'):
+            directory = path.is_dir()
+            rows.append({'path': str(path.relative_to(base)), 'directory': directory, 'target': None,
+                'sha256': None if directory else self.artifact(path)['sha256'],
+                'size': 0 if directory else path.stat().st_size, 'mode': path.stat().st_mode & 0o777})
+        manifest = base / 'runtime-tree.json'
+        self.write(manifest, rows)
+        manifest.chmod(0o400)
+        runner = {'id': 'source-owned-fresh-runtime', 'proton': str(paths[0]), 'entry_point': str(paths[2]),
+            'files': [self.artifact(path) for path in [paths[0], paths[1], paths[2], manifest]]}
+        operation['application']['environment']['runner'] = runner
+        self.write(pathlib.Path(operation['application']['environment']['root']) / 'environment.json', operation['application']['environment'])
+        self.write(pathlib.Path(operation['report']).parent / 'application.json', operation['application'])
+        self.persist(operation)
+        runtime = s.Nad1Runtime(self.owner(operation))
+        try:
+            runtime.verify_tools()
+            self.assertEqual(runtime.tool_sha256['client'], self.artifact(paths[3])['sha256'])
+            self.assertEqual(runtime.tool_sha256['interface'], self.artifact(paths[4])['sha256'])
+            paths[3].write_bytes(b'substituted tool')
+            with self.assertRaises((ValueError, RuntimeError)): runtime.verify_tools()
+        finally: runtime.close()
+
+    def test_empty_cgroup_does_not_translate_unconfirmed_dependency_into_retirement(self):
+        value = {'operation': '1' * 32, 'state': 'failed', 'cleanup_confirmed': True, 'owned_live': 0,
+            'dependency': {'process_cleanup_confirmed': True, 'dependency_cleanup_disposition': 'cleanup_unconfirmed'}}
+        result = s.managed_vendor_result(value)
+        self.assertFalse(result['cleanup_confirmed'])
+        self.assertEqual(result['state'], 'cleanup_unconfirmed')
+        dependency = {'process_cleanup_confirmed': True, 'dependency_cleanup_disposition': 'exact_owned_session_cleanup',
+            'post_cleanup': {'cgroup_empty': True, 'exact_daemon_generation_absent': True, 'application_image_unchanged': True,
+                'daemon_image_unchanged': True, 'listener_mask': 0, 'candidate_count': 0, 'candidate_observation_unavailable': 0}}
+        value['dependency'] = dependency
+        self.assertTrue(s.managed_vendor_result(value)['cleanup_confirmed'])
+        for key, changed in [('exact_daemon_generation_absent', False), ('listener_mask', 1), ('candidate_observation_unavailable', 1)]:
+            altered = copy.deepcopy(value)
+            altered['dependency']['post_cleanup'][key] = changed
+            self.assertFalse(s.managed_vendor_result(altered)['cleanup_confirmed'])
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux operation owner')
+    def test_resource_replacement_during_dependency_preparation_refuses_actual_application_dispatch(self):
+        from test_installer import Scope
+        operation = self.operation('a')
+        root = pathlib.Path(operation['application']['environment']['root'])
+        (root / 'compatdata/pfx/system.reg').touch()
+        resource = pathlib.Path(operation['managed']['capabilities']['resources']['resources/app.asar']['artifact']['path'])
+        class Dependency:
+            runtime = type('Runtime', (), {'argv': lambda *_: ['never-launch'], 'drain': lambda *_: None})()
+            anchor = None
+            retirement_error = None
+            def __init__(self, *_, **__): self.process_cleanup_confirmed = False
+            def ensure(self, *_):
+                replacement = resource.with_suffix('.replacement')
+                replacement.write_bytes(resource.read_bytes())
+                replacement.replace(resource)
+            def retire_service(self): return True
+            def close_runtime(self): return True
+            def verify_session_cleanup(self, *_): return True
+            def value(self): return {'process_cleanup_confirmed': self.process_cleanup_confirmed,
+                'dependency_cleanup_disposition': 'graceful_service_retirement',
+                'post_cleanup': {'cgroup_empty': True, 'exact_daemon_generation_absent': True, 'application_image_unchanged': True,
+                    'daemon_image_unchanged': True, 'listener_mask': 0, 'candidate_count': 0, 'candidate_observation_unavailable': 0}}
+        prior = [signal.getsignal(sig) for sig in (signal.SIGTERM, signal.SIGINT)]
+        try:
+            with patch.object(s, 'Nad1Owner', Dependency), patch.object(s, 'CompanionCgroup', return_value=Scope()), \
+                 patch.object(s.subprocess, 'Popen', side_effect=AssertionError('substituted application launched')) as launch:
+                self.assertFalse(s.vendor_application(operation))
+                launch.assert_not_called()
+            result = json.loads(pathlib.Path(operation['report']).read_text())
+            self.assertEqual(result['error_code'], 'renderer_image_replaced')
+            self.assertNotIn('renderer_image', result['error'])
+        finally:
+            for sig, old in zip((signal.SIGTERM, signal.SIGINT), prior): signal.signal(sig, old)
+            s.ctypes.CDLL(None).prctl(36, 0, 0, 0, 0)
 
     def test_changed_origin_resources_or_definition_refuse_before_launch(self):
         operation = self.operation('a')

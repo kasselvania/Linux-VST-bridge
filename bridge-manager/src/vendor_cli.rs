@@ -73,7 +73,7 @@ pub(super) fn result(m: &Manager, selector: &str, operation: &str) -> Result<Ope
             && job.report == directory.join("operation-result.json"),
         "vendor_application_operation_changed",
     )?;
-    let result:OperationResult=if job.report.exists(){read_json(&job.report)?}else {
+    let mut result:OperationResult=if job.report.exists(){read_json(&job.report)?}else {
         serde_json::from_value(json!({"schema":3,"operation_id":operation,"state":"cleanup_unconfirmed",
             "launcher_exit":null,"owned_live":null,"cleanup_confirmed":false,"error":"vendor_submission_result_missing",
             "discarded_diagnostic_bytes":0,"account_posture":"unknown"}))?
@@ -82,6 +82,12 @@ pub(super) fn result(m: &Manager, selector: &str, operation: &str) -> Result<Ope
         result.operation_id.as_deref() == Some(operation),
         "vendor_application_operation_changed",
     )?;
+    if job.managed.is_some() && !result.dependency.as_ref().is_some_and(vendor_application::dependency_retired) && result.cleanup_confirmed {
+        result.cleanup_confirmed = false;
+        result.state = vendor_application::OperationState::CleanupUnconfirmed;
+        result.error.get_or_insert("The app did not finish closing. Use Recover this application session; if it cannot complete, send Setup details.".into());
+        result.error_code.get_or_insert("vendor_dependency_cleanup_unconfirmed".into());
+    }
     Ok(result)
 }
 pub(super) fn reconcile(m:&Manager,selector:&str,operation:&str)->Result<()> {
@@ -95,6 +101,15 @@ fn reconcile_with(m:&Manager,selector:&str,operation:&str,
     if prior.retired(){return Ok(())}
     let probe=inspect()?;
     require(probe.empty,"vendor_application_custody_uncertain")?;
+    let job:vendor_application::Operation=read_json(&directory.join("operation.json"))?;
+    let mut dependency=prior.dependency.clone();
+    if job.managed.is_some() {
+        let observed=dependency.as_mut().ok_or("vendor_dependency_cleanup_unconfirmed")?;
+        if observed["dependency_cleanup_disposition"]=="not_started" && observed["service_actions_started"]==false {
+            observed["process_cleanup_confirmed"]=json!(true);
+        }
+        require(vendor_application::dependency_retired(observed),"vendor_dependency_cleanup_unconfirmed")?;
+    }
     let report=directory.join("operation-result.json");
     if report.exists() {
         let history=directory.join(format!("interrupted-{operation}-result.json"));
@@ -102,10 +117,12 @@ fn reconcile_with(m:&Manager,selector:&str,operation:&str,
     }
     // Exclusive writer + exact empty kernel cohort proves process retirement,
     // never installer success, authorization or musical functionality.
-    atomic_json(&report,&json!({"schema":3,"operation_id":operation,"state":"failed",
+    let mut recovered=json!({"schema":3,"operation_id":operation,"state":"failed",
         "launcher_exit":null,"owned_live":0,"cleanup_confirmed":true,
         "error":"vendor_writer_retired_without_successful_result","discarded_diagnostic_bytes":0,
-        "account_posture":"unknown"}))?;
+        "account_posture":"unknown"});
+    if let Some(dependency)=dependency {recovered["dependency"]=dependency;}
+    atomic_json(&report,&recovered)?;
     Ok(())
 }
 pub(super) fn all_retired(m: &Manager) -> Result<bool> {
@@ -192,6 +209,22 @@ fn register_application(m: &Manager, app: &Application, guard: &Lock) -> Result<
         "{}",
         serde_json::json!({"application":selector,"selected":app,"selection":"observed_artifacts"})
     );
+    Ok(())
+}
+fn recheck_bound_assistance(m: &Manager, directory: &Path, app: &Application) -> Result<()> {
+    let path=directory.join("operation.json");
+    if !path.exists() { return Ok(()); }
+    let prior:vendor_application::Operation=read_json(&path)?;
+    if prior.application.environment==app.environment && prior.application.selector()?==app.selector()? {
+        if let Some(managed)=prior.managed {
+            // A previous binding cannot become a generic retry because its
+            // resources disappeared or changed. New authorized environment
+            // revisions make their own observations through the existing owner.
+            managed.capabilities.verify_callback_inputs(app,&m.root).map_err(|_| -> Box<dyn std::error::Error + Send + Sync> {
+                "The app's recorded files changed. Run its full installer again, or use Choose program to open it directly.".into()
+            })?;
+        }
+    }
     Ok(())
 }
 fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result<()> {
@@ -346,6 +379,7 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             let mode = LaunchMode::action(&args[0])?;
             let app=current_application(m,&record)?;
             app.verify(&m.root)?;
+            recheck_bound_assistance(m,&directory,&app)?;
             // Observe resource bytes before admission. A structural nonmatch
             // preserves normal program launch with its specific explanation.
             let inspected = linux_vst_bridge::vendor_profile::inspect(&app, &m.root)?;
@@ -438,6 +472,44 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
 mod tests {
     use super::*;
     use linux_vst_bridge::operator_model as ui;
+    fn assisted() -> (test_fixture::Fixture,vendor_application::Operation) {
+        let (f,app,_)=selection::tests::structured_application(27);
+        let capabilities=linux_vst_bridge::vendor_profile::inspect(&app,&f.m.root).unwrap().capabilities.unwrap();
+        selection::select(&f.m,&app.selector().unwrap()).unwrap();
+        let software=Software{manager:f.r.host.clone(),supervisor:f.r.host.clone(),ownership:f.r.host.clone(),
+            host:f.r.host.clone(),source_manifest:f.r.host.clone(),source_sha256:f.r.host.sha256.clone(),
+            installer_launch:Some(f.r.host.clone()),preparation_kit:None,operator_frontend:None,native_catalogue:None};
+        let directory=directory(&f.m,&app.selector().unwrap()).unwrap();
+        let job=vendor_application::Operation{application:app,report:directory.join("operation-result.json"),
+            mode:LaunchMode::Normal,operation_id:random_id().unwrap(),launcher:software.installer_launch.clone(),
+            managed:Some(linux_vst_bridge::vendor_profile::ManagedLaunch::new(capabilities,software).unwrap()),capability_notice:None};
+        atomic_json(&directory.join("operation.json"),&job).unwrap();
+        (f,job)
+    }
+    #[test]
+    fn ordinary_assisted_retry_cannot_silently_downgrade_changed_resources() {
+        for missing in [false,true] {
+            let (f,job)=assisted();let selector=job.application.selector().unwrap();
+            let path=&job.managed.as_ref().unwrap().capabilities.resources["resources/app.asar"].artifact.path;
+            if missing {fs::remove_file(path).unwrap();} else {fs::write(path,b"substituted resources").unwrap();}
+            let before=fs::read(directory(&f.m,&selector).unwrap().join("operation.json")).unwrap();
+            assert!(run_selected(&f.m,&["launch".into(),selector.clone()],Some(&random_id().unwrap())).is_err());
+            assert_eq!(before,fs::read(directory(&f.m,&selector).unwrap().join("operation.json")).unwrap());
+        }
+    }
+    #[test]
+    fn empty_generic_cohort_cannot_erase_uncertain_service_custody() {
+        let (f,job)=assisted();let selector=job.application.selector().unwrap();
+        atomic_json(&job.report,&json!({"schema":3,"operation_id":job.operation_id,"state":"failed",
+            "launcher_exit":null,"owned_live":0,"cleanup_confirmed":true,"error":"service cleanup failed",
+            "discarded_diagnostic_bytes":0,"account_posture":"unknown",
+            "dependency":{"process_cleanup_confirmed":true,"dependency_cleanup_disposition":"cleanup_unconfirmed"}})).unwrap();
+        let before=fs::read(&job.report).unwrap();
+        assert!(!result(&f.m,&selector,&job.operation_id).unwrap().retired());
+        assert!(reconcile_with(&f.m,&selector,&job.operation_id,||Ok(renderer_session::UnitState{
+            exists:true,empty:true,observation:None})).is_err());
+        assert_eq!(before,fs::read(&job.report).unwrap());
+    }
     fn selected() -> (test_fixture::Fixture,String,String,Application) {
         let f=test_fixture::Fixture::new();
         let app=Application{schema:2,id:ApplicationId::Selected,environment:f.r.environment.clone(),

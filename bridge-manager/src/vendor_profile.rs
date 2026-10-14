@@ -75,6 +75,23 @@ pub struct Inspection {
     pub missing_capability: Option<String>,
 }
 
+#[derive(Debug)]
+struct IntegrityFailure(&'static str);
+impl std::fmt::Display for IntegrityFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let problem = match self.0 {
+            "vendor_profile_bundled_dependency_ambiguous" => "More than one support installer was found for this app.",
+            "vendor_profile_application_changed" => "The app's recorded files changed.",
+            _ => "The app's support files point outside this setup or share another file's identity.",
+        };
+        write!(f, "{problem} Run its full installer again, or use Choose program to open it directly.")
+    }
+}
+impl std::error::Error for IntegrityFailure {}
+fn integrity(ok: bool, reason: &'static str) -> Result<()> {
+    if ok { Ok(()) } else { Err(Box::new(IntegrityFailure(reason))) }
+}
+
 pub fn native_access() -> Result<Profile> {
     Ok(serde_json::from_slice(NATIVE_ACCESS)?)
 }
@@ -88,9 +105,10 @@ fn relative(value: &str) -> Result<&Path> {
 
 fn image(path: &Path) -> Result<Image> {
     let metadata = fs::symlink_metadata(path)?;
-    require(metadata.file_type().is_file() && metadata.nlink() == 1
-        && path.canonicalize()? == path && metadata.len() > 0
-        && metadata.len() <= 256 * 1024 * 1024, "vendor_profile_resource_alias_or_extent")?;
+    integrity(metadata.file_type().is_file() && metadata.nlink() == 1
+        && path.canonicalize()? == path, "vendor_profile_resource_alias")?;
+    require(metadata.len() > 0 && metadata.len() <= 256 * 1024 * 1024,
+        "vendor_profile_resource_extent")?;
     let image = Image { artifact: Artifact { path: path.into(), sha256: digest(path)? },
         size: metadata.len() };
     crate::renderer_application::verify_image(&image)?;
@@ -125,7 +143,7 @@ fn observe_structure(app: &Application, profile: &Profile) -> Result<Capabilitie
         "vendor_profile_application_directory")?;
     executable(&app.executable.path, Some(&profile.architecture))?;
     let main = image(&app.executable.path)?;
-    require(main.artifact == app.executable, "vendor_profile_application_changed")?;
+    integrity(main.artifact == app.executable, "vendor_profile_application_changed")?;
     let mut resources = BTreeMap::from([(profile.executable.clone(), main)]);
     let mut total = resources.values().map(|i|i.size).sum::<u64>();
     for name in &profile.resources {
@@ -135,8 +153,9 @@ fn observe_structure(app: &Application, profile: &Profile) -> Result<Capabilitie
         require(resources.insert(name.clone(), resource).is_none(), "vendor_profile_resource_duplicate")?;
     }
     let bundled = directory.join(relative(&profile.dependency.installer_directory)?);
-    require(bundled.is_dir() && bundled.canonicalize()? == bundled,
-        "vendor_profile_bundled_dependency_directory")?;
+    let metadata = fs::symlink_metadata(&bundled)?;
+    integrity(metadata.file_type().is_dir() && bundled.canonicalize()? == bundled,
+        "vendor_profile_bundled_dependency_directory_alias")?;
     let mut candidates = Vec::new();
     for (index, entry) in fs::read_dir(&bundled)?.enumerate() {
         require(index < 64, "vendor_profile_dependency_candidate_bound")?;
@@ -151,7 +170,8 @@ fn observe_structure(app: &Application, profile: &Profile) -> Result<Capabilitie
             candidates.push(installer);
         }
     }
-    require(candidates.len() == 1, "vendor_profile_bundled_dependency_missing_or_ambiguous")?;
+    integrity(candidates.len() <= 1, "vendor_profile_bundled_dependency_ambiguous")?;
+    require(candidates.len() == 1, "vendor_profile_bundled_dependency_missing")?;
     let daemon_path = drive.join(relative(&profile.dependency.daemon)?);
     let daemon = match fs::symlink_metadata(&daemon_path) {
         Ok(_) => {
@@ -177,10 +197,15 @@ pub fn inspect(app: &Application, managed: &Path) -> Result<Inspection> {
         name.to_string_lossy().eq_ignore_ascii_case(&profile.executable)) {
         return Ok(Inspection { capabilities: None, missing_capability: None });
     }
+    if app.user_selection.is_some() {
+        return Ok(Inspection { capabilities: None, missing_capability: Some(
+            "This chosen program opens normally. Run its full installer in this setup to prepare its bundled support service automatically.".into()) });
+    }
     match observe_structure(app, &profile) {
         Ok(capabilities) => Ok(Inspection { capabilities: Some(capabilities), missing_capability: None }),
+        Err(error) if error.downcast_ref::<IntegrityFailure>().is_some() => Err(error),
         Err(error) => Ok(Inspection { capabilities: None,
-            missing_capability: Some(format!("Assisted application setup needs a complete, unambiguous Windows application and bundled service: {error}")) }),
+            missing_capability: Some(format!("This app can open normally, but its bundled support files do not provide automatic setup. Run its full installer in this setup if it cannot open. Details: {error}")) }),
     }
 }
 

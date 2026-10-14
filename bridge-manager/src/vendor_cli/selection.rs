@@ -312,7 +312,7 @@ pub(crate) mod tests {
         assert_eq!(test_fixture::snapshot(&f.m.root), before);
     }
 
-    fn structured_application(seed: u8) -> (test_fixture::Fixture, Application, PathBuf) {
+    pub(crate) fn structured_application(seed: u8) -> (test_fixture::Fixture, Application, PathBuf) {
         let (f, record, transaction) = installed_app();
         let directory = record.environment.root.join("compatdata/pfx/drive_c/Program Files/Vendor");
         let old = "Program Files/Vendor/Main.exe";
@@ -389,11 +389,21 @@ pub(crate) mod tests {
                 },
                 _ => unreachable!(),
             }
-            let inspected = linux_vst_bridge::vendor_profile::inspect(&app, &f.m.root).unwrap();
-            assert!(inspected.capabilities.is_none(), "{failure}");
-            assert!(inspected.missing_capability.is_some(), "{failure}");
+            let inspected = linux_vst_bridge::vendor_profile::inspect(&app, &f.m.root);
+            if matches!(failure,"ambiguous"|"symlink") {
+                assert!(inspected.is_err(), "{failure}");
+            } else {
+                let inspected=inspected.unwrap();
+                assert!(inspected.capabilities.is_none(), "{failure}");
+                assert!(inspected.missing_capability.is_some(), "{failure}");
+            }
             app.verify(&f.m.root).unwrap();
             assert!(select(&f.m, &app.selector().unwrap()).is_ok());
+            let chosen=choose_program_with(&f.m,&app.environment.id,
+                &operator_cli::environment_runtime::identity(&app.environment).unwrap(),&app.executable,None,||Ok(true)).unwrap();
+            let generic=linux_vst_bridge::vendor_profile::inspect(&chosen,&f.m.root).unwrap();
+            assert!(generic.capabilities.is_none());
+            assert!(generic.missing_capability.is_some());
         }
     }
 

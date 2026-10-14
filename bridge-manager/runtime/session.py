@@ -3534,7 +3534,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
     lock=(root/'operation.lock').open('a+b');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     executable=managed_contract['profile']['executable'] if managed_contract is not None else 'Native Access.exe'
     image=RendererImage(app['files'][executable]);evidence=RendererEvidence(app['files'][executable]['artifact'],root,image)
-    scope=None;ledger=None;child=None;clean=False;stop=False;error=None;effective=None;focus=None;dependency_owner=None
+    scope=None;ledger=None;child=None;clean=False;stop=False;error=None;effective=None;focus=None;dependency_owner=None;resources=[]
     callback=None;auth_private=False;auth_discarded=0
     callback_enabled=managed_contract['profile']['browser_scheme']=='native-access' if managed_contract is not None else dependency is not None and (app['id']=='native-access' or callback_fixture)
     if callback_enabled:
@@ -3578,7 +3578,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
     def result(state,live):
         return {'schema':1,'operation':op,'application_identity':spec['application_identity'],'state':state,
             'requested':spec['renderer_policy'],'effective':effective,'renderer':evidence.value(),
-            'dependency':dependency_owner.value() if dependency_owner else None,
+            'dependency':dependency_owner.value() if dependency_owner else ({'dependency_cleanup_disposition':'not_started','service_actions_started':False,'process_cleanup_confirmed':clean} if managed_contract is not None else None),
             'outer_exit':child.returncode if child else None,'cleanup_confirmed':clean,'owned_live':live,
             'cancelled':stop,'error':error,'focus_result':focus,
             'browser_return':callback.value() if callback else None,
@@ -3597,6 +3597,9 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
         ledger=InstallerLedger(scope,persist)
         if ctypes.CDLL(None,use_errno=True).prctl(36,1,0,0,0)!=0:raise RuntimeError('renderer_subreaper')
         if managed_contract is not None:
+            for name,resource in managed_contract['resources'].items():
+                if name!=executable:resources.append(RendererImage(resource))
+            resources.append(RendererImage(managed_contract['dependency']['installer']))
             dependency_owner=Nad1Owner(spec,ledger,scope,lambda:stop,contract=managed_contract)
             dependency_owner.diagnostic_privacy=True
             admitted=managed_contract['dependency']['daemon']
@@ -3604,6 +3607,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
                 import ownership
                 admitted=ownership.image_identity(pathlib.Path(admitted['artifact']['path']))
             dependency_owner.ensure(admitted is None,admitted)
+            for resource in resources:resource.check()
         elif dependency is not None:
             dependency_owner=Nad1Owner(spec,ledger,scope,lambda:stop,fixture=dependency_fixture,session_authority=dependency)
             dependency_owner.ensure(False,dependency['daemon'])
@@ -3616,13 +3620,16 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
         if dependency_owner is not None:
             argv=dependency_owner.runtime.argv(request_path,image.path.parent,launch_env)
         image.check()
+        for resource in resources:resource.check()
         try:child=subprocess.Popen(argv,cwd=image.path.parent,env=launch_env,stdin=subprocess.PIPE if callback_enabled else subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
         except Exception as exc:raise ValueError('application_launch_failed') from exc
         ledger.launcher(child,'application_runner')
+        for resource in resources:resource.check()
         for name,pipe in [('stdout',child.stdout),('stderr',child.stderr)]:os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,name)
         last=0
         while not stop:
             live=ledger.harvest();drain(.05);image.check()
+            for resource in resources:resource.check()
             if dependency_owner and dependency_owner.runtime:dependency_owner.runtime.drain()
             if dependency_owner and dependency_owner.anchor is not None and dependency_owner.anchor.returncode is not None and child.returncode is None:raise ValueError('dependency_service_anchor_exited')
             confirm_effective()
@@ -3692,6 +3699,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
         finish('renderer_selector_close_failed',sel.close)
         finish('renderer_request_remove_failed',lambda:request_path.unlink(missing_ok=True))
         finish('renderer_image_close_failed',image.close)
+        for resource in resources:finish('renderer_resource_close_failed',resource.close)
         for c in captures.values():finish('renderer_capture_close_failed',c.close)
         finish('renderer_lock_close_failed',lock.close)
         publish(result(renderer_terminal_state(clean,stop,error),0 if clean else None))
@@ -4046,9 +4054,51 @@ class Nad1Runtime:
         admitted={}
         for name,path in required:
             matches=[f for f in self.runner['files'] if f['path']==str(path)]
+            if not matches and name in ('client','interface') and any(pathlib.Path(a['path']).name=='runtime-tree.json' for a in self.runner['files']):
+                matches=[self.manifest_tool(path)]
             if len(matches)!=1:raise ValueError('dependency_runtime_'+name+'_identity')
             verify(matches[0]);admitted[name]=matches[0]['sha256']
         self.tool_sha256=admitted
+    def manifest_tool(self,path):
+        """Resolve only this runner's declared tool through its pinned tree."""
+        manifests=[a for a in self.runner['files'] if pathlib.Path(a['path']).name=='runtime-tree.json']
+        if len(manifests)!=1:raise ValueError('dependency_runtime_manifest_identity')
+        manifest=manifests[0];source=pathlib.Path(manifest['path']);base=source.parent
+        if base.resolve()!=base or not path.is_relative_to(base):raise ValueError('dependency_runtime_manifest_root')
+        data=private_file_bytes(source,'dependency runtime manifest',16*1024*1024)
+        if hashlib.sha256(data).hexdigest()!=manifest['sha256']:raise ValueError('dependency_runtime_manifest_changed')
+        rows=json.loads(data,object_pairs_hook=renderer_unique)
+        if not isinstance(rows,list) or not 1<=len(rows)<=40000:raise ValueError('dependency_runtime_manifest_extent')
+        indexed={}
+        for row in rows:
+            relative=pathlib.Path(row['path'])
+            if relative.is_absolute() or '..' in relative.parts or str(relative) in indexed:raise ValueError('dependency_runtime_manifest_path')
+            indexed[str(relative)]=row
+        # The immutable tree may contain declared links. Check every link used
+        # by resolution, never admit an ambient path or an escape from the tree.
+        current=path;seen=set()
+        for _ in range(16):
+            if current in seen:raise ValueError('dependency_runtime_manifest_link_cycle')
+            seen.add(current);changed=False;walk=base
+            for component in current.relative_to(base).parts:
+                walk=walk/component;relative=str(walk.relative_to(base));row=indexed.get(relative)
+                if row is None:raise ValueError('dependency_runtime_tool_undeclared')
+                metadata=walk.lstat()
+                if metadata.st_uid!=os.getuid():raise ValueError('dependency_runtime_tool_owner')
+                if stat.S_ISLNK(metadata.st_mode):
+                    if row.get('target') is None or os.readlink(walk)!=row['target']:raise ValueError('dependency_runtime_tool_link_changed')
+                    suffix=current.relative_to(walk)
+                    target=pathlib.Path(os.path.normpath(str(walk.parent/row['target']/suffix)))
+                    if not target.is_relative_to(base):raise ValueError('dependency_runtime_tool_escape')
+                    current=target;changed=True;break
+                if row.get('target') is not None:raise ValueError('dependency_runtime_tool_link_changed')
+            if not changed:break
+        else:raise ValueError('dependency_runtime_manifest_link_bound')
+        row=indexed[str(current.relative_to(base))];metadata=current.lstat()
+        if (row.get('directory') is not False or row.get('target') is not None or not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_size!=row.get('size') or stat.S_IMODE(metadata.st_mode)!=row.get('mode')
+            or not isinstance(row.get('sha256'),str) or not re.fullmatch('[0-9a-f]{64}',row['sha256'])):raise ValueError('dependency_runtime_tool_changed')
+        return {'path':str(current),'sha256':row['sha256']}
     def _runtime_request(self):
         request=self.owner.directory/f'{self.owner.op}-runtime-anchor.private'
         self.hold=pathlib.Path(str(request)+'.hold')
@@ -4892,12 +4942,36 @@ def managed_vendor_inputs(operation):
 def managed_vendor_result(value):
     focus=value.get('focus_result')
     if focus and focus.get('result') not in ('focused','refused_exact_window_unavailable'):focus={'request':focus.get('request'),'result':'refused_exact_window_unavailable'}
-    return {'schema':3,'operation_id':value['operation'],'state':value['state'],
+    dependency=value.get('dependency')
+    retired=bool(value.get('cleanup_confirmed')) and managed_dependency_retired(dependency)
+    state=value['state']
+    if state in ('completed','failed','cancelled') and not retired:state='cleanup_unconfirmed'
+    code=value.get('error')
+    if code is None and state=='cleanup_unconfirmed':code='dependency_cleanup_unconfirmed'
+    return {'schema':3,'operation_id':value['operation'],'state':state,
         'launcher_exit':value.get('outer_exit'),'owned_live':value.get('owned_live'),
-        'cleanup_confirmed':value.get('cleanup_confirmed',False),'error':value.get('error'),
+        'cleanup_confirmed':retired,'error':managed_application_problem(code) if code else None,'error_code':code,
         'discarded_diagnostic_bytes':0,'diagnostic_enabled':False,'windows_accessibility_disabled':False,
-        'account_posture':'unknown','focus_result':focus,'dependency':value.get('dependency'),
+        'account_posture':'unknown','focus_result':focus,'dependency':dependency,
         'browser_return':value.get('browser_return')}
+
+def managed_application_problem(code):
+    if code.startswith(('dependency_runtime_','managed_application_runtime_')):
+        return 'The compatibility runtime could not start this app. Update the bridge, then try again.'
+    if code.startswith(('renderer_image_','managed_application_resource_','managed_application_profile_')):
+        return "The app's recorded files changed or are incomplete. Run its full installer in this setup again."
+    if 'cleanup' in code or 'retirement' in code or code=='managed_application_owner_interrupted':
+        return 'The app did not finish closing. Use Recover this application session; if it cannot complete, send the message from Setup details.'
+    if code.startswith('dependency_'):
+        return "The app's support service could not start. Close any other copy of this app, then try again. If it still fails, send Setup details."
+    return 'The app could not start or closed with an error. Try opening it again; if it still fails, send Setup details.'
+
+def managed_dependency_retired(dependency):
+    if not isinstance(dependency,dict) or dependency.get('process_cleanup_confirmed') is not True:return False
+    if dependency.get('dependency_cleanup_disposition')=='not_started':return dependency.get('service_actions_started') is False
+    if dependency.get('dependency_cleanup_disposition') not in ('graceful_service_retirement','exact_owned_session_cleanup'):return False
+    post=dependency.get('post_cleanup')
+    return isinstance(post,dict) and all(post.get(key) is True for key in ('cgroup_empty','exact_daemon_generation_absent','application_image_unchanged','daemon_image_unchanged')) and all(type(post.get(key)) is int and post[key]==0 for key in ('listener_mask','candidate_count','candidate_observation_unavailable'))
 
 def managed_vendor_application(operation):
     app=operation['application'];op=operation['operation_id'];report=pathlib.Path(operation['report'])
@@ -4917,7 +4991,8 @@ def managed_vendor_application(operation):
             # operation cohort can establish retirement through normal recovery.
             error=str(exc) if isinstance(exc,ValueError) and str(exc).startswith('managed_application_') else 'managed_application_preflight_failed'
             atomic(report,{'schema':3,'operation_id':op,'state':'cleanup_unconfirmed','launcher_exit':None,
-                'owned_live':None,'cleanup_confirmed':False,'error':error,'discarded_diagnostic_bytes':0,'account_posture':'unknown'})
+                'owned_live':None,'cleanup_confirmed':False,'error':managed_application_problem(error),'error_code':error,'discarded_diagnostic_bytes':0,'account_posture':'unknown',
+                'dependency':{'dependency_cleanup_disposition':'not_started','service_actions_started':False,'process_cleanup_confirmed':False}})
             return False
         software=operation['managed']['software']
         spec={'schema':1,'kind':'managed_application','operation':operation['operation_id'],
@@ -4929,7 +5004,7 @@ def managed_vendor_application(operation):
         try:return renderer_run(spec,managed_contract=capability)
         except Exception:
             atomic(report,{'schema':3,'operation_id':op,'state':'cleanup_unconfirmed','launcher_exit':None,
-                'owned_live':None,'cleanup_confirmed':False,'error':'managed_application_owner_interrupted',
+                'owned_live':None,'cleanup_confirmed':False,'error':managed_application_problem('managed_application_owner_interrupted'),'error_code':'managed_application_owner_interrupted',
                 'discarded_diagnostic_bytes':0,'account_posture':'unknown'})
             return False
 

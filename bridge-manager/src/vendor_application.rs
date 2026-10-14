@@ -95,6 +95,8 @@ pub struct OperationResult {
     pub cleanup_confirmed: bool,
     #[serde(default)]
     pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
     pub discarded_diagnostic_bytes: u64,
     #[serde(default)]
     pub retained_diagnostic_bytes: u64,
@@ -127,12 +129,25 @@ impl OperationResult {
     pub fn retired(&self) -> bool {
         matches!(self.schema, 1..=3)
             && self.cleanup_confirmed
+            && self.dependency.as_ref().is_none_or(dependency_retired)
             && self.owned_live.unwrap_or(0) == 0
             && matches!(
                 self.state,
                 OperationState::Completed | OperationState::Cancelled | OperationState::Failed
             )
     }
+}
+pub fn dependency_retired(value: &serde_json::Value) -> bool {
+    if value["process_cleanup_confirmed"] != true { return false; }
+    if value["dependency_cleanup_disposition"] == "not_started" {
+        return value["service_actions_started"] == false;
+    }
+    matches!(value["dependency_cleanup_disposition"].as_str(),
+        Some("graceful_service_retirement" | "exact_owned_session_cleanup"))
+        && ["cgroup_empty", "exact_daemon_generation_absent", "application_image_unchanged", "daemon_image_unchanged"]
+            .iter().all(|key| value["post_cleanup"][key] == true)
+        && ["listener_mask", "candidate_count", "candidate_observation_unavailable"].iter()
+            .all(|key| value["post_cleanup"][key].as_u64() == Some(0))
 }
 impl ApplicationId {
     pub fn parse(s: &str) -> Result<Self> {
