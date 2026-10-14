@@ -53,8 +53,20 @@ All 326 projects and 34 Native Access records stay exact. Seven Home captures ov
 about 36 seconds retain running status through renewal; a truthful last-observed
 refresh settles by the next sample, without reviving the Native Access task.
 [Scoped renewal result](../evidence/reference-runtime-deck.json).
-Kontakt's intermittent editor-interface allocator crash and runtime verification/
-update latency remain open.
+Deck Test67/68 retain all 25 Available classes, the user's new application history
+and 326 exact projects. Each update changes only registry renewal among 5,403
+protected files. Test68 fixes the completion wake that left Test67 Home refreshing
+until input: two actual background overview completions and ten pulses join to
+fresh Home captures across 150 seconds with no input. Home gives factual
+availability and optional usage help. The ordinary installer Open Setup handoff
+also survives installer exit when the test launcher preserves its child lifetime.
+A fresh retained Bitwig project recalls source levels 0.435/0.490 and plays 20
+seconds of finite nonzero stereo audio; all 23 original preferences and the project
+remain exact. The recorder exits 1 with empty stderr after all requested frames.
+Normal GUI quit and renewed numeric effect-editor recall remain unverified.
+[Scoped installed result](../evidence/reference-runtime-deck.json).
+Kontakt's intermittent editor-interface allocator crash remains open. Its exact
+accessibility-policy A/B/A all pass, so no workaround or reliability fix is kept.
 
 Test58's corrected first-party vendor-application continuation passes in the
 disposable CachyOS VM / native REAPER 7.82 at 44.1 kHz / 512 frames. Its first
@@ -104,8 +116,8 @@ selected Setup route and running status through two ordinary age renewals.
 The retained project loads using its original PulseAudio configuration; renewed
 playback and chooser drafting remain unverified because of the test input route.
 The update completes between 1,178 and 1,254 seconds on this capped six-class VM;
-connection/update latency and the Kontakt allocator crash remain open. Deck delivery
-awaits the user's handoff. [Scoped installed result](../evidence/cachyos-reaper.json).
+The update time is a capped VM baseline; the Kontakt allocator crash remains open.
+[Scoped installed result](../evidence/cachyos-reaper.json).
 
 Test55's clean CachyOS/native REAPER first-party installation uses one ordinary
 Install and connect request: owned runtime acquisition, vendor installation and
