@@ -408,6 +408,21 @@ pub(crate) mod tests {
             assert!(generic.missing_capability.is_some());
         }
     }
+    #[test]
+    fn unreadable_candidate_structure_refuses_automatic_fallback_but_keeps_explicit_choice() {
+        use std::os::unix::fs::PermissionsExt;
+        assert_ne!(unsafe {libc::geteuid()},0,"Run ownership fixtures as an ordinary user");
+        let (f,app,directory)=structured_application(2);
+        let bundled=directory.join("resources/daemon/win");
+        fs::copy(bundled.join("NTKDaemon 2.0 Setup PC.exe"),bundled.join("NTKDaemon 3.0 Setup PC.exe")).unwrap();
+        fs::set_permissions(&bundled,fs::Permissions::from_mode(0o300)).unwrap();
+        let inspected=linux_vst_bridge::vendor_profile::inspect(&app,&f.m.root);
+        fs::set_permissions(&bundled,fs::Permissions::from_mode(0o700)).unwrap();
+        assert!(inspected.err().unwrap().to_string().contains("support files could not be read"));
+        let chosen=choose_program_with(&f.m,&app.environment.id,
+            &operator_cli::environment_runtime::identity(&app.environment).unwrap(),&app.executable,None,||Ok(true)).unwrap();
+        assert!(linux_vst_bridge::vendor_profile::inspect(&chosen,&f.m.root).unwrap().capabilities.is_none());
+    }
 
     #[test]
     fn unsafe_registration_or_image_binding_refuses_before_registration() {

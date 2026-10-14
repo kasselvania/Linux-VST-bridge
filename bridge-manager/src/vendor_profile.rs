@@ -80,6 +80,7 @@ struct IntegrityFailure(&'static str);
 impl std::fmt::Display for IntegrityFailure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let problem = match self.0 {
+            "vendor_profile_structure_unavailable" => "The app's support files could not be read.",
             "vendor_profile_bundled_dependency_ambiguous" => "More than one support installer was found for this app.",
             "vendor_profile_application_changed" => "The app's recorded files changed.",
             _ => "The app's support files point outside this setup or share another file's identity.",
@@ -178,7 +179,11 @@ fn observe_structure(app: &Application, profile: &Profile) -> Result<Capabilitie
     let drive = app.environment.root.join("compatdata/pfx/drive_c");
     require(directory.starts_with(&drive) && directory.canonicalize()? == directory,
         "vendor_profile_application_directory")?;
-    check_structure(directory,&drive,profile)?;
+    check_structure(directory,&drive,profile).map_err(|error| {
+        if error.downcast_ref::<IntegrityFailure>().is_some() {error}
+        else {Box::new(IntegrityFailure("vendor_profile_structure_unavailable"))
+            as Box<dyn std::error::Error + Send + Sync>}
+    })?;
     executable(&app.executable.path, Some(&profile.architecture))?;
     let main = image(&app.executable.path)?;
     integrity(main.artifact == app.executable, "vendor_profile_application_changed")?;
