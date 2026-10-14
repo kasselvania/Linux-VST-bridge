@@ -10,6 +10,8 @@ pub(crate) struct Intent {
     pub owner: String,
     pub active_operation: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub installer_policy: Option<ui::Powershell>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vendor: Option<VendorWork>,
     pub journey: ui::InstallationJourney,
     pub scan: Option<String>,
@@ -134,6 +136,7 @@ pub(super) fn vendor_checkpoint_authority(m: &Manager) -> Result<Vec<Value>> {
 }
 
 pub(super) fn record_intent(m: &Manager, record: &onboarding::Record) -> Result<Option<Intent>> {
+    if let Some(original)=&record.automatic { initial_installer_policy(m,record,original)?; }
     if let Some(current)=current_environment_vendor_intent(m,&record.environment)? {return Ok(Some(current));}
     if let Some(current)=environment_refresh::current_intent(m,&record.environment)? {return Ok(Some(current));}
     let Some(original) = &record.automatic else { return Ok(None) };
@@ -141,6 +144,27 @@ pub(super) fn record_intent(m: &Manager, record: &onboarding::Record) -> Result<
         if let Some(current) = vendor_intent(m, &vendor.application)? { return Ok(Some(current)); }
     }
     Ok(Some(original.clone()))
+}
+fn initial_installer_policy(m:&Manager,record:&onboarding::Record,intent:&Intent)->Result<Option<ui::Powershell>> {
+    let path=job_dir(m,&intent.owner)?.join("request.json");
+    // Legacy intents carry no explicit choice. Their existing receipt owner is
+    // unchanged; an explicit copy must always resolve its original request.
+    if intent.installer_policy.is_none() && !path.try_exists()? {return Ok(None);}
+    let request:ui::Request=read_json(&path)?;
+    let choice=request.action.software_install();
+    if intent.installer_policy.is_some() || choice.is_some_and(|(_,_,policy)|policy.is_some()) {
+        require(matches!(request.schema,5..=ui::OPERATOR_SCHEMA)
+            && intent.owner==record.creation_operation && intent.vendor.is_none()
+            && choice.is_some_and(|(installer,daw,policy)|installer==record.installer
+                && daw==intent.journey.daw && policy==intent.installer_policy),"automatic_installer_policy_owner")?;
+    }
+    Ok(intent.installer_policy)
+}
+fn initial_installer_action(m:&Manager,record:&onboarding::Record,intent:&Intent)->Result<ui::Action> {
+    Ok(match initial_installer_policy(m,record,intent)? {
+        Some(powershell)=>ui::Action::InstallerStartWithPolicy {onboarding:record.id.clone(),powershell},
+        None=>ui::Action::InstallerStart {onboarding:record.id.clone()},
+    })
 }
 pub(super) fn current_environment_vendor_intent(m:&Manager,environment:&Environment)->Result<Option<Intent>> {
     let mut owners=current_vendor_bindings(m)?.into_iter().filter(|binding|binding.environment==*environment);
@@ -397,7 +421,8 @@ fn owned_service_pause_with(
         return Ok(None);
     }
     let bound = match &request.action {
-        ui::Action::SoftwareInstall { daw, .. } if saved.owner_operation == operation => {
+        ui::Action::SoftwareInstall { daw, .. } | ui::Action::SoftwareInstallWithPolicy {daw,..}
+            if saved.owner_operation == operation => {
             *daw == journey.daw
         }
         ui::Action::VendorSoftwareInstall { application, .. } | ui::Action::VendorApplicationOpen { application } => {
@@ -431,6 +456,7 @@ fn owned_service_pause_with(
                     || intent.work.iter().any(|work|work.active_operation.as_deref()==Some(saved.owner_operation.as_str())))
         }
         ui::Action::SoftwareInstall { .. }
+        | ui::Action::SoftwareInstallWithPolicy {..}
         | ui::Action::SoftwareInstallResume { .. } => {
             let mut owners=vec![];
             for record in onboarding::history_records(m)? {
@@ -438,7 +464,7 @@ fn owned_service_pause_with(
             }
             owners.iter().any(|(record,intent)| {
                 let same_request = match &request.action {
-                    ui::Action::SoftwareInstall { installer, daw } => {
+                    ui::Action::SoftwareInstall { installer, daw } | ui::Action::SoftwareInstallWithPolicy {installer,daw,..} => {
                         *installer == record.installer && *daw == intent.journey.daw
                     }
                     ui::Action::VendorSoftwareInstall { application, daw } => {
@@ -531,6 +557,7 @@ fn save(m: &Manager, record: &dyn InstallationTarget, intent: &Intent, operation
                 "environment":record.id(),"application":vendor.application,"journey":intent.journey}), false);
     }
     let record = record.installation().ok_or("automatic_installation_record_missing")?;
+    initial_installer_policy(m,record,intent)?;
     let _guard = m.lock("onboarding.lock")?;
     let mut current = onboarding::retained_environment_record(m, &record.id)?
         .ok_or("automatic_installation_record_missing")?;
@@ -580,7 +607,7 @@ fn execute_with_vendor(m:&Manager,action:&ui::Action,operation:&str,
     // One user intent has one executor across all child operations. This lock
     // never blocks readback or holds registry/canonical ownership during GUI work.
     let installer = match action {
-        ui::Action::SoftwareInstall { installer, .. } => installer.clone(),
+        action if action.software_install().is_some()=>action.software_install().unwrap().0.into(),
         ui::Action::VendorSoftwareInstall { application, .. } => {
             vendor_cli::application(m, application)?.installer_sha256.ok_or("This program has no installer provenance")?
         }
@@ -593,13 +620,13 @@ fn execute_with_vendor(m:&Manager,action:&ui::Action,operation:&str,
     };
     require(valid_hex(&installer, 64), "installer_identity")?;
     let _intent_owner = m.lock(&format!("automatic-install-{installer}.lock"))?;
-    if let ui::Action::SoftwareInstall { daw, .. } = action {
+    if let Some((_,daw,_)) = action.software_install() {
         write_operation(
             m,
             operation,
             &json!({"schema":2,"operation":operation,
             "state":"running","journey":ui::InstallationJourney {
-                daw:*daw,phase:ui::InstallationPhase::PreparingEnvironment,
+                daw,phase:ui::InstallationPhase::PreparingEnvironment,
                 plugins:vec![],failure:None,
             }}),
             false,
@@ -648,11 +675,12 @@ fn execute_owned(
     vendor_run: &mut VendorStage<'_>,
 ) -> Result<Value> {
     let (record, mut intent): (Box<dyn InstallationTarget>, Intent) = match action {
-        ui::Action::SoftwareInstall { installer, daw } => {
+        action @ (ui::Action::SoftwareInstall {..} | ui::Action::SoftwareInstallWithPolicy {..}) => {
+            let (installer,daw,installer_policy)=action.software_install().unwrap();
             let history = onboarding::history_records(m)?;
             let existing: Vec<_> = history
                 .iter()
-                .filter(|r| r.installer == *installer)
+                .filter(|r| r.installer == installer)
                 .collect();
             require(
                 existing.len() <= 1,
@@ -686,7 +714,7 @@ fn execute_owned(
                 let value = execute_with_receipt_policy(
                     m,
                     &ui::Action::InstallerEnvironmentCreate {
-                        installer: installer.clone(),
+                        installer: installer.into(),
                         runner,
                     },
                     Some(operation),
@@ -718,6 +746,7 @@ fn execute_owned(
                 vec![]
             };
             let mut intent = Intent {
+                installer_policy,
                 owner: operation.into(),
                 active_operation: operation.into(),
                 vendor: None,
@@ -729,7 +758,7 @@ fn execute_owned(
                 predecessors:vec![],
                 previous:None,
                 journey: ui::InstallationJourney {
-                    daw: *daw,
+                    daw,
                     phase: ui::InstallationPhase::PreparingEnvironment,
                     plugins: vec![],
                     failure: None,
@@ -738,9 +767,7 @@ fn execute_owned(
             save(m, &record, &intent, operation)?;
             let installed = execute_with_receipt_policy(
                 m,
-                &ui::Action::InstallerStart {
-                    onboarding: record.id.clone(),
-                },
+                &initial_installer_action(m,&record,&intent)?,
                 Some(operation),
                 capacity_read,
                 timeout,
@@ -798,6 +825,7 @@ fn execute_owned(
             let selected =
                 control_artifact(vendor_cli::directory(m, application)?.join("application.json"))?;
             let mut intent = Intent {
+                installer_policy:None,
                 owner: operation.into(),
                 active_operation: operation.into(),
                 vendor: Some(VendorWork {
@@ -861,9 +889,7 @@ fn execute_owned(
                 save(m, record.as_ref(), &intent, operation)?;
                 let launched = execute_with_receipt_policy(
                     m,
-                    &ui::Action::InstallerStart {
-                        onboarding: record.id().to_owned(),
-                    },
+                    &initial_installer_action(m,record.installation().ok_or("automatic_installation_record_missing")?,&intent)?,
                     Some(operation),
                     capacity_read,
                     timeout,
@@ -1783,7 +1809,7 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
                 serde_json::from_value::<ui::InstallationJourney>(receipt["journey"].clone()).ok();
             request.zip(journey).filter(|(request, journey)| {
                 matches!(&request.action,
-            ui::Action::SoftwareInstall { daw, .. } if daw == &journey.daw)
+            ui::Action::SoftwareInstall { daw, .. } | ui::Action::SoftwareInstallWithPolicy {daw,..} if daw == &journey.daw)
                     && receipt.get("onboarding").is_none()
                     && matches!(
                         journey.phase,
@@ -1904,8 +1930,7 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
             }
         } else if record.is_none_or(|r| r.installation_operation.is_none()) {
             if let Some((request, journey)) = early.as_ref().filter(|(request, _)| {
-                matches!(&request.action,
-                ui::Action::SoftwareInstall {installer,..} if installer == &setup.installer)
+                request.action.software_install().is_some_and(|(installer,_,_)|installer==setup.installer)
             }) {
                 setup.journey = Some(journey.clone());
                 setup.status = if journey.phase == ui::InstallationPhase::NeedsAttention {
@@ -1930,6 +1955,14 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
                 },
                 busy,
             ));
+            if software_record(m).is_ok_and(|sw|linux_vst_bridge::installer_policy::eligible_adapter_record(&setup.format,&sw).is_ok()) {
+                for powershell in [ui::Powershell::Inherited,ui::Powershell::IntentionallyUnavailable] {
+                    setup.secondary.push(action(match powershell {
+                        ui::Powershell::Inherited=>"Install with normal PowerShell behavior",
+                        ui::Powershell::IntentionallyUnavailable=>"Install without PowerShell",
+                    },ui::Action::SoftwareInstallWithPolicy {installer:setup.installer.clone(),daw:ui::DawChoice::Other,powershell},busy));
+                }
+            }
         }
     }
     Ok(())
@@ -1946,7 +1979,7 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
     }
     if !matches!(
         action,
-        ui::Action::SoftwareInstall { .. } | ui::Action::VendorSoftwareInstall { .. }
+        ui::Action::SoftwareInstall { .. } | ui::Action::SoftwareInstallWithPolicy {..} | ui::Action::VendorSoftwareInstall { .. }
             | ui::Action::VendorApplicationOpen { .. } | ui::Action::SoftwareInstallResume { .. }
     ) {
         return Ok(());
@@ -2099,7 +2132,7 @@ mod tests {
         assert_eq!(reserve_vendor_revision(&f.m,&record,&intent).unwrap_err().to_string(),"automatic_vendor_revision_changed");
     }
     fn initial_intent(record: &onboarding::Record) -> Intent {
-        Intent { owner:record.creation_operation.clone(), active_operation:record.creation_operation.clone(),
+        Intent { installer_policy:None,owner:record.creation_operation.clone(), active_operation:record.creation_operation.clone(),
             vendor:None, journey:ui::InstallationJourney { daw:ui::DawChoice::Bitwig,
                 phase:ui::InstallationPhase::NeedsAttention, plugins:vec![],
                 failure:Some(failure(ui::InstallationFailureStage::Discovery,
@@ -2396,6 +2429,7 @@ mod tests {
         )
         .unwrap();
         let intent = Intent {
+            installer_policy:None,
             active_operation: owner.clone(),
             vendor: None,
             owner,
@@ -2563,6 +2597,75 @@ mod tests {
                 .is_none(),
             "Restoration clears the display fact"
         );
+    }
+    #[test]
+    fn fresh_import_policy_offer_admission_creation_and_launch_keep_the_original_choice() {
+        for policy in [None,Some(ui::Powershell::Inherited),Some(ui::Powershell::IntentionallyUnavailable)] {
+            let (f,installer,_)=onboarding::tests::close_policy_imported_fixture();
+            assert!(onboarding::history_records(&f.m).unwrap().is_empty());
+            let snapshot=snapshot_idle_test(&f.m).unwrap();
+            let offer=available(&snapshot).into_iter().find(|offer|
+                offer.action.software_install().is_some_and(|(id,_,selected)|id==installer.id && selected==policy)).unwrap();
+            let action=match policy {
+                Some(powershell)=>ui::Action::SoftwareInstallWithPolicy {installer:installer.id.clone(),daw:ui::DawChoice::Reaper,powershell},
+                None=>ui::Action::SoftwareInstall {installer:installer.id.clone(),daw:ui::DawChoice::Reaper},
+            };
+            assert!(preparation_cli::offered(&action,&offer.action));
+            let operation=test_submit_offered(&f.m,&action).unwrap();
+            let saved:ui::Request=read_json(&job_dir(&f.m,&operation).unwrap().join("request.json")).unwrap();
+            let error=readiness::with_unit_state_fixture(&[onboarding::unit(&operation).unwrap()],"inactive",||
+                onboarding::with_installer_unit_refusal(||execute(&f.m,&saved.action,&operation,
+                    &idle_capacity_test,Duration::from_secs(1),&mut vec![]))).unwrap_err();
+            assert!(error.to_string().contains("fixture_installer_unit_refusal"),"{error}");
+            let records=onboarding::history_records(&f.m).unwrap();assert_eq!(records.len(),1);
+            let record=&records[0];assert_eq!(record.creation_operation,operation);
+            assert_eq!(record.installation_operation.as_deref(),Some(operation.as_str()));
+            let intent=record_intent(&f.m,record).unwrap().unwrap();
+            assert_eq!(intent.owner,operation);assert_eq!(intent.installer_policy,policy);
+            assert_eq!(intent.journey.daw,ui::DawChoice::Reaper);
+            let spec:Value=read_json(&onboarding::directory(&f.m,&record.id).unwrap().join(format!("{operation}-spec.json"))).unwrap();
+            assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],
+                serde_json::to_value(policy.unwrap_or(ui::Powershell::IntentionallyUnavailable)).unwrap());
+            assert_eq!(spec["installer_capability"]["operation"],operation);
+            assert_eq!(spec["installer_capability"]["environment"],serde_json::to_value(&record.environment).unwrap());
+            if policy.is_none() {assert!(serde_json::to_value(&intent).unwrap().get("installer_policy").is_none());}
+        }
+    }
+    #[test]
+    fn explicit_first_install_policy_survives_prelaunch_interruption_and_refuses_changed_owner_copies() {
+        let (f,installer,runner)=onboarding::tests::close_policy_imported_fixture();
+        let action=ui::Action::SoftwareInstallWithPolicy {installer:installer.id.clone(),daw:ui::DawChoice::Reaper,
+            powershell:ui::Powershell::Inherited};
+        let owner=test_submit_offered(&f.m,&action).unwrap();
+        let request_path=job_dir(&f.m,&owner).unwrap().join("request.json");let original_request=fs::read(&request_path).unwrap();
+        let prepared=onboarding::prepare_creation(&f.m,&installer.id,&onboarding::runner_key(&runner).unwrap()).unwrap();
+        let created=onboarding::create_prepared(&f.m,prepared,&owner,&f.m.lock("registry.lock").unwrap()).unwrap();
+        let record=onboarding::load(&f.m,created["onboarding"].as_str().unwrap()).unwrap();
+        let mut intent=initial_intent(&record);intent.installer_policy=Some(ui::Powershell::Inherited);
+        intent.journey.daw=ui::DawChoice::Reaper;intent.journey.phase=ui::InstallationPhase::NeedsAttention;
+        save(&f.m,&record,&intent,&owner).unwrap();
+        write_operation(&f.m,&owner,&json!({"schema":2,"operation":owner,"state":"refused","journey":intent.journey}),false).unwrap();
+        let resume=ui::Action::SoftwareInstallResume {onboarding:record.id.clone()};
+        let operation=test_submit_offered(&f.m,&resume).unwrap();
+        let error=readiness::with_unit_state_fixture(&[onboarding::unit(&operation).unwrap()],"inactive",||
+            onboarding::with_installer_unit_refusal(||execute(&f.m,&resume,&operation,
+                &idle_capacity_test,Duration::from_secs(1),&mut vec![]))).unwrap_err();
+        assert!(error.to_string().contains("fixture_installer_unit_refusal"),"{error}");
+        let current=onboarding::retained_environment_record(&f.m,&record.id).unwrap().unwrap();
+        assert_eq!(current.environment,record.environment);assert_eq!(current.creation_operation,owner);
+        assert_eq!(onboarding::history_records(&f.m).unwrap().len(),1);
+        assert_eq!(fs::read(&request_path).unwrap(),original_request);
+        let spec:Value=read_json(&onboarding::directory(&f.m,&record.id).unwrap().join(format!("{operation}-spec.json"))).unwrap();
+        assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],"inherited");
+        assert_eq!(spec["installer_capability"]["operation"],operation);
+        for policy in [None,Some(ui::Powershell::IntentionallyUnavailable)] {
+            let mut changed=current.clone();changed.automatic.as_mut().unwrap().installer_policy=policy;
+            assert_eq!(record_intent(&f.m,&changed).unwrap_err().to_string(),"automatic_installer_policy_owner");
+        }
+        let mut changed:ui::Request=serde_json::from_slice(&original_request).unwrap();
+        changed.action=ui::Action::SoftwareInstallWithPolicy {installer:installer.id,daw:ui::DawChoice::Reaper,
+            powershell:ui::Powershell::IntentionallyUnavailable};
+        atomic_json(&request_path,&changed).unwrap();assert!(record_intent(&f.m,&current).is_err());
     }
     #[test]
     fn cold_install_progress_precedes_runtime_work_and_failure_keeps_exact_retry() {
@@ -2857,9 +2960,13 @@ mod tests {
         pe[128..132].copy_from_slice(b"PE\0\0");pe[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
         pe[150]=0x22;pe[1023]=b'a';pe.extend_from_slice(b"new installer bytes");
         let installer=hex(&sha2::Sha256::digest(&pe));
-        for schema in [26,ui::OPERATOR_SCHEMA] {
+        for (schema,policy) in [(26,None),(ui::OPERATOR_SCHEMA,None),
+            (ui::OPERATOR_SCHEMA,Some(ui::Powershell::Inherited)),
+            (ui::OPERATOR_SCHEMA,Some(ui::Powershell::IntentionallyUnavailable))] {
             let request=ui::Request {schema,state_token:"accepted".into(),
-                action:ui::Action::EnvironmentInstallerStart {environment:"a".repeat(32),installer:installer.clone()}};
+                action:if let Some(powershell)=policy {ui::Action::EnvironmentInstallerStartWithPolicy {
+                    environment:"a".repeat(32),installer:installer.clone(),powershell}}
+                    else {ui::Action::EnvironmentInstallerStart {environment:"a".repeat(32),installer:installer.clone()}}};
             let result=Command::new("python3").env("PYTHONDONTWRITEBYTECODE","1")
                 .args(["-I","-c",r#"
 import json,pathlib,sys
@@ -2873,7 +2980,10 @@ try:
  operation,directory=fixture.replacement_operation('a')
  request=json.loads(sys.argv[2])
  original=json.loads((directory/'request.json').read_bytes())
- assert request['action']==original['action']
+ expected=original['action']
+ if request['action']['kind']=='environment_installer_start_with_policy':
+  expected=dict(expected,kind='environment_installer_start_with_policy',powershell=request['action']['powershell'])
+ assert request['action']==expected
  fixture.write(directory/'request.json',request)
  with patch.object(session,'renderer_run',return_value=True) as run:
   assert session.vendor_application(operation)

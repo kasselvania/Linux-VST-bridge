@@ -246,7 +246,7 @@ fn begin(m:&Manager,application:&str,policy:renderer::RendererPolicy,daw:ui::Daw
     let sw=prep::build::launch_software(m)?;
     let selected=control_artifact(renderer_session::directory(m).join("application.json"))?;
     let prior=latest(m)?;
-    let mut intent=Intent {owner:owner.into(),active_operation:owner.into(),vendor:None,
+    let mut intent=Intent {installer_policy:None,owner:owner.into(),active_operation:owner.into(),vendor:None,
         journey:ui::InstallationJourney {daw,phase:ui::InstallationPhase::PreparingEnvironment,
             plugins:vec![],failure:None},scan:None,prior_selections:vec![],prior_modules:vec![],
         failed_modules:vec![],work:vec![],predecessors:vec![],previous:None};
@@ -471,7 +471,7 @@ pub(super) fn finish(m:&Manager,operation:&str,action:&ui::Action)->Result<()> {
         let request=ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"fixture".into(),action:ui::Action::RendererSoftwareInstall {
             application:app.identity().unwrap(),policy:renderer::RendererPolicy::SoftwareRendering,daw:ui::DawChoice::Bitwig}};
         atomic_json(&directory.join("request.json"),&request).unwrap();
-        let intent=Intent {owner:owner.clone(),active_operation:owner.clone(),vendor:None,
+        let intent=Intent {installer_policy:None,owner:owner.clone(),active_operation:owner.clone(),vendor:None,
             journey:ui::InstallationJourney {daw:ui::DawChoice::Bitwig,phase:ui::InstallationPhase::Discovering,plugins:vec![],failure:None},
             scan:None,prior_selections:vec![],prior_modules:vec![],failed_modules:vec![],work:vec![],predecessors:vec![],previous:None};
         let retained=Continuation {schema:1,request:control_artifact(directory.join("request.json")).unwrap(),

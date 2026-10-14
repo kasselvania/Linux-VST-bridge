@@ -582,8 +582,23 @@ fn launch_input(m: &Manager, r: &Record,
     linux_vst_bridge::installer_policy::bind_for_launch(m, &mut spec, &sw, policy)?;
     Ok(spec)
 }
+#[cfg(test)]
+thread_local! { static INSTALLER_UNIT_REFUSAL: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
+#[cfg(test)]
+pub(crate) fn with_installer_unit_refusal<T>(run:impl FnOnce()->T)->T {
+    struct Restore(bool);
+    impl Drop for Restore {fn drop(&mut self) {INSTALLER_UNIT_REFUSAL.with(|value|value.set(self.0));}}
+    let _restore=Restore(INSTALLER_UNIT_REFUSAL.with(|value|value.replace(true)));
+    run()
+}
 pub(super) fn launch_spec(m: &Manager, op: &str, path: &Path, report: &Path) -> Result<()> {
     let sw = software(m)?;
+    #[cfg(test)]
+    if INSTALLER_UNIT_REFUSAL.with(std::cell::Cell::get) {
+        atomic_json(report,&json!({"schema":2,"operation":op,"state":"failed","raw_exit":null,
+            "cleanup_confirmed":true,"owned_live":0,"error":"fixture_installer_unit_refusal"}))?;
+        return Err("fixture_installer_unit_refusal".into());
+    }
     let status = Command::new("systemd-run")
         .args([
             "--user",
@@ -1334,7 +1349,7 @@ pub(crate) mod tests {
         (f, i)
     }
     mod policy_fixture { include!("../tests/fixtures/nsis_installer.rs"); }
-    pub(crate) fn close_policy_unstarted_fixture() -> (test_fixture::Fixture, Record) {
+    pub(crate) fn close_policy_imported_fixture() -> (test_fixture::Fixture, installer_import::Installer, Runner) {
         let f = test_fixture::Fixture::new();
         let path = f.outer.join("chosen-program.exe");
         fs::write(&path, policy_fixture::fixture(None)).unwrap();
@@ -1346,6 +1361,10 @@ pub(crate) mod tests {
             operator_frontend: None, native_catalogue: None, preparation_kit: None, installer_launch: Some(owner) };
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
         let runner = operator_cli::tests::retained_managed_runtime(&f.m, false);
+        (f,installer,runner)
+    }
+    pub(crate) fn close_policy_unstarted_fixture() -> (test_fixture::Fixture, Record) {
+        let (f,installer,runner)=close_policy_imported_fixture();
         let created = create_exact(&f.m, &installer, runner, &"ab".repeat(16),
             &f.m.lock("registry.lock").unwrap(), None).unwrap();
         let r = load(&f.m, created["onboarding"].as_str().unwrap()).unwrap();

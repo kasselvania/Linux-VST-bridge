@@ -392,7 +392,10 @@ mod tests {
             .unwrap(),environment);
     }
     fn fixture() -> (test_fixture::Fixture,installer_import::Installer) {
-        let (f,_,_,_) = test_fixture::prepared();
+        fixture_with_catalogue(false)
+    }
+    fn fixture_with_catalogue(with_catalogue:bool) -> (test_fixture::Fixture,installer_import::Installer) {
+        let (f,profile,_,native) = test_fixture::prepared();
         let mut bytes=vec![0;1024];
         bytes[..2].copy_from_slice(b"MZ");bytes[60]=128;
         bytes[128..132].copy_from_slice(b"PE\0\0");
@@ -401,10 +404,17 @@ mod tests {
         let path=f.outer.join("companion.exe");fs::write(&path,bytes).unwrap();
         let installer=installer_import::import(&f.m,file(&path).unwrap()).unwrap();
         let a=f.r.host.clone();
-        let sw=Software {manager:a.clone(),supervisor:a.clone(),ownership:a.clone(),host:a,
+        let mut sw=Software {manager:a.clone(),supervisor:a.clone(),ownership:a.clone(),host:a,
             source_manifest:Artifact {path:f.r.host.path.with_file_name("host-source-manifest.json"),
                 sha256:f.r.host_source_sha256.clone()},source_sha256:f.r.host_source_sha256.clone(),
-            operator_frontend:None,native_catalogue:None,preparation_kit:None,installer_launch:None};
+                operator_frontend:None,native_catalogue:None,preparation_kit:None,installer_launch:None};
+        if with_catalogue {
+            let path=sw.manager.path.with_file_name("catalogue.json");
+            atomic_json(&path,&catalogue::Catalogue {schema:3,natives:vec![native],hosts:vec![],onboarding_runtime:None,
+                environments:vec![catalogue::EnvironmentBinding {family:profile.requirements.environment_family,
+                    environment:f.r.environment.clone()}]}).unwrap();
+            sw.native_catalogue=Some(Artifact {sha256:digest(&path).unwrap(),path});
+        }
         atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
         fs::write(f.r.environment.root.join("compatdata/pfx/system.reg"),b"first-party registry fixture").unwrap();
         (f,installer)
@@ -634,6 +644,30 @@ mod tests {
             assert_eq!(input["installer_capability"]["windows_scripting"]["powershell"], "inherited");
             assert_eq!(input["installer_capability"]["operation"], operation);
             assert_eq!(input["installer_capability"]["environment"],serde_json::to_value(&binding.environment).unwrap());
+            complete(&f.m,&binding,"cancelled");
+        }
+    }
+    #[test]
+    fn registered_uuid_setup_accepts_both_explicit_installer_policies_without_changing_identity() {
+        let (f,installer)=fixture_with_catalogue(true);let environment=f.r.environment.clone();
+        assert!(environment.id.contains('-'));
+        let mut sw=software_record(&f.m).unwrap();sw.installer_launch=Some(sw.host.clone());
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
+        for powershell in [ui::Powershell::Inherited,ui::Powershell::IntentionallyUnavailable] {
+            let units:Vec<_>=records(&f.m).unwrap().into_iter().map(|record|onboarding::unit(&record.operation).unwrap()).collect();
+            let snapshot=readiness::with_unit_state_fixture(&units,"inactive",||snapshot_idle_test(&f.m)).unwrap();
+            let offered=available(&snapshot).into_iter().find(|offer|matches!(&offer.action,
+                ui::Action::EnvironmentInstallerStartWithPolicy {environment:id,installer:selected,powershell:policy}
+                    if id==&environment.id && selected==&installer.id && policy==&powershell)).unwrap();
+            let request=ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:snapshot.state_token.clone(),action:offered.action.clone()};
+            validate(&request,&snapshot).unwrap();
+            let operation=random_id().unwrap();private_dir(&job_dir(&f.m,&operation).unwrap()).unwrap();
+            atomic_json(&job_dir(&f.m,&operation).unwrap().join("request.json"),&request).unwrap();
+            let binding=reserve_with(&f.m,&environment.id,&installer.id,&operation,||Ok(true),|_|Ok(false)).unwrap();
+            let spec=launch_input(&f.m,&binding,request.action.environment_installer_start().unwrap().2).unwrap();
+            assert_eq!(spec["installer_capability"]["environment"]["id"],environment.id);
+            assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],serde_json::to_value(powershell).unwrap());
+            assert_eq!(binding.environment.root,environment.root);assert_eq!(binding.environment.runner,environment.runner);
             complete(&f.m,&binding,"cancelled");
         }
     }

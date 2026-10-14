@@ -1088,8 +1088,11 @@ pub fn offered(actual: &ui::Action, offer: &ui::Action) -> bool {
         (ui::Action::RendererSoftwareInstall {application,policy,..},ui::Action::RendererSoftwareInstall {application:offered,policy:offered_policy,..})=>application==offered && policy==offered_policy,
         (ui::Action::EnvironmentRefresh {environment,..},ui::Action::EnvironmentRefresh {environment:offered,..})=>environment==offered,
         (ui::Action::VendorSoftwareInstall {application,..}, ui::Action::VendorSoftwareInstall {application:offered,..}) => application==offered,
-        (ui::Action::SoftwareInstall { installer, .. },
-            ui::Action::SoftwareInstall { installer: offered, .. }) => installer == offered,
+        (actual,offer) if actual.software_install().is_some() && offer.software_install().is_some()=> {
+            let (installer,_,policy)=actual.software_install().unwrap();
+            let (offered,_,offered_policy)=offer.software_install().unwrap();
+            installer==offered && policy==offered_policy
+        },
         (
             ui::Action::CompatibilityResult {
                 candidate, expected_current, result, passed, failed_area, note,

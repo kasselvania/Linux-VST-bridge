@@ -1712,6 +1712,7 @@ fn current_offer_action(action: &ui::Action) -> bool {
     matches!(action, ui::Action::RuntimeInstall {} | ui::Action::SupportExport {}
         | ui::Action::TransactionReconcile {}
         | ui::Action::SoftwareInstall { .. }
+        | ui::Action::SoftwareInstallWithPolicy {..}
         | ui::Action::SoftwareInstallResume { .. }
         | ui::Action::EnvironmentRefresh { .. }
         | ui::Action::EnvironmentRefreshResume { .. }
@@ -2246,7 +2247,7 @@ fn execute_with_receipt_policy_progress(
         return environment_refresh::execute(m,a,operation.ok_or("operator_operation_identity")?,
             capacity_read,timeout,waits);
     }
-    if matches!(a, ui::Action::SoftwareInstall { .. } | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. }) {
+    if matches!(a, ui::Action::SoftwareInstall { .. } | ui::Action::SoftwareInstallWithPolicy {..} | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. }) {
         return automatic_install::execute(m, a, operation.ok_or("operator_operation_identity")?,
             capacity_read, timeout, waits);
     }
@@ -2360,7 +2361,7 @@ fn execute_with_receipt_policy_progress(
     match a {
         ui::Action::EnvironmentRefresh { .. } | ui::Action::EnvironmentRefreshResume { .. } => unreachable!(),
         ui::Action::RendererSoftwareInstall { .. } => unreachable!(),
-        ui::Action::SoftwareInstall { .. } | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. } => unreachable!(),
+        ui::Action::SoftwareInstall { .. } | ui::Action::SoftwareInstallWithPolicy {..} | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. } => unreachable!(),
         ui::Action::RuntimeInstall {} => {
             drop(projection.take());
             let runner = linux_vst_bridge::runtime_delivery::install(m)?;

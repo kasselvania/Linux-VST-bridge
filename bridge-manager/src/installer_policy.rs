@@ -80,7 +80,7 @@ pub fn bind(spec: &mut Value, software: &Software, powershell: Powershell) -> Re
     let adapter = eligible_adapter(spec["format"].as_str().unwrap_or(""), software)?;
     require(spec["installer_launch"] == serde_json::to_value(adapter)?, "installer_policy_adapter_mismatch")?;
     let environment: Environment = serde_json::from_value(spec["environment"].clone())?;
-    require(valid_hex(&environment.id,32) && environment.revision > 0, "installer_policy_environment")?;
+    require(environment_revision::valid_environment_id(&environment.id) && environment.revision > 0, "installer_policy_environment")?;
     let installer: Artifact = serde_json::from_value(spec["installer"].clone())?;
     installer.verify()?;
     for artifact in [&software.manager, &software.supervisor, &software.ownership] { artifact.verify()?; }
@@ -122,6 +122,9 @@ mod tests {
         let parsed: crate::operator_model::Action = serde_json::from_value(explicit).unwrap();
         assert!(parsed.requires_inactive());
         assert_eq!(parsed.environment_installer_start().unwrap().2,Some(Powershell::Inherited));
+        let old=json!({"kind":"software_install","installer":"ab".repeat(32),"daw":"reaper"});
+        let parsed:crate::operator_model::Action=serde_json::from_value(old.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(),old);
     }
 
     fn fixture() -> (crate::test_fixture::Fixture, Software, Value) {
@@ -139,6 +142,16 @@ mod tests {
         let spec = json!({"schema":2,"operation":"cd".repeat(16),"environment":environment,
             "installer":installer,"format":"pe_executable","installer_launch":software.installer_launch});
         (f, software, spec)
+    }
+    #[test]
+    fn policy_binding_uses_the_shared_environment_id_contract() {
+        for id in ["11111111111141118111111111111111","11111111-1111-4111-8111-111111111111"] {
+            for policy in [Powershell::Inherited,Powershell::IntentionallyUnavailable] {
+                let (_f,software,mut spec)=fixture();spec["environment"]["id"]=json!(id);
+                bind_for_launch_with(&mut spec,&software,Some(policy),|_|panic!("explicit policy")).unwrap();
+                assert_eq!(spec["installer_capability"]["environment"]["id"],id);
+            }
+        }
     }
     #[test]
     fn ordinary_launch_selects_content_class_advice_and_binds_exact_operation() {

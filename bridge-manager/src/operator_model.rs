@@ -187,6 +187,7 @@ pub enum Action {
     /// User intent for an initial installation and automatic native DAW connection.
     /// DAW choice personalizes guidance; it does not claim DAW indexing.
     SoftwareInstall { installer: String, daw: DawChoice },
+    SoftwareInstallWithPolicy { installer: String, daw: DawChoice, powershell: Powershell },
     /// Install through the existing exact managed application.
     VendorSoftwareInstall { application: String, daw: DawChoice },
     /// Internal fresh validation of an unchanged selected setup.
@@ -823,6 +824,13 @@ impl System {
     }
 }
 impl Action {
+    pub fn software_install(&self) -> Option<(&str, DawChoice, Option<Powershell>)> {
+        match self {
+            Self::SoftwareInstall { installer, daw } => Some((installer, *daw, None)),
+            Self::SoftwareInstallWithPolicy { installer, daw, powershell } => Some((installer, *daw, Some(*powershell))),
+            _ => None,
+        }
+    }
     /// Both choices use the same installer transaction and retained origin.
     pub fn environment_installer_start(&self) -> Option<(&str, &str, Option<Powershell>)> {
         match self {
@@ -837,6 +845,7 @@ impl Action {
         matches!(
             self,
             Self::SoftwareInstall { .. }
+                | Self::SoftwareInstallWithPolicy { .. }
                 | Self::VendorSoftwareInstall { .. }
                 | Self::SoftwareInstallResume { .. }
                 | Self::RuntimeInstall {}
