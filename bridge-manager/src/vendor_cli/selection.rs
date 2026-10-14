@@ -408,6 +408,7 @@ pub(crate) mod tests {
     #[test]
     fn chooser_refuses_stale_setup_or_selected_bytes_without_a_new_record() {
         let (f, record, _) = installed_app();
+        drop(f.m.lock("registry.lock").unwrap());
         let image = program_artifact(&record.environment.root.join("compatdata/pfx/drive_c/Program Files/Vendor/Main.exe")).unwrap();
         let before = test_fixture::snapshot(&f.m.root);
         assert!(choose_program_with(&f.m,&record.id,&"00".repeat(32),&image,None,||Ok(true)).is_err());

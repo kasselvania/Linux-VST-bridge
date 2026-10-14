@@ -260,7 +260,7 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
         let runtime=Some(runtime);
         actions.push(action("Choose program",ui::Action::ProgramChoose {
             environment:id.clone(),expected_environment:environment_runtime::identity(&env)?,
-            executable:Artifact {path:PathBuf::new(),sha256:String::new()}},reason.as_deref()));
+            executable:ui::ProgramExecutable {path:PathBuf::new(),sha256:String::new()}},reason.as_deref()));
         out.push(ui::EnvironmentInstaller {environment:id,name,affected,runtime,
             consequence:"This installer can change every plug-in in this compatibility space, vendor applications, authorization and shared dependencies. Stopping ends owned processes; it cannot undo vendor changes. Existing plug-ins need a fresh scan and preparation before use. The environment identity is preserved; vendor state is not copied or rolled back.".into(),
             choices,operation:last.map(|r|r.operation.clone()),installer:last.map(|r|r.installer.clone()),result,actions});

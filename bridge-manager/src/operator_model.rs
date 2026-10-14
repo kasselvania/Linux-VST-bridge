@@ -68,6 +68,13 @@ pub struct PublicationIdentity {
     pub id: String,
     pub sha256: String,
 }
+/// Exact bytes chosen through a native file dialog, with no launch authority.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ProgramExecutable {
+    pub path: std::path::PathBuf,
+    pub sha256: String,
+}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
@@ -225,8 +232,8 @@ pub enum Action {
     /// Advance an existing space to an exact installed runner, then rescan.
     EnvironmentRuntimeSelect { environment: String, runner: String, expected_environment: String },
     /// The chooser supplies exact bytes for an existing setup. No installer required.
-    ProgramChoose { environment: String, expected_environment: String, executable: crate::Artifact },
-    ProgramAdopt { application: String, expected_environment: String, executable: crate::Artifact },
+    ProgramChoose { environment: String, expected_environment: String, executable: ProgramExecutable },
+    ProgramAdopt { application: String, expected_environment: String, executable: ProgramExecutable },
     VendorApplicationOpen {
         application: String,
     },

@@ -306,12 +306,12 @@ fn program_projection(m: &Manager, selector: &str, app: vendor_application::Appl
             if live || !retired {None}else{Some("This program is already closed")}),
         action("Choose another program",ui::Action::ProgramChoose {
             environment:app.environment.id.clone(),expected_environment:environment_runtime::identity(&app.environment)?,
-            executable:Artifact {path:PathBuf::new(),sha256:String::new()}},busy),
+            executable:ui::ProgramExecutable {path:PathBuf::new(),sha256:String::new()}},busy),
     ];
     if changed {
         actions.push(action("Use this version",ui::Action::ProgramAdopt {
             application:selector.into(),expected_environment:environment_runtime::identity(&app.environment)?,
-            executable:observed?},if live || !retired {Some("Close this program before using the changed version")}else{busy}));
+            executable:{let file=observed?;ui::ProgramExecutable {path:file.path,sha256:file.sha256}}},if live || !retired {Some("Close this program before using the changed version")}else{busy}));
     }
     Ok(ui::VendorApplication {id:selector.into(),name:app.display_name(),
         version:if changed {"Program updated"}else{"Selected by you"}.into(),
@@ -2703,12 +2703,14 @@ fn execute_with_receipt_policy_progress(
             Ok(json!({"vendor":"stopped"}))
         }
         ui::Action::ProgramChoose {environment,expected_environment,executable} => {
-            let app = vendor_cli::selection::choose_program(m,environment,expected_environment,executable,None)?;
+            let file = Artifact {path:executable.path.clone(),sha256:executable.sha256.clone()};
+            let app = vendor_cli::selection::choose_program(m,environment,expected_environment,&file,None)?;
             Ok(json!({"program":app.selector()?,"selected":true}))
         }
         ui::Action::ProgramAdopt {application,expected_environment,executable} => {
             let old = vendor_cli::application(m,application)?;
-            let app = vendor_cli::selection::choose_program(m,&old.environment.id,expected_environment,executable,Some(application))?;
+            let file = Artifact {path:executable.path.clone(),sha256:executable.sha256.clone()};
+            let app = vendor_cli::selection::choose_program(m,&old.environment.id,expected_environment,&file,Some(application))?;
             Ok(json!({"program":app.selector()?,"adopted":true}))
         }
         ui::Action::VendorApplicationFocus { application }

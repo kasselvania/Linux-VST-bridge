@@ -90,7 +90,7 @@ fn call(mut query: Query) -> Result<Reply, String> {
                 if source.metadata().map_err(|_|"Selected program is unavailable")?.len() > 256 * 1024 * 1024 {
                     return Err("Choose a Windows program smaller than 256 MiB".into());
                 }
-                *program = linux_vst_bridge::Artifact {sha256:linux_vst_bridge::digest(&path)
+                *program = crate::model::ProgramExecutable {sha256:linux_vst_bridge::digest(&path)
                     .map_err(|_|"Selected program could not be read")?,path};
                 if let Some(frontend) = identity {
                     if !frontend_selected(&home, frontend)? { return Ok(Reply::FrontendSuperseded); }
