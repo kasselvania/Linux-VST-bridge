@@ -3006,19 +3006,23 @@ def vendor_process_metadata(scope, record, app, allow_missing=False, selected_im
 
 
 def vendor_focus(scope,app,installer=False,close=False,selected_image=None):
-    """Application-origin EWMH focus request, bound to current owned main image.
+    """EWMH window control for an exact supervised application operation.
 
     No title matching, arbitrary PID, forced input focus or synthetic user input.
     Runs only on the vendor supervisor control path, never the audio path.
     """
+    # A user-selected program can put its UI in a helper. Its dedicated launch
+    # cohort owns those windows; control does not claim a helper's image digest.
+    # Legacy adapters keep their registered-main filter.
+    owned_session=installer or (app is not None and app.get('schema')==3)
     candidates=[]
     for record in scope.members():
-        if installer:
+        if owned_session:
             candidates.append(record);continue
         metadata=vendor_process_metadata(scope,record,app,selected_image=selected_image)
         if any(v['path']==app['executable']['path'] and v['sha256']==app['executable']['sha256'] for v in metadata['registered_images']):
             candidates.append(record)
-    if not candidates or (not installer and len(candidates)!=1):raise RuntimeError('focus main identity ambiguous')
+    if not candidates or (not owned_session and len(candidates)!=1):raise RuntimeError('focus main identity ambiguous')
     target=candidates[0]
     def identity():
         now=scope.identity(target['pid'])

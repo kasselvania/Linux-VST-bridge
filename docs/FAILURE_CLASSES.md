@@ -3557,6 +3557,11 @@ interaction is still unverified on this VM. [Scoped CachyOS result](../evidence/
 
 ## FC-UI-012 — Running chosen-program controls do not refresh
 
-Test70 on CachyOS opens the chosen portable program and its resource, but active
-overview rejects its schema 3 binding. Show/Close remain stale. The source repair
-accepts this origin under the existing exact live checks; installed retest is due.
+Test70 active overview rejected user-selected schema 3. Test71 on CachyOS confirms
+the repaired readback settles running controls under the exact live checks.
+
+## FC-UI-013 — Chosen-program window controls reject Btrfs ownership
+
+Test71 Show rejects differing stat/maps device IDs. The repair controls the exact
+supervised session's unique owned window, including helper UI, while retaining
+strict image metadata. Corrected-build Show/Close and replacement retest are due.

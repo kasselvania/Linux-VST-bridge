@@ -23,10 +23,10 @@ First source increment is reviewed, green and merged into main. Implemented:
 5. This slice launches without extra arguments. Wine settings, local runtime
    import and the Windows DAW workspace remain later direction work.
 
-Installed Test70 opens chosen build A and reads its sibling resource. Its active
-readback still rejects application schema 3, leaving Show/Close controls stale.
-The repair extends the existing exact live binding to this user-selected origin;
-its regression checks current controls with the bridge service suspended.
+Installed Test71 opens build A with its sibling resource and settles running
+controls. Show rejects Btrfs's differing stat/mapped-image device IDs. The next
+repair targets the exact session's unique owned window, including helper UI;
+image metadata remains strict. Full installed controls/adoption remain due.
 
 Corrected-build installed acceptance is still due:
 choose source-owned build A with a sibling resource, open/show/close it, replace
