@@ -4899,9 +4899,14 @@ def selected_installer_origin(managed, app):
         if not re.fullmatch('[0-9a-f]{32}',op) or path!=managed/'operator'/op/'installation-result.json':raise ValueError('managed_application_installation_binding')
         binding=renderer_read(path.parent/'installation.json');request=renderer_read(path.parent/'request.json')
         before=binding.get('before',{});after=binding.get('environment',{})
+        action=request.get('action');expected={'kind':'environment_installer_start','environment':env['id'],'installer':sha}
+        if isinstance(action,dict) and action.get('kind')=='environment_installer_start_with_policy':
+            expected={'kind':'environment_installer_start_with_policy','environment':env['id'],'installer':sha,
+                'powershell':action.get('powershell')}
+            if expected['powershell'] not in ('inherited','intentionally_unavailable'):raise ValueError('managed_application_installation_binding')
         if (binding.get('schema')!=1 or binding.get('operation')!=op or binding.get('installer')!=sha
             or type(request.get('schema')) is not int or not 5<=request['schema']<=27
-            or request.get('action')!={'kind':'environment_installer_start','environment':env['id'],'installer':sha}
+            or action!=expected
             or before.get('id')!=env['id'] or after.get('id')!=env['id'] or before.get('root')!=env['root'] or after.get('root')!=env['root']
             or type(before.get('revision')) is not int or type(after.get('revision')) is not int
             or after['revision']!=before['revision']+1 or after['revision']>env['revision']

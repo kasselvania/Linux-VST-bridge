@@ -23,9 +23,10 @@ pub(super) fn load(m: &Manager, operation: &str) -> Result<Refresh> {
     };
     require(retained.request.path==job_dir(m,operation)?.join("request.json"),"automatic_refresh_request_path")?;
     let request: ui::Request = serde_json::from_slice(&retained.request.record_bytes(16384)?)?;
-    let origin=match request.action {
-        ui::Action::EnvironmentRefresh {environment,daw}=>environment==retained.environment.id && daw==retained.intent.journey.daw,
-        ui::Action::EnvironmentInstallerStart {environment,installer}=> {
+    let origin=match &request.action {
+        ui::Action::EnvironmentRefresh {environment,daw}=>environment==&retained.environment.id && daw==&retained.intent.journey.daw,
+        action if action.environment_installer_start().is_some()=> {
+            let (environment,installer,_)=action.environment_installer_start().unwrap();
             let binding=environment_install::load(m,operation)?;
             let value=environment_install::result(m,&binding)?;
             environment==retained.environment.id && installer==binding.installer
@@ -130,7 +131,7 @@ pub(super) fn capture_request(m:&Manager,environment:&Environment)->Result<Optio
     } else if let Some(intent)=current_intent(m,environment)? {
         let request=control_artifact(job_dir(m,&intent.owner)?.join("request.json"))?;
         let action:ui::Request=serde_json::from_slice(&request.record_bytes(16384)?)?;
-        if matches!(action.action,ui::Action::EnvironmentInstallerStart {..}) {
+        if action.action.environment_installer_start().is_some() {
             environment_install::load(m,&intent.owner)?.automatic_request
         } else {Some(request)}
     } else {
@@ -290,7 +291,7 @@ pub(super) fn execute_with(m:&Manager,action:&ui::Action,operation:&str,
     continue_connection:&mut dyn FnMut(&Environment,&mut Intent)->Result<Value>)->Result<Value> {
     let environment=match action {
         ui::Action::EnvironmentRefresh {environment,..}=>environment.clone(),
-        ui::Action::EnvironmentInstallerStart {environment,..}=>environment.clone(),
+        action if action.environment_installer_start().is_some()=>action.environment_installer_start().unwrap().0.into(),
         ui::Action::EnvironmentRefreshResume {operation:owner}=>load(m,owner)?.environment.id,
         _=>return Err("automatic_refresh_action".into()),
     };
@@ -302,7 +303,7 @@ pub(super) fn execute_with(m:&Manager,action:&ui::Action,operation:&str,
     let current=managed_rescan_binding(m,catalogue.as_ref(),&db,&environment)?
         .ok_or("operator_environment_not_managed")?;
     let mut retained=match action {
-        ui::Action::EnvironmentInstallerStart {..}=> {
+        action if action.environment_installer_start().is_some()=> {
             initialize_replacement(m,operation)?;
             let retained=load(m,operation)?;
             require(retained.environment==current,"automatic_refresh_environment_changed")?;
@@ -355,7 +356,7 @@ pub(super) fn execute_with(m:&Manager,action:&ui::Action,operation:&str,
 }
 pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Result<()> {
     let owner=match action {
-        ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentInstallerStart {..}=>operation,
+        action if matches!(action,ui::Action::EnvironmentRefresh {..}) || action.environment_installer_start().is_some()=>operation,
         ui::Action::EnvironmentRefreshResume {operation}=>operation,
         _=>return Ok(()),
     };

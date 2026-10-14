@@ -406,10 +406,10 @@ fn owned_service_pause_with(
                 && intent.vendor.as_ref().is_some_and(|vendor| saved.vendor_operation.as_deref()
                     == Some(vendor.operation.as_str())))
         }
-        ui::Action::EnvironmentRefresh { .. } | ui::Action::EnvironmentRefreshResume { .. }
-        | ui::Action::EnvironmentInstallerStart {..} => {
+        action if matches!(action,ui::Action::EnvironmentRefresh { .. } | ui::Action::EnvironmentRefreshResume { .. })
+            || action.environment_installer_start().is_some() => {
             let owner=match &request.action {
-                ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentInstallerStart {..}=>operation,
+                action if matches!(action,ui::Action::EnvironmentRefresh {..}) || action.environment_installer_start().is_some()=>operation,
                 ui::Action::EnvironmentRefreshResume {operation}=>operation.as_str(),
                 _=>unreachable!(),
             };
@@ -1940,8 +1940,8 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
         || matches!(action,ui::Action::EnvironmentRefreshResume {operation} if renderer_continuation::owns(m,operation)?) {
         return renderer_continuation::finish(m,operation,action);
     }
-    if matches!(action,ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentRefreshResume {..}
-        | ui::Action::EnvironmentInstallerStart {..}) {
+    if matches!(action,ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentRefreshResume {..})
+        || action.environment_installer_start().is_some() {
         return environment_refresh::finish(m,operation,action);
     }
     if !matches!(
@@ -2711,7 +2711,16 @@ mod tests {
     }
     #[test]
     fn saved_wrong_installer_request_replaces_in_place_and_connects_actual_new_module_once() {
+        replacement_connects_actual_new_module_once(None);
+    }
+    #[test]
+    fn explicit_default_replacement_preserves_owner_daw_receipt_and_connects_new_module_once() {
+        replacement_connects_actual_new_module_once(Some(linux_vst_bridge::installer_policy::Powershell::Inherited));
+    }
+    fn replacement_connects_actual_new_module_once(policy:Option<linux_vst_bridge::installer_policy::Powershell>) {
         let (f,c,mut original,mut intent)=setup();
+        let mut sw=software(&f.m).unwrap();sw.installer_launch=Some(sw.host.clone());
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
         let mut pe=vec![0u8;1024];pe[..2].copy_from_slice(b"MZ");pe[60]=128;
         pe[128..132].copy_from_slice(b"PE\0\0");pe[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
         pe[148]=2;pe[150]=2;pe[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
@@ -2735,10 +2744,20 @@ mod tests {
         let mut scan:inventory::Scan=read_json(&inventory).unwrap();scan.modules.clear();atomic_json(&inventory,&scan).unwrap();
         pe[900]=77;fs::write(&input,&pe).unwrap();let selected=installer_import::import(&f.m,file(&input).unwrap()).unwrap();
         let owner=random_id().unwrap();private_dir(&job_dir(&f.m,&owner).unwrap()).unwrap();
-        let action=ui::Action::EnvironmentInstallerStart {environment:original.id.clone(),installer:selected.id.clone()};
+        let action=if let Some(powershell)=policy {ui::Action::EnvironmentInstallerStartWithPolicy {
+            environment:original.id.clone(),installer:selected.id.clone(),powershell}}
+            else {ui::Action::EnvironmentInstallerStart {environment:original.id.clone(),installer:selected.id.clone()}};
+        let snapshot=snapshot_idle_test(&f.m).unwrap();
+        validate(&ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:snapshot.state_token.clone(),action:action.clone()},&snapshot).unwrap();
         atomic_json(&job_dir(&f.m,&owner).unwrap().join("request.json"),&ui::Request {
             schema:ui::OPERATOR_SCHEMA,state_token:"accepted-replacement".into(),action:action.clone()}).unwrap();
         let binding=environment_install::reserve(&f.m,&original.id,&selected.id,&owner).unwrap();
+        let spec=environment_install::launch_input(&f.m,&binding,action.environment_installer_start().unwrap().2).unwrap();
+        if policy.is_some() {
+            assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],"inherited");
+            assert_eq!(spec["installer_capability"]["operation"],owner);
+            assert_eq!(spec["installer_capability"]["environment"],serde_json::to_value(&binding.environment).unwrap());
+        }
         assert_eq!(binding.environment.root,original.environment.root);
         assert_eq!(binding.environment.runner,original.environment.runner);
         assert_eq!(binding.environment.revision,original.environment.revision+1);
@@ -2800,6 +2819,9 @@ mod tests {
         let current=onboarding::retained_environment_record(&f.m,&original.id).unwrap().unwrap();
         let connection=record_intent(&f.m,&current).unwrap().unwrap();assert_eq!(connection.owner,owner);
         assert_eq!(connection.journey.phase,ui::InstallationPhase::Available);
+        assert_eq!(environment_refresh::capture_request(&f.m,&binding.environment).unwrap(),binding.automatic_request);
+        finish(&f.m,&owner,&action).unwrap();
+        assert_eq!(environment_refresh::load(&f.m,&owner).unwrap().intent.journey.phase,ui::InstallationPhase::Available);
         let candidate=prep::candidate_record(&f.m,connection.work[0].candidate.as_ref().unwrap()).unwrap();
         assert!(prep::selected_publication_candidate_record(&f.m,&candidate).unwrap());
         assert_eq!(candidate.selection.environment,binding.environment);
@@ -2823,11 +2845,11 @@ mod tests {
     }
     #[test]
     fn replacement_that_installs_new_vendor_launcher_offers_its_actual_continuation() {
-        replacement_launcher_continuation(false);
+        replacement_launcher_continuation(false,None);
     }
     #[test]
     fn interrupted_completed_replacement_recovers_its_launcher_without_original_receipt_fabrication() {
-        replacement_launcher_continuation(true);
+        replacement_launcher_continuation(true,None);
     }
     #[test]
     fn current_and_legacy_rust_replacement_requests_cross_actual_python_dispatch() {
@@ -2990,8 +3012,15 @@ finally:
         assert_eq!(fs::read(history.join("record.json")).unwrap(),history_bytes);
         assert_eq!(fs::read(&native_path).unwrap(),native);
     }
-    fn replacement_launcher_continuation(interrupted:bool) {
+    #[test]
+    fn explicit_default_replacement_installs_new_launcher_and_opens_its_actual_continuation() {
+        for interrupted in [false,true] {replacement_launcher_continuation(interrupted,
+            Some(linux_vst_bridge::installer_policy::Powershell::Inherited));}
+    }
+    fn replacement_launcher_continuation(interrupted:bool,policy:Option<linux_vst_bridge::installer_policy::Powershell>) {
         let (f,c,mut original,mut intent)=setup();
+        let mut sw=software(&f.m).unwrap();sw.installer_launch=Some(sw.host.clone());
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
         let mut pe=vec![0u8;1024];pe[..2].copy_from_slice(b"MZ");pe[60]=128;
         pe[128..132].copy_from_slice(b"PE\0\0");pe[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
         pe[148]=2;pe[150]=2;pe[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
@@ -3010,11 +3039,18 @@ finally:
         save(&f.m,&original,&intent,&old_owner).unwrap();let original_bytes=fs::read(history.join("record.json")).unwrap();
         pe[900]=89;fs::write(&input,&pe).unwrap();let selected=installer_import::import(&f.m,file(&input).unwrap()).unwrap();
         let owner=random_id().unwrap();let directory=job_dir(&f.m,&owner).unwrap();private_dir(&directory).unwrap();
-        let action=ui::Action::EnvironmentInstallerStart {environment:original.id.clone(),installer:selected.id.clone()};
+        let action=if let Some(powershell)=policy {ui::Action::EnvironmentInstallerStartWithPolicy {
+            environment:original.id.clone(),installer:selected.id.clone(),powershell}}
+            else {ui::Action::EnvironmentInstallerStart {environment:original.id.clone(),installer:selected.id.clone()}};
+        let snapshot=readiness::with_unit_state_fixture(&[onboarding::unit(&old_owner).unwrap()],"inactive",||
+            snapshot_idle_test(&f.m)).unwrap();
+        validate(&ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:snapshot.state_token.clone(),action:action.clone()},&snapshot).unwrap();
         atomic_json(&directory.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,
             state_token:"accepted-replacement".into(),action:action.clone()}).unwrap();
         let binding=readiness::with_unit_state_fixture(&[onboarding::unit(&old_owner).unwrap()],"inactive",||
             environment_install::reserve(&f.m,&original.id,&selected.id,&owner)).unwrap();
+        let spec=environment_install::launch_input(&f.m,&binding,action.environment_installer_start().unwrap().2).unwrap();
+        if policy.is_some() {assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],"inherited");}
         let app_path=binding.environment.root.join("compatdata/pfx/drive_c/Program Files/New Hub/Main.exe");
         private_dir(app_path.parent().unwrap()).unwrap();fs::write(&app_path,&pe).unwrap();
         atomic_json(&directory.join("installation-result.json"),&json!({"schema":2,"operation":owner,

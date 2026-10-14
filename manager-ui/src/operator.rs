@@ -1989,6 +1989,12 @@ impl Operator {
                             if let Some(failure) = &attempt.failure {
                                 for line in failure_lines(failure) { ui.label(line); }
                             }
+                            if continuation.is_none() && !reviewing_replacement {
+                                let advanced:Vec<_>=attempt.actions.iter().filter(|offer|
+                                    matches!(offer.action,Action::InstallerStartWithPolicy {..})).cloned().collect();
+                                ui.add_enabled_ui(fresh,|ui|Self::buttons(ui,&advanced,
+                                    overview.current.system.inactive_reason(),pending,chosen));
+                            }
                         }
                         ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, std::slice::from_ref(&setup.rename),
                             overview.current.system.inactive_reason(), pending, chosen));
@@ -6156,6 +6162,41 @@ mod tests {
                 output.textures_delta.clear();
             }
             assert_eq!(chosen, fresh.then_some(target.action));
+        }
+    }
+    #[test]
+    fn advanced_default_initial_installer_policy_is_clickable_in_setup_options() {
+        for width in [560.0,960.0] {
+            let mut attempt=running_snapshot("unused").onboarding.remove(0);
+            let expected=Action::InstallerStartWithPolicy {onboarding:attempt.environment.clone().unwrap(),
+                powershell:crate::model::Powershell::Inherited};
+            attempt.state="environment_ready".into();attempt.details=serde_json::Value::Null;
+            attempt.actions=vec![AvailableAction {label:"Run installer with normal PowerShell behavior".into(),
+                action:expected.clone(),disabled_reason:None}];
+            let mut setup=automatic_setup(automatic_journey(InstallationPhase::NeedsAttention),None);
+            setup.installer=attempt.installer.clone();setup.environment=attempt.environment.clone();
+            setup.journey=None;setup.phase=SetupPhase::EnvironmentReady;
+            let mut overview=overview_fixture();overview.current.onboarding=vec![attempt];
+            overview.current.installer_setups=vec![setup.clone()];overview.current.environment_installers.clear();
+            let ctx=egui::Context::default();let mut chosen=None;let mut time=0.0;
+            let mut focus=RouteFocus {setup_installer:Some(setup.installer),..Default::default()};
+            for label in ["Setup details and options","Run installer with normal PowerShell behavior"] {
+                let mut point=egui::Pos2::ZERO;
+                for pressed in [None,Some(true),Some(false)] {
+                    time+=0.3;
+                    let events=pressed.map(|pressed|vec![egui::Event::PointerMoved(point),egui::Event::PointerButton {
+                        pos:point,button:egui::PointerButton::Primary,pressed,modifiers:egui::Modifiers::NONE}]).unwrap_or_default();
+                    let mut output=ctx.run_ui(egui::RawInput {events,time:Some(time),..Default::default()},|ui| {
+                        ui.set_max_width(width-32.0);
+                        Operator::fast_setup(ui,&overview.clone().into(),true,false,(&mut false,&mut chosen,&mut false,
+                            &mut Page::Setup,&mut crate::library::Library::default(),&mut focus,&mut None));
+                    });
+                    if pressed.is_none() {point=output.shapes.iter().find_map(|shape|
+                        wrong_installer_text_position(&shape.shape,label)).expect("visible initial policy control");}
+                    output.textures_delta.clear();
+                }
+            }
+            assert_eq!(chosen,Some(expected));
         }
     }
     #[test]
