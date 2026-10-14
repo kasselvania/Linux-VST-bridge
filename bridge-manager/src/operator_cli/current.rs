@@ -871,10 +871,34 @@ pub(super) mod tests {
             let server = overview_service_reply(&f.m,capacity_json(false,0,0));
             let current = current_overview(&f.m).unwrap();
             server.join().unwrap();
-            assert_eq!(current.current.vendor_applications[0].actions[0].disabled_reason.as_deref(),
-                Some("The selected application or installation changed"));
+            assert!(current.current.vendor_applications[0].actions[0].disabled_reason.is_none(),
+                "Readback observes records; the execution owner verifies payload bytes");
             let server = overview_service_reply(&f.m,capacity_json(false,0,0));
-            assert!(validate_current_request(&f.m,&request).is_err());
+            validate_current_request(&f.m,&request).unwrap();
+            server.join().unwrap();
+            let owner=random_id().unwrap();
+            let job=job_dir(&f.m,&owner).unwrap();private_dir(&job).unwrap();
+            let changed_before:Vec<_>=watched.iter().map(|path|fs::read(path).unwrap()).collect();
+            let refusal=execute_with_receipt_policy(&f.m,&request.action,Some(&owner),
+                &idle_capacity_test,OPERATOR_WAIT,&mut vec![]).unwrap_err().to_string();
+            assert_eq!(refusal,"artifact missing or changed");
+            assert!(watched.iter().zip(&changed_before).all(|(path,bytes)|fs::read(path).unwrap()==*bytes));
+            assert!(!f.m.root.join("operator/resume.json").exists());
+            assert!(!job.join("vendor-maintenance.json").exists());
+            assert!(!job.join("automatic.json").exists());
+            fs::write(&app.executable.path,&before[6]).unwrap();
+            let mut receipt:Value=read_json(&app.installer_result.path).unwrap();
+            receipt["raw_exit"]=json!(1);
+            atomic_json(&app.installer_result.path,&receipt).unwrap();
+            let server = overview_service_reply(&f.m,capacity_json(false,0,0));
+            let current = current_overview(&f.m).unwrap();
+            server.join().unwrap();
+            assert_eq!(current.current.vendor_applications[0].actions[0].disabled_reason.as_deref(),
+                Some("The selected application or installation changed"),"Changed receipt bindings are observed");
+            let request=ui::Request {state_token:current.current.state_token, ..request};
+            let server = overview_service_reply(&f.m,capacity_json(false,0,0));
+            assert_eq!(validate_current_request(&f.m,&request).unwrap_err().to_string(),
+                "The selected application or installation changed");
             server.join().unwrap();
         });
     }
