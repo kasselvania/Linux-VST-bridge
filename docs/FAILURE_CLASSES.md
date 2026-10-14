@@ -3559,9 +3559,13 @@ interaction is still unverified on this VM. [Scoped CachyOS result](../evidence/
 
 Test70 active overview rejected user-selected schema 3. Test71 on CachyOS confirms
 the repaired readback settles running controls under the exact live checks.
+Closed for this fixture: Test72 also retains current A/B controls through adoption
+and manager restart. [Installed result](../evidence/cachyos-reaper.json).
 
 ## FC-UI-013 — Chosen-program window controls reject Btrfs ownership
 
-Test71 Show rejects differing stat/maps device IDs. The repair controls the exact
-supervised session's unique owned window, including helper UI, while retaining
-strict image metadata. Corrected-build Show/Close and replacement retest are due.
+Test71 Show rejected differing stat/maps device IDs. The repair controls the exact
+supervised session's unique owned window while retaining strict image metadata.
+Closed for this fixture: Test72 A/B Show from the manager and normal Close pass;
+replacement follows A's clean close and adoption survives manager restart.
+[Installed result](../evidence/cachyos-reaper.json).

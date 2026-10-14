@@ -127,6 +127,18 @@ The update completes between 1,178 and 1,254 seconds on this capped six-class VM
 The update time is a capped VM baseline; the Kontakt allocator crash remains open.
 [Scoped installed result](../evidence/cachyos-reaper.json).
 
+Test72 on this CachyOS/native REAPER fixture passes Choose program without
+installer observations, Open with a sibling resource, Show from the manager and
+normal Close. After closing A, replacing its executable with B refuses stale Open;
+Use this version preserves A's record and the setup, then manager restart remembers
+B and Open/Show/Close pass again. The original Reference project recalls controls,
+four automation points per lane and sixteen notes; separate solo PulseAudio stereo
+s16le captures contain nonzero instrument and effect audio. Of 2,455 protected
+paths, 2,452 stay exact; registry/operator status renew and one normal vendor-owned
+DAW accounting record updates and is retained. Six classes, modules and environments
+remain intact, with clean retirement and normal shutdown.
+[Scoped user-control result](../evidence/cachyos-reaper.json).
+
 Test55's clean CachyOS/native REAPER first-party installation uses one ordinary
 Install and connect request: owned runtime acquisition, vendor installation and
 automatic discovery/preparation/publication produce two Reference classes.
