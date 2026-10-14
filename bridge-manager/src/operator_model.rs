@@ -792,6 +792,41 @@ pub struct Activity {
     #[serde(default)]
     pub workspace_product_install_ready: bool,
 }
+impl Snapshot {
+    /// Enumerate the existing typed offers without adding admission authority.
+    pub fn available_actions(&self) -> Vec<&AvailableAction> {
+        self
+            .actions
+            .iter()
+            .chain(self.installer_setups.iter().map(|s| &s.rename))
+            .chain(self.installer_setups.iter().flat_map(|s| s.primary.iter().chain(s.secondary.iter())))
+            .chain(self.environment_installers.iter().flat_map(|s|s.choices.iter().chain(s.actions.iter())))
+            .chain(self.environment_installers.iter().flat_map(|s|s.runtime.iter().flat_map(|r|&r.choices)))
+            .chain(self.onboarding.iter().flat_map(|p| p.actions.iter()))
+            .chain(self.products.iter().flat_map(|p| p.actions.iter()))
+            .chain(self.products.iter().flat_map(|p| p.compatibility.iter()
+                .flat_map(|workflow| workflow.primary.iter().chain(workflow.alternatives.iter()))))
+            .chain(self.workspaces.iter().flat_map(|w| w.actions.iter()))
+            .chain(self.workspaces.iter().flat_map(|w| w.installer_choices.iter()))
+            .chain(self.workspaces.iter().flat_map(|w| w.products.iter())
+                .flat_map(|p| p.actions.iter().chain(p.installer_choices.iter())))
+            .chain(self.environments.iter().flat_map(|p| p.actions.iter()))
+            .chain(
+                self
+                    .vendor_applications
+                    .iter()
+                    .flat_map(|p| p.actions.iter()),
+            )
+            .chain(
+                self
+                    .recent_incidents
+                    .iter()
+                    .filter_map(|p| p.export.as_ref()),
+            )
+            .collect()
+    }
+}
+
 impl System {
     /// Preserve the version-1 wire shape so an exactly retained frontend can
     /// still parse new manager readback. Only a successful LVC1 reply is active.
@@ -811,6 +846,23 @@ impl System {
     }
 }
 impl Action {
+    /// Compare the manager-offered target while preserving explicit form input.
+    /// Payload validation and current execution authority remain in the owner.
+    pub fn same_offer_identity(&self, offer: &Self) -> bool {
+        match (self, offer) {
+            (Self::RendererSoftwareInstall {application,policy,..},Self::RendererSoftwareInstall {application:other,policy:other_policy,..}) => application == other && policy == other_policy,
+            (Self::EnvironmentRefresh {environment,..},Self::EnvironmentRefresh {environment:other,..}) => environment == other,
+            (Self::VendorSoftwareInstall {application,..},Self::VendorSoftwareInstall {application:other,..}) => application == other,
+            (Self::SoftwareInstall {installer,..},Self::SoftwareInstall {installer:other,..})
+            | (Self::InstallerRename {installer,..},Self::InstallerRename {installer:other,..})
+            | (Self::WorkspaceSelectInstaller {installer,..},Self::WorkspaceSelectInstaller {installer:other,..}) => installer == other,
+            (Self::CompatibilityResult {candidate,expected_current,..},Self::CompatibilityResult {candidate:other,expected_current:other_current,..}) => candidate == other && expected_current == other_current,
+            (Self::WorkspaceSelectProductInstaller {product,installer,..},Self::WorkspaceSelectProductInstaller {product:other_product,installer:other_installer,..}) => product == other_product && installer == other_installer,
+            (Self::CandidateObserve {candidate,..},Self::CandidateObserve {candidate:other,..}) => candidate == other,
+            (Self::CandidateReview {candidate,accept,..},Self::CandidateReview {candidate:other,accept:other_accept,..}) => candidate == other && accept == other_accept,
+            _ => self == offer,
+        }
+    }
     /// Whether the operation needs any affected DSP owners to be inactive.
     pub fn requires_inactive(&self) -> bool {
         matches!(
@@ -882,6 +934,22 @@ impl Action {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn offer_identity_preserves_the_target_while_allowing_explicit_form_choices() {
+        let offered = Action::RendererSoftwareInstall {application:"exact-app".into(),
+            policy:RendererPolicy::SoftwareRendering,daw:DawChoice::Other};
+        let chosen = Action::RendererSoftwareInstall {application:"exact-app".into(),
+            policy:RendererPolicy::SoftwareRendering,daw:DawChoice::Bitwig};
+        assert!(chosen.same_offer_identity(&offered));
+        assert!(!Action::RendererSoftwareInstall {application:"other-app".into(),
+            policy:RendererPolicy::SoftwareRendering,daw:DawChoice::Bitwig}.same_offer_identity(&offered));
+        assert!(!Action::RendererSoftwareInstall {application:"exact-app".into(),
+            policy:RendererPolicy::Inherited,daw:DawChoice::Bitwig}.same_offer_identity(&offered));
+        let rollback = Action::OrdinaryRollback {class_id:"exact-class".into(),publication:"exact-publication".into()};
+        assert!(rollback.same_offer_identity(&rollback));
+        assert!(!Action::OrdinaryRollback {class_id:"exact-class".into(),publication:"different-publication".into()}
+            .same_offer_identity(&rollback));
+    }
     #[test]
     fn inactivity_scope_distinguishes_class_changes_from_shared_operations() {
         let candidate = "candidate".to_string();

@@ -1487,35 +1487,7 @@ fn project_onboarding_failure(
     Ok(())
 }
 pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
-    snapshot
-        .actions
-        .iter()
-        .chain(snapshot.installer_setups.iter().map(|s| &s.rename))
-        .chain(snapshot.installer_setups.iter().flat_map(|s| s.primary.iter().chain(s.secondary.iter())))
-        .chain(snapshot.environment_installers.iter().flat_map(|s|s.choices.iter().chain(s.actions.iter())))
-        .chain(snapshot.environment_installers.iter().flat_map(|s|s.runtime.iter().flat_map(|r|&r.choices)))
-        .chain(snapshot.onboarding.iter().flat_map(|p| p.actions.iter()))
-        .chain(snapshot.products.iter().flat_map(|p| p.actions.iter()))
-        .chain(snapshot.products.iter().flat_map(|p| p.compatibility.iter()
-            .flat_map(|workflow| workflow.primary.iter().chain(workflow.alternatives.iter()))))
-        .chain(snapshot.workspaces.iter().flat_map(|w| w.actions.iter()))
-        .chain(snapshot.workspaces.iter().flat_map(|w| w.installer_choices.iter()))
-        .chain(snapshot.workspaces.iter().flat_map(|w| w.products.iter())
-            .flat_map(|p| p.actions.iter().chain(p.installer_choices.iter())))
-        .chain(snapshot.environments.iter().flat_map(|p| p.actions.iter()))
-        .chain(
-            snapshot
-                .vendor_applications
-                .iter()
-                .flat_map(|p| p.actions.iter()),
-        )
-        .chain(
-            snapshot
-                .recent_incidents
-                .iter()
-                .filter_map(|p| p.export.as_ref()),
-        )
-        .collect()
+    snapshot.available_actions()
 }
 fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
     require(request.schema == ui::OPERATOR_SCHEMA,

@@ -18,8 +18,8 @@ The owned Cachy VM remains off; restart only for useful installed acceptance.
    Preserve real unfinished, unavailable and empty states. No usage confirmation,
    activation claim or audio-success claim follows from publication alone.
 2. Passive refresh (current): retain last-observed tasks and browsing/choices.
-   Capture the original clicked action/token through renewal; changed or missing
-   readback refuses it without submission or replay. Backend admission rechecks
+   Capture the original clicked action/token through renewal; changed readback or
+   an unavailable exact offer refuses it without submission/replay. Admission rechecks
    the exact intent, targets, consequences and owners.
 3. Idle monitoring: measure the owned/source-harness path, remove demonstrated
    unnecessary reconstruction and retain external-change/service-failure detection.
