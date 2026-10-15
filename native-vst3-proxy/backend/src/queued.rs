@@ -884,6 +884,7 @@ impl Callback {
                 self.position = 0;
                 self.clear_audio(s);
                 self.startup_note_events_dropped += self.startup_notes.discard_note_ons();
+                self.startup_notes.begin_start();
                 self.startup_hold_frames = 0;
                 self.next_result = 0;
                 self.submitted_operation = 0;
@@ -1068,7 +1069,15 @@ impl Callback {
         // after any start-up parameter values have been restored above.
         let mut held_delivered = 0;
         if request.n != 0 && !self.startup_replaying && self.startup_notes.pending() != 0 {
+            // Notes a full block could not carry stay under the same limit:
+            // their frames keep counting until they are delivered.
+            if self.startup_hold_frames > self.startup_hold_limit {
+                self.startup_note_events_dropped += self.startup_notes.discard_note_ons();
+            }
             held_delivered = self.startup_notes.deliver(&mut request.events, &mut request.event_count);
+            if self.startup_notes.pending() != 0 {
+                self.startup_hold_frames = self.startup_hold_frames.saturating_add(request.n as u64);
+            }
         }
         request.epoch = self.epoch;
         request.position = self.position;
@@ -5257,10 +5266,11 @@ mod tests {
         assert_eq!((callback.startup_notes.pending(), callback.startup_note_events_dropped), (1, 0));
         render(&shared, &mut callback, block(&[note(0, 0, 64, 7), note(1, 0, 40, 9)]));
         render(&shared, &mut callback, block(&[note(1, 0, 64, 20), note(0, 0, 67, 30)]));
-        // Dropped: held 60, then 64 and 67 past the limit. Note-offs are kept.
-        assert_eq!(callback.startup_note_events_dropped, 3);
+        // Dropped: held 60, then 64 past the limit with its release, then 67.
+        // The release of 40, a note already playing, is kept.
+        assert_eq!(callback.startup_note_events_dropped, 4);
         shared.processing_ready_epoch.store(callback.epoch, Ordering::Release);
-        assert_eq!(render(&shared, &mut callback, block(&[])), Some(vec![(1, 0, 40, 0), (1, 0, 64, 0)]));
+        assert_eq!(render(&shared, &mut callback, block(&[])), Some(vec![(1, 0, 40, 0)]));
         // A new start holds again.
         restart(&shared, &mut callback);
         render(&shared, &mut callback, block(&[note(0, 0, 72, 7)]));
@@ -5287,11 +5297,80 @@ mod tests {
         // The block's parameter point stays; held notes fill the rest, and the
         // block's own note waits behind the held release it must not overtake.
         let parameter = Event { kind: 2, id: 7, value: 0.5, offset: 4, ..Event::default() };
-        let first = render(&shared, &mut callback, block(&[parameter, note(0, 1, 5, 10)])).unwrap();
+        let mut output = [[9.; CAP]; 2];
+        let rendered = block(&[parameter, note(0, 1, 5, 10)]);
+        let (result, allocations) = crate::allocation_test::measure(||
+            callback.process_outputs_until(&shared, rendered, &mut output, &[], 0, None));
+        assert_eq!((result.is_ok(), allocations), (true, [0; 3]));
+        let queued = shared.requests.pop().unwrap();
+        let first: Rendered = queued.events[..queued.event_count as usize].iter()
+            .map(|e| (e.kind, e.channel, e.pitch, e.offset)).collect();
         assert_eq!(first.len(), 256);
         assert_eq!((first[0], first[1], first[255]), ((2, 0, 0, 4), (0, 0, 1, 0), (0, 1, 127, 0)));
         assert_eq!(render(&shared, &mut callback, block(&[])), Some(vec![(1, 1, 5, 0), (0, 1, 5, 0)]));
         assert_eq!(callback.startup_note_events_delayed, 257);
+    }
+    #[test]
+    fn a_flood_of_releases_into_full_storage_is_refused_without_rescanning() {
+        // 256 distinct releases fill storage; 2,048 more arrive across eight
+        // unacknowledged blocks. Each is refused in constant time: storage did
+        // not change, so it is searched for a duplicate release at most once.
+        let (shared, mut callback) = unacknowledged_start(u64::MAX);
+        let first: Vec<_> = (0..256).map(|i| note(1, (i / 128) as i16, (i % 128) as i16, 1)).collect();
+        render(&shared, &mut callback, block(&first));
+        let flood: Vec<Item> = (0..8).map(|b| {
+            let events: Vec<_> = (0..256).map(|i| note(1, 2 + ((b * 256 + i) / 128 % 14) as i16, (i % 128) as i16, 1)).collect();
+            block(&events)
+        }).collect();
+        let mut output = [[9.; CAP]; 2];
+        let (results, allocations) = crate::allocation_test::measure(|| flood.iter().map(|request|
+            callback.process_outputs_until(&shared, *request, &mut output, &[], 0, None)).all(|r| r == Ok(3)));
+        assert_eq!((results, allocations), (true, [0; 3]));
+        assert_eq!((callback.startup_notes.pending(), callback.startup_note_events_dropped), (256, 2048));
+        assert!(callback.startup_notes.duplicate_scans <= 1);
+    }
+    #[test]
+    fn notes_left_over_from_a_full_block_stay_under_the_hold_limit() {
+        // 256 held note-ons, then rendered blocks full of parameter points: one
+        // note fits per block. The leftovers keep counting frames and are
+        // discarded past the limit instead of trickling out late.
+        let (shared, mut callback) = unacknowledged_start(1024);
+        let ons: Vec<_> = (0..256).map(|i| note(0, (i / 128) as i16, (i % 128) as i16, 1)).collect();
+        render(&shared, &mut callback, block(&ons));
+        shared.processing_ready_epoch.store(callback.epoch, Ordering::Release);
+        let points: Vec<_> = (0..255).map(|id| Event { kind: 2, id, value: 0.5, ..Event::default() }).collect();
+        for expected in [1, 1, 0] {
+            let rendered = render(&shared, &mut callback, block(&points)).unwrap();
+            assert_eq!(rendered.iter().filter(|e| e.0 == 0).count(), expected);
+        }
+        assert_eq!(callback.startup_notes.pending(), 0);
+        assert_eq!((callback.startup_note_events_delayed, callback.startup_note_events_dropped), (2, 254));
+    }
+    #[test]
+    fn the_hold_limit_is_250_ms_of_the_configured_sample_rate() {
+        let _registry_owner = crate::registry_test();
+        let shared = Arc::new(Shared::new());
+        shared.state_capable.store(true, Ordering::Release);
+        let id = prepared_live(shared.clone(), 256, 0, crate::performance::DeliveryMode::Buffered);
+        {
+            // A restart the Windows side has not acknowledged yet.
+            let live = INSTANCES.lease(id).unwrap();
+            let callback = unsafe { &mut *live.callback.get() };
+            assert_eq!(callback.transition(&shared, STOP), 0);
+            assert_eq!(callback.transition(&shared, START), 0);
+            while shared.requests.pop().is_some() {}
+        }
+        let input = [0.; 64]; let mut out = [[9.; 64]; 2];
+        let planes = [out[0].as_mut_ptr(), out[1].as_mut_ptr()]; let mut flags = 0;
+        let result = unsafe { ap23_process_outputs(id, 64, 0, std::ptr::null(), 0,
+            &crate::context::Context::default(), 3, input.as_ptr(), input.as_ptr(),
+            planes.as_ptr(), 2, &mut flags, std::ptr::null_mut(), 0) };
+        assert_eq!(result, 0);
+        let live = INSTANCES.lease(id).unwrap();
+        let callback = unsafe { &*live.callback.get() };
+        assert_eq!((callback.startup_hold_limit, callback.startup_hold_frames, callback.unready_callbacks),
+            (12000, 64, 1));
+        drop(live); INSTANCES.remove(id, |_| ()).unwrap();
     }
     #[test]
     fn startup_dry_real_abi_preserves_in_place_audio_and_hands_off_after_total_latency() {
