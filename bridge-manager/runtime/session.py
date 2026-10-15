@@ -3787,9 +3787,14 @@ NAD1_DAEMON = 'Program Files/Common Files/Native Instruments/NTK/NTKDaemon.exe'
 NAD1_SERVICE = 'NTKDaemonService'
 NAD1_REGISTRATION_REOBSERVATION_SECONDS = 1.0
 
-def nad1_listener_census(proc=pathlib.Path('/proc')):
-    """Bounded passive absence check for NAO1's two fixed loopback ports."""
-    ports={5146:1,5563:2};mask=0;rows=0
+def nad1_listener_census(proc=pathlib.Path('/proc'),listeners=(5146,5563)):
+    """Bounded passive absence check for a profile's fixed loopback ports.
+
+    Bit N of the mask is the Nth listed port; NAO1's two ports are the default.
+    """
+    if not 1<=len(listeners)<=16 or len(set(listeners))!=len(listeners) or any(type(p) is not int or not 0<p<65536 for p in listeners):
+        raise ValueError('dependency_listener_census_ports')
+    ports={port:1<<index for index,port in enumerate(listeners)};mask=0;rows=0
     for name in ('tcp','tcp6'):
         path=proc/'net'/name
         with os.fdopen(os.open(path,os.O_RDONLY|os.O_NOFOLLOW),'rb') as f:
@@ -4309,7 +4314,7 @@ class Nad1Owner:
         self.daemon_relative=NAD1_DAEMON if fixture is None else fixture['daemon']
         self.installer_sha=NAD1_INSTALLER_SHA if fixture is None else fixture['installer_sha256']
         self.installer_size=35769456 if fixture is None else fixture['installer_size']
-        self.managed_contract=contract
+        self.managed_contract=contract;self.listeners=(5146,5563)
         if contract is not None:
             if fixture is not None or session_authority is not None:raise ValueError('managed_dependency_authority_conflict')
             observed=managed_vendor_inputs(spec['managed_operation'])
@@ -4318,6 +4323,7 @@ class Nad1Owner:
             self.installer_relative=str(pathlib.Path(installer['artifact']['path']).relative_to(self.drive))
             self.installer_sha=installer['artifact']['sha256'];self.installer_size=installer['size']
             self.daemon_relative=contract['profile']['dependency']['daemon']
+            self.listeners=tuple(contract['profile']['dependency']['listeners'])
         self.token=os.urandom(32).hex();self.anchor=None;self.recovery=None;self.runtime=None;self.diagnostic_privacy=False
         self.session_authority=self._session_authority(session_authority,fixture)
         self.registration_reobservation={'attempted':False,'count':0,'delay_ms':0,'result':'not_applicable'}
@@ -4682,7 +4688,7 @@ class Nad1Owner:
             actual=None
         members=self.scope.members()
         scan=ownership.census(self.root/'compatdata/pfx',actual,proc=proc)
-        listeners=nad1_listener_census(proc)
+        listeners=nad1_listener_census(proc,self.listeners)
         self.post_cleanup={'schema':1,'cgroup_empty':not members,'exact_daemon_generation_absent':not scan['candidates'] and not scan['unavailable'],
             'listener_mask':listeners['listener_mask'],'candidate_count':len(scan['candidates']),
             'candidate_observation_unavailable':scan['unavailable'],'application_image_unchanged':True,
@@ -5109,12 +5115,105 @@ def managed_application_problem(code):
         return "The app's support service could not start. Close any other copy of this app, then try again. If it still fails, send Setup details."
     return 'The app could not start or closed with an error. Try opening it again; if it still fails, send Setup details.'
 
+REVERIFIED_CLEANUP='reverified_after_unconfirmed_cleanup'
+RECOVER_DAEMON_IDENTITIES=('unchanged','absent','not_admitted_in_session','changed','unavailable')
+
+def recover_images_changed(application_unchanged,daemon_identity):
+    """Images whose bytes could not be confirmed unchanged. Not process evidence."""
+    return [name for name,changed in (('application',not application_unchanged),('daemon',daemon_identity in ('changed','unavailable'))) if changed]
+
 def managed_dependency_retired(dependency):
     if not isinstance(dependency,dict) or dependency.get('process_cleanup_confirmed') is not True:return False
-    if dependency.get('dependency_cleanup_disposition')=='not_started':return dependency.get('service_actions_started') is False
-    if dependency.get('dependency_cleanup_disposition') not in ('graceful_service_retirement','exact_owned_session_cleanup'):return False
+    disposition=dependency.get('dependency_cleanup_disposition')
+    if disposition=='not_started':return dependency.get('service_actions_started') is False
+    if disposition not in ('graceful_service_retirement','exact_owned_session_cleanup',REVERIFIED_CLEANUP):return False
     post=dependency.get('post_cleanup')
-    return isinstance(post,dict) and all(post.get(key) is True for key in ('cgroup_empty','exact_daemon_generation_absent','application_image_unchanged','daemon_image_unchanged')) and all(type(post.get(key)) is int and post[key]==0 for key in ('listener_mask','candidate_count','candidate_observation_unavailable'))
+    if not isinstance(post,dict):return False
+    absent=all(post.get(key) is True for key in ('cgroup_empty','exact_daemon_generation_absent')) and all(type(post.get(key)) is int and post[key]==0 for key in ('listener_mask','candidate_count','candidate_observation_unavailable'))
+    if disposition==REVERIFIED_CLEANUP:
+        # A later re-check proves only that nothing runs. Image facts are
+        # recorded truthfully; the next launch re-verifies all bytes.
+        identity=post.get('daemon_identity')
+        return (absent and post.get('session')==REVERIFIED_CLEANUP and identity in RECOVER_DAEMON_IDENTITIES
+            and type(post.get('application_image_unchanged')) is bool and post.get('daemon_image_unchanged') is (identity=='unchanged')
+            and post.get('images_changed')==recover_images_changed(post['application_image_unchanged'],identity))
+    return absent and all(post.get(key) is True for key in ('application_image_unchanged','daemon_image_unchanged'))
+
+def vendor_managed_root():
+    return pathlib.Path.home()/'.local/share/linux-vst-bridge/managed'
+
+def vendor_recover_census(request,*,proc=pathlib.Path('/proc')):
+    """Re-check a profile-managed session that ended without recording its own
+    retirement (power loss, freeze, killed owner, unconfirmed cleanup).
+
+    Read-only: no service request, signal, adoption or file change. The manager
+    supplies the exact bound records and observes the unit cgroup itself. The
+    daemon census finds processes by name in any prefix, whatever their image,
+    so absence holds even for a daemon this session never admitted. Image facts
+    are recorded but are not process evidence. The verdict is closed and carries
+    no paths, process IDs or vendor output.
+    """
+    import ownership
+    def malformed():raise ValueError('vendor_recover_census_request')
+    if not isinstance(request,dict) or set(request)!={'schema','environment','application','daemon','listeners'} or request['schema']!=1:malformed()
+    env,app,daemon,listeners=request['environment'],request['application'],request['daemon'],request['listeners']
+    if (not isinstance(env,dict) or not isinstance(env.get('id'),str) or not re.fullmatch('[0-9a-f]{32}',env['id'])
+        or not isinstance(app,dict) or set(app)!={'path','sha256'} or not isinstance(app['path'],str)
+        or not isinstance(daemon,dict) or set(daemon)!={'relative','identity'} or not isinstance(daemon['relative'],str)
+        or not isinstance(listeners,list) or not 1<=len(listeners)<=16 or len(set(map(repr,listeners)))!=len(listeners)
+        or any(type(p) is not int or not 0<p<65536 for p in listeners)):malformed()
+    relative=pathlib.PurePosixPath(daemon['relative']);identity=daemon['identity']
+    if relative.is_absolute() or not relative.parts or any(part in ('.','..') for part in relative.parts):malformed()
+    if identity is not None and (not isinstance(identity,dict) or set(identity)!={'sha256','size'}
+        or not isinstance(identity['sha256'],str) or not re.fullmatch('[0-9a-f]{64}',identity['sha256']) or type(identity['size']) is not int):malformed()
+    # Only this user's managed environments and their own installed files.
+    root=vendor_managed_root()/'environments'/env['id'];prefix=root/'compatdata/pfx';drive=prefix/'drive_c'
+    application=pathlib.PurePosixPath(app['path'])
+    if (env.get('root')!=str(root) or not application.is_absolute() or '..' in application.parts
+        or not application.is_relative_to(drive)):malformed()
+    facts={'schema':1,'prefix_unchanged':False,'application_image_unchanged':False,'daemon_image_unchanged':False,
+        'daemon_identity':'unavailable','daemon_name_observable':relative.name==ownership.NAME,'images_changed':[],
+        'candidate_count':0,'candidate_observation_unavailable':0,'listener_mask':None}
+    try:
+        observed=prefix.lstat()
+        facts['prefix_unchanged']=bool(stat.S_ISDIR(observed.st_mode) and prefix.resolve()==prefix and renderer_read(root/'environment.json')==env)
+    except (OSError,ValueError):pass
+    try:verify(app);facts['application_image_unchanged']=True
+    except (OSError,RuntimeError,ValueError):pass
+    path=drive/relative
+    if identity is None:facts['daemon_identity']='not_admitted_in_session'
+    elif not os.path.lexists(path):facts['daemon_identity']='absent'
+    else:
+        try:
+            current=ownership.image_identity(path)
+            facts['daemon_identity']='unchanged' if (current['sha256'],current['size'])==(identity['sha256'],identity['size']) else 'changed'
+        except (OSError,ValueError):pass
+    facts['daemon_image_unchanged']=facts['daemon_identity']=='unchanged'
+    facts['images_changed']=recover_images_changed(facts['application_image_unchanged'],facts['daemon_identity'])
+    # The census recognises one daemon image name. Any other profile daemon is
+    # a missing observation capability, never an absence.
+    if not facts['daemon_name_observable']:facts['candidate_observation_unavailable']=1
+    else:
+        try:
+            scan=ownership.census(prefix,None,proc=proc)
+            facts['candidate_count']=len(scan['candidates']);facts['candidate_observation_unavailable']=scan['unavailable']
+        except (OSError,ValueError):facts['candidate_observation_unavailable']=1
+    try:facts['listener_mask']=nad1_listener_census(proc,listeners)['listener_mask']
+    except (OSError,ValueError):pass
+    facts['verdict']=vendor_recover_verdict(facts)
+    return facts
+
+def vendor_recover_verdict(facts):
+    """Only process and listener evidence decides; running beats unavailable."""
+    if facts['candidate_count'] or facts['listener_mask']:return 'running'
+    if facts['candidate_observation_unavailable'] or facts['listener_mask'] is None or not facts['daemon_name_observable']:return 'unavailable'
+    return 'absent'
+
+def vendor_recover_census_main():
+    raw=sys.stdin.buffer.read(65537)
+    if len(raw)>65536:raise ValueError('vendor_recover_census_request')
+    print(json.dumps(vendor_recover_census(json.loads(raw)),separators=(',',':')),flush=True)
+    return 0
 
 def managed_vendor_application(operation):
     app=operation['application'];op=operation['operation_id'];report=pathlib.Path(operation['report'])
@@ -5345,6 +5444,7 @@ if __name__=='__main__':
     os.umask(0o077)
     if sys.argv[1]=='--install':sys.exit(0 if install(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
     if sys.argv[1]=='--vendor-application':sys.exit(0 if vendor_application(json.loads(pathlib.Path(sys.argv[2]).read_text())) else 1)
+    if sys.argv[1]=='--vendor-recover-census' and len(sys.argv)==2:sys.exit(vendor_recover_census_main())
     graphics_entry=sys.argv[1]=='--graphics-settings-v1'
     spec=json.loads(pathlib.Path(sys.argv[2 if graphics_entry else 1]).read_text())
     if graphics_entry and (spec.get('keeper') or spec['registration'].get('compatibility',{}).get('graphics')!='wine_d3d11'):

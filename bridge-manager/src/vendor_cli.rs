@@ -91,25 +91,238 @@ pub(super) fn result(m: &Manager, selector: &str, operation: &str) -> Result<Ope
     Ok(result)
 }
 pub(super) fn reconcile(m:&Manager,selector:&str,operation:&str)->Result<()> {
-    reconcile_with(m,selector,operation,||renderer_session::inspect_unit(&unit(selector)?))
+    reconcile_with(m,selector,operation,||renderer_session::inspect_unit(&unit(selector)?),
+        |request|recover_census(m,request))
+}
+const SERVICE_STILL_RUNNING: &str =
+    "The app's support service is still running. Restart the computer, then use Recover again.";
+const SERVICE_UNCONFIRMED: &str = "The bridge could not confirm that the app's support service stopped. Restart the computer, then use Recover again; if it still cannot finish, send Setup details.";
+const APP_STILL_RUNNING: &str = "Part of the app is still running. Wait a minute, then use Recover again; if it still cannot finish, restart the computer first.";
+const UNIT_UNAVAILABLE: &str = "The bridge could not check whether the app is still running. Try Recover again; if it still cannot finish, send Setup details.";
+const RECOVER_CENSUS_LIMIT: Duration = Duration::from_secs(60);
+const RECOVER_OUTPUT_BOUND: u64 = 65536;
+/// A plain refusal for the musician. Its fixed code and the closed census facts
+/// are retained for Setup details; the underlying cause stays in the error chain.
+#[derive(Debug)]
+pub(super) struct RecoverRefusal {
+    pub(super) code: &'static str,
+    census: Option<Box<Reverification>>,
+    source: Option<Box<dyn std::error::Error + Send + Sync>>,
+}
+impl RecoverRefusal {
+    fn new(code: &'static str) -> Self { Self { code, census: None, source: None } }
+    fn caused(code: &'static str, source: Box<dyn std::error::Error + Send + Sync>) -> Self {
+        Self { code, census: None, source: Some(source) }
+    }
+    fn message(&self) -> &'static str {
+        match self.code {
+            "vendor_recover_service_running" => SERVICE_STILL_RUNNING,
+            "vendor_application_custody_uncertain" => APP_STILL_RUNNING,
+            "vendor_recover_unit_unavailable" => UNIT_UNAVAILABLE,
+            _ => SERVICE_UNCONFIRMED,
+        }
+    }
+}
+impl std::fmt::Display for RecoverRefusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(self.message()) }
+}
+impl std::error::Error for RecoverRefusal {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.source.as_deref().map(|error| error as &(dyn std::error::Error + 'static))
+    }
+}
+/// Closed supervisor facts for a session that ended without recording its own
+/// retirement. The manager re-derives the verdict; a disagreeing record is
+/// malformed. Only process and listener evidence decides; image facts are
+/// recorded, and the next launch re-verifies every byte it uses.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Reverification {
+    schema: u32,
+    verdict: String,
+    prefix_unchanged: bool,
+    application_image_unchanged: bool,
+    daemon_image_unchanged: bool,
+    daemon_identity: String,
+    daemon_name_observable: bool,
+    images_changed: Vec<String>,
+    candidate_count: u64,
+    candidate_observation_unavailable: u64,
+    listener_mask: Option<u64>,
+}
+impl Reverification {
+    fn verdict(&self) -> std::result::Result<(), RecoverRefusal> {
+        let identity = self.daemon_identity.as_str();
+        let consistent = self.schema == 1
+            && vendor_application::REVERIFIED_DAEMON_IDENTITIES.contains(&identity)
+            && self.daemon_image_unchanged == (identity == "unchanged")
+            && self.images_changed == vendor_application::reverified_images_changed(self.application_image_unchanged, identity);
+        let derived = if self.candidate_count > 0 || self.listener_mask.is_some_and(|mask| mask != 0) {"running"}
+            else if self.candidate_observation_unavailable > 0 || self.listener_mask.is_none() || !self.daemon_name_observable {"unavailable"}
+            else {"absent"};
+        if !consistent || self.verdict != derived {
+            return Err(RecoverRefusal::new("vendor_recover_census_malformed"));
+        }
+        match derived {
+            "running" => Err(RecoverRefusal::new("vendor_recover_service_running")),
+            "unavailable" if !self.daemon_name_observable => Err(RecoverRefusal::new("vendor_recover_daemon_name_unobservable")),
+            "unavailable" => Err(RecoverRefusal::new("vendor_recover_observation_unavailable")),
+            _ => Ok(()),
+        }
+    }
+}
+/// The last re-check, typed so only fixed codes and closed facts are shown.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RecoverCheck {
+    schema: u32,
+    operation: String,
+    result: String,
+    code: Option<String>,
+    census: Option<Reverification>,
+}
+/// Setup details for the current operation's last re-check, if any.
+pub(super) fn recover_check(m: &Manager, selector: &str, operation: &str) -> Option<serde_json::Value> {
+    let path = directory(m, selector).ok()?.join("recover-check.json");
+    if fs::symlink_metadata(&path).ok()?.len() > 16384 { return None; }
+    let check: RecoverCheck = read_json(&path).ok()?;
+    (check.schema == 1 && check.operation == operation).then(|| serde_json::to_value(check).ok()).flatten()
+}
+/// Exact records the supervisor re-checks. The daemon identity is the one
+/// this session admitted, else the one bound at launch, else none.
+fn recover_request(m:&Manager,selector:&str,job:&vendor_application::Operation,
+    dependency:Option<&serde_json::Value>)->Result<serde_json::Value> {
+    let managed=job.managed.as_ref().ok_or("vendor_dependency_cleanup_unconfirmed")?;
+    let service=&managed.capabilities.profile.dependency;
+    let relative=Path::new(&service.daemon);
+    require(!relative.is_absolute() && relative.components().all(|c|matches!(c,std::path::Component::Normal(_))),
+        "vendor_profile_relative_path")?;
+    let recorded=dependency.map(|d|&d["daemon"]).filter(|d|d["sha256"].is_string() && d["size"].is_u64())
+        .map(|d|json!({"sha256":d["sha256"],"size":d["size"]}));
+    let bound=managed.capabilities.dependency.daemon.as_ref()
+        .map(|image|json!({"sha256":image.artifact.sha256,"size":image.size}));
+    Ok(json!({"schema":1,"environment":application(m,selector)?.environment,
+        "application":job.application.executable,
+        "daemon":{"relative":service.daemon,"identity":recorded.or(bound)},
+        "listeners":service.listeners}))
+}
+fn recover_census(m:&Manager,request:&serde_json::Value)->std::result::Result<serde_json::Value,RecoverRefusal> {
+    let sw=software_record(m).map_err(|error|RecoverRefusal::caused("vendor_recover_supervisor_changed",error))?;
+    run_recover_census(Path::new("/usr/bin/python3"),&sw.supervisor,&sw.ownership,request,RECOVER_CENSUS_LIMIT)
+}
+/// Bounded read-only supervisor census; it never signals or adopts a process.
+/// Every wait ends by `limit`; an unfinished census is killed and reaped.
+fn run_recover_census(interpreter:&Path,supervisor:&Artifact,ownership:&Artifact,
+    request:&serde_json::Value,limit:Duration)->std::result::Result<serde_json::Value,RecoverRefusal> {
+    use RecoverRefusal as Refusal;
+    supervisor.verify().and_then(|_|ownership.verify())
+        .map_err(|error|Refusal::caused("vendor_recover_supervisor_changed",error))?;
+    let input=serde_json::to_vec(request).map_err(|error|Refusal::caused("vendor_recover_request_unavailable",error.into()))?;
+    if input.len()>16384 {return Err(Refusal::new("vendor_recover_request_unavailable"));}
+    let deadline=Instant::now()+limit;
+    let mut child=Command::new(interpreter).args(["-E","-s"]).arg(&supervisor.path).arg("--vendor-recover-census")
+        .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn()
+        .map_err(|error|Refusal::caused("vendor_recover_census_spawn_failed",error.into()))?;
+    let (sender,receiver)=std::sync::mpsc::channel();
+    if let Some(mut stdout)=child.stdout.take() {
+        std::thread::spawn(move||{
+            let mut bytes=vec![];
+            let read=(&mut stdout).take(RECOVER_OUTPUT_BOUND+1).read_to_end(&mut bytes).map(|_|bytes);
+            let _=sender.send(read);
+        });
+    }
+    // The bounded request is far below one pipe buffer, so this cannot block.
+    let written=child.stdin.take().map(|mut stdin|stdin.write_all(&input));
+    let (mut status,mut output)=(None,None);
+    let outcome=loop {
+        if status.is_none() {
+            match child.try_wait() {Ok(observed)=>status=observed,Err(_)=>break Err("vendor_recover_census_failed")}
+        }
+        if output.is_none() {
+            output=if status.is_some() {receiver.recv_timeout(deadline.saturating_duration_since(Instant::now())).ok()}
+                else {receiver.try_recv().ok()};
+        }
+        match (&status,&output) {
+            (_,Some(Ok(bytes))) if bytes.len() as u64>RECOVER_OUTPUT_BOUND=>break Err("vendor_recover_census_output_bound"),
+            (_,Some(Err(_)))=>break Err("vendor_recover_census_failed"),
+            (Some(status),_) if !status.success()=>break Err("vendor_recover_census_failed"),
+            (Some(_),Some(Ok(bytes)))=>break Ok(bytes.clone()),
+            _=>{}
+        }
+        if Instant::now()>=deadline {break Err("vendor_recover_census_timeout");}
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    if status.is_none() {let _=child.kill();let _=child.wait();}
+    let bytes=outcome.map_err(Refusal::new)?;
+    if !matches!(written,Some(Ok(()))) {return Err(Refusal::new("vendor_recover_census_failed"));}
+    serde_json::from_slice(&bytes).map_err(|error|Refusal::caused("vendor_recover_census_malformed",error.into()))
+}
+/// The retained session record plus the fresh absence that retires it. The
+/// earlier result itself stays as history beside the new result.
+fn reverified_dependency(prior:Option<serde_json::Value>,census:&Reverification)->serde_json::Value {
+    let mut record=match prior {Some(value@serde_json::Value::Object(_))=>value,_=>json!({"session_record":"missing"})};
+    record["previous_disposition"]=record["dependency_cleanup_disposition"].clone();
+    record["process_cleanup_confirmed"]=json!(true);
+    record["dependency_cleanup_disposition"]=json!(vendor_application::REVERIFIED_CLEANUP);
+    record["post_cleanup"]=json!({"schema":1,"cgroup_empty":true,
+        "exact_daemon_generation_absent":census.candidate_count==0 && census.candidate_observation_unavailable==0,
+        "listener_mask":census.listener_mask,"candidate_count":census.candidate_count,
+        "candidate_observation_unavailable":census.candidate_observation_unavailable,
+        "prefix_unchanged":census.prefix_unchanged,
+        "application_image_unchanged":census.application_image_unchanged,
+        "daemon_image_unchanged":census.daemon_image_unchanged,"daemon_identity":census.daemon_identity,
+        "images_changed":census.images_changed,
+        "session":vendor_application::REVERIFIED_CLEANUP,
+        "authority":"empty_owned_unit_and_bounded_daemon_listener_census"});
+    record
+}
+/// Re-observe current reality for an unretired session. The empty unit proves
+/// the session's own processes are gone; a profile-managed support service is
+/// re-checked because its owner never recorded retiring it.
+fn recheck(m:&Manager,selector:&str,directory:&Path,prior:&OperationResult,
+    inspect:impl FnOnce()->Result<renderer_session::UnitState>,
+    census:impl FnOnce(&serde_json::Value)->std::result::Result<serde_json::Value,RecoverRefusal>)
+    ->std::result::Result<(Option<serde_json::Value>,Option<Reverification>),RecoverRefusal> {
+    let probe=inspect().map_err(|error|RecoverRefusal::caused("vendor_recover_unit_unavailable",error))?;
+    if !probe.empty {return Err(RecoverRefusal::new("vendor_application_custody_uncertain"));}
+    let job:vendor_application::Operation=read_json(&directory.join("operation.json"))
+        .map_err(|error|RecoverRefusal::caused("vendor_recover_request_unavailable",error))?;
+    let mut dependency=prior.dependency.clone();
+    if job.managed.is_none() {return Ok((dependency,None));}
+    if let Some(observed)=dependency.as_mut() {
+        if observed["dependency_cleanup_disposition"]=="not_started" && observed["service_actions_started"]==false {
+            observed["process_cleanup_confirmed"]=json!(true);
+        }
+    }
+    if dependency.as_ref().is_some_and(vendor_application::dependency_retired) {return Ok((dependency,None));}
+    let request=recover_request(m,selector,&job,dependency.as_ref())
+        .map_err(|error|RecoverRefusal::caused("vendor_recover_request_unavailable",error))?;
+    let observed:Reverification=serde_json::from_value(census(&request)?)
+        .map_err(|error|RecoverRefusal::caused("vendor_recover_census_malformed",error.into()))?;
+    if let Err(mut refusal)=observed.verdict() {refusal.census=Some(Box::new(observed));return Err(refusal);}
+    let dependency=reverified_dependency(dependency,&observed);
+    if !vendor_application::dependency_retired(&dependency) {
+        return Err(RecoverRefusal {code:"vendor_recover_census_malformed",census:Some(Box::new(observed)),source:None});
+    }
+    Ok((Some(dependency),Some(observed)))
 }
 fn reconcile_with(m:&Manager,selector:&str,operation:&str,
-    inspect:impl FnOnce()->Result<renderer_session::UnitState>)->Result<()> {
+    inspect:impl FnOnce()->Result<renderer_session::UnitState>,
+    census:impl FnOnce(&serde_json::Value)->std::result::Result<serde_json::Value,RecoverRefusal>)->Result<()> {
     let directory=directory(m,selector)?;
     let _writer=m.lock(directory.join("writer.lock").strip_prefix(&m.root)?.to_str().ok_or("vendor_writer_gate")?)?;
     let prior=result(m,selector,operation)?;
     if prior.retired(){return Ok(())}
-    let probe=inspect()?;
-    require(probe.empty,"vendor_application_custody_uncertain")?;
-    let job:vendor_application::Operation=read_json(&directory.join("operation.json"))?;
-    let mut dependency=prior.dependency.clone();
-    if job.managed.is_some() {
-        let observed=dependency.as_mut().ok_or("vendor_dependency_cleanup_unconfirmed")?;
-        if observed["dependency_cleanup_disposition"]=="not_started" && observed["service_actions_started"]==false {
-            observed["process_cleanup_confirmed"]=json!(true);
+    let check=|result:&str,code:Option<&str>,census:Option<&Reverification>|RecoverCheck {schema:1,
+        operation:operation.into(),result:result.into(),code:code.map(Into::into),census:census.cloned()};
+    let (dependency,census)=match recheck(m,selector,&directory,&prior,inspect,census) {
+        Ok(checked)=>checked,
+        Err(refusal)=>{
+            // Diagnostics explain the refusal; they never decide custody.
+            let _=atomic_json(&directory.join("recover-check.json"),&check("refused",Some(refusal.code),refusal.census.as_deref()));
+            return Err(refusal.into());
         }
-        require(vendor_application::dependency_retired(observed),"vendor_dependency_cleanup_unconfirmed")?;
-    }
+    };
     let report=directory.join("operation-result.json");
     if report.exists() {
         let history=directory.join(format!("interrupted-{operation}-result.json"));
@@ -123,6 +336,7 @@ fn reconcile_with(m:&Manager,selector:&str,operation:&str,
         "account_posture":"unknown"});
     if let Some(dependency)=dependency {recovered["dependency"]=dependency;}
     atomic_json(&report,&recovered)?;
+    if census.is_some() {let _=atomic_json(&directory.join("recover-check.json"),&check("retired",None,census.as_ref()));}
     Ok(())
 }
 pub(super) fn all_retired(m: &Manager) -> Result<bool> {
@@ -525,9 +739,220 @@ mod tests {
             "dependency":{"process_cleanup_confirmed":true,"dependency_cleanup_disposition":"cleanup_unconfirmed"}})).unwrap();
         let before=fs::read(&job.report).unwrap();
         assert!(!result(&f.m,&selector,&job.operation_id).unwrap().retired());
-        assert!(reconcile_with(&f.m,&selector,&job.operation_id,||Ok(renderer_session::UnitState{
-            exists:true,empty:true,observation:None})).is_err());
+        let error=reconcile_with(&f.m,&selector,&job.operation_id,||Ok(renderer_session::UnitState{
+            exists:true,empty:true,observation:None}),|_|Ok(verdict(json!({"verdict":"running","candidate_count":1})))).unwrap_err();
+        assert_eq!(error.to_string(),SERVICE_STILL_RUNNING);
+        assert_eq!(error.downcast_ref::<RecoverRefusal>().unwrap().code,"vendor_recover_service_running");
         assert_eq!(before,fs::read(&job.report).unwrap());
+    }
+    fn verdict(changes:serde_json::Value)->serde_json::Value {
+        let mut value=json!({"schema":1,"verdict":"absent","prefix_unchanged":true,"application_image_unchanged":true,
+            "daemon_image_unchanged":true,"daemon_identity":"unchanged","daemon_name_observable":true,"images_changed":[],
+            "candidate_count":0,"candidate_observation_unavailable":0,"listener_mask":0});
+        for (key,changed) in changes.as_object().unwrap() {value[key]=changed.clone();}
+        value
+    }
+    fn empty_unit()->Result<renderer_session::UnitState> {
+        Ok(renderer_session::UnitState{exists:false,empty:true,observation:None})
+    }
+    /// The power-loss record: the owner published a ready running session and
+    /// never wrote its own retirement.
+    fn interrupted(job:&vendor_application::Operation)->Vec<u8> {
+        atomic_json(&job.report,&json!({"schema":3,"operation_id":job.operation_id,"state":"running",
+            "launcher_exit":null,"owned_live":4,"cleanup_confirmed":false,"error":null,
+            "discarded_diagnostic_bytes":0,"account_posture":"unknown",
+            "dependency":{"schema":1,"ready_tested":true,"daemon":{"sha256":"ee".repeat(32),"size":4096,"architecture":"x64"},
+                "service_actions_started":true,"service_retirement_confirmed":false,"process_cleanup_confirmed":false,
+                "dependency_cleanup_disposition":"cleanup_unconfirmed","post_cleanup":null}})).unwrap();
+        fs::read(&job.report).unwrap()
+    }
+    #[test]
+    fn unconfirmed_service_session_retires_after_clean_recheck_and_reopens() {
+        let (f,job)=assisted();let selector=job.application.selector().unwrap();
+        let before=interrupted(&job);
+        let units=[unit(&selector).unwrap()];
+        assert!(!readiness::with_unit_state_fixture(&units,"inactive",||all_retired(&f.m)).unwrap());
+        let mut asked=None;
+        reconcile_with(&f.m,&selector,&job.operation_id,empty_unit,|request|{asked=Some(request.clone());Ok(verdict(json!({})))}).unwrap();
+        let request=asked.unwrap();let service=&job.managed.as_ref().unwrap().capabilities.profile.dependency;
+        assert_eq!(request["daemon"],json!({"relative":service.daemon,"identity":{"sha256":"ee".repeat(32),"size":4096}}));
+        assert_eq!(request["listeners"],json!(service.listeners));
+        assert_eq!(request["application"],serde_json::to_value(&job.application.executable).unwrap());
+        assert_eq!(request["environment"],serde_json::to_value(&application(&f.m,&selector).unwrap().environment).unwrap());
+        let recovered=result(&f.m,&selector,&job.operation_id).unwrap();
+        assert!(recovered.retired());assert!(!recovered.successful());
+        assert_eq!(recovered.state,vendor_application::OperationState::Failed);
+        let dependency=recovered.dependency.unwrap();
+        assert_eq!(dependency["dependency_cleanup_disposition"],vendor_application::REVERIFIED_CLEANUP);
+        assert_eq!(dependency["previous_disposition"],"cleanup_unconfirmed");
+        assert_eq!(dependency["post_cleanup"]["session"],vendor_application::REVERIFIED_CLEANUP);
+        assert_eq!(dependency["post_cleanup"]["images_changed"],json!([]));
+        assert_eq!(dependency["ready_tested"],true);
+        assert_eq!(dependency["service_retirement_confirmed"],false,"A census is not a graceful service stop");
+        let history=directory(&f.m,&selector).unwrap().join(format!("interrupted-{}-result.json",job.operation_id));
+        assert_eq!(fs::read(history).unwrap(),before);
+        let check=recover_check(&f.m,&selector,&job.operation_id).unwrap();
+        assert_eq!((&check["result"],&check["code"],&check["census"]["verdict"]),(&json!("retired"),&json!(null),&json!("absent")));
+        assert!(recover_check(&f.m,&selector,&random_id().unwrap()).is_none());
+        // Launch admission reads the stored result directly; the card and
+        // Continue read it through the bound operation.
+        assert!(read_json::<OperationResult>(&job.report).unwrap().retired());
+        assert!(readiness::with_unit_state_fixture(&units,"inactive",||all_retired(&f.m)).unwrap());
+        reconcile_with(&f.m,&selector,&job.operation_id,||panic!("A retired session is not re-checked"),
+            |_|panic!("A retired session is not re-checked")).unwrap();
+    }
+    #[test]
+    fn changed_or_unreadable_images_do_not_keep_a_session_that_nothing_runs() {
+        // e.g. the app updated itself mid-session or its daemon was half written.
+        let (f,job)=assisted();let selector=job.application.selector().unwrap();
+        interrupted(&job);
+        reconcile_with(&f.m,&selector,&job.operation_id,empty_unit,|_|Ok(verdict(json!({"prefix_unchanged":false,
+            "application_image_unchanged":false,"daemon_image_unchanged":false,"daemon_identity":"unavailable",
+            "images_changed":["application","daemon"]})))).unwrap();
+        let recovered=result(&f.m,&selector,&job.operation_id).unwrap();
+        assert!(recovered.retired());
+        let post=&recovered.dependency.as_ref().unwrap()["post_cleanup"];
+        assert_eq!((&post["images_changed"],&post["application_image_unchanged"],&post["daemon_image_unchanged"],&post["prefix_unchanged"]),
+            (&json!(["application","daemon"]),&json!(false),&json!(false),&json!(false)));
+        // The next Open re-verifies every byte; a changed app cannot launch silently.
+        fs::write(&job.application.executable.path,b"MZ self-updated application").unwrap();
+        let bound=fs::read(directory(&f.m,&selector).unwrap().join("operation.json")).unwrap();
+        assert!(run_selected(&f.m,&["launch".into(),selector.clone()],Some(&random_id().unwrap())).is_err());
+        assert_eq!(bound,fs::read(directory(&f.m,&selector).unwrap().join("operation.json")).unwrap());
+    }
+    #[test]
+    fn unconfirmed_service_session_stays_unretired_while_anything_remains_or_is_unobserved() {
+        let (f,job)=assisted();let selector=job.application.selector().unwrap();
+        let before=interrupted(&job);
+        let history=directory(&f.m,&selector).unwrap().join(format!("interrupted-{}-result.json",job.operation_id));
+        let refused=|error:Box<dyn std::error::Error+Send+Sync>,code:&str,message:&str| {
+            assert_eq!(error.to_string(),message,"{code}");
+            assert_eq!(error.downcast_ref::<RecoverRefusal>().unwrap().code,code);
+            assert_eq!(recover_check(&f.m,&selector,&job.operation_id).unwrap()["code"],code);
+            assert_eq!(fs::read(&job.report).unwrap(),before);assert!(!history.exists());
+        };
+        for (census,code,message) in [
+            (verdict(json!({"verdict":"running","candidate_count":1})),"vendor_recover_service_running",SERVICE_STILL_RUNNING),
+            (verdict(json!({"verdict":"running","listener_mask":2})),"vendor_recover_service_running",SERVICE_STILL_RUNNING),
+            (verdict(json!({"verdict":"running","candidate_count":1,"candidate_observation_unavailable":1})),"vendor_recover_service_running",SERVICE_STILL_RUNNING),
+            (verdict(json!({"verdict":"unavailable","candidate_observation_unavailable":1})),"vendor_recover_observation_unavailable",SERVICE_UNCONFIRMED),
+            (verdict(json!({"verdict":"unavailable","listener_mask":null})),"vendor_recover_observation_unavailable",SERVICE_UNCONFIRMED),
+            (verdict(json!({"verdict":"unavailable","daemon_name_observable":false,"candidate_observation_unavailable":1})),"vendor_recover_daemon_name_unobservable",SERVICE_UNCONFIRMED),
+            // A verdict that disagrees with its own facts, or carries more, is malformed.
+            (verdict(json!({"candidate_count":1})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
+            (verdict(json!({"listener_mask":1})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
+            (verdict(json!({"daemon_identity":"changed"})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
+            (verdict(json!({"daemon_identity":"absent"})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
+            (verdict(json!({"application_image_unchanged":false})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
+            (verdict(json!({"images_changed":["daemon"]})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
+            (verdict(json!({"verdict":"changed"})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
+            (verdict(json!({"schema":2})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
+            (verdict(json!({"pid":1234})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
+            (json!("absent"),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
+        ] {
+            refused(reconcile_with(&f.m,&selector,&job.operation_id,empty_unit,|_|Ok(census.clone())).unwrap_err(),code,message);
+        }
+        for code in ["vendor_recover_census_timeout","vendor_recover_census_spawn_failed","vendor_recover_supervisor_changed",
+            "vendor_recover_census_output_bound","vendor_recover_census_failed"] {
+            refused(reconcile_with(&f.m,&selector,&job.operation_id,empty_unit,|_|Err(RecoverRefusal::new(code))).unwrap_err(),code,SERVICE_UNCONFIRMED);
+        }
+        refused(reconcile_with(&f.m,&selector,&job.operation_id,||Ok(renderer_session::UnitState{
+            exists:true,empty:false,observation:None}),|_|panic!("An occupied unit is never re-checked")).unwrap_err(),
+            "vendor_application_custody_uncertain",APP_STILL_RUNNING);
+        let error=reconcile_with(&f.m,&selector,&job.operation_id,||Err("renderer_unit_state_unavailable".into()),
+            |_|panic!("An unobserved unit is never re-checked")).unwrap_err();
+        let cause=std::error::Error::source(error.downcast_ref::<RecoverRefusal>().unwrap()).unwrap().to_string();
+        assert_eq!(cause,"renderer_unit_state_unavailable");
+        refused(error,"vendor_recover_unit_unavailable",UNIT_UNAVAILABLE);
+        assert!(!result(&f.m,&selector,&job.operation_id).unwrap().retired());
+    }
+    #[test]
+    fn recover_request_crosses_the_actual_supervisor_census() {
+        let (f,job)=assisted();let selector=job.application.selector().unwrap();
+        let proc=f.outer.join("proc");private_dir(&proc.join("net")).unwrap();
+        for name in ["tcp","tcp6"] {
+            fs::write(proc.join("net").join(name),"  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n").unwrap();
+        }
+        let observe=|request:&serde_json::Value|->Reverification {
+            let output=Command::new("python3").env("PYTHONDONTWRITEBYTECODE","1").args(["-I","-c",r#"
+import json,pathlib,sys
+sys.path.insert(0,sys.argv[1])
+import session
+session.vendor_managed_root=lambda:pathlib.Path(sys.argv[4])
+print(json.dumps(session.vendor_recover_census(json.loads(sys.argv[2]),proc=pathlib.Path(sys.argv[3]))))
+"#]).arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("runtime")).arg(request.to_string()).arg(&proc).arg(&f.m.root).output().unwrap();
+            assert!(output.status.success(),"{}",String::from_utf8_lossy(&output.stderr));
+            serde_json::from_slice(&output.stdout).unwrap()
+        };
+        let request=recover_request(&f.m,&selector,&job,None).unwrap();
+        let census=observe(&request);
+        census.verdict().unwrap();
+        assert!(census.prefix_unchanged && census.application_image_unchanged);
+        assert_eq!(census.daemon_identity,"not_admitted_in_session");
+        fs::write(proc.join("net/tcp"),"  sl  local_address rem_address   st\n   0: 0100007F:141A 00000000:0000 0A 0:0 0:0 0 0 0\n").unwrap();
+        assert_eq!(observe(&request).verdict().unwrap_err().code,"vendor_recover_service_running");
+        fs::remove_file(proc.join("net/tcp6")).unwrap();
+        fs::write(proc.join("net/tcp"),"  sl  local_address rem_address   st\n").unwrap();
+        assert_eq!(observe(&request).verdict().unwrap_err().code,"vendor_recover_observation_unavailable");
+        fs::write(proc.join("net/tcp6"),"  sl  local_address rem_address   st\n").unwrap();
+        fs::write(&job.application.executable.path,b"MZ changed application").unwrap();
+        let census=observe(&request);
+        census.verdict().unwrap();
+        assert_eq!(census.images_changed,["application"]);
+    }
+    #[test]
+    fn recover_census_bounds_the_actual_supervisor_process() {
+        let f=test_fixture::Fixture::new();
+        let script=|name:&str,body:&str|->Artifact {
+            let path=f.outer.join(name);fs::write(&path,body).unwrap();Artifact{sha256:digest(&path).unwrap(),path}
+        };
+        // Product launches use the system interpreter; build images may only have it on PATH.
+        let (python,request,limit)=(Path::new("python3"),json!({"schema":1}),Duration::from_secs(20));
+        let ownership=script("ownership.py","");
+        let code=|result:std::result::Result<serde_json::Value,RecoverRefusal>|result.unwrap_err().code;
+        let echo=script("echo.py","import json,sys\nassert sys.argv[1:]==['--vendor-recover-census']\nprint(json.dumps({'echo':json.load(sys.stdin)}))\n");
+        assert_eq!(run_recover_census(python,&echo,&ownership,&request,limit).unwrap(),json!({"echo":{"schema":1}}));
+        // Changed supervisor or ownership bytes never run.
+        let marker=f.outer.join("ran");
+        let changed=script("changed.py",&format!("open({:?},'w').write('ran')\n",marker));
+        let stale=|artifact:&Artifact|Artifact{path:artifact.path.clone(),sha256:"00".repeat(32)};
+        assert_eq!(code(run_recover_census(python,&stale(&changed),&ownership,&request,limit)),"vendor_recover_supervisor_changed");
+        assert_eq!(code(run_recover_census(python,&changed,&stale(&ownership),&request,limit)),"vendor_recover_supervisor_changed");
+        assert!(!marker.exists());
+        assert_eq!(code(run_recover_census(Path::new("/nonexistent/python3"),&echo,&ownership,&request,limit)),
+            "vendor_recover_census_spawn_failed");
+        // A census that outlives its limit is killed and reaped.
+        let pid=f.outer.join("pid");
+        let slow=script("slow.py",&format!("import os,time\nopen({:?},'w').write(str(os.getpid()))\ntime.sleep(60)\n",pid));
+        let started=Instant::now();
+        assert_eq!(code(run_recover_census(python,&slow,&ownership,&request,Duration::from_millis(1500))),"vendor_recover_census_timeout");
+        assert!(started.elapsed()<Duration::from_secs(10));
+        let pid=fs::read_to_string(&pid).unwrap();
+        assert!(!Path::new("/proc").join(pid.trim()).exists(),"The timed-out census is reaped");
+        let loud=script("loud.py","import sys\nsys.stdout.write('x'*70000)\nsys.stdout.flush()\n");
+        assert_eq!(code(run_recover_census(python,&loud,&ownership,&request,limit)),"vendor_recover_census_output_bound");
+        let failing=script("failing.py","import sys\nprint('{}')\nsys.exit(3)\n");
+        assert_eq!(code(run_recover_census(python,&failing,&ownership,&request,limit)),"vendor_recover_census_failed");
+        let prose=script("prose.py","print('not a verdict')\n");
+        assert_eq!(code(run_recover_census(python,&prose,&ownership,&request,limit)),"vendor_recover_census_malformed");
+    }
+    #[test]
+    fn owner_interrupted_without_a_session_record_reverifies_against_the_bound_daemon() {
+        let (f,job)=assisted();let selector=job.application.selector().unwrap();
+        atomic_json(&job.report,&json!({"schema":3,"operation_id":job.operation_id,"state":"cleanup_unconfirmed",
+            "launcher_exit":null,"owned_live":null,"cleanup_confirmed":false,"error":"interrupted",
+            "error_code":"managed_application_owner_interrupted","discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
+        let mut asked=None;
+        reconcile_with(&f.m,&selector,&job.operation_id,empty_unit,|request|{asked=Some(request.clone());
+            Ok(verdict(json!({"daemon_identity":"not_admitted_in_session","daemon_image_unchanged":false})))}).unwrap();
+        assert!(job.managed.as_ref().unwrap().capabilities.dependency.daemon.is_none());
+        assert_eq!(asked.unwrap()["daemon"]["identity"],serde_json::Value::Null);
+        let recovered=result(&f.m,&selector,&job.operation_id).unwrap();
+        assert!(recovered.retired());
+        let dependency=recovered.dependency.unwrap();
+        assert_eq!(dependency["session_record"],"missing");
+        assert_eq!(dependency["post_cleanup"]["daemon_identity"],"not_admitted_in_session");
+        assert_eq!(dependency["post_cleanup"]["daemon_image_unchanged"],false);
     }
     #[test]
     fn definite_submission_failure_can_recover_without_claiming_service_retirement() {
@@ -538,7 +963,7 @@ mod tests {
         assert!(submit_with(&job.report,&job.operation_id,true,||Err(std::io::ErrorKind::NotFound.into())).is_err());
         assert!(!result(&f.m,&selector,&job.operation_id).unwrap().retired());
         reconcile_with(&f.m,&selector,&job.operation_id,||Ok(renderer_session::UnitState{
-            exists:false,empty:true,observation:None})).unwrap();
+            exists:false,empty:true,observation:None}),|_|panic!("No service action needs re-observation")).unwrap();
         let recovered=result(&f.m,&selector,&job.operation_id).unwrap();
         assert!(recovered.retired());
         assert_eq!(recovered.dependency.unwrap()["service_actions_started"],false);
@@ -580,19 +1005,20 @@ mod tests {
         let (f,selector,operation,_)=selected();let directory=directory(&f.m,&selector).unwrap();
         let before=fs::read(directory.join("operation.json")).unwrap();
         assert!(!result(&f.m,&selector,&operation).unwrap().retired());
+        let unmanaged=|_:&serde_json::Value|->std::result::Result<serde_json::Value,RecoverRefusal> {panic!("Ordinary programs have no service census")};
         assert!(reconcile_with(&f.m,&selector,&operation,||Ok(renderer_session::UnitState{
-            exists:true,empty:false,observation:None})).is_err());
+            exists:true,empty:false,observation:None}),unmanaged).is_err());
         assert!(!directory.join("operation-result.json").exists());
         let gate=directory.join("writer.lock");
         let held=f.m.lock(gate.strip_prefix(&f.m.root).unwrap().to_str().unwrap()).unwrap();
-        assert!(reconcile_with(&f.m,&selector,&operation,||panic!("Live writer must retain custody")).is_err());
+        assert!(reconcile_with(&f.m,&selector,&operation,||panic!("Live writer must retain custody"),unmanaged).is_err());
         drop(held);
         reconcile_with(&f.m,&selector,&operation,||Ok(renderer_session::UnitState{
-            exists:false,empty:true,observation:None})).unwrap();
+            exists:false,empty:true,observation:None}),unmanaged).unwrap();
         let recovered=result(&f.m,&selector,&operation).unwrap();
         assert!(recovered.retired());assert!(!recovered.successful());
         assert_eq!(recovered.state,vendor_application::OperationState::Failed);
         assert_eq!(fs::read(directory.join("operation.json")).unwrap(),before);
-        assert!(reconcile_with(&f.m,&selector,&random_id().unwrap(),||panic!("Changed job is refused")).is_err());
+        assert!(reconcile_with(&f.m,&selector,&random_id().unwrap(),||panic!("Changed job is refused"),unmanaged).is_err());
     }
 }

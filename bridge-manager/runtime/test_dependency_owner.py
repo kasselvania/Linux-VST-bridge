@@ -397,6 +397,12 @@ class SessionCleanupTests(unittest.TestCase):
     self.assertFalse(self.owner.service_retirement_confirmed);self.assertTrue(self.owner.forced_cleanup_used)
     self.assertEqual(self.owner.dependency_cleanup_disposition,'exact_owned_session_cleanup')
     self.assertTrue(self.owner.post_cleanup['exact_daemon_generation_absent'])
+ def test_session_cleanup_checks_the_profile_listener_ports(self):
+  self.assertEqual(self.owner.listeners,(5146,5563))
+  self.owner.listeners=(6000,6001)
+  with patch.object(ownership,'census',return_value=copy.deepcopy(self.scan)),patch.object(s,'nad1_listener_census',return_value={'listener_mask':0}) as listeners:
+   self.assertTrue(self.owner.verify_session_cleanup(self.image,False))
+  self.assertEqual(listeners.call_args.args[1],(6000,6001))
  def test_unavailable_observation_or_process_cleanup_refuses(self):
   with self.assertRaisesRegex(ValueError,'observation_unavailable'):self.verify('NAD2_STOP_OBSERVATION_UNAVAILABLE',1)
   self.owner.process_cleanup_confirmed=False

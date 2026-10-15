@@ -270,7 +270,8 @@ fn vendor_projection(
         details: json!({"environment":a.environment.id,"journey":if handoff {None}else{current_intent.map(|i|&i.journey)},"choose_application":choosing,
             "capability_notice":job["capability_notice"],"dependency":report.as_ref().and_then(|r|r.dependency.as_ref()),
             "browser_return":report.as_ref().and_then(|r|r.browser_return.as_ref()),
-            "error_code":report.as_ref().and_then(|r|r.error_code.as_ref())}),
+            "error_code":report.as_ref().and_then(|r|r.error_code.as_ref()),
+            "recover_check":job["operation_id"].as_str().and_then(|op|vendor_cli::recover_check(m,selector,op))}),
         actions: vec![
             action(
                 &if restartable {format!("Try installation again through {name}")}
