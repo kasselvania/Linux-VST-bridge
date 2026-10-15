@@ -97,12 +97,12 @@ pub(super) fn reconcile(m:&Manager,selector:&str,operation:&str)->Result<()> {
 const SERVICE_STILL_RUNNING: &str =
     "The app's support service is still running. Restart the computer, then use Recover again.";
 const SERVICE_UNCONFIRMED: &str = "The bridge could not confirm that the app's support service stopped. Restart the computer, then use Recover again; if it still cannot finish, send Setup details.";
-const CHECK_NOT_RUN: &str =
-    "The bridge could not run its check. Update or repair the bridge, then use Recover again.";
+const CHECK_NOT_RUN: &str = "The bridge could not finish checking whether the app's support service stopped. Update the bridge, then use Recover again; if it still cannot finish, send Setup details.";
 const SERVICE_UNCHECKABLE: &str = "The bridge can't yet check this app's support service, so it can't close this session itself. Send Setup details.";
 const APP_STILL_RUNNING: &str = "Part of the app is still running. Wait a minute and use Recover again. If that does not work, restart the computer, then use Recover again.";
 const UNIT_UNAVAILABLE: &str = "The bridge could not check whether the app is still running. Try Recover again; if it still cannot finish, send Setup details.";
-/// The process census stops itself at 30 s; this bounds the whole check.
+/// Bounds the whole check. Its process scan stops itself at 20 s, leaving the
+/// rest for interpreter start, listener tables and image facts.
 const RECOVER_CENSUS_LIMIT: Duration = Duration::from_secs(30);
 const RECOVER_OUTPUT_BOUND: u64 = 65536;
 /// Every refusal code a re-check can record. Setup details shows no other.
@@ -169,19 +169,26 @@ struct Reverification {
     listener_mask: Option<u64>,
 }
 impl Reverification {
-    fn verdict(&self) -> std::result::Result<(), RecoverRefusal> {
+    fn derived(&self) -> &'static str {
+        if self.candidate_count > 0 || self.listener_mask.is_some_and(|mask| mask != 0) {"running"}
+        else if self.candidate_observation_unavailable > 0 || self.listener_mask.is_none() || !self.daemon_name_observable {"unavailable"}
+        else {"absent"}
+    }
+    /// Every text field is one of a closed set, and the verdict follows from
+    /// the facts. Only such a record is decisive or shown in Setup details.
+    fn consistent(&self) -> bool {
         let identity = self.daemon_identity.as_str();
-        let consistent = self.schema == 1
+        self.schema == 1
             && vendor_application::REVERIFIED_DAEMON_IDENTITIES.contains(&identity)
             && self.daemon_image_unchanged == (identity == "unchanged")
-            && self.images_changed == vendor_application::reverified_images_changed(self.application_image_unchanged, identity);
-        let derived = if self.candidate_count > 0 || self.listener_mask.is_some_and(|mask| mask != 0) {"running"}
-            else if self.candidate_observation_unavailable > 0 || self.listener_mask.is_none() || !self.daemon_name_observable {"unavailable"}
-            else {"absent"};
-        if !consistent || self.verdict != derived {
+            && self.images_changed == vendor_application::reverified_images_changed(self.application_image_unchanged, identity)
+            && self.verdict == self.derived()
+    }
+    fn verdict(&self) -> std::result::Result<(), RecoverRefusal> {
+        if !self.consistent() {
             return Err(RecoverRefusal::new("vendor_recover_census_malformed"));
         }
-        match derived {
+        match self.derived() {
             "running" => Err(RecoverRefusal::new("vendor_recover_service_running")),
             "unavailable" if !self.daemon_name_observable => Err(RecoverRefusal::new("vendor_recover_daemon_name_unobservable")),
             "unavailable" => Err(RecoverRefusal::new("vendor_recover_observation_unavailable")),
@@ -199,21 +206,29 @@ struct RecoverCheck {
     code: Option<String>,
     census: Option<Reverification>,
 }
-/// Setup details for the current operation's last re-check, if any.
+/// Setup details for the current operation's last re-check, if any. Only a
+/// closed record whose census agrees with its result and code is shown, and an
+/// older refusal is hidden once the operation is retired.
 pub(super) fn recover_check(m: &Manager, selector: &str, operation: &str) -> Option<serde_json::Value> {
     use std::os::unix::fs::OpenOptionsExt;
     let path = directory(m, selector).ok()?.join("recover-check.json");
+    // Never follow a link or wait on a FIFO while refreshing a card.
+    let file = fs::OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK).open(&path).ok()?;
+    if !file.metadata().ok()?.is_file() { return None; }
     let mut bytes = vec![];
-    fs::OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW).open(&path).ok()?
-        .take(16385).read_to_end(&mut bytes).ok()?;
+    file.take(16385).read_to_end(&mut bytes).ok()?;
     if bytes.len() > 16384 { return None; }
     let check: RecoverCheck = serde_json::from_slice(&bytes).ok()?;
-    let closed = match (check.result.as_str(), check.code.as_deref()) {
-        ("retired", None) => true,
-        ("refused", Some(code)) => RECOVER_CODES.contains(&code),
+    let census = check.census.as_ref().map(|census| (census.consistent(), census.verdict().err().map(|refusal| refusal.code)));
+    let closed = match (check.result.as_str(), check.code.as_deref(), census) {
+        ("retired", None, None | Some((true, None))) => true,
+        ("refused", Some(code), None) => RECOVER_CODES.contains(&code),
+        ("refused", Some(code), Some((true, Some(refused)))) => refused == code,
         _ => false,
     };
-    (closed && check.schema == 1 && check.operation == operation).then(|| serde_json::to_value(check).ok()).flatten()
+    if !closed || check.schema != 1 || check.operation != operation { return None; }
+    if check.result == "refused" && result(m, selector, operation).is_ok_and(|current| current.retired()) { return None; }
+    serde_json::to_value(check).ok()
 }
 /// Exact records the supervisor re-checks. The daemon identity is the one
 /// this session admitted, else the one bound at launch, else none.
@@ -252,23 +267,26 @@ fn run_recover_census(interpreter:&Path,supervisor:&Artifact,ownership:&Artifact
         .map_err(|error|Refusal::caused("vendor_recover_census_spawn_failed",error.into()))?;
     let (sender,receiver)=std::sync::mpsc::channel();
     let (stdin,stdout)=(child.stdin.take(),child.stdout.take());
-    // Both pipes are served by threads, so no write or read can outlive `limit`.
+    // Both pipes are served by detached threads that report through channels.
+    // This call waits on neither beyond `limit`; a pipe held open by some other
+    // process can only keep its thread blocked, never this check.
     let reader=stdout.map(|mut stdout|std::thread::Builder::new().name("recover-census-output".into()).spawn(move||{
         let mut bytes=vec![];
         let read=(&mut stdout).take(RECOVER_OUTPUT_BOUND+1).read_to_end(&mut bytes).map(|_|bytes);
         let _=sender.send(read);
     }));
+    let (input_sender,input_receiver)=std::sync::mpsc::channel();
     let writer=stdin.map(|mut stdin|std::thread::Builder::new().name("recover-census-input".into())
-        .spawn(move||stdin.write_all(&input)));
-    let writer=match (reader,writer) {
-        (Some(Ok(_)),Some(Ok(writer)))=>writer,
+        .spawn(move||{let _=input_sender.send(stdin.write_all(&input));}));
+    match (reader,writer) {
+        (Some(Ok(_)),Some(Ok(_)))=>{}
         (reader,writer)=>{
             let _=child.kill();let _=child.wait();
             let cause=[reader.and_then(|spawned|spawned.err()),writer.and_then(|spawned|spawned.err())].into_iter().flatten().next();
             return Err(match cause {Some(error)=>Refusal::caused("vendor_recover_census_failed",error.into()),
                 None=>Refusal::new("vendor_recover_census_failed")});
         }
-    };
+    }
     let (mut status,mut output)=(None,None);
     let outcome=loop {
         if status.is_none() {
@@ -290,10 +308,13 @@ fn run_recover_census(interpreter:&Path,supervisor:&Artifact,ownership:&Artifact
         std::thread::sleep(Duration::from_millis(10));
     };
     if status.is_none() {let _=child.kill();let _=child.wait();}
-    // The child has exited or been reaped, so its end of stdin is closed.
-    let written=writer.join().map_err(|_|Refusal::new("vendor_recover_census_failed"))?;
     let bytes=outcome.map_err(Refusal::new)?;
-    written.map_err(|error|Refusal::caused("vendor_recover_census_failed",error.into()))?;
+    // A census that answered has read its whole request; the write already ended.
+    match input_receiver.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+        Ok(Ok(()))=>{}
+        Ok(Err(error))=>return Err(Refusal::caused("vendor_recover_census_failed",error.into())),
+        Err(_)=>return Err(Refusal::new("vendor_recover_census_failed")),
+    }
     serde_json::from_slice(&bytes).map_err(|error|Refusal::caused("vendor_recover_census_malformed",error.into()))
 }
 /// The census names its own refusals with a closed code on a failed exit.
@@ -346,10 +367,14 @@ fn recheck(m:&Manager,selector:&str,directory:&Path,prior:&OperationResult,
         .map_err(|error|RecoverRefusal::caused("vendor_recover_request_unavailable",error))?;
     let observed:Reverification=serde_json::from_value(census(&request)?)
         .map_err(|error|RecoverRefusal::caused("vendor_recover_census_malformed",error.into()))?;
-    if let Err(mut refusal)=observed.verdict() {refusal.census=Some(Box::new(observed));return Err(refusal);}
+    if let Err(mut refusal)=observed.verdict() {
+        // Malformed facts are never retained; they may carry arbitrary text.
+        if observed.consistent() {refusal.census=Some(Box::new(observed));}
+        return Err(refusal);
+    }
     let dependency=reverified_dependency(dependency,&observed);
     if !vendor_application::dependency_retired(&dependency) {
-        return Err(RecoverRefusal {code:"vendor_recover_census_malformed",census:Some(Box::new(observed)),source:None});
+        return Err(RecoverRefusal::new("vendor_recover_census_malformed"));
     }
     Ok((Some(dependency),Some(observed)))
 }
@@ -612,6 +637,10 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             let job:vendor_application::Operation=read_json(&directory.join("operation.json"))?;
             let prior=result(m,&args[1],&job.operation_id)?;
             if !live(&args[1])? {
+                if let Some(id) = operation {
+                    require(job.operation_id == id && prior.operation_id.as_deref() == Some(id),
+                        "vendor_application_operation_changed")?;
+                }
                 return recover_stopped(m,&args[1],&job.operation_id,registry,reconcile);
             }
             if let Some(id) = operation {
@@ -918,10 +947,50 @@ mod tests {
             atomic_json(&path,&record).unwrap();
             assert!(recover_check(&f.m,&selector,&job.operation_id).is_none(),"{record}");
         }
+        // An older refusal left beside an already retired operation is hidden.
+        atomic_json(&path,&json!({"schema":1,"operation":job.operation_id,"result":"refused",
+            "code":"vendor_recover_census_timeout","census":null})).unwrap();
+        assert!(recover_check(&f.m,&selector,&job.operation_id).is_none());
+        reconcile_with(&f.m,&selector,&job.operation_id,||panic!("retired"),|_|panic!("retired")).unwrap();
         let target=f.outer.join("elsewhere.json");
         atomic_json(&target,&json!({"schema":1,"operation":job.operation_id,"result":"retired","code":null,"census":null})).unwrap();
         fs::remove_file(&path).unwrap();std::os::unix::fs::symlink(&target,&path).unwrap();
         assert!(recover_check(&f.m,&selector,&job.operation_id).is_none(),"A linked record is never followed");
+        // A FIFO never blocks a card refresh.
+        fs::remove_file(&path).unwrap();
+        let fifo=std::ffi::CString::new(path.as_os_str().as_encoded_bytes()).unwrap();
+        assert_eq!(unsafe {libc::mkfifo(fifo.as_ptr(),0o600)},0);
+        let started=Instant::now();
+        assert!(recover_check(&f.m,&selector,&job.operation_id).is_none());
+        assert!(started.elapsed()<Duration::from_secs(2));
+    }
+    #[test]
+    fn setup_details_show_only_census_facts_that_agree_with_the_recorded_result() {
+        let (f,job)=assisted();let selector=job.application.selector().unwrap();
+        interrupted(&job);
+        let path=directory(&f.m,&selector).unwrap().join("recover-check.json");
+        let record=|result:&str,code:Option<&str>,census:serde_json::Value|json!({"schema":1,
+            "operation":job.operation_id,"result":result,"code":code,"census":census});
+        let running=verdict(json!({"verdict":"running","candidate_count":1}));
+        atomic_json(&path,&record("refused",Some("vendor_recover_service_running"),running.clone())).unwrap();
+        assert_eq!(recover_check(&f.m,&selector,&job.operation_id).unwrap()["census"]["verdict"],"running");
+        for (record,why) in [
+            (record("retired",None,running.clone()),"a retired result with a running census"),
+            (record("refused",Some("vendor_recover_service_running"),verdict(json!({}))),"a refusal with an absent census"),
+            (record("refused",Some("vendor_recover_observation_unavailable"),running.clone()),"a code the census does not give"),
+            (record("refused",Some("vendor_recover_census_malformed"),verdict(json!({"daemon_identity":"x".repeat(15000)}))),"free text in a census field"),
+            (record("refused",Some("vendor_recover_census_malformed"),verdict(json!({"images_changed":["anything at all"]}))),"an unknown image name"),
+            (record("refused",Some("vendor_recover_census_malformed"),verdict(json!({"verdict":"probably fine"}))),"a free-text verdict"),
+        ] {
+            atomic_json(&path,&record).unwrap();
+            assert!(recover_check(&f.m,&selector,&job.operation_id).is_none(),"{why}");
+        }
+        // A malformed census is refused without retaining any of its text.
+        let error=reconcile_with(&f.m,&selector,&job.operation_id,empty_unit,
+            |_|Ok(verdict(json!({"daemon_identity":"text from somewhere else"})))).unwrap_err();
+        assert_eq!(error.downcast_ref::<RecoverRefusal>().unwrap().code,"vendor_recover_census_malformed");
+        let check=recover_check(&f.m,&selector,&job.operation_id).unwrap();
+        assert_eq!((&check["code"],&check["census"]),(&json!("vendor_recover_census_malformed"),&json!(null)));
     }
     #[test]
     fn unconfirmed_service_session_stays_unretired_while_anything_remains_or_is_unobserved() {

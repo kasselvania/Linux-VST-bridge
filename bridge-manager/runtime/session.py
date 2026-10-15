@@ -5139,6 +5139,8 @@ def managed_dependency_retired(dependency):
             and post.get('images_changed')==recover_images_changed(post['application_image_unchanged'],identity))
     return absent and all(post.get(key) is True for key in ('application_image_unchanged','daemon_image_unchanged'))
 
+VENDOR_RECOVER_SCAN_SECONDS=20
+
 def vendor_managed_root():
     return pathlib.Path.home()/'.local/share/linux-vst-bridge/managed'
 
@@ -5184,7 +5186,8 @@ def vendor_recover_census(request,*,proc=pathlib.Path('/proc')):
     if not facts['daemon_name_observable']:facts['candidate_observation_unavailable']=1
     else:
         try:
-            scan=ownership.census(prefix,None,proc=proc)
+            # Nested inside the manager's 30 s limit; an unfinished scan is unavailable.
+            scan=ownership.census(prefix,None,proc=proc,seconds=VENDOR_RECOVER_SCAN_SECONDS)
             facts['candidate_count']=len(scan['candidates']);facts['candidate_observation_unavailable']=scan['unavailable']
         except (OSError,ValueError):facts['candidate_observation_unavailable']=1
     try:facts['listener_mask']=nad1_listener_census(proc,listeners)['listener_mask']

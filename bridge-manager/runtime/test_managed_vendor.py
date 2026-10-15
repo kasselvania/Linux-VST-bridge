@@ -510,6 +510,12 @@ class RecoverCensusTests(unittest.TestCase):
                 self.assertEqual(self.census()['verdict'], 'running')
                 shutil.rmtree(self.proc / '123')
 
+    def test_process_scan_stops_inside_the_managers_limit(self):
+        with patch.object(ownership, 'census', return_value={'candidates': [], 'unavailable': 0}) as scan:
+            self.assertEqual(self.census()['verdict'], 'absent')
+        self.assertEqual(scan.call_args.kwargs['seconds'], 20)
+        self.assertLess(s.VENDOR_RECOVER_SCAN_SECONDS, 30)
+
     def test_profile_listener_keeps_the_session(self):
         (self.proc / 'net/tcp6').write_text(self.HEADER +
             '   0: 00000000000000000000000001000000:15BB 00000000000000000000000000000000:0000 0A 0:0 0:0 0 0 0\n')

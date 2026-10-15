@@ -925,7 +925,7 @@ def prefix_relation(raw, prefix):
     return 'same' if p == pathlib.Path(prefix).resolve() else 'foreign'
 
 
-def census(prefix, admitted=None, proc=pathlib.Path('/proc'), *, reader=bounded):
+def census(prefix, admitted=None, proc=pathlib.Path('/proc'), *, reader=bounded, seconds=30):
     """`admitted` is an internal exact artifact, never an operator selector.
 
     A full no-lead scan establishes absence under the generated-proven lead law.
@@ -933,7 +933,7 @@ def census(prefix, admitted=None, proc=pathlib.Path('/proc'), *, reader=bounded)
     is explicit incompleteness because a lead could lie beyond the bound.
     """
     candidates=[]; failures=[]; private=[]; unled_unreadable=0; visited=0
-    deadline=time.monotonic()+30; search_exhausted=0
+    deadline=time.monotonic()+seconds; search_exhausted=0
     with os.scandir(proc) as entries:
         for entry in entries:
             if not entry.name.isdigit(): continue
