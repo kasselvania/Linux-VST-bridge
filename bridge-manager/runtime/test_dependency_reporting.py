@@ -142,19 +142,28 @@ class ReportingTests(unittest.TestCase):
                 except ValueError as e: return owner, children[0], str(e)
         return owner, children[0], None
 
-    def test_nonzero_child_result_is_reported_while_runner_is_still_live(self):
-        start = time.monotonic()
-        owner, child, error = self.command_fixture(100, True)
-        self.assertLess(time.monotonic()-start, 5)
-        self.assertIsNone(child.poll())
+    def test_nonzero_child_result_is_reported_after_its_runner_retires(self):
+        owner, child, error = self.command_fixture(100, False)
         self.assertEqual(error, 'dependency_installer_nonzero')
+        self.assertIsNotNone(child.returncode)
         stage = owner.stages[0]
         self.assertEqual(stage['installer_result']['installer_exit'], 100)
-        self.assertIsNone(stage['exit'])
+        self.assertEqual(stage['result'], 'installer_nonzero')
+        self.assertIsNotNone(stage['exit'])
+        self.assertEqual(stage['runner_retirement'], 'observed')
+
+    def test_nonzero_child_with_lingering_runner_refuses_at_the_deadline(self):
+        def clock(owner):
+            observed = owner.stages and owner.stages[0].get('installer_result', {}).get('installer_exit') == 100
+            return 201 if observed else 0
+        owner, child, error = self.command_fixture(100, True, clock, launch_delay=.4)
+        self.assertIsNone(child.poll())
+        self.assertEqual(error, 'dependency_command_timeout')
+        stage = owner.stages[0]
+        self.assertEqual(stage['installer_result']['installer_exit'], 100)
+        self.assertEqual(stage['result'], 'installer_nonzero')
         self.assertEqual(stage['runner_retirement'], 'not_observed_at_command_return')
-        # Later exact cleanup does not rewrite the retained first result.
         child.terminate(); child.wait(timeout=5)
-        self.assertEqual(owner.stages[0]['installer_result']['installer_exit'], 100)
 
     def test_zero_child_with_live_runner_reports_runner_timeout_separately(self):
         def clock(owner):
