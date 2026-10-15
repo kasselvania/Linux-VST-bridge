@@ -3585,7 +3585,9 @@ compositor reproduces it with the old proxy code and survives with the fix:
 the rescue now goes to the root window, unmapped (XFixes ChangeSaveSet), a
 path that never reads the current client. CachyOS's Xwayland 24.1.13 did not
 abort with the old code: REAPER SIGTERM, SIGKILL and File > Quit each left the
-X server and the Windows side running.
+X server and the Windows side running. With the fix (Test92, same VM), after
+REAPER was killed the editor window sat at the root, hidden, and the Windows
+side kept running; on main it was destroyed with REAPER's window.
 
 ## FC-MIDI-003 — Native descriptor omits the retained event-channel policy
 
