@@ -245,8 +245,8 @@ fn execute(operation: Operation) -> Result<Vec<u8>, String> {
     // does not cancel or replace the managed transition.
     let deadline = (!operation.owns_transition()).then(|| Instant::now()
         // Setup status may first finish work whose owner ended with the
-        // machine, including an app-session census; the manager bounds all of
-        // that at 60 seconds.
+        // machine and re-check an app session; the manager keeps that within
+        // its 60-second settling budget and waits on no service restoration.
         + Duration::from_secs(if operation == Operation::Status {
             90
         } else if operation == Operation::SelectedStatus {

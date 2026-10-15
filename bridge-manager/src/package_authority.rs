@@ -1152,7 +1152,9 @@ fn preflight(m: &Manager, service: &impl ServiceControl) -> Result<()> {
     transport_storage::require_no_sessions()?;
     Ok(())
 }
-/// Settling, including any census, finishes inside Setup's 90 s status wait.
+/// Settling stays inside Setup's 90 s status wait: the census uses what is left
+/// of this budget, dead-task finishing waits at most the bounded registry
+/// readback, and no service restoration is waited on.
 const SETTLE_BUDGET: Duration = Duration::from_secs(60);
 /// A freeze or power loss can end an operator worker or an app session without
 /// the owner that records its end. Settle exactly those before a gate reads
@@ -1161,26 +1163,40 @@ const SETTLE_BUDGET: Duration = Duration::from_secs(60);
 ///
 /// Runs once, at a package entry point, holding neither the registry nor the
 /// resume lock. Finishing a dead task does what its ExecStopPost would have
-/// done, which for an interrupted automatic installation includes restoring
-/// the service its checks suspended. The suspended-service reservation of the
-/// task itself is left to the package handoff, activation or the service.
+/// done except restoring a service: every reservation it or its
+/// automatic-install checks leave goes to the package handoff, activation,
+/// the service start or Recover.
 fn settle_interrupted(m: &Manager, service: &impl ServiceControl) -> Result<()> {
     let deadline = Instant::now() + SETTLE_BUDGET;
-    for failure in operator_cli::settle_dead_workers(m, |operation| service.worker_live(operation))? {
-        eprintln!("An interrupted bridge task was not completely finished: {failure}");
-    }
-    // A live task may own its app session and that session's writer.
-    if !operator_cli::all_operations_finished(m)? { return Ok(()); }
-    service.reverify_vendor(m, deadline.saturating_duration_since(Instant::now())).map_err(gate_refusal)
+    (|| -> Result<()> {
+        for failure in operator_cli::settle_dead_workers(m, |operation| service.worker_live(operation))? {
+            eprintln!("An interrupted bridge task was not completely finished: {failure}");
+        }
+        // A live task may own its app session and that session's writer.
+        if !operator_cli::all_operations_finished(m)? { return Ok(()); }
+        service.reverify_vendor(m, deadline.saturating_duration_since(Instant::now()))
+    })().map_err(gate_refusal)
 }
 /// Setup has no per-app Recover; its refusals end with Setup's own next step.
-/// The code and census stay in the app's recover-check record.
+/// The full cause goes to Setup's error output first; the code and census
+/// also stay in the app's recover-check record.
 fn gate_refusal(error: Box<dyn std::error::Error + Send + Sync>) -> Box<dyn std::error::Error + Send + Sync> {
-    let Some(refusal) = error.downcast_ref::<vendor_cli::RecoverRefusal>() else { return error };
+    let mut cause = error.to_string();
+    let mut source = error.source();
+    while let Some(inner) = source { cause.push_str(&format!(": {inner}")); source = inner.source(); }
+    let Some(refusal) = error.downcast_ref::<vendor_cli::RecoverRefusal>() else {
+        eprintln!("Interrupted work was not settled: {cause}");
+        return error;
+    };
+    eprintln!("An app session re-check refused ({}): {cause}", refusal.code);
     match refusal.code {
         "vendor_recover_service_running" => "The app's support service is still running. Restart the computer, then choose Check again.",
         "vendor_application_custody_uncertain" => "Part of an app opened through the bridge is still running. Close it or wait a minute, then choose Check again.",
-        _ => "The bridge could not confirm that an app opened through it has closed. Restart the computer, then choose Check again; if this stays, send Setup details.",
+        "vendor_recover_census_timeout" | "vendor_recover_observation_unavailable" => "The bridge could not confirm that an app opened through it has closed. Restart the computer, then choose Check again; if this stays, send Setup details.",
+        "vendor_recover_unit_unavailable" => "The bridge could not check whether an app opened through it is still running. Choose Check again; if this stays, send Setup details.",
+        "vendor_recover_daemon_name_unobservable" => "The bridge can't yet check this app's support service, so it can't close the app's session itself. Send Setup details.",
+        // The check itself could not run: the supervisor or its request.
+        _ => "The bridge could not run its check of an app opened through it. Update or reinstall the bridge, then choose Check again; if it still fails, send Setup details.",
     }.into()
 }
 /// A settling refusal explains a gate's own refusal of the same app session.
@@ -1194,15 +1210,32 @@ fn settled_then<T>(settled: Result<()>, gated: Result<T>) -> Result<T> {
     }
 }
 /// The census supervisor and ownership modules shipped in the package whose
-/// manager runs this gate, verified against its manifest like every update
-/// input. The installed supervisor may be older than the census itself.
+/// manager runs this gate; the installed ones may predate the census. Only
+/// these two files and the manifest naming them are read and verified.
 fn package_census_tools(inputs: &Inputs, owner: u32) -> Result<(Artifact, Artifact)> {
-    let (manifest, _) = read_manifest(inputs, owner)?;
+    let (_, _, bytes) = package_source(&inputs.manifest(), owner, 64 * 1024, true)?;
+    let manifest: PackageManifest = serde_json::from_slice(&bytes)?;
+    validate_manifest_identity(&manifest)?;
     let tool = |name: &str| -> Result<Artifact> {
         let entry = manifest.files.iter().find(|file| file.name == name).ok_or("package_manifest_roster")?;
-        Ok(Artifact { path: inputs.path(name)?, sha256: entry.sha256.clone() })
+        let path = inputs.path(name)?;
+        let (sha256, size, _) = package_source(&path, owner, 128 * 1024 * 1024, false)?;
+        require(sha256 == entry.sha256 && size == entry.size, "package_artifact_changed")?;
+        Ok(Artifact { path, sha256 })
     };
     Ok((tool("session.pyc")?, tool("ownership.pyc")?))
+}
+/// The running manager's own package: a signed source package verifies just
+/// the two supervisor rows of its release; the system package is root-owned.
+fn running_package_census_tools() -> Result<(Artifact, Artifact)> {
+    let executable = std::env::current_exe()?;
+    let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
+    if let Some([(supervisor, supervisor_sha256), (ownership, ownership_sha256)]) =
+        linux_vst_bridge::portable_package::input_supervisor(&executable, &home)? {
+        return Ok((Artifact { path: supervisor, sha256: supervisor_sha256 },
+            Artifact { path: ownership, sha256: ownership_sha256 }));
+    }
+    package_census_tools(&Inputs { root: PathBuf::from(PACKAGE_ROOT) }, 0)
 }
 fn recovery_preflight(m: &Manager,
     transition: &CoordinatedTransition, service: &impl ServiceControl) -> Result<()> {
@@ -1828,7 +1861,7 @@ fn update_from_with_registry(m: &Manager, home: &Path, inputs: &Inputs, owner: u
     let _setup = m.lock("setup.lock")?;
     // Before capture: an interrupted owner must be terminal and its app
     // session retired before its service reservation can be handed over.
-    // Settling may briefly take the resume lock itself, so it comes first.
+    // Settling restores no service, so it needs no resume lock.
     let settled = settle_interrupted(m, service);
     settled_then(settled, update_settled(m, home, inputs, owner, service,
         acquire_registry, acquire_recovery_registry))
@@ -2030,10 +2063,7 @@ trait ServiceControl {
     fn clean_idle(&self, m: &Manager) -> Result<Vec<capacity::Owner>>;
     fn vendor_retired(&self, m: &Manager) -> Result<bool> {operator_cli::vendor_retired(m)}
     fn reverify_vendor(&self, m: &Manager, limit: Duration) -> Result<()> {
-        vendor_cli::reverify_interrupted(m, limit, || {
-            let (inputs, owner) = Inputs::installed()?;
-            package_census_tools(&inputs, owner)
-        })
+        vendor_cli::reverify_interrupted(m, limit, running_package_census_tools)
     }
     fn restore_reservation(&self, m: &Manager) -> Result<()> {
         operator_cli::restore_terminated_owner(m, |operation| self.worker_live(operation))
@@ -2513,8 +2543,7 @@ fn activate_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Res
     // startup, so neither service.lock nor registry.lock spans systemctl.
     let _package = m.lock("package.lock")?;
     let _setup = m.lock("setup.lock")?;
-    // Settling may restore a service exactly as a dead task would have, so it
-    // precedes the activation readback.
+    // Settling precedes the activation readback; it restores no service.
     let settled = settle_interrupted(m, service);
     settled_then(settled, activate_settled(m, home, service))?;
     // A task that ended with the machine may still hold this service's

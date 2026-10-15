@@ -431,6 +431,28 @@ fn input_executable_with_trust(executable:&Path,home:&Path,name:&str,trust:&Trus
         .ok_or("user_package_executable_identity")?;
     Ok(Some(verify_release_file(&root,row)?))
 }
+/// The running source package's supervisor and ownership modules, each with
+/// its verified path and digest from the signed release. No other file of the
+/// package is read.
+pub fn input_supervisor(executable:&Path,home:&Path)->Result<Option<[(PathBuf,String);2]>> {
+    if !executable.starts_with(home.join(".local/share/linux-vst-bridge/packages")) {
+        return Ok(None);
+    }
+    input_supervisor_with_trust(executable,home,&Trust::compiled()?)
+}
+fn input_supervisor_with_trust(executable:&Path,home:&Path,trust:&Trust)
+    ->Result<Option<[(PathBuf,String);2]>> {
+    let Some((root,release))=input_release_record_with_trust(executable,home,trust)? else {
+        return Ok(None);
+    };
+    let verified=|name:&str|->Result<(PathBuf,String)> {
+        let destination=format!("usr/lib/linux-vst-bridge/supervisor/{name}");
+        let row=release.files.iter().find(|row|row.destination==destination)
+            .ok_or("user_package_supervisor_identity")?;
+        Ok((verify_release_file(&root,row)?,row.sha256.clone()))
+    };
+    Ok(Some([verified("session.pyc")?,verified("ownership.pyc")?]))
+}
 /// Only the running source-package executable selects its source. A selected
 /// generation executable is an ordinary product route, not a package input.
 pub fn input_root(executable:&Path, home:&Path) -> Result<Option<PathBuf>> {

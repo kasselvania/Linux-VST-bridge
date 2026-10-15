@@ -40,6 +40,10 @@ thread_local! {
     // final mutation. This hook is absent from product builds.
     static PERFORMANCE_COMMIT_BARRIER: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = const { std::cell::RefCell::new(None) };
 }
+thread_local! {
+    /// Set while a package gate finishes dead tasks; see `settle_dead_workers`.
+    static RESTORATION_DEFERRED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
 fn text(v: &Value, key: &str) -> String {
     v[key].as_str().unwrap_or("unknown").into()
 }
@@ -306,11 +310,25 @@ fn vendor_projection(
         ],
     }))
 }
-/// A retired session whose interrupted owner still holds the service
-/// reservation keeps Recover, which releases that reservation.
+/// A retired session whose finished owner still holds the service reservation
+/// keeps Recover, which releases that reservation. Not while the owner may
+/// still run, nor while a package transition may hold it as its handoff.
 fn holds_reservation(m: &Manager, job: &Value) -> Result<bool> {
-    Ok(resume_record(m)?.and_then(|saved| saved.vendor_operation)
-        .is_some_and(|vendor| job["operation_id"] == vendor.as_str()))
+    holds_reservation_with(m, job, worker_unit_live)
+}
+fn holds_reservation_with(m: &Manager, job: &Value,
+    worker_live: impl FnOnce(&str) -> Result<bool>) -> Result<bool> {
+    if m.root.join("package-transition.json").try_exists()? {
+        return Ok(false);
+    }
+    let Some(saved) = resume_record(m)? else { return Ok(false) };
+    if !saved.vendor_operation.as_deref().is_some_and(|vendor| job["operation_id"] == vendor) {
+        return Ok(false);
+    }
+    let owner = optional(&job_dir(m, &saved.owner_operation)?.join("result.json"))?;
+    Ok(owner["operation"] == saved.owner_operation.as_str()
+        && matches!(owner["state"].as_str(), Some("completed" | "refused"))
+        && matches!(worker_live(&saved.owner_operation), Ok(false)))
 }
 fn program_projection(m: &Manager, selector: &str, app: vendor_application::Application,
     live: bool, busy: Option<&str>) -> Result<ui::VendorApplication> {
@@ -1961,10 +1979,18 @@ pub(super) fn worker_unit_live(operation: &str) -> Result<bool> {
 pub(super) fn reconcile_dead_workers(m: &Manager) -> Result<Vec<String>> {
     reconcile_dead_workers_with(m, worker_unit_live, Some(|saved: &ResumeRecord| restore_service(m, saved)))
 }
-/// Package gate: the same, except that the package transition itself carries
-/// any service reservation the operation left, so nothing is restarted here.
+/// Package gate: the same, except that no service is restored or waited on.
+/// Reservations the finished tasks (or their automatic-install checks) leave
+/// are carried by the package handoff or released by the service start,
+/// activation or Recover.
 pub(super) fn settle_dead_workers(m: &Manager, worker_live: impl FnMut(&str) -> Result<bool>)
     -> Result<Vec<String>> {
+    struct Restore;
+    impl Drop for Restore {
+        fn drop(&mut self) { RESTORATION_DEFERRED.with(|deferred| deferred.set(false)); }
+    }
+    RESTORATION_DEFERRED.with(|deferred| deferred.set(true));
+    let _restore = Restore;
     reconcile_dead_workers_with(m, worker_live, None::<fn(&ResumeRecord) -> Result<()>>)
 }
 fn lock_within(m: &Manager, name: &str, limit: Duration) -> Result<Lock> {
@@ -2066,9 +2092,11 @@ pub(super) fn all_operations_finished(m: &Manager) -> Result<bool> {
     }
     Ok(true)
 }
-/// A reservation whose owner ended with the machine is released as its
-/// ExecStopPost would have, once whatever it waited for has retired. Recover
-/// cannot do this after the app session is already retired.
+/// A reservation whose owner's worker died (with the machine, or as an
+/// automatic installation's check) is released as its ExecStopPost would
+/// have: the service is restored only once everything the owner waited for,
+/// such as its app session, has retired; otherwise this refuses and the
+/// reservation stays. Never while a package transition may hold it.
 pub(super) fn restore_terminated_owner(m: &Manager,
     worker_live: impl FnOnce(&str) -> Result<bool>) -> Result<()> {
     let _resume = resume_lock(m)?;
@@ -2092,7 +2120,9 @@ fn restore_terminated_owner_locked_with(m: &Manager, worker_live: impl FnOnce(&s
     let Some(saved) = resume_record(m)? else { return Ok(()) };
     let result = optional(&job_dir(m, &saved.owner_operation)?.join("result.json"))?;
     if result["operation"] != saved.owner_operation.as_str() || result["state"] != "refused"
-        || result["reason"] != "operator_worker_terminated" || worker_live(&saved.owner_operation)? {
+        || !matches!(result["reason"].as_str(),
+            Some("operator_worker_terminated" | "automatic_installation_worker_terminated"))
+        || worker_live(&saved.owner_operation)? {
         return Ok(());
     }
     resume_locked(m, &saved.owner_operation, restore)
@@ -3361,6 +3391,11 @@ fn suspend_with(
     Ok(())
 }
 fn resume_owned(m: &Manager, owner: &str) -> Result<()> {
+    // A package gate finishing dead tasks leaves their reservations to the
+    // service start, activation or Recover instead of waiting on them here.
+    if RESTORATION_DEFERRED.with(std::cell::Cell::get) {
+        return Ok(());
+    }
     resume_owned_with(m, owner, |saved| restore_service(m, saved))
 }
 fn resume_owned_with(
@@ -3385,6 +3420,9 @@ fn resume_locked(
     if saved.owner_operation != owner {
         return Ok(());
     }
+    // An interrupted package transition may hold this reservation as its
+    // handoff; only that transition's own recovery may consume it.
+    require(!m.root.join("package-transition.json").try_exists()?, "package_transition_needs_recovery")?;
     restore(&saved)?;
     fs::remove_file(m.root.join("operator/resume.json"))?;
     Ok(())
@@ -8562,6 +8600,59 @@ mod dead_worker_reconciliation {
         let failures = readiness::with_unit_state_fixture(&unit, "failed", || reconcile_dead_workers(&f.m)).unwrap();
         assert!(failures.is_empty(), "{failures:?}");
         assert_eq!(receipt(&f.m, &id)["reason"], "operator_worker_terminated");
+    }
+    #[test]
+    fn a_reservation_is_released_only_for_a_finished_owner_and_never_under_a_package_transition() {
+        let f = test_fixture::Fixture::new();
+        let owner = operation(&f.m, "vendor_running");
+        let vendor = "cd".repeat(16);
+        {
+            let _resume = resume_lock(&f.m).unwrap();
+            create_resume(&f.m, &ResumeRecord {schema:2,owner_operation:owner.clone(),resume:true,
+                software:"ab".repeat(32),vendor_operation:Some(vendor.clone())}).unwrap();
+        }
+        let reservation = f.m.root.join("operator/resume.json");
+        let before = fs::read(&reservation).unwrap();
+        let job = json!({"operation_id":vendor});
+        // Recover appears for a retired session only while its finished,
+        // dead owner still holds the reservation.
+        assert!(!holds_reservation_with(&f.m, &job, |_| Ok(false)).unwrap(), "Unfinished owner");
+        refuse_unfinished(&f.m, &owner, "operator_worker_terminated").unwrap();
+        assert!(holds_reservation_with(&f.m, &job, |_| Ok(false)).unwrap());
+        assert!(!holds_reservation_with(&f.m, &job, |_| Ok(true)).unwrap(), "Running owner");
+        assert!(!holds_reservation_with(&f.m, &job,
+            |_| Err("readiness_unit_state_unavailable".into())).unwrap(), "Unobservable owner");
+        assert!(!holds_reservation_with(&f.m, &json!({"operation_id":"ef".repeat(16)}), |_| Ok(false)).unwrap());
+        // An interrupted update may carry this reservation as its handoff;
+        // neither the service start, Recover nor any owner may consume it.
+        let journal = f.m.root.join("package-transition.json");
+        atomic_json(&journal, &json!({"schema":3})).unwrap();
+        assert!(!holds_reservation_with(&f.m, &job, |_| Ok(false)).unwrap());
+        assert_eq!(restore_terminated_owner_with(&f.m, |_| Ok(false), || panic!("Never restored"))
+            .unwrap_err().to_string(), "package_transition_needs_recovery");
+        assert!(resume_owned_with(&f.m, &owner, |_| panic!("Never restored")).is_err());
+        assert_eq!(fs::read(&reservation).unwrap(), before);
+        fs::remove_file(&journal).unwrap();
+        let restored = std::cell::Cell::new(0);
+        restore_terminated_owner_with(&f.m, |_| Ok(false), || { restored.set(1); Ok(()) }).unwrap();
+        assert_eq!(restored.get(), 1);
+        assert!(!reservation.exists());
+    }
+    #[test]
+    fn gate_settling_never_restores_a_service() {
+        let f = test_fixture::Fixture::new();
+        let owner = operation(&f.m, "running");
+        suspend_for(&f.m, &owner);
+        let reservation = f.m.root.join("operator/resume.json");
+        RESTORATION_DEFERRED.with(|deferred| deferred.set(true));
+        let deferred = resume_owned(&f.m, &owner);
+        RESTORATION_DEFERRED.with(|deferred| deferred.set(false));
+        deferred.unwrap();
+        assert!(reservation.exists());
+        settle_dead_workers(&f.m, |_| Ok(false)).unwrap();
+        assert_eq!(receipt(&f.m, &owner)["reason"], "operator_worker_terminated");
+        assert!(reservation.exists(), "The reservation waits for the service start, activation or Recover");
+        assert!(!RESTORATION_DEFERRED.with(std::cell::Cell::get));
     }
     #[test]
     fn a_terminated_owner_restores_its_suspended_service_under_the_held_lock() {

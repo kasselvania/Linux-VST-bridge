@@ -447,10 +447,10 @@ fn reverify_with_tools(m: &Manager, live: impl FnMut(&str) -> Result<bool>,
     reverify_interrupted_with(m, live, |selector, operation| reconcile_with(m, selector, operation,
         || inspect(selector), |request| {
             if verified.is_none() {
-                let supply = tools.take().ok_or_else(|| RecoverRefusal::new("vendor_recover_supervisor_unavailable"))?;
-                verified = Some(supply().map_err(|error| RecoverRefusal::caused("vendor_recover_supervisor_unavailable", error))?);
+                let supply = tools.take().ok_or_else(|| RecoverRefusal::new("vendor_recover_supervisor_changed"))?;
+                verified = Some(supply().map_err(|error| RecoverRefusal::caused("vendor_recover_supervisor_changed", error))?);
             }
-            let (supervisor, ownership) = verified.as_ref().ok_or_else(|| RecoverRefusal::new("vendor_recover_supervisor_unavailable"))?;
+            let (supervisor, ownership) = verified.as_ref().ok_or_else(|| RecoverRefusal::new("vendor_recover_supervisor_changed"))?;
             run_recover_census(interpreter, supervisor, ownership, request,
                 RECOVER_CENSUS_LIMIT.min(deadline.saturating_duration_since(Instant::now())))
         }))
@@ -547,7 +547,7 @@ pub(super) mod interruption_tests {
         // Unavailable or changed package tools never run and change nothing.
         let code=|error:Box<dyn std::error::Error+Send+Sync>|error.downcast_ref::<RecoverRefusal>().unwrap().code;
         assert_eq!(code(reverify_with_tools(&f.m,|_|Ok(false),empty,python,limit,
-            ||Err("package_artifact_changed".into())).unwrap_err()),"vendor_recover_supervisor_unavailable");
+            ||Err("package_artifact_changed".into())).unwrap_err()),"vendor_recover_supervisor_changed");
         let stale=Artifact{path:packaged.path.clone(),sha256:"00".repeat(32)};
         assert_eq!(code(reverify_with_tools(&f.m,|_|Ok(false),empty,python,limit,
             ||Ok((stale,ownership.clone()))).unwrap_err()),"vendor_recover_supervisor_changed");
