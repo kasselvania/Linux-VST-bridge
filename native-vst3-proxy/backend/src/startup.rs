@@ -1,7 +1,58 @@
 //! Prepared start-up audio and parameter storage. The callback owns both; no
 //! allocation or control owner is involved after activation.
-use ap1_native_client::{events::{Event, MAX_EVENTS, PARAMETER}, get, invalid, need, BLOCK_CAP};
+use ap1_native_client::{events::{Event, MAX_EVENTS, NOTE_OFF, NOTE_ON, PARAMETER}, get, invalid, need, BLOCK_CAP};
 use std::io;
+
+/// Notes the DAW sent while the Windows side had not yet acknowledged a
+/// processing start. Those blocks are outside the vendor's stream, so the
+/// notes are played late rather than lost: in arrival order, at the first
+/// sample of the first block the vendor renders. A DAW that restarts
+/// processing on every transport start (REAPER) otherwise loses every note
+/// in the first tenth of a second or so. Fixed storage, owned by the callback.
+pub(crate) struct Notes { events: [Event; MAX_EVENTS], count: usize }
+impl Notes {
+    pub fn empty() -> Self { Self { events: [Event::default(); MAX_EVENTS], count: 0 } }
+    pub fn pending(&self) -> usize { self.count }
+    /// Discard retained notes (a new start or stop); returns how many.
+    pub fn clear(&mut self) -> usize { std::mem::take(&mut self.count) }
+    /// Retain this block's notes; returns how many notes will not be played.
+    /// When storage is full a note-off cancels its retained note-on, so a
+    /// retained note can never be left without its release.
+    pub fn retain(&mut self, events: &[Event]) -> u64 {
+        let mut dropped = 0;
+        for e in events.iter().filter(|e| e.kind == NOTE_ON || e.kind == NOTE_OFF) {
+            if self.count < MAX_EVENTS {
+                self.events[self.count] = Event { offset: 0, ..*e };
+                self.count += 1;
+                continue;
+            }
+            if e.kind == NOTE_OFF {
+                if let Some(i) = self.events[..self.count].iter().rposition(|r|
+                    r.kind == NOTE_ON && r.channel == e.channel && r.pitch == e.pitch) {
+                    self.events.copy_within(i + 1..self.count, i);
+                    self.count -= 1;
+                    dropped += 1;
+                }
+            }
+            dropped += 1;
+        }
+        dropped
+    }
+    /// Put retained notes ahead of a rendered block's own events, at sample 0,
+    /// as many as the block can carry. Any remainder keeps its order for the
+    /// next block. Returns how many were delivered.
+    pub fn deliver(&mut self, events: &mut [Event; MAX_EVENTS], count: &mut u32) -> usize {
+        let current = (*count as usize).min(MAX_EVENTS);
+        let moved = self.count.min(MAX_EVENTS - current);
+        if moved == 0 { return 0; }
+        events.copy_within(..current, moved);
+        events[..moved].copy_from_slice(&self.events[..moved]);
+        self.events.copy_within(moved..self.count, 0);
+        self.count -= moved;
+        *count = (current + moved) as u32;
+        moved
+    }
+}
 
 pub(crate) const MAX_PARAMETERS: usize = 8192;
 pub(crate) const MAX_PARAMETER_PACKETS: usize = MAX_PARAMETERS.div_ceil(MAX_EVENTS);
@@ -174,6 +225,41 @@ mod tests {
         assert!(values.retain(&[Event { kind: PARAMETER, id: MAX_PARAMETERS as u32, ..Event::default() }]).is_err());
         values.retain(&[Event { kind: PARAMETER, id: 7, ..Event::default() }]).unwrap();
         values.clear(); assert_eq!(values.packet(&mut packet),0);
+    }
+    #[test]
+    fn startup_notes_play_late_in_order_and_never_lose_a_release() {
+        let note = |kind, pitch, offset| Event { kind, pitch, offset, value: 0.8, id: u32::MAX, ..Event::default() };
+        let mut notes = Notes::empty();
+        let (dropped, allocations) = crate::allocation_test::measure(|| notes.retain(&[
+            note(NOTE_ON, 60, 314), note(NOTE_ON, 64, 314),
+            Event { kind: PARAMETER, id: 7, value: 0.5, ..Event::default() },
+            note(NOTE_ON, 67, 314)]));
+        assert_eq!((dropped, notes.pending(), allocations), (0, 3, [0; 3]));
+        // The rendered block keeps its own events after the late notes.
+        let mut events = [Event::default(); MAX_EVENTS];
+        events[0] = note(NOTE_OFF, 72, 100);
+        let mut count = 1;
+        assert_eq!(notes.deliver(&mut events, &mut count), 3);
+        assert_eq!(count, 4);
+        assert_eq!(events[..4].iter().map(|e| (e.kind, e.pitch, e.offset)).collect::<Vec<_>>(),
+            [(NOTE_ON, 60, 0), (NOTE_ON, 64, 0), (NOTE_ON, 67, 0), (NOTE_OFF, 72, 100)]);
+        assert!(events[..4].iter().all(|e| e.valid_host(512)));
+        assert_eq!(notes.pending(), 0);
+        // A full block carries what fits; the rest keeps its order.
+        for pitch in 0..3 { notes.retain(&[note(NOTE_ON, pitch, 9)]); }
+        let mut count = (MAX_EVENTS - 1) as u32;
+        assert_eq!(notes.deliver(&mut events, &mut count), 1);
+        assert_eq!((count as usize, events[0].pitch, notes.pending()), (MAX_EVENTS, 0, 2));
+        let mut count = 0;
+        assert_eq!(notes.deliver(&mut events, &mut count), 2);
+        assert_eq!((events[0].pitch, events[1].pitch), (1, 2));
+        // Full storage: a release cancels its held note, other notes are dropped.
+        for pitch in 0..MAX_EVENTS as i16 { notes.retain(&[note(NOTE_ON, pitch % 128, 0)]); }
+        assert_eq!(notes.retain(&[note(NOTE_ON, 5, 0)]), 1);
+        assert_eq!(notes.retain(&[note(NOTE_OFF, 3, 0)]), 2);
+        assert_eq!(notes.pending(), MAX_EVENTS - 1);
+        assert_eq!(notes.clear(), MAX_EVENTS - 1);
+        assert_eq!(notes.pending(), 0);
     }
     #[test]
     fn startup_dry_matches_reported_delay_with_variable_blocks_and_main_output_mapping() {

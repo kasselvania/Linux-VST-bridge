@@ -722,6 +722,11 @@ struct Callback {
     unready_waited_epoch: u64,
     unready_callbacks: u64,
     unready_frames: u64,
+    // Notes from blocks answered before the start was acknowledged; they are
+    // played at the first rendered block instead of being lost.
+    startup_notes: crate::startup::Notes,
+    startup_notes_delayed: u64,
+    startup_notes_dropped: u64,
     startup_effect: bool,
     startup_parameters: crate::startup::Parameters,
     startup_state_revision: u64,
@@ -765,6 +770,9 @@ impl Callback {
             unready_waited_epoch: 0,
             unready_callbacks: 0,
             unready_frames: 0,
+            startup_notes: crate::startup::Notes::empty(),
+            startup_notes_delayed: 0,
+            startup_notes_dropped: 0,
             startup_effect: false,
             startup_parameters: crate::startup::Parameters::empty(),
             startup_state_revision: 0,
@@ -841,6 +849,9 @@ impl Callback {
         next.unready_waited_epoch = self.unready_waited_epoch;
         next.unready_callbacks = std::mem::take(&mut self.unready_callbacks);
         next.unready_frames = std::mem::take(&mut self.unready_frames);
+        next.startup_notes_delayed = std::mem::take(&mut self.startup_notes_delayed);
+        next.startup_notes_dropped = std::mem::take(&mut self.startup_notes_dropped)
+            + self.startup_notes.clear() as u64;
         next.startup_effect = self.startup_effect;
         next.startup_parameters = std::mem::replace(&mut self.startup_parameters,
             crate::startup::Parameters::empty());
@@ -865,6 +876,7 @@ impl Callback {
                 self.epoch += 1;
                 self.position = 0;
                 self.clear_audio(s);
+                self.startup_notes_dropped += self.startup_notes.clear() as u64;
                 self.next_result = 0;
                 self.submitted_operation = 0;
                 self.completed_operation = 0;
@@ -878,6 +890,7 @@ impl Callback {
             STOP if self.running => {
                 self.running = false;
                 self.clear_audio(s);
+                self.startup_notes_dropped += self.startup_notes.clear() as u64;
                 self.returned.reset();
                 s.wanted.store(0, Ordering::Release);
             }
@@ -963,7 +976,8 @@ impl Callback {
         // may still be opening an editor. That gets a short stated bound, once
         // per start. Past it this block is outside the vendor's stream: prepared
         // effects play delayed dry audio and instruments stay silent. Parameter
-        // values are retained; no AUDIO is queued and no editor wait is added.
+        // values and notes are retained for the first rendered block; no AUDIO
+        // is queued and no editor wait is added.
         if let Some(bound) = self.unready_bound.filter(|_| request.process_mode != 2) {
             let mut until = Instant::now();
             if self.unready_waited_epoch != self.epoch { until += bound; }
@@ -986,6 +1000,8 @@ impl Callback {
                     if request.events[..request.event_count as usize].iter().any(|e| e.kind == 2) {
                         s.startup_edits_pending.store(self.epoch, Ordering::Release);
                     }
+                    self.startup_notes_dropped +=
+                        self.startup_notes.retain(&request.events[..request.event_count as usize]);
                     self.unready_waited_epoch = self.epoch;
                     self.unready_callbacks += 1;
                     self.unready_frames += n as u64;
@@ -1032,6 +1048,12 @@ impl Callback {
         } else {
             let _=s.startup_edits_pending.compare_exchange(self.epoch,0,Ordering::AcqRel,Ordering::Acquire);
         }
+        }
+        // Notes held through an unacknowledged start go first, at sample 0,
+        // after any start-up parameter values have been restored above.
+        if request.n != 0 && !self.startup_replaying && self.startup_notes.pending() != 0 {
+            self.startup_notes_delayed +=
+                self.startup_notes.deliver(&mut request.events, &mut request.event_count) as u64;
         }
         request.epoch = self.epoch;
         request.position = self.position;
@@ -3415,9 +3437,10 @@ unsafe fn close_instance(id: u64, contain_terminal: bool) -> u32 {
                 callback.gaps.report(path);
                 export_refusal(&l.shared,path);
                 crate::preview::append_report(path, format!(
-                    "{{\"event\":\"native_callback_completion\",\"scope\":\"successful Rust processing calls including completion wait\",\"waits\":{},\"waits_without_result\":{},\"unready_callbacks\":{},\"unready_frames\":{},\"maximum_ns\":{},\"bucket_upper_us\":[50,100,250,500,1000,2000,5000,10000,25000,null],\"buckets\":{:?}}}\n",
+                    "{{\"event\":\"native_callback_completion\",\"scope\":\"successful Rust processing calls including completion wait\",\"waits\":{},\"waits_without_result\":{},\"unready_callbacks\":{},\"unready_frames\":{},\"startup_notes_delayed\":{},\"startup_notes_dropped\":{},\"maximum_ns\":{},\"bucket_upper_us\":[50,100,250,500,1000,2000,5000,10000,25000,null],\"buckets\":{:?}}}\n",
                     callback.completion_waits, callback.completion_wait_misses,
                     callback.unready_callbacks, callback.unready_frames,
+                    callback.startup_notes_delayed, callback.startup_notes_dropped,
                     callback.callback_ns_max, callback.callback_us_buckets).as_bytes());
             }
             if !ok {
@@ -5129,6 +5152,62 @@ mod tests {
         callback.process_outputs_until(&shared, request, &mut output, &[], 0, None).unwrap();
         assert_eq!(shared.requests.pop().unwrap().position, 512);
         assert_eq!((callback.unready_callbacks, callback.unready_frames), (2, 1024));
+    }
+    #[test]
+    fn notes_sent_before_a_start_is_acknowledged_play_in_the_first_rendered_block() {
+        // REAPER restarts processing on every transport start. A chord at
+        // 0.1 s arrived while Kontakt's host was still acknowledging the
+        // start, and its notes were discarded with the silent blocks.
+        let note = |kind, pitch, offset| Event { kind, pitch, offset, value: 0.866, id: u32::MAX, ..Event::default() };
+        let shared = Shared::new();
+        let mut callback = Callback::new();
+        callback.delay = 512;
+        callback.unready_bound = Some(Duration::ZERO);
+        callback.transition(&shared, START);
+        shared.requests.pop().unwrap();
+        let mut request = Item::control(AUDIO, 0);
+        request.n = 512;
+        request.events[..3].copy_from_slice(&[note(0, 60, 314), note(0, 64, 314), note(0, 67, 314)]);
+        request.event_count = 3;
+        let mut output = [[9.; CAP]; 2];
+        let (result, allocations) = crate::allocation_test::measure(||
+            callback.process_outputs_until(&shared, request, &mut output, &[], 0, None));
+        assert_eq!((result, allocations), (Ok(3), [0; 3]));
+        assert!(shared.requests.pop().is_none());
+        let mut empty = request;
+        empty.event_count = 0;
+        assert_eq!(callback.process_outputs_until(&shared, empty, &mut output, &[], 0, None), Ok(3));
+        assert!(shared.requests.pop().is_none());
+        assert_eq!((callback.unready_callbacks, callback.startup_notes_dropped), (2, 0));
+        // Acknowledged: the first rendered block starts with the chord.
+        shared.processing_ready_epoch.store(callback.epoch, Ordering::Release);
+        let mut ready = request;
+        ready.events[0] = note(1, 72, 100);
+        ready.event_count = 1;
+        callback.process_outputs_until(&shared, ready, &mut output, &[], 0, None).unwrap();
+        let queued = shared.requests.pop().unwrap();
+        assert_eq!(queued.events[..queued.event_count as usize].iter()
+            .map(|e| (e.kind, e.pitch, e.offset)).collect::<Vec<_>>(),
+            [(0, 60, 0), (0, 64, 0), (0, 67, 0), (1, 72, 100)]);
+        assert_eq!((callback.startup_notes_delayed, callback.startup_notes_dropped), (3, 0));
+        // Nothing is repeated in the next block.
+        callback.process_outputs_until(&shared, empty, &mut output, &[], 0, None).unwrap();
+        assert_eq!(shared.requests.pop().unwrap().event_count, 0);
+        // Notes from a start that stops before it is acknowledged belong to
+        // that start only; they are counted, not carried into the next one.
+        callback.transition(&shared, STOP);
+        shared.requests.pop().unwrap();
+        callback.transition(&shared, START);
+        shared.requests.pop().unwrap();
+        callback.process_outputs_until(&shared, request, &mut output, &[], 0, None).unwrap();
+        callback.transition(&shared, STOP);
+        shared.requests.pop().unwrap();
+        callback.transition(&shared, START);
+        shared.requests.pop().unwrap();
+        shared.processing_ready_epoch.store(callback.epoch, Ordering::Release);
+        callback.process_outputs_until(&shared, empty, &mut output, &[], 0, None).unwrap();
+        assert_eq!(shared.requests.pop().unwrap().event_count, 0);
+        assert_eq!((callback.startup_notes_delayed, callback.startup_notes_dropped), (3, 3));
     }
     #[test]
     fn startup_dry_real_abi_preserves_in_place_audio_and_hands_off_after_total_latency() {
