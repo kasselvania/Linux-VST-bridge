@@ -1851,22 +1851,6 @@ impl Operator {
                 }
             });
         }
-        let runtime_actions: Vec<_> = overview.current.actions.iter()
-            .filter(|offer| matches!(offer.action, Action::RuntimeInstall {}))
-            .cloned().collect();
-        if !runtime_actions.is_empty() {
-            egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
-                ui.set_min_width((ui.available_width() - 1.0).max(0.0));
-                ui.strong("Windows plug-in support");
-                ui.label("The manager downloads and manages the software needed to connect Windows plug-ins to your Linux DAW.");
-                ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &runtime_actions,
-                    overview.current.system.inactive_reason(), pending, chosen));
-                egui::CollapsingHeader::new("Download details").show(ui, |ui| {
-                    ui.small("Compatibility runtime: the manager offers and downloads its pinned runner.");
-                    for offer in &runtime_actions { ui.small(&offer.label); }
-                });
-            });
-        }
         let mut shown = 0;
         let mut setups: Vec<_> = overview.current.installer_setups.iter().filter(|setup|
             focus.setup_installer.as_ref().is_none_or(|id| id == &setup.installer)).collect();
@@ -1900,8 +1884,7 @@ impl Operator {
                         ui.label("A complete installation was not confirmed. Review the installation result before making setup changes. Plug-ins already available in your DAW remain available.");
                     } else if setup.phase == SetupPhase::DiscoveryComplete {
                         ui.label(format!("{} plug-ins found. Open them to see their current DAW connection.",setup.discovered.len()));
-                    } else if setup.phase == SetupPhase::Imported && setup.primary.is_none()
-                        && runtime_actions.is_empty() {
+                    } else if setup.phase == SetupPhase::Imported && setup.primary.is_none() {
                         ui.colored_label(warning_color(ui), &setup.status);
                     } else { ui.label(&setup.status); }
                     let continuation = overview.current.environment_installers.iter().find(|target|
@@ -3390,6 +3373,39 @@ mod tests {
                 output.textures_delta.clear();
             }
             assert_eq!(chosen,(!pending).then_some(resume));
+        }
+    }
+
+    #[test]
+    fn missing_support_keeps_install_as_the_ordinary_action_and_manual_download_in_diagnostics() {
+        let mut overview = wrong_installer_overview(None);
+        overview.current.installer_setups.remove(0);
+        overview.current.managed_runtime_records.clear();
+        overview.current.actions = vec![AvailableAction {
+            label:"Install compatibility runtime (785 MB download)".into(),
+            action:Action::RuntimeInstall {},disabled_reason:None,
+        }];
+        let installer = overview.current.installer_setups[0].installer.clone();
+        let (_,chosen) = wrong_installer_click(&overview,&mut RouteFocus::default(),
+            "Install and connect to your DAW",960.0,true);
+        assert_eq!(installation_with_daw(&chosen.unwrap(),DawChoice::Bitwig),
+            Some(Action::SoftwareInstall {installer,daw:DawChoice::Bitwig}));
+        for page in [Page::Setup,Page::Diagnostics] {
+            let ctx = result_form_context();
+            let mut output = ctx.run_ui(egui::RawInput {screen_rect:Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,egui::vec2(960.0,1200.0))),..Default::default()},|ui| {
+                if page == Page::Setup {
+                    Operator::fast_setup(ui,&overview,true,false,(&mut false,&mut None,&mut false,
+                        &mut Page::Setup,&mut crate::library::Library::default(),
+                        &mut RouteFocus::default(),&mut Some(DawChoice::Bitwig)));
+                } else { Operator::diagnostics(ui,&overview.current,false,&mut None); }
+            });
+            let mut labels = vec![];
+            for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+            output.textures_delta.clear();
+            assert_eq!(labels.iter().any(|(label,_)|label.starts_with("Download Windows plug-in support")),
+                page == Page::Diagnostics);
+            assert!(!labels.iter().any(|(label,_)|label == "Windows plug-in support"));
         }
     }
 

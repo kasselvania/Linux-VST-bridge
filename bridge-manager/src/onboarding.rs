@@ -1021,10 +1021,7 @@ pub(super) fn setup_projection_current(m: &Manager, rows: &[ui::Onboarding],
                 }
             }
         }
-        let (phase, mut status, next) = setup_posture(current, ambiguous, discovered.len());
-        if !ambiguous && current.environment.is_none() && default.is_none() {
-            status="Install compatibility runtime in Setup, then continue. Any unavailable runtime is explained there.".into();
-        }
+        let (phase, status, next) = setup_posture(current, ambiguous, discovered.len());
         let primary = setup_primary(&current.actions, next);
         let secondary = current.actions.iter().filter(|a| !ambiguous && primary.as_ref().is_none_or(|p| p.action != a.action))
             .filter(|a| matches!(a.action, ui::Action::InstallerStop { .. } | ui::Action::InstallerNewAttempt { .. }))

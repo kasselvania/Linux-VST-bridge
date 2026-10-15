@@ -2781,40 +2781,30 @@ mod tests {
     fn cold_install_progress_precedes_runtime_work_and_failure_keeps_exact_retry() {
         let (f, _c, record, _) = setup();
         fs::remove_dir_all(onboarding::directory(&f.m, &record.id).unwrap()).unwrap();
+        // Import actual first-party installer bytes, then use the ordinary
+        // snapshot's offered action before exercising automatic acquisition.
+        let mut bytes = vec![0; 1024];
+        bytes[..2].copy_from_slice(b"MZ"); bytes[60] = 128;
+        bytes[128..132].copy_from_slice(b"PE\0\0");
+        bytes[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        bytes[148] = 2; bytes[150] = 2;
+        bytes[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+        let input = f.outer.join("chosen-installer.exe");
+        fs::write(&input, bytes).unwrap();
+        let installer = installer_import::import(&f.m, file(&input).unwrap()).unwrap();
+        let snapshot = snapshot_idle_test(&f.m).unwrap();
+        assert!(onboarding::default_runtime(&f.m, &onboarding::runners(&f.m).unwrap()).unwrap().is_none());
+        let card = snapshot.installer_setups.iter().find(|setup| setup.installer == installer.id).unwrap().clone();
+        assert!(!card.status.contains("runtime in Setup"));
+        assert!(matches!(&card.primary.as_ref().unwrap().action,
+            ui::Action::SoftwareInstall {installer:id,..} if id == &installer.id));
         let request = ui::Request {
             schema: ui::OPERATOR_SCHEMA,
-            state_token: token(&f.m).unwrap(),
-            action: ui::Action::SoftwareInstall {
-                installer: record.installer.clone(),
-                daw: ui::DawChoice::Reaper,
-            },
+            state_token: snapshot.state_token.clone(),
+            action: ui::Action::SoftwareInstall { installer: installer.id, daw: ui::DawChoice::Reaper },
         };
+        validate(&request, &snapshot).unwrap();
         let operation = begin_request(&f.m, &request).unwrap();
-        let card = ui::InstallerSetup {
-            installer: record.installer.clone(),
-            name: "Chosen software".into(),
-            label_source: "user".into(),
-            byte_size: 1,
-            format: "exe".into(),
-            imported_at: 1,
-            phase: ui::SetupPhase::Imported,
-            journey: None,
-            status: "Install compatibility runtime in Setup, then continue.".into(),
-            environment: None,
-            compatibility: None,
-            discovered: vec![],
-            primary: None,
-            secondary: vec![],
-            rename: action(
-                "Rename",
-                ui::Action::InstallerRename {
-                    installer: record.installer.clone(),
-                    label: String::new(),
-                },
-                None,
-            ),
-            history: vec![],
-        };
         let observed = std::cell::Cell::new(false);
         let capacity = || {
             let receipt = worker_receipt(&f.m, &operation);
