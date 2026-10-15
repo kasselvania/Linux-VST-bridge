@@ -49,8 +49,11 @@ struct Socket {
     std::thread::id ui_owner;
     void (*service_ui)(void*) = nullptr;
     void* ui_context = nullptr;
+    // Set while the owner answers a frame render handed over between
+    // intervals: that reply is written without servicing the editor.
+    bool quiet = false;
     bool owner_wait() {
-        return service_ui && ui_owner == std::this_thread::get_id();
+        return !quiet && service_ui && ui_owner == std::this_thread::get_id();
     }
     void pump() {
         if (owner_wait())
@@ -215,13 +218,15 @@ struct MappedSession::Impl {
     uint8_t* view = nullptr;
     Sequence state, audio_state;
     bool direct()const{return mailbox&&mailbox->version==4;}
-    // Protocol-15 sustained sessions: render owns Stop/Start while Activated.
-    bool render_lifecycle()const{return hosted&&sustained&&stateful&&socket.minor==15&&notifications!=nullptr;}
+    // Protocol-15 sustained mailbox sessions: render owns Stop/Start while
+    // Activated. Direct (v4) sessions keep the owner's Stop handoff: there the
+    // owner also answers GetState during playback and owns the sequence.
+    bool render_lifecycle()const{return hosted&&sustained&&stateful&&socket.minor==15&&notifications!=nullptr&&!direct();}
     // A frame render hands to the owner between intervals: 0 none, 1 waiting
     // for the owner, 2 Deactivate taken by the owner. Render does not touch the
     // frame or the sequence until the owner has finished with it.
     std::atomic<uint32_t> owner_handoff{0};
-    Handle handoff_completed;
+    Handle handoff_completed, handoff_requested;
     bool render_start_ready = false; // render thread only
     Sequence& audio_sequence(){return direct()?audio_state:state;}
     Request current{};
@@ -301,7 +306,8 @@ struct MappedSession::Impl {
         process_reply.payload.reserve(10312);
         capture_completed.value = CreateEventW(nullptr, FALSE, FALSE, nullptr);
         handoff_completed.value = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-        require(handoff_completed.value, "owner handoff event preparation");
+        handoff_requested.value = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        require(handoff_completed.value && handoff_requested.value, "owner handoff event preparation");
         require(capture_completed.value, "capture completion event preparation");
     }
 
@@ -598,8 +604,7 @@ struct MappedSession::Impl {
         if (mailbox_version && !mailbox) {
             mailbox =
                 std::make_unique<DeliveryMailbox>(directory, state.session, socket.minor >= 15);
-            if(mailbox->version==4){audio_state.session=state.session;notifications->bind_death(mailbox.get(),DeliveryMailbox::peer_failed);
-                notifications->bind_control_wake(mailbox.get(),DeliveryMailbox::control_arrived);}
+            if(mailbox->version==4){audio_state.session=state.session;notifications->bind_death(mailbox.get(),DeliveryMailbox::peer_failed);}
             events.lifecycle("ap10_wait_resolution",
                              ",\"samples_per_method\":32,\"sleep50_mean_ns\":" +
                                  std::to_string(mailbox->sleep50_ns) +
@@ -672,9 +677,8 @@ struct MappedSession::Impl {
     }
     void receive_audio(Frame& f) {
         if(direct()) {
-            last_fast=mailbox->receive(f,socket.minor,&owner_failure,render_lifecycle()?notifications.get():nullptr);
+            last_fast=mailbox->receive(f,socket.minor,&owner_failure);
             if(!last_fast) {
-                if(render_lifecycle())return; // Stop taken from the control lane here
                 require(lifecycle_ready.load(std::memory_order_acquire),"prepared lifecycle handoff absent");
                 require(lifecycle_frame.payload.size()<=f.payload.capacity(),"prepared lifecycle extent");
                 f.kind=lifecycle_frame.kind;f.session=lifecycle_frame.session;f.sequence=lifecycle_frame.sequence;
@@ -1023,7 +1027,7 @@ void MappedSession::service_owner() {
     if(x.direct()&&x.processing_active.load(std::memory_order_acquire)) {
         Frame capture{};
         if(x.notifications->take_kind(capture,GetState))x.state_call(std::move(capture));
-        if(!x.render_lifecycle()&&x.notifications->take_kind(capture,Stop)) {
+        if(x.notifications->take_kind(capture,Stop)) {
             require(!x.lifecycle_ready.load(std::memory_order_acquire)&&capture.session==x.state.session&&
                 capture.sequence==x.state.next&&capture.payload.size()==8&&
                 get(capture.payload.data(),8)==x.published_epoch.load(std::memory_order_acquire),"owner Stop correlation");
@@ -1038,6 +1042,10 @@ void MappedSession::service_owner() {
         // pending for the owner's own lifecycle_request(14).
         Frame f = x.socket.receive();
         if (f.kind == GetState || f.kind == SetState) {
+            // Render (and the next Start) waits for this reply: do not service
+            // the editor while it is written.
+            struct Quiet { Socket& s; ~Quiet() { s.quiet = false; } } quiet{x.socket};
+            x.socket.quiet = true;
             x.state_call(std::move(f));
             x.owner_handoff.store(0, std::memory_order_release);
         } else {
@@ -1182,7 +1190,10 @@ uint16_t MappedSession::next_transition() {
 bool MappedSession::render_lifecycle() const {
     return impl_->render_lifecycle();
 }
-uint16_t MappedSession::render_next_transition(const std::atomic<bool>& exit) {
+void* MappedSession::owner_wake_event() {
+    return impl_->render_lifecycle() ? impl_->handoff_requested.value : nullptr;
+}
+uint16_t MappedSession::render_next_transition(const std::atomic<bool>& exit, void* exit_event) {
     auto& x = *impl_;
     try {
         require(x.render_lifecycle() && std::this_thread::get_id() != x.owner && !x.timeline.running &&
@@ -1190,14 +1201,15 @@ uint16_t MappedSession::render_next_transition(const std::atomic<bool>& exit) {
                     x.owner_handoff.load(std::memory_order_acquire) == 0,
                 "render lifecycle ownership");
         // Idle, like the owner's former wait: no deadline until a frame is
-        // published. Ends on Start, Deactivate, exit or transport failure.
+        // published. Ends on Start, Deactivate, exit or transport failure; each
+        // of those wakes this wait, which also re-inspects once a second.
         for (;;) {
             if (exit.load(std::memory_order_acquire))
                 return 0;
             require(!x.owner_failure.load(std::memory_order_acquire), "owner service failed");
             uint16_t kind = 0;
             if (!x.notifications->ready_kind(kind)) {
-                x.notifications->wait_control();
+                x.notifications->wait_control(static_cast<HANDLE>(exit_event), 1000);
                 continue;
             }
             if (kind == Start) {
@@ -1212,6 +1224,7 @@ uint16_t MappedSession::render_next_transition(const std::atomic<bool>& exit) {
             // State requests and Deactivate belong to the owner. A state request
             // keeps the existing ten-second owner service bound.
             x.owner_handoff.store(1, std::memory_order_release);
+            SetEvent(x.handoff_requested.value);
             const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(10);
             for (;;) {
                 const auto handoff = x.owner_handoff.load(std::memory_order_acquire);
@@ -1222,6 +1235,7 @@ uint16_t MappedSession::render_next_transition(const std::atomic<bool>& exit) {
                 if (exit.load(std::memory_order_acquire))
                     return 0;
                 require(!x.owner_failure.load(std::memory_order_acquire), "owner service failed");
+                x.notifications->alive(); // a dead native peer ends this wait at once
                 require(std::chrono::steady_clock::now() < end, "owner handoff deadline");
                 const auto result = WaitForSingleObject(x.handoff_completed.value, 4);
                 require(result == WAIT_OBJECT_0 || result == WAIT_TIMEOUT, "owner handoff wait");

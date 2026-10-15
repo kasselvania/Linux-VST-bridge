@@ -31,7 +31,8 @@ public:
     bool activation_again() override;
     uint16_t next_transition() override;
     bool render_lifecycle() const override;
-    uint16_t render_next_transition(const std::atomic<bool>&) override;
+    uint16_t render_next_transition(const std::atomic<bool>&, void*) override;
+    void* owner_wake_event() override;
     uint16_t render_pending_transition() override;
     uint32_t lifecycle_request(uint16_t) override;
     void lifecycle_ack(uint16_t) override;

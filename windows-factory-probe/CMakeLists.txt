@@ -225,6 +225,13 @@ target_compile_options(ap18-lc1-session PRIVATE /UNDEBUG /W4 /permissive- /EHsc)
 target_link_libraries(ap18-lc1-session PRIVATE sdk sdk_hosting ws2_32 user32 ole32)
 set_target_properties(ap18-lc1-session PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
 
+add_executable(ap23-render-lifecycle-tests ../tools/ap23-tests/render_lifecycle.cpp source/mapped_processing.cpp source/offline_processing.cpp source/component_instance_session.cpp)
+target_include_directories(ap23-render-lifecycle-tests PRIVATE source include "${WF0_VST3_SDK_ROOT}")
+target_compile_definitions(ap23-render-lifecycle-tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(ap23-render-lifecycle-tests PRIVATE /UNDEBUG /W4 /permissive- /EHsc)
+target_link_libraries(ap23-render-lifecycle-tests PRIVATE sdk sdk_hosting ws2_32 user32 ole32)
+set_target_properties(ap23-render-lifecycle-tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+
 # Separate development observers. Never linked into the product Windows host.
 add_library(uio1-hook SHARED source/uio1/hook.cpp)
 add_executable(uio1-observer source/uio1/observer.cpp)

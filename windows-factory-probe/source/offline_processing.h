@@ -54,8 +54,12 @@ public:
     virtual bool render_lifecycle() const { return false; }
     // Render thread, after acknowledging Stopped: 10 when the next Start is
     // taken (consumed by lifecycle_request(10) on this thread), 14 when
-    // Deactivate was handed to the owner, 0 when exit was requested.
-    virtual uint16_t render_next_transition(const std::atomic<bool>&) { return 14; }
+    // Deactivate was handed to the owner, 0 when exit was requested. The exit
+    // event wakes that wait; the owner sets it together with `exit`.
+    virtual uint16_t render_next_transition(const std::atomic<bool>&, void* /*exit event*/) { return 14; }
+    // Owner thread: signalled when render hands it a frame, so a stopped
+    // session's owner can wait instead of polling. May be null.
+    virtual void* owner_wake_event() { return nullptr; }
     // Owner thread, after render quiescence in that mode: the handed-over
     // transition, which can only be Deactivate.
     virtual uint16_t render_pending_transition() { return 14; }

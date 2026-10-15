@@ -6,7 +6,7 @@ import sys
 import time
 
 exe = pathlib.Path(sys.argv[1]).resolve()
-for args, expected in [([], 0), (["--refuse-stop"], 93), (["--render-refuse-stop"], 93), (["--hang"], 93), (["--cancel-restart"], 0)]:
+for args, expected in [([], 0), (["--refuse-stop"], 93), (["--render-refuse-stop"], 93), (["--render-throw-second-start"], 0), (["--hang"], 93), (["--cancel-restart"], 0)]:
     start = time.monotonic()
     result = subprocess.run([str(exe), *args], capture_output=True, text=True, timeout=12)
     duration = time.monotonic() - start
@@ -27,6 +27,14 @@ for args, expected in [([], 0), (["--refuse-stop"], 93), (["--render-refuse-stop
         records = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
         failed_starts = [r for r in records if r.get("state") == "ap0_call_started" and r.get("operation") == "set_processing_true" and r.get("returned") is False]
         assert len(failed_starts) == 2, failed_starts
+    if args == ["--render-throw-second-start"]:
+        # The second interval's Start threw on the render thread: its exported
+        # record must say so rather than repeat the first interval's success.
+        records = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
+        starts = [r for r in records if r.get("state") == "ap0_call_started" and r.get("operation") == "set_processing_true"]
+        assert starts and all(r.get("returned") is False for r in starts), starts
+        render = [r for r in records if r.get("state") == "ap0_render_lifecycle"]
+        assert render and render[-1]["stopped_acks"] == 1 and render[-1]["render_starts"] == 1, render
     if args == ["--cancel-restart"]:
         records = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
         transitions = [r for r in records if r.get("state") == "ap0_call_started" and r.get("operation") in ("set_processing_true", "set_processing_false")]

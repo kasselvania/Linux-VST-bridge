@@ -51,8 +51,6 @@ public:
  void cancel(LONG code)noexcept{if(version!=4||!view)return;InterlockedCompareExchange(word(36),code?code:1,0);wake(40);wake(44);}
  void lifecycle_ready(){ap1::require(version==4&&flag(36)==0&&flag(32)==0,"direct lifecycle handoff occupied");flag(32,1);wake(40);}
  static void peer_failed(void* context)noexcept{static_cast<DeliveryMailbox*>(context)->cancel(1);}
- // A control frame was published: wake a direct render wait so it can take Stop.
- static void control_arrived(void* context)noexcept{auto* m=static_cast<DeliveryMailbox*>(context);if(m->version==4&&m->view)m->wake(40);}
  // Idle has no issued-request deadline, as on the existing socket path. The
  // outer owner contains a vanished native peer. Linux waits at most five seconds
  // for an issued request, counts gaps meanwhile, then fails the instance.
@@ -71,8 +69,6 @@ public:
      decode_into(view+request_offset,size_t(n),minor,out);require(out.kind==Process,"direct request kind");flag(64,0);return true;}
     const LONG control=flag(32);require(control==0||control==1,"direct control flag");
     if(control){flag(32,0);return false;}
-    // Render-owned lifecycle: this thread takes Stop from the control lane itself.
-    if(notifications&&notifications->take_kind(out,Stop))return false;
     require(direct_wait.monotonic(now),"direct monotonic clock");
     if(now.sec>end.sec||(now.sec==end.sec&&now.nsec>=end.nsec))end=lvb::linux_wait::after(now,5000000000LL); // idle: no issued ticket
     const auto result=direct_wait.wait(word(40),observed,end);

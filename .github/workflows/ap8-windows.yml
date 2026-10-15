@@ -117,7 +117,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/graphics/assessment_test.py "${{ runner.temp }}/ap8-build/wf0/bin/Release"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build "${{ runner.temp }}/ap8-build" --config Release --target graphics-reference-1 graphics-reference-2 graphics-reference-3 graphics-reference-4 wf0-factory-probe wf0-loader-adapter-tests lvb-embedding-window ap10-return-fixture lvb-reference-instrument lvb-reference-effect lvb-reference-instrument-tests lvb-reference-effect-tests lvb-completion-instrument lvb-completion-effect lvb-completion-instrument-tests lvb-completion-effect-tests lvb-editor-instrument lvb-editor-effect lvb-editor-tests ap10-results-tests ap11-editor-tests ap11-state-tests ap11-owner-failure-tests ap23-windows-readiness-tests ap11-controller-failure-tests ap12-path-tests ap12-fault-tests ap13-state-delivery-tests ap14-environment-tests ap18-result-custody-tests ap18-bus-census-tests ap18-whole-block-tests ap18-crash-capture ap18-lc1-session uio1-tests uir1-input-fixture uio2-popup-fixture uio2-uia-disconnect uir2-touch-fixture mf2-bootstrap-ready is1-bootstrapper is1-direct-msi is2-launch is2-fixture is2-admin-fixture is3-capability naui2-application nad1-service-fixture nad1-service-adapter nad1-application-fixture --parallel 4
+          cmake --build "${{ runner.temp }}/ap8-build" --config Release --target graphics-reference-1 graphics-reference-2 graphics-reference-3 graphics-reference-4 wf0-factory-probe wf0-loader-adapter-tests lvb-embedding-window ap10-return-fixture lvb-reference-instrument lvb-reference-effect lvb-reference-instrument-tests lvb-reference-effect-tests lvb-completion-instrument lvb-completion-effect lvb-completion-instrument-tests lvb-completion-effect-tests lvb-editor-instrument lvb-editor-effect lvb-editor-tests ap10-results-tests ap11-editor-tests ap11-state-tests ap11-owner-failure-tests ap23-windows-readiness-tests ap11-controller-failure-tests ap12-path-tests ap12-fault-tests ap13-state-delivery-tests ap14-environment-tests ap18-result-custody-tests ap18-bus-census-tests ap18-whole-block-tests ap18-crash-capture ap18-lc1-session ap23-render-lifecycle-tests uio1-tests uir1-input-fixture uio2-popup-fixture uio2-uia-disconnect uir2-touch-fixture mf2-bootstrap-ready is1-bootstrapper is1-direct-msi is2-launch is2-fixture is2-admin-fixture is3-capability naui2-application nad1-service-fixture nad1-service-adapter nad1-application-fixture --parallel 4
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap18-crash-capture.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -150,6 +150,8 @@ jobs:
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap12-fault-tests.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap13-state-delivery-tests.exe"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap23-render-lifecycle-tests.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "${{ runner.temp }}/ap8-build/wf0/bin/Release/ap14-environment-tests.exe"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
