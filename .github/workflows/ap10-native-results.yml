@@ -59,6 +59,7 @@ jobs:
           rustup run 1.95.0 rustc --version
           rustup run 1.95.0 rustc --edition=2021 -D warnings --test native-vst3-proxy/backend/src/editor_surface.rs -o "${{ runner.temp }}/surface-unit-tests"
           "${{ runner.temp }}/surface-unit-tests"
+          LVB_X11_FIXTURE=1 xvfb-run -a "${{ runner.temp }}/surface-unit-tests" dying_native_connection
           rustup run 1.95.0 rustc --edition=2021 -D warnings tools/ap11-tests/embedding_host.rs -o "${{ runner.temp }}/embedding-host"
       - name: Build production native processor and SDK regressions
         run: |

@@ -135,6 +135,24 @@ pub mod x11 {
         pad: [u8; 2],
     }
     #[repr(C)]
+    pub struct IoVec {
+        base: *mut c_void,
+        length: usize,
+    }
+    #[repr(C)]
+    pub struct ProtocolRequest {
+        count: usize,
+        extension: *mut c_void,
+        opcode: u8,
+        void: u8,
+    }
+    const XCB_REQUEST_CHECKED: i32 = 1;
+    const XFIXES_QUERY_VERSION: u8 = 0;
+    const XFIXES_CHANGE_SAVE_SET: u8 = 1;
+    const SET_MODE_INSERT: u8 = 0;
+    const SAVE_SET_ROOT: u8 = 1;
+    const SAVE_SET_UNMAP: u8 = 1;
+    #[repr(C)]
     struct Tree {
         response: u8,
         pad: u8,
@@ -192,6 +210,14 @@ pub mod x11 {
             y: i16,
         ) -> Cookie;
         fn xcb_change_save_set_checked(connection: *mut c_void, mode: u8, window: u32) -> Cookie;
+        fn xcb_query_extension(connection: *mut c_void, length: u16, name: *const u8) -> Cookie;
+        fn xcb_send_request(
+            connection: *mut c_void,
+            flags: i32,
+            vector: *mut IoVec,
+            request: *const ProtocolRequest,
+        ) -> u32;
+        fn xcb_get_window_attributes(connection: *mut c_void, window: u32) -> Cookie;
         fn xcb_configure_window_checked(
             connection: *mut c_void,
             window: u32,
@@ -221,6 +247,8 @@ pub mod x11 {
         pointer: *mut c_void,
         pub root: u32,
         owner: ThreadId,
+        // XFixes major opcode once this connection has negotiated version 1.
+        xfixes: std::cell::Cell<Option<u8>>,
     }
     impl Connection {
         pub fn open() -> Result<Self, Error> {
@@ -246,6 +274,7 @@ pub mod x11 {
                     pointer,
                     root,
                     owner: std::thread::current().id(),
+                    xfixes: std::cell::Cell::new(None),
                 })
             }
         }
@@ -318,6 +347,101 @@ pub mod x11 {
                 free(error);
             }
             Err(Error::X11(code))
+        }
+        // One whole extension request through libxcb's generic path. The
+        // major opcode comes from this connection's own bounded QueryExtension,
+        // so libxcb never blocks on, or shuts the connection for, an absent
+        // extension.
+        fn extension_request(
+            &self,
+            major: u8,
+            request: &mut [u8],
+            void: bool,
+        ) -> Result<Cookie, Error> {
+            self.owner()?;
+            if request.len() < 4 || request.len() % 4 != 0 {
+                return Err(Error::Identity);
+            }
+            let mut parts = [
+                IoVec { base: ptr::null_mut(), length: 0 },
+                IoVec { base: ptr::null_mut(), length: 0 },
+                IoVec { base: request.as_mut_ptr().cast(), length: request.len() },
+            ];
+            let protocol = ProtocolRequest {
+                count: 1,
+                extension: ptr::null_mut(),
+                opcode: major,
+                void: u8::from(void),
+            };
+            // libxcb may use the two entries before the vector it is given.
+            let sequence = unsafe {
+                xcb_send_request(self.pointer, XCB_REQUEST_CHECKED, parts.as_mut_ptr().add(2), &protocol)
+            };
+            if sequence == 0 {
+                return Err(Error::Connection);
+            }
+            Ok(Cookie { sequence })
+        }
+        /// XFixes, negotiated once per connection; None when the server has none.
+        fn xfixes(&self) -> Result<Option<u8>, Error> {
+            if let Some(major) = self.xfixes.get() {
+                return Ok(Some(major));
+            }
+            let name = b"XFIXES";
+            let reply = self.reply(unsafe {
+                xcb_query_extension(self.pointer, name.len() as u16, name.as_ptr())
+            })?;
+            let (present, major) = unsafe { (reply.cast::<u8>().add(8).read(), reply.cast::<u8>().add(9).read()) };
+            unsafe {
+                free(reply);
+            }
+            if present == 0 {
+                return Ok(None);
+            }
+            let mut query = [0u8; 12];
+            query[1] = XFIXES_QUERY_VERSION;
+            query[4..8].copy_from_slice(&5u32.to_ne_bytes());
+            let reply = self.reply(self.extension_request(major, &mut query, false)?)?;
+            let version = unsafe { reply.cast::<u8>().add(8).cast::<u32>().read_unaligned() };
+            unsafe {
+                free(reply);
+            }
+            if version < 1 {
+                return Ok(None);
+            }
+            self.xfixes.set(Some(major));
+            Ok(Some(major))
+        }
+        /// If this connection closes while `window` is still in its save-set
+        /// and not already a child of the root, the server moves it to the
+        /// root, unmapped (this includes a detach whose remove timed out). It never moves
+        /// it into the DAW's window: on Xwayland before 24.1.11 that move,
+        /// made while a dead client is being closed, dereferences a null
+        /// current client and aborts the whole X server (and every X program).
+        /// Without XFixes no rescue entry is made; the editor is then
+        /// destroyed with this connection's window, as any child would be.
+        pub fn rescue_to_root(&self, window: u32) -> Result<(), Error> {
+            let Some(major) = self.xfixes()? else {
+                return Ok(());
+            };
+            let mut change = [0u8; 12];
+            change[1] = XFIXES_CHANGE_SAVE_SET;
+            change[4] = SET_MODE_INSERT;
+            change[5] = SAVE_SET_ROOT;
+            change[6] = SAVE_SET_UNMAP;
+            change[8..12].copy_from_slice(&window.to_ne_bytes());
+            let cookie = self.extension_request(major, &mut change, true)?;
+            self.checked(cookie)
+        }
+        /// X11 map state: 0 unmapped, 1 unviewable, 2 viewable.
+        pub fn map_state(&self, window: u32) -> Result<u8, Error> {
+            self.owner()?;
+            let reply = self.reply(unsafe { xcb_get_window_attributes(self.pointer, window) })?;
+            let state = unsafe { reply.cast::<u8>().add(26).read() };
+            unsafe {
+                free(reply);
+            }
+            Ok(state)
         }
         pub fn geometry(&self, window: u32) -> Result<Geometry, Error> {
             self.owner()?;
@@ -487,12 +611,10 @@ pub mod x11 {
             }
             let original = self.connection.geometry(message.window)?;
             let parent = self.connection.parent(message.window)?;
-            // Retire identity before mutation. SaveSet rescues the foreign
-            // editor if this native connection dies.
+            // Retire identity before mutation. The rescue entry moves the
+            // foreign editor to the root if this native connection dies.
             self.last_epoch = message.epoch;
-            self.connection.checked(unsafe {
-                xcb_change_save_set_checked(self.connection.pointer, 0, message.window)
-            })?;
+            self.connection.rescue_to_root(message.window)?;
             let binding = Binding {
                 owner: message.owner,
                 epoch: message.epoch,
@@ -780,6 +902,51 @@ mod tests {
         ] {
             assert!(!binding.accepts(&changed));
         }
+    }
+    /// The DAW dies (killed, crashed) with a Windows editor embedded. The
+    /// server must not hand the editor to the DAW's window: on Xwayland
+    /// before 24.1.11 that move aborts the X server and every X program
+    /// with it. The editor goes to the root, unmapped. Needs an isolated
+    /// display: LVB_X11_FIXTURE=1 xvfb-run -a (or a disposable Xwayland).
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn dying_native_connection_rescues_the_editor_to_the_root_unmapped() {
+        use std::time::{Duration, Instant};
+        use x11::{Connection, Surface};
+        if std::env::var_os("LVB_X11_FIXTURE").is_none() {
+            return;
+        }
+        let daw = Connection::open().expect("isolated X11 display");
+        let parent = daw.child(daw.root, 0, 0, 400, 300, 0x303030).unwrap();
+        daw.map(parent).unwrap();
+        let wine = Connection::open().unwrap();
+        let editor = wine.child(wine.root, 10, 10, 200, 100, 0x808080).unwrap();
+        wine.map(editor).unwrap();
+        let mut surface = Surface::create(parent, 9, 400, 300).unwrap();
+        surface
+            .bind(PresentationV1 {
+                window: editor,
+                width: 200,
+                height: 100,
+                ..PresentationV1::new(9, 1, WINDOW_READY)
+            })
+            .unwrap();
+        let embedded = surface.window;
+        assert_eq!(wine.parent(editor).unwrap(), embedded);
+        // No detach: the native connection simply closes.
+        drop(surface);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let rescued = loop {
+            let now = wine.parent(editor).expect("X server and editor survive");
+            if now != embedded {
+                break now;
+            }
+            assert!(Instant::now() < deadline, "server did not close the native connection");
+            std::thread::sleep(Duration::from_millis(10));
+        };
+        assert_eq!(rescued, wine.root, "editor is never handed to the DAW's window");
+        assert_eq!(wine.map_state(editor).unwrap(), 0, "rescued editor stays hidden");
+        assert_eq!(daw.parent(parent).unwrap(), daw.root);
     }
     #[test]
     fn size_is_the_x11_geometry_range() {
