@@ -2234,7 +2234,7 @@ class InstallerWitnesses:
                     if kind:
                         key=hashlib.sha256((registry+':'+raw).encode()).hexdigest();out[kind].setdefault(key,{})
                 elif kind and line.startswith('"'):
-                    match=re.fullmatch(r'"(DisplayName|DisplayVersion|InstallLocation|ImagePath|Start|Type)"=(.*)',line)
+                    match=re.fullmatch(r'"(DisplayName|DisplayVersion|InstallLocation|ImagePath|Start|Type|DisplayIcon|UninstallString)"=(.*)',line)
                     if match:
                         name,value=match.groups()
                         # ImagePath can contain command arguments/secrets. Retain
@@ -2244,6 +2244,18 @@ class InstallerWitnesses:
                             decoded=value.strip('"').replace('\\\\','\\').replace('\\"','"')
                             image=re.match(r'^"?([A-Za-z]:\\.*?\.exe)(?:"|\s|$)',decoded,re.I)
                             if image:out[kind][key]['image']=image.group(1)
+                        elif name in ('DisplayIcon','UninstallString'):
+                            # Many installers omit InstallLocation. Keep only the
+                            # folder of the icon (preferred) or uninstaller image,
+                            # never the command or its arguments. Cached setup
+                            # copies and Windows folders are not an application home.
+                            if kind!='uninstall' or (name=='UninstallString' and 'DerivedInstallLocation' in out[kind][key]):continue
+                            decoded=value.strip('"').replace('\\\\','\\').replace('\\"','"')
+                            image=re.match(r'^"?([A-Za-z]:\\[^"]*?\.exe)(?:"|,|\s|$)',decoded,re.I)
+                            if image and len(image.group(1))<=1024:
+                                folder=image.group(1).rsplit('\\',1)[0];low=folder.lower()+'\\'
+                                if not ('\\package cache\\' in low or '\\installer\\' in low or low.startswith('c:\\windows\\')):
+                                    out[kind][key]['DerivedInstallLocation']=folder
                         elif name in ('InstallLocation','DisplayName','DisplayVersion'):
                             if len(value)<=1024:out[kind][key][name]=value.strip('"').replace('\\\\','\\')
                         elif re.fullmatch('dword:[0-9a-fA-F]{8}',value):out[kind][key][name]=value
@@ -2257,7 +2269,8 @@ class InstallerWitnesses:
             delta[key]={'added':sorted(k for k in b if k not in a),'changed':sorted(k for k in b if k in a and b[k]!=a[k]),'removed':sorted(k for k in a if k not in b)}
         registrations=[]
         for key in delta['uninstall']['added']+delta['uninstall']['changed']:
-            location=after['uninstall'][key].get('InstallLocation','').replace('\\','/').rstrip('/')
+            entry=after['uninstall'][key]
+            location=(entry.get('InstallLocation') or entry.get('DerivedInstallLocation','')).replace('\\','/').rstrip('/')
             if not location.lower().startswith('c:/'):continue
             relative=location[3:].lower()+'/'
             # A registered Windows audio product may contain only plug-in DLLs,

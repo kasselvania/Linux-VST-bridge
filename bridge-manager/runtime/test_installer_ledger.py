@@ -83,6 +83,37 @@ class WitnessTests(unittest.TestCase):
             outside={**after,'uninstall':{'other':{'InstallLocation':'C:\\Elsewhere'}}}
             self.assertEqual(witnesses.compare(before,outside)['classification'],'partial_installation')
 
+    def test_install_location_comes_from_icon_or_uninstaller_when_omitted(self):
+        # Native Access 3.26 registers per user with only DisplayIcon/UninstallString.
+        with tempfile.TemporaryDirectory() as tmp:
+            root_dir=pathlib.Path(tmp).resolve()
+            prefix=root_dir/'compatdata/pfx';prefix.mkdir(parents=True)
+            (prefix/'drive_c').mkdir();(prefix/'system.reg').write_text('');(prefix/'user.reg').write_text('')
+            witnesses=session.InstallerWitnesses(root_dir);before=witnesses.snapshot()
+            app=prefix/'drive_c/Program Files/Vendor/App';app.mkdir(parents=True)
+            image=bytearray(128);image[:2]=b'MZ';image[60:64]=(64).to_bytes(4,'little')
+            image[64:68]=b'PE\0\0';image[68:70]=(0x8664).to_bytes(2,'little');image[86:88]=(0x22).to_bytes(2,'little')
+            (app/'App.exe').write_bytes(image);(app/'Uninstall App.exe').write_bytes(image)
+            key='[Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\guid]\n"DisplayName"="App"\n'
+            uninstaller='"UninstallString"="\\"C:\\\\Program Files\\\\Vendor\\\\App\\\\Uninstall App.exe\\" /currentuser"\n'
+            for values,expected in [
+                    ('"DisplayIcon"="C:\\\\Program Files\\\\Vendor\\\\App\\\\App.exe,0"\n'+uninstaller,'installed'),
+                    (uninstaller,'installed'),
+                    ('"UninstallString"="C:\\\\ProgramData\\\\Package Cache\\\\{id}\\\\setup.exe /uninstall"\n','partial_installation')]:
+                with self.subTest(values=values):
+                    (prefix/'user.reg').write_text(key+values)
+                    after=witnesses.snapshot();value=witnesses.compare(before,after)
+                    self.assertEqual(value['classification'],expected)
+                    self.assertNotIn('currentuser',json.dumps(after))
+                    self.assertNotIn('uninstall /',json.dumps(after).lower())
+                    entry=next(iter(after['uninstall'].values()))
+                    self.assertNotIn('InstallLocation',entry)
+                    if expected=='installed':
+                        self.assertEqual(entry['DerivedInstallLocation'],'C:\\Program Files\\Vendor\\App')
+                        self.assertEqual(sorted(value['application_registrations'][0]['images']),
+                            ['Program Files/Vendor/App/App.exe','Program Files/Vendor/App/Uninstall App.exe'])
+                    else:self.assertNotIn('DerivedInstallLocation',entry)
+
     def test_removal_only_durable_surfaces_are_partial_and_keep_exact_delta(self):
         for category,record in [('files',{'sha256':'ab','format':'pe_executable'}),
                                 ('uninstall',{'InstallLocation':'C:\\Fixture'}),

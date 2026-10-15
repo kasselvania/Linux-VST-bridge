@@ -156,8 +156,11 @@ pub(crate) fn choices(m: &Manager, record: &onboarding::Record) -> Result<Vec<Ch
         let name = observed["DisplayName"].as_str().ok_or("vendor_application_name_missing")?;
         require(!name.trim().is_empty() && name.len() <= 1024 && !name.chars().any(char::is_control),
             "vendor_application_name_bound")?;
-        let location = observed["InstallLocation"].as_str().ok_or("vendor_application_location_missing")?
-            .replace('\\', "/");
+        // Installers that omit InstallLocation are located from their icon or
+        // uninstaller folder, recorded separately by the supervisor.
+        let location = observed["InstallLocation"].as_str().filter(|v| !v.is_empty())
+            .or_else(|| observed["DerivedInstallLocation"].as_str())
+            .ok_or("vendor_application_location_missing")?.replace('\\', "/");
         let relative = location.strip_prefix("C:/").or_else(|| location.strip_prefix("c:/"))
             .ok_or("vendor_application_location_binding")?;
         let root = PathBuf::from(relative.trim_end_matches('/'));
@@ -316,6 +319,25 @@ pub(crate) mod tests {
             choice.application.verify(&f.m.root).unwrap();
         }
         assert_eq!(test_fixture::snapshot(&f.m.root), before);
+    }
+
+    #[test]
+    fn derived_location_finds_an_app_whose_installer_omits_install_location() {
+        // Native Access 3.26 registers only DisplayIcon and UninstallString.
+        let (f, record, path) = installed_app();
+        let mut observed: Value = read_json(&path).unwrap();
+        let entry = &mut observed["after"]["uninstall"]["cd".repeat(32)];
+        entry.as_object_mut().unwrap().remove("InstallLocation");
+        atomic_json(&path, &observed).unwrap();
+        assert!(choices(&f.m, &record).unwrap_err().to_string().contains("vendor_application_location_missing"));
+        observed["after"]["uninstall"]["cd".repeat(32)]["DerivedInstallLocation"] = "C:\\Program Files\\Vendor".into();
+        atomic_json(&path, &observed).unwrap();
+        let choices = choices(&f.m, &record).unwrap();
+        assert_eq!(choices.len(), 2);
+        for choice in &choices { choice.application.verify(&f.m.root).unwrap(); }
+        observed["after"]["uninstall"]["cd".repeat(32)]["DerivedInstallLocation"] = "C:/Program Files/VendorSibling".into();
+        atomic_json(&path, &observed).unwrap();
+        assert!(super::choices(&f.m, &record).is_err());
     }
 
     pub(crate) fn structured_application(seed: u8) -> (test_fixture::Fixture, Application, PathBuf) {
