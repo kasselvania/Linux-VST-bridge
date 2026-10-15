@@ -82,6 +82,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-GFX-001](#fc-gfx-001--directcomposition-presentation-capability) | DirectComposition presentation capability | Proton/Wine graphics runner | causal | accepted | Blackhole / Steam Deck | supported | Preserve exact runner; close stale issue #132 disposition separately |
 | [FC-LIFE-001](#fc-life-001--graphical-session-and-keeper-authority) | Graphical-session/keeper authority | Manager/supervisor lifecycle | causal | accepted | Blackhole, Kontakt / Steam Deck; FRAGMENTS / Ubuntu | supported | Gaming Mode transition coverage |
 | [FC-LIFE-002](#fc-life-002--failed-launch-cleanup-and-truthful-recovery-state) | Failed launch cleanup and truthful recovery | Manager ownership/leases/results | causal | deployed | Steam Deck and Ubuntu fixtures | supported-with-workaround | Manager recovery UX |
+| [FC-LIFE-003](#fc-life-003--a-stopped-windows-side-stays-refused-until-the-service-restarts) | A stopped Windows side stays refused until the service restarts | Manager keeper ownership / native admission | causal | source-fixed | Kontakt 8 / Deck Test88 report; CachyOS Test90 reproduction | open | Installed comparison |
 | [FC-MIDI-001](#fc-midi-001--recognized-expression-rejected-an-entire-native-input-callback) | Recognized expression rejected an entire native input callback | Native VST3 proxy input admission | causal in source; physical attribution open | source-fixed | Pinned SDK fixture; Push / Deck operator report only | unqualified for Push expression | Build and publish exact proxy successor; physical Push/Bitwig release check |
 | [FC-MIDI-002](#fc-midi-002--late-note-off-permanently-fails-processing) | Late note-off permanently fails processing | Native SDK signed timestamp conversion | causal in source and matched comparison | deployed | Pinned SDK regression; recovery1 Pure LoFi physical Deck comparison | qualified for this late-release recovery only | Residual timing and broader host/event qualification remain open |
 | [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | preemption/burst loss attributed; refresh4 retains main N64, N13 tail and final N0 failures with remaining service/scheduler attribution gaps | recovery6 focused repair passes; refresh4 physical SDK matrix fails 16/24 full lifetimes | Pure LoFi Deck burst repair; Ubuntu coexistence failure; physical Completion instrument/effect matrix | usable on the Deck fixture: Pure LoFi, Buffered 512, 48 kHz, 30 minutes with interaction and export, zero misses; same-callback with a heavy effect stays unqualified | editor-open thirty-minute confirmation without screen streaming; instrument class at 512/256; delivery mode chosen from measured call cost |
@@ -3596,6 +3597,22 @@ carries at most 256 events including parameter points; the rest waits in order.
 Offline render never holds. Test89: −9.4 dBFS on four plays, 9 note events
 delayed, none dropped. Open: the acknowledgement still waits behind the editor's
 owner thread.
+
+## FC-LIFE-003 — A stopped Windows side stays refused until the service restarts
+
+Deck, Test88, Kontakt 8 / REAPER: after its Windows side exited (Xwayland had
+aborted, FC-UI-014), every later load in the same desktop was refused at once
+(`keeper_failed`) without starting a new one, the editor's 10 ms timer asked
+the service again on every tick (207 refusals in 75 s) and REAPER became
+sluggish; the manager showed nothing. Only restarting the service cleared it.
+Reproduced on CachyOS (Test90) by killing the Windows side: the reload was
+refused in 830 ms, 48 refusals followed in 45 s, and REAPER's UI stalled up to
+2.2 s (23 stalls over 100 ms in 40 s). The service kept a failed generation for
+its lifetime by design, to avoid a restart per retry. Now the next load
+replaces a cleanly retired failed generation at once if it had been ready, and
+after 10 s, then 60 s, if it failed while starting. A refused instance asks
+once, stops, and its editor says the Windows side did not start; the plug-in's
+manager card explains the refused load until a later load is accepted.
 
 ## Beta reports under investigation
 

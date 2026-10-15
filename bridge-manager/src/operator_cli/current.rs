@@ -558,9 +558,29 @@ pub(super) fn current_products(m: &Manager, db: &Registry, sw: &Software,
                     } else if !performance_valid {json!({"code":"performance_authority_unavailable"})}
                     else {json!({"code":"current_artifact_or_publication_changed"})}}),
         });
+        if current_valid {
+            if let Some(product) = products.last_mut() { project_last_load(m, product); }
+        }
         revisions.insert(class.clone(), revision);
     }
     Ok((products, revisions))
+}
+
+/// A plug-in the DAW can load whose last load was refused because its Windows
+/// side had stopped says so on its card, until a later load is accepted (the
+/// service rewrites the same per-class record on every load). An absent or
+/// unreadable record explains nothing; it never fails the overview.
+pub(super) fn project_last_load(m: &Manager, product: &mut ui::Product) {
+    if !product.details["problem"].is_null() || !valid_hex(&product.class_id, 32) { return; }
+    let path = m.root.join("runtime/native-startup")
+        .join(format!("{}.json", product.class_id.to_ascii_lowercase()));
+    let Ok(record) = read_json::<Value>(&path) else { return };
+    if record["outcome"] != "refused" { return; }
+    let phase = record["phases"].as_array().and_then(|phases| phases.last())
+        .and_then(|phase| phase[0].as_str());
+    let Some(problem) = linux_vst_bridge::problem::from_load_refusal(phase) else { return };
+    product.details["problem"] = problem.value();
+    product.details["last_load"] = json!({"outcome":"refused","observed_at":record["observed_at"]});
 }
 
 fn append_discovered(m: &Manager, sw: &Software, environments: &[Environment],
@@ -1226,6 +1246,41 @@ pub(super) mod tests {
         assert_eq!(products.iter().find(|p|p.class_id==f.r.metadata.class_id).unwrap().disposition,"needs_attention");
         assert_eq!(products.iter().find(|p|p.class_id==sibling.metadata.class_id).unwrap().disposition,"ready");
         assert_eq!(products.iter().find(|p|p.class_id==unrelated.metadata.class_id).unwrap().disposition,"ready");
+    }
+    #[test]
+    fn available_plug_in_explains_a_load_refused_because_its_windows_side_stopped() {
+        let (fixture,profile,census,_native)=test_fixture::prepared();
+        let m=&fixture.m;
+        m.managed_publish(&profile,&census,fixture.r.clone(),
+            &fixture.r.host,&fixture.r.host_source_sha256,None).unwrap();
+        let db=m.registry().unwrap();
+        let a=fixture.r.host.clone();
+        let sw=Software {installer_launch:None,preparation_kit:None,operator_frontend:None,
+            manager:a.clone(),supervisor:a.clone(),ownership:a.clone(),host:a.clone(),
+            source_manifest:Artifact {path:a.path.with_file_name("host-source-manifest.json"),
+                sha256:fixture.r.host_source_sha256.clone()},source_sha256:fixture.r.host_source_sha256.clone(),
+            native_catalogue:None};
+        let class=profile.class.class_id.to_ascii_lowercase();
+        let startup=m.root.join("runtime/native-startup");
+        private_dir(&startup).unwrap();
+        let record=|outcome:&str,last:&str| atomic_json(&startup.join(format!("{class}.json")),
+            &json!({"schema":1,"class_id":profile.class.class_id,"request":"07".repeat(16),
+                "observed_at":"2026-10-15T20:48:10Z","outcome":outcome,
+                "phases":[["request_received",0],["binding_verified",31],[last,267]],"total_ms":267})).unwrap();
+        let problem=|| current_products(m,&db,&sw,std::slice::from_ref(&profile)).unwrap().0[0]
+            .details["problem"].clone();
+        // Before: the musician saw an available plug-in and a blank editor.
+        record("refused","keeper_failed");
+        let shown=problem();
+        assert_eq!(shown["code"],"windows_side_stopped");
+        assert!(shown["what_to_try"].as_str().unwrap().contains("Load the plug-in again"));
+        // A later accepted load withdraws it; unknown phases explain nothing.
+        record("accepted","keeper_ready");
+        assert!(problem().is_null());
+        record("refused","bridge_update_required");
+        assert!(problem().is_null());
+        fs::write(startup.join(format!("{class}.json")),b"not json").unwrap();
+        assert!(problem().is_null());
     }
     #[test]
     fn current_product_requires_committed_publication_and_reads_selected_delay() {
