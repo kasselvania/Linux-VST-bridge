@@ -1488,6 +1488,11 @@ fn serve(m: Manager) -> Result<()> {
             },
             Err(error) => eprintln!("interrupted operator work was not checked: {error}"),
         }
+        // An owner finished earlier may still hold this service's reservation,
+        // released once what it waited for (such as its app session) retired.
+        if let Err(error) = operator_cli::restore_terminated_owner(&settle_manager, operator_cli::worker_unit_live) {
+            eprintln!("an interrupted task's service reservation was not released: {error}");
+        }
     }) {
         eprintln!("interrupted operator work check unavailable: {error}");
     }

@@ -300,10 +300,17 @@ fn vendor_projection(
                 ui::Action::VendorApplicationStop {
                     application: selector.into(),
                 },
-                if live || !retired {None}else{Some("This application session is already retired")},
+                if live || !retired || holds_reservation(m,&job)? {None}
+                    else {Some("This application session is already retired")},
             ),
         ],
     }))
+}
+/// A retired session whose interrupted owner still holds the service
+/// reservation keeps Recover, which releases that reservation.
+fn holds_reservation(m: &Manager, job: &Value) -> Result<bool> {
+    Ok(resume_record(m)?.and_then(|saved| saved.vendor_operation)
+        .is_some_and(|vendor| job["operation_id"] == vendor.as_str()))
 }
 fn program_projection(m: &Manager, selector: &str, app: vendor_application::Application,
     live: bool, busy: Option<&str>) -> Result<ui::VendorApplication> {
@@ -1979,32 +1986,37 @@ fn reconcile_dead_workers_with(
     if !directory.try_exists()? {
         return Ok(vec![]);
     }
-    // A queued operation's unit may not exist yet. Only while dispatch is
-    // excluded does a stopped unit prove that a queued worker ended.
-    let dispatch = lock_within(m, "operator-dispatch.lock", Duration::from_secs(2)).ok();
-    let owned = |value: &Value, id: &str| value["operation"] == id
+    let owned = |value: &Value, id: &str, queued: bool| value["operation"] == id
         && value["state"].as_str().is_some_and(|state| WORKER_OWNED_STATES.contains(&state)
-            && (state != "queued" || dispatch.is_some()));
+            && (state != "queued" || queued));
+    // A queued operation's unit may not exist yet. Only while dispatch is
+    // excluded does a stopped unit prove that a queued worker ended. The scan
+    // alone holds the dispatch lock; finishing happens after its release.
+    let candidates = {
+        let dispatch = lock_within(m, "operator-dispatch.lock", Duration::from_secs(2)).ok();
+        let mut candidates = vec![];
+        for (index, entry) in fs::read_dir(&directory)?.enumerate() {
+            require(index < 2048, "operator_inventory_bound")?;
+            let entry = entry?;
+            let Some(id) = entry.file_name().to_str().map(str::to_owned) else { continue };
+            if !valid_hex(&id, 32) || !entry.file_type()?.is_dir() {
+                continue;
+            }
+            // An active, stopping or unobservable unit keeps its operation.
+            if optional(&entry.path().join("result.json")).is_ok_and(|value| owned(&value, &id, dispatch.is_some()))
+                && entry.path().join("request.json").is_file() && matches!(worker_live(&id), Ok(false)) {
+                candidates.push(id);
+            }
+        }
+        candidates
+    };
     let (mut ended, mut failures) = (vec![], vec![]);
-    for (index, entry) in fs::read_dir(&directory)?.enumerate() {
-        require(index < 2048, "operator_inventory_bound")?;
-        let entry = entry?;
-        let Some(id) = entry.file_name().to_str().map(str::to_owned) else { continue };
-        if !valid_hex(&id, 32) || !entry.file_type()?.is_dir() {
-            continue;
-        }
-        let result = entry.path().join("result.json");
-        if !optional(&result).is_ok_and(|value| owned(&value, &id))
-            || !entry.path().join("request.json").is_file() {
-            continue;
-        }
-        // An active, stopping or unobservable unit keeps its operation.
-        if !matches!(worker_live(&id), Ok(false)) {
-            continue;
-        }
-        // A worker still running outside its unit holds this lock.
+    for id in candidates {
+        // A worker still running outside its unit holds this lock. Receipt
+        // and unit are read again under it before anything is finished.
         let Ok(_worker) = m.lock(&format!("operator-worker-{id}.lock")) else { continue };
-        if !optional(&result).is_ok_and(|value| owned(&value, &id)) {
+        if !optional(&job_dir(m, &id)?.join("result.json")).is_ok_and(|value| owned(&value, &id, true))
+            || !matches!(worker_live(&id), Ok(false)) {
             continue;
         }
         if let Err(error) = finish_terminated_worker(m, &id) {
@@ -2022,7 +2034,6 @@ fn reconcile_dead_workers_with(
             refuse_unfinished(m, id, "operator_worker_terminated")?;
         }
     }
-    drop(dispatch);
     if let Some(restore) = restore.as_mut() {
         for id in &ended {
             if let Err(error) = resume_owned_with(m, id, &mut *restore) {
@@ -2031,6 +2042,44 @@ fn reconcile_dead_workers_with(
         }
     }
     Ok(failures)
+}
+/// Every operator receipt, and the latest pointer, is terminal. A request
+/// without a receipt is not.
+pub(super) fn all_operations_finished(m: &Manager) -> Result<bool> {
+    let directory = m.root.join("operator");
+    if !directory.try_exists()? {
+        return Ok(true);
+    }
+    let terminal = |value: &Value| matches!(value["state"].as_str(), Some("completed" | "refused"));
+    let latest = optional(&directory.join("latest.json"))?;
+    if !latest.is_null() && !terminal(&latest) {
+        return Ok(false);
+    }
+    for (index, entry) in fs::read_dir(&directory)?.enumerate() {
+        require(index < 2048, "operator_inventory_bound")?;
+        let entry = entry?;
+        let name = entry.file_name();
+        if name.to_str().is_some_and(|id| valid_hex(id, 32)) && entry.file_type()?.is_dir()
+            && !terminal(&optional(&entry.path().join("result.json"))?) {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+/// A reservation whose owner ended with the machine is released as its
+/// ExecStopPost would have, once whatever it waited for has retired. Recover
+/// cannot do this after the app session is already retired.
+pub(super) fn restore_terminated_owner(m: &Manager,
+    worker_live: impl FnOnce(&str) -> Result<bool>) -> Result<()> {
+    let _resume = resume_lock(m)?;
+    restore_terminated_owner_locked_with(m, worker_live, |saved| restore_service(m, saved))
+}
+/// As `restore_terminated_owner`, with the service restoration supplied.
+#[cfg(test)]
+pub(super) fn restore_terminated_owner_with(m: &Manager, worker_live: impl FnOnce(&str) -> Result<bool>,
+    restore: impl FnOnce() -> Result<()>) -> Result<()> {
+    let _resume = resume_lock(m)?;
+    restore_terminated_owner_locked_with(m, worker_live, |_| restore())
 }
 /// Caller holds operator-resume.lock. A suspension whose owner's worker ended
 /// without restoring the service is restored as its ExecStopPost would have.

@@ -430,8 +430,30 @@ pub(super) fn all_retired(m: &Manager) -> Result<bool> {
 /// Package gate: an app session left unretired by an interruption is checked
 /// exactly as Recover checks it once its unit is empty. A live or
 /// unobservable unit and any unclean verdict refuse with Recover's own words.
-pub(super) fn reverify_interrupted(m: &Manager) -> Result<()> {
-    reverify_interrupted_with(m, live, |selector, operation| reconcile(m, selector, operation))
+///
+/// The census runs with the supervisor shipped in the package whose manager
+/// runs the gate, supplied verified by `tools`: an older installed supervisor
+/// may predate the census entirely. `tools` runs only if a census is needed.
+pub(super) fn reverify_interrupted(m: &Manager, limit: Duration,
+    tools: impl FnOnce() -> Result<(Artifact, Artifact)>) -> Result<()> {
+    reverify_with_tools(m, live, |selector| renderer_session::inspect_unit(&unit(selector)?),
+        Path::new("/usr/bin/python3"), limit, tools)
+}
+fn reverify_with_tools(m: &Manager, live: impl FnMut(&str) -> Result<bool>,
+    inspect: impl Fn(&str) -> Result<renderer_session::UnitState>, interpreter: &Path, limit: Duration,
+    tools: impl FnOnce() -> Result<(Artifact, Artifact)>) -> Result<()> {
+    // Every census shares the caller's budget, so the whole re-check is bounded.
+    let (deadline, mut tools, mut verified) = (Instant::now() + limit, Some(tools), None);
+    reverify_interrupted_with(m, live, |selector, operation| reconcile_with(m, selector, operation,
+        || inspect(selector), |request| {
+            if verified.is_none() {
+                let supply = tools.take().ok_or_else(|| RecoverRefusal::new("vendor_recover_supervisor_unavailable"))?;
+                verified = Some(supply().map_err(|error| RecoverRefusal::caused("vendor_recover_supervisor_unavailable", error))?);
+            }
+            let (supervisor, ownership) = verified.as_ref().ok_or_else(|| RecoverRefusal::new("vendor_recover_supervisor_unavailable"))?;
+            run_recover_census(interpreter, supervisor, ownership, request,
+                RECOVER_CENSUS_LIMIT.min(deadline.saturating_duration_since(Instant::now())))
+        }))
 }
 fn reverify_interrupted_with(m: &Manager, mut live: impl FnMut(&str) -> Result<bool>,
     mut recover: impl FnMut(&str, &str) -> Result<()>) -> Result<()> {
@@ -485,7 +507,6 @@ pub(super) mod interruption_tests {
         reverify_interrupted_with(m, |_| Ok(false), |selector, operation| reconcile_with(m, selector, operation,
             || Ok(renderer_session::UnitState{exists:false,empty:true,observation:None}), |_| Ok(verdict.clone())))
     }
-    pub(crate) const STILL_RUNNING: &str = SERVICE_STILL_RUNNING;
     #[test]
     fn gate_reverification_retires_only_an_empty_unit_with_a_clean_census() {
         let (f,selector,job)=interrupted_session();
@@ -503,6 +524,38 @@ pub(super) mod interruption_tests {
         assert!(result(&f.m,&selector,&job.operation_id).unwrap().retired());
         // A retired session is left alone.
         reverify_interrupted_with(&f.m,|_|Ok(false),|_,_|panic!("A retired session is not re-observed")).unwrap();
+    }
+    #[test]
+    fn gate_census_runs_the_package_supervisor_when_the_installed_one_predates_it() {
+        let (f,selector,job)=interrupted_session();
+        let before=fs::read(&job.report).unwrap();
+        let script=|name:&str,body:&str|->Artifact {
+            let path=f.outer.join(name);fs::write(&path,body).unwrap();Artifact{sha256:digest(&path).unwrap(),path}
+        };
+        let (python,limit)=(Path::new("python3"),Duration::from_secs(20));
+        let ownership=script("ownership.py","");
+        // A supervisor from before the census reads its mode as a spec path.
+        let installed=script("installed.py","import pathlib,sys\npathlib.Path(sys.argv[1]).read_text()\n");
+        let packaged=script("packaged.py",&format!("import json,sys\nassert sys.argv[1:]==['--vendor-recover-census']\n\
+            json.load(sys.stdin)\nprint({:?})\n",census(false).to_string()));
+        let empty=|_:&str|Ok(renderer_session::UnitState{exists:false,empty:true,observation:None});
+        let check=||read_json::<serde_json::Value>(&directory(&f.m,&selector).unwrap().join("recover-check.json")).unwrap();
+        let refusal=reconcile_with(&f.m,&selector,&job.operation_id,||empty(""),
+            |request|run_recover_census(python,&installed,&ownership,request,limit)).unwrap_err();
+        assert!(refusal.downcast_ref::<RecoverRefusal>().unwrap().code.starts_with("vendor_recover_census_"));
+        assert_eq!(check()["result"],"refused");
+        // Unavailable or changed package tools never run and change nothing.
+        let code=|error:Box<dyn std::error::Error+Send+Sync>|error.downcast_ref::<RecoverRefusal>().unwrap().code;
+        assert_eq!(code(reverify_with_tools(&f.m,|_|Ok(false),empty,python,limit,
+            ||Err("package_artifact_changed".into())).unwrap_err()),"vendor_recover_supervisor_unavailable");
+        let stale=Artifact{path:packaged.path.clone(),sha256:"00".repeat(32)};
+        assert_eq!(code(reverify_with_tools(&f.m,|_|Ok(false),empty,python,limit,
+            ||Ok((stale,ownership.clone()))).unwrap_err()),"vendor_recover_supervisor_changed");
+        assert_eq!(fs::read(&job.report).unwrap(),before);
+        // The running package's verified supervisor completes the same check.
+        reverify_with_tools(&f.m,|_|Ok(false),empty,python,limit,||Ok((packaged.clone(),ownership.clone()))).unwrap();
+        assert!(result(&f.m,&selector,&job.operation_id).unwrap().retired());
+        assert_eq!(check()["result"],"retired");
     }
 }
 fn register(m: &Manager, args: &[String]) -> Result<()> {
