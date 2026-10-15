@@ -102,7 +102,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-UI-008](#fc-ui-008--vendor-editor-removal-crashes-the-windows-host) | Vendor editor removal crashes the Windows host | Windows IPlugView removal / Wine UI Automation | causal null-provider defect; vendor caller unproved | exact process policy installed; corrected r4 installed | Ubuntu FRAGMENTS/Deck Analog Lab policy lifecycle; Deck FRAGMENTS retained-policy recall/retirement; Deck MOTIONS r4 Windows-default editor lifecycle; Test41 owned FRAGMENTS/Analog Lab r4 default editor lifecycle | review candidate; old policy disables Windows screen readers | Broader audio/accessibility qualification and manager recovery |
 | [FC-UI-010](#fc-ui-010--result-form-footer-cannot-be-reached-on-deck) | Result form initially hides actions | Manager dialog / Deck viewport | initially hidden footer; scrolling reproduced | installed in Test33 | Fields scroll while actions remain visible; four fresh checks submitted normally | resolved on the tested Deck form | Preserve viewport/click regression coverage |
 | [FC-UI-011](#fc-ui-011--native-editor-remains-blank-in-reaper) | Native editor remains blank in REAPER | Native IPlugView/controller admission | suspected attachment gap; exact guard unproved | none | Deck REAPER 7.82 / Test36 MOTIONS | open | Establish parent/frame refusal; preserve Bitwig lifecycle |
-| [FC-UI-014](#fc-ui-014--x-server-aborts-when-the-daw-dies-with-an-embedded-editor) | X server aborts when the DAW dies with an embedded editor | Native X11 embedding save-set / Xwayland 24.1.9–24.1.10 | causal; reproduced on upstream 24.1.10 | source-fixed | Deck Test88 (Xwayland 24.1.10); headless 24.1.10 before/after | open on SteamOS until installed | Installed Deck comparison |
+| [FC-UI-014](#fc-ui-014--x-server-aborts-when-the-daw-dies-with-an-embedded-editor) | X server aborts when the DAW dies with an embedded editor | Native X11 embedding save-set / Xwayland 24.1.9–24.1.10 | causal; reproduced on upstream 24.1.10 | installed on CachyOS Test92; Deck not installed | upstream Xwayland 24.1.10 headless before/after; CachyOS Test92 (24.1.13) no regression | open on SteamOS until installed | Installed Deck comparison |
 | [FC-MGMT-007](#fc-mgmt-007--retained-proposal-displaces-selected-configuration) | Retained proposal displaces selected configuration | Manager guided projection and frontend action ownership | causal | installed-fixed on reference fixture | Ubuntu config7 full effect/instrument workflow and GUI restoration | reference configuration regression passed; musician workflow unqualified | Physical DAW integration and endurance |
 | [FC-MGMT-008](#fc-mgmt-008--loaded-native-engine-is-not-bound-during-admission) | Loaded native engine missing from admission | Cached DAW factory / selected execution pair | reproduced loader/cache mismatch | modern binding and legacy-publication refresh repaired; normal VM/Deck update passed; full recovery open | Source/loader and Unix-peer gate; VM SDK checkpoint; exact eight-publication Deck update | unqualified for complete recovery | Complete deferred predecessor/interruption and modern stale-caller installed restoration |
 | [FC-MGMT-009](#fc-mgmt-009--package-update-leaves-plug-ins-on-the-old-bridge) | Package update leaves plug-ins on the old bridge | Manager package/publication update | causal; zero refreshes for 11 Deck classes | Target kit comparison installed in Test 11 | All 11 Deck classes switched to the target native/Windows pair | installed regression resolved | Nibbi recorded-state DAW comparison remains separate |
@@ -3573,21 +3573,13 @@ replacement follows A's clean close and adoption survives manager restart.
 
 ## FC-UI-014 — X server aborts when the DAW dies with an embedded editor
 
-Deck, Test88 (SteamOS, Xwayland 24.1.10): stopping REAPER with Kontakt's editor
-embedded aborted Xwayland (`Segmentation fault at address 0x34`), ending every
-X program on the desktop, including the plug-in's Windows side and Steam. The
-proxy kept the Wine editor in its own connection's save-set. When the DAW's
-process dies, the X server moves that editor into the nearest surviving
-ancestor, the DAW's own window, outside any client request; Xwayland 24.1.9
-and 24.1.10 then read the current client, which is null (`xwl_reparent_window`,
-guarded upstream from 24.1.11). Upstream Xwayland 24.1.10 under a headless
-compositor reproduces it with the old proxy code and survives with the fix:
-the rescue now goes to the root window, unmapped (XFixes ChangeSaveSet), a
-path that never reads the current client. CachyOS's Xwayland 24.1.13 did not
-abort with the old code: REAPER SIGTERM, SIGKILL and File > Quit each left the
-X server and the Windows side running. With the fix (Test92, same VM), after
-REAPER was killed the editor window sat at the root, hidden, and the Windows
-side kept running; on main it was destroyed with REAPER's window.
+Deck Test88 (Xwayland 24.1.10): stopping REAPER with Kontakt's editor embedded
+aborted Xwayland and every X program. Any close of the proxy's X connection
+with the editor still embedded made the server move the editor into the DAW's
+window outside a request, where Xwayland 24.1.9–24.1.10 read a null current
+client (guarded upstream from 24.1.11). The rescue now goes to the root,
+unmapped (XFixes ChangeSaveSet): headless upstream 24.1.10 aborts before and
+survives after; CachyOS Test92 (24.1.13) shows no regression. Deck unverified.
 
 ## FC-MIDI-003 — Native descriptor omits the retained event-channel policy
 

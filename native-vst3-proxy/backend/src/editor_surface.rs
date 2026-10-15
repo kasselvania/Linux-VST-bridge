@@ -412,8 +412,9 @@ pub mod x11 {
             self.xfixes.set(Some(major));
             Ok(Some(major))
         }
-        /// If this connection dies with `window` still inside one of its own
-        /// windows, the server moves it to the root, unmapped. It never moves
+        /// If this connection closes while `window` is still in its save-set
+        /// and not already a child of the root, the server moves it to the
+        /// root, unmapped (this includes a detach whose remove timed out). It never moves
         /// it into the DAW's window: on Xwayland before 24.1.11 that move,
         /// made while a dead client is being closed, dereferences a null
         /// current client and aborts the whole X server (and every X program).
