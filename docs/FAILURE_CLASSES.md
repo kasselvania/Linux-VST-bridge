@@ -3584,6 +3584,6 @@ DAW launch; the existing long-playback and touch gaps remain separate.
 
 - [#329](https://github.com/kasselvania/Linux-VST-bridge/issues/329): Choose another installer retains the setup and original history; the selected replacement owns subsequent plug-in connection or installed-app continuation. Missing installation folders require recovery rather than silent recreation. Final source review and packaged acceptance remain pending.
 - [#330](https://github.com/kasselvania/Linux-VST-bridge/issues/330): Serum 2 editor transparency was reported and remains unreproduced.
-- [#331](https://github.com/kasselvania/Linux-VST-bridge/issues/331): The tester noticed the detached editor during an initial tryout; automation workflow impact needs our own testing.
+- [#331](https://github.com/kasselvania/Linux-VST-bridge/issues/331): Generic X11 embedding now passes the first-party CachyOS / REAPER 7.82 custom editor, native Param/last-touched access, real Touch/Read envelope playback and saved-project recall after application restart. Commercial editor acceptance and whole-call audio timing remain open.
 
 - [#333](https://github.com/kasselvania/Linux-VST-bridge/issues/333): Fresh Native Access setup could not reach the historical dependency/renderer route. Portable ordinary-operation integration is under source validation; the installer close-check error and fresh Native Access/Kontakt journey still require installed acceptance.
