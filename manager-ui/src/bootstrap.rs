@@ -244,7 +244,12 @@ fn execute(operation: Operation) -> Result<Vec<u8>, String> {
     // window responsive while awaiting its final result; closing the window
     // does not cancel or replace the managed transition.
     let deadline = (!operation.owns_transition()).then(|| Instant::now()
-        + Duration::from_secs(if matches!(operation, Operation::Status | Operation::SelectedStatus) {
+        // Setup status may first finish work whose owner ended with the
+        // machine and re-check an app session; the manager keeps that within
+        // its 60-second settling budget and waits on no service restoration.
+        + Duration::from_secs(if operation == Operation::Status {
+            90
+        } else if operation == Operation::SelectedStatus {
             10
         } else {
             300
@@ -277,7 +282,7 @@ fn execute(operation: Operation) -> Result<Vec<u8>, String> {
             let _ = child.kill();
             let _ = child.wait();
             return Err(if matches!(operation, Operation::Status | Operation::SelectedStatus) {
-                "Package status readback timed out; no setup action was submitted".into()
+                "The bridge status check took too long. Choose Check again; no update or repair was started.".into()
             } else {
                 "Package setup timed out. Reopen the application to inspect or recover its retained transition; no second request was submitted.".into()
             });
@@ -434,8 +439,33 @@ fn parse_selected_activation_status(data: &[u8]) -> Result<&'static str, String>
     }
 }
 
+/// The manager's final line; earlier lines are notes such as interrupted work
+/// it could not completely finish.
+fn final_line(error: &str) -> &str {
+    error.lines().rev().map(str::trim).find(|line| !line.is_empty()).unwrap_or("")
+}
 fn exact_refusal(error: &str, code: &str) -> bool {
-    error.trim() == code || error.trim() == format!("Error: {code:?}")
+    let error = final_line(error);
+    error == code || error == format!("Error: {code:?}")
+}
+
+/// The manager's refusal in words a musician can act on. A sentence the
+/// manager already wrote loses only the process wrapper; a known gate code
+/// gets a sentence; anything else stays exact for Setup details.
+fn plain_refusal(error: &str) -> String {
+    let last = final_line(error);
+    let inner = last.strip_prefix("Error: \"").and_then(|rest| rest.strip_suffix('"'))
+        .map(|text| text.replace("\\\"", "\"").replace("\\\\", "\\"))
+        .unwrap_or_else(|| last.to_owned());
+    // A restart does not settle what these still find, so none promises it.
+    match inner.as_str() {
+        "package_operator_active_or_ambiguous" => "A bridge task is still running or did not record how it ended. Let it finish, then choose Check again; if this stays, send Setup details.".into(),
+        "package_vendor_owner_active" => "An app session opened through the bridge has not finished closing. Close the app, then choose Check again; if this stays, send Setup details.".into(),
+        "package_installer_owner_active" => "An installer started through the bridge has not finished. Let it finish, then choose Check again; if this stays, send Setup details.".into(),
+        text if text.ends_with('.') && text.contains(' ')
+            && text.starts_with(|c: char| c.is_ascii_uppercase()) => text.into(),
+        _ => error.to_owned(),
+    }
 }
 
 pub struct Bootstrap {
@@ -514,7 +544,7 @@ impl Bootstrap {
             legacy_update: false,
             update_available: false,
             rollback_available: false,
-            result: Some(error),
+            result: Some(plain_refusal(&error)),
             adopted: false,
             attention: true,
             check_queued: false,
@@ -597,7 +627,7 @@ impl Bootstrap {
                 self.attention = true;
                 self.result = Some(if exact_refusal(&error, "package_restart_required") {
                     "The bridge service is stopped, but an interrupted session could not confirm its shutdown. Restart this computer, then reopen Setup to continue. Your projects, installed plug-ins and current application version are retained.".into()
-                } else { error });
+                } else { plain_refusal(&error) });
             }
         }
         false
@@ -1010,6 +1040,33 @@ mod tests {
             let screen = Bootstrap::attention(raw.into());
             assert!(!screen.package_adopt_offered && !screen.recovery_offered);
             assert_eq!(screen.primary_action(), (Operation::Status, "Check again"));
+        }
+    }
+    #[test]
+    fn gate_refusals_are_shown_in_plain_words() {
+        for raw in ["Error: \"package_operator_active_or_ambiguous\"\n", "package_operator_active_or_ambiguous"] {
+            let mut screen = Bootstrap::checking();
+            assert!(!screen.apply_completion(Err(raw.into())));
+            let shown = screen.result.as_deref().unwrap();
+            assert!(shown.starts_with("A bridge task is still running") && !shown.contains('_'), "{shown}");
+            assert_eq!(screen.primary_action(), (Operation::Status, "Check again"));
+        }
+        for code in ["package_vendor_owner_active", "package_installer_owner_active"] {
+            let shown = plain_refusal(&format!("Error: {code:?}\n"));
+            assert!(!shown.contains('_') && shown.ends_with('.'), "{shown}");
+        }
+        // Notes before the final line (interrupted work not finished) are not
+        // the refusal; the manager's own sentence is shown without its wrapper.
+        let manager = "An interrupted bridge task was not completely finished: ab: busy\n\
+            Error: \"The app's support service is still running. Restart the computer, then choose Check again.\"\n";
+        let sentence = "The app's support service is still running. Restart the computer, then choose Check again.";
+        assert_eq!(plain_refusal(manager), sentence);
+        assert_eq!(Bootstrap::attention(manager.into()).result.as_deref(), Some(sentence));
+        let noted = "An interrupted bridge task was not completely finished: ab: busy\nError: \"package_transition_needs_recovery\"\n";
+        assert!(Bootstrap::attention(noted.into()).recovery_offered);
+        // Unknown codes stay exact for Setup details.
+        for raw in ["Error: \"package_owners_changed\"\n", "package_update_required: use Update Bridge"] {
+            assert_eq!(plain_refusal(raw), raw);
         }
     }
 }

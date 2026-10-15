@@ -431,6 +431,28 @@ fn input_executable_with_trust(executable:&Path,home:&Path,name:&str,trust:&Trus
         .ok_or("user_package_executable_identity")?;
     Ok(Some(verify_release_file(&root,row)?))
 }
+/// The running source package's supervisor and ownership modules, each with
+/// its verified path and digest from the signed release. No other file of the
+/// package is read.
+pub fn input_supervisor(executable:&Path,home:&Path)->Result<Option<[(PathBuf,String);2]>> {
+    if !executable.starts_with(home.join(".local/share/linux-vst-bridge/packages")) {
+        return Ok(None);
+    }
+    input_supervisor_with_trust(executable,home,&Trust::compiled()?)
+}
+fn input_supervisor_with_trust(executable:&Path,home:&Path,trust:&Trust)
+    ->Result<Option<[(PathBuf,String);2]>> {
+    let Some((root,release))=input_release_record_with_trust(executable,home,trust)? else {
+        return Ok(None);
+    };
+    let verified=|name:&str|->Result<(PathBuf,String)> {
+        let destination=format!("usr/lib/linux-vst-bridge/supervisor/{name}");
+        let row=release.files.iter().find(|row|row.destination==destination)
+            .ok_or("user_package_supervisor_identity")?;
+        Ok((verify_release_file(&root,row)?,row.sha256.clone()))
+    };
+    Ok(Some([verified("session.pyc")?,verified("ownership.pyc")?]))
+}
 /// Only the running source-package executable selects its source. A selected
 /// generation executable is an ordinary product route, not a package input.
 pub fn input_root(executable:&Path, home:&Path) -> Result<Option<PathBuf>> {
@@ -604,6 +626,36 @@ mod tests {
         fs::write(&second,b"changed source frontend").unwrap();
         assert!(input_root_with_trust(&second,&f.home,&f.trust()).is_err());
         assert_eq!(fs::read(&setup).unwrap(),setup_bytes);
+    }
+    #[test]
+    fn gate_supervisor_lookup_verifies_only_its_two_signed_rows() {
+        let f=Fixture::new();let frontend=Bundle::open(&f.bundle("1.0"),f.trust())
+            .unwrap().stage(&f.home).unwrap();
+        let source=input_root_record_with_trust(&frontend,&f.home,&f.trust()).unwrap().unwrap();
+        let lookup=||input_supervisor_with_trust(&frontend,&f.home,&f.trust());
+        let [(supervisor,supervisor_sha256),(ownership,ownership_sha256)]=lookup().unwrap().unwrap();
+        assert_eq!(supervisor,source.join("lib/linux-vst-bridge/supervisor/session.pyc"));
+        assert_eq!(ownership,source.join("lib/linux-vst-bridge/supervisor/ownership.pyc"));
+        assert_eq!(supervisor_sha256,hex(&Sha256::digest(fs::read(&supervisor).unwrap())));
+        assert_eq!(ownership_sha256,hex(&Sha256::digest(fs::read(&ownership).unwrap())));
+        // Other package files are not read for the census.
+        let unrelated=source.join("lib/linux-vst-bridge/self-test/Fixture.exe");
+        let bytes=fs::read(&unrelated).unwrap();
+        fs::set_permissions(&unrelated,fs::Permissions::from_mode(0o644)).unwrap();
+        fs::write(&unrelated,vec![b'X';bytes.len()]).unwrap();
+        fs::set_permissions(&unrelated,fs::Permissions::from_mode(0o444)).unwrap();
+        assert!(lookup().unwrap().is_some());
+        // A changed supervisor is never offered to run.
+        let bytes=fs::read(&supervisor).unwrap();
+        fs::set_permissions(&supervisor,fs::Permissions::from_mode(0o644)).unwrap();
+        fs::write(&supervisor,vec![b'Y';bytes.len()]).unwrap();
+        fs::set_permissions(&supervisor,fs::Permissions::from_mode(0o444)).unwrap();
+        assert_eq!(lookup().unwrap_err().to_string(),"user_package_file_changed");
+        // A manager that is not a source-package executable has no package supervisor.
+        let selected=f.home.join(".local/share/linux-vst-bridge/managed/software/selected/linux-vst-bridge");
+        directory(selected.parent().unwrap()).unwrap();fs::write(&selected,b"selected manager").unwrap();
+        assert!(input_supervisor_with_trust(&selected,&f.home,&f.trust()).unwrap().is_none());
+        assert!(input_supervisor(&selected,&f.home).unwrap().is_none());
     }
     #[test]
     fn status_source_resolution_hashes_only_the_exact_executables_it_launches() {

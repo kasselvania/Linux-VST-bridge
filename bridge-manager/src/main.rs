@@ -1477,6 +1477,25 @@ fn serve(m: Manager) -> Result<()> {
     }
     let listener = UnixListener::bind(address)?;
     let manager = Arc::new(m);
+    // A freeze or power loss can remove an operator worker's unit before its
+    // ExecStopPost records the end and restores this service. Finish exactly
+    // those operations now; their restoration handshake needs this listener.
+    let settle_manager = manager.clone();
+    if let Err(error) = std::thread::Builder::new().spawn(move || {
+        match operator_cli::reconcile_dead_workers(&settle_manager) {
+            Ok(failures) => for failure in failures {
+                eprintln!("interrupted operator work was not completely finished: {failure}");
+            },
+            Err(error) => eprintln!("interrupted operator work was not checked: {error}"),
+        }
+        // An owner finished earlier may still hold this service's reservation,
+        // released once what it waited for (such as its app session) retired.
+        if let Err(error) = operator_cli::restore_terminated_owner(&settle_manager, operator_cli::worker_unit_live) {
+            eprintln!("an interrupted task's service reservation was not released: {error}");
+        }
+    }) {
+        eprintln!("interrupted operator work check unavailable: {error}");
+    }
     let launch_verification = Arc::new(LaunchVerification::default());
     // Warm the owned runtime outside the interactive request and registry
     // locks. The listener still serves setup/recovery while bytes are read.
