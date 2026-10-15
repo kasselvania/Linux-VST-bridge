@@ -77,9 +77,15 @@ struct BusLayout {
   ap1::require(p.setBusArrangements(ni?in.data():nullptr,ni,no?out.data():nullptr,no)==kResultOk,"SDK bus negotiation rejected");
   for(int d=0;d<2;++d)for(int i=0;i<(d?no:ni);++i){SpeakerArrangement a=0;ap1::require(p.getBusArrangement(d,i,a)==kResultOk&&a==(d?out[i]:in[i]),"SDK arrangement changed");}
  }
+ // Deactivation follows setActive(false); nothing is processed until the next
+ // activation, which enables every used bus again. A plug-in may refuse to
+ // disable a bus it always needs (JUCE refuses to disable a main bus its
+ // layout requires): that ordinary refusal changes nothing and is accepted.
+ // Activation, and any other deactivation result, stays strict.
  void activate(Steinberg::Vst::IComponent& c,bool enabled)const {
   std::array<int,4> index{};for(size_t i=0;i<size;++i){const auto& b=buses[i];auto m=b.info.mediaType,d=b.info.direction;
-   ap1::require(c.activateBus(m,d,index[m*2+d]++,enabled&&b.active)==Steinberg::kResultOk,"SDK bus activation rejected");}
+   const auto r=c.activateBus(m,d,index[m*2+d]++,enabled&&b.active);
+   ap1::require(r==Steinberg::kResultOk||(!enabled&&(r==Steinberg::kResultFalse||r==Steinberg::kNotImplemented)),"SDK bus activation rejected");}
  }
 };
 }
