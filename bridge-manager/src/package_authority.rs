@@ -1152,6 +1152,19 @@ fn preflight(m: &Manager, service: &impl ServiceControl) -> Result<()> {
     transport_storage::require_no_sessions()?;
     Ok(())
 }
+/// A freeze or power loss can end an operator worker or an app session without
+/// the owner that records its end. Settle exactly those before a gate reads
+/// them, so they cannot block the update that would fix them. Live or
+/// unobservable owners are untouched and still refuse. Callers hold neither
+/// the registry nor, where avoidable, the resume lock (an interrupted
+/// automatic installation releases its checks through it). The service
+/// reservation of a finished operation is left to the package transition.
+fn settle_interrupted(m: &Manager, service: &impl ServiceControl) -> Result<()> {
+    operator_cli::settle_dead_workers(m, |operation| service.worker_live(operation))?;
+    // Setup shows the refusal's own sentence; its code and census stay in the
+    // app's recover-check record for Setup details.
+    service.reverify_vendor(m).map_err(|refusal| refusal.to_string().into())
+}
 fn recovery_preflight(m: &Manager,
     transition: &CoordinatedTransition, service: &impl ServiceControl) -> Result<()> {
     require(!reconcile_leases(m)?, "package_cleanup_unconfirmed")?;
@@ -1691,6 +1704,9 @@ fn stop_for_coordinated_with_registry(m: &Manager, home: &Path, inputs: &Inputs,
 }
 fn adopt_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl) -> Result<()> {
+    // A pending service reservation refuses anyway; settle only if it may help.
+    operator_cli::require_no_package_resume(m)?;
+    settle_interrupted(m, service)?;
     with_locks(m, || {
         operator_cli::require_no_package_resume(m)?;
         require_service_stopped(service)?;
@@ -1721,6 +1737,8 @@ fn adopt_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     })
 }
 fn rollback_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Result<()> {
+    operator_cli::require_no_package_resume(m)?;
+    settle_interrupted(m, service)?;
     with_locks(m, || {
         operator_cli::require_no_package_resume(m)?;
         require_service_stopped(service)?;
@@ -1762,6 +1780,10 @@ fn update_from_with_registry(m: &Manager, home: &Path, inputs: &Inputs, owner: u
     mut acquire_recovery_registry: impl FnMut() -> Result<Lock>) -> Result<()> {
     let _package = m.lock("package.lock")?;
     let _setup = m.lock("setup.lock")?;
+    // Before capture: an interrupted owner must be terminal and its app
+    // session retired before its service reservation can be handed over.
+    // Settling may briefly take the resume lock itself, so it comes first.
+    settle_interrupted(m, service)?;
     let _resume = operator_cli::resume_lock(m)?;
     let current = old_software(m)?.ok_or("package_not_installed")?;
     let captured = operator_cli::capture_package_resume_with(m,&current,|op|service.worker_live(op))?;
@@ -1833,7 +1855,11 @@ fn restore_from_with_registry(m: &Manager, home: &Path, inputs: &Inputs, owner: 
     mut acquire_recovery_registry: impl FnMut() -> Result<Lock>) -> Result<()> {
     let _package = m.lock("package.lock")?;
     let _setup = m.lock("setup.lock")?;
+    settle_interrupted(m, service)?;
     let _resume = operator_cli::resume_lock(m)?;
+    // Restore carries no service reservation; the interrupted owner's own
+    // restoration is completed first, as its worker would have.
+    operator_cli::restore_terminated_owner_locked(m, |operation| service.worker_live(operation))?;
     operator_cli::require_no_package_resume(m)?;
     let current = old_software(m)?.ok_or("package_not_installed")?;
     let restart_prior = stop_for_coordinated_with_registry(m, home, inputs, owner, service,
@@ -1943,6 +1969,7 @@ trait ServiceControl {
     fn idle(&self, m: &Manager) -> Result<Vec<capacity::Owner>>;
     fn clean_idle(&self, m: &Manager) -> Result<Vec<capacity::Owner>>;
     fn vendor_retired(&self, m: &Manager) -> Result<bool> {operator_cli::vendor_retired(m)}
+    fn reverify_vendor(&self, m: &Manager) -> Result<()> {vendor_cli::reverify_interrupted(m)}
     fn worker_live(&self, operation: &str) -> Result<bool> {
         require(valid_hex(operation,32),"package_resume_identity")?;
         match readiness::bounded_user_unit_state(&format!("linux-vst-bridge-operator-{operation}.service"))?.as_str() {
@@ -2263,6 +2290,7 @@ fn bootstrap_status_with_registry(m: &Manager, home: &Path, inputs: &Inputs, own
 fn stop_gate(m: &Manager, service: &impl ServiceControl,
     acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<Vec<capacity::Owner>> {
     let before = service.idle(m)?;
+    settle_interrupted(m, service)?;
     let latest = m.root.join("operator/latest.json");
     if latest.try_exists()? {
         let operation: serde_json::Value = read_json(&latest)?;
@@ -2414,6 +2442,7 @@ fn activate_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Res
     let (selected, version, state) = selected_activation(m, home, service)?;
     let starting = state.active != "active";
     if starting {
+        settle_interrupted(m, service)?;
         preflight(m,service)?;
         let (checked, checked_version, checked_state) = selected_activation(m, home, service)?;
         require(checked == selected && checked_version == version
@@ -2498,6 +2527,7 @@ mod tests {
         setup:setup_install::Plan,receipt:LegacyReceipt,
     }
     type ReadbackHook = Box<dyn FnOnce(&Manager)>;
+    type VendorHook = Box<dyn Fn(&Manager) -> Result<()>>;
     struct FakeService {
         home: PathBuf,
         loaded: RefCell<UnitReadback>,
@@ -2511,6 +2541,8 @@ mod tests {
         fail_idle: Cell<bool>,
         fail_clean: Cell<bool>,
         worker_active: Cell<bool>,
+        worker_unavailable: Cell<bool>,
+        reverify: RefCell<Option<VendorHook>>,
         before_clean: RefCell<Option<ReadbackHook>>,
         legacy_start_manager: RefCell<Option<PathBuf>>,
         fail_stop: Cell<bool>,
@@ -2528,6 +2560,7 @@ mod tests {
                 fail_starts: Cell::new(0),
                 fail_health: Cell::new(false), fail_health_reads: Cell::new(0), fail_idle: Cell::new(false),
                 fail_clean: Cell::new(false),worker_active:Cell::new(false),
+                worker_unavailable:Cell::new(false),reverify:RefCell::new(None),
                 before_clean:RefCell::new(None),
                 legacy_start_manager:RefCell::new(None),
                 fail_stop: Cell::new(false), retire_keepers: Cell::new(true),
@@ -2602,7 +2635,16 @@ mod tests {
             require(!self.fail_clean.get(),"package_resume_cleanup_unconfirmed")?;
             self.idle(m)
         }
-        fn worker_live(&self, _: &str) -> Result<bool> {Ok(self.worker_active.get())}
+        fn worker_live(&self, _: &str) -> Result<bool> {
+            require(!self.worker_unavailable.get(),"package_resume_worker_state_unavailable")?;
+            Ok(self.worker_active.get())
+        }
+        fn reverify_vendor(&self, m: &Manager) -> Result<()> {
+            match self.reverify.borrow().as_ref() {
+                Some(hook) => hook(m),
+                None => vendor_cli::reverify_interrupted(m),
+            }
+        }
         fn vendor_retired(&self, m: &Manager) -> Result<bool> {
             operator_cli::vendor_retired_with(m,||Ok(false))
         }
@@ -3262,6 +3304,67 @@ mod tests {
         assert!(stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
             &f.service).is_err());
         assert_eq!(f.service.stops.get(), 0);
+    }
+
+    #[test]
+    fn operation_interrupted_with_its_worker_unit_no_longer_blocks_update() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        f.replace("linux-vst-bridge", b"successor manager", true);
+        // The host froze during an app session: the worker unit and its
+        // ExecStopPost vanished, leaving the receipt at vendor_running.
+        let id = "7d".repeat(16);
+        let directory = f.base.m.root.join("operator").join(&id);
+        private_dir(&directory).unwrap();
+        atomic_json(&directory.join("request.json"), &serde_json::json!({
+            "schema":operator_model::OPERATOR_SCHEMA,"state_token":"00".repeat(32),
+            "action":{"kind":"capture_disarm"}})).unwrap();
+        let interrupted = serde_json::json!({"schema":1,"operation":id,"state":"vendor_running"});
+        atomic_json(&directory.join("result.json"), &interrupted).unwrap();
+        let latest = f.base.m.root.join("operator/latest.json");
+        atomic_json(&latest, &interrupted).unwrap();
+        let status = || bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service);
+        f.service.worker_unavailable.set(true);
+        assert_eq!(status().err().unwrap().to_string(), "package_operator_active_or_ambiguous");
+        f.service.worker_unavailable.set(false);
+        f.service.worker_active.set(true);
+        assert_eq!(status().err().unwrap().to_string(), "package_operator_active_or_ambiguous");
+        assert_eq!(read_json::<serde_json::Value>(&directory.join("result.json")).unwrap(), interrupted);
+        f.service.worker_active.set(false);
+        assert_eq!(status().unwrap().state, "update_active");
+        let finished: serde_json::Value = read_json(&directory.join("result.json")).unwrap();
+        assert_eq!((finished["state"].as_str(), finished["reason"].as_str()),
+            (Some("refused"), Some("operator_worker_terminated")));
+        assert_eq!(read_json::<serde_json::Value>(&latest).unwrap(), finished);
+        stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service).unwrap();
+        assert_eq!(f.service.stops.get(), 1);
+    }
+
+    #[test]
+    fn update_gate_reverifies_an_interrupted_app_session() {
+        use super::vendor_cli::interruption_tests as interruption;
+        for running in [true, false] {
+            let (base, selector, job) = interruption::interrupted_session();
+            let f = Fixture::with_base(base);
+            *f.service.reverify.borrow_mut() = Some(Box::new(move |m|
+                interruption::reverify_with_census(m, interruption::census(running))));
+            let unit = vec![format!("linux-vst-bridge-vendor-{selector}.service")];
+            let before = fs::read(&job.report).unwrap();
+            let gate = readiness::with_unit_state_fixture(&unit, "inactive", ||
+                stop_gate(&f.base.m, &f.service, &mut || f.base.m.lock("registry.lock")));
+            let retired = readiness::with_unit_state_fixture(&unit, "inactive", ||
+                operator_cli::vendor_retired_with(&f.base.m, || Ok(false))).unwrap();
+            if running {
+                // Recover's own words, not package_vendor_owner_active.
+                assert_eq!(gate.unwrap_err().to_string(), interruption::STILL_RUNNING);
+                assert_eq!(fs::read(&job.report).unwrap(), before);
+                assert!(!retired);
+            } else {
+                gate.unwrap();
+                assert!(retired);
+            }
+        }
     }
 
     #[test]
@@ -4941,9 +5044,14 @@ print('LVO0 '+j['session']+' ready',flush=True)
         let first = f.current();
         let (reservation,original,failed,failed_bytes) = retired_suspension(&f,&first);
         let before = fs::read(f.base.m.root.join("software.json")).unwrap();
-        for result in [adopt_from(&f.base.m,&f.home,&f.inputs,f.owner,&f.service),
-            rollback_from(&f.base.m,&f.home,&f.service),
-            restore_from(&f.base.m,&f.home,&f.inputs,f.owner,&f.service)] {
+        // Restore first re-checks interrupted sessions. Model the retired
+        // app's exact unit rather than depending on the test host's bus.
+        let results = readiness::with_unit_state_fixture(
+            &["linux-vst-bridge-vendor-arturia-software-center.service".into()],"inactive",
+            || [adopt_from(&f.base.m,&f.home,&f.inputs,f.owner,&f.service),
+                rollback_from(&f.base.m,&f.home,&f.service),
+                restore_from(&f.base.m,&f.home,&f.inputs,f.owner,&f.service)]);
+        for result in results {
             assert_eq!(result.unwrap_err().to_string(),"package_resume_requires_coordinated_update");
         }
         assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(),before);

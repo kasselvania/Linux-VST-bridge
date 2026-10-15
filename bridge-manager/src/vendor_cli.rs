@@ -427,6 +427,84 @@ pub(super) fn all_retired(m: &Manager) -> Result<bool> {
     }
     Ok(true)
 }
+/// Package gate: an app session left unretired by an interruption is checked
+/// exactly as Recover checks it once its unit is empty. A live or
+/// unobservable unit and any unclean verdict refuse with Recover's own words.
+pub(super) fn reverify_interrupted(m: &Manager) -> Result<()> {
+    reverify_interrupted_with(m, live, |selector, operation| reconcile(m, selector, operation))
+}
+fn reverify_interrupted_with(m: &Manager, mut live: impl FnMut(&str) -> Result<bool>,
+    mut recover: impl FnMut(&str, &str) -> Result<()>) -> Result<()> {
+    for selector in selectors(m)? {
+        let directory = directory(m, &selector)?;
+        if !directory.join("operation.json").exists() || live(&selector)? {
+            continue;
+        }
+        let job: vendor_application::Operation = read_json(&directory.join("operation.json"))?;
+        if !result(m, &selector, &job.operation_id)?.retired() {
+            recover(&selector, &job.operation_id)?;
+        }
+    }
+    Ok(())
+}
+#[cfg(test)]
+pub(super) mod interruption_tests {
+    use super::*;
+    /// A profile-managed session whose machine froze while its support
+    /// service ran: ready, service actions started, cleanup unconfirmed.
+    pub(crate) fn interrupted_session() -> (test_fixture::Fixture, String, vendor_application::Operation) {
+        let (f,app,_)=selection::tests::structured_application(31);
+        let capabilities=linux_vst_bridge::vendor_profile::inspect(&app,&f.m.root).unwrap().capabilities.unwrap();
+        let selector=app.selector().unwrap();
+        selection::select(&f.m,&selector).unwrap();
+        let software=Software{manager:f.r.host.clone(),supervisor:f.r.host.clone(),ownership:f.r.host.clone(),
+            host:f.r.host.clone(),source_manifest:f.r.host.clone(),source_sha256:f.r.host.sha256.clone(),
+            installer_launch:Some(f.r.host.clone()),preparation_kit:None,operator_frontend:None,native_catalogue:None};
+        let directory=directory(&f.m,&selector).unwrap();
+        let job=vendor_application::Operation{application:app,report:directory.join("operation-result.json"),
+            mode:LaunchMode::Normal,operation_id:random_id().unwrap(),launcher:software.installer_launch.clone(),
+            managed:Some(linux_vst_bridge::vendor_profile::ManagedLaunch::new(capabilities,software).unwrap()),capability_notice:None};
+        atomic_json(&directory.join("operation.json"),&job).unwrap();
+        atomic_json(&job.report,&json!({"schema":3,"operation_id":job.operation_id,"state":"running",
+            "launcher_exit":null,"owned_live":4,"cleanup_confirmed":false,"error":null,
+            "discarded_diagnostic_bytes":0,"account_posture":"unknown",
+            "dependency":{"schema":1,"ready_tested":true,"daemon":{"sha256":"ee".repeat(32),"size":4096,"architecture":"x64"},
+                "service_actions_started":true,"service_retirement_confirmed":false,"process_cleanup_confirmed":false,
+                "dependency_cleanup_disposition":"cleanup_unconfirmed","post_cleanup":null}})).unwrap();
+        (f,selector,job)
+    }
+    /// The supervisor census verdict: clean absence, or a remaining daemon.
+    pub(crate) fn census(running: bool) -> serde_json::Value {
+        json!({"schema":1,"verdict":if running {"running"} else {"absent"},"prefix_unchanged":true,
+            "application_image_unchanged":true,"daemon_image_unchanged":true,"daemon_identity":"unchanged",
+            "daemon_name_observable":true,"images_changed":[],
+            "candidate_count":u64::from(running),"candidate_observation_unavailable":0,"listener_mask":0})
+    }
+    /// The package gate's re-verification with an empty unit and a fixed census.
+    pub(crate) fn reverify_with_census(m: &Manager, verdict: serde_json::Value) -> Result<()> {
+        reverify_interrupted_with(m, |_| Ok(false), |selector, operation| reconcile_with(m, selector, operation,
+            || Ok(renderer_session::UnitState{exists:false,empty:true,observation:None}), |_| Ok(verdict.clone())))
+    }
+    pub(crate) const STILL_RUNNING: &str = SERVICE_STILL_RUNNING;
+    #[test]
+    fn gate_reverification_retires_only_an_empty_unit_with_a_clean_census() {
+        let (f,selector,job)=interrupted_session();
+        let before=fs::read(&job.report).unwrap();
+        // A live or unobservable unit is never re-observed.
+        reverify_interrupted_with(&f.m,|_|Ok(true),|_,_|panic!("A live session is not re-observed")).unwrap();
+        assert!(reverify_interrupted_with(&f.m,|_|Err("readiness_unit_state_unavailable".into()),
+            |_,_|panic!("An unobservable session is not re-observed")).is_err());
+        let refusal=reverify_with_census(&f.m,census(true)).unwrap_err();
+        assert_eq!(refusal.to_string(),SERVICE_STILL_RUNNING);
+        assert_eq!(refusal.downcast_ref::<RecoverRefusal>().unwrap().code,"vendor_recover_service_running");
+        assert_eq!(fs::read(&job.report).unwrap(),before);
+        assert!(!result(&f.m,&selector,&job.operation_id).unwrap().retired());
+        reverify_with_census(&f.m,census(false)).unwrap();
+        assert!(result(&f.m,&selector,&job.operation_id).unwrap().retired());
+        // A retired session is left alone.
+        reverify_interrupted_with(&f.m,|_|Ok(false),|_,_|panic!("A retired session is not re-observed")).unwrap();
+    }
+}
 fn register(m: &Manager, args: &[String]) -> Result<()> {
     require(
         (3..=19).contains(&args.len()),

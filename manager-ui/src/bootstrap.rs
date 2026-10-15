@@ -244,7 +244,11 @@ fn execute(operation: Operation) -> Result<Vec<u8>, String> {
     // window responsive while awaiting its final result; closing the window
     // does not cancel or replace the managed transition.
     let deadline = (!operation.owns_transition()).then(|| Instant::now()
-        + Duration::from_secs(if matches!(operation, Operation::Status | Operation::SelectedStatus) {
+        // Setup status may re-observe an interrupted app session through a
+        // read-only census that the manager bounds at 60 seconds.
+        + Duration::from_secs(if operation == Operation::Status {
+            90
+        } else if operation == Operation::SelectedStatus {
             10
         } else {
             300
@@ -438,6 +442,24 @@ fn exact_refusal(error: &str, code: &str) -> bool {
     error.trim() == code || error.trim() == format!("Error: {code:?}")
 }
 
+/// The manager's refusal in words a musician can act on. A sentence the
+/// manager already wrote loses only the process wrapper; a known gate code
+/// gets a sentence; anything else stays exact for Setup details.
+fn plain_refusal(error: &str) -> String {
+    let trimmed = error.trim();
+    let inner = trimmed.strip_prefix("Error: \"").and_then(|rest| rest.strip_suffix('"'))
+        .map(|text| text.replace("\\\"", "\"").replace("\\\\", "\\"))
+        .unwrap_or_else(|| trimmed.to_owned());
+    match inner.as_str() {
+        "package_operator_active_or_ambiguous" => "A bridge task is still running, or one stopped without recording how it ended. Let it finish, then check again. If this stays after restarting the computer, send Setup details.".into(),
+        "package_vendor_owner_active" => "An app opened through the bridge has not finished closing. Close it, then check again. If this stays, restart the computer, then check again.".into(),
+        "package_installer_owner_active" => "An installer started through the bridge has not finished. Let it finish, then check again. If this stays, restart the computer, then check again.".into(),
+        text if text.ends_with('.') && text.contains(' ')
+            && text.starts_with(|c: char| c.is_ascii_uppercase()) => text.into(),
+        _ => error.to_owned(),
+    }
+}
+
 pub struct Bootstrap {
     receiver: Option<Receiver<Result<Completion, String>>>,
     running: Option<Operation>,
@@ -514,7 +536,7 @@ impl Bootstrap {
             legacy_update: false,
             update_available: false,
             rollback_available: false,
-            result: Some(error),
+            result: Some(plain_refusal(&error)),
             adopted: false,
             attention: true,
             check_queued: false,
@@ -597,7 +619,7 @@ impl Bootstrap {
                 self.attention = true;
                 self.result = Some(if exact_refusal(&error, "package_restart_required") {
                     "The bridge service is stopped, but an interrupted session could not confirm its shutdown. Restart this computer, then reopen Setup to continue. Your projects, installed plug-ins and current application version are retained.".into()
-                } else { error });
+                } else { plain_refusal(&error) });
             }
         }
         false
@@ -1010,6 +1032,28 @@ mod tests {
             let screen = Bootstrap::attention(raw.into());
             assert!(!screen.package_adopt_offered && !screen.recovery_offered);
             assert_eq!(screen.primary_action(), (Operation::Status, "Check again"));
+        }
+    }
+    #[test]
+    fn gate_refusals_are_shown_in_plain_words() {
+        for raw in ["Error: \"package_operator_active_or_ambiguous\"\n", "package_operator_active_or_ambiguous"] {
+            let mut screen = Bootstrap::checking();
+            assert!(!screen.apply_completion(Err(raw.into())));
+            let shown = screen.result.as_deref().unwrap();
+            assert!(shown.starts_with("A bridge task is still running") && !shown.contains('_'), "{shown}");
+            assert_eq!(screen.primary_action(), (Operation::Status, "Check again"));
+        }
+        for code in ["package_vendor_owner_active", "package_installer_owner_active"] {
+            let shown = plain_refusal(&format!("Error: {code:?}\n"));
+            assert!(!shown.contains('_') && shown.ends_with('.'), "{shown}");
+        }
+        let manager = "Error: \"The app's support service is still running. Restart the computer, then use Recover again.\"\n";
+        let sentence = "The app's support service is still running. Restart the computer, then use Recover again.";
+        assert_eq!(plain_refusal(manager), sentence);
+        assert_eq!(Bootstrap::attention(manager.into()).result.as_deref(), Some(sentence));
+        // Unknown codes stay exact for Setup details.
+        for raw in ["Error: \"package_owners_changed\"\n", "package_update_required: use Update Bridge"] {
+            assert_eq!(plain_refusal(raw), raw);
         }
     }
 }

@@ -1922,6 +1922,133 @@ fn native_access_session_summary(result:&Value,recovery:&Value)->Result<Value> {
 }
 
 fn finish_operation(m: &Manager, id: &str) -> Result<()> {
+    let (installer_cleanup, preparation_cleanup) = finish_owned_work(m, id);
+    // A failed installer readback must not leave the generic worker queued.
+    let finalized = finish_operation_with(m, id, |saved| restore_service(m, saved));
+    installer_cleanup?;
+    preparation_cleanup?;
+    finalized
+}
+/// Everything the worker unit's ExecStopPost records except restoring the
+/// service that the operation suspended.
+fn finish_terminated_worker(m: &Manager, id: &str) -> Result<()> {
+    let (installer_cleanup, preparation_cleanup) = finish_owned_work(m, id);
+    let finalized = refuse_unfinished(m, id, "operator_worker_terminated");
+    installer_cleanup?;
+    preparation_cleanup?;
+    finalized
+}
+/// States a worker unit writes while it owns its operation. Dispatch writes
+/// `queued` before the unit starts; `unconfirmed` precedes dispatch itself.
+const WORKER_OWNED_STATES: [&str; 5] = ["queued", "waiting", "running", "vendor_running", "submission_uncertain"];
+pub(super) fn worker_unit_live(operation: &str) -> Result<bool> {
+    require(valid_hex(operation, 32), "operator_operation_identity")?;
+    // The bounded reader admits only known unit states; anything else is an error.
+    let state = readiness::bounded_user_unit_state(&format!("linux-vst-bridge-operator-{operation}.service"))?;
+    Ok(!matches!(state.as_str(), "inactive" | "failed"))
+}
+/// Service startup: an operation whose worker unit ended without its
+/// ExecStopPost (machine freeze, power loss, killed user manager) is finished
+/// exactly as that step would have, including the service restoration it owns.
+/// Returns what could not be finished, for the service log.
+pub(super) fn reconcile_dead_workers(m: &Manager) -> Result<Vec<String>> {
+    reconcile_dead_workers_with(m, worker_unit_live, Some(|saved: &ResumeRecord| restore_service(m, saved)))
+}
+/// Package gate: the same, except that the package transition itself carries
+/// any service reservation the operation left, so nothing is restarted here.
+pub(super) fn settle_dead_workers(m: &Manager, worker_live: impl FnMut(&str) -> Result<bool>)
+    -> Result<Vec<String>> {
+    reconcile_dead_workers_with(m, worker_live, None::<fn(&ResumeRecord) -> Result<()>>)
+}
+fn lock_within(m: &Manager, name: &str, limit: Duration) -> Result<Lock> {
+    let deadline = Instant::now() + limit;
+    loop {
+        match m.lock(name) {
+            Err(e) if e.is::<linux_vst_bridge::operator_lock::LockBusy>() && Instant::now() < deadline =>
+                std::thread::sleep(Duration::from_millis(20)),
+            other => return other,
+        }
+    }
+}
+fn reconcile_dead_workers_with(
+    m: &Manager,
+    mut worker_live: impl FnMut(&str) -> Result<bool>,
+    mut restore: Option<impl FnMut(&ResumeRecord) -> Result<()>>,
+) -> Result<Vec<String>> {
+    let directory = m.root.join("operator");
+    if !directory.try_exists()? {
+        return Ok(vec![]);
+    }
+    // A queued operation's unit may not exist yet. Only while dispatch is
+    // excluded does a stopped unit prove that a queued worker ended.
+    let dispatch = lock_within(m, "operator-dispatch.lock", Duration::from_secs(2)).ok();
+    let owned = |value: &Value, id: &str| value["operation"] == id
+        && value["state"].as_str().is_some_and(|state| WORKER_OWNED_STATES.contains(&state)
+            && (state != "queued" || dispatch.is_some()));
+    let (mut ended, mut failures) = (vec![], vec![]);
+    for (index, entry) in fs::read_dir(&directory)?.enumerate() {
+        require(index < 2048, "operator_inventory_bound")?;
+        let entry = entry?;
+        let Some(id) = entry.file_name().to_str().map(str::to_owned) else { continue };
+        if !valid_hex(&id, 32) || !entry.file_type()?.is_dir() {
+            continue;
+        }
+        let result = entry.path().join("result.json");
+        if !optional(&result).is_ok_and(|value| owned(&value, &id))
+            || !entry.path().join("request.json").is_file() {
+            continue;
+        }
+        // An active, stopping or unobservable unit keeps its operation.
+        if !matches!(worker_live(&id), Ok(false)) {
+            continue;
+        }
+        // A worker still running outside its unit holds this lock.
+        let Ok(_worker) = m.lock(&format!("operator-worker-{id}.lock")) else { continue };
+        if !optional(&result).is_ok_and(|value| owned(&value, &id)) {
+            continue;
+        }
+        if let Err(error) = finish_terminated_worker(m, &id) {
+            failures.push(format!("{id}: {error}"));
+        }
+        ended.push(id);
+    }
+    // The receipt is written before the latest pointer. Republish a terminal
+    // receipt that an interruption left behind a live pointer.
+    let latest = optional(&directory.join("latest.json"))?;
+    if let Some(id) = latest["operation"].as_str().filter(|id| valid_hex(id, 32)) {
+        let current = optional(&job_dir(m, id)?.join("result.json"))?;
+        if !matches!(latest["state"].as_str(), Some("completed" | "refused"))
+            && current["operation"] == id && matches!(current["state"].as_str(), Some("completed" | "refused")) {
+            refuse_unfinished(m, id, "operator_worker_terminated")?;
+        }
+    }
+    drop(dispatch);
+    if let Some(restore) = restore.as_mut() {
+        for id in &ended {
+            if let Err(error) = resume_owned_with(m, id, &mut *restore) {
+                failures.push(format!("{id}: {error}"));
+            }
+        }
+    }
+    Ok(failures)
+}
+/// Caller holds operator-resume.lock. A suspension whose owner's worker ended
+/// without restoring the service is restored as its ExecStopPost would have.
+pub(super) fn restore_terminated_owner_locked(m: &Manager,
+    worker_live: impl FnOnce(&str) -> Result<bool>) -> Result<()> {
+    restore_terminated_owner_locked_with(m, worker_live, |saved| restore_service(m, saved))
+}
+fn restore_terminated_owner_locked_with(m: &Manager, worker_live: impl FnOnce(&str) -> Result<bool>,
+    restore: impl FnOnce(&ResumeRecord) -> Result<()>) -> Result<()> {
+    let Some(saved) = resume_record(m)? else { return Ok(()) };
+    let result = optional(&job_dir(m, &saved.owner_operation)?.join("result.json"))?;
+    if result["operation"] != saved.owner_operation.as_str() || result["state"] != "refused"
+        || result["reason"] != "operator_worker_terminated" || worker_live(&saved.owner_operation)? {
+        return Ok(());
+    }
+    resume_locked(m, &saved.owner_operation, restore)
+}
+fn finish_owned_work(m: &Manager, id: &str) -> (Result<()>, Result<()>) {
     let installer_cleanup: Result<()> = (|| {
         let request: ui::Request = read_json(&job_dir(m, id)?.join("request.json"))?;
         automatic_install::finish(m, id, &request.action)?;
@@ -1949,12 +2076,7 @@ fn finish_operation(m: &Manager, id: &str) -> Result<()> {
         }
         Ok(())
     })();
-    let preparation_cleanup = cleanup_preparation_work(m, id);
-    // A failed installer readback must not leave the generic worker queued.
-    let finalized = finish_operation_with(m, id, |saved| restore_service(m, saved));
-    installer_cleanup?;
-    preparation_cleanup?;
-    finalized
+    (installer_cleanup, cleanup_preparation_work(m, id))
 }
 fn cleanup_preparation_work(m: &Manager, id: &str) -> Result<()> {
     let fresh = preparation::build::cleanup_work(m, id);
@@ -8303,5 +8425,112 @@ mod renderer_lifetime_regression {
         let mut waits=0;
         assert!(wait_renderer_retirement(||Err("exact_probe_failed".into()),||waits+=1).is_err());
         assert_eq!(waits,0);
+    }
+}
+
+#[cfg(test)]
+mod dead_worker_reconciliation {
+    use super::*;
+    fn request() -> ui::Request {
+        ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"t".into(),action:ui::Action::CaptureDisarm {}}
+    }
+    fn operation(m: &Manager, state: &str) -> String {
+        let id = launch_queued(m, &request(), |_| Ok(true)).unwrap().operation.unwrap();
+        write_operation(m, &id, &json!({"schema":1,"operation":id,"state":state}), false).unwrap();
+        id
+    }
+    fn receipt(m: &Manager, id: &str) -> Value {
+        optional(&job_dir(m, id).unwrap().join("result.json")).unwrap()
+    }
+    fn suspend_for(m: &Manager, owner: &str) {
+        let _resume = resume_lock(m).unwrap();
+        create_resume(m, &ResumeRecord {schema:2,owner_operation:owner.into(),resume:true,
+            software:"ab".repeat(32),vendor_operation:None}).unwrap();
+    }
+    #[test]
+    fn only_stopped_worker_units_are_finished_and_their_service_restored() {
+        let f = test_fixture::Fixture::new();
+        let dead = operation(&f.m, "vendor_running");
+        let live = operation(&f.m, "running");
+        let unknown = operation(&f.m, "waiting");
+        let held = operation(&f.m, "submission_uncertain");
+        let queued = operation(&f.m, "queued");
+        let unconfirmed = begin_request(&f.m, &request()).unwrap();
+        suspend_for(&f.m, &dead);
+        let untouched = [&live, &unknown, &held, &queued, &unconfirmed];
+        let before: Vec<Value> = untouched.iter().map(|id| receipt(&f.m, id)).collect();
+        let worker = f.m.lock(&format!("operator-worker-{held}.lock")).unwrap();
+        let dispatch = f.m.lock("operator-dispatch.lock").unwrap();
+        let unit = |id: &str| -> Result<bool> {
+            if id == live { Ok(true) } else if id == unknown { Err("readiness_unit_state_unavailable".into()) } else { Ok(false) }
+        };
+        let mut restored = vec![];
+        let failures = reconcile_dead_workers_with(&f.m, unit,
+            Some(|saved: &ResumeRecord| { restored.push(saved.owner_operation.clone()); Ok(()) })).unwrap();
+        assert!(failures.is_empty(), "{failures:?}");
+        let finished = receipt(&f.m, &dead);
+        assert_eq!((finished["state"].as_str(), finished["reason"].as_str()),
+            (Some("refused"), Some("operator_worker_terminated")));
+        assert_eq!(restored, vec![dead.clone()], "The suspended service is restored exactly once");
+        assert!(!f.m.root.join("operator/resume.json").exists());
+        // Active, unobservable, still-locked, undispatched and pre-dispatch
+        // operations keep their exact receipts.
+        assert_eq!(untouched.iter().map(|id| receipt(&f.m, id)).collect::<Vec<_>>(), before);
+        drop(worker);
+        drop(dispatch);
+        let failures = settle_dead_workers(&f.m, unit).unwrap();
+        assert!(failures.is_empty(), "{failures:?}");
+        for id in [&held, &queued] {
+            assert_eq!(receipt(&f.m, id)["reason"], "operator_worker_terminated", "{id}");
+        }
+        for (id, prior) in [(&live, &before[0]), (&unknown, &before[1]), (&unconfirmed, &before[4])] {
+            assert_eq!(&receipt(&f.m, id), prior);
+        }
+        // Terminal receipts are never rewritten by a later pass.
+        let settled: Vec<Value> = [&dead, &held, &queued].iter().map(|id| receipt(&f.m, id)).collect();
+        settle_dead_workers(&f.m, |_| Ok(false)).unwrap();
+        assert_eq!([&dead, &held, &queued].iter().map(|id| receipt(&f.m, id)).collect::<Vec<_>>(), settled);
+    }
+    #[test]
+    fn a_live_latest_pointer_follows_its_terminal_receipt() {
+        let f = test_fixture::Fixture::new();
+        let id = operation(&f.m, "running");
+        write_operation(&f.m, &id, &json!({"schema":1,"operation":id,"state":"completed","result":{}}), false).unwrap();
+        let latest = f.m.root.join("operator/latest.json");
+        atomic_json(&latest, &json!({"schema":1,"operation":id,"state":"running"})).unwrap();
+        settle_dead_workers(&f.m, |_| panic!("A terminal receipt needs no unit observation")).unwrap();
+        assert_eq!(optional(&latest).unwrap(), receipt(&f.m, &id));
+    }
+    #[test]
+    fn production_worker_state_comes_from_the_exact_unit() {
+        let f = test_fixture::Fixture::new();
+        let id = operation(&f.m, "running");
+        let unit = vec![format!("linux-vst-bridge-operator-{id}.service")];
+        for state in ["active", "activating", "deactivating", "reloading", "unreadable"] {
+            readiness::with_unit_state_fixture(&unit, state, || reconcile_dead_workers(&f.m)).unwrap();
+            assert_eq!(receipt(&f.m, &id)["state"], "running", "{state}");
+        }
+        let failures = readiness::with_unit_state_fixture(&unit, "failed", || reconcile_dead_workers(&f.m)).unwrap();
+        assert!(failures.is_empty(), "{failures:?}");
+        assert_eq!(receipt(&f.m, &id)["reason"], "operator_worker_terminated");
+    }
+    #[test]
+    fn a_terminated_owner_restores_its_suspended_service_under_the_held_lock() {
+        let f = test_fixture::Fixture::new();
+        let owner = operation(&f.m, "vendor_running");
+        suspend_for(&f.m, &owner);
+        let calls = std::cell::Cell::new(0);
+        let restore = |_: &ResumeRecord| { calls.set(calls.get() + 1); Ok(()) };
+        let _resume = resume_lock(&f.m).unwrap();
+        restore_terminated_owner_locked_with(&f.m, |_| Ok(false), restore).unwrap();
+        assert_eq!(calls.get(), 0, "A live owner keeps its reservation");
+        refuse_unfinished(&f.m, &owner, "operator_worker_terminated").unwrap();
+        restore_terminated_owner_locked_with(&f.m, |_| Ok(true), restore).unwrap();
+        assert!(restore_terminated_owner_locked_with(&f.m,
+            |_| Err("package_resume_worker_state_unavailable".into()), restore).is_err());
+        assert_eq!(calls.get(), 0, "A running or unobservable worker keeps its reservation");
+        restore_terminated_owner_locked_with(&f.m, |_| Ok(false), restore).unwrap();
+        assert_eq!(calls.get(), 1);
+        assert!(!f.m.root.join("operator/resume.json").exists());
     }
 }
