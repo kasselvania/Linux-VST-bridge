@@ -4665,9 +4665,14 @@ class Nad1Owner:
             if self.session_authority is not None:raise ValueError('dependency_registration_observation_unavailable') from exc
             raise
         # Retirement authority follows this observation before anything else, so
-        # a Stop during the defaults step below still retires the session.
-        self.service_possibility='proved_absent' if service['registration']=='absent' else 'exact_registered'
-        self.retirement_authorized=service['registration']=='exact'
+        # a Stop during the defaults step below still retires the session. An
+        # absent registration with the daemon present proves nothing (NAO1): it
+        # stays may_exist and unauthorized until the re-observation below.
+        if service['registration']=='absent' and actual is not None:
+            self.service_possibility='may_exist';self.retirement_authorized=False
+        else:
+            self.service_possibility='proved_absent' if service['registration']=='absent' else 'exact_registered'
+            self.retirement_authorized=service['registration']=='exact'
         # The query brought the Wine session up; settle per-user defaults before
         # any service install or start so the service reads them when it starts.
         if self.managed_contract is not None:

@@ -332,20 +332,31 @@ class EnsureTimingTests(unittest.TestCase):
         self.assertEqual([event for event in self.events if event[0] == 'service'], [('service', 'query')])
         self.assertEqual(self.outcome(), [{'known_folder': 'Downloads', 'result': 'failed', 'reason': 'cancelled'}])
         self.assertTrue(self.owner.service_actions_started)
-        # The session still retires cleanly instead of asking for Recover.
-        self.assertTrue(self.owner.retire_service())
-        self.assertIsNone(self.owner.retirement_error)
 
     def test_stop_during_the_registry_step_in_a_fresh_prefix_retires_cleanly(self):
         self.stop_during_the_registry_step()
+        # The session still retires cleanly instead of asking for Recover.
+        self.assertTrue(self.owner.retire_service())
+        self.assertIsNone(self.owner.retirement_error)
         self.assertEqual(self.owner.service_possibility, 'proved_absent')
         self.assertNotIn(('service', 'stop'), self.events)
 
     def test_stop_during_the_registry_step_with_a_registered_service_takes_the_authorized_stop(self):
         self.daemon.write_bytes(self.bytes); self.registered = True
         self.stop_during_the_registry_step(ownership.image_identity(self.daemon))
+        self.assertTrue(self.owner.retire_service())
         self.assertTrue(self.owner.retirement_authorized)
         self.assertIn(('service', 'stop'), self.events)
+
+    def test_stop_after_an_unproven_absent_reading_never_claims_a_clean_retirement(self):
+        # Absent registration with the daemon present is not proof of absence
+        # (NAO1); a Stop before the re-observation must not retire "gracefully".
+        self.daemon.write_bytes(self.bytes); self.registered = False
+        self.stop_during_the_registry_step(ownership.image_identity(self.daemon))
+        self.assertEqual(self.owner.service_possibility, 'may_exist')
+        self.assertFalse(self.owner.retire_service())
+        self.assertEqual(self.owner.retirement_error, 'dependency_retirement_authority_unavailable')
+        self.assertNotIn(('service', 'stop'), self.events)
 
     def test_settings_path_that_is_not_a_plain_file_never_stalls_the_launch(self):
         path = self.root / 'app' / s.REGISTRY_LAUNCH_SETTINGS

@@ -634,18 +634,17 @@ fn recheck_bound_assistance(m: &Manager, directory: &Path, app: &Application) ->
     let path=directory.join("operation.json");
     if !path.exists() { return Ok(false); }
     let prior:vendor_application::Operation=read_json(&path)?;
-    if prior.application.environment==app.environment && prior.application.selector()?==app.selector()? {
-        if let Some(managed)=prior.managed {
-            // A previous binding cannot become a generic retry because its
-            // resources disappeared or changed. New authorized environment
-            // revisions make their own observations through the existing owner.
-            managed.capabilities.verify_callback_inputs(app,&m.root).map_err(|_| -> Box<dyn std::error::Error + Send + Sync> {
-                "The app's recorded files changed. Run its full installer again, or use Choose program to open it directly.".into()
-            })?;
-            return Ok(true);
-        }
+    let Some(managed)=prior.managed else { return Ok(false); };
+    if prior.application.selector()?!=app.selector()? { return Ok(false); }
+    if prior.application.environment==app.environment {
+        // A previous binding cannot become a generic retry because its
+        // resources disappeared or changed. New authorized environment
+        // revisions make their own observations through the existing owner.
+        managed.capabilities.verify_callback_inputs(app,&m.root).map_err(|_| -> Box<dyn std::error::Error + Send + Sync> {
+            "The app's recorded files changed. Run its full installer again, or use Choose program to open it directly.".into()
+        })?;
     }
-    Ok(false)
+    Ok(true)
 }
 /// An app that had automatic support never silently reopens without it.
 const ASSISTANCE_LOST: &str = "This app had automatic setup before, but its files no longer match what this version of the bridge supports. Run its full installer again, or use Choose program to open it without automatic setup.";
@@ -971,6 +970,7 @@ mod tests {
         capabilities.profile_sha256=linux_vst_bridge::vendor_profile::profile_sha256(&capabilities.profile).unwrap();
         save(&job);
         assert!(recheck_bound_assistance(&f.m,&directory,&job.application).unwrap());
+        assert!(linux_vst_bridge::vendor_profile::inspect(&job.application,&f.m.root).unwrap().capabilities.is_some());
         // Its own files are still checked, and another profile is never adopted.
         let mut other=job.clone();
         other.managed.as_mut().unwrap().capabilities.profile.id="other_vendor".into();
@@ -996,6 +996,14 @@ mod tests {
         let error=run_selected(&f.m,&["launch".into(),selector.clone()],Some(&random_id().unwrap())).unwrap_err();
         assert_eq!(error.to_string(),ASSISTANCE_LOST);
         assert_eq!(before,fs::read(directory.join("operation.json")).unwrap());
+        // After an environment revision the old files are not compared, but
+        // the earlier automatic setup still is never silently dropped.
+        let mut revised=job.clone();revised.application.environment.revision+=1;
+        atomic_json(&directory.join("operation.json"),&revised).unwrap();
+        fs::remove_file(&job.managed.as_ref().unwrap().capabilities.resources["resources/app.asar"].artifact.path).unwrap();
+        assert!(recheck_bound_assistance(&f.m,&directory,&job.application).unwrap());
+        let error=run_selected(&f.m,&["launch".into(),selector.clone()],Some(&random_id().unwrap())).unwrap_err();
+        assert_eq!(error.to_string(),ASSISTANCE_LOST);
     }
     #[test]
     fn empty_generic_cohort_cannot_erase_uncertain_service_custody() {
