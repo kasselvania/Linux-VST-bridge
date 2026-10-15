@@ -1,5 +1,8 @@
 // Source-owned synthetic installer bytes; no vendor executable or resources.
 pub fn fixture(replacement: Option<(&str, &str)>) -> Vec<u8> {
+    fixture_with_container_types(replacement, [0; 3])
+}
+pub fn fixture_with_container_types(replacement: Option<(&str, &str)>, kinds: [u16; 3]) -> Vec<u8> {
     fn align(at: usize) -> usize { (at + 3) & !3 }
     fn wide(value: &str) -> Vec<u8> { value.encode_utf16().chain([0]).flat_map(u16::to_le_bytes).collect() }
     fn block(key: &str, value: &[u8], kind: u16, children: &[Vec<u8>]) -> Vec<u8> {
@@ -22,9 +25,11 @@ pub fn fixture(replacement: Option<(&str, &str)>) -> Vec<u8> {
             let value = replacement.filter(|(replace, _)| *replace == key).map_or(value, |(_, value)| value);
             block(key, &wide(value), 1, &[])
         }).collect();
-    let table = block("040904b0", &[], 1, &fields);
-    let strings = block("StringFileInfo", &[], 1, &[table]);
-    let version = block("VS_VERSION_INFO", &[0; 52], 0, &[strings]);
+    let table = block("040904b0", &[], kinds[1], &fields);
+    let strings = block("StringFileInfo", &[], kinds[0], &[table]);
+    let translation = block("Translation", &[9, 4, 176, 4], 0, &[]);
+    let vars = block("VarFileInfo", &[], kinds[2], &[translation]);
+    let version = block("VS_VERSION_INFO", &[0; 52], 0, &[strings, vars]);
     let mut bytes = vec![0_u8; 512 + 2048 + 28];
     fn set16(bytes: &mut [u8], at: usize, value: u16) { bytes[at..at+2].copy_from_slice(&value.to_le_bytes()); }
     fn set32(bytes: &mut [u8], at: usize, value: u32) { bytes[at..at+4].copy_from_slice(&value.to_le_bytes()); }
