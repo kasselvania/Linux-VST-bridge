@@ -50,12 +50,12 @@ struct KeeperOwner {
     retiring: bool,
     failed: bool,
     failure_pending: bool,
-    // This generation has published readiness at least once.
-    ready_seen: bool,
-    // Consecutive generations of this environment that ended before they
-    // were ever ready, counting this one once it has failed.
+    // When this generation was first observed ready.
+    ready_at: Option<Instant>,
+    // Consecutive generations of this environment that ended before they had
+    // stayed ready for KEEPER_STABLE_READY_SECONDS, counting this one once it
+    // has failed.
     startup_failures: u32,
-    failed_at: Option<Instant>,
     started: Instant,
     last_used: Instant,
 }
@@ -64,11 +64,15 @@ struct KeeperOwner {
 enum KeeperAvailability { Starting, Retiring, Ready, Failed }
 
 // A failed, cleanly retired generation is replaced by the next admission. A
-// generation that had been ready (it served plug-ins, then its Windows side or
-// the desktop's display server went away) is replaced at once. Generations
-// that end before they are ever ready are replaced only after this pause, so a
-// broken environment costs at most one Windows start per pause instead of one
-// per native retry. Inside the pause the admission is refused, not held.
+// generation that had stayed ready (it served plug-ins, then its Windows side
+// or the desktop's display server went away) is replaced at once. Otherwise
+// the replacement starts no sooner than this pause after the failed
+// generation started, so a broken environment costs at most one Windows start
+// per pause instead of one per native retry. The pause runs from start to
+// start, not from when the service noticed the failure: a slow start that
+// timed out after its load gave up does not refuse the next load. Inside the
+// pause the admission is refused, not held.
+const KEEPER_STABLE_READY_SECONDS: u64 = 60;
 fn failed_keeper_pause(startup_failures: u32) -> Duration {
     match startup_failures {
         0 => Duration::ZERO,
@@ -1155,8 +1159,11 @@ fn observe_keeper(environment: &str, active: &mut Vec<KeeperOwner>)
         // stage_keeper replaces it under failed_keeper_pause.
         let owner=&mut active[index];
         owner.failed=true;
-        owner.failed_at=Some(Instant::now());
-        if !owner.ready_seen {owner.startup_failures=owner.startup_failures.saturating_add(1);}
+        // Dying right after readiness (for example on every project open)
+        // counts like a failed start, so it cannot buy unlimited cold starts.
+        let stable=owner.ready_at.is_some_and(|at|
+            at.elapsed()>=Duration::from_secs(KEEPER_STABLE_READY_SECONDS));
+        owner.startup_failures=if stable {0} else {owner.startup_failures.saturating_add(1)};
         return Ok(Some(KeeperAvailability::Failed));
     }
     if active[index].retiring {
@@ -1168,8 +1175,7 @@ fn observe_keeper(environment: &str, active: &mut Vec<KeeperOwner>)
     let status:serde_json::Value=read_json(&active[index].report)?;
     require(status["environment"]==environment,"environment readiness binding differs")?;
     if status["ready"]==true {
-        active[index].ready_seen=true;
-        active[index].startup_failures=0;
+        active[index].ready_at.get_or_insert_with(Instant::now);
         Ok(Some(KeeperAvailability::Ready))
     }
     else { Err("environment owner published a non-ready live result".into()) }
@@ -1233,9 +1239,8 @@ fn stage_keeper_with_history(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keep
             (None,None)=>true,
             _=>false,
         };
-        let failed_at=failed.failed_at.ok_or("failed environment owner time absent")?;
         if same_context {
-            if failed_at.elapsed()<failed_keeper_pause(failed.startup_failures) {
+            if failed.started.elapsed()<failed_keeper_pause(failed.startup_failures) {
                 return Ok(KeeperAvailability::Failed);
             }
             startup_failures=failed.startup_failures;
@@ -1263,8 +1268,8 @@ fn stage_keeper_with_history(m:&Manager,s:&Software,r:&HostBinding,keepers:&Keep
     // transport, or DSP lease has been exposed at this point.
     active.push(KeeperOwner{session:job.session.clone(),environment:r.environment.id.clone(),
         graphical_session:graphical_session.cloned(),child,report:job.report,lease:job.lease,
-        retiring:false,failed:false,failure_pending:false,ready_seen:false,startup_failures,
-        failed_at:None,started:Instant::now(),last_used:Instant::now()});
+        retiring:false,failed:false,failure_pending:false,ready_at:None,startup_failures,
+        started:Instant::now(),last_used:Instant::now()});
     Ok(KeeperAvailability::Starting)
 }
 
@@ -2611,7 +2616,7 @@ mod tests {
         let child=Command::new("/bin/sh").args(["-c",command]).spawn().unwrap();
         (KeeperOwner{session:random_id().unwrap(),environment:f.r.environment.id.clone(),graphical_session:None,child,
             report:report.clone(),lease:lease.clone(),retiring:false,failed:false,failure_pending:false,
-            ready_seen:false,startup_failures:0,failed_at:None,
+            ready_at:None,startup_failures:0,
             started:Instant::now(),last_used:Instant::now()},
             report,lease)
     }
@@ -2828,42 +2833,63 @@ mod tests {
             Some(KeeperAvailability::Failed));
         assert_eq!(active.len(),1);assert!(!lease.exists());
     }
-    #[test]
-    fn failed_keeper_generation_is_replaced_by_the_next_admission_under_a_bounded_pause() {
-        use std::cell::Cell;
-        let f=test_fixture::Fixture::new();
-        let software=Software{installer_launch:None,preparation_kit:None,operator_frontend:None,
-            manager:f.r.host.clone(),supervisor:f.r.host.clone(),ownership:f.r.host.clone(),
-            host:f.r.host.clone(),source_manifest:f.r.host.clone(),
-            source_sha256:f.r.host_source_sha256.clone(),native_catalogue:None};
-        let binding:HostBinding=f.r.clone().into();
-        let context=graphical(":0",1);
-        let starts=Cell::new(0);
-        let stage=|keepers:&Keepers| stage_keeper_with_history(&f.m,&software,&binding,keepers,
-            Some(&context),|_,_| Ok(()),|_,_| {
-                starts.set(starts.get()+1);
-                Ok(Command::new("/bin/sh").args(["-c","exit 0"]).spawn()?)
-            }).unwrap();
-        let fail=|keepers:&Keepers| {
+    fn ago(seconds:u64)->Instant {
+        Instant::now().checked_sub(Duration::from_secs(seconds)).expect("monotonic clock history")
+    }
+    struct Replacement<'a> {
+        f:&'a test_fixture::Fixture,
+        software:Software,
+        binding:HostBinding,
+        context:transport_storage::GraphicalSession,
+        starts:std::cell::Cell<u32>,
+    }
+    impl<'a> Replacement<'a> {
+        fn new(f:&'a test_fixture::Fixture)->Self {
+            Self {f,software:Software{installer_launch:None,preparation_kit:None,operator_frontend:None,
+                manager:f.r.host.clone(),supervisor:f.r.host.clone(),ownership:f.r.host.clone(),
+                host:f.r.host.clone(),source_manifest:f.r.host.clone(),
+                source_sha256:f.r.host_source_sha256.clone(),native_catalogue:None},
+                binding:f.r.clone().into(),context:graphical(":0",1),starts:std::cell::Cell::new(0)}
+        }
+        fn stage(&self,keepers:&Keepers)->KeeperAvailability {
+            stage_keeper_with_history(&self.f.m,&self.software,&self.binding,keepers,
+                Some(&self.context),|_,_| Ok(()),|_,_| {
+                    self.starts.set(self.starts.get()+1);
+                    Ok(Command::new("/bin/sh").args(["-c","exit 0"]).spawn()?)
+                }).unwrap()
+        }
+        // The generation's Windows side exits and its supervisor confirms cleanup.
+        fn fail(&self,keepers:&Keepers) {
             let report=keepers.lock().unwrap()[0].report.clone();
             assert!(keepers.lock().unwrap()[0].child.wait().unwrap().success());
             atomic_json(&report,&serde_json::json!({"ready":false,"cleanup_confirmed":true})).unwrap();
-        };
-        // A generation that served plug-ins, then lost its Windows side (as when
-        // the desktop's display server aborts), retires cleanly.
-        let (mut owner,report,_)=fixture_keeper(&f,"sleep 0.2");
-        owner.graphical_session=Some(context.clone());
-        let keepers=Keepers::new(vec![owner]);
+        }
+        // A generation that was ready since `ready_for` seconds ago.
+        fn ready(&self,ready_for:u64)->Keepers {
+            let (mut owner,report,_)=fixture_keeper(self.f,"sleep 0.2");
+            owner.graphical_session=Some(self.context.clone());
+            let keepers=Keepers::new(vec![owner]);
+            atomic_json(&report,&serde_json::json!({"ready":true,
+                "environment":self.f.r.environment.id})).unwrap();
+            assert_eq!(observe_keeper(&self.f.r.environment.id,&mut keepers.lock().unwrap()).unwrap(),
+                Some(KeeperAvailability::Ready));
+            keepers.lock().unwrap()[0].ready_at=Some(ago(ready_for));
+            keepers
+        }
+    }
+    #[test]
+    fn failed_keeper_generation_is_replaced_by_the_next_admission_under_a_bounded_pause() {
+        let f=test_fixture::Fixture::new();
+        let r=Replacement::new(&f);
+        // A generation that served plug-ins for a while, then lost its Windows
+        // side (as when the desktop's display server aborts), retires cleanly.
+        let keepers=r.ready(KEEPER_STABLE_READY_SECONDS);
         let first_session=keepers.lock().unwrap()[0].session.clone();
-        atomic_json(&report,&serde_json::json!({"ready":true,
-            "environment":f.r.environment.id})).unwrap();
-        assert_eq!(observe_keeper(&f.r.environment.id,&mut keepers.lock().unwrap()).unwrap(),
-            Some(KeeperAvailability::Ready));
-        fail(&keepers);
+        r.fail(&keepers);
         // Before: every later admission in the same desktop was refused until
         // the service restarted. Now the next admission starts one fresh owner.
-        assert_eq!(stage(&keepers),KeeperAvailability::Starting);
-        assert_eq!(starts.get(),1);
+        assert_eq!(r.stage(&keepers),KeeperAvailability::Starting);
+        assert_eq!(r.starts.get(),1);
         {
             let active=keepers.lock().unwrap();
             assert_eq!(active.len(),1);
@@ -2872,25 +2898,64 @@ mod tests {
         }
         // A replacement that ends before it is ever ready is not restarted on
         // each native retry: the pause holds, then exactly one more start.
-        fail(&keepers);
-        assert_eq!(stage(&keepers),KeeperAvailability::Failed);
-        assert_eq!(stage(&keepers),KeeperAvailability::Failed);
-        assert_eq!(starts.get(),1);
+        r.fail(&keepers);
+        assert_eq!(r.stage(&keepers),KeeperAvailability::Failed);
+        assert_eq!(r.stage(&keepers),KeeperAvailability::Failed);
+        assert_eq!(r.starts.get(),1);
         assert_eq!(keepers.lock().unwrap()[0].startup_failures,1);
-        keepers.lock().unwrap()[0].failed_at=Some(Instant::now()-failed_keeper_pause(1));
-        assert_eq!(stage(&keepers),KeeperAvailability::Starting);
-        assert_eq!(starts.get(),2);
+        keepers.lock().unwrap()[0].started=ago(failed_keeper_pause(1).as_secs());
+        assert_eq!(r.stage(&keepers),KeeperAvailability::Starting);
+        assert_eq!(r.starts.get(),2);
         // Repeated startup failures lengthen the pause to its stated bound.
-        fail(&keepers);
-        assert_eq!(stage(&keepers),KeeperAvailability::Failed);
+        r.fail(&keepers);
+        assert_eq!(r.stage(&keepers),KeeperAvailability::Failed);
         assert_eq!(keepers.lock().unwrap()[0].startup_failures,2);
-        keepers.lock().unwrap()[0].failed_at=Some(Instant::now()-failed_keeper_pause(1));
-        assert_eq!(stage(&keepers),KeeperAvailability::Failed);
-        assert_eq!(starts.get(),2);
-        keepers.lock().unwrap()[0].failed_at=Some(Instant::now()-failed_keeper_pause(2));
-        assert_eq!(stage(&keepers),KeeperAvailability::Starting);
-        assert_eq!(starts.get(),3);
+        keepers.lock().unwrap()[0].started=ago(failed_keeper_pause(1).as_secs());
+        assert_eq!(r.stage(&keepers),KeeperAvailability::Failed);
+        assert_eq!(r.starts.get(),2);
+        keepers.lock().unwrap()[0].started=ago(failed_keeper_pause(2).as_secs());
+        assert_eq!(r.stage(&keepers),KeeperAvailability::Starting);
+        assert_eq!(r.starts.get(),3);
         assert_eq!(failed_keeper_pause(9),Duration::from_secs(60));
+        let mut active=keepers.lock().unwrap();
+        let _=active[0].child.wait();
+    }
+    #[test]
+    fn keeper_pause_runs_from_the_failed_start_not_from_when_failure_was_noticed() {
+        let f=test_fixture::Fixture::new();
+        let r=Replacement::new(&f);
+        // Two quick failures, then a slow start that the service only notices
+        // as failed long after it began (its load already gave up).
+        let keepers=r.ready(0);
+        r.fail(&keepers);
+        assert_eq!(r.stage(&keepers),KeeperAvailability::Failed);
+        assert_eq!(keepers.lock().unwrap()[0].startup_failures,1);
+        keepers.lock().unwrap()[0].startup_failures=2;
+        keepers.lock().unwrap()[0].started=ago(failed_keeper_pause(2).as_secs()+5);
+        // Noticed just now, started over a minute ago: the next load starts
+        // a replacement instead of being refused with keeper_failed at once.
+        assert_eq!(r.stage(&keepers),KeeperAvailability::Starting);
+        assert_eq!(r.starts.get(),1);
+        r.fail(&keepers);
+        let _=r.stage(&keepers);
+    }
+    #[test]
+    fn keeper_that_dies_right_after_readiness_counts_as_a_failed_start() {
+        let f=test_fixture::Fixture::new();
+        let r=Replacement::new(&f);
+        // Ready for only a moment (for example dying on every project open):
+        // no immediate replacement, so a project cannot trigger N cold starts.
+        let keepers=r.ready(1);
+        r.fail(&keepers);
+        assert_eq!(r.stage(&keepers),KeeperAvailability::Failed);
+        assert_eq!(keepers.lock().unwrap()[0].startup_failures,1);
+        assert_eq!(r.starts.get(),0);
+        // Stable for the stated minimum: the failure count starts again.
+        let keepers=r.ready(KEEPER_STABLE_READY_SECONDS);
+        keepers.lock().unwrap()[0].startup_failures=2;
+        r.fail(&keepers);
+        assert_eq!(r.stage(&keepers),KeeperAvailability::Starting);
+        assert_eq!(keepers.lock().unwrap()[0].startup_failures,0);
         let mut active=keepers.lock().unwrap();
         let _=active[0].child.wait();
     }

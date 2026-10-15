@@ -8,6 +8,8 @@
 #include "public.sdk/source/vst/hosting/eventlist.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "public.sdk/source/vst/hosting/parameterchanges.h"
+#include <algorithm>
+#include <cstring>
 #include <deque>
 #include <chrono>
 #include <condition_variable>
@@ -42,7 +44,7 @@ void held_call(bool& entered, bool& released) {
   check(state_hold_changed.wait_for(lock,std::chrono::seconds(3),[&]{return released;}),"bounded held SDK operation");
 }
 uint32_t process_refusal=0;
-uint32_t open_calls=0;bool open_refused=false;
+uint32_t open_calls=0;bool open_refused=false;const char* error_detail="";
 uint32_t fixture_delay=UINT32_MAX,fixture_vendor=0,fixture_tail=0,notice_flags=0;
 uint32_t actual_mode=UINT32_MAX,process_calls=0;
 uint32_t configured_maximum=0, activated_maximum=0;
@@ -176,6 +178,12 @@ void event(uint32_t kind, double value = 0) {
 } // namespace
 extern "C" {
 uint32_t __wrap_if2_terminal_status(uint64_t){return IF1::valid(terminal_record) ? 1 : 0;}
+uint32_t __wrap_ap2_error(uint8_t *out, uint32_t capacity) {
+  if (!out || !capacity) return 0;
+  const auto n = std::min<size_t>(std::strlen(error_detail), capacity - 1);
+  std::memcpy(out, error_detail, n); out[n] = 0;
+  return uint32_t(n);
+}
 uint32_t __wrap_ap9_open(const uint8_t *, uint64_t *out) {
   ++open_calls;
   if (open_refused) return 1;
@@ -504,29 +512,44 @@ void curve_refusal_regression() {
 }
 // A bridge admission refused at load (for example a failed Windows
 // environment) used to be asked again on every 10 ms editor tick, each ask
-// reaching the bridge service and blocking the DAW's UI thread.
+// reaching the bridge service and blocking the DAW's UI thread; with the
+// controller connected first, the refusal also disconnected the pair.
 void refused_admission_regression() {
-  events.clear();commands.clear();gui_fault=0;terminal_record={};
-  open_refused=true;open_calls=0;
-  Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
-  host.processor=&processor;host.controller=controller;
-  auto* context=static_cast<IHostApplication*>(&host);
-  check(processor.initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"refused admission initialize");
-  controller->setComponentHandler(static_cast<IComponentHandler*>(&host));
-  processor.connect(controller);controller->connect(&processor);
-  check(open_calls==1,"one admission attempt when the pair connects");
-  for(int i=0;i<50;++i)host.tick();
-  ProcessSetup setup{kRealtime,kSample32,128,48000};
-  check(processor.setupProcessing(setup)!=kResultOk,"a refused instance cannot be set up");
-  LVBState::Stream stream;
-  check(processor.getState(&stream)==kResultFalse,"a refused instance fabricates no state");
-  check(open_calls==1,"UI ticks, setup and state never repeat a refused admission");
-  auto* view=controller->createView(ViewType::kEditor);
-  check(view && dynamic_cast<AP2::RecoveryView*>(view),"a refused instance explains itself instead of a blank editor");
-  view->release();
-  open_refused=false;
-  controller->disconnect(&processor);processor.disconnect(controller);
-  controller->terminate();controller->release();processor.terminate();
+  struct Case { bool controller_first; const char *detail; const char *text; };
+  const Case cases[] = {
+    {false, "Other: admission_binding_invalid", "The bridge did not load this plug-in; the manager shows why."},
+    {true, "Other: admission_stale_native_caller", "The bridge was updated. Reopen the project to load this plug-in."},
+    {true, "NotFound: No such file or directory (os error 2)", "The bridge service is not running, so this plug-in was not loaded."},
+  };
+  for (const auto &c : cases) {
+    events.clear();commands.clear();gui_fault=0;terminal_record={};
+    open_refused=true;open_calls=0;error_detail=c.detail;
+    Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+    host.processor=&processor;host.controller=controller;
+    auto* context=static_cast<IHostApplication*>(&host);
+    check(processor.initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"refused admission initialize");
+    controller->setComponentHandler(static_cast<IComponentHandler*>(&host));
+    if (c.controller_first)
+      check(controller->connect(&processor)==kResultOk && processor.connect(controller)==kResultOk,
+            "a refused admission keeps a controller-first pair connected");
+    else
+      check(processor.connect(controller)==kResultOk && controller->connect(&processor)==kResultOk,
+            "a refused admission keeps a processor-first pair connected");
+    check(open_calls==1,"one admission attempt when the pair connects");
+    for(int i=0;i<50;++i)host.tick();
+    ProcessSetup setup{kRealtime,kSample32,128,48000};
+    check(processor.setupProcessing(setup)!=kResultOk,"a refused instance cannot be set up");
+    LVBState::Stream stream;
+    check(processor.getState(&stream)==kResultFalse,"a refused instance fabricates no state");
+    check(open_calls==1,"UI ticks, setup and state never repeat a refused admission");
+    check(!std::strcmp(controller->panelStatus(),c.text),"the editor says why the bridge refused this instance");
+    auto* view=controller->createView(ViewType::kEditor);
+    check(view && dynamic_cast<AP2::RecoveryView*>(view),"a refused instance explains itself instead of a blank editor");
+    view->release();
+    open_refused=false;error_detail="";
+    controller->disconnect(&processor);processor.disconnect(controller);
+    controller->terminate();controller->release();processor.terminate();
+  }
 }
 void historical_controller_regression() {
   for(bool connectedFirst : {true,false}) for(bool controllerFirst : {true,false}) {

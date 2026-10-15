@@ -372,7 +372,7 @@ pub fn from_load_refusal(phase: Option<&str>) -> Option<Explanation> {
         "keeper_failed" => Explanation::new("windows_side_stopped",
             "The last time your DAW loaded this plug-in, its Windows side had stopped, so the plug-in stayed empty and silent.",
             "The Windows programs behind this plug-in's setup ended unexpectedly (for example when the desktop's display server restarted) or failed while starting.",
-            "Load the plug-in again: reopen the project, or remove and add it. The bridge starts its Windows side again on that load, waiting up to a minute first if it has failed to start repeatedly. If it keeps failing, create a problem report."),
+            "Load the plug-in again: reopen the project without saving it, or remove and add the plug-in. Saving while it is not loaded drops its settings from the project. The bridge starts its Windows side again on that load. If it failed to start more than once, wait a minute before loading it again. If it keeps failing, create a problem report."),
         _ => return None,
     })
 }

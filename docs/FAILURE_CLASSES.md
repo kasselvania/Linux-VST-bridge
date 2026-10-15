@@ -3609,10 +3609,16 @@ Reproduced on CachyOS (Test90) by killing the Windows side: the reload was
 refused in 830 ms, 48 refusals followed in 45 s, and REAPER's UI stalled up to
 2.2 s (23 stalls over 100 ms in 40 s). The service kept a failed generation for
 its lifetime by design, to avoid a restart per retry. Now the next load
-replaces a cleanly retired failed generation at once if it had been ready, and
-after 10 s, then 60 s, if it failed while starting. A refused instance asks
-once, stops, and its editor says the Windows side did not start; the plug-in's
-manager card explains the refused load until a later load is accepted.
+replaces a cleanly retired failed generation at once if it had stayed ready
+for a minute; otherwise the replacement starts no sooner than 10 s, then 60 s,
+after the failed generation started (start to start, so a slow start that
+timed out after its load gave up does not refuse the next load). A refused
+instance asks once, stops, and its editor says why the bridge refused it; the
+plug-in's manager card explains a load refused at `keeper_failed`, with when,
+until a later load is accepted. Saving the project while an instance is
+refused drops that plug-in's settings (Kontakt: 173 KB of state became 23 KB);
+the view and card say so, and [#380](https://github.com/kasselvania/Linux-VST-bridge/issues/380)
+tracks keeping the project's own bytes.
 Test92 on CachyOS: after killing the Windows side, the reload started a fresh
 one (ready in 3.9 s, loaded in 9.5 s) with no refusals, and Kontakt played at
 −9.4 dBFS. The cold start still holds REAPER's UI while it runs (23 s for the
