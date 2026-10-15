@@ -5311,6 +5311,25 @@ mod tests {
         assert_eq!(callback.startup_note_events_delayed, 257);
     }
     #[test]
+    fn a_flood_of_releases_into_full_storage_is_refused_without_rescanning() {
+        // 256 distinct releases fill storage; 2,048 more arrive across eight
+        // unacknowledged blocks. Each is refused in constant time: storage did
+        // not change, so it is searched for a duplicate release at most once.
+        let (shared, mut callback) = unacknowledged_start(u64::MAX);
+        let first: Vec<_> = (0..256).map(|i| note(1, (i / 128) as i16, (i % 128) as i16, 1)).collect();
+        render(&shared, &mut callback, block(&first));
+        let flood: Vec<Item> = (0..8).map(|b| {
+            let events: Vec<_> = (0..256).map(|i| note(1, 2 + ((b * 256 + i) / 128 % 14) as i16, (i % 128) as i16, 1)).collect();
+            block(&events)
+        }).collect();
+        let mut output = [[9.; CAP]; 2];
+        let (results, allocations) = crate::allocation_test::measure(|| flood.iter().map(|request|
+            callback.process_outputs_until(&shared, *request, &mut output, &[], 0, None)).all(|r| r == Ok(3)));
+        assert_eq!((results, allocations), (true, [0; 3]));
+        assert_eq!((callback.startup_notes.pending(), callback.startup_note_events_dropped), (256, 2048));
+        assert!(callback.startup_notes.duplicate_scans <= 1);
+    }
+    #[test]
     fn notes_left_over_from_a_full_block_stay_under_the_hold_limit() {
         // 256 held note-ons, then rendered blocks full of parameter points: one
         // note fits per block. The leftovers keep counting frames and are

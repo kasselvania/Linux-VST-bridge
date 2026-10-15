@@ -31,17 +31,49 @@ fn key(e: &Event) -> Option<(usize, usize)> {
 pub(crate) struct Notes {
     events: [Event; MAX_EVENTS],
     count: usize,
-    // Note-ons discarded in this start without a held release, per channel and
-    // pitch. Their later note-offs are discarded too instead of being delivered.
+    // Note-ons discarded in this start without a held release. Their later
+    // note-offs are discarded too instead of being delivered. Note-ons with a
+    // VST3 note id are remembered by id (pairing uses ids); id-less ones, and
+    // any beyond the id list, by channel and pitch.
     discarded: [[u16; 128]; 16],
+    discarded_ids: [u32; MAX_EVENTS],
+    discarded_id_count: usize,
+    // Set after a search found no two identical held releases; cleared by any
+    // change to storage, so a full store of distinct releases is searched once.
+    releases_unique: bool,
+    #[cfg(test)]
+    pub(crate) duplicate_scans: u64,
 }
 impl Notes {
-    pub fn empty() -> Self { Self { events: [Event::default(); MAX_EVENTS], count: 0, discarded: [[0; 128]; 16] } }
+    pub fn empty() -> Self {
+        Self { events: [Event::default(); MAX_EVENTS], count: 0, discarded: [[0; 128]; 16],
+            discarded_ids: [0; MAX_EVENTS], discarded_id_count: 0, releases_unique: false,
+            #[cfg(test)] duplicate_scans: 0 }
+    }
     pub fn pending(&self) -> usize { self.count }
     /// A new processing start: earlier discards no longer pair with releases.
-    pub fn begin_start(&mut self) { self.discarded = [[0; 128]; 16]; }
+    pub fn begin_start(&mut self) { self.discarded = [[0; 128]; 16]; self.discarded_id_count = 0; }
     fn note_discarded(&mut self, on: &Event) {
-        if let Some((c, p)) = key(on) { self.discarded[c][p] = self.discarded[c][p].saturating_add(1); }
+        if on.id != u32::MAX && self.discarded_id_count < MAX_EVENTS {
+            self.discarded_ids[self.discarded_id_count] = on.id;
+            self.discarded_id_count += 1;
+        } else if let Some((c, p)) = key(on) {
+            self.discarded[c][p] = self.discarded[c][p].saturating_add(1);
+        }
+    }
+    // A release of a note-on discarded in this start consumes that record.
+    fn releases_discarded(&mut self, off: &Event) -> bool {
+        if off.id != u32::MAX {
+            if let Some(i) = self.discarded_ids[..self.discarded_id_count].iter().position(|&id| id == off.id) {
+                self.discarded_id_count -= 1;
+                self.discarded_ids[i] = self.discarded_ids[self.discarded_id_count];
+                return true;
+            }
+        }
+        match key(off) {
+            Some((c, p)) if self.discarded[c][p] > 0 => { self.discarded[c][p] -= 1; true }
+            _ => false,
+        }
     }
     // A held note-on this release would pair with (one not already released).
     fn releases_held(&self, off: &Event) -> bool {
@@ -50,7 +82,13 @@ impl Notes {
         let offs = held.iter().filter(|e| e.kind == NOTE_OFF && releases(off, e)).count();
         ons > offs
     }
+    fn store(&mut self, e: &Event) {
+        self.events[self.count] = Event { offset: 0, ..*e };
+        self.count += 1;
+        self.releases_unique = false;
+    }
     fn remove(&mut self, drop: &[bool; MAX_EVENTS]) -> u64 {
+        self.releases_unique = false;
         let mut kept = 0;
         for (i, &dropped) in drop.iter().enumerate().take(self.count) {
             if !dropped { self.events[kept] = self.events[i]; kept += 1; }
@@ -73,11 +111,11 @@ impl Notes {
                 drop[i] = true; drop[j] = true;
             }
         }
-        let held = self.events;
-        for (dropped, on) in drop.iter_mut().zip(&held[..self.count]) {
+        for (i, dropped) in drop.iter_mut().enumerate().take(self.count) {
+            let on = self.events[i];
             if on.kind == NOTE_ON {
                 // An unpaired note-on's release is still to come.
-                if !*dropped { self.note_discarded(on); }
+                if !*dropped { self.note_discarded(&on); }
                 *dropped = true;
             }
         }
@@ -95,15 +133,33 @@ impl Notes {
         }
         self.remove(&drop)
     }
-    // Two identical held note-offs carry one release; drop the later copy.
+    #[cfg(test)]
+    fn count_scan(&mut self) { self.duplicate_scans += 1; }
+    #[cfg(not(test))]
+    fn count_scan(&mut self) {}
+    // Two identical held note-offs carry one release; drop the later copy. One
+    // pass with the latest held release per channel and pitch; a release with
+    // the same key but another note id is not a copy. Unchanged storage is not
+    // searched again after a search that found none.
     fn evict_duplicate_note_off(&mut self) -> u64 {
-        let held = &self.events[..self.count];
-        let Some(j) = (1..self.count).find(|&j| held[j].kind == NOTE_OFF && held[..j].iter().any(|e|
-            e.kind == NOTE_OFF && e.channel == held[j].channel && e.pitch == held[j].pitch && e.id == held[j].id))
-        else { return 0; };
-        let mut drop = [false; MAX_EVENTS];
-        drop[j] = true;
-        self.remove(&drop)
+        if self.releases_unique { return 0; }
+        self.count_scan();
+        let mut seen = [0u128; 16];
+        let mut latest = [[0u8; 128]; 16];
+        for j in 0..self.count {
+            let e = self.events[j];
+            if e.kind != NOTE_OFF { continue; }
+            let Some((c, p)) = key(&e) else { continue; };
+            if seen[c] & (1u128 << p) != 0 && self.events[latest[c][p] as usize].id == e.id {
+                let mut drop = [false; MAX_EVENTS];
+                drop[j] = true;
+                return self.remove(&drop);
+            }
+            seen[c] |= 1u128 << p;
+            latest[c][p] = j as u8;
+        }
+        self.releases_unique = true;
+        0
     }
     /// Hold this block's note events; returns how many events will not be
     /// played. With `hold_note_ons` false (past the hold limit) note-ons are
@@ -115,19 +171,20 @@ impl Notes {
         let mut dropped = 0;
         for e in events.iter().filter(|e| e.kind == NOTE_ON || e.kind == NOTE_OFF) {
             if e.kind == NOTE_ON && !hold_note_ons { self.note_discarded(e); dropped += 1; continue; }
-            if e.kind == NOTE_OFF && !self.releases_held(e) {
-                if let Some((c, p)) = key(e).filter(|&(c, p)| self.discarded[c][p] > 0) {
-                    self.discarded[c][p] -= 1; dropped += 1; continue;
-                }
+            if e.kind == NOTE_OFF && !self.releases_held(e) && self.releases_discarded(e) {
+                dropped += 1; continue;
             }
             if self.count == MAX_EVENTS {
                 if e.kind == NOTE_ON { self.note_discarded(e); dropped += 1; continue; }
                 dropped += self.evict_oldest_note_on();
+                // The evicted note-on may be the one this release ends.
+                if self.count < MAX_EVENTS && !self.releases_held(e) && self.releases_discarded(e) {
+                    dropped += 1; continue;
+                }
                 if self.count == MAX_EVENTS { dropped += self.evict_duplicate_note_off(); }
                 if self.count == MAX_EVENTS { dropped += 1; continue; }
             }
-            self.events[self.count] = Event { offset: 0, ..*e };
-            self.count += 1;
+            self.store(e);
         }
         dropped
     }
@@ -148,10 +205,11 @@ impl Notes {
         n += delivered;
         self.events.copy_within(delivered..self.count, 0);
         self.count -= delivered;
+        self.releases_unique = false;
         for e in block[..own].iter().filter(|e| e.kind != PARAMETER) {
             if self.count == 0 && n < MAX_EVENTS { events[n] = *e; n += 1; }
             // Bounded by construction: the remainder never exceeds what was held.
-            else if self.count < MAX_EVENTS { self.events[self.count] = Event { offset: 0, ..*e }; self.count += 1; }
+            else if self.count < MAX_EVENTS { self.store(e); }
         }
         *count = n as u32;
         delivered
@@ -373,6 +431,38 @@ mod tests {
         let (dropped, allocations) = crate::allocation_test::measure(|| notes.retain(&[off(2, 5)], true));
         assert_eq!((dropped, notes.pending(), allocations), (1, MAX_EVENTS, [0; 3]));
         assert_eq!(notes.retain(&[off(2, 6)], true), 1);
+        let scans = notes.duplicate_scans;
+        // Unchanged storage is not searched again, however many releases arrive.
+        let flood: Vec<_> = (0..2048).map(|i| off(3 + (i / 128) as i16 % 13, (i % 128) as i16)).collect();
+        let (dropped, allocations) = crate::allocation_test::measure(|| notes.retain(&flood, true));
+        assert_eq!((dropped, notes.duplicate_scans, allocations), (2048, scans, [0; 3]));
+        let mut events = [Event::default(); MAX_EVENTS];
+        let mut count = 0;
+        assert_eq!(notes.deliver(&mut events, &mut count), MAX_EVENTS);
+        let held = &events[..count as usize];
+        assert_eq!(held.iter().filter(|e| (e.channel, e.pitch) == (0, 0)).count(), 1);
+        assert_eq!(held.iter().filter(|e| (e.channel, e.pitch) == (2, 5)).count(), 1);
+        assert!(!held.iter().any(|e| (e.channel, e.pitch) == (2, 6)));
+        // A release that evicts its own note-on from full storage goes with it,
+        // and does not leave a count that would swallow another note's release.
+        let on = |pitch: i16, id: u32| Event { kind: NOTE_ON, pitch, id, value: 0.5, ..Event::default() };
+        let id_off = |pitch: i16, id: u32| Event { kind: NOTE_OFF, pitch, id, value: 0.5, ..Event::default() };
+        let mut notes = Notes::empty();
+        let mut fill = vec![on(60, 7)];
+        fill.extend((1..MAX_EVENTS).map(|i| off(1 + (i / 128) as i16, (i % 128) as i16)));
+        assert_eq!(notes.retain(&fill, true), 0);
+        assert_eq!(notes.retain(&[id_off(60, 7)], true), 2);
+        assert_eq!(notes.retain(&[id_off(60, 5)], true), 0);
+        let mut count = 0;
+        notes.deliver(&mut events, &mut count);
+        let held = &events[..count as usize];
+        assert!(!held.iter().any(|e| e.id == 7));
+        assert_eq!(held.iter().filter(|e| e.kind == NOTE_OFF && e.id == 5).count(), 1);
+        // Discards pair with releases by note id when the note-on carried one.
+        let mut notes = Notes::empty();
+        notes.retain(&[on(60, 1), on(60, 2)], false);
+        assert_eq!(notes.retain(&[id_off(60, 2), id_off(60, 9), id_off(60, 1)], false), 2);
+        assert_eq!(notes.pending(), 1);
         // A note-on discarded in one start does not swallow a release after a new start.
         let mut notes = Notes::empty();
         notes.retain(&[Event { kind: NOTE_ON, pitch: 60, id: u32::MAX, value: 0.5, ..Event::default() }], false);
