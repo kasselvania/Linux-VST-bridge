@@ -3580,6 +3580,16 @@ same policy before generating the descriptor and binds artifact reuse to it.
 Pigments loads, plays, reopens its editor and recalls changed state after a fresh
 DAW launch; the existing long-playback and touch gaps remain separate.
 
+## FC-MIDI-004 — Notes sent before a processing start is acknowledged are lost
+
+Fixed in Test87 on CachyOS / REAPER 7.82 / Kontakt 8.13.1 (Piano Uno). REAPER
+restarts processing at every transport start; blocks that arrive before the
+Windows host acknowledges the start are answered with silence, and their notes
+were discarded. Kontakt with its editor open took 140–220 ms to acknowledge, so a
+chord at 0.1 s never reached it: −155 dBFS on three plays, while its own keyboard
+sounded. Those notes are now held and played at the first rendered block (up to
+about 0.2 s late at transport start): −9.4/−9.7/−9.4 dBFS, 6 notes delayed, none dropped.
+
 ## Beta reports under investigation
 
 - [#329](https://github.com/kasselvania/Linux-VST-bridge/issues/329): Choose another installer retains the setup and original history; the selected replacement owns subsequent plug-in connection or installed-app continuation. Missing installation folders require recovery rather than silent recreation. Final source review and packaged acceptance remain pending.
