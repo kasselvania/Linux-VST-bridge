@@ -682,11 +682,19 @@ fn execute_owned(
                 .iter()
                 .filter(|r| r.installer == installer)
                 .collect();
+            // A Retry chain continues in its newest attempt; earlier attempts
+            // stay retained history. Unrelated setups for the same bytes remain
+            // ambiguous and still need their own resume.
+            let current: Vec<_> = existing
+                .iter()
+                .copied()
+                .filter(|r| !existing.iter().any(|other| other.previous_attempt.as_deref() == Some(&r.id)))
+                .collect();
             require(
-                existing.len() <= 1,
+                current.len() <= 1 && (existing.is_empty() || !current.is_empty()),
                 "automatic_installation_existing_attempt_requires_resume",
             )?;
-            let record = if let Some(record) = existing.first() {
+            let record = if let Some(record) = current.first() {
                 require(
                     record.installation_operation.is_none() && record.automatic.is_none(),
                     "automatic_installation_existing_attempt_requires_resume",
@@ -2660,6 +2668,65 @@ mod tests {
             assert_eq!(spec["installer_capability"]["operation"],operation);
             assert_later_replacement_and_actual_retry(&f,&current,
                 explicit_replacement.then_some(powershell));
+        }
+    }
+    #[test]
+    fn offered_retry_after_installer_ran_launches_install_in_the_new_attempt() {
+        // Test75: the vendor installer ran and was cancelled, the card's Retry
+        // created a new isolated attempt, and its Install and connect refused
+        // because the earlier attempt holds the same installer bytes.
+        for policy in [None,Some(ui::Powershell::Inherited)] {
+            let (f,installer,_)=onboarding::tests::close_policy_imported_fixture();
+            let first=ui::Action::software_install_action(installer.id.clone(),ui::DawChoice::Reaper,policy);
+            let operation=test_submit_offered(&f.m,&first).unwrap();
+            let error=readiness::with_unit_state_fixture(&[onboarding::unit(&operation).unwrap()],"inactive",||
+                onboarding::with_installer_unit_refusal(||execute(&f.m,&first,&operation,
+                    &idle_capacity_test,Duration::from_secs(1),&mut vec![]))).unwrap_err();
+            assert!(error.to_string().contains("fixture_installer_unit_refusal"),"{error}");
+            let failed=onboarding::history_records(&f.m).unwrap().remove(0);
+            let failed_home=onboarding::directory(&f.m,&failed.id).unwrap();
+            atomic_json(&failed_home.join(format!("{operation}-result.json")),&json!({"schema":2,"operation":operation,
+                "state":"cancelled","raw_exit":1,"cleanup_confirmed":true,"owned_live":0,"error":null})).unwrap();
+            write_operation(&f.m,&operation,&json!({"schema":2,"operation":operation,"state":"refused"}),false).unwrap();
+            let failed_bytes=fs::read(failed_home.join("record.json")).unwrap();
+
+            // Retired installer units read as inactive, as on a real idle machine.
+            let idle=|f:&test_fixture::Fixture|installer_units(&f.m);
+            let snapshot=readiness::with_unit_state_fixture(&idle(&f),"inactive",||snapshot_idle_test(&f.m)).unwrap();
+            let card=snapshot.installer_setups.iter().find(|setup|setup.installer==installer.id).unwrap();
+            let retry=card.secondary.iter().chain(card.primary.iter())
+                .find(|offer|offer.label=="Retry" && offer.disabled_reason.is_none()
+                    && matches!(offer.action,ui::Action::InstallerNewAttempt {..})).unwrap().action.clone();
+            let attempt=readiness::with_unit_state_fixture(&idle(&f),"inactive",||test_submit_offered(&f.m,&retry)).unwrap();
+            readiness::with_unit_state_fixture(&idle(&f),"inactive",||execute_with_receipt_policy(&f.m,&retry,
+                Some(&attempt),&idle_capacity_test,Duration::from_secs(1),&mut vec![])).unwrap();
+            write_operation(&f.m,&attempt,&json!({"schema":2,"operation":attempt,"state":"completed"}),false).unwrap();
+
+            let snapshot=readiness::with_unit_state_fixture(&idle(&f),"inactive",||snapshot_idle_test(&f.m)).unwrap();
+            let offer=available(&snapshot).into_iter().find(|offer|offer.disabled_reason.is_none()
+                && offer.action.software_install().is_some_and(|(id,_,selected)|id==installer.id && selected==policy))
+                .unwrap().action.clone();
+            let install=offer.software_install_with_daw(ui::DawChoice::Reaper).unwrap();
+            assert!(preparation_cli::offered(&install,&offer));
+            let launched=readiness::with_unit_state_fixture(&idle(&f),"inactive",||test_submit_offered(&f.m,&install)).unwrap();
+            let mut units=idle(&f);units.push(onboarding::unit(&launched).unwrap());
+            let error=readiness::with_unit_state_fixture(&units,"inactive",||
+                onboarding::with_installer_unit_refusal(||execute(&f.m,&install,&launched,
+                    &idle_capacity_test,Duration::from_secs(1),&mut vec![]))).unwrap_err();
+            assert!(error.to_string().contains("fixture_installer_unit_refusal"),"{error}");
+
+            let records=onboarding::history_records(&f.m).unwrap();assert_eq!(records.len(),2);
+            let current=records.iter().find(|r|r.id!=failed.id).unwrap();
+            assert_eq!(current.previous_attempt.as_deref(),Some(failed.id.as_str()));
+            assert_eq!(current.installation_operation.as_deref(),Some(launched.as_str()));
+            let intent=record_intent(&f.m,current).unwrap().unwrap();
+            assert_eq!(intent.owner,launched);assert_eq!(intent.installer_policy,policy);
+            assert_eq!(intent.journey.daw,ui::DawChoice::Reaper);
+            assert_eq!(fs::read(failed_home.join("record.json")).unwrap(),failed_bytes);
+            let spec:Value=read_json(&onboarding::directory(&f.m,&current.id).unwrap().join(format!("{launched}-spec.json"))).unwrap();
+            assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],
+                serde_json::to_value(policy.unwrap_or(ui::Powershell::IntentionallyUnavailable)).unwrap());
+            assert_eq!(spec["environment"],serde_json::to_value(&current.environment).unwrap());
         }
     }
     #[test]
