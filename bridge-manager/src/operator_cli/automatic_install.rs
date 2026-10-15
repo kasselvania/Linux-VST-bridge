@@ -1344,18 +1344,26 @@ fn continue_with(
         *intent=collected;
         save(m, record, intent, operation)?;
     } else {
-        // A bridge update replaces the scanner, and every selection identity
-        // names its scanner: rescan under the current one, then follow each
-        // row to the same file and class in the current scan.
-        if scanned_by_other_scanner(m, record)? {
-            intent.journey.phase = ui::InstallationPhase::Discovering;
-            save(m, record, intent, operation)?;
-            run(&discovery_action(record, intent), operation, &mut |_| {})?;
+        let mut rescanned = false;
+        if installer_flow(record, intent) {
+            settle_committed_rows(m, record, intent)?;
+            // A bridge update replaces the scanner, and every selection names
+            // its scanner: a finished check can only run again after discovery
+            // under the installed one.
+            // Only this journey's own new discovery is followed; an inventory
+            // another task replaced is still refused below.
+            if journey_scanned_by_other_scanner(m, record, intent)? && needs_rediscovery(m, record, intent)? {
+                intent.journey.phase = ui::InstallationPhase::Discovering;
+                save(m, record, intent, operation)?;
+                let scanned = run(&discovery_action(record, intent), operation, &mut |_| {})?;
+                require_current_scan(m, record, &scanned)?;
+                rescanned = true;
+                follow_current_scan(m, record, intent)?;
+                save(m, record, intent, operation)?;
+            }
         }
-        if follow_current_scan(m, record, intent)? {
-            save(m, record, intent, operation)?;
-        }
-        if !intent.failed_modules.is_empty() {
+        // That discovery already loaded every failed file once.
+        if !rescanned && !intent.failed_modules.is_empty() {
             retry_failed_modules(m, record, intent, operation, run)?;
         }
     }
@@ -1371,17 +1379,43 @@ fn discovery_action(record: &dyn InstallationTarget, intent: &Intent) -> ui::Act
         ui::Action::InstallerScan {onboarding: record.id().to_owned()}
     }
 }
+/// A setup that ran a Windows installer. Refresh, renderer and vendor-app
+/// journeys keep their own continuation and are not rediscovered here.
+fn installer_flow(record: &dyn InstallationTarget, intent: &Intent) -> bool {
+    intent.vendor.is_none() && record.installation().is_some() && !record.renderer()
+}
+fn inventory_path(m: &Manager, record: &dyn InstallationTarget) -> PathBuf {
+    m.root.join("inventory").join(format!("{}.json", record.id()))
+}
 /// The environment's current inventory was made by a scanner other than the
 /// installed one, as after a bridge update.
 fn scanned_by_other_scanner(m: &Manager, record: &dyn InstallationTarget) -> Result<bool> {
-    let path = m.root.join("inventory").join(format!("{}.json", record.id()));
-    let Some(scan) = optional_json::<inventory::Scan>(&path)? else { return Ok(false) };
+    let Some(scan) = optional_json::<inventory::Scan>(&inventory_path(m, record))? else { return Ok(false) };
     let sw = software(m)?;
     Ok(scan.host.sha256 != sw.host.sha256 || scan.host_source_sha256 != sw.source_sha256)
+}
+/// This journey's own discovery was made by a scanner other than the
+/// installed one. Without its retained scan, the current inventory decides.
+fn journey_scanned_by_other_scanner(m: &Manager, record: &dyn InstallationTarget, intent: &Intent) -> Result<bool> {
+    let sw = software(m)?;
+    match journey_scan(m, intent) {
+        Some(scan) => Ok(scan.host.sha256 != sw.host.sha256 || scan.host_source_sha256 != sw.source_sha256),
+        None => scanned_by_other_scanner(m, record),
+    }
 }
 fn optional_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<Option<T>> {
     if !path.try_exists()? { return Ok(None); }
     Ok(Some(read_json(path)?))
+}
+/// The scan a discovery step reported is the environment's current
+/// inventory, made by the installed scanner for this environment.
+fn require_current_scan(m: &Manager, record: &dyn InstallationTarget, scanned: &Value) -> Result<()> {
+    let id = scanned["scan"].as_str().ok_or("automatic_scan_identity_missing")?;
+    let current: inventory::Scan = read_json(&inventory_path(m, record))?;
+    let sw = software(m)?;
+    require(current.id == id && current.environment == *record.environment()
+        && current.host == sw.host && current.host_source_sha256 == sw.source_sha256,
+        "automatic_scan_binding_changed")
 }
 /// The selection a retained scan gave one exact file and class.
 fn scan_selection(scan: &inventory::Scan, id: &str) -> Option<prep::Selection> {
@@ -1401,49 +1435,150 @@ fn remove_row(intent: &mut Intent, row: usize) {
         if failed.result_index > row { failed.result_index -= 1; }
     }
 }
-/// When the environment was rescanned after this journey's scan (a bridge
-/// update, or "Rescan"), follow each row to the same file (by content) and
-/// class in the current scan. Unfinished rows start a fresh check there; a
-/// row whose file or class is gone keeps its identity and fails as before.
-/// A file whose discovery failed and now succeeds becomes its plug-ins' rows.
+/// This row's candidate is the publication the DAW uses for this file and
+/// environment: the same test the connection step applies before skipping.
+fn committed(m: &Manager, record: &dyn InstallationTarget, work: &ClassWork) -> Result<bool> {
+    let Some(id) = &work.candidate else { return Ok(false) };
+    let Ok(candidate) = prep::candidate_record(m, id) else { return Ok(false) };
+    if !prep::selected_publication_candidate_record(m, &candidate).unwrap_or(false) { return Ok(false) }
+    Ok(m.registry()?.classes.get(&candidate.selection.class.id).is_some_and(|entry|
+        entry.registration.environment.id == record.id()
+            && entry.registration.module == candidate.selection.module))
+}
+/// The row's own check ran to its end (it failed, or its candidate was not
+/// published). Only such a row may start a fresh check.
+fn finished_check(m: &Manager, work: &ClassWork) -> Result<bool> {
+    Ok(match &work.check {
+        Some(check) => prep::guided_check_stage(m, check, "completed")?.is_some(),
+        None => false,
+    })
+}
+const FILE_CHANGED: &str = "This plug-in's file changed or was removed after it was found. Its earlier records are kept.";
+const FILE_AMBIGUOUS: &str = "This plug-in's file is now installed more than once, so the bridge cannot tell which copy it found before. Its earlier records are kept.";
+const HISTORY_MISSING: &str = "The record of where this plug-in was found was not kept, so it cannot be checked again here. Its earlier records are kept.";
+/// Every unfinished row has a plain final outcome Retry cannot change.
+fn only_final_discovery_outcomes(journey: &ui::InstallationJourney) -> bool {
+    let mut open = journey.plugins.iter().filter(|plugin| plugin.stage != ui::InstallationPluginStage::Available).peekable();
+    journey.failure.is_none() && open.peek().is_some()
+        && open.all(|plugin| plugin.failure.as_ref().is_some_and(|failure| !failure.retryable))
+}
+/// A plain discovery outcome Retry cannot change; the row is not retried.
+fn final_discovery_failure(intent: &mut Intent, row: usize, code: &str, reason: &str) {
+    if let Some(row) = intent.journey.plugins.get_mut(row) {
+        row.stage = ui::InstallationPluginStage::NeedsAttention;
+        row.failure = Some(ui::InstallationFailure {stage: ui::InstallationFailureStage::Discovery,
+            code: code.into(), reason: reason.into(), retryable: false});
+    }
+}
+/// A publication committed before its worker could record it (for example a
+/// worker that died after publishing) is Available, whatever scanner the
+/// row's selection names.
+fn settle_committed_rows(m: &Manager, record: &dyn InstallationTarget, intent: &mut Intent) -> Result<()> {
+    for work in &intent.work {
+        let Some(row) = intent.journey.plugins.get_mut(work.result_index) else { continue };
+        if work.predecessor.is_none() && row.selection == work.selection
+            && row.stage != ui::InstallationPluginStage::Available && committed(m, record, work)? {
+            row.stage = ui::InstallationPluginStage::Available;
+            row.failure = None;
+        }
+    }
+    Ok(())
+}
+/// An installer-flow row whose finished check may run again under a new scanner.
+fn rediscoverable(m: &Manager, record: &dyn InstallationTarget, intent: &Intent, work: &ClassWork) -> Result<bool> {
+    let Some(row) = intent.journey.plugins.get(work.result_index) else { return Ok(false) };
+    Ok(work.predecessor.is_none() && row.selection == work.selection
+        && row.stage != ui::InstallationPluginStage::Available
+        && row.failure.as_ref().is_none_or(|failure| failure.retryable)
+        && finished_check(m, work)? && !committed(m, record, work)?)
+}
+/// Rows add the current selections of one file that discovery now reads.
+fn add_module_rows(intent: &mut Intent, selected: &[prep::Selection], artifact: &Artifact) -> Result<()> {
+    for selection in selected.iter().filter(|selection| selection.module == *artifact) {
+        let id = selection.id()?;
+        if intent.work.iter().any(|work| work.selection == id)
+            || intent.prior_selections.contains(&stable_identity(selection)) { continue; }
+        let result_index = intent.journey.plugins.len();
+        intent.journey.plugins.push(ui::InstallationPlugin {selection: id.clone(),
+            class_id: selection.class.id.clone(), name: selection.class.name.clone(),
+            stage: ui::InstallationPluginStage::Pending, failure: None});
+        intent.work.push(ClassWork {selection: id, predecessor: None, result_index,
+            check: None, candidate: None, active_operation: None});
+    }
+    Ok(())
+}
+/// An installer setup's rows after this journey scanned again because a
+/// bridge update replaced the scanner (every selection names its scanner).
+/// Each rediscoverable row follows
+/// its file (by content) and class to exactly one current selection and
+/// starts a fresh check there; no match or several matches is a plain final
+/// discovery failure. Available rows keep their candidate and only follow
+/// their identity. Failed discovery rows follow their file: a file that now
+/// reads becomes its plug-ins' rows, a missing one fails plainly.
 fn follow_current_scan(m: &Manager, record: &dyn InstallationTarget, intent: &mut Intent) -> Result<bool> {
-    let path = m.root.join("inventory").join(format!("{}.json", record.id()));
-    let Some(current) = optional_json::<inventory::Scan>(&path)? else { return Ok(false) };
+    let Some(current) = optional_json::<inventory::Scan>(&inventory_path(m, record))? else { return Ok(false) };
     let sw = software(m)?;
     if intent.scan.as_deref() == Some(current.id.as_str()) || current.environment != *record.environment()
         || current.host != sw.host || current.host_source_sha256 != sw.source_sha256 {
         return Ok(false);
     }
-    let Some(retained) = journey_scan(m, intent) else { return Ok(false) };
+    let history = journey_scan(m, intent);
     let selected = prep::selections(m, &sw.host, &sw.source_sha256)?.into_iter()
         .filter(|selection| selection.environment.id == record.id()).collect::<Vec<_>>();
-    for work in &mut intent.work {
+    for index in 0..intent.work.len() {
+        let work = intent.work[index].clone();
+        let Some(row) = intent.journey.plugins.get(work.result_index) else { continue };
         if selected.iter().any(|selection| selection.id().is_ok_and(|id| id == work.selection)) { continue; }
-        let Some(old) = scan_selection(&retained, &work.selection) else { continue };
-        let Some(new) = selected.iter().find(|selection| stable_identity(selection) == stable_identity(&old))
-        else { continue };
-        let id = new.id()?;
-        if let Some(row) = intent.journey.plugins.get_mut(work.result_index)
-            .filter(|row| row.selection == work.selection) {
-            row.selection = id.clone();
+        if row.selection != work.selection {
+            // A row that no longer names this work never keeps its stale check.
             if row.stage != ui::InstallationPluginStage::Available {
-                // Its check and candidate named the old scanner.
-                work.check = None;
-                work.candidate = None;
-                work.active_operation = None;
+                let stale = &mut intent.work[index];
+                stale.check = None; stale.candidate = None; stale.active_operation = None;
             }
+            continue;
         }
-        work.selection = id;
+        let available = row.stage == ui::InstallationPluginStage::Available;
+        if !available && !rediscoverable(m, record, intent, &work)? { continue; }
+        let Some(old) = history.as_ref().and_then(|scan| scan_selection(scan, &work.selection)) else {
+            if !available {
+                final_discovery_failure(intent, work.result_index, "automatic_scan_history_missing", HISTORY_MISSING);
+            }
+            continue;
+        };
+        let matches = selected.iter().filter(|selection| stable_identity(selection) == stable_identity(&old))
+            .collect::<Vec<_>>();
+        match matches.as_slice() {
+            [new] => {
+                let id = new.id()?;
+                intent.journey.plugins[work.result_index].selection = id.clone();
+                let rebound = &mut intent.work[index];
+                rebound.selection = id;
+                if !available {
+                    // Its finished check and unpublished candidate named the old scan.
+                    rebound.check = None; rebound.candidate = None; rebound.active_operation = None;
+                }
+            }
+            [] if !available => final_discovery_failure(intent, work.result_index,
+                "plugin_file_changed_or_removed", FILE_CHANGED),
+            _ if !available => final_discovery_failure(intent, work.result_index,
+                "plugin_file_ambiguous", FILE_AMBIGUOUS),
+            _ => {}
+        }
     }
     let mut index = 0;
     while index < intent.failed_modules.len() {
-        let artifact = &intent.failed_modules[index].artifact;
-        let Some(found) = current.modules.iter().position(|module| module.artifact == *artifact)
-        else { index += 1; continue };
+        let artifact = intent.failed_modules[index].artifact.clone();
+        let Some(found) = current.modules.iter().position(|module| module.artifact == artifact) else {
+            // Never keep a module index into another scan.
+            let failed = intent.failed_modules.remove(index);
+            final_discovery_failure(intent, failed.result_index, "plugin_file_changed_or_removed", FILE_CHANGED);
+            continue;
+        };
         let module = &current.modules[found];
         if module.quarantine_reason.is_none() && module.inspection_error.is_none() {
             let row = intent.failed_modules.remove(index).result_index;
             remove_row(intent, row);
+            add_module_rows(intent, &selected, &artifact)?;
             continue;
         }
         intent.failed_modules[index].module_index = found;
@@ -1451,8 +1586,16 @@ fn follow_current_scan(m: &Manager, record: &dyn InstallationTarget, intent: &mu
         index += 1;
     }
     intent.scan = Some(current.id.clone());
-    collect_new_results(m, record, intent)?;
     Ok(true)
+}
+/// Something in this installer setup can only be checked again after
+/// discovery under the installed scanner.
+fn needs_rediscovery(m: &Manager, record: &dyn InstallationTarget, intent: &Intent) -> Result<bool> {
+    if !intent.failed_modules.is_empty() { return Ok(true); }
+    for work in &intent.work {
+        if rediscoverable(m, record, intent, work)? { return Ok(true); }
+    }
+    Ok(false)
 }
 fn finish_connections(m:&Manager,record:&dyn InstallationTarget,intent:&mut Intent,operation:&str,
     run:&mut ExecuteStage<'_>,installation:&Value)->Result<Value> {
@@ -1482,7 +1625,8 @@ fn finish_connections(m:&Manager,record:&dyn InstallationTarget,intent:&mut Inte
     // Shared environment inspection/preparation/publication must be serialized.
     for index in 0..intent.work.len() {
         let result_index = intent.work[index].result_index;
-        if intent.journey.plugins[result_index].stage == ui::InstallationPluginStage::Available {
+        if intent.journey.plugins[result_index].stage == ui::InstallationPluginStage::Available
+            || intent.journey.plugins[result_index].failure.as_ref().is_some_and(|f| !f.retryable) {
             continue;
         }
         let result = connect_class(m, record, intent, index, operation, run);
@@ -1738,17 +1882,7 @@ fn retry_failed_modules(
                 .position(|f| f.module_index == module_index)
                 .unwrap();
             let row = intent.failed_modules.remove(failed).result_index;
-            intent.journey.plugins.remove(row);
-            for work in &mut intent.work {
-                if work.result_index > row {
-                    work.result_index -= 1;
-                }
-            }
-            for failure in &mut intent.failed_modules {
-                if failure.result_index > row {
-                    failure.result_index -= 1;
-                }
-            }
+            remove_row(intent, row);
             collect_new_results(m, record, intent)?;
         }
         save(m, record, intent, operation)?;
@@ -2150,6 +2284,7 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
                     .failure
                     .as_ref()
                     .is_none_or(|failure| failure.retryable)
+                && !only_final_discovery_outcomes(&intent.journey)
                 && matches!(
                     optional(&job_dir(m, &intent.active_operation)?.join("result.json"))?["state"]
                         .as_str(),
@@ -4148,65 +4283,107 @@ finally:
             }
         }
     }
-    /// A musician updates the bridge to fix a failed check, then presses Retry.
-    /// The update replaced the scanner, so every retained selection is stale:
-    /// Retry rescans and checks the same file and class again.
-    #[test]
-    fn retry_after_bridge_update_rescans_and_checks_the_same_plugin_again() {
-        let (f, _c, r, mut intent) = setup();
-        let operation = intent.owner.clone();
-        continue_with(&f.m, &r, &mut intent, &operation, &mut |a, o, _| match a {
-            ui::Action::CompatibilityCheck { .. } => Err("component_initialization_failed".into()),
-            _ => actual(&f.m, a, o),
-        }).unwrap();
-        let stale = intent.work[0].selection.clone();
-        assert_eq!(intent.journey.plugins[0].failure.as_ref().unwrap().code,
-            "component_initialization_failed");
+    /// A finished failed check, as the guided check records it.
+    fn finish_failed_check(m: &Manager, check: &str) {
+        prep::retain_guided_check_stage(m, check, "completed", &json!({"kind":"compatibility_check"}),
+            &json!({"schema":1,"operation":check,"stage":"inspection_failed","inspection":null,
+                "candidate":null,"failure":"component_initialization_failed",
+                "publication_changed":false})).unwrap();
+    }
+    /// A bridge update: a different Windows host becomes the scanner.
+    fn update_host(f: &test_fixture::Fixture) -> (Artifact, String) {
         let mut sw = software_record(&f.m).unwrap();
-        let before = prep::select(&f.m, &stale, &sw.host, &sw.source_sha256).unwrap();
-        // The update installs a different Windows host.
         let host = f.outer.join("updated-host.exe");
         fs::write(&host, b"updated Windows host").unwrap();
         sw.host = Artifact { sha256: digest(&host).unwrap(), path: host };
         atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
-        let inventory = f.m.root.join("inventory").join(format!("{}.json", r.id));
+        (sw.host, sw.source_sha256)
+    }
+    /// The installer's discovery under `host`, keeping every scan in history
+    /// as the product's scanner does; `edit` changes what it finds.
+    fn rescan(m: &Manager, r: &onboarding::Record, host: &Artifact,
+        edit: impl FnOnce(&mut inventory::Scan)) -> Result<Value> {
+        let inventory = m.root.join("inventory").join(format!("{}.json", r.id));
+        let history = m.root.join("inventory/history");
+        private_dir(&history)?;
+        let mut scan: inventory::Scan = read_json(&inventory)?;
+        atomic_json(&history.join(format!("{}.json", scan.id)), &scan)?;
+        scan.id = random_id()?;
+        scan.host = host.clone();
+        edit(&mut scan);
+        atomic_json(&history.join(format!("{}.json", scan.id)), &scan)?;
+        atomic_json(&inventory, &scan)?;
+        Ok(json!({"scan":scan.id}))
+    }
+    /// An installer journey whose check finished as failed.
+    fn failed_check(f: &test_fixture::Fixture, r: &onboarding::Record, intent: &mut Intent) -> prep::Selection {
+        let operation = intent.owner.clone();
+        continue_with(&f.m, r, intent, &operation, &mut |a, o, _| match a {
+            ui::Action::CompatibilityCheck { .. } => Err("component_initialization_failed".into()),
+            _ => actual(&f.m, a, o),
+        }).unwrap();
+        finish_failed_check(&f.m, intent.work[0].check.as_ref().unwrap());
+        let sw = software_record(&f.m).unwrap();
+        prep::select(&f.m, &intent.work[0].selection, &sw.host, &sw.source_sha256).unwrap()
+    }
+    /// The Setup card for this record after the task finished.
+    fn finished_card(f: &test_fixture::Fixture, r: &onboarding::Record, intent: &Intent) -> ui::InstallerSetup {
+        write_operation(&f.m, &intent.active_operation,
+            &json!({"schema":1,"operation":intent.active_operation,"state":"completed"}), false).unwrap();
+        let record = onboarding::retained_environment_record(&f.m, &r.id).unwrap().unwrap();
+        let mut card = ui::InstallerSetup {installer:record.installer.clone(),name:"Plug-in".into(),
+            label_source:"user".into(),byte_size:1,format:"exe".into(),imported_at:1,
+            phase:ui::SetupPhase::DiscoveryComplete,journey:None,status:String::new(),
+            environment:Some(record.id.clone()),compatibility:None,discovered:vec![],primary:None,
+            secondary:vec![],rename:action("Rename",ui::Action::InstallerRename {
+                installer:record.installer.clone(),label:String::new()},None),history:vec![]};
+        project_from(&f.m, std::slice::from_mut(&mut card), None, std::slice::from_ref(&record)).unwrap();
+        card
+    }
+    fn offers_retry(card: &ui::InstallerSetup) -> bool {
+        card.primary.iter().chain(card.secondary.iter())
+            .any(|offer| matches!(offer.action, ui::Action::SoftwareInstallResume { .. }))
+    }
+    /// A musician updates the bridge to fix a failed check, then presses Retry.
+    /// The update replaced the scanner, so the retained selection is stale:
+    /// Retry rescans once and checks the same file and class again.
+    #[test]
+    fn retry_after_bridge_update_rescans_and_checks_the_same_plugin_again() {
+        for rescanned_first in [false, true] {
+        let (f, _c, r, mut intent) = setup();
+        let operation = intent.owner.clone();
+        let before = failed_check(&f, &r, &mut intent);
+        let stale = intent.work[0].selection.clone();
+        let (host, source) = update_host(&f);
+        if rescanned_first {
+            // "Rescan and continue preparation" after the update: another
+            // task's inventory, which Retry does not adopt; it scans itself.
+            rescan(&f.m, &r, &host, |_| {}).unwrap();
+        }
         let (mut scans, mut checked) = (0, vec![]);
-        let error = continue_with(&f.m, &r, &mut intent, &operation, &mut |a, _, _| match a {
+        continue_with(&f.m, &r, &mut intent, &operation, &mut |a, _, _| match a {
             ui::Action::InstallerScan { onboarding } => {
                 assert_eq!(onboarding, &r.id);
                 scans += 1;
-                // As the product's scanner does: every scan is also kept in history.
-                let history = f.m.root.join("inventory/history");
-                private_dir(&history)?;
-                let mut scan: inventory::Scan = read_json(&inventory)?;
-                atomic_json(&history.join(format!("{}.json", scan.id)), &scan)?;
-                scan.id = random_id()?;
-                scan.host = sw.host.clone();
-                atomic_json(&history.join(format!("{}.json", scan.id)), &scan)?;
-                atomic_json(&inventory, &scan)?;
-                Ok(json!({"scan":scan.id}))
+                rescan(&f.m, &r, &host, |_| {})
             }
             ui::Action::CompatibilityCheck { selection, .. } => {
                 checked.push(selection.clone());
                 Err("fixture_stops_at_the_new_check".into())
             }
             other => panic!("unexpected {other:?}"),
-        });
-        assert!(error.is_ok(), "{error:?}");
-        assert_eq!(scans, 1);
-        assert_eq!(checked.len(), 1);
+        }).unwrap();
+        assert_eq!((scans, checked.len()), (1, 1));
         assert_ne!(checked[0], stale);
         // The same file and class, found by the current scanner.
-        let current = prep::select(&f.m, &checked[0], &sw.host, &sw.source_sha256).unwrap();
-        assert_eq!(current.class, before.class);
-        assert_eq!(current.module, before.module);
-        assert_eq!(current.scanner, sw.host);
-        // One plug-in is still one row, now naming the current selection.
+        let current = prep::select(&f.m, &checked[0], &host, &source).unwrap();
+        assert_eq!((current.class, current.module, current.scanner), (before.class, before.module, host));
+        // One plug-in is still one row, naming the current selection, and Retry stays offered.
         assert_eq!(intent.journey.plugins.len(), 1);
         assert_eq!(intent.journey.plugins[0].selection, checked[0]);
-        assert_eq!(intent.journey.plugins[0].failure.as_ref().unwrap().code,
-            "fixture_stops_at_the_new_check");
-        // Nothing to rescan when the scanner is unchanged.
+        assert_eq!(intent.journey.plugins[0].failure.as_ref().unwrap().code, "fixture_stops_at_the_new_check");
+        assert!(offers_retry(&finished_card(&f, &r, &intent)));
+        // With the scanner unchanged nothing is scanned again.
         continue_with(&f.m, &r, &mut intent, &operation, &mut |a, _, _| match a {
             ui::Action::CompatibilityCheck { selection, .. } => {
                 assert_eq!(selection, &checked[0]);
@@ -4214,6 +4391,138 @@ finally:
             }
             other => panic!("unexpected {other:?}"),
         }).unwrap();
+        }
+    }
+    /// The discovery step must report the inventory it wrote.
+    #[test]
+    fn retry_rescan_must_report_the_current_inventory() {
+        let (f, _c, r, mut intent) = setup();
+        let operation = intent.owner.clone();
+        failed_check(&f, &r, &mut intent);
+        let (host, _) = update_host(&f);
+        let error = continue_with(&f.m, &r, &mut intent, &operation, &mut |a, _, _| match a {
+            ui::Action::InstallerScan { .. } => {
+                rescan(&f.m, &r, &host, |_| {})?;
+                Ok(json!({"scan":random_id()?}))
+            }
+            other => panic!("unexpected {other:?}"),
+        }).unwrap_err();
+        assert_eq!(error.to_string(), "automatic_scan_binding_changed");
+    }
+    /// Available rows, and a publication committed before its worker could
+    /// record it, are never checked again or reset by Retry after an update.
+    #[test]
+    fn retry_after_update_keeps_available_and_committed_rows() {
+        for interrupted in [false, true] {
+            let (f, c, r, mut intent) = setup();
+            let operation = intent.owner.clone();
+            preparation_cli::with_automatic_fixture(&c, || continue_with(&f.m, &r, &mut intent,
+                &operation, &mut |a, o, _| actual(&f.m, a, o))).unwrap();
+            assert_eq!(intent.journey.plugins[0].stage, ui::InstallationPluginStage::Available);
+            let candidate = intent.work[0].candidate.clone().unwrap();
+            if interrupted {
+                // The worker died after publishing, before recording it.
+                intent.journey.plugins[0].stage = ui::InstallationPluginStage::Publishing;
+                intent.journey.phase = ui::InstallationPhase::NeedsAttention;
+            }
+            let registry = fs::read(f.m.root.join("registry.json")).unwrap();
+            let (host, _) = update_host(&f);
+            rescan(&f.m, &r, &host, |_| {}).unwrap();
+            continue_with(&f.m, &r, &mut intent, &operation, &mut |a, _, _| {
+                panic!("nothing to run: {a:?}")
+            }).unwrap();
+            assert_eq!(intent.journey.plugins.len(), 1);
+            assert_eq!(intent.journey.plugins[0].stage, ui::InstallationPluginStage::Available);
+            assert_eq!(intent.journey.phase, ui::InstallationPhase::Available);
+            assert_eq!(intent.work[0].candidate.as_deref(), Some(candidate.as_str()));
+            assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(), registry);
+        }
+    }
+    /// A plug-in file that changed, disappeared, or is now installed twice
+    /// gets a plain final discovery outcome; Retry is no longer offered for it.
+    #[test]
+    fn retry_after_update_fails_plainly_when_the_plugin_file_changed() {
+        for (edit, code) in [("removed", "plugin_file_changed_or_removed"),
+            ("changed", "plugin_file_changed_or_removed"), ("duplicated", "plugin_file_ambiguous")] {
+            let (f, _c, r, mut intent) = setup();
+            let operation = intent.owner.clone();
+            failed_check(&f, &r, &mut intent);
+            let (host, _) = update_host(&f);
+            continue_with(&f.m, &r, &mut intent, &operation, &mut |a, _, _| match a {
+                ui::Action::InstallerScan { .. } => rescan(&f.m, &r, &host, |scan| match edit {
+                    "removed" => scan.modules.clear(),
+                    "changed" => scan.modules[0].artifact.sha256 = "ab".repeat(32),
+                    _ => {
+                        let mut copy = scan.modules[0].clone();
+                        copy.artifact.path = copy.artifact.path.with_file_name("Second copy.vst3");
+                        scan.modules.push(copy);
+                    }
+                }),
+                other => panic!("{edit}: unexpected {other:?}"),
+            }).unwrap();
+            let failed = intent.journey.plugins[0].failure.clone().unwrap();
+            assert_eq!((failed.code.as_str(), failed.stage, failed.retryable),
+                (code, ui::InstallationFailureStage::Discovery, false), "{edit}");
+            assert!(failed.reason.ends_with("Its earlier records are kept."), "{edit}");
+            assert_eq!(intent.journey.plugins.len(), 1, "{edit}");
+            assert!(!offers_retry(&finished_card(&f, &r, &intent)), "{edit}");
+            // Nothing runs again for it.
+            continue_with(&f.m, &r, &mut intent, &operation, &mut |a, _, _| {
+                panic!("{edit}: nothing to run: {a:?}")
+            }).unwrap();
+        }
+    }
+    /// A failed-discovery file follows its content: when it disappears its row
+    /// fails plainly and Retry continues; when it now reads, it becomes its
+    /// plug-ins' rows, checked once (the rescan loaded it already).
+    #[test]
+    fn retry_after_update_follows_failed_discovery_files() {
+        for reads_now in [false, true] {
+            let (f, _c, r, mut intent) = setup();
+            let operation = intent.owner.clone();
+            let inventory = f.m.root.join("inventory").join(format!("{}.json", r.id));
+            let mut scan: inventory::Scan = read_json(&inventory).unwrap();
+            let broken = scan.modules[0].artifact.path.with_file_name("Broken.vst3");
+            fs::write(&broken, b"a plug-in file whose discovery failed").unwrap();
+            let mut module = scan.modules[0].clone();
+            module.artifact = Artifact { sha256: digest(&broken).unwrap(), path: broken };
+            let classes = std::mem::take(&mut module.classes);
+            module.inspection_error = Some("Windows SDK host failed: 90".into());
+            scan.modules.push(module);
+            atomic_json(&inventory, &scan).unwrap();
+            failed_check(&f, &r, &mut intent);
+            assert_eq!((intent.journey.plugins.len(), intent.failed_modules.len()), (2, 1));
+            let (host, _) = update_host(&f);
+            let mut checked = vec![];
+            continue_with(&f.m, &r, &mut intent, &operation, &mut |a, _, _| match a {
+                ui::Action::InstallerScan { .. } => rescan(&f.m, &r, &host, |scan| {
+                    if reads_now {
+                        scan.modules[1].inspection_error = None;
+                        scan.modules[1].classes = classes.clone();
+                    } else {
+                        scan.modules.truncate(1);
+                    }
+                }),
+                ui::Action::CompatibilityCheck { selection, .. } => {
+                    checked.push(selection.clone());
+                    Err("fixture_stops_at_the_new_check".into())
+                }
+                other => panic!("unexpected {other:?}"),
+            }).unwrap();
+            assert!(intent.failed_modules.is_empty());
+            if reads_now {
+                // The original row and the file that now reads are both checked.
+                assert_eq!((intent.journey.plugins.len(), checked.len()), (2, 2));
+                let sw = software_record(&f.m).unwrap();
+                let files = checked.iter().map(|id| prep::select(&f.m, id, &sw.host, &sw.source_sha256)
+                    .unwrap().module.path.file_name().unwrap().to_owned()).collect::<Vec<_>>();
+                assert!(files.iter().any(|name| name == "Broken.vst3"), "{files:?}");
+            } else {
+                assert_eq!((intent.journey.plugins.len(), checked.len()), (2, 1));
+                let gone = intent.journey.plugins[1].failure.clone().unwrap();
+                assert_eq!((gone.code.as_str(), gone.retryable), ("plugin_file_changed_or_removed", false));
+            }
+        }
     }
     #[test]
     fn failed_publication_retains_preparation_and_retry_does_not_repeat_it() {
