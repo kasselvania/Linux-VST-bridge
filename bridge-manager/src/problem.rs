@@ -284,11 +284,15 @@ fn sdk_group(reason: &str) -> Option<&'static str> {
     const COMPONENT: &[&str] = &["setHostContext", "setHostContext failed", "createComponent",
         "null component", "initializeComponent", "queryAudioProcessor", "null audio processor"];
     const BUSES: &[&str] = &["getBusCount", "getBusInfo", "getBusArrangement", "bus count bound",
-        "setStereoMainPair", "stereo main-pair negotiation/readback", "censusSetProcessing"];
+        "setStereoMainPair", "stereo main-pair negotiation/readback", "censusSetProcessing",
+        "stereo main-pair policy requires one main audio input and output"];
     const CONTROLLER: &[&str] = &["queryEditController", "controller query tuple",
         "getControllerClassId", "createController", "null controller", "initializeController",
         "setComponentHandler", "connectComponent", "connectController", "parameter count bound",
         "enumerateParameters", "synchronizeController"];
+    // The audio engine reporting its starting settings (getState).
+    const SETTINGS_REPORT: &[&str] = &["initial state stream lifetime",
+        "initial state stream bounds/allocation", "initial state SDK failure"];
     const LIST: &[&str] = &["audio class absent", "class count bound", "getClassInfo",
         "getFactoryInfo", "getClassInfoUnicode", "getClassInfo2",
         "factory metadata class identity changed", "selected class syntax",
@@ -299,6 +303,8 @@ fn sdk_group(reason: &str) -> Option<&'static str> {
     if COMPONENT.contains(&reason) { Some("component") }
     else if BUSES.contains(&reason) { Some("buses") }
     else if CONTROLLER.contains(&reason) || parameter_index { Some("controller") }
+    else if reason == "initial controller synchronization failed" { Some("handoff") }
+    else if SETTINGS_REPORT.contains(&reason) { Some("settings") }
     else if LIST.contains(&reason) { Some("list") }
     else if reason == "multiple audio classes require explicit selection" { Some("multiple") }
     else { None }
@@ -320,6 +326,14 @@ fn sdk_failure(report: &Value) -> Explanation {
             "The plug-in started its audio engine, but its controls could not be set up.",
             "Its control interface reported an error.",
             "Update the plug-in and run the check again. If it keeps happening, create a problem report."),
+        Some("handoff") => Explanation::new("sdk_settings_handoff",
+            "The plug-in started, but it could not pass its starting settings from its audio engine to its controls.",
+            "It returned an error at that step.",
+            "Update the plug-in to its latest version and run the check again. If it keeps happening, create a problem report."),
+        Some("settings") => Explanation::new("sdk_settings_report",
+            "The plug-in started, but it could not report its starting settings.",
+            "It returned an error at that step.",
+            "Update the plug-in to its latest version and run the check again. If it keeps happening, create a problem report."),
         Some("list") => Explanation::new("sdk_plugin_list",
             "The plug-in file loaded, but the list of plug-ins it contains could not be read correctly.",
             "It returned incomplete or invalid information about itself.",
@@ -453,6 +467,10 @@ mod tests {
             ("connectController", "sdk_controls"),
             ("getParameterInfo index 17", "sdk_controls"),
             ("parameter count bound", "sdk_controls"),
+            ("initial controller synchronization failed", "sdk_settings_handoff"),
+            ("initial state SDK failure", "sdk_settings_report"),
+            ("initial state stream lifetime", "sdk_settings_report"),
+            ("stereo main-pair policy requires one main audio input and output", "sdk_audio_buses"),
             ("getClassInfo", "sdk_plugin_list"),
             ("audio class absent", "sdk_plugin_list"),
             ("multiple audio classes require explicit selection", "multiple_plugins_in_file"),
@@ -469,6 +487,93 @@ mod tests {
         assert_eq!(from_report(&missing).unwrap().code, "sdk_unrecognised_step");
         assert_eq!(from_report(&report("Windows SDK host failed: 91", json!([]))).unwrap().code,
             "sdk_shutdown");
+    }
+
+    /// String literals that begin the last argument of each `call(`…`)` in
+    /// `source`: the reason a `require(`, `ok(`, `BridgeError(` or
+    /// `runtime_error(` call records. A reason built as "literal" + value
+    /// yields its literal prefix.
+    fn recorded_reasons(source: &str, call: &str) -> Vec<String> {
+        let mut found = Vec::new();
+        for (at, _) in source.match_indices(call) {
+            let before = source[..at].chars().next_back();
+            if before.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_') { continue; }
+            let (mut depth, mut argument, mut in_string, mut escaped) = (1, String::new(), false, false);
+            for c in source[at + call.len()..].chars() {
+                if in_string {
+                    argument.push(c);
+                    if escaped { escaped = false; } else if c == '\\' { escaped = true; } else if c == '"' { in_string = false; }
+                    continue;
+                }
+                match c {
+                    '"' => { in_string = true; argument.push(c); }
+                    '(' | '[' | '{' => { depth += 1; argument.push(c); }
+                    ')' | ']' | '}' => {
+                        depth -= 1;
+                        if depth == 0 { break; }
+                        argument.push(c);
+                    }
+                    ',' if depth == 1 => argument.clear(),
+                    _ => argument.push(c),
+                }
+            }
+            if let Some(rest) = argument.trim().strip_prefix('"') {
+                if let Some(end) = rest.find('"') { found.push(rest[..end].to_owned()); }
+            }
+        }
+        found
+    }
+    /// The body of the function whose declaration starts with `signature`.
+    fn function_body<'a>(source: &'a str, signature: &str) -> &'a str {
+        let start = source.find(signature).unwrap_or_else(|| panic!("{signature} not found"));
+        let body = &source[start..];
+        &body[..body.find("\n}").unwrap_or(body.len())]
+    }
+
+    /// Every reason the Windows host's ordinary check can record has its own
+    /// sentence, so a musician never reads "not one the bridge can describe".
+    /// The test reads the Windows host sources at compile time, so it couples
+    /// this crate to the repository layout; ap12-manager.yml runs it when
+    /// those files change.
+    #[test]
+    fn every_check_step_the_windows_host_records_is_explained() {
+        let inspect = include_str!(concat!(env!("CARGO_MANIFEST_DIR"),
+            "/../windows-factory-probe/source/inspect_module.cpp"));
+        let state = include_str!(concat!(env!("CARGO_MANIFEST_DIR"),
+            "/../windows-factory-probe/source/ap8_state.h"));
+        let stereo = include_str!(concat!(env!("CARGO_MANIFEST_DIR"),
+            "/../windows-factory-probe/source/stereo_negotiation.h"));
+        // The check runs inspect_module(); from the headers, only the functions it calls.
+        let sources = [inspect, function_body(state, "inline bool synchronize_initial"),
+            function_body(stereo, "inline bool stereo_main_pair_policy"),
+            function_body(stereo, "inline StereoMainPairApplication apply_stereo_main_pair")];
+        let mut reasons = Vec::new();
+        for source in sources {
+            for call in ["runtime_error(", "BridgeError(", "require(", "ok("] {
+                reasons.extend(recorded_reasons(source, call));
+            }
+        }
+        // Written with the failing parameter's index appended.
+        for reason in &mut reasons {
+            if reason == "getParameterInfo index " { reason.push('7'); }
+        }
+        // The scan must find known reasons from each source, or it is not
+        // reading what the host records.
+        for known in ["getClassInfo", "createComponent", "null audio processor",
+            "initial controller synchronization failed", "initial state SDK failure",
+            "stereo main-pair policy requires one main audio input and output",
+            "getParameterInfo index 7"] {
+            assert!(reasons.iter().any(|reason| reason == known), "scan missed {known:?}: {reasons:?}");
+        }
+        // Not part of the ordinary check: the vendor-access window, the
+        // separate graphics assessment, audio in a running DAW session, and a
+        // misconfigured layout policy of the bridge itself.
+        let elsewhere = ["vendor access editor open failed", "vendor access title encoding",
+            "vendor access title conversion", "assessGraphicsEditor", "commercial processing failed",
+            "unknown audio layout policy"];
+        reasons.retain(|reason| !elsewhere.contains(&reason.as_str()));
+        let unexplained: Vec<_> = reasons.iter().filter(|reason| sdk_group(reason).is_none()).collect();
+        assert!(unexplained.is_empty(), "no plain explanation for host reasons {unexplained:?}");
     }
 
     #[test]
