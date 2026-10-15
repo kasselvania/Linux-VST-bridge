@@ -29,13 +29,24 @@ struct LaunchProfile {
 /// An explicit operation choice always overrides automatic advice.
 pub fn bind_for_launch(m: &Manager, spec: &mut Value, software: &Software,
     explicit: Option<Powershell>) -> Result<()> {
-    bind_for_launch_with(spec, software, explicit, |runner|
-        Ok(runtime_delivery::selected_record_path(m, runner)?.is_some()))
+    bind_for_launch_resolving(spec, software, explicit, |runner|
+        Ok(runtime_delivery::selected_record_path(m, runner)?.is_some()),
+        || crate::preparation::build::launch_software(m))
 }
+#[cfg(test)]
 fn bind_for_launch_with(spec: &mut Value, software: &Software, explicit: Option<Powershell>,
     retained_runtime: impl FnOnce(&Runner) -> Result<bool>) -> Result<()> {
-    if let Some(policy) = explicit { return bind(spec, software, policy); }
-    if eligible_adapter_record(spec["format"].as_str().unwrap_or(""), software).is_err() { return Ok(()); }
+    bind_for_launch_resolving(spec, software, explicit, retained_runtime,
+        || Err("installer_policy_adapter_missing".into()))
+}
+fn bind_for_launch_resolving(spec: &mut Value, software: &Software, explicit: Option<Powershell>,
+    retained_runtime: impl FnOnce(&Runner) -> Result<bool>,
+    launch_software: impl FnOnce() -> Result<Software>) -> Result<()> {
+    if let Some(policy) = explicit {
+        let software = with_launch_component(spec, software, launch_software)?;
+        return bind(spec, &software, policy);
+    }
+    if spec["format"] != "pe_executable" { return Ok(()); }
     let profile: LaunchProfile = serde_json::from_slice(include_bytes!("installer_policy/native_access_close_check.json"))?;
     require(profile.schema == 1 && !profile.id.is_empty() && !profile.reason.is_empty(), "installer_profile_record")?;
     let environment: Environment = serde_json::from_value(spec["environment"].clone())?;
@@ -53,7 +64,23 @@ fn bind_for_launch_with(spec: &mut Value, software: &Software, explicit: Option<
     // A missing or mismatched retained qualification declines automatic advice;
     // it cannot turn an otherwise ordinary installer into a forbidden one.
     if !retained_runtime(&environment.runner).unwrap_or(false) { return Ok(()); }
-    bind(spec, software, profile.powershell)
+    // Packaged installs carry the launch component in the signed kit, not in
+    // software.json. Matched advice resolves it; without it the reviewed fix
+    // cannot apply, which is reported instead of silently launching unchanged.
+    let software = with_launch_component(spec, software, launch_software)?;
+    bind(spec, &software, profile.powershell)
+}
+/// Only a launch that applies a policy uses the launch component. Ordinary
+/// installers keep the existing direct route and never resolve it.
+fn with_launch_component(spec: &mut Value, software: &Software,
+    launch_software: impl FnOnce() -> Result<Software>) -> Result<Software> {
+    if software.installer_launch.is_some() { return Ok(software.clone()); }
+    let effective = launch_software()?;
+    require(effective.installer_launch.is_some()
+        && Software { installer_launch: None, ..effective.clone() } == *software,
+        "installer_policy_software_changed")?;
+    spec["installer_launch"] = serde_json::to_value(&effective.installer_launch)?;
+    Ok(effective)
 }
 
 pub use crate::operator_model::Powershell;
@@ -233,6 +260,43 @@ mod tests {
         let mut unclassified = spec.clone();
         bind_for_launch_with(&mut unclassified, &software, None, |_| panic!("no installer class")).unwrap();
         assert_eq!(unclassified, spec);
+    }
+    #[test]
+    fn packaged_install_resolves_the_kit_launch_component_only_when_a_policy_applies() {
+        // Packaged software.json has no launch component; it lives in the signed kit.
+        let (_f, mut software, mut spec) = fixture();
+        let adapter = software.installer_launch.take().unwrap();
+        spec["installer_launch"] = Value::Null;
+        let effective = Software { installer_launch: Some(adapter.clone()), ..software.clone() };
+        let before = spec.clone();
+        let mut ordinary = spec.clone();
+        ordinary["environment"]["runner"]["id"] = json!("operator-imported-runtime");
+        let ordinary_before = ordinary.clone();
+        bind_for_launch_resolving(&mut ordinary, &software, None, |_| Ok(true),
+            || panic!("an ordinary installer must keep the direct route")).unwrap();
+        assert_eq!(ordinary, ordinary_before);
+        bind_for_launch_resolving(&mut spec, &software, None, |_| Ok(true), || Ok(effective.clone())).unwrap();
+        assert_eq!(spec["schema"], 3);
+        assert_eq!(spec["installer_launch"], serde_json::to_value(&adapter).unwrap());
+        assert_eq!(spec["installer_capability"]["installer_launch"], serde_json::to_value(&adapter).unwrap());
+        assert_eq!(spec["installer_capability"]["software"], serde_json::to_value(&effective).unwrap());
+        assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"], "intentionally_unavailable");
+        let mut explicit = before.clone();
+        bind_for_launch_resolving(&mut explicit, &software, Some(Powershell::Inherited),
+            |_| panic!("explicit choice"), || Ok(effective.clone())).unwrap();
+        assert_eq!(explicit["installer_capability"]["windows_scripting"]["powershell"], "inherited");
+        let mut missing = before.clone();
+        let error = bind_for_launch_resolving(&mut missing, &software, None, |_| Ok(true),
+            || Err("The managed application launch component is missing. Install the complete bridge update.".into()))
+            .unwrap_err();
+        assert!(error.to_string().contains("launch component is missing"), "{error}");
+        assert_eq!(missing, before);
+        let mut other = effective.clone();
+        other.source_sha256 = "00".repeat(32);
+        let mut changed = before.clone();
+        let error = bind_for_launch_resolving(&mut changed, &software, None, |_| Ok(true), || Ok(other)).unwrap_err();
+        assert_eq!(error.to_string(), "installer_policy_software_changed");
+        assert_eq!(changed, before);
     }
     #[test]
     fn explicit_operation_choice_wins_and_changed_content_cannot_inherit_advice() {
