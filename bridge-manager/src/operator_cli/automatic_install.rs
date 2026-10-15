@@ -1332,21 +1332,7 @@ fn continue_with(
     if intent.scan.is_none() {
         intent.journey.phase = ui::InstallationPhase::Discovering;
         save(m, record, intent, operation)?;
-        let scanned = run(
-            &if intent.vendor.is_none() && record.installation().is_none() {
-                ui::Action::EnvironmentRescan {environment:record.id().into()}
-            } else if intent.vendor.is_some() {
-                ui::Action::EnvironmentInstallerScan {
-                    environment: record.id().to_owned(),
-                }
-            } else {
-                ui::Action::InstallerScan {
-                onboarding: record.id().to_owned(),
-                }
-            },
-            operation,
-            &mut |_| {},
-        )?;
+        let scanned = run(&discovery_action(record, intent), operation, &mut |_| {})?;
         let mut collected=intent.clone();
         collected.scan = Some(
             scanned["scan"]
@@ -1357,10 +1343,116 @@ fn continue_with(
         collect_new_results(m, record, &mut collected)?;
         *intent=collected;
         save(m, record, intent, operation)?;
-    } else if !intent.failed_modules.is_empty() {
-        retry_failed_modules(m, record, intent, operation, run)?;
+    } else {
+        // A bridge update replaces the scanner, and every selection identity
+        // names its scanner: rescan under the current one, then follow each
+        // row to the same file and class in the current scan.
+        if scanned_by_other_scanner(m, record)? {
+            intent.journey.phase = ui::InstallationPhase::Discovering;
+            save(m, record, intent, operation)?;
+            run(&discovery_action(record, intent), operation, &mut |_| {})?;
+        }
+        if follow_current_scan(m, record, intent)? {
+            save(m, record, intent, operation)?;
+        }
+        if !intent.failed_modules.is_empty() {
+            retry_failed_modules(m, record, intent, operation, run)?;
+        }
     }
     finish_connections(m,record,intent,operation,run,&installation)
+}
+/// The scan that finds this target's installed plug-ins.
+fn discovery_action(record: &dyn InstallationTarget, intent: &Intent) -> ui::Action {
+    if intent.vendor.is_none() && record.installation().is_none() {
+        ui::Action::EnvironmentRescan {environment:record.id().into()}
+    } else if intent.vendor.is_some() {
+        ui::Action::EnvironmentInstallerScan {environment: record.id().to_owned()}
+    } else {
+        ui::Action::InstallerScan {onboarding: record.id().to_owned()}
+    }
+}
+/// The environment's current inventory was made by a scanner other than the
+/// installed one, as after a bridge update.
+fn scanned_by_other_scanner(m: &Manager, record: &dyn InstallationTarget) -> Result<bool> {
+    let path = m.root.join("inventory").join(format!("{}.json", record.id()));
+    let Some(scan) = optional_json::<inventory::Scan>(&path)? else { return Ok(false) };
+    let sw = software(m)?;
+    Ok(scan.host.sha256 != sw.host.sha256 || scan.host_source_sha256 != sw.source_sha256)
+}
+fn optional_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<Option<T>> {
+    if !path.try_exists()? { return Ok(None); }
+    Ok(Some(read_json(path)?))
+}
+/// The selection a retained scan gave one exact file and class.
+fn scan_selection(scan: &inventory::Scan, id: &str) -> Option<prep::Selection> {
+    scan.modules.iter().flat_map(|module| module.classes.iter().map(move |class| (module, class)))
+        .map(|(module, class)| prep::Selection {schema:1, environment:scan.environment.clone(),
+            module:module.artifact.clone(), class:class.clone(), scanner:scan.host.clone(),
+            scanner_source:scan.host_source_sha256.clone(), factory_report:module.report.clone()})
+        .find(|selection| selection.id().is_ok_and(|current| current == id))
+}
+/// Remove one journey row and keep every retained row index exact.
+fn remove_row(intent: &mut Intent, row: usize) {
+    intent.journey.plugins.remove(row);
+    for work in &mut intent.work {
+        if work.result_index > row { work.result_index -= 1; }
+    }
+    for failed in &mut intent.failed_modules {
+        if failed.result_index > row { failed.result_index -= 1; }
+    }
+}
+/// When the environment was rescanned after this journey's scan (a bridge
+/// update, or "Rescan"), follow each row to the same file (by content) and
+/// class in the current scan. Unfinished rows start a fresh check there; a
+/// row whose file or class is gone keeps its identity and fails as before.
+/// A file whose discovery failed and now succeeds becomes its plug-ins' rows.
+fn follow_current_scan(m: &Manager, record: &dyn InstallationTarget, intent: &mut Intent) -> Result<bool> {
+    let path = m.root.join("inventory").join(format!("{}.json", record.id()));
+    let Some(current) = optional_json::<inventory::Scan>(&path)? else { return Ok(false) };
+    let sw = software(m)?;
+    if intent.scan.as_deref() == Some(current.id.as_str()) || current.environment != *record.environment()
+        || current.host != sw.host || current.host_source_sha256 != sw.source_sha256 {
+        return Ok(false);
+    }
+    let Some(retained) = journey_scan(m, intent) else { return Ok(false) };
+    let selected = prep::selections(m, &sw.host, &sw.source_sha256)?.into_iter()
+        .filter(|selection| selection.environment.id == record.id()).collect::<Vec<_>>();
+    for work in &mut intent.work {
+        if selected.iter().any(|selection| selection.id().is_ok_and(|id| id == work.selection)) { continue; }
+        let Some(old) = scan_selection(&retained, &work.selection) else { continue };
+        let Some(new) = selected.iter().find(|selection| stable_identity(selection) == stable_identity(&old))
+        else { continue };
+        let id = new.id()?;
+        if let Some(row) = intent.journey.plugins.get_mut(work.result_index)
+            .filter(|row| row.selection == work.selection) {
+            row.selection = id.clone();
+            if row.stage != ui::InstallationPluginStage::Available {
+                // Its check and candidate named the old scanner.
+                work.check = None;
+                work.candidate = None;
+                work.active_operation = None;
+            }
+        }
+        work.selection = id;
+    }
+    let mut index = 0;
+    while index < intent.failed_modules.len() {
+        let artifact = &intent.failed_modules[index].artifact;
+        let Some(found) = current.modules.iter().position(|module| module.artifact == *artifact)
+        else { index += 1; continue };
+        let module = &current.modules[found];
+        if module.quarantine_reason.is_none() && module.inspection_error.is_none() {
+            let row = intent.failed_modules.remove(index).result_index;
+            remove_row(intent, row);
+            continue;
+        }
+        intent.failed_modules[index].module_index = found;
+        intent.failed_modules[index].report = module.report.clone();
+        index += 1;
+    }
+    intent.scan = Some(current.id.clone());
+    collect_new_results(m, record, intent)?;
+    Ok(true)
 }
 fn finish_connections(m:&Manager,record:&dyn InstallationTarget,intent:&mut Intent,operation:&str,
     run:&mut ExecuteStage<'_>,installation:&Value)->Result<Value> {
@@ -4055,6 +4147,73 @@ finally:
                 );
             }
         }
+    }
+    /// A musician updates the bridge to fix a failed check, then presses Retry.
+    /// The update replaced the scanner, so every retained selection is stale:
+    /// Retry rescans and checks the same file and class again.
+    #[test]
+    fn retry_after_bridge_update_rescans_and_checks_the_same_plugin_again() {
+        let (f, _c, r, mut intent) = setup();
+        let operation = intent.owner.clone();
+        continue_with(&f.m, &r, &mut intent, &operation, &mut |a, o, _| match a {
+            ui::Action::CompatibilityCheck { .. } => Err("component_initialization_failed".into()),
+            _ => actual(&f.m, a, o),
+        }).unwrap();
+        let stale = intent.work[0].selection.clone();
+        assert_eq!(intent.journey.plugins[0].failure.as_ref().unwrap().code,
+            "component_initialization_failed");
+        let mut sw = software_record(&f.m).unwrap();
+        let before = prep::select(&f.m, &stale, &sw.host, &sw.source_sha256).unwrap();
+        // The update installs a different Windows host.
+        let host = f.outer.join("updated-host.exe");
+        fs::write(&host, b"updated Windows host").unwrap();
+        sw.host = Artifact { sha256: digest(&host).unwrap(), path: host };
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let inventory = f.m.root.join("inventory").join(format!("{}.json", r.id));
+        let (mut scans, mut checked) = (0, vec![]);
+        let error = continue_with(&f.m, &r, &mut intent, &operation, &mut |a, _, _| match a {
+            ui::Action::InstallerScan { onboarding } => {
+                assert_eq!(onboarding, &r.id);
+                scans += 1;
+                // As the product's scanner does: every scan is also kept in history.
+                let history = f.m.root.join("inventory/history");
+                private_dir(&history)?;
+                let mut scan: inventory::Scan = read_json(&inventory)?;
+                atomic_json(&history.join(format!("{}.json", scan.id)), &scan)?;
+                scan.id = random_id()?;
+                scan.host = sw.host.clone();
+                atomic_json(&history.join(format!("{}.json", scan.id)), &scan)?;
+                atomic_json(&inventory, &scan)?;
+                Ok(json!({"scan":scan.id}))
+            }
+            ui::Action::CompatibilityCheck { selection, .. } => {
+                checked.push(selection.clone());
+                Err("fixture_stops_at_the_new_check".into())
+            }
+            other => panic!("unexpected {other:?}"),
+        });
+        assert!(error.is_ok(), "{error:?}");
+        assert_eq!(scans, 1);
+        assert_eq!(checked.len(), 1);
+        assert_ne!(checked[0], stale);
+        // The same file and class, found by the current scanner.
+        let current = prep::select(&f.m, &checked[0], &sw.host, &sw.source_sha256).unwrap();
+        assert_eq!(current.class, before.class);
+        assert_eq!(current.module, before.module);
+        assert_eq!(current.scanner, sw.host);
+        // One plug-in is still one row, now naming the current selection.
+        assert_eq!(intent.journey.plugins.len(), 1);
+        assert_eq!(intent.journey.plugins[0].selection, checked[0]);
+        assert_eq!(intent.journey.plugins[0].failure.as_ref().unwrap().code,
+            "fixture_stops_at_the_new_check");
+        // Nothing to rescan when the scanner is unchanged.
+        continue_with(&f.m, &r, &mut intent, &operation, &mut |a, _, _| match a {
+            ui::Action::CompatibilityCheck { selection, .. } => {
+                assert_eq!(selection, &checked[0]);
+                Err("fixture_stops_at_the_new_check".into())
+            }
+            other => panic!("unexpected {other:?}"),
+        }).unwrap();
     }
     #[test]
     fn failed_publication_retains_preparation_and_retry_does_not_repeat_it() {
