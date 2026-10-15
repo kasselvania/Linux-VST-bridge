@@ -4482,7 +4482,9 @@ class Nad1Owner:
                         if begin and begin[0][1:3]==[self.op.encode(),self.token.encode()]:stage['control_dispatch_observed']=True
                 if install and install.failure():
                     stage['result']='installer_nonzero' if install.result!=144 else 'installer_result_unavailable'
-                    raise ValueError(install.failure())
+                    # A vendor exit code is final; let its runner retire before
+                    # reporting it so later service commands never overlap it.
+                    if install.result==144:raise ValueError(install.failure())
                 if child.returncode is None and time.monotonic()>deadline:raise ValueError('dependency_runner_retirement_timeout' if install and install.result==0 else 'dependency_command_timeout')
                 if action=='start' and b'\n' in stdout and b'NAD1_SCM_V1 ' in stdout:
                     nad1_scm_frame(bytes(stdout),self.op,self.token)
@@ -4580,9 +4582,12 @@ class Nad1Owner:
             except ValueError as exc:
                 # A service installer's exit code is not authority either way:
                 # NTKDaemon 1.32.0 returns 100 after a complete registration.
-                # Continue only into the exact registration and readiness checks
-                # below; a missing daemon or registration still refuses.
-                if str(exc)!='dependency_installer_nonzero' or not path.exists():raise
+                # A profile-managed session continues only after the installer's
+                # runner retired and the daemon it was absent before now exists,
+                # into the exact registration and readiness checks below.
+                if (str(exc)!='dependency_installer_nonzero' or self.managed_contract is None or not absent
+                    or self.stages[-1].get('runner_retirement')!='observed' or not path.exists()):raise
+                self.stages[-1]['disposition']='verified_after_nonzero_exit'
             actual=ownership.image_identity(path)
             self.daemon=actual
             if self.managed_contract is not None:
