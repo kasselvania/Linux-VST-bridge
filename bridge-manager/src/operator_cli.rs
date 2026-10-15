@@ -270,7 +270,6 @@ fn vendor_projection(
         details: json!({"environment":a.environment.id,"journey":if handoff {None}else{current_intent.map(|i|&i.journey)},"choose_application":choosing,
             "capability_notice":job["capability_notice"],"dependency":report.as_ref().and_then(|r|r.dependency.as_ref()),
             "browser_return":report.as_ref().and_then(|r|r.browser_return.as_ref()),
-            "registry_defaults":report.as_ref().and_then(|r|r.registry_defaults.as_ref()),
             "error_code":report.as_ref().and_then(|r|r.error_code.as_ref())}),
         actions: vec![
             action(

@@ -53,6 +53,7 @@ pub const REGISTRY_DEFAULTS_LIMIT: usize = 4;
 
 fn registry_word(value: &str) -> bool {
     (1..=64).contains(&value.len()) && value.trim() == value
+        && value.bytes().next().is_some_and(|b| b.is_ascii_alphanumeric())
         && value.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b' ' | b'.' | b'_' | b'-'))
 }
 
@@ -378,6 +379,8 @@ mod tests {
             ("too deep", serde_json::json!([entry(&deep, "Value")])),
             ("expansion", serde_json::json!([entry("HKCU\\Software\\%USERPROFILE%", "Value")])),
             ("name charset", serde_json::json!([entry("HKCU\\Software", "Value;x")])),
+            ("part starts with a dot", serde_json::json!([entry("HKCU\\Software\\..", "Value")])),
+            ("name starts with a dash", serde_json::json!([entry("HKCU\\Software", "-Value")])),
             ("overlong name", serde_json::json!([entry("HKCU\\Software", &"N".repeat(65))])),
             ("duplicate", serde_json::json!([entry("HKCU\\Software", "Value"), entry("hkcu\\software", "VALUE")])),
             ("count", serde_json::json!((0..5).map(|i| entry("HKCU\\Software", &format!("V{i}"))).collect::<Vec<_>>())),

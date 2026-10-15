@@ -75,12 +75,18 @@ pub fn vendor_install_consequence(snapshot: &Snapshot, action: &Action) -> Optio
 /// One plain sentence for a per-user default the supervisor filled, or could
 /// not fill, before the app's last launch. A value the musician chose is silent.
 pub fn vendor_default_notice(app: &VendorApplication) -> Option<String> {
-    let entries = app.details["registry_defaults"].as_array()?;
+    let entries = app.details["dependency"]["registry_defaults"].as_array()?;
     let name = &app.name;
-    entries.iter().find_map(|entry| match (entry["known_folder"].as_str()?, entry["result"].as_str()?) {
-        ("Downloads", "applied") => Some(format!(
-            "{name}'s download folder was empty, so the bridge set it to your Downloads folder.")),
-        ("Downloads", "failed") => Some(format!(
+    let set = format!("{name}'s download folder was empty, so the bridge set it to the Downloads folder inside {name}'s Windows setup.");
+    entries.iter().find_map(|entry| match (entry["known_folder"].as_str()?, entry["result"].as_str()?,
+        entry["reason"].as_str()) {
+        ("Downloads", "applied", _) => Some(set.clone()),
+        ("Downloads", "applied_after_service_start", _) => Some(format!(
+            "{set} If downloads still fail, close {name} and open it again once.")),
+        ("Downloads", "failed", Some("cancelled")) => None,
+        ("Downloads", "failed", Some("query_unreadable")) => Some(format!(
+            "The bridge couldn't read {name}'s download folder, so it left it unchanged. If downloads fail, set it in {name}'s preferences.")),
+        ("Downloads", "failed", _) => Some(format!(
             "Couldn't set {name}'s download folder; set it in {name}'s preferences before downloading.")),
         _ => None,
     })
@@ -730,16 +736,24 @@ mod tests {
 
     #[test]
     fn vendor_default_notice_names_only_what_the_bridge_did() {
-        let app = |result: &str| VendorApplication { id: "a".into(), name: "Native Access".into(),
+        let app = |result: &str, reason: Option<&str>| VendorApplication { id: "a".into(), name: "Native Access".into(),
             version: "3".into(), state: "running".into(), actions: vec![],
-            details: serde_json::json!({"registry_defaults": [{"known_folder": "Downloads", "result": result, "reason": null}]}) };
-        assert_eq!(vendor_default_notice(&app("applied")).unwrap(),
-            "Native Access's download folder was empty, so the bridge set it to your Downloads folder.");
-        assert_eq!(vendor_default_notice(&app("failed")).unwrap(),
+            details: serde_json::json!({"dependency": {"registry_defaults":
+                [{"known_folder": "Downloads", "result": result, "reason": reason}]}}) };
+        let set = "Native Access's download folder was empty, so the bridge set it to the Downloads folder inside Native Access's Windows setup.";
+        assert_eq!(vendor_default_notice(&app("applied", None)).unwrap(), set);
+        assert_eq!(vendor_default_notice(&app("applied_after_service_start", None)).unwrap(),
+            format!("{set} If downloads still fail, close Native Access and open it again once."));
+        assert_eq!(vendor_default_notice(&app("failed", Some("timeout"))).unwrap(),
             "Couldn't set Native Access's download folder; set it in Native Access's preferences before downloading.");
-        assert_eq!(vendor_default_notice(&app("already_set")), None);
-        let mut plain = app("applied");
-        plain.details = serde_json::json!({"registry_defaults": null});
+        assert_eq!(vendor_default_notice(&app("failed", Some("query_unreadable"))).unwrap(),
+            "The bridge couldn't read Native Access's download folder, so it left it unchanged. If downloads fail, set it in Native Access's preferences.");
+        assert_eq!(vendor_default_notice(&app("failed", Some("cancelled"))), None);
+        assert_eq!(vendor_default_notice(&app("already_set", None)), None);
+        let mut plain = app("applied", None);
+        plain.details = serde_json::json!({"dependency": {"registry_defaults": null}});
+        assert_eq!(vendor_default_notice(&plain), None);
+        plain.details = serde_json::json!({"dependency": null});
         assert_eq!(vendor_default_notice(&plain), None);
     }
 

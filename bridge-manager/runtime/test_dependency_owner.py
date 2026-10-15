@@ -92,7 +92,7 @@ class OwnerTests(unittest.TestCase):
   self.assertEqual(self.commands,[])
  def nonzero_install(self,error='dependency_installer_nonzero',*,writes_daemon=True,registers=True,retired=True):
   # The profile-managed session (as for Native Access) runs NTKDaemon's installer.
-  self.owner.managed_contract={'fixture':'managed'}
+  self.owner.managed_contract={'fixture':'managed','profile':{}}
   command=self.owner.command
   def nonzero(action):
    if action!='install':return command(action)
@@ -422,7 +422,7 @@ class SessionCleanupTests(unittest.TestCase):
 
  def failed_before_readiness(self):
   self.owner.ready=False;self.owner.daemon=None;self.owner.service_actions_started=True
-  self.owner.managed_contract={'fixture':'managed'}
+  self.owner.managed_contract={'fixture':'managed','profile':{}}
  def verify_graceful(self,scan=None,listener_mask=0):
   with patch.object(ownership,'census',return_value=copy.deepcopy(scan or self.scan)) as census,patch.object(s,'nad1_listener_census',return_value={'listener_mask':listener_mask}):
    result=self.owner.verify_session_cleanup(self.image,True)
