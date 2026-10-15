@@ -1712,6 +1712,7 @@ fn current_offer_action(action: &ui::Action) -> bool {
     matches!(action, ui::Action::RuntimeInstall {} | ui::Action::SupportExport {}
         | ui::Action::TransactionReconcile {}
         | ui::Action::SoftwareInstall { .. }
+        | ui::Action::SoftwareInstallWithPolicy {..}
         | ui::Action::SoftwareInstallResume { .. }
         | ui::Action::EnvironmentRefresh { .. }
         | ui::Action::EnvironmentRefreshResume { .. }
@@ -1724,6 +1725,7 @@ fn current_offer_action(action: &ui::Action) -> bool {
         | ui::Action::InstallerStop { .. }
         | ui::Action::InstallerScan { .. }
         | ui::Action::EnvironmentInstallerStart { .. }
+        | ui::Action::EnvironmentInstallerStartWithPolicy { .. }
         | ui::Action::EnvironmentInstallerFocus { .. }
         | ui::Action::EnvironmentInstallerStop { .. }
         | ui::Action::EnvironmentInstallerScan { .. }
@@ -1917,7 +1919,7 @@ fn finish_operation(m: &Manager, id: &str) -> Result<()> {
                 onboarding::mark_dead(m, &r)?;
             }
         }
-        if matches!(request.action,ui::Action::EnvironmentInstallerStart { .. }) {
+        if request.action.environment_installer_start().is_some() {
             environment_install::finish(m,id)?;
         }
         if matches!(request.action,ui::Action::EnvironmentRuntimeSelect { .. }) {
@@ -2245,7 +2247,7 @@ fn execute_with_receipt_policy_progress(
         return environment_refresh::execute(m,a,operation.ok_or("operator_operation_identity")?,
             capacity_read,timeout,waits);
     }
-    if matches!(a, ui::Action::SoftwareInstall { .. } | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. }) {
+    if matches!(a, ui::Action::SoftwareInstall { .. } | ui::Action::SoftwareInstallWithPolicy {..} | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. }) {
         return automatic_install::execute(m, a, operation.ok_or("operator_operation_identity")?,
             capacity_read, timeout, waits);
     }
@@ -2359,7 +2361,7 @@ fn execute_with_receipt_policy_progress(
     match a {
         ui::Action::EnvironmentRefresh { .. } | ui::Action::EnvironmentRefreshResume { .. } => unreachable!(),
         ui::Action::RendererSoftwareInstall { .. } => unreachable!(),
-        ui::Action::SoftwareInstall { .. } | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. } => unreachable!(),
+        ui::Action::SoftwareInstall { .. } | ui::Action::SoftwareInstallWithPolicy {..} | ui::Action::VendorSoftwareInstall { .. } | ui::Action::SoftwareInstallResume { .. } => unreachable!(),
         ui::Action::RuntimeInstall {} => {
             drop(projection.take());
             let runner = linux_vst_bridge::runtime_delivery::install(m)?;
@@ -2486,7 +2488,9 @@ fn execute_with_receipt_policy_progress(
             cleanup?;
             Ok(value)
         }
-        ui::Action::EnvironmentInstallerStart {environment,installer} => {
+        action @ (ui::Action::EnvironmentInstallerStart {..}
+            | ui::Action::EnvironmentInstallerStartWithPolicy {..}) => {
+            let (environment,installer,_)=action.environment_installer_start().unwrap();
             let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
             suspend(m,owner,None,timeout,waits)?;
@@ -2920,6 +2924,7 @@ fn open_vendor_owned(
 fn resumable_action(action: &ui::Action) -> bool {
     matches!(action,ui::Action::InstallerStart {..} | ui::Action::InstallerStartWithPolicy {..}
         | ui::Action::InstallerScan {..} | ui::Action::EnvironmentInstallerStart {..}
+        | ui::Action::EnvironmentInstallerStartWithPolicy {..}
         | ui::Action::EnvironmentInstallerScan {..} | ui::Action::RendererOpen {..} | ui::Action::RendererSoftwareInstall {..}
         | ui::Action::EnvironmentRuntimeSelect {..}
         | ui::Action::DependencyPrepare {} | ui::Action::VendorApplicationOpen {..}

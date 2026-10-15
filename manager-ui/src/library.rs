@@ -899,6 +899,9 @@ fn visible_refusals(actions: &[AvailableAction], busy: Option<&str>, pending: bo
     reasons
 }
 
+pub(crate) fn installer_retry(offer:&crate::model::AvailableAction)->bool {
+    offer.label=="Retry" && offer.action.environment_installer_start().is_some()
+}
 pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
     target: &crate::model::EnvironmentInstaller, pending: bool, chosen: &mut Option<Action>) {
     ui.strong("Programs");
@@ -956,27 +959,37 @@ pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
             for line in presentation::installer_lines(&target.result) {ui.small(line);}
         });
     }
-    let continuation:Vec<_>=target.actions.iter().filter(|offer|!matches!(offer.action,
+    let continuation:Vec<_>=target.actions.iter().filter(|offer|installer_retry(offer)
+        || offer.action.environment_installer_start().is_none() && !matches!(offer.action,
         Action::EnvironmentInstallerFocus { .. } | Action::EnvironmentInstallerStop { .. }
         | Action::ProgramChoose {..})).cloned().collect();
     crate::library::action_buttons(ui,&continuation,None,pending,chosen);
     let key = egui::Id::new(("companion_installer",&target.environment));
-    let mut selected = ui.data_mut(|data|data.get_temp::<String>(key)).unwrap_or_default();
+    let mut selected = ui.data_mut(|data|data.get_temp::<String>(key))
+        .unwrap_or_else(|| target.installer.clone().unwrap_or_default());
     egui::ComboBox::from_id_salt(("companion_choice",&target.environment))
-        .selected_text(target.choices.iter().find(|offer|matches!(&offer.action,
-            Action::EnvironmentInstallerStart {installer,..} if installer == &selected))
+        .selected_text(target.choices.iter().find(|offer|offer.action.environment_installer_start()
+            .is_some_and(|(_,installer,policy)|installer==selected && policy.is_none()))
             .map(|offer|offer.label.as_str()).unwrap_or("Choose an added Windows installer"))
         .show_ui(ui,|ui| {
             for offer in &target.choices {
-                if let Action::EnvironmentInstallerStart {installer,..} = &offer.action {
-                    ui.selectable_value(&mut selected,installer.clone(),&offer.label);
+                if let Some((_,installer,None))=offer.action.environment_installer_start() {
+                    ui.selectable_value(&mut selected,installer.into(),&offer.label);
                 }
             }
         });
     ui.data_mut(|data|data.insert_temp(key,selected.clone()));
-    if let Some(offer) = target.choices.iter().find(|offer|matches!(&offer.action,
-        Action::EnvironmentInstallerStart {installer,..} if installer == &selected)) {
+    if let Some(offer) = target.choices.iter().find(|offer|offer.action.environment_installer_start()
+        .is_some_and(|(_,installer,policy)|installer==selected && policy.is_none())) {
         crate::library::action_buttons(ui,std::slice::from_ref(offer),None,pending,chosen);
+        let advanced:Vec<_>=target.actions.iter().filter(|offer|!installer_retry(offer)
+            && offer.action.environment_installer_start().is_some_and(|(_,installer,policy)|
+                installer==selected && policy.is_some())).cloned().collect();
+        if !advanced.is_empty() {
+            egui::CollapsingHeader::new("Advanced installer options").show(ui,|ui| {
+                crate::library::action_buttons(ui,&advanced,None,pending,chosen);
+            });
+        }
     }
     if target.choices.is_empty() {ui.small("Choose a Windows installer to add a local installer first.");}
 }

@@ -23,9 +23,10 @@ pub(super) fn load(m: &Manager, operation: &str) -> Result<Refresh> {
     };
     require(retained.request.path==job_dir(m,operation)?.join("request.json"),"automatic_refresh_request_path")?;
     let request: ui::Request = serde_json::from_slice(&retained.request.record_bytes(16384)?)?;
-    let origin=match request.action {
-        ui::Action::EnvironmentRefresh {environment,daw}=>environment==retained.environment.id && daw==retained.intent.journey.daw,
-        ui::Action::EnvironmentInstallerStart {environment,installer}=> {
+    let origin=match &request.action {
+        ui::Action::EnvironmentRefresh {environment,daw}=>environment==&retained.environment.id && daw==&retained.intent.journey.daw,
+        action if action.environment_installer_start().is_some()=> {
+            let (environment,installer,_)=action.environment_installer_start().unwrap();
             let binding=environment_install::load(m,operation)?;
             let value=environment_install::result(m,&binding)?;
             environment==retained.environment.id && installer==binding.installer
@@ -68,7 +69,7 @@ fn replacement_checkpoint(m:&Manager,operation:&str,interrupted:bool)->Result<Op
         predecessors.push(retained);
         preserved_performance.insert(class.clone(),m.performance(class)?);
     }
-    let intent=Intent {owner:operation.into(),active_operation:operation.into(),vendor:None,
+    let intent=Intent {installer_policy:None,owner:operation.into(),active_operation:operation.into(),vendor:None,
         journey:ui::InstallationJourney {daw,
             phase:if interrupted {ui::InstallationPhase::NeedsAttention} else {ui::InstallationPhase::Discovering},
             plugins:vec![],failure:interrupted.then(||automatic_install::failure(
@@ -91,12 +92,18 @@ fn source_daw(m:&Manager,source:&Artifact,environment:&Environment)->Result<ui::
         "replacement_automatic_request_binding")?;
     let request:ui::Request=serde_json::from_slice(&source.record_bytes(16384)?)?;
     require(matches!(request.schema,5..=ui::OPERATOR_SCHEMA),"replacement_automatic_request_binding")?;
+    if request.action.software_install().is_some() {
+        let record=onboarding::retained_environment_record(m,&environment.id)?
+            .ok_or("replacement_automatic_request_binding")?;
+        let intent=record.automatic.as_ref().ok_or("replacement_automatic_request_binding")?;
+        require(intent.owner==owner && record.environment.id==environment.id
+            && record.environment.root==environment.root,"replacement_automatic_request_binding")?;
+        let actual=automatic_install::initial_installer_input(m,&record,intent)?
+            .ok_or("replacement_automatic_request_binding")?;
+        require(actual==request,"replacement_automatic_request_binding")?;
+        return Ok(actual.action.software_install().ok_or("replacement_automatic_request_binding")?.1);
+    }
     match request.action {
-        ui::Action::SoftwareInstall {installer,daw}=> {
-            let record:Value=read_json(&onboarding::directory(m,&environment.id)?.join("record.json"))?;
-            require(record["creation_operation"]==owner && record["installer"]==installer,
-                "replacement_automatic_request_binding")?;Ok(daw)
-        },
         ui::Action::VendorSoftwareInstall {application,daw}=> {
             let binding=environment_revision::vendor_record(m,owner)?;
             require(binding.application==application && binding.environment.id==environment.id
@@ -130,7 +137,7 @@ pub(super) fn capture_request(m:&Manager,environment:&Environment)->Result<Optio
     } else if let Some(intent)=current_intent(m,environment)? {
         let request=control_artifact(job_dir(m,&intent.owner)?.join("request.json"))?;
         let action:ui::Request=serde_json::from_slice(&request.record_bytes(16384)?)?;
-        if matches!(action.action,ui::Action::EnvironmentInstallerStart {..}) {
+        if action.action.environment_installer_start().is_some() {
             environment_install::load(m,&intent.owner)?.automatic_request
         } else {Some(request)}
     } else {
@@ -141,8 +148,8 @@ pub(super) fn capture_request(m:&Manager,environment:&Environment)->Result<Optio
         let request:ui::Request=serde_json::from_slice(&source.record_bytes(16384)?)?;
         // Older low-level app-open requests did not retain a DAW choice. They
         // remain replaceable, without inventing an automatic connection intent.
-        if !matches!(request.action,ui::Action::SoftwareInstall {..}
-            | ui::Action::VendorSoftwareInstall {..} | ui::Action::EnvironmentRefresh {..}) {return Ok(None);}
+        if request.action.software_install().is_none() && !matches!(request.action,
+            ui::Action::VendorSoftwareInstall {..} | ui::Action::EnvironmentRefresh {..}) {return Ok(None);}
         source_daw(m,source,environment)?;
     }
     Ok(source)
@@ -170,7 +177,7 @@ pub(super) fn records(m: &Manager) -> Result<Vec<Refresh>> {
                 let result=optional(&entry.path().join("result.json"))?;
                 require(!result["journey"].is_object() && !result["result"]["journey"].is_object(),
                     "automatic_refresh_checkpoint_missing")?;
-            } else if request["action"]["kind"]=="environment_installer_start"
+            } else if matches!(request["action"]["kind"].as_str(),Some("environment_installer_start" | "environment_installer_start_with_policy"))
                 && entry.path().join("installation.json").try_exists()? {
                 if let Some(retained)=replacement_checkpoint(m,&owner,true)? {records.push(retained);}
             }
@@ -290,7 +297,7 @@ pub(super) fn execute_with(m:&Manager,action:&ui::Action,operation:&str,
     continue_connection:&mut dyn FnMut(&Environment,&mut Intent)->Result<Value>)->Result<Value> {
     let environment=match action {
         ui::Action::EnvironmentRefresh {environment,..}=>environment.clone(),
-        ui::Action::EnvironmentInstallerStart {environment,..}=>environment.clone(),
+        action if action.environment_installer_start().is_some()=>action.environment_installer_start().unwrap().0.into(),
         ui::Action::EnvironmentRefreshResume {operation:owner}=>load(m,owner)?.environment.id,
         _=>return Err("automatic_refresh_action".into()),
     };
@@ -302,7 +309,7 @@ pub(super) fn execute_with(m:&Manager,action:&ui::Action,operation:&str,
     let current=managed_rescan_binding(m,catalogue.as_ref(),&db,&environment)?
         .ok_or("operator_environment_not_managed")?;
     let mut retained=match action {
-        ui::Action::EnvironmentInstallerStart {..}=> {
+        action if action.environment_installer_start().is_some()=> {
             initialize_replacement(m,operation)?;
             let retained=load(m,operation)?;
             require(retained.environment==current,"automatic_refresh_environment_changed")?;
@@ -324,7 +331,7 @@ pub(super) fn execute_with(m:&Manager,action:&ui::Action,operation:&str,
                     preserved_performance.insert(class.clone(),m.performance(&entry.registration.key())?);
                 }
             }
-            let intent=Intent {owner:operation.into(),active_operation:operation.into(),vendor:None,
+            let intent=Intent {installer_policy:None,owner:operation.into(),active_operation:operation.into(),vendor:None,
                 journey:ui::InstallationJourney {daw,phase:ui::InstallationPhase::Discovering,
                     plugins:vec![],failure:None},scan:None,prior_selections:ready,prior_modules:vec![],
                 failed_modules:vec![],work:vec![],predecessors,previous:None};
@@ -355,12 +362,12 @@ pub(super) fn execute_with(m:&Manager,action:&ui::Action,operation:&str,
 }
 pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Result<()> {
     let owner=match action {
-        ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentInstallerStart {..}=>operation,
+        action if matches!(action,ui::Action::EnvironmentRefresh {..}) || action.environment_installer_start().is_some()=>operation,
         ui::Action::EnvironmentRefreshResume {operation}=>operation,
         _=>return Ok(()),
     };
     if !path(m,owner)?.try_exists()? {
-        if !matches!(action,ui::Action::EnvironmentInstallerStart {..}) {return Ok(());}
+        if action.environment_installer_start().is_none() {return Ok(());}
         let Some(retained)=replacement_checkpoint(m,owner,true)? else {return Ok(())};
         retain(m,retained.environment,retained.intent,retained.preserved_performance)?;
     }
@@ -417,7 +424,7 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
             schema:ui::OPERATOR_SCHEMA,state_token:"accepted-fixture".into(),
             action:ui::Action::EnvironmentRefresh {environment:c.selection.environment.id.clone(),daw:ui::DawChoice::Bitwig}}).unwrap();
         let preserved_performance=std::collections::BTreeMap::from([(c.selection.class.id.clone(),f.m.performance(&c.selection.class.id).unwrap())]);
-        let intent=Intent {owner:owner.clone(),active_operation:owner,vendor:None,
+        let intent=Intent {installer_policy:None,owner:owner.clone(),active_operation:owner,vendor:None,
             journey:ui::InstallationJourney {daw:ui::DawChoice::Bitwig,phase:ui::InstallationPhase::Discovering,
                 plugins:vec![],failure:None},scan:None,
             prior_selections:vec![format!("{}:{}",c.selection.module.sha256,c.selection.class.id)],

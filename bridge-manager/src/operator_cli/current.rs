@@ -916,7 +916,7 @@ pub(super) mod tests {
             schema:1,operation:owner.clone(),application:selector.clone(),selected:selected.clone(),
             vendor_operation:vendor_operation.clone(),before:app.environment.clone(),environment:after.clone()}).unwrap();
         atomic_json(&after.root.join("environment.json"),&after).unwrap();
-        let mut intent=automatic_install::Intent {owner:owner.clone(),active_operation:owner,
+        let mut intent=automatic_install::Intent {installer_policy:None,owner:owner.clone(),active_operation:owner,
             vendor:Some(automatic_install::VendorWork {application:selector.clone(),selected,operation:vendor_operation,result:None}),
             journey:ui::InstallationJourney {daw:ui::DawChoice::Bitwig,phase:ui::InstallationPhase::NeedsAttention,
                 plugins:vec![],failure:Some(ui::InstallationFailure {stage:ui::InstallationFailureStage::Preparation,

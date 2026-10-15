@@ -187,6 +187,7 @@ pub enum Action {
     /// User intent for an initial installation and automatic native DAW connection.
     /// DAW choice personalizes guidance; it does not claim DAW indexing.
     SoftwareInstall { installer: String, daw: DawChoice },
+    SoftwareInstallWithPolicy { installer: String, daw: DawChoice, powershell: Powershell },
     /// Install through the existing exact managed application.
     VendorSoftwareInstall { application: String, daw: DawChoice },
     /// Internal fresh validation of an unchanged selected setup.
@@ -226,6 +227,7 @@ pub enum Action {
     },
     /// Runs an imported companion/dependency installer in an existing setup.
     EnvironmentInstallerStart { environment: String, installer: String },
+    EnvironmentInstallerStartWithPolicy { environment: String, installer: String, powershell: Powershell },
     EnvironmentInstallerFocus { operation: String },
     EnvironmentInstallerStop { operation: String },
     EnvironmentInstallerScan { environment: String },
@@ -822,11 +824,47 @@ impl System {
     }
 }
 impl Action {
+    pub fn software_install_action(installer: String, daw: DawChoice, powershell: Option<Powershell>) -> Self {
+        match powershell {
+            Some(powershell) => Self::SoftwareInstallWithPolicy { installer, daw, powershell },
+            None => Self::SoftwareInstall { installer, daw },
+        }
+    }
+    pub fn software_install(&self) -> Option<(&str, DawChoice, Option<Powershell>)> {
+        match self {
+            Self::SoftwareInstall { installer, daw } => Some((installer, *daw, None)),
+            Self::SoftwareInstallWithPolicy { installer, daw, powershell } => Some((installer, *daw, Some(*powershell))),
+            _ => None,
+        }
+    }
+    pub fn software_install_with_daw(&self, daw: DawChoice) -> Option<Self> {
+        self.software_install().map(|(installer, _, powershell)|
+            Self::software_install_action(installer.into(), daw, powershell))
+    }
+    // This model is also included by the frontend, which forwards offered
+    // actions rather than producing existing-setup installation choices.
+    #[allow(dead_code)]
+    pub fn environment_installer_action(environment: String, installer: String, powershell: Option<Powershell>) -> Self {
+        match powershell {
+            Some(powershell) => Self::EnvironmentInstallerStartWithPolicy { environment, installer, powershell },
+            None => Self::EnvironmentInstallerStart { environment, installer },
+        }
+    }
+    /// Both choices use the same installer transaction and retained origin.
+    pub fn environment_installer_start(&self) -> Option<(&str, &str, Option<Powershell>)> {
+        match self {
+            Self::EnvironmentInstallerStart { environment, installer } => Some((environment, installer, None)),
+            Self::EnvironmentInstallerStartWithPolicy { environment, installer, powershell } =>
+                Some((environment, installer, Some(*powershell))),
+            _ => None,
+        }
+    }
     /// Whether the operation needs any affected DSP owners to be inactive.
     pub fn requires_inactive(&self) -> bool {
         matches!(
             self,
             Self::SoftwareInstall { .. }
+                | Self::SoftwareInstallWithPolicy { .. }
                 | Self::VendorSoftwareInstall { .. }
                 | Self::SoftwareInstallResume { .. }
                 | Self::RuntimeInstall {}
@@ -857,6 +895,7 @@ impl Action {
                 | Self::InstallerStartWithPolicy { .. }
                 | Self::InstallerScan { .. }
                 | Self::EnvironmentInstallerStart { .. }
+                | Self::EnvironmentInstallerStartWithPolicy { .. }
                 | Self::EnvironmentInstallerScan { .. }
                 | Self::EnvironmentRuntimeSelect { .. }
                 | Self::VendorApplicationOpen { .. }

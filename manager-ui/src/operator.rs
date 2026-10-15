@@ -170,7 +170,7 @@ impl RequestFeedback {
     }
     fn observe(&mut self, op: &serde_json::Value) {
         if self.operation.is_some() && self.operation.as_deref() == op["operation"].as_str()
-            && (matches!(self.action,Action::SoftwareInstall { .. } | Action::VendorSoftwareInstall { .. }
+            && (matches!(self.action,Action::SoftwareInstall { .. } | Action::SoftwareInstallWithPolicy {..} | Action::VendorSoftwareInstall { .. }
                 | Action::SoftwareInstallResume { .. } | Action::RendererSoftwareInstall { .. })
                 || matches!(&self.action,Action::EnvironmentRefreshResume {operation}
                     if op["renderer_owner"].as_str()==Some(operation.as_str()))) {
@@ -239,7 +239,7 @@ impl RequestFeedback {
             }
             Some("queued") => "This operation is queued. Do not click again.".into(),
             Some("running") => match &self.action {
-                Action::SoftwareInstall { .. } | Action::VendorSoftwareInstall { .. }
+                Action::SoftwareInstall { .. } | Action::SoftwareInstallWithPolicy {..} | Action::VendorSoftwareInstall { .. }
                     | Action::SoftwareInstallResume { .. } | Action::RendererSoftwareInstall {..} | Action::EnvironmentRefresh { .. }
                     | Action::EnvironmentRefreshResume { .. } =>
                     self.journey.as_ref().map(journey_phase_label)
@@ -363,13 +363,13 @@ impl RequestFeedback {
             && s.operation
                 .as_ref()
                 .is_some_and(|op| op["operation"].as_str() == self.operation.as_deref());
-        if let Action::EnvironmentInstallerStart {environment,installer} = &self.action {
+        if let Some((environment,installer,_)) = self.action.environment_installer_start() {
             if let Some(target) = s.environment_installers.iter().find(|row|
-                &row.environment == environment && row.operation.as_deref() == self.operation.as_deref()) {
+                row.environment == environment && row.operation.as_deref() == self.operation.as_deref()) {
                 self.observe(&target.result);
             } else if self.acknowledgment_uncertain && self.operation.is_none() {
-                let owners:Vec<_> = s.environment_installers.iter().filter(|row|&row.environment == environment
-                    && row.installer.as_ref() == Some(installer))
+                let owners:Vec<_> = s.environment_installers.iter().filter(|row|row.environment == environment
+                    && row.installer.as_deref() == Some(installer))
                     .filter_map(|row|row.operation.as_ref().filter(|op|row.actions.iter().any(|offer|
                         matches!(&offer.action,Action::EnvironmentInstallerStop {operation} if operation == *op))))
                     .cloned().collect();
@@ -391,14 +391,14 @@ impl RequestFeedback {
                     if id==onboarding && Some(operation.as_str())==self.operation.as_deref())
                     })
             })
-        } else if let Action::EnvironmentInstallerStart {environment,..} = &self.action {
-            s.environment_installers.iter().any(|row|&row.environment == environment
+        } else if let Some((environment,_,_)) = self.action.environment_installer_start() {
+            s.environment_installers.iter().any(|row|row.environment == environment
                 && row.actions.iter().any(|offer|matches!(&offer.action,
                     Action::EnvironmentInstallerStop {operation} if Some(operation.as_str()) == self.operation.as_deref())))
         } else {
             false
         };
-        if exact_recovery && matches!(self.action,Action::EnvironmentInstallerStart { .. }) {
+        if exact_recovery && self.action.environment_installer_start().is_some() {
             self.release_after_snapshot = true;
             self.text = "The installer is running in this setup. Show or stop its window below.".into();
         }
@@ -482,16 +482,15 @@ fn replacement_offer(snapshot: &Snapshot, draft: &InstallerReplacement)
     if selected == &draft.original { return Err("That is the same installer. Choose a different file, or use Retry."); }
     let mut offer = if let Some(environment) = &draft.environment {
         snapshot.environment_installers.iter().find(|t| &t.environment == environment)
-            .and_then(|target| target.choices.iter().find(|offer| matches!(&offer.action,
-                Action::EnvironmentInstallerStart {environment:env, installer}
-                    if env == environment && installer == selected))).cloned()
+            .and_then(|target| target.choices.iter().find(|offer|offer.action.environment_installer_start()
+                .is_some_and(|(env,installer,policy)|env==environment && installer==selected && policy.is_none()))).cloned()
     } else {
         // Already imported bytes may belong to another working setup. Never
         // turn this file choice into a continuation of that other setup.
         snapshot.installer_setups.iter().find(|s| &s.installer == selected
             && s.environment.is_none() && s.history.iter().all(|h|h.environment.is_none()))
-            .and_then(|s| s.primary.as_ref()).filter(|offer| matches!(&offer.action,
-                Action::SoftwareInstall {installer,..} if installer == selected)).cloned()
+            .and_then(|s| s.primary.as_ref()).filter(|offer|offer.action.software_install()
+                .is_some_and(|(installer,_,policy)|installer==selected && policy.is_none())).cloned()
     }.ok_or("This file has no installation offer for the selected setup. Review Setup or choose another file.")?;
     offer.label = if draft.environment.is_some() { "Run installer in this setup" }
         else { "Install and connect" }.into();
@@ -1618,7 +1617,7 @@ fn setup_offer_uses_program_choice(snapshot: &Snapshot, setup: &InstallerSetup,
 }
 
 fn obsolete_initial_installer_offer(offer: &AvailableAction) -> bool {
-    matches!(offer.action, Action::SoftwareInstall {..} | Action::InstallerNewAttempt {..}
+    offer.action.software_install().is_some() || matches!(offer.action, Action::InstallerNewAttempt {..}
         | Action::InstallerStart {..} | Action::InstallerStartWithPolicy {..}
         | Action::InstallerFocus {..} | Action::InstallerStop {..} | Action::InstallerScan {..})
 }
@@ -1921,15 +1920,17 @@ impl Operator {
                     }
                     let secondary: Vec<_> = setup.secondary.iter().filter(|offer|
                         (continuation.is_none() || !obsolete_initial_installer_offer(offer)) && !reviewing_replacement
+                            && offer.action.software_install().is_none_or(|(_,_,policy)|policy.is_none())
                             && !setup_offer_uses_program_choice(&overview.current,setup,offer)).cloned().collect();
                     ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &secondary,
                         overview.current.system.inactive_reason(), pending, chosen));
                     if let Some(target) = continuation {
                         ui.label(format!("Latest installer in this setup: {}",
                             target.result["state"].as_str().unwrap_or("status unavailable").replace('_', " ")));
-                        let actions: Vec<_> = target.actions.iter().filter(|offer| matches!(offer.action,
+                        let actions: Vec<_> = target.actions.iter().filter(|offer| crate::library::installer_retry(offer)
+                            || matches!(offer.action,
                             Action::EnvironmentInstallerFocus {..} | Action::EnvironmentInstallerStop {..}
-                                | Action::EnvironmentInstallerStart {..} | Action::EnvironmentInstallerScan {..}))
+                                | Action::EnvironmentInstallerScan {..}))
                             .cloned().collect();
                         ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &actions,
                             overview.current.system.inactive_reason(), pending, chosen));
@@ -1981,6 +1982,12 @@ impl Operator {
                         if let Some(environment) = &setup.environment {ui.small(format!("Setup environment: {environment}"));}
                         ui.label(&setup.status);
                         if let Some(compatibility) = &setup.compatibility { ui.small(compatibility); }
+                        if continuation.is_none() && !reviewing_replacement {
+                            let advanced:Vec<_>=setup.primary.iter().chain(&setup.secondary)
+                                .filter(|offer|offer.action.software_install().is_some_and(|(_,_,policy)|policy.is_some())).cloned().collect();
+                            ui.add_enabled_ui(fresh,|ui|Self::buttons(ui,&advanced,
+                                overview.current.system.inactive_reason(),pending,chosen));
+                        }
                         for attempt in overview.current.onboarding.iter().filter(|attempt|
                             attempt.installer == setup.installer
                                 && attempt.environment == setup.environment) {
@@ -1988,6 +1995,12 @@ impl Operator {
                             for line in installer_policy_lines(&attempt.details["installation"]) { ui.small(line); }
                             if let Some(failure) = &attempt.failure {
                                 for line in failure_lines(failure) { ui.label(line); }
+                            }
+                            if continuation.is_none() && !reviewing_replacement {
+                                let advanced:Vec<_>=attempt.actions.iter().filter(|offer|
+                                    matches!(offer.action,Action::InstallerStartWithPolicy {..})).cloned().collect();
+                                ui.add_enabled_ui(fresh,|ui|Self::buttons(ui,&advanced,
+                                    overview.current.system.inactive_reason(),pending,chosen));
                             }
                         }
                         ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, std::slice::from_ref(&setup.rename),
@@ -2834,13 +2847,13 @@ impl eframe::App for Operator {
         ui.ctx().request_repaint_after(self.repaint_delay());
     }
 }
-fn software_install_offer(snapshot: Option<&Snapshot>, installer: &str)
+fn software_install_offer(snapshot: Option<&Snapshot>, installer: &str, policy: Option<crate::model::Powershell>)
     -> Result<Option<String>, &'static str> {
     let snapshot = snapshot.ok_or("Current manager status is unavailable. Refresh before installing.")?;
     snapshot.installer_setups.iter().flat_map(|setup|
         setup.primary.iter().chain(setup.secondary.iter()))
-        .find(|offer| matches!(&offer.action, Action::SoftwareInstall { installer: offered, .. }
-            if offered == installer))
+        .find(|offer| offer.action.software_install().is_some_and(|(offered,_,choice)|
+            offered==installer && choice==policy))
         .map(|offer| offer.disabled_reason.clone().or_else(||
             offer.action.requires_global_inactive().then(||snapshot.system.inactive_reason())
                 .flatten().map(str::to_owned)))
@@ -2848,9 +2861,8 @@ fn software_install_offer(snapshot: Option<&Snapshot>, installer: &str)
 }
 
 fn installation_with_daw(action: &Action, daw: DawChoice) -> Option<Action> {
+    if let Some(action)=action.software_install_with_daw(daw) {return Some(action);}
     match action {
-        Action::SoftwareInstall { installer, .. } =>
-            Some(Action::SoftwareInstall { installer: installer.clone(), daw }),
         Action::VendorSoftwareInstall { application, .. } =>
             Some(Action::VendorSoftwareInstall { application: application.clone(), daw }),
         Action::EnvironmentRefresh {environment,..}=>
@@ -2863,6 +2875,9 @@ fn installation_with_daw(action: &Action, daw: DawChoice) -> Option<Action> {
 
 fn installation_form_offer(snapshot: Option<&Snapshot>, action: &Action)
     -> Result<Option<String>, &'static str> {
+    if let Some((installer,_,policy))=action.software_install() {
+        return software_install_offer(snapshot,installer,policy);
+    }
     match action {
         Action::RendererSoftwareInstall {application,policy,..}=> {
             let snapshot=snapshot.ok_or("Current manager status is unavailable. Refresh before continuing.")?;
@@ -2879,7 +2894,6 @@ fn installation_form_offer(snapshot: Option<&Snapshot>, action: &Action)
                 .map(|offer|offer.disabled_reason.clone().or_else(||snapshot.system.inactive_reason().map(str::to_owned)))
                 .ok_or("This setup refresh offer changed. Refresh Setup before continuing.")
         },
-        Action::SoftwareInstall { installer, .. } => software_install_offer(snapshot, installer),
         Action::VendorSoftwareInstall { application, .. } => {
             let snapshot = snapshot.ok_or("Current manager status is unavailable. Refresh before installing.")?;
             snapshot.vendor_applications.iter().flat_map(|app| &app.actions)
@@ -3840,13 +3854,13 @@ mod tests {
         let installer="ab".repeat(32);
         snapshot.installer_setups=vec![automatic_setup(automatic_journey(InstallationPhase::Available),
             Some(Action::SoftwareInstall {installer:installer.clone(),daw:DawChoice::Other}))];
-        assert_eq!(software_install_offer(Some(&snapshot),&installer),Ok(None));
+        assert_eq!(software_install_offer(Some(&snapshot),&installer,None),Ok(None));
         snapshot.installer_setups[0].primary.as_mut().unwrap().disabled_reason=
             Some("The shared installation is still running.".into());
-        assert_eq!(software_install_offer(Some(&snapshot),&installer),
+        assert_eq!(software_install_offer(Some(&snapshot),&installer,None),
             Ok(Some("The shared installation is still running.".into())));
-        assert!(software_install_offer(Some(&snapshot),"different-installer").is_err());
-        assert!(software_install_offer(None,&installer).is_err());
+        assert!(software_install_offer(Some(&snapshot),"different-installer",None).is_err());
+        assert!(software_install_offer(None,&installer,None).is_err());
     }
 
     #[test]
@@ -6157,6 +6171,167 @@ mod tests {
             }
             assert_eq!(chosen, fresh.then_some(target.action));
         }
+    }
+    #[test]
+    fn fresh_import_advanced_policy_choice_keeps_the_ordinary_daw_request_before_creation() {
+        for width in [560.0,960.0] {
+            let mut overview=wrong_installer_overview(None);overview.current.onboarding.clear();
+            overview.current.installer_setups.truncate(1);
+            let setup=&mut overview.current.installer_setups[0];setup.history.clear();
+            let expected=Action::SoftwareInstallWithPolicy {installer:setup.installer.clone(),daw:DawChoice::Other,
+                powershell:crate::model::Powershell::Inherited};
+            setup.secondary=vec![AvailableAction {label:"Install with normal PowerShell behavior".into(),
+                action:expected.clone(),disabled_reason:None}];
+            assert!(setup.environment.is_none());assert!(setup.history.is_empty());
+            let ctx=egui::Context::default();let mut chosen=None;let mut time=0.0;
+            let mut focus=RouteFocus {setup_installer:Some(setup.installer.clone()),..Default::default()};
+            for label in ["Setup details and options","Install with normal PowerShell behavior"] {
+                let mut point=egui::Pos2::ZERO;
+                for pressed in [None,Some(true),Some(false)] {
+                    time+=0.3;
+                    let events=pressed.map(|pressed|vec![egui::Event::PointerMoved(point),egui::Event::PointerButton {
+                        pos:point,button:egui::PointerButton::Primary,pressed,modifiers:egui::Modifiers::NONE}]).unwrap_or_default();
+                    let mut output=ctx.run_ui(egui::RawInput {events,time:Some(time),..Default::default()},|ui| {
+                        ui.set_max_width(width-32.0);
+                        Operator::fast_setup(ui,&overview,true,false,(&mut false,&mut chosen,&mut false,
+                            &mut Page::Setup,&mut crate::library::Library::default(),&mut focus,&mut None));
+                    });
+                    if pressed.is_none() {point=output.shapes.iter().find_map(|shape|
+                        wrong_installer_text_position(&shape.shape,label)).expect("visible fresh import policy choice");}
+                    output.textures_delta.clear();
+                }
+            }
+            assert_eq!(chosen,Some(expected));
+            let selected=installation_with_daw(&chosen.unwrap(),DawChoice::Reaper).unwrap();
+            assert_eq!(installation_form_offer(Some(&overview.current),&selected),Ok(None));
+            let wire=serde_json::to_vec(&Request {schema:crate::model::OPERATOR_SCHEMA,
+                state_token:overview.current.state_token.clone(),action:selected}).unwrap();
+            let manager:linux_vst_bridge::operator_model::Request=serde_json::from_slice(&wire).unwrap();
+            let (_,daw,policy)=manager.action.software_install().unwrap();
+            assert_eq!(daw,linux_vst_bridge::operator_model::DawChoice::Reaper);
+            assert_eq!(policy,Some(linux_vst_bridge::operator_model::Powershell::Inherited));
+            assert!(overview.current.installer_setups[0].environment.is_none());
+        }
+    }
+    #[test]
+    fn advanced_default_initial_installer_policy_is_clickable_in_setup_options() {
+        for width in [560.0,960.0] {
+            let mut attempt=running_snapshot("unused").onboarding.remove(0);
+            let expected=Action::InstallerStartWithPolicy {onboarding:attempt.environment.clone().unwrap(),
+                powershell:crate::model::Powershell::Inherited};
+            attempt.state="environment_ready".into();attempt.details=serde_json::Value::Null;
+            attempt.actions=vec![AvailableAction {label:"Run installer with normal PowerShell behavior".into(),
+                action:expected.clone(),disabled_reason:None}];
+            let mut setup=automatic_setup(automatic_journey(InstallationPhase::NeedsAttention),None);
+            setup.installer=attempt.installer.clone();setup.environment=attempt.environment.clone();
+            setup.journey=None;setup.phase=SetupPhase::EnvironmentReady;
+            let mut overview=overview_fixture();overview.current.onboarding=vec![attempt];
+            overview.current.installer_setups=vec![setup.clone()];overview.current.environment_installers.clear();
+            let ctx=egui::Context::default();let mut chosen=None;let mut time=0.0;
+            let mut focus=RouteFocus {setup_installer:Some(setup.installer),..Default::default()};
+            for label in ["Setup details and options","Run installer with normal PowerShell behavior"] {
+                let mut point=egui::Pos2::ZERO;
+                for pressed in [None,Some(true),Some(false)] {
+                    time+=0.3;
+                    let events=pressed.map(|pressed|vec![egui::Event::PointerMoved(point),egui::Event::PointerButton {
+                        pos:point,button:egui::PointerButton::Primary,pressed,modifiers:egui::Modifiers::NONE}]).unwrap_or_default();
+                    let mut output=ctx.run_ui(egui::RawInput {events,time:Some(time),..Default::default()},|ui| {
+                        ui.set_max_width(width-32.0);
+                        Operator::fast_setup(ui,&overview.clone().into(),true,false,(&mut false,&mut chosen,&mut false,
+                            &mut Page::Setup,&mut crate::library::Library::default(),&mut focus,&mut None));
+                    });
+                    if pressed.is_none() {point=output.shapes.iter().find_map(|shape|
+                        wrong_installer_text_position(&shape.shape,label)).expect("visible initial policy control");}
+                    output.textures_delta.clear();
+                }
+            }
+            assert_eq!(chosen,Some(expected));
+        }
+    }
+    #[test]
+    fn ordinary_card_and_chooser_retry_submit_the_offered_choice_after_reopen() {
+        for (powershell,matching_card) in [crate::model::Powershell::Inherited,crate::model::Powershell::IntentionallyUnavailable]
+            .into_iter().flat_map(|policy|[true,false].map(move |card|(policy,card))) {
+            let environment="ab".repeat(16);let installer="cd".repeat(32);
+            let offered=Action::environment_installer_action(environment.clone(),installer.clone(),Some(powershell));
+            let mut overview:CurrentOverview=overview_fixture().into();
+            overview.current.onboarding.clear();overview.current.installer_setups.clear();
+            if matching_card {
+                let mut setup=automatic_setup(automatic_journey(InstallationPhase::NeedsAttention),None);
+                setup.installer="11".repeat(32);setup.environment=Some(environment.clone());
+                setup.journey=None;setup.phase=SetupPhase::SetupNeedsAttention;
+                overview.current.installer_setups.push(setup);
+            }
+            overview.current.environment_installers=vec![crate::model::EnvironmentInstaller {
+                environment:environment.clone(),runtime:None,name:"Synth setup".into(),affected:vec![],
+                consequence:"The installer can change this setup.".into(),operation:Some("ef".repeat(16)),
+                installer:Some(installer.clone()),result:serde_json::json!({"state":"cancelled"}),
+                choices:vec![AvailableAction {label:"Run chosen installer".into(),
+                    action:Action::environment_installer_action(environment.clone(),installer,None),disabled_reason:None}],
+                actions:vec![AvailableAction {label:"Retry".into(),action:offered.clone(),disabled_reason:None}]}];
+            let wire=serde_json::to_vec(&overview).unwrap();
+            let overview:CurrentOverview=serde_json::from_slice(&wire).unwrap();
+            let ctx=egui::Context::default();
+            if !matching_card {ctx.data_mut(|data|data.insert_temp(egui::Id::new("companion_environment"),environment));}
+            let mut chosen=None;let mut point=egui::Pos2::ZERO;let mut time=0.0;
+            for pressed in [None,Some(true),Some(false)] {
+                time+=0.3;
+                let events=pressed.map(|pressed|vec![egui::Event::PointerMoved(point),egui::Event::PointerButton {
+                    pos:point,button:egui::PointerButton::Primary,pressed,modifiers:egui::Modifiers::NONE}]).unwrap_or_default();
+                let mut output=ctx.run_ui(egui::RawInput {events,time:Some(time),..Default::default()},|ui| {
+                    ui.set_max_width(780.0);
+                    Operator::fast_setup(ui,&overview,true,false,(&mut false,&mut chosen,&mut false,
+                        &mut Page::Setup,&mut crate::library::Library::default(),&mut RouteFocus::default(),&mut None));
+                });
+                if pressed.is_none() {point=output.shapes.iter().find_map(|shape|
+                    wrong_installer_text_position(&shape.shape,"Retry")).expect("ordinary visible Retry after reopen");}
+                output.textures_delta.clear();
+            }
+            assert_eq!(chosen,Some(offered));
+            let request=Request {schema:crate::model::OPERATOR_SCHEMA,state_token:overview.current.state_token.clone(),action:chosen.unwrap()};
+            let accepted:linux_vst_bridge::operator_model::Request=serde_json::from_slice(&serde_json::to_vec(&request).unwrap()).unwrap();
+            assert_eq!(serde_json::to_value(accepted.action.environment_installer_start().unwrap().2).unwrap(),
+                serde_json::to_value(Some(powershell)).unwrap());
+        }
+    }
+    #[test]
+    fn advanced_default_installer_policy_is_reachable_after_retry_without_reselecting_file() {
+        fn position(shape:&egui::epaint::Shape,label:&str)->Option<egui::Pos2> {
+            match shape {
+                egui::epaint::Shape::Text(text) if text.galley.text()==label => Some(text.pos+text.galley.size()*0.5),
+                egui::epaint::Shape::Vec(shapes)=>shapes.iter().find_map(|shape|position(shape,label)),
+                _=>None,
+            }
+        }
+        let environment="ab".repeat(16);let installer="cd".repeat(32);
+        let expected=Action::EnvironmentInstallerStartWithPolicy { environment:environment.clone(),installer:installer.clone(),
+            powershell:crate::model::Powershell::Inherited };
+        let mut overview=overview_fixture();
+        overview.current.environment_installers=vec![crate::model::EnvironmentInstaller {
+            environment:environment.clone(),runtime:None,name:"Synth setup".into(),affected:vec![],
+            consequence:"The installer can change this setup.".into(),operation:Some("ef".repeat(16)),installer:Some(installer.clone()),
+            result:serde_json::json!({"state":"cancelled"}),choices:vec![AvailableAction {label:"Run chosen installer".into(),
+                action:Action::EnvironmentInstallerStart {environment:environment.clone(),installer},disabled_reason:None}],
+            actions:vec![AvailableAction {label:"Run with normal PowerShell behavior".into(),action:expected.clone(),disabled_reason:None}]}];
+        let ctx=egui::Context::default();
+        ctx.data_mut(|data|data.insert_temp(egui::Id::new("companion_environment"),environment));
+        let mut chosen=None;let mut time=0.0;
+        for label in ["Advanced installer options","Run with normal PowerShell behavior"] {
+            let mut point=egui::Pos2::ZERO;
+            for pressed in [None,Some(true),Some(false)] {
+                time+=0.3;
+                let events=pressed.map(|pressed|vec![egui::Event::PointerMoved(point),egui::Event::PointerButton {
+                    pos:point,button:egui::PointerButton::Primary,pressed,modifiers:egui::Modifiers::NONE}]).unwrap_or_default();
+                let mut output=ctx.run_ui(egui::RawInput {events,time:Some(time),..Default::default()},|ui| {
+                    ui.set_max_width(780.0);
+                    Operator::fast_setup(ui,&overview.clone().into(),true,false,(&mut false,&mut chosen,&mut false,
+                        &mut Page::Setup,&mut crate::library::Library::default(),&mut RouteFocus::default(),&mut None));
+                });
+                if pressed.is_none() { point=output.shapes.iter().find_map(|shape|position(&shape.shape,label)).expect("visible advanced installer control"); }
+                output.textures_delta.clear();
+            }
+        }
+        assert_eq!(chosen,Some(expected));
     }
     #[test]
     fn companion_choice_shows_scope_before_run_and_exact_stop_survives_suspension() {

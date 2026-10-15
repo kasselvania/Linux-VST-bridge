@@ -123,8 +123,13 @@ class ManagedVendorTests(unittest.TestCase):
         return operation,directory
 
     def test_actual_dispatch_accepts_new_launcher_from_typed_replacement_receipt(self):
-        for seed in ('a','b'):
+        for seed,policy in (('a',None),('b',None),('c','inherited'),('d','intentionally_unavailable')):
             operation,directory=self.replacement_operation(seed)
+            if policy:
+                request=json.loads((directory/'request.json').read_bytes())
+                request['schema']=27
+                request['action'].update(kind='environment_installer_start_with_policy',powershell=policy)
+                self.write(directory/'request.json',request)
             original=self.managed/'onboarding'/operation['application']['environment']['id']/'record.json'
             history=original.read_bytes()
             self.assertEqual(s.selected_installer_origin(self.managed,operation['application']),directory.name)
@@ -132,6 +137,16 @@ class ManagedVendorTests(unittest.TestCase):
                 self.assertTrue(s.vendor_application(operation))
             self.assertEqual(run.call_args.kwargs['managed_contract'],operation['managed']['capabilities'])
             self.assertEqual(original.read_bytes(),history)
+
+    def test_replacement_policy_origin_remains_closed_and_exact(self):
+        operation,directory=self.replacement_operation('a')
+        request=json.loads((directory/'request.json').read_bytes())
+        action=dict(request['action'],kind='environment_installer_start_with_policy',powershell='inherited')
+        for changed in (dict(action,powershell='unknown'),dict(action,extra=True),
+                        dict(action,environment='other-setup'),dict(action,installer='f'*64)):
+            self.write(directory/'request.json',dict(request,action=changed))
+            with self.assertRaisesRegex(ValueError,'installation_binding'):
+                s.selected_installer_origin(self.managed,operation['application'])
 
     def test_replacement_receipt_cannot_borrow_other_setup_installer_or_completion(self):
         operation,directory=self.replacement_operation('a');binding=json.loads((directory/'installation.json').read_bytes())
