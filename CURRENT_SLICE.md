@@ -6,28 +6,28 @@ appears. No machine keeps a fix that a fresh install cannot get. First case: a
 musician on any distro installs Native Access, signs in, installs Kontakt
 through it, plays it in the DAW, and gets it back after save and reopen.
 
-State after 2026-10-15 (main = #343–#345, fresh CachyOS VM, Test80):
-- Works on a fresh install: Native Access installer (close-check advice now uses
-  the kit's launch component), Retry after a failed installer, Open Native Access
-  (icon-derived app location), NTKDaemon preparation, browser sign-in return,
-  clean close, automatic Kontakt 8 discovery and REAPER publication.
-- Kontakt's installer still fails on the downloaded runtime (Wine MSI reader).
-  A prefix-only experiment with the Deck's patched msi.dll installed it; the fix
-  exists only as a hand-built Deck runner.
-- The Deck still works only through hand-built, Deck-bound records and runners.
-- A failed vendor-app session can leave the bridge stopped with Recover refused.
-- Failures show internal codes; Valhalla/CHOW reasons are retained but hidden.
+State after 2026-10-15 (main = #343–#351; Test83 delivered for the tester):
+- Fresh CachyOS install: Native Access installs past its close check, opens from
+  the manager, starts NI's service, returns browser sign-in; Native Access installs
+  Kontakt 8 on runtime r5 (MSI-reader fix, release runtime-msi-r5); Kontakt 8 is
+  Available for REAPER.
+- The tester's own failed state (Test69) recovers after updating: Retry moves the
+  setup onto r5 and installs Native Access again.
+- Failures explain themselves in plain English; CHOW counts once.
+- Open: Recover after a host freeze/power loss leaves the vendor app unopenable;
+  Native Access's download location starts empty; sign-in return is slow/flaky;
+  existing Deck setups still use hand-built runners; Kontakt sound and
+  save/reopen untested (bridge keeps component/controller state separate, so the
+  known yabridge Kontakt recall bug does not apply; one residual case unproven).
 
 Next changes, in order:
-1. Kontakt MSI fix as a hash-pinned layer on the managed runtime, built from the
-   delivered runtime's own Wine source and selected by the NI profile.
-2. Kontakt in REAPER and Bitwig: sound, editor, save and reopen (CachyOS, Deck).
-3. Recovery after a failed vendor-app session must resume the bridge.
-4. Problems explain themselves: plain-English reasons from retained records and
-   one "Create problem report" file (plan ready); fixes CHOW's double count.
-5. Serum: find the setting that fixes transparency, ship it in Serum's profile,
-   and give users a renderer choice they can try and revert.
-6. Convert remaining Deck-only fixes and move to one installer for every distro.
+1. Recover re-verifies an interrupted vendor session and releases it (Test84),
+   then finish Kontakt in the recovered tester-state setup.
+2. Kontakt in REAPER and Bitwig: sound, editor, save and reopen (CachyOS, Deck),
+   plus the single-component controller-state fixture test.
+3. Native Access first-run gaps: download location, sign-in return timing.
+4. One-click problem report; Serum renderer choice and transparency.
+5. Convert remaining Deck-only fixes; Flatpak DAW permission; one installer.
 
 Done for this slice: step 2 passes on the Deck and on a clean CachyOS install
 from the same Test build, with no machine-specific records or runners.
