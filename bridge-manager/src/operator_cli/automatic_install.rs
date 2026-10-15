@@ -2690,24 +2690,27 @@ mod tests {
             write_operation(&f.m,&operation,&json!({"schema":2,"operation":operation,"state":"refused"}),false).unwrap();
             let failed_bytes=fs::read(failed_home.join("record.json")).unwrap();
 
-            let snapshot=snapshot_idle_test(&f.m).unwrap();
+            // Retired installer units read as inactive, as on a real idle machine.
+            let idle=|f:&test_fixture::Fixture|installer_units(&f.m);
+            let snapshot=readiness::with_unit_state_fixture(&idle(&f),"inactive",||snapshot_idle_test(&f.m)).unwrap();
             let card=snapshot.installer_setups.iter().find(|setup|setup.installer==installer.id).unwrap();
             let retry=card.secondary.iter().chain(card.primary.iter())
                 .find(|offer|offer.label=="Retry" && offer.disabled_reason.is_none()
                     && matches!(offer.action,ui::Action::InstallerNewAttempt {..})).unwrap().action.clone();
-            let attempt=test_submit_offered(&f.m,&retry).unwrap();
-            execute_with_receipt_policy(&f.m,&retry,Some(&attempt),&idle_capacity_test,
-                Duration::from_secs(1),&mut vec![]).unwrap();
+            let attempt=readiness::with_unit_state_fixture(&idle(&f),"inactive",||test_submit_offered(&f.m,&retry)).unwrap();
+            readiness::with_unit_state_fixture(&idle(&f),"inactive",||execute_with_receipt_policy(&f.m,&retry,
+                Some(&attempt),&idle_capacity_test,Duration::from_secs(1),&mut vec![])).unwrap();
             write_operation(&f.m,&attempt,&json!({"schema":2,"operation":attempt,"state":"completed"}),false).unwrap();
 
-            let snapshot=snapshot_idle_test(&f.m).unwrap();
+            let snapshot=readiness::with_unit_state_fixture(&idle(&f),"inactive",||snapshot_idle_test(&f.m)).unwrap();
             let offer=available(&snapshot).into_iter().find(|offer|offer.disabled_reason.is_none()
                 && offer.action.software_install().is_some_and(|(id,_,selected)|id==installer.id && selected==policy))
                 .unwrap().action.clone();
             let install=offer.software_install_with_daw(ui::DawChoice::Reaper).unwrap();
             assert!(preparation_cli::offered(&install,&offer));
-            let launched=test_submit_offered(&f.m,&install).unwrap();
-            let error=readiness::with_unit_state_fixture(&[onboarding::unit(&launched).unwrap()],"inactive",||
+            let launched=readiness::with_unit_state_fixture(&idle(&f),"inactive",||test_submit_offered(&f.m,&install)).unwrap();
+            let mut units=idle(&f);units.push(onboarding::unit(&launched).unwrap());
+            let error=readiness::with_unit_state_fixture(&units,"inactive",||
                 onboarding::with_installer_unit_refusal(||execute(&f.m,&install,&launched,
                     &idle_capacity_test,Duration::from_secs(1),&mut vec![]))).unwrap_err();
             assert!(error.to_string().contains("fixture_installer_unit_refusal"),"{error}");
