@@ -513,9 +513,8 @@ mod tests {
             "vendor access title conversion", "assessGraphicsEditor", "commercial processing failed"];
         reasons.retain(|reason| !elsewhere.contains(&reason.as_str()));
         assert!(reasons.len() >= 40, "{reasons:?}");
-        for reason in &reasons {
-            assert!(sdk_group(reason).is_some(), "no plain explanation for host reason {reason:?}");
-        }
+        let unexplained: Vec<_> = reasons.iter().filter(|reason| sdk_group(reason).is_none()).collect();
+        assert!(unexplained.is_empty(), "no plain explanation for host reasons {unexplained:?}");
     }
 
     #[test]
