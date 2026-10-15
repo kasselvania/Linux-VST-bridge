@@ -432,14 +432,20 @@ class SessionCleanupTests(unittest.TestCase):
   self.failed_before_readiness()
   verified,census=self.verify_graceful()
   self.assertTrue(verified)
-  self.assertEqual(census.call_args.args[1],self.identity)
+  self.assertIsNone(census.call_args.args[1])
+  self.assertEqual(self.owner.post_cleanup['daemon_identity'],'not_admitted_in_session')
   self.assertEqual(self.owner.dependency_cleanup_disposition,'graceful_service_retirement')
   self.assertEqual(self.owner.post_cleanup['session'],'failed_before_readiness')
   self.assertTrue(s.managed_dependency_retired({'process_cleanup_confirmed':True,
    'dependency_cleanup_disposition':self.owner.dependency_cleanup_disposition,'post_cleanup':self.owner.post_cleanup}))
-  self.daemon.unlink();self.failed_before_readiness()
-  verified,census=self.verify_graceful()
-  self.assertTrue(verified);self.assertIsNone(census.call_args.args[1])
+  for content in (None,b'partial'):
+   self.daemon.unlink(missing_ok=True)
+   if content is not None:self.daemon.write_bytes(content)
+   self.failed_before_readiness()
+   verified,census=self.verify_graceful()
+   self.assertTrue(verified);self.assertIsNone(census.call_args.args[1])
+  self.failed_before_readiness();self.scope.members.return_value=[{'pid':7}]
+  with self.assertRaisesRegex(ValueError,'post_cleanup_unconfirmed'):self.verify_graceful()
  def test_failed_before_readiness_still_refuses_residue_unmanaged_or_ungraceful(self):
   self.failed_before_readiness()
   for scan,mask in [({'candidates':[{'prefix_relation':'same'}],'private':[],'unavailable':0},0),

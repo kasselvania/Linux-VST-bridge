@@ -4676,9 +4676,10 @@ class Nad1Owner:
             actual=ownership.image_identity(path)
             if actual!=self.daemon:raise ValueError('dependency_session_daemon_changed')
         else:
-            # Never admitted in this session (it failed first): census the
-            # daemon now on disk, or prove absence of any daemon generation.
-            actual=ownership.image_identity(path) if path.exists() else None
+            # Never admitted in this session (it failed first). The census finds
+            # daemon processes by name regardless of identity, so prove that no
+            # generation runs without hashing a file that may be partial.
+            actual=None
         members=self.scope.members()
         scan=ownership.census(self.root/'compatdata/pfx',actual,proc=proc)
         listeners=nad1_listener_census(proc)
@@ -4687,6 +4688,7 @@ class Nad1Owner:
             'candidate_observation_unavailable':scan['unavailable'],'application_image_unchanged':True,
             'daemon_image_unchanged':True,'authority':'exact_owned_renderer_cohort_and_bounded_daemon_listener_census'}
         if not self.ready:self.post_cleanup['session']='failed_before_readiness'
+        if self.daemon is None:self.post_cleanup['daemon_identity']='not_admitted_in_session'
         if members or scan['unavailable'] or scan['candidates'] or listeners['listener_mask']:
             raise ValueError('dependency_session_post_cleanup_unconfirmed')
         self.dependency_cleanup_disposition='graceful_service_retirement' if graceful else 'exact_owned_session_cleanup'
