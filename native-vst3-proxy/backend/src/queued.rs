@@ -722,11 +722,14 @@ struct Callback {
     unready_waited_epoch: u64,
     unready_callbacks: u64,
     unready_frames: u64,
-    // Notes from blocks answered before the start was acknowledged; they are
-    // played at the first rendered block instead of being lost.
+    // Note events from blocks answered before the start was acknowledged; they
+    // are played at the first rendered block instead of being lost, for at most
+    // `startup_hold_limit` frames of this start (crate::startup::NOTE_HOLD).
     startup_notes: crate::startup::Notes,
-    startup_notes_delayed: u64,
-    startup_notes_dropped: u64,
+    startup_hold_frames: u64,
+    startup_hold_limit: u64,
+    startup_note_events_delayed: u64,
+    startup_note_events_dropped: u64,
     startup_effect: bool,
     startup_parameters: crate::startup::Parameters,
     startup_state_revision: u64,
@@ -771,8 +774,10 @@ impl Callback {
             unready_callbacks: 0,
             unready_frames: 0,
             startup_notes: crate::startup::Notes::empty(),
-            startup_notes_delayed: 0,
-            startup_notes_dropped: 0,
+            startup_hold_frames: 0,
+            startup_hold_limit: 0,
+            startup_note_events_delayed: 0,
+            startup_note_events_dropped: 0,
             startup_effect: false,
             startup_parameters: crate::startup::Parameters::empty(),
             startup_state_revision: 0,
@@ -849,9 +854,11 @@ impl Callback {
         next.unready_waited_epoch = self.unready_waited_epoch;
         next.unready_callbacks = std::mem::take(&mut self.unready_callbacks);
         next.unready_frames = std::mem::take(&mut self.unready_frames);
-        next.startup_notes_delayed = std::mem::take(&mut self.startup_notes_delayed);
-        next.startup_notes_dropped = std::mem::take(&mut self.startup_notes_dropped)
-            + self.startup_notes.clear() as u64;
+        // A replaced peer has no voices for held note-offs to release.
+        next.startup_hold_limit = self.startup_hold_limit;
+        next.startup_note_events_delayed = std::mem::take(&mut self.startup_note_events_delayed);
+        next.startup_note_events_dropped = std::mem::take(&mut self.startup_note_events_dropped)
+            + self.startup_notes.pending() as u64;
         next.startup_effect = self.startup_effect;
         next.startup_parameters = std::mem::replace(&mut self.startup_parameters,
             crate::startup::Parameters::empty());
@@ -876,7 +883,8 @@ impl Callback {
                 self.epoch += 1;
                 self.position = 0;
                 self.clear_audio(s);
-                self.startup_notes_dropped += self.startup_notes.clear() as u64;
+                self.startup_note_events_dropped += self.startup_notes.discard_note_ons();
+                self.startup_hold_frames = 0;
                 self.next_result = 0;
                 self.submitted_operation = 0;
                 self.completed_operation = 0;
@@ -890,7 +898,7 @@ impl Callback {
             STOP if self.running => {
                 self.running = false;
                 self.clear_audio(s);
-                self.startup_notes_dropped += self.startup_notes.clear() as u64;
+                self.startup_note_events_dropped += self.startup_notes.discard_note_ons();
                 self.returned.reset();
                 s.wanted.store(0, Ordering::Release);
             }
@@ -1000,8 +1008,15 @@ impl Callback {
                     if request.events[..request.event_count as usize].iter().any(|e| e.kind == 2) {
                         s.startup_edits_pending.store(self.epoch, Ordering::Release);
                     }
-                    self.startup_notes_dropped +=
-                        self.startup_notes.retain(&request.events[..request.event_count as usize]);
+                    // Hold notes for at most the stated limit of this start;
+                    // past it, discard held note-ons instead of firing a late cluster.
+                    self.startup_hold_frames = self.startup_hold_frames.saturating_add(n as u64);
+                    let hold = self.startup_hold_frames <= self.startup_hold_limit;
+                    if !hold {
+                        self.startup_note_events_dropped += self.startup_notes.discard_note_ons();
+                    }
+                    self.startup_note_events_dropped += self.startup_notes.retain(
+                        &request.events[..request.event_count as usize], hold);
                     self.unready_waited_epoch = self.epoch;
                     self.unready_callbacks += 1;
                     self.unready_frames += n as u64;
@@ -1051,9 +1066,9 @@ impl Callback {
         }
         // Notes held through an unacknowledged start go first, at sample 0,
         // after any start-up parameter values have been restored above.
+        let mut held_delivered = 0;
         if request.n != 0 && !self.startup_replaying && self.startup_notes.pending() != 0 {
-            self.startup_notes_delayed +=
-                self.startup_notes.deliver(&mut request.events, &mut request.event_count) as u64;
+            held_delivered = self.startup_notes.deliver(&mut request.events, &mut request.event_count);
         }
         request.epoch = self.epoch;
         request.position = self.position;
@@ -1127,6 +1142,7 @@ impl Callback {
             if !s.requests.push(request) {s.fail(OVERFLOW,self.position);return Err(2);}
             s.work.notify();
         }
+        self.startup_note_events_delayed += held_delivered as u64;
         if direct_result.is_none() && (!request.gain.is_nan() || request.event_count > 0) {
             s.last_edit.store(s.requests.published(), Ordering::Release);
         }
@@ -3150,7 +3166,12 @@ unsafe fn process_events_guarded(
     (*l.callback.get()).unready_bound = match (&l.setup, completion) {
         (Some(setup), Some(_)) if !offline && n > 0 => {
             let rate = f64::from_le_bytes(setup[8..16].try_into().unwrap());
-            (rate.is_finite() && rate > 0.).then(|| Duration::from_secs_f64(n as f64 / rate / 2.))
+            let valid = rate.is_finite() && rate > 0.;
+            if valid {
+                (*l.callback.get()).startup_hold_limit =
+                    (rate * crate::startup::NOTE_HOLD.as_secs_f64()) as u64;
+            }
+            valid.then(|| Duration::from_secs_f64(n as f64 / rate / 2.))
         }
         _ => None,
     };
@@ -3437,10 +3458,10 @@ unsafe fn close_instance(id: u64, contain_terminal: bool) -> u32 {
                 callback.gaps.report(path);
                 export_refusal(&l.shared,path);
                 crate::preview::append_report(path, format!(
-                    "{{\"event\":\"native_callback_completion\",\"scope\":\"successful Rust processing calls including completion wait\",\"waits\":{},\"waits_without_result\":{},\"unready_callbacks\":{},\"unready_frames\":{},\"startup_notes_delayed\":{},\"startup_notes_dropped\":{},\"maximum_ns\":{},\"bucket_upper_us\":[50,100,250,500,1000,2000,5000,10000,25000,null],\"buckets\":{:?}}}\n",
+                    "{{\"event\":\"native_callback_completion\",\"scope\":\"successful Rust processing calls including completion wait\",\"waits\":{},\"waits_without_result\":{},\"unready_callbacks\":{},\"unready_frames\":{},\"startup_note_events_delayed\":{},\"startup_note_events_dropped\":{},\"maximum_ns\":{},\"bucket_upper_us\":[50,100,250,500,1000,2000,5000,10000,25000,null],\"buckets\":{:?}}}\n",
                     callback.completion_waits, callback.completion_wait_misses,
                     callback.unready_callbacks, callback.unready_frames,
-                    callback.startup_notes_delayed, callback.startup_notes_dropped,
+                    callback.startup_note_events_delayed, callback.startup_note_events_dropped,
                     callback.callback_ns_max, callback.callback_us_buckets).as_bytes());
             }
             if !ok {
@@ -5153,61 +5174,124 @@ mod tests {
         assert_eq!(shared.requests.pop().unwrap().position, 512);
         assert_eq!((callback.unready_callbacks, callback.unready_frames), (2, 1024));
     }
+    fn note(kind: u32, channel: i16, pitch: i16, offset: u32) -> Event {
+        Event { kind, channel, pitch, offset, value: 0.866, id: u32::MAX, ..Event::default() }
+    }
+    fn block(events: &[Event]) -> Item {
+        let mut request = Item::control(AUDIO, 0);
+        request.n = 512;
+        request.events[..events.len()].copy_from_slice(events);
+        request.event_count = events.len() as u32;
+        request
+    }
+    fn unacknowledged_start(limit: u64) -> (Shared, Callback) {
+        let shared = Shared::new();
+        let mut callback = Callback::new();
+        callback.delay = 512;
+        callback.unready_bound = Some(Duration::ZERO);
+        callback.startup_hold_limit = limit;
+        callback.transition(&shared, START);
+        shared.requests.pop().unwrap();
+        (shared, callback)
+    }
+    type Rendered = Vec<(u32, i16, i16, u32)>;
+    fn render(shared: &Shared, callback: &mut Callback, request: Item) -> Option<Rendered> {
+        let mut output = [[9.; CAP]; 2];
+        callback.process_outputs_until(shared, request, &mut output, &[], 0, None).unwrap();
+        shared.requests.pop().map(|q| q.events[..q.event_count as usize].iter()
+            .map(|e| (e.kind, e.channel, e.pitch, e.offset)).collect())
+    }
+    fn restart(shared: &Shared, callback: &mut Callback) {
+        callback.transition(shared, STOP);
+        shared.requests.pop().unwrap();
+        callback.transition(shared, START);
+        shared.requests.pop().unwrap();
+    }
     #[test]
     fn notes_sent_before_a_start_is_acknowledged_play_in_the_first_rendered_block() {
         // REAPER restarts processing on every transport start. A chord at
         // 0.1 s arrived while Kontakt's host was still acknowledging the
         // start, and its notes were discarded with the silent blocks.
-        let note = |kind, pitch, offset| Event { kind, pitch, offset, value: 0.866, id: u32::MAX, ..Event::default() };
-        let shared = Shared::new();
-        let mut callback = Callback::new();
-        callback.delay = 512;
-        callback.unready_bound = Some(Duration::ZERO);
-        callback.transition(&shared, START);
-        shared.requests.pop().unwrap();
-        let mut request = Item::control(AUDIO, 0);
-        request.n = 512;
-        request.events[..3].copy_from_slice(&[note(0, 60, 314), note(0, 64, 314), note(0, 67, 314)]);
-        request.event_count = 3;
+        let (shared, mut callback) = unacknowledged_start(48000);
+        let chord = block(&[note(0, 0, 60, 314), note(0, 0, 64, 314), note(0, 0, 67, 314)]);
         let mut output = [[9.; CAP]; 2];
         let (result, allocations) = crate::allocation_test::measure(||
-            callback.process_outputs_until(&shared, request, &mut output, &[], 0, None));
+            callback.process_outputs_until(&shared, chord, &mut output, &[], 0, None));
         assert_eq!((result, allocations), (Ok(3), [0; 3]));
         assert!(shared.requests.pop().is_none());
-        let mut empty = request;
-        empty.event_count = 0;
-        assert_eq!(callback.process_outputs_until(&shared, empty, &mut output, &[], 0, None), Ok(3));
-        assert!(shared.requests.pop().is_none());
-        assert_eq!((callback.unready_callbacks, callback.startup_notes_dropped), (2, 0));
-        // Acknowledged: the first rendered block starts with the chord.
+        assert_eq!(render(&shared, &mut callback, block(&[])), None);
+        assert_eq!((callback.unready_callbacks, callback.startup_note_events_dropped), (2, 0));
+        // Acknowledged: the first rendered block starts with the chord, then
+        // carries its own events; the delivery path does not allocate.
         shared.processing_ready_epoch.store(callback.epoch, Ordering::Release);
-        let mut ready = request;
-        ready.events[0] = note(1, 72, 100);
-        ready.event_count = 1;
-        callback.process_outputs_until(&shared, ready, &mut output, &[], 0, None).unwrap();
+        let ready = block(&[note(1, 0, 72, 100)]);
+        let (result, allocations) = crate::allocation_test::measure(||
+            callback.process_outputs_until(&shared, ready, &mut output, &[], 0, None));
+        assert_eq!((result.is_ok(), allocations), (true, [0; 3]));
         let queued = shared.requests.pop().unwrap();
         assert_eq!(queued.events[..queued.event_count as usize].iter()
             .map(|e| (e.kind, e.pitch, e.offset)).collect::<Vec<_>>(),
             [(0, 60, 0), (0, 64, 0), (0, 67, 0), (1, 72, 100)]);
-        assert_eq!((callback.startup_notes_delayed, callback.startup_notes_dropped), (3, 0));
+        assert_eq!((callback.startup_note_events_delayed, callback.startup_note_events_dropped), (3, 0));
         // Nothing is repeated in the next block.
-        callback.process_outputs_until(&shared, empty, &mut output, &[], 0, None).unwrap();
-        assert_eq!(shared.requests.pop().unwrap().event_count, 0);
-        // Notes from a start that stops before it is acknowledged belong to
-        // that start only; they are counted, not carried into the next one.
-        callback.transition(&shared, STOP);
-        shared.requests.pop().unwrap();
-        callback.transition(&shared, START);
-        shared.requests.pop().unwrap();
-        callback.process_outputs_until(&shared, request, &mut output, &[], 0, None).unwrap();
-        callback.transition(&shared, STOP);
-        shared.requests.pop().unwrap();
-        callback.transition(&shared, START);
-        shared.requests.pop().unwrap();
+        assert_eq!(render(&shared, &mut callback, block(&[])), Some(vec![]));
+    }
+    #[test]
+    fn a_stop_discards_held_notes_but_keeps_releases_of_playing_notes() {
+        let (shared, mut callback) = unacknowledged_start(48000);
+        // Note 50 started before this window; 60 starts and ends inside it.
+        render(&shared, &mut callback, block(&[note(1, 0, 50, 3), note(0, 0, 60, 9), note(1, 0, 60, 99)]));
+        restart(&shared, &mut callback);
+        assert_eq!(callback.startup_note_events_dropped, 2);
         shared.processing_ready_epoch.store(callback.epoch, Ordering::Release);
-        callback.process_outputs_until(&shared, empty, &mut output, &[], 0, None).unwrap();
-        assert_eq!(shared.requests.pop().unwrap().event_count, 0);
-        assert_eq!((callback.startup_notes_delayed, callback.startup_notes_dropped), (3, 3));
+        assert_eq!(render(&shared, &mut callback, block(&[])), Some(vec![(1, 0, 50, 0)]));
+        assert_eq!(callback.startup_note_events_delayed, 1);
+    }
+    #[test]
+    fn notes_are_held_no_longer_than_the_stated_limit() {
+        // Two 512-frame blocks may be held; a third means the host is busy
+        // for longer, so held note-ons are discarded, never fired as a cluster.
+        let (shared, mut callback) = unacknowledged_start(1024);
+        render(&shared, &mut callback, block(&[note(0, 0, 60, 7)]));
+        render(&shared, &mut callback, block(&[]));
+        assert_eq!((callback.startup_notes.pending(), callback.startup_note_events_dropped), (1, 0));
+        render(&shared, &mut callback, block(&[note(0, 0, 64, 7), note(1, 0, 40, 9)]));
+        render(&shared, &mut callback, block(&[note(1, 0, 64, 20), note(0, 0, 67, 30)]));
+        // Dropped: held 60, then 64 and 67 past the limit. Note-offs are kept.
+        assert_eq!(callback.startup_note_events_dropped, 3);
+        shared.processing_ready_epoch.store(callback.epoch, Ordering::Release);
+        assert_eq!(render(&shared, &mut callback, block(&[])), Some(vec![(1, 0, 40, 0), (1, 0, 64, 0)]));
+        // A new start holds again.
+        restart(&shared, &mut callback);
+        render(&shared, &mut callback, block(&[note(0, 0, 72, 7)]));
+        assert_eq!(callback.startup_notes.pending(), 1);
+    }
+    #[test]
+    fn offline_rendering_never_holds_notes() {
+        let (shared, mut callback) = unacknowledged_start(48000);
+        let mut offline = block(&[note(0, 0, 60, 314)]);
+        offline.process_mode = 2;
+        assert_eq!(render(&shared, &mut callback, offline), Some(vec![(0, 0, 60, 314)]));
+        assert_eq!((callback.startup_notes.pending(), callback.unready_callbacks), (0, 0));
+    }
+    #[test]
+    fn full_storage_keeps_releases_and_a_full_block_keeps_note_order() {
+        let (shared, mut callback) = unacknowledged_start(48000);
+        let ons: Vec<_> = (0..256).map(|i| note(0, (i / 128) as i16, (i % 128) as i16, 1)).collect();
+        render(&shared, &mut callback, block(&ons));
+        // Full: an incoming release evicts the oldest held note (ch 0, pitch 0)
+        // rather than being lost; a further note-on is dropped.
+        render(&shared, &mut callback, block(&[note(1, 1, 5, 2), note(0, 2, 99, 3)]));
+        assert_eq!((callback.startup_notes.pending(), callback.startup_note_events_dropped), (256, 2));
+        shared.processing_ready_epoch.store(callback.epoch, Ordering::Release);
+        // The block's parameter point stays; held notes fill the rest, and the
+        // block's own note waits behind the held release it must not overtake.
+        let parameter = Event { kind: 2, id: 7, value: 0.5, offset: 4, ..Event::default() };
+        let first = render(&shared, &mut callback, block(&[parameter, note(0, 1, 5, 10)])).unwrap();
+        assert_eq!(first.len(), 256);
+        assert_eq!((first[0], first[1], first[255]), ((2, 0, 0, 4), (0, 0, 1, 0), (0, 1, 127, 0)));
+        assert_eq!(render(&shared, &mut callback, block(&[])), Some(vec![(1, 1, 5, 0), (0, 1, 5, 0)]));
+        assert_eq!(callback.startup_note_events_delayed, 257);
     }
     #[test]
     fn startup_dry_real_abi_preserves_in_place_audio_and_hands_off_after_total_latency() {
