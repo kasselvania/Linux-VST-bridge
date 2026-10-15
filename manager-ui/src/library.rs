@@ -943,7 +943,7 @@ pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
                 Action::EnvironmentRuntimeSelect {runner,..} if runner==&selected)) {
                 action_buttons(ui,std::slice::from_ref(offer),None,pending,chosen);
             }
-            if runtime.choices.is_empty() {ui.small("Install another compatibility runtime through Setup to try it here.");}
+            if runtime.choices.is_empty() {ui.small("To download Windows plug-in support, open Diagnostics → Manager actions.");}
         });
     }
     if target.operation.is_some() {
