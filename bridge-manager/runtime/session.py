@@ -5335,6 +5335,8 @@ def managed_dependency_retired(dependency):
             and post.get('images_changed')==recover_images_changed(post['application_image_unchanged'],identity))
     return absent and all(post.get(key) is True for key in ('application_image_unchanged','daemon_image_unchanged'))
 
+VENDOR_RECOVER_SCAN_SECONDS=20
+
 def vendor_managed_root():
     return pathlib.Path.home()/'.local/share/linux-vst-bridge/managed'
 
@@ -5374,6 +5376,19 @@ def vendor_recover_census(request,*,proc=pathlib.Path('/proc')):
         observed=prefix.lstat()
         facts['prefix_unchanged']=bool(stat.S_ISDIR(observed.st_mode) and prefix.resolve()==prefix and renderer_read(root/'environment.json')==env)
     except (OSError,ValueError):pass
+    # Decisive process and listener evidence first. The census recognises one
+    # daemon image name; any other profile daemon is a missing observation
+    # capability, never an absence.
+    if not facts['daemon_name_observable']:facts['candidate_observation_unavailable']=1
+    else:
+        try:
+            # Nested inside the manager's 30 s limit; an unfinished scan is unavailable.
+            scan=ownership.census(prefix,None,proc=proc,seconds=VENDOR_RECOVER_SCAN_SECONDS)
+            facts['candidate_count']=len(scan['candidates']);facts['candidate_observation_unavailable']=scan['unavailable']
+        except (OSError,ValueError):facts['candidate_observation_unavailable']=1
+    try:facts['listener_mask']=nad1_listener_census(proc,listeners)['listener_mask']
+    except (OSError,ValueError):pass
+    # Image facts are recorded truthfully; they never decide the verdict.
     try:verify(app);facts['application_image_unchanged']=True
     except (OSError,RuntimeError,ValueError):pass
     path=drive/relative
@@ -5386,16 +5401,6 @@ def vendor_recover_census(request,*,proc=pathlib.Path('/proc')):
         except (OSError,ValueError):pass
     facts['daemon_image_unchanged']=facts['daemon_identity']=='unchanged'
     facts['images_changed']=recover_images_changed(facts['application_image_unchanged'],facts['daemon_identity'])
-    # The census recognises one daemon image name. Any other profile daemon is
-    # a missing observation capability, never an absence.
-    if not facts['daemon_name_observable']:facts['candidate_observation_unavailable']=1
-    else:
-        try:
-            scan=ownership.census(prefix,None,proc=proc)
-            facts['candidate_count']=len(scan['candidates']);facts['candidate_observation_unavailable']=scan['unavailable']
-        except (OSError,ValueError):facts['candidate_observation_unavailable']=1
-    try:facts['listener_mask']=nad1_listener_census(proc,listeners)['listener_mask']
-    except (OSError,ValueError):pass
     facts['verdict']=vendor_recover_verdict(facts)
     return facts
 
@@ -5406,9 +5411,18 @@ def vendor_recover_verdict(facts):
     return 'absent'
 
 def vendor_recover_census_main():
-    raw=sys.stdin.buffer.read(65537)
-    if len(raw)>65536:raise ValueError('vendor_recover_census_request')
-    print(json.dumps(vendor_recover_census(json.loads(raw)),separators=(',',':')),flush=True)
+    """One closed verdict on success; one closed error code on a failed exit."""
+    try:
+        raw=sys.stdin.buffer.read(65537)
+        if len(raw)>65536:raise ValueError('vendor_recover_census_request')
+        try:request=json.loads(raw)
+        except ValueError as exc:raise ValueError('vendor_recover_census_request') from exc
+        verdict=vendor_recover_census(request)
+    except Exception as exc:
+        code='vendor_recover_census_request' if isinstance(exc,ValueError) and str(exc)=='vendor_recover_census_request' else 'vendor_recover_census_internal'
+        print(json.dumps({'schema':1,'error':code},separators=(',',':')),flush=True)
+        return 1
+    print(json.dumps(verdict,separators=(',',':')),flush=True)
     return 0
 
 def managed_vendor_application(operation):
