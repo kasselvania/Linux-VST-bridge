@@ -379,6 +379,18 @@ fn code_suffix(code: &str) -> String {
     if plain { format!(" (code: {code})") } else { String::new() }
 }
 
+/// The last DAW load of a plug-in was refused at this recorded startup phase
+/// (`runtime/native-startup`). Only phases with a known meaning explain.
+pub fn from_load_refusal(phase: Option<&str>) -> Option<Explanation> {
+    Some(match phase? {
+        "keeper_failed" => Explanation::new("windows_side_stopped",
+            "The last time your DAW loaded this plug-in, its Windows side had stopped, so the plug-in stayed empty and silent.",
+            "The Windows programs behind this plug-in's setup ended unexpectedly (for example when the desktop's display server restarted) or failed while starting.",
+            "Load the plug-in again: reopen the project, or remove and add it. The bridge starts its Windows side again on that load, waiting up to a minute first if it has failed to start repeatedly. If it keeps failing, create a problem report."),
+        _ => return None,
+    })
+}
+
 /// Enumerated manager and installer outcome codes.
 pub fn from_code(code: &str) -> Option<Explanation> {
     Some(match code {
