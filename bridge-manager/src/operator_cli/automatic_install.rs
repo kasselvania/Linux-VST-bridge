@@ -2394,6 +2394,44 @@ mod tests {
         assert!(onboarding::retained_environment_record(&f.m,&record.id).unwrap().unwrap().automatic.is_none());
     }
     #[test]
+    fn gate_settling_keeps_a_dead_installs_check_reservation_for_its_release() {
+        let (f,record,_)=vendor_cli::selection::tests::installed_app();
+        let (_,intent)=owned_app_visit(&f,&record);
+        // The machine froze mid-check: the check has no receipt yet, but the
+        // service it suspended is reserved under its identity.
+        let check=random_id().unwrap();private_dir(&job_dir(&f.m,&check).unwrap()).unwrap();
+        atomic_json(&job_dir(&f.m,&check).unwrap().join("request.json"),&ui::Request {
+            schema:ui::OPERATOR_SCHEMA,state_token:"test".into(),action:ui::Action::CaptureDisarm {}}).unwrap();
+        let resume=random_id().unwrap();private_dir(&job_dir(&f.m,&resume).unwrap()).unwrap();
+        atomic_json(&job_dir(&f.m,&resume).unwrap().join("request.json"),&ui::Request {
+            schema:ui::OPERATOR_SCHEMA,state_token:"test".into(),
+            action:ui::Action::SoftwareInstallResume {onboarding:record.id.clone()}}).unwrap();
+        let mut installing=intent.clone();
+        installing.work=vec![ClassWork {selection:"aa".repeat(32),predecessor:None,result_index:0,
+            check:Some(check.clone()),candidate:None,active_operation:None}];
+        save(&f.m,&record.environment,&installing,&resume).unwrap();
+        write_operation(&f.m,&resume,&json!({"schema":1,"operation":resume,"state":"running"}),false).unwrap();
+        {
+            let _resume=resume_lock(&f.m).unwrap();
+            create_resume(&f.m,&ResumeRecord {schema:2,owner_operation:check.clone(),resume:true,
+                software:"ab".repeat(32),vendor_operation:None}).unwrap();
+        }
+        let reservation=f.m.root.join("operator/resume.json");
+        let failures=settle_dead_workers(&f.m,|_|Ok(false)).unwrap();
+        assert!(failures.is_empty(),"{failures:?}");
+        let receipt=|id:&str|optional(&job_dir(&f.m,id).unwrap().join("result.json")).unwrap();
+        assert_eq!(receipt(&resume)["reason"],"operator_worker_terminated");
+        assert_eq!(receipt(&check)["reason"],"automatic_installation_worker_terminated");
+        assert!(reservation.exists(),"A package gate restores no service");
+        // The service start, activation or Recover releases it exactly once.
+        let restored=std::cell::Cell::new(0);
+        for _ in 0..2 {
+            restore_terminated_owner_with(&f.m,|_|Ok(false),||{restored.set(restored.get()+1);Ok(())}).unwrap();
+        }
+        assert_eq!(restored.get(),1);
+        assert!(!reservation.exists());
+    }
+    #[test]
     fn earlier_onboarding_vendor_intent_reads_through_the_same_exact_owner() {
         let (f,mut record,_)=vendor_cli::selection::tests::installed_app();
         let (selector,intent)=owned_app_visit(&f,&record);

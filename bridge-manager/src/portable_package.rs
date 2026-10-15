@@ -628,6 +628,36 @@ mod tests {
         assert_eq!(fs::read(&setup).unwrap(),setup_bytes);
     }
     #[test]
+    fn gate_supervisor_lookup_verifies_only_its_two_signed_rows() {
+        let f=Fixture::new();let frontend=Bundle::open(&f.bundle("1.0"),f.trust())
+            .unwrap().stage(&f.home).unwrap();
+        let source=input_root_record_with_trust(&frontend,&f.home,&f.trust()).unwrap().unwrap();
+        let lookup=||input_supervisor_with_trust(&frontend,&f.home,&f.trust());
+        let [(supervisor,supervisor_sha256),(ownership,ownership_sha256)]=lookup().unwrap().unwrap();
+        assert_eq!(supervisor,source.join("lib/linux-vst-bridge/supervisor/session.pyc"));
+        assert_eq!(ownership,source.join("lib/linux-vst-bridge/supervisor/ownership.pyc"));
+        assert_eq!(supervisor_sha256,hex(&Sha256::digest(fs::read(&supervisor).unwrap())));
+        assert_eq!(ownership_sha256,hex(&Sha256::digest(fs::read(&ownership).unwrap())));
+        // Other package files are not read for the census.
+        let unrelated=source.join("lib/linux-vst-bridge/self-test/Fixture.exe");
+        let bytes=fs::read(&unrelated).unwrap();
+        fs::set_permissions(&unrelated,fs::Permissions::from_mode(0o644)).unwrap();
+        fs::write(&unrelated,vec![b'X';bytes.len()]).unwrap();
+        fs::set_permissions(&unrelated,fs::Permissions::from_mode(0o444)).unwrap();
+        assert!(lookup().unwrap().is_some());
+        // A changed supervisor is never offered to run.
+        let bytes=fs::read(&supervisor).unwrap();
+        fs::set_permissions(&supervisor,fs::Permissions::from_mode(0o644)).unwrap();
+        fs::write(&supervisor,vec![b'Y';bytes.len()]).unwrap();
+        fs::set_permissions(&supervisor,fs::Permissions::from_mode(0o444)).unwrap();
+        assert_eq!(lookup().unwrap_err().to_string(),"user_package_file_changed");
+        // A manager that is not a source-package executable has no package supervisor.
+        let selected=f.home.join(".local/share/linux-vst-bridge/managed/software/selected/linux-vst-bridge");
+        directory(selected.parent().unwrap()).unwrap();fs::write(&selected,b"selected manager").unwrap();
+        assert!(input_supervisor_with_trust(&selected,&f.home,&f.trust()).unwrap().is_none());
+        assert!(input_supervisor(&selected,&f.home).unwrap().is_none());
+    }
+    #[test]
     fn status_source_resolution_hashes_only_the_exact_executables_it_launches() {
         let f=Fixture::new();let frontend=Bundle::open(&f.bundle("1.0"),f.trust())
             .unwrap().stage(&f.home).unwrap();

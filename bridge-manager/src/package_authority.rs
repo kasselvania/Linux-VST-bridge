@@ -1196,7 +1196,7 @@ fn gate_refusal(error: Box<dyn std::error::Error + Send + Sync>) -> Box<dyn std:
         "vendor_recover_unit_unavailable" => "The bridge could not check whether an app opened through it is still running. Choose Check again; if this stays, send Setup details.",
         "vendor_recover_daemon_name_unobservable" => "The bridge can't yet check this app's support service, so it can't close the app's session itself. Send Setup details.",
         // The check itself could not run: the supervisor or its request.
-        _ => "The bridge could not run its check of an app opened through it. Update or reinstall the bridge, then choose Check again; if it still fails, send Setup details.",
+        _ => "The bridge could not run its check of an app opened through it. Download the bridge package again, then choose Check again; if it still fails, send Setup details.",
     }.into()
 }
 /// A settling refusal explains a gate's own refusal of the same app session.
