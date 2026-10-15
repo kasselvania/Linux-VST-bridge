@@ -482,16 +482,15 @@ fn replacement_offer(snapshot: &Snapshot, draft: &InstallerReplacement)
     if selected == &draft.original { return Err("That is the same installer. Choose a different file, or use Retry."); }
     let mut offer = if let Some(environment) = &draft.environment {
         snapshot.environment_installers.iter().find(|t| &t.environment == environment)
-            .and_then(|target| target.choices.iter().find(|offer| matches!(&offer.action,
-                Action::EnvironmentInstallerStart {environment:env, installer}
-                    if env == environment && installer == selected))).cloned()
+            .and_then(|target| target.choices.iter().find(|offer|offer.action.environment_installer_start()
+                .is_some_and(|(env,installer,policy)|env==environment && installer==selected && policy.is_none()))).cloned()
     } else {
         // Already imported bytes may belong to another working setup. Never
         // turn this file choice into a continuation of that other setup.
         snapshot.installer_setups.iter().find(|s| &s.installer == selected
             && s.environment.is_none() && s.history.iter().all(|h|h.environment.is_none()))
-            .and_then(|s| s.primary.as_ref()).filter(|offer| matches!(&offer.action,
-                Action::SoftwareInstall {installer,..} if installer == selected)).cloned()
+            .and_then(|s| s.primary.as_ref()).filter(|offer|offer.action.software_install()
+                .is_some_and(|(installer,_,policy)|installer==selected && policy.is_none())).cloned()
     }.ok_or("This file has no installation offer for the selected setup. Review Setup or choose another file.")?;
     offer.label = if draft.environment.is_some() { "Run installer in this setup" }
         else { "Install and connect" }.into();
@@ -1618,7 +1617,7 @@ fn setup_offer_uses_program_choice(snapshot: &Snapshot, setup: &InstallerSetup,
 }
 
 fn obsolete_initial_installer_offer(offer: &AvailableAction) -> bool {
-    matches!(offer.action, Action::SoftwareInstall {..} | Action::SoftwareInstallWithPolicy {..} | Action::InstallerNewAttempt {..}
+    offer.action.software_install().is_some() || matches!(offer.action, Action::InstallerNewAttempt {..}
         | Action::InstallerStart {..} | Action::InstallerStartWithPolicy {..}
         | Action::InstallerFocus {..} | Action::InstallerStop {..} | Action::InstallerScan {..})
 }
@@ -1921,16 +1920,17 @@ impl Operator {
                     }
                     let secondary: Vec<_> = setup.secondary.iter().filter(|offer|
                         (continuation.is_none() || !obsolete_initial_installer_offer(offer)) && !reviewing_replacement
-                            && !matches!(offer.action,Action::SoftwareInstallWithPolicy {..})
+                            && offer.action.software_install().is_none_or(|(_,_,policy)|policy.is_none())
                             && !setup_offer_uses_program_choice(&overview.current,setup,offer)).cloned().collect();
                     ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &secondary,
                         overview.current.system.inactive_reason(), pending, chosen));
                     if let Some(target) = continuation {
                         ui.label(format!("Latest installer in this setup: {}",
                             target.result["state"].as_str().unwrap_or("status unavailable").replace('_', " ")));
-                        let actions: Vec<_> = target.actions.iter().filter(|offer| matches!(offer.action,
+                        let actions: Vec<_> = target.actions.iter().filter(|offer| crate::library::installer_retry(offer)
+                            || matches!(offer.action,
                             Action::EnvironmentInstallerFocus {..} | Action::EnvironmentInstallerStop {..}
-                                | Action::EnvironmentInstallerStart {..} | Action::EnvironmentInstallerScan {..}))
+                                | Action::EnvironmentInstallerScan {..}))
                             .cloned().collect();
                         ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &actions,
                             overview.current.system.inactive_reason(), pending, chosen));
@@ -1984,7 +1984,7 @@ impl Operator {
                         if let Some(compatibility) = &setup.compatibility { ui.small(compatibility); }
                         if continuation.is_none() && !reviewing_replacement {
                             let advanced:Vec<_>=setup.primary.iter().chain(&setup.secondary)
-                                .filter(|offer|matches!(offer.action,Action::SoftwareInstallWithPolicy {..})).cloned().collect();
+                                .filter(|offer|offer.action.software_install().is_some_and(|(_,_,policy)|policy.is_some())).cloned().collect();
                             ui.add_enabled_ui(fresh,|ui|Self::buttons(ui,&advanced,
                                 overview.current.system.inactive_reason(),pending,chosen));
                         }
@@ -6249,11 +6249,19 @@ mod tests {
         }
     }
     #[test]
-    fn ordinary_retry_button_submits_the_offered_explicit_installer_choice_without_advanced_reselection() {
-        for powershell in [crate::model::Powershell::Inherited,crate::model::Powershell::IntentionallyUnavailable] {
+    fn ordinary_card_and_chooser_retry_submit_the_offered_choice_after_reopen() {
+        for (powershell,matching_card) in [crate::model::Powershell::Inherited,crate::model::Powershell::IntentionallyUnavailable]
+            .into_iter().flat_map(|policy|[true,false].map(move |card|(policy,card))) {
             let environment="ab".repeat(16);let installer="cd".repeat(32);
             let offered=Action::environment_installer_action(environment.clone(),installer.clone(),Some(powershell));
             let mut overview:CurrentOverview=overview_fixture().into();
+            overview.current.onboarding.clear();overview.current.installer_setups.clear();
+            if matching_card {
+                let mut setup=automatic_setup(automatic_journey(InstallationPhase::NeedsAttention),None);
+                setup.installer="11".repeat(32);setup.environment=Some(environment.clone());
+                setup.journey=None;setup.phase=SetupPhase::SetupNeedsAttention;
+                overview.current.installer_setups.push(setup);
+            }
             overview.current.environment_installers=vec![crate::model::EnvironmentInstaller {
                 environment:environment.clone(),runtime:None,name:"Synth setup".into(),affected:vec![],
                 consequence:"The installer can change this setup.".into(),operation:Some("ef".repeat(16)),
@@ -6264,7 +6272,7 @@ mod tests {
             let wire=serde_json::to_vec(&overview).unwrap();
             let overview:CurrentOverview=serde_json::from_slice(&wire).unwrap();
             let ctx=egui::Context::default();
-            ctx.data_mut(|data|data.insert_temp(egui::Id::new("companion_environment"),environment));
+            if !matching_card {ctx.data_mut(|data|data.insert_temp(egui::Id::new("companion_environment"),environment));}
             let mut chosen=None;let mut point=egui::Pos2::ZERO;let mut time=0.0;
             for pressed in [None,Some(true),Some(false)] {
                 time+=0.3;
@@ -6276,7 +6284,7 @@ mod tests {
                         &mut Page::Setup,&mut crate::library::Library::default(),&mut RouteFocus::default(),&mut None));
                 });
                 if pressed.is_none() {point=output.shapes.iter().find_map(|shape|
-                    wrong_installer_text_position(&shape.shape,"Retry")).expect("ordinary visible Retry");}
+                    wrong_installer_text_position(&shape.shape,"Retry")).expect("ordinary visible Retry after reopen");}
                 output.textures_delta.clear();
             }
             assert_eq!(chosen,Some(offered));

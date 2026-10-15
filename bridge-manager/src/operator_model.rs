@@ -841,6 +841,9 @@ impl Action {
         self.software_install().map(|(installer, _, powershell)|
             Self::software_install_action(installer.into(), daw, powershell))
     }
+    // This model is also included by the frontend, which forwards offered
+    // actions rather than producing existing-setup installation choices.
+    #[allow(dead_code)]
     pub fn environment_installer_action(environment: String, installer: String, powershell: Option<Powershell>) -> Self {
         match powershell {
             Some(powershell) => Self::EnvironmentInstallerStartWithPolicy { environment, installer, powershell },
