@@ -2186,10 +2186,13 @@ class InstallerWitnesses:
     Paths stay private. A registration is not proof of authorization, dependency
     health or a successful post-install launch. Bounds make incomplete explicit.
     """
+    # Vendor applications are often large Electron executables; they are only
+    # identified, never loaded. Other images keep the smaller bound.
+    HASH_BUDGET=1024*1024*1024;HASH_LIMIT=64*1024*1024;EXE_HASH_LIMIT=512*1024*1024
     def __init__(self, root):self.prefix=pathlib.Path(root)/'compatdata/pfx'
     def snapshot(self):
         out={'files':{},'logs':{},'uninstall':{},'services':{},'incomplete':[]}
-        c=self.prefix/'drive_c';count=0;budget=256*1024*1024;deadline=time.monotonic()+5;walk_budget=[8192]
+        c=self.prefix/'drive_c';count=0;budget=self.HASH_BUDGET;deadline=time.monotonic()+5;walk_budget=[8192]
         roots=[c/'Program Files',c/'Program Files (x86)',c/'ProgramData',c/'windows/temp']
         users=c/'users'
         if users.is_dir():
@@ -2213,12 +2216,15 @@ class InstallerWitnesses:
                             # a bounded private-tail collector after finalization.
                             out['logs'][relative]={'size':m.st_size,'mtime_ns':m.st_mtime_ns};continue
                         row={'size':m.st_size,'sha256':None}
-                        if m.st_size<=min(budget,64*1024*1024):
-                            budget-=m.st_size;row.update(installer_digest(p))
+                        limit=self.EXE_HASH_LIMIT if suffix=='.exe' else self.HASH_LIMIT
+                        # Hashing cannot be interrupted; never start one past the deadline.
+                        if m.st_size<=min(budget,limit) and time.monotonic()<=deadline:
+                            budget-=m.st_size;row.update(installer_digest(p,limit))
                         else:out['incomplete'].append('image_hash_bound')
                         out['files'][relative]=row
                     except (OSError,ValueError):out['incomplete'].append('file_unavailable_or_changed')
             if count>8192 or time.monotonic()>deadline:break
+        known={k.lower():k for k in out['files']}
         for registry in ('system.reg','user.reg'):
             path=self.prefix/registry
             try:
@@ -2234,7 +2240,7 @@ class InstallerWitnesses:
                     if kind:
                         key=hashlib.sha256((registry+':'+raw).encode()).hexdigest();out[kind].setdefault(key,{})
                 elif kind and line.startswith('"'):
-                    match=re.fullmatch(r'"(DisplayName|DisplayVersion|InstallLocation|ImagePath|Start|Type)"=(.*)',line)
+                    match=re.fullmatch(r'"(DisplayName|DisplayVersion|InstallLocation|ImagePath|Start|Type|DisplayIcon|UninstallString)"=(.*)',line)
                     if match:
                         name,value=match.groups()
                         # ImagePath can contain command arguments/secrets. Retain
@@ -2244,20 +2250,67 @@ class InstallerWitnesses:
                             decoded=value.strip('"').replace('\\\\','\\').replace('\\"','"')
                             image=re.match(r'^"?([A-Za-z]:\\.*?\.exe)(?:"|\s|$)',decoded,re.I)
                             if image:out[kind][key]['image']=image.group(1)
+                        elif name in ('DisplayIcon','UninstallString'):
+                            # Many installers omit InstallLocation. Retain only an
+                            # observed image path, never the command or arguments.
+                            out[kind][key][('icon' if name=='DisplayIcon' else 'uninstall')+'_configuration_sha256']=hashlib.sha256(value.encode()).hexdigest()
+                            image=self.derived_image(value,known) if kind=='uninstall' else None
+                            if image:out[kind][key]['DerivedIcon' if name=='DisplayIcon' else 'DerivedUninstaller']=image
                         elif name in ('InstallLocation','DisplayName','DisplayVersion'):
                             if len(value)<=1024:out[kind][key][name]=value.strip('"').replace('\\\\','\\')
                         elif re.fullmatch('dword:[0-9a-fA-F]{8}',value):out[kind][key][name]=value
+        for entry in out['uninstall'].values():
+            # The icon folder is preferred whatever the value order; the uninstaller
+            # folder is the fallback. Neither may be a shared or system root.
+            for source in ('DerivedIcon','DerivedUninstaller'):
+                folder=InstallerWitnesses.derived_folder(entry.get(source))
+                if folder:entry['DerivedInstallLocation']=folder;break
         out['incomplete']=sorted(set(out['incomplete']));return out
+
+    @staticmethod
+    def derived_image(value,known):
+        """Resolve a registry command or icon value to an observed .exe in files.
+
+        One outer quote pair is removed, then escapes. A quoted command uses its
+        quoted path; an unquoted one is split at spaces as Windows does. Only a
+        candidate that is an observed file is accepted, so arguments never are.
+        """
+        if len(value)<2 or value[0]!='"' or value[-1]!='"':return None
+        text=re.sub(r'\\(.)',r'\1',value[1:-1]).strip()
+        if text.startswith('"'):
+            end=text.find('"',1);candidates=[text[1:end]] if end>0 else []
+        else:
+            words=re.sub(r',-?\d+$','',text).split(' ')
+            candidates=[' '.join(words[:i]) for i in range(1,min(len(words),32)+1)]
+        for candidate in candidates:
+            if len(candidate)>1024 or not re.fullmatch(r'[Cc]:\\[^"]+\.exe',candidate,re.I):continue
+            found=known.get(candidate[3:].replace('\\','/').lower())
+            if found:return found
+        return None
+
+    @staticmethod
+    def derived_folder(image):
+        if not image:return None
+        parts=image.split('/')[:-1];low=[p.lower() for p in parts]
+        if not low or low[0]=='windows' or any(p in low for p in ('package cache','installer','temp')):return None
+        if low[0] in ('program files','program files (x86)') and (len(low)<2 or low[1:]==['common files']):return None
+        if low[0]=='programdata' and len(low)<2:return None
+        if low[0]=='users' and len(low)<4:return None
+        return 'C:\\'+'\\'.join(parts)
 
     @staticmethod
     def compare(before,after):
         delta={}
         for key in ('files','logs','uninstall','services'):
             a=before.get(key,{});b=after.get(key,{})
+            if key=='uninstall':
+                # Derived fields depend on what a snapshot observed; compare registry facts.
+                a,b=({k:{n:v for n,v in e.items() if not n.startswith('Derived')} for k,e in side.items()} for side in (a,b))
             delta[key]={'added':sorted(k for k in b if k not in a),'changed':sorted(k for k in b if k in a and b[k]!=a[k]),'removed':sorted(k for k in a if k not in b)}
         registrations=[]
         for key in delta['uninstall']['added']+delta['uninstall']['changed']:
-            location=after['uninstall'][key].get('InstallLocation','').replace('\\','/').rstrip('/')
+            entry=after['uninstall'][key]
+            location=(entry.get('InstallLocation') or entry.get('DerivedInstallLocation','')).replace('\\','/').rstrip('/')
             if not location.lower().startswith('c:/'):continue
             relative=location[3:].lower()+'/'
             # A registered Windows audio product may contain only plug-in DLLs,
@@ -2265,7 +2318,17 @@ class InstallerWitnesses:
             # PE image is an installation witness, never factory/audio/license
             # or installation-completeness authority.
             images=[p for p in delta['files']['added']+delta['files']['changed'] if p.lower().startswith(relative) and p.lower().endswith(('.exe','.dll','.vst3')) and after['files'][p].get('sha256') and after['files'][p].get('format')=='pe_executable']
-            if images:registrations.append({'registration':key,'images':images})
+            if not entry.get('InstallLocation'):
+                # A derived home's own uninstaller is neither installation
+                # evidence nor an application to open.
+                images=[p for p in images if p.lower()!=(entry.get('DerivedUninstaller') or '').lower()]
+            if images:
+                registration={'registration':key,'images':images}
+                # The icon names the application itself when it is one of the images.
+                icon=entry.get('DerivedIcon')
+                if icon in images and icon.lower()!=(entry.get('DerivedUninstaller') or '').lower():
+                    registration['application_image']=icon
+                registrations.append(registration)
         changed=any(delta[k][change] for k in ('files','uninstall','services') for change in ('added','changed','removed'))
         return {'delta':delta,'application_registrations':registrations,
             'classification':'installed' if registrations else 'partial_installation' if changed else 'indeterminate' if before.get('incomplete') or after.get('incomplete') else 'not_installed',

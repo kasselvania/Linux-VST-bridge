@@ -83,6 +83,70 @@ class WitnessTests(unittest.TestCase):
             outside={**after,'uninstall':{'other':{'InstallLocation':'C:\\Elsewhere'}}}
             self.assertEqual(witnesses.compare(before,outside)['classification'],'partial_installation')
 
+    def test_install_location_comes_from_icon_or_uninstaller_when_omitted(self):
+        # Native Access 3.26 registers per user with only DisplayIcon/UninstallString.
+        def reg(path):return 'C:\\\\'+path.replace('/','\\\\')
+        app,uninst='Program Files/Vendor/App/App.exe','Program Files/Vendor/App/Uninstall App.exe'
+        other='Program Files/Vendor/Tools/Uninstall Tools.exe'
+        cases=[
+            ('icon and quoted uninstaller with arguments',
+             f'"DisplayIcon"="{reg(app)},0"\n"UninstallString"="\\"{reg(uninst)}\\" /currentuser"\n','installed',[app]),
+            ('quoted uninstaller without arguments (NSIS default)',
+             f'"UninstallString"="\\"{reg(uninst)}\\""\n','installed',[app]),
+            ('icon preferred over an earlier uninstaller elsewhere',
+             f'"UninstallString"="{reg(other)} /S"\n"DisplayIcon"="{reg(app)}"\n','installed',[app,uninst]),
+            ('arguments with a later exe are never retained',
+             f'"UninstallString"="{reg("Program Files/Vendor/App/uninstall.bat")} /token=SECRET123 /log C:\\\\tmp\\\\x.exe"\n','partial_installation',None),
+            ('MsiExec is not an application home',
+             '"UninstallString"="MsiExec.exe /X{0000-1111}"\n','partial_installation',None),
+            ('an uninstaller alone is not an installation',
+             f'"UninstallString"="\\"{reg(other)}\\""\n','partial_installation',None),
+            ('an uninstaller icon is not the application',
+             f'"InstallLocation"="C:\\\\Program Files\\\\Vendor\\\\App"\n"DisplayIcon"="{reg(uninst)}"\n"UninstallString"="\\"{reg(uninst)}\\""\n','installed',[app,uninst]),
+            ('a shared root is too broad',
+             f'"DisplayIcon"="{reg("Program Files/Loose.exe")}"\n','partial_installation',None),
+            ('InstallLocation keeps priority',
+             f'"InstallLocation"="C:\\\\Program Files\\\\Vendor\\\\App"\n"DisplayIcon"="{reg(other)}"\n','installed',[app,uninst]),
+        ]
+        image=bytearray(128);image[:2]=b'MZ';image[60:64]=(64).to_bytes(4,'little')
+        image[64:68]=b'PE\0\0';image[68:70]=(0x8664).to_bytes(2,'little');image[86:88]=(0x22).to_bytes(2,'little')
+        for label,values,expected,images in cases:
+            with self.subTest(label), tempfile.TemporaryDirectory() as tmp:
+                root_dir=pathlib.Path(tmp).resolve()
+                prefix=root_dir/'compatdata/pfx';prefix.mkdir(parents=True)
+                (prefix/'drive_c').mkdir();(prefix/'system.reg').write_text('');(prefix/'user.reg').write_text('')
+                witnesses=session.InstallerWitnesses(root_dir);before=witnesses.snapshot()
+                for path in (app,uninst,other,'Program Files/Loose.exe'):
+                    (prefix/'drive_c'/path).parent.mkdir(parents=True,exist_ok=True);(prefix/'drive_c'/path).write_bytes(image)
+                (prefix/'user.reg').write_text('[Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\guid]\n"DisplayName"="App"\n'+values)
+                after=witnesses.snapshot();value=witnesses.compare(before,after)
+                self.assertEqual(value['classification'],expected)
+                text=json.dumps(after)
+                for secret in ('currentuser','SECRET123','/S','/log','/X{'):self.assertNotIn(secret,text)
+                if images is not None:
+                    registration=value['application_registrations'][0]
+                    self.assertEqual(sorted(registration['images']),sorted(images))
+                    if label.startswith('icon'):self.assertEqual(registration['application_image'],app)
+                    else:self.assertNotIn('application_image',registration)
+                entry=next(iter(after['uninstall'].values()))
+                if 'InstallLocation' not in entry and expected=='installed':
+                    self.assertEqual(entry['DerivedInstallLocation'],'C:\\Program Files\\Vendor\\App')
+
+    def test_large_application_images_are_identified_within_the_exe_bound(self):
+        # Electron vendor apps such as Native Access exceed the general image bound.
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(session.InstallerWitnesses,'HASH_LIMIT',64), \
+                patch.object(session.InstallerWitnesses,'EXE_HASH_LIMIT',4096):
+            prefix=pathlib.Path(tmp).resolve()/'compatdata/pfx';(prefix/'drive_c/Program Files/V').mkdir(parents=True)
+            (prefix/'system.reg').write_text('');(prefix/'user.reg').write_text('')
+            image=bytearray(128);image[:2]=b'MZ';image[60:64]=(64).to_bytes(4,'little')
+            image[64:68]=b'PE\0\0';image[68:70]=(0x8664).to_bytes(2,'little');image[86:88]=(0x22).to_bytes(2,'little')
+            for name in ('App.exe','Helper.dll'):(prefix/'drive_c/Program Files/V'/name).write_bytes(image)
+            after=session.InstallerWitnesses(prefix.parent.parent).snapshot()
+            self.assertEqual(after['files']['Program Files/V/App.exe']['format'],'pe_executable')
+            self.assertIsNone(after['files']['Program Files/V/Helper.dll']['sha256'])
+            self.assertIn('image_hash_bound',after['incomplete'])
+
     def test_removal_only_durable_surfaces_are_partial_and_keep_exact_delta(self):
         for category,record in [('files',{'sha256':'ab','format':'pe_executable'}),
                                 ('uninstall',{'InstallLocation':'C:\\Fixture'}),

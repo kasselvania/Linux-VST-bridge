@@ -156,8 +156,11 @@ pub(crate) fn choices(m: &Manager, record: &onboarding::Record) -> Result<Vec<Ch
         let name = observed["DisplayName"].as_str().ok_or("vendor_application_name_missing")?;
         require(!name.trim().is_empty() && name.len() <= 1024 && !name.chars().any(char::is_control),
             "vendor_application_name_bound")?;
-        let location = observed["InstallLocation"].as_str().ok_or("vendor_application_location_missing")?
-            .replace('\\', "/");
+        // Installers that omit InstallLocation are located from their icon or
+        // uninstaller folder, recorded separately by the supervisor.
+        let location = observed["InstallLocation"].as_str().filter(|v| !v.is_empty())
+            .or_else(|| observed["DerivedInstallLocation"].as_str())
+            .ok_or("vendor_application_location_missing")?.replace('\\', "/");
         let relative = location.strip_prefix("C:/").or_else(|| location.strip_prefix("c:/"))
             .ok_or("vendor_application_location_binding")?;
         let root = PathBuf::from(relative.trim_end_matches('/'));
@@ -197,7 +200,15 @@ pub(crate) fn choices(m: &Manager, record: &onboarding::Record) -> Result<Vec<Ch
             artifacts.push((artifact, machine));
         }
         require(artifacts.len() <= 17, "vendor_application_selection_bound")?;
+        // The registration's icon names the application itself; its siblings
+        // (uninstallers, service setups, elevation helpers) stay helpers.
+        let application = registration["application_image"].as_str()
+            .map(|image| relative_image(image).map(|path|
+                record.environment.root.join("compatdata/pfx/drive_c").join(path)))
+            .transpose()?
+            .filter(|path| artifacts.iter().any(|(a, _)| &a.path == path));
         for (selected, machine) in &artifacts {
+            if application.as_ref().is_some_and(|path| &selected.path != path) { continue; }
             let image_name = selected.path.file_stem().ok_or("vendor_application_image_name")?
                 .to_str().ok_or("vendor_application_image_name")?;
             require(!image_name.is_empty() && image_name.len() <= 256
@@ -316,6 +327,40 @@ pub(crate) mod tests {
             choice.application.verify(&f.m.root).unwrap();
         }
         assert_eq!(test_fixture::snapshot(&f.m.root), before);
+    }
+
+    #[test]
+    fn derived_location_finds_an_app_whose_installer_omits_install_location() {
+        // Native Access 3.26 registers only DisplayIcon and UninstallString.
+        let (f, record, path) = installed_app();
+        let mut observed: Value = read_json(&path).unwrap();
+        let entry = &mut observed["after"]["uninstall"]["cd".repeat(32)];
+        entry.as_object_mut().unwrap().remove("InstallLocation");
+        atomic_json(&path, &observed).unwrap();
+        assert!(choices(&f.m, &record).err().unwrap().to_string().contains("vendor_application_location_missing"));
+        observed["after"]["uninstall"]["cd".repeat(32)]["DerivedInstallLocation"] = "C:\\Program Files\\Vendor".into();
+        atomic_json(&path, &observed).unwrap();
+        let choices = choices(&f.m, &record).unwrap();
+        assert_eq!(choices.len(), 2);
+        for choice in &choices { choice.application.verify(&f.m.root).unwrap(); }
+        observed["after"]["uninstall"]["cd".repeat(32)]["InstallLocation"] = "".into();
+        atomic_json(&path, &observed).unwrap();
+        assert_eq!(super::choices(&f.m, &record).unwrap().len(), 2, "an empty InstallLocation falls back");
+        // The icon-named image is the one application; its sibling is a helper.
+        observed["durable_installation"]["application_registrations"][0]["application_image"] =
+            "Program Files/Vendor/Main.exe".into();
+        atomic_json(&path, &observed).unwrap();
+        let named = super::choices(&f.m, &record).unwrap();
+        assert_eq!(named.len(), 1);
+        assert_eq!(named[0].image_name, "Main");
+        assert_eq!(named[0].application.helpers.len(), 1);
+        observed["durable_installation"]["application_registrations"][0]["application_image"] =
+            "Program Files/Vendor/Absent.exe".into();
+        atomic_json(&path, &observed).unwrap();
+        assert_eq!(super::choices(&f.m, &record).unwrap().len(), 2, "an unobserved icon image changes nothing");
+        observed["after"]["uninstall"]["cd".repeat(32)]["DerivedInstallLocation"] = "C:/Program Files/VendorSibling".into();
+        atomic_json(&path, &observed).unwrap();
+        assert!(super::choices(&f.m, &record).is_err());
     }
 
     pub(crate) fn structured_application(seed: u8) -> (test_fixture::Fixture, Application, PathBuf) {
