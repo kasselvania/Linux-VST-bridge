@@ -215,6 +215,14 @@ struct MappedSession::Impl {
     uint8_t* view = nullptr;
     Sequence state, audio_state;
     bool direct()const{return mailbox&&mailbox->version==4;}
+    // Protocol-15 sustained sessions: render owns Stop/Start while Activated.
+    bool render_lifecycle()const{return hosted&&sustained&&stateful&&socket.minor==15&&notifications!=nullptr;}
+    // A frame render hands to the owner between intervals: 0 none, 1 waiting
+    // for the owner, 2 Deactivate taken by the owner. Render does not touch the
+    // frame or the sequence until the owner has finished with it.
+    std::atomic<uint32_t> owner_handoff{0};
+    Handle handoff_completed;
+    bool render_start_ready = false; // render thread only
     Sequence& audio_sequence(){return direct()?audio_state:state;}
     Request current{};
     bool closed = false;
@@ -292,6 +300,8 @@ struct MappedSession::Impl {
         base_request.payload.reserve(32);
         process_reply.payload.reserve(10312);
         capture_completed.value = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        handoff_completed.value = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        require(handoff_completed.value, "owner handoff event preparation");
         require(capture_completed.value, "capture completion event preparation");
     }
 
@@ -588,7 +598,8 @@ struct MappedSession::Impl {
         if (mailbox_version && !mailbox) {
             mailbox =
                 std::make_unique<DeliveryMailbox>(directory, state.session, socket.minor >= 15);
-            if(mailbox->version==4){audio_state.session=state.session;notifications->bind_death(mailbox.get(),DeliveryMailbox::peer_failed);}
+            if(mailbox->version==4){audio_state.session=state.session;notifications->bind_death(mailbox.get(),DeliveryMailbox::peer_failed);
+                notifications->bind_control_wake(mailbox.get(),DeliveryMailbox::control_arrived);}
             events.lifecycle("ap10_wait_resolution",
                              ",\"samples_per_method\":32,\"sleep50_mean_ns\":" +
                                  std::to_string(mailbox->sleep50_ns) +
@@ -661,8 +672,9 @@ struct MappedSession::Impl {
     }
     void receive_audio(Frame& f) {
         if(direct()) {
-            last_fast=mailbox->receive(f,socket.minor,&owner_failure);
+            last_fast=mailbox->receive(f,socket.minor,&owner_failure,render_lifecycle()?notifications.get():nullptr);
             if(!last_fast) {
+                if(render_lifecycle())return; // Stop taken from the control lane here
                 require(lifecycle_ready.load(std::memory_order_acquire),"prepared lifecycle handoff absent");
                 require(lifecycle_frame.payload.size()<=f.payload.capacity(),"prepared lifecycle extent");
                 f.kind=lifecycle_frame.kind;f.session=lifecycle_frame.session;f.sequence=lifecycle_frame.sequence;
@@ -1011,7 +1023,7 @@ void MappedSession::service_owner() {
     if(x.direct()&&x.processing_active.load(std::memory_order_acquire)) {
         Frame capture{};
         if(x.notifications->take_kind(capture,GetState))x.state_call(std::move(capture));
-        if(x.notifications->take_kind(capture,Stop)) {
+        if(!x.render_lifecycle()&&x.notifications->take_kind(capture,Stop)) {
             require(!x.lifecycle_ready.load(std::memory_order_acquire)&&capture.session==x.state.session&&
                 capture.sequence==x.state.next&&capture.payload.size()==8&&
                 get(capture.payload.data(),8)==x.published_epoch.load(std::memory_order_acquire),"owner Stop correlation");
@@ -1019,6 +1031,22 @@ void MappedSession::service_owner() {
             x.lifecycle_frame.payload.assign(capture.payload.begin(),capture.payload.end());
             x.lifecycle_ready.store(true,std::memory_order_release);x.mailbox->lifecycle_ready();
         }
+    }
+    if (x.owner_handoff.load(std::memory_order_acquire) == 1) {
+        // Between render-owned intervals: render handed over the published
+        // frame and waits. State requests complete here; Deactivate stays
+        // pending for the owner's own lifecycle_request(14).
+        Frame f = x.socket.receive();
+        if (f.kind == GetState || f.kind == SetState) {
+            x.state_call(std::move(f));
+            x.owner_handoff.store(0, std::memory_order_release);
+        } else {
+            require(f.kind == Deactivate, "frame not admitted between render intervals");
+            x.pending = std::move(f);
+            x.has_pending = true;
+            x.owner_handoff.store(2, std::memory_order_release);
+        }
+        SetEvent(x.handoff_completed.value);
     }
     uint32_t ready = 1;
     if (x.capture_slot.compare_exchange_strong(ready, 2, std::memory_order_acq_rel)) {
@@ -1151,6 +1179,68 @@ uint16_t MappedSession::next_transition() {
     }
 }
 
+bool MappedSession::render_lifecycle() const {
+    return impl_->render_lifecycle();
+}
+uint16_t MappedSession::render_next_transition(const std::atomic<bool>& exit) {
+    auto& x = *impl_;
+    try {
+        require(x.render_lifecycle() && std::this_thread::get_id() != x.owner && !x.timeline.running &&
+                    !x.has_pending && !x.render_start_ready &&
+                    x.owner_handoff.load(std::memory_order_acquire) == 0,
+                "render lifecycle ownership");
+        // Idle, like the owner's former wait: no deadline until a frame is
+        // published. Ends on Start, Deactivate, exit or transport failure.
+        for (;;) {
+            if (exit.load(std::memory_order_acquire))
+                return 0;
+            require(!x.owner_failure.load(std::memory_order_acquire), "owner service failed");
+            uint16_t kind = 0;
+            if (!x.notifications->ready_kind(kind)) {
+                x.notifications->wait_control();
+                continue;
+            }
+            if (kind == Start) {
+                auto& f = x.process_request;
+                require(x.notifications->take_kind(f, Start), "render Start ownership");
+                require(!x.state.failed && !x.state.outstanding && f.session == x.state.session &&
+                            f.sequence == x.state.next,
+                        "render Start correlation");
+                x.render_start_ready = true;
+                return Start;
+            }
+            // State requests and Deactivate belong to the owner. A state request
+            // keeps the existing ten-second owner service bound.
+            x.owner_handoff.store(1, std::memory_order_release);
+            const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+            for (;;) {
+                const auto handoff = x.owner_handoff.load(std::memory_order_acquire);
+                if (handoff == 2)
+                    return Deactivate;
+                if (handoff == 0)
+                    break;
+                if (exit.load(std::memory_order_acquire))
+                    return 0;
+                require(!x.owner_failure.load(std::memory_order_acquire), "owner service failed");
+                require(std::chrono::steady_clock::now() < end, "owner handoff deadline");
+                const auto result = WaitForSingleObject(x.handoff_completed.value, 4);
+                require(result == WAIT_OBJECT_0 || result == WAIT_TIMEOUT, "owner handoff wait");
+            }
+        }
+    } catch (const std::exception& e) {
+        x.error(e);
+        throw;
+    }
+}
+uint16_t MappedSession::render_pending_transition() {
+    auto& x = *impl_;
+    require(std::this_thread::get_id() == x.owner &&
+                x.owner_handoff.load(std::memory_order_acquire) == 2 && x.has_pending &&
+                x.pending.kind == Deactivate,
+            "render handoff Deactivate");
+    x.owner_handoff.store(0, std::memory_order_release);
+    return Deactivate;
+}
 uint32_t MappedSession::lifecycle_request(uint16_t kind) {
     auto& x = *impl_;
     try {
@@ -1164,7 +1254,9 @@ uint32_t MappedSession::lifecycle_request(uint16_t kind) {
         Frame* selected = nullptr;
         if (x.socket.minor == 15 && std::this_thread::get_id() != x.owner) {
             auto& scratch = x.process_request;
-            if (x.has_pending) {
+            if (x.render_start_ready) {
+                x.render_start_ready = false; // taken and correlated by render_next_transition
+            } else if (x.has_pending) {
                 require(x.pending.payload.size() <= scratch.payload.capacity(),
                         "render lifecycle scratch extent");
                 scratch.kind = x.pending.kind;

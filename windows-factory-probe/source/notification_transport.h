@@ -37,6 +37,10 @@ class NotificationTransport {
  std::thread pump_;
  std::atomic<void*> death_context_{nullptr};
  void(*death_notify_)(void*)noexcept=nullptr;
+ // Optional wake for a render thread that waits on another object (direct
+ // mailbox) and must notice a published control frame. Pump thread only.
+ std::atomic<void*> control_wake_context_{nullptr};
+ void(*control_wake_)(void*)noexcept=nullptr;
  void notify_death()noexcept{if(auto context=death_context_.load(std::memory_order_acquire))death_notify_(context);}
  bool pending_wake_=false,closed_sent_=false;
  Lane* writing_=nullptr;size_t written_=0;
@@ -104,6 +108,7 @@ class NotificationTransport {
    // payload_length applies each frame kind's own bound; only state frames reach this one.
    if(incoming_.size()==ap1::header_bytes){auto length=ap1::payload_length(incoming_.data(),minor_);ap1::require(length<=LVBState::payloadLimit,"control input extent");input_end_=Clock::now()+allowance(length);incoming_.resize(ap1::header_bytes+length);if(length)return true;}
    input_published_=true;input_ready_.store(true,std::memory_order_release);ap1::require(SetEvent(control_ready_.value)&&SetEvent(request_.value),"transport control wake");
+   if(auto context=control_wake_context_.load(std::memory_order_acquire))control_wake_(context);
   }return true;
  }
  bool write_control(){
@@ -165,6 +170,20 @@ public:
   ap1::require(context&&notify&&!death_context_.load(),"transport death observer binding");
   death_notify_=notify;death_context_.store(context,std::memory_order_release);
   if(failed_.load(std::memory_order_acquire)||cancelled_.load(std::memory_order_acquire))notify_death();
+ }
+ void bind_control_wake(void* context,void(*wake)(void*)noexcept){
+  ap1::require(context&&wake&&!control_wake_context_.load(),"transport control wake binding");
+  control_wake_=wake;control_wake_context_.store(context,std::memory_order_release);
+ }
+ // Kind of the published control frame, without consuming it.
+ bool ready_kind(uint16_t& kind){
+  check();if(!input_ready_.load(std::memory_order_acquire))return false;
+  kind=uint16_t(ap1::get(incoming_.data()+8,2));return true;
+ }
+ // At most 4 ms for a control publication; consumers re-inspect afterwards.
+ void wait_control(){
+  check();std::array<HANDLE,2> handles{cancel_.value,control_ready_.value};auto result=WaitForMultipleObjects(2,handles.data(),FALSE,4);
+  check();ap1::require(result==WAIT_TIMEOUT||result==WAIT_OBJECT_0+1,"transport control wait");
  }
  bool take_kind(ap1::Frame& frame,uint16_t kind){
   check();if(!input_ready_.load(std::memory_order_acquire)||ap1::get(incoming_.data()+8,2)!=kind)return false;

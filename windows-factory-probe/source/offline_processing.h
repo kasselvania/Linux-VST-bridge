@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <cstdint>
 #include "ap8_events.h"
 #include "../../native-vst3-proxy/include/ap10_results.h"
@@ -46,6 +47,18 @@ public:
     // Owner-thread selection after activation or a stopped interval; the frame stays
     // pending until the corresponding lifecycle_request consumes it.
     virtual uint16_t next_transition() { return 14; }
+    // Sustained protocol-15 sessions: while Activated, the render thread owns
+    // the Stop/Start handshake. It acknowledges Stopped itself and takes the
+    // next Start, so neither waits behind editor work on the owner thread.
+    // Any other frame (state requests, Deactivate) is handed to the owner.
+    virtual bool render_lifecycle() const { return false; }
+    // Render thread, after acknowledging Stopped: 10 when the next Start is
+    // taken (consumed by lifecycle_request(10) on this thread), 14 when
+    // Deactivate was handed to the owner, 0 when exit was requested.
+    virtual uint16_t render_next_transition(const std::atomic<bool>&) { return 14; }
+    // Owner thread, after render quiescence in that mode: the handed-over
+    // transition, which can only be Deactivate.
+    virtual uint16_t render_pending_transition() { return 14; }
     virtual uint32_t lifecycle_request(uint16_t) { return 256; }
     virtual void lifecycle_ack(uint16_t) {}
     virtual void lifecycle_activity(bool,uint64_t) {}
