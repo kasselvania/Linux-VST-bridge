@@ -90,6 +90,31 @@ class OwnerTests(unittest.TestCase):
   self.scan['unavailable']=1
   with self.assertRaisesRegex(ValueError,'identity_unresolved'):self.owner.ensure(True)
   self.assertEqual(self.commands,[])
+ def test_nonzero_installer_continues_only_through_exact_registration_and_readiness(self):
+  # NTKDaemon 1.32.0 returns 100 after installing and registering its service.
+  command=self.owner.command
+  def nonzero(action):
+   result=command(action)
+   if action=='install':raise ValueError('dependency_installer_nonzero')
+   return result
+  self.owner.command=nonzero
+  self.owner.ensure(True)
+  self.assertTrue(self.owner.ready)
+  self.assertEqual(self.commands.count('install'),1);self.assertIn('start',self.commands)
+ def test_nonzero_installer_without_daemon_or_registration_refuses(self):
+  for leaves_daemon in (False,True):
+   with self.subTest(leaves_daemon=leaves_daemon):
+    self.setUp()
+    def nonzero(action,leaves_daemon=leaves_daemon):
+     self.commands.append(action)
+     if action=='install':
+      if leaves_daemon:self.daemon.write_bytes(self.bytes)
+      raise ValueError('dependency_installer_nonzero')
+     return {'registration':'absent','state':0,'image_sha256':'none','owned_endpoint_mask':0,'windows_pid':0}
+    self.owner.command=nonzero
+    expected='dependency_install_registration_missing' if leaves_daemon else 'dependency_installer_nonzero'
+    with self.assertRaisesRegex(ValueError,expected):self.owner.ensure(True)
+    self.assertFalse(self.owner.ready);self.assertNotIn('start',self.commands)
  def test_installer_ack_loss_not_retried(self):
   self.fail='install'
   with self.assertRaisesRegex(ValueError,'uncertain_acknowledgment'):self.owner.ensure(True)

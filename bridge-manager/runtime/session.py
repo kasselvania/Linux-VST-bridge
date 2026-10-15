@@ -4576,7 +4576,13 @@ class Nad1Owner:
             # Exact installer admission grants one retirement attempt even if
             # its acknowledgment is lost after registration. No retry follows.
             self.service_possibility='may_exist';self.retirement_authorized=True
-            self.command('install')
+            try:self.command('install')
+            except ValueError as exc:
+                # A service installer's exit code is not authority either way:
+                # NTKDaemon 1.32.0 returns 100 after a complete registration.
+                # Continue only into the exact registration and readiness checks
+                # below; a missing daemon or registration still refuses.
+                if str(exc)!='dependency_installer_nonzero' or not path.exists():raise
             actual=ownership.image_identity(path)
             self.daemon=actual
             if self.managed_contract is not None:
