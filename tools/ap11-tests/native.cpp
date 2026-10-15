@@ -42,6 +42,7 @@ void held_call(bool& entered, bool& released) {
   check(state_hold_changed.wait_for(lock,std::chrono::seconds(3),[&]{return released;}),"bounded held SDK operation");
 }
 uint32_t process_refusal=0;
+uint32_t open_calls=0;bool open_refused=false;
 uint32_t fixture_delay=UINT32_MAX,fixture_vendor=0,fixture_tail=0,notice_flags=0;
 uint32_t actual_mode=UINT32_MAX,process_calls=0;
 uint32_t configured_maximum=0, activated_maximum=0;
@@ -176,6 +177,8 @@ void event(uint32_t kind, double value = 0) {
 extern "C" {
 uint32_t __wrap_if2_terminal_status(uint64_t){return IF1::valid(terminal_record) ? 1 : 0;}
 uint32_t __wrap_ap9_open(const uint8_t *, uint64_t *out) {
+  ++open_calls;
+  if (open_refused) return 1;
   *out = 1;
   return 0;
 }
@@ -499,6 +502,32 @@ void curve_refusal_regression() {
   controller->disconnect(&processor);processor.disconnect(controller);
   controller->terminate();controller->release();processor.terminate();
 }
+// A bridge admission refused at load (for example a failed Windows
+// environment) used to be asked again on every 10 ms editor tick, each ask
+// reaching the bridge service and blocking the DAW's UI thread.
+void refused_admission_regression() {
+  events.clear();commands.clear();gui_fault=0;terminal_record={};
+  open_refused=true;open_calls=0;
+  Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+  host.processor=&processor;host.controller=controller;
+  auto* context=static_cast<IHostApplication*>(&host);
+  check(processor.initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"refused admission initialize");
+  controller->setComponentHandler(static_cast<IComponentHandler*>(&host));
+  processor.connect(controller);controller->connect(&processor);
+  check(open_calls==1,"one admission attempt when the pair connects");
+  for(int i=0;i<50;++i)host.tick();
+  ProcessSetup setup{kRealtime,kSample32,128,48000};
+  check(processor.setupProcessing(setup)!=kResultOk,"a refused instance cannot be set up");
+  LVBState::Stream stream;
+  check(processor.getState(&stream)==kResultFalse,"a refused instance fabricates no state");
+  check(open_calls==1,"UI ticks, setup and state never repeat a refused admission");
+  auto* view=controller->createView(ViewType::kEditor);
+  check(view && dynamic_cast<AP2::RecoveryView*>(view),"a refused instance explains itself instead of a blank editor");
+  view->release();
+  open_refused=false;
+  controller->disconnect(&processor);processor.disconnect(controller);
+  controller->terminate();controller->release();processor.terminate();
+}
 void historical_controller_regression() {
   for(bool connectedFirst : {true,false}) for(bool controllerFirst : {true,false}) {
     events.clear();commands.clear();gui_fault=0;terminal_record={};dsp=.625;save_code=0;
@@ -711,6 +740,7 @@ int main(int argc,char** argv) {
   if(argc>1){
     if(!std::strcmp(argv[1],"--state-migration")){historical_controller_regression();processing_state_restore_regression();failed_restore_retirement_regression();}
     else if(!std::strcmp(argv[1],"--curve-refusal"))curve_refusal_regression();
+    else if(!std::strcmp(argv[1],"--refused-admission"))refused_admission_regression();
     else if(!std::strcmp(argv[1],"--presentation-focus"))presentation_focus_regression();
     else if(!std::strcmp(argv[1],"--completion-contract"))completion_contract_regression();
     else contained_host_survival_regression();

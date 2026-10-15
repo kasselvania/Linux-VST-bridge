@@ -222,6 +222,10 @@ bool Processor::stateSession() {
     return false;
   if (handle_)
     return true;
+  // Admission already failed for this instance. Asking again cannot revive
+  // it (phase_ is Failed), and each attempt blocks the caller's thread.
+  if (session_refused_.load(std::memory_order_acquire))
+    return false;
   queued_ = true;
   if (
 #ifdef AP8_PREVIEW
@@ -234,6 +238,7 @@ bool Processor::stateSession() {
       ap9_open(nullptr,&handle_)
 #endif
   ) {
+    session_refused_.store(true, std::memory_order_release);
     phase_ = Failed;
     report();
     return false;
@@ -555,7 +560,9 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
   }
   if(terminal())return kResultFalse;
   if(!std::strcmp(id,"AP11.bind")){
-    if(!stateSession())return kResultFalse;
+    // kNotInitialized tells the controller this instance's admission was
+    // refused for good; it stops asking and explains instead of a blank view.
+    if(!stateSession())return session_refused_.load(std::memory_order_acquire)?kNotInitialized:kResultFalse;
     uint64_t generation=0;if(ap11_gui_generation(handle_,&generation))return kResultFalse;
     auto*m=allocateMessage();if(!m)return kResultFalse;m->setMessageID("AP11.identity");m->getAttributes()->setInt("generation",int64(generation));auto r=sendMessage(m);m->release();return r;
   }
