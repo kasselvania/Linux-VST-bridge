@@ -3632,6 +3632,10 @@ replaces a cleanly retired failed generation at once if it had been ready, and
 after 10 s, then 60 s, if it failed while starting. A refused instance asks
 once, stops, and its editor says the Windows side did not start; the plug-in's
 manager card explains the refused load until a later load is accepted.
+Test92 on CachyOS: after killing the Windows side, the reload started a fresh
+one (ready in 3.9 s, loaded in 9.5 s) with no refusals, and Kontakt played at
+−9.4 dBFS. The cold start still holds REAPER's UI while it runs (23 s for the
+offline/online toggle).
 
 ## Beta reports under investigation
 
