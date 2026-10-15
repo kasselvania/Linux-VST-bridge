@@ -1152,6 +1152,91 @@ fn preflight(m: &Manager, service: &impl ServiceControl) -> Result<()> {
     transport_storage::require_no_sessions()?;
     Ok(())
 }
+/// Settling stays inside Setup's 90 s status wait: the census uses what is left
+/// of this budget, dead-task finishing waits at most the bounded registry
+/// readback, and no service restoration is waited on.
+const SETTLE_BUDGET: Duration = Duration::from_secs(60);
+/// A freeze or power loss can end an operator worker or an app session without
+/// the owner that records its end. Settle exactly those before a gate reads
+/// them, so they cannot block the update that would fix them. Live or
+/// unobservable owners are untouched and still refuse.
+///
+/// Runs once, at a package entry point, holding neither the registry nor the
+/// resume lock. Finishing a dead task does what its ExecStopPost would have
+/// done except restoring a service: every reservation it or its
+/// automatic-install checks leave goes to the package handoff, activation,
+/// the service start or Recover.
+fn settle_interrupted(m: &Manager, service: &impl ServiceControl) -> Result<()> {
+    let deadline = Instant::now() + SETTLE_BUDGET;
+    (|| -> Result<()> {
+        for failure in operator_cli::settle_dead_workers(m, |operation| service.worker_live(operation))? {
+            eprintln!("An interrupted bridge task was not completely finished: {failure}");
+        }
+        // A live task may own its app session and that session's writer.
+        if !operator_cli::all_operations_finished(m)? { return Ok(()); }
+        service.reverify_vendor(m, deadline.saturating_duration_since(Instant::now()))
+    })().map_err(gate_refusal)
+}
+/// Setup has no per-app Recover; its refusals end with Setup's own next step.
+/// The full cause goes to Setup's error output first; the code and census
+/// also stay in the app's recover-check record.
+fn gate_refusal(error: Box<dyn std::error::Error + Send + Sync>) -> Box<dyn std::error::Error + Send + Sync> {
+    let mut cause = error.to_string();
+    let mut source = error.source();
+    while let Some(inner) = source { cause.push_str(&format!(": {inner}")); source = inner.source(); }
+    let Some(refusal) = error.downcast_ref::<vendor_cli::RecoverRefusal>() else {
+        eprintln!("Interrupted work was not settled: {cause}");
+        return error;
+    };
+    eprintln!("An app session re-check refused ({}): {cause}", refusal.code);
+    match refusal.code {
+        "vendor_recover_service_running" => "The app's support service is still running. Restart the computer, then choose Check again.",
+        "vendor_application_custody_uncertain" => "Part of an app opened through the bridge is still running. Close it or wait a minute, then choose Check again.",
+        "vendor_recover_census_timeout" | "vendor_recover_observation_unavailable" => "The bridge could not confirm that an app opened through it has closed. Restart the computer, then choose Check again; if this stays, send Setup details.",
+        "vendor_recover_unit_unavailable" => "The bridge could not check whether an app opened through it is still running. Choose Check again; if this stays, send Setup details.",
+        "vendor_recover_daemon_name_unobservable" => "The bridge can't yet check this app's support service, so it can't close the app's session itself. Send Setup details.",
+        // The check itself could not run: the supervisor or its request.
+        _ => "The bridge could not run its check of an app opened through it. Download the bridge package again, then choose Check again; if it still fails, send Setup details.",
+    }.into()
+}
+/// A settling refusal explains a gate's own refusal of the same app session.
+/// Settling never decides on its own: every gate still applies its checks.
+fn settled_then<T>(settled: Result<()>, gated: Result<T>) -> Result<T> {
+    match (settled, gated) {
+        (Err(refusal), Err(error)) if matches!(error.to_string().as_str(), "package_vendor_owner_active"
+            | "package_resume_vendor_binding" | "package_resume_vendor_not_retired"
+            | "operator_vendor_cleanup_unconfirmed") => Err(refusal),
+        (_, gated) => gated,
+    }
+}
+/// The census supervisor and ownership modules shipped in the package whose
+/// manager runs this gate; the installed ones may predate the census. Only
+/// these two files and the manifest naming them are read and verified.
+fn package_census_tools(inputs: &Inputs, owner: u32) -> Result<(Artifact, Artifact)> {
+    let (_, _, bytes) = package_source(&inputs.manifest(), owner, 64 * 1024, true)?;
+    let manifest: PackageManifest = serde_json::from_slice(&bytes)?;
+    validate_manifest_identity(&manifest)?;
+    let tool = |name: &str| -> Result<Artifact> {
+        let entry = manifest.files.iter().find(|file| file.name == name).ok_or("package_manifest_roster")?;
+        let path = inputs.path(name)?;
+        let (sha256, size, _) = package_source(&path, owner, 128 * 1024 * 1024, false)?;
+        require(sha256 == entry.sha256 && size == entry.size, "package_artifact_changed")?;
+        Ok(Artifact { path, sha256 })
+    };
+    Ok((tool("session.pyc")?, tool("ownership.pyc")?))
+}
+/// The running manager's own package: a signed source package verifies just
+/// the two supervisor rows of its release; the system package is root-owned.
+fn running_package_census_tools() -> Result<(Artifact, Artifact)> {
+    let executable = std::env::current_exe()?;
+    let home = PathBuf::from(std::env::var_os("HOME").ok_or("HOME absent")?);
+    if let Some([(supervisor, supervisor_sha256), (ownership, ownership_sha256)]) =
+        linux_vst_bridge::portable_package::input_supervisor(&executable, &home)? {
+        return Ok((Artifact { path: supervisor, sha256: supervisor_sha256 },
+            Artifact { path: ownership, sha256: ownership_sha256 }));
+    }
+    package_census_tools(&Inputs { root: PathBuf::from(PACKAGE_ROOT) }, 0)
+}
 fn recovery_preflight(m: &Manager,
     transition: &CoordinatedTransition, service: &impl ServiceControl) -> Result<()> {
     require(!reconcile_leases(m)?, "package_cleanup_unconfirmed")?;
@@ -1691,6 +1776,13 @@ fn stop_for_coordinated_with_registry(m: &Manager, home: &Path, inputs: &Inputs,
 }
 fn adopt_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl) -> Result<()> {
+    // A pending service reservation refuses anyway; settle only if it may help.
+    operator_cli::require_no_package_resume(m)?;
+    let settled = settle_interrupted(m, service);
+    settled_then(settled, adopt_settled(m, home, inputs, owner, service))
+}
+fn adopt_settled(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
+    service: &impl ServiceControl) -> Result<()> {
     with_locks(m, || {
         operator_cli::require_no_package_resume(m)?;
         require_service_stopped(service)?;
@@ -1721,6 +1813,11 @@ fn adopt_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     })
 }
 fn rollback_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Result<()> {
+    operator_cli::require_no_package_resume(m)?;
+    let settled = settle_interrupted(m, service);
+    settled_then(settled, rollback_settled(m, home, service))
+}
+fn rollback_settled(m: &Manager, home: &Path, service: &impl ServiceControl) -> Result<()> {
     with_locks(m, || {
         operator_cli::require_no_package_resume(m)?;
         require_service_stopped(service)?;
@@ -1758,10 +1855,21 @@ fn registry_wait_budget(m: &Manager, mut remaining_wait: Duration)
 }
 fn update_from_with_registry(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl,
-    mut acquire_registry: impl FnMut() -> Result<Lock>,
-    mut acquire_recovery_registry: impl FnMut() -> Result<Lock>) -> Result<()> {
+    acquire_registry: impl FnMut() -> Result<Lock>,
+    acquire_recovery_registry: impl FnMut() -> Result<Lock>) -> Result<()> {
     let _package = m.lock("package.lock")?;
     let _setup = m.lock("setup.lock")?;
+    // Before capture: an interrupted owner must be terminal and its app
+    // session retired before its service reservation can be handed over.
+    // Settling restores no service, so it needs no resume lock.
+    let settled = settle_interrupted(m, service);
+    settled_then(settled, update_settled(m, home, inputs, owner, service,
+        acquire_registry, acquire_recovery_registry))
+}
+fn update_settled(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
+    service: &impl ServiceControl,
+    mut acquire_registry: impl FnMut() -> Result<Lock>,
+    mut acquire_recovery_registry: impl FnMut() -> Result<Lock>) -> Result<()> {
     let _resume = operator_cli::resume_lock(m)?;
     let current = old_software(m)?.ok_or("package_not_installed")?;
     let captured = operator_cli::capture_package_resume_with(m,&current,|op|service.worker_live(op))?;
@@ -1829,11 +1937,22 @@ fn restore_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
 }
 fn restore_from_with_registry(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl,
-    mut acquire_registry: impl FnMut() -> Result<Lock>,
-    mut acquire_recovery_registry: impl FnMut() -> Result<Lock>) -> Result<()> {
+    acquire_registry: impl FnMut() -> Result<Lock>,
+    acquire_recovery_registry: impl FnMut() -> Result<Lock>) -> Result<()> {
     let _package = m.lock("package.lock")?;
     let _setup = m.lock("setup.lock")?;
+    let settled = settle_interrupted(m, service);
+    settled_then(settled, restore_settled(m, home, inputs, owner, service,
+        acquire_registry, acquire_recovery_registry))
+}
+fn restore_settled(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
+    service: &impl ServiceControl,
+    mut acquire_registry: impl FnMut() -> Result<Lock>,
+    mut acquire_recovery_registry: impl FnMut() -> Result<Lock>) -> Result<()> {
     let _resume = operator_cli::resume_lock(m)?;
+    // Restore carries no service reservation; the interrupted owner's own
+    // restoration is completed first, as its worker would have.
+    operator_cli::restore_terminated_owner_locked(m, |operation| service.worker_live(operation))?;
     operator_cli::require_no_package_resume(m)?;
     let current = old_software(m)?.ok_or("package_not_installed")?;
     let restart_prior = stop_for_coordinated_with_registry(m, home, inputs, owner, service,
@@ -1943,6 +2062,12 @@ trait ServiceControl {
     fn idle(&self, m: &Manager) -> Result<Vec<capacity::Owner>>;
     fn clean_idle(&self, m: &Manager) -> Result<Vec<capacity::Owner>>;
     fn vendor_retired(&self, m: &Manager) -> Result<bool> {operator_cli::vendor_retired(m)}
+    fn reverify_vendor(&self, m: &Manager, limit: Duration) -> Result<()> {
+        vendor_cli::reverify_interrupted(m, limit, running_package_census_tools)
+    }
+    fn restore_reservation(&self, m: &Manager) -> Result<()> {
+        operator_cli::restore_terminated_owner(m, |operation| self.worker_live(operation))
+    }
     fn worker_live(&self, operation: &str) -> Result<bool> {
         require(valid_hex(operation,32),"package_resume_identity")?;
         match readiness::bounded_user_unit_state(&format!("linux-vst-bridge-operator-{operation}.service"))?.as_str() {
@@ -2155,15 +2280,21 @@ fn activation_status_from(m: &Manager, home: &Path,
         state: if state.active == "active" { "active" } else { "inactive" },
         package_version: version })
 }
-/// First-run is a read-only classification. In particular an absent package
-/// record is admitted as legacy only for the older selected helper layout;
-/// a damaged package generation cannot become an adoptable predecessor.
+/// First-run classification. It changes nothing except settling work whose
+/// owner ended with the machine (see `settle_interrupted`); without a package
+/// record it settles nothing. An absent package record is admitted as legacy
+/// only for the older selected helper layout; a damaged package generation
+/// cannot become an adoptable predecessor.
 fn bootstrap_status_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl) -> Result<ActivationStatus> {
+    let settled = if !m.root.join("package-transition.json").try_exists()?
+        && m.root.join("software.json").try_exists()? {
+        settle_interrupted(m, service)
+    } else { Ok(()) };
     // Like service readback, allow two seconds of registry waiting, cumulative
-    // across guards. The frontend retains its ten-second status observation.
+    // across guards. The frontend allows status 90 s, covering the settling.
     let mut acquire_registry = registry_wait_budget(m, Duration::from_secs(2));
-    bootstrap_status_with_registry(m, home, inputs, owner, service, &mut acquire_registry)
+    settled_then(settled, bootstrap_status_with_registry(m, home, inputs, owner, service, &mut acquire_registry))
 }
 fn bootstrap_status_with_registry(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl,
@@ -2348,7 +2479,8 @@ fn stop_for_repair_from(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     // stop alone holds registry.lock to exclude a new DSP admission.
     let _package = m.lock("package.lock")?;
     let _setup = m.lock("setup.lock")?;
-    stop_for_repair_locked(m, home, inputs, owner, service)
+    let settled = settle_interrupted(m, service);
+    settled_then(settled, stop_for_repair_locked(m, home, inputs, owner, service))
 }
 fn stop_for_repair_locked(m: &Manager, home: &Path, inputs: &Inputs, owner: u32,
     service: &impl ServiceControl) -> Result<()> {
@@ -2411,6 +2543,17 @@ fn activate_from(m: &Manager, home: &Path, service: &impl ServiceControl) -> Res
     // startup, so neither service.lock nor registry.lock spans systemctl.
     let _package = m.lock("package.lock")?;
     let _setup = m.lock("setup.lock")?;
+    // Settling precedes the activation readback; it restores no service.
+    let settled = settle_interrupted(m, service);
+    settled_then(settled, activate_settled(m, home, service))?;
+    // A task that ended with the machine may still hold this service's
+    // reservation; its owner would have released it once the service ran.
+    if let Err(error) = service.restore_reservation(m) {
+        eprintln!("An interrupted bridge task's service reservation was not released: {error}");
+    }
+    Ok(())
+}
+fn activate_settled(m: &Manager, home: &Path, service: &impl ServiceControl) -> Result<()> {
     let (selected, version, state) = selected_activation(m, home, service)?;
     let starting = state.active != "active";
     if starting {
@@ -2498,6 +2641,7 @@ mod tests {
         setup:setup_install::Plan,receipt:LegacyReceipt,
     }
     type ReadbackHook = Box<dyn FnOnce(&Manager)>;
+    type VendorHook = Box<dyn Fn(&Manager) -> Result<()>>;
     struct FakeService {
         home: PathBuf,
         loaded: RefCell<UnitReadback>,
@@ -2511,6 +2655,10 @@ mod tests {
         fail_idle: Cell<bool>,
         fail_clean: Cell<bool>,
         worker_active: Cell<bool>,
+        worker_unavailable: Cell<bool>,
+        reverify: RefCell<Option<VendorHook>>,
+        reverifications: Cell<usize>,
+        reservations_restored: Cell<usize>,
         before_clean: RefCell<Option<ReadbackHook>>,
         legacy_start_manager: RefCell<Option<PathBuf>>,
         fail_stop: Cell<bool>,
@@ -2528,6 +2676,8 @@ mod tests {
                 fail_starts: Cell::new(0),
                 fail_health: Cell::new(false), fail_health_reads: Cell::new(0), fail_idle: Cell::new(false),
                 fail_clean: Cell::new(false),worker_active:Cell::new(false),
+                worker_unavailable:Cell::new(false),reverify:RefCell::new(None),
+                reverifications:Cell::new(0),reservations_restored:Cell::new(0),
                 before_clean:RefCell::new(None),
                 legacy_start_manager:RefCell::new(None),
                 fail_stop: Cell::new(false), retire_keepers: Cell::new(true),
@@ -2602,7 +2752,21 @@ mod tests {
             require(!self.fail_clean.get(),"package_resume_cleanup_unconfirmed")?;
             self.idle(m)
         }
-        fn worker_live(&self, _: &str) -> Result<bool> {Ok(self.worker_active.get())}
+        fn worker_live(&self, _: &str) -> Result<bool> {
+            require(!self.worker_unavailable.get(),"package_resume_worker_state_unavailable")?;
+            Ok(self.worker_active.get())
+        }
+        fn reverify_vendor(&self, m: &Manager, limit: Duration) -> Result<()> {
+            self.reverifications.set(self.reverifications.get() + 1);
+            match self.reverify.borrow().as_ref() {
+                Some(hook) => hook(m),
+                None => vendor_cli::reverify_interrupted(m, limit, || Err("test_package_census_tools".into())),
+            }
+        }
+        fn restore_reservation(&self, m: &Manager) -> Result<()> {
+            operator_cli::restore_terminated_owner_with(m, |operation| self.worker_live(operation),
+                || { self.reservations_restored.set(self.reservations_restored.get() + 1); Ok(()) })
+        }
         fn vendor_retired(&self, m: &Manager) -> Result<bool> {
             operator_cli::vendor_retired_with(m,||Ok(false))
         }
@@ -3262,6 +3426,120 @@ mod tests {
         assert!(stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner,
             &f.service).is_err());
         assert_eq!(f.service.stops.get(), 0);
+    }
+
+    #[test]
+    fn operation_interrupted_with_its_worker_unit_no_longer_blocks_update() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        f.replace("linux-vst-bridge", b"successor manager", true);
+        // The host froze during an app session: the worker unit and its
+        // ExecStopPost vanished, leaving the receipt at vendor_running.
+        let id = "7d".repeat(16);
+        let directory = f.base.m.root.join("operator").join(&id);
+        private_dir(&directory).unwrap();
+        atomic_json(&directory.join("request.json"), &serde_json::json!({
+            "schema":operator_model::OPERATOR_SCHEMA,"state_token":"00".repeat(32),
+            "action":{"kind":"capture_disarm"}})).unwrap();
+        let interrupted = serde_json::json!({"schema":1,"operation":id,"state":"vendor_running"});
+        atomic_json(&directory.join("result.json"), &interrupted).unwrap();
+        let latest = f.base.m.root.join("operator/latest.json");
+        atomic_json(&latest, &interrupted).unwrap();
+        let settled = f.service.reverifications.get();
+        let status = || bootstrap_status_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service);
+        f.service.worker_unavailable.set(true);
+        assert_eq!(status().err().unwrap().to_string(), "package_operator_active_or_ambiguous");
+        f.service.worker_unavailable.set(false);
+        f.service.worker_active.set(true);
+        assert_eq!(status().err().unwrap().to_string(), "package_operator_active_or_ambiguous");
+        assert_eq!(read_json::<serde_json::Value>(&directory.join("result.json")).unwrap(), interrupted);
+        // A live task may own its app session's writer: no app re-check under it.
+        assert_eq!(f.service.reverifications.get(), settled);
+        f.service.worker_active.set(false);
+        assert_eq!(status().unwrap().state, "update_active");
+        let finished: serde_json::Value = read_json(&directory.join("result.json")).unwrap();
+        assert_eq!((finished["state"].as_str(), finished["reason"].as_str()),
+            (Some("refused"), Some("operator_worker_terminated")));
+        assert_eq!(read_json::<serde_json::Value>(&latest).unwrap(), finished);
+        assert_eq!(f.service.reverifications.get(), settled + 1);
+        stop_for_repair_from(&f.base.m, &f.home, &f.inputs, f.owner, &f.service).unwrap();
+        assert_eq!(f.service.stops.get(), 1);
+        // Settling runs once per entry point, never in its nested status checks.
+        assert_eq!(f.service.reverifications.get(), settled + 2);
+    }
+
+    #[test]
+    fn activation_releases_the_reservation_of_a_task_that_ended_with_the_machine() {
+        let f = Fixture::new();
+        f.adopt().unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        let owner = "7d".repeat(16);
+        let directory = f.base.m.root.join("operator").join(&owner);
+        private_dir(&directory).unwrap();
+        atomic_json(&directory.join("request.json"), &serde_json::json!({
+            "schema":operator_model::OPERATOR_SCHEMA,"state_token":"00".repeat(32),
+            "action":{"kind":"capture_disarm"}})).unwrap();
+        let reservation = f.base.m.root.join("operator/resume.json");
+        atomic_json(&reservation, &serde_json::json!({"schema":2,"owner_operation":owner,
+            "vendor_operation":null,"resume":true,"software":f.current().manager.sha256})).unwrap();
+        // An owner that ended for another reason keeps its reservation.
+        atomic_json(&directory.join("result.json"), &serde_json::json!({"schema":1,
+            "operation":owner,"state":"refused","reason":"operator_action_failed"})).unwrap();
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert!(reservation.exists());
+        atomic_json(&directory.join("result.json"), &serde_json::json!({"schema":1,
+            "operation":owner,"state":"refused","reason":"operator_worker_terminated"})).unwrap();
+        f.service.worker_active.set(true);
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert!(reservation.exists(), "A running worker keeps its reservation");
+        f.service.worker_active.set(false);
+        activate_from(&f.base.m, &f.home, &f.service).unwrap();
+        assert_eq!(f.service.reservations_restored.get(), 1);
+        assert!(!reservation.exists());
+    }
+
+    #[test]
+    fn gate_census_tools_are_the_verified_files_of_the_running_package() {
+        let f = Fixture::new();
+        let (supervisor, ownership) = package_census_tools(&f.inputs, f.owner).unwrap();
+        for (tool, name) in [(&supervisor, "session.pyc"), (&ownership, "ownership.pyc")] {
+            assert_eq!(tool.path, f.inputs.path(name).unwrap());
+            assert_eq!(tool.sha256, digest(&tool.path).unwrap());
+        }
+        // A changed package file is never offered to run.
+        f.replace("session.pyc", b"substituted supervisor", false);
+        assert!(package_census_tools(&f.inputs, f.owner).is_err());
+    }
+
+    #[test]
+    fn update_gate_reverifies_an_interrupted_app_session() {
+        use super::vendor_cli::interruption_tests as interruption;
+        for running in [true, false] {
+            let (base, selector, job) = interruption::interrupted_session();
+            let f = Fixture::with_base(base);
+            *f.service.reverify.borrow_mut() = Some(Box::new(move |m|
+                interruption::reverify_with_census(m, interruption::census(running))));
+            let unit = vec![format!("linux-vst-bridge-vendor-{selector}.service")];
+            let before = fs::read(&job.report).unwrap();
+            // An entry point settles, then its gate decides.
+            let gate = readiness::with_unit_state_fixture(&unit, "inactive", || {
+                let settled = settle_interrupted(&f.base.m, &f.service);
+                settled_then(settled, stop_gate(&f.base.m, &f.service, &mut || f.base.m.lock("registry.lock")))
+            });
+            let retired = readiness::with_unit_state_fixture(&unit, "inactive", ||
+                operator_cli::vendor_retired_with(&f.base.m, || Ok(false))).unwrap();
+            if running {
+                // A plain sentence with Setup's next step, not package_vendor_owner_active.
+                assert_eq!(gate.unwrap_err().to_string(),
+                    "The app's support service is still running. Restart the computer, then choose Check again.");
+                assert_eq!(fs::read(&job.report).unwrap(), before);
+                assert!(!retired);
+            } else {
+                gate.unwrap();
+                assert!(retired);
+            }
+        }
     }
 
     #[test]
@@ -4941,9 +5219,14 @@ print('LVO0 '+j['session']+' ready',flush=True)
         let first = f.current();
         let (reservation,original,failed,failed_bytes) = retired_suspension(&f,&first);
         let before = fs::read(f.base.m.root.join("software.json")).unwrap();
-        for result in [adopt_from(&f.base.m,&f.home,&f.inputs,f.owner,&f.service),
-            rollback_from(&f.base.m,&f.home,&f.service),
-            restore_from(&f.base.m,&f.home,&f.inputs,f.owner,&f.service)] {
+        // Restore first re-checks interrupted sessions. Model the retired
+        // app's exact unit rather than depending on the test host's bus.
+        let results = readiness::with_unit_state_fixture(
+            &["linux-vst-bridge-vendor-arturia-software-center.service".into()],"inactive",
+            || [adopt_from(&f.base.m,&f.home,&f.inputs,f.owner,&f.service),
+                rollback_from(&f.base.m,&f.home,&f.service),
+                restore_from(&f.base.m,&f.home,&f.inputs,f.owner,&f.service)]);
+        for result in results {
             assert_eq!(result.unwrap_err().to_string(),"package_resume_requires_coordinated_update");
         }
         assert_eq!(fs::read(f.base.m.root.join("software.json")).unwrap(),before);
