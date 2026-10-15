@@ -43,7 +43,10 @@ fn bind_for_launch_resolving(spec: &mut Value, software: &Software, explicit: Op
     retained_runtime: impl FnOnce(&Runner) -> Result<bool>,
     launch_software: impl FnOnce() -> Result<Software>) -> Result<()> {
     if let Some(policy) = explicit {
-        let software = with_launch_component(spec, software, launch_software)?;
+        // Other formats are refused by bind without resolving the component.
+        let software = if spec["format"] == "pe_executable" {
+            with_launch_component(spec, software, launch_software)?
+        } else { software.clone() };
         return bind(spec, &software, policy);
     }
     if spec["format"] != "pe_executable" { return Ok(()); }

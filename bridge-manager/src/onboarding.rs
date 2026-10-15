@@ -562,9 +562,20 @@ pub fn launch(m: &Manager, r: &Record, policy: Option<linux_vst_bridge::installe
     let op = r.installation_operation.as_deref().ok_or("installer_operation_absent")?;
     let dir = directory(m, &r.id)?;
     let path = dir.join(format!("{op}-spec.json"));
-    let spec = launch_input(m, r, policy)?;
+    let report = dir.join(format!("{op}-result.json"));
+    // Nothing has started yet. A refused launch input is a finished attempt with
+    // its actual reason, so the bridge resumes and Retry stays available.
+    let spec = match launch_input(m, r, policy) {
+        Ok(spec) => spec,
+        Err(error) => {
+            atomic_json(&report, &json!({"schema":2,"operation":op,"state":"failed",
+                "reason":"installer_launch_refused","error":error.to_string(),"raw_exit":null,
+                "cleanup_confirmed":true,"owned_live":0}))?;
+            return Err(error);
+        }
+    };
     atomic_json(&path, &spec)?;
-    launch_spec(m, op, &path, &dir.join(format!("{op}-result.json")))
+    launch_spec(m, op, &path, &report)
 }
 fn launch_input(m: &Manager, r: &Record,
     policy: Option<linux_vst_bridge::installer_policy::Powershell>) -> Result<Value> {
@@ -1371,6 +1382,24 @@ pub(crate) mod tests {
         let (f,r) = close_policy_unstarted_fixture();
         let r = reserve(&f.m, &r.id, &"cd".repeat(16)).unwrap();
         (f,r)
+    }
+    #[test]
+    fn refused_launch_input_finishes_the_attempt_with_its_reason() {
+        // A packaged software record whose kit cannot supply the launch component
+        // that the matched installer advice needs.
+        let (f, r) = close_policy_fixture();
+        let mut sw: Software = read_json(&f.m.root.join("software.json")).unwrap();
+        sw.installer_launch = None; sw.preparation_kit = None;
+        atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+        let error = launch(&f.m, &r, None).unwrap_err();
+        assert!(error.to_string().contains("Preparation support is missing"), "{error}");
+        let v = result(&f.m, &r).unwrap();
+        assert!(retired(&v), "{v}");
+        assert_eq!(v["state"], "failed");
+        assert!(v["error"].as_str().unwrap().contains("Preparation support is missing"));
+        assert!(require_new_attempt(&v, false).is_ok());
+        let op = r.installation_operation.as_deref().unwrap();
+        assert!(!directory(&f.m, &r.id).unwrap().join(format!("{op}-spec.json")).exists());
     }
     #[test]
     fn explicit_default_initial_policy_is_offered_admitted_and_bound() {
