@@ -171,6 +171,20 @@ mod tests {
         assert_eq!(spec["installer_capability"]["owners"]["manager"], serde_json::to_value(&software.manager).unwrap());
     }
     #[test]
+    fn ordinary_launch_also_selects_advice_for_text_version_containers() {
+        let (_f, software, mut spec) = fixture();
+        let artifact: Artifact = serde_json::from_value(spec["installer"].clone()).unwrap();
+        fs::write(&artifact.path, metadata::fixture_with_container_types(None, [1; 3])).unwrap();
+        spec["installer"]["sha256"] = json!(digest(&artifact.path).unwrap());
+        let before = spec.clone();
+        bind_for_launch_with(&mut spec, &software, None, |_| Ok(true)).unwrap();
+        assert_eq!(spec["schema"], 3);
+        assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"], "intentionally_unavailable");
+        for key in ["operation", "installer", "environment", "installer_launch"] {
+            assert_eq!(spec["installer_capability"][key], before[key]);
+        }
+    }
+    #[test]
     fn unknown_versions_vendor_class_and_runtime_keep_ordinary_attempts() {
         for (key, value) in [("ProductVersion", "3.27.0"), ("FileVersion", "3.26.0.963"),
             ("CompanyName", "Unrelated vendor"), ("ProductName", "Another application")] {

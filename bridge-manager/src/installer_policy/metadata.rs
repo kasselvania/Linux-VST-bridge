@@ -69,7 +69,9 @@ fn blocks(bytes: &[u8], start: usize, end: usize, parent: Parent, depth: usize, 
                 Parent::VersionInfo
             }
             Parent::VersionInfo => {
-                require(kind == 1 && value_length == 0, "installer_metadata_version_container")?;
+                // Valueless containers occur with either declared type in
+                // NSIS resources. Only the actual string leaves require text.
+                require(value_length == 0, "installer_metadata_version_container")?;
                 match key.as_str() {
                     "StringFileInfo" => Parent::StringFileInfo,
                     "VarFileInfo" => Parent::VarFileInfo,
@@ -78,7 +80,7 @@ fn blocks(bytes: &[u8], start: usize, end: usize, parent: Parent, depth: usize, 
             }
             Parent::StringFileInfo => {
                 require(key.len() == 8 && key.bytes().all(|byte| byte.is_ascii_hexdigit())
-                    && kind == 1 && value_length == 0, "installer_metadata_language_codepage_table")?;
+                    && value_length == 0, "installer_metadata_language_codepage_table")?;
                 Parent::StringTable
             }
             Parent::StringTable => {
@@ -178,12 +180,41 @@ pub(super) fn inspect(source: &mut (impl Read + Seek)) -> Result<Metadata> {
 #[cfg(test)]
 mod fixture_data { include!("../../tests/fixtures/nsis_installer.rs"); }
 #[cfg(test)]
-pub(super) use fixture_data::fixture;
+pub(super) use fixture_data::{fixture, fixture_with_container_types};
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::io::Cursor;
+    #[test]
+    fn valueless_version_containers_accept_nsis_binary_and_text_types() {
+        // The observed NSIS layout uses wType=0 for all three valueless
+        // containers and wType=1 for the actual UTF-16 strings.
+        let expected = inspect(&mut Cursor::new(fixture(None))).unwrap();
+        for bits in 0..8 {
+            let kinds = [bits & 1, (bits >> 1) & 1, (bits >> 2) & 1];
+            let bytes = fixture_with_container_types(None, kinds);
+            assert_eq!(inspect(&mut Cursor::new(bytes)).unwrap(), expected, "{kinds:?}");
+        }
+    }
+    #[test]
+    fn container_values_unknown_types_and_binary_string_leaves_decline() {
+        fn set_header(bytes: &mut [u8], key: &str, field: usize, value: u16) {
+            let key: Vec<_> = key.encode_utf16().chain([0]).flat_map(u16::to_le_bytes).collect();
+            let at = bytes.windows(key.len()).position(|value| value == key).unwrap() - 6 + field;
+            bytes[at..at + 2].copy_from_slice(&value.to_le_bytes());
+        }
+        for key in ["StringFileInfo", "040904b0", "VarFileInfo"] {
+            for (field, value) in [(4, 2), (2, 1)] {
+                let mut bytes = fixture_with_container_types(None, [0; 3]);
+                set_header(&mut bytes, key, field, value);
+                assert!(inspect(&mut Cursor::new(bytes)).is_err(), "{key}: {field}={value}");
+            }
+        }
+        let mut bytes = fixture_with_container_types(None, [0; 3]);
+        set_header(&mut bytes, "CompanyName", 4, 0);
+        assert!(inspect(&mut Cursor::new(bytes)).is_err());
+    }
     #[test]
     fn structural_resources_and_container_are_required_not_embedded_text() {
         let bytes = fixture(None);
