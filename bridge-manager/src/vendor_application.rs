@@ -137,17 +137,44 @@ impl OperationResult {
             )
     }
 }
+/// A session whose owner ended without confirming cleanup, later re-checked by
+/// the manager: its unit was empty and no daemon process or listener remained.
+pub const REVERIFIED_CLEANUP: &str = "reverified_after_unconfirmed_cleanup";
+pub const REVERIFIED_DAEMON_IDENTITIES: [&str; 5] =
+    ["unchanged", "absent", "not_admitted_in_session", "changed", "unavailable"];
+/// Images whose bytes could not be confirmed unchanged. Not process evidence.
+pub fn reverified_images_changed(application_unchanged: bool, daemon_identity: &str) -> Vec<&'static str> {
+    let mut changed = vec![];
+    if !application_unchanged { changed.push("application"); }
+    if matches!(daemon_identity, "changed" | "unavailable") { changed.push("daemon"); }
+    changed
+}
 pub fn dependency_retired(value: &serde_json::Value) -> bool {
     if value["process_cleanup_confirmed"] != true { return false; }
-    if value["dependency_cleanup_disposition"] == "not_started" {
+    let disposition = value["dependency_cleanup_disposition"].as_str();
+    if disposition == Some("not_started") {
         return value["service_actions_started"] == false;
     }
-    matches!(value["dependency_cleanup_disposition"].as_str(),
-        Some("graceful_service_retirement" | "exact_owned_session_cleanup"))
-        && ["cgroup_empty", "exact_daemon_generation_absent", "application_image_unchanged", "daemon_image_unchanged"]
-            .iter().all(|key| value["post_cleanup"][key] == true)
+    let post = &value["post_cleanup"];
+    let absent = ["cgroup_empty", "exact_daemon_generation_absent"].iter().all(|key| post[key] == true)
         && ["listener_mask", "candidate_count", "candidate_observation_unavailable"].iter()
-            .all(|key| value["post_cleanup"][key].as_u64() == Some(0))
+            .all(|key| post[key].as_u64() == Some(0));
+    match disposition {
+        Some("graceful_service_retirement" | "exact_owned_session_cleanup") => absent
+            && ["application_image_unchanged", "daemon_image_unchanged"].iter().all(|key| post[key] == true),
+        // A later re-check proves only that nothing runs. Its image facts are
+        // recorded truthfully; the next launch re-verifies every byte it uses.
+        Some(REVERIFIED_CLEANUP) => {
+            let identity = post["daemon_identity"].as_str().unwrap_or_default();
+            let application = post["application_image_unchanged"].as_bool();
+            absent && post["session"] == REVERIFIED_CLEANUP
+                && REVERIFIED_DAEMON_IDENTITIES.contains(&identity)
+                && post["daemon_image_unchanged"] == (identity == "unchanged")
+                && application.is_some_and(|unchanged| post["images_changed"]
+                    == serde_json::json!(reverified_images_changed(unchanged, identity)))
+        }
+        _ => false,
+    }
 }
 impl ApplicationId {
     pub fn parse(s: &str) -> Result<Self> {
@@ -636,6 +663,50 @@ pub(crate) mod tests {
             let mut changed=successful.clone();changed[key]=value;
             assert!(!serde_json::from_value::<OperationResult>(changed).unwrap().successful());
         }
+    }
+    #[test]
+    fn reverified_cleanup_retires_only_with_its_marker_absence_and_consistent_image_facts() {
+        use serde_json::json;
+        let reverified = json!({"process_cleanup_confirmed":true,
+            "dependency_cleanup_disposition":REVERIFIED_CLEANUP,
+            "post_cleanup":{"cgroup_empty":true,"exact_daemon_generation_absent":true,
+                "application_image_unchanged":true,"daemon_image_unchanged":true,"daemon_identity":"unchanged",
+                "images_changed":[],"listener_mask":0,"candidate_count":0,"candidate_observation_unavailable":0,
+                "session":REVERIFIED_CLEANUP}});
+        assert!(dependency_retired(&reverified));
+        let with = |changes: serde_json::Value| {
+            let mut changed = reverified.clone();
+            for (key, value) in changes.as_object().unwrap() { changed["post_cleanup"][key] = value.clone(); }
+            changed
+        };
+        // A self-updated app or half-written daemon does not keep a session
+        // that nothing runs; the change is recorded, never claimed unchanged.
+        for allowed in [json!({"application_image_unchanged":false,"images_changed":["application"]}),
+            json!({"daemon_image_unchanged":false,"daemon_identity":"absent"}),
+            json!({"daemon_image_unchanged":false,"daemon_identity":"not_admitted_in_session"}),
+            json!({"daemon_image_unchanged":false,"daemon_identity":"changed","images_changed":["daemon"]}),
+            json!({"application_image_unchanged":false,"daemon_image_unchanged":false,
+                "daemon_identity":"unavailable","images_changed":["application","daemon"]})] {
+            assert!(dependency_retired(&with(allowed.clone())), "{allowed}");
+        }
+        for refused in [json!({"cgroup_empty":false}), json!({"exact_daemon_generation_absent":false}),
+            json!({"listener_mask":1}), json!({"listener_mask":null}), json!({"candidate_count":1}),
+            json!({"candidate_observation_unavailable":1}), json!({"session":"failed_before_readiness"}),
+            json!({"session":null}), json!({"application_image_unchanged":false}),
+            json!({"daemon_identity":"absent"}), json!({"daemon_image_unchanged":false,"daemon_identity":"changed"}),
+            json!({"images_changed":["application"]}), json!({"images_changed":null}),
+            json!({"daemon_identity":"elsewhere"}), json!({"application_image_unchanged":null})] {
+            assert!(!dependency_retired(&with(refused.clone())), "{refused}");
+        }
+        let mut unconfirmed = reverified.clone();
+        unconfirmed["process_cleanup_confirmed"] = false.into();
+        assert!(!dependency_retired(&unconfirmed));
+        let mut unreleased = reverified.clone();
+        unreleased["dependency_cleanup_disposition"] = "reverified_after_interruption".into();
+        assert!(!dependency_retired(&unreleased));
+        let mut owned = with(json!({"application_image_unchanged":false,"images_changed":["application"]}));
+        owned["dependency_cleanup_disposition"] = "exact_owned_session_cleanup".into();
+        assert!(!dependency_retired(&owned), "Image changes are accepted only after a re-check");
     }
     #[test]
     fn application_selector_cannot_supply_executable() {

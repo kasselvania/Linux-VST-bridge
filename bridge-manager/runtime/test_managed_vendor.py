@@ -1,4 +1,4 @@
-import copy, hashlib, json, os, pathlib, signal, sys, tempfile, unittest
+import copy, hashlib, json, os, pathlib, shutil, signal, sys, tempfile, unittest
 from unittest.mock import patch
 import session as s
 import ownership
@@ -452,6 +452,175 @@ class ManagedVendorTests(unittest.TestCase):
                         self.assertIsNone(report['owned_live'])
                     run.assert_not_called()
                 self.persist(operation)
+
+
+class RecoverCensusTests(unittest.TestCase):
+    """An unconfirmed session is retired only when no process or listener remains."""
+    HEADER = '  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n'
+    KEYS = {'schema', 'verdict', 'prefix_unchanged', 'application_image_unchanged', 'daemon_image_unchanged',
+        'daemon_identity', 'daemon_name_observable', 'images_changed', 'candidate_count',
+        'candidate_observation_unavailable', 'listener_mask'}
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        base = pathlib.Path(self.temp.name).resolve()
+        self.home = base / 'home'
+        home_patch = patch.object(pathlib.Path, 'home', return_value=self.home)
+        home_patch.start(); self.addCleanup(home_patch.stop)
+        self.proc = base / 'proc'
+        (self.proc / 'net').mkdir(parents=True)
+        for name in ('tcp', 'tcp6'):
+            (self.proc / 'net' / name).write_text(self.HEADER)
+        self.root = self.home / '.local/share/linux-vst-bridge/managed/environments' / ('e' * 32)
+        self.prefix = self.root / 'compatdata/pfx'
+        drive = self.prefix / 'drive_c'
+        self.environment = {'id': 'e' * 32, 'root': str(self.root), 'revision': 1}
+        drive.mkdir(parents=True)
+        (self.root / 'environment.json').write_bytes(canonical(self.environment))
+        self.application = drive / 'Program Files/Vendor App/App.exe'
+        self.application.parent.mkdir(parents=True)
+        self.application.write_bytes(b'MZ application')
+        self.relative = 'Program Files/Common Files/Vendor/' + ownership.NAME
+        self.daemon = drive / self.relative
+        self.daemon.parent.mkdir(parents=True)
+        pe = bytearray(256); pe[:2] = b'MZ'; pe[60:64] = (64).to_bytes(4, 'little')
+        pe[64:68] = b'PE\0\0'; pe[68:70] = b'\x64\x86'
+        self.daemon.write_bytes(pe)
+        identity = ownership.image_identity(self.daemon)
+        self.request = {'schema': 1, 'environment': self.environment,
+            'application': {'path': str(self.application), 'sha256': hashlib.sha256(b'MZ application').hexdigest()},
+            'daemon': {'relative': self.relative, 'identity': {'sha256': identity['sha256'], 'size': identity['size']}},
+            'listeners': [5146, 5563]}
+
+    def census(self, request=None):
+        value = s.vendor_recover_census(copy.deepcopy(request or self.request), proc=self.proc)
+        self.assertEqual(set(value), self.KEYS)
+        return value
+
+    def daemon_process(self, prefix=None):
+        task = self.proc / '123'; task.mkdir()
+        (task / 'stat').write_text('123 (' + ownership.NAME + ') S ' + '0 ' * 18 + '10\n')
+        (task / 'comm').write_bytes(ownership.NAME.encode() + b'\n')
+        (task / 'cmdline').write_bytes(str(self.daemon).encode() + b'\0')
+        (task / 'maps').write_bytes(b'1000-2000 r-xp 0 00:00 1 ' + str(self.daemon).encode() + b'\n')
+        (task / 'environ').write_bytes(b'WINEPREFIX=' + str(prefix or self.prefix).encode() + b'\0')
+
+    def test_complete_absence_retires_and_records_image_facts_truthfully(self):
+        value = self.census()
+        self.assertEqual(value['verdict'], 'absent')
+        self.assertEqual((value['daemon_identity'], value['daemon_image_unchanged'], value['images_changed'],
+            value['listener_mask'], value['candidate_count'], value['candidate_observation_unavailable']),
+            ('unchanged', True, [], 0, 0, 0))
+        self.daemon.unlink()
+        value = self.census()
+        self.assertEqual((value['verdict'], value['daemon_identity'], value['daemon_image_unchanged'], value['images_changed']),
+            ('absent', 'absent', False, []))
+        unadmitted = copy.deepcopy(self.request); unadmitted['daemon']['identity'] = None
+        value = self.census(unadmitted)
+        self.assertEqual((value['daemon_identity'], value['daemon_image_unchanged']), ('not_admitted_in_session', False))
+
+    def test_changed_or_unreadable_images_do_not_keep_a_session_that_nothing_runs(self):
+        # e.g. the app updated itself mid-session or the daemon was half written.
+        changed = copy.deepcopy(self.request); changed['daemon']['identity']['sha256'] = '0' * 64
+        value = self.census(changed)
+        self.assertEqual((value['verdict'], value['daemon_identity'], value['images_changed']), ('absent', 'changed', ['daemon']))
+        self.daemon.write_bytes(b'partial')
+        self.assertEqual(self.census()['daemon_identity'], 'unavailable')
+        self.application.write_bytes(b'MZ updated application')
+        value = self.census()
+        self.assertEqual((value['verdict'], value['application_image_unchanged'], value['images_changed']),
+            ('absent', False, ['application', 'daemon']))
+        self.environment['revision'] = 2
+        value = self.census()
+        self.assertEqual((value['verdict'], value['prefix_unchanged']), ('absent', False))
+        self.daemon_process()
+        self.assertEqual(self.census()['verdict'], 'running')
+
+    def test_daemon_generation_in_any_prefix_keeps_the_session(self):
+        for prefix in (None, self.root / 'other-prefix'):
+            with self.subTest(prefix=prefix):
+                if prefix is not None: prefix.mkdir()
+                self.daemon_process(prefix)
+                value = self.census()
+                self.assertEqual((value['verdict'], value['candidate_count']), ('running', 1))
+                (self.proc / '123' / 'maps').unlink()
+                self.assertEqual(self.census()['verdict'], 'running')
+                shutil.rmtree(self.proc / '123')
+
+    def test_profile_listener_keeps_the_session(self):
+        (self.proc / 'net/tcp6').write_text(self.HEADER +
+            '   0: 00000000000000000000000001000000:15BB 00000000000000000000000000000000:0000 0A 0:0 0:0 0 0 0\n')
+        value = self.census()
+        self.assertEqual((value['verdict'], value['listener_mask']), ('running', 2))
+        other = copy.deepcopy(self.request); other['listeners'] = [6000]
+        self.assertEqual(self.census(other)['verdict'], 'absent')
+
+    def test_unobserved_processes_or_listeners_never_retire(self):
+        (self.proc / 'net/tcp6').unlink()
+        value = self.census()
+        self.assertEqual((value['verdict'], value['listener_mask']), ('unavailable', None))
+        (self.proc / 'net/tcp6').write_text(self.HEADER)
+        other = copy.deepcopy(self.request); other['daemon']['relative'] = 'Program Files/Vendor/OtherDaemon.exe'
+        value = self.census(other)
+        self.assertEqual((value['verdict'], value['daemon_name_observable']), ('unavailable', False))
+        self.daemon_process(); (self.proc / '123' / 'maps').unlink(); (self.proc / '123' / 'comm').unlink()
+        (self.proc / '123' / 'stat').write_text('123 (wine64-preload) S ' + '0 ' * 18 + '10\n')
+        self.assertEqual(self.census()['verdict'], 'running')
+
+    def test_reverified_record_retires_only_with_its_marker_absence_and_consistent_image_facts(self):
+        dependency = {'process_cleanup_confirmed': True, 'dependency_cleanup_disposition': s.REVERIFIED_CLEANUP,
+            'post_cleanup': {'cgroup_empty': True, 'exact_daemon_generation_absent': True, 'application_image_unchanged': True,
+                'daemon_image_unchanged': True, 'daemon_identity': 'unchanged', 'images_changed': [], 'listener_mask': 0,
+                'candidate_count': 0, 'candidate_observation_unavailable': 0, 'session': s.REVERIFIED_CLEANUP}}
+        self.assertTrue(s.managed_dependency_retired(dependency))
+        for changes in ({'application_image_unchanged': False, 'images_changed': ['application']},
+                {'daemon_image_unchanged': False, 'daemon_identity': 'absent'},
+                {'daemon_image_unchanged': False, 'daemon_identity': 'changed', 'images_changed': ['daemon']},
+                {'daemon_image_unchanged': False, 'daemon_identity': 'unavailable', 'images_changed': ['daemon']}):
+            altered = copy.deepcopy(dependency); altered['post_cleanup'].update(changes)
+            self.assertTrue(s.managed_dependency_retired(altered), changes)
+        for changes in ({'session': 'failed_before_readiness'}, {'session': None}, {'candidate_count': 1},
+                {'listener_mask': None}, {'cgroup_empty': False}, {'exact_daemon_generation_absent': False},
+                {'candidate_observation_unavailable': 1}, {'application_image_unchanged': False},
+                {'daemon_identity': 'absent'}, {'images_changed': ['application']}, {'images_changed': None},
+                {'daemon_image_unchanged': False, 'daemon_identity': 'changed'}):
+            altered = copy.deepcopy(dependency); altered['post_cleanup'].update(changes)
+            self.assertFalse(s.managed_dependency_retired(altered), changes)
+        legacy = copy.deepcopy(dependency); legacy['dependency_cleanup_disposition'] = 'reverified_after_interruption'
+        self.assertFalse(s.managed_dependency_retired(legacy))
+        exact = copy.deepcopy(dependency); exact['dependency_cleanup_disposition'] = 'exact_owned_session_cleanup'
+        exact['post_cleanup']['application_image_unchanged'] = False
+        self.assertFalse(s.managed_dependency_retired(exact), 'Image changes are accepted only after a re-check')
+
+    def test_requests_are_closed(self):
+        for change in ({'extra': 1}, {'schema': 2}, {'listeners': []}, {'listeners': [0]},
+                {'daemon': {'relative': '../escape/' + ownership.NAME, 'identity': None}},
+                {'daemon': {'relative': '/abs/' + ownership.NAME, 'identity': None}},
+                {'application': {'path': str(self.application)}},
+                {'application': {'path': '/usr/bin/App.exe', 'sha256': '0' * 64}},
+                {'application': {'path': str(self.prefix / 'drive_c/../../App.exe'), 'sha256': '0' * 64}},
+                {'environment': dict(self.environment, root=str(self.home / 'elsewhere'))},
+                {'environment': dict(self.environment, id='../' + 'e' * 29)}):
+            with self.subTest(change=change):
+                with self.assertRaises(ValueError):
+                    s.vendor_recover_census(dict(copy.deepcopy(self.request), **change), proc=self.proc)
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux process census')
+    def test_supervisor_entry_point_prints_one_closed_verdict(self):
+        import subprocess
+        result = subprocess.run([sys.executable, str(pathlib.Path(s.__file__)), '--vendor-recover-census'],
+            input=json.dumps(self.request).encode(), capture_output=True, timeout=60,
+            env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1', HOME=str(self.home)))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        value = json.loads(result.stdout)
+        self.assertEqual(set(value), self.KEYS)
+        self.assertIn(value['verdict'], ('absent', 'running', 'unavailable'))
+        self.assertTrue(value['application_image_unchanged'] and value['prefix_unchanged'])
+        bad = subprocess.run([sys.executable, str(pathlib.Path(s.__file__)), '--vendor-recover-census'],
+            input=b'{}', capture_output=True, timeout=60)
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertEqual(bad.stdout, b'')
 
 
 if __name__ == '__main__':
