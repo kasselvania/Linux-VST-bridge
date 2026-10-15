@@ -289,6 +289,10 @@ fn sdk_group(reason: &str) -> Option<&'static str> {
         "getControllerClassId", "createController", "null controller", "initializeController",
         "setComponentHandler", "connectComponent", "connectController", "parameter count bound",
         "enumerateParameters", "synchronizeController"];
+    // The first settings hand-over from the audio engine to its controls.
+    const SETTINGS: &[&str] = &["initial controller synchronization failed",
+        "initial state stream lifetime", "initial state stream bounds/allocation",
+        "initial state SDK failure"];
     const LIST: &[&str] = &["audio class absent", "class count bound", "getClassInfo",
         "getFactoryInfo", "getClassInfoUnicode", "getClassInfo2",
         "factory metadata class identity changed", "selected class syntax",
@@ -299,6 +303,7 @@ fn sdk_group(reason: &str) -> Option<&'static str> {
     if COMPONENT.contains(&reason) { Some("component") }
     else if BUSES.contains(&reason) { Some("buses") }
     else if CONTROLLER.contains(&reason) || parameter_index { Some("controller") }
+    else if SETTINGS.contains(&reason) { Some("settings") }
     else if LIST.contains(&reason) { Some("list") }
     else if reason == "multiple audio classes require explicit selection" { Some("multiple") }
     else { None }
@@ -320,6 +325,10 @@ fn sdk_failure(report: &Value) -> Explanation {
             "The plug-in started its audio engine, but its controls could not be set up.",
             "Its control interface reported an error.",
             "Update the plug-in and run the check again. If it keeps happening, create a problem report."),
+        Some("settings") => Explanation::new("sdk_settings_handoff",
+            "The plug-in started, but it could not pass its starting settings from its audio engine to its controls.",
+            "It answered that step in a way the bridge does not accept yet.",
+            "Update the plug-in to its latest version and run the check again. If it keeps happening, create a problem report."),
         Some("list") => Explanation::new("sdk_plugin_list",
             "The plug-in file loaded, but the list of plug-ins it contains could not be read correctly.",
             "It returned incomplete or invalid information about itself.",
@@ -453,6 +462,8 @@ mod tests {
             ("connectController", "sdk_controls"),
             ("getParameterInfo index 17", "sdk_controls"),
             ("parameter count bound", "sdk_controls"),
+            ("initial controller synchronization failed", "sdk_settings_handoff"),
+            ("initial state SDK failure", "sdk_settings_handoff"),
             ("getClassInfo", "sdk_plugin_list"),
             ("audio class absent", "sdk_plugin_list"),
             ("multiple audio classes require explicit selection", "multiple_plugins_in_file"),
@@ -469,6 +480,42 @@ mod tests {
         assert_eq!(from_report(&missing).unwrap().code, "sdk_unrecognised_step");
         assert_eq!(from_report(&report("Windows SDK host failed: 91", json!([]))).unwrap().code,
             "sdk_shutdown");
+    }
+
+    /// Every reason the Windows host's ordinary check can record has its own
+    /// sentence, so a musician never reads "not one the bridge can describe".
+    #[test]
+    fn every_check_step_the_windows_host_records_is_explained() {
+        let inspect = include_str!(concat!(env!("CARGO_MANIFEST_DIR"),
+            "/../windows-factory-probe/source/inspect_module.cpp"));
+        let state = include_str!(concat!(env!("CARGO_MANIFEST_DIR"),
+            "/../windows-factory-probe/source/ap8_state.h"));
+        let quoted_after = |text: &str, marker: &str| -> Vec<String> {
+            text.match_indices(marker).filter_map(|(at, _)| {
+                let rest = &text[at + marker.len()..];
+                let end = rest.find('"')?;
+                Some(rest[..end].to_owned())
+            }).collect()
+        };
+        let mut reasons = quoted_after(inspect, "runtime_error(\"");
+        reasons.extend(quoted_after(inspect, ",\"").into_iter()
+            .filter(|name| !name.is_empty() && name.bytes().all(|b| b.is_ascii_alphanumeric())));
+        // Written with the failing parameter's index appended.
+        for reason in &mut reasons {
+            if reason == "getParameterInfo index " { reason.push('7'); }
+        }
+        let initial = state.split("inline bool synchronize_initial").nth(1).unwrap()
+            .split("\n}").next().unwrap();
+        reasons.extend(quoted_after(initial, ",\""));
+        // Not part of the ordinary check: the vendor-access window, the
+        // separate graphics assessment, and audio in a running DAW session.
+        let elsewhere = ["vendor access editor open failed", "vendor access title encoding",
+            "vendor access title conversion", "assessGraphicsEditor", "commercial processing failed"];
+        reasons.retain(|reason| !elsewhere.contains(&reason.as_str()));
+        assert!(reasons.len() >= 40, "{reasons:?}");
+        for reason in &reasons {
+            assert!(sdk_group(reason).is_some(), "no plain explanation for host reason {reason:?}");
+        }
     }
 
     #[test]
