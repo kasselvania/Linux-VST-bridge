@@ -409,7 +409,22 @@ pub fn product_activity(snapshot: &Snapshot, product: &Product) -> ProductActivi
     result
 }
 
+/// The manager's plain explanation of a retained failure, when it has one.
+pub fn problem_text(problem: &serde_json::Value) -> Option<String> {
+    let what = problem["what_happened"].as_str().filter(|text| !text.trim().is_empty())?;
+    Some([Some(what), problem["likely_cause"].as_str(), problem["what_to_try"].as_str()]
+        .into_iter()
+        .flatten()
+        .filter(|text| !text.trim().is_empty())
+        .collect::<Vec<_>>()
+        .join(" "))
+}
+
 pub fn product_issue(product: &Product) -> Option<String> {
+    // An explanation from the exact retained record wins over generic text.
+    if let Some(problem) = problem_text(&product.details["problem"]) {
+        return Some(problem);
+    }
     if let Some(reason) = product.availability.as_ref()
         .filter(|availability| !availability.available)
         .and_then(|availability| availability.reason.as_ref()) {

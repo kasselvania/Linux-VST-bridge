@@ -582,6 +582,7 @@ fn append_discovered(m: &Manager, sw: &Software, environments: &[Environment],
                     retry_disabled)?);
                 continue;
             }
+            let problem = if stale.is_none() { inventory::problem(&module) } else { None };
             for class in module.classes {
                 if class.category != "Audio Module Class" || products.iter().any(|p|
                     p.class_id == class.id && p.module_sha256 == module.artifact.sha256
@@ -592,8 +593,10 @@ fn append_discovered(m: &Manager, sw: &Software, environments: &[Environment],
                     active_revision:None,recommended_revision:None,environment:scan.environment.id.clone(),
                     runner:scan.environment.runner.id.clone(),module_sha256:module.artifact.sha256.clone(),
                     limitations:vec![stale.unwrap_or("Installed but not published").into()],
-                    history:vec![],actions:vec![],compatibility:None,availability:None,
-                    details:json!({"scan":scan.id,"current":stale.is_none(),"observed_at":scan.completed_at}) });
+                    history:vec![],actions:vec![],compatibility:None,
+                    availability:discovered_availability(problem.as_ref()),
+                    details:json!({"scan":scan.id,"current":stale.is_none(),"observed_at":scan.completed_at,
+                        "problem":problem}) });
             }
         }
     }

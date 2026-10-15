@@ -204,6 +204,14 @@ pub fn record_stale_reason(module: &Module, observed_environment: &Environment,
     } else { None }
 }
 
+/// Plain explanation of this module's discovery failure, read only from the
+/// exact report bound to it. A file holding several plug-ins is not a failure.
+pub fn problem(module: &Module) -> Option<crate::problem::Explanation> {
+    module.inspection_error.as_ref()?;
+    let explanation = crate::problem::from_artifact(&module.report, "inspection_failed");
+    (explanation.code != "multiple_plugins_in_file").then_some(explanation)
+}
+
 /// A specific complete factory result, never an exit-code-only reinterpretation.
 pub fn inspection_hint(module: &Module) -> Result<Option<&'static str>> {
     module.report.verify()?;
