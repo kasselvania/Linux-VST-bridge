@@ -1,36 +1,32 @@
-# Current slice — learned fixes become shared tooling
+# Current slice — from working Kontakt to explainable plug-in failures
 
-Goal: one build that adapts to the distro it runs on, where every fix learned on
-one machine ships as shared tooling and applies wherever that vendor or plug-in
-appears. No machine keeps a fix that a fresh install cannot get. First case: a
-musician on any distro installs Native Access, signs in, installs Kontakt
-through it, plays it in the DAW, and gets it back after save and reopen.
+Goal: a musician on any distro installs Native Access and Kontakt, plays Kontakt
+in their DAW and gets it back after save and reopen (done, see below); next, any
+plug-in that fails tells them what kind of problem it is in plain words and, where
+safe, offers a fix. One build adapts to the distro; learned fixes ship as shared
+tooling, never per machine.
 
-State after 2026-10-15 (main = #343–#351; Test83 delivered for the tester):
-- Fresh CachyOS install: Native Access installs past its close check, opens from
-  the manager, starts NI's service, returns browser sign-in; Native Access installs
-  Kontakt 8 on runtime r5 (MSI-reader fix, release runtime-msi-r5); Kontakt 8 is
-  Available for REAPER.
-- The tester's own failed state (Test69) recovers after updating: Retry moves the
-  setup onto r5 and installs Native Access again.
-- Failures explain themselves in plain English; CHOW counts once.
-- Open: Recover after a host freeze/power loss leaves the vendor app unopenable;
-  Native Access's download location starts empty; sign-in return is slow/flaky;
-  existing Deck setups still use hand-built runners; Kontakt sound and
-  save/reopen untested (bridge keeps component/controller state separate, so the
-  known yabridge Kontakt recall bug does not apply; one residual case unproven).
+State after 2026-10-15 (main = #343–#357; Test88 delivered for the tester):
+- Native Access + Kontakt 8 install through the manager on CachyOS (fresh and the
+  tester's recovered state); a host freeze no longer blocks Recover or updates.
+- Kontakt in REAPER 7.82: editor inside REAPER's FX window, DAW MIDI plays (start
+  notes held ≤250 ms, #357), save/full restart/reopen restores the instrument
+  (Deck, Test88). MIDI verified on the CachyOS fixture; CachyOS reopen untested.
+- Native Access's download folder is filled on new setups (#355; first live check
+  pending). The Deck is on Test88, yabridge moved aside.
+- Open defects: #365 Xwayland abort when the DAW dies with an embedded editor;
+  #366 no reload after a host death and the manager is silent; #364 crash-
+  interrupted continuation; #367 confirm processing start on the audio thread.
 
 Next changes, in order:
-1. Recover re-verifies an interrupted vendor session and releases it (Test84),
-   then finish Kontakt in the recovered tester-state setup.
-2. Kontakt in REAPER and Bitwig: sound, editor, save and reopen (CachyOS, Deck),
-   plus the single-component controller-state fixture test.
-3. Native Access first-run gaps: download location, sign-in return timing.
-4. One-click problem report; Serum renderer choice and transparency.
-5. Convert remaining Deck-only fixes; Flatpak DAW permission; one installer.
+1. Valhalla (#358) and CHOW (#359): reproduce with free plug-ins, fix the causes.
+2. Failure types from that evidence (#360): plain sentence per type, safe self-help.
+3. #365/#366 host-death recovery; #367 start confirmation.
+4. Problem report button (#361); per-plug-in renderer choice, Serum (#362, #330).
+5. Backlog as issues: #363 #364 #368–#371.
 
-Done for this slice: step 2 passes on the Deck and on a clean CachyOS install
-from the same Test build, with no machine-specific records or runners.
+Done for this slice: Valhalla Supermassive and the free CHOW plug-ins play in
+REAPER on the CachyOS fixture, or fail with a correct plain-English type.
 
 Working limits: start from the failing musician action and judge the fix by the
 same action. Three failed attempts or 15 minutes without progress on one
