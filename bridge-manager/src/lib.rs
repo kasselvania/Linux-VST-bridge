@@ -16,6 +16,7 @@ pub mod installer_policy;
 pub mod graphics;
 pub mod operator_lock;
 pub mod inventory;
+pub mod problem;
 pub mod frg1;
 pub mod profiles;
 pub mod pigments;

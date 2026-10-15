@@ -169,7 +169,11 @@ impl Library {
                         if product.version.is_empty() { "Version unavailable" } else { &product.version }));
                     if fresh { ui.label(presentation::installation_progress(current, product)
                         .unwrap_or_else(|| status(product).0)); }
-                    ui.small("Setup actions and settings appear after the current controls load.");
+                    if let Some(problem) = presentation::problem_text(&product.details["problem"]) {
+                        ui.colored_label(warning_color(ui), problem);
+                    } else {
+                        ui.small("Setup actions and settings appear after the current controls load.");
+                    }
                     // A Setup discovery may focus several exact classes. Each
                     // row must still let the user select one current detail.
                     if self.focused_product().is_none()
@@ -1650,6 +1654,26 @@ mod tests {
             presentation::product_issue(&p).as_deref(),
             Some("TimeoutError: Windows call deadline: load_library")
         );
+    }
+
+    #[test]
+    fn retained_explanation_wins_over_generic_availability_text() {
+        let mut p = snapshot().products.remove(0);
+        p.disposition = "installed_unqualified".into();
+        p.availability = Some(crate::model::NativeAvailability {available:false,
+            reason:Some("This installed plug-in has no current native DAW connection.".into())});
+        p.details["inspection_error"] = serde_json::json!("Windows SDK host failed: 90");
+        assert_eq!(presentation::product_issue(&p).as_deref(),
+            Some("This installed plug-in has no current native DAW connection."));
+        p.details["problem"] = serde_json::json!({"code":"sdk_component_start",
+            "what_happened":"The plug-in loaded, but it refused to start its audio engine.",
+            "likely_cause":"It is usually missing something it needs at start-up.",
+            "what_to_try":"Use the vendor's installer or app to repair or activate the plug-in, then run the check again."});
+        assert_eq!(presentation::product_issue(&p).as_deref(),
+            Some("The plug-in loaded, but it refused to start its audio engine. It is usually missing something it needs at start-up. Use the vendor's installer or app to repair or activate the plug-in, then run the check again."));
+        p.details["problem"] = serde_json::json!({"code":"x","what_happened":" "});
+        assert_eq!(presentation::product_issue(&p).as_deref(),
+            Some("This installed plug-in has no current native DAW connection."));
     }
 
     #[test]

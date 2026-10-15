@@ -370,6 +370,7 @@ pub(super) fn current_journey(m:&Manager,retained:&Continuation)->Result<ui::Ins
         completed_receipt(m,&retained.intent,&edge.environment)?;
         journey.phase=ui::InstallationPhase::AwaitingApplication;journey.failure=None;
     }
+    automatic_install::explain_journey(m,&retained.intent,&mut journey);
     Ok(journey)
 }
 pub(super) fn project(m:&Manager,app:&mut ui::VendorApplication,

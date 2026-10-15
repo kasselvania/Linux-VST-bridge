@@ -188,6 +188,7 @@ fn current_journey(m: &Manager, intent: &Intent) -> Result<ui::InstallationJourn
     if empty_vendor_handoff(m,intent)? {
         journey.phase=ui::InstallationPhase::AwaitingApplication;journey.failure=None;
     }
+    explain_journey(m,intent,&mut journey);
     Ok(journey)
 }
 
@@ -282,7 +283,9 @@ fn project_handoff(m: &Manager, record: &onboarding::Record, intent: &Intent,
     let choices = match handoff_choices(m, record, intent, busy) {
         Ok(choices) => choices,
         Err(error) => {
-            setup.journey = Some(intent.journey.clone());
+            let mut journey = intent.journey.clone();
+            explain_journey(m, intent, &mut journey);
+            setup.journey = Some(journey);
             setup.status = "The installed app's observed identity needs recovery before it can be opened.".into();
             if let Some(journey) = &mut setup.journey {
                 journey.failure = Some(failure(ui::InstallationFailureStage::Discovery, error));
@@ -383,6 +386,12 @@ pub(super) fn project_current_operation(m:&Manager,mut receipt: Option<Value>,
             .filter(|journey|journey.phase == ui::InstallationPhase::AwaitingApplication
                 && journey.failure.is_none()) {
             current["journey"] = serde_json::to_value(journey)?;
+        } else if let Ok(retained) =
+            serde_json::from_value::<ui::InstallationJourney>(current["journey"].clone()) {
+            let mut journey = retained.clone();
+            explain_journey(m, &intent, &mut journey);
+            let explained = serde_json::to_value(journey)?;
+            if explained != serde_json::to_value(retained)? { current["journey"] = explained; }
         }
     }
     Ok(receipt)
@@ -511,9 +520,15 @@ fn owned_service_pause_with(
 }
 
 pub(super) fn failure(stage: ui::InstallationFailureStage, reason: impl ToString) -> ui::InstallationFailure {
+    let code: String = reason.to_string().chars().take(512).collect();
+    // An enumerated outcome has a plain explanation; other codes keep the
+    // stage's general sentence until their exact record explains them.
+    if let Some(problem) = linux_vst_bridge::problem::from_code(&code) {
+        return ui::InstallationFailure {stage, reason: problem.summary(), code, retryable: true};
+    }
     ui::InstallationFailure {
         stage,
-        code: reason.to_string().chars().take(512).collect(),
+        code,
         reason: match stage {
             ui::InstallationFailureStage::EnvironmentPreparation => {
                 "The installation location or required runtime could not be prepared."
@@ -537,6 +552,92 @@ pub(super) fn failure(stage: ui::InstallationFailureStage, reason: impl ToString
         .into(),
         retryable: true,
     }
+}
+fn single_audio_class(classes: &[inventory::Class]) -> Option<&str> {
+    let mut audio = classes.iter().filter(|class| class.category == "Audio Module Class");
+    match (audio.next(), audio.next()) {
+        (Some(class), None) => Some(class.id.as_str()),
+        _ => None,
+    }
+}
+/// A discovery failure explained from the module's own exact report.
+fn module_problem(report: &Artifact) -> Option<linux_vst_bridge::problem::Explanation> {
+    let value = linux_vst_bridge::problem::read_report(report).ok()?;
+    linux_vst_bridge::problem::from_report(&value)
+        .filter(|problem| problem.code != "multiple_plugins_in_file")
+}
+/// Readback of retained journey rows: each failure is explained only from its
+/// own retained record, and a module row whose single audio class already has
+/// a connection row is folded into that row, so one plug-in is one item.
+/// The exact scan this journey collected from: retained history first, then
+/// the environment's current inventory when it is still that scan.
+fn journey_scan(m: &Manager, intent: &Intent) -> Option<inventory::Scan> {
+    let id = intent.scan.as_deref()?;
+    let directory = m.root.join("inventory");
+    let history = valid_hex(id, 32).then(|| directory.join("history").join(format!("{id}.json")));
+    history.into_iter().chain(fs::read_dir(&directory).ok()?.flatten().map(|entry| entry.path())
+            .filter(|path| path.extension().is_some_and(|e| e == "json")))
+        .filter_map(|path| read_json::<inventory::Scan>(&path).ok())
+        .find(|scan| scan.id == id)
+}
+/// The selection identity this exact failed module's single audio class had
+/// in that scan. A work row for any other file never matches it.
+fn failed_module_selection(scan: &inventory::Scan, module: &FailedModule) -> Option<String> {
+    let found = scan.modules.get(module.module_index)
+        .filter(|found| found.artifact == module.artifact && found.report == module.report)?;
+    let class_id = single_audio_class(&found.classes)?;
+    let class = found.classes.iter().find(|class| class.id == class_id)?.clone();
+    prep::Selection {schema:1, environment:scan.environment.clone(), module:found.artifact.clone(),
+        class, scanner:scan.host.clone(), scanner_source:scan.host_source_sha256.clone(),
+        factory_report:found.report.clone()}.id().ok()
+}
+pub(super) fn explain_journey(m: &Manager, intent: &Intent, journey: &mut ui::InstallationJourney) {
+    let scan = if intent.failed_modules.is_empty() { None } else { journey_scan(m, intent) };
+    let mut folded = Vec::new();
+    for module in &intent.failed_modules {
+        let Some(row) = journey.plugins.get_mut(module.result_index)
+            .filter(|row| row.class_id.is_empty() && row.selection == module.artifact.sha256)
+        else { continue };
+        let raw = linux_vst_bridge::problem::read_report(&module.report).ok();
+        let problem = raw.as_ref().and_then(linux_vst_bridge::problem::from_report)
+            .filter(|problem| problem.code != "multiple_plugins_in_file");
+        let classes = raw.as_ref().map(inventory::classes);
+        // Explain only the failure this report recorded, not a later retry's.
+        let recorded = |code: &str| raw.as_ref().is_some_and(|raw|
+            raw["error"].as_str().is_some_and(|error| error.chars().take(256).eq(code.chars())))
+            || classes.as_ref().is_some_and(|classes| classes.as_ref()
+                .is_err_and(|error| error.to_string() == code));
+        if let (Some(failure), Some(problem)) = (row.failure.as_mut(), problem.as_ref()) {
+            if recorded(&failure.code) { failure.reason = problem.summary(); }
+        }
+        // Fold only into the work row for this exact file's selection.
+        let Some(selection) = scan.as_ref()
+            .and_then(|scan| failed_module_selection(scan, module)) else { continue };
+        if let Some(work) = intent.work.iter().find(|work| work.selection == selection
+            && work.result_index != module.result_index
+            && journey.plugins.get(work.result_index).is_some_and(|p| p.selection == selection)) {
+            folded.push((module.result_index, work.result_index, problem));
+        }
+    }
+    for work in &intent.work {
+        let Some(row) = journey.plugins.get_mut(work.result_index)
+            .filter(|row| row.selection == work.selection) else { continue };
+        let Some(failure) = row.failure.as_mut() else { continue };
+        let Some(problem) = work.check.as_deref().and_then(|check|
+            preparation_cli::guided_check_failure_problem(m, check, &failure.code)) else { continue };
+        // An older check kept no report. The folded discovery row's own exact
+        // record is shown as what it is, not as the check's cause.
+        let discovered = folded.iter().find(|(_, class_row, _)| *class_row == work.result_index)
+            .and_then(|(_, _, problem)| problem.clone());
+        failure.reason = problem.or_first_found(discovered).summary();
+    }
+    let hidden: Vec<usize> = folded.iter().map(|(module_row, _, _)| *module_row).collect();
+    let mut index = 0;
+    journey.plugins.retain(|_| {
+        let keep = !hidden.contains(&index);
+        index += 1;
+        keep
+    });
 }
 fn save(m: &Manager, record: &dyn InstallationTarget, intent: &Intent, operation: &str) -> Result<()> {
     if record.renderer() {return renderer_continuation::save(m,record.environment(),intent,operation);}
@@ -1279,7 +1380,12 @@ fn finish_connections(m:&Manager,record:&dyn InstallationTarget,intent:&mut Inte
                 intent.journey.plugins[result_index].stage =
                     ui::InstallationPluginStage::NeedsAttention;
             }
-            intent.journey.plugins[result_index].failure = Some(failure(stage, error));
+            let mut failed = failure(stage, error);
+            if let Some(problem) = intent.work[index].check.as_deref().and_then(|check|
+                preparation_cli::guided_check_failure_problem(m, check, &failed.code)) {
+                failed.reason = problem.summary();
+            }
+            intent.journey.plugins[result_index].failure = Some(failed);
             save(m, record, intent, operation)?;
         }
     }
@@ -1324,6 +1430,9 @@ fn collect_new_results(
         .filter(|s| s.environment.id == record.id())
         .collect::<Vec<_>>();
     selected.sort_by_key(|s| s.id().unwrap_or_default());
+    let class_rows = selected.iter()
+        .map(|s| Ok((s.class.id.clone(), s.module.sha256.clone(), s.id()?)))
+        .collect::<Result<Vec<(String, String, String)>>>()?;
     for selection in selected {
         let id = selection.id()?;
         let predecessor=intent.predecessors.iter().find(|p|p.class_id==selection.class.id);
@@ -1391,6 +1500,14 @@ fn collect_new_results(
         if module.quarantine_reason.is_none() && module.inspection_error.is_some()
             && module.classes.iter().filter(|class|class.category=="Audio Module Class").count()>1
             && inventory::inspection_hint(module)?.is_some() {continue;}
+        // One plug-in is one attention item: a module whose only audio class
+        // is being connected by this journey's own work row for this exact
+        // file is reported through that row. A preserved row is not work.
+        if module.quarantine_reason.is_none() && module.inspection_error.is_some()
+            && single_audio_class(&module.classes).is_some_and(|class|
+                class_rows.iter().any(|(id, sha256, selection)| id == class
+                    && *sha256 == module.artifact.sha256
+                    && intent.work.iter().any(|work| work.selection == *selection))) {continue;}
         let Some(reason) = module
             .quarantine_reason
             .as_ref()
@@ -1406,12 +1523,16 @@ fn collect_new_results(
             .and_then(|v| v.to_str())
             .unwrap_or("Installed plug-in module")
             .to_owned();
+        let mut failed = failure(ui::InstallationFailureStage::Discovery, reason);
+        if let Some(problem) = module_problem(&module.report) {
+            failed.reason = problem.summary();
+        }
         intent.journey.plugins.push(ui::InstallationPlugin {
             selection: module.artifact.sha256.clone(),
             class_id: String::new(),
             name,
             stage: ui::InstallationPluginStage::NeedsAttention,
-            failure: Some(failure(ui::InstallationFailureStage::Discovery, reason)),
+            failure: Some(failed),
         });
         intent.failed_modules.push(FailedModule {
             module_index,
@@ -3634,6 +3755,121 @@ finally:
                 .count(),
             1
         );
+    }
+    /// The fixture module's factory report, as a failed component start.
+    fn failed_component_report(f: &test_fixture::Fixture, c: &prep::Candidate) -> Artifact {
+        let mut raw: Value = read_json(&c.selection.factory_report.path).unwrap();
+        raw["error"] = json!("Windows SDK host failed: 90");
+        raw["cleanup_confirmed"] = json!(true);
+        raw["vendor_stdout"] = json!("SECRET C:\\users\\alice");
+        raw["records"].as_array_mut().unwrap()
+            .push(json!({"state":"ap8_failure","reason":"createComponent"}));
+        let path = f.outer.join("failed-component.json");
+        atomic_json(&path, &raw).unwrap();
+        Artifact { sha256: digest(&path).unwrap(), path }
+    }
+    #[test]
+    fn single_class_inspection_failure_is_one_attention_item() {
+        let (f, c, r, mut intent) = setup();
+        let path = f.m.root.join("inventory").join(format!("{}.json", r.id));
+        let mut scan: inventory::Scan = read_json(&path).unwrap();
+        let report = failed_component_report(&f, &c);
+        let module = scan.modules.iter_mut()
+            .find(|module| module.artifact == c.selection.module).unwrap();
+        assert_eq!(single_audio_class(&module.classes), Some(c.selection.class.id.as_str()));
+        module.report = report;
+        module.inspection_error = Some("Windows SDK host failed: 90".into());
+        atomic_json(&path, &scan).unwrap();
+        collect_new_results(&f.m, &r, &mut intent).unwrap();
+        let rows: Vec<_> = intent.journey.plugins.iter().filter(|p|
+            p.class_id == c.selection.class.id || p.selection == c.selection.module.sha256).collect();
+        assert_eq!(rows.len(), 1, "{:?}", intent.journey.plugins);
+        assert_eq!(rows[0].class_id, c.selection.class.id);
+        assert!(intent.failed_modules.is_empty());
+    }
+    #[test]
+    fn retained_double_count_is_projected_as_one_explained_item() {
+        let (f, c, r, mut intent) = setup();
+        let report = failed_component_report(&f, &c);
+        // The scan recorded this file's failed discovery, and a second copy of
+        // the same plug-in class in another file failed the same way.
+        let path = f.m.root.join("inventory").join(format!("{}.json", r.id));
+        let mut scan: inventory::Scan = read_json(&path).unwrap();
+        let first = scan.modules.iter().position(|m| m.artifact == c.selection.module).unwrap();
+        scan.modules[first].report = report.clone();
+        scan.modules[first].inspection_error = Some("Windows SDK host failed: 90".into());
+        let copy = r.environment.root
+            .join("compatdata/pfx/drive_c/Program Files/Common Files/VST3/Copy.vst3");
+        fs::write(&copy, b"first-party second copy of the same class").unwrap();
+        let mut second = scan.modules[first].clone();
+        second.artifact = Artifact { sha256: digest(&copy).unwrap(), path: copy };
+        scan.modules.push(second.clone());
+        atomic_json(&path, &scan).unwrap();
+        intent.scan = Some(scan.id.clone());
+        let mut exact = c.selection.clone();
+        exact.factory_report = report.clone();
+        let selection = exact.id().unwrap();
+        // An older check kept only its code, with no report binding.
+        let check = random_id().unwrap();
+        prep::retain_guided_check_stage(&f.m, &check, "completed",
+            &json!({"kind":"compatibility_check"}),
+            &json!({"schema":1,"operation":check,"stage":"inspection_failed",
+                "inspection":null,"candidate":null,"failure":"inspection_failed",
+                "publication_changed":false})).unwrap();
+        let module_row = |artifact: &Artifact, name: &str| ui::InstallationPlugin {
+            selection:artifact.sha256.clone(),class_id:String::new(),name:name.into(),
+            stage:ui::InstallationPluginStage::NeedsAttention,
+            failure:Some(failure(ui::InstallationFailureStage::Discovery,"Windows SDK host failed: 90"))};
+        intent.journey.phase = ui::InstallationPhase::NeedsAttention;
+        intent.journey.plugins = vec![
+            ui::InstallationPlugin {selection:selection.clone(),class_id:c.selection.class.id.clone(),
+                name:c.selection.class.name.clone(),stage:ui::InstallationPluginStage::NeedsAttention,
+                failure:Some(failure(ui::InstallationFailureStage::Inspection,"inspection_failed"))},
+            module_row(&c.selection.module, "CHOWTapeModel.vst3"),
+            module_row(&second.artifact, "Copy.vst3"),
+        ];
+        intent.work = vec![ClassWork {selection,predecessor:None,result_index:0,
+            check:Some(check.clone()),candidate:None,active_operation:None}];
+        intent.failed_modules = vec![
+            FailedModule {module_index:first,result_index:1,
+                artifact:c.selection.module.clone(),report:report.clone()},
+            FailedModule {module_index:scan.modules.len() - 1,result_index:2,
+                artifact:second.artifact.clone(),report:report.clone()},
+        ];
+        let journey = current_journey(&f.m, &intent).unwrap();
+        // The same file's row folds into its class row; the copy keeps its own.
+        assert_eq!(journey.plugins.len(), 2, "{:?}", journey.plugins);
+        assert_eq!(journey.plugins[0].class_id, c.selection.class.id);
+        let reason = &journey.plugins[0].failure.as_ref().unwrap().reason;
+        assert!(reason.starts_with("The plug-in loaded, but it refused to start its audio engine."), "{reason}");
+        assert!(reason.ends_with("(Recorded when this plug-in was first found.)"), "{reason}");
+        assert!(!reason.contains("SECRET") && !reason.contains("alice"));
+        assert_eq!(journey.plugins[1].selection, second.artifact.sha256);
+        let copy_reason = &journey.plugins[1].failure.as_ref().unwrap().reason;
+        assert!(copy_reason.starts_with("The plug-in loaded, but it refused"), "{copy_reason}");
+        assert!(!copy_reason.contains("first found"));
+        // Retained records are unchanged; only their readback is explained.
+        assert_eq!(intent.journey.plugins.len(), 3);
+
+        // The other file of the same class never folds into, or explains,
+        // this file's class row.
+        intent.failed_modules.remove(0);
+        intent.failed_modules[0].result_index = 1;
+        intent.journey.plugins.remove(1);
+        let journey = current_journey(&f.m, &intent).unwrap();
+        assert_eq!(journey.plugins.len(), 2);
+        assert!(journey.plugins[0].failure.as_ref().unwrap().reason.contains("was not kept"));
+        assert_eq!(journey.plugins[1].selection, second.artifact.sha256);
+
+        // A journey whose exact scan is no longer retained is not folded.
+        intent.failed_modules = vec![FailedModule {module_index:first,result_index:1,
+            artifact:c.selection.module.clone(),report:report.clone()}];
+        intent.journey.plugins.truncate(1);
+        intent.journey.plugins.push(module_row(&c.selection.module, "CHOWTapeModel.vst3"));
+        intent.scan = Some(random_id().unwrap());
+        let journey = current_journey(&f.m, &intent).unwrap();
+        assert_eq!(journey.plugins.len(), 2);
+        assert!(journey.plugins[0].failure.as_ref().unwrap().reason.contains("was not kept"));
     }
     #[test]
     fn unchanged_prior_class_is_not_new_when_scan_evidence_changes() {

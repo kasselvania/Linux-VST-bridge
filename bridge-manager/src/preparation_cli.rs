@@ -320,6 +320,10 @@ fn project_records(m: &Manager, sw: &Software, products: &mut [ui::Product], bus
         }
         let mut workflow = guided_projection(m, &s, &v, Inactivity {global:busy, class:class_busy}, stale, canonical,
             p.disposition == "ready")?;
+        // The failed check's own retained report, never a neighbouring one.
+        let check_failure = (workflow.phase == ui::CompatibilityPhase::CheckFailed)
+            .then(|| v.operation.as_ref().and_then(|op| operation_problem(m, op))
+                .map(|problem| (workflow.summary.clone(), problem))).flatten();
         // A failed test can be removed while its accepted ancestor becomes
         // current, before the result's completion marker is retained. Search
         // every candidate for this exact product, not only the selected one.
@@ -445,6 +449,29 @@ fn project_records(m: &Manager, sw: &Software, products: &mut [ui::Product], bus
             | ui::CompatibilityPhase::PublicationNeedsAttention | ui::CompatibilityPhase::HistoricalOnly => "needs_attention",
         }.into();
         crate::graphics_cli::project(m, p, &mut workflow, &v, candidates, busy.or(stale))?;
+        // This product's own discovery record (same module file, by digest).
+        let discovered: Option<problem::Explanation> =
+            serde_json::from_value(p.details["problem"].clone()).ok();
+        if let Some((_, problem)) = check_failure
+            .filter(|(summary, _)| workflow.phase == ui::CompatibilityPhase::CheckFailed
+                && workflow.summary == *summary) {
+            let problem = problem.or_first_found(discovered);
+            workflow.summary = format!("Compatibility check stopped. {} Installation is preserved; no test configuration was made available.",
+                problem.summary());
+            // Replace only the generic or discovery-time reason, never a
+            // published configuration's own availability.
+            if p.availability.is_none() || !p.details["problem"].is_null() {
+                p.availability = Some(ui::NativeAvailability {available:false,
+                    reason:Some(problem.summary())});
+            }
+            p.details["problem"] = problem.value();
+        } else if workflow.phase != ui::CompatibilityPhase::NotChecked {
+            // A later check (passed, still running, or failed for a reason
+            // without an explanation) supersedes the discovery-time reason.
+            if let Some(found) = discovered {
+                operator_cli::retire_discovered_problem(p, &found);
+            }
+        }
         p.compatibility = Some(workflow);
     }
     Ok(())
@@ -1215,25 +1242,76 @@ fn inspect_unretained(
         admission,
     )?;
     let pending = PendingAdmission::new(job.lease.clone(), Arc::new(AtomicBool::new(false)));
-    let child = spawn(m, sw, &path, None)?;
-    vendor_product_cli::finish_scan(child, &job, &path, pending)?;
-    require(
-        observation::ModuleStamp::read(&s.module.path)? == stamp,
-        "inspection_module_changed",
-    )?;
-    let report = Artifact {
-        sha256: digest(&job.report)?,
-        path: job.report,
-    };
-    let i = prep::inspect_record_with_layout(
-        s.clone(),
-        report,
-        prep::Origin::ManagedPreparation,
-        runtime.host,
-        runtime.source_manifest,
-        audio_layout,
-    )?;
-    Ok(i)
+    let report = job.report.clone();
+    bind_session_report(&job.session, &report, || -> Result<prep::Inspection> {
+        let child = spawn(m, sw, &path, None)?;
+        vendor_product_cli::finish_scan(child, &job, &path, pending)?;
+        require(
+            observation::ModuleStamp::read(&s.module.path)? == stamp,
+            "inspection_module_changed",
+        )?;
+        let report = Artifact {
+            sha256: digest(&job.report)?,
+            path: job.report.clone(),
+        };
+        prep::inspect_record_with_layout(
+            s.clone(),
+            report,
+            prep::Origin::ManagedPreparation,
+            runtime.host,
+            runtime.source_manifest,
+            audio_layout,
+        )
+    })
+}
+
+/// Exact report binding for a failed guided check, when one was retained.
+fn check_report(m: &Manager, binding: &Value) -> Option<Artifact> {
+    let session = binding["session"].as_str().filter(|id| valid_hex(id, 32))?;
+    let sha256 = binding["sha256"].as_str().filter(|sha| valid_hex(sha, 64))?;
+    Some(Artifact { path: inspection_report_path(m, session), sha256: sha256.into() })
+}
+fn inspection_report_path(m: &Manager, session: &str) -> PathBuf {
+    m.root.join("runtime/results").join(format!("windows-{session}.json"))
+}
+/// A supervised inspection's failure keeps its displayed code and carries
+/// that exact session's report, so its explanation is never borrowed.
+fn bind_session_report<T>(session: &str, report: &Path, run: impl FnOnce() -> Result<T>) -> Result<T> {
+    run().map_err(|error| problem::BoundFailure::bind(error, session, report))
+}
+/// Plain explanation of one completed guided check, from its own retained
+/// report only. A failed inspection without a binding is "not retained".
+pub(crate) fn guided_check_problem(m: &Manager, check: &str) -> Option<problem::Explanation> {
+    let completed = prep::guided_check_stage(m, check, "completed").ok().flatten()?;
+    let value = &completed["value"];
+    let failure = value["failure"].as_str()?;
+    if !value["inspection_report"].is_null() {
+        return Some(check_report(m, &value["inspection_report"])
+            .map(|report| problem::from_artifact(&report, failure))
+            .unwrap_or_else(|| problem::details_not_retained(failure)));
+    }
+    if value["stage"] == "inspection_failed" && failure == "inspection_failed" {
+        return Some(problem::details_not_retained(failure));
+    }
+    problem::from_code(failure)
+}
+/// As above, only when that check recorded exactly this failure.
+pub(crate) fn guided_check_failure_problem(m: &Manager, check: &str, failure: &str)
+    -> Option<problem::Explanation> {
+    let completed = prep::guided_check_stage(m, check, "completed").ok().flatten()?;
+    (completed["value"]["failure"].as_str() == Some(failure))
+        .then(|| guided_check_problem(m, check)).flatten()
+}
+/// The guided check behind one failed operator receipt, by exact identity.
+fn operation_problem(m: &Manager, operation: &Value) -> Option<problem::Explanation> {
+    if !matches!(operation["state"].as_str(), Some("refused" | "failed")) { return None; }
+    let id = operation["operation"].as_str().filter(|id| valid_hex(id, 32))?;
+    let request: ui::Request = read_json(&operator_cli::job_dir(m, id).ok()?.join("request.json")).ok()?;
+    match request.action {
+        ui::Action::CompatibilityCheck { .. } => guided_check_problem(m, id),
+        ui::Action::CompatibilityResumeCheck { operation } => guided_check_problem(m, &operation),
+        _ => None,
+    }
 }
 
 fn check_stage(m: &Manager, operation: &str, stage: &str, action: &Value) -> Result<Option<Value>> {
@@ -1575,11 +1653,17 @@ where
             if inspection.is_some() && check_stage(m, operation, "candidate", &serialized)?.is_some() {
                 return Err(error.to_string().into());
             }
-            json!({"schema":1,"operation":operation,"selection":selection,
+            let mut failed = json!({"schema":1,"operation":operation,"selection":selection,
                 "stage":if inspection.is_some() { "candidate_preparation_failed" } else { "inspection_failed" },
-                "inspection":inspection.map(|stage| stage["id"].clone()),
+                "inspection":inspection.as_ref().map(|stage| stage["id"].clone()),
                 "candidate":null,"failure":error.to_string().chars().take(512).collect::<String>(),
-                "publication_changed":false})
+                "publication_changed":false});
+            // Only this check's own supervised session may explain it later.
+            if let Some(bound) = error.downcast_ref::<problem::BoundFailure>()
+                .filter(|_| inspection.is_none()) {
+                failed["inspection_report"] = bound.binding();
+            }
+            failed
         }
     };
     prep::retain_guided_check_stage(m, operation, "completed", &serialized, &finished)?;
@@ -2504,6 +2588,185 @@ pub(crate) mod tests {
         assert_eq!(result["stage"], "candidate_ready");
         assert_eq!(result["graphics"]["stage"], "assessment_failed");
         assert_eq!(prep::retained_candidates(&f.m).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn failed_check_is_explained_only_from_its_own_session_report() {
+        let (f, c, sw, action) = guided_fixture();
+        let results = f.m.root.join("runtime/results");
+        fs::create_dir_all(&results).unwrap();
+        let write = |session: &str, reason: &str| {
+            let path = results.join(format!("windows-{session}.json"));
+            fs::write(&path, serde_json::to_vec(&json!({"error":"Windows SDK host failed: 90",
+                "cleanup_confirmed":true,"gated":true,"vendor_stdout":"SECRET",
+                "records":[{"state":"ap8_failure","reason":reason}]})).unwrap()).unwrap();
+            path
+        };
+        let session = random_id().unwrap();
+        let report = write(&session, "createComponent");
+        // The newest report in the same directory belongs to another session.
+        // It is explainable, so any guess by recency would pick it up.
+        let neighbour = write(&random_id().unwrap(), "getBusInfo");
+        let neighbour = Artifact { sha256: digest(&neighbour).unwrap(), path: neighbour };
+        assert_eq!(problem::from_artifact(&neighbour, "inspection_failed").code, "sdk_audio_buses");
+        let operation = random_id().unwrap();
+        let failed = guided_check(&f.m, &sw, &action, &operation,
+            |_| bind_session_report(&session, &report, || Err("inspection_failed".into())),
+            |_, _, _| unreachable!(), |_| {}).unwrap_err();
+        assert_eq!(failed.to_string(), "inspection_failed");
+        let completed = prep::guided_check_stage(&f.m, &operation, "completed").unwrap().unwrap();
+        assert_eq!(completed["value"]["failure"], "inspection_failed");
+        assert_eq!(completed["value"]["stage"], "inspection_failed");
+        // Session and digest only; no absolute path is stored.
+        assert_eq!(completed["value"]["inspection_report"],
+            json!({"session":session,"sha256":digest(&report).unwrap()}));
+        let explained = guided_check_problem(&f.m, &operation).unwrap();
+        assert_eq!(explained.code, "sdk_component_start");
+        assert!(!serde_json::to_string(&explained).unwrap().contains("SECRET"));
+        assert_eq!(guided_check_failure_problem(&f.m, &operation, "inspection_failed"),
+            Some(explained.clone()));
+        assert!(guided_check_failure_problem(&f.m, &operation, "another_failure").is_none());
+
+        // The failed operator receipt finds its own check, and the product says why.
+        let dir = operator_cli::job_dir(&f.m, &operation).unwrap();
+        private_dir(&dir).unwrap();
+        atomic_json(&dir.join("request.json"), &ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:"fixture".into(), action:action.clone()}).unwrap();
+        let receipt = json!({"schema":1,"operation":operation,"state":"refused",
+            "reason":"Operator action: inspection_failed"});
+        atomic_json(&dir.join("result.json"), &receipt).unwrap();
+        assert_eq!(operation_problem(&f.m, &receipt), Some(explained.clone()));
+        // The check's own record wins over an earlier discovery explanation.
+        let mut product = projection_product(&c);
+        let found = startup_timeout();
+        product.details["problem"] = found.value();
+        product.availability = operator_cli::discovered_availability(Some(&found));
+        let mut products = vec![product];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        let workflow = products[0].compatibility.as_ref().unwrap();
+        assert_eq!(workflow.phase, ui::CompatibilityPhase::CheckFailed);
+        assert_eq!(workflow.summary, format!("Compatibility check stopped. {} Installation is preserved; no test configuration was made available.",
+            explained.summary()));
+        assert!(!workflow.summary.contains("inspection_failed"));
+        assert_eq!(products[0].details["problem"]["code"], "sdk_component_start");
+        assert_eq!(products[0].availability.as_ref().unwrap().reason.as_deref(),
+            Some(explained.summary().as_str()));
+
+        // An unbound older failure says its details were not kept.
+        let older = random_id().unwrap();
+        let _ = guided_check(&f.m, &sw, &action, &older,
+            |_| Err("inspection_failed".into()), |_, _, _| unreachable!(), |_| {});
+        let completed = prep::guided_check_stage(&f.m, &older, "completed").unwrap().unwrap();
+        assert!(completed["value"]["inspection_report"].is_null());
+        assert_eq!(guided_check_problem(&f.m, &older).unwrap().code, "details_not_retained");
+
+        // A changed report is no longer this check's record.
+        fs::write(&report, b"{}").unwrap();
+        assert_eq!(guided_check_problem(&f.m, &operation).unwrap().code, "details_not_retained");
+    }
+
+    fn startup_timeout() -> problem::Explanation {
+        problem::from_report(&json!({"error":"TimeoutError: Windows startup deadline",
+            "cleanup_confirmed":true})).unwrap()
+    }
+    fn with_discovery_problem(c: &prep::Candidate, found: &problem::Explanation) -> ui::Product {
+        let mut product = projection_product(c);
+        product.details["problem"] = found.value();
+        product.availability = operator_cli::discovered_availability(Some(found));
+        product
+    }
+    fn refused_check(f: &test_fixture::Fixture, sw: &Software, action: &ui::Action, failure: &str) {
+        let operation = random_id().unwrap();
+        let failure = failure.to_owned();
+        let _ = guided_check(&f.m, sw, action, &operation,
+            |_| Err(failure.clone().into()), |_, _, _| unreachable!(), |_| {});
+        let dir = operator_cli::job_dir(&f.m, &operation).unwrap();
+        private_dir(&dir).unwrap();
+        atomic_json(&dir.join("request.json"), &ui::Request {schema:ui::OPERATOR_SCHEMA,
+            state_token:"fixture".into(), action:action.clone()}).unwrap();
+        atomic_json(&dir.join("result.json"), &json!({"schema":1,"operation":operation,
+            "state":"refused","reason":format!("Operator action: {failure}")})).unwrap();
+    }
+
+    #[test]
+    fn discovery_explanation_is_withdrawn_once_a_later_check_supersedes_it() {
+        let (f, c, sw, action) = guided_fixture();
+        let found = startup_timeout();
+        // Not checked yet: the discovery-time reason is the current fact.
+        let mut products = vec![with_discovery_problem(&c, &found)];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        assert_eq!(products[0].compatibility.as_ref().unwrap().phase, ui::CompatibilityPhase::NotChecked);
+        assert_eq!(products[0].details["problem"]["code"], "timeout_startup");
+        assert_eq!(products[0].availability.as_ref().unwrap().reason.as_deref(),
+            Some(found.summary().as_str()));
+
+        // A later check failed for a reason without an explanation: its own
+        // "Compatibility check stopped" summary must not be outranked.
+        refused_check(&f, &sw, &action, "fixture_lock_wait_expired");
+        let mut products = vec![with_discovery_problem(&c, &found)];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        let workflow = products[0].compatibility.as_ref().unwrap();
+        assert_eq!(workflow.phase, ui::CompatibilityPhase::CheckFailed);
+        assert!(workflow.summary.starts_with("Compatibility check stopped: Operator action: fixture_lock_wait_expired"),
+            "{}", workflow.summary);
+        assert!(products[0].details["problem"].is_null());
+        assert_eq!(products[0].availability.as_ref().unwrap().reason.as_deref(),
+            Some(operator_cli::NO_NATIVE_CONNECTION));
+
+        // A later check passed and prepared a configuration: the discovery
+        // reason no longer describes this plug-in.
+        prep::retain_inspection(&f.m, &c.inspection).unwrap();
+        prep::record_candidate(&f.m, &c).unwrap();
+        let mut products = vec![with_discovery_problem(&c, &found)];
+        project(&f.m, &sw, &mut products, None).unwrap();
+        let phase = products[0].compatibility.as_ref().unwrap().phase;
+        assert!(!matches!(phase, ui::CompatibilityPhase::NotChecked | ui::CompatibilityPhase::CheckFailed),
+            "{phase:?}");
+        assert!(products[0].details["problem"].is_null());
+        assert_eq!(products[0].availability.as_ref().unwrap().reason.as_deref(),
+            Some(operator_cli::NO_NATIVE_CONNECTION));
+    }
+
+    #[test]
+    fn supervised_inspection_failure_carries_only_its_own_written_report() {
+        let f = test_fixture::Fixture::new();
+        let session = random_id().unwrap();
+        let report = inspection_report_path(&f.m, &session);
+        fs::create_dir_all(report.parent().unwrap()).unwrap();
+        // Nothing was written (for example the host never launched): the
+        // original error is returned unchanged.
+        let error = bind_session_report::<()>(&session, &report, || Err("spawn_refused".into()))
+            .unwrap_err();
+        assert!(error.downcast_ref::<problem::BoundFailure>().is_none());
+        assert_eq!(error.to_string(), "spawn_refused");
+        fs::write(&report, br#"{"error":"TimeoutError: inspection deadline","cleanup_confirmed":true}"#).unwrap();
+        let error = bind_session_report::<()>(&session, &report, || Err("inspection_failed".into()))
+            .unwrap_err();
+        assert_eq!(error.to_string(), "inspection_failed");
+        let bound = error.downcast_ref::<problem::BoundFailure>().unwrap();
+        let exact = Artifact { path: report.clone(), sha256: digest(&report).unwrap() };
+        assert_eq!(bound.binding(), json!({"session":session,"sha256":exact.sha256}));
+        assert_eq!(check_report(&f.m, &bound.binding()), Some(exact));
+        assert!(check_report(&f.m, &json!({"session":"../x","sha256":"00".repeat(32)})).is_none());
+        assert_eq!(bind_session_report(&session, &report, || Ok(7)).unwrap(), 7);
+    }
+
+    #[test]
+    fn candidate_preparation_failure_is_not_bound_to_an_inspection_report() {
+        let (f, c, sw, action) = guided_fixture();
+        let session = random_id().unwrap();
+        let report = inspection_report_path(&f.m, &session);
+        fs::create_dir_all(report.parent().unwrap()).unwrap();
+        fs::write(&report, br#"{"error":"TimeoutError: inspection deadline","cleanup_confirmed":true}"#).unwrap();
+        let operation = random_id().unwrap();
+        let failed = guided_check(&f.m, &sw, &action, &operation, |_| Ok(c.inspection.clone()),
+            |_, _, _| bind_session_report(&session, &report, || Err("candidate_build_failed".into())),
+            |_| {}).unwrap_err();
+        assert_eq!(failed.to_string(), "candidate_build_failed");
+        let completed = prep::guided_check_stage(&f.m, &operation, "completed").unwrap().unwrap();
+        assert_eq!(completed["value"]["stage"], "candidate_preparation_failed");
+        assert!(completed["value"]["inspection_report"].is_null());
+        assert!(guided_check_problem(&f.m, &operation).is_none());
     }
 
     #[test]
