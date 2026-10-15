@@ -3589,13 +3589,16 @@ answered with silence, and their notes were discarded. Kontakt with its editor
 open took 140–220 ms to acknowledge, so a chord at 0.1 s never reached it: −155
 dBFS on three plays while its own keyboard sounded. Note events from those blocks
 are now held and played at sample 0 of the first rendered block, for at most
-250 ms of frames per start; past that, held note-ons are discarded and counted
-and note-offs are still delivered. A note shorter than the acknowledgement delay
-plays as a zero-length note. At most 256 note events are held, and one callback
-carries at most 256 events including parameter points; the rest waits in order.
-Offline render never holds. Test89: −9.4 dBFS on four plays, 9 note events
-delayed, none dropped. Open: the acknowledgement still waits behind the editor's
-owner thread.
+250 ms of audio per start; past that, held note-ons are discarded and counted.
+Note-offs are still delivered, except those paired with a discarded held note-on
+or releasing a note-on discarded in the same start. A note shorter than the
+acknowledgement delay plays as a zero-length note. At most 256 note events are
+held, and one callback carries at most 256 events including parameter points; the
+rest waits in order under the same limit. Offline render never holds. Test89:
+−9.4 dBFS on four plays; 9 note events delayed (the three-note chord on three of
+the plays, whose start was still unacknowledged at 0.1 s), none dropped. Open:
+the acknowledgement still waits behind the editor's owner thread; opening the
+editor as playback starts kept it waiting 0.2–3.5 s (Test90), longer than the limit.
 
 ## Beta reports under investigation
 
