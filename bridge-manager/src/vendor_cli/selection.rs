@@ -200,7 +200,15 @@ pub(crate) fn choices(m: &Manager, record: &onboarding::Record) -> Result<Vec<Ch
             artifacts.push((artifact, machine));
         }
         require(artifacts.len() <= 17, "vendor_application_selection_bound")?;
+        // The registration's icon names the application itself; its siblings
+        // (uninstallers, service setups, elevation helpers) stay helpers.
+        let application = registration["application_image"].as_str()
+            .map(|image| relative_image(image).map(|path|
+                record.environment.root.join("compatdata/pfx/drive_c").join(path)))
+            .transpose()?
+            .filter(|path| artifacts.iter().any(|(a, _)| &a.path == path));
         for (selected, machine) in &artifacts {
+            if application.as_ref().is_some_and(|path| &selected.path != path) { continue; }
             let image_name = selected.path.file_stem().ok_or("vendor_application_image_name")?
                 .to_str().ok_or("vendor_application_image_name")?;
             require(!image_name.is_empty() && image_name.len() <= 256
@@ -338,6 +346,18 @@ pub(crate) mod tests {
         observed["after"]["uninstall"]["cd".repeat(32)]["InstallLocation"] = "".into();
         atomic_json(&path, &observed).unwrap();
         assert_eq!(super::choices(&f.m, &record).unwrap().len(), 2, "an empty InstallLocation falls back");
+        // The icon-named image is the one application; its sibling is a helper.
+        observed["durable_installation"]["application_registrations"][0]["application_image"] =
+            "Program Files/Vendor/Main.exe".into();
+        atomic_json(&path, &observed).unwrap();
+        let named = super::choices(&f.m, &record).unwrap();
+        assert_eq!(named.len(), 1);
+        assert_eq!(named[0].image_name, "Main");
+        assert_eq!(named[0].application.helpers.len(), 1);
+        observed["durable_installation"]["application_registrations"][0]["application_image"] =
+            "Program Files/Vendor/Absent.exe".into();
+        atomic_json(&path, &observed).unwrap();
+        assert_eq!(super::choices(&f.m, &record).unwrap().len(), 2, "an unobserved icon image changes nothing");
         observed["after"]["uninstall"]["cd".repeat(32)]["DerivedInstallLocation"] = "C:/Program Files/VendorSibling".into();
         atomic_json(&path, &observed).unwrap();
         assert!(super::choices(&f.m, &record).is_err());

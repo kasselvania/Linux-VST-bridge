@@ -104,7 +104,7 @@ class WitnessTests(unittest.TestCase):
             ('a shared root is too broad',
              f'"DisplayIcon"="{reg("Program Files/Loose.exe")}"\n','partial_installation',None),
             ('InstallLocation keeps priority',
-             f'"InstallLocation"="C:\\\\Program Files\\\\Vendor\\\\App"\n"DisplayIcon"="{reg("Program Files/Loose.exe")}"\n','installed',[app,uninst]),
+             f'"InstallLocation"="C:\\\\Program Files\\\\Vendor\\\\App"\n"DisplayIcon"="{reg(other)}"\n','installed',[app,uninst]),
         ]
         image=bytearray(128);image[:2]=b'MZ';image[60:64]=(64).to_bytes(4,'little')
         image[64:68]=b'PE\0\0';image[68:70]=(0x8664).to_bytes(2,'little');image[86:88]=(0x22).to_bytes(2,'little')
@@ -122,10 +122,27 @@ class WitnessTests(unittest.TestCase):
                 text=json.dumps(after)
                 for secret in ('currentuser','SECRET123','/S','/log','/X{'):self.assertNotIn(secret,text)
                 if images is not None:
-                    self.assertEqual(sorted(value['application_registrations'][0]['images']),sorted(images))
+                    registration=value['application_registrations'][0]
+                    self.assertEqual(sorted(registration['images']),sorted(images))
+                    if label.startswith('icon'):self.assertEqual(registration['application_image'],app)
                 entry=next(iter(after['uninstall'].values()))
                 if 'InstallLocation' not in entry and expected=='installed':
                     self.assertEqual(entry['DerivedInstallLocation'],'C:\\Program Files\\Vendor\\App')
+
+    def test_large_application_images_are_identified_within_the_exe_bound(self):
+        # Electron vendor apps such as Native Access exceed the general image bound.
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(session.InstallerWitnesses,'HASH_LIMIT',64), \
+                patch.object(session.InstallerWitnesses,'EXE_HASH_LIMIT',4096):
+            prefix=pathlib.Path(tmp).resolve()/'compatdata/pfx';(prefix/'drive_c/Program Files/V').mkdir(parents=True)
+            (prefix/'system.reg').write_text('');(prefix/'user.reg').write_text('')
+            image=bytearray(128);image[:2]=b'MZ';image[60:64]=(64).to_bytes(4,'little')
+            image[64:68]=b'PE\0\0';image[68:70]=(0x8664).to_bytes(2,'little');image[86:88]=(0x22).to_bytes(2,'little')
+            for name in ('App.exe','Helper.dll'):(prefix/'drive_c/Program Files/V'/name).write_bytes(image)
+            after=session.InstallerWitnesses(prefix.parent.parent).snapshot()
+            self.assertEqual(after['files']['Program Files/V/App.exe']['format'],'pe_executable')
+            self.assertIsNone(after['files']['Program Files/V/Helper.dll']['sha256'])
+            self.assertIn('image_hash_bound',after['incomplete'])
 
     def test_removal_only_durable_surfaces_are_partial_and_keep_exact_delta(self):
         for category,record in [('files',{'sha256':'ab','format':'pe_executable'}),
