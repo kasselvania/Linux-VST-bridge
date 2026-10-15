@@ -92,8 +92,9 @@ fn assisted_target(m: &Manager, directory: &Path, verify_content: bool) -> Resul
     if verify_content {app.verify(&m.root)?;}
     let profile = vendor_profile::native_access()?;
     let capabilities = &managed.capabilities;
-    // The running session's own saved binding decides; an updated bundled
-    // profile of the same id does not orphan a session started before it.
+    // The session was launched with its own saved profile. A manager update
+    // that changes the bundled profile's data (same id) must not cut off the
+    // sign-in return of a session that was already running.
     require(capabilities.schema == 1 && capabilities.profile.id == profile.id
         && capabilities.application == selector && capabilities.profile.browser_scheme == "native-access",
         "native_access_callback_capability")?;

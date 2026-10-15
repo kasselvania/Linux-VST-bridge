@@ -498,9 +498,10 @@ fn register_application(m: &Manager, app: &Application, guard: &Lock) -> Result<
     );
     Ok(())
 }
-fn recheck_bound_assistance(m: &Manager, directory: &Path, app: &Application) -> Result<()> {
+/// True when the previous launch of this exact app had automatic support.
+fn recheck_bound_assistance(m: &Manager, directory: &Path, app: &Application) -> Result<bool> {
     let path=directory.join("operation.json");
-    if !path.exists() { return Ok(()); }
+    if !path.exists() { return Ok(false); }
     let prior:vendor_application::Operation=read_json(&path)?;
     if prior.application.environment==app.environment && prior.application.selector()?==app.selector()? {
         if let Some(managed)=prior.managed {
@@ -510,10 +511,13 @@ fn recheck_bound_assistance(m: &Manager, directory: &Path, app: &Application) ->
             managed.capabilities.verify_callback_inputs(app,&m.root).map_err(|_| -> Box<dyn std::error::Error + Send + Sync> {
                 "The app's recorded files changed. Run its full installer again, or use Choose program to open it directly.".into()
             })?;
+            return Ok(true);
         }
     }
-    Ok(())
+    Ok(false)
 }
+/// An app that had automatic support never silently reopens without it.
+const ASSISTANCE_LOST: &str = "This app had automatic setup before, but its files no longer match what this version of the bridge supports. Run its full installer again, or use Choose program to open it without automatic setup.";
 fn submit_with(report: &Path, operation: &str, managed: bool,
     spawn: impl FnOnce()->std::io::Result<std::process::Child>) -> Result<()> {
     let mut child=match spawn() {
@@ -699,10 +703,11 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             let mode = LaunchMode::action(&args[0])?;
             let app=current_application(m,&record)?;
             app.verify(&m.root)?;
-            recheck_bound_assistance(m,&directory,&app)?;
+            let assisted_before = recheck_bound_assistance(m,&directory,&app)?;
             // Observe resource bytes before admission. A structural nonmatch
             // preserves normal program launch with its specific explanation.
             let inspected = linux_vst_bridge::vendor_profile::inspect(&app, &m.root)?;
+            require(!assisted_before || inspected.capabilities.is_some(), ASSISTANCE_LOST)?;
             let sw = if inspected.capabilities.is_some() || app.user_selection.is_some() {
                 preparation::build::launch_software(m)?
             } else {software(m)?};
@@ -834,7 +839,7 @@ mod tests {
         capabilities.profile.browser_scheme="earlier-scheme".into();
         capabilities.profile_sha256=linux_vst_bridge::vendor_profile::profile_sha256(&capabilities.profile).unwrap();
         save(&job);
-        recheck_bound_assistance(&f.m,&directory,&job.application).unwrap();
+        assert!(recheck_bound_assistance(&f.m,&directory,&job.application).unwrap());
         // Its own files are still checked, and another profile is never adopted.
         let mut other=job.clone();
         other.managed.as_mut().unwrap().capabilities.profile.id="other_vendor".into();
@@ -843,6 +848,23 @@ mod tests {
         save(&job);
         fs::write(&job.managed.as_ref().unwrap().capabilities.resources["resources/app.asar"].artifact.path,b"substituted").unwrap();
         assert!(recheck_bound_assistance(&f.m,&directory,&job.application).is_err());
+    }
+    #[test]
+    fn app_that_had_automatic_setup_never_silently_reopens_without_it() {
+        // An earlier profile revision bound fewer files; the current one needs a
+        // file this app no longer has. Reopening says so instead of dropping support.
+        let (f,mut job)=assisted();let selector=job.application.selector().unwrap();
+        let directory=directory(&f.m,&selector).unwrap();
+        let capabilities=&mut job.managed.as_mut().unwrap().capabilities;
+        let dropped=capabilities.profile.resources.pop().unwrap();
+        fs::remove_file(&capabilities.resources.remove(&dropped).unwrap().artifact.path).unwrap();
+        capabilities.profile_sha256=linux_vst_bridge::vendor_profile::profile_sha256(&capabilities.profile).unwrap();
+        atomic_json(&directory.join("operation.json"),&job).unwrap();
+        assert!(recheck_bound_assistance(&f.m,&directory,&job.application).unwrap());
+        let before=fs::read(directory.join("operation.json")).unwrap();
+        let error=run_selected(&f.m,&["launch".into(),selector.clone()],Some(&random_id().unwrap())).unwrap_err();
+        assert_eq!(error.to_string(),ASSISTANCE_LOST);
+        assert_eq!(before,fs::read(directory.join("operation.json")).unwrap());
     }
     #[test]
     fn empty_generic_cohort_cannot_erase_uncertain_service_custody() {

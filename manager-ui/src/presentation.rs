@@ -78,15 +78,16 @@ pub fn vendor_default_notice(app: &VendorApplication) -> Option<String> {
     let entries = app.details["dependency"]["registry_defaults"].as_array()?;
     let name = &app.name;
     let set = format!("{name}'s download folder was empty, so the bridge set it to the Downloads folder inside {name}'s Windows setup.");
-    entries.iter().find_map(|entry| match (entry["known_folder"].as_str()?, entry["result"].as_str()?,
+    // A missing folder means the launch's settings could not be read at all.
+    entries.iter().find_map(|entry| match (entry["known_folder"].as_str(), entry["result"].as_str()?,
         entry["reason"].as_str()) {
-        ("Downloads", "applied", _) => Some(set.clone()),
-        ("Downloads", "applied_after_service_start", _) => Some(format!(
+        (Some("Downloads"), "applied", _) => Some(set.clone()),
+        (Some("Downloads"), "applied_after_service_start", _) => Some(format!(
             "{set} If downloads still fail, close {name} and open it again once.")),
-        ("Downloads", "failed", Some("cancelled")) => None,
-        ("Downloads", "failed", Some("query_unreadable")) => Some(format!(
+        (_, "failed", Some("cancelled")) => None,
+        (Some("Downloads"), "failed", Some("query_unreadable")) => Some(format!(
             "The bridge couldn't read {name}'s download folder, so it left it unchanged. If downloads fail, set it in {name}'s preferences.")),
-        ("Downloads", "failed", _) => Some(format!(
+        (Some("Downloads") | None, "failed", _) => Some(format!(
             "Couldn't set {name}'s download folder; set it in {name}'s preferences before downloading.")),
         _ => None,
     })
@@ -750,6 +751,10 @@ mod tests {
             "The bridge couldn't read Native Access's download folder, so it left it unchanged. If downloads fail, set it in Native Access's preferences.");
         assert_eq!(vendor_default_notice(&app("failed", Some("cancelled"))), None);
         assert_eq!(vendor_default_notice(&app("already_set", None)), None);
+        let mut unreadable = app("failed", Some("defaults_unavailable"));
+        unreadable.details["dependency"]["registry_defaults"][0]["known_folder"] = serde_json::Value::Null;
+        assert_eq!(vendor_default_notice(&unreadable).unwrap(),
+            "Couldn't set Native Access's download folder; set it in Native Access's preferences before downloading.");
         let mut plain = app("applied", None);
         plain.details = serde_json::json!({"dependency": {"registry_defaults": null}});
         assert_eq!(vendor_default_notice(&plain), None);

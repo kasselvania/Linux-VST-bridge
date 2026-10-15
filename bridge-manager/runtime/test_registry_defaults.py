@@ -253,15 +253,17 @@ class EnsureTimingTests(unittest.TestCase):
         self.settings()
         self.events = []; self.registered = False; self.state = 1
         def command(action):
-            self.events.append(('service', action))
+            self.events.append(('service', action)); self.owner.service_actions_started = True  # as the real command
             if action == 'install': self.daemon.write_bytes(self.bytes); self.registered = True; return None
             if action == 'start': self.state = 4
+            if action == 'stop': self.state = 1
             return {'registration': 'exact' if self.registered else 'absent', 'state': self.state,
                 'image_sha256': self.artifact['sha256'], 'owned_endpoint_mask': 3 if self.state == 4 else 0,
-                'windows_pid': 123 if self.state == 4 else 0}
+                'windows_pid': 123 if self.state == 4 else 0, 'retirement_generation_confirmed': action == 'stop'}
         self.owner.command = command
         self.reg = FakeReg({(s.REGISTRY_SHELL_FOLDERS, GUID): ('REG_SZ', 'C:\\users\\steamuser\\Downloads')})
         def builtin(args, env, deadline):
+            if self.owner.cancelled(): raise s.RegistryDefaultFailure('cancelled')  # as the real builtin
             self.events.append(('registry', args[1])); self.ledger.phase = 'registry_default'
             self.assertEqual((env['LANG'], env['LC_ALL'], env['WINEDEBUG']), ('C.UTF-8', 'C.UTF-8', '-all'))
             self.assertGreater(deadline, time.monotonic())
@@ -319,16 +321,44 @@ class EnsureTimingTests(unittest.TestCase):
         self.owner.ensure(True, ownership.image_identity(self.daemon))
         self.assertEqual(self.outcome(), [{'known_folder': 'Downloads', 'result': 'applied_after_service_start', 'reason': None}])
 
-    def test_stop_during_the_registry_step_stops_before_the_service_install_or_start(self):
+    def stop_during_the_registry_step(self, admitted=None):
         reg = self.reg
         def stopping(args):
             self.stop = True
             return reg(args)
         self.reg = stopping
         with self.assertRaisesRegex(ValueError, 'dependency_cancelled'):
-            self.owner.ensure(True)
+            self.owner.ensure(True, admitted)
         self.assertEqual([event for event in self.events if event[0] == 'service'], [('service', 'query')])
-        self.assertEqual(self.outcome(), [{'known_folder': 'Downloads', 'result': 'applied', 'reason': None}])
+        self.assertEqual(self.outcome(), [{'known_folder': 'Downloads', 'result': 'failed', 'reason': 'cancelled'}])
+        self.assertTrue(self.owner.service_actions_started)
+        # The session still retires cleanly instead of asking for Recover.
+        self.assertTrue(self.owner.retire_service())
+        self.assertIsNone(self.owner.retirement_error)
+
+    def test_stop_during_the_registry_step_in_a_fresh_prefix_retires_cleanly(self):
+        self.stop_during_the_registry_step()
+        self.assertEqual(self.owner.service_possibility, 'proved_absent')
+        self.assertNotIn(('service', 'stop'), self.events)
+
+    def test_stop_during_the_registry_step_with_a_registered_service_takes_the_authorized_stop(self):
+        self.daemon.write_bytes(self.bytes); self.registered = True
+        self.stop_during_the_registry_step(ownership.image_identity(self.daemon))
+        self.assertTrue(self.owner.retirement_authorized)
+        self.assertIn(('service', 'stop'), self.events)
+
+    def test_settings_path_that_is_not_a_plain_file_never_stalls_the_launch(self):
+        path = self.root / 'app' / s.REGISTRY_LAUNCH_SETTINGS
+        for kind in ('fifo', 'link'):
+            with self.subTest(kind=kind):
+                self.events.clear(); self.state = 1; self.registered = False; self.daemon.unlink(missing_ok=True)
+                path.unlink(missing_ok=True)
+                if kind == 'fifo': os.mkfifo(path)
+                else: path.symlink_to(self.root / 'elsewhere.json')
+                self.owner.ensure(True)
+                self.assertTrue(self.owner.ready)
+                self.assertNotIn('registry', {event[0] for event in self.events})
+                self.assertEqual(self.outcome(), [{'known_folder': None, 'result': 'failed', 'reason': 'defaults_unavailable'}])
 
     def test_launch_without_declared_defaults_runs_no_registry_command(self):
         for case in ('empty', 'missing'):
@@ -351,16 +381,22 @@ class EnsureTimingTests(unittest.TestCase):
                 self.assertNotIn('registry', {event[0] for event in self.events})
                 self.assertEqual(self.outcome(), [{'known_folder': None, 'result': 'failed', 'reason': 'defaults_unavailable'}])
 
-    def test_the_step_does_not_become_the_sessions_first_failure(self):
+    def test_only_the_steps_own_reg_exe_exits_are_kept_out_of_the_first_failure(self):
         reg = self.reg
-        def failing(args):
-            self.ledger.first_failure = {'pid': 10, 'start_ticks': 20, 'status': 1, 'phase': 'registry_default'}
-            return reg(args)
-        self.reg = failing
-        self.owner.ensure(True)
-        self.assertIsNone(self.ledger.first_failure)
-        self.assertEqual(self.committed, [1])
-        self.assertEqual(self.ledger.phase, 'dependency_query')
+        for owner_pid, kept in ((10, False), (99, True)):
+            with self.subTest(owner_pid=owner_pid):
+                self.events.clear(); self.state = 1; self.registered = False; self.daemon.unlink(missing_ok=True)
+                self.ledger.first_failure = None; self.committed.clear()
+                def failing(args):
+                    self.owner.registry_clients.append((10, 20))
+                    if self.ledger.first_failure is None:
+                        self.ledger.first_failure = {'pid': owner_pid, 'start_ticks': 20, 'status': 1, 'phase': 'registry_default'}
+                    return reg(args)
+                self.reg = failing
+                self.owner.ensure(True)
+                self.assertEqual(self.ledger.first_failure is not None, kept)
+                self.assertEqual(self.committed, [] if kept else [1])
+                self.assertEqual(self.ledger.phase, 'dependency_query')
 
 
 FORWARDING_CLIENT = r'''
@@ -385,7 +421,7 @@ class BuiltinCommandTests(unittest.TestCase):
         temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
         owner.root = pathlib.Path(temp.name); (owner.root / 'home').mkdir()
         owner.ledger = ownership.InstallerLedger(Scope(), lambda _: None)
-        owner.cancelled = lambda: False
+        owner.cancelled = lambda: False; owner.registry_clients = []
         owner.runtime = type('Runtime', (), {'drain': lambda *_: None,
             'builtin_argv': lambda _, argv, cwd: [sys.executable, '-c', script, *args]})()
         return owner
@@ -424,10 +460,17 @@ class BuiltinCommandTests(unittest.TestCase):
         # ignores the forwarded signal is reached only by the operation cgroup.
         self.assertTrue(alive(self.remote(pidfile)))
 
-    def test_no_command_starts_after_the_deadline(self):
+    def test_no_command_starts_after_the_deadline_or_a_stop(self):
         owner = self.owner('raise SystemExit(0)')
-        with patch.object(s.subprocess, 'Popen', side_effect=AssertionError('started after deadline')):
+        with patch.object(s.subprocess, 'Popen', side_effect=AssertionError('started after deadline or stop')):
             with self.assertRaises(TimeoutError): self.query(owner, deadline=-1)
+            owner.cancelled = lambda: True
+            with self.assertRaisesRegex(s.RegistryDefaultFailure, 'cancelled'): self.query(owner)
+
+    def test_builtin_records_its_own_client_identity(self):
+        owner = self.owner('raise SystemExit(1)')
+        self.query(owner)
+        self.assertEqual(owner.registry_clients, [(owner.ledger.first_failure['pid'], owner.ledger.first_failure['start_ticks'])])
 
 
 def alive(pid):

@@ -4351,7 +4351,7 @@ class Nad1Owner:
         self.process_cleanup_confirmed=False;self.forced_cleanup_used=False;self.retirement_error=None
         self.dependency_cleanup_disposition='cleanup_unconfirmed';self.post_cleanup=None
         self.service_actions_started=False;self.custody_observed_empty=False;self.bound_daemon=None
-        self.registry_defaults_result=None
+        self.registry_defaults_result=None;self.registry_clients=[]
         if contract is not None and contract['dependency']['daemon'] is not None:
             self.bound_daemon=RendererImage(contract['dependency']['daemon'])
     def value(self):
@@ -4570,6 +4570,7 @@ class Nad1Owner:
         signal remains in this operation's cgroup until the session's cleanup.
         """
         if self.runtime is None:raise ValueError('dependency_runtime_not_ready')
+        if self.cancelled():raise RegistryDefaultFailure('cancelled')
         if time.monotonic()>=deadline:raise TimeoutError('registry_default')
         argv=self.runtime.builtin_argv(args,self.root/'home')
         child=subprocess.Popen(argv,cwd=self.root/'home',env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,
@@ -4584,6 +4585,7 @@ class Nad1Owner:
                 buffer.extend(data[:max(0,65536-len(buffer))])
         try:
             self.ledger.launcher(child,'registry_default')
+            self.registry_clients.append((child.pid,self.ledger.launchers[child.pid][1]))
             for name,pipe in (('stdout',child.stdout),('stderr',child.stderr)):
                 os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,name)
             limit=min(deadline,time.monotonic()+REGISTRY_DEFAULT_CALL_SECONDS)
@@ -4614,7 +4616,7 @@ class Nad1Owner:
         if not defaults:return
         # The step's own reg.exe exits (including the expected not-found exit 1)
         # are reported in its outcome, not as the session's first failure.
-        phase=self.ledger.phase;first=self.ledger.first_failure
+        phase=self.ledger.phase;first=self.ledger.first_failure;self.registry_clients=[]
         try:
             deadline=time.monotonic()+REGISTRY_DEFAULT_SECONDS
             try:
@@ -4626,7 +4628,9 @@ class Nad1Owner:
                 results=[registry_default_apply(entry,self.root,lambda args:self.builtin(args,env,deadline)) for entry in defaults]
         finally:
             self.ledger.phase=phase
-            if self.ledger.first_failure is not first:self.ledger.first_failure=first;self.ledger.commit()
+            failure=self.ledger.first_failure
+            if first is None and failure is not None and (failure.get('pid'),failure.get('start_ticks')) in self.registry_clients:
+                self.ledger.first_failure=None;self.ledger.commit()
         self.registry_defaults_result=results
         if any(result['result']=='applied' for result in results) and not self.cancelled():
             # The service may have started (or auto-started) before the write.
@@ -4660,13 +4664,15 @@ class Nad1Owner:
         except Exception as exc:
             if self.session_authority is not None:raise ValueError('dependency_registration_observation_unavailable') from exc
             raise
+        # Retirement authority follows this observation before anything else, so
+        # a Stop during the defaults step below still retires the session.
+        self.service_possibility='proved_absent' if service['registration']=='absent' else 'exact_registered'
+        self.retirement_authorized=service['registration']=='exact'
         # The query brought the Wine session up; settle per-user defaults before
         # any service install or start so the service reads them when it starts.
         if self.managed_contract is not None:
             self.registry_defaults(service)
             if self.cancelled() and not self.retiring:raise ValueError('dependency_cancelled')
-        self.service_possibility='proved_absent' if service['registration']=='absent' else 'exact_registered'
-        self.retirement_authorized=service['registration']=='exact'
         absent=actual is None;unregistered=service['registration']=='absent';owned_start=False
         if unregistered and not absent and (self.session_authority is not None or self.managed_contract is not None):
             self.service_possibility='may_exist';self.retirement_authorized=False
@@ -5108,7 +5114,10 @@ def registry_defaults_admitted(profile):
 def managed_registry_defaults(operation,profile):
     """This launch's declared defaults; none when the manager handed over none."""
     path=pathlib.Path(operation['report']).parent/REGISTRY_LAUNCH_SETTINGS
-    if not path.exists() and not path.is_symlink():return []
+    try:metadata=path.lstat()
+    except FileNotFoundError:return []
+    # Only a plain file is opened: a FIFO or link here cannot stall the launch.
+    if not stat.S_ISREG(metadata.st_mode):raise ValueError('managed_application_profile_defaults_binding')
     value=renderer_read(path)
     if (not isinstance(value,dict) or set(value)!={'schema','operation_id','profile','registry_defaults'} or value['schema']!=1
         or value['operation_id']!=operation['operation_id'] or value['profile']!=profile['id']):
@@ -5240,7 +5249,6 @@ def managed_vendor_inputs(operation):
     if (set(capability)!={'schema','profile','profile_sha256','application','resources','dependency'} or capability['schema']!=1
         or capability['application']!=selector or capability['profile_sha256']!=MANAGED_NATIVE_ACCESS_PROFILE_SHA256
         or hashlib.sha256(canonical(profile)).hexdigest()!=MANAGED_NATIVE_ACCESS_PROFILE_SHA256):raise ValueError('managed_application_profile_definition')
-    registry_defaults_admitted(profile)
     software=launch['software']
     if software!=renderer_launch_software(managed) or operation.get('launcher')!=software.get('installer_launch'):raise ValueError('managed_application_software_changed')
     for role in ('manager','supervisor','ownership','installer_launch'):verify(software[role])
