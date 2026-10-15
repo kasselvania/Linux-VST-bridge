@@ -68,6 +68,6 @@ for dest,name,kind in rows:
  item=dict(destination=dest,source=str(p/name),sha256=sha((p/name).read_bytes()),kind=kind,component='self-service-'+kind,mode='0555' if kind in ('manager','frontend','proxy') else '0444')
  if kind in ('manager','frontend'):item.update(build_head=head,build_tree=tree)
  files.append(item)
-spec=dict(schema=2,version=version,source_head=head,source_tree=tree,operator_schema=operator_schema,external_runtime={'id':'managed-ge-proton11-7-slr4-20260805-r5','manifest_sha256':sha(b'c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0\n3226d8234e7c0542ee767837832bfb1dad5e5e2dc944ec97eb221b437f6b9349\n988fb967608a8c116022c27822647b7a7eda50a283a9e53ee2f22fe299b60f6c\n75dec37c483cf3b69ac177ac73a0eedb0fea6ceaa1556c451ccee51d2cf27749\n')},files=files)
+spec=dict(schema=2,version=version,source_head=head,source_tree=tree,operator_schema=operator_schema,external_runtime={'id':'managed-ge-proton11-7-slr4-20260805-r5','manifest_sha256':sha(b'c5448b76a230384e2d7bc6beb5ccb97bafb7e2c3b6c527cb03a1a546bbcb00a0\n3226d8234e7c0542ee767837832bfb1dad5e5e2dc944ec97eb221b437f6b9349\n988fb967608a8c116022c27822647b7a7eda50a283a9e53ee2f22fe299b60f6c\n4ca51dec54f6085bd2050d8714018c3ba95bae7c00277de31e66d2c3ec7c9058\n')},files=files)
 (b/('package-spec-'+version+'.json')).write_text(json.dumps(spec,sort_keys=True,indent=2))
 print(json.dumps({'head':head,'tree':tree,'files':len(files),'native_engines':1,'delivery':'reusable_engine'}))

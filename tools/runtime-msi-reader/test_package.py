@@ -51,12 +51,14 @@ class SyntheticBuild(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.built = self.root / "build"
         self.source = self.built / "wine"
-        table = self.source / build.TABLE
-        table.parent.mkdir(parents=True)
-        table.write_bytes(b"consumed patched table.c\n")
+        self.changed = list(build.SOURCES)
+        for name in self.changed:
+            path = self.source / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(("consumed patched " + name + "\n").encode())
         (self.built / "build.sh").write_bytes(b"export XDG_CACHE_HOME=/work/cache\n")
         with tarfile.open(self.built / "wine.tar.gz", "w:gz") as archive:
-            for name in [build.TABLE, "COPYING.LIB", "unmodified.c"]:
+            for name in self.changed + ["COPYING.LIB", "unmodified.c"]:
                 add(archive, "wine-" + build.WINE + "/" + name, ("pristine " + name + "\n").encode())
         patches = []
         for name, _, source in build.PATCHES:
@@ -65,7 +67,8 @@ class SyntheticBuild(unittest.TestCase):
         (self.built / "build.py").write_bytes(b"fixture builder\n")
         self.addCleanup(patch.stopall)
         patch.object(build, "ARCHIVE_SHA", build.sha(self.built / "wine.tar.gz")).start()
-        patch.object(build, "TABLE_BLOB_AFTER", build.git_blob(table)).start()
+        sources = {name: ("ab" * 20, build.git_blob(self.source / name)) for name in self.changed}
+        patch.object(build, "SOURCES", sources).start()
         patch.object(build, "PATCHES", patches).start()
         artifacts = {}
         for name, (_, _, machine) in package.FILES.items():
@@ -77,8 +80,11 @@ class SyntheticBuild(unittest.TestCase):
         self.record = {"wine_commit": build.WINE, "sdk_image": build.SDK,
                        "wine_archive_sha256": build.ARCHIVE_SHA,
                        "patches": [dict(file=n, sha256=d, source=s) for n, d, s in patches],
-                       "patched_source": {"path": build.TABLE, "sha256": build.sha(table),
-                                          "git_blob_after": build.TABLE_BLOB_AFTER},
+                       "patched_sources": {name: {"sha256": build.sha(self.source / name),
+                                                  "git_blob_before": before, "git_blob_after": after}
+                                           for name, (before, after) in sources.items()},
+                       "reader_checkpoint": {"after": build.READER_PATCH, "path": build.TABLE,
+                                             "git_blob": build.READER_BLOB},
                        "build_script_sha256": build.sha(self.built / "build.sh"),
                        "builder_sha256": build.sha(self.built / "build.py"),
                        "artifacts": artifacts}
@@ -105,8 +111,9 @@ class CorrespondingSourceTests(SyntheticBuild):
         output = self.root / "source.tar.gz"
         package.source_archive(output, self.built, self.record)
         with tarfile.open(output) as archive:
-            self.assertEqual(archive.extractfile("wine/" + build.TABLE).read(),
-                             (self.source / build.TABLE).read_bytes())
+            for name in self.changed:
+                self.assertEqual(archive.extractfile("wine/" + name).read(),
+                                 (self.source / name).read_bytes())
             self.assertEqual(archive.extractfile("wine/unmodified.c").read(),
                              b"pristine unmodified.c\n")
             self.assertEqual(archive.extractfile("build.sh").read(),
@@ -114,8 +121,8 @@ class CorrespondingSourceTests(SyntheticBuild):
             self.assertEqual(archive.extractfile("SDK.txt").read(), (build.SDK + "\n").encode())
 
     def test_changed_consumed_source_or_recipe_is_rejected_before_archive_creation(self):
-        for path, error in [(self.source / build.TABLE, "consumed source changed"),
-                            (self.built / "build.sh", "consumed build recipe changed")]:
+        for path, error in [(self.source / name, "consumed source changed") for name in self.changed] + [
+                (self.built / "build.sh", "consumed build recipe changed")]:
             with self.subTest(path=path.name):
                 original = path.read_bytes()
                 path.write_bytes(original + b"later edit\n")

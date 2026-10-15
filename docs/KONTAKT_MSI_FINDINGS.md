@@ -234,40 +234,52 @@ the correction from that exact commit. It reuses the
 [UIA reference builder's](RUNTIME_UIA_GUARD.md) source archive digest,
 digest-pinned SDK image and resource caps. It applies, with zero fuzz:
 
+0. wine-staging `msi-cabinet` (Wine bug 50148), verbatim. GE applies staging
+   `6cc805ea` with `--all` minus an exclusion list that does not name it, so
+   GE's stock `msi.dll` contains it;
 1. upstream 24bbf46 (table-stream padding), verbatim;
 2. upstream e013097 (mismatched string-reference widths), verbatim;
-3. the Kontakt ambiguous-width patch above, unchanged.
+3. the Kontakt ambiguous-width patch above, unchanged;
+4. dated LGPL modification notices in `table.c` and `files.c`.
 
-The builder refuses to proceed unless `table.c` matches the expected Git blob
-before (`6031dd9c`) and after (`87e98546`, the patch's own target) patching,
-so the result is the same reader source the Deck runner used. It compiles only
-`msi.dll` for `i386-windows` and `x86_64-windows`, checks each is a Wine builtin
-PE image of the right machine type, and writes `out/` plus
-`build-manifest.json` (commit, archive, image, patch and output digests).
+Every staging patchset GE applies and every GE patch was checked against the
+build's whole `msi.dll` source closure: headers, IDL, import specs, `winecrt0`,
+translations and the build tools. `msi-cabinet` is the only one that changes msi
+code. The other overlaps only add declarations, macros, a structure or exports
+that msi doesn't use, or a `configure` entry for another DLL.
+
+The builder checks the Git blobs of `table.c` and `files.c` before and after
+patching. It also checks that `table.c` equals the Kontakt patch's own target
+(`87e98546`) right after step 3, so the reader is the one the Deck runner used.
+It compiles only `msi.dll` for `i386-windows` and `x86_64-windows`, links without
+a PE timestamp, checks each is a Wine builtin PE image of the right machine
+type, and writes `out/` plus `build-manifest.json`.
 
 ```sh
 python3 -I tools/runtime-msi-reader/build.py --output <new empty directory>
 ```
 
-`--wine-archive` reuses a local copy of the verified source archive. The first
-build on 2026-10-15 took about two minutes:
+`--wine-archive` reuses a local copy of the verified source archive. A build
+takes about two minutes. Two clean builds are bit-identical:
 
 | Module | Bytes | SHA-256 |
 | --- | ---: | --- |
-| `i386-windows/msi.dll` | 5,610,374 | `e0208ffa8bed1e88ad35220a8d1f4ce5639186edca8301c340b457cf327a97e4` |
-| `x86_64-windows/msi.dll` | 6,963,887 | `38aba54be5e88ea1903bf9f3cb43ff155833364e19c21368f16f027e60a36ff0` |
+| `i386-windows/msi.dll` | 5,610,374 | `6742996548e69300b772ba3923cdc02d9708ca86da403b13c60fdcb5cbfed795` |
+| `x86_64-windows/msi.dll` | 6,963,887 | `0b1fd33c7d991206e2d324efdcad1c99b26d4fb71b3c7a70d546791ff5ad6948` |
 
 The modules keep debug information, so they are larger than GE's stripped
 release modules; their imported DLLs and exported names match GE's stock
-`msi.dll` for both architectures. A second clean build differed from the first
-only in the PE link timestamp and header checksum (3 bytes per module). Both
-modules carry the correction; the Deck runner's 64-bit module did not.
+`msi.dll` for both architectures. Both modules carry the correction; the Deck
+runner's 64-bit module did not.
 
-On a fresh CachyOS GE-Proton11-7 Native Access prefix, with these two modules
-as a prefix-only native override, Native Access's Kontakt 8.13.1 reinstall
-rewrote `Kontakt 8.exe` and `Kontakt 8.vst3`; stock GE `msi.dll` wrote nothing.
-InstallAware reported exit 100 in both cases, so deployed files, not the exit
-code, are the result.
+The first build (without `msi-cabinet`, notices or the timestamp flag;
+`e0208ffa…` x86, `38aba54b…` x64) was tested on a fresh CachyOS GE-Proton11-7
+Native Access prefix as a prefix-only native override. Native Access's Kontakt
+8.13.1 reinstall rewrote `Kontakt 8.exe` and `Kontakt 8.vst3`; stock GE
+`msi.dll` wrote nothing. InstallAware reported exit 100 in both cases, so
+deployed files, not the exit code, are the result. The current modules have the
+same table reader plus GE's own cabinet check; they have not yet run that
+installer.
 
 Source posture is the same as [RUNTIME_UIA_GUARD.md](RUNTIME_UIA_GUARD.md): the
 changes are LGPL-2.1-or-later Wine code, the builder copies Wine's
@@ -282,13 +294,14 @@ the same way as the UIA component. It checks the exact GE archive, both stock
 `msi.dll` preimages (`fa193d0a…` x86, `08a1f048…` x64) and that every import
 resolves in GE's builtin DLL tree of the same architecture. It then bundles the
 two modules, the complete patched Wine source (pristine archive with only
-`dlls/msi/table.c` replaced, plus `build.sh` and `SDK.txt`), the builder, the
-three patches, the build record, notices and `COPYING.LIB`. Output is
-deterministic; two packaging runs gave identical bytes. Tests:
+`dlls/msi/table.c` and `dlls/msi/files.c` replaced, plus `build.sh` and
+`SDK.txt`), the builder, the five patches, the build record, notices recording
+the GE/staging check, and `COPYING.LIB`. Packaging two independent builds gave
+identical bytes. Tests:
 `python3 -m unittest discover -s tools/runtime-msi-reader -p 'test_*.py'`.
 
-The sealed component is 59,651,376 bytes, SHA-256
-`75dec37c483cf3b69ac177ac73a0eedb0fea6ceaa1556c451ccee51d2cf27749`, for release
+The sealed component is 59,653,803 bytes, SHA-256
+`4ca51dec54f6085bd2050d8714018c3ba95bae7c00277de31e66d2c3ec7c9058`, for release
 tag `runtime-msi-r5`. Managed revision
 `managed-ge-proton11-7-slr4-20260805-r5` acquires GE, SLR, the r4 UIA guard and
 this component. Before any byte changes, it checks every component and every

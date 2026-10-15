@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Build Wine's MSI module with the Kontakt table-reader correction.
 
-Source is GE-Proton11-7's exact Wine submodule commit. Two upstream Wine MSI
-commits and the narrow ambiguous string-reference correction are applied, then
-only msi.dll is compiled for i386-windows and x86_64-windows in the pinned SDK.
+Source is GE-Proton11-7's exact Wine submodule commit plus the one wine-staging
+MSI change GE applies. Two upstream Wine MSI commits, the narrow ambiguous
+string-reference correction and dated LGPL modification notices follow. Only
+msi.dll is compiled, for i386-windows and x86_64-windows, in the pinned SDK.
 
 This produces reference DLLs and a manifest. It never adopts a runner or
 touches a prefix. Wine source and binaries stay outside the proprietary build.
@@ -24,11 +25,20 @@ ARCHIVE_URL = "https://codeload.github.com/ValveSoftware/wine/tar.gz/" + WINE
 ARCHIVE_SHA = "7962bca6cb05628a56cc03008ea7af6cee7245f5b98a828452465e2775e18340"
 SDK = "registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:6c1789cad862fd8ed9d46d71bbf8752bb7cb2336ab5e9680c0f0e3e7c88d77f1"
 TABLE = "dlls/msi/table.c"
-# Git blob IDs of table.c: GE's pristine file equals the parent of 24bbf46, and
-# the fully patched file equals the target recorded in the Kontakt patch.
-TABLE_BLOB_BEFORE = "6031dd9c80582d03c616408950ada043c520ca4a"
-TABLE_BLOB_AFTER = "87e9854679255706253001714380774f087e1223"
+# Git blob IDs (pristine, fully patched) of every changed file. Pristine table.c
+# equals the parent of 24bbf46.
+SOURCES = {
+    TABLE: ("6031dd9c80582d03c616408950ada043c520ca4a", "1fed69f5c2cb1f21a29667b68228176d99f01f7b"),
+    "dlls/msi/files.c": ("e7686d07627d93ce9ec6a106bb78270b1e8ed7bb", "d81163ac1b4f4fdab4ef1b2dbb4454722408107a"),
+}
+# After the Kontakt patch, table.c is the exact reader the Deck runner used
+# (the patch's own target blob); only the notice comment follows.
+READER_PATCH = "0003-kontakt-msi-ambiguous-strrefs.patch"
+READER_BLOB = "87e9854679255706253001714380774f087e1223"
 PATCHES = [
+    ("0000-staging-msi-cabinet.patch",
+     "24e2a1f32b96f2e377038333027469aabc5bbdda69a72848e62de00df1609ace",
+     "wine-staging 6cc805ea57132eeaf44764e9213823c9b8d0d300 msi-cabinet, applied by GE-Proton11-7"),
     ("0001-upstream-24bbf46-table-stream-padding.patch",
      "63d9d4f5968e502186b9a3711d6daa03fc67394e892bf485496097f5080965e5",
      "ValveSoftware/wine 24bbf46c6f055077df428341595873fe23475a60"),
@@ -38,6 +48,9 @@ PATCHES = [
     ("0003-kontakt-msi-ambiguous-strrefs.patch",
      "ed4a47d3b167f711088251f56f6377347a8539d4c308281c55f92825a174d979",
      "Linux-VST-bridge; see docs/KONTAKT_MSI_FINDINGS.md"),
+    ("0004-lgpl-modification-notices.patch",
+     "6e9258da9e5b6a8b0bdba44939d2dd95009f77f1ac53076a2691ccebafc4ec11",
+     "Linux-VST-bridge; dated LGPL-2.1 section 2(a) notices"),
 ]
 ARTIFACTS = {
     "i386-windows/msi.dll": ("obj/dlls/msi/i386-windows/msi.dll", 0x014C),
@@ -52,7 +65,7 @@ tools/make_requests > /work/request-generation.log 2>&1
 autoreconf -fi > /work/autoconf.log 2>&1
 mkdir /work/obj
 cd /work/obj
-../wine/configure --enable-win64 --enable-archs=i386,x86_64 --with-mingw=gcc --without-x --without-wayland > /work/configure.log 2>&1
+../wine/configure --enable-win64 --enable-archs=i386,x86_64 --with-mingw=gcc --without-x --without-wayland CROSSLDFLAGS=-Wl,--no-insert-timestamp > /work/configure.log 2>&1
 make -j2 dlls/msi/i386-windows/msi.dll dlls/msi/x86_64-windows/msi.dll > /work/make.log 2>&1
 """
 
@@ -116,14 +129,18 @@ def main():
                 raise ValueError("source archive root")
             member.name = member.name[len(prefix):]
             tar.extract(member, source, filter="data")
-    if git_blob(source / TABLE) != TABLE_BLOB_BEFORE:
-        raise ValueError("unexpected pristine " + TABLE)
+    for name, (before, _) in SOURCES.items():
+        if git_blob(source / name) != before:
+            raise ValueError("unexpected pristine " + name)
     for name, _, _ in PATCHES:
         subprocess.run(["patch", "--batch", "--fuzz=0", "-p1", "-i", str(here / name)],
                        cwd=source, check=True, timeout=30)
-    if git_blob(source / TABLE) != TABLE_BLOB_AFTER:
-        raise ValueError("unexpected patched " + TABLE)
-    table_sha = sha(source / TABLE)
+        if name == READER_PATCH and git_blob(source / TABLE) != READER_BLOB:
+            raise ValueError("unexpected reader " + TABLE)
+    for name, (_, after) in SOURCES.items():
+        if git_blob(source / name) != after:
+            raise ValueError("unexpected patched " + name)
+    consumed = {name: sha(source / name) for name in SOURCES}
     for path in [Path(__file__).resolve()] + [here / name for name, _, _ in PATCHES]:
         shutil.copyfile(path, root / path.name)
     shutil.copyfile(source / "COPYING.LIB", root / "COPYING.LIB")
@@ -138,7 +155,8 @@ def main():
                     "--env", "XDG_CACHE_HOME=/work/cache",
                     "--entrypoint", "/bin/sh", "--volume",
                     str(root) + ":/work", SDK, "/work/build.sh"], check=True, timeout=3600)
-    if sha(script) != script_sha or sha(source / TABLE) != table_sha:
+    if sha(script) != script_sha or any(sha(source / name) != digest
+                                      for name, digest in consumed.items()):
         raise ValueError("consumed source or build recipe changed during compilation")
     artifacts = {}
     out = root / "out"
@@ -156,9 +174,11 @@ def main():
                 "wine_archive_sha256": ARCHIVE_SHA, "sdk_image": SDK,
                 "patches": [{"file": name, "sha256": digest, "source": source_ref}
                             for name, digest, source_ref in PATCHES],
-                "patched_source": {"path": TABLE, "sha256": table_sha,
-                                   "git_blob_before": TABLE_BLOB_BEFORE,
-                                   "git_blob_after": TABLE_BLOB_AFTER},
+                "patched_sources": {name: {"sha256": consumed[name], "git_blob_before": before,
+                                           "git_blob_after": after}
+                                    for name, (before, after) in SOURCES.items()},
+                "reader_checkpoint": {"after": READER_PATCH, "path": TABLE,
+                                      "git_blob": READER_BLOB},
                 "license": "LGPL-2.1-or-later", "build_script_sha256": script_sha,
                 "builder_sha256": sha(root / "build.py"),
                 "artifacts": artifacts, "adopts_runtime": False}

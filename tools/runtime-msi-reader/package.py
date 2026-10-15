@@ -29,9 +29,11 @@ FILES = {
 # exactly these roles.
 ROLES = {
     "source": "wine-source.tar.gz", "recipe": "build.py", "build_record": "build-manifest.json",
-    "upstream_padding_patch": build.PATCHES[0][0],
-    "upstream_strref_width_patch": build.PATCHES[1][0],
-    "ambiguous_strref_patch": build.PATCHES[2][0],
+    "staging_cabinet_patch": build.PATCHES[0][0],
+    "upstream_padding_patch": build.PATCHES[1][0],
+    "upstream_strref_width_patch": build.PATCHES[2][0],
+    "ambiguous_strref_patch": build.PATCHES[3][0],
+    "modification_notice_patch": build.PATCHES[4][0],
     "notices": "THIRD_PARTY_NOTICES.txt", "license": "COPYING.LIB",
 }
 
@@ -97,14 +99,16 @@ def add_bytes(tar, name, data, mode=0o644):
 
 
 def source_archive(output, built, record):
-    # Use the pinned pristine source, replacing precisely the changed file.
+    # Use the pinned pristine source, replacing precisely the changed files.
     # Generated files, object files and diagnostics are never sources.
     prefix = "wine-" + build.WINE + "/"
-    changed_path = built / "wine" / build.TABLE
-    if (build.sha(changed_path) != record["patched_source"]["sha256"]
-            or build.git_blob(changed_path) != build.TABLE_BLOB_AFTER):
-        raise ValueError("consumed source changed")
-    changed = {build.TABLE: changed_path.read_bytes()}
+    changed = {}
+    for name, (_, after) in build.SOURCES.items():
+        path = built / "wine" / name
+        if (build.sha(path) != record["patched_sources"][name]["sha256"]
+                or build.git_blob(path) != after):
+            raise ValueError("consumed source changed")
+        changed[name] = path.read_bytes()
     recipe = built / "build.sh"
     if build.sha(recipe) != record["build_script_sha256"]:
         raise ValueError("consumed build recipe changed")
@@ -144,7 +148,10 @@ def package(built, ge_archive, output):
             or record["wine_archive_sha256"] != build.ARCHIVE_SHA
             or record["patches"] != [dict(file=name, sha256=digest, source=source)
                                      for name, digest, source in build.PATCHES]
-            or record["patched_source"]["git_blob_after"] != build.TABLE_BLOB_AFTER
+            or {name: (row["git_blob_before"], row["git_blob_after"])
+                for name, row in record["patched_sources"].items()} != build.SOURCES
+            or record["reader_checkpoint"] != {"after": build.READER_PATCH, "path": build.TABLE,
+                                               "git_blob": build.READER_BLOB}
             or set(record["artifacts"]) != set(FILES)):
         raise ValueError("build inputs changed")
     imports = {}
@@ -188,11 +195,14 @@ def package(built, ge_archive, output):
         "Wine MSI table-reader correction, 2026-10-15\n"
         "i386-windows/msi.dll, x86_64-windows/msi.dll and Wine source: LGPL-2.1-or-later.\n"
         "The complete patched Wine source is wine-source.tar.gz; original copyright and\n"
-        "license notices are retained. Only dlls/msi/table.c differs from the pinned Wine\n"
-        "source. It carries upstream Wine commits 24bbf46c6f055077df428341595873fe23475a60\n"
-        "(table-stream padding) and e0130972d5ffe578a4a25d75f4c1d0229c880a8c (mismatched\n"
-        "string-reference widths), then the Linux-VST-bridge ambiguous string-reference\n"
-        "check, modified 2026-09-18. The three patch files identify each change.\n"
+        "license notices are retained. Only dlls/msi/table.c and dlls/msi/files.c differ\n"
+        "from the pinned Wine source; each carries a dated modification notice. files.c\n"
+        "carries wine-staging's msi-cabinet change (Wine bug 50148), which GE-Proton11-7\n"
+        "applies. table.c carries upstream Wine commits\n"
+        "24bbf46c6f055077df428341595873fe23475a60 (table-stream padding) and\n"
+        "e0130972d5ffe578a4a25d75f4c1d0229c880a8c (mismatched string-reference widths),\n"
+        "then the Linux-VST-bridge ambiguous string-reference check. The five patch files\n"
+        "identify each change in order.\n"
         "COPYING.LIB carries the license. The archive includes build.sh and SDK.txt to\n"
         "compile from that source directly; extract it into a fresh /work volume and run\n"
         "build.sh in the pinned SDK container with XDG_CACHE_HOME=/work/cache.\n"
@@ -200,8 +210,20 @@ def package(built, ge_archive, output):
         "build.py and the exact patches also reproduce from the pinned Wine input.\n"
         "Wine commit: " + build.WINE + "\nSDK: " + build.SDK + "\n"
         "GE-Proton11-7 source commit: c191f35dcebbeccfacd3b4c6f6eea026e588c1c2\n"
-        "The modules use the included isolated build recipe and keep debug information;\n"
-        "there is no claim of byte-identical reproduction of GE's release build.\n"
+        "Wine-staging revision: 6cc805ea57132eeaf44764e9213823c9b8d0d300\n"
+        "GE applies wine-staging with patchinstall.py --all minus the -W list in\n"
+        "patches/protonprep-valve-staging.sh, then its own patches. Every staging patchset\n"
+        "GE applies and every GE patch was checked against this build's msi.dll source\n"
+        "closure: dlls/msi, the headers and IDL it includes, import-library specs,\n"
+        "winecrt0, translations and the widl/winebuild/wrc/winegcc tools. Only\n"
+        "staging msi-cabinet changes msi code; it is included. GE's remaining intersecting\n"
+        "changes (ntdll-export-PsCreateSystemThread, crypt32-reject-ncrypt-only-private-keys,\n"
+        "crypt32-wc3-modern-chain-engine-config, version-GetFileVersionInfoByHandle-stub,\n"
+        "kernel32 IsNativeVhdBoot stub, RSX3D configure entry) only add declarations,\n"
+        "macros, structures or exports msi does not use, or Unix-only declarations.\n"
+        "The modules use the included isolated build recipe, link without a PE timestamp\n"
+        "and keep debug information; there is no claim of byte-identical reproduction of\n"
+        "GE's release build.\n"
         "Install only in NEW private staging after checking the exact GE archive and both\n"
         "MSI preimages. Replace files/lib/wine/{i386,x86_64}-windows/msi.dll; seal and\n"
         "bind the entire new runtime tree. Do not replace an installed runner or copy a\n"

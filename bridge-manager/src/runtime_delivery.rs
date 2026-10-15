@@ -43,8 +43,9 @@ struct Correction { root: &'static str, artifacts: &'static [&'static str] }
 const UIA_GUARD: Correction = Correction {root:"uia-guard",
     artifacts:&["test","source","recipe","patch","guard_source","notices","license"]};
 const MSI_READER: Correction = Correction {root:"msi-reader",
-    artifacts:&["source","recipe","build_record","upstream_padding_patch",
-        "upstream_strref_width_patch","ambiguous_strref_patch","notices","license"]};
+    artifacts:&["source","recipe","build_record","staging_cabinet_patch","upstream_padding_patch",
+        "upstream_strref_width_patch","ambiguous_strref_patch","modification_notice_patch",
+        "notices","license"]};
 #[derive(Clone)]
 struct Revision {
     id: &'static str,
@@ -62,8 +63,8 @@ fn revisions() -> Vec<Revision> {
     let mut msi_reader=corrected.clone();
     msi_reader.push(Download {
         url:"https://github.com/kasselvania/Linux-VST-bridge/releases/download/runtime-msi-r5/msi-reader.tar.gz".into(),
-        sha256:"75dec37c483cf3b69ac177ac73a0eedb0fea6ceaa1556c451ccee51d2cf27749".into(),
-        size:59651376,root:"msi-reader".into(),compression:"gzip".into(),
+        sha256:"4ca51dec54f6085bd2050d8714018c3ba95bae7c00277de31e66d2c3ec7c9058".into(),
+        size:59653803,root:"msi-reader".into(),compression:"gzip".into(),
     });
     vec![Revision { id:ID,
         version:"GE-Proton11-7; SLR 4.0.20260805.254769; managed download v3",
@@ -81,6 +82,8 @@ fn recommended() -> Revision {
     revisions().pop().expect("declared runtime revision")
 }
 pub fn recommended_id() -> &'static str {recommended().id}
+#[cfg(test)]
+pub(crate) fn revision_ids() -> Vec<&'static str> {revisions().iter().map(|revision|revision.id).collect()}
 pub fn recommended_downloads() -> Vec<Download> {recommended().downloads}
 fn revision_record_path(m: &Manager, revision: &Revision) -> PathBuf {
     m.root.join("runners").join(revision.id).join("runtime.json")
@@ -908,6 +911,27 @@ mod tests {
         revision.downloads.pop();
         assert!(compose_components(&stage,&revision,&mut rows).unwrap_err().to_string()
             .contains("guard_component_binding"));
+    }
+    #[test]
+    fn components_replacing_the_same_file_refuse_before_any_byte_changes() {
+        let tmp=Scratch::new();
+        let (stage,revision,mut rows)=composition_fixture(&tmp,"managed-msi-test",&[UIA_GUARD,MSI_READER]);
+        // The MSI component claims the UIA file with a valid preimage and source.
+        let path=stage.join("msi-reader/manifest.json");
+        let mut manifest:serde_json::Value=read_json(&path).unwrap();
+        manifest["files"][0]["path"]=serde_json::json!(UIA_FILES[0].0);
+        manifest["files"][0]["original_sha256"]=serde_json::json!(hex(&Sha256::digest(UIA_FILES[0].1)));
+        fs::set_permissions(&path,fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&path,serde_json::to_vec(&manifest).unwrap()).unwrap();
+        fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
+        let before=rows.iter().map(|row|row.sha256.clone()).collect::<Vec<_>>();
+        let error=compose_components(&stage,&revision,&mut rows).unwrap_err().to_string();
+        assert!(error.contains("runtime_guard_replacement_identity"),"{error}");
+        assert_eq!(rows.iter().map(|row|row.sha256.clone()).collect::<Vec<_>>(),before);
+        for &(path,original,_,_) in UIA_FILES.iter().chain(MSI_FILES) {
+            assert_eq!(fs::read(stage.join(GE).join(path)).unwrap(),original);
+        }
+        assert!(!stage.join(GE).join("native-command-session.json").exists());
     }
     #[test]
     fn msi_reader_revision_is_recommended_without_changing_prior_identities() {

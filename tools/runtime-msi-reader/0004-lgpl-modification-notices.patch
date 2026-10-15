@@ -1,0 +1,22 @@
+--- a/dlls/msi/files.c
++++ b/dlls/msi/files.c
+@@ -2,6 +2,8 @@
+  * Implementation of the Microsoft Installer (msi.dll)
+  *
+  * Copyright 2005 Aric Stewart for CodeWeavers
++ * Modified 2026-10-15: extract patch files only when a cabinet exists
++ * (wine-staging msi-cabinet, Wine bug 50148).
+  *
+  * This library is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU Lesser General Public
+--- a/dlls/msi/table.c
++++ b/dlls/msi/table.c
+@@ -2,6 +2,8 @@
+  * Implementation of the Microsoft Installer (msi.dll)
+  *
+  * Copyright 2002-2005 Mike McCormack for CodeWeavers
++ * Modified 2026-10-15: accept padded and narrow string-reference table streams
++ * (Wine 24bbf46, e013097) and check ambiguous string-reference widths.
+  *
+  * This library is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU Lesser General Public
