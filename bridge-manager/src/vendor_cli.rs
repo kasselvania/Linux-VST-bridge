@@ -672,6 +672,12 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
                 None => random_id()?,
             };
             let supervised_service = managed.is_some();
+            if let Some(launch) = &managed {
+                // Launch-time profile settings stay beside the saved binding,
+                // never inside it, so rolled-back managers still read it.
+                atomic_json(&directory.join(linux_vst_bridge::vendor_profile::LAUNCH_SETTINGS),
+                    &linux_vst_bridge::vendor_profile::launch_settings(&launch.capabilities.profile, &operation_id)?)?;
+            }
             atomic_json(
                 &job,
                 &vendor_application::Operation {application:app,
@@ -729,6 +735,28 @@ mod tests {
             assert!(run_selected(&f.m,&["launch".into(),selector.clone()],Some(&random_id().unwrap())).is_err());
             assert_eq!(before,fs::read(directory(&f.m,&selector).unwrap().join("operation.json")).unwrap());
         }
+    }
+    #[test]
+    fn launch_saved_under_an_earlier_profile_revision_still_opens_after_an_update() {
+        // Profile data improves with updates; the previous launch record of the
+        // same profile is rechecked against its own bound files, not refused.
+        let (f,mut job)=assisted();let selector=job.application.selector().unwrap();
+        let directory=directory(&f.m,&selector).unwrap();
+        let save=|job:&vendor_application::Operation|atomic_json(&directory.join("operation.json"),job).unwrap();
+        let capabilities=&mut job.managed.as_mut().unwrap().capabilities;
+        capabilities.profile.rendering=ui::RendererPolicy::Inherited;
+        capabilities.profile.browser_scheme="earlier-scheme".into();
+        capabilities.profile_sha256=linux_vst_bridge::vendor_profile::profile_sha256(&capabilities.profile).unwrap();
+        save(&job);
+        recheck_bound_assistance(&f.m,&directory,&job.application).unwrap();
+        // Its own files are still checked, and another profile is never adopted.
+        let mut other=job.clone();
+        other.managed.as_mut().unwrap().capabilities.profile.id="other_vendor".into();
+        save(&other);
+        assert!(recheck_bound_assistance(&f.m,&directory,&job.application).is_err());
+        save(&job);
+        fs::write(&job.managed.as_ref().unwrap().capabilities.resources["resources/app.asar"].artifact.path,b"substituted").unwrap();
+        assert!(recheck_bound_assistance(&f.m,&directory,&job.application).is_err());
     }
     #[test]
     fn empty_generic_cohort_cannot_erase_uncertain_service_custody() {

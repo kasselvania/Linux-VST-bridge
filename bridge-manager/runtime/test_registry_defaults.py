@@ -138,6 +138,9 @@ class RegistryDefaultTests(unittest.TestCase):
             ('exit 1 without reg.exe not-found text', {0: (1, b'', traceback)}),
             ('exit 1 with a value line', {0: (1, row, NOT_FOUND)}),
             ('exit 0 with no value line', {0: (0, b'\r\nHKEY_CURRENT_USER\\Software\r\n\r\n', b'')}),
+            ('empty value without the blank terminator', {0: (0, b'\r\nHKEY_CURRENT_USER\\Software\r\n    DownloadLocation    REG_SZ    \r\n', b'')}),
+            ('empty value cut after its line', {0: (0, b'    DownloadLocation    REG_SZ', b'')}),
+            ('empty value followed by more text', {0: (0, b'    DownloadLocation    REG_SZ    \r\nmore\r\n', b'')}),
             ('other exit code', {0: (5, b'', b'')}),
             ('two value lines', {0: (0, row + row, b'')}),
             ('transient failure on the second reading', {2: (1, b'', b'wine: could not load kernel32.dll\n')}),
@@ -185,6 +188,17 @@ class RegistryDefaultTests(unittest.TestCase):
         (self.user / 'Downloads').symlink_to(inside)
         self.assertEqual(self.apply(FakeReg(self.values()))['result'], 'applied')
 
+    def test_user_folder_reached_through_a_link_outside_the_setup_is_not_touched(self):
+        outside = tempfile.TemporaryDirectory(); self.addCleanup(outside.cleanup)
+        elsewhere = pathlib.Path(outside.name).resolve()
+        (elsewhere / 'users/steamuser').mkdir(parents=True)
+        root = self.root / 'linked'; (root / 'compatdata/pfx').mkdir(parents=True)
+        (root / 'compatdata/pfx/drive_c').symlink_to(elsewhere)
+        reg = FakeReg(self.values())
+        self.assertEqual(s.registry_default_apply(DEFAULT, root, reg), self.failed('download_folder_outside_setup'))
+        self.assertEqual(reg.adds(), [])
+        self.assertFalse((elsewhere / 'users/steamuser/Downloads').exists())
+
     def test_failures_are_reported_and_never_raise(self):
         for case, reg, reason in [
             ('timeout', FakeReg(script={0: TimeoutError()}), 'timeout'),
@@ -204,14 +218,6 @@ class RegistryDefaultTests(unittest.TestCase):
             if args[1] == 'add': unconfirmed.values.pop((DEFAULT['key'].lower(), 'downloadlocation'))
             return result
         self.assertEqual(self.apply(lost), self.failed('write_unconfirmed'))
-
-    def test_only_reg_exe_not_found_readings_are_expected_exits(self):
-        expected = []
-        self.apply(FakeReg(self.values()), absent=lambda: expected.append(1))
-        self.assertEqual(len(expected), 2)  # the value, read twice before the write
-        expected.clear()
-        self.apply(FakeReg(self.values(), script={0: (1, b'', b'Traceback\n')}), absent=lambda: expected.append(1))
-        self.assertEqual(expected, [])
 
     def test_builtin_argv_refuses_any_other_command(self):
         runtime = object.__new__(s.Nad1Runtime)
@@ -233,11 +239,18 @@ class EnsureTimingTests(unittest.TestCase):
         self.bytes = bytearray(256); self.bytes[:2] = b'MZ'; struct.pack_into('<I', self.bytes, 60, 64)
         self.bytes[64:68] = b'PE\0\0'; self.bytes[68:70] = b'\x64\x86'; self.installer.write_bytes(self.bytes)
         self.artifact = ownership.image_identity(self.installer)
-        spec = {'operation': 'a' * 32, 'report': str(self.root / 'result.json'), 'application': {'environment': {'root': str(self.root)}}}
+        self.operation = {'operation_id': 'b' * 32, 'report': str(self.root / 'app/operation-result.json')}
+        (self.root / 'app').mkdir()
+        spec = {'operation': 'a' * 32, 'report': str(self.root / 'result.json'), 'application': {'environment': {'root': str(self.root)}},
+            'managed_operation': self.operation}
         fixture = {'installer': 'Setup.exe', 'daemon': 'NTKDaemon.exe', 'installer_sha256': self.artifact['sha256'], 'installer_size': 256}
-        self.ledger = type('Ledger', (), {'harvest': lambda _: None, 'phase': 'dependency_query', 'first_failure': None})()
-        self.owner = s.Nad1Owner(spec, self.ledger, None, lambda: False, fixture=fixture)
-        self.owner.managed_contract = {'fixture': 'managed', 'profile': PROFILE}
+        self.committed = []
+        self.ledger = type('Ledger', (), {'harvest': lambda _: None, 'phase': 'dependency_query', 'first_failure': None,
+            'commit': lambda _: self.committed.append(1)})()
+        self.stop = False
+        self.owner = s.Nad1Owner(spec, self.ledger, None, lambda: self.stop, fixture=fixture)
+        self.owner.managed_contract = {'fixture': 'managed', 'profile': {k: v for k, v in PROFILE.items() if k != 'registry_defaults'}}
+        self.settings()
         self.events = []; self.registered = False; self.state = 1
         def command(action):
             self.events.append(('service', action))
@@ -261,6 +274,12 @@ class EnsureTimingTests(unittest.TestCase):
         for patcher in (patch.object(ownership, 'census', side_effect=scan), patch.object(s, 'nad1_generation_owned', return_value=True),
                         patch.object(s, 'environment', return_value={'PATH': '/usr/bin', 'LANG': 'C.UTF-8'})):
             patcher.start(); self.addCleanup(patcher.stop)
+
+    def settings(self, defaults=None, **changes):
+        """The manager's launch-time settings file beside operation.json."""
+        value = {'schema': 1, 'operation_id': self.operation['operation_id'], 'profile': PROFILE['id'],
+            'registry_defaults': PROFILE['registry_defaults'] if defaults is None else defaults, **changes}
+        (self.root / 'app' / s.REGISTRY_LAUNCH_SETTINGS).write_text(json.dumps(value))
 
     def outcome(self): return self.owner.value()['registry_defaults']
 
@@ -290,24 +309,58 @@ class EnsureTimingTests(unittest.TestCase):
         self.assertEqual(self.outcome(), [{'known_folder': 'Downloads', 'result': 'failed', 'reason': 'timeout'}])
         self.assertEqual(self.ledger.phase, 'dependency_query')
 
-    def test_profile_without_defaults_runs_no_registry_command(self):
-        self.owner.managed_contract = {'fixture': 'managed', 'profile': {k: v for k, v in PROFILE.items() if k != 'registry_defaults'}}
-        self.owner.ensure(True)
-        self.assertNotIn('registry', {event[0] for event in self.events})
-        self.assertIsNone(self.outcome())
+    def test_service_that_starts_on_its_own_during_the_write_is_reported(self):
+        self.daemon.write_bytes(self.bytes); self.registered = True
+        command = self.owner.command
+        def autostart(action):
+            if action == 'query' and ('registry', 'add') in self.events: self.state = 4
+            return command(action)
+        self.owner.command = autostart
+        self.owner.ensure(True, ownership.image_identity(self.daemon))
+        self.assertEqual(self.outcome(), [{'known_folder': 'Downloads', 'result': 'applied_after_service_start', 'reason': None}])
 
-    def test_expected_not_found_exit_is_not_the_ledger_first_failure(self):
-        committed = []
-        ledger = type('Ledger', (), {'commit': lambda _: committed.append(1)})()
-        self.owner.ledger = ledger; self.owner.builtin_identity = (10, 20)
-        for failure, kept in [({'pid': 10, 'start_ticks': 20, 'status': 1}, False),
-                              ({'pid': 10, 'start_ticks': 20, 'status': 2}, True),
-                              ({'pid': 11, 'start_ticks': 20, 'status': 1}, True)]:
-            with self.subTest(failure=failure):
-                ledger.first_failure = dict(failure)
-                self.owner._builtin_absent()
-                self.assertEqual(ledger.first_failure, failure if kept else None)
-        self.assertEqual(len(committed), 1)
+    def test_stop_during_the_registry_step_stops_before_the_service_install_or_start(self):
+        reg = self.reg
+        def stopping(args):
+            self.stop = True
+            return reg(args)
+        self.reg = stopping
+        with self.assertRaisesRegex(ValueError, 'dependency_cancelled'):
+            self.owner.ensure(True)
+        self.assertEqual([event for event in self.events if event[0] == 'service'], [('service', 'query')])
+        self.assertEqual(self.outcome(), [{'known_folder': 'Downloads', 'result': 'applied', 'reason': None}])
+
+    def test_launch_without_declared_defaults_runs_no_registry_command(self):
+        for case in ('empty', 'missing'):
+            with self.subTest(case=case):
+                self.events.clear(); self.state = 1; self.registered = False; self.daemon.unlink(missing_ok=True)
+                self.owner.registry_defaults_result = None
+                if case == 'empty': self.settings([])
+                else: (self.root / 'app' / s.REGISTRY_LAUNCH_SETTINGS).unlink()
+                self.owner.ensure(True)
+                self.assertNotIn('registry', {event[0] for event in self.events})
+                self.assertIsNone(self.outcome())
+
+    def test_settings_for_another_launch_are_never_applied(self):
+        for changes in ({'operation_id': 'c' * 32}, {'profile': 'other_vendor'}, {'extra': 1}, {'schema': 2}):
+            with self.subTest(changes=changes):
+                self.events.clear(); self.state = 1; self.registered = False; self.daemon.unlink(missing_ok=True)
+                self.settings(**changes)
+                self.owner.ensure(True)
+                self.assertTrue(self.owner.ready)
+                self.assertNotIn('registry', {event[0] for event in self.events})
+                self.assertEqual(self.outcome(), [{'known_folder': None, 'result': 'failed', 'reason': 'defaults_unavailable'}])
+
+    def test_the_step_does_not_become_the_sessions_first_failure(self):
+        reg = self.reg
+        def failing(args):
+            self.ledger.first_failure = {'pid': 10, 'start_ticks': 20, 'status': 1, 'phase': 'registry_default'}
+            return reg(args)
+        self.reg = failing
+        self.owner.ensure(True)
+        self.assertIsNone(self.ledger.first_failure)
+        self.assertEqual(self.committed, [1])
+        self.assertEqual(self.ledger.phase, 'dependency_query')
 
 
 FORWARDING_CLIENT = r'''
@@ -332,7 +385,7 @@ class BuiltinCommandTests(unittest.TestCase):
         temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
         owner.root = pathlib.Path(temp.name); (owner.root / 'home').mkdir()
         owner.ledger = ownership.InstallerLedger(Scope(), lambda _: None)
-        owner.cancelled = lambda: False; owner.builtin_identity = None
+        owner.cancelled = lambda: False
         owner.runtime = type('Runtime', (), {'drain': lambda *_: None,
             'builtin_argv': lambda _, argv, cwd: [sys.executable, '-c', script, *args]})()
         return owner
@@ -353,7 +406,6 @@ class BuiltinCommandTests(unittest.TestCase):
                            'sys.stderr.write("reg: Unable to find the specified registry value.\\n"); sys.exit(1)')
         self.assertEqual(self.query(owner), (1, b'    DownloadLocation    REG_SZ    \r\n', b'reg: Unable to find the specified registry value.\n'))
         self.assertEqual(list(owner.root.iterdir()), [owner.root / 'home'])
-        self.assertEqual(owner.builtin_identity[0], owner.ledger.first_failure['pid'])
 
     def test_timeout_forwards_sigterm_through_the_relaying_client(self):
         pidfile = self.pidfile(); owner = self.owner(FORWARDING_CLIENT, str(pidfile))

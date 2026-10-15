@@ -13,7 +13,9 @@ class ManagedVendorTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.home = pathlib.Path(self.temp.name).resolve()
         self.managed = self.home / '.local/share/linux-vst-bridge/managed'
-        self.profile = json.loads((pathlib.Path(__file__).parents[1] / 'src/vendor_profiles/native_access.json').read_text())
+        # The saved binding: the bundled profile without launch-time settings.
+        bundled = json.loads((pathlib.Path(__file__).parents[1] / 'src/vendor_profiles/native_access.json').read_text())
+        self.profile = {key: value for key, value in bundled.items() if key != 'registry_defaults'}
         self.home_patch = patch.object(pathlib.Path, 'home', return_value=self.home)
         self.home_patch.start()
 

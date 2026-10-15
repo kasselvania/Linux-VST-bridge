@@ -4351,7 +4351,7 @@ class Nad1Owner:
         self.process_cleanup_confirmed=False;self.forced_cleanup_used=False;self.retirement_error=None
         self.dependency_cleanup_disposition='cleanup_unconfirmed';self.post_cleanup=None
         self.service_actions_started=False;self.custody_observed_empty=False;self.bound_daemon=None
-        self.builtin_identity=None;self.registry_defaults_result=None
+        self.registry_defaults_result=None
         if contract is not None and contract['dependency']['daemon'] is not None:
             self.bound_daemon=RendererImage(contract['dependency']['daemon'])
     def value(self):
@@ -4584,7 +4584,6 @@ class Nad1Owner:
                 buffer.extend(data[:max(0,65536-len(buffer))])
         try:
             self.ledger.launcher(child,'registry_default')
-            self.builtin_identity=(child.pid,self.ledger.launchers[child.pid][1])
             for name,pipe in (('stdout',child.stdout),('stderr',child.stderr)):
                 os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,name)
             limit=min(deadline,time.monotonic()+REGISTRY_DEFAULT_CALL_SECONDS)
@@ -4605,17 +4604,17 @@ class Nad1Owner:
                 end=time.monotonic()+grace
                 while child.returncode is None and time.monotonic()<end:self.ledger.harvest();time.sleep(.02)
             sel.close();child.stdout.close();child.stderr.close()
-    def _builtin_absent(self):
-        """reg.exe's own not-found exit is an expected reading, not a failure."""
-        failure=self.ledger.first_failure
-        if failure and (failure['pid'],failure['start_ticks'])==self.builtin_identity and failure['status']==1:
-            self.ledger.first_failure=None;self.ledger.commit()
     def registry_defaults(self,service):
         """Profile-declared per-user defaults, filled before the service starts.
         Bounded and best effort: a failure is reported and never blocks launch."""
-        defaults=registry_defaults_admitted(self.managed_contract['profile'])
+        operation=self.spec.get('managed_operation')
+        try:defaults=managed_registry_defaults(operation,self.managed_contract['profile']) if operation is not None else []
+        except Exception:
+            self.registry_defaults_result=[{'known_folder':None,'result':'failed','reason':'defaults_unavailable'}];return
         if not defaults:return
-        phase=self.ledger.phase
+        # The step's own reg.exe exits (including the expected not-found exit 1)
+        # are reported in its outcome, not as the session's first failure.
+        phase=self.ledger.phase;first=self.ledger.first_failure
         try:
             deadline=time.monotonic()+REGISTRY_DEFAULT_SECONDS
             try:
@@ -4624,10 +4623,16 @@ class Nad1Owner:
             except Exception:
                 results=[{'known_folder':entry['value']['known_folder'],'result':'failed','reason':'runner_unavailable'} for entry in defaults]
             else:
-                results=[registry_default_apply(entry,self.root,lambda args:self.builtin(args,env,deadline),absent=self._builtin_absent)
-                         for entry in defaults]
-        finally:self.ledger.phase=phase
+                results=[registry_default_apply(entry,self.root,lambda args:self.builtin(args,env,deadline)) for entry in defaults]
+        finally:
+            self.ledger.phase=phase
+            if self.ledger.first_failure is not first:self.ledger.first_failure=first;self.ledger.commit()
         self.registry_defaults_result=results
+        if any(result['result']=='applied' for result in results) and not self.cancelled():
+            # The service may have started (or auto-started) before the write.
+            try:current=self.command('query')
+            except Exception:current={'registration':'exact','state':4}  # unknown: suggest one reopen
+            self.registry_defaults_service_state(current)
         self.registry_defaults_service_state(service)
     def registry_defaults_service_state(self,service):
         # A service already running read its settings before this write.
@@ -4657,7 +4662,9 @@ class Nad1Owner:
             raise
         # The query brought the Wine session up; settle per-user defaults before
         # any service install or start so the service reads them when it starts.
-        if self.managed_contract is not None:self.registry_defaults(service)
+        if self.managed_contract is not None:
+            self.registry_defaults(service)
+            if self.cancelled() and not self.retiring:raise ValueError('dependency_cancelled')
         self.service_possibility='proved_absent' if service['registration']=='absent' else 'exact_registered'
         self.retirement_authorized=service['registration']=='exact'
         absent=actual is None;unregistered=service['registration']=='absent';owned_start=False
@@ -5058,12 +5065,15 @@ def daw_application_binding(app,is_uninstall):
         raise RuntimeError('managed DAW launch fields changed')
 
 
-MANAGED_NATIVE_ACCESS_PROFILE_SHA256='b6e57a6de5c0200643628f2bff991d39cdeceff3a54e5d0204d799a7321e6ff5'
+MANAGED_NATIVE_ACCESS_PROFILE_SHA256='dba4302039d2d0d780c8e31d373dd17a56384c5b60469bfa0adc7178a10fb186'
 
-# Profile-declared per-user registry defaults. A known folder resolves through
-# Windows' own per-user known-folder record in the prefix; profile text never
-# supplies the written value. Only a value read twice as absent or empty is
-# filled; any reading that is not clearly absent leaves the value untouched.
+# Profile-declared per-user registry defaults. The manager hands them over
+# beside the saved launch binding (profile-defaults.json), never inside it, so
+# the binding stays readable across update and rollback. A known folder
+# resolves through Windows' own per-user known-folder record in the prefix;
+# profile text never supplies the written value. Only a value read twice as
+# absent or empty is filled; any unclear reading leaves the value untouched.
+REGISTRY_LAUNCH_SETTINGS='profile-defaults.json'
 REGISTRY_KNOWN_FOLDERS={'Downloads':'{374DE290-123F-4565-9164-39C4925E467B}'}
 REGISTRY_SHELL_FOLDERS='HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders'
 REGISTRY_TOOL='C:\\windows\\system32\\reg.exe'
@@ -5095,21 +5105,33 @@ def registry_defaults_admitted(profile):
         seen.add((key.lower(),entry['name'].lower()))
     return defaults
 
-def registry_value(run,key,name,*,ascii_only=False,absent=None):
+def managed_registry_defaults(operation,profile):
+    """This launch's declared defaults; none when the manager handed over none."""
+    path=pathlib.Path(operation['report']).parent/REGISTRY_LAUNCH_SETTINGS
+    if not path.exists() and not path.is_symlink():return []
+    value=renderer_read(path)
+    if (not isinstance(value,dict) or set(value)!={'schema','operation_id','profile','registry_defaults'} or value['schema']!=1
+        or value['operation_id']!=operation['operation_id'] or value['profile']!=profile['id']):
+        raise ValueError('managed_application_profile_defaults_binding')
+    return registry_defaults_admitted(value)
+
+def registry_value(run,key,name,*,ascii_only=False):
     """None only when reg.exe itself says the key or value does not exist; ''
     when empty. Any other reading raises. Text stays in memory, never recorded."""
     code,out,err=run([REGISTRY_TOOL,'query',key,'/v',name])
     try:text=out.decode('ascii') if ascii_only else out.decode('utf-8','replace')
     except UnicodeDecodeError as exc:raise RegistryDefaultFailure('query_unreadable') from exc
     pattern=re.compile('[ \t]+'+re.escape(name)+'[ \t]+REG_[A-Z_]+(?:[ \t]+(.*))?',re.I)
-    rows=[m for m in (pattern.fullmatch(line.rstrip('\r')) for line in text.split('\n')) if m]
+    lines=text.split('\n')
+    rows=[(index,match) for index,match in enumerate(pattern.fullmatch(line.rstrip('\r')) for line in lines) if match]
     # Exit 1 alone is not absence: runner, Proton and Wine failures share it.
-    if code==1 and not rows and REGISTRY_NOT_FOUND.search(text+'\n'+err.decode('ascii','replace')):
-        if absent is not None:absent()
-        return None
+    if code==1 and not rows and REGISTRY_NOT_FOUND.search(text+'\n'+err.decode('ascii','replace')):return None
     if code!=0 or len(rows)!=1:raise RegistryDefaultFailure('query_unreadable')
-    data=(rows[0].group(1) or '').strip()
-    return '' if data=='(value not set)' else data  # reg.exe's text for zero-length data
+    index,row=rows[0];data=(row.group(1) or '').strip()
+    if data=='(value not set)':data=''  # reg.exe's text for zero-length data
+    # Empty only with reg.exe's blank terminator line: truncated output is unclear.
+    if not data and (index+2>=len(lines) or lines[index+1].strip()):raise RegistryDefaultFailure('query_unreadable')
+    return data
 
 def registry_known_folder(root,value):
     """Windows' recorded folder for the prefix user, kept inside this setup."""
@@ -5118,6 +5140,7 @@ def registry_known_folder(root,value):
     root=pathlib.Path(root);users=root/'compatdata/pfx/drive_c/users';profile=users/match.group(1)
     if users.is_symlink() or not users.is_dir() or profile.is_symlink() or not profile.is_dir():
         raise RegistryDefaultFailure('windows_user_unavailable')
+    if not profile.resolve().is_relative_to(root.resolve()):raise RegistryDefaultFailure('download_folder_outside_setup')
     folder=profile/match.group(2)
     if folder.exists() or folder.is_symlink():
         if not folder.resolve().is_relative_to(root.resolve()):raise RegistryDefaultFailure('download_folder_outside_setup')
@@ -5127,17 +5150,17 @@ def registry_known_folder(root,value):
     if not folder.is_dir():raise RegistryDefaultFailure('known_folder_unavailable')
     return value
 
-def registry_default_apply(entry,root,run,*,absent=None):
+def registry_default_apply(entry,root,run):
     """Fill one declared value only when two readings show it absent or empty.
     Never raises; a value the musician chose is never replaced."""
     folder=entry['value']['known_folder'];key=entry['key'];name=entry['name']
     try:
-        if registry_value(run,key,name,absent=absent):return {'known_folder':folder,'result':'already_set','reason':None}
-        target=registry_known_folder(root,registry_value(run,REGISTRY_SHELL_FOLDERS,REGISTRY_KNOWN_FOLDERS[folder],ascii_only=True,absent=absent))
-        if registry_value(run,key,name,absent=absent):return {'known_folder':folder,'result':'already_set','reason':None}
+        if registry_value(run,key,name):return {'known_folder':folder,'result':'already_set','reason':None}
+        target=registry_known_folder(root,registry_value(run,REGISTRY_SHELL_FOLDERS,REGISTRY_KNOWN_FOLDERS[folder],ascii_only=True))
+        if registry_value(run,key,name):return {'known_folder':folder,'result':'already_set','reason':None}
         code,_,_=run([REGISTRY_TOOL,'add',key,'/v',name,'/t','REG_SZ','/d',target,'/f'])
         if code!=0:raise RegistryDefaultFailure('write_failed')
-        if registry_value(run,key,name,absent=absent)!=target:raise RegistryDefaultFailure('write_unconfirmed')
+        if registry_value(run,key,name)!=target:raise RegistryDefaultFailure('write_unconfirmed')
         return {'known_folder':folder,'result':'applied','reason':None}
     except RegistryDefaultFailure as exc:reason=exc.reason
     except TimeoutError:reason='timeout'
