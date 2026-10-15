@@ -82,6 +82,19 @@ fn recommended() -> Revision {
     revisions().pop().expect("declared runtime revision")
 }
 pub fn recommended_id() -> &'static str {recommended().id}
+/// Whether a retained runner names one of the product's own delivered runtime
+/// revisions in its product-owned location. Reads no record and admits nothing.
+pub fn delivered_revision(m: &Manager, runner: &Runner) -> bool {
+    revisions().iter().any(|revision| {
+        let base=m.root.join("runners").join(revision.id);
+        revision.id==runner.id && runner.proton==base.join(GE).join("proton")
+            && runner.entry_point==base.join(SLR).join("_v2-entry-point")
+    })
+}
+/// A delivered revision other than the recommended one.
+pub fn superseded_revision(m: &Manager, runner: &Runner) -> bool {
+    runner.id!=recommended_id() && delivered_revision(m,runner)
+}
 #[cfg(test)]
 pub(crate) fn revision_ids() -> Vec<&'static str> {revisions().iter().map(|revision|revision.id).collect()}
 pub fn recommended_downloads() -> Vec<Download> {recommended().downloads}

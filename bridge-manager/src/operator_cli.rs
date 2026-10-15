@@ -2186,16 +2186,26 @@ fn create_environment_owned(
     waits: &mut Vec<ui::LockFacts>,
     capacity_read: &dyn Fn() -> Option<CapacityReadback>,
 ) -> Result<Value> {
-    let before = token(m)?;
-    let prepared = match selection {
+    create_environment_prepared(m, owner, timeout, waits, capacity_read, || match selection {
         ui::Action::InstallerEnvironmentCreate { installer, runner } => {
-            onboarding::prepare_creation(m, installer, runner)?
+            onboarding::prepare_creation(m, installer, runner)
         }
         ui::Action::InstallerNewAttempt { previous, runner } => {
-            onboarding::prepare_attempt(m, previous, runner)?
+            onboarding::prepare_attempt(m, previous, runner)
         }
-        _ => return Err("onboarding_creation_action".into()),
-    };
+        _ => Err("onboarding_creation_action".into()),
+    })
+}
+fn create_environment_prepared(
+    m: &Manager,
+    owner: &str,
+    timeout: Duration,
+    waits: &mut Vec<ui::LockFacts>,
+    capacity_read: &dyn Fn() -> Option<CapacityReadback>,
+    prepare: impl FnOnce() -> Result<onboarding::PreparedCreation>,
+) -> Result<Value> {
+    let before = token(m)?;
+    let prepared = prepare()?;
     let controls = creation_control_stamp(m)?;
     let retired = vendor_retired(m)? && onboarding::all_retired(m)?;
     require(

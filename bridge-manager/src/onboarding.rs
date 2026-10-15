@@ -104,6 +104,7 @@ pub fn retained_environment_record(m: &Manager, id: &str) -> Result<Option<Recor
     }
     Ok(Some(load_record_binding(m, id)?))
 }
+#[cfg(test)]
 pub fn records(m: &Manager) -> Result<Vec<Record>> {
     let p = m.root.join("onboarding");
     if !p.exists() {
@@ -235,6 +236,9 @@ pub struct PreparedCreation {
     runner: Runner,
     files: Vec<(PathBuf, FileIdentity)>,
     previous_attempt: Option<String>,
+    /// An unstarted predecessor on a superseded runtime, closed only after
+    /// creation admission, immediately before the linked attempt is created.
+    close_previous: Option<String>,
 }
 pub fn prepare_creation(m: &Manager, installer: &str, runner: &str) -> Result<PreparedCreation> {
     require(valid_hex(installer, 64), "installer_identity")?;
@@ -275,6 +279,7 @@ pub fn prepare_creation(m: &Manager, installer: &str, runner: &str) -> Result<Pr
         runner: r,
         files,
         previous_attempt: None,
+        close_previous: None,
     };
     prepared.recheck(m)?;
     Ok(prepared)
@@ -283,6 +288,82 @@ pub fn prepare_attempt(m: &Manager, previous: &str, runner: &str) -> Result<Prep
     let r = load(m, previous)?;
     require(runner==runner_key(&r.environment.runner)?, "onboarding_retry_runner_changed")?;
     linux_vst_bridge::runtime_delivery::selected_record_path(m,&r.environment.runner)?;
+    prepare_linked(m, r, runner)
+}
+/// A Retry of an installation set up on one of the product's delivered runtime
+/// revisions continues on the recommended revision. The earlier attempt keeps
+/// its own runtime and the same history law as an exact-runner new attempt;
+/// only the new attempt's runtime differs. An unstarted predecessor on a
+/// superseded revision is verified here and closed only under creation
+/// admission, so a refused request leaves it exactly as it was.
+pub fn prepare_recommended_attempt(m: &Manager, previous: &str, runner: &str, requested_by: &str)
+    -> Result<PreparedCreation> {
+    let r = control_record(m, previous)?;
+    require(linux_vst_bridge::runtime_delivery::delivered_revision(m,&r.environment.runner)
+        && default_runtime(m,&runners(m)?)?.is_some_and(|(key,_)|key==runner),
+        "onboarding_retry_runner_changed")?;
+    if r.installation_operation.is_some() {
+        return prepare_linked(m, r, runner);
+    }
+    require(closable_unstarted(m, &r)?, "onboarding_runtime_not_superseded")?;
+    require(valid_hex(requested_by, 32), "onboarding_creation_operation")?;
+    let record = directory(m, previous)?.join("record.json");
+    let stamp = (record.clone(), FileIdentity::read(&record)?);
+    require(!history_records(m)?.iter().any(|x| x.previous_attempt.as_deref() == Some(previous)),
+        "fresh_attempt_already_created")?;
+    let mut prepared = prepare_creation(m, &r.installer, runner)?;
+    prepared.files.push(stamp);
+    prepared.previous_attempt = Some(previous.into());
+    prepared.close_previous = Some(requested_by.into());
+    prepared.recheck(m)?;
+    Ok(prepared)
+}
+/// Whether this retained attempt may be followed by a new linked attempt.
+pub fn new_attempt_allowed(m: &Manager, r: &Record, history: &[Record]) -> Result<bool> {
+    if registered(m, r)? {
+        return Ok(false);
+    }
+    Ok(require_new_attempt(&result(m, r)?,
+        history.iter().any(|x| x.previous_attempt.as_deref() == Some(&r.id))).is_ok())
+}
+/// A published or registered environment belongs to product management.
+pub fn registered(m: &Manager, r: &Record) -> Result<bool> {
+    Ok(r.published || m.registry()?.classes.values().any(|e| e.registration.environment.id == r.id))
+}
+/// An unstarted setup on a superseded delivered runtime that no vendor-app or
+/// later installer owns. Its saved automatic request, if any, stays history.
+pub fn closable_unstarted(m: &Manager, r: &Record) -> Result<bool> {
+    Ok(r.installation_operation.is_none()
+        && r.automatic.as_ref().is_none_or(|intent| intent.vendor.is_none())
+        && linux_vst_bridge::runtime_delivery::superseded_revision(m, &r.environment.runner)
+        && !registered(m, r)?
+        && operator_cli::environment_install::latest(m, &r.id)?.is_none())
+}
+/// The installer was never started in this attempt: it was closed for a
+/// linked attempt on the recommended runtime.
+pub fn closed_unstarted(v: &Value) -> bool {
+    v["reason"] == "runtime_superseded" && v["state"] == "failed"
+}
+/// Closes an unstarted attempt on a superseded delivered runtime. Nothing ran
+/// in it; its record, saved request and environment stay as history. The
+/// finished result lets a linked new attempt use the recommended runtime.
+pub fn close_superseded_unstarted(m: &Manager, id: &str, requested_by: &str) -> Result<Record> {
+    let _lock = m.lock("onboarding.lock")?;
+    let r = control_record(m, id)?;
+    require(closable_unstarted(m, &r)?, "onboarding_runtime_not_superseded")?;
+    let op = random_id()?;
+    let dir = directory(m, id)?;
+    let mut retained: Record = read_json(&dir.join("record.json"))?;
+    retained.installation_operation = Some(op.clone());
+    atomic_json(&dir.join(format!("{op}-result.json")), &json!({"schema":2,"operation":op,
+        "state":"failed","reason":"runtime_superseded","error":"runtime_superseded",
+        "runtime":r.environment.runner.id,"requested_by":requested_by,"raw_exit":null,
+        "cleanup_confirmed":true,"owned_live":0}))?;
+    atomic_json(&dir.join("record.json"), &retained)?;
+    load_record_binding(m, id)
+}
+fn prepare_linked(m: &Manager, r: Record, runner: &str) -> Result<PreparedCreation> {
+    let previous = r.id.as_str();
     let record = directory(m, previous)?.join("record.json");
     let op = r
         .installation_operation
@@ -296,7 +377,7 @@ pub fn prepare_attempt(m: &Manager, previous: &str, runner: &str) -> Result<Prep
     let v = result(m, &r)?;
     require_new_attempt(
         &v,
-        records(m)?.iter().any(|x| x.previous_attempt.as_deref() == Some(previous)),
+        history_records(m)?.iter().any(|x| x.previous_attempt.as_deref() == Some(previous)),
     )?;
     let mut prepared = prepare_creation(m, &r.installer, runner)?;
     prepared.files.extend(stamps);
@@ -327,6 +408,9 @@ pub fn create_prepared(
 ) -> Result<Value> {
     guard.require_registry(m)?;
     prepared.recheck(m)?;
+    if let (Some(previous), Some(requested_by)) = (&prepared.previous_attempt, &prepared.close_previous) {
+        close_superseded_unstarted(m, previous, requested_by)?;
+    }
     create_exact(
         m,
         &prepared.installer,
@@ -781,6 +865,8 @@ pub(super) fn projection_current(m: &Manager, busy: Option<&str>,
                             disabled_reason: None,
                         });
                     }
+                } else if closed_unstarted(&v) {
+                    human = NOT_STARTED;
                 } else if retired(&v) {
                     human = match v["transaction"]["durable_installation"].as_str() {
                         Some("installed") if v["state"] == "completed"
@@ -860,6 +946,7 @@ pub(super) fn projection_current(m: &Manager, busy: Option<&str>,
     Ok(rows)
 }
 
+pub const NOT_STARTED: &str = "Not started; replaced by a new setup on the current compatibility runtime";
 /// One canonical current setup per immutable installer; exact old attempts stay
 /// in history. Product links require the same environment and module as the
 /// retained scan, plus the exact class where discovery established one.
@@ -1371,6 +1458,12 @@ pub(crate) mod tests {
         let runner = operator_cli::tests::retained_managed_runtime(&f.m, false);
         (f,installer,runner)
     }
+    /// A started attempt on an exact runner the creation offer need not list.
+    pub(crate) fn started_attempt_on(f: &test_fixture::Fixture, installer: &installer_import::Installer,
+        runner: Runner, owner: &str) -> Record {
+        let created = create_exact(&f.m, installer, runner, owner, &f.m.lock("registry.lock").unwrap(), None).unwrap();
+        reserve(&f.m, created["onboarding"].as_str().unwrap(), owner).unwrap()
+    }
     pub(crate) fn close_policy_unstarted_fixture() -> (test_fixture::Fixture, Record) {
         let (f,installer,runner)=close_policy_imported_fixture();
         let created = create_exact(&f.m, &installer, runner, &"ab".repeat(16),
@@ -1692,7 +1785,7 @@ pub(crate) mod tests {
             }
             let prepared = PreparedCreation { installer:i.clone(), runner,
                 files:vec![(record.clone(), FileIdentity::read(&record).unwrap()),
-                    (rp.clone(), FileIdentity::read(&rp).unwrap())], previous_attempt:Some(id.into()) };
+                    (rp.clone(), FileIdentity::read(&rp).unwrap())], previous_attempt:Some(id.into()), close_previous:None };
             let next = create_prepared(&f.m, prepared, &"ef".repeat(16), &f.m.lock("registry.lock").unwrap());
             assert_eq!(next.is_ok(), allowed, "{durable}/{outcome}: {next:?}");
             assert_eq!(records(&f.m).unwrap().len(), if allowed { 2 } else { 1 });
@@ -1724,7 +1817,7 @@ pub(crate) mod tests {
         let bytes = fs::read(&rp).unwrap();
         let prepare = || PreparedCreation { installer:i.clone(), runner:prior.environment.runner.clone(),
             files:vec![(record.clone(), FileIdentity::read(&record).unwrap()),
-                (rp.clone(), FileIdentity::read(&rp).unwrap())], previous_attempt:Some(id.into()) };
+                (rp.clone(), FileIdentity::read(&rp).unwrap())], previous_attempt:Some(id.into()), close_previous:None };
         let a = prepare(); let b = prepare();
         create_prepared(&f.m, a, &"ef".repeat(16), &f.m.lock("registry.lock").unwrap()).unwrap();
         assert!(create_prepared(&f.m, b, &"12".repeat(16), &f.m.lock("registry.lock").unwrap())
@@ -2102,6 +2195,7 @@ pub(crate) mod tests {
                 (rp.clone(), FileIdentity::read(&rp).unwrap()),
             ],
             previous_attempt: Some(id.into()),
+            close_previous: None,
         };
         let next = create_prepared(
             &f.m,
