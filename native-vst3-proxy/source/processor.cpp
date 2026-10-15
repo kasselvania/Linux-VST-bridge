@@ -1,3 +1,4 @@
+#include "admission_refusal.h"
 #include "processor.h"
 #ifdef AP8_PREVIEW
 #include "ap18_bus_support.h"
@@ -238,6 +239,10 @@ bool Processor::stateSession() {
       ap9_open(nullptr,&handle_)
 #endif
   ) {
+    // The backend retained why on this thread; keep only its bounded kind.
+    uint8_t detail[385]{};
+    ap2_error(detail, sizeof(detail));
+    refusal_kind_ = LVBAdmission::classify(reinterpret_cast<const char *>(detail));
     session_refused_.store(true, std::memory_order_release);
     phase_ = Failed;
     report();
@@ -562,7 +567,12 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
   if(!std::strcmp(id,"AP11.bind")){
     // kNotInitialized tells the controller this instance's admission was
     // refused for good; it stops asking and explains instead of a blank view.
-    if(!stateSession())return session_refused_.load(std::memory_order_acquire)?kNotInitialized:kResultFalse;
+    // AP10.refused first carries why, as one bounded code.
+    if(!stateSession()){
+      if(!session_refused_.load(std::memory_order_acquire))return kResultFalse;
+      if(auto*m=allocateMessage()){m->setMessageID("AP10.refused");m->getAttributes()->setInt("kind",refusal_kind_);sendMessage(m);m->release();}
+      return kNotInitialized;
+    }
     uint64_t generation=0;if(ap11_gui_generation(handle_,&generation))return kResultFalse;
     auto*m=allocateMessage();if(!m)return kResultFalse;m->setMessageID("AP11.identity");m->getAttributes()->setInt("generation",int64(generation));auto r=sendMessage(m);m->release();return r;
   }
