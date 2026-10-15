@@ -18,6 +18,65 @@ pub struct ServiceRequirements {
     pub listeners: Vec<u16>,
 }
 
+/// A Windows folder resolved for the prefix's own user. The value written is
+/// never taken from profile text, user input or the environment.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum KnownFolder {
+    Downloads,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RegistryType {
+    #[serde(rename = "REG_SZ")]
+    String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct RegistryDefaultValue {
+    pub known_folder: KnownFolder,
+}
+
+/// A per-user setting the app needs but leaves empty in a fresh prefix. The
+/// supervisor fills it only when absent or empty; a chosen value is kept.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct RegistryDefault {
+    pub key: String,
+    pub name: String,
+    #[serde(rename = "type")]
+    pub kind: RegistryType,
+    pub value: RegistryDefaultValue,
+}
+
+pub const REGISTRY_DEFAULTS_LIMIT: usize = 4;
+
+fn registry_word(value: &str) -> bool {
+    (1..=64).contains(&value.len()) && value.trim() == value
+        && value.bytes().next().is_some_and(|b| b.is_ascii_alphanumeric())
+        && value.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b' ' | b'.' | b'_' | b'-'))
+}
+
+/// Current-user keys only, with a bounded plain charset. No expansion, no
+/// other hives, no types beyond a plain string.
+pub fn check_registry_defaults(defaults: &[RegistryDefault]) -> Result<()> {
+    require(defaults.len() <= REGISTRY_DEFAULTS_LIMIT, "vendor_profile_registry_default_count")?;
+    let mut seen = std::collections::BTreeSet::new();
+    for default in defaults {
+        let path = default.key.strip_prefix("HKCU\\").ok_or("vendor_profile_registry_default_hive")?;
+        let parts: Vec<_> = path.split('\\').collect();
+        require(default.key.len() <= 255 && (1..=8).contains(&parts.len())
+            && parts.iter().all(|part| registry_word(part)), "vendor_profile_registry_default_key")?;
+        require(registry_word(&default.name), "vendor_profile_registry_default_name")?;
+        require(seen.insert((default.key.to_ascii_lowercase(), default.name.to_ascii_lowercase())),
+            "vendor_profile_registry_default_duplicate")?;
+    }
+    Ok(())
+}
+
+/// The binding part of a vendor profile. It is saved inside every launch
+/// record, so its shape stays readable by older and newer managers alike;
+/// settings a launch only applies live outside it (see `Bundled`).
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Profile {
@@ -29,6 +88,35 @@ pub struct Profile {
     pub dependency: ServiceRequirements,
     pub rendering: operator_model::RendererPolicy,
     pub browser_scheme: String,
+}
+
+/// A bundled profile file: the saved binding plus launch-time settings that
+/// are handed to the supervisor beside the launch record, never inside it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Bundled {
+    pub profile: Profile,
+    pub registry_defaults: Vec<RegistryDefault>,
+}
+
+impl Bundled {
+    pub fn parse(bytes: &[u8]) -> Result<Self> {
+        let mut value: serde_json::Map<String, serde_json::Value> = serde_json::from_slice(bytes)?;
+        let registry_defaults: Vec<RegistryDefault> = value.remove("registry_defaults")
+            .map(serde_json::from_value).transpose()?.unwrap_or_default();
+        check_registry_defaults(&registry_defaults)?;
+        Ok(Self { profile: serde_json::from_value(serde_json::Value::Object(value))?, registry_defaults })
+    }
+}
+
+/// Launch-time settings for one operation, written beside its operation.json.
+/// Managers that predate them never open this file, so rollback keeps working.
+pub const LAUNCH_SETTINGS: &str = "profile-defaults.json";
+
+pub fn launch_settings(profile: &Profile, operation_id: &str) -> Result<serde_json::Value> {
+    let bundled = Bundled::parse(NATIVE_ACCESS)?;
+    require(bundled.profile.id == profile.id, "vendor_profile_definition_changed")?;
+    Ok(serde_json::json!({"schema": 1, "operation_id": operation_id, "profile": profile.id,
+        "registry_defaults": bundled.registry_defaults}))
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -94,7 +182,12 @@ fn integrity(ok: bool, reason: &'static str) -> Result<()> {
 }
 
 pub fn native_access() -> Result<Profile> {
-    Ok(serde_json::from_slice(NATIVE_ACCESS)?)
+    Ok(Bundled::parse(NATIVE_ACCESS)?.profile)
+}
+
+/// Digest of the saved binding, as the supervisor pins it.
+pub fn profile_sha256(profile: &Profile) -> Result<String> {
+    Ok(hex(&Sha256::digest(serde_json::to_vec(&serde_json::to_value(profile)?)?)))
 }
 
 fn relative(value: &str) -> Result<&Path> {
@@ -224,9 +317,7 @@ fn observe_structure(app: &Application, profile: &Profile) -> Result<Capabilitie
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
         Err(error) => return Err(error.into()),
     };
-    let profile_value = serde_json::to_value(profile)?;
-    Ok(Capabilities { schema: 1, profile: profile.clone(),
-        profile_sha256: hex(&Sha256::digest(serde_json::to_vec(&profile_value)?)),
+    Ok(Capabilities { schema: 1, profile: profile.clone(), profile_sha256: profile_sha256(profile)?,
         application: app.selector()?, resources,
         dependency: ServiceBinding { installer: candidates.remove(0), daemon } })
 }
@@ -253,8 +344,16 @@ pub fn inspect(app: &Application, managed: &Path) -> Result<Inspection> {
 }
 
 impl Capabilities {
+    /// A saved launch record is manager-owned data. Profile data improves with
+    /// updates, so a record saved under an earlier revision of the same
+    /// profile stays valid: it is rechecked against its own bound files, and
+    /// the next launch binds to the current bundled profile.
+    fn same_profile(&self) -> Result<()> {
+        require(self.schema == 1 && self.profile.id == native_access()?.id, "vendor_profile_definition_changed")
+    }
+
     pub fn verify(&self, app: &Application, managed: &Path) -> Result<()> {
-        require(self.schema == 1 && self.profile == native_access()?, "vendor_profile_definition_changed")?;
+        self.same_profile()?;
         app.verify(managed)?;
         require(observe_structure(app, &self.profile)? == *self, "vendor_profile_observed_content_changed")
     }
@@ -263,10 +362,133 @@ impl Capabilities {
     /// That owner can have installed the service since launch admission; the
     /// application and bundled installer still must match all original bytes.
     pub fn verify_callback_inputs(&self, app: &Application, managed: &Path) -> Result<()> {
-        require(self.schema == 1 && self.profile == native_access()?, "vendor_profile_definition_changed")?;
+        self.same_profile()?;
         app.verify(managed)?;
         let mut current = observe_structure(app, &self.profile)?;
         current.dependency.daemon = self.dependency.daemon.clone();
         require(current == *self, "vendor_profile_observed_content_changed")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn with_defaults(defaults: serde_json::Value) -> Vec<u8> {
+        let mut value: serde_json::Value = serde_json::from_slice(NATIVE_ACCESS).unwrap();
+        value["registry_defaults"] = defaults;
+        serde_json::to_vec(&value).unwrap()
+    }
+
+    #[test]
+    fn bundled_profile_declares_only_a_current_user_known_folder_default() {
+        let bundled = Bundled::parse(NATIVE_ACCESS).unwrap();
+        assert_eq!(bundled.registry_defaults, vec![RegistryDefault {
+            key: "HKCU\\Software\\Native Instruments\\Native Access".into(),
+            name: "DownloadLocation".into(), kind: RegistryType::String,
+            value: RegistryDefaultValue { known_folder: KnownFolder::Downloads } }]);
+        // The saved binding is the profile without launch-time settings.
+        let mut value: serde_json::Value = serde_json::from_slice(NATIVE_ACCESS).unwrap();
+        let defaults = value.as_object_mut().unwrap().remove("registry_defaults").unwrap();
+        assert_eq!(serde_json::to_value(&bundled.profile).unwrap(), value);
+        assert_eq!(native_access().unwrap(), bundled.profile);
+        // A profile file without settings stays valid.
+        let plain = Bundled::parse(&serde_json::to_vec(&value).unwrap()).unwrap();
+        assert!(plain.registry_defaults.is_empty());
+        assert_eq!(plain.profile, bundled.profile);
+        let operation = "ab".repeat(16);
+        assert_eq!(launch_settings(&bundled.profile, &operation).unwrap(), serde_json::json!({"schema": 1,
+            "operation_id": operation, "profile": "native_access_desktop", "registry_defaults": defaults}));
+        let mut other = bundled.profile.clone(); other.id = "other_vendor".into();
+        assert!(launch_settings(&other, &operation).is_err());
+    }
+
+    /// The saved profile shape exactly as main defined it before launch-time
+    /// settings existed, for both rollback directions.
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    #[serde(deny_unknown_fields)]
+    struct MainEraServiceRequirements {
+        installer_directory: String, installer_prefix: String, installer_suffix: String,
+        service: String, daemon: String, architecture: String, listeners: Vec<u16>,
+    }
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    #[serde(deny_unknown_fields)]
+    struct MainEraProfile {
+        schema: u32, id: String, executable: String, architecture: String, resources: Vec<String>,
+        dependency: MainEraServiceRequirements, rendering: operator_model::RendererPolicy, browser_scheme: String,
+    }
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct MainEraCapabilities {
+        schema: u32, profile: MainEraProfile, profile_sha256: String, application: String,
+        resources: BTreeMap<String, Image>, dependency: ServiceBinding,
+    }
+
+    fn saved_capabilities() -> Capabilities {
+        let image = Image { artifact: Artifact { path: "/managed/environments/x/Setup.exe".into(), sha256: "cd".repeat(32) }, size: 7 };
+        let profile = native_access().unwrap();
+        Capabilities { schema: 1, profile_sha256: profile_sha256(&profile).unwrap(), profile, application: "ef".repeat(32),
+            resources: BTreeMap::from([("Native Access.exe".into(), image.clone())]),
+            dependency: ServiceBinding { installer: image, daemon: None } }
+    }
+
+    #[test]
+    fn saved_launch_records_read_across_update_and_rollback() {
+        // New manager writes; a rolled-back (main-era) manager reads it.
+        let written = serde_json::to_value(saved_capabilities()).unwrap();
+        assert!(written["profile"].get("registry_defaults").is_none());
+        let old: MainEraCapabilities = serde_json::from_value(written.clone()).unwrap();
+        // The saved binding and its digest are unchanged, so the supervisor's pin is too.
+        assert_eq!(old.profile_sha256, "dba4302039d2d0d780c8e31d373dd17a56384c5b60469bfa0adc7178a10fb186");
+        // Main-era manager wrote; the new manager reads and accepts the same profile.
+        let main_era = serde_json::to_value(&old).unwrap();
+        assert_eq!(main_era, written);
+        let reread: Capabilities = serde_json::from_value(main_era).unwrap();
+        reread.same_profile().unwrap();
+        // A record saved under an earlier revision of the same profile stays usable;
+        // a record for another profile does not.
+        let mut earlier = saved_capabilities();
+        earlier.profile.rendering = operator_model::RendererPolicy::Inherited;
+        earlier.profile.resources.pop();
+        earlier.same_profile().unwrap();
+        earlier.profile.id = "other_vendor".into();
+        assert!(earlier.same_profile().is_err());
+    }
+
+    #[test]
+    fn registry_defaults_refuse_other_hives_values_types_and_extents() {
+        let entry = |key: &str, name: &str| serde_json::json!(
+            {"key": key, "name": name, "type": "REG_SZ", "value": {"known_folder": "Downloads"}});
+        let long = format!("HKCU\\{}", "A".repeat(65));
+        let deep = format!("HKCU{}", "\\A".repeat(9));
+        for (case, defaults) in [
+            ("hklm", serde_json::json!([entry("HKLM\\Software\\Vendor", "Value")])),
+            ("hive spelled out", serde_json::json!([entry("HKEY_CURRENT_USER\\Software", "Value")])),
+            ("bare hive", serde_json::json!([entry("HKCU\\", "Value")])),
+            ("empty part", serde_json::json!([entry("HKCU\\Software\\\\Vendor", "Value")])),
+            ("overlong part", serde_json::json!([entry(&long, "Value")])),
+            ("too deep", serde_json::json!([entry(&deep, "Value")])),
+            ("expansion", serde_json::json!([entry("HKCU\\Software\\%USERPROFILE%", "Value")])),
+            ("name charset", serde_json::json!([entry("HKCU\\Software", "Value;x")])),
+            ("part starts with a dot", serde_json::json!([entry("HKCU\\Software\\..", "Value")])),
+            ("name starts with a dash", serde_json::json!([entry("HKCU\\Software", "-Value")])),
+            ("overlong name", serde_json::json!([entry("HKCU\\Software", &"N".repeat(65))])),
+            ("duplicate", serde_json::json!([entry("HKCU\\Software", "Value"), entry("hkcu\\software", "VALUE")])),
+            ("count", serde_json::json!((0..5).map(|i| entry("HKCU\\Software", &format!("V{i}"))).collect::<Vec<_>>())),
+            ("unknown folder", serde_json::json!([{"key": "HKCU\\Software", "name": "Value", "type": "REG_SZ",
+                "value": {"known_folder": "Desktop"}}])),
+            ("free string", serde_json::json!([{"key": "HKCU\\Software", "name": "Value", "type": "REG_SZ",
+                "value": "C:\\users\\steamuser\\Downloads"}])),
+            ("expand type", serde_json::json!([{"key": "HKCU\\Software", "name": "Value", "type": "REG_EXPAND_SZ",
+                "value": {"known_folder": "Downloads"}}])),
+            ("extra field", serde_json::json!([{"key": "HKCU\\Software", "name": "Value", "type": "REG_SZ",
+                "value": {"known_folder": "Downloads"}, "command": "reg add"}])),
+            ("extra value field", serde_json::json!([{"key": "HKCU\\Software", "name": "Value", "type": "REG_SZ",
+                "value": {"known_folder": "Downloads", "suffix": "x"}}])),
+        ] {
+            assert!(Bundled::parse(&with_defaults(defaults)).is_err(), "{case}");
+        }
+        assert!(Bundled::parse(&with_defaults(serde_json::json!(
+            [entry("HKCU\\Software\\Vendor App 2.0", "Download_Location-1")]))).is_ok());
     }
 }

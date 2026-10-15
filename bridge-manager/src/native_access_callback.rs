@@ -92,8 +92,11 @@ fn assisted_target(m: &Manager, directory: &Path, verify_content: bool) -> Resul
     if verify_content {app.verify(&m.root)?;}
     let profile = vendor_profile::native_access()?;
     let capabilities = &managed.capabilities;
-    require(capabilities.schema == 1 && capabilities.profile == profile
-        && capabilities.application == selector && profile.browser_scheme == "native-access",
+    // The session was launched with its own saved profile. A manager update
+    // that changes the bundled profile's data (same id) must not cut off the
+    // sign-in return of a session that was already running.
+    require(capabilities.schema == 1 && capabilities.profile.id == profile.id
+        && capabilities.application == selector && capabilities.profile.browser_scheme == "native-access",
         "native_access_callback_capability")?;
     // Callback transport does not admit a service or install anything. The daemon
     // may have been installed by this owned operation after its initial binding.

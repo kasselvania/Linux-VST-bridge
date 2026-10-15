@@ -522,6 +522,20 @@ pub(crate) mod tests {
         assert_eq!(reopened.selector().unwrap(),"arturia-software-center");
         assert_eq!(serde_json::to_value(reopened).unwrap(),original);
     }
+    #[test]
+    fn registry_default_outcome_rides_in_the_dependency_value_older_managers_accept() {
+        // A rolled-back manager keeps reading results written by a newer supervisor.
+        let mut value = serde_json::json!({"schema":3,"operation_id":"ab".repeat(16),"state":"running",
+            "launcher_exit":null,"owned_live":1,"cleanup_confirmed":false,"error":null,"error_code":null,
+            "discarded_diagnostic_bytes":0,"diagnostic_enabled":false,"windows_accessibility_disabled":false,
+            "account_posture":"unknown","focus_result":null,"browser_return":null,
+            "dependency":{"process_cleanup_confirmed":false,
+                "registry_defaults":[{"known_folder":"Downloads","result":"applied","reason":null}]}});
+        let result: OperationResult = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(result.dependency.unwrap()["registry_defaults"][0]["result"], "applied");
+        value["registry_defaults"] = value["dependency"]["registry_defaults"].clone();
+        assert!(serde_json::from_value::<OperationResult>(value).is_err());
+    }
     pub(crate) fn selected_application() -> (crate::test_fixture::Fixture, Application) {
         let f = crate::test_fixture::Fixture::new();
         let mut environment = f.r.environment.clone();

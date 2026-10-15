@@ -4267,6 +4267,15 @@ class Nad1Runtime:
         return [str(self.client),'--verbose','--bus-name='+self.bus_name,'--directory='+str(cwd),
                 *['--pass-env='+key for key in self.DEBUG_KEYS],'--',self.runner['proton'],'runinprefix',
                 self.owner.spec['installer_launch']['path'],windows(request,self.owner.root/'compatdata/pfx')]
+    def builtin_argv(self,args,cwd):
+        """One closed owner-built reg.exe command in this ready session."""
+        if args[:1]!=[REGISTRY_TOOL] or args[1:2] not in (['query'],['add']):raise ValueError('dependency_builtin_command')
+        if self.closed or self.child is None or not self.ready or self.bus_name is None:raise ValueError('dependency_runtime_not_ready')
+        self.owner.ledger.harvest();self.drain()
+        if self.child.returncode is not None:raise ValueError('dependency_runtime_exited')
+        self.verify_tools()
+        return [str(self.client),'--bus-name='+self.bus_name,'--directory='+str(cwd),
+                *['--pass-env='+key for key in (*self.DEBUG_KEYS,'LANG','LC_ALL')],'--',self.runner['proton'],'runinprefix',*args]
     def value(self):
         return {'topology':'one_operation_proton_command_session','ready':self.ready,
                 'retirement_requested':self.closed,'tool_sha256':dict(self.tool_sha256)}
@@ -4342,6 +4351,7 @@ class Nad1Owner:
         self.process_cleanup_confirmed=False;self.forced_cleanup_used=False;self.retirement_error=None
         self.dependency_cleanup_disposition='cleanup_unconfirmed';self.post_cleanup=None
         self.service_actions_started=False;self.custody_observed_empty=False;self.bound_daemon=None
+        self.registry_defaults_result=None;self.registry_clients=[]
         if contract is not None and contract['dependency']['daemon'] is not None:
             self.bound_daemon=RendererImage(contract['dependency']['daemon'])
     def value(self):
@@ -4358,7 +4368,8 @@ class Nad1Owner:
                 'runtime_close_errors':self.runtime_close_errors,'stop_observation':self.stop_observation,
                 'runtime':self.runtime.value() if self.runtime else None,
                 'stages':self.stages,'readiness_contract':'SCM_exact_generation_and_Windows_owned_loopback_pair_and_unique_owned_Linux_image_generation_v1',
-                'linux_windows_join':False,'lifetime':'owned_operation_only_retired_before_bridge_resume'}
+                'linux_windows_join':False,'lifetime':'owned_operation_only_retired_before_bridge_resume',
+                **({'registry_defaults':self.registry_defaults_result} if self.managed_contract is not None else {})}
     def _session_authority(self,supplied,fixture):
         expected=self.spec.get('dependency_session')
         if expected is None:
@@ -4550,6 +4561,88 @@ class Nad1Owner:
             for key in list(sel.get_map().values()):key.fileobj.close()
             sel.close()
             nad1_publish(self.directory/f'{self.op}-dependency-stage-{index}.json',stage)
+    def builtin(self,args,env,deadline):
+        """Run reg.exe in this operation's Wine session; output stays in memory.
+
+        The launch client only relays to the session's launcher service, which
+        owns Proton, wine and reg.exe. On timeout the client is asked to forward
+        SIGTERM, then it is killed. A Windows process that ignores the forwarded
+        signal remains in this operation's cgroup until the session's cleanup.
+        """
+        if self.runtime is None:raise ValueError('dependency_runtime_not_ready')
+        if self.cancelled():raise RegistryDefaultFailure('cancelled')
+        if time.monotonic()>=deadline:raise TimeoutError('registry_default')
+        argv=self.runtime.builtin_argv(args,self.root/'home')
+        child=subprocess.Popen(argv,cwd=self.root/'home',env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE,start_new_session=True,bufsize=0)
+        streams={'stdout':bytearray(),'stderr':bytearray()};sel=selectors.DefaultSelector()
+        def read(wait):
+            for key,_ in sel.select(wait):
+                data=os.read(key.fileobj.fileno(),8192)
+                if not data:sel.unregister(key.fileobj);continue
+                buffer=streams[key.data]
+                if key.data=='stdout' and len(buffer)+len(data)>65536:raise RegistryDefaultFailure('output_extent')
+                buffer.extend(data[:max(0,65536-len(buffer))])
+        try:
+            self.ledger.launcher(child,'registry_default')
+            self.registry_clients.append((child.pid,self.ledger.launchers[child.pid][1]))
+            for name,pipe in (('stdout',child.stdout),('stderr',child.stderr)):
+                os.set_blocking(pipe.fileno(),False);sel.register(pipe,selectors.EVENT_READ,name)
+            limit=min(deadline,time.monotonic()+REGISTRY_DEFAULT_CALL_SECONDS)
+            while child.returncode is None:
+                self.ledger.harvest();self.runtime.drain()
+                if self.cancelled():raise RegistryDefaultFailure('cancelled')
+                if time.monotonic()>limit:raise TimeoutError('registry_default')
+                read(.05)
+            for _ in range(16):read(0)
+            return child.returncode,bytes(streams['stdout']),bytes(streams['stderr'])
+        finally:
+            for sig,grace in ((signal.SIGTERM,REGISTRY_DEFAULT_TERM_SECONDS),(signal.SIGKILL,2)):
+                if child.returncode is not None:break
+                try:
+                    if sig==signal.SIGTERM:os.kill(child.pid,sig)  # the client forwards it
+                    else:os.killpg(child.pid,sig)
+                except ProcessLookupError:pass
+                end=time.monotonic()+grace
+                while child.returncode is None and time.monotonic()<end:self.ledger.harvest();time.sleep(.02)
+            sel.close();child.stdout.close();child.stderr.close()
+    def registry_defaults(self,service):
+        """Profile-declared per-user defaults, filled before the service starts.
+        Bounded and best effort: a failure is reported and never blocks launch."""
+        operation=self.spec.get('managed_operation')
+        try:defaults=managed_registry_defaults(operation,self.managed_contract['profile']) if operation is not None else []
+        except Exception:
+            self.registry_defaults_result=[{'known_folder':None,'result':'failed','reason':'defaults_unavailable'}];return
+        if not defaults:return
+        # The step's own reg.exe exits (including the expected not-found exit 1)
+        # are reported in its outcome, not as the session's first failure.
+        phase=self.ledger.phase;first=self.ledger.first_failure;self.registry_clients=[]
+        try:
+            deadline=time.monotonic()+REGISTRY_DEFAULT_SECONDS
+            try:
+                env=environment({'environment':self.spec['application']['environment'],'compatibility':{'disable_windows_accessibility':False}})
+                env['HOME']=str(self.root/'home');env.update(WINEDEBUG='-all',PROTON_LOG='0',LANG='C.UTF-8',LC_ALL='C.UTF-8')
+            except Exception:
+                results=[{'known_folder':entry['value']['known_folder'],'result':'failed','reason':'runner_unavailable'} for entry in defaults]
+            else:
+                results=[registry_default_apply(entry,self.root,lambda args:self.builtin(args,env,deadline)) for entry in defaults]
+        finally:
+            self.ledger.phase=phase
+            failure=self.ledger.first_failure
+            if first is None and failure is not None and (failure.get('pid'),failure.get('start_ticks')) in self.registry_clients:
+                self.ledger.first_failure=None;self.ledger.commit()
+        self.registry_defaults_result=results
+        if any(result['result']=='applied' for result in results) and not self.cancelled():
+            # The service may have started (or auto-started) before the write.
+            try:current=self.command('query')
+            except Exception:current={'registration':'exact','state':4}  # unknown: suggest one reopen
+            self.registry_defaults_service_state(current)
+        self.registry_defaults_service_state(service)
+    def registry_defaults_service_state(self,service):
+        # A service already running read its settings before this write.
+        if self.registry_defaults_result and service.get('registration')=='exact' and service.get('state') in (2,4):
+            for result in self.registry_defaults_result:
+                if result['result']=='applied':result['result']='applied_after_service_start'
     def ensure(self,allow_install,admitted=None):
         import ownership
         image=RendererImage({'artifact':{'path':str(self.drive/self.installer_relative),'sha256':self.installer_sha},'size':self.installer_size});image.close()
@@ -4571,12 +4664,25 @@ class Nad1Owner:
         except Exception as exc:
             if self.session_authority is not None:raise ValueError('dependency_registration_observation_unavailable') from exc
             raise
-        self.service_possibility='proved_absent' if service['registration']=='absent' else 'exact_registered'
-        self.retirement_authorized=service['registration']=='exact'
+        # Retirement authority follows this observation before anything else, so
+        # a Stop during the defaults step below still retires the session. An
+        # absent registration with the daemon present proves nothing (NAO1): it
+        # stays may_exist and unauthorized until the re-observation below.
+        if service['registration']=='absent' and actual is not None:
+            self.service_possibility='may_exist';self.retirement_authorized=False
+        else:
+            self.service_possibility='proved_absent' if service['registration']=='absent' else 'exact_registered'
+            self.retirement_authorized=service['registration']=='exact'
+        # The query brought the Wine session up; settle per-user defaults before
+        # any service install or start so the service reads them when it starts.
+        if self.managed_contract is not None:
+            self.registry_defaults(service)
+            if self.cancelled() and not self.retiring:raise ValueError('dependency_cancelled')
         absent=actual is None;unregistered=service['registration']=='absent';owned_start=False
         if unregistered and not absent and (self.session_authority is not None or self.managed_contract is not None):
             self.service_possibility='may_exist';self.retirement_authorized=False
             service=self._registration_reobserve();unregistered=False
+            self.registry_defaults_service_state(service)
             self.service_possibility='exact_registered'
             owned_start=self._revalidate_registration_ownership(service,actual)
         if absent or unregistered:
@@ -4971,6 +5077,109 @@ def daw_application_binding(app,is_uninstall):
 
 
 MANAGED_NATIVE_ACCESS_PROFILE_SHA256='dba4302039d2d0d780c8e31d373dd17a56384c5b60469bfa0adc7178a10fb186'
+
+# Profile-declared per-user registry defaults. The manager hands them over
+# beside the saved launch binding (profile-defaults.json), never inside it, so
+# the binding stays readable across update and rollback. A known folder
+# resolves through Windows' own per-user known-folder record in the prefix;
+# profile text never supplies the written value. Only a value read twice as
+# absent or empty is filled; any unclear reading leaves the value untouched.
+REGISTRY_LAUNCH_SETTINGS='profile-defaults.json'
+REGISTRY_KNOWN_FOLDERS={'Downloads':'{374DE290-123F-4565-9164-39C4925E467B}'}
+REGISTRY_SHELL_FOLDERS='HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders'
+REGISTRY_TOOL='C:\\windows\\system32\\reg.exe'
+REGISTRY_DEFAULT_SECONDS=30
+REGISTRY_DEFAULT_CALL_SECONDS=15
+REGISTRY_DEFAULT_TERM_SECONDS=3
+REGISTRY_WORD=re.compile('[A-Za-z0-9][A-Za-z0-9._ -]{0,63}')
+REGISTRY_FOLDER_PART='[A-Za-z0-9](?:[A-Za-z0-9 ._-]{0,62}[A-Za-z0-9_-])?'
+REGISTRY_FOLDER=re.compile(r'C:\\users\\('+REGISTRY_FOLDER_PART+r')\\('+REGISTRY_FOLDER_PART+')',re.I)
+# reg.exe's own not-found text (current and older Wine), English under C.UTF-8.
+REGISTRY_NOT_FOUND=re.compile('reg: (?:Unable to find the specified registry (?:key|value)|The system was unable to find the specified registry key or value)',re.I)
+
+class RegistryDefaultFailure(Exception):
+    def __init__(self,reason):super().__init__(reason);self.reason=reason
+
+def registry_defaults_admitted(profile):
+    defaults=profile.get('registry_defaults',[])
+    def word(value):return isinstance(value,str) and REGISTRY_WORD.fullmatch(value) is not None and value.strip()==value
+    if not isinstance(defaults,list) or len(defaults)>4:raise ValueError('managed_application_profile_registry_defaults')
+    seen=set()
+    for entry in defaults:
+        if not isinstance(entry,dict) or set(entry)!={'key','name','type','value'}:raise ValueError('managed_application_profile_registry_defaults')
+        key=entry['key'];value=entry['value']
+        if (not isinstance(key,str) or len(key)>255 or not key.startswith('HKCU\\')
+            or not 1<=len(key[5:].split('\\'))<=8 or not all(word(part) for part in key[5:].split('\\'))
+            or not word(entry['name']) or entry['type']!='REG_SZ' or not isinstance(value,dict) or set(value)!={'known_folder'}
+            or not isinstance(value['known_folder'],str) or value['known_folder'] not in REGISTRY_KNOWN_FOLDERS
+            or (key.lower(),entry['name'].lower()) in seen):raise ValueError('managed_application_profile_registry_defaults')
+        seen.add((key.lower(),entry['name'].lower()))
+    return defaults
+
+def managed_registry_defaults(operation,profile):
+    """This launch's declared defaults; none when the manager handed over none."""
+    path=pathlib.Path(operation['report']).parent/REGISTRY_LAUNCH_SETTINGS
+    try:metadata=path.lstat()
+    except FileNotFoundError:return []
+    # Only a plain file is opened: a FIFO or link here cannot stall the launch.
+    if not stat.S_ISREG(metadata.st_mode):raise ValueError('managed_application_profile_defaults_binding')
+    value=renderer_read(path)
+    if (not isinstance(value,dict) or set(value)!={'schema','operation_id','profile','registry_defaults'} or value['schema']!=1
+        or value['operation_id']!=operation['operation_id'] or value['profile']!=profile['id']):
+        raise ValueError('managed_application_profile_defaults_binding')
+    return registry_defaults_admitted(value)
+
+def registry_value(run,key,name,*,ascii_only=False):
+    """None only when reg.exe itself says the key or value does not exist; ''
+    when empty. Any other reading raises. Text stays in memory, never recorded."""
+    code,out,err=run([REGISTRY_TOOL,'query',key,'/v',name])
+    try:text=out.decode('ascii') if ascii_only else out.decode('utf-8','replace')
+    except UnicodeDecodeError as exc:raise RegistryDefaultFailure('query_unreadable') from exc
+    pattern=re.compile('[ \t]+'+re.escape(name)+'[ \t]+REG_[A-Z_]+(?:[ \t]+(.*))?',re.I)
+    lines=text.split('\n')
+    rows=[(index,match) for index,match in enumerate(pattern.fullmatch(line.rstrip('\r')) for line in lines) if match]
+    # Exit 1 alone is not absence: runner, Proton and Wine failures share it.
+    if code==1 and not rows and REGISTRY_NOT_FOUND.search(text+'\n'+err.decode('ascii','replace')):return None
+    if code!=0 or len(rows)!=1:raise RegistryDefaultFailure('query_unreadable')
+    index,row=rows[0];data=(row.group(1) or '').strip()
+    if data=='(value not set)':data=''  # reg.exe's text for zero-length data
+    # Empty only with reg.exe's blank terminator line: truncated output is unclear.
+    if not data and (index+2>=len(lines) or lines[index+1].strip()):raise RegistryDefaultFailure('query_unreadable')
+    return data
+
+def registry_known_folder(root,value):
+    """Windows' recorded folder for the prefix user, kept inside this setup."""
+    match=REGISTRY_FOLDER.fullmatch(value or '')
+    if not match:raise RegistryDefaultFailure('known_folder_unavailable')
+    root=pathlib.Path(root);users=root/'compatdata/pfx/drive_c/users';profile=users/match.group(1)
+    if users.is_symlink() or not users.is_dir() or profile.is_symlink() or not profile.is_dir():
+        raise RegistryDefaultFailure('windows_user_unavailable')
+    if not profile.resolve().is_relative_to(root.resolve()):raise RegistryDefaultFailure('download_folder_outside_setup')
+    folder=profile/match.group(2)
+    if folder.exists() or folder.is_symlink():
+        if not folder.resolve().is_relative_to(root.resolve()):raise RegistryDefaultFailure('download_folder_outside_setup')
+    else:
+        try:folder.mkdir(mode=0o755)
+        except OSError as exc:raise RegistryDefaultFailure('known_folder_unavailable') from exc
+    if not folder.is_dir():raise RegistryDefaultFailure('known_folder_unavailable')
+    return value
+
+def registry_default_apply(entry,root,run):
+    """Fill one declared value only when two readings show it absent or empty.
+    Never raises; a value the musician chose is never replaced."""
+    folder=entry['value']['known_folder'];key=entry['key'];name=entry['name']
+    try:
+        if registry_value(run,key,name):return {'known_folder':folder,'result':'already_set','reason':None}
+        target=registry_known_folder(root,registry_value(run,REGISTRY_SHELL_FOLDERS,REGISTRY_KNOWN_FOLDERS[folder],ascii_only=True))
+        if registry_value(run,key,name):return {'known_folder':folder,'result':'already_set','reason':None}
+        code,_,_=run([REGISTRY_TOOL,'add',key,'/v',name,'/t','REG_SZ','/d',target,'/f'])
+        if code!=0:raise RegistryDefaultFailure('write_failed')
+        if registry_value(run,key,name)!=target:raise RegistryDefaultFailure('write_unconfirmed')
+        return {'known_folder':folder,'result':'applied','reason':None}
+    except RegistryDefaultFailure as exc:reason=exc.reason
+    except TimeoutError:reason='timeout'
+    except Exception:reason='runner_unavailable'
+    return {'known_folder':folder,'result':'failed','reason':reason}
 
 def selected_installer_origin(managed, app):
     """Recheck an observed app's actual installer receipt in its owned setup.

@@ -1,6 +1,6 @@
 //! Read-only language and routing over the canonical operator snapshot.
 use crate::model::{Action, AvailableAction, CompatibilityPhase, DawChoice, InstallationJourney,
-    InstallationPhase, InstallationPluginStage, Product, Snapshot, System};
+    InstallationPhase, InstallationPluginStage, Product, Snapshot, System, VendorApplication};
 use eframe::egui;
 
 /// Shared readable, touch-sized presentation for the ordinary app and previews.
@@ -70,6 +70,27 @@ pub fn vendor_install_consequence(snapshot: &Snapshot, action: &Action) -> Optio
         .map(|product| product.name.as_str()).collect();
     (!affected.is_empty()).then(|| format!("{} will be unavailable during this work and checked again after you finish here.",
         affected.join(", ")))
+}
+
+/// One plain sentence for a per-user default the supervisor filled, or could
+/// not fill, before the app's last launch. A value the musician chose is silent.
+pub fn vendor_default_notice(app: &VendorApplication) -> Option<String> {
+    let entries = app.details["dependency"]["registry_defaults"].as_array()?;
+    let name = &app.name;
+    let set = format!("{name}'s download folder was empty, so the bridge set it to the Downloads folder inside {name}'s Windows setup.");
+    // A missing folder means the launch's settings could not be read at all.
+    entries.iter().find_map(|entry| match (entry["known_folder"].as_str(), entry["result"].as_str()?,
+        entry["reason"].as_str()) {
+        (Some("Downloads"), "applied", _) => Some(set.clone()),
+        (Some("Downloads"), "applied_after_service_start", _) => Some(format!(
+            "{set} If downloads still fail, close {name} and open it again once.")),
+        (_, "failed", Some("cancelled")) => None,
+        (Some("Downloads"), "failed", Some("query_unreadable")) => Some(format!(
+            "The bridge couldn't read {name}'s download folder, so it left it unchanged. If downloads fail, set it in {name}'s preferences.")),
+        (Some("Downloads") | None, "failed", _) => Some(format!(
+            "Couldn't set {name}'s download folder; set it in {name}'s preferences before downloading.")),
+        _ => None,
+    })
 }
 
 /// Presentation only: the original offered action and refusal remain authoritative.
@@ -712,6 +733,33 @@ mod tests {
 
     fn snapshot() -> Snapshot {
         serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap()
+    }
+
+    #[test]
+    fn vendor_default_notice_names_only_what_the_bridge_did() {
+        let app = |result: &str, reason: Option<&str>| VendorApplication { id: "a".into(), name: "Native Access".into(),
+            version: "3".into(), state: "running".into(), actions: vec![],
+            details: serde_json::json!({"dependency": {"registry_defaults":
+                [{"known_folder": "Downloads", "result": result, "reason": reason}]}}) };
+        let set = "Native Access's download folder was empty, so the bridge set it to the Downloads folder inside Native Access's Windows setup.";
+        assert_eq!(vendor_default_notice(&app("applied", None)).unwrap(), set);
+        assert_eq!(vendor_default_notice(&app("applied_after_service_start", None)).unwrap(),
+            format!("{set} If downloads still fail, close Native Access and open it again once."));
+        assert_eq!(vendor_default_notice(&app("failed", Some("timeout"))).unwrap(),
+            "Couldn't set Native Access's download folder; set it in Native Access's preferences before downloading.");
+        assert_eq!(vendor_default_notice(&app("failed", Some("query_unreadable"))).unwrap(),
+            "The bridge couldn't read Native Access's download folder, so it left it unchanged. If downloads fail, set it in Native Access's preferences.");
+        assert_eq!(vendor_default_notice(&app("failed", Some("cancelled"))), None);
+        assert_eq!(vendor_default_notice(&app("already_set", None)), None);
+        let mut unreadable = app("failed", Some("defaults_unavailable"));
+        unreadable.details["dependency"]["registry_defaults"][0]["known_folder"] = serde_json::Value::Null;
+        assert_eq!(vendor_default_notice(&unreadable).unwrap(),
+            "Couldn't set Native Access's download folder; set it in Native Access's preferences before downloading.");
+        let mut plain = app("applied", None);
+        plain.details = serde_json::json!({"dependency": {"registry_defaults": null}});
+        assert_eq!(vendor_default_notice(&plain), None);
+        plain.details = serde_json::json!({"dependency": null});
+        assert_eq!(vendor_default_notice(&plain), None);
     }
 
     #[test]

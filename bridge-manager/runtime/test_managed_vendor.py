@@ -13,7 +13,9 @@ class ManagedVendorTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.home = pathlib.Path(self.temp.name).resolve()
         self.managed = self.home / '.local/share/linux-vst-bridge/managed'
-        self.profile = json.loads((pathlib.Path(__file__).parents[1] / 'src/vendor_profiles/native_access.json').read_text())
+        # The saved binding: the bundled profile without launch-time settings.
+        bundled = json.loads((pathlib.Path(__file__).parents[1] / 'src/vendor_profiles/native_access.json').read_text())
+        self.profile = {key: value for key, value in bundled.items() if key != 'registry_defaults'}
         self.home_patch = patch.object(pathlib.Path, 'home', return_value=self.home)
         self.home_patch.start()
 
@@ -187,7 +189,7 @@ class ManagedVendorTests(unittest.TestCase):
         spec = run.call_args.args[0]
         children = []
         ledger = type('Ledger', (), {'launcher': lambda _, child, role: children.append(child),
-            'harvest': lambda _: [child.poll() for child in children]})()
+            'harvest': lambda _: [child.poll() for child in children], 'phase': 'dependency_query', 'first_failure': None})()
         return s.Nad1Owner(spec, ledger, None, lambda: False, contract=operation['managed']['capabilities'])
 
     def test_fresh_dependency_install_and_owned_retirement_use_actual_operation_without_legacy_receipts(self):
@@ -365,6 +367,44 @@ class ManagedVendorTests(unittest.TestCase):
             result = json.loads(pathlib.Path(operation['report']).read_text())
             self.assertEqual(result['error_code'], 'renderer_image_replaced')
             self.assertNotIn('renderer_image', result['error'])
+        finally:
+            for sig, old in zip((signal.SIGTERM, signal.SIGINT), prior): signal.signal(sig, old)
+            s.ctypes.CDLL(None).prctl(36, 0, 0, 0, 0)
+
+    @unittest.skipUnless(sys.platform == 'linux', 'Linux operation owner')
+    def test_registry_default_outcome_reaches_the_manager_inside_the_dependency_record(self):
+        # Older managers reject unknown top-level result fields; the dependency
+        # record is free-form for them, so a rollback keeps reading results.
+        from test_installer import Scope
+        operation = self.operation('a')
+        root = pathlib.Path(operation['application']['environment']['root'])
+        (root / 'compatdata/pfx/system.reg').touch()
+        outcome = [{'known_folder': 'Downloads', 'result': 'failed', 'reason': 'timeout'}]
+        class Dependency:
+            bound_daemon = None
+            runtime = type('Runtime', (), {'argv': lambda *_: ['application-launch'], 'drain': lambda *_: None})()
+            anchor = None
+            retirement_error = None
+            def __init__(self, *_, **__): self.process_cleanup_confirmed = False
+            def ensure(self, *_): pass
+            def retire_service(self): return True
+            def close_runtime(self): return True
+            def verify_session_cleanup(self, *_): return True
+            def value(self): return {'process_cleanup_confirmed': self.process_cleanup_confirmed,
+                'dependency_cleanup_disposition': 'graceful_service_retirement', 'registry_defaults': outcome,
+                'post_cleanup': {'cgroup_empty': True, 'exact_daemon_generation_absent': True, 'application_image_unchanged': True,
+                    'daemon_image_unchanged': True, 'listener_mask': 0, 'candidate_count': 0, 'candidate_observation_unavailable': 0}}
+        prior = [signal.getsignal(sig) for sig in (signal.SIGTERM, signal.SIGINT)]
+        try:
+            with patch.object(s, 'Nad1Owner', Dependency), patch.object(s, 'CompanionCgroup', return_value=Scope()), \
+                 patch.object(s, 'environment', return_value=dict(os.environ)), \
+                 patch.object(s.subprocess, 'Popen', side_effect=OSError('fixture launch')) as launch:
+                self.assertFalse(s.vendor_application(operation))
+                launch.assert_called_once()
+            result = json.loads(pathlib.Path(operation['report']).read_text())
+            self.assertEqual(result['error_code'], 'application_launch_failed')
+            self.assertEqual(result['dependency']['registry_defaults'], outcome)
+            self.assertNotIn('registry_defaults', result)
         finally:
             for sig, old in zip((signal.SIGTERM, signal.SIGINT), prior): signal.signal(sig, old)
             s.ctypes.CDLL(None).prctl(36, 0, 0, 0, 0)
