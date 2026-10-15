@@ -13,13 +13,15 @@ fn initialized_receipt(value: &Value) -> bool {
     value["startup"]["stages"].as_array().is_some_and(|stages| stages.iter()
         .any(|row| row["stage"] == "prefix_initialization_exit" && row["exit"] == 0))
 }
-fn prefix_preservation_required(m: &Manager, environment: &Environment) -> Result<bool> {
+pub(super) fn prefix_preservation_required(m: &Manager, environment: &Environment) -> Result<bool> {
     if !environment.root.is_dir() {return Ok(true);}
     if initialized_prefix(environment) || m.registry()?.classes.values()
         .any(|entry| entry.registration.environment.id == environment.id) {return Ok(true);}
     for record in onboarding::history_records(m)?.into_iter()
         .filter(|r| r.environment.id == environment.id) {
-        if record.installation_operation.is_some() {
+        // An attempt closed before its installer started ran nothing here.
+        if record.installation_operation.is_some()
+            && !onboarding::result(m,&record).is_ok_and(|v|onboarding::closed_unstarted(&v)) {
             // Old MF2 producers did not record startup stages. Their absence
             // cannot establish that a retained installation is uninitialized.
             return Ok(true);

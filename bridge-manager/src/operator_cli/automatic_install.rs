@@ -822,32 +822,21 @@ fn execute_owned(
                 "automatic_installation_existing_attempt_requires_resume",
             )?;
             let record = if let Some(&leaf) = current.first() {
-                let unstarted = leaf.installation_operation.is_none() && leaf.automatic.is_none();
-                if unstarted && !linux_vst_bridge::runtime_delivery::superseded_revision(m, &leaf.environment.runner) {
+                if leaf.installation_operation.is_none() && leaf.automatic.is_none()
+                    && !linux_vst_bridge::runtime_delivery::superseded_revision(m, &leaf.environment.runner) {
                     onboarding::load(m, &leaf.id)?
                 } else {
                     // Retry on the recommended delivered runtime, in a new
                     // attempt linked to this one. Earlier attempts keep their
                     // runtime and stay history. A kept installation, another
                     // runner, or interrupted owned work still needs its resume.
-                    require(
-                        if unstarted {
-                            !onboarding::registered(m, leaf)?
-                                && environment_install::latest(m, &leaf.id)?.is_none()
-                        } else {
-                            runtime_retry(m, leaf, &history)?
-                        },
-                        "automatic_installation_existing_attempt_requires_resume",
-                    )?;
+                    require(runtime_retry(m, leaf, &history)?,
+                        "automatic_installation_existing_attempt_requires_resume")?;
                     let runner = recommended_runtime(m, operation, capacity_read, timeout, waits)?;
                     let _serialized = acquire_readback(m, ui::OperatorLock::Canonical,
                         Some(operation), timeout, waits)?;
-                    if unstarted {
-                        let _environment = m.lock("operator-environment.lock")?;
-                        onboarding::finish_superseded_unstarted(m, &leaf.id, operation)?;
-                    }
                     let value = create_environment_prepared(m, operation, timeout, waits, capacity_read,
-                        || onboarding::prepare_recommended_attempt(m, &leaf.id, &runner))?;
+                        || onboarding::prepare_recommended_attempt(m, &leaf.id, &runner, operation))?;
                     onboarding::load(m, value["onboarding"].as_str().ok_or("automatic_environment_missing")?)?
                 }
             } else {
@@ -1013,6 +1002,12 @@ fn execute_owned(
                 .ok_or("automatic_installation_intent_missing")?;
             require(intent.vendor.is_some() || environment_install::latest(m,id)?.is_none(),
                 "Another installer was chosen for this setup. Continue from its current Setup card.")?;
+            // An unstarted request on an older runtime is retried in a new
+            // setup on the current runtime, never launched here.
+            let older_unstarted = record.installation_operation.is_none()
+                && linux_vst_bridge::runtime_delivery::superseded_revision(m,&record.environment.runner);
+            let closed = onboarding::closed_unstarted(&onboarding::result(m,&record)?);
+            require(intent.vendor.is_some() || (!older_unstarted && !closed), OLDER_RUNTIME)?;
             require(
                 valid_hex(&intent.owner, 32),
                 "automatic_installation_intent_binding",
@@ -2089,9 +2084,8 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
                     busy,
                 ));
             }
-            if intent.vendor.is_none() && record.installation_operation.is_some()
+            if intent.vendor.is_none()
                 && setup.journey.as_ref().is_some_and(|j|j.phase == ui::InstallationPhase::NeedsAttention)
-                && environment_refresh::current_intent(m,&record.environment)?.is_none()
                 && runtime_retry(m,record,records)? {
                 // The installer itself must run again. Retry repeats the same
                 // request (installer, DAW, explicit choice) in a new attempt on
@@ -2099,6 +2093,9 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
                 // Resuming connection stays only where durable files may exist.
                 setup.secondary.retain(|offer|!matches!(offer.action,ui::Action::InstallerNewAttempt {..}));
                 if project_early(setup,early.as_ref(),early_refused,busy) {continue;}
+                if linux_vst_bridge::runtime_delivery::superseded_revision(m,&record.environment.runner) {
+                    setup.status=OLDER_RUNTIME.into();
+                }
                 let retry=action("Retry",ui::Action::software_install_action(record.installer.clone(),
                     intent.journey.daw,intent.installer_policy),busy);
                 let partial=onboarding::result(m,record)?["transaction"]["durable_installation"]=="partial_installation";
@@ -2107,30 +2104,27 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
         } else if let Some(record) = record.filter(|r| r.installation_operation.is_some()
             && linux_vst_bridge::runtime_delivery::superseded_revision(m,&r.environment.runner)
             && runtime_retry(m,r,records).unwrap_or(false)) {
-            // A finished attempt without an automatic request on an older
-            // runtime: the same choices as a new installation, as its Retry.
+            // A finished attempt without its own automatic request on an older
+            // runtime repeats the nearest request in its Retry chain.
             setup.secondary.retain(|offer|!matches!(offer.action,ui::Action::InstallerNewAttempt {..}));
             if project_early(setup,early.as_ref(),early_refused,busy) {continue;}
+            let (daw,policy)=carried_request(record,records)
+                .map_or((ui::DawChoice::Other,None),|intent|(intent.journey.daw,intent.installer_policy));
             setup.status=OLDER_RUNTIME.into();
             setup.primary=Some(action("Retry",
-                ui::Action::software_install_action(record.installer.clone(),ui::DawChoice::Other,None),busy));
-            push_policy_choices(m,setup,busy,None);
+                ui::Action::software_install_action(record.installer.clone(),daw,policy),busy));
+            push_policy_choices(m,setup,busy,daw,policy);
         } else if record.is_none_or(|r| r.installation_operation.is_none()) {
             if project_early(setup,early.as_ref(),early_refused,busy) {continue;}
             // An unstarted attempt on an older runtime, left by an earlier
-            // exact-runner Retry, repeats its predecessor's automatic request.
+            // exact-runner Retry, repeats the nearest request in its chain.
             let superseded=record.filter(|r|linux_vst_bridge::runtime_delivery::superseded_revision(m,&r.environment.runner));
-            let carried=superseded.and_then(|r|r.previous_attempt.as_deref())
-                .and_then(|previous|records.iter().find(|p|p.id==previous))
-                .and_then(|previous|previous.automatic.as_ref());
-            setup.primary = Some(match carried {
-                Some(intent)=>action("Retry",ui::Action::software_install_action(setup.installer.clone(),
-                    intent.journey.daw,intent.installer_policy),busy),
-                None=>action("Install and connect",
-                    ui::Action::software_install_action(setup.installer.clone(),ui::DawChoice::Other,None),busy),
-            });
+            let carried=superseded.and_then(|r|carried_request(r,records));
+            let (daw,policy)=carried.map_or((ui::DawChoice::Other,None),|intent|(intent.journey.daw,intent.installer_policy));
+            setup.primary = Some(action(if carried.is_some() {"Retry"} else {"Install and connect"},
+                ui::Action::software_install_action(setup.installer.clone(),daw,policy),busy));
             if superseded.is_some() {setup.status=OLDER_RUNTIME.into();}
-            push_policy_choices(m,setup,busy,carried.and_then(|intent|intent.installer_policy));
+            push_policy_choices(m,setup,busy,daw,policy);
         }
     }
     Ok(())
@@ -2151,25 +2145,40 @@ fn project_early(setup:&mut ui::InstallerSetup,early:Option<&(ui::Request,ui::In
     setup.primary = refused.then(|| action("Retry", request.action.clone(), busy));
     true
 }
-const OLDER_RUNTIME: &str = "This setup is on an older compatibility runtime. Retry installs again in a new setup with the current runtime.";
-fn push_policy_choices(m:&Manager,setup:&mut ui::InstallerSetup,busy:Option<&str>,offered:Option<ui::Powershell>) {
+const OLDER_RUNTIME: &str = "This setup is on an older compatibility runtime. Retry installs again in a new setup on the current compatibility runtime.";
+fn push_policy_choices(m:&Manager,setup:&mut ui::InstallerSetup,busy:Option<&str>,daw:ui::DawChoice,
+    offered:Option<ui::Powershell>) {
     if software_record(m).is_ok_and(|sw|linux_vst_bridge::installer_policy::eligible_adapter_record(&setup.format,&sw).is_ok()) {
         for powershell in [ui::Powershell::Inherited,ui::Powershell::IntentionallyUnavailable]
             .into_iter().filter(|choice|Some(*choice)!=offered) {
             setup.secondary.push(action(match powershell {
                 ui::Powershell::Inherited=>"Install with normal PowerShell behavior",
                 ui::Powershell::IntentionallyUnavailable=>"Install without PowerShell",
-            },ui::Action::software_install_action(setup.installer.clone(),ui::DawChoice::Other,Some(powershell)),busy));
+            },ui::Action::software_install_action(setup.installer.clone(),daw,Some(powershell)),busy));
         }
     }
 }
-/// Whether a finished attempt's Retry is a new automatic attempt on the
-/// recommended delivered runtime: its runtime is a delivered revision, the
-/// installer outcome allows another attempt, and no later installer owns it.
+/// Whether this attempt's Retry is a new automatic attempt on the recommended
+/// delivered runtime: a finished attempt on a delivered revision whose outcome
+/// allows another attempt, or an unstarted attempt on a superseded revision.
+/// Vendor-app, refresh and later-installer owners keep their own continuation.
 fn runtime_retry(m:&Manager,record:&onboarding::Record,history:&[onboarding::Record])->Result<bool> {
+    if environment_refresh::current_intent(m,&record.environment)?.is_some() {return Ok(false);}
+    if record.installation_operation.is_none() {return onboarding::closable_unstarted(m,record);}
     Ok(linux_vst_bridge::runtime_delivery::delivered_revision(m,&record.environment.runner)
         && environment_install::latest(m,&record.id)?.is_none()
         && onboarding::new_attempt_allowed(m,record,history)?)
+}
+/// The nearest automatic request in this attempt's Retry chain, for its DAW
+/// and explicit installer choice.
+fn carried_request<'a>(record:&'a onboarding::Record,history:&'a [onboarding::Record])->Option<&'a Intent> {
+    let mut current=Some(record);
+    for _ in 0..=history.len() {
+        let attempt=current?;
+        if let Some(intent)=attempt.automatic.as_ref().filter(|intent|intent.vendor.is_none()) {return Some(intent);}
+        current=attempt.previous_attempt.as_deref().and_then(|previous|history.iter().find(|r|r.id==previous));
+    }
+    None
 }
 
 pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Result<()> {
@@ -2900,6 +2909,8 @@ mod tests {
             assert!(card.primary.iter().chain(&card.secondary)
                 .all(|offer|!matches!(offer.action,ui::Action::InstallerNewAttempt {..})));
             assert_eq!(card.primary.as_ref().unwrap().action,first);
+            assert_eq!(card.primary.iter().chain(&card.secondary).filter(|offer|offer.label.contains("Retry")).count(),1,
+                "Exactly one Retry: {:?}",card.secondary);
             let retry=available(&snapshot).into_iter().find(|offer|offer.disabled_reason.is_none()
                 && matches!(&offer.action,ui::Action::InstallerNewAttempt {previous,..} if previous==&failed.id))
                 .unwrap().action.clone();
@@ -3136,6 +3147,134 @@ mod tests {
                 .collect::<std::collections::BTreeMap<_,_>>();
             assert_eq!(after,before,"{registered} {durable}");
         }
+    }
+    fn unstarted_after(f:&test_fixture::Fixture,previous:&onboarding::Record,runner:&Runner)->onboarding::Record {
+        let prepared=onboarding::prepare_attempt(&f.m,&previous.id,&onboarding::runner_key(runner).unwrap()).unwrap();
+        let created=onboarding::create_prepared(&f.m,prepared,&random_id().unwrap(),&f.m.lock("registry.lock").unwrap()).unwrap();
+        onboarding::load(&f.m,created["onboarding"].as_str().unwrap()).unwrap()
+    }
+    fn setup_files(f:&test_fixture::Fixture,id:&str)->std::collections::BTreeMap<PathBuf,Vec<u8>> {
+        fs::read_dir(onboarding::directory(&f.m,id).unwrap()).unwrap()
+            .map(|e|{let p=e.unwrap().path();(p.clone(),fs::read(p).unwrap())}).collect()
+    }
+    #[test]
+    fn refused_creation_admission_leaves_the_unstarted_older_attempt_unchanged() {
+        let (f,installer,_)=onboarding::tests::close_policy_imported_fixture();
+        let older=operator_cli::tests::retained_managed_runtime(&f.m,true);
+        let (failed,_)=failed_automatic_attempt(&f,&installer.id,&older,None);
+        let unstarted=unstarted_after(&f,&failed,&older);
+        let before=(setup_files(&f,&failed.id),setup_files(&f,&unstarted.id));
+        // Capacity unavailable, then an active DAW: both refuse creation admission.
+        for active in [false,true] {
+            let install=ui::Action::software_install_action(installer.id.clone(),ui::DawChoice::Reaper,None);
+            let operation=random_id().unwrap();private_dir(&job_dir(&f.m,&operation).unwrap()).unwrap();
+            let read=||active.then(||serde_json::from_value::<CapacityReadback>(json!({"schema":1,"dsp":1,
+                "maintenance":0,"keepers":0,"cleanup_unconfirmed":false,"owners":[],"limits":{"global_dsp":6}})).unwrap());
+            let error=readiness::with_unit_state_fixture(&installer_units(&f.m),"inactive",||execute(&f.m,&install,
+                &operation,&read,Duration::from_millis(20),&mut vec![])).unwrap_err();
+            assert_ne!(error.to_string(),"automatic_installation_existing_attempt_requires_resume");
+            assert_eq!(onboarding::history_records(&f.m).unwrap().len(),2,"{error}");
+            assert_eq!((setup_files(&f,&failed.id),setup_files(&f,&unstarted.id)),before,"{error}");
+        }
+    }
+    #[test]
+    fn saved_unstarted_request_on_older_runtime_retries_in_a_new_setup_instead_of_resuming() {
+        for policy in [None,Some(ui::Powershell::IntentionallyUnavailable)] {
+            let (f,installer,recommended)=onboarding::tests::close_policy_imported_fixture();
+            let older=operator_cli::tests::retained_managed_runtime(&f.m,true);
+            let first=ui::Action::software_install_action(installer.id.clone(),ui::DawChoice::Reaper,policy);
+            let owner=test_submit_offered(&f.m,&first).unwrap();
+            let prepared=onboarding::prepare_creation(&f.m,&installer.id,&onboarding::runner_key(&older).unwrap()).unwrap();
+            let created=onboarding::create_prepared(&f.m,prepared,&owner,&f.m.lock("registry.lock").unwrap()).unwrap();
+            let record=onboarding::load(&f.m,created["onboarding"].as_str().unwrap()).unwrap();
+            let mut intent=initial_intent(&record);intent.installer_policy=policy;intent.scan=None;
+            intent.journey.daw=ui::DawChoice::Reaper;
+            intent.journey.failure=Some(failure(ui::InstallationFailureStage::VendorInstallation,"fixture_prelaunch_refusal"));
+            save(&f.m,&record,&intent,&owner).unwrap();
+            write_operation(&f.m,&owner,&json!({"schema":2,"operation":owner,"state":"refused","journey":intent.journey}),false).unwrap();
+            let before=setup_files(&f,&record.id);
+
+            let snapshot=snapshot_idle_test(&f.m).unwrap();
+            let card=snapshot.installer_setups.iter().find(|setup|setup.installer==installer.id).unwrap();
+            let retry=card.primary.clone().unwrap();
+            assert_eq!((retry.label.as_str(),&retry.action),("Retry",&first));
+            assert_eq!(card.status,OLDER_RUNTIME);
+            assert!(card.primary.iter().chain(&card.secondary)
+                .all(|offer|!matches!(offer.action,ui::Action::SoftwareInstallResume {..})),"{:?}",card.secondary);
+            // A resume would launch on the older runtime; it is refused unchanged.
+            let resume=ui::Action::SoftwareInstallResume {onboarding:record.id.clone()};
+            let refused=random_id().unwrap();private_dir(&job_dir(&f.m,&refused).unwrap()).unwrap();
+            let error=execute(&f.m,&resume,&refused,&idle_capacity_test,Duration::from_secs(1),&mut vec![]).unwrap_err();
+            assert_eq!(error.to_string(),OLDER_RUNTIME);assert_eq!(setup_files(&f,&record.id),before);
+
+            let launched=test_submit_offered(&f.m,&retry.action).unwrap();
+            let mut units=installer_units(&f.m);units.push(onboarding::unit(&launched).unwrap());
+            let error=readiness::with_unit_state_fixture(&units,"inactive",||
+                onboarding::with_installer_unit_refusal(||execute(&f.m,&retry.action,&launched,
+                    &idle_capacity_test,Duration::from_secs(1),&mut vec![]))).unwrap_err();
+            assert!(error.to_string().contains("fixture_installer_unit_refusal"),"{error}");
+            assert_launched_on_recommended_runtime(&f,&record.id,&launched,policy,&recommended);
+            let closed=onboarding::retained_environment_record(&f.m,&record.id).unwrap().unwrap();
+            assert_eq!(closed.automatic.as_ref().unwrap().owner,owner,"The saved request stays history");
+            assert!(onboarding::closed_unstarted(&onboarding::result(&f.m,&closed).unwrap()));
+            assert_eq!(closed.environment,record.environment);
+        }
+    }
+    #[test]
+    fn closed_older_attempt_card_retries_the_chain_request_and_is_never_scanned() {
+        for policy in [None,Some(ui::Powershell::Inherited)] {
+            let (f,installer,recommended)=onboarding::tests::close_policy_imported_fixture();
+            let older=operator_cli::tests::retained_managed_runtime(&f.m,true);
+            let (failed,_)=failed_automatic_attempt(&f,&installer.id,&older,policy);
+            let unstarted=unstarted_after(&f,&failed,&older);
+            // Closed, but its linked attempt was never created.
+            let closed=onboarding::close_superseded_unstarted(&f.m,&unstarted.id,&random_id().unwrap()).unwrap();
+            assert!(!environment_install::prefix_preservation_required(&f.m,&closed.environment).unwrap(),
+                "Nothing ran in a closed attempt");
+            let snapshot=readiness::with_unit_state_fixture(&installer_units(&f.m),"inactive",||snapshot_idle_test(&f.m)).unwrap();
+            let row=snapshot.onboarding.iter().find(|row|row.environment.as_deref()==Some(closed.id.as_str())).unwrap();
+            assert_eq!(row.required_human_action,onboarding::NOT_STARTED);
+            assert!(row.actions.iter().all(|offer|!matches!(offer.action,ui::Action::InstallerScan {..})));
+            let card=snapshot.installer_setups.iter().find(|setup|setup.installer==installer.id).unwrap();
+            assert_eq!(card.environment.as_deref(),Some(closed.id.as_str()));
+            assert_eq!(card.status,OLDER_RUNTIME);
+            let retry=card.primary.clone().unwrap();assert_eq!(retry.label,"Retry");
+            assert_eq!(retry.action,ui::Action::software_install_action(installer.id.clone(),ui::DawChoice::Reaper,policy));
+            assert!(card.primary.iter().chain(&card.secondary).all(|offer|
+                !matches!(offer.action,ui::Action::InstallerNewAttempt {..} | ui::Action::InstallerScan {..})
+                && offer.action.software_install().is_none_or(|(_,daw,_)|daw==ui::DawChoice::Reaper)));
+            let launched=readiness::with_unit_state_fixture(&installer_units(&f.m),"inactive",||test_submit_offered(&f.m,&retry.action)).unwrap();
+            let mut units=installer_units(&f.m);units.push(onboarding::unit(&launched).unwrap());
+            let error=readiness::with_unit_state_fixture(&units,"inactive",||
+                onboarding::with_installer_unit_refusal(||execute(&f.m,&retry.action,&launched,
+                    &idle_capacity_test,Duration::from_secs(1),&mut vec![]))).unwrap_err();
+            assert!(error.to_string().contains("fixture_installer_unit_refusal"),"{error}");
+            assert_launched_on_recommended_runtime(&f,&closed.id,&launched,policy,&recommended);
+        }
+    }
+    #[test]
+    fn finished_attempt_on_a_catalogue_runner_keeps_its_exact_retry_and_refuses_install() {
+        let (f,installer,_)=onboarding::tests::close_policy_imported_fixture();
+        let owner=random_id().unwrap();
+        let record=onboarding::tests::started_attempt_on(&f,&installer,f.r.environment.runner.clone(),&owner);
+        assert!(!linux_vst_bridge::runtime_delivery::delivered_revision(&f.m,&record.environment.runner));
+        atomic_json(&onboarding::directory(&f.m,&record.id).unwrap().join(format!("{owner}-result.json")),
+            &json!({"schema":2,"operation":owner,"state":"failed","raw_exit":1,"cleanup_confirmed":true,"owned_live":0,
+                "transaction":{"schema":1,"operation":owner,"outcome":"not_installed","durable_installation":"not_installed"}})).unwrap();
+        let before=setup_files(&f,&record.id);
+        let snapshot=readiness::with_unit_state_fixture(&installer_units(&f.m),"inactive",||snapshot_idle_test(&f.m)).unwrap();
+        let card=snapshot.installer_setups.iter().find(|setup|setup.installer==installer.id).unwrap();
+        assert!(card.primary.iter().chain(&card.secondary).any(|offer|offer.label=="Retry"
+            && offer.action==ui::Action::InstallerNewAttempt {previous:record.id.clone(),
+                runner:onboarding::runner_key(&record.environment.runner).unwrap()}),"{card:?}");
+        assert!(card.primary.iter().chain(&card.secondary).all(|offer|offer.action.software_install().is_none()));
+        let operation=random_id().unwrap();private_dir(&job_dir(&f.m,&operation).unwrap()).unwrap();
+        let install=ui::Action::software_install_action(installer.id.clone(),ui::DawChoice::Reaper,None);
+        let error=readiness::with_unit_state_fixture(&installer_units(&f.m),"inactive",||execute(&f.m,&install,&operation,
+            &idle_capacity_test,Duration::from_secs(1),&mut vec![])).unwrap_err();
+        assert_eq!(error.to_string(),"automatic_installation_existing_attempt_requires_resume");
+        assert_eq!(onboarding::history_records(&f.m).unwrap().len(),1);
+        assert_eq!(setup_files(&f,&record.id),before);
     }
     #[test]
     fn explicit_policy_install_in_manually_created_unstarted_setup_owns_its_request() {
