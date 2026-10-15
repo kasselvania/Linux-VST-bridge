@@ -335,6 +335,9 @@ pub(crate) mod tests {
         let choices = choices(&f.m, &record).unwrap();
         assert_eq!(choices.len(), 2);
         for choice in &choices { choice.application.verify(&f.m.root).unwrap(); }
+        observed["after"]["uninstall"]["cd".repeat(32)]["InstallLocation"] = "".into();
+        atomic_json(&path, &observed).unwrap();
+        assert_eq!(super::choices(&f.m, &record).unwrap().len(), 2, "an empty InstallLocation falls back");
         observed["after"]["uninstall"]["cd".repeat(32)]["DerivedInstallLocation"] = "C:/Program Files/VendorSibling".into();
         atomic_json(&path, &observed).unwrap();
         assert!(super::choices(&f.m, &record).is_err());

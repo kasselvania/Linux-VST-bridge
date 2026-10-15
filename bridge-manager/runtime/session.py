@@ -2245,21 +2245,52 @@ class InstallerWitnesses:
                             image=re.match(r'^"?([A-Za-z]:\\.*?\.exe)(?:"|\s|$)',decoded,re.I)
                             if image:out[kind][key]['image']=image.group(1)
                         elif name in ('DisplayIcon','UninstallString'):
-                            # Many installers omit InstallLocation. Keep only the
-                            # folder of the icon (preferred) or uninstaller image,
-                            # never the command or its arguments. Cached setup
-                            # copies and Windows folders are not an application home.
-                            if kind!='uninstall' or (name=='UninstallString' and 'DerivedInstallLocation' in out[kind][key]):continue
-                            decoded=value.strip('"').replace('\\\\','\\').replace('\\"','"')
-                            image=re.match(r'^"?([A-Za-z]:\\[^"]*?\.exe)(?:"|,|\s|$)',decoded,re.I)
-                            if image and len(image.group(1))<=1024:
-                                folder=image.group(1).rsplit('\\',1)[0];low=folder.lower()+'\\'
-                                if not ('\\package cache\\' in low or '\\installer\\' in low or low.startswith('c:\\windows\\')):
-                                    out[kind][key]['DerivedInstallLocation']=folder
+                            # Many installers omit InstallLocation. Retain only an
+                            # observed image path, never the command or arguments.
+                            image=self.derived_image(value,out['files']) if kind=='uninstall' else None
+                            if image:out[kind][key]['DerivedIcon' if name=='DisplayIcon' else 'DerivedUninstaller']=image
                         elif name in ('InstallLocation','DisplayName','DisplayVersion'):
                             if len(value)<=1024:out[kind][key][name]=value.strip('"').replace('\\\\','\\')
                         elif re.fullmatch('dword:[0-9a-fA-F]{8}',value):out[kind][key][name]=value
+        for entry in out['uninstall'].values():
+            # The icon folder is preferred whatever the value order; the uninstaller
+            # folder is the fallback. Neither may be a shared or system root.
+            for source in ('DerivedIcon','DerivedUninstaller'):
+                folder=InstallerWitnesses.derived_folder(entry.get(source))
+                if folder:entry['DerivedInstallLocation']=folder;break
         out['incomplete']=sorted(set(out['incomplete']));return out
+
+    @staticmethod
+    def derived_image(value,files):
+        """Resolve a registry command or icon value to an observed .exe in files.
+
+        One outer quote pair is removed, then escapes. A quoted command uses its
+        quoted path; an unquoted one is split at spaces as Windows does. Only a
+        candidate that is an observed file is accepted, so arguments never are.
+        """
+        if len(value)<2 or value[0]!='"' or value[-1]!='"':return None
+        text=re.sub(r'\\(.)',r'\1',value[1:-1]).strip()
+        if text.startswith('"'):
+            end=text.find('"',1);candidates=[text[1:end]] if end>0 else []
+        else:
+            words=re.sub(r',-?\d+$','',text).split(' ')
+            candidates=[' '.join(words[:i]) for i in range(1,min(len(words),32)+1)]
+        known={k.lower():k for k in files}
+        for candidate in candidates:
+            if len(candidate)>1024 or not re.fullmatch(r'[A-Za-z]:\\[^"]+\.exe',candidate,re.I):continue
+            found=known.get(candidate[3:].replace('\\','/').lower())
+            if found:return found
+        return None
+
+    @staticmethod
+    def derived_folder(image):
+        if not image:return None
+        parts=image.split('/')[:-1];low=[p.lower() for p in parts]
+        if not low or low[0]=='windows' or 'package cache' in low or 'installer' in low:return None
+        if low[0] in ('program files','program files (x86)') and (len(low)<2 or low[1:]==['common files']):return None
+        if low[0]=='programdata' and len(low)<2:return None
+        if low[0]=='users' and len(low)<4:return None
+        return 'C:\\'+'\\'.join(parts)
 
     @staticmethod
     def compare(before,after):
@@ -2278,6 +2309,10 @@ class InstallerWitnesses:
             # PE image is an installation witness, never factory/audio/license
             # or installation-completeness authority.
             images=[p for p in delta['files']['added']+delta['files']['changed'] if p.lower().startswith(relative) and p.lower().endswith(('.exe','.dll','.vst3')) and after['files'][p].get('sha256') and after['files'][p].get('format')=='pe_executable']
+            if not entry.get('InstallLocation'):
+                # A derived home's own uninstaller is neither installation
+                # evidence nor an application to open.
+                images=[p for p in images if p.lower()!=(entry.get('DerivedUninstaller') or '').lower()]
             if images:registrations.append({'registration':key,'images':images})
         changed=any(delta[k][change] for k in ('files','uninstall','services') for change in ('added','changed','removed'))
         return {'delta':delta,'application_registrations':registrations,
