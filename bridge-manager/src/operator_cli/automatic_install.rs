@@ -136,7 +136,7 @@ pub(super) fn vendor_checkpoint_authority(m: &Manager) -> Result<Vec<Value>> {
 }
 
 pub(super) fn record_intent(m: &Manager, record: &onboarding::Record) -> Result<Option<Intent>> {
-    if let Some(original)=&record.automatic { initial_installer_policy(m,record,original)?; }
+    if let Some(original)=&record.automatic { initial_installer_input(m,record,original)?; }
     if let Some(current)=current_environment_vendor_intent(m,&record.environment)? {return Ok(Some(current));}
     if let Some(current)=environment_refresh::current_intent(m,&record.environment)? {return Ok(Some(current));}
     let Some(original) = &record.automatic else { return Ok(None) };
@@ -145,23 +145,25 @@ pub(super) fn record_intent(m: &Manager, record: &onboarding::Record) -> Result<
     }
     Ok(Some(original.clone()))
 }
-fn initial_installer_policy(m:&Manager,record:&onboarding::Record,intent:&Intent)->Result<Option<ui::Powershell>> {
+pub(super) fn initial_installer_input(m:&Manager,record:&onboarding::Record,intent:&Intent)->Result<Option<ui::Request>> {
     let path=job_dir(m,&intent.owner)?.join("request.json");
     // Legacy intents carry no explicit choice. Their existing receipt owner is
     // unchanged; an explicit copy must always resolve its original request.
     if intent.installer_policy.is_none() && !path.try_exists()? {return Ok(None);}
     let request:ui::Request=read_json(&path)?;
     let choice=request.action.software_install();
-    if intent.installer_policy.is_some() || choice.is_some_and(|(_,_,policy)|policy.is_some()) {
+    if intent.installer_policy.is_some() || choice.is_some() {
         require(matches!(request.schema,5..=ui::OPERATOR_SCHEMA)
-            && intent.vendor.is_none()
+            && (intent.installer_policy.is_none() || intent.vendor.is_none())
+            && record.automatic.as_ref().is_none_or(|retained|retained.owner==intent.owner)
             && choice.is_some_and(|(installer,daw,policy)|installer==record.installer
                 && daw==intent.journey.daw && policy==intent.installer_policy),"automatic_installer_policy_owner")?;
     }
-    Ok(intent.installer_policy)
+    Ok(Some(request))
 }
 fn initial_installer_action(m:&Manager,record:&onboarding::Record,intent:&Intent)->Result<ui::Action> {
-    Ok(match initial_installer_policy(m,record,intent)? {
+    initial_installer_input(m,record,intent)?;
+    Ok(match intent.installer_policy {
         Some(powershell)=>ui::Action::InstallerStartWithPolicy {onboarding:record.id.clone(),powershell},
         None=>ui::Action::InstallerStart {onboarding:record.id.clone()},
     })
@@ -421,9 +423,8 @@ fn owned_service_pause_with(
         return Ok(None);
     }
     let bound = match &request.action {
-        ui::Action::SoftwareInstall { daw, .. } | ui::Action::SoftwareInstallWithPolicy {daw,..}
-            if saved.owner_operation == operation => {
-            *daw == journey.daw
+        action if action.software_install().is_some() && saved.owner_operation == operation => {
+            action.software_install().unwrap().1 == journey.daw
         }
         ui::Action::VendorSoftwareInstall { application, .. } | ui::Action::VendorApplicationOpen { application } => {
             vendor_intent(m, application)?.is_some_and(|intent| intent.active_operation == operation
@@ -455,17 +456,16 @@ fn owned_service_pause_with(
                         || saved.vendor_operation.is_none() && renderer_continuation::scan_custody(m,&saved).is_ok())
                     || intent.work.iter().any(|work|work.active_operation.as_deref()==Some(saved.owner_operation.as_str())))
         }
-        ui::Action::SoftwareInstall { .. }
-        | ui::Action::SoftwareInstallWithPolicy {..}
-        | ui::Action::SoftwareInstallResume { .. } => {
+        action if action.software_install().is_some() || matches!(action,ui::Action::SoftwareInstallResume { .. }) => {
             let mut owners=vec![];
             for record in onboarding::history_records(m)? {
                 if let Some(intent)=record_intent(m,&record)? { owners.push((record,intent)); }
             }
             owners.iter().any(|(record,intent)| {
                 let same_request = match &request.action {
-                    ui::Action::SoftwareInstall { installer, daw } | ui::Action::SoftwareInstallWithPolicy {installer,daw,..} => {
-                        *installer == record.installer && *daw == intent.journey.daw
+                    action if action.software_install().is_some() => {
+                        let (installer,daw,policy)=action.software_install().unwrap();
+                        installer == record.installer && daw == intent.journey.daw && policy == intent.installer_policy
                     }
                     ui::Action::VendorSoftwareInstall { application, daw } => {
                         intent
@@ -557,7 +557,7 @@ fn save(m: &Manager, record: &dyn InstallationTarget, intent: &Intent, operation
                 "environment":record.id(),"application":vendor.application,"journey":intent.journey}), false);
     }
     let record = record.installation().ok_or("automatic_installation_record_missing")?;
-    initial_installer_policy(m,record,intent)?;
+    initial_installer_input(m,record,intent)?;
     let _guard = m.lock("onboarding.lock")?;
     let mut current = onboarding::retained_environment_record(m, &record.id)?
         .ok_or("automatic_installation_record_missing")?;
@@ -675,7 +675,7 @@ fn execute_owned(
     vendor_run: &mut VendorStage<'_>,
 ) -> Result<Value> {
     let (record, mut intent): (Box<dyn InstallationTarget>, Intent) = match action {
-        action @ (ui::Action::SoftwareInstall {..} | ui::Action::SoftwareInstallWithPolicy {..}) => {
+        action if action.software_install().is_some() => {
             let (installer,daw,installer_policy)=action.software_install().unwrap();
             let history = onboarding::history_records(m)?;
             let existing: Vec<_> = history
@@ -1808,8 +1808,7 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
             let journey =
                 serde_json::from_value::<ui::InstallationJourney>(receipt["journey"].clone()).ok();
             request.zip(journey).filter(|(request, journey)| {
-                matches!(&request.action,
-            ui::Action::SoftwareInstall { daw, .. } | ui::Action::SoftwareInstallWithPolicy {daw,..} if daw == &journey.daw)
+                request.action.software_install().is_some_and(|(_,daw,_)|daw==journey.daw)
                     && receipt.get("onboarding").is_none()
                     && matches!(
                         journey.phase,
@@ -1949,10 +1948,7 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
             }
             setup.primary = Some(action(
                 "Install and connect",
-                ui::Action::SoftwareInstall {
-                    installer: setup.installer.clone(),
-                    daw: ui::DawChoice::Other,
-                },
+                ui::Action::software_install_action(setup.installer.clone(),ui::DawChoice::Other,None),
                 busy,
             ));
             if software_record(m).is_ok_and(|sw|linux_vst_bridge::installer_policy::eligible_adapter_record(&setup.format,&sw).is_ok()) {
@@ -1960,7 +1956,7 @@ fn project_from_with(m:&Manager,setups:&mut [ui::InstallerSetup],busy:Option<&st
                     setup.secondary.push(action(match powershell {
                         ui::Powershell::Inherited=>"Install with normal PowerShell behavior",
                         ui::Powershell::IntentionallyUnavailable=>"Install without PowerShell",
-                    },ui::Action::SoftwareInstallWithPolicy {installer:setup.installer.clone(),daw:ui::DawChoice::Other,powershell},busy));
+                    },ui::Action::software_install_action(setup.installer.clone(),ui::DawChoice::Other,Some(powershell)),busy));
                 }
             }
         }
@@ -2633,7 +2629,8 @@ mod tests {
     }
     #[test]
     fn explicit_policy_retry_after_creation_before_intent_save_keeps_creation_history() {
-        for powershell in [ui::Powershell::Inherited,ui::Powershell::IntentionallyUnavailable] {
+        for (powershell,explicit_replacement) in [ui::Powershell::Inherited,ui::Powershell::IntentionallyUnavailable]
+            .into_iter().flat_map(|policy|[false,true].map(move |explicit|(policy,explicit))) {
             let (f,installer,runner)=onboarding::tests::close_policy_imported_fixture();
             let action=ui::Action::SoftwareInstallWithPolicy {installer:installer.id.clone(),daw:ui::DawChoice::Reaper,powershell};
             let creator=test_submit_offered(&f.m,&action).unwrap();
@@ -2661,11 +2658,14 @@ mod tests {
             let spec:Value=read_json(&onboarding::directory(&f.m,&record.id).unwrap().join(format!("{operation}-spec.json"))).unwrap();
             assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],serde_json::to_value(powershell).unwrap());
             assert_eq!(spec["installer_capability"]["operation"],operation);
+            assert_later_replacement_and_actual_retry(&f,&current,
+                explicit_replacement.then_some(powershell));
         }
     }
     #[test]
     fn explicit_policy_install_in_manually_created_unstarted_setup_owns_its_request() {
-        for powershell in [ui::Powershell::Inherited,ui::Powershell::IntentionallyUnavailable] {
+        for (powershell,explicit_replacement) in [ui::Powershell::Inherited,ui::Powershell::IntentionallyUnavailable]
+            .into_iter().flat_map(|policy|[false,true].map(move |explicit|(policy,explicit))) {
             let (f,record)=onboarding::tests::close_policy_unstarted_fixture();
             let history=fs::read(onboarding::directory(&f.m,&record.id).unwrap().join("record.json")).unwrap();
             let action=ui::Action::SoftwareInstallWithPolicy {installer:record.installer.clone(),daw:ui::DawChoice::Reaper,powershell};
@@ -2684,7 +2684,62 @@ mod tests {
             assert_eq!(observed,old,"Only current install ownership is added to the existing creation record");
             let spec:Value=read_json(&onboarding::directory(&f.m,&record.id).unwrap().join(format!("{operation}-spec.json"))).unwrap();
             assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],serde_json::to_value(powershell).unwrap());
+            assert_later_replacement_and_actual_retry(&f,&current,
+                explicit_replacement.then_some(powershell));
         }
+    }
+    fn assert_later_replacement_and_actual_retry(f:&test_fixture::Fixture,record:&onboarding::Record,
+        policy:Option<ui::Powershell>) {
+        let initial=record.installation_operation.as_ref().unwrap();
+        let history=onboarding::directory(&f.m,&record.id).unwrap();
+        // Substitute the vendor's completed receipt after the actual initial
+        // executor has created/reserved/bound its launch, never its ownership.
+        atomic_json(&history.join(format!("{initial}-result.json")),&json!({"schema":2,
+            "operation":initial,"state":"completed","raw_exit":0,"cleanup_confirmed":true,"owned_live":0})).unwrap();
+        private_dir(&record.environment.root.join("compatdata/pfx")).unwrap();
+        fs::write(record.environment.root.join("compatdata/pfx/system.reg"),b"first-party initialized state").unwrap();
+        let mut intent=record.automatic.clone().unwrap();intent.journey.phase=ui::InstallationPhase::Available;
+        intent.journey.failure=None;save(&f.m,record,&intent,&intent.owner).unwrap();
+        write_operation(&f.m,&intent.owner,&json!({"schema":2,"operation":intent.owner,
+            "state":"completed","journey":intent.journey}),true).unwrap();
+        let record=onboarding::retained_environment_record(&f.m,&record.id).unwrap().unwrap();
+        assert_ne!(record.creation_operation,intent.owner);
+        let history_bytes=fs::read(history.join("record.json")).unwrap();
+        mod fixture {include!("../../tests/fixtures/nsis_installer.rs");}
+        let input=f.outer.join("new-chosen-installer.exe");
+        fs::write(&input,fixture::fixture(Some(("FileVersion","unknown-version")))).unwrap();
+        let selected=installer_import::import(&f.m,file(&input).unwrap()).unwrap();
+        let snapshot=readiness::with_unit_state_fixture(&installer_units(&f.m),"inactive",||snapshot_idle_test(&f.m)).unwrap();
+        let target=snapshot.environment_installers.iter().find(|target|target.environment==record.id).unwrap();
+        let chosen=target.choices.iter().chain(&target.actions).find(|offer|offer.disabled_reason.is_none()
+            && offer.action.environment_installer_start().is_some_and(|(environment,installer,choice)|
+                environment==record.id && installer==selected.id && choice==policy)).unwrap().action.clone();
+        let first=readiness::with_unit_state_fixture(&installer_units(&f.m),"inactive",||test_submit_offered(&f.m,&chosen)).unwrap();
+        let binding=readiness::with_unit_state_fixture(&installer_units(&f.m),"inactive",||
+            environment_install::reserve(&f.m,&record.id,&selected.id,&first)).unwrap();
+        assert_eq!(binding.automatic_request.as_ref().unwrap().path,job_dir(&f.m,&intent.owner).unwrap().join("request.json"));
+        let spec=environment_install::launch_input(&f.m,&binding).unwrap();
+        if let Some(policy)=policy {
+            assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],serde_json::to_value(policy).unwrap());
+        } else {assert_eq!(spec["schema"],2);assert!(spec.get("installer_capability").is_none());}
+        let report=job_dir(&f.m,&first).unwrap().join("installation-result.json");
+        atomic_json(&report,&json!({"schema":2,"operation":first,"state":"cancelled","raw_exit":2,
+            "cleanup_confirmed":true,"owned_live":0})).unwrap();
+        let snapshot=readiness::with_unit_state_fixture(&installer_units(&f.m),"inactive",||snapshot_idle_test(&f.m)).unwrap();
+        let retry=snapshot.environment_installers.iter().find(|target|target.environment==record.id).unwrap().actions.iter()
+            .find(|offer|offer.label=="Retry" && offer.disabled_reason.is_none()).unwrap().action.clone();
+        assert_eq!(retry,chosen,"Same-byte Retry must preserve the actual accepted variant and choice");
+        let owner=readiness::with_unit_state_fixture(&installer_units(&f.m),"inactive",||test_submit_offered(&f.m,&retry)).unwrap();
+        let binding=readiness::with_unit_state_fixture(&installer_units(&f.m),"inactive",||
+            environment_install::reserve(&f.m,&record.id,&selected.id,&owner)).unwrap();
+        let spec=environment_install::launch_input(&f.m,&binding).unwrap();
+        assert_eq!(spec["operation"],owner);assert_eq!(spec["installer"]["sha256"],selected.id);
+        if let Some(policy)=policy {
+            assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],serde_json::to_value(policy).unwrap());
+            assert_eq!(spec["installer_capability"]["operation"],owner);
+        } else {assert!(spec.get("installer_capability").is_none());}
+        assert_eq!(binding.environment.id,record.environment.id);assert_eq!(binding.environment.root,record.environment.root);
+        assert_replacement_launcher_handoff(f,&record,&binding,&retry,&history_bytes,false);
     }
     #[test]
     fn explicit_first_install_policy_survives_prelaunch_interruption_and_refuses_changed_owner_copies() {
@@ -2910,7 +2965,7 @@ mod tests {
         atomic_json(&job_dir(&f.m,&owner).unwrap().join("request.json"),&ui::Request {
             schema:ui::OPERATOR_SCHEMA,state_token:"accepted-replacement".into(),action:action.clone()}).unwrap();
         let binding=environment_install::reserve(&f.m,&original.id,&selected.id,&owner).unwrap();
-        let spec=environment_install::launch_input(&f.m,&binding,action.environment_installer_start().unwrap().2).unwrap();
+        let spec=environment_install::launch_input(&f.m,&binding).unwrap();
         if policy.is_some() {
             assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],"inherited");
             assert_eq!(spec["installer_capability"]["operation"],owner);
@@ -2975,7 +3030,7 @@ mod tests {
         assert!(matches!(calls.as_slice(),[ui::Action::EnvironmentRescan {..},
             ui::Action::CompatibilityCheck {..},ui::Action::CompatibilityPublishTest {..}]));
         let current=onboarding::retained_environment_record(&f.m,&original.id).unwrap().unwrap();
-        let connection=record_intent(&f.m,&current).unwrap().unwrap();assert_eq!(connection.owner,owner);
+        let connection=record_intent(&f.m,&current).unwrap().unwrap();assert_eq!(connection.owner,owner.as_str());
         assert_eq!(connection.journey.phase,ui::InstallationPhase::Available);
         assert_eq!(environment_refresh::capture_request(&f.m,&binding.environment).unwrap(),binding.automatic_request);
         finish(&f.m,&owner,&action).unwrap();
@@ -3214,8 +3269,23 @@ finally:
             state_token:"accepted-replacement".into(),action:action.clone()}).unwrap();
         let binding=readiness::with_unit_state_fixture(&[onboarding::unit(&old_owner).unwrap()],"inactive",||
             environment_install::reserve(&f.m,&original.id,&selected.id,&owner)).unwrap();
-        let spec=environment_install::launch_input(&f.m,&binding,action.environment_installer_start().unwrap().2).unwrap();
+        let spec=environment_install::launch_input(&f.m,&binding).unwrap();
         if policy.is_some() {assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],"inherited");}
+        fs::remove_file(&c.selection.module.path).unwrap();
+        assert_replacement_launcher_handoff(&f,&original,&binding,&action,&original_bytes,interrupted);
+    }
+    fn installer_units(m:&Manager)->Vec<String> {
+        onboarding::history_records(m).unwrap().into_iter().filter_map(|r|r.installation_operation)
+            .chain(environment_install::records(m).unwrap().into_iter().map(|r|r.operation))
+            .map(|operation|onboarding::unit(&operation).unwrap()).collect()
+    }
+    fn assert_replacement_launcher_handoff(f:&test_fixture::Fixture,original:&onboarding::Record,
+        binding:&environment_revision::InstallerBinding,action:&ui::Action,original_bytes:&[u8],interrupted:bool) {
+        let owner=&binding.operation;let directory=job_dir(&f.m,owner).unwrap();
+        let history=onboarding::directory(&f.m,&original.id).unwrap();
+        let mut pe=vec![0u8;1024];pe[..2].copy_from_slice(b"MZ");pe[60]=128;
+        pe[128..132].copy_from_slice(b"PE\0\0");pe[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        pe[148]=2;pe[150]=2;pe[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
         let app_path=binding.environment.root.join("compatdata/pfx/drive_c/Program Files/New Hub/Main.exe");
         private_dir(app_path.parent().unwrap()).unwrap();fs::write(&app_path,&pe).unwrap();
         atomic_json(&directory.join("installation-result.json"),&json!({"schema":2,"operation":owner,
@@ -3228,15 +3298,17 @@ finally:
                     "InstallLocation":"C:\\Program Files\\New Hub"}}},
             "durable_installation":{"application_registrations":[{"registration":registration,"images":[relative]}],
                 "delta":{"files":{"added":[relative],"changed":[]},"uninstall":{"added":[registration],"changed":[]}},"incomplete":[]}})).unwrap();
-        fs::remove_file(&c.selection.module.path).unwrap();let inventory=f.m.root.join("inventory").join(format!("{}.json",original.id));
-        let mut scan:inventory::Scan=read_json(&inventory).unwrap();scan.environment=binding.environment.clone();
-        scan.id=random_id().unwrap();scan.modules.clear();atomic_json(&inventory,&scan).unwrap();
+        let inventory=f.m.root.join("inventory").join(format!("{}.json",original.id));
+        private_dir(inventory.parent().unwrap()).unwrap();let sw=software(&f.m).unwrap();
+        let scan=inventory::Scan {schema:1,id:random_id().unwrap(),environment:binding.environment.clone(),
+            host:sw.host,host_source_sha256:sw.source_sha256,completed_at:1,modules:vec![],changes:Default::default()};
+        atomic_json(&inventory,&scan).unwrap();
         let current=onboarding::retained_environment_record(&f.m,&original.id).unwrap().unwrap();
         let choices=vendor_cli::selection::choices(&f.m,&current).unwrap();assert_eq!(choices.len(),1);
-        let app=&choices[0].application;assert_eq!(app.installer_sha256.as_ref(),Some(&selected.id));
+        let app=&choices[0].application;assert_eq!(app.installer_sha256.as_ref(),Some(&binding.installer));
         assert_eq!(app.installer_result.as_ref().unwrap().path,directory.join("installation-result.json"));
         app.verify(&f.m.root).unwrap();let selector=app.selector().unwrap();
-        let units=[onboarding::unit(&old_owner).unwrap(),onboarding::unit(&owner).unwrap(),vendor_cli::unit(&selector).unwrap()];
+        let mut units=installer_units(&f.m);units.push(vendor_cli::unit(&selector).unwrap());
         if interrupted {
             assert!(!directory.join("refresh.json").exists());
             let server=super::super::tests::overview_service_reply_with_counts(&f.m,
@@ -3247,19 +3319,19 @@ finally:
                 && setup.primary.as_ref().is_some_and(|offer|offer.disabled_reason.is_none()
                     && offer.action==(ui::Action::VendorSoftwareInstall {application:selector.clone(),daw:ui::DawChoice::Reaper}))));
             assert!(!directory.join("refresh.json").exists(),"readback must not create a checkpoint");
-            environment_refresh::finish(&f.m,&owner,&action).unwrap();
+            environment_refresh::finish(&f.m,owner,action).unwrap();
             let checkpoint=fs::read(directory.join("refresh.json")).unwrap();
-            environment_refresh::finish(&f.m,&owner,&action).unwrap();
+            environment_refresh::finish(&f.m,owner,action).unwrap();
             assert_eq!(fs::read(directory.join("refresh.json")).unwrap(),checkpoint);
         } else {
             let mut scans=0;
-            let error=readiness::with_unit_state_fixture(&units,"inactive",||environment_refresh::execute_with(&f.m,&action,&owner,
-                &mut |environment,intent|continue_refresh_fixture(&f.m,environment,intent,&owner,&mut |stage,_,_| {
+            let error=readiness::with_unit_state_fixture(&units,"inactive",||environment_refresh::execute_with(&f.m,action,owner,
+                &mut |environment,intent|continue_refresh_fixture(&f.m,environment,intent,owner,&mut |stage,_,_| {
                     assert!(matches!(stage,ui::Action::EnvironmentRescan {..}));scans+=1;Ok(json!({"scan":scan.id}))
                 }))).unwrap_err().to_string();
             assert_eq!(error,"no_supported_instruments_or_effects_discovered");assert_eq!(scans,1);
         }
-        let connection=record_intent(&f.m,&current).unwrap().unwrap();assert_eq!(connection.owner,owner);
+        let connection=record_intent(&f.m,&current).unwrap().unwrap();assert_eq!(connection.owner,owner.as_str());
         assert!(empty_bootstrap_handoff(&f.m,&current,&connection,&selector).unwrap());
         let server=super::super::tests::overview_service_reply_with_counts(&f.m,
             super::super::tests::capacity_json(false,0,0),(1,1));
@@ -3273,9 +3345,7 @@ finally:
         assert!(f.m.registry().unwrap().classes.is_empty());
         // Follow the actual offered app intent through normal admission and its
         // typed revision owner, substituting only the vendor process boundary.
-        let app_owner=random_id().unwrap();private_dir(&job_dir(&f.m,&app_owner).unwrap()).unwrap();
-        atomic_json(&job_dir(&f.m,&app_owner).unwrap().join("request.json"),&ui::Request {
-            schema:ui::OPERATOR_SCHEMA,state_token:"accepted-app-visit".into(),action:visit.clone()}).unwrap();
+        let app_owner=readiness::with_unit_state_fixture(&units,"inactive",||test_submit_offered(&f.m,&visit)).unwrap();
         let error=readiness::with_unit_state_fixture(&units,"inactive",||
             execute_with_vendor(&f.m,&visit,&app_owner,&||None,Duration::ZERO,&mut vec![],&mut |environment,intent,_| {
                 assert_eq!(environment.environment().id,binding.environment.id);

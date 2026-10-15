@@ -2490,13 +2490,12 @@ fn execute_with_receipt_policy_progress(
         }
         action @ (ui::Action::EnvironmentInstallerStart {..}
             | ui::Action::EnvironmentInstallerStartWithPolicy {..}) => {
-            let (environment,installer,policy)=action.environment_installer_start().unwrap();
+            let (environment,installer,_)=action.environment_installer_start().unwrap();
             let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
             suspend(m,owner,None,timeout,waits)?;
             let r = environment_install::reserve(m,environment,installer,owner)?;
-            let launched = if policy.is_some() { environment_install::launch_with_policy(m,&r,policy) }
-                else { environment_install::launch(m,&r) };
+            let launched = environment_install::launch(m,&r);
             drop(projection.take());
             if launched.is_ok() {
                 write_operation(m,owner,&json!({"schema":2,"operation":owner,

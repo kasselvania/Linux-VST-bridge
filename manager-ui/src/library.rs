@@ -956,7 +956,7 @@ pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
             for line in presentation::installer_lines(&target.result) {ui.small(line);}
         });
     }
-    let continuation:Vec<_>=target.actions.iter().filter(|offer|!matches!(offer.action,
+    let continuation:Vec<_>=target.actions.iter().filter(|offer|offer.label=="Retry" || !matches!(offer.action,
         Action::EnvironmentInstallerFocus { .. } | Action::EnvironmentInstallerStop { .. }
         | Action::EnvironmentInstallerStartWithPolicy { .. }
         | Action::ProgramChoose {..})).cloned().collect();
@@ -979,7 +979,7 @@ pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
     if let Some(offer) = target.choices.iter().find(|offer|matches!(&offer.action,
         Action::EnvironmentInstallerStart {installer,..} if installer == &selected)) {
         crate::library::action_buttons(ui,std::slice::from_ref(offer),None,pending,chosen);
-        let advanced:Vec<_>=target.actions.iter().filter(|offer|matches!(&offer.action,
+        let advanced:Vec<_>=target.actions.iter().filter(|offer|offer.label!="Retry" && matches!(&offer.action,
             Action::EnvironmentInstallerStartWithPolicy {installer,..} if installer == &selected)).cloned().collect();
         if !advanced.is_empty() {
             egui::CollapsingHeader::new("Advanced installer options").show(ui,|ui| {

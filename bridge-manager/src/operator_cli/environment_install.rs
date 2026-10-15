@@ -170,18 +170,28 @@ fn reserve_with(m: &Manager, environment: &str, installer: &str,
 }
 
 pub(super) fn launch(m: &Manager, r: &Binding) -> Result<()> {
-    launch_with_policy(m,r,None)
-}
-pub(super) fn launch_with_policy(m: &Manager, r: &Binding,
-    policy: Option<linux_vst_bridge::installer_policy::Powershell>) -> Result<()> {
     let dir = job_dir(m,&r.operation)?;
     let report = dir.join("installation-result.json");
     let spec = dir.join("installer-spec.json");
-    let input = launch_input(m,r,policy)?;
+    let input = launch_input(m,r)?;
     atomic_json(&spec,&input)?;
     onboarding::launch_spec(m,&r.operation,&spec,&report)
 }
-pub(super) fn launch_input(m: &Manager, r: &Binding, policy: Option<linux_vst_bridge::installer_policy::Powershell>) -> Result<Value> {
+fn accepted_action(m: &Manager, r: &Binding) -> Result<ui::Action> {
+    let (owned,action)=environment_revision::installer_input(m,&r.operation)?;
+    // Only an omitted legacy preservation observation may differ. Execution
+    // still applies the existing preservation owner to the retained prefix.
+    require(owned.schema==r.schema && owned.operation==r.operation && owned.installer==r.installer
+        && owned.before==r.before && owned.environment==r.environment && owned.created_at==r.created_at
+        && owned.automatic_request==r.automatic_request
+        && (owned.preserve_existing_prefix==r.preserve_existing_prefix
+            || owned.preserve_existing_prefix.is_none() || r.preserve_existing_prefix.is_none()),
+        "installer_transaction_binding")?;
+    Ok(action)
+}
+pub(super) fn launch_input(m: &Manager, r: &Binding) -> Result<Value> {
+    let action=accepted_action(m,r)?;
+    let policy=action.environment_installer_start().ok_or("installer_transaction_binding")?.2;
     let preserve_existing_prefix = require_preserved_prefix(m,&r.environment,r.preserve_existing_prefix)?;
     require(target(m,&r.environment.id)? == r.environment,
         "installer_environment_binding_changed")?;
@@ -316,8 +326,7 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
             }
             if active.is_none() && onboarding::retired(&result) && result["state"] != "completed" {
                 let unavailable=installer_import::load_record(m,&r.installer).err();
-                actions.push(action("Retry",ui::Action::EnvironmentInstallerStart {
-                    environment:id.clone(),installer:r.installer.clone()},reason.as_deref().or(unavailable.as_ref()
+                actions.push(action("Retry",accepted_action(m,r)?,reason.as_deref().or(unavailable.as_ref()
                     .map(|_|"Imported installer file is unavailable. Import the original file again."))));
             }
         }
@@ -329,8 +338,8 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
         let choices = installers.iter().map(|i| {
             let label = installer_import::presentation(m,i)?.display_label;
             let missing=installer_import::load_record(m,&i.id).err();
-            Ok(action(&format!("Run {label} in this setup"),ui::Action::EnvironmentInstallerStart {
-                environment:id.clone(),installer:i.id.clone()},reason.as_deref().or(missing.as_ref()
+            Ok(action(&format!("Run {label} in this setup"),ui::Action::environment_installer_action(
+                id.clone(),i.id.clone(),None),reason.as_deref().or(missing.as_ref()
                     .map(|_|"Imported installer file is unavailable. Import the original file again."))))
         }).collect::<Result<Vec<_>>>()?;
         let selected_software = software_record(m)?;
@@ -343,8 +352,8 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
                 ("normal PowerShell behavior", linux_vst_bridge::installer_policy::Powershell::Inherited),
                 ("PowerShell intentionally unavailable", linux_vst_bridge::installer_policy::Powershell::IntentionallyUnavailable),
             ] {
-                actions.push(action(&format!("Run {label} with {description}"), ui::Action::EnvironmentInstallerStartWithPolicy {
-                    environment:id.clone(), installer:installer.id.clone(), powershell }, disabled));
+                actions.push(action(&format!("Run {label} with {description}"), ui::Action::environment_installer_action(
+                    id.clone(),installer.id.clone(),Some(powershell)), disabled));
             }
         }
         let mut runtime=environment_runtime::projection(m,&env,reason.as_deref())?;
@@ -559,6 +568,17 @@ mod tests {
             let mut old=serde_json::to_value(&binding).unwrap();old.as_object_mut().unwrap().remove("preserve_existing_prefix");
             let legacy:Binding=serde_json::from_value(old).unwrap();
             assert_eq!(legacy.preserve_existing_prefix,None);
+            for changed in ["installer","environment","before","preservation","automatic request"] {
+                let mut copy=binding.clone();
+                match changed {
+                    "installer"=>copy.installer="ef".repeat(32),
+                    "environment"=>copy.environment.root=f.outer.join("unowned-environment"),
+                    "before"=>copy.before.revision+=1,
+                    "preservation"=>copy.preserve_existing_prefix=Some(false),
+                    _=>copy.automatic_request=Some(f.r.host.clone()),
+                }
+                assert_eq!(launch_input(&f.m,&copy).unwrap_err().to_string(),"installer_transaction_binding","{changed}");
+            }
             let missing=if missing_root {initial.environment.root.clone()}
                 else {initial.environment.root.join("compatdata/pfx")};
             fs::remove_dir_all(missing).unwrap();
@@ -599,7 +619,7 @@ mod tests {
         private_dir(&initial.environment.root.join("compatdata/pfx")).unwrap();
         fs::write(initial.environment.root.join("compatdata/pfx/system.reg"),b"first-party retained state").unwrap();
         let binding = reserve_with(&f.m, &initial.id, &initial.installer, &first, || Ok(true), |_|Ok(false)).unwrap();
-        let input = launch_input(&f.m, &binding, None).unwrap();
+        let input = launch_input(&f.m, &binding).unwrap();
         assert_eq!(input["schema"], 3);
         assert_eq!(input["installer_capability"]["windows_scripting"]["powershell"], "intentionally_unavailable");
         assert_eq!(input["installer_capability"]["operation"], first);
@@ -608,7 +628,7 @@ mod tests {
         complete(&f.m, &binding, "cancelled");
         let next = job(&f.m, &initial.id, &initial.installer);
         let retry = reserve_with(&f.m, &initial.id, &initial.installer, &next, || Ok(true), |_|Ok(false)).unwrap();
-        let retry_input = launch_input(&f.m, &retry, None).unwrap();
+        let retry_input = launch_input(&f.m, &retry).unwrap();
         assert_eq!(retry_input["installer_capability"]["operation"], next);
         assert_eq!(retry_input["installer_capability"]["environment"]["revision"], retry.environment.revision);
         assert_eq!(retry.environment.id, initial.environment.id);
@@ -618,33 +638,49 @@ mod tests {
         assert_eq!(fs::read(onboarding::directory(&f.m, &initial.id).unwrap().join("record.json")).unwrap(), history);
     }
     #[test]
-    fn explicit_default_existing_setup_and_retry_are_offered_admitted_and_bound() {
+    fn actual_same_byte_retry_preserves_both_explicit_policies_on_matched_and_unmatched_installers() {
         use linux_vst_bridge::installer_policy::Powershell;
-        let (f, initial) = onboarding::tests::close_policy_fixture();
-        let initial_op = initial.installation_operation.as_ref().unwrap();
-        atomic_json(&onboarding::directory(&f.m,&initial.id).unwrap().join(format!("{initial_op}-result.json")),
-            &json!({"schema":2,"operation":initial_op,"state":"completed","cleanup_confirmed":true,"owned_live":0})).unwrap();
-        private_dir(&initial.environment.root.join("compatdata/pfx")).unwrap();
-        fs::write(initial.environment.root.join("compatdata/pfx/system.reg"),b"first-party retained state").unwrap();
-        for _ in 0..2 {
-            let units:Vec<_>=std::iter::once(initial_op.clone()).chain(records(&f.m).unwrap().into_iter()
-                .map(|record|record.operation)).map(|operation|onboarding::unit(&operation).unwrap()).collect();
-            let snapshot = readiness::with_unit_state_fixture(&units,"inactive",||snapshot_idle_test(&f.m)).unwrap();
-            let offer = available(&snapshot).into_iter().find(|offer|matches!(&offer.action,
-                ui::Action::EnvironmentInstallerStartWithPolicy { environment, installer, powershell: Powershell::Inherited }
-                    if environment == &initial.id && installer == &initial.installer)).unwrap();
-            let request = ui::Request { schema:ui::OPERATOR_SCHEMA,state_token:snapshot.state_token.clone(),action:offer.action.clone() };
-            validate(&request,&snapshot).unwrap();
-            let (environment,installer,policy) = request.action.environment_installer_start().unwrap();
-            let operation = random_id().unwrap(); let dir = job_dir(&f.m,&operation).unwrap(); private_dir(&dir).unwrap();
-            atomic_json(&dir.join("request.json"),&request).unwrap();
-            let binding = reserve_with(&f.m,environment,installer,&operation,||Ok(true),|_|Ok(false)).unwrap();
-            assert_eq!(load(&f.m,&operation).unwrap().environment,binding.environment);
-            let input = launch_input(&f.m,&binding,policy).unwrap();
-            assert_eq!(input["installer_capability"]["windows_scripting"]["powershell"], "inherited");
-            assert_eq!(input["installer_capability"]["operation"], operation);
-            assert_eq!(input["installer_capability"]["environment"],serde_json::to_value(&binding.environment).unwrap());
-            complete(&f.m,&binding,"cancelled");
+        for (powershell,matched) in [Powershell::Inherited,Powershell::IntentionallyUnavailable]
+            .into_iter().flat_map(|policy|[true,false].map(move |matched|(policy,matched))) {
+            let (f,initial)=onboarding::tests::close_policy_fixture();
+            let initial_op=initial.installation_operation.as_ref().unwrap();
+            atomic_json(&onboarding::directory(&f.m,&initial.id).unwrap().join(format!("{initial_op}-result.json")),
+                &json!({"schema":2,"operation":initial_op,"state":"completed","cleanup_confirmed":true,"owned_live":0})).unwrap();
+            private_dir(&initial.environment.root.join("compatdata/pfx")).unwrap();
+            fs::write(initial.environment.root.join("compatdata/pfx/system.reg"),b"first-party retained state").unwrap();
+            let selected=if matched {initial.installer.clone()} else {
+                mod fixture {include!("../../tests/fixtures/nsis_installer.rs");}
+                let path=f.outer.join("unmatched-installer.exe");
+                fs::write(&path,fixture::fixture(Some(("FileVersion","unknown-version")))).unwrap();
+                installer_import::import(&f.m,file(&path).unwrap()).unwrap().id
+            };
+            let mut previous=None;
+            for attempt in 0..2 {
+                let units:Vec<_>=std::iter::once(initial_op.clone()).chain(records(&f.m).unwrap().into_iter()
+                    .map(|record|record.operation)).map(|operation|onboarding::unit(&operation).unwrap()).collect();
+                let snapshot=readiness::with_unit_state_fixture(&units,"inactive",||snapshot_idle_test(&f.m)).unwrap();
+                let target=snapshot.environment_installers.iter().find(|target|target.environment==initial.id).unwrap();
+                let offer=if attempt==0 {
+                    target.actions.iter().find(|offer|offer.action.environment_installer_start()
+                        .is_some_and(|(environment,installer,policy)|environment==initial.id
+                            && installer==selected && policy==Some(powershell))).unwrap()
+                } else {target.actions.iter().find(|offer|offer.label=="Retry").unwrap()};
+                if let Some(previous)=&previous {assert_eq!(&offer.action,previous);}
+                assert_eq!(offer.action.environment_installer_start().unwrap().2,Some(powershell));
+                // Choosing a new installer is still an ordinary choice, not a
+                // policy inherited from the previous same-byte Retry.
+                assert!(target.choices.iter().any(|offer|offer.action.environment_installer_start()
+                    .is_some_and(|(_,installer,policy)|installer==selected && policy.is_none())));
+                let chosen=offer.action.clone();
+                let operation=readiness::with_unit_state_fixture(&units,"inactive",||test_submit_offered(&f.m,&chosen)).unwrap();
+                let (environment,installer,_)=chosen.environment_installer_start().unwrap();
+                let binding=reserve_with(&f.m,environment,installer,&operation,||Ok(true),|_|Ok(false)).unwrap();
+                let input=launch_input(&f.m,&binding).unwrap();
+                assert_eq!(input["installer_capability"]["windows_scripting"]["powershell"],serde_json::to_value(powershell).unwrap());
+                assert_eq!(input["installer_capability"]["operation"],operation);
+                assert_eq!(input["installer_capability"]["environment"],serde_json::to_value(&binding.environment).unwrap());
+                complete(&f.m,&binding,if attempt==0 {"cancelled"} else {"failed"});previous=Some(chosen);
+            }
         }
     }
     #[test]
@@ -664,7 +700,7 @@ mod tests {
             let operation=random_id().unwrap();private_dir(&job_dir(&f.m,&operation).unwrap()).unwrap();
             atomic_json(&job_dir(&f.m,&operation).unwrap().join("request.json"),&request).unwrap();
             let binding=reserve_with(&f.m,&environment.id,&installer.id,&operation,||Ok(true),|_|Ok(false)).unwrap();
-            let spec=launch_input(&f.m,&binding,request.action.environment_installer_start().unwrap().2).unwrap();
+            let spec=launch_input(&f.m,&binding).unwrap();
             assert_eq!(spec["installer_capability"]["environment"]["id"],environment.id);
             assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],serde_json::to_value(powershell).unwrap());
             assert_eq!(binding.environment.root,environment.root);assert_eq!(binding.environment.runner,environment.runner);

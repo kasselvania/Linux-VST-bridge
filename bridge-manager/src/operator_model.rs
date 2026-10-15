@@ -824,11 +824,27 @@ impl System {
     }
 }
 impl Action {
+    pub fn software_install_action(installer: String, daw: DawChoice, powershell: Option<Powershell>) -> Self {
+        match powershell {
+            Some(powershell) => Self::SoftwareInstallWithPolicy { installer, daw, powershell },
+            None => Self::SoftwareInstall { installer, daw },
+        }
+    }
     pub fn software_install(&self) -> Option<(&str, DawChoice, Option<Powershell>)> {
         match self {
             Self::SoftwareInstall { installer, daw } => Some((installer, *daw, None)),
             Self::SoftwareInstallWithPolicy { installer, daw, powershell } => Some((installer, *daw, Some(*powershell))),
             _ => None,
+        }
+    }
+    pub fn software_install_with_daw(&self, daw: DawChoice) -> Option<Self> {
+        self.software_install().map(|(installer, _, powershell)|
+            Self::software_install_action(installer.into(), daw, powershell))
+    }
+    pub fn environment_installer_action(environment: String, installer: String, powershell: Option<Powershell>) -> Self {
+        match powershell {
+            Some(powershell) => Self::EnvironmentInstallerStartWithPolicy { environment, installer, powershell },
+            None => Self::EnvironmentInstallerStart { environment, installer },
         }
     }
     /// Both choices use the same installer transaction and retained origin.

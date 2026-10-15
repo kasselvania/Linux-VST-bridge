@@ -80,6 +80,11 @@ pub fn require_owned_revision(m: &Manager, bound: &Environment,
 }
 
 pub fn installer_record(m: &Manager, operation: &str) -> Result<InstallerBinding> {
+    Ok(installer_input(m, operation)?.0)
+}
+/// The accepted request owns the installer choice; a revision is not a second
+/// policy authority. Historical records retain their existing wire contract.
+pub fn installer_input(m: &Manager, operation: &str) -> Result<(InstallerBinding, operator_model::Action)> {
     let dir = operator_dir(m, operation)?;
     let r: InstallerBinding = read_json(&dir.join("installation.json"))?;
     let request: operator_model::Request = read_json(&dir.join("request.json"))?;
@@ -91,7 +96,7 @@ pub fn installer_record(m: &Manager, operation: &str) -> Result<InstallerBinding
         && r.before.revision.checked_add(1) == Some(r.environment.revision)
         && r.environment.root == m.root.join("environments").join(&r.environment.id)
         && valid_environment_id(&r.environment.id), "installer_transaction_binding")?;
-    Ok(r)
+    Ok((r, request.action))
 }
 
 pub fn installer_records(m: &Manager) -> Result<Vec<InstallerBinding>> {

@@ -92,12 +92,18 @@ fn source_daw(m:&Manager,source:&Artifact,environment:&Environment)->Result<ui::
         "replacement_automatic_request_binding")?;
     let request:ui::Request=serde_json::from_slice(&source.record_bytes(16384)?)?;
     require(matches!(request.schema,5..=ui::OPERATOR_SCHEMA),"replacement_automatic_request_binding")?;
+    if request.action.software_install().is_some() {
+        let record=onboarding::retained_environment_record(m,&environment.id)?
+            .ok_or("replacement_automatic_request_binding")?;
+        let intent=record.automatic.as_ref().ok_or("replacement_automatic_request_binding")?;
+        require(intent.owner==owner && record.environment.id==environment.id
+            && record.environment.root==environment.root,"replacement_automatic_request_binding")?;
+        let actual=automatic_install::initial_installer_input(m,&record,intent)?
+            .ok_or("replacement_automatic_request_binding")?;
+        require(actual==request,"replacement_automatic_request_binding")?;
+        return Ok(actual.action.software_install().ok_or("replacement_automatic_request_binding")?.1);
+    }
     match request.action {
-        ui::Action::SoftwareInstall {installer,daw} | ui::Action::SoftwareInstallWithPolicy {installer,daw,..}=> {
-            let record:Value=read_json(&onboarding::directory(m,&environment.id)?.join("record.json"))?;
-            require(record["creation_operation"]==owner && record["installer"]==installer,
-                "replacement_automatic_request_binding")?;Ok(daw)
-        },
         ui::Action::VendorSoftwareInstall {application,daw}=> {
             let binding=environment_revision::vendor_record(m,owner)?;
             require(binding.application==application && binding.environment.id==environment.id
@@ -142,8 +148,8 @@ pub(super) fn capture_request(m:&Manager,environment:&Environment)->Result<Optio
         let request:ui::Request=serde_json::from_slice(&source.record_bytes(16384)?)?;
         // Older low-level app-open requests did not retain a DAW choice. They
         // remain replaceable, without inventing an automatic connection intent.
-        if !matches!(request.action,ui::Action::SoftwareInstall {..} | ui::Action::SoftwareInstallWithPolicy {..}
-            | ui::Action::VendorSoftwareInstall {..} | ui::Action::EnvironmentRefresh {..}) {return Ok(None);}
+        if request.action.software_install().is_none() && !matches!(request.action,
+            ui::Action::VendorSoftwareInstall {..} | ui::Action::EnvironmentRefresh {..}) {return Ok(None);}
         source_daw(m,source,environment)?;
     }
     Ok(source)

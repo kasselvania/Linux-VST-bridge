@@ -2847,13 +2847,13 @@ impl eframe::App for Operator {
         ui.ctx().request_repaint_after(self.repaint_delay());
     }
 }
-fn software_install_offer(snapshot: Option<&Snapshot>, installer: &str)
+fn software_install_offer(snapshot: Option<&Snapshot>, installer: &str, policy: Option<crate::model::Powershell>)
     -> Result<Option<String>, &'static str> {
     let snapshot = snapshot.ok_or("Current manager status is unavailable. Refresh before installing.")?;
     snapshot.installer_setups.iter().flat_map(|setup|
         setup.primary.iter().chain(setup.secondary.iter()))
-        .find(|offer| matches!(&offer.action, Action::SoftwareInstall { installer: offered, .. }
-            if offered == installer))
+        .find(|offer| offer.action.software_install().is_some_and(|(offered,_,choice)|
+            offered==installer && choice==policy))
         .map(|offer| offer.disabled_reason.clone().or_else(||
             offer.action.requires_global_inactive().then(||snapshot.system.inactive_reason())
                 .flatten().map(str::to_owned)))
@@ -2861,11 +2861,8 @@ fn software_install_offer(snapshot: Option<&Snapshot>, installer: &str)
 }
 
 fn installation_with_daw(action: &Action, daw: DawChoice) -> Option<Action> {
+    if let Some(action)=action.software_install_with_daw(daw) {return Some(action);}
     match action {
-        Action::SoftwareInstall { installer, .. } =>
-            Some(Action::SoftwareInstall { installer: installer.clone(), daw }),
-        Action::SoftwareInstallWithPolicy {installer,powershell,..}=>
-            Some(Action::SoftwareInstallWithPolicy {installer:installer.clone(),daw,powershell:*powershell}),
         Action::VendorSoftwareInstall { application, .. } =>
             Some(Action::VendorSoftwareInstall { application: application.clone(), daw }),
         Action::EnvironmentRefresh {environment,..}=>
@@ -2878,6 +2875,9 @@ fn installation_with_daw(action: &Action, daw: DawChoice) -> Option<Action> {
 
 fn installation_form_offer(snapshot: Option<&Snapshot>, action: &Action)
     -> Result<Option<String>, &'static str> {
+    if let Some((installer,_,policy))=action.software_install() {
+        return software_install_offer(snapshot,installer,policy);
+    }
     match action {
         Action::RendererSoftwareInstall {application,policy,..}=> {
             let snapshot=snapshot.ok_or("Current manager status is unavailable. Refresh before continuing.")?;
@@ -2893,15 +2893,6 @@ fn installation_form_offer(snapshot: Option<&Snapshot>, action: &Action)
                 .find(|offer|matches!(&offer.action,Action::EnvironmentRefresh {environment:offered,..} if offered==environment))
                 .map(|offer|offer.disabled_reason.clone().or_else(||snapshot.system.inactive_reason().map(str::to_owned)))
                 .ok_or("This setup refresh offer changed. Refresh Setup before continuing.")
-        },
-        Action::SoftwareInstall { installer, .. } => software_install_offer(snapshot, installer),
-        Action::SoftwareInstallWithPolicy {installer,powershell,..}=> {
-            let snapshot=snapshot.ok_or("Current manager status is unavailable. Refresh before installing.")?;
-            snapshot.installer_setups.iter().flat_map(|setup|setup.primary.iter().chain(&setup.secondary))
-                .find(|offer|offer.action.software_install().is_some_and(|(offered,_,policy)|
-                    offered==installer && policy==Some(*powershell)))
-                .map(|offer|offer.disabled_reason.clone().or_else(||snapshot.system.inactive_reason().map(str::to_owned)))
-                .ok_or("This installer policy choice changed. Refresh Setup before continuing.")
         },
         Action::VendorSoftwareInstall { application, .. } => {
             let snapshot = snapshot.ok_or("Current manager status is unavailable. Refresh before installing.")?;
@@ -3863,13 +3854,13 @@ mod tests {
         let installer="ab".repeat(32);
         snapshot.installer_setups=vec![automatic_setup(automatic_journey(InstallationPhase::Available),
             Some(Action::SoftwareInstall {installer:installer.clone(),daw:DawChoice::Other}))];
-        assert_eq!(software_install_offer(Some(&snapshot),&installer),Ok(None));
+        assert_eq!(software_install_offer(Some(&snapshot),&installer,None),Ok(None));
         snapshot.installer_setups[0].primary.as_mut().unwrap().disabled_reason=
             Some("The shared installation is still running.".into());
-        assert_eq!(software_install_offer(Some(&snapshot),&installer),
+        assert_eq!(software_install_offer(Some(&snapshot),&installer,None),
             Ok(Some("The shared installation is still running.".into())));
-        assert!(software_install_offer(Some(&snapshot),"different-installer").is_err());
-        assert!(software_install_offer(None,&installer).is_err());
+        assert!(software_install_offer(Some(&snapshot),"different-installer",None).is_err());
+        assert!(software_install_offer(None,&installer,None).is_err());
     }
 
     #[test]
@@ -6255,6 +6246,44 @@ mod tests {
                 }
             }
             assert_eq!(chosen,Some(expected));
+        }
+    }
+    #[test]
+    fn ordinary_retry_button_submits_the_offered_explicit_installer_choice_without_advanced_reselection() {
+        for powershell in [crate::model::Powershell::Inherited,crate::model::Powershell::IntentionallyUnavailable] {
+            let environment="ab".repeat(16);let installer="cd".repeat(32);
+            let offered=Action::environment_installer_action(environment.clone(),installer.clone(),Some(powershell));
+            let mut overview:CurrentOverview=overview_fixture().into();
+            overview.current.environment_installers=vec![crate::model::EnvironmentInstaller {
+                environment:environment.clone(),runtime:None,name:"Synth setup".into(),affected:vec![],
+                consequence:"The installer can change this setup.".into(),operation:Some("ef".repeat(16)),
+                installer:Some(installer.clone()),result:serde_json::json!({"state":"cancelled"}),
+                choices:vec![AvailableAction {label:"Run chosen installer".into(),
+                    action:Action::environment_installer_action(environment.clone(),installer,None),disabled_reason:None}],
+                actions:vec![AvailableAction {label:"Retry".into(),action:offered.clone(),disabled_reason:None}]}];
+            let wire=serde_json::to_vec(&overview).unwrap();
+            let overview:CurrentOverview=serde_json::from_slice(&wire).unwrap();
+            let ctx=egui::Context::default();
+            ctx.data_mut(|data|data.insert_temp(egui::Id::new("companion_environment"),environment));
+            let mut chosen=None;let mut point=egui::Pos2::ZERO;let mut time=0.0;
+            for pressed in [None,Some(true),Some(false)] {
+                time+=0.3;
+                let events=pressed.map(|pressed|vec![egui::Event::PointerMoved(point),egui::Event::PointerButton {
+                    pos:point,button:egui::PointerButton::Primary,pressed,modifiers:egui::Modifiers::NONE}]).unwrap_or_default();
+                let mut output=ctx.run_ui(egui::RawInput {events,time:Some(time),..Default::default()},|ui| {
+                    ui.set_max_width(780.0);
+                    Operator::fast_setup(ui,&overview,true,false,(&mut false,&mut chosen,&mut false,
+                        &mut Page::Setup,&mut crate::library::Library::default(),&mut RouteFocus::default(),&mut None));
+                });
+                if pressed.is_none() {point=output.shapes.iter().find_map(|shape|
+                    wrong_installer_text_position(&shape.shape,"Retry")).expect("ordinary visible Retry");}
+                output.textures_delta.clear();
+            }
+            assert_eq!(chosen,Some(offered));
+            let request=Request {schema:crate::model::OPERATOR_SCHEMA,state_token:overview.current.state_token.clone(),action:chosen.unwrap()};
+            let accepted:linux_vst_bridge::operator_model::Request=serde_json::from_slice(&serde_json::to_vec(&request).unwrap()).unwrap();
+            assert_eq!(serde_json::to_value(accepted.action.environment_installer_start().unwrap().2).unwrap(),
+                serde_json::to_value(Some(powershell)).unwrap());
         }
     }
     #[test]
