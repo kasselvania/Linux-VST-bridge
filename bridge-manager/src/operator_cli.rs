@@ -167,11 +167,23 @@ fn quarantined_product(scan: &inventory::Scan, module_index: usize,
             "inspection_error":inspection_error,"quarantine_reason":reason,"problem":problem,
             "report_sha256":module.report.sha256,"activation_permitted":false})})
 }
+pub(super) const NO_NATIVE_CONNECTION: &str = "This installed plug-in has no current native DAW connection.";
 /// A discovered plug-in whose exact retained report explains why it is not
 /// connected says so, instead of the generic availability text.
 pub(super) fn discovered_availability(problem: Option<&linux_vst_bridge::problem::Explanation>)
     -> Option<ui::NativeAvailability> {
     problem.map(|problem| ui::NativeAvailability {available:false,reason:Some(problem.summary())})
+}
+/// A later compatibility state supersedes a discovery-time explanation: the
+/// explanation and the availability reason taken from it are withdrawn.
+pub(super) fn retire_discovered_problem(product: &mut ui::Product,
+    found: &linux_vst_bridge::problem::Explanation) {
+    product.details["problem"] = Value::Null;
+    if product.availability.as_ref().is_some_and(|a| !a.available
+        && a.reason.as_deref() == Some(found.summary().as_str())) {
+        product.availability = Some(ui::NativeAvailability {available:false,
+            reason:Some(NO_NATIVE_CONNECTION.into())});
+    }
 }
 fn app_directory(m: &Manager) -> PathBuf {
     m.root.join("vendor-applications").join(ASC)
@@ -1428,7 +1440,7 @@ fn snapshot_readonly_depth(
     for product in &mut products {
         if product.availability.is_none() {
             product.availability=Some(ui::NativeAvailability {available:false,
-                reason:Some("This installed plug-in has no current native DAW connection.".into())});
+                reason:Some(NO_NATIVE_CONNECTION.into())});
         }
     }
     let mut vendor_applications = vendor_projections(m, busy)?;

@@ -267,7 +267,9 @@ pub(super) fn project(m: &Manager, setups: &mut [ui::InstallerSetup],
                 ui::Action::VendorSoftwareInstall {..} | ui::Action::VendorApplicationFocus {..} | ui::Action::VendorApplicationStop {..})) {
                 continue;
             }
-            setup.journey=Some(retained.intent.journey.clone());
+            let mut journey=retained.intent.journey.clone();
+            automatic_install::explain_journey(m,&retained.intent,&mut journey);
+            setup.journey=Some(journey);
             setup.primary=Some(action("Continue connecting plug-ins",
                 ui::Action::EnvironmentRefreshResume {operation:retained.intent.owner},
                 if retained.intent.journey.failure.as_ref().is_some_and(|f|!f.retryable) {
@@ -457,6 +459,44 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
         assert_eq!(fs::read(f.m.root.join("registry.json")).unwrap(),registry);
         assert_eq!(test_fixture::snapshot(&f.m.publications),publications);
         assert_eq!(fs::read(retained.environment.root.join("environment.json")).unwrap(),environment);
+    }
+    #[test] fn preserved_plugin_whose_rescan_fails_still_needs_attention() {
+        let (f,mut retained,_)=fixture(true);let owner=retained.intent.owner.clone();
+        let inventory=f.m.root.join("inventory").join(format!("{}.json",retained.environment.id));
+        let mut scan:inventory::Scan=read_json(&inventory).unwrap();
+        // The preserved, published file now fails discovery with one audio class.
+        let original=retained.intent.predecessors[0].clone();
+        // Undo the fixture's added sibling: back to the published single class.
+        let mut raw:Value=read_json(&scan.modules[0].report.path).unwrap();
+        raw["records"][1]["classes"].as_array_mut().unwrap().pop();
+        raw["records"][1]["class_count"]=json!(raw["records"][1]["classes"].as_array().unwrap().len());
+        raw["records"].as_array_mut().unwrap().retain(|r|r["state"]!="ap8_failure");
+        raw["records"].as_array_mut().unwrap().push(json!({"state":"ap8_failure","reason":"createComponent"}));
+        raw["error"]=json!("Windows SDK host failed: 90");
+        let report=f.outer.join("preserved-rescan-failed.json");atomic_json(&report,&raw).unwrap();
+        scan.modules[0].report=Artifact {path:report.clone(),sha256:digest(&report).unwrap()};
+        scan.modules[0].classes=inventory::classes(&raw).unwrap();
+        let audio:Vec<_>=scan.modules[0].classes.iter().filter(|c|c.category=="Audio Module Class").collect();
+        assert_eq!(audio.len(),1);assert_eq!(audio[0].id,original.class_id);
+        scan.modules[0].inspection_error=Some("Windows SDK host failed: 90".into());
+        atomic_json(&inventory,&scan).unwrap();
+        let value=automatic_install::continue_refresh_fixture(&f.m,&retained.environment,&mut retained.intent,
+            &owner,&mut |action,_,_|match action {
+                ui::Action::EnvironmentRescan {environment}=> {
+                    let scan:inventory::Scan=read_json(&f.m.root.join("inventory").join(format!("{environment}.json")))?;
+                    Ok(json!({"scan":scan.id}))},
+                other=>panic!("a preserved plug-in is not reconnected: {other:?}"),
+            }).unwrap();
+        // The preserved row is not this journey's work, so the failed file
+        // keeps its own attention row instead of reading as available.
+        assert_eq!(value["available"],false);
+        assert!(retained.intent.work.is_empty());
+        assert_eq!(retained.intent.failed_modules.len(),1);
+        let failed=retained.intent.journey.plugins.iter()
+            .find(|p|p.selection==scan.modules[0].artifact.sha256).unwrap();
+        assert_eq!(failed.stage,ui::InstallationPluginStage::NeedsAttention);
+        assert!(failed.failure.as_ref().unwrap().reason.starts_with("The plug-in loaded, but it refused"));
+        assert_eq!(retained.intent.journey.phase,ui::InstallationPhase::NeedsAttention);
     }
     #[test] fn failed_late_collection_cannot_checkpoint_or_drop_an_earlier_missing_sibling_on_retry() {
         let (f,mut retained,missing)=fixture(true);let owner=retained.intent.owner.clone();

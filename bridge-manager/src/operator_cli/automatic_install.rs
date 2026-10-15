@@ -283,7 +283,9 @@ fn project_handoff(m: &Manager, record: &onboarding::Record, intent: &Intent,
     let choices = match handoff_choices(m, record, intent, busy) {
         Ok(choices) => choices,
         Err(error) => {
-            setup.journey = Some(intent.journey.clone());
+            let mut journey = intent.journey.clone();
+            explain_journey(m, intent, &mut journey);
+            setup.journey = Some(journey);
             setup.status = "The installed app's observed identity needs recovery before it can be opened.".into();
             if let Some(journey) = &mut setup.journey {
                 journey.failure = Some(failure(ui::InstallationFailureStage::Discovery, error));
@@ -567,7 +569,30 @@ fn module_problem(report: &Artifact) -> Option<linux_vst_bridge::problem::Explan
 /// Readback of retained journey rows: each failure is explained only from its
 /// own retained record, and a module row whose single audio class already has
 /// a connection row is folded into that row, so one plug-in is one item.
-fn explain_journey(m: &Manager, intent: &Intent, journey: &mut ui::InstallationJourney) {
+/// The exact scan this journey collected from: retained history first, then
+/// the environment's current inventory when it is still that scan.
+fn journey_scan(m: &Manager, intent: &Intent) -> Option<inventory::Scan> {
+    let id = intent.scan.as_deref()?;
+    let directory = m.root.join("inventory");
+    let history = valid_hex(id, 32).then(|| directory.join("history").join(format!("{id}.json")));
+    history.into_iter().chain(fs::read_dir(&directory).ok()?.flatten().map(|entry| entry.path())
+            .filter(|path| path.extension().is_some_and(|e| e == "json")))
+        .filter_map(|path| read_json::<inventory::Scan>(&path).ok())
+        .find(|scan| scan.id == id)
+}
+/// The selection identity this exact failed module's single audio class had
+/// in that scan. A work row for any other file never matches it.
+fn failed_module_selection(scan: &inventory::Scan, module: &FailedModule) -> Option<String> {
+    let found = scan.modules.get(module.module_index)
+        .filter(|found| found.artifact == module.artifact && found.report == module.report)?;
+    let class_id = single_audio_class(&found.classes)?;
+    let class = found.classes.iter().find(|class| class.id == class_id)?.clone();
+    prep::Selection {schema:1, environment:scan.environment.clone(), module:found.artifact.clone(),
+        class, scanner:scan.host.clone(), scanner_source:scan.host_source_sha256.clone(),
+        factory_report:found.report.clone()}.id().ok()
+}
+pub(super) fn explain_journey(m: &Manager, intent: &Intent, journey: &mut ui::InstallationJourney) {
+    let scan = if intent.failed_modules.is_empty() { None } else { journey_scan(m, intent) };
     let mut folded = Vec::new();
     for module in &intent.failed_modules {
         let Some(row) = journey.plugins.get_mut(module.result_index)
@@ -585,13 +610,13 @@ fn explain_journey(m: &Manager, intent: &Intent, journey: &mut ui::InstallationJ
         if let (Some(failure), Some(problem)) = (row.failure.as_mut(), problem.as_ref()) {
             if recorded(&failure.code) { failure.reason = problem.summary(); }
         }
-        let classes = classes.and_then(|classes| classes.ok()).unwrap_or_default();
-        if let Some(class) = single_audio_class(&classes) {
-            if let Some(index) = intent.work.iter().map(|work| work.result_index)
-                .find(|index| *index != module.result_index
-                    && journey.plugins.get(*index).is_some_and(|p| p.class_id == class)) {
-                folded.push((module.result_index, index, problem));
-            }
+        // Fold only into the work row for this exact file's selection.
+        let Some(selection) = scan.as_ref()
+            .and_then(|scan| failed_module_selection(scan, module)) else { continue };
+        if let Some(work) = intent.work.iter().find(|work| work.selection == selection
+            && work.result_index != module.result_index
+            && journey.plugins.get(work.result_index).is_some_and(|p| p.selection == selection)) {
+            folded.push((module.result_index, work.result_index, problem));
         }
     }
     for work in &intent.work {
@@ -1405,8 +1430,9 @@ fn collect_new_results(
         .filter(|s| s.environment.id == record.id())
         .collect::<Vec<_>>();
     selected.sort_by_key(|s| s.id().unwrap_or_default());
-    let class_rows: Vec<(String, String)> = selected.iter()
-        .map(|s| (s.class.id.clone(), s.module.sha256.clone())).collect();
+    let class_rows = selected.iter()
+        .map(|s| Ok((s.class.id.clone(), s.module.sha256.clone(), s.id()?)))
+        .collect::<Result<Vec<(String, String, String)>>>()?;
     for selection in selected {
         let id = selection.id()?;
         let predecessor=intent.predecessors.iter().find(|p|p.class_id==selection.class.id);
@@ -1475,11 +1501,13 @@ fn collect_new_results(
             && module.classes.iter().filter(|class|class.category=="Audio Module Class").count()>1
             && inventory::inspection_hint(module)?.is_some() {continue;}
         // One plug-in is one attention item: a module whose only audio class
-        // already has its own connection row is reported through that row.
+        // is being connected by this journey's own work row for this exact
+        // file is reported through that row. A preserved row is not work.
         if module.quarantine_reason.is_none() && module.inspection_error.is_some()
             && single_audio_class(&module.classes).is_some_and(|class|
-                class_rows.iter().any(|(id, sha256)| id == class && *sha256 == module.artifact.sha256)
-                && intent.journey.plugins.iter().any(|p| p.class_id == class)) {continue;}
+                class_rows.iter().any(|(id, sha256, selection)| id == class
+                    && *sha256 == module.artifact.sha256
+                    && intent.work.iter().any(|work| work.selection == *selection))) {continue;}
         let Some(reason) = module
             .quarantine_reason
             .as_ref()
@@ -3761,9 +3789,26 @@ finally:
     }
     #[test]
     fn retained_double_count_is_projected_as_one_explained_item() {
-        let (f, c, _, mut intent) = setup();
+        let (f, c, r, mut intent) = setup();
         let report = failed_component_report(&f, &c);
-        let selection = c.selection.id().unwrap();
+        // The scan recorded this file's failed discovery, and a second copy of
+        // the same plug-in class in another file failed the same way.
+        let path = f.m.root.join("inventory").join(format!("{}.json", r.id));
+        let mut scan: inventory::Scan = read_json(&path).unwrap();
+        let first = scan.modules.iter().position(|m| m.artifact == c.selection.module).unwrap();
+        scan.modules[first].report = report.clone();
+        scan.modules[first].inspection_error = Some("Windows SDK host failed: 90".into());
+        let copy = r.environment.root
+            .join("compatdata/pfx/drive_c/Program Files/Common Files/VST3/Copy.vst3");
+        fs::write(&copy, b"first-party second copy of the same class").unwrap();
+        let mut second = scan.modules[first].clone();
+        second.artifact = Artifact { sha256: digest(&copy).unwrap(), path: copy };
+        scan.modules.push(second.clone());
+        atomic_json(&path, &scan).unwrap();
+        intent.scan = Some(scan.id.clone());
+        let mut exact = c.selection.clone();
+        exact.factory_report = report.clone();
+        let selection = exact.id().unwrap();
         // An older check kept only its code, with no report binding.
         let check = random_id().unwrap();
         prep::retain_guided_check_stage(&f.m, &check, "completed",
@@ -3771,34 +3816,60 @@ finally:
             &json!({"schema":1,"operation":check,"stage":"inspection_failed",
                 "inspection":null,"candidate":null,"failure":"inspection_failed",
                 "publication_changed":false})).unwrap();
+        let module_row = |artifact: &Artifact, name: &str| ui::InstallationPlugin {
+            selection:artifact.sha256.clone(),class_id:String::new(),name:name.into(),
+            stage:ui::InstallationPluginStage::NeedsAttention,
+            failure:Some(failure(ui::InstallationFailureStage::Discovery,"Windows SDK host failed: 90"))};
         intent.journey.phase = ui::InstallationPhase::NeedsAttention;
         intent.journey.plugins = vec![
             ui::InstallationPlugin {selection:selection.clone(),class_id:c.selection.class.id.clone(),
                 name:c.selection.class.name.clone(),stage:ui::InstallationPluginStage::NeedsAttention,
                 failure:Some(failure(ui::InstallationFailureStage::Inspection,"inspection_failed"))},
-            ui::InstallationPlugin {selection:c.selection.module.sha256.clone(),class_id:String::new(),
-                name:"CHOWTapeModel.vst3".into(),stage:ui::InstallationPluginStage::NeedsAttention,
-                failure:Some(failure(ui::InstallationFailureStage::Discovery,"Windows SDK host failed: 90"))},
+            module_row(&c.selection.module, "CHOWTapeModel.vst3"),
+            module_row(&second.artifact, "Copy.vst3"),
         ];
         intent.work = vec![ClassWork {selection,predecessor:None,result_index:0,
             check:Some(check.clone()),candidate:None,active_operation:None}];
-        intent.failed_modules = vec![FailedModule {module_index:0,result_index:1,
-            artifact:c.selection.module.clone(),report}];
+        intent.failed_modules = vec![
+            FailedModule {module_index:first,result_index:1,
+                artifact:c.selection.module.clone(),report:report.clone()},
+            FailedModule {module_index:scan.modules.len() - 1,result_index:2,
+                artifact:second.artifact.clone(),report:report.clone()},
+        ];
         let journey = current_journey(&f.m, &intent).unwrap();
-        assert_eq!(journey.plugins.len(), 1);
+        // The same file's row folds into its class row; the copy keeps its own.
+        assert_eq!(journey.plugins.len(), 2, "{:?}", journey.plugins);
         assert_eq!(journey.plugins[0].class_id, c.selection.class.id);
         let reason = &journey.plugins[0].failure.as_ref().unwrap().reason;
         assert!(reason.starts_with("The plug-in loaded, but it refused to start its audio engine."), "{reason}");
         assert!(reason.ends_with("(Recorded when this plug-in was first found.)"), "{reason}");
         assert!(!reason.contains("SECRET") && !reason.contains("alice"));
+        assert_eq!(journey.plugins[1].selection, second.artifact.sha256);
+        let copy_reason = &journey.plugins[1].failure.as_ref().unwrap().reason;
+        assert!(copy_reason.starts_with("The plug-in loaded, but it refused"), "{copy_reason}");
+        assert!(!copy_reason.contains("first found"));
         // Retained records are unchanged; only their readback is explained.
-        assert_eq!(intent.journey.plugins.len(), 2);
-        // Without the discovery record, the check's own missing details are said plainly.
-        intent.failed_modules.clear();
-        intent.journey.plugins.truncate(1);
+        assert_eq!(intent.journey.plugins.len(), 3);
+
+        // The other file of the same class never folds into, or explains,
+        // this file's class row.
+        intent.failed_modules.remove(0);
+        intent.failed_modules[0].result_index = 1;
+        intent.journey.plugins.remove(1);
         let journey = current_journey(&f.m, &intent).unwrap();
-        assert!(journey.plugins[0].failure.as_ref().unwrap().reason
-            .contains("was not kept"));
+        assert_eq!(journey.plugins.len(), 2);
+        assert!(journey.plugins[0].failure.as_ref().unwrap().reason.contains("was not kept"));
+        assert_eq!(journey.plugins[1].selection, second.artifact.sha256);
+
+        // A journey whose exact scan is no longer retained is not folded.
+        intent.failed_modules = vec![FailedModule {module_index:first,result_index:1,
+            artifact:c.selection.module.clone(),report:report.clone()}];
+        intent.journey.plugins.truncate(1);
+        intent.journey.plugins.push(module_row(&c.selection.module, "CHOWTapeModel.vst3"));
+        intent.scan = Some(random_id().unwrap());
+        let journey = current_journey(&f.m, &intent).unwrap();
+        assert_eq!(journey.plugins.len(), 2);
+        assert!(journey.plugins[0].failure.as_ref().unwrap().reason.contains("was not kept"));
     }
     #[test]
     fn unchanged_prior_class_is_not_new_when_scan_evidence_changes() {

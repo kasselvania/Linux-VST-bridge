@@ -684,6 +684,18 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     }
     require(watched.len() <= 4096,"operator_current_watch_bound")?;
     append_discovered(m, &sw, &inventory_environments, &managed_bindings, &db, &mut products, None)?;
+    // This readback has no compatibility workflow. A retained candidate for
+    // the exact plug-in file means a later check passed, which supersedes
+    // the discovery-time explanation; the product detail applies the full rule.
+    for product in products.iter_mut() {
+        let Ok(found) = serde_json::from_value::<linux_vst_bridge::problem::Explanation>(
+            product.details["problem"].clone()) else { continue };
+        if preparation.candidates.iter().any(|c| c.selection.class.id == product.class_id
+            && c.selection.module.sha256 == product.module_sha256
+            && c.selection.environment.id == product.environment) {
+            retire_discovered_problem(product, &found);
+        }
+    }
     let discovery_at = Instant::now(); phases.push(("inventory_discovery",discovery_at.duration_since(record_at).as_millis()));
     let mut installer_live = BTreeMap::new();
     let delivered = linux_vst_bridge::runtime_delivery::recommended_record_state(m)?;
@@ -733,7 +745,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     for product in &mut products {
         if product.availability.is_none() {
             product.availability=Some(ui::NativeAvailability {available:false,
-                reason:Some("This installed plug-in has no current native DAW connection.".into())});
+                reason:Some(NO_NATIVE_CONNECTION.into())});
         }
     }
     let environment_installers = environment_install::projection(m,&products,busy,|operation| {

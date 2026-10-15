@@ -74,8 +74,9 @@ impl BoundFailure {
             _ => error,
         }
     }
+    /// Session and digest only; the reader rebuilds the managed report path.
     pub fn binding(&self) -> Value {
-        json!({"session":self.session,"path":self.report.path,"sha256":self.report.sha256})
+        json!({"session":self.session,"sha256":self.report.sha256})
     }
 }
 
@@ -134,13 +135,14 @@ fn classify_error(error: &str, report: &Value) -> Explanation {
                 "The plug-in started, but it did not shut down cleanly when the bridge closed it.",
                 "It returned an error while closing.",
                 "Run the check again. If it keeps happening, the plug-in may need an update."),
-            code => host_exit(code),
+            code => unrecognised_exit(code),
         };
     }
     if error.starts_with("Windows host exited without successful close") {
         let outer = report["exit_before_cleanup"].as_i64()
             .or_else(|| report["raw_exit"].as_i64()).filter(|code| *code != 0);
-        return host_exit(outer.or_else(|| closed_exit(report))).with_load_error(report);
+        let closed = closed_exit(report).filter(|code| *code != 0);
+        return host_exit(outer.or(closed), report);
     }
     if error.starts_with("TimeoutError: Windows startup deadline") {
         return Explanation::new("timeout_startup",
@@ -149,8 +151,8 @@ fn classify_error(error: &str, report: &Value) -> Explanation {
             "Close other heavy programs and run the check again.");
     }
     if let Some(operation) = error.strip_prefix("TimeoutError: Windows call deadline: ") {
-        let operation = operation.split(';').next().unwrap_or_default();
-        let during = match operation {
+        let operation = operation.split(';').next().unwrap_or_default().to_ascii_lowercase();
+        let during = match operation.as_str() {
             "load_library" => "while Windows was loading the plug-in file",
             "init_dll" => "while its own start-up routine was running",
             "exit_dll" | "free_library" => "while it was being closed",
@@ -158,7 +160,7 @@ fn classify_error(error: &str, report: &Value) -> Explanation {
                 "while it was listing the plug-ins it contains",
             other if other.contains("bus") || other.contains("sample") =>
                 "while it was describing its audio inputs and outputs",
-            other if other.contains("Graphics") || other.contains("Editor") =>
+            other if other.contains("graphics") || other.contains("editor") =>
                 "while its editor window was being checked",
             _ => "during a plug-in call",
         };
@@ -184,73 +186,97 @@ fn closed_exit(report: &Value) -> Option<i64> {
         .and_then(|r| r["exit_code"].as_i64())
 }
 
-trait LoadError { fn with_load_error(self, report: &Value) -> Explanation; }
-impl LoadError for Explanation {
-    /// Exit 70 is refined only by the recorded LoadLibrary Win32 status.
-    fn with_load_error(self, report: &Value) -> Explanation {
-        if self.code != "module_load_failed" { return self; }
-        let win32 = records(report).filter(|r| r["event"] == "call_completed"
-            && r["operation"] == "load_library" && r["return_kind"] == "win32_error")
-            .filter_map(|r| r["win32_error_u32_hex"].as_str())
-            .find(|text| valid_hex(text, 8))
-            .and_then(|text| u32::from_str_radix(text, 16).ok());
-        match win32 {
-            Some(0x7e) => Explanation::new("module_dependency_missing",
-                "Windows could not load the plug-in file.",
-                "A Windows component it needs is missing (often a Visual C++ runtime).",
-                "Run the plug-in's own installer again so it can add its required components, then run the check again."),
-            Some(0xc1) => Explanation::new("module_32bit",
-                "Windows could not load the plug-in file.",
-                "It is a 32-bit plug-in, which is not supported. Only 64-bit plug-ins can be used.",
-                "Install the 64-bit version of the plug-in if the vendor offers one."),
-            Some(0x7f) => Explanation::new("module_dependency_mismatch",
-                "Windows could not load the plug-in file.",
-                "A Windows component it needs is present but is the wrong version.",
-                "Update or reinstall the plug-in so it brings matching components, then run the check again."),
-            Some(code) => Explanation::new("module_load_failed",
-                "Windows could not load the plug-in file.",
-                format!("Windows reported error 0x{code:08X} while loading it."),
-                "Reinstall the plug-in, then run the check again. If it fails again, create a problem report."),
-            None => self,
-        }
-    }
+fn has_state(report: &Value, state: &str) -> bool {
+    records(report).any(|r| r["state"] == state)
 }
 
-fn host_exit(code: Option<i64>) -> Explanation {
+/// The Win32 status the host recorded for one call, if it failed.
+fn win32_error(report: &Value, operation: &str) -> Option<u32> {
+    records(report).filter(|r| r["event"] == "call_completed"
+        && r["operation"] == operation && r["return_kind"] == "win32_error")
+        .filter_map(|r| r["win32_error_u32_hex"].as_str())
+        .find(|text| valid_hex(text, 8))
+        .and_then(|text| u32::from_str_radix(text, 16).ok())
+}
+
+/// Exit 70 is explained only by the LoadLibrary status the host recorded.
+fn load_error(report: &Value) -> Option<Explanation> {
+    Some(match win32_error(report, "load_library")? {
+        0x7e => Explanation::new("module_dependency_missing",
+            "Windows could not load the plug-in file.",
+            "A Windows component it needs is missing (often a Visual C++ runtime).",
+            "Run the plug-in's own installer again so it can add its required components, then run the check again."),
+        0xc1 => Explanation::new("module_bad_format",
+            "Windows could not load the plug-in file.",
+            "It may be a 32-bit plug-in, which is not supported, or the file may be damaged or built for a different kind of computer.",
+            "Install the 64-bit version of the plug-in if the vendor offers one, or reinstall it."),
+        0x7f => Explanation::new("module_dependency_mismatch",
+            "Windows could not load the plug-in file.",
+            "A Windows component it needs is present but is the wrong version.",
+            "Update or reinstall the plug-in so it brings matching components, then run the check again."),
+        code => Explanation::new("module_load_failed",
+            "Windows could not load the plug-in file.",
+            format!("Windows reported error 0x{code:08X} while loading it."),
+            "Reinstall the plug-in, then run the check again. If it fails again, create a problem report."),
+    })
+}
+
+/// An exit status is explained only together with the host record that
+/// produced it; otherwise the sentence stays generic.
+fn host_exit(code: Option<i64>, report: &Value) -> Explanation {
+    let has = |state| has_state(report, state);
     match code {
-        Some(64 | 65) => Explanation::new("plugin_file_changed",
-            "The plug-in file changed or could not be verified while the bridge was starting it.",
+        // Returned before any record exists, for the bridge's own helper or
+        // the plug-in file alike: neither is blamed.
+        Some(64) => Explanation::new("start_verification_failed",
+            "The bridge could not verify its Windows helper or the plug-in file before starting the check.",
+            "One of them changed or could not be read.",
+            "Find installed plug-ins again, then run the check again. If it keeps happening, repair or update the manager."),
+        Some(65) if has("readiness_announced") => Explanation::new("plugin_file_changed",
+            "The plug-in file changed while the bridge was starting the check.",
             "The plug-in may have been updated or reinstalled during the check.",
             "Find installed plug-ins again, then run the check again."),
-        Some(70) => Explanation::new("module_load_failed",
-            "Windows could not load the plug-in file.",
-            "Windows did not say why.",
-            "Reinstall the plug-in, then run the check again. If it fails again, create a problem report."),
-        Some(71) => Explanation::new("module_entry_failed",
+        Some(70) => load_error(report).unwrap_or_else(|| unrecognised_exit(code)),
+        Some(71) if has("module_entry_failed") => Explanation::new("module_entry_failed",
             "The plug-in file loaded, but its own start-up routine reported a failure.",
             "It may be missing files from its installer, an activation step, or a Windows component it expects.",
             "Use the vendor's installer or app to repair or activate the plug-in, then run the check again."),
-        Some(72) => Explanation::new("factory_export_missing",
+        Some(72) if has("factory_export_missing") => Explanation::new("factory_export_missing",
             "This file is not a VST3 plug-in the bridge can use.",
             "It has no VST3 entry point; it may be a helper file or a different plug-in format.",
             "If another copy of this plug-in works, nothing needs to change. Otherwise reinstall it."),
-        Some(73) => Explanation::new("factory_null",
+        Some(73) if has("factory_get_failed") => Explanation::new("factory_null",
             "The plug-in file loaded but did not provide its list of plug-ins.",
             "It may not have finished starting, for example because installation or activation is incomplete.",
             "Use the vendor's installer or app to finish installation or activation, then run the check again."),
-        Some(74..=78) => Explanation::new("factory_enumeration",
+        Some(74..=78) if has("factory_obtained") => Explanation::new("factory_enumeration",
             "The plug-in file loaded, but its list of plug-ins could not be read.",
             "It returned incomplete or invalid information about what it contains.",
             "Update the plug-in to its latest version, then run the check again."),
-        Some(code) => Explanation::new("host_exit_unrecognised",
-            format!("The Windows side of the bridge stopped unexpectedly while checking this plug-in (exit code {code})."),
-            "The plug-in may have crashed while starting.",
+        Some(79) if has("module_exit_failed") => Explanation::new("module_exit_failed",
+            "The plug-in was checked, but its own shutdown routine reported a failure.",
+            "It returned an error while the bridge was closing it.",
+            "Run the check again. If it keeps happening, the plug-in may need an update."),
+        Some(80) if win32_error(report, "free_library").is_some() => Explanation::new("module_unload_failed",
+            "The plug-in was checked, but Windows could not unload it afterwards.",
+            "Something inside the plug-in was still in use when the bridge closed it.",
             "Run the check again. If it keeps happening, create a problem report."),
-        None => Explanation::new("host_exit_unrecognised",
-            "The Windows side of the bridge stopped unexpectedly while checking this plug-in.",
-            "The plug-in may have crashed while starting.",
+        Some(92) => Explanation::new("forced_stop",
+            "The bridge had to force the Windows side to stop after the check.",
+            "The plug-in did not finish closing its windows or resources when asked.",
             "Run the check again. If it keeps happening, create a problem report."),
+        _ => unrecognised_exit(code),
     }
+}
+
+fn unrecognised_exit(code: Option<i64>) -> Explanation {
+    let what = match code.filter(|code| *code != 0) {
+        Some(code) => format!("The Windows side of the bridge stopped before the check finished (exit code {code})."),
+        None => "The Windows side of the bridge stopped before the check finished.".into(),
+    };
+    Explanation::new("host_exit_unrecognised", what,
+        "The plug-in may have crashed, or the Windows runtime stopped it.",
+        "Run the check again. If it keeps happening, create a problem report.")
 }
 
 /// Enumerated SDK call names written by the Windows host's ap8_failure row.
@@ -390,9 +416,14 @@ mod tests {
                 {"state":"ap8_inspection_closed","exit_code":90}]))).unwrap()
     }
     fn exited(code: i64, win32: Option<&str>) -> Explanation {
-        let mut rows = vec![];
+        exited_with(code, win32, &[])
+    }
+    fn exited_with(code: i64, win32: Option<&str>, states: &[&str]) -> Explanation {
+        let mut rows: Vec<Value> = states.iter().map(|state| json!({"event":"lifecycle","state":state}))
+            .collect();
         if let Some(hex) = win32 {
-            rows.push(json!({"event":"call_completed","operation":"load_library",
+            let operation = if code == 80 { "free_library" } else { "load_library" };
+            rows.push(json!({"event":"call_completed","operation":operation,
                 "return_kind":"win32_error","win32_error_u32_hex":hex}));
         }
         let mut r = report("Windows host exited without successful close", json!(rows));
@@ -442,33 +473,63 @@ mod tests {
 
     #[test]
     fn host_exit_codes_and_load_errors_are_explained() {
-        assert_eq!(exited(64, None).code, "plugin_file_changed");
-        assert_eq!(exited(65, None).code, "plugin_file_changed");
+        // 64 is also the bridge's own helper failing its hash check: neutral.
+        let start = exited(64, None);
+        assert_eq!(start.code, "start_verification_failed");
+        assert!(start.what_happened.contains("Windows helper or the plug-in file"));
+        assert_eq!(exited_with(65, None, &["readiness_announced"]).code, "plugin_file_changed");
+        assert_eq!(exited(65, None).code, "host_exit_unrecognised");
         let missing = exited(70, Some("0000007e"));
         assert_eq!(missing.code, "module_dependency_missing");
         assert!(missing.likely_cause.contains("Visual C++ runtime"));
-        let bits = exited(70, Some("000000c1"));
-        assert_eq!(bits.code, "module_32bit");
-        assert!(bits.likely_cause.contains("32-bit"));
+        let format = exited(70, Some("000000c1"));
+        assert_eq!(format.code, "module_bad_format");
+        assert!(format.likely_cause.starts_with("It may be a 32-bit plug-in"));
+        assert!(format.likely_cause.contains("damaged"));
         assert_eq!(exited(70, Some("0000007f")).code, "module_dependency_mismatch");
         let other = exited(70, Some("00000005"));
         assert_eq!(other.code, "module_load_failed");
         assert!(other.likely_cause.contains("0x00000005"));
-        assert_eq!(exited(70, None).code, "module_load_failed");
-        assert_eq!(exited(70, Some("C:\\users\\alice")).code, "module_load_failed");
-        assert_eq!(exited(71, None).code, "module_entry_failed");
-        assert_eq!(exited(72, None).code, "factory_export_missing");
-        assert_eq!(exited(73, None).code, "factory_null");
-        for code in 74..=78 { assert_eq!(exited(code, None).code, "factory_enumeration"); }
+        // Without the host's own LoadLibrary record, 70 is not explained.
+        assert_eq!(exited(70, None).code, "host_exit_unrecognised");
+        assert_eq!(exited(70, Some("C:\\users\\alice")).code, "host_exit_unrecognised");
+        // Exit codes alone never select a specific sentence.
+        for (code, state, expected) in [
+            (71, "module_entry_failed", "module_entry_failed"),
+            (72, "factory_export_missing", "factory_export_missing"),
+            (73, "factory_get_failed", "factory_null"),
+            (74, "factory_obtained", "factory_enumeration"),
+            (78, "factory_obtained", "factory_enumeration"),
+            (79, "module_exit_failed", "module_exit_failed"),
+        ] {
+            assert_eq!(exited_with(code, None, &[state]).code, expected, "{code}");
+            let bare = exited(code, None);
+            assert_eq!(bare.code, "host_exit_unrecognised", "{code}");
+            assert!(bare.what_happened.contains(&format!("exit code {code}")));
+        }
+        assert_eq!(exited(80, Some("00000005")).code, "module_unload_failed");
+        assert_eq!(exited(80, None).code, "host_exit_unrecognised");
+        let forced = exited(92, None);
+        assert_eq!(forced.code, "forced_stop");
+        for e in [&exited(79, None), &exited(80, None), &forced] {
+            assert!(!e.likely_cause.contains("while starting"), "{e:?}");
+        }
         let unknown = exited(139, None);
         assert_eq!(unknown.code, "host_exit_unrecognised");
         assert!(unknown.what_happened.contains("139"));
-        for e in [missing, bits, other, unknown] { private(&e); }
+        for e in [missing, format, other, unknown] { private(&e); }
         // An exit status from the SDK host itself is used when no outer code exists.
         let mut closed = report("Windows host exited without successful close",
-            json!([{"state":"ap8_inspection_closed","exit_code":73}]));
+            json!([{"state":"factory_get_failed"},{"state":"ap8_inspection_closed","exit_code":73}]));
         closed["raw_exit"] = Value::Null;
         assert_eq!(from_report(&closed).unwrap().code, "factory_null");
+        // A clean SDK close and no outer status never reads "exit code 0".
+        let mut zero = report("Windows host exited without successful close",
+            json!([{"state":"ap8_inspection_closed","exit_code":0}]));
+        zero["raw_exit"] = json!(0);
+        let zero = from_report(&zero).unwrap();
+        assert_eq!(zero.code, "host_exit_unrecognised");
+        assert!(!zero.what_happened.contains("exit code"), "{}", zero.what_happened);
     }
 
     #[test]
@@ -478,6 +539,13 @@ mod tests {
         let e = from_report(&report("TimeoutError: Windows call deadline: load_library", json!([]))).unwrap();
         assert_eq!(e.code, "timeout_call");
         assert!(e.what_happened.contains("loading the plug-in file"));
+        for (operation, phrase) in [("get_bus_info", "audio inputs"), ("GetBusArrangement", "audio inputs"),
+            ("countClasses", "listing the plug-ins"), ("get_plugin_factory", "listing the plug-ins"),
+            ("closeGraphicsEditor", "editor window")] {
+            let e = from_report(&report(&format!("TimeoutError: Windows call deadline: {operation}"),
+                json!([]))).unwrap();
+            assert!(e.what_happened.contains(phrase), "{operation}: {}", e.what_happened);
+        }
         let e = from_report(&report("TimeoutError: Windows call deadline: C:\\users\\alice\\SECRET", json!([]))).unwrap();
         assert_eq!(e.what_happened, "The plug-in stopped responding during a plug-in call.");
         private(&e);
