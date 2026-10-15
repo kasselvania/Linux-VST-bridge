@@ -101,6 +101,8 @@ class WitnessTests(unittest.TestCase):
              '"UninstallString"="MsiExec.exe /X{0000-1111}"\n','partial_installation',None),
             ('an uninstaller alone is not an installation',
              f'"UninstallString"="\\"{reg(other)}\\""\n','partial_installation',None),
+            ('an uninstaller icon is not the application',
+             f'"InstallLocation"="C:\\\\Program Files\\\\Vendor\\\\App"\n"DisplayIcon"="{reg(uninst)}"\n"UninstallString"="\\"{reg(uninst)}\\""\n','installed',[app,uninst]),
             ('a shared root is too broad',
              f'"DisplayIcon"="{reg("Program Files/Loose.exe")}"\n','partial_installation',None),
             ('InstallLocation keeps priority',
@@ -125,6 +127,7 @@ class WitnessTests(unittest.TestCase):
                     registration=value['application_registrations'][0]
                     self.assertEqual(sorted(registration['images']),sorted(images))
                     if label.startswith('icon'):self.assertEqual(registration['application_image'],app)
+                    else:self.assertNotIn('application_image',registration)
                 entry=next(iter(after['uninstall'].values()))
                 if 'InstallLocation' not in entry and expected=='installed':
                     self.assertEqual(entry['DerivedInstallLocation'],'C:\\Program Files\\Vendor\\App')

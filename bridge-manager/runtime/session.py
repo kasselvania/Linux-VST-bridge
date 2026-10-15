@@ -2217,7 +2217,8 @@ class InstallerWitnesses:
                             out['logs'][relative]={'size':m.st_size,'mtime_ns':m.st_mtime_ns};continue
                         row={'size':m.st_size,'sha256':None}
                         limit=self.EXE_HASH_LIMIT if suffix=='.exe' else self.HASH_LIMIT
-                        if m.st_size<=min(budget,limit):
+                        # Hashing cannot be interrupted; never start one past the deadline.
+                        if m.st_size<=min(budget,limit) and time.monotonic()<=deadline:
                             budget-=m.st_size;row.update(installer_digest(p,limit))
                         else:out['incomplete'].append('image_hash_bound')
                         out['files'][relative]=row
@@ -2324,7 +2325,9 @@ class InstallerWitnesses:
             if images:
                 registration={'registration':key,'images':images}
                 # The icon names the application itself when it is one of the images.
-                if entry.get('DerivedIcon') in images:registration['application_image']=entry['DerivedIcon']
+                icon=entry.get('DerivedIcon')
+                if icon in images and icon.lower()!=(entry.get('DerivedUninstaller') or '').lower():
+                    registration['application_image']=icon
                 registrations.append(registration)
         changed=any(delta[k][change] for k in ('files','uninstall','services') for change in ('added','changed','removed'))
         return {'delta':delta,'application_registrations':registrations,
