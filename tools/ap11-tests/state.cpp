@@ -88,8 +88,13 @@ struct Controller final : EditController {
                             42);
     return r;
   }
+  // kNotImplemented models the SDK default kept by controllers that refresh
+  // from their processor instead of the stream (every JUCE 6 plug-in).
+  tresult component_state_result = kResultOk;
   tresult PLUGIN_API setComponentState(IBStream *s) override {
     ++synchronizations;
+    if (component_state_result != kResultOk)
+      return component_state_result;
     double value = 0;
     int32 n = 0;
     if (s->read(&value, 8, &n) != kResultOk || n != 8)
@@ -200,6 +205,33 @@ int main() {
   }
   LVBState::Stream fresh;component.getState(&fresh);
   check(linux_vst_bridge::wf0::synchronize_initial(controller,true,kResultOk,fresh)&&controller.synchronizations==before+1,"available initial state synchronizes once");
+  // A controller without setComponentState starts and restores normally.
+  controller.component_state_result=kNotImplemented;
+  {
+    auto synced=controller.synchronizations;auto restored=component.restores;
+    LVBState::Stream initial;component.getState(&initial);
+    check(linux_vst_bridge::wf0::synchronize_initial(controller,true,kResultOk,initial)&&
+          controller.synchronizations==synced+1&&initial.quiescent(),
+          "a controller that keeps the SDK default setComponentState still starts");
+    component.value=.75;
+    commercial_state(component,controller,true,&original);
+    check(component.value==.375&&component.restores==restored+1&&controller.synchronizations==synced+2,
+          "a saved project restores when the controller keeps the SDK default setComponentState");
+  }
+  // Any other controller error still refuses, at start and on restore.
+  for(auto r:{kResultFalse,kInternalError}){
+    controller.component_state_result=r;
+    LVBState::Stream initial;component.getState(&initial);
+    bool refused=false;
+    try{linux_vst_bridge::wf0::synchronize_initial(controller,true,kResultOk,initial);}
+    catch(const std::runtime_error&){refused=true;}
+    check(refused,"a controller error during initial synchronization still refuses");
+    refused=false;
+    try{commercial_state(component,controller,true,&original);}
+    catch(const std::runtime_error&){refused=true;}
+    check(refused,"a controller error during restore still refuses");
+  }
+  controller.component_state_result=kResultOk;
   controller.terminate();
   component.terminate();
   std::cout << "AP11 pure state capture and exactly-once restore "

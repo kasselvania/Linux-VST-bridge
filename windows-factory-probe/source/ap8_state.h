@@ -14,6 +14,12 @@ struct SaveRefusal : ap1::BridgeError {
  SaveRefusal(uint32_t s,Steinberg::tresult r):ap1::BridgeError(s==3?"plug-in state exceeds 256 MiB save limit":"vendor declined state capture"),stage(s),result(r){}
 };
 inline bool ordinary_refusal(Steinberg::tresult r){return r==Steinberg::kResultFalse||r==Steinberg::kNotImplemented;}
+// IEditController::setComponentState is optional: the SDK's EditController
+// default returns kNotImplemented, and controllers that read their values from
+// the processor directly keep that default (every JUCE 6 plug-in does, after it
+// has refreshed its parameters). The SDK's own hosting code ignores this result.
+// Any other non-OK result is still a failure.
+inline bool controller_state_accepted(Steinberg::tresult r){return r==Steinberg::kResultOk||r==Steinberg::kNotImplemented;}
 inline void capture_result(Steinberg::tresult r,LVBState::Stream&s,uint32_t stage,bool restoring){
  ap1::require(s.quiescent(),"state stream lifetime");
  if(s.capacity_exceeded&&!restoring)throw SaveRefusal(3,Steinberg::kResultFalse);
@@ -31,7 +37,7 @@ inline bool synchronize_initial(Steinberg::Vst::IEditController&controller,bool 
  if(state.capacity_exceeded)return false;
  ap1::require(!state.failed,"initial state stream bounds/allocation");
  if(result!=kResultOk){ap1::require(ordinary_refusal(result),"initial state SDK failure");return false;}
- if(separate){state.position=0;auto r=controller.setComponentState(&state);ap1::require(r==kResultOk&&!state.failed&&state.quiescent(),"initial controller synchronization failed");}
+ if(separate){state.position=0;auto r=controller.setComponentState(&state);ap1::require(controller_state_accepted(r)&&!state.failed&&state.quiescent(),"initial controller synchronization failed");}
  return true;
 }
 struct ReadbackStatus {uint32_t unavailable=0,first_id=0;uint64_t first_bits=0;};
@@ -53,7 +59,7 @@ inline std::vector<uint8_t> commercial_state(Steinberg::Vst::IComponent&componen
   for(size_t i=16+a+b;i<p.size();i+=width){auto q=p.data()+i;auto valid=width==16?get(q+4,4):1;double value;std::memcpy(&value,q+width-8,8);
    require(ids.insert(uint32_t(get(q,4))).second&&valid<=1&&(valid?(std::isfinite(value)&&value>=0&&value<=1):get(q+8,8)==0),"state parameter value/identity");}
   LVBState::Stream c({p.begin()+16,p.begin()+16+a});checked(component.setState(&c),c);
-  if(separate){c.position=0;checked(controller.setComponentState(&c),c);}
+  if(separate){c.position=0;auto r=controller.setComponentState(&c);checked(controller_state_accepted(r)?kResultOk:r,c);}
   if(flags&1){LVBState::Stream v({p.begin()+16+a,p.begin()+16+a+b});checked(controller.setState(&v),v);}
  }
  // Capture is read-only. Reapplying component state here makes Serum emit

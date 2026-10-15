@@ -36,6 +36,17 @@ struct MultiOutput:AudioEffect {
   return AudioEffect::activateBus(m,d,i,on);
  }
 };
+// Main stereo effect that refuses to disable a bus, as JUCE plug-ins do when
+// their layout requires the main buses.
+struct MainBusesRequired:AudioEffect {
+ tresult disable_result=kResultFalse;int enables=0,disables=0;
+ tresult PLUGIN_API initialize(FUnknown* h)override{auto r=AudioEffect::initialize(h);addAudioInput(u"Input",SpeakerArr::kStereo);addAudioOutput(u"Output",SpeakerArr::kStereo);return r;}
+ tresult PLUGIN_API setBusArrangements(SpeakerArrangement*,int32 ni,SpeakerArrangement*,int32 no)override{assert(ni==1&&no==1);return kResultOk;}
+ tresult PLUGIN_API activateBus(MediaType m,BusDirection d,int32 i,TBool on)override{
+  if(!on){++disables;return disable_result;}
+  ++enables;return AudioEffect::activateBus(m,d,i,on);
+ }
+};
 struct StereoNegotiationPlugin:AudioEffect {
  tresult request_result=kResultOk;SpeakerArrangement current=SpeakerArr::kMono;int calls=0;
  tresult PLUGIN_API initialize(FUnknown* h)override{auto r=AudioEffect::initialize(h);addAudioInput(u"In",SpeakerArr::kMono);addAudioOutput(u"Out",SpeakerArr::kMono);return r;}
@@ -46,6 +57,17 @@ struct StereoNegotiationPlugin:AudioEffect {
  }
 };
 int main(){
+ for(auto refusal:{kResultFalse,kNotImplemented,kInternalError}){
+  HostApplication host;MainBusesRequired plugin;plugin.disable_result=refusal;assert(plugin.initialize(&host)==kResultOk);
+  BusLayout layout;layout.read(plugin,plugin,false);layout.negotiate(plugin);
+  layout.activate(plugin,true);assert(plugin.enables==2&&plugin.disables==0);
+  // Deactivating after setActive(false): an ordinary refusal keeps the session,
+  // so the DAW's next activation (REAPER cycles on insert) still gets audio.
+  bool refused=false;try{layout.activate(plugin,false);}catch(const std::exception&){refused=true;}
+  assert(refused==(refusal==kInternalError)&&plugin.disables==(refused?1:2));
+  layout.activate(plugin,true);assert(plugin.enables==4);
+  assert(plugin.terminate()==kResultOk);
+ }
  {
   HostApplication host;StereoNegotiationPlugin plugin;assert(plugin.initialize(&host)==kResultOk);
   const auto applied=apply_stereo_main_pair(plugin,plugin);
