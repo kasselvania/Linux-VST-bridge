@@ -18,6 +18,61 @@ pub struct ServiceRequirements {
     pub listeners: Vec<u16>,
 }
 
+/// A Windows folder resolved for the prefix's own user. The value written is
+/// never taken from profile text, user input or the environment.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum KnownFolder {
+    Downloads,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RegistryType {
+    #[serde(rename = "REG_SZ")]
+    String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct RegistryDefaultValue {
+    pub known_folder: KnownFolder,
+}
+
+/// A per-user setting the app needs but leaves empty in a fresh prefix. The
+/// supervisor fills it only when absent or empty; a chosen value is kept.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct RegistryDefault {
+    pub key: String,
+    pub name: String,
+    #[serde(rename = "type")]
+    pub kind: RegistryType,
+    pub value: RegistryDefaultValue,
+}
+
+pub const REGISTRY_DEFAULTS_LIMIT: usize = 4;
+
+fn registry_word(value: &str) -> bool {
+    (1..=64).contains(&value.len()) && value.trim() == value
+        && value.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b' ' | b'.' | b'_' | b'-'))
+}
+
+/// Current-user keys only, with a bounded plain charset. No expansion, no
+/// other hives, no types beyond a plain string.
+pub fn check_registry_defaults(defaults: &[RegistryDefault]) -> Result<()> {
+    require(defaults.len() <= REGISTRY_DEFAULTS_LIMIT, "vendor_profile_registry_default_count")?;
+    let mut seen = std::collections::BTreeSet::new();
+    for default in defaults {
+        let path = default.key.strip_prefix("HKCU\\").ok_or("vendor_profile_registry_default_hive")?;
+        let parts: Vec<_> = path.split('\\').collect();
+        require(default.key.len() <= 255 && (1..=8).contains(&parts.len())
+            && parts.iter().all(|part| registry_word(part)), "vendor_profile_registry_default_key")?;
+        require(registry_word(&default.name), "vendor_profile_registry_default_name")?;
+        require(seen.insert((default.key.to_ascii_lowercase(), default.name.to_ascii_lowercase())),
+            "vendor_profile_registry_default_duplicate")?;
+    }
+    Ok(())
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Profile {
@@ -29,6 +84,16 @@ pub struct Profile {
     pub dependency: ServiceRequirements,
     pub rendering: operator_model::RendererPolicy,
     pub browser_scheme: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub registry_defaults: Vec<RegistryDefault>,
+}
+
+impl Profile {
+    pub fn parse(bytes: &[u8]) -> Result<Self> {
+        let profile: Self = serde_json::from_slice(bytes)?;
+        check_registry_defaults(&profile.registry_defaults)?;
+        Ok(profile)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -94,7 +159,7 @@ fn integrity(ok: bool, reason: &'static str) -> Result<()> {
 }
 
 pub fn native_access() -> Result<Profile> {
-    Ok(serde_json::from_slice(NATIVE_ACCESS)?)
+    Profile::parse(NATIVE_ACCESS)
 }
 
 fn relative(value: &str) -> Result<&Path> {
@@ -268,5 +333,68 @@ impl Capabilities {
         let mut current = observe_structure(app, &self.profile)?;
         current.dependency.daemon = self.dependency.daemon.clone();
         require(current == *self, "vendor_profile_observed_content_changed")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn with_defaults(defaults: serde_json::Value) -> Vec<u8> {
+        let mut value: serde_json::Value = serde_json::from_slice(NATIVE_ACCESS).unwrap();
+        value["registry_defaults"] = defaults;
+        serde_json::to_vec(&value).unwrap()
+    }
+
+    #[test]
+    fn bundled_profile_declares_only_a_current_user_known_folder_default() {
+        let profile = native_access().unwrap();
+        assert_eq!(profile.registry_defaults, vec![RegistryDefault {
+            key: "HKCU\\Software\\Native Instruments\\Native Access".into(),
+            name: "DownloadLocation".into(), kind: RegistryType::String,
+            value: RegistryDefaultValue { known_folder: KnownFolder::Downloads } }]);
+        assert_eq!(serde_json::to_value(&profile).unwrap(),
+            serde_json::from_slice::<serde_json::Value>(NATIVE_ACCESS).unwrap());
+        // A profile without the field stays valid and serializes as before.
+        let mut value: serde_json::Value = serde_json::from_slice(NATIVE_ACCESS).unwrap();
+        value.as_object_mut().unwrap().remove("registry_defaults");
+        let plain = Profile::parse(&serde_json::to_vec(&value).unwrap()).unwrap();
+        assert!(plain.registry_defaults.is_empty());
+        assert_eq!(serde_json::to_value(&plain).unwrap(), value);
+    }
+
+    #[test]
+    fn registry_defaults_refuse_other_hives_values_types_and_extents() {
+        let entry = |key: &str, name: &str| serde_json::json!(
+            {"key": key, "name": name, "type": "REG_SZ", "value": {"known_folder": "Downloads"}});
+        let long = format!("HKCU\\{}", "A".repeat(65));
+        let deep = format!("HKCU{}", "\\A".repeat(9));
+        for (case, defaults) in [
+            ("hklm", serde_json::json!([entry("HKLM\\Software\\Vendor", "Value")])),
+            ("hive spelled out", serde_json::json!([entry("HKEY_CURRENT_USER\\Software", "Value")])),
+            ("bare hive", serde_json::json!([entry("HKCU\\", "Value")])),
+            ("empty part", serde_json::json!([entry("HKCU\\Software\\\\Vendor", "Value")])),
+            ("overlong part", serde_json::json!([entry(&long, "Value")])),
+            ("too deep", serde_json::json!([entry(&deep, "Value")])),
+            ("expansion", serde_json::json!([entry("HKCU\\Software\\%USERPROFILE%", "Value")])),
+            ("name charset", serde_json::json!([entry("HKCU\\Software", "Value;x")])),
+            ("overlong name", serde_json::json!([entry("HKCU\\Software", &"N".repeat(65))])),
+            ("duplicate", serde_json::json!([entry("HKCU\\Software", "Value"), entry("hkcu\\software", "VALUE")])),
+            ("count", serde_json::json!((0..5).map(|i| entry("HKCU\\Software", &format!("V{i}"))).collect::<Vec<_>>())),
+            ("unknown folder", serde_json::json!([{"key": "HKCU\\Software", "name": "Value", "type": "REG_SZ",
+                "value": {"known_folder": "Desktop"}}])),
+            ("free string", serde_json::json!([{"key": "HKCU\\Software", "name": "Value", "type": "REG_SZ",
+                "value": "C:\\users\\steamuser\\Downloads"}])),
+            ("expand type", serde_json::json!([{"key": "HKCU\\Software", "name": "Value", "type": "REG_EXPAND_SZ",
+                "value": {"known_folder": "Downloads"}}])),
+            ("extra field", serde_json::json!([{"key": "HKCU\\Software", "name": "Value", "type": "REG_SZ",
+                "value": {"known_folder": "Downloads"}, "command": "reg add"}])),
+            ("extra value field", serde_json::json!([{"key": "HKCU\\Software", "name": "Value", "type": "REG_SZ",
+                "value": {"known_folder": "Downloads", "suffix": "x"}}])),
+        ] {
+            assert!(Profile::parse(&with_defaults(defaults)).is_err(), "{case}");
+        }
+        assert!(Profile::parse(&with_defaults(serde_json::json!(
+            [entry("HKCU\\Software\\Vendor App 2.0", "Download_Location-1")]))).is_ok());
     }
 }

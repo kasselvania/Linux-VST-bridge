@@ -3603,7 +3603,7 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
     executable=managed_contract['profile']['executable'] if managed_contract is not None else 'Native Access.exe'
     image=RendererImage(app['files'][executable]);evidence=RendererEvidence(app['files'][executable]['artifact'],root,image)
     scope=None;ledger=None;child=None;clean=False;stop=False;error=None;effective=None;focus=None;dependency_owner=None;resources=[]
-    callback=None;auth_private=False;auth_discarded=0
+    callback=None;auth_private=False;auth_discarded=0;registry=None
     callback_enabled=managed_contract['profile']['browser_scheme']=='native-access' if managed_contract is not None else dependency is not None and (app['id']=='native-access' or callback_fixture)
     if callback_enabled:
         import resource
@@ -3652,7 +3652,8 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
             'browser_return':callback.value() if callback else None,
             'authentication_privacy':{'raw_capture_suspended':auth_private,'discarded_bytes':auth_discarded},
             'application_image_verification':{'bytes':image.size,'hash_passes':1,'cache':'stable_open_file'},
-            'diagnostics':{k:{'retained':v.retained,'dropped':v.discarded} for k,v in captures.items()}}
+            'diagnostics':{k:{'retained':v.retained,'dropped':v.discarded} for k,v in captures.items()},
+            **({'registry_defaults':registry} if managed_contract is not None else {})}
     def publish(value):
         atomic(report,value)
         if managed_contract is not None:
@@ -3681,6 +3682,8 @@ def renderer_run(spec, dependency=None, *, dependency_fixture=None, callback_fix
             dependency_owner.ensure(admitted is None,admitted)
             if dependency_owner.bound_daemon is not None:resources.append(dependency_owner.bound_daemon)
             for resource in resources:resource.check()
+            registry=dependency_owner.registry_defaults(registry_defaults_admitted(managed_contract['profile']))
+            if stop:raise ValueError('dependency_cancelled')
         elif dependency is not None:
             dependency_owner=Nad1Owner(spec,ledger,scope,lambda:stop,fixture=dependency_fixture,session_authority=dependency)
             dependency_owner.ensure(False,dependency['daemon'])
@@ -4262,6 +4265,15 @@ class Nad1Runtime:
         return [str(self.client),'--verbose','--bus-name='+self.bus_name,'--directory='+str(cwd),
                 *['--pass-env='+key for key in self.DEBUG_KEYS],'--',self.runner['proton'],'runinprefix',
                 self.owner.spec['installer_launch']['path'],windows(request,self.owner.root/'compatdata/pfx')]
+    def builtin_argv(self,args,cwd):
+        """One closed owner-built Wine builtin command in this ready session."""
+        if self.closed or self.child is None or not self.ready or self.bus_name is None:raise ValueError('dependency_runtime_not_ready')
+        if args[:1]!=['reg.exe'] or args[1:2] not in (['query'],['add']):raise ValueError('dependency_builtin_command')
+        self.owner.ledger.harvest();self.drain()
+        if self.child.returncode is not None:raise ValueError('dependency_runtime_exited')
+        self.verify_tools()
+        return [str(self.client),'--bus-name='+self.bus_name,'--directory='+str(cwd),
+                *['--pass-env='+key for key in self.DEBUG_KEYS],'--',self.runner['proton'],'runinprefix',*args]
     def value(self):
         return {'topology':'one_operation_proton_command_session','ready':self.ready,
                 'retirement_requested':self.closed,'tool_sha256':dict(self.tool_sha256)}
@@ -4544,6 +4556,47 @@ class Nad1Owner:
             for key in list(sel.get_map().values()):key.fileobj.close()
             sel.close()
             nad1_publish(self.directory/f'{self.op}-dependency-stage-{index}.json',stage)
+    def builtin(self,args,env,deadline):
+        """Run reg.exe in this operation's Wine session. Output is never captured."""
+        if self.runtime is None:raise ValueError('dependency_runtime_not_ready')
+        argv=self.runtime.builtin_argv(args,self.root/'home')
+        child=subprocess.Popen(argv,cwd=self.root/'home',env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,
+                               stderr=subprocess.DEVNULL,start_new_session=True,bufsize=0)
+        out=bytearray();sel=selectors.DefaultSelector()
+        def read(wait):
+            for key,_ in sel.select(wait):
+                data=os.read(key.fileobj.fileno(),8192)
+                if not data:sel.unregister(key.fileobj);continue
+                if len(out)+len(data)>65536:raise RegistryDefaultFailure('output_extent')
+                out.extend(data)
+        try:
+            self.ledger.launcher(child,'registry_default')
+            os.set_blocking(child.stdout.fileno(),False);sel.register(child.stdout,selectors.EVENT_READ)
+            limit=min(deadline,time.monotonic()+REGISTRY_DEFAULT_CALL_SECONDS)
+            while child.returncode is None:
+                self.ledger.harvest();self.runtime.drain()
+                if self.cancelled():raise RegistryDefaultFailure('cancelled')
+                if time.monotonic()>limit:raise TimeoutError('registry_default')
+                read(.05)
+            for _ in range(16):read(0)
+            return child.returncode,bytes(out)
+        finally:
+            if child.returncode is None:
+                try:os.killpg(child.pid,signal.SIGKILL)
+                except ProcessLookupError:pass
+                end=time.monotonic()+2
+                while child.returncode is None and time.monotonic()<end:self.ledger.harvest();time.sleep(.02)
+            sel.close();child.stdout.close()
+    def registry_defaults(self,defaults):
+        """Bounded and best effort: a failure is reported and never blocks launch."""
+        if not defaults:return None
+        deadline=time.monotonic()+REGISTRY_DEFAULT_SECONDS
+        try:
+            env=environment({'environment':self.spec['application']['environment'],'compatibility':{'disable_windows_accessibility':False}})
+            env['HOME']=str(self.root/'home');env.update(WINEDEBUG='-all',PROTON_LOG='0')
+        except Exception:
+            return [{'known_folder':entry['value']['known_folder'],'result':'failed','reason':'runner_unavailable'} for entry in defaults]
+        return [registry_default_apply(entry,self.prefix,lambda args:self.builtin(args,env,deadline)) for entry in defaults]
     def ensure(self,allow_install,admitted=None):
         import ownership
         image=RendererImage({'artifact':{'path':str(self.drive/self.installer_relative),'sha256':self.installer_sha},'size':self.installer_size});image.close()
@@ -4964,7 +5017,78 @@ def daw_application_binding(app,is_uninstall):
         raise RuntimeError('managed DAW launch fields changed')
 
 
-MANAGED_NATIVE_ACCESS_PROFILE_SHA256='dba4302039d2d0d780c8e31d373dd17a56384c5b60469bfa0adc7178a10fb186'
+MANAGED_NATIVE_ACCESS_PROFILE_SHA256='b6e57a6de5c0200643628f2bff991d39cdeceff3a54e5d0204d799a7321e6ff5'
+
+# Profile-declared per-user registry defaults. A known folder resolves through
+# Windows' own per-user known-folder record in the prefix; profile text never
+# supplies the written value. Only absent or empty values are filled.
+REGISTRY_KNOWN_FOLDERS={'Downloads':'{374DE290-123F-4565-9164-39C4925E467B}'}
+REGISTRY_SHELL_FOLDERS='HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders'
+REGISTRY_DEFAULT_SECONDS=30
+REGISTRY_DEFAULT_CALL_SECONDS=15
+REGISTRY_WORD=re.compile('[A-Za-z0-9._ -]{1,64}')
+REGISTRY_FOLDER=re.compile(r'C:\\users\\([^\\/:*?"<>|\x00-\x1f]{1,64})\\([^\\/:*?"<>|\x00-\x1f]{1,64})',re.I)
+
+class RegistryDefaultFailure(Exception):
+    def __init__(self,reason):super().__init__(reason);self.reason=reason
+
+def registry_defaults_admitted(profile):
+    defaults=profile.get('registry_defaults',[])
+    def word(value):return isinstance(value,str) and REGISTRY_WORD.fullmatch(value) is not None and value.strip()==value
+    if not isinstance(defaults,list) or len(defaults)>4:raise ValueError('managed_application_profile_registry_defaults')
+    seen=set()
+    for entry in defaults:
+        if not isinstance(entry,dict) or set(entry)!={'key','name','type','value'}:raise ValueError('managed_application_profile_registry_defaults')
+        key=entry['key'];value=entry['value']
+        if (not isinstance(key,str) or len(key)>255 or not key.startswith('HKCU\\')
+            or not 1<=len(key[5:].split('\\'))<=8 or not all(word(part) for part in key[5:].split('\\'))
+            or not word(entry['name']) or entry['type']!='REG_SZ' or not isinstance(value,dict) or set(value)!={'known_folder'}
+            or not isinstance(value['known_folder'],str) or value['known_folder'] not in REGISTRY_KNOWN_FOLDERS
+            or (key.lower(),entry['name'].lower()) in seen):raise ValueError('managed_application_profile_registry_defaults')
+        seen.add((key.lower(),entry['name'].lower()))
+    return defaults
+
+def registry_value(run,key,name):
+    """None when absent, '' when empty. Text stays in memory and is never recorded."""
+    code,out=run(['reg.exe','query',key,'/v',name])
+    pattern=re.compile('[ \t]+'+re.escape(name)+'[ \t]+REG_[A-Z_]+(?:[ \t]+(.*))?',re.I)
+    rows=[m for m in (pattern.fullmatch(line.rstrip('\r')) for line in out.decode('utf-8','replace').split('\n')) if m]
+    if code!=0:
+        if code==1 and not rows:return None
+        raise RegistryDefaultFailure('query_failed')
+    if len(rows)!=1:raise RegistryDefaultFailure('query_unreadable')
+    data=(rows[0].group(1) or '').strip()
+    return '' if data=='(value not set)' else data  # reg.exe's text for zero-length data
+
+def registry_known_folder(prefix,value):
+    """Windows' recorded folder for the prefix user, created inside the prefix."""
+    match=REGISTRY_FOLDER.fullmatch(value or '')
+    if not match or {match.group(1),match.group(2)}&{'.','..'} or any(part.strip()!=part for part in match.groups()):
+        raise RegistryDefaultFailure('known_folder_unavailable')
+    users=pathlib.Path(prefix)/'drive_c/users';profile=users/match.group(1)
+    if users.is_symlink() or not users.is_dir() or profile.is_symlink() or not profile.is_dir():
+        raise RegistryDefaultFailure('windows_user_unavailable')
+    folder=profile/match.group(2)
+    if not folder.exists() and not folder.is_symlink():
+        try:folder.mkdir(mode=0o755)
+        except OSError as exc:raise RegistryDefaultFailure('known_folder_unavailable') from exc
+    if not folder.is_dir():raise RegistryDefaultFailure('known_folder_unavailable')
+    return value
+
+def registry_default_apply(entry,prefix,run):
+    """Fill one declared value only when it is absent or empty. Never raises."""
+    folder=entry['value']['known_folder'];key=entry['key'];name=entry['name']
+    try:
+        if registry_value(run,key,name):return {'known_folder':folder,'result':'already_set','reason':None}
+        target=registry_known_folder(prefix,registry_value(run,REGISTRY_SHELL_FOLDERS,REGISTRY_KNOWN_FOLDERS[folder]))
+        code,_=run(['reg.exe','add',key,'/v',name,'/t','REG_SZ','/d',target,'/f'])
+        if code!=0:raise RegistryDefaultFailure('write_failed')
+        if registry_value(run,key,name)!=target:raise RegistryDefaultFailure('write_unconfirmed')
+        return {'known_folder':folder,'result':'applied','reason':None}
+    except RegistryDefaultFailure as exc:reason=exc.reason
+    except TimeoutError:reason='timeout'
+    except Exception:reason='runner_unavailable'
+    return {'known_folder':folder,'result':'failed','reason':reason}
 
 def selected_installer_origin(managed, app):
     """Recheck an observed app's actual installer receipt in its owned setup.
@@ -5039,6 +5163,7 @@ def managed_vendor_inputs(operation):
     if (set(capability)!={'schema','profile','profile_sha256','application','resources','dependency'} or capability['schema']!=1
         or capability['application']!=selector or capability['profile_sha256']!=MANAGED_NATIVE_ACCESS_PROFILE_SHA256
         or hashlib.sha256(canonical(profile)).hexdigest()!=MANAGED_NATIVE_ACCESS_PROFILE_SHA256):raise ValueError('managed_application_profile_definition')
+    registry_defaults_admitted(profile)
     software=launch['software']
     if software!=renderer_launch_software(managed) or operation.get('launcher')!=software.get('installer_launch'):raise ValueError('managed_application_software_changed')
     for role in ('manager','supervisor','ownership','installer_launch'):verify(software[role])
@@ -5096,7 +5221,7 @@ def managed_vendor_result(value):
         'cleanup_confirmed':retired,'error':managed_application_problem(code) if code else None,'error_code':code,
         'discarded_diagnostic_bytes':0,'diagnostic_enabled':False,'windows_accessibility_disabled':False,
         'account_posture':'unknown','focus_result':focus,'dependency':dependency,
-        'browser_return':value.get('browser_return')}
+        'browser_return':value.get('browser_return'),'registry_defaults':value.get('registry_defaults')}
 
 def managed_application_problem(code):
     if code.startswith(('dependency_runtime_','managed_application_runtime_')):

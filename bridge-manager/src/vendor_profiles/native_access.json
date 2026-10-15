@@ -24,5 +24,13 @@
     "listeners": [5146, 5563]
   },
   "rendering": "software_rendering",
-  "browser_scheme": "native-access"
+  "browser_scheme": "native-access",
+  "registry_defaults": [
+    {
+      "key": "HKCU\\Software\\Native Instruments\\Native Access",
+      "name": "DownloadLocation",
+      "type": "REG_SZ",
+      "value": {"known_folder": "Downloads"}
+    }
+  ]
 }

@@ -109,6 +109,9 @@ pub struct OperationResult {
     pub dependency: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub browser_return: Option<serde_json::Value>,
+    /// Profile-declared per-user defaults the supervisor filled or left alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub registry_defaults: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -494,6 +497,20 @@ pub(crate) mod tests {
         let reopened:Application = serde_json::from_value(original.clone()).unwrap();
         assert_eq!(reopened.selector().unwrap(),"arturia-software-center");
         assert_eq!(serde_json::to_value(reopened).unwrap(),original);
+    }
+    #[test]
+    fn managed_session_result_reads_with_or_without_registry_defaults() {
+        let mut value = serde_json::json!({"schema":3,"operation_id":"ab".repeat(16),"state":"running",
+            "launcher_exit":null,"owned_live":1,"cleanup_confirmed":false,"error":null,"error_code":null,
+            "discarded_diagnostic_bytes":0,"diagnostic_enabled":false,"windows_accessibility_disabled":false,
+            "account_posture":"unknown","focus_result":null,"dependency":null,"browser_return":null,
+            "registry_defaults":[{"known_folder":"Downloads","result":"applied","reason":null}]});
+        let result: OperationResult = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(result.registry_defaults.unwrap()[0]["result"], "applied");
+        value["registry_defaults"] = serde_json::Value::Null;
+        assert!(serde_json::from_value::<OperationResult>(value.clone()).unwrap().registry_defaults.is_none());
+        value.as_object_mut().unwrap().remove("registry_defaults");
+        assert!(serde_json::from_value::<OperationResult>(value).unwrap().registry_defaults.is_none());
     }
     pub(crate) fn selected_application() -> (crate::test_fixture::Fixture, Application) {
         let f = crate::test_fixture::Fixture::new();
