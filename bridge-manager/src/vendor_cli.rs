@@ -97,10 +97,22 @@ pub(super) fn reconcile(m:&Manager,selector:&str,operation:&str)->Result<()> {
 const SERVICE_STILL_RUNNING: &str =
     "The app's support service is still running. Restart the computer, then use Recover again.";
 const SERVICE_UNCONFIRMED: &str = "The bridge could not confirm that the app's support service stopped. Restart the computer, then use Recover again; if it still cannot finish, send Setup details.";
-const APP_STILL_RUNNING: &str = "Part of the app is still running. Wait a minute, then use Recover again; if it still cannot finish, restart the computer first.";
+const CHECK_NOT_RUN: &str =
+    "The bridge could not run its check. Update or repair the bridge, then use Recover again.";
+const SERVICE_UNCHECKABLE: &str = "The bridge can't yet check this app's support service, so it can't close this session itself. Send Setup details.";
+const APP_STILL_RUNNING: &str = "Part of the app is still running. Wait a minute and use Recover again. If that does not work, restart the computer, then use Recover again.";
 const UNIT_UNAVAILABLE: &str = "The bridge could not check whether the app is still running. Try Recover again; if it still cannot finish, send Setup details.";
-const RECOVER_CENSUS_LIMIT: Duration = Duration::from_secs(60);
+/// The process census stops itself at 30 s; this bounds the whole check.
+const RECOVER_CENSUS_LIMIT: Duration = Duration::from_secs(30);
 const RECOVER_OUTPUT_BOUND: u64 = 65536;
+/// Every refusal code a re-check can record. Setup details shows no other.
+const RECOVER_CODES: [&str; 14] = ["vendor_recover_service_running", "vendor_recover_observation_unavailable",
+    "vendor_recover_census_timeout", "vendor_recover_daemon_name_unobservable",
+    "vendor_recover_census_spawn_failed", "vendor_recover_supervisor_changed",
+    "vendor_recover_request_unavailable", "vendor_recover_census_request_refused",
+    "vendor_recover_census_malformed", "vendor_recover_census_failed",
+    "vendor_recover_census_output_bound", "vendor_application_custody_uncertain",
+    "vendor_recover_unit_unavailable", "vendor_recover_census_internal"];
 /// A plain refusal for the musician. Its fixed code and the closed census facts
 /// are retained for Setup details; the underlying cause stays in the error chain.
 #[derive(Debug)]
@@ -110,16 +122,22 @@ pub(super) struct RecoverRefusal {
     source: Option<Box<dyn std::error::Error + Send + Sync>>,
 }
 impl RecoverRefusal {
-    fn new(code: &'static str) -> Self { Self { code, census: None, source: None } }
+    fn new(code: &'static str) -> Self {
+        debug_assert!(RECOVER_CODES.contains(&code), "{code}");
+        Self { code, census: None, source: None }
+    }
     fn caused(code: &'static str, source: Box<dyn std::error::Error + Send + Sync>) -> Self {
-        Self { code, census: None, source: Some(source) }
+        Self { source: Some(source), ..Self::new(code) }
     }
     fn message(&self) -> &'static str {
         match self.code {
             "vendor_recover_service_running" => SERVICE_STILL_RUNNING,
+            "vendor_recover_census_timeout" | "vendor_recover_observation_unavailable" => SERVICE_UNCONFIRMED,
+            "vendor_recover_daemon_name_unobservable" => SERVICE_UNCHECKABLE,
             "vendor_application_custody_uncertain" => APP_STILL_RUNNING,
             "vendor_recover_unit_unavailable" => UNIT_UNAVAILABLE,
-            _ => SERVICE_UNCONFIRMED,
+            // Spawn, changed supervisor, request, malformed or failed census.
+            _ => CHECK_NOT_RUN,
         }
     }
 }
@@ -183,10 +201,19 @@ struct RecoverCheck {
 }
 /// Setup details for the current operation's last re-check, if any.
 pub(super) fn recover_check(m: &Manager, selector: &str, operation: &str) -> Option<serde_json::Value> {
+    use std::os::unix::fs::OpenOptionsExt;
     let path = directory(m, selector).ok()?.join("recover-check.json");
-    if fs::symlink_metadata(&path).ok()?.len() > 16384 { return None; }
-    let check: RecoverCheck = read_json(&path).ok()?;
-    (check.schema == 1 && check.operation == operation).then(|| serde_json::to_value(check).ok()).flatten()
+    let mut bytes = vec![];
+    fs::OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW).open(&path).ok()?
+        .take(16385).read_to_end(&mut bytes).ok()?;
+    if bytes.len() > 16384 { return None; }
+    let check: RecoverCheck = serde_json::from_slice(&bytes).ok()?;
+    let closed = match (check.result.as_str(), check.code.as_deref()) {
+        ("retired", None) => true,
+        ("refused", Some(code)) => RECOVER_CODES.contains(&code),
+        _ => false,
+    };
+    (closed && check.schema == 1 && check.operation == operation).then(|| serde_json::to_value(check).ok()).flatten()
 }
 /// Exact records the supervisor re-checks. The daemon identity is the one
 /// this session admitted, else the one bound at launch, else none.
@@ -224,15 +251,24 @@ fn run_recover_census(interpreter:&Path,supervisor:&Artifact,ownership:&Artifact
         .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn()
         .map_err(|error|Refusal::caused("vendor_recover_census_spawn_failed",error.into()))?;
     let (sender,receiver)=std::sync::mpsc::channel();
-    if let Some(mut stdout)=child.stdout.take() {
-        std::thread::spawn(move||{
-            let mut bytes=vec![];
-            let read=(&mut stdout).take(RECOVER_OUTPUT_BOUND+1).read_to_end(&mut bytes).map(|_|bytes);
-            let _=sender.send(read);
-        });
-    }
-    // The bounded request is far below one pipe buffer, so this cannot block.
-    let written=child.stdin.take().map(|mut stdin|stdin.write_all(&input));
+    let (stdin,stdout)=(child.stdin.take(),child.stdout.take());
+    // Both pipes are served by threads, so no write or read can outlive `limit`.
+    let reader=stdout.map(|mut stdout|std::thread::Builder::new().name("recover-census-output".into()).spawn(move||{
+        let mut bytes=vec![];
+        let read=(&mut stdout).take(RECOVER_OUTPUT_BOUND+1).read_to_end(&mut bytes).map(|_|bytes);
+        let _=sender.send(read);
+    }));
+    let writer=stdin.map(|mut stdin|std::thread::Builder::new().name("recover-census-input".into())
+        .spawn(move||stdin.write_all(&input)));
+    let writer=match (reader,writer) {
+        (Some(Ok(_)),Some(Ok(writer)))=>writer,
+        (reader,writer)=>{
+            let _=child.kill();let _=child.wait();
+            let cause=[reader.and_then(|spawned|spawned.err()),writer.and_then(|spawned|spawned.err())].into_iter().flatten().next();
+            return Err(match cause {Some(error)=>Refusal::caused("vendor_recover_census_failed",error.into()),
+                None=>Refusal::new("vendor_recover_census_failed")});
+        }
+    };
     let (mut status,mut output)=(None,None);
     let outcome=loop {
         if status.is_none() {
@@ -245,7 +281,8 @@ fn run_recover_census(interpreter:&Path,supervisor:&Artifact,ownership:&Artifact
         match (&status,&output) {
             (_,Some(Ok(bytes))) if bytes.len() as u64>RECOVER_OUTPUT_BOUND=>break Err("vendor_recover_census_output_bound"),
             (_,Some(Err(_)))=>break Err("vendor_recover_census_failed"),
-            (Some(status),_) if !status.success()=>break Err("vendor_recover_census_failed"),
+            (Some(status),Some(Ok(bytes))) if !status.success()=>break Err(census_refusal(bytes)),
+            (Some(status),None) if !status.success()=>break Err("vendor_recover_census_failed"),
             (Some(_),Some(Ok(bytes)))=>break Ok(bytes.clone()),
             _=>{}
         }
@@ -253,9 +290,19 @@ fn run_recover_census(interpreter:&Path,supervisor:&Artifact,ownership:&Artifact
         std::thread::sleep(Duration::from_millis(10));
     };
     if status.is_none() {let _=child.kill();let _=child.wait();}
+    // The child has exited or been reaped, so its end of stdin is closed.
+    let written=writer.join().map_err(|_|Refusal::new("vendor_recover_census_failed"))?;
     let bytes=outcome.map_err(Refusal::new)?;
-    if !matches!(written,Some(Ok(()))) {return Err(Refusal::new("vendor_recover_census_failed"));}
+    written.map_err(|error|Refusal::caused("vendor_recover_census_failed",error.into()))?;
     serde_json::from_slice(&bytes).map_err(|error|Refusal::caused("vendor_recover_census_malformed",error.into()))
+}
+/// The census names its own refusals with a closed code on a failed exit.
+fn census_refusal(bytes:&[u8])->&'static str {
+    match serde_json::from_slice::<serde_json::Value>(bytes) {
+        Ok(value) if value==json!({"schema":1,"error":"vendor_recover_census_request"})=>"vendor_recover_census_request_refused",
+        Ok(value) if value==json!({"schema":1,"error":"vendor_recover_census_internal"})=>"vendor_recover_census_internal",
+        _=>"vendor_recover_census_failed",
+    }
 }
 /// The retained session record plus the fresh absence that retires it. The
 /// earlier result itself stays as history beside the new result.
@@ -336,7 +383,8 @@ fn reconcile_with(m:&Manager,selector:&str,operation:&str,
         "account_posture":"unknown"});
     if let Some(dependency)=dependency {recovered["dependency"]=dependency;}
     atomic_json(&report,&recovered)?;
-    if census.is_some() {let _=atomic_json(&directory.join("recover-check.json"),&check("retired",None,census.as_ref()));}
+    // Always replace an earlier refusal, so a retired session never shows one.
+    let _=atomic_json(&directory.join("recover-check.json"),&check("retired",None,census.as_ref()));
     Ok(())
 }
 pub(super) fn all_retired(m: &Manager) -> Result<bool> {
@@ -461,6 +509,17 @@ fn submit_with(report: &Path, operation: &str, managed: bool,
     };
     require(child.wait()?.success(),"vendor_application_launch_unconfirmed")
 }
+/// Recover a session whose app is not running. Plug-in admission takes the
+/// registry lock without waiting, so it is released before the re-check (up to
+/// 30 s). The app's own writer lock, held by the re-check, keeps this app from
+/// launching meanwhile; a later launch binds a new operation.
+fn recover_stopped(m:&Manager,selector:&str,operation:&str,registry:Lock,
+    reconcile:impl FnOnce(&Manager,&str,&str)->Result<()>)->Result<()> {
+    drop(registry);
+    reconcile(m,selector,operation)?;
+    println!("{}",serde_json::to_string(&result(m,selector,operation)?)?);
+    Ok(())
+}
 fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result<()> {
     if let Some(id) = operation {
         require(valid_hex(id, 32), "vendor_application_operation_identity")?;
@@ -549,13 +608,11 @@ fn run_selected(m: &Manager, args: &[String], operation: Option<&str>) -> Result
             Ok(())
         }
         "cancel" => {
-            let _guard = m.lock("registry.lock")?;
+            let registry = m.lock("registry.lock")?;
             let job:vendor_application::Operation=read_json(&directory.join("operation.json"))?;
             let prior=result(m,&args[1],&job.operation_id)?;
             if !live(&args[1])? {
-                reconcile(m,&args[1],&job.operation_id)?;
-                println!("{}",serde_json::to_string(&result(m,&args[1],&job.operation_id)?)?);
-                return Ok(());
+                return recover_stopped(m,&args[1],&job.operation_id,registry,reconcile);
             }
             if let Some(id) = operation {
                 let job: serde_json::Value = read_json(&directory.join("operation.json"))?;
@@ -817,8 +874,54 @@ mod tests {
         // The next Open re-verifies every byte; a changed app cannot launch silently.
         fs::write(&job.application.executable.path,b"MZ self-updated application").unwrap();
         let bound=fs::read(directory(&f.m,&selector).unwrap().join("operation.json")).unwrap();
-        assert!(run_selected(&f.m,&["launch".into(),selector.clone()],Some(&random_id().unwrap())).is_err());
+        let error=run_selected(&f.m,&["launch".into(),selector.clone()],Some(&random_id().unwrap())).unwrap_err();
+        assert_eq!(error.to_string(),"artifact missing or changed");
         assert_eq!(bound,fs::read(directory(&f.m,&selector).unwrap().join("operation.json")).unwrap());
+    }
+    #[test]
+    fn recover_releases_the_registry_while_the_app_writer_blocks_its_launch() {
+        let (f,job)=assisted();let selector=job.application.selector().unwrap();
+        interrupted(&job);
+        let bound=fs::read(directory(&f.m,&selector).unwrap().join("operation.json")).unwrap();
+        let registry=f.m.lock("registry.lock").unwrap();
+        recover_stopped(&f.m,&selector,&job.operation_id,registry,|m,selector,operation|
+            reconcile_with(m,selector,operation,empty_unit,|_|{
+                // Plug-in admission takes this lock without waiting.
+                drop(m.lock("registry.lock").expect("registry is free during the census"));
+                let launch=run_selected(m,&["launch".into(),selector.into()],Some(&random_id().unwrap())).unwrap_err();
+                assert!(launch.is::<linux_vst_bridge::operator_lock::LockBusy>(),"{launch}");
+                Ok(verdict(json!({})))
+            })).unwrap();
+        assert!(result(&f.m,&selector,&job.operation_id).unwrap().retired());
+        assert_eq!(bound,fs::read(directory(&f.m,&selector).unwrap().join("operation.json")).unwrap());
+    }
+    #[test]
+    fn a_retired_session_never_keeps_an_earlier_refusal_beside_it() {
+        let (f,job)=assisted();let selector=job.application.selector().unwrap();
+        atomic_json(&job.report,&json!({"schema":3,"operation_id":job.operation_id,"state":"unknown",
+            "launcher_exit":null,"owned_live":null,"cleanup_confirmed":false,"error":null,
+            "discarded_diagnostic_bytes":0,"account_posture":"unknown",
+            "dependency":{"dependency_cleanup_disposition":"not_started","service_actions_started":false,
+                "process_cleanup_confirmed":false}})).unwrap();
+        assert!(reconcile_with(&f.m,&selector,&job.operation_id,||Ok(renderer_session::UnitState{
+            exists:true,empty:false,observation:None}),|_|panic!("not re-checked")).is_err());
+        assert_eq!(recover_check(&f.m,&selector,&job.operation_id).unwrap()["result"],"refused");
+        reconcile_with(&f.m,&selector,&job.operation_id,empty_unit,|_|panic!("No service action needs re-checking")).unwrap();
+        let check=recover_check(&f.m,&selector,&job.operation_id).unwrap();
+        assert_eq!((&check["result"],&check["code"],&check["census"]),(&json!("retired"),&json!(null),&json!(null)));
+        // Only closed records with known codes reach Setup details.
+        let path=directory(&f.m,&selector).unwrap().join("recover-check.json");
+        for record in [json!({"schema":1,"operation":job.operation_id,"result":"refused","code":"arbitrary text","census":null}),
+            json!({"schema":1,"operation":job.operation_id,"result":"retired","code":"vendor_recover_census_timeout","census":null}),
+            json!({"schema":1,"operation":job.operation_id,"result":"refused","code":null,"census":null}),
+            json!({"schema":1,"operation":job.operation_id,"result":"retired","code":null,"census":null,"path":"/home"})] {
+            atomic_json(&path,&record).unwrap();
+            assert!(recover_check(&f.m,&selector,&job.operation_id).is_none(),"{record}");
+        }
+        let target=f.outer.join("elsewhere.json");
+        atomic_json(&target,&json!({"schema":1,"operation":job.operation_id,"result":"retired","code":null,"census":null})).unwrap();
+        fs::remove_file(&path).unwrap();std::os::unix::fs::symlink(&target,&path).unwrap();
+        assert!(recover_check(&f.m,&selector,&job.operation_id).is_none(),"A linked record is never followed");
     }
     #[test]
     fn unconfirmed_service_session_stays_unretired_while_anything_remains_or_is_unobserved() {
@@ -837,24 +940,28 @@ mod tests {
             (verdict(json!({"verdict":"running","candidate_count":1,"candidate_observation_unavailable":1})),"vendor_recover_service_running",SERVICE_STILL_RUNNING),
             (verdict(json!({"verdict":"unavailable","candidate_observation_unavailable":1})),"vendor_recover_observation_unavailable",SERVICE_UNCONFIRMED),
             (verdict(json!({"verdict":"unavailable","listener_mask":null})),"vendor_recover_observation_unavailable",SERVICE_UNCONFIRMED),
-            (verdict(json!({"verdict":"unavailable","daemon_name_observable":false,"candidate_observation_unavailable":1})),"vendor_recover_daemon_name_unobservable",SERVICE_UNCONFIRMED),
+            (verdict(json!({"verdict":"unavailable","daemon_name_observable":false,"candidate_observation_unavailable":1})),"vendor_recover_daemon_name_unobservable",SERVICE_UNCHECKABLE),
             // A verdict that disagrees with its own facts, or carries more, is malformed.
-            (verdict(json!({"candidate_count":1})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
-            (verdict(json!({"listener_mask":1})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
-            (verdict(json!({"daemon_identity":"changed"})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
-            (verdict(json!({"daemon_identity":"absent"})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
-            (verdict(json!({"application_image_unchanged":false})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
-            (verdict(json!({"images_changed":["daemon"]})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
-            (verdict(json!({"verdict":"changed"})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
-            (verdict(json!({"schema":2})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
-            (verdict(json!({"pid":1234})),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
-            (json!("absent"),"vendor_recover_census_malformed",SERVICE_UNCONFIRMED),
+            (verdict(json!({"candidate_count":1})),"vendor_recover_census_malformed",CHECK_NOT_RUN),
+            (verdict(json!({"listener_mask":1})),"vendor_recover_census_malformed",CHECK_NOT_RUN),
+            (verdict(json!({"daemon_identity":"changed"})),"vendor_recover_census_malformed",CHECK_NOT_RUN),
+            (verdict(json!({"daemon_identity":"absent"})),"vendor_recover_census_malformed",CHECK_NOT_RUN),
+            (verdict(json!({"application_image_unchanged":false})),"vendor_recover_census_malformed",CHECK_NOT_RUN),
+            (verdict(json!({"images_changed":["daemon"]})),"vendor_recover_census_malformed",CHECK_NOT_RUN),
+            (verdict(json!({"verdict":"changed"})),"vendor_recover_census_malformed",CHECK_NOT_RUN),
+            (verdict(json!({"schema":2})),"vendor_recover_census_malformed",CHECK_NOT_RUN),
+            (verdict(json!({"pid":1234})),"vendor_recover_census_malformed",CHECK_NOT_RUN),
+            (json!("absent"),"vendor_recover_census_malformed",CHECK_NOT_RUN),
         ] {
             refused(reconcile_with(&f.m,&selector,&job.operation_id,empty_unit,|_|Ok(census.clone())).unwrap_err(),code,message);
         }
-        for code in ["vendor_recover_census_timeout","vendor_recover_census_spawn_failed","vendor_recover_supervisor_changed",
-            "vendor_recover_census_output_bound","vendor_recover_census_failed"] {
-            refused(reconcile_with(&f.m,&selector,&job.operation_id,empty_unit,|_|Err(RecoverRefusal::new(code))).unwrap_err(),code,SERVICE_UNCONFIRMED);
+        // Only a slow or unobservable check is worth a restart.
+        refused(reconcile_with(&f.m,&selector,&job.operation_id,empty_unit,
+            |_|Err(RecoverRefusal::new("vendor_recover_census_timeout"))).unwrap_err(),"vendor_recover_census_timeout",SERVICE_UNCONFIRMED);
+        for code in ["vendor_recover_census_spawn_failed","vendor_recover_supervisor_changed","vendor_recover_request_unavailable",
+            "vendor_recover_census_request_refused","vendor_recover_census_output_bound","vendor_recover_census_failed",
+            "vendor_recover_census_internal"] {
+            refused(reconcile_with(&f.m,&selector,&job.operation_id,empty_unit,|_|Err(RecoverRefusal::new(code))).unwrap_err(),code,CHECK_NOT_RUN);
         }
         refused(reconcile_with(&f.m,&selector,&job.operation_id,||Ok(renderer_session::UnitState{
             exists:true,empty:false,observation:None}),|_|panic!("An occupied unit is never re-checked")).unwrap_err(),
@@ -908,7 +1015,7 @@ print(json.dumps(session.vendor_recover_census(json.loads(sys.argv[2]),proc=path
         };
         // Product launches use the system interpreter; build images may only have it on PATH.
         let (python,request,limit)=(Path::new("python3"),json!({"schema":1}),Duration::from_secs(20));
-        let ownership=script("ownership.py","");
+        let ownership=script("fake-ownership.py","");
         let code=|result:std::result::Result<serde_json::Value,RecoverRefusal>|result.unwrap_err().code;
         let echo=script("echo.py","import json,sys\nassert sys.argv[1:]==['--vendor-recover-census']\nprint(json.dumps({'echo':json.load(sys.stdin)}))\n");
         assert_eq!(run_recover_census(python,&echo,&ownership,&request,limit).unwrap(),json!({"echo":{"schema":1}}));
@@ -921,20 +1028,36 @@ print(json.dumps(session.vendor_recover_census(json.loads(sys.argv[2]),proc=path
         assert!(!marker.exists());
         assert_eq!(code(run_recover_census(Path::new("/nonexistent/python3"),&echo,&ownership,&request,limit)),
             "vendor_recover_census_spawn_failed");
-        // A census that outlives its limit is killed and reaped.
+        // A census that outlives its limit is killed and reaped. It records its
+        // PID before sleeping; the test waits until it really started.
         let pid=f.outer.join("pid");
-        let slow=script("slow.py",&format!("import os,time\nopen({:?},'w').write(str(os.getpid()))\ntime.sleep(60)\n",pid));
+        let slow=script("slow.py",&format!("import os,time\nopen({:?}+'.tmp','w').write(str(os.getpid()))\nos.rename({:?}+'.tmp',{:?})\ntime.sleep(60)\n",pid,pid,pid));
         let started=Instant::now();
-        assert_eq!(code(run_recover_census(python,&slow,&ownership,&request,Duration::from_millis(1500))),"vendor_recover_census_timeout");
-        assert!(started.elapsed()<Duration::from_secs(10));
-        let pid=fs::read_to_string(&pid).unwrap();
-        assert!(!Path::new("/proc").join(pid.trim()).exists(),"The timed-out census is reaped");
+        let running=std::thread::scope(|scope|{
+            let census=scope.spawn(||run_recover_census(python,&slow,&ownership,&request,Duration::from_secs(5)));
+            while !pid.exists() && started.elapsed()<Duration::from_secs(5) {std::thread::sleep(Duration::from_millis(10));}
+            let observed=fs::read_to_string(&pid).expect("the census started");
+            assert!(Path::new("/proc").join(observed.trim()).exists(),"The census is still running before its limit");
+            (census.join().unwrap(),observed)
+        });
+        assert_eq!(code(running.0),"vendor_recover_census_timeout");
+        assert!(started.elapsed()<Duration::from_secs(15));
+        assert!(!Path::new("/proc").join(running.1.trim()).exists(),"The timed-out census is reaped");
         let loud=script("loud.py","import sys\nsys.stdout.write('x'*70000)\nsys.stdout.flush()\n");
         assert_eq!(code(run_recover_census(python,&loud,&ownership,&request,limit)),"vendor_recover_census_output_bound");
         let failing=script("failing.py","import sys\nprint('{}')\nsys.exit(3)\n");
         assert_eq!(code(run_recover_census(python,&failing,&ownership,&request,limit)),"vendor_recover_census_failed");
         let prose=script("prose.py","print('not a verdict')\n");
         assert_eq!(code(run_recover_census(python,&prose,&ownership,&request,limit)),"vendor_recover_census_malformed");
+        // The census names its own refusals; a request it rejects is a bridge fault.
+        let actual=|name:&str|script(name,&fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("runtime").join(name)).unwrap());
+        let (session,owner)=(actual("session.py"),actual("ownership.py"));
+        assert_eq!(code(run_recover_census(python,&session,&owner,&request,limit)),"vendor_recover_census_request_refused");
+        let internal=script("internal.py","print('{\"schema\":1,\"error\":\"vendor_recover_census_internal\"}')\nraise SystemExit(1)\n");
+        assert_eq!(code(run_recover_census(python,&internal,&ownership,&request,limit)),"vendor_recover_census_internal");
+        // A request the census could never read whole is refused before it runs.
+        let large=json!({"schema":1,"padding":"x".repeat(20000)});
+        assert_eq!(code(run_recover_census(python,&echo,&ownership,&large,limit)),"vendor_recover_request_unavailable");
     }
     #[test]
     fn owner_interrupted_without_a_session_record_reverifies_against_the_bound_daemon() {

@@ -579,10 +579,16 @@ class RecoverCensusTests(unittest.TestCase):
         self.assertEqual(set(value), self.KEYS)
         self.assertIn(value['verdict'], ('absent', 'running', 'unavailable'))
         self.assertTrue(value['application_image_unchanged'] and value['prefix_unchanged'])
-        bad = subprocess.run([sys.executable, str(pathlib.Path(s.__file__)), '--vendor-recover-census'],
-            input=b'{}', capture_output=True, timeout=60)
-        self.assertNotEqual(bad.returncode, 0)
-        self.assertEqual(bad.stdout, b'')
+        for request in (b'{}', b'not json', json.dumps(dict(self.request, extra=1)).encode()):
+            bad = subprocess.run([sys.executable, str(pathlib.Path(s.__file__)), '--vendor-recover-census'],
+                input=request, capture_output=True, timeout=60, env=dict(os.environ, HOME=str(self.home)))
+            self.assertEqual(bad.returncode, 1)
+            self.assertEqual(json.loads(bad.stdout), {'schema': 1, 'error': 'vendor_recover_census_request'})
+        with patch.object(s, 'vendor_recover_census', side_effect=OSError('boom')), \
+                patch.object(sys, 'stdin', unittest.mock.Mock(buffer=unittest.mock.Mock(read=lambda n: b'{}'))), \
+                patch('builtins.print') as printed:
+            self.assertEqual(s.vendor_recover_census_main(), 1)
+        self.assertEqual(json.loads(printed.call_args.args[0]), {'schema': 1, 'error': 'vendor_recover_census_internal'})
 
 
 if __name__ == '__main__':
