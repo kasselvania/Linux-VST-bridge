@@ -420,6 +420,41 @@ class SessionCleanupTests(unittest.TestCase):
   other.ready=True;other.daemon=self.identity;other.process_cleanup_confirmed=True;other.stop_observation={'schema':3,'classification':'NAD2_STOP_NOT_SUBMITTED','control_count':1}
   with patch.object(ownership,'census',return_value={'candidates':[],'private':[],'unavailable':0}),patch.object(s,'nad1_listener_census',return_value={'listener_mask':0}):self.assertTrue(other.verify_session_cleanup(self.image,False))
 
+ def failed_before_readiness(self):
+  self.owner.ready=False;self.owner.daemon=None;self.owner.service_actions_started=True
+  self.owner.managed_contract={'fixture':'managed'}
+ def verify_graceful(self,scan=None,listener_mask=0):
+  with patch.object(ownership,'census',return_value=copy.deepcopy(scan or self.scan)) as census,patch.object(s,'nad1_listener_census',return_value={'listener_mask':listener_mask}):
+   result=self.owner.verify_session_cleanup(self.image,True)
+  return result,census
+ def test_managed_session_failed_before_readiness_retires_through_the_same_census(self):
+  # Bridge stayed stopped after NTKDaemon failed before readiness (CachyOS Test79).
+  self.failed_before_readiness()
+  verified,census=self.verify_graceful()
+  self.assertTrue(verified)
+  self.assertIsNone(census.call_args.args[1])
+  self.assertEqual(self.owner.post_cleanup['daemon_identity'],'not_admitted_in_session')
+  self.assertEqual(self.owner.dependency_cleanup_disposition,'graceful_service_retirement')
+  self.assertEqual(self.owner.post_cleanup['session'],'failed_before_readiness')
+  self.assertTrue(s.managed_dependency_retired({'process_cleanup_confirmed':True,
+   'dependency_cleanup_disposition':self.owner.dependency_cleanup_disposition,'post_cleanup':self.owner.post_cleanup}))
+  for content in (None,b'partial'):
+   self.daemon.unlink(missing_ok=True)
+   if content is not None:self.daemon.write_bytes(content)
+   self.failed_before_readiness()
+   verified,census=self.verify_graceful()
+   self.assertTrue(verified);self.assertIsNone(census.call_args.args[1])
+  self.failed_before_readiness();self.scope.members.return_value=[{'pid':7}]
+  with self.assertRaisesRegex(ValueError,'post_cleanup_unconfirmed'):self.verify_graceful()
+ def test_failed_before_readiness_still_refuses_residue_unmanaged_or_ungraceful(self):
+  self.failed_before_readiness()
+  for scan,mask in [({'candidates':[{'prefix_relation':'same'}],'private':[],'unavailable':0},0),
+                    ({'candidates':[],'private':[],'unavailable':1},0),(None,1)]:
+   with self.subTest(scan=scan,mask=mask):
+    with self.assertRaisesRegex(ValueError,'post_cleanup_unconfirmed'):self.verify_graceful(scan,mask)
+  with self.assertRaisesRegex(ValueError,'prerequisite'):self.verify()
+  self.owner.managed_contract=None
+  with self.assertRaisesRegex(ValueError,'prerequisite'):self.verify_graceful()
  def test_fixed_listener_census_reports_only_expected_loopback_listeners(self):
   proc=self.root/'proc';(proc/'net').mkdir(parents=True)
   header='  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n'

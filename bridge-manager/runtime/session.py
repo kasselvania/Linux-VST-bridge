@@ -4654,7 +4654,12 @@ class Nad1Owner:
         import ownership
         if self.managed_contract is not None and not self.ready and not self.service_actions_started and self.custody_observed_empty and self.process_cleanup_confirmed:
             self.dependency_cleanup_disposition='not_started';return True
-        if not self.ready or not self.process_cleanup_confirmed:raise ValueError('dependency_session_cleanup_prerequisite')
+        if not self.process_cleanup_confirmed:raise ValueError('dependency_session_cleanup_prerequisite')
+        # A managed session that failed before readiness still retires: its
+        # service stop was confirmed (or it was proved absent), and the same
+        # census below must show no daemon generation, listener or member left.
+        if not self.ready and (self.managed_contract is None or not graceful):
+            raise ValueError('dependency_session_cleanup_prerequisite')
         observation=self.stop_observation
         if not graceful:
             if (not isinstance(observation,dict) or observation.get('classification') in (None,'NAD2_STOP_OBSERVATION_UNAVAILABLE')
@@ -4666,15 +4671,24 @@ class Nad1Owner:
             or (prefix.st_dev,prefix.st_ino)!=self.prefix_identity
             or renderer_read(self.root/'environment.json')!=self.spec['application']['environment']):
             raise ValueError('dependency_session_prefix_changed')
-        actual=ownership.image_identity(self.drive/self.daemon_relative)
-        if actual!=self.daemon:raise ValueError('dependency_session_daemon_changed')
+        path=self.drive/self.daemon_relative
+        if self.daemon is not None:
+            actual=ownership.image_identity(path)
+            if actual!=self.daemon:raise ValueError('dependency_session_daemon_changed')
+        else:
+            # Never admitted in this session (it failed first). The census finds
+            # daemon processes by name regardless of identity, so prove that no
+            # generation runs without hashing a file that may be partial.
+            actual=None
         members=self.scope.members()
-        scan=ownership.census(self.root/'compatdata/pfx',self.daemon,proc=proc)
+        scan=ownership.census(self.root/'compatdata/pfx',actual,proc=proc)
         listeners=nad1_listener_census(proc)
         self.post_cleanup={'schema':1,'cgroup_empty':not members,'exact_daemon_generation_absent':not scan['candidates'] and not scan['unavailable'],
             'listener_mask':listeners['listener_mask'],'candidate_count':len(scan['candidates']),
             'candidate_observation_unavailable':scan['unavailable'],'application_image_unchanged':True,
             'daemon_image_unchanged':True,'authority':'exact_owned_renderer_cohort_and_bounded_daemon_listener_census'}
+        if not self.ready:self.post_cleanup['session']='failed_before_readiness'
+        if self.daemon is None:self.post_cleanup['daemon_identity']='not_admitted_in_session'
         if members or scan['unavailable'] or scan['candidates'] or listeners['listener_mask']:
             raise ValueError('dependency_session_post_cleanup_unconfirmed')
         self.dependency_cleanup_disposition='graceful_service_retirement' if graceful else 'exact_owned_session_cleanup'
