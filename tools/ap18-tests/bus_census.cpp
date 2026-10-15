@@ -37,14 +37,15 @@ struct MultiOutput:AudioEffect {
  }
 };
 // Main stereo effect that refuses to disable a bus, as JUCE plug-ins do when
-// their layout requires the main buses.
+// their layout requires the main buses. Optionally a second stereo output.
 struct MainBusesRequired:AudioEffect {
- tresult disable_result=kResultFalse;int enables=0,disables=0;
- tresult PLUGIN_API initialize(FUnknown* h)override{auto r=AudioEffect::initialize(h);addAudioInput(u"Input",SpeakerArr::kStereo);addAudioOutput(u"Output",SpeakerArr::kStereo);return r;}
- tresult PLUGIN_API setBusArrangements(SpeakerArrangement*,int32 ni,SpeakerArrangement*,int32 no)override{assert(ni==1&&no==1);return kResultOk;}
+ tresult disable_result=kResultFalse,enable_result=kResultOk;bool aux_output=false;int enables=0,disables=0;
+ tresult PLUGIN_API initialize(FUnknown* h)override{auto r=AudioEffect::initialize(h);addAudioInput(u"Input",SpeakerArr::kStereo);addAudioOutput(u"Output",SpeakerArr::kStereo);
+  if(aux_output)addAudioOutput(u"Aux",SpeakerArr::kStereo,kAux);return r;}
+ tresult PLUGIN_API setBusArrangements(SpeakerArrangement*,int32 ni,SpeakerArrangement*,int32 no)override{assert(ni==1&&no==(aux_output?2:1));return kResultOk;}
  tresult PLUGIN_API activateBus(MediaType m,BusDirection d,int32 i,TBool on)override{
   if(!on){++disables;return disable_result;}
-  ++enables;return AudioEffect::activateBus(m,d,i,on);
+  ++enables;return enable_result==kResultOk?AudioEffect::activateBus(m,d,i,on):enable_result;
  }
 };
 struct StereoNegotiationPlugin:AudioEffect {
@@ -66,6 +67,37 @@ int main(){
   bool refused=false;try{layout.activate(plugin,false);}catch(const std::exception&){refused=true;}
   assert(refused==(refusal==kInternalError)&&plugin.disables==(refused?1:2));
   layout.activate(plugin,true);assert(plugin.enables==4);
+  assert(plugin.terminate()==kResultOk);
+ }
+ {
+  // Switching a bus on stays strict.
+  HostApplication host;MainBusesRequired plugin;plugin.enable_result=kResultFalse;assert(plugin.initialize(&host)==kResultOk);
+  BusLayout layout;layout.read(plugin,plugin,false);layout.negotiate(plugin);
+  bool refused=false;try{layout.activate(plugin,true);}catch(const std::exception&){refused=true;}
+  assert(refused&&plugin.enables==1);assert(plugin.terminate()==kResultOk);
+ }
+ for(auto refusal:{kResultFalse,kNotImplemented,kInternalError}){
+  // The DAW turned the input and the auxiliary output off. A plug-in that
+  // keeps them on is fed zeros and writes into a private lane; any other
+  // refusal still fails.
+  HostApplication host;MainBusesRequired plugin;plugin.aux_output=true;plugin.disable_result=refusal;assert(plugin.initialize(&host)==kResultOk);
+  BusLayout layout;layout.read(plugin,plugin,false);layout.negotiate(plugin);
+  assert(layout.size==3&&layout.buses[0].info.direction==kInput&&layout.buses[2].info.busType==kAux);
+  layout.buses[0].active=false;layout.buses[2].active=false;
+  bool refused=false;try{layout.activate(plugin,true);}catch(const std::exception&){refused=true;}
+  assert(refused==(refusal==kInternalError));
+  if(refused){assert(plugin.terminate()==kResultOk);continue;}
+  assert(plugin.enables==1&&plugin.disables==2&&layout.kept[0]&&!layout.kept[1]&&layout.kept[2]);
+  std::array<float,64> samples{};float* channels[64];for(size_t i=0;i<64;++i)channels[i]=&samples[i];float* inactive[]={nullptr,nullptr};
+  std::array<AudioBusBuffers,32> outputs{};layout.map_outputs(outputs,channels,inactive);
+  assert(outputs[0].channelBuffers32==channels&&outputs[0].silenceFlags==0);
+  assert(outputs[1].channelBuffers32==channels+2&&outputs[1].channelBuffers32[0]&&outputs[1].channelBuffers32[1]&&outputs[1].numChannels==2);
+  float zero[2]{};float* zeros[]={zero,zero+1};float* pair[]={&samples[60],&samples[61]};
+  std::array<AudioBusBuffers,8> inputs{};layout.map_inputs(inputs,pair,zeros,0);
+  assert(inputs[0].channelBuffers32==zeros&&inputs[0].silenceFlags==3);
+  // A later activation the plug-in accepts is no longer kept.
+  plugin.disable_result=kResultOk;layout.activate(plugin,true);
+  assert(!layout.kept[0]&&!layout.kept[2]);layout.map_outputs(outputs,channels,inactive);assert(outputs[1].channelBuffers32==inactive);
   assert(plugin.terminate()==kResultOk);
  }
  {

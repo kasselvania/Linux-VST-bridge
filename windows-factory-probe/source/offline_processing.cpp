@@ -209,6 +209,8 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         if(latency!=0||(!commercial&&tail!=0))throw std::runtime_error("AP2 retained processor latency/tail differs");
     }
     layout.activate(component,true);
+    // A bus the plug-in kept on needs its private output lane before any block.
+    for(auto& block:blocks)layout.map_outputs(block.all_outputs,block.output_channels.data(),block.inactive_output_channels.data());
     active=call("set_active_true",[&]{return component.setActive(true);});
     if (!active) return {false,false};
     uint64_t processed=0,intervals=0;
