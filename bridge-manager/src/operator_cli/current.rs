@@ -558,9 +558,31 @@ pub(super) fn current_products(m: &Manager, db: &Registry, sw: &Software,
                     } else if !performance_valid {json!({"code":"performance_authority_unavailable"})}
                     else {json!({"code":"current_artifact_or_publication_changed"})}}),
         });
+        if current_valid {
+            if let Some(product) = products.last_mut() { project_last_load(m, product); }
+        }
         revisions.insert(class.clone(), revision);
     }
     Ok((products, revisions))
+}
+
+/// A plug-in the DAW can load whose last load was refused because its Windows
+/// side had stopped says so on its card, until a later load is accepted (the
+/// service rewrites the same per-class record on every load). It is kept under
+/// `details.last_load`, apart from `details.problem`, which discovery and
+/// compatibility projections own and replace. An absent or unreadable record
+/// explains nothing; it never fails the overview.
+pub(super) fn project_last_load(m: &Manager, product: &mut ui::Product) {
+    if !valid_hex(&product.class_id, 32) { return; }
+    let path = m.root.join("runtime/native-startup")
+        .join(format!("{}.json", product.class_id.to_ascii_lowercase()));
+    let Ok(record) = read_json::<Value>(&path) else { return };
+    if record["outcome"] != "refused" || !record["observed_at"].is_u64() { return; }
+    let phase = record["phases"].as_array().and_then(|phases| phases.last())
+        .and_then(|phase| phase[0].as_str());
+    let Some(problem) = linux_vst_bridge::problem::from_load_refusal(phase) else { return };
+    product.details["last_load"] = json!({"outcome":"refused",
+        "observed_at":record["observed_at"],"problem":problem.value()});
 }
 
 fn append_discovered(m: &Manager, sw: &Software, environments: &[Environment],
@@ -1226,6 +1248,49 @@ pub(super) mod tests {
         assert_eq!(products.iter().find(|p|p.class_id==f.r.metadata.class_id).unwrap().disposition,"needs_attention");
         assert_eq!(products.iter().find(|p|p.class_id==sibling.metadata.class_id).unwrap().disposition,"ready");
         assert_eq!(products.iter().find(|p|p.class_id==unrelated.metadata.class_id).unwrap().disposition,"ready");
+    }
+    #[test]
+    fn available_plug_in_explains_a_load_refused_because_its_windows_side_stopped() {
+        use linux_vst_bridge::preparation as prep;
+        // A normally published plug-in has a retained preparation candidate;
+        // the overview withdraws discovery-time details.problem for it.
+        let (f,base)=preparation_cli::tests::projection_fixture();
+        prep::record_candidate(&f.m,&base).unwrap();
+        prep::enable(&f.m,&base,false).unwrap();
+        let sw=preparation_cli::tests::projection_software(&base);
+        atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
+        let class=base.selection.class.id.clone();
+        let startup=f.m.root.join("runtime/native-startup");
+        private_dir(&startup).unwrap();
+        let record=|outcome:&str,last:&str| atomic_json(&startup.join(format!("{}.json",class.to_ascii_lowercase())),
+            &json!({"schema":1,"class_id":class,"request":"07".repeat(16),
+                "observed_at":1792100498u64,"outcome":outcome,
+                "phases":[["request_received",0],["binding_verified",31],[last,267]],"total_ms":267})).unwrap();
+        let product=|| {
+            let captured=capture(&f.m).unwrap();
+            captured.snapshot.products.iter().find(|p|p.class_id==class).unwrap().clone()
+        };
+        let before=product();
+        assert!(before.details["last_load"].is_null());
+        let available=before.availability.clone();
+        // Before: the musician saw an available plug-in and a blank editor.
+        record("refused","keeper_failed");
+        let shown=product();
+        assert_eq!(shown.details["last_load"]["problem"]["code"],"windows_side_stopped");
+        assert_eq!(shown.details["last_load"]["observed_at"],1792100498u64);
+        let advice=shown.details["last_load"]["problem"]["what_to_try"].as_str().unwrap();
+        assert!(advice.contains("Load the plug-in again") && advice.contains("wait a minute"));
+        assert!(!advice.contains("first found"));
+        // The explanation never changes the published plug-in's availability.
+        assert_eq!(serde_json::to_value(&shown.availability).unwrap(),
+            serde_json::to_value(&available).unwrap());
+        // A later accepted load withdraws it; unknown phases explain nothing.
+        record("accepted","keeper_ready");
+        assert!(product().details["last_load"].is_null());
+        record("refused","bridge_update_required");
+        assert!(product().details["last_load"].is_null());
+        fs::write(startup.join(format!("{}.json",class.to_ascii_lowercase())),b"not json").unwrap();
+        assert!(product().details["last_load"].is_null());
     }
     #[test]
     fn current_product_requires_committed_publication_and_reads_selected_delay() {
