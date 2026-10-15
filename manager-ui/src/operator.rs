@@ -3096,7 +3096,7 @@ fn dependency_retirement_lines(v: &serde_json::Value) -> Vec<String> {
     lines.push(match r["dependency_cleanup_disposition"].as_str() {
         Some("graceful_service_retirement")=>"Native Access closed with graceful dependency retirement.".into(),
         Some("exact_owned_session_cleanup")=>"Native Access closed with exact-owned compatibility cleanup; graceful service shutdown was not confirmed.".into(),
-        Some("reverified_after_interruption")=>"The app's session was interrupted. Recover later confirmed that the app and its support service were no longer running.".into(),
+        Some("reverified_after_unconfirmed_cleanup")=>"The last session did not confirm it closed; the bridge later confirmed nothing from it was still running.".into(),
         _=>"Native Access or dependency cleanup is not confirmed.".into(),
     });
     if let Some(error) = v["error"].as_str() {
@@ -3998,10 +3998,10 @@ mod tests {
         assert!(dependency_retirement_lines(&failed)
             .iter()
             .any(|s| s == "Native Access or dependency cleanup is not confirmed."));
-        let reverified = serde_json::json!({"dependency":{"dependency_cleanup_disposition":"reverified_after_interruption",
+        let reverified = serde_json::json!({"dependency":{"dependency_cleanup_disposition":"reverified_after_unconfirmed_cleanup",
             "service_retirement_confirmed":false,"process_cleanup_confirmed":true}});
         let reverified_text = dependency_retirement_lines(&reverified).join(" ");
-        assert!(reverified_text.contains("was interrupted"));
+        assert!(reverified_text.contains("did not confirm it closed; the bridge later confirmed nothing from it was still running"));
         assert!(reverified_text.contains("Dependency service stop: not confirmed"));
     }
     #[test]
