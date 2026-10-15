@@ -329,7 +329,7 @@ pub(crate) mod tests {
         let entry = &mut observed["after"]["uninstall"]["cd".repeat(32)];
         entry.as_object_mut().unwrap().remove("InstallLocation");
         atomic_json(&path, &observed).unwrap();
-        assert!(choices(&f.m, &record).unwrap_err().to_string().contains("vendor_application_location_missing"));
+        assert!(choices(&f.m, &record).err().unwrap().to_string().contains("vendor_application_location_missing"));
         observed["after"]["uninstall"]["cd".repeat(32)]["DerivedInstallLocation"] = "C:\\Program Files\\Vendor".into();
         atomic_json(&path, &observed).unwrap();
         let choices = choices(&f.m, &record).unwrap();
