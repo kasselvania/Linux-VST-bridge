@@ -2018,6 +2018,7 @@ impl Operator {
                                 ui.strong(journey_phase_label(&journey));
                                 journey_results(ui, &journey);
                             } else { ui.label("Open this app to install or manage its plug-ins."); }
+                            if let Some(notice) = presentation::vendor_default_notice(app) { ui.label(notice); }
                             if let Some(consequence) = app.actions.iter().find_map(|offer|
                                 presentation::vendor_install_consequence(&overview.current, &offer.action)) {
                                 ui.label(consequence);
