@@ -283,6 +283,57 @@ pub fn prepare_attempt(m: &Manager, previous: &str, runner: &str) -> Result<Prep
     let r = load(m, previous)?;
     require(runner==runner_key(&r.environment.runner)?, "onboarding_retry_runner_changed")?;
     linux_vst_bridge::runtime_delivery::selected_record_path(m,&r.environment.runner)?;
+    prepare_linked(m, r, runner)
+}
+/// A Retry of an installation set up on one of the product's delivered runtime
+/// revisions continues on the recommended revision. The earlier attempt keeps
+/// its own runtime and the same history law as an exact-runner new attempt;
+/// only the new attempt's runtime differs.
+pub fn prepare_recommended_attempt(m: &Manager, previous: &str, runner: &str) -> Result<PreparedCreation> {
+    let r = control_record(m, previous)?;
+    require(linux_vst_bridge::runtime_delivery::delivered_revision(m,&r.environment.runner)
+        && default_runtime(m,&runners(m)?)?.is_some_and(|(key,_)|key==runner),
+        "onboarding_retry_runner_changed")?;
+    prepare_linked(m, r, runner)
+}
+/// Whether this retained attempt may be followed by a new linked attempt.
+pub fn new_attempt_allowed(m: &Manager, r: &Record, history: &[Record]) -> Result<bool> {
+    if registered(m, r)? {
+        return Ok(false);
+    }
+    Ok(require_new_attempt(&result(m, r)?,
+        history.iter().any(|x| x.previous_attempt.as_deref() == Some(&r.id))).is_ok())
+}
+/// A published or registered environment belongs to product management.
+pub fn registered(m: &Manager, r: &Record) -> Result<bool> {
+    Ok(r.published || m.registry()?.classes.values().any(|e| e.registration.environment.id == r.id))
+}
+/// An unstarted setup on a superseded delivered runtime is not launched by an
+/// automatic installation. Its unused attempt is finished with that reason so a
+/// linked new attempt can use the recommended runtime. Nothing ran in it; the
+/// record and its environment stay as history.
+pub fn finish_superseded_unstarted(m: &Manager, id: &str, requested_by: &str) -> Result<Record> {
+    let _lock = m.lock("onboarding.lock")?;
+    let r = control_record(m, id)?;
+    require(operator_cli::environment_install::latest(m,id)?.is_none(),
+        "Another installer was chosen for this setup. Continue from its current Setup card.")?;
+    require(r.installation_operation.is_none() && r.automatic.is_none(),
+        "installer_initial_transaction_already_used")?;
+    require(linux_vst_bridge::runtime_delivery::superseded_revision(m,&r.environment.runner),
+        "onboarding_runtime_not_superseded")?;
+    let op = random_id()?;
+    let dir = directory(m, id)?;
+    let mut retained: Record = read_json(&dir.join("record.json"))?;
+    retained.installation_operation = Some(op.clone());
+    atomic_json(&dir.join(format!("{op}-result.json")), &json!({"schema":2,"operation":op,
+        "state":"failed","reason":"runtime_superseded","error":"runtime_superseded",
+        "runtime":r.environment.runner.id,"requested_by":requested_by,"raw_exit":null,
+        "cleanup_confirmed":true,"owned_live":0}))?;
+    atomic_json(&dir.join("record.json"), &retained)?;
+    load_record_binding(m, id)
+}
+fn prepare_linked(m: &Manager, r: Record, runner: &str) -> Result<PreparedCreation> {
+    let previous = r.id.as_str();
     let record = directory(m, previous)?.join("record.json");
     let op = r
         .installation_operation
@@ -296,7 +347,7 @@ pub fn prepare_attempt(m: &Manager, previous: &str, runner: &str) -> Result<Prep
     let v = result(m, &r)?;
     require_new_attempt(
         &v,
-        records(m)?.iter().any(|x| x.previous_attempt.as_deref() == Some(previous)),
+        history_records(m)?.iter().any(|x| x.previous_attempt.as_deref() == Some(previous)),
     )?;
     let mut prepared = prepare_creation(m, &r.installer, runner)?;
     prepared.files.extend(stamps);
