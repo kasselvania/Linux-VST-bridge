@@ -36,12 +36,22 @@ pub fn downloads() -> Vec<Download> {
         },
     ]
 }
+/// A sealed Wine correction archive. Its manifest binds each replaced GE file's
+/// exact upstream preimage and carries exactly these artifact roles.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Correction { root: &'static str, artifacts: &'static [&'static str] }
+const UIA_GUARD: Correction = Correction {root:"uia-guard",
+    artifacts:&["test","source","recipe","patch","guard_source","notices","license"]};
+const MSI_READER: Correction = Correction {root:"msi-reader",
+    artifacts:&["source","recipe","build_record","staging_cabinet_patch","upstream_padding_patch",
+        "upstream_strref_width_patch","ambiguous_strref_patch","modification_notice_patch",
+        "notices","license"]};
 #[derive(Clone)]
 struct Revision {
     id: &'static str,
     version: &'static str,
     downloads: Vec<Download>,
-    uia_guard: bool,
+    components: &'static [Correction],
 }
 fn revisions() -> Vec<Revision> {
     let mut corrected=downloads();
@@ -50,12 +60,21 @@ fn revisions() -> Vec<Revision> {
         sha256:"988fb967608a8c116022c27822647b7a7eda50a283a9e53ee2f22fe299b60f6c".into(),
         size:57040019,root:"uia-guard".into(),compression:"gzip".into(),
     });
+    let mut msi_reader=corrected.clone();
+    msi_reader.push(Download {
+        url:"https://github.com/kasselvania/Linux-VST-bridge/releases/download/runtime-msi-r5/msi-reader.tar.gz".into(),
+        sha256:"4ca51dec54f6085bd2050d8714018c3ba95bae7c00277de31e66d2c3ec7c9058".into(),
+        size:59653803,root:"msi-reader".into(),compression:"gzip".into(),
+    });
     vec![Revision { id:ID,
         version:"GE-Proton11-7; SLR 4.0.20260805.254769; managed download v3",
-        downloads:downloads(),uia_guard:false },
+        downloads:downloads(),components:&[] },
         Revision {id:"managed-ge-proton11-7-slr4-20260805-r4",
             version:"GE-Proton11-7; SLR 4.0.20260805.254769; managed UIA guard v4",
-            downloads:corrected,uia_guard:true}]
+            downloads:corrected,components:&[UIA_GUARD]},
+        Revision {id:"managed-ge-proton11-7-slr4-20260805-r5",
+            version:"GE-Proton11-7; SLR 4.0.20260805.254769; managed UIA guard + MSI reader v5",
+            downloads:msi_reader,components:&[UIA_GUARD,MSI_READER]}]
 }
 fn recommended() -> Revision {
     // Recommendations apply to acquisition and new environments. Retained
@@ -63,6 +82,8 @@ fn recommended() -> Revision {
     revisions().pop().expect("declared runtime revision")
 }
 pub fn recommended_id() -> &'static str {recommended().id}
+#[cfg(test)]
+pub(crate) fn revision_ids() -> Vec<&'static str> {revisions().iter().map(|revision|revision.id).collect()}
 pub fn recommended_downloads() -> Vec<Download> {recommended().downloads}
 fn revision_record_path(m: &Manager, revision: &Revision) -> PathBuf {
     m.root.join("runners").join(revision.id).join("runtime.json")
@@ -163,15 +184,9 @@ struct GuardFile {
 struct GuardArtifact { path: PathBuf, sha256: String, size: u64 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct GuardArtifacts {
-    test: GuardArtifact, source: GuardArtifact, recipe: GuardArtifact,
-    patch: GuardArtifact, guard_source: GuardArtifact, notices: GuardArtifact,
-    license: GuardArtifact,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 struct GuardManifest {
-    schema: u32, base_ge_sha256: String, files: Vec<GuardFile>, artifacts: GuardArtifacts,
+    schema: u32, base_ge_sha256: String, files: Vec<GuardFile>,
+    artifacts: BTreeMap<String, GuardArtifact>,
 }
 fn verify_guard_artifact(root: &Path, artifact: &GuardArtifact) -> Result<()> {
     safe_path(&artifact.path)?;
@@ -181,44 +196,54 @@ fn verify_guard_artifact(root: &Path, artifact: &GuardArtifact) -> Result<()> {
     require(file(&path)?.metadata()?.len()==artifact.size && digest(&path)?==artifact.sha256,
         "runtime_guard_artifact_changed")
 }
-/// Compose only an unpublished revision. The component archive binds the exact
-/// upstream preimage and retains corresponding source, build recipe and notices.
-fn compose_guard(stage: &Path, revision: &Revision, rows: &mut Vec<TreeEntry>) -> Result<PathBuf> {
-    let root=stage.join("uia-guard");
-    let manifest:GuardManifest=read_json(&root.join("manifest.json"))?;
-    require(manifest.schema==1 && revision.downloads.first().is_some_and(|base|
-        base.root==GE && base.sha256==manifest.base_ge_sha256)
-        && (1..=16).contains(&manifest.files.len()),"runtime_guard_base_binding")?;
-    for artifact in [&manifest.artifacts.test,&manifest.artifacts.source,&manifest.artifacts.recipe,
-        &manifest.artifacts.patch,&manifest.artifacts.guard_source,&manifest.artifacts.notices,
-        &manifest.artifacts.license] {verify_guard_artifact(&root,artifact)?;}
+/// Compose only an unpublished revision. Each component archive binds the exact
+/// upstream preimages and retains corresponding source, build recipe and notices.
+fn compose_components(stage: &Path, revision: &Revision, rows: &mut Vec<TreeEntry>) -> Result<PathBuf> {
     let mut selected=BTreeSet::new();
-    // Establish every preimage before changing any staged byte.
-    for replacement in &manifest.files {
-        safe_path(&replacement.path)?;safe_path(&replacement.source)?;
-        require(replacement.path.starts_with("files") && selected.insert(replacement.path.clone())
-            && valid_hex(&replacement.original_sha256,64),"runtime_guard_replacement_identity")?;
-        let relative=Path::new(GE).join(&replacement.path);
-        let declared=rows.iter().find(|row|row.path==relative)
-            .ok_or("runtime_guard_preimage_missing")?;
-        require(!declared.directory && declared.target.is_none()
-            && declared.sha256.as_deref()==Some(replacement.original_sha256.as_str())
-            && digest(&stage.join(&relative))?==replacement.original_sha256,
-            "runtime_guard_preimage_changed")?;
-        verify_guard_artifact(&root,&GuardArtifact {path:replacement.source.clone(),
-            sha256:replacement.corrected_sha256.clone(),size:replacement.size})?;
+    let mut planned=Vec::new();
+    // Establish every component and every preimage before changing any staged
+    // byte. Components may not replace the same file.
+    for component in revision.components {
+        require(revision.downloads.iter().filter(|download|download.root==component.root).count()==1,
+            "runtime_guard_component_binding")?;
+        let root=stage.join(component.root);
+        let manifest:GuardManifest=read_json(&root.join("manifest.json"))?;
+        require(manifest.schema==1 && revision.downloads.first().is_some_and(|base|
+            base.root==GE && base.sha256==manifest.base_ge_sha256)
+            && (1..=16).contains(&manifest.files.len()),"runtime_guard_base_binding")?;
+        require(manifest.artifacts.len()==component.artifacts.len()
+            && component.artifacts.iter().all(|role|manifest.artifacts.contains_key(*role)),
+            "runtime_guard_artifact_roles")?;
+        for role in component.artifacts {verify_guard_artifact(&root,&manifest.artifacts[*role])?;}
+        for replacement in &manifest.files {
+            safe_path(&replacement.path)?;safe_path(&replacement.source)?;
+            require(replacement.path.starts_with("files") && selected.insert(replacement.path.clone())
+                && valid_hex(&replacement.original_sha256,64),"runtime_guard_replacement_identity")?;
+            let relative=Path::new(GE).join(&replacement.path);
+            let declared=rows.iter().find(|row|row.path==relative)
+                .ok_or("runtime_guard_preimage_missing")?;
+            require(!declared.directory && declared.target.is_none()
+                && declared.sha256.as_deref()==Some(replacement.original_sha256.as_str())
+                && digest(&stage.join(&relative))?==replacement.original_sha256,
+                "runtime_guard_preimage_changed")?;
+            verify_guard_artifact(&root,&GuardArtifact {path:replacement.source.clone(),
+                sha256:replacement.corrected_sha256.clone(),size:replacement.size})?;
+        }
+        planned.push((root,manifest.files));
     }
-    for replacement in &manifest.files {
-        let relative=Path::new(GE).join(&replacement.path);
-        let path=stage.join(&relative);
-        let row=rows.iter_mut().find(|row|row.path==relative).ok_or("runtime_guard_preimage_missing")?;
-        fs::set_permissions(&path,fs::Permissions::from_mode(0o600))?;
-        fs::copy(root.join(&replacement.source),&path)?;
-        fs::set_permissions(&path,fs::Permissions::from_mode(row.mode))?;
-        File::open(&path)?.sync_all()?;
-        row.sha256=Some(digest(&path)?);row.size=file(&path)?.metadata()?.len();
-        require(row.sha256.as_deref()==Some(replacement.corrected_sha256.as_str())
-            && row.size==replacement.size,"runtime_guard_replacement_changed")?;
+    for (root,files) in &planned {
+        for replacement in files {
+            let relative=Path::new(GE).join(&replacement.path);
+            let path=stage.join(&relative);
+            let row=rows.iter_mut().find(|row|row.path==relative).ok_or("runtime_guard_preimage_missing")?;
+            fs::set_permissions(&path,fs::Permissions::from_mode(0o600))?;
+            fs::copy(root.join(&replacement.source),&path)?;
+            fs::set_permissions(&path,fs::Permissions::from_mode(row.mode))?;
+            File::open(&path)?.sync_all()?;
+            row.sha256=Some(digest(&path)?);row.size=file(&path)?.metadata()?.len();
+            require(row.sha256.as_deref()==Some(replacement.corrected_sha256.as_str())
+                && row.size==replacement.size,"runtime_guard_replacement_changed")?;
+        }
     }
     let client=stage.join(SLR).join("pressure-vessel/bin/steam-runtime-launch-client");
     let service=stage.join(SLR).join("pressure-vessel/libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service");
@@ -310,7 +335,7 @@ fn validate_identity_record(path: &Path, revision: &Revision, record: &Record) -
     require(record.runner.files.iter().filter(|artifact|artifact.path==dir.join(TREE)).count()==1
         && record.runner.files.iter().all(|artifact|artifact.path.starts_with(dir)),
         "managed_runtime_tree_binding")?;
-    if revision.uia_guard {
+    if !revision.components.is_empty() {
         require(record.runner.files.iter().filter(|artifact|
             artifact.path==dir.join(GE).join("native-command-session.json")).count()==1,
             "managed_runtime_command_component_binding")?;
@@ -519,7 +544,8 @@ pub fn install(m: &Manager) -> Result<Runner> {
             rows.extend(unpack(&archive, spec, &stage)?);
             fs::remove_file(archive)?;
         }
-        let command_component=if revision.uia_guard {Some(compose_guard(&stage,&revision,&mut rows)?)} else {None};
+        let command_component=if revision.components.is_empty() {None}
+            else {Some(compose_components(&stage,&revision,&mut rows)?)};
         for (path,directory) in tree_inventory(&stage)? {
             if directory { rows.push(TreeEntry {path,sha256:None,target:None,size:0,mode:0o700,directory:true}); }
         }
@@ -592,7 +618,7 @@ mod tests {
             fs::set_permissions(&path,fs::Permissions::from_mode(0o500)).unwrap();
             files.push(Artifact {sha256:digest(&path).unwrap(),path});
         }
-        if revision.uia_guard {
+        if !revision.components.is_empty() {
             let path=base.join(GE).join("native-command-session.json");
             atomic_json(&path,&serde_json::json!({"schema":1,
                 "kind":"native_proton_command_session","client_sha256":"ab".repeat(32),
@@ -718,13 +744,23 @@ mod tests {
         fs::remove_file(record_path(&m)).unwrap();
         assert!(selected_record_path(&m,&runner).unwrap_err().to_string().contains("selected_record_missing"));
     }
-    fn guard_fixture(tmp: &Scratch) -> (PathBuf,Revision,Vec<TreeEntry>) {
+    type Replacement = (&'static str,&'static [u8],&'static str,&'static [u8]);
+    const UIA_FILES: &[Replacement] = &[("files/lib/wine/x86_64-windows/uiautomationcore.dll",
+        b"original DLL","uiautomationcore.dll",b"corrected DLL")];
+    const MSI_FILES: &[Replacement] = &[
+        ("files/lib/wine/i386-windows/msi.dll",b"original x86 MSI","i386-windows/msi.dll",b"corrected x86 MSI"),
+        ("files/lib/wine/x86_64-windows/msi.dll",b"original x64 MSI","x86_64-windows/msi.dll",b"corrected x64 MSI")];
+    fn fixture_files(component: &Correction) -> &'static [Replacement] {
+        if *component==UIA_GUARD {UIA_FILES} else {MSI_FILES}
+    }
+    fn composition_fixture(tmp: &Scratch, id: &'static str, components: &'static [Correction])
+        -> (PathBuf,Revision,Vec<TreeEntry>) {
         let stage=tmp.0.join("guard-stage");
         fs::DirBuilder::new().mode(0o700).create(&stage).unwrap();
-        let (archive,mut ge)=tmp.archive(&[
-            ("GE-Proton11-7-x86_64/proton",b"proton"),
-            ("GE-Proton11-7-x86_64/files/bin/wine",b"wine"),
-            ("GE-Proton11-7-x86_64/files/lib/wine/x86_64-windows/uiautomationcore.dll",b"original DLL")]);
+        let mut base=vec![(format!("{GE}/proton"),b"proton".to_vec()),(format!("{GE}/files/bin/wine"),b"wine".to_vec())];
+        for &(path,original,_,_) in UIA_FILES.iter().chain(MSI_FILES) {base.push((format!("{GE}/{path}"),original.to_vec()));}
+        let entries=base.iter().map(|(name,data)|(name.as_str(),data.as_slice())).collect::<Vec<_>>();
+        let (archive,mut ge)=tmp.archive(&entries);
         ge.root=GE.into();let mut rows=unpack(&archive,&ge,&stage).unwrap();
         let (archive,mut slr)=tmp.archive(&[
             ("SteamLinuxRuntime_4/_v2-entry-point",b"entry"),
@@ -732,31 +768,51 @@ mod tests {
             ("SteamLinuxRuntime_4/pressure-vessel/bin/steam-runtime-launch-client",b"client"),
             ("SteamLinuxRuntime_4/pressure-vessel/libexec/steam-runtime-tools-0/x86_64-linux-gnu-srt-launcher-service",b"service")]);
         slr.root=SLR.into();rows.extend(unpack(&archive,&slr,&stage).unwrap());
-        let names=[("test","uiautomationcore_test.exe"),("source","wine-source.tar.gz"),
-            ("recipe","build.py"),("patch","uia-null-provider.patch"),
-            ("guard_source","guard_provider.c"),("notices","THIRD_PARTY_NOTICES.txt"),("license","COPYING.LIB")];
-        let mut artifacts=serde_json::Map::new();
-        let mut payloads=vec![("uia-guard/uiautomationcore.dll".to_owned(),b"corrected DLL".to_vec())];
-        for (key,name) in names {
-            let data=format!("{name} fixture").into_bytes();
-            artifacts.insert(key.into(),serde_json::json!({"path":name,"sha256":hex(&Sha256::digest(&data)),"size":data.len()}));
-            payloads.push((format!("uia-guard/{name}"),data));
+        let mut downloads=vec![ge.clone(),slr];
+        for component in components {
+            let root=component.root;
+            let mut payloads=Vec::new();
+            let mut files=Vec::new();
+            for &(path,original,source,corrected) in fixture_files(component) {
+                payloads.push((format!("{root}/{source}"),corrected.to_vec()));
+                files.push(serde_json::json!({"path":path,"original_sha256":hex(&Sha256::digest(original)),
+                    "corrected_sha256":hex(&Sha256::digest(corrected)),"source":source,"size":corrected.len()}));
+            }
+            let mut artifacts=serde_json::Map::new();
+            for role in component.artifacts {
+                let name=match *role {"source"=>"wine-source.tar.gz".to_owned(),
+                    "notices"=>"THIRD_PARTY_NOTICES.txt".into(),_=>format!("{role}.fixture")};
+                let data=format!("{root} {role} fixture").into_bytes();
+                artifacts.insert((*role).into(),serde_json::json!({"path":name,"sha256":hex(&Sha256::digest(&data)),"size":data.len()}));
+                payloads.push((format!("{root}/{name}"),data));
+            }
+            let manifest=serde_json::json!({"schema":1,"base_ge_sha256":ge.sha256,"files":files,"artifacts":artifacts});
+            payloads.push((format!("{root}/manifest.json"),serde_json::to_vec(&manifest).unwrap()));
+            let entries=payloads.iter().map(|(name,data)|(name.as_str(),data.as_slice())).collect::<Vec<_>>();
+            let (archive,mut spec)=tmp.archive(&entries);spec.root=root.into();
+            rows.extend(unpack(&archive,&spec,&stage).unwrap());
+            downloads.push(spec);
         }
-        let manifest=serde_json::json!({"schema":1,"base_ge_sha256":ge.sha256,
-            "files":[{"path":"files/lib/wine/x86_64-windows/uiautomationcore.dll",
-                "original_sha256":hex(&Sha256::digest(b"original DLL")),
-                "corrected_sha256":hex(&Sha256::digest(b"corrected DLL")),
-                "source":"uiautomationcore.dll","size":b"corrected DLL".len()}],"artifacts":artifacts});
-        payloads.push(("uia-guard/manifest.json".into(),serde_json::to_vec(&manifest).unwrap()));
-        let entries=payloads.iter().map(|(name,data)|(name.as_str(),data.as_slice())).collect::<Vec<_>>();
-        let (archive,mut component)=tmp.archive(&entries);component.root="uia-guard".into();
-        rows.extend(unpack(&archive,&component,&stage).unwrap());
-        (stage,Revision {id:"managed-uia-test",version:"uia fixture",downloads:vec![ge,slr,component],uia_guard:true},rows)
+        (stage,Revision {id,version:"component fixture",downloads,components},rows)
+    }
+    fn guard_fixture(tmp: &Scratch) -> (PathBuf,Revision,Vec<TreeEntry>) {
+        composition_fixture(tmp,"managed-uia-test",&[UIA_GUARD])
+    }
+    fn seal_composed(stage: &Path, revision: &Revision, mut rows: Vec<TreeEntry>, component: &Path) -> Runner {
+        for (path,directory) in tree_inventory(stage).unwrap() {
+            if directory {rows.push(TreeEntry {path,sha256:None,target:None,size:0,mode:0o700,directory:true});}
+        }
+        atomic_json(&stage.join(TREE),&rows).unwrap();
+        fs::set_permissions(stage.join(TREE),fs::Permissions::from_mode(0o400)).unwrap();
+        Runner {id:revision.id.into(),version:revision.version.into(),
+            proton:stage.join(GE).join("proton"),entry_point:stage.join(SLR).join("_v2-entry-point"),policy:None,
+            files:[PathBuf::from(TREE),Path::new(GE).join("proton"),Path::new(SLR).join("_v2-entry-point"),component.to_owned()]
+                .into_iter().map(|relative|Artifact {path:stage.join(&relative),sha256:digest(&stage.join(relative)).unwrap()}).collect()}
     }
     #[test]
     fn corrected_composition_seals_new_bytes_source_notices_and_declared_command_adapter() {
         let tmp=Scratch::new();let (stage,revision,mut rows)=guard_fixture(&tmp);
-        let component=compose_guard(&stage,&revision,&mut rows).unwrap();
+        let component=compose_components(&stage,&revision,&mut rows).unwrap();
         let relative=Path::new(GE).join("files/lib/wine/x86_64-windows/uiautomationcore.dll");
         assert_eq!(fs::read(stage.join(&relative)).unwrap(),b"corrected DLL");
         assert_eq!(rows.iter().find(|row|row.path==relative).unwrap().sha256,
@@ -790,10 +846,113 @@ mod tests {
             fs::set_permissions(&path,fs::Permissions::from_mode(0o600)).unwrap();
             fs::write(&path,b"changed").unwrap();
             fs::set_permissions(&path,fs::Permissions::from_mode(0o500)).unwrap();
-            let error=compose_guard(&stage,&revision,&mut rows).unwrap_err().to_string();
+            let error=compose_components(&stage,&revision,&mut rows).unwrap_err().to_string();
             assert!(error.contains(if damage_source {"guard_artifact_changed"} else {"guard_preimage_changed"}),"{error}");
             assert!(!stage.join(GE).join("native-command-session.json").exists());
             if damage_source {assert_eq!(fs::read(stage.join(GE).join("files/lib/wine/x86_64-windows/uiautomationcore.dll")).unwrap(),b"original DLL");}
+        }
+    }
+    #[test]
+    fn msi_reader_revision_applies_both_components_and_seals_every_replacement() {
+        let tmp=Scratch::new();
+        let (stage,revision,mut rows)=composition_fixture(&tmp,"managed-msi-test",&[UIA_GUARD,MSI_READER]);
+        let component=compose_components(&stage,&revision,&mut rows).unwrap();
+        for &(path,_,_,corrected) in UIA_FILES.iter().chain(MSI_FILES) {
+            let relative=Path::new(GE).join(path);
+            assert_eq!(fs::read(stage.join(&relative)).unwrap(),corrected);
+            let row=rows.iter().find(|row|row.path==relative).unwrap();
+            assert_eq!(row.sha256,Some(hex(&Sha256::digest(corrected))));
+            assert_eq!(row.size,corrected.len() as u64);
+        }
+        for retained in ["msi-reader/wine-source.tar.gz","msi-reader/THIRD_PARTY_NOTICES.txt",
+            "msi-reader/i386-windows/msi.dll","uia-guard/wine-source.tar.gz"] {
+            assert!(rows.iter().any(|row|row.path==Path::new(retained)),"{retained}");
+        }
+        let runner=seal_composed(&stage,&revision,rows,&component);
+        runner.verify().unwrap();
+        let declared:serde_json::Value=read_json(&stage.join(&component)).unwrap();
+        assert_eq!(declared["kind"],"native_proton_command_session");
+        let x86=stage.join(GE).join("files/lib/wine/i386-windows/msi.dll");
+        fs::set_permissions(&x86,fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&x86,b"original x86 MSI").unwrap();
+        fs::set_permissions(&x86,fs::Permissions::from_mode(0o500)).unwrap();
+        assert!(runner.verify().unwrap_err().to_string().contains("managed_runtime_file_changed"));
+    }
+    #[test]
+    fn msi_reader_damage_refuses_before_any_component_changes_a_byte() {
+        let damages:[(&str,&str);4]=[
+            ("GE-Proton11-7-x86_64/files/lib/wine/i386-windows/msi.dll","guard_preimage_changed"),
+            ("msi-reader/x86_64-windows/msi.dll","guard_artifact_changed"),
+            ("msi-reader/wine-source.tar.gz","guard_artifact_changed"),
+            ("msi-reader/manifest.json","guard_artifact_roles")];
+        for (damaged,expected) in damages {
+            let tmp=Scratch::new();
+            let (stage,revision,mut rows)=composition_fixture(&tmp,"managed-msi-test",&[UIA_GUARD,MSI_READER]);
+            let path=stage.join(damaged);
+            let data=if damaged.ends_with("manifest.json") {
+                let mut manifest:serde_json::Value=read_json(&path).unwrap();
+                manifest["artifacts"].as_object_mut().unwrap().remove("license");
+                serde_json::to_vec(&manifest).unwrap()
+            } else {b"changed".to_vec()};
+            fs::set_permissions(&path,fs::Permissions::from_mode(0o600)).unwrap();
+            fs::write(&path,data).unwrap();
+            fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
+            let error=compose_components(&stage,&revision,&mut rows).unwrap_err().to_string();
+            assert!(error.contains(expected),"{damaged}: {error}");
+            // The UIA component is verified first, yet nothing was replaced.
+            for &(path,original,_,_) in UIA_FILES.iter().chain(MSI_FILES) {
+                if Path::new(GE).join(path)==Path::new(damaged) {continue;}
+                assert_eq!(fs::read(stage.join(GE).join(path)).unwrap(),original,"{damaged}");
+            }
+            assert!(!stage.join(GE).join("native-command-session.json").exists());
+        }
+        let tmp=Scratch::new();
+        let (stage,mut revision,mut rows)=composition_fixture(&tmp,"managed-msi-test",&[UIA_GUARD,MSI_READER]);
+        revision.downloads.pop();
+        assert!(compose_components(&stage,&revision,&mut rows).unwrap_err().to_string()
+            .contains("guard_component_binding"));
+    }
+    #[test]
+    fn components_replacing_the_same_file_refuse_before_any_byte_changes() {
+        let tmp=Scratch::new();
+        let (stage,revision,mut rows)=composition_fixture(&tmp,"managed-msi-test",&[UIA_GUARD,MSI_READER]);
+        // The MSI component claims the UIA file with a valid preimage and source.
+        let path=stage.join("msi-reader/manifest.json");
+        let mut manifest:serde_json::Value=read_json(&path).unwrap();
+        manifest["files"][0]["path"]=serde_json::json!(UIA_FILES[0].0);
+        manifest["files"][0]["original_sha256"]=serde_json::json!(hex(&Sha256::digest(UIA_FILES[0].1)));
+        fs::set_permissions(&path,fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&path,serde_json::to_vec(&manifest).unwrap()).unwrap();
+        fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
+        let before=rows.iter().map(|row|row.sha256.clone()).collect::<Vec<_>>();
+        let error=compose_components(&stage,&revision,&mut rows).unwrap_err().to_string();
+        assert!(error.contains("runtime_guard_replacement_identity"),"{error}");
+        assert_eq!(rows.iter().map(|row|row.sha256.clone()).collect::<Vec<_>>(),before);
+        for &(path,original,_,_) in UIA_FILES.iter().chain(MSI_FILES) {
+            assert_eq!(fs::read(stage.join(GE).join(path)).unwrap(),original);
+        }
+        assert!(!stage.join(GE).join("native-command-session.json").exists());
+    }
+    #[test]
+    fn msi_reader_revision_is_recommended_without_changing_prior_identities() {
+        let declared=revisions();
+        assert_eq!(declared.iter().map(|revision|revision.id).collect::<Vec<_>>(),[ID,
+            "managed-ge-proton11-7-slr4-20260805-r4","managed-ge-proton11-7-slr4-20260805-r5"]);
+        assert_eq!(declared[0].downloads,downloads());assert!(declared[0].components.is_empty());
+        assert_eq!(declared[1].version,"GE-Proton11-7; SLR 4.0.20260805.254769; managed UIA guard v4");
+        assert_eq!(declared[1].components,[UIA_GUARD]);
+        assert_eq!(declared[1].downloads.last().unwrap().sha256,
+            "988fb967608a8c116022c27822647b7a7eda50a283a9e53ee2f22fe299b60f6c");
+        assert_eq!(declared[2].components,[UIA_GUARD,MSI_READER]);
+        assert_eq!(declared[2].downloads[..3],declared[1].downloads[..]);
+        let msi=declared[2].downloads.last().unwrap();
+        assert_eq!((msi.root.as_str(),msi.compression.as_str()),("msi-reader","gzip"));
+        assert!(msi.url.ends_with("/releases/download/runtime-msi-r5/msi-reader.tar.gz"));
+        assert_eq!(recommended_id(),"managed-ge-proton11-7-slr4-20260805-r5");
+        assert_eq!(recommended_downloads(),declared[2].downloads);
+        for revision in &declared {
+            assert!(revision.downloads.iter().all(|d| d.url.starts_with("https://") &&
+                !d.url.contains("latest") && valid_hex(&d.sha256,64) && d.size>0));
         }
     }
     #[test]

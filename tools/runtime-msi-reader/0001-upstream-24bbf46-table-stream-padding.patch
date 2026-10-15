@@ -1,0 +1,30 @@
+From 24bbf46c6f055077df428341595873fe23475a60 Mon Sep 17 00:00:00 2001
+From: Theodoros Chatzigiannakis <tchatzigiannakis@gmail.com>
+Date: Sat, 7 Mar 2026 20:27:04 +0100
+Subject: [PATCH] msi: Handle padding bytes in table streams.
+
+---
+ dlls/msi/table.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/dlls/msi/table.c b/dlls/msi/table.c
+index 6031dd9c8058..a99b00596b69 100644
+--- a/dlls/msi/table.c
++++ b/dlls/msi/table.c
+@@ -410,8 +410,14 @@ static UINT read_table_from_storage( MSIDATABASE *db, MSITABLE *t, IStorage *stg
+ 
+     if( rawsize % row_size )
+     {
+-        WARN("Table size is invalid %d/%d\n", rawsize, row_size );
+-        goto err;
++        UINT padding = rawsize % row_size;
++        if (padding < 4)
++            rawsize -= padding;
++        else
++        {
++            WARN("Table size is invalid %d/%d\n", rawsize, row_size );
++            goto err;
++        }
+     }
+ 
+     if ((t->row_count = rawsize / row_size))

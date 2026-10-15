@@ -19,7 +19,7 @@ struct LaunchProfile {
     schema: u32,
     id: String,
     installer: InstallerMatch,
-    managed_runtime_revision: String,
+    managed_runtime_revisions: Vec<String>,
     powershell: Powershell,
     reason: String,
 }
@@ -50,10 +50,9 @@ fn bind_for_launch_resolving(spec: &mut Value, software: &Software, explicit: Op
         return bind(spec, &software, policy);
     }
     if spec["format"] != "pe_executable" { return Ok(()); }
-    let profile: LaunchProfile = serde_json::from_slice(include_bytes!("installer_policy/native_access_close_check.json"))?;
-    require(profile.schema == 1 && !profile.id.is_empty() && !profile.reason.is_empty(), "installer_profile_record")?;
+    let profile = close_check_profile()?;
     let environment: Environment = serde_json::from_value(spec["environment"].clone())?;
-    if environment.runner.id != profile.managed_runtime_revision { return Ok(()); }
+    if !profile.managed_runtime_revisions.contains(&environment.runner.id) { return Ok(()); }
     let installer: Artifact = serde_json::from_value(spec["installer"].clone())?;
     // Classification failure only declines advice. Existing import and launch
     // owners still verify and supervise the exact selected executable.
@@ -72,6 +71,15 @@ fn bind_for_launch_resolving(spec: &mut Value, software: &Software, explicit: Op
     // cannot apply, which is reported instead of silently launching unchanged.
     let software = with_launch_component(spec, software, launch_software)?;
     bind(spec, &software, profile.powershell)
+}
+/// The reviewed profile names exact managed runtime revisions, each once.
+fn close_check_profile() -> Result<LaunchProfile> {
+    let profile: LaunchProfile = serde_json::from_slice(include_bytes!("installer_policy/native_access_close_check.json"))?;
+    let revisions: std::collections::BTreeSet<_> = profile.managed_runtime_revisions.iter().collect();
+    require(profile.schema == 1 && !profile.id.is_empty() && !profile.reason.is_empty()
+        && !revisions.is_empty() && revisions.len() == profile.managed_runtime_revisions.len()
+        && revisions.iter().all(|id| !id.is_empty()), "installer_profile_record")?;
+    Ok(profile)
 }
 /// Only a launch that applies a policy uses the launch component. Ordinary
 /// installers keep the existing direct route and never resolve it.
@@ -212,6 +220,38 @@ mod tests {
         assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"], "intentionally_unavailable");
         for key in ["operation", "installer", "environment", "installer_launch"] {
             assert_eq!(spec["installer_capability"][key], before[key]);
+        }
+    }
+    #[test]
+    fn close_check_profile_names_declared_runtime_revisions_once() {
+        let profile = close_check_profile().unwrap();
+        let declared = runtime_delivery::revision_ids();
+        assert!(!profile.managed_runtime_revisions.is_empty());
+        let unique: std::collections::BTreeSet<_> = profile.managed_runtime_revisions.iter().collect();
+        assert_eq!(unique.len(), profile.managed_runtime_revisions.len());
+        for id in &profile.managed_runtime_revisions {
+            assert!(declared.contains(&id.as_str()), "{id} is not a declared runtime revision");
+        }
+    }
+    #[test]
+    fn close_check_advice_applies_to_the_uia_and_msi_reader_runtimes_only() {
+        for (id, advised) in [("managed-ge-proton11-7-slr4-20260805-r4", true),
+            ("managed-ge-proton11-7-slr4-20260805-r5", true),
+            (runtime_delivery::ID, false)] {
+            let (_f, software, mut spec) = fixture();
+            spec["environment"]["runner"]["id"] = json!(id);
+            let before = spec.clone();
+            bind_for_launch_with(&mut spec, &software, None, |runner| {
+                assert!(advised, "{id} must not consult the retained runtime");
+                assert_eq!(runner.id, id);
+                Ok(true)
+            }).unwrap();
+            if advised {
+                assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"], "intentionally_unavailable", "{id}");
+                assert_eq!(spec["installer_capability"]["environment"], before["environment"]);
+            } else {
+                assert_eq!(spec, before);
+            }
         }
     }
     #[test]
