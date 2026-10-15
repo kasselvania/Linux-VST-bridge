@@ -76,6 +76,8 @@ Explicit graphics assessment retains its separate result. Kontakt's historical
 allocator origin remains open; accessibility A/B/A and a mapped-host debugger
 trial do not reproduce it. [Scoped update boundary](../evidence/reference-runtime-deck.json).
 
+Test73 on fresh CachyOS / REAPER 7.82 completes ordinary managed installation and discovery of the first-party Editor instrument/effect. The Editor Effect embeds with native Param/last-touched access; real pointer Touch recording and Read playback (29% → 60%) pass, and saved Level 60% recalls after a full REAPER restart with PulseAudio playback/meters active.
+
 Test58's corrected first-party vendor-application continuation passes in the
 disposable CachyOS VM / native REAPER 7.82 at 44.1 kHz / 512 frames. Its first
 visit waits for full helper retirement and adds two classes automatically.
