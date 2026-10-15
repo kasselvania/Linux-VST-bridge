@@ -1,4 +1,5 @@
 #pragma once
+#include "admission_refusal.h"
 #include "../../vst-state/stream.h"
 #include "ap10_backend.h"
 #include "ap11_gui.h"
@@ -86,6 +87,7 @@ public:
       return nullptr;
     try {
       if (terminal_failed_) return new AP2::RecoveryView(this,status_,terminal_.words[7]);
+      if (session_refused_) return new AP2::RecoveryView(this,status_,AP2::RecoveryView::NotLoaded{});
       auto token = editor_.allocate();
       return token ? new AP11::VendorPanel(this, *this, token) : nullptr;
     } catch (...) {
@@ -97,7 +99,7 @@ public:
     if (r == Steinberg::kResultOk) {
       connected_ = true;
       capabilities();
-      request("AP11.bind");
+      bind();
       request();
     }
     return r;
@@ -159,8 +161,18 @@ public:
     if (!std::strcmp(id, "AP8.connected")) {
       if (!connected_) return kResultOk; // our connect() will finish the pair
       capabilities();
-      auto result = request("AP11.bind");
+      auto result = bind();
+      // A refused admission is this instance's state, not a failed
+      // connection: keep the pair connected so the view can explain it.
+      if (result == kNotInitialized) return kResultOk;
       return result == kResultOk ? request() : result;
+    }
+    if (!std::strcmp(id, "AP10.refused")) {
+      int64 kind = 0;
+      if (m->getAttributes()->getInt("kind", kind) != kResultOk || !LVBAdmission::valid(kind))
+        return kResultFalse;
+      refusal_kind_ = kind;
+      return kResultOk;
     }
     if (!std::strcmp(id,"AP10.instance_failed")) {
       const void* data=nullptr; uint32 size=0;
@@ -404,6 +416,8 @@ private:
   // kReloadComponent requests full processor/controller unload; never issue it
   // automatically from terminal notification or later handler installation.
   bool terminal_failed_=false;
+  bool session_refused_=false; // Owner thread; set once by bind().
+  int64_t refusal_kind_=LVBAdmission::Unknown; // From AP10.refused.
   AP15::EditorLifecycle editor_;
   Steinberg::Vst::IMessage *retirement_message_ = nullptr;
   ap11_gui_message_t pending_close_{};
@@ -617,8 +631,10 @@ private:
     retryClose();
     request("AP10.poll");
     if (terminal_failed_) {ticking_=false;return;}
-    if (!generation_)
-      request("AP11.bind");
+    if (session_refused_) {
+      // Refused for good; asking again would reach the service each tick.
+    } else if (!generation_)
+      bind();
     else
       request("AP11.poll");
     ap11_gui_message_t focus{};
@@ -719,6 +735,17 @@ private:
       if(projection->available&&EditController::setParamNormalized(id,value)!=Steinberg::kResultOk)return false;
     }
     return true;
+  }
+  // The processor answers kNotInitialized once its bridge admission was
+  // refused. The instance cannot recover in place: say so, and stop asking
+  // on every UI tick (each ask reached the bridge service and blocked).
+  Result bind() {
+    auto r = request("AP11.bind");
+    if (r == Steinberg::kNotInitialized && !terminal_failed_) {
+      session_refused_ = true;
+      status_ = LVBAdmission::text(refusal_kind_);
+    }
+    return r;
   }
   Result request(const char *id = "AP8.readback") {
     auto *m = allocateMessage();
