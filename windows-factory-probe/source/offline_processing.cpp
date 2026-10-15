@@ -266,6 +266,10 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
         ProcessingSignals signals;
         if(!signals.command||!signals.quiescent)throw std::runtime_error("processing event preparation failed");
         uint32_t preparation_error=0;
+        // While Activated, render acknowledges Stopped and takes each next Start
+        // itself; the owner only issues the first Run and receives Deactivate.
+        const bool render_lifecycle=sustained&&hosted&&external->render_lifecycle();
+        uint64_t worker_intervals=0; // written by render, read after quiescence
         std::thread worker([&] {
             // Processor lifecycle and DSP belong to this thread. Controller/
             // editor work remains on the owner; state requests use the existing
@@ -274,19 +278,23 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
             // readiness even on runners without this optional naming support.
             SetThreadDescription(GetCurrentThread(),L"lvb-audio");
             signals.publish(0); // prepared; no vendor Start or DSP has occurred
-            uint64_t handled=0;
+            uint64_t handled=0,generation=0;
+            bool render_start=false; // the next Start was already taken here
             for(;;){
+            if(!render_start){
             const auto wake=WaitForSingleObject(signals.command,INFINITE);
             if(signals.exit.load(std::memory_order_acquire))break;
             if(wake!=WAIT_OBJECT_0){preparation_error=2;ok=false;worker_exception=true;break;}
-            const auto generation=signals.issued.load(std::memory_order_acquire);
+            generation=signals.issued.load(std::memory_order_acquire);
             if(generation==handled)continue;
             if(generation!=handled+1){preparation_error=3;ok=false;worker_exception=true;break;}
+            }
+            render_start=false;
             bool started=false,processing_attempted=false;
             try {
                 if(hosted) external->lifecycle_request(10);
                 if(signals.exit.load(std::memory_order_acquire))break;
-                processing_attempted=true;stopped=false;
+                processing_attempted=true;stopped=false;++worker_intervals;
                 started=render_transition(true);
                 if (started && external) {
 #ifdef LVB_LC1_TEST
@@ -429,6 +437,15 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                 try {stopped=render_transition(false);}
                 catch (...) {if(!primary_error)primary_error=std::current_exception();stopped=false;ok=false;}
             }
+            // The vendor has returned from false on this thread: acknowledge
+            // Stopped and take the next Start here, without the owner. A
+            // refused stop or any failure still reaches the owner unacknowledged.
+            if(render_lifecycle&&processing_attempted&&ok&&stopped&&!signals.exit.load(std::memory_order_acquire)){
+                try {
+                    external->lifecycle_ack(13);
+                    if(external->render_next_transition(signals.exit)==10){render_start=true;continue;}
+                } catch (...) {if(!primary_error)primary_error=std::current_exception();worker_exception=true;ok=false;}
+            }
             handled=generation;
             // This is the publication barrier previously provided by joining
             // every interval. All pending/session/frame/capture borrows and
@@ -476,11 +493,11 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                 // Owner owns these fields while the previous generation is
                 // quiescent. Clearing before Run publication also prevents an
                 // Exit that wins over pending Run from exporting stale fields.
-                transitions={};transitions_exported=false;
+                transitions={};transitions_exported=false;worker_intervals=0;
                 signals.issued.store(++generation,std::memory_order_release);
                 if(!SetEvent(signals.command))throw std::runtime_error("processing command wake failed");
                 await_quiescence(generation,false);
-                ++intervals;
+                intervals+=render_lifecycle?worker_intervals:1;
                 export_transitions();
                 if(!stopped){
                     // A failed vendor false never grants deactivation or
@@ -496,6 +513,8 @@ OfflineResult run_offline_processing(IComponent& component, IAudioProcessor& pro
                     events.lifecycle("ap0_thread_joined",",\"joined\":true,\"processing_stopped\":true,\"worker_exception\":false");
                     join_recorded=true;
                 }
+                // Render already acknowledged every Stopped and handed over Deactivate.
+                if(render_lifecycle){command=external->render_pending_transition();continue;}
                 if(hosted)external->lifecycle_ack(13);
                 if(!sustained){if(hosted)external->lifecycle_request(14);break;}
                 command=external->next_transition();

@@ -6,7 +6,7 @@ import sys
 import time
 
 exe = pathlib.Path(sys.argv[1]).resolve()
-for args, expected in [([], 0), (["--refuse-stop"], 93), (["--hang"], 93), (["--cancel-restart"], 0)]:
+for args, expected in [([], 0), (["--refuse-stop"], 93), (["--render-refuse-stop"], 93), (["--hang"], 93), (["--cancel-restart"], 0)]:
     start = time.monotonic()
     result = subprocess.run([str(exe), *args], capture_output=True, text=True, timeout=12)
     duration = time.monotonic() - start
@@ -18,7 +18,7 @@ for args, expected in [([], 0), (["--refuse-stop"], 93), (["--hang"], 93), (["--
     assert duration < 9, duration
     if args == ["--hang"]:
         assert duration >= 4.5, duration
-    if args == ["--refuse-stop"]:
+    if args in (["--refuse-stop"], ["--render-refuse-stop"]):
         records = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
         failed_stop = [r for r in records if r.get("state") == "ap0_call_completed" and r.get("operation") == "set_processing_false"]
         assert len(failed_stop) == 1 and failed_stop[0]["result"] == 1, failed_stop
