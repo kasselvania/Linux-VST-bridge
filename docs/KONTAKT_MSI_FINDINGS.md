@@ -54,7 +54,8 @@ the full installer result must establish whether correcting it is sufficient.
 
 ## Narrow correction
 
-`kontakt-msi-ambiguous-strrefs.patch` applies after the two upstream commits to
+[`kontakt-msi-ambiguous-strrefs.patch`](../tools/runtime-msi-reader/0003-kontakt-msi-ambiguous-strrefs.patch)
+applies after the two upstream commits to
 Wine `dc26e61847081a1b5cb0733dc30feba6ee575482`, the Wine revision pinned by
 Proton `proton-11.0-2c` (`5b89db940e0ebe3a137a6009a3589232fe084c09`).
 
@@ -218,3 +219,53 @@ The repeatable rule is: API success is not semantic correctness; inspect the
 complete relationships at the failing boundary. A proof that a table opens must
 not become a claim that its contents are correct, and a timeout must not become
 an assumed universal incompatibility that justifies replacing Windows Installer.
+
+## Build for the managed runtime's exact Wine
+
+The managed runtime is GE-Proton11-7, not Proton 11.0-2c. A prefix-only
+experiment on the Deck showed that GE's stock `msi.dll` still fails Kontakt
+8.13.1 (InstallAware exit 100, nothing installed), while the Proton-built
+corrected 32-bit module let the same installer finish. GE's Wine
+(`46b29104e3741fe23bf5e2547196a253aab88c89`) contains neither upstream fix; its
+`dlls/msi/table.c` is byte-identical to the parent of 24bbf46.
+
+[`tools/runtime-msi-reader/build.py`](../tools/runtime-msi-reader/build.py) builds
+the correction from that exact commit. It reuses the
+[UIA reference builder's](RUNTIME_UIA_GUARD.md) source archive digest,
+digest-pinned SDK image and resource caps. It applies, with zero fuzz:
+
+1. upstream 24bbf46 (table-stream padding), verbatim;
+2. upstream e013097 (mismatched string-reference widths), verbatim;
+3. the Kontakt ambiguous-width patch above, unchanged.
+
+The builder refuses to proceed unless `table.c` matches the expected Git blob
+before (`6031dd9c`) and after (`87e98546`, the patch's own target) patching,
+so the result is the same reader source the Deck runner used. It compiles only
+`msi.dll` for `i386-windows` and `x86_64-windows`, checks each is a Wine builtin
+PE image of the right machine type, and writes `out/` plus
+`build-manifest.json` (commit, archive, image, patch and output digests).
+
+```sh
+python3 -I tools/runtime-msi-reader/build.py --output <new empty directory>
+```
+
+`--wine-archive` reuses a local copy of the verified source archive. The first
+build on 2026-10-15 took about two minutes:
+
+| Module | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `i386-windows/msi.dll` | 5,610,374 | `e0208ffa8bed1e88ad35220a8d1f4ce5639186edca8301c340b457cf327a97e4` |
+| `x86_64-windows/msi.dll` | 6,963,887 | `38aba54be5e88ea1903bf9f3cb43ff155833364e19c21368f16f027e60a36ff0` |
+
+The modules keep debug information, so they are larger than GE's stripped
+release modules; their imported DLLs and exported names match GE's stock
+`msi.dll` for both architectures. A second clean build differed from the first
+only in the PE link timestamp and header checksum (3 bytes per module). Both
+modules carry the correction; the Deck runner's 64-bit module did not. These
+builds have not yet run the Kontakt installer.
+
+Source posture is the same as [RUNTIME_UIA_GUARD.md](RUNTIME_UIA_GUARD.md): the
+changes are LGPL-2.1-or-later Wine code, the builder copies Wine's
+`COPYING.LIB` beside the outputs, and Wine is never linked into the manager or
+native proxy. No binary is committed. Any delivery must ship the complete
+corresponding patched Wine source and notices with the DLLs.
