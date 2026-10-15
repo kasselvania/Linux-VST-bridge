@@ -261,11 +261,38 @@ The modules keep debug information, so they are larger than GE's stripped
 release modules; their imported DLLs and exported names match GE's stock
 `msi.dll` for both architectures. A second clean build differed from the first
 only in the PE link timestamp and header checksum (3 bytes per module). Both
-modules carry the correction; the Deck runner's 64-bit module did not. These
-builds have not yet run the Kontakt installer.
+modules carry the correction; the Deck runner's 64-bit module did not.
+
+On a fresh CachyOS GE-Proton11-7 Native Access prefix, with these two modules
+as a prefix-only native override, Native Access's Kontakt 8.13.1 reinstall
+rewrote `Kontakt 8.exe` and `Kontakt 8.vst3`; stock GE `msi.dll` wrote nothing.
+InstallAware reported exit 100 in both cases, so deployed files, not the exit
+code, are the result.
 
 Source posture is the same as [RUNTIME_UIA_GUARD.md](RUNTIME_UIA_GUARD.md): the
 changes are LGPL-2.1-or-later Wine code, the builder copies Wine's
 `COPYING.LIB` beside the outputs, and Wine is never linked into the manager or
 native proxy. No binary is committed. Any delivery must ship the complete
 corresponding patched Wine source and notices with the DLLs.
+
+### Managed runtime r5
+
+[`package.py`](../tools/runtime-msi-reader/package.py) seals `msi-reader.tar.gz`
+the same way as the UIA component. It checks the exact GE archive, both stock
+`msi.dll` preimages (`fa193d0a…` x86, `08a1f048…` x64) and that every import
+resolves in GE's builtin DLL tree of the same architecture. It then bundles the
+two modules, the complete patched Wine source (pristine archive with only
+`dlls/msi/table.c` replaced, plus `build.sh` and `SDK.txt`), the builder, the
+three patches, the build record, notices and `COPYING.LIB`. Output is
+deterministic; two packaging runs gave identical bytes. Tests:
+`python3 -m unittest discover -s tools/runtime-msi-reader -p 'test_*.py'`.
+
+The sealed component is 59,651,376 bytes, SHA-256
+`75dec37c483cf3b69ac177ac73a0eedb0fea6ceaa1556c451ccee51d2cf27749`, for release
+tag `runtime-msi-r5`. Managed revision
+`managed-ge-proton11-7-slr4-20260805-r5` acquires GE, SLR, the r4 UIA guard and
+this component. Before any byte changes, it checks every component and every
+preimage, then replaces the three DLLs and seals the whole new runtime tree.
+r5 is recommended only for new acquisition. Existing r3/r4 runtimes,
+environments and publications keep their exact runner identity. The Native
+Access close-check advice applies to r4 and r5.
