@@ -3310,8 +3310,10 @@ fn stop_vendor_with(
         job["operation_id"] == vendor,
         "operator_vendor_open_binding_changed",
     )?;
-    // cancel_owned also checks this identity under the vendor registry lock,
-    // then requires positive retirement of that same launch.
+    // cancel_owned rechecks this identity under the registry lock. It stops a
+    // running launch while holding it; a launch that is no longer running is
+    // re-checked after releasing it, under the app's writer lock. Either way it
+    // requires positive retirement of that same launch.
     cancel(vendor)?;
     resume_locked(m, &saved.owner_operation, restore)
 }
