@@ -142,8 +142,12 @@ pub fn dependency_retired(value: &serde_json::Value) -> bool {
     if value["dependency_cleanup_disposition"] == "not_started" {
         return value["service_actions_started"] == false;
     }
+    // An interrupted session never recorded its own retirement. The manager's
+    // later re-observation retires it only with the same complete absence.
+    if value["dependency_cleanup_disposition"] == "reverified_after_interruption"
+        && value["post_cleanup"]["session"] != "reverified_after_interruption" { return false; }
     matches!(value["dependency_cleanup_disposition"].as_str(),
-        Some("graceful_service_retirement" | "exact_owned_session_cleanup"))
+        Some("graceful_service_retirement" | "exact_owned_session_cleanup" | "reverified_after_interruption"))
         && ["cgroup_empty", "exact_daemon_generation_absent", "application_image_unchanged", "daemon_image_unchanged"]
             .iter().all(|key| value["post_cleanup"][key] == true)
         && ["listener_mask", "candidate_count", "candidate_observation_unavailable"].iter()
@@ -622,6 +626,31 @@ pub(crate) mod tests {
             let mut changed=successful.clone();changed[key]=value;
             assert!(!serde_json::from_value::<OperationResult>(changed).unwrap().successful());
         }
+    }
+    #[test]
+    fn reverified_interruption_retires_only_with_its_marker_and_complete_absence() {
+        let reverified = serde_json::json!({"process_cleanup_confirmed":true,
+            "dependency_cleanup_disposition":"reverified_after_interruption",
+            "post_cleanup":{"cgroup_empty":true,"exact_daemon_generation_absent":true,
+                "application_image_unchanged":true,"daemon_image_unchanged":true,"listener_mask":0,
+                "candidate_count":0,"candidate_observation_unavailable":0,
+                "session":"reverified_after_interruption"}});
+        assert!(dependency_retired(&reverified));
+        for (key, value) in [("cgroup_empty", serde_json::json!(false)),
+            ("exact_daemon_generation_absent", serde_json::json!(false)),
+            ("application_image_unchanged", serde_json::json!(false)),
+            ("daemon_image_unchanged", serde_json::json!(false)),
+            ("listener_mask", serde_json::json!(1)), ("listener_mask", serde_json::Value::Null),
+            ("candidate_count", serde_json::json!(1)),
+            ("candidate_observation_unavailable", serde_json::json!(1)),
+            ("session", serde_json::json!("failed_before_readiness")), ("session", serde_json::Value::Null)] {
+            let mut changed = reverified.clone();
+            changed["post_cleanup"][key] = value;
+            assert!(!dependency_retired(&changed), "{key}");
+        }
+        let mut unconfirmed = reverified.clone();
+        unconfirmed["process_cleanup_confirmed"] = false.into();
+        assert!(!dependency_retired(&unconfirmed));
     }
     #[test]
     fn application_selector_cannot_supply_executable() {
