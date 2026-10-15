@@ -441,6 +441,30 @@ pub fn problem_text(problem: &serde_json::Value) -> Option<String> {
         .join(" "))
 }
 
+/// The manager's explanation of this plug-in's last refused DAW load, with
+/// how long ago it was refused. The manager withdraws it after a later load.
+pub fn last_load_text(product: &Product) -> Option<String> {
+    let last = &product.details["last_load"];
+    let text = problem_text(&last["problem"])?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .map(|elapsed| elapsed.as_secs());
+    Some(match last["observed_at"].as_u64().zip(now).map(|(at, now)| refused_ago(at, now)) {
+        Some(when) => format!("Load refused {when}. {text}"),
+        None => text,
+    })
+}
+
+fn refused_ago(at: u64, now: u64) -> String {
+    match now.saturating_sub(at) {
+        0..=59 => "less than a minute ago".into(),
+        seconds @ 60..=7199 => format!("{} min ago", seconds / 60),
+        seconds @ 7200..=172_799 => format!("{} h ago", seconds / 3600),
+        seconds => format!("{} days ago", seconds / 86_400),
+    }
+}
+
 pub fn product_issue(product: &Product) -> Option<String> {
     // An explanation from the exact retained record wins over generic text.
     if let Some(problem) = problem_text(&product.details["problem"]) {
@@ -569,6 +593,8 @@ pub fn attentions(snapshot: &Snapshot) -> Vec<Attention> {
         } else if activity.recent_cleanup_unconfirmed {
             (!activity.shared_class)
                 .then(|| "A recent failed session has unconfirmed cleanup.".into())
+        } else if let Some(refused) = (!problematic).then(|| last_load_text(product)).flatten() {
+            Some(refused)
         } else if problematic {
             Some(
                 product_issue(product)
@@ -733,6 +759,29 @@ mod tests {
 
     fn snapshot() -> Snapshot {
         serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap()
+    }
+
+    #[test]
+    fn refused_load_says_how_long_ago_and_reaches_the_attention_list() {
+        assert_eq!(refused_ago(1_000, 1_030), "less than a minute ago");
+        assert_eq!(refused_ago(1_000, 1_000 + 180), "3 min ago");
+        assert_eq!(refused_ago(1_000, 1_000 + 3 * 3600), "3 h ago");
+        assert_eq!(refused_ago(1_000, 1_000 + 3 * 86_400), "3 days ago");
+        assert_eq!(refused_ago(2_000, 1_000), "less than a minute ago");
+        let mut snapshot = snapshot();
+        let index = snapshot.products.iter()
+            .position(|p| p.availability.as_ref().is_some_and(|a| a.available)
+                && !matches!(p.disposition.as_str(), "needs_attention" | "quarantined" | "another_configuration"))
+            .expect("an available plug-in in the preview");
+        assert_eq!(last_load_text(&snapshot.products[index]), None);
+        let name = snapshot.products[index].name.clone();
+        snapshot.products[index].details["last_load"] = serde_json::json!({"outcome": "refused",
+            "observed_at": 1_000,
+            "problem": {"code": "windows_side_stopped", "what_happened": "It stayed empty.",
+                "likely_cause": "Its Windows side stopped.", "what_to_try": "Load it again."}});
+        let text = last_load_text(&snapshot.products[index]).unwrap();
+        assert!(text.starts_with("Load refused ") && text.ends_with("It stayed empty. Its Windows side stopped. Load it again."));
+        assert!(attentions(&snapshot).iter().any(|item| item.title == name && item.detail == text));
     }
 
     #[test]
