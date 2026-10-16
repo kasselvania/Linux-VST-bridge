@@ -1,3 +1,4 @@
+#include "activation_refusal.h"
 #include "admission_refusal.h"
 #include "nothing_recorded.h"
 #include "processor.h"
@@ -918,6 +919,31 @@ tresult PLUGIN_API Processor::setBusArrangements(SpeakerArrangement* in,int32 ni
 #endif
  return AudioEffect::setBusArrangements(in,ni,out,no);
 }
+void Processor::activationRefused(uint32_t stage, uint32_t reason, uint64_t requested) {
+#if defined(AP8_PREVIEW) && defined(LVB_RUNTIME_DESCRIPTOR)
+  if (lvb_activation_refused(AP8::identity, AP8::engine_sha256, stage, reason, requested) == 0)
+    activation_refusal_recorded_ = true;
+#else
+  (void)stage; (void)reason; (void)requested;
+#endif
+}
+void Processor::activationStarted() {
+#if defined(AP8_PREVIEW) && defined(LVB_RUNTIME_DESCRIPTOR)
+  // This instance's earlier refusal no longer describes the plug-in.
+  if (activation_refusal_recorded_ && lvb_activation_cleared(AP8::identity) == 0)
+    activation_refusal_recorded_ = false;
+#endif
+}
+// The backend refused a setup: a refused admission is already on the card;
+// otherwise its retained detail names a DAW setting or the Windows side.
+void Processor::setupRefused(uint32_t stage, uint32_t maximum, double rate) {
+  if (!handle_ || session_refused_.load(std::memory_order_acquire)) return;
+  uint8_t detail[385]{};
+  ap2_error(detail, sizeof(detail));
+  const auto reason = LVBActivation::setupDetail(reinterpret_cast<const char *>(detail));
+  activationRefused(stage, reason, reason == LVBActivation::SampleRate
+      ? (std::isfinite(rate) && rate > 0. ? uint64_t(rate) : 0) : uint64_t(maximum));
+}
 tresult PLUGIN_API Processor::canProcessSampleSize(int32 size) {
   return size == kSample32 ? kResultTrue : kResultFalse;
 }
@@ -933,18 +959,29 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup &setup) {
 #endif
   if (!g.held || owner_ != std::this_thread::get_id() ||
       terminal() ||
-      (phase_ != Initialized && phase_ != Setup && phase_ != Deactivated) ||
-      (setup.processMode != kOffline &&
-       !(preview_ && (setup.processMode == kRealtime || setup.processMode == kPrefetch))) ||
-      setup.symbolicSampleSize != kSample32 ||
-      (!preview_ && setup.sampleRate != 48000.) || !std::isfinite(setup.sampleRate) ||
-      setup.maxSamplesPerBlock < 1 || setup.maxSamplesPerBlock > block_limit)
+      (phase_ != Initialized && phase_ != Setup && phase_ != Deactivated))
     return kResultFalse;
+  // A DAW setting the bridge cannot carry: kept for the manager's card.
+  const auto refuse = [&](LVBActivation::Reason reason, uint64_t requested) {
+    activationRefused(LVBActivation::Setup, reason, requested);
+    return kResultFalse;
+  };
+  if (setup.processMode != kOffline &&
+      !(preview_ && (setup.processMode == kRealtime || setup.processMode == kPrefetch)))
+    return refuse(LVBActivation::ProcessMode, uint64_t(uint32_t(setup.processMode)));
+  if (setup.symbolicSampleSize != kSample32)
+    return refuse(LVBActivation::SampleFormat, setup.symbolicSampleSize == kSample64 ? 64 : 0);
+  if ((!preview_ && setup.sampleRate != 48000.) || !std::isfinite(setup.sampleRate) ||
+      setup.sampleRate <= 0.)
+    return refuse(LVBActivation::SampleRate,
+                  std::isfinite(setup.sampleRate) && setup.sampleRate > 0. ? uint64_t(setup.sampleRate) : 0);
+  if (setup.maxSamplesPerBlock < 1 || setup.maxSamplesPerBlock > block_limit)
+    return refuse(LVBActivation::BlockSize, uint64_t(std::max(setup.maxSamplesPerBlock, 0)));
 #ifdef AP8_PREVIEW
   // Inactive owner thread: process() never runs while this guard is held.
   if (setup.maxSamplesPerBlock > silent_capacity_) {
     std::unique_ptr<float[]> silent(new (std::nothrow) float[size_t(setup.maxSamplesPerBlock)]());
-    if (!silent) return kResultFalse;
+    if (!silent) return refuse(LVBActivation::Memory, uint64_t(setup.maxSamplesPerBlock));
     silent_input_ = std::move(silent);
     silent_capacity_ = setup.maxSamplesPerBlock;
   }
@@ -955,7 +992,8 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup &setup) {
   if(preview_){
     uint32_t traits[3]{};
     #ifdef AP8_PREVIEW
-    if(!setupBuses(uint32_t(setup.maxSamplesPerBlock),uint32_t(setup.processMode),setup.sampleRate,traits))return kResultFalse;
+    if(!setupBuses(uint32_t(setup.maxSamplesPerBlock),uint32_t(setup.processMode),setup.sampleRate,traits)){
+      setupRefused(LVBActivation::Setup,uint32_t(setup.maxSamplesPerBlock),setup.sampleRate);return kResultFalse;}
 #else
     if(!stateSession()||ap9_setup(handle_,static_cast<uint32_t>(setup.maxSamplesPerBlock),static_cast<uint32_t>(setup.processMode),setup.sampleRate,traits))return kResultFalse;
 #endif
@@ -1007,7 +1045,8 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
     if(phase_!=Setup&&phase_!=Deactivated)return kResultFalse;
 #ifdef AP8_PREVIEW
     size_t i=0;for(const auto& b:AP8::buses){if(b.media==kAudio&&b.type==kMain&&b.index==0&&!bus_active_[i])return kResultFalse;++i;}
-    uint32_t traits[3]{};if(!setupBuses(uint32_t(maximum_),uint32_t(process_mode_),sample_rate_,traits))return kResultFalse;
+    uint32_t traits[3]{};if(!setupBuses(uint32_t(maximum_),uint32_t(process_mode_),sample_rate_,traits)){
+      setupRefused(LVBActivation::Activate,uint32_t(maximum_),sample_rate_);return kResultFalse;}
     auto previous=latency_.exchange(traits[0],std::memory_order_acq_rel);tail_=traits[1];
 #ifdef AP8_PREVIEW
     vendor_latency_=traits[2];
@@ -1026,12 +1065,17 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
                             static_cast<uint32_t>(process_mode_)))
             : (queued_ ? ap3_open(static_cast<uint32_t>(maximum_), &handle_)
                        : ap2_open(static_cast<uint32_t>(maximum_), &handle_))) {
+      // A refused admission is already on the card; a refused activation of
+      // an admitted instance is the Windows side's or the plug-in's.
+      if (preview_ && handle_)
+        activationRefused(LVBActivation::Activate, LVBActivation::WindowsActivation, uint64_t(maximum_));
       report();
       phase_ = Failed;
       return kResultFalse;
     }
     phase_ = Active;
     want_active_ = true;
+    activationStarted();
     // The plug-in is live from here: its own state may differ from anything
     // the host restored, so held bytes or the marker never answer for it.
     session_state_seen_ = true;

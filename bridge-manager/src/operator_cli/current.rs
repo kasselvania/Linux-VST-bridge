@@ -588,9 +588,31 @@ pub(super) fn current_products(m: &Manager, db: &Registry, sw: &Software,
 /// explains nothing; it never fails the overview.
 pub(super) fn project_last_load(m: &Manager, product: &mut ui::Product) {
     if !valid_hex(&product.class_id, 32) { return; }
-    let path = m.root.join("runtime/native-startup")
-        .join(format!("{}.json", product.class_id.to_ascii_lowercase()));
-    let Ok(record) = read_json::<Value>(&path) else { return };
+    let name = format!("{}.json", product.class_id.to_ascii_lowercase());
+    let startup = read_json::<Value>(&m.root.join("runtime/native-startup").join(&name)).ok();
+    // The bridge plug-in in the DAW keeps why the DAW's last attempt to start
+    // this plug-in's audio was refused (#403). It explains the card while no
+    // later load was recorded, and only for this exact plug-in and bridge.
+    if let Ok(activation) = read_json::<Value>(&m.root.join("runtime/native-activation").join(&name)) {
+        let observed = activation["observed_at"].as_u64();
+        let later_load = startup.as_ref().and_then(|record| record["observed_at"].as_u64())
+            .zip(observed).is_some_and(|(load, refused)| load > refused);
+        let exact = activation["class_id"].as_str()
+                .is_some_and(|class| class.eq_ignore_ascii_case(&product.class_id))
+            && activation["module_sha256"].as_str() == Some(product.module_sha256.as_str())
+            && activation["engine_sha256"].is_string()
+            && activation["engine_sha256"] == product.details["native_sha256"];
+        if let (Some(observed), false, true) = (observed, later_load, exact) {
+            if let Some(problem) = linux_vst_bridge::problem::from_activation_record(
+                activation["stage"].as_str().unwrap_or(""), activation["reason"].as_str().unwrap_or(""),
+                activation["requested"].as_u64().unwrap_or(0)) {
+                product.details["last_load"] = json!({"outcome":"activation_refused",
+                    "observed_at":observed,"problem":problem.value()});
+                return;
+            }
+        }
+    }
+    let Some(record) = startup else { return };
     let Some(outcome) = record["outcome"].as_str() else { return };
     if !record["observed_at"].is_u64() { return; }
     // Only a record made against this exact publication explains it; one made
@@ -1362,6 +1384,34 @@ pub(super) mod tests {
             &json!({"schema":1,"class_id":class,"request":"07".repeat(16),
                 "observed_at":1792100498u64,"outcome":"refused","phases":[["keeper_failed",267]],
                 "total_ms":267})).unwrap();
+        assert!(product().details["last_load"].is_null());
+        // The DAW's refused audio start (#403), kept by the bridge plug-in in
+        // the DAW, explains the card until a later load is recorded.
+        let activation=f.m.root.join("runtime/native-activation");
+        private_dir(&activation).unwrap();
+        let refused=|observed:u64,reason:&str,engine:&Value| atomic_json(
+            &activation.join(format!("{}.json",class.to_ascii_lowercase())),
+            &json!({"schema":1,"class_id":class,"module_sha256":before.module_sha256,
+                "engine_sha256":engine,"observed_at":observed,"stage":"setup",
+                "reason":reason,"requested":65536})).unwrap();
+        let engine=before.details["native_sha256"].clone();
+        refused(1792100499,"daw_block_size",&engine);
+        let shown=product();
+        assert_eq!(shown.details["last_load"]["outcome"],"activation_refused");
+        assert_eq!(shown.details["last_load"]["observed_at"],1792100499u64);
+        assert_eq!(shown.details["last_load"]["problem"]["code"],"daw_block_size_unsupported");
+        assert!(shown.details["last_load"]["problem"]["likely_cause"].as_str().unwrap().contains("65536 samples"));
+        assert_eq!(serde_json::to_value(&shown.availability).unwrap(),
+            serde_json::to_value(&available).unwrap());
+        refused(1792100499,"windows_setup_refused",&engine);
+        assert_eq!(product().details["last_load"]["problem"]["code"],"windows_side_refused_start");
+        // A load recorded after it withdraws it; so do another bridge build
+        // and a reason this manager does not know.
+        refused(1792100497,"daw_block_size",&engine);
+        assert!(product().details["last_load"].is_null());
+        refused(1792100499,"daw_block_size",&json!("00".repeat(32)));
+        assert!(product().details["last_load"].is_null());
+        refused(1792100499,"something_new",&engine);
         assert!(product().details["last_load"].is_null());
     }
     #[test]
