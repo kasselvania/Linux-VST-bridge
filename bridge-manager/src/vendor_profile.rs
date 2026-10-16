@@ -185,6 +185,18 @@ pub fn native_access() -> Result<Profile> {
     Ok(Bundled::parse(NATIVE_ACCESS)?.profile)
 }
 
+/// Bundled profiled applications whose first start must be their managed
+/// launch, for the installer supervisor. Every profile declares a service
+/// dependency that only its managed launch prepares, so a copy an installer
+/// starts by itself ("launch after install") would run without it. The
+/// supervisor ends such a copy once the installer has finished; the file name
+/// and resources only locate it, its mapped file identity joins processes.
+pub fn installer_first_launch() -> Result<serde_json::Value> {
+    let profile = native_access()?;
+    Ok(serde_json::json!([{"profile": profile.id, "executable": profile.executable,
+        "resources": profile.resources}]))
+}
+
 /// Digest of the saved binding, as the supervisor pins it.
 pub fn profile_sha256(profile: &Profile) -> Result<String> {
     Ok(hex(&Sha256::digest(serde_json::to_vec(&serde_json::to_value(profile)?)?)))

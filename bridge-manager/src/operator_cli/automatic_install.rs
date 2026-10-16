@@ -227,20 +227,32 @@ pub(super) fn empty_bootstrap_handoff_record(m: &Manager, record: &onboarding::R
 fn bootstrap_handoff_application(m: &Manager, record: &onboarding::Record,
     intent: &Intent, application: &str) -> Result<Option<vendor_application::Application>> {
     if !bootstrap_handoff_ready(m,record,intent)? {return Ok(None);}
-    let installation = onboarding::result(m, record)?;
-    let (installation,installer,receipt)=if let Some(replacement)=environment_install::latest(m,&record.id)? {
-        (environment_install::result(m,&replacement)?,replacement.installer,
-            job_dir(m,&replacement.operation)?.join("installation-result.json"))
-    } else {
-        (installation,record.installer.clone(),onboarding::directory(m,&record.id)?.join(format!("{}-result.json",
-            record.installation_operation.as_deref().ok_or("vendor_application_installation_missing")?)))
-    };
+    let (installation,installer,receipt)=handoff_installation(m,record)?;
     if installation["state"] != "completed" || installation["raw_exit"] != 0
         || !onboarding::retired(&installation) { return Ok(None); }
     let app = vendor_cli::application(m, application)?;
     if app.environment != record.environment || app.installer_sha256.as_deref() != Some(installer.as_str())
         || app.installer_result.as_ref().unwrap().path != receipt { return Ok(None); }
     Ok(Some(app))
+}
+
+/// The installer run whose result the app handoff continues: a later installer
+/// chosen for this setup, otherwise the setup's own installation.
+fn handoff_installation(m:&Manager,record:&onboarding::Record)->Result<(Value,String,PathBuf)> {
+    let installation = onboarding::result(m, record)?;
+    Ok(if let Some(replacement)=environment_install::latest(m,&record.id)? {
+        (environment_install::result(m,&replacement)?,replacement.installer,
+            job_dir(m,&replacement.operation)?.join("installation-result.json"))
+    } else {
+        (installation,record.installer.clone(),onboarding::directory(m,&record.id)?.join(format!("{}-result.json",
+            record.installation_operation.as_deref().ok_or("vendor_application_installation_missing")?)))
+    })
+}
+
+/// The installer started the app by itself and the supervisor closed that copy
+/// so its first start is the managed one that prepares its background service.
+fn installer_closed_started_app(installation:&Value)->bool {
+    installation["started_application"]["result"]=="closed_for_managed_first_launch"
 }
 
 fn bootstrap_handoff_ready(m:&Manager,record:&onboarding::Record,intent:&Intent)->Result<bool> {
@@ -308,13 +320,20 @@ fn project_handoff(m: &Manager, record: &onboarding::Record, intent: &Intent,
         journey.failure = None;
     }
     setup.journey = Some(journey.clone());
+    let closed_started = journey.phase == ui::InstallationPhase::AwaitingApplication
+        && handoff_installation(m, record).is_ok_and(|(installation,..)|installer_closed_started_app(&installation));
     setup.status = match journey.phase {
-        ui::InstallationPhase::AwaitingApplication => "The app is installed. Open it to install your instruments and effects.",
-        ui::InstallationPhase::Available if journey.plugins.is_empty() => "The app visit finished. No plug-ins were added.",
-        ui::InstallationPhase::Available => "Installed plug-ins are available through the native DAW connection.",
-        ui::InstallationPhase::NeedsAttention => "The app task needs attention; its files and results are retained.",
-        _ => "Continue in the app; installed plug-ins are connected automatically.",
-    }.into();
+        ui::InstallationPhase::AwaitingApplication if closed_started => {
+            let name = choices.first().filter(|_|choices.len() == 1).map_or("the app", |app|app.name.as_str());
+            format!("Installed. Its installer opened {name} before its background service was ready, so the \
+                bridge closed that copy. Open {name} here: the bridge sets up the service first.")
+        },
+        ui::InstallationPhase::AwaitingApplication => "The app is installed. Open it to install your instruments and effects.".into(),
+        ui::InstallationPhase::Available if journey.plugins.is_empty() => "The app visit finished. No plug-ins were added.".into(),
+        ui::InstallationPhase::Available => "Installed plug-ins are available through the native DAW connection.".into(),
+        ui::InstallationPhase::NeedsAttention => "The app task needs attention; its files and results are retained.".into(),
+        _ => "Continue in the app; installed plug-ins are connected automatically.".into(),
+    };
     setup.primary = None;
     setup.secondary.clear();
     if journey.phase != ui::InstallationPhase::Available {
@@ -2780,6 +2799,36 @@ mod tests {
         assert_eq!(fs::read(path).unwrap(),original);
     }
     #[test]
+    fn app_handoff_explains_the_copy_its_installer_opened_and_the_supervisor_closed() {
+        let (f,mut record,_)=vendor_cli::selection::tests::installed_app();
+        let intent=initial_intent(&record);record.automatic=Some(intent);
+        atomic_json(&onboarding::directory(&f.m,&record.id).unwrap().join("record.json"),&record).unwrap();
+        let units=vendor_cli::selection::choices(&f.m,&record).unwrap().iter()
+            .map(|c|vendor_cli::unit(&c.application.selector().unwrap()).unwrap()).collect::<Vec<_>>();
+        let project=|| {
+            let mut setup=installer_setup(&record);
+            readiness::with_unit_state_fixture(&units,"inactive",||project_from_with(&f.m,
+                std::slice::from_mut(&mut setup),None,std::slice::from_ref(&record),&mut |_|Ok(false))).unwrap();
+            setup
+        };
+        let ordinary=project();
+        assert_eq!(ordinary.status,"The app is installed. Open it to install your instruments and effects.");
+        let report=onboarding::directory(&f.m,&record.id).unwrap()
+            .join(format!("{}-result.json",record.installation_operation.as_deref().unwrap()));
+        let mut installation:Value=read_json(&report).unwrap();
+        installation["started_application"]=json!({"schema":1,"result":"closed_for_managed_first_launch",
+            "profiles":["fixture_app"],"images":["Program Files/Vendor/Main.exe"],"signalled_processes":5});
+        atomic_json(&report,&installation).unwrap();
+        let closed=project();
+        assert_eq!(closed.journey.as_ref().unwrap().phase,ui::InstallationPhase::AwaitingApplication);
+        assert_eq!(closed.status,"Installed. Its installer opened the app before its background service was ready, \
+            so the bridge closed that copy. Open the app here: the bridge sets up the service first.");
+        assert_eq!(serde_json::to_value((&closed.primary,&closed.secondary)).unwrap(),
+            serde_json::to_value((&ordinary.primary,&ordinary.secondary)).unwrap(),"The same Open offer stays");
+        assert!(installer_closed_started_app(&installation));
+        assert!(!installer_closed_started_app(&json!({"started_application":null})));
+    }
+    #[test]
     fn empty_without_an_app_and_unrelated_failure_do_not_become_a_handoff() {
         let (f,mut record,transaction)=vendor_cli::selection::tests::installed_app();
         record.automatic=Some(initial_intent(&record));
@@ -3607,6 +3656,7 @@ mod tests {
             environment_install::reserve(&f.m,&record.id,&selected.id,&first)).unwrap();
         assert_eq!(binding.automatic_request.as_ref().unwrap().path,job_dir(&f.m,&intent.owner).unwrap().join("request.json"));
         let spec=environment_install::launch_input(&f.m,&binding).unwrap();
+        assert_eq!(spec["managed_first_launch"],linux_vst_bridge::vendor_profile::installer_first_launch().unwrap());
         if let Some(policy)=policy {
             assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],serde_json::to_value(policy).unwrap());
         } else {assert_eq!(spec["schema"],2);assert!(spec.get("installer_capability").is_none());}
