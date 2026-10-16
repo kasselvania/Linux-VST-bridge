@@ -621,8 +621,10 @@ struct ReadPacing {
     started: Option<Instant>,
     last: Option<(Instant, Duration)>,
     action_accepted: Option<Instant>,
-    /// "Try loading details again": the next read is the musician's own.
-    explicit: bool,
+    /// "Try loading details again": the next details read is the musician's
+    /// own. Only that read uses and clears it; the Refresh button keeps its
+    /// own explicit path.
+    details_explicit: bool,
     /// A task just ended: its result is read at once.
     task_ended: bool,
 }
@@ -631,10 +633,9 @@ impl ReadPacing {
     const ACTION_START: Duration = Duration::from_secs(5);
     fn started(&mut self, now: Instant) {
         self.started = Some(now);
-        self.explicit = false;
         self.task_ended = false;
     }
-    fn explicit(&mut self) { self.explicit = true; }
+    fn details_explicit(&mut self) { self.details_explicit = true; }
     fn task_ended(&mut self) { self.task_ended = true; }
     /// Only one request is in flight; the next reply ends a started read.
     fn finished(&mut self, now: Instant) {
@@ -646,7 +647,7 @@ impl ReadPacing {
     /// reading, and while the task runs none starts in the first 5 s of an
     /// accepted action, while its worker gets going.
     fn wait(&self, now: Instant, task_running: bool) -> Option<Duration> {
-        if self.explicit || self.task_ended { return None; }
+        if self.task_ended { return None; }
         let after_read = self.last.map(|(done, cost)| done + cost.max(Self::GAP));
         let after_start = self.action_accepted.filter(|_| task_running).map(|at| at + Self::ACTION_START);
         after_read.into_iter().chain(after_start).max()
@@ -3071,11 +3072,7 @@ impl eframe::App for Operator {
             return;
         }
         if self.frontend_superseded { return; }
-        if retry_details {
-            if self.page == Page::Plugins { self.product_attempted = None; }
-            else { self.details_attempted = false; }
-            self.pacing.explicit();
-        }
+        if retry_details { self.retry_details(); }
         if pick { self.queued_import = true; }
         if refresh { self.explicit_refresh_queued = true; }
         if let Some(a) = chosen {
@@ -3089,36 +3086,59 @@ impl eframe::App for Operator {
         } else if !self.pending && self.prompt_pulse {
             self.prompt_pulse = false;
             self.request(Query::Pulse, RequestOrigin::BackgroundActivity, ui.ctx());
-        } else if !self.pending && (self.explicit_refresh_queued || self.refresh_after)
-            && (self.explicit_refresh_queued || (self.retry_after.is_none_or(|at| Instant::now() >= at)
-                && self.pacing.passive_due(Instant::now(), self.operation_live))) {
+        } else if let Some((query, origin)) = self.next_read(Instant::now()) {
+            self.request(query, origin, ui.ctx());
+        }
+        ui.ctx().request_repaint_after(self.repaint_delay());
+    }
+}
+impl Operator {
+    /// "Try loading details again".
+    fn retry_details(&mut self) {
+        if self.page == Page::Plugins { self.product_attempted = None; }
+        else {
+            self.details_attempted = false;
+            self.pacing.details_explicit();
+        }
+    }
+    /// The status read to start now, if any, after imports, actions and a
+    /// prompted pulse. What it starts is marked as attempted.
+    fn next_read(&mut self, now: Instant) -> Option<(Query, RequestOrigin)> {
+        if self.pending { return None; }
+        if self.explicit_refresh_queued || (self.refresh_after
+            && self.retry_after.is_none_or(|at| now >= at)
+            && self.pacing.passive_due(now, self.operation_live)) {
             let origin = if self.explicit_refresh_queued { RequestOrigin::ExplicitRefresh }
                 else { RequestOrigin::SilentPostMutationRefresh };
             let query = self.overview_query();
             self.explicit_refresh_queued = false;
             self.refresh_after = false;
-            self.request(query, origin, ui.ctx());
-        } else if !self.pending && self.page == Page::Plugins && self.overview_fresh
+            return Some((query, origin));
+        }
+        if self.page == Page::Plugins && self.overview_fresh
             && self.selected_product_snapshot().is_none()
             && self.library.focused_product().is_some_and(|key|
                 self.product_attempted.as_ref() != Some(key)) {
             let key = self.library.focused_product().expect("selected product").clone();
             self.product_attempted = Some(key.clone());
-            self.request(Query::Product(key), RequestOrigin::ProductDetail, ui.ctx());
-        } else if !self.pending && self.snapshot.is_none() && !self.details_attempted
-            && !matches!(self.page, Page::Home | Page::Setup | Page::Plugins)
-            && (!self.operation_live || self.pacing.passive_due(Instant::now(), true)) {
-            self.details_attempted = true;
-            self.request(Query::Snapshot, RequestOrigin::DetailSnapshot, ui.ctx());
-        } else if !self.pending && self.page == Page::Activity
-            && self.last_poll.elapsed() > Duration::from_secs(10) {
-            self.request(Query::Activity, RequestOrigin::BackgroundActivity, ui.ctx());
-        } else if !self.pending && self.last_poll.elapsed() >
-            Duration::from_secs(if self.operation_live { 2 } else { 10 })
-            && self.retry_after.is_none_or(|at| Instant::now() >= at) {
-            self.request(Query::Pulse, RequestOrigin::BackgroundActivity, ui.ctx());
+            return Some((Query::Product(key), RequestOrigin::ProductDetail));
         }
-        ui.ctx().request_repaint_after(self.repaint_delay());
+        if self.snapshot.is_none() && !self.details_attempted
+            && !matches!(self.page, Page::Home | Page::Setup | Page::Plugins)
+            && (!self.operation_live || self.pacing.details_explicit
+                || self.pacing.passive_due(now, true)) {
+            self.details_attempted = true;
+            self.pacing.details_explicit = false;
+            return Some((Query::Snapshot, RequestOrigin::DetailSnapshot));
+        }
+        if self.page == Page::Activity && self.last_poll.elapsed() > Duration::from_secs(10) {
+            return Some((Query::Activity, RequestOrigin::BackgroundActivity));
+        }
+        if self.last_poll.elapsed() > Duration::from_secs(if self.operation_live { 2 } else { 10 })
+            && self.retry_after.is_none_or(|at| now >= at) {
+            return Some((Query::Pulse, RequestOrigin::BackgroundActivity));
+        }
+        None
     }
 }
 fn software_install_offer(snapshot: Option<&Snapshot>, installer: &str, policy: Option<crate::model::Powershell>)
@@ -4717,18 +4737,16 @@ mod tests {
         assert!(installation_failure_text(&other, setup.primary.as_ref()).ends_with(&other.reason));
     }
     #[test]
-    fn explicit_details_and_a_finished_task_are_read_at_once() {
+    fn a_finished_task_is_read_at_once() {
         let now = Instant::now();
         let mut pacing = ReadPacing::default();
         pacing.started(now - Duration::from_secs(8));
         pacing.finished(now);
         pacing.accepted(now);
         assert!(!pacing.passive_due(now, true));
-        pacing.explicit();
-        assert!(pacing.passive_due(now, true), "Try loading details again is not paced");
         pacing.started(now);
         pacing.finished(now + Duration::from_secs(8));
-        assert!(!pacing.passive_due(now + Duration::from_secs(9), false), "pacing resumes after it");
+        assert!(!pacing.passive_due(now + Duration::from_secs(9), false));
         pacing.task_ended();
         assert!(pacing.passive_due(now + Duration::from_secs(9), false));
         // The window marks the end of a task from the pulse that reports it.
@@ -4739,6 +4757,31 @@ mod tests {
         operator.origin = Some(RequestOrigin::BackgroundActivity);
         operator.handle_reply(Reply::Pulse(pulse_fixture(false)));
         assert!(!operator.operation_live && operator.pacing.passive_due(Instant::now(), false));
+    }
+    #[test]
+    fn try_loading_details_again_starts_the_details_read_while_a_paced_refresh_waits() {
+        let mut operator = state_fixture();
+        operator.page = Page::Activity;
+        operator.operation_live = true;
+        operator.overview = Some(overview_fixture().into());
+        operator.refresh_after = true;
+        operator.details_attempted = true;
+        let now = Instant::now();
+        operator.last_poll = now;
+        // The last read took 8 s, so a passive read waits 8 s more.
+        operator.pacing.started(now - Duration::from_secs(8));
+        operator.pacing.finished(now);
+        assert!(operator.next_read(now).is_none(), "both reads are paced while the task runs");
+        operator.retry_details();
+        let (query, origin) = operator.next_read(now).expect("the details read starts now");
+        assert!(matches!(query, Query::Snapshot) && origin == RequestOrigin::DetailSnapshot);
+        assert!(operator.refresh_after, "the waiting overview refresh stays paced");
+        // The press is used by that one details read only.
+        operator.details_attempted = false;
+        assert!(operator.next_read(now).is_none());
+        // The Refresh button keeps its own immediate path.
+        operator.explicit_refresh_queued = true;
+        assert!(matches!(operator.next_read(now), Some((_, RequestOrigin::ExplicitRefresh))));
     }
     #[test]
     fn a_read_that_saw_a_change_or_gave_way_does_not_mark_the_service_unavailable() {
