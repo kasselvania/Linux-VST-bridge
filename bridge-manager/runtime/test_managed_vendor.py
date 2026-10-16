@@ -132,7 +132,7 @@ class ManagedVendorTests(unittest.TestCase):
             operation,directory=self.replacement_operation(seed)
             if policy:
                 request=json.loads((directory/'request.json').read_bytes())
-                request['schema']=27
+                request['schema']=28
                 request['action'].update(kind='environment_installer_start_with_policy',powershell=policy)
                 self.write(directory/'request.json',request)
             original=self.managed/'onboarding'/operation['application']['environment']['id']/'record.json'
