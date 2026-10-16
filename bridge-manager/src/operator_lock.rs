@@ -22,6 +22,26 @@ pub fn with_operator_registry_wait<T>(wait: Duration, run: impl FnOnce() -> T) -
 pub(crate) fn operator_registry_wait() -> Option<Duration> {
     OPERATOR_REGISTRY_WAIT.with(Cell::get)
 }
+/// An operator action waiting for registry.lock holds this marker. Status
+/// readers (overview, pulse, details, readiness) look at it before every
+/// attempt and step aside while it is held, so readers that take the lock back
+/// to back cannot starve the action: it gets the lock within one in-progress
+/// reader hold plus one 10 ms poll, unless another action holds the lock.
+pub const REGISTRY_WRITER_WAITING: &str = "registry-writer-waiting.lock";
+/// The marker sits beside registry.lock from its first use, so a waiting
+/// action never adds a file to the managed root. Only fairness depends on it.
+pub(crate) fn ensure_registry_writer_marker(m: &Manager) {
+    let path = m.root.join(REGISTRY_WRITER_WAITING);
+    if fs::symlink_metadata(&path).is_err() {
+        let _ = fs::OpenOptions::new().write(true).create(true).truncate(false).mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW).open(path);
+    }
+}
+/// True while an operator action is waiting for registry.lock. Only fairness
+/// depends on this; an unreadable marker counts as no waiting action.
+pub fn registry_writer_waiting(m: &Manager) -> bool {
+    matches!(m.try_lock_shared(REGISTRY_WRITER_WAITING), Ok(LockAttempt::Busy))
+}
 #[derive(Debug)]
 pub struct LockBusy;
 impl std::fmt::Display for LockBusy {
@@ -80,6 +100,11 @@ impl Manager {
             "operator_lock_operation",
         )?;
         let start = Instant::now();
+        // Status readback yields to a waiting action; everything else that
+        // waits for registry.lock is an action and announces that it waits.
+        let reader = purpose == LockPurpose::OperatorReadback;
+        let announces = name == OperatorLock::Registry && !reader;
+        let mut waiting: Option<Lock> = None;
         let mut facts = LockFacts {
             name,
             mode: LockMode::Exclusive,
@@ -94,7 +119,12 @@ impl Manager {
         };
         loop {
             facts.attempts += 1;
-            let attempt = self.try_lock(name.filename());
+            let attempt = if reader && name == OperatorLock::Registry
+                && registry_writer_waiting(self) {
+                Ok(LockAttempt::Busy)
+            } else {
+                self.try_lock(name.filename())
+            };
             #[cfg(test)]
             if matches!(&attempt, Ok(LockAttempt::Busy)) {
                 BUSY_OBSERVER.with(|observer| {
@@ -104,9 +134,16 @@ impl Manager {
             facts.elapsed_wait_us = start.elapsed().as_micros().min(u64::MAX as u128) as u64;
             match attempt {
                 Ok(LockAttempt::Acquired(lock)) => return Ok((lock, facts)),
-                Ok(LockAttempt::Busy) if start.elapsed() < timeout => std::thread::sleep(
-                    Duration::from_millis(10).min(timeout.saturating_sub(start.elapsed())),
-                ),
+                Ok(LockAttempt::Busy) if start.elapsed() < timeout => {
+                    // One waiting action holds the marker; others keep polling.
+                    if announces && waiting.is_none() {
+                        if let Ok(LockAttempt::Acquired(marker)) = self.try_lock(REGISTRY_WRITER_WAITING) {
+                            waiting = Some(marker);
+                        }
+                    }
+                    std::thread::sleep(
+                        Duration::from_millis(10).min(timeout.saturating_sub(start.elapsed())))
+                }
                 Ok(LockAttempt::Busy) => {
                     facts.outcome = LockOutcome::Timeout;
                     return Err(AcquisitionFailure { facts }.into());
@@ -181,6 +218,44 @@ mod tests {
         assert!(started.elapsed() < Duration::from_secs(1));
         assert!(operator_registry_wait().is_none());
         drop((held, owner));
+    }
+    #[test]
+    fn back_to_back_status_reads_cannot_starve_a_waiting_action() {
+        use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc};
+        let f = Fixture::new();
+        let stop = Arc::new(AtomicBool::new(false));
+        let rounds = Arc::new(AtomicUsize::new(0));
+        let hold = Duration::from_millis(50);
+        // An open manager window: one status read after another, each taking
+        // registry.lock again as soon as the previous one released it.
+        let reader = {
+            let m = Manager {root: f.m.root.clone(), publications: f.m.publications.clone()};
+            let (stop, rounds) = (stop.clone(), rounds.clone());
+            std::thread::spawn(move || while !stop.load(Ordering::SeqCst) {
+                let (guard, _) = m.lock_bounded(OperatorLock::Registry,
+                    LockPurpose::OperatorReadback, None, Duration::from_secs(5)).unwrap();
+                rounds.fetch_add(1, Ordering::SeqCst);
+                std::thread::sleep(hold);
+                drop(guard);
+            })
+        };
+        while rounds.load(Ordering::SeqCst) < 2 { std::thread::sleep(Duration::from_millis(5)); }
+        let started = Instant::now();
+        let action = with_operator_registry_wait(Duration::from_secs(3), || f.m.lock("registry.lock"));
+        let waited = started.elapsed();
+        assert!(action.is_ok(), "the action was starved for {waited:?}");
+        // Stated bound: one in-progress reader hold plus one poll (with slack
+        // for a loaded test machine), far below the action's own 3 s bound.
+        assert!(waited < hold + Duration::from_millis(450), "waited {waited:?}");
+        // While the action holds the lock no status read slips in, and the
+        // marker is released with the action's wait.
+        let before = rounds.load(Ordering::SeqCst);
+        std::thread::sleep(hold * 3);
+        assert_eq!(rounds.load(Ordering::SeqCst), before);
+        assert!(!registry_writer_waiting(&f.m));
+        drop(action);
+        stop.store(true, Ordering::SeqCst);
+        reader.join().unwrap();
     }
     #[test]
     fn real_open_failure_is_not_busy_and_does_not_retry() {

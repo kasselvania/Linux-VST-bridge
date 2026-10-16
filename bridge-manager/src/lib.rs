@@ -871,6 +871,9 @@ impl Manager {
             f.metadata()?.uid() == unsafe { libc::getuid() } && f.metadata()?.is_file(),
             "lock ownership differs",
         )?;
+        if exclusive && name == operator_model::OperatorLock::Registry.filename() {
+            operator_lock::ensure_registry_writer_marker(self);
+        }
         let status = unsafe {
             libc::flock(
                 std::os::fd::AsRawFd::as_raw_fd(&f),
