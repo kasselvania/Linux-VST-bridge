@@ -24,13 +24,13 @@ inline Kind classify(const char *detail) {
       has("admission_native_image_capacity")) return Capacity;
   if (has("admission_maintenance_active")) return Maintenance;
   if (has("admission_cleanup_unconfirmed")) return Cleanup;
-  if (has("NotFound:") || has("ConnectionRefused:")) return NotRunning;
+  if (has("bridge_service_unreachable")) return NotRunning;
   return Unknown;
 }
 inline const char *text(int64_t kind) {
   switch (kind) {
   case NotRunning: return "The bridge service is not running, so this plug-in was not loaded.";
-  case Updated: return "The bridge was updated. Reopen the project to load this plug-in.";
+  case Updated: return "The bridge was updated. Quit and restart your DAW to load this plug-in.";
   case Busy: return "The bridge did not load this plug-in in time.";
   case Capacity: return "The bridge's plug-in limit is reached. Remove another instance first.";
   case Maintenance: return "The manager is changing the bridge. Load the plug-in when it finishes.";

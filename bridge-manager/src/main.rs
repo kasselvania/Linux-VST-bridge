@@ -206,12 +206,15 @@ struct NativeStartup<'a> {
     class: String,
     started: Instant,
     phases: Vec<(&'static str, u64)>,
+    // The publication this load was resolved against, once known, so the
+    // manager never shows this record for a later publication.
+    binding: Option<serde_json::Value>,
     finished: bool,
 }
 impl<'a> NativeStartup<'a> {
     fn new(manager: &'a Manager, request: [u8; 16], class: String) -> Self {
         Self { manager, request, class, started: Instant::now(),
-            phases: vec![("request_received", 0)], finished: false }
+            phases: vec![("request_received", 0)], binding: None, finished: false }
     }
     fn phase(&mut self, name: &'static str) {
         if self.phases.len()<16 {
@@ -226,7 +229,7 @@ impl<'a> NativeStartup<'a> {
             atomic_json(&directory.join(format!("{}.json", self.class.to_ascii_lowercase())),
                 &serde_json::json!({"schema":1,"class_id":self.class,
                     "request":hex(&self.request),"observed_at":observation::now()?,
-                    "outcome":outcome,"phases":self.phases,
+                    "outcome":outcome,"phases":self.phases,"binding":self.binding,
                     "total_ms":self.started.elapsed().as_millis() as u64}))
         })();
         if retained.is_err() { eprintln!("native startup measurement unavailable"); }
@@ -1818,6 +1821,10 @@ fn serve(m: Manager) -> Result<()> {
                         } else {prepare_execution()?};
                         Ok((registration, execution))
                     })?;
+                    startup.binding = Some(serde_json::json!({
+                        "environment": registration.environment.id,
+                        "environment_revision": registration.environment.revision,
+                        "native_sha256": registration.native.sha256}));
                     // Shared byte preparation is complete. All keeper and DSP
                     // work proceeds independently, rechecking those observations
                     // in this exact admission before exposing the binding.

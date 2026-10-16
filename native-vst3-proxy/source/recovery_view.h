@@ -104,7 +104,7 @@ private:
       XSetForeground(display_,gc_,0xeeeeee);
       text(16,28,"Plug-in not loaded");text(16,60,failure_);
       text(16,92,NOT_LOADED_STATE);
-      text(16,124,"Reopen the project without saving, or remove and add the plug-in.");
+      text(16,124,"Reopen the project or restart your DAW. Re-adding it starts at default settings.");
       XFlush(display_);return;
     }
     if (failure_) {

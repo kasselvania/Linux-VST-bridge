@@ -365,15 +365,25 @@ fn code_suffix(code: &str) -> String {
     if plain { format!(" (code: {code})") } else { String::new() }
 }
 
-/// The last DAW load of a plug-in was refused at this recorded startup phase
-/// (`runtime/native-startup`). Only phases with a known meaning explain.
-pub fn from_load_refusal(phase: Option<&str>) -> Option<Explanation> {
-    Some(match phase? {
-        "keeper_failed" => Explanation::new("windows_side_stopped",
+/// The last DAW load of a plug-in did not succeed (`runtime/native-startup`
+/// outcome `refused` or `delivery_failed`, ending at `phase`). Every such
+/// record explains itself; known phases say more. Other outcomes explain
+/// nothing.
+pub fn from_load_record(outcome: &str, phase: Option<&str>) -> Option<Explanation> {
+    if !matches!(outcome, "refused" | "delivery_failed") { return None; }
+    Some(match phase {
+        Some("keeper_failed") => Explanation::new("windows_side_stopped",
             "The last time your DAW loaded this plug-in, its Windows side had stopped, so the plug-in stayed empty and silent.",
             "The Windows programs behind this plug-in's setup ended unexpectedly (for example when the desktop's display server restarted) or failed while starting.",
-            "Load the plug-in again: reopen the project without saving it, or remove and add the plug-in. Saving while it is not loaded drops its settings from the project. The bridge starts its Windows side again on that load. If it failed to start more than once, wait a minute before loading it again. If it keeps failing, create a problem report."),
-        _ => return None,
+            "Load the plug-in again: reopen the project or restart your DAW. Removing and adding the plug-in starts it with default settings. Saving while it is not loaded drops its settings from the project. The bridge starts its Windows side again on that load. If it is refused again, wait a minute before loading it again. If it keeps failing, create a problem report."),
+        Some("bridge_update_required") => Explanation::new("bridge_updated_daw_old",
+            "The last time your DAW loaded this plug-in, the bridge did not load it, so it stayed empty and silent.",
+            "The bridge was updated while your DAW still had the older bridge plug-in loaded; reopening a project keeps that older one.",
+            "Quit and restart your DAW, then open the project. Saving before that drops this plug-in's settings from the project."),
+        _ => Explanation::new("load_refused",
+            "The last time your DAW loaded this plug-in, the bridge did not load it, so it stayed empty and silent.",
+            "The bridge could not prepare it in time: the plug-in's setup may have changed during the load, the bridge may have been busy, or the DAW stopped waiting.",
+            "Load the plug-in again: reopen the project or restart your DAW. Removing and adding the plug-in starts it with default settings. Saving while it is not loaded drops its settings from the project. If it keeps happening, create a problem report."),
     })
 }
 

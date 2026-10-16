@@ -577,11 +577,18 @@ pub(super) fn project_last_load(m: &Manager, product: &mut ui::Product) {
     let path = m.root.join("runtime/native-startup")
         .join(format!("{}.json", product.class_id.to_ascii_lowercase()));
     let Ok(record) = read_json::<Value>(&path) else { return };
-    if record["outcome"] != "refused" || !record["observed_at"].is_u64() { return; }
+    let Some(outcome) = record["outcome"].as_str() else { return };
+    if !record["observed_at"].is_u64() { return; }
+    // A record made against another publication (an update, reinstall or
+    // rollback since) says nothing about this one.
+    let binding = &record["binding"];
+    if binding.is_object() && (binding["environment"] != product.environment.as_str()
+        || binding["environment_revision"] != product.details["environment_revision"]
+        || binding["native_sha256"] != product.details["native_sha256"]) { return; }
     let phase = record["phases"].as_array().and_then(|phases| phases.last())
         .and_then(|phase| phase[0].as_str());
-    let Some(problem) = linux_vst_bridge::problem::from_load_refusal(phase) else { return };
-    product.details["last_load"] = json!({"outcome":"refused",
+    let Some(problem) = linux_vst_bridge::problem::from_load_record(outcome, phase) else { return };
+    product.details["last_load"] = json!({"outcome":outcome,
         "observed_at":record["observed_at"],"problem":problem.value()});
 }
 
@@ -1284,11 +1291,30 @@ pub(super) mod tests {
         // The explanation never changes the published plug-in's availability.
         assert_eq!(serde_json::to_value(&shown.availability).unwrap(),
             serde_json::to_value(&available).unwrap());
-        // A later accepted load withdraws it; unknown phases explain nothing.
+        // A later accepted load withdraws it; any other refusal explains
+        // itself in general terms; a stale DAW module says to restart it.
         record("accepted","keeper_ready");
         assert!(product().details["last_load"].is_null());
         record("refused","bridge_update_required");
+        assert_eq!(product().details["last_load"]["problem"]["code"],"bridge_updated_daw_old");
+        record("refused","publication_changed_during_startup");
+        assert_eq!(product().details["last_load"]["problem"]["code"],"load_refused");
+        // A record made against another publication does not linger.
+        let shown=shown.details["native_sha256"].clone();
+        atomic_json(&startup.join(format!("{}.json",class.to_ascii_lowercase())),
+            &json!({"schema":1,"class_id":class,"request":"07".repeat(16),
+                "observed_at":1792100498u64,"outcome":"refused","phases":[["keeper_failed",267]],
+                "binding":{"environment":base.selection.environment.id,
+                    "environment_revision":base.selection.environment.revision,
+                    "native_sha256":"00".repeat(32)},"total_ms":267})).unwrap();
         assert!(product().details["last_load"].is_null());
+        atomic_json(&startup.join(format!("{}.json",class.to_ascii_lowercase())),
+            &json!({"schema":1,"class_id":class,"request":"07".repeat(16),
+                "observed_at":1792100498u64,"outcome":"refused","phases":[["keeper_failed",267]],
+                "binding":{"environment":base.selection.environment.id,
+                    "environment_revision":base.selection.environment.revision,
+                    "native_sha256":shown},"total_ms":267})).unwrap();
+        assert_eq!(product().details["last_load"]["problem"]["code"],"windows_side_stopped");
         fs::write(startup.join(format!("{}.json",class.to_ascii_lowercase())),b"not json").unwrap();
         assert!(product().details["last_load"].is_null());
     }
