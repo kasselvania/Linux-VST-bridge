@@ -98,6 +98,8 @@ and matching installers, and preserve the previous build. Publish a verified
 build to the update feed with `tools/beta/publish_update.py` (see
 `tools/beta/README.md`): `build` signs `latest.json` where the signing key is,
 `upload` copies the installers and feed into the beta folder without deleting
-anything. Distinguish a fix
+anything. For the private beta the internal-test key signs the feed in the
+homelab build container, as it signs installers; a release key never lives on
+the homelab and signs with the same command on the maintainer's Mac. Distinguish a fix
 merged into source from a build delivered to testers and a fix verified in
 their DAW. Name the system, DAW and plug-in used for that verification.
