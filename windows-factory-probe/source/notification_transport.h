@@ -166,6 +166,20 @@ public:
   death_notify_=notify;death_context_.store(context,std::memory_order_release);
   if(failed_.load(std::memory_order_acquire)||cancelled_.load(std::memory_order_acquire))notify_death();
  }
+ // Throws once the pump failed or was cancelled (dead native peer, owner failure).
+ void alive()const{check();}
+ // Kind of the published control frame, without consuming it.
+ bool ready_kind(uint16_t& kind){
+  check();if(!input_ready_.load(std::memory_order_acquire))return false;
+  kind=uint16_t(ap1::get(incoming_.data()+8,2));return true;
+ }
+ // Waits for a control publication, cancellation or the caller's own wake
+ // event, at most `timeout` ms; the caller re-inspects in every case.
+ void wait_control(HANDLE wake,DWORD timeout){
+  check();std::array<HANDLE,3> handles{cancel_.value,control_ready_.value,wake};
+  auto result=WaitForMultipleObjects(wake?3:2,handles.data(),FALSE,timeout);
+  check();ap1::require(result==WAIT_TIMEOUT||result==WAIT_OBJECT_0+1||(wake&&result==WAIT_OBJECT_0+2),"transport control wait");
+ }
  bool take_kind(ap1::Frame& frame,uint16_t kind){
   check();if(!input_ready_.load(std::memory_order_acquire)||ap1::get(incoming_.data()+8,2)!=kind)return false;
   ap1::decode_into(incoming_.data(),incoming_.size(),minor_,frame);

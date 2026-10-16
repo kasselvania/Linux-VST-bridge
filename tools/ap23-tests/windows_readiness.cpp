@@ -59,7 +59,7 @@ struct PreparedThread {
     void retired()const{assert(handle&&WaitForSingleObject(handle,0)==WAIT_OBJECT_0);}
 };
 struct Setup {uint32_t maximum,mode;double rate;};
-enum class Case {idle,reconfigure,legacy_finite,owner_ack,owner_before_start,owner_during_start,cancel_restart,render_before_start,refused_start,throw_start,throw_start_owner_failure,refused_stop,hung_process,malformed_samples};
+enum class Case {idle,reconfigure,legacy_finite,owner_ack,owner_before_start,owner_during_start,cancel_restart,render_before_start,refused_start,throw_start,throw_start_owner_failure,refused_stop,hung_process,malformed_samples,render_owned,render_owner_failure,render_refused_stop,render_throw_second_start};
 
 struct Fixture final:AudioEffect {
     bool instrument=false;
@@ -73,7 +73,7 @@ struct Fixture final:AudioEffect {
     Setup accepted{};
     bool reject_start=false,reject_stop=false,hang_process=false;
     bool malformed_samples=false;
-    bool throw_start=false,await_cancel=false;
+    bool throw_start=false,throw_second_start=false,await_cancel=false;
     std::atomic<bool>* cancelled=nullptr;
     bool deferred_logging=true;
     bool processing=false;
@@ -103,7 +103,7 @@ struct Fixture final:AudioEffect {
         if(active){
             assert(!processing);++starts;
             if(await_cancel){assert(cancelled);while(!cancelled->load(std::memory_order_acquire))Sleep(1);}
-            if(throw_start)throw std::runtime_error("private-vendor-start-exception-marker");
+            if(throw_start||(throw_second_start&&starts==2))throw std::runtime_error("private-vendor-start-exception-marker");
             if(reject_start)return kResultFalse;
             processing=true;
         }
@@ -140,17 +140,37 @@ struct Script final:ExternalProcessing {
     std::array<Setup,3> setups{{{64,0,48000.},{1024,2,96000.},{128,1,48000.}}};
     size_t activation=0;
     unsigned intervals=0,block_index=0,delivered=0,started_acks=0,stopped_acks=0;
-    unsigned owner_failures=0;
-    std::atomic<bool> cancelled{false},start_entered{false};
+    unsigned owner_failures=0,owner_next_calls=0,render_next_calls=0,render_pending_calls=0;
+    std::atomic<bool> cancelled{false},start_entered{false},render_waiting{false};
     explicit Script(Fixture& p,Case c):fixture(p),scenario(c){
-        fixture.reject_start=c==Case::refused_start;fixture.reject_stop=c==Case::refused_stop;fixture.hang_process=c==Case::hung_process;
+        fixture.reject_start=c==Case::refused_start;fixture.reject_stop=c==Case::refused_stop||c==Case::render_refused_stop;fixture.hang_process=c==Case::hung_process;
         fixture.throw_start=c==Case::throw_start||c==Case::throw_start_owner_failure;
+        fixture.throw_second_start=c==Case::render_throw_second_start;
         fixture.await_cancel=c==Case::throw_start_owner_failure;fixture.cancelled=&cancelled;
         fixture.deferred_logging=c!=Case::legacy_finite;
         fixture.malformed_samples=c==Case::malformed_samples;
         if(c==Case::legacy_finite)setups[0].mode=2;
     }
     bool hosted()const override{return true;}
+    bool render_lifecycle()const override{
+        return scenario==Case::render_owned||scenario==Case::render_owner_failure||scenario==Case::render_refused_stop||
+            scenario==Case::render_throw_second_start;
+    }
+    // Render takes every Start after the first and hands Deactivate to the owner.
+    uint16_t render_next_transition(const std::atomic<bool>& exit,void*)override{
+        assert(render_lifecycle()&&GetCurrentThreadId()==threads[activation].id&&!fixture.processing);
+        ++render_next_calls;
+        if(scenario==Case::render_owner_failure){
+            render_waiting.store(true,std::memory_order_release);
+            while(!exit.load(std::memory_order_acquire))Sleep(1);
+            return 0;
+        }
+        return intervals==3?14:10;
+    }
+    uint16_t render_pending_transition()override{
+        assert(render_lifecycle()&&GetCurrentThreadId()==fixture.owner);
+        ++render_pending_calls;return 14;
+    }
     bool sustained()const override{return scenario!=Case::legacy_finite;}
     bool stateful()const override{return true;}
     bool commercial()const override{return scenario!=Case::legacy_finite;}
@@ -182,7 +202,8 @@ struct Script final:ExternalProcessing {
         }else if(kind==11){
             assert(GetCurrentThreadId()==threads[activation].id);++started_acks;
         }else if(kind==13){
-            assert(GetCurrentThreadId()==fixture.owner&&!fixture.processing);
+            // Render-owned lifecycle acknowledges Stopped on the render thread.
+            assert(GetCurrentThreadId()==(render_lifecycle()?threads[activation].id:fixture.owner)&&!fixture.processing);
             if(scenario==Case::legacy_finite)threads[activation].retired();else threads[activation].live();
             assert(delivered==5*(intervals+1));
             ++stopped_acks;++intervals;
@@ -194,7 +215,7 @@ struct Script final:ExternalProcessing {
     }
     uint16_t next_transition()override{
         assert(GetCurrentThreadId()==fixture.owner);
-        threads[activation].live();
+        threads[activation].live();++owner_next_calls;
         if(scenario==Case::owner_before_start)throw std::runtime_error("scripted owner selection failure");
         return scenario==Case::idle||intervals==2?14:10;
     }
@@ -204,6 +225,8 @@ struct Script final:ExternalProcessing {
         intervals=0;delivered=0;return true;
     }
     void service_owner()override{
+        if(scenario==Case::render_owner_failure&&render_waiting.load(std::memory_order_acquire))
+            throw std::runtime_error("scripted owner failure while render waits for the next transition");
         if((scenario==Case::owner_during_start||scenario==Case::cancel_restart)&&start_entered.load(std::memory_order_acquire))
             throw std::runtime_error("scripted owner cancellation while Start is in flight");
         if(scenario==Case::hung_process&&fixture.process_entered.load(std::memory_order_acquire))
@@ -239,7 +262,7 @@ void exercise(Case scenario,bool instrument=false){
     const auto begin=GetTickCount64();
     auto result=run_offline_processing(fixture,fixture,callbacks,events,&script);
     assert(result.quiescent&&fixture.active_calls==fixture.inactive_calls);
-    const bool success=scenario==Case::idle||scenario==Case::reconfigure||scenario==Case::legacy_finite;
+    const bool success=scenario==Case::idle||scenario==Case::reconfigure||scenario==Case::legacy_finite||scenario==Case::render_owned;
     assert(result.success==success&&result.retirement_ready==success);
     if(scenario==Case::idle){assert(fixture.starts==0&&fixture.stops==0&&fixture.blocks==0);}
     if(scenario==Case::reconfigure){
@@ -260,6 +283,20 @@ void exercise(Case scenario,bool instrument=false){
         assert(script.owner_failures==1&&script.cancelled.load());
         assert(fixture.starts==1&&fixture.stops==1&&fixture.blocks==5&&script.stopped_acks==1);
     }
+    if(scenario==Case::render_owned){
+        // One owner selection (the first Start), then render alone: three
+        // intervals, three render acknowledgements, Deactivate via the owner.
+        assert(fixture.starts==3&&fixture.stops==3&&fixture.blocks==15);
+        assert(script.started_acks==3&&script.stopped_acks==3);
+        assert(script.owner_next_calls==1&&script.render_next_calls==3&&script.render_pending_calls==1);
+    }
+    if(scenario==Case::render_throw_second_start){
+        assert(fixture.starts==2&&fixture.stops==2&&script.started_acks==1&&script.stopped_acks==1&&script.render_next_calls==1);
+    }
+    if(scenario==Case::render_owner_failure){
+        assert(script.owner_failures==1&&script.cancelled.load());
+        assert(fixture.starts==1&&fixture.stops==1&&script.stopped_acks==1&&script.render_next_calls==1);
+    }
     if(scenario==Case::malformed_samples){
         assert(fixture.starts==1&&fixture.stops==1&&fixture.blocks==2&&script.delivered==1);
     }
@@ -271,6 +308,16 @@ int main(int argc,char** argv){
     std::set_terminate([]{ExitProcess(96);});
     if(argc==2&&std::string_view(argv[1])=="--cancel-restart"){
         exercise(Case::cancel_restart);return 0;
+    }
+    if(argc==2&&std::string_view(argv[1])=="--render-throw-second-start"){
+        // Exported records are checked by the Python driver.
+        exercise(Case::render_throw_second_start);
+        return 0;
+    }
+    if(argc==2&&std::string_view(argv[1])=="--render-refuse-stop"){
+        // Render must not acknowledge a refused stop; the owner still contains it.
+        exercise(Case::render_refused_stop);
+        return 97;
     }
     if(argc==2&&(std::string_view(argv[1])=="--refuse-stop"||std::string_view(argv[1])=="--hang")){
         exercise(std::string_view(argv[1])=="--hang"?Case::hung_process:Case::refused_stop);
@@ -294,5 +341,8 @@ int main(int argc,char** argv){
     exercise(Case::throw_start);
     exercise(Case::throw_start_owner_failure);
     exercise(Case::malformed_samples);
+    exercise(Case::render_owned);
+    exercise(Case::render_owned,true);
+    exercise(Case::render_owner_failure);
     std::cout<<"prepared render lifecycle: activation ordering, interval reuse, zero frames, inactive reconfiguration and failure retirement passed\n";
 }
