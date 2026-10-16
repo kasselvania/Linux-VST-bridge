@@ -1,5 +1,6 @@
 #pragma once
 #include "public.sdk/source/vst/vstaudioeffect.h"
+#include "admission_refusal.h"
 #include <atomic>
 #include <cstdint>
 #include <memory>
@@ -90,6 +91,24 @@ private:
   std::atomic<bool> terminal_latched_{false};
   bool terminal();
   bool stateSession();
+  // One refused or failed bridge admission ends this instance's attempts:
+  // the editor timer must not reach the bridge service on every tick.
+  std::atomic<bool> session_refused_{false};
+  int64_t refusal_kind_ = LVBAdmission::Unknown; // Set with session_refused_.
+  // An instance that never applied host state in a bridge session (refused,
+  // or its admission failed during restore) keeps the exact envelope the host
+  // restored and returns it unchanged from getState, so a save keeps the
+  // project's own bytes. Owner thread only; never touched by process(). One
+  // envelope, bounded by LVBState::payloadLimit like any loaded instance's
+  // state; released once a session applies state.
+  std::vector<uint8_t> held_state_;
+  bool state_held_ = false;
+  // The host restored state this instance could not keep (over the cap or
+  // malformed): saving then refuses rather than claim an empty state.
+  bool state_unkept_ = false;
+  void holdState(std::vector<uint8_t> &&blob);
+  Steinberg::tresult saveNothingRecorded(Steinberg::IBStream *stream);
+  void announceHeldState();
   uint32_t output_mask_=1;
 #ifdef AP8_PREVIEW
   AP10Results::Output returned_;
