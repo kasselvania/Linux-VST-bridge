@@ -3,6 +3,7 @@ import copy,hashlib,json,pathlib,struct,tempfile,unittest
 from unittest.mock import patch
 import session as s
 import ownership
+REAL_CENSUS=s.nad1_listener_census
 
 class OwnerTests(unittest.TestCase):
  def setUp(self):
@@ -89,22 +90,38 @@ class OwnerTests(unittest.TestCase):
   self.assertEqual(self.commands,[])
  def test_foreign_listener_on_service_ports_refuses_before_any_service_action(self):
   # Another Wine setup's service (or any program) holding the fixed ports is
-  # never reached: no query, install or start, and the profile's ports are used.
-  self.owner.managed_contract={'fixture':'managed','profile':{'dependency':{'listeners':[7001,7002]}}}
+  # never reached: no query, install or start, and the session's own ports,
+  # on loopback or all addresses, are checked.
+  self.owner.managed_contract={'fixture':'managed','profile':{}};self.owner.listeners=(7001,7002)
   for mask in [1,2,3]:
    self.ports.return_value={'schema':1,'listener_mask':mask}
    with self.subTest(mask=mask),self.assertRaisesRegex(ValueError,'^dependency_listener_conflict$'):self.owner.ensure(True)
-  self.assertEqual(self.commands,[]);self.ports.assert_called_with(listeners=(7001,7002))
-  self.owner.managed_contract=None
-  with self.assertRaisesRegex(ValueError,'^dependency_listener_conflict$'):self.owner.ensure(True,self.existing())
-  self.ports.assert_called_with(listeners=(5146,5563));self.assertEqual(self.commands,[])
- def test_listener_check_never_blocks_this_prefixs_own_running_service(self):
+  self.assertEqual(self.commands,[]);self.ports.assert_called_with(listeners=(7001,7002),any_address=True)
+ def test_listener_check_is_only_for_profile_managed_sessions(self):
+  # Other dependency sessions keep their earlier outcome for a held port.
   self.ports.return_value={'schema':1,'listener_mask':3}
-  self.owner.ensure(True,self.existing(state=4));self.assertEqual(self.commands,['query','query'])
- def test_conflicts_explain_the_other_wine_setup_in_plain_words(self):
-  for code in ['dependency_foreign_conflict','dependency_listener_conflict']:
-   message=s.managed_application_problem(code)
-   self.assertIn('different Wine setup',message);self.assertIn('then try again',message);self.assertNotIn('_',message)
+  self.owner.ensure(True,self.existing());self.ports.assert_not_called()
+  self.assertEqual(self.commands,['query','start','query'])
+ def test_listener_check_never_blocks_this_prefixs_own_running_service(self):
+  self.owner.managed_contract={'fixture':'managed','profile':{}}
+  self.ports.return_value={'schema':1,'listener_mask':3}
+  with patch.object(self.owner,'registry_defaults'):self.owner.ensure(True,self.existing(state=4))
+  self.assertEqual(self.commands,['query','query']);self.ports.assert_not_called()
+ def test_conflicts_say_what_is_known_in_plain_words(self):
+  foreign=s.managed_application_problem('dependency_foreign_conflict')
+  self.assertIn('already running from a different Wine setup',foreign)
+  held=s.managed_application_problem('dependency_listener_conflict')
+  self.assertTrue(held.startswith('Another program is using the connection'));self.assertNotIn('already running',held)
+  for message in (foreign,held):self.assertIn('then try again',message);self.assertNotIn('_',message)
+ def test_any_address_listeners_count_only_when_asked(self):
+  import tempfile as t
+  with t.TemporaryDirectory() as tmp:
+   net=pathlib.Path(tmp)/'net';net.mkdir()
+   head='  sl  local_address rem_address   st\n'
+   (net/'tcp').write_text(head+'   0: 00000000:141A 00000000:0000 0A\n')
+   (net/'tcp6').write_text(head+'   0: 00000000000000000000000000000000:15BB 00000000000000000000000000000000:0000 0A\n')
+   self.assertEqual(REAL_CENSUS(pathlib.Path(tmp))['listener_mask'],0)
+   self.assertEqual(REAL_CENSUS(pathlib.Path(tmp),any_address=True)['listener_mask'],3)
  def test_unresolved_refuses_even_with_absent_files(self):
   self.scan['unavailable']=1
   with self.assertRaisesRegex(ValueError,'identity_unresolved'):self.owner.ensure(True)

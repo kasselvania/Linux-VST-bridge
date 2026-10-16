@@ -2810,8 +2810,15 @@ mod tests {
         let result=|schema:u32,code:Option<&str>,error:Option<&str>|serde_json::from_value::<vendor_application::OperationResult>(
             json!({"schema":schema,"operation_id":"ab".repeat(16),"state":"failed","launcher_exit":null,"owned_live":0,
                 "cleanup_confirmed":true,"error":error,"error_code":code,"discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
-        let plain="Another copy of this app's background service is already running from a different Wine setup. Close the program using it, for example a DAW with plug-ins loaded through another bridge, then try again.";
-        assert_eq!(vendor_failure_reason(Some(result(3,Some("dependency_listener_conflict"),Some(plain)))),plain);
+        // Each supervisor sentence reaches the card as written, whatever its cause.
+        for (code,plain) in [
+            ("dependency_listener_conflict","Another program is using the connection this app's background service needs (usually another Wine setup's copy of it). Close it, for example a DAW with plug-ins loaded through another bridge, then try again."),
+            ("dependency_foreign_conflict","Another copy of this app's background service is already running from a different Wine setup. Close the program using it, for example a DAW with plug-ins loaded through another bridge, then try again."),
+            ("dependency_runtime_launch_failed","The compatibility runtime could not start this app. Update the bridge, then try again."),
+            ("renderer_image_changed","The app's recorded files changed or are incomplete. Run its full installer in this setup again."),
+        ] {
+            assert_eq!(vendor_failure_reason(Some(result(3,Some(code),Some(plain)))),plain,"{code}");
+        }
         let generic="The application session stopped or failed. Its files and results are retained.";
         assert_eq!(vendor_failure_reason(Some(result(3,None,Some("raw")))),generic);
         assert_eq!(vendor_failure_reason(Some(result(2,Some("x"),Some("raw")))),generic);
