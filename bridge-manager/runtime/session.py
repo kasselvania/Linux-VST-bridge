@@ -2526,6 +2526,15 @@ class InstallerWindowsTrace:
             self.retire(pid)
             return True
         return True # exclude other process lines/arguments from private log projection
+    def root_succeeded(self):
+        """The installer's own root process ended by itself with status 0.
+
+        The runner (and its container) can outlive the installer while anything
+        the installer started keeps running, so its exit is not this signal.
+        """
+        if self.binding is not None and self.binding['status']!='bound':return False
+        return any(row['target_root'] and row['epoch']==self.epoch and row['self_exit'] is not None
+            and row['self_exit']['status']==0 and not row.get('exit_conflict') for row in self.rows)
     def value(self):return {'schema':1,'processes':self.rows,'dropped_observations':self.dropped,'first_failure':self.first_failure,'service_results':self.service_results,'launch_binding':self.binding,'presence_close':self.presence.value()}
 
 class InstallerTransaction:
@@ -3027,7 +3036,8 @@ def managed_install(spec, *, source_owned_is3=None):
             # would run before its managed launch prepares its dependency; end
             # it so its first start is the managed one. Anything else (a second
             # installer, a helper) keeps the session waiting as before.
-            if first_launch and child.returncode==0 and time.monotonic()-first_launch_checked>.25:
+            if (first_launch and time.monotonic()-first_launch_checked>.25
+                    and (child.returncode==0 or transaction.windows_trace.root_succeeded())):
                 first_launch_checked=time.monotonic()
                 images=installer_started_profiled_images(transaction.windows_trace,first_launch)
                 if images:

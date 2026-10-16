@@ -43,6 +43,22 @@ class ImageMatchTests(unittest.TestCase):
             self.assertEqual(session.installer_started_profiled_images(self.trace(root,[CREATE,STARTED]),[]),{})
             other=dict(PROFILE,executable='Other.exe')
             self.assertEqual(session.installer_started_profiled_images(self.trace(root,[CREATE,STARTED]),[other]),{})
+    def test_installer_root_success_is_its_own_traced_exit_not_the_runner(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp).resolve();artifact=root/'installer.exe';artifact.write_bytes(b'x')
+            windows='Z:'+str(artifact).replace('/','\\\\')
+            create=f'0.9:0010:0014:trace:process:CreateProcessInternalW app L"{windows}" cmdline L"x"\n'
+            started='0.91:0010:0014:trace:process:CreateProcessInternalW started process pid 0020 tid 0024\n'
+            def exit_line(code):return f'1.5:0020:0024:trace:process:NtTerminateProcess handle 0xffffffffffffffff, exit_code {code}, process_exiting 1.\n'
+            self.assertFalse(self.trace(root,[create,started]).root_succeeded())
+            self.assertTrue(self.trace(root,[create,started,exit_line(0)]).root_succeeded())
+            self.assertFalse(self.trace(root,[create,started,exit_line(3)]).root_succeeded())
+            # A child exiting 0 is not the installer finishing.
+            self.assertFalse(self.trace(root,[create,started,CREATE.replace('0020:0024','0020:0024'),
+                '1.0:0020:0024:trace:process:CreateProcessInternalW started process pid 0030 tid 0034\n',
+                '1.2:0030:0034:trace:process:NtTerminateProcess handle 0xffffffffffffffff, exit_code 0, process_exiting 1.\n']).root_succeeded())
+            unbound=self.trace(root,[create,started,exit_line(0)]);unbound.binding={'status':'unavailable'}
+            self.assertFalse(unbound.root_succeeded())
     def test_missing_resource_alias_or_outside_prefix_is_not_the_profiled_app(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=pathlib.Path(tmp).resolve();exe=app_tree(root,resources=False)
@@ -63,12 +79,17 @@ class InstallerLoopTests(unittest.TestCase):
             spec={'schema':2,'operation':'ab'*16,'environment':{'root':str(root),'runner':{'entry_point':'fixed-runner','proton':'fixed-proton','files':[]}},
                 'installer':{'path':str(artifact),'sha256':session.hashlib.sha256(b'fixture').hexdigest()},'format':'pe_executable','report':str(root/'result.json')}
             if profiles is not None:spec['managed_first_launch']=profiles
-            # The installer reports starting the app through the runner trace,
-            # leaves a process that maps the app's image, then exits successfully.
+            # As under the real runner: the trace shows the installer root start
+            # the app and then end with status 0, while the runner itself stays
+            # until everything it started has ended (pressure-vessel subreaper).
+            windows='Z:'+str(artifact).replace('/','\\\\')
+            root_create=f'0.900:0010:0014:trace:process:CreateProcessInternalW app L"{windows}" cmdline L"x"\n'
+            root_started='0.901:0010:0014:trace:process:CreateProcessInternalW started process pid 0020 tid 0024\n'
+            root_exit='1.500:0020:0024:trace:process:NtTerminateProcess handle 0xffffffffffffffff, exit_code 0, process_exiting 1.\n'
             app=('import mmap,sys,time;f=open(sys.argv[1],"rb");m=mmap.mmap(f.fileno(),0,access=mmap.ACCESS_READ);'
                 'sys.stdout.write("app running\\n");sys.stdout.flush();time.sleep(6)')
-            installer=(f'import os,subprocess,sys,time;sys.stderr.write({CREATE!r});sys.stderr.write({STARTED!r});sys.stderr.flush();'
-                f'subprocess.Popen([sys.executable,"-c",{app!r},{str(exe)!r}],start_new_session=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);time.sleep(.5)')
+            installer=(f'import os,subprocess,sys,time;sys.stderr.write({root_create+root_started+CREATE+STARTED+root_exit!r});sys.stderr.flush();'
+                f'p=subprocess.Popen([sys.executable,"-c",{app!r},{str(exe)!r}],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);p.wait()')
             real_popen=subprocess.Popen;children=[]
             def launch_owned(args,**kwargs):
                 if not children:
