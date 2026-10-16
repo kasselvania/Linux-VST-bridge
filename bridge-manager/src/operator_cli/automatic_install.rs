@@ -2823,8 +2823,11 @@ mod tests {
         assert_eq!(closed.journey.as_ref().unwrap().phase,ui::InstallationPhase::AwaitingApplication);
         assert_eq!(closed.status,"Installed. Its installer opened the app before its background service was ready, \
             so the bridge closed that copy. Open the app here: the bridge sets up the service first.");
-        assert_eq!(serde_json::to_value((&closed.primary,&closed.secondary)).unwrap(),
-            serde_json::to_value((&ordinary.primary,&ordinary.secondary)).unwrap(),"The same Open offer stays");
+        // The same Open offers stay (their selectors bind the rewritten result).
+        let offers=|setup:&ui::InstallerSetup|setup.primary.iter().chain(&setup.secondary)
+            .map(|offer|(offer.label.clone(),offer.disabled_reason.clone())).collect::<Vec<_>>();
+        assert_eq!(offers(&closed),offers(&ordinary));
+        assert!(offers(&closed).iter().any(|(label,reason)|label.starts_with("Open ") && reason.is_none()));
         assert!(installer_closed_started_app(&installation));
         assert!(!installer_closed_started_app(&json!({"started_application":null})));
     }
