@@ -235,6 +235,25 @@ impl<'a> NativeStartup<'a> {
         if retained.is_err() { eprintln!("native startup measurement unavailable"); }
     }
 }
+fn publication_binding(registration:&Registration)->serde_json::Value {
+    serde_json::json!({"environment": registration.environment.id,
+        "environment_revision": registration.environment.revision,
+        "native_sha256": registration.native.sha256})
+}
+// Before a refused load's record is written: a DAW that still holds an older
+// bridge module (any protocol version) is told to restart, and a refusal made
+// before the publication was resolved is tied to the class's current one, so
+// its card never outlives that publication.
+fn note_refusal(startup:&mut NativeStartup,error:&Box<dyn std::error::Error+Send+Sync>,
+    resolve:impl FnOnce()->Result<Registration>) {
+    if error.downcast_ref::<capacity::Refusal>()==Some(&capacity::Refusal::StaleNativeCaller)
+        && startup.phases.last().map(|phase|phase.0)!=Some("bridge_update_required") {
+        startup.phase("bridge_update_required");
+    }
+    if startup.binding.is_none() {
+        if let Ok(registration)=resolve() { startup.binding=Some(publication_binding(&registration)); }
+    }
+}
 impl Drop for NativeStartup<'_> {
     fn drop(&mut self) { if !self.finished { self.finish("refused"); } }
 }
@@ -1821,10 +1840,7 @@ fn serve(m: Manager) -> Result<()> {
                         } else {prepare_execution()?};
                         Ok((registration, execution))
                     })?;
-                    startup.binding = Some(serde_json::json!({
-                        "environment": registration.environment.id,
-                        "environment_revision": registration.environment.revision,
-                        "native_sha256": registration.native.sha256}));
+                    startup.binding = Some(publication_binding(&registration));
                     // Shared byte preparation is complete. All keeper and DSP
                     // work proceeds independently, rechecking those observations
                     // in this exact admission before exposing the binding.
@@ -1951,6 +1967,7 @@ fn serve(m: Manager) -> Result<()> {
                 let (execution,r,performance,job,path,mut admission,mut storage)=match prepared {
                     Ok(value)=>value,
                     Err(e)=>{
+                        note_refusal(&mut startup,&e,|| m.resolve(&greeting[5..53]));
                         if version3 {
                             let reason=e.downcast_ref::<capacity::Refusal>().copied()
                                 .unwrap_or(capacity::Refusal::BindingInvalid);
@@ -2978,6 +2995,35 @@ mod tests {
             "cleanup_confirmed":false})).unwrap();
         assert!(observe_keeper(&f.r.environment.id,&mut active).is_err());
         assert_eq!(active.len(),1);
+    }
+    #[test]
+    fn stale_module_refusal_records_a_restart_tied_to_the_current_publication() {
+        let f=test_fixture::Fixture::new();
+        let class=f.r.metadata.class_id.clone();
+        let path=f.m.root.join("runtime/native-startup").join(format!("{}.json",class.to_ascii_lowercase()));
+        // A v5 module whose engine/descriptor no longer matches is refused in
+        // binding verification, before any phase names it.
+        {
+            let mut startup=NativeStartup::new(&f.m,[7;16],class.clone());
+            let error:Box<dyn std::error::Error+Send+Sync>=capacity::Refusal::StaleNativeCaller.into();
+            note_refusal(&mut startup,&error,|| Ok(f.r.clone()));
+        }
+        let record:serde_json::Value=read_json(&path).unwrap();
+        assert_eq!(record["outcome"],"refused");
+        assert_eq!(record["phases"].as_array().unwrap().last().unwrap()[0],"bridge_update_required");
+        assert_eq!(record["binding"]["native_sha256"],f.r.native.sha256);
+        assert_eq!(linux_vst_bridge::problem::from_load_record("refused",Some("bridge_update_required"))
+            .unwrap().code,"bridge_updated_daw_old");
+        // Any other refusal keeps its own last phase.
+        {
+            let mut startup=NativeStartup::new(&f.m,[8;16],class.clone());
+            startup.phase("keeper_failed");
+            let error:Box<dyn std::error::Error+Send+Sync>=capacity::Refusal::BindingInvalid.into();
+            note_refusal(&mut startup,&error,|| Err("unpublished".into()));
+        }
+        let record:serde_json::Value=read_json(&path).unwrap();
+        assert_eq!(record["phases"].as_array().unwrap().last().unwrap()[0],"keeper_failed");
+        assert!(record["binding"].is_null());
     }
     #[test]
     fn keeper_admission_incident_names_the_private_failure_source() {
