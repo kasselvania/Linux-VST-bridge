@@ -1163,6 +1163,13 @@ fn reserve_vendor_revision(m:&Manager,record:&dyn InstallationTarget,intent:&Int
     drop(_registry);drop(_ownership);
     Ok(binding.environment)
 }
+/// A profile-managed session explains its own refusal in plain words (for
+/// example another Wine setup holding the app's service); the card shows that.
+fn vendor_failure_reason(result: Option<vendor_application::OperationResult>) -> String {
+    result.filter(|result| result.schema == 3 && result.error_code.is_some())
+        .and_then(|result| result.error)
+        .unwrap_or_else(|| "The application session stopped or failed. Its files and results are retained.".into())
+}
 fn require_vendor_success(m: &Manager, vendor: &VendorWork) -> Result<()> {
     vendor.selected.verify()?;
     require(
@@ -1244,8 +1251,8 @@ fn run_vendor(
         intent.journey.phase = ui::InstallationPhase::NeedsAttention;
         let mut failed = failure(ui::InstallationFailureStage::VendorInstallation, &error);
         failed.retryable = false;
-        failed.reason =
-            "The application session stopped or failed. Its files and results are retained.".into();
+        let vendor = intent.vendor.as_ref().unwrap();
+        failed.reason = vendor_failure_reason(vendor_cli::result(m, &vendor.application, &vendor.operation).ok());
         intent.journey.failure = Some(failed);
         save(m, record, intent, operation)?;
         return Err(error);
@@ -2797,6 +2804,18 @@ mod tests {
             assert_eq!(vendor_intent(&f.m,&selector).unwrap().unwrap().owner,continuation.owner);
         });
         assert_eq!(fs::read(path).unwrap(),original);
+    }
+    #[test]
+    fn a_managed_sessions_own_plain_refusal_reaches_the_card() {
+        let result=|schema:u32,code:Option<&str>,error:Option<&str>|serde_json::from_value::<vendor_application::OperationResult>(
+            json!({"schema":schema,"operation_id":"ab".repeat(16),"state":"failed","launcher_exit":null,"owned_live":0,
+                "cleanup_confirmed":true,"error":error,"error_code":code,"discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
+        let plain="Another copy of this app's background service is already running from a different Wine setup. Close the program using it, for example a DAW with plug-ins loaded through another bridge, then try again.";
+        assert_eq!(vendor_failure_reason(Some(result(3,Some("dependency_listener_conflict"),Some(plain)))),plain);
+        let generic="The application session stopped or failed. Its files and results are retained.";
+        assert_eq!(vendor_failure_reason(Some(result(3,None,Some("raw")))),generic);
+        assert_eq!(vendor_failure_reason(Some(result(2,Some("x"),Some("raw")))),generic);
+        assert_eq!(vendor_failure_reason(None),generic);
     }
     #[test]
     fn app_handoff_explains_the_copy_its_installer_opened_and_the_supervisor_closed() {
