@@ -974,12 +974,12 @@ normal process and transport retirement are confirmed. Unsupported kernel custod
 capabilities refuse explicitly. This does not establish cross-distro coverage or
 attribute the earlier missing audio block.
 
-Test201 exposes [#428](https://github.com/kasselvania/Linux-VST-bridge/issues/428):
-Kontakt stalls in initialization before audio readiness, leaving cleanup unconfirmed
-and recovery disabled. Custody now observes the authenticated host's exact status
-mapping during startup; Linux tests retire that stalled host and preserve a sibling.
-Installed prevention remains pending; ordinary clean-boot recovery preserves the
-failed result and retires its lease without claiming a successful session.
+Test203 fixes [#428](https://github.com/kasselvania/Linux-VST-bridge/issues/428),
+seen in Test201: authenticated startup custody now retires the exact host and
+transport after the same real Kontakt initialization timeout. Without a reboot,
+the same Bitwig process subsequently loads and plays the exact first-party
+instrument; Linux tests retain wrong-writer/mapping refusals and sibling isolation.
+Kontakt's Bitwig initialization stall still blocks #410 controller acceptance.
 
 Test40's first managed-runtime reopen fails before native binding because its legacy
 working directory is absent. Test41 uses the existing launch HOME and the same original
