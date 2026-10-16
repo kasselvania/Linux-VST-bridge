@@ -1,5 +1,6 @@
 use super::*;
 use crate::operator_cli::tests::{capacity_fixture, onboarding_worker_fixture};
+use linux_vst_bridge::preparation as prep;
 
 const NAME: &str = "ValhallaSpaceModulator version 1.1.6v3";
 const COMMAND: &str = "\"C:\\Program Files\\Valhalla DSP, LLC\\unins000.exe\"";
@@ -110,7 +111,7 @@ fn run(s: &Installed, supervisor: impl Fn(&Manager, &Record) -> Result<()>) -> (
     let mut running = || Ok(());
     let outcome = execute(&s.f.m, &s.record.id, &s.registration, &uninstall_entry::command_sha256(COMMAND), &operation,
         &mut Hooks {launch:&launch, is_live:&|_| Ok(false), vendor_retired:&|| Ok(true), running:&mut running,
-            rescan:&|_, _| Ok(json!({}))});
+            rescan:&|_, _| Ok(json!({})), revalidate:&|_, _, _, _| Err("not expected".into())});
     (operation, outcome)
 }
 fn report(m: &Manager, record: &Record, state: &str, raw_exit: i64) {
@@ -138,10 +139,11 @@ fn only_registrations_this_setup_installed_are_offered_with_their_plugins() {
     // changed hive is read again.
     refresh_index(&s.f.m, &s.record.id).unwrap();
     assert!(index_path(&s.f.m, &s.record.id).exists());
-    let cached = indexed(&s.f.m, &s.record, &s.record.environment).unwrap();
+    let installs = environment_install::records(&s.f.m).unwrap();
+    let cached = indexed(&s.f.m, &s.record, &s.record.environment, &installs).unwrap();
     assert_eq!(cached.0.len(), 2);
     fs::write(s.record.environment.root.join("compatdata/pfx/system.reg"), HIVE_AFTER).unwrap();
-    assert_eq!(indexed(&s.f.m, &s.record, &s.record.environment).unwrap().0.len(), 1);
+    assert_eq!(indexed(&s.f.m, &s.record, &s.record.environment, &installs).unwrap().0.len(), 1);
 }
 
 #[test]
@@ -270,7 +272,25 @@ fn an_uninstaller_that_never_started_or_never_closed_says_so_and_keeps_its_card(
     assert!(!settled(&s.f.m, &operation).unwrap());
     assert!(!all_retired(&s.f.m).unwrap() && !onboarding::all_retired(&s.f.m).unwrap(),
         "other installers and deletions wait for it");
-    assert_eq!(unresolved(&s.f.m, &s.record.id, &mut |_| Ok(false)).unwrap(), Some(operation));
+    assert_eq!(unresolved(&s.f.m, &s.record.id).unwrap(), Some(operation.clone()));
+    // Check that it closed: nothing runs from the setup, so it is recorded as closed.
+    let mut held = std::process::Command::new("sleep").arg("30")
+        .env("WINEPREFIX", s.record.environment.root.join("compatdata/pfx")).spawn().unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !fs::read(format!("/proc/{}/environ", held.id())).is_ok_and(|e| e.windows(11).any(|w| w == b"WINEPREFIX=")) {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let refused = environment_install::confirm_closed(&s.f.m, &operation, &|_| Ok(false));
+    held.kill().unwrap();
+    held.wait().unwrap();
+    assert!(refused.unwrap_err().to_string().contains("is still running from this setup"));
+    assert_eq!(environment_install::confirm_closed(&s.f.m, &operation, &|_| Ok(true)).unwrap_err().to_string(),
+        "It is still running. Use Stop instead.");
+    let closed = environment_install::confirm_closed(&s.f.m, &operation, &|_| Ok(false)).unwrap();
+    assert_eq!(closed["cleanup_confirmed"], true);
+    assert!(settled(&s.f.m, &operation).unwrap() && all_retired(&s.f.m).unwrap());
+    assert_eq!(unresolved(&s.f.m, &s.record.id).unwrap(), None);
 }
 
 #[test]
@@ -317,4 +337,215 @@ fn an_uninstall_after_a_runtime_change_uses_the_setups_current_runtime() {
     atomic_json(&after.root.join("environment.json"), &after).unwrap();
     let plan = check(&s.f.m, &s.record.id, &s.registration, &uninstall_entry::command_sha256(COMMAND)).unwrap();
     assert_eq!(plan.before, after, "never the setup's original runtime");
+}
+
+/// A setup with a real published plug-in and the setup's own uninstaller,
+/// which `covers` the published plug-in or only a second, unregistered one.
+struct Published {
+    f: test_fixture::Fixture,
+    c: prep::Candidate,
+    current: RevisionRef,
+    record: onboarding::Record,
+    registration: String,
+}
+fn published_setup(covers: bool) -> Published {
+    let (f, c, _, _) = preparation_cli::tests::guided_fixture_with_role(false);
+    prep::retain_inspection(&f.m, &c.inspection).unwrap();
+    prep::record_candidate(&f.m, &c).unwrap();
+    let current = prep::enable(&f.m, &c, false).unwrap();
+    let environment = c.selection.environment.clone();
+    let operation = random_id().unwrap();
+    let record = onboarding::Record {schema:1,id:environment.id.clone(),installer:"ab".repeat(32),
+        environment:environment.clone(),created_at:1,creation_operation:operation.clone(),
+        installation_operation:Some(operation.clone()),published:false,automatic:None,previous_attempt:None};
+    let directory = onboarding::directory(&f.m, &record.id).unwrap();
+    private_dir(&directory).unwrap();
+    atomic_json(&directory.join("record.json"), &record).unwrap();
+    atomic_json(&directory.join(format!("{operation}-result.json")), &json!({"schema":2,"operation":operation,
+        "state":"completed","cleanup_confirmed":true,"owned_live":0})).unwrap();
+    let drive = drive_c(&environment);
+    private_dir(&drive.join("Program Files/Valhalla DSP, LLC")).unwrap();
+    fs::write(drive.join(UNINSTALLER), b"MZ uninstaller").unwrap();
+    private_dir(&drive.join("Program Files/Common Files/VST3")).unwrap();
+    fs::write(drive.join(MODULE), b"MZ module").unwrap();
+    fs::write(environment.root.join("compatdata/pfx/system.reg"), HIVE).unwrap();
+    let registration = registration_named(&environment, NAME);
+    let published = c.selection.module.path.strip_prefix(&drive).unwrap().to_string_lossy().into_owned();
+    let mut files = vec![UNINSTALLER, MODULE];
+    if covers { files.push(&published); }
+    witness(&directory.join(format!("{operation}-transaction-private.json")), &files, &[&registration], &drive, &[]);
+    // The second plug-in this registration installed, in the setup's scan.
+    let path = f.m.root.join("inventory").join(format!("{}.json", environment.id));
+    let mut scan: inventory::Scan = read_json(&path).unwrap();
+    let artifact = Artifact {sha256:digest(&drive.join(MODULE)).unwrap(),path:drive.join(MODULE)};
+    scan.modules.push(inventory::Module {artifact:artifact.clone(),
+        classes:vec![inventory::Class {id:"5D".repeat(16),name:"ValhallaSpaceModulator".into(),
+            vendor:"Valhalla DSP, LLC".into(),version:"1.1.6".into(),category:"Audio Module Class".into(),
+            subcategories:"Fx".into(),role:"effect".into()}],
+        report:artifact,inspection_error:None,quarantine_reason:None});
+    atomic_json(&path, &scan).unwrap();
+    let record = onboarding::history_records(&f.m).unwrap().into_iter().find(|r| r.id == environment.id).unwrap();
+    Published {f, c, current, record, registration}
+}
+/// The setup's scan, read again in its new revision without the files that are gone.
+fn rescanned(m: &Manager, environment: Environment) -> Result<Value> {
+    let path = m.root.join("inventory").join(format!("{}.json", environment.id));
+    let mut scan: inventory::Scan = read_json(&path)?;
+    scan.modules.retain(|module| module.artifact.path.exists());
+    scan.environment = environment;
+    scan.id = random_id()?;
+    atomic_json(&path, &scan)?;
+    Ok(json!({}))
+}
+/// The same plug-in, inspected again in its new revision (no Windows run).
+fn inspector(c: &prep::Candidate) -> impl Fn(&Manager, &prep::Selection, &Software, Option<profiles::AudioLayoutPolicy>)
+    -> Result<prep::Inspection> + '_ {
+    move |m, selection, _, _| {
+        let mut inspection = c.inspection.clone();
+        inspection.selection = selection.clone();
+        prep::retain_inspection(m, &inspection)?;
+        Ok(inspection)
+    }
+}
+fn run_published(p: &Published, supervisor: impl Fn(&Manager, &Record) -> Result<()>,
+    is_live: &dyn Fn(&str) -> Result<bool>) -> Result<Value> {
+    let operation = random_id().unwrap();
+    let directory = job_dir(&p.f.m, &operation).unwrap();
+    private_dir(&directory).unwrap();
+    atomic_json(&directory.join("request.json"), &ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"t".into(),
+        action:ui::Action::ProductUninstall {environment:p.record.id.clone(),registration:p.registration.clone(),
+            command_sha256:uninstall_entry::command_sha256(COMMAND),confirmed:true}}).unwrap();
+    let launch = |m: &Manager, record: &Record| supervisor(m, record);
+    let inspect = inspector(&p.c);
+    let revalidate = |m: &Manager, class: &str, current: &RevisionRef, work: &str|
+        preparation_cli::revalidate_in_place(m, class, current, work, &inspect);
+    let mut running = || Ok(());
+    execute(&p.f.m, &p.record.id, &p.registration, &uninstall_entry::command_sha256(COMMAND), &operation,
+        &mut Hooks {launch:&launch, is_live, vendor_retired:&|| Ok(true), running:&mut running,
+            rescan:&rescanned, revalidate:&revalidate})
+}
+fn loadable(m: &Manager, class: &str) -> linux_vst_bridge::Entry {
+    let entry = m.registry().unwrap().classes[class].clone();
+    assert_eq!(entry.publication, Publication::Published);
+    entry.registration.verify(&m.root).unwrap();
+    assert!(linux_vst_bridge::publication::physical(&m.link(class)).unwrap().is_some());
+    entry
+}
+
+#[test]
+fn a_declined_uninstall_puts_its_plugins_back_checked_again() {
+    let p = published_setup(true);
+    let class = p.c.selection.class.id.clone();
+    let name = p.f.m.registry().unwrap().classes[&class].registration.metadata.name.clone();
+    // "No" in the vendor's own prompt.
+    let outcome = run_published(&p, |m, record| { report(m, record, "failed", 1); Ok(()) }, &|_| Ok(false)).unwrap();
+    let message = outcome["message"].as_str().unwrap();
+    assert!(message.contains("nothing is reported as uninstalled"), "{message}");
+    assert!(message.contains(&format!("{name} is back in your DAW, checked again with this setup.")), "{message}");
+    let entry = loadable(&p.f.m, &class);
+    assert_ne!(entry.managed_revision.as_ref(), Some(&p.current), "checked again, as a new publication");
+    assert_eq!(entry.registration.environment.revision, p.record.environment.revision + 1);
+    assert_eq!(outcome["back_in_daw"], json!([name]));
+}
+
+#[test]
+fn the_setups_other_plugins_are_checked_again_or_named_when_their_files_are_gone() {
+    let p = published_setup(false);
+    let class = p.c.selection.class.id.clone();
+    let name = p.f.m.registry().unwrap().classes[&class].registration.metadata.name.clone();
+    let uninstalled = |m: &Manager, record: &Record| {
+        fs::remove_file(drive_c(&record.environment).join(MODULE)).unwrap();
+        fs::write(record.environment.root.join("compatdata/pfx/system.reg"), HIVE_AFTER).unwrap();
+        report(m, record, "completed", 0);
+        Ok(())
+    };
+    let outcome = run_published(&p, uninstalled, &|_| Ok(false)).unwrap();
+    let message = outcome["message"].as_str().unwrap();
+    assert!(message.starts_with(&format!("{NAME} was uninstalled.")), "{message}");
+    assert!(message.contains(&format!("{name} was checked again and stays in your DAW.")), "{message}");
+    let entry = loadable(&p.f.m, &class);
+    assert_eq!(entry.registration.environment.revision, p.record.environment.revision + 1, "loadable in the new revision");
+    // The uninstaller also removed another plug-in's files: named, and out of the DAW.
+    let p = published_setup(false);
+    let module = p.c.selection.module.path.clone();
+    let outcome = run_published(&p, |m, record| {
+        fs::remove_file(&module).unwrap();
+        uninstalled(m, record)
+    }, &|_| Ok(false)).unwrap();
+    assert_eq!(outcome["also_removed"], json!([name.clone()]));
+    assert!(outcome["message"].as_str().unwrap().contains(&format!("{name} also left your DAW because its files are gone.")));
+    assert_eq!(p.f.m.registry().unwrap().classes[&class].publication, Publication::Removed);
+}
+
+#[test]
+fn add_back_checks_the_same_file_again_after_its_setup_changed() {
+    let p = published_setup(false);
+    let class = p.c.selection.class.id.clone();
+    // The musician took it out first; an uninstall of other software then changed its setup.
+    setup_removal::remove_from_daw(&p.f.m, &class, &ui::PublicationIdentity {id:p.current.id.clone(),
+        sha256:p.current.sha256.clone()}).unwrap();
+    run_published(&p, |m, record| { report(m, record, "completed", 0); Ok(()) }, &|_| Ok(false)).unwrap();
+    let entry = p.f.m.registry().unwrap().classes[&class].clone();
+    assert_eq!(entry.publication, Publication::Removed, "the musician's own removal stays");
+    assert!(setup_removal::setup_changed(&p.f.m, &class, &p.current).unwrap());
+    let inspect = inspector(&p.c);
+    let added = setup_removal::add_back(&p.f.m, &class, &ui::PublicationIdentity {id:p.current.id.clone(),
+        sha256:p.current.sha256.clone()}, |key, removed|
+        preparation_cli::revalidate_in_place(&p.f.m, key, removed, &random_id().unwrap(), &inspect)).unwrap();
+    assert!(added["message"].as_str().unwrap().contains("with its setup as it is now"));
+    loadable(&p.f.m, &class);
+}
+
+#[test]
+fn nothing_leaves_the_daw_when_the_uninstaller_may_not_run() {
+    let p = published_setup(true);
+    let class = p.c.selection.class.id.clone();
+    let other = random_id().unwrap();
+    // Another installer run is still live.
+    let directory = onboarding::directory(&p.f.m, &p.record.id).unwrap();
+    let mut raw: Value = read_json(&directory.join("record.json")).unwrap();
+    let own = raw["installation_operation"].as_str().unwrap().to_owned();
+    raw["installation_operation"] = other.clone().into();
+    atomic_json(&directory.join("record.json"), &raw).unwrap();
+    fs::rename(directory.join(format!("{own}-result.json")), directory.join(format!("{other}-result.json"))).unwrap();
+    let mut result: Value = read_json(&directory.join(format!("{other}-result.json"))).unwrap();
+    result["operation"] = other.clone().into();
+    atomic_json(&directory.join(format!("{other}-result.json")), &result).unwrap();
+    fs::rename(directory.join(format!("{own}-transaction-private.json")),
+        directory.join(format!("{other}-transaction-private.json"))).unwrap();
+    let live = other.clone();
+    let refused = run_published(&p, |_, _| panic!("never launched"), &move |op| Ok(op == live)).unwrap_err();
+    assert_eq!(refused.to_string(), OTHER_OWNER);
+    loadable(&p.f.m, &class);
+    // An interrupted runtime change in the setup.
+    let q = published_setup(true);
+    let before = q.record.environment.clone();
+    let mut after = before.clone();
+    after.revision += 1;
+    after.runner.id = "different-fixture-runtime".into();
+    let change = random_id().unwrap();
+    let directory = job_dir(&q.f.m, &change).unwrap();
+    private_dir(&directory).unwrap();
+    atomic_json(&directory.join("request.json"), &ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"t".into(),
+        action:ui::Action::EnvironmentRuntimeSelect {environment:before.id.clone(),
+            runner:catalogue::runner_key(&after.runner).unwrap(),
+            expected_environment:environment_revision::identity(&before).unwrap()}}).unwrap();
+    atomic_json(&directory.join("runtime-transition.json"), &environment_revision::RuntimeBinding {
+        schema:1,operation:change.clone(),before:before.clone(),environment:after,
+        affected:vec![environment_revision::RuntimeOwner::Setup {environment:before.clone(),record:{
+            let path = onboarding::directory(&q.f.m, &q.record.id).unwrap().join("record.json");
+            Artifact {sha256:digest(&path).unwrap(),path}}}],
+        state:environment_revision::RuntimeState::Prepared}).unwrap();
+    let refused = run_published(&q, |_, _| panic!("never launched"), &|_| Ok(false)).unwrap_err();
+    assert_eq!(refused.to_string(), "Finish the interrupted runtime change in this setup first.");
+    loadable(&q.f.m, &q.c.selection.class.id);
+    // The uninstaller program changed between the check and the reservation.
+    let plan = check(&p.f.m, &p.record.id, &p.registration, &uninstall_entry::command_sha256(COMMAND)).unwrap();
+    fs::write(drive_c(&p.record.environment).join(UNINSTALLER), b"MZ changed").unwrap();
+    let mut running = || Ok(());
+    let hooks = Hooks {launch:&|_, _| Ok(()), is_live:&|_| Ok(false), vendor_retired:&|| Ok(true), running:&mut running,
+        rescan:&|_, _| Ok(json!({})), revalidate:&|_, _, _, _| Ok(p.current.clone())};
+    assert_eq!(reserve(&p.f.m, &plan, &random_id().unwrap(), &hooks).unwrap_err().to_string(), UNINSTALLER_CHANGED);
+    assert_eq!(environment_install::current_environment(&p.f.m, &p.record.environment).unwrap(), p.record.environment,
+        "no revision was written");
 }

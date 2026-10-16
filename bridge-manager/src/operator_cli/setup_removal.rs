@@ -152,6 +152,14 @@ pub(super) fn removed_by_musician(m: &Manager, class: &str, publication: &Revisi
 pub(super) fn gone(path: &Path) -> bool {
     matches!(path.try_exists(), Ok(false))
 }
+/// The plug-in's setup has a newer, owned revision (an uninstaller or
+/// installer ran in it) while its own file is unchanged: Add back checks the
+/// same file and class again in the setup as it is now.
+pub(super) fn setup_changed(m: &Manager, class: &str, publication: &RevisionRef) -> Result<bool> {
+    let revision = m.load_revision_record(class, publication)?;
+    let current = linux_vst_bridge::environment_revision::current_environment(m, &revision.registration.environment)?;
+    Ok(current != revision.registration.environment && revision.registration.module.verify().is_ok())
+}
 fn environment_current(environment: &Environment) -> bool {
     read_json::<Environment>(&environment.root.join("environment.json"))
         .is_ok_and(|current| current == *environment)
@@ -182,16 +190,19 @@ pub(super) fn plugin_offers(m: &Manager, class: &str, entry: &Entry, busy: Optio
             // Gone from disk (uninstalled): nothing to add back.
             if !matches!(physical, Ok(None)) || !removed_by_musician(m, class, current)
                 || gone(&entry.registration.module.path) { return vec![]; }
+            let changed = revision.as_ref().is_ok_and(|r| !environment_current(&r.registration.environment));
+            let revalidates = changed && setup_changed(m, class, current).unwrap_or(false);
             let unavailable = match &revision {
                 Err(_) => Some("Its prepared bridge files are no longer available. Use Check compatibility to prepare it again."),
-                Ok(revision) if !environment_current(&revision.registration.environment) =>
+                Ok(_) if changed && !revalidates =>
                     Some("Its setup changed since it was removed. Use Check compatibility to prepare it again."),
                 Ok(_) => None,
             };
-            // After a bridge update the same file and class are checked again
-            // as part of Add back; that check needs the shared service idle.
-            let recheck = unavailable.is_none() && package_authority::add_back_needs_refresh(m, class, current)
-                .unwrap_or(false);
+            // After a bridge update, or a change to its setup, the same file
+            // and class are checked again as part of Add back; that check
+            // needs the shared service idle.
+            let recheck = unavailable.is_none() && (revalidates
+                || package_authority::add_back_needs_refresh(m, class, current).unwrap_or(false));
             let reason = unavailable.map(str::to_owned).or_else(|| class_reason(busy, name)).or_else(||
                 recheck.then_some(shared).flatten().map(|reason|
                     if reason == ANY_LOADED { recheck_first(name) } else { reason.to_owned() }));
@@ -311,7 +322,9 @@ pub(super) fn add_back(m: &Manager, class: &str, expected: &ui::PublicationIdent
     // this check and republishing the old bridge.
     let package = retry_busy(|| m.lock("package.lock"))
         .map_err(|_| "The manager is updating. Try again when the update finishes.")?;
-    if package_authority::add_back_needs_refresh(m, &key, &expected_ref).map_err(|error| plain_add_back(&name, error))? {
+    let setup_changed = setup_changed(m, &key, &expected_ref).map_err(|error| plain_add_back(&name, error))?;
+    if setup_changed || package_authority::add_back_needs_refresh(m, &key, &expected_ref)
+        .map_err(|error| plain_add_back(&name, error))? {
         // The refresh owner takes package.lock itself and prepares against
         // whatever bridge is current then.
         drop(package);
@@ -324,7 +337,8 @@ pub(super) fn add_back(m: &Manager, class: &str, expected: &ui::PublicationIdent
         clear_removed(m, &key);
         return Ok(json!({"class_id":key,"name":name,"added_back_to_daw":true,"already_available":false,
             "rechecked_with_current_bridge":true,"removed_publication":expected,"publication":publication,
-            "message":format!("{name} was checked again with the updated bridge and is back in your DAW."),
+            "message":format!("{name} was checked again{} and is back in your DAW.",
+                if setup_changed { " with its setup as it is now" } else { " with the updated bridge" }),
             "next":"Rescan VST3 plug-ins in your DAW if it does not appear."}));
     }
     // The exact retained revision only: its runner, Windows module, host and
@@ -740,7 +754,7 @@ fn require_no_owners(m: &Manager, environment: &Environment) -> Result<()> {
 /// Processes of this user whose Wine prefix, working directory or executable
 /// lies inside the environment, under its recorded or its resolved path. A
 /// bounded /proc census; other users' processes can't use this private folder.
-fn running_inside(roots: &[&Path]) -> Result<Vec<String>> {
+pub(super) fn running_inside(roots: &[&Path]) -> Result<Vec<String>> {
     let proc = Path::new("/proc");
     if !proc.is_dir() { return Ok(vec![]); }
     let me = unsafe { libc::getuid() };

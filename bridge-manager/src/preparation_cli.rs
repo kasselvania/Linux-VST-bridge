@@ -1383,6 +1383,42 @@ pub(super) fn retain_revalidation_candidate_checkpoint(m: &Manager, operation: &
     atomic_json(&path, &RevalidationCandidateCheckpoint { schema: 1,
         operation: operation.into(), action: action.clone(), candidate: id.into() })
 }
+/// The supervised inspection a revalidation uses.
+pub(super) type Inspector<'a> = &'a dyn Fn(&Manager, &prep::Selection, &Software,
+    Option<profiles::AudioLayoutPolicy>) -> Result<prep::Inspection>;
+/// Check the same module and class again in its setup's current, owned
+/// revision after maintenance changed the setup (an uninstaller run), and
+/// publish that: in place of a current publication, or back into the DAW for
+/// one that was removed. Settings, preferences and qualification carry over.
+pub(super) fn revalidate_in_place(m: &Manager, class: &str, predecessor: &linux_vst_bridge::publication::RevisionRef,
+    operation: &str, inspect: Inspector) -> Result<linux_vst_bridge::publication::RevisionRef> {
+    let sw = software(m)?;
+    let prior = m.load_revision(class, &predecessor.clone())?;
+    let current = linux_vst_bridge::environment_revision::current_environment(m, &prior.registration.environment)?;
+    // The setup's own scan names the scanner it was read with.
+    let scan: linux_vst_bridge::inventory::Scan = read_json(&m.root.join("inventory").join(format!("{}.json", current.id)))?;
+    let selection = prep::selections(m, &scan.host, &scan.host_source_sha256)?.into_iter()
+        .find(|s| s.environment == current && s.module == prior.registration.module
+            && s.class.id.eq_ignore_ascii_case(class))
+        .ok_or("unchanged_publication_selection_missing")?;
+    let inspection = inspect(m, &selection, &sw, prior.registration.compatibility.audio_layout.clone())?;
+    let prepared = prep::revalidate_candidate(m, &prior, selection, prep::build::stage_runtime(m)?,
+        inspection.report, operation);
+    let cleanup = prep::build::cleanup_work(m, operation);
+    let candidate = prepared?;
+    cleanup?;
+    let entry = m.registry()?.classes.get(&class.to_uppercase()).cloned().ok_or("registration_absent")?;
+    if entry.publication == Publication::Published {
+        prep::replace_refreshed(m, &candidate, &prior, predecessor)
+    } else {
+        prep::enable_refreshed(m, &candidate, &prior)
+    }
+}
+/// The production inspector for `revalidate_in_place`.
+pub(super) fn supervised_inspection(m: &Manager, selection: &prep::Selection, sw: &Software,
+    audio_layout: Option<profiles::AudioLayoutPolicy>) -> Result<prep::Inspection> {
+    revalidation_inspection(m, selection, sw, audio_layout)
+}
 fn revalidation_inspection(m: &Manager, selection: &prep::Selection, sw: &Software,
     audio_layout: Option<profiles::AudioLayoutPolicy>) -> Result<prep::Inspection> {
     #[cfg(test)]

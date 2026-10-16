@@ -246,6 +246,42 @@ pub(super) fn stop(m: &Manager, operation: &str) -> Result<Value> {
 pub(super) fn finish(m: &Manager, operation: &str) -> Result<()> {
     finish_with(m,operation,onboarding::live)
 }
+
+pub(crate) const CLOSE_CHECK: &str = "Check that it closed";
+/// "Check that it closed", for every kind of installer or uninstaller run
+/// whose closing was never confirmed (the manager or the computer stopped
+/// meanwhile). When its unit is gone and no program runs from its setup, its
+/// result is recorded as closed. Nothing is run or stopped.
+pub(crate) fn confirm_closed(m: &Manager, operation: &str,
+    is_live: &dyn Fn(&str) -> Result<bool>) -> Result<Value> {
+    let _ownership = m.lock("onboarding.lock")?;
+    let (path, root) = if uninstall::owns(m,operation)? {
+        (job_dir(m,operation)?.join("uninstall-result.json"), uninstall::owner(m,operation)?.environment.root)
+    } else if job_dir(m,operation)?.join("installation.json").try_exists()? {
+        (job_dir(m,operation)?.join("installation-result.json"), control(m,operation)?.environment.root)
+    } else if let Some(record) = onboarding::history_records(m)?.into_iter()
+        .find(|r| r.installation_operation.as_deref() == Some(operation)) {
+        (onboarding::directory(m,&record.id)?.join(format!("{operation}-result.json")), record.environment.root)
+    } else {
+        return Err("This installer run can't be found. Refresh and try again.".into());
+    };
+    let mut v = optional(&path)?;
+    if onboarding::retired(&v) { return Ok(v); }
+    require(!is_live(operation)?, "It is still running. Use Stop instead.")?;
+    let resolved = root.canonicalize().unwrap_or_else(|_| root.clone());
+    let running = setup_removal::running_inside(&[&root, &resolved])?;
+    if let Some(program) = running.first() {
+        return Err(format!("{program} is still running from this setup. Close it, then check again.").into());
+    }
+    if v["state"] != "completed" { v["state"] = "failed".into(); }
+    v["schema"] = 2.into();
+    v["operation"] = operation.into();
+    v["cleanup_confirmed"] = true.into();
+    v["owned_live"] = 0.into();
+    v["closing_confirmed_by"] = "census".into();
+    atomic_json(&path,&v)?;
+    Ok(v)
+}
 fn finish_with(m: &Manager, operation: &str, is_live: impl FnOnce(&str)->Result<bool>) -> Result<()> {
     if !job_dir(m,operation)?.join("installation.json").try_exists()? {return Ok(());}
     let r = control(m,operation)?;
@@ -318,7 +354,7 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
         } else {new_work_reason.map(str::to_owned)};
         // An uninstaller run that is still open, or never shown closed, keeps
         // the bridge paused; its own controls lead this card.
-        if let Some(operation) = uninstall::unresolved(m,&id,&mut is_live)? {
+        if let Some(operation) = uninstall::unresolved(m,&id)? {
             let live = is_live(&operation)?;
             reason = Some(if live { "An uninstaller is running in this setup. Follow its window to finish, or stop it.".into() }
                 else { uninstall::UNCONFIRMED_CLOSE.into() });
@@ -326,6 +362,8 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
                 actions.push(action("Focus uninstaller",ui::Action::EnvironmentInstallerFocus {
                     operation:operation.clone()},None));
                 actions.push(action("Stop uninstaller",ui::Action::EnvironmentInstallerStop {operation},None));
+            } else {
+                actions.push(action(CLOSE_CHECK,ui::Action::InstallerCloseCheck {operation},None));
             }
         }
         if let Some(r) = last {
@@ -336,6 +374,9 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
                         operation:r.operation.clone()},None));
                     actions.push(action("Stop installer",ui::Action::EnvironmentInstallerStop {
                         operation:r.operation.clone()},None));
+                } else {
+                    reason = Some("The manager couldn't confirm that this installer closed, so the bridge stays paused. Use Check that it closed.".into());
+                    actions.push(action(CLOSE_CHECK,ui::Action::InstallerCloseCheck {operation:r.operation.clone()},None));
                 }
             }
             if active.is_none() && onboarding::retired(&result) && result["state"] != "completed" {

@@ -595,7 +595,7 @@ fn inactive_reason(
             Some("Close active bridged instances before this action")
         }
         _ if !vendor_retired => {
-            Some("Close Arturia Software Center and wait for its owned operation to retire")
+            Some("An installer, uninstaller or app is still open, or the manager couldn't confirm it closed. Finish it, or use Check that it closed on its card.")
         }
         _ if pending > 0 && !reconcile => Some("Reconcile the interrupted publication first"),
         _ => None,
@@ -1834,6 +1834,7 @@ fn current_offer_action(action: &ui::Action) -> bool {
         | ui::Action::SetupRemoveFromDaw { .. }
         | ui::Action::SetupDelete { .. }
         | ui::Action::ProductUninstall { .. }
+        | ui::Action::InstallerCloseCheck { .. }
         | ui::Action::QuarantinedModuleRetry { .. })
 }
 fn installer_control(action: &ui::Action) -> Option<(&str, &str)> {
@@ -2825,6 +2826,13 @@ fn execute_with_receipt_policy_progress(
                 environment_refresh::execute(m,a,owner,capacity_read,timeout,waits)
             } else {Ok(value)}
         }
+        ui::Action::InstallerCloseCheck {operation: owned} => {
+            let _environment = m.lock("operator-environment.lock")?;
+            let value = environment_install::confirm_closed(m, owned, &onboarding::live)?;
+            // The bridge paused for that run resumes once it is shown closed.
+            resume_owned(m, owned)?;
+            Ok(value)
+        }
         ui::Action::EnvironmentInstallerFocus {operation} =>
             if uninstall::owns(m,operation)? { uninstall::focus(m,operation) } else { environment_install::focus(m,operation) },
         ui::Action::EnvironmentInstallerStop {operation} => {
@@ -2869,7 +2877,11 @@ fn execute_with_receipt_policy_progress(
                 // The same supervised inspection as a refreshed restore.
                 let _environment = m.lock("operator-environment.lock")?;
                 suspend(m, owner, None, timeout, waits)?;
-                let result = package_authority::add_back_publication(m, key, removed, owner);
+                // A changed setup checks the same file again where it is now;
+                // a bridge update prepares it with the current bridge.
+                let result = if setup_removal::setup_changed(m, key, removed)? {
+                    preparation_cli::revalidate_in_place(m, key, removed, owner, &preparation_cli::supervised_inspection)
+                } else { package_authority::add_back_publication(m, key, removed, owner) };
                 let cleanup = resume_owned(m, owner);
                 let publication = result?;
                 if let Err(error) = cleanup {
@@ -2901,9 +2913,11 @@ fn execute_with_receipt_policy_progress(
             let mut running = || write_operation(m, owner,
                 &json!({"schema":2,"operation":owner,"state":"vendor_running","action":a}), false);
             let vendor = || vendor_retired(m);
+            let revalidate = |m: &Manager, class: &str, current: &linux_vst_bridge::publication::RevisionRef, work: &str|
+                preparation_cli::revalidate_in_place(m, class, current, work, &preparation_cli::supervised_inspection);
             let result = uninstall::execute(m, environment, registration, command_sha256, owner, &mut uninstall::Hooks {
                 launch: &uninstall::launch, is_live: &onboarding::live, vendor_retired: &vendor,
-                running: &mut running, rescan: &rescan_environment });
+                running: &mut running, rescan: &rescan_environment, revalidate: &revalidate });
             // The bridge resumes once nothing of this uninstaller can still run;
             // otherwise the setup's card offers Stop uninstaller.
             let resumed = if uninstall::settled(m, owner)? { resume_owned(m, owner) } else { Ok(()) };
@@ -5239,7 +5253,7 @@ pub(crate) mod tests {
                 serde_json::from_value(capacity_json(false, 0, 0)["capacity"].clone()).unwrap();
             assert!(inactive_reason(Some(&cap), false, 0, false)
                 .unwrap()
-                .contains("Software Center"));
+                .contains("Check that it closed"));
             if !matches!(action, ui::Action::TransactionReconcile {}) {
                 assert!(inactive_reason(Some(&cap), true, 1, false)
                     .unwrap()

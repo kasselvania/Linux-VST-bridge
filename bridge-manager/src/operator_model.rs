@@ -326,6 +326,10 @@ pub enum Action {
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         forget_installer: bool,
     },
+    /// Check that an installer or uninstaller run whose closing was never
+    /// confirmed (the manager or the computer stopped meanwhile) has nothing
+    /// left running, and record it as closed. Nothing is run or stopped.
+    InstallerCloseCheck { operation: String },
     /// Run the uninstaller that one registration in the setup's own registry
     /// names (exact key and command bytes), after removing its plug-ins from
     /// the DAW. Nothing outside that registration is ever run. Offered
@@ -537,7 +541,8 @@ pub struct Uninstaller {
     pub environment: String,
     /// The vendor's own name for what is uninstalled.
     pub name: String,
-    /// Plug-ins taken out of the DAW and expected to be removed.
+    /// Plug-ins taken out of the DAW first: those this registration's own
+    /// installation added, or every plug-in of the setup when that is unknown.
     pub affected: Vec<String>,
     pub affected_classes: Vec<String>,
     /// "installed_with_this" when the setup's own installation records show

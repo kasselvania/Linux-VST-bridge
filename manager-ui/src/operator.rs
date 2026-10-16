@@ -3141,6 +3141,7 @@ fn removal_confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirm
                 body.push(format!("First, {} will be removed from your DAW. Projects that use {} will open with {} missing.",
                     u.affected.join(", "), if one { "it" } else { "them" }, if one { "it" } else { "them" }));
             }
+            body.push("Afterwards, the other plug-ins in this setup are checked again, and any it didn't remove go back into your DAW.".into());
             body.push("The uninstaller may also remove licences or settings it stored there. Your projects are not changed.".into());
             Confirmation { title: "Uninstall?", body, confirm: "Uninstall", cancel: "Cancel",
                 offer: current(uninstaller.map(|u| &u.action).into_iter().collect()) }

@@ -894,7 +894,12 @@ pub(super) fn projection_current(m: &Manager, busy: Option<&str>,
                     }
                 } else {
                     state = "cleanup_unconfirmed".into();
-                    human = "Cleanup is unresolved; further installation is refused";
+                    human = "The manager couldn't confirm that this installer closed. Use Check that it closed";
+                    actions.push(ui::AvailableAction {
+                        label: operator_cli::environment_install::CLOSE_CHECK.into(),
+                        action: ui::Action::InstallerCloseCheck { operation: op.clone() },
+                        disabled_reason: None,
+                    });
                 }
             } else {
                 actions.push(ui::AvailableAction {

@@ -8,6 +8,7 @@
 use super::*;
 use std::collections::{BTreeMap, BTreeSet};
 use linux_vst_bridge::environment_revision::{UninstallBinding, UNINSTALL_REVISION};
+use linux_vst_bridge::publication::RevisionRef;
 use linux_vst_bridge::uninstall_entry::{self, Command as UninstallCommand, Entry};
 
 const CHANGED: &str = "This changed since it was offered. Refresh and try again.";
@@ -15,7 +16,7 @@ const BRIDGE_SETUP: &str = "This setup belongs to the bridge itself, not to soft
 const UNINSTALLER_CHANGED: &str = "This setup's uninstaller program isn't the one its installer put there, so the manager won't run it. Send Setup details.";
 const MISSING: &str = "This setup's folder can't be found. Reconnect its drive or restore the folder, then try again.";
 const NOT_STARTED: &str = "The uninstaller couldn't be started, so nothing was uninstalled.";
-pub(super) const UNCONFIRMED_CLOSE: &str = "The uninstaller didn't close cleanly, so the bridge stays paused. Use Stop uninstaller on the setup's card; if that doesn't help, send Setup details.";
+pub(super) const UNCONFIRMED_CLOSE: &str = "The manager couldn't confirm that the uninstaller closed, so the bridge stays paused. Use Check that it closed on the setup's card.";
 const OTHER_OWNER: &str = "Another installer, uninstaller or app is still running. Finish it first.";
 /// The setup's own installation records show exactly what it added.
 pub(super) const INSTALLED_WITH_THIS: &str = "installed_with_this";
@@ -81,6 +82,14 @@ pub(super) fn records(m: &Manager) -> Result<Vec<Owner>> {
     out.sort_by_key(|owner| owner.created_at);
     Ok(out)
 }
+/// Custody of one run, whichever build wrote its record.
+pub(super) fn owner(m: &Manager, operation: &str) -> Result<Owner> {
+    let owner: Owner = read_json(&record_path(m, operation)?)?;
+    require(matches!(owner.schema, 1 | SCHEMA) && owner.operation == operation
+        && owner.environment.root == m.root.join("environments").join(&owner.environment.id),
+        "uninstall_record_binding")?;
+    Ok(owner)
+}
 /// Whether this operation is an uninstaller run.
 pub(super) fn owns(m: &Manager, operation: &str) -> Result<bool> {
     Ok(valid_hex(operation, 32) && record_path(m, operation)?.try_exists()?)
@@ -115,12 +124,13 @@ pub(super) fn settled(m: &Manager, operation: &str) -> Result<bool> {
     if !owns(m, operation)? { return Ok(true); }
     Ok(onboarding::retired(&result_of(m, operation)?))
 }
-/// The unresolved uninstaller of one environment, if any: live, or never
-/// shown to have closed.
-pub(super) fn unresolved(m: &Manager, environment: &str,
-    is_live: &mut dyn FnMut(&str) -> Result<bool>) -> Result<Option<String>> {
+/// The unresolved uninstaller of one environment, if any: never shown to
+/// have closed (a run that is still going has no closing record yet).
+pub(super) fn unresolved(m: &Manager, environment: &str) -> Result<Option<String>> {
     for owner in records(m)?.into_iter().filter(|r| r.environment.id == environment) {
-        if is_live(&owner.operation)? || !onboarding::retired(&result_of(m, &owner.operation)?) {
+        // A run whose closing is recorded is history; only the others are
+        // asked whether their unit still runs.
+        if !onboarding::retired(&result_of(m, &owner.operation)?) {
             return Ok(Some(owner.operation));
         }
     }
@@ -191,12 +201,13 @@ pub(super) struct Run {
     /// The witness hit its file-count or time bound, or is unreadable.
     pub incomplete: bool,
 }
-fn transactions(m: &Manager, record: &onboarding::Record) -> Result<Vec<PathBuf>> {
+fn transactions(m: &Manager, record: &onboarding::Record,
+    installs: &[linux_vst_bridge::environment_revision::InstallerBinding]) -> Result<Vec<PathBuf>> {
     let mut out = vec![];
     if let Some(op) = &record.installation_operation {
         out.push(onboarding::directory(m, &record.id)?.join(format!("{op}-transaction-private.json")));
     }
-    for installation in environment_install::records(m)?.into_iter().filter(|r| r.environment.id == record.id) {
+    for installation in installs.iter().filter(|r| r.environment.id == record.id) {
         let op = &installation.operation;
         out.push(job_dir(m, op)?.join(format!("{op}-transaction-private.json")));
     }
@@ -318,23 +329,26 @@ fn sources(environment: &Environment, transactions: &[PathBuf]) -> Result<Vec<So
     }
     Ok(out)
 }
-fn fresh(m: &Manager, record: &onboarding::Record, environment: &Environment) -> Result<(Vec<Entry>, Vec<Run>)> {
-    Ok((uninstall_entry::read(environment)?, runs(&transactions(m, record)?)?))
+fn fresh(m: &Manager, record: &onboarding::Record, environment: &Environment,
+    installs: &[linux_vst_bridge::environment_revision::InstallerBinding]) -> Result<(Vec<Entry>, Vec<Run>)> {
+    Ok((uninstall_entry::read(environment)?, runs(&transactions(m, record, installs)?)?))
 }
-fn indexed(m: &Manager, record: &onboarding::Record, environment: &Environment) -> Result<(Vec<Entry>, Vec<Run>)> {
-    let current = sources(environment, &transactions(m, record)?)?;
+fn indexed(m: &Manager, record: &onboarding::Record, environment: &Environment,
+    installs: &[linux_vst_bridge::environment_revision::InstallerBinding]) -> Result<(Vec<Entry>, Vec<Run>)> {
+    let current = sources(environment, &transactions(m, record, installs)?)?;
     if let Ok(index) = read_json::<Index>(&index_path(m, &environment.id)) {
         if index.schema == 1 && index.sources == current { return Ok((index.entries, index.runs)); }
     }
-    fresh(m, record, environment)
+    fresh(m, record, environment, installs)
 }
 /// Rebuild one setup's index after a worker changed its prefix or records.
 pub(super) fn refresh_index(m: &Manager, environment: &str) -> Result<()> {
     let Some(record) = onboarding::retained_environment_record(m, environment)? else { return Ok(()) };
     let current = environment_install::current_environment(m, &record.environment)?;
-    let transactions = transactions(m, &record)?;
+    let installs = environment_install::records(m)?;
+    let transactions = transactions(m, &record, &installs)?;
     let sources = sources(&current, &transactions)?;
-    let (entries, runs) = fresh(m, &record, &current)?;
+    let (entries, runs) = fresh(m, &record, &current, &installs)?;
     private_dir(&m.root.join("uninstall-index"))?;
     atomic_json(&index_path(m, environment), &Index { schema: 1, sources, entries, runs })
 }
@@ -343,6 +357,8 @@ pub(super) fn refresh_index(m: &Manager, environment: &str) -> Result<()> {
 pub(super) fn project(m: &Manager, setups: &[ui::InstallerSetup], records: &[onboarding::Record],
     db: &Registry, bindings: &[catalogue::EnvironmentBinding], busy: Option<&str>) -> Result<Vec<ui::Uninstaller>> {
     let protected = setup_removal::protected(m, bindings)?;
+    // Read once for every setup card.
+    let installs = environment_install::records(m)?;
     let mut out = vec![];
     for setup in setups {
         let Some(environment) = setup.environment.as_deref() else { continue };
@@ -353,7 +369,7 @@ pub(super) fn project(m: &Manager, setups: &[ui::InstallerSetup], records: &[onb
         // One unreadable setup must not hide every other card.
         let Ok(current) = environment_install::current_environment(m, &record.environment) else { continue };
         let modules = modules(m, &current, db);
-        let Ok((entries, runs)) = indexed(m, record, &current) else { continue };
+        let Ok((entries, runs)) = indexed(m, record, &current, &installs) else { continue };
         for choice in choose(&current, entries, &runs, &modules) {
             let name = choice.entry.display_name.clone().unwrap_or_default();
             let label = if choice.coverage == INSTALLED_WITH_THIS { format!("Uninstall {name}") }
@@ -397,7 +413,7 @@ pub(super) fn check(m: &Manager, environment: &str, registration: &str, command_
     // The setup as it is now, after any runtime change.
     let before = environment_install::target(m, environment)?;
     let modules = modules(m, &before, &m.registry()?);
-    let (entries, runs) = fresh(m, &setup, &before)?;
+    let (entries, runs) = fresh(m, &setup, &before, &environment_install::records(m)?)?;
     let choice = choose(&before, entries, &runs, &modules).into_iter()
         .find(|c| c.entry.id == registration).ok_or(CHANGED)?;
     let value = choice.entry.uninstall_string.as_deref().ok_or(CHANGED)?;
@@ -425,14 +441,16 @@ pub(super) struct Hooks<'a> {
     pub vendor_retired: &'a dyn Fn() -> Result<bool>,
     pub running: &'a mut dyn FnMut() -> Result<()>,
     pub rescan: &'a dyn Fn(&Manager, Environment) -> Result<Value>,
+    /// Check one plug-in again in the setup's new revision and publish it
+    /// (class, its current publication, a fresh work identity).
+    pub revalidate: &'a dyn Fn(&Manager, &str, &RevisionRef, &str) -> Result<RevisionRef>,
 }
-/// The same reservation as an installer run in this setup, then the record
-/// and a new environment revision before the vendor changes the prefix.
-pub(super) fn reserve(m: &Manager, plan: &Plan, operation: &str, hooks: &Hooks) -> Result<Record> {
+/// Every refusal an installer run in this setup would get, checked without
+/// writing anything: before plug-ins leave the DAW, and again under the
+/// reservation's locks.
+fn admissible(m: &Manager, plan: &Plan, hooks: &Hooks) -> Result<()> {
     let environment = plan.before.id.as_str();
     require(m.root.join("environments").join(environment).is_dir(), MISSING)?;
-    let _ownership = m.lock("onboarding.lock")?;
-    let _registry = m.lock("registry.lock")?;
     m.require_inactive(None)?;
     require(onboarding::all_retired(m)? && (hooks.vendor_retired)()?, OTHER_OWNER)?;
     for owner in onboarding::history_records(m)?.into_iter().filter_map(|r| r.installation_operation)
@@ -445,6 +463,15 @@ pub(super) fn reserve(m: &Manager, plan: &Plan, operation: &str, hooks: &Hooks) 
     require(plan.before.root.join("compatdata/pfx/system.reg").is_file(), MISSING)?;
     plan.before.runner.verify()?;
     plan.image.verify().map_err(|_| UNINSTALLER_CHANGED)?;
+    Ok(())
+}
+/// The same reservation as an installer run in this setup: its custody record
+/// first, then the owned revision edge, then the new revision itself, all
+/// before the vendor changes the prefix.
+pub(super) fn reserve(m: &Manager, plan: &Plan, operation: &str, hooks: &Hooks) -> Result<Record> {
+    let _ownership = m.lock("onboarding.lock")?;
+    let _registry = m.lock("registry.lock")?;
+    admissible(m, plan, hooks)?;
     let mut after = plan.before.clone();
     after.revision = after.revision.checked_add(1).ok_or("environment_revision_exhausted")?;
     let dir = job_dir(m, operation)?;
@@ -457,10 +484,10 @@ pub(super) fn reserve(m: &Manager, plan: &Plan, operation: &str, hooks: &Hooks) 
         affected: plan.choice.affected.clone(), created_at: now()? };
     atomic_json(&result_path(m, operation)?, &json!({"schema":2,"operation":operation,"state":"reserved",
         "cleanup_confirmed":false,"owned_live":null}))?;
+    atomic_json(&record_path(m, operation)?, &record)?;
     atomic_json(&dir.join(UNINSTALL_REVISION), &UninstallBinding { schema: 1, operation: operation.into(),
         registration: record.registration.clone(), before: plan.before.clone(), environment: after.clone() })?;
-    atomic_json(&record_path(m, operation)?, &record)?;
-    // Other plug-ins' preparation in this setup is verified again before use.
+    // Every plug-in of this setup is checked again before it is used again.
     atomic_json(&after.root.join("environment.json"), &after)?;
     Ok(record)
 }
@@ -481,7 +508,8 @@ pub(super) fn launch(m: &Manager, record: &Record) -> Result<()> {
 }
 
 fn join(names: &[String]) -> String { names.join(", ") }
-/// "X stays out of your DAW; add it back…" for plug-ins already taken out.
+fn one(names: &[String]) -> bool { names.len() == 1 }
+/// "X stays out of your DAW; add it back…" for plug-ins still taken out.
 fn still_out(names: &[String]) -> String {
     match names.len() {
         0 => String::new(),
@@ -499,16 +527,78 @@ fn plain(error: Box<dyn std::error::Error + Send + Sync>) -> String {
             | "installer_initial_retirement_required" => CHANGED.into(),
         "active_device_lease" | "active_maintenance_lease" =>
             "Close the plug-ins open in your DAW first, then try again.".into(),
+        "runtime_transition_recovery_required" =>
+            "Finish the interrupted runtime change in this setup first.".into(),
+        "unchanged_publication_selection_missing" =>
+            "the setup's scan doesn't show it any more".into(),
         _ => text,
     }
 }
 
+/// The setup's plug-ins checked again after the uninstaller changed it.
+#[derive(Debug, Default)]
+pub(super) struct Reconnected {
+    /// Put back into the DAW: taken out for this uninstall, which didn't remove them.
+    pub back: Vec<String>,
+    /// Still in the DAW, now checked against the setup as it is.
+    pub rechecked: Vec<String>,
+    pub failed: Vec<(String, String)>,
+}
+/// Check every plug-in of the setup that is still registered at an older
+/// revision: the ones in the DAW, and (when the uninstall didn't remove them)
+/// the ones this action took out. Files that are gone are left alone.
+fn reconnect(m: &Manager, record: &Record, taken_out: &[String], put_back: bool,
+    hooks: &Hooks) -> Result<Reconnected> {
+    let mut out = Reconnected::default();
+    let db = m.registry()?;
+    for (class, entry) in db.classes.iter().filter(|(_, e)| e.registration.environment.id == record.environment.id) {
+        let Some(current) = entry.managed_revision.clone() else { continue };
+        if setup_removal::gone(&entry.registration.module.path) || entry.registration.environment == record.environment {
+            continue;
+        }
+        let back = entry.publication == Publication::Removed && taken_out.contains(class);
+        if entry.publication != Publication::Published && !(put_back && back) { continue; }
+        let name = entry.registration.metadata.name.clone();
+        match (hooks.revalidate)(m, class, &current, &random_id()?) {
+            Ok(_) if back => out.back.push(name),
+            Ok(_) => out.rechecked.push(name),
+            Err(error) => out.failed.push((name, plain(error))),
+        }
+    }
+    Ok(out)
+}
+fn reconnected_text(reconnected: &Reconnected) -> String {
+    let mut text = String::new();
+    let back = &reconnected.back;
+    if !back.is_empty() {
+        text.push_str(&format!(" {} {} back in your DAW, checked again with this setup.", join(back),
+            if one(back) { "is" } else { "are" }));
+    }
+    let rechecked = &reconnected.rechecked;
+    if !rechecked.is_empty() {
+        text.push_str(&format!(" {} {} checked again and {} in your DAW.", join(rechecked),
+            if one(rechecked) { "was" } else { "were" }, if one(rechecked) { "stays" } else { "stay" }));
+    }
+    if let Some((_, reason)) = reconnected.failed.first() {
+        let names: Vec<_> = reconnected.failed.iter().map(|(name, _)| name.clone()).collect();
+        text.push_str(&format!(" {} couldn't be checked again ({reason}); use Check compatibility on {} card.",
+            join(&names), if one(&names) { "its" } else { "their" }));
+    }
+    text
+}
+
 /// The whole uninstall, as one action: its plug-ins leave the DAW, the
-/// setup's own uninstaller runs, and the setup is scanned again.
+/// setup's own uninstaller runs, and the setup is scanned and its remaining
+/// plug-ins are checked again.
 pub(super) fn execute(m: &Manager, environment: &str, registration: &str, command_sha256: &str,
     operation: &str, hooks: &mut Hooks) -> Result<Value> {
     let plan = check(m, environment, registration, command_sha256).map_err(plain)?;
+    // Nothing leaves the DAW unless the uninstaller may run now.
+    admissible(m, &plan, hooks).map_err(plain)?;
     let classes: Vec<_> = plan.choice.affected.iter().map(|a| a.class_id.clone()).collect();
+    let db = m.registry()?;
+    let taken_out: Vec<String> = classes.iter().filter(|class| db.classes.get(*class)
+        .is_some_and(|entry| entry.publication == Publication::Published)).cloned().collect();
     let removed = setup_removal::remove_classes_from_daw(m, &classes)?;
     let record = reserve(m, &plan, operation, hooks)
         .map_err(|error| format!("{}{}", plain(error), still_out(&removed)))?;
@@ -523,19 +613,24 @@ pub(super) fn execute(m: &Manager, environment: &str, registration: &str, comman
         value = result(m, &record)?;
     }
     require(onboarding::retired(&value), UNCONFIRMED_CLOSE)?;
+    // The setup has a new revision either way: scan it, take out plug-ins
+    // whose files are gone, and check the rest again.
+    let scanned = (hooks.rescan)(m, record.environment.clone());
+    let finished = launched.is_ok() && value["state"] == "completed" && value["raw_exit"] == 0;
+    let registered = uninstall_entry::read(&record.environment)?.iter().any(|entry| entry.id == record.registration);
+    let collateral = collateral(m, &record)?;
+    let reconnected = if scanned.is_ok() { reconnect(m, &record, &taken_out, !finished || registered, hooks)? }
+        else { Reconnected::default() };
+    let _ = refresh_index(m, &record.environment.id);
+    let still: Vec<String> = removed.iter().filter(|name| !reconnected.back.contains(name)).cloned().collect();
     if let Err(error) = launched {
         let reason = plain(error);
-        return Err(format!("{}{}{}", NOT_STARTED, if reason == NOT_STARTED { String::new() } else { format!(" ({reason})") },
-            still_out(&removed)).into());
+        return Err(format!("{}{}{}{}", NOT_STARTED, if reason == NOT_STARTED { String::new() } else { format!(" ({reason})") },
+            reconnected_text(&reconnected), still_out(&still)).into());
     }
-    // The prefix changed: scan the setup again, then take out any other
-    // plug-in whose files are gone.
-    let scanned = (hooks.rescan)(m, record.environment.clone());
-    let collateral = collateral(m, &record)?;
-    let _ = refresh_index(m, &record.environment.id);
-    let mut outcome = outcome(&record, &value, &removed, &collateral)?;
+    let mut outcome = outcome(&record, &value, registered, &still, &collateral, &reconnected);
     if let Err(error) = scanned {
-        outcome["message"] = format!("{} The setup couldn't be scanned again ({error}); use Rescan on its card.",
+        outcome["message"] = format!("{} The setup couldn't be scanned again ({error}); use Rescan on its card, then Check compatibility for its plug-ins.",
             outcome["message"].as_str().unwrap_or_default()).into();
     }
     Ok(outcome)
@@ -553,34 +648,35 @@ fn collateral(m: &Manager, record: &Record) -> Result<Vec<String>> {
 /// What really happened, from the supervisor's own result, the setup's
 /// registry and the plug-in files. A cancelled, failed or declined uninstall
 /// is never reported as uninstalled.
-pub(super) fn outcome(record: &Record, result: &Value, removed: &[String],
-    collateral: &[String]) -> Result<Value> {
+pub(super) fn outcome(record: &Record, result: &Value, registered: bool, still: &[String],
+    collateral: &[String], reconnected: &Reconnected) -> Value {
     let finished = result["state"] == "completed" && result["raw_exit"] == 0;
-    let registered = uninstall_entry::read(&record.environment)?.iter().any(|entry| entry.id == record.registration);
     let (gone, remaining): (Vec<_>, Vec<_>) = record.affected.iter().partition(|a| setup_removal::gone(&a.module));
     let names = |rows: &[&Affected]| rows.iter().map(|a| a.name.clone()).collect::<Vec<_>>();
     let uninstalled = finished && !registered;
     let mut message = if !finished {
         let why = if result["state"] == "cancelled" { "it was stopped" }
             else { "it was cancelled in its window or ended with an error" };
-        format!("{}'s uninstaller didn't finish ({why}), so nothing is reported as uninstalled.{}",
-            record.name, still_out(removed))
+        format!("{}'s uninstaller didn't finish ({why}), so nothing is reported as uninstalled.", record.name)
     } else if registered {
-        format!("{}'s uninstaller closed, but {} is still installed in this setup.{}", record.name, record.name,
-            still_out(removed))
+        format!("{}'s uninstaller closed, but {} is still installed in this setup.", record.name, record.name)
     } else if remaining.is_empty() {
         format!("{} was uninstalled.", record.name)
     } else {
-        format!("{} was uninstalled, but these plug-ins' files are still there: {}.{}", record.name,
-            join(&names(&remaining)), still_out(&names(&remaining)))
+        format!("{} was uninstalled, but these plug-ins' files are still there: {}.", record.name,
+            join(&names(&remaining)))
     };
+    message.push_str(&reconnected_text(reconnected));
+    message.push_str(&still_out(still));
     if !collateral.is_empty() {
         message.push_str(&format!(" {} also left your DAW because {} files are gone.", join(collateral),
-            if collateral.len() == 1 { "its" } else { "their" }));
+            if one(collateral) { "its" } else { "their" }));
     }
-    Ok(json!({"name":record.name,"finished":finished,"registration_remains":registered,
+    json!({"name":record.name,"finished":finished,"registration_remains":registered,
         "uninstalled":if uninstalled { names(&gone) } else { vec![] },"still_installed":names(&remaining),
-        "removed_from_daw":removed,"also_removed":collateral,"message":message,"history_retained":true}))
+        "removed_from_daw":still,"back_in_daw":reconnected.back,"rechecked":reconnected.rechecked,
+        "recheck_failed":reconnected.failed.iter().map(|(name, _)| name).collect::<Vec<_>>(),
+        "also_removed":collateral,"message":message,"history_retained":true})
 }
 
 #[cfg(test)]
