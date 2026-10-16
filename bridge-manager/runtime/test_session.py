@@ -1930,3 +1930,32 @@ class DawUninstallBindingTests(unittest.TestCase):
                 session.daw_application_binding({**app,'installed_image':{'path':str(image),'sha256':'0'*64}},True)
             with self.assertRaisesRegex(RuntimeError,'launch fields changed'):
                 session.daw_application_binding(app,False)
+
+class VisibleSetupControls(unittest.TestCase):
+    def test_window_record_never_turns_malformed_data_into_a_waiting_window(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=pathlib.Path(tmp)/'plugin-window.json'
+            self.assertIsNone(session.plugin_window_record(path))
+            path.write_text('{"schema":1,"windows":"one"}')
+            value=session.plugin_window_record(path)
+            self.assertTrue(value['malformed'])
+            self.assertEqual(value.get('windows',0),0)
+            path.write_text(json.dumps(dict(schema=1,windows=1,visible=0,dialogs=1,
+                off_screen=1,minimized=0,first_seen_ms=1000)))
+            self.assertEqual(session.plugin_window_record(path)['dialogs'],1)
+
+    def test_focus_is_an_exact_session_request_and_malformed_request_cannot_focus(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            report=pathlib.Path(tmp)/'session.json'
+            request=report.with_suffix('.focus.json')
+            request.write_text(json.dumps({'request':'ab'*16}))
+            seen=[]
+            value=session.finish_setup_focus(report,set(),lambda scope:seen.append(scope.members()) or 'focused')
+            self.assertEqual(value,{'request':'ab'*16,'result':'focused'})
+            self.assertEqual(seen,[[]])
+            self.assertFalse(request.exists())
+            request.write_text(json.dumps({'request':'ab'*16,'pid':123}))
+            seen.clear()
+            value=session.finish_setup_focus(report,set(),lambda scope:seen.append(scope) or 'focused')
+            self.assertEqual(value['result'],'refused_exact_window_unavailable')
+            self.assertFalse(seen)

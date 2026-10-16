@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 27;
+pub const OPERATOR_SCHEMA: u32 = 28;
 /// Explicit delivery policy, independent from the remembered buffered delay.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -254,6 +254,16 @@ pub enum Action {
     /// Resume connection in the exact accepted refresh or completed renderer job.
     /// This never launches or reopens an application.
     EnvironmentRefreshResume { operation: String },
+    /// Open an exact discovered file before class enumeration has succeeded.
+    PluginFinishSetup {
+        environment: String,
+        scan: String,
+        module_index: usize,
+        module_sha256: String,
+        report_sha256: String,
+    },
+    PluginSetupFocus { operation: String },
+    PluginSetupStop { operation: String },
     QuarantinedModuleRetry {
         environment: String,
         scan: String,
@@ -1002,6 +1012,7 @@ impl Action {
                 | Self::EnvironmentRefresh { .. }
                 | Self::EnvironmentRefreshResume { .. }
                 | Self::QuarantinedModuleRetry { .. }
+                | Self::PluginFinishSetup { .. }
                 | Self::OrdinaryRollback { .. }
                 | Self::OrdinaryRestoreRecommended { .. }
                 | Self::BufferingSet { .. }

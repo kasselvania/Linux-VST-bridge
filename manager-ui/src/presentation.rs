@@ -100,6 +100,9 @@ pub fn action_label(offer: &AvailableAction) -> String {
             if offer.label == "Retry" => "Retry".into(),
         Action::SoftwareInstall { .. } => "Install and connect to your DAW".into(),
         Action::SoftwareInstallResume { .. } => "Continue installation and DAW connection".into(),
+        Action::PluginFinishSetup {..} => "Open this plug-in to finish setup".into(),
+        Action::PluginSetupFocus {..} => "Show the plug-in window".into(),
+        Action::PluginSetupStop {..} => "Stop finishing setup".into(),
         Action::RuntimeInstall {} => offer.label.strip_prefix("Install compatibility runtime")
             .map(|size| format!("Download Windows plug-in support{size}"))
             .unwrap_or_else(|| "Download Windows plug-in support".into()),

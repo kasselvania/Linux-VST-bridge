@@ -169,6 +169,14 @@ fn classify_error(error: &str, report: &Value) -> Explanation {
             "It did not answer within 30 seconds. Some plug-ins wait for a sign-in, activation or update window, or for a missing component.",
             "Open the vendor's app to finish any sign-in, activation or update, then run the check again.");
     }
+    // #414: the Windows host saw the plug-in open its own window while a call
+    // waited (session.py ends the check 10 s later instead of timing out).
+    if error.starts_with("PluginWindowWaiting: ") {
+        return Explanation::new("waiting_in_window",
+            "This plug-in is waiting for you in a window (for example a sign-in or activation).",
+            "It opened its own window while the bridge was loading it, and a check cannot answer it.",
+            "Choose Open this plug-in to finish setup, answer its window, then close the plug-in. The bridge checks it again automatically.");
+    }
     if error.starts_with("TimeoutError: inspection deadline") {
         return Explanation::new("timeout_inspection",
             "Checking the plug-in took longer than 3 minutes, so the bridge stopped it.",
@@ -689,6 +697,9 @@ mod tests {
         let e = from_report(&report("TimeoutError: Windows call deadline: C:\\users\\alice\\SECRET", json!([]))).unwrap();
         assert_eq!(e.what_happened, "The plug-in stopped responding during a plug-in call.");
         private(&e);
+        let e = from_report(&report("PluginWindowWaiting: load_library", json!([]))).unwrap();
+        assert_eq!(e.code, "waiting_in_window");
+        assert!(e.what_to_try.contains("Open this plug-in to finish setup"));
         let e = from_report(&report("TimeoutError: inspection deadline; cleanup: x", json!([]))).unwrap();
         assert_eq!(e.code, "timeout_inspection");
         let mut unclean = report("TimeoutError: inspection deadline", json!([]));

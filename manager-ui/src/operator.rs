@@ -234,6 +234,10 @@ impl RequestFeedback {
                 self.release_after_snapshot = true;
                 "Launch acknowledgment is uncertain. Use the exact Stop / reconcile control; no launch was resubmitted.".into()
             }
+            Some("vendor_running") if matches!(self.action, Action::PluginFinishSetup { .. }) => {
+                self.release_after_snapshot = true;
+                "Finish setup in the plug-in window, then close it. The bridge will check it again automatically.".into()
+            }
             Some("vendor_running") if matches!(self.action, Action::ProductUninstall { .. }) => {
                 self.release_after_snapshot = true;
                 "The vendor's uninstaller is running. Follow its window to finish.".into()
@@ -462,7 +466,7 @@ struct InstallerReplacement {
 }
 fn replacement_context(snapshot: &Snapshot, setup: &InstallerSetup) -> Option<InstallerReplacement> {
     if setup.phase == SetupPhase::CleanupUnconfirmed || setup.primary.iter().chain(&setup.secondary)
-        .any(|offer| matches!(offer.action, Action::InstallerFocus {..} | Action::InstallerStop {..}
+        .any(|offer| matches!(offer.action, Action::PluginSetupFocus {..}|Action::PluginSetupStop {..}|Action::InstallerFocus {..} | Action::InstallerStop {..}
             | Action::VendorApplicationFocus {..} | Action::VendorApplicationStop {..})) {
         return None;
     }

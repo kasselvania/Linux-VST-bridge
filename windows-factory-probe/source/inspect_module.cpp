@@ -48,7 +48,8 @@ template<size_t N> std::string bounded(const char (&value)[N]) {
 }
 
 }
-int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id, ExternalProcessing* external, const std::wstring& access_directory, bool bus_probe, bool stereo_probe, bool graphics_probe) {
+int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, const std::string& class_id, ExternalProcessing* external, const std::wstring& access_directory, bool bus_probe, bool stereo_probe, bool graphics_probe, const std::wstring& setup_directory) {
+    const bool setup=!setup_directory.empty();
     using namespace Steinberg;using namespace Steinberg::Vst;
     HostApplication host;VendorHandler handler;handler.external=external;
     IComponent* component=nullptr;IAudioProcessor* audio=nullptr;IEditController* controller=nullptr;
@@ -78,6 +79,8 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
         for(int i=0;i<count;++i){
             PClassInfo info{};ok(factory->getClassInfo(i,&info),"getClassInfo");
             if(bounded(info.category)==kVstAudioEffectClass && (class_id.empty()||FUID::fromTUID(info.cid)==wanted)){
+                // The visible setup only needs the plug-in loaded and shown: the
+                // first audio class serves when the file has several.
                 if(found)throw std::runtime_error("multiple audio classes require explicit selection");
                 selected=info;selected_index=i;found=true;
             }
@@ -212,6 +215,43 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             step("assessGraphicsEditor");
             assess_graphics_editor(*controller,events);
             ok(kResultOk,"assessGraphicsEditor");
+        }
+        if(setup){
+            // Visible first load (#414): a plug-in's own sign-in, activation or
+            // update prompt may appear while it loads, activates or opens its
+            // editor. Nothing here answers it; the musician does, then closes
+            // the window. Activation is best effort and never fails the setup:
+            // the ordinary check that follows decides compatibility.
+            ProcessSetup processing{};processing.processMode=kRealtime;processing.symbolicSampleSize=kSample32;
+            processing.maxSamplesPerBlock=512;processing.sampleRate=48000.;
+            step("setupProcessing");const auto prepared=audio->setupProcessing(processing);
+            events.lifecycle("ap8_result",",\"operation\":\"setupProcessing\",\"result\":"+std::to_string(prepared));
+            bool active=false;
+            if(prepared==kResultOk){
+                step("setActive");const auto result=component->setActive(true);active=result==kResultOk;
+                events.lifecycle("ap8_result",",\"operation\":\"setActive\",\"result\":"+std::to_string(result));
+            }
+            VendorView view;
+            const bool shown=view.open(*controller);
+            events.lifecycle("finish_setup_open",",\"editor\":"+std::string(shown?"true":"false")+",\"active\":"+(active?"true":"false"));
+            if(shown){
+                const int title_size=MultiByteToWideChar(CP_UTF8,0,name.data(),int(name.size()),nullptr,0);
+                std::wstring title(size_t(title_size>0?title_size:0),L'\0');
+                if(title_size>0)MultiByteToWideChar(CP_UTF8,0,name.data(),int(name.size()),title.data(),title_size);
+                title+=L" - finish its setup here, then close this window";
+                SetWindowTextW(view.window(),title.c_str());
+                ShowWindow(view.window(),SW_SHOWNORMAL);SetForegroundWindow(view.window());
+                // The supervisor bounds the whole session at 15 minutes; this
+                // is only the host's own backstop.
+                const auto deadline=GetTickCount64()+20*60*1000;
+                while(VendorView::pump()&&!view.close_requested()&&!view.window_lost()&&GetTickCount64()<deadline&&GetFileAttributesW((setup_directory+L"\\vendor.stop").c_str())==INVALID_FILE_ATTRIBUTES)Sleep(10);
+                if(!view.close())ExitProcess(92);
+            }
+            if(active){
+                step("setInactive");const auto result=component->setActive(false);
+                events.lifecycle("ap8_result",",\"operation\":\"setInactive\",\"result\":"+std::to_string(result));
+            }
+            events.lifecycle("finish_setup_closed",",\"editor\":"+std::string(shown?"true":"false"));
         }
         if(!access_directory.empty()){
             // Explicit unpublished access session: no DAW/DSP impersonation.

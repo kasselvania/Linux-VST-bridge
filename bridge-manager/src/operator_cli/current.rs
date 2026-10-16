@@ -800,6 +800,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     let mut vendor_applications = vendor_projections(m,busy)?;
     let environments=environment_projection_from(m,&sw,&managed_bindings,&db,busy)?;
     environment_refresh::project(m,&mut installer_setups,&environments,&products,busy)?;
+    plugin_setup::project(m,&mut products,&mut installer_setups,busy)?;
     let deleted_setups = {
         let system = system_from_capacity(cap.as_ref(),pending,0);
         setup_removal::project(m,&mut installer_setups,&records,&db,&managed_bindings,
