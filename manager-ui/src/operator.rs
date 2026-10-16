@@ -604,6 +604,8 @@ pub struct Operator {
     operation_live: bool,
     prompt_pulse: bool,
     last_pulse: Option<crate::model::Pulse>,
+    /// When the last pulse arrived.
+    last_pulse_at: Option<Instant>,
     // An unavailable readback cannot clear a positively observed cleanup fault.
     cleanup_failure_observed: bool,
     readback_failures: u32,
@@ -623,6 +625,7 @@ pub struct Operator {
     focus: RouteFocus,
     preview: bool,
     pacing: ReadPacing,
+    updates: crate::updates::Updates,
 }
 /// Status reads take seconds on a populated setup and briefly share the
 /// manager's registry lock with running work. Passive refreshes (a noticed
@@ -700,6 +703,7 @@ impl Operator {
             operation_live: false,
             prompt_pulse: false,
             last_pulse: None,
+            last_pulse_at: None,
             cleanup_failure_observed: false,
             readback_failures: 0,
             retry_after: None,
@@ -716,6 +720,7 @@ impl Operator {
             page: Page::Home,
             focus: RouteFocus::default(),
             preview: false,
+            updates: crate::updates::Updates::new(),
             pacing: ReadPacing::default(),
         }
     }
@@ -749,6 +754,7 @@ impl Operator {
             operation_live: false,
             prompt_pulse: false,
             last_pulse: None,
+            last_pulse_at: None,
             cleanup_failure_observed: false,
             readback_failures: 0,
             retry_after: None,
@@ -765,6 +771,7 @@ impl Operator {
             page,
             focus: RouteFocus::default(),
             preview: true,
+            updates: crate::updates::Updates::disabled(),
             pacing: ReadPacing::default(),
         }
     }
@@ -1054,6 +1061,15 @@ impl Operator {
         if !self.overview_fresh && !self.overview_renewing { return None; }
         self.retained_health_system()
     }
+    /// Whether a DAW is using bridged plug-ins, and when that was read; None
+    /// while unobserved.
+    fn plugins_in_use(&self) -> Option<(bool, Instant)> {
+        let pulse = self.last_pulse.as_ref().zip(self.last_pulse_at)
+            .filter(|(_, at)| at.elapsed() < Duration::from_secs(15))
+            .and_then(|(pulse, at)| pulse.dsp.map(|dsp| (dsp > 0, at)));
+        if pulse.is_some() || !self.overview_fresh { return pulse; }
+        self.current_health_system().map(|system| (system.dsp > 0, self.last_overview))
+    }
     fn current_owned_pause(&self) -> bool {
         if self.cleanup_failure_observed { return false; }
         let operation = if let Some(pulse) = self.last_pulse.as_ref()
@@ -1293,6 +1309,7 @@ impl Operator {
                     snapshot.operation = p.operation.clone();
                 }
                 self.last_pulse = Some(p);
+                self.last_pulse_at = Some(Instant::now());
                 if self.overview.is_none() || !self.overview_fresh {
                     self.refresh_after = true;
                 }
@@ -2861,6 +2878,10 @@ impl eframe::App for Operator {
             self.handle_reply(reply);
         }
         self.expire_overview();
+        // The new version's Setup continues the update; this window closes.
+        if self.updates.poll(ui.ctx(), self.plugins_in_use()) {
+            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+        }
 
         let readiness_visible = self.current_readiness().or_else(|| self.last_readiness()).is_some();
         let controls_pending = self.controls_pending();
@@ -2899,10 +2920,22 @@ impl eframe::App for Operator {
             if self.preview { ui.small("LOCAL DESIGN PREVIEW · sample records · actions do not execute"); }
             Self::health_bar(ui, self.current_health_system(), self.current_owned_pause(),
                 self.overview_renewing);
+            if let Some(line) = self.updates.headline().filter(|_| self.page != Page::Setup) {
+                ui.horizontal_wrapped(|ui| {
+                    ui.strong(line);
+                    if ui.add(egui::Button::new("View update").min_size(egui::vec2(0.0, 36.0))).clicked() {
+                        self.page = Page::Setup;
+                    }
+                });
+            }
             navigation(ui, &mut self.page);
             self.request_bar(ui);
             ui.separator();
             egui::ScrollArea::vertical().id_salt(("manager-page", self.page)).show(ui, |ui| {
+                if self.page == Page::Setup && !self.preview {
+                    self.updates.show(ui);
+                    ui.add_space(8.0);
+                }
                 if self.overview.is_some() || !self.preview {
                     if let Some(overview) = &self.overview {
                         match self.page {
@@ -4930,6 +4963,7 @@ mod tests {
             operation_live: false,
             prompt_pulse: false,
             last_pulse: None,
+            last_pulse_at: None,
             cleanup_failure_observed: false,
             readback_failures: 0,
             retry_after: None,
@@ -4946,6 +4980,7 @@ mod tests {
             page: Page::Home,
             focus: RouteFocus::default(),
             preview: false,
+            updates: crate::updates::Updates::disabled(),
             pacing: ReadPacing::default(),
         }
     }

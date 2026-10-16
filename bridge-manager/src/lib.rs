@@ -1622,3 +1622,25 @@ pub mod native_access_dependency;
 pub mod dependency_session;
 pub mod portable_package;
 pub mod package_version;
+pub mod update_feed;
+
+/// One `KEY=value` field of an os-release file, unquoted and bounded.
+pub fn os_release_value(text: &str, key: &str) -> Option<String> {
+    let value = text
+        .lines()
+        .find_map(|line| line.strip_prefix(&format!("{key}=")))?;
+    let value = value.trim().trim_matches('"').trim_matches('\'');
+    (!value.is_empty() && value.len() <= 128 && !value.chars().any(char::is_control))
+        .then(|| value.to_owned())
+}
+/// This computer's os-release text, bounded; empty when unreadable.
+pub fn read_os_release() -> String {
+    for path in ["/etc/os-release", "/usr/lib/os-release"] {
+        let mut bytes = Vec::new();
+        if File::open(path).and_then(|f| f.take(8193).read_to_end(&mut bytes)).is_ok()
+            && bytes.len() <= 8192 {
+            if let Ok(text) = String::from_utf8(bytes) { return text; }
+        }
+    }
+    String::new()
+}

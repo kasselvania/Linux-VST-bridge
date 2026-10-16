@@ -738,9 +738,7 @@ pub fn os_release_name(text: &str) -> Option<String> {
 /// This computer's distribution, read once.
 pub fn distribution() -> Option<&'static str> {
     static NAME: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
-    NAME.get_or_init(|| ["/etc/os-release", "/usr/lib/os-release"].iter()
-        .find_map(|path| std::fs::read_to_string(path).ok())
-        .and_then(|text| os_release_name(&text))).as_deref()
+    NAME.get_or_init(|| os_release_name(&linux_vst_bridge::read_os_release())).as_deref()
 }
 
 /// DAWs chosen for installations, when any was chosen.

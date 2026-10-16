@@ -462,6 +462,7 @@ fn plain_refusal(error: &str) -> String {
         "package_operator_active_or_ambiguous" => "A bridge task is still running or did not record how it ended. Let it finish, then choose Check again; if this stays, send Setup details.".into(),
         "package_vendor_owner_active" => "An app session opened through the bridge has not finished closing. Close the app, then choose Check again; if this stays, send Setup details.".into(),
         "package_installer_owner_active" => "An installer started through the bridge has not finished. Let it finish, then choose Check again; if this stays, send Setup details.".into(),
+        "package_owner_active" | "package_service_not_clean_idle" | "active_device_lease" => "The bridge is still in use, usually by an open DAW. Close your DAW, then choose Check again; if this stays, send Setup details.".into(),
         text if text.ends_with('.') && text.contains(' ')
             && text.starts_with(|c: char| c.is_ascii_uppercase()) => text.into(),
         _ => error.to_owned(),
@@ -482,6 +483,8 @@ pub struct Bootstrap {
     adopted: bool,
     attention: bool,
     check_queued: bool,
+    /// Start Update Bridge once the first status check offers it.
+    continue_update: bool,
 }
 
 impl Bootstrap {
@@ -500,6 +503,7 @@ impl Bootstrap {
             adopted: false,
             attention: false,
             check_queued: false,
+            continue_update: false,
         }
     }
 
@@ -508,6 +512,22 @@ impl Bootstrap {
             check_queued: true,
             ..Self::new()
         }
+    }
+
+    /// Opened by the in-app updater after it staged this package: check, and
+    /// when the check offers Update Bridge, start it. Any other state is shown
+    /// as usual, with its usual buttons.
+    pub fn continuing_update() -> Self {
+        Self {
+            continue_update: true,
+            ..Self::checking()
+        }
+    }
+
+    /// After the first status check of a continued update.
+    fn continue_after_status(&mut self) -> Option<Operation> {
+        if !std::mem::take(&mut self.continue_update) { return None; }
+        (self.primary_action().0 == Operation::Update).then_some(Operation::Update)
     }
 
     /// Source preview of the second first-run step.
@@ -548,6 +568,7 @@ impl Bootstrap {
             adopted: false,
             attention: true,
             check_queued: false,
+            continue_update: false,
         }
     }
 
@@ -660,7 +681,7 @@ impl eframe::App for Bootstrap {
             .and_then(|receiver| receiver.try_recv().ok())
         {
             self.receiver = None;
-            self.running = None;
+            let finished = self.running.take();
             if self.apply_completion(result) {
                 match launch_selected() {
                     Ok(()) => {
@@ -671,6 +692,10 @@ impl eframe::App for Bootstrap {
                         self.attention = true;
                         self.result = Some(error);
                     }
+                }
+            } else if finished == Some(Operation::Status) {
+                if let Some(operation) = self.continue_after_status() {
+                    self.submit(operation, ui.ctx().clone());
                 }
             }
         }
@@ -1043,6 +1068,25 @@ mod tests {
         }
     }
     #[test]
+    fn continued_update_starts_only_the_offered_update_once() {
+        for (state, expected) in [("update_active", Some(Operation::Update)),
+            ("update_adoptable", Some(Operation::Update)),
+            ("update_retirement_pending", Some(Operation::Update)),
+            ("rollback_active", None), ("repair_active", None), ("inactive", None)] {
+            let mut screen = Bootstrap::continuing_update();
+            assert!(screen.check_queued);
+            assert!(!screen.apply_completion(completed_status(Operation::Status, state)));
+            assert_eq!(screen.continue_after_status(), expected, "{state}");
+            assert_eq!(screen.continue_after_status(), None, "never a second time");
+        }
+        let mut recovery = Bootstrap::continuing_update();
+        assert!(!recovery.apply_completion(Err("package_transition_needs_recovery".into())));
+        assert_eq!(recovery.continue_after_status(), None);
+        let mut ordinary = Bootstrap::checking();
+        assert!(!ordinary.apply_completion(completed_status(Operation::Status, "update_active")));
+        assert_eq!(ordinary.continue_after_status(), None, "plain Setup still waits for a click");
+    }
+    #[test]
     fn gate_refusals_are_shown_in_plain_words() {
         for raw in ["Error: \"package_operator_active_or_ambiguous\"\n", "package_operator_active_or_ambiguous"] {
             let mut screen = Bootstrap::checking();
@@ -1051,7 +1095,8 @@ mod tests {
             assert!(shown.starts_with("A bridge task is still running") && !shown.contains('_'), "{shown}");
             assert_eq!(screen.primary_action(), (Operation::Status, "Check again"));
         }
-        for code in ["package_vendor_owner_active", "package_installer_owner_active"] {
+        for code in ["package_vendor_owner_active", "package_installer_owner_active",
+            "package_owner_active", "package_service_not_clean_idle"] {
             let shown = plain_refusal(&format!("Error: {code:?}\n"));
             assert!(!shown.contains('_') && shown.ends_with('.'), "{shown}");
         }

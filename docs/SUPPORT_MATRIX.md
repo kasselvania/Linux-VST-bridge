@@ -11,6 +11,9 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+In-app beta update (#400), **unqualified**: CachyOS VM Test146 → Test148 via Download and update, then
+Restore previous setup back to Test146, from a loopback test feed; the final hand-over code awaits a VM pass.
+
 Problem report button (#361): source checks only; installed report creation and
 saving remain unqualified.
 

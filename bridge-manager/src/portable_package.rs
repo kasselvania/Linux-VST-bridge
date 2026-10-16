@@ -42,6 +42,17 @@ impl Trust {
         }
         Self::new(key, class)
     }
+    pub fn class(&self) -> &str { &self.class }
+    /// A detached Ed25519 signature by this same release key over
+    /// `domain + key class + NUL + bytes`. Each signed artifact type has its
+    /// own domain, so a package signature can never authorize anything else.
+    pub fn verify_detached(&self, domain: &[u8], bytes: &[u8], signature: &[u8]) -> Result<()> {
+        require(domain != DOMAIN && domain.ends_with(b"\0") && domain.len() <= 64
+            && signature.len() == 64, "signed_record_signature_extent")?;
+        let message = [domain, self.class.as_bytes(), b"\0", bytes].concat();
+        self.key.verify_strict(&message, &Signature::from_slice(signature)?)?;
+        Ok(())
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -498,6 +509,12 @@ pub fn expose_setup(frontend:&Path, home:&Path) -> Result<()> {
     let root=input_root(frontend,home)?.ok_or("user_package_source_required")?;
     expose_verified_setup(frontend, home, &root)
 }
+/// `expose_setup` with an explicit trust root, for the update feed's tests.
+#[cfg(test)]
+pub(crate) fn expose_setup_with_trust(frontend:&Path, home:&Path, trust:&Trust) -> Result<()> {
+    let root=input_root_with_trust(frontend,home,trust)?.ok_or("user_package_source_required")?;
+    expose_verified_setup(frontend, home, &root)
+}
 fn expose_verified_setup(frontend:&Path, home:&Path, root:&Path) -> Result<()> {
     let apps=home.join(".local/share/applications");
     fs::create_dir_all(&apps)?;
@@ -528,13 +545,13 @@ fn expose_verified_setup(frontend:&Path, home:&Path, root:&Path) -> Result<()> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use ed25519_dalek::{Signer,SigningKey};
     use std::{io::Cursor,process::Command};
-    struct Fixture {home:PathBuf,key:SigningKey,rows:Vec<(ReleaseFile,Vec<u8>)>}
+    pub(crate) struct Fixture {pub(crate) home:PathBuf,pub(crate) key:SigningKey,pub(crate) rows:Vec<(ReleaseFile,Vec<u8>)>}
     impl Fixture {
-        fn new()->Self {
+        pub(crate) fn new()->Self {
             let home=std::env::temp_dir().join(format!("lvb-user-package-{}",random_id().unwrap()));
             directory(&home).unwrap();
             // macOS exposes its temporary root through /var -> /private/var.
@@ -572,8 +589,8 @@ mod tests {
             }).collect();
             Self{home,key:SigningKey::from_bytes(&[0x51;32]),rows}
         }
-        fn trust(&self)->Trust {Trust::new(self.key.verifying_key().to_bytes(),"internal_test").unwrap()}
-        fn bundle(&self,version:&str)->PathBuf {
+        pub(crate) fn trust(&self)->Trust {Trust::new(self.key.verifying_key().to_bytes(),"internal_test").unwrap()}
+        pub(crate) fn bundle(&self,version:&str)->PathBuf {
             let mut payload=Vec::new();
             {let mut archive=tar::Builder::new(&mut payload);
                 for (row,bytes) in &self.rows {

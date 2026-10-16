@@ -55,11 +55,28 @@ Optional experience reports are under the plug-in's **Help and testing** control
 
 ## Later updates
 
-The maintainer supplies numbered test builds with an installer matching your
-system and a short description of the changes. Close your DAW, then download
-the new `.install` file and run it as above. Choose **Install application
-files → Open Setup → Update Bridge** when offered. Setup updates from the
-supplied package; it does not check an online application update feed.
+A build that has **Setup → Beta updates** updates itself. Once, in that panel,
+paste the beta link you were sent and choose **Save beta link**. The manager
+then checks for a new test build when it starts and once a day; **Check for
+updates** checks now. When one is published it shows **Update available:
+TestNNN** with its **What's new** notes. Close your DAW and choose **Download
+and update**: the manager downloads the installer for your system, checks it
+against the signed update information and the build's own signature, installs
+the application files and opens Setup, which runs **Update Bridge** by itself.
+If your DAW is still using bridged plug-ins, the manager says so and continues
+when you close it. When the update finishes, the manager opens on the new
+version. It never installs an older build; going back is **Restore previous
+setup**.
+
+If the beta server is offline you see one line, “Couldn't check for updates
+right now”; try later. If your link's key changes you see “Your beta link no
+longer works; paste the new link”: choose **Paste a new link** and paste the
+new one. The key stays private on your computer: it is never shown, logged or
+put in a support export.
+
+Older builds have no update button. Update those once by hand:
+download the new `.install` file, run it as above and choose **Install
+application files → Open Setup → Update Bridge**.
 
 If an update is interrupted, use **Recover interrupted setup** when offered.
 **Restore previous setup** is available when Setup offers it. If the expected
@@ -77,6 +94,12 @@ problem report. The application includes its third-party notices.
 Track reports in GitHub with `beta-feedback`, and reply with the issue link,
 the build carrying its fix, and the verification result. Give each delivery
 one unused build number across platforms and threads; supply a short changelog
-and matching installers, and preserve the previous build. Distinguish a fix
+and matching installers, and preserve the previous build. Publish a verified
+build to the update feed with `tools/beta/publish_update.py` (see
+`tools/beta/README.md`): `build` signs `latest.json` where the signing key is,
+`upload` copies the installers and feed into the beta folder without deleting
+anything. For the private beta the internal-test key signs the feed in the
+homelab build container, as it signs installers; a release key never lives on
+the homelab and signs with the same command on the maintainer's Mac. Distinguish a fix
 merged into source from a build delivered to testers and a fix verified in
 their DAW. Name the system, DAW and plug-in used for that verification.

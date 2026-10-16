@@ -51,8 +51,8 @@ pub fn generation_version(dir: &Path) -> Option<String> {
     struct Manifest { version: String }
     #[derive(Deserialize)]
     struct Record { manifest: Manifest }
-    let bytes = std::fs::read(dir.join("package-generation.json")).ok()?;
-    let record: Record = serde_json::from_slice(&bytes).ok()?;
+    // Bounded, regular, own file only: this runs on the UI thread at start.
+    let record: Record = crate::read_json(&dir.join("package-generation.json")).ok()?;
     valid_version(&record.manifest.version).then_some(record.manifest.version)
 }
 
@@ -78,6 +78,14 @@ mod tests {
         assert_eq!(generation_version(&dir).as_deref(), Some("0.12.0test144"));
         std::fs::write(dir.join("package-generation.json"),
             br#"{"manifest":{"version":"/home/someone"}}"#).unwrap();
+        assert_eq!(generation_version(&dir), None);
+        // A FIFO or an oversized record is never read.
+        std::fs::remove_file(dir.join("package-generation.json")).unwrap();
+        let fifo = std::ffi::CString::new(dir.join("package-generation.json").to_str().unwrap()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
+        assert_eq!(generation_version(&dir), None);
+        std::fs::remove_file(dir.join("package-generation.json")).unwrap();
+        std::fs::write(dir.join("package-generation.json"), vec![b' '; 9 * 1024 * 1024]).unwrap();
         assert_eq!(generation_version(&dir), None);
         std::fs::remove_dir_all(dir).unwrap();
     }
