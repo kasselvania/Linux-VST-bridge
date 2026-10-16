@@ -11,6 +11,13 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+In-app beta update (#400), **unqualified**: on the CachyOS VM, Test146's Setup →
+Beta updates found Test148 in a feed signed with the internal-test key, and
+Download and update verified, staged and handed over to Test148's Setup, which
+ran Update Bridge by itself; Test148 was selected with the service active and its
+manager reopened. The feed came from a loopback test server, not the real beta
+share. Restore previous setup after an in-app update is not yet re-run.
+
 Test60/61 are installed on SteamOS 3.8.16 Deck through ordinary Update Bridge.
 The actual retained app-only hub bootstrap now opens normally, installs two
 classes and connects them automatically after full helper retirement; its repeat
