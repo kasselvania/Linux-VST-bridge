@@ -2891,13 +2891,20 @@ def installer_started_profiled_images(trace,profiles,window=FIRST_LAUNCH_WINDOW_
     drive=trace.root/'compatdata/pfx/drive_c';found={};seen=set()
     try:real_drive=drive.resolve(strict=True)
     except OSError:return {}
+    # Signals reach every owned process running the file, so the window holds
+    # for the file: one still-running launch of it outside the window (an older
+    # copy, whose same-file helpers may start inside it) leaves the file alone.
+    launches={}
     for row in trace.rows:
         if row.get('self_exit') is not None or row.get('target_root'):continue
-        try:created=float(row.get('created_timestamp'))
-        except (TypeError,ValueError):continue
-        if (run['started'] is not None and created<run['started']) or created<run['ended']-window:continue
         path=trace.path(row.get('image_request'))
-        if path is None or not path.is_relative_to(drive) or path in seen:continue
+        if path is None or not path.is_relative_to(drive):continue
+        try:created=float(row.get('created_timestamp'))
+        except (TypeError,ValueError):created=None
+        inside=created is not None and not ((run['started'] is not None and created<run['started']) or created<run['ended']-window)
+        launches.setdefault(str(path).casefold(),[path,True])[1]&=inside
+    for path,inside in launches.values():
+        if not inside or path in seen:continue
         seen.add(path)
         for profile in profiles:
             if path.name.casefold()!=profile['executable'].casefold():continue

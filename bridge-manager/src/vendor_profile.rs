@@ -110,10 +110,6 @@ pub struct Bundled {
     pub installer_started_app: Option<InstallerStartedApp>,
 }
 
-/// Keys of a bundled profile file that are launch-time settings, not part of
-/// the saved binding.
-pub const LAUNCH_TIME_KEYS: [&str; 2] = ["registry_defaults", "installer_started_app"];
-
 impl Bundled {
     pub fn parse(bytes: &[u8]) -> Result<Self> {
         let mut value: serde_json::Map<String, serde_json::Value> = serde_json::from_slice(bytes)?;

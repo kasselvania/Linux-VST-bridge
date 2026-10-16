@@ -11,6 +11,9 @@ def create(ts='1.000',path='C:\\\\Program Files\\\\Vendor\\\\App.exe'):
     return f'{ts}:0020:0024:trace:process:CreateProcessInternalW app L"{path}" cmdline L"x"\n'
 STARTED='1.001:0020:0024:trace:process:CreateProcessInternalW started process pid 0030 tid 0034\n'
 CREATE=create()
+# The running copy (pid 0030) starts a helper from the same file (pid 0040).
+HELPER=['100.000:0030:0034:trace:process:CreateProcessInternalW app L"C:\\\\Program Files\\\\Vendor\\\\App.exe" cmdline L"x"\n',
+    '100.001:0030:0034:trace:process:CreateProcessInternalW started process pid 0040 tid 0044\n']
 
 def root_lines(artifact,*,code=0,started='0.900',ended='1.500'):
     windows='Z:'+str(artifact).replace('/','\\\\')
@@ -73,6 +76,21 @@ class ImageMatchTests(unittest.TestCase):
             self.assertEqual(self.found(root,[create('0.100'),STARTED.replace('1.001','0.101')],started='0.500',ended='1.500'),{})
             # Started by the shell just after the installer exited: still its copy.
             self.assertTrue(self.found(root,[create('1.600'),STARTED.replace('1.001','1.601')],started='0.500',ended='1.500'))
+    def test_a_file_with_any_running_launch_outside_the_window_is_left_alone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp).resolve();app_tree(root)
+            # The copy started 119 s before the installer's exit; its helper
+            # started 20 s before it. Signals reach every process running the
+            # file, so neither is closed.
+            self.assertEqual(self.found(root,[CREATE,STARTED]+HELPER,started='0.500',ended='120.000'),{})
+            # Once that older copy has exited, the helper alone is in the window.
+            gone='110.000:0030:0034:trace:process:NtTerminateProcess handle 0xffffffffffffffff, exit_code 0, process_exiting 1.\n'
+            self.assertTrue(self.found(root,[CREATE,STARTED]+HELPER+[gone],started='0.500',ended='120.000'))
+            # A launch whose start time is unknown counts as outside.
+            trace=self.trace(root,[CREATE,STARTED]+HELPER,started='0.500',ended='60.000')
+            self.assertTrue(session.installer_started_profiled_images(trace,[PROFILE]))
+            next(r for r in trace.rows if r['windows_pid']==0x30)['created_timestamp']=None
+            self.assertEqual(session.installer_started_profiled_images(trace,[PROFILE]),{})
     def test_home_reached_through_a_symlink_still_finds_the_app(self):
         with tempfile.TemporaryDirectory() as tmp:
             real=pathlib.Path(tmp).resolve()/'var-home';real.mkdir();app_tree(real)
@@ -155,7 +173,7 @@ class MappedIdentityTests(unittest.TestCase):
 
 @unittest.skipUnless(sys.platform.startswith('linux'),'Linux supervisor subreaper and /proc maps')
 class InstallerLoopTests(unittest.TestCase):
-    def run_installer(self,profiles,*,resources=True,ignore_term=False,lifetime=6,installer_exit=0,reader=False):
+    def run_installer(self,profiles,*,resources=True,ignore_term=False,lifetime=6,installer_exit=0,reader=False,old_copy=False):
         with tempfile.TemporaryDirectory() as tmp:
             root=pathlib.Path(tmp).resolve();(root/'operation.lock').touch();(root/'home').mkdir();artifact=root/'installer';artifact.write_bytes(b'fixture')
             exe=app_tree(root,resources=resources)
@@ -168,7 +186,9 @@ class InstallerLoopTests(unittest.TestCase):
             # the app and then end, while the runner itself stays until
             # everything it started has ended (pressure-vessel subreaper). Under
             # Wine the app's program name is its Windows path.
-            head,tail=root_lines(artifact,code=installer_exit)
+            # old_copy: the app started 119 s before the installer's exit and a
+            # same-file helper of it started inside the window; both run.
+            head,tail=root_lines(artifact,code=installer_exit,started='0.500',ended='120.000' if old_copy else '1.500')
             mapper=('import mmap,signal,sys,time;f=open(sys.argv[1],"rb");m=mmap.mmap(f.fileno(),0,access=mmap.ACCESS_READ);'
                 +('signal.signal(signal.SIGTERM,signal.SIG_IGN);' if ignore_term else '')
                 +f'sys.stdout.write("running\\n");sys.stdout.flush();time.sleep({lifetime})')
@@ -176,8 +196,9 @@ class InstallerLoopTests(unittest.TestCase):
             spawn=f'subprocess.Popen([{str(root/"bin/App.exe")!r},"-c",{mapper!r},{str(exe)!r}],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)'
             data=(f'r=subprocess.Popen([{str(root/"bin/winemenubuilder.exe")!r},"-c",{mapper!r},{str(exe)!r}],'
                 'stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);' if reader else '')
-            installer=(f'import os,subprocess,sys,time;sys.stderr.write({"".join(head)+CREATE+STARTED+tail!r});sys.stderr.flush();'
-                f'{data}p={spawn};p.wait();'+('r.wait();' if reader else '')+f'sys.exit({installer_exit})')
+            trace=''.join(head)+CREATE+STARTED+(''.join(HELPER) if old_copy else '')+tail
+            installer=(f'import os,subprocess,sys,time;sys.stderr.write({trace!r});sys.stderr.flush();'
+                f'{data}p={spawn};'+(f'h={spawn};h.wait();' if old_copy else '')+'p.wait();'+('r.wait();' if reader else '')+f'sys.exit({installer_exit})')
             real_popen=subprocess.Popen;children=[]
             def launch_owned(args,**kwargs):
                 if not children:
@@ -213,6 +234,10 @@ class InstallerLoopTests(unittest.TestCase):
         self.assertTrue(ok);self.assertEqual(v['state'],'completed');self.assertEqual(v['owned_live'],0)
         self.assertEqual(v['started_application']['result'],'closed_for_managed_first_launch')
         self.assertGreater(elapsed,10);self.assertLess(elapsed,20)
+    def test_an_old_copy_and_its_helper_inside_the_window_are_both_left_alone(self):
+        ok,v,elapsed=self.run_installer([PROFILE],old_copy=True)
+        self.assertTrue(ok);self.assertEqual(v['state'],'completed');self.assertIsNone(v['started_application'])
+        self.assertGreater(elapsed,5)
     def test_a_failed_installer_closes_nothing_and_the_session_waits(self):
         ok,v,elapsed=self.run_installer([PROFILE],installer_exit=3)
         self.assertFalse(ok);self.assertEqual(v['state'],'failed');self.assertEqual(v['raw_exit'],3)
