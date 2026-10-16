@@ -162,7 +162,8 @@ pub(super) fn setup_changed(m: &Manager, class: &str, publication: &RevisionRef)
     let prior = &revision.registration;
     let current = linux_vst_bridge::environment_revision::current_environment(m, &prior.environment)?;
     if current == prior.environment || current.runner != prior.environment.runner
-        || current.root != prior.environment.root || prior.module.verify().is_err() {
+        || current.root != prior.environment.root || prior.module.verify().is_err()
+        || package_authority::add_back_needs_refresh(m, class, publication).unwrap_or(false) {
         return Ok(false);
     }
     // The re-check reads the setup's own scan, taken with the bridge it was prepared with.

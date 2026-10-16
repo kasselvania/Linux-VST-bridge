@@ -648,7 +648,7 @@ fn a_failed_recheck_is_named_plainly_and_never_reported_back() {
         &|_, _, _, _| Err("unchanged_publication_host_changed".into()));
     let outcome = outcome.unwrap();
     let message = outcome["message"].as_str().unwrap();
-    assert!(message.contains(&format!("{name} couldn't be checked again (prepared by another version of the bridge); use Check compatibility on its card.")), "{message}");
+    assert!(message.contains(&format!("{name} couldn't be checked again (prepared by another version of the bridge); to use it again, delete this setup and set it up again.")), "{message}");
     assert!(message.contains(&format!("{name} stays out of your DAW")), "{message}");
     assert!(!message.contains("back in your DAW") && !message.contains('_'), "{message}");
     assert_eq!(outcome["back_in_daw"], json!([]));
@@ -660,7 +660,7 @@ fn a_failed_recheck_is_named_plainly_and_never_reported_back() {
             ("F".into(), "unchanged_publication_selection_missing".into()), ("G".into(), "something_unexpected".into())]});
     assert!(text.contains(" A is back in your DAW, checked again with this setup."), "{text}");
     assert!(text.contains(" B, C were checked again and stay in your DAW. If you opened them while the bridge was paused, close them and open them again."), "{text}");
-    assert!(text.contains(" D, F couldn't be checked again (not in the setup's latest scan); use Check compatibility on their cards."), "{text}");
+    assert!(text.contains(" D, F couldn't be checked again (not in the setup's latest scan); use Finish checking this setup's plug-ins on the setup's card to try again."), "{text}");
     assert!(text.contains(" E couldn't be checked again (the bridge was busy)"), "{text}");
     assert!(text.contains(" G couldn't be checked again (the check didn't pass)"), "{text}");
     assert!(!text.contains('_'), "{text}");
@@ -778,4 +778,48 @@ fn a_first_installer_run_shown_closed_later_keeps_how_it_ended() {
     atomic_json(&path, &unconfirmed("installer_supervisor_terminated_without_retirement".into())).unwrap();
     let closed = environment_install::confirm_closed(&s.f.m, &op, &|_| Ok(false)).unwrap();
     assert_eq!(closed["state"], "failed");
+}
+
+#[test]
+fn plugins_waiting_for_their_recheck_keep_the_registry_managed() {
+    let p = published_setup(false);
+    let class = p.c.selection.class.id.clone();
+    // The setup moves on, and this plug-in's re-check fails: it stays in the
+    // DAW at the setup's older revision until it is checked again.
+    let (_, outcome) = run_published_with(&p, |m, record| { report(m, record, "completed", 0); Ok(()) },
+        &|_| Ok(false), &|_, _, _, _| Err("unchanged_publication_host_changed".into()));
+    outcome.unwrap();
+    let entry = p.f.m.registry().unwrap().classes[&class].clone();
+    assert_eq!((entry.publication, entry.registration.environment.revision),
+        (Publication::Published, p.record.environment.revision));
+    // Other setups' work still runs: the registry is still the manager's own.
+    assert!(linux_vst_bridge::catalogue::catalogue_free_registry(&p.f.m, &p.f.m.registry().unwrap()).unwrap());
+    // A revision no job of the manager owns is never accepted.
+    let mut forged = environment_install::current_environment(&p.f.m, &p.record.environment).unwrap();
+    forged.revision += 1;
+    atomic_json(&forged.root.join("environment.json"), &forged).unwrap();
+    assert!(linux_vst_bridge::catalogue::catalogue_free_registry(&p.f.m, &p.f.m.registry().unwrap()).is_err());
+}
+
+#[test]
+fn a_recheck_that_may_pass_later_stays_offered_until_it_does() {
+    let p = published_setup(true);
+    let class = p.c.selection.class.id.clone();
+    let name = p.f.m.registry().unwrap().classes[&class].registration.metadata.name.clone();
+    // The bridge was busy for this plug-in's check.
+    let (operation, outcome) = run_published_with(&p, |m, record| { report(m, record, "failed", 1); Ok(()) },
+        &|_| Ok(false), &|_, _, _, _| Err("operation already running".into()));
+    let message = outcome.unwrap()["message"].as_str().unwrap().to_owned();
+    assert!(message.contains(&format!("{name} couldn't be checked again (the bridge was busy); use Finish checking this setup's plug-ins on the setup's card to try again.")), "{message}");
+    assert_eq!(unchecked(&p.f.m, &p.record.id).unwrap(), Some(operation.clone()));
+    // Finish checking: this time it passes, and the plug-in is back.
+    let inspect = inspector(&p.c);
+    let revalidate = |m: &Manager, class: &str, current: &RevisionRef, work: &str|
+        preparation_cli::revalidate_in_place(m, class, current, work, &inspect);
+    let done = complete(&p.f.m, &operation, &mut Hooks {launch:&|_, _| panic!("never run again"),
+        is_live:&|_| Ok(false), vendor_retired:&|| Ok(true), running:&mut || Ok(()), checking:&mut |_, _| Ok(()),
+        rescan:&rescanned, revalidate:&revalidate}).unwrap();
+    assert!(done["message"].as_str().unwrap().contains(&format!("{name} is back in your DAW")));
+    assert_eq!(unchecked(&p.f.m, &p.record.id).unwrap(), None);
+    loadable(&p.f.m, &class);
 }

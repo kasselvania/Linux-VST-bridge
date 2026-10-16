@@ -600,7 +600,7 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
             environment:environment.clone(),installer:installer.id.clone(),name:"Setup".into(),
             environments:vec![binding.environment.clone()],registrations:vec![],plugins:vec![],
             operation:random_id().unwrap(),requested_at:1,deleted_at:None,
-            state:linux_vst_bridge::deleted_setup::State::Deleting,environments_folder:None}).unwrap();
+            state:linux_vst_bridge::deleted_setup::State::Deleting,forget_installer:false,environments_folder:None}).unwrap();
         assert!(records(&f.m).unwrap().iter().all(|r|r.environment.id!=environment));
         assert!(authority(&f.m).is_ok());
     }

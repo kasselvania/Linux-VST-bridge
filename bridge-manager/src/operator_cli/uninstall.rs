@@ -19,8 +19,8 @@ const NOT_STARTED: &str = "The uninstaller couldn't be started, so nothing was u
 pub(super) const UNCONFIRMED_CLOSE: &str = "The manager couldn't confirm that the uninstaller closed, so the bridge stays paused. Use Check that it closed on the setup's card.";
 const OTHER_OWNER: &str = "Another installer, uninstaller or app is still running. Finish it first.";
 pub(super) const FINISH_CHECKING: &str = "Finish checking this setup's plug-ins";
-pub(super) const CHECK_PENDING: &str = "The manager stopped before it finished checking this setup's plug-ins again, so some of them may not load yet. Use Finish checking this setup's plug-ins.";
-const SCAN_AGAIN: &str = "use Finish checking this setup's plug-ins on its card to try again";
+pub(super) const CHECK_PENDING: &str = "This setup's plug-ins weren't all checked again after its uninstaller closed, so some of them may not load yet. Use Finish checking this setup's plug-ins.";
+const SCAN_AGAIN: &str = "use Finish checking this setup's plug-ins on the setup's card to try again";
 /// The setup's own installation records show exactly what it added.
 pub(super) const INSTALLED_WITH_THIS: &str = "installed_with_this";
 /// They don't: every plug-in of the setup is treated as affected.
@@ -606,14 +606,24 @@ fn recheck_reason(code: &str) -> &'static str {
         "unchanged_publication_host_changed" | "bridge_refresh_predecessor_changed"
             | "loaded_engine_admission_contract_missing" => "prepared by another version of the bridge",
         "unchanged_publication_preferences_changed" => "settings changed meanwhile",
-        "unchanged_publication_inspection_changed" | "unchanged_publication_configuration_changed"
-            | "unchanged_publication_engine_changed" => "the plug-in reported something different this time",
+        // Its bridge files or settings differ from what this bridge prepares now.
+        "unchanged_publication_configuration_changed" => "prepared by another version of the bridge or with other settings",
+        "unchanged_publication_inspection_changed" | "unchanged_publication_engine_changed" =>
+            "the plug-in reported something different this time",
         "active_device_lease" | "active_maintenance_lease" | "operator_vendor_active"
             | "operation already running" => "the bridge was busy",
         "runtime_transition_recovery_required" => "the setup's runtime change isn't finished",
         _ if code.contains("artifact missing or changed") || code.contains("No such file") => "files changed",
         _ => "the check didn't pass",
     }
+}
+/// A check that can't pass in place: what was prepared differs from what the
+/// setup and bridge are now. Anything else may pass when tried again.
+fn lasting(code: &str) -> bool {
+    matches!(code, "unchanged_publication_content_or_runtime_changed" | "unchanged_publication_host_changed"
+        | "bridge_refresh_predecessor_changed" | "loaded_engine_admission_contract_missing"
+        | "unchanged_publication_preferences_changed" | "unchanged_publication_configuration_changed"
+        | "unchanged_publication_engine_changed")
 }
 
 /// The setup's plug-ins checked again after the uninstaller changed it.
@@ -674,17 +684,18 @@ fn reconnected_text(reconnected: &Reconnected) -> String {
             it(rechecked), it(rechecked), it(rechecked)));
     }
     // One sentence per reason, in the order the plug-ins were checked.
-    let mut reasons: Vec<(&'static str, Vec<String>)> = vec![];
+    let mut reasons: Vec<(&'static str, bool, Vec<String>)> = vec![];
     for (name, code) in &reconnected.failed {
         let reason = recheck_reason(code);
-        match reasons.iter_mut().find(|(r, _)| *r == reason) {
-            Some((_, names)) => names.push(name.clone()),
-            None => reasons.push((reason, vec![name.clone()])),
+        match reasons.iter_mut().find(|(r, _, _)| *r == reason) {
+            Some((_, _, names)) => names.push(name.clone()),
+            None => reasons.push((reason, lasting(code), vec![name.clone()])),
         }
     }
-    for (reason, names) in reasons {
-        text.push_str(&format!(" {} couldn't be checked again ({reason}); use Check compatibility on {}.",
-            join(&names), if one(&names) { "its card" } else { "their cards" }));
+    for (reason, lasting, names) in reasons {
+        let next = if lasting { format!("to use {} again, delete this setup and set it up again", it(&names)) }
+            else { SCAN_AGAIN.into() };
+        text.push_str(&format!(" {} couldn't be checked again ({reason}); {next}.", join(&names)));
     }
     text
 }
@@ -752,6 +763,8 @@ pub(super) fn complete(m: &Manager, operation: &str, hooks: &mut Hooks) -> Resul
     match scanned {
         Err(error) => outcome["message"] = format!("{} The setup couldn't be scanned again ({}), so its plug-ins weren't checked again; {SCAN_AGAIN}.",
             outcome["message"].as_str().unwrap_or_default(), plain(error)).into(),
+        // A check that may pass when tried again stays offered on the card.
+        Ok(_) if reconnected.failed.iter().any(|(_, code)| !lasting(code)) => {}
         Ok(_) => {
             recheck.outcome = Some(outcome.clone());
             atomic_json(&recheck_path(m, operation)?, &recheck)?;
