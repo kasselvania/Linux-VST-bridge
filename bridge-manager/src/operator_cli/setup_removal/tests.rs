@@ -403,6 +403,17 @@ fn a_setup_with_a_product_managed_environment_is_never_deleted() {
     assert!(f.m.root.join("environments").join(renderer::ENVIRONMENT).join("compatdata/pfx/drive_c/earlier-attempt.txt").exists());
 }
 
+/// A spawned child is visible in /proc only once its exec has finished
+/// (the parent can resume while the new environment is still being set up).
+fn exec_finished(child: &std::process::Child) {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !fs::read(format!("/proc/{}/environ", child.id())).is_ok_and(|e| e.windows(11).any(|w| w == b"WINEPREFIX="))
+        || fs::read_to_string(format!("/proc/{}/comm", child.id())).is_ok_and(|c| c.trim() != "sleep") {
+        assert!(Instant::now() < deadline, "the test program never started");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
 #[test]
 fn a_program_running_from_the_setup_is_found_by_its_recorded_or_resolved_path() {
     let (f, environment, installer) = created_setup();
@@ -412,6 +423,7 @@ fn a_program_running_from_the_setup_is_found_by_its_recorded_or_resolved_path() 
     std::os::unix::fs::symlink(&root, &alias).unwrap();
     let mut via_alias = std::process::Command::new("sleep").arg("30")
         .env("WINEPREFIX", alias.join("compatdata/pfx")).spawn().unwrap();
+    exec_finished(&via_alias);
     let found = running_inside(&[&alias, &canonical]);
     let missed = running_inside(&[&canonical]);
     via_alias.kill().unwrap();
@@ -420,6 +432,7 @@ fn a_program_running_from_the_setup_is_found_by_its_recorded_or_resolved_path() 
     assert!(!missed.unwrap().iter().any(|name| name == "sleep"));
     let mut direct = std::process::Command::new("sleep").arg("30")
         .env("WINEPREFIX", root.join("compatdata/pfx")).spawn().unwrap();
+    exec_finished(&direct);
     let refused = delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false), Duration::ZERO);
     direct.kill().unwrap();
     direct.wait().unwrap();
