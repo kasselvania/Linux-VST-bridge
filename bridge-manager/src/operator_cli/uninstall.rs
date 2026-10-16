@@ -16,7 +16,7 @@ const BRIDGE_SETUP: &str = "This setup belongs to the bridge itself, not to soft
 const UNINSTALLER_CHANGED: &str = "This setup's uninstaller program isn't the one its installer put there, so the manager won't run it. Send Setup details.";
 const MISSING: &str = "This setup's folder can't be found. Reconnect its drive or restore the folder, then try again.";
 const NOT_STARTED: &str = "The uninstaller couldn't be started, so nothing was uninstalled.";
-pub(super) const UNCONFIRMED_CLOSE: &str = "The manager couldn't confirm that the uninstaller closed, so the bridge stays paused. Use Check that it closed on the setup's card.";
+pub(super) const UNCONFIRMED_CLOSE: &str = "The manager couldn't confirm that the uninstaller closed. Use Check that it closed on the setup's card; it then checks this setup's plug-ins again with the bridge paused.";
 const OTHER_OWNER: &str = "Another installer, uninstaller or app is still running. Finish it first.";
 pub(super) const FINISH_CHECKING: &str = "Finish checking this setup's plug-ins";
 pub(super) const CHECK_PENDING: &str = "This setup's plug-ins weren't all checked again after its uninstaller closed, so some of them may not load yet. Use Finish checking this setup's plug-ins.";
@@ -617,13 +617,13 @@ fn recheck_reason(code: &str) -> &'static str {
         _ => "the check didn't pass",
     }
 }
-/// A check that can't pass in place: what was prepared differs from what the
-/// setup and bridge are now. Anything else may pass when tried again.
-fn lasting(code: &str) -> bool {
-    matches!(code, "unchanged_publication_content_or_runtime_changed" | "unchanged_publication_host_changed"
-        | "bridge_refresh_predecessor_changed" | "loaded_engine_admission_contract_missing"
-        | "unchanged_publication_preferences_changed" | "unchanged_publication_configuration_changed"
-        | "unchanged_publication_engine_changed")
+/// A failure that passes when tried again: the bridge was busy, something held
+/// a lock, or the setup's runtime change wasn't finished. Anything else is
+/// recorded as the result, so it never keeps the setup waiting.
+fn temporary(code: &str) -> bool {
+    matches!(code, "active_device_lease" | "active_maintenance_lease" | "operator_vendor_active"
+        | "operation already running" | "runtime_transition_recovery_required"
+        | "publication_performance_changed")
 }
 
 /// The setup's plug-ins checked again after the uninstaller changed it.
@@ -649,7 +649,9 @@ fn reconnect(m: &Manager, record: &Record, taken_out: &[String], hooks: &mut Hoo
         if setup_removal::gone(&entry.registration.module.path) { continue; }
         let back = taken_out.contains(&class);
         let name = entry.registration.metadata.name.clone();
-        if entry.registration.environment == record.environment {
+        // Checked again already: before the manager stopped, or by a later
+        // job in the setup (an installer run or a runtime change).
+        if entry.registration.environment.revision >= record.environment.revision {
             if back && entry.publication == Publication::Published { out.back.push(name); }
             continue;
         }
@@ -689,13 +691,14 @@ fn reconnected_text(reconnected: &Reconnected) -> String {
         let reason = recheck_reason(code);
         match reasons.iter_mut().find(|(r, _, _)| *r == reason) {
             Some((_, _, names)) => names.push(name.clone()),
-            None => reasons.push((reason, lasting(code), vec![name.clone()])),
+            None => reasons.push((reason, temporary(code), vec![name.clone()])),
         }
     }
-    for (reason, lasting, names) in reasons {
-        let next = if lasting { format!("to use {} again, delete this setup and set it up again", it(&names)) }
-            else { SCAN_AGAIN.into() };
-        text.push_str(&format!(" {} couldn't be checked again ({reason}); {next}.", join(&names)));
+    for (reason, temporary, names) in reasons {
+        let next = if temporary { format!("; {SCAN_AGAIN}") }
+            else { format!(". Run {} installer again in this setup, or delete the setup",
+                if one(&names) { "its" } else { "their" }) };
+        text.push_str(&format!(" {} couldn't be checked again: {reason}{next}.", join(&names)));
     }
     text
 }
@@ -750,21 +753,33 @@ pub(super) fn complete(m: &Manager, operation: &str, hooks: &mut Hooks) -> Resul
     let registered = uninstall_entry::read(&record.environment).ok()
         .map(|entries| entries.iter().any(|entry| entry.id == record.registration));
     let collateral = collateral(m, &record)?;
-    let reconnected = if scanned.is_ok() { reconnect(m, &record, &recheck.taken_out, hooks)? }
+    // The musician asked to uninstall the plug-ins this registration
+    // installed: once it is uninstalled, they stay out even if a file of
+    // theirs remains. Plug-ins of other products go back.
+    let finished = value["state"] == "completed" && value["raw_exit"] == 0;
+    let asked: Vec<String> = if finished && registered == Some(false) && record.coverage == INSTALLED_WITH_THIS {
+        record.affected.iter().map(|a| a.class_id.clone()).collect() } else { vec![] };
+    let put_back: Vec<String> = recheck.taken_out.iter().filter(|class| !asked.contains(class)).cloned().collect();
+    let reconnected = if scanned.is_ok() { reconnect(m, &record, &put_back, hooks)? }
         else { Reconnected::default() };
     let _ = refresh_index(m, &record.environment.id);
     let db = m.registry()?;
+    let failed: Vec<&String> = reconnected.failed.iter().map(|(name, _)| name).collect();
     let still: Vec<String> = if scanned.is_err() { vec![] } else {
         recheck.taken_out.iter().filter_map(|class| db.classes.get(class))
             .filter(|entry| entry.publication != Publication::Published && !setup_removal::gone(&entry.registration.module.path))
-            .map(|entry| entry.registration.metadata.name.clone()).collect()
+            .map(|entry| entry.registration.metadata.name.clone())
+            .filter(|name| !failed.contains(&name)).collect()
     };
     let mut outcome = outcome(&record, &value, registered, &still, &collateral, &reconnected);
     match scanned {
-        Err(error) => outcome["message"] = format!("{} The setup couldn't be scanned again ({}), so its plug-ins weren't checked again; {SCAN_AGAIN}.",
-            outcome["message"].as_str().unwrap_or_default(), plain(error)).into(),
-        // A check that may pass when tried again stays offered on the card.
-        Ok(_) if reconnected.failed.iter().any(|(_, code)| !lasting(code)) => {}
+        Err(error) => {
+            outcome["message"] = format!("{} The setup couldn't be scanned again, so its plug-ins weren't checked again; {SCAN_AGAIN}.",
+                outcome["message"].as_str().unwrap_or_default()).into();
+            outcome["scan_error"] = error.to_string().into();
+        }
+        // A check that passes when tried again stays offered on the card.
+        Ok(_) if reconnected.failed.iter().any(|(_, code)| temporary(code)) => {}
         Ok(_) => {
             recheck.outcome = Some(outcome.clone());
             atomic_json(&recheck_path(m, operation)?, &recheck)?;

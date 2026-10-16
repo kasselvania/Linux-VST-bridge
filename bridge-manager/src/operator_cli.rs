@@ -2835,13 +2835,12 @@ fn execute_with_receipt_policy_progress(
                 return Ok(value);
             }
             // An uninstaller run: its setup is scanned and its plug-ins are
-            // checked again first, with the bridge still paused by that run
-            // or, if it was restarted meanwhile, by this check.
+            // checked again first. This check takes over the run's pause (or
+            // pauses the bridge itself), so the bridge stays paused until it
+            // finishes, also after a restart.
             let owner = operation.ok_or("operator_operation_identity")?;
             drop(projection.take());
-            if resume_record(m)?.is_none_or(|saved| saved.owner_operation != *owned) {
-                suspend(m, owner, None, timeout, waits)?;
-            }
+            take_pause(m, owned, owner, timeout, waits)?;
             let mut checking = |n: usize, total: usize| write_operation(m, owner, &json!({"schema":2,
                 "operation":owner,"state":"running","action":a,"progress":uninstall::progress(n, total)}), false);
             let revalidate = |m: &Manager, class: &str, current: &linux_vst_bridge::publication::RevisionRef, work: &str|
@@ -2850,7 +2849,7 @@ fn execute_with_receipt_policy_progress(
                 launch: &|_, _| Err("uninstaller_not_run_again".into()), is_live: &onboarding::live,
                 vendor_retired: &|| vendor_retired(m), running: &mut || Ok(()), checking: &mut checking,
                 rescan: &rescan_environment, revalidate: &revalidate });
-            let resumed = resume_owned(m, owned).and_then(|_| resume_owned(m, owner));
+            let resumed = resume_owned(m, owner);
             let value = result?;
             resumed?;
             Ok(value)
@@ -2858,8 +2857,13 @@ fn execute_with_receipt_policy_progress(
         ui::Action::EnvironmentInstallerFocus {operation} =>
             if uninstall::owns(m,operation)? { uninstall::focus(m,operation) } else { environment_install::focus(m,operation) },
         ui::Action::EnvironmentInstallerStop {operation} => {
-            let value = if uninstall::owns(m,operation)? { uninstall::stop(m,operation)? }
-                else { environment_install::stop(m,operation)? };
+            if uninstall::owns(m,operation)? {
+                // The bridge stays paused: the setup is scanned and its
+                // plug-ins checked again first, by the uninstall's own action
+                // or, if that ended, by Finish checking on the setup's card.
+                return uninstall::stop(m,operation);
+            }
+            let value = environment_install::stop(m,operation)?;
             resume_owned(m,operation)?;
             Ok(value)
         }
@@ -3516,6 +3520,36 @@ fn suspend(
     timeout: Duration, waits: &mut Vec<ui::LockFacts>,
 ) -> Result<()> {
     suspend_with(m, owner, vendor_operation, timeout, waits, (|| active(SERVICE), || service("stop")))
+}
+/// Take over the pause an ended operation (an uninstaller run whose worker
+/// stopped) still holds, so it covers this operation's work and only this
+/// operation releases it. With no pause held, this operation pauses the
+/// bridge. After a restart the bridge may run again; it is stopped again.
+fn take_pause(m: &Manager, from: &str, to: &str, timeout: Duration, waits: &mut Vec<ui::LockFacts>) -> Result<()> {
+    take_pause_with(m, from, to, timeout, waits, (|| active(SERVICE), || service("stop")))
+}
+fn take_pause_with(
+    m: &Manager, from: &str, to: &str, timeout: Duration, waits: &mut Vec<ui::LockFacts>,
+    service_io: (impl FnOnce() -> bool, impl FnOnce() -> Result<()>),
+) -> Result<()> {
+    {
+        let _resume = resume_lock(m)?;
+        if let Some(mut saved) = resume_record(m)? {
+            require(saved.owner_operation == from, "operator_resume_pending")?;
+            let _lock = acquire_readback(m, ui::OperatorLock::Registry, Some(to), timeout, waits)?;
+            m.require_inactive(None)?;
+            require(vendor_retired(m)?, "operator_vendor_active")?;
+            job_dir(m, to)?;
+            let running = service_io.0();
+            saved.resume |= running;
+            saved.owner_operation = to.into();
+            atomic_json(&m.root.join("operator/resume.json"), &saved)?;
+            if running { service_io.1()?; }
+            require(!reconcile_leases(m)?, "operator_cleanup_unconfirmed")?;
+            return Ok(());
+        }
+    }
+    suspend_with(m, to, None, timeout, waits, service_io)
 }
 fn suspend_with(
     m: &Manager, owner: &str, vendor_operation: Option<String>,
@@ -8694,6 +8728,40 @@ mod dead_worker_reconciliation {
         let _resume = resume_lock(m).unwrap();
         create_resume(m, &ResumeRecord {schema:2,owner_operation:owner.into(),resume:true,
             software:"ab".repeat(32),vendor_operation:None}).unwrap();
+    }
+    /// Check that it closed (or Finish checking) on an uninstaller takes over
+    /// the pause the uninstaller's ended action still holds, so the bridge
+    /// stays paused for the re-check and only the check releases it; after
+    /// a restart that started the bridge again, it is stopped again.
+    #[test]
+    fn a_close_check_takes_over_the_uninstallers_pause() {
+        let f = test_fixture::Fixture::new();
+        let queued_test_action = |m: &Manager, action: ui::Action| launch_queued(m, &ui::Request {schema: ui::OPERATOR_SCHEMA,
+            state_token: "fixture".into(), action}, |_| Ok(true)).unwrap().operation.unwrap();
+        let uninstaller = queued_test_action(&f.m, ui::Action::TransactionReconcile {});
+        let check = queued_test_action(&f.m, ui::Action::InstallerCloseCheck {operation: uninstaller.clone()});
+        {
+            let _resume = resume_lock(&f.m).unwrap();
+            create_resume(&f.m, &ResumeRecord {schema:2,owner_operation:uninstaller.clone(),resume:false,
+                software:"ab".repeat(32),vendor_operation:None}).unwrap();
+        }
+        let stops = std::cell::Cell::new(0);
+        take_pause_with(&f.m, &uninstaller, &check, Duration::from_secs(2), &mut vec![],
+            (|| true, || { stops.set(stops.get()+1); Ok(()) })).unwrap();
+        assert_eq!(stops.get(), 1, "the bridge running again after a restart is stopped again");
+        let saved = resume_record(&f.m).unwrap().unwrap();
+        assert_eq!((saved.owner_operation.as_str(), saved.resume), (check.as_str(), true));
+        let restores = std::cell::Cell::new(0);
+        resume_owned_with(&f.m, &uninstaller, |_| { restores.set(restores.get()+1); Ok(()) }).unwrap();
+        assert_eq!(restores.get(), 0, "the uninstaller's ending no longer releases it");
+        resume_owned_with(&f.m, &check, |_| { restores.set(restores.get()+1); Ok(()) }).unwrap();
+        assert_eq!(restores.get(), 1);
+        // Another operation's pause is never taken.
+        let other = queued_test_action(&f.m, ui::Action::TransactionReconcile {});
+        suspend_for(&f.m, &other);
+        assert_eq!(take_pause_with(&f.m, &uninstaller, &check, Duration::from_secs(2), &mut vec![],
+            (|| false, || Ok(()))).unwrap_err().to_string(), "operator_resume_pending");
+        assert_eq!(resume_record(&f.m).unwrap().unwrap().owner_operation, other);
     }
     #[test]
     fn only_stopped_worker_units_are_finished_and_their_service_restored() {

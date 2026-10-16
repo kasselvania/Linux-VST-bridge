@@ -648,8 +648,8 @@ fn a_failed_recheck_is_named_plainly_and_never_reported_back() {
         &|_, _, _, _| Err("unchanged_publication_host_changed".into()));
     let outcome = outcome.unwrap();
     let message = outcome["message"].as_str().unwrap();
-    assert!(message.contains(&format!("{name} couldn't be checked again (prepared by another version of the bridge); to use it again, delete this setup and set it up again.")), "{message}");
-    assert!(message.contains(&format!("{name} stays out of your DAW")), "{message}");
+    assert!(message.contains(&format!("{name} couldn't be checked again: prepared by another version of the bridge. Run its installer again in this setup, or delete the setup.")), "{message}");
+    assert!(!message.contains("add it back"), "it can't be added back as it was: {message}");
     assert!(!message.contains("back in your DAW") && !message.contains('_'), "{message}");
     assert_eq!(outcome["back_in_daw"], json!([]));
     assert_eq!(outcome["recheck_errors"], json!([{"name":name,"reason":"unchanged_publication_host_changed"}]));
@@ -660,9 +660,9 @@ fn a_failed_recheck_is_named_plainly_and_never_reported_back() {
             ("F".into(), "unchanged_publication_selection_missing".into()), ("G".into(), "something_unexpected".into())]});
     assert!(text.contains(" A is back in your DAW, checked again with this setup."), "{text}");
     assert!(text.contains(" B, C were checked again and stay in your DAW. If you opened them while the bridge was paused, close them and open them again."), "{text}");
-    assert!(text.contains(" D, F couldn't be checked again (not in the setup's latest scan); use Finish checking this setup's plug-ins on the setup's card to try again."), "{text}");
-    assert!(text.contains(" E couldn't be checked again (the bridge was busy)"), "{text}");
-    assert!(text.contains(" G couldn't be checked again (the check didn't pass)"), "{text}");
+    assert!(text.contains(" D, F couldn't be checked again: not in the setup's latest scan. Run their installer again in this setup, or delete the setup."), "{text}");
+    assert!(text.contains(" E couldn't be checked again: the bridge was busy; use Finish checking this setup's plug-ins on the setup's card to try again."), "{text}");
+    assert!(text.contains(" G couldn't be checked again: the check didn't pass. Run its installer again in this setup, or delete the setup."), "{text}");
     assert!(!text.contains('_'), "{text}");
 }
 
@@ -712,7 +712,7 @@ fn a_whole_setup_uninstall_puts_back_every_plugin_whose_files_remain() {
 
 #[test]
 fn add_back_after_a_runtime_change_or_bridge_update_asks_for_check_compatibility() {
-    const PLAIN: &str = "setup changed since it was removed. Use Check compatibility to prepare it again.";
+    const PLAIN: &str = "setup changed since it was removed, so it can't be added back as it was. Run its installer again in this setup, or delete the setup and set it up again.";
     let p = published_setup(false);
     let class = p.c.selection.class.id.clone();
     let identity = ui::PublicationIdentity {id:p.current.id.clone(), sha256:p.current.sha256.clone()};
@@ -811,7 +811,7 @@ fn a_recheck_that_may_pass_later_stays_offered_until_it_does() {
     let (operation, outcome) = run_published_with(&p, |m, record| { report(m, record, "failed", 1); Ok(()) },
         &|_| Ok(false), &|_, _, _, _| Err("operation already running".into()));
     let message = outcome.unwrap()["message"].as_str().unwrap().to_owned();
-    assert!(message.contains(&format!("{name} couldn't be checked again (the bridge was busy); use Finish checking this setup's plug-ins on the setup's card to try again.")), "{message}");
+    assert!(message.contains(&format!("{name} couldn't be checked again: the bridge was busy; use Finish checking this setup's plug-ins on the setup's card to try again.")), "{message}");
     assert_eq!(unchecked(&p.f.m, &p.record.id).unwrap(), Some(operation.clone()));
     // Finish checking: this time it passes, and the plug-in is back.
     let inspect = inspector(&p.c);
@@ -823,4 +823,120 @@ fn a_recheck_that_may_pass_later_stays_offered_until_it_does() {
     assert!(done["message"].as_str().unwrap().contains(&format!("{name} is back in your DAW")));
     assert_eq!(unchecked(&p.f.m, &p.record.id).unwrap(), None);
     loadable(&p.f.m, &class);
+}
+
+/// A published setup's card, as the overview shows it.
+fn card_for(p: &Published) -> ui::InstallerSetup {
+    ui::InstallerSetup {installer:p.record.installer.clone(),name:"Valhalla".into(),label_source:"user".into(),
+        byte_size:1,format:"pe_executable".into(),imported_at:1,phase:ui::SetupPhase::DiscoveryComplete,
+        status:String::new(),journey:None,environment:Some(p.record.id.clone()),compatibility:None,
+        discovered:vec![],primary:None,secondary:vec![],
+        rename:action("Rename",ui::Action::InstallerRename {installer:p.record.installer.clone(),label:String::new()},None),
+        history:vec![]}
+}
+/// The setup card's offers for this setup.
+fn card_actions(m: &Manager, environment: &str, busy: Option<&str>) -> Vec<ui::AvailableAction> {
+    environment_install::projection(m, &[], busy, |_| Ok(false)).unwrap().into_iter()
+        .filter(|setup| setup.environment == environment).flat_map(|setup| setup.actions).collect()
+}
+
+#[test]
+fn buffering_changed_on_the_card_is_carried_into_the_recheck() {
+    // A plug-in that stays in the DAW, with 256-frame buffering chosen on its card.
+    let p = published_setup(false);
+    let class = p.c.selection.class.id.clone();
+    let name = p.f.m.registry().unwrap().classes[&class].registration.metadata.name.clone();
+    p.f.m.select_delay(&class, 256).unwrap();
+    let outcome = run_published(&p, |m, record| { report(m, record, "completed", 0); Ok(()) }, &|_| Ok(false)).unwrap();
+    let message = outcome["message"].as_str().unwrap();
+    assert!(message.contains(&format!("{name} was checked again and stays in your DAW.")), "{message}");
+    let entry = loadable(&p.f.m, &class);
+    assert_eq!(p.f.m.load_revision(&class, entry.managed_revision.as_ref().unwrap()).unwrap().performance.added_frames, 256);
+    // The plug-in the uninstall took out ("No" in the vendor's prompt) goes back with its settings too.
+    let q = published_setup(true);
+    let class = q.c.selection.class.id.clone();
+    q.f.m.select_delay(&class, 256).unwrap();
+    let outcome = run_published(&q, |m, record| { report(m, record, "failed", 1); Ok(()) }, &|_| Ok(false)).unwrap();
+    assert!(outcome["message"].as_str().unwrap().contains("is back in your DAW"), "{outcome}");
+    let entry = loadable(&q.f.m, &class);
+    assert_eq!(q.f.m.load_revision(&class, entry.managed_revision.as_ref().unwrap()).unwrap().performance.added_frames, 256);
+}
+
+#[test]
+fn a_recheck_that_fails_every_time_is_final_and_blocks_only_another_uninstall() {
+    let p = published_setup(true);
+    let class = p.c.selection.class.id.clone();
+    let name = p.f.m.registry().unwrap().classes[&class].registration.metadata.name.clone();
+    // The uninstaller removed something the plug-in needs: its module no longer scans.
+    let (operation, outcome) = run_published_with(&p, |m, record| { report(m, record, "failed", 1); Ok(()) },
+        &|_| Ok(false), &|_, _, _, _| Err("unchanged_publication_selection_missing".into()));
+    let message = outcome.unwrap()["message"].as_str().unwrap().to_owned();
+    assert!(message.contains(&format!("{name} couldn't be checked again: not in the setup's latest scan. Run its installer again in this setup, or delete the setup.")), "{message}");
+    assert!(!message.contains("add it back"), "{message}");
+    // Recorded as the result: nothing waits for it, and the card offers no endless retry.
+    assert_eq!(unchecked(&p.f.m, &p.record.id).unwrap(), None);
+    assert!(!needs_check(&p.f.m, &operation).unwrap());
+    let actions = card_actions(&p.f.m, &p.record.id, None);
+    assert!(actions.iter().all(|offer| offer.label != FINISH_CHECKING));
+    assert!(actions.iter().all(|offer| offer.disabled_reason.as_deref() != Some(CHECK_PENDING)), "{actions:?}");
+    // A failure that passes when tried again keeps Finish checking, and still
+    // doesn't block installers, runtime changes or rescans on the card.
+    let q = published_setup(true);
+    let (operation, _) = run_published_with(&q, |m, record| { report(m, record, "failed", 1); Ok(()) },
+        &|_| Ok(false), &|_, _, _, _| Err("active_maintenance_lease".into()));
+    assert_eq!(unchecked(&q.f.m, &q.record.id).unwrap(), Some(operation.clone()));
+    let actions = card_actions(&q.f.m, &q.record.id, None);
+    assert!(actions.iter().any(|offer| offer.label == FINISH_CHECKING && offer.disabled_reason.is_none()));
+    assert!(actions.iter().all(|offer| offer.disabled_reason.as_deref() != Some(CHECK_PENDING)), "{actions:?}");
+    // Only another uninstall in the setup waits for it.
+    let offered = project(&q.f.m, &[card_for(&q)], std::slice::from_ref(&q.record), &q.f.m.registry().unwrap(), &[], None).unwrap();
+    assert!(offered.iter().all(|u| u.action.disabled_reason.as_deref() == Some(CHECK_PENDING)), "{offered:?}");
+}
+
+#[test]
+fn finish_checking_is_offered_while_the_bridge_is_paused_for_it() {
+    let p = published_setup(true);
+    let (operation, _) = run_published_with(&p, |m, record| { report(m, record, "failed", 1); Ok(()) },
+        &|_| Ok(false), &|_, _, _, _| Err("operation already running".into()));
+    // The uninstall's worker ended while it still held the bridge's pause, so
+    // every other action reads as busy; Finish checking is what releases it.
+    write_operation(&p.f.m, &operation, &json!({"schema":2,"operation":operation,"state":"refused"}), false).unwrap();
+    {
+        let _resume = resume_lock(&p.f.m).unwrap();
+        create_resume(&p.f.m, &ResumeRecord {schema:2,owner_operation:operation.clone(),resume:true,
+            software:"ab".repeat(32),vendor_operation:None}).unwrap();
+    }
+    let paused = Some("The bridge is paused");
+    let finish = card_actions(&p.f.m, &p.record.id, paused).into_iter()
+        .find(|offer| offer.label == FINISH_CHECKING).unwrap();
+    assert_eq!(finish.disabled_reason, None);
+    assert_eq!(finish.action, ui::Action::InstallerCloseCheck {operation:operation.clone()});
+    // A pause held by something else keeps it waiting like any other action.
+    {
+        let _resume = resume_lock(&p.f.m).unwrap();
+        fs::remove_file(p.f.m.root.join("operator/resume.json")).unwrap();
+        create_resume(&p.f.m, &ResumeRecord {schema:2,owner_operation:random_id().unwrap(),resume:true,
+            software:"ab".repeat(32),vendor_operation:None}).unwrap();
+    }
+    let finish = card_actions(&p.f.m, &p.record.id, paused).into_iter()
+        .find(|offer| offer.label == FINISH_CHECKING).unwrap();
+    assert_eq!(finish.disabled_reason.as_deref(), paused);
+}
+
+#[test]
+fn a_finished_uninstall_keeps_its_own_plugin_out_even_if_its_file_remains() {
+    let p = published_setup(true);
+    let class = p.c.selection.class.id.clone();
+    let name = p.f.m.registry().unwrap().classes[&class].registration.metadata.name.clone();
+    // Uninstalled, but the vendor's uninstaller left the plug-in's own file.
+    let outcome = run_published(&p, |m, record| {
+        fs::write(record.environment.root.join("compatdata/pfx/system.reg"), HIVE_AFTER).unwrap();
+        report(m, record, "completed", 0);
+        Ok(())
+    }, &|_| Ok(false)).unwrap();
+    let message = outcome["message"].as_str().unwrap();
+    assert!(message.contains("these plug-ins' files are still there"), "{message}");
+    assert!(message.contains(&format!("{name} stays out of your DAW")), "{message}");
+    assert!(!message.contains("back in your DAW"), "{message}");
+    assert_eq!(p.f.m.registry().unwrap().classes[&class].publication, Publication::Removed);
 }

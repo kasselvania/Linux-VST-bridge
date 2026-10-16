@@ -2132,7 +2132,8 @@ pub(super) fn owned_revalidation_successor(m:&Manager,intent:&Intent,original:&R
     let revision=m.load_revision(&original.class_id,selected)?;
     require(revision.parent.as_ref()==Some(predecessor)
         && revision.registration.compatibility==original.registration.compatibility
-        && revision.performance==original.performance,"unchanged_publication_configuration_changed")?;
+        // The musician's settings as they are now, which the re-check carries.
+        && revision.performance==m.performance(&original.class_id)?,"unchanged_publication_configuration_changed")?;
     Ok(Some(selected.clone()))
 }
 

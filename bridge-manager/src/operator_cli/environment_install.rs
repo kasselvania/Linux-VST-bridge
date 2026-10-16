@@ -382,10 +382,16 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
                 actions.push(action(CLOSE_CHECK,ui::Action::InstallerCloseCheck {operation},None));
             }
         } else if let Some(operation) = uninstall::unchecked(m,&id)? {
-            // It closed, but its setup's plug-ins weren't all checked again
-            // (while its own action runs, that action is the busy reason).
-            if busy.is_none() { reason = Some(uninstall::CHECK_PENDING.into()); }
-            actions.push(action(uninstall::FINISH_CHECKING,ui::Action::InstallerCloseCheck {operation},busy));
+            // It closed, but its setup's plug-ins weren't all checked again.
+            // Installers and runtime changes stay available (they check them
+            // again too); only another uninstall waits. While the uninstall's
+            // own action runs, that action is the busy reason. Once it ended,
+            // a pause it still holds is what Finish checking takes over.
+            let ended = matches!(optional(&job_dir(m,&operation)?.join("result.json"))?["state"].as_str(),
+                Some("completed" | "refused"));
+            let own_pause = ended && resume_record(m)?.is_some_and(|saved| saved.owner_operation == operation);
+            actions.push(action(uninstall::FINISH_CHECKING,ui::Action::InstallerCloseCheck {operation},
+                if own_pause { None } else { busy }));
         }
         if let Some(r) = last {
             if active.is_some() {
@@ -396,7 +402,7 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
                     actions.push(action("Stop installer",ui::Action::EnvironmentInstallerStop {
                         operation:r.operation.clone()},None));
                 } else {
-                    reason = Some("The manager couldn't confirm that this installer closed, so the bridge stays paused. Use Check that it closed.".into());
+                    reason = Some("The manager couldn't confirm that this installer closed. Use Check that it closed.".into());
                     actions.push(action(CLOSE_CHECK,ui::Action::InstallerCloseCheck {operation:r.operation.clone()},None));
                 }
             }

@@ -2049,8 +2049,13 @@ fn verify_revalidation_selection(m: &Manager, prior: &Selection, current: &Selec
     require(current.scanner.sha256==predecessor.registration.host.sha256
         && current.scanner_source==predecessor.registration.host_source_sha256,"unchanged_publication_host_changed")?;
     verify_selection(m,current,&current.scanner,&current.scanner_source)?;
-    require(m.performance(&predecessor.class_id)? == predecessor.performance,
-        "unchanged_publication_preferences_changed")
+    // The musician's own buffering and delivery settings carry over as they
+    // are now; they may differ from the predecessor's after a change on the
+    // plug-in's card. The same native bridge and host are reused, which those
+    // settings were checked against when chosen, and publication records them
+    // and refuses a change made while it commits.
+    m.performance(&predecessor.class_id)?;
+    Ok(())
 }
 /// Renew the same logical setup using fresh checks after owned maintenance.
 pub fn revalidate_candidate(m: &Manager, predecessor: &Revision, selection: Selection,

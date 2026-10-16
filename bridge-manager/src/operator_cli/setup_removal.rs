@@ -29,6 +29,10 @@ const TOO_MANY_SESSIONS: &str = "More plug-in sessions are open than the manager
 const UNCHECKED_SESSION: &str = "A plug-in session record can't be checked, so the manager won't delete this setup now. Close your DAW and try again; if it stays, send Setup details.";
 const RECONNECT: &str = "This setup's folder can't be found. Reconnect its drive or restore the folder, then try again.";
 pub(super) const UNCONFIRMED: &str = "This needs the musician's confirmation (\"confirmed\": true). Nothing was changed.";
+/// A removed plug-in whose setup changed in a way a re-check in place can't
+/// follow (its runtime or the bridge changed too). Nothing on its card
+/// prepares it again, so this says what does.
+const SETUP_CHANGED_SINCE: &str = "Its setup changed since it was removed, so it can't be added back as it was. Run its installer again in this setup, or delete the setup and set it up again.";
 fn link_was_missing(name: &str) -> String {
     format!("{name}'s entry in your DAW's plug-in folder was already gone, so the manager now records it as removed from your DAW.")
 }
@@ -206,7 +210,7 @@ pub(super) fn plugin_offers(m: &Manager, class: &str, entry: &Entry, busy: Optio
             let unavailable = match &revision {
                 Err(_) => Some("Its prepared bridge files are no longer available. Use Check compatibility to prepare it again."),
                 Ok(_) if changed && !revalidates =>
-                    Some("Its setup changed since it was removed. Use Check compatibility to prepare it again."),
+                    Some(SETUP_CHANGED_SINCE),
                 Ok(_) => None,
             };
             // After a bridge update, or a change to its setup, the same file
@@ -339,7 +343,7 @@ pub(super) fn add_back(m: &Manager, class: &str, expected: &ui::PublicationIdent
     let recorded = &revision.registration.environment;
     require(setup_changed || !read_json::<Environment>(&recorded.root.join("environment.json"))
         .is_ok_and(|current| current != *recorded),
-        &format!("{name}'s setup changed since it was removed. Use Check compatibility to prepare it again."))?;
+        &format!("{name}: {SETUP_CHANGED_SINCE}"))?;
     if setup_changed || package_authority::add_back_needs_refresh(m, &key, &expected_ref)
         .map_err(|error| plain_add_back(&name, error))? {
         // The refresh owner takes package.lock itself and prepares against

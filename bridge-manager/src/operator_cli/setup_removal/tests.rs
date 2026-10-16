@@ -139,7 +139,7 @@ fn stale_identity_and_changed_files_refuse_without_changing_anything() {
     atomic_json(&changed.root.join("environment.json"), &changed).unwrap();
     let offers = plugin_offers(&f.m, &class, &entry, None, None);
     assert_eq!(offers.len(), 1);
-    assert!(offers[0].disabled_reason.as_deref().unwrap().contains("Check compatibility"));
+    assert_eq!(offers[0].disabled_reason.as_deref(), Some(SETUP_CHANGED_SINCE));
 }
 
 fn created_setup() -> (test_fixture::Fixture, String, String) {
