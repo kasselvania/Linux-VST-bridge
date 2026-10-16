@@ -3,7 +3,7 @@
 import argparse, hashlib, json, os, pathlib, shutil, subprocess, time, uuid
 parser = argparse.ArgumentParser()
 parser.add_argument('--windows-artifacts', type=pathlib.Path, required=True)
-parser.add_argument('--fixture-family', choices=('reference', 'completion', 'editor'), default='reference')
+parser.add_argument('--fixture-family', choices=('reference', 'completion', 'editor', 'activation'), default='reference')
 args = parser.parse_args()
 directory = args.windows_artifacts.resolve(strict=True)
 source = pathlib.Path(__file__).with_name('reference_installer.rs')
@@ -20,7 +20,7 @@ for name, configuration in installers:
                '-C', 'opt-level=2', '-C', 'target-feature=+crt-static',
                '--check-cfg', 'cfg(beta_hold)', '--check-cfg', 'cfg(beta_partial_hold)',
                '--check-cfg', 'cfg(beta_completion)',
-               '--check-cfg', 'cfg(beta_editor)',
+               '--check-cfg', 'cfg(beta_editor)', '--check-cfg', 'cfg(beta_activation)',
                '-o', str(directory/name)]
     if configuration: command += ['--cfg', configuration]
     subprocess.run(command, env=env, check=True)
@@ -59,6 +59,13 @@ for role in ('instrument', 'effect'):
     environment = dict(os.environ)
     for name in ('LVB_AP8_CONTROLLER_QUERY_CASE', 'LVB_AUDIO_LAYOUT_POLICY'):
         environment.pop(name, None)
+    if family == 'activation':
+        # Nobody answers a window on CI: census an already activated copy. The
+        # fixture reads only its own marker under the Windows user's APPDATA.
+        appdata = session/'appdata'
+        (appdata/'LVB Activation Fixture').mkdir(parents=True)
+        (appdata/'LVB Activation Fixture'/'activated').write_bytes(b'')
+        environment['APPDATA'] = str(appdata)
     child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=environment)
     try:
         deadline = time.monotonic()+20

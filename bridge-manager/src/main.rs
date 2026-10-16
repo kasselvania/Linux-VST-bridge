@@ -6,6 +6,7 @@ mod vendor_cli;
 mod renderer_cli;
 mod native_access_runner;
 mod experimental_runner;
+mod plugin_services;
 mod vendor_product_cli;
 mod operator_cli;
 mod readiness;
@@ -358,6 +359,10 @@ struct SessionSpec {
     binding_sent: bool,
     #[serde(default)]
     vendor_access: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    finish_setup: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    required_services: Vec<String>,
     #[serde(default)]
     shared_inspection: bool,
     #[serde(default)]
@@ -908,6 +913,7 @@ fn spec_with_package_refresh(
             return Err("managed_session_preparation_required".into());
         }
     }
+    let required_services = plugin_services::selected(&r.environment)?;
     let runner_key = catalogue::runner_key(&r.environment.runner)?;
     let s = SessionSpec {
         onboarding_home,
@@ -926,6 +932,8 @@ fn spec_with_package_refresh(
         keeper,
         binding_sent: !inspect,
         vendor_access: false,
+        finish_setup: false,
+        required_services,
         shared_inspection: false,
         shared_runtime: false,
         runner_key: Some(runner_key),
@@ -1011,9 +1019,9 @@ fn spawn(m: &Manager, s: &Software, path: &Path, peer: Option<UnixStream>) -> Re
         Stdio::null()
     };
     let job: SessionSpec = read_json(path)?;
-    record_lease_generation(&job)?;
-    m.retain_lease_owner(path)?;
-    atomic_json(&job.lease, &job.report)?;
+    record_lease_generation(&job).map_err(|e|format!("session generation record: {e}"))?;
+    m.retain_lease_owner(path).map_err(|e|format!("session owner record: {e}"))?;
+    atomic_json(&job.lease, &job.report).map_err(|e|format!("session lease record: {e}"))?;
     let mut command = Command::new("/usr/bin/python3");
     command.arg(&s.supervisor.path);
     if job.registration.compatibility.graphics.is_some() && !job.keeper {

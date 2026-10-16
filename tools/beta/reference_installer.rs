@@ -4,16 +4,17 @@
 use std::{ffi::c_void, path::Path, ptr};
 const INSTRUMENT: &[u8] = include_bytes!(env!("LVB_BETA_INSTRUMENT"));
 const EFFECT: &[u8] = include_bytes!(env!("LVB_BETA_EFFECT"));
-#[cfg(any(all(beta_completion, beta_editor),
-    all(any(beta_completion, beta_editor), any(beta_hold, beta_partial_hold))))]
+#[cfg(any(all(beta_completion, beta_editor), all(beta_completion, beta_activation),
+    all(beta_editor, beta_activation),
+    all(any(beta_completion, beta_editor, beta_activation), any(beta_hold, beta_partial_hold))))]
 compile_error!("Each additional instrumentation family uses its own ordinary installer");
-const FAMILY: &str = if cfg!(beta_editor) { "editor" } else if cfg!(beta_completion) { "completion" } else { "reference" };
-const TITLE: &str = if cfg!(beta_editor) { "LVB Editor Plug-ins 1.0.0" } else if cfg!(beta_completion) { "LVB Completion Plug-ins 1.0.0" } else { "LVB Reference Plug-ins 1.0.0" };
-const DISPLAY_NAME: &str = if cfg!(beta_editor) { "LVB Editor Plug-ins" } else if cfg!(beta_completion) { "LVB Completion Plug-ins" } else { "LVB Reference Plug-ins" };
-const REGISTRATION: &str = if cfg!(beta_editor) { "LVBEditorPlugins" } else if cfg!(beta_completion) { "LVBCompletionPlugins" } else { "LVBReferencePlugins" };
-const INSTRUMENT_NAME: &str = if cfg!(beta_editor) { "LVBEditorInstrument.vst3" } else if cfg!(beta_completion) { "LVBCompletionInstrument.vst3" } else { "LVBReferenceInstrument.vst3" };
-const EFFECT_NAME: &str = if cfg!(beta_editor) { "LVBEditorEffect.vst3" } else if cfg!(beta_completion) { "LVBCompletionEffect.vst3" } else { "LVBReferenceEffect.vst3" };
-const MARKER: &str = if cfg!(beta_editor) { "LVB_EDITOR_INSTALLER_V1" } else if cfg!(beta_completion) { "LVB_COMPLETION_INSTALLER_V1" } else { "LVB_REFERENCE_INSTALLER_V1" };
+const FAMILY: &str = if cfg!(beta_activation) { "activation" } else if cfg!(beta_editor) { "editor" } else if cfg!(beta_completion) { "completion" } else { "reference" };
+const TITLE: &str = if cfg!(beta_activation) { "LVB Activation Plug-ins 1.0.0" } else if cfg!(beta_editor) { "LVB Editor Plug-ins 1.0.0" } else if cfg!(beta_completion) { "LVB Completion Plug-ins 1.0.0" } else { "LVB Reference Plug-ins 1.0.0" };
+const DISPLAY_NAME: &str = if cfg!(beta_activation) { "LVB Activation Plug-ins" } else if cfg!(beta_editor) { "LVB Editor Plug-ins" } else if cfg!(beta_completion) { "LVB Completion Plug-ins" } else { "LVB Reference Plug-ins" };
+const REGISTRATION: &str = if cfg!(beta_activation) { "LVBActivationPlugins" } else if cfg!(beta_editor) { "LVBEditorPlugins" } else if cfg!(beta_completion) { "LVBCompletionPlugins" } else { "LVBReferencePlugins" };
+const INSTRUMENT_NAME: &str = if cfg!(beta_activation) { "LVBActivationInstrument.vst3" } else if cfg!(beta_editor) { "LVBEditorInstrument.vst3" } else if cfg!(beta_completion) { "LVBCompletionInstrument.vst3" } else { "LVBReferenceInstrument.vst3" };
+const EFFECT_NAME: &str = if cfg!(beta_activation) { "LVBActivationEffect.vst3" } else if cfg!(beta_editor) { "LVBEditorEffect.vst3" } else if cfg!(beta_completion) { "LVBCompletionEffect.vst3" } else { "LVBReferenceEffect.vst3" };
+const MARKER: &str = if cfg!(beta_activation) { "LVB_ACTIVATION_INSTALLER_V1" } else if cfg!(beta_editor) { "LVB_EDITOR_INSTALLER_V1" } else if cfg!(beta_completion) { "LVB_COMPLETION_INSTALLER_V1" } else { "LVB_REFERENCE_INSTALLER_V1" };
 #[link(name = "user32")]
 unsafe extern "system" {
     fn MessageBoxW(window: *mut c_void, text: *const u16, title: *const u16, flags: u32) -> i32;
@@ -97,7 +98,8 @@ fn self_test() {
     std::fs::create_dir(&directory).expect("self-test requires a fresh owned directory");
     let other_names: Vec<_> = ["LVBReferenceInstrument.vst3", "LVBReferenceEffect.vst3",
         "LVBCompletionInstrument.vst3", "LVBCompletionEffect.vst3",
-        "LVBEditorInstrument.vst3", "LVBEditorEffect.vst3"].into_iter()
+        "LVBEditorInstrument.vst3", "LVBEditorEffect.vst3",
+        "LVBActivationInstrument.vst3", "LVBActivationEffect.vst3"].into_iter()
         .filter(|name| *name != INSTRUMENT_NAME && *name != EFFECT_NAME).collect();
     for name in &other_names { std::fs::write(directory.join(name), b"other fixture family").unwrap(); }
     // Use the actual file-installation implementation without registry/UI or

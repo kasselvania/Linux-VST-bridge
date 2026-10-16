@@ -311,6 +311,10 @@ def command(spec):
         if spec['inspect'] is not True or spec.get('keeper') or spec.get('vendor_access') or spec.get('bus_lifecycle_probe') or spec.get('first_audio'):
             raise RuntimeError('graphics assessment requires exact inactive inspection')
         mode='graphics-assessment'
+    if spec.get('finish_setup'):
+        if spec['inspect'] is not True or spec.get('keeper') or spec.get('vendor_access') or spec.get('bus_lifecycle_probe') or spec.get('graphics_assessment') or spec.get('shared_inspection'):
+            raise RuntimeError('finish setup requires an exclusive inspection')
+        mode='ap8-finish-setup'
     case='first-audio' if spec.get('first_audio') else 'class:'+reg['metadata']['class_id']
     handshake_directory=prefix/'drive_c/bridge/sessions'/sid
     pairs=[('session',sid),('scanner-sha256',reg['host']['sha256']),('implementation-source-manifest-sha256',reg['host_source_sha256']),
@@ -1624,10 +1628,95 @@ class HostFootprint:
             'skipped_policy':self.skipped_policy,'errors':self.errors,
             'scope':'owned Windows family except the audio render thread; nice only raised'}
 
+# #414: a plug-in can stop inside a call and wait for the musician in its own
+# sign-in, activation or update window. The Windows host records once that its
+# process has such a window (counts only: no titles or text). A check cannot
+# answer it, so it ends this long after seeing one while a plug-in call waits;
+# the visible setup instead leaves the musician in control for up to 15 minutes.
+PLUGIN_WINDOW_GRACE_SECONDS=10
+FINISH_SETUP_SECONDS=900
+class PluginWindowWaiting(Exception):pass
+
+def plugin_window_record(path):
+    """The host's bounded window record, None while absent."""
+    keys=('windows','visible','dialogs','off_screen','minimized','observed_ms')
+    try:
+        with os.fdopen(os.open(path,os.O_RDONLY|os.O_NOFOLLOW),'rb') as f:
+            m=os.fstat(f.fileno())
+            if not stat.S_ISREG(m.st_mode) or m.st_size>1024:return {'schema':1,'malformed':True}
+            value=json.loads(f.read(1025))
+    except FileNotFoundError:return None
+    except (OSError,ValueError):return {'schema':1,'malformed':True}
+    if not isinstance(value,dict) or value.get('schema')!=1 or any(type(value.get(k)) is not int or not 0<=value[k]<2**32 for k in keys):
+        return {'schema':1,'malformed':True}
+    return {'schema':1,**{k:value[k] for k in keys}}
+
+class PluginWindowWait:
+    """A currently observed prompt can explain only the same pending call."""
+    def __init__(self):
+        self.call=None;self.since=None;self.stamp=None;self.fresh=None
+    def observe(self,facts,call,now):
+        if not facts or not facts.get('windows',0):
+            self.call=None;self.since=None;self.stamp=None;self.fresh=None
+            return
+        stamp=facts['observed_ms']
+        if stamp!=self.stamp:self.stamp=stamp;self.fresh=now
+        if self.fresh is None or now-self.fresh>=1 or call is None:
+            self.call=None;self.since=None
+        elif self.call!=call:
+            self.call=call;self.since=now
+    def waiting(self,call,now):
+        return (call is not None and call==self.call and self.since is not None
+            and self.fresh is not None and now-self.fresh<1
+            and now-self.since>=PLUGIN_WINDOW_GRACE_SECONDS)
+
+class OwnedProcesses:
+    """vendor_focus scope over a supervisor's exact owned PID/start pairs."""
+    def __init__(self,owned,proc_root='/proc'):self.owned=set(owned);self.proc_root=proc_root
+    def identity(self,pid):
+        try:
+            raw=pathlib.Path(self.proc_root,str(pid),'stat').read_text()
+            head,separator,_=raw.partition(' (');fields=raw.rsplit(')',1)[1].split()
+            if not separator or int(head)!=pid:return None
+            start=int(fields[19])
+            record={'pid':pid,'start_ticks':start,'ppid':int(fields[1]),'state':fields[0]}
+        except (OSError,ValueError,IndexError):return None
+        return record if (pid,start) in self.owned else None
+    def members(self):return [r for r in (self.identity(pid) for pid,_ in sorted(self.owned)) if r]
+    def group_of(self,pid):return 'owned' if self.identity(pid) else None
+    def contains(self,group):return group=='owned'
+
+def finish_setup_focus(report,owned,focus=None):
+    """Answer one Focus request for the visible setup: raise its newest window."""
+    request_path=report.with_suffix('.focus.json')
+    if not request_path.exists():return None
+    request_id=None
+    try:
+        with os.fdopen(os.open(request_path,os.O_RDONLY|os.O_NOFOLLOW),'rb') as f:
+            m=os.fstat(f.fileno())
+            if not stat.S_ISREG(m.st_mode) or m.st_uid!=os.getuid() or m.st_size>1024:raise RuntimeError('focus request bound')
+            request=json.loads(f.read(1025))
+        if not isinstance(request,dict) or set(request)!={'request'} or not isinstance(request['request'],str) or not re.fullmatch('[0-9a-f]{32}',request['request']):
+            raise RuntimeError('focus request schema')
+        request_id=request['request']
+        result=(focus or (lambda scope:vendor_focus(scope,None,installer=True,newest=True)))(OwnedProcesses(owned))
+    except Exception:
+        result='refused_exact_window_unavailable'
+    try:request_path.unlink()
+    except OSError:pass
+    value={'request':request_id,'result':result}
+    atomic(report.with_suffix('.focus-result.json'),value)
+    return value
+
 def run_owned(spec,peer,stop_requested):
     os.umask(0o077);reg=spec['registration'];directory,durable=session_directories(spec);sid=spec['session'];report=pathlib.Path(spec['report'])
     for item in [reg['host'],reg['module'],*reg['environment']['runner']['files']]:verify(item)
     cmd,binding=command(spec);env=environment(reg,spec.get('graphical_session'),plugin_session=True)
+    services=spec.get('required_services',[])
+    if (not isinstance(services,list) or len(services)>16 or
+        any(not isinstance(name,str) or not re.fullmatch('[A-Za-z0-9_-]{1,64}',name) for name in services)):
+        raise RuntimeError('required service names invalid')
+    if services:env['LVB_REQUIRED_SERVICES']=';'.join(services)
     graphics_configuration={'requested_backend':reg.get('compatibility',{}).get('graphics'),
         'dll_overrides':env.get('WINEDLLOVERRIDES'),'scope':'host_process_and_children',
         'renderer_observed':False}
@@ -1686,6 +1775,7 @@ def run_owned(spec,peer,stop_requested):
     root=(command_session.spawn(cmd,env) if command_session is not None else
         subprocess.Popen(cmd,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,bufsize=0))
     records=[];owned=set();pending=bytearray();vendor=bytearray();stderr=bytearray();dropped={'vendor':0,'stderr':0};protocol_bytes=0;gated=False;call=None;started=time.monotonic();failure=None;clean=False;code=None
+    finish_setup=bool(spec.get('finish_setup'));plugin_window=None;window_wait=PluginWindowWait();window_poll=0.0;setup_end=None
     audio_scheduling=AudioScheduling(spec) if not spec['inspect'] and not spec.get('vendor_access') else None
     host_footprint=HostFootprint(spec) if audio_scheduling else None
     sel=selectors.DefaultSelector()
@@ -1763,9 +1853,10 @@ def run_owned(spec,peer,stop_requested):
                     # abnormal; a committed row does not reclassify a crash.
                     if root.poll() is not None:raise RuntimeError('Windows exited before process retirement containment')
                     retirement_ready=ready;break
-            if native_stopped():
+            if native_stopped() or (finish_setup and (directory/'vendor.stop').exists()):
                 if retirement:failure='Windows retirement status absent'
-                if spec.get('vendor_access'):
+                if finish_setup:setup_end='stopped'
+                if spec.get('vendor_access') or finish_setup:
                     (directory/'vendor.stop').write_text(sid+'\n')
                     end=time.monotonic()+10
                     while time.monotonic()<end and not any(r.get('state')=='scanner_completed' for r in records):pump(.05)
@@ -1779,9 +1870,36 @@ def run_owned(spec,peer,stop_requested):
                 with temp.open('xb') as f:f.write(binding);f.flush();os.fsync(f.fileno())
                 temp.replace(gate);gated=True
             now=time.monotonic()
+            if gated and now-window_poll>=.25:
+                window_poll=now
+                found=plugin_window_record(durable/'plugin-window.json')
+                window_wait.observe(found,call,now)
+                if found is not None and found.get('windows',0)>0:
+                    plugin_window={**found,'operation':str(call[0])[:64] if call else None,
+                        'call_pending_seconds':round(now-call[1],1) if call else None,
+                        'seen_after_seconds':round(now-started,1)}
+                    if not finish_setup:
+                        # Interim record for the card while the check still waits.
+                        try:atomic(report.with_suffix('.window.json'),{'session':sid,**plugin_window})
+                        except OSError:pass
             if not gated and now-started>180:raise TimeoutError('Windows startup deadline')
-            if call and now-call[1]>30:raise TimeoutError('Windows call deadline: '+str(call[0]))
-            if spec['inspect'] and now-started>180:raise TimeoutError('inspection deadline')
+            if finish_setup:
+                if gated:
+                    try:finish_setup_focus(report,owned)
+                    except OSError:pass
+                if now-started>FINISH_SETUP_SECONDS:
+                    # Stated bound: the plug-in is closed after 15 minutes and
+                    # the session reports its timeout; no successful close is invented.
+                    setup_end='deadline'
+                    (directory/'vendor.stop').write_text(sid+'\n')
+                    end=time.monotonic()+10
+                    while time.monotonic()<end and not any(r.get('state')=='scanner_completed' for r in records):pump(.05)
+                    failure='TimeoutError: finish setup deadline';break
+            else:
+                if window_wait.waiting(call,now):
+                    raise PluginWindowWaiting(str(call[0]))
+                if call and now-call[1]>30:raise TimeoutError('Windows call deadline: '+str(call[0]))
+                if spec['inspect'] and now-started>180:raise TimeoutError('inspection deadline')
             # A companion can keep the outer Proton launcher alive after the SDK
             # host has finished. Its terminal result is authoritative for that
             # host; the launcher return code is retained separately, never invented.
@@ -1848,6 +1966,8 @@ def run_owned(spec,peer,stop_requested):
         sel.close()
         for stream in (root.stdout,root.stderr):stream.close()
         outcome={'graphics_configuration':graphics_configuration,'vendor_retirement':retirement_ready,'transport_storage':spec.get('transport'),'fault_status':fault,'fault_reporting_error':fault_reporting_error,'ownership_schema':1,'session':sid,'records':records,'exit_before_cleanup':code,'raw_exit':root.returncode,'error':failure,'cleanup_confirmed':clean,'gated':gated,'discarded_diagnostic_bytes':dropped,'vendor_stdout':vendor.decode(errors='replace'),'stderr':stderr.decode(errors='replace')}
+        if plugin_window is not None:outcome['plugin_window']=plugin_window
+        if finish_setup:outcome['finish_setup']={'ended':setup_end or next((r.get('reason') for r in reversed(records) if r.get('state')=='finish_setup_ended'),'host_ended'),'seconds_bound':FINISH_SETUP_SECONDS}
         if audio_scheduling:outcome['audio_scheduling']=audio_scheduling.value()
         if host_footprint:outcome['host_footprint']=host_footprint.value()
         if command_session is not None:
@@ -3294,7 +3414,7 @@ def vendor_process_metadata(scope, record, app, allow_missing=False, selected_im
             {'pid':parent['pid'],'start_ticks':parent['start_ticks']} if parent else None}
 
 
-def vendor_focus(scope,app,installer=False,close=False,selected_image=None):
+def vendor_focus(scope,app,installer=False,close=False,selected_image=None,newest=False):
     """EWMH window control for an exact supervised application operation.
 
     No title matching, arbitrary PID, forced input focus or synthetic user input.
@@ -3341,8 +3461,11 @@ def vendor_focus(scope,app,installer=False,close=False,selected_image=None):
     try:
         root=x.XDefaultRootWindow(display)
         owned={r['pid']:r for r in candidates}
-        windows=[(w,prop(w,'_NET_WM_PID')) for w in prop(root,'_NET_CLIENT_LIST') if prop(w,'WM_STATE')[:1]==[1]]
+        windows=[(w,prop(w,'_NET_WM_PID')) for w in prop(root,'_NET_CLIENT_LIST') if prop(w,'WM_STATE')[:1] in ([1],[3])]
         windows=[(w,ids[0]) for w,ids in windows if len(ids)==1 and ids[0] in owned]
+        # A visible setup can show a prompt over its editor: the newest mapped
+        # window of the owned processes is the one the musician needs.
+        if newest:windows=windows[-1:]
         if len(windows)!=1:raise RuntimeError('focus window absent or ambiguous')
         target=owned[windows[0][1]];windows=[windows[0][0]];identity()
         if len(windows)!=1:raise RuntimeError('focus window absent or ambiguous')
@@ -5442,7 +5565,7 @@ def selected_installer_origin(managed, app):
                 'powershell':action.get('powershell')}
             if expected['powershell'] not in ('inherited','intentionally_unavailable'):raise ValueError('managed_application_installation_binding')
         if (binding.get('schema')!=1 or binding.get('operation')!=op or binding.get('installer')!=sha
-            or type(request.get('schema')) is not int or not 5<=request['schema']<=27
+            or type(request.get('schema')) is not int or not 5<=request['schema']<=28
             or action!=expected
             or before.get('id')!=env['id'] or after.get('id')!=env['id'] or before.get('root')!=env['root'] or after.get('root')!=env['root']
             or type(before.get('revision')) is not int or type(after.get('revision')) is not int

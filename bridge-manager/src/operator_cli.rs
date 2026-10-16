@@ -5,6 +5,7 @@ use linux_vst_bridge::operator_lock::timing::{self, Stage};
 use linux_vst_bridge::renderer_application as renderer;
 use serde_json::{json, Value};
 mod current;
+mod plugin_setup;
 pub(super) mod automatic_install;
 pub(super) mod environment_install;
 pub(super) mod environment_runtime;
@@ -1582,6 +1583,7 @@ fn snapshot_readonly_depth(
         &managed_bindings, &class_scope, &mut |operation| onboarding::live(operation))?;
     let uninstallers = uninstall::project(m, &installer_setups, &records, &db, &managed_bindings, busy)?;
     automatic_install::project_revalidation(m,&mut products,&records)?;
+    plugin_setup::project(m,&mut products,&mut installer_setups,busy)?;
     let environment_installers = environment_install::projection(m,&products,busy,onboarding::live)?;
     let recheck = acquire_readback(m, ui::OperatorLock::Registry, id, timeout, waits)?;
     let after = token(m)?;
@@ -1734,6 +1736,9 @@ fn validate_current_request(m: &Manager, request: &ui::Request) -> Result<()> {
 fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Result<()> {
     require(request.schema == ui::OPERATOR_SCHEMA,
         "operator_schema_mismatch_update_manager_frontend")?;
+    if matches!(request.action,ui::Action::PluginSetupFocus {..}|ui::Action::PluginSetupStop {..}) {
+        return plugin_setup::validate_control(m,request);
+    }
     if installer_control(&request.action).is_some() || matches!(request.action,
         ui::Action::EnvironmentInstallerFocus { .. } | ui::Action::EnvironmentInstallerStop { .. }) {
         return validate_installer_control_with(m, request, onboarding::live);
@@ -1856,7 +1861,8 @@ fn current_offer_action(action: &ui::Action) -> bool {
         | ui::Action::SetupDelete { .. }
         | ui::Action::ProductUninstall { .. }
         | ui::Action::InstallerCloseCheck { .. }
-        | ui::Action::QuarantinedModuleRetry { .. })
+        | ui::Action::QuarantinedModuleRetry { .. }
+        | ui::Action::PluginFinishSetup {..} | ui::Action::PluginSetupFocus {..} | ui::Action::PluginSetupStop {..})
 }
 fn installer_control(action: &ui::Action) -> Option<(&str, &str)> {
     match action {
@@ -1893,6 +1899,9 @@ fn validate_current_worker(m: &Manager, request: &ui::Request, id: &str,
         Some(id), timeout, waits)?;
     // Recovery controls recheck this exact owned cohort. A suspended DSP
     // service cannot grant new-work capacity, and is not needed to stop it.
+    if matches!(request.action,ui::Action::PluginSetupFocus {..}|ui::Action::PluginSetupStop {..}) {
+        return plugin_setup::validate_control(m,request);
+    }
     if installer_control(&request.action).is_some() || matches!(request.action,
         ui::Action::EnvironmentInstallerFocus { .. } | ui::Action::EnvironmentInstallerStop { .. }) {
         return validate_installer_control_with(m, request, onboarding::live);
@@ -2554,6 +2563,9 @@ fn execute_with_receipt_policy_progress(
     waits: &mut Vec<ui::LockFacts>,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Value> {
+    if matches!(a,ui::Action::PluginFinishSetup {..}|ui::Action::PluginSetupFocus {..}|ui::Action::PluginSetupStop {..}) {
+        return plugin_setup::execute(m,a,operation.ok_or("operator_operation_identity")?,capacity_read,timeout,waits);
+    }
     if matches!(a,ui::Action::RendererSoftwareInstall {..})
         || matches!(a,ui::Action::EnvironmentRefreshResume {operation} if renderer_continuation::owns(m,operation)?) {
         return renderer_continuation::execute(m,a,operation.ok_or("operator_operation_identity")?,
@@ -2709,7 +2721,8 @@ fn execute_with_receipt_policy_progress(
             drop(projection.take());
             daw_workspace::execute_action(m, action, operation.ok_or("operator_operation_identity")?)
         }
-        ui::Action::CandidateHistoryComplete { .. }
+        ui::Action::PluginFinishSetup {..}|ui::Action::PluginSetupFocus {..}|ui::Action::PluginSetupStop {..}
+        | ui::Action::CandidateHistoryComplete { .. }
         | ui::Action::CandidateGraphicsAssess { .. }
         | ui::Action::CandidateGraphicsPrepare { .. }
         | ui::Action::CandidateSettingsPrepare { .. }
@@ -3344,6 +3357,7 @@ fn resumable_action(action: &ui::Action) -> bool {
         | ui::Action::VendorSoftwareInstall {..} | ui::Action::SoftwareInstallResume {..}
         | ui::Action::EnvironmentRefresh {..} | ui::Action::EnvironmentRefreshResume {..}
         | ui::Action::EnvironmentRescan {..} | ui::Action::QuarantinedModuleRetry {..}
+        | ui::Action::PluginFinishSetup {..}
         | ui::Action::PluginReinspect {..} | ui::Action::PluginInspect {..}
         | ui::Action::PluginPrepare {..} | ui::Action::CandidateGraphicsAssess {..}
         | ui::Action::CompatibilityCheck {..} | ui::Action::CompatibilityResumeCheck {..}
@@ -3930,7 +3944,7 @@ fn exact_retry_target<'a>(prior: Option<&'a inventory::Scan>, env: &Environment,
         .ok_or("operator_quarantine_retry_module_absent")?;
     require(selected.artifact.sha256==retry.module_sha256
         && selected.report.sha256==retry.report_sha256
-        && selected.quarantine_reason.is_some(),"operator_quarantine_retry_module_changed")?;
+        && (selected.quarantine_reason.is_some() || selected.inspection_error.is_some()),"operator_quarantine_retry_module_changed")?;
     selected.report.verify()?;
     Ok(selected)
 }
@@ -4652,7 +4666,7 @@ pub(crate) mod tests {
             let snapshot=snapshot_idle_test(m).unwrap();
             let product=snapshot.products.iter().find(|product|
                 product.environment==environment.id&&product.disposition=="quarantined").unwrap();
-            let offer=&product.actions[0];
+            let offer=product.actions.iter().find(|offer|matches!(offer.action,ui::Action::QuarantinedModuleRetry {..})).unwrap();
             assert!(offer.disabled_reason.is_none(),"{:?}",offer.disabled_reason);
             let queued=test_submit_offered(m,&offer.action).unwrap();
             let result=test_run_offered_worker(m,&queued).unwrap();
@@ -4670,6 +4684,65 @@ pub(crate) mod tests {
         assert_eq!(fs::read(m.root.join("registry.json")).unwrap(),registry);
         assert_eq!(serde_json::to_value(read_json::<onboarding::Record>(&path).unwrap()).unwrap(),
             serde_json::to_value(record).unwrap());
+    }
+    #[test]
+    fn visible_setup_from_unpublished_failure_rechecks_the_exact_module_after_close() {
+        for ended in ["closed","stopped","deadline","window_lost","host_ended","write_failure"] {
+            visible_setup_outcome(ended);
+        }
+    }
+    fn visible_setup_outcome(ended:&str) {
+        let (f,environment,scan,census)=onboarding_retry_fixture();let m=&f.m;
+        let directory=onboarding::directory(m,&environment.id).unwrap();
+        let path=directory.join("record.json");
+        let mut record:onboarding::Record=read_json(&path).unwrap();
+        let installer=random_id().unwrap();record.installation_operation=Some(installer.clone());
+        atomic_json(&path,&record).unwrap();
+        atomic_json(&directory.join(format!("{installer}-result.json")),&json!({
+            "schema":2,"operation":installer,"state":"completed","raw_exit":0,
+            "cleanup_confirmed":true,"owned_live":0})).unwrap();
+        let registry=fs::read(m.root.join("registry.json")).unwrap();
+        let healthy_path=f.outer.join("setup-healthy-report.json");
+        let mut healthy=test_fixture::inspection_report(&census);
+        let factory=healthy["records"].as_array_mut().unwrap().iter_mut()
+            .find(|row|row["state"]=="ap8_factory").unwrap();
+        factory["class_count"]=json!(1);factory["classes"].as_array_mut().unwrap().truncate(1);
+        atomic_json(&healthy_path,&healthy).unwrap();
+        let launches=f.outer.join("visible-launches");
+        let script=m.root.join("software/visible-supervisor.py");
+        let source=serde_json::to_string(&healthy_path).unwrap();
+        let log=serde_json::to_string(&launches).unwrap();
+        let ending=serde_json::to_string(ended).unwrap();
+        fs::write(&script,format!("import json,pathlib,shutil,sys\njob=json.load(open(sys.argv[1]))\nreport=json.load(open({source}))\nsetup=job.get('finish_setup',False)\nwith open({log},'a') as log: log.write(('setup' if setup else 'inspect')+'\\n')\nif setup: report['finish_setup']={{'ended':{ending}}}\npathlib.Path(job['report']).write_text(json.dumps(report))\nprint('LVO0 '+job['session']+' ready',flush=True)\nshutil.rmtree(job['directory'])\nprint('LVO1 '+job['session']+' retired',flush=True)\n")).unwrap();
+        let mut sw=software(m).unwrap();sw.supervisor=Artifact {sha256:digest(&script).unwrap(),path:script};
+        atomic_json(&m.root.join("software.json"),&sw).unwrap();
+        readiness::with_unit_state_fixture(&[onboarding::unit(&installer).unwrap()],"inactive",|| {
+            let snapshot=snapshot_idle_test(m).unwrap();
+            let product=snapshot.products.iter().find(|p|p.environment==environment.id).unwrap();
+            assert!(product.class_id.is_empty());
+            let offer=product.actions.iter().find(|offer|matches!(offer.action,ui::Action::PluginFinishSetup {..})).unwrap();
+            assert!(offer.disabled_reason.is_none());
+            assert_eq!(offer.action,ui::Action::PluginFinishSetup {environment:environment.id.clone(),
+                scan:scan.id.clone(),module_index:0,module_sha256:scan.modules[0].artifact.sha256.clone(),
+                report_sha256:scan.modules[0].report.sha256.clone()});
+            let queued=test_submit_offered(m,&offer.action).unwrap();
+            if ended=="write_failure" {
+                private_dir(&job_dir(m,&queued).unwrap().join("setup-session.json")).unwrap();
+            }
+            let result=test_run_offered_worker(m,&queued).unwrap();
+            assert_eq!(result["state"],if ended=="closed" {"completed"} else {"refused"},
+                "{result}; launches={:?}",fs::read_to_string(&launches));
+        });
+        if ended=="write_failure" {assert!(!launches.exists());}
+        else {assert_eq!(fs::read_to_string(launches).unwrap(),if ended=="closed" {"setup\ninspect\n"} else {"setup\n"});}
+        let current:inventory::Scan=read_json(&m.root.join("inventory").join(format!("{}.json",environment.id))).unwrap();
+        if ended=="closed" {assert_ne!(current.id,scan.id);assert!(current.modules[0].quarantine_reason.is_none());}
+        else {assert_eq!(current.id,scan.id);assert!(current.modules[0].quarantine_reason.is_some());}
+        assert!(capacity::owners(m).unwrap().is_empty());
+        assert_eq!(fs::read(m.root.join("registry.json")).unwrap(),registry);
+        assert_eq!(serde_json::to_value(read_json::<onboarding::Record>(&path).unwrap()).unwrap(),
+            serde_json::to_value(record).unwrap());
+        assert!(!m.root.join("operator/resume.json").exists());
     }
     fn view(token: &str, action: ui::AvailableAction) -> ui::Snapshot {
         ui::Snapshot {
@@ -5034,7 +5107,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 27);
+        assert_eq!(ui::OPERATOR_SCHEMA, 28);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
