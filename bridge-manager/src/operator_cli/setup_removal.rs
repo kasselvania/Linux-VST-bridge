@@ -159,21 +159,28 @@ pub(super) fn gone(path: &Path) -> bool {
 /// The plug-in's setup has a newer, owned revision (an uninstaller or
 /// installer ran in it) while its own file, the setup's runtime and the
 /// bridge that scanned it are unchanged: Add back checks the same file and
-/// class again in the setup as it is now. A runtime change or a bridge update
-/// needs Check compatibility instead.
+/// class again in the setup as it is now. After a runtime change or a bridge
+/// update it can't be checked in place; Add back then says what to do.
 pub(super) fn setup_changed(m: &Manager, class: &str, publication: &RevisionRef) -> Result<bool> {
     let revision = m.load_revision_record(class, publication)?;
     let prior = &revision.registration;
     let current = linux_vst_bridge::environment_revision::current_environment(m, &prior.environment)?;
     if current == prior.environment || current.runner != prior.environment.runner
         || current.root != prior.environment.root || prior.module.verify().is_err()
-        || package_authority::add_back_needs_refresh(m, class, publication).unwrap_or(false) {
+        || !prepared_by_current_bridge(m, prior) {
         return Ok(false);
     }
     // The re-check reads the setup's own scan, taken with the bridge it was prepared with.
     let scan = read_json::<inventory::Scan>(&m.root.join("inventory").join(format!("{}.json", current.id)));
     Ok(scan.is_ok_and(|scan| scan.environment == current && scan.host.sha256 == prior.host.sha256
         && scan.host_source_sha256 == prior.host_source_sha256))
+}
+/// The bridge that prepared this registration is the one installed now: a
+/// re-check in place reuses its Windows host, so it can't follow an update.
+fn prepared_by_current_bridge(m: &Manager, prior: &linux_vst_bridge::Registration) -> bool {
+    linux_vst_bridge::preparation::build::recipe_available(m).ok()
+        .and_then(|kit| linux_vst_bridge::preparation::build::existing_runtime_record(m, &kit.sha256).ok())
+        .is_some_and(|runtime| runtime.host == prior.host && runtime.source_manifest.sha256 == prior.host_source_sha256)
 }
 fn environment_current(environment: &Environment) -> bool {
     read_json::<Environment>(&environment.root.join("environment.json"))

@@ -733,6 +733,15 @@ fn add_back_after_a_runtime_change_or_bridge_update_asks_for_check_compatibility
     let refused = setup_removal::add_back(&p.f.m, &class, &identity, |_, _| panic!("no check starts")).unwrap_err();
     assert!(refused.to_string().ends_with(PLAIN), "{refused}");
     fs::write(&path, saved).unwrap();
+    assert!(setup_removal::setup_changed(&p.f.m, &class, &p.current).unwrap());
+    // The bridge was updated since it was prepared: the installed bridge's
+    // runtime isn't the one that prepared it (here, not staged yet).
+    let kit = prep::build::recipe_available(&p.f.m).unwrap();
+    let staged = prep::build::existing_runtime_record(&p.f.m, &kit.sha256).unwrap().host.path.with_file_name("runtime.json");
+    fs::rename(&staged, staged.with_extension("json.aside")).unwrap();
+    assert!(!setup_removal::setup_changed(&p.f.m, &class, &p.current).unwrap());
+    assert!(offer(&p.f.m).disabled_reason.unwrap().ends_with(PLAIN));
+    fs::rename(staged.with_extension("json.aside"), &staged).unwrap();
     // The setup's runtime changed.
     let before = environment_install::current_environment(&p.f.m, &p.record.environment).unwrap();
     let mut after = before.clone();
