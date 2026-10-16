@@ -540,6 +540,11 @@ fn owned_service_pause_with(
 
 pub(super) fn failure(stage: ui::InstallationFailureStage, reason: impl ToString) -> ui::InstallationFailure {
     let code: String = reason.to_string().chars().take(512).collect();
+    // A lock that stayed busy past its bounded wait changed nothing.
+    if linux_vst_bridge::operator_lock::is_busy_text(&code) {
+        return ui::InstallationFailure {stage, code,
+            reason: linux_vst_bridge::operator_lock::BUSY_SENTENCE.into(), retryable: true};
+    }
     // An enumerated outcome has a plain explanation; other codes keep the
     // stage's general sentence until their exact record explains them.
     if let Some(problem) = linux_vst_bridge::problem::from_code(&code) {
@@ -1269,6 +1274,7 @@ fn continue_installed(
     timeout: Duration,
     waits: &mut Vec<ui::LockFacts>,
 ) -> Result<Value> {
+    let step_wait = step_wait(timeout);
     continue_with(
         m,
         record,
@@ -1280,12 +1286,18 @@ fn continue_installed(
                 action,
                 Some(owner),
                 capacity_read,
-                timeout,
+                step_wait,
                 waits,
                 progress,
             )
         },
     )
+}
+/// The steps of an accepted job (its scan, checks and publication) run after
+/// the musician's click, not during it, so each waits three times a request's
+/// bound (30 s) for an operator lock before it reports the manager busy.
+pub(super) fn step_wait(request_wait: Duration) -> Duration {
+    request_wait.saturating_mul(3).min(Duration::from_secs(75))
 }
 
 pub(super) fn continue_refresh(m:&Manager,environment:&Environment,intent:&mut Intent,
@@ -2507,6 +2519,21 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn busy_lock_steps_read_as_retry_and_wait_three_request_bounds() {
+        // The Test126 card: a check that met the lock after its wait.
+        let failed = failure(ui::InstallationFailureStage::Inspection,
+            "Manager Canonical lock Timeout after 986 attempts");
+        assert_eq!(failed.reason, linux_vst_bridge::operator_lock::BUSY_SENTENCE);
+        assert_eq!(failed.code, "Manager Canonical lock Timeout after 986 attempts");
+        assert!(failed.retryable);
+        assert_eq!(failure(ui::InstallationFailureStage::Discovery, "operation already running").reason,
+            linux_vst_bridge::operator_lock::BUSY_SENTENCE);
+        assert_eq!(failure(ui::InstallationFailureStage::Inspection, "inspection_failed").reason,
+            "This plug-in could not be checked for connection to your DAW.");
+        assert_eq!(step_wait(OPERATOR_WAIT), Duration::from_secs(30));
+        assert_eq!(step_wait(Duration::from_secs(60)), Duration::from_secs(75));
+    }
     #[test]
     fn failed_vendor_restart_retains_original_scope_and_prior_terminal_result() {
         for state in ["failed","cancelled"] {

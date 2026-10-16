@@ -4141,9 +4141,10 @@ fn worker_with_capacity_observed(
                 ui::Action::InstallerEnvironmentCreate { .. }
                     | ui::Action::InstallerNewAttempt { .. }
             ) {
-                "Manager busy validating state. Environment creation did not start; installer was not launched. Retry after canonical state is healthy.".to_owned()
+                format!("{} No setup was created and the installer did not start.",
+                    linux_vst_bridge::operator_lock::BUSY_SENTENCE)
             } else {
-                "Manager busy validating state. The requested action did not start. Retry after canonical state is healthy.".to_owned()
+                linux_vst_bridge::operator_lock::BUSY_SENTENCE.to_owned()
             }
         } else {
             format!("Operator validation readback: {e}")
@@ -4207,7 +4208,10 @@ fn worker_with_capacity_observed(
                     lock: f.facts.clone(),
                 });
             let reason = if failure.as_ref().is_some_and(|f| f.retryable) {
-                "Manager busy before environment creation. No environment was created; installer was not launched. Retry after healthy canonical refresh.".to_owned()
+                format!("{} No setup was created and the installer did not start.",
+                    linux_vst_bridge::operator_lock::BUSY_SENTENCE)
+            } else if linux_vst_bridge::operator_lock::is_busy(e.as_ref()) {
+                linux_vst_bridge::operator_lock::BUSY_SENTENCE.to_owned()
             } else {
                 format!("Operator action: {e}").chars().take(512).collect()
             };

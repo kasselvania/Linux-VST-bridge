@@ -42,6 +42,21 @@ pub(crate) fn ensure_registry_writer_marker(m: &Manager) {
 pub fn registry_writer_waiting(m: &Manager) -> bool {
     matches!(m.try_lock_shared(REGISTRY_WRITER_WAITING), Ok(LockAttempt::Busy))
 }
+/// What a musician reads when an action or check met a lock still held after
+/// its bounded wait. Nothing was changed; the same step can simply run again.
+pub const BUSY_SENTENCE: &str = "The manager was busy finishing another task; choose Retry.";
+/// A lock refusal a musician can retry: a bounded wait that expired, or a lock
+/// still busy after it. Other refusals keep their exact reason.
+pub fn is_busy(error: &(dyn std::error::Error + 'static)) -> bool {
+    error.is::<LockBusy>() || error.downcast_ref::<AcquisitionFailure>()
+        .is_some_and(|f| f.facts.outcome == LockOutcome::Timeout)
+}
+/// The same test on retained text, for receipts and journey codes that only
+/// kept the refusal's words.
+pub fn is_busy_text(text: &str) -> bool {
+    text == "operation already running"
+        || (text.starts_with("Manager ") && text.contains(" lock Timeout after "))
+}
 #[derive(Debug)]
 pub struct LockBusy;
 impl std::fmt::Display for LockBusy {
@@ -256,6 +271,19 @@ mod tests {
         drop(action);
         stop.store(true, Ordering::SeqCst);
         reader.join().unwrap();
+    }
+    #[test]
+    fn busy_refusals_are_recognised_by_type_and_by_retained_text() {
+        let f = Fixture::new();
+        let _held = f.m.lock("operator-canonical.lock").unwrap();
+        let timeout = f.m.lock_bounded(OperatorLock::Canonical, LockPurpose::ActionSerialization,
+            None, Duration::from_millis(20)).err().unwrap();
+        let busy: Box<dyn std::error::Error + Send + Sync> = LockBusy.into();
+        for error in [&timeout, &busy] {
+            assert!(is_busy(error.as_ref()) && is_busy_text(&error.to_string()), "{error}");
+        }
+        assert!(is_busy_text("Manager Canonical lock Timeout after 986 attempts"));
+        assert!(!is_busy_text("candidate_absent") && !is_busy_text("Manager Registry lock Error after 1 attempts"));
     }
     #[test]
     fn real_open_failure_is_not_busy_and_does_not_retry() {
