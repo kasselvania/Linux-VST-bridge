@@ -2158,10 +2158,42 @@ fn catalogue_free_revision<'a>(m: &Manager, class: &str, entry: &'a Entry)
     let Some(reference) = &entry.managed_revision else { return Ok(None); };
     let revision = m.load_revision(class, reference)?;
     if !owns_profile(m, &revision.profile)? { return Ok(None); }
-    verify_retained_revision(m, &revision)?;
+    if superseded(m, &revision.registration.environment)? {
+        verify_superseded_revision(m, &revision)?;
+    } else {
+        verify_retained_revision(m, &revision)?;
+    }
     require(revision.registration == entry.registration,
         "candidate_catalogue_free_identity")?;
     Ok(Some((revision, reference)))
+}
+/// The revision's setup moved on through an owned job: an installer or
+/// uninstaller run in it, or a runtime change. Only an exact owned revision
+/// chain counts; anything else is refused as before.
+fn superseded(m: &Manager, recorded: &Environment) -> Result<bool> {
+    let current: Environment = bounded(&recorded.root.join("environment.json"))?;
+    if current == *recorded { return Ok(false); }
+    crate::environment_revision::require_owned_revision(m, recorded, &current)?;
+    Ok(true)
+}
+/// A superseded revision can't load (launch admission requires the setup's
+/// current revision) until it is checked again in the setup as it is now, so
+/// its files are not verified against that setup. It stays this preparation's
+/// own history: its exact candidate, registration and authority records.
+fn verify_superseded_revision(m: &Manager, r: &Revision) -> Result<()> {
+    let c = for_profile(m, &r.profile)?.ok_or("candidate_preparation_required")?;
+    validate_candidate_record(m, &c)?;
+    let mut expected = configuration::registration_record_for(&c, &r.profile, &c.census_record()?,
+        if r.profile.claim == Claim::ReviewCandidate { SelectionPurpose::Qualification }
+        else { SelectionPurpose::Activation })?;
+    expected.relocate_native(r.registration.native.path.clone());
+    require(expected == r.registration, "candidate_registration_changed")?;
+    r.performance.verify()?;
+    require(r.external_ids == external_ids(&r.class_id)?
+        && ((r.profile.claim == Claim::ReviewCandidate
+            && r.qualification == Some(Qualification::ManagedExperimental))
+            || (r.profile.claim == Claim::VerifiedExactFixture && r.qualification.is_none())),
+        "candidate_authority_kind")
 }
 /// Readback retains exact managed ownership even when publication needs
 /// reconciliation. It does not authorize setup, mutation or execution.

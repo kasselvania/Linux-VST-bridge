@@ -174,6 +174,11 @@ fn deleting_a_setup_removes_its_windows_files_and_keeps_its_history() {
     private_dir(&locked).unwrap();
     fs::write(locked.join("file"), b"x").unwrap();
     fs::set_permissions(&locked, fs::Permissions::from_mode(0o500)).unwrap();
+    // What a plug-in session stopped with the bridge left behind: no lease names it.
+    let ended = root.join("compatdata/pfx/drive_c/bridge/sessions").join("ef".repeat(16));
+    private_dir(&ended).unwrap();
+    fs::write(ended.join("owner.json"), b"{}").unwrap();
+    fs::write(ended.join("environment.stop"), b"ended\n").unwrap();
     let inventory = f.m.root.join("inventory");
     private_dir(&inventory).unwrap();
     let sw = software(&f.m).unwrap();
@@ -241,12 +246,16 @@ fn a_setup_in_use_or_with_uncertain_records_is_refused_and_unchanged() {
             .unwrap_err().to_string(), IN_USE);
         unchanged(&f);
     }
-    // A plug-in session that never retired.
+    // A plug-in session the bridge still leases, whose record can't be checked.
     let session = root.join("compatdata/pfx/drive_c/bridge/sessions").join("ab".repeat(16));
     private_dir(&session).unwrap();
-    assert!(delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false), Duration::ZERO)
-        .unwrap_err().to_string().contains("never finished closing"));
+    let lease = f.m.root.join("runtime/leases").join(format!("{}.json", "ab".repeat(16)));
+    private_dir(lease.parent().unwrap()).unwrap();
+    atomic_json(&lease, &f.m.root.join("runtime/results/windows-unknown.json")).unwrap();
+    assert_eq!(delete_setup_with(&f.m, &installer, &environment, &"aa".repeat(16), &mut |_| Ok(false), Duration::ZERO)
+        .unwrap_err().to_string(), UNCHECKED_SESSION);
     unchanged(&f);
+    fs::remove_file(&lease).unwrap();
     fs::remove_dir(&session).unwrap();
     // An installer whose cleanup is not confirmed: refuse, keep the record.
     let operation = "cd".repeat(16);

@@ -647,16 +647,26 @@ fn lease_owners(m: &Manager, environment: &Environment) -> Result<(usize, usize)
     }
     Ok((keepers, others))
 }
-/// A lease owned by this environment, or a session directory that was never
-/// retired, is uncertain custody. Refuse rather than delete under it.
+/// A lease owned by this environment, or a session directory a lease still
+/// names, is live or uncertain custody: refuse rather than delete under it.
+/// A session directory no lease names is what an ended session left behind
+/// (one stopped with the bridge, for example). Every running session holds
+/// the setup's operation lock, which the caller now holds exclusively, and
+/// the process census that follows refuses if anything still runs from the
+/// setup; such a directory is deleted with the rest of the setup.
 fn require_no_owners(m: &Manager, environment: &Environment) -> Result<()> {
     let (keepers, others) = lease_owners(m, environment)?;
     require(others == 0, IN_USE)?;
     require(keepers == 0, KEEPER_CLOSING)?;
     let sessions = environment.root.join("compatdata/pfx/drive_c/bridge/sessions");
     if sessions.try_exists()? {
-        require(fs::read_dir(&sessions)?.next().is_none(),
-            "A plug-in session in this setup never finished closing. Restart the computer, then try again; if it stays, send Setup details.")?;
+        let leases = m.root.join("runtime/leases");
+        for (seen, entry) in fs::read_dir(&sessions)?.enumerate() {
+            require(seen < 4096, TOO_MANY_SESSIONS)?;
+            let session = entry?.file_name();
+            require(!leases.join(format!("{}.json", session.to_string_lossy())).try_exists()?,
+                "A plug-in session in this setup never finished closing. Restart the computer, then try again; if it stays, send Setup details.")?;
+        }
     }
     Ok(())
 }
