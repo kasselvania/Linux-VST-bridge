@@ -518,8 +518,9 @@ void refused_admission_regression() {
   struct Case { bool controller_first; const char *detail; const char *text; };
   const Case cases[] = {
     {false, "Other: admission_binding_invalid", "The bridge did not load this plug-in; the manager shows why."},
-    {true, "Other: admission_stale_native_caller", "The bridge was updated. Reopen the project to load this plug-in."},
-    {true, "NotFound: No such file or directory (os error 2)", "The bridge service is not running, so this plug-in was not loaded."},
+    {true, "Other: admission_stale_native_caller", "The bridge was updated. Quit and restart your DAW to load this plug-in."},
+    {true, "NotFound: bridge_service_unreachable: No such file or directory (os error 2)", "The bridge service is not running, so this plug-in was not loaded."},
+    {false, "NotFound: No such file or directory (os error 2)", "The bridge did not load this plug-in; the manager shows why."},
   };
   for (const auto &c : cases) {
     events.clear();commands.clear();gui_fault=0;terminal_record={};

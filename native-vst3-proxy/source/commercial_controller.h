@@ -117,6 +117,7 @@ public:
   }
   Result PLUGIN_API setParamNormalized(
       Steinberg::Vst::ParamID id, Steinberg::Vst::ParamValue value) override {
+    if (session_refused_) return Steinberg::kResultFalse; // no session to carry it
     if (terminal_failed_ || !onOwner() || !std::isfinite(value) || value < 0 || value > 1 ||
         !state(id))
       return Steinberg::kResultFalse;

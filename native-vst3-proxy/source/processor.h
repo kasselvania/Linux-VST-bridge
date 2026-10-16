@@ -1,5 +1,6 @@
 #pragma once
 #include "public.sdk/source/vst/vstaudioeffect.h"
+#include "admission_refusal.h"
 #include <atomic>
 #include <cstdint>
 #include <memory>
@@ -93,7 +94,7 @@ private:
   // One refused or failed bridge admission ends this instance's attempts:
   // the editor timer must not reach the bridge service on every tick.
   std::atomic<bool> session_refused_{false};
-  int64_t refusal_kind_ = 1; // LVBAdmission::Kind, set with session_refused_.
+  int64_t refusal_kind_ = LVBAdmission::Unknown; // Set with session_refused_.
   uint32_t output_mask_=1;
 #ifdef AP8_PREVIEW
   AP10Results::Output returned_;
