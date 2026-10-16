@@ -16,6 +16,10 @@ on:
       - 'tools/lc2/**'
       - 'evidence/lc2/generated.json'
       - 'bridge-manager/**'
+      # Read by problem.rs's explanation-completeness test.
+      - 'windows-factory-probe/source/inspect_module.cpp'
+      - 'windows-factory-probe/source/ap8_state.h'
+      - 'windows-factory-probe/source/stereo_negotiation.h'
       - 'native-audio-client/**'
       - 'plugin-descriptor/**'
       - 'compatibility/**'
