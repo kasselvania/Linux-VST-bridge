@@ -31,6 +31,8 @@ READY = dict(event='lifecycle', sequence=2, state='readiness_announced', **FIELD
 MAPPED = dict(event='lifecycle', sequence=3, state='ap1_mapping_ready',
     mapping_count=1, connection_count=1, mapping_witness=True)
 STARTED = dict(event='lifecycle', sequence=4, state='ap0_processing_thread_started', distinct_from_owner=True)
+INITIALIZING = dict(event='call_started', sequence=3, operation='init_dll',
+    interface=None, ordinal=None, tier=None)
 
 
 def status_file(directory, sid=SID):
@@ -319,7 +321,7 @@ class LaunchTests(unittest.TestCase):
                     self.assertEqual(outcome['final_windows_host']['availability'], 'candidate')
                     retire.assert_not_called()
 
-    def test_immediate_failure_or_stop_after_mapping_retires_exact_host_without_render_start(self):
+    def test_initialization_failure_or_stop_retires_mapped_host_before_audio_readiness(self):
         for stop in (False, True):
             with self.subTest(stop=stop), tempfile.TemporaryDirectory() as tmp:
                 directory = pathlib.Path(tmp).resolve(); directory.chmod(0o700)
@@ -339,7 +341,7 @@ class LaunchTests(unittest.TestCase):
                 tracker = SimpleNamespace(owned={(999, 5)}); tracker.update = lambda: tracker.owned
                 sibling = WriterFixture(pid=124, start=457)
                 writer = WriterFixture(proc_root=proc)
-                data = b''.join(json.dumps(row, separators=(',', ':')).encode() + b'\n' for row in (READY, MAPPED))
+                data = b''.join(json.dumps(row, separators=(',', ':')).encode() + b'\n' for row in (READY, INITIALIZING))
                 if not stop: data += b'{"event":malformed}\n'
                 stop_requested = [False]
                 def receive(_):
@@ -494,6 +496,38 @@ class MappingTests(unittest.TestCase):
             self.observe(READY)
         self.assertEqual(self.tracker.owned, {(999, 5)})
 
+    def test_mapped_starting_host_can_be_owned_without_audio_readiness(self):
+        self.observe(READY)
+        self.observe(INITIALIZING)
+        self.assertTrue(self.custody.admitted)
+        self.assertTrue(self.custody.value()['status_mapped'])
+        self.assertEqual(self.root.lvb_host_pidfd[0], (123, 456))
+        self.assertNotIn('audio_ready', self.custody.value())
+
+    def test_startup_records_cannot_replace_writer_or_mapping_proof(self):
+        self.observe(INITIALIZING)
+        self.assertFalse(self.custody.admitted)
+        self.observe(READY)
+        for writer in [WriterFixture(pid=124), WriterFixture(start=457)]:
+            with self.assertRaisesRegex(RuntimeError, 'sender_changed'):
+                self.observe(INITIALIZING, writer)
+        self.map_status(inode=self.path.stat().st_ino + 1)
+        self.observe(INITIALIZING)
+        self.assertFalse(self.custody.admitted)
+        (self.proc / '123/maps').write_text('')
+        self.observe(INITIALIZING)
+        self.assertFalse(self.custody.admitted)
+        self.assertEqual(self.tracker.owned, {(999, 5)})
+        self.assertFalse(hasattr(self.root, 'lvb_host_pidfd'))
+
+    def test_replaced_status_during_startup_cannot_grant_custody(self):
+        self.observe(READY)
+        self.path.rename(self.path.with_suffix('.retained'))
+        status_file(self.directory)
+        with self.assertRaisesRegex(RuntimeError, 'status_changed'):
+            self.observe(INITIALIZING)
+        self.assertFalse(self.custody.admitted)
+
     def test_keeper_sibling_and_reused_generation_cannot_supply_mapping(self):
         self.observe(READY)
         for writer in [WriterFixture(pid=124), WriterFixture(start=457)]:
@@ -641,7 +675,7 @@ class KernelTests(unittest.TestCase):
         program = r'''
 import json,mmap,os,pathlib,signal,sys,threading,time
 path,ready,mode=sys.argv[1:]
-if mode in ('detached','wrong-mapping','hang','channel-loss'):
+if mode in ('detached','wrong-mapping','hang','channel-loss','pre-ready-stall'):
     if os.fork():os._exit(0)
     os.setsid()
 signal.signal(signal.SIGTERM,signal.SIG_IGN)
@@ -653,6 +687,9 @@ if mode=='channel-loss':
 if mode=='hang':time.sleep(30)
 source=open(path if mode!='wrong-mapping' else path+'.wrong','r+b')
 mapping=mmap.mmap(source.fileno(),1024)
+if mode=='pre-ready-stall':
+    os.write(1,(json.dumps(dict(event='call_started',sequence=3,operation='init_dll',interface=None,ordinal=None,tier=None))+'\n').encode())
+    time.sleep(30);os._exit(0)
 os.write(1,(json.dumps(dict(event='lifecycle',sequence=3,state='ap1_mapping_ready',mapping_count=1,connection_count=1,mapping_witness=True))+'\n').encode())
 thread=threading.Thread(target=lambda:os.write(1,(json.dumps(dict(event='lifecycle',sequence=4,state='ap0_processing_thread_started',distinct_from_owner=True))+'\n').encode()))
 thread.start();thread.join()
@@ -740,6 +777,27 @@ else:time.sleep(30)
             self.assertEqual(rows[-1]['state'], 'scanner_completed')
             self.assertEqual(remote.stdout.read(), b'')
             self.assertIsNone(runtime.host_lines.writer)
+
+    def test_stalled_initialization_retires_exact_detached_host_and_preserves_sibling(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            first, second = pathlib.Path(tmp) / 'stalled', pathlib.Path(tmp) / 'sibling'
+            first.mkdir(mode=0o700); second.mkdir(mode=0o700)
+            runtime, tracker, client, remote, rows, read, _ = self.launch_host(first, mode='pre-ready-stall')
+            sibling = self.launch_host(second, sid='f' * 32)
+            self.assertTrue(read(lambda: len(rows) == 2))
+            self.assertEqual([r.get('state') for r in rows], ['readiness_announced', None])
+            self.assertEqual(rows[-1]['operation'], 'init_dll')
+            self.assertTrue(runtime.host_custody.admitted)
+            host = runtime.host_custody.candidate
+            self.assertNotEqual(host.pid, remote.pid)
+            self.assertNotEqual(os.getpgid(host.pid), runtime.remote_identity[0])
+            self.assertTrue(sibling[5](lambda: len(sibling[4]) == 3))
+            remote.wait(timeout=3)
+            with patch.object(o, 'CLEANUP_SECONDS', 3.5):
+                result = o.cleanup_process(client, sorted(tracker.owned))
+            self.assertEqual(result, {'owned_descendants_zero': True, 'process_group_empty': True})
+            self.assertFalse(host.alive())
+            self.assertTrue(sibling[0].host_custody.candidate.alive())
 
     def test_backpressure_preserves_host_frames_with_bounded_diagnostic_buffer(self):
         with tempfile.TemporaryDirectory() as tmp:
