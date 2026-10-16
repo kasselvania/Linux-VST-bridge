@@ -4,6 +4,7 @@
 #include "../../vst-state/stream.h"
 #include "ap10_backend.h"
 #include "ap11_gui.h"
+#include "ap11_midi_mapping.h"
 #ifdef LVB_RUNTIME_DESCRIPTOR
 #include "runtime_descriptor.h"
 #else
@@ -12,6 +13,7 @@
 #include "desktop_activation.h"
 #include "editor_lifecycle.h"
 #include "public.sdk/source/vst/vsteditcontroller.h"
+#include "pluginterfaces/vst/ivstmidicontrollers.h"
 #include "vendor_panel.h"
 #include "processor.h"
 #include "recovery_view.h"
@@ -20,9 +22,11 @@
 #include <atomic>
 #include <cmath>
 #include <chrono>
+#include <memory>
 #include <thread>
 namespace AP8 {
 class Controller final : public Steinberg::Vst::EditController,
+                         public Steinberg::Vst::IMidiMapping,
                          public AP11::PanelOwner {
   using Result = Steinberg::tresult;
   struct ParameterState {
@@ -32,6 +36,36 @@ class Controller final : public Steinberg::Vst::EditController,
   };
 
 public:
+  Result PLUGIN_API queryInterface(const Steinberg::TUID iid, void **obj) override {
+    QUERY_INTERFACE(iid, obj, Steinberg::Vst::IMidiMapping::iid, Steinberg::Vst::IMidiMapping)
+    return EditController::queryInterface(iid, obj);
+  }
+  REFCOUNT_METHODS(EditController)
+  // Hosts turn MIDI controllers into parameter changes from these answers.
+  // They come from the vendor's own IMidiMapping table, published by the
+  // Windows host (UI protocol 7). No message, wait or allocation: an unknown
+  // or not yet published assignment is simply "none". The SDK calls this on
+  // the UI thread; the atomic table also answers any other thread safely.
+  Result PLUGIN_API getMidiControllerAssignment(Steinberg::int32 bus, Steinberg::int16 channel,
+                                                Steinberg::Vst::CtrlNumber controller,
+                                                Steinberg::Vst::ParamID &id) override {
+    midi_queried_.store(true, std::memory_order_relaxed);
+    if (!midi_installed_.load(std::memory_order_acquire)) {
+      midi_early_queries_.fetch_add(1, std::memory_order_relaxed);
+      return Steinberg::kResultFalse;
+    }
+    if (bus < 0 || uint32_t(bus) >= midi_buses_ || channel < 0 ||
+        uint32_t(channel) >= AP11::MidiChannels || controller < 0 ||
+        uint32_t(controller) >= AP11::MidiControllers)
+      return Steinberg::kResultFalse;
+    const auto answer =
+        midi_[AP11::midiSlot(uint32_t(bus), uint32_t(channel), uint32_t(controller))].load(
+            std::memory_order_acquire);
+    if (!(answer >> 32))
+      return Steinberg::kResultFalse;
+    id = Steinberg::Vst::ParamID(answer);
+    return Steinberg::kResultOk;
+  }
   ~Controller() override {
     if (timer_) { timer_->detach(); timer_->release(); }
     if (loop_) loop_->release();
@@ -67,6 +101,17 @@ public:
     }
     std::sort(states_.begin(), states_.end(),
               [](const auto &a, const auto &b) { return a.id < b.id; });
+    // One answer slot per (event input bus, channel, controller), allocated
+    // here so receiving a table never allocates.
+    midi_buses_ = uint32_t(std::min<size_t>(
+        AP11::MidiBuses, size_t(std::count_if(std::begin(AP8::buses), std::end(AP8::buses),
+                                              [](const auto &b) {
+                                                return b.media == Steinberg::Vst::kEvent &&
+                                                       b.direction == Steinberg::Vst::kInput;
+                                              }))));
+    const size_t slots = size_t(midi_buses_) * AP11::MidiChannels * AP11::MidiControllers;
+    midi_ = std::make_unique<std::atomic<uint64_t>[]>(slots);
+    midi_staging_.assign(slots, 0);
     Steinberg::FUnknownPtr<Steinberg::Linux::IRunLoop> loop(host);
     if (loop)
       panelLoop(loop);
@@ -113,6 +158,8 @@ public:
     connected_ = false;
     generation_ = 0;
     pending_count_ = 0;
+    midi_stream_ = 0;
+    midi_installed_.store(false, std::memory_order_release);
     if(!terminal_failed_) status_ = "Disconnected";
     return EditController::disconnect(peer);
   }
@@ -230,6 +277,10 @@ public:
         failure_ = 0;
         activation_.cancel();
         refreshing_ = false;
+        // A partial table from the old session is never installed; the new
+        // session queues its own, taken below like the first one.
+        midi_stream_ = 0;
+        midi_installed_.store(false, std::memory_order_relaxed);
         for (auto &p : states_)
           p.revision = 0;
       }
@@ -241,7 +292,15 @@ public:
       for (size_t i = 0; i < count; ++i)
         if (command(pending_[i]) != kResultOk)
           return kResultFalse;
-      if(bootstrap){ap11_gui_message_t refresh{};refresh.kind=AP11::Refresh;command(refresh);}
+      if(bootstrap){
+        ap11_gui_message_t refresh{};refresh.kind=AP11::Refresh;command(refresh);
+        // The Windows host queues the vendor's MIDI controller table when it
+        // loads, before this session is admitted. Take it now, so a host asking
+        // right after connecting already gets the vendor's answers. Bounded:
+        // the queue holds at most 512 messages, 64 per poll; nothing waits.
+        for(int i=0;i<8&&!midi_installed_.load(std::memory_order_relaxed)&&connected_&&generation_;++i)
+          if(request("AP11.poll")!=kResultOk)break;
+      }
       return kResultOk;
     }
     if (!std::strncmp(id, "AP11.", 5)) {
@@ -605,7 +664,9 @@ private:
       return kResultOk;
     case AP11::RefreshBegin:
       if (refreshing_ || m.count != states_.size() || !m.revision ||
-          (m.flags & ~20))
+          (m.flags & ~(Steinberg::Vst::kParamValuesChanged |
+                       Steinberg::Vst::kParamTitlesChanged |
+                       Steinberg::Vst::kMidiCCAssignmentChanged)))
         return kResultFalse;
       refreshing_ = true;
       refresh_revision_ = m.revision;
@@ -629,6 +690,7 @@ private:
       std::memcpy(info.units, m.units, sizeof(info.units));
       info.stepCount = m.steps;
       info.flags = m.flags;
+      info.unitId = Steinberg::Vst::UnitID(m.count);
       if (m.revision >= p->revision) {
         p->revision = m.revision;
         p->available=m.result==0;
@@ -636,6 +698,43 @@ private:
       }
       return kResultOk;
     }
+    case AP11::MidiMapBegin:
+      if (!m.revision || m.count > AP11::MidiAssignmentLimit ||
+          (m.flags & ~Steinberg::Vst::kMidiCCAssignmentChanged) || m.result)
+        return kResultFalse;
+      std::fill(midi_staging_.begin(), midi_staging_.end(), 0);
+      midi_stream_ = m.revision;
+      midi_stream_flags_ = m.flags;
+      midi_expected_ = m.count;
+      midi_received_ = 0;
+      midi_unexposed_ = 0;
+      return kResultOk;
+    case AP11::MidiMapEntries: {
+      AP11::MidiAssignment records[AP11::MidiAssignmentsPerMessage];
+      if (!midi_stream_ || m.revision != midi_stream_ || !AP11::unpackMidi(m, records) ||
+          m.count > midi_expected_ - midi_received_)
+        return kResultFalse;
+      for (uint32_t i = 0; i < m.count; ++i) {
+        const auto &a = records[i];
+        // The processor accepts only parameters this proxy exposes; any other
+        // assignment would make the host send changes the bridge refuses.
+        if (a.bus < midi_buses_ && state(a.id))
+          midi_staging_[AP11::midiSlot(a.bus, a.channel, a.controller)] =
+              (uint64_t(1) << 32) | a.id;
+        else
+          ++midi_unexposed_;
+      }
+      midi_received_ += m.count;
+      return kResultOk;
+    }
+    case AP11::MidiMapEnd:
+      if (!midi_stream_ || m.revision != midi_stream_ || m.flags != midi_stream_flags_ ||
+          m.count != midi_expected_ ||
+          midi_received_ != midi_expected_)
+        return kResultFalse;
+      midi_stream_ = 0;
+      installMidi();
+      return kResultOk;
     case AP11::RefreshEnd:
       if (!refreshing_ || m.revision != refresh_revision_ ||
           m.flags != refresh_flags_ ||
@@ -648,6 +747,39 @@ private:
                  : kResultFalse;
     default:
       return kNotImplemented;
+    }
+  }
+  // Owner thread. Publishes the received table entry by entry; a reader during
+  // the swap sees each answer old or new, and is then told to ask again.
+  void installMidi() {
+    bool changed = false;
+    uint32_t mapped = 0;
+    for (size_t i = 0; i < midi_staging_.size(); ++i) {
+      mapped += midi_staging_[i] != 0;
+      if (midi_[i].load(std::memory_order_relaxed) != midi_staging_[i]) {
+        midi_[i].store(midi_staging_[i], std::memory_order_release);
+        changed = true;
+      }
+    }
+    const bool first = !midi_installed_.exchange(true, std::memory_order_acq_rel);
+    // A host that already asked holds stale answers. Tell it to ask again;
+    // its refusal changes nothing here.
+    const bool notify =
+        (changed || (first && mapped)) && !midi_stream_flags_ && componentHandler &&
+        midi_queried_.load(std::memory_order_relaxed);
+    if (notify)
+      componentHandler->restartComponent(Steinberg::Vst::kMidiCCAssignmentChanged);
+    // One bounded line in this instance's session report (owner thread).
+    if (auto *m = allocateMessage()) {
+      m->setMessageID("AP11.midi_report");
+      auto *a = m->getAttributes();
+      a->setInt("generation", Steinberg::int64(generation_));
+      a->setInt("mapped", mapped);
+      a->setInt("unexposed", midi_unexposed_);
+      a->setInt("early_queries", midi_early_queries_.load(std::memory_order_relaxed));
+      a->setInt("host_notified", notify ? 1 : 0);
+      sendMessage(m);
+      m->release();
     }
   }
   void tick() {
@@ -806,6 +938,14 @@ private:
   int32_t refresh_flags_ = 0;
   const char *status_ = "Vendor editor closed";
   std::vector<ParameterState> states_;
+  // MIDI controller assignments: (1 << 32 | ParamID) per midiSlot, 0 = none.
+  std::unique_ptr<std::atomic<uint64_t>[]> midi_;
+  std::vector<uint64_t> midi_staging_;
+  uint32_t midi_buses_ = 0, midi_expected_ = 0, midi_received_ = 0, midi_unexposed_ = 0;
+  uint64_t midi_stream_ = 0;
+  int32_t midi_stream_flags_ = 0;
+  std::atomic<bool> midi_queried_{false}, midi_installed_{false};
+  std::atomic<uint32_t> midi_early_queries_{0};
   std::array<ap11_gui_message_t, 512> pending_{};
   size_t pending_count_ = 0;
 };

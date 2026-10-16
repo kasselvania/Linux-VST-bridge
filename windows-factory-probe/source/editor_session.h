@@ -1,5 +1,6 @@
 #pragma once
 #include "fault_status.h"
+#include "midi_mapping.h"
 #include "vendor_view.h"
 #include "vendor_handler.h"
 #include "linux_vst_bridge/wf0_probe/events.h"
@@ -48,6 +49,14 @@ class EditorSession : public VendorEditSink {
   uint64_t floor_ = 0, close_cutoff_ = 0, refresh_revision_ = 0;
   uint32_t refresh_flags_ = 0, pending_refresh_ = 0;
   size_t refresh_cursor_ = 0;
+  // MIDI controller assignments (UI protocol 7): one complete table per
+  // stream. A newer request waits for the published stream to finish.
+  int32_t midi_inputs_ = 0;
+  MidiTable midi_;
+  size_t midi_cursor_ = 0;
+  uint64_t midi_serial_ = 0;
+  uint32_t midi_refresh_flags_ = 0, midi_again_flags_ = 0;
+  bool midi_pending_ = false, midi_started_ = false, midi_again_ = false;
   bool refreshing_ = false, refresh_started_ = false, host_update_ = false,
        group_ = false, was_open_ = false, ever_opened_ = false;
   std::wstring name_;
@@ -135,6 +144,7 @@ class EditorSession : public VendorEditSink {
       m.value = controller_.getParamNormalized(info.id);
       m.flags = info.flags;
       m.steps = info.stepCount;
+      m.count = uint32_t(info.unitId);
       // SDK strings end at their first NUL; bytes after it are unspecified.
       // Copy only the live string into the zero-initialized wire message, so
       // neither trailing vendor bytes nor false termination failures escape.
@@ -163,6 +173,90 @@ class EditorSession : public VendorEditSink {
         auto flags = pending_refresh_;
         pending_refresh_ = 0;
         request_refresh(flags);
+      }
+    }
+  }
+  void request_midi(const char *reason, uint32_t refresh_flags = 0) {
+    if (midi_pending_) {
+      midi_again_ = true;
+      midi_again_flags_ |= refresh_flags;
+      return;
+    }
+    if (midi_serial_ == UINT64_MAX) {
+      channel_.fail(AP11::GenerationExhausted);
+      return;
+    }
+    // A vendor query can synchronously invalidate its mapping. Establish the
+    // in-progress owner before entering it, so that callback queues a later
+    // read instead of recursively entering the vendor again.
+    midi_pending_ = true;
+    midi_started_ = false;
+    midi_cursor_ = 0;
+    midi_refresh_flags_ = refresh_flags;
+    ++midi_serial_;
+    try {
+      midi_ = read_midi_table(controller_, midi_inputs_);
+    } catch (...) {
+      // A vendor failure here costs MIDI controller routing, not the instance.
+      controller_failure("midi_mapping", 0, Steinberg::kResultFalse);
+      midi_ = {};
+    }
+    if (events_)
+      events_->lifecycle("ap11_midi_mapping",
+                         ",\"reason\":\"" + std::string(reason) + "\",\"interface\":" +
+                             (midi_.supported ? "true" : "false") + ",\"event_inputs\":" +
+                             std::to_string(midi_inputs_) + ",\"assignments\":" +
+                             std::to_string(midi_.assignments.size()));
+  }
+  // Bounded like refresh(): keeps 64 slots free for status and gesture traffic
+  // and resumes on the next service turn when the queue is full.
+  void stream_midi() {
+    if (!midi_pending_)
+      return;
+    const auto total = midi_.assignments.size();
+    if (!midi_started_) {
+      if (channel_.available() <= 64)
+        return;
+      ap11_gui_message_t m{};
+      m.kind = AP11::MidiMapBegin;
+      m.count = uint32_t(total);
+      m.revision = midi_serial_;
+      m.flags = int32_t(midi_refresh_flags_ & Steinberg::Vst::kMidiCCAssignmentChanged);
+      if (!channel_.send(m))
+        return;
+      midi_started_ = true;
+    }
+    while (midi_cursor_ < total && channel_.available() > 64) {
+      ap11_gui_message_t m{};
+      const auto n = uint32_t(std::min<size_t>(AP11::MidiAssignmentsPerMessage, total - midi_cursor_));
+      if (!AP11::packMidi(m, midi_.assignments.data() + midi_cursor_, n)) {
+        channel_.fail(AP11::Protocol);
+        return;
+      }
+      m.revision = midi_serial_;
+      if (!channel_.send(m))
+        return;
+      midi_cursor_ += n;
+    }
+    if (midi_cursor_ == total && channel_.available() > 64) {
+      ap11_gui_message_t m{};
+      m.kind = AP11::MidiMapEnd;
+      m.count = uint32_t(total);
+      m.revision = midi_serial_;
+      m.flags = int32_t(midi_refresh_flags_ & Steinberg::Vst::kMidiCCAssignmentChanged);
+      if (!channel_.send(m))
+        return;
+      midi_pending_ = false;
+      // The SDK's MIDI invalidation also changes program parameter metadata.
+      // Queue its existing refresh only after the complete routing table;
+      // RefreshEnd is the single owner of the host's restart notification.
+      if (midi_refresh_flags_)
+        request_refresh(midi_refresh_flags_);
+      if (midi_again_) {
+        midi_again_ = false;
+        const auto flags = midi_again_flags_;
+        midi_again_flags_ = 0;
+        request_midi("superseded", flags);
       }
     }
   }
@@ -226,6 +320,20 @@ public:
   void fault_status(FaultStatus* f) { fault_=f; }
   void diagnostics(EventWriter& events) { events_=&events; }
   void name(const std::wstring &name) { name_ = name; }
+  // Once, by the processing session after binding the controller: the
+  // vendor's event input count. Publishes the vendor's MIDI controller table
+  // at once, so it is queued before the native session is admitted.
+  void midi_inputs(int32_t event_inputs) {
+    ap1::require(owner_ == std::this_thread::get_id(), "MIDI mapping owner thread");
+    midi_inputs_ = event_inputs;
+    request_midi("load");
+    stream_midi();
+  }
+  // After the vendor restored a project's state; published on the next turn.
+  void midi_restored() {
+    ap1::require(owner_ == std::this_thread::get_id(), "MIDI mapping owner thread");
+    request_midi("state_restore");
+  }
   bool host_value(uint32_t id, double value, uint64_t revision) {
     if (owner_ != std::this_thread::get_id())
       return false;
@@ -323,14 +431,19 @@ public:
     using namespace Steinberg;
     using namespace Steinberg::Vst;
     if (owner_ != std::this_thread::get_id() || flags <= 0 ||
-        (flags & ~(kParamValuesChanged | kParamTitlesChanged)) ||
+        (flags & ~(kParamValuesChanged | kParamTitlesChanged | kMidiCCAssignmentChanged)) ||
         !(channel_.capabilities() & 1) || channel_.closed() ||
         channel_.failure())
       return kNotImplemented;
-    // An actual vendor invalidation supersedes earlier accepted audio
-    // refreshes.
-    floor_ = channel_.revision();
-    request_refresh(uint32_t(flags));
+    if (flags & (kParamValuesChanged | kParamTitlesChanged)) {
+      // An actual vendor invalidation supersedes earlier accepted audio
+      // refreshes.
+      floor_ = channel_.revision();
+    }
+    if (flags & kMidiCCAssignmentChanged)
+      request_midi("vendor_restart", uint32_t(flags));
+    else
+      request_refresh(uint32_t(flags));
     return kResultOk;
   }
   void request_refresh(uint32_t flags) {
@@ -536,8 +649,12 @@ public:
           channel_.fail(AP11::Controller);
           break;
         }
-      } else if (m.kind == AP11::Refresh)
+      } else if (m.kind == AP11::Refresh) {
+        // The native controller's bootstrap: a new or replaced controller
+        // receives the complete projection, MIDI assignments included.
         request_refresh(uint32_t(m.flags));
+        request_midi("native_refresh");
+      }
       else {
         channel_.fail(AP11::Protocol);
         break;
@@ -572,6 +689,7 @@ public:
     }
     try {
       refresh();
+      stream_midi();
     } catch (...) {
       controller_failure("refresh_exception",0,Steinberg::kResultFalse);
       channel_.fail(AP11::Controller);

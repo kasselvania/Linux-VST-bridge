@@ -231,7 +231,7 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             events.lifecycle("ap12_vendor_access_closed");
         }
         if(external){
-            external->bind_controller(controller,controller_initialized,&handler);
+            external->bind_controller(controller,controller_initialized,&handler,component->getBusCount(kEvent,kInput));
             HostCallbackSink calls(&events,GetCurrentThreadId());
             auto result=run_offline_processing(*component,*audio,calls,events,external);
             // Policy-selected process retirement never unwinds vendor objects,

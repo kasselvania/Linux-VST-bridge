@@ -17,7 +17,7 @@ public:
  const BusLayout* bus_layout() const override;
     void bind_processor(Steinberg::Vst::IAudioProcessor*) override;
     double sample_rate() const override;
-    void bind_controller(Steinberg::Vst::IEditController*,bool,Steinberg::Vst::IComponentHandler* = nullptr) override;
+    void bind_controller(Steinberg::Vst::IEditController*,bool,Steinberg::Vst::IComponentHandler* = nullptr,int32_t = 0) override;
     bool hosted() const override;
     bool sustained() const override;
     bool stateful() const override;

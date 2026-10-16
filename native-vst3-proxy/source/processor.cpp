@@ -730,6 +730,14 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
     if(!std::strcmp(id,"AP11.capabilities")){int64 caps=0;if(message->getAttributes()->getInt("caps",caps)!=kResultOk||caps<0||caps>7)return kResultFalse;if(ap11_gui_capabilities(handle_,uint64_t(generation),uint32_t(caps)))return kResultFalse;gui_consumer_=(caps&1)!=0;return kResultOk;}
     if(!std::strcmp(id,"AP11.failure")){int64 code=0;if(message->getAttributes()->getInt("code",code)!=kResultOk||code<1||code>AP11::GenerationExhausted)return kResultFalse;return ap11_gui_failure(handle_,uint64_t(generation),uint32_t(code))==uint32_t(code)?kResultOk:kResultFalse;}
     if(!std::strcmp(id,"AP11.poll"))return guiPoll(uint64_t(generation),64);
+    // The controller installed the vendor's MIDI controller table (#410).
+    if(!std::strcmp(id,"AP11.midi_report")){
+      int64 v[4]{};const char* key[4]={"mapped","unexposed","early_queries","host_notified"};
+      for(int i=0;i<4;++i)if(message->getAttributes()->getInt(key[i],v[i])!=kResultOk||v[i]<0)return kResultFalse;
+      char text[256];auto n=std::snprintf(text,sizeof(text),"{\"event\":\"ap11_midi_mapping\",\"generation\":%lld,\"mapped\":%lld,\"unexposed\":%lld,\"early_queries\":%lld,\"host_notified\":%lld}\n",(long long)generation,(long long)v[0],(long long)v[1],(long long)v[2],(long long)v[3]);
+      if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));
+      return kResultOk;
+    }
     if(!std::strcmp(id,"AP11.command")){
       const void* bytes=nullptr;uint32 size=0;
       if(message->getAttributes()->getBinary("command",bytes,size)!=kResultOk||size!=sizeof(ap11_gui_message_t))return kResultFalse;

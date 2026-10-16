@@ -29,7 +29,8 @@ public:
     virtual void bind_processor(Steinberg::Vst::IAudioProcessor*) {}
     virtual double sample_rate() const {return 48000.;}
     virtual bool commercial() const {return false;}
-    virtual void bind_controller(Steinberg::Vst::IEditController*,bool,Steinberg::Vst::IComponentHandler* = nullptr) {}
+    // The last argument is the vendor's event input bus count (MIDI mapping).
+    virtual void bind_controller(Steinberg::Vst::IEditController*,bool,Steinberg::Vst::IComponentHandler* = nullptr,int32_t = 0) {}
     virtual bool hosted() const { return false; }
     virtual bool sustained() const { return false; }
     virtual bool stateful() const { return false; }
