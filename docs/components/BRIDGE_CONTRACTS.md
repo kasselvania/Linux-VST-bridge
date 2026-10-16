@@ -128,6 +128,35 @@ Deterministic fixtures require byte-level round trips; vendor/project behavior
 requires actual save, full exit and reopen tests. Failed/partial restoration is
 not successful defaults; retire safely and offer a real retained predecessor.
 
+## Control readback and observation validity
+
+Ordinary readback validates bounded owned records, current bindings/transactions
+and selected physical publication. It is not executable verification: do not walk
+bulk runtime trees, hash payloads or execute preparation tools to display a product
+or validate an offered choice. Offer admission rechecks its exact token, predecessor,
+settings and affected owners. Queued worker executables are freshly verified;
+mutation/launch owners retain deep payload verification and final identity checks.
+A readable record or old successful observation never grants execution authority.
+
+Incomplete retained history stays readable as needing recovery. A scoped operation
+rechecks the selected binding and invokes its history owner; projection never
+migrates records, invents predecessor lineage or repairs corrupt history. Preserve
+independently valid publication/rollback facts and original operation bytes.
+
+Invalidate observations by actual inputs: module changes affect inspection;
+runtime/dependency changes affect compatibility; driver/display/host changes affect
+consuming-context checks. Keep unchanged facts reusable. Support prose, observation
+refresh or a preference change does not justify an engine rebuild/prefix recreation.
+Capability snapshots are not licensed machine identity. Absent live DAW format
+remains unknown, rather than guessed from PipeWire or device defaults.
+
+Requested graphics/probes do not prove an editor's renderer. Retain the editor's
+loaded-library fingerprint before independent probes and teardown. Attribute only
+libraries newly loaded with that editor or imported by its module; a stand-in
+adapter name is not the rendering device. Preserve other composed DLL choices
+when validating the requested graphics assignments. A close failure may preserve
+useful observations but remains a separate failed/uncertain editor retirement.
+
 ## Loaded-native admission and update continuity
 
 Descriptor C ABI v2 binds an anchor in the executing factory to its opened image
