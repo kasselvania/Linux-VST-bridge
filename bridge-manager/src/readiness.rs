@@ -1497,7 +1497,7 @@ fn report_value(m: &Manager, snapshot: &ui::Snapshot,
             "last_load":support_problem(&product.details["last_load"]["problem"]).map(|problem|json!({
                 "problem":problem,"observed_at":product.details["last_load"]["observed_at"].as_u64(),
                 "outcome":product.details["last_load"]["outcome"].as_str()
-                    .filter(|outcome|matches!(*outcome,"refused"|"delivery_failed"))
+                    .filter(|outcome|matches!(*outcome,"refused"|"delivery_failed"|"activation_refused"))
             }))
         })).collect::<Vec<_>>(),
         "bridge_records_omitted":snapshot.products.len().saturating_sub(128)}))
@@ -2414,6 +2414,15 @@ mod tests {
         assert_eq!(value["bridge_records"][0]["last_load"]["observed_at"],456);
         assert_eq!(value["bridge_records_omitted"],1);
         assert!(!fs::read_to_string(file).unwrap().contains("PRIVATE_"));
+        // Main's audio-start refusal uses the same owned last-load diagnosis.
+        s.products.last_mut().unwrap().details["last_load"]=json!({"outcome":"activation_refused",
+            "observed_at":789,"problem":linux_vst_bridge::problem::from_activation_record(
+                "setup","daw_sample_format",0).unwrap()});
+        let receipt=write_export(&f.m,&s,sanitized(result(&s,&p)),&software,None).unwrap();
+        let value:Value=read_json(&f.m.root.join("support-exports")
+            .join(receipt["file"].as_str().unwrap())).unwrap();
+        assert_eq!(value["bridge_records"][0]["last_load"]["outcome"],"activation_refused");
+        assert_eq!(value["bridge_records"][0]["last_load"]["problem"]["code"],"daw_64bit_processing");
     }
     #[test]
     fn local_export_is_parseable_and_contains_only_allowlisted_incident_fields() {
