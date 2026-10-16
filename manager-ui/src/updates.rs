@@ -254,7 +254,7 @@ impl Updates {
                     ui.label(egui::RichText::new(format!("Update available: {}", version(&offer.version))).strong());
                     if !offer.notes.trim().is_empty() {
                         egui::CollapsingHeader::new("What's new").default_open(self.show_notes)
-                            .show(ui, |ui| { ui.label(offer.notes.replace('\r', "")); });
+                            .show(ui, |ui| { ui.label(plain_notes(&offer.notes)); });
                     }
                     ui.label("Close your DAW before updating. Your plug-ins, projects and settings are kept, and Restore previous setup can bring back this version.");
                     if ui.add(crate::presentation::primary_button("Download and update", ui)).clicked() {
@@ -283,6 +283,11 @@ impl Updates {
     }
 }
 
+/// The notes as plain text in the manager's font, which has no arrow glyphs.
+fn plain_notes(notes: &str) -> String {
+    notes.replace('\r', "").replace('→', "->").replace('←', "<-")
+}
+
 fn warning(ui: &egui::Ui) -> egui::Color32 {
     if ui.visuals().dark_mode { egui::Color32::from_rgb(245, 190, 100) } else { egui::Color32::from_rgb(140, 77, 0) }
 }
@@ -298,17 +303,38 @@ fn context(home: &Path) -> Result<(linux_vst_bridge::portable_package::Trust, St
 }
 
 /// Open the staged version's Setup and ask it to continue with Update Bridge.
-/// A Setup that predates this option refuses it at once; open it plainly then.
+/// Setup gets its own user scope, as a launch from Applications would, so
+/// this window closing (or the unit it runs in stopping) cannot end the
+/// update Setup starts. Without systemd-run it is started directly. A Setup
+/// that predates the option refuses it at once; it is then opened plainly.
 fn hand_over(frontend: &Path) -> Result<(), String> {
-    let unavailable = "Setup for the new version could not open. Open Linux VST Bridge Setup and Updates from Applications and choose Update Bridge.";
-    let mut child = Command::new(frontend).arg("--continue-update")
-        .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null())
-        .spawn().map_err(|_| unavailable.to_owned())?;
-    std::thread::sleep(Duration::from_millis(600));
-    if let Ok(Some(status)) = child.try_wait() {
-        if status.code() == Some(64) {
-            Command::new(frontend).stdin(Stdio::null()).spawn().map_err(|_| unavailable.to_owned())?;
+    let unavailable = || "Setup for the new version could not open. Open Linux VST Bridge Setup and Updates from Applications and choose Update Bridge.".to_owned();
+    if !frontend.is_file() { return Err(unavailable()); }
+    let quiet = |command: &mut Command| { command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()); };
+    let scoped = |extra: &[&str]| {
+        let mut command = Command::new("systemd-run");
+        command.args(["--user", "--scope", "--collect", "--quiet", "--"]).arg(frontend).args(extra);
+        quiet(&mut command);
+        command.spawn()
+    };
+    let direct = |extra: &[&str]| {
+        let mut command = Command::new(frontend);
+        command.args(extra);
+        quiet(&mut command);
+        command.spawn()
+    };
+    let mut child = scoped(&["--continue-update"]).or_else(|_| direct(&["--continue-update"]))
+        .map_err(|_| unavailable())?;
+    std::thread::sleep(Duration::from_millis(800));
+    match child.try_wait() {
+        Ok(Some(status)) if status.code() == Some(64) => {
+            scoped(&[]).or_else(|_| direct(&[])).map_err(|_| unavailable())?;
         }
+        // systemd-run could not create the scope.
+        Ok(Some(status)) if !status.success() => {
+            direct(&["--continue-update"]).map_err(|_| unavailable())?;
+        }
+        _ => {}
     }
     Ok(())
 }
@@ -393,5 +419,6 @@ mod tests {
         let labels = rendered(&mut updates);
         assert!(labels.iter().any(|l| l == "Couldn't check for updates right now."));
         assert!(labels.iter().any(|l| l == "Check for updates"));
+        assert_eq!(plain_notes("Setup → Beta updates\r\n"), "Setup -> Beta updates\n");
     }
 }
