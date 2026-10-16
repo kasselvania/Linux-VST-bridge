@@ -2854,6 +2854,8 @@ def installer_started_profiled_images(trace,profiles):
     """
     if not profiles:return {}
     drive=trace.root/'compatdata/pfx/drive_c';found={}
+    try:real_drive=drive.resolve(strict=True)
+    except OSError:return {}
     for row in trace.rows:
         if row.get('self_exit') is not None or row.get('target_root'):continue
         path=trace.path(row.get('image_request'))
@@ -2861,7 +2863,9 @@ def installer_started_profiled_images(trace,profiles):
         for profile in profiles:
             if path.name.casefold()!=profile['executable'].casefold():continue
             try:
-                if path.resolve()!=path or not stat.S_ISREG(path.lstat().st_mode):continue
+                # A home reached through a symlink (/home -> /var/home) is fine;
+                # the app and its resources themselves must be plain files here.
+                if not path.resolve(strict=True).is_relative_to(real_drive) or not stat.S_ISREG(path.lstat().st_mode):continue
                 if not all(stat.S_ISREG((path.parent/r).lstat().st_mode) for r in profile['resources']):continue
                 st=path.stat()
             except OSError:continue

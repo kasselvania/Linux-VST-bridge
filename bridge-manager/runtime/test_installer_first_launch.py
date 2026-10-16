@@ -43,6 +43,11 @@ class ImageMatchTests(unittest.TestCase):
             self.assertEqual(session.installer_started_profiled_images(self.trace(root,[CREATE,STARTED]),[]),{})
             other=dict(PROFILE,executable='Other.exe')
             self.assertEqual(session.installer_started_profiled_images(self.trace(root,[CREATE,STARTED]),[other]),{})
+    def test_home_reached_through_a_symlink_still_finds_the_app(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            real=pathlib.Path(tmp).resolve()/'var-home';real.mkdir();app_tree(real)
+            link=pathlib.Path(tmp).resolve()/'home';link.symlink_to(real)
+            self.assertEqual(len(session.installer_started_profiled_images(self.trace(link,[CREATE,STARTED]),[PROFILE])),1)
     def test_installer_root_success_is_its_own_traced_exit_not_the_runner(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=pathlib.Path(tmp).resolve();artifact=root/'installer.exe';artifact.write_bytes(b'x')
