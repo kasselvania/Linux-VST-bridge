@@ -55,7 +55,7 @@ enum Kind : uint32_t {
   RequestOpen = 107,
   EditorStatus = 108,
   RefreshBegin = 109,
-  Parameter = 110, // result: 0=available, 1=unavailable (canonical value bits zero)
+  Parameter = 110, // result: availability; protocol 7 count: signed UnitID bits
   RefreshEnd = 111,
   Restart = 112,
   SizeResult = 113,

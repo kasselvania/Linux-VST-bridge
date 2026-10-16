@@ -289,6 +289,25 @@ struct MidiController final : EditController, IMidiMapping {
   std::vector<AP11::MidiAssignment> table;
   uint32_t queries = 0;
   bool fails = false;
+  bool invalidate_during_query = false;
+  uint32_t query_depth = 0, maximum_query_depth = 0;
+  int32 program_steps = 127;
+  UnitID program_unit = 0;
+  tresult PLUGIN_API initialize(FUnknown *host) override {
+    auto result = EditController::initialize(host);
+    if (result == kResultOk)
+      parameters.addParameter(STR16("Program"), nullptr, 127, 0, ParameterInfo::kIsProgramChange,
+                              10);
+    return result;
+  }
+  tresult PLUGIN_API getParameterInfo(int32 index, ParameterInfo &info) override {
+    auto result = EditController::getParameterInfo(index, info);
+    if (result == kResultOk && info.id == 10) {
+      info.stepCount = program_steps;
+      info.unitId = program_unit;
+    }
+    return result;
+  }
   tresult PLUGIN_API queryInterface(const TUID iid, void **obj) override {
     QUERY_INTERFACE(iid, obj, IMidiMapping::iid, IMidiMapping)
     return EditController::queryInterface(iid, obj);
@@ -299,6 +318,14 @@ struct MidiController final : EditController, IMidiMapping {
     check(std::this_thread::get_id() == owner, "vendor mapping asked on its owner thread");
     ++queries;
     if (fails) throw std::runtime_error("vendor mapping failure");
+    ++query_depth;
+    maximum_query_depth = std::max(maximum_query_depth, query_depth);
+    if (invalidate_during_query) {
+      invalidate_during_query = false;
+      check(componentHandler && componentHandler->restartComponent(kMidiCCAssignmentChanged) == kResultOk,
+            "vendor can invalidate its mapping during a mapping query");
+    }
+    --query_depth;
     for (const auto &a : table)
       if (a.bus == uint32_t(bus) && a.channel == uint32_t(channel) && a.controller == uint32_t(number)) {
         id = a.id;
@@ -308,8 +335,12 @@ struct MidiController final : EditController, IMidiMapping {
   }
 };
 // Exactly one complete published table: Begin, Entries..., End.
-std::vector<AP11::MidiAssignment> midi_table(const std::vector<ap11_gui_message_t> &messages,
+std::vector<AP11::MidiAssignment> midi_table(const std::vector<ap11_gui_message_t> &all,
                                              uint64_t &serial) {
+  std::vector<ap11_gui_message_t> messages;
+  std::copy_if(all.begin(), all.end(), std::back_inserter(messages), [](const auto &m) {
+    return m.kind >= AP11::MidiMapBegin && m.kind <= AP11::MidiMapEnd;
+  });
   check(messages.size() >= 2 && messages.front().kind == AP11::MidiMapBegin &&
             messages.back().kind == AP11::MidiMapEnd,
         "one complete MIDI assignment stream");
@@ -376,9 +407,34 @@ void midi_mapping_stream() {
     uint64_t second = 0;
     table = midi_table(native.drain(), second);
     check(second > first && table.size() == 4 && table[0].id == 9, "changed assignments republished");
+    session.service(true);
+    native.drain(); // finish the metadata refresh queued after the mapping
+    // The routing IDs can stay identical while a loaded bank changes the
+    // program count/unit. An ordinary refresh may already be in progress.
+    session.request_refresh(kParamTitlesChanged);
+    c->program_steps = 31;
+    c->program_unit = 42;
+    check(session.restart(kMidiCCAssignmentChanged) == kResultOk, "program-only MIDI invalidation");
+    std::vector<ap11_gui_message_t> messages;
+    for (int i = 0; i < 3; ++i) {
+      session.service(true);
+      auto more = native.drain();
+      messages.insert(messages.end(), more.begin(), more.end());
+    }
+    const auto map_end = std::find_if(messages.begin(), messages.end(), [](const auto &m) {
+      return m.kind == AP11::MidiMapEnd && m.flags == kMidiCCAssignmentChanged;
+    });
+    const auto refreshed_program = std::find_if(map_end, messages.end(), [](const auto &m) {
+      return m.kind == AP11::Parameter && m.id == 10 && m.steps == 31 && m.count == 42;
+    });
+    const auto invalidation = std::find_if(refreshed_program, messages.end(), [](const auto &m) {
+      return m.kind == AP11::RefreshEnd && m.flags == kMidiCCAssignmentChanged;
+    });
+    check(map_end != messages.end() && refreshed_program != messages.end() && invalidation != messages.end(),
+          "unchanged routes precede updated program metadata and its original MIDI invalidation");
     native.command(AP11::Refresh);
     session.service(true);
-    auto messages = native.drain();
+    messages = native.drain();
     check(std::any_of(messages.begin(), messages.end(), [](const auto &m) { return m.kind == AP11::RefreshEnd; }),
           "native bootstrap refresh still refreshes parameters");
     auto streams = midi_streams(messages);
@@ -390,6 +446,22 @@ void midi_mapping_stream() {
     uint64_t restored = 0;
     check(midi_table(native.drain(), restored).size() == 4 && restored > third,
           "a restored project state republishes the MIDI table");
+    External external;
+    external.session = &session;
+    VendorHandler handler;
+    handler.external = &external;
+    check(c->setComponentHandler(&handler) == kResultOk, "reentrant mapping handler");
+    c->invalidate_during_query = true;
+    session.midi_restored();
+    messages.clear();
+    for (int i = 0; i < 3; ++i) {
+      session.service(true);
+      auto more = native.drain();
+      messages.insert(messages.end(), more.begin(), more.end());
+    }
+    check(c->maximum_query_depth == 1 && midi_streams(messages).size() == 2 && channel.failure() == 0,
+          "a reentrant mapping invalidation is coalesced without recursive vendor queries");
+    check(c->setComponentHandler(nullptr) == kResultOk, "reentrant handler detached");
     // Every channel and controller assigned: 2096 records over 33 messages,
     // two back-to-back changes publish two complete tables in order.
     c->table.clear();

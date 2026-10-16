@@ -50,8 +50,10 @@ public:
                                                 Steinberg::Vst::CtrlNumber controller,
                                                 Steinberg::Vst::ParamID &id) override {
     midi_queried_.store(true, std::memory_order_relaxed);
-    if (!midi_installed_.load(std::memory_order_acquire))
+    if (!midi_installed_.load(std::memory_order_acquire)) {
       midi_early_queries_.fetch_add(1, std::memory_order_relaxed);
+      return Steinberg::kResultFalse;
+    }
     if (bus < 0 || uint32_t(bus) >= midi_buses_ || channel < 0 ||
         uint32_t(channel) >= AP11::MidiChannels || controller < 0 ||
         uint32_t(controller) >= AP11::MidiControllers)
@@ -156,6 +158,8 @@ public:
     connected_ = false;
     generation_ = 0;
     pending_count_ = 0;
+    midi_stream_ = 0;
+    midi_installed_.store(false, std::memory_order_release);
     if(!terminal_failed_) status_ = "Disconnected";
     return EditController::disconnect(peer);
   }
@@ -660,7 +664,9 @@ private:
       return kResultOk;
     case AP11::RefreshBegin:
       if (refreshing_ || m.count != states_.size() || !m.revision ||
-          (m.flags & ~20))
+          (m.flags & ~(Steinberg::Vst::kParamValuesChanged |
+                       Steinberg::Vst::kParamTitlesChanged |
+                       Steinberg::Vst::kMidiCCAssignmentChanged)))
         return kResultFalse;
       refreshing_ = true;
       refresh_revision_ = m.revision;
@@ -684,6 +690,7 @@ private:
       std::memcpy(info.units, m.units, sizeof(info.units));
       info.stepCount = m.steps;
       info.flags = m.flags;
+      info.unitId = Steinberg::Vst::UnitID(m.count);
       if (m.revision >= p->revision) {
         p->revision = m.revision;
         p->available=m.result==0;
@@ -692,10 +699,12 @@ private:
       return kResultOk;
     }
     case AP11::MidiMapBegin:
-      if (!m.revision || m.count > AP11::MidiAssignmentLimit || m.flags || m.result)
+      if (!m.revision || m.count > AP11::MidiAssignmentLimit ||
+          (m.flags & ~Steinberg::Vst::kMidiCCAssignmentChanged) || m.result)
         return kResultFalse;
       std::fill(midi_staging_.begin(), midi_staging_.end(), 0);
       midi_stream_ = m.revision;
+      midi_stream_flags_ = m.flags;
       midi_expected_ = m.count;
       midi_received_ = 0;
       midi_unexposed_ = 0;
@@ -719,7 +728,8 @@ private:
       return kResultOk;
     }
     case AP11::MidiMapEnd:
-      if (!midi_stream_ || m.revision != midi_stream_ || m.count != midi_expected_ ||
+      if (!midi_stream_ || m.revision != midi_stream_ || m.flags != midi_stream_flags_ ||
+          m.count != midi_expected_ ||
           midi_received_ != midi_expected_)
         return kResultFalse;
       midi_stream_ = 0;
@@ -751,11 +761,12 @@ private:
         changed = true;
       }
     }
-    midi_installed_.store(true, std::memory_order_release);
+    const bool first = !midi_installed_.exchange(true, std::memory_order_acq_rel);
     // A host that already asked holds stale answers. Tell it to ask again;
     // its refusal changes nothing here.
     const bool notify =
-        changed && componentHandler && midi_queried_.load(std::memory_order_relaxed);
+        (changed || (first && mapped)) && !midi_stream_flags_ && componentHandler &&
+        midi_queried_.load(std::memory_order_relaxed);
     if (notify)
       componentHandler->restartComponent(Steinberg::Vst::kMidiCCAssignmentChanged);
     // One bounded line in this instance's session report (owner thread).
@@ -932,6 +943,7 @@ private:
   std::vector<uint64_t> midi_staging_;
   uint32_t midi_buses_ = 0, midi_expected_ = 0, midi_received_ = 0, midi_unexposed_ = 0;
   uint64_t midi_stream_ = 0;
+  int32_t midi_stream_flags_ = 0;
   std::atomic<bool> midi_queried_{false}, midi_installed_{false};
   std::atomic<uint32_t> midi_early_queries_{0};
   std::array<ap11_gui_message_t, 512> pending_{};

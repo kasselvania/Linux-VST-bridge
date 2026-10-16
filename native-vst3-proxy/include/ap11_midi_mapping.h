@@ -11,6 +11,8 @@
 //   MidiMapBegin   count = assignments in the table, revision = stream serial
 //   MidiMapEntries count = 1..64 records in this message, same revision
 //   MidiMapEnd     count = assignments in the table, same revision
+// Begin/End flags: kMidiCCAssignmentChanged (32) defers host notification to
+// the following parameter RefreshEnd, after program stepCount/UnitID refresh.
 // Records are 8 bytes in the message's 512 title/units bytes:
 //   bus u8, channel u8, controller u16 LE, parameter ID u32 LE.
 // Unused record bytes are zero. A table without assignments (including a

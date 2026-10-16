@@ -70,6 +70,7 @@ struct Host final : HostApplication,
   bool flush = true, reentrant = false;
   uint32 dirty = 0, restarts = 0, reload_calls = 0, restart_calls=0, refuse_restarts=0, midi_restarts=0;
   unsigned refuse_allocations = 0;
+  void (*midi_restart_observer)(Host &) = nullptr;
   tresult PLUGIN_API createInstance(TUID cid, TUID iid, void **out) override {
     if (refuse_allocations) { --refuse_allocations; *out = nullptr; return kResultFalse; }
     return HostApplication::createInstance(cid, iid, out);
@@ -156,7 +157,10 @@ struct Host final : HostApplication,
   }
   tresult PLUGIN_API restartComponent(int32 flags) override {
     ++restart_calls;
-    if (flags & kMidiCCAssignmentChanged) ++midi_restarts;
+    if (flags & kMidiCCAssignmentChanged) {
+      ++midi_restarts;
+      if (midi_restart_observer) midi_restart_observer(*this);
+    }
     if(refuse_restarts){--refuse_restarts;return kResultFalse;}
     restarts |= flags;
     if(flags & kReloadComponent) ++reload_calls;
@@ -965,8 +969,8 @@ void midi_mapping_regression() {
     check(!AP11::packMidi(m,full.data(),0)&&!AP11::packMidi(m,full.data(),65),"empty and oversized messages refused");
     m.count=1;AP11::midiRecords(m)[0]=16;check(!AP11::unpackMidi(m,out),"out-of-range received record refused");
   }
-  auto stream=[](uint64_t serial,const std::vector<AP11::MidiAssignment>& table){
-    ap11_gui_message_t m{};m.kind=AP11::MidiMapBegin;m.count=uint32_t(table.size());m.revision=serial;events.push_back(m);
+  auto stream=[](uint64_t serial,const std::vector<AP11::MidiAssignment>& table,int32 flags=0){
+    ap11_gui_message_t m{};m.kind=AP11::MidiMapBegin;m.count=uint32_t(table.size());m.revision=serial;m.flags=flags;events.push_back(m);
     for(size_t i=0;i<table.size();i+=64){
       ap11_gui_message_t e{};check(AP11::packMidi(e,table.data()+i,uint32_t(std::min<size_t>(64,table.size()-i))),"fixture records");
       e.revision=serial;events.push_back(e);
@@ -1010,6 +1014,27 @@ void midi_mapping_regression() {
         mapping->getMidiControllerAssignment(0,3,kAfterTouch,id)==kResultFalse,"the whole new table replaces the old one");
   stream(3,{{0,0,1,9},{0,0,kPitchBend,8},{0,0,kCtrlProgramChange,0}});host.tick();
   check(host.midi_restarts==1,"an identical republished table is not a change");
+  // A vendor invalidation still matters when only a program bank's size/unit
+  // changed. Its restart must see both the complete map and fresh metadata.
+  stream(4,{{0,0,1,9},{0,0,kPitchBend,8},{0,0,kCtrlProgramChange,0}},kMidiCCAssignmentChanged);
+  host.tick();
+  check(host.midi_restarts==1,"vendor MIDI restart waits for program metadata");
+  host.midi_restart_observer=[](Host& h){
+    ParameterInfo info{};ParamID mapped=0;
+    check(h.controller->getParameterInfo(3,info)==kResultOk&&info.id==9&&info.stepCount==31&&info.unitId==42&&
+          h.controller->getMidiControllerAssignment(0,0,1,mapped)==kResultOk&&mapped==9,
+          "MIDI restart observes current routing and program stepCount/UnitID");
+  };
+  ap11_gui_message_t metadata{};metadata.kind=AP11::RefreshBegin;metadata.count=4;metadata.revision=50;
+  metadata.flags=kMidiCCAssignmentChanged;events.push_back(metadata);
+  for(int32 i=0;i<4;++i){
+    ParameterInfo info{};check(c->getParameterInfo(i,info)==kResultOk,"fixture metadata");
+    ap11_gui_message_t p{};p.kind=AP11::Parameter;p.id=info.id;p.revision=50;p.flags=info.flags;
+    p.steps=info.id==9?31:info.stepCount;p.count=info.id==9?42:uint32_t(info.unitId);events.push_back(p);
+  }
+  metadata.kind=AP11::RefreshEnd;events.push_back(metadata);host.tick();
+  check(host.midi_restarts==2,"unchanged routes forward the vendor invalidation once after metadata");
+  host.midi_restart_observer=nullptr;
   // The host's mapped changes travel as parameter changes at their offsets.
   ProcessSetup setup{kRealtime,kSample32,128,48000.};
   check(processor.setupProcessing(setup)==kResultOk&&processor.setActive(true)==kResultOk&&processor.setProcessing(true)==kResultOk,"MIDI start");
@@ -1030,9 +1055,9 @@ void midi_mapping_regression() {
         "modulation and pitch bend reach Windows as parameter changes at their sample offsets");
   check(processor.setProcessing(false)==kResultOk&&processor.setActive(false)==kResultOk,"MIDI stop");
   // A vendor without IMidiMapping publishes an empty table: no answers, as before.
-  stream(4,{});host.tick();
+  stream(5,{});host.tick();
   check(mapping->getMidiControllerAssignment(0,0,1,id)==kResultFalse&&mapping->getMidiControllerAssignment(0,0,kPitchBend,id)==kResultFalse&&
-        host.midi_restarts==2,"empty table withdraws every answer");
+        host.midi_restarts==3,"empty table withdraws every answer");
   {
     std::ifstream in(report);std::stringstream text;text<<in.rdbuf();
     check(text.str().find("\"event\":\"ap11_midi_mapping\",\"generation\":7,\"mapped\":3,\"unexposed\":1,\"early_queries\":0,\"host_notified\":0")!=std::string::npos&&
@@ -1040,7 +1065,7 @@ void midi_mapping_regression() {
           "session report says what was mapped and whether the host was told");
   }
   // A malformed stream is a protocol failure; the installed answers stay.
-  stream(5,{{0,0,1,7}});events[1].revision=6;host.tick();
+  stream(6,{{0,0,1,7}});events[1].revision=7;host.tick();
   check(gui_fault==AP11::Host&&mapping->getMidiControllerAssignment(0,0,1,id)==kResultFalse,"mismatched stream refused without installing it");
   c->disconnect(&processor);processor.disconnect(c);
   mapping->release();
