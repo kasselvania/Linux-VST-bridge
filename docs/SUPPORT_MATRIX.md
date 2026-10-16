@@ -20,7 +20,9 @@ saving remain unqualified.
 Test201 / CachyOS: the first-party activation fixture passed its `LoadLibrary`
 prompt, Show/Stop and normal-close continuation; both classes connected in the same
 setup ([installed result](https://github.com/kasselvania/Linux-VST-bridge/issues/414#issuecomment-6224981749)).
-PACE/iLok installer assistance is source-only; vendor acceptance remains open (#414/#417).
+Test202 / CachyOS: same-setup dependency file choice passed from an unpublished
+load-time stall, preserving setup/revision/files without running the installer.
+Explicit installer execution/continuation and vendor acceptance remain open (#414/#417).
 
 Test60/61 are installed on SteamOS 3.8.16 Deck through ordinary Update Bridge.
 The actual retained app-only hub bootstrap now opens normally, installs two

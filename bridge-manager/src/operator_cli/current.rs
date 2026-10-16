@@ -1232,7 +1232,7 @@ pub(super) mod tests {
         append_discovered(m,&sw,&environments,&bindings,&db,&mut products,None).unwrap();
         assert_eq!(products.len(),1);
         assert_eq!(products[0].actions[0].disabled_reason.as_deref(),
-            Some("This environment is not currently managed"));
+            Some("No completed setup is recorded for this plug-in. Choose its installer in Setup."));
     }
     fn context_for_watched(m:&Manager, watched:BTreeMap<PathBuf,Option<FileStamp>>)
         -> CurrentOverviewContext {

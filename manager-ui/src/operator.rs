@@ -2247,7 +2247,8 @@ impl Operator {
                             }
                             let actions: Vec<_> = app.actions.iter().filter(|offer|match offer.action {
                                 Action::VendorApplicationFocus { .. } => app.state == "running",
-                                Action::VendorApplicationStop { .. } => app.state != "closed",
+                                Action::VendorApplicationStop { .. } => app.state != "closed"
+                                    || offer.disabled_reason.is_none(),
                                 _ => true,
                             }).cloned().collect();
                             ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &actions,
@@ -6036,6 +6037,52 @@ mod tests {
         assert!(!labels.iter().any(|(label,_)|label=="Open Source hub (helper)" || label=="Open Source hub (hub)"));
         assert!(!labels.iter().any(|(label,_)|label.contains("owned-environment")));
         assert!(chosen.is_none());output.textures_delta.clear();
+    }
+
+    #[test]
+    fn closed_app_with_owned_pause_keeps_enabled_recover_and_owning_refusal() {
+        for width in [560.0,960.0] {
+            let mut overview:CurrentOverview=overview_fixture().into();
+            overview.current.installer_setups.clear();overview.current.products.clear();
+            overview.current.system.service="inactive".into();
+            let recover=Action::VendorApplicationStop {application:"source-owned-app".into()};
+            overview.current.vendor_applications=vec![VendorApplication {
+                id:"source-owned-app".into(),name:"Source app".into(),version:"1.0".into(),
+                state:"closed".into(),details:serde_json::json!({"environment":"source-owned-setup"}),
+                actions:vec![
+                    AvailableAction {label:"Open Source app".into(),
+                        action:Action::VendorSoftwareInstall {application:"source-owned-app".into(),daw:DawChoice::Other},
+                        disabled_reason:Some("Finish recovery before opening this app.".into())},
+                    AvailableAction {label:"Show Source app".into(),
+                        action:Action::VendorApplicationFocus {application:"source-owned-app".into()},
+                        disabled_reason:Some("This application is not running".into())},
+                    AvailableAction {label:"Recover this application session".into(),
+                        action:recover.clone(),disabled_reason:None}]}];
+            let ctx=result_form_context();let mut chosen=None;
+            let render=|overview:&CurrentOverview,events:Vec<egui::Event>,chosen:&mut Option<Action>| {
+                let mut output=ctx.run_ui(egui::RawInput {events,screen_rect:Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,egui::vec2(width,1400.0))),..Default::default()},|ui| {
+                    Operator::fast_setup(ui,overview,true,false,(&mut false,chosen,&mut false,&mut Page::Setup,
+                        &mut crate::library::Library::default(),&mut RouteFocus::default(),&mut Some(DawChoice::Other)));
+                });
+                let mut labels=vec![];for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+                output.textures_delta.clear();labels
+            };
+            render(&overview,vec![],&mut chosen);
+            let labels=render(&overview,vec![],&mut chosen);
+            assert!(labels.iter().any(|(label,_)|label=="Finish recovery before opening this app."));
+            assert!(!labels.iter().any(|(label,_)|label=="Show Source app"));
+            let point=labels.iter().find(|(label,_)|label=="Recover this application session").unwrap().1;
+            for pressed in [true,false] {render(&overview,vec![egui::Event::PointerMoved(point),
+                egui::Event::PointerButton {pos:point,button:egui::PointerButton::Primary,
+                    pressed,modifiers:egui::Modifiers::NONE}],&mut chosen);}
+            assert_eq!(chosen,Some(recover));
+            chosen=None;
+            overview.current.vendor_applications[0].actions[2].disabled_reason=
+                Some("This application session is already retired".into());
+            let labels=render(&overview,vec![],&mut chosen);
+            assert!(!labels.iter().any(|(label,_)|label=="Recover this application session"));
+        }
     }
 
     #[test]

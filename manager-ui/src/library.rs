@@ -835,7 +835,7 @@ fn related_actions(product: &Product, snapshot: &Snapshot) -> Vec<AvailableActio
         if app.details["environment"].as_str() != Some(product.environment.as_str()) {
             continue;
         }
-        actions.extend(app.actions.iter().filter(|offer| matches!(offer.action,
+        actions.extend(app.actions.iter().filter(|offer| offer.disabled_reason.is_none() && matches!(offer.action,
             Action::VendorSoftwareInstall { .. } | Action::VendorApplicationOpen { .. } | Action::VendorApplicationFocus { .. }
                 | Action::RendererOpen { .. } | Action::RendererFocus { .. }))
             .map(|offer| {
@@ -1765,20 +1765,20 @@ mod tests {
     }
 
     #[test]
-    fn related_actions_use_exact_environment_and_preserve_refusals() {
+    fn related_actions_hide_disabled_app_rows_and_preserve_owning_card_refusals() {
         let mut s = snapshot();
+        assert_eq!(related_actions(&s.products[0], &s).len(), 2);
         s.vendor_applications[1].actions[0].disabled_reason =
             Some("Owned session is running".into());
+        let owning_card = serde_json::to_value(&s.vendor_applications[1]).unwrap();
         let actions = related_actions(&s.products[0], &s);
-        assert_eq!(actions.len(), 2);
-        assert_eq!(
-            actions[0].action,
-            s.vendor_applications[1].actions[0].action
-        );
-        assert_eq!(
-            actions[0].disabled_reason.as_deref(),
-            Some("Owned session is running")
-        );
+        assert_eq!(actions.len(), 1); // The exact setup's rescan stays visible.
+        assert!(matches!(actions[0].action, Action::EnvironmentRescan {..}));
+        // Its own setup still explains the app's status and offers recovery;
+        // only a duplicate disabled Open row on another card disappears.
+        assert_eq!(serde_json::to_value(&s.vendor_applications[1]).unwrap(), owning_card);
+        assert_eq!(s.vendor_applications[1].actions[0].disabled_reason.as_deref(),
+            Some("Owned session is running"));
         s.products[0].environment = "different-installation-same-vendor".into();
         assert!(related_actions(&s.products[0], &s).is_empty());
         s.vendor_applications[1].details = serde_json::json!({});

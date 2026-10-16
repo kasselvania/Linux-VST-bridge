@@ -943,7 +943,7 @@ fn quarantined_retry_disabled(m: &Manager,
                 "operator_managed_environment_binding_conflict")?;
             Ok(None)
         }
-        None => Ok(Some("This environment is not currently managed")),
+        None => Ok(Some("No completed setup is recorded for this plug-in. Choose its installer in Setup.")),
     }
 }
 /// A failed first discovery has no publication yet. Its retired installer still
@@ -4636,7 +4636,7 @@ pub(crate) mod tests {
             product.environment==environment.id && product.disposition=="quarantined").unwrap();
         assert_eq!(product.actions.len(),1);
         assert_eq!(product.actions[0].disabled_reason.as_deref(),
-            Some("This environment is not currently managed"));
+            Some("No completed setup is recorded for this plug-in. Choose its installer in Setup."));
         assert!(available(&snapshot).into_iter().all(|action|
             !matches!(action.action,ui::Action::QuarantinedModuleRetry { .. })
                 || action.disabled_reason.is_some()));
