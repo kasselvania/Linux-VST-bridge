@@ -1,4 +1,5 @@
 #include "admission_refusal.h"
+#include "nothing_recorded.h"
 #include "processor.h"
 #ifdef AP8_PREVIEW
 #include "ap18_bus_support.h"
