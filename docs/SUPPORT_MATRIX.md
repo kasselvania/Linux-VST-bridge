@@ -129,6 +129,14 @@ The update completes between 1,178 and 1,254 seconds on this capped six-class VM
 The update time is a capped VM baseline; the Kontakt allocator crash remains open.
 [Scoped installed result](../evidence/cachyos-reaper.json).
 
+Test114/116 on this CachyOS VM (#386 part 1): Valhalla Space Modulator, installed
+in its own new setup, is removed from the DAW and added back with the same
+publication; its setup is then emptied from the DAW and deleted (894 MB → only its
+identity record; history and the installer kept; the card returns to "set up").
+Valhalla Freq Echo, removed under Test99, is added back after two bridge updates in
+one action that rechecks it with the current bridge. Setup cards state what is in
+the DAW now. Not yet played in REAPER after Add back. **unqualified**.
+
 Test72 on this CachyOS/native REAPER fixture passes Choose program without
 installer observations, Open with a sibling resource, Show from the manager and
 normal Close. After closing A, replacing its executable with B refuses stale Open;

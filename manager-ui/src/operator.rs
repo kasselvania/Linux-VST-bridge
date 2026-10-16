@@ -1710,8 +1710,9 @@ impl Operator {
                 .unwrap_or(setup.phase != SetupPhase::DiscoveryComplete)
                 && !setup_history_settled_by_current_products(setup, &overview.current))
             .min_by_key(|setup| setup_attention_priority(setup));
+        // A plug-in the musician removed from the DAW is not unfinished setup.
         let needs_setup = overview.current.products.iter().find(|product|
-            crate::library::status(product).1 != "published");
+            crate::library::status(product).1 != "published" && product.disposition != "removed_from_daw");
         let recovery = overview.current.products.iter().find(|product|
             crate::library::recovery_pending(product));
         let owned_pause = presentation::owned_service_pause(overview.current.operation.as_ref())
@@ -3024,7 +3025,7 @@ fn removal_confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirm
             let names: Vec<_> = snapshot.products.iter().filter(|p| p.environment == *environment
                 && p.availability.as_ref().is_some_and(|a| a.available)).map(|p| p.name.as_str()).collect();
             let names = if names.is_empty() { "This setup's plug-ins".into() } else { names.join(", ") };
-            Confirmation { title: "Remove these plug-ins from your DAW?",
+            Confirmation { title: "Remove from your DAW?",
                 body: vec![format!("{names} will no longer appear in your DAW's plug-in list."),
                     "Projects that use them will open with them missing until you add them back.".into(),
                     "Their Windows installation stays in this setup.".into()],
