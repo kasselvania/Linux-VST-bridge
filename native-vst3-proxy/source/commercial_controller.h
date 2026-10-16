@@ -472,9 +472,11 @@ private:
       return;
     failure_ = code;
     editor_.failed();
-    status_ = code == AP11::Closed
-                  ? "Processing session closed"
-                  : "Editor control failed; close and inspect diagnostics";
+    // A refused instance keeps saying why the bridge refused it.
+    if (!session_refused_)
+      status_ = code == AP11::Closed
+                    ? "Processing session closed"
+                    : "Editor control failed; close and inspect diagnostics";
     finishGestures();
     if (publish && connected_ && generation_) {
       auto *m = allocateMessage();
@@ -673,7 +675,8 @@ private:
     }
   }
   Result command(const ap11_gui_message_t &event) {
-    if (terminal_failed_) return Steinberg::kResultFalse;
+    // No session exists to carry it; refusing is not an editor failure.
+    if (terminal_failed_ || session_refused_) return Steinberg::kResultFalse;
     if (!connected_)
       return Steinberg::kResultOk; // before connection, component state is
                                    // authoritative

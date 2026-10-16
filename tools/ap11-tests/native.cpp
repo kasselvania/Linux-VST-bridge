@@ -542,6 +542,9 @@ void refused_admission_regression() {
     LVBState::Stream stream;
     check(processor.getState(&stream)==kResultFalse,"a refused instance fabricates no state");
     check(open_calls==1,"UI ticks, setup and state never repeat a refused admission");
+    // REAPER restores parameters into the controller after loading; that
+    // must not replace the refusal with an editor-control failure.
+    check(controller->setParamNormalized(AP8::parameters[0].id,.25)==kResultFalse,"a refused instance takes no parameter commands");
     check(!std::strcmp(controller->panelStatus(),c.text),"the editor says why the bridge refused this instance");
     auto* view=controller->createView(ViewType::kEditor);
     check(view && dynamic_cast<AP2::RecoveryView*>(view),"a refused instance explains itself instead of a blank editor");
