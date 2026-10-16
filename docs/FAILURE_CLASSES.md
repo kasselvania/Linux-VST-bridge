@@ -3609,9 +3609,12 @@ parameter points; the rest waits in order under the same limit, so note-ons stil
 queued behind full blocks past it are discarded too (their releases then arrive
 as harmless stray note-offs). Offline render never holds. Test89:
 −9.4 dBFS on four plays; 9 note events delayed (the three-note chord on three of
-the plays, whose start was still unacknowledged at 0.1 s), none dropped. Open:
-the acknowledgement still waits behind the editor's owner thread; opening the
-editor as playback starts kept it waiting 0.2–3.5 s (Test90), longer than the limit.
+the plays, whose start was still unacknowledged at 0.1 s), none dropped. Since
+#373 the audio thread acknowledges stop/start itself (Buffered delivery; direct
+mode keeps the owner path): opening the editor as playback starts went from 0/4
+to 4/4 chords (Test99, waits ≤0.26 s, none dropped). Open: save-then-play still
+waits for REAPER's state request (owner thread, native capture rule) and lost the
+chord once in four (0.26 s > limit).
 
 ## Beta reports under investigation
 
