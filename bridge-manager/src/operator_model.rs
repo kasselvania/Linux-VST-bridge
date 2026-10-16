@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 28;
+pub const OPERATOR_SCHEMA: u32 = 27;
 /// Explicit delivery policy, independent from the remembered buffered delay.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
