@@ -24,6 +24,8 @@ const TOO_DEEP: &str = "This setup has folders nested too deeply to delete safel
 const NOT_OURS: &str = "A folder in this setup belongs to another user, so the manager won't delete it. Send Setup details.";
 const UNREADABLE_APP: &str = "The manager can't read the record of an app it set up, so it won't delete a setup now. Send Setup details.";
 const TOO_MANY_SESSIONS: &str = "More plug-in sessions are open than the manager can check. Close your DAW, then try again.";
+const UNCHECKED_SESSION: &str = "A plug-in session record can't be checked, so the manager won't delete this setup now. Close your DAW and try again; if it stays, send Setup details.";
+const RECONNECT: &str = "This setup's folder can't be found. Reconnect its drive or restore the folder, then try again.";
 pub(super) const DELETE_UNCONFIRMED: &str = "Deleting a setup needs the musician's confirmation (\"confirmed\": true). Nothing was deleted.";
 fn link_was_missing(name: &str) -> String {
     format!("{name}'s entry in your DAW's plug-in folder was already gone, so the manager now records it as removed from your DAW.")
@@ -120,6 +122,9 @@ fn plain_deletion(error: Box<dyn std::error::Error + Send + Sync>) -> Box<dyn st
             "The manager couldn't hold every part of this setup at once. Try again; if it stays, send Setup details.".into(),
         "deleted_setup_registration_changed" =>
             "A plug-in of this setup changed while it was being deleted, so the manager stopped. Refresh and try again; if it stays, send Setup details.".into(),
+        "deleted_setup_record_binding" | "deleted_setup_folder_identity" =>
+            "This setup's deletion record can't be read, so the manager stopped. Send Setup details.".into(),
+        "lease_identity" | "active_lease_unresolved" | "duplicate_lease_identity" => UNCHECKED_SESSION.into(),
         _ => error,
     }
 }
@@ -566,11 +571,14 @@ fn record_missing_links(m: &Manager, plan: &SetupPlan) -> Result<Vec<String>> {
 fn checked_root(m: &Manager, environment: &Environment) -> Result<PathBuf> {
     require(linux_vst_bridge::environment_revision::valid_environment_id(&environment.id)
         && environment.root == m.root.join("environments").join(&environment.id), SETUP_MOVED)?;
-    let parent = fs::symlink_metadata(m.root.join("environments"))?;
+    let parent = match fs::symlink_metadata(m.root.join("environments")) {
+        Ok(parent) => parent,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Err(RECONNECT.into()),
+        Err(error) => return Err(error.into()),
+    };
     let meta = match fs::symlink_metadata(&environment.root) {
         Ok(meta) => meta,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound =>
-            return Err("This setup's folder can't be found. Reconnect its drive or restore the folder, then try again.".into()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Err(RECONNECT.into()),
         Err(error) => return Err(error.into()),
     };
     require(parent.is_dir() && meta.is_dir() && !meta.file_type().is_symlink()
@@ -580,16 +588,19 @@ fn checked_root(m: &Manager, environment: &Environment) -> Result<PathBuf> {
     Ok(environment.root.canonicalize()?)
 }
 /// The setup's folder was deleted outside the manager, so its files are already
-/// gone. Only when the environments folder is on the manager's own drive: a
-/// folder on a disconnected drive is never taken for a deleted one.
-fn already_gone(m: &Manager, environment: &Environment) -> Result<bool> {
+/// gone. Only on the very environments folder the deletion recorded when it
+/// started: an empty mount point of an unplugged drive is a different folder,
+/// and then the musician is asked to reconnect the drive.
+fn already_gone(m: &Manager, environment: &Environment,
+    recorded: Option<&deleted_setup::FolderIdentity>) -> Result<bool> {
     require(linux_vst_bridge::environment_revision::valid_environment_id(&environment.id)
         && environment.root == m.root.join("environments").join(&environment.id), SETUP_MOVED)?;
     match fs::symlink_metadata(&environment.root) {
         Ok(_) => Ok(false),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            let environments = fs::symlink_metadata(m.root.join("environments"))?;
-            Ok(environments.is_dir() && environments.dev() == fs::metadata(&m.root)?.dev())
+            let same = recorded.is_some_and(|recorded| deleted_setup::folder_identity(&m.root.join("environments"))
+                .is_ok_and(|now| now == *recorded));
+            if same { Ok(true) } else { Err(RECONNECT.into()) }
         }
         Err(error) => Err(error.into()),
     }
@@ -614,7 +625,9 @@ fn lease_owners(m: &Manager, environment: &Environment) -> Result<(usize, usize)
     // Read without registry.lock: owners write through temporary files, and a
     // lease that disappears while it is read was released.
     let mut entries = vec![];
-    for entry in fs::read_dir(&leases)?.take(4096) {
+    for (seen, entry) in fs::read_dir(&leases)?.enumerate() {
+        // Never a partial census: more entries than the bound refuse.
+        require(seen < 4096, TOO_MANY_SESSIONS)?;
         let lease = entry?.path();
         if lease.extension().and_then(|e| e.to_str()) == Some("json") { entries.push(lease); }
     }
@@ -626,7 +639,7 @@ fn lease_owners(m: &Manager, environment: &Environment) -> Result<(usize, usize)
         let (owner, path) = match owner {
             Ok(owner) => owner,
             Err(_) if !lease.try_exists()? => continue,
-            Err(error) => return Err(error),
+            Err(_) => return Err(UNCHECKED_SESSION.into()),
         };
         if owner["registration"]["environment"]["id"].as_str() != Some(environment.id.as_str())
             && !path.starts_with(&environment.root) { continue; }
@@ -727,10 +740,11 @@ fn require_no_mounts(raw: &Path, root: &Path) -> Result<()> {
 /// Hold every environment of the setup and show nothing uses it. An idle
 /// bridge host retires by itself shortly after its last plug-in closed, so
 /// that alone is waited for (bounded) rather than refused.
-fn claim(m: &Manager, environments: &[Environment], wait: Duration) -> Result<Vec<Option<File>>> {
+fn claim(m: &Manager, environments: &[Environment], wait: Duration,
+    recorded: Option<&deleted_setup::FolderIdentity>) -> Result<Vec<Option<File>>> {
     let deadline = Instant::now() + wait;
     loop {
-        match claim_once(m, environments) {
+        match claim_once(m, environments, recorded) {
             Err(error) if error.to_string() == KEEPER_CLOSING && Instant::now() < deadline =>
                 std::thread::sleep(Duration::from_secs(1)),
             result => return result,
@@ -738,13 +752,16 @@ fn claim(m: &Manager, environments: &[Environment], wait: Duration) -> Result<Ve
     }
 }
 /// One lock per environment; None where its folder is already gone.
-fn claim_once(m: &Manager, environments: &[Environment]) -> Result<Vec<Option<File>>> {
+fn claim_once(m: &Manager, environments: &[Environment],
+    recorded: Option<&deleted_setup::FolderIdentity>) -> Result<Vec<Option<File>>> {
     let mut held = vec![];
     for e in environments {
-        held.push(if already_gone(m, e)? { None } else { Some(hold(m, e)?) });
+        held.push(if already_gone(m, e, recorded)? { None } else { Some(hold(m, e)?) });
     }
     for (e, lock) in environments.iter().zip(&held) {
         if lock.is_some() { require_unused(m, e)?; }
+        // A program can still run from a folder deleted under it.
+        else { require_nothing_running(&e.root, &e.root)?; }
     }
     Ok(held)
 }
@@ -878,7 +895,7 @@ fn delete_setup_with(m: &Manager, installer: &str, environment: &str, operation:
     if let Some(record) = deleted_setup::load(m, environment)? {
         require(record.installer == installer, CHANGED)?;
         if record.state == Deletion::Deleted { return Ok(summary(&record, true)); }
-        let held = claim(m, &record.environments, keeper_wait)?;
+        let held = claim(m, &record.environments, keeper_wait, record.environments_folder.as_ref())?;
         return finish(m, record, held);
     }
     let _ownership = retry_busy(|| m.lock("onboarding.lock"))?;
@@ -894,7 +911,7 @@ fn delete_setup_with(m: &Manager, installer: &str, environment: &str, operation:
     require(planned.environments.iter().all(|e| !protected.contains(&e.id)), MANAGED)?;
     if let Some(reason) = delete_reason(&planned, None) { return Err(reason.into()); }
     // Exclusive environment locks, then live owners, mounts and a process census.
-    let held = claim(m, &planned.environments, keeper_wait)?;
+    let held = claim(m, &planned.environments, keeper_wait, None)?;
     // Only now, with nothing refusing: DAW entries deleted by hand are
     // recorded as removed, and the plan is read again.
     if !planned.missing_link.is_empty() {
@@ -905,7 +922,8 @@ fn delete_setup_with(m: &Manager, installer: &str, environment: &str, operation:
     let record = Tombstone { schema: 1, environment: environment.into(), installer: installer.into(),
         name: planned.name.clone(), environments: planned.environments.clone(), registrations: planned.removed.clone(),
         plugins: planned.plugins.clone(), operation: operation.into(), requested_at: now()?,
-        deleted_at: None, state: Deletion::Deleting };
+        deleted_at: None, state: Deletion::Deleting,
+        environments_folder: Some(deleted_setup::folder_identity(&m.root.join("environments"))?) };
     {
         let registry = retry_busy(|| m.lock("registry.lock"))?;
         // Same exact registry facts under the lock that admits publications.
@@ -936,8 +954,12 @@ fn finish(m: &Manager, mut record: Tombstone, held: Vec<Option<File>>) -> Result
     }
     for (environment, lock) in record.environments.clone().iter().zip(&held) {
         retain_inventory(m, &record.environment, &environment.id)?;
-        // A folder already deleted outside the manager has nothing left to delete.
-        if lock.is_none() { continue; }
+        // A folder already deleted outside the manager has nothing left to
+        // delete; nothing may still run from it.
+        if lock.is_none() {
+            require_nothing_running(&environment.root, &environment.root)?;
+            continue;
+        }
         require_unused(m, environment)?;
         remove_windows_files(m, environment)?;
     }

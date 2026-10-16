@@ -45,6 +45,24 @@ pub struct Tombstone {
     pub requested_at: u64,
     pub deleted_at: Option<u64>,
     pub state: State,
+    /// The environments folder when the deletion started. A setup folder
+    /// missing later counts as already deleted only on this same folder, so
+    /// an unplugged drive is never taken for deleted files.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub environments_folder: Option<FolderIdentity>,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct FolderIdentity {
+    pub device: u64,
+    pub inode: u64,
+}
+/// The folder itself (a link is never followed).
+pub fn folder_identity(path: &Path) -> Result<FolderIdentity> {
+    use std::os::unix::fs::MetadataExt;
+    let meta = fs::symlink_metadata(path)?;
+    require(meta.is_dir(), "deleted_setup_folder_identity")?;
+    Ok(FolderIdentity { device: meta.dev(), inode: meta.ino() })
 }
 
 impl Tombstone {
@@ -177,7 +195,7 @@ mod tests {
         Tombstone {schema:1,environment:f.r.environment.id.clone(),installer:"ab".repeat(32),
             name:"Fixture setup".into(),environments:vec![f.r.environment.clone()],registrations:vec![],
             plugins:vec!["Actual class".into()],operation:"cd".repeat(16),requested_at:1,
-            deleted_at:(state == State::Deleted).then_some(2),state}
+            deleted_at:(state == State::Deleted).then_some(2),state,environments_folder:None}
     }
     #[test]
     fn tombstones_mark_every_recorded_environment_and_refuse_foreign_paths() {
