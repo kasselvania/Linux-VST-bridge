@@ -438,9 +438,9 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
 #endif
 #ifdef AP8_PREVIEW
     if(ap8_validate(AP8::identity,blob.data(),size)||!LVBState::transfer(stream,blob.data(),blob.size(),true))return kResultFalse;
-    // The session produced real state: from now on it, not held bytes or the
-    // marker, answers for this instance.
-    session_state_seen_ = true;
+    // A live capture supersedes any held bytes. A load-time capture (REAPER
+    // asks before restoring) is the plug-in's defaults, so only activation or
+    // an applied restore makes the session's own state authoritative.
     std::vector<uint8_t>().swap(held_state_);
     state_held_ = state_unkept_ = false;
     state_readback_=blob;
@@ -449,7 +449,6 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
     if (ap4_validate(blob.data(), size, &gain) ||
         !LVBState::transfer(stream, blob.data(), blob.size(), true))
       return kResultFalse;
-    session_state_seen_ = true;
     std::vector<uint8_t>().swap(held_state_);
     state_held_ = state_unkept_ = false;
     stateReport(report_path_, "get", blob, gain);
@@ -978,6 +977,9 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
     }
     phase_ = Active;
     want_active_ = true;
+    // The plug-in is live from here: its own state may differ from anything
+    // the host restored, so held bytes or the marker never answer for it.
+    session_state_seen_ = true;
     return kResultOk;
   }
   if (phase_ != Stopped && !(preview_ && phase_ == Active))
