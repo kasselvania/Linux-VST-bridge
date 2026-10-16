@@ -44,7 +44,13 @@ pub fn registry_writer_waiting(m: &Manager) -> bool {
 }
 /// What a musician reads when an action or check met a lock still held after
 /// its bounded wait. Nothing was changed; the same step can simply run again.
-pub const BUSY_SENTENCE: &str = "The manager was busy finishing another task; choose Retry.";
+/// Where the card's next step is known, the window names its button instead
+/// (`busy_sentence_naming`); a card's "Retry" can start a new installer attempt.
+pub const BUSY_SENTENCE: &str = "The manager was busy finishing another task; run the same step again.";
+/// The same sentence naming the button that repeats the step on that card.
+pub fn busy_sentence_naming(button: &str) -> String {
+    format!("The manager was busy finishing another task; choose \u{201c}{button}\u{201d}.")
+}
 /// A lock refusal a musician can retry: a bounded wait that expired, or a lock
 /// still busy after it. Other refusals keep their exact reason.
 pub fn is_busy(error: &(dyn std::error::Error + 'static)) -> bool {
@@ -114,12 +120,6 @@ impl Manager {
             operation.is_none_or(|id| valid_hex(id, 32)),
             "operator_lock_operation",
         )?;
-        let start = Instant::now();
-        // Status readback yields to a waiting action; everything else that
-        // waits for registry.lock is an action and announces that it waits.
-        let reader = purpose == LockPurpose::OperatorReadback;
-        let announces = name == OperatorLock::Registry && !reader;
-        let mut waiting: Option<Lock> = None;
         let mut facts = LockFacts {
             name,
             mode: LockMode::Exclusive,
@@ -132,6 +132,28 @@ impl Manager {
             outcome: LockOutcome::Acquired,
             holder: LockHolder::Unknown,
         };
+        match self.wait_bounded(name, purpose, timeout, &mut facts) {
+            Ok(Some(lock)) => Ok((lock, facts)),
+            Ok(None) => {
+                facts.outcome = LockOutcome::Timeout;
+                Err(AcquisitionFailure { facts }.into())
+            }
+            Err(_) => {
+                facts.outcome = LockOutcome::Error;
+                Err(AcquisitionFailure { facts }.into())
+            }
+        }
+    }
+    /// Polls every 10 ms until acquired (`Some`), the bound expires (`None`)
+    /// or opening the lock file fails (that exact error).
+    fn wait_bounded(&self, name: OperatorLock, purpose: LockPurpose, timeout: Duration,
+        facts: &mut LockFacts) -> Result<Option<Lock>> {
+        let start = Instant::now();
+        // Status readback yields to a waiting action; everything else that
+        // waits for registry.lock is an action and announces that it waits.
+        let reader = purpose == LockPurpose::OperatorReadback;
+        let announces = name == OperatorLock::Registry && !reader;
+        let mut waiting: Option<Lock> = None;
         loop {
             facts.attempts += 1;
             let attempt = if reader && name == OperatorLock::Registry
@@ -147,9 +169,9 @@ impl Manager {
                 });
             }
             facts.elapsed_wait_us = start.elapsed().as_micros().min(u64::MAX as u128) as u64;
-            match attempt {
-                Ok(LockAttempt::Acquired(lock)) => return Ok((lock, facts)),
-                Ok(LockAttempt::Busy) if start.elapsed() < timeout => {
+            match attempt? {
+                LockAttempt::Acquired(lock) => return Ok(Some(lock)),
+                LockAttempt::Busy if start.elapsed() < timeout => {
                     // One waiting action holds the marker; others keep polling.
                     if announces && waiting.is_none() {
                         if let Ok(LockAttempt::Acquired(marker)) = self.try_lock(REGISTRY_WRITER_WAITING) {
@@ -159,14 +181,7 @@ impl Manager {
                     std::thread::sleep(
                         Duration::from_millis(10).min(timeout.saturating_sub(start.elapsed())))
                 }
-                Ok(LockAttempt::Busy) => {
-                    facts.outcome = LockOutcome::Timeout;
-                    return Err(AcquisitionFailure { facts }.into());
-                }
-                Err(_) => {
-                    facts.outcome = LockOutcome::Error;
-                    return Err(AcquisitionFailure { facts }.into());
-                }
+                LockAttempt::Busy => return Ok(None),
             }
         }
     }
@@ -176,14 +191,16 @@ impl Manager {
     /// registry.lock for an operator action: a bounded wait that announces
     /// itself to status readers. Its stated result when the wait expires is
     /// the same busy refusal an immediate attempt gave before.
+    /// A lock file that cannot be opened keeps its own error.
     pub(crate) fn lock_registry_waiting(&self, wait: Duration) -> Result<Lock> {
-        match self.lock_bounded(OperatorLock::Registry, LockPurpose::OperatorValidationReadback,
-            None, wait) {
-            Ok((lock, _)) => Ok(lock),
-            Err(error) if error.downcast_ref::<AcquisitionFailure>()
-                .is_some_and(|f| f.facts.outcome == LockOutcome::Timeout) => Err(LockBusy.into()),
-            Err(error) => Err(error),
-        }
+        require(wait <= Duration::from_secs(75), "operator_lock_wait_bound")?;
+        let mut facts = LockFacts {name: OperatorLock::Registry, mode: LockMode::Exclusive,
+            purpose: LockPurpose::OperatorValidationReadback, operation: None,
+            policy: WaitPolicy::Bounded, elapsed_wait_us: 0, attempts: 0,
+            timeout_ms: wait.as_millis() as u64, outcome: LockOutcome::Acquired,
+            holder: LockHolder::Unknown};
+        self.wait_bounded(OperatorLock::Registry, LockPurpose::OperatorValidationReadback,
+            wait, &mut facts)?.ok_or_else(|| LockBusy.into())
     }
 }
 
@@ -284,6 +301,41 @@ mod tests {
         }
         assert!(is_busy_text("Manager Canonical lock Timeout after 986 attempts"));
         assert!(!is_busy_text("candidate_absent") && !is_busy_text("Manager Registry lock Error after 1 attempts"));
+    }
+    #[test]
+    fn a_waiting_marker_whose_holder_died_never_blocks_status_reads() {
+        let f = Fixture::new();
+        drop(f.m.lock("registry.lock").unwrap());
+        let marker = f.m.root.join(REGISTRY_WRITER_WAITING);
+        // Another process announces that it waits, then dies while waiting.
+        let mut holder = std::process::Command::new("python3")
+            .args(["-I", "-c", "import fcntl,sys,time\nf=open(sys.argv[1],'a')\nfcntl.flock(f,fcntl.LOCK_EX)\nprint('held',flush=True)\ntime.sleep(60)"])
+            .arg(&marker).stdout(std::process::Stdio::piped()).spawn().unwrap();
+        let mut line = String::new();
+        std::io::BufRead::read_line(&mut std::io::BufReader::new(holder.stdout.take().unwrap()),
+            &mut line).unwrap();
+        assert_eq!(line.trim(), "held");
+        assert!(registry_writer_waiting(&f.m));
+        assert!(f.m.lock_bounded(OperatorLock::Registry, LockPurpose::OperatorReadback, None,
+            Duration::from_millis(50)).is_err(), "a live waiting action keeps priority");
+        holder.kill().unwrap();
+        holder.wait().unwrap();
+        // The kernel drops the dead holder's lock; nothing stale remains.
+        assert!(!registry_writer_waiting(&f.m));
+        let started = Instant::now();
+        f.m.lock_bounded(OperatorLock::Registry, LockPurpose::OperatorReadback, None,
+            Duration::from_secs(1)).unwrap();
+        assert!(started.elapsed() < Duration::from_millis(100));
+    }
+    #[test]
+    fn an_unopenable_lock_inside_an_action_keeps_its_own_error() {
+        let f = Fixture::new();
+        fs::create_dir(f.m.root.join("registry.lock")).unwrap();
+        let started = Instant::now();
+        let error = with_operator_registry_wait(Duration::from_secs(2),
+            || f.m.lock("registry.lock")).err().unwrap();
+        assert!(error.downcast_ref::<std::io::Error>().is_some(), "{error:?}");
+        assert!(!is_busy(error.as_ref()) && started.elapsed() < Duration::from_secs(1));
     }
     #[test]
     fn real_open_failure_is_not_busy_and_does_not_retry() {

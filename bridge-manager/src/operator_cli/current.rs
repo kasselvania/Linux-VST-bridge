@@ -835,6 +835,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     if let Some(app)=renderer_projection(m,busy,vendor.then_some(true),Some(&mut installer_setups))? {
         vendor_applications.push(app);
     }
+    automatic_install::settle_busy_offers(&mut installer_setups);
     let workspace_at = Instant::now(); phases.push(("workspace_and_cards",workspace_at.duration_since(joined_at).as_millis()));
     let uninstallers=uninstall::project(m,&installer_setups,&records,&db,&managed_bindings,busy)?;
     phases.push(("uninstallers",workspace_at.elapsed().as_millis()));

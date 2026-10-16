@@ -1407,6 +1407,9 @@ fn snapshot_readonly_depth(
     let owners = capacity::owners(m)?;
     let cap = cap.filter(|c| c.owners == owners);
     let before = token(m)?;
+    // The same change samples the overview takes: scan results, pending
+    // updates and buffer settings are not all in the state token.
+    let generation = pulse_generation(m)?;
     let db = m.registry()?;
     drop(registry);
     // Digests, runner verification, systemd and presentation run outside the
@@ -1584,6 +1587,7 @@ fn snapshot_readonly_depth(
     if let Some(app)=vendor_applications.iter_mut().find(|app|app.id==renderer::ID) {
         renderer_continuation::project(m,app,Some(&mut installer_setups),busy)?;
     }
+    automatic_install::settle_busy_offers(&mut installer_setups);
     let deleted_setups = setup_removal::project(m, &mut installer_setups, &records, &db,
         &managed_bindings, &class_scope, &mut |operation| onboarding::live(operation))?;
     let uninstallers = uninstall::project(m, &installer_setups, &records, &db, &managed_bindings, busy)?;
@@ -1593,7 +1597,8 @@ fn snapshot_readonly_depth(
     let recheck = acquire_readback(m, ui::OperatorLock::Registry, id, timeout, waits)?;
     let after = token(m)?;
     require(
-        before == after && owners == capacity::owners(m)?,
+        before == after && owners == capacity::owners(m)?
+            && generation == pulse_generation(m)? && pending == pending_transactions(m)?,
         "operator_state_changed_refresh",
     )?;
     drop(recheck);
@@ -2350,7 +2355,10 @@ fn dispatch_recorded(
     let result = match run(&id) {
         Ok(r) => Ok(r),
         Err(e) => {
-            let reason: String = e.to_string().chars().take(512).collect();
+            // Another request or task held a lock past its wait; nothing started.
+            let reason: String = if linux_vst_bridge::operator_lock::is_busy(e.as_ref()) {
+                linux_vst_bridge::operator_lock::BUSY_SENTENCE.into()
+            } else { e.to_string().chars().take(512).collect() };
             write_operation(
                 m,
                 &id,
@@ -8378,6 +8386,22 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         );
     }
     #[test]
+    fn detail_read_refuses_a_pending_update_that_appears_during_projection() {
+        let (f, _) = onboarding_worker_fixture();
+        let root = f.m.root.clone();
+        // Not part of the state token; the overview's change samples cover it.
+        installer_import::IDENTITY_READ_BARRIER.with(|h| {
+            *h.borrow_mut() = Some(Box::new(move || {
+                private_dir(&root.join("transactions")).unwrap();
+                fs::write(root.join("transactions/fixture.pending.json"), b"{}").unwrap();
+            }))
+        });
+        let result = snapshot_for_operation(&f.m, None, OPERATOR_WAIT, &mut vec![], &|| {
+            capacity_fixture(&f.m)
+        });
+        assert_eq!(result.unwrap_err().to_string(), "operator_state_changed_refresh");
+    }
+    #[test]
     fn exact_readback_lock_purposes_for_acquisition_and_timeout() {
         let f = test_fixture::Fixture::new();
         let id = "ab".repeat(16);
@@ -8573,6 +8597,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         let _busy = f.m.lock("operator-dispatch.lock").unwrap();
         let reply = dispatch(&f.m, request).unwrap();
         assert!(!reply.accepted);
+        assert_eq!(reply.refusal.as_deref(), Some(linux_vst_bridge::operator_lock::BUSY_SENTENCE));
         let id = reply.operation.unwrap();
         assert_ne!(id, old);
         let result = worker_receipt(&f.m, &id);

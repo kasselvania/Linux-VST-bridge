@@ -1293,6 +1293,23 @@ fn continue_installed(
         },
     )
 }
+/// A step that only met a busy lock needs that same step again, which the
+/// card's continuation repeats. "Start a new installer attempt" (shown as
+/// Retry) would run the installer again, so it is not offered beside it.
+pub(super) fn settle_busy_offers(setups: &mut [ui::InstallerSetup]) {
+    for setup in setups {
+        let Some(journey) = &setup.journey else { continue };
+        let mut failures = journey.failure.iter()
+            .chain(journey.plugins.iter().filter_map(|plugin| plugin.failure.as_ref())).peekable();
+        let only_busy = failures.peek().is_some()
+            && failures.all(|failure| linux_vst_bridge::operator_lock::is_busy_text(&failure.code));
+        let repeats = setup.primary.as_ref().is_some_and(|offer| matches!(offer.action,
+            ui::Action::EnvironmentRefreshResume {..} | ui::Action::SoftwareInstallResume {..}));
+        if only_busy && repeats {
+            setup.secondary.retain(|offer| !matches!(offer.action, ui::Action::InstallerNewAttempt {..}));
+        }
+    }
+}
 /// The steps of an accepted job (its scan, checks and publication) run after
 /// the musician's click, not during it, so each waits three times a request's
 /// bound (30 s) for an operator lock before it reports the manager busy.
@@ -2520,7 +2537,37 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
 mod tests {
     use super::*;
     #[test]
-    fn busy_lock_steps_read_as_retry_and_wait_three_request_bounds() {
+    fn a_busy_check_offers_its_continuation_not_a_new_installer_attempt() {
+        let busy = failure(ui::InstallationFailureStage::Inspection,
+            "Manager Canonical lock Timeout after 986 attempts");
+        let journey = ui::InstallationJourney {daw:ui::DawChoice::Bitwig,
+            phase:ui::InstallationPhase::NeedsAttention, failure:None,
+            plugins:vec![ui::InstallationPlugin {selection:"01".repeat(16),name:"Guitar Rig 7".into(),
+                class_id:"ab".repeat(16),stage:ui::InstallationPluginStage::NeedsAttention,failure:Some(busy)}]};
+        let new_attempt = action("Retry", ui::Action::InstallerNewAttempt {previous:"34".repeat(16),
+            runner:"runner".into()}, None);
+        let card = |journey: ui::InstallationJourney| ui::InstallerSetup {installer:"cd".repeat(32),
+            name:"Native Access".into(),label_source:"user".into(),byte_size:1,format:"exe".into(),
+            imported_at:1,phase:ui::SetupPhase::DiscoveryComplete,journey:Some(journey),status:String::new(),
+            environment:Some("ef".repeat(16)),compatibility:None,discovered:vec![],
+            primary:Some(action("Continue connecting plug-ins",
+                ui::Action::EnvironmentRefreshResume {operation:"12".repeat(16)}, None)),
+            secondary:vec![new_attempt.clone()],
+            rename:action("Rename",ui::Action::InstallerRename {installer:"cd".repeat(32),label:String::new()},None),
+            history:vec![]};
+        let mut setups = vec![card(journey.clone())];
+        settle_busy_offers(&mut setups);
+        assert!(setups[0].secondary.is_empty());
+        assert_eq!(setups[0].primary.as_ref().unwrap().label, "Continue connecting plug-ins");
+        // A real failure beside it keeps the new attempt available.
+        let mut mixed = journey;
+        mixed.failure = Some(failure(ui::InstallationFailureStage::VendorInstallation, "partial_installation"));
+        let mut setups = vec![card(mixed)];
+        settle_busy_offers(&mut setups);
+        assert_eq!(setups[0].secondary.len(), 1);
+    }
+    #[test]
+    fn busy_lock_steps_say_run_again_and_wait_three_request_bounds() {
         // The Test126 card: a check that met the lock after its wait.
         let failed = failure(ui::InstallationFailureStage::Inspection,
             "Manager Canonical lock Timeout after 986 attempts");
