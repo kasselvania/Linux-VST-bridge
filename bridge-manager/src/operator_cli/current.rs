@@ -588,7 +588,8 @@ pub(super) fn project_last_load(m: &Manager, product: &mut ui::Product) {
         || binding["native_sha256"] != product.details["native_sha256"] { return; }
     let phase = record["phases"].as_array().and_then(|phases| phases.last())
         .and_then(|phase| phase[0].as_str());
-    let Some(problem) = linux_vst_bridge::problem::from_load_record(outcome, phase) else { return };
+    let Some(problem) = linux_vst_bridge::problem::from_load_record(outcome, phase,
+        record["refusal"].as_str()) else { return };
     product.details["last_load"] = json!({"outcome":outcome,
         "observed_at":record["observed_at"],"problem":problem.value()});
 }
@@ -1303,6 +1304,13 @@ pub(super) mod tests {
         assert_eq!(product().details["last_load"]["problem"]["code"],"bridge_updated_daw_old");
         record("refused","publication_changed_during_startup");
         assert_eq!(product().details["last_load"]["problem"]["code"],"load_refused");
+        // Capacity refusals name the limit rather than the generic advice.
+        atomic_json(&startup.join(format!("{}.json",class.to_ascii_lowercase())),
+            &json!({"schema":1,"class_id":class,"request":"07".repeat(16),
+                "observed_at":1792100498u64,"outcome":"refused","binding":binding,
+                "refusal":"admission_global_capacity",
+                "phases":[["request_received",0],["binding_verified",31]],"total_ms":31})).unwrap();
+        assert_eq!(product().details["last_load"]["problem"]["code"],"bridge_plugin_limit");
         // A record made against another publication does not linger.
         let shown=shown.details["native_sha256"].clone();
         atomic_json(&startup.join(format!("{}.json",class.to_ascii_lowercase())),

@@ -209,12 +209,14 @@ struct NativeStartup<'a> {
     // The publication this load was resolved against, once known, so the
     // manager never shows this record for a later publication.
     binding: Option<serde_json::Value>,
+    // The admission refusal code sent to the DAW, when the load was refused.
+    refusal: Option<&'static str>,
     finished: bool,
 }
 impl<'a> NativeStartup<'a> {
     fn new(manager: &'a Manager, request: [u8; 16], class: String) -> Self {
         Self { manager, request, class, started: Instant::now(),
-            phases: vec![("request_received", 0)], binding: None, finished: false }
+            phases: vec![("request_received", 0)], binding: None, refusal: None, finished: false }
     }
     fn phase(&mut self, name: &'static str) {
         if self.phases.len()<16 {
@@ -229,7 +231,7 @@ impl<'a> NativeStartup<'a> {
             atomic_json(&directory.join(format!("{}.json", self.class.to_ascii_lowercase())),
                 &serde_json::json!({"schema":1,"class_id":self.class,
                     "request":hex(&self.request),"observed_at":observation::now()?,
-                    "outcome":outcome,"phases":self.phases,"binding":self.binding,
+                    "outcome":outcome,"phases":self.phases,"binding":self.binding,"refusal":self.refusal,
                     "total_ms":self.started.elapsed().as_millis() as u64}))
         })();
         if retained.is_err() { eprintln!("native startup measurement unavailable"); }
@@ -240,19 +242,30 @@ fn publication_binding(registration:&Registration)->serde_json::Value {
         "environment_revision": registration.environment.revision,
         "native_sha256": registration.native.sha256})
 }
-// Before a refused load's record is written: a DAW that still holds an older
-// bridge module (any protocol version) is told to restart, and a refusal made
-// before the publication was resolved is tied to the class's current one, so
-// its card never outlives that publication.
+// After the refusal reply, before the record is written: a DAW that still
+// holds an older bridge module (any protocol version) is told to restart, the
+// refusal code is kept for the card, and a refusal made before the
+// publication was resolved is tied to the registration this load already
+// resolved, else to the registry entry as recorded. Neither reads or hashes
+// any artifact: the reply is already sent and this runs per refused load.
 fn note_refusal(startup:&mut NativeStartup,error:&(dyn std::error::Error+Send+Sync+'static),
-    resolve:impl FnOnce()->Result<Registration>) {
-    if error.downcast_ref::<capacity::Refusal>()==Some(&capacity::Refusal::StaleNativeCaller)
+    resolved:Option<&Registration>,recorded:impl FnOnce()->Option<Registration>) {
+    let refusal=error.downcast_ref::<capacity::Refusal>().copied();
+    startup.refusal=Some(refusal.unwrap_or(capacity::Refusal::BindingInvalid).code());
+    if refusal==Some(capacity::Refusal::StaleNativeCaller)
         && startup.phases.last().map(|phase|phase.0)!=Some("bridge_update_required") {
         startup.phase("bridge_update_required");
     }
     if startup.binding.is_none() {
-        if let Ok(registration)=resolve() { startup.binding=Some(publication_binding(&registration)); }
+        if let Some(registration)=resolved.cloned().or_else(recorded) {
+            startup.binding=Some(publication_binding(&registration));
+        }
     }
+}
+// The class's registration exactly as the registry records it. Unlike
+// Manager::resolve this neither reads nor hashes any artifact.
+fn recorded_registration(m:&Manager,class:&str)->Option<Registration> {
+    m.registry().ok()?.classes.get(class).map(|entry|entry.registration.clone())
 }
 impl Drop for NativeStartup<'_> {
     fn drop(&mut self) { if !self.finished { self.finish("refused"); } }
@@ -1814,6 +1827,9 @@ fn serve(m: Manager) -> Result<()> {
                     descriptor:greeting[85..117].try_into().unwrap(),
                 });
                 let mut startup=NativeStartup::new(&m,request,class.clone());
+                // The registration this admission resolved (and verified), kept
+                // so a refusal record never resolves or hashes anything again.
+                let mut resolved:Option<Registration>=None;
                 // Leave room for the four-second supervisor handshake within
                 // the existing 65-second native admission budget.
                 let keeper_deadline=startup.started+Duration::from_secs(KEEPER_OWNER_STARTUP_SECONDS);
@@ -1829,6 +1845,7 @@ fn serve(m: Manager) -> Result<()> {
                     };
                     let ((registration, execution), verified)=launch_verification.prepare(keeper_deadline, || {
                         let registration = m.resolve(&greeting[5..53])?;
+                        resolved = Some(registration.clone());
                         let prepare_execution=|| -> Result<_> {
                             experimental_runner::verify_selected_bg1_history(&m, &registration.environment)?;
                             m.verify_served_host(&registration, &s.host, &s.source_sha256, &profiles::installed_profiles()?)?;
@@ -1967,14 +1984,15 @@ fn serve(m: Manager) -> Result<()> {
                 let (execution,r,performance,job,path,mut admission,mut storage)=match prepared {
                     Ok(value)=>value,
                     Err(e)=>{
-                        note_refusal(&mut startup,&*e,|| m.resolve(&greeting[5..53]));
-                        if version3 {
+                        let replied=if version3 {
                             let reason=e.downcast_ref::<capacity::Refusal>().copied()
                                 .unwrap_or(capacity::Refusal::BindingInvalid);
                             startup_reply(&mut peer,&(if version5 {ap1_native_client::admission::refused_v5}
                                 else if version4 {ap1_native_client::admission::refused_v4}
-                                else {ap1_native_client::admission::refused})(request,reason))?;
-                        }
+                                else {ap1_native_client::admission::refused})(request,reason))
+                        } else {Ok(())};
+                        note_refusal(&mut startup,&*e,resolved.as_ref(),|| recorded_registration(&m,&class));
+                        replied?;
                         return Err(e);
                     }
                 };
@@ -3006,24 +3024,33 @@ mod tests {
         {
             let mut startup=NativeStartup::new(&f.m,[7;16],class.clone());
             let error:Box<dyn std::error::Error+Send+Sync>=capacity::Refusal::StaleNativeCaller.into();
-            note_refusal(&mut startup,&*error,|| Ok(f.r.clone()));
+            note_refusal(&mut startup,&*error,Some(&f.r),|| panic!("the resolved registration is used"));
         }
         let record:serde_json::Value=read_json(&path).unwrap();
         assert_eq!(record["outcome"],"refused");
+        assert_eq!(record["refusal"],"admission_stale_native_caller");
         assert_eq!(record["phases"].as_array().unwrap().last().unwrap()[0],"bridge_update_required");
         assert_eq!(record["binding"]["native_sha256"],f.r.native.sha256);
-        assert_eq!(linux_vst_bridge::problem::from_load_record("refused",Some("bridge_update_required"))
-            .unwrap().code,"bridge_updated_daw_old");
-        // Any other refusal keeps its own last phase.
+        assert_eq!(linux_vst_bridge::problem::from_load_record("refused",Some("bridge_update_required"),
+            Some("admission_stale_native_caller")).unwrap().code,"bridge_updated_daw_old");
+        // Refused before anything was resolved: the registry entry as recorded
+        // ties the record without verifying it. With the module's bytes
+        // changed, verification (what resolve does) fails, yet the record is
+        // still tied, so the refusal path never resolved or hashed anything.
+        f.m.register(f.r.clone()).unwrap();
+        fs::write(&f.r.module.path,b"changed module bytes").unwrap();
+        assert!(f.r.verify(&f.m.root).is_err());
+        assert!(f.m.resolve(&f.identity()).is_err());
         {
             let mut startup=NativeStartup::new(&f.m,[8;16],class.clone());
             startup.phase("keeper_failed");
-            let error:Box<dyn std::error::Error+Send+Sync>=capacity::Refusal::BindingInvalid.into();
-            note_refusal(&mut startup,&*error,|| Err("unpublished".into()));
+            let error:Box<dyn std::error::Error+Send+Sync>=capacity::Refusal::ClassCapacity.into();
+            note_refusal(&mut startup,&*error,None,|| recorded_registration(&f.m,&class.to_uppercase()));
         }
         let record:serde_json::Value=read_json(&path).unwrap();
         assert_eq!(record["phases"].as_array().unwrap().last().unwrap()[0],"keeper_failed");
-        assert!(record["binding"].is_null());
+        assert_eq!(record["refusal"],"admission_class_capacity");
+        assert_eq!(record["binding"]["native_sha256"],f.r.native.sha256);
     }
     #[test]
     fn keeper_admission_incident_names_the_private_failure_source() {

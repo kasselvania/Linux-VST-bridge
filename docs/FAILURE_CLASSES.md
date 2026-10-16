@@ -3633,8 +3633,10 @@ for a minute; otherwise the replacement starts no sooner than 10 s, then 60 s,
 after the failed generation started (start to start, so a slow start that
 timed out after its load gave up does not refuse the next load). A refused
 instance asks once, stops, and its editor says why the bridge refused it; the
-plug-in's manager card explains a load refused at `keeper_failed`, with when,
-until a later load is accepted. Saving the project while an instance is
+plug-in's manager card explains the last refused load (stopped Windows side,
+DAW still holding an older bridge, plug-in limit, manager busy, earlier
+session not closed, or in general terms), with when, until a later load is
+accepted. The refusal record never re-hashes the runtime or plug-in. Saving the project while an instance is
 refused drops that plug-in's settings (Kontakt: 173 KB of state became 23 KB);
 the view and card say so, and [#380](https://github.com/kasselvania/Linux-VST-bridge/issues/380)
 tracks keeping the project's own bytes.
