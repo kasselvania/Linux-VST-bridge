@@ -551,6 +551,76 @@ void refused_admission_regression() {
     check(view && dynamic_cast<AP2::RecoveryView*>(view),"a refused instance explains itself instead of a blank editor");
     view->release();
     open_refused=false;error_detail="";
+// A host restore into an instance the bridge never admitted (refused, or
+// admission failed during the restore) used to be dropped, so saving the
+// project replaced the plug-in's state with nothing (#380: Kontakt 173,328
+// characters of saved state became 22,848 in REAPER). The instance now keeps
+// the host's exact envelope and returns it unchanged; it fabricates nothing.
+std::vector<uint8_t> held_envelope(size_t payload, uint8_t seed) {
+  std::vector<uint8_t> b(LVBState::overhead + payload);
+  for (size_t i = 0; i < b.size(); ++i) b[i] = uint8_t(seed + i * 131u + (i >> 9));
+  for (size_t i = 0; i < 4; ++i) b[64 + i] = uint8_t(payload >> (8 * i));
+  return b;
+}
+void held_state_regression() {
+  enum Order { ComponentFirst, ControllerFirst, BeforeAdmission, NeverReceived };
+  for (Order order : {ComponentFirst, ControllerFirst, BeforeAdmission, NeverReceived}) {
+    open_refused=true;open_calls=0;
+    check(processor.initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"held state initialize");
+    // 24 MiB: far above any small-buffer path, well inside the 256 MiB cap.
+    const auto saved = held_envelope(24u << 20, uint8_t(order));
+    auto restoreComponent = [&] {
+      LVBState::Stream in(saved);
+      check(processor.setState(&in)==kResultFalse,"an unadmitted restore still reports it was not applied");
+    };
+    auto restoreController = [&] {
+      LVBState::Stream in(saved);
+      controller->setComponentState(&in);
+      uint8_t marker[8] = {'L','V','B','C',2,0,0,0};
+      LVBState::Stream own(std::vector<uint8_t>(marker, marker + 8));
+      check(controller->setState(&own)==kResultOk,"controller state is its fixed marker");
+    };
+    if (order == BeforeAdmission) {
+      // Restore arrives before the pair connects; it triggers the admission.
+      restoreComponent();
+      check(open_calls==1,"the restore asked for admission once");
+      processor.connect(controller);controller->connect(&processor);
+    } else {
+      processor.connect(controller);controller->connect(&processor);
+      check(open_calls>=1,"admission was refused at connection");
+      if (order == ComponentFirst) { restoreComponent(); restoreController(); }
+      if (order == ControllerFirst) { restoreController(); restoreComponent(); }
+    }
+    LVBState::Stream out;
+    const auto result = processor.getState(&out);
+    if (order == NeverReceived) {
+      check(result==kResultFalse && out.bytes.empty(),"an instance that received no state saves none and fabricates none");
+    } else {
+      check(result==kResultOk,"a refused instance saves the host's restored state");
+      check(out.bytes==saved,"the saved state is byte-identical to the restored project data");
+      LVBState::Stream again;
+      check(processor.getState(&again)==kResultOk && again.bytes==saved,"repeated saves stay byte-identical");
+    }
+    LVBState::Stream controllerOut;
+    check(controller->getState(&controllerOut)==kResultOk && controllerOut.bytes.size()==8,"controller state round-trips unchanged");
+    open_refused=false;
+    controller->disconnect(&processor);processor.disconnect(controller);
+    controller->terminate();controller->release();processor.terminate();
+  }
+  // An envelope claiming more than the cap is not read, so nothing is held:
+  // the save refuses exactly as before instead of writing a truncated state.
+  {
+    open_refused=true;
+    check(processor.initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"cap initialize");
+    processor.connect(controller);controller->connect(&processor);
+    auto oversized = held_envelope(16, 9);
+    const uint32_t claimed = uint32_t(LVBState::payloadLimit) + 1;
+    for (size_t i = 0; i < 4; ++i) oversized[64 + i] = uint8_t(claimed >> (8 * i));
+    LVBState::Stream in(oversized);
+    check(processor.setState(&in)==kResultFalse,"an over-cap restore is refused");
+    LVBState::Stream out;
+    check(processor.getState(&out)==kResultFalse && out.bytes.empty(),"an over-cap restore is never saved truncated");
+    open_refused=false;
     controller->disconnect(&processor);processor.disconnect(controller);
     controller->terminate();controller->release();processor.terminate();
   }
@@ -768,6 +838,7 @@ int main(int argc,char** argv) {
     if(!std::strcmp(argv[1],"--state-migration")){historical_controller_regression();processing_state_restore_regression();failed_restore_retirement_regression();}
     else if(!std::strcmp(argv[1],"--curve-refusal"))curve_refusal_regression();
     else if(!std::strcmp(argv[1],"--refused-admission"))refused_admission_regression();
+    else if(!std::strcmp(argv[1],"--held-state"))held_state_regression();
     else if(!std::strcmp(argv[1],"--presentation-focus"))presentation_focus_regression();
     else if(!std::strcmp(argv[1],"--completion-contract"))completion_contract_regression();
     else contained_host_survival_regression();
