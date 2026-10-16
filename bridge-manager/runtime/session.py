@@ -2899,8 +2899,8 @@ def installer_started_profiled_images(trace,profiles):
             if mapped is not None:found[mapped]=value
     return found
 
-def installer_retire_profiled(scope,images):
-    """Ask exact owned processes that map a profiled image to end (SIGTERM).
+def installer_retire_profiled(scope,images,sig=signal.SIGTERM):
+    """Ask exact owned processes that map a profiled image to end.
 
     Same custody as renderer_retire_image: cgroup membership, start time and a
     pidfd guard each signal. Returns the (pid, start) identities signalled.
@@ -2925,7 +2925,7 @@ def installer_retire_profiled(scope,images):
             try:
                 now=scope.identity(row['pid'])
                 if now and now['start_ticks']==row['start_ticks'] and scope.contains(scope.group_of(row['pid'])):
-                    signal.pidfd_send_signal(fd,signal.SIGTERM);signalled.add((row['pid'],row['start_ticks']))
+                    signal.pidfd_send_signal(fd,sig);signalled.add((row['pid'],row['start_ticks']))
             finally:os.close(fd)
         except ProcessLookupError:pass
     return signalled
@@ -3053,7 +3053,7 @@ def managed_install(spec, *, source_owned_is3=None):
             prepared_policy['monotonic_ns']=time.monotonic_ns()
             atomic(report.parent/(op+'-installer-policy.private.json'),prepared_policy)
             policy_receipt=prepared_policy
-        last=0;first_launch_checked=0;first_launch_signalled=set()
+        last=0;first_launch_checked=0;first_launch_signalled=set();first_launch_first=None
         while not stop:
             live=reap();startup.observe(live);transaction.images()
             state=vendor_operation_state(child.returncode,len(live))
@@ -3071,8 +3071,12 @@ def managed_install(spec, *, source_owned_is3=None):
                 first_launch_checked=time.monotonic()
                 images=installer_started_profiled_images(transaction.windows_trace,first_launch)
                 if images:
-                    signalled=installer_retire_profiled(scope,images)
+                    # Wine ends a process on SIGTERM; one that is still there
+                    # 10 s after the first request is ended outright.
+                    forced=first_launch_first is not None and time.monotonic()-first_launch_first>10
+                    signalled=installer_retire_profiled(scope,images,signal.SIGKILL if forced else signal.SIGTERM)
                     if signalled:
+                        if first_launch_first is None:first_launch_first=time.monotonic()
                         first_launch_signalled|=signalled
                         prior=started_application or {'profiles':[],'images':[]}
                         started_application={'schema':1,'result':'closed_for_managed_first_launch',

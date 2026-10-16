@@ -94,7 +94,7 @@ class MappedIdentityTests(unittest.TestCase):
 
 @unittest.skipUnless(sys.platform.startswith('linux'),'Linux supervisor subreaper and /proc maps')
 class InstallerLoopTests(unittest.TestCase):
-    def run_installer(self,profiles,*,resources=True):
+    def run_installer(self,profiles,*,resources=True,ignore_term=False,lifetime=6):
         with tempfile.TemporaryDirectory() as tmp:
             root=pathlib.Path(tmp).resolve();(root/'operation.lock').touch();(root/'home').mkdir();artifact=root/'installer';artifact.write_bytes(b'fixture')
             exe=app_tree(root,resources=resources)
@@ -108,8 +108,9 @@ class InstallerLoopTests(unittest.TestCase):
             root_create=f'0.900:0010:0014:trace:process:CreateProcessInternalW app L"{windows}" cmdline L"x"\n'
             root_started='0.901:0010:0014:trace:process:CreateProcessInternalW started process pid 0020 tid 0024\n'
             root_exit='1.500:0020:0024:trace:process:NtTerminateProcess handle 0xffffffffffffffff, exit_code 0, process_exiting 1.\n'
-            app=('import mmap,sys,time;f=open(sys.argv[1],"rb");m=mmap.mmap(f.fileno(),0,access=mmap.ACCESS_READ);'
-                'sys.stdout.write("app running\\n");sys.stdout.flush();time.sleep(6)')
+            app=('import mmap,signal,sys,time;f=open(sys.argv[1],"rb");m=mmap.mmap(f.fileno(),0,access=mmap.ACCESS_READ);'
+                +('signal.signal(signal.SIGTERM,signal.SIG_IGN);' if ignore_term else '')
+                +f'sys.stdout.write("app running\\n");sys.stdout.flush();time.sleep({lifetime})')
             installer=(f'import os,subprocess,sys,time;sys.stderr.write({root_create+root_started+CREATE+STARTED+root_exit!r});sys.stderr.flush();'
                 f'p=subprocess.Popen([sys.executable,"-c",{app!r},{str(exe)!r}],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);p.wait()')
             real_popen=subprocess.Popen;children=[]
@@ -137,6 +138,11 @@ class InstallerLoopTests(unittest.TestCase):
         self.assertEqual(v['started_application']['images'],['Program Files/Vendor/App.exe'])
         self.assertGreaterEqual(v['started_application']['signalled_processes'],1)
         self.assertLess(elapsed,5)
+    def test_an_app_that_ignores_the_request_is_ended_outright_after_ten_seconds(self):
+        ok,v,elapsed=self.run_installer([PROFILE],ignore_term=True,lifetime=40)
+        self.assertTrue(ok);self.assertEqual(v['state'],'completed');self.assertEqual(v['owned_live'],0)
+        self.assertEqual(v['started_application']['result'],'closed_for_managed_first_launch')
+        self.assertGreater(elapsed,10);self.assertLess(elapsed,20)
     def test_without_a_matching_profile_the_session_still_waits_for_what_the_installer_started(self):
         for profiles,resources in [(None,True),([],True),([PROFILE],False)]:
             with self.subTest(profiles=profiles,resources=resources):
