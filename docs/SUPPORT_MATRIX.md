@@ -136,6 +136,11 @@ identity record; history and the installer kept; the card returns to "set up").
 Valhalla Freq Echo, removed under Test99, is added back after two bridge updates in
 one action that rechecks it with the current bridge. Setup cards state what is in
 the DAW now. Not yet played in REAPER after Add back. **unqualified**.
+Test118 (after review): Freq Echo's `~/.vst3` entry deleted by hand is recorded as
+removed and added back with the same publication; Space Modulator is set up again
+from the kept installer after Delete and published in a new setup while the deleted
+setup's publication history stays; that setup is deleted again through the new
+confirmation (894 MB → identity record only).
 
 Test72 on this CachyOS/native REAPER fixture passes Choose program without
 installer observations, Open with a sibling resource, Show from the manager and

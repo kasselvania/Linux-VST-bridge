@@ -3060,14 +3060,18 @@ fn removal_confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirm
             }
             let setup = snapshot.installer_setups.iter().find(|s| s.installer == *installer);
             let name = setup.map_or_else(|| "this setup".into(), |s| setup_display_name(s, snapshot));
-            let plugins: Vec<_> = snapshot.products.iter().filter(|p| p.environment == *environment)
+            let names: Vec<_> = snapshot.products.iter().filter(|p| p.environment == *environment)
                 .map(|p| p.name.as_str()).collect();
-            let plugins = if plugins.is_empty() { "its plug-ins".into() } else { plugins.join(", ") };
+            let (plugins, them) = match names.len() {
+                0 => ("its plug-ins".into(), "them"),
+                1 => (names[0].to_owned(), "it"),
+                _ => (names.join(", "), "them"),
+            };
             Confirmation { title: "Delete this setup?",
                 body: vec![format!("This deletes the Windows setup for {name}: everything installed in it, and any licences or sign-ins stored there."),
                     "Files you saved from inside its plug-ins or apps and kept in this setup, such as presets or downloaded content, are deleted too.".into(),
                     "If the vendor limits how many computers can be activated, deactivate the licence in the vendor's app first. Deleting the files doesn't give the activation back.".into(),
-                    format!("Projects that use {plugins} will open with them missing until you set this setup up again. Add back won't be possible."),
+                    format!("Projects that use {plugins} will open with {them} missing until you set this setup up again. Add back won't be possible."),
                     "The installer you added stays in the manager, so you can set it up again later. A record of this setup is kept in its history. Your project files are not changed.".into()],
                 confirm: "Delete setup", cancel: "Cancel",
                 offer: current(setup.into_iter().flat_map(|s| s.secondary.iter()).collect()) }
