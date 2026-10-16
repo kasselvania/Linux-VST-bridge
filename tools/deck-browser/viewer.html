@@ -1,0 +1,17 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Steam Deck control</title><style>html,body{margin:0;height:100%;background:#17202b;color:white;font:14px system-ui}#bar{height:42px;display:flex;align-items:center;gap:14px;padding:0 14px}button{padding:5px 12px}#screen{height:calc(100% - 42px);width:100%}canvas{outline:none}</style></head><body><div id="bar"><span id="status">Connecting…</span><button id="control" disabled>Enable control</button><button id="release">Release keys</button><button id="disconnect">Disconnect</button></div><div id="screen"></div><script type="module">
+import RFB from './core/rfb.js';
+const status=document.querySelector('#status'),control=document.querySelector('#control');
+const credentials=await(await fetch('/credentials.json',{cache:'no-store'})).json();
+const rfb=new RFB(document.querySelector('#screen'),'ws://'+location.host+'/websockify',{credentials});window.deckRfb=rfb;
+rfb.viewOnly=true;rfb.scaleViewport=true;rfb.resizeSession=false;
+const modifiers=[[0xffe1,'ShiftLeft'],[0xffe2,'ShiftRight'],[0xffe3,'ControlLeft'],[0xffe4,'ControlRight'],[0xffe9,'AltLeft'],[0xffea,'AltRight'],[0xffeb,'MetaLeft'],[0xffec,'MetaRight']];
+function release(){if(!rfb.viewOnly)for(const [sym,code]of modifiers)rfb.sendKey(sym,code,false);}
+function pause(){window.dispatchEvent(new Event('blur'));release();rfb.viewOnly=true;control.textContent='Enable control';status.textContent='View only · shared Deck desktop';}
+window.addEventListener('blur',release);document.addEventListener('visibilitychange',()=>{if(document.hidden)release();});
+control.onclick=()=>{if(rfb.viewOnly){rfb.viewOnly=false;rfb.focus();status.textContent='Control enabled · shared Deck desktop';control.textContent='Pause control';}else pause();};
+document.querySelector('#release').onclick=()=>{window.dispatchEvent(new Event('blur'));release();};
+document.querySelector('#disconnect').onclick=()=>{pause();rfb.disconnect();};
+rfb.addEventListener('connect',()=>{control.disabled=false;rfb.viewOnly=true;status.textContent='View only · shared Deck desktop';document.querySelector('canvas').addEventListener('blur',()=>{window.dispatchEvent(new Event('blur'));release();});});
+rfb.addEventListener('disconnect',()=>{status.textContent='Disconnected';control.disabled=true;});
+rfb.addEventListener('securityfailure',()=>{status.textContent='Connection authentication failed';});
+</script></body></html>
