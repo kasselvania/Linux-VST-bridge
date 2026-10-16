@@ -3325,7 +3325,10 @@ fn resumable_action(action: &ui::Action) -> bool {
         | ui::Action::EnvironmentRescan {..} | ui::Action::QuarantinedModuleRetry {..}
         | ui::Action::PluginReinspect {..} | ui::Action::PluginInspect {..}
         | ui::Action::PluginPrepare {..} | ui::Action::CandidateGraphicsAssess {..}
-        | ui::Action::CompatibilityCheck {..} | ui::Action::CompatibilityResumeCheck {..})
+        | ui::Action::CompatibilityCheck {..} | ui::Action::CompatibilityResumeCheck {..}
+        // An uninstall, or the close check that took over its pause, may
+        // leave the pause behind; restoring requires everything retired.
+        | ui::Action::ProductUninstall {..} | ui::Action::InstallerCloseCheck {..})
 }
 fn control_artifact(path: PathBuf) -> Result<Artifact> {
     require(file(&path)?.metadata()?.len() <= 8*1024*1024,"operator_record_bound")?;

@@ -617,14 +617,22 @@ fn recheck_reason(code: &str) -> &'static str {
         _ => "the check didn't pass",
     }
 }
-/// A failure that passes when tried again: the bridge was busy, something held
-/// a lock, or the setup's runtime change wasn't finished. Anything else is
-/// recorded as the result, so it never keeps the setup waiting.
-fn temporary(code: &str) -> bool {
-    matches!(code, "active_device_lease" | "active_maintenance_lease" | "operator_vendor_active"
-        | "operation already running" | "runtime_transition_recovery_required"
-        | "publication_performance_changed")
+/// A failure that can't pass when tried again: the plug-in's files are gone,
+/// the setup's latest scan no longer shows it, or what prepared it (the
+/// setup's runtime, the bridge, its configuration) is no longer what the
+/// setup has. It is recorded as the result. Anything else (busy, a lock, an
+/// inspection that didn't start or finish in time, an I/O error) may pass
+/// when tried again, so Finish checking stays offered; a pending check only
+/// keeps another uninstall waiting.
+fn lasting(code: &str) -> bool {
+    matches!(code, "unchanged_publication_selection_missing" | "unchanged_publication_content_or_runtime_changed"
+        | "unchanged_publication_host_changed" | "bridge_refresh_predecessor_changed"
+        | "loaded_engine_admission_contract_missing" | "unchanged_publication_configuration_changed"
+        | "unchanged_publication_engine_changed" | "unchanged_publication_inspection_changed"
+        | "unchanged_publication_preferences_changed")
+        || code.contains("artifact missing or changed") || code.contains("No such file")
 }
+fn temporary(code: &str) -> bool { !lasting(code) }
 
 /// The setup's plug-ins checked again after the uninstaller changed it.
 #[derive(Debug, Default)]
@@ -635,6 +643,8 @@ pub(super) struct Reconnected {
     pub rechecked: Vec<String>,
     /// (name, exact reason)
     pub failed: Vec<(String, String)>,
+    /// The classes of `failed`.
+    pub failed_classes: Vec<String>,
 }
 /// Check every plug-in of the setup still registered at an older revision,
 /// one at a time: the ones in the DAW, and the ones this action took out,
@@ -666,7 +676,10 @@ fn reconnect(m: &Manager, record: &Record, taken_out: &[String], hooks: &mut Hoo
         match (hooks.revalidate)(m, &class, &current, &random_id()?) {
             Ok(_) if back => out.back.push(name),
             Ok(_) => out.rechecked.push(name),
-            Err(error) => out.failed.push((name, error.to_string())),
+            Err(error) => {
+                out.failed.push((name, error.to_string()));
+                out.failed_classes.push(class);
+            }
         }
     }
     Ok(out)
@@ -764,12 +777,11 @@ pub(super) fn complete(m: &Manager, operation: &str, hooks: &mut Hooks) -> Resul
         else { Reconnected::default() };
     let _ = refresh_index(m, &record.environment.id);
     let db = m.registry()?;
-    let failed: Vec<&String> = reconnected.failed.iter().map(|(name, _)| name).collect();
     let still: Vec<String> = if scanned.is_err() { vec![] } else {
-        recheck.taken_out.iter().filter_map(|class| db.classes.get(class))
+        recheck.taken_out.iter().filter(|class| !reconnected.failed_classes.contains(class))
+            .filter_map(|class| db.classes.get(class))
             .filter(|entry| entry.publication != Publication::Published && !setup_removal::gone(&entry.registration.module.path))
-            .map(|entry| entry.registration.metadata.name.clone())
-            .filter(|name| !failed.contains(&name)).collect()
+            .map(|entry| entry.registration.metadata.name.clone()).collect()
     };
     let mut outcome = outcome(&record, &value, registered, &still, &collateral, &reconnected);
     match scanned {

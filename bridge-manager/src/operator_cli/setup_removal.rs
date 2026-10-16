@@ -30,9 +30,12 @@ const UNCHECKED_SESSION: &str = "A plug-in session record can't be checked, so t
 const RECONNECT: &str = "This setup's folder can't be found. Reconnect its drive or restore the folder, then try again.";
 pub(super) const UNCONFIRMED: &str = "This needs the musician's confirmation (\"confirmed\": true). Nothing was changed.";
 /// A removed plug-in whose setup changed in a way a re-check in place can't
-/// follow (its runtime or the bridge changed too). Nothing on its card
-/// prepares it again, so this says what does.
+/// follow (its runtime or the bridge changed too). Whether Check
+/// compatibility on its card restores it is not yet verified (#396), so this
+/// names what does.
 const SETUP_CHANGED_SINCE: &str = "Its setup changed since it was removed, so it can't be added back as it was. Run its installer again in this setup, or delete the setup and set it up again.";
+/// The installed bridge's files couldn't be read to compare: a passing state.
+const BRIDGE_UNREAD: &str = "The manager couldn't read the bridge's files just now. Try again in a moment.";
 fn link_was_missing(name: &str) -> String {
     format!("{name}'s entry in your DAW's plug-in folder was already gone, so the manager now records it as removed from your DAW.")
 }
@@ -167,7 +170,7 @@ pub(super) fn setup_changed(m: &Manager, class: &str, publication: &RevisionRef)
     let current = linux_vst_bridge::environment_revision::current_environment(m, &prior.environment)?;
     if current == prior.environment || current.runner != prior.environment.runner
         || current.root != prior.environment.root || prior.module.verify().is_err()
-        || !prepared_by_current_bridge(m, prior) {
+        || !prepared_by_current_bridge(m, prior).map_err(|_| BRIDGE_UNREAD)? {
         return Ok(false);
     }
     // The re-check reads the setup's own scan, taken with the bridge it was prepared with.
@@ -177,10 +180,16 @@ pub(super) fn setup_changed(m: &Manager, class: &str, publication: &RevisionRef)
 }
 /// The bridge that prepared this registration is the one installed now: a
 /// re-check in place reuses its Windows host, so it can't follow an update.
-fn prepared_by_current_bridge(m: &Manager, prior: &linux_vst_bridge::Registration) -> bool {
-    linux_vst_bridge::preparation::build::recipe_available(m).ok()
-        .and_then(|kit| linux_vst_bridge::preparation::build::existing_runtime_record(m, &kit.sha256).ok())
-        .is_some_and(|runtime| runtime.host == prior.host && runtime.source_manifest.sha256 == prior.host_source_sha256)
+/// An installed bridge not staged yet is another bridge; a read error is an
+/// error, never taken as an answer.
+fn prepared_by_current_bridge(m: &Manager, prior: &linux_vst_bridge::Registration) -> Result<bool> {
+    let kit = linux_vst_bridge::preparation::build::recipe_available(m)?;
+    match linux_vst_bridge::preparation::build::existing_runtime_record(m, &kit.sha256) {
+        Ok(runtime) => Ok(runtime.host == prior.host && runtime.source_manifest.sha256 == prior.host_source_sha256),
+        Err(error) if error.downcast_ref::<std::io::Error>()
+            .is_some_and(|error| error.kind() == std::io::ErrorKind::NotFound) => Ok(false),
+        Err(error) => Err(error),
+    }
 }
 fn environment_current(environment: &Environment) -> bool {
     read_json::<Environment>(&environment.root.join("environment.json"))
@@ -213,9 +222,12 @@ pub(super) fn plugin_offers(m: &Manager, class: &str, entry: &Entry, busy: Optio
             if !matches!(physical, Ok(None)) || !removed_by_musician(m, class, current)
                 || gone(&entry.registration.module.path) { return vec![]; }
             let changed = revision.as_ref().is_ok_and(|r| !environment_current(&r.registration.environment));
-            let revalidates = changed && setup_changed(m, class, current).unwrap_or(false);
+            let checked = changed.then(|| setup_changed(m, class, current));
+            let revalidates = matches!(checked, Some(Ok(true)));
+            let unread = matches!(&checked, Some(Err(error)) if error.to_string() == BRIDGE_UNREAD);
             let unavailable = match &revision {
                 Err(_) => Some("Its prepared bridge files are no longer available. Use Check compatibility to prepare it again."),
+                Ok(_) if unread => Some(BRIDGE_UNREAD),
                 Ok(_) if changed && !revalidates =>
                     Some(SETUP_CHANGED_SINCE),
                 Ok(_) => None,
@@ -792,7 +804,12 @@ fn recently_changed(session: &Path) -> Result<bool> {
     let now = std::time::SystemTime::now();
     for path in [session.to_path_buf(), session.join("owner.json")] {
         match fs::symlink_metadata(&path) {
-            Ok(meta) => if now.duration_since(meta.modified()?).unwrap_or_default() < Duration::from_secs(10) {
+            // A time a little ahead of the clock counts as now; one far
+            // ahead is no sign of a session starting.
+            Ok(meta) => if match now.duration_since(meta.modified()?) {
+                Ok(age) => age < Duration::from_secs(10),
+                Err(ahead) => ahead.duration() < Duration::from_secs(10),
+            } {
                 return Ok(true);
             },
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}

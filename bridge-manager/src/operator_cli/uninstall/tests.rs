@@ -657,12 +657,12 @@ fn a_failed_recheck_is_named_plainly_and_never_reported_back() {
     // Mixed results, one plain sentence per reason.
     let text = reconnected_text(&Reconnected {back:vec!["A".into()], rechecked:vec!["B".into(), "C".into()],
         failed:vec![("D".into(), "unchanged_publication_selection_missing".into()), ("E".into(), "operation already running".into()),
-            ("F".into(), "unchanged_publication_selection_missing".into()), ("G".into(), "something_unexpected".into())]});
+            ("F".into(), "unchanged_publication_selection_missing".into()), ("G".into(), "something_unexpected".into())], ..Default::default()});
     assert!(text.contains(" A is back in your DAW, checked again with this setup."), "{text}");
     assert!(text.contains(" B, C were checked again and stay in your DAW. If you opened them while the bridge was paused, close them and open them again."), "{text}");
     assert!(text.contains(" D, F couldn't be checked again: not in the setup's latest scan. Run their installer again in this setup, or delete the setup."), "{text}");
     assert!(text.contains(" E couldn't be checked again: the bridge was busy; use Finish checking this setup's plug-ins on the setup's card to try again."), "{text}");
-    assert!(text.contains(" G couldn't be checked again: the check didn't pass. Run its installer again in this setup, or delete the setup."), "{text}");
+    assert!(text.contains(" G couldn't be checked again: the check didn't pass; use Finish checking this setup's plug-ins on the setup's card to try again."), "{text}");
     assert!(!text.contains('_'), "{text}");
 }
 
@@ -741,6 +741,13 @@ fn add_back_after_a_runtime_change_or_bridge_update_asks_for_check_compatibility
     fs::rename(&staged, staged.with_extension("json.aside")).unwrap();
     assert!(!setup_removal::setup_changed(&p.f.m, &class, &p.current).unwrap());
     assert!(offer(&p.f.m).disabled_reason.unwrap().ends_with(PLAIN));
+    // The installed bridge's files can't be read just now: a passing state,
+    // said plainly, never taken as "updated" or "not updated".
+    private_dir(&staged).unwrap();
+    assert_eq!(offer(&p.f.m).disabled_reason.as_deref(), Some("The manager couldn't read the bridge's files just now. Try again in a moment."));
+    let refused = setup_removal::add_back(&p.f.m, &class, &identity, |_, _| panic!("no check starts")).unwrap_err();
+    assert!(refused.to_string().ends_with("Try again in a moment."), "{refused}");
+    fs::remove_dir(&staged).unwrap();
     fs::rename(staged.with_extension("json.aside"), &staged).unwrap();
     // The setup's runtime changed.
     let before = environment_install::current_environment(&p.f.m, &p.record.environment).unwrap();

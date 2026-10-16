@@ -883,3 +883,25 @@ fn deleting_can_also_forget_the_installer_file() {
     assert!(snapshot.installer_setups.iter().all(|s| s.installer != installer));
     assert_eq!(snapshot.deleted_setups.len(), 1);
 }
+
+#[test]
+fn only_a_session_folder_changed_just_now_counts_as_recent() {
+    let f = test_fixture::Fixture::new();
+    let session = f.outer.join("session");
+    private_dir(&session).unwrap();
+    let at = |offset: i64| {
+        let now = std::time::SystemTime::now();
+        let time = if offset >= 0 { now + Duration::from_secs(offset as u64) } else { now - Duration::from_secs((-offset) as u64) };
+        File::open(&session).unwrap().set_modified(time).unwrap();
+    };
+    at(0);
+    assert!(recently_changed(&session).unwrap());
+    at(-60);
+    assert!(!recently_changed(&session).unwrap());
+    // A clock a little behind still counts as now; a time far ahead is no
+    // sign of a session starting.
+    at(5);
+    assert!(recently_changed(&session).unwrap());
+    at(3600);
+    assert!(!recently_changed(&session).unwrap());
+}
