@@ -200,6 +200,13 @@ class PublishUpdate(unittest.TestCase):
         self.assertEqual(json.loads((beta / "latest.json").read_text())["version"], "0.12.0test150")
         self.assertEqual(self.upload(beta, "feed", "--force-older"), (0, ""))
         self.assertEqual(json.loads((beta / "latest.json").read_text())["version"], "0.12.0test148")
+        # A latest.json that is not a feed object is a plain refusal, not a traceback.
+        for content in ('["0.12.0test150"]', '"0.12.0test150"', "not json"):
+            (beta / "latest.json").write_text(content)
+            code, error = self.upload(beta)
+            self.assertEqual(code, 1)
+            self.assertIn("not a feed this tool can read", error)
+            self.assertNotIn("Traceback", error)
         with self.assertRaisesRegex(ValueError, "must not start"):
             publish_update.Destination("-oProxyCommand=evil:/beta")
 

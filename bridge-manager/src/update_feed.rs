@@ -62,8 +62,12 @@ pub enum UpdateError {
     NoCurl,
     /// Not enough free space in the home folder; bytes the update needs.
     NoSpace(u64),
-    /// A local step outside installing refused (a plain sentence or a code).
+    /// Not enough free space to save the update information while checking.
+    CheckNoSpace,
+    /// A local step of a check refused (a plain sentence or a code).
     Local(String),
+    /// A local step of a download refused (a plain sentence or a code).
+    LocalDownload(String),
     /// Installing the verified package refused (a plain sentence or a code).
     Install(String),
 }
@@ -72,13 +76,17 @@ fn sentence(reason: &str) -> Option<&str> {
     (reason.contains(' ') && !reason.contains('_') && !reason.contains("(os error")
         && reason.starts_with(|c: char| c.is_ascii_uppercase())).then_some(reason)
 }
+/// Staging refusals that a retry of the same bytes cannot fix: the download
+/// is deleted, so the next Download and update fetches it again.
+const DAMAGED_PACKAGE: &[&str] = &["user_package_payload_changed", "user_package_entry_changed",
+    "user_package_bundle_changed", "user_package_entry_identity", "user_package_undeclared_entry"];
 /// Codes that can reach the update panel, in words a musician can act on.
 fn plain_code(code: &str) -> Option<&'static str> {
+    if DAMAGED_PACKAGE.contains(&code) {
+        return Some("The downloaded update was damaged, so it was deleted and nothing was installed. Choose Download and update to try again.");
+    }
     Some(match code {
         "user_package_intake_busy" => "Setup is already installing something; try again when it finishes.",
-        "user_package_payload_changed" | "user_package_entry_changed" | "user_package_bundle_changed"
-            | "user_package_entry_identity" | "user_package_undeclared_entry" =>
-            "The downloaded update was damaged, so it was deleted and nothing was installed. Choose Download and update to try again.",
         "directory must be private" | "directory ownership/type differs" | "user_package_directory_custody"
             | "user_package_directory_identity" | "user_package_home_identity" | "file ownership/type differs" =>
             "A bridge folder in your home folder has unexpected owner or permissions, so nothing was changed. Tell the maintainer.",
@@ -102,9 +110,14 @@ impl fmt::Display for UpdateError {
             Self::NoCurl => f.write_str("Updates need the curl command, which this system does not have."),
             Self::NoSpace(bytes) => write!(f, "There isn't enough free disk space for the update. Free about {} MB in your home folder, then choose Download and update again.",
                 bytes.div_ceil(1_000_000).max(1)),
+            Self::CheckNoSpace => f.write_str("There isn't enough free disk space to check for updates. Free some space in your home folder, then choose Check for updates."),
             Self::Local(reason) => match plain_code(reason).or_else(|| sentence(reason)) {
                 Some(text) => f.write_str(text),
                 None => f.write_str("Something on this computer stopped the update check. Try again; if this stays, tell the maintainer."),
+            },
+            Self::LocalDownload(reason) => match plain_code(reason).or_else(|| sentence(reason)) {
+                Some(text) => f.write_str(text),
+                None => f.write_str("Something on this computer stopped the download. Choose Download and update to try again; if this stays, tell the maintainer."),
             },
             Self::Install(reason) => {
                 if reason.starts_with("Not enough disk space") {
@@ -126,13 +139,15 @@ impl UpdateError {
     /// The manager's exact refusal, for technical details only.
     pub fn technical(&self) -> Option<&str> {
         match self {
-            Self::Local(reason) | Self::Install(reason) if sentence(reason).is_none() => Some(reason),
+            Self::Local(reason) | Self::LocalDownload(reason) | Self::Install(reason)
+                if sentence(reason).is_none() => Some(reason),
             _ => None,
         }
     }
 }
 impl std::error::Error for UpdateError {}
 fn local(error: impl fmt::Display) -> UpdateError { UpdateError::Local(error.to_string()) }
+fn local_download(error: impl fmt::Display) -> UpdateError { UpdateError::LocalDownload(error.to_string()) }
 fn install(error: impl fmt::Display) -> UpdateError { UpdateError::Install(error.to_string()) }
 
 /// The tester's beta folder and its key. The key is never shown, logged or
@@ -456,7 +471,7 @@ fn curl_config(link: &BetaLink, file: &str) -> String {
 const CURL_ENVIRONMENT: &[&str] = &["HOME", "LANG", "LC_ALL", "SSL_CERT_FILE", "SSL_CERT_DIR",
     "CURL_CA_BUNDLE", "https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY", "no_proxy", "NO_PROXY"];
 fn curl_command(link: &BetaLink, output: &Path, limit: u64, resume_from: Option<u64>,
-    max_time: Duration) -> Command {
+    max_time: Duration, environment: &dyn Fn(&str) -> Option<std::ffi::OsString>) -> Command {
     let mut command = Command::new("/usr/bin/curl");
     // `--disable` must come first: no curlrc can add options or redirect output.
     command.arg("--disable")
@@ -471,7 +486,7 @@ fn curl_command(link: &BetaLink, output: &Path, limit: u64, resume_from: Option<
     if let Some(offset) = resume_from { command.arg("--continue-at").arg(offset.to_string()); }
     command.env_clear().env("PATH", "/usr/bin:/bin");
     for name in CURL_ENVIRONMENT {
-        if let Some(value) = std::env::var_os(name) { command.env(name, value); }
+        if let Some(value) = environment(name) { command.env(name, value); }
     }
     command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null());
     // curl ends with this manager: a closed window leaves no transfer behind.
@@ -495,7 +510,8 @@ impl Drop for Curl {
 /// One bounded GET into a new file `output`. Errors carry no server text.
 fn transfer(link: &BetaLink, file: &str, output: &Path, limit: u64, resume_from: Option<u64>,
     max_time: Duration, progress: &mut dyn FnMut(u64)) -> std::result::Result<Fetched, UpdateError> {
-    let mut curl = Curl(curl_command(link, output, limit, resume_from, max_time).spawn()
+    let mut curl = Curl(curl_command(link, output, limit, resume_from, max_time,
+        &|name| std::env::var_os(name)).spawn()
         .map_err(|_| UpdateError::NoCurl)?);
     let written = curl.0.stdin.take().map(|mut input| input.write_all(curl_config(link, file).as_bytes()));
     if !matches!(written, Some(Ok(()))) { return Err(UpdateError::Offline); }
@@ -545,7 +561,7 @@ fn fetch_small(link: &BetaLink, file: &str, scratch: &Path, limit: u64)
         Ok(Fetched::Body { .. }) => Err(UpdateError::Offline),
         Ok(Fetched::Rejected) => Err(UpdateError::LinkRejected),
         Ok(Fetched::NotFound) => Err(UpdateError::NoFeed),
-        Ok(Fetched::WriteFailed) => Err(UpdateError::NoSpace(1_000_000)),
+        Ok(Fetched::WriteFailed) => Err(UpdateError::CheckNoSpace),
         Ok(Fetched::RangeRefused) | Err(UpdateError::Damaged) => Err(UpdateError::FeedUnverified),
         Err(error) => Err(error),
     };
@@ -675,20 +691,20 @@ fn download_and_stage_with(home: &Path, link: &BetaLink, trust: &Trust, current:
         return Err(UpdateError::Downgrade);
     }
     let downloads = updates_dir(home).join("downloads");
-    private_directory(&downloads).map_err(local)?;
+    private_directory(&downloads).map_err(local_download)?;
     // One download at a time, even with two manager windows open: the lock
     // covers the partial download, the received range and staging.
     let lock = fs::OpenOptions::new().read(true).write(true).create(true).truncate(false)
-        .mode(0o600).open(updates_dir(home).join("download.lock")).map_err(local)?;
+        .mode(0o600).open(updates_dir(home).join("download.lock")).map_err(local_download)?;
     if unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
-        return Err(UpdateError::Local("An update is already downloading in another manager window.".into()));
+        return Err(UpdateError::LocalDownload("An update is already downloading in another manager window.".into()));
     }
     let part = downloads.join(format!("{}.part", package.sha256));
     let done = downloads.join(format!("{}.install", package.sha256));
     let received = downloads.join(format!("{}.receiving", package.sha256));
     // Only the offered download is kept; an older or unfinished one is removed.
-    for entry in fs::read_dir(&downloads).map_err(local)? {
-        let path = entry.map_err(local)?.path();
+    for entry in fs::read_dir(&downloads).map_err(local_download)? {
+        let path = entry.map_err(local_download)?.path();
         if path != part && path != done { let _ = fs::remove_file(&path); }
     }
     let size_of = |path: &Path| fs::symlink_metadata(path).map(|m| m.len()).ok();
@@ -749,8 +765,8 @@ fn download_and_stage_with(home: &Path, link: &BetaLink, trust: &Trust, current:
             let _ = fs::remove_file(&part);
             return Err(UpdateError::Damaged);
         }
-        fs::set_permissions(&part, fs::Permissions::from_mode(0o400)).map_err(local)?;
-        fs::rename(&part, &done).map_err(local)?;
+        fs::set_permissions(&part, fs::Permissions::from_mode(0o400)).map_err(local_download)?;
+        fs::rename(&part, &done).map_err(local_download)?;
     } else if digest(&done).ok().as_deref() != Some(package.sha256.as_str()) {
         let _ = fs::remove_file(&done);
         return Err(UpdateError::Damaged);
@@ -767,7 +783,11 @@ fn download_and_stage_with(home: &Path, link: &BetaLink, trust: &Trust, current:
     // The payload hash is checked before staging so a mismatch deletes the
     // download instead of leaving it to fail again.
     bundle.verify_payload().map_err(|_| refused(UpdateError::Damaged))?;
-    let frontend = bundle.stage(home).map_err(install)?;
+    let frontend = bundle.stage(home).map_err(|error| {
+        let error = error.to_string();
+        if DAMAGED_PACKAGE.contains(&error.as_str()) { let _ = fs::remove_file(&done); }
+        install(error)
+    })?;
     expose(&frontend, home).map_err(install)?;
     drop(lock);
     Ok(frontend)
@@ -962,8 +982,9 @@ mod tests {
     #[test]
     fn curl_command_line_never_carries_the_key_or_the_url() {
         let link = BetaLink::parse("https://h.example:8443/private-beta/?pw=s3cret%22quote").unwrap();
-        std::env::set_var("SSLKEYLOGFILE", "/tmp/lvb-must-not-reach-curl");
-        let command = curl_command(&link, Path::new("/tmp/out"), 100, Some(5), Duration::from_secs(30));
+        // Every variable is set in this pretend environment; only the listed ones reach curl.
+        let everything = |name: &str| Some(std::ffi::OsString::from(format!("value of {name}")));
+        let command = curl_command(&link, Path::new("/tmp/out"), 100, Some(5), Duration::from_secs(30), &everything);
         let args: Vec<_> = command.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
         assert_eq!(args[0], "--disable");
         assert!(args.iter().all(|a| !a.contains("s3cret") && !a.contains("h.example")), "{args:?}");
@@ -974,6 +995,7 @@ mod tests {
             .map(|(k, _)| k.to_string_lossy().into_owned()).collect();
         assert!(names.contains(&"PATH".to_string()));
         assert!(names.iter().all(|n| n == "PATH" || CURL_ENVIRONMENT.contains(&n.as_str())), "{names:?}");
+        assert!(names.contains(&"HTTPS_PROXY".to_string()) && !names.iter().any(|n| n == "SSLKEYLOGFILE" || n == "CURL_HOME"));
         let config = curl_config(&link, FEED_FILE);
         assert_eq!(config, "url = \"https://h.example:8443/private-beta/latest.json\"\nheader = \"PW: s3cret\\\"quote\"\n");
         assert!(!config.lines().next().unwrap().contains("s3cret"));
@@ -1131,6 +1153,13 @@ mod tests {
             .to_string().starts_with("There isn't enough free disk space"));
         assert_eq!(UpdateError::NoSpace(130_500_000).to_string(),
             "There isn't enough free disk space for the update. Free about 131 MB in your home folder, then choose Download and update again.");
+        // During a check the panel offers Check for updates, and a download
+        // failure is named as one.
+        assert!(UpdateError::CheckNoSpace.to_string().ends_with("then choose Check for updates."));
+        assert!(UpdateError::Local("update_x".into()).to_string().contains("stopped the update check"));
+        let download = UpdateError::LocalDownload("No such file or directory (os error 2)".into());
+        assert!(download.to_string().contains("stopped the download"));
+        assert_eq!(download.technical(), Some("No such file or directory (os error 2)"));
     }
 
     #[test]
@@ -1290,7 +1319,26 @@ mod tests {
             .open(updates_dir(&f.home).join("download.lock")).unwrap();
         assert_eq!(unsafe { libc::flock(held.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) }, 0);
         assert!(matches!(stage(&f, &link, &good, "0.12.0test146"),
-            Err(UpdateError::Local(text)) if text.contains("already downloading")));
+            Err(UpdateError::LocalDownload(text)) if text.contains("already downloading")));
+    }
+
+    #[test]
+    fn a_package_that_cannot_stage_the_same_way_twice_is_deleted() {
+        if !curl_available() { return; }
+        // Signed and hash-correct, but one declared size differs from its
+        // archive entry: staging refuses it the same way every time.
+        let mut f = Fixture::new();
+        f.rows[0].0.size += 1;
+        let server = Server::start(Some(KEY));
+        let installer = f.bundle("0.12.0test148");
+        let feed = feed_for("0.12.0test148", &[("cachyos", &installer)]);
+        publish(&server, &f, &feed, &installer);
+        let offer = Offer { version: feed.version.clone(), notes: String::new(), system: "cachyos".into(),
+            package: feed.packages["cachyos"].clone() };
+        let error = stage(&f, &server.link(), &offer, "0.12.0test146").unwrap_err();
+        assert_eq!(error, UpdateError::Install("user_package_entry_identity".into()));
+        assert!(error.to_string().contains("so it was deleted"));
+        assert_eq!((staged_packages(&f), downloads(&f)), (0, 0), "the claim is true");
     }
 
     #[test]

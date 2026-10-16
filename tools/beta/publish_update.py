@@ -268,12 +268,16 @@ def upload(args):
     feed, data, signature, files = verified_feed(args.feed_dir, args.ready, public_key, args.key_class)
     destination = Destination(args.dest)
     published = destination.read(FEED_FILE)
-    if published:
+    if published and not args.force_older:
         try:
-            current = json.loads(published).get("version", "")
+            existing = json.loads(published)
         except ValueError:
-            current = ""
-        require(args.force_older or not VERSION.fullmatch(current) or version_key(current) <= version_key(feed["version"]),
+            existing = None
+        require(isinstance(existing, dict),
+                "the beta folder's latest.json is not a feed this tool can read; check it, then use --force-older to replace it")
+        current = existing.get("version")
+        current = current if isinstance(current, str) else ""
+        require(not VERSION.fullmatch(current) or version_key(current) <= version_key(feed["version"]),
                 f"the beta folder already offers {current}, newer than {feed['version']}; use --force-older to replace it")
     copied, kept = [], []
     for name, (path, digest) in sorted(files.items()):

@@ -525,7 +525,7 @@ pub(crate) mod tests {
     use super::*;
     use ed25519_dalek::{Signer,SigningKey};
     use std::{io::Cursor,process::Command};
-    pub(crate) struct Fixture {pub(crate) home:PathBuf,pub(crate) key:SigningKey,rows:Vec<(ReleaseFile,Vec<u8>)>}
+    pub(crate) struct Fixture {pub(crate) home:PathBuf,pub(crate) key:SigningKey,pub(crate) rows:Vec<(ReleaseFile,Vec<u8>)>}
     impl Fixture {
         pub(crate) fn new()->Self {
             let home=std::env::temp_dir().join(format!("lvb-user-package-{}",random_id().unwrap()));

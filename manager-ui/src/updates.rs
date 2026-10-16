@@ -14,6 +14,9 @@ use std::{
 const DAILY: Duration = Duration::from_secs(24 * 60 * 60);
 /// A Setup still running this long after it was opened has taken over.
 const HANDOVER_SETTLE: Duration = Duration::from_millis(1500);
+/// Without any reading after staging for this long, "Continue anyway" is
+/// offered; Setup's own gate still refuses while plug-ins are in use.
+const READING_GRACE: Duration = Duration::from_secs(30);
 const SETUP_DID_NOT_OPEN: &str = "Setup for the new version could not open. Open Linux VST Bridge Setup and Updates from your applications menu and choose Update Bridge.";
 
 enum Event {
@@ -48,8 +51,8 @@ enum Status {
     Available(Offer),
     Downloading { offer: Offer, done: u64, total: u64 },
     /// Staged; waiting for a reading, taken after staging, that no DAW is
-    /// using bridged plug-ins.
-    WaitingForDaw { offer: Offer, frontend: PathBuf, since: Instant },
+    /// using bridged plug-ins. `observed`: any reading after staging arrived.
+    WaitingForDaw { offer: Offer, frontend: PathBuf, since: Instant, observed: bool },
     /// Setup for the new version is opening.
     HandingOver(Offer),
     /// Setup for the new version has taken over.
@@ -153,7 +156,8 @@ impl Updates {
                     self.receiver = None;
                     let Status::Downloading { offer, .. } = &self.status else { continue };
                     self.status = match result {
-                        Ok(frontend) => Status::WaitingForDaw { offer: offer.clone(), frontend, since: Instant::now() },
+                        Ok(frontend) => Status::WaitingForDaw { offer: offer.clone(), frontend,
+                            since: Instant::now(), observed: false },
                         Err(error) => {
                             self.notice = Some(error.into());
                             Status::Available(offer.clone())
@@ -166,10 +170,13 @@ impl Updates {
             && self.next_check.is_some_and(|due| Instant::now() >= due) {
             self.start_check(ctx);
         }
-        if let Status::WaitingForDaw { offer, frontend, since } = &self.status {
-            if plugins_in_use.is_some_and(|(in_use, at)| !in_use && at > *since) {
-                let (offer, frontend) = (offer.clone(), frontend.clone());
-                self.start_handover(offer, frontend);
+        if let Status::WaitingForDaw { offer, frontend, since, observed } = &mut self.status {
+            if let Some((in_use, _)) = plugins_in_use.filter(|(_, at)| *at > *since) {
+                *observed = true;
+                if !in_use {
+                    let (offer, frontend) = (offer.clone(), frontend.clone());
+                    self.start_handover(offer, frontend);
+                }
             }
         }
         let close = self.poll_handover();
@@ -334,6 +341,7 @@ impl Updates {
             let ctx = ui.ctx().clone();
             let mut download = None;
             let mut cancel = false;
+            let mut proceed = false;
             match &self.status {
                 Status::Idle => {}
                 Status::Checking => { ui.horizontal(|ui| { ui.spinner(); ui.label("Checking for updates…"); }); }
@@ -367,10 +375,18 @@ impl Updates {
                         .text(format!("{:.0} of {:.0} MB", *done as f64 / 1e6, *total as f64 / 1e6)));
                     ui.small("The download is checked against the signed update before anything is installed.");
                 }
-                Status::WaitingForDaw { offer, .. } => {
+                Status::WaitingForDaw { offer, since, observed, .. } => {
                     ui.label(egui::RichText::new(format!("{} is downloaded and checked.", version(&offer.version))).strong());
                     ui.colored_label(warning(ui), "The update continues by itself once no DAW is using bridged plug-ins. If your DAW is open, save your project and close it.");
-                    if ui.button("Cancel").clicked() { cancel = true; }
+                    ui.horizontal_wrapped(|ui| {
+                        if !*observed && since.elapsed() >= READING_GRACE && ui.button("Continue anyway").clicked() {
+                            proceed = true;
+                        }
+                        if ui.button("Cancel").clicked() { cancel = true; }
+                    });
+                    if !*observed && since.elapsed() >= READING_GRACE {
+                        ui.small("Setup will check again that no plug-ins are in use.");
+                    }
                 }
                 Status::HandingOver(_) => { ui.horizontal(|ui| { ui.spinner(); ui.label("Opening Setup to finish the update…"); }); }
                 Status::HandedOver => { ui.label("Setup is finishing the update."); }
@@ -380,8 +396,18 @@ impl Updates {
                 self.start_check(&ctx);
             }
             if cancel { self.cancel_wait(); }
+            if proceed { self.continue_anyway(); }
             if let Some(offer) = download { self.start_download(&ctx, offer); }
         });
+    }
+
+    /// No reading arrived after staging: hand over anyway. Setup's own gate
+    /// still refuses while bridged plug-ins are in use.
+    fn continue_anyway(&mut self) {
+        if let Status::WaitingForDaw { offer, frontend, .. } = &self.status {
+            let (offer, frontend) = (offer.clone(), frontend.clone());
+            self.start_handover(offer, frontend);
+        }
     }
 
     /// Stop waiting for the DAW. The verified download stays, so choosing
@@ -459,7 +485,8 @@ mod tests {
         let ctx = egui::Context::default();
         let mut updates = Updates::disabled();
         let staged = Instant::now();
-        updates.status = Status::WaitingForDaw { offer: offer(), frontend: "/nonexistent/setup".into(), since: staged };
+        updates.status = Status::WaitingForDaw { offer: offer(), frontend: "/nonexistent/setup".into(),
+            since: staged, observed: false };
         assert!(updates.headline().unwrap().starts_with("Close your DAW"));
         // Plug-ins in use, no reading, or a reading from before staging: keep waiting.
         for reading in [Some((true, Instant::now())), None, Some((false, staged - Duration::from_secs(1)))] {
@@ -476,14 +503,39 @@ mod tests {
     #[test]
     fn cancel_keeps_the_offer_and_check_stays_reachable_while_waiting() {
         let mut updates = updates_with_link(Updates::disabled());
-        updates.status = Status::WaitingForDaw { offer: offer(), frontend: "/nonexistent/setup".into(), since: Instant::now() };
+        updates.status = Status::WaitingForDaw { offer: offer(), frontend: "/nonexistent/setup".into(),
+            since: Instant::now(), observed: false };
         let labels = rendered(&mut updates);
         for label in ["Cancel", "Check for updates", "Paste a new link"] {
             assert!(labels.iter().any(|l| l == label), "{label}: {labels:?}");
         }
+        assert!(!labels.iter().any(|l| l == "Continue anyway"), "not before the grace period");
         updates.cancel_wait();
         assert_eq!(updates.status, Status::Available(offer()));
         assert!(updates.notice.as_ref().unwrap().text.contains("downloaded and kept"));
+    }
+
+    #[test]
+    fn continue_anyway_appears_only_when_no_reading_arrives() {
+        let ctx = egui::Context::default();
+        let long_ago = Instant::now() - READING_GRACE - Duration::from_secs(1);
+        let mut updates = updates_with_link(Updates::disabled());
+        updates.status = Status::WaitingForDaw { offer: offer(), frontend: "/nonexistent/setup".into(),
+            since: long_ago, observed: false };
+        let labels = rendered(&mut updates);
+        assert!(labels.iter().any(|l| l == "Continue anyway"), "{labels:?}");
+        assert!(labels.iter().any(|l| l == "Setup will check again that no plug-ins are in use."));
+        // A fresh reading that plug-ins are in use: the DAW is open, so no
+        // way around it is offered.
+        assert!(!updates.poll(&ctx, Some((true, Instant::now()))));
+        assert!(matches!(updates.status, Status::WaitingForDaw { observed: true, .. }));
+        assert!(!rendered(&mut updates).iter().any(|l| l == "Continue anyway"));
+        // Continue anyway opens Setup; a Setup that cannot open says so.
+        updates.status = Status::WaitingForDaw { offer: offer(), frontend: "/nonexistent/setup".into(),
+            since: long_ago, observed: false };
+        updates.continue_anyway();
+        assert_eq!(updates.status, Status::Available(offer()));
+        assert_eq!(updates.notice.as_ref().unwrap().text, SETUP_DID_NOT_OPEN);
     }
 
     #[test]

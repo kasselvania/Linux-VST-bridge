@@ -295,7 +295,8 @@ writes both from a verified build's `ready/` folder; nothing is edited by hand.
    The feed signature and every listed installer are verified again. Installers
    are copied first (an identical file is kept, a different file with the same
    name is refused, and installers are streamed, not held in memory), then the
-   feed replaces the previous one. A published feed for a newer build is not
+   feed replaces the previous one. A published feed for a newer build, or a
+   `latest.json` that is not a readable feed, is not
    replaced unless `--force-older` is given. Older builds and other files in the
    folder are never deleted, and the beta server's own configuration is not
    touched.
