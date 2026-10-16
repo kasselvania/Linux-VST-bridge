@@ -68,6 +68,19 @@ fn string_value(raw: &str) -> Option<String> {
     unescape(raw.strip_prefix('"')?.strip_suffix('"')?)
 }
 
+/// Only `...\CurrentVersion\Uninstall\<name>` itself (machine, user or
+/// 32-bit view), never a subkey of it or another key mentioning Uninstall.
+fn standard_key(key: &str) -> bool {
+    let low = key.to_lowercase();
+    ["software\\microsoft\\windows\\currentversion\\uninstall\\",
+        "software\\wow6432node\\microsoft\\windows\\currentversion\\uninstall\\"].iter()
+        .any(|prefix| low.strip_prefix(prefix).is_some_and(|name| !name.is_empty() && !name.contains('\\')))
+}
+/// Windows Installer names a product's Uninstall key by its product code.
+pub fn key_name(entry: &Entry) -> &str {
+    entry.key.rsplit('\\').next().unwrap_or_default()
+}
+
 /// Parse one hive's Uninstall keys. Unreadable or unexpected lines are skipped;
 /// a key's values are only those Wine wrote under it.
 pub fn parse(hive: &str, bytes: &[u8]) -> Vec<Entry> {
@@ -79,7 +92,7 @@ pub fn parse(hive: &str, bytes: &[u8]) -> Vec<Entry> {
             if let Some(entry) = current.take() { out.push(entry); }
             let Some(end) = rest.find(']') else { continue };
             let key = rest[..end].replace("\\\\", "\\");
-            if key.to_lowercase().contains("\\uninstall\\") && out.len() < ENTRY_BOUND {
+            if standard_key(&key) && out.len() < ENTRY_BOUND {
                 current = Some(Entry { id: hex(&Sha256::digest(format!("{hive}:{key}").as_bytes())),
                     hive: hive.into(), key, ..Default::default() });
             }
@@ -133,7 +146,9 @@ fn msi(value: &str) -> Option<String> {
     let program = program.rsplit('\\').next()?;
     if !matches!(program, "msiexec" | "msiexec.exe") { return None; }
     let switch = words.next()?;
-    let (flag, rest) = switch.split_at(switch.len().min(2));
+    // Character-safe: a switch may start with any character.
+    let flag: String = switch.chars().take(2).collect();
+    let rest = &switch[flag.len()..];
     if !matches!(flag.to_lowercase().as_str(), "/x" | "/i") { return None; }
     let code = if rest.is_empty() { words.next()? } else { rest };
     if words.next().is_some() { return None; }
@@ -229,6 +244,13 @@ mod tests {
 "#;
         let entries = parse("system.reg", hive);
         assert_eq!(entries.len(), 2);
+        assert_eq!(key_name(&entries[1]), "{00000000-1111-2222-3333-444444444444}");
+        // Only the standard key itself; never a subkey or an unrelated key.
+        assert!(parse("system.reg", br#"[Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\A\\Sub] 1
+"UninstallString"="x.exe"
+[Software\\Vendor\\Uninstall\\B] 1
+"UninstallString"="x.exe"
+"#).is_empty());
         let key = "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ValhallaSpaceModulator_is1";
         assert_eq!(entries[0].key, key);
         assert_eq!(entries[0].id, hex(&Sha256::digest(format!("system.reg:{key}").as_bytes())));
@@ -270,6 +292,8 @@ mod tests {
             "D:\\other\\unins000.exe",
             "/home/user/uninstall.sh",
             "\"C:\\Program Files\\Valhalla DSP, LLC\\unins000.exe",
+            "MsiExec.exe \u{e9}\u{e9}{00000000-1111-2222-3333-444444444444}",
+            "MsiExec.exe /\u{e9}",
         ] {
             assert!(command(refused, &drive_c).is_err(), "{refused}");
         }

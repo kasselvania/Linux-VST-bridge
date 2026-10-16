@@ -147,6 +147,11 @@ pub(super) fn removed_by_musician(m: &Manager, class: &str, publication: &Revisi
     valid_hex(class, 32) && read_json::<RevisionRef>(&removal_marker(m, class))
         .is_ok_and(|marked| marked == *publication)
 }
+/// A file that is certainly gone. A file that can't be checked counts as
+/// still there, so nothing is called uninstalled on an error.
+pub(super) fn gone(path: &Path) -> bool {
+    matches!(path.try_exists(), Ok(false))
+}
 fn environment_current(environment: &Environment) -> bool {
     read_json::<Environment>(&environment.root.join("environment.json"))
         .is_ok_and(|current| current == *environment)
@@ -176,7 +181,7 @@ pub(super) fn plugin_offers(m: &Manager, class: &str, entry: &Entry, busy: Optio
         Publication::Removed => {
             // Gone from disk (uninstalled): nothing to add back.
             if !matches!(physical, Ok(None)) || !removed_by_musician(m, class, current)
-                || !entry.registration.module.path.try_exists().unwrap_or(false) { return vec![]; }
+                || gone(&entry.registration.module.path) { return vec![]; }
             let unavailable = match &revision {
                 Err(_) => Some("Its prepared bridge files are no longer available. Use Check compatibility to prepare it again."),
                 Ok(revision) if !environment_current(&revision.registration.environment) =>
@@ -215,7 +220,7 @@ pub(super) fn present_removed(m: &Manager, product: &mut ui::Product, entry: &En
     // A failed test that removed it, or an unfinished result or check, keeps
     // its own presentation. A removal followed by a bridge update leaves the
     // inventory historical; that is still a plain removal Add back restores.
-    if !registration.module.path.try_exists().unwrap_or(true) {
+    if gone(&registration.module.path) {
         product.actions.retain(|offer| !matches!(offer.action, ui::Action::PluginAddBackToDaw { .. }));
         product.disposition = "uninstalled".into();
         product.availability = Some(ui::NativeAvailability { available: false, reason: Some(UNINSTALLED.into()) });
@@ -483,7 +488,7 @@ fn describe_daw_state(setup: &mut ui::InstallerSetup, plan: &SetupPlan) {
     let names = |plugins: &[&ui::InstallationPlugin]| plugins.iter().map(|p| p.name.as_str()).collect::<Vec<_>>().join(", ");
     // Plug-ins whose files an uninstaller removed can't be added back.
     let uninstalled = !plan.removed.is_empty() && plan.removed.iter()
-        .all(|retired| !retired.entry.registration.module.path.try_exists().unwrap_or(true));
+        .all(|retired| self::gone(&retired.entry.registration.module.path));
     setup.status = if now.is_empty() && uninstalled {
         "This setup's plug-ins were uninstalled. Delete the setup to remove the rest of its Windows files.".into()
     } else if now.is_empty() {
@@ -567,8 +572,15 @@ pub(super) fn remove_classes_from_daw(m: &Manager, classes: &[String]) -> Result
     for class in classes {
         let key = class.to_uppercase();
         let Some(entry) = m.registry()?.classes.get(&key).cloned() else { continue };
-        let Some(current) = entry.managed_revision.as_ref() else { continue };
         let name = entry.registration.metadata.name.clone();
+        // An older publication without retained revisions is still taken out.
+        let Some(current) = entry.managed_revision.as_ref() else {
+            if entry.publication == Publication::Published {
+                retry_busy(|| m.unpublish(&key)).map_err(|error| plain(&name, error))?;
+                removed.push(name);
+            }
+            continue;
+        };
         let linked = publication::physical(&m.link(&key))?.is_some();
         let result = match entry.publication {
             Publication::Published if linked => retry_busy(|| m.unpublish_exact(&key, current)),
@@ -1020,7 +1032,9 @@ const INSTALLER_SHARED: &str = "This installer was also run in another setup, so
 /// The installer was also run inside another setup that still exists.
 fn installer_used_elsewhere(m: &Manager, installer: &str, own: &std::collections::BTreeSet<String>) -> Result<bool> {
     let deleted = deleted_setup::environments(m)?;
-    Ok(environment_install::records(m)?.into_iter().any(|run| run.installer == installer
+    let set_up_again = onboarding::history_records(m)?.into_iter()
+        .any(|record| record.installer == installer && !own.contains(&record.id));
+    Ok(set_up_again || environment_install::records(m)?.into_iter().any(|run| run.installer == installer
         && !own.contains(&run.environment.id) && !deleted.contains(&run.environment.id)))
 }
 fn plan_registry(m: &Manager, plan: &SetupPlan) -> Result<bool> {
@@ -1051,7 +1065,14 @@ fn finish(m: &Manager, mut record: Tombstone, held: Vec<Option<File>>) -> Result
         remove_windows_files(m, environment)?;
     }
     if record.forget_installer {
-        installer_import::forget(m, &record.installer, &deleted_setup::history_directory(m, &record.environment)?)?;
+        // Checked again here: the same installer may have been set up again
+        // since the deletion started. Then it is kept.
+        let own = record.environments.iter().map(|e| e.id.clone()).collect();
+        if installer_used_elsewhere(m, &record.installer, &own)? {
+            record.forget_installer = false;
+        } else {
+            installer_import::forget(m, &record.installer, &deleted_setup::history_directory(m, &record.environment)?)?;
+        }
     }
     record.state = Deletion::Deleted;
     record.deleted_at = Some(now()?);

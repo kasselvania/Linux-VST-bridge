@@ -42,6 +42,18 @@ class UninstallTests(unittest.TestCase):
                 with self.subTest(spec=spec['uninstall'],image=spec['installer']['path']),self.assertRaises(ValueError):
                     session.uninstall_validate(spec,root)
 
+    def test_a_linked_manager_root_is_accepted_but_no_link_inside_the_prefix(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            real=pathlib.Path(tmp)/'real';real.mkdir()
+            self.tree(real)
+            link=pathlib.Path(tmp)/'link';link.symlink_to(real)
+            drive=link/'compatdata/pfx/drive_c'
+            session.uninstall_validate(spec_for(link,'uninstall_executable',drive/'Program Files/Vendor/unins000.exe'),link)
+            outside=pathlib.Path(tmp)/'outside';outside.mkdir();(outside/'unins000.exe').write_bytes(b'MZ elsewhere')
+            (real/'compatdata/pfx/drive_c/Program Files/Linked').symlink_to(outside)
+            with self.assertRaises(ValueError):
+                session.uninstall_validate(spec_for(link,'uninstall_executable',drive/'Program Files/Linked/unins000.exe'),link)
+
     @unittest.skipUnless(sys.platform.startswith('linux'),'Linux supervisor subreaper')
     def test_owned_loop_launches_the_registered_program_or_exact_msi_removal(self):
         code='{0000000A-1111-2222-3333-44444444444B}'

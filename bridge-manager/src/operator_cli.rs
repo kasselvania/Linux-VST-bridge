@@ -1560,8 +1560,7 @@ fn snapshot_readonly_depth(
     }
     let deleted_setups = setup_removal::project(m, &mut installer_setups, &records, &db,
         &managed_bindings, &class_scope, &mut |operation| onboarding::live(operation))?;
-    let uninstallers = uninstall::project(m, &installer_setups, &records, &db, &managed_bindings, busy,
-        &vendor_applications)?;
+    let uninstallers = uninstall::project(m, &installer_setups, &records, &db, &managed_bindings, busy)?;
     automatic_install::project_revalidation(m,&mut products,&records)?;
     let environment_installers = environment_install::projection(m,&products,busy,onboarding::live)?;
     let recheck = acquire_readback(m, ui::OperatorLock::Registry, id, timeout, waits)?;
@@ -1852,7 +1851,9 @@ fn validate_installer_control_with(m: &Manager, request: &ui::Request,
     require(request.state_token == token(m)?, "operator_stale_request_refresh")?;
     if let ui::Action::EnvironmentInstallerFocus {operation}
         | ui::Action::EnvironmentInstallerStop {operation} = &request.action {
-        environment_install::control(m,operation)?;
+        // The same controls serve an uninstaller run in the setup.
+        if uninstall::owns(m,operation)? { uninstall::control(m,operation)?; }
+        else { environment_install::control(m,operation)?; }
         return require(is_live(operation)?,"installer_control_owner");
     }
     let (id, operation) = installer_control(&request.action)
@@ -2824,9 +2825,11 @@ fn execute_with_receipt_policy_progress(
                 environment_refresh::execute(m,a,owner,capacity_read,timeout,waits)
             } else {Ok(value)}
         }
-        ui::Action::EnvironmentInstallerFocus {operation} => environment_install::focus(m,operation),
+        ui::Action::EnvironmentInstallerFocus {operation} =>
+            if uninstall::owns(m,operation)? { uninstall::focus(m,operation) } else { environment_install::focus(m,operation) },
         ui::Action::EnvironmentInstallerStop {operation} => {
-            let value = environment_install::stop(m,operation)?;
+            let value = if uninstall::owns(m,operation)? { uninstall::stop(m,operation)? }
+                else { environment_install::stop(m,operation)? };
             resume_owned(m,operation)?;
             Ok(value)
         }
@@ -2894,32 +2897,19 @@ fn execute_with_receipt_policy_progress(
             let _environment = m.lock("operator-environment.lock")?;
             let owner = operation.ok_or("operator_operation_identity")?;
             drop(projection.take());
-            let record = uninstall::prepare(m, environment, registration, command_sha256, owner)?;
-            // One action: its plug-ins leave the DAW before anything runs.
-            let classes: Vec<_> = record.affected.iter().map(|a| a.class_id.clone()).collect();
-            let removed = setup_removal::remove_classes_from_daw(m, &classes)?;
             suspend(m, owner, None, timeout, waits)?;
-            let launched = uninstall::launch(m, &record);
-            if launched.is_ok() {
-                write_operation(m, owner, &json!({"schema":2,"operation":owner,"state":"vendor_running","action":a}), false)?;
-                while onboarding::live(owner)? { std::thread::sleep(Duration::from_millis(500)); }
-            }
-            let retired = uninstall::result(m, &record).is_ok_and(|v| onboarding::retired(&v));
-            if launched.is_err() || !retired {
-                uninstall::finish(m, owner)?;
-                let settled = uninstall::result(m, &record).is_ok_and(|v| onboarding::retired(&v));
-                let resumed = if settled { resume_owned(m, owner) } else { Ok(()) };
-                let reason = launched.err().map(|e| e.to_string())
-                    .unwrap_or_else(|| "The uninstaller did not finish closing cleanly.".into());
-                return Err(format!("{reason}{}", if settled && resumed.is_ok() { "" }
-                    else { " Closing it is still unconfirmed; send Setup details before retrying." }).into());
-            }
-            let current = environment_install::current_environment(m, &record.environment)?;
-            let scanned = rescan_environment(m, current);
-            let resumed = resume_owned(m, owner);
-            scanned?;
+            let mut running = || write_operation(m, owner,
+                &json!({"schema":2,"operation":owner,"state":"vendor_running","action":a}), false);
+            let vendor = || vendor_retired(m);
+            let result = uninstall::execute(m, environment, registration, command_sha256, owner, &mut uninstall::Hooks {
+                launch: &uninstall::launch, is_live: &onboarding::live, vendor_retired: &vendor,
+                running: &mut running, rescan: &rescan_environment });
+            // The bridge resumes once nothing of this uninstaller can still run;
+            // otherwise the setup's card offers Stop uninstaller.
+            let resumed = if uninstall::settled(m, owner)? { resume_owned(m, owner) } else { Ok(()) };
+            let value = result?;
             resumed?;
-            Ok(uninstall::outcome(&record, &removed))
+            Ok(value)
         }
         ui::Action::CaptureArm { class_id } => {
             crash_capture::arm(m, Some(class_id))?;
@@ -3798,7 +3788,11 @@ fn retry_quarantined_module(m: &Manager, environment: &str, scan: &str,
     }))
 }
 fn rescan_environment(m: &Manager, env: Environment) -> Result<Value> {
-    rescan_environment_with_retry(m, env, None)
+    let id = env.id.clone();
+    let value = rescan_environment_with_retry(m, env, None)?;
+    // Keep the overview's uninstall index current; never needed for correctness.
+    let _ = uninstall::refresh_index(m, &id);
+    Ok(value)
 }
 fn reusable_quarantine<'a>(prior: Option<&'a inventory::Scan>, env: &Environment,
     host: &Artifact, host_source_sha256: &str, module: &Artifact)

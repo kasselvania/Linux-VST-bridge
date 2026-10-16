@@ -316,6 +316,18 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
             actions.push(action("Finish interrupted runtime change",ui::Action::TransactionReconcile {},new_work_reason));
             Some("Finish the interrupted runtime change before running another installer in this setup.".into())
         } else {new_work_reason.map(str::to_owned)};
+        // An uninstaller run that is still open, or never shown closed, keeps
+        // the bridge paused; its own controls lead this card.
+        if let Some(operation) = uninstall::unresolved(m,&id,&mut is_live)? {
+            let live = is_live(&operation)?;
+            reason = Some(if live { "An uninstaller is running in this setup. Follow its window to finish, or stop it.".into() }
+                else { uninstall::UNCONFIRMED_CLOSE.into() });
+            if live {
+                actions.push(action("Focus uninstaller",ui::Action::EnvironmentInstallerFocus {
+                    operation:operation.clone()},None));
+                actions.push(action("Stop uninstaller",ui::Action::EnvironmentInstallerStop {operation},None));
+            }
+        }
         if let Some(r) = last {
             if active.is_some() {
                 reason = Some("Finish or stop this installer; its cleanup must be confirmed".into());

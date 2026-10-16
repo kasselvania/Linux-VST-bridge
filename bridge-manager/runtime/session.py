@@ -2798,9 +2798,11 @@ def uninstall_validate(spec, root):
         raise ValueError('uninstall_arguments')
     image=pathlib.Path(spec['installer']['path'])
     if spec['format']=='uninstall_executable':
-        drive=(root/'compatdata/pfx/drive_c').resolve()
-        if u['product_code'] is not None or image.resolve()!=image or drive not in image.parents:raise ValueError('uninstall_image')
-        relative=image.relative_to(drive).parts
+        unresolved=root/'compatdata/pfx/drive_c';drive=unresolved.resolve()
+        try:relative=image.relative_to(unresolved).parts
+        except ValueError:raise ValueError('uninstall_image') from None
+        # The manager root may be reached through a link; nothing inside the prefix may be.
+        if u['product_code'] is not None or not relative or image.resolve()!=drive.joinpath(*relative):raise ValueError('uninstall_image')
         if relative[0].lower()=='windows' or image.suffix.lower()!='.exe':raise ValueError('uninstall_image')
     else:
         msiexec=pathlib.Path(spec['environment']['runner']['proton']).parent/'files/lib/wine/x86_64-windows/msiexec.exe'

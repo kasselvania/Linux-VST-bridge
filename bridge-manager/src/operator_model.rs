@@ -541,7 +541,8 @@ pub struct Uninstaller {
     pub affected: Vec<String>,
     pub affected_classes: Vec<String>,
     /// "installed_with_this" when the setup's own installation records show
-    /// which plug-ins it installed; "unknown" when they cannot; "vendor_app".
+    /// which plug-ins it installed; "unknown" when they cannot, and then
+    /// every plug-in of the setup is affected.
     pub coverage: String,
     pub action: AvailableAction,
 }

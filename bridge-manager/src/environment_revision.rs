@@ -61,11 +61,13 @@ pub fn require_owned_revision(m: &Manager, bound: &Environment,
         let runtime=runtime_records(m)?;
         let vendor=vendor_records(m)?;
         let renderer=renderer_records(m)?;
+        let uninstall=uninstall_records(m)?;
         let edges:Vec<_>=history.iter().map(|r|(&r.before,&r.environment))
             .chain(runtime.iter().filter(|r|r.state != RuntimeState::Cancelled)
                 .map(|r|(&r.before,&r.environment)))
             .chain(vendor.iter().map(|r|(&r.before,&r.environment)))
-            .chain(renderer.iter().map(|r|(&r.before,&r.environment))).collect();
+            .chain(renderer.iter().map(|r|(&r.before,&r.environment)))
+            .chain(uninstall.iter().map(|r|(&r.before,&r.environment))).collect();
         let mut step=bound.clone();
         for _ in 0..edges.len() {
             if step == *target {break;}
@@ -149,6 +151,39 @@ pub fn vendor_records(m:&Manager)->Result<Vec<VendorBinding>> {
         require(n<4096,"operator_vendor_history_bound")?;
         let path=entry?.path();let Some(id)=path.file_name().and_then(|s|s.to_str())else{continue};
         if valid_hex(id,32) && path.join("vendor-maintenance.json").exists(){records.push(vendor_record(m,id)?);}
+    }
+    Ok(records)
+}
+
+/// A setup's own uninstaller changes its prefix. Its accepted operator job owns
+/// that revision edge exactly like an installer run; it grants no launch authority.
+#[derive(Clone,Debug,Serialize,Deserialize,PartialEq,Eq)]
+#[serde(deny_unknown_fields)]
+pub struct UninstallBinding {
+    pub schema:u32, pub operation:String, pub registration:String,
+    pub before:Environment, pub environment:Environment,
+}
+pub const UNINSTALL_REVISION: &str = "uninstall-revision.json";
+pub fn uninstall_record(m:&Manager,operation:&str)->Result<UninstallBinding> {
+    let directory=operator_dir(m,operation)?;
+    let r:UninstallBinding=read_json(&directory.join(UNINSTALL_REVISION))?;
+    let request:operator_model::Request=read_json(&directory.join("request.json"))?;
+    require(r.schema==1 && r.operation==operation && valid_hex(&r.registration,64)
+        && matches!(&request.action,operator_model::Action::ProductUninstall{environment,registration,..}
+            if *environment==r.environment.id && *registration==r.registration)
+        && same_space(&r.before,&r.environment) && r.before.runner==r.environment.runner
+        && r.before.revision.checked_add(1)==Some(r.environment.revision)
+        && r.environment.root==m.root.join("environments").join(&r.environment.id)
+        && valid_environment_id(&r.environment.id),"uninstall_environment_transaction_binding")?;
+    Ok(r)
+}
+pub fn uninstall_records(m:&Manager)->Result<Vec<UninstallBinding>> {
+    let root=m.root.join("operator");if !root.try_exists()?{return Ok(vec![])}
+    let mut records=vec![];
+    for (n,entry) in fs::read_dir(root)?.enumerate() {
+        require(n<4096,"operator_uninstall_history_bound")?;
+        let path=entry?.path();let Some(id)=path.file_name().and_then(|s|s.to_str())else{continue};
+        if valid_hex(id,32) && path.join(UNINSTALL_REVISION).try_exists()?{records.push(uninstall_record(m,id)?);}
     }
     Ok(records)
 }

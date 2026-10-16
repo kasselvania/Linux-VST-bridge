@@ -385,15 +385,15 @@ impl Library {
                             ui.label(consequence);
                         }
                         action_buttons(ui, &current, snapshot.system.inactive_reason(), pending, chosen);
-                        // Uninstall through the plug-in's own setup, or its vendor app.
+                        // Uninstall through the plug-in's own setup.
                         for uninstaller in snapshot.uninstallers.iter().filter(|u| u.environment == p.environment
                             && u.affected_classes.iter().any(|class| class.eq_ignore_ascii_case(&p.class_id))) {
                             action_buttons(ui, std::slice::from_ref(&uninstaller.action),
                                 snapshot.system.inactive_reason(), pending, chosen);
-                            ui.small(if uninstaller.coverage == "vendor_app" {
-                                format!("{} manages this plug-in; uninstall it there.", uninstaller.name)
-                            } else {
+                            ui.small(if uninstaller.coverage == "installed_with_this" {
                                 format!("Takes it out of your DAW, then runs {}'s own uninstaller.", uninstaller.name)
+                            } else {
+                                format!("Takes every plug-in of this setup out of your DAW, then runs {}'s own uninstaller.", uninstaller.name)
                             });
                         }
                         compatibility_settings(ui, p, snapshot.system.inactive_reason(), pending,

@@ -2892,7 +2892,11 @@ impl eframe::App for Operator {
                     other => other,
                 });
             }
-            else if cancel { self.removal_form = None; }
+            else if cancel {
+                // A cancelled confirmation forgets the musician's unsent choice.
+                ui.ctx().data_mut(|d| d.remove::<bool>(forget_id));
+                self.removal_form = None;
+            }
         }
         let result_offer = self.product_form.as_ref().and_then(|form| {
             let Action::CompatibilityResult { candidate, expected_current, .. } = form else { return None };
@@ -3129,10 +3133,13 @@ fn removal_confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirm
             let uninstaller = snapshot.uninstallers.iter().find(|u| u.action.action == offered);
             let name = uninstaller.map_or("this software", |u| u.name.as_str());
             let mut body = vec![format!("This runs {name}'s own uninstaller in its setup. Follow its window to finish.")];
+            if uninstaller.is_some_and(|u| u.coverage != "installed_with_this") {
+                body.push("The manager can't tell exactly what this removes: it was installed together with other software, or what it installed wasn't fully recorded. It might be a shared part, such as a runtime or a licence manager, that other software in this setup needs. Uninstall it only if you're sure.".into());
+            }
             if let Some(u) = uninstaller.filter(|u| !u.affected.is_empty()) {
+                let one = u.affected.len() == 1;
                 body.push(format!("First, {} will be removed from your DAW. Projects that use {} will open with {} missing.",
-                    u.affected.join(", "), if u.affected.len() == 1 { "it" } else { "them" },
-                    if u.affected.len() == 1 { "it" } else { "them" }));
+                    u.affected.join(", "), if one { "it" } else { "them" }, if one { "it" } else { "them" }));
             }
             body.push("The uninstaller may also remove licences or settings it stored there. Your projects are not changed.".into());
             Confirmation { title: "Uninstall?", body, confirm: "Uninstall", cancel: "Cancel",

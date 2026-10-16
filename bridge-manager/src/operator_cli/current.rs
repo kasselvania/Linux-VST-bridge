@@ -522,7 +522,7 @@ pub(super) fn current_products(m: &Manager, db: &Registry, sw: &Software,
         let removed_by_choice = entry.publication == Publication::Removed && publication_valid
             && entry.managed_revision.as_ref().is_some_and(|publication|
                 setup_removal::removed_by_musician(m, class, publication));
-        let uninstalled = removed_by_choice && !r.module.path.try_exists().unwrap_or(true);
+        let uninstalled = removed_by_choice && setup_removal::gone(&r.module.path);
         let current_valid = module_valid && environment_valid && runner_valid && performance_valid
             && native_valid && host_valid && publication_valid && publication_selected;
         let profile = loaded.map(|revision| &revision.profile);
@@ -710,7 +710,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
             Ok(record.installation_operation.is_none()
                 || onboarding::retired(&onboarding::result(m, record)?))
         })?;
-    let retired = vendor && installers_retired && environment_install::all_retired(m)?;
+    let retired = vendor && installers_retired && environment_install::all_retired(m)? && uninstall::all_retired(m)?;
     let owner_at = Instant::now(); phases.push(("current_owners",owner_at.duration_since(product_at).as_millis()));
     let installers = installer_import::list_identity_records(m)?;
     let record_at = Instant::now(); phases.push(("setup_records",record_at.duration_since(owner_at).as_millis()));
@@ -812,8 +812,9 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     if let Some(app)=renderer_projection(m,busy,vendor.then_some(true),Some(&mut installer_setups))? {
         vendor_applications.push(app);
     }
-    let uninstallers=uninstall::project(m,&installer_setups,&records,&db,&managed_bindings,busy,&vendor_applications)?;
     let workspace_at = Instant::now(); phases.push(("workspace_and_cards",workspace_at.duration_since(joined_at).as_millis()));
+    let uninstallers=uninstall::project(m,&installer_setups,&records,&db,&managed_bindings,busy)?;
+    phases.push(("uninstallers",workspace_at.elapsed().as_millis()));
     #[cfg(feature = "pb0-c0-audit")]
     eprintln!("PB0_PHASE {}", serde_json::to_string(&phases)?);
     #[cfg(not(feature = "pb0-c0-audit"))]
