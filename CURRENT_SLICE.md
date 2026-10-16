@@ -1,40 +1,40 @@
-# Current slice — recover one shared compatibility runtime
+# Current slice — common runtime recovery (#430)
 
-Goal: recover the proven runtime recipes into Git and deliver one coherent,
-qualified compatibility component set through the normal bridge release.
-The old issue queue is paused; this first slice is runtime recovery, not a UI rewrite.
+Goal: one Git-rebuildable common runtime reaches ordinary delivery and combined
+real-case qualification. This is the sole implementation slice; the old issue
+queue, new UI and control-plane implementation remain frozen.
 
-Best explanation: confirmed runtime fragmentation separates working maintainer
-setups from what testers receive. Different component compositions and local
-recipe paths hide fixes from normal delivery. The live provenance/recovery task
-is [#430](https://github.com/kasselvania/Linux-VST-bridge/issues/430); its inventory owns the roster.
-Recover the full DComp build/composition recipe and Steamuser policy patch;
-BG1 D3D11 coherence source and launcher/content derivation recipe; and WebView2
-acquisition/distribution basis. UIA/MSI/touch/certificate recipes already exist.
+Best explanation: successful maintainer corrections diverged from tester delivery
+through separate runtime compositions and machine-local construction. Recover
+capabilities into one release, not more plug-in/campaign production pathways.
 
-Boundary: an existing other-system backup is active; restoration is unverified.
-Preserve it and the working Deck. No wipe, licensed-state migration or runtime
-replacement is part of the governing-docs increment.
+Known basis: PR439 recovered exact DComp/BG1 patches and launcher-template inputs
+with source checks under tools/runtime-dcomp/. A fresh runtime build is not proven.
+Complete pinned Proton composition/acquisition and WebView2 provenance/distribution
+obligations remain gaps. UIA/MSI/touch/certificate recipes exist but are not one set.
+Live inventory and implementation ownership: [#430](https://github.com/kasselvania/Linux-VST-bridge/issues/430).
+
+Boundary: preserve the working Deck and existing other-system backup; restoration
+is unverified. No wipe, licensed-state migration, private payload import or silent
+setup/runtime switch. Experiments use disposable fixtures and declared limits.
 
 Next changes:
-1. The #430 recovery owner imports the missing original patches/recipes and their
-   provenance into Git, without private vendor data or builds on working machines.
-2. Choose the Proton/GE base by combined tests. Build one common engine/component
-   set with installer, crash-guard, graphics, touch and certificate corrections;
-   typed configuration selects supported paths within that same set.
-3. Deliver through runtime acquisition and a numbered package. Retain exact old
-   release/setup bindings for continuity/rollback; do not hide vendor engine forks
-   inside one archive or silently switch licensed environments.
-4. Qualify combined corrections and baseline behavior on disposable CachyOS and
-   SteamOS fixtures, then plan explicit adoption for preserved working setups.
+1. Finish pinned input/acquisition/licensing basis and the clean common recipe.
+   Choose Proton/GE by combined tests; no prebuilt DLL mixing across Wine bases.
+2. Build one coherent engine/component set including recovered common corrections,
+   with pinned source/toolchain, patch/composition inputs and verified output identity.
+3. Deliver that exact set through ordinary acquisition and a numbered package.
+   New work uses it; predecessors retain exact continuity/rollback bindings.
+4. Exercise combined patch cases and baseline install/play/state/editor/service
+   behavior through actual native DAWs on clean CachyOS and SteamOS fixtures.
 
-Source acceptance: recover original DComp/BG1 patches and recipe inputs, verify
-provenance, and pass apply/template checks. Common build/delivery is later:
-tools/runtime/ → bridge-manager/src/runtime_delivery.rs; old experimental routes migrate.
+Source recovery is complete only for recovered/checked inputs; it is not a build,
+installed result or qualification claim. A future common tools/runtime/ entry
+feeds ordinary runtime delivery, not per-plug-in experimental selection.
 
-Recovery delivered: a clean Git recipe builds the common set; normal acquisition and
-installation use it; real patch cases plus baseline plug-ins install, play,
-save/reopen and survive restart, update and rollback in actual DAWs on both target
-fixtures. Preserve class/automation/content identity and licensed state. Record
-actual support and failures in the existing matrix/classes; no per-run report.
-Profile/status/storage/audio/platform ownership remains a separate review proposal.
+Done: clean Git build → normal acquisition/install/discovery/publication → combined
+real cases. Play and save/reopen through full DAW exit, restart/reboot, update and
+rollback; preserve class/automation/content identity and licensed state. Record
+actual support/failures in existing matrix/classes, with no new campaign ledger.
+Later API/config read-only correspondence precedes write authority, supervisor
+narrowing, UI and explicit migration. Unresolved semantics require a decision first.
