@@ -343,6 +343,7 @@ tresult PLUGIN_API Processor::connect(IConnectionPoint *peer) {
   return result;
 }
 void Processor::holdState(std::vector<uint8_t> &&blob) {
+  if(lvbTrace())std::fprintf(stderr,"LVBDIAG hold bytes=%zu\n",blob.size());
   held_state_ = std::move(blob);
   state_held_ = true;
   announceHeldState();
@@ -360,7 +361,11 @@ void Processor::announceHeldState() {
     m->release();
   }
 }
+namespace { bool lvbTrace(){static const bool on=std::getenv("LVB_STATE_TRACE")!=nullptr;return on;}
+bool lvbProbeEmpty(){static const bool on=std::getenv("LVB_STATE_PROBE_EMPTY")!=nullptr;return on;} }
 tresult PLUGIN_API Processor::getState(IBStream *stream) {
+  if(lvbTrace())std::fprintf(stderr,"LVBDIAG getState phase=%d handle=%llu owner=%d held=%d size=%zu\n",int(phase_.load()),(unsigned long long)handle_,int(owner_==std::this_thread::get_id()),int(state_held_),held_state_.size());
+  if(lvbProbeEmpty()&&!state_held_&&!handle_&&phase_==Failed&&stream){if(lvbTrace())std::fprintf(stderr,"LVBDIAG getState empty-probe ok\n");return kResultOk;}
   if (!preview_)
     return kNotImplemented;
   // This instance never applied the host's state: return those exact bytes.
@@ -418,6 +423,7 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
   }
 }
 tresult PLUGIN_API Processor::setState(IBStream *stream) {
+  if(lvbTrace())std::fprintf(stderr,"LVBDIAG setState phase=%d handle=%llu owner=%d held=%d\n",int(phase_.load()),(unsigned long long)handle_,int(owner_==std::this_thread::get_id()),int(state_held_));
   if (!preview_)
     return kNotImplemented;
   // No bridge session was ever admitted, so this state cannot be applied.
