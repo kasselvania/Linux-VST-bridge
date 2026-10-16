@@ -227,20 +227,32 @@ pub(super) fn empty_bootstrap_handoff_record(m: &Manager, record: &onboarding::R
 fn bootstrap_handoff_application(m: &Manager, record: &onboarding::Record,
     intent: &Intent, application: &str) -> Result<Option<vendor_application::Application>> {
     if !bootstrap_handoff_ready(m,record,intent)? {return Ok(None);}
-    let installation = onboarding::result(m, record)?;
-    let (installation,installer,receipt)=if let Some(replacement)=environment_install::latest(m,&record.id)? {
-        (environment_install::result(m,&replacement)?,replacement.installer,
-            job_dir(m,&replacement.operation)?.join("installation-result.json"))
-    } else {
-        (installation,record.installer.clone(),onboarding::directory(m,&record.id)?.join(format!("{}-result.json",
-            record.installation_operation.as_deref().ok_or("vendor_application_installation_missing")?)))
-    };
+    let (installation,installer,receipt)=handoff_installation(m,record)?;
     if installation["state"] != "completed" || installation["raw_exit"] != 0
         || !onboarding::retired(&installation) { return Ok(None); }
     let app = vendor_cli::application(m, application)?;
     if app.environment != record.environment || app.installer_sha256.as_deref() != Some(installer.as_str())
         || app.installer_result.as_ref().unwrap().path != receipt { return Ok(None); }
     Ok(Some(app))
+}
+
+/// The installer run whose result the app handoff continues: a later installer
+/// chosen for this setup, otherwise the setup's own installation.
+fn handoff_installation(m:&Manager,record:&onboarding::Record)->Result<(Value,String,PathBuf)> {
+    let installation = onboarding::result(m, record)?;
+    Ok(if let Some(replacement)=environment_install::latest(m,&record.id)? {
+        (environment_install::result(m,&replacement)?,replacement.installer,
+            job_dir(m,&replacement.operation)?.join("installation-result.json"))
+    } else {
+        (installation,record.installer.clone(),onboarding::directory(m,&record.id)?.join(format!("{}-result.json",
+            record.installation_operation.as_deref().ok_or("vendor_application_installation_missing")?)))
+    })
+}
+
+/// The installer started the app by itself and the supervisor closed that copy
+/// so its first start is the managed one that prepares its background service.
+fn installer_closed_started_app(installation:&Value)->bool {
+    installation["started_application"]["result"]=="closed_for_managed_first_launch"
 }
 
 fn bootstrap_handoff_ready(m:&Manager,record:&onboarding::Record,intent:&Intent)->Result<bool> {
@@ -308,13 +320,20 @@ fn project_handoff(m: &Manager, record: &onboarding::Record, intent: &Intent,
         journey.failure = None;
     }
     setup.journey = Some(journey.clone());
+    let closed_started = journey.phase == ui::InstallationPhase::AwaitingApplication
+        && handoff_installation(m, record).is_ok_and(|(installation,..)|installer_closed_started_app(&installation));
     setup.status = match journey.phase {
-        ui::InstallationPhase::AwaitingApplication => "The app is installed. Open it to install your instruments and effects.",
-        ui::InstallationPhase::Available if journey.plugins.is_empty() => "The app visit finished. No plug-ins were added.",
-        ui::InstallationPhase::Available => "Installed plug-ins are available through the native DAW connection.",
-        ui::InstallationPhase::NeedsAttention => "The app task needs attention; its files and results are retained.",
-        _ => "Continue in the app; installed plug-ins are connected automatically.",
-    }.into();
+        ui::InstallationPhase::AwaitingApplication if closed_started => {
+            let name = choices.first().filter(|_|choices.len() == 1).map_or("the app", |app|app.name.as_str());
+            format!("Installed. Its installer opened {name} before its background service was ready, so the \
+                bridge closed that copy. Open {name} here: the bridge sets up the service first.")
+        },
+        ui::InstallationPhase::AwaitingApplication => "The app is installed. Open it to install your instruments and effects.".into(),
+        ui::InstallationPhase::Available if journey.plugins.is_empty() => "The app visit finished. No plug-ins were added.".into(),
+        ui::InstallationPhase::Available => "Installed plug-ins are available through the native DAW connection.".into(),
+        ui::InstallationPhase::NeedsAttention => "The app task needs attention; its files and results are retained.".into(),
+        _ => "Continue in the app; installed plug-ins are connected automatically.".into(),
+    };
     setup.primary = None;
     setup.secondary.clear();
     if journey.phase != ui::InstallationPhase::Available {
@@ -1144,6 +1163,13 @@ fn reserve_vendor_revision(m:&Manager,record:&dyn InstallationTarget,intent:&Int
     drop(_registry);drop(_ownership);
     Ok(binding.environment)
 }
+/// A profile-managed session explains its own refusal in plain words (for
+/// example another Wine setup holding the app's service); the card shows that.
+fn vendor_failure_reason(result: Option<vendor_application::OperationResult>) -> String {
+    result.filter(|result| result.schema == 3 && result.error_code.is_some())
+        .and_then(|result| result.error)
+        .unwrap_or_else(|| "The application session stopped or failed. Its files and results are retained.".into())
+}
 fn require_vendor_success(m: &Manager, vendor: &VendorWork) -> Result<()> {
     vendor.selected.verify()?;
     require(
@@ -1225,8 +1251,8 @@ fn run_vendor(
         intent.journey.phase = ui::InstallationPhase::NeedsAttention;
         let mut failed = failure(ui::InstallationFailureStage::VendorInstallation, &error);
         failed.retryable = false;
-        failed.reason =
-            "The application session stopped or failed. Its files and results are retained.".into();
+        let vendor = intent.vendor.as_ref().unwrap();
+        failed.reason = vendor_failure_reason(vendor_cli::result(m, &vendor.application, &vendor.operation).ok());
         intent.journey.failure = Some(failed);
         save(m, record, intent, operation)?;
         return Err(error);
@@ -2780,6 +2806,58 @@ mod tests {
         assert_eq!(fs::read(path).unwrap(),original);
     }
     #[test]
+    fn a_managed_sessions_own_plain_refusal_reaches_the_card() {
+        let result=|schema:u32,code:Option<&str>,error:Option<&str>|serde_json::from_value::<vendor_application::OperationResult>(
+            json!({"schema":schema,"operation_id":"ab".repeat(16),"state":"failed","launcher_exit":null,"owned_live":0,
+                "cleanup_confirmed":true,"error":error,"error_code":code,"discarded_diagnostic_bytes":0,"account_posture":"unknown"})).unwrap();
+        // Each supervisor sentence reaches the card as written, whatever its cause.
+        for (code,plain) in [
+            ("dependency_listener_conflict","Another program is using the connection this app's background service needs (usually another Wine setup's copy of it). Close it, for example a DAW with plug-ins loaded through another bridge, then try again."),
+            ("dependency_foreign_conflict","Another copy of this app's background service is already running from a different Wine setup. Close the program using it, for example a DAW with plug-ins loaded through another bridge, then try again."),
+            ("dependency_runtime_launch_failed","The compatibility runtime could not start this app. Update the bridge, then try again."),
+            ("renderer_image_changed","The app's recorded files changed or are incomplete. Run its full installer in this setup again."),
+        ] {
+            assert_eq!(vendor_failure_reason(Some(result(3,Some(code),Some(plain)))),plain,"{code}");
+        }
+        let generic="The application session stopped or failed. Its files and results are retained.";
+        assert_eq!(vendor_failure_reason(Some(result(3,None,Some("raw")))),generic);
+        assert_eq!(vendor_failure_reason(Some(result(2,Some("x"),Some("raw")))),generic);
+        assert_eq!(vendor_failure_reason(None),generic);
+    }
+    #[test]
+    fn app_handoff_explains_the_copy_its_installer_opened_and_the_supervisor_closed() {
+        let (f,mut record,_)=vendor_cli::selection::tests::installed_app();
+        let intent=initial_intent(&record);record.automatic=Some(intent);
+        atomic_json(&onboarding::directory(&f.m,&record.id).unwrap().join("record.json"),&record).unwrap();
+        let units=vendor_cli::selection::choices(&f.m,&record).unwrap().iter()
+            .map(|c|vendor_cli::unit(&c.application.selector().unwrap()).unwrap()).collect::<Vec<_>>();
+        let project=|| {
+            let mut setup=installer_setup(&record);
+            readiness::with_unit_state_fixture(&units,"inactive",||project_from_with(&f.m,
+                std::slice::from_mut(&mut setup),None,std::slice::from_ref(&record),&mut |_|Ok(false))).unwrap();
+            setup
+        };
+        let ordinary=project();
+        assert_eq!(ordinary.status,"The app is installed. Open it to install your instruments and effects.");
+        let report=onboarding::directory(&f.m,&record.id).unwrap()
+            .join(format!("{}-result.json",record.installation_operation.as_deref().unwrap()));
+        let mut installation:Value=read_json(&report).unwrap();
+        installation["started_application"]=json!({"schema":1,"result":"closed_for_managed_first_launch",
+            "profiles":["fixture_app"],"images":["Program Files/Vendor/Main.exe"],"signalled_processes":5});
+        atomic_json(&report,&installation).unwrap();
+        let closed=project();
+        assert_eq!(closed.journey.as_ref().unwrap().phase,ui::InstallationPhase::AwaitingApplication);
+        assert_eq!(closed.status,"Installed. Its installer opened the app before its background service was ready, \
+            so the bridge closed that copy. Open the app here: the bridge sets up the service first.");
+        // The same Open offers stay (their selectors bind the rewritten result).
+        let offers=|setup:&ui::InstallerSetup|setup.primary.iter().chain(&setup.secondary)
+            .map(|offer|(offer.label.clone(),offer.disabled_reason.clone())).collect::<Vec<_>>();
+        assert_eq!(offers(&closed),offers(&ordinary));
+        assert!(offers(&closed).iter().any(|(label,reason)|label.starts_with("Open ") && reason.is_none()));
+        assert!(installer_closed_started_app(&installation));
+        assert!(!installer_closed_started_app(&json!({"started_application":null})));
+    }
+    #[test]
     fn empty_without_an_app_and_unrelated_failure_do_not_become_a_handoff() {
         let (f,mut record,transaction)=vendor_cli::selection::tests::installed_app();
         record.automatic=Some(initial_intent(&record));
@@ -3607,6 +3685,7 @@ mod tests {
             environment_install::reserve(&f.m,&record.id,&selected.id,&first)).unwrap();
         assert_eq!(binding.automatic_request.as_ref().unwrap().path,job_dir(&f.m,&intent.owner).unwrap().join("request.json"));
         let spec=environment_install::launch_input(&f.m,&binding).unwrap();
+        assert_eq!(spec["managed_first_launch"],linux_vst_bridge::vendor_profile::installer_first_launch().unwrap());
         if let Some(policy)=policy {
             assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],serde_json::to_value(policy).unwrap());
         } else {assert_eq!(spec["schema"],2);assert!(spec.get("installer_capability").is_none());}

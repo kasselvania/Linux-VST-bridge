@@ -2526,6 +2526,24 @@ class InstallerWindowsTrace:
             self.retire(pid)
             return True
         return True # exclude other process lines/arguments from private log projection
+    def root_success(self):
+        """The installer's own root process ended by itself with status 0:
+        its traced start and exit times (Wine timestamps, seconds), else None.
+
+        The runner (and its container) can outlive the installer while anything
+        the installer started keeps running, so its exit is not this signal.
+        """
+        if self.binding is not None and self.binding['status']!='bound':return None
+        roots=[row for row in self.rows if row['target_root'] and row['epoch']==self.epoch]
+        if len(roots)!=1:return None
+        root=roots[0]
+        if root['self_exit'] is None or root['self_exit']['status']!=0 or root.get('exit_conflict'):return None
+        def seconds(value):
+            try:return float(value)
+            except (TypeError,ValueError):return None
+        ended=seconds(root['self_exit'].get('timestamp'))
+        return None if ended is None else {'started':seconds(root.get('created_timestamp')),'ended':ended}
+    def root_succeeded(self):return self.root_success() is not None
     def value(self):return {'schema':1,'processes':self.rows,'dropped_observations':self.dropped,'first_failure':self.first_failure,'service_results':self.service_results,'launch_binding':self.binding,'presence_close':self.presence.value()}
 
 class InstallerTransaction:
@@ -2810,6 +2828,151 @@ def uninstall_validate(spec, root):
             raise ValueError('uninstall_product_code')
     return u
 
+FIRST_LAUNCH_PROFILE=re.compile('[a-z0-9_]{1,64}')
+def installer_first_launch_profiles(spec):
+    """Profiled applications that must first start through their managed launch.
+
+    Manager-built data from bundled vendor profiles: the application's file
+    name and the resources beside it. A profile's dependency is prepared only
+    by that managed launch, so a copy an installer starts by itself (an
+    installer's "launch after install") runs without it. Absent means none.
+    """
+    value=spec.get('managed_first_launch',[])
+    if not isinstance(value,list) or len(value)>8:raise ValueError('installer_first_launch_profiles')
+    profiles=[]
+    for entry in value:
+        if not isinstance(entry,dict) or set(entry)!={'profile','executable','resources'}:raise ValueError('installer_first_launch_profile')
+        name,resources=entry['executable'],entry['resources']
+        if (not isinstance(entry['profile'],str) or not FIRST_LAUNCH_PROFILE.fullmatch(entry['profile'])
+            or not isinstance(name,str) or not 4<len(name)<=128 or not name.lower().endswith('.exe')
+            or '/' in name or '\\' in name or '\0' in name or name.strip()!=name
+            or not isinstance(resources,list) or not 1<=len(resources)<=32):raise ValueError('installer_first_launch_profile')
+        for resource in resources:
+            if (not isinstance(resource,str) or not 0<len(resource)<=256 or resource.startswith('/') or '\\' in resource
+                or '\0' in resource or any(part in ('','.','..') for part in resource.split('/'))):raise ValueError('installer_first_launch_resource')
+        profiles.append({'profile':entry['profile'],'executable':name,'resources':list(resources)})
+    return profiles
+
+def mapped_file_identity(path):
+    """The (major, minor, inode) /proc/PID/maps reports for this exact file.
+
+    stat() and maps disagree on the device of files on Btrfs subvolumes (the
+    CachyOS default: stat 0:35, maps 00:21 for the same file), so map one page
+    of the opened file here and read back how the kernel names that mapping.
+    """
+    import mmap
+    with open(path,'rb') as f:
+        st=os.fstat(f.fileno())
+        if not stat.S_ISREG(st.st_mode) or st.st_size<=0:return None
+        mapping=mmap.mmap(f.fileno(),min(st.st_size,mmap.PAGESIZE),access=mmap.ACCESS_READ)
+        try:
+            with open('/proc/self/maps','rb') as maps:raw=maps.read(4*1024*1024)
+        finally:mapping.close()
+    name=os.fsencode(str(path))
+    found={(int(major,16),int(minor,16),st.st_ino) for parts in (line.split(None,5) for line in raw.splitlines())
+        if len(parts)==6 and parts[4]==str(st.st_ino).encode() and parts[5]==name
+        for major,minor in [parts[3].split(b':')]}
+    return found.pop() if len(found)==1 else None
+
+FIRST_LAUNCH_WINDOW_SECONDS=60
+def installer_started_profiled_images(trace,profiles,window=FIRST_LAUNCH_WINDOW_SECONDS):
+    """Still-running traced processes whose image is a profiled application here,
+    started by this installer near its successful end.
+
+    Only once the installer's own root has exited 0, and only a copy started
+    after the installer itself and at most `window` seconds before it exited;
+    an older copy is left alone and the session waits for it as before. The
+    file found at the launch request, inside this prefix, must be a regular
+    file with every profile resource beside it. The result is keyed by that
+    file's identity; processes are joined in installer_retire_profiled.
+    """
+    run=trace.root_success()
+    if not profiles or run is None:return {}
+    drive=trace.root/'compatdata/pfx/drive_c';found={};seen=set()
+    try:real_drive=drive.resolve(strict=True)
+    except OSError:return {}
+    # Signals reach every owned process running the file, so the window holds
+    # for the file: one still-running launch of it outside the window (an older
+    # copy, whose same-file helpers may start inside it) leaves the file alone.
+    launches={}
+    for row in trace.rows:
+        if row.get('self_exit') is not None or row.get('target_root'):continue
+        path=trace.path(row.get('image_request'))
+        if path is None or not path.is_relative_to(drive):continue
+        try:created=float(row.get('created_timestamp'))
+        except (TypeError,ValueError):created=None
+        inside=created is not None and not ((run['started'] is not None and created<run['started']) or created<run['ended']-window)
+        launches.setdefault(str(path).casefold(),[path,True])[1]&=inside
+    for path,inside in launches.values():
+        if not inside or path in seen:continue
+        seen.add(path)
+        for profile in profiles:
+            if path.name.casefold()!=profile['executable'].casefold():continue
+            try:
+                # A home reached through a symlink (/home -> /var/home) is fine;
+                # the app and its resources themselves must be plain files here.
+                real=path.resolve(strict=True)
+                if not real.is_relative_to(real_drive) or not stat.S_ISREG(path.lstat().st_mode):continue
+                if not all(stat.S_ISREG((path.parent/r).lstat().st_mode) for r in profile['resources']):continue
+                st=path.stat()
+            except OSError:continue
+            try:mapped=mapped_file_identity(real)
+            except (OSError,ValueError):mapped=None
+            relative=path.relative_to(drive).as_posix()
+            value={'profile':profile['profile'],'image':relative,'executable':path.name,
+                'suffix':os.fsencode('/drive_c/'+relative)}
+            found[(os.major(st.st_dev),os.minor(st.st_dev),st.st_ino)]=value
+            if mapped is not None:found[mapped]=value
+    return found
+
+def installer_profiled_member(scope,row,images):
+    """True when this member runs a profiled app's file as its own program.
+
+    On Btrfs the maps device is filesystem-wide and inode numbers repeat across
+    subvolumes, and other programs map an executable as data (icons, menus,
+    signatures). So the mapping must name the app's own file (device, inode and
+    its path inside the prefix) and the process's program must be that file;
+    under Wine the program name is the first command-line field. Only that
+    field is compared; the rest of the command line is never kept.
+    """
+    import ownership
+    proc=scope.proc_root/str(row['pid'])
+    try:raw=ownership.bounded(proc/'maps','maps')
+    except (OSError,ValueError):return False
+    candidates=set()
+    for line in raw.splitlines():
+        parts=line.split(None,5)
+        if len(parts)<6:continue
+        try:
+            major,minor=parts[3].split(b':');key=(int(major,16),int(minor,16),int(parts[4]))
+        except ValueError:continue
+        image=images.get(key)
+        if image is not None and parts[5].removesuffix(b' (deleted)').endswith(image['suffix']):candidates.add(key)
+    if not candidates:return False
+    try:program=ownership.bounded(proc/'cmdline','cmdline').split(b'\0',1)[0]
+    except (OSError,ValueError):return False
+    name=re.split(rb'[\\/]',program)[-1].decode(errors='replace').casefold()
+    return any(name==images[key]['executable'].casefold() for key in candidates)
+
+def installer_retire_profiled(scope,images,sig=signal.SIGTERM):
+    """Ask exact owned processes running a profiled image to end.
+
+    Same custody as renderer_retire_image: cgroup membership, start time and a
+    pidfd guard each signal. Returns the (pid, start) identities signalled.
+    """
+    matches=[row for row in scope.members() if row['state']!='Z' and installer_profiled_member(scope,row,images)]
+    signalled=set()
+    for row in matches:
+        try:
+            fd=os.pidfd_open(row['pid'])
+            try:
+                now=scope.identity(row['pid'])
+                if now and now['start_ticks']==row['start_ticks'] and scope.contains(scope.group_of(row['pid'])):
+                    signal.pidfd_send_signal(fd,sig);signalled.add((row['pid'],row['start_ticks']))
+            finally:os.close(fd)
+        except ProcessLookupError:pass
+    return signalled
+
 def managed_install(spec, *, source_owned_is3=None):
     """MF2 initial installer, exact dedicated unit. No product admission authority."""
     op=spec['operation'];env=spec['environment'];root=pathlib.Path(env['root']);report=pathlib.Path(spec['report'])
@@ -2818,7 +2981,7 @@ def managed_install(spec, *, source_owned_is3=None):
     scope=None;child=None;stop=False;clean=False;error=None;focus_result=None;diagnostics=RecentCapture(131072,64);private_report_written=False
     sel=selectors.DefaultSelector();start=time.monotonic();startup=InstallerStartup(op,spec['installer'],root)
     transaction=InstallerTransaction(op,root,report,spec['installer']);ledger=None;msi_fd=None;msi_fifo=None;launch_request=None
-    policy=None;policy_receipt=None
+    policy=None;policy_receipt=None;first_launch=[];started_application=None
     is3_capture=IS3FixtureCapture() if source_owned_is3 is not None else None
     def stopping(*_):
         nonlocal stop
@@ -2845,13 +3008,15 @@ def managed_install(spec, *, source_owned_is3=None):
     def value(state,live):
         result={'schema':2,'operation':op,'state':state,'raw_exit':outer_exit(),
                 'owned_live':live,'cleanup_confirmed':clean,'error':error,'discarded_diagnostic_bytes':diagnostics.dropped_bytes,'retained_diagnostic_bytes':diagnostics.bytes,'private_diagnostics_written':private_report_written,
-                'startup':startup.value(),'transaction':transaction.summary(outer_exit(),clean,stop,state in ('starting','running','unknown')),'focus_result':focus_result,'human_action':'installer_ui' if state in ('running','unknown') else None}
+                'startup':startup.value(),'transaction':transaction.summary(outer_exit(),clean,stop,state in ('starting','running','unknown')),'focus_result':focus_result,'human_action':'installer_ui' if state in ('running','unknown') else None,
+                'started_application':started_application}
         if spec.get('installer_capability') is not None:
             result['installer_capability']={'schema':1,'requested':policy['windows_scripting'] if policy is not None else None,
                 'effective':policy_receipt,'operation':op}
         return result
     try:
         policy=installer_policy_validate(spec)
+        first_launch=installer_first_launch_profiles(spec)
         if policy is not None and source_owned_is3 is not None and source_owned_is3['mode']=='unix_override':
             raise ValueError('installer_policy_cannot_mix_diagnostic_override')
         for a in [spec['installer'],*env['runner']['files']]:verify(a)
@@ -2931,7 +3096,7 @@ def managed_install(spec, *, source_owned_is3=None):
             prepared_policy['monotonic_ns']=time.monotonic_ns()
             atomic(report.parent/(op+'-installer-policy.private.json'),prepared_policy)
             policy_receipt=prepared_policy
-        last=0
+        last=0;first_launch_checked=0;first_launch_signalled=set();first_launch_first=None
         while not stop:
             live=reap();startup.observe(live);transaction.images()
             state=vendor_operation_state(child.returncode,len(live))
@@ -2939,6 +3104,28 @@ def managed_install(spec, *, source_owned_is3=None):
                 clean=True
                 if state=='failed':error='outer_nonzero_stage_unknown'
                 break
+            # The installer itself finished successfully, but something it
+            # started keeps running. A profiled application started this way
+            # would run before its managed launch prepares its dependency; end
+            # it so its first start is the managed one. Anything else (a second
+            # installer, a helper) keeps the session waiting as before.
+            if first_launch and time.monotonic()-first_launch_checked>.25:
+                first_launch_checked=time.monotonic()
+                # Empty until the installer's own root has exited 0.
+                images=installer_started_profiled_images(transaction.windows_trace,first_launch)
+                # Wine ends a process on SIGTERM; one that is still there
+                # 10 s after the first request is ended outright.
+                forced=first_launch_first is not None and time.monotonic()-first_launch_first>10
+                signalled=installer_retire_profiled(scope,images,signal.SIGKILL if forced else signal.SIGTERM) if images else set()
+                if not signalled:first_launch_first=None # a later copy starts with SIGTERM again
+                else:
+                    if first_launch_first is None:first_launch_first=time.monotonic()
+                    first_launch_signalled|=signalled
+                    prior=started_application or {'profiles':[],'images':[]}
+                    started_application={'schema':1,'result':'closed_for_managed_first_launch',
+                        'profiles':sorted({v['profile'] for v in images.values()}|set(prior['profiles'])),
+                        'images':sorted({v['image'] for v in images.values()}|set(prior['images'])),
+                        'signalled_processes':len(first_launch_signalled)}
             request_path=report.parent/(op+'-focus.json')
             if request_path.exists():
                 req=None
@@ -3821,13 +4008,18 @@ NAD1_DAEMON = 'Program Files/Common Files/Native Instruments/NTK/NTKDaemon.exe'
 NAD1_SERVICE = 'NTKDaemonService'
 NAD1_REGISTRATION_REOBSERVATION_SECONDS = 1.0
 
-def nad1_listener_census(proc=pathlib.Path('/proc'),listeners=(5146,5563)):
+LOOPBACK_LISTENERS=('0100007F','00000000000000000000000001000000')
+ANY_ADDRESS_LISTENERS=('00000000','00000000000000000000000000000000')
+def nad1_listener_census(proc=pathlib.Path('/proc'),listeners=(5146,5563),*,any_address=False):
     """Bounded passive absence check for a profile's fixed loopback ports.
 
     Bit N of the mask is the Nth listed port; NAO1's two ports are the default.
+    With any_address, a listener on all addresses (0.0.0.0 or ::) counts too:
+    it also holds the loopback port a service started here would need.
     """
     if not 1<=len(listeners)<=16 or len(set(listeners))!=len(listeners) or any(type(p) is not int or not 0<p<65536 for p in listeners):
         raise ValueError('dependency_listener_census_ports')
+    addresses=LOOPBACK_LISTENERS+(ANY_ADDRESS_LISTENERS if any_address else ())
     ports={port:1<<index for index,port in enumerate(listeners)};mask=0;rows=0
     for name in ('tcp','tcp6'):
         path=proc/'net'/name
@@ -3841,7 +4033,7 @@ def nad1_listener_census(proc=pathlib.Path('/proc'),listeners=(5146,5563)):
             if len(fields)<4:raise ValueError('dependency_listener_census_shape')
             try:address,port=fields[1].decode('ascii').split(':');port=int(port,16)
             except (UnicodeDecodeError,ValueError):raise ValueError('dependency_listener_census_shape') from None
-            if fields[3]==b'0A' and port in ports and address in ('0100007F','00000000000000000000000001000000'):
+            if fields[3]==b'0A' and port in ports and address in addresses:
                 mask|=ports[port]
     return {'schema':1,'listener_mask':mask,'rows_observed':rows,'authority':'bounded_passive_fixed_loopback_absence'}
 
@@ -4694,6 +4886,14 @@ class Nad1Owner:
         if scan['unavailable']:raise ValueError('dependency_identity_unresolved')
         if any(p['prefix_relation'] in ('foreign','deleted') for p in scan['candidates']):raise ValueError('dependency_foreign_conflict')
         if any(p.get('prefix_relation')=='same' and not nad1_generation_owned(p,self.scope) for p in scan['private']):raise ValueError('dependency_same_prefix_unowned')
+        # No daemon runs from any prefix, yet something may already hold the
+        # service's fixed ports (on loopback or all addresses): another program,
+        # or the same service under a name the census cannot see. The app must
+        # never reach it and a service started here could not take those ports,
+        # so a profile-managed session refuses before any service action.
+        if self.managed_contract is not None and not scan['candidates']:
+            if nad1_listener_census(listeners=self.listeners,any_address=True)['listener_mask']:
+                raise ValueError('dependency_listener_conflict')
         try:service=self.command('query')
         except Exception as exc:
             if self.session_authority is not None:raise ValueError('dependency_registration_observation_unavailable') from exc
@@ -5352,6 +5552,12 @@ def managed_application_problem(code):
         return 'The compatibility runtime could not start this app. Update the bridge, then try again.'
     if code.startswith(('renderer_image_','managed_application_resource_','managed_application_profile_')):
         return "The app's recorded files changed or are incomplete. Run its full installer in this setup again."
+    if code=='dependency_foreign_conflict':
+        return ("Another copy of this app's background service is already running from a different Wine setup. "
+            'Close the program using it, for example a DAW with plug-ins loaded through another bridge, then try again.')
+    if code=='dependency_listener_conflict':
+        return ("Another program is using the connection this app's background service needs (usually another Wine "
+            "setup's copy of it). Close it, for example a DAW with plug-ins loaded through another bridge, then try again.")
     if 'cleanup' in code or 'retirement' in code or code=='managed_application_owner_interrupted':
         return 'The app did not finish closing. Use Recover this application session; if it cannot complete, send the message from Setup details.'
     if code.startswith('dependency_'):

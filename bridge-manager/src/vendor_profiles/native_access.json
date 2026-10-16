@@ -25,6 +25,7 @@
   },
   "rendering": "software_rendering",
   "browser_scheme": "native-access",
+  "installer_started_app": "close_after_successful_install",
   "registry_defaults": [
     {
       "key": "HKCU\\Software\\Native Instruments\\Native Access",

@@ -90,12 +90,24 @@ pub struct Profile {
     pub browser_scheme: String,
 }
 
+/// What the installer session does with a copy of the app that the app's own
+/// installer starts as it finishes.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum InstallerStartedApp {
+    /// The copy would run before the managed launch prepares the profile's
+    /// dependency; once the installer itself has succeeded it is closed, and
+    /// the app's first start is the managed one.
+    CloseAfterSuccessfulInstall,
+}
+
 /// A bundled profile file: the saved binding plus launch-time settings that
 /// are handed to the supervisor beside the launch record, never inside it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Bundled {
     pub profile: Profile,
     pub registry_defaults: Vec<RegistryDefault>,
+    pub installer_started_app: Option<InstallerStartedApp>,
 }
 
 impl Bundled {
@@ -104,9 +116,15 @@ impl Bundled {
         let registry_defaults: Vec<RegistryDefault> = value.remove("registry_defaults")
             .map(serde_json::from_value).transpose()?.unwrap_or_default();
         check_registry_defaults(&registry_defaults)?;
-        Ok(Self { profile: serde_json::from_value(serde_json::Value::Object(value))?, registry_defaults })
+        let installer_started_app = value.remove("installer_started_app")
+            .map(serde_json::from_value).transpose()?;
+        Ok(Self { profile: serde_json::from_value(serde_json::Value::Object(value))?, registry_defaults,
+            installer_started_app })
     }
 }
+
+/// Every bundled vendor profile file.
+pub const BUNDLED: [&[u8]; 1] = [NATIVE_ACCESS];
 
 /// Launch-time settings for one operation, written beside its operation.json.
 /// Managers that predate them never open this file, so rollback keeps working.
@@ -183,6 +201,26 @@ fn integrity(ok: bool, reason: &'static str) -> Result<()> {
 
 pub fn native_access() -> Result<Profile> {
     Ok(Bundled::parse(NATIVE_ACCESS)?.profile)
+}
+
+/// Bundled profiles that declare their installer may start the app, for the
+/// installer supervisor. Such a copy would run before the managed launch has
+/// prepared the profile's dependency; the supervisor closes it once the
+/// installer itself has succeeded. The file name and resources only locate
+/// the app; its mapped file and program name join processes.
+pub fn installer_first_launch() -> Result<serde_json::Value> {
+    installer_first_launch_from(&BUNDLED)
+}
+fn installer_first_launch_from(files: &[&[u8]]) -> Result<serde_json::Value> {
+    let mut apps = Vec::new();
+    for bytes in files {
+        let bundled = Bundled::parse(bytes)?;
+        if bundled.installer_started_app == Some(InstallerStartedApp::CloseAfterSuccessfulInstall) {
+            apps.push(serde_json::json!({"profile": bundled.profile.id,
+                "executable": bundled.profile.executable, "resources": bundled.profile.resources}));
+        }
+    }
+    Ok(serde_json::Value::Array(apps))
 }
 
 /// Digest of the saved binding, as the supervisor pins it.
@@ -390,6 +428,9 @@ mod tests {
         // The saved binding is the profile without launch-time settings.
         let mut value: serde_json::Value = serde_json::from_slice(NATIVE_ACCESS).unwrap();
         let defaults = value.as_object_mut().unwrap().remove("registry_defaults").unwrap();
+        assert_eq!(value.as_object_mut().unwrap().remove("installer_started_app").unwrap(),
+            "close_after_successful_install");
+        assert_eq!(bundled.installer_started_app, Some(InstallerStartedApp::CloseAfterSuccessfulInstall));
         assert_eq!(serde_json::to_value(&bundled.profile).unwrap(), value);
         assert_eq!(native_access().unwrap(), bundled.profile);
         // A profile file without settings stays valid.
@@ -401,6 +442,24 @@ mod tests {
             "operation_id": operation, "profile": "native_access_desktop", "registry_defaults": defaults}));
         let mut other = bundled.profile.clone(); other.id = "other_vendor".into();
         assert!(launch_settings(&other, &operation).is_err());
+    }
+
+    #[test]
+    fn installer_sessions_get_only_profiles_that_declare_an_installer_started_app() {
+        let declared = installer_first_launch().unwrap();
+        let profile = native_access().unwrap();
+        assert_eq!(declared, serde_json::json!([{"profile": profile.id, "executable": profile.executable,
+            "resources": profile.resources}]));
+        let mut silent: serde_json::Value = serde_json::from_slice(NATIVE_ACCESS).unwrap();
+        silent.as_object_mut().unwrap().remove("installer_started_app");
+        let mut renamed = silent.clone(); renamed["id"] = "second_vendor_app".into();
+        renamed["executable"] = "Second.exe".into(); renamed["installer_started_app"] = "close_after_successful_install".into();
+        let files = [serde_json::to_vec(&silent).unwrap(), serde_json::to_vec(&renamed).unwrap()];
+        let listed = installer_first_launch_from(&[files[0].as_slice(), files[1].as_slice()]).unwrap();
+        assert_eq!(listed.as_array().unwrap().len(), 1);
+        assert_eq!(listed[0]["profile"], "second_vendor_app");assert_eq!(listed[0]["executable"], "Second.exe");
+        let mut unknown = silent.clone(); unknown["installer_started_app"] = "leave_running".into();
+        assert!(Bundled::parse(&serde_json::to_vec(&unknown).unwrap()).is_err());
     }
 
     /// The saved profile shape exactly as main defined it before launch-time
