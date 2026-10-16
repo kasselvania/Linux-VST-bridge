@@ -382,3 +382,60 @@ fn offline_long_blocks_wait_for_each_part_and_stay_exact() {
     assert_eq!(unsafe { ap3_transition(id, STOP) }, 0);
     INSTANCES.remove(id, |_| ()).unwrap();
 }
+
+#[test]
+fn notes_held_through_an_unacknowledged_start_span_all_parts_of_a_long_block() {
+    // #357/#374: notes from blocks answered before the Windows side
+    // acknowledged its start are held and played at sample 0 of the first
+    // rendered block. A long DAW block's parts behave as one block: its first
+    // part spends the bounded wait, later parts answer at once, and every
+    // part's notes are held in DAW order.
+    let _registry_owner = crate::registry_test();
+    let mut shared = Shared::new();
+    shared.identity = Some(state::Identity { class: [3; 16], module: [4; 32] });
+    shared.state_capable.store(true, Ordering::Release);
+    let shared = Arc::new(shared);
+    let id = live(shared.clone(), crate::performance::DeliveryMode::Buffered, D);
+    setup(&shared, id, 4096, 0, 0, 1024);
+    assert_eq!(unsafe { ap3_transition(id, START) }, 0);
+    assert_eq!(shared.requests.pop().unwrap().kind, START);
+    let on = |offset, pitch| Event { offset, kind: NOTE_ON, pitch, id: pitch as u32, value: 0.8, ..Default::default() };
+    let off = |offset, pitch| Event { offset, kind: NOTE_OFF, pitch, id: pitch as u32, value: 0.5, ..Default::default() };
+    let held = [on(100, 60), off(2100, 60), on(3000, 64)];
+    let mut left = vec![0.25f32; 4096]; let mut right = vec![0.25f32; 4096];
+    let planes = [left.as_mut_ptr(), right.as_mut_ptr()];
+    let context = crate::context::Context::default();
+    let (mut flags, mut delivery) = (0, Delivery::default());
+    let started = Instant::now();
+    let (rc, allocations) = crate::allocation_test::measure(|| unsafe {
+        ap23_process_outputs(id, 4096, 0, held.as_ptr(), held.len() as u32, &context, 0,
+            planes[0], planes[1], planes.as_ptr(), 2, &mut flags, &mut delivery, 0) });
+    assert_eq!((rc, allocations), (0, [0; 3]));
+    // One bound for the whole DAW block: half its duration (4096 / 48000 / 2).
+    assert!(started.elapsed() < Duration::from_millis(400), "{:?}", started.elapsed());
+    assert!(left.iter().chain(&right).all(|&v| v == 0.), "unready: silence");
+    assert!(shared.requests.pop().is_none(), "no part of an unready block is queued");
+    {
+        let l = INSTANCES.lease(id).unwrap();
+        let callback = unsafe { &*l.callback.get() };
+        assert_eq!((callback.unready_callbacks, callback.unready_frames), (4, 4096));
+        assert_eq!(callback.startup_notes.pending(), 3);
+    }
+    // Acknowledged: the first rendered block carries the held notes at
+    // sample 0, in DAW order, ahead of its own.
+    shared.processing_ready_epoch.store(1, Ordering::Release);
+    let own = [off(10, 64)];
+    left.fill(0.25); right.fill(0.25);
+    let (rc, allocations) = crate::allocation_test::measure(|| unsafe {
+        ap23_process_outputs(id, 1024, 0, own.as_ptr(), 1, &context, 0,
+            planes[0], planes[1], planes.as_ptr(), 2, &mut flags, &mut delivery, 0) });
+    assert_eq!((rc, allocations), (0, [0; 3]), "no result can be due yet: nothing is awaited");
+    let first = shared.requests.pop().unwrap();
+    let events: Vec<(u32, u32, i16)> = first.events[..first.event_count as usize].iter()
+        .map(|e| (e.kind, e.offset, e.pitch)).collect();
+    assert_eq!(events, vec![(NOTE_ON, 0, 60), (NOTE_OFF, 0, 60), (NOTE_ON, 0, 64), (NOTE_OFF, 10, 64)]);
+    assert_eq!((first.position, first.n), (0, 1024));
+    assert!(shared.requests.pop().is_none());
+    assert_eq!(unsafe { ap3_transition(id, STOP) }, 0);
+    INSTANCES.remove(id, |_| ()).unwrap();
+}
