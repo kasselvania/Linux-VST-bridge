@@ -517,6 +517,26 @@ pub(super) fn finish(m:&Manager,operation:&str,action:&ui::Action)->Result<()> {
         let saved=load(&f.m,&owner).unwrap();assert_eq!(saved.intent.active_operation,resume);assert_eq!(saved.intent.journey.daw,ui::DawChoice::Bitwig);
         assert_eq!(current_journey(&f.m,&saved).unwrap().phase,ui::InstallationPhase::AwaitingApplication);
     }
+    #[test] fn connection_after_native_access_waits_out_a_status_read_instead_of_refusing() {
+        use linux_vst_bridge::operator_lock::{with_operator_registry_wait,LockBusy};
+        let (f,retained)=fixture();
+        // An open manager window's status read holds registry.lock briefly.
+        let window=Manager {root:f.m.root.clone(),publications:f.m.publications.clone()};
+        let held=window.lock("registry.lock").unwrap();
+        // Before: the first step after the session refused at once ("operation already running").
+        assert!(commit_with_retirement(&f.m,&retained,true).unwrap_err().is::<LockBusy>());
+        assert!(!job_dir(&f.m,&retained.intent.owner).unwrap().join("renderer-maintenance.json").exists());
+        // Within its bound the action waits; past it, the same busy refusal and no change.
+        assert!(with_operator_registry_wait(Duration::from_millis(80),
+            ||commit_with_retirement(&f.m,&retained,true)).unwrap_err().is::<LockBusy>());
+        let release=std::thread::spawn(move||{std::thread::sleep(Duration::from_millis(300));drop(held);});
+        let started=std::time::Instant::now();
+        let after=with_operator_registry_wait(Duration::from_secs(5),
+            ||commit_with_retirement(&f.m,&retained,true)).unwrap();
+        release.join().unwrap();
+        assert!(started.elapsed()>=Duration::from_millis(250));
+        assert_eq!(after.revision,retained.before.revision+1);
+    }
     #[test] fn malformed_spec_failed_result_and_live_cohort_never_publish_an_edge() {
         for case in 0..4 {
             let (f,retained)=fixture();let owner=&retained.intent.owner;

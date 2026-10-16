@@ -272,11 +272,7 @@ class FinalHostCustody:
     def observe(self, record, writer, tracker, root):
         if not self.admission_open:
             return
-        if record.get('event') != 'lifecycle':
-            return
-        state = record.get('state')
-        if state not in ('readiness_announced', 'ap1_mapping_ready', 'ap0_processing_thread_started'):
-            return
+        state = record.get('state') if record.get('event') == 'lifecycle' else None
         if state == 'readiness_announced':
             if (self.candidate is not None or set(record) != {'event', 'sequence', 'state', *self.ready_fields}
                 or any(record.get(k) != v for k, v in self.ready_fields.items())
@@ -286,12 +282,21 @@ class FinalHostCustody:
             self.revalidate()
             self.candidate = writer.duplicate()
             self.reason = 'final_host_mapping_unassigned'
-        if self.candidate is not None and not self.candidate.same(writer):
-            fail('final_host_sender_changed')
         if state == 'readiness_announced':
             return
+        mapping_announced = state in ('ap1_mapping_ready', 'ap0_processing_thread_started')
+        if self.admitted and not mapping_announced:
+            return
         if self.candidate is None:
-            fail('final_host_witness_absent')
+            if mapping_announced:
+                fail('final_host_witness_absent')
+            return
+        if not self.candidate.same(writer):
+            fail('final_host_sender_changed')
+        # Process custody must precede calls into vendor initialization, which
+        # can block before audio readiness. The authenticated writer's next
+        # records let us observe its actual session mapping; the record's name
+        # is not ownership evidence. Until mapped, keep only the candidate.
         self.mapping_verified = False
         self.reason = 'final_host_mapping_unassigned'
         try:
@@ -308,7 +313,9 @@ class FinalHostCustody:
                     mapped = True
             self.candidate.snapshot(); self.revalidate()
             if not mapped:
-                fail('final_host_mapping_unassigned')
+                if mapping_announced:
+                    fail('final_host_mapping_unassigned')
+                return
         except (OSError, ValueError):
             self.reason = 'final_host_mapping_projection_unavailable'
             raise

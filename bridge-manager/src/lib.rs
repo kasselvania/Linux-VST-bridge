@@ -838,6 +838,12 @@ impl Manager {
         })
     }
     pub fn lock(&self, name: &str) -> Result<Lock> {
+        // Only an operator action waits, and only for the lock status reads share.
+        if name == operator_model::OperatorLock::Registry.filename() {
+            if let Some(wait) = operator_lock::operator_registry_wait() {
+                return self.lock_registry_waiting(wait);
+            }
+        }
         match self.try_lock(name)? {
             operator_lock::LockAttempt::Acquired(lock) => Ok(lock),
             operator_lock::LockAttempt::Busy => Err(operator_lock::LockBusy.into()),
@@ -865,6 +871,9 @@ impl Manager {
             f.metadata()?.uid() == unsafe { libc::getuid() } && f.metadata()?.is_file(),
             "lock ownership differs",
         )?;
+        if exclusive && name == operator_model::OperatorLock::Registry.filename() {
+            operator_lock::ensure_registry_writer_marker(self);
+        }
         let status = unsafe {
             libc::flock(
                 std::os::fd::AsRawFd::as_raw_fd(&f),

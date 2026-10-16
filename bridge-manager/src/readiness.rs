@@ -430,6 +430,8 @@ fn collect_consumers(m: &Manager, pipewire: &Probe<bool>, jack: &Probe<bool>) ->
 
 fn collect_consumers_from(m: &Manager, pipewire: &Probe<bool>, jack: &Probe<bool>,
     proc_root: &Path, transport_root: &Path) -> Result<Vec<HostReadback>> {
+    // A status read; it steps aside for an operator action waiting for the lock.
+    if operator_lock::registry_writer_waiting(m) { return Err("readiness_consumers_busy".into()); }
     let _guard = match m.try_lock("registry.lock")? {
         operator_lock::LockAttempt::Acquired(guard) => guard,
         operator_lock::LockAttempt::Busy => return Err("readiness_consumers_busy".into()),
