@@ -248,8 +248,8 @@ impl Updates {
         self.notice = None;
         let ctx = ctx.clone();
         std::thread::spawn(move || {
-            let result = context(&home).and_then(|(trust, current)| {
-                let systems = feed::system_names(&feed::read_os_release());
+            let result = context().and_then(|(trust, current)| {
+                let systems = feed::system_names(&linux_vst_bridge::read_os_release());
                 feed::check(&home, &link, &trust, &current, &systems)
             });
             let _ = sender.send(Event::Checked(result));
@@ -266,7 +266,7 @@ impl Updates {
         let ctx = ctx.clone();
         std::thread::spawn(move || {
             let mut last = None;
-            let result = context(&home).and_then(|(trust, current)| {
+            let result = context().and_then(|(trust, current)| {
                 feed::download_and_stage(&home, &link, &trust, &current, &offer, &mut |done, total| {
                     // About one progress event per percent.
                     let step = done * 100 / total.max(1);
@@ -437,12 +437,12 @@ fn warning(ui: &egui::Ui) -> egui::Color32 {
 }
 
 /// The compiled release key and the running version.
-fn context(home: &Path) -> Result<(linux_vst_bridge::portable_package::Trust, String), UpdateError> {
+fn context() -> Result<(linux_vst_bridge::portable_package::Trust, String), UpdateError> {
     let trust = linux_vst_bridge::portable_package::Trust::compiled()
         .map_err(|_| UpdateError::Local("This build has no release key, so it cannot check for updates.".into()))?;
-    let current = feed::installed_version(home)
-        .map_err(|_| UpdateError::Local("The current version could not be read. Choose Check for updates to try again.".into()))?
-        .unwrap_or_else(|| "0".into());
+    // This window's own build; the older layout without a record is "0",
+    // which only an update by hand can move on from.
+    let current = crate::presentation::own_version().unwrap_or("0").to_owned();
     Ok((trust, current))
 }
 

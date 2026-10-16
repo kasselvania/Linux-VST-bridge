@@ -241,6 +241,8 @@ class EnsureTimingTests(unittest.TestCase):
         self.artifact = ownership.image_identity(self.installer)
         self.operation = {'operation_id': 'b' * 32, 'report': str(self.root / 'app/operation-result.json')}
         (self.root / 'app').mkdir()
+        # Nothing else holds the service's ports here, whatever the host runs.
+        ports = patch.object(s, 'nad1_listener_census', return_value={'schema': 1, 'listener_mask': 0}); ports.start(); self.addCleanup(ports.stop)
         spec = {'operation': 'a' * 32, 'report': str(self.root / 'result.json'), 'application': {'environment': {'root': str(self.root)}},
             'managed_operation': self.operation}
         fixture = {'installer': 'Setup.exe', 'daemon': 'NTKDaemon.exe', 'installer_sha256': self.artifact['sha256'], 'installer_size': 256}
@@ -249,7 +251,7 @@ class EnsureTimingTests(unittest.TestCase):
             'commit': lambda _: self.committed.append(1)})()
         self.stop = False
         self.owner = s.Nad1Owner(spec, self.ledger, None, lambda: self.stop, fixture=fixture)
-        self.owner.managed_contract = {'fixture': 'managed', 'profile': {k: v for k, v in PROFILE.items() if k != 'registry_defaults'}}
+        self.owner.managed_contract = {'fixture': 'managed', 'profile': {k: v for k, v in PROFILE.items() if k not in ('registry_defaults', 'installer_started_app')}}
         self.settings()
         self.events = []; self.registered = False; self.state = 1
         def command(action):

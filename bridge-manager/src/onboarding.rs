@@ -680,6 +680,7 @@ fn launch_input(m: &Manager, r: &Record,
     let mut spec = json!({"schema":2,"operation":op,"environment":r.environment,"installer":installer.artifact,
         "format":installer.format,"installer_launch":sw.installer_launch,"report":dir.join(format!("{op}-result.json"))});
     linux_vst_bridge::installer_policy::bind_for_launch(m, &mut spec, &sw, policy)?;
+    spec["managed_first_launch"] = linux_vst_bridge::vendor_profile::installer_first_launch()?;
     Ok(spec)
 }
 #[cfg(test)]
@@ -1533,6 +1534,11 @@ pub(crate) mod tests {
         assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"], "intentionally_unavailable");
         assert_eq!(spec["installer"]["sha256"], r.installer);
         assert_eq!(spec["installer_capability"]["environment"], serde_json::to_value(&r.environment).unwrap());
+        // Every installer session knows which bundled profiled apps must first
+        // start through their managed launch.
+        let profile = linux_vst_bridge::vendor_profile::native_access().unwrap();
+        assert_eq!(spec["managed_first_launch"], serde_json::json!([{"profile":profile.id,
+            "executable":profile.executable,"resources":profile.resources}]));
         installer_import::rename(&f.m, &r.installer, "My chosen installer").unwrap();
         assert_eq!(launch_input(&f.m, &r, None).unwrap(), spec);
         let explicit = launch_input(&f.m, &r, Some(Powershell::Inherited)).unwrap();
@@ -2036,6 +2042,7 @@ pub(crate) mod tests {
             operation: None,
             deleted_setups: vec![],
             uninstallers: vec![],
+            bridge: Default::default(),
         };
         let refresh: Vec<_> = crate::operator_cli::available(&snapshot)
             .into_iter()

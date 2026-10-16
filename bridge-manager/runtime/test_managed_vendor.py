@@ -15,9 +15,12 @@ class ManagedVendorTests(unittest.TestCase):
         self.managed = self.home / '.local/share/linux-vst-bridge/managed'
         # The saved binding: the bundled profile without launch-time settings.
         bundled = json.loads((pathlib.Path(__file__).parents[1] / 'src/vendor_profiles/native_access.json').read_text())
-        self.profile = {key: value for key, value in bundled.items() if key != 'registry_defaults'}
+        self.profile = {key: value for key, value in bundled.items() if key not in ('registry_defaults', 'installer_started_app')}
         self.home_patch = patch.object(pathlib.Path, 'home', return_value=self.home)
         self.home_patch.start()
+        # Nothing else holds the service's ports here, whatever the host runs.
+        self.ports_patch = patch.object(s, 'nad1_listener_census', return_value={'schema': 1, 'listener_mask': 0})
+        self.ports_patch.start(); self.addCleanup(self.ports_patch.stop)
 
     def tearDown(self):
         self.home_patch.stop()

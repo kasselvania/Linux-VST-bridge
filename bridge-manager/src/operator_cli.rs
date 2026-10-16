@@ -936,10 +936,7 @@ fn managed_rescan_binding_with(m: &Manager, bindings: &[catalogue::EnvironmentBi
 fn quarantined_retry_disabled(m: &Manager,
     bindings: &[linux_vst_bridge::catalogue::EnvironmentBinding],
     registry: &Registry, environment: &Environment) -> Result<Option<&'static str>> {
-    if !bindings.iter().any(|binding| binding.environment.id == environment.id) {
-        return Ok(Some("This environment is not currently managed"));
-    }
-    match managed_rescan_binding_from(m, bindings, registry, &environment.id)? {
+    match quarantined_retry_binding(m, bindings, registry, &environment.id, false)? {
         Some(current) => {
             require(current == *environment,
                 "operator_managed_environment_binding_conflict")?;
@@ -947,6 +944,29 @@ fn quarantined_retry_disabled(m: &Manager,
         }
         None => Ok(Some("This environment is not currently managed")),
     }
+}
+/// A failed first discovery has no publication yet. Its retired installer still
+/// owns that setup, so an exact module retry does not need a registered class.
+/// This grants no general managed-environment or publication authority.
+fn quarantined_retry_binding(m: &Manager, bindings: &[catalogue::EnvironmentBinding],
+    registry: &Registry, environment: &str, execution: bool) -> Result<Option<Environment>> {
+    if bindings.iter().any(|binding| binding.environment.id == environment) {
+        if let Some(current) = managed_rescan_binding_with(m, bindings, registry,
+            environment, execution)? { return Ok(Some(current)); }
+    }
+    let Some(record) = onboarding::retained_environment_record(m, environment)?
+        else { return Ok(None) };
+    let Some(operation) = record.installation_operation.as_deref()
+        else { return Ok(None) };
+    if !onboarding::retired(&onboarding::result(m, &record)?) {
+        require(!execution, "installer_retirement_required")?;
+        return Ok(None);
+    }
+    if execution {
+        require(!onboarding::live(operation)?, "operator_installer_active")?;
+        record.environment.runner.verify()?;
+    }
+    Ok(Some(record.environment))
 }
 fn managed_rescan_binding(
     m: &Manager,
@@ -1603,6 +1623,7 @@ fn snapshot_readonly_depth(
         operation,
         deleted_setups,
         uninstallers,
+        bridge: crate::package_authority::bridge_build(m, &sw),
     })
 }
 fn project_onboarding_failure(
@@ -3856,7 +3877,8 @@ fn retry_quarantined_module(m: &Manager, environment: &str, scan: &str,
     let sw = software(m)?;
     let db = m.registry()?;
     let catalogue = operator_catalogue(m, &sw, &db)?;
-    let env = managed_rescan_binding(m, catalogue.as_ref(), &db, environment)?
+    let bindings = managed_environment_bindings(m, catalogue.as_ref(), &db)?;
+    let env = quarantined_retry_binding(m, &bindings, &db, environment, true)?
         .ok_or("operator_environment_unmanaged")?;
     rescan_environment_locked(m, env, sw, Some(QuarantinedRetry {
         scan: scan.into(), module_index, module_sha256: module_sha256.into(),
@@ -4501,10 +4523,10 @@ pub(crate) mod tests {
         assert!(exact_retry_target(Some(&scan),&scan.environment,&scan.host,
             &"ff".repeat(32),&modules,&retry).is_err());
     }
-    #[test]
-    fn retry_route_refuses_unmanaged_onboarding_environment_without_promoting_it() {
+    fn onboarding_retry_fixture() -> (test_fixture::Fixture, Environment, inventory::Scan,
+        observation::Census) {
         use linux_vst_bridge::catalogue::{Catalogue,EnvironmentBinding};
-        let (f,p,_,native)=test_fixture::prepared();
+        let (f,p,census,native)=test_fixture::prepared();
         let catalogue=Catalogue {schema:3,natives:vec![native],environments:vec![
             EnvironmentBinding {family:p.requirements.environment_family,
                 environment:f.r.environment.clone()}],hosts:vec![],onboarding_runtime:None};
@@ -4551,6 +4573,15 @@ pub(crate) mod tests {
         let inventory=f.m.root.join("inventory").join(format!("{}.json",environment.id));
         private_dir(inventory.parent().unwrap()).unwrap();
         atomic_json(&inventory,&scan).unwrap();
+        let history=inventory.parent().unwrap().join("history");
+        private_dir(&history).unwrap();
+        atomic_json(&history.join(format!("{}.json",scan.id)),&scan).unwrap();
+        (f,environment,scan,census)
+    }
+    #[test]
+    fn retry_route_refuses_unmanaged_onboarding_environment_without_promoting_it() {
+        let (f,environment,scan,_)=onboarding_retry_fixture();
+        let inventory=f.m.root.join("inventory").join(format!("{}.json",environment.id));
         let snapshot=snapshot_idle_test(&f.m).unwrap();
         let product=snapshot.products.iter().find(|product|
             product.environment==environment.id && product.disposition=="quarantined").unwrap();
@@ -4565,11 +4596,80 @@ pub(crate) mod tests {
         let error=retry_quarantined_module(&f.m,&environment.id,&scan.id,0,
             &scan.modules[0].artifact.sha256,&scan.modules[0].report.sha256)
             .unwrap_err().to_string();
-        assert_eq!(error,"operator_environment_absent");
+        assert_eq!(error,"operator_environment_unmanaged");
         assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get),0);
         assert_eq!(fs::read(&inventory).unwrap(),before);
         assert!(!f.m.registry().unwrap().classes.values()
             .any(|entry|entry.registration.environment.id==environment.id));
+    }
+    #[test]
+    fn retired_initial_installation_offers_and_executes_exact_retry_without_publication() {
+        let (f,environment,scan,census)=onboarding_retry_fixture();
+        let m=&f.m;
+        let directory=onboarding::directory(m,&environment.id).unwrap();
+        let path=directory.join("record.json");
+        let mut record:onboarding::Record=read_json(&path).unwrap();
+        let operation=random_id().unwrap();
+        record.installation_operation=Some(operation.clone());
+        atomic_json(&path,&record).unwrap();
+        let unit=onboarding::unit(&operation).unwrap();
+        let registry=fs::read(m.root.join("registry.json")).unwrap();
+        let inventory=m.root.join("inventory").join(format!("{}.json",environment.id));
+        let before=fs::read(&inventory).unwrap();
+        SCAN_SPAWN_COUNT.with(|count|count.set(0));
+        let retry=||retry_quarantined_module(m,&environment.id,&scan.id,0,
+            &scan.modules[0].artifact.sha256,&scan.modules[0].report.sha256);
+        // An operation ID alone cannot authorize another Windows process.
+        assert_eq!(retry().unwrap_err().to_string(),"installer_retirement_required");
+        assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get),0);
+        assert_eq!(fs::read(&inventory).unwrap(),before);
+        atomic_json(&directory.join(format!("{operation}-result.json")),&json!({
+            "schema":2,"operation":operation,"state":"completed","raw_exit":0,
+            "cleanup_confirmed":true,"owned_live":0})).unwrap();
+        readiness::with_unit_state_fixture(std::slice::from_ref(&unit),"active",|| {
+            assert_eq!(retry().unwrap_err().to_string(),"operator_installer_active");
+        });
+        assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get),0);
+        assert_eq!(fs::read(&inventory).unwrap(),before);
+
+        // Only the external scanner is a fixture. Projection, queued action,
+        // worker admission, retirement checks and inventory mutation are real.
+        let script=m.root.join("software/retry-supervisor.py");
+        let healthy_path=f.outer.join("retry-healthy-report.json");
+        let mut healthy=test_fixture::inspection_report(&census);
+        let factory=healthy["records"].as_array_mut().unwrap().iter_mut()
+            .find(|row|row["state"]=="ap8_factory").unwrap();
+        factory["class_count"]=json!(1);
+        factory["classes"].as_array_mut().unwrap().truncate(1);
+        assert_eq!(inventory::classes(&healthy).unwrap().len(),1);
+        atomic_json(&healthy_path,&healthy).unwrap();
+        let healthy=serde_json::to_string(&healthy_path).unwrap();
+        fs::write(&script,format!("import json,shutil,sys\njob=json.load(open(sys.argv[1]))\nwith open({healthy},'rb') as source,open(job['report'],'wb') as target: target.write(source.read())\nprint('LVO0 '+job['session']+' ready',flush=True)\nshutil.rmtree(job['directory'])\nprint('LVO1 '+job['session']+' retired',flush=True)\n")).unwrap();
+        let mut sw=software(m).unwrap();
+        sw.supervisor=Artifact {sha256:digest(&script).unwrap(),path:script};
+        atomic_json(&m.root.join("software.json"),&sw).unwrap();
+        readiness::with_unit_state_fixture(&[unit],"inactive",|| {
+            let snapshot=snapshot_idle_test(m).unwrap();
+            let product=snapshot.products.iter().find(|product|
+                product.environment==environment.id&&product.disposition=="quarantined").unwrap();
+            let offer=&product.actions[0];
+            assert!(offer.disabled_reason.is_none(),"{:?}",offer.disabled_reason);
+            let queued=test_submit_offered(m,&offer.action).unwrap();
+            let result=test_run_offered_worker(m,&queued).unwrap();
+            assert_eq!(result["state"],"completed","{result}");
+        });
+        assert_eq!(SCAN_SPAWN_COUNT.with(std::cell::Cell::get),1);
+        let current:inventory::Scan=read_json(&inventory).unwrap();
+        assert_ne!(current.id,scan.id);
+        assert!(current.modules[0].quarantine_reason.is_none(),"{:?}",current.modules[0]);
+        assert!(current.modules[0].inspection_error.is_none());
+        assert!(!current.modules[0].classes.is_empty());
+        let history=m.root.join("inventory/history").join(format!("{}.json",scan.id));
+        assert_eq!(serde_json::to_value(read_json::<inventory::Scan>(&history).unwrap()).unwrap(),
+            serde_json::to_value(scan).unwrap());
+        assert_eq!(fs::read(m.root.join("registry.json")).unwrap(),registry);
+        assert_eq!(serde_json::to_value(read_json::<onboarding::Record>(&path).unwrap()).unwrap(),
+            serde_json::to_value(record).unwrap());
     }
     fn view(token: &str, action: ui::AvailableAction) -> ui::Snapshot {
         ui::Snapshot {
@@ -4600,6 +4700,7 @@ pub(crate) mod tests {
             operation: None,
             deleted_setups: vec![],
             uninstallers: vec![],
+            bridge: Default::default(),
         }
     }
     #[cfg(feature = "cpi2-test-contract")]

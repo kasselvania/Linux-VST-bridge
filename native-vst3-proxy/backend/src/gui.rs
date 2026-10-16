@@ -134,7 +134,7 @@ impl Gui {
             std::ptr::write_bytes(out.pointer.as_ptr(), 0, BYTES);
         }
         out.write(0, b"LVBU");
-        out.write(4, &6u32.to_le_bytes());
+        out.write(4, &7u32.to_le_bytes()); // UI protocol 7: MIDI controller assignments
         out.write(8, &(BYTES as u32).to_le_bytes());
         out.write(12, &(MESSAGE as u32).to_le_bytes());
         out.write(16, &session);
@@ -453,6 +453,32 @@ mod tests {
         assert_eq!(gui.send(&mut close), 2);
         assert_eq!(gui.word(120).load(Ordering::Acquire), u64::MAX - 1);
         assert_eq!(gui.word(256).load(Ordering::Acquire), 7);
+        drop(gui);
+        std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn protocol_7_carries_midi_assignment_records_unchanged() {
+        let (gui, path) = fixture();
+        assert_eq!(gui.flag(4).load(Ordering::Acquire), 7);
+        // MidiMapEntries: binary records fill title and units; native only relays.
+        let mut sent = Message {
+            kind: 115,
+            count: 64,
+            revision: 3,
+            ..Message::default()
+        };
+        for (i, word) in sent.title.iter_mut().chain(sent.units.iter_mut()).enumerate() {
+            *word = (i as u16).wrapping_mul(0x9e37);
+        }
+        assert_eq!(
+            gui.push(80, 88, HEADER + CAPACITY as usize * MESSAGE, &sent),
+            0
+        );
+        let mut taken = Message::default();
+        assert_eq!(gui.take(&mut taken), 0);
+        assert_eq!((taken.kind, taken.count, taken.revision), (115, 64, 3));
+        assert_eq!((taken.title, taken.units), (sent.title, sent.units));
+        assert_eq!(gui.fail(0), 0);
         drop(gui);
         std::fs::remove_file(path).unwrap();
     }

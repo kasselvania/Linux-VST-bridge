@@ -1,5 +1,5 @@
 //! Read-only language and routing over the canonical operator snapshot.
-use crate::model::{Action, AvailableAction, CompatibilityPhase, DawChoice, InstallationJourney,
+use crate::model::{Action, AvailableAction, BridgeBuild, CompatibilityPhase, DawChoice, InstallationJourney, SetupPackage,
     InstallationPhase, InstallationPluginStage, Product, Snapshot, System, VendorApplication};
 use eframe::egui;
 
@@ -660,6 +660,106 @@ pub fn session_display_name<'a>(snapshot: &'a Snapshot, class_id: &str) -> &'a s
     }
 }
 
+/// "Installed: Linux VST Bridge 0.12.0test144", from the installed generation record.
+pub fn installed_line(build: &BridgeBuild) -> String {
+    match &build.installed {
+        Some(version) => format!("Installed: Linux VST Bridge {version}"),
+        None => "Installed: Linux VST Bridge (version unknown)".into(),
+    }
+}
+
+/// Title-row note, only for a package the musician can apply.
+pub fn setup_title_note(build: &BridgeBuild) -> Option<String> {
+    match &build.setup {
+        SetupPackage::Newer(version) => Some(format!("Update ready: {version}")),
+        SetupPackage::DifferentBuild(_) => Some("Different build ready in Setup".into()),
+        _ => None,
+    }
+}
+
+/// What Setup holds beside the installed bridge, for Diagnostics and reports.
+pub fn setup_line(build: &BridgeBuild) -> Option<String> {
+    match &build.setup {
+        SetupPackage::Newer(version) => Some(format!("Update ready in Setup: {version}")),
+        SetupPackage::DifferentBuild(version) =>
+            Some(format!("A different build of {version} is ready in Setup")),
+        SetupPackage::Older(version) => Some(format!("Setup holds an older version ({version})")),
+        SetupPackage::Unchecked => Some("Setup's package could not be checked".into()),
+        SetupPackage::Nothing => None,
+    }
+}
+
+/// This window's own build, from its generation record, read once. It names
+/// a version before the manager answers.
+pub fn own_version() -> Option<&'static str> {
+    static VERSION: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+    VERSION.get_or_init(|| std::env::current_exe().ok()?.parent()
+        .and_then(linux_vst_bridge::package_version::generation_version)).as_deref()
+}
+
+/// A product-delivered runtime's revision ("r5"). Any other runner id may name
+/// a person or machine, so it is never shown.
+fn runtime_name(id: &str) -> String {
+    match id.strip_prefix("managed-").and_then(|rest| rest.rsplit_once("-r")) {
+        Some((_, n)) if !n.is_empty() && n.len() <= 4 && n.bytes().all(|b| b.is_ascii_digit()) =>
+            format!("r{n}"),
+        _ => "custom runtime".into(),
+    }
+}
+
+/// Compatibility runtimes the plug-in setups use, else the ones installed.
+pub fn runtime_summary(snapshot: &Snapshot) -> Option<String> {
+    let mut names: Vec<_> = snapshot.environments.iter().map(|e| runtime_name(&e.runner)).collect();
+    if names.is_empty() {
+        names = snapshot.managed_runtime_records.iter()
+            .filter(|record| record["failure"].is_null())
+            .filter_map(|record| record["id"].as_str().map(runtime_name)).collect();
+    }
+    names.sort();
+    names.dedup();
+    (!names.is_empty()).then(|| names.join(", "))
+}
+
+/// The distribution's own name from os-release, without user or path detail.
+pub fn os_release_name(text: &str) -> Option<String> {
+    let value = |key: &str| text.lines().find_map(|line| line.strip_prefix(key)?.strip_prefix('='))
+        .map(|v| v.trim().trim_matches(['"', '\'']).to_owned())
+        .filter(|v| !v.is_empty() && v.len() <= 80 && !v.chars().any(char::is_control));
+    value("PRETTY_NAME").or_else(|| Some(match (value("NAME")?, value("VERSION_ID")) {
+        (name, Some(version)) => format!("{name} {version}"),
+        (name, None) => name,
+    }))
+}
+
+/// This computer's distribution, read once.
+pub fn distribution() -> Option<&'static str> {
+    static NAME: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+    NAME.get_or_init(|| os_release_name(&linux_vst_bridge::read_os_release())).as_deref()
+}
+
+/// DAWs chosen for installations, when any was chosen.
+fn chosen_daws(snapshot: &Snapshot) -> Option<String> {
+    let mut daws: Vec<_> = snapshot.installer_setups.iter()
+        .filter_map(|setup| setup.journey.as_ref().map(|journey| daw_name(journey.daw))).collect();
+    daws.sort();
+    daws.dedup();
+    (!daws.is_empty()).then(|| daws.join(", "))
+}
+
+/// Plain text for a bug report. Versions and names only: no account, licence,
+/// token or path.
+pub fn version_details(snapshot: &Snapshot, distribution: Option<&str>) -> String {
+    let mut lines = vec![installed_line(&snapshot.bridge)];
+    lines.extend(setup_line(&snapshot.bridge));
+    lines.push(format!("Compatibility runtime: {}",
+        runtime_summary(snapshot).as_deref().unwrap_or("not installed")));
+    lines.push(format!("Distribution: {}", distribution.unwrap_or("unknown")));
+    if let Some(daws) = chosen_daws(snapshot) {
+        lines.push(format!("DAW chosen in Setup: {daws}"));
+    }
+    lines.join("\n")
+}
+
 pub(crate) fn installer_installation_label(t: &serde_json::Value) -> String {
     if t["durable_installation"] == "partial_installation"
         && t["installation_completeness"] == "unproved"
@@ -764,6 +864,71 @@ mod tests {
 
     fn snapshot() -> Snapshot {
         serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap()
+    }
+
+    #[test]
+    fn version_details_name_build_runtime_and_distribution_only() {
+        let mut s = snapshot();
+        s.bridge = BridgeBuild { installed: Some("0.12.0test144".into()), setup: SetupPackage::Nothing };
+        for environment in &mut s.environments {
+            environment.runner = "managed-ge-proton11-7-slr4-20260805-r5".into();
+        }
+        assert_eq!(setup_title_note(&s.bridge), None);
+        assert_eq!(version_details(&s, Some("CachyOS Linux")), "Installed: Linux VST Bridge 0.12.0test144\n\
+            Compatibility runtime: r5\nDistribution: CachyOS Linux");
+        s.bridge.setup = SetupPackage::Newer("0.12.0test145".into());
+        s.environments[0].runner = "managed-ge-proton11-7-slr4-20260805-r4".into();
+        assert_eq!(setup_title_note(&s.bridge).as_deref(), Some("Update ready: 0.12.0test145"));
+        assert_eq!(version_details(&s, None), "Installed: Linux VST Bridge 0.12.0test144\n\
+            Update ready in Setup: 0.12.0test145\nCompatibility runtime: r4, r5\nDistribution: unknown");
+        // Only a newer or different build is offered in the title row.
+        for (setup, line) in [
+            (SetupPackage::DifferentBuild("0.12.0test144".into()),
+                "A different build of 0.12.0test144 is ready in Setup"),
+            (SetupPackage::Older("0.12.0test140".into()), "Setup holds an older version (0.12.0test140)"),
+            (SetupPackage::Unchecked, "Setup's package could not be checked"),
+        ] {
+            s.bridge.setup = setup.clone();
+            assert_eq!(setup_line(&s.bridge).as_deref(), Some(line));
+            assert_eq!(setup_title_note(&s.bridge).is_some(),
+                matches!(setup, SetupPackage::DifferentBuild(_)));
+            assert!(version_details(&s, None).contains(line));
+        }
+        // Without plug-in setups, the installed runtime is the one named.
+        s.bridge = BridgeBuild::default();
+        s.environments.clear();
+        s.managed_runtime_records = vec![
+            serde_json::json!({"id":"managed-ge-proton11-7-slr4-20260805-r3","failure":"changed"}),
+            serde_json::json!({"id":"managed-ge-proton11-7-slr4-20260805-r5","failure":null})];
+        assert_eq!(installed_line(&s.bridge), "Installed: Linux VST Bridge (version unknown)");
+        assert_eq!(setup_line(&s.bridge), None);
+        assert_eq!(runtime_summary(&s).as_deref(), Some("r5"));
+        s.managed_runtime_records.clear();
+        assert!(version_details(&s, None).contains("Compatibility runtime: not installed"));
+    }
+
+    #[test]
+    fn only_a_delivered_runtime_is_named_and_any_other_runner_stays_private() {
+        assert_eq!(runtime_name("managed-ge-proton11-7-slr4-20260805-r5"), "r5");
+        for private in ["pk-deck-wine", "/home/someone/.steam/proton", "proton-9.0-r2",
+            "managed-ge-proton-rx", "managed-pk-deck-r"] {
+            assert_eq!(runtime_name(private), "custom runtime", "{private}");
+        }
+        let mut s = snapshot();
+        s.environments[0].runner = "pk-deck-wine".into();
+        s.environments[1].runner = "managed-ge-proton11-7-slr4-20260805-r5".into();
+        s.environments.truncate(2);
+        let details = version_details(&s, None);
+        assert!(details.contains("Compatibility runtime: custom runtime, r5"));
+        assert!(!details.contains("pk") && !details.contains("deck"));
+    }
+
+    #[test]
+    fn os_release_name_prefers_the_pretty_name() {
+        assert_eq!(os_release_name("NAME=\"CachyOS Linux\"\nPRETTY_NAME=\"CachyOS\"\nID=cachyos\n").as_deref(),
+            Some("CachyOS"));
+        assert_eq!(os_release_name("NAME=\"SteamOS\"\nVERSION_ID=3.8\n").as_deref(), Some("SteamOS 3.8"));
+        assert_eq!(os_release_name("ID=unknown\n"), None);
     }
 
     #[test]

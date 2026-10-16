@@ -10,6 +10,7 @@
 //! Privacy: the tester's beta key is kept in a private file and sent only as a
 //! `PW:` request header, written to curl's standard input. It never appears in
 //! a URL, a command line, a log line, an error or a support export.
+use crate::package_version::{compare_versions, valid_version};
 use crate::portable_package::{Bundle, Trust};
 use crate::{atomic_json, digest, random_id, require, Result};
 use serde::{Deserialize, Serialize};
@@ -320,11 +321,6 @@ pub struct FeedPackage { pub file: String, pub size: u64, pub sha256: String }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Verified { Current(Feed), LaterFormat { version: Option<String> } }
 
-/// The same version rule as a signed package release.
-pub fn valid_version(version: &str) -> bool {
-    !version.is_empty() && version.len() <= 80 && version.as_bytes()[0].is_ascii_digit()
-        && version.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.')
-}
 fn valid_system(name: &str) -> bool {
     (1..=32).contains(&name.len())
         && name.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"._-".contains(&b))
@@ -363,40 +359,6 @@ pub fn verify_feed(bytes: &[u8], signature: &[u8], trust: &Trust) -> Result<Veri
     Ok(Verified::Current(feed))
 }
 
-/// Dotted versions with numeric parts compared as numbers:
-/// `0.12.0test99 < 0.12.0test100 < 0.12.1`.
-pub fn compare_versions(a: &str, b: &str) -> Ordering {
-    #[derive(PartialEq, Eq)]
-    enum Part<'a> { Number(&'a str), Word(&'a str) }
-    fn parts(version: &str) -> Vec<Part<'_>> {
-        let mut out = Vec::new();
-        let bytes = version.as_bytes();
-        let mut i = 0;
-        while i < bytes.len() {
-            if bytes[i] == b'.' { i += 1; continue; }
-            let digit = bytes[i].is_ascii_digit();
-            let start = i;
-            while i < bytes.len() && bytes[i] != b'.' && bytes[i].is_ascii_digit() == digit { i += 1; }
-            let text = &version[start..i];
-            out.push(if digit {
-                let trimmed = text.trim_start_matches('0');
-                Part::Number(if trimmed.is_empty() { "0" } else { trimmed })
-            } else { Part::Word(text) });
-        }
-        out
-    }
-    let (a, b) = (parts(a), parts(b));
-    for (x, y) in a.iter().zip(&b) {
-        let order = match (x, y) {
-            (Part::Number(x), Part::Number(y)) => x.len().cmp(&y.len()).then_with(|| x.cmp(y)),
-            (Part::Word(x), Part::Word(y)) => x.to_ascii_lowercase().cmp(&y.to_ascii_lowercase()),
-            (Part::Number(_), Part::Word(_)) => Ordering::Greater,
-            (Part::Word(_), Part::Number(_)) => Ordering::Less,
-        };
-        if order != Ordering::Equal { return order; }
-    }
-    a.len().cmp(&b.len())
-}
 /// `0.12.0test148` is shown as `Test148`, the build number testers know.
 pub fn display_version(version: &str) -> String {
     match version.rsplit_once("test") {
@@ -416,35 +378,6 @@ pub fn system_names(os_release: &str) -> Vec<String> {
         }
     }
     names
-}
-pub fn read_os_release() -> String {
-    for path in ["/etc/os-release", "/usr/lib/os-release"] {
-        let mut bytes = Vec::new();
-        if fs::File::open(path).and_then(|f| f.take(8193).read_to_end(&mut bytes)).is_ok()
-            && bytes.len() <= 8192 {
-            if let Ok(text) = String::from_utf8(bytes) { return text; }
-        }
-    }
-    String::new()
-}
-
-/// The running application's package version, from its selected generation
-/// record. None for the older layout without a package record.
-pub fn installed_version(home: &Path) -> Result<Option<String>> {
-    let root = home.join(".local/share/linux-vst-bridge/managed");
-    let software: crate::catalogue::Software = crate::read_json(&root.join("software.json"))?;
-    let directory = software.manager.path.parent().ok_or("update_installed_version")?;
-    require(directory.parent() == Some(root.join("software").as_path()), "update_installed_version")?;
-    let record = directory.join("package-generation.json");
-    match fs::symlink_metadata(&record) {
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(error.into()),
-        Ok(_) => {}
-    }
-    let value: serde_json::Value = crate::read_json(&record)?;
-    let version = value["manifest"]["version"].as_str().filter(|v| valid_version(v))
-        .ok_or("update_installed_version")?;
-    Ok(Some(version.to_owned()))
 }
 
 /// What one GET produced. A body is kept only from a 200 or 206 response.
@@ -1238,17 +1171,24 @@ mod tests {
         stage(&f, &server.link(), &offer, "0.12.0test146").unwrap();
         assert!(server.log().last().unwrap().lines().any(|h| h == format!("Range: bytes={half}-")));
         assert_eq!(staged_packages(&f), 1);
-        // A redirect in answer to a resume is not the requested range: the
-        // partial download starts over and never gains the redirect's body.
+        // A redirect in answer to a resume is not the requested range. curl
+        // reports it either as a refused range (the download starts over) or
+        // as a stop (the partial download is kept as it was); either way the
+        // redirect's body is never added to it.
         let g = Fixture::new();
         server.shared.lock().unwrap().cut = Some(half as usize);
         assert_eq!(stage(&g, &server.link(), &offer, "0.12.0test146"), Err(UpdateError::DownloadStopped));
         server.shared.lock().unwrap().redirect = true;
         let requests = server.log().len();
-        stage(&g, &server.link(), &offer, "0.12.0test146").unwrap();
-        let log = server.log();
-        assert!(log[requests].lines().any(|h| h.starts_with("Range: bytes=")), "the resume");
-        assert!(!log.last().unwrap().contains("Range:"), "then a fresh whole download");
+        match stage(&g, &server.link(), &offer, "0.12.0test146") {
+            Ok(_) => assert!(!server.log().last().unwrap().contains("Range:"), "a fresh whole download"),
+            Err(UpdateError::DownloadStopped) => {
+                assert_eq!(part_size(&g, &offer), Some(half));
+                stage(&g, &server.link(), &offer, "0.12.0test146").unwrap();
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(server.log()[requests].lines().any(|h| h.starts_with("Range: bytes=")), "the resume");
         assert_eq!(staged_packages(&g), 1);
     }
 
@@ -1339,24 +1279,5 @@ mod tests {
         assert_eq!(error, UpdateError::Install("user_package_entry_identity".into()));
         assert!(error.to_string().contains("so it was deleted"));
         assert_eq!((staged_packages(&f), downloads(&f)), (0, 0), "the claim is true");
-    }
-
-    #[test]
-    fn installed_version_reads_the_selected_generation_record() {
-        let f = Fixture::new();
-        let root = f.home.join(".local/share/linux-vst-bridge/managed");
-        let generation = root.join("software/generation");
-        fs::create_dir_all(&generation).unwrap();
-        let artifact = |name: &str| crate::Artifact { path: generation.join(name), sha256: "0".repeat(64) };
-        let software = crate::catalogue::Software { installer_launch: None, preparation_kit: None,
-            operator_frontend: None, manager: artifact("linux-vst-bridge"), supervisor: artifact("session.pyc"),
-            ownership: artifact("ownership.pyc"), host: artifact("host.exe"),
-            source_manifest: artifact("host-source-manifest.json"), source_sha256: "0".repeat(64),
-            native_catalogue: None };
-        atomic_json(&root.join("software.json"), &software).unwrap();
-        assert_eq!(installed_version(&f.home).unwrap(), None);
-        atomic_json(&generation.join("package-generation.json"),
-            &serde_json::json!({"schema":1,"manifest":{"version":"0.12.0test146"}})).unwrap();
-        assert_eq!(installed_version(&f.home).unwrap().as_deref(), Some("0.12.0test146"));
     }
 }

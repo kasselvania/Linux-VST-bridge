@@ -532,6 +532,35 @@ pub struct Snapshot {
     pub deleted_setups: Vec<DeletedSetup>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub uninstallers: Vec<Uninstaller>,
+    #[serde(default)]
+    pub bridge: BridgeBuild,
+}
+/// Which bridge build is installed and what Setup holds beside it.
+/// Display only: it grants no action and certifies no bytes.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct BridgeBuild {
+    /// Package version of the installed (selected) bridge generation; None
+    /// when it has no readable package record.
+    pub installed: Option<String>,
+    pub setup: SetupPackage,
+}
+/// The package Setup would apply (the user's staged package, else the system
+/// package), compared with the installed bridge.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SetupPackage {
+    /// No package, the installed build itself, or no installed version to
+    /// compare it with.
+    #[default]
+    Nothing,
+    /// A strictly newer version.
+    Newer(String),
+    /// The installed version from different source.
+    DifferentBuild(String),
+    Older(String),
+    /// Setup's package is present but could not be verified.
+    Unchecked,
 }
 /// One uninstall choice of a setup: a registration in its own registry, or
 /// the vendor app that manages the listed plug-ins.

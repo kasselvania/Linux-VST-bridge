@@ -1,7 +1,8 @@
 #pragma once
 #include <cstdint>
 #include <cstddef>
-// UI ABI 5 / independent shared-memory protocol 6. No host/SDK pointer crosses.
+// UI ABI 5 / independent shared-memory protocol 7. No host/SDK pointer crosses.
+// Protocol 7 adds the vendor's MIDI controller assignments (ap11_midi_mapping.h).
 // Calls are native owner/UI-thread only, except the private atomic revision
 // assigned by the Rust audio admission path. No GUI queue is used by audio.
 struct ap11_gui_message_t {
@@ -28,7 +29,7 @@ static_assert(offsetof(ap11_gui_message_t, activation) == 560);
 static_assert(offsetof(ap11_gui_message_t, native_view) == 592);
 static_assert(offsetof(ap11_gui_message_t, lifecycle) == 600);
 namespace AP11 {
-inline constexpr uint32_t GuiProtocolVersion = 6;
+inline constexpr uint32_t GuiProtocolVersion = 7;
 inline bool valid(const ap11_gui_message_t &m) {
   return m.abi_version == 5 && m.extent == sizeof(m) && !m.reserved && m.presentation <= 1 && !(m.presentation_flags & ~1u);
 }
@@ -54,10 +55,14 @@ enum Kind : uint32_t {
   RequestOpen = 107,
   EditorStatus = 108,
   RefreshBegin = 109,
-  Parameter = 110, // result: 0=available, 1=unavailable (canonical value bits zero)
+  Parameter = 110, // result: availability; protocol 7 count: signed UnitID bits
   RefreshEnd = 111,
   Restart = 112,
-  SizeResult = 113
+  SizeResult = 113,
+  // Protocol 7, Windows to native: one complete IMidiMapping table.
+  MidiMapBegin = 114,
+  MidiMapEntries = 115,
+  MidiMapEnd = 116
 };
 // Only these events can carry an editor-origin token. Refresh streams and
 // host/controller invalidations remain instance scoped; no state bytes change.
