@@ -968,6 +968,13 @@ normal process and transport retirement are confirmed. Unsupported kernel custod
 capabilities refuse explicitly. This does not establish cross-distro coverage or
 attribute the earlier missing audio block.
 
+Test201 exposes [#428](https://github.com/kasselvania/Linux-VST-bridge/issues/428):
+Kontakt stalls in initialization before audio readiness, leaving cleanup unconfirmed
+and recovery disabled. Custody now observes the authenticated host's exact status
+mapping during startup; Linux tests retire that stalled host and preserve a sibling.
+Installed prevention remains pending; ordinary clean-boot recovery preserves the
+failed result and retires its lease without claiming a successful session.
+
 Test40's first managed-runtime reopen fails before native binding because its legacy
 working directory is absent. Test41 uses the existing launch HOME and the same original
 project loads both devices. Normal kernel recovery retains the unsuccessful first session
