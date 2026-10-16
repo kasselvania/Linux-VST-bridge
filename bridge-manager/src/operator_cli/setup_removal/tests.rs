@@ -104,13 +104,13 @@ fn stale_identity_and_changed_files_refuse_without_changing_anything() {
     remove_from_daw(&f.m, &class, &identity(&current)).unwrap();
     // A replayed removal of the same publication is already done.
     assert_eq!(remove_from_daw(&f.m, &class, &identity(&current)).unwrap()["already_removed"], true);
-    assert_eq!(add_back(&f.m, &class, &other).unwrap_err().to_string(), CHANGED);
+    assert_eq!(add_back(&f.m, &class, &other, |_, _| unreachable!()).unwrap_err().to_string(), CHANGED);
     // The setup changed after removal: Add back is offered but disabled.
     let entry = f.m.registry().unwrap().classes[&class].clone();
     let mut changed = entry.registration.environment.clone();
     changed.revision += 1;
     atomic_json(&changed.root.join("environment.json"), &changed).unwrap();
-    let offers = plugin_offers(&f.m, &class, &entry, None);
+    let offers = plugin_offers(&f.m, &class, &entry, None, None);
     assert_eq!(offers.len(), 1);
     assert!(offers[0].disabled_reason.as_deref().unwrap().contains("Check compatibility"));
 }
@@ -206,7 +206,7 @@ fn a_setup_in_use_or_with_uncertain_records_is_refused_and_unchanged() {
     };
     // Something holds the environment's operation lock (a plug-in session).
     {
-        let held = OpenOptions::new().read(true).write(true).create(true).mode(0o600)
+        let held = OpenOptions::new().read(true).write(true).create(true).truncate(false).mode(0o600)
             .open(root.join("operation.lock")).unwrap();
         use std::os::fd::AsRawFd;
         assert_eq!(unsafe { libc::flock(held.as_raw_fd(), libc::LOCK_SH) }, 0);
@@ -303,6 +303,61 @@ fn readers_skip_a_deleted_setup_with_prepared_and_removed_history() {
     let overview = current::capture(&f.m).unwrap();
     assert!(overview.snapshot.products.iter().all(|p| p.environment != environment.id));
     assert_eq!(overview.snapshot.deleted_setups.len(), 1);
+}
+
+#[test]
+fn adding_back_after_a_bridge_update_rechecks_the_same_plugin_in_one_action() {
+    let (f, c, current) = published();
+    let class = c.selection.class.id.clone();
+    remove_from_daw(&f.m, &class, &identity(&current)).unwrap();
+    let entry = f.m.registry().unwrap().classes[&class].clone();
+    let name = entry.registration.metadata.name.clone();
+    assert!(!package_authority::add_back_needs_refresh(&f.m, &class, &current).unwrap());
+    // The installed bridge kit changed after the plug-in was removed.
+    let mut sw = software(&f.m).unwrap();
+    sw.preparation_kit.as_mut().unwrap().sha256 = "ee".repeat(32);
+    atomic_json(&f.m.root.join("software.json"), &sw).unwrap();
+    assert!(package_authority::add_back_needs_refresh(&f.m, &class, &current).unwrap());
+    let offers = plugin_offers(&f.m, &class, &entry, None, Some(ANY_LOADED));
+    assert_eq!(offers[0].disabled_reason.as_deref(), Some(recheck_first(&name).as_str()));
+    assert!(plugin_offers(&f.m, &class, &entry, None, None)[0].disabled_reason.is_none());
+    let fresh = RevisionRef {id:"0d".repeat(16),sha256:"0e".repeat(32)};
+    let mut seen = None;
+    let added = add_back(&f.m, &class, &identity(&current), |key, removed| {
+        seen = Some((key.to_owned(), removed.clone()));
+        Ok(fresh.clone())
+    }).unwrap();
+    assert_eq!(seen, Some((class.clone(), current.clone())), "the same removed module and class");
+    assert_eq!(added["rechecked_with_current_bridge"], true);
+    assert_eq!(added["publication"]["id"], fresh.id);
+    assert_eq!(add_back(&f.m, &class, &identity(&current), |_, _| Err("active_device_lease".into()))
+        .unwrap_err().to_string(), recheck_first(&name));
+}
+
+#[test]
+fn a_finished_setup_states_what_is_in_the_daw_now() {
+    let plugin = |class: &str, name: &str| ui::InstallationPlugin {selection:"selection".into(),
+        class_id:class.into(),name:name.into(),stage:ui::InstallationPluginStage::Available,failure:None};
+    let installed = "Installed plug-ins are available through the native DAW connection.";
+    let mut setup = ui::InstallerSetup {installer:"ab".repeat(32),name:"Valhalla".into(),
+        label_source:"user".into(),byte_size:1,format:"pe_executable".into(),imported_at:1,
+        phase:ui::SetupPhase::DiscoveryComplete,status:installed.into(),
+        journey:Some(ui::InstallationJourney {daw:ui::DawChoice::Reaper,phase:ui::InstallationPhase::Available,
+            plugins:vec![plugin(&"0a".repeat(16),"Freq Echo"),plugin(&"0b".repeat(16),"Space Modulator")],failure:None}),
+        environment:None,compatibility:None,discovered:vec![],primary:None,secondary:vec![],
+        rename:action("Rename",ui::Action::InstallerRename {installer:"ab".repeat(32),label:String::new()},None),
+        history:vec![]};
+    let reference = RevisionRef {id:"0c".repeat(16),sha256:"0d".repeat(32)};
+    let mut plan = SetupPlan {name:"Valhalla".into(),environments:vec![],removed:vec![],plugins:vec![],blockers:vec![],
+        in_daw:vec![("0A".repeat(16),"Freq Echo".into(),reference.clone()),("0B".repeat(16),"Space Modulator".into(),reference)]};
+    describe_daw_state(&mut setup, &plan);
+    assert_eq!(setup.status, installed, "all still in the DAW");
+    plan.in_daw.truncate(1);
+    describe_daw_state(&mut setup, &plan);
+    assert_eq!(setup.status, "In your DAW: Freq Echo. Not in your DAW now: Space Modulator.");
+    plan.in_daw.clear();
+    describe_daw_state(&mut setup, &plan);
+    assert_eq!(setup.status, "None of this setup's plug-ins are in your DAW now. Add them back from Plug-ins.");
 }
 
 #[test]

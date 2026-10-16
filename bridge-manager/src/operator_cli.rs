@@ -1176,7 +1176,7 @@ fn project_current_product(m: &Manager, captured: &current::CurrentOverviewConte
                 Some("An exact ordinary publication is required")
             } else { None }));
         buffering_record_actions(m, &entry.registration, &mut product.actions, class_busy);
-        product.actions.extend(setup_removal::plugin_offers(m, class, entry, class_busy));
+        product.actions.extend(setup_removal::plugin_offers(m, class, entry, class_busy, captured.busy));
     }
     preparation_cli::project_scoped_records(m, sw,
         std::slice::from_mut(&mut product), captured.busy, None, &|_| class_busy,
@@ -1407,7 +1407,7 @@ fn snapshot_readonly_depth(
         let mut actions = Vec::new();
         let class_busy = class_scope(&p.class_id);
         buffering_actions(m, &entry.registration, &mut actions, class_busy);
-        actions.extend(setup_removal::plugin_offers(m, &p.class_id, entry, class_busy));
+        actions.extend(setup_removal::plugin_offers(m, &p.class_id, entry, class_busy, busy));
         for h in &hist {
             if h.rollback_allowed && !h.active {
                 actions.push(action(
@@ -2848,7 +2848,20 @@ fn execute_with_receipt_policy_progress(
         }
         ui::Action::PluginAddBackToDaw { class_id, expected_removed } => {
             drop(projection.take());
-            setup_removal::add_back(m, class_id, expected_removed)
+            let owner = operation.ok_or("operator_operation_identity")?;
+            setup_removal::add_back(m, class_id, expected_removed, |key, removed| {
+                // The same supervised inspection as a refreshed restore.
+                let _environment = m.lock("operator-environment.lock")?;
+                suspend(m, owner, None, timeout, waits)?;
+                let result = package_authority::add_back_publication(m, key, removed, owner);
+                let cleanup = resume_owned(m, owner);
+                let publication = result?;
+                if let Err(error) = cleanup {
+                    return Err(ServiceRestorationFailure {reason:error.to_string(),
+                        completed_action:serde_json::to_value(&publication)?}.into());
+                }
+                Ok(publication)
+            })
         }
         ui::Action::SetupRemoveFromDaw { environment } => {
             drop(projection.take());

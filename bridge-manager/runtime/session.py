@@ -5208,7 +5208,7 @@ def selected_installer_origin(managed, app):
                 'powershell':action.get('powershell')}
             if expected['powershell'] not in ('inherited','intentionally_unavailable'):raise ValueError('managed_application_installation_binding')
         if (binding.get('schema')!=1 or binding.get('operation')!=op or binding.get('installer')!=sha
-            or type(request.get('schema')) is not int or not 5<=request['schema']<=27
+            or type(request.get('schema')) is not int or not 5<=request['schema']<=28
             or action!=expected
             or before.get('id')!=env['id'] or after.get('id')!=env['id'] or before.get('root')!=env['root'] or after.get('root')!=env['root']
             or type(before.get('revision')) is not int or type(after.get('revision')) is not int

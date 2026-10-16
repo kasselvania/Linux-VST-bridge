@@ -1318,6 +1318,42 @@ pub(super) fn restore_publication(m: &Manager, key: &str, id: &str,
     preparation::replace_refreshed(m, &candidate, &target, &current)
 }
 
+/// Whether adding back a removed publication needs a fresh check first: it was
+/// prepared with another bridge kit than the one installed now.
+pub(super) fn add_back_needs_refresh(m: &Manager, key: &str, removed: &RevisionRef) -> Result<bool> {
+    let revision = m.load_revision_record(key, removed)?;
+    let kit = preparation::build::recipe_available(m)?;
+    preparation::publication_requires_refresh(m, &revision, &kit.sha256)
+}
+
+/// "Add back to my DAW" after a bridge update, as one action: inspect the same
+/// Windows module and class with the current bridge, prepare it with the
+/// removed publication's settings, and publish that. Caller has suspended the
+/// service under the environment lock, as for a refreshed restore.
+pub(super) fn add_back_publication(m: &Manager, key: &str, removed: &RevisionRef,
+    operation: &str) -> Result<RevisionRef> {
+    let _package = m.lock("package.lock")?;
+    require(!m.root.join("package-transition.json").try_exists()?,
+        "package_transition_needs_recovery")?;
+    let entry = m.registry()?.classes.get(key).cloned().ok_or("registration_absent")?;
+    require(entry.publication == Publication::Removed
+        && entry.managed_revision.as_ref() == Some(removed)
+        && !m.publication_pending(key)?, "add_back_publication_changed")?;
+    let predecessor = m.load_revision(key, removed)?;
+    m.require_inactive(None)?;
+    let selected = software(m)?;
+    verify_software_identity(m, &selected)?;
+    let runtime = preparation::build::stage_runtime_for_software(m, &selected)?;
+    require(preparation::build::runtime_declares_loaded_engine(&runtime)?,
+        "loaded_engine_admission_contract_missing")?;
+    let report = inspect_for_package_refresh(m, &selected, &runtime, &predecessor.registration)?;
+    let prepared = preparation::refresh_candidate(m, &predecessor, runtime, report, operation);
+    let cleanup = preparation::build::cleanup_work(m, operation);
+    let candidate = prepared?;
+    cleanup?;
+    preparation::enable_refreshed(m, &candidate, &predecessor)
+}
+
 fn prepare_refresh_receipt(m: &Manager, target: &Software,
     predecessor: Software,
     acquire_registry: &mut impl FnMut() -> Result<Lock>) -> Result<RefreshReceipt> {

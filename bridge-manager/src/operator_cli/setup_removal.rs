@@ -14,6 +14,11 @@ pub(super) const REMOVED_FROM_DAW: &str =
 const CHANGED: &str = "This changed since it was offered. Refresh and try again.";
 const IN_USE: &str = "Something is still using this setup (an installer, an app or a plug-in). Close it and try again.";
 
+/// The shared-service refusal while any bridged plug-in is open.
+const ANY_LOADED: &str = "Close active bridged instances before this action";
+fn recheck_first(name: &str) -> String {
+    format!("Close the plug-ins open in your DAW first. Adding {name} back checks it again with the updated bridge.")
+}
 fn loaded(name: &str) -> String {
     format!("{name} is still loaded in your DAW. Close it there (or close the project), then try again.")
 }
@@ -83,9 +88,11 @@ fn environment_current(environment: &Environment) -> bool {
 }
 
 /// "Remove from my DAW" for a consistent current publication; "Add back to my
-/// DAW" for a retained publication the musician removed.
-pub(super) fn plugin_offers(m: &Manager, class: &str, entry: &Entry, busy: Option<&str>)
-    -> Vec<ui::AvailableAction> {
+/// DAW" for a retained publication the musician removed. `busy` is the class
+/// refusal; `shared` the whole-service one, which applies when adding back
+/// needs a fresh check with an updated bridge.
+pub(super) fn plugin_offers(m: &Manager, class: &str, entry: &Entry, busy: Option<&str>,
+    shared: Option<&str>) -> Vec<ui::AvailableAction> {
     let Some(current) = entry.managed_revision.as_ref() else { return vec![] };
     if !m.publication_pending(class).is_ok_and(|pending| !pending) { return vec![]; }
     let name = &entry.registration.metadata.name;
@@ -107,9 +114,15 @@ pub(super) fn plugin_offers(m: &Manager, class: &str, entry: &Entry, busy: Optio
                     Some("Its setup changed since it was removed. Use Check compatibility to prepare it again."),
                 Ok(_) => None,
             };
+            // After a bridge update the same file and class are checked again
+            // as part of Add back; that check needs the shared service idle.
+            let recheck = unavailable.is_none() && package_authority::add_back_needs_refresh(m, class, current)
+                .unwrap_or(false);
+            let reason = unavailable.map(str::to_owned).or_else(|| class_reason(busy, name)).or_else(||
+                recheck.then_some(shared).flatten().map(|reason|
+                    if reason == ANY_LOADED { recheck_first(name) } else { reason.to_owned() }));
             vec![action("Add back to my DAW", ui::Action::PluginAddBackToDaw {
-                class_id: class.into(), expected_removed: identity(current) },
-                unavailable.map(str::to_owned).or_else(|| class_reason(busy, name)).as_deref())]
+                class_id: class.into(), expected_removed: identity(current) }, reason.as_deref())]
         }
         Publication::Pending => vec![],
     }
@@ -171,7 +184,11 @@ pub(super) fn remove_from_daw(m: &Manager, class: &str, expected: &ui::Publicati
     Ok(outcome(false))
 }
 
-pub(super) fn add_back(m: &Manager, class: &str, expected: &ui::PublicationIdentity) -> Result<Value> {
+/// Add back the exact removed publication. If it was prepared before a bridge
+/// update, `refreshed` checks the same module and class again with the current
+/// bridge and publishes that, in the same action.
+pub(super) fn add_back(m: &Manager, class: &str, expected: &ui::PublicationIdentity,
+    refreshed: impl FnOnce(&str, &RevisionRef) -> Result<RevisionRef>) -> Result<Value> {
     require(valid_hex(class, 32), "operator_product_identity")?;
     let key = class.to_uppercase();
     let expected_ref = reference(expected);
@@ -186,6 +203,17 @@ pub(super) fn add_back(m: &Manager, class: &str, expected: &ui::PublicationIdent
     }
     require(entry.publication == Publication::Removed
         && entry.managed_revision.as_ref() == Some(&expected_ref), CHANGED)?;
+    if package_authority::add_back_needs_refresh(m, &key, &expected_ref).map_err(|error| plain(&name, error))? {
+        let publication = refreshed(&key, &expected_ref).map_err(|error| {
+            let text = error.to_string();
+            if matches!(text.as_str(), "active_device_lease" | "active_maintenance_lease" | "operator_vendor_active") {
+                recheck_first(&name).into()
+            } else { plain(&name, error) }
+        })?;
+        return Ok(json!({"class_id":key,"name":name,"added_back_to_daw":true,"already_available":false,
+            "rechecked_with_current_bridge":true,"removed_publication":expected,"publication":publication,
+            "next":"Rescan VST3 plug-ins in your DAW if it does not appear."}));
+    }
     let _package = retry_busy(|| m.lock("package.lock"))
         .map_err(|_| "The manager is updating. Try again when the update finishes.")?;
     // The exact retained revision only: its runner, Windows module, host and
@@ -312,6 +340,23 @@ pub(super) fn setup_classes(m: &Manager, environment: &str) -> Result<Vec<String
         .map(|(class, _)| class).collect())
 }
 
+/// A finished installation journey is history; the card states what is in
+/// the DAW now, whatever removed a plug-in since.
+fn describe_daw_state(setup: &mut ui::InstallerSetup, plan: &SetupPlan) {
+    let Some(journey) = setup.journey.as_ref().filter(|journey|
+        journey.phase == ui::InstallationPhase::Available) else { return };
+    let in_daw: std::collections::BTreeSet<_> = plan.in_daw.iter().map(|(class, _, _)| class.to_uppercase()).collect();
+    let (now, gone): (Vec<_>, Vec<_>) = journey.plugins.iter()
+        .filter(|plugin| plugin.stage == ui::InstallationPluginStage::Available)
+        .partition(|plugin| in_daw.contains(&plugin.class_id.to_uppercase()));
+    if gone.is_empty() { return; }
+    let names = |plugins: &[&ui::InstallationPlugin]| plugins.iter().map(|p| p.name.as_str()).collect::<Vec<_>>().join(", ");
+    setup.status = if now.is_empty() {
+        "None of this setup's plug-ins are in your DAW now. Add them back from Plug-ins.".into()
+    } else {
+        format!("In your DAW: {}. Not in your DAW now: {}.", names(&now), names(&gone))
+    };
+}
 fn delete_reason(plan: &SetupPlan, busy: Option<&str>) -> Option<String> {
     if !plan.in_daw.is_empty() {
         let names: Vec<_> = plan.in_daw.iter().map(|(_, name, _)| name.as_str()).collect();
@@ -334,7 +379,17 @@ pub(super) fn project(m: &Manager, setups: &mut [ui::InstallerSetup], records: &
         if setup.journey.as_ref().is_some_and(|journey| !matches!(journey.phase,
             ui::InstallationPhase::Available | ui::InstallationPhase::NeedsAttention
             | ui::InstallationPhase::AwaitingApplication)) { continue; }
-        let plan = plan(m, &setup.installer, &environment, records, db, is_live)?;
+        // One unreadable setup must not hide every other card.
+        let plan = match plan(m, &setup.installer, &environment, records, db, is_live) {
+            Ok(plan) => plan,
+            Err(error) => {
+                setup.secondary.push(action("Delete this setup", ui::Action::SetupDelete {
+                    installer: setup.installer.clone(), environment }, Some(&format!(
+                    "The manager can't read this setup's records right now ({error}). Send Setup details."))));
+                continue;
+            }
+        };
+        describe_daw_state(setup, &plan);
         if !plan.in_daw.is_empty() {
             let reason = plan.in_daw.iter().find_map(|(class, name, _)| class_reason(scope(class), name));
             setup.secondary.push(action("Remove its plug-ins from my DAW",
@@ -393,7 +448,7 @@ fn checked_root(m: &Manager, environment: &Environment) -> Result<PathBuf> {
 /// proves none of them is running there now.
 fn hold(m: &Manager, environment: &Environment) -> Result<File> {
     let root = checked_root(m, environment)?;
-    let lock = OpenOptions::new().read(true).write(true).create(true).mode(0o600)
+    let lock = OpenOptions::new().read(true).write(true).create(true).truncate(false).mode(0o600)
         .custom_flags(libc::O_NOFOLLOW).open(root.join("operation.lock"))?;
     use std::os::fd::AsRawFd;
     require(unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0, IN_USE)?;
