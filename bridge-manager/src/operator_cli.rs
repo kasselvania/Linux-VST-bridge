@@ -10,6 +10,7 @@ pub(super) mod environment_install;
 pub(super) mod environment_runtime;
 mod environment_refresh;
 mod renderer_continuation;
+mod setup_removal;
 const ASC: &str = "arturia-software-center";
 const SERVICE: &str = "linux-vst-bridge.service";
 #[derive(Debug)]
@@ -100,7 +101,8 @@ fn token_with_registry(m: &Manager, registry: &Registry) -> Result<String> {
             "renderer_checkpoints":renderer_continuation::authority(m)?,
             "onboarding_history":onboarding::history_records(m)?,
             "vendor_checkpoints":automatic_install::vendor_checkpoint_authority(m)?,
-            "user_programs":vendor_cli::selection::authority(m)?}),
+            "user_programs":vendor_cli::selection::authority(m)?,
+            "deleted_setups":linux_vst_bridge::deleted_setup::records(m)?}),
     )?)))
 }
 fn action(label: &str, action: ui::Action, reason: Option<&str>) -> ui::AvailableAction {
@@ -195,9 +197,14 @@ fn app_directory(m: &Manager) -> PathBuf {
 fn vendor_projections(m: &Manager, busy: Option<&str>) -> Result<Vec<ui::VendorApplication>> {
     let selected = vendor_cli::selectors(m)?;
     let superseded = vendor_cli::selection::superseded(m)?;
+    // An app of a deleted setup is history, not something to open.
+    let deleted = linux_vst_bridge::deleted_setup::environments(m)?;
     let mut rows = selected
         .iter()
         .filter(|selector| !superseded.contains(*selector))
+        .filter(|selector| deleted.is_empty() || vendor_cli::directory(m, selector)
+            .and_then(|directory| read_json::<vendor_application::Application>(&directory.join("application.json")))
+            .map_or(true, |app| !deleted.contains(&app.environment.id)))
         .map(|selector| vendor_projection(m, selector, busy))
         .collect::<Result<Vec<_>>>()
         .map(|rows| rows.into_iter().flatten().collect::<Vec<_>>())?;
@@ -592,6 +599,9 @@ fn inactive_reason(
         _ => None,
     }
 }
+/// The class-scoped refusal for a loaded plug-in. Musician-facing removal
+/// replaces it with the plug-in's own name.
+pub(super) const CLASS_LOADED: &str = "Close instances of this plug-in before changing its configuration";
 // Publication and per-class preferences do not mutate a shared environment.
 // Unknown custody and maintenance still block them; independent DSP does not.
 fn class_inactive_reason(
@@ -609,7 +619,7 @@ fn class_inactive_reason(
         Some("Wait for the owned maintenance operation to finish")
     } else if owners.iter().any(|owner| owner.kind == capacity::Kind::Dsp
         && owner.class_id.eq_ignore_ascii_case(class)) {
-        Some("Close instances of this plug-in before changing its configuration")
+        Some(CLASS_LOADED)
     } else if !vendor_retired {
         Some("Wait for the owned installer or vendor operation to retire")
     } else if system.pending_transactions > 0 {
@@ -645,22 +655,32 @@ fn require_operator_inactive_with(
         return Ok(());
     }
     // Resolve immutable candidate history before taking the short admission lock.
-    let class = if a.requires_global_inactive() { None } else {
-        match a {
+    // A setup-scoped action names every class bound to the setup; an empty
+    // scope still requires no maintenance owner (no class matches "").
+    let classes = if a.requires_global_inactive() { None } else {
+        Some(match a {
             ui::Action::OrdinaryRollback { class_id, .. }
             | ui::Action::DeliverySet { class_id, .. }
-            | ui::Action::BufferingSet { class_id, .. } => Some(class_id.clone()),
-            _ => Some(preparation_cli::action_selection(m, &software(m)?, a)?
-                .ok_or("operator_action_scope_unresolved")?.class.id),
-        }
+            | ui::Action::BufferingSet { class_id, .. }
+            | ui::Action::PluginRemoveFromDaw { class_id, .. }
+            | ui::Action::PluginAddBackToDaw { class_id, .. } => vec![class_id.clone()],
+            ui::Action::SetupRemoveFromDaw { environment } => setup_removal::setup_classes(m, environment)?,
+            ui::Action::SetupDelete { environment, .. } =>
+                if linux_vst_bridge::deleted_setup::load(m, environment)?.is_some() { vec![] }
+                else { setup_removal::setup_classes(m, environment)? },
+            _ => vec![preparation_cli::action_selection(m, &software(m)?, a)?
+                .ok_or("operator_action_scope_unresolved")?.class.id],
+        })
     };
     let cap = capacity_read().ok_or("capacity_readback_unavailable")?;
     let _admission = acquire_readback(m, ui::OperatorLock::Registry, operation, timeout, waits)?;
     require(cap.owners == capacity::owners(m)?, "operator_owners_changed")?;
     let retired = vendor_retired(m)? && onboarding::all_retired(m)?;
     let pending = pending_transactions(m)?;
-    let reason = if let Some(class) = &class {
-        class_inactive_reason(&system_from_capacity(Some(&cap), pending, 0), &cap.owners, retired, class)
+    let reason = if let Some(classes) = &classes {
+        let system = system_from_capacity(Some(&cap), pending, 0);
+        if classes.is_empty() { class_inactive_reason(&system, &cap.owners, retired, "") }
+        else { classes.iter().find_map(|class| class_inactive_reason(&system, &cap.owners, retired, class)) }
     } else { inactive_reason(
         Some(&cap),
         retired,
@@ -668,11 +688,18 @@ fn require_operator_inactive_with(
         matches!(a, ui::Action::TransactionReconcile {}),
     ) };
     if let Some(reason) = reason {
-        return Err(reason.into());
+        return Err(setup_removal::admission_refusal(m, a, reason).into());
     }
     // Recheck durable owners at the mutation boundary, under the same lock
     // used by service admission; a peer lost since LVC1 must not disappear.
-    m.require_inactive(class.as_deref())
+    let checked = match &classes {
+        None => m.require_inactive(None),
+        Some(classes) if classes.is_empty() => m.require_inactive(Some("")),
+        Some(classes) => classes.iter().try_for_each(|class| m.require_inactive(Some(class))),
+    };
+    checked.map_err(|error| if setup_removal::removal_action(a) {
+        setup_removal::admission_refusal(m, a, &error.to_string()).into()
+    } else { error })
 }
 fn history(m: &Manager, key: &str, entry: &Entry) -> Result<Vec<ui::History>> {
     history_with(m, key, entry, true)
@@ -1149,10 +1176,16 @@ fn project_current_product(m: &Manager, captured: &current::CurrentOverviewConte
                 Some("An exact ordinary publication is required")
             } else { None }));
         buffering_record_actions(m, &entry.registration, &mut product.actions, class_busy);
+        product.actions.extend(setup_removal::plugin_offers(m, class, entry, class_busy));
     }
     preparation_cli::project_scoped_records(m, sw,
         std::slice::from_mut(&mut product), captured.busy, None, &|_| class_busy,
         &captured.preparation)?;
+    if let Some(entry) = db.classes.get(class).filter(|entry|
+        entry.registration.environment.id == environment
+            && entry.registration.module.sha256 == module) {
+        setup_removal::present_removed(m, &mut product, entry);
+    }
     Ok(product)
 }
 fn buffering_actions(m: &Manager, registration: &Registration,
@@ -1374,6 +1407,7 @@ fn snapshot_readonly_depth(
         let mut actions = Vec::new();
         let class_busy = class_scope(&p.class_id);
         buffering_actions(m, &entry.registration, &mut actions, class_busy);
+        actions.extend(setup_removal::plugin_offers(m, &p.class_id, entry, class_busy));
         for h in &hist {
             if h.rollback_allowed && !h.active {
                 actions.push(action(
@@ -1464,6 +1498,9 @@ fn snapshot_readonly_depth(
         preparation_cli::project_scoped(m, &sw, &mut products, busy, id, &class_scope)?;
     }
     for product in &mut products {
+        if let Some(entry) = db.classes.get(&product.class_id) {
+            setup_removal::present_removed(m, product, entry);
+        }
         if product.availability.is_none() {
             product.availability=Some(ui::NativeAvailability {available:false,
                 reason:Some(NO_NATIVE_CONNECTION.into())});
@@ -1519,6 +1556,8 @@ fn snapshot_readonly_depth(
     if let Some(app)=vendor_applications.iter_mut().find(|app|app.id==renderer::ID) {
         renderer_continuation::project(m,app,Some(&mut installer_setups),busy)?;
     }
+    let deleted_setups = setup_removal::project(m, &mut installer_setups, &records, &db,
+        &managed_bindings, &class_scope, &mut |operation| onboarding::live(operation))?;
     automatic_install::project_revalidation(m,&mut products,&records)?;
     let environment_installers = environment_install::projection(m,&products,busy,onboarding::live)?;
     let recheck = acquire_readback(m, ui::OperatorLock::Registry, id, timeout, waits)?;
@@ -1559,6 +1598,7 @@ fn snapshot_readonly_depth(
             ),
         ],
         operation,
+        deleted_setups,
     })
 }
 fn project_onboarding_failure(
@@ -1634,6 +1674,7 @@ pub(super) fn available(snapshot: &ui::Snapshot) -> Vec<&ui::AvailableAction> {
                 .iter()
                 .filter_map(|p| p.export.as_ref()),
         )
+        .chain(snapshot.deleted_setups.iter().flat_map(|d| d.actions.iter()))
         .collect()
 }
 fn validate(request: &ui::Request, snapshot: &ui::Snapshot) -> Result<()> {
@@ -1704,6 +1745,8 @@ fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Resu
             | ui::Action::OrdinaryRestoreRecommended { class_id }
             | ui::Action::DeliverySet { class_id, .. }
             | ui::Action::BufferingSet { class_id, .. }
+            | ui::Action::PluginRemoveFromDaw { class_id, .. }
+            | ui::Action::PluginAddBackToDaw { class_id, .. }
             | ui::Action::CaptureArm { class_id } => {
                 let entry = db.classes.get(class_id).ok_or("operator_product_not_current")?;
                 offered.products = vec![timing::measure(Stage::SelectedProjection, ||
@@ -1739,6 +1782,8 @@ fn validate_current_request_readonly(m: &Manager, request: &ui::Request) -> Resu
 }
 fn scoped_product_action(action: &ui::Action) -> bool {
     matches!(action, ui::Action::OrdinaryRollback { .. }
+        | ui::Action::PluginRemoveFromDaw { .. }
+        | ui::Action::PluginAddBackToDaw { .. }
         | ui::Action::OrdinaryRestoreRecommended { .. }
         | ui::Action::DeliverySet { .. }
         | ui::Action::BufferingSet { .. }
@@ -1778,6 +1823,8 @@ fn current_offer_action(action: &ui::Action) -> bool {
         | ui::Action::EnvironmentInstallerScan { .. }
         | ui::Action::EnvironmentRuntimeSelect { .. }
         | ui::Action::ProgramChoose { .. }
+        | ui::Action::SetupRemoveFromDaw { .. }
+        | ui::Action::SetupDelete { .. }
         | ui::Action::QuarantinedModuleRetry { .. })
 }
 fn installer_control(action: &ui::Action) -> Option<(&str, &str)> {
@@ -2794,6 +2841,26 @@ fn execute_with_receipt_policy_progress(
                 });
             let resumed = resume_owned(m,owner);
             let value = result?;resumed?;Ok(value)
+        }
+        ui::Action::PluginRemoveFromDaw { class_id, expected_current } => {
+            drop(projection.take());
+            setup_removal::remove_from_daw(m, class_id, expected_current)
+        }
+        ui::Action::PluginAddBackToDaw { class_id, expected_removed } => {
+            drop(projection.take());
+            setup_removal::add_back(m, class_id, expected_removed)
+        }
+        ui::Action::SetupRemoveFromDaw { environment } => {
+            drop(projection.take());
+            setup_removal::remove_setup_from_daw(m, environment)
+        }
+        ui::Action::SetupDelete { installer, environment } => {
+            // Serialized with rescans, installers and runtime changes; the
+            // service keeps running for plug-ins in other setups.
+            let _environment = m.lock("operator-environment.lock")?;
+            let owner = operation.ok_or("operator_operation_identity")?;
+            drop(projection.take());
+            setup_removal::delete_setup(m, installer, environment, owner)
         }
         ui::Action::CaptureArm { class_id } => {
             crash_capture::arm(m, Some(class_id))?;
@@ -4402,6 +4469,7 @@ pub(crate) mod tests {
             recent_incidents: vec![],
             actions: vec![action],
             operation: None,
+            deleted_setups: vec![],
         }
     }
     #[cfg(feature = "cpi2-test-contract")]
@@ -4735,7 +4803,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn current_schema_keeps_exact_old_operation_request_history_readable() {
-        assert_eq!(ui::OPERATOR_SCHEMA, 27);
+        assert_eq!(ui::OPERATOR_SCHEMA, 28);
         let f = test_fixture::Fixture::new();
         let operation = "ab".repeat(16);
         let dir = job_dir(&f.m, &operation).unwrap();
@@ -6073,7 +6141,7 @@ pub(crate) mod tests {
         fs::set_permissions(path,fs::Permissions::from_mode(0o400)).unwrap();
         runner
     }
-    fn onboarding_worker_fixture() -> (test_fixture::Fixture, String) {
+    pub(crate) fn onboarding_worker_fixture() -> (test_fixture::Fixture, String) {
         use linux_vst_bridge::catalogue::{Catalogue, EnvironmentBinding, OnboardingRuntimePolicy,
             STANDARD_ONBOARDING_RUNNER};
         let (f, p, _, native) = test_fixture::prepared();
@@ -7386,7 +7454,7 @@ with zipfile.ZipFile(sys.argv[1],'w') as archive:
         assert_eq!(blocked.phase, ui::SetupPhase::CleanupUnconfirmed);
         assert!(blocked.primary.is_none());
     }
-    fn capacity_fixture(m: &Manager) -> Option<CapacityReadback> {
+    pub(super) fn capacity_fixture(m: &Manager) -> Option<CapacityReadback> {
         // Actual capacity owner and registry read, only the Unix socket is omitted.
         capacity::status(m, capacity::fixture_limits(), 0, false)
             .ok()

@@ -257,6 +257,10 @@ impl RequestFeedback {
                 Action::CandidateGraphicsPrepare { .. } => "Preparing a reversible graphics settings trial.".into(),
                 Action::CandidateSettingsPrepare { .. } => "Preparing a reversible compatibility settings trial. Your current selection stays in place.".into(),
                 Action::CompatibilityPublishTest { .. } => "Selecting this plug-in's prepared bridge.".into(),
+                Action::PluginRemoveFromDaw { .. } => "Removing this plug-in from your DAW.".into(),
+                Action::PluginAddBackToDaw { .. } => "Adding this plug-in back to your DAW.".into(),
+                Action::SetupRemoveFromDaw { .. } => "Removing this setup's plug-ins from your DAW.".into(),
+                Action::SetupDelete { .. } => "Deleting this setup's Windows files. A large setup can take a minute.".into(),
                 _ => "This operation is in progress. Do not click again.".into(),
             },
             _ => return,
@@ -578,6 +582,8 @@ pub struct Operator {
     product_form: Option<Action>,
     workspace_select_form: Option<Action>,
     installer_rename_form: Option<Action>,
+    /// A removal or deletion awaiting the musician's explicit confirmation.
+    removal_form: Option<Action>,
     software_install_form: Option<Action>,
     software_install_daw: Option<DawChoice>,
     pending_import_route: Option<(String, bool, String)>,
@@ -624,6 +630,7 @@ impl Operator {
             product_form: None,
             workspace_select_form: None,
             installer_rename_form: None,
+            removal_form: None,
             software_install_form: None,
             software_install_daw: None,
             pending_import_route: None,
@@ -671,6 +678,7 @@ impl Operator {
             product_form: None,
             workspace_select_form: None,
             installer_rename_form: None,
+            removal_form: None,
             software_install_form: None,
             software_install_daw: None,
             pending_import_route: None,
@@ -853,7 +861,8 @@ impl Operator {
             return false;
         }
         for form in [&mut self.product_form, &mut self.workspace_select_form,
-            &mut self.installer_rename_form, &mut self.software_install_form] {
+            &mut self.installer_rename_form, &mut self.software_install_form,
+            &mut self.removal_form] {
             if form.as_ref() == Some(&request.action) {
                 *form = None;
             }
@@ -1901,8 +1910,8 @@ impl Operator {
                             .min_size(egui::vec2(240.0, 44.0))).clicked() {
                         show_discovered_products(setup, library, page);
                     }
-                    let secondary: Vec<_> = setup.secondary.iter().filter(|offer|
-                        (continuation.is_none() || !obsolete_initial_installer_offer(offer)) && !reviewing_replacement
+                    let secondary: Vec<_> = setup.secondary.iter().filter(|offer| !removal_offer(&offer.action)
+                        && (continuation.is_none() || !obsolete_initial_installer_offer(offer)) && !reviewing_replacement
                             && offer.action.software_install().is_none_or(|(_,_,policy)|policy.is_none())
                             && !setup_offer_uses_program_choice(&overview.current,setup,offer)).cloned().collect();
                     ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &secondary,
@@ -1990,6 +1999,15 @@ impl Operator {
                             overview.current.system.inactive_reason(), pending, chosen));
                         ui.small(format!("Installer SHA-256: {}",setup.installer));
                     });
+                    let removal: Vec<_> = setup.secondary.iter().filter(|offer| removal_offer(&offer.action))
+                        .cloned().collect();
+                    if !removal.is_empty() {
+                        egui::CollapsingHeader::new("Remove or delete this setup").show(ui, |ui| {
+                            ui.label("Remove its plug-ins from your DAW, or delete the whole Windows setup. Deleting also deletes anything installed in it and any licences or sign-ins stored there. Your projects are not changed.");
+                            ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &removal,
+                                overview.current.system.inactive_reason(), pending, chosen));
+                        });
+                    }
                 });
             });
         }
@@ -2061,6 +2079,25 @@ impl Operator {
                     }
                 });
             });
+        }
+        if !overview.current.deleted_setups.is_empty() {
+            egui::CollapsingHeader::new(format!("Deleted setups ({})", overview.current.deleted_setups.len()))
+                .default_open(overview.current.deleted_setups.iter().any(|d| d.state == "deleting"))
+                .show(ui, |ui| {
+                    for deleted in &overview.current.deleted_setups {
+                        ui.push_id(("deleted-setup", &deleted.environment), |ui| {
+                            ui.strong(&deleted.name);
+                            ui.label(if deleted.state == "deleting" {
+                                "Deleting didn't finish. Finish it to remove the rest of its Windows files."
+                            } else { "Deleted. Its Windows files are gone; its history is kept." });
+                            if !deleted.plugins.is_empty() {
+                                ui.small(format!("Plug-ins it held: {}", deleted.plugins.join(", ")));
+                            }
+                            ui.add_enabled_ui(fresh, |ui| Self::buttons(ui, &deleted.actions,
+                                overview.current.system.inactive_reason(), pending, chosen));
+                        });
+                    }
+                });
         }
         ui.small("Vendor accounts and authorization stay with you and the vendor.");
         if ui.button("Technical setup history").clicked() { *page = Page::Diagnostics; }
@@ -2700,6 +2737,8 @@ impl eframe::App for Operator {
                 self.workspace_select_form = Some(a);
             } else if matches!(a, Action::InstallerRename { .. }) {
                 self.installer_rename_form = Some(a);
+            } else if needs_confirmation(&a) {
+                self.removal_form = Some(a);
             } else {
                 chosen = Some(a);
             }
@@ -2762,6 +2801,26 @@ impl eframe::App for Operator {
             });
             if submit { chosen = self.installer_rename_form.clone(); }
             else if cancel { self.installer_rename_form = None; }
+        }
+        if let Some(form) = self.removal_form.clone() {
+            let snapshot = if matches!(form, Action::PluginRemoveFromDaw { .. }) {
+                selected_product_snapshot.as_ref().or_else(|| self.current_action_snapshot())
+            } else { self.current_action_snapshot() }.or(if self.preview { self.snapshot.as_ref() } else { None });
+            let confirmation = removal_confirmation(snapshot, &form);
+            let mut submit = false;
+            let mut cancel = false;
+            egui::Window::new(confirmation.title).collapsible(false).resizable(false).show(ui.ctx(), |ui| {
+                for line in &confirmation.body { ui.label(line); }
+                if let Err(reason) = &confirmation.offer { ui.colored_label(warning_color(ui), reason); }
+                ui.horizontal_wrapped(|ui| {
+                    submit = ui.add_enabled(confirmation.offer.is_ok() && !action_controls_pending,
+                        egui::Button::new(egui::RichText::new(confirmation.confirm).strong())
+                            .min_size(egui::vec2(200.0, 44.0))).clicked();
+                    cancel = ui.add_sized([120.0, 44.0], egui::Button::new(confirmation.cancel)).clicked();
+                });
+            });
+            if submit { chosen = Some(form); }
+            else if cancel { self.removal_form = None; }
         }
         let result_offer = self.product_form.as_ref().and_then(|form| {
             let Action::CompatibilityResult { candidate, expected_current, .. } = form else { return None };
@@ -2889,6 +2948,77 @@ fn installation_form_offer(snapshot: Option<&Snapshot>, action: &Action)
                 .ok_or("This vendor installation offer changed. Refresh Setup before continuing.")
         }
         _ => Err("This installation offer changed. Refresh Setup before continuing."),
+    }
+}
+
+/// Removing from the DAW or deleting a setup always asks first.
+fn needs_confirmation(action: &Action) -> bool {
+    matches!(action, Action::PluginRemoveFromDaw { .. } | Action::SetupRemoveFromDaw { .. }
+        | Action::SetupDelete { .. })
+}
+/// Setup-level removal offers live in their own section of the setup card.
+fn removal_offer(action: &Action) -> bool {
+    matches!(action, Action::SetupRemoveFromDaw { .. } | Action::SetupDelete { .. })
+}
+struct Confirmation {
+    title: &'static str,
+    body: Vec<String>,
+    confirm: &'static str,
+    cancel: &'static str,
+    /// The exact current offer, or why it can't be confirmed now.
+    offer: Result<AvailableAction, String>,
+}
+fn removal_confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirmation {
+    const CHANGED: &str = "This choice is no longer offered. Close this and check the current status.";
+    let current = |offers: &mut dyn Iterator<Item = &AvailableAction>| -> Result<AvailableAction, String> {
+        let offer = offers.find(|offer| offer.action == *action).cloned().ok_or(CHANGED)?;
+        match &offer.disabled_reason { Some(reason) => Err(reason.clone()), None => Ok(offer) }
+    };
+    let Some(snapshot) = snapshot else {
+        return Confirmation { title: "Check current status", body: vec![], confirm: "Continue",
+            cancel: "Close", offer: Err("Current manager status is unavailable. Refresh before continuing.".into()) };
+    };
+    match action {
+        Action::PluginRemoveFromDaw { class_id, .. } => {
+            let product = snapshot.products.iter().find(|p| p.class_id.eq_ignore_ascii_case(class_id)
+                && p.actions.iter().any(|offer| offer.action == *action));
+            let name = product.map_or("This plug-in", |p| p.name.as_str());
+            Confirmation { title: "Remove from your DAW?",
+                body: vec![format!("{name} will no longer appear in your DAW's plug-in list."),
+                    "Projects that use it will open with it missing until you add it back.".into(),
+                    "Its Windows installation and settings stay in its setup, so you can add it back at any time.".into()],
+                confirm: "Remove from my DAW", cancel: "Keep it",
+                offer: current(&mut product.into_iter().flat_map(|p| p.actions.iter())) }
+        }
+        Action::SetupRemoveFromDaw { environment } => {
+            let names: Vec<_> = snapshot.products.iter().filter(|p| p.environment == *environment
+                && p.availability.as_ref().is_some_and(|a| a.available)).map(|p| p.name.as_str()).collect();
+            let names = if names.is_empty() { "This setup's plug-ins".into() } else { names.join(", ") };
+            Confirmation { title: "Remove these plug-ins from your DAW?",
+                body: vec![format!("{names} will no longer appear in your DAW's plug-in list."),
+                    "Projects that use them will open with them missing until you add them back.".into(),
+                    "Their Windows installation stays in this setup.".into()],
+                confirm: "Remove from my DAW", cancel: "Keep them",
+                offer: current(&mut snapshot.installer_setups.iter().flat_map(|s| s.secondary.iter())) }
+        }
+        Action::SetupDelete { installer, environment } => {
+            if let Some(deleted) = snapshot.deleted_setups.iter().find(|d| d.environment == *environment) {
+                return Confirmation { title: "Finish deleting this setup?",
+                    body: vec![format!("Deleting the Windows setup for {} didn't finish. This removes the rest of its files.", deleted.name),
+                        "Your projects are not changed.".into()],
+                    confirm: "Finish deleting", cancel: "Not now",
+                    offer: current(&mut deleted.actions.iter()) };
+            }
+            let setup = snapshot.installer_setups.iter().find(|s| s.installer == *installer);
+            let name = setup.map_or_else(|| "this setup".into(), |s| setup_display_name(s, snapshot));
+            Confirmation { title: "Delete this setup?",
+                body: vec![format!("This deletes the Windows setup for {name}, including anything installed in it and any licences or sign-ins stored there. Your projects are not changed."),
+                    "The installer you added stays in the manager, so you can set it up again later. A record of this setup is kept in its history.".into()],
+                confirm: "Delete setup", cancel: "Cancel",
+                offer: current(&mut setup.into_iter().flat_map(|s| s.secondary.iter())) }
+        }
+        _ => Confirmation { title: "Check current status", body: vec![], confirm: "Continue", cancel: "Close",
+            offer: Err(CHANGED.into()) },
     }
 }
 
@@ -4216,6 +4346,7 @@ mod tests {
             product_form: None,
             workspace_select_form: None,
             installer_rename_form: None,
+            removal_form: None,
             software_install_form: None,
             software_install_daw: None,
             pending_import_route: None,
@@ -6142,6 +6273,63 @@ mod tests {
         }
     }
     #[test]
+    fn removal_and_deletion_ask_first_with_the_exact_current_offer() {
+        fn labels(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
+            match shape {
+                egui::epaint::Shape::Text(text) => out.push(text.galley.text().into()),
+                egui::epaint::Shape::Vec(shapes) => for shape in shapes { labels(shape, out); },
+                _ => {}
+            }
+        }
+        let mut overview = overview_fixture();
+        let product = overview.current.products[0].clone();
+        let delete = AvailableAction {label:"Delete this setup".into(),
+            action:Action::SetupDelete {installer:"ab".repeat(32),environment:product.environment.clone()},
+            disabled_reason:None};
+        let remove_all = AvailableAction {label:"Remove its plug-ins from my DAW".into(),
+            action:Action::SetupRemoveFromDaw {environment:product.environment.clone()},disabled_reason:None};
+        let setup = InstallerSetup {
+            installer:"ab".repeat(32),name:"Freq Echo installer".into(),
+            label_source:"operator_named".into(),byte_size:1024,format:"pe_executable".into(),imported_at:1,
+            phase:crate::model::SetupPhase::DiscoveryComplete,status:"One plug-in found".into(),
+            environment:Some(product.environment.clone()),compatibility:None,discovered:vec![],
+            primary:None,secondary:vec![remove_all.clone(),delete.clone()],
+            rename:AvailableAction {label:"Rename".into(),
+                action:Action::InstallerRename {installer:"ab".repeat(32),label:String::new()},
+                disabled_reason:None},journey:None,history:vec![],
+        };
+        overview.current.installer_setups = vec![setup.clone()];
+        assert!(needs_confirmation(&delete.action) && needs_confirmation(&remove_all.action));
+        assert!(!needs_confirmation(&Action::PluginAddBackToDaw {class_id:product.class_id.clone(),
+            expected_removed:PublicationIdentity {id:"ab".repeat(16),sha256:"cd".repeat(32)}}));
+
+        let asked = removal_confirmation(Some(&overview.current), &delete.action);
+        assert_eq!(asked.title, "Delete this setup?");
+        assert_eq!(asked.body[0], "This deletes the Windows setup for Freq Echo installer, including anything installed in it and any licences or sign-ins stored there. Your projects are not changed.");
+        assert_eq!(asked.offer.as_ref().map(|offer| &offer.action), Ok(&delete.action));
+        overview.current.installer_setups[0].secondary[1].disabled_reason = Some("Remove Freq Echo from your DAW first.".into());
+        assert_eq!(removal_confirmation(Some(&overview.current), &delete.action).offer.unwrap_err(),
+            "Remove Freq Echo from your DAW first.");
+        let mut other = delete.action.clone();
+        if let Action::SetupDelete {installer,..} = &mut other { *installer = "ef".repeat(32); }
+        assert!(removal_confirmation(Some(&overview.current), &other).offer.unwrap_err().contains("no longer offered"));
+        assert!(removal_confirmation(None, &delete.action).offer.is_err());
+
+        // The setup card keeps both choices out of its everyday row, in their own section.
+        overview.current.installer_setups[0].secondary[1].disabled_reason = None;
+        let ctx = egui::Context::default();
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            Operator::fast_setup(ui,&overview.clone().into(),true,false,
+                (&mut false,&mut None,&mut false,&mut Page::Setup,&mut crate::library::Library::default(),
+                    &mut RouteFocus::default(),&mut None));
+        });
+        let mut text = Vec::new();
+        for clipped in &output.shapes { labels(&clipped.shape,&mut text); }
+        output.textures_delta.clear();
+        assert!(text.iter().any(|line| line == "Remove or delete this setup"));
+        assert!(!text.iter().any(|line| line == "Delete this setup"), "collapsed until the musician opens it");
+    }
+    #[test]
     fn selected_setup_stop_is_visible_and_clickable_without_capacity_readiness() {
         fn stop_position(shape: &egui::epaint::Shape) -> Option<egui::Pos2> {
             match shape {
@@ -6764,6 +6952,7 @@ mod tests {
             recent_incidents: vec![],
             actions: vec![],
             operation: Some(serde_json::json!({"operation":operation,"state":"vendor_running"})),
+            deleted_setups: vec![],
         }
     }
     fn start_feedback(o: &mut Operator, acknowledged: bool) {

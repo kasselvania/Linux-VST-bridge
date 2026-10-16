@@ -46,6 +46,11 @@ fn watch_paths(m:&Manager, sw:&Software, db:&Registry) -> Result<BTreeMap<PathBu
         paths.insert(binding.result.path);
     }
     paths.insert(m.root.join("daw-workspaces/fl-studio/workspace.json"));
+    let deleted = linux_vst_bridge::deleted_setup::directory(m);
+    paths.insert(deleted.clone());
+    for record in linux_vst_bridge::deleted_setup::records(m)? {
+        paths.insert(linux_vst_bridge::deleted_setup::path(m, &record.environment)?);
+    }
     let vendor_root = m.root.join("vendor-applications");
     paths.insert(vendor_root.clone());
     if vendor_root.is_dir() {
@@ -512,6 +517,9 @@ pub(super) fn current_products(m: &Manager, db: &Registry, sw: &Software,
         } && !m.publication_pending(class)?
             && (entry.managed_revision.is_none() || completed_publication);
         let publication_selected = entry.publication == Publication::Published;
+        // A complete retained publication with no DAW link was removed on purpose.
+        let removed_by_choice = entry.publication == Publication::Removed
+            && entry.managed_revision.is_some() && publication_valid;
         let current_valid = module_valid && environment_valid && runner_valid && performance_valid
             && native_valid && host_valid && publication_valid && publication_selected;
         let profile = loaded.map(|revision| &revision.profile);
@@ -525,13 +533,15 @@ pub(super) fn current_products(m: &Manager, db: &Registry, sw: &Software,
             class_id: class.clone(), name:r.metadata.name.clone(), vendor:r.metadata.vendor.clone(),
             role:serde_json::to_value(profiles::role(&r.metadata)?)?.as_str().unwrap_or("unknown").into(),
             version:r.metadata.version.clone(),
-            disposition:if current_valid {"ready"} else {"needs_attention"}.into(),
+            disposition:if current_valid {"ready"} else if removed_by_choice {"removed_from_daw"}
+                else {"needs_attention"}.into(),
             active_revision:profile.map(|p| p.revision),
             recommended_revision:recommended.map(|p| p.revision),
             environment:r.environment.id.clone(), runner:r.environment.runner.id.clone(),
             module_sha256:r.module.sha256.clone(), limitations, history:vec![], actions:vec![],
             compatibility:None,availability:Some(ui::NativeAvailability {available:current_valid,
-                reason:if current_valid {None} else {Some("The native DAW connection needs attention.".into())}}),
+                reason:if current_valid {None} else if removed_by_choice {Some(setup_removal::REMOVED_FROM_DAW.into())}
+                    else {Some("The native DAW connection needs attention.".into())}}),
             details:json!({"profile":profile.map(|p|json!({"id":p.id,"revision":p.revision,"claim":p.claim})),
                 "environment_revision":r.environment.revision,
                 "verification_scope":"control_records",
@@ -786,6 +796,15 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
     let mut vendor_applications = vendor_projections(m,busy)?;
     let environments=environment_projection_from(m,&sw,&managed_bindings,&db,busy)?;
     environment_refresh::project(m,&mut installer_setups,&environments,&products,busy)?;
+    let deleted_setups = {
+        let system = system_from_capacity(cap.as_ref(),pending,0);
+        setup_removal::project(m,&mut installer_setups,&records,&db,&managed_bindings,
+            &|class| class_inactive_reason(&system,&owners,retired,class), &mut |operation| {
+                if let Some(live) = installer_live.get(operation) { return Ok(*live); }
+                let live = installer_is_live(operation)?;
+                installer_live.insert(operation.to_owned(),live);Ok(live)
+            })?
+    };
     if let Some(app)=renderer_projection(m,busy,vendor.then_some(true),Some(&mut installer_setups))? {
         vendor_applications.push(app);
     }
@@ -807,7 +826,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
             action("Create sanitized support export",ui::Action::SupportExport {},None),
             action("Reconcile interrupted transaction",ui::Action::TransactionReconcile {},
                 inactive_reason(cap.as_ref(),retired,pending,true))],
-        operation};
+        operation,deleted_setups};
     Ok(CurrentOverviewContext {snapshot,busy,profiles,revisions,owners,watched,current_generation,
         software:sw,registry:db,preparation,bindings:managed_bindings,
         installer_live,vendor_progress,vendor_retired:vendor,all_vendor_retired:retired,cleanup_seen,
@@ -1199,7 +1218,7 @@ pub(super) mod tests {
                 system:system_from_capacity(None,pending,0),onboarding:vec![],
                 installer_setups:vec![],environment_installers:vec![],environments:vec![],vendor_applications:vec![],
                 products:vec![],workspaces,active_sessions:vec![],capture:Value::Null,
-                recent_incidents:vec![],actions:vec![],operation:None},
+                recent_incidents:vec![],actions:vec![],operation:None,deleted_setups:vec![]},
             busy:None,profiles:vec![],revisions:BTreeMap::new(),
             current_generation:pulse_generation(m).unwrap(),
             software,registry:m.registry().unwrap(),preparation:preparation::RecordReadback::capture(m).unwrap(),
@@ -1714,7 +1733,7 @@ pub(super) mod tests {
             system:system_from_capacity(None,0,0),onboarding:vec![],
             installer_setups:vec![],environment_installers:vec![],environments:vec![],vendor_applications:vec![],
             products:vec![],workspaces:vec![],active_sessions:vec![],
-            capture:Value::Null,recent_incidents:vec![],actions:vec![],operation:None};
+            capture:Value::Null,recent_incidents:vec![],actions:vec![],operation:None,deleted_setups:vec![]};
         let mut context = context_for_watched(&fixture.m, watched);
         context.snapshot = snapshot;
         context.recheck(&fixture.m).unwrap();

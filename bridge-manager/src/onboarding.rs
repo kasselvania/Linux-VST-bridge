@@ -24,6 +24,8 @@ pub fn directory(m: &Manager, id: &str) -> Result<PathBuf> {
     Ok(m.root.join("onboarding").join(id))
 }
 fn load_record_binding(m: &Manager, id: &str) -> Result<Record> {
+    // A deleted setup's records are history; no action may load them again.
+    require(!linux_vst_bridge::deleted_setup::is_deleted(m, id)?, "setup_deleted")?;
     let mut r: Record = read_json(&directory(m, id)?.join("record.json"))?;
     require(
         r.schema == 1
@@ -99,7 +101,8 @@ pub fn retained_environment(m: &Manager, id: &str) -> Result<Option<Record>> {
     Ok(record)
 }
 pub fn retained_environment_record(m: &Manager, id: &str) -> Result<Option<Record>> {
-    if !valid_hex(id, 32) || !directory(m, id)?.join("record.json").try_exists()? {
+    if !valid_hex(id, 32) || !directory(m, id)?.join("record.json").try_exists()?
+        || linux_vst_bridge::deleted_setup::is_deleted(m, id)? {
         return Ok(None);
     }
     Ok(Some(load_record_binding(m, id)?))
@@ -129,13 +132,15 @@ pub fn records(m: &Manager) -> Result<Vec<Record>> {
 }
 /// Read-only installation history remains visible after product registration.
 /// Mutation entry points continue to use load(), which refuses registered environments.
+/// Records of deleted setups stay on disk as history and are skipped here.
 pub fn history_records(m: &Manager) -> Result<Vec<Record>> {
     let dir=m.root.join("onboarding"); if !dir.exists(){return Ok(vec![])}
+    let deleted=linux_vst_bridge::deleted_setup::environments(m)?;
     let mut out=vec![];
-    for entry in fs::read_dir(dir)?.take(129) {
+    for entry in fs::read_dir(dir)?.take(129+deleted.len()) {
         require(out.len()<128,"onboarding_count_bound")?;
         let path=entry?.path();let id=path.file_name().and_then(|v|v.to_str()).ok_or("onboarding_identity")?;
-        if !valid_hex(id,32){continue}
+        if !valid_hex(id,32) || deleted.contains(id){continue}
         let mut r:Record=read_json(&path.join("record.json"))?;
         require(r.schema==1 && r.id==id && r.environment.id==id && r.environment.root==m.root.join("environments").join(id)
            && valid_hex(&r.creation_operation,32)
@@ -2024,6 +2029,7 @@ pub(crate) mod tests {
             recent_incidents: vec![],
             actions: vec![],
             operation: None,
+            deleted_setups: vec![],
         };
         let refresh: Vec<_> = crate::operator_cli::available(&snapshot)
             .into_iter()

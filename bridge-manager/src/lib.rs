@@ -8,6 +8,7 @@ pub mod transport_storage;
 pub mod mapped_file;
 pub mod catalogue;
 pub mod crash_capture;
+pub mod deleted_setup;
 #[cfg(test)]
 mod managed_tests;
 pub mod observation;
@@ -1051,7 +1052,8 @@ impl Manager {
     }
     pub fn unpublish(&self, key: &str) -> Result<()> { self.unpublish_scoped(key,None,false) }
     pub fn unpublish_exact_inactive(&self,key:&str,expected:&publication::RevisionRef)->Result<()> {self.unpublish_scoped(key,Some(expected),true)}
-    pub(crate) fn unpublish_exact(&self,key:&str,expected:&publication::RevisionRef)->Result<()> {self.unpublish_scoped(key,Some(expected),false)}
+    /// Remove one exact current publication; only that class must be inactive.
+    pub fn unpublish_exact(&self,key:&str,expected:&publication::RevisionRef)->Result<()> {self.unpublish_scoped(key,Some(expected),false)}
     fn unpublish_scoped(&self,key:&str,expected:Option<&publication::RevisionRef>,global:bool)->Result<()> {
         require(valid_hex(key, 32), "class ID syntax")?;
         let key = key.to_uppercase();
