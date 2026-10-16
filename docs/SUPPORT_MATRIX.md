@@ -87,6 +87,13 @@ Test126: Kontakt's editor embeds in REAPER, live MIDI and a clip play, and Pad -
 Noir returns after a full REAPER restart (−4.7 dBFS). Limits: FC-MIDI-004
 (save-then-play), FC-STATE-004, #363, #364.
 
+Test200 on CachyOS / REAPER 7.82: real DAW MIDI reaches Kontakt 8.13.1
+(Piano Uno), with vendor state readback CC1 1.0, pitch bend 1.0 and aftertouch
+96/127. The copied project retains four notes and 82 controller events after a
+fresh process, plays up to −27.6 dBFS RMS and saves valid vendor state again.
+An early state-capture/activation failure remains under FC-STATE-004;
+[Bitwig controller acceptance is pending](https://github.com/kasselvania/Linux-VST-bridge/issues/410).
+
 Test73 on fresh CachyOS / REAPER 7.82 completes ordinary managed installation and discovery of the first-party Editor instrument/effect. The Editor Effect embeds with native Param/last-touched access; real pointer Touch recording and Read playback (29% → 60%) pass, and saved Level 60% recalls after a full REAPER restart with PulseAudio playback/meters active.
 
 Test58's corrected first-party vendor-application continuation passes in the
