@@ -609,6 +609,41 @@ pub struct Operator {
     page: Page,
     focus: RouteFocus,
     preview: bool,
+    pacing: ReadPacing,
+}
+/// Status reads take seconds on a populated setup and briefly share the
+/// manager's registry lock with running work. Passive refreshes (a noticed
+/// change, details on a technical page while a task runs) are paced so the
+/// window never reads back to back. The first read, an explicit Refresh and
+/// actions themselves are never delayed.
+#[derive(Default)]
+struct ReadPacing {
+    started: Option<Instant>,
+    last: Option<(Instant, Duration)>,
+    action_accepted: Option<Instant>,
+}
+impl ReadPacing {
+    const GAP: Duration = Duration::from_secs(3);
+    const ACTION_START: Duration = Duration::from_secs(5);
+    fn started(&mut self, now: Instant) { self.started = Some(now); }
+    /// Only one request is in flight; the next reply ends a started read.
+    fn finished(&mut self, now: Instant) {
+        if let Some(at) = self.started.take() { self.last = Some((now, now.duration_since(at))); }
+    }
+    fn accepted(&mut self, now: Instant) { self.action_accepted = Some(now); }
+    /// How long a passive read still has to wait, if at all. It waits as long
+    /// as the last read took (at least 3 s), so at most half the time is spent
+    /// reading, and while the task runs none starts in the first 5 s of an
+    /// accepted action, while its worker gets going.
+    fn wait(&self, now: Instant, task_running: bool) -> Option<Duration> {
+        let after_read = self.last.map(|(done, cost)| done + cost.max(Self::GAP));
+        let after_start = self.action_accepted.filter(|_| task_running).map(|at| at + Self::ACTION_START);
+        after_read.into_iter().chain(after_start).max()
+            .and_then(|due| due.checked_duration_since(now)).filter(|wait| !wait.is_zero())
+    }
+    fn passive_due(&self, now: Instant, task_running: bool) -> bool {
+        self.wait(now, task_running).is_none()
+    }
 }
 impl Operator {
     pub fn new(ctx: &egui::Context, window_wake: Option<client::WindowWake>) -> Self {
@@ -656,6 +691,7 @@ impl Operator {
             page: Page::Home,
             focus: RouteFocus::default(),
             preview: false,
+            pacing: ReadPacing::default(),
         }
     }
     /// The example owns only synthetic state; it never starts the manager client.
@@ -704,6 +740,7 @@ impl Operator {
             page,
             focus: RouteFocus::default(),
             preview: true,
+            pacing: ReadPacing::default(),
         }
     }
     /// Synthetic current-only overview for source previews. It never calls the manager.
@@ -856,6 +893,9 @@ impl Operator {
     }
     fn request(&mut self, q: Query, origin: RequestOrigin, ctx: &egui::Context) {
         if self.frontend_superseded { return; }
+        if matches!(q, Query::Overview | Query::CurrentOverview | Query::Snapshot) {
+            self.pacing.started(Instant::now());
+        }
         self.pending = true;
         self.origin = Some(origin);
         self.background_poll = origin == RequestOrigin::BackgroundActivity;
@@ -1084,6 +1124,7 @@ impl Operator {
             RequestOrigin::BackgroundActivity
         } else { RequestOrigin::InitialSnapshot });
         let was_action = origin == RequestOrigin::UserAction;
+        self.pacing.finished(Instant::now());
         self.pending = false;
         self.background_poll = false;
         self.action_inflight = false;
@@ -1146,6 +1187,7 @@ impl Operator {
                 if r.accepted {
                     self.operation_live = true;
                     self.prompt_pulse = true;
+                    self.pacing.accepted(Instant::now());
                 }
                 if let Some(f) = &mut self.feedback {
                     f.receipt(&r);
@@ -2729,6 +2771,11 @@ impl Operator {
         } else {
             Duration::from_secs(10)
         };
+        // A refresh held back by pacing is sent when it becomes due.
+        let interval = match self.pacing.wait(Instant::now(), self.operation_live) {
+            Some(wait) if self.refresh_after && !self.pending => interval.min(wait + self.last_poll.elapsed()),
+            _ => interval,
+        };
         interval.saturating_sub(self.last_poll.elapsed()).max(Duration::from_millis(50))
     }
 }
@@ -3003,7 +3050,8 @@ impl eframe::App for Operator {
             self.prompt_pulse = false;
             self.request(Query::Pulse, RequestOrigin::BackgroundActivity, ui.ctx());
         } else if !self.pending && (self.explicit_refresh_queued || self.refresh_after)
-            && (self.explicit_refresh_queued || self.retry_after.is_none_or(|at| Instant::now() >= at)) {
+            && (self.explicit_refresh_queued || (self.retry_after.is_none_or(|at| Instant::now() >= at)
+                && self.pacing.passive_due(Instant::now(), self.operation_live))) {
             let origin = if self.explicit_refresh_queued { RequestOrigin::ExplicitRefresh }
                 else { RequestOrigin::SilentPostMutationRefresh };
             let query = self.overview_query();
@@ -3018,7 +3066,8 @@ impl eframe::App for Operator {
             self.product_attempted = Some(key.clone());
             self.request(Query::Product(key), RequestOrigin::ProductDetail, ui.ctx());
         } else if !self.pending && self.snapshot.is_none() && !self.details_attempted
-            && !matches!(self.page, Page::Home | Page::Setup | Page::Plugins) {
+            && !matches!(self.page, Page::Home | Page::Setup | Page::Plugins)
+            && (!self.operation_live || self.pacing.passive_due(Instant::now(), true)) {
             self.details_attempted = true;
             self.request(Query::Snapshot, RequestOrigin::DetailSnapshot, ui.ctx());
         } else if !self.pending && self.page == Page::Activity
@@ -4567,6 +4616,48 @@ mod tests {
             assert!(!plausible_installer_label(invalid));
         }
     }
+    #[test]
+    fn passive_reads_are_paced_after_long_reads_and_starting_actions() {
+        let t0 = Instant::now();
+        let at = |seconds: u64| t0 + Duration::from_secs(seconds);
+        let mut pacing = ReadPacing::default();
+        assert!(pacing.passive_due(t0, true), "the first read is never delayed");
+        // An 8-second overview on a populated setup: the next passive read
+        // waits as long again, so the window reads at most half the time.
+        pacing.started(t0);
+        pacing.finished(at(8));
+        assert_eq!(pacing.wait(at(15), true), Some(Duration::from_secs(1)));
+        assert!(pacing.passive_due(at(16), true));
+        // A quick read still leaves at least three seconds.
+        pacing.started(at(16));
+        pacing.finished(at(17));
+        assert!(!pacing.passive_due(at(19), false));
+        assert!(pacing.passive_due(at(20), false));
+        // A just-accepted action gets five quiet seconds to start; once the
+        // task has ended its final state is read without that wait.
+        pacing.accepted(at(20));
+        assert!(!pacing.passive_due(at(24), true));
+        assert!(pacing.passive_due(at(24), false));
+        assert!(pacing.passive_due(at(25), true));
+        // A reply that did not follow a read (pulse, receipt) changes nothing.
+        pacing.finished(at(26));
+        assert_eq!(pacing.last, Some((at(17), Duration::from_secs(1))));
+    }
+    #[test]
+    fn a_paced_refresh_wakes_the_window_when_due_without_busy_redraws() {
+        let mut operator = state_fixture();
+        operator.operation_live = true;
+        operator.refresh_after = true;
+        let now = Instant::now();
+        operator.pacing.started(now - Duration::from_secs(4));
+        operator.pacing.finished(now);
+        operator.last_poll = now;
+        let delay = operator.repaint_delay();
+        assert!(delay > Duration::from_secs(1) && delay <= Duration::from_secs(2), "{delay:?}");
+        operator.operation_live = false;
+        let delay = operator.repaint_delay();
+        assert!(delay > Duration::from_secs(3) && delay <= Duration::from_secs(4), "{delay:?}");
+    }
     fn state_fixture() -> Operator {
         let (sender, receiver) = mpsc::channel();
         Operator {
@@ -4611,6 +4702,7 @@ mod tests {
             page: Page::Home,
             focus: RouteFocus::default(),
             preview: false,
+            pacing: ReadPacing::default(),
         }
     }
     #[test]
