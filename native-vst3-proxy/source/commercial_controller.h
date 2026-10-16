@@ -87,7 +87,8 @@ public:
       return nullptr;
     try {
       if (terminal_failed_) return new AP2::RecoveryView(this,status_,terminal_.words[7]);
-      if (session_refused_) return new AP2::RecoveryView(this,status_,AP2::RecoveryView::NotLoaded{});
+      if (session_refused_) return new AP2::RecoveryView(this,status_,AP2::RecoveryView::NotLoaded{},
+          state_held_ ? AP2::NOT_LOADED_HELD : AP2::NOT_LOADED_STATE);
       auto token = editor_.allocate();
       return token ? new AP11::VendorPanel(this, *this, token) : nullptr;
     } catch (...) {
@@ -167,6 +168,13 @@ public:
       // connection: keep the pair connected so the view can explain it.
       if (result == kNotInitialized) return kResultOk;
       return result == kResultOk ? request() : result;
+    }
+    if (!std::strcmp(id, "AP10.state_held")) {
+      int64 bytes = 0;
+      if (m->getAttributes()->getInt("bytes", bytes) != kResultOk || bytes <= 0)
+        return kResultFalse;
+      state_held_ = true;
+      return kResultOk;
     }
     if (!std::strcmp(id, "AP10.refused")) {
       int64 kind = 0;
@@ -408,6 +416,7 @@ public:
   }
   uint64_t allocateEditorView() { return onOwner() ? editor_.allocate() : 0; }
   uint32_t panelState(uint64_t view) const override { return editor_.state(view); }
+  bool heldStateAnnounced() const { return state_held_; }
   const char *panelStatus() const { if(terminal_failed_)return status_;return save_unavailable_ ? "Saving unavailable; vendor editor remains accessible" : status_; }
   bool readbackAvailable(uint32_t id) {auto* p=state(id);return p&&p->available;}
 
@@ -419,6 +428,7 @@ private:
   bool terminal_failed_=false;
   bool session_refused_=false; // Owner thread; set once by bind().
   int64_t refusal_kind_=LVBAdmission::Unknown; // From AP10.refused.
+  bool state_held_=false; // From AP10.state_held.
   AP15::EditorLifecycle editor_;
   Steinberg::Vst::IMessage *retirement_message_ = nullptr;
   ap11_gui_message_t pending_close_{};

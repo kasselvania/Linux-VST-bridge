@@ -605,6 +605,9 @@ void held_state_regression() {
       LVBState::Stream again;
       check(processor.getState(&again)==kResultOk && again.bytes==saved,"repeated saves stay byte-identical");
     }
+    // The editor learns the state is held even when the restore preceded
+    // the connection (the processor repeats it on the refused bind).
+    check(controller->heldStateAnnounced()==(order!=NeverReceived),"the controller knows whether the project's state is held");
     LVBState::Stream controllerOut;
     check(controller->getState(&controllerOut)==kResultOk && controllerOut.bytes.size()==8,"controller state round-trips unchanged");
     open_refused=false;
