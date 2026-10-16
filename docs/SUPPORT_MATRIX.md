@@ -11,6 +11,9 @@ Status terms:
 
 A source patch, build, candidate, or publication is not a physical support claim.
 
+Problem report button (#361): source checks only; installed report creation and
+saving remain unqualified.
+
 Test201 / CachyOS: the first-party activation fixture passed its `LoadLibrary`
 prompt, Show/Stop and normal-close continuation; both classes connected in the same
 setup ([installed result](https://github.com/kasselvania/Linux-VST-bridge/issues/414#issuecomment-6224981749)).

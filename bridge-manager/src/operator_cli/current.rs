@@ -852,7 +852,7 @@ fn capture_readonly_with(m: &Manager, mut installer_is_live: impl FnMut(&str)->R
         workspaces,active_sessions:vec![],capture:Value::Null,recent_incidents:vec![],
         actions:vec![action(&linux_vst_bridge::runtime_delivery::installation_label(),ui::Action::RuntimeInstall {},
             runtime_reason.as_deref().or(busy)),
-            action("Create sanitized support export",ui::Action::SupportExport {},None),
+            action("Send a problem report",ui::Action::SupportExport {},None),
             action("Reconcile interrupted transaction",ui::Action::TransactionReconcile {},
                 inactive_reason(cap.as_ref(),retired,pending,true))],
         operation,deleted_setups,uninstallers,
