@@ -342,6 +342,13 @@ tresult PLUGIN_API Processor::connect(IConnectionPoint *peer) {
 #endif
   return result;
 }
+tresult Processor::saveNothingRecorded(IBStream *stream) {
+  if (state_unkept_)
+    return kResultFalse;
+  uint8_t marker[sizeof(LVBState::nothingRecorded)];
+  std::copy(std::begin(LVBState::nothingRecorded), std::end(LVBState::nothingRecorded), marker);
+  return LVBState::transfer(stream, marker, sizeof(marker), true) ? kResultOk : kResultFalse;
+}
 void Processor::holdState(std::vector<uint8_t> &&blob) {
   held_state_ = std::move(blob);
   state_held_ = true;
@@ -371,13 +378,13 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
     return LVBState::transfer(stream, held_state_.data(), held_state_.size(), true)
                ? kResultOk : kResultFalse;
   // Without a session and without held bytes it has nothing recorded and says
-  // so with an empty state, never fabricated plug-in state. REAPER asks for
-  // state before restoring it and, after one refusal, neither restores nor
-  // asks again, saving only parameter values (#380). State received but not
-  // kept is refused instead, so nothing claims to be that state.
+  // so with the bridge's nothingRecorded marker, never fabricated plug-in
+  // state. REAPER asks for state before restoring it and, after one refusal,
+  // neither restores nor asks again, saving only parameter values (#380).
+  // State received but not kept is refused instead, so nothing claims to be it.
   if (stream && owner_ == std::this_thread::get_id() && phase_ == Failed &&
       !handle_ && !terminal())
-    return state_unkept_ ? kResultFalse : kResultOk;
+    return saveNothingRecorded(stream);
   if (phase_ == Failed || terminal())
     stateFailure("get", "failed_instance");
   if (!stream || owner_ != std::this_thread::get_id() || phase_ == New ||
@@ -386,7 +393,7 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
   try {
     if (!stateSession())
       // Admission was refused by this very request: nothing is recorded yet.
-      return !handle_ && !terminal() && !state_unkept_ ? kResultOk : kResultFalse;
+      return !handle_ && !terminal() ? saveNothingRecorded(stream) : kResultFalse;
 #ifdef AP8_PREVIEW
     // Deliver already accepted UI gestures before the existing DSP/state
     // barrier. Never wait here for work owned by this native UI thread.
@@ -437,10 +444,10 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
       !handle_ && !terminal()) {
     try {
       std::vector<uint8_t> blob;
-      bool empty = false;
-      if (!LVBState::readEnvelopeOrEmpty(stream, blob, empty)) {
+      bool nothing = false;
+      if (!LVBState::readEnvelopeOrNothing(stream, blob, nothing)) {
         state_unkept_ = !state_held_;
-      } else if (!empty) {
+      } else if (!nothing) {
         holdState(std::move(blob));
       } else {
         // The host restored "nothing recorded": that is what a save returns.
@@ -473,11 +480,11 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
 #ifndef AP8_PREVIEW
     double restored = 0.;
 #endif
-    bool empty = false;
-    const bool envelope = LVBState::readEnvelopeOrEmpty(stream, blob, empty);
-    // Nothing recorded (saved while this plug-in was not loaded): keep the
-    // plug-in's own defaults; there is nothing to restore or to refuse.
-    if (envelope && empty)
+    bool nothing = false;
+    const bool envelope = LVBState::readEnvelopeOrNothing(stream, blob, nothing);
+    // The bridge's own "nothing recorded" (saved while this plug-in was not
+    // loaded): keep the plug-in's own defaults; nothing to restore or refuse.
+    if (envelope && nothing)
       return kResultOk;
     if (!envelope && !handle_)
       state_unkept_ = !state_held_;

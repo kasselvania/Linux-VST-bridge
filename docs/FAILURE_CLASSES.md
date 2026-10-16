@@ -3057,14 +3057,15 @@ under a new name cut Kontakt's saved state from 173,328 to 22,848 characters
 (parameter values only). A trace in REAPER showed why keeping the bytes alone
 was not enough: REAPER asks for state before restoring it, and after that one
 refusal it neither restores nor asks again. An instance without a bridge
-session now answers that question with an empty state (nothing recorded, never
-fabricated plug-in state), keeps the exact envelope REAPER then restores, and
+session now answers that question with the bridge's 16-byte nothing-recorded
+marker (`LVBNONE\0`, version 1; never an `LVBSTATE` envelope, so it cannot be
+mistaken for any plug-in's own state), keeps the exact envelope REAPER then restores, and
 returns it unchanged from getState. Test108 on CachyOS: the saved Kontakt
 block was identical to the original (173,328 characters, same digest). A
-loaded instance accepts an empty state and keeps its defaults. State received
+loaded instance accepts the marker and keeps its defaults. State received
 but not kept (over the 256 MiB cap a loaded instance also has, or malformed)
-makes getState refuse rather than claim an empty state. Older bridge builds
-fail an instance restored from an empty state; that only arises for a
+makes getState refuse rather than claim nothing was recorded. Older bridge builds
+fail an instance restored from the marker; that only arises for a
 never-restored instance saved while refused. A terminal instance that had a
 session keeps today's behaviour (snapshot recovery).
 

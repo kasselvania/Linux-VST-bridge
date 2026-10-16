@@ -107,6 +107,7 @@ private:
   // malformed): saving then refuses rather than claim an empty state.
   bool state_unkept_ = false;
   void holdState(std::vector<uint8_t> &&blob);
+  Steinberg::tresult saveNothingRecorded(Steinberg::IBStream *stream);
   void announceHeldState();
   uint32_t output_mask_=1;
 #ifdef AP8_PREVIEW
