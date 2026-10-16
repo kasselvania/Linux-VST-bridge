@@ -129,6 +129,8 @@ struct RequestFeedback {
     acknowledgment_uncertain: bool,
     journey: Option<InstallationJourney>,
     transitions: Vec<String>,
+    report: Option<client::SupportReport>,
+    report_save_started: bool,
 }
 impl RequestFeedback {
     fn captured(action: Action) -> Self {
@@ -143,6 +145,8 @@ impl RequestFeedback {
             acknowledgment_uncertain: false,
             journey: None,
             transitions: vec!["captured".into()],
+            report: None,
+            report_save_started: false,
         }
     }
     fn transition(&mut self, state: &str) {
@@ -217,7 +221,15 @@ impl RequestFeedback {
             Some("completed") => {
                 self.terminal = true;
                 self.release_after_snapshot = true;
-                if let Some(message) = op["result"]["message"].as_str().filter(|_| matches!(self.action,
+                if matches!(self.action,Action::SupportExport {}) {
+                    self.report = op["result"]["export"].as_str().zip(op["result"]["sha256"].as_str())
+                        .filter(|(id,sha)|linux_vst_bridge::valid_hex(id,32)
+                            && linux_vst_bridge::valid_hex(sha,64))
+                        .map(|(id,sha256)|client::SupportReport {id:id.into(),sha256:sha256.into()});
+                    if self.report.is_some() {
+                        "Problem report created. Choose where to save the file to send.".into()
+                    } else { "The report's file identity is unavailable. Create a new problem report.".into() }
+                } else if let Some(message) = op["result"]["message"].as_str().filter(|_| matches!(self.action,
                     Action::PluginRemoveFromDaw { .. } | Action::PluginAddBackToDaw { .. }
                     | Action::SetupRemoveFromDaw { .. } | Action::ProductUninstall { .. }
                     | Action::InstallerCloseCheck { .. })) {
@@ -233,6 +245,10 @@ impl RequestFeedback {
             Some("submission_uncertain") => {
                 self.release_after_snapshot = true;
                 "Launch acknowledgment is uncertain. Use the exact Stop / reconcile control; no launch was resubmitted.".into()
+            }
+            Some("vendor_running") if matches!(self.action, Action::PluginFinishSetup { .. }) => {
+                self.release_after_snapshot = true;
+                "Finish setup in the plug-in window, then close it. The bridge will check it again automatically.".into()
             }
             Some("vendor_running") if matches!(self.action, Action::ProductUninstall { .. }) => {
                 self.release_after_snapshot = true;
@@ -462,7 +478,7 @@ struct InstallerReplacement {
 }
 fn replacement_context(snapshot: &Snapshot, setup: &InstallerSetup) -> Option<InstallerReplacement> {
     if setup.phase == SetupPhase::CleanupUnconfirmed || setup.primary.iter().chain(&setup.secondary)
-        .any(|offer| matches!(offer.action, Action::InstallerFocus {..} | Action::InstallerStop {..}
+        .any(|offer| matches!(offer.action, Action::PluginSetupFocus {..}|Action::PluginSetupStop {..}|Action::InstallerFocus {..} | Action::InstallerStop {..}
             | Action::VendorApplicationFocus {..} | Action::VendorApplicationStop {..})) {
         return None;
     }
@@ -534,11 +550,12 @@ enum RequestOrigin {
     SilentPostMutationRefresh,
     ExplicitRefresh,
     InstallerImport,
+    ProblemReportSave,
     UserAction,
 }
 impl RequestOrigin {
     fn foreground(self) -> bool {
-        matches!(self, Self::InstallerImport | Self::UserAction)
+        matches!(self, Self::InstallerImport | Self::ProblemReportSave | Self::UserAction)
     }
 }
 
@@ -1254,13 +1271,27 @@ impl Operator {
                 self.feedback = None;
                 self.refresh_after = true;
             }
+            Reply::ReportSaved(path) => {
+                if let Some(feedback) = &mut self.feedback {
+                    feedback.text = format!("Problem report saved: {}. Attach this file to your message. Nothing was uploaded.",path.display());
+                }
+            }
             Reply::Cancelled => {
+                if origin == RequestOrigin::ProblemReportSave {
+                    if let Some(feedback) = &mut self.feedback {
+                        feedback.text = "Saving cancelled. The report is kept locally; choose Save problem report to save a copy.".into();
+                    }
+                }
                 if origin == RequestOrigin::InstallerImport {
                     self.message = "No installer selected.".into();
                     self.focus.replacement = None;
                 }
             }
             Reply::Error(e) => {
+                if origin == RequestOrigin::ProblemReportSave {
+                    if let Some(feedback) = &mut self.feedback { feedback.text = e; }
+                    return;
+                }
                 if origin == RequestOrigin::ProductDetail {
                     self.product_detail = None;
                     return;
@@ -1995,6 +2026,20 @@ impl Operator {
                             overview.current.system.inactive_reason(), pending, chosen));
                     }
                     if let Some(context) = replacement_context(&overview.current, setup) {
+                        if context.environment.is_some() {
+                            ui.strong("Install a required app in this setup");
+                            if let Some(target)=overview.current.environment_installers.iter().find(|target|
+                                context.environment.as_ref()==Some(&target.environment)) {
+                                for help in &target.dependency_help {ui.label(help);}
+                            }
+                            ui.label("If the plug-in asks for a licence manager or another dependency, download its Windows installer from the vendor. Choose it here; after it closes, the bridge checks this same setup again.");
+                            if ui.add_enabled(fresh && !pending,
+                                egui::Button::new("Choose dependency installer").min_size(egui::vec2(240.0,44.0))).clicked() {
+                                focus.replacement=Some(context.clone());
+                                focus.setup_installer=Some(setup.installer.clone());
+                                *pick=true;
+                            }
+                        }
                         if ui.add_enabled(fresh && !pending,
                             egui::Button::new("Choose another installer").min_size(egui::vec2(240.0,44.0))).clicked() {
                             focus.replacement = Some(context);
@@ -2274,6 +2319,15 @@ impl Operator {
                     );
                     ui.label(feedback.transitions.join(" / "));
                 });
+            }
+            if let Some(feedback) = &mut self.feedback {
+                if feedback.report.is_some() {
+                    ui.small("Includes versions, setup history and bridge diagnostics. No licences, accounts, plug-in files or prefixes. Nothing is uploaded.");
+                    if ui.add_enabled(!self.pending && !self.frontend_superseded,
+                        egui::Button::new("Save problem report")).clicked() {
+                        feedback.report_save_started = false;
+                    }
+                }
             }
             if !self.feedback.as_ref().is_some_and(|f| f.blocking)
                 && ui.add_sized([100.0, 44.0], egui::Button::new("Dismiss")).clicked() {
@@ -2760,6 +2814,11 @@ impl eframe::App for Operator {
                 if ui.add_enabled(!controls_pending, egui::Button::new(refresh_label).min_size(egui::vec2(92.0, 44.0))).clicked() {
                     refresh = true;
                 }
+                if let Some(snapshot) = self.current_action_snapshot() {
+                    if let Some(offer) = snapshot.actions.iter().find(|offer| matches!(offer.action,Action::SupportExport {})) {
+                        Self::buttons(ui,std::slice::from_ref(offer),None,controls_pending,&mut chosen);
+                    }
+                }
                 if self.pending && self.origin == Some(RequestOrigin::ExplicitRefresh) {
                     ui.small("Refreshing…");
                 }
@@ -3009,7 +3068,17 @@ impl eframe::App for Operator {
         if let Some(a) = chosen {
             self.capture_chosen_action(a);
         }
-        if !self.pending && self.queued_import {
+        let report_to_save = if !self.pending {
+            self.feedback.as_mut().and_then(|feedback| {
+                if feedback.report_save_started {return None}
+                let report = feedback.report.clone()?;
+                feedback.report_save_started = true;
+                Some(report)
+            })
+        } else {None};
+        if let Some(report) = report_to_save {
+            self.request(Query::SaveSupportReport(report), RequestOrigin::ProblemReportSave, ui.ctx());
+        } else if !self.pending && self.queued_import {
             self.queued_import = false;
             self.request(Query::PickInstaller, RequestOrigin::InstallerImport, ui.ctx());
         } else if let Some(request) = self.next_action() {
@@ -3653,6 +3722,41 @@ fn refresh_for_workspace_product(snapshot: &Snapshot, install_finish_ready: bool
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn problem_report_completion_is_exact_and_save_cancellation_can_be_retried() {
+        let mut feedback = RequestFeedback::captured(Action::SupportExport {});
+        feedback.operation=Some("owned-operation".into());
+        let result=serde_json::json!({"operation":"other","state":"completed",
+            "result":{"export":"ab".repeat(16),"sha256":"cd".repeat(32)}});
+        feedback.observe(&result);
+        assert!(feedback.report.is_none());
+        let mut result=result;
+        result["operation"]=serde_json::json!("owned-operation");
+        feedback.observe(&result);
+        assert!(feedback.report.is_some());
+        assert!(!feedback.report_save_started);
+        feedback.report_save_started=true;
+        let snapshot:Snapshot=serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap();
+        let mut app=Operator::preview(snapshot,Page::Home);
+        app.feedback=Some(feedback);
+        app.origin=Some(RequestOrigin::ProblemReportSave);
+        app.handle_reply(Reply::Cancelled);
+        assert!(app.feedback.as_ref().unwrap().text.contains("Saving cancelled"));
+        assert!(app.feedback.as_ref().unwrap().report.is_some());
+        let old_health=app.snapshot.as_ref().unwrap().system.service.clone();
+        app.origin=Some(RequestOrigin::ProblemReportSave);
+        app.handle_reply(Reply::Error("Choose another filename".into()));
+        assert_eq!(app.snapshot.as_ref().unwrap().system.service,old_health);
+        app.origin=Some(RequestOrigin::ProblemReportSave);
+        app.handle_reply(Reply::ReportSaved("/tmp/report.json".into()));
+        assert!(app.feedback.as_ref().unwrap().text.contains("/tmp/report.json"));
+        assert!(app.feedback.as_ref().unwrap().text.contains("Nothing was uploaded"));
+        let mut invalid=RequestFeedback::captured(Action::SupportExport {});
+        invalid.operation=Some("owned-operation".into());
+        result["result"]["export"]=serde_json::json!("../private");
+        invalid.observe(&result);
+        assert!(invalid.report.is_none());
+    }
     fn automatic_setup(journey: InstallationJourney, action: Option<Action>) -> InstallerSetup {
         InstallerSetup {
             installer:"ab".repeat(32), name:"Chosen software".into(), label_source:"operator_named".into(),
@@ -6276,7 +6380,7 @@ mod tests {
             action:Action::SoftwareInstall {installer:right.clone(),daw:DawChoice::Other}});
         overview.current.installer_setups = vec![original,replacement];
         overview.current.environment_installers = environment.into_iter().map(|environment|EnvironmentInstaller {
-            environment:environment.into(),name:"Intended setup".into(),affected:vec!["Existing sibling".into()],
+            dependency_help:vec![],environment:environment.into(),name:"Intended setup".into(),affected:vec!["Existing sibling".into()],
             consequence:"This installer can change this setup's vendor state. Stopping cannot undo those changes.".into(),
             runtime:Some(EnvironmentRuntime {runner:"same-runner".into(),revision:1,affected:vec![],
                 consequence:String::new(),choices:vec![]}),operation:None,installer:None,result:serde_json::Value::Null,
@@ -6351,6 +6455,47 @@ mod tests {
                     else {Action::SoftwareInstall {installer:right,daw:DawChoice::Other}}));
                 assert!(operator.focus.replacement.is_none());
             }
+        }
+    }
+    #[test]
+    fn dependency_installer_from_stalled_setup_keeps_exact_setup_through_file_choice() {
+        for width in [560.0,960.0] {
+            let mut overview=wrong_installer_overview(Some("intended-environment"));
+            let setup=&mut overview.current.installer_setups[0];
+            setup.phase=SetupPhase::SetupNeedsAttention;
+            setup.journey=Some(automatic_journey(InstallationPhase::NeedsAttention));
+            setup.primary=Some(AvailableAction {label:"Open this plug-in to finish setup".into(),disabled_reason:None,
+                action:Action::PluginFinishSetup {environment:"intended-environment".into(),scan:"ab".repeat(16),
+                    module_index:0,module_sha256:"cd".repeat(32),report_sha256:"ef".repeat(32)}});
+            let original=setup.installer.clone();let primary=setup.primary.clone();
+            let dependency=overview.current.installer_setups[1].installer.clone();
+            overview.current.environment_installers[0].dependency_help=vec![
+                "The iLok (PACE) licence service is registered in this setup; whether it runs has not been checked.".into()];
+            let mut operator=state_fixture();operator.focus.setup_installer=Some(original.clone());
+            for (fresh,pending) in [(false,false),(true,true)] {
+                let (pick,chosen)=wrong_installer_click_with_pending(&overview,&mut operator.focus,
+                    "Choose dependency installer",width,fresh,pending);
+                assert!(!pick);assert!(chosen.is_none());assert!(operator.focus.replacement.is_none());
+            }
+            let (pick,chosen)=wrong_installer_click(&overview,&mut operator.focus,
+                "Choose dependency installer",width,true);
+            assert!(pick);assert!(chosen.is_none());
+            operator.origin=Some(RequestOrigin::InstallerImport);
+            operator.handle_reply(Reply::Imported(InstallerImportResult {schema:2,
+                installer_sha256:dependency.clone(),display_label:"First-party dependency fixture".into(),
+                format:"pe_executable".into(),byte_size:1024,newly_imported:false,created_at:1}));
+            operator.apply_current_overview(overview.clone());
+            assert!(operator.queued_action.is_none());assert!(operator.pending_import_route.is_none());
+            assert_eq!(operator.focus.setup_installer.as_deref(),Some(original.as_str()));
+            assert_eq!(serde_json::to_value(&overview.current.installer_setups[0].primary).unwrap(),
+                serde_json::to_value(primary).unwrap());
+            let draft=operator.focus.replacement.as_ref().unwrap();
+            assert_eq!(draft.environment.as_deref(),Some("intended-environment"));
+            assert_eq!(draft.runtime,Some(("same-runner".into(),1)));
+            let (_,chosen)=wrong_installer_click(&overview,&mut operator.focus,
+                "Run installer in this setup",width,true);
+            assert_eq!(chosen,Some(Action::EnvironmentInstallerStart {
+                environment:"intended-environment".into(),installer:dependency}));
         }
     }
     #[test]
@@ -6803,7 +6948,7 @@ mod tests {
                 overview.current.installer_setups.push(setup);
             }
             overview.current.environment_installers=vec![crate::model::EnvironmentInstaller {
-                environment:environment.clone(),runtime:None,name:"Synth setup".into(),affected:vec![],
+                dependency_help:vec![],environment:environment.clone(),runtime:None,name:"Synth setup".into(),affected:vec![],
                 consequence:"The installer can change this setup.".into(),operation:Some("ef".repeat(16)),
                 installer:Some(installer.clone()),result:serde_json::json!({"state":"cancelled"}),
                 choices:vec![AvailableAction {label:"Run chosen installer".into(),
@@ -6848,7 +6993,7 @@ mod tests {
             powershell:crate::model::Powershell::Inherited };
         let mut overview=overview_fixture();
         overview.current.environment_installers=vec![crate::model::EnvironmentInstaller {
-            environment:environment.clone(),runtime:None,name:"Synth setup".into(),affected:vec![],
+            dependency_help:vec![],environment:environment.clone(),runtime:None,name:"Synth setup".into(),affected:vec![],
             consequence:"The installer can change this setup.".into(),operation:Some("ef".repeat(16)),installer:Some(installer.clone()),
             result:serde_json::json!({"state":"cancelled"}),choices:vec![AvailableAction {label:"Run chosen installer".into(),
                 action:Action::EnvironmentInstallerStart {environment:environment.clone(),installer},disabled_reason:None}],
@@ -6888,7 +7033,7 @@ mod tests {
         let stop=Action::EnvironmentInstallerStop {operation:operation.clone()};
         for (width,running) in [(960.0,false),(560.0,false),(960.0,true),(560.0,true)] {
             let ctx=egui::Context::default();
-            let target=crate::model::EnvironmentInstaller {environment:environment.clone(),runtime:None,
+            let target=crate::model::EnvironmentInstaller {dependency_help:vec![],environment:environment.clone(),runtime:None,
                 name:"Synth setup".into(),affected:vec!["Synth".into(),"Effect sibling".into()],
                 consequence:"Stopping cannot undo vendor changes. Both plug-ins need fresh preparation.".into(),
                 choices:vec![AvailableAction {label:"Run companion in this setup".into(),action:run.clone(),

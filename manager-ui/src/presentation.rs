@@ -100,6 +100,9 @@ pub fn action_label(offer: &AvailableAction) -> String {
             if offer.label == "Retry" => "Retry".into(),
         Action::SoftwareInstall { .. } => "Install and connect to your DAW".into(),
         Action::SoftwareInstallResume { .. } => "Continue installation and DAW connection".into(),
+        Action::PluginFinishSetup {..} => "Open this plug-in to finish setup".into(),
+        Action::PluginSetupFocus {..} => "Show the plug-in window".into(),
+        Action::PluginSetupStop {..} => "Stop finishing setup".into(),
         Action::RuntimeInstall {} => offer.label.strip_prefix("Install compatibility runtime")
             .map(|size| format!("Download Windows plug-in support{size}"))
             .unwrap_or_else(|| "Download Windows plug-in support".into()),
@@ -455,8 +458,9 @@ pub fn last_load_text(product: &Product) -> Option<String> {
         .duration_since(std::time::UNIX_EPOCH)
         .ok()
         .map(|elapsed| elapsed.as_secs());
+    let what = if last["outcome"] == "activation_refused" { "Audio start refused" } else { "Load refused" };
     Some(match last["observed_at"].as_u64().zip(now).map(|(at, now)| refused_ago(at, now)) {
-        Some(when) => format!("Load refused {when}. {text}"),
+        Some(when) => format!("{what} {when}. {text}"),
         None => text,
     })
 }
@@ -952,6 +956,10 @@ mod tests {
         let text = last_load_text(&snapshot.products[index]).unwrap();
         assert!(text.starts_with("Load refused ") && text.ends_with("It stayed empty. Its Windows side stopped. Load it again."));
         assert!(attentions(&snapshot).iter().any(|item| item.title == name && item.detail == text));
+        // A refused audio start (#403) says so rather than a refused load.
+        snapshot.products[index].details["last_load"]["outcome"] = "activation_refused".into();
+        let text = last_load_text(&snapshot.products[index]).unwrap();
+        assert!(text.starts_with("Audio start refused ") && text.ends_with("Load it again."));
     }
 
     #[test]

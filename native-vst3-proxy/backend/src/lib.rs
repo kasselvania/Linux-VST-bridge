@@ -1,7 +1,9 @@
 //! Offline AP2 session. The caller supplies owned buffers; no DSP exists here.
 #[cfg(test)]
 mod commercial_tests;
+mod activation_record;
 mod context;
+mod daw_blocks;
 #[cfg(target_os = "linux")]
 mod descriptor;
 mod startup;

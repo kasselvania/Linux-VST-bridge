@@ -64,11 +64,17 @@ fn product(c: &Census) -> Result<()> {
 }
 
 pub(super) fn finish_scan(
-    mut child: Child,
+    child: Child,
     job: &SessionSpec,
     owner: &Path,
-    mut pending: PendingAdmission,
+    pending: PendingAdmission,
 ) -> Result<()> {
+    finish_scan_bounded(child,job,owner,pending,Duration::from_secs(190))
+}
+pub(super) fn finish_scan_bounded(
+    mut child: Child,job:&SessionSpec,owner:&Path,mut pending:PendingAdmission,
+    timeout:Duration,
+)->Result<()> {
     // Inspection uses the same supervisor as DSP/editor sessions. Its first
     // stdout record is therefore the preflight-ready ownership boundary, not
     // the terminal retirement receipt. Consume readiness before exposing the
@@ -79,7 +85,17 @@ pub(super) fn finish_scan(
         return Err(readiness);
     }
     pending.expose();
-    let status = child.wait()?;
+    let deadline=Instant::now()+timeout;
+    let status=loop {
+        if let Some(status)=child.try_wait()? {break status;}
+        if Instant::now()>=deadline {
+            // Contain the supervisor. PendingAdmission retains the lease when
+            // its exact retirement receipt is absent; never invent cleanup.
+            retire_unready_supervisor(&mut child,owner)?;
+            return Err("inspection_supervisor_deadline".into());
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
     let mut receipt = String::new();
     if let Some(stdout) = child.stdout.take() {
         stdout.take(128).read_to_string(&mut receipt)?;

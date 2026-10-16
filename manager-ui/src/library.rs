@@ -711,6 +711,7 @@ fn ordinary_actions(product:&Product, related:&[AvailableAction],
                 |Action::PluginRemoveFromDaw{..}|Action::PluginAddBackToDaw{..}
                 |Action::OrdinaryRestoreRecommended{..}|Action::ExperimentalDisable{..}
                 |Action::CandidateWithdraw{..}|Action::QuarantinedModuleRetry{..}
+                |Action::PluginFinishSetup{..}|Action::PluginSetupFocus{..}|Action::PluginSetupStop{..}
                 |Action::EnvironmentRescan{..}|Action::VendorApplicationFocus{..}
                 |Action::VendorSoftwareInstall{..}|Action::VendorApplicationOpen{..}|Action::RendererOpen{..}
                 |Action::RendererFocus{..} => true,
@@ -737,7 +738,8 @@ fn guided_action_shown(product: &Product, primary: Option<&AvailableAction>, act
 
 fn routine_rank(action: &Action) -> Option<u8> {
     match action {
-        Action::QuarantinedModuleRetry { .. } | Action::PluginAddBackToDaw { .. } => Some(0),
+        Action::PluginFinishSetup {..}|Action::PluginSetupFocus {..} => Some(0),
+        Action::QuarantinedModuleRetry { .. } | Action::PluginAddBackToDaw { .. } => Some(1),
         Action::PluginReinspect { .. } => Some(1),
         Action::PluginInspect { .. } => Some(2),
         Action::PluginPrepare { .. } => Some(3),
@@ -937,6 +939,7 @@ pub(crate) fn installer_retry(offer:&crate::model::AvailableAction)->bool {
 }
 pub(crate) fn environment_installer_controls(ui: &mut egui::Ui,
     target: &crate::model::EnvironmentInstaller, pending: bool, chosen: &mut Option<Action>) {
+    for help in &target.dependency_help {ui.label(help);}
     ui.strong("Programs");
     ui.small("Choose a Windows program to remember and open in this setup. Its files and resources stay in place.");
     let programs:Vec<_>=target.actions.iter().filter(|offer|matches!(offer.action,

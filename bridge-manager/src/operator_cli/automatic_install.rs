@@ -3881,13 +3881,17 @@ mod tests {
     }
     #[test]
     fn saved_wrong_installer_request_replaces_in_place_and_connects_actual_new_module_once() {
-        replacement_connects_actual_new_module_once(None);
+        replacement_connects_actual_new_module_once(None,false);
     }
     #[test]
     fn explicit_default_replacement_preserves_owner_daw_receipt_and_connects_new_module_once() {
-        replacement_connects_actual_new_module_once(Some(linux_vst_bridge::installer_policy::Powershell::Inherited));
+        replacement_connects_actual_new_module_once(Some(linux_vst_bridge::installer_policy::Powershell::Inherited),false);
     }
-    fn replacement_connects_actual_new_module_once(policy:Option<linux_vst_bridge::installer_policy::Powershell>) {
+    #[test]
+    fn dependency_installer_from_retired_unpublished_stalled_scan_preserves_setup_and_continues() {
+        replacement_connects_actual_new_module_once(None,true);
+    }
+    fn replacement_connects_actual_new_module_once(policy:Option<linux_vst_bridge::installer_policy::Powershell>,stalled:bool) {
         let (f,c,mut original,mut intent)=setup();
         let mut sw=software(&f.m).unwrap();sw.installer_launch=Some(sw.host.clone());
         atomic_json(&f.m.root.join("software.json"),&sw).unwrap();
@@ -3897,10 +3901,12 @@ mod tests {
         let input=f.outer.join("selected-installer.exe");fs::write(&input,&pe).unwrap();
         original.installer=installer_import::import(&f.m,file(&input).unwrap()).unwrap().id;
         let original_owner=intent.owner.clone();let original_home=onboarding::directory(&f.m,&original.id).unwrap();
-        // Start with the real saved ordinary request and a never-launched
-        // attempt. There is intentionally no original installation receipt.
-        original.installation_operation=None;
-        fs::remove_file(original_home.join(format!("{original_owner}-result.json"))).unwrap();
+        // Retain either the never-launched attempt or the retired initial
+        // installer whose unpublished module stalled inside LoadLibrary.
+        if !stalled {
+            original.installation_operation=None;
+            fs::remove_file(original_home.join(format!("{original_owner}-result.json"))).unwrap();
+        }
         atomic_json(&original_home.join("record.json"),&original).unwrap();
         atomic_json(&job_dir(&f.m,&original_owner).unwrap().join("request.json"),&ui::Request {
             schema:ui::OPERATOR_SCHEMA,state_token:"accepted-first-party".into(),
@@ -3908,21 +3914,51 @@ mod tests {
         intent.journey.daw=ui::DawChoice::Reaper;intent.journey.phase=ui::InstallationPhase::NeedsAttention;
         intent.journey.failure=Some(failure(ui::InstallationFailureStage::EnvironmentPreparation,"fixture_before_launch"));
         save(&f.m,&original,&intent,&original_owner).unwrap();
-        let old_history=fs::read(original_home.join("record.json")).unwrap();
-        let module_bytes=fs::read(&c.selection.module.path).unwrap();fs::remove_file(&c.selection.module.path).unwrap();
+        let module_bytes=fs::read(&c.selection.module.path).unwrap();
         let inventory=f.m.root.join("inventory").join(format!("{}.json",original.id));
-        let mut scan:inventory::Scan=read_json(&inventory).unwrap();scan.modules.clear();atomic_json(&inventory,&scan).unwrap();
+        let mut scan:inventory::Scan=read_json(&inventory).unwrap();
+        let activation=original.environment.root.join("compatdata/pfx/first-party-activation-marker");
+        fs::write(&activation,b"first-party fixture activation state").unwrap();
+        fs::write(original.environment.root.join("compatdata/pfx/system.reg"),b"first-party machine identity").unwrap();
+        if stalled {
+            let report=f.outer.join("stalled-load.json");
+            atomic_json(&report,&json!({"error":"TimeoutError: Windows call deadline: load_library",
+                "cleanup_confirmed":true,"transport_retired":true,"records":[]})).unwrap();
+            scan.modules=vec![inventory::Module {artifact:c.selection.module.clone(),classes:vec![],
+                report:control_artifact(report).unwrap(),inspection_error:Some("TimeoutError: Windows call deadline: load_library".into()),
+                quarantine_reason:Some("inventory_factory_absent_or_duplicate".into())}];
+            atomic_json(&inventory,&scan).unwrap();
+            intent.scan=Some(scan.id.clone());collect_new_results(&f.m,&original,&mut intent).unwrap();
+            intent.journey.phase=ui::InstallationPhase::NeedsAttention;
+            save(&f.m,&original,&intent,&original_owner).unwrap();
+            assert_eq!(intent.failed_modules.len(),1);assert!(intent.work.is_empty());
+            assert!(f.m.registry().unwrap().classes.is_empty());
+        } else {
+            fs::remove_file(&c.selection.module.path).unwrap();scan.modules.clear();atomic_json(&inventory,&scan).unwrap();
+        }
+        let old_history=fs::read(original_home.join("record.json")).unwrap();
         pe[900]=77;fs::write(&input,&pe).unwrap();let selected=installer_import::import(&f.m,file(&input).unwrap()).unwrap();
         let owner=random_id().unwrap();private_dir(&job_dir(&f.m,&owner).unwrap()).unwrap();
         let action=if let Some(powershell)=policy {ui::Action::EnvironmentInstallerStartWithPolicy {
             environment:original.id.clone(),installer:selected.id.clone(),powershell}}
             else {ui::Action::EnvironmentInstallerStart {environment:original.id.clone(),installer:selected.id.clone()}};
+        let units=vec![onboarding::unit(&original_owner).unwrap()];
+        readiness::with_unit_state_fixture(&units,"inactive",|| {
         let snapshot=snapshot_idle_test(&f.m).unwrap();
+        if stalled {
+            let target=snapshot.environment_installers.iter().find(|target|target.environment==original.id).unwrap();
+            assert!(target.dependency_help.is_empty(),"No PACE requirement may be inferred from a timeout");
+            let setup=snapshot.installer_setups.iter().find(|setup|setup.installer==original.installer).unwrap();
+            assert!(matches!(setup.primary.as_ref().unwrap().action,ui::Action::PluginFinishSetup {..}));
+        }
         validate(&ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:snapshot.state_token.clone(),action:action.clone()},&snapshot).unwrap();
         atomic_json(&job_dir(&f.m,&owner).unwrap().join("request.json"),&ui::Request {
             schema:ui::OPERATOR_SCHEMA,state_token:"accepted-replacement".into(),action:action.clone()}).unwrap();
-        let binding=environment_install::reserve(&f.m,&original.id,&selected.id,&owner).unwrap();
-        let spec=environment_install::launch_input(&f.m,&binding).unwrap();
+        let binding=readiness::with_unit_state_fixture(&units,"inactive",||
+            environment_install::reserve(&f.m,&original.id,&selected.id,&owner)).unwrap();
+        let spec=readiness::with_unit_state_fixture(&units,"inactive",||environment_install::launch_input(&f.m,&binding)).unwrap();
+        assert_eq!(spec["preserve_existing_prefix"],true);
+        assert_eq!(fs::read(&activation).unwrap(),b"first-party fixture activation state");
         if policy.is_some() {
             assert_eq!(spec["installer_capability"]["windows_scripting"]["powershell"],"inherited");
             assert_eq!(spec["installer_capability"]["operation"],owner);
@@ -3968,7 +4004,7 @@ mod tests {
         let mut selection=c.selection.clone();selection.environment=binding.environment.clone();
         let inspection=prep::inspect_record_with_layout(selection.clone(),c.inspection.report.clone(),
             prep::Origin::ManagedPreparation,c.host.clone(),c.source_manifest.clone(),c.inspection.audio_layout.clone()).unwrap();
-        scan.id=random_id().unwrap();scan.environment=binding.environment.clone();
+        scan.id=random_id().unwrap();scan.environment=binding.environment.clone();scan.modules.clear();
         scan.modules.push(inventory::Module {artifact:selection.module.clone(),classes:vec![selection.class.clone()],
             report:selection.factory_report.clone(),inspection_error:None,quarantine_reason:None});
         atomic_json(&inventory,&scan).unwrap();
@@ -3995,6 +4031,8 @@ mod tests {
         let candidate=prep::candidate_record(&f.m,connection.work[0].candidate.as_ref().unwrap()).unwrap();
         assert!(prep::selected_publication_candidate_record(&f.m,&candidate).unwrap());
         assert_eq!(candidate.selection.environment,binding.environment);
+        assert_eq!(fs::read(&activation).unwrap(),b"first-party fixture activation state");
+        assert_eq!(fs::read(original.environment.root.join("compatdata/pfx/system.reg")).unwrap(),b"first-party machine identity");
         assert_eq!(fs::read(original_home.join("record.json")).unwrap(),old_history);
         let server=super::super::tests::overview_service_reply_with_counts(&f.m,
             super::super::tests::capacity_json(false,0,0),(1,1));
@@ -4012,6 +4050,7 @@ mod tests {
         project_from_with(&f.m,std::slice::from_mut(&mut card),None,&[current],&mut |_|Ok(false)).unwrap();
         assert_eq!(card.journey.unwrap().phase,ui::InstallationPhase::Available);
         assert!(card.primary.is_none());
+        });
     }
     #[test]
     fn replacement_that_installs_new_vendor_launcher_offers_its_actual_continuation() {
@@ -4027,7 +4066,7 @@ mod tests {
         pe[128..132].copy_from_slice(b"PE\0\0");pe[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
         pe[150]=0x22;pe[1023]=b'a';pe.extend_from_slice(b"new installer bytes");
         let installer=hex(&sha2::Sha256::digest(&pe));
-        for (schema,policy) in [(26,None),(ui::OPERATOR_SCHEMA,None),
+        for (schema,policy) in [(26,None),(27,None),(28,None),(ui::OPERATOR_SCHEMA,None),
             (ui::OPERATOR_SCHEMA,Some(ui::Powershell::Inherited)),
             (ui::OPERATOR_SCHEMA,Some(ui::Powershell::IntentionallyUnavailable))] {
             let request=ui::Request {schema,state_token:"accepted".into(),

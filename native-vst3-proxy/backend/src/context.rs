@@ -58,8 +58,14 @@ impl Context {
             } else {
                 self.state &= !0x200;
             }
-            // The original bar may no longer contain this chunk.
-            self.state &= !0x800;
+            // With a time signature, the bar that contains this chunk follows
+            // from the original bar; without one it is unknown.
+            if self.state & 0x2a00 == 0x2a00 {
+                let length = f64::from(self.numerator) * 4. / f64::from(self.denominator);
+                self.bar += ((self.music - self.bar) / length).floor() * length;
+            } else {
+                self.state &= !0x800;
+            }
         }
         if self.state & 0x20000 != 0 {
             self.continuous = self.continuous.checked_add(offset as i64)?;
@@ -139,6 +145,14 @@ mod tests {
         }
         .chunk(1)
         .is_none());
+        // 3/4 at 120 BPM: a quarter is 24000 frames, a bar 72000.
+        let waltz = Context { state: 0x22f02, numerator: 3, denominator: 4, music: 2.5,
+            bar: 0., ..c };
+        let next = waltz.chunk(24000).unwrap();
+        assert_eq!(next.state & 0x800, 0x800);
+        assert!((next.music - 3.5).abs() < 1e-12);
+        assert_eq!(next.bar, 3.);
+        assert_eq!(waltz.chunk(11999).unwrap().bar, 0.);
         let stopped = Context {
             state: c.state & !2,
             ..c

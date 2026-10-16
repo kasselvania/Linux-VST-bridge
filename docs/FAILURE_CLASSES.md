@@ -2,6 +2,13 @@
 
 This ledger is the current map from reusable failure mechanisms to fixes, artifacts, physical coverage, and remaining gaps. It is organized by shared boundary rather than by chronological campaign or plug-in name.
 
+Problem reports (#361): the manager now collects a bounded local report and offers
+a save dialog; installed save/cancel/retry and failure-card acceptance remain open.
+
+PACE/iLok load-time stalls (#414/#417) remain open. Same-setup dependency assistance
+uses local service registration and current scan observations; a timeout alone does
+not establish a PACE requirement. The musician selects the vendor's installer.
+
 Historical AP/UIO/UIR/IF documents remain authoritative for what a particular experiment observed. This ledger is authoritative for the project's current cross-plug-in understanding.
 
 The 2026-10-02 [graphics/runtime source investigation](GRAPHICS_RUNTIME_REVIEW.md)
@@ -86,7 +93,7 @@ Do not call an earlier stage a physical fix. Do not generalize one product's phy
 | [FC-MIDI-001](#fc-midi-001--recognized-expression-rejected-an-entire-native-input-callback) | Recognized expression rejected an entire native input callback | Native VST3 proxy input admission | causal in source; physical attribution open | source-fixed | Pinned SDK fixture; Push / Deck operator report only | unqualified for Push expression | Build and publish exact proxy successor; physical Push/Bitwig release check |
 | [FC-MIDI-002](#fc-midi-002--late-note-off-permanently-fails-processing) | Late note-off permanently fails processing | Native SDK signed timestamp conversion | causal in source and matched comparison | deployed | Pinned SDK regression; recovery1 Pure LoFi physical Deck comparison | qualified for this late-release recovery only | Residual timing and broader host/event qualification remain open |
 | [FC-AUDIO-001](#fc-audio-001--residual-audio-deadline-misses) | Residual deadline misses | Native queue/Windows processing/scheduler | preemption/burst loss attributed; refresh4 retains main N64, N13 tail and final N0 failures with remaining service/scheduler attribution gaps | recovery6 focused repair passes; refresh4 physical SDK matrix fails 16/24 full lifetimes | Pure LoFi Deck burst repair; Ubuntu coexistence failure; physical Completion instrument/effect matrix | usable on the Deck fixture: Pure LoFi, Buffered 512, 48 kHz, 30 minutes with interaction and export, zero misses; same-callback with a heavy effect stays unqualified | editor-open thirty-minute confirmation without screen streaming; instrument class at 512/256; delivery mode chosen from measured call cost |
-| [FC-AUDIO-002](#fc-audio-002--host-block-exceeds-the-selected-bridge-presentation-envelope) | Host block exceeds selected bridge presentation envelope | Proxy setup, selected delay, DAW audio settings | causal | accepted | FRAGMENTS / Ubuntu at Bitwig 512/48 kHz | supported-with-workaround | Actionable requested-versus-supported block message |
+| [FC-AUDIO-002](#fc-audio-002--host-block-exceeds-the-selected-bridge-presentation-envelope) | Host block exceeds selected bridge presentation envelope | Proxy setup, selected delay, DAW audio settings | causal | candidate-built | REAPER 2048 on CachyOS (Test160) | supported-with-workaround | Bitwig automatic block size live check; #403 card message |
 | [FC-AUTO-001](#fc-auto-001--automation-refusal-collides-with-terminal-silence) | Automation refusal collides with terminal silence | Native curve admission / SDK result interpretation | causal collision; sparse-curve capability still incomplete | deployed collision correction; whole-block successor source-only | Ubuntu reference effect explicitly refuses 0x107; state still fails | blocked for the failed saved-automation journey | Deliver paired protocol-14 whole DAW blocks and repeat recall; audio gaps remain separate |
 | [FC-CAP-001](#fc-cap-001--capacity-enumeration-versus-lease-retirement-race) | Capacity scan versus lease retirement | Manager capacity ownership | causal | none | AP17 exact fixture | supported-with-workaround | Repair issue #93 |
 | [FC-MGMT-001](#fc-mgmt-001--managed-inventory-refresh-authority) | Managed inventory freshness and refresh | Manager catalogue/registry/onboarding | causal | accepted | Blackhole, Kontakt / Deck; FRAGMENTS / Ubuntu | supported | Preserve one canonical refresh route |
@@ -1790,9 +1797,18 @@ The Ubuntu load refusal was an exact 1024-frame host request against a 512-frame
 
 ### Implementation
 
-accepted
+candidate-built
 
-The fail-closed product behavior is intentional; the accepted operating configuration is explicit Bitwig 512 samples at 48 kHz.
+2026-10-16 (#402, operator direction): the refusal is replaced. The proxy accepts
+any DAW maximum up to 32768 frames and plays a longer DAW block as consecutive
+transport blocks of at most 1024 frames, and never more than the plug-in's
+buffering, inside the same callback. Latency is unchanged. Test160: REAPER at
+2048 frames plays bridged Valhalla Supermassive (Test164: silent, setup refused).
+Bitwig's automatic block size, which a tester found refused for Guitar Rig 7 and
+Kontakt, is covered by unit tests but not yet live-checked.
+
+Before #402 the fail-closed behavior was intentional; the accepted operating
+configuration was explicit Bitwig 512 samples at 48 kHz.
 
 ### User posture
 
@@ -1861,7 +1877,7 @@ None; actionable configuration messaging is not yet selected work.
 
 ### Last reviewed
 
-2026-09-24.
+2026-10-16.
 
 ---
 
@@ -3085,6 +3101,13 @@ characters, same digest); the refused-instance save stayed identical too.
 Given back the very state REAPER had just read, REAPER probably skipped the
 restore: nothing was held and the save kept 760 characters, the open case in
 [#392](https://github.com/kasselvania/Linux-VST-bridge/issues/392).
+
+Test200 on CachyOS / REAPER 7.82: an extra state capture before first playback
+after Kontakt project load ended with transport EOF; the last observed owner
+stage was `set_active_true` (24/detail 2), and the next save lost the vendor
+envelope. The same 193,149-byte saved input reopened without that extra capture,
+played and saved valid state. The activation failure's cause and relationship
+to MIDI mapping remain unresolved; the failed copy is retained outside Git.
 
 ## FC-UI-008 — Vendor editor removal crashes the Windows host
 

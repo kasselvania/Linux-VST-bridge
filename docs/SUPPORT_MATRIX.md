@@ -14,6 +14,14 @@ A source patch, build, candidate, or publication is not a physical support claim
 In-app beta update (#400), **unqualified**: CachyOS VM Test146 → Test148 via Download and update, then
 Restore previous setup back to Test146, from a loopback test feed; the final hand-over code awaits a VM pass.
 
+Problem report button (#361): source checks only; installed report creation and
+saving remain unqualified.
+
+Test201 / CachyOS: the first-party activation fixture passed its `LoadLibrary`
+prompt, Show/Stop and normal-close continuation; both classes connected in the same
+setup ([installed result](https://github.com/kasselvania/Linux-VST-bridge/issues/414#issuecomment-6224981749)).
+PACE/iLok installer assistance is source-only; vendor acceptance remains open (#414/#417).
+
 Test60/61 are installed on SteamOS 3.8.16 Deck through ordinary Update Bridge.
 The actual retained app-only hub bootstrap now opens normally, installs two
 classes and connects them automatically after full helper retirement; its repeat
@@ -79,6 +87,18 @@ Explicit graphics assessment retains its separate result. Kontakt's historical
 allocator origin remains open; accessibility A/B/A and a mapped-host debugger
 trial do not reproduce it. [Scoped update boundary](../evidence/reference-runtime-deck.json).
 
+Test160 (#402, main + DAW blocks in parts) on the CachyOS VM / REAPER 7.82 at
+44.1 kHz with a 2048-frame buffer: a JS tone through bridged Valhalla Supermassive
+(512-frame buffering) plays (−8.0 dBFS; tone alone −12.0) and its tail sounds after
+the tone stops (−21.6 dBFS); 176 DAW calls of 2048 frames, each in four 512-frame
+parts, none refused, no underrun; whole calls median 5.2 ms, p95 12.4 ms, max
+34.7 ms of a 46.4 ms period. On Test164 the same check was silent (setup refused).
+At 512 frames nothing is split and it still plays. **unqualified** beyond REAPER.
+Test168 (#403): with REAPER at 32 kHz, Supermassive is refused and stays silent.
+The manager's card then explains it ("Your DAW runs at 32000 Hz; the bridge
+supports 44.1, 48, 88.2, 96 and 192 kHz", set 48 kHz). Back at 44.1 kHz it plays
+and the card clears.
+
 Test126 (main `cbcfa84c`) on the CachyOS VM / REAPER 7.82 at 44.1 kHz / 512:
 Native Access installs Kontakt 8.13.1 on runtime r5; Kontakt's editor sits in
 REAPER's FX window and DAW MIDI plays (−9.2 to −9.5 dBFS). JUCE 6 effects pass
@@ -89,6 +109,13 @@ Available with one Retry after updating (Test106). Steam Deck / REAPER 7.82,
 Test126: Kontakt's editor embeds in REAPER, live MIDI and a clip play, and Pad -
 Noir returns after a full REAPER restart (−4.7 dBFS). Limits: FC-MIDI-004
 (save-then-play), FC-STATE-004, #363, #364.
+
+Test200 on CachyOS / REAPER 7.82: real DAW MIDI reaches Kontakt 8.13.1
+(Piano Uno), with vendor state readback CC1 1.0, pitch bend 1.0 and aftertouch
+96/127. The copied project retains four notes and 82 controller events after a
+fresh process, plays up to −27.6 dBFS RMS and saves valid vendor state again.
+An early state-capture/activation failure remains under FC-STATE-004;
+[Bitwig controller acceptance is pending](https://github.com/kasselvania/Linux-VST-bridge/issues/410).
 
 Test73 on fresh CachyOS / REAPER 7.82 completes ordinary managed installation and discovery of the first-party Editor instrument/effect. The Editor Effect embeds with native Param/last-touched access; real pointer Touch recording and Read playback (29% → 60%) pass, and saved Level 60% recalls after a full REAPER restart with PulseAudio playback/meters active.
 
