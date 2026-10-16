@@ -8,6 +8,9 @@ a save dialog; installed save/cancel/retry and failure-card acceptance remain op
 PACE/iLok load-time stalls (#414/#417) remain open. Same-setup dependency assistance
 uses local service registration and current scan observations; a timeout alone does
 not establish a PACE requirement. The musician selects the vendor's installer.
+Open-program suggestions exclude installer-witnessed uninstallers and service
+images; unknown support-installer/redistributable roles still need authoritative
+metadata. Explicit program choice remains available (#417).
 
 Historical AP/UIO/UIR/IF documents remain authoritative for what a particular experiment observed. This ledger is authoritative for the project's current cross-plug-in understanding.
 

@@ -120,6 +120,25 @@ fn relative_image(value: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
+// These are roles observed in this installer's own snapshot, not filename or
+// vendor-name guesses. Keep the files as helpers; only their automatic Open
+// choices are excluded. Explicit user program selection remains independent.
+fn non_app_images(transaction: &Value) -> std::collections::BTreeSet<String> {
+    let mut images = std::collections::BTreeSet::new();
+    for (kind, field) in [("uninstall", "DerivedUninstaller"), ("services", "image")] {
+        let Some(rows) = transaction["after"][kind].as_object() else { continue };
+        for row in rows.values() {
+            let Some(value) = row[field].as_str() else { continue };
+            let normalized = value.replace('\\', "/");
+            let relative = if normalized.get(..3).is_some_and(|drive| drive.eq_ignore_ascii_case("c:/")) {
+                &normalized[3..]
+            } else { normalized.as_str() };
+            if relative_image(relative).is_ok() { images.insert(relative.to_lowercase()); }
+        }
+    }
+    images
+}
+
 pub(crate) fn choices(m: &Manager, record: &onboarding::Record) -> Result<Vec<Choice>> {
     let (operation,installer,receipt,result)=if let Some(replacement)=operator_cli::environment_install::latest(m,&record.id)? {
         let receipt=Artifact {path:operator_cli::job_dir(m,&replacement.operation)?.join("installation-result.json"),
@@ -144,6 +163,7 @@ pub(crate) fn choices(m: &Manager, record: &onboarding::Record) -> Result<Vec<Ch
     let Some(registrations) = transaction["durable_installation"]["application_registrations"].as_array()
         else { return Ok(vec![]) };
     require(registrations.len() <= 64, "vendor_application_registration_bound")?;
+    let non_apps = non_app_images(&transaction);
     let mut out = vec![];
     for registration in registrations {
         let key = registration["registration"].as_str().ok_or("vendor_application_registration_binding")?;
@@ -208,6 +228,8 @@ pub(crate) fn choices(m: &Manager, record: &onboarding::Record) -> Result<Vec<Ch
             .transpose()?
             .filter(|path| artifacts.iter().any(|(a, _)| &a.path == path));
         for (selected, machine) in &artifacts {
+            let relative = selected.path.strip_prefix(record.environment.root.join("compatdata/pfx/drive_c"))?;
+            if non_apps.contains(&relative.to_string_lossy().to_lowercase()) { continue; }
             if application.as_ref().is_some_and(|path| &selected.path != path) { continue; }
             let image_name = selected.path.file_stem().ok_or("vendor_application_image_name")?
                 .to_str().ok_or("vendor_application_image_name")?;
@@ -327,6 +349,52 @@ pub(crate) mod tests {
             choice.application.verify(&f.m.root).unwrap();
         }
         assert_eq!(test_fixture::snapshot(&f.m.root), before);
+    }
+
+    #[test]
+    fn exact_uninstaller_and_service_witnesses_filter_open_choices_without_name_guesses() {
+        let (f, record, path) = installed_app();
+        let mut transaction: Value = read_json(&path).unwrap();
+        let programs = record.environment.root.join("compatdata/pfx/drive_c/Program Files/Vendor");
+        for (index, name) in ["RemoveSaved.exe", "BackgroundHost.exe", "unins000.exe"].into_iter().enumerate() {
+            let mut bytes = fs::read(programs.join("Main.exe")).unwrap();
+            bytes[1023] = (index + 2) as u8;
+            let image = programs.join(name); fs::write(&image, bytes).unwrap();
+            let relative = format!("Program Files/Vendor/{name}");
+            transaction["after"]["files"][&relative] = json!({"format":"pe_executable",
+                "sha256":digest(&image).unwrap(),"pe":{"machine":0x8664,"characteristics":0x22}});
+            transaction["durable_installation"]["application_registrations"][0]["images"]
+                .as_array_mut().unwrap().push(relative.clone().into());
+            transaction["durable_installation"]["delta"]["files"]["added"]
+                .as_array_mut().unwrap().push(relative.into());
+        }
+        transaction["after"]["uninstall"]["cd".repeat(32)]["DerivedUninstaller"] =
+            "PROGRAM FILES/VENDOR/RemoveSaved.exe".into();
+        transaction["after"]["services"] = json!({"observed-service":{
+            "image":"C:\\Program Files\\Vendor\\BackgroundHost.exe"}});
+        atomic_json(&path, &transaction).unwrap();
+        let before = test_fixture::snapshot(&f.m.root);
+        let choices = choices(&f.m, &record).unwrap();
+        let names:std::collections::BTreeSet<_> = choices.iter().map(|c|c.image_name.as_str()).collect();
+        assert_eq!(names, ["Main", "Worker", "unins000"].into_iter().collect());
+        for choice in &choices {
+            assert_eq!(choice.application.helpers.len(), 4, "non-app files remain witnessed helpers");
+            choice.application.verify(&f.m.root).unwrap();
+        }
+        assert_eq!(test_fixture::snapshot(&f.m.root), before);
+        // Even an icon naming the known service does not turn it into an app
+        // or silently substitute another executable.
+        transaction["durable_installation"]["application_registrations"][0]["application_image"] =
+            "Program Files/Vendor/BackgroundHost.exe".into();
+        atomic_json(&path, &transaction).unwrap();
+        assert!(super::choices(&f.m, &record).unwrap().is_empty());
+        // Filtering suggestions does not revoke the user's deliberate choice.
+        let selected = program_artifact(&programs.join("RemoveSaved.exe")).unwrap();
+        let explicit = choose_program_with(&f.m, &record.environment.id,
+            &operator_cli::environment_runtime::identity(&record.environment).unwrap(),
+            &selected, None, ||Ok(true)).unwrap();
+        assert_eq!(explicit.executable, selected);
+        assert!(explicit.user_selection.is_some());
     }
 
     #[test]
