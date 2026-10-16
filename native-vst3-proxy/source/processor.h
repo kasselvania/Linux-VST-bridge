@@ -103,6 +103,9 @@ private:
   // state; released once a session applies state.
   std::vector<uint8_t> held_state_;
   bool state_held_ = false;
+  // The host restored state this instance could not keep (over the cap or
+  // malformed): saving then refuses rather than claim an empty state.
+  bool state_unkept_ = false;
   void holdState(std::vector<uint8_t> &&blob);
   void announceHeldState();
   uint32_t output_mask_=1;
