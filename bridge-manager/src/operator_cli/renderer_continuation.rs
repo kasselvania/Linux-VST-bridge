@@ -54,7 +54,9 @@ pub(super) fn owns(m:&Manager,owner:&str)->Result<bool> {
     let request:ui::Request=read_json(&job_dir(m,owner)?.join("request.json"))?;
     match request.action {
         ui::Action::RendererSoftwareInstall {..}=>Ok(true),
-        ui::Action::EnvironmentRefresh {..}=>Ok(false),
+        // An installer run in a setup owns its own connection checkpoint too.
+        ref action if matches!(action,ui::Action::EnvironmentRefresh {..})
+            || action.environment_installer_start().is_some()=>Ok(false),
         _=>Err("automatic_connection_resume_owner".into()),
     }
 }

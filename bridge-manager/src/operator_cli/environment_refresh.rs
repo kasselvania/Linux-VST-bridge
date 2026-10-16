@@ -165,14 +165,21 @@ pub(super) fn records(m: &Manager) -> Result<Vec<Refresh>> {
     let root=m.root.join("operator");
     if !root.is_dir() {return Ok(vec![]);}
     let mut records=vec![];
+    // A deleted setup's connection work is history: its setup records are
+    // gone, so it is neither continued nor read as a current checkpoint.
+    let deleted=linux_vst_bridge::deleted_setup::environments(m)?;
     for (count,entry) in fs::read_dir(root)?.enumerate() {
         require(count<4096,"operator_refresh_history_bound")?;
         let entry=entry?;
         let owner=entry.file_name().to_string_lossy().into_owned();
         if !valid_hex(&owner,32) {continue;}
-        if path(m,&owner)?.exists() {records.push(load(m,&owner)?);}
+        let request=optional(&entry.path().join("request.json"))?;
+        if request["action"]["environment"].as_str().is_some_and(|id|deleted.contains(id)) {continue;}
+        if path(m,&owner)?.exists() {
+            if optional(&path(m,&owner)?)?["environment"]["id"].as_str().is_some_and(|id|deleted.contains(id)) {continue;}
+            records.push(load(m,&owner)?);
+        }
         else {
-            let request=optional(&entry.path().join("request.json"))?;
             if request["action"]["kind"]=="environment_refresh" {
                 let result=optional(&entry.path().join("result.json"))?;
                 require(!result["journey"].is_object() && !result["result"]["journey"].is_object(),
@@ -550,6 +557,52 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
         write_operation(&f.m,&owner,&json!({"state":"running","journey":retained.intent.journey}),false).unwrap();
         fs::remove_file(path(&f.m,&owner).unwrap()).unwrap();
         assert_eq!(records(&f.m).unwrap_err().to_string(),"automatic_refresh_checkpoint_missing");
+    }
+    /// An installer run in a setup that already has a published plug-in:
+    /// its connection continues (the run owns its own checkpoint), the
+    /// registry stays the manager's own while that plug-in waits for its
+    /// check, and once the setup is deleted the work is history.
+    #[test] fn an_installer_run_in_a_published_setup_continues_and_becomes_history_when_deleted() {
+        let (f,original,_)=fixture(true);
+        fs::write(original.environment.root.join("compatdata/pfx/system.reg"),b"retained first-party state").unwrap();
+        let mut pe=vec![0u8;1024];pe[..2].copy_from_slice(b"MZ");pe[60]=128;
+        pe[128..132].copy_from_slice(b"PE\0\0");pe[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        pe[148]=2;pe[150]=2;pe[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+        let input=f.outer.join("replacement.exe");fs::write(&input,&pe).unwrap();
+        let installer=installer_import::import(&f.m,file(&input).unwrap()).unwrap();
+        let owner=random_id().unwrap();let directory=job_dir(&f.m,&owner).unwrap();private_dir(&directory).unwrap();
+        atomic_json(&directory.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"accepted".into(),
+            action:ui::Action::EnvironmentInstallerStart {environment:original.environment.id.clone(),
+                installer:installer.id.clone()}}).unwrap();
+        let binding=environment_install::reserve(&f.m,&original.environment.id,&installer.id,&owner).unwrap();
+        atomic_json(&directory.join("installation-result.json"),&json!({"schema":2,"operation":owner,
+            "state":"completed","raw_exit":0,"cleanup_confirmed":true,"owned_live":0,"error":null})).unwrap();
+        // Continue connecting plug-ins resumes this run's own checkpoint.
+        assert!(!renderer_continuation::owns(&f.m,&owner).unwrap());
+        let intent=current_intent(&f.m,&binding.environment).unwrap().unwrap();
+        assert_eq!(intent.owner,owner);
+        // The published plug-in is still at the setup's older revision until
+        // it is checked again; the registry is still the manager's own.
+        let db=f.m.registry().unwrap();
+        assert!(db.classes.values().any(|entry|entry.registration.environment.id==binding.environment.id
+            && entry.registration.environment.revision<binding.environment.revision));
+        assert!(linux_vst_bridge::catalogue::catalogue_free_registry(&f.m,&db).unwrap());
+        // A revision no job of the manager owns is never accepted.
+        let saved=fs::read(binding.environment.root.join("environment.json")).unwrap();
+        let mut forged=binding.environment.clone();forged.revision+=1;
+        atomic_json(&forged.root.join("environment.json"),&forged).unwrap();
+        assert!(linux_vst_bridge::catalogue::catalogue_free_registry(&f.m,&db).is_err());
+        fs::write(binding.environment.root.join("environment.json"),saved).unwrap();
+        // Once the setup is deleted, its connection work is history and never
+        // stops the overview.
+        let environment=binding.environment.id.clone();
+        linux_vst_bridge::deleted_setup::write(&f.m,&linux_vst_bridge::deleted_setup::Tombstone {schema:1,
+            environment:environment.clone(),installer:installer.id.clone(),name:"Setup".into(),
+            environments:vec![binding.environment.clone()],registrations:vec![],plugins:vec![],
+            operation:random_id().unwrap(),requested_at:1,deleted_at:None,
+            state:linux_vst_bridge::deleted_setup::State::Deleting,environments_folder:None}).unwrap();
+        assert!(records(&f.m).unwrap().iter().all(|r|r.environment.id!=environment));
+        assert!(authority(&f.m).is_ok());
     }
     #[test] fn replacement_connection_rejects_changed_setup_daw_receipt_and_original_request() {
         let (f,original,_)=fixture(true);
