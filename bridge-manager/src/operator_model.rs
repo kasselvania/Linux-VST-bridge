@@ -306,6 +306,23 @@ pub enum Action {
     WorkspaceFinishProductInstall {
         product: WorkspaceProductId,
     },
+    /// Remove one plug-in's native connection from the DAW plug-in folder. The
+    /// exact publication is retained so the same bytes can be added back.
+    PluginRemoveFromDaw { class_id: String, expected_current: PublicationIdentity },
+    /// Restore the exact retained publication that the musician removed.
+    PluginAddBackToDaw { class_id: String, expected_removed: PublicationIdentity },
+    /// Remove every plug-in of one managed setup from the DAW plug-in folder.
+    SetupRemoveFromDaw { environment: String },
+    /// Delete the Windows environments of one installer setup. Records are
+    /// retained as deleted-setup history; uncertain ownership refuses.
+    /// Offered unconfirmed; a request runs only with `confirmed: true`, the
+    /// musician's answer to the confirmation that names what is deleted.
+    SetupDelete {
+        installer: String,
+        environment: String,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        confirmed: bool,
+    },
 }
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
@@ -493,6 +510,8 @@ pub struct Snapshot {
     pub recent_incidents: Vec<Incident>,
     pub actions: Vec<AvailableAction>,
     pub operation: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub deleted_setups: Vec<DeletedSetup>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -770,6 +789,18 @@ pub struct InstallerSetup {
     pub rename: AvailableAction,
     pub history: Vec<SetupHistoryRef>,
 }
+/// A deleted setup's retained history. Its records stay on disk.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeletedSetup {
+    pub installer: String,
+    pub environment: String,
+    pub name: String,
+    pub state: String,
+    pub deleted_at: Option<u64>,
+    pub plugins: Vec<String>,
+    pub actions: Vec<AvailableAction>,
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SetupHistoryRef {
@@ -909,6 +940,10 @@ impl Action {
                 | Self::BufferingSet { .. }
                 | Self::DeliverySet { .. }
                 | Self::TransactionReconcile {}
+                | Self::PluginRemoveFromDaw { .. }
+                | Self::PluginAddBackToDaw { .. }
+                | Self::SetupRemoveFromDaw { .. }
+                | Self::SetupDelete { .. }
         )
     }
     /// Shared-resource operations use the global status. Class-scoped operations
@@ -927,6 +962,10 @@ impl Action {
                 | Self::OrdinaryRollback { .. }
                 | Self::BufferingSet { .. }
                 | Self::DeliverySet { .. }
+                | Self::PluginRemoveFromDaw { .. }
+                | Self::PluginAddBackToDaw { .. }
+                | Self::SetupRemoveFromDaw { .. }
+                | Self::SetupDelete { .. }
         )
     }
 }
@@ -951,6 +990,12 @@ mod tests {
             Action::OrdinaryRollback {class_id:"class".into(),publication:"publication".into()},
             Action::BufferingSet {class_id:"class".into(),added_frames:512},
             Action::DeliverySet {class_id:"class".into(),mode:DeliveryMode::SameCallback},
+            Action::PluginRemoveFromDaw {class_id:"class".into(),
+                expected_current:PublicationIdentity {id:"publication".into(),sha256:"digest".into()}},
+            Action::PluginAddBackToDaw {class_id:"class".into(),
+                expected_removed:PublicationIdentity {id:"publication".into(),sha256:"digest".into()}},
+            Action::SetupRemoveFromDaw {environment:"environment".into()},
+            Action::SetupDelete {installer:"installer".into(),environment:"environment".into(),confirmed:true},
         ] {
             assert!(action.requires_inactive(), "Affected owners still need inactivity: {action:?}");
             assert!(!action.requires_global_inactive(), "Unrelated DSP must remain independent: {action:?}");
@@ -962,6 +1007,16 @@ mod tests {
             Action::TransactionReconcile {}] {
             assert!(action.requires_global_inactive(), "Shared operation stays global: {action:?}");
         }
+    }
+    #[test]
+    fn deleting_a_setup_is_offered_unconfirmed_and_confirmed_only_explicitly() {
+        let offered = Action::SetupDelete {installer:"a".into(),environment:"b".into(),confirmed:false};
+        let wire = serde_json::to_value(&offered).unwrap();
+        assert_eq!(wire, serde_json::json!({"kind":"setup_delete","installer":"a","environment":"b"}));
+        assert_eq!(serde_json::from_value::<Action>(wire).unwrap(), offered);
+        let confirmed: Action = serde_json::from_value(serde_json::json!(
+            {"kind":"setup_delete","installer":"a","environment":"b","confirmed":true})).unwrap();
+        assert!(matches!(confirmed, Action::SetupDelete {confirmed:true,..}));
     }
     #[test]
     fn local_settings_trial_is_closed_typed_and_does_not_require_inactivity() {
@@ -1030,6 +1085,10 @@ mod tests {
             r#"{"kind":"vendor_application_focus","application":"asc","pid":42}"#,
             r#"{"kind":"quarantined_module_retry","environment":"a","scan":"b","module_index":0,"module_sha256":"c","report_sha256":"d","path":"/tmp/plugin.vst3"}"#,
             r#"{"kind":"ordinary_activate_candidate","class_id":"a"}"#,
+            r#"{"kind":"setup_delete","installer":"a","environment":"b","path":"/"}"#,
+            r#"{"kind":"setup_delete","environment":"b"}"#,
+            r#"{"kind":"plugin_remove_from_daw","class_id":"a","expected_current":{"id":"b","sha256":"c"},"link":"x"}"#,
+            r#"{"kind":"plugin_add_back_to_daw","class_id":"a"}"#,
         ] {
             assert!(serde_json::from_str::<Action>(raw).is_err());
         }

@@ -1109,6 +1109,10 @@ fn action_selection_with(m: &Manager, sw: &Software, action: &ui::Action,
 }
 pub fn offered(actual: &ui::Action, offer: &ui::Action) -> bool {
     match (actual, offer) {
+        // The musician's confirmation is not part of the offer.
+        (ui::Action::SetupDelete {installer,environment,..},
+            ui::Action::SetupDelete {installer:offered,environment:offered_environment,..}) =>
+            installer == offered && environment == offered_environment,
         (ui::Action::ProgramChoose {environment,expected_environment,..},
             ui::Action::ProgramChoose {environment:offered,expected_environment:expected,..}) =>
             environment == offered && expected_environment == expected,

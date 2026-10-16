@@ -2251,6 +2251,14 @@ pub fn replace_with_registry(
     )?;
     enable_exact(m, c, false, Some(expected), None, acquire_registry)
 }
+/// Publish a fresh preparation of a publication the musician removed before a
+/// bridge update: the same Windows module and class, checked again with the
+/// current bridge. The removed revision stays as its parent.
+#[doc(hidden)]
+pub fn enable_refreshed(m: &Manager, c: &Candidate, predecessor: &Revision) -> Result<RevisionRef> {
+    require(publication_state(m, c)? == "removed", "refreshed_publication_not_removed")?;
+    enable_exact(m, c, false, None, Some(predecessor), || m.lock("registry.lock"))
+}
 #[doc(hidden)]
 pub fn replace_refreshed(
     m: &Manager,

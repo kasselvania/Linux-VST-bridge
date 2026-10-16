@@ -149,6 +149,10 @@ pub fn action_consequence(action: &Action) -> Option<&'static str> {
         Action::ExperimentalDisable { .. } => Some("Restores the retained recovery setup, or removes this plug-in's bridge if no recovery setup exists. Stops if that recovery setup cannot be verified. Vendor installation and authorization are unchanged."),
         Action::CandidateWithdraw { .. } => Some("Removes this plug-in's native bridge from your DAW. Keeps its records and vendor installation; does not undo authorization or vendor changes."),
         Action::OrdinaryRollback { .. } | Action::OrdinaryRestoreRecommended { .. } => Some("Restores the retained bridge setup only. Vendor installation and authorization changes are not undone; use only a setup that still matches the installed plug-in."),
+        Action::PluginRemoveFromDaw { .. } => Some("Projects that use it open with it missing until you add it back. Its Windows installation stays in its setup."),
+        Action::PluginAddBackToDaw { .. } => Some("Puts it back in your DAW with the setup it had before; if the bridge was updated since, it is checked again first. Rescan VST3 plug-ins in your DAW if it doesn't appear."),
+        Action::SetupRemoveFromDaw { .. } => Some("Projects that use them open with them missing until you add them back. If you then delete this setup, they can't be added back."),
+        Action::SetupDelete { .. } => Some("Deletes the Windows setup: everything installed in it, files saved inside it such as presets, and any licences or sign-ins stored there. Projects that use its plug-ins open with them missing until you set it up again. Your project files are not changed."),
         _ => None,
     }
 }

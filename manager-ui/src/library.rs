@@ -29,6 +29,10 @@ pub fn status(product: &Product) -> (&str, &str) {
     if product.availability.as_ref().is_some_and(|availability| availability.available) {
         return ("Available in your DAW", "published");
     }
+    // Removed on purpose: not a fault, and not yet-to-be-installed either.
+    if product.disposition == "removed_from_daw" {
+        return ("Removed from your DAW", "unpublished");
+    }
     if product.availability.as_ref().is_some_and(|availability|
         !availability.available && availability.reason.is_some()) {
         return ("DAW connection needs attention", "attention");
@@ -301,6 +305,10 @@ impl Library {
                             if let Some(workflow) = p.compatibility.as_ref().filter(|workflow|
                                 workflow.phase == CompatibilityPhase::NeedsWork) {
                                 ui.colored_label(warning_color(ui), &workflow.summary);
+                            }
+                        } else if p.disposition == "removed_from_daw" {
+                            if let Some(reason) = p.availability.as_ref().and_then(|a| a.reason.as_ref()) {
+                                ui.label(reason);
                             }
                         } else if let Some(workflow) = p.compatibility.as_ref().filter(|_| progress.is_none()) {
                             if workflow.phase == CompatibilityPhase::ReadyForTest {
@@ -686,6 +694,7 @@ fn ordinary_actions(product:&Product, related:&[AvailableAction],
         let show=match offer.action {
             Action::PluginReinspect{..}|Action::PluginPrepare{..} => installed_publication,
             Action::ExperimentalReplace{..}|Action::OrdinaryRollback{..}
+                |Action::PluginRemoveFromDaw{..}|Action::PluginAddBackToDaw{..}
                 |Action::OrdinaryRestoreRecommended{..}|Action::ExperimentalDisable{..}
                 |Action::CandidateWithdraw{..}|Action::QuarantinedModuleRetry{..}
                 |Action::EnvironmentRescan{..}|Action::VendorApplicationFocus{..}
@@ -714,7 +723,7 @@ fn guided_action_shown(product: &Product, primary: Option<&AvailableAction>, act
 
 fn routine_rank(action: &Action) -> Option<u8> {
     match action {
-        Action::QuarantinedModuleRetry { .. } => Some(0),
+        Action::QuarantinedModuleRetry { .. } | Action::PluginAddBackToDaw { .. } => Some(0),
         Action::PluginReinspect { .. } => Some(1),
         Action::PluginInspect { .. } => Some(2),
         Action::PluginPrepare { .. } => Some(3),
@@ -1310,6 +1319,62 @@ mod tests {
             }
             assert_eq!(library.expand_details,expanded);assert!(chosen.is_none());
         }
+    }
+
+    #[test]
+    fn removed_plug_ins_read_as_removed_and_lead_with_add_back() {
+        use crate::model::{NativeAvailability, PublicationIdentity};
+        fn texts(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
+            match shape {
+                egui::epaint::Shape::Text(text) => out.push(text.galley.text().into()),
+                egui::epaint::Shape::Vec(items) => for item in items { texts(item, out); },
+                _ => {}
+            }
+        }
+        let render = |snapshot: &Snapshot| {
+            let ctx = egui::Context::default();
+            let mut library = Library::default();
+            let mut chosen = None;
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                library.show(ui, snapshot, false, &mut chosen, |_,_| {});
+            });
+            let mut labels = vec![];
+            for clipped in &output.shapes { texts(&clipped.shape, &mut labels); }
+            output.textures_delta.clear();
+            labels
+        };
+        let mut snapshot = snapshot();
+        snapshot.products.truncate(1);
+        snapshot.environments.clear();
+        snapshot.vendor_applications.clear();
+        let identity = PublicationIdentity {id:"ac".repeat(16),sha256:"bd".repeat(32)};
+        let class = snapshot.products[0].class_id.clone();
+        {
+            let product = &mut snapshot.products[0];
+            product.compatibility = None;
+            product.disposition = "ready".into();
+            product.availability = Some(NativeAvailability {available:true,reason:None});
+            product.actions = vec![AvailableAction {label:"Remove from my DAW".into(),
+                action:Action::PluginRemoveFromDaw {class_id:class.clone(),expected_current:identity.clone()},
+                disabled_reason:None}];
+        }
+        let labels = render(&snapshot);
+        assert!(labels.iter().any(|l| l == "Remove from my DAW"), "an everyday control: {labels:?}");
+        let removed = "Removed from your DAW. Projects that use it open with it missing until you add it back.";
+        {
+            let product = &mut snapshot.products[0];
+            product.disposition = "removed_from_daw".into();
+            product.availability = Some(NativeAvailability {available:false,reason:Some(removed.into())});
+            product.actions = vec![AvailableAction {label:"Add back to my DAW".into(),
+                action:Action::PluginAddBackToDaw {class_id:class,expected_removed:identity},
+                disabled_reason:None}];
+        }
+        assert_eq!(status(&snapshot.products[0]), ("Removed from your DAW", "unpublished"));
+        let labels = render(&snapshot);
+        assert!(labels.iter().any(|l| l == "Removed from your DAW"));
+        assert!(labels.iter().any(|l| l == removed));
+        assert!(labels.iter().any(|l| l == "Add back to my DAW"));
+        assert!(!labels.iter().any(|l| l == "DAW connection needs attention"));
     }
 
     #[test]
