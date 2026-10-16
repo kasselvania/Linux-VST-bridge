@@ -1087,6 +1087,19 @@ fn snapshot(m: &Manager) -> Result<ui::Snapshot> {
         live_capacity(m).ok()
     })
 }
+/// Explicit report collection asks the same owner as plug-in Details for
+/// retained check diagnoses. Passive overviews deliberately omit these reads.
+pub(super) fn problem_report_snapshot(m: &Manager, expected_token: &str) -> Result<ui::Snapshot> {
+    let mut captured = current::capture(m)?;
+    require(captured.snapshot.state_token == expected_token, "operator_stale_request_refresh")?;
+    let mut products = std::mem::take(&mut captured.snapshot.products);
+    preparation_cli::project_scoped_records(m, &captured.software, &mut products,
+        captured.busy, None, &|class| captured.class_busy(class), &captured.preparation)?;
+    captured.snapshot.products = products;
+    captured.capture_preparation_watches()?;
+    captured.recheck(m)?;
+    Ok(captured.snapshot)
+}
 fn overview(m: &Manager) -> Result<ui::InteractiveOverview> {
     linux_vst_bridge::with_readback_digests(|| {
         std::thread::scope(|scope| {
@@ -1614,7 +1627,7 @@ fn snapshot_readonly_depth(
         actions: vec![
             action(&linux_vst_bridge::runtime_delivery::installation_label(), ui::Action::RuntimeInstall {},
                 runtime_reason.as_deref().or(busy)),
-            action("Create sanitized support export", ui::Action::SupportExport {}, None),
+            action("Send a problem report", ui::Action::SupportExport {}, None),
             action("Disarm crash capture", ui::Action::CaptureDisarm {}, None),
             action(
                 "Reconcile interrupted transaction",
