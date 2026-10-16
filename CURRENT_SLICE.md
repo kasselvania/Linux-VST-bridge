@@ -28,11 +28,11 @@ Next changes:
 4. Qualify combined corrections and baseline behavior on disposable CachyOS and
    SteamOS fixtures, then plan explicit adoption for preserved working setups.
 
-First source increment: missing DComp/BG1 recipe recovery. A later common build
-entry point under tools/runtime/ feeds bridge-manager/src/runtime_delivery.rs;
-experimental_runner.rs is a retained migration route, not the new default.
+Source acceptance: recover original DComp/BG1 patches and recipe inputs, verify
+provenance, and pass apply/template checks. Common build/delivery is later:
+tools/runtime/ → bridge-manager/src/runtime_delivery.rs; old experimental routes migrate.
 
-Done: a clean Git recipe builds the declared common set; normal acquisition and
+Recovery delivered: a clean Git recipe builds the common set; normal acquisition and
 installation use it; real patch cases plus baseline plug-ins install, play,
 save/reopen and survive restart, update and rollback in actual DAWs on both target
 fixtures. Preserve class/automation/content identity and licensed state. Record

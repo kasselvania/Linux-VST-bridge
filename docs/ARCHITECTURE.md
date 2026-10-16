@@ -87,6 +87,9 @@ and results may inform a reviewed shared profile without exporting private data.
 
 ## Proposed musician status and primary action
 
+Platform convergence uses the resolved configuration above and the proposed
+capability owners below; this status view consumes their results.
+
 The agreed goal is one displayed status and clear primary action. The proposed
 service projection derives these from canonical configuration and owned domain
 facts, rather than a second persisted status. The UI presents them consistently.
@@ -122,26 +125,37 @@ delete uncertain ownership records or original projects to make recovery succeed
 
 One service is not one undifferentiated module. Each domain needs a single writer
 for its facts and a clear extension boundary. The table proposes those boundaries;
-it does not choose a database, Rust crate layout or new process per row.
+it does not choose a database, Rust crate layout or new process per row. Data names
+describe concerns, not selected schemas. Whether policy authoring/versioning is
+one common component or separate domain writers is an open design decision.
 
 | Concern | Proposed source of truth and writer | Consumers | Scope / affected objects | Extension mechanism |
 | --- | --- | --- | --- | --- |
-| Vendor policy | Versioned VendorPolicy; policy owner | Resolver, installer planning | Shared vendor setup, dependencies and service advice | Typed recommendations with vendor-specific reasons |
-| Installer policy | InstallerPolicy; policy owner | Installer planner | Installer type/build and intended target setup | Data for implemented installer adapters; no command hooks |
-| Plug-in policy | PluginPolicy; policy owner | Resolver, preparation | Module/classes and applicable versioned advice | Typed settings; unfamiliar builds remain eligible to try |
-| User control and resolution | UserOverrides / selected configuration; configuration owner | UI/CLI, publication, admission, launch | Explicit instance/module/setup/release scope | Scoped typed actions; resolver derives one result from policy, facts and overrides |
-| Installer execution | InstallJob and observed result; installer owner | Discovery, resolver, status | One operation, exact target setup and affected siblings | Supervised installer adapters; process facts reference the supervisor |
+| Vendor policy | Versioned vendor advice; authoring/versioning owner open | Resolver, installer planning | Shared vendor setup, dependencies and service advice | Typed recommendations with vendor-specific reasons |
+| Installer policy | Installer advice; authoring/versioning owner open | Installer planner | Installer type/build and intended target setup | Data for implemented installer adapters; no command hooks |
+| Plug-in policy | Plug-in advice; authoring/versioning owner open | Resolver, preparation | Module/classes and applicable versioned advice | Typed settings; unfamiliar builds remain eligible to try |
+| User control and resolution | User overrides / selected configuration; configuration owner proposed | UI/CLI, publication, admission, launch | Explicit instance/module/setup/release scope | Scoped typed actions; resolver derives one result from policy, facts and overrides |
+| Installer execution | Install intent and observed result; installer owner proposed | Discovery, resolver, status | One operation, exact target setup and affected siblings | Supervised installer adapters; process facts reference the supervisor |
+| Setup revisions | Vendor-setup identity and revision facts; writer unassigned | Installer, resolver, admission | Mutable setup and its affected users | Revision/commit rules require design review |
+| Discovery | Observed module bytes/classes; writer unassigned | Resolver, publication, support | Exact module/class within a setup | Discovery/inspection contracts; no path/name identity substitution |
+| DAW integration | Native publication and admission facts; writer unassigned | DAW, resolver, status | Stable class identity and selected implementation | Publication/admission transitions require design review |
 | Managed storage and content locations | Placement / content references; storage owner | Installer, resolver, host, project restoration | Runtime/cache, vendor install, user library and externally shared content | Typed storage/move operations with explicit ownership and preservation rules |
 | Renderer capabilities | Editor capability/effective-renderer observations; renderer assessor | Resolver, editor adapter, status | Actual runtime, editor, driver/display context | Capability adapters and supported backend types; settings do not write observations |
 | Audio topology | Observed SDK bus/layout capabilities; inspection owner | Audio negotiation, preparation | Exact module/class and declared SDK capabilities | SDK contracts implemented at both edges with tests |
-| Live audio negotiation | ProcessingConfiguration; DAW-facing audio owner | Windows audio worker, transport, latency readback | Actual instance, negotiated format and inactive reconfiguration | Versioned contracts and bounded capacities; profiles cannot invent live topology |
+| Live audio negotiation | Processing configuration; DAW-facing audio owner | Windows audio worker, transport, latency readback | Actual instance, negotiated format and inactive reconfiguration | Versioned contracts and bounded capacities; profiles cannot invent live topology |
 | Platform capabilities and quirks | Capability observations; platform adapter owner | Acquisition, resolver, admission | OS/CPU, driver, desktop/sandbox and consuming DAW context | Capability adapters; distro-specific handling names a measured need |
-| Support and sanitized sharing | Support observations; test/qualification owner. Export derives an allow-listed view | Matrix generator, profile review, UI/export | Exact builds/configuration/platform/DAW and measured conditions | New measured checks and versioned exports; no private payloads or automatic promotion to advice |
+| Tested support | Support observations; test/qualification owner | Matrix generator, profile reviewers, UI | Exact builds/configuration/platform/DAW and measured conditions | New measured checks; observations do not publish policy |
+| User export/import | Allow-listed settings/results transfer; writer unassigned | User, configuration owner, review tools | Explicitly selected configuration/results; never private payloads | Versioned data exchange; import acceptance/conflict rules open |
+| Community recommendations | Submissions and review decisions; review owner unassigned | Profile authors, users | Proposed advice with its provenance and support limits | Review/trust rules open; no automatic promotion to shipped advice |
+| Shipped profile publication | Published advice versions and update provenance; writer unassigned | Release, acquisition, resolver | Reviewed shared definitions and their updates | Authoring/trust/versioning/distribution ownership requires review |
 | Status and actions | Derived domain view; service projection | UI and CLI | Plug-in/setup/operation, including affected siblings | Named outcomes/actions with a domain owner and user journey |
 
-Vendor, installer and plug-in profiles are separate policy types, not additional
-runtime forks or duplicate copies of observed state. Requested renderer choices
-belong to configuration; renderer observations belong to the assessor. Installer
+Vendor, installer and plug-in advice are separate concerns, not additional
+runtime forks or duplicate copies of observed state. Their authoring, publication
+and update authorities are gaps to resolve, not supplied by the qualification
+owner. User sharing, community review and shipped updates are distinct operations.
+Requested renderer choices belong to configuration; renderer observations belong
+to the assessor. Installer
 intent, actual process custody, storage placement and discovered plug-in facts
 likewise remain distinct. No domain writes another's facts to make Ready true.
 
@@ -159,7 +173,8 @@ Growth scenarios and open decisions for the technical lead:
   Who resolves dependency versions, shared-service conflicts and readiness facts?
 - A shared-profile update changes advice; the configuration owner retains user
   overrides and resolves the result. The launched host does not merge policy.
-  How are incompatible overrides, older schemas and selected configurations migrated?
+  How do conflicting vendor/installer/plug-in advice and differently scoped
+  overrides resolve? How are older schemas and selected configurations migrated?
 - Moving large content changes storage placement and references; audio callbacks
   do no copying or discovery. Which references may move, who owns shared/external
   files, and what authorization and restoration are real for that move or removal?
@@ -175,6 +190,10 @@ Growth scenarios and open decisions for the technical lead:
 
 Review which facts are stored versus derived and what must change together.
 Define keys, scope, override/conflict and migration semantics before implementation.
+Assign setup-revision, discovery and publication/admission writers without
+assuming the canonical configuration view owns those facts. Decide who authors,
+reviews, trusts, versions and distributes profiles, how user imports differ from
+shipped updates, and how reviewed advice can be adopted without erasing overrides.
 Choose module/API boundaries that keep new typed values separate from new
 capabilities without growing a profile dictionary, name branches or more stores.
 
