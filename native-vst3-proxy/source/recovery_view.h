@@ -13,6 +13,12 @@ namespace AP2 {
 // cannot read (Kontakt: 173 KB of saved state became 23 KB).
 inline constexpr const char* NOT_LOADED_STATE =
     "Saving the project now drops this plug-in's settings from it.";
+// The processor holds the host's restored state and saves it unchanged.
+inline constexpr const char* NOT_LOADED_HELD =
+    "Saving keeps this plug-in's saved settings unchanged.";
+// The host restored nothing, so a save records nothing for this plug-in.
+inline constexpr const char* NOT_LOADED_NONE =
+    "This instance received no saved settings; saving records none.";
 class RecoveryView final : public Steinberg::CPluginView,
                            public Steinberg::Linux::ITimerHandler {
 public:
@@ -20,8 +26,12 @@ public:
       : controller_(controller), owner_(std::this_thread::get_id()) {
     setRect({0, 0, 640, 210});
   }
-  RecoveryView(Steinberg::Vst::IEditController *controller,const char* failure,uint64_t revision)
+  // state_line points at the controller's current sentence about saving, so
+  // the view follows it when the host restores state after the window opened.
+  RecoveryView(Steinberg::Vst::IEditController *controller,const char* failure,uint64_t revision,
+               const char* const* state_line=nullptr)
       : RecoveryView(controller) {
+    state_line_=state_line;
     failure_=failure;
     std::snprintf(failure_snapshot_,sizeof(failure_snapshot_),revision ?
         "Confirmed snapshot #%llu retained; later edits may be unavailable." :
@@ -30,9 +40,10 @@ public:
   // The bridge refused this instance at load: it holds no plug-in state and
   // offers no snapshot recovery.
   struct NotLoaded {};
-  RecoveryView(Steinberg::Vst::IEditController *controller,const char* failure,NotLoaded)
+  RecoveryView(Steinberg::Vst::IEditController *controller,const char* failure,NotLoaded,
+               const char* const* state_line)
       : RecoveryView(controller) {
-    failure_=failure; not_loaded_=true;
+    failure_=failure; not_loaded_=true; state_line_=state_line;
   }
   ~RecoveryView() override { removed(); }
   Steinberg::tresult PLUGIN_API queryInterface(const Steinberg::TUID iid, void **out) override {
@@ -103,7 +114,7 @@ private:
       XSetForeground(display_,gc_,0x20252b);XFillRectangle(display_,window_,gc_,0,0,640,210);
       XSetForeground(display_,gc_,0xeeeeee);
       text(16,28,"Plug-in not loaded");text(16,60,failure_);
-      text(16,92,NOT_LOADED_STATE);
+      text(16,92,state_line_ ? *state_line_ : NOT_LOADED_STATE);
       text(16,124,"Reopen the project or restart your DAW. Re-adding it starts at default settings.");
       XFlush(display_);return;
     }
@@ -114,6 +125,7 @@ private:
       text(16,92,failure_snapshot_);
       text(16,124,"Remove/reload the device or reopen your saved project.");
       text(16,156,"No stale plug-in state has been substituted.");
+      if (state_line_) text(16,188,*state_line_);
       XFlush(display_);return;
     }
     char snapshot[128]{}, status[128]{}, gain[128]{};
@@ -143,6 +155,7 @@ private:
   GC gc_ = nullptr;
   bool registered_ = false, action_ = false, not_loaded_ = false;
   const char* failure_=nullptr;
+  const char* const* state_line_=nullptr;
   char failure_snapshot_[128]{};
 };
 } // namespace AP2

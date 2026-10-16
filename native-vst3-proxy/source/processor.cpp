@@ -1,4 +1,5 @@
 #include "admission_refusal.h"
+#include "nothing_recorded.h"
 #include "processor.h"
 #ifdef AP8_PREVIEW
 #include "ap18_bus_support.h"
@@ -342,9 +343,68 @@ tresult PLUGIN_API Processor::connect(IConnectionPoint *peer) {
 #endif
   return result;
 }
+tresult Processor::saveNothingRecorded(IBStream *stream) {
+  if (state_unkept_)
+    return kResultFalse;
+  uint8_t marker[sizeof(LVBState::nothingRecorded)];
+  std::copy(std::begin(LVBState::nothingRecorded), std::end(LVBState::nothingRecorded), marker);
+  return LVBState::transfer(stream, marker, sizeof(marker), true) ? kResultOk : kResultFalse;
+}
+void Processor::dropUnkeptState() {
+  std::vector<uint8_t>().swap(held_state_);
+  state_held_ = false;
+  state_unkept_ = true;
+  announceHeldState();
+}
+void Processor::holdState(std::vector<uint8_t> &&blob) {
+  held_state_ = std::move(blob);
+  state_held_ = true;
+  state_unkept_ = false;
+  announceHeldState();
+}
+// Tell the controller the project's state is held unchanged. Bounded,
+// owner-thread notification; an older controller ignores it. Sent when the
+// state is held and again on every refused bind, because a host may restore
+// state before the pair is connected.
+// bytes: the held size; 0 when a save records nothing (no state received
+// and none of the instance's own); -1 when a save refuses (state received but
+// not kept, or the instance's own state can no longer be read).
+void Processor::announceHeldState() {
+  // Messages belong to the owner thread; from elsewhere, the controller's
+  // next AP10.poll carries it.
+  if (owner_ != std::this_thread::get_id()) {
+    announce_pending_.store(true, std::memory_order_release);
+    return;
+  }
+  announce_pending_.store(false, std::memory_order_release);
+  if (auto *m = allocateMessage()) {
+    m->setMessageID("AP10.state_held");
+    m->getAttributes()->setInt("bytes", state_held_ ? int64(held_state_.size())
+                                        : !state_unkept_ && !session_state_seen_ ? int64(0) : int64(-1));
+    sendMessage(m);
+    m->release();
+  }
+}
 tresult PLUGIN_API Processor::getState(IBStream *stream) {
   if (!preview_)
     return kNotImplemented;
+  if (owner_ == std::this_thread::get_id() &&
+      unkept_pending_.exchange(false, std::memory_order_acq_rel))
+    dropUnkeptState();
+  // The host's newest restore, which no session applied, answers whenever
+  // the instance has no state of its own yet or can no longer read it. With
+  // nothing held, an instance that never had state of its own and cannot get
+  // any returns the bridge's nothingRecorded marker (never fabricated plug-in
+  // state). REAPER asks for state before restoring it and, after one refusal,
+  // neither restores nor asks again, saving only parameter values (#380).
+  // State received but not kept is refused instead, so nothing claims to be it.
+  const bool owner = owner_ == std::this_thread::get_id();
+  const bool readable = !(phase_ == New || phase_ == Failed || phase_ == Terminated || terminal());
+  if (stream && owner && state_held_ && (!readable || !session_state_seen_))
+    return LVBState::transfer(stream, held_state_.data(), held_state_.size(), true)
+               ? kResultOk : kResultFalse;
+  if (stream && owner && !session_state_seen_ && (phase_ == Failed || terminal()))
+    return saveNothingRecorded(stream);
   if (phase_ == Failed || terminal())
     stateFailure("get", "failed_instance");
   if (!stream || owner_ != std::this_thread::get_id() || phase_ == New ||
@@ -352,7 +412,8 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
     return kResultFalse;
   try {
     if (!stateSession())
-      return kResultFalse;
+      // Admission failed for this very request: nothing is recorded yet.
+      return !session_state_seen_ ? saveNothingRecorded(stream) : kResultFalse;
 #ifdef AP8_PREVIEW
     // Deliver already accepted UI gestures before the existing DSP/state
     // barrier. Never wait here for work owned by this native UI thread.
@@ -379,12 +440,19 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
 #endif
 #ifdef AP8_PREVIEW
     if(ap8_validate(AP8::identity,blob.data(),size)||!LVBState::transfer(stream,blob.data(),blob.size(),true))return kResultFalse;
+    // A live capture supersedes any held bytes. A load-time capture (REAPER
+    // asks before restoring) is the plug-in's defaults, so only activation or
+    // an applied restore makes the session's own state authoritative.
+    std::vector<uint8_t>().swap(held_state_);
+    state_held_ = state_unkept_ = false;
     state_readback_=blob;
     stateReport(report_path_,"opaque_get",blob,0.);
 #else
     if (ap4_validate(blob.data(), size, &gain) ||
         !LVBState::transfer(stream, blob.data(), blob.size(), true))
       return kResultFalse;
+    std::vector<uint8_t>().swap(held_state_);
+    state_held_ = state_unkept_ = false;
     stateReport(report_path_, "get", blob, gain);
     snapshotStatus("Captured complete state; not necessarily a project save");
     sample_progress(handle_, report_path_);
@@ -397,6 +465,43 @@ tresult PLUGIN_API Processor::getState(IBStream *stream) {
 tresult PLUGIN_API Processor::setState(IBStream *stream) {
   if (!preview_)
     return kNotImplemented;
+  // Every restore is either applied, held, or recorded as nothing. Any other
+  // outcome (wrong thread, malformed, over the cap, an exception) leaves
+  // nothing to save in its place, so a later save refuses rather than write
+  // older bytes or the marker over the project's state; a live instance
+  // still saves what it captures.
+  bool accounted = false;
+  struct Unkept {
+    Processor &p; bool &accounted; bool active;
+    ~Unkept() {
+      if (!active || accounted) return;
+      // Held bytes are owner-thread data: another thread only flags it.
+      if (p.owner_ == std::this_thread::get_id()) p.dropUnkeptState();
+      else p.unkept_pending_.store(true, std::memory_order_release);
+    }
+  } unkept{*this, accounted, stream != nullptr};
+  // No session can apply this state now (refused, admission failed, or the
+  // Windows side ended, also after activation). Keep the host's exact bytes
+  // for a later save; the restore still fails.
+  if (stream && owner_ == std::this_thread::get_id() && (phase_ == Failed || terminal())) {
+    try {
+      std::vector<uint8_t> blob;
+      bool nothing = false;
+      if (!LVBState::readEnvelopeOrNothing(stream, blob, nothing)) {
+        // Not kept: Unkept drops anything older.
+      } else if (!nothing) {
+        holdState(std::move(blob));
+        accounted = true;
+      } else {
+        // The host restored "nothing recorded": that is what a save returns.
+        std::vector<uint8_t>().swap(held_state_);
+        state_held_ = state_unkept_ = false;
+        announceHeldState();
+        accounted = true;
+      }
+    } catch (...) {
+    }
+  }
   if (phase_ == Failed || terminal())
     stateFailure("set", "failed_instance");
   if (!stream || owner_ != std::this_thread::get_id() || phase_ == New ||
@@ -418,16 +523,46 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
 #ifndef AP8_PREVIEW
     double restored = 0.;
 #endif
-#ifdef AP8_PREVIEW
-    if (!LVBState::readEnvelope(stream, blob) ||
-        ap8_validate_restore(AP8::identity, blob.data(), static_cast<uint32_t>(blob.size())))
-#else
-    if (!LVBState::readEnvelope(stream, blob) ||
-        ap4_validate(blob.data(), static_cast<uint32_t>(blob.size()), &restored))
-#endif
-      {phase_=Failed;return kResultFalse;}
-    if (!stateSession())
+    bool nothing = false;
+    const bool envelope = LVBState::readEnvelopeOrNothing(stream, blob, nothing);
+    // The bridge's own "nothing recorded" (saved while this plug-in was not
+    // loaded): there is nothing to restore, so the plug-in keeps its current
+    // state, which is its defaults when it was just loaded.
+    if (envelope && nothing) {
+      // Newer than anything held, so held bytes no longer answer for it.
+      if (state_held_ || state_unkept_) {
+        std::vector<uint8_t>().swap(held_state_);
+        state_held_ = state_unkept_ = false;
+        announceHeldState();
+      }
+      accounted = true;
+      return kResultOk;
+    }
+    if (!envelope) {
+      phase_ = Failed;
       return kResultFalse;
+    }
+    // The host's bytes were read whole. Unless a session applies them, they
+    // are kept and saved unchanged, whether or not the instance was active:
+    // REAPER restores while processing, so the Windows side can end before or
+    // during the restore (FC-STATE-003, FC-STATE-004).
+    auto keep = [&]() -> tresult {
+      holdState(std::move(blob));
+      accounted = true;
+      return kResultFalse;
+    };
+#ifdef AP8_PREVIEW
+    if (ap8_validate_restore(AP8::identity, blob.data(), static_cast<uint32_t>(blob.size())))
+#else
+    if (ap4_validate(blob.data(), static_cast<uint32_t>(blob.size()), &restored))
+#endif
+    {
+      phase_ = Failed;
+      return keep();
+    }
+    // Restore before admission: if this admission fails, keep the bytes.
+    if (!stateSession())
+      return keep();
     if (resume) {
 #ifdef AP8_PREVIEW
       returned_.release_requested = true;
@@ -435,7 +570,7 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
       if (ap3_transition(handle_, 12)) {
         phase_ = Failed;
         stateFailure("set", "processing_stop");
-        return kResultFalse;
+        return keep();
       }
       phase_ = Stopped;
       // op18's existing published-queue/direct-completion barrier includes
@@ -447,25 +582,25 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
       phase_ = Failed;
       stateFailure("set", "state_response");
       report();
-      return kResultFalse;
+      return keep();
     }
     auto readback = captured.copy();
     auto size = captured.bytes.length;
 #ifdef AP8_PREVIEW
-    if(ap8_validate(AP8::identity,readback.data(),size)){phase_=Failed;return kResultFalse;}
+    if(ap8_validate(AP8::identity,readback.data(),size)){phase_=Failed;return keep();}
     state_readback_=std::move(readback);
     // Initialized restore may precede controller connection. Its later pull
     // receives this same actual readback; no saved projection is replayed.
     if (getPeer() && this->readback() != kResultOk) {
       phase_ = Failed;
       stateFailure("set", "controller_readback");
-      return kResultFalse;
+      return keep();
     }
     stateReport(report_path_,"opaque_set",state_readback_,0.);
 #else
     if (readback != blob) {
       phase_ = Failed;
-      return kResultFalse;
+      return keep();
     }
     gain_ = restored;
     stateReport(report_path_, "set", readback, restored);
@@ -475,12 +610,17 @@ tresult PLUGIN_API Processor::setState(IBStream *stream) {
       if (ap3_transition(handle_, 10)) {
         phase_ = Failed;
         stateFailure("set", "processing_restart");
-        return kResultFalse;
+        return keep();
       }
       // START advances the existing epoch; the host's Processing intent stays
       // unchanged across this private pause of the same Windows instance.
       phase_ = Running;
     }
+    // A session applied this state; it, not held bytes, now answers getState.
+    std::vector<uint8_t>().swap(held_state_);
+    state_held_ = state_unkept_ = false;
+    session_state_seen_ = true;
+    accounted = true;
     return kResultOk;
   } catch (...) {
     phase_ = Failed;
@@ -524,6 +664,8 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
 #ifdef AP8_PREVIEW
   if(!std::strcmp(id,"AP10.capabilities")){int64 enabled=0;if(message->getAttributes()->getInt("notifications",enabled)!=kResultOk)return kResultFalse;notifications_=enabled==1;return kResultOk;}
   if(!std::strcmp(id,"AP10.poll")){
+    if (unkept_pending_.exchange(false, std::memory_order_acq_rel)) dropUnkeptState();
+    if (announce_pending_.load(std::memory_order_acquire)) announceHeldState();
     if1_terminal_t terminal{};
     if (handle_ && !if1_terminal(handle_, &terminal) && IF1::valid(terminal)) {
       terminal_latched_.store(true,std::memory_order_release);
@@ -540,6 +682,7 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
       const auto result = sendMessage(failed); failed->release();
       if(result != kResultOk) terminal_notified_generation_ = 0; // retain pending delivery
       else {
+        announceHeldState(); // the terminal view says what saving does
         char text[256];auto n=std::snprintf(text,sizeof(text),"{\"event\":\"if2_terminal_notification\",\"generation\":%llu,\"epoch\":%llu,\"sequence\":%llu,\"failure_class\":%llu,\"controller_acknowledged\":true}\n",(unsigned long long)terminal.words[3],(unsigned long long)terminal.words[4],(unsigned long long)terminal.words[5],(unsigned long long)terminal.words[14]);
         if(n>0&&size_t(n)<sizeof(text))diagnostic_report(report_path_,text,size_t(n));
       }
@@ -563,7 +706,12 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
     pending_restart_flags_=0;
     auto r=sendMessage(m);m->release();if(r!=kResultOk)pending_restart_flags_|=flags;return r;
   }
-  if(terminal())return kResultFalse;
+  if(terminal()){
+    // A terminal instance's view still says what saving does, also when the
+    // restore preceded the connection.
+    if(!std::strcmp(id,"AP11.bind"))announceHeldState();
+    return kResultFalse;
+  }
   if(!std::strcmp(id,"AP11.bind")){
     // kNotInitialized tells the controller this instance's admission was
     // refused for good; it stops asking and explains instead of a blank view.
@@ -571,6 +719,7 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
     if(!stateSession()){
       if(!session_refused_.load(std::memory_order_acquire))return kResultFalse;
       if(auto*m=allocateMessage()){m->setMessageID("AP10.refused");m->getAttributes()->setInt("kind",refusal_kind_);sendMessage(m);m->release();}
+      announceHeldState();
       return kNotInitialized;
     }
     uint64_t generation=0;if(ap11_gui_generation(handle_,&generation))return kResultFalse;
@@ -665,6 +814,11 @@ tresult Processor::recover(uint64_t revision) {
       }
     }
     state_error_reported_ = false;
+    // The recovered snapshot is this session's own state from here; older
+    // held bytes no longer answer for it.
+    std::vector<uint8_t>().swap(held_state_);
+    state_held_ = state_unkept_ = false;
+    session_state_seen_ = true;
     stateReport(report_path_, "recover", state, restored);
     snapshotStatus("Recovered identified snapshot; later edits were not restored");
     return kResultOk;
@@ -851,6 +1005,9 @@ tresult PLUGIN_API Processor::setActive(TBool active) {
     }
     phase_ = Active;
     want_active_ = true;
+    // The plug-in is live from here: its own state may differ from anything
+    // the host restored, so held bytes or the marker never answer for it.
+    session_state_seen_ = true;
     return kResultOk;
   }
   if (phase_ != Stopped && !(preview_ && phase_ == Active))

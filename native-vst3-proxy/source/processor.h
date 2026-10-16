@@ -95,6 +95,29 @@ private:
   // the editor timer must not reach the bridge service on every tick.
   std::atomic<bool> session_refused_{false};
   int64_t refusal_kind_ = LVBAdmission::Unknown; // Set with session_refused_.
+  // An instance that cannot apply a restore it read whole (refused, admission
+  // failed, its Windows side ended before or during the restore, or the
+  // restore failed on the way) keeps the exact envelope the host restored and
+  // returns it unchanged from getState while it cannot capture state of its
+  // own, so a save keeps the project's bytes. This holds after activation
+  // too: a host restore is newer than anything the instance produced. Owner
+  // thread only; never touched by process(). One envelope, bounded by
+  // LVBState::payloadLimit like any loaded instance's state; released once a
+  // session applies a restore, recovers, or a live capture replaces it.
+  std::vector<uint8_t> held_state_;
+  bool state_held_ = false;
+  // A session applied a restore, recovered, or was activated: the instance
+  // then had state of its own, so the nothing-recorded marker never answers.
+  std::atomic<bool> session_state_seen_{false};
+  // The host restored state this instance neither applied nor kept (over the
+  // cap, malformed, wrong thread, or an exception): saving then refuses so the
+  // nothing-recorded marker is never written over real state.
+  bool state_unkept_ = false;
+  void dropUnkeptState();
+  std::atomic<bool> announce_pending_{false}, unkept_pending_{false};
+  void holdState(std::vector<uint8_t> &&blob);
+  Steinberg::tresult saveNothingRecorded(Steinberg::IBStream *stream);
+  void announceHeldState();
   uint32_t output_mask_=1;
 #ifdef AP8_PREVIEW
   AP10Results::Output returned_;
