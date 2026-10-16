@@ -29,10 +29,12 @@ use ap1_native_client::{
 /// are refused with a plain reason. PipeWire's default quantum limit is 8192;
 /// this leaves room for hosts that announce a generous maximum.
 pub const HOST_BLOCK_MAX: usize = 32768;
-/// Parts at most in one DAW callback.
+/// Parts at most in one DAW callback (bounded work per callback).
+#[cfg(test)]
 pub const MAX_PARTS: usize = HOST_BLOCK_MAX / BLOCK_CAP;
 
-/// Number of transport parts for an `n`-frame DAW block.
+/// Number of 1024-frame transport parts for an `n`-frame DAW block.
+#[cfg(test)]
 pub fn parts(n: usize) -> usize {
     n.max(1).div_ceil(BLOCK_CAP)
 }
