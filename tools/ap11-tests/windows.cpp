@@ -385,6 +385,11 @@ void midi_mapping_stream() {
     uint64_t third = 0;
     check(streams.size() == 1 && midi_table(streams[0], third).size() == 4 && third > second,
           "native bootstrap refresh republishes the MIDI table");
+    session.midi_restored();
+    session.service(true);
+    uint64_t restored = 0;
+    check(midi_table(native.drain(), restored).size() == 4 && restored > third,
+          "a restored project state republishes the MIDI table");
     // Every channel and controller assigned: 2096 records over 33 messages,
     // two back-to-back changes publish two complete tables in order.
     c->table.clear();

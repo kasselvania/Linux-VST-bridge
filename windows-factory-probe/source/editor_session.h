@@ -313,6 +313,11 @@ public:
     request_midi("load");
     stream_midi();
   }
+  // After the vendor restored a project's state; published on the next turn.
+  void midi_restored() {
+    ap1::require(owner_ == std::this_thread::get_id(), "MIDI mapping owner thread");
+    request_midi("state_restore");
+  }
   bool host_value(uint32_t id, double value, uint64_t revision) {
     if (owner_ != std::this_thread::get_id())
       return false;

@@ -453,6 +453,10 @@ struct MappedSession::Impl {
             events.lifecycle("ap4_state_result",
                              ",\"operation\":\"opaque\",\"result\":0,\"bytes\":" +
                                  std::to_string(payload.size()));
+            // Assignments can live in the restored state (MIDI learn); a host
+            // asking after setState would see the restored table.
+            if (f.kind == SetState && editor)
+                editor->midi_restored();
             socket.write(frame(uint16_t(f.kind + 1), f.sequence, std::move(payload)));
             completed();
             return;
