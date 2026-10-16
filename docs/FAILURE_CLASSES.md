@@ -3086,6 +3086,13 @@ Given back the very state REAPER had just read, REAPER probably skipped the
 restore: nothing was held and the save kept 760 characters, the open case in
 [#392](https://github.com/kasselvania/Linux-VST-bridge/issues/392).
 
+Test200 on CachyOS / REAPER 7.82: an extra state capture before first playback
+after Kontakt project load ended with transport EOF; the last observed owner
+stage was `set_active_true` (24/detail 2), and the next save lost the vendor
+envelope. The same 193,149-byte saved input reopened without that extra capture,
+played and saved valid state. The activation failure's cause and relationship
+to MIDI mapping remain unresolved; the failed copy is retained outside Git.
+
 ## FC-UI-008 — Vendor editor removal crashes the Windows host
 
 ### Shared boundary and understanding
