@@ -604,6 +604,38 @@ pub(super) fn finish(m: &Manager, operation: &str, action: &ui::Action) -> Resul
         assert!(records(&f.m).unwrap().iter().all(|r|r.environment.id!=environment));
         assert!(authority(&f.m).is_ok());
     }
+    /// An installer run in the setup that the manager never saw close: once
+    /// shown closed, an exit 0 stays a success and its plug-ins continue
+    /// connecting from the same run; a failure never does.
+    #[test] fn an_installer_run_shown_closed_later_continues_connecting() {
+        let (f,original,_)=fixture(true);
+        fs::write(original.environment.root.join("compatdata/pfx/system.reg"),b"retained first-party state").unwrap();
+        let mut pe=vec![0u8;1024];pe[..2].copy_from_slice(b"MZ");pe[60]=128;
+        pe[128..132].copy_from_slice(b"PE\0\0");pe[132..134].copy_from_slice(&0x8664u16.to_le_bytes());
+        pe[148]=2;pe[150]=2;pe[152..154].copy_from_slice(&0x20bu16.to_le_bytes());
+        let input=f.outer.join("replacement.exe");fs::write(&input,&pe).unwrap();
+        let installer=installer_import::import(&f.m,file(&input).unwrap()).unwrap();
+        let owner=random_id().unwrap();let directory=job_dir(&f.m,&owner).unwrap();private_dir(&directory).unwrap();
+        atomic_json(&directory.join("request.json"),&ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"accepted".into(),
+            action:ui::Action::EnvironmentInstallerStart {environment:original.environment.id.clone(),
+                installer:installer.id.clone()}}).unwrap();
+        let binding=environment_install::reserve(&f.m,&original.environment.id,&installer.id,&owner).unwrap();
+        assert!(binding.automatic_request.is_some());
+        let unconfirmed=|error:Value|json!({"schema":2,"operation":owner,"state":"cleanup_unconfirmed","raw_exit":0,
+            "cleanup_confirmed":false,"owned_live":null,"error":error});
+        atomic_json(&directory.join("installation-result.json"),
+            &unconfirmed("installer_supervisor_terminated_without_retirement".into())).unwrap();
+        let closed=environment_install::confirm_closed(&f.m,&owner,&|_|Ok(false)).unwrap();
+        assert_eq!(closed["state"],"failed");
+        assert!(replacement_checkpoint(&f.m,&owner,true).unwrap().is_none(),"a failure never continues");
+        atomic_json(&directory.join("installation-result.json"),&unconfirmed(Value::Null)).unwrap();
+        let closed=environment_install::confirm_closed(&f.m,&owner,&|_|Ok(false)).unwrap();
+        assert_eq!(closed["state"],"completed");
+        // Continue connecting plug-ins resumes this run's own checkpoint.
+        assert!(!renderer_continuation::owns(&f.m,&owner).unwrap());
+        let intent=current_intent(&f.m,&binding.environment).unwrap().unwrap();
+        assert_eq!((intent.owner.as_str(),intent.journey.phase),(owner.as_str(),ui::InstallationPhase::NeedsAttention));
+    }
     #[test] fn replacement_connection_rejects_changed_setup_daw_receipt_and_original_request() {
         let (f,original,_)=fixture(true);
         fs::write(original.environment.root.join("compatdata/pfx/system.reg"),b"retained first-party state").unwrap();

@@ -153,12 +153,22 @@ pub(super) fn gone(path: &Path) -> bool {
     matches!(path.try_exists(), Ok(false))
 }
 /// The plug-in's setup has a newer, owned revision (an uninstaller or
-/// installer ran in it) while its own file is unchanged: Add back checks the
-/// same file and class again in the setup as it is now.
+/// installer ran in it) while its own file, the setup's runtime and the
+/// bridge that scanned it are unchanged: Add back checks the same file and
+/// class again in the setup as it is now. A runtime change or a bridge update
+/// needs Check compatibility instead.
 pub(super) fn setup_changed(m: &Manager, class: &str, publication: &RevisionRef) -> Result<bool> {
     let revision = m.load_revision_record(class, publication)?;
-    let current = linux_vst_bridge::environment_revision::current_environment(m, &revision.registration.environment)?;
-    Ok(current != revision.registration.environment && revision.registration.module.verify().is_ok())
+    let prior = &revision.registration;
+    let current = linux_vst_bridge::environment_revision::current_environment(m, &prior.environment)?;
+    if current == prior.environment || current.runner != prior.environment.runner
+        || current.root != prior.environment.root || prior.module.verify().is_err() {
+        return Ok(false);
+    }
+    // The re-check reads the setup's own scan, taken with the bridge it was prepared with.
+    let scan = read_json::<inventory::Scan>(&m.root.join("inventory").join(format!("{}.json", current.id)));
+    Ok(scan.is_ok_and(|scan| scan.environment == current && scan.host.sha256 == prior.host.sha256
+        && scan.host_source_sha256 == prior.host_source_sha256))
 }
 fn environment_current(environment: &Environment) -> bool {
     read_json::<Environment>(&environment.root.join("environment.json"))
@@ -323,6 +333,12 @@ pub(super) fn add_back(m: &Manager, class: &str, expected: &ui::PublicationIdent
     let package = retry_busy(|| m.lock("package.lock"))
         .map_err(|_| "The manager is updating. Try again when the update finishes.")?;
     let setup_changed = setup_changed(m, &key, &expected_ref).map_err(|error| plain_add_back(&name, error))?;
+    let revision = m.load_revision_record(&key, &expected_ref).map_err(|error| plain_add_back(&name, error))?;
+    // A runtime change or bridge update in a changed setup needs a full check.
+    let recorded = &revision.registration.environment;
+    require(setup_changed || !read_json::<Environment>(&recorded.root.join("environment.json"))
+        .is_ok_and(|current| current != *recorded),
+        &format!("{name}'s setup changed since it was removed. Use Check compatibility to prepare it again."))?;
     if setup_changed || package_authority::add_back_needs_refresh(m, &key, &expected_ref)
         .map_err(|error| plain_add_back(&name, error))? {
         // The refresh owner takes package.lock itself and prepares against
@@ -754,16 +770,22 @@ fn require_no_owners(m: &Manager, environment: &Environment) -> Result<()> {
 /// Processes of this user whose Wine prefix, working directory or executable
 /// lies inside the environment, under its recorded or its resolved path. A
 /// bounded /proc census; other users' processes can't use this private folder.
+/// A census that can't list processes (no /proc, or one that doesn't even
+/// show the manager itself) refuses instead of reporting nothing running.
 pub(super) fn running_inside(roots: &[&Path]) -> Result<Vec<String>> {
+    const UNCHECKED: &str = "The manager couldn't check which programs are running, so it changed nothing. Restart the computer, then try again.";
     let proc = Path::new("/proc");
-    if !proc.is_dir() { return Ok(vec![]); }
+    let listing = fs::read_dir(proc).map_err(|_| UNCHECKED)?;
     let me = unsafe { libc::getuid() };
+    let own = std::process::id().to_string();
     let within = |path: &Path| roots.iter().any(|root| path.starts_with(root));
     let mut found = vec![];
-    for entry in fs::read_dir(proc)?.take(1 << 16) {
+    let mut saw_self = false;
+    for entry in listing.take(1 << 16) {
         let Ok(entry) = entry else { continue };
         let pid = entry.file_name();
         if !pid.to_string_lossy().bytes().all(|b| b.is_ascii_digit()) { continue; }
+        saw_self |= pid.to_string_lossy() == own;
         let dir = entry.path();
         if fs::metadata(&dir).map(|meta| meta.uid()).ok() != Some(me) { continue; }
         let mut inside = ["cwd", "exe"].iter().any(|link|
@@ -785,6 +807,7 @@ pub(super) fn running_inside(roots: &[&Path]) -> Result<Vec<String>> {
                 .unwrap_or_else(|_| "a program".into()));
         }
     }
+    require(saw_self, UNCHECKED)?;
     Ok(found)
 }
 fn require_nothing_running(raw: &Path, root: &Path) -> Result<()> {

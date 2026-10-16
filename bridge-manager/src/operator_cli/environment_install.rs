@@ -273,7 +273,7 @@ pub(crate) fn confirm_closed(m: &Manager, operation: &str,
     if let Some(program) = running.first() {
         return Err(format!("{program} is still running from this setup. Close it, then check again.").into());
     }
-    if v["state"] != "completed" { v["state"] = "failed".into(); }
+    closed(&mut v);
     v["schema"] = 2.into();
     v["operation"] = operation.into();
     v["cleanup_confirmed"] = true.into();
@@ -281,6 +281,22 @@ pub(crate) fn confirm_closed(m: &Manager, operation: &str,
     v["closing_confirmed_by"] = "census".into();
     atomic_json(&path,&v)?;
     Ok(v)
+}
+/// What the supervisor would have recorded had it seen the run close: a
+/// program that exited 0 without an error keeps its installation outcome;
+/// anything else that never finished is a failure.
+fn closed(v: &mut Value) {
+    if matches!(v["state"].as_str(), Some("completed" | "failed" | "cancelled")) { return; }
+    let exited = v["state"] == "cleanup_unconfirmed" && v["raw_exit"] == 0 && v["error"].is_null()
+        && !matches!(v["transaction"]["outcome"].as_str(), Some("cancelled" | "child_failed"
+            | "outer_nonzero_stage_unknown" | "installed_dependency_failed"));
+    v["state"] = if exited { "completed" } else { "failed" }.into();
+    if exited && v["transaction"]["outcome"] == "cleanup_unconfirmed" {
+        let outcome = v["transaction"]["durable_installation"].as_str()
+            .filter(|durable| matches!(*durable, "installed" | "partial_installation" | "not_installed"))
+            .unwrap_or("completed").to_owned();
+        v["transaction"]["outcome"] = outcome.into();
+    }
 }
 fn finish_with(m: &Manager, operation: &str, is_live: impl FnOnce(&str)->Result<bool>) -> Result<()> {
     if !job_dir(m,operation)?.join("installation.json").try_exists()? {return Ok(());}
@@ -365,6 +381,11 @@ pub(super) fn projection(m: &Manager, products: &[ui::Product], busy: Option<&st
             } else {
                 actions.push(action(CLOSE_CHECK,ui::Action::InstallerCloseCheck {operation},None));
             }
+        } else if let Some(operation) = uninstall::unchecked(m,&id)? {
+            // It closed, but its setup's plug-ins weren't all checked again
+            // (while its own action runs, that action is the busy reason).
+            if busy.is_none() { reason = Some(uninstall::CHECK_PENDING.into()); }
+            actions.push(action(uninstall::FINISH_CHECKING,ui::Action::InstallerCloseCheck {operation},busy));
         }
         if let Some(r) = last {
             if active.is_some() {

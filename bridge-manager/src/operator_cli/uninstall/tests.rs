@@ -111,7 +111,7 @@ fn run(s: &Installed, supervisor: impl Fn(&Manager, &Record) -> Result<()>) -> (
     let mut running = || Ok(());
     let outcome = execute(&s.f.m, &s.record.id, &s.registration, &uninstall_entry::command_sha256(COMMAND), &operation,
         &mut Hooks {launch:&launch, is_live:&|_| Ok(false), vendor_retired:&|| Ok(true), running:&mut running,
-            rescan:&|_, _| Ok(json!({})), revalidate:&|_, _, _, _| Err("not expected".into())});
+            checking:&mut |_, _| Ok(()), rescan:&|_, _| Ok(json!({})), revalidate:&|_, _, _, _| Err("not expected".into())});
     (operation, outcome)
 }
 fn report(m: &Manager, record: &Record, state: &str, raw_exit: i64) {
@@ -409,6 +409,15 @@ fn inspector(c: &prep::Candidate) -> impl Fn(&Manager, &prep::Selection, &Softwa
 }
 fn run_published(p: &Published, supervisor: impl Fn(&Manager, &Record) -> Result<()>,
     is_live: &dyn Fn(&str) -> Result<bool>) -> Result<Value> {
+    let inspect = inspector(&p.c);
+    let revalidate = |m: &Manager, class: &str, current: &RevisionRef, work: &str|
+        preparation_cli::revalidate_in_place(m, class, current, work, &inspect);
+    run_published_with(p, supervisor, is_live, &revalidate).1
+}
+/// As `run_published`, with the re-check supplied; returns the operation too.
+fn run_published_with(p: &Published, supervisor: impl Fn(&Manager, &Record) -> Result<()>,
+    is_live: &dyn Fn(&str) -> Result<bool>, revalidate: &dyn Fn(&Manager, &str, &RevisionRef, &str) -> Result<RevisionRef>)
+    -> (String, Result<Value>) {
     let operation = random_id().unwrap();
     let directory = job_dir(&p.f.m, &operation).unwrap();
     private_dir(&directory).unwrap();
@@ -416,13 +425,11 @@ fn run_published(p: &Published, supervisor: impl Fn(&Manager, &Record) -> Result
         action:ui::Action::ProductUninstall {environment:p.record.id.clone(),registration:p.registration.clone(),
             command_sha256:uninstall_entry::command_sha256(COMMAND),confirmed:true}}).unwrap();
     let launch = |m: &Manager, record: &Record| supervisor(m, record);
-    let inspect = inspector(&p.c);
-    let revalidate = |m: &Manager, class: &str, current: &RevisionRef, work: &str|
-        preparation_cli::revalidate_in_place(m, class, current, work, &inspect);
     let mut running = || Ok(());
-    execute(&p.f.m, &p.record.id, &p.registration, &uninstall_entry::command_sha256(COMMAND), &operation,
+    let outcome = execute(&p.f.m, &p.record.id, &p.registration, &uninstall_entry::command_sha256(COMMAND), &operation,
         &mut Hooks {launch:&launch, is_live, vendor_retired:&|| Ok(true), running:&mut running,
-            rescan:&rescanned, revalidate:&revalidate})
+            checking:&mut |_, _| Ok(()), rescan:&rescanned, revalidate});
+    (operation, outcome)
 }
 fn loadable(m: &Manager, class: &str) -> linux_vst_bridge::Entry {
     let entry = m.registry().unwrap().classes[class].clone();
@@ -543,9 +550,232 @@ fn nothing_leaves_the_daw_when_the_uninstaller_may_not_run() {
     let plan = check(&p.f.m, &p.record.id, &p.registration, &uninstall_entry::command_sha256(COMMAND)).unwrap();
     fs::write(drive_c(&p.record.environment).join(UNINSTALLER), b"MZ changed").unwrap();
     let mut running = || Ok(());
+    let mut checking = |_: usize, _: usize| Ok(());
     let hooks = Hooks {launch:&|_, _| Ok(()), is_live:&|_| Ok(false), vendor_retired:&|| Ok(true), running:&mut running,
-        rescan:&|_, _| Ok(json!({})), revalidate:&|_, _, _, _| Ok(p.current.clone())};
-    assert_eq!(reserve(&p.f.m, &plan, &random_id().unwrap(), &hooks).unwrap_err().to_string(), UNINSTALLER_CHANGED);
+        checking:&mut checking, rescan:&|_, _| Ok(json!({})), revalidate:&|_, _, _, _| Ok(p.current.clone())};
+    assert_eq!(reserve(&p.f.m, &plan, &random_id().unwrap(), &[], &hooks).unwrap_err().to_string(), UNINSTALLER_CHANGED);
     assert_eq!(environment_install::current_environment(&p.f.m, &p.record.environment).unwrap(), p.record.environment,
         "no revision was written");
+}
+
+/// A supervised run the manager never saw close: the computer or the manager stopped.
+fn never_closed(m: &Manager, record: &Record) -> Result<()> {
+    fs::write(job_dir(m, &record.operation).unwrap().join("uninstall-spec.json"), b"{}").unwrap();
+    atomic_json(&result_path(m, &record.operation).unwrap(), &json!({"schema":2,"operation":record.operation,
+        "state":"running","raw_exit":null,"cleanup_confirmed":false,"owned_live":1,"error":null})).unwrap();
+    Ok(())
+}
+
+#[test]
+fn an_uninstaller_shown_closed_later_scans_and_checks_its_setup_again() {
+    let p = published_setup(true);
+    let class = p.c.selection.class.id.clone();
+    let name = p.f.m.registry().unwrap().classes[&class].registration.metadata.name.clone();
+    let inspect = inspector(&p.c);
+    let revalidate = |m: &Manager, class: &str, current: &RevisionRef, work: &str|
+        preparation_cli::revalidate_in_place(m, class, current, work, &inspect);
+    let (operation, outcome) = run_published_with(&p, never_closed, &|_| Ok(false), &revalidate);
+    assert_eq!(outcome.unwrap_err().to_string(), UNCONFIRMED_CLOSE);
+    assert_eq!(p.f.m.registry().unwrap().classes[&class].publication, Publication::Removed, "taken out for the uninstall");
+    assert!(needs_check(&p.f.m, &operation).unwrap());
+    // Check that it closed records the run as closed; it never finished, so it's a failure.
+    let closed = environment_install::confirm_closed(&p.f.m, &operation, &|_| Ok(false)).unwrap();
+    assert_eq!(closed["state"], "failed");
+    // The first scan fails: nothing is checked, and the check stays pending for the card.
+    let mut first = vec![];
+    let failed = complete(&p.f.m, &operation, &mut Hooks {launch:&|_, _| panic!("never run again"),
+        is_live:&|_| Ok(false), vendor_retired:&|| Ok(true), running:&mut || Ok(()),
+        checking:&mut |n, total| { first.push((n, total)); Ok(()) },
+        rescan:&|_, _| Err("inventory_scan_failed".into()), revalidate:&revalidate}).unwrap();
+    let message = failed["message"].as_str().unwrap();
+    assert!(message.contains("its plug-ins weren't checked again; use Finish checking this setup's plug-ins"), "{message}");
+    assert!(!message.contains("stays out of your DAW"), "{message}");
+    assert_eq!(first, vec![(0, 0)]);
+    assert_eq!(unchecked(&p.f.m, &p.record.id).unwrap(), Some(operation.clone()), "the card offers Finish checking");
+    let card = environment_install::projection(&p.f.m, &[], None, |_| Ok(false)).unwrap();
+    let offer = card.iter().flat_map(|setup| setup.actions.iter())
+        .find(|offer| offer.action == ui::Action::InstallerCloseCheck {operation:operation.clone()}).unwrap();
+    assert_eq!((offer.label.as_str(), offer.disabled_reason.as_deref()), (FINISH_CHECKING, None));
+    // Finish checking: the setup is scanned and the plug-in it took out is back, checked again.
+    let mut second = vec![];
+    let done = complete(&p.f.m, &operation, &mut Hooks {launch:&|_, _| panic!("never run again"),
+        is_live:&|_| Ok(false), vendor_retired:&|| Ok(true), running:&mut || Ok(()),
+        checking:&mut |n, total| { second.push((n, total)); Ok(()) }, rescan:&rescanned, revalidate:&revalidate}).unwrap();
+    let message = done["message"].as_str().unwrap();
+    assert!(message.contains("nothing is reported as uninstalled"), "{message}");
+    assert!(message.contains(&format!("{name} is back in your DAW, checked again with this setup.")), "{message}");
+    assert_eq!(second, vec![(0, 0), (1, 1)]);
+    let entry = loadable(&p.f.m, &class);
+    assert_eq!(entry.registration.environment.revision, p.record.environment.revision + 1);
+    assert!(!needs_check(&p.f.m, &operation).unwrap() && unchecked(&p.f.m, &p.record.id).unwrap().is_none());
+    // Asked again, the recorded result stands; nothing is checked twice.
+    let again = complete(&p.f.m, &operation, &mut Hooks {launch:&|_, _| panic!("never run again"),
+        is_live:&|_| Ok(false), vendor_retired:&|| Ok(true), running:&mut || Ok(()), checking:&mut |_, _| Ok(()),
+        rescan:&|_, _| panic!("scanned twice"), revalidate:&|_, _, _, _| panic!("checked twice")}).unwrap();
+    assert_eq!(again, done);
+}
+
+#[test]
+fn a_recheck_that_stopped_midway_finishes_without_checking_twice() {
+    let p = published_setup(true);
+    let class = p.c.selection.class.id.clone();
+    let name = p.f.m.registry().unwrap().classes[&class].registration.metadata.name.clone();
+    let inspect = inspector(&p.c);
+    let revalidate = |m: &Manager, class: &str, current: &RevisionRef, work: &str|
+        preparation_cli::revalidate_in_place(m, class, current, work, &inspect);
+    let (operation, outcome) = run_published_with(&p, never_closed, &|_| Ok(false), &revalidate);
+    assert!(outcome.is_err());
+    environment_install::confirm_closed(&p.f.m, &operation, &|_| Ok(false)).unwrap();
+    // The setup was scanned and the plug-in put back before the manager
+    // stopped; the result was never recorded.
+    rescanned(&p.f.m, control(&p.f.m, &operation).unwrap().environment).unwrap();
+    let current = p.f.m.registry().unwrap().classes[&class].managed_revision.clone().unwrap();
+    revalidate(&p.f.m, &class, &current, &random_id().unwrap()).unwrap();
+    assert!(needs_check(&p.f.m, &operation).unwrap());
+    let done = complete(&p.f.m, &operation, &mut Hooks {launch:&|_, _| panic!("never run again"),
+        is_live:&|_| Ok(false), vendor_retired:&|| Ok(true), running:&mut || Ok(()), checking:&mut |_, _| Ok(()),
+        rescan:&rescanned, revalidate:&|_, _, _, _| panic!("checked twice")}).unwrap();
+    assert!(done["message"].as_str().unwrap().contains(&format!("{name} is back in your DAW")));
+    loadable(&p.f.m, &class);
+}
+
+#[test]
+fn a_failed_recheck_is_named_plainly_and_never_reported_back() {
+    let p = published_setup(true);
+    let class = p.c.selection.class.id.clone();
+    let name = p.f.m.registry().unwrap().classes[&class].registration.metadata.name.clone();
+    let (_, outcome) = run_published_with(&p, |m, record| { report(m, record, "failed", 1); Ok(()) }, &|_| Ok(false),
+        &|_, _, _, _| Err("unchanged_publication_host_changed".into()));
+    let outcome = outcome.unwrap();
+    let message = outcome["message"].as_str().unwrap();
+    assert!(message.contains(&format!("{name} couldn't be checked again (prepared by another version of the bridge); use Check compatibility on its card.")), "{message}");
+    assert!(message.contains(&format!("{name} stays out of your DAW")), "{message}");
+    assert!(!message.contains("back in your DAW") && !message.contains('_'), "{message}");
+    assert_eq!(outcome["back_in_daw"], json!([]));
+    assert_eq!(outcome["recheck_errors"], json!([{"name":name,"reason":"unchanged_publication_host_changed"}]));
+    assert_eq!(p.f.m.registry().unwrap().classes[&class].publication, Publication::Removed);
+    // Mixed results, one plain sentence per reason.
+    let text = reconnected_text(&Reconnected {back:vec!["A".into()], rechecked:vec!["B".into(), "C".into()],
+        failed:vec![("D".into(), "unchanged_publication_selection_missing".into()), ("E".into(), "operation already running".into()),
+            ("F".into(), "unchanged_publication_selection_missing".into()), ("G".into(), "something_unexpected".into())]});
+    assert!(text.contains(" A is back in your DAW, checked again with this setup."), "{text}");
+    assert!(text.contains(" B, C were checked again and stay in your DAW. If you opened them while the bridge was paused, close them and open them again."), "{text}");
+    assert!(text.contains(" D, F couldn't be checked again (not in the setup's latest scan); use Check compatibility on their cards."), "{text}");
+    assert!(text.contains(" E couldn't be checked again (the bridge was busy)"), "{text}");
+    assert!(text.contains(" G couldn't be checked again (the check didn't pass)"), "{text}");
+    assert!(!text.contains('_'), "{text}");
+}
+
+#[test]
+fn an_unreadable_registry_after_closing_still_checks_the_setup_again() {
+    let p = published_setup(true);
+    let class = p.c.selection.class.id.clone();
+    let outcome = run_published(&p, |m, record| {
+        let hive = record.environment.root.join("compatdata/pfx/system.reg");
+        fs::remove_file(&hive).unwrap();
+        private_dir(&hive).unwrap();
+        report(m, record, "completed", 0);
+        Ok(())
+    }, &|_| Ok(false)).unwrap();
+    let message = outcome["message"].as_str().unwrap();
+    assert!(message.contains("couldn't read this setup's Windows registry, so nothing is reported as uninstalled"), "{message}");
+    assert_eq!(outcome["uninstalled"], json!([]));
+    assert_eq!(outcome["registration_remains"], Value::Null);
+    loadable(&p.f.m, &class);
+}
+
+#[test]
+fn a_whole_setup_uninstall_puts_back_every_plugin_whose_files_remain() {
+    let p = published_setup(false);
+    let class = p.c.selection.class.id.clone();
+    let name = p.f.m.registry().unwrap().classes[&class].registration.metadata.name.clone();
+    // The record of what the setup's installer added is incomplete: every plug-in is affected.
+    let directory = onboarding::directory(&p.f.m, &p.record.id).unwrap();
+    let op = p.record.installation_operation.clone().unwrap();
+    let drive = drive_c(&p.record.environment);
+    witness(&directory.join(format!("{op}-transaction-private.json")), &[UNINSTALLER, MODULE], &[&p.registration],
+        &drive, &["file_count"]);
+    let (operation, outcome) = run_published_with(&p, |m, record| {
+        fs::remove_file(drive_c(&record.environment).join(MODULE)).unwrap();
+        fs::write(record.environment.root.join("compatdata/pfx/system.reg"), HIVE_AFTER).unwrap();
+        report(m, record, "completed", 0);
+        Ok(())
+    }, &|_| Ok(false), &|m, class, current, work| preparation_cli::revalidate_in_place(m, class, current, work,
+        &inspector(&p.c)));
+    assert_eq!(control(&p.f.m, &operation).unwrap().coverage, UNKNOWN);
+    let outcome = outcome.unwrap();
+    let message = outcome["message"].as_str().unwrap();
+    assert!(message.contains(&format!("{name} is back in your DAW, checked again with this setup.")), "{message}");
+    assert_eq!(outcome["removed_from_daw"], json!([]));
+    loadable(&p.f.m, &class);
+}
+
+#[test]
+fn add_back_after_a_runtime_change_or_bridge_update_asks_for_check_compatibility() {
+    const PLAIN: &str = "setup changed since it was removed. Use Check compatibility to prepare it again.";
+    let p = published_setup(false);
+    let class = p.c.selection.class.id.clone();
+    let identity = ui::PublicationIdentity {id:p.current.id.clone(), sha256:p.current.sha256.clone()};
+    setup_removal::remove_from_daw(&p.f.m, &class, &identity).unwrap();
+    run_published(&p, |m, record| { report(m, record, "completed", 0); Ok(()) }, &|_| Ok(false)).unwrap();
+    assert!(setup_removal::setup_changed(&p.f.m, &class, &p.current).unwrap());
+    let offer = |m: &Manager| setup_removal::plugin_offers(m, &class, &m.registry().unwrap().classes[&class], None, None)
+        .into_iter().find(|offer| matches!(offer.action, ui::Action::PluginAddBackToDaw { .. })).unwrap();
+    assert_eq!(offer(&p.f.m).disabled_reason, None);
+    // The setup's scan was taken by another bridge since it was prepared.
+    let path = p.f.m.root.join("inventory").join(format!("{}.json", p.record.id));
+    let saved = fs::read(&path).unwrap();
+    let mut scan: inventory::Scan = read_json(&path).unwrap();
+    scan.host.sha256 = "00".repeat(32);
+    atomic_json(&path, &scan).unwrap();
+    assert!(!setup_removal::setup_changed(&p.f.m, &class, &p.current).unwrap());
+    assert!(offer(&p.f.m).disabled_reason.unwrap().ends_with(PLAIN));
+    let refused = setup_removal::add_back(&p.f.m, &class, &identity, |_, _| panic!("no check starts")).unwrap_err();
+    assert!(refused.to_string().ends_with(PLAIN), "{refused}");
+    fs::write(&path, saved).unwrap();
+    // The setup's runtime changed.
+    let before = environment_install::current_environment(&p.f.m, &p.record.environment).unwrap();
+    let mut after = before.clone();
+    after.revision += 1;
+    after.runner.id = "different-fixture-runtime".into();
+    let change = random_id().unwrap();
+    let directory = job_dir(&p.f.m, &change).unwrap();
+    private_dir(&directory).unwrap();
+    atomic_json(&directory.join("request.json"), &ui::Request {schema:ui::OPERATOR_SCHEMA,state_token:"t".into(),
+        action:ui::Action::EnvironmentRuntimeSelect {environment:before.id.clone(),
+            runner:catalogue::runner_key(&after.runner).unwrap(),
+            expected_environment:environment_revision::identity(&before).unwrap()}}).unwrap();
+    atomic_json(&directory.join("runtime-transition.json"), &environment_revision::RuntimeBinding {
+        schema:1,operation:change.clone(),before:before.clone(),environment:after.clone(),
+        affected:vec![environment_revision::RuntimeOwner::Setup {environment:before.clone(),record:{
+            let path = onboarding::directory(&p.f.m, &p.record.id).unwrap().join("record.json");
+            Artifact {sha256:digest(&path).unwrap(),path}}}],
+        state:environment_revision::RuntimeState::Scanned}).unwrap();
+    atomic_json(&directory.join("result.json"), &json!({"schema":1,"operation":change,"state":"completed","result":{}})).unwrap();
+    atomic_json(&after.root.join("environment.json"), &after).unwrap();
+    assert_eq!(environment_install::current_environment(&p.f.m, &p.record.environment).unwrap(), after);
+    assert!(!setup_removal::setup_changed(&p.f.m, &class, &p.current).unwrap());
+    assert!(offer(&p.f.m).disabled_reason.unwrap().ends_with(PLAIN));
+    let refused = setup_removal::add_back(&p.f.m, &class, &identity, |_, _| panic!("no check starts")).unwrap_err();
+    assert!(refused.to_string().ends_with(PLAIN), "{refused}");
+}
+
+#[test]
+fn a_first_installer_run_shown_closed_later_keeps_how_it_ended() {
+    let s = installed();
+    let op = s.record.installation_operation.clone().unwrap();
+    let path = onboarding::directory(&s.f.m, &s.record.id).unwrap().join(format!("{op}-result.json"));
+    let unconfirmed = |error: Value| json!({"schema":2,"operation":op,"state":"cleanup_unconfirmed","raw_exit":0,
+        "cleanup_confirmed":false,"owned_live":null,"error":error,
+        "transaction":{"schema":1,"operation":op,"outcome":"cleanup_unconfirmed","durable_installation":"installed"}});
+    // The installer exited 0; only its last helper outlived the supervisor.
+    atomic_json(&path, &unconfirmed(Value::Null)).unwrap();
+    let closed = environment_install::confirm_closed(&s.f.m, &op, &|_| Ok(false)).unwrap();
+    assert_eq!((closed["state"].as_str(), closed["transaction"]["outcome"].as_str()), (Some("completed"), Some("installed")));
+    let read = onboarding::result(&s.f.m, &s.record).unwrap();
+    assert!(onboarding::retired(&read) && read["state"] == "completed");
+    // The supervisor itself stopped first: never a success.
+    atomic_json(&path, &unconfirmed("installer_supervisor_terminated_without_retirement".into())).unwrap();
+    let closed = environment_install::confirm_closed(&s.f.m, &op, &|_| Ok(false)).unwrap();
+    assert_eq!(closed["state"], "failed");
 }

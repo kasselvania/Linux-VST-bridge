@@ -219,7 +219,8 @@ impl RequestFeedback {
                 self.release_after_snapshot = true;
                 if let Some(message) = op["result"]["message"].as_str().filter(|_| matches!(self.action,
                     Action::PluginRemoveFromDaw { .. } | Action::PluginAddBackToDaw { .. }
-                    | Action::SetupRemoveFromDaw { .. } | Action::ProductUninstall { .. })) {
+                    | Action::SetupRemoveFromDaw { .. } | Action::ProductUninstall { .. }
+                    | Action::InstallerCloseCheck { .. })) {
                     message.into()
                 } else if self.journey.as_ref().is_some_and(|journey|
                     journey.phase == InstallationPhase::NeedsAttention) {
@@ -269,7 +270,12 @@ impl RequestFeedback {
                 Action::PluginAddBackToDaw { .. } => "Adding this plug-in back to your DAW.".into(),
                 Action::SetupRemoveFromDaw { .. } => "Removing this setup's plug-ins from your DAW.".into(),
                 Action::SetupDelete { .. } => "Deleting this setup's Windows files. A large setup can take a minute.".into(),
-                Action::ProductUninstall { .. } => "The vendor's uninstaller is running. Follow its window to finish.".into(),
+                // Once the uninstaller closed, the setup's own progress.
+                Action::ProductUninstall { .. } | Action::InstallerCloseCheck { .. }
+                    if op["progress"].as_str().is_some() => op["progress"].as_str().unwrap_or_default().into(),
+                Action::ProductUninstall { .. } =>
+                    "Taking the affected plug-ins out of your DAW and starting the uninstaller.".into(),
+                Action::InstallerCloseCheck { .. } => "Checking that it closed.".into(),
                 _ => "This operation is in progress. Do not click again.".into(),
             },
             _ => return,
@@ -3141,7 +3147,7 @@ fn removal_confirmation(snapshot: Option<&Snapshot>, action: &Action) -> Confirm
                 body.push(format!("First, {} will be removed from your DAW. Projects that use {} will open with {} missing.",
                     u.affected.join(", "), if one { "it" } else { "them" }, if one { "it" } else { "them" }));
             }
-            body.push("Afterwards, the other plug-ins in this setup are checked again, and any it didn't remove go back into your DAW.".into());
+            body.push("Afterwards, this setup's plug-ins are checked again one at a time, and any it didn't remove go back into your DAW. The bridge is paused for all your setups until that finishes, which can take a few minutes for a large setup.".into());
             body.push("The uninstaller may also remove licences or settings it stored there. Your projects are not changed.".into());
             Confirmation { title: "Uninstall?", body, confirm: "Uninstall", cancel: "Cancel",
                 offer: current(uninstaller.map(|u| &u.action).into_iter().collect()) }
@@ -7641,6 +7647,21 @@ mod tests {
         feedback.observe(&serde_json::json!({"operation":"scan","state":"running"}));
         assert!(feedback.text.contains("Checking the installed products"));
         assert!(!feedback.text.contains("Downloading"));
+    }
+    #[test]
+    fn an_uninstall_shows_its_setup_being_checked_once_the_uninstaller_closed() {
+        let progress = "Checking this setup's plug-ins (2 of 3)… The bridge is paused for all your setups until this finishes.";
+        for action in [Action::ProductUninstall {environment:"ab".repeat(16),registration:"cd".repeat(32),
+            command_sha256:"ef".repeat(32),confirmed:true}, Action::InstallerCloseCheck {operation:"ab".repeat(16)}] {
+            let mut feedback=RequestFeedback::captured(action);
+            feedback.operation=Some("current".into());
+            feedback.observe(&serde_json::json!({"operation":"current","state":"vendor_running"}));
+            feedback.observe(&serde_json::json!({"operation":"current","state":"running","progress":progress}));
+            assert_eq!(feedback.text, progress);
+            feedback.observe(&serde_json::json!({"operation":"current","state":"completed",
+                "result":{"message":"Freq Echo was checked again and stays in your DAW."}}));
+            assert_eq!(feedback.text, "Freq Echo was checked again and stays in your DAW.");
+        }
     }
     #[test]
     fn guided_check_keeps_the_offered_identity_and_queues_once() {

@@ -595,7 +595,7 @@ fn inactive_reason(
             Some("Close active bridged instances before this action")
         }
         _ if !vendor_retired => {
-            Some("An installer, uninstaller or app is still open, or the manager couldn't confirm it closed. Finish it, or use Check that it closed on its card.")
+            Some("An installer, uninstaller or app is still open, or the manager couldn't confirm that it closed. Finish it or use its Stop control; for an installer or uninstaller, Check that it closed on its setup's card confirms it.")
         }
         _ if pending > 0 && !reconcile => Some("Reconcile the interrupted publication first"),
         _ => None,
@@ -2829,8 +2829,30 @@ fn execute_with_receipt_policy_progress(
         ui::Action::InstallerCloseCheck {operation: owned} => {
             let _environment = m.lock("operator-environment.lock")?;
             let value = environment_install::confirm_closed(m, owned, &onboarding::live)?;
-            // The bridge paused for that run resumes once it is shown closed.
-            resume_owned(m, owned)?;
+            if !uninstall::needs_check(m, owned)? {
+                // The bridge paused for that run resumes once it is shown closed.
+                resume_owned(m, owned)?;
+                return Ok(value);
+            }
+            // An uninstaller run: its setup is scanned and its plug-ins are
+            // checked again first, with the bridge still paused by that run
+            // or, if it was restarted meanwhile, by this check.
+            let owner = operation.ok_or("operator_operation_identity")?;
+            drop(projection.take());
+            if resume_record(m)?.is_none_or(|saved| saved.owner_operation != *owned) {
+                suspend(m, owner, None, timeout, waits)?;
+            }
+            let mut checking = |n: usize, total: usize| write_operation(m, owner, &json!({"schema":2,
+                "operation":owner,"state":"running","action":a,"progress":uninstall::progress(n, total)}), false);
+            let revalidate = |m: &Manager, class: &str, current: &linux_vst_bridge::publication::RevisionRef, work: &str|
+                preparation_cli::revalidate_in_place(m, class, current, work, &preparation_cli::supervised_inspection);
+            let result = uninstall::complete(m, owned, &mut uninstall::Hooks {
+                launch: &|_, _| Err("uninstaller_not_run_again".into()), is_live: &onboarding::live,
+                vendor_retired: &|| vendor_retired(m), running: &mut || Ok(()), checking: &mut checking,
+                rescan: &rescan_environment, revalidate: &revalidate });
+            let resumed = resume_owned(m, owned).and_then(|_| resume_owned(m, owner));
+            let value = result?;
+            resumed?;
             Ok(value)
         }
         ui::Action::EnvironmentInstallerFocus {operation} =>
@@ -2912,12 +2934,15 @@ fn execute_with_receipt_policy_progress(
             suspend(m, owner, None, timeout, waits)?;
             let mut running = || write_operation(m, owner,
                 &json!({"schema":2,"operation":owner,"state":"vendor_running","action":a}), false);
+            // Once the uninstaller closed: what is being checked, and that every setup waits.
+            let mut checking = |n: usize, total: usize| write_operation(m, owner, &json!({"schema":2,
+                "operation":owner,"state":"running","action":a,"progress":uninstall::progress(n, total)}), false);
             let vendor = || vendor_retired(m);
             let revalidate = |m: &Manager, class: &str, current: &linux_vst_bridge::publication::RevisionRef, work: &str|
                 preparation_cli::revalidate_in_place(m, class, current, work, &preparation_cli::supervised_inspection);
             let result = uninstall::execute(m, environment, registration, command_sha256, owner, &mut uninstall::Hooks {
                 launch: &uninstall::launch, is_live: &onboarding::live, vendor_retired: &vendor,
-                running: &mut running, rescan: &rescan_environment, revalidate: &revalidate });
+                running: &mut running, checking: &mut checking, rescan: &rescan_environment, revalidate: &revalidate });
             // The bridge resumes once nothing of this uninstaller can still run;
             // otherwise the setup's card offers Stop uninstaller.
             let resumed = if uninstall::settled(m, owner)? { resume_owned(m, owner) } else { Ok(()) };

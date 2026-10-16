@@ -1407,11 +1407,27 @@ pub(super) fn revalidate_in_place(m: &Manager, class: &str, predecessor: &linux_
     let cleanup = prep::build::cleanup_work(m, operation);
     let candidate = prepared?;
     cleanup?;
-    let entry = m.registry()?.classes.get(&class.to_uppercase()).cloned().ok_or("registration_absent")?;
-    if entry.publication == Publication::Published {
-        prep::replace_refreshed(m, &candidate, &prior, predecessor)
-    } else {
-        prep::enable_refreshed(m, &candidate, &prior)
+    // Publication refuses before any change while the lock is held, so the
+    // same call is tried again.
+    waiting_for_registry(|| {
+        let entry = m.registry()?.classes.get(&class.to_uppercase()).cloned().ok_or("registration_absent")?;
+        if entry.publication == Publication::Published {
+            prep::replace_refreshed(m, &candidate, &prior, predecessor)
+        } else {
+            prep::enable_refreshed(m, &candidate, &prior)
+        }
+    })
+}
+/// Registry owners take registry.lock without waiting, and an overview
+/// refresh holds it briefly; a re-check waits that out instead of failing.
+fn waiting_for_registry<T>(mut work: impl FnMut() -> Result<T>) -> Result<T> {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        match work() {
+            Err(error) if error.is::<linux_vst_bridge::operator_lock::LockBusy>()
+                && Instant::now() < deadline => std::thread::sleep(Duration::from_millis(20)),
+            result => return result,
+        }
     }
 }
 /// The production inspector for `revalidate_in_place`.
@@ -1427,7 +1443,7 @@ fn revalidation_inspection(m: &Manager, selection: &prep::Selection, sw: &Softwa
         prep::retain_inspection(m, &inspection)?;
         return Ok(inspection);
     }
-    inspect(m, selection, sw, audio_layout, || m.lock("registry.lock"))
+    inspect(m, selection, sw, audio_layout, || waiting_for_registry(|| m.lock("registry.lock")))
 }
 
 fn retry_guided_inspection(
