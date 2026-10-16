@@ -414,6 +414,43 @@ pub fn from_load_record(outcome: &str, phase: Option<&str>, refusal: Option<&str
     })
 }
 
+const NOT_STARTED: &str = "The last time your DAW tried to start this plug-in's audio, the bridge refused, so the plug-in stayed silent.";
+const REOPEN: &str = "then reopen the project or restart your DAW.";
+
+/// The DAW's last attempt to start a loaded plug-in's audio was refused
+/// (`runtime/native-activation`, written by the bridge plug-in in the DAW:
+/// its setupProcessing or setActive `stage`, a `reason` code and the DAW's
+/// `requested` value). Unknown reasons explain nothing.
+pub fn from_activation_record(stage: &str, reason: &str, requested: u64) -> Option<Explanation> {
+    if !matches!(stage, "setup" | "activate") { return None; }
+    Some(match reason {
+        "daw_block_size" => Explanation::new("daw_block_size_unsupported", NOT_STARTED,
+            if requested > 0 {
+                format!("Your DAW asked for audio blocks of {requested} samples; the bridge plays blocks of up to 32768 samples.")
+            } else { "Your DAW asked for an audio block size the bridge cannot play.".into() },
+            format!("Choose a smaller buffer or block size in your DAW's audio settings, {REOPEN}")),
+        "daw_sample_format" => Explanation::new("daw_64bit_processing", NOT_STARTED,
+            "Your DAW asked for 64-bit (double precision) processing; the bridge processes 32-bit audio.",
+            format!("Turn off 64-bit or double precision processing for this plug-in or project in your DAW, {REOPEN}")),
+        "daw_sample_rate" => Explanation::new("daw_sample_rate_unsupported", NOT_STARTED,
+            if requested > 0 {
+                format!("Your DAW runs at {requested} Hz; the bridge supports 44.1, 48, 88.2, 96 and 192 kHz.")
+            } else { "Your DAW asked for a sample rate the bridge does not support.".into() },
+            format!("Set your DAW or audio system to 48 kHz (or another supported rate), {REOPEN}")),
+        "daw_process_mode" => Explanation::new("daw_process_mode_unsupported", NOT_STARTED,
+            "Your DAW asked for a kind of processing the bridge does not know.",
+            "Reopen the project. If it keeps happening, create a problem report."),
+        "windows_setup_refused" | "windows_activation_refused" => Explanation::new(
+            "windows_side_refused_start", NOT_STARTED,
+            "The plug-in's Windows side did not accept your DAW's audio settings, or had stopped.",
+            "Reopen the project or restart your DAW. If it keeps failing, try another buffer size or sample rate, and create a problem report."),
+        "memory" => Explanation::new("audio_buffers_unavailable", NOT_STARTED,
+            "The computer did not have enough free memory for the plug-in's audio buffers.",
+            format!("Close other programs, {REOPEN}")),
+        _ => return None,
+    })
+}
+
 /// Enumerated manager and installer outcome codes.
 pub fn from_code(code: &str) -> Option<Explanation> {
     Some(match code {

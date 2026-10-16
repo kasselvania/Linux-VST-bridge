@@ -455,8 +455,9 @@ pub fn last_load_text(product: &Product) -> Option<String> {
         .duration_since(std::time::UNIX_EPOCH)
         .ok()
         .map(|elapsed| elapsed.as_secs());
+    let what = if last["outcome"] == "activation_refused" { "Audio start refused" } else { "Load refused" };
     Some(match last["observed_at"].as_u64().zip(now).map(|(at, now)| refused_ago(at, now)) {
-        Some(when) => format!("Load refused {when}. {text}"),
+        Some(when) => format!("{what} {when}. {text}"),
         None => text,
     })
 }
@@ -787,6 +788,10 @@ mod tests {
         let text = last_load_text(&snapshot.products[index]).unwrap();
         assert!(text.starts_with("Load refused ") && text.ends_with("It stayed empty. Its Windows side stopped. Load it again."));
         assert!(attentions(&snapshot).iter().any(|item| item.title == name && item.detail == text));
+        // A refused audio start (#403) says so rather than a refused load.
+        snapshot.products[index].details["last_load"]["outcome"] = "activation_refused".into();
+        let text = last_load_text(&snapshot.products[index]).unwrap();
+        assert!(text.starts_with("Audio start refused ") && text.ends_with("Load it again."));
     }
 
     #[test]

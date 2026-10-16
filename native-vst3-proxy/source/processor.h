@@ -166,6 +166,11 @@ private:
   Steinberg::tresult processBody(Steinberg::Vst::ProcessData&);
  #endif
   void snapshotStatus(const char *status);
+  // Why setupProcessing or setActive refused (owner thread), for the card.
+  void activationRefused(uint32_t stage, uint32_t reason, uint64_t requested);
+  void activationStarted();
+  void setupRefused(uint32_t stage, uint32_t maximum, double rate);
+  bool activation_refusal_recorded_ = false;
   Steinberg::tresult recover(uint64_t revision);
   bool controller_synced_ = false;
   std::atomic<bool> want_active_{false}, want_processing_{false};
