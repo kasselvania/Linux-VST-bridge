@@ -180,7 +180,7 @@ def main():
     generation = args.evolve_generation or uuid.uuid4().hex[:8].upper()
     if not re.fullmatch('[0-9A-F]{8}',generation):
         raise ValueError('Exact first-party generation required')
-    if generation in ('45544131', '434D5031', '45444931'):
+    if generation in ('45544131', '434D5031', '45444931', '41435431'):
         raise ValueError('Generated identity collides with an existing fixture family')
     original = (ROOT / 'windows-fixtures/beta/stateful.cpp').read_text()
     if original.count('0x45544131') != 2 or original.count('"1.0.0"') != 2:
@@ -291,7 +291,7 @@ def main():
                 '--edition=2024', '-D', 'warnings', '-C', 'opt-level=2',
                 '-C', 'target-feature=+crt-static', '--check-cfg', 'cfg(beta_hold)',
                 '--check-cfg', 'cfg(beta_partial_hold)', '--check-cfg', 'cfg(beta_completion)',
-                '--check-cfg', 'cfg(beta_editor)', '-o', str(installer)],
+                '--check-cfg', 'cfg(beta_editor)', '--check-cfg', 'cfg(beta_activation)', '-o', str(installer)],
                 env=env, check=True, timeout=120)
             subprocess.run([str(installer), '--self-test'], check=True, timeout=30)
             row['installer'] = dict(file=version + '/' + installer.name, sha256=sha(installer),

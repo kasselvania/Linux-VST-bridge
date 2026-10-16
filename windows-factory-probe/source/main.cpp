@@ -54,6 +54,7 @@ int main() {
 #include "component_instance_session.h"
 #include "factory_census.h"
 #include "inspect_module.h"
+#include "plugin_windows.h"
 #include "ui_apartment.h"
 #include "environment_desktop.h"
 #include "mapped_processing.h"
@@ -151,8 +152,8 @@ std::map<std::string, std::string> parse_args(int argc, char** argv) {
          result["--mode"] != "ap0-offline-again-processing" &&
          result["--mode"] != "ap1-linux-windows-audio-roundtrip" &&
          result["--mode"] != "ap2-native-vst3-offline-bridge" &&
-         result["--mode"] != "ap3-queued-audio-preview" && result["--mode"] != "ap4-plugin-state-recall" && result["--mode"] != "ap18-bus-lifecycle" && result["--mode"] != "ap18-stereo-negotiation" && result["--mode"] != "graphics-assessment" && result["--mode"] != "ap8-module-inspection" && result["--mode"] != "ap8-commercial-preview" && result["--mode"] != "ap9-reference" && result["--mode"] != "ap9-commercial" && result["--mode"] != "ap12-vendor-access") ||
-        ((result["--mode"] == "ap18-bus-lifecycle" || result["--mode"] == "ap18-stereo-negotiation" || result["--mode"] == "graphics-assessment" || result["--mode"] == "ap8-module-inspection" || result["--mode"] == "ap8-commercial-preview" || result["--mode"] == "ap9-commercial" || result["--mode"] == "ap12-vendor-access")
+         result["--mode"] != "ap3-queued-audio-preview" && result["--mode"] != "ap4-plugin-state-recall" && result["--mode"] != "ap18-bus-lifecycle" && result["--mode"] != "ap18-stereo-negotiation" && result["--mode"] != "graphics-assessment" && result["--mode"] != "ap8-module-inspection" && result["--mode"] != "ap8-commercial-preview" && result["--mode"] != "ap9-reference" && result["--mode"] != "ap9-commercial" && result["--mode"] != "ap12-vendor-access" && result["--mode"] != "ap8-finish-setup") ||
+        ((result["--mode"] == "ap18-bus-lifecycle" || result["--mode"] == "ap18-stereo-negotiation" || result["--mode"] == "graphics-assessment" || result["--mode"] == "ap8-module-inspection" || result["--mode"] == "ap8-commercial-preview" || result["--mode"] == "ap9-commercial" || result["--mode"] == "ap12-vendor-access" || result["--mode"] == "ap8-finish-setup")
             ? (result["--component-case"]!="first-audio" &&
                 !(result["--component-case"].size()==38 && result["--component-case"].rfind("class:",0)==0 &&
                     std::all_of(result["--component-case"].begin()+6,result["--component-case"].end(),[](unsigned char c){return std::isxdigit(c)!=0;})))
@@ -343,8 +344,11 @@ int main(int argc, char** argv) {
         const bool ap1_mode=args.at("--mode")=="ap1-linux-windows-audio-roundtrip";
         std::unique_ptr<wf0::UiApartment> apartment;
         const bool graphics_probe=args.at("--mode")=="graphics-assessment";
+        const bool setup_mode=args.at("--mode")=="ap8-finish-setup";
+        const bool check_mode=args.at("--mode")=="ap8-module-inspection";
+        const std::wstring session_directory=ready_path.substr(0,ready_path.find_last_of(L"\\/"));
         const bool stereo_probe=args.at("--mode")=="ap18-stereo-negotiation";
-        if (access_mode || ap8_mode || args.at("--mode") == "ap18-bus-lifecycle" || stereo_probe || graphics_probe || args.at("--mode") == "ap8-module-inspection") {
+        if (access_mode || ap8_mode || args.at("--mode") == "ap18-bus-lifecycle" || stereo_probe || graphics_probe || check_mode || setup_mode) {
             apartment = std::make_unique<wf0::UiApartment>();
             events.lifecycle("ap11_ui_apartment", ",\"initial_result\":" +
                 std::to_string(apartment->initial) + ",\"initialize_result\":" +
@@ -353,6 +357,15 @@ int main(int argc, char** argv) {
         std::unique_ptr<wf0::MappedSession> mapped;
         if(ap1_mode||ap2_mode||ap3_mode||ap4_mode||ap8_mode) mapped=std::make_unique<wf0::MappedSession>(
             ready_path.substr(0,ready_path.find_last_of(L"\\/")),args.at("--session"),events,ap2_mode||ap3_mode||ap4_mode||ap8_mode,ap3_mode||ap4_mode||ap8_mode,ap4_mode||ap8_mode,ap8_mode,ap9_mode);
+        // A check and the visible setup load the plug-in as Windows would after
+        // boot: installer-registered automatic services are running, and a
+        // window the plug-in opens on its own is recorded (and, in the visible
+        // setup, raised) instead of only timing out (#414).
+        std::unique_ptr<wf0::PluginWindowWatch> window_watch;
+        if (check_mode || setup_mode) {
+            if (wf0::running_under_wine()) wf0::ensure_auto_start_services(events);
+            window_watch = std::make_unique<wf0::PluginWindowWatch>(session_directory + L"\\plugin-window.json", setup_mode);
+        }
         wf0::ModuleBinding module;
         int primary = wf0::open_module(module_path, module, events);
         first_primary = primary;
@@ -381,9 +394,9 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (factory != nullptr && primary == 0 && (args.at("--mode")=="ap18-bus-lifecycle"||stereo_probe||graphics_probe||args.at("--mode")=="ap8-module-inspection"||ap8_mode||access_mode)) {
+        if (factory != nullptr && primary == 0 && (args.at("--mode")=="ap18-bus-lifecycle"||stereo_probe||graphics_probe||check_mode||setup_mode||ap8_mode||access_mode)) {
             events.lifecycle("ap8_factory", wf0::census_json_fields(census.census));
-            primary=wf0::inspect_module(factory,events,args.at("--component-case")=="first-audio"?"":args.at("--component-case").substr(6),mapped.get(),access_mode?ready_path.substr(0,ready_path.find_last_of(L"\\/")):L"",args.at("--mode")=="ap18-bus-lifecycle",stereo_probe,graphics_probe);
+            primary=wf0::inspect_module(factory,events,args.at("--component-case")=="first-audio"?"":args.at("--component-case").substr(6),mapped.get(),access_mode?ready_path.substr(0,ready_path.find_last_of(L"\\/")):L"",args.at("--mode")=="ap18-bus-lifecycle",stereo_probe,graphics_probe,setup_mode?session_directory:std::wstring());
             if(first_primary==0)first_primary=primary;
         } else if (factory != nullptr && primary == 0) {
             component = wf0::admit_component(
@@ -415,7 +428,8 @@ int main(int argc, char** argv) {
             else if(primary==0) mapped->finish(true);
         }
         if (primary != 0) return primary;
-        if((args.at("--mode")=="ap18-bus-lifecycle"||stereo_probe||graphics_probe||args.at("--mode")=="ap8-module-inspection"||ap8_mode||access_mode)) {
+        window_watch.reset();
+        if((args.at("--mode")=="ap18-bus-lifecycle"||stereo_probe||graphics_probe||check_mode||setup_mode||ap8_mode||access_mode)) {
             events.final_lifecycle("scanner_completed", ",\"inspection_complete\":true");
             return 0;
         }

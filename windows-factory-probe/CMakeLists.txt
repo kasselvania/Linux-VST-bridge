@@ -123,6 +123,25 @@ foreach(role IN ITEMS instrument effect)
     set_target_properties(lvb-editor-${role} PROPERTIES PREFIX "" SUFFIX ".vst3"
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
 endforeach()
+# Activation fixtures (#414): the editor variant that waits for a stand-in
+# activation answer while Windows loads it, with its own identities.
+foreach(role IN ITEMS instrument effect)
+    if(role STREQUAL "instrument")
+        set(activation_is_instrument 1)
+    else()
+        set(activation_is_instrument 0)
+    endif()
+    add_library(lvb-activation-${role} SHARED ../windows-fixtures/beta/stateful.cpp
+        "${WF0_VST3_SDK_ROOT}/public.sdk/source/main/dllmain.cpp")
+    target_include_directories(lvb-activation-${role} PRIVATE "${WF0_VST3_SDK_ROOT}")
+    target_compile_definitions(lvb-activation-${role} PRIVATE LVB_BETA_EDITOR=1 LVB_BETA_ACTIVATION=1
+        LVB_BETA_INSTRUMENT=${activation_is_instrument} UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+    target_compile_options(lvb-activation-${role} PRIVATE /W4 /permissive- /Brepro)
+    target_link_options(lvb-activation-${role} PRIVATE /Brepro /INCREMENTAL:NO)
+    target_link_libraries(lvb-activation-${role} PRIVATE sdk user32 gdi32)
+    set_target_properties(lvb-activation-${role} PROPERTIES PREFIX "" SUFFIX ".vst3"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wf0/bin")
+endforeach()
 add_executable(lvb-editor-tests ../windows-fixtures/beta/editor_contract_tests.cpp)
 target_include_directories(lvb-editor-tests PRIVATE "${WF0_VST3_SDK_ROOT}" "${CMAKE_SOURCE_DIR}")
 target_compile_definitions(lvb-editor-tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
