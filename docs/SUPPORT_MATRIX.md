@@ -83,6 +83,10 @@ the tone stops (−21.6 dBFS); 176 DAW calls of 2048 frames, each in four 512-fr
 parts, none refused, no underrun; whole calls median 5.2 ms, p95 12.4 ms, max
 34.7 ms of a 46.4 ms period. On Test164 the same check was silent (setup refused).
 At 512 frames nothing is split and it still plays. **unqualified** beyond REAPER.
+Test168 (#403): with REAPER at 32 kHz, Supermassive is refused and stays silent.
+The manager's card then explains it ("Your DAW runs at 32000 Hz; the bridge
+supports 44.1, 48, 88.2, 96 and 192 kHz", set 48 kHz). Back at 44.1 kHz it plays
+and the card clears.
 
 Test126 (main `cbcfa84c`) on the CachyOS VM / REAPER 7.82 at 44.1 kHz / 512:
 Native Access installs Kontakt 8.13.1 on runtime r5; Kontakt's editor sits in
