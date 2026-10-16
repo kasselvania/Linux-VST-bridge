@@ -13,6 +13,9 @@ namespace AP2 {
 // cannot read (Kontakt: 173 KB of saved state became 23 KB).
 inline constexpr const char* NOT_LOADED_STATE =
     "Saving the project now drops this plug-in's settings from it.";
+// The processor holds the host's restored state and saves it unchanged.
+inline constexpr const char* NOT_LOADED_HELD =
+    "Saving keeps this plug-in's saved settings unchanged.";
 class RecoveryView final : public Steinberg::CPluginView,
                            public Steinberg::Linux::ITimerHandler {
 public:
@@ -30,9 +33,10 @@ public:
   // The bridge refused this instance at load: it holds no plug-in state and
   // offers no snapshot recovery.
   struct NotLoaded {};
-  RecoveryView(Steinberg::Vst::IEditController *controller,const char* failure,NotLoaded)
+  RecoveryView(Steinberg::Vst::IEditController *controller,const char* failure,NotLoaded,
+               const char* state=NOT_LOADED_STATE)
       : RecoveryView(controller) {
-    failure_=failure; not_loaded_=true;
+    failure_=failure; not_loaded_=true; not_loaded_state_=state;
   }
   ~RecoveryView() override { removed(); }
   Steinberg::tresult PLUGIN_API queryInterface(const Steinberg::TUID iid, void **out) override {
@@ -103,7 +107,7 @@ private:
       XSetForeground(display_,gc_,0x20252b);XFillRectangle(display_,window_,gc_,0,0,640,210);
       XSetForeground(display_,gc_,0xeeeeee);
       text(16,28,"Plug-in not loaded");text(16,60,failure_);
-      text(16,92,NOT_LOADED_STATE);
+      text(16,92,not_loaded_state_);
       text(16,124,"Reopen the project or restart your DAW. Re-adding it starts at default settings.");
       XFlush(display_);return;
     }
@@ -143,6 +147,7 @@ private:
   GC gc_ = nullptr;
   bool registered_ = false, action_ = false, not_loaded_ = false;
   const char* failure_=nullptr;
+  const char* not_loaded_state_=NOT_LOADED_STATE;
   char failure_snapshot_[128]{};
 };
 } // namespace AP2

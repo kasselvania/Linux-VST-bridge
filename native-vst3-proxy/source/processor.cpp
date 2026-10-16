@@ -345,8 +345,14 @@ tresult PLUGIN_API Processor::connect(IConnectionPoint *peer) {
 void Processor::holdState(std::vector<uint8_t> &&blob) {
   held_state_ = std::move(blob);
   state_held_ = true;
-  // Tell the controller the project's state is held unchanged. Bounded,
-  // owner-thread notification; an older controller ignores it.
+  announceHeldState();
+}
+// Tell the controller the project's state is held unchanged. Bounded,
+// owner-thread notification; an older controller ignores it. Sent when the
+// state is held and again on every refused bind, because a host may restore
+// state before the pair is connected.
+void Processor::announceHeldState() {
+  if (!state_held_) return;
   if (auto *m = allocateMessage()) {
     m->setMessageID("AP10.state_held");
     m->getAttributes()->setInt("bytes", int64(held_state_.size()));
@@ -607,6 +613,7 @@ tresult PLUGIN_API Processor::notify(IMessage *message) {
     if(!stateSession()){
       if(!session_refused_.load(std::memory_order_acquire))return kResultFalse;
       if(auto*m=allocateMessage()){m->setMessageID("AP10.refused");m->getAttributes()->setInt("kind",refusal_kind_);sendMessage(m);m->release();}
+      announceHeldState();
       return kNotInitialized;
     }
     uint64_t generation=0;if(ap11_gui_generation(handle_,&generation))return kResultFalse;

@@ -104,6 +104,7 @@ private:
   std::vector<uint8_t> held_state_;
   bool state_held_ = false;
   void holdState(std::vector<uint8_t> &&blob);
+  void announceHeldState();
   uint32_t output_mask_=1;
 #ifdef AP8_PREVIEW
   AP10Results::Output returned_;
