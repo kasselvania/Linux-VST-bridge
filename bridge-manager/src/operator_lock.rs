@@ -1,7 +1,27 @@
 //! Bounded non-RT acquisition only. Admission keeps Manager::lock fail-fast.
 use crate::{operator_model::*, *};
+use std::cell::Cell;
 use std::time::{Duration, Instant};
 pub mod timing;
+thread_local! {
+    static OPERATOR_REGISTRY_WAIT: Cell<Option<Duration>> = const { Cell::new(None) };
+}
+/// Inside an operator action (its worker, its finishing step and request
+/// dispatch) a busy registry.lock is waited out for up to `wait` before the
+/// usual busy refusal. Status reads hold that lock only briefly; failing at
+/// once made actions lose to an open manager window. Every other lock keeps
+/// fail-fast ownership, and the service and audio paths never enter this scope.
+pub fn with_operator_registry_wait<T>(wait: Duration, run: impl FnOnce() -> T) -> T {
+    struct Restore(Option<Duration>);
+    impl Drop for Restore {
+        fn drop(&mut self) { OPERATOR_REGISTRY_WAIT.with(|w| w.set(self.0)); }
+    }
+    let _restore = Restore(OPERATOR_REGISTRY_WAIT.with(|w| w.replace(Some(wait))));
+    run()
+}
+pub(crate) fn operator_registry_wait() -> Option<Duration> {
+    OPERATOR_REGISTRY_WAIT.with(Cell::get)
+}
 #[derive(Debug)]
 pub struct LockBusy;
 impl std::fmt::Display for LockBusy {
@@ -100,6 +120,21 @@ impl Manager {
     }
 }
 
+impl Manager {
+    /// registry.lock for an operator action: a bounded wait that announces
+    /// itself to status readers. Its stated result when the wait expires is
+    /// the same busy refusal an immediate attempt gave before.
+    pub(crate) fn lock_registry_waiting(&self, wait: Duration) -> Result<Lock> {
+        match self.lock_bounded(OperatorLock::Registry, LockPurpose::OperatorValidationReadback,
+            None, wait) {
+            Ok((lock, _)) => Ok(lock),
+            Err(error) if error.downcast_ref::<AcquisitionFailure>()
+                .is_some_and(|f| f.facts.outcome == LockOutcome::Timeout) => Err(LockBusy.into()),
+            Err(error) => Err(error),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -127,6 +162,25 @@ mod tests {
             f.m.try_lock("registry.lock").unwrap(),
             LockAttempt::Acquired(_)
         ));
+    }
+    #[test]
+    fn operator_wait_is_bounded_scoped_and_registry_only() {
+        let f = Fixture::new();
+        let held = f.m.lock("registry.lock").unwrap();
+        // Its stated result on expiry is the same busy refusal as before.
+        let started = Instant::now();
+        let error = with_operator_registry_wait(Duration::from_millis(60),
+            || f.m.lock("registry.lock")).err().unwrap();
+        assert!(error.is::<LockBusy>() && started.elapsed() >= Duration::from_millis(60));
+        // Ownership locks and everything outside an action stay fail-fast.
+        let owner = f.m.lock("operator-environment.lock").unwrap();
+        let started = Instant::now();
+        assert!(with_operator_registry_wait(Duration::from_secs(5),
+            || f.m.lock("operator-environment.lock")).err().unwrap().is::<LockBusy>());
+        assert!(f.m.lock("registry.lock").err().unwrap().is::<LockBusy>());
+        assert!(started.elapsed() < Duration::from_secs(1));
+        assert!(operator_registry_wait().is_none());
+        drop((held, owner));
     }
     #[test]
     fn real_open_failure_is_not_busy_and_does_not_retry() {

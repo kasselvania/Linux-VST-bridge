@@ -4216,6 +4216,11 @@ fn worker_with_capacity_observed(
     };
     timing::measure(Stage::FinalReceipt, || write_operation(m, id, &value, false))
 }
+/// Operator actions wait out a status read's brief registry hold (bounded by
+/// OPERATOR_WAIT) instead of refusing at once; status reads never do this.
+fn operator_wait<T>(run: impl FnOnce() -> T) -> T {
+    linux_vst_bridge::operator_lock::with_operator_registry_wait(OPERATOR_WAIT, run)
+}
 pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
     match args {
         [a] if a == "current-overview" => {
@@ -4248,7 +4253,7 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
             std::io::stdin().take(16385).read_to_end(&mut bytes)?;
             require(bytes.len() <= 16384, "operator_request_bound")?;
             let req = serde_json::from_slice(&bytes)?;
-            let receipt = match dispatch(m, req) {
+            let receipt = match operator_wait(|| dispatch(m, req)) {
                 Ok(r) => r,
                 Err(e) => ui::Receipt {
                     schema: ui::OPERATOR_SCHEMA,
@@ -4259,8 +4264,8 @@ pub(super) fn run(m: &Manager, args: &[String]) -> Result<()> {
             };
             println!("{}", serde_json::to_string(&receipt)?);
         }
-        [a, id] if a == "worker" => worker(m, id)?,
-        [a, id] if a == "finish" => finish_operation(m, id)?,
+        [a, id] if a == "worker" => operator_wait(|| worker(m, id))?,
+        [a, id] if a == "finish" => operator_wait(|| finish_operation(m, id))?,
         _ => return Err("operator snapshot | request".into()),
     }
     Ok(())
