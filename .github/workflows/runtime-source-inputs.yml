@@ -1,0 +1,43 @@
+name: Recovered runtime source inputs
+
+on:
+  pull_request:
+    paths:
+      - 'tools/runtime-dcomp/**'
+      - '.github/workflows/runtime-source-inputs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-source-inputs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Check exact source patches and historical launcher derivation
+        shell: python
+        run: |
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import urllib.request
+
+          recipe = json.loads(Path('tools/runtime-dcomp/recipe.json').read_bytes())
+          source = Path(os.environ['RUNNER_TEMP']) / 'runtime-wine-inputs'
+          for patch in recipe['patches']:
+              # Only two pinned LGPL source files, never a runtime or vendor payload.
+              relative = patch['source']
+              url = ('https://raw.githubusercontent.com/giang17/wine/'
+                     + recipe['wine']['commit'] + '/' + relative)
+              with urllib.request.urlopen(url, timeout=30) as response:
+                  data = response.read(2 * 1024 * 1024 + 1)
+              if len(data) > 2 * 1024 * 1024:
+                  raise ValueError('Wine source file exceeds the check bound')
+              target = source / relative
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_bytes(data)
+          subprocess.run(['python3', 'tools/runtime-dcomp/check.py',
+                          '--wine-source', str(source)], check=True)
