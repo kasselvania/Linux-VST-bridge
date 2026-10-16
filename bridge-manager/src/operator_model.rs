@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 /// Manager/frontend wire generation. Durable installer, workspace and operation
 /// records keep their own owner-defined schema versions.
-pub const OPERATOR_SCHEMA: u32 = 28;
+pub const OPERATOR_SCHEMA: u32 = 29;
 /// Explicit delivery policy, independent from the remembered buffered delay.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -597,6 +597,10 @@ pub struct EnvironmentInstaller {
     pub name: String,
     pub affected: Vec<String>,
     pub consequence: String,
+    /// Setup-local service facts and vendor-owned dependency installation help.
+    /// Registration and a past check never assert activation or a live service.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dependency_help: Vec<String>,
     pub choices: Vec<AvailableAction>,
     pub operation: Option<String>,
     pub installer: Option<String>,

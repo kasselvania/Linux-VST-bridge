@@ -2,6 +2,10 @@
 
 This ledger is the current map from reusable failure mechanisms to fixes, artifacts, physical coverage, and remaining gaps. It is organized by shared boundary rather than by chronological campaign or plug-in name.
 
+PACE/iLok load-time stalls (#414/#417) remain open. Same-setup dependency assistance
+uses local service registration and current scan observations; a timeout alone does
+not establish a PACE requirement. The musician selects the vendor's installer.
+
 Historical AP/UIO/UIR/IF documents remain authoritative for what a particular experiment observed. This ledger is authoritative for the project's current cross-plug-in understanding.
 
 The 2026-10-02 [graphics/runtime source investigation](GRAPHICS_RUNTIME_REVIEW.md)
