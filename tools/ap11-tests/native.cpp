@@ -541,7 +541,7 @@ void refused_admission_regression() {
     ProcessSetup setup{kRealtime,kSample32,128,48000};
     check(processor.setupProcessing(setup)!=kResultOk,"a refused instance cannot be set up");
     LVBState::Stream stream;
-    check(processor.getState(&stream)==kResultFalse,"a refused instance fabricates no state");
+    check(processor.getState(&stream)==kResultOk && stream.bytes.empty(),"a refused instance records nothing and fabricates no state");
     check(open_calls==1,"UI ticks, setup and state never repeat a refused admission");
     // REAPER restores parameters into the controller after loading; that
     // must not replace the refusal with an editor-control failure.
@@ -551,6 +551,10 @@ void refused_admission_regression() {
     check(view && dynamic_cast<AP2::RecoveryView*>(view),"a refused instance explains itself instead of a blank editor");
     view->release();
     open_refused=false;error_detail="";
+    controller->disconnect(&processor);processor.disconnect(controller);
+    controller->terminate();controller->release();processor.terminate();
+  }
+}
 // A host restore into an instance the bridge never admitted (refused, or
 // admission failed during the restore) used to be dropped, so saving the
 // project replaced the plug-in's state with nothing (#380: Kontakt 173,328
