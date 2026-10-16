@@ -4687,6 +4687,11 @@ pub(crate) mod tests {
     }
     #[test]
     fn visible_setup_from_unpublished_failure_rechecks_the_exact_module_after_close() {
+        for ended in ["closed","stopped","deadline","window_lost","host_ended","write_failure"] {
+            visible_setup_outcome(ended);
+        }
+    }
+    fn visible_setup_outcome(ended:&str) {
         let (f,environment,scan,census)=onboarding_retry_fixture();let m=&f.m;
         let directory=onboarding::directory(m,&environment.id).unwrap();
         let path=directory.join("record.json");
@@ -4707,7 +4712,8 @@ pub(crate) mod tests {
         let script=m.root.join("software/visible-supervisor.py");
         let source=serde_json::to_string(&healthy_path).unwrap();
         let log=serde_json::to_string(&launches).unwrap();
-        fs::write(&script,format!("import json,pathlib,shutil,sys\njob=json.load(open(sys.argv[1]))\nreport=json.load(open({source}))\nsetup=job.get('finish_setup',False)\nwith open({log},'a') as log: log.write(('setup' if setup else 'inspect')+'\\n')\nif setup: report['finish_setup']={{'ended':'closed'}}\npathlib.Path(job['report']).write_text(json.dumps(report))\nprint('LVO0 '+job['session']+' ready',flush=True)\nshutil.rmtree(job['directory'])\nprint('LVO1 '+job['session']+' retired',flush=True)\n")).unwrap();
+        let ending=serde_json::to_string(ended).unwrap();
+        fs::write(&script,format!("import json,pathlib,shutil,sys\njob=json.load(open(sys.argv[1]))\nreport=json.load(open({source}))\nsetup=job.get('finish_setup',False)\nwith open({log},'a') as log: log.write(('setup' if setup else 'inspect')+'\\n')\nif setup: report['finish_setup']={{'ended':{ending}}}\npathlib.Path(job['report']).write_text(json.dumps(report))\nprint('LVO0 '+job['session']+' ready',flush=True)\nshutil.rmtree(job['directory'])\nprint('LVO1 '+job['session']+' retired',flush=True)\n")).unwrap();
         let mut sw=software(m).unwrap();sw.supervisor=Artifact {sha256:digest(&script).unwrap(),path:script};
         atomic_json(&m.root.join("software.json"),&sw).unwrap();
         readiness::with_unit_state_fixture(&[onboarding::unit(&installer).unwrap()],"inactive",|| {
@@ -4720,12 +4726,19 @@ pub(crate) mod tests {
                 scan:scan.id.clone(),module_index:0,module_sha256:scan.modules[0].artifact.sha256.clone(),
                 report_sha256:scan.modules[0].report.sha256.clone()});
             let queued=test_submit_offered(m,&offer.action).unwrap();
+            if ended=="write_failure" {
+                private_dir(&job_dir(m,&queued).unwrap().join("setup-session.json")).unwrap();
+            }
             let result=test_run_offered_worker(m,&queued).unwrap();
-            assert_eq!(result["state"],"completed","{result}; launches={:?}",fs::read_to_string(&launches));
+            assert_eq!(result["state"],if ended=="closed" {"completed"} else {"refused"},
+                "{result}; launches={:?}",fs::read_to_string(&launches));
         });
-        assert_eq!(fs::read_to_string(launches).unwrap(),"setup\ninspect\n");
+        if ended=="write_failure" {assert!(!launches.exists());}
+        else {assert_eq!(fs::read_to_string(launches).unwrap(),if ended=="closed" {"setup\ninspect\n"} else {"setup\n"});}
         let current:inventory::Scan=read_json(&m.root.join("inventory").join(format!("{}.json",environment.id))).unwrap();
-        assert_ne!(current.id,scan.id);assert!(current.modules[0].quarantine_reason.is_none());
+        if ended=="closed" {assert_ne!(current.id,scan.id);assert!(current.modules[0].quarantine_reason.is_none());}
+        else {assert_eq!(current.id,scan.id);assert!(current.modules[0].quarantine_reason.is_some());}
+        assert!(capacity::owners(m).unwrap().is_empty());
         assert_eq!(fs::read(m.root.join("registry.json")).unwrap(),registry);
         assert_eq!(serde_json::to_value(read_json::<onboarding::Record>(&path).unwrap()).unwrap(),
             serde_json::to_value(record).unwrap());
