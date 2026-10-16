@@ -109,7 +109,8 @@ fn main() -> eframe::Result {
     let state = args.get(3).map(String::as_str).unwrap_or("populated");
     let mut snapshot: model::Snapshot =
         serde_json::from_str(include_str!("library-preview.json")).expect("preview fixture");
-    snapshot.bridge = model::BridgeBuild { version: Some("0.12.0preview".into()), setup_package: None };
+    snapshot.bridge = model::BridgeBuild { installed: Some("0.12.0preview".into()),
+        setup: model::SetupPackage::Nothing };
     if page == operator::Page::Plugins
         && matches!(args.get(3).map(String::as_str), Some("guided" | "guided_new" | "guided_pending")) {
         let mut beam = snapshot.products[0].clone();

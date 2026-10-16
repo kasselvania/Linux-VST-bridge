@@ -424,8 +424,7 @@ fn validate_manifest_identity(manifest: &PackageManifest) -> Result<()> {
     Ok(())
 }
 fn valid_package_version(value: &str) -> bool {
-    !value.is_empty() && value.len() <= 80 && value.as_bytes()[0].is_ascii_digit()
-        && value.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'.')
+    linux_vst_bridge::package_version::valid_version(value)
 }
 fn id(record: &Generation) -> Result<String> {
     Ok(hex(&sha2::Sha256::digest(serde_json::to_vec(record)?)))
@@ -994,25 +993,53 @@ pub(super) fn require_current_frontend_caller(_m: &Manager) -> Result<()> {
 pub(super) fn selected_package_version(m: &Manager, current: &Software) -> Result<Option<String>> {
     Ok(selected_generation(m, current)?.map(|record| record.manifest.version))
 }
-/// The selected bridge build and the package Setup would apply next, for
-/// display. Setup opens the user's staged package when there is one, otherwise
-/// the system package. An unreadable record leaves its version unknown and
-/// never fails the readback.
+/// A package's version and source tree.
+type PackageBuild = (String, String);
+/// The installed bridge build and what Setup holds beside it, for display.
+/// Setup opens the user's staged package when one is staged, otherwise the
+/// system package. Nothing here fails the readback: an unreadable installed
+/// record leaves the version unknown, and an unverifiable Setup package is
+/// reported as unchecked rather than replaced by another package.
 pub(super) fn bridge_build(m: &Manager, current: &Software) -> operator_model::BridgeBuild {
-    let staged = std::env::var_os("HOME").and_then(|home|
-        linux_vst_bridge::portable_package::setup_version(Path::new(&home)).ok().flatten());
-    let installed = Inputs::installed_record().ok();
-    bridge_build_from(m, current, staged, installed.as_ref().map(|(inputs, owner)| (inputs, *owner)))
+    let staged = match std::env::var_os("HOME") {
+        Some(home) => linux_vst_bridge::portable_package::setup_release(Path::new(&home))
+            .map(|release| release.map(|release| (release.version, release.source_tree))),
+        None => Ok(None),
+    };
+    bridge_build_from(m, current, staged, || Inputs::installed_record().map(Some))
 }
-fn bridge_build_from(m: &Manager, current: &Software, staged: Option<String>,
-    installed: Option<(&Inputs, u32)>) -> operator_model::BridgeBuild {
-    operator_model::BridgeBuild {
-        version: selected_generation_record(m, current).ok().flatten()
-            .map(|record| record.manifest.version),
-        setup_package: staged.or_else(|| installed
-            .and_then(|(inputs, owner)| read_manifest_record(inputs, owner).ok())
-            .map(|(manifest, _)| manifest.version)),
-    }
+fn bridge_build_from(m: &Manager, current: &Software, staged: Result<Option<PackageBuild>>,
+    system: impl FnOnce() -> Result<Option<(Inputs, u32)>>) -> operator_model::BridgeBuild {
+    use linux_vst_bridge::package_version::compare_versions;
+    use operator_model::SetupPackage;
+    // The record alone names the version; its artifacts are not revisited here.
+    let installed = current.manager.path.parent()
+        .and_then(|dir| generation_identity(m, dir).ok()).map(|record| record.manifest);
+    // Only the absence of a staged package consults the system package.
+    let setup = match staged {
+        Ok(None) => system_package(system),
+        other => other,
+    };
+    let setup = match (setup, &installed) {
+        (Err(_), _) => SetupPackage::Unchecked,
+        (Ok(Some((version, tree))), Some(installed)) =>
+            match compare_versions(&version, &installed.version) {
+                std::cmp::Ordering::Greater => SetupPackage::Newer(version),
+                std::cmp::Ordering::Less => SetupPackage::Older(version),
+                std::cmp::Ordering::Equal if tree != installed.source_tree =>
+                    SetupPackage::DifferentBuild(version),
+                std::cmp::Ordering::Equal => SetupPackage::Nothing,
+            },
+        _ => SetupPackage::Nothing,
+    };
+    operator_model::BridgeBuild { installed: installed.map(|manifest| manifest.version), setup }
+}
+fn system_package(system: impl FnOnce() -> Result<Option<(Inputs, u32)>>)
+    -> Result<Option<PackageBuild>> {
+    let Some((inputs, owner)) = system()? else { return Ok(None) };
+    if !inputs.manifest().try_exists()? { return Ok(None); }
+    let (manifest, _) = read_manifest_record(&inputs, owner)?;
+    Ok(Some((manifest.version, manifest.source_tree)))
 }
 fn selected_generation(m: &Manager, current: &Software) -> Result<Option<Generation>> {
     let dir = current.manager.path.parent().ok_or("package_generation_path")?;
@@ -3643,25 +3670,43 @@ mod tests {
     }
 
     #[test]
-    fn bridge_build_names_the_selected_version_and_the_package_setup_holds() {
+    fn bridge_build_names_the_installed_version_and_what_setup_holds() {
+        use operator_model::{BridgeBuild, SetupPackage};
+        fn build(f: &Fixture, staged: Result<Option<PackageBuild>>,
+            system: impl FnOnce() -> Result<Option<(Inputs, u32)>>) -> BridgeBuild {
+            bridge_build_from(&f.base.m, &f.current(), staged, system)
+        }
         let f = Fixture::new();
-        let build = |staged: Option<&str>| bridge_build_from(&f.base.m, &f.current(),
-            staged.map(Into::into), Some((&f.inputs, f.owner)));
+        let tree = "cd".repeat(20);
+        let staged = |version: &str, tree: &str| -> Result<Option<PackageBuild>> {
+            Ok(Some((version.to_owned(), tree.to_owned())))
+        };
+        let system = || Ok(Some((f.inputs.clone(), f.owner)));
+        let unused = || -> Result<Option<(Inputs, u32)>> { panic!("staged package answered") };
         f.adopt().unwrap();
-        assert_eq!(build(None), operator_model::BridgeBuild {
-            version: Some("0.1.0beta1".into()), setup_package: Some("0.1.0beta1".into()) });
+        // Setup holds the installed build itself.
+        assert_eq!(build(&f, Ok(None), system), BridgeBuild {
+            installed: Some("0.1.0beta1".into()), setup: SetupPackage::Nothing });
+        // Only a strictly newer version is an update; numbers compare as numbers.
         let mut manifest = f.manifest();
-        manifest.version = "0.2.0beta1".into();
+        manifest.version = "0.1.0beta10".into();
         atomic_json(&f.inputs.manifest(), &manifest).unwrap();
         fs::set_permissions(f.inputs.manifest(), fs::Permissions::from_mode(0o444)).unwrap();
-        assert_eq!(build(None).setup_package.as_deref(), Some("0.2.0beta1"));
-        // The user's staged package is what their Setup entry opens.
-        assert_eq!(build(Some("0.3.0test1")).setup_package.as_deref(), Some("0.3.0test1"));
-        // An unreadable record leaves a version unknown; the readback goes on.
+        assert_eq!(build(&f, Ok(None), system).setup, SetupPackage::Newer("0.1.0beta10".into()));
+        // The user's staged package is what Setup opens; the system one is not read.
+        assert_eq!(build(&f, staged("0.1.0beta0", &tree), unused).setup,
+            SetupPackage::Older("0.1.0beta0".into()));
+        assert_eq!(build(&f, staged("0.1.0beta1", &tree), unused).setup, SetupPackage::Nothing);
+        assert_eq!(build(&f, staged("0.1.0beta1", &"ef".repeat(20)), unused).setup,
+            SetupPackage::DifferentBuild("0.1.0beta1".into()));
+        // A staged package that cannot be verified is not replaced by the system one.
+        assert_eq!(build(&f, Err("user_package_signature".into()), unused).setup,
+            SetupPackage::Unchecked);
+        // An unknown installed version offers nothing.
         fs::remove_file(f.current().manager.path.parent().unwrap()
             .join("package-generation.json")).unwrap();
-        fs::remove_file(f.inputs.manifest()).unwrap();
-        assert_eq!(build(None), operator_model::BridgeBuild::default());
+        assert_eq!(build(&f, Ok(None), system), BridgeBuild::default());
+        assert_eq!(build(&f, staged("9.0", &tree), unused), BridgeBuild::default());
     }
 
     #[test]

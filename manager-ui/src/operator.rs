@@ -2448,25 +2448,33 @@ impl Operator {
         }
     }
 
-    /// Small build line beside the title: "0.12.0test144 · runtime r5".
-    fn version_badge(ui: &mut egui::Ui, snapshot: &Snapshot) {
-        let version = snapshot.bridge.version.as_deref().unwrap_or("version unknown");
+    /// Small build line beside the title: "0.12.0test144 · runtime r5". Before
+    /// the manager answers, this window's own build is named instead.
+    fn version_badge(ui: &mut egui::Ui, snapshot: Option<&Snapshot>, own_version: Option<&str>) {
+        let Some(snapshot) = snapshot else {
+            if let Some(version) = own_version { ui.small(version); }
+            return;
+        };
+        let version = snapshot.bridge.installed.as_deref().unwrap_or("version unknown");
         ui.small(match presentation::runtime_summary(snapshot) {
             Some(runtime) => format!("{version} · runtime {runtime}"),
             None => version.to_owned(),
         });
-        if let Some(staged) = presentation::update_ready(&snapshot.bridge) {
-            ui.label(egui::RichText::new(format!("Update ready: {staged}")).small().strong());
+        if let Some(note) = presentation::setup_title_note(&snapshot.bridge) {
+            ui.label(egui::RichText::new(note).small().strong());
         }
     }
 
     fn version_section(ui: &mut egui::Ui, snapshot: &Snapshot) {
-        ui.strong(presentation::bridge_title(&snapshot.bridge));
+        ui.strong(presentation::installed_line(&snapshot.bridge));
+        if let Some(line) = presentation::setup_line(&snapshot.bridge) {
+            ui.label(line);
+            if presentation::setup_title_note(&snapshot.bridge).is_some() {
+                ui.small("Open Linux VST Bridge Setup and Updates to apply it.");
+            }
+        }
         ui.label(format!("Compatibility runtime: {}",
             presentation::runtime_summary(snapshot).as_deref().unwrap_or("not installed")));
-        if let Some(staged) = presentation::update_ready(&snapshot.bridge) {
-            ui.label(format!("Update ready: {staged}. Open Linux VST Bridge Setup and Updates to apply it."));
-        }
         let copied_id = ui.make_persistent_id("version_details_copied");
         ui.horizontal_wrapped(|ui| {
             if ui.add(egui::Button::new("Copy version details").min_size(egui::vec2(180.0, 44.0))).clicked() {
@@ -2725,9 +2733,8 @@ impl eframe::App for Operator {
         egui::CentralPanel::default().frame(egui::Frame::central_panel(ui.style()).inner_margin(16.0)).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.heading("Linux VST Bridge");
-                if let Some(snapshot) = self.overview.as_ref().map(|o| &o.current).or(self.snapshot.as_ref()) {
-                    Self::version_badge(ui, snapshot);
-                }
+                Self::version_badge(ui, self.overview.as_ref().map(|o| &o.current)
+                    .or(self.snapshot.as_ref()), presentation::own_version());
                 let refresh_label = if self.overview_fresh { "Refresh" } else { "Check again" };
                 if ui.add_enabled(!controls_pending, egui::Button::new(refresh_label).min_size(egui::vec2(92.0, 44.0))).clicked() {
                     refresh = true;
@@ -3713,24 +3720,33 @@ mod tests {
 
     #[test]
     fn header_and_diagnostics_show_the_bridge_build_and_copy_plain_details() {
+        use crate::model::SetupPackage;
         let mut overview: CurrentOverview = overview_fixture().into();
-        overview.current.bridge = crate::model::BridgeBuild {version:Some("0.12.0test144".into()),
-            setup_package:Some("0.12.0test145".into())};
+        overview.current.bridge = crate::model::BridgeBuild {installed:Some("0.12.0test144".into()),
+            setup:SetupPackage::Newer("0.12.0test145".into())};
         for environment in &mut overview.current.environments {
             environment.runner = "managed-ge-proton11-7-slr4-20260805-r5".into();
         }
         overview.current.installer_setups = vec![automatic_setup(
             automatic_journey(InstallationPhase::Available), None)];
-        let ctx = result_form_context();
         let screen = Some(egui::Rect::from_min_size(egui::Pos2::ZERO,egui::vec2(560.0,1200.0)));
-        let mut output = ctx.run_ui(egui::RawInput {screen_rect:screen,..Default::default()},|ui| {
-            ui.horizontal_wrapped(|ui| Operator::version_badge(ui,&overview.current));
-        });
-        let mut labels = vec![];
-        for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
-        output.textures_delta.clear();
-        assert!(labels.iter().any(|(label,_)|label == "0.12.0test144 · runtime r5"));
-        assert!(labels.iter().any(|(label,_)|label == "Update ready: 0.12.0test145"));
+        let badge = |snapshot: Option<&Snapshot>| {
+            let ctx = result_form_context();
+            let mut output = ctx.run_ui(egui::RawInput {screen_rect:screen,..Default::default()},|ui| {
+                ui.horizontal_wrapped(|ui| Operator::version_badge(ui,snapshot,Some("0.12.0test150")));
+            });
+            let mut labels = vec![];
+            for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
+            output.textures_delta.clear();
+            labels.into_iter().map(|(label,_)|label).collect::<Vec<_>>()
+        };
+        assert_eq!(badge(Some(&overview.current)), ["0.12.0test144 · runtime r5","Update ready: 0.12.0test145"]);
+        // Before any readback, the window names its own build.
+        assert_eq!(badge(None), ["0.12.0test150"]);
+        // An older package in Setup is not announced beside the title.
+        let mut older = overview.current.clone();
+        older.bridge.setup = SetupPackage::Older("0.12.0test140".into());
+        assert_eq!(badge(Some(&older)), ["0.12.0test144 · runtime r5"]);
 
         let ctx = result_form_context();
         let mut point = egui::Pos2::ZERO;
@@ -3745,8 +3761,8 @@ mod tests {
             if frame == 2 {
                 let mut labels = vec![];
                 for shape in &output.shapes {text_centers(&shape.shape,&mut labels);}
-                for expected in ["Linux VST Bridge 0.12.0test144","Compatibility runtime: r5",
-                    "Update ready: 0.12.0test145. Open Linux VST Bridge Setup and Updates to apply it."] {
+                for expected in ["Installed: Linux VST Bridge 0.12.0test144","Compatibility runtime: r5",
+                    "Update ready in Setup: 0.12.0test145","Open Linux VST Bridge Setup and Updates to apply it."] {
                     assert!(labels.iter().any(|(label,_)|label == expected),"{expected}");
                 }
                 point = labels.iter().find(|(label,_)|label == "Copy version details").unwrap().1;
@@ -3758,8 +3774,8 @@ mod tests {
         }
         let copied = copied.expect("copied version details");
         assert_eq!(copied, presentation::version_details(&overview.current,presentation::distribution()));
-        assert!(copied.starts_with(
-            "Linux VST Bridge 0.12.0test144\nUpdate ready: 0.12.0test145\nCompatibility runtime: r5\nDistribution: "));
+        assert!(copied.starts_with("Installed: Linux VST Bridge 0.12.0test144\n\
+            Update ready in Setup: 0.12.0test145\nCompatibility runtime: r5\nDistribution: "));
         assert!(copied.ends_with("\nDAW chosen in Setup: Bitwig"));
     }
 
