@@ -244,7 +244,7 @@ fn publication_binding(registration:&Registration)->serde_json::Value {
 // bridge module (any protocol version) is told to restart, and a refusal made
 // before the publication was resolved is tied to the class's current one, so
 // its card never outlives that publication.
-fn note_refusal(startup:&mut NativeStartup,error:&Box<dyn std::error::Error+Send+Sync>,
+fn note_refusal(startup:&mut NativeStartup,error:&(dyn std::error::Error+Send+Sync+'static),
     resolve:impl FnOnce()->Result<Registration>) {
     if error.downcast_ref::<capacity::Refusal>()==Some(&capacity::Refusal::StaleNativeCaller)
         && startup.phases.last().map(|phase|phase.0)!=Some("bridge_update_required") {
@@ -1967,7 +1967,7 @@ fn serve(m: Manager) -> Result<()> {
                 let (execution,r,performance,job,path,mut admission,mut storage)=match prepared {
                     Ok(value)=>value,
                     Err(e)=>{
-                        note_refusal(&mut startup,&e,|| m.resolve(&greeting[5..53]));
+                        note_refusal(&mut startup,&*e,|| m.resolve(&greeting[5..53]));
                         if version3 {
                             let reason=e.downcast_ref::<capacity::Refusal>().copied()
                                 .unwrap_or(capacity::Refusal::BindingInvalid);
@@ -3006,7 +3006,7 @@ mod tests {
         {
             let mut startup=NativeStartup::new(&f.m,[7;16],class.clone());
             let error:Box<dyn std::error::Error+Send+Sync>=capacity::Refusal::StaleNativeCaller.into();
-            note_refusal(&mut startup,&error,|| Ok(f.r.clone()));
+            note_refusal(&mut startup,&*error,|| Ok(f.r.clone()));
         }
         let record:serde_json::Value=read_json(&path).unwrap();
         assert_eq!(record["outcome"],"refused");
@@ -3019,7 +3019,7 @@ mod tests {
             let mut startup=NativeStartup::new(&f.m,[8;16],class.clone());
             startup.phase("keeper_failed");
             let error:Box<dyn std::error::Error+Send+Sync>=capacity::Refusal::BindingInvalid.into();
-            note_refusal(&mut startup,&error,|| Err("unpublished".into()));
+            note_refusal(&mut startup,&*error,|| Err("unpublished".into()));
         }
         let record:serde_json::Value=read_json(&path).unwrap();
         assert_eq!(record["phases"].as_array().unwrap().last().unwrap()[0],"keeper_failed");
