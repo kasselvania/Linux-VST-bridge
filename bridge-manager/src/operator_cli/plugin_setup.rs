@@ -96,7 +96,7 @@ fn visible_session(m:&Manager,action:&ui::Action,operation:&str,timeout:Duration
     let (environment,retry)=target(action)?;
     let _environment=m.lock("operator-environment.lock")?;
     suspend(m,operation,None,timeout,waits)?;
-    let result=(|| {
+    let result:Result<()>=(|| {
         let _registry=m.lock("registry.lock")?;m.require_inactive(None)?;
         let sw=software(m)?;let db=m.registry()?;
         let c=operator_catalogue(m,&sw,&db)?;
