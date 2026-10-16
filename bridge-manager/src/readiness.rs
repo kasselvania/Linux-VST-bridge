@@ -1216,7 +1216,7 @@ fn resolve_with(
         blockers,
         ordered_steps: steps,
         support_export_action: ui::AvailableAction {
-            label: "Create sanitized support export".into(),
+            label: "Send a problem report".into(),
             action: ui::Action::SupportExport {},
             disabled_reason: None,
         },
@@ -1295,7 +1295,7 @@ fn sanitized(mut assessment: ui::ReadinessAssessment) -> SupportReadiness {
 /// The export is an allowlist built from the typed assessment. No raw logs,
 /// paths, environment dump, license state, or vendor payload can enter it.
 pub(super) fn export(m: &Manager, overview: &ui::InteractiveOverview) -> Result<Value> {
-    let snapshot = &overview.current;
+    let snapshot = operator_cli::problem_report_snapshot(m, &overview.current.state_token)?;
     let mut assessment = overview.readiness.clone();
     // A separate native context is useful support evidence, never a Windows
     // rendering qualification. Do not start it during ordinary UI readback.
@@ -1311,7 +1311,7 @@ pub(super) fn export(m: &Manager, overview: &ui::InteractiveOverview) -> Result<
         .map(safe_export_text);
     let assessment = sanitized(assessment);
     let sw: Software = read_json(&m.root.join("software.json"))?;
-    write_export(m, snapshot, assessment, &sw, refused_step)
+    write_export(m, &snapshot, assessment, &sw, refused_step)
 }
 fn append_host_graphics(assessment: &mut ui::ReadinessAssessment, probe: Probe<String>, at: u64) {
     let parsed = probe.observed().and_then(|text| linux_vst_bridge::graphics::parse_host_glx(text));
@@ -1345,11 +1345,86 @@ fn write_export(
     refused_step: Option<String>,
 ) -> Result<Value> {
     let report = report_value(m, snapshot, assessment, software, refused_step)?;
+    require(serde_json::to_vec(&report)?.len() <= linux_vst_bridge::problem::REPORT_LIMIT,
+        "problem_report_bound")?;
     let id = random_id()?;
     let directory = m.root.join("support-exports");
     private_dir(&directory)?;
-    atomic_json(&directory.join(format!("{id}.json")), &report)?;
-    Ok(json!({"export":id,"file":format!("{id}.json"),"result":"saved_locally"}))
+    let path = directory.join(format!("{id}.json"));
+    atomic_json(&path, &report)?;
+    Ok(json!({"export":id,"file":format!("{id}.json"),"sha256":digest(&path)?,
+        "result":"saved_locally"}))
+}
+// Only typed stages, fixed explanations and content identities are added.
+// Card labels and failure.reason can contain user or vendor free text.
+fn support_failure(failure: &ui::InstallationFailure) -> Value {
+    let problem = linux_vst_bridge::problem::from_code(&failure.code);
+    let what_happened = match failure.stage {
+        ui::InstallationFailureStage::EnvironmentPreparation => "The bridge could not prepare the installation setup.",
+        ui::InstallationFailureStage::VendorInstallation => "The vendor installation did not finish successfully.",
+        ui::InstallationFailureStage::Discovery => "The bridge could not finish finding installed plug-ins.",
+        ui::InstallationFailureStage::Inspection => "The bridge could not finish checking the plug-in.",
+        ui::InstallationFailureStage::Preparation => "The bridge could not prepare the native plug-in connection.",
+        ui::InstallationFailureStage::Publication => "The bridge could not connect the plug-in to the DAW.",
+    };
+    json!({"stage":failure.stage,"what_happened":what_happened,
+        "retryable":failure.retryable,"problem":problem})
+}
+fn support_identity(value: &str, length: usize) -> Option<&str> {
+    valid_hex(value, length).then_some(value)
+}
+fn support_state(value: &str) -> &'static str {
+    match value {
+        "imported" => "imported", "ready" => "ready", "starting" => "starting",
+        "running" => "running", "completed" => "completed", "failed" => "failed",
+        "cancelled" => "cancelled", "installed" => "installed", "partial" => "partial",
+        "unknown" => "unknown", "needs_attention" => "needs_attention",
+        "cleanup_unconfirmed" => "cleanup_unconfirmed", _ => "unknown",
+    }
+}
+// These fields are created by problem's fixed-vocabulary mapper when current
+// records are projected. Decode that closed type, never export raw details or
+// rebuild a diagnosis through a different (and narrower) outcome-code table.
+fn support_problem(value: &Value) -> Option<linux_vst_bridge::problem::Explanation> {
+    let problem: linux_vst_bridge::problem::Explanation = serde_json::from_value(value.clone()).ok()?;
+    (problem.code.len() <= 64 && [&problem.what_happened,&problem.likely_cause,&problem.what_to_try]
+        .iter().all(|text|text.len() <= 2048)).then_some(problem)
+}
+fn support_setup_failed(setup: &ui::InstallerSetup) -> bool {
+    matches!(setup.phase,ui::SetupPhase::SetupNeedsAttention|ui::SetupPhase::CleanupUnconfirmed)
+        || setup.journey.as_ref().is_some_and(|journey|journey.failure.is_some()
+            || journey.plugins.iter().any(support_plugin_failed))
+}
+fn support_plugin_failed(plugin: &ui::InstallationPlugin) -> bool {
+    plugin.failure.is_some() || matches!(plugin.stage,
+        ui::InstallationPluginStage::NeedsAttention|ui::InstallationPluginStage::ReplacementRequired)
+}
+fn support_bridge_failed(product: &ui::Product) -> bool {
+    !product.details["problem"].is_null() || !product.details["last_load"]["problem"].is_null()
+}
+fn support_setups(snapshot: &ui::Snapshot) -> Vec<Value> {
+    snapshot.installer_setups.iter().enumerate().rev().filter(|(_,setup)|support_setup_failed(setup))
+        .chain(snapshot.installer_setups.iter().enumerate().rev().filter(|(_,setup)|!support_setup_failed(setup)))
+        .take(32).map(|(index, setup)| {
+        let journey = setup.journey.as_ref().map(|journey| json!({
+            "daw":journey.daw,"phase":journey.phase,
+            "failure":journey.failure.as_ref().map(support_failure),
+            "plugins":journey.plugins.iter().filter(|plugin|support_plugin_failed(plugin))
+                .chain(journey.plugins.iter().filter(|plugin|!support_plugin_failed(plugin)))
+                .take(32).map(|plugin| json!({
+                "class_id":support_identity(&plugin.class_id,32),"stage":plugin.stage,
+                "failure":plugin.failure.as_ref().map(support_failure)
+            })).collect::<Vec<_>>(),
+            "plugins_omitted":journey.plugins.len().saturating_sub(32)
+        }));
+        json!({"card_number":index+1,"installer_sha256":support_identity(&setup.installer,64),
+            "phase":setup.phase,"imported_at":setup.imported_at,"journey":journey,
+            "environment":setup.environment.as_deref().and_then(|id|support_identity(id,32)),
+            "history":setup.history.iter().rev().take(32).map(|row|json!({
+                "environment":row.environment.as_deref().and_then(|id|support_identity(id,32)),
+                "state":support_state(&row.state)
+            })).collect::<Vec<_>>(),"history_omitted":setup.history.len().saturating_sub(32)})
+    }).collect()
 }
 fn report_value(m: &Manager, snapshot: &ui::Snapshot,
     assessment: SupportReadiness, software: &Software,
@@ -1410,7 +1485,24 @@ fn report_value(m: &Manager, snapshot: &ui::Snapshot,
         "transaction_cleanup":snapshot.system,
         "refused_step":refused_step,
         "current_error":current_error,
-        "incidents":incident_rows}))
+        "incidents":incident_rows,
+        "setups":support_setups(snapshot),
+        "setups_omitted":snapshot.installer_setups.len().saturating_sub(32),
+        "bridge_records":snapshot.products.iter().filter(|product|support_bridge_failed(product))
+            .chain(snapshot.products.iter().filter(|product|!support_bridge_failed(product)))
+            .take(128).map(|product|json!({
+            "class_id":support_identity(&product.class_id,32),
+            "module_sha256":support_identity(&product.module_sha256,64),
+            "environment":support_identity(&product.environment,32),
+            "active_revision":product.active_revision,
+            "problem":support_problem(&product.details["problem"]),
+            "last_load":support_problem(&product.details["last_load"]["problem"]).map(|problem|json!({
+                "problem":problem,"observed_at":product.details["last_load"]["observed_at"].as_u64(),
+                "outcome":product.details["last_load"]["outcome"].as_str()
+                    .filter(|outcome|matches!(*outcome,"refused"|"delivery_failed"|"activation_refused"))
+            }))
+        })).collect::<Vec<_>>(),
+        "bridge_records_omitted":snapshot.products.len().saturating_sub(128)}))
 }
 
 #[cfg(test)]
@@ -2246,6 +2338,93 @@ mod tests {
         assert!(!raw.contains("state_token"));
         assert!(!raw.contains("support_export_action"));
         assert!(!raw.contains("\"kind\""));
+    }
+    #[test]
+    fn problem_report_keeps_card_history_and_failure_without_vendor_or_user_text() {
+        let f = crate::test_fixture::Fixture::new();
+        let (mut s, p) = fixture();
+        let mut setup: ui::InstallerSetup = serde_json::from_value(json!({
+            "installer":"ab".repeat(32),"name":"PRIVATE_CARD_LABEL","label_source":"user",
+            "byte_size":42,"format":"exe","imported_at":123,"phase":"setup_needs_attention",
+            "status":"SECRET_STATUS","environment":"cd".repeat(16),"compatibility":null,
+            "discovered":[],"primary":null,"secondary":[],"rename":{
+                "label":"Rename","action":{"kind":"installer_rename","installer":"ab".repeat(32),"label":""},"disabled_reason":null},
+            "history":[{"environment":"cd".repeat(16),"state":"failed"}],
+            "journey":{"daw":"other","phase":"needs_attention","plugins":[],"failure":{
+                "stage":"vendor_installation","reason":"SERIAL_AND_ACCOUNT_SECRET",
+                "code":"partial_installation","retryable":true}}
+        })).unwrap();
+        setup.history.push(ui::SetupHistoryRef {environment:Some("PRIVATE_ENVIRONMENT".into()),
+            state:"PRIVATE_HISTORY".into()});
+        s.installer_setups = vec![setup.clone();33];
+        s.installer_setups[32].history = vec![setup.history[0].clone();33];
+        s.products[0].details["problem"] = json!({"code":"PRIVATE_CODE","what_happened":"PRIVATE_DETAIL"});
+        let software = support_software(&f);
+        let receipt = write_export(&f.m,&s,sanitized(result(&s,&p)),&software,None).unwrap();
+        let file = f.m.root.join("support-exports").join(receipt["file"].as_str().unwrap());
+        assert_eq!(receipt["sha256"],digest(&file).unwrap());
+        let value:Value=read_json(&file).unwrap();
+        assert_eq!(value["setups"].as_array().unwrap().len(),32);
+        assert_eq!(value["setups_omitted"],1);
+        assert_eq!(value["setups"][0]["history_omitted"],1);
+        assert_eq!(value["setups"][0]["history"][0]["state"],"failed");
+        assert_eq!(value["setups"][1]["history"][0]["state"],"unknown");
+        assert_eq!(value["setups"][0]["journey"]["failure"]["problem"]["code"],"partial_installation");
+        assert!(value["setups"][0]["journey"]["failure"]["what_happened"].as_str().unwrap().contains("vendor installation"));
+        let raw=fs::read_to_string(file).unwrap();
+        for secret in ["PRIVATE_","SECRET_","SERIAL_AND_ACCOUNT"] {
+            assert!(!raw.contains(secret),"leaked {secret}");
+        }
+        // Old healthy cards and plug-ins must not displace the actual failure.
+        for old in s.installer_setups.iter_mut().take(32) {
+            old.journey=None; old.phase=ui::SetupPhase::DiscoveryComplete;
+        }
+        let failed = s.installer_setups.last_mut().unwrap();
+        failed.installer="ef".repeat(32);
+        let failure=failed.journey.as_ref().unwrap().failure.clone();
+        let mut plugins=vec![ui::InstallationPlugin {selection:"ab".repeat(32),
+            class_id:"ab".repeat(16),name:"PRIVATE_PLUGIN".into(),
+            stage:ui::InstallationPluginStage::Available,failure:None};32];
+        plugins.push(ui::InstallationPlugin {selection:"cd".repeat(32),class_id:"cd".repeat(16),
+            name:"PRIVATE_FAILED_PLUGIN".into(),stage:ui::InstallationPluginStage::NeedsAttention,failure});
+        failed.journey.as_mut().unwrap().plugins=plugins;
+        // Use the real privacy boundary: hostile vendor strings -> owning
+        // problem mapper -> current card -> support report.
+        let diagnosis=linux_vst_bridge::problem::from_report(&json!({
+            "cleanup_confirmed":true,"error":"TimeoutError: Windows call deadline: load_library",
+            "vendor_stdout":"PRIVATE_VENDOR_SECRET","records":[]})).unwrap();
+        s.products[0].details=Value::Null;
+        s.products[0].availability=None;
+        let mut bad=s.products[0].clone();
+        bad.class_id="ef".repeat(16);
+        bad.details=json!({"problem":diagnosis,"last_load":{
+            "outcome":"refused","observed_at":456,"refusal":"PRIVATE_REFUSAL",
+            "problem":linux_vst_bridge::problem::from_load_record("refused",Some("keeper_failed"),None).unwrap()},
+            "raw_log":"PRIVATE_RAW_LOG"});
+        s.products=vec![s.products[0].clone();128];
+        s.products.push(bad);
+        let receipt=write_export(&f.m,&s,sanitized(result(&s,&p)),&software,None).unwrap();
+        let file=f.m.root.join("support-exports").join(receipt["file"].as_str().unwrap());
+        let value:Value=read_json(&file).unwrap();
+        assert_eq!(value["setups"][0]["installer_sha256"],"ef".repeat(32));
+        assert_eq!(value["setups"][0]["journey"]["plugins"][0]["class_id"],"cd".repeat(16));
+        assert_eq!(value["setups"][0]["journey"]["plugins_omitted"],1);
+        assert_eq!(value["bridge_records"][0]["class_id"],"ef".repeat(16));
+        assert_eq!(value["bridge_records"][0]["problem"]["code"],"timeout_call");
+        assert_eq!(value["bridge_records"][0]["problem"]["what_happened"],diagnosis.what_happened);
+        assert_eq!(value["bridge_records"][0]["last_load"]["problem"]["code"],"windows_side_stopped");
+        assert_eq!(value["bridge_records"][0]["last_load"]["observed_at"],456);
+        assert_eq!(value["bridge_records_omitted"],1);
+        assert!(!fs::read_to_string(file).unwrap().contains("PRIVATE_"));
+        // Main's audio-start refusal uses the same owned last-load diagnosis.
+        s.products.last_mut().unwrap().details["last_load"]=json!({"outcome":"activation_refused",
+            "observed_at":789,"problem":linux_vst_bridge::problem::from_activation_record(
+                "setup","daw_sample_format",0).unwrap()});
+        let receipt=write_export(&f.m,&s,sanitized(result(&s,&p)),&software,None).unwrap();
+        let value:Value=read_json(&f.m.root.join("support-exports")
+            .join(receipt["file"].as_str().unwrap())).unwrap();
+        assert_eq!(value["bridge_records"][0]["last_load"]["outcome"],"activation_refused");
+        assert_eq!(value["bridge_records"][0]["last_load"]["problem"]["code"],"daw_64bit_processing");
     }
     #[test]
     fn local_export_is_parseable_and_contains_only_allowlisted_incident_fields() {

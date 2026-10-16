@@ -129,6 +129,8 @@ struct RequestFeedback {
     acknowledgment_uncertain: bool,
     journey: Option<InstallationJourney>,
     transitions: Vec<String>,
+    report: Option<client::SupportReport>,
+    report_save_started: bool,
 }
 impl RequestFeedback {
     fn captured(action: Action) -> Self {
@@ -143,6 +145,8 @@ impl RequestFeedback {
             acknowledgment_uncertain: false,
             journey: None,
             transitions: vec!["captured".into()],
+            report: None,
+            report_save_started: false,
         }
     }
     fn transition(&mut self, state: &str) {
@@ -217,7 +221,15 @@ impl RequestFeedback {
             Some("completed") => {
                 self.terminal = true;
                 self.release_after_snapshot = true;
-                if let Some(message) = op["result"]["message"].as_str().filter(|_| matches!(self.action,
+                if matches!(self.action,Action::SupportExport {}) {
+                    self.report = op["result"]["export"].as_str().zip(op["result"]["sha256"].as_str())
+                        .filter(|(id,sha)|linux_vst_bridge::valid_hex(id,32)
+                            && linux_vst_bridge::valid_hex(sha,64))
+                        .map(|(id,sha256)|client::SupportReport {id:id.into(),sha256:sha256.into()});
+                    if self.report.is_some() {
+                        "Problem report created. Choose where to save the file to send.".into()
+                    } else { "The report's file identity is unavailable. Create a new problem report.".into() }
+                } else if let Some(message) = op["result"]["message"].as_str().filter(|_| matches!(self.action,
                     Action::PluginRemoveFromDaw { .. } | Action::PluginAddBackToDaw { .. }
                     | Action::SetupRemoveFromDaw { .. } | Action::ProductUninstall { .. }
                     | Action::InstallerCloseCheck { .. })) {
@@ -538,11 +550,12 @@ enum RequestOrigin {
     SilentPostMutationRefresh,
     ExplicitRefresh,
     InstallerImport,
+    ProblemReportSave,
     UserAction,
 }
 impl RequestOrigin {
     fn foreground(self) -> bool {
-        matches!(self, Self::InstallerImport | Self::UserAction)
+        matches!(self, Self::InstallerImport | Self::ProblemReportSave | Self::UserAction)
     }
 }
 
@@ -1296,13 +1309,27 @@ impl Operator {
                 self.feedback = None;
                 self.refresh_after = true;
             }
+            Reply::ReportSaved(path) => {
+                if let Some(feedback) = &mut self.feedback {
+                    feedback.text = format!("Problem report saved: {}. Attach this file to your message. Nothing was uploaded.",path.display());
+                }
+            }
             Reply::Cancelled => {
+                if origin == RequestOrigin::ProblemReportSave {
+                    if let Some(feedback) = &mut self.feedback {
+                        feedback.text = "Saving cancelled. The report is kept locally; choose Save problem report to save a copy.".into();
+                    }
+                }
                 if origin == RequestOrigin::InstallerImport {
                     self.message = "No installer selected.".into();
                     self.focus.replacement = None;
                 }
             }
             Reply::Error(e) => {
+                if origin == RequestOrigin::ProblemReportSave {
+                    if let Some(feedback) = &mut self.feedback { feedback.text = e; }
+                    return;
+                }
                 let deferred = readback_deferred(&e);
                 if origin == RequestOrigin::ProductDetail {
                     self.product_detail = None;
@@ -2358,6 +2385,15 @@ impl Operator {
                     ui.label(feedback.transitions.join(" / "));
                 });
             }
+            if let Some(feedback) = &mut self.feedback {
+                if feedback.report.is_some() {
+                    ui.small("Includes versions, setup history and bridge diagnostics. No licences, accounts, plug-in files or prefixes. Nothing is uploaded.");
+                    if ui.add_enabled(!self.pending && !self.frontend_superseded,
+                        egui::Button::new("Save problem report")).clicked() {
+                        feedback.report_save_started = false;
+                    }
+                }
+            }
             if !self.feedback.as_ref().is_some_and(|f| f.blocking)
                 && ui.add_sized([100.0, 44.0], egui::Button::new("Dismiss")).clicked() {
                 self.feedback = None;
@@ -2844,6 +2880,11 @@ impl eframe::App for Operator {
                 if ui.add_enabled(!controls_pending, egui::Button::new(refresh_label).min_size(egui::vec2(92.0, 44.0))).clicked() {
                     refresh = true;
                 }
+                if let Some(snapshot) = self.current_action_snapshot() {
+                    if let Some(offer) = snapshot.actions.iter().find(|offer| matches!(offer.action,Action::SupportExport {})) {
+                        Self::buttons(ui,std::slice::from_ref(offer),None,controls_pending,&mut chosen);
+                    }
+                }
                 if self.pending && self.origin == Some(RequestOrigin::ExplicitRefresh) {
                     ui.small("Refreshing…");
                 }
@@ -3078,7 +3119,17 @@ impl eframe::App for Operator {
         if let Some(a) = chosen {
             self.capture_chosen_action(a);
         }
-        if !self.pending && self.queued_import {
+        let report_to_save = if !self.pending {
+            self.feedback.as_mut().and_then(|feedback| {
+                if feedback.report_save_started {return None}
+                let report = feedback.report.clone()?;
+                feedback.report_save_started = true;
+                Some(report)
+            })
+        } else {None};
+        if let Some(report) = report_to_save {
+            self.request(Query::SaveSupportReport(report), RequestOrigin::ProblemReportSave, ui.ctx());
+        } else if !self.pending && self.queued_import {
             self.queued_import = false;
             self.request(Query::PickInstaller, RequestOrigin::InstallerImport, ui.ctx());
         } else if let Some(request) = self.next_action() {
@@ -3747,6 +3798,41 @@ fn refresh_for_workspace_product(snapshot: &Snapshot, install_finish_ready: bool
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn problem_report_completion_is_exact_and_save_cancellation_can_be_retried() {
+        let mut feedback = RequestFeedback::captured(Action::SupportExport {});
+        feedback.operation=Some("owned-operation".into());
+        let result=serde_json::json!({"operation":"other","state":"completed",
+            "result":{"export":"ab".repeat(16),"sha256":"cd".repeat(32)}});
+        feedback.observe(&result);
+        assert!(feedback.report.is_none());
+        let mut result=result;
+        result["operation"]=serde_json::json!("owned-operation");
+        feedback.observe(&result);
+        assert!(feedback.report.is_some());
+        assert!(!feedback.report_save_started);
+        feedback.report_save_started=true;
+        let snapshot:Snapshot=serde_json::from_str(include_str!("../examples/library-preview.json")).unwrap();
+        let mut app=Operator::preview(snapshot,Page::Home);
+        app.feedback=Some(feedback);
+        app.origin=Some(RequestOrigin::ProblemReportSave);
+        app.handle_reply(Reply::Cancelled);
+        assert!(app.feedback.as_ref().unwrap().text.contains("Saving cancelled"));
+        assert!(app.feedback.as_ref().unwrap().report.is_some());
+        let old_health=app.snapshot.as_ref().unwrap().system.service.clone();
+        app.origin=Some(RequestOrigin::ProblemReportSave);
+        app.handle_reply(Reply::Error("Choose another filename".into()));
+        assert_eq!(app.snapshot.as_ref().unwrap().system.service,old_health);
+        app.origin=Some(RequestOrigin::ProblemReportSave);
+        app.handle_reply(Reply::ReportSaved("/tmp/report.json".into()));
+        assert!(app.feedback.as_ref().unwrap().text.contains("/tmp/report.json"));
+        assert!(app.feedback.as_ref().unwrap().text.contains("Nothing was uploaded"));
+        let mut invalid=RequestFeedback::captured(Action::SupportExport {});
+        invalid.operation=Some("owned-operation".into());
+        result["result"]["export"]=serde_json::json!("../private");
+        invalid.observe(&result);
+        assert!(invalid.report.is_none());
+    }
     fn automatic_setup(journey: InstallationJourney, action: Option<Action>) -> InstallerSetup {
         InstallerSetup {
             installer:"ab".repeat(32), name:"Chosen software".into(), label_source:"operator_named".into(),

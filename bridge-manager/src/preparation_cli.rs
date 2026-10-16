@@ -2714,6 +2714,34 @@ pub(crate) mod tests {
         assert_eq!(products[0].availability.as_ref().unwrap().reason.as_deref(),
             Some(explained.summary().as_str()));
 
+        // Report through the actual offered action, starting from retained
+        // check custody. The lightweight overview has no check diagnosis.
+        let helper = |name: &str| {
+            let path=sw.manager.path.with_file_name(name);
+            fs::write(&path,name.as_bytes()).unwrap();
+            fs::set_permissions(&path,fs::Permissions::from_mode(0o400)).unwrap();
+            Artifact {sha256:digest(&path).unwrap(),path}
+        };
+        let mut report_sw=sw.clone();
+        report_sw.supervisor=helper("session.py");
+        report_sw.ownership=helper("ownership.py");
+        report_sw.operator_frontend=Some(helper("frontend"));
+        for artifact in [&report_sw.manager,&report_sw.host,&report_sw.source_manifest].into_iter()
+            .chain([&report_sw.preparation_kit,&report_sw.native_catalogue].into_iter().flatten()) {
+            fs::set_permissions(&artifact.path,fs::Permissions::from_mode(0o400)).unwrap();
+        }
+        atomic_json(&f.m.root.join("software.json"),&report_sw).unwrap();
+        let report_operation=operator_cli::test_submit_offered(&f.m,&ui::Action::SupportExport {}).unwrap();
+        let receipt=operator_cli::test_run_offered_worker(&f.m,&report_operation).unwrap();
+        assert_eq!(receipt["state"],"completed","{receipt}");
+        let file=f.m.root.join("support-exports").join(receipt["result"]["file"].as_str().unwrap());
+        let exported:Value=read_json(&file).unwrap();
+        let row=exported["bridge_records"].as_array().unwrap().iter()
+            .find(|row|row["class_id"]==c.selection.class.id).unwrap();
+        assert_eq!(row["problem"]["code"],"sdk_component_start");
+        assert_eq!(row["problem"]["what_happened"],explained.what_happened);
+        assert!(!fs::read_to_string(file).unwrap().contains("SECRET"));
+
         // An unbound older failure says its details were not kept.
         let older = random_id().unwrap();
         let _ = guided_check(&f.m, &sw, &action, &older,

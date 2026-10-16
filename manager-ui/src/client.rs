@@ -7,6 +7,11 @@ use std::{
     sync::{mpsc::Sender, Arc, OnceLock},
     time::{Duration, Instant},
 };
+#[derive(Clone, Debug)]
+pub struct SupportReport {
+    pub id: String,
+    pub sha256: String,
+}
 pub enum Reply {
     Overview(Box<InteractiveOverview>),
     CurrentOverview(Box<CurrentOverview>),
@@ -16,11 +21,13 @@ pub enum Reply {
     Pulse(Pulse),
     Receipt(Receipt),
     Imported(InstallerImportResult),
+    ReportSaved(std::path::PathBuf),
     Cancelled,
     FrontendSuperseded,
     Error(String),
 }
 pub enum Query {
+    SaveSupportReport(SupportReport),
     PickInstaller,
     Overview,
     CurrentOverview,
@@ -79,6 +86,14 @@ fn call(mut query: Query) -> Result<Reply, String> {
     if let Some(frontend) = identity {
         if !frontend_selected(&home, frontend)? { return Ok(Reply::FrontendSuperseded); }
     }
+    if let Query::SaveSupportReport(report) = &query {
+        let value = support_report(&home, report)?;
+        let Some(path) = rfd::FileDialog::new().set_title("Save problem report to send")
+            .set_file_name(format!("linux-vst-bridge-problem-{}.json", report.id))
+            .add_filter("Problem report", &["json"]).save_file() else { return Ok(Reply::Cancelled) };
+        save_support_report(&path, &value)?;
+        return Ok(Reply::ReportSaved(path));
+    }
     let executable = home.join(".local/bin/linux-vst-bridge");
     if let Query::Action(request) = &mut query {
         if let crate::model::Action::ProgramChoose {executable:program,..} = &mut request.action {
@@ -113,6 +128,7 @@ fn call(mut query: Query) -> Result<Reply, String> {
         None
     };
     let verb = match &query {
+        Query::SaveSupportReport(_) => unreachable!(),
         Query::PickInstaller => "import-installer",
         Query::Overview => "overview",
         Query::CurrentOverview => "current-overview",
@@ -277,6 +293,7 @@ fn decode_reply(query: Query, data: &[u8]) -> Result<Reply, String> {
             crate::model::OPERATOR_SCHEMA));
     }
     match query {
+        Query::SaveSupportReport(_) => unreachable!(),
         Query::PickInstaller => unreachable!(),
         Query::Overview => unreachable!(),
         Query::CurrentOverview => unreachable!(),
@@ -289,6 +306,32 @@ fn decode_reply(query: Query, data: &[u8]) -> Result<Reply, String> {
         Query::Action(_) => serde_json::from_slice::<Receipt>(data).map(Reply::Receipt),
     }
     .map_err(|_| "Incompatible manager response; update the frontend and manager together".into())
+}
+// Read only the manager-created, bounded export named by the exact completion.
+// A stale/replaced report, symlink or caller-selected source is never shared.
+fn support_report(home: &std::path::Path, report: &SupportReport) -> Result<Vec<u8>, String> {
+    if !linux_vst_bridge::valid_hex(&report.id,32)
+        || !linux_vst_bridge::valid_hex(&report.sha256,64) {
+        return Err("Problem report identity is unavailable. Create a new report.".into());
+    }
+    let path = home.join(".local/share/linux-vst-bridge/managed/support-exports")
+        .join(format!("{}.json",report.id));
+    let (value, digest): (serde_json::Value, String) = linux_vst_bridge::read_json_identity(&path)
+        .map_err(|_| "Problem report is unavailable. Create a new report.")?;
+    if digest != report.sha256 || value["schema"] != 2 {
+        return Err("Problem report changed. Create a new report.".into());
+    }
+    serde_json::to_vec(&value).map_err(|_| "Problem report could not be read.".into())
+}
+fn save_support_report(path: &std::path::Path, bytes: &[u8]) -> Result<(), String> {
+    use std::os::unix::fs::OpenOptionsExt;
+    let mut file = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600)
+        .open(path).map_err(|_| "Could not save the report. Choose a new, writable filename.")?;
+    if file.write_all(bytes).and_then(|()|file.sync_all()).is_err() {
+        let _ = std::fs::remove_file(path);
+        return Err("Could not finish saving the report. Choose another location.".into());
+    }
+    Ok(())
 }
 pub type WindowWake = Arc<dyn Fn() + Send + Sync>;
 
@@ -333,6 +376,38 @@ fn open_selected(path: &std::path::Path) -> Result<std::fs::File, String> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn problem_report_reads_only_exact_bounded_owned_export_and_never_overwrites() {
+        use std::os::unix::fs::{symlink,PermissionsExt};
+        let home = std::env::temp_dir().join(format!("lvb-report-{}",linux_vst_bridge::random_id().unwrap()));
+        let reports = home.join(".local/share/linux-vst-bridge/managed/support-exports");
+        std::fs::create_dir_all(&reports).unwrap();
+        let path = reports.join(format!("{}.json","ab".repeat(16)));
+        std::fs::write(&path,b"{\"schema\":2,\"setups\":[]}").unwrap();
+        let mut report = SupportReport {id:"ab".repeat(16),sha256:linux_vst_bridge::digest(&path).unwrap()};
+        let bytes = support_report(&home,&report).unwrap();
+        let destination = home.join("report.json");
+        save_support_report(&destination,&bytes).unwrap();
+        assert_eq!(std::fs::read(&destination).unwrap(),bytes);
+        assert_eq!(std::fs::metadata(&destination).unwrap().permissions().mode() & 0o777,0o600);
+        assert!(save_support_report(&destination,b"overwrite").is_err());
+        assert_eq!(std::fs::read(&destination).unwrap(),bytes);
+        std::fs::write(&path,b"{\"schema\":2,\"changed\":true}").unwrap();
+        assert!(support_report(&home,&report).is_err());
+        report.sha256=linux_vst_bridge::digest(&path).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        symlink(&destination,&path).unwrap();
+        assert!(support_report(&home,&report).is_err());
+        std::fs::remove_file(&path).unwrap();
+        std::fs::create_dir(&path).unwrap();
+        assert!(support_report(&home,&report).is_err());
+        std::fs::remove_dir(&path).unwrap();
+        std::fs::File::create(&path).unwrap().set_len(8*1024*1024+1).unwrap();
+        assert!(support_report(&home,&report).is_err());
+        report.id="../private".into();
+        assert!(support_report(&home,&report).is_err());
+        std::fs::remove_dir_all(&home).unwrap();
+    }
     #[test]
     fn completion_wakes_window_when_egui_repaint_is_already_queued() {
         use std::sync::{atomic::{AtomicUsize, Ordering}, mpsc, Mutex};
