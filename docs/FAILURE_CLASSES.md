@@ -3057,18 +3057,24 @@ with the bridge refusing the instance (service stopped), saving the project
 under a new name cut Kontakt's saved state from 173,328 to 22,848 characters
 (parameter values only). A trace in REAPER showed why keeping the bytes alone
 was not enough: REAPER asks for state before restoring it, and after that one
-refusal it neither restores nor asks again. An instance without a bridge
-session now answers that question with the bridge's 16-byte nothing-recorded
-marker (`LVBNONE\0`, version 1; never an `LVBSTATE` envelope, so it cannot be
-mistaken for any plug-in's own state), keeps the exact envelope REAPER then restores, and
-returns it unchanged from getState. Test108 on CachyOS: the saved Kontakt
-block was identical to the original (173,328 characters, same digest). A
-loaded instance accepts the marker and keeps its defaults. State received
-but not kept (over the 256 MiB cap a loaded instance also has, or malformed)
-makes getState refuse rather than claim nothing was recorded. Older bridge builds
-fail an instance restored from the marker; that only arises for a
-never-restored instance saved while refused. A terminal instance that had a
-session keeps today's behaviour (snapshot recovery).
+refusal it neither restores nor asks again. Until a bridge session has applied
+the host's state or produced state of its own, an instance that cannot apply a
+restore (refused, admission failed, or its Windows side ended during the
+project load) now answers that question with the bridge's 16-byte
+nothing-recorded marker, keeps the exact envelope REAPER then restores, and
+returns it unchanged from getState. The marker is `LVBNONE\0` + version 1; it is
+never an `LVBSTATE` envelope, so it cannot be mistaken for any plug-in's own
+state. A loaded instance accepts the marker and keeps its current state. A
+restore that is neither applied nor held (over the 256 MiB cap a loaded instance
+also has, malformed, another thread, an exception) makes a later save refuse
+rather than claim nothing was recorded. Test108 was a diagnostic switch with
+the same answer, not this code: there the saved Kontakt block was identical to
+the original (173,328 characters, same digest). Rollback limit, accepted by the
+coordinator and put to the maintainer: bridge builds older than this fail an
+instance restored from the marker, which only a project saved while an instance
+that never received state was refused can contain. A terminal instance whose
+session had applied or produced state keeps snapshot recovery, and its view
+says that saving drops its settings.
 
 ## FC-UI-008 — Vendor editor removal crashes the Windows host
 
@@ -3657,10 +3663,9 @@ instance asks once, stops, and its editor says why the bridge refused it; the
 plug-in's manager card explains the last refused load (stopped Windows side,
 DAW still holding an older bridge, plug-in limit, manager busy, earlier
 session not closed, or in general terms), with when, until a later load is
-accepted. The refusal record never re-hashes the runtime or plug-in. Saving the project while an instance is
-refused drops that plug-in's settings (Kontakt: 173 KB of state became 23 KB);
-the view and card say so, and [#380](https://github.com/kasselvania/Linux-VST-bridge/issues/380)
-tracks keeping the project's own bytes.
+accepted. The refusal record never re-hashes the runtime or plug-in. What
+saving does while an instance is refused is
+[FC-STATE-004](#fc-state-004--saving-a-refused-instance-drops-its-saved-state).
 Test92 on CachyOS: after killing the Windows side, the reload started a fresh
 one (ready in 3.9 s, loaded in 9.5 s) with no refusals, and Kontakt played at
 −9.4 dBFS. The cold start still holds REAPER's UI while it runs (23 s for the
