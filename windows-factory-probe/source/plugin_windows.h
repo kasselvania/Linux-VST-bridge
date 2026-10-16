@@ -47,7 +47,6 @@ class PluginWindowWatch final {
     std::atomic<bool> stop_{false};
     std::atomic<bool> primed_{false};
     std::thread thread_;
-    bool written_ = false;
     std::array<HWND, 64> raised_{};
     std::size_t raised_count_ = 0;
     std::vector<std::pair<HWND, ULONGLONG>> first_seen_;
@@ -112,12 +111,11 @@ class PluginWindowWatch final {
         SetForegroundWindow(window);
     }
     void publish(const PluginWindowFacts& facts, ULONGLONG elapsed) {
-        if (written_ || record_.empty()) return;
-        written_ = true;
+        if (record_.empty()) return;
         const std::string text = std::string("{\"schema\":1,\"windows\":") + std::to_string(facts.windows) +
             ",\"visible\":" + std::to_string(facts.visible) + ",\"dialogs\":" + std::to_string(facts.dialogs) +
             ",\"off_screen\":" + std::to_string(facts.off_screen) + ",\"minimized\":" +
-            std::to_string(facts.minimized) + ",\"first_seen_ms\":" + std::to_string(elapsed) + "}\n";
+            std::to_string(facts.minimized) + ",\"observed_ms\":" + std::to_string(elapsed) + "}\n";
         const std::wstring temporary = record_ + L".tmp";
         const HANDLE file = CreateFileW(temporary.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
             FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -154,7 +152,7 @@ class PluginWindowWatch final {
                 }
             }
             first_seen_ = std::move(seen);
-            if (settled.windows) publish(scan.facts, scan.now - started);
+            publish(settled, scan.now - started);
             for (int slice = 0; slice < 5 && !stop_.load(); ++slice) Sleep(50);
         }
     }

@@ -234,6 +234,7 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
             VendorView view;
             const bool shown=view.open(*controller);
             events.lifecycle("finish_setup_open",",\"editor\":"+std::string(shown?"true":"false")+",\"active\":"+(active?"true":"false"));
+            const char* ended="host_ended";
             if(shown){
                 const int title_size=MultiByteToWideChar(CP_UTF8,0,name.data(),int(name.size()),nullptr,0);
                 std::wstring title(size_t(title_size>0?title_size:0),L'\0');
@@ -244,14 +245,19 @@ int inspect_module(Steinberg::IPluginFactory* factory, EventWriter& events, cons
                 // The supervisor bounds the whole session at 15 minutes; this
                 // is only the host's own backstop.
                 const auto deadline=GetTickCount64()+20*60*1000;
-                while(VendorView::pump()&&!view.close_requested()&&!view.window_lost()&&GetTickCount64()<deadline&&GetFileAttributesW((setup_directory+L"\\vendor.stop").c_str())==INVALID_FILE_ATTRIBUTES)Sleep(10);
+                bool pumping=true;
+                while((pumping=VendorView::pump())&&!view.close_requested()&&!view.window_lost()&&GetTickCount64()<deadline&&GetFileAttributesW((setup_directory+L"\\vendor.stop").c_str())==INVALID_FILE_ATTRIBUTES)Sleep(10);
+                ended=GetFileAttributesW((setup_directory+L"\\vendor.stop").c_str())!=INVALID_FILE_ATTRIBUTES?"stopped":
+                    view.window_lost()?"window_lost":!pumping?"host_ended":
+                    GetTickCount64()>=deadline?"deadline":view.close_requested()?"closed":"host_ended";
                 if(!view.close())ExitProcess(92);
             }
             if(active){
                 step("setInactive");const auto result=component->setActive(false);
                 events.lifecycle("ap8_result",",\"operation\":\"setInactive\",\"result\":"+std::to_string(result));
             }
-            events.lifecycle("finish_setup_closed",",\"editor\":"+std::string(shown?"true":"false"));
+            if(!shown)throw std::runtime_error("vendor access editor open failed");
+            events.lifecycle("finish_setup_ended",",\"reason\":"+quoted(ended));
         }
         if(!access_directory.empty()){
             // Explicit unpublished access session: no DAW/DSP impersonation.

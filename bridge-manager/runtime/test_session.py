@@ -1941,7 +1941,7 @@ class VisibleSetupControls(unittest.TestCase):
             self.assertTrue(value['malformed'])
             self.assertEqual(value.get('windows',0),0)
             path.write_text(json.dumps(dict(schema=1,windows=1,visible=0,dialogs=1,
-                off_screen=1,minimized=0,first_seen_ms=1000)))
+                off_screen=1,minimized=0,observed_ms=1000)))
             self.assertEqual(session.plugin_window_record(path)['dialogs'],1)
 
     def test_focus_is_an_exact_session_request_and_malformed_request_cannot_focus(self):
@@ -1959,3 +1959,15 @@ class VisibleSetupControls(unittest.TestCase):
             value=session.finish_setup_focus(report,set(),lambda scope:seen.append(scope) or 'focused')
             self.assertEqual(value['result'],'refused_exact_window_unavailable')
             self.assertFalse(seen)
+
+    def test_window_wait_does_not_follow_a_closed_window_or_a_later_call(self):
+        waiting=session.PluginWindowWait();call=('load_library',0)
+        for now in range(12):
+            waiting.observe({'windows':1,'observed_ms':now*1000},call,now)
+        self.assertTrue(waiting.waiting(call,11))
+        self.assertFalse(waiting.waiting(('initialize',11),11))
+        waiting.observe({'windows':0,'observed_ms':12000},call,12)
+        self.assertFalse(waiting.waiting(call,12))
+        waiting.observe({'windows':1,'observed_ms':13000},call,13)
+        waiting.observe({'windows':1,'observed_ms':13000},call,15)
+        self.assertFalse(waiting.waiting(call,30))

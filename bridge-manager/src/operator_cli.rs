@@ -4721,7 +4721,7 @@ pub(crate) mod tests {
                 report_sha256:scan.modules[0].report.sha256.clone()});
             let queued=test_submit_offered(m,&offer.action).unwrap();
             let result=test_run_offered_worker(m,&queued).unwrap();
-            assert_eq!(result["state"],"completed","{result}");
+            assert_eq!(result["state"],"completed","{result}; launches={:?}",fs::read_to_string(&launches));
         });
         assert_eq!(fs::read_to_string(launches).unwrap(),"setup\ninspect\n");
         let current:inventory::Scan=read_json(&m.root.join("inventory").join(format!("{}.json",environment.id))).unwrap();

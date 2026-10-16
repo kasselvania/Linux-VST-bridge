@@ -116,15 +116,16 @@ fn visible_session(m:&Manager,action:&ui::Action,operation:&str,timeout:Duration
             compatibility:Compatibility::default()},true,true,false)?;
         job.finish_setup=true;atomic_json(&path,&job)?;
         let pending=PendingAdmission::new(job.lease.clone(),Arc::new(AtomicBool::new(false)));
-        let child=spawn(m,&sw,&path,None)?;
         atomic_json(&job_dir(m,operation)?.join("setup-session.json"),&job)?;
         write_operation(m,operation,&json!({"schema":2,"operation":operation,"state":"vendor_running",
             "environment":environment,"plugin_setup":true}),false)?;
+        let child=spawn(m,&sw,&path,None).map_err(|e|format!("visible setup launch: {e}"))?;
         drop(_registry);
         // The supervisor bounds the interactive session at 15 minutes. Its
         // exact LVO retirement receipt owns cleanup, as for ordinary scans.
-        vendor_product_cli::finish_scan_bounded(child,&job,&path,pending,Duration::from_secs(930))?;
-        let report:Value=read_json(&job.report)?;
+        vendor_product_cli::finish_scan_bounded(child,&job,&path,pending,Duration::from_secs(930))
+            .map_err(|e|format!("visible setup retirement: {e}"))?;
+        let report:Value=read_json(&job.report).map_err(|e|format!("visible setup report: {e}"))?;
         job.registration.module.verify()?;
         require(report["cleanup_confirmed"]==true && report["transport_retired"]==true,
             "plugin_setup_cleanup_unconfirmed")?;
