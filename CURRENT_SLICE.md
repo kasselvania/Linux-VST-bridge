@@ -1,33 +1,40 @@
-# Current slice — from working Kontakt to explainable plug-in failures
+# Current slice — common runtime recovery (#430)
 
-Goal: a musician on any distro installs Native Access and Kontakt, plays Kontakt
-in their DAW and gets it back after save and reopen (done, see below); next, any
-plug-in that fails tells them what kind of problem it is in plain words and, where
-safe, offers a fix. One build adapts to the distro; learned fixes ship as shared
-tooling, never per machine.
+Goal: one Git-rebuildable common runtime reaches ordinary delivery and combined
+real-case qualification. This is the sole implementation slice; the old issue
+queue, new UI and control-plane implementation remain frozen.
 
-State after 2026-10-15 (main = #343–#357; Test88 delivered for the tester):
-- Native Access + Kontakt 8 install through the manager on CachyOS (fresh and the
-  tester's recovered state); a host freeze no longer blocks Recover or updates.
-- Kontakt in REAPER 7.82: editor inside REAPER's FX window, DAW MIDI plays (start
-  notes held ≤250 ms, #357), save/full restart/reopen restores the instrument
-  (Deck, Test88). MIDI verified on the CachyOS fixture; CachyOS reopen untested.
-- Native Access's download folder is filled on new setups (#355; first live check
-  pending). The Deck is on Test88, yabridge moved aside.
-- Open defects: #365 Xwayland abort when the DAW dies with an embedded editor;
-  #366 no reload after a host death and the manager is silent; #364 crash-
-  interrupted continuation; #367 confirm processing start on the audio thread.
+Best explanation: successful maintainer corrections diverged from tester delivery
+through separate runtime compositions and machine-local construction. Recover
+capabilities into one release, not more plug-in/campaign production pathways.
 
-Next changes, in order:
-1. Valhalla (#358) and CHOW (#359): reproduce with free plug-ins, fix the causes.
-2. Failure types from that evidence (#360): plain sentence per type, safe self-help.
-3. #365/#366 host-death recovery; #367 start confirmation.
-4. Problem report button (#361); per-plug-in renderer choice, Serum (#362, #330).
-5. Backlog as issues: #363 #364 #368–#371.
+Known basis: PR439 recovered exact DComp/BG1 patches and launcher-template inputs
+with source checks under tools/runtime-dcomp/. A fresh runtime build is not proven.
+Complete pinned Proton composition/acquisition and WebView2 provenance/distribution
+obligations remain gaps. UIA/MSI/touch/certificate recipes exist but are not one set.
+Live inventory and implementation ownership: [#430](https://github.com/kasselvania/Linux-VST-bridge/issues/430).
 
-Done for this slice: Valhalla Supermassive and the free CHOW plug-ins play in
-REAPER on the CachyOS fixture, or fail with a correct plain-English type.
+Boundary: preserve the working Deck and existing other-system backup; restoration
+is unverified. No wipe, licensed-state migration, private payload import or silent
+setup/runtime switch. Experiments use disposable fixtures and declared limits.
 
-Working limits: start from the failing musician action and judge the fix by the
-same action. Three failed attempts or 15 minutes without progress on one
-outcome means stop and reassess; changing agent or tool does not reset it.
+Next changes:
+1. Finish pinned input/acquisition/licensing basis and the clean common recipe.
+   Choose Proton/GE by combined tests; no prebuilt DLL mixing across Wine bases.
+2. Build one coherent engine/component set including recovered common corrections,
+   with pinned source/toolchain, patch/composition inputs and verified output identity.
+3. Deliver that exact set through ordinary acquisition and a numbered package.
+   New work uses it; predecessors retain exact continuity/rollback bindings.
+4. Exercise combined patch cases and baseline install/play/state/editor/service
+   behavior through actual native DAWs on clean CachyOS and SteamOS fixtures.
+
+Source recovery is complete only for recovered/checked inputs; it is not a build,
+installed result or qualification claim. A future common tools/runtime/ entry
+feeds ordinary runtime delivery, not per-plug-in experimental selection.
+
+Done: clean Git build → normal acquisition/install/discovery/publication → combined
+real cases. Play and save/reopen through full DAW exit, restart/reboot, update and
+rollback; preserve class/automation/content identity and licensed state. Record
+actual support/failures in existing matrix/classes, with no new campaign ledger.
+Later API/config read-only correspondence precedes write authority, supervisor
+narrowing, UI and explicit migration. Unresolved semantics require a decision first.
