@@ -287,12 +287,7 @@ fn bounded_child(mut child: Child, limit: Duration) -> Probe<String> {
 }
 
 fn key_value(text: &str, key: &str) -> Option<String> {
-    let value = text
-        .lines()
-        .find_map(|line| line.strip_prefix(&format!("{key}=")))?;
-    let value = value.trim().trim_matches('"');
-    (!value.is_empty() && value.len() <= 128 && !value.chars().any(char::is_control))
-        .then(|| value.to_owned())
+    linux_vst_bridge::os_release_value(text, key)
 }
 
 fn pipewire_setting(text: &str, key: &str) -> Option<u32> {
@@ -1229,6 +1224,9 @@ fn safe_export_text(value: &str) -> String {
         || lower.contains("/users/")
         || lower.contains("http:")
         || lower.contains("https:")
+        // A beta-link key, as a query value or a request header.
+        || lower.contains("pw=")
+        || lower.contains("pw:")
         || value.contains(['?', '@', '~', '\\'])
     {
         "[redacted]".into()
@@ -2217,6 +2215,7 @@ mod tests {
         s.products[0].name = "https://example.test/?token=secret".into();
         let mut assessment = result(&s, &p);
         assessment.platform[0].value = Some("/home/private/person".into());
+        assessment.platform[1].value = Some("PW: betakey".into());
         assessment.ordered_steps.push(step(
             "user@example.com",
             "token?secret",
@@ -2236,6 +2235,7 @@ mod tests {
             "user@example.com",
             "token?secret",
             "\"environment\":\"exact\"",
+            "betakey",
         ] {
             assert!(!raw.contains(secret));
         }

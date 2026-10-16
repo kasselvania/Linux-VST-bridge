@@ -605,6 +605,7 @@ pub struct Operator {
     page: Page,
     focus: RouteFocus,
     preview: bool,
+    updates: crate::updates::Updates,
 }
 impl Operator {
     pub fn new(ctx: &egui::Context, window_wake: Option<client::WindowWake>) -> Self {
@@ -652,6 +653,7 @@ impl Operator {
             page: Page::Home,
             focus: RouteFocus::default(),
             preview: false,
+            updates: crate::updates::Updates::new(),
         }
     }
     /// The example owns only synthetic state; it never starts the manager client.
@@ -700,6 +702,7 @@ impl Operator {
             page,
             focus: RouteFocus::default(),
             preview: true,
+            updates: crate::updates::Updates::disabled(),
         }
     }
     /// Synthetic current-only overview for source previews. It never calls the manager.
@@ -984,6 +987,15 @@ impl Operator {
     fn current_health_system(&self) -> Option<&System> {
         if !self.overview_fresh && !self.overview_renewing { return None; }
         self.retained_health_system()
+    }
+    /// Whether a DAW is using bridged plug-ins now; None while unobserved.
+    fn plugins_in_use(&self) -> Option<bool> {
+        if let Some(dsp) = self.last_pulse.as_ref()
+            .filter(|_| self.last_poll.elapsed() < Duration::from_secs(15))
+            .and_then(|pulse| pulse.dsp) {
+            return Some(dsp > 0);
+        }
+        self.current_health_system().map(|system| system.dsp > 0)
     }
     fn current_owned_pause(&self) -> bool {
         if self.cleanup_failure_observed { return false; }
@@ -2680,6 +2692,10 @@ impl eframe::App for Operator {
             self.handle_reply(reply);
         }
         self.expire_overview();
+        // The new version's Setup continues the update; this window closes.
+        if self.updates.poll(ui.ctx(), self.plugins_in_use()) {
+            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+        }
 
         let readiness_visible = self.current_readiness().or_else(|| self.last_readiness()).is_some();
         let controls_pending = self.controls_pending();
@@ -2711,10 +2727,22 @@ impl eframe::App for Operator {
             if self.preview { ui.small("LOCAL DESIGN PREVIEW · sample records · actions do not execute"); }
             Self::health_bar(ui, self.current_health_system(), self.current_owned_pause(),
                 self.overview_renewing);
+            if let Some(line) = self.updates.headline().filter(|_| self.page != Page::Setup) {
+                ui.horizontal_wrapped(|ui| {
+                    ui.strong(line);
+                    if ui.add(egui::Button::new("View update").min_size(egui::vec2(0.0, 36.0))).clicked() {
+                        self.page = Page::Setup;
+                    }
+                });
+            }
             navigation(ui, &mut self.page);
             self.request_bar(ui);
             ui.separator();
             egui::ScrollArea::vertical().id_salt(("manager-page", self.page)).show(ui, |ui| {
+                if self.page == Page::Setup && !self.preview {
+                    self.updates.show(ui);
+                    ui.add_space(8.0);
+                }
                 if self.overview.is_some() || !self.preview {
                     if let Some(overview) = &self.overview {
                         match self.page {
@@ -4488,6 +4516,7 @@ mod tests {
             page: Page::Home,
             focus: RouteFocus::default(),
             preview: false,
+            updates: crate::updates::Updates::disabled(),
         }
     }
     #[test]

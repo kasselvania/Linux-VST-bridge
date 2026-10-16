@@ -17,6 +17,9 @@ mod model;
 mod operator;
 #[path = "../src/presentation.rs"]
 mod presentation;
+#[path = "../src/updates.rs"]
+#[allow(dead_code)]
+mod updates;
 
 use eframe::egui;
 

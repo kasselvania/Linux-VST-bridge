@@ -258,3 +258,46 @@ Verify CPU, RAM, combined RAM/swap and task caps before execution. Run one VM
 or builder at a time and shut down inactive guests normally. These checks do
 not replace actual DAW project save/reopen, reboot, frontend recovery, populated
 update/rollback or licensed hardware acceptance.
+
+## Publishing a build to the beta update feed
+
+The manager's **Setup → Beta updates** reads `latest.json` and its detached
+signature `latest.json.sig` from the tester's beta folder. `publish_update.py`
+writes both from a verified build's `ready/` folder; nothing is edited by hand.
+
+1. Where the signing key is (for internal test builds, the build container that
+   mounts it as `/signer.pem`):
+
+   ```sh
+   python3 tools/beta/publish_update.py build --ready /out/testNNN/ready \
+     --notes /out/testNNN/whats-new.txt --min-version 0.12.0test146 \
+     --private-key /signer.pem --public-key PUBLIC_KEY_HEX \
+     --key-class internal_test --output /out/testNNN/feed
+   ```
+
+   Each installer's own signature is verified with the public key first. The
+   feed lists one package per system, named from the file names (`cachyos`,
+   `steamos`, …), with real sizes and SHA-256; `--alias arch=cachyos` adds a
+   family entry. `--min-version` is the oldest installed build that may update
+   in the app (Test146 is the first with the updater). Only openssl reads the
+   private key.
+
+2. From any machine with SSH to the beta host:
+
+   ```sh
+   python3 tools/beta/publish_update.py upload --feed-dir OUT/testNNN/feed \
+     --ready OUT/testNNN/ready --public-key PUBLIC_KEY_HEX \
+     --key-class internal_test \
+     --dest "deskboard-homelab:/mnt/Share/Outbox/Linux Plugin Bridge - Private Beta"
+   ```
+
+   The feed signature and every listed installer are verified again. Installers
+   are copied first (an identical file is kept, a different file with the same
+   name is refused), then the feed replaces the previous one. Older builds and
+   other files in the folder are never deleted, and the beta server's own
+   configuration is not touched.
+
+The feed signature is Ed25519 over `"Linux VST Bridge update feed v1\0"` + key
+class + `"\0"` + `latest.json`, by the same key and key class as the
+installers. A package signature cannot stand in for it, and a release build
+refuses an internal-test feed.

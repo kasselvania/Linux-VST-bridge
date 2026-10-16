@@ -7,6 +7,7 @@ mod library;
 mod model;
 mod operator;
 mod presentation;
+mod updates;
 struct DesktopFixture {
     count: u32,
     text: String,
@@ -39,7 +40,10 @@ impl eframe::App for DesktopFixture {
 fn main() -> eframe::Result {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     let fixture = args == ["--desktop-fixture"];
-    if !args.is_empty() && !fixture {
+    // Sent by the in-app updater to a newly staged package's Setup: offer
+    // nothing new, only start the Update Bridge step that Setup would offer.
+    let continue_update = args == ["--continue-update"];
+    if !args.is_empty() && !fixture && !continue_update {
         eprintln!("This frontend accepts no command, path or operation arguments.");
         std::process::exit(64);
     }
@@ -48,6 +52,8 @@ fn main() -> eframe::Result {
     } else {
         match bootstrap::entry() {
             Ok(bootstrap::Entry::Ordinary) => None,
+            Ok(bootstrap::Entry::Checking) if continue_update =>
+                Some(bootstrap::Bootstrap::continuing_update()),
             Ok(bootstrap::Entry::Checking) => Some(bootstrap::Bootstrap::checking()),
             Err(error) => Some(bootstrap::Bootstrap::attention(error)),
         }

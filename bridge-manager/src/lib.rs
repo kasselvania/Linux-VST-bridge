@@ -1612,3 +1612,14 @@ pub mod managed_candidate;
 pub mod native_access_dependency;
 pub mod dependency_session;
 pub mod portable_package;
+pub mod update_feed;
+
+/// One `KEY=value` field of an os-release file, unquoted and bounded.
+pub fn os_release_value(text: &str, key: &str) -> Option<String> {
+    let value = text
+        .lines()
+        .find_map(|line| line.strip_prefix(&format!("{key}=")))?;
+    let value = value.trim().trim_matches('"').trim_matches('\'');
+    (!value.is_empty() && value.len() <= 128 && !value.chars().any(char::is_control))
+        .then(|| value.to_owned())
+}
