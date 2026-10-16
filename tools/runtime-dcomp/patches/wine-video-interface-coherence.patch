@@ -1,0 +1,12 @@
+diff --git a/dlls/d3d11/device.c b/dlls/d3d11/device.c
+--- a/dlls/d3d11/device.c
++++ b/dlls/d3d11/device.c
+@@ -5601,4 +5601,7 @@
+-    else if (IsEqualGUID(riid, &IID_ID3D11VideoDevice) || IsEqualGUID(riid, &IID_ID3D11VideoDevice1))
++    /* VideoDevice1 requires the matching immediate VideoContext1 contract.
++     * The latter is not implemented here. Do not advertise the newer video
++     * capability until both interfaces are available. */
++    else if (IsEqualGUID(riid, &IID_ID3D11VideoDevice))
+     {
+         *out = &device->ID3D11VideoDevice1_iface;
+     }

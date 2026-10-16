@@ -1,0 +1,139 @@
+{
+  "purpose": "Recover the historical DComp/BG1 build inputs; not a selected common runtime or a distribution recipe",
+  "wine": {
+    "repository": "https://github.com/giang17/wine",
+    "commit": "c27f058814b402a5709e073adccd42baa66810b9",
+    "tree": "622801bdffacb23188c29958c620cc12bf658843",
+    "configure": [
+      "--enable-archs=i386,x86_64"
+    ],
+    "installed_wine_inf_sha256": "3b3e5c088988ae66da5b8908471751c7dee3255122ac6b66011840ded5e27d77"
+  },
+  "sdk": {
+    "image": "registry.gitlab.steamos.cloud/proton/steamrt4/sdk/x86_64@sha256:97526b794ce1a9bed5f891084462260b3a02399569f7438a3a57b5a253001db9",
+    "historical_image_id": "65a5423161f5d45bc2c07d8ae36b61ace947d9b625984e3f264b137bab026d8b"
+  },
+  "proton": {
+    "repository": "https://github.com/ValveSoftware/Proton",
+    "source_commit": "5b89db940e0ebe3a137a6009a3589232fe084c09",
+    "launcher_sha256": "787504a79bacf6b303984a9a846cf47463f36599248e8306b26d5faf78267aad",
+    "default_prefix_helper_sha256": "474c182df7ea0fa5c6b0a6495728b24655cc504848c45b638fb48c3b25a5b794",
+    "distribution_basis": "Historical byte-verified installed Proton 11.0-2c distribution; no complete independently acquired archive is pinned here"
+  },
+  "patches": [
+    {
+      "path": "patches/proton-steamuser-policy.patch",
+      "sha256": "0378cfb251de1c2ad944473c5f2f7024ab5bab19fe2d1695340d03bd77dc46d1",
+      "source": "dlls/advapi32/advapi.c",
+      "before_sha256": "32596dc0199df85498b2ea0cfe974e4f831ec78c0385641fdaf3c5a1e6286d5d",
+      "after_sha256": "cf76275b36f7ad5b7b19ee8a87406f97b5fb9a860dc9a941654b313f9b4216ed",
+      "origin": "Retained DComp build input; restores the username policy from Valve Wine dc26e61847081a1b5cb0733dc30feba6ee575482"
+    },
+    {
+      "path": "patches/wine-video-interface-coherence.patch",
+      "sha256": "f0391edca81873d2a70aaec21610442ffa6d35c6a3dcd2e27afc3c9dc99fb5a2",
+      "source": "dlls/d3d11/device.c",
+      "before_sha256": "9b90db696a8d49fb22b4b0c29fb25e56b76f5a76775b199d301406916a13c5f9",
+      "after_sha256": "8bd2b7fc74e03d42aa64cbeddcbd28e43563f29b13caeb2ca4c556ee66989d2b",
+      "origin": "Git 8bf70de6b442bcac4086de4e27dadbdc7e76ea43:tools/bg1/wine-video-interface-coherence.patch; matches the retained BG1 build input"
+    }
+  ],
+  "bg1": {
+    "source_commit": "8bf70de6b442bcac4086de4e27dadbdc7e76ea43",
+    "launcher_template": "reference/fixed_webview_entry.py",
+    "launcher_template_sha256": "14be81e90bf2b077ff9355f7581593e8d067b6894d69efcdec9b9cb668675f14",
+    "components_manifest_sha256": "bbb7761d3d3c714147e3fd6923b66f80b86733efc0997cc839791a1bfc9e2c01",
+    "rendered_launcher_sha256": "3a3fe0c76e85057e99665ba5430821567464cd22b2ddbc82f75787c0e632b8ec",
+    "browser_version": "154.0.4258.37",
+    "browser_files_manifest_sha256": "6f892de44a5c7f0a2668c1bf85771722290794a4cfe41eaeda35cb5b8714864f",
+    "browser_acquisition": "Only the extracted file roster is retained in this basis; original official download URL, archive hash and applicable terms are not established here",
+    "native_command_session": {
+      "schema": 1,
+      "kind": "native_proton_command_session",
+      "client_sha256": "b2e6dfeecc6581aa210adf1406da3208ed93eb2e8e62f041325ed77918d909bb",
+      "service_sha256": "8e725fdf7d38c81abd846b7c7274245e3247b92fa741286a250ace8b386b9722"
+    },
+    "native_command_session_sha256": "1fca37746647a975d80666f75f84c050770820b2c0f7de58352bbf7ed4f40c30"
+  },
+  "historical_composition": {
+    "composition": {
+      "base": "byte_verified_existing_proton_distribution",
+      "graphics_dxvk_implementation": false,
+      "process_environment": {
+        "PROTON_DISABLE_NVAPI": "1",
+        "PROTON_USE_WINED3D": "1",
+        "WINEDLLOVERRIDES": "d2d1,d3d11,dxgi,dcomp=b"
+      },
+      "proton_auxiliaries": [
+        {
+          "path": "files/lib/wine/i386-windows/vrclient.dll",
+          "sha256": "a7ec880978c645261368c9ea907816c0d28021b57e783c871d503eca0e31a4d4"
+        },
+        {
+          "path": "files/lib/wine/x86_64-windows/vrclient_x64.dll",
+          "sha256": "2ff2170efe32c81fd59fa56019d4fc3b40a263751d3e0026656cbd0f25dcadf1"
+        },
+        {
+          "path": "files/lib/wine/dxvk/i386-windows/openvr_api_dxvk.dll",
+          "sha256": "fd100f4f6730b5fb01d644edca96c7280a09481f044f61695908feba2d9663c6"
+        },
+        {
+          "path": "files/lib/wine/dxvk/x86_64-windows/openvr_api_dxvk.dll",
+          "sha256": "e61701f75930b4c47615d17f5901ca62edf1a948f5ea804d4cbbdc94ad2e6e2e"
+        },
+        {
+          "path": "files/lib/wine/icu/i386-windows/icuin68.dll",
+          "sha256": "c7b8d528589f8e95e77ee42fe360b7d0be604bdb5ff2658d6ce15be2bec31d37"
+        },
+        {
+          "path": "files/lib/wine/icu/i386-windows/icuuc68.dll",
+          "sha256": "720c5009b6cc4ea641fc5bc803db9b425807989e8312512fc65b563268f284df"
+        },
+        {
+          "path": "files/lib/wine/icu/i386-windows/icudt68.dll",
+          "sha256": "fb652b4d18e452fae886f8fed404d6b430587e744a117ffaa32e05e73e839a97"
+        },
+        {
+          "path": "files/lib/wine/icu/x86_64-windows/icuin68.dll",
+          "sha256": "87956cf4f8f8eb9e1860628fc5ce31e762d85ad3cfddad0824f0d45aaa4d5d78"
+        },
+        {
+          "path": "files/lib/wine/icu/x86_64-windows/icuuc68.dll",
+          "sha256": "c85a5848628cc5e17253e894bbea98868b76766714fe72673bd6ffefa0521f52"
+        },
+        {
+          "path": "files/lib/wine/icu/x86_64-windows/icudt68.dll",
+          "sha256": "cf4479a3f39d95c77058f39c5f49d104ec4f6d43e365aa13a2312066d2f5b024"
+        }
+      ],
+      "proton_auxiliary_openvr_api_dxvk": true,
+      "replace": [
+        "files/bin",
+        "files/lib/wine",
+        "files/share/wine"
+      ]
+    },
+    "bootstrap": {
+      "inherited_proton_gecko": {
+        "entries": 80,
+        "sha256": "18c6346be43394b11b79e17403a6f4921055e91e6e42a87d35b99a3b97b43c1b"
+      },
+      "inherited_proton_mono": {
+        "entries": 3406,
+        "sha256": "381c4792e18d8afbee8499649e6b6cc215eac83ac7f8ed549b74e149f31dc988"
+      },
+      "wine_mono": {
+        "sha256": "071f4b2887e1c97a11d791ff3d65be9429eed6dec4c2708888bfd546ba358e23",
+        "source_expected_version": "10.4.1",
+        "url": "https://dl.winehq.org/wine/wine-mono/10.4.1/wine-mono-10.4.1-x86.msi"
+      }
+    },
+    "default_prefix_packaging": {
+      "candidate_tree_confined": true,
+      "helper_path": "default_pfx.py",
+      "helper_sha256": "474c182df7ea0fa5c6b0a6495728b24655cc504848c45b638fb48c3b25a5b794",
+      "host_device_links_removed": true,
+      "proton_source_commit": "5b89db940e0ebe3a137a6009a3589232fe084c09"
+    }
+  }
+}
