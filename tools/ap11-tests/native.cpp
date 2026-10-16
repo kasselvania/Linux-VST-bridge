@@ -3,12 +3,16 @@
 #include "ap4_backend.h"
 #include "commercial_controller.h"
 #include "processor.h"
+#include "nothing_recorded.h"
 #include "contained_terminal.h"
 #include "../../vst-state/stream.h"
 #include "public.sdk/source/vst/hosting/eventlist.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "public.sdk/source/vst/hosting/parameterchanges.h"
+#include <algorithm>
+#include <cstring>
 #include <deque>
+#include <thread>
 #include <chrono>
 #include <condition_variable>
 #include <iostream>
@@ -42,6 +46,8 @@ void held_call(bool& entered, bool& released) {
   check(state_hold_changed.wait_for(lock,std::chrono::seconds(3),[&]{return released;}),"bounded held SDK operation");
 }
 uint32_t process_refusal=0;
+uint32_t open_calls=0;bool open_refused=false;const char* error_detail="";
+bool startup_prepare_refused=false;
 uint32_t fixture_delay=UINT32_MAX,fixture_vendor=0,fixture_tail=0,notice_flags=0;
 uint32_t actual_mode=UINT32_MAX,process_calls=0;
 uint32_t configured_maximum=0, activated_maximum=0;
@@ -175,7 +181,15 @@ void event(uint32_t kind, double value = 0) {
 } // namespace
 extern "C" {
 uint32_t __wrap_if2_terminal_status(uint64_t){return IF1::valid(terminal_record) ? 1 : 0;}
+uint32_t __wrap_ap2_error(uint8_t *out, uint32_t capacity) {
+  if (!out || !capacity) return 0;
+  const auto n = std::min<size_t>(std::strlen(error_detail), capacity - 1);
+  std::memcpy(out, error_detail, n); out[n] = 0;
+  return uint32_t(n);
+}
 uint32_t __wrap_ap9_open(const uint8_t *, uint64_t *out) {
+  ++open_calls;
+  if (open_refused) return 1;
   *out = 1;
   return 0;
 }
@@ -188,7 +202,7 @@ uint32_t __wrap_ap23_startup_prepare(uint64_t,const uint32_t* ids,uint32_t count
   check(role<=1,"SDK role bounded");
   check(count==std::size(AP8::parameters),"exact startup SDK parameter census configured");
   for(uint32_t i=0;i<count;++i)check(ids[i]==AP8::parameters[i].id,"exact startup parameter identity");
-  return 0;
+  return startup_prepare_refused ? 1 : 0;
 }
 uint32_t __wrap_ap5_report_path(uint64_t, uint8_t *p, uint32_t n) {
   if (n)
@@ -499,6 +513,205 @@ void curve_refusal_regression() {
   controller->disconnect(&processor);processor.disconnect(controller);
   controller->terminate();controller->release();processor.terminate();
 }
+// The bridge's own nothing-recorded state, as an unloaded instance saves it.
+std::vector<uint8_t> nothing_recorded() {
+  return {std::begin(LVBState::nothingRecorded), std::end(LVBState::nothingRecorded)};
+}
+// A bridge admission refused at load (for example a failed Windows
+// environment) used to be asked again on every 10 ms editor tick, each ask
+// reaching the bridge service and blocking the DAW's UI thread; with the
+// controller connected first, the refusal also disconnected the pair.
+void refused_admission_regression() {
+  struct Case { bool controller_first; const char *detail; const char *text; };
+  const Case cases[] = {
+    {false, "Other: admission_binding_invalid", "The bridge did not load this plug-in; the manager shows why."},
+    {true, "Other: admission_stale_native_caller", "The bridge was updated. Quit and restart your DAW to load this plug-in."},
+    {true, "NotFound: bridge_service_unreachable: No such file or directory (os error 2)", "The bridge service is not running, so this plug-in was not loaded."},
+    {false, "NotFound: No such file or directory (os error 2)", "The bridge did not finish loading this plug-in. Reopen the project or restart your DAW."},
+    {false, "InvalidData: preview startup timeout", "The bridge did not load this plug-in in time."},
+  };
+  for (const auto &c : cases) {
+    events.clear();commands.clear();gui_fault=0;terminal_record={};
+    open_refused=true;open_calls=0;error_detail=c.detail;
+    Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+    host.processor=&processor;host.controller=controller;
+    auto* context=static_cast<IHostApplication*>(&host);
+    check(processor.initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"refused admission initialize");
+    controller->setComponentHandler(static_cast<IComponentHandler*>(&host));
+    if (c.controller_first)
+      check(controller->connect(&processor)==kResultOk && processor.connect(controller)==kResultOk,
+            "a refused admission keeps a controller-first pair connected");
+    else
+      check(processor.connect(controller)==kResultOk && controller->connect(&processor)==kResultOk,
+            "a refused admission keeps a processor-first pair connected");
+    check(open_calls==1,"one admission attempt when the pair connects");
+    for(int i=0;i<50;++i)host.tick();
+    ProcessSetup setup{kRealtime,kSample32,128,48000};
+    check(processor.setupProcessing(setup)!=kResultOk,"a refused instance cannot be set up");
+    LVBState::Stream stream;
+    check(processor.getState(&stream)==kResultOk && stream.bytes==nothing_recorded(),"a refused instance saves the bridge's nothing-recorded marker, no plug-in state");
+    check(open_calls==1,"UI ticks, setup and state never repeat a refused admission");
+    // REAPER restores parameters into the controller after loading; that
+    // must not replace the refusal with an editor-control failure.
+    check(controller->setParamNormalized(AP8::parameters[0].id,.25)==kResultFalse,"a refused instance takes no parameter commands");
+    check(!std::strcmp(controller->panelStatus(),c.text),"the editor says why the bridge refused this instance");
+    auto* view=controller->createView(ViewType::kEditor);
+    check(view && dynamic_cast<AP2::RecoveryView*>(view),"a refused instance explains itself instead of a blank editor");
+    view->release();
+    open_refused=false;error_detail="";
+    controller->disconnect(&processor);processor.disconnect(controller);
+    controller->terminate();controller->release();processor.terminate();
+  }
+}
+// A host restore into an instance the bridge never admitted (refused, or
+// admission failed during the restore) used to be dropped, so saving the
+// project replaced the plug-in's state with nothing (#380: Kontakt 173,328
+// characters of saved state became 22,848 in REAPER). The instance now keeps
+// the host's exact envelope and returns it unchanged; it fabricates nothing.
+std::vector<uint8_t> held_envelope(size_t payload, uint8_t seed) {
+  std::vector<uint8_t> b(LVBState::overhead + payload);
+  for (size_t i = 0; i < b.size(); ++i) b[i] = uint8_t(seed + i * 131u + (i >> 9));
+  for (size_t i = 0; i < 4; ++i) b[64 + i] = uint8_t(payload >> (8 * i));
+  return b;
+}
+void held_state_regression() {
+  // REAPER's order: it asks for state, restores, then asks again to save.
+  enum Order { ProbeThenRestore, ComponentFirst, ControllerFirst, BeforeAdmission, NeverReceived,
+               AdmittedThenFailed };
+  for (Order order : {ProbeThenRestore, ComponentFirst, ControllerFirst, BeforeAdmission, NeverReceived,
+                      AdmittedThenFailed}) {
+    events.clear();commands.clear();gui_fault=0;terminal_record={};
+    open_refused=order!=AdmittedThenFailed;open_calls=0;
+    // Admitted, then failed before the host's restore (here its start-up
+    // preparation; also a Windows side ending during the project load).
+    startup_prepare_refused=order==AdmittedThenFailed;
+    Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+    host.processor=&processor;host.controller=controller;
+    auto* context=static_cast<IHostApplication*>(&host);
+    check(processor.initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"held state initialize");
+    controller->setComponentHandler(static_cast<IComponentHandler*>(&host));
+    // 24 MiB: far above any small-buffer path, well inside the 256 MiB cap.
+    const auto saved = held_envelope(24u << 20, uint8_t(order));
+    auto restoreComponent = [&] {
+      LVBState::Stream in(saved);
+      check(processor.setState(&in)==kResultFalse,"an unadmitted restore still reports it was not applied");
+    };
+    auto restoreController = [&] {
+      LVBState::Stream in(saved);
+      controller->setComponentState(&in);
+      uint8_t marker[8] = {'L','V','B','C',2,0,0,0};
+      LVBState::Stream own(std::vector<uint8_t>(marker, marker + 8));
+      check(controller->setState(&own)==kResultOk,"controller state is its fixed marker");
+    };
+    if (order == BeforeAdmission) {
+      // Restore arrives before the pair connects; it triggers the admission.
+      restoreComponent();
+      check(open_calls==1,"the restore asked for admission once");
+      processor.connect(controller);controller->connect(&processor);
+    } else {
+      processor.connect(controller);controller->connect(&processor);
+      check(open_calls==1,"one admission attempt at connection");
+      if (order == ProbeThenRestore) {
+        // A refusal here makes REAPER skip the restore and every later save.
+        LVBState::Stream probe;
+        check(processor.getState(&probe)==kResultOk && probe.bytes==nothing_recorded(),"a refused instance answers a state probe with the nothing-recorded marker");
+        restoreComponent(); restoreController();
+      }
+      if (order == ComponentFirst || order == AdmittedThenFailed) { restoreComponent(); restoreController(); }
+      if (order == ControllerFirst) { restoreController(); restoreComponent(); }
+    }
+    LVBState::Stream out;
+    const auto result = processor.getState(&out);
+    if (order == NeverReceived) {
+      check(result==kResultOk && out.bytes==nothing_recorded(),"an instance that received no state saves the nothing-recorded marker, nothing fabricated");
+    } else {
+      check(result==kResultOk,"an instance that could not apply the restore saves the host's restored state");
+      check(out.bytes==saved,"the saved state is byte-identical to the restored project data");
+      LVBState::Stream again;
+      check(processor.getState(&again)==kResultOk && again.bytes==saved,"repeated saves stay byte-identical");
+    }
+    check(open_calls==1,"probe, restore and saves never ask for admission again");
+    // The editor learns what saving does even when the restore preceded the
+    // connection (the processor repeats it on every refused bind), and its
+    // view reads the current sentence.
+    for (int i=0;i<3;++i) host.tick();
+    if (order != AdmittedThenFailed) {
+      check(controller->heldStateAnnounced()==(order==NeverReceived ? 0 : int64_t(saved.size())),
+            "the controller knows whether the project's state is held");
+      check(controller->savingLine()==(order==NeverReceived ? AP2::NOT_LOADED_NONE : AP2::NOT_LOADED_HELD),
+            "the editor's saving sentence matches what a save writes");
+    }
+    if (order == ComponentFirst) {
+      // The host restores "nothing recorded" over held bytes: that is saved.
+      LVBState::Stream nothing(nothing_recorded());
+      processor.setState(&nothing);
+      LVBState::Stream after;
+      check(processor.getState(&after)==kResultOk && after.bytes==nothing_recorded(),"a nothing-recorded restore replaces held bytes");
+      check(controller->savingLine()==AP2::NOT_LOADED_NONE,"the editor follows a later restore");
+      LVBState::Stream marker(nothing_recorded());
+      check(controller->setComponentState(&marker)==kResultOk,"controller and processor both accept the marker");
+    }
+    if (order == ControllerFirst) {
+      // A restore that is neither applied nor held (here from another thread)
+      // leaves nothing to save in its place: the save refuses rather than
+      // write older bytes or the marker over the project's state.
+      LVBState::Stream in(saved);
+      std::thread other([&]{ check(processor.setState(&in)==kResultFalse,"another thread's restore is refused"); });
+      other.join();
+      LVBState::Stream after;
+      check(processor.getState(&after)==kResultFalse && after.bytes.empty(),"a restore that was not kept is never saved over");
+      for (int i=0;i<3;++i) host.tick();
+      check(controller->savingLine()==AP2::NOT_LOADED_STATE,"the editor warns that saving drops the settings");
+    }
+    LVBState::Stream controllerOut;
+    check(controller->getState(&controllerOut)==kResultOk && controllerOut.bytes.size()==8,"controller state round-trips unchanged");
+    open_refused=false;startup_prepare_refused=false;
+    controller->disconnect(&processor);processor.disconnect(controller);
+    controller->terminate();controller->release();processor.terminate();
+  }
+  // An envelope claiming more than the cap is not read, so nothing is held:
+  // the save refuses instead of writing the marker or a truncated state.
+  {
+    open_refused=true;
+    Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+    host.processor=&processor;host.controller=controller;
+    auto* context=static_cast<IHostApplication*>(&host);
+    check(processor.initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"cap initialize");
+    processor.connect(controller);controller->connect(&processor);
+    auto oversized = held_envelope(16, 9);
+    const uint32_t claimed = uint32_t(LVBState::payloadLimit) + 1;
+    for (size_t i = 0; i < 4; ++i) oversized[64 + i] = uint8_t(claimed >> (8 * i));
+    LVBState::Stream in(oversized);
+    check(processor.setState(&in)==kResultFalse,"an over-cap restore is refused");
+    LVBState::Stream out;
+    check(processor.getState(&out)==kResultFalse && out.bytes.empty(),"an over-cap restore is never saved as nothing recorded or truncated");
+    open_refused=false;
+    controller->disconnect(&processor);processor.disconnect(controller);
+    controller->terminate();controller->release();processor.terminate();
+  }
+  // A project saved while the plug-in was refused records nothing for it; a
+  // loaded instance accepts that, keeps its state and stays usable.
+  {
+    open_refused=false;
+    Host host;AP2::Processor processor;auto* controller=new AP8::Controller;
+    host.processor=&processor;host.controller=controller;
+    auto* context=static_cast<IHostApplication*>(&host);
+    check(processor.initialize(context)==kResultOk && controller->initialize(context)==kResultOk,"marker restore initialize");
+    controller->setComponentHandler(static_cast<IComponentHandler*>(&host));
+    processor.connect(controller);controller->connect(&processor);
+    const auto before=state_calls;
+    LVBState::Stream nothing(nothing_recorded());
+    check(processor.setState(&nothing)==kResultOk && state_calls==before,"the nothing-recorded marker is accepted and restores nothing");
+    ProcessSetup setup{kRealtime,kSample32,128,48000};
+    check(processor.setupProcessing(setup)==kResultOk,"the instance stays usable after a marker restore");
+    // A plug-in's own state is never mistaken for it: zero bytes stay a
+    // malformed restore, as before.
+    LVBState::Stream zero;
+    check(processor.setState(&zero)==kResultFalse,"zero bytes are not the nothing-recorded marker");
+    controller->disconnect(&processor);processor.disconnect(controller);
+    controller->terminate();controller->release();processor.terminate();
+  }
+}
 void historical_controller_regression() {
   for(bool connectedFirst : {true,false}) for(bool controllerFirst : {true,false}) {
     events.clear();commands.clear();gui_fault=0;terminal_record={};dsp=.625;save_code=0;
@@ -711,6 +924,8 @@ int main(int argc,char** argv) {
   if(argc>1){
     if(!std::strcmp(argv[1],"--state-migration")){historical_controller_regression();processing_state_restore_regression();failed_restore_retirement_regression();}
     else if(!std::strcmp(argv[1],"--curve-refusal"))curve_refusal_regression();
+    else if(!std::strcmp(argv[1],"--refused-admission"))refused_admission_regression();
+    else if(!std::strcmp(argv[1],"--held-state"))held_state_regression();
     else if(!std::strcmp(argv[1],"--presentation-focus"))presentation_focus_regression();
     else if(!std::strcmp(argv[1],"--completion-contract"))completion_contract_regression();
     else contained_host_survival_regression();

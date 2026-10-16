@@ -165,10 +165,18 @@ fn connect_greeting_with_policy(
     unreachable!("last attempt always returns")
 }
 fn connect_once(root: &Path, greeting: &[u8], deadline: Option<Instant>) -> io::Result<Binding> {
-    private(root, true)?;
+    // Only these steps mean the bridge service is absent or not listening;
+    // the proxy's editor names that case from this exact tag.
     let address = root.join("owner.sock");
-    private(&address, false)?;
-    let mut owner = UnixStream::connect(address)?;
+    let unreachable = |error: io::Error| match error.kind() {
+        io::ErrorKind::NotFound | io::ErrorKind::ConnectionRefused =>
+            io::Error::new(error.kind(), format!("bridge_service_unreachable: {error}")),
+        _ => error,
+    };
+    let mut owner = private(root, true)
+        .and_then(|_| private(&address, false))
+        .and_then(|_| UnixStream::connect(&address))
+        .map_err(unreachable)?;
     owner.set_write_timeout(Some(match deadline {
         Some(end) => end
             .checked_duration_since(Instant::now())

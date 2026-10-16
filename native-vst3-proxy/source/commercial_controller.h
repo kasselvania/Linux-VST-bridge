@@ -1,4 +1,6 @@
 #pragma once
+#include "admission_refusal.h"
+#include "nothing_recorded.h"
 #include "../../vst-state/stream.h"
 #include "ap10_backend.h"
 #include "ap11_gui.h"
@@ -85,7 +87,8 @@ public:
         std::strcmp(name, Steinberg::Vst::ViewType::kEditor))
       return nullptr;
     try {
-      if (terminal_failed_) return new AP2::RecoveryView(this,status_,terminal_.words[7]);
+      if (terminal_failed_) return new AP2::RecoveryView(this,status_,terminal_.words[7],&saving_line_);
+      if (session_refused_) return new AP2::RecoveryView(this,status_,AP2::RecoveryView::NotLoaded{},&saving_line_);
       auto token = editor_.allocate();
       return token ? new AP11::VendorPanel(this, *this, token) : nullptr;
     } catch (...) {
@@ -97,7 +100,7 @@ public:
     if (r == Steinberg::kResultOk) {
       connected_ = true;
       capabilities();
-      request("AP11.bind");
+      bind();
       request();
     }
     return r;
@@ -115,6 +118,7 @@ public:
   }
   Result PLUGIN_API setParamNormalized(
       Steinberg::Vst::ParamID id, Steinberg::Vst::ParamValue value) override {
+    if (session_refused_) return Steinberg::kResultFalse; // no session to carry it
     if (terminal_failed_ || !onOwner() || !std::isfinite(value) || value < 0 || value > 1 ||
         !state(id))
       return Steinberg::kResultFalse;
@@ -137,8 +141,14 @@ public:
       return Steinberg::kResultFalse;
     try {
       std::vector<uint8_t> b;
-      if (!LVBState::readEnvelope(s, b) ||
-          ap8_validate_restore(identity, b.data(), static_cast<uint32_t>(b.size())))
+      bool nothing = false;
+      if (!LVBState::readEnvelopeOrNothing(s, b, nothing))
+        return Steinberg::kResultFalse;
+      // The bridge's nothing-recorded marker: nothing to mirror, as the
+      // processor accepts it too.
+      if (nothing)
+        return Steinberg::kResultOk;
+      if (ap8_validate_restore(identity, b.data(), static_cast<uint32_t>(b.size())))
         return Steinberg::kResultFalse;
       // This is the host's original component object, possibly produced by an
       // older module with different parameters. Only the selected Windows
@@ -159,8 +169,27 @@ public:
     if (!std::strcmp(id, "AP8.connected")) {
       if (!connected_) return kResultOk; // our connect() will finish the pair
       capabilities();
-      auto result = request("AP11.bind");
+      auto result = bind();
+      // A refused admission is this instance's state, not a failed
+      // connection: keep the pair connected so the view can explain it.
+      if (result == kNotInitialized) return kResultOk;
       return result == kResultOk ? request() : result;
+    }
+    if (!std::strcmp(id, "AP10.state_held")) {
+      int64 bytes = 0;
+      if (m->getAttributes()->getInt("bytes", bytes) != kResultOk || bytes < -1)
+        return kResultFalse;
+      held_state_bytes_ = bytes;
+      saving_line_ = bytes > 0 ? AP2::NOT_LOADED_HELD
+                   : bytes == 0 ? AP2::NOT_LOADED_NONE : AP2::NOT_LOADED_STATE;
+      return kResultOk;
+    }
+    if (!std::strcmp(id, "AP10.refused")) {
+      int64 kind = 0;
+      if (m->getAttributes()->getInt("kind", kind) != kResultOk || !LVBAdmission::valid(kind))
+        return kResultFalse;
+      refusal_kind_ = kind;
+      return kResultOk;
     }
     if (!std::strcmp(id,"AP10.instance_failed")) {
       const void* data=nullptr; uint32 size=0;
@@ -395,6 +424,8 @@ public:
   }
   uint64_t allocateEditorView() { return onOwner() ? editor_.allocate() : 0; }
   uint32_t panelState(uint64_t view) const override { return editor_.state(view); }
+  int64_t heldStateAnnounced() const { return held_state_bytes_; }
+  const char* savingLine() const { return saving_line_; }
   const char *panelStatus() const { if(terminal_failed_)return status_;return save_unavailable_ ? "Saving unavailable; vendor editor remains accessible" : status_; }
   bool readbackAvailable(uint32_t id) {auto* p=state(id);return p&&p->available;}
 
@@ -404,6 +435,13 @@ private:
   // kReloadComponent requests full processor/controller unload; never issue it
   // automatically from terminal notification or later handler installation.
   bool terminal_failed_=false;
+  bool session_refused_=false; // Owner thread; set once by bind().
+  int64_t refusal_kind_=LVBAdmission::Unknown; // From AP10.refused.
+  // From AP10.state_held: held size, 0 nothing received, -1 not kept (the
+  // default until the processor says, which is the cautious reading).
+  int64_t held_state_bytes_=-1;
+  // What saving does for this instance; views read it on every redraw.
+  const char* saving_line_=AP2::NOT_LOADED_STATE;
   AP15::EditorLifecycle editor_;
   Steinberg::Vst::IMessage *retirement_message_ = nullptr;
   ap11_gui_message_t pending_close_{};
@@ -458,9 +496,11 @@ private:
       return;
     failure_ = code;
     editor_.failed();
-    status_ = code == AP11::Closed
-                  ? "Processing session closed"
-                  : "Editor control failed; close and inspect diagnostics";
+    // A refused instance keeps saying why the bridge refused it.
+    if (!session_refused_)
+      status_ = code == AP11::Closed
+                    ? "Processing session closed"
+                    : "Editor control failed; close and inspect diagnostics";
     finishGestures();
     if (publish && connected_ && generation_) {
       auto *m = allocateMessage();
@@ -617,8 +657,10 @@ private:
     retryClose();
     request("AP10.poll");
     if (terminal_failed_) {ticking_=false;return;}
-    if (!generation_)
-      request("AP11.bind");
+    if (session_refused_) {
+      // Refused for good; asking again would reach the service each tick.
+    } else if (!generation_)
+      bind();
     else
       request("AP11.poll");
     ap11_gui_message_t focus{};
@@ -657,7 +699,8 @@ private:
     }
   }
   Result command(const ap11_gui_message_t &event) {
-    if (terminal_failed_) return Steinberg::kResultFalse;
+    // No session exists to carry it; refusing is not an editor failure.
+    if (terminal_failed_ || session_refused_) return Steinberg::kResultFalse;
     if (!connected_)
       return Steinberg::kResultOk; // before connection, component state is
                                    // authoritative
@@ -719,6 +762,17 @@ private:
       if(projection->available&&EditController::setParamNormalized(id,value)!=Steinberg::kResultOk)return false;
     }
     return true;
+  }
+  // The processor answers kNotInitialized once its bridge admission was
+  // refused. The instance cannot recover in place: say so, and stop asking
+  // on every UI tick (each ask reached the bridge service and blocked).
+  Result bind() {
+    auto r = request("AP11.bind");
+    if (r == Steinberg::kNotInitialized && !terminal_failed_) {
+      session_refused_ = true;
+      status_ = LVBAdmission::text(refusal_kind_);
+    }
+    return r;
   }
   Result request(const char *id = "AP8.readback") {
     auto *m = allocateMessage();

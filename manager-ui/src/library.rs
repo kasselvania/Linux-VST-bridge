@@ -169,6 +169,9 @@ impl Library {
                         if product.version.is_empty() { "Version unavailable" } else { &product.version }));
                     if fresh { ui.label(presentation::installation_progress(current, product)
                         .unwrap_or_else(|| status(product).0)); }
+                    if let Some(refused) = presentation::last_load_text(product) {
+                        ui.colored_label(warning_color(ui), refused);
+                    }
                     if let Some(problem) = presentation::problem_text(&product.details["problem"]) {
                         ui.colored_label(warning_color(ui), problem);
                     } else {
@@ -340,6 +343,9 @@ impl Library {
                             presentation::product_issue(p).filter(|_| progress.is_none() && status(p).1 == "attention")
                         {
                             ui.colored_label(warning_color(ui), reason);
+                        }
+                        if let Some(refused) = presentation::last_load_text(p) {
+                            ui.colored_label(warning_color(ui), refused);
                         }
                         if let Some(action) = &everyday_primary {
                             if let Some(consequence) = presentation::vendor_install_consequence(snapshot, &action.action) {
