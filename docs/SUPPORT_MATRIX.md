@@ -169,6 +169,9 @@ uninstaller killed mid-run kept the bridge paused until Check that it closed, wh
 then scanned, re-checked Freq Echo and put Space Modulator back; "Yes" uninstalled
 Space Modulator and Freq Echo, checked again, still played. Each re-check took
 about 15–25 s, shown as "Checking this setup's plug-ins (n of 2)".
+Test142: Freq Echo set to 256-frame buffering on its card was re-checked with it after an
+in-setup installer run and after a declined uninstall (it is silent at 256 frames on this VM
+either way; at 512 the same revision played).
 MSI uninstall is covered by unit tests only. **unqualified**.
 
 Test72 on this CachyOS/native REAPER fixture passes Choose program without
