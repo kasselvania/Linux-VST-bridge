@@ -452,7 +452,7 @@ pub(super) fn plan(m: &Manager, installer: &str, environment: &str, records: &[o
     for run in uninstall::records(m)?.into_iter().filter(|r| ids.contains(&r.environment.id)) {
         if is_live(&run.operation)? {
             plan.blockers.push("An uninstaller is still running in this setup. Finish it first.".into());
-        } else if !onboarding::retired(&uninstall::result(m, &run)?) {
+        } else if !onboarding::retired(&uninstall::result_of(m, &run.operation)?) {
             plan.blockers.push("The manager can't confirm that an uninstaller in this setup closed completely, so it won't delete the setup. Send Setup details if this stays.".into());
         }
     }

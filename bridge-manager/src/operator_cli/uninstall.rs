@@ -47,10 +47,22 @@ pub(super) struct Record {
     pub created_at: u64,
 }
 
+/// Custody of one uninstaller run: enough to know whether it has closed.
+/// Records from an earlier test build of this feature read the same way;
+/// they are never run again.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub(super) struct Owner {
+    pub schema: u32,
+    pub operation: String,
+    pub environment: Environment,
+    pub created_at: u64,
+}
+const SCHEMA: u32 = 2;
+
 fn record_path(m: &Manager, operation: &str) -> Result<PathBuf> { Ok(job_dir(m, operation)?.join("uninstall.json")) }
 fn result_path(m: &Manager, operation: &str) -> Result<PathBuf> { Ok(job_dir(m, operation)?.join("uninstall-result.json")) }
 
-pub(super) fn records(m: &Manager) -> Result<Vec<Record>> {
+pub(super) fn records(m: &Manager) -> Result<Vec<Owner>> {
     let root = m.root.join("operator");
     if !root.try_exists()? { return Ok(vec![]); }
     let mut out = vec![];
@@ -59,10 +71,14 @@ pub(super) fn records(m: &Manager) -> Result<Vec<Record>> {
         let path = entry?.path();
         let Some(id) = path.file_name().and_then(|v| v.to_str()) else { continue };
         if valid_hex(id, 32) && path.join("uninstall.json").try_exists()? {
-            out.push(control(m, id)?);
+            let owner: Owner = read_json(&path.join("uninstall.json"))?;
+            require(matches!(owner.schema, 1 | SCHEMA) && owner.operation == id
+                && owner.environment.root == m.root.join("environments").join(&owner.environment.id),
+                "uninstall_record_binding")?;
+            out.push(owner);
         }
     }
-    out.sort_by_key(|record| record.created_at);
+    out.sort_by_key(|owner| owner.created_at);
     Ok(out)
 }
 /// Whether this operation is an uninstaller run.
@@ -72,7 +88,7 @@ pub(super) fn owns(m: &Manager, operation: &str) -> Result<bool> {
 /// Resource custody survives runtime changes and missing programs.
 pub(super) fn control(m: &Manager, operation: &str) -> Result<Record> {
     let record: Record = read_json(&record_path(m, operation)?)?;
-    require(record.schema == 1 && record.operation == operation
+    require(record.schema == SCHEMA && record.operation == operation
         && record.environment.root == m.root.join("environments").join(&record.environment.id)
         && record.before.id == record.environment.id
         && record.before.revision.checked_add(1) == Some(record.environment.revision),
@@ -80,29 +96,32 @@ pub(super) fn control(m: &Manager, operation: &str) -> Result<Record> {
     Ok(record)
 }
 pub(super) fn result(m: &Manager, record: &Record) -> Result<Value> {
-    let v = optional(&result_path(m, &record.operation)?)?;
-    require(v["schema"] == 2 && v["operation"] == record.operation, "uninstall_result_identity")?;
+    result_of(m, &record.operation)
+}
+pub(super) fn result_of(m: &Manager, operation: &str) -> Result<Value> {
+    let v = optional(&result_path(m, operation)?)?;
+    require(v["schema"] == 2 && v["operation"] == operation, "uninstall_result_identity")?;
     Ok(v)
 }
 /// Every uninstaller run has retired, exactly as installer runs must.
 pub(crate) fn all_retired(m: &Manager) -> Result<bool> {
-    for record in records(m)? {
-        if !onboarding::retired(&result(m, &record)?) { return Ok(false); }
+    for owner in records(m)? {
+        if !onboarding::retired(&result_of(m, &owner.operation)?) { return Ok(false); }
     }
     Ok(true)
 }
 /// Nothing of this operation's uninstaller can still run (or none was reserved).
 pub(super) fn settled(m: &Manager, operation: &str) -> Result<bool> {
     if !owns(m, operation)? { return Ok(true); }
-    Ok(onboarding::retired(&result(m, &control(m, operation)?)?))
+    Ok(onboarding::retired(&result_of(m, operation)?))
 }
 /// The unresolved uninstaller of one environment, if any: live, or never
 /// shown to have closed.
 pub(super) fn unresolved(m: &Manager, environment: &str,
     is_live: &mut dyn FnMut(&str) -> Result<bool>) -> Result<Option<String>> {
-    for record in records(m)?.into_iter().filter(|r| r.environment.id == environment) {
-        if is_live(&record.operation)? || !onboarding::retired(&result(m, &record)?) {
-            return Ok(Some(record.operation));
+    for owner in records(m)?.into_iter().filter(|r| r.environment.id == environment) {
+        if is_live(&owner.operation)? || !onboarding::retired(&result_of(m, &owner.operation)?) {
+            return Ok(Some(owner.operation));
         }
     }
     Ok(None)
@@ -431,7 +450,7 @@ pub(super) fn reserve(m: &Manager, plan: &Plan, operation: &str, hooks: &Hooks) 
     let dir = job_dir(m, operation)?;
     require(!record_path(m, operation)?.try_exists()?, "uninstall_operation_already_used")?;
     private_dir(&dir)?;
-    let record = Record { schema: 1, operation: operation.into(), before: plan.before.clone(), environment: after.clone(),
+    let record = Record { schema: SCHEMA, operation: operation.into(), before: plan.before.clone(), environment: after.clone(),
         registration: plan.choice.entry.id.clone(), name: plan.choice.entry.display_name.clone().unwrap_or_default(),
         command_sha256: uninstall_entry::command_sha256(plan.choice.entry.uninstall_string.as_deref().unwrap_or_default()),
         command: plan.choice.command.clone(), image: plan.image.clone(), coverage: plan.choice.coverage.into(),

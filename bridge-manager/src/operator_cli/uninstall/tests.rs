@@ -274,6 +274,26 @@ fn an_uninstaller_that_never_started_or_never_closed_says_so_and_keeps_its_card(
 }
 
 #[test]
+fn a_record_from_an_earlier_build_is_read_for_custody_only() {
+    let s = installed();
+    let operation = random_id().unwrap();
+    let directory = job_dir(&s.f.m, &operation).unwrap();
+    private_dir(&directory).unwrap();
+    atomic_json(&directory.join("uninstall.json"), &json!({"schema":1,"operation":operation,
+        "environment":s.record.environment,"registration":s.registration,"name":NAME,
+        "command_sha256":"00","command":{"kind":"msi","product_code":"{0000000A-1111-2222-3333-44444444444B}"},
+        "image":{"path":"/x","sha256":"00"},"affected":[],"created_at":1})).unwrap();
+    atomic_json(&result_path(&s.f.m, &operation).unwrap(), &json!({"schema":2,"operation":operation,
+        "state":"completed","cleanup_confirmed":true,"owned_live":0})).unwrap();
+    assert_eq!(records(&s.f.m).unwrap().len(), 1);
+    assert!(all_retired(&s.f.m).unwrap() && settled(&s.f.m, &operation).unwrap());
+    assert!(control(&s.f.m, &operation).is_err(), "never controlled or run again");
+    // The overview still reads.
+    assert_eq!(project(&s.f.m, &[card(&s)], std::slice::from_ref(&s.record), &s.f.m.registry().unwrap(), &[], None)
+        .unwrap().len(), 1);
+}
+
+#[test]
 fn an_uninstall_after_a_runtime_change_uses_the_setups_current_runtime() {
     let s = installed();
     let before = environment_install::current_environment(&s.f.m, &s.record.environment).unwrap();
